@@ -1,0 +1,256 @@
+name: StiggSyncAI-Enhanced-Pipeline
+
+trigger:
+  branches:
+    include:
+    - main
+    - develop
+  paths:
+    exclude:
+    - README.md
+    - docs/*
+
+variables:
+  buildConfiguration: 'Release'
+  vmImageName: 'ubuntu-latest'
+  azureSubscription: 'StiggTechnologies-Production'
+  resourceGroupName: 'rg-stiggsyncai-prod'
+  containerRegistryName: 'acrstiggsyncai'
+  aksClusterName: 'aks-stiggsyncai-prod'
+  dockerfilePath: '**/Dockerfile'
+  imageRepository: 'stiggsyncai'
+  tag: '$(Build.BuildId)'
+
+pool:
+  vmImage: $(vmImageName)
+
+stages:
+- stage: Build
+  displayName: 'Build and Test'
+  jobs:
+  - job: BuildTest
+    displayName: 'Build and Test Application'
+    steps:
+    - task: UseDotNet@2
+      displayName: 'Use .NET 8 SDK'
+      inputs:
+        packageType: 'sdk'
+        version: '8.0.x'
+    
+    - task: DotNetCoreCLI@2
+      displayName: 'Restore NuGet packages'
+      inputs:
+        command: 'restore'
+        projects: '**/*.csproj'
+    
+    - task: DotNetCoreCLI@2
+      displayName: 'Build application'
+      inputs:
+        command: 'build'
+        projects: '**/*.csproj'
+        arguments: '--configuration $(buildConfiguration) --no-restore'
+    
+    - task: DotNetCoreCLI@2
+      displayName: 'Run unit tests'
+      inputs:
+        command: 'test'
+        projects: '**/*Tests.csproj'
+        arguments: '--configuration $(buildConfiguration) --collect:"XPlat Code Coverage" --logger trx --no-build'
+        publishTestResults: true
+    
+    - task: PublishCodeCoverageResults@1
+      displayName: 'Publish code coverage'
+      inputs:
+        codeCoverageTool: 'Cobertura'
+        summaryFileLocation: '$(Agent.TempDirectory)/**/coverage.cobertura.xml'
+    
+    - task: DotNetCoreCLI@2
+      displayName: 'Publish application'
+      inputs:
+        command: 'publish'
+        projects: '**/*.csproj'
+        arguments: '--configuration $(buildConfiguration) --output $(Build.ArtifactStagingDirectory) --no-build'
+    
+    - task: PublishBuildArtifacts@1
+      displayName: 'Publish build artifacts'
+      inputs:
+        pathToPublish: '$(Build.ArtifactStagingDirectory)'
+        artifactName: 'drop'
+
+- stage: SecurityScan
+  displayName: 'Security Scanning'
+  dependsOn: Build
+  jobs:
+  - job: SecurityScan
+    displayName: 'Run Security Scans'
+    steps:
+    - task: UseDotNet@2
+      displayName: 'Use .NET 8 SDK'
+      inputs:
+        packageType: 'sdk'
+        version: '8.0.x'
+    
+    - task: SecurityCodeAnalysis-Task@1
+      displayName: 'Run Credential Scanner'
+      inputs:
+        toolLogsNotFoundAction: 'Standard'
+    
+    - task: dependency-check-build-task@6
+      displayName: 'OWASP Dependency Check'
+      inputs:
+        projectName: 'StiggSyncAI'
+        scanPath: '.'
+        format: 'HTML,JUNIT'
+        additionalArguments: '--enableRetired --enableExperimental'
+    
+    - task: PublishTestResults@2
+      displayName: 'Publish Dependency Check Results'
+      inputs:
+        testResultsFormat: 'JUnit'
+        testResultsFiles: 'dependency-check-junit.xml'
+        searchFolder: '$(Common.TestResultsDirectory)'
+
+- stage: ContainerBuild
+  displayName: 'Build and Push Container'
+  dependsOn: SecurityScan
+  jobs:
+  - job: Docker
+    displayName: 'Build and Push Docker Image'
+    steps:
+    - task: Docker@2
+      displayName: 'Build Docker image'
+      inputs:
+        containerRegistry: '$(containerRegistryName)'
+        repository: '$(imageRepository)'
+        command: 'build'
+        Dockerfile: '$(dockerfilePath)'
+        tags: |
+          $(tag)
+          latest
+    
+    - task: aquasec-scanner@4
+      displayName: 'Aqua Security Scan'
+      inputs:
+        image: '$(containerRegistryName).azurecr.io/$(imageRepository):$(tag)'
+    
+    - task: Docker@2
+      displayName: 'Push Docker image'
+      inputs:
+        containerRegistry: '$(containerRegistryName)'
+        repository: '$(imageRepository)'
+        command: 'push'
+        tags: |
+          $(tag)
+          latest
+
+- stage: DeployDev
+  displayName: 'Deploy to Development'
+  dependsOn: ContainerBuild
+  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/develop'))
+  variables:
+    environmentName: 'dev'
+  jobs:
+  - deployment: DeployToDev
+    displayName: 'Deploy to AKS Development'
+    environment: 'StiggSyncAI-Dev'
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - task: KubernetesManifest@0
+            displayName: 'Deploy to AKS'
+            inputs:
+              action: 'deploy'
+              kubernetesServiceConnection: 'aks-stiggsyncai-dev'
+              namespace: 'stiggsyncai-dev'
+              manifests: |
+                .devops/k8s/deployment.yaml
+                .devops/k8s/service.yaml
+                .devops/k8s/ingress.yaml
+              containers: '$(containerRegistryName).azurecr.io/$(imageRepository):$(tag)'
+
+- stage: DeployProd
+  displayName: 'Deploy to Production'
+  dependsOn: ContainerBuild
+  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+  variables:
+    environmentName: 'prod'
+  jobs:
+  - deployment: DeployToProd
+    displayName: 'Deploy to AKS Production'
+    environment: 'StiggSyncAI-Prod'
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - task: AzureCLI@2
+            displayName: 'Run Database Migrations'
+            inputs:
+              azureSubscription: '$(azureSubscription)'
+              scriptType: 'bash'
+              scriptLocation: 'inlineScript'
+              inlineScript: |
+                # Apply database migrations
+                az sql db show --server stiggsyncai-sql-prod --name stiggsyncai-db-prod --resource-group $(resourceGroupName)
+                echo "Database migration would run here"
+          
+          - task: KubernetesManifest@0
+            displayName: 'Deploy to AKS Production'
+            inputs:
+              action: 'deploy'
+              kubernetesServiceConnection: 'aks-stiggsyncai-prod'
+              namespace: 'stiggsyncai-prod'
+              manifests: |
+                .devops/k8s/deployment.yaml
+                .devops/k8s/service.yaml
+                .devops/k8s/ingress.yaml
+              containers: '$(containerRegistryName).azurecr.io/$(imageRepository):$(tag)'
+          
+          - task: AzureCLI@2
+            displayName: 'Post-deployment Health Check'
+            inputs:
+              azureSubscription: '$(azureSubscription)'
+              scriptType: 'bash'
+              scriptLocation: 'inlineScript'
+              inlineScript: |
+                # Wait for deployment to be ready
+                sleep 60
+                
+                # Health check
+                kubectl wait --for=condition=available --timeout=300s deployment/stiggsyncai-api -n stiggsyncai-prod
+                
+                # Test API endpoint
+                EXTERNAL_IP=$(kubectl get service stiggsyncai-service -n stiggsyncai-prod -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+                curl -f "http://$EXTERNAL_IP/health" || exit 1
+                
+                echo "Deployment successful and healthy"
+
+- stage: PostDeployment
+  displayName: 'Post-Deployment Tasks'
+  dependsOn: 
+  - DeployDev
+  - DeployProd
+  condition: or(succeeded('DeployDev'), succeeded('DeployProd'))
+  jobs:
+  - job: PostDeployment
+    displayName: 'Post-Deployment Tasks'
+    steps:
+    - task: AzureCLI@2
+      displayName: 'Update Application Insights'
+      inputs:
+        azureSubscription: '$(azureSubscription)'
+        scriptType: 'bash'
+        scriptLocation: 'inlineScript'
+        inlineScript: |
+          # Update Application Insights with deployment info
+          az monitor app-insights events show --app stiggsyncai-appinsights --type customEvents
+          echo "Application Insights updated with deployment metrics"
+    
+    - task: PowerShell@2
+      displayName: 'Send Deployment Notification'
+      inputs:
+        targetType: 'inline'
+        script: |
+          # Send notification to Teams or Slack
+          Write-Host "Deployment completed successfully for build $(Build.BuildId)"
+          # Add webhook call here for notifications

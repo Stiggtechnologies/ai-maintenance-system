@@ -1,0 +1,215 @@
+@page "/mobile"
+@using Microsoft.AspNetCore.Components.Authorization
+@inject HttpClient Http
+@inject AuthenticationStateProvider AuthStateProvider
+@inject IJSRuntime JSRuntime
+
+<div class="p-4 max-w-md mx-auto">
+    <h2 class="text-xl font-bold mb-4">📱 StiggSync AI Mobile</h2>
+    <p class="text-gray-600 mb-4">Field technician interface for maintenance operations</p>
+    
+    <!-- QR Code Scanner -->
+    <div class="bg-white p-4 rounded-lg shadow mb-4">
+        <h3 class="font-semibold mb-2">Asset Scanner</h3>
+        <button @onclick="ScanQRCode" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 w-full mb-2">
+            📷 Scan Asset QR Code
+        </button>
+        @if (!string.IsNullOrEmpty(ScannedAsset))
+        {
+            <div class="bg-green-50 p-2 rounded">
+                <p class="text-sm">Scanned: <strong>@ScannedAsset</strong></p>
+            </div>
+        }
+    </div>
+    
+    <!-- Work Orders -->
+    <div class="bg-white p-4 rounded-lg shadow mb-4">
+        <h3 class="font-semibold mb-2">My Work Orders</h3>
+        @if (WorkOrders != null && WorkOrders.Any())
+        {
+            foreach (var order in WorkOrders)
+            {
+                <div class="border-l-4 border-blue-500 pl-3 mb-3">
+                    <p class="font-medium">@order.Description</p>
+                    <p class="text-sm text-gray-600">Priority: <span class="@GetPriorityClass(order.Priority)">@order.Priority</span></p>
+                    <p class="text-sm text-gray-600">Status: @order.Status</p>
+                    <button @onclick="() => UpdateWorkOrder(order.WorkOrderId)" class="bg-green-500 text-white px-2 py-1 rounded text-xs mt-1">
+                        Update Status
+                    </button>
+                </div>
+            }
+        }
+        else
+        {
+            <p class="text-gray-500">No work orders assigned</p>
+        }
+    </div>
+    
+    <!-- Quick Actions -->
+    <div class="bg-white p-4 rounded-lg shadow mb-4">
+        <h3 class="font-semibold mb-2">Quick Actions</h3>
+        <div class="grid grid-cols-2 gap-2">
+            <button @onclick="ReportIssue" class="bg-red-500 text-white p-2 rounded text-sm">
+                🚨 Report Issue
+            </button>
+            <button @onclick="RequestParts" class="bg-yellow-500 text-white p-2 rounded text-sm">
+                🔧 Request Parts
+            </button>
+            <button @onclick="LogMaintenance" class="bg-green-500 text-white p-2 rounded text-sm">
+                📝 Log Maintenance
+            </button>
+            <button @onclick="ViewManuals" class="bg-blue-500 text-white p-2 rounded text-sm">
+                📚 View Manuals
+            </button>
+        </div>
+    </div>
+    
+    <!-- Offline Sync Status -->
+    <div class="bg-gray-100 p-3 rounded-lg mb-4">
+        <p class="text-sm">
+            <span class="@(IsOnline ? "text-green-600" : "text-red-600")">
+                @(IsOnline ? "🟢 Online" : "🔴 Offline")
+            </span>
+            - @(PendingSyncItems) items pending sync
+        </p>
+    </div>
+    
+    <!-- AI Assistant for Mobile -->
+    <AIAgent OrgId="@OrgId" SubscriptionPlan="@SubscriptionPlan" />
+</div>
+
+@code {
+    private int OrgId { get; set; } = 1;
+    private string SubscriptionPlan { get; set; } = "freemium";
+    private List<WorkOrder>? WorkOrders { get; set; }
+    private string ScannedAsset { get; set; } = "";
+    private bool IsOnline { get; set; } = true;
+    private int PendingSyncItems { get; set; } = 0;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        if (authState.User.Identity?.IsAuthenticated == true)
+        {
+            try
+            {
+                var org = await Http.GetFromJsonAsync<Organization>("api/organizations/current");
+                if (org != null)
+                {
+                    OrgId = org.OrgId;
+                    SubscriptionPlan = org.SubscriptionPlan;
+                }
+                
+                // Load work orders for mobile view
+                WorkOrders = new List<WorkOrder>
+                {
+                    new WorkOrder { WorkOrderId = "WO001", Description = "Inspect pump vibration levels", Priority = "High", Status = "Open" },
+                    new WorkOrder { WorkOrderId = "WO002", Description = "Replace conveyor belt", Priority = "Medium", Status = "In Progress" },
+                    new WorkOrder { WorkOrderId = "WO003", Description = "Turbine maintenance", Priority = "Low", Status = "Scheduled" }
+                };
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error loading mobile data: {ex.Message}");
+                // Initialize with offline data
+                WorkOrders = new List<WorkOrder>();
+                IsOnline = false;
+                PendingSyncItems = 3;
+            }
+        }
+    }
+
+    private async Task ScanQRCode()
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("console.log", "Scanning QR code for asset...");
+            // Simulate QR code scan
+            await Task.Delay(1000);
+            ScannedAsset = $"ASSET-{DateTime.Now.Ticks % 1000}";
+            
+            // In a real implementation, this would:
+            // 1. Access device camera
+            // 2. Decode QR code
+            // 3. Fetch asset information
+            // 4. Display asset details and available actions
+            
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("console.error", $"QR scan error: {ex.Message}");
+        }
+    }
+
+    private async Task UpdateWorkOrder(string workOrderId)
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("console.log", $"Updating work order: {workOrderId}");
+            
+            var workOrder = WorkOrders?.FirstOrDefault(w => w.WorkOrderId == workOrderId);
+            if (workOrder != null)
+            {
+                workOrder.Status = workOrder.Status == "Open" ? "In Progress" : "Completed";
+                StateHasChanged();
+                
+                // In offline mode, queue for sync
+                if (!IsOnline)
+                {
+                    PendingSyncItems++;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("console.error", $"Update error: {ex.Message}");
+        }
+    }
+
+    private async Task ReportIssue()
+    {
+        await JSRuntime.InvokeVoidAsync("console.log", "Reporting new issue...");
+        // In a real implementation, this would open a form to report issues
+    }
+
+    private async Task RequestParts()
+    {
+        await JSRuntime.InvokeVoidAsync("console.log", "Requesting spare parts...");
+        // In a real implementation, this would open a parts request form
+    }
+
+    private async Task LogMaintenance()
+    {
+        await JSRuntime.InvokeVoidAsync("console.log", "Logging maintenance activity...");
+        // In a real implementation, this would open a maintenance log form
+    }
+
+    private async Task ViewManuals()
+    {
+        await JSRuntime.InvokeVoidAsync("console.log", "Opening maintenance manuals...");
+        // In a real implementation, this would open offline-capable manuals
+    }
+
+    private string GetPriorityClass(string priority) => priority switch
+    {
+        "High" => "text-red-600 font-semibold",
+        "Medium" => "text-yellow-600 font-semibold",
+        "Low" => "text-green-600",
+        _ => "text-gray-600"
+    };
+
+    public class Organization
+    {
+        public int OrgId { get; set; }
+        public string SubscriptionPlan { get; set; } = "";
+    }
+
+    public class WorkOrder
+    {
+        public string WorkOrderId { get; set; } = "";
+        public string Description { get; set; } = "";
+        public string Priority { get; set; } = "";
+        public string Status { get; set; } = "";
+    }
+}

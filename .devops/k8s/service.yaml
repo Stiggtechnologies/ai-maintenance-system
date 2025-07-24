@@ -1,0 +1,39 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: stiggsyncai-service
+  namespace: stiggsyncai-prod
+  labels:
+    app: stiggsyncai-api
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 80
+    targetPort: 80
+    protocol: TCP
+    name: http
+  - port: 443
+    targetPort: 443
+    protocol: TCP
+    name: https
+  selector:
+    app: stiggsyncai-api
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: stiggsyncai-internal
+  namespace: stiggsyncai-prod
+  labels:
+    app: stiggsyncai-api
+  annotations:
+    service.beta.kubernetes.io/azure-load-balancer-internal: "true"
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 80
+    targetPort: 80
+    protocol: TCP
+    name: http
+  selector:
+    app: stiggsyncai-api
