@@ -17,7 +17,7 @@ cd .devops/terraform
 terraform init
 
 # Review the plan
-terraform plan -var="sql_admin_password=YourSecurePassword123!"
+  terraform plan -var="sql_admin_password=YourSecurePassword123!"
 
 # Apply infrastructure
 terraform apply -var="sql_admin_password=YourSecurePassword123!" -auto-approve

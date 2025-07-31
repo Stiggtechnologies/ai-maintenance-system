@@ -6,7 +6,8 @@ terraform {
   required_providers {
     azurerm = {
       source  = "hashicorp/azurerm"
-      version = "~> 3.0"
+      version = ">= 3.117.0"
+      
     }
     azuread = {
       source  = "hashicorp/azuread"
@@ -24,10 +25,12 @@ terraform {
 
 provider "azurerm" {
   features {
+   
     key_vault {
       purge_soft_delete_on_destroy = true
     }
   }
+    subscription_id = "c71b1fa8-5cde-40b6-a934-e09f0fa65584"
 }
 
 # Resource Group
@@ -46,7 +49,7 @@ resource "azurerm_container_registry" "main" {
   sku                 = "Premium"
   admin_enabled       = true
   
-  network_rule_set {
+ /* network_rule_set {
     default_action = "Deny"
     
     ip_rule {
@@ -54,7 +57,7 @@ resource "azurerm_container_registry" "main" {
       ip_range = var.allowed_ip_range
     }
   }
-  
+  */
   tags = var.common_tags
 }
 
@@ -145,7 +148,7 @@ resource "azurerm_redis_cache" "main" {
   capacity            = 2
   family              = "C"
   sku_name            = "Standard"
-  enable_non_ssl_port = false
+  non_ssl_port_enabled = false
   minimum_tls_version = "1.2"
   
   redis_configuration {

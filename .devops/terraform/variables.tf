@@ -9,7 +9,7 @@ variable "resource_group_name" {
 variable "location" {
   description = "Azure region for resources"
   type        = string
-  default     = "East US"
+  default     = "Central US"
 }
 
 variable "environment" {
@@ -41,7 +41,7 @@ variable "aks_name" {
 variable "kubernetes_version" {
   description = "Kubernetes version"
   type        = string
-  default     = "1.28.3"
+  default     = "1.30.14"
 }
 
 variable "node_count" {
