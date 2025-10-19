@@ -73,11 +73,11 @@ function App() {
   ];
 
   const quickActions = [
-    { id: 'compare', label: 'Compare', icon: BarChart3, action: 'DataAnalyticsAgent' },
-    { id: 'troubleshoot', label: 'Troubleshoot', icon: Wrench, action: 'ReliabilityEngineeringAgent' },
-    { id: 'health', label: 'Health', icon: Activity, action: 'ConditionMonitoringAgent' },
-    { id: 'learn', label: 'Learn', icon: GraduationCap, action: 'TrainingWorkforceAgent' },
-    { id: 'fact-check', label: 'Fact Check', icon: FileCheck, action: 'ComplianceAuditingAgent' }
+    { id: 'compare', label: 'Compare', icon: BarChart3, action: 'PerformanceAnalysisAgent' },
+    { id: 'troubleshoot', label: 'Troubleshoot', icon: Wrench, action: 'ReliabilityAgent' },
+    { id: 'health', label: 'Health', icon: Activity, action: 'AssetHealthAgent' },
+    { id: 'learn', label: 'Learn', icon: GraduationCap, action: 'SafetyAgent' },
+    { id: 'fact-check', label: 'Fact Check', icon: FileCheck, action: 'ComplianceAgent' }
   ];
 
   const executeAgent = async (agentId: string, industry?: string, userQuery?: string) => {
@@ -154,30 +154,38 @@ function App() {
     ]);
 
     const input = chatInput.toLowerCase();
-    let agentToCall = 'MaintenanceStrategyDevelopmentAgent';
+    let agentToCall = 'CentralCoordinationAgent';
 
-    if (input.includes('reliability') || input.includes('failure')) {
-      agentToCall = 'ReliabilityEngineeringAgent';
-    } else if (input.includes('work order')) {
-      agentToCall = 'WorkOrderManagementAgent';
-    } else if (input.includes('asset')) {
-      agentToCall = 'AssetManagementAgent';
-    } else if (input.includes('schedule') || input.includes('planning')) {
-      agentToCall = 'PlanningSchedulingAgent';
-    } else if (input.includes('compliance') || input.includes('audit')) {
-      agentToCall = 'ComplianceAuditingAgent';
-    } else if (input.includes('esg') || input.includes('sustainability')) {
-      agentToCall = 'SustainabilityESGAgent';
-    } else if (input.includes('training') || input.includes('workforce')) {
-      agentToCall = 'TrainingWorkforceAgent';
-    } else if (input.includes('inventory') || input.includes('spare')) {
-      agentToCall = 'InventoryManagementAgent';
-    } else if (input.includes('cost') || input.includes('budget')) {
-      agentToCall = 'FinancialContractAgent';
-    } else if (input.includes('quality')) {
-      agentToCall = 'QualityAssuranceAgent';
-    } else if (input.includes('data') || input.includes('analytics')) {
-      agentToCall = 'DataAnalyticsAgent';
+    if (input.includes('preventive') || input.includes('pm ') || input.includes('scheduled maintenance')) {
+      agentToCall = 'PreventiveMaintenanceAgent';
+    } else if (input.includes('predict') || input.includes('forecast') || input.includes('rul')) {
+      agentToCall = 'PredictiveAnalyticsAgent';
+    } else if (input.includes('asset health') || input.includes('ahi') || input.includes('condition')) {
+      agentToCall = 'AssetHealthAgent';
+    } else if (input.includes('work order') || input.includes('wo ')) {
+      agentToCall = 'WorkOrderAgent';
+    } else if (input.includes('root cause') || input.includes('rca') || input.includes('why')) {
+      agentToCall = 'RootCauseAnalysisAgent';
+    } else if (input.includes('spare') || input.includes('parts') || input.includes('inventory')) {
+      agentToCall = 'SparePartsAgent';
+    } else if (input.includes('performance') || input.includes('kpi') || input.includes('mtbf') || input.includes('mttr')) {
+      agentToCall = 'PerformanceAnalysisAgent';
+    } else if (input.includes('failure mode') || input.includes('fmea') || input.includes('rcm')) {
+      agentToCall = 'FailureModeAgent';
+    } else if (input.includes('cost') || input.includes('budget') || input.includes('savings')) {
+      agentToCall = 'CostOptimizationAgent';
+    } else if (input.includes('compliance') || input.includes('audit') || input.includes('regulation')) {
+      agentToCall = 'ComplianceAgent';
+    } else if (input.includes('risk') || input.includes('hazard')) {
+      agentToCall = 'RiskAssessmentAgent';
+    } else if (input.includes('energy') || input.includes('power') || input.includes('efficiency')) {
+      agentToCall = 'EnergyEfficiencyAgent';
+    } else if (input.includes('environment') || input.includes('emission') || input.includes('waste')) {
+      agentToCall = 'EnvironmentalAgent';
+    } else if (input.includes('safety') || input.includes('incident') || input.includes('injury')) {
+      agentToCall = 'SafetyAgent';
+    } else if (input.includes('reliability') || input.includes('failure') || input.includes('uptime')) {
+      agentToCall = 'ReliabilityAgent';
     }
 
     const userQuery = chatInput;
