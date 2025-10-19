@@ -1,5 +1,8 @@
 import { useState, useEffect } from 'react';
 import { supabase } from './lib/supabase';
+import { AssetManagement } from './components/AssetManagement';
+import { WorkOrderManagement } from './components/WorkOrderManagement';
+import { AIAnalyticsDashboard } from './components/AIAnalyticsDashboard';
 import { 
   Activity, 
   BarChart3, 
@@ -155,9 +158,11 @@ function App() {
           <div className="flex space-x-8">
             {[
               { id: 'overview', name: 'Executive Overview', icon: BarChart3 },
+              { id: 'assets', name: 'Assets', icon: Settings },
+              { id: 'workorders', name: 'Work Orders', icon: Wrench },
               { id: 'agents', name: '15 AI Agents', icon: Bot },
+              { id: 'analytics', name: 'AI Analytics', icon: Activity },
               { id: 'industries', name: 'Multi-Industry', icon: Factory },
-              { id: 'integrations', name: 'Enterprise Integration', icon: Database },
               { id: 'mobile', name: 'Mobile & Field', icon: Smartphone },
               { id: 'esg', name: 'ESG & Compliance', icon: Leaf }
             ].map((tab) => (
@@ -180,6 +185,10 @@ function App() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {activeTab === 'assets' && <AssetManagement />}
+        {activeTab === 'workorders' && <WorkOrderManagement />}
+        {activeTab === 'analytics' && <AIAnalyticsDashboard />}
+
         {activeTab === 'overview' && (
           <div className="space-y-8">
             {/* Hero Section */}
