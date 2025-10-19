@@ -9,9 +9,6 @@ import {
   Globe,
   Layers,
   User,
-  Download,
-  Plus,
-  Search,
   Image,
   Paperclip,
   Globe2,
@@ -31,7 +28,15 @@ import {
   X,
   File,
   MicOff,
-  Loader2
+  Loader2,
+  ChevronRight,
+  Settings,
+  Bell,
+  Users,
+  Database,
+  Building2,
+  Play,
+  Pause
 } from 'lucide-react';
 
 interface ChatMessage {
@@ -63,9 +68,16 @@ function App() {
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [isRecording, setIsRecording] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true);
+  const [hoveredMenuItem, setHoveredMenuItem] = useState<string | null>(null);
+  const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
   const [metrics, setMetrics] = useState({
     totalAssets: 2847,
     activeWorkOrders: 156,
@@ -227,6 +239,65 @@ function App() {
     }
   };
 
+  const transcribeAudio = async (audioBlob: Blob): Promise<string> => {
+    try {
+      setIsTranscribing(true);
+      const openaiKey = import.meta.env.VITE_OPENAI_API_KEY;
+
+      if (!openaiKey) {
+        throw new Error('OpenAI API key not configured');
+      }
+
+      const formData = new FormData();
+      formData.append('file', audioBlob, 'audio.webm');
+      formData.append('model', 'whisper-1');
+      formData.append('language', 'en');
+
+      const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${openaiKey}`,
+        },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error(`Transcription failed: ${response.status}`);
+      }
+
+      const result = await response.json();
+      return result.text;
+    } catch (error) {
+      console.error('Error transcribing audio:', error);
+      throw error;
+    } finally {
+      setIsTranscribing(false);
+    }
+  };
+
+  const handlePlayAudio = () => {
+    if (!audioBlob) return;
+
+    if (isPlayingAudio && audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      setIsPlayingAudio(false);
+      return;
+    }
+
+    const audioUrl = URL.createObjectURL(audioBlob);
+    const audio = new Audio(audioUrl);
+    audioRef.current = audio;
+
+    audio.onended = () => {
+      setIsPlayingAudio(false);
+      URL.revokeObjectURL(audioUrl);
+    };
+
+    audio.play();
+    setIsPlayingAudio(true);
+  };
+
   const handleVoiceInput = async () => {
     if (isRecording) {
       mediaRecorderRef.current?.stop();
@@ -236,23 +307,50 @@ function App() {
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream);
+      const mediaRecorder = new MediaRecorder(stream, {
+        mimeType: 'audio/webm;codecs=opus'
+      });
       mediaRecorderRef.current = mediaRecorder;
-
-      const audioChunks: Blob[] = [];
+      audioChunksRef.current = [];
 
       mediaRecorder.ondataavailable = (event) => {
-        audioChunks.push(event.data);
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
       };
 
       mediaRecorder.onstop = async () => {
-        new Blob(audioChunks, { type: 'audio/webm' });
         stream.getTracks().forEach(track => track.stop());
+
+        const recordedBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        setAudioBlob(recordedBlob);
 
         setChatMessages(prev => [...prev, {
           role: 'system',
-          content: '🎤 Voice input recorded. Transcription feature coming soon...'
+          content: '🎤 Voice recorded. Transcribing...'
         }]);
+
+        try {
+          const transcription = await transcribeAudio(recordedBlob);
+
+          setChatMessages(prev => {
+            const filtered = prev.filter(msg => msg.content !== '🎤 Voice recorded. Transcribing...');
+            return [...filtered, {
+              role: 'user',
+              content: transcription
+            }];
+          });
+
+          setChatInput(transcription);
+        } catch (error) {
+          setChatMessages(prev => {
+            const filtered = prev.filter(msg => msg.content !== '🎤 Voice recorded. Transcribing...');
+            return [...filtered, {
+              role: 'system',
+              content: `❌ Transcription failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+            }];
+          });
+        }
       };
 
       mediaRecorder.start();
@@ -591,17 +689,35 @@ function App() {
 
             <button
               onClick={handleVoiceInput}
-              disabled={isProcessing}
+              disabled={isProcessing || isTranscribing}
               className={`p-2 rounded-lg transition-colors disabled:opacity-50 ${
                 isRecording ? 'bg-red-100 hover:bg-red-200' : 'hover:bg-gray-100'
               }`}
+              title={isRecording ? 'Stop recording' : 'Start recording'}
             >
               {isRecording ? (
                 <MicOff className="w-5 h-5 text-red-600" />
+              ) : isTranscribing ? (
+                <Loader2 className="w-5 h-5 text-gray-400 animate-spin" />
               ) : (
                 <Mic className="w-5 h-5 text-gray-400" />
               )}
             </button>
+
+            {audioBlob && (
+              <button
+                onClick={handlePlayAudio}
+                disabled={isProcessing}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
+                title={isPlayingAudio ? 'Stop playback' : 'Play recording'}
+              >
+                {isPlayingAudio ? (
+                  <Pause className="w-5 h-5 text-teal-600" />
+                ) : (
+                  <Play className="w-5 h-5 text-teal-600" />
+                )}
+              </button>
+            )}
 
             <button
               onClick={handleChatSubmit}
@@ -787,138 +903,192 @@ function App() {
     </div>
   );
 
+  const sidebarMenuItems: Array<{
+    id: string;
+    label: string;
+    icon: typeof Home;
+    view?: string;
+    submenu?: Array<{
+      id: string;
+      label: string;
+      icon: typeof Home;
+      view?: string;
+    }>;
+  }> = [
+    {
+      id: 'home',
+      label: 'Home',
+      icon: Home,
+      view: 'home'
+    },
+    {
+      id: 'spaces',
+      label: 'Spaces',
+      icon: Building2,
+      submenu: [
+        { id: 'oil-gas', label: 'Oil & Gas', icon: Zap },
+        { id: 'mining', label: 'Mining', icon: Layers },
+        { id: 'utilities', label: 'Power & Utilities', icon: Zap },
+        { id: 'manufacturing', label: 'Manufacturing', icon: Wrench },
+        { id: 'aerospace', label: 'Aerospace', icon: Globe2 }
+      ]
+    },
+    {
+      id: 'threads',
+      label: 'Conversations',
+      icon: MessageSquare,
+      view: 'threads'
+    },
+    {
+      id: 'data',
+      label: 'Data',
+      icon: Database,
+      submenu: [
+        { id: 'assets', label: 'Assets', icon: Layers, view: 'assets' },
+        { id: 'workorders', label: 'Work Orders', icon: FileCheck, view: 'workorders' },
+        { id: 'analytics', label: 'Analytics', icon: BarChart3, view: 'analytics' }
+      ]
+    },
+    {
+      id: 'team',
+      label: 'Team',
+      icon: Users,
+      submenu: [
+        { id: 'members', label: 'Members', icon: User },
+        { id: 'settings', label: 'Settings', icon: Settings }
+      ]
+    }
+  ];
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex flex-col">
-      <nav className="bg-white border-b border-gray-200 px-6 py-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-8">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-teal-600 rounded-lg flex items-center justify-center">
-                <Globe className="w-5 h-5 text-white" />
-              </div>
-              <span className="font-semibold text-gray-900">SyncAI Pro</span>
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex">
+      <div
+        className={`bg-white border-r border-gray-200 transition-all duration-300 flex flex-col ${
+          isSidebarCollapsed ? 'w-16' : 'w-64'
+        }`}
+        onMouseEnter={() => setIsSidebarCollapsed(false)}
+        onMouseLeave={() => {
+          setIsSidebarCollapsed(true);
+          setHoveredMenuItem(null);
+        }}
+      >
+        <div className="p-4 border-b border-gray-200">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 bg-teal-600 rounded-lg flex items-center justify-center flex-shrink-0">
+              <Globe className="w-5 h-5 text-white" />
             </div>
-
-            <div className="flex items-center gap-6">
-              <button
-                onClick={() => setActiveView('home')}
-                className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${
-                  activeView === 'home'
-                    ? 'bg-teal-50 text-teal-700'
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                <Home className="w-4 h-4" />
-                <span className="text-sm font-medium">Home</span>
-              </button>
-              <button
-                onClick={() => setActiveView('threads')}
-                className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${
-                  activeView === 'threads'
-                    ? 'bg-teal-50 text-teal-700'
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                <MessageSquare className="w-4 h-4" />
-                <span className="text-sm font-medium">Threads</span>
-              </button>
-              <button
-                onClick={() => setActiveView('assets')}
-                className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${
-                  activeView === 'assets'
-                    ? 'bg-teal-50 text-teal-700'
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                <Layers className="w-4 h-4" />
-                <span className="text-sm font-medium">Assets</span>
-              </button>
-              <button
-                onClick={() => setActiveView('workorders')}
-                className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${
-                  activeView === 'workorders'
-                    ? 'bg-teal-50 text-teal-700'
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                <FileCheck className="w-4 h-4" />
-                <span className="text-sm font-medium">Work Orders</span>
-              </button>
-              <button
-                onClick={() => setActiveView('analytics')}
-                className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${
-                  activeView === 'analytics'
-                    ? 'bg-teal-50 text-teal-700'
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                <BarChart3 className="w-4 h-4" />
-                <span className="text-sm font-medium">Analytics</span>
-              </button>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-4">
-            <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
-              <Search className="w-5 h-5 text-gray-600" />
-            </button>
-            <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
-              <Download className="w-5 h-5 text-gray-600" />
-            </button>
-            <button className="flex items-center gap-2 bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-lg transition-colors">
-              <Plus className="w-4 h-4" />
-              <span className="text-sm font-medium">New</span>
-            </button>
-            <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
-              <User className="w-5 h-5 text-gray-600" />
-            </button>
+            {!isSidebarCollapsed && (
+              <span className="font-semibold text-gray-900 whitespace-nowrap">SyncAI Pro</span>
+            )}
           </div>
         </div>
-      </nav>
 
-      <div className="flex-1 overflow-auto">
-        {activeView === 'home' && renderHomeView()}
-        {activeView === 'threads' && (
-          <div className="max-w-4xl mx-auto py-8 px-4">
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">Recent Conversations</h2>
-            <div className="space-y-3">
-              {conversationThreads.map((thread) => (
-                <div
-                  key={thread.id}
-                  className="bg-white border border-gray-200 rounded-xl p-4 hover:border-teal-300 hover:shadow-sm transition-all cursor-pointer"
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <p className="text-gray-900 font-medium mb-1">{thread.title}</p>
-                      <p className="text-sm text-gray-500">
-                        {thread.timestamp.toLocaleDateString()} at {thread.timestamp.toLocaleTimeString()}
-                      </p>
-                    </div>
-                    <MessageSquare className="w-5 h-5 text-gray-400" />
-                  </div>
+        <div className="flex-1 overflow-y-auto py-4">
+          {sidebarMenuItems.map((item) => (
+            <div key={item.id} className="relative">
+              <button
+                onClick={() => {
+                  if (item.view) setActiveView(item.view);
+                  if (!item.submenu) setHoveredMenuItem(null);
+                }}
+                onMouseEnter={() => item.submenu && setHoveredMenuItem(item.id)}
+                className={`w-full flex items-center gap-3 px-4 py-3 transition-colors ${
+                  activeView === item.view
+                    ? 'bg-teal-50 text-teal-700'
+                    : 'text-gray-700 hover:bg-gray-100'
+                }`}
+              >
+                <item.icon className="w-5 h-5 flex-shrink-0" />
+                {!isSidebarCollapsed && (
+                  <>
+                    <span className="text-sm font-medium flex-1 text-left">{item.label}</span>
+                    {item.submenu && <ChevronRight className="w-4 h-4" />}
+                  </>
+                )}
+              </button>
+
+              {item.submenu && hoveredMenuItem === item.id && !isSidebarCollapsed && (
+                <div className="ml-8 mt-1 mb-2 space-y-1">
+                  {item.submenu.map((subItem) => (
+                    <button
+                      key={subItem.id}
+                      onClick={() => {
+                        if (subItem.view) setActiveView(subItem.view);
+                        if (item.id === 'spaces') setSelectedSpace(subItem.id);
+                      }}
+                      className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${
+                        (activeView === subItem.view) || (selectedSpace === subItem.id)
+                          ? 'bg-teal-50 text-teal-700'
+                          : 'text-gray-600 hover:bg-gray-50'
+                      }`}
+                    >
+                      <subItem.icon className="w-4 h-4" />
+                      <span>{subItem.label}</span>
+                    </button>
+                  ))}
                 </div>
-              ))}
+              )}
             </div>
-          </div>
-        )}
-        {activeView === 'assets' && <AssetManagement />}
-        {activeView === 'workorders' && <WorkOrderManagement />}
-        {activeView === 'analytics' && <AIAnalyticsDashboard />}
+          ))}
+        </div>
+
+        <div className="border-t border-gray-200 p-4 space-y-2">
+          <button className={`w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors ${isSidebarCollapsed ? 'justify-center' : ''}`}>
+            <Bell className="w-5 h-5 flex-shrink-0" />
+            {!isSidebarCollapsed && <span className="text-sm">Notifications</span>}
+          </button>
+          <button className={`w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors ${isSidebarCollapsed ? 'justify-center' : ''}`}>
+            <User className="w-5 h-5 flex-shrink-0" />
+            {!isSidebarCollapsed && <span className="text-sm">Profile</span>}
+          </button>
+        </div>
       </div>
 
-      <footer className="bg-white border-t border-gray-200 px-6 py-3">
-        <div className="flex items-center justify-between text-sm text-gray-500">
-          <div className="flex items-center gap-6">
-            <span>{metrics.totalAssets.toLocaleString()} Assets Monitored</span>
-            <span>{metrics.activeWorkOrders} Active Work Orders</span>
-            <span>ESG Score: {metrics.esgScore}%</span>
-          </div>
-          <div className="flex items-center gap-4">
-            <span>Uptime: {metrics.uptime}%</span>
-            <span className="text-teal-600 font-medium">${metrics.costSavings} saved</span>
-          </div>
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <div className="flex-1 overflow-auto">
+          {activeView === 'home' && renderHomeView()}
+          {activeView === 'threads' && (
+            <div className="max-w-4xl mx-auto py-8 px-4">
+              <h2 className="text-2xl font-bold text-gray-900 mb-6">Recent Conversations</h2>
+              <div className="space-y-3">
+                {conversationThreads.map((thread) => (
+                  <div
+                    key={thread.id}
+                    className="bg-white border border-gray-200 rounded-xl p-4 hover:border-teal-300 hover:shadow-sm transition-all cursor-pointer"
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <p className="text-gray-900 font-medium mb-1">{thread.title}</p>
+                        <p className="text-sm text-gray-500">
+                          {thread.timestamp.toLocaleDateString()} at {thread.timestamp.toLocaleTimeString()}
+                        </p>
+                      </div>
+                      <MessageSquare className="w-5 h-5 text-gray-400" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {activeView === 'assets' && <AssetManagement />}
+          {activeView === 'workorders' && <WorkOrderManagement />}
+          {activeView === 'analytics' && <AIAnalyticsDashboard />}
         </div>
-      </footer>
+
+        <footer className="bg-white border-t border-gray-200 px-6 py-3">
+          <div className="flex items-center justify-between text-sm text-gray-500">
+            <div className="flex items-center gap-6">
+              <span>{metrics.totalAssets.toLocaleString()} Assets</span>
+              <span>{metrics.activeWorkOrders} Work Orders</span>
+              <span>ESG: {metrics.esgScore}%</span>
+            </div>
+            <div className="flex items-center gap-4">
+              <span>Uptime: {metrics.uptime}%</span>
+              <span className="text-teal-600 font-medium">${metrics.costSavings} saved</span>
+            </div>
+          </div>
+        </footer>
+      </div>
     </div>
   );
 }
