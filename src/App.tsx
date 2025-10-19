@@ -8,7 +8,6 @@ import {
   Globe,
   Layers,
   User,
-  ArrowUp,
   Download,
   Plus,
   Search,
@@ -22,15 +21,32 @@ import {
   Activity,
   GraduationCap,
   FileCheck,
-  Zap
+  Zap,
+  MessageSquare,
+  Clock,
+  Lightbulb,
+  ExternalLink,
+  TrendingUp
 } from 'lucide-react';
+
+interface ChatMessage {
+  role: string;
+  content: string;
+  agentType?: string;
+  processingTime?: number;
+  modelUsed?: string;
+  followUpQuestions?: string[];
+  sources?: Array<{ title: string; type: string }>;
+}
 
 function App() {
   const [activeView, setActiveView] = useState('home');
   const [selectedSpace, setSelectedSpace] = useState('');
   const [chatInput, setChatInput] = useState('');
-  const [chatMessages, setChatMessages] = useState<Array<{role: string, content: string}>>([]);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [conversationThreads, setConversationThreads] = useState<Array<{ id: string; title: string; timestamp: Date }>>([]);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [workflowMode, setWorkflowMode] = useState<'standard' | 'deep-analysis'>('standard');
   const [metrics, setMetrics] = useState({
     totalAssets: 2847,
     activeWorkOrders: 156,
@@ -62,7 +78,24 @@ function App() {
     };
 
     fetchMetrics();
+    loadConversationThreads();
   }, []);
+
+  const loadConversationThreads = async () => {
+    const { data, error } = await supabase
+      .from('ai_agent_logs')
+      .select('id, query, created_at')
+      .order('created_at', { ascending: false })
+      .limit(10);
+
+    if (data && !error) {
+      setConversationThreads(data.map(item => ({
+        id: item.id,
+        title: item.query.substring(0, 50) + '...',
+        timestamp: new Date(item.created_at)
+      })));
+    }
+  };
 
   const spaces = [
     { id: 'oil-gas', name: 'Oil & Gas', icon: Zap },
@@ -79,6 +112,60 @@ function App() {
     { id: 'learn', label: 'Learn', icon: GraduationCap, action: 'SafetyAgent' },
     { id: 'fact-check', label: 'Fact Check', icon: FileCheck, action: 'ComplianceAgent' }
   ];
+
+  const generateFollowUpQuestions = (agentType: string): string[] => {
+    const followUps: Record<string, string[]> = {
+      'PreventiveMaintenanceAgent': [
+        'What are the top 3 PM tasks causing delays?',
+        'How can we optimize PM scheduling?',
+        'Show me PM compliance trends'
+      ],
+      'PredictiveAnalyticsAgent': [
+        'Which assets have the highest failure risk?',
+        'What is the predicted RUL for critical equipment?',
+        'Show me trending degradation patterns'
+      ],
+      'AssetHealthAgent': [
+        'Which assets need immediate attention?',
+        'Show me the health trend for the past 30 days',
+        'Compare health scores by asset type'
+      ],
+      'ReliabilityAgent': [
+        'Identify the top bad actors',
+        'What reliability improvements will have the most impact?',
+        'Show me MTBF vs MTTR trends'
+      ],
+      'CostOptimizationAgent': [
+        'Where are the biggest cost savings opportunities?',
+        'Compare maintenance costs year over year',
+        'What is the TCO for our critical assets?'
+      ],
+      'SafetyAgent': [
+        'Show me recent safety incidents',
+        'What are the top safety risks?',
+        'How is our safety training compliance?'
+      ],
+      'CentralCoordinationAgent': [
+        'What requires urgent attention across all systems?',
+        'Show me the overall operational health',
+        'What decisions need approval today?'
+      ]
+    };
+
+    return followUps[agentType] || [
+      'Tell me more about this',
+      'What are the next steps?',
+      'Show me related insights'
+    ];
+  };
+
+  const generateMockSources = (): Array<{ title: string; type: string }> => {
+    return [
+      { title: 'CMMS Database - Work Order History', type: 'Database' },
+      { title: 'Asset Performance Metrics', type: 'Analytics' },
+      { title: 'ISO 55000 Standards', type: 'Reference' }
+    ];
+  };
 
   const executeAgent = async (agentId: string, industry?: string, userQuery?: string) => {
     setIsProcessing(true);
@@ -114,35 +201,28 @@ function App() {
         throw new Error(`API request failed: ${response.status} - ${errorText}`);
       }
 
-      const data = await response.json();
+      const result = await response.json();
 
-      if (data.success) {
-        setChatMessages(prev => [...prev,
-          { role: 'assistant', content: data.response }
-        ]);
-      } else {
-        setChatMessages(prev => [...prev,
-          { role: 'assistant', content: `Error: ${data.error || 'Failed to process request'}` }
-        ]);
-      }
+      const aiMessage: ChatMessage = {
+        role: 'assistant',
+        content: result.response,
+        agentType: result.agentType,
+        processingTime: result.processingTime,
+        modelUsed: result.modelUsed,
+        followUpQuestions: generateFollowUpQuestions(result.agentType),
+        sources: generateMockSources()
+      };
+
+      setChatMessages(prev => [...prev, aiMessage]);
+      await loadConversationThreads();
     } catch (error) {
-      console.error('Error executing agent:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      setChatMessages(prev => [...prev,
-        { role: 'assistant', content: `Error: ${errorMessage}` }
-      ]);
+      setChatMessages(prev => [...prev, {
+        role: 'assistant',
+        content: `Error: ${errorMessage}. Please check your API configuration.`
+      }]);
     } finally {
       setIsProcessing(false);
-    }
-  };
-
-  const handleQuickAction = (actionId: string) => {
-    const action = quickActions.find(a => a.id === actionId);
-    if (action) {
-      setChatMessages(prev => [...prev,
-        { role: 'user', content: `Analyze using ${action.label}` }
-      ]);
-      executeAgent(action.action);
     }
   };
 
@@ -193,6 +273,11 @@ function App() {
     await executeAgent(agentToCall, undefined, userQuery);
   };
 
+  const handleFollowUpClick = (question: string) => {
+    setChatInput(question);
+    setTimeout(() => handleChatSubmit(), 100);
+  };
+
   const renderHomeView = () => (
     <div className="flex-1 flex flex-col items-center justify-center px-4">
       <div className="text-center mb-12">
@@ -215,16 +300,10 @@ function App() {
           />
           <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
             <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
-              <Search className="w-5 h-5 text-gray-400" />
-            </button>
-            <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
-              <Image className="w-5 h-5 text-gray-400" />
-            </button>
-            <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
               <Paperclip className="w-5 h-5 text-gray-400" />
             </button>
             <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
-              <Globe2 className="w-5 h-5 text-gray-400" />
+              <Image className="w-5 h-5 text-gray-400" />
             </button>
             <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
               <Mic className="w-5 h-5 text-gray-400" />
@@ -232,180 +311,281 @@ function App() {
             <button
               onClick={handleChatSubmit}
               disabled={!chatInput.trim() || isProcessing}
-              className="p-2 bg-teal-600 hover:bg-teal-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="p-2 bg-teal-600 hover:bg-teal-700 disabled:bg-gray-300 rounded-lg transition-colors"
             >
               <ArrowUpCircle className="w-5 h-5 text-white" />
             </button>
           </div>
         </div>
 
-        <div className="flex flex-wrap justify-center gap-3 mb-8">
+        <div className="flex items-center gap-3 mb-8">
+          <button
+            onClick={() => setWorkflowMode('standard')}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              workflowMode === 'standard'
+                ? 'bg-teal-600 text-white'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            Standard
+          </button>
+          <button
+            onClick={() => setWorkflowMode('deep-analysis')}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${
+              workflowMode === 'deep-analysis'
+                ? 'bg-teal-600 text-white'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            <TrendingUp className="w-4 h-4" />
+            Deep Analysis
+          </button>
+        </div>
+
+        {chatMessages.length > 0 && (
+          <div className="space-y-6 mb-8">
+            {chatMessages.map((msg, idx) => (
+              <div key={idx} className={`${msg.role === 'user' ? 'text-right' : ''}`}>
+                {msg.role === 'user' ? (
+                  <div className="inline-block bg-teal-600 text-white px-6 py-3 rounded-2xl max-w-2xl">
+                    {msg.content}
+                  </div>
+                ) : (
+                  <div className="bg-white border border-gray-200 rounded-2xl p-6 max-w-3xl shadow-sm">
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className="w-8 h-8 bg-teal-100 rounded-full flex items-center justify-center">
+                        <Lightbulb className="w-4 h-4 text-teal-600" />
+                      </div>
+                      <span className="text-sm font-medium text-gray-700">
+                        {msg.agentType?.replace('Agent', '') || 'AI Assistant'}
+                      </span>
+                      {msg.processingTime && (
+                        <span className="text-xs text-gray-400 flex items-center gap-1">
+                          <Clock className="w-3 h-3" />
+                          {(msg.processingTime / 1000).toFixed(1)}s
+                        </span>
+                      )}
+                      {msg.modelUsed && (
+                        <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded">
+                          {msg.modelUsed}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="prose prose-sm max-w-none text-gray-700 leading-relaxed mb-4">
+                      {msg.content}
+                    </div>
+
+                    {msg.sources && msg.sources.length > 0 && (
+                      <div className="border-t border-gray-100 pt-4 mb-4">
+                        <p className="text-xs font-medium text-gray-500 mb-2 flex items-center gap-1">
+                          <ExternalLink className="w-3 h-3" />
+                          Sources
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          {msg.sources.map((source, i) => (
+                            <div
+                              key={i}
+                              className="text-xs bg-gray-50 text-gray-600 px-3 py-1.5 rounded-lg border border-gray-200"
+                            >
+                              {source.title} <span className="text-gray-400">({source.type})</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {msg.followUpQuestions && msg.followUpQuestions.length > 0 && (
+                      <div className="border-t border-gray-100 pt-4">
+                        <p className="text-xs font-medium text-gray-500 mb-2">Ask a follow-up...</p>
+                        <div className="flex flex-wrap gap-2">
+                          {msg.followUpQuestions.map((q, i) => (
+                            <button
+                              key={i}
+                              onClick={() => handleFollowUpClick(q)}
+                              className="text-sm text-teal-600 hover:text-teal-700 hover:bg-teal-50 px-3 py-1.5 rounded-lg border border-teal-200 transition-colors"
+                            >
+                              {q}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="grid grid-cols-5 gap-4 mb-8">
           {quickActions.map((action) => (
             <button
               key={action.id}
-              onClick={() => handleQuickAction(action.id)}
-              disabled={isProcessing}
-              className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors disabled:opacity-50"
+              onClick={() => executeAgent(action.action)}
+              className="flex flex-col items-center gap-2 p-4 rounded-xl border border-gray-200 hover:border-teal-300 hover:bg-teal-50 transition-colors"
             >
-              <action.icon className="w-4 h-4 text-gray-600" />
-              <span className="text-sm text-gray-700">{action.label}</span>
+              <action.icon className="w-6 h-6 text-teal-600" />
+              <span className="text-sm font-medium text-gray-700">{action.label}</span>
             </button>
           ))}
         </div>
 
-        {chatMessages.length > 0 && (
-          <div className="bg-white rounded-2xl border border-gray-200 p-6 max-h-96 overflow-y-auto space-y-4">
-            {chatMessages.map((msg, idx) => (
-              <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-3xl px-4 py-3 rounded-2xl ${
-                  msg.role === 'user'
-                    ? 'bg-teal-600 text-white'
-                    : 'bg-gray-100 text-gray-800'
-                }`}>
-                  <pre className="whitespace-pre-wrap font-sans text-sm">{msg.content}</pre>
-                </div>
-              </div>
+        <div className="space-y-3">
+          <p className="text-sm font-medium text-gray-500">Industry Spaces</p>
+          <div className="grid grid-cols-5 gap-3">
+            {spaces.map((space) => (
+              <button
+                key={space.id}
+                onClick={() => setSelectedSpace(space.id)}
+                className={`flex flex-col items-center gap-2 p-3 rounded-lg border transition-colors ${
+                  selectedSpace === space.id
+                    ? 'border-teal-500 bg-teal-50'
+                    : 'border-gray-200 hover:border-gray-300 bg-white'
+                }`}
+              >
+                <space.icon className="w-5 h-5 text-gray-600" />
+                <span className="text-xs text-gray-700">{space.name}</span>
+              </button>
             ))}
-            {isProcessing && (
-              <div className="flex justify-start">
-                <div className="bg-gray-100 text-gray-800 px-4 py-3 rounded-2xl">
-                  <div className="flex gap-2">
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{animationDelay: '0.4s'}}></div>
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
-        )}
-      </div>
-
-      <div className="mt-12 grid grid-cols-2 md:grid-cols-4 gap-4 w-full max-w-4xl">
-        <div className="bg-white p-4 rounded-xl border border-gray-200">
-          <div className="text-2xl font-bold text-gray-900">{metrics.totalAssets.toLocaleString()}</div>
-          <div className="text-sm text-gray-500">Assets Monitored</div>
-        </div>
-        <div className="bg-white p-4 rounded-xl border border-gray-200">
-          <div className="text-2xl font-bold text-gray-900">{metrics.uptime}%</div>
-          <div className="text-sm text-gray-500">System Uptime</div>
-        </div>
-        <div className="bg-white p-4 rounded-xl border border-gray-200">
-          <div className="text-2xl font-bold text-gray-900">${metrics.costSavings}</div>
-          <div className="text-sm text-gray-500">Annual Savings</div>
-        </div>
-        <div className="bg-white p-4 rounded-xl border border-gray-200">
-          <div className="text-2xl font-bold text-gray-900">{metrics.esgScore}%</div>
-          <div className="text-sm text-gray-500">ESG Score</div>
         </div>
       </div>
     </div>
   );
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      <div className="w-20 bg-white border-r border-gray-200 flex flex-col items-center py-4">
-        <div className="w-10 h-10 bg-gradient-to-br from-teal-500 to-teal-600 rounded-xl flex items-center justify-center mb-8">
-          <Zap className="w-6 h-6 text-white" />
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex flex-col">
+      <nav className="bg-white border-b border-gray-200 px-6 py-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-8">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 bg-teal-600 rounded-lg flex items-center justify-center">
+                <Globe className="w-5 h-5 text-white" />
+              </div>
+              <span className="font-semibold text-gray-900">SyncAI Pro</span>
+            </div>
+
+            <div className="flex items-center gap-6">
+              <button
+                onClick={() => setActiveView('home')}
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${
+                  activeView === 'home'
+                    ? 'bg-teal-50 text-teal-700'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                <Home className="w-4 h-4" />
+                <span className="text-sm font-medium">Home</span>
+              </button>
+              <button
+                onClick={() => setActiveView('threads')}
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${
+                  activeView === 'threads'
+                    ? 'bg-teal-50 text-teal-700'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                <MessageSquare className="w-4 h-4" />
+                <span className="text-sm font-medium">Threads</span>
+              </button>
+              <button
+                onClick={() => setActiveView('assets')}
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${
+                  activeView === 'assets'
+                    ? 'bg-teal-50 text-teal-700'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                <Layers className="w-4 h-4" />
+                <span className="text-sm font-medium">Assets</span>
+              </button>
+              <button
+                onClick={() => setActiveView('workorders')}
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${
+                  activeView === 'workorders'
+                    ? 'bg-teal-50 text-teal-700'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                <FileCheck className="w-4 h-4" />
+                <span className="text-sm font-medium">Work Orders</span>
+              </button>
+              <button
+                onClick={() => setActiveView('analytics')}
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${
+                  activeView === 'analytics'
+                    ? 'bg-teal-50 text-teal-700'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                <BarChart3 className="w-4 h-4" />
+                <span className="text-sm font-medium">Analytics</span>
+              </button>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-4">
+            <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+              <Search className="w-5 h-5 text-gray-600" />
+            </button>
+            <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+              <Download className="w-5 h-5 text-gray-600" />
+            </button>
+            <button className="flex items-center gap-2 bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-lg transition-colors">
+              <Plus className="w-4 h-4" />
+              <span className="text-sm font-medium">New</span>
+            </button>
+            <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+              <User className="w-5 h-5 text-gray-600" />
+            </button>
+          </div>
         </div>
+      </nav>
 
-        <button className="w-10 h-10 mb-8 flex items-center justify-center hover:bg-gray-100 rounded-lg transition-colors">
-          <Plus className="w-5 h-5 text-gray-600" />
-        </button>
-
-        <div className="flex-1 flex flex-col gap-6">
-          <button
-            onClick={() => setActiveView('home')}
-            className={`flex flex-col items-center gap-1 px-2 py-2 rounded-lg transition-colors ${
-              activeView === 'home' ? 'bg-gray-100' : 'hover:bg-gray-50'
-            }`}
-          >
-            <Home className="w-5 h-5 text-gray-600" />
-            <span className="text-xs text-gray-600">Home</span>
-          </button>
-
-          <button
-            onClick={() => setActiveView('discover')}
-            className={`flex flex-col items-center gap-1 px-2 py-2 rounded-lg transition-colors ${
-              activeView === 'discover' ? 'bg-gray-100' : 'hover:bg-gray-50'
-            }`}
-          >
-            <Globe className="w-5 h-5 text-gray-600" />
-            <span className="text-xs text-gray-600">Discover</span>
-          </button>
-
-          <button
-            onClick={() => setActiveView('spaces')}
-            className={`flex flex-col items-center gap-1 px-2 py-2 rounded-lg transition-colors ${
-              activeView === 'spaces' ? 'bg-gray-100' : 'hover:bg-gray-50'
-            }`}
-          >
-            <Layers className="w-5 h-5 text-gray-600" />
-            <span className="text-xs text-gray-600">Spaces</span>
-          </button>
-        </div>
-
-        <div className="flex flex-col gap-4 mt-auto">
-          <button className="flex flex-col items-center gap-1 px-2 py-2 hover:bg-gray-50 rounded-lg transition-colors">
-            <User className="w-5 h-5 text-gray-600" />
-            <span className="text-xs text-gray-600">Account</span>
-          </button>
-
-          <button className="flex flex-col items-center gap-1 px-2 py-2 hover:bg-gray-50 rounded-lg transition-colors">
-            <ArrowUp className="w-5 h-5 text-gray-600" />
-            <span className="text-xs text-gray-600">Upgrade</span>
-          </button>
-
-          <button className="flex flex-col items-center gap-1 px-2 py-2 hover:bg-gray-50 rounded-lg transition-colors relative">
-            <Download className="w-5 h-5 text-gray-600" />
-            <span className="text-xs text-gray-600">Install</span>
-            <div className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></div>
-          </button>
-        </div>
+      <div className="flex-1 overflow-auto">
+        {activeView === 'home' && renderHomeView()}
+        {activeView === 'threads' && (
+          <div className="max-w-4xl mx-auto py-8 px-4">
+            <h2 className="text-2xl font-bold text-gray-900 mb-6">Recent Conversations</h2>
+            <div className="space-y-3">
+              {conversationThreads.map((thread) => (
+                <div
+                  key={thread.id}
+                  className="bg-white border border-gray-200 rounded-xl p-4 hover:border-teal-300 hover:shadow-sm transition-all cursor-pointer"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <p className="text-gray-900 font-medium mb-1">{thread.title}</p>
+                      <p className="text-sm text-gray-500">
+                        {thread.timestamp.toLocaleDateString()} at {thread.timestamp.toLocaleTimeString()}
+                      </p>
+                    </div>
+                    <MessageSquare className="w-5 h-5 text-gray-400" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        {activeView === 'assets' && <AssetManagement />}
+        {activeView === 'workorders' && <WorkOrderManagement />}
+        {activeView === 'analytics' && <AIAnalyticsDashboard />}
       </div>
 
-      {activeView === 'home' && renderHomeView()}
-
-      {activeView === 'discover' && (
-        <div className="flex-1 overflow-y-auto p-8">
-          <h2 className="text-3xl font-bold text-gray-900 mb-8">Discover AI Agents</h2>
-          <AIAnalyticsDashboard />
-        </div>
-      )}
-
-      {activeView === 'spaces' && (
-        <div className="flex-1 overflow-y-auto p-8">
-          <h2 className="text-3xl font-bold text-gray-900 mb-8">Industry Spaces</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {spaces.map((space) => (
-              <button
-                key={space.id}
-                onClick={() => {
-                  setSelectedSpace(space.name);
-                  setActiveView('home');
-                }}
-                className="bg-white p-6 rounded-2xl border border-gray-200 hover:border-teal-500 hover:shadow-lg transition-all text-left"
-              >
-                <div className="w-12 h-12 bg-teal-100 rounded-xl flex items-center justify-center mb-4">
-                  <space.icon className="w-6 h-6 text-teal-600" />
-                </div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">{space.name}</h3>
-                <p className="text-sm text-gray-500">Specialized AI agents for {space.name.toLowerCase()} operations</p>
-              </button>
-            ))}
+      <footer className="bg-white border-t border-gray-200 px-6 py-3">
+        <div className="flex items-center justify-between text-sm text-gray-500">
+          <div className="flex items-center gap-6">
+            <span>{metrics.totalAssets.toLocaleString()} Assets Monitored</span>
+            <span>{metrics.activeWorkOrders} Active Work Orders</span>
+            <span>ESG Score: {metrics.esgScore}%</span>
           </div>
-
-          <div className="mt-12">
-            <h3 className="text-2xl font-bold text-gray-900 mb-6">Asset Management</h3>
-            <AssetManagement />
-          </div>
-
-          <div className="mt-12">
-            <h3 className="text-2xl font-bold text-gray-900 mb-6">Work Orders</h3>
-            <WorkOrderManagement />
+          <div className="flex items-center gap-4">
+            <span>Uptime: {metrics.uptime}%</span>
+            <span className="text-teal-600 font-medium">${metrics.costSavings} saved</span>
           </div>
         </div>
-      )}
+      </footer>
     </div>
   );
 }
