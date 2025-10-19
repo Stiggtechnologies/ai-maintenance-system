@@ -12,6 +12,7 @@ interface AgentRequest {
   industry?: string;
   query?: string;
   assetId?: string;
+  openaiKey?: string;
 }
 
 function selectOptimalModel(agentType: string, query?: string): string {
@@ -74,18 +75,12 @@ function buildSystemPrompt(agentType: string, industry?: string): string {
   return agentPrompts[agentType] || `You are an expert ${agentName}${industryContext}. Provide detailed analysis with actionable insights and specific metrics.`;
 }
 
-async function callOpenAI(model: string, systemPrompt: string, userQuery: string): Promise<string> {
-  const openaiApiKey = Deno.env.get("OPENAI_API_KEY");
-
-  if (!openaiApiKey) {
-    throw new Error("OpenAI API key not configured");
-  }
-
+async function callOpenAI(model: string, systemPrompt: string, userQuery: string, apiKey: string): Promise<string> {
   const response = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "Authorization": `Bearer ${openaiApiKey}`
+      "Authorization": `Bearer ${apiKey}`
     },
     body: JSON.stringify({
       model: model,
@@ -120,11 +115,23 @@ Deno.serve(async (req: Request) => {
     const supabaseKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { agentType, industry, query, assetId }: AgentRequest = await req.json();
+    const { agentType, industry, query, assetId, openaiKey }: AgentRequest = await req.json();
 
     if (!agentType) {
       return new Response(
         JSON.stringify({ error: "agentType is required" }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
+
+    const apiKey = openaiKey || Deno.env.get("OPENAI_API_KEY");
+
+    if (!apiKey) {
+      return new Response(
+        JSON.stringify({ error: "OpenAI API key not configured. Please provide openaiKey in request or configure OPENAI_API_KEY environment variable." }),
         {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -140,7 +147,7 @@ Deno.serve(async (req: Request) => {
 
     const userQuery = query || `Provide a comprehensive analysis and actionable recommendations for ${agentType.replace("Agent", "")} in ${industry || "the industrial sector"}. Include specific metrics, insights, and next steps.`;
 
-    const aiResponse = await callOpenAI(selectedModel, systemPrompt, userQuery);
+    const aiResponse = await callOpenAI(selectedModel, systemPrompt, userQuery, apiKey);
 
     const processingTime = Date.now() - startTime;
 

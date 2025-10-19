@@ -93,6 +93,8 @@ function App() {
 
       const apiUrl = `${supabaseUrl}/functions/v1/ai-agent-processor`;
 
+      const openaiKey = import.meta.env.OPENAI_API_KEY;
+
       const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
@@ -101,7 +103,8 @@ function App() {
         },
         body: JSON.stringify({
           agentType: agentId,
-          industry: industry || selectedSpace || 'general'
+          industry: industry || selectedSpace || 'general',
+          openaiKey: openaiKey
         })
       });
 
