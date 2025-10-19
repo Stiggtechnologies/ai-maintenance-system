@@ -145,7 +145,13 @@ Deno.serve(async (req: Request) => {
 
     const systemPrompt = buildSystemPrompt(agentType, industry);
 
-    const userQuery = query || `Provide a comprehensive analysis and actionable recommendations for ${agentType.replace("Agent", "")} in ${industry || "the industrial sector"}. Include specific metrics, insights, and next steps.`;
+    let userQuery = query;
+
+    if (!userQuery) {
+      userQuery = `Provide a comprehensive analysis and actionable recommendations for ${agentType.replace("Agent", "")} in ${industry || "the industrial sector"}. Include specific metrics, insights, and next steps.`;
+    } else if (userQuery.length < 50) {
+      userQuery = `${userQuery}\n\nPlease provide a brief, helpful response. If this is a greeting or simple question, respond conversationally and then offer relevant ${agentType.replace("Agent", "")} insights for ${industry || "the industrial sector"}.`;
+    }
 
     const aiResponse = await callOpenAI(selectedModel, systemPrompt, userQuery, apiKey);
 

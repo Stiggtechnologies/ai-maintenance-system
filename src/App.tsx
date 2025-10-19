@@ -80,7 +80,7 @@ function App() {
     { id: 'fact-check', label: 'Fact Check', icon: FileCheck, action: 'ComplianceAuditingAgent' }
   ];
 
-  const executeAgent = async (agentId: string, industry?: string) => {
+  const executeAgent = async (agentId: string, industry?: string, userQuery?: string) => {
     setIsProcessing(true);
 
     try {
@@ -104,7 +104,8 @@ function App() {
         body: JSON.stringify({
           agentType: agentId,
           industry: industry || selectedSpace || 'general',
-          openaiKey: openaiKey
+          openaiKey: openaiKey,
+          query: userQuery
         })
       });
 
@@ -179,8 +180,9 @@ function App() {
       agentToCall = 'DataAnalyticsAgent';
     }
 
+    const userQuery = chatInput;
     setChatInput('');
-    await executeAgent(agentToCall);
+    await executeAgent(agentToCall, undefined, userQuery);
   };
 
   const renderHomeView = () => (
