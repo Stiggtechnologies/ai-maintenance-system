@@ -96,11 +96,20 @@ function App() {
     setSelectedAgent(agentId);
 
     try {
-      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-agent-processor`;
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+      if (!supabaseUrl || !supabaseKey) {
+        throw new Error('Supabase configuration missing. Please check your .env file.');
+      }
+
+      const apiUrl = `${supabaseUrl}/functions/v1/ai-agent-processor`;
+      console.log('Calling AI agent:', agentId, 'for industry:', industry);
+
       const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          'Authorization': `Bearer ${supabaseKey}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -109,7 +118,13 @@ function App() {
         })
       });
 
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`API request failed: ${response.status} - ${errorText}`);
+      }
+
       const data = await response.json();
+      console.log('Agent response:', data);
 
       if (data.success) {
         setAgentResponse(data.response);
@@ -118,7 +133,8 @@ function App() {
       }
     } catch (error) {
       console.error('Error executing agent:', error);
-      setAgentResponse('Error: Failed to connect to AI agent service');
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      setAgentResponse(`Error: ${errorMessage}`);
     } finally {
       setIsProcessing(false);
     }
