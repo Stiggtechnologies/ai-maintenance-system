@@ -3,6 +3,7 @@ import { supabase } from './lib/supabase';
 import { AssetManagement } from './components/AssetManagement';
 import { WorkOrderManagement } from './components/WorkOrderManagement';
 import { AIAnalyticsDashboard } from './components/AIAnalyticsDashboard';
+import { MarkdownRenderer } from './components/MarkdownRenderer';
 import {
   Home,
   Globe,
@@ -690,8 +691,8 @@ function App() {
                       )}
                     </div>
 
-                    <div className="prose prose-sm max-w-none text-gray-700 leading-relaxed mb-4">
-                      {msg.content}
+                    <div className="mb-4">
+                      <MarkdownRenderer content={msg.content} />
                     </div>
 
                     {msg.attachments && msg.attachments.length > 0 && (
