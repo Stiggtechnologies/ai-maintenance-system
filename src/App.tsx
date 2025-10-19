@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
+import { supabase } from './lib/supabase';
 import { 
   Activity, 
   BarChart3, 
@@ -11,7 +12,6 @@ import {
   Gauge, 
   Globe, 
   Leaf, 
-  Monitor, 
   Settings, 
   Shield, 
   Smartphone, 
@@ -37,6 +37,30 @@ function App() {
     uptime: 98.7,
     efficiency: 94.2
   });
+
+  useEffect(() => {
+    const fetchMetrics = async () => {
+      const { data, error } = await supabase
+        .from('maintenance_metrics')
+        .select('*')
+        .order('recorded_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (data && !error) {
+        setMetrics({
+          totalAssets: data.total_assets,
+          activeWorkOrders: data.active_work_orders,
+          esgScore: data.esg_score,
+          costSavings: (data.cost_savings / 1000000).toFixed(1) + 'M',
+          uptime: data.uptime,
+          efficiency: data.efficiency
+        });
+      }
+    };
+
+    fetchMetrics();
+  }, []);
 
   const industries = [
     { name: 'Oil & Gas', icon: Factory, integrations: ['SAP PM', 'OSIsoft PI', 'Emerson AMS'] },
@@ -67,19 +91,34 @@ function App() {
   const executeAgent = async (agentId: string, industry: string) => {
     setIsProcessing(true);
     setSelectedAgent(agentId);
-    
-    // Simulate AI processing
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    const responses = {
-      'MaintenanceStrategyDevelopmentAgent': `✅ Maintenance Strategy Analysis Complete for ${industry}:\n\n• Recommended shift to condition-based maintenance\n• Projected 25% reduction in unplanned downtime\n• Annual cost savings: $450K\n• Implementation timeline: 6 months\n• ROI: 340% within 18 months`,
-      'ReliabilityEngineeringAgent': `🔧 Reliability Analysis Complete for ${industry}:\n\n• Analyzed 847 assets using predictive models\n• Identified 23 assets requiring attention\n• Failure prediction accuracy: 94.2%\n• Recommended maintenance windows scheduled\n• Expected reliability improvement: 15%`,
-      'SustainabilityESGAgent': `🌱 ESG Metrics Analysis for ${industry}:\n\n• Environmental Score: 85% (↑3% from last month)\n• Social Score: 92% (industry leading)\n• Governance Score: 88%\n• Carbon footprint reduced by 12%\n• Compliance rating: 98.5%`,
-      'ComplianceAuditingAgent': `📋 Compliance Report Generated for ${industry}:\n\n• ISO 55000 compliance: 98.5%\n• Regulatory requirements: 100% met\n• Audit findings: 2 minor observations\n• Corrective actions: Auto-scheduled\n• Next audit: Recommended in 6 months`
-    };
-    
-    setAgentResponse(responses[agentId as keyof typeof responses] || `✅ ${agentId.replace('Agent', '')} analysis completed successfully for ${industry} industry with actionable insights and recommendations.`);
-    setIsProcessing(false);
+
+    try {
+      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-agent-processor`;
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          agentType: agentId,
+          industry: industry
+        })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setAgentResponse(data.response);
+      } else {
+        setAgentResponse(`Error: ${data.error || 'Failed to process request'}`);
+      }
+    } catch (error) {
+      console.error('Error executing agent:', error);
+      setAgentResponse('Error: Failed to connect to AI agent service');
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   return (
