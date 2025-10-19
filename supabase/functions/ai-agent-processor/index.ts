@@ -26,14 +26,14 @@ function selectOptimalModel(agentType: string, query?: string): string {
   ];
 
   if (complexAgents.includes(agentType) || queryLength > 500) {
-    return "gpt-5";
+    return "gpt-4o";
   }
 
   if (queryLength > 200) {
-    return "gpt-5-mini";
+    return "gpt-4o-mini";
   }
 
-  return "gpt-5-nano";
+  return "gpt-4o-mini";
 }
 
 function buildSystemPrompt(agentType: string, industry?: string): string {
@@ -89,7 +89,7 @@ async function callOpenAI(model: string, systemPrompt: string, userQuery: string
         { role: "user", content: userQuery }
       ],
       temperature: 0.7,
-      max_tokens: 1000
+      max_completion_tokens: 1000
     })
   });
 
