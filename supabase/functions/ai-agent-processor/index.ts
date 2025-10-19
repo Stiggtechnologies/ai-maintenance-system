@@ -14,6 +14,99 @@ interface AgentRequest {
   assetId?: string;
 }
 
+function selectOptimalModel(agentType: string, query?: string): string {
+  const queryLength = query?.length || 0;
+  const complexAgents = [
+    "MaintenanceStrategyDevelopmentAgent",
+    "ReliabilityEngineeringAgent",
+    "DataAnalyticsAgent",
+    "SustainabilityESGAgent",
+    "FinancialContractAgent"
+  ];
+
+  if (complexAgents.includes(agentType) || queryLength > 500) {
+    return "gpt-5";
+  }
+
+  if (queryLength > 200) {
+    return "gpt-5-mini";
+  }
+
+  return "gpt-5-nano";
+}
+
+function buildSystemPrompt(agentType: string, industry?: string): string {
+  const agentName = agentType.replace("Agent", "");
+  const industryContext = industry ? ` in the ${industry} industry` : "";
+
+  const agentPrompts: Record<string, string> = {
+    "MaintenanceStrategyDevelopmentAgent": `You are an expert Maintenance Strategy Development Agent${industryContext}. Analyze maintenance approaches, recommend optimization strategies, calculate ROI projections, and provide actionable implementation timelines. Focus on condition-based maintenance, predictive strategies, and cost reduction.`,
+
+    "AssetManagementAgent": `You are an expert Asset Management Agent${industryContext}. Provide comprehensive asset portfolio analysis, health scores, lifecycle optimization, and maintenance spend recommendations. Include specific metrics and actionable insights.`,
+
+    "ReliabilityEngineeringAgent": `You are an expert Reliability Engineering Agent${industryContext}. Analyze asset reliability using predictive models, identify at-risk equipment, calculate failure probabilities, and recommend maintenance windows. Provide accuracy metrics and improvement projections.`,
+
+    "PlanningSchedulingAgent": `You are an expert Planning & Scheduling Agent${industryContext}. Optimize maintenance schedules, resource allocation, workforce utilization, and critical path planning. Provide specific timelines and efficiency improvements.`,
+
+    "WorkOrderManagementAgent": `You are an expert Work Order Management Agent${industryContext}. Analyze active work orders, completion rates, resolution times, automation opportunities, and cost optimization. Provide metrics and actionable recommendations.`,
+
+    "ConditionMonitoringAgent": `You are an expert Condition Monitoring Agent${industryContext}. Analyze real-time sensor data, detect anomalies, generate predictive alerts, and assess equipment health trends. Include accuracy metrics and early warning capabilities.`,
+
+    "InventoryManagementAgent": `You are an expert Inventory Management Agent${industryContext}. Optimize spare parts inventory, reduce carrying costs, prevent stock-outs, manage just-in-time deliveries, and improve turnover rates. Provide specific metrics.`,
+
+    "MaintenanceOperationsAgent": `You are an expert Maintenance Operations Agent${industryContext}. Analyze overall equipment effectiveness, maintenance efficiency, technician productivity, emergency maintenance reduction, and preventive compliance. Provide operational metrics.`,
+
+    "QualityAssuranceAgent": `You are an expert Quality Assurance Agent${industryContext}. Assess quality compliance, defect rates, first-time fix rates, customer satisfaction, and process improvement opportunities. Include specific quality metrics.`,
+
+    "ComplianceAuditingAgent": `You are an expert Compliance & Auditing Agent${industryContext}. Generate compliance reports for ISO 55000, regulatory requirements, audit findings, corrective actions, and audit scheduling. Provide compliance percentages.`,
+
+    "SustainabilityESGAgent": `You are an expert Sustainability & ESG Agent${industryContext}. Analyze Environmental, Social, and Governance metrics, carbon footprint reduction, compliance ratings, and sustainability improvements. Provide ESG scores and trends.`,
+
+    "DataAnalyticsAgent": `You are an expert Data Analytics Agent${industryContext}. Analyze large datasets, identify key trends, provide predictive insights, calculate cost optimization opportunities, and deliver performance dashboards. Include accuracy metrics.`,
+
+    "ContinuousImprovementAgent": `You are an expert Continuous Improvement Agent${industryContext}. Identify improvement initiatives, implement quick wins, calculate savings potential, measure efficiency gains, and schedule Kaizen events. Provide improvement metrics.`,
+
+    "TrainingWorkforceAgent": `You are an expert Training & Workforce Development Agent${industryContext}. Assess workforce competency, training completion rates, skills gap analysis, upskilling programs, and certification rates. Provide development metrics.`,
+
+    "FinancialContractAgent": `You are an expert Financial & Contract Management Agent${industryContext}. Analyze maintenance budget utilization, identify cost savings, optimize contracts, calculate ROI, and forecast budget accuracy. Provide financial metrics.`
+  };
+
+  return agentPrompts[agentType] || `You are an expert ${agentName}${industryContext}. Provide detailed analysis with actionable insights and specific metrics.`;
+}
+
+async function callOpenAI(model: string, systemPrompt: string, userQuery: string): Promise<string> {
+  const openaiApiKey = Deno.env.get("OPENAI_API_KEY");
+
+  if (!openaiApiKey) {
+    throw new Error("OpenAI API key not configured");
+  }
+
+  const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${openaiApiKey}`
+    },
+    body: JSON.stringify({
+      model: model,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userQuery }
+      ],
+      temperature: 0.7,
+      max_tokens: 1000
+    })
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`OpenAI API error: ${response.status} - ${error}`);
+  }
+
+  const data = await response.json();
+  return data.choices[0].message.content;
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, {
@@ -41,44 +134,32 @@ Deno.serve(async (req: Request) => {
 
     const startTime = Date.now();
 
-    const responses: Record<string, string> = {
-      "MaintenanceStrategyDevelopmentAgent": `✅ Maintenance Strategy Analysis Complete for ${industry || "your industry"}:\n\n• Recommended shift to condition-based maintenance\n• Projected 25% reduction in unplanned downtime\n• Annual cost savings: $450K\n• Implementation timeline: 6 months\n• ROI: 340% within 18 months`,
-      "AssetManagementAgent": `📊 Asset Management Analysis for ${industry || "your industry"}:\n\n• Total assets under management: 2,847\n• Critical assets requiring attention: 23\n• Asset health score: 92.5%\n• Lifecycle optimization opportunities identified\n• Maintenance spend optimization: 18%`,
-      "ReliabilityEngineeringAgent": `🔧 Reliability Analysis Complete for ${industry || "your industry"}:\n\n• Analyzed 847 assets using predictive models\n• Identified 23 assets requiring attention\n• Failure prediction accuracy: 94.2%\n• Recommended maintenance windows scheduled\n• Expected reliability improvement: 15%`,
-      "PlanningSchedulingAgent": `📅 Planning & Scheduling Optimization for ${industry || "your industry"}:\n\n• Optimized schedule for next 90 days\n• Resource utilization improved by 23%\n• Critical path maintenance identified\n• Workforce allocation optimized\n• Estimated downtime reduction: 32%`,
-      "WorkOrderManagementAgent": `📋 Work Order Management Report for ${industry || "your industry"}:\n\n• Active work orders: 156\n• Completion rate: 94.2%\n• Average resolution time: 4.3 hours\n• Automated 45 routine work orders\n• Cost per work order reduced by 22%`,
-      "ConditionMonitoringAgent": `📡 Condition Monitoring Analysis for ${industry || "your industry"}:\n\n• Real-time monitoring of 2,847 sensors\n• Detected 12 anomalies requiring attention\n• Predictive alerts generated: 34\n• Equipment health trending positive\n• Early warning accuracy: 96.8%`,
-      "InventoryManagementAgent": `📦 Inventory Optimization Report for ${industry || "your industry"}:\n\n• Spare parts inventory optimized\n• Carrying costs reduced by 28%\n• Stock-out incidents: 0\n• Just-in-time deliveries: 156\n• Inventory turnover improved by 35%`,
-      "MaintenanceOperationsAgent": `⚙️ Maintenance Operations Overview for ${industry || "your industry"}:\n\n• Overall equipment effectiveness: 87.3%\n• Maintenance efficiency: 94.2%\n• Technician productivity up 18%\n• Emergency maintenance reduced 40%\n• Preventive compliance: 98.5%`,
-      "QualityAssuranceAgent": `✓ Quality Assurance Report for ${industry || "your industry"}:\n\n• Quality compliance: 99.2%\n• Defect rate: 0.8%\n• First-time fix rate: 96.5%\n• Customer satisfaction: 4.8/5\n• Process improvement opportunities: 7`,
-      "ComplianceAuditingAgent": `📋 Compliance Report Generated for ${industry || "your industry"}:\n\n• ISO 55000 compliance: 98.5%\n• Regulatory requirements: 100% met\n• Audit findings: 2 minor observations\n• Corrective actions: Auto-scheduled\n• Next audit: Recommended in 6 months`,
-      "SustainabilityESGAgent": `🌱 ESG Metrics Analysis for ${industry || "your industry"}:\n\n• Environmental Score: 85% (↑3% from last month)\n• Social Score: 92% (industry leading)\n• Governance Score: 88%\n• Carbon footprint reduced by 12%\n• Compliance rating: 98.5%`,
-      "DataAnalyticsAgent": `📊 Data Analytics Insights for ${industry || "your industry"}:\n\n• Analyzed 2.4M data points\n• Key trends identified: 15\n• Predictive accuracy: 94.2%\n• Cost optimization opportunities: $340K\n• Performance dashboards updated`,
-      "ContinuousImprovementAgent": `🔄 Continuous Improvement Analysis for ${industry || "your industry"}:\n\n• Improvement initiatives identified: 23\n• Quick wins implemented: 12\n• Expected annual savings: $280K\n• Process efficiency gains: 18%\n• Kaizen events scheduled: 8`,
-      "TrainingWorkforceAgent": `👥 Training & Workforce Report for ${industry || "your industry"}:\n\n• Workforce competency: 91.5%\n• Training completion rate: 96.8%\n• Skills gap analysis completed\n• Upskilling programs: 7 active\n• Technician certification rate: 89%`,
-      "FinancialContractAgent": `💰 Financial & Contract Analysis for ${industry || "your industry"}:\n\n• Maintenance budget utilization: 87%\n• Cost savings identified: $450K\n• Contract optimization opportunities: 5\n• ROI on maintenance spend: 340%\n• Budget forecast accuracy: 96.2%`,
-    };
+    const selectedModel = selectOptimalModel(agentType, query);
 
-    const response = responses[agentType] || 
-      `✅ ${agentType.replace("Agent", "")} analysis completed successfully for ${industry || "your industry"} with actionable insights and recommendations.`;
+    const systemPrompt = buildSystemPrompt(agentType, industry);
+
+    const userQuery = query || `Provide a comprehensive analysis and actionable recommendations for ${agentType.replace("Agent", "")} in ${industry || "the industrial sector"}. Include specific metrics, insights, and next steps.`;
+
+    const aiResponse = await callOpenAI(selectedModel, systemPrompt, userQuery);
 
     const processingTime = Date.now() - startTime;
 
     await supabase.from("ai_agent_logs").insert({
       agent_type: agentType,
-      query: query || `Execute ${agentType} for ${industry || "general"}`,
-      response: response,
+      query: userQuery,
+      response: aiResponse,
       industry: industry || "general",
       processing_time_ms: processingTime,
     });
 
     return new Response(
-      JSON.stringify({ 
+      JSON.stringify({
         success: true,
-        response: response,
+        response: aiResponse,
         processingTime: processingTime,
         agentType: agentType,
-        industry: industry || "general"
+        industry: industry || "general",
+        modelUsed: selectedModel
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
