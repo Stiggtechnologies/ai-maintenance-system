@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from './lib/supabase';
 import { AssetManagement } from './components/AssetManagement';
 import { WorkOrderManagement } from './components/WorkOrderManagement';
@@ -26,7 +26,11 @@ import {
   Clock,
   Lightbulb,
   ExternalLink,
-  TrendingUp
+  TrendingUp,
+  X,
+  File,
+  MicOff,
+  Loader2
 } from 'lucide-react';
 
 interface ChatMessage {
@@ -37,6 +41,14 @@ interface ChatMessage {
   modelUsed?: string;
   followUpQuestions?: string[];
   sources?: Array<{ title: string; type: string }>;
+  attachments?: Array<{ name: string; type: string; url: string }>;
+}
+
+interface UploadedFile {
+  name: string;
+  type: string;
+  url: string;
+  size: number;
 }
 
 function App() {
@@ -47,6 +59,12 @@ function App() {
   const [conversationThreads, setConversationThreads] = useState<Array<{ id: string; title: string; timestamp: Date }>>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [workflowMode, setWorkflowMode] = useState<'standard' | 'deep-analysis'>('standard');
+  const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
+  const [isRecording, setIsRecording] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const [metrics, setMetrics] = useState({
     totalAssets: 2847,
     activeWorkOrders: 156,
@@ -95,6 +113,165 @@ function App() {
         timestamp: new Date(item.created_at)
       })));
     }
+  };
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
+
+    setIsProcessing(true);
+    setUploadProgress(0);
+
+    try {
+      const file = files[0];
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Math.random()}.${fileExt}`;
+      const filePath = `documents/${fileName}`;
+
+      setUploadProgress(30);
+
+      const { error: uploadError } = await supabase.storage
+        .from('documents')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      setUploadProgress(60);
+
+      const { data: urlData } = supabase.storage
+        .from('documents')
+        .getPublicUrl(filePath);
+
+      const uploadedFile: UploadedFile = {
+        name: file.name,
+        type: file.type,
+        url: urlData.publicUrl,
+        size: file.size
+      };
+
+      setUploadedFiles(prev => [...prev, uploadedFile]);
+      setUploadProgress(100);
+
+      setChatMessages(prev => [...prev, {
+        role: 'system',
+        content: `📎 Document uploaded: ${file.name} (${(file.size / 1024).toFixed(2)} KB)`
+      }]);
+
+      setTimeout(() => setUploadProgress(0), 1000);
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      setChatMessages(prev => [...prev, {
+        role: 'system',
+        content: `❌ Error uploading file: ${error instanceof Error ? error.message : 'Unknown error'}`
+      }]);
+    } finally {
+      setIsProcessing(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
+
+    setIsProcessing(true);
+    setUploadProgress(0);
+
+    try {
+      const file = files[0];
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Math.random()}.${fileExt}`;
+      const filePath = `images/${fileName}`;
+
+      setUploadProgress(30);
+
+      const { error: uploadError } = await supabase.storage
+        .from('images')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      setUploadProgress(60);
+
+      const { data: urlData } = supabase.storage
+        .from('images')
+        .getPublicUrl(filePath);
+
+      const uploadedFile: UploadedFile = {
+        name: file.name,
+        type: file.type,
+        url: urlData.publicUrl,
+        size: file.size
+      };
+
+      setUploadedFiles(prev => [...prev, uploadedFile]);
+      setUploadProgress(100);
+
+      setChatMessages(prev => [...prev, {
+        role: 'system',
+        content: `🖼️ Image uploaded: ${file.name}`,
+        attachments: [uploadedFile]
+      }]);
+
+      setTimeout(() => setUploadProgress(0), 1000);
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      setChatMessages(prev => [...prev, {
+        role: 'system',
+        content: `❌ Error uploading image: ${error instanceof Error ? error.message : 'Unknown error'}`
+      }]);
+    } finally {
+      setIsProcessing(false);
+      if (imageInputRef.current) imageInputRef.current.value = '';
+    }
+  };
+
+  const handleVoiceInput = async () => {
+    if (isRecording) {
+      mediaRecorderRef.current?.stop();
+      setIsRecording(false);
+      return;
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+
+      const audioChunks: Blob[] = [];
+
+      mediaRecorder.ondataavailable = (event) => {
+        audioChunks.push(event.data);
+      };
+
+      mediaRecorder.onstop = async () => {
+        new Blob(audioChunks, { type: 'audio/webm' });
+        stream.getTracks().forEach(track => track.stop());
+
+        setChatMessages(prev => [...prev, {
+          role: 'system',
+          content: '🎤 Voice input recorded. Transcription feature coming soon...'
+        }]);
+      };
+
+      mediaRecorder.start();
+      setIsRecording(true);
+
+      setChatMessages(prev => [...prev, {
+        role: 'system',
+        content: '🎤 Recording... Click the microphone again to stop.'
+      }]);
+    } catch (error) {
+      console.error('Error accessing microphone:', error);
+      setChatMessages(prev => [...prev, {
+        role: 'system',
+        content: '❌ Microphone access denied. Please enable microphone permissions.'
+      }]);
+    }
+  };
+
+  const removeUploadedFile = (index: number) => {
+    setUploadedFiles(prev => prev.filter((_, i) => i !== index));
   };
 
   const spaces = [
@@ -167,6 +344,41 @@ function App() {
     ];
   };
 
+  const processDocumentWithAI = async (file: UploadedFile, query: string) => {
+    try {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+      const openaiKey = import.meta.env.VITE_OPENAI_API_KEY;
+
+      const apiUrl = `${supabaseUrl}/functions/v1/document-processor`;
+
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${supabaseKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          fileUrl: file.url,
+          fileName: file.name,
+          fileType: file.type,
+          query: query,
+          openaiKey: openaiKey
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Document processing failed: ${response.status}`);
+      }
+
+      const result = await response.json();
+      return result.analysis;
+    } catch (error) {
+      console.error('Error processing document:', error);
+      return `Error analyzing document: ${error instanceof Error ? error.message : 'Unknown error'}`;
+    }
+  };
+
   const executeAgent = async (agentId: string, industry?: string, userQuery?: string) => {
     setIsProcessing(true);
 
@@ -178,8 +390,17 @@ function App() {
         throw new Error('Supabase configuration missing. Please check your .env file.');
       }
 
-      const apiUrl = `${supabaseUrl}/functions/v1/ai-agent-processor`;
+      let finalQuery = userQuery || '';
 
+      if (uploadedFiles.length > 0) {
+        const fileAnalyses = await Promise.all(
+          uploadedFiles.map(file => processDocumentWithAI(file, userQuery || 'Analyze this document'))
+        );
+
+        finalQuery = `${userQuery || 'Analyze the uploaded documents'}\n\nDocument Analysis:\n${fileAnalyses.join('\n\n')}`;
+      }
+
+      const apiUrl = `${supabaseUrl}/functions/v1/ai-agent-processor`;
       const openaiKey = import.meta.env.VITE_OPENAI_API_KEY;
 
       const response = await fetch(apiUrl, {
@@ -192,7 +413,7 @@ function App() {
           agentType: agentId,
           industry: industry || selectedSpace || 'general',
           openaiKey: openaiKey,
-          query: userQuery
+          query: finalQuery
         })
       });
 
@@ -210,10 +431,12 @@ function App() {
         processingTime: result.processingTime,
         modelUsed: result.modelUsed,
         followUpQuestions: generateFollowUpQuestions(result.agentType),
-        sources: generateMockSources()
+        sources: generateMockSources(),
+        attachments: uploadedFiles.length > 0 ? uploadedFiles : undefined
       };
 
       setChatMessages(prev => [...prev, aiMessage]);
+      setUploadedFiles([]);
       await loadConversationThreads();
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -227,10 +450,14 @@ function App() {
   };
 
   const handleChatSubmit = async () => {
-    if (!chatInput.trim() || isProcessing) return;
+    if ((!chatInput.trim() && uploadedFiles.length === 0) || isProcessing) return;
 
     setChatMessages(prev => [...prev,
-      { role: 'user', content: chatInput }
+      {
+        role: 'user',
+        content: chatInput || 'Analyze uploaded files',
+        attachments: uploadedFiles.length > 0 ? uploadedFiles : undefined
+      }
     ]);
 
     const input = chatInput.toLowerCase();
@@ -289,6 +516,38 @@ function App() {
 
       <div className="w-full max-w-4xl">
         <div className="relative mb-8">
+          {uploadProgress > 0 && (
+            <div className="absolute -top-8 left-0 right-0">
+              <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
+                <span>Uploading...</span>
+                <span>{uploadProgress}%</span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-1.5">
+                <div
+                  className="bg-teal-600 h-1.5 rounded-full transition-all duration-300"
+                  style={{ width: `${uploadProgress}%` }}
+                ></div>
+              </div>
+            </div>
+          )}
+
+          {uploadedFiles.length > 0 && (
+            <div className="mb-3 flex flex-wrap gap-2">
+              {uploadedFiles.map((file, idx) => (
+                <div key={idx} className="flex items-center gap-2 bg-teal-50 border border-teal-200 rounded-lg px-3 py-2">
+                  <File className="w-4 h-4 text-teal-600" />
+                  <span className="text-sm text-gray-700">{file.name}</span>
+                  <button
+                    onClick={() => removeUploadedFile(idx)}
+                    className="ml-2 text-gray-400 hover:text-gray-600"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
           <input
             type="text"
             value={chatInput}
@@ -299,21 +558,60 @@ function App() {
             disabled={isProcessing}
           />
           <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
-            <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+            <input
+              ref={fileInputRef}
+              type="file"
+              onChange={handleFileUpload}
+              className="hidden"
+              accept=".pdf,.doc,.docx,.txt,.csv,.xls,.xlsx"
+            />
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isProcessing}
+              className="p-2 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
+            >
               <Paperclip className="w-5 h-5 text-gray-400" />
             </button>
-            <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+
+            <input
+              ref={imageInputRef}
+              type="file"
+              onChange={handleImageUpload}
+              className="hidden"
+              accept="image/*"
+            />
+            <button
+              onClick={() => imageInputRef.current?.click()}
+              disabled={isProcessing}
+              className="p-2 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
+            >
               <Image className="w-5 h-5 text-gray-400" />
             </button>
-            <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
-              <Mic className="w-5 h-5 text-gray-400" />
+
+            <button
+              onClick={handleVoiceInput}
+              disabled={isProcessing}
+              className={`p-2 rounded-lg transition-colors disabled:opacity-50 ${
+                isRecording ? 'bg-red-100 hover:bg-red-200' : 'hover:bg-gray-100'
+              }`}
+            >
+              {isRecording ? (
+                <MicOff className="w-5 h-5 text-red-600" />
+              ) : (
+                <Mic className="w-5 h-5 text-gray-400" />
+              )}
             </button>
+
             <button
               onClick={handleChatSubmit}
-              disabled={!chatInput.trim() || isProcessing}
-              className="p-2 bg-teal-600 hover:bg-teal-700 disabled:bg-gray-300 rounded-lg transition-colors"
+              disabled={(!chatInput.trim() && uploadedFiles.length === 0) || isProcessing}
+              className="p-2 bg-teal-600 hover:bg-teal-700 disabled:bg-gray-300 rounded-lg transition-colors flex items-center justify-center"
             >
-              <ArrowUpCircle className="w-5 h-5 text-white" />
+              {isProcessing ? (
+                <Loader2 className="w-5 h-5 text-white animate-spin" />
+              ) : (
+                <ArrowUpCircle className="w-5 h-5 text-white" />
+              )}
             </button>
           </div>
         </div>
@@ -345,9 +643,29 @@ function App() {
         {chatMessages.length > 0 && (
           <div className="space-y-6 mb-8">
             {chatMessages.map((msg, idx) => (
-              <div key={idx} className={`${msg.role === 'user' ? 'text-right' : ''}`}>
+              <div key={idx} className={`${msg.role === 'user' ? 'text-right' : msg.role === 'system' ? 'text-center' : ''}`}>
                 {msg.role === 'user' ? (
-                  <div className="inline-block bg-teal-600 text-white px-6 py-3 rounded-2xl max-w-2xl">
+                  <div className="inline-block">
+                    <div className="bg-teal-600 text-white px-6 py-3 rounded-2xl max-w-2xl text-left">
+                      {msg.content}
+                    </div>
+                    {msg.attachments && msg.attachments.length > 0 && (
+                      <div className="mt-2 flex flex-wrap gap-2 justify-end">
+                        {msg.attachments.map((file, i) => (
+                          <div key={i} className="flex items-center gap-2 bg-teal-700 text-white text-xs rounded-lg px-3 py-1.5">
+                            {file.type.includes('image') ? (
+                              <Image className="w-3 h-3" />
+                            ) : (
+                              <File className="w-3 h-3" />
+                            )}
+                            <span>{file.name}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ) : msg.role === 'system' ? (
+                  <div className="inline-block bg-gray-100 text-gray-600 px-4 py-2 rounded-lg text-sm">
                     {msg.content}
                   </div>
                 ) : (
@@ -375,6 +693,20 @@ function App() {
                     <div className="prose prose-sm max-w-none text-gray-700 leading-relaxed mb-4">
                       {msg.content}
                     </div>
+
+                    {msg.attachments && msg.attachments.length > 0 && (
+                      <div className="border-t border-gray-100 pt-4 mb-4">
+                        <p className="text-xs font-medium text-gray-500 mb-2">Analyzed Documents</p>
+                        <div className="flex flex-wrap gap-2">
+                          {msg.attachments.map((file, i) => (
+                            <div key={i} className="flex items-center gap-2 bg-gray-50 text-gray-600 text-xs rounded-lg px-3 py-1.5 border border-gray-200">
+                              <File className="w-3 h-3" />
+                              <span>{file.name}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
 
                     {msg.sources && msg.sources.length > 0 && (
                       <div className="border-t border-gray-100 pt-4 mb-4">
