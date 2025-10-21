@@ -1,9 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from './lib/supabase';
+import { useAuth } from './components/AuthProvider';
+import { AuthForm } from './components/AuthForm';
+import { AutonomousDashboard } from './components/AutonomousDashboard';
 import { AssetManagement } from './components/AssetManagement';
 import { WorkOrderManagement } from './components/WorkOrderManagement';
 import { AIAnalyticsDashboard } from './components/AIAnalyticsDashboard';
 import { MarkdownRenderer } from './components/MarkdownRenderer';
+import { startAutonomousMonitoring } from './services/autonomousMonitoring';
 import {
   Home,
   Globe,
@@ -36,7 +40,9 @@ import {
   Database,
   Building2,
   Play,
-  Pause
+  Pause,
+  LogOut,
+  Bot
 } from 'lucide-react';
 
 interface ChatMessage {
@@ -58,6 +64,7 @@ interface UploadedFile {
 }
 
 function App() {
+  const { user, profile, loading: authLoading, signOut } = useAuth();
   const [activeView, setActiveView] = useState('home');
   const [selectedSpace, setSelectedSpace] = useState('');
   const [chatInput, setChatInput] = useState('');
@@ -110,7 +117,21 @@ function App() {
 
     fetchMetrics();
     loadConversationThreads();
-  }, []);
+
+    let cleanup: (() => void) | undefined;
+
+    if (user) {
+      startAutonomousMonitoring().then((fn) => {
+        cleanup = fn;
+      });
+    }
+
+    return () => {
+      if (cleanup) {
+        cleanup();
+      }
+    };
+  }, [user]);
 
   const loadConversationThreads = async () => {
     const { data, error } = await supabase
@@ -922,6 +943,12 @@ function App() {
       view: 'home'
     },
     {
+      id: 'autonomous',
+      label: 'Autonomous',
+      icon: Bot,
+      view: 'autonomous'
+    },
+    {
       id: 'spaces',
       label: 'Spaces',
       icon: Building2,
@@ -959,6 +986,18 @@ function App() {
       ]
     }
   ];
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600"></div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <AuthForm />;
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex">
@@ -1037,9 +1076,21 @@ function App() {
             <Bell className="w-5 h-5 flex-shrink-0" />
             {!isSidebarCollapsed && <span className="text-sm">Notifications</span>}
           </button>
-          <button className={`w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors ${isSidebarCollapsed ? 'justify-center' : ''}`}>
+          <div className={`w-full flex items-center gap-3 px-4 py-3 text-gray-700 ${isSidebarCollapsed ? 'justify-center' : ''}`}>
             <User className="w-5 h-5 flex-shrink-0" />
-            {!isSidebarCollapsed && <span className="text-sm">Profile</span>}
+            {!isSidebarCollapsed && (
+              <div className="flex-1">
+                <p className="text-sm font-medium">{profile?.full_name || 'User'}</p>
+                <p className="text-xs text-gray-500 capitalize">{profile?.role}</p>
+              </div>
+            )}
+          </div>
+          <button
+            onClick={signOut}
+            className={`w-full flex items-center gap-3 px-4 py-3 text-red-600 hover:bg-red-50 rounded-lg transition-colors ${isSidebarCollapsed ? 'justify-center' : ''}`}
+          >
+            <LogOut className="w-5 h-5 flex-shrink-0" />
+            {!isSidebarCollapsed && <span className="text-sm">Sign Out</span>}
           </button>
         </div>
       </div>
@@ -1047,6 +1098,7 @@ function App() {
       <div className="flex-1 flex flex-col overflow-hidden">
         <div className="flex-1 overflow-auto">
           {activeView === 'home' && renderHomeView()}
+          {activeView === 'autonomous' && <AutonomousDashboard />}
           {activeView === 'threads' && (
             <div className="max-w-4xl mx-auto py-8 px-4">
               <h2 className="text-2xl font-bold text-gray-900 mb-6">Recent Conversations</h2>
