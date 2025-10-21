@@ -8,42 +8,7 @@ import { WorkOrderManagement } from './components/WorkOrderManagement';
 import { AIAnalyticsDashboard } from './components/AIAnalyticsDashboard';
 import { MarkdownRenderer } from './components/MarkdownRenderer';
 import { startAutonomousMonitoring } from './services/autonomousMonitoring';
-import {
-  Home,
-  Globe,
-  Layers,
-  User,
-  Image,
-  Paperclip,
-  Globe2,
-  Mic,
-  ArrowUpCircle,
-  BarChart3,
-  Wrench,
-  Activity,
-  GraduationCap,
-  FileCheck,
-  Zap,
-  MessageSquare,
-  Clock,
-  Lightbulb,
-  ExternalLink,
-  TrendingUp,
-  X,
-  File,
-  MicOff,
-  Loader2,
-  ChevronRight,
-  Settings,
-  Bell,
-  Users,
-  Database,
-  Building2,
-  Play,
-  Pause,
-  LogOut,
-  Bot
-} from 'lucide-react';
+import { Home, Globe, Layers, User, Image, Paperclip, Globe as Globe2, Mic, ArrowUpCircle, BarChart3, Wrench, Activity, GraduationCap, FileCheck, Zap, MessageSquare, Clock, Lightbulb, ExternalLink, TrendingUp, X, File, MicOff, Loader2, ChevronRight, Settings, Bell, Users, Database, Building2, Play, Pause, LogOut, Bot } from 'lucide-react';
 
 interface ChatMessage {
   role: string;
