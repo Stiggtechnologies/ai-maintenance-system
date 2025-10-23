@@ -12,6 +12,11 @@ import { StrategicDashboard } from './components/StrategicDashboard';
 import { TacticalDashboard } from './components/TacticalDashboard';
 import { OperationalDashboard } from './components/OperationalDashboard';
 import { UnifiedChatInterface } from './components/UnifiedChatInterface';
+import { BillingOverview } from './components/billing/BillingOverview';
+import { PlansAndPricing } from './components/billing/PlansAndPricing';
+import { UsageDashboard } from './components/billing/UsageDashboard';
+import { InvoiceList } from './components/billing/InvoiceList';
+import { GainShareConsole } from './components/billing/GainShareConsole';
 import { startAutonomousMonitoring } from './services/autonomousMonitoring';
 import { Home, Globe, Layers, User, Image, Paperclip, Globe as Globe2, Mic, ArrowUpCircle, BarChart3, Wrench, Activity, GraduationCap, FileCheck, Zap, MessageSquare, Clock, Lightbulb, ExternalLink, TrendingUp, X, File, MicOff, Loader2, ChevronRight, Bell, Database, Building2, Play, Pause, LogOut, Bot } from 'lucide-react';
 
@@ -962,6 +967,18 @@ function App() {
         { id: 'workorders', label: 'Work Orders', icon: FileCheck, view: 'workorders' },
         { id: 'analytics', label: 'Analytics', icon: BarChart3, view: 'analytics' }
       ]
+    },
+    {
+      id: 'billing',
+      label: 'Billing',
+      icon: Bot,
+      submenu: [
+        { id: 'billing-overview', label: 'Overview', icon: BarChart3, view: 'billing-overview' },
+        { id: 'billing-plans', label: 'Plans', icon: Layers, view: 'billing-plans' },
+        { id: 'billing-usage', label: 'Usage', icon: TrendingUp, view: 'billing-usage' },
+        { id: 'billing-invoices', label: 'Invoices', icon: FileCheck, view: 'billing-invoices' },
+        { id: 'billing-gainshare', label: 'Gain-Share', icon: Zap, view: 'billing-gainshare' }
+      ]
     }
   ];
 
@@ -1108,6 +1125,11 @@ function App() {
           {activeView === 'assets' && <AssetManagement />}
           {activeView === 'workorders' && <WorkOrderManagement />}
           {activeView === 'analytics' && <AIAnalyticsDashboard />}
+          {activeView === 'billing-overview' && <BillingOverview />}
+          {activeView === 'billing-plans' && <PlansAndPricing />}
+          {activeView === 'billing-usage' && <UsageDashboard />}
+          {activeView === 'billing-invoices' && <InvoiceList />}
+          {activeView === 'billing-gainshare' && <GainShareConsole />}
         </div>
 
         <footer className="bg-white border-t border-gray-200 px-6 py-3">
