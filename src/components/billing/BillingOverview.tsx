@@ -165,9 +165,9 @@ export function BillingOverview() {
                 <div className="text-2xl font-bold text-gray-900">
                   {assetCount} <span className="text-sm text-gray-500">/ {plan?.included_assets}</span>
                 </div>
-                {assetCount > plan?.included_assets && (
+                {assetCount && plan?.included_assets && assetCount > plan.included_assets && (
                   <div className="text-xs text-red-600 mt-1">
-                    +${((assetCount - plan?.included_assets) * plan?.asset_uplift_cad).toFixed(2)} overage
+                    +${((assetCount - plan.included_assets) * plan.asset_uplift_cad).toFixed(2)} overage
                   </div>
                 )}
               </div>
