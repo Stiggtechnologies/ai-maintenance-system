@@ -21,6 +21,34 @@ export function BillingOverview() {
     fetchBillingData();
   }, [user]);
 
+  const handleManageSubscription = async () => {
+    try {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+      const response = await fetch(`${supabaseUrl}/functions/v1/stripe-checkout/portal`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${supabaseKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          tenant_id: user?.id || 'demo-tenant',
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to open customer portal');
+      }
+
+      const data = await response.json();
+      window.location.href = data.url;
+    } catch (error) {
+      console.error('Portal error:', error);
+      alert('Failed to open customer portal. Please try again.');
+    }
+  };
+
   const fetchBillingData = async () => {
     try {
       // Get user's tenant_id (simplified - adjust based on your schema)
@@ -196,8 +224,17 @@ export function BillingOverview() {
               </div>
             </div>
 
-            <div className="mt-6 pt-6 border-t border-gray-200">
-              <button className="px-4 py-2 text-teal-600 hover:text-teal-700 font-medium text-sm">
+            <div className="mt-6 pt-6 border-t border-gray-200 flex gap-3">
+              <button
+                onClick={handleManageSubscription}
+                className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 font-medium text-sm"
+              >
+                Manage Subscription
+              </button>
+              <button
+                onClick={() => window.location.href = '/app/billing/plans'}
+                className="px-4 py-2 text-teal-600 hover:text-teal-700 font-medium text-sm"
+              >
                 Change Plan
               </button>
             </div>

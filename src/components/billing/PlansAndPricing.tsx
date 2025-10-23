@@ -46,8 +46,37 @@ export function PlansAndPricing() {
 
   const handleSelectPlan = async (planCode: string) => {
     setSelectedPlan(planCode);
-    // Here you would integrate with Stripe Checkout or your payment flow
-    alert(`Selected plan: ${planCode}. Payment integration would go here.`);
+
+    try {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+      // Get current user's tenant_id (simplified - adjust based on your auth)
+      const response = await fetch(`${supabaseUrl}/functions/v1/stripe-checkout/checkout`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${supabaseKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          tenant_id: localStorage.getItem('tenant_id') || 'demo-tenant',
+          plan_code: planCode,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to create checkout session');
+      }
+
+      const data = await response.json();
+
+      // Redirect to Stripe Checkout
+      window.location.href = data.url;
+    } catch (error) {
+      console.error('Checkout error:', error);
+      alert('Failed to start checkout. Please try again.');
+      setSelectedPlan(null);
+    }
   };
 
   if (loading) {
