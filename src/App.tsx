@@ -7,8 +7,13 @@ import { AssetManagement } from './components/AssetManagement';
 import { WorkOrderManagement } from './components/WorkOrderManagement';
 import { AIAnalyticsDashboard } from './components/AIAnalyticsDashboard';
 import { MarkdownRenderer } from './components/MarkdownRenderer';
+import { ExecutiveDashboard } from './components/ExecutiveDashboard';
+import { StrategicDashboard } from './components/StrategicDashboard';
+import { TacticalDashboard } from './components/TacticalDashboard';
+import { OperationalDashboard } from './components/OperationalDashboard';
+import { UnifiedChatInterface } from './components/UnifiedChatInterface';
 import { startAutonomousMonitoring } from './services/autonomousMonitoring';
-import { Home, Globe, Layers, User, Image, Paperclip, Globe as Globe2, Mic, ArrowUpCircle, BarChart3, Wrench, Activity, GraduationCap, FileCheck, Zap, MessageSquare, Clock, Lightbulb, ExternalLink, TrendingUp, X, File, MicOff, Loader2, ChevronRight, Settings, Bell, Users, Database, Building2, Play, Pause, LogOut, Bot } from 'lucide-react';
+import { Home, Globe, Layers, User, Image, Paperclip, Globe as Globe2, Mic, ArrowUpCircle, BarChart3, Wrench, Activity, GraduationCap, FileCheck, Zap, MessageSquare, Clock, Lightbulb, ExternalLink, TrendingUp, X, File, MicOff, Loader2, ChevronRight, Bell, Database, Building2, Play, Pause, LogOut, Bot } from 'lucide-react';
 
 interface ChatMessage {
   role: string;
@@ -908,10 +913,27 @@ function App() {
       view: 'home'
     },
     {
+      id: 'ai-assistant',
+      label: 'AI Assistant',
+      icon: MessageSquare,
+      view: 'ai-assistant'
+    },
+    {
       id: 'autonomous',
       label: 'Autonomous',
       icon: Bot,
       view: 'autonomous'
+    },
+    {
+      id: 'dashboards',
+      label: 'Dashboards',
+      icon: BarChart3,
+      submenu: [
+        { id: 'executive', label: 'Executive', icon: TrendingUp, view: 'dashboard-executive' },
+        { id: 'strategic', label: 'Strategic', icon: BarChart3, view: 'dashboard-strategic' },
+        { id: 'tactical', label: 'Tactical', icon: Wrench, view: 'dashboard-tactical' },
+        { id: 'operational', label: 'Operational', icon: Activity, view: 'dashboard-operational' }
+      ]
     },
     {
       id: 'spaces',
@@ -939,15 +961,6 @@ function App() {
         { id: 'assets', label: 'Assets', icon: Layers, view: 'assets' },
         { id: 'workorders', label: 'Work Orders', icon: FileCheck, view: 'workorders' },
         { id: 'analytics', label: 'Analytics', icon: BarChart3, view: 'analytics' }
-      ]
-    },
-    {
-      id: 'team',
-      label: 'Team',
-      icon: Users,
-      submenu: [
-        { id: 'members', label: 'Members', icon: User },
-        { id: 'settings', label: 'Settings', icon: Settings }
       ]
     }
   ];
@@ -1063,7 +1076,12 @@ function App() {
       <div className="flex-1 flex flex-col overflow-hidden">
         <div className="flex-1 overflow-auto">
           {activeView === 'home' && renderHomeView()}
+          {activeView === 'ai-assistant' && <UnifiedChatInterface />}
           {activeView === 'autonomous' && <AutonomousDashboard />}
+          {activeView === 'dashboard-executive' && <ExecutiveDashboard />}
+          {activeView === 'dashboard-strategic' && <StrategicDashboard />}
+          {activeView === 'dashboard-tactical' && <TacticalDashboard />}
+          {activeView === 'dashboard-operational' && <OperationalDashboard />}
           {activeView === 'threads' && (
             <div className="max-w-4xl mx-auto py-8 px-4">
               <h2 className="text-2xl font-bold text-gray-900 mb-6">Recent Conversations</h2>
