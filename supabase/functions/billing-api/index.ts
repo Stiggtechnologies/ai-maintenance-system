@@ -6,23 +6,24 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Client-Info, Apikey',
 };
 
-interface PlanConfig {
-  code: string;
-  name: string;
-  base_price_cad: number;
-  included_assets: number;
-  included_credits: number;
-  asset_uplift_cad: number;
-  overage_per_credit_cad: number;
-  max_sites: number;
+interface Rule {
+  event: string;
+  perUnit: number;
+  unitCalc: (meta: any) => number;
 }
 
-const CREDIT_RULES: Record<string, { credits_per_unit: number; unit: string }> = {
-  'LLM_token_usage': { credits_per_unit: 1, unit: '1k_tokens' },
-  'vision_frame_batch': { credits_per_unit: 5, unit: '100_frames' },
-  'optimizer_job': { credits_per_unit: 500, unit: 'job' },
-  'simulator_run': { credits_per_unit: 1000, unit: 'run' },
-};
+const CREDIT_RULES: Rule[] = [
+  { event: 'LLM_token_usage', perUnit: 1, unitCalc: (m) => Math.ceil((m?.total_tokens || m?.units || 0) / 1000) },
+  { event: 'vision_frame_batch', perUnit: 5, unitCalc: (m) => Math.ceil((m?.frames || m?.units || 0) / 100) },
+  { event: 'optimizer_job', perUnit: 500, unitCalc: () => 1 },
+  { event: 'simulator_run', perUnit: 1000, unitCalc: () => 1 },
+];
+
+function computeCredits(event_type: string, meta: any): number {
+  const rule = CREDIT_RULES.find(r => r.event === event_type);
+  if (!rule) throw new Error(`Unknown event type: ${event_type}`);
+  return rule.perUnit * rule.unitCalc(meta || {});
+}
 
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
@@ -141,22 +142,17 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    // POST /usage/track - Record usage event
+    // POST /usage/track - Record usage event with enhanced credit calculation
     if (req.method === 'POST' && path === '/usage/track') {
       const body = await req.json();
       const { tenant_id, subscription_id, site_id, asset_id, event_type, units, meta } = body;
 
-      if (!tenant_id || !subscription_id || !event_type || units === undefined) {
-        throw new Error('Missing required fields');
+      if (!tenant_id || !subscription_id || !event_type) {
+        throw new Error('Missing required fields: tenant_id, subscription_id, event_type');
       }
 
-      // Calculate credits
-      const rule = CREDIT_RULES[event_type];
-      if (!rule) {
-        throw new Error(`Unknown event type: ${event_type}`);
-      }
-
-      const credits = Math.ceil(units * rule.credits_per_unit);
+      // Enhanced credit calculation using meta or units
+      const credits = computeCredits(event_type, meta || { units: units || 1 });
 
       // Insert usage event
       const { error: usageError } = await supabase
@@ -167,38 +163,54 @@ Deno.serve(async (req: Request) => {
           site_id,
           asset_id,
           event_type,
-          units,
+          units: units || 1,
           credits_consumed: credits,
-          meta,
+          meta: meta || {},
           occurred_at: new Date().toISOString(),
         });
 
       if (usageError) throw usageError;
 
-      // Update remaining credits
+      // Update remaining credits atomically
       const { data: limits, error: limitsError } = await supabase
         .from('subscription_limits')
-        .select('remaining_credits')
+        .select('remaining_credits, included_credits')
         .eq('subscription_id', subscription_id)
         .single();
 
       if (limitsError) throw limitsError;
 
       const newRemaining = (limits?.remaining_credits || 0) - credits;
+      const usagePercent = ((limits.included_credits - newRemaining) / limits.included_credits) * 100;
 
       const { error: updateError } = await supabase
         .from('subscription_limits')
-        .update({ remaining_credits: newRemaining, updated_at: new Date().toISOString() })
+        .update({ 
+          remaining_credits: newRemaining, 
+          updated_at: new Date().toISOString() 
+        })
         .eq('subscription_id', subscription_id);
 
       if (updateError) throw updateError;
+
+      // Determine alert level
+      let alert = null;
+      if (newRemaining < 0) {
+        alert = 'OVERAGE';
+      } else if (usagePercent > 90) {
+        alert = 'CRITICAL';
+      } else if (usagePercent > 75) {
+        alert = 'WARNING';
+      }
 
       return new Response(
         JSON.stringify({
           ok: true,
           credits_burned: credits,
-          remaining_credits: newRemaining,
-          alert: newRemaining < 0 ? 'OVERAGE' : newRemaining < 10000 ? 'LOW' : null,
+          remaining_credits: Math.max(newRemaining, 0),
+          overage_credits: newRemaining < 0 ? Math.abs(newRemaining) : 0,
+          usage_percent: usagePercent.toFixed(1),
+          alert,
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
@@ -249,6 +261,29 @@ Deno.serve(async (req: Request) => {
           total_credits: totalCredits,
           by_type: summary,
         }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // GET /overage - Get overage summary using new view
+    if (req.method === 'GET' && path === '/overage') {
+      const subscriptionId = url.searchParams.get('subscriptionId');
+      
+      if (!subscriptionId) {
+        throw new Error('Missing subscriptionId parameter');
+      }
+
+      const { data, error } = await supabase
+        .from('v_billable_overage')
+        .select('*')
+        .eq('subscription_id', subscriptionId)
+        .order('month', { ascending: false })
+        .limit(6);
+
+      if (error) throw error;
+
+      return new Response(
+        JSON.stringify({ overage_history: data }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
