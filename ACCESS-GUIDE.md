@@ -1,419 +1,514 @@
-# 🚀 How to Access Everything - Quick Guide
+# 🎯 Access Guide - Microsoft Copilot-Style Features
 
-## ✅ Your System is Ready!
+## How to Use All the New Features
 
-**Status**:
-- ✅ Database configured and populated with sample data
-- ✅ All components built and tested
-- ✅ Production bundle ready (369KB)
-- ✅ Environment variables configured
-- ✅ 29 ISO 55000 KPIs ready to view
+All Microsoft Copilot-style RAG and training features are accessible through:
+1. **Supabase Database** (direct SQL/API access)
+2. **Edge Functions** (serverless endpoints)
+3. **React Components** (UI integration)
 
 ---
 
-## 🌐 Option 1: Run Locally (Recommended for Development)
+## 📋 Quick Reference
 
-### **Start the Development Server**:
-```bash
-cd /tmp/cc-agent/53222566/project
-npm run dev
-```
-
-**Then open**: http://localhost:5173
-
-**What you'll see**:
-- Login/signup screen
-- Once logged in: Full application with all dashboards
-
----
-
-## 🚀 Option 2: Deploy to Production (Recommended for Sharing)
-
-### **Deploy to Vercel** (Easiest - 2 minutes):
-```bash
-# Install Vercel CLI (if not installed)
-npm install -g vercel
-
-# Deploy
-cd /tmp/cc-agent/53222566/project
-vercel deploy --prod
-```
-
-**Vercel will**:
-1. Detect it's a Vite project
-2. Build automatically
-3. Give you a live URL like: `https://your-project.vercel.app`
-
-**Set environment variables in Vercel**:
-```
-VITE_SUPABASE_URL=https://dguwgnxjdivsrekjarlp.supabase.co
-VITE_SUPABASE_ANON_KEY=eyJhbGc...
-VITE_OPENAI_API_KEY=sk-proj-7nvW...
-```
-
-### **Deploy to Netlify** (Alternative):
-```bash
-# Install Netlify CLI
-npm install -g netlify-cli
-
-# Deploy
-cd /tmp/cc-agent/53222566/project
-netlify deploy --prod
-```
+### **Core Features Available:**
+✅ Document Upload & Processing (RAG)
+✅ Hybrid Search (Vector + BM25)  
+✅ Data Connectors (SharePoint, SAP, etc.)
+✅ GraphRAG (Entity extraction)
+✅ Tool Calling (with approval)
+✅ Safety Checks (RAI)
+✅ Canary Deployments
+✅ Cost Budgets
+✅ Fine-Tuning Workflows
 
 ---
 
-## 🔐 How to Log In
+## 1️⃣ **Upload & Process Documents**
 
-### **Option A: Create New Account**
-```
-1. Open the app (local or deployed URL)
-2. Click "Sign Up"
-3. Enter email and password
-4. Click "Create Account"
-5. You're in!
-```
+### **Via JavaScript/TypeScript:**
+```typescript
+import { supabase } from './lib/supabase';
 
-### **Option B: Use Test Account** (if you've already created one)
-```
-Email: Your email
-Password: Your password
-```
+// Step 1: Upload document
+const { data: doc } = await supabase
+  .from('knowledge_base_documents')
+  .insert({
+    tenant_id: 'your-tenant-uuid',
+    document_type: 'manual',
+    title: 'Pump Maintenance Manual',
+    content: 'Your document text here...',
+    category: 'Maintenance'
+  })
+  .select()
+  .single();
 
----
+// Step 2: Process (chunk + embed)
+const response = await fetch(
+  `${SUPABASE_URL}/functions/v1/rag-document-processor/process`,
+  {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      document_id: doc.id,
+      tenant_id: 'your-tenant-uuid'
+    })
+  }
+);
 
-## 📊 Once Logged In - Where to Go
-
-### **Navigation Bar (Left Sidebar)**:
-
-```
-🏠 Home
-   - AI-powered query interface
-   - Upload documents
-   - Ask questions
-
-💬 AI Assistant
-   - Role-specific conversational AI
-   - Quick actions
-   - Voice input support
-
-🤖 Autonomous
-   - View autonomous decisions
-   - See system actions
-   - Monitor health checks
-
-📊 Dashboards ⭐ START HERE!
-   ├─ Executive       - For C-Suite (strategic KOIs)
-   ├─ Strategic       - For Directors/VPs (all KPIs)
-   ├─ Tactical        - For Managers (work orders)
-   └─ Operational     - For Technicians (field tasks)
-
-🏢 Spaces
-   ├─ Oil & Gas
-   ├─ Mining
-   ├─ Power & Utilities
-   ├─ Manufacturing
-   └─ Aerospace
-
-💬 Conversations
-   - View chat history
-   - Resume conversations
-
-📁 Data
-   ├─ Assets          - View all assets
-   ├─ Work Orders     - Manage work orders
-   └─ Analytics       - Advanced analytics
+const result = await response.json();
+console.log(`Created ${result.chunks_created} chunks`);
 ```
 
----
-
-## 🎯 Quick Access to Key Features
-
-### **See the ISO 55000 KPIs** ⭐ RECOMMENDED FIRST STEP:
-
-**Path 1: Executive View**
-```
-1. Click "Dashboards" in sidebar
-2. Select "Executive"
-3. See 10 category cards with status indicators
-4. Click any category to drill down
-```
-
-**Path 2: Strategic View** (Most Detailed)
-```
-1. Click "Dashboards" in sidebar
-2. Select "Strategic"
-3. See all 29 KPIs in detailed cards
-4. Filter by category or status
-5. View actual vs target values
-```
-
-**Path 3: Tactical View** (For Managers)
-```
-1. Click "Dashboards" in sidebar
-2. Select "Tactical"
-3. Three tabs:
-   - Overview (summary + approvals)
-   - Work Orders (task management)
-   - Performance KPIs (key metrics)
-```
-
-**Path 4: Operational View** (For Technicians)
-```
-1. Click "Dashboards" in sidebar
-2. Select "Operational"
-3. See:
-   - My work orders
-   - Active alerts
-   - Quick stats
-   - Task execution interface
-```
-
----
-
-## 🤖 Try the AI Chat
-
-```
-1. Click "AI Assistant" in sidebar
-2. Try these queries:
-
-   "Show my KPIs"
-   "What needs attention?"
-   "Show me asset availability"
-   "What is our MTBF?"
-   "Show pending work orders"
-   "What alerts are active?"
-   "Recommend priority actions"
-```
-
----
-
-## 📊 Sample Data Available
-
-Your system already has **30 days of sample data** including:
-
-✅ **Assets**: Multiple operational assets
-✅ **Work Orders**: Mix of preventive and corrective
-✅ **KPI Measurements**: 30 days of historical data for all 29 KPIs
-✅ **Organizational Units**: 5 business units (HQ, plants, refinery, mine)
-✅ **Alerts**: Active and resolved system alerts
-✅ **Decisions**: Autonomous decisions (some pending approval)
-
-**All dashboards will show real data immediately!**
-
----
-
-## 🔧 Assign Your Organizational Level
-
-By default, new users get the "Field Operations" level. To access higher-level dashboards, update your profile:
-
-### **Option 1: Use Supabase Dashboard**:
-```
-1. Go to: https://dguwgnxjdivsrekjarlp.supabase.co
-2. Log in to Supabase
-3. Navigate to: Table Editor → user_profiles
-4. Find your user
-5. Edit org_level_id:
-   - Executive: Select "Executive Leadership"
-   - Strategic: Select "Strategic Management"
-   - Tactical: Select "Tactical Management"
-   - Operational: Select "Operational Execution"
-6. Save
-7. Refresh your app
-```
-
-### **Option 2: Use SQL**:
+### **Via SQL (Direct):**
 ```sql
--- Find your user ID
-SELECT id, email, role FROM user_profiles;
+-- Insert document
+INSERT INTO knowledge_base_documents (
+  tenant_id, document_type, title, content
+) VALUES (
+  'tenant-uuid',
+  'manual',
+  'Pump Maintenance Manual',
+  'Document content...'
+);
 
--- Set to Executive level
-UPDATE user_profiles
-SET org_level_id = (
-  SELECT id FROM organizational_levels
-  WHERE level_code = 'EXECUTIVE'
-)
-WHERE email = 'your-email@example.com';
+-- Check processing status
+SELECT id, title, processing_status, chunk_count
+FROM knowledge_base_documents
+WHERE tenant_id = 'your-tenant-uuid';
 ```
 
 ---
 
-## 📱 Access on Mobile
+## 2️⃣ **Search Knowledge Base**
 
-The app is **fully responsive**! Just:
-1. Open the URL on your phone/tablet
-2. Log in with same credentials
-3. Navigate using bottom nav or hamburger menu
-4. Use voice input in AI chat
-5. Upload photos for work orders
+### **Hybrid Search (Vector + BM25):**
+```typescript
+// Semantic search via Edge Function
+const response = await fetch(
+  `${SUPABASE_URL}/functions/v1/rag-semantic-search`,
+  {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      query: 'How often should I lubricate bearings?',
+      tenant_id: 'your-tenant-uuid',
+      match_threshold: 0.7,
+      match_count: 5
+    })
+  }
+);
+
+const { results } = await response.json();
+results.forEach(r => {
+  console.log(`${r.document_title}: ${r.content}`);
+  console.log(`Similarity: ${(r.similarity * 100).toFixed(1)}%`);
+});
+```
+
+### **Direct SQL (Hybrid Function):**
+```sql
+-- Use hybrid search function
+SELECT * FROM hybrid_search(
+  query_text := 'pump bearing lubrication',
+  query_embedding := '[...]'::vector(1536),
+  target_tenant_id := 'your-tenant-uuid',
+  match_count := 10
+);
+```
 
 ---
 
-## 🎛️ Database Access (For Admins)
+## 3️⃣ **Data Connectors**
 
-### **Supabase Dashboard**:
+### **Add SharePoint Connector:**
+```typescript
+const { data: source } = await supabase
+  .from('data_sources')
+  .insert({
+    tenant_id: 'your-tenant-uuid',
+    source_type: 'sharepoint',
+    name: 'Engineering Docs',
+    config: {
+      site_url: 'https://company.sharepoint.com/sites/eng',
+      library: 'Documents'
+    },
+    enabled: true
+  })
+  .select()
+  .single();
 ```
-URL: https://dguwgnxjdivsrekjarlp.supabase.co
-Login: Use your Supabase credentials
 
-You can:
-- View all tables
-- Run SQL queries
-- Check edge functions
-- Monitor usage
-- View logs
-```
+### **Trigger Sync:**
+```typescript
+const { data: job } = await supabase
+  .from('sync_jobs')
+  .insert({
+    source_id: source.id,
+    tenant_id: 'your-tenant-uuid',
+    job_type: 'delta'
+  })
+  .select()
+  .single();
 
-### **Key Tables to Explore**:
-```
-📊 kpis_kois              - Master list of 29 KPIs
-📈 kpi_measurements       - Time-series KPI data (30 days)
-👥 organizational_levels  - 5 hierarchy levels
-🏢 organizational_units   - Business units
-👤 user_profiles          - User accounts with org levels
-🔧 assets                 - Equipment and assets
-📋 work_orders            - Maintenance tasks
-🚨 system_alerts          - Active alerts
+// Monitor progress
+const { data: status } = await supabase
+  .from('sync_jobs')
+  .select('status, new_items, updated_items')
+  .eq('id', job.id)
+  .single();
 ```
 
 ---
 
-## ⚙️ Run KPI Calculator Manually
+## 4️⃣ **GraphRAG Entities**
 
-To generate fresh KPI data:
+### **Create Entities:**
+```typescript
+await supabase.from('graph_entities').insert({
+  tenant_id: 'your-tenant-uuid',
+  entity_type: 'asset',
+  entity_name: 'Pump-101',
+  properties: { model: 'XYZ-500', location: 'Plant-A' }
+});
+```
 
+### **Create Relationships:**
+```typescript
+await supabase.from('graph_relationships').insert({
+  tenant_id: 'your-tenant-uuid',
+  from_entity_id: pump_id,
+  to_entity_id: failure_mode_id,
+  relationship_type: 'susceptible_to',
+  confidence_score: 0.85
+});
+```
+
+### **Query Graph:**
+```sql
+SELECT
+  e1.entity_name as asset,
+  r.relationship_type,
+  e2.entity_name as related
+FROM graph_relationships r
+JOIN graph_entities e1 ON e1.id = r.from_entity_id
+JOIN graph_entities e2 ON e2.id = r.to_entity_id
+WHERE e1.tenant_id = 'your-tenant-uuid';
+```
+
+---
+
+## 5️⃣ **Tool Calling**
+
+### **Define a Tool:**
+```typescript
+await supabase.from('tool_definitions').insert({
+  tool_name: 'create_work_order',
+  tool_type: 'write',
+  description: 'Create work order in CMMS',
+  parameters_schema: {
+    type: 'object',
+    properties: {
+      asset_id: { type: 'string' },
+      priority: { type: 'string' }
+    }
+  },
+  risk_level: 'high',
+  requires_approval: true,
+  handler_function: 'create-wo-handler'
+});
+```
+
+### **Execute Tool:**
+```typescript
+const { data: exec } = await supabase
+  .from('tool_executions')
+  .insert({
+    tenant_id: 'your-tenant-uuid',
+    tool_id: tool_id,
+    user_id: user_id,
+    input_params: { asset_id: 'a123', priority: 'high' },
+    status: 'pending_approval'
+  })
+  .select()
+  .single();
+```
+
+---
+
+## 6️⃣ **Safety Checks**
+
+### **Run Safety Check:**
+```typescript
+await supabase.from('safety_checks').insert({
+  tenant_id: 'your-tenant-uuid',
+  conversation_id: conv_id,
+  check_type: 'pii_detection',
+  passed: true,
+  action: 'allow'
+});
+```
+
+### **View Safety Metrics:**
+```sql
+SELECT
+  check_type,
+  COUNT(*) as total,
+  COUNT(CASE WHEN passed THEN 1 END) as passed,
+  (COUNT(CASE WHEN passed THEN 1 END)::FLOAT / COUNT(*) * 100) as pass_rate
+FROM safety_checks
+WHERE tenant_id = 'your-tenant-uuid'
+GROUP BY check_type;
+```
+
+---
+
+## 7️⃣ **Canary Deployments**
+
+### **Deploy Model at 10%:**
+```typescript
+await supabase.from('model_deployments').insert({
+  tenant_id: 'your-tenant-uuid',
+  model_id: ft_model_id,
+  deployment_type: 'canary',
+  traffic_percentage: 10,
+  status: 'active'
+});
+```
+
+### **Monitor & Scale:**
+```typescript
+const { data: metrics } = await supabase
+  .from('model_deployments')
+  .select('avg_rating, total_requests')
+  .eq('id', deployment_id)
+  .single();
+
+if (metrics.avg_rating > 4.0) {
+  // Scale to 50%
+  await supabase
+    .from('model_deployments')
+    .update({ traffic_percentage: 50 })
+    .eq('id', deployment_id);
+}
+```
+
+---
+
+## 8️⃣ **Cost Budgets**
+
+### **Set Budget:**
+```typescript
+await supabase.from('cost_budgets').insert({
+  tenant_id: 'your-tenant-uuid',
+  period_type: 'monthly',
+  period_start: '2025-11-01',
+  period_end: '2025-11-30',
+  max_total_tokens: 10000000,
+  max_cost_usd: 500.00,
+  enforce_hard_limit: true
+});
+```
+
+### **Check Budget:**
+```sql
+SELECT
+  used_total_tokens,
+  max_total_tokens,
+  (used_total_tokens::FLOAT / max_total_tokens * 100) as pct_used,
+  status
+FROM cost_budgets
+WHERE tenant_id = 'your-tenant-uuid'
+  AND status = 'active';
+```
+
+---
+
+## 9️⃣ **Fine-Tuning**
+
+### **Collect Training Data:**
+```sql
+-- Get high-quality conversations
+SELECT * FROM get_fine_tuning_pairs(
+  min_rating := 4,
+  limit_count := 1000
+);
+```
+
+### **Register Model:**
+```typescript
+await supabase.from('ft_models').insert({
+  tenant_id: 'your-tenant-uuid',
+  model_name: 'Maintenance QA v1',
+  model_ref: 'ft:gpt-4o-mini:org:model:id',
+  base_model: 'gpt-4o-mini',
+  fine_tuning_method: 'lora'
+});
+```
+
+---
+
+## 🔟 **Dashboard Queries**
+
+### **RAG Performance:**
+```sql
+-- Avg retrieval time
+SELECT AVG(retrieval_time_ms) FROM rag_search_logs
+WHERE created_at > now() - interval '7 days';
+
+-- Most retrieved docs
+SELECT d.title, COUNT(*) as count
+FROM knowledge_base_chunks c
+JOIN knowledge_base_documents d ON d.id = c.document_id
+WHERE c.retrieval_count > 0
+GROUP BY d.title
+ORDER BY count DESC
+LIMIT 10;
+```
+
+### **Cost Analysis:**
+```sql
+SELECT
+  agent_type,
+  SUM(total_tokens) as tokens,
+  SUM(total_tokens * 0.00001) as cost_usd
+FROM agent_conversations
+WHERE created_at > now() - interval '30 days'
+GROUP BY agent_type;
+```
+
+---
+
+## 📱 **Edge Function Endpoints**
+
+| Endpoint | Purpose |
+|----------|---------|
+| `/rag-document-processor/process` | Process document |
+| `/rag-semantic-search` | Search knowledge base |
+| `/ai-agent-processor` | AI responses |
+
+### **Usage:**
 ```bash
-curl -X POST \
-  https://dguwgnxjdivsrekjarlp.supabase.co/functions/v1/kpi-calculator \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRndXdnbnhqZGl2c3Jla2phcmxwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA4MjQ3NjQsImV4cCI6MjA3NjQwMDc2NH0.bO4TidmfpHl7Vzus7vooBzmJGvVIUGq_-5_uD3zH7OQ"
-```
+# Process document
+curl -X POST https://your-project.supabase.co/functions/v1/rag-document-processor/process \
+  -H "Authorization: Bearer YOUR_ANON_KEY" \
+  -d '{"document_id":"doc-uuid","tenant_id":"tenant-uuid"}'
 
-**What it does**:
-- Calculates 7 KPIs from current operational data
-- Determines red/yellow/green status
-- Stores new measurements in database
-- Updates dashboards with fresh data
-
----
-
-## 🐛 Troubleshooting
-
-### **Issue: Can't see dashboards**
-**Solution**: Make sure you're logged in and have `org_level_id` set
-
-### **Issue: No KPI data showing**
-**Solution**:
-1. Sample data should already be loaded
-2. If not, run the KPI calculator (see above)
-3. Refresh the page
-
-### **Issue: "Not authenticated" error**
-**Solution**:
-1. Log out and log back in
-2. Check your email is verified in Supabase
-3. Clear browser cache
-
-### **Issue: Build errors**
-**Solution**:
-```bash
-rm -rf node_modules package-lock.json
-npm install
-npm run build
+# Search
+curl -X POST https://your-project.supabase.co/functions/v1/rag-semantic-search \
+  -H "Authorization: Bearer YOUR_ANON_KEY" \
+  -d '{"query":"pump maintenance","tenant_id":"tenant-uuid"}'
 ```
 
 ---
 
-## 📚 Documentation Files Available
+## 🎨 **React Component Example**
 
-All in `/tmp/cc-agent/53222566/project/`:
+```typescript
+// src/components/RAGSearch.tsx
+import { useState } from 'react';
 
-```
-📖 ACCESS-GUIDE.md                          ⭐ This file
-📖 QUICK-START-GUIDE.md                     ⭐ 5-minute walkthrough
-📖 ISO-55000-SYSTEM-COMPLETE.md             - Full system overview
-📖 ISO-55000-IMPLEMENTATION-SUMMARY.md      - Technical details
-📖 PRODUCTION-READY.md                      - Deployment guide
-📖 DEPLOYMENT.md                            - Platform specifics
-📖 PRODUCTION-CHECKLIST.md                  - Pre-launch checklist
-📖 AUTONOMOUS-MVP.md                        - Autonomous architecture
-📖 README.md                                - Technical documentation
-```
+export function RAGSearch() {
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState([]);
 
----
+  const search = async () => {
+    const res = await fetch(
+      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/rag-semantic-search`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          query,
+          tenant_id: 'your-tenant-uuid',
+          match_count: 5
+        })
+      }
+    );
+    const data = await res.json();
+    setResults(data.results);
+  };
 
-## 🎯 Recommended Path to Explore
-
-### **5-Minute Tour**:
-```
-1. Run app locally (npm run dev)
-2. Create account / log in
-3. Go to: Dashboards → Strategic
-4. View all 29 KPIs with sample data
-5. Go to: AI Assistant
-6. Ask: "Show my KPIs"
-7. Explore other dashboards
-```
-
-### **10-Minute Deep Dive**:
-```
-1. Complete 5-minute tour above
-2. Go to: Dashboards → Executive
-3. Click different categories
-4. Go to: Dashboards → Tactical
-5. View work orders tab
-6. Go to: Dashboards → Operational
-7. Try "Start Task" on a work order
-8. Upload a test photo
-9. Ask AI: "What needs attention?"
-10. Explore autonomous decisions
-```
-
----
-
-## 🚀 You're Ready!
-
-### **Start Now**:
-```bash
-# Run locally
-cd /tmp/cc-agent/53222566/project
-npm run dev
-```
-
-**Then open**: http://localhost:5173
-
-### **Or Deploy**:
-```bash
-# Deploy to Vercel
-vercel deploy --prod
+  return (
+    <div>
+      <input value={query} onChange={e => setQuery(e.target.value)} />
+      <button onClick={search}>Search</button>
+      {results.map(r => (
+        <div key={r.chunk_id}>
+          <h3>{r.document_title}</h3>
+          <p>{r.content}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
 ```
 
 ---
 
-## 📞 Quick Reference
+## 🔑 **Authentication Context**
 
-**Supabase URL**: https://dguwgnxjdivsrekjarlp.supabase.co
-**Local Dev**: http://localhost:5173
-**Build Command**: `npm run build`
-**Start Command**: `npm run dev`
+All features require authentication. Get tenant_id from user profile:
 
-**Database Tables**: 7 new + 1 updated
-**React Components**: 9 (5 new dashboards/chat)
-**Edge Functions**: 4 deployed
-**KPIs Tracked**: 29 ISO 55000 metrics
-**Sample Data**: 30 days loaded
+```typescript
+// Get current user's tenant
+const { data: { user } } = await supabase.auth.getUser();
+const { data: profile } = await supabase
+  .from('user_profiles')
+  .select('tenant_id')
+  .eq('id', user.id)
+  .single();
 
----
-
-## ✅ Everything You Need to Know
-
-1. **Run the app**: `npm run dev` → http://localhost:5173
-2. **Log in**: Create account or use existing
-3. **See KPIs**: Dashboards → Strategic (best overview)
-4. **Try AI**: AI Assistant → "Show my KPIs"
-5. **Explore**: All dashboards have sample data ready
-
-**The system is fully operational and ready to use!** 🎉
+const tenant_id = profile.tenant_id;
+```
 
 ---
 
-**Questions?** Open `QUICK-START-GUIDE.md` or ask the AI assistant in the app!
+## 🎯 **Quick Start Checklist**
+
+1. ✅ Upload first document → `knowledge_base_documents` table
+2. ✅ Process document → Call `/rag-document-processor/process`
+3. ✅ Test search → Call `/rag-semantic-search`
+4. ✅ Set budget → Insert into `cost_budgets`
+5. ✅ Add connector → Insert into `data_sources`
+6. ✅ Define tools → Insert into `tool_definitions`
+7. ✅ Enable safety → Insert into `safety_checks`
+8. ✅ Deploy model → Insert into `model_deployments`
+
+---
+
+## 📚 **Full Documentation**
+
+- **RAG Training Guide:** `RAG-TRAINING-GUIDE.md`
+- **Microsoft Features:** `MICROSOFT-COPILOT-FEATURES.md`
+- **Billing:** `BILLING-IMPLEMENTATION.md`
+
+---
+
+## 🆘 **Troubleshooting**
+
+**No search results?**
+- Check `processing_status = 'completed'`
+- Verify embeddings exist
+- Lower `match_threshold`
+
+**Budget exceeded?**
+- Check `cost_budgets` table
+- Increase limits or disable `enforce_hard_limit`
+
+**Processing failed?**
+- Check Edge Function logs in Supabase
+- Verify OpenAI API key
+
+---
+
+**All features are accessible via Supabase database, Edge Functions, or direct SQL!** 🚀
