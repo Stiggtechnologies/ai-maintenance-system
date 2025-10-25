@@ -17,8 +17,11 @@ import { PlansAndPricing } from './components/billing/PlansAndPricing';
 import { UsageDashboard } from './components/billing/UsageDashboard';
 import { InvoiceList } from './components/billing/InvoiceList';
 import { GainShareConsole } from './components/billing/GainShareConsole';
+import { JavisDock } from './components/JavisDock';
+import { JavisBriefing } from './components/JavisBriefing';
+import { JavisPreferences } from './components/JavisPreferences';
 import { startAutonomousMonitoring } from './services/autonomousMonitoring';
-import { Home, Globe, Layers, User, Image, Paperclip, Globe as Globe2, Mic, ArrowUpCircle, BarChart3, Wrench, Activity, GraduationCap, FileCheck, Zap, MessageSquare, Clock, Lightbulb, ExternalLink, TrendingUp, X, File, MicOff, Loader2, ChevronRight, Bell, Database, Building2, Play, Pause, LogOut, Bot } from 'lucide-react';
+import { Home, Globe, Layers, User, Image, Paperclip, Globe as Globe2, Mic, ArrowUpCircle, BarChart3, Wrench, Activity, GraduationCap, FileCheck, Zap, MessageSquare, Clock, Lightbulb, ExternalLink, TrendingUp, X, File, MicOff, Loader2, ChevronRight, Bell, Database, Building2, Play, Pause, LogOut, Bot, Settings } from 'lucide-react';
 
 interface ChatMessage {
   role: string;
@@ -979,6 +982,15 @@ function App() {
         { id: 'billing-invoices', label: 'Invoices', icon: FileCheck, view: 'billing-invoices' },
         { id: 'billing-gainshare', label: 'Gain-Share', icon: Zap, view: 'billing-gainshare' }
       ]
+    },
+    {
+      id: 'javis',
+      label: 'J.A.V.I.S',
+      icon: Bot,
+      submenu: [
+        { id: 'javis-briefing', label: 'Briefing', icon: MessageSquare, view: 'javis-briefing' },
+        { id: 'javis-preferences', label: 'Preferences', icon: Settings, view: 'javis-preferences' }
+      ]
     }
   ];
 
@@ -1130,6 +1142,8 @@ function App() {
           {activeView === 'billing-usage' && <UsageDashboard />}
           {activeView === 'billing-invoices' && <InvoiceList />}
           {activeView === 'billing-gainshare' && <GainShareConsole />}
+          {activeView === 'javis-briefing' && <JavisBriefing />}
+          {activeView === 'javis-preferences' && <JavisPreferences />}
         </div>
 
         <footer className="bg-white border-t border-gray-200 px-6 py-3">
@@ -1146,6 +1160,9 @@ function App() {
           </div>
         </footer>
       </div>
+
+      {/* J.A.V.I.S Dock - Always available */}
+      <JavisDock />
     </div>
   );
 }
