@@ -17,7 +17,7 @@ import { PlansAndPricing } from './components/billing/PlansAndPricing';
 import { UsageDashboard } from './components/billing/UsageDashboard';
 import { InvoiceList } from './components/billing/InvoiceList';
 import { GainShareConsole } from './components/billing/GainShareConsole';
-import { JavisDock } from './components/JavisDock';
+import { JavisDockInteractive } from './components/JavisDockInteractive';
 import { JavisBriefing } from './components/JavisBriefing';
 import { JavisPreferences } from './components/JavisPreferences';
 import { startAutonomousMonitoring } from './services/autonomousMonitoring';
@@ -1161,8 +1161,8 @@ function App() {
         </footer>
       </div>
 
-      {/* J.A.V.I.S Dock - Always available */}
-      <JavisDock />
+      {/* J.A.V.I.S Dock - Always available with WebSocket */}
+      <JavisDockInteractive />
     </div>
   );
 }
