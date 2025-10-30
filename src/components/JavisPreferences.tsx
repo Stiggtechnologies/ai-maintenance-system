@@ -38,6 +38,8 @@ export function JavisPreferences() {
         .eq('id', user.id)
         .single();
 
+      if (!profile) return;
+
       const { data: prefs } = await supabase
         .from('user_preferences')
         .select('*')
