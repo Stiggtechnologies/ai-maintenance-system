@@ -13,7 +13,6 @@ import { TacticalDashboard } from './components/TacticalDashboard';
 import { OperationalDashboard } from './components/OperationalDashboard';
 import { UnifiedChatInterface } from './components/UnifiedChatInterface';
 import { BillingOverview } from './components/billing/BillingOverview';
-import { PlansAndPricing } from './components/billing/PlansAndPricing';
 import { PremiumCheckout } from './components/billing/PremiumCheckout';
 import { UsageDashboard } from './components/billing/UsageDashboard';
 import { InvoiceList } from './components/billing/InvoiceList';
@@ -53,7 +52,6 @@ function App() {
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [conversationThreads, setConversationThreads] = useState<Array<{ id: string; title: string; timestamp: Date }>>([]);
   const [showCSVImport, setShowCSVImport] = useState(false);
-  const [showPremiumCheckout, setShowPremiumCheckout] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [workflowMode, setWorkflowMode] = useState<'standard' | 'deep-analysis'>('standard');
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
