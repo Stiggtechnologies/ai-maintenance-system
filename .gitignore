@@ -525,3 +525,4 @@ datasets/
 *.swp
 *.swo
 *~
+.vercel

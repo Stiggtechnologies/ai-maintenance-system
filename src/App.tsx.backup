@@ -14,14 +14,10 @@ import { OperationalDashboard } from './components/OperationalDashboard';
 import { UnifiedChatInterface } from './components/UnifiedChatInterface';
 import { BillingOverview } from './components/billing/BillingOverview';
 import { PlansAndPricing } from './components/billing/PlansAndPricing';
-import { PremiumCheckout } from './components/billing/PremiumCheckout';
 import { UsageDashboard } from './components/billing/UsageDashboard';
 import { InvoiceList } from './components/billing/InvoiceList';
 import { GainShareConsole } from './components/billing/GainShareConsole';
 import { JavisDockInteractive } from './components/JavisDockInteractive';
-import { OnboardingWizard } from './components/OnboardingWizard';
-import { CSVImportWizard } from './components/CSVImportWizard';
-import { HelpCenterWidget } from './components/HelpCenterWidget';
 import { JavisBriefing } from './components/JavisBriefing';
 import { JavisPreferences } from './components/JavisPreferences';
 import { startAutonomousMonitoring } from './services/autonomousMonitoring';
@@ -52,8 +48,6 @@ function App() {
   const [chatInput, setChatInput] = useState('');
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [conversationThreads, setConversationThreads] = useState<Array<{ id: string; title: string; timestamp: Date }>>([]);
-  const [showCSVImport, setShowCSVImport] = useState(false);
-  const [showPremiumCheckout, setShowPremiumCheckout] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [workflowMode, setWorkflowMode] = useState<'standard' | 'deep-analysis'>('standard');
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
@@ -1144,7 +1138,7 @@ function App() {
           {activeView === 'workorders' && <WorkOrderManagement />}
           {activeView === 'analytics' && <AIAnalyticsDashboard />}
           {activeView === 'billing-overview' && <BillingOverview />}
-          {activeView === 'billing-plans' && <PremiumCheckout />}
+          {activeView === 'billing-plans' && <PlansAndPricing />}
           {activeView === 'billing-usage' && <UsageDashboard />}
           {activeView === 'billing-invoices' && <InvoiceList />}
           {activeView === 'billing-gainshare' && <GainShareConsole />}
@@ -1169,22 +1163,6 @@ function App() {
 
       {/* J.A.V.I.S Dock - Always available with WebSocket */}
       <JavisDockInteractive />
-
-      {/* Premium Customer Journey Components */}
-      <OnboardingWizard />
-      <HelpCenterWidget />
-      
-      {showCSVImport && (
-        <CSVImportWizard
-          onClose={() => setShowCSVImport(false)}
-          onComplete={() => {
-            // Refresh assets view if active
-            if (activeView === 'assets') {
-              window.location.reload();
-            }
-          }}
-        />
-      )}
     </div>
   );
 }
