@@ -526,3 +526,7 @@ datasets/
 *.swo
 *~
 .vercel
+
+# Local environment checks
+.env.check
+.env.production.check
