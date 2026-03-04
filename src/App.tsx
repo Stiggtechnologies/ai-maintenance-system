@@ -610,23 +610,23 @@ function App() {
   const renderHomeView = () => (
     <div className="flex-1 flex flex-col items-center justify-center px-4">
       <div className="text-center mb-12">
-        <h1 className="text-5xl font-bold text-gray-900 mb-2">
-          SyncAI<span className="inline-block bg-teal-600 text-white text-sm px-2 py-1 rounded ml-2 align-middle">pro</span>
+        <h1 className="text-5xl font-bold text-industrial-text mb-2">
+          SyncAI<span className="inline-block bg-industrial-accent text-white text-sm px-2 py-1 rounded ml-2 align-middle">pro</span>
         </h1>
-        <p className="text-gray-500 mt-4">AI-Powered Asset Performance Management</p>
+        <p className="text-industrial-muted mt-4">AI-Powered Asset Performance Management</p>
       </div>
 
       <div className="w-full max-w-4xl">
         <div className="relative mb-8">
           {uploadProgress > 0 && (
             <div className="absolute -top-8 left-0 right-0">
-              <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
+              <div className="flex items-center justify-between text-xs text-industrial-muted mb-1">
                 <span>Uploading...</span>
                 <span>{uploadProgress}%</span>
               </div>
               <div className="w-full bg-gray-200 rounded-full h-1.5">
                 <div
-                  className="bg-teal-600 h-1.5 rounded-full transition-all duration-300"
+                  className="bg-industrial-accent h-1.5 rounded-full transition-all duration-300"
                   style={{ width: `${uploadProgress}%` }}
                 ></div>
               </div>
@@ -636,12 +636,12 @@ function App() {
           {uploadedFiles.length > 0 && (
             <div className="mb-3 flex flex-wrap gap-2">
               {uploadedFiles.map((file, idx) => (
-                <div key={idx} className="flex items-center gap-2 bg-teal-50 border border-teal-200 rounded-lg px-3 py-2">
-                  <File className="w-4 h-4 text-teal-600" />
-                  <span className="text-sm text-gray-700">{file.name}</span>
+                <div key={idx} className="flex items-center gap-2 bg-industrial-slate border border-teal-200 rounded-lg px-3 py-2">
+                  <File className="w-4 h-4 text-industrial-accent" />
+                  <span className="text-sm text-industrial-text">{file.name}</span>
                   <button
                     onClick={() => removeUploadedFile(idx)}
-                    className="ml-2 text-gray-400 hover:text-gray-600"
+                    className="ml-2 text-gray-400 hover:text-industrial-muted"
                   >
                     <X className="w-4 h-4" />
                   </button>
@@ -656,7 +656,7 @@ function App() {
             onChange={(e) => setChatInput(e.target.value)}
             onKeyPress={(e) => e.key === 'Enter' && handleChatSubmit()}
             placeholder="Ask anything or @mention a Space"
-            className="w-full px-6 py-4 pr-48 rounded-2xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent text-base"
+            className="w-full px-6 py-4 pr-48 rounded-2xl border border-industrial-border focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent text-base"
             disabled={isProcessing}
           />
           <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
@@ -670,7 +670,7 @@ function App() {
             <button
               onClick={() => fileInputRef.current?.click()}
               disabled={isProcessing}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
+              className="p-2 hover:bg-industrial-slate rounded-lg transition-colors disabled:opacity-50"
             >
               <Paperclip className="w-5 h-5 text-gray-400" />
             </button>
@@ -685,7 +685,7 @@ function App() {
             <button
               onClick={() => imageInputRef.current?.click()}
               disabled={isProcessing}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
+              className="p-2 hover:bg-industrial-slate rounded-lg transition-colors disabled:opacity-50"
             >
               <Image className="w-5 h-5 text-gray-400" />
             </button>
@@ -694,7 +694,7 @@ function App() {
               onClick={handleVoiceInput}
               disabled={isProcessing || isTranscribing}
               className={`p-2 rounded-lg transition-colors disabled:opacity-50 ${
-                isRecording ? 'bg-red-100 hover:bg-red-200' : 'hover:bg-gray-100'
+                isRecording ? 'bg-red-100 hover:bg-red-200' : 'hover:bg-industrial-slate'
               }`}
               title={isRecording ? 'Stop recording' : 'Start recording'}
             >
@@ -711,13 +711,13 @@ function App() {
               <button
                 onClick={handlePlayAudio}
                 disabled={isProcessing}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
+                className="p-2 hover:bg-industrial-slate rounded-lg transition-colors disabled:opacity-50"
                 title={isPlayingAudio ? 'Stop playback' : 'Play recording'}
               >
                 {isPlayingAudio ? (
-                  <Pause className="w-5 h-5 text-teal-600" />
+                  <Pause className="w-5 h-5 text-industrial-accent" />
                 ) : (
-                  <Play className="w-5 h-5 text-teal-600" />
+                  <Play className="w-5 h-5 text-industrial-accent" />
                 )}
               </button>
             )}
@@ -725,7 +725,7 @@ function App() {
             <button
               onClick={handleChatSubmit}
               disabled={(!chatInput.trim() && uploadedFiles.length === 0) || isProcessing}
-              className="p-2 bg-teal-600 hover:bg-teal-700 disabled:bg-gray-300 rounded-lg transition-colors flex items-center justify-center"
+              className="p-2 bg-industrial-accent hover:bg-teal-700 disabled:bg-gray-300 rounded-lg transition-colors flex items-center justify-center"
             >
               {isProcessing ? (
                 <Loader2 className="w-5 h-5 text-white animate-spin" />
@@ -741,8 +741,8 @@ function App() {
             onClick={() => setWorkflowMode('standard')}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
               workflowMode === 'standard'
-                ? 'bg-teal-600 text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                ? 'bg-industrial-accent text-white'
+                : 'bg-industrial-slate text-industrial-text hover:bg-gray-200'
             }`}
           >
             Standard
@@ -751,8 +751,8 @@ function App() {
             onClick={() => setWorkflowMode('deep-analysis')}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${
               workflowMode === 'deep-analysis'
-                ? 'bg-teal-600 text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                ? 'bg-industrial-accent text-white'
+                : 'bg-industrial-slate text-industrial-text hover:bg-gray-200'
             }`}
           >
             <TrendingUp className="w-4 h-4" />
@@ -766,7 +766,7 @@ function App() {
               <div key={idx} className={`${msg.role === 'user' ? 'text-right' : msg.role === 'system' ? 'text-center' : ''}`}>
                 {msg.role === 'user' ? (
                   <div className="inline-block">
-                    <div className="bg-teal-600 text-white px-6 py-3 rounded-2xl max-w-2xl text-left">
+                    <div className="bg-industrial-accent text-white px-6 py-3 rounded-2xl max-w-2xl text-left">
                       {msg.content}
                     </div>
                     {msg.attachments && msg.attachments.length > 0 && (
@@ -785,16 +785,16 @@ function App() {
                     )}
                   </div>
                 ) : msg.role === 'system' ? (
-                  <div className="inline-block bg-gray-100 text-gray-600 px-4 py-2 rounded-lg text-sm">
+                  <div className="inline-block bg-industrial-slate text-industrial-muted px-4 py-2 rounded-lg text-sm">
                     {msg.content}
                   </div>
                 ) : (
-                  <div className="bg-white border border-gray-200 rounded-2xl p-6 max-w-3xl shadow-sm">
+                  <div className="bg-industrial-graphite border border-industrial-border rounded-2xl p-6 max-w-3xl shadow-sm">
                     <div className="flex items-center gap-2 mb-3">
                       <div className="w-8 h-8 bg-teal-100 rounded-full flex items-center justify-center">
-                        <Lightbulb className="w-4 h-4 text-teal-600" />
+                        <Lightbulb className="w-4 h-4 text-industrial-accent" />
                       </div>
-                      <span className="text-sm font-medium text-gray-700">
+                      <span className="text-sm font-medium text-industrial-text">
                         {msg.agentType?.replace('Agent', '') || 'AI Assistant'}
                       </span>
                       {msg.processingTime && (
@@ -804,7 +804,7 @@ function App() {
                         </span>
                       )}
                       {msg.modelUsed && (
-                        <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded">
+                        <span className="text-xs text-gray-400 bg-industrial-slate px-2 py-0.5 rounded">
                           {msg.modelUsed}
                         </span>
                       )}
@@ -816,10 +816,10 @@ function App() {
 
                     {msg.attachments && msg.attachments.length > 0 && (
                       <div className="border-t border-gray-100 pt-4 mb-4">
-                        <p className="text-xs font-medium text-gray-500 mb-2">Analyzed Documents</p>
+                        <p className="text-xs font-medium text-industrial-muted mb-2">Analyzed Documents</p>
                         <div className="flex flex-wrap gap-2">
                           {msg.attachments.map((file, i) => (
-                            <div key={i} className="flex items-center gap-2 bg-gray-50 text-gray-600 text-xs rounded-lg px-3 py-1.5 border border-gray-200">
+                            <div key={i} className="flex items-center gap-2 bg-industrial-slate text-industrial-muted text-xs rounded-lg px-3 py-1.5 border border-industrial-border">
                               <File className="w-3 h-3" />
                               <span>{file.name}</span>
                             </div>
@@ -830,7 +830,7 @@ function App() {
 
                     {msg.sources && msg.sources.length > 0 && (
                       <div className="border-t border-gray-100 pt-4 mb-4">
-                        <p className="text-xs font-medium text-gray-500 mb-2 flex items-center gap-1">
+                        <p className="text-xs font-medium text-industrial-muted mb-2 flex items-center gap-1">
                           <ExternalLink className="w-3 h-3" />
                           Sources
                         </p>
@@ -838,7 +838,7 @@ function App() {
                           {msg.sources.map((source, i) => (
                             <div
                               key={i}
-                              className="text-xs bg-gray-50 text-gray-600 px-3 py-1.5 rounded-lg border border-gray-200"
+                              className="text-xs bg-industrial-slate text-industrial-muted px-3 py-1.5 rounded-lg border border-industrial-border"
                             >
                               {source.title} <span className="text-gray-400">({source.type})</span>
                             </div>
@@ -849,13 +849,13 @@ function App() {
 
                     {msg.followUpQuestions && msg.followUpQuestions.length > 0 && (
                       <div className="border-t border-gray-100 pt-4">
-                        <p className="text-xs font-medium text-gray-500 mb-2">Ask a follow-up...</p>
+                        <p className="text-xs font-medium text-industrial-muted mb-2">Ask a follow-up...</p>
                         <div className="flex flex-wrap gap-2">
                           {msg.followUpQuestions.map((q, i) => (
                             <button
                               key={i}
                               onClick={() => handleFollowUpClick(q)}
-                              className="text-sm text-teal-600 hover:text-teal-700 hover:bg-teal-50 px-3 py-1.5 rounded-lg border border-teal-200 transition-colors"
+                              className="text-sm text-industrial-accent hover:text-industrial-accent hover:bg-industrial-slate px-3 py-1.5 rounded-lg border border-teal-200 transition-colors"
                             >
                               {q}
                             </button>
@@ -875,16 +875,16 @@ function App() {
             <button
               key={action.id}
               onClick={() => executeAgent(action.action)}
-              className="flex flex-col items-center gap-2 p-4 rounded-xl border border-gray-200 hover:border-teal-300 hover:bg-teal-50 transition-colors"
+              className="flex flex-col items-center gap-2 p-4 rounded-xl border border-industrial-border hover:border-teal-300 hover:bg-industrial-slate transition-colors"
             >
-              <action.icon className="w-6 h-6 text-teal-600" />
-              <span className="text-sm font-medium text-gray-700">{action.label}</span>
+              <action.icon className="w-6 h-6 text-industrial-accent" />
+              <span className="text-sm font-medium text-industrial-text">{action.label}</span>
             </button>
           ))}
         </div>
 
         <div className="space-y-3">
-          <p className="text-sm font-medium text-gray-500">Industry Spaces</p>
+          <p className="text-sm font-medium text-industrial-muted">Industry Spaces</p>
           <div className="grid grid-cols-5 gap-3">
             {spaces.map((space) => (
               <button
@@ -892,12 +892,12 @@ function App() {
                 onClick={() => setSelectedSpace(space.id)}
                 className={`flex flex-col items-center gap-2 p-3 rounded-lg border transition-colors ${
                   selectedSpace === space.id
-                    ? 'border-teal-500 bg-teal-50'
-                    : 'border-gray-200 hover:border-gray-300 bg-white'
+                    ? 'border-teal-500 bg-industrial-slate'
+                    : 'border-industrial-border hover:border-gray-300 bg-industrial-graphite'
                 }`}
               >
-                <space.icon className="w-5 h-5 text-gray-600" />
-                <span className="text-xs text-gray-700">{space.name}</span>
+                <space.icon className="w-5 h-5 text-industrial-muted" />
+                <span className="text-xs text-industrial-text">{space.name}</span>
               </button>
             ))}
           </div>
@@ -1000,8 +1000,8 @@ function App() {
 
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600"></div>
+      <div className="min-h-screen bg-industrial-black flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-industrial-accent"></div>
       </div>
     );
   }
@@ -1011,9 +1011,9 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex">
+    <div className="min-h-screen bg-industrial-black text-industrial-text flex">
       <div
-        className={`bg-white border-r border-gray-200 transition-all duration-300 flex flex-col ${
+        className={`bg-industrial-graphite border-r border-industrial-border transition-all duration-300 flex flex-col ${
           isSidebarCollapsed ? 'w-16' : 'w-64'
         }`}
         onMouseEnter={() => setIsSidebarCollapsed(false)}
@@ -1022,13 +1022,13 @@ function App() {
           setHoveredMenuItem(null);
         }}
       >
-        <div className="p-4 border-b border-gray-200">
+        <div className="p-4 border-b border-industrial-border">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-teal-600 rounded-lg flex items-center justify-center flex-shrink-0">
+            <div className="w-8 h-8 bg-industrial-accent rounded-lg flex items-center justify-center flex-shrink-0">
               <Globe className="w-5 h-5 text-white" />
             </div>
             {!isSidebarCollapsed && (
-              <span className="font-semibold text-gray-900 whitespace-nowrap">SyncAI Pro</span>
+              <span className="font-semibold text-industrial-text whitespace-nowrap">SyncAI Pro</span>
             )}
           </div>
         </div>
@@ -1044,8 +1044,8 @@ function App() {
                 onMouseEnter={() => item.submenu && setHoveredMenuItem(item.id)}
                 className={`w-full flex items-center gap-3 px-4 py-3 transition-colors ${
                   activeView === item.view
-                    ? 'bg-teal-50 text-teal-700'
-                    : 'text-gray-700 hover:bg-gray-100'
+                    ? 'bg-industrial-slate text-industrial-accent'
+                    : 'text-industrial-text hover:bg-industrial-slate'
                 }`}
               >
                 <item.icon className="w-5 h-5 flex-shrink-0" />
@@ -1068,8 +1068,8 @@ function App() {
                       }}
                       className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${
                         (activeView === subItem.view) || (selectedSpace === subItem.id)
-                          ? 'bg-teal-50 text-teal-700'
-                          : 'text-gray-600 hover:bg-gray-50'
+                          ? 'bg-industrial-slate text-industrial-accent'
+                          : 'text-industrial-muted hover:bg-industrial-slate'
                       }`}
                     >
                       <subItem.icon className="w-4 h-4" />
@@ -1082,17 +1082,17 @@ function App() {
           ))}
         </div>
 
-        <div className="border-t border-gray-200 p-4 space-y-2">
-          <button className={`w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors ${isSidebarCollapsed ? 'justify-center' : ''}`}>
+        <div className="border-t border-industrial-border p-4 space-y-2">
+          <button className={`w-full flex items-center gap-3 px-4 py-3 text-industrial-text hover:bg-industrial-slate rounded-lg transition-colors ${isSidebarCollapsed ? 'justify-center' : ''}`}>
             <Bell className="w-5 h-5 flex-shrink-0" />
             {!isSidebarCollapsed && <span className="text-sm">Notifications</span>}
           </button>
-          <div className={`w-full flex items-center gap-3 px-4 py-3 text-gray-700 ${isSidebarCollapsed ? 'justify-center' : ''}`}>
+          <div className={`w-full flex items-center gap-3 px-4 py-3 text-industrial-text ${isSidebarCollapsed ? 'justify-center' : ''}`}>
             <User className="w-5 h-5 flex-shrink-0" />
             {!isSidebarCollapsed && (
               <div className="flex-1">
                 <p className="text-sm font-medium">{profile?.full_name || 'User'}</p>
-                <p className="text-xs text-gray-500 capitalize">{profile?.role}</p>
+                <p className="text-xs text-industrial-muted capitalize">{profile?.role}</p>
               </div>
             )}
           </div>
@@ -1117,17 +1117,17 @@ function App() {
           {activeView === 'dashboard-operational' && <OperationalDashboard />}
           {activeView === 'threads' && (
             <div className="max-w-4xl mx-auto py-8 px-4">
-              <h2 className="text-2xl font-bold text-gray-900 mb-6">Recent Conversations</h2>
+              <h2 className="text-2xl font-bold text-industrial-text mb-6">Recent Conversations</h2>
               <div className="space-y-3">
                 {conversationThreads.map((thread) => (
                   <div
                     key={thread.id}
-                    className="bg-white border border-gray-200 rounded-xl p-4 hover:border-teal-300 hover:shadow-sm transition-all cursor-pointer"
+                    className="bg-industrial-graphite border border-industrial-border rounded-xl p-4 hover:border-teal-300 hover:shadow-sm transition-all cursor-pointer"
                   >
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
-                        <p className="text-gray-900 font-medium mb-1">{thread.title}</p>
-                        <p className="text-sm text-gray-500">
+                        <p className="text-industrial-text font-medium mb-1">{thread.title}</p>
+                        <p className="text-sm text-industrial-muted">
                           {thread.timestamp.toLocaleDateString()} at {thread.timestamp.toLocaleTimeString()}
                         </p>
                       </div>
@@ -1150,8 +1150,8 @@ function App() {
           {activeView === 'javis-preferences' && <JavisPreferences />}
         </div>
 
-        <footer className="bg-white border-t border-gray-200 px-6 py-3">
-          <div className="flex items-center justify-between text-sm text-gray-500">
+        <footer className="bg-industrial-graphite border-t border-industrial-border px-6 py-3">
+          <div className="flex items-center justify-between text-sm text-industrial-muted">
             <div className="flex items-center gap-6">
               <span>{metrics.totalAssets.toLocaleString()} Assets</span>
               <span>{metrics.activeWorkOrders} Work Orders</span>
@@ -1159,7 +1159,7 @@ function App() {
             </div>
             <div className="flex items-center gap-4">
               <span>Uptime: {metrics.uptime}%</span>
-              <span className="text-teal-600 font-medium">${metrics.costSavings} saved</span>
+              <span className="text-industrial-accent font-medium">${metrics.costSavings} saved</span>
             </div>
           </div>
         </footer>
