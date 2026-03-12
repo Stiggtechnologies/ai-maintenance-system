@@ -158,6 +158,25 @@ ALTER TABLE autonomous_actions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE approval_workflows ENABLE ROW LEVEL SECURITY;
 ALTER TABLE system_alerts ENABLE ROW LEVEL SECURITY;
 
+
+-- Drop existing policies if present (idempotent)
+DROP POLICY IF EXISTS "Users can view all profiles" ON user_profiles;
+DROP POLICY IF EXISTS "Users can update own profile" ON user_profiles;
+DROP POLICY IF EXISTS "System can insert profiles" ON user_profiles;
+DROP POLICY IF EXISTS "Users can view decisions" ON autonomous_decisions;
+DROP POLICY IF EXISTS "System can create decisions" ON autonomous_decisions;
+DROP POLICY IF EXISTS "Managers can approve decisions" ON autonomous_decisions;
+DROP POLICY IF EXISTS "Users can view health data" ON asset_health_monitoring;
+DROP POLICY IF EXISTS "System can insert health data" ON asset_health_monitoring;
+DROP POLICY IF EXISTS "Users can view actions" ON autonomous_actions;
+DROP POLICY IF EXISTS "System can log actions" ON autonomous_actions;
+DROP POLICY IF EXISTS "Users can view workflows" ON approval_workflows;
+DROP POLICY IF EXISTS "Approvers can update workflows" ON approval_workflows;
+DROP POLICY IF EXISTS "System can create workflows" ON approval_workflows;
+DROP POLICY IF EXISTS "Users can view their alerts" ON system_alerts;
+DROP POLICY IF EXISTS "System can create alerts" ON system_alerts;
+DROP POLICY IF EXISTS "Users can acknowledge alerts" ON system_alerts;
+
 -- User Profiles Policies
 CREATE POLICY "Users can view all profiles"
   ON user_profiles FOR SELECT

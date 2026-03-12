@@ -62,6 +62,9 @@ CREATE TABLE IF NOT EXISTS assets (
   updated_at timestamptz DEFAULT now()
 );
 
+-- Ensure criticality column exists if assets table was created earlier
+ALTER TABLE assets ADD COLUMN IF NOT EXISTS criticality text DEFAULT 'medium';
+
 -- Create work_orders table
 CREATE TABLE IF NOT EXISTS work_orders (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -169,15 +172,4 @@ CREATE INDEX IF NOT EXISTS idx_work_orders_asset_id ON work_orders(asset_id);
 CREATE INDEX IF NOT EXISTS idx_ai_agent_logs_agent_type ON ai_agent_logs(agent_type);
 CREATE INDEX IF NOT EXISTS idx_ai_agent_logs_created_at ON ai_agent_logs(created_at DESC);
 
--- Insert initial demo data
-INSERT INTO assets (name, type, status, location, criticality) VALUES
-  ('Pump Unit A1', 'Centrifugal Pump', 'operational', 'Sector 1', 'high'),
-  ('Compressor B2', 'Gas Compressor', 'operational', 'Sector 2', 'critical'),
-  ('Turbine C3', 'Steam Turbine', 'maintenance', 'Sector 1', 'high'),
-  ('Motor D4', 'Electric Motor', 'operational', 'Sector 3', 'medium'),
-  ('Valve E5', 'Control Valve', 'operational', 'Sector 2', 'low')
-ON CONFLICT DO NOTHING;
-
-INSERT INTO maintenance_metrics (total_assets, active_work_orders, esg_score, cost_savings, uptime, efficiency) VALUES
-  (2847, 156, 87.3, 2400000, 98.7, 94.2)
-ON CONFLICT DO NOTHING;
+-- Demo data removed for production compatibility

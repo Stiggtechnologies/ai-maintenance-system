@@ -23,6 +23,8 @@ import { CSVImportWizard } from './components/CSVImportWizard';
 import { HelpCenterWidget } from './components/HelpCenterWidget';
 import { JavisBriefing } from './components/JavisBriefing';
 import { JavisPreferences } from './components/JavisPreferences';
+import { OpenClawControlPanel } from './components/OpenClawControlPanel';
+import { OpenClawEnterprisePanel } from './components/OpenClawEnterprisePanel';
 import { startAutonomousMonitoring } from './services/autonomousMonitoring';
 import { Home, Globe, Layers, User, Image, Paperclip, Globe as Globe2, Mic, ArrowUpCircle, BarChart3, Wrench, Activity, GraduationCap, FileCheck, Zap, MessageSquare, Clock, Lightbulb, ExternalLink, TrendingUp, X, File, MicOff, Loader2, ChevronRight, Bell, Database, Building2, Play, Pause, LogOut, Bot, Settings } from 'lucide-react';
 
@@ -97,6 +99,29 @@ function App() {
       }
     };
 
+    const handleOnboardingNav = (evt: Event) => {
+      const detail = (evt as CustomEvent).detail || {};
+      switch (detail.stepId) {
+        case 'profile':
+          setActiveView('javis-preferences');
+          break;
+        case 'assets':
+          setActiveView('assets');
+          setShowCSVImport(true);
+          break;
+        case 'agents':
+          setActiveView('openclaw');
+          break;
+        case 'insights':
+          setActiveView('analytics');
+          break;
+        default:
+          break;
+      }
+    };
+
+    window.addEventListener('onboarding:navigate', handleOnboardingNav);
+
     fetchMetrics();
     loadConversationThreads();
 
@@ -112,6 +137,7 @@ function App() {
       if (cleanup) {
         cleanup();
       }
+      window.removeEventListener('onboarding:navigate', handleOnboardingNav);
     };
   }, [user]);
 
@@ -988,6 +1014,15 @@ function App() {
       ]
     },
     {
+      id: 'openclaw',
+      label: 'OpenClaw',
+      icon: Bot,
+      submenu: [
+        { id: 'openclaw-core', label: 'Core', icon: Bot, view: 'openclaw' },
+        { id: 'openclaw-enterprise', label: 'Enterprise', icon: Bot, view: 'openclaw-enterprise' }
+      ]
+    },
+    {
       id: 'javis',
       label: 'J.A.V.I.S',
       icon: Bot,
@@ -1146,6 +1181,8 @@ function App() {
           {activeView === 'billing-usage' && <UsageDashboard />}
           {activeView === 'billing-invoices' && <InvoiceList />}
           {activeView === 'billing-gainshare' && <GainShareConsole />}
+          {activeView === 'openclaw' && <OpenClawControlPanel />}
+          {activeView === 'openclaw-enterprise' && <OpenClawEnterprisePanel />}
           {activeView === 'javis-briefing' && <JavisBriefing />}
           {activeView === 'javis-preferences' && <JavisPreferences />}
         </div>

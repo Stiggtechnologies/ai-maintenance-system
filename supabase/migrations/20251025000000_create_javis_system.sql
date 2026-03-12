@@ -23,6 +23,13 @@
     - Performance indexes for common queries
 */
 
+-- Tenants (required for J.A.V.I.S)
+CREATE TABLE IF NOT EXISTS tenants (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
 -- User Preferences Table
 CREATE TABLE IF NOT EXISTS user_preferences (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

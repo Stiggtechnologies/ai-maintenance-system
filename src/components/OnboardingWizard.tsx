@@ -53,54 +53,42 @@ export function OnboardingWizard() {
   const checkOnboardingStatus = async () => {
     if (!user) return;
 
-    // Check if user has completed onboarding
-    const { data: profile } = await supabase
-      .from('user_profiles')
-      .select('onboarding_completed, onboarding_progress')
-      .eq('id', user.id)
-      .single();
+    const [{ data: profile }, { count: assetsCount }, { count: agentsCount }, { count: insightsCount }] = await Promise.all([
+      supabase
+        .from('user_profiles')
+        .select('onboarding_completed, onboarding_progress, full_name')
+        .eq('id', user.id)
+        .single(),
+      supabase.from('assets').select('*', { count: 'exact', head: true }),
+      supabase.from('openclaw_agents').select('*', { count: 'exact', head: true }),
+      supabase.from('ai_agent_logs').select('*', { count: 'exact', head: true })
+    ]);
 
     if (!profile?.onboarding_completed) {
       setShow(true);
-      
-      // Update steps based on progress
+
+      const derivedProgress: Record<string, boolean> = {
+        profile: Boolean(profile?.full_name),
+        assets: (assetsCount || 0) > 0,
+        agents: (agentsCount || 0) > 0,
+        insights: (insightsCount || 0) > 0
+      };
+
       if (profile?.onboarding_progress) {
         const progress = profile.onboarding_progress as any;
-        setSteps(prev => prev.map(step => ({
-          ...step,
-          completed: progress[step.id] || false
-        })));
+        Object.assign(derivedProgress, progress);
       }
+
+      setSteps(prev => prev.map(step => ({
+        ...step,
+        completed: derivedProgress[step.id] || false
+      })));
     }
   };
 
-  const completeStep = async (stepId: string) => {
-    if (!user) return;
-
-    const updatedSteps = steps.map(step =>
-      step.id === stepId ? { ...step, completed: true } : step
-    );
-    setSteps(updatedSteps);
-
-    // Save progress
-    const progress = updatedSteps.reduce((acc, step) => ({
-      ...acc,
-      [step.id]: step.completed
-    }), {});
-
-    await supabase
-      .from('user_profiles')
-      .upsert({
-        id: user.id,
-        onboarding_progress: progress,
-        onboarding_completed: updatedSteps.every(s => s.completed)
-      });
-
-    // Auto-advance to next incomplete step
-    const nextIncomplete = updatedSteps.findIndex(s => !s.completed);
-    if (nextIncomplete !== -1) {
-      setCurrentStep(nextIncomplete);
-    }
+  const openStep = (stepId: string) => {
+    window.dispatchEvent(new CustomEvent('onboarding:navigate', { detail: { stepId } }));
+    setShow(false);
   };
 
   const dismissOnboarding = async () => {
@@ -209,11 +197,11 @@ export function OnboardingWizard() {
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        completeStep(step.id);
+                        openStep(step.id);
                       }}
                       className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors text-sm font-medium"
                     >
-                      Complete
+                      Open
                     </button>
                   )}
                 </div>

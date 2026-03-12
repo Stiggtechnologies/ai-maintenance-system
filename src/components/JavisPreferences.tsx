@@ -38,18 +38,18 @@ export function JavisPreferences() {
         .eq('id', user.id)
         .single();
 
-      if (!profile) return;
+      const tenantId = profile?.tenant_id || user.id;
 
       const { data: prefs } = await supabase
         .from('user_preferences')
         .select('*')
         .eq('user_id', user.id)
-        .eq('tenant_id', profile.tenant_id)
+        .eq('tenant_id', tenantId)
         .maybeSingle();
 
       if (prefs) {
         setPreferences({
-          display_name: prefs.display_name || profile.display_name || '',
+          display_name: prefs.display_name || profile?.display_name || '',
           prefers_voice: prefs.prefers_voice || false,
           voice_locale: prefs.voice_locale || 'en-CA',
           voice_gender: prefs.voice_gender || 'neutral',
@@ -84,6 +84,12 @@ export function JavisPreferences() {
         .eq('id', user.id)
         .single();
 
+      const tenantId = profile?.tenant_id || user.id;
+
+      // Ensure tenant and profile exist
+      await supabase.from('tenants').upsert({ id: tenantId, name: preferences.display_name || 'Default Tenant' });
+      await supabase.from('user_profiles').upsert({ id: user.id, tenant_id: tenantId, full_name: preferences.display_name });
+
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/javis-orchestrator/preferences`,
         {
@@ -93,7 +99,7 @@ export function JavisPreferences() {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            tenant_id: profile?.tenant_id,
+            tenant_id: tenantId,
             user_id: user.id,
             ...preferences
           })

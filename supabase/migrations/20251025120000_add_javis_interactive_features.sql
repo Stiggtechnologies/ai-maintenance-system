@@ -199,7 +199,7 @@ CREATE POLICY "Users can manage own WebSocket sessions"
 CREATE INDEX IF NOT EXISTS idx_conversation_state_conversation ON javis_conversation_state(conversation_id, turn_number);
 CREATE INDEX IF NOT EXISTS idx_tool_executions_user ON javis_tool_executions(user_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_tool_executions_status ON javis_tool_executions(status) WHERE status IN ('pending', 'confirmed');
-CREATE INDEX IF NOT EXISTS idx_pending_actions_user ON javis_pending_actions(user_id) WHERE expires_at > now();
+CREATE INDEX IF NOT EXISTS idx_pending_actions_user ON javis_pending_actions(user_id);
 CREATE INDEX IF NOT EXISTS idx_event_queue_unprocessed ON javis_event_queue(created_at DESC) WHERE NOT processed;
 CREATE INDEX IF NOT EXISTS idx_event_queue_priority ON javis_event_queue(priority, created_at DESC) WHERE NOT processed;
 CREATE INDEX IF NOT EXISTS idx_websocket_sessions_active ON javis_websocket_sessions(user_id, tenant_id) WHERE disconnected_at IS NULL;
