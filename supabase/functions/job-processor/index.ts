@@ -128,6 +128,9 @@ async function executeJob(supabase: any, job: any) {
     case 'agent_orchestration':
       return await agentOrchestrationJob(supabase, job.job_data);
 
+    case 'runbook_execution':
+      return await runbookExecutionJob(supabase, job.job_data);
+
     default:
       throw new Error(`Unknown job type: ${job.job_type}`);
   }
@@ -228,6 +231,7 @@ async function healthMonitoringJob(supabase: any, data: any) {
     .order('recorded_at', { ascending: false });
 
   const anomaliesDetected = [];
+  const decisionsCreated = [];
 
   for (const record of healthRecords) {
     if (record.health_score < 60) {
@@ -237,20 +241,99 @@ async function healthMonitoringJob(supabase: any, data: any) {
         anomaly: true
       });
 
+      const severity = record.health_score < 40 ? 'critical' : 'high';
+      const confidenceScore = 100 - record.health_score;
+
+      await supabase
+        .from('system_alerts')
+        .insert({
+          severity,
+          title: `Asset Health Degradation Detected`,
+          description: `Asset health score dropped to ${record.health_score}%. Immediate attention may be required.`,
+          alert_type: 'asset_health',
+          target_users: [],
+          acknowledged: false,
+          resolved: false
+        });
+
+      const requiresApproval = record.health_score < 30;
+
+      const { data: decision } = await supabase
+        .from('autonomous_decisions')
+        .insert({
+          decision_type: 'create_work_order',
+          decision_data: {
+            asset_id: record.asset_id,
+            title: `Emergency Maintenance - Health Score ${record.health_score}%`,
+            description: `Automated detection: Asset health has degraded to ${record.health_score}%. Sensor readings: ${JSON.stringify(record.sensor_data)}`,
+            priority: severity,
+            due_date: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+          },
+          confidence_score: confidenceScore,
+          status: 'pending',
+          requires_approval: requiresApproval,
+          approval_deadline: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString()
+        })
+        .select()
+        .single();
+
+      if (decision) {
+        decisionsCreated.push(decision.id);
+
+        if (!requiresApproval && confidenceScore >= 85) {
+          const { data: workOrder } = await supabase
+            .from('work_orders')
+            .insert({
+              asset_id: decision.decision_data.asset_id,
+              title: decision.decision_data.title,
+              description: decision.decision_data.description,
+              priority: decision.decision_data.priority,
+              status: 'pending'
+            })
+            .select()
+            .single();
+
+          if (workOrder) {
+            await supabase
+              .from('autonomous_decisions')
+              .update({
+                status: 'auto_executed',
+                executed_at: new Date().toISOString()
+              })
+              .eq('id', decision.id);
+
+            await supabase
+              .from('autonomous_actions')
+              .insert({
+                action_type: 'work_order_created',
+                target_id: workOrder.id,
+                action_data: decision.decision_data,
+                triggered_by: 'autonomous_health_monitoring',
+                success: true
+              });
+          }
+        }
+      }
+
       await supabase.rpc('broadcast_to_channel', {
         p_channel_name: 'assets.health',
         p_message_type: 'health_alert',
         p_payload: {
           asset_id: record.asset_id,
           health_score: record.health_score,
-          severity: record.health_score < 40 ? 'critical' : 'high'
+          severity,
+          decision_id: decision?.id
         },
         p_priority: 'high'
       });
     }
   }
 
-  return { assets_monitored: asset_ids.length, anomalies_detected: anomaliesDetected.length };
+  return {
+    assets_monitored: asset_ids.length,
+    anomalies_detected: anomaliesDetected.length,
+    decisions_created: decisionsCreated.length
+  };
 }
 
 async function sendNotificationsJob(supabase: any, data: any) {
@@ -329,6 +412,32 @@ async function agentOrchestrationJob(supabase: any, data: any) {
   const { orchestration_run_id, agent_id } = data;
 
   return { orchestration_run_id, agent_id, status: 'completed' };
+}
+
+async function runbookExecutionJob(supabase: any, data: any) {
+  const { execution_id } = data;
+
+  const runbookExecutorUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/runbook-executor`;
+
+  const response = await fetch(runbookExecutorUrl, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      action: 'execute_step',
+      execution_id
+    })
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Runbook execution failed: ${error}`);
+  }
+
+  const result = await response.json();
+  return result;
 }
 
 async function getQueueStats(supabase: any) {
