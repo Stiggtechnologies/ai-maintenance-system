@@ -1,23 +1,6 @@
 import { motion } from 'framer-motion';
 import { useUIStore } from '../store/uiStore';
-import {
-  Home,
-  Factory,
-  ClipboardList,
-  TrendingUp,
-  Package,
-  AlertTriangle,
-  BarChart3,
-  Bot,
-  Settings,
-  LayoutDashboard,
-  LineChart,
-  Cpu,
-  Zap,
-  Brain,
-  ChevronDown,
-  ChevronRight,
-} from 'lucide-react';
+import { Hop as Home, Factory, ClipboardList, TrendingUp, Package, TriangleAlert as AlertTriangle, ChartBar as BarChart3, Bot, Settings, LayoutDashboard, ChartLine as LineChart, Cpu, Zap, Brain, ChevronDown, ChevronRight, DollarSign, SquareCheck as CheckSquare, Activity, ShieldAlert } from 'lucide-react';
 import { useState } from 'react';
 
 interface NavItem {
@@ -43,10 +26,13 @@ const menuItems: NavItem[] = [
       { label: 'Autonomous', id: 'autonomous' },
     ],
   },
+  { icon: ShieldAlert, label: 'War Room', id: 'war-room' },
+  { icon: CheckSquare, label: 'Approvals', id: 'approvals' },
   { icon: TrendingUp, label: 'Reliability', id: 'reliability' },
   { icon: Package, label: 'Inventory', id: 'inventory' },
   { icon: AlertTriangle, label: 'Risk', id: 'risk' },
   { icon: LineChart, label: 'AI Analytics', id: 'analytics' },
+  { icon: Activity, label: 'Metrics', id: 'metrics' },
   { icon: BarChart3, label: 'Reports', id: 'reports' },
   { icon: Bot, label: 'Agents', id: 'agents' },
   {
@@ -58,6 +44,7 @@ const menuItems: NavItem[] = [
       { label: 'Enterprise', id: 'openclaw-enterprise' },
     ],
   },
+  { icon: DollarSign, label: 'Billing', id: 'billing' },
   { icon: Settings, label: 'Settings', id: 'settings' },
 ];
 

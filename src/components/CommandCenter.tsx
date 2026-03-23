@@ -4,7 +4,7 @@ import { Sidebar } from './Sidebar';
 import { Toast } from './Toast';
 import { useTrialStore } from '../store/trialStore';
 import { useUIStore } from '../store/uiStore';
-import { Send, Menu, LogOut, Sparkles, AlertCircle, BarChart2, X } from 'lucide-react';
+import { Send, Menu, LogOut, Sparkles, CircleAlert as AlertCircle, ChartBar as BarChart2, X } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { createTypewriterEffect } from '../utils/typewriter';
 
@@ -18,6 +18,14 @@ import { AIAnalyticsDashboard } from './AIAnalyticsDashboard';
 import { AssetManagement } from './AssetManagement';
 import { OpenClawControlPanel } from './OpenClawControlPanel';
 import { OpenClawEnterprisePanel } from './OpenClawEnterprisePanel';
+
+// Newly integrated components
+import { BillingOverview } from './billing/BillingOverview';
+import { ApprovalQueue } from './ApprovalQueue';
+import { MetricsDashboard } from './MetricsDashboard';
+import { WarRoomDashboard } from './WarRoomDashboard';
+import { JavisPreferences } from './JavisPreferences';
+import { JavisDockInteractive } from './JavisDockInteractive';
 
 interface Message {
   id: string;
@@ -49,7 +57,11 @@ type ActiveView =
   | 'autonomous'
   | 'analytics'
   | 'openclaw'
-  | 'openclaw-enterprise';
+  | 'openclaw-enterprise'
+  | 'billing'
+  | 'approvals'
+  | 'metrics'
+  | 'war-room';
 
 export function CommandCenter() {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -161,11 +173,16 @@ export function CommandCenter() {
       case 'assets': return <AssetManagement />;
       case 'openclaw': return <OpenClawControlPanel />;
       case 'openclaw-enterprise': return <OpenClawEnterprisePanel />;
+      case 'billing': return <BillingOverview />;
+      case 'approvals': return <ApprovalQueue />;
+      case 'metrics': return <MetricsDashboard />;
+      case 'war-room': return <WarRoomDashboard />;
+      case 'settings': return <JavisPreferences />;
       default: return null;
     }
   };
 
-  const nonChatViews: ActiveView[] = ['executive','strategic','tactical','operational','autonomous','analytics','assets','openclaw','openclaw-enterprise'];
+  const nonChatViews: ActiveView[] = ['executive','strategic','tactical','operational','autonomous','analytics','assets','openclaw','openclaw-enterprise','billing','approvals','metrics','war-room','settings'];
   const isNonChat = nonChatViews.includes(activeView);
 
   return (
@@ -451,6 +468,9 @@ export function CommandCenter() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* JAVIS Interactive Dock */}
+      <JavisDockInteractive />
     </div>
   );
 }

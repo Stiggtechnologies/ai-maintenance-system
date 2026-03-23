@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthProvider';
-import { Send, Mic, MicOff, Loader2, Sparkles } from 'lucide-react';
+import { Send, Mic, MicOff, Loader as Loader2, Sparkles } from 'lucide-react';
 import { MarkdownRenderer } from './MarkdownRenderer';
 
 interface ChatMessage {
@@ -92,7 +92,6 @@ Ask me anything about your operations, and I'll provide insights based on your r
     try {
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
       const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-      const openaiKey = import.meta.env.VITE_OPENAI_API_KEY;
 
       const query = input.toLowerCase();
       let agentType = 'CentralCoordinationAgent';
