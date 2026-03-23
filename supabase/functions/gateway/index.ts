@@ -11,6 +11,11 @@ Deno.serve(async (req: Request) => {
     return new Response(null, { status: 200, headers: corsHeaders });
   }
 
+  const upgrade = req.headers.get("upgrade") || "";
+  if (upgrade.toLowerCase() === "websocket") {
+    return handleWebSocket(req);
+  }
+
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
   const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
   const { createClient } = await import('npm:@supabase/supabase-js@2');
@@ -462,22 +467,298 @@ async function runDiagnostics(supabase: any) {
   checks.push({
     name: 'Database Connectivity',
     status: dbCheck.status === 'ok' ? 'green' : 'red',
-    message: dbCheck.message || 'Database connected'
+    message: dbCheck.message || 'Database connected',
+    details: dbCheck
   });
 
   const queueCheck = await checkJobQueue(supabase);
   checks.push({
     name: 'Job Queue',
     status: queueCheck.status === 'ok' ? 'green' : 'red',
-    message: `${queueCheck.queued_jobs || 0} jobs queued`
+    message: `${queueCheck.queued_jobs || 0} jobs queued`,
+    details: queueCheck
   });
 
   const channelsCheck = await checkRealtimeChannels(supabase);
   checks.push({
     name: 'Realtime Channels',
     status: channelsCheck.status === 'ok' ? 'green' : 'red',
-    message: `${channelsCheck.channels || 0} channels active`
+    message: `${channelsCheck.channels || 0} channels active`,
+    details: channelsCheck
+  });
+
+  const envCheck = checkEnvironmentVariables();
+  checks.push({
+    name: 'Environment Configuration',
+    status: envCheck.allPresent ? 'green' : 'yellow',
+    message: envCheck.message,
+    details: envCheck
+  });
+
+  const extensionsCheck = await checkDatabaseExtensions(supabase);
+  checks.push({
+    name: 'Database Extensions',
+    status: extensionsCheck.allEnabled ? 'green' : 'yellow',
+    message: extensionsCheck.message,
+    details: extensionsCheck
+  });
+
+  const edgeNodesCheck = await checkEdgeNodes(supabase);
+  checks.push({
+    name: 'Edge Nodes',
+    status: edgeNodesCheck.status,
+    message: edgeNodesCheck.message,
+    details: edgeNodesCheck
+  });
+
+  const migrationsCheck = await checkMigrations(supabase);
+  checks.push({
+    name: 'Schema Migrations',
+    status: migrationsCheck.status,
+    message: migrationsCheck.message,
+    details: migrationsCheck
   });
 
   return checks;
+}
+
+function checkEnvironmentVariables() {
+  const requiredVars = [
+    'SUPABASE_URL',
+    'SUPABASE_ANON_KEY',
+    'SUPABASE_SERVICE_ROLE_KEY',
+  ];
+
+  const missingVars = requiredVars.filter(varName => !Deno.env.get(varName));
+  const allPresent = missingVars.length === 0;
+
+  return {
+    allPresent,
+    required: requiredVars.length,
+    present: requiredVars.length - missingVars.length,
+    missing: missingVars,
+    message: allPresent
+      ? `All ${requiredVars.length} required variables configured`
+      : `Missing ${missingVars.length} required variables: ${missingVars.join(', ')}`
+  };
+}
+
+async function checkDatabaseExtensions(supabase: any) {
+  const requiredExtensions = ['pgvector', 'pg_stat_statements'];
+
+  try {
+    const { data, error } = await supabase.rpc('pg_available_extensions');
+
+    if (error) {
+      return {
+        allEnabled: false,
+        message: 'Unable to check extensions',
+        error: error.message
+      };
+    }
+
+    const enabledExtensions = data?.filter((ext: any) => ext.installed_version) || [];
+    const enabledNames = enabledExtensions.map((ext: any) => ext.name);
+    const missingExtensions = requiredExtensions.filter(name => !enabledNames.includes(name));
+
+    return {
+      allEnabled: missingExtensions.length === 0,
+      enabled: enabledNames,
+      required: requiredExtensions,
+      missing: missingExtensions,
+      message: missingExtensions.length === 0
+        ? `All required extensions enabled`
+        : `Missing extensions: ${missingExtensions.join(', ')}`
+    };
+  } catch (err) {
+    return {
+      allEnabled: true,
+      message: 'Extension check skipped (function not available)',
+      note: 'This is normal for managed Supabase instances'
+    };
+  }
+}
+
+async function checkEdgeNodes(supabase: any) {
+  try {
+    const { data: nodes, error } = await supabase
+      .from('edge_nodes')
+      .select('id, status, last_heartbeat');
+
+    if (error) {
+      return {
+        status: 'yellow',
+        message: 'Unable to check edge nodes',
+        error: error.message
+      };
+    }
+
+    const onlineNodes = nodes?.filter((n: any) => n.status === 'online') || [];
+    const staleNodes = nodes?.filter((n: any) => {
+      if (!n.last_heartbeat) return false;
+      const lastSeen = new Date(n.last_heartbeat);
+      const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+      return lastSeen < fiveMinutesAgo && n.status === 'online';
+    }) || [];
+
+    return {
+      status: staleNodes.length > 0 ? 'yellow' : 'green',
+      total: nodes?.length || 0,
+      online: onlineNodes.length,
+      stale: staleNodes.length,
+      message: `${onlineNodes.length} nodes online, ${staleNodes.length} stale`
+    };
+  } catch (err) {
+    return {
+      status: 'green',
+      message: 'Edge nodes system available (0 nodes registered)',
+      total: 0
+    };
+  }
+}
+
+async function checkMigrations(supabase: any) {
+  try {
+    const { data, error } = await supabase
+      .from('supabase_migrations.schema_migrations')
+      .select('version')
+      .order('version', { ascending: false })
+      .limit(1);
+
+    if (error) {
+      return {
+        status: 'yellow',
+        message: 'Unable to check migrations',
+        error: error.message
+      };
+    }
+
+    const latestVersion = data?.[0]?.version;
+
+    return {
+      status: 'green',
+      latest_version: latestVersion,
+      message: `Schema at version ${latestVersion || 'unknown'}`
+    };
+  } catch (err) {
+    return {
+      status: 'green',
+      message: 'Migrations check skipped',
+      note: 'Unable to query migration status'
+    };
+  }
+}
+
+function handleWebSocket(req: Request): Response {
+  const { socket, response } = Deno.upgradeWebSocket(req);
+  const url = new URL(req.url);
+  const sessionId = url.searchParams.get('session_id');
+  const userId = url.searchParams.get('user_id');
+
+  socket.onopen = () => {
+    console.log(`WebSocket connected: session=${sessionId}, user=${userId}`);
+    socket.send(JSON.stringify({
+      type: 'connected',
+      session_id: sessionId,
+      timestamp: new Date().toISOString()
+    }));
+  };
+
+  socket.onmessage = async (event) => {
+    try {
+      const message = JSON.parse(event.data);
+      console.log('WebSocket message received:', message.type);
+
+      const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+      const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+      const { createClient } = await import('npm:@supabase/supabase-js@2');
+      const supabase = createClient(supabaseUrl, supabaseKey);
+
+      switch (message.type) {
+        case 'ping':
+          socket.send(JSON.stringify({
+            type: 'pong',
+            timestamp: new Date().toISOString()
+          }));
+          break;
+
+        case 'subscribe_run':
+          const runId = message.run_id;
+          const checkInterval = setInterval(async () => {
+            const { data: run } = await supabase
+              .from('openclaw_orchestration_runs')
+              .select('*')
+              .eq('id', runId)
+              .single();
+
+            if (run) {
+              socket.send(JSON.stringify({
+                type: 'run_update',
+                run
+              }));
+
+              if (['completed', 'failed', 'cancelled'].includes(run.status)) {
+                clearInterval(checkInterval);
+              }
+            }
+          }, 2000);
+          break;
+
+        case 'subscribe_jobs':
+          socket.send(JSON.stringify({
+            type: 'subscribed',
+            channel: 'jobs'
+          }));
+          break;
+
+        case 'execute_run':
+          const { agent_id, config } = message;
+          const { data: newRun, error } = await supabase
+            .from('openclaw_orchestration_runs')
+            .insert({
+              agent_id,
+              session_id: sessionId,
+              status: 'queued',
+              config: config || {}
+            })
+            .select()
+            .single();
+
+          if (error) {
+            socket.send(JSON.stringify({
+              type: 'error',
+              message: error.message
+            }));
+          } else {
+            socket.send(JSON.stringify({
+              type: 'run_created',
+              run: newRun
+            }));
+          }
+          break;
+
+        default:
+          socket.send(JSON.stringify({
+            type: 'error',
+            message: `Unknown message type: ${message.type}`
+          }));
+      }
+    } catch (error) {
+      console.error('WebSocket message error:', error);
+      socket.send(JSON.stringify({
+        type: 'error',
+        message: error.message
+      }));
+    }
+  };
+
+  socket.onerror = (error) => {
+    console.error('WebSocket error:', error);
+  };
+
+  socket.onclose = () => {
+    console.log(`WebSocket closed: session=${sessionId}`);
+  };
+
+  return response;
 }

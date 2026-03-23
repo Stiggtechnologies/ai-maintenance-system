@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { CircleCheck as CheckCircle, Circle as XCircle, Clock, TriangleAlert as AlertTriangle, ChevronDown, ChevronUp, MessageSquare } from 'lucide-react';
+import { CircleCheck as CheckCircle, Circle as XCircle, Clock, TriangleAlert as AlertTriangle, ChevronDown, ChevronUp, MessageSquare, CreditCard as Edit, ArrowUp } from 'lucide-react';
 
 interface Decision {
   id: string;
@@ -24,6 +24,9 @@ export function ApprovalQueue() {
   const [expandedDecision, setExpandedDecision] = useState<string | null>(null);
   const [comment, setComment] = useState('');
   const [processingId, setProcessingId] = useState<string | null>(null);
+  const [editMode, setEditMode] = useState<string | null>(null);
+  const [editedData, setEditedData] = useState<any>(null);
+  const [escalationReason, setEscalationReason] = useState('');
 
   useEffect(() => {
     loadDecisions();
@@ -140,6 +143,97 @@ export function ApprovalQueue() {
     } finally {
       setProcessingId(null);
     }
+  }
+
+  async function handleEscalate(decisionId: string) {
+    if (!escalationReason) {
+      alert('Please provide a reason for escalation');
+      return;
+    }
+
+    setProcessingId(decisionId);
+    try {
+      const { data: user } = await supabase.auth.getUser();
+      if (!user.user) return;
+
+      const { data, error } = await supabase.rpc('escalate_approval', {
+        p_approval_id: decisionId,
+        p_reason: escalationReason
+      });
+
+      if (error) throw error;
+
+      await supabase.rpc('broadcast_to_channel', {
+        p_channel_name: 'approvals.pending',
+        p_message_type: 'decision_escalated',
+        p_payload: { decision_id: decisionId, ...data },
+        p_sender_id: user.user.id,
+        p_priority: 'high'
+      });
+
+      setEscalationReason('');
+      await loadDecisions();
+    } catch (error) {
+      console.error('Error escalating decision:', error);
+      alert('Failed to escalate: ' + (error as Error).message);
+    } finally {
+      setProcessingId(null);
+    }
+  }
+
+  async function handleEditAndApprove(decisionId: string) {
+    if (!editedData) {
+      alert('No changes made');
+      return;
+    }
+
+    setProcessingId(decisionId);
+    try {
+      const { data: user } = await supabase.auth.getUser();
+      if (!user.user) return;
+
+      await supabase
+        .from('autonomous_decisions')
+        .update({
+          decision_data: editedData,
+          status: 'approved',
+          approved_by: user.user.id,
+          executed_at: new Date().toISOString(),
+          modified_before_approval: true
+        })
+        .eq('id', decisionId);
+
+      await supabase
+        .from('approval_workflows')
+        .update({
+          status: 'approved',
+          comments: comment || 'Modified and approved',
+          responded_at: new Date().toISOString()
+        })
+        .eq('decision_id', decisionId);
+
+      await supabase.rpc('broadcast_to_channel', {
+        p_channel_name: 'approvals.pending',
+        p_message_type: 'decision_modified_approved',
+        p_payload: { decision_id: decisionId, modifications: editedData },
+        p_sender_id: user.user.id,
+        p_priority: 'high'
+      });
+
+      setEditMode(null);
+      setEditedData(null);
+      setComment('');
+      await loadDecisions();
+    } catch (error) {
+      console.error('Error editing and approving decision:', error);
+    } finally {
+      setProcessingId(null);
+    }
+  }
+
+  function startEdit(decision: Decision) {
+    setEditMode(decision.id);
+    setEditedData(JSON.parse(JSON.stringify(decision.decision_data)));
   }
 
   function getDecisionIcon(type: string) {
@@ -272,7 +366,7 @@ export function ApprovalQueue() {
                     />
                   </div>
 
-                  <div className="flex items-center space-x-3">
+                  <div className="flex items-center flex-wrap gap-3">
                     <button
                       onClick={() => handleApprove(decision.id)}
                       disabled={processingId === decision.id}
@@ -280,6 +374,15 @@ export function ApprovalQueue() {
                     >
                       <CheckCircle className="w-5 h-5" />
                       <span>{processingId === decision.id ? 'Processing...' : 'Approve'}</span>
+                    </button>
+
+                    <button
+                      onClick={() => startEdit(decision)}
+                      disabled={processingId === decision.id}
+                      className="flex items-center space-x-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+                    >
+                      <Edit className="w-5 h-5" />
+                      <span>Edit & Approve</span>
                     </button>
 
                     <button
@@ -293,14 +396,68 @@ export function ApprovalQueue() {
 
                     <button
                       onClick={() => {
+                        const reason = prompt('Enter escalation reason:');
+                        if (reason) {
+                          setEscalationReason(reason);
+                          handleEscalate(decision.id);
+                        }
+                      }}
+                      disabled={processingId === decision.id}
+                      className="flex items-center space-x-2 px-6 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+                    >
+                      <ArrowUp className="w-5 h-5" />
+                      <span>Escalate</span>
+                    </button>
+
+                    <button
+                      onClick={() => {
                         setExpandedDecision(null);
                         setComment('');
+                        setEditMode(null);
+                        setEditedData(null);
                       }}
                       className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
                     >
                       Cancel
                     </button>
                   </div>
+
+                  {editMode === decision.id && editedData && (
+                    <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                      <h4 className="font-semibold text-blue-900 mb-3">Edit Decision Data</h4>
+                      <textarea
+                        value={JSON.stringify(editedData, null, 2)}
+                        onChange={(e) => {
+                          try {
+                            setEditedData(JSON.parse(e.target.value));
+                          } catch (err) {
+                            // Invalid JSON, keep current value
+                          }
+                        }}
+                        className="w-full px-3 py-2 border border-blue-300 rounded-lg font-mono text-sm"
+                        rows={8}
+                      />
+                      <div className="flex items-center gap-3 mt-3">
+                        <button
+                          onClick={() => handleEditAndApprove(decision.id)}
+                          disabled={processingId === decision.id}
+                          className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                        >
+                          <CheckCircle className="w-4 h-4" />
+                          <span>Save & Approve</span>
+                        </button>
+                        <button
+                          onClick={() => {
+                            setEditMode(null);
+                            setEditedData(null);
+                          }}
+                          className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                        >
+                          Cancel Edit
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
