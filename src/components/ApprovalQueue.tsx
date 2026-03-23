@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { CircleCheck as CheckCircle, Circle as XCircle, Clock, TriangleAlert as AlertTriangle, ChevronDown, ChevronUp, MessageSquare } from 'lucide-react';
 
