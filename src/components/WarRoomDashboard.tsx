@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { TriangleAlert as AlertTriangle, Activity, Clock, Users, TrendingUp, CircleCheck as CheckCircle, Zap } from 'lucide-react';
+import { AlertTriangle, Activity, Clock, Users, TrendingUp, CheckCircle, Zap } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 interface Incident {

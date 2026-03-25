@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Wrench, CircleAlert as AlertCircle, CircleCheck as CheckCircle, Clock, Camera, Mic } from 'lucide-react';
+import { Wrench, AlertCircle, CheckCircle, Clock, Camera, Mic } from 'lucide-react';
 import { useAuth } from './AuthProvider';
 import { useWorkOrderUpdates, useAlertUpdates } from '../hooks/useRealtimeUpdates';
 

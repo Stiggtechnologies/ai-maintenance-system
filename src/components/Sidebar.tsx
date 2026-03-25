@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 import { useUIStore } from '../store/uiStore';
-import { Hop as Home, Factory, ClipboardList, TrendingUp, Package, TriangleAlert as AlertTriangle, ChartBar as BarChart3, Bot, Settings, LayoutDashboard, ChartLine as LineChart, Cpu, Zap, Brain, ChevronDown, ChevronRight, DollarSign, SquareCheck as CheckSquare, Activity, ShieldAlert } from 'lucide-react';
+import { Hop as Home, Factory, ClipboardList, TrendingUp, Package, AlertTriangle, BarChart3, Bot, Settings, LayoutDashboard, LineChart, Cpu, Zap, Brain, ChevronDown, ChevronRight, DollarSign, CheckSquare, Activity, ShieldAlert } from 'lucide-react';
 import { useState } from 'react';
 
 interface NavItem {

@@ -4,7 +4,7 @@ import { Sidebar } from './Sidebar';
 import { Toast } from './Toast';
 import { useTrialStore } from '../store/trialStore';
 import { useUIStore } from '../store/uiStore';
-import { Send, Menu, LogOut, Sparkles, CircleAlert as AlertCircle, ChartBar as BarChart2, X } from 'lucide-react';
+import { Send, Menu, LogOut, Sparkles, AlertCircle, BarChart3, X } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { createTypewriterEffect } from '../utils/typewriter';
 
@@ -306,7 +306,7 @@ export function CommandCenter() {
                             onClick={() => setActiveView(view)}
                             className="flex items-center gap-2 px-3 py-2.5 bg-[#11161D] hover:bg-[#161C24] border border-[#232A33] hover:border-[#3A8DFF]/20 rounded-lg text-xs text-[#9BA7B4] hover:text-[#E6EDF3] transition-all"
                           >
-                            <BarChart2 className="w-3.5 h-3.5 text-[#3A8DFF]" />
+                            <BarChart3 className="w-3.5 h-3.5 text-[#3A8DFF]" />
                             {label}
                           </button>
                         ))}

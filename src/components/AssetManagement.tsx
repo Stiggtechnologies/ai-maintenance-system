@@ -24,7 +24,7 @@ export function AssetManagement() {
       </div>
 
       {showImportWizard && (
-        <CSVImportWizard onClose={() => setShowImportWizard(false)} />
+        <CSVImportWizard onClose={() => setShowImportWizard(false)} onComplete={() => setShowImportWizard(false)} />
       )}
     </div>
   );
