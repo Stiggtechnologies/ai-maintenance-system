@@ -31,6 +31,9 @@ import { JavisDockInteractive } from './JavisDockInteractive';
 import { CommandCenterDashboard } from './CommandCenterDashboard';
 import { AgentControlCenter } from './AgentControlCenter';
 import { AutonomyControlPanel } from './AutonomyControlPanel';
+import { SustainabilityDashboard } from './SustainabilityDashboard';
+import { IntegrationsDashboard } from './IntegrationsDashboard';
+import { DecisionLogs } from './DecisionLogs';
 
 interface Message {
   id: string;
@@ -205,6 +208,9 @@ export function CommandCenter() {
       case 'financial': return <ExecutiveDashboard />;
       case 'integrations': return <JavisPreferences />;
       case 'admin': return <JavisPreferences />;
+      case 'sustainability': return <SustainabilityDashboard />;
+      case 'integrations': return <IntegrationsDashboard />;
+      case 'decision-logs': return <DecisionLogs />;
       
       default: return null;
     }
