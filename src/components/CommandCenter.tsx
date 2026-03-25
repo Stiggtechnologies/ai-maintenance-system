@@ -27,6 +27,11 @@ import { WarRoomDashboard } from './WarRoomDashboard';
 import { JavisPreferences } from './JavisPreferences';
 import { JavisDockInteractive } from './JavisDockInteractive';
 
+// NEW: Command Center Dashboard & Agent Control
+import { CommandCenterDashboard } from './CommandCenterDashboard';
+import { AgentControlCenter } from './AgentControlCenter';
+import { AutonomyControlPanel } from './AutonomyControlPanel';
+
 interface Message {
   id: string;
   role: 'user' | 'assistant';
@@ -42,20 +47,31 @@ interface Message {
 
 type ActiveView =
   | 'command'
+  | 'dashboard'
   | 'assets'
   | 'work-orders'
+  | 'maintenance-planning'
   | 'reliability'
+  | 'condition-monitoring'
   | 'inventory'
+  | 'sustainability'
+  | 'financial'
+  | 'agents'
+  | 'agent-control'
+  | 'decision-engine'
+  | 'autonomy-settings'
+  | 'decision-logs'
+  | 'analytics'
+  | 'integrations'
   | 'risk'
   | 'reports'
-  | 'agents'
   | 'settings'
+  | 'admin'
   | 'executive'
   | 'strategic'
   | 'tactical'
   | 'operational'
   | 'autonomous'
-  | 'analytics'
   | 'openclaw'
   | 'openclaw-enterprise'
   | 'billing'
@@ -178,6 +194,18 @@ export function CommandCenter() {
       case 'metrics': return <MetricsDashboard />;
       case 'war-room': return <WarRoomDashboard />;
       case 'settings': return <JavisPreferences />;
+      
+      // NEW: Command Center Views
+      case 'dashboard': return <CommandCenterDashboard />;
+      case 'agent-control': return <AgentControlCenter />;
+      case 'autonomy-settings': return <AutonomyControlPanel />;
+      case 'maintenance-planning': return <OperationalDashboard />;
+      case 'condition-monitoring': return <AIAnalyticsDashboard />;
+      case 'sustainability': return <MetricsDashboard />;
+      case 'financial': return <ExecutiveDashboard />;
+      case 'integrations': return <JavisPreferences />;
+      case 'admin': return <JavisPreferences />;
+      
       default: return null;
     }
   };

@@ -1,6 +1,11 @@
 import { motion } from 'framer-motion';
 import { useUIStore } from '../store/uiStore';
-import { Hop as Home, Factory, ClipboardList, TrendingUp, Package, AlertTriangle, BarChart3, Bot, Settings, LayoutDashboard, LineChart, Cpu, Zap, Brain, ChevronDown, ChevronRight, DollarSign, CheckSquare, Activity, ShieldAlert } from 'lucide-react';
+import { 
+  Hop as Home, Factory, ClipboardList, Package, 
+  Bot, Settings, LayoutDashboard, Cpu, Zap, 
+  ChevronDown, ChevronRight, DollarSign, CheckSquare, ShieldAlert,
+  Gauge, Recycle, Plug, FileBarChart, Wrench, ActivitySquare
+} from 'lucide-react';
 import { useState } from 'react';
 
 interface NavItem {
@@ -8,44 +13,50 @@ interface NavItem {
   label: string;
   id: string;
   children?: { label: string; id: string }[];
+  badge?: number;
 }
 
+// SyncAI Navigation - 14 Primary Sections per Design Spec
 const menuItems: NavItem[] = [
-  { icon: Home, label: 'Command', id: 'command' },
-  { icon: Factory, label: 'Assets', id: 'assets' },
-  { icon: ClipboardList, label: 'Work Orders', id: 'work-orders' },
-  {
-    icon: LayoutDashboard,
-    label: 'Dashboards',
+  { icon: Home, label: 'Dashboard', id: 'dashboard' },
+  { icon: Factory, label: 'Assets', id: 'assets', badge: 12 },
+  { icon: ClipboardList, label: 'Work Orders', id: 'work-orders', badge: 8 },
+  { icon: Wrench, label: 'Maintenance Planning', id: 'maintenance-planning' },
+  { icon: ActivitySquare, label: 'Reliability Intelligence', id: 'reliability' },
+  { icon: Gauge, label: 'Condition Monitoring', id: 'condition-monitoring' },
+  { icon: Package, label: 'Inventory', id: 'inventory' },
+  { icon: Recycle, label: 'Sustainability & ESG', id: 'sustainability' },
+  { icon: DollarSign, label: 'Financial Intelligence', id: 'financial' },
+  { 
+    icon: Bot, 
+    label: 'AI Agents', 
+    id: 'agents',
+    children: [
+      { label: 'Agent Control Center', id: 'agent-control' },
+      { label: 'Decision Engine', id: 'decision-engine' },
+      { label: 'Autonomy Settings', id: 'autonomy-settings' },
+      { label: 'Decision Logs', id: 'decision-logs' },
+    ]
+  },
+  { icon: FileBarChart, label: 'Analytics', id: 'analytics' },
+  { icon: Plug, label: 'Integrations', id: 'integrations' },
+  { 
+    icon: LayoutDashboard, 
+    label: 'Dashboards', 
     id: 'dashboards',
     children: [
-      { label: 'Executive', id: 'executive' },
-      { label: 'Strategic', id: 'strategic' },
-      { label: 'Tactical', id: 'tactical' },
-      { label: 'Operational', id: 'operational' },
-      { label: 'Autonomous', id: 'autonomous' },
-    ],
+      { label: 'Executive Overview', id: 'executive' },
+      { label: 'Asset Performance', id: 'asset-performance' },
+      { label: 'Reliability & Maintenance', id: 'reliability-maint' },
+      { label: 'Financial Impact', id: 'financial-impact' },
+      { label: 'Risk & Safety', id: 'risk-safety' },
+      { label: 'Sustainability', id: 'sustainability-dash' },
+      { label: 'AI Insights', id: 'ai-insights' },
+    ]
   },
   { icon: ShieldAlert, label: 'War Room', id: 'war-room' },
-  { icon: CheckSquare, label: 'Approvals', id: 'approvals' },
-  { icon: TrendingUp, label: 'Reliability', id: 'reliability' },
-  { icon: Package, label: 'Inventory', id: 'inventory' },
-  { icon: AlertTriangle, label: 'Risk', id: 'risk' },
-  { icon: LineChart, label: 'AI Analytics', id: 'analytics' },
-  { icon: Activity, label: 'Metrics', id: 'metrics' },
-  { icon: BarChart3, label: 'Reports', id: 'reports' },
-  { icon: Bot, label: 'Agents', id: 'agents' },
-  {
-    icon: Brain,
-    label: 'OpenClaw',
-    id: 'openclaw-group',
-    children: [
-      { label: 'Control Panel', id: 'openclaw' },
-      { label: 'Enterprise', id: 'openclaw-enterprise' },
-    ],
-  },
-  { icon: DollarSign, label: 'Billing', id: 'billing' },
-  { icon: Settings, label: 'Settings', id: 'settings' },
+  { icon: CheckSquare, label: 'Approvals', id: 'approvals', badge: 3 },
+  { icon: Settings, label: 'Administration', id: 'admin' },
 ];
 
 interface SidebarProps {
