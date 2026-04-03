@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import { kpiService, organizationService } from '../services/syncaiDataService';
 import {
   TrendingUp, TrendingDown, Minus, Target, DollarSign, Shield,
   Leaf, Users, BarChart3, AlertTriangle, CheckCircle, Activity,
