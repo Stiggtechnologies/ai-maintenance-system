@@ -34,21 +34,6 @@ export async function signUp(data: SignUpData): Promise<{ success: boolean; erro
       return { success: false, error: { message: 'Failed to create user account' } };
     }
 
-    const { error: profileError } = await supabase.from('user_profiles').insert({
-      id: authData.user.id,
-      full_name: data.fullName,
-      company: data.company,
-      role: data.role,
-      industry: data.industry,
-      trial_sessions_remaining: 10,
-      trial_sessions_used: 0,
-      subscription_tier: 'explorer',
-    });
-
-    if (profileError) {
-      return { success: false, error: { message: 'Failed to create user profile' } };
-    }
-
     return { success: true };
   } catch (error) {
     return { success: false, error: { message: 'An unexpected error occurred' } };
