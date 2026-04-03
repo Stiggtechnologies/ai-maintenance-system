@@ -40,18 +40,42 @@ export default function ExecutiveDashboard() {
 
   const loadExecutiveKPIs = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const { data, error } = await supabase
-        .from('user_kpi_dashboard')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('kpi_type', 'KOI')
-        .order('category_name', { ascending: true });
-
-      if (error) throw error;
-      setKpis(data || []);
+      // Use data service for new schema
+      const org = await organizationService.getCurrentOrganization();
+      if (!org) {
+        // Fallback to legacy view
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+        
+        const { data, error } = await supabase
+          .from('user_kpi_dashboard')
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('kpi_type', 'KOI');
+        
+        if (error) throw error;
+        setKpis(data || []);
+        return;
+      }
+      
+      // Use new data service
+      const kpis = await kpiService.getLatestKPIValues(org.id);
+      
+      // Transform to expected format
+      const transformed = kpis.map(kpi => ({
+        kpi_id: kpi.kpi_definition_id,
+        kpi_code: kpi.kpi_definitions?.code || '',
+        kpi_name: kpi.kpi_definitions?.name || '',
+        kpi_type: 'KOI',
+        category_name: kpi.kpi_definitions?.category || 'Other',
+        latest_value: kpi.value,
+        target_value: null,
+        status: 'unknown' as const,
+        trend: 'unknown' as const,
+        last_updated: kpi.measurement_time,
+      }));
+      
+      setKpis(transformed);
     } catch (error) {
       console.error('Error loading KPIs:', error);
     } finally {
