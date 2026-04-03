@@ -4,7 +4,7 @@ import { Sidebar } from './Sidebar';
 import { Toast } from './Toast';
 import { useTrialStore } from '../store/trialStore';
 import { useUIStore } from '../store/uiStore';
-import { Send, Menu, LogOut, Sparkles, AlertCircle, BarChart3, X } from 'lucide-react';
+import { Send, Menu, LogOut, Sparkles, CircleAlert as AlertCircle, ChartBar as BarChart3, X } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { createTypewriterEffect } from '../utils/typewriter';
 
@@ -204,12 +204,10 @@ export function CommandCenter() {
       case 'autonomy-settings': return <AutonomyControlPanel />;
       case 'maintenance-planning': return <OperationalDashboard />;
       case 'condition-monitoring': return <AIAnalyticsDashboard />;
-      case 'sustainability': return <MetricsDashboard />;
-      case 'financial': return <ExecutiveDashboard />;
-      case 'integrations': return <JavisPreferences />;
-      case 'admin': return <JavisPreferences />;
       case 'sustainability': return <SustainabilityDashboard />;
+      case 'financial': return <ExecutiveDashboard />;
       case 'integrations': return <IntegrationsDashboard />;
+      case 'admin': return <JavisPreferences />;
       case 'decision-logs': return <DecisionLogs />;
       
       default: return null;
