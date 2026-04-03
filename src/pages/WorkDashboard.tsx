@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Wrench, CircleAlert as AlertCircle } from 'lucide-react';
+import { Wrench, AlertCircle } from 'lucide-react';
 import { workService } from '../services/work';
 import { platformService } from '../services/platform';
 

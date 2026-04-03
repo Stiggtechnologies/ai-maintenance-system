@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { TrendingUp, TrendingDown, TriangleAlert as AlertTriangle, Shield, Zap, Activity, Wrench } from 'lucide-react';
+import { TrendingUp, TrendingDown, AlertTriangle, Shield, Zap, Activity, Wrench } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { performanceService, KPIValue } from '../services/performance';
 import { workService, WorkBacklogSummary } from '../services/work';

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Shield, CircleCheck as CheckCircle, Circle as XCircle, Clock } from 'lucide-react';
+import { Shield, CheckCircle, XCircle, Clock } from 'lucide-react';
 import { governanceService } from '../services/governance';
 import { platformService } from '../services/platform';
 
