@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { LayoutDashboard, Activity, Wrench, Shield, Package, Plug, Settings, LogOut, ChevronRight, CircleCheck as CheckCircle2, Gauge, Video as LucideIcon } from 'lucide-react';
+import { LayoutDashboard, Activity, Wrench, Shield, Package, Plug, Settings, LogOut, ChevronRight, CircleCheck as CheckCircle2, Gauge } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { platformService, UserContext } from '../services/platform';
 
 interface AppShellProps {
