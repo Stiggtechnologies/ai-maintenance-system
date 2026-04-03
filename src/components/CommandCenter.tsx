@@ -4,7 +4,7 @@ import { Sidebar } from './Sidebar';
 import { Toast } from './Toast';
 import { useTrialStore } from '../store/trialStore';
 import { useUIStore } from '../store/uiStore';
-import { Send, Menu, LogOut, Sparkles, CircleAlert as AlertCircle, ChartBar as BarChart2, X } from 'lucide-react';
+import { Send, Menu, LogOut, Sparkles, AlertCircle, BarChart3, X } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { createTypewriterEffect } from '../utils/typewriter';
 
@@ -27,6 +27,14 @@ import { WarRoomDashboard } from './WarRoomDashboard';
 import { JavisPreferences } from './JavisPreferences';
 import { JavisDockInteractive } from './JavisDockInteractive';
 
+// NEW: Command Center Dashboard & Agent Control
+import { CommandCenterDashboard } from './CommandCenterDashboard';
+import { AgentControlCenter } from './AgentControlCenter';
+import { AutonomyControlPanel } from './AutonomyControlPanel';
+import { SustainabilityDashboard } from './SustainabilityDashboard';
+import { IntegrationsDashboard } from './IntegrationsDashboard';
+import { DecisionLogs } from './DecisionLogs';
+
 interface Message {
   id: string;
   role: 'user' | 'assistant';
@@ -42,20 +50,31 @@ interface Message {
 
 type ActiveView =
   | 'command'
+  | 'dashboard'
   | 'assets'
   | 'work-orders'
+  | 'maintenance-planning'
   | 'reliability'
+  | 'condition-monitoring'
   | 'inventory'
+  | 'sustainability'
+  | 'financial'
+  | 'agents'
+  | 'agent-control'
+  | 'decision-engine'
+  | 'autonomy-settings'
+  | 'decision-logs'
+  | 'analytics'
+  | 'integrations'
   | 'risk'
   | 'reports'
-  | 'agents'
   | 'settings'
+  | 'admin'
   | 'executive'
   | 'strategic'
   | 'tactical'
   | 'operational'
   | 'autonomous'
-  | 'analytics'
   | 'openclaw'
   | 'openclaw-enterprise'
   | 'billing'
@@ -178,6 +197,21 @@ export function CommandCenter() {
       case 'metrics': return <MetricsDashboard />;
       case 'war-room': return <WarRoomDashboard />;
       case 'settings': return <JavisPreferences />;
+      
+      // NEW: Command Center Views
+      case 'dashboard': return <CommandCenterDashboard />;
+      case 'agent-control': return <AgentControlCenter />;
+      case 'autonomy-settings': return <AutonomyControlPanel />;
+      case 'maintenance-planning': return <OperationalDashboard />;
+      case 'condition-monitoring': return <AIAnalyticsDashboard />;
+      case 'sustainability': return <MetricsDashboard />;
+      case 'financial': return <ExecutiveDashboard />;
+      case 'integrations': return <JavisPreferences />;
+      case 'admin': return <JavisPreferences />;
+      case 'sustainability': return <SustainabilityDashboard />;
+      case 'integrations': return <IntegrationsDashboard />;
+      case 'decision-logs': return <DecisionLogs />;
+      
       default: return null;
     }
   };
@@ -306,7 +340,7 @@ export function CommandCenter() {
                             onClick={() => setActiveView(view)}
                             className="flex items-center gap-2 px-3 py-2.5 bg-[#11161D] hover:bg-[#161C24] border border-[#232A33] hover:border-[#3A8DFF]/20 rounded-lg text-xs text-[#9BA7B4] hover:text-[#E6EDF3] transition-all"
                           >
-                            <BarChart2 className="w-3.5 h-3.5 text-[#3A8DFF]" />
+                            <BarChart3 className="w-3.5 h-3.5 text-[#3A8DFF]" />
                             {label}
                           </button>
                         ))}

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { CircleCheck as CheckCircle, Circle as XCircle, Clock, TriangleAlert as AlertTriangle, ChevronDown, ChevronUp, MessageSquare, CreditCard as Edit, ArrowUp } from 'lucide-react';
+import { CheckCircle, XCircle, Clock, AlertTriangle, ChevronDown, ChevronUp, MessageSquare, CreditCard as Edit, ArrowUp } from 'lucide-react';
 
 interface Decision {
   id: string;
