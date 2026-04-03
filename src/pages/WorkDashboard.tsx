@@ -1,0 +1,146 @@
+import { useState, useEffect } from 'react';
+import { Wrench, CircleAlert as AlertCircle } from 'lucide-react';
+import { workService } from '../services/work';
+import { platformService } from '../services/platform';
+
+export function WorkDashboard() {
+  const [workOrders, setWorkOrders] = useState<any[]>([]);
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadWorkData();
+  }, []);
+
+  const loadWorkData = async () => {
+    try {
+      const userContext = await platformService.getCurrentUserContext();
+      if (!userContext) return;
+
+      const [orders, notifs] = await Promise.all([
+        workService.getWorkOrders(userContext.organization_id, userContext.default_site_id || undefined),
+        workService.getNotifications(userContext.organization_id, userContext.default_site_id || undefined),
+      ]);
+
+      setWorkOrders(orders);
+      setNotifications(notifs);
+    } catch (error) {
+      console.error('Error loading work data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="text-slate-400">Loading work data...</div>
+      </div>
+    );
+  }
+
+  const statusColors: Record<string, string> = {
+    new: 'bg-blue-100 text-blue-800',
+    in_progress: 'bg-yellow-100 text-yellow-800',
+    pending_approval: 'bg-orange-100 text-orange-800',
+    completed: 'bg-green-100 text-green-800',
+    cancelled: 'bg-slate-100 text-slate-600',
+  };
+
+  const priorityColors: Record<string, string> = {
+    critical: 'text-red-600',
+    high: 'text-orange-600',
+    medium: 'text-blue-600',
+    low: 'text-slate-600',
+  };
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold text-slate-900">Work Management</h1>
+        <p className="text-slate-600 mt-1">Notifications, work requests, and work orders</p>
+      </div>
+
+      {/* Notifications */}
+      <div className="bg-white border border-slate-200 rounded-xl p-6">
+        <div className="flex items-center gap-2 mb-4">
+          <AlertCircle size={20} className="text-slate-600" />
+          <h2 className="text-lg font-semibold text-slate-900">Recent Notifications</h2>
+          <span className="ml-auto px-2 py-1 bg-blue-100 text-blue-800 text-sm font-medium rounded">{notifications.length}</span>
+        </div>
+
+        <div className="space-y-2">
+          {notifications.length > 0 ? (
+            notifications.slice(0, 10).map((notif) => (
+              <div key={notif.id} className="flex items-start gap-3 p-3 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer">
+                <div className={`w-2 h-2 rounded-full mt-2 ${notif.status === 'new' ? 'bg-blue-500' : 'bg-slate-300'}`} />
+                <div className="flex-1">
+                  <div className="font-medium text-slate-900">{notif.title}</div>
+                  {notif.description && <div className="text-sm text-slate-600 mt-1">{notif.description}</div>}
+                  <div className="text-xs text-slate-500 mt-1">
+                    {new Date(notif.reported_at).toLocaleString()} • {notif.source_type}
+                  </div>
+                </div>
+                <div className={`px-2 py-1 rounded text-xs font-medium ${priorityColors[notif.priority] || 'text-slate-600'}`}>
+                  {notif.priority}
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="text-center text-slate-500 py-8">No notifications found</div>
+          )}
+        </div>
+      </div>
+
+      {/* Work Orders */}
+      <div className="bg-white border border-slate-200 rounded-xl p-6">
+        <div className="flex items-center gap-2 mb-4">
+          <Wrench size={20} className="text-slate-600" />
+          <h2 className="text-lg font-semibold text-slate-900">Work Orders</h2>
+          <span className="ml-auto px-2 py-1 bg-blue-100 text-blue-800 text-sm font-medium rounded">{workOrders.length}</span>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-slate-200">
+                <th className="text-left py-3 px-4 text-sm font-semibold text-slate-900">WO #</th>
+                <th className="text-left py-3 px-4 text-sm font-semibold text-slate-900">Title</th>
+                <th className="text-left py-3 px-4 text-sm font-semibold text-slate-900">Priority</th>
+                <th className="text-left py-3 px-4 text-sm font-semibold text-slate-900">Status</th>
+                <th className="text-left py-3 px-4 text-sm font-semibold text-slate-900">Due Date</th>
+              </tr>
+            </thead>
+            <tbody>
+              {workOrders.length > 0 ? (
+                workOrders.slice(0, 20).map((wo) => (
+                  <tr key={wo.id} className="border-b border-slate-100 hover:bg-slate-50 cursor-pointer">
+                    <td className="py-3 px-4 text-sm font-mono text-slate-600">{wo.work_order_number || wo.id.slice(0, 8)}</td>
+                    <td className="py-3 px-4 text-sm text-slate-900">{wo.title || 'Untitled Work Order'}</td>
+                    <td className="py-3 px-4">
+                      <span className={`text-sm font-medium ${priorityColors[wo.priority] || 'text-slate-600'}`}>
+                        {wo.priority || 'medium'}
+                      </span>
+                    </td>
+                    <td className="py-3 px-4">
+                      <span className={`px-2 py-1 rounded text-xs font-medium ${statusColors[wo.status] || statusColors.new}`}>
+                        {wo.status || 'new'}
+                      </span>
+                    </td>
+                    <td className="py-3 px-4 text-sm text-slate-600">
+                      {wo.planned_finish ? new Date(wo.planned_finish).toLocaleDateString() : '-'}
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={5} className="text-center text-slate-500 py-8">No work orders found</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}

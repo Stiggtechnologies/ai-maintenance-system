@@ -1,20 +1,14 @@
 import { useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { supabase } from './lib/supabase';
 import { Login } from './pages/Login';
 import { Signup } from './pages/Signup';
 import { EnterpriseAccess } from './pages/EnterpriseAccess';
+import { CommandCenter } from './components/CommandCenter';
 import { LoadingScreen } from './components/LoadingScreen';
 import { Pricing } from './pages/Pricing';
 import { Security } from './pages/Security';
 import { Privacy } from './pages/Privacy';
 import { Terms } from './pages/Terms';
-import { AppShell } from './components/AppShell';
-import { OverviewDashboard } from './pages/OverviewDashboard';
-import { PerformanceDashboard } from './pages/PerformanceDashboard';
-import { WorkDashboard } from './pages/WorkDashboard';
-import { GovernanceDashboard } from './pages/GovernanceDashboard';
-import { CommandCenter } from './components/CommandCenter';
 import { motion, AnimatePresence } from 'framer-motion';
 
 type Page = 'signin' | 'signup' | 'enterprise' | 'app' | 'pricing' | 'security' | 'privacy' | 'terms';
@@ -73,9 +67,7 @@ function App() {
       )}
       {currentPage === 'app' && isAuthenticated && (
         <motion.div key="app" {...pageTransition} style={{ height: '100vh' }}>
-          <BrowserRouter>
-            <AuthenticatedApp />
-          </BrowserRouter>
+          <CommandCenter />
         </motion.div>
       )}
       {currentPage === 'pricing' && (
@@ -99,31 +91,6 @@ function App() {
         </motion.div>
       )}
     </AnimatePresence>
-  );
-}
-
-function AuthenticatedApp() {
-  const [currentPath, setCurrentPath] = useState('/overview');
-
-  const handleNavigate = (path: string) => {
-    setCurrentPath(path);
-    window.history.pushState(null, '', path);
-  };
-
-  return (
-    <AppShell currentPath={currentPath} onNavigate={handleNavigate}>
-      <Routes>
-        <Route path="/" element={<Navigate to="/overview" replace />} />
-        <Route path="/overview" element={<OverviewDashboard />} />
-        <Route path="/performance" element={<PerformanceDashboard />} />
-        <Route path="/work" element={<WorkDashboard />} />
-        <Route path="/governance" element={<GovernanceDashboard />} />
-        <Route path="/assets" element={<CommandCenter />} />
-        <Route path="/integrations" element={<div className="text-slate-600">Integrations dashboard coming soon</div>} />
-        <Route path="/settings" element={<div className="text-slate-600">Settings coming soon</div>} />
-        <Route path="*" element={<Navigate to="/overview" replace />} />
-      </Routes>
-    </AppShell>
   );
 }
 
