@@ -41,11 +41,16 @@ function App() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setIsAuthenticated(!!session);
-      if (session) setCurrentPage("app");
-      setLoading(false);
-    });
+    supabase.auth
+      .getSession()
+      .then(({ data: { session } }) => {
+        setIsAuthenticated(!!session);
+        if (session) setCurrentPage("app");
+        setLoading(false);
+      })
+      .catch(() => {
+        setLoading(false);
+      });
 
     const {
       data: { subscription },

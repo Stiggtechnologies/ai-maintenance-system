@@ -1,13 +1,19 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { supabase } from '../lib/supabase';
-import type { User, Session } from '@supabase/supabase-js';
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  ReactNode,
+} from "react";
+import { supabase } from "../lib/supabase";
+import type { User, Session } from "@supabase/supabase-js";
 
 interface UserProfile {
   id: string;
   email: string;
   full_name: string | null;
-  role: 'admin' | 'manager' | 'operator' | 'viewer';
-  preferences: any;
+  role: "admin" | "manager" | "operator" | "viewer";
+  preferences: Record<string, unknown>;
 }
 
 interface AuthContextType {
@@ -30,17 +36,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     (async () => {
-      const { data: { session: currentSession } } = await supabase.auth.getSession();
-      setSession(currentSession);
-      setUser(currentSession?.user ?? null);
+      try {
+        const {
+          data: { session: currentSession },
+        } = await supabase.auth.getSession();
+        setSession(currentSession);
+        setUser(currentSession?.user ?? null);
 
-      if (currentSession?.user) {
-        await loadProfile(currentSession.user.id);
+        if (currentSession?.user) {
+          await loadProfile(currentSession.user.id);
+        }
+      } catch (error) {
+        console.error("Auth session error:", error);
       }
 
       setLoading(false);
 
-      const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
+      const {
+        data: { subscription },
+      } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
         setSession(newSession);
         setUser(newSession?.user ?? null);
 
@@ -57,9 +71,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const loadProfile = async (userId: string) => {
     const { data } = await supabase
-      .from('user_profiles')
-      .select('*')
-      .eq('id', userId)
+      .from("user_profiles")
+      .select("*")
+      .eq("id", userId)
       .maybeSingle();
 
     if (data) {
@@ -68,7 +82,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signIn = async (email: string, password: string) => {
-    const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
     if (signInError) throw signInError;
   };
 
@@ -92,7 +109,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, profile, session, loading, signIn, signUp, signOut }}>
+    <AuthContext.Provider
+      value={{ user, profile, session, loading, signIn, signUp, signOut }}
+    >
       {children}
     </AuthContext.Provider>
   );
@@ -101,7 +120,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 export function useAuth() {
   const context = useContext(AuthContext);
   if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;
 }
