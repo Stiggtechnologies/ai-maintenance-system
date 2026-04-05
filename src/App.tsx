@@ -1,45 +1,56 @@
-import { useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { supabase } from './lib/supabase';
-import { Login } from './pages/Login';
-import { Signup } from './pages/Signup';
-import { EnterpriseAccess } from './pages/EnterpriseAccess';
-import { LoadingScreen } from './components/LoadingScreen';
-import { Pricing } from './pages/Pricing';
-import { Security } from './pages/Security';
-import { Privacy } from './pages/Privacy';
-import { Terms } from './pages/Terms';
-import { AppShell } from './components/AppShell';
-import { AssetDetailPage } from './pages/AssetDetailPage';
-import { OverviewDashboard } from './pages/OverviewDashboard';
-import { PerformanceDashboard } from './pages/PerformanceDashboard';
-import { WorkDashboard } from './pages/WorkDashboard';
-import { GovernanceDashboard } from './pages/GovernanceDashboard';
-import { WorkOrderDetailPage } from './pages/WorkOrderDetailPage';
-import { CommandCenter } from './components/CommandCenter';
-import { OEEDashboard } from './pages/OEEDashboard';
-import { SettingsPage } from './pages/SettingsPage';
-import { IntegrationsPage } from './pages/IntegrationsPage';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useState, useEffect } from "react";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { supabase } from "./lib/supabase";
+import { Login } from "./pages/Login";
+import { Signup } from "./pages/Signup";
+import { EnterpriseAccess } from "./pages/EnterpriseAccess";
+import { LoadingScreen } from "./components/LoadingScreen";
+import { Pricing } from "./pages/Pricing";
+import { Security } from "./pages/Security";
+import { Privacy } from "./pages/Privacy";
+import { Terms } from "./pages/Terms";
+import { AppShell } from "./components/AppShell";
+import { AssetDetailPage } from "./pages/AssetDetailPage";
+import { OverviewDashboard } from "./pages/OverviewDashboard";
+import { PerformanceDashboard } from "./pages/PerformanceDashboard";
+import { WorkDashboard } from "./pages/WorkDashboard";
+import { GovernanceDashboard } from "./pages/GovernanceDashboard";
+import { WorkOrderDetailPage } from "./pages/WorkOrderDetailPage";
+import { CommandCenter } from "./components/CommandCenter";
+import { OEEDashboard } from "./pages/OEEDashboard";
+import { SettingsPage } from "./pages/SettingsPage";
+import { IntegrationsPage } from "./pages/IntegrationsPage";
+import { ResearchDashboard } from "./pages/ResearchDashboard";
+import { motion, AnimatePresence } from "framer-motion";
 
-type Page = 'signin' | 'signup' | 'enterprise' | 'app' | 'pricing' | 'security' | 'privacy' | 'terms';
+type Page =
+  | "signin"
+  | "signup"
+  | "enterprise"
+  | "app"
+  | "pricing"
+  | "security"
+  | "privacy"
+  | "terms";
 
 function App() {
-  const [currentPage, setCurrentPage] = useState<Page>('signin');
+  const [currentPage, setCurrentPage] = useState<Page>("signin");
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setIsAuthenticated(!!session);
-      if (session) setCurrentPage('app');
+      if (session) setCurrentPage("app");
       setLoading(false);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
       setIsAuthenticated(!!session);
-      if (session) setCurrentPage('app');
-      else setCurrentPage('signin');
+      if (session) setCurrentPage("app");
+      else setCurrentPage("signin");
     });
 
     return () => subscription.unsubscribe();
@@ -47,7 +58,7 @@ function App() {
 
   const handleAuthSuccess = () => {
     setIsAuthenticated(true);
-    setCurrentPage('app');
+    setCurrentPage("app");
   };
 
   if (loading) return <LoadingScreen />;
@@ -62,42 +73,48 @@ function App() {
   return (
     <BrowserRouter>
       <AnimatePresence mode="wait">
-        {currentPage === 'signin' && (
+        {currentPage === "signin" && (
           <motion.div key="signin" {...pageTransition}>
             <Login onSuccess={handleAuthSuccess} onTabChange={setCurrentPage} />
           </motion.div>
         )}
-        {currentPage === 'signup' && (
+        {currentPage === "signup" && (
           <motion.div key="signup" {...pageTransition}>
-            <Signup onSuccess={handleAuthSuccess} onTabChange={setCurrentPage} />
+            <Signup
+              onSuccess={handleAuthSuccess}
+              onTabChange={setCurrentPage}
+            />
           </motion.div>
         )}
-        {currentPage === 'enterprise' && (
+        {currentPage === "enterprise" && (
           <motion.div key="enterprise" {...pageTransition}>
-            <EnterpriseAccess onSuccess={handleAuthSuccess} onTabChange={setCurrentPage} />
+            <EnterpriseAccess
+              onSuccess={handleAuthSuccess}
+              onTabChange={setCurrentPage}
+            />
           </motion.div>
         )}
-        {currentPage === 'app' && isAuthenticated && (
-          <motion.div key="app" {...pageTransition} style={{ height: '100vh' }}>
+        {currentPage === "app" && isAuthenticated && (
+          <motion.div key="app" {...pageTransition} style={{ height: "100vh" }}>
             <AuthenticatedApp />
           </motion.div>
         )}
-        {currentPage === 'pricing' && (
+        {currentPage === "pricing" && (
           <motion.div key="pricing" {...pageTransition}>
             <Pricing />
           </motion.div>
         )}
-        {currentPage === 'security' && (
+        {currentPage === "security" && (
           <motion.div key="security" {...pageTransition}>
             <Security onNavigate={setCurrentPage} />
           </motion.div>
         )}
-        {currentPage === 'privacy' && (
+        {currentPage === "privacy" && (
           <motion.div key="privacy" {...pageTransition}>
             <Privacy onNavigate={setCurrentPage} />
           </motion.div>
         )}
-        {currentPage === 'terms' && (
+        {currentPage === "terms" && (
           <motion.div key="terms" {...pageTransition}>
             <Terms onNavigate={setCurrentPage} />
           </motion.div>
@@ -108,11 +125,11 @@ function App() {
 }
 
 function AuthenticatedApp() {
-  const [currentPath, setCurrentPath] = useState('/overview');
+  const [currentPath, setCurrentPath] = useState("/overview");
 
   const handleNavigate = (path: string) => {
     setCurrentPath(path);
-    window.history.pushState(null, '', path);
+    window.history.pushState(null, "", path);
   };
 
   return (
@@ -128,6 +145,7 @@ function AuthenticatedApp() {
         <Route path="/assets" element={<CommandCenter />} />
         <Route path="/oee" element={<OEEDashboard />} />
         <Route path="/integrations" element={<IntegrationsPage />} />
+        <Route path="/research" element={<ResearchDashboard />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="*" element={<Navigate to="/overview" replace />} />
       </Routes>
