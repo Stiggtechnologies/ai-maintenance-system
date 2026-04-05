@@ -10,11 +10,16 @@ import { Security } from './pages/Security';
 import { Privacy } from './pages/Privacy';
 import { Terms } from './pages/Terms';
 import { AppShell } from './components/AppShell';
+import { AssetDetailPage } from './pages/AssetDetailPage';
 import { OverviewDashboard } from './pages/OverviewDashboard';
 import { PerformanceDashboard } from './pages/PerformanceDashboard';
 import { WorkDashboard } from './pages/WorkDashboard';
 import { GovernanceDashboard } from './pages/GovernanceDashboard';
+import { WorkOrderDetailPage } from './pages/WorkOrderDetailPage';
 import { CommandCenter } from './components/CommandCenter';
+import { OEEDashboard } from './pages/OEEDashboard';
+import { SettingsPage } from './pages/SettingsPage';
+import { IntegrationsPage } from './pages/IntegrationsPage';
 import { motion, AnimatePresence } from 'framer-motion';
 
 type Page = 'signin' | 'signup' | 'enterprise' | 'app' | 'pricing' | 'security' | 'privacy' | 'terms';
@@ -116,11 +121,14 @@ function AuthenticatedApp() {
         <Route path="/" element={<Navigate to="/overview" replace />} />
         <Route path="/overview" element={<OverviewDashboard />} />
         <Route path="/performance" element={<PerformanceDashboard />} />
+        <Route path="/work/:workOrderId" element={<WorkOrderDetailPage />} />
         <Route path="/work" element={<WorkDashboard />} />
         <Route path="/governance" element={<GovernanceDashboard />} />
+        <Route path="/assets/:assetId" element={<AssetDetailPage />} />
         <Route path="/assets" element={<CommandCenter />} />
-        <Route path="/integrations" element={<div className="text-slate-600">Integrations dashboard coming soon</div>} />
-        <Route path="/settings" element={<div className="text-slate-600">Settings coming soon</div>} />
+        <Route path="/oee" element={<OEEDashboard />} />
+        <Route path="/integrations" element={<IntegrationsPage />} />
+        <Route path="/settings" element={<SettingsPage />} />
         <Route path="*" element={<Navigate to="/overview" replace />} />
       </Routes>
     </AppShell>

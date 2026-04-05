@@ -66,8 +66,53 @@ async function monitorAssets(supabase: any) {
   const decisions = [];
 
   for (const asset of assets) {
-    // Simulate health monitoring (in real system, would read from IoT sensors)
-    const healthScore = Math.random() * 100;
+    // Read latest sensor data if available, otherwise derive from recent health records
+    const { data: latestHealth } = await supabase
+      .from('asset_health_monitoring')
+      .select('health_score, sensor_data')
+      .eq('asset_id', asset.id)
+      .order('recorded_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    // Read from normalized signals if available
+    const { data: signals } = await supabase
+      .from('normalized_signals')
+      .select('signal_type, numeric_value')
+      .eq('asset_id', asset.id)
+      .gte('signal_time', new Date(Date.now() - 60 * 60 * 1000).toISOString())
+      .order('signal_time', { ascending: false })
+      .limit(10);
+
+    // Calculate health score from real data when available
+    let healthScore: number;
+    let sensorData: Record<string, number>;
+
+    if (signals && signals.length > 0) {
+      // Derive health from actual sensor signals
+      const tempSignal = signals.find(s => s.signal_type === 'temperature');
+      const vibSignal = signals.find(s => s.signal_type === 'vibration');
+      const pressSignal = signals.find(s => s.signal_type === 'pressure');
+      sensorData = {
+        temperature: tempSignal?.numeric_value ?? 85,
+        vibration: vibSignal?.numeric_value ?? 3,
+        pressure: pressSignal?.numeric_value ?? 120,
+      };
+      // Score: penalize high temp (>100), high vibration (>8), abnormal pressure
+      const tempPenalty = Math.max(0, (sensorData.temperature - 90) * 2);
+      const vibPenalty = Math.max(0, (sensorData.vibration - 5) * 10);
+      const pressPenalty = sensorData.pressure > 150 || sensorData.pressure < 80 ? 15 : 0;
+      healthScore = Math.max(0, Math.min(100, 100 - tempPenalty - vibPenalty - pressPenalty));
+    } else if (latestHealth?.health_score != null) {
+      // Use previous health with slight degradation model
+      healthScore = Math.max(0, latestHealth.health_score - (Math.random() * 2 - 0.5));
+      sensorData = latestHealth.sensor_data || { temperature: 85, vibration: 3, pressure: 120 };
+    } else {
+      // No data available — default to healthy with a note
+      healthScore = 85;
+      sensorData = { temperature: 85, vibration: 3, pressure: 120 };
+    }
+
     const anomalyDetected = healthScore < 60;
     
     // Create health record
@@ -77,11 +122,7 @@ async function monitorAssets(supabase: any) {
         asset_id: asset.id,
         health_score: healthScore,
         anomaly_detected: anomalyDetected,
-        sensor_data: {
-          temperature: 70 + Math.random() * 30,
-          vibration: Math.random() * 10,
-          pressure: 100 + Math.random() * 50
-        },
+        sensor_data: sensorData,
         ai_analysis: anomalyDetected 
           ? `Anomaly detected on ${asset.name}. Health score: ${healthScore.toFixed(2)}%` 
           : `${asset.name} operating normally`,

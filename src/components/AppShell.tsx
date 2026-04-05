@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { LayoutDashboard, Activity, Wrench, Shield, Package, Plug, Settings, LogOut, ChevronRight, CheckCircle2, Gauge } from 'lucide-react';
+import { LayoutDashboard, Activity, Wrench, Shield, Package, Plug, Settings, LogOut, ChevronRight, CheckCircle2, Gauge, AlertTriangle, MapPin, ChevronDown } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { platformService, UserContext } from '../services/platform';
+import { supabase } from '../lib/supabase';
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -18,38 +19,138 @@ interface NavItem {
   requiredLevel?: string[];
 }
 
+interface Site {
+  id: string;
+  name: string;
+  code: string;
+}
+
 export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
   const [userContext, setUserContext] = useState<UserContext | null>(null);
   const [isCollapsed, setIsCollapsed] = useState(false);
-  const deploymentHealth = {
+  const [sites, setSites] = useState<Site[]>([]);
+  const [selectedSiteId, setSelectedSiteId] = useState<string | null>(null);
+  const [sitePickerOpen, setSitePickerOpen] = useState(false);
+  const [badges, setBadges] = useState({ work: 0, governance: 0 });
+  const [systemHealth, setSystemHealth] = useState({
     intelligence: 'active',
     integration: 'stable',
     governance: 'enforced',
-    syncPercent: 92
-  };
+    syncPercent: 0
+  });
 
   useEffect(() => {
     loadUserContext();
   }, []);
 
+  useEffect(() => {
+    if (userContext) {
+      loadSites();
+      loadBadges();
+      loadSystemHealth();
+    }
+  }, [userContext]);
+
   const loadUserContext = async () => {
     const context = await platformService.getCurrentUserContext();
     setUserContext(context);
+    if (context?.default_site_id) {
+      setSelectedSiteId(context.default_site_id);
+    }
+  };
+
+  const loadSites = async () => {
+    if (!userContext) return;
+    const { data } = await supabase
+      .from('sites')
+      .select('id, name, code')
+      .eq('organization_id', userContext.organization_id)
+      .order('name');
+    if (data) setSites(data);
+  };
+
+  const loadBadges = async () => {
+    if (!userContext) return;
+    const [woRes, approvalRes] = await Promise.all([
+      supabase.from('work_orders').select('id', { count: 'exact', head: true }).in('status', ['pending', 'in_progress']),
+      supabase.from('approvals').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
+    ]);
+    setBadges({
+      work: woRes.count || 0,
+      governance: approvalRes.count || 0,
+    });
+  };
+
+  const loadSystemHealth = async () => {
+    if (!userContext) return;
+    const { data } = await supabase
+      .from('environment_health')
+      .select('*')
+      .eq('organization_id', userContext.organization_id)
+      .order('status_time', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (data) {
+      setSystemHealth({
+        intelligence: data.intelligence_engine_status || 'active',
+        integration: data.integration_health_status || 'stable',
+        governance: data.governance_status || 'enforced',
+        syncPercent: data.data_sync_percent || 0,
+      });
+    }
+  };
+
+  const handleSiteChange = async (siteId: string | null) => {
+    setSelectedSiteId(siteId);
+    setSitePickerOpen(false);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      await supabase.from('user_profiles').update({ default_site_id: siteId }).eq('id', user.id);
+    }
   };
 
   const handleSignOut = async () => {
     await platformService.signOut();
   };
 
-  const navItems: NavItem[] = [
+  const getUserLevel = (): string => {
+    if (!userContext?.roles?.length) return 'operational';
+    const level = userContext.roles[0].level?.toLowerCase() || '';
+    if (level.includes('exec')) return 'executive';
+    if (level.includes('strateg')) return 'strategic';
+    if (level.includes('tactic')) return 'tactical';
+    return 'operational';
+  };
+
+  const userLevel = getUserLevel();
+
+  const allNavItems: NavItem[] = [
     { id: 'overview', label: 'Overview', icon: LayoutDashboard, path: '/overview' },
-    { id: 'performance', label: 'Performance', icon: Activity, path: '/performance' },
-    { id: 'work', label: 'Work', icon: Wrench, path: '/work', badge: 12 },
-    { id: 'governance', label: 'Governance', icon: Shield, path: '/governance', badge: 3 },
+    { id: 'performance', label: 'Performance', icon: Activity, path: '/performance', requiredLevel: ['executive', 'strategic', 'tactical'] },
+    { id: 'oee', label: 'OEE', icon: Gauge, path: '/oee', requiredLevel: ['executive', 'strategic', 'tactical'] },
+    { id: 'work', label: 'Work', icon: Wrench, path: '/work', badge: badges.work || undefined },
+    { id: 'governance', label: 'Governance', icon: Shield, path: '/governance', badge: badges.governance || undefined, requiredLevel: ['executive', 'strategic', 'tactical'] },
     { id: 'assets', label: 'Assets', icon: Package, path: '/assets' },
-    { id: 'integrations', label: 'Integrations', icon: Plug, path: '/integrations' },
+    { id: 'integrations', label: 'Integrations', icon: Plug, path: '/integrations', requiredLevel: ['executive', 'strategic'] },
     { id: 'settings', label: 'Settings', icon: Settings, path: '/settings' },
   ];
+
+  const navItems = allNavItems.filter(item => {
+    if (!item.requiredLevel) return true;
+    return item.requiredLevel.includes(userLevel);
+  });
+
+  const healthStatusIcon = (status: string) => {
+    if (['healthy', 'active', 'enforced', 'stable'].includes(status)) {
+      return <CheckCircle2 size={14} className="text-green-500" />;
+    }
+    if (['degraded', 'warning'].includes(status)) {
+      return <AlertTriangle size={14} className="text-yellow-500" />;
+    }
+    return <AlertTriangle size={14} className="text-red-500" />;
+  };
+
+  const selectedSite = sites.find(s => s.id === selectedSiteId);
 
   return (
     <div className="flex h-screen bg-slate-50">
@@ -70,13 +171,44 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
           </div>
         </div>
 
-        {/* Organization */}
+        {/* Organization + Site Picker */}
         {!isCollapsed && userContext && (
           <div className="px-4 py-3 border-b border-slate-700">
             <div className="text-xs text-slate-400">Organization</div>
             <div className="text-sm font-medium truncate">{userContext.organization_name}</div>
             {userContext.roles && userContext.roles.length > 0 && (
               <div className="text-xs text-slate-400 mt-1">{userContext.roles[0].name}</div>
+            )}
+            {sites.length > 0 && (
+              <div className="relative mt-2">
+                <button
+                  onClick={() => setSitePickerOpen(!sitePickerOpen)}
+                  className="w-full flex items-center gap-2 px-2 py-1.5 bg-slate-800 rounded-lg text-xs text-slate-300 hover:bg-slate-700 transition-colors"
+                >
+                  <MapPin size={12} />
+                  <span className="flex-1 text-left truncate">{selectedSite?.name || 'All Sites'}</span>
+                  <ChevronDown size={12} className={`transition-transform ${sitePickerOpen ? 'rotate-180' : ''}`} />
+                </button>
+                {sitePickerOpen && (
+                  <div className="absolute top-full left-0 right-0 mt-1 bg-slate-800 border border-slate-700 rounded-lg shadow-lg z-50 max-h-48 overflow-y-auto">
+                    <button
+                      onClick={() => handleSiteChange(null)}
+                      className={`w-full text-left px-3 py-2 text-xs hover:bg-slate-700 ${!selectedSiteId ? 'text-blue-400' : 'text-slate-300'}`}
+                    >
+                      All Sites
+                    </button>
+                    {sites.map(site => (
+                      <button
+                        key={site.id}
+                        onClick={() => handleSiteChange(site.id)}
+                        className={`w-full text-left px-3 py-2 text-xs hover:bg-slate-700 ${selectedSiteId === site.id ? 'text-blue-400' : 'text-slate-300'}`}
+                      >
+                        {site.name} ({site.code})
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             )}
           </div>
         )}
@@ -86,7 +218,7 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
           <div className="space-y-1">
             {navItems.map((item) => {
               const Icon = item.icon;
-              const isActive = currentPath === item.path;
+              const isActive = currentPath === item.path || (item.path !== '/overview' && currentPath.startsWith(item.path));
 
               return (
                 <button
@@ -102,11 +234,11 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
                   {!isCollapsed && (
                     <>
                       <span className="flex-1 text-left text-sm font-medium">{item.label}</span>
-                      {item.badge && (
+                      {item.badge ? (
                         <span className="bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">
                           {item.badge}
                         </span>
-                      )}
+                      ) : null}
                     </>
                   )}
                 </button>
@@ -144,7 +276,7 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
                 <ChevronRight size={20} className={`transition-transform ${isCollapsed ? '' : 'rotate-180'}`} />
               </button>
               <div className="text-sm font-medium text-slate-900">
-                {navItems.find(item => item.path === currentPath)?.label || 'Dashboard'}
+                {navItems.find(item => currentPath.startsWith(item.path))?.label || 'Dashboard'}
               </div>
             </div>
 
@@ -152,24 +284,28 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2 text-xs">
                 <div className="flex items-center gap-1.5">
-                  <CheckCircle2 size={14} className="text-green-500" />
-                  <span className="text-slate-600">Intelligence: <span className="font-medium text-slate-900">Active</span></span>
+                  {healthStatusIcon(systemHealth.intelligence)}
+                  <span className="text-slate-600">Intelligence: <span className="font-medium text-slate-900 capitalize">{systemHealth.intelligence}</span></span>
                 </div>
                 <div className="w-px h-4 bg-slate-300" />
                 <div className="flex items-center gap-1.5">
-                  <CheckCircle2 size={14} className="text-green-500" />
-                  <span className="text-slate-600">Integration: <span className="font-medium text-slate-900">Stable</span></span>
+                  {healthStatusIcon(systemHealth.integration)}
+                  <span className="text-slate-600">Integration: <span className="font-medium text-slate-900 capitalize">{systemHealth.integration}</span></span>
                 </div>
                 <div className="w-px h-4 bg-slate-300" />
                 <div className="flex items-center gap-1.5">
-                  <Shield size={14} className="text-blue-500" />
-                  <span className="text-slate-600">Governance: <span className="font-medium text-slate-900">Enforced</span></span>
+                  {healthStatusIcon(systemHealth.governance)}
+                  <span className="text-slate-600">Governance: <span className="font-medium text-slate-900 capitalize">{systemHealth.governance}</span></span>
                 </div>
-                <div className="w-px h-4 bg-slate-300" />
-                <div className="flex items-center gap-1.5">
-                  <Gauge size={14} className="text-blue-500" />
-                  <span className="text-slate-600">Sync: <span className="font-medium text-slate-900">{deploymentHealth.syncPercent}%</span></span>
-                </div>
+                {systemHealth.syncPercent > 0 && (
+                  <>
+                    <div className="w-px h-4 bg-slate-300" />
+                    <div className="flex items-center gap-1.5">
+                      <Gauge size={14} className="text-blue-500" />
+                      <span className="text-slate-600">Sync: <span className="font-medium text-slate-900">{systemHealth.syncPercent}%</span></span>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           </div>
