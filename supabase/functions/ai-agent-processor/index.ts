@@ -76,7 +76,7 @@ function buildSystemPrompt(agentType: string, industry?: string): string {
   return agentPrompts[agentType] || `You are an expert AI agent for asset-intensive industries${industryContext}. Provide detailed, actionable insights with specific metrics and recommendations.`;
 }
 
-async function callOpenAI(model: string, systemPrompt: string, userQuery: string, apiKey: string): Promise<string> {
+async function callOpenAI(model: string, systemPrompt: string, userQuery: string, apiKey: string): Promise<{ content: string; usage: any }> {
   const response = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -100,7 +100,42 @@ async function callOpenAI(model: string, systemPrompt: string, userQuery: string
   }
 
   const data = await response.json();
-  return data.choices[0].message.content;
+  return { content: data.choices[0].message.content, usage: data.usage };
+}
+
+async function ensureSIRSession(supabase: any, tenant_id: string, user_id: string, agent_type: string) {
+  const { data: existing } = await supabase
+    .from('sir_sessions')
+    .select('id')
+    .eq('tenant_id', tenant_id)
+    .eq('user_id', user_id)
+    .eq('status', 'active')
+    .order('last_active_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (existing) {
+    await supabase.from('sir_sessions').update({ last_active_at: new Date().toISOString() }).eq('id', existing.id);
+    return existing.id;
+  }
+
+  const { data: agent } = await supabase
+    .from('sir_agents')
+    .select('id')
+    .eq('agent_type', agent_type)
+    .eq('tenant_id', tenant_id)
+    .limit(1)
+    .maybeSingle();
+
+  const agent_id = agent?.id || null;
+
+  const { data: session } = await supabase
+    .from('sir_sessions')
+    .insert({ tenant_id, agent_id, user_id, context: { source: 'ai-agent-processor' }, status: 'active' })
+    .select('id')
+    .single();
+
+  return session?.id;
 }
 
 Deno.serve(async (req: Request) => {
@@ -153,7 +188,7 @@ Deno.serve(async (req: Request) => {
       userQuery = `${userQuery}\n\nProvide a brief, helpful response. If this is a greeting, respond conversationally then offer relevant insights.`;
     }
 
-    const aiResponse = await callOpenAI(selectedModel, systemPrompt, userQuery, apiKey);
+    const { content: aiResponse, usage } = await callOpenAI(selectedModel, systemPrompt, userQuery, apiKey);
     const processingTime = Date.now() - startTime;
 
     await supabase.from("ai_agent_logs").insert({
@@ -163,6 +198,31 @@ Deno.serve(async (req: Request) => {
       industry: industry || "general",
       processing_time_ms: processingTime,
     });
+
+    // SIR logging (async side-effect — never blocks the main response)
+    try {
+      // Use a default tenant; ai-agent-processor doesn't receive tenant_id/user_id directly
+      const tenant_id = '00000000-0000-0000-0000-000000000001';
+      const user_id = '00000000-0000-0000-0000-000000000000';
+      const sirSessionId = await ensureSIRSession(supabase, tenant_id, user_id, agentType);
+      if (sirSessionId) {
+        // Log user message
+        await supabase.from('sir_messages').insert({ session_id: sirSessionId, role: 'user', content: userQuery, metadata: { source: 'ai-agent-processor', agent_type: agentType } });
+        // Log assistant response
+        await supabase.from('sir_messages').insert({ session_id: sirSessionId, role: 'assistant', content: aiResponse, metadata: { source: 'ai-agent-processor', agent_type: agentType, processing_time_ms: processingTime } });
+        // Log token costs
+        await supabase.from('sir_costs').insert({
+          tenant_id,
+          session_id: sirSessionId,
+          model: selectedModel,
+          prompt_tokens: usage?.prompt_tokens || 0,
+          completion_tokens: usage?.completion_tokens || 0,
+          cost_usd: ((usage?.prompt_tokens || 0) * 0.00015 + (usage?.completion_tokens || 0) * 0.0006) / 1000
+        });
+      }
+    } catch (e) {
+      console.error('SIR logging error:', e);
+    }
 
     return new Response(
       JSON.stringify({
