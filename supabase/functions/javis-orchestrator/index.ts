@@ -259,6 +259,7 @@ async function handleAsk(req: Request, supabase: any) {
 
   const aiResponse = await response.json();
   const answer = aiResponse.choices?.[0]?.message?.content || 'I apologize, but I could not generate a response.';
+  const usage = aiResponse.usage;
 
   // Log interaction
   await supabase.rpc('log_javis_interaction', {
@@ -292,6 +293,28 @@ async function handleAsk(req: Request, supabase: any) {
       citations: ragContext.citations,
       delivered_at: new Date().toISOString()
     });
+
+  // SIR logging (async side-effect — never blocks the main response)
+  try {
+    const sirSessionId = await ensureSIRSession(supabase, tenant_id, user_id, 'javis');
+    if (sirSessionId) {
+      // Log user message
+      await supabase.from('sir_messages').insert({ session_id: sirSessionId, role: 'user', content: query, metadata: { source: 'javis' } });
+      // Log assistant response
+      await supabase.from('sir_messages').insert({ session_id: sirSessionId, role: 'assistant', content: answer, metadata: { source: 'javis', citations: ragContext.citations?.length || 0 } });
+      // Log token costs
+      await supabase.from('sir_costs').insert({
+        tenant_id,
+        session_id: sirSessionId,
+        model: 'gpt-4o-mini',
+        prompt_tokens: usage?.prompt_tokens || 0,
+        completion_tokens: usage?.completion_tokens || 0,
+        cost_usd: ((usage?.prompt_tokens || 0) * 0.00015 + (usage?.completion_tokens || 0) * 0.0006) / 1000
+      });
+    }
+  } catch (e) {
+    console.error('SIR logging error:', e);
+  }
 
   return new Response(
     JSON.stringify({
@@ -508,6 +531,42 @@ function extractActions(text: string): any[] {
   }
 
   return actions;
+}
+
+async function ensureSIRSession(supabase: any, tenant_id: string, user_id: string, agent_type: string) {
+  const { data: existing } = await supabase
+    .from('sir_sessions')
+    .select('id')
+    .eq('tenant_id', tenant_id)
+    .eq('user_id', user_id)
+    .eq('status', 'active')
+    .order('last_active_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (existing) {
+    await supabase.from('sir_sessions').update({ last_active_at: new Date().toISOString() }).eq('id', existing.id);
+    return existing.id;
+  }
+
+  // Get or create a JAVIS agent
+  const { data: agent } = await supabase
+    .from('sir_agents')
+    .select('id')
+    .eq('agent_type', agent_type)
+    .eq('tenant_id', tenant_id)
+    .limit(1)
+    .maybeSingle();
+
+  const agent_id = agent?.id || null;
+
+  const { data: session } = await supabase
+    .from('sir_sessions')
+    .insert({ tenant_id, agent_id, user_id, context: { source: 'javis' }, status: 'active' })
+    .select('id')
+    .single();
+
+  return session?.id;
 }
 
 async function generateTTS(text: string, prefs: any): Promise<string | null> {
