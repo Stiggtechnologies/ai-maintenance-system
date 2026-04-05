@@ -9,11 +9,29 @@ interface UsageSummary {
   by_type: Record<string, { count: number; units: number; credits: number }>;
 }
 
+interface BillingPlan {
+  name: string;
+  code: string;
+  overage_per_credit_cad: number;
+}
+
+interface SubscriptionLimits {
+  included_credits: number;
+  remaining_credits: number;
+}
+
+interface BillingSubscription {
+  id: string;
+  status: string;
+  plan: BillingPlan;
+  limits: SubscriptionLimits[];
+}
+
 export function UsageDashboard() {
   const [usage, setUsage] = useState<UsageSummary | null>(null);
-  const [historicalData, setHistoricalData] = useState<any[]>([]);
+  const [historicalData, setHistoricalData] = useState<Array<{ month: string; total_credits: number }>>([]);
   const [loading, setLoading] = useState(true);
-  const [subscription, setSubscription] = useState<any>(null);
+  const [subscription, setSubscription] = useState<BillingSubscription | null>(null);
 
   useEffect(() => {
     fetchUsageData();
@@ -37,7 +55,7 @@ export function UsageDashboard() {
         return;
       }
 
-      const sub = subscriptions[0];
+      const sub = subscriptions[0] as BillingSubscription;
       setSubscription(sub);
 
       // Get current month usage
@@ -94,13 +112,13 @@ export function UsageDashboard() {
     );
   }
 
-  const plan = (subscription as any).plan;
-  const limits = (subscription as any).limits?.[0];
+  const plan = subscription.plan;
+  const limits = subscription.limits?.[0];
   const creditsUsed = limits?.included_credits - limits?.remaining_credits || 0;
   const usagePercent = (creditsUsed / limits?.included_credits) * 100;
   const isLow = usagePercent > 90;
 
-  const eventTypeIcons: Record<string, any> = {
+  const eventTypeIcons: Record<string, typeof Zap> = {
     'LLM_token_usage': Zap,
     'vision_frame_batch': Eye,
     'optimizer_job': Cpu,
@@ -190,7 +208,7 @@ export function UsageDashboard() {
 
           {historicalData.length > 0 ? (
             <div className="space-y-3">
-              {historicalData.map((month: any) => {
+              {historicalData.map((month) => {
                 const monthDate = new Date(month.month);
                 const monthLabel = monthDate.toLocaleDateString('en-US', { year: 'numeric', month: 'short' });
                 const monthPercent = (month.total_credits / limits?.included_credits) * 100;

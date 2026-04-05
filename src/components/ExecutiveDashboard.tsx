@@ -122,7 +122,7 @@ export default function ExecutiveDashboard() {
       const statusCounts = categoryKpis.reduce((acc, k) => {
         acc[k.status] = (acc[k.status] || 0) + 1;
         return acc;
-      }, {} as any);
+      }, {} as Record<string, number>);
 
       let avgStatus = 'unknown';
       if (statusCounts.red > 0) avgStatus = 'red';

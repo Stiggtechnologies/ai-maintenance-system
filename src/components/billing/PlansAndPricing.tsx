@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Check, Zap } from 'lucide-react';
+import { supabase } from '../../lib/supabase';
 
 interface Plan {
   id: string;
@@ -51,7 +52,26 @@ export function PlansAndPricing() {
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
       const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-      // Get current user's tenant_id (simplified - adjust based on your auth)
+      // Get tenant_id from authenticated user's profile
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        alert('Please sign in to select a plan.');
+        setSelectedPlan(null);
+        return;
+      }
+
+      const { data: profile } = await supabase
+        .from('user_profiles')
+        .select('tenant_id')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      if (!profile?.tenant_id) {
+        alert('Unable to determine your organization. Please contact support.');
+        setSelectedPlan(null);
+        return;
+      }
+
       const response = await fetch(`${supabaseUrl}/functions/v1/stripe-checkout/checkout`, {
         method: 'POST',
         headers: {
@@ -59,7 +79,7 @@ export function PlansAndPricing() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          tenant_id: localStorage.getItem('tenant_id') || 'demo-tenant',
+          tenant_id: profile.tenant_id,
           plan_code: planCode,
         }),
       });

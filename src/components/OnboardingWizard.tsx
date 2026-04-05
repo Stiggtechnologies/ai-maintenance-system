@@ -75,7 +75,7 @@ export function OnboardingWizard() {
       };
 
       if (profile?.onboarding_progress) {
-        const progress = profile.onboarding_progress as any;
+        const progress = profile.onboarding_progress as Record<string, boolean>;
         Object.assign(derivedProgress, progress);
       }
 

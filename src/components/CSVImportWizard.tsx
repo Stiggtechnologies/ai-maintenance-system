@@ -95,7 +95,7 @@ export function CSVImportWizard({ onClose, onComplete }: { onClose: () => void; 
         const row = headers.reduce((obj, header, index) => ({
           ...obj,
           [header]: values[index] || ''
-        }), {} as any);
+        }), {} as Record<string, string>);
 
         // Validate required fields
         if (!row.name || !row.type) {

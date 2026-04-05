@@ -270,6 +270,10 @@ export function JavisDockInteractive() {
 
   const startListening = () => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      console.warn('Speech recognition not supported in this browser');
+      return;
+    }
     const recognition = new SpeechRecognition();
 
     recognition.continuous = false;
@@ -280,7 +284,7 @@ export function JavisDockInteractive() {
       setIsListening(true);
     };
 
-    recognition.onresult = (event: any) => {
+    recognition.onresult = (event: { results: { 0: { 0: { transcript: string } } } }) => {
       const transcript = event.results[0][0].transcript;
       setInput(transcript);
       setIsListening(false);

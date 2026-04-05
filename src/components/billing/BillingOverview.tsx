@@ -3,11 +3,42 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../AuthProvider';
 import { CreditCard, TrendingUp, AlertCircle, DollarSign, Package, Calendar } from 'lucide-react';
 
+interface BillingPlan {
+  name: string;
+  code: string;
+  base_price_cad: number;
+  included_assets: number;
+  asset_uplift_cad: number;
+  max_sites: number;
+  overage_per_credit_cad: number;
+}
+
+interface SubscriptionLimits {
+  included_credits: number;
+  remaining_credits: number;
+}
+
+interface BillingInvoice {
+  id: string;
+  total_cad: number;
+  status: string;
+  created_at: string;
+}
+
+interface BillingSubscription {
+  id: string;
+  status: string;
+  current_period_start: string;
+  current_period_end: string;
+  plan: BillingPlan;
+  limits: SubscriptionLimits[];
+}
+
 interface BillingData {
-  subscription?: any;
-  plan?: any;
-  limits?: any;
-  latestInvoice?: any;
+  subscription?: BillingSubscription;
+  plan?: BillingPlan;
+  limits?: SubscriptionLimits;
+  latestInvoice?: BillingInvoice;
   assetCount?: number;
   creditUsagePercent?: number;
 }
@@ -33,7 +64,7 @@ export function BillingOverview() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          tenant_id: user?.id || 'demo-tenant',
+          tenant_id: user?.id,
         }),
       });
 
@@ -76,9 +107,9 @@ export function BillingOverview() {
         return;
       }
 
-      const subscription = subscriptions[0];
-      const plan = (subscription as any).plan;
-      const limits = (subscription as any).limits?.[0];
+      const subscription = subscriptions[0] as BillingSubscription;
+      const plan = subscription.plan;
+      const limits = subscription.limits?.[0];
 
       // Get latest invoice
       const { data: invoices } = await supabase

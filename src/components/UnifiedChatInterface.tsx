@@ -40,7 +40,7 @@ export function UnifiedChatInterface() {
         .maybeSingle();
 
       if (data?.organizational_levels && typeof data.organizational_levels === 'object' && 'level_name' in data.organizational_levels) {
-        setOrgLevel((data.organizational_levels as any).level_name);
+        setOrgLevel((data.organizational_levels as { level_name: string }).level_name);
       }
     } catch (error) {
       console.error('Error loading org level:', error);
