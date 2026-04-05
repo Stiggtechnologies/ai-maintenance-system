@@ -235,7 +235,11 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
     <div className="flex h-screen bg-slate-50 overflow-hidden">
       {/* Sidebar */}
       <aside
-        className={`bg-slate-900 text-white transition-all duration-300 flex-shrink-0 ${isCollapsed ? "w-16" : "w-64"} flex flex-col`}
+        style={{
+          width: isCollapsed ? "4rem" : "16rem",
+          minWidth: isCollapsed ? "4rem" : "16rem",
+        }}
+        className="bg-slate-900 text-white transition-all duration-300 flex-shrink-0 overflow-hidden flex flex-col"
       >
         {/* Logo */}
         <div className="p-4 border-b border-slate-700">
