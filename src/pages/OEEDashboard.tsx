@@ -1,7 +1,15 @@
-import { useState, useEffect } from 'react';
-import { Gauge, TrendingUp, TrendingDown, Clock, AlertTriangle, Factory, Loader2 } from 'lucide-react';
-import { oeeService } from '../services/syncaiDataService';
-import { platformService } from '../services/platform';
+import { useState, useEffect } from "react";
+import {
+  Gauge,
+  TrendingUp,
+  TrendingDown,
+  Clock,
+  AlertTriangle,
+  Factory,
+  Loader2,
+} from "lucide-react";
+import { oeeService } from "../services/syncaiDataService";
+import { platformService } from "../services/platform";
 
 interface OEEMeasurement {
   id: string;
@@ -17,7 +25,7 @@ interface OEEMeasurement {
 
 interface LineOEE {
   production_line_id: string;
-  production_lines: { name: string } | null;
+  production_lines: { name: string } | { name: string }[] | null;
   availability: number;
   performance: number;
   quality: number;
@@ -35,30 +43,30 @@ interface LossEvent {
 }
 
 const LOSS_CATEGORIES = [
-  'Equipment Failure',
-  'Setup',
-  'Minor Stops',
-  'Reduced Speed',
-  'Defects',
-  'Startup',
+  "Equipment Failure",
+  "Setup",
+  "Minor Stops",
+  "Reduced Speed",
+  "Defects",
+  "Startup",
 ];
 
 function getColorClass(value: number): string {
-  if (value >= 85) return 'text-green-600';
-  if (value >= 70) return 'text-yellow-600';
-  return 'text-red-600';
+  if (value >= 85) return "text-green-600";
+  if (value >= 70) return "text-yellow-600";
+  return "text-red-600";
 }
 
 function getBgColorClass(value: number): string {
-  if (value >= 85) return 'bg-green-50 border-green-200';
-  if (value >= 70) return 'bg-yellow-50 border-yellow-200';
-  return 'bg-red-50 border-red-200';
+  if (value >= 85) return "bg-green-50 border-green-200";
+  if (value >= 70) return "bg-yellow-50 border-yellow-200";
+  return "bg-red-50 border-red-200";
 }
 
 function getBarColor(value: number): string {
-  if (value >= 85) return 'bg-green-500';
-  if (value >= 70) return 'bg-yellow-500';
-  return 'bg-red-500';
+  if (value >= 85) return "bg-green-500";
+  if (value >= 70) return "bg-yellow-500";
+  return "bg-red-500";
 }
 
 export function OEEDashboard() {
@@ -79,7 +87,7 @@ export function OEEDashboard() {
 
       const context = await platformService.getCurrentUserContext();
       if (!context) {
-        setError('Unable to load user context. Please try again.');
+        setError("Unable to load user context. Please try again.");
         setLoading(false);
         return;
       }
@@ -100,8 +108,8 @@ export function OEEDashboard() {
       setLineData(byLineData);
       setLossEvents(lossData);
     } catch (err) {
-      console.error('Error loading OEE data:', err);
-      setError('Failed to load OEE data. Please try again.');
+      console.error("Error loading OEE data:", err);
+      setError("Failed to load OEE data. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -119,7 +127,7 @@ export function OEEDashboard() {
         performance: acc.performance + (m.performance || 0),
         quality: acc.quality + (m.quality || 0),
       }),
-      { oee: 0, availability: 0, performance: 0, quality: 0 }
+      { oee: 0, availability: 0, performance: 0, quality: 0 },
     );
     const count = measurements.length;
     return {
@@ -143,12 +151,15 @@ export function OEEDashboard() {
 
   // Group loss events by category
   const lossGrouped = (() => {
-    const groups: Record<string, { events: LossEvent[]; totalMinutes: number }> = {};
+    const groups: Record<
+      string,
+      { events: LossEvent[]; totalMinutes: number }
+    > = {};
     for (const cat of LOSS_CATEGORIES) {
       groups[cat] = { events: [], totalMinutes: 0 };
     }
     for (const event of lossEvents) {
-      const catName = event.oee_loss_categories?.name || 'Other';
+      const catName = event.oee_loss_categories?.name || "Other";
       if (!groups[catName]) {
         groups[catName] = { events: [], totalMinutes: 0 };
       }
@@ -197,9 +208,12 @@ export function OEEDashboard() {
       {!hasData ? (
         <div className="bg-white border border-slate-200 rounded-xl p-12 text-center">
           <Factory className="mx-auto text-slate-300 mb-4" size={48} />
-          <h3 className="text-lg font-semibold text-slate-700">No OEE Data Available</h3>
+          <h3 className="text-lg font-semibold text-slate-700">
+            No OEE Data Available
+          </h3>
           <p className="text-sm text-slate-500 mt-2">
-            OEE measurements will appear here once production data is being tracked.
+            OEE measurements will appear here once production data is being
+            tracked.
           </p>
         </div>
       ) : (
@@ -207,10 +221,18 @@ export function OEEDashboard() {
           {/* Summary Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {[
-              { label: 'Overall OEE', value: summary.oee, icon: Gauge },
-              { label: 'Availability', value: summary.availability, icon: TrendingUp },
-              { label: 'Performance', value: summary.performance, icon: TrendingUp },
-              { label: 'Quality', value: summary.quality, icon: TrendingDown },
+              { label: "Overall OEE", value: summary.oee, icon: Gauge },
+              {
+                label: "Availability",
+                value: summary.availability,
+                icon: TrendingUp,
+              },
+              {
+                label: "Performance",
+                value: summary.performance,
+                icon: TrendingUp,
+              },
+              { label: "Quality", value: summary.quality, icon: TrendingDown },
             ].map((card) => {
               const Icon = card.icon;
               return (
@@ -219,10 +241,14 @@ export function OEEDashboard() {
                   className={`border rounded-xl p-5 ${getBgColorClass(card.value)}`}
                 >
                   <div className="flex items-center justify-between mb-3">
-                    <span className="text-sm font-medium text-slate-600">{card.label}</span>
+                    <span className="text-sm font-medium text-slate-600">
+                      {card.label}
+                    </span>
                     <Icon size={18} className={getColorClass(card.value)} />
                   </div>
-                  <div className={`text-3xl font-bold ${getColorClass(card.value)}`}>
+                  <div
+                    className={`text-3xl font-bold ${getColorClass(card.value)}`}
+                  >
                     {card.value}%
                   </div>
                   <div className="mt-2 w-full bg-white/60 rounded-full h-2">
@@ -239,8 +265,12 @@ export function OEEDashboard() {
           {/* Production Line Breakdown */}
           <div className="bg-white border border-slate-200 rounded-xl">
             <div className="px-6 py-4 border-b border-slate-200">
-              <h2 className="text-lg font-semibold text-slate-900">Production Line Breakdown</h2>
-              <p className="text-sm text-slate-500">Latest OEE values per production line</p>
+              <h2 className="text-lg font-semibold text-slate-900">
+                Production Line Breakdown
+              </h2>
+              <p className="text-sm text-slate-500">
+                Latest OEE values per production line
+              </p>
             </div>
             {latestByLine.length === 0 ? (
               <div className="p-6 text-center text-sm text-slate-500">
@@ -273,20 +303,33 @@ export function OEEDashboard() {
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {latestByLine.map((line) => (
-                      <tr key={line.production_line_id} className="hover:bg-slate-50">
+                      <tr
+                        key={line.production_line_id}
+                        className="hover:bg-slate-50"
+                      >
                         <td className="px-6 py-3 text-sm font-medium text-slate-900">
-                          {line.production_lines?.name || 'Unknown Line'}
+                          {(Array.isArray(line.production_lines)
+                            ? line.production_lines[0]?.name
+                            : line.production_lines?.name) || "Unknown Line"}
                         </td>
-                        <td className={`px-6 py-3 text-sm font-semibold text-right ${getColorClass(line.oee)}`}>
+                        <td
+                          className={`px-6 py-3 text-sm font-semibold text-right ${getColorClass(line.oee)}`}
+                        >
                           {Math.round(line.oee * 10) / 10}%
                         </td>
-                        <td className={`px-6 py-3 text-sm text-right ${getColorClass(line.availability)}`}>
+                        <td
+                          className={`px-6 py-3 text-sm text-right ${getColorClass(line.availability)}`}
+                        >
                           {Math.round(line.availability * 10) / 10}%
                         </td>
-                        <td className={`px-6 py-3 text-sm text-right ${getColorClass(line.performance)}`}>
+                        <td
+                          className={`px-6 py-3 text-sm text-right ${getColorClass(line.performance)}`}
+                        >
                           {Math.round(line.performance * 10) / 10}%
                         </td>
-                        <td className={`px-6 py-3 text-sm text-right ${getColorClass(line.quality)}`}>
+                        <td
+                          className={`px-6 py-3 text-sm text-right ${getColorClass(line.quality)}`}
+                        >
                           {Math.round(line.quality * 10) / 10}%
                         </td>
                         <td className="px-6 py-3 text-sm text-right text-slate-500">
@@ -303,8 +346,12 @@ export function OEEDashboard() {
           {/* Loss Events */}
           <div className="bg-white border border-slate-200 rounded-xl">
             <div className="px-6 py-4 border-b border-slate-200">
-              <h2 className="text-lg font-semibold text-slate-900">Loss Events</h2>
-              <p className="text-sm text-slate-500">Recent loss events grouped by category (last 30 days)</p>
+              <h2 className="text-lg font-semibold text-slate-900">
+                Loss Events
+              </h2>
+              <p className="text-sm text-slate-500">
+                Recent loss events grouped by category (last 30 days)
+              </p>
             </div>
             {lossEvents.length === 0 ? (
               <div className="p-6 text-center text-sm text-slate-500">
@@ -313,23 +360,26 @@ export function OEEDashboard() {
             ) : (
               <div className="divide-y divide-slate-100">
                 {Object.entries(lossGrouped)
-                  .filter(([_, group]) => group.events.length > 0)
+                  .filter(([, group]) => group.events.length > 0)
                   .sort((a, b) => b[1].totalMinutes - a[1].totalMinutes)
                   .map(([category, group]) => (
                     <div key={category} className="px-6 py-4">
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-2">
                           <AlertTriangle size={16} className="text-amber-500" />
-                          <span className="text-sm font-semibold text-slate-900">{category}</span>
+                          <span className="text-sm font-semibold text-slate-900">
+                            {category}
+                          </span>
                           <span className="text-xs text-slate-400">
-                            ({group.events.length} event{group.events.length !== 1 ? 's' : ''})
+                            ({group.events.length} event
+                            {group.events.length !== 1 ? "s" : ""})
                           </span>
                         </div>
                         <div className="flex items-center gap-1 text-sm text-slate-600">
                           <Clock size={14} />
                           <span className="font-medium">
                             {group.totalMinutes >= 60
-                              ? `${Math.round(group.totalMinutes / 60 * 10) / 10}h`
+                              ? `${Math.round((group.totalMinutes / 60) * 10) / 10}h`
                               : `${Math.round(group.totalMinutes)}m`}
                           </span>
                           <span className="text-slate-400">total</span>
@@ -342,7 +392,7 @@ export function OEEDashboard() {
                             className="flex items-center justify-between text-xs text-slate-600"
                           >
                             <span className="truncate flex-1">
-                              {event.description || 'No description'}
+                              {event.description || "No description"}
                               {event.assets && (
                                 <span className="text-slate-400 ml-1">
                                   - {event.assets.name}

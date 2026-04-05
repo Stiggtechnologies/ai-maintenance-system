@@ -1,11 +1,11 @@
-import { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
-import { useAuth } from './AuthProvider';
-import { Send, Mic, MicOff, Loader as Loader2, Sparkles } from 'lucide-react';
-import { MarkdownRenderer } from './MarkdownRenderer';
+import { useState, useEffect } from "react";
+import { supabase } from "../lib/supabase";
+import { useAuth } from "./AuthProvider";
+import { Send, Mic, MicOff, Loader as Loader2, Sparkles } from "lucide-react";
+import { MarkdownRenderer } from "./MarkdownRenderer";
 
 interface ChatMessage {
-  role: 'user' | 'assistant' | 'system';
+  role: "user" | "assistant" | "system";
   content: string;
   timestamp: Date;
 }
@@ -13,18 +13,21 @@ interface ChatMessage {
 export function UnifiedChatInterface() {
   const { user, profile } = useAuth();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [input, setInput] = useState('');
+  const [input, setInput] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
-  const [orgLevel, setOrgLevel] = useState<string>('');
+  const [orgLevel, setOrgLevel] = useState<string>("");
 
   useEffect(() => {
     loadOrgLevel();
-    setMessages([{
-      role: 'assistant',
-      content: getWelcomeMessage(),
-      timestamp: new Date()
-    }]);
+    setMessages([
+      {
+        role: "assistant",
+        content: getWelcomeMessage(),
+        timestamp: new Date(),
+      },
+    ]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile]);
 
   const loadOrgLevel = async () => {
@@ -32,23 +35,31 @@ export function UnifiedChatInterface() {
 
     try {
       const { data } = await supabase
-        .from('user_profiles')
-        .select(`
+        .from("user_profiles")
+        .select(
+          `
           organizational_levels (level_name, level_code)
-        `)
-        .eq('id', user.id)
+        `,
+        )
+        .eq("id", user.id)
         .maybeSingle();
 
-      if (data?.organizational_levels && typeof data.organizational_levels === 'object' && 'level_name' in data.organizational_levels) {
-        setOrgLevel((data.organizational_levels as { level_name: string }).level_name);
+      if (
+        data?.organizational_levels &&
+        typeof data.organizational_levels === "object" &&
+        "level_name" in data.organizational_levels
+      ) {
+        setOrgLevel(
+          (data.organizational_levels as { level_name: string }).level_name,
+        );
       }
     } catch (error) {
-      console.error('Error loading org level:', error);
+      console.error("Error loading org level:", error);
     }
   };
 
   const getWelcomeMessage = () => {
-    const level = orgLevel || 'User';
+    const level = orgLevel || "User";
     return `Hello! I'm your AI assistant, tailored for ${level} level users. I can help you with:
 
 **Quick Actions:**
@@ -64,29 +75,32 @@ Ask me anything about your operations, and I'll provide insights based on your r
   const getRoleContext = () => {
     const levelCode = orgLevel.toLowerCase();
 
-    if (levelCode.includes('executive')) {
-      return 'strategic KOI performance, stakeholder value, asset management maturity, and board-level insights';
-    } else if (levelCode.includes('strategic')) {
-      return 'departmental KPIs, resource allocation, planning support, and decision traceability';
-    } else if (levelCode.includes('tactical')) {
-      return 'work order management, team performance, approvals, and operational KPIs';
-    } else if (levelCode.includes('operational') || levelCode.includes('field')) {
-      return 'assigned tasks, procedures, safety protocols, and field execution';
+    if (levelCode.includes("executive")) {
+      return "strategic KOI performance, stakeholder value, asset management maturity, and board-level insights";
+    } else if (levelCode.includes("strategic")) {
+      return "departmental KPIs, resource allocation, planning support, and decision traceability";
+    } else if (levelCode.includes("tactical")) {
+      return "work order management, team performance, approvals, and operational KPIs";
+    } else if (
+      levelCode.includes("operational") ||
+      levelCode.includes("field")
+    ) {
+      return "assigned tasks, procedures, safety protocols, and field execution";
     }
-    return 'general operations and performance metrics';
+    return "general operations and performance metrics";
   };
 
   const handleSend = async () => {
     if (!input.trim() || isProcessing) return;
 
     const userMessage: ChatMessage = {
-      role: 'user',
+      role: "user",
       content: input,
-      timestamp: new Date()
+      timestamp: new Date(),
     };
 
-    setMessages(prev => [...prev, userMessage]);
-    setInput('');
+    setMessages((prev) => [...prev, userMessage]);
+    setInput("");
     setIsProcessing(true);
 
     try {
@@ -94,33 +108,51 @@ Ask me anything about your operations, and I'll provide insights based on your r
       const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
       const query = input.toLowerCase();
-      let agentType = 'CentralCoordinationAgent';
+      let agentType = "CentralCoordinationAgent";
 
-      if (query.includes('kpi') || query.includes('performance') || query.includes('metric')) {
-        agentType = 'PerformanceAnalysisAgent';
-      } else if (query.includes('work order') || query.includes('task') || query.includes('maintenance')) {
-        agentType = 'WorkOrderAgent';
-      } else if (query.includes('asset') || query.includes('equipment') || query.includes('health')) {
-        agentType = 'AssetHealthAgent';
-      } else if (query.includes('alert') || query.includes('alarm') || query.includes('warning')) {
-        agentType = 'CentralCoordinationAgent';
+      if (
+        query.includes("kpi") ||
+        query.includes("performance") ||
+        query.includes("metric")
+      ) {
+        agentType = "PerformanceAnalysisAgent";
+      } else if (
+        query.includes("work order") ||
+        query.includes("task") ||
+        query.includes("maintenance")
+      ) {
+        agentType = "WorkOrderAgent";
+      } else if (
+        query.includes("asset") ||
+        query.includes("equipment") ||
+        query.includes("health")
+      ) {
+        agentType = "AssetHealthAgent";
+      } else if (
+        query.includes("alert") ||
+        query.includes("alarm") ||
+        query.includes("warning")
+      ) {
+        agentType = "CentralCoordinationAgent";
       }
 
       const contextualQuery = `[User Role: ${orgLevel}. Focus on ${getRoleContext()}]\n\n${input}`;
 
-      const response = await fetch(`${supabaseUrl}/functions/v1/ai-agent-processor`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${supabaseKey}`,
-          'Content-Type': 'application/json',
+      const response = await fetch(
+        `${supabaseUrl}/functions/v1/ai-agent-processor`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${supabaseKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            agentType,
+            industry: "general",
+            query: contextualQuery,
+          }),
         },
-        body: JSON.stringify({
-          agentType,
-          industry: 'general',
-          openaiKey,
-          query: contextualQuery
-        })
-      });
+      );
 
       if (!response.ok) {
         throw new Error(`API request failed: ${response.status}`);
@@ -129,32 +161,41 @@ Ask me anything about your operations, and I'll provide insights based on your r
       const result = await response.json();
 
       const assistantMessage: ChatMessage = {
-        role: 'assistant',
+        role: "assistant",
         content: result.response,
-        timestamp: new Date()
+        timestamp: new Date(),
       };
 
-      setMessages(prev => [...prev, assistantMessage]);
+      setMessages((prev) => [...prev, assistantMessage]);
     } catch (error) {
-      console.error('Error sending message:', error);
+      console.error("Error sending message:", error);
 
       const errorMessage: ChatMessage = {
-        role: 'system',
-        content: `Error: ${error instanceof Error ? error.message : 'Unknown error'}. Please try again.`,
-        timestamp: new Date()
+        role: "system",
+        content: `Error: ${error instanceof Error ? error.message : "Unknown error"}. Please try again.`,
+        timestamp: new Date(),
       };
 
-      setMessages(prev => [...prev, errorMessage]);
+      setMessages((prev) => [...prev, errorMessage]);
     } finally {
       setIsProcessing(false);
     }
   };
 
   const quickActions = [
-    { label: 'Show my KPIs', query: 'Show my current KPIs and performance metrics' },
-    { label: 'What needs attention?', query: 'What items need my attention based on my role?' },
-    { label: 'Show work orders', query: 'Show my work orders and their status' },
-    { label: 'Active alerts', query: 'What alerts are currently active?' }
+    {
+      label: "Show my KPIs",
+      query: "Show my current KPIs and performance metrics",
+    },
+    {
+      label: "What needs attention?",
+      query: "What items need my attention based on my role?",
+    },
+    {
+      label: "Show work orders",
+      query: "Show my work orders and their status",
+    },
+    { label: "Active alerts", query: "What alerts are currently active?" },
   ];
 
   const handleQuickAction = (query: string) => {
@@ -172,7 +213,9 @@ Ask me anything about your operations, and I'll provide insights based on your r
             </div>
             <div>
               <h1 className="text-2xl font-bold text-gray-900">AI Assistant</h1>
-              <p className="text-sm text-gray-600">Role-specific guidance for {orgLevel || 'your role'}</p>
+              <p className="text-sm text-gray-600">
+                Role-specific guidance for {orgLevel || "your role"}
+              </p>
             </div>
           </div>
         </div>
@@ -181,12 +224,15 @@ Ask me anything about your operations, and I'll provide insights based on your r
       <div className="flex-1 overflow-y-auto p-6">
         <div className="max-w-4xl mx-auto space-y-6">
           {messages.map((msg, idx) => (
-            <div key={idx} className={`${msg.role === 'user' ? 'flex justify-end' : ''}`}>
-              {msg.role === 'user' ? (
+            <div
+              key={idx}
+              className={`${msg.role === "user" ? "flex justify-end" : ""}`}
+            >
+              {msg.role === "user" ? (
                 <div className="bg-teal-600 text-white px-6 py-3 rounded-2xl max-w-2xl">
                   {msg.content}
                 </div>
-              ) : msg.role === 'system' ? (
+              ) : msg.role === "system" ? (
                 <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-lg text-sm">
                   {msg.content}
                 </div>
@@ -196,7 +242,9 @@ Ask me anything about your operations, and I'll provide insights based on your r
                     <div className="w-8 h-8 bg-gradient-to-br from-teal-100 to-teal-200 rounded-full flex items-center justify-center">
                       <Sparkles className="w-4 h-4 text-teal-600" />
                     </div>
-                    <span className="text-sm font-medium text-gray-700">AI Assistant</span>
+                    <span className="text-sm font-medium text-gray-700">
+                      AI Assistant
+                    </span>
                   </div>
                   <div className="prose prose-sm max-w-none">
                     <MarkdownRenderer content={msg.content} />
@@ -239,7 +287,7 @@ Ask me anything about your operations, and I'll provide insights based on your r
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && handleSend()}
+              onKeyPress={(e) => e.key === "Enter" && handleSend()}
               placeholder={`Ask anything about ${getRoleContext()}...`}
               className="w-full px-6 py-4 pr-24 rounded-2xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
               disabled={isProcessing}
@@ -249,10 +297,16 @@ Ask me anything about your operations, and I'll provide insights based on your r
                 onClick={() => setIsRecording(!isRecording)}
                 disabled={isProcessing}
                 className={`p-2 rounded-lg transition-colors ${
-                  isRecording ? 'bg-red-100 text-red-600' : 'hover:bg-gray-100 text-gray-400'
+                  isRecording
+                    ? "bg-red-100 text-red-600"
+                    : "hover:bg-gray-100 text-gray-400"
                 }`}
               >
-                {isRecording ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
+                {isRecording ? (
+                  <MicOff className="w-5 h-5" />
+                ) : (
+                  <Mic className="w-5 h-5" />
+                )}
               </button>
               <button
                 onClick={handleSend}
@@ -269,7 +323,8 @@ Ask me anything about your operations, and I'll provide insights based on your r
           </div>
 
           <div className="mt-3 text-xs text-gray-500 text-center">
-            AI responses are tailored to your organizational level and access permissions
+            AI responses are tailored to your organizational level and access
+            permissions
           </div>
         </div>
       </div>

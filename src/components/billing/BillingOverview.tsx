@@ -1,7 +1,14 @@
-import { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
-import { useAuth } from '../AuthProvider';
-import { CreditCard, TrendingUp, AlertCircle, DollarSign, Package, Calendar } from 'lucide-react';
+import { useState, useEffect } from "react";
+import { supabase } from "../../lib/supabase";
+import { useAuth } from "../AuthProvider";
+import {
+  CreditCard,
+  TrendingUp,
+  AlertCircle,
+  DollarSign,
+  Package,
+  Calendar,
+} from "lucide-react";
 
 interface BillingPlan {
   name: string;
@@ -50,6 +57,7 @@ export function BillingOverview() {
 
   useEffect(() => {
     fetchBillingData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   const handleManageSubscription = async () => {
@@ -57,26 +65,29 @@ export function BillingOverview() {
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
       const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-      const response = await fetch(`${supabaseUrl}/functions/v1/stripe-checkout/portal`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${supabaseKey}`,
-          'Content-Type': 'application/json',
+      const response = await fetch(
+        `${supabaseUrl}/functions/v1/stripe-checkout/portal`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${supabaseKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            tenant_id: user?.id,
+          }),
         },
-        body: JSON.stringify({
-          tenant_id: user?.id,
-        }),
-      });
+      );
 
       if (!response.ok) {
-        throw new Error('Failed to open customer portal');
+        throw new Error("Failed to open customer portal");
       }
 
       const data = await response.json();
       window.location.href = data.url;
     } catch (error) {
-      console.error('Portal error:', error);
-      alert('Failed to open customer portal. Please try again.');
+      console.error("Portal error:", error);
+      alert("Failed to open customer portal. Please try again.");
     }
   };
 
@@ -84,22 +95,24 @@ export function BillingOverview() {
     try {
       // Get user's tenant_id (simplified - adjust based on your schema)
       const { data: profile } = await supabase
-        .from('user_profiles')
-        .select('id')
-        .eq('id', user?.id)
+        .from("user_profiles")
+        .select("id")
+        .eq("id", user?.id)
         .maybeSingle();
 
       if (!profile) return;
 
       // Get active subscription
       const { data: subscriptions } = await supabase
-        .from('billing_subscriptions')
-        .select(`
+        .from("billing_subscriptions")
+        .select(
+          `
           *,
           plan:billing_plans(*),
           limits:subscription_limits(*)
-        `)
-        .eq('status', 'active')
+        `,
+        )
+        .eq("status", "active")
         .limit(1);
 
       if (!subscriptions || subscriptions.length === 0) {
@@ -113,22 +126,24 @@ export function BillingOverview() {
 
       // Get latest invoice
       const { data: invoices } = await supabase
-        .from('billing_invoices')
-        .select('*')
-        .eq('subscription_id', subscription.id)
-        .order('created_at', { ascending: false })
+        .from("billing_invoices")
+        .select("*")
+        .eq("subscription_id", subscription.id)
+        .order("created_at", { ascending: false })
         .limit(1);
 
       // Get asset count
       const { data: assetSnapshot } = await supabase
-        .from('asset_snapshots')
-        .select('asset_count')
-        .order('captured_at', { ascending: false })
+        .from("asset_snapshots")
+        .select("asset_count")
+        .order("captured_at", { ascending: false })
         .limit(1)
         .maybeSingle();
 
       const creditUsagePercent = limits
-        ? ((limits.included_credits - limits.remaining_credits) / limits.included_credits) * 100
+        ? ((limits.included_credits - limits.remaining_credits) /
+            limits.included_credits) *
+          100
         : 0;
 
       setData({
@@ -140,7 +155,7 @@ export function BillingOverview() {
         creditUsagePercent,
       });
     } catch (error) {
-      console.error('Error fetching billing data:', error);
+      console.error("Error fetching billing data:", error);
     } finally {
       setLoading(false);
     }
@@ -159,10 +174,14 @@ export function BillingOverview() {
       <div className="max-w-7xl mx-auto p-6">
         <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
           <CreditCard className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">No Active Subscription</h2>
-          <p className="text-gray-600 mb-6">Start your monetization journey by selecting a plan</p>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">
+            No Active Subscription
+          </h2>
+          <p className="text-gray-600 mb-6">
+            Start your monetization journey by selecting a plan
+          </p>
           <button
-            onClick={() => window.location.href = '/app/billing/plans'}
+            onClick={() => (window.location.href = "/app/billing/plans")}
             className="px-6 py-3 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors"
           >
             View Plans
@@ -172,33 +191,54 @@ export function BillingOverview() {
     );
   }
 
-  const { subscription, plan, limits, latestInvoice, assetCount, creditUsagePercent } = data;
-  const isLowCredits = (limits?.remaining_credits || 0) < (limits?.included_credits || 1) * 0.1;
+  const {
+    subscription,
+    plan,
+    limits,
+    latestInvoice,
+    assetCount,
+    creditUsagePercent,
+  } = data;
+  const isLowCredits =
+    (limits?.remaining_credits || 0) < (limits?.included_credits || 1) * 0.1;
   const isOverage = (limits?.remaining_credits || 0) < 0;
 
   return (
     <div className="h-full overflow-auto bg-gray-50">
       <div className="max-w-7xl mx-auto p-6">
         <div className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Billing Overview</h1>
-          <p className="text-gray-600">Manage your subscription and monitor usage</p>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+            Billing Overview
+          </h1>
+          <p className="text-gray-600">
+            Manage your subscription and monitor usage
+          </p>
         </div>
 
         {/* Alerts */}
         {(isLowCredits || isOverage) && (
-          <div className={`mb-6 rounded-xl border p-4 flex items-start gap-3 ${
-            isOverage ? 'bg-red-50 border-red-200' : 'bg-yellow-50 border-yellow-200'
-          }`}>
-            <AlertCircle className={`w-5 h-5 mt-0.5 ${isOverage ? 'text-red-600' : 'text-yellow-600'}`} />
+          <div
+            className={`mb-6 rounded-xl border p-4 flex items-start gap-3 ${
+              isOverage
+                ? "bg-red-50 border-red-200"
+                : "bg-yellow-50 border-yellow-200"
+            }`}
+          >
+            <AlertCircle
+              className={`w-5 h-5 mt-0.5 ${isOverage ? "text-red-600" : "text-yellow-600"}`}
+            />
             <div>
-              <h3 className={`font-semibold ${isOverage ? 'text-red-900' : 'text-yellow-900'}`}>
-                {isOverage ? 'Credit Overage' : 'Low Credits'}
+              <h3
+                className={`font-semibold ${isOverage ? "text-red-900" : "text-yellow-900"}`}
+              >
+                {isOverage ? "Credit Overage" : "Low Credits"}
               </h3>
-              <p className={`text-sm ${isOverage ? 'text-red-700' : 'text-yellow-700'}`}>
+              <p
+                className={`text-sm ${isOverage ? "text-red-700" : "text-yellow-700"}`}
+              >
                 {isOverage
                   ? `You have exceeded your monthly credit limit. Overage charges will apply.`
-                  : `You've used ${creditUsagePercent?.toFixed(0)}% of your monthly credits.`
-                }
+                  : `You've used ${creditUsagePercent?.toFixed(0)}% of your monthly credits.`}
               </p>
             </div>
           </div>
@@ -209,11 +249,17 @@ export function BillingOverview() {
           <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 p-6">
             <div className="flex items-center justify-between mb-6">
               <div>
-                <h2 className="text-xl font-bold text-gray-900 mb-1">{plan?.name}</h2>
-                <p className="text-sm text-gray-600">Current subscription plan</p>
+                <h2 className="text-xl font-bold text-gray-900 mb-1">
+                  {plan?.name}
+                </h2>
+                <p className="text-sm text-gray-600">
+                  Current subscription plan
+                </p>
               </div>
               <div className="text-right">
-                <div className="text-3xl font-bold text-gray-900">${plan?.base_price_cad?.toLocaleString()}</div>
+                <div className="text-3xl font-bold text-gray-900">
+                  ${plan?.base_price_cad?.toLocaleString()}
+                </div>
                 <div className="text-sm text-gray-600">CAD/month</div>
               </div>
             </div>
@@ -222,17 +268,29 @@ export function BillingOverview() {
               <div>
                 <div className="text-sm text-gray-600 mb-1">Assets</div>
                 <div className="text-2xl font-bold text-gray-900">
-                  {assetCount} <span className="text-sm text-gray-500">/ {plan?.included_assets}</span>
+                  {assetCount}{" "}
+                  <span className="text-sm text-gray-500">
+                    / {plan?.included_assets}
+                  </span>
                 </div>
-                {assetCount && plan?.included_assets && assetCount > plan.included_assets && (
-                  <div className="text-xs text-red-600 mt-1">
-                    +${((assetCount - plan.included_assets) * plan.asset_uplift_cad).toFixed(2)} overage
-                  </div>
-                )}
+                {assetCount &&
+                  plan?.included_assets &&
+                  assetCount > plan.included_assets && (
+                    <div className="text-xs text-red-600 mt-1">
+                      +$
+                      {(
+                        (assetCount - plan.included_assets) *
+                        plan.asset_uplift_cad
+                      ).toFixed(2)}{" "}
+                      overage
+                    </div>
+                  )}
               </div>
 
               <div>
-                <div className="text-sm text-gray-600 mb-1">Credits Remaining</div>
+                <div className="text-sm text-gray-600 mb-1">
+                  Credits Remaining
+                </div>
                 <div className="text-2xl font-bold text-gray-900">
                   {(limits?.remaining_credits || 0).toLocaleString()}
                 </div>
@@ -243,14 +301,21 @@ export function BillingOverview() {
 
               <div>
                 <div className="text-sm text-gray-600 mb-1">Max Sites</div>
-                <div className="text-2xl font-bold text-gray-900">{plan?.max_sites}</div>
+                <div className="text-2xl font-bold text-gray-900">
+                  {plan?.max_sites}
+                </div>
               </div>
 
               <div>
                 <div className="text-sm text-gray-600 mb-1">Billing Period</div>
                 <div className="text-sm text-gray-900">
-                  {new Date(subscription?.current_period_start).toLocaleDateString()} - <br/>
-                  {new Date(subscription?.current_period_end).toLocaleDateString()}
+                  {new Date(
+                    subscription?.current_period_start,
+                  ).toLocaleDateString()}{" "}
+                  - <br />
+                  {new Date(
+                    subscription?.current_period_end,
+                  ).toLocaleDateString()}
                 </div>
               </div>
             </div>
@@ -263,7 +328,7 @@ export function BillingOverview() {
                 Manage Subscription
               </button>
               <button
-                onClick={() => window.location.href = '/app/billing/plans'}
+                onClick={() => (window.location.href = "/app/billing/plans")}
                 className="px-4 py-2 text-teal-600 hover:text-teal-700 font-medium text-sm"
               >
                 Change Plan
@@ -275,14 +340,20 @@ export function BillingOverview() {
           <div className="space-y-4">
             <div className="bg-teal-50 rounded-xl border border-teal-200 p-5">
               <Package className="w-8 h-8 text-teal-600 mb-2" />
-              <div className="text-2xl font-bold text-teal-900">{plan?.code}</div>
+              <div className="text-2xl font-bold text-teal-900">
+                {plan?.code}
+              </div>
               <div className="text-sm text-teal-700">Plan Tier</div>
             </div>
 
             <div className="bg-white rounded-xl border border-gray-200 p-5">
               <Calendar className="w-8 h-8 text-gray-600 mb-2" />
               <div className="text-2xl font-bold text-gray-900">
-                {Math.ceil((new Date(subscription?.current_period_end).getTime() - Date.now()) / (1000 * 60 * 60 * 24))}
+                {Math.ceil(
+                  (new Date(subscription?.current_period_end).getTime() -
+                    Date.now()) /
+                    (1000 * 60 * 60 * 24),
+                )}
               </div>
               <div className="text-sm text-gray-600">Days until renewal</div>
             </div>
@@ -294,9 +365,13 @@ export function BillingOverview() {
                   ${latestInvoice.total_cad?.toFixed(2)}
                 </div>
                 <div className="text-sm text-gray-600">Last invoice</div>
-                <div className={`text-xs mt-1 ${
-                  latestInvoice.status === 'paid' ? 'text-green-600' : 'text-yellow-600'
-                }`}>
+                <div
+                  className={`text-xs mt-1 ${
+                    latestInvoice.status === "paid"
+                      ? "text-green-600"
+                      : "text-yellow-600"
+                  }`}
+                >
                   {latestInvoice.status.toUpperCase()}
                 </div>
               </div>
@@ -306,12 +381,18 @@ export function BillingOverview() {
 
         {/* Credit Usage */}
         <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Credit Usage This Period</h2>
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">
+            Credit Usage This Period
+          </h2>
 
           <div className="mb-4">
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm text-gray-600">
-                {((limits?.included_credits - limits?.remaining_credits) || 0).toLocaleString()} credits used
+                {(
+                  (limits?.included_credits ?? 0) -
+                    (limits?.remaining_credits ?? 0) || 0
+                ).toLocaleString()}{" "}
+                credits used
               </span>
               <span className="text-sm text-gray-600">
                 {creditUsagePercent?.toFixed(1)}%
@@ -320,7 +401,11 @@ export function BillingOverview() {
             <div className="w-full bg-gray-200 rounded-full h-3">
               <div
                 className={`h-3 rounded-full transition-all ${
-                  isOverage ? 'bg-red-500' : isLowCredits ? 'bg-yellow-500' : 'bg-teal-500'
+                  isOverage
+                    ? "bg-red-500"
+                    : isLowCredits
+                      ? "bg-yellow-500"
+                      : "bg-teal-500"
                 }`}
                 style={{ width: `${Math.min(creditUsagePercent || 0, 100)}%` }}
               ></div>
@@ -337,7 +422,10 @@ export function BillingOverview() {
             <div>
               <div className="text-gray-600">Used</div>
               <div className="font-semibold text-gray-900">
-                {((limits?.included_credits - limits?.remaining_credits) || 0).toLocaleString()}
+                {(
+                  (limits?.included_credits ?? 0) -
+                    (limits?.remaining_credits ?? 0) || 0
+                ).toLocaleString()}
               </div>
             </div>
             <div>
@@ -360,16 +448,20 @@ export function BillingOverview() {
         {/* Quick Actions */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <button
-            onClick={() => window.location.href = '/app/billing/usage'}
+            onClick={() => (window.location.href = "/app/billing/usage")}
             className="bg-white rounded-xl border border-gray-200 p-6 hover:border-teal-300 hover:shadow-sm transition-all text-left"
           >
             <TrendingUp className="w-8 h-8 text-teal-600 mb-2" />
-            <h3 className="font-semibold text-gray-900 mb-1">Usage Dashboard</h3>
-            <p className="text-sm text-gray-600">View detailed usage analytics</p>
+            <h3 className="font-semibold text-gray-900 mb-1">
+              Usage Dashboard
+            </h3>
+            <p className="text-sm text-gray-600">
+              View detailed usage analytics
+            </p>
           </button>
 
           <button
-            onClick={() => window.location.href = '/app/billing/invoices'}
+            onClick={() => (window.location.href = "/app/billing/invoices")}
             className="bg-white rounded-xl border border-gray-200 p-6 hover:border-teal-300 hover:shadow-sm transition-all text-left"
           >
             <CreditCard className="w-8 h-8 text-teal-600 mb-2" />
@@ -378,7 +470,7 @@ export function BillingOverview() {
           </button>
 
           <button
-            onClick={() => window.location.href = '/app/billing/gain-share'}
+            onClick={() => (window.location.href = "/app/billing/gain-share")}
             className="bg-white rounded-xl border border-gray-200 p-6 hover:border-teal-300 hover:shadow-sm transition-all text-left"
           >
             <DollarSign className="w-8 h-8 text-teal-600 mb-2" />

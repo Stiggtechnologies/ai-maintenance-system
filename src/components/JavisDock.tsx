@@ -1,12 +1,21 @@
-import { useState, useEffect } from 'react';
-import { MessageCircle, Mic, MicOff, Volume2, VolumeX, X, Minimize2, Maximize2 } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { useState, useEffect } from "react";
+import {
+  MessageCircle,
+  Mic,
+  MicOff,
+  Volume2,
+  VolumeX,
+  X,
+  Minimize2,
+  Maximize2,
+} from "lucide-react";
+import { supabase } from "../lib/supabase";
 
 interface Message {
   id: string;
-  role: 'user' | 'assistant';
+  role: "user" | "assistant";
   content: string;
-  citations?: any[];
+  citations?: Record<string, unknown>[];
   timestamp: Date;
 }
 
@@ -14,45 +23,48 @@ export function JavisDock() {
   const [isOpen, setIsOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
-  const [input, setInput] = useState('');
+  const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [voiceEnabled, setVoiceEnabled] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
-  const [greeting, setGreeting] = useState<string>('');
+  const [greeting, setGreeting] = useState<string>("");
 
   useEffect(() => {
     if (isOpen && messages.length === 0) {
       loadMorningBrief();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
 
   const loadMorningBrief = async () => {
     try {
       setIsLoading(true);
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) return;
 
       const { data: profile } = await supabase
-        .from('user_profiles')
-        .select('tenant_id')
-        .eq('id', user.id)
+        .from("user_profiles")
+        .select("tenant_id")
+        .eq("id", user.id)
         .single();
 
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/javis-orchestrator/brief`,
         {
-          method: 'POST',
+          method: "POST",
           headers: {
-            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-            'Content-Type': 'application/json',
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+            "Content-Type": "application/json",
           },
           body: JSON.stringify({
             tenant_id: profile?.tenant_id,
             user_id: user.id,
-            time_of_day: getTimeOfDay()
-          })
-        }
+            time_of_day: getTimeOfDay(),
+          }),
+        },
       );
 
       const data = await response.json();
@@ -61,10 +73,10 @@ export function JavisDock() {
 
       const briefMessage: Message = {
         id: crypto.randomUUID(),
-        role: 'assistant',
+        role: "assistant",
         content: formatBrief(data.brief),
         citations: data.citations,
-        timestamp: new Date()
+        timestamp: new Date(),
       };
 
       setMessages([briefMessage]);
@@ -72,34 +84,36 @@ export function JavisDock() {
       if (voiceEnabled && data.audio_url) {
         playAudio(data.audio_url);
       } else if (voiceEnabled) {
-        speak(data.greeting + ' ' + briefMessage.content);
+        speak(data.greeting + " " + briefMessage.content);
       }
     } catch (error) {
-      console.error('Error loading brief:', error);
+      console.error("Error loading brief:", error);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const formatBrief = (brief: any): string => {
-    let formatted = brief.summary + '\n\n';
+  const formatBrief = (brief: Record<string, unknown>): string => {
+    let formatted = brief.summary + "\n\n";
 
-    brief.sections?.forEach((section: any) => {
+    (
+      brief.sections as Array<{ title: string; items: string[] }> | undefined
+    )?.forEach((section: { title: string; items: string[] }) => {
       formatted += `**${section.title}**\n`;
       section.items.forEach((item: string) => {
         formatted += `• ${item}\n`;
       });
-      formatted += '\n';
+      formatted += "\n";
     });
 
     return formatted;
   };
 
-  const getTimeOfDay = (): 'morning' | 'afternoon' | 'evening' => {
+  const getTimeOfDay = (): "morning" | "afternoon" | "evening" => {
     const hour = new Date().getHours();
-    if (hour < 12) return 'morning';
-    if (hour < 18) return 'afternoon';
-    return 'evening';
+    if (hour < 12) return "morning";
+    if (hour < 18) return "afternoon";
+    return "evening";
   };
 
   const handleSend = async () => {
@@ -107,40 +121,42 @@ export function JavisDock() {
 
     const userMessage: Message = {
       id: crypto.randomUUID(),
-      role: 'user',
+      role: "user",
       content: input,
-      timestamp: new Date()
+      timestamp: new Date(),
     };
 
-    setMessages(prev => [...prev, userMessage]);
-    setInput('');
+    setMessages((prev) => [...prev, userMessage]);
+    setInput("");
     setIsLoading(true);
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) return;
 
       const { data: profile } = await supabase
-        .from('user_profiles')
-        .select('tenant_id')
-        .eq('id', user.id)
+        .from("user_profiles")
+        .select("tenant_id")
+        .eq("id", user.id)
         .single();
 
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/javis-orchestrator/ask`,
         {
-          method: 'POST',
+          method: "POST",
           headers: {
-            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-            'Content-Type': 'application/json',
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+            "Content-Type": "application/json",
           },
           body: JSON.stringify({
             tenant_id: profile?.tenant_id,
             user_id: user.id,
             query: input,
-            conversation_id: conversationId
-          })
-        }
+            conversation_id: conversationId,
+          }),
+        },
       );
 
       const data = await response.json();
@@ -151,27 +167,30 @@ export function JavisDock() {
 
       const assistantMessage: Message = {
         id: crypto.randomUUID(),
-        role: 'assistant',
+        role: "assistant",
         content: data.answer,
         citations: data.citations,
-        timestamp: new Date()
+        timestamp: new Date(),
       };
 
-      setMessages(prev => [...prev, assistantMessage]);
+      setMessages((prev) => [...prev, assistantMessage]);
 
       if (voiceEnabled) {
         speak(data.answer);
       }
     } catch (error) {
-      console.error('Error sending message:', error);
+      console.error("Error sending message:", error);
     } finally {
       setIsLoading(false);
     }
   };
 
   const toggleListening = () => {
-    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-      alert('Speech recognition not supported in this browser');
+    if (
+      !("webkitSpeechRecognition" in window) &&
+      !("SpeechRecognition" in window)
+    ) {
+      alert("Speech recognition not supported in this browser");
       return;
     }
 
@@ -183,22 +202,23 @@ export function JavisDock() {
   };
 
   const startListening = () => {
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      console.warn('Speech recognition not supported in this browser');
+    const SpeechRecognitionClass =
+      window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognitionClass) {
+      console.warn("Speech recognition not supported in this browser");
       return;
     }
-    const recognition = new SpeechRecognition();
+    const recognition = new SpeechRecognitionClass();
 
     recognition.continuous = false;
     recognition.interimResults = false;
-    recognition.lang = 'en-CA';
+    recognition.lang = "en-CA";
 
     recognition.onstart = () => {
       setIsListening(true);
     };
 
-    recognition.onresult = (event: any) => {
+    recognition.onresult = (event: SpeechRecognitionEvent) => {
       const transcript = event.results[0][0].transcript;
       setInput(transcript);
       setIsListening(false);
@@ -220,7 +240,7 @@ export function JavisDock() {
   };
 
   const speak = (text: string) => {
-    if (!('speechSynthesis' in window)) return;
+    if (!("speechSynthesis" in window)) return;
 
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
@@ -250,7 +270,7 @@ export function JavisDock() {
   return (
     <div
       className={`fixed bottom-6 right-6 bg-white rounded-lg shadow-2xl border border-gray-200 z-50 transition-all ${
-        isMinimized ? 'w-80 h-16' : 'w-96 h-[600px]'
+        isMinimized ? "w-80 h-16" : "w-96 h-[600px]"
       }`}
     >
       {/* Header */}
@@ -263,7 +283,7 @@ export function JavisDock() {
           <button
             onClick={() => setVoiceEnabled(!voiceEnabled)}
             className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-            aria-label={voiceEnabled ? 'Disable voice' : 'Enable voice'}
+            aria-label={voiceEnabled ? "Disable voice" : "Enable voice"}
           >
             {voiceEnabled ? (
               <Volume2 className="w-4 h-4 text-gray-600" />
@@ -303,16 +323,18 @@ export function JavisDock() {
             {messages.map((message) => (
               <div
                 key={message.id}
-                className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
               >
                 <div
                   className={`max-w-[80%] rounded-lg p-3 ${
-                    message.role === 'user'
-                      ? 'bg-teal-500 text-white'
-                      : 'bg-gray-100 text-gray-800'
+                    message.role === "user"
+                      ? "bg-teal-500 text-white"
+                      : "bg-gray-100 text-gray-800"
                   }`}
                 >
-                  <div className="text-sm whitespace-pre-wrap">{message.content}</div>
+                  <div className="text-sm whitespace-pre-wrap">
+                    {message.content}
+                  </div>
                   {message.citations && message.citations.length > 0 && (
                     <div className="mt-2 pt-2 border-t border-gray-300 text-xs opacity-70">
                       {message.citations.length} citation(s)
@@ -327,8 +349,14 @@ export function JavisDock() {
                 <div className="bg-gray-100 rounded-lg p-3">
                   <div className="flex gap-1">
                     <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                    <div
+                      className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                      style={{ animationDelay: "0.1s" }}
+                    ></div>
+                    <div
+                      className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                      style={{ animationDelay: "0.2s" }}
+                    ></div>
                   </div>
                 </div>
               </div>
@@ -342,7 +370,7 @@ export function JavisDock() {
                 type="text"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && handleSend()}
+                onKeyPress={(e) => e.key === "Enter" && handleSend()}
                 placeholder="Ask J.A.V.I.S..."
                 className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 text-sm"
                 disabled={isLoading}
@@ -351,10 +379,10 @@ export function JavisDock() {
                 onClick={toggleListening}
                 className={`p-2 rounded-lg transition-colors ${
                   isListening
-                    ? 'bg-red-500 text-white'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    ? "bg-red-500 text-white"
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                 }`}
-                aria-label={isListening ? 'Stop listening' : 'Start listening'}
+                aria-label={isListening ? "Stop listening" : "Start listening"}
               >
                 {isListening ? (
                   <MicOff className="w-5 h-5" />

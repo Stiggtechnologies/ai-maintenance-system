@@ -1,5 +1,15 @@
-import { useState, useEffect, useCallback } from 'react';
-import * as dashboardServices from '../services/dashboardServices';
+/**
+ * Dashboard data hooks — wraps dashboardServices for React component consumption.
+ * These hooks provide loading/error/reload state management.
+ *
+ * Note: For new page development, prefer using the canonical services directly:
+ * - platformService (platform.ts)
+ * - performanceService (performance.ts)
+ * - workService (work.ts)
+ * - governanceService (governance.ts)
+ */
+import { useState, useEffect, useCallback } from "react";
+import * as dashboardServices from "../services/dashboardServices";
 
 export function useExecutiveKPIs() {
   const [data, setData] = useState<dashboardServices.KPI[]>([]);
@@ -51,7 +61,9 @@ export function useTacticalKPIs() {
   return { data, loading, error, reload: load };
 }
 
-export function useWorkOrders(filters?: Parameters<typeof dashboardServices.getWorkOrders>[0]) {
+export function useWorkOrders(
+  filters?: Parameters<typeof dashboardServices.getWorkOrders>[0],
+) {
   const [data, setData] = useState<dashboardServices.WorkOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
@@ -76,7 +88,9 @@ export function useWorkOrders(filters?: Parameters<typeof dashboardServices.getW
   return { data, loading, error, reload: load };
 }
 
-export function useAssets(filters?: Parameters<typeof dashboardServices.getAssets>[0]) {
+export function useAssets(
+  filters?: Parameters<typeof dashboardServices.getAssets>[0],
+) {
   const [data, setData] = useState<dashboardServices.Asset[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
@@ -101,7 +115,9 @@ export function useAssets(filters?: Parameters<typeof dashboardServices.getAsset
   return { data, loading, error, reload: load };
 }
 
-export function useAlerts(filters?: Parameters<typeof dashboardServices.getAlerts>[0]) {
+export function useAlerts(
+  filters?: Parameters<typeof dashboardServices.getAlerts>[0],
+) {
   const [data, setData] = useState<dashboardServices.Alert[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
@@ -152,7 +168,10 @@ export function usePendingDecisions(limit: number = 10) {
 }
 
 export function useWorkOrderStats() {
-  const [data, setData] = useState<Awaited<ReturnType<typeof dashboardServices.getWorkOrderStats>>>(null);
+  const [data, setData] =
+    useState<Awaited<ReturnType<typeof dashboardServices.getWorkOrderStats>>>(
+      null,
+    );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
@@ -177,7 +196,8 @@ export function useWorkOrderStats() {
 }
 
 export function useAssetStats() {
-  const [data, setData] = useState<Awaited<ReturnType<typeof dashboardServices.getAssetStats>>>(null);
+  const [data, setData] =
+    useState<Awaited<ReturnType<typeof dashboardServices.getAssetStats>>>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
@@ -202,7 +222,8 @@ export function useAssetStats() {
 }
 
 export function useAlertStats() {
-  const [data, setData] = useState<Awaited<ReturnType<typeof dashboardServices.getAlertStats>>>(null);
+  const [data, setData] =
+    useState<Awaited<ReturnType<typeof dashboardServices.getAlertStats>>>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
@@ -227,7 +248,10 @@ export function useAlertStats() {
 }
 
 export function useAutonomousDecisionStats() {
-  const [data, setData] = useState<Awaited<ReturnType<typeof dashboardServices.getAutonomousDecisionStats>>>(null);
+  const [data, setData] =
+    useState<
+      Awaited<ReturnType<typeof dashboardServices.getAutonomousDecisionStats>>
+    >(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
@@ -252,7 +276,10 @@ export function useAutonomousDecisionStats() {
 }
 
 export function useMaintenanceMetrics() {
-  const [data, setData] = useState<Awaited<ReturnType<typeof dashboardServices.getMaintenanceMetrics>>>(null);
+  const [data, setData] =
+    useState<
+      Awaited<ReturnType<typeof dashboardServices.getMaintenanceMetrics>>
+    >(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
