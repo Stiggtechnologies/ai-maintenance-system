@@ -232,10 +232,10 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
   const selectedSite = sites.find((s) => s.id === selectedSiteId);
 
   return (
-    <div className="flex h-screen bg-slate-50">
+    <div className="flex h-screen bg-slate-50 overflow-hidden">
       {/* Sidebar */}
       <aside
-        className={`bg-slate-900 text-white transition-all duration-300 ${isCollapsed ? "w-16" : "w-64"} flex flex-col`}
+        className={`bg-slate-900 text-white transition-all duration-300 flex-shrink-0 ${isCollapsed ? "w-16" : "w-64"} flex flex-col`}
       >
         {/* Logo */}
         <div className="p-4 border-b border-slate-700">
@@ -363,7 +363,7 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
       </aside>
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col overflow-hidden min-w-0">
         {/* Top Bar */}
         <header className="bg-white border-b border-slate-200 px-6 py-3">
           <div className="flex items-center justify-between">
