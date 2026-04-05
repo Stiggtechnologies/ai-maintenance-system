@@ -21,6 +21,8 @@ import { OEEDashboard } from "./pages/OEEDashboard";
 import { SettingsPage } from "./pages/SettingsPage";
 import { IntegrationsPage } from "./pages/IntegrationsPage";
 import { ResearchDashboard } from "./pages/ResearchDashboard";
+import { TemplateSelectorPage } from "./pages/TemplateSelectorPage";
+import { DeploymentConfiguratorPage } from "./pages/DeploymentConfiguratorPage";
 import { motion, AnimatePresence } from "framer-motion";
 
 type Page =
@@ -146,6 +148,11 @@ function AuthenticatedApp() {
         <Route path="/oee" element={<OEEDashboard />} />
         <Route path="/integrations" element={<IntegrationsPage />} />
         <Route path="/research" element={<ResearchDashboard />} />
+        <Route
+          path="/deployments/new/configure"
+          element={<DeploymentConfiguratorPage />}
+        />
+        <Route path="/deployments/new" element={<TemplateSelectorPage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="*" element={<Navigate to="/overview" replace />} />
       </Routes>

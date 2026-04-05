@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect } from "react";
 import {
   X,
@@ -25,7 +26,7 @@ interface TemplatePreviewModalProps {
     description: string;
     master_family: string;
     master_template_name?: string;
-    operating_assumptions?: Record<string, unknown>;
+    operating_assumptions?: any;
     kpi_packs?: { pack_name: string; kpi_count: number } | null;
     industry_asset_libraries?: {
       library_name: string;
@@ -87,7 +88,7 @@ export function TemplatePreviewModal({
   onClose,
   onSelect,
 }: TemplatePreviewModalProps) {
-  const [details, setDetails] = useState<Record<string, unknown> | null>(null);
+  const [details, setDetails] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -195,7 +196,7 @@ export function TemplatePreviewModal({
   const groupBy = <T,>(arr: T[], key: string): Record<string, T[]> => {
     return arr.reduce(
       (acc, item) => {
-        const group = (item as Record<string, unknown>)[key] || "Other";
+        const group = (item as any)[key] || "Other";
         if (!acc[group]) acc[group] = [];
         acc[group].push(item);
         return acc;
@@ -309,29 +310,27 @@ export function TemplatePreviewModal({
                 {details?.kpis?.length > 0 ? (
                   <div className="space-y-3">
                     {Object.entries(groupBy(details.kpis, "level")).map(
-                      ([level, kpis]: [string, Record<string, unknown>[]]) => (
+                      ([level, kpis]: [string, any[]]) => (
                         <div key={level}>
                           <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">
                             {level}
                           </div>
                           <div className="space-y-1">
-                            {kpis.map(
-                              (kpi: Record<string, unknown>, i: number) => (
-                                <div
-                                  key={i}
-                                  className="flex items-center justify-between text-xs py-1 px-2 rounded bg-slate-50"
-                                >
-                                  <span className="text-slate-700">
-                                    {kpi.name}
+                            {kpis.map((kpi: any, i: number) => (
+                              <div
+                                key={i}
+                                className="flex items-center justify-between text-xs py-1 px-2 rounded bg-slate-50"
+                              >
+                                <span className="text-slate-700">
+                                  {kpi.name}
+                                </span>
+                                {kpi.unit && (
+                                  <span className="text-slate-400">
+                                    {kpi.unit}
                                   </span>
-                                  {kpi.unit && (
-                                    <span className="text-slate-400">
-                                      {kpi.unit}
-                                    </span>
-                                  )}
-                                </div>
-                              ),
-                            )}
+                                )}
+                              </div>
+                            ))}
                           </div>
                         </div>
                       ),
@@ -352,25 +351,20 @@ export function TemplatePreviewModal({
                 {details?.assets?.length > 0 ? (
                   <div className="space-y-3">
                     {Object.entries(groupBy(details.assets, "category")).map(
-                      ([category, assets]: [
-                        string,
-                        Record<string, unknown>[],
-                      ]) => (
+                      ([category, assets]: [string, any[]]) => (
                         <div key={category}>
                           <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">
                             {category}
                           </div>
                           <div className="flex flex-wrap gap-1.5">
-                            {assets.map(
-                              (asset: Record<string, unknown>, i: number) => (
-                                <span
-                                  key={i}
-                                  className="text-xs px-2 py-1 bg-slate-100 text-slate-700 rounded-md"
-                                >
-                                  {asset.name}
-                                </span>
-                              ),
-                            )}
+                            {assets.map((asset: any, i: number) => (
+                              <span
+                                key={i}
+                                className="text-xs px-2 py-1 bg-slate-100 text-slate-700 rounded-md"
+                              >
+                                {asset.name}
+                              </span>
+                            ))}
                           </div>
                         </div>
                       ),
@@ -390,28 +384,26 @@ export function TemplatePreviewModal({
               >
                 {details?.criticality?.length > 0 ? (
                   <div className="space-y-2">
-                    {details.criticality.map(
-                      (item: Record<string, unknown>, i: number) => (
-                        <div key={i}>
-                          <div className="flex items-center justify-between text-xs mb-1">
-                            <span className="text-slate-700">
-                              {item.factor_name || item.name}
-                            </span>
-                            <span className="font-medium text-slate-900">
-                              {Math.round((item.weight || 0) * 100)}%
-                            </span>
-                          </div>
-                          <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                            <div
-                              className="h-full bg-blue-500 rounded-full transition-all"
-                              style={{
-                                width: `${Math.round((item.weight || 0) * 100)}%`,
-                              }}
-                            />
-                          </div>
+                    {details.criticality.map((item: any, i: number) => (
+                      <div key={i}>
+                        <div className="flex items-center justify-between text-xs mb-1">
+                          <span className="text-slate-700">
+                            {item.factor_name || item.name}
+                          </span>
+                          <span className="font-medium text-slate-900">
+                            {Math.round((item.weight || 0) * 100)}%
+                          </span>
                         </div>
-                      ),
-                    )}
+                        <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-blue-500 rounded-full transition-all"
+                            style={{
+                              width: `${Math.round((item.weight || 0) * 100)}%`,
+                            }}
+                          />
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 ) : (
                   <p className="text-xs text-slate-400">
@@ -432,28 +424,26 @@ export function TemplatePreviewModal({
                   </div>
                   {details?.governance?.length > 0 ? (
                     <div className="space-y-2">
-                      {details.governance.map(
-                        (rule: Record<string, unknown>, i: number) => (
-                          <div
-                            key={i}
-                            className="text-xs py-2 px-3 bg-slate-50 rounded-lg"
-                          >
-                            <div className="font-medium text-slate-700">
-                              {rule.rule_name || rule.name}
-                            </div>
-                            {rule.description && (
-                              <div className="text-slate-500 mt-0.5">
-                                {rule.description}
-                              </div>
-                            )}
-                            {rule.rule_type && (
-                              <span className="inline-block mt-1 px-1.5 py-0.5 bg-slate-200 text-slate-600 rounded text-[10px] uppercase">
-                                {rule.rule_type}
-                              </span>
-                            )}
+                      {details.governance.map((rule: any, i: number) => (
+                        <div
+                          key={i}
+                          className="text-xs py-2 px-3 bg-slate-50 rounded-lg"
+                        >
+                          <div className="font-medium text-slate-700">
+                            {rule.rule_name || rule.name}
                           </div>
-                        ),
-                      )}
+                          {rule.description && (
+                            <div className="text-slate-500 mt-0.5">
+                              {rule.description}
+                            </div>
+                          )}
+                          {rule.rule_type && (
+                            <span className="inline-block mt-1 px-1.5 py-0.5 bg-slate-200 text-slate-600 rounded text-[10px] uppercase">
+                              {rule.rule_type}
+                            </span>
+                          )}
+                        </div>
+                      ))}
                     </div>
                   ) : (
                     <p className="text-xs text-slate-400">
@@ -470,29 +460,27 @@ export function TemplatePreviewModal({
               >
                 {details?.workTypes?.length > 0 ? (
                   <div className="space-y-1.5">
-                    {details.workTypes.map(
-                      (wt: Record<string, unknown>, i: number) => (
-                        <div
-                          key={i}
-                          className="flex items-center gap-3 text-xs py-2 px-3 bg-slate-50 rounded-lg"
-                        >
-                          <span className="flex-1 font-medium text-slate-700">
-                            {wt.name}
+                    {details.workTypes.map((wt: any, i: number) => (
+                      <div
+                        key={i}
+                        className="flex items-center gap-3 text-xs py-2 px-3 bg-slate-50 rounded-lg"
+                      >
+                        <span className="flex-1 font-medium text-slate-700">
+                          {wt.name}
+                        </span>
+                        {wt.default_sla_hours && (
+                          <span className="flex items-center gap-1 text-slate-500">
+                            <Clock size={11} />
+                            {wt.default_sla_hours}h SLA
                           </span>
-                          {wt.default_sla_hours && (
-                            <span className="flex items-center gap-1 text-slate-500">
-                              <Clock size={11} />
-                              {wt.default_sla_hours}h SLA
-                            </span>
-                          )}
-                          {wt.requires_permit && (
-                            <span className="px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded text-[10px]">
-                              Permit
-                            </span>
-                          )}
-                        </div>
-                      ),
-                    )}
+                        )}
+                        {wt.requires_permit && (
+                          <span className="px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded text-[10px]">
+                            Permit
+                          </span>
+                        )}
+                      </div>
+                    ))}
                   </div>
                 ) : (
                   <p className="text-xs text-slate-400">
@@ -508,26 +496,24 @@ export function TemplatePreviewModal({
               >
                 {details?.failureModes?.length > 0 ? (
                   <div className="space-y-1.5">
-                    {details.failureModes.map(
-                      (fm: Record<string, unknown>, i: number) => (
+                    {details.failureModes.map((fm: any, i: number) => (
+                      <div
+                        key={i}
+                        className="flex items-center gap-3 text-xs py-2 px-3 bg-slate-50 rounded-lg"
+                      >
                         <div
-                          key={i}
-                          className="flex items-center gap-3 text-xs py-2 px-3 bg-slate-50 rounded-lg"
-                        >
-                          <div
-                            className={`w-2 h-2 rounded-full ${severityColor(fm.severity)}`}
-                          />
-                          <span className="flex-1 text-slate-700">
-                            {fm.name || fm.mode_name}
+                          className={`w-2 h-2 rounded-full ${severityColor(fm.severity)}`}
+                        />
+                        <span className="flex-1 text-slate-700">
+                          {fm.name || fm.mode_name}
+                        </span>
+                        {fm.severity && (
+                          <span className="text-slate-500">
+                            Severity: {fm.severity}
                           </span>
-                          {fm.severity && (
-                            <span className="text-slate-500">
-                              Severity: {fm.severity}
-                            </span>
-                          )}
-                        </div>
-                      ),
-                    )}
+                        )}
+                      </div>
+                    ))}
                   </div>
                 ) : (
                   <p className="text-xs text-slate-400">
@@ -540,103 +526,100 @@ export function TemplatePreviewModal({
               <AccordionSection title="OEE Model" icon={<Gauge size={16} />}>
                 {details?.oee?.length > 0 ? (
                   <div className="space-y-3">
-                    {details.oee.map(
-                      (config: Record<string, unknown>, i: number) => (
-                        <div key={i} className="space-y-2">
-                          {config.availability_weight != null && (
-                            <div>
-                              <div className="flex items-center justify-between text-xs mb-1">
-                                <span className="text-slate-600">
-                                  Availability Weight
-                                </span>
-                                <span className="font-medium">
-                                  {Math.round(config.availability_weight * 100)}
-                                  %
-                                </span>
-                              </div>
-                              <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                                <div
-                                  className="h-full bg-green-500 rounded-full"
-                                  style={{
-                                    width: `${config.availability_weight * 100}%`,
-                                  }}
-                                />
-                              </div>
+                    {details.oee.map((config: any, i: number) => (
+                      <div key={i} className="space-y-2">
+                        {config.availability_weight != null && (
+                          <div>
+                            <div className="flex items-center justify-between text-xs mb-1">
+                              <span className="text-slate-600">
+                                Availability Weight
+                              </span>
+                              <span className="font-medium">
+                                {Math.round(config.availability_weight * 100)}%
+                              </span>
                             </div>
-                          )}
-                          {config.performance_weight != null && (
-                            <div>
-                              <div className="flex items-center justify-between text-xs mb-1">
-                                <span className="text-slate-600">
-                                  Performance Weight
-                                </span>
-                                <span className="font-medium">
-                                  {Math.round(config.performance_weight * 100)}%
-                                </span>
-                              </div>
-                              <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                                <div
-                                  className="h-full bg-blue-500 rounded-full"
-                                  style={{
-                                    width: `${config.performance_weight * 100}%`,
-                                  }}
-                                />
-                              </div>
+                            <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                              <div
+                                className="h-full bg-green-500 rounded-full"
+                                style={{
+                                  width: `${config.availability_weight * 100}%`,
+                                }}
+                              />
                             </div>
-                          )}
-                          {config.quality_weight != null && (
-                            <div>
-                              <div className="flex items-center justify-between text-xs mb-1">
-                                <span className="text-slate-600">
-                                  Quality Weight
+                          </div>
+                        )}
+                        {config.performance_weight != null && (
+                          <div>
+                            <div className="flex items-center justify-between text-xs mb-1">
+                              <span className="text-slate-600">
+                                Performance Weight
+                              </span>
+                              <span className="font-medium">
+                                {Math.round(config.performance_weight * 100)}%
+                              </span>
+                            </div>
+                            <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                              <div
+                                className="h-full bg-blue-500 rounded-full"
+                                style={{
+                                  width: `${config.performance_weight * 100}%`,
+                                }}
+                              />
+                            </div>
+                          </div>
+                        )}
+                        {config.quality_weight != null && (
+                          <div>
+                            <div className="flex items-center justify-between text-xs mb-1">
+                              <span className="text-slate-600">
+                                Quality Weight
+                              </span>
+                              <span className="font-medium">
+                                {Math.round(config.quality_weight * 100)}%
+                              </span>
+                            </div>
+                            <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                              <div
+                                className="h-full bg-purple-500 rounded-full"
+                                style={{
+                                  width: `${config.quality_weight * 100}%`,
+                                }}
+                              />
+                            </div>
+                          </div>
+                        )}
+                        {config.target_oee != null && (
+                          <div className="bg-slate-50 rounded-lg p-3 mt-2">
+                            <div className="text-xs text-slate-500">
+                              Target OEE
+                            </div>
+                            <div className="text-lg font-bold text-slate-900">
+                              {Math.round(config.target_oee * 100)}%
+                            </div>
+                          </div>
+                        )}
+                        {config.loss_categories && (
+                          <div className="mt-2">
+                            <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">
+                              Loss Categories
+                            </div>
+                            <div className="flex flex-wrap gap-1.5">
+                              {(Array.isArray(config.loss_categories)
+                                ? config.loss_categories
+                                : []
+                              ).map((cat: string, j: number) => (
+                                <span
+                                  key={j}
+                                  className="text-xs px-2 py-1 bg-red-50 text-red-700 rounded-md"
+                                >
+                                  {cat}
                                 </span>
-                                <span className="font-medium">
-                                  {Math.round(config.quality_weight * 100)}%
-                                </span>
-                              </div>
-                              <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                                <div
-                                  className="h-full bg-purple-500 rounded-full"
-                                  style={{
-                                    width: `${config.quality_weight * 100}%`,
-                                  }}
-                                />
-                              </div>
+                              ))}
                             </div>
-                          )}
-                          {config.target_oee != null && (
-                            <div className="bg-slate-50 rounded-lg p-3 mt-2">
-                              <div className="text-xs text-slate-500">
-                                Target OEE
-                              </div>
-                              <div className="text-lg font-bold text-slate-900">
-                                {Math.round(config.target_oee * 100)}%
-                              </div>
-                            </div>
-                          )}
-                          {config.loss_categories && (
-                            <div className="mt-2">
-                              <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">
-                                Loss Categories
-                              </div>
-                              <div className="flex flex-wrap gap-1.5">
-                                {(Array.isArray(config.loss_categories)
-                                  ? config.loss_categories
-                                  : []
-                                ).map((cat: string, j: number) => (
-                                  <span
-                                    key={j}
-                                    className="text-xs px-2 py-1 bg-red-50 text-red-700 rounded-md"
-                                  >
-                                    {cat}
-                                  </span>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      ),
-                    )}
+                          </div>
+                        )}
+                      </div>
+                    ))}
                   </div>
                 ) : (
                   <div className="bg-slate-50 rounded-lg p-3">
@@ -655,29 +638,27 @@ export function TemplatePreviewModal({
               >
                 {details?.rollout?.length > 0 ? (
                   <div className="space-y-3">
-                    {details.rollout.map(
-                      (phase: Record<string, unknown>, i: number) => (
-                        <div key={i} className="relative pl-6">
-                          <div className="absolute left-0 top-1.5 w-3 h-3 bg-blue-500 rounded-full border-2 border-white shadow" />
-                          {i < details.rollout.length - 1 && (
-                            <div className="absolute left-[5px] top-4 w-0.5 h-full bg-blue-200" />
-                          )}
-                          <div className="text-sm font-medium text-slate-900">
-                            {phase.phase_name || phase.name}
-                          </div>
-                          {phase.description && (
-                            <p className="text-xs text-slate-500 mt-0.5">
-                              {phase.description}
-                            </p>
-                          )}
-                          {phase.duration_weeks && (
-                            <span className="inline-block mt-1 text-xs text-blue-600">
-                              {phase.duration_weeks} weeks
-                            </span>
-                          )}
+                    {details.rollout.map((phase: any, i: number) => (
+                      <div key={i} className="relative pl-6">
+                        <div className="absolute left-0 top-1.5 w-3 h-3 bg-blue-500 rounded-full border-2 border-white shadow" />
+                        {i < details.rollout.length - 1 && (
+                          <div className="absolute left-[5px] top-4 w-0.5 h-full bg-blue-200" />
+                        )}
+                        <div className="text-sm font-medium text-slate-900">
+                          {phase.phase_name || phase.name}
                         </div>
-                      ),
-                    )}
+                        {phase.description && (
+                          <p className="text-xs text-slate-500 mt-0.5">
+                            {phase.description}
+                          </p>
+                        )}
+                        {phase.duration_weeks && (
+                          <span className="inline-block mt-1 text-xs text-blue-600">
+                            {phase.duration_weeks} weeks
+                          </span>
+                        )}
+                      </div>
+                    ))}
                   </div>
                 ) : (
                   <p className="text-xs text-slate-400">
