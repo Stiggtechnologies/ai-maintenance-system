@@ -14,7 +14,7 @@ YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
 # Load credentials from vault
-CREDENTIALS_VAULT="/Users/orvilledavis/.openclaw/workspace/.credentials-vault.env"
+CREDENTIALS_VAULT="${CREDENTIALS_VAULT_PATH:-$HOME/.openclaw/workspace/.credentials-vault.env}"
 
 if [ ! -f "$CREDENTIALS_VAULT" ]; then
     echo "❌ Error: Credentials vault not found at $CREDENTIALS_VAULT"

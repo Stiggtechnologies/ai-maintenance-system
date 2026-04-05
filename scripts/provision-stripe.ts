@@ -16,7 +16,11 @@
 
 import Stripe from 'stripe';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
+if (!process.env.STRIPE_SECRET_KEY) {
+  throw new Error('STRIPE_SECRET_KEY environment variable is required');
+}
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
   apiVersion: '2024-11-20.acacia',
 });
 
@@ -142,14 +146,10 @@ async function createAssetUplift() {
 }
 
 async function main() {
-  console.log('🚀 Stigg Reliability AI - Stripe Provisioning');
+  console.log('SyncAI Platform - Stripe Provisioning');
   console.log('============================================\n');
 
-  if (!process.env.STRIPE_SECRET_KEY) {
-    throw new Error('STRIPE_SECRET_KEY environment variable is required');
-  }
-
-  console.log('Using Stripe API version:', stripe.VERSION);
+  console.log('Using Stripe API version:', stripe.apiVersion);
 
   // Create plans
   const STARTER = await createPlan({

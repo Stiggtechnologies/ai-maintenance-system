@@ -107,7 +107,6 @@ Ask me anything about your operations, and I'll provide insights based on your r
       }
 
       const contextualQuery = `[User Role: ${orgLevel}. Focus on ${getRoleContext()}]\n\n${input}`;
-      const openaiKey = ''; // TODO: Add API key handling
 
       const response = await fetch(`${supabaseUrl}/functions/v1/ai-agent-processor`, {
         method: 'POST',

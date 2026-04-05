@@ -2,8 +2,8 @@ import { useState } from 'react';
 import { useAuth } from './AuthProvider';
 import { Mail, Lock, User, AlertCircle, Loader2, PlayCircle } from 'lucide-react';
 
-const DEMO_EMAIL = 'demo@syncai.ca';
-const DEMO_PASSWORD = 'SyncAIDemo2026!';
+const DEMO_EMAIL = import.meta.env.VITE_DEMO_EMAIL || '';
+const DEMO_PASSWORD = import.meta.env.VITE_DEMO_PASSWORD || '';
 
 export function AuthForm() {
   const [isSignUp, setIsSignUp] = useState(false);
@@ -132,30 +132,32 @@ export function AuthForm() {
             </button>
           </form>
 
-          <div className="mt-4">
-            <div className="relative flex items-center justify-center mb-4">
-              <div className="border-t border-white/15 w-full" />
-              <span className="bg-transparent px-3 text-xs text-white/40 absolute">or</span>
+          {DEMO_EMAIL && DEMO_PASSWORD && (
+            <div className="mt-4">
+              <div className="relative flex items-center justify-center mb-4">
+                <div className="border-t border-white/15 w-full" />
+                <span className="bg-transparent px-3 text-xs text-white/40 absolute">or</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setEmail(DEMO_EMAIL);
+                  setPassword(DEMO_PASSWORD);
+                  setError('');
+                  setIsSignUp(false);
+                  // Auto-submit after filling credentials
+                  setTimeout(() => {
+                    const form = document.querySelector('form');
+                    if (form) form.requestSubmit();
+                  }, 100);
+                }}
+                className="w-full flex items-center justify-center gap-2 bg-white/8 hover:bg-white/15 border border-white/20 hover:border-emerald-400/50 text-white/80 hover:text-white font-medium py-3 rounded-xl transition-all duration-200"
+              >
+                <PlayCircle className="w-5 h-5 text-emerald-400" />
+                Try Live Demo — No Account Needed
+              </button>
             </div>
-            <button
-              type="button"
-              onClick={() => {
-                setEmail(DEMO_EMAIL);
-                setPassword(DEMO_PASSWORD);
-                setError('');
-                setIsSignUp(false);
-                // Auto-submit after filling credentials
-                setTimeout(() => {
-                  const form = document.querySelector('form');
-                  if (form) form.requestSubmit();
-                }, 100);
-              }}
-              className="w-full flex items-center justify-center gap-2 bg-white/8 hover:bg-white/15 border border-white/20 hover:border-emerald-400/50 text-white/80 hover:text-white font-medium py-3 rounded-xl transition-all duration-200"
-            >
-              <PlayCircle className="w-5 h-5 text-emerald-400" />
-              Try Live Demo — No Account Needed
-            </button>
-          </div>
+          )}
 
           <div className="mt-4 text-center">
             <button

@@ -184,6 +184,10 @@ export function JavisDock() {
 
   const startListening = () => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      console.warn('Speech recognition not supported in this browser');
+      return;
+    }
     const recognition = new SpeechRecognition();
 
     recognition.continuous = false;

@@ -2,7 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Origin": Deno.env.get('ALLOWED_ORIGIN') || 'https://app.syncai.ca',
   "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
 };
@@ -128,7 +128,7 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const apiKey = openaiKey || Deno.env.get("OPENAI_API_KEY");
+    const apiKey = Deno.env.get("OPENAI_API_KEY");
 
     if (!apiKey) {
       return new Response(

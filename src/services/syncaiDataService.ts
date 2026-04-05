@@ -341,7 +341,7 @@ export const governanceService = {
 // Hook for Current User Context (replaces /api/platform/me)
 // ============================================
 
-export async function useUserContext() {
+export async function getUserContext() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return null;
   

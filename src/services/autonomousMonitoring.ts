@@ -216,15 +216,20 @@ export async function processDocumentUpload(documentId: string) {
   });
 }
 
-export async function initializeMonitoringSchedule() {
-  setInterval(() => {
+export function initializeMonitoringSchedule() {
+  const healthInterval = setInterval(() => {
     startHealthMonitoring();
   }, 5 * 60 * 1000);
 
-  setInterval(() => {
+  const kpiInterval = setInterval(() => {
     scheduleKPICalculation();
   }, 15 * 60 * 1000);
 
   startHealthMonitoring();
   scheduleKPICalculation();
+
+  return () => {
+    clearInterval(healthInterval);
+    clearInterval(kpiInterval);
+  };
 }

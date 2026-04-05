@@ -55,50 +55,50 @@ function App() {
   };
 
   return (
-    <AnimatePresence mode="wait">
-      {currentPage === 'signin' && (
-        <motion.div key="signin" {...pageTransition}>
-          <Login onSuccess={handleAuthSuccess} onTabChange={setCurrentPage} />
-        </motion.div>
-      )}
-      {currentPage === 'signup' && (
-        <motion.div key="signup" {...pageTransition}>
-          <Signup onSuccess={handleAuthSuccess} onTabChange={setCurrentPage} />
-        </motion.div>
-      )}
-      {currentPage === 'enterprise' && (
-        <motion.div key="enterprise" {...pageTransition}>
-          <EnterpriseAccess onSuccess={handleAuthSuccess} onTabChange={setCurrentPage} />
-        </motion.div>
-      )}
-      {currentPage === 'app' && isAuthenticated && (
-        <motion.div key="app" {...pageTransition} style={{ height: '100vh' }}>
-          <BrowserRouter>
+    <BrowserRouter>
+      <AnimatePresence mode="wait">
+        {currentPage === 'signin' && (
+          <motion.div key="signin" {...pageTransition}>
+            <Login onSuccess={handleAuthSuccess} onTabChange={setCurrentPage} />
+          </motion.div>
+        )}
+        {currentPage === 'signup' && (
+          <motion.div key="signup" {...pageTransition}>
+            <Signup onSuccess={handleAuthSuccess} onTabChange={setCurrentPage} />
+          </motion.div>
+        )}
+        {currentPage === 'enterprise' && (
+          <motion.div key="enterprise" {...pageTransition}>
+            <EnterpriseAccess onSuccess={handleAuthSuccess} onTabChange={setCurrentPage} />
+          </motion.div>
+        )}
+        {currentPage === 'app' && isAuthenticated && (
+          <motion.div key="app" {...pageTransition} style={{ height: '100vh' }}>
             <AuthenticatedApp />
-          </BrowserRouter>
-        </motion.div>
-      )}
-      {currentPage === 'pricing' && (
-        <motion.div key="pricing" {...pageTransition}>
-          <Pricing />
-        </motion.div>
-      )}
-      {currentPage === 'security' && (
-        <motion.div key="security" {...pageTransition}>
-          <Security onNavigate={setCurrentPage} />
-        </motion.div>
-      )}
-      {currentPage === 'privacy' && (
-        <motion.div key="privacy" {...pageTransition}>
-          <Privacy onNavigate={setCurrentPage} />
-        </motion.div>
-      )}
-      {currentPage === 'terms' && (
-        <motion.div key="terms" {...pageTransition}>
-          <Terms onNavigate={setCurrentPage} />
-        </motion.div>
-      )}
-    </AnimatePresence>
+          </motion.div>
+        )}
+        {currentPage === 'pricing' && (
+          <motion.div key="pricing" {...pageTransition}>
+            <Pricing />
+          </motion.div>
+        )}
+        {currentPage === 'security' && (
+          <motion.div key="security" {...pageTransition}>
+            <Security onNavigate={setCurrentPage} />
+          </motion.div>
+        )}
+        {currentPage === 'privacy' && (
+          <motion.div key="privacy" {...pageTransition}>
+            <Privacy onNavigate={setCurrentPage} />
+          </motion.div>
+        )}
+        {currentPage === 'terms' && (
+          <motion.div key="terms" {...pageTransition}>
+            <Terms onNavigate={setCurrentPage} />
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </BrowserRouter>
   );
 }
 

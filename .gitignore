@@ -455,7 +455,6 @@ local.settings.json
 .azure/
 
 # Docker
-.dockerignore
 
 # Logs
 logs/
@@ -515,7 +514,6 @@ models/
 
 # Large data files
 *.csv
-*.json
 data/
 datasets/
 
