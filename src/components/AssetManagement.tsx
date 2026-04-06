@@ -31,7 +31,10 @@ export function AssetManagement() {
   const loadAssets = async () => {
     try {
       const userContext = await platformService.getCurrentUserContext();
-      if (!userContext) return;
+      if (!userContext) {
+        setLoading(false);
+        return;
+      }
 
       const { data } = await supabase
         .from("assets")
