@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
-import { Activity, TrendingUp, Target } from 'lucide-react';
-import { performanceService, KPIValue, OEEData } from '../services/performance';
-import { platformService } from '../services/platform';
+import { useState, useEffect } from "react";
+import { Activity, TrendingUp, Target } from "lucide-react";
+import { performanceService, KPIValue, OEEData } from "../services/performance";
+import { platformService } from "../services/platform";
 
 export function PerformanceDashboard() {
   const [kpiValues, setKpiValues] = useState<KPIValue[]>([]);
@@ -15,19 +15,25 @@ export function PerformanceDashboard() {
   const loadPerformanceData = async () => {
     try {
       const userContext = await platformService.getCurrentUserContext();
-      if (!userContext) return;
+      if (!userContext) {
+        setLoading(false);
+        return;
+      }
 
       const [kpis, oee] = await Promise.all([
-        performanceService.getLatestKPIValues(userContext.organization_id, userContext.default_site_id || undefined),
+        performanceService.getLatestKPIValues(
+          userContext.organization_id,
+          userContext.default_site_id || undefined,
+        ),
         userContext.default_site_id
           ? performanceService.calculateSiteOEE(userContext.default_site_id)
-          : Promise.resolve(null)
+          : Promise.resolve(null),
       ]);
 
       setKpiValues(kpis);
       setOeeData(oee);
     } catch (error) {
-      console.error('Error loading performance data:', error);
+      console.error("Error loading performance data:", error);
     } finally {
       setLoading(false);
     }
@@ -41,14 +47,26 @@ export function PerformanceDashboard() {
     );
   }
 
-  const operationalKPIs = kpiValues.filter(k => ['site_oee', 'mtbf', 'mttr', 'planned_vs_unplanned', 'work_order_completion'].includes(k.kpi_code));
+  const operationalKPIs = kpiValues.filter((k) =>
+    [
+      "site_oee",
+      "mtbf",
+      "mttr",
+      "planned_vs_unplanned",
+      "work_order_completion",
+    ].includes(k.kpi_code),
+  );
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">Performance Dashboard</h1>
-        <p className="text-slate-600 mt-1">Operational metrics and equipment effectiveness</p>
+        <h1 className="text-2xl font-bold text-slate-900">
+          Performance Dashboard
+        </h1>
+        <p className="text-slate-600 mt-1">
+          Operational metrics and equipment effectiveness
+        </p>
       </div>
 
       {/* OEE Overview */}
@@ -56,8 +74,12 @@ export function PerformanceDashboard() {
         <div className="bg-white border border-slate-200 rounded-xl p-6">
           <div className="flex items-center gap-2 mb-6">
             <Activity size={20} className="text-slate-600" />
-            <h2 className="text-lg font-semibold text-slate-900">Overall Equipment Effectiveness</h2>
-            <span className="text-sm text-slate-500 ml-auto">Last 7 days • {oeeData.measurement_count} measurements</span>
+            <h2 className="text-lg font-semibold text-slate-900">
+              Overall Equipment Effectiveness
+            </h2>
+            <span className="text-sm text-slate-500 ml-auto">
+              Last 7 days • {oeeData.measurement_count} measurements
+            </span>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
@@ -196,20 +218,31 @@ export function PerformanceDashboard() {
       <div className="bg-white border border-slate-200 rounded-xl p-6">
         <div className="flex items-center gap-2 mb-6">
           <Target size={20} className="text-slate-600" />
-          <h2 className="text-lg font-semibold text-slate-900">Key Performance Indicators</h2>
+          <h2 className="text-lg font-semibold text-slate-900">
+            Key Performance Indicators
+          </h2>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {operationalKPIs.length > 0 ? (
             operationalKPIs.map((kpi) => (
-              <div key={kpi.kpi_code} className="border border-slate-200 rounded-lg p-4">
+              <div
+                key={kpi.kpi_code}
+                className="border border-slate-200 rounded-lg p-4"
+              >
                 <div className="flex items-start justify-between mb-2">
-                  <div className="text-sm font-medium text-slate-900">{kpi.kpi_name}</div>
+                  <div className="text-sm font-medium text-slate-900">
+                    {kpi.kpi_name}
+                  </div>
                   <TrendingUp size={16} className="text-green-500" />
                 </div>
                 <div className="text-2xl font-bold text-slate-900">
                   {kpi.value.toFixed(1)}
-                  {kpi.unit && <span className="text-sm text-slate-500 ml-1">{kpi.unit}</span>}
+                  {kpi.unit && (
+                    <span className="text-sm text-slate-500 ml-1">
+                      {kpi.unit}
+                    </span>
+                  )}
                 </div>
                 <div className="text-xs text-slate-500 mt-1">
                   Updated {new Date(kpi.measurement_time).toLocaleDateString()}
@@ -218,7 +251,8 @@ export function PerformanceDashboard() {
             ))
           ) : (
             <div className="col-span-3 text-center text-slate-500 py-8">
-              No KPI data available. Configure KPI definitions to track performance.
+              No KPI data available. Configure KPI definitions to track
+              performance.
             </div>
           )}
         </div>
@@ -226,12 +260,17 @@ export function PerformanceDashboard() {
 
       {/* Reliability Metrics */}
       <div className="bg-white border border-slate-200 rounded-xl p-6">
-        <h2 className="text-lg font-semibold text-slate-900 mb-6">Reliability Metrics</h2>
+        <h2 className="text-lg font-semibold text-slate-900 mb-6">
+          Reliability Metrics
+        </h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div>
-            <div className="text-sm text-slate-600 mb-2">Mean Time Between Failures</div>
+            <div className="text-sm text-slate-600 mb-2">
+              Mean Time Between Failures
+            </div>
             <div className="text-3xl font-bold text-slate-900">
-              {kpiValues.find(k => k.kpi_code === 'mtbf')?.value.toFixed(0) || '248'}
+              {kpiValues.find((k) => k.kpi_code === "mtbf")?.value.toFixed(0) ||
+                "248"}
               <span className="text-lg text-slate-500 ml-1">hrs</span>
             </div>
             <div className="mt-2 flex items-center gap-1 text-sm text-green-600">
@@ -240,9 +279,12 @@ export function PerformanceDashboard() {
             </div>
           </div>
           <div>
-            <div className="text-sm text-slate-600 mb-2">Mean Time To Repair</div>
+            <div className="text-sm text-slate-600 mb-2">
+              Mean Time To Repair
+            </div>
             <div className="text-3xl font-bold text-slate-900">
-              {kpiValues.find(k => k.kpi_code === 'mttr')?.value.toFixed(1) || '4.2'}
+              {kpiValues.find((k) => k.kpi_code === "mttr")?.value.toFixed(1) ||
+                "4.2"}
               <span className="text-lg text-slate-500 ml-1">hrs</span>
             </div>
             <div className="mt-2 flex items-center gap-1 text-sm text-green-600">
@@ -251,9 +293,13 @@ export function PerformanceDashboard() {
             </div>
           </div>
           <div>
-            <div className="text-sm text-slate-600 mb-2">Planned vs Unplanned</div>
+            <div className="text-sm text-slate-600 mb-2">
+              Planned vs Unplanned
+            </div>
             <div className="text-3xl font-bold text-slate-900">
-              {kpiValues.find(k => k.kpi_code === 'planned_vs_unplanned')?.value.toFixed(0) || '78'}
+              {kpiValues
+                .find((k) => k.kpi_code === "planned_vs_unplanned")
+                ?.value.toFixed(0) || "78"}
               <span className="text-lg text-slate-500 ml-1">%</span>
             </div>
             <div className="mt-2 flex items-center gap-1 text-sm text-green-600">

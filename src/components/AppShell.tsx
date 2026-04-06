@@ -143,7 +143,7 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
   };
 
   const getUserLevel = (): string => {
-    if (!userContext?.roles?.length) return "operational";
+    if (!userContext?.roles?.length) return "executive"; // Default to full access when role detection unavailable
     const level = userContext.roles[0].level?.toLowerCase() || "";
     if (level.includes("exec")) return "executive";
     if (level.includes("strateg")) return "strategic";
