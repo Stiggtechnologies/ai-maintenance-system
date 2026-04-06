@@ -5,22 +5,20 @@ import { Login } from "./pages/Login";
 import { Signup } from "./pages/Signup";
 import { EnterpriseAccess } from "./pages/EnterpriseAccess";
 import { LoadingScreen } from "./components/LoadingScreen";
-import { Pricing } from "./pages/Pricing";
 import { Security } from "./pages/Security";
 import { Privacy } from "./pages/Privacy";
 import { Terms } from "./pages/Terms";
 import { AppShell } from "./components/AppShell";
 import { AssetDetailPage } from "./pages/AssetDetailPage";
+import { AssetManagement } from "./components/AssetManagement";
 import { OverviewDashboard } from "./pages/OverviewDashboard";
 import { PerformanceDashboard } from "./pages/PerformanceDashboard";
 import { WorkDashboard } from "./pages/WorkDashboard";
 import { GovernanceDashboard } from "./pages/GovernanceDashboard";
 import { WorkOrderDetailPage } from "./pages/WorkOrderDetailPage";
-import { CommandCenter } from "./components/CommandCenter";
 import { OEEDashboard } from "./pages/OEEDashboard";
 import { SettingsPage } from "./pages/SettingsPage";
 import { IntegrationsPage } from "./pages/IntegrationsPage";
-import { ResearchDashboard } from "./pages/ResearchDashboard";
 import { TemplateSelectorPage } from "./pages/TemplateSelectorPage";
 import { DeploymentConfiguratorPage } from "./pages/DeploymentConfiguratorPage";
 import { motion, AnimatePresence } from "framer-motion";
@@ -106,11 +104,6 @@ function App() {
             <AuthenticatedApp />
           </motion.div>
         )}
-        {currentPage === "pricing" && (
-          <motion.div key="pricing" {...pageTransition}>
-            <Pricing />
-          </motion.div>
-        )}
         {currentPage === "security" && (
           <motion.div key="security" {...pageTransition}>
             <Security onNavigate={setCurrentPage} />
@@ -145,19 +138,19 @@ function AuthenticatedApp() {
         <Route path="/" element={<Navigate to="/overview" replace />} />
         <Route path="/overview" element={<OverviewDashboard />} />
         <Route path="/performance" element={<PerformanceDashboard />} />
+        <Route path="/oee" element={<OEEDashboard />} />
         <Route path="/work/:workOrderId" element={<WorkOrderDetailPage />} />
         <Route path="/work" element={<WorkDashboard />} />
         <Route path="/governance" element={<GovernanceDashboard />} />
         <Route path="/assets/:assetId" element={<AssetDetailPage />} />
-        <Route path="/assets" element={<CommandCenter />} />
-        <Route path="/oee" element={<OEEDashboard />} />
+        <Route path="/assets" element={<AssetManagement />} />
         <Route path="/integrations" element={<IntegrationsPage />} />
-        <Route path="/research" element={<ResearchDashboard />} />
         <Route
           path="/deployments/new/configure"
           element={<DeploymentConfiguratorPage />}
         />
         <Route path="/deployments/new" element={<TemplateSelectorPage />} />
+        <Route path="/deployments" element={<TemplateSelectorPage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="*" element={<Navigate to="/overview" replace />} />
       </Routes>

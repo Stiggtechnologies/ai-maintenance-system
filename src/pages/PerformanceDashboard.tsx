@@ -270,12 +270,8 @@ export function PerformanceDashboard() {
             </div>
             <div className="text-3xl font-bold text-slate-900">
               {kpiValues.find((k) => k.kpi_code === "mtbf")?.value.toFixed(0) ||
-                "248"}
+                "—"}
               <span className="text-lg text-slate-500 ml-1">hrs</span>
-            </div>
-            <div className="mt-2 flex items-center gap-1 text-sm text-green-600">
-              <TrendingUp size={14} />
-              <span>↑ 12% vs target</span>
             </div>
           </div>
           <div>
@@ -284,12 +280,8 @@ export function PerformanceDashboard() {
             </div>
             <div className="text-3xl font-bold text-slate-900">
               {kpiValues.find((k) => k.kpi_code === "mttr")?.value.toFixed(1) ||
-                "4.2"}
+                "—"}
               <span className="text-lg text-slate-500 ml-1">hrs</span>
-            </div>
-            <div className="mt-2 flex items-center gap-1 text-sm text-green-600">
-              <TrendingUp size={14} />
-              <span>↓ 8% vs last month</span>
             </div>
           </div>
           <div>
@@ -299,12 +291,8 @@ export function PerformanceDashboard() {
             <div className="text-3xl font-bold text-slate-900">
               {kpiValues
                 .find((k) => k.kpi_code === "planned_vs_unplanned")
-                ?.value.toFixed(0) || "78"}
+                ?.value.toFixed(0) || "—"}
               <span className="text-lg text-slate-500 ml-1">%</span>
-            </div>
-            <div className="mt-2 flex items-center gap-1 text-sm text-green-600">
-              <TrendingUp size={14} />
-              <span>↑ 5% vs target</span>
             </div>
           </div>
         </div>

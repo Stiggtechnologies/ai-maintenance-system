@@ -14,7 +14,6 @@ import {
   AlertTriangle,
   MapPin,
   ChevronDown,
-  FlaskConical,
   Rocket,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -198,17 +197,10 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
       requiredLevel: ["executive", "strategic"],
     },
     {
-      id: "research",
-      label: "Research",
-      icon: FlaskConical,
-      path: "/research",
-      requiredLevel: ["executive"],
-    },
-    {
       id: "deployments",
       label: "Deployments",
       icon: Rocket,
-      path: "/deployments",
+      path: "/deployments/new",
       requiredLevel: ["executive", "strategic"],
     },
     { id: "settings", label: "Settings", icon: Settings, path: "/settings" },
