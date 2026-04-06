@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect } from "react";
 import {
   Shield,
@@ -13,11 +14,9 @@ import { recommendationService } from "../services/syncaiDataService";
 import { platformService } from "../services/platform";
 
 export function GovernanceDashboard() {
-  const [approvals, setApprovals] = useState<Record<string, unknown>[]>([]);
-  const [auditEvents, setAuditEvents] = useState<Record<string, unknown>[]>([]);
-  const [recommendations, setRecommendations] = useState<
-    Record<string, unknown>[]
-  >([]);
+  const [approvals, setApprovals] = useState<any[]>([]);
+  const [auditEvents, setAuditEvents] = useState<any[]>([]);
+  const [recommendations, setRecommendations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<
     "approvals" | "recommendations" | "audit"

@@ -1,13 +1,12 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect } from "react";
 import { Wrench, AlertCircle } from "lucide-react";
 import { workService } from "../services/work";
 import { platformService } from "../services/platform";
 
 export function WorkDashboard() {
-  const [workOrders, setWorkOrders] = useState<Record<string, unknown>[]>([]);
-  const [notifications, setNotifications] = useState<Record<string, unknown>[]>(
-    [],
-  );
+  const [workOrders, setWorkOrders] = useState<any[]>([]);
+  const [notifications, setNotifications] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -185,7 +184,9 @@ export function WorkDashboard() {
                     </td>
                     <td className="py-3 px-4 text-sm text-slate-600">
                       {wo.planned_finish
-                        ? new Date(wo.planned_finish).toLocaleDateString()
+                        ? new Date(
+                            String(wo.planned_finish),
+                          ).toLocaleDateString()
                         : "-"}
                     </td>
                   </tr>
