@@ -1,21 +1,5 @@
 import { useState, useEffect } from "react";
-import {
-  LayoutDashboard,
-  Activity,
-  Wrench,
-  Shield,
-  Package,
-  Plug,
-  Settings,
-  LogOut,
-  ChevronRight,
-  CheckCircle2,
-  Gauge,
-  AlertTriangle,
-  MapPin,
-  ChevronDown,
-  Rocket,
-} from "lucide-react";
+import { LayoutDashboard, Activity, Wrench, Shield, Package, Plug, Settings, LogOut, ChevronRight, CircleCheck as CheckCircle2, Gauge, TriangleAlert as AlertTriangle, MapPin, ChevronDown, Rocket } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { platformService, UserContext } from "../services/platform";
 import { supabase } from "../lib/supabase";
@@ -431,8 +415,10 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
         </header>
 
         {/* Page Content */}
-        <main className="flex-1 overflow-y-auto p-6 bg-slate-50">
-          {children}
+        <main className="flex-1 overflow-auto p-6 bg-slate-50 min-w-0">
+          <div className="max-w-full">
+            {children}
+          </div>
         </main>
       </div>
     </div>
