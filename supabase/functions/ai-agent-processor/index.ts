@@ -176,7 +176,83 @@ async function logToSIR(
 }
 
 // ---------------------------------------------------------------------------
-// Typed path: draft_reliability_assessment
+// Task-specific prompt builder.
+// Each governed capability gets a case here. The lifecycle machinery in
+// handleTypedRequest stays generic — only the prompt changes.
+// ---------------------------------------------------------------------------
+
+const COMMON_JSON_INSTRUCTIONS = `
+Also include a plain-text "summary" field with a 2-3 sentence human-readable summary.
+Also include a "confidence" field (number between 0 and 1) indicating your confidence.
+Also include a "requires_human_review" boolean field (true if risk_level is high or critical).
+
+Return ONLY valid JSON. No markdown, no code fences.`;
+
+function formatContext(woContext: any, assetContext: any, triggerReason: string): string {
+  return `Work Order: ${woContext.title}
+Description: ${woContext.description || 'None provided'}
+Priority: ${woContext.priority || 'unspecified'}
+Status: ${woContext.status || 'pending'}
+Work Type: ${woContext.work_type || 'unspecified'}
+
+Asset: ${assetContext.name}
+Tag: ${assetContext.asset_tag || 'N/A'}
+Status: ${assetContext.status || 'unknown'}
+Criticality: ${assetContext.criticality || 'unspecified'}
+Manufacturer: ${assetContext.manufacturer || 'unknown'}
+Model: ${assetContext.model || 'unknown'}
+
+Trigger: ${triggerReason}`;
+}
+
+function buildTaskPrompts(
+  taskCode: string,
+  woContext: any,
+  assetContext: any,
+  input: { trigger_reason: string },
+): { systemPrompt: string; userPrompt: string } {
+  const context = formatContext(woContext, assetContext, input.trigger_reason);
+
+  switch (taskCode) {
+    case 'draft_reliability_assessment':
+      return {
+        systemPrompt: `You are a reliability engineer AI agent for industrial asset maintenance. You produce structured JSON reliability assessments.
+
+Given a work order and asset context, analyze the situation and return a JSON object with this exact schema:
+{
+  "likely_causes": ["string array of probable failure causes"],
+  "recommended_actions": ["string array of recommended maintenance actions"],
+  "risk_level": "low" | "medium" | "high" | "critical",
+  "evidence": [{"source_type": "work_order_history" | "asset_record" | "condition_data" | "document" | "inference", "note": "string explanation"}]
+}
+${COMMON_JSON_INSTRUCTIONS}`,
+        userPrompt: `Analyze this work order for reliability risks:\n\n${context}`,
+      };
+
+    case 'classify_failure_mode':
+      return {
+        systemPrompt: `You are a failure mode analysis AI agent for industrial asset maintenance. You classify failure modes using FMEA/RCM methodology aligned with ISO 14224 and SAE JA1012.
+
+Given a work order and asset context, classify the likely failure mode and return a JSON object with this exact schema:
+{
+  "failure_mode": "specific failure mode name (e.g. 'bearing seizure', 'seal leak', 'winding insulation breakdown')",
+  "failure_mode_family": "mechanical" | "electrical" | "instrumentation" | "structural" | "process" | "external" | "unknown",
+  "likely_cause_family": "root cause category (e.g. 'wear', 'corrosion', 'overload', 'fatigue', 'contamination', 'design deficiency')",
+  "recommended_next_diagnostic_step": "concrete next step for the maintenance team to confirm or refine this classification",
+  "risk_level": "low" | "medium" | "high" | "critical",
+  "evidence": [{"source_type": "work_order_history" | "asset_record" | "condition_data" | "document" | "inference", "note": "string explanation"}]
+}
+${COMMON_JSON_INSTRUCTIONS}`,
+        userPrompt: `Classify the likely failure mode for this work order:\n\n${context}`,
+      };
+
+    default:
+      throw new Error(`Unknown task_code: ${taskCode}`);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Typed path: governed capability handler (generic)
 //
 // OpenClaw data access: task-scoped, tenant-scoped reads only.
 // Reads work_orders and assets filtered by tenant + specific IDs.
@@ -238,39 +314,11 @@ async function handleTypedRequest(
     const woContext = woResult.data || { title: 'Unknown', description: 'No description' };
     const assetContext = assetResult.data || { name: 'Unknown asset' };
 
-    // Build structured prompt requesting JSON output
-    const systemPrompt = `You are a reliability engineer AI agent for industrial asset maintenance. You produce structured JSON reliability assessments.
-
-Given a work order and asset context, analyze the situation and return a JSON object with this exact schema:
-{
-  "likely_causes": ["string array of probable failure causes"],
-  "recommended_actions": ["string array of recommended maintenance actions"],
-  "risk_level": "low" | "medium" | "high" | "critical",
-  "evidence": [{"source_type": "work_order_history" | "condition_data" | "document" | "inference", "note": "string explanation"}]
-}
-
-Also include a plain-text "summary" field with a 2-3 sentence human-readable summary.
-Also include a "confidence" field (number between 0 and 1) indicating your confidence.
-Also include a "requires_human_review" boolean field (true if risk_level is high or critical).
-
-Return ONLY valid JSON. No markdown, no code fences.`;
-
-    const userPrompt = `Analyze this work order for reliability risks:
-
-Work Order: ${woContext.title}
-Description: ${woContext.description || 'None provided'}
-Priority: ${woContext.priority || 'unspecified'}
-Status: ${woContext.status || 'pending'}
-Work Type: ${woContext.work_type || 'unspecified'}
-
-Asset: ${assetContext.name}
-Tag: ${assetContext.asset_tag || 'N/A'}
-Status: ${assetContext.status || 'unknown'}
-Criticality: ${assetContext.criticality || 'unspecified'}
-Manufacturer: ${assetContext.manufacturer || 'unknown'}
-Model: ${assetContext.model || 'unknown'}
-
-Trigger: ${input.trigger_reason}`;
+    // Build task-specific prompts. The three-plane lifecycle is generic;
+    // only the prompt and expected output fields change per capability.
+    const { systemPrompt, userPrompt } = buildTaskPrompts(
+      task_code, woContext, assetContext, input,
+    );
 
     const model = "gpt-4o-mini";
     const { content: aiResponse, usage } = await callLLM(model, systemPrompt, userPrompt, apiKey, true);
@@ -288,9 +336,12 @@ Trigger: ${input.trigger_reason}`;
     const confidence = Math.min(1, Math.max(0, parsed.confidence ?? 0.5));
     const requiresHumanReview = parsed.requires_human_review ?? (parsed.risk_level === 'high' || parsed.risk_level === 'critical');
 
+    // Extract the structured output generically. The common fields
+    // (summary, confidence, requires_human_review) are handled above.
+    // Everything else the LLM returned is the capability-specific payload.
+    const { summary: _s, confidence: _c, requires_human_review: _r, ...capabilityFields } = parsed;
     const structuredOutput = {
-      likely_causes: parsed.likely_causes || [],
-      recommended_actions: parsed.recommended_actions || [],
+      ...capabilityFields,
       risk_level: parsed.risk_level || 'medium',
       evidence: parsed.evidence || [],
     };

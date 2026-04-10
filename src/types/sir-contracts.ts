@@ -358,6 +358,72 @@ export const DRAFT_RELIABILITY_ASSESSMENT_OUTPUT_SCHEMA_VERSION =
   DRAFT_RELIABILITY_ASSESSMENT.output_schema_version;
 
 // ---------------------------------------------------------------------------
+// Capability #2: classify_failure_mode
+//
+// Advisory capability: classifies the likely failure mode for a work order
+// to support FRACAS, bad-actor analysis, and reliability reporting.
+// Does not trigger execution — produces a structured classification only.
+// ---------------------------------------------------------------------------
+
+export interface ClassifyFailureModeInput {
+  work_order_id: string;
+  asset_id: string;
+  trigger_reason: "manual_request" | "failure_event" | "investigation";
+}
+
+/**
+ * Failure mode family categories aligned with ISO 14224 / SAE JA1012.
+ */
+export type FailureModeFamily =
+  | "mechanical"
+  | "electrical"
+  | "instrumentation"
+  | "structural"
+  | "process"
+  | "external"
+  | "unknown";
+
+export interface ClassifyFailureModeOutput extends GovernedOutputBase {
+  /** The specific failure mode identified (e.g. "bearing seizure", "seal leak"). */
+  failure_mode: string;
+
+  /** ISO 14224 / SAE-aligned family category. */
+  failure_mode_family: FailureModeFamily;
+
+  /** Root-cause family (e.g. "wear", "corrosion", "overload", "design deficiency"). */
+  likely_cause_family: string;
+
+  /** Concrete next step for the maintenance team to confirm or refine the classification. */
+  recommended_next_diagnostic_step: string;
+}
+
+/** Registration for classify_failure_mode. */
+export const CLASSIFY_FAILURE_MODE: GovernedCapabilityDefinition<
+  "classify_failure_mode",
+  "failure_mode_classification"
+> = {
+  task_code: "classify_failure_mode",
+  agent_code: "failure_mode_analyst",
+  display_name: "Classify Failure Mode",
+  description:
+    "Classifies the likely failure mode and cause family for FRACAS and reliability analysis.",
+  default_autonomy_level: "advisory",
+  decision_type: "failure_mode_classification",
+  always_requires_human_review: false,
+  approval_policy_code: "failure_classification_review",
+  execution_mode: "advisory",
+  input_schema_version: "1.0.0",
+  output_schema_version: "1.0.0",
+  prompt_version: "1.0.0",
+};
+
+export type ClassifyFailureModeEnvelope =
+  CapabilityEnvelope<ClassifyFailureModeInput>;
+
+export type ClassifyFailureModeResult =
+  CapabilityResult<ClassifyFailureModeOutput>;
+
+// ---------------------------------------------------------------------------
 // Approval authority — central constant for role codes that may approve
 // Autonomous decisions. Used by the trigger (in SQL), RLS policies (in SQL),
 // and edge functions (in TypeScript). If this list changes, the SQL trigger

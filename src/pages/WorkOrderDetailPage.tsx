@@ -31,6 +31,19 @@ interface ReliabilityAssessment {
   requires_human_review: boolean;
 }
 
+interface FailureModeClassification {
+  correlation_id: string;
+  decision_id: string | null;
+  approval_status: string;
+  confidence: number;
+  risk_level: string;
+  raw_summary: string;
+  failure_mode: string;
+  failure_mode_family: string;
+  likely_cause_family: string;
+  recommended_next_diagnostic_step: string;
+}
+
 export function WorkOrderDetailPage() {
   const { workOrderId } = useParams<{ workOrderId: string }>();
   const navigate = useNavigate();
@@ -52,6 +65,15 @@ export function WorkOrderDetailPage() {
   const [assessmentCorrelationId, setAssessmentCorrelationId] = useState<
     string | null
   >(null);
+
+  const [classification, setClassification] =
+    useState<FailureModeClassification | null>(null);
+  const [classificationLoading, setClassificationLoading] = useState(false);
+  const [classificationError, setClassificationError] = useState<string | null>(
+    null,
+  );
+  const [classificationCorrelationId, setClassificationCorrelationId] =
+    useState<string | null>(null);
 
   // Draft Reliability Assessment — single backend call.
   // ai-agent-processor handles the full three-plane flow internally:
@@ -125,6 +147,80 @@ export function WorkOrderDetailPage() {
       setAssessmentError(errorMessage);
     } finally {
       setAssessmentLoading(false);
+    }
+  }, [workOrder, workOrderId]);
+
+  // Classify Failure Mode — same single-call pattern, different task_code.
+  const handleClassifyFailureMode = useCallback(async () => {
+    if (!workOrder || !workOrderId) return;
+    setClassificationLoading(true);
+    setClassificationError(null);
+    setClassificationCorrelationId(null);
+
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+    const assetId = workOrder.asset_id;
+    const tenantId =
+      workOrder.organization_id || "00000000-0000-0000-0000-000000000001";
+
+    try {
+      const res = await fetch(
+        `${supabaseUrl}/functions/v1/ai-agent-processor`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${supabaseKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            task_code: "classify_failure_mode",
+            agent_code: "failure_mode_analyst",
+            tenant_id: tenantId,
+            autonomy_level: "advisory",
+            idempotency_key: `${workOrderId}:classify_failure_mode:1.0.0`,
+            input_schema_version: "1.0.0",
+            prompt_version: "1.0.0",
+            input: {
+              work_order_id: workOrderId,
+              asset_id: assetId,
+              trigger_reason: "manual_request",
+            },
+          }),
+        },
+      );
+
+      if (!res.ok) {
+        const err = await res
+          .json()
+          .catch(() => ({ error: "Request failed", correlation_id: null }));
+        if (err.correlation_id)
+          setClassificationCorrelationId(err.correlation_id);
+        throw new Error(err.error || `Classification failed: ${res.status}`);
+      }
+
+      const result = await res.json();
+      setClassificationCorrelationId(result.correlation_id);
+
+      setClassification({
+        correlation_id: result.correlation_id,
+        decision_id: result.decision_id || null,
+        approval_status: result.approval_status || "pending",
+        confidence: result.confidence,
+        risk_level: result.output?.risk_level || "medium",
+        raw_summary: result.raw_summary,
+        failure_mode: result.output?.failure_mode || "Unknown",
+        failure_mode_family: result.output?.failure_mode_family || "unknown",
+        likely_cause_family: result.output?.likely_cause_family || "unknown",
+        recommended_next_diagnostic_step:
+          result.output?.recommended_next_diagnostic_step ||
+          "No recommendation",
+      });
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error";
+      setClassificationError(errorMessage);
+    } finally {
+      setClassificationLoading(false);
     }
   }, [workOrder, workOrderId]);
 
@@ -529,6 +625,150 @@ export function WorkOrderDetailPage() {
               is taken.
             </p>
           )}
+        </div>
+      </AgentErrorBoundary>
+
+      {/* Failure Mode Classification — same governed pattern, advisory mode */}
+      <AgentErrorBoundary
+        correlationId={classificationCorrelationId || undefined}
+      >
+        <div className="bg-white border border-slate-200 rounded-xl p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <AlertTriangle size={18} className="text-orange-600" />
+              <h2 className="text-lg font-semibold text-slate-900">
+                Failure Mode Classification
+              </h2>
+            </div>
+            {!classification && (
+              <button
+                onClick={handleClassifyFailureMode}
+                disabled={classificationLoading}
+                className="px-4 py-2 text-sm font-medium rounded-lg bg-orange-600 text-white hover:bg-orange-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+              >
+                {classificationLoading ? (
+                  <>
+                    <Loader2 size={14} className="animate-spin" />
+                    Classifying...
+                  </>
+                ) : (
+                  <>
+                    <AlertTriangle size={14} />
+                    Classify Failure Mode
+                  </>
+                )}
+              </button>
+            )}
+          </div>
+
+          {classificationError && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-lg mb-3">
+              <div className="flex items-center gap-2 text-red-700 text-sm font-medium mb-1">
+                <AlertTriangle size={14} />
+                Classification Failed
+              </div>
+              <p className="text-sm text-red-600">{classificationError}</p>
+              {classificationCorrelationId && (
+                <p className="text-xs text-red-400 mt-1 font-mono">
+                  Correlation: {classificationCorrelationId}
+                </p>
+              )}
+            </div>
+          )}
+
+          {classification && (
+            <div className="space-y-4">
+              {/* Classification header */}
+              <div className="flex items-center gap-3 flex-wrap">
+                <span className="px-2.5 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
+                  Advisory
+                </span>
+                <span
+                  className={`px-2.5 py-1 text-xs font-semibold rounded-full ${
+                    classification.risk_level === "critical"
+                      ? "bg-red-100 text-red-700"
+                      : classification.risk_level === "high"
+                        ? "bg-orange-100 text-orange-700"
+                        : classification.risk_level === "medium"
+                          ? "bg-yellow-100 text-yellow-700"
+                          : "bg-green-100 text-green-700"
+                  }`}
+                >
+                  Risk:{" "}
+                  {classification.risk_level.charAt(0).toUpperCase() +
+                    classification.risk_level.slice(1)}
+                </span>
+                <span className="text-xs text-slate-500">
+                  Confidence: {Math.round(classification.confidence * 100)}%
+                </span>
+                <span className="text-xs text-slate-400 font-mono">
+                  {classification.correlation_id.slice(0, 8)}
+                </span>
+              </div>
+
+              {/* Summary */}
+              <p className="text-sm text-slate-700">
+                {classification.raw_summary}
+              </p>
+
+              {/* Classification details */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="bg-slate-50 rounded-lg p-3">
+                  <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">
+                    Failure Mode
+                  </div>
+                  <div className="text-sm font-medium text-slate-900">
+                    {classification.failure_mode}
+                  </div>
+                </div>
+                <div className="bg-slate-50 rounded-lg p-3">
+                  <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">
+                    Family
+                  </div>
+                  <div className="text-sm font-medium text-slate-900 capitalize">
+                    {classification.failure_mode_family}
+                  </div>
+                </div>
+                <div className="bg-slate-50 rounded-lg p-3">
+                  <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">
+                    Cause Family
+                  </div>
+                  <div className="text-sm font-medium text-slate-900 capitalize">
+                    {classification.likely_cause_family}
+                  </div>
+                </div>
+                <div className="bg-slate-50 rounded-lg p-3 sm:col-span-2">
+                  <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">
+                    Next Diagnostic Step
+                  </div>
+                  <div className="text-sm text-slate-700">
+                    {classification.recommended_next_diagnostic_step}
+                  </div>
+                </div>
+              </div>
+
+              {/* Governance trail */}
+              <div className="pt-3 border-t border-slate-100 flex items-center gap-4 text-xs text-slate-400">
+                <span className="flex items-center gap-1">
+                  <Shield size={12} /> Governed by Autonomous
+                </span>
+                {classification.decision_id && (
+                  <span>
+                    Decision: {classification.decision_id.slice(0, 8)}
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+
+          {!classification &&
+            !classificationLoading &&
+            !classificationError && (
+              <p className="text-sm text-slate-500">
+                Classify the likely failure mode using FMEA/RCM methodology for
+                FRACAS and reliability reporting.
+              </p>
+            )}
         </div>
       </AgentErrorBoundary>
 

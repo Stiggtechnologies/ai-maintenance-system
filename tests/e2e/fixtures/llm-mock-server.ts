@@ -19,7 +19,7 @@ import { createServer, IncomingMessage, ServerResponse } from "node:http";
 const PORT = Number(process.env.LLM_MOCK_PORT || 54400);
 const SHOULD_FAIL = process.env.LLM_MOCK_FAIL === "1";
 
-const MOCK_RESPONSE = {
+const MOCK_RELIABILITY_RESPONSE = {
   summary:
     "Pump seal shows early degradation indicators. Recommend inspection within 48 hours based on vibration trend and prior failure history.",
   likely_causes: [
@@ -52,6 +52,41 @@ const MOCK_RESPONSE = {
   ],
 };
 
+const MOCK_FAILURE_MODE_RESPONSE = {
+  summary:
+    "Failure mode classified as mechanical seal degradation, likely caused by normal wear. Recommend vibration analysis to confirm before updating FRACAS records.",
+  failure_mode: "Mechanical seal degradation",
+  failure_mode_family: "mechanical",
+  likely_cause_family: "wear",
+  recommended_next_diagnostic_step:
+    "Perform vibration spectrum analysis on pump bearing housing to confirm seal degradation pattern vs. alignment issue",
+  risk_level: "medium",
+  confidence: 0.82,
+  requires_human_review: false,
+  evidence: [
+    {
+      source_type: "work_order_history",
+      note: "Seal replacement history indicates 14-month intervals, consistent with wear-driven failure",
+    },
+    {
+      source_type: "asset_record",
+      note: "Flowserve HPX-2000 pumps have a documented seal MTBF of 12-18 months in similar service",
+    },
+    {
+      source_type: "inference",
+      note: "Work order description mentions 'inspection' — consistent with early-stage degradation, not catastrophic failure",
+    },
+  ],
+};
+
+function selectMockResponse(requestBody: string): object {
+  // Dispatch based on system prompt content to return the right mock
+  if (requestBody.includes("failure mode")) {
+    return MOCK_FAILURE_MODE_RESPONSE;
+  }
+  return MOCK_RELIABILITY_RESPONSE;
+}
+
 function handleRequest(_req: IncomingMessage, res: ServerResponse) {
   // CORS preflight
   if (_req.method === "OPTIONS") {
@@ -66,10 +101,12 @@ function handleRequest(_req: IncomingMessage, res: ServerResponse) {
     return;
   }
 
-  // Collect request body (not used, but consumed to avoid backpressure)
+  // Collect request body to dispatch the right mock response
   const chunks: Buffer[] = [];
   _req.on("data", (chunk) => chunks.push(chunk));
   _req.on("end", () => {
+    const body = Buffer.concat(chunks).toString("utf-8");
+
     if (SHOULD_FAIL) {
       res.writeHead(500, { "Content-Type": "application/json" });
       res.end(
@@ -95,7 +132,7 @@ function handleRequest(_req: IncomingMessage, res: ServerResponse) {
           index: 0,
           message: {
             role: "assistant",
-            content: JSON.stringify(MOCK_RESPONSE),
+            content: JSON.stringify(selectMockResponse(body)),
           },
           finish_reason: "stop",
         },
@@ -109,7 +146,8 @@ function handleRequest(_req: IncomingMessage, res: ServerResponse) {
 
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify(openaiResponse));
-    console.log("[mock-llm] Returned 200 with canned assessment");
+    const taskType = body.includes("failure mode") ? "failure_mode" : "reliability";
+    console.log(`[mock-llm] Returned 200 with canned ${taskType} response`);
   });
 }
 

@@ -150,6 +150,90 @@ test.describe("Golden path: draft reliability assessment", () => {
     expect(run.correlation_id).toBe(workflow.correlation_id);
   });
 
+  test("classify failure mode: pattern reuse produces structured classification", async ({
+    page,
+  }) => {
+    // Navigate to seeded work order
+    await page.goto(`/work/${SEEDED_WO_ID}`);
+    await page.waitForSelector("text=Pump Seal Inspection", {
+      timeout: 10000,
+    });
+
+    // Click "Classify Failure Mode"
+    const classifyButton = page.getByRole("button", {
+      name: /Classify Failure Mode/i,
+    });
+    await expect(classifyButton).toBeVisible();
+    await classifyButton.click();
+
+    // Wait for the classification card to appear
+    await expect(
+      page.getByText(/Advisory/i),
+    ).toBeVisible({ timeout: 30000 });
+
+    // Assert UI shows structured classification (not free prose)
+    await expect(page.getByText(/Failure Mode/i)).toBeVisible();
+    await expect(page.getByText(/Family/i)).toBeVisible();
+    await expect(page.getByText(/Cause Family/i)).toBeVisible();
+    await expect(page.getByText(/Next Diagnostic Step/i)).toBeVisible();
+    await expect(page.getByText(/Governed by Autonomous/i)).toBeVisible();
+
+    // Extract correlation_id from the UI
+    const correlationShort = await page
+      .locator('[class*="font-mono"]')
+      .filter({ hasText: /^[0-9a-f]{8}$/ })
+      .nth(1) // second correlation display (first is reliability if present)
+      .textContent();
+    expect(correlationShort).toBeTruthy();
+
+    // --- Backend assertions: same three-plane pattern, different task_code ---
+
+    const { data: runs } = await adminSupabase
+      .from("sir_orchestration_runs")
+      .select("id, correlation_id, status, workflow_definition_code, autonomy_level")
+      .like("correlation_id", `${correlationShort}%`)
+      .eq("workflow_definition_code", "classify_failure_mode")
+      .limit(1);
+
+    expect(runs).toBeTruthy();
+    expect(runs!.length).toBe(1);
+    const run = runs![0];
+    const correlationId = run.correlation_id;
+
+    // OpenClaw intelligence trace
+    expect(run.status).toBe("completed");
+    expect(run.workflow_definition_code).toBe("classify_failure_mode");
+    expect(run.autonomy_level).toBe("advisory");
+
+    // Autonomous decision — same table, different decision_type
+    const { data: decisions } = await adminSupabase
+      .from("autonomous_decisions")
+      .select("id, status, decision_type, correlation_id, autonomy_level")
+      .eq("correlation_id", correlationId);
+
+    expect(decisions).toBeTruthy();
+    expect(decisions!.length).toBe(1);
+    const decision = decisions![0];
+    expect(decision.decision_type).toBe("failure_mode_classification");
+    expect(decision.correlation_id).toBe(correlationId);
+
+    // Approval workflow — same trigger, different capability
+    const { data: workflows } = await adminSupabase
+      .from("approval_workflows")
+      .select("id, status, correlation_id")
+      .eq("decision_id", decision.id);
+
+    // Advisory with requires_human_review=false may not create an
+    // approval workflow (depends on confidence/risk). Assert the
+    // correlation chain is intact either way.
+    if (workflows && workflows.length > 0) {
+      expect(workflows[0].correlation_id).toBe(correlationId);
+    }
+
+    // Correlation chain links all planes
+    expect(run.correlation_id).toBe(decision.correlation_id);
+  });
+
   test("failure path: LLM error creates failed decision with audit chain", async ({
     page,
   }) => {
