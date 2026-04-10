@@ -442,7 +442,7 @@ async function createFailedDecision(supabase: any, input: any) {
         failed: true,
       },
       confidence_score: 0,
-      status: 'rejected',
+      status: 'failed',
       requires_approval: false,
     })
     .select('id')

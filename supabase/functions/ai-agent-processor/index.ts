@@ -188,7 +188,11 @@ async function handleTypedRequest(
   apiKey: string,
 ): Promise<Response> {
   const startTime = Date.now();
-  const { task_code, agent_code, tenant_id, correlation_id, idempotency_key, autonomy_level, input_schema_version, prompt_version, input } = envelope;
+  const { task_code, agent_code, tenant_id, idempotency_key, autonomy_level, input_schema_version, prompt_version, input } = envelope;
+
+  // Backend-authoritative correlation_id. Frontend-supplied values are
+  // ignored — the backend is the source of truth for audit correlation.
+  const correlation_id = crypto.randomUUID();
 
   // Create the OpenClaw orchestration run (Intelligence Plane trace)
   const { data: run, error: runError } = await supabase
@@ -321,12 +325,60 @@ Trigger: ${input.trigger_reason}`;
 
     console.log(`event=agent_invocation_completed agent=${agent_code} correlation_id=${correlation_id} task_code=${task_code} confidence=${confidence} risk_level=${structuredOutput.risk_level} processing_time_ms=${processingTime}`);
 
+    // --- Cross-plane handoff: Intelligence → Governance ---
+    // Call autonomous-orchestrator internally to create the canonical
+    // Autonomous decision. This keeps the frontend to a single call
+    // and ensures correlation_id is backend-authoritative.
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+    let governanceResult: any = { decision_id: null, approval_status: 'unknown' };
+    try {
+      const govRes = await fetch(
+        `${supabaseUrl}/functions/v1/autonomous-orchestrator`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${serviceKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            action: 'create_intelligence_decision',
+            data: {
+              tenant_id,
+              correlation_id,
+              asset_id: input.asset_id,
+              work_order_id: input.work_order_id,
+              autonomy_level,
+              agent_run_id: runId,
+              task_code,
+              confidence,
+              requires_human_review: requiresHumanReview,
+              raw_summary: parsed.summary || 'Assessment complete.',
+              structured_output: structuredOutput,
+            },
+          }),
+        },
+      );
+      if (govRes.ok) {
+        governanceResult = await govRes.json();
+      } else {
+        console.error(`event=governance_handoff_failed correlation_id=${correlation_id} status=${govRes.status}`);
+      }
+    } catch (govError) {
+      // Governance handoff failure is non-fatal — the intelligence result
+      // is already persisted in OpenClaw. Log and continue.
+      console.error(`event=governance_handoff_error correlation_id=${correlation_id} error=${govError.message}`);
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
         task_code,
         correlation_id,
         agent_run_id: runId,
+        decision_id: governanceResult.decision_id,
+        approval_status: governanceResult.approval_status || 'pending',
         output_schema_version: '1.0.0',
         confidence,
         requires_human_review: requiresHumanReview,
@@ -340,7 +392,7 @@ Trigger: ${input.trigger_reason}`;
   } catch (error) {
     const processingTime = Date.now() - startTime;
 
-    // Mark the orchestration run as failed
+    // Mark the OpenClaw orchestration run as failed
     await supabase
       .from('sir_orchestration_runs')
       .update({
@@ -349,6 +401,23 @@ Trigger: ${input.trigger_reason}`;
         finished_at: new Date().toISOString(),
       })
       .eq('id', runId);
+
+    // Record failure in Autonomous plane (audit completeness).
+    // Uses 'failed' status, not 'rejected' (rejected = human decision).
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    try {
+      await fetch(`${supabaseUrl}/functions/v1/autonomous-orchestrator`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'create_failed_decision',
+          data: { tenant_id, correlation_id, asset_id: input.asset_id, work_order_id: input.work_order_id, task_code, error_message: error.message },
+        }),
+      });
+    } catch {
+      // Best-effort audit — don't compound the error
+    }
 
     console.error(`event=agent_invocation_failed agent=${agent_code} correlation_id=${correlation_id} task_code=${task_code} error=${error.message} processing_time_ms=${processingTime}`);
 

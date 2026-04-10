@@ -53,17 +53,17 @@ export function WorkOrderDetailPage() {
     string | null
   >(null);
 
-  // Draft Reliability Assessment — three-plane flow:
-  // 1. Call ai-agent-processor (Intelligence Plane → OpenClaw trace + SIR log)
-  // 2. Call autonomous-orchestrator (Control/Governance Plane → Autonomous decision + approval)
-  // 3. Display the result with correlation ID linking everything
+  // Draft Reliability Assessment — single backend call.
+  // ai-agent-processor handles the full three-plane flow internally:
+  //   1. OpenClaw intelligence trace (sir_orchestration_runs)
+  //   2. SIR interaction logging (sir_sessions/messages/costs)
+  //   3. Autonomous decision + approval (autonomous_decisions/approval_workflows)
+  // Correlation ID is generated server-side — frontend never sources it.
   const handleDraftAssessment = useCallback(async () => {
     if (!workOrder || !workOrderId) return;
     setAssessmentLoading(true);
     setAssessmentError(null);
-
-    const correlationId = crypto.randomUUID();
-    setAssessmentCorrelationId(correlationId);
+    setAssessmentCorrelationId(null);
 
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
     const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -72,8 +72,7 @@ export function WorkOrderDetailPage() {
       workOrder.organization_id || "00000000-0000-0000-0000-000000000001";
 
     try {
-      // Step 1: Intelligence Plane — call ai-agent-processor
-      const intelligenceRes = await fetch(
+      const res = await fetch(
         `${supabaseUrl}/functions/v1/ai-agent-processor`,
         {
           method: "POST",
@@ -87,7 +86,6 @@ export function WorkOrderDetailPage() {
             tenant_id: tenantId,
             autonomy_level: "conditional",
             idempotency_key: `${workOrderId}:draft_reliability_assessment:1.0.0`,
-            correlation_id: correlationId,
             input_schema_version: "1.0.0",
             prompt_version: "1.0.0",
             input: {
@@ -99,91 +97,32 @@ export function WorkOrderDetailPage() {
         },
       );
 
-      if (!intelligenceRes.ok) {
-        const err = await intelligenceRes
+      if (!res.ok) {
+        const err = await res
           .json()
-          .catch(() => ({ error: "Intelligence request failed" }));
-        throw new Error(
-          err.error || `Intelligence Plane error: ${intelligenceRes.status}`,
-        );
+          .catch(() => ({ error: "Request failed", correlation_id: null }));
+        if (err.correlation_id) setAssessmentCorrelationId(err.correlation_id);
+        throw new Error(err.error || `Assessment failed: ${res.status}`);
       }
 
-      const intelligenceResult = await intelligenceRes.json();
-
-      // Step 2: Control/Governance Plane — create Autonomous decision
-      const governanceRes = await fetch(
-        `${supabaseUrl}/functions/v1/autonomous-orchestrator`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${supabaseKey}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            action: "create_intelligence_decision",
-            data: {
-              tenant_id: tenantId,
-              correlation_id: correlationId,
-              asset_id: assetId,
-              work_order_id: workOrderId,
-              autonomy_level: "conditional",
-              agent_run_id: intelligenceResult.agent_run_id,
-              task_code: "draft_reliability_assessment",
-              confidence: intelligenceResult.confidence,
-              requires_human_review: intelligenceResult.requires_human_review,
-              raw_summary: intelligenceResult.raw_summary,
-              structured_output: intelligenceResult.output,
-            },
-          }),
-        },
-      );
-
-      const governanceResult = await governanceRes.json();
+      const result = await res.json();
+      setAssessmentCorrelationId(result.correlation_id);
 
       setAssessment({
-        correlation_id: correlationId,
-        decision_id: governanceResult.decision_id || null,
-        approval_status: governanceResult.approval_status || "pending",
-        confidence: intelligenceResult.confidence,
-        risk_level: intelligenceResult.output?.risk_level || "medium",
-        raw_summary: intelligenceResult.raw_summary,
-        likely_causes: intelligenceResult.output?.likely_causes || [],
-        recommended_actions:
-          intelligenceResult.output?.recommended_actions || [],
-        requires_human_review: intelligenceResult.requires_human_review,
+        correlation_id: result.correlation_id,
+        decision_id: result.decision_id || null,
+        approval_status: result.approval_status || "pending",
+        confidence: result.confidence,
+        risk_level: result.output?.risk_level || "medium",
+        raw_summary: result.raw_summary,
+        likely_causes: result.output?.likely_causes || [],
+        recommended_actions: result.output?.recommended_actions || [],
+        requires_human_review: result.requires_human_review,
       });
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : "Unknown error";
       setAssessmentError(errorMessage);
-
-      console.error(
-        `event=agent_invocation_failed agent=ai-agent-processor correlation_id=${correlationId} error=${errorMessage}`,
-      );
-
-      // Record the failure in the Autonomous plane (audit completeness)
-      try {
-        await fetch(`${supabaseUrl}/functions/v1/autonomous-orchestrator`, {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${supabaseKey}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            action: "create_failed_decision",
-            data: {
-              tenant_id: tenantId,
-              correlation_id: correlationId,
-              asset_id: assetId,
-              work_order_id: workOrderId,
-              task_code: "draft_reliability_assessment",
-              error_message: errorMessage,
-            },
-          }),
-        });
-      } catch {
-        // Best-effort audit logging — don't compound the error
-      }
     } finally {
       setAssessmentLoading(false);
     }
