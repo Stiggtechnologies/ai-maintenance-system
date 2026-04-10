@@ -150,6 +150,109 @@ test.describe("Golden path: draft reliability assessment", () => {
     expect(run.correlation_id).toBe(workflow.correlation_id);
   });
 
+  test("approve and execute: closes governance loop with canonical action record", async ({
+    page,
+  }) => {
+    // Navigate and create the assessment first
+    await page.goto(`/work/${SEEDED_WO_ID}`);
+    await page.waitForSelector("text=Pump Seal Inspection", { timeout: 10000 });
+
+    const assessButton = page.getByRole("button", {
+      name: /Draft Reliability Assessment/i,
+    });
+    await assessButton.click();
+    await expect(page.getByText(/Pending Approval/i)).toBeVisible({ timeout: 30000 });
+
+    // Click "Approve & Execute Recommendation"
+    const approveButton = page.getByRole("button", {
+      name: /Approve & Execute Recommendation/i,
+    });
+    await expect(approveButton).toBeVisible();
+    await approveButton.click();
+
+    // Wait for the approval to complete
+    await expect(page.getByText(/Approved & Executed/i)).toBeVisible({ timeout: 15000 });
+
+    // Assert "Executed" badge appears in the governance trail
+    await expect(page.getByText(/Executed/i)).toBeVisible();
+
+    // --- Backend assertions: full governance loop ---
+
+    // Find the correlation_id from the UI
+    const correlationShort = await page
+      .locator('[class*="font-mono"]')
+      .filter({ hasText: /^[0-9a-f]{8}$/ })
+      .first()
+      .textContent();
+    expect(correlationShort).toBeTruthy();
+
+    // Decision should now be 'approved' (not 'pending')
+    const { data: decisions } = await adminSupabase
+      .from("autonomous_decisions")
+      .select("id, status, approved_by, executed_at, correlation_id")
+      .like("correlation_id", `${correlationShort}%`)
+      .eq("decision_type", "reliability_recommendation");
+
+    expect(decisions).toBeTruthy();
+    expect(decisions!.length).toBeGreaterThanOrEqual(1);
+    const decision = decisions![0];
+    expect(decision.status).toBe("approved");
+    expect(decision.approved_by).toBeTruthy();
+    expect(decision.executed_at).toBeTruthy();
+
+    const correlationId = decision.correlation_id;
+
+    // Approval workflow should be 'approved'
+    const { data: workflows } = await adminSupabase
+      .from("approval_workflows")
+      .select("status, responded_at")
+      .eq("decision_id", decision.id);
+
+    expect(workflows).toBeTruthy();
+    expect(workflows!.length).toBeGreaterThanOrEqual(1);
+    expect(workflows![0].status).toBe("approved");
+    expect(workflows![0].responded_at).toBeTruthy();
+
+    // Action record should exist (separate from decision and approval)
+    const { data: actions } = await adminSupabase
+      .from("autonomous_actions")
+      .select("id, action_type, decision_id, correlation_id, success, target_id")
+      .eq("correlation_id", correlationId);
+
+    expect(actions).toBeTruthy();
+    expect(actions!.length).toBe(1);
+    const action = actions![0];
+    expect(action.action_type).toBe("append_work_order_note");
+    expect(action.decision_id).toBe(decision.id);
+    expect(action.success).toBe(true);
+    expect(action.target_id).toBe(SEEDED_WO_ID);
+
+    // Work order status history should have the recommendation note
+    const { data: history } = await adminSupabase
+      .from("work_order_status_history")
+      .select("comments, changed_by")
+      .eq("work_order_id", SEEDED_WO_ID)
+      .like("comments", "%AI Recommendation%");
+
+    expect(history).toBeTruthy();
+    expect(history!.length).toBeGreaterThanOrEqual(1);
+
+    // Audit chain is complete: 4 distinct records share one correlation_id
+    //   1. sir_orchestration_runs (intelligence)
+    //   2. autonomous_decisions (governance decision)
+    //   3. approval_workflows (authorization)
+    //   4. autonomous_actions (execution)
+    const { data: runs } = await adminSupabase
+      .from("sir_orchestration_runs")
+      .select("correlation_id")
+      .eq("correlation_id", correlationId);
+
+    expect(runs).toBeTruthy();
+    expect(runs!.length).toBe(1);
+    expect(runs![0].correlation_id).toBe(correlationId);
+    expect(action.correlation_id).toBe(correlationId);
+  });
+
   test("classify failure mode: pattern reuse produces structured classification", async ({
     page,
   }) => {

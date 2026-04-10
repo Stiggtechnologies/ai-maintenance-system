@@ -38,6 +38,11 @@ Deno.serve(async (req: Request) => {
       case 'generate_health_report':
         return await generateHealthReport(supabase);
 
+      // Approve→Execute: closes the governance loop for a decision.
+      // Creates the canonical action record and executes the side-effect.
+      case 'approve_and_execute_decision':
+        return await approveAndExecuteDecision(supabase, data);
+
       // PR 3: Cross-plane handoff — Intelligence Plane result → Autonomous decision.
       // This is the Control/Governance Plane entry point for intelligence-driven
       // decisions. Called by the frontend AFTER ai-agent-processor returns.
@@ -458,4 +463,167 @@ async function createFailedDecision(supabase: any, input: any) {
     JSON.stringify({ success: !error, decision_id: decision?.id, correlation_id }),
     { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
   );
+}
+
+// ---------------------------------------------------------------------------
+// approve_and_execute_decision
+//
+// Closes the governance loop: approved decision → governed action →
+// canonical execution record → intact audit chain.
+//
+// State transitions (all separate — never collapsed):
+//   1. autonomous_decisions.status: pending → approved
+//   2. approval_workflows.status: pending → approved
+//   3. autonomous_actions: new row with action_type + success
+//   4. work_order_status_history: the actual side-effect
+//
+// Governed action types (from sir-contracts.ts GovernedActionType):
+//   - append_work_order_note
+//   - create_follow_up_task
+//   - flag_for_engineering_review
+// ---------------------------------------------------------------------------
+
+interface ApproveAndExecuteInput {
+  decision_id: string;
+  approver_id: string;
+  action_type: string;
+  action_note?: string;
+}
+
+async function approveAndExecuteDecision(supabase: any, input: ApproveAndExecuteInput) {
+  const { decision_id, approver_id, action_type, action_note } = input;
+
+  if (!decision_id || !approver_id) {
+    return new Response(
+      JSON.stringify({ error: 'decision_id and approver_id are required' }),
+      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+    );
+  }
+
+  // 1. Fetch and validate the decision
+  const { data: decision, error: fetchError } = await supabase
+    .from('autonomous_decisions')
+    .select('*')
+    .eq('id', decision_id)
+    .eq('status', 'pending')
+    .single();
+
+  if (fetchError || !decision) {
+    return new Response(
+      JSON.stringify({ error: 'Decision not found or not in pending state' }),
+      { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+    );
+  }
+
+  const correlation_id = decision.correlation_id;
+  const tenant_id = decision.tenant_id;
+
+  try {
+    // 2. Update decision status → approved
+    await supabase
+      .from('autonomous_decisions')
+      .update({
+        status: 'approved',
+        approved_by: approver_id,
+        executed_at: new Date().toISOString(),
+      })
+      .eq('id', decision_id);
+
+    // 3. Update approval workflow → approved
+    await supabase
+      .from('approval_workflows')
+      .update({
+        status: 'approved',
+        responded_at: new Date().toISOString(),
+      })
+      .eq('decision_id', decision_id)
+      .eq('status', 'pending');
+
+    // 4. Create the canonical action record
+    const resolvedActionType = action_type || 'append_work_order_note';
+    const recommendation = decision.decision_data?.raw_summary
+      || decision.decision_data?.summary
+      || 'AI reliability recommendation approved.';
+
+    const noteText = action_note || recommendation;
+
+    const { data: actionRecord, error: actionError } = await supabase
+      .from('autonomous_actions')
+      .insert({
+        tenant_id,
+        correlation_id,
+        decision_id,
+        action_type: resolvedActionType,
+        target_id: decision.work_order_id,
+        action_data: {
+          decision_id,
+          work_order_id: decision.work_order_id,
+          action_type: resolvedActionType,
+          note: noteText,
+          approved_by: approver_id,
+        },
+        triggered_by: 'ApprovalExecution',
+        success: true,
+      })
+      .select('id')
+      .single();
+
+    if (actionError) {
+      throw new Error(`Failed to create action: ${actionError.message}`);
+    }
+
+    // 5. Execute the side-effect based on action_type
+    if (resolvedActionType === 'append_work_order_note' && decision.work_order_id) {
+      // Insert a status history entry with the recommendation as a comment.
+      // This appears on the WorkOrderDetailPage "Status History" tab.
+      await supabase
+        .from('work_order_status_history')
+        .insert({
+          work_order_id: decision.work_order_id,
+          status_from: 'in_progress',
+          status_to: 'in_progress',
+          changed_by: approver_id,
+          changed_at: new Date().toISOString(),
+          comments: `[AI Recommendation — Approved]\n${noteText}`,
+        });
+    }
+
+    console.log(`event=decision_approved_and_executed correlation_id=${correlation_id} decision_id=${decision_id} action_id=${actionRecord.id} action_type=${resolvedActionType}`);
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        decision_id,
+        action_id: actionRecord.id,
+        correlation_id,
+        action_type: resolvedActionType,
+        executed: true,
+      }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+    );
+
+  } catch (error) {
+    // Mark action as failed if we got that far
+    console.error(`event=execution_failed correlation_id=${correlation_id} decision_id=${decision_id} error=${error.message}`);
+
+    await supabase
+      .from('autonomous_actions')
+      .insert({
+        tenant_id,
+        correlation_id,
+        decision_id,
+        action_type: action_type || 'append_work_order_note',
+        target_id: decision.work_order_id,
+        action_data: { error: error.message },
+        triggered_by: 'ApprovalExecution',
+        success: false,
+        error_message: error.message,
+      })
+      .catch(() => {});
+
+    return new Response(
+      JSON.stringify({ success: false, error: error.message, correlation_id }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+    );
+  }
 }

@@ -66,6 +66,8 @@ export function WorkOrderDetailPage() {
     string | null
   >(null);
 
+  const [approvalLoading, setApprovalLoading] = useState(false);
+
   const [classification, setClassification] =
     useState<FailureModeClassification | null>(null);
   const [classificationLoading, setClassificationLoading] = useState(false);
@@ -149,6 +151,64 @@ export function WorkOrderDetailPage() {
       setAssessmentLoading(false);
     }
   }, [workOrder, workOrderId]);
+
+  // Approve & Execute — closes the governance loop via backend.
+  const handleApproveAndExecute = useCallback(async () => {
+    if (!assessment?.decision_id) return;
+    setApprovalLoading(true);
+
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+    try {
+      const res = await fetch(
+        `${supabaseUrl}/functions/v1/autonomous-orchestrator`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${supabaseKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            action: "approve_and_execute_decision",
+            data: {
+              decision_id: assessment.decision_id,
+              approver_id: "00000000-0000-0000-0000-000000000000",
+              action_type: "append_work_order_note",
+            },
+          }),
+        },
+      );
+
+      if (!res.ok) {
+        const err = await res
+          .json()
+          .catch(() => ({ error: "Approval failed" }));
+        throw new Error(err.error || `Approval failed: ${res.status}`);
+      }
+
+      // Update local state to reflect approval
+      setAssessment((prev) =>
+        prev
+          ? {
+              ...prev,
+              approval_status: "approved",
+              requires_human_review: false,
+            }
+          : null,
+      );
+
+      // Reload work order data to show the new status history note
+      if (workOrderId) {
+        loadWorkOrderData(workOrderId);
+      }
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : "Approval failed";
+      setAssessmentError(msg);
+    } finally {
+      setApprovalLoading(false);
+    }
+  }, [assessment, workOrderId]);
 
   // Classify Failure Mode — same single-call pattern, different task_code.
   const handleClassifyFailureMode = useCallback(async () => {
@@ -550,9 +610,12 @@ export function WorkOrderDetailPage() {
                         : "bg-slate-100 text-slate-600"
                   }`}
                 >
-                  {assessment.requires_human_review
+                  {assessment.requires_human_review &&
+                  assessment.approval_status !== "approved"
                     ? "Pending Approval"
-                    : assessment.approval_status}
+                    : assessment.approval_status === "approved"
+                      ? "Approved & Executed"
+                      : assessment.approval_status}
                 </span>
                 <span
                   className={`px-2.5 py-1 text-xs font-semibold rounded-full ${
@@ -606,6 +669,35 @@ export function WorkOrderDetailPage() {
                 </div>
               )}
 
+              {/* Approve & Execute button (visible only when pending) */}
+              {assessment.requires_human_review &&
+                assessment.approval_status !== "approved" &&
+                assessment.decision_id && (
+                  <div className="pt-3 border-t border-slate-100">
+                    <button
+                      onClick={handleApproveAndExecute}
+                      disabled={approvalLoading}
+                      className="px-4 py-2 text-sm font-medium rounded-lg bg-green-600 text-white hover:bg-green-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+                    >
+                      {approvalLoading ? (
+                        <>
+                          <Loader2 size={14} className="animate-spin" />
+                          Approving...
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle size={14} />
+                          Approve &amp; Execute Recommendation
+                        </>
+                      )}
+                    </button>
+                    <p className="text-xs text-slate-400 mt-1">
+                      Appends the recommendation as a governed note on this work
+                      order.
+                    </p>
+                  </div>
+                )}
+
               {/* Governance trail */}
               <div className="pt-3 border-t border-slate-100 flex items-center gap-4 text-xs text-slate-400">
                 <span className="flex items-center gap-1">
@@ -613,6 +705,9 @@ export function WorkOrderDetailPage() {
                 </span>
                 {assessment.decision_id && (
                   <span>Decision: {assessment.decision_id.slice(0, 8)}</span>
+                )}
+                {assessment.approval_status === "approved" && (
+                  <span className="text-green-600 font-medium">Executed</span>
                 )}
               </div>
             </div>

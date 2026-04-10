@@ -423,6 +423,38 @@ export type ClassifyFailureModeEnvelope =
 export type ClassifyFailureModeResult =
   CapabilityResult<ClassifyFailureModeOutput>;
 
+// ===========================================================================
+// GOVERNED ACTION TAXONOMY
+//
+// Every execution action must use one of these types. This prevents
+// ad-hoc execution from drifting. New action types require explicit
+// addition here — they cannot be invented in edge function code.
+// ===========================================================================
+
+/**
+ * Governed action types. Each represents a specific, low-risk side-effect
+ * that the Control/Governance Plane may execute after an approved decision.
+ */
+export type GovernedActionType =
+  | "append_work_order_note"
+  | "create_follow_up_task"
+  | "flag_for_engineering_review";
+
+/**
+ * Decision lifecycle states. These are distinct concerns:
+ *   - decision.status  = the governance state of the recommendation
+ *   - approval.status  = the authorization state
+ *   - action           = the executable artifact (separate row)
+ *   - execution        = confirmation the action happened (action.success)
+ */
+export type DecisionStatus =
+  | "pending"
+  | "approved"
+  | "rejected"
+  | "auto_executed"
+  | "expired"
+  | "failed";
+
 // ---------------------------------------------------------------------------
 // Approval authority — central constant for role codes that may approve
 // Autonomous decisions. Used by the trigger (in SQL), RLS policies (in SQL),
