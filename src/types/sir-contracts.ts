@@ -455,6 +455,18 @@ export type DecisionStatus =
   | "expired"
   | "failed";
 
+/**
+ * Structured execution result stored in autonomous_actions.execution_result.
+ * Canonical source for what actually happened during execution.
+ */
+export interface ExecutionResult {
+  status: "success" | "failed";
+  message: string;
+  affected_records: string[];
+  timestamp: string;
+  duration_ms?: number;
+}
+
 // ---------------------------------------------------------------------------
 // Approval authority — central constant for role codes that may approve
 // Autonomous decisions. Used by the trigger (in SQL), RLS policies (in SQL),

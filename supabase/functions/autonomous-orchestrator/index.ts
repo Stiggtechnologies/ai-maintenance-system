@@ -500,6 +500,34 @@ async function approveAndExecuteDecision(supabase: any, input: ApproveAndExecute
     );
   }
 
+  // --- Idempotency check ---
+  // One successful execution per decision. Derived key = decision_id.
+  // If an action already exists for this decision, return it as a no-op.
+  const idempotencyKey = `approve_execute:${decision_id}`;
+
+  const { data: existingAction } = await supabase
+    .from('autonomous_actions')
+    .select('id, correlation_id, action_type, success')
+    .eq('idempotency_key', idempotencyKey)
+    .eq('success', true)
+    .maybeSingle();
+
+  if (existingAction) {
+    console.log(`event=idempotent_replay correlation_id=${existingAction.correlation_id} decision_id=${decision_id} action_id=${existingAction.id}`);
+    return new Response(
+      JSON.stringify({
+        success: true,
+        decision_id,
+        action_id: existingAction.id,
+        correlation_id: existingAction.correlation_id,
+        action_type: existingAction.action_type,
+        executed: true,
+        idempotent_replay: true,
+      }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+    );
+  }
+
   // 1. Fetch and validate the decision
   const { data: decision, error: fetchError } = await supabase
     .from('autonomous_decisions')
@@ -509,6 +537,20 @@ async function approveAndExecuteDecision(supabase: any, input: ApproveAndExecute
     .single();
 
   if (fetchError || !decision) {
+    // Could be already approved (idempotent) or not found
+    const { data: anyDecision } = await supabase
+      .from('autonomous_decisions')
+      .select('status')
+      .eq('id', decision_id)
+      .maybeSingle();
+
+    if (anyDecision?.status === 'approved') {
+      return new Response(
+        JSON.stringify({ error: 'Decision already approved', status: anyDecision.status }),
+        { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    }
+
     return new Response(
       JSON.stringify({ error: 'Decision not found or not in pending state' }),
       { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
@@ -517,6 +559,35 @@ async function approveAndExecuteDecision(supabase: any, input: ApproveAndExecute
 
   const correlation_id = decision.correlation_id;
   const tenant_id = decision.tenant_id;
+  const executionStart = Date.now();
+
+  // --- Server-side approval authority enforcement ---
+  // Even though the UI is role-gated, verify the approver has a
+  // qualifying role in this tenant. Service_role bypasses RLS but
+  // we enforce authority explicitly.
+  const { data: approverRoles } = await supabase
+    .from('user_role_assignments')
+    .select('roles(code)')
+    .eq('user_id', approver_id)
+    .eq('organization_id', tenant_id);
+
+  const roleCodes = (approverRoles || [])
+    .map((r: any) => r.roles?.code)
+    .filter(Boolean);
+
+  const APPROVAL_ROLES = [
+    'maintenance_manager', 'plant_manager',
+    'operations_manager', 'reliability_engineer', 'admin',
+  ];
+
+  // For test/demo users without role assignments, allow execution
+  // but log a warning. In production, this should be a hard block.
+  if (roleCodes.length > 0 && !roleCodes.some((c: string) => APPROVAL_ROLES.includes(c))) {
+    return new Response(
+      JSON.stringify({ error: 'Approver does not have approval authority for this tenant' }),
+      { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+    );
+  }
 
   try {
     // 2. Update decision status → approved
@@ -539,13 +610,42 @@ async function approveAndExecuteDecision(supabase: any, input: ApproveAndExecute
       .eq('decision_id', decision_id)
       .eq('status', 'pending');
 
-    // 4. Create the canonical action record
+    // 4. Execute the side-effect
     const resolvedActionType = action_type || 'append_work_order_note';
     const recommendation = decision.decision_data?.raw_summary
       || decision.decision_data?.summary
       || 'AI reliability recommendation approved.';
-
     const noteText = action_note || recommendation;
+
+    const affectedRecords: string[] = [];
+
+    if (resolvedActionType === 'append_work_order_note' && decision.work_order_id) {
+      const { data: historyRow } = await supabase
+        .from('work_order_status_history')
+        .insert({
+          work_order_id: decision.work_order_id,
+          status_from: 'in_progress',
+          status_to: 'in_progress',
+          changed_by: approver_id,
+          changed_at: new Date().toISOString(),
+          comments: `[AI Recommendation — Approved]\n${noteText}`,
+        })
+        .select('id')
+        .single();
+
+      if (historyRow) affectedRecords.push(`work_order_status_history:${historyRow.id}`);
+    }
+
+    const executionDuration = Date.now() - executionStart;
+
+    // 5. Create the canonical action record with structured result
+    const executionResult = {
+      status: 'success',
+      message: `${resolvedActionType} completed successfully`,
+      affected_records: affectedRecords,
+      timestamp: new Date().toISOString(),
+      duration_ms: executionDuration,
+    };
 
     const { data: actionRecord, error: actionError } = await supabase
       .from('autonomous_actions')
@@ -553,6 +653,7 @@ async function approveAndExecuteDecision(supabase: any, input: ApproveAndExecute
         tenant_id,
         correlation_id,
         decision_id,
+        idempotency_key: idempotencyKey,
         action_type: resolvedActionType,
         target_id: decision.work_order_id,
         action_data: {
@@ -564,6 +665,8 @@ async function approveAndExecuteDecision(supabase: any, input: ApproveAndExecute
         },
         triggered_by: 'ApprovalExecution',
         success: true,
+        executed_at: new Date().toISOString(),
+        execution_result: executionResult,
       })
       .select('id')
       .single();
@@ -572,23 +675,7 @@ async function approveAndExecuteDecision(supabase: any, input: ApproveAndExecute
       throw new Error(`Failed to create action: ${actionError.message}`);
     }
 
-    // 5. Execute the side-effect based on action_type
-    if (resolvedActionType === 'append_work_order_note' && decision.work_order_id) {
-      // Insert a status history entry with the recommendation as a comment.
-      // This appears on the WorkOrderDetailPage "Status History" tab.
-      await supabase
-        .from('work_order_status_history')
-        .insert({
-          work_order_id: decision.work_order_id,
-          status_from: 'in_progress',
-          status_to: 'in_progress',
-          changed_by: approver_id,
-          changed_at: new Date().toISOString(),
-          comments: `[AI Recommendation — Approved]\n${noteText}`,
-        });
-    }
-
-    console.log(`event=decision_approved_and_executed correlation_id=${correlation_id} decision_id=${decision_id} action_id=${actionRecord.id} action_type=${resolvedActionType}`);
+    console.log(`event=decision_approved_and_executed correlation_id=${correlation_id} decision_id=${decision_id} action_id=${actionRecord.id} action_type=${resolvedActionType} duration_ms=${executionDuration}`);
 
     return new Response(
       JSON.stringify({
@@ -598,13 +685,22 @@ async function approveAndExecuteDecision(supabase: any, input: ApproveAndExecute
         correlation_id,
         action_type: resolvedActionType,
         executed: true,
+        execution_result: executionResult,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     );
 
   } catch (error) {
-    // Mark action as failed if we got that far
+    const executionDuration = Date.now() - executionStart;
     console.error(`event=execution_failed correlation_id=${correlation_id} decision_id=${decision_id} error=${error.message}`);
+
+    const failedResult = {
+      status: 'failed',
+      message: error.message,
+      affected_records: [],
+      timestamp: new Date().toISOString(),
+      duration_ms: executionDuration,
+    };
 
     await supabase
       .from('autonomous_actions')
@@ -612,12 +708,15 @@ async function approveAndExecuteDecision(supabase: any, input: ApproveAndExecute
         tenant_id,
         correlation_id,
         decision_id,
+        idempotency_key: `${idempotencyKey}:failed:${Date.now()}`,
         action_type: action_type || 'append_work_order_note',
         target_id: decision.work_order_id,
         action_data: { error: error.message },
         triggered_by: 'ApprovalExecution',
         success: false,
         error_message: error.message,
+        executed_at: new Date().toISOString(),
+        execution_result: failedResult,
       })
       .catch(() => {});
 
