@@ -15,6 +15,7 @@ import { OverviewDashboard } from "./pages/OverviewDashboard";
 import { PerformanceDashboard } from "./pages/PerformanceDashboard";
 import { WorkDashboard } from "./pages/WorkDashboard";
 import { GovernanceDashboard } from "./pages/GovernanceDashboard";
+import { RunsAuditPage } from "./pages/RunsAuditPage";
 import { WorkOrderDetailPage } from "./pages/WorkOrderDetailPage";
 import { OEEDashboard } from "./pages/OEEDashboard";
 import { SettingsPage } from "./pages/SettingsPage";
@@ -142,6 +143,7 @@ function AuthenticatedApp() {
         <Route path="/work/:workOrderId" element={<WorkOrderDetailPage />} />
         <Route path="/work" element={<WorkDashboard />} />
         <Route path="/governance" element={<GovernanceDashboard />} />
+        <Route path="/runs" element={<RunsAuditPage />} />
         <Route path="/assets/:assetId" element={<AssetDetailPage />} />
         <Route path="/assets" element={<AssetManagement />} />
         <Route path="/integrations" element={<IntegrationsPage />} />
