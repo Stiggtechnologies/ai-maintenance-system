@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { supabase } from '../lib/supabase';
+import { useState, useEffect, useCallback } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { supabase } from "../lib/supabase";
+import { AgentErrorBoundary } from "../components/AgentErrorBoundary";
 import {
   ArrowLeft,
   Wrench,
@@ -10,20 +11,183 @@ import {
   CheckCircle,
   Calendar,
   FileText,
-} from 'lucide-react';
+  Sparkles,
+  Shield,
+  Loader2,
+} from "lucide-react";
 
-type TabKey = 'details' | 'tasks' | 'history';
+type TabKey = "details" | "tasks" | "history";
+
+// Reliability assessment state from the three-plane flow
+interface ReliabilityAssessment {
+  correlation_id: string;
+  decision_id: string | null;
+  approval_status: string;
+  confidence: number;
+  risk_level: string;
+  raw_summary: string;
+  likely_causes: string[];
+  recommended_actions: string[];
+  requires_human_review: boolean;
+}
 
 export function WorkOrderDetailPage() {
   const { workOrderId } = useParams<{ workOrderId: string }>();
   const navigate = useNavigate();
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- pre-existing; typed WO interface deferred
   const [workOrder, setWorkOrder] = useState<any>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- pre-existing
   const [statusHistory, setStatusHistory] = useState<any[]>([]);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- pre-existing
   const [tasks, setTasks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<TabKey>('details');
+  const [activeTab, setActiveTab] = useState<TabKey>("details");
   const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [assessment, setAssessment] = useState<ReliabilityAssessment | null>(
+    null,
+  );
+  const [assessmentLoading, setAssessmentLoading] = useState(false);
+  const [assessmentError, setAssessmentError] = useState<string | null>(null);
+  const [assessmentCorrelationId, setAssessmentCorrelationId] = useState<
+    string | null
+  >(null);
+
+  // Draft Reliability Assessment — three-plane flow:
+  // 1. Call ai-agent-processor (Intelligence Plane → OpenClaw trace + SIR log)
+  // 2. Call autonomous-orchestrator (Control/Governance Plane → Autonomous decision + approval)
+  // 3. Display the result with correlation ID linking everything
+  const handleDraftAssessment = useCallback(async () => {
+    if (!workOrder || !workOrderId) return;
+    setAssessmentLoading(true);
+    setAssessmentError(null);
+
+    const correlationId = crypto.randomUUID();
+    setAssessmentCorrelationId(correlationId);
+
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+    const assetId = workOrder.asset_id;
+    const tenantId =
+      workOrder.organization_id || "00000000-0000-0000-0000-000000000001";
+
+    try {
+      // Step 1: Intelligence Plane — call ai-agent-processor
+      const intelligenceRes = await fetch(
+        `${supabaseUrl}/functions/v1/ai-agent-processor`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${supabaseKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            task_code: "draft_reliability_assessment",
+            agent_code: "reliability_engineer",
+            tenant_id: tenantId,
+            autonomy_level: "conditional",
+            idempotency_key: `${workOrderId}:draft_reliability_assessment:1.0.0`,
+            correlation_id: correlationId,
+            input_schema_version: "1.0.0",
+            prompt_version: "1.0.0",
+            input: {
+              work_order_id: workOrderId,
+              asset_id: assetId,
+              trigger_reason: "manual_request",
+            },
+          }),
+        },
+      );
+
+      if (!intelligenceRes.ok) {
+        const err = await intelligenceRes
+          .json()
+          .catch(() => ({ error: "Intelligence request failed" }));
+        throw new Error(
+          err.error || `Intelligence Plane error: ${intelligenceRes.status}`,
+        );
+      }
+
+      const intelligenceResult = await intelligenceRes.json();
+
+      // Step 2: Control/Governance Plane — create Autonomous decision
+      const governanceRes = await fetch(
+        `${supabaseUrl}/functions/v1/autonomous-orchestrator`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${supabaseKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            action: "create_intelligence_decision",
+            data: {
+              tenant_id: tenantId,
+              correlation_id: correlationId,
+              asset_id: assetId,
+              work_order_id: workOrderId,
+              autonomy_level: "conditional",
+              agent_run_id: intelligenceResult.agent_run_id,
+              task_code: "draft_reliability_assessment",
+              confidence: intelligenceResult.confidence,
+              requires_human_review: intelligenceResult.requires_human_review,
+              raw_summary: intelligenceResult.raw_summary,
+              structured_output: intelligenceResult.output,
+            },
+          }),
+        },
+      );
+
+      const governanceResult = await governanceRes.json();
+
+      setAssessment({
+        correlation_id: correlationId,
+        decision_id: governanceResult.decision_id || null,
+        approval_status: governanceResult.approval_status || "pending",
+        confidence: intelligenceResult.confidence,
+        risk_level: intelligenceResult.output?.risk_level || "medium",
+        raw_summary: intelligenceResult.raw_summary,
+        likely_causes: intelligenceResult.output?.likely_causes || [],
+        recommended_actions:
+          intelligenceResult.output?.recommended_actions || [],
+        requires_human_review: intelligenceResult.requires_human_review,
+      });
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error";
+      setAssessmentError(errorMessage);
+
+      console.error(
+        `event=agent_invocation_failed agent=ai-agent-processor correlation_id=${correlationId} error=${errorMessage}`,
+      );
+
+      // Record the failure in the Autonomous plane (audit completeness)
+      try {
+        await fetch(`${supabaseUrl}/functions/v1/autonomous-orchestrator`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${supabaseKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            action: "create_failed_decision",
+            data: {
+              tenant_id: tenantId,
+              correlation_id: correlationId,
+              asset_id: assetId,
+              work_order_id: workOrderId,
+              task_code: "draft_reliability_assessment",
+              error_message: errorMessage,
+            },
+          }),
+        });
+      } catch {
+        // Best-effort audit logging — don't compound the error
+      }
+    } finally {
+      setAssessmentLoading(false);
+    }
+  }, [workOrder, workOrderId]);
 
   useEffect(() => {
     if (workOrderId) {
@@ -36,27 +200,27 @@ export function WorkOrderDetailPage() {
       setLoading(true);
       const [woResult, historyResult, tasksResult] = await Promise.all([
         supabase
-          .from('work_orders')
-          .select('*, assets(name, asset_tag), sites(name)')
-          .eq('id', id)
+          .from("work_orders")
+          .select("*, assets(name, asset_tag), sites(name)")
+          .eq("id", id)
           .single(),
         supabase
-          .from('work_order_status_history')
-          .select('*')
-          .eq('work_order_id', id)
-          .order('changed_at', { ascending: false }),
+          .from("work_order_status_history")
+          .select("*")
+          .eq("work_order_id", id)
+          .order("changed_at", { ascending: false }),
         supabase
-          .from('work_order_tasks')
-          .select('*')
-          .eq('work_order_id', id)
-          .order('task_sequence'),
+          .from("work_order_tasks")
+          .select("*")
+          .eq("work_order_id", id)
+          .order("task_sequence"),
       ]);
 
       if (woResult.data) setWorkOrder(woResult.data);
       if (historyResult.data) setStatusHistory(historyResult.data);
       if (tasksResult.data) setTasks(tasksResult.data);
     } catch (error) {
-      console.error('Error loading work order:', error);
+      console.error("Error loading work order:", error);
     } finally {
       setLoading(false);
     }
@@ -71,17 +235,17 @@ export function WorkOrderDetailPage() {
       } = await supabase.auth.getUser();
 
       await supabase
-        .from('work_orders')
+        .from("work_orders")
         .update({
           status: newStatus,
           updated_at: new Date().toISOString(),
-          ...(newStatus === 'completed'
+          ...(newStatus === "completed"
             ? { completed_at: new Date().toISOString() }
             : {}),
         })
-        .eq('id', workOrderId);
+        .eq("id", workOrderId);
 
-      await supabase.from('work_order_status_history').insert({
+      await supabase.from("work_order_status_history").insert({
         work_order_id: workOrderId,
         status_from: workOrder.status,
         status_to: newStatus,
@@ -91,41 +255,41 @@ export function WorkOrderDetailPage() {
 
       loadWorkOrderData(workOrderId);
     } catch (error) {
-      console.error('Error updating status:', error);
+      console.error("Error updating status:", error);
     } finally {
       setUpdatingStatus(false);
     }
   };
 
   const statusColors: Record<string, string> = {
-    new: 'bg-blue-100 text-blue-800',
-    pending: 'bg-slate-100 text-slate-700',
-    in_progress: 'bg-yellow-100 text-yellow-800',
-    pending_approval: 'bg-orange-100 text-orange-800',
-    completed: 'bg-green-100 text-green-800',
-    cancelled: 'bg-slate-100 text-slate-600',
+    new: "bg-blue-100 text-blue-800",
+    pending: "bg-slate-100 text-slate-700",
+    in_progress: "bg-yellow-100 text-yellow-800",
+    pending_approval: "bg-orange-100 text-orange-800",
+    completed: "bg-green-100 text-green-800",
+    cancelled: "bg-slate-100 text-slate-600",
   };
 
   const priorityColors: Record<string, string> = {
-    critical: 'bg-red-100 text-red-700',
-    high: 'bg-orange-100 text-orange-700',
-    medium: 'bg-blue-100 text-blue-700',
-    low: 'bg-slate-100 text-slate-600',
+    critical: "bg-red-100 text-red-700",
+    high: "bg-orange-100 text-orange-700",
+    medium: "bg-blue-100 text-blue-700",
+    low: "bg-slate-100 text-slate-600",
   };
 
   const formatDate = (dateStr: string | null | undefined) => {
-    if (!dateStr) return '--';
-    return new Date(dateStr).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
+    if (!dateStr) return "--";
+    return new Date(dateStr).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
     });
   };
 
   const formatLabel = (str: string) =>
-    str.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+    str.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 
   if (loading) {
     return (
@@ -140,7 +304,7 @@ export function WorkOrderDetailPage() {
       <div className="flex flex-col items-center justify-center h-full gap-4">
         <div className="text-slate-500">Work order not found</div>
         <button
-          onClick={() => navigate('/work')}
+          onClick={() => navigate("/work")}
           className="text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1"
         >
           <ArrowLeft size={16} />
@@ -151,28 +315,28 @@ export function WorkOrderDetailPage() {
   }
 
   const nextStatus: Record<string, string> = {
-    new: 'in_progress',
-    pending: 'in_progress',
-    in_progress: 'completed',
+    new: "in_progress",
+    pending: "in_progress",
+    in_progress: "completed",
   };
 
   const nextStatusLabel: Record<string, string> = {
-    new: 'Start Work',
-    pending: 'Start Work',
-    in_progress: 'Mark Completed',
+    new: "Start Work",
+    pending: "Start Work",
+    in_progress: "Mark Completed",
   };
 
   const tabs: { key: TabKey; label: string }[] = [
-    { key: 'details', label: 'Details' },
-    { key: 'tasks', label: 'Tasks' },
-    { key: 'history', label: 'Status History' },
+    { key: "details", label: "Details" },
+    { key: "tasks", label: "Tasks" },
+    { key: "history", label: "Status History" },
   ];
 
   return (
     <div className="space-y-6">
       {/* Back button */}
       <button
-        onClick={() => navigate('/work')}
+        onClick={() => navigate("/work")}
         className="flex items-center gap-1.5 text-slate-600 hover:text-slate-900 transition-colors font-medium text-sm"
       >
         <ArrowLeft size={16} />
@@ -196,16 +360,16 @@ export function WorkOrderDetailPage() {
           <div className="flex items-center gap-2">
             <span
               className={`px-2.5 py-1 text-xs font-semibold rounded-full ${
-                statusColors[workOrder.status] || 'bg-slate-100 text-slate-600'
+                statusColors[workOrder.status] || "bg-slate-100 text-slate-600"
               }`}
             >
-              {formatLabel(workOrder.status || 'unknown')}
+              {formatLabel(workOrder.status || "unknown")}
             </span>
             {workOrder.priority && (
               <span
                 className={`px-2.5 py-1 text-xs font-semibold rounded-full ${
                   priorityColors[workOrder.priority] ||
-                  'bg-slate-100 text-slate-600'
+                  "bg-slate-100 text-slate-600"
                 }`}
               >
                 {formatLabel(workOrder.priority)}
@@ -223,19 +387,19 @@ export function WorkOrderDetailPage() {
             label="Asset"
             value={
               workOrder.assets
-                ? `${workOrder.assets.name}${workOrder.assets.asset_tag ? ` (${workOrder.assets.asset_tag})` : ''}`
-                : '--'
+                ? `${workOrder.assets.name}${workOrder.assets.asset_tag ? ` (${workOrder.assets.asset_tag})` : ""}`
+                : "--"
             }
           />
           <InfoItem
             icon={<AlertTriangle size={16} className="text-slate-400" />}
             label="Site"
-            value={workOrder.sites?.name || '--'}
+            value={workOrder.sites?.name || "--"}
           />
           <InfoItem
             icon={<User size={16} className="text-slate-400" />}
             label="Assigned To"
-            value={workOrder.assigned_to || '--'}
+            value={workOrder.assigned_to || "--"}
           />
           <InfoItem
             icon={<Calendar size={16} className="text-slate-400" />}
@@ -253,7 +417,7 @@ export function WorkOrderDetailPage() {
             value={
               workOrder.estimated_hours != null
                 ? `${workOrder.estimated_hours}h`
-                : '--'
+                : "--"
             }
           />
           <InfoItem
@@ -262,7 +426,7 @@ export function WorkOrderDetailPage() {
             value={
               workOrder.actual_hours != null
                 ? `${workOrder.actual_hours}h`
-                : '--'
+                : "--"
             }
           />
         </div>
@@ -279,16 +443,155 @@ export function WorkOrderDetailPage() {
               onClick={() => updateStatus(nextStatus[workOrder.status])}
               disabled={updatingStatus}
               className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors disabled:opacity-50 ${
-                nextStatus[workOrder.status] === 'completed'
-                  ? 'bg-green-600 text-white hover:bg-green-700'
-                  : 'bg-blue-600 text-white hover:bg-blue-700'
+                nextStatus[workOrder.status] === "completed"
+                  ? "bg-green-600 text-white hover:bg-green-700"
+                  : "bg-blue-600 text-white hover:bg-blue-700"
               }`}
             >
-              {updatingStatus ? 'Updating...' : nextStatusLabel[workOrder.status]}
+              {updatingStatus
+                ? "Updating..."
+                : nextStatusLabel[workOrder.status]}
             </button>
           </div>
         </div>
       )}
+
+      {/* Reliability Assessment — three-plane governed flow */}
+      <AgentErrorBoundary correlationId={assessmentCorrelationId || undefined}>
+        <div className="bg-white border border-slate-200 rounded-xl p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <Sparkles size={18} className="text-blue-600" />
+              <h2 className="text-lg font-semibold text-slate-900">
+                Reliability Assessment
+              </h2>
+            </div>
+            {!assessment && (
+              <button
+                onClick={handleDraftAssessment}
+                disabled={assessmentLoading}
+                className="px-4 py-2 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+              >
+                {assessmentLoading ? (
+                  <>
+                    <Loader2 size={14} className="animate-spin" />
+                    Analyzing...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles size={14} />
+                    Draft Reliability Assessment
+                  </>
+                )}
+              </button>
+            )}
+          </div>
+
+          {assessmentError && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-lg mb-3">
+              <div className="flex items-center gap-2 text-red-700 text-sm font-medium mb-1">
+                <AlertTriangle size={14} />
+                Assessment Failed
+              </div>
+              <p className="text-sm text-red-600">{assessmentError}</p>
+              {assessmentCorrelationId && (
+                <p className="text-xs text-red-400 mt-1 font-mono">
+                  Correlation: {assessmentCorrelationId}
+                </p>
+              )}
+            </div>
+          )}
+
+          {assessment && (
+            <div className="space-y-4">
+              {/* Status + confidence bar */}
+              <div className="flex items-center gap-3 flex-wrap">
+                <span
+                  className={`px-2.5 py-1 text-xs font-semibold rounded-full ${
+                    assessment.approval_status === "pending"
+                      ? "bg-orange-100 text-orange-800"
+                      : assessment.approval_status === "approved"
+                        ? "bg-green-100 text-green-800"
+                        : "bg-slate-100 text-slate-600"
+                  }`}
+                >
+                  {assessment.requires_human_review
+                    ? "Pending Approval"
+                    : assessment.approval_status}
+                </span>
+                <span
+                  className={`px-2.5 py-1 text-xs font-semibold rounded-full ${
+                    assessment.risk_level === "critical"
+                      ? "bg-red-100 text-red-700"
+                      : assessment.risk_level === "high"
+                        ? "bg-orange-100 text-orange-700"
+                        : assessment.risk_level === "medium"
+                          ? "bg-yellow-100 text-yellow-700"
+                          : "bg-green-100 text-green-700"
+                  }`}
+                >
+                  Risk: {formatLabel(assessment.risk_level)}
+                </span>
+                <span className="text-xs text-slate-500">
+                  Confidence: {Math.round(assessment.confidence * 100)}%
+                </span>
+                <span className="text-xs text-slate-400 font-mono">
+                  {assessment.correlation_id.slice(0, 8)}
+                </span>
+              </div>
+
+              {/* Summary */}
+              <p className="text-sm text-slate-700">{assessment.raw_summary}</p>
+
+              {/* Likely causes */}
+              {assessment.likely_causes.length > 0 && (
+                <div>
+                  <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">
+                    Likely Causes
+                  </h4>
+                  <ul className="text-sm text-slate-700 list-disc list-inside space-y-0.5">
+                    {assessment.likely_causes.map((c, i) => (
+                      <li key={i}>{c}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Recommended actions */}
+              {assessment.recommended_actions.length > 0 && (
+                <div>
+                  <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">
+                    Recommended Actions
+                  </h4>
+                  <ul className="text-sm text-slate-700 list-disc list-inside space-y-0.5">
+                    {assessment.recommended_actions.map((a, i) => (
+                      <li key={i}>{a}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Governance trail */}
+              <div className="pt-3 border-t border-slate-100 flex items-center gap-4 text-xs text-slate-400">
+                <span className="flex items-center gap-1">
+                  <Shield size={12} /> Governed by Autonomous
+                </span>
+                {assessment.decision_id && (
+                  <span>Decision: {assessment.decision_id.slice(0, 8)}</span>
+                )}
+              </div>
+            </div>
+          )}
+
+          {!assessment && !assessmentLoading && !assessmentError && (
+            <p className="text-sm text-slate-500">
+              Request an AI-powered reliability assessment for this work order.
+              The recommendation will require manager approval before any action
+              is taken.
+            </p>
+          )}
+        </div>
+      </AgentErrorBoundary>
 
       {/* Tab Bar */}
       <div className="border-b border-slate-200">
@@ -299,8 +602,8 @@ export function WorkOrderDetailPage() {
               onClick={() => setActiveTab(tab.key)}
               className={`pb-2.5 text-sm font-medium border-b-2 transition-colors ${
                 activeTab === tab.key
-                  ? 'border-blue-600 text-blue-600'
-                  : 'border-transparent text-slate-500 hover:text-slate-700'
+                  ? "border-blue-600 text-blue-600"
+                  : "border-transparent text-slate-500 hover:text-slate-700"
               }`}
             >
               {tab.label}
@@ -310,14 +613,16 @@ export function WorkOrderDetailPage() {
       </div>
 
       {/* Tab Content */}
-      {activeTab === 'details' && (
+      {activeTab === "details" && (
         <div className="bg-white border border-slate-200 rounded-xl p-6 space-y-5">
           {workOrder.work_type && (
             <div>
               <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-1">
                 Work Type
               </h3>
-              <p className="text-slate-900">{formatLabel(workOrder.work_type)}</p>
+              <p className="text-slate-900">
+                {formatLabel(workOrder.work_type)}
+              </p>
             </div>
           )}
           <div>
@@ -325,7 +630,7 @@ export function WorkOrderDetailPage() {
               Description
             </h3>
             <p className="text-slate-700 whitespace-pre-wrap">
-              {workOrder.description || 'No description provided.'}
+              {workOrder.description || "No description provided."}
             </p>
           </div>
           {workOrder.closeout_notes && (
@@ -341,7 +646,7 @@ export function WorkOrderDetailPage() {
         </div>
       )}
 
-      {activeTab === 'tasks' && (
+      {activeTab === "tasks" && (
         <div className="bg-white border border-slate-200 rounded-xl p-6">
           <div className="flex items-center gap-2 mb-4">
             <FileText size={18} className="text-slate-500" />
@@ -351,7 +656,9 @@ export function WorkOrderDetailPage() {
             </span>
           </div>
           {tasks.length === 0 ? (
-            <p className="text-slate-500 text-sm">No tasks for this work order.</p>
+            <p className="text-slate-500 text-sm">
+              No tasks for this work order.
+            </p>
           ) : (
             <div className="space-y-2">
               {tasks.map((task) => (
@@ -360,7 +667,7 @@ export function WorkOrderDetailPage() {
                   className="flex items-start gap-3 p-3 bg-slate-50 rounded-lg"
                 >
                   <div className="mt-0.5">
-                    {task.status === 'completed' ? (
+                    {task.status === "completed" ? (
                       <CheckCircle size={18} className="text-green-500" />
                     ) : (
                       <div className="w-4.5 h-4.5 border-2 border-slate-300 rounded-full" />
@@ -373,9 +680,9 @@ export function WorkOrderDetailPage() {
                       </span>
                       <span
                         className={`font-medium text-sm ${
-                          task.status === 'completed'
-                            ? 'text-slate-400 line-through'
-                            : 'text-slate-900'
+                          task.status === "completed"
+                            ? "text-slate-400 line-through"
+                            : "text-slate-900"
                         }`}
                       >
                         {task.description}
@@ -385,10 +692,10 @@ export function WorkOrderDetailPage() {
                       <span
                         className={`px-1.5 py-0.5 rounded ${
                           statusColors[task.status] ||
-                          'bg-slate-100 text-slate-600'
+                          "bg-slate-100 text-slate-600"
                         }`}
                       >
-                        {formatLabel(task.status || 'pending')}
+                        {formatLabel(task.status || "pending")}
                       </span>
                       {task.estimated_hours != null && (
                         <span className="flex items-center gap-1">
@@ -411,7 +718,7 @@ export function WorkOrderDetailPage() {
         </div>
       )}
 
-      {activeTab === 'history' && (
+      {activeTab === "history" && (
         <div className="bg-white border border-slate-200 rounded-xl p-6">
           <div className="flex items-center gap-2 mb-4">
             <Clock size={18} className="text-slate-500" />
@@ -420,7 +727,9 @@ export function WorkOrderDetailPage() {
             </h2>
           </div>
           {statusHistory.length === 0 ? (
-            <p className="text-slate-500 text-sm">No status changes recorded.</p>
+            <p className="text-slate-500 text-sm">
+              No status changes recorded.
+            </p>
           ) : (
             <div className="relative">
               <div className="absolute left-3 top-2 bottom-2 w-px bg-slate-200" />
@@ -435,19 +744,19 @@ export function WorkOrderDetailPage() {
                         <span
                           className={`px-2 py-0.5 rounded text-xs font-medium ${
                             statusColors[entry.status_from] ||
-                            'bg-slate-100 text-slate-600'
+                            "bg-slate-100 text-slate-600"
                           }`}
                         >
-                          {formatLabel(entry.status_from || 'unknown')}
+                          {formatLabel(entry.status_from || "unknown")}
                         </span>
                         <span className="text-slate-400">-&gt;</span>
                         <span
                           className={`px-2 py-0.5 rounded text-xs font-medium ${
                             statusColors[entry.status_to] ||
-                            'bg-slate-100 text-slate-600'
+                            "bg-slate-100 text-slate-600"
                           }`}
                         >
-                          {formatLabel(entry.status_to || 'unknown')}
+                          {formatLabel(entry.status_to || "unknown")}
                         </span>
                       </div>
                       <div className="flex items-center gap-3 mt-1 text-xs text-slate-500">

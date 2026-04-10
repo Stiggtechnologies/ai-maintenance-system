@@ -18,6 +18,12 @@
  *   - Every run carries a correlation_id and an idempotency_key so the
  *     Control Plane can retry, gate, and audit safely.
  *   - autonomy_level is first-class on every envelope and result.
+ *
+ * Audit truth:
+ *   Autonomous (autonomous_decisions + autonomous_actions) is the ONLY
+ *   canonical audit chain. SIR interaction logs and OpenClaw runtime
+ *   traces are observational — they support debugging and UX but are
+ *   NOT authoritative for compliance, governance, or operational audit.
  */
 
 /**
@@ -168,3 +174,27 @@ export const DRAFT_RELIABILITY_ASSESSMENT_INPUT_SCHEMA_VERSION =
 
 export const DRAFT_RELIABILITY_ASSESSMENT_OUTPUT_SCHEMA_VERSION =
   "1.0.0" as const;
+
+// ---------------------------------------------------------------------------
+// Approval authority — central constant for role codes that may approve
+// Autonomous decisions. Used by the trigger (in SQL), RLS policies (in SQL),
+// and edge functions (in TypeScript). If this list changes, the SQL trigger
+// and RLS policies must be updated in a migration to match.
+// ---------------------------------------------------------------------------
+
+/**
+ * Role codes with approval authority over Autonomous decisions.
+ * Source of truth: supabase/seed/001_core_seed_data.sql.
+ * Mirrored in:
+ *   - create_approval_workflow() trigger (20260410010000 + 20260410020000)
+ *   - "Managers can approve decisions" RLS policy (20260410010000)
+ */
+export const APPROVAL_AUTHORITY_ROLE_CODES = [
+  "maintenance_manager",
+  "plant_manager",
+  "operations_manager",
+  "reliability_engineer",
+] as const;
+
+export type ApprovalAuthorityRoleCode =
+  (typeof APPROVAL_AUTHORITY_ROLE_CODES)[number];
