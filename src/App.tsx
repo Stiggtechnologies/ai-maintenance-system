@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "./lib/supabase";
 import { Login } from "./pages/Login";
 import { Signup } from "./pages/Signup";
@@ -126,15 +126,15 @@ function App() {
 }
 
 function AuthenticatedApp() {
-  const [currentPath, setCurrentPath] = useState("/overview");
+  const navigate = useNavigate();
+  const location = useLocation();
 
   const handleNavigate = (path: string) => {
-    setCurrentPath(path);
-    window.history.pushState(null, "", path);
+    navigate(path);
   };
 
   return (
-    <AppShell currentPath={currentPath} onNavigate={handleNavigate}>
+    <AppShell currentPath={location.pathname} onNavigate={handleNavigate}>
       <Routes>
         <Route path="/" element={<Navigate to="/overview" replace />} />
         <Route path="/overview" element={<OverviewDashboard />} />

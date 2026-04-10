@@ -1,62 +1,58 @@
 import { motion } from 'framer-motion';
 import { useUIStore } from '../store/uiStore';
-import { 
-  Hop as Home, Factory, ClipboardList, Package, 
-  Bot, Settings, LayoutDashboard, Cpu, Zap, 
-  ChevronDown, ChevronRight, DollarSign, CheckSquare, ShieldAlert,
-  Gauge, Recycle, Plug, FileBarChart, Wrench, ActivitySquare
-} from 'lucide-react';
+import { Hop as Home, Factory, ClipboardList, Package, Bot, Settings, LayoutDashboard, Cpu, Zap, ChevronDown, ChevronRight, DollarSign, SquareCheck as CheckSquare, ShieldAlert, Gauge, Recycle, Plug, ChartBar as FileBarChart, Wrench, SquareActivity as ActivitySquare } from 'lucide-react';
 import { useState } from 'react';
 
 interface NavItem {
   icon: React.ElementType;
   label: string;
   id: string;
-  children?: { label: string; id: string }[];
+  path?: string;
+  children?: { label: string; id: string; path: string }[];
   badge?: number;
 }
 
 // SyncAI Navigation - 14 Primary Sections per Design Spec
 const menuItems: NavItem[] = [
-  { icon: Home, label: 'Dashboard', id: 'dashboard' },
-  { icon: Factory, label: 'Assets', id: 'assets', badge: 12 },
-  { icon: ClipboardList, label: 'Work Orders', id: 'work-orders', badge: 8 },
-  { icon: Wrench, label: 'Maintenance Planning', id: 'maintenance-planning' },
-  { icon: ActivitySquare, label: 'Reliability Intelligence', id: 'reliability' },
-  { icon: Gauge, label: 'Condition Monitoring', id: 'condition-monitoring' },
-  { icon: Package, label: 'Inventory', id: 'inventory' },
-  { icon: Recycle, label: 'Sustainability & ESG', id: 'sustainability' },
-  { icon: DollarSign, label: 'Financial Intelligence', id: 'financial' },
-  { 
-    icon: Bot, 
-    label: 'AI Agents', 
+  { icon: Home, label: 'Dashboard', id: 'dashboard', path: '/overview' },
+  { icon: Factory, label: 'Assets', id: 'assets', path: '/assets', badge: 12 },
+  { icon: ClipboardList, label: 'Work Orders', id: 'work-orders', path: '/work', badge: 8 },
+  { icon: Wrench, label: 'Maintenance Planning', id: 'maintenance-planning', path: '/governance' },
+  { icon: ActivitySquare, label: 'Reliability Intelligence', id: 'reliability', path: '/oee' },
+  { icon: Gauge, label: 'Condition Monitoring', id: 'condition-monitoring', path: '/performance' },
+  { icon: Package, label: 'Inventory', id: 'inventory', path: '/assets' },
+  { icon: Recycle, label: 'Sustainability & ESG', id: 'sustainability', path: '/overview' },
+  { icon: DollarSign, label: 'Financial Intelligence', id: 'financial', path: '/overview' },
+  {
+    icon: Bot,
+    label: 'AI Agents',
     id: 'agents',
     children: [
-      { label: 'Agent Control Center', id: 'agent-control' },
-      { label: 'Decision Engine', id: 'decision-engine' },
-      { label: 'Autonomy Settings', id: 'autonomy-settings' },
-      { label: 'Decision Logs', id: 'decision-logs' },
+      { label: 'Agent Control Center', id: 'agent-control', path: '/governance' },
+      { label: 'Decision Engine', id: 'decision-engine', path: '/runs' },
+      { label: 'Autonomy Settings', id: 'autonomy-settings', path: '/settings' },
+      { label: 'Decision Logs', id: 'decision-logs', path: '/runs' },
     ]
   },
-  { icon: FileBarChart, label: 'Analytics', id: 'analytics' },
-  { icon: Plug, label: 'Integrations', id: 'integrations' },
-  { 
-    icon: LayoutDashboard, 
-    label: 'Dashboards', 
+  { icon: FileBarChart, label: 'Analytics', id: 'analytics', path: '/overview' },
+  { icon: Plug, label: 'Integrations', id: 'integrations', path: '/integrations' },
+  {
+    icon: LayoutDashboard,
+    label: 'Dashboards',
     id: 'dashboards',
     children: [
-      { label: 'Executive Overview', id: 'executive' },
-      { label: 'Asset Performance', id: 'asset-performance' },
-      { label: 'Reliability & Maintenance', id: 'reliability-maint' },
-      { label: 'Financial Impact', id: 'financial-impact' },
-      { label: 'Risk & Safety', id: 'risk-safety' },
-      { label: 'Sustainability', id: 'sustainability-dash' },
-      { label: 'AI Insights', id: 'ai-insights' },
+      { label: 'Executive Overview', id: 'executive', path: '/overview' },
+      { label: 'Asset Performance', id: 'asset-performance', path: '/performance' },
+      { label: 'Reliability & Maintenance', id: 'reliability-maint', path: '/oee' },
+      { label: 'Financial Impact', id: 'financial-impact', path: '/overview' },
+      { label: 'Risk & Safety', id: 'risk-safety', path: '/governance' },
+      { label: 'Sustainability', id: 'sustainability-dash', path: '/overview' },
+      { label: 'AI Insights', id: 'ai-insights', path: '/runs' },
     ]
   },
-  { icon: ShieldAlert, label: 'War Room', id: 'war-room' },
-  { icon: CheckSquare, label: 'Approvals', id: 'approvals', badge: 3 },
-  { icon: Settings, label: 'Administration', id: 'admin' },
+  { icon: ShieldAlert, label: 'War Room', id: 'war-room', path: '/governance' },
+  { icon: CheckSquare, label: 'Approvals', id: 'approvals', path: '/governance', badge: 3 },
+  { icon: Settings, label: 'Administration', id: 'admin', path: '/settings' },
 ];
 
 interface SidebarProps {
@@ -78,7 +74,7 @@ export function Sidebar({ activeView, onNavigate }: SidebarProps) {
   };
 
   const isGroupActive = (item: NavItem) =>
-    item.children?.some((c) => c.id === activeView) ?? false;
+    item.children?.some((c) => c.path === activeView) ?? false;
 
   return (
     <motion.div
@@ -107,7 +103,7 @@ export function Sidebar({ activeView, onNavigate }: SidebarProps) {
       {/* Nav */}
       <nav className="flex-1 p-2 space-y-0.5 overflow-y-auto overflow-x-hidden">
         {menuItems.map((item) => {
-          const isActive = activeView === item.id || isGroupActive(item);
+          const isActive = activeView === item.path || isGroupActive(item);
           const isExpanded = expandedGroups.has(item.id);
           const hasChildren = !!item.children;
 
@@ -117,8 +113,8 @@ export function Sidebar({ activeView, onNavigate }: SidebarProps) {
                 onClick={() => {
                   if (hasChildren) {
                     toggleGroup(item.id);
-                  } else {
-                    onNavigate(item.id);
+                  } else if (item.path) {
+                    onNavigate(item.path);
                   }
                 }}
                 whileHover={{ x: 2 }}
@@ -176,7 +172,7 @@ export function Sidebar({ activeView, onNavigate }: SidebarProps) {
                       {item.children!.map((child) => (
                         <button
                           key={child.id}
-                          onClick={() => onNavigate(child.id)}
+                          onClick={() => onNavigate(child.path)}
                           className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs transition-colors ${
                             activeView === child.id
                               ? 'bg-[#3A8DFF]/10 text-[#3A8DFF]'
