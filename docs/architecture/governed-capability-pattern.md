@@ -88,6 +88,8 @@ export const MY_CAPABILITY: GovernedCapabilityDefinition<
   default_autonomy_level: "conditional",
   decision_type: "my_decision_type",
   always_requires_human_review: false,
+  approval_policy_code: "my_approval_policy",
+  execution_mode: "decision",
   input_schema_version: "1.0.0",
   output_schema_version: "1.0.0",
   prompt_version: "1.0.0",
@@ -105,16 +107,18 @@ export type MyCapabilityResult = CapabilityResult<MyCapabilityOutput>;
 
 ## Governance rules enforced by the pattern
 
-| Rule                                    | How it's enforced                                                |
-| --------------------------------------- | ---------------------------------------------------------------- |
-| Every result has a risk level           | `GovernedOutputBase` requires `risk_level: RiskLevel`            |
-| Every result has evidence               | `GovernedOutputBase` requires `evidence: Array<{...}>`           |
-| Every result has confidence             | `AgentTaskResult` requires `confidence: number`                  |
-| Every result declares human-review need | `AgentTaskResult` requires `requires_human_review: boolean`      |
-| Every capability has a decision type    | `GovernedCapabilityDefinition` requires `decision_type`          |
-| Every capability has an autonomy level  | `GovernedCapabilityDefinition` requires `default_autonomy_level` |
-| Autonomy cannot be upgraded at runtime  | Enforced in `ai-agent-processor` — policy can downgrade only     |
-| All outputs are structured              | `AgentTaskResult.output` is typed, not free prose                |
+| Rule                                       | How it's enforced                                                                                 |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------- |
+| Every result has a risk level              | `GovernedOutputBase` requires `risk_level: RiskLevel`                                             |
+| Every result has typed evidence            | `GovernedOutputBase` requires `evidence: EvidenceEntry[]` with constrained `EvidenceSourceType`   |
+| Every result has confidence                | `AgentTaskResult` requires `confidence: number`                                                   |
+| Every result declares human-review need    | `AgentTaskResult` requires `requires_human_review: boolean`                                       |
+| Every capability has a decision type       | `GovernedCapabilityDefinition` requires `decision_type`                                           |
+| Every capability has an autonomy level     | `GovernedCapabilityDefinition` requires `default_autonomy_level`                                  |
+| Every capability declares approval routing | `GovernedCapabilityDefinition` requires `approval_policy_code`                                    |
+| Every capability declares lifecycle depth  | `GovernedCapabilityDefinition` requires `execution_mode` (`advisory` / `decision` / `executable`) |
+| Autonomy cannot be upgraded at runtime     | Enforced in `ai-agent-processor` — policy can downgrade only                                      |
+| All outputs are structured                 | `AgentTaskResult.output` is typed, not free prose                                                 |
 
 ---
 

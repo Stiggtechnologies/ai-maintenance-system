@@ -57,6 +57,37 @@ export type ApprovalStatus =
 export type RiskLevel = "low" | "medium" | "high" | "critical";
 
 /**
+ * Constrained evidence source types. Every governed capability must cite
+ * evidence using one of these categories. This enables consistent
+ * rendering, filtering, and audit analytics across capabilities.
+ */
+export type EvidenceSourceType =
+  | "work_order_history"
+  | "asset_record"
+  | "condition_data"
+  | "document"
+  | "user_input"
+  | "inference";
+
+/**
+ * A single piece of evidence supporting a governed recommendation.
+ * Used in GovernedOutputBase.evidence.
+ */
+export interface EvidenceEntry {
+  source_type: EvidenceSourceType;
+  source_ref?: string;
+  note: string;
+}
+
+/**
+ * How deep in the lifecycle this capability goes.
+ * - `advisory`    — produces a recommendation only, never triggers execution
+ * - `decision`    — produces a decision that may require approval
+ * - `executable`  — can produce a governed action after approval
+ */
+export type ExecutionMode = "advisory" | "decision" | "executable";
+
+/**
  * Generic envelope every call into the OpenClaw Intelligence Plane must carry.
  * The Control Plane (Edge Function) is responsible for enforcing
  * `autonomy_level` and `idempotency_key` at runtime.
@@ -161,11 +192,7 @@ export interface GovernedOutputBase {
    * Each entry cites a source type and a human-readable note.
    * This is what a reviewer reads before approving or rejecting.
    */
-  evidence: Array<{
-    source_type: string;
-    source_ref?: string;
-    note: string;
-  }>;
+  evidence: EvidenceEntry[];
 }
 
 /**
@@ -223,6 +250,21 @@ export interface GovernedCapabilityDefinition<
    * `requires_human_review` field is respected.
    */
   always_requires_human_review: boolean;
+
+  /**
+   * Approval policy code used for routing. Two capabilities may share
+   * the same decision_type but require different approval routing.
+   * This value is available to the approval trigger and policy layer.
+   */
+  approval_policy_code: string;
+
+  /**
+   * How deep in the lifecycle this capability goes.
+   * - `advisory`   — recommendation only, no execution path
+   * - `decision`   — produces a decision requiring approval, no auto-execute
+   * - `executable` — can produce a governed action after approval
+   */
+  execution_mode: ExecutionMode;
 
   // --- Schema versioning ---
 
@@ -290,6 +332,8 @@ export const DRAFT_RELIABILITY_ASSESSMENT: GovernedCapabilityDefinition<
   default_autonomy_level: "conditional",
   decision_type: "reliability_recommendation",
   always_requires_human_review: false,
+  approval_policy_code: "reliability_assessment_review",
+  execution_mode: "decision",
   input_schema_version: "1.0.0",
   output_schema_version: "1.0.0",
   prompt_version: "1.0.0",
