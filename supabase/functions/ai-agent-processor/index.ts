@@ -305,6 +305,7 @@ Trigger: ${input.trigger_reason}`;
         confidence,
         output_schema_version: '1.0.0',
         requires_human_review: requiresHumanReview,
+        duration_ms: processingTime,
       })
       .eq('id', runId);
 
@@ -399,6 +400,7 @@ Trigger: ${input.trigger_reason}`;
         status: 'failed',
         output: { error: error.message },
         finished_at: new Date().toISOString(),
+        duration_ms: processingTime,
       })
       .eq('id', runId);
 

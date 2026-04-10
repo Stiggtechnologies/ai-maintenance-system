@@ -22,7 +22,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: "22.22"
           cache: npm
 
       - run: npm ci --no-audit --no-fund
@@ -44,7 +44,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: "22.22"
           cache: npm
 
       - run: npm ci --no-audit --no-fund
@@ -59,24 +59,29 @@ jobs:
     name: Playwright E2E
     runs-on: ubuntu-latest
     timeout-minutes: 15
+
+    # Pin versions for reproducibility
+    env:
+      SUPABASE_CLI_VERSION: "2.20.0"
+
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: "22.22"
           cache: npm
 
       - run: npm ci --no-audit --no-fund
 
-      # Install Playwright browsers
+      # Install Playwright browsers (version locked by @playwright/test in package.json)
       - name: Install Playwright
         run: npx playwright install --with-deps chromium
 
-      # Install Supabase CLI
+      # Install Supabase CLI (pinned version)
       - name: Install Supabase CLI
         run: |
-          curl -sSL https://raw.githubusercontent.com/supabase/cli/main/install.sh | bash
+          curl -sSL https://raw.githubusercontent.com/supabase/cli/main/install.sh | bash -s -- -v ${{ env.SUPABASE_CLI_VERSION }}
           supabase --version
 
       # Start Supabase local dev
@@ -87,12 +92,18 @@ jobs:
           echo "SUPABASE_ANON_KEY=$(supabase status --output json | jq -r '.ANON_KEY')" >> $GITHUB_ENV
           echo "SUPABASE_SERVICE_ROLE_KEY=$(supabase status --output json | jq -r '.SERVICE_ROLE_KEY')" >> $GITHUB_ENV
 
-      # Run seeds
+      # Seed database in deterministic order:
+      #   1. Core seed: orgs, roles, permissions (required by RBAC triggers)
+      #   2. Demo seed: assets, work orders, alerts (requires orgs/roles)
+      # Order matters: approval_workflows trigger queries roles table.
       - name: Seed database
         run: |
-          for f in supabase/seed/001_core_seed_data.sql supabase/seed/demo-seed.sql; do
-            [ -f "$f" ] && supabase db execute --file "$f" || true
-          done
+          echo "::group::Core seed"
+          supabase db execute --file supabase/seed/001_core_seed_data.sql || echo "::warning::Core seed may already be applied"
+          echo "::endgroup::"
+          echo "::group::Demo seed"
+          supabase db execute --file supabase/seed/demo-seed.sql || echo "::warning::Demo seed may already be applied"
+          echo "::endgroup::"
 
       # Create test user
       - name: Setup test user
