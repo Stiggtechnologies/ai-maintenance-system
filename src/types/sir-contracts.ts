@@ -1,15 +1,16 @@
 /**
- * SIR Control Plane — typed I/O contracts.
+ * Typed I/O contracts for the three-plane architecture.
  *
- * Companion to migration 20260410000000_sir_control_plane_baseline.sql
- * and the substrate consolidation decision in
- * docs/CONTROL_PLANE_AUDIT.md.
+ * See docs/architecture/canonical-plane-ownership.md for the canonical
+ * plane ownership decision:
+ *   - Autonomous = Control/Governance Plane (decisions, approvals, actions)
+ *   - OpenClaw   = Intelligence Plane (agent runtime, tool orchestration)
+ *   - SIR        = Interaction/Logging (sessions, transcripts, costs)
  *
  * These contracts define the typed envelope every Intelligence Plane
- * call into the SIR control plane must carry, plus the typed result
- * shape every agent capability must return. The DB does not enforce
- * these — they are enforced at the boundary of every Edge Function
- * that touches the SIR substrate (added in PR 3).
+ * call must carry, plus the typed result shape every agent capability
+ * must return. The DB does not enforce these — they are enforced at
+ * the boundary of every Edge Function (added in PR 3).
  *
  * Doctrine alignment:
  *   - Intelligence Plane outputs must be structured (no free prose
@@ -27,7 +28,7 @@
  * - `controlled`  — allowlisted automatic execution within policy bounds.
  *
  * Mirrors the Postgres `autonomy_level` enum on `sir_orchestration_runs`,
- * `sir_tool_calls`, and `sir_approval_requests`.
+ * `sir_tool_calls`, and `autonomous_decisions`.
  */
 export type AutonomyLevel = "advisory" | "conditional" | "controlled";
 
@@ -38,7 +39,7 @@ export type OrchestrationRunStatus =
   | "completed"
   | "failed";
 
-/** Mirrors `sir_approval_requests.status`. */
+/** Mirrors `approval_workflows.status` (Autonomous Control/Governance Plane). */
 export type ApprovalStatus =
   | "pending"
   | "approved"
@@ -47,7 +48,7 @@ export type ApprovalStatus =
   | "cancelled";
 
 /**
- * Generic envelope every call into the SIR Intelligence Plane must carry.
+ * Generic envelope every call into the OpenClaw Intelligence Plane must carry.
  * The Control Plane (Edge Function) is responsible for enforcing
  * `autonomy_level` and `idempotency_key` at runtime.
  */
