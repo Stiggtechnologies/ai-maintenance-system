@@ -1,18 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "../lib/supabase";
-import {
-  Activity,
-  CheckCircle,
-  Clock,
-  Shield,
-  ChevronRight,
-  ArrowLeft,
-  Sparkles,
-  XCircle,
-  Loader2,
-  Search,
-  Filter,
-} from "lucide-react";
+import { Activity, CircleCheck as CheckCircle, Clock, Shield, ChevronRight, ArrowLeft, Sparkles, Circle as XCircle, Loader as Loader2, Search, Filter } from "lucide-react";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -488,6 +476,82 @@ export function RunsAuditPage() {
         <p className="text-slate-600 mt-1">
           Intelligence decisions, approvals, and executions across the platform
         </p>
+      </div>
+
+      {/* Quick Action Options */}
+      <div className="bg-gradient-to-r from-blue-50 to-slate-50 border border-blue-200 rounded-xl p-6">
+        <h2 className="text-sm font-semibold text-slate-700 uppercase tracking-wide mb-4">
+          Start New Governed Workflow
+        </h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <a
+            href="/work-dashboard"
+            className="flex items-start gap-3 p-3 bg-white rounded-lg border border-slate-200 hover:border-blue-300 hover:bg-blue-50 transition-colors"
+          >
+            <div className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-100 text-blue-700 font-semibold text-sm flex-shrink-0">
+              1
+            </div>
+            <div>
+              <div className="font-medium text-sm text-slate-900">
+                Select Work Order
+              </div>
+              <div className="text-xs text-slate-500">
+                Choose asset and create work order
+              </div>
+            </div>
+          </a>
+
+          <a
+            href="/work-dashboard"
+            className="flex items-start gap-3 p-3 bg-white rounded-lg border border-slate-200 hover:border-blue-300 hover:bg-blue-50 transition-colors"
+          >
+            <div className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-100 text-blue-700 font-semibold text-sm flex-shrink-0">
+              2
+            </div>
+            <div>
+              <div className="font-medium text-sm text-slate-900">
+                Draft Assessment
+              </div>
+              <div className="text-xs text-slate-500">
+                Trigger AI reliability analysis
+              </div>
+            </div>
+          </a>
+
+          <a
+            href="/work-dashboard"
+            className="flex items-start gap-3 p-3 bg-white rounded-lg border border-slate-200 hover:border-blue-300 hover:bg-blue-50 transition-colors"
+          >
+            <div className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-100 text-blue-700 font-semibold text-sm flex-shrink-0">
+              3
+            </div>
+            <div>
+              <div className="font-medium text-sm text-slate-900">
+                Review & Approve
+              </div>
+              <div className="text-xs text-slate-500">
+                Check confidence, approve decision
+              </div>
+            </div>
+          </a>
+
+          <a
+            href="/work-dashboard"
+            className="flex items-start gap-3 p-3 bg-white rounded-lg border border-slate-200 hover:border-blue-300 hover:bg-blue-50 transition-colors"
+          >
+            <div className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-100 text-blue-700 font-semibold text-sm flex-shrink-0">
+              4
+            </div>
+            <div>
+              <div className="font-medium text-sm text-slate-900">
+                Execute Action
+              </div>
+              <div className="text-xs text-slate-500">
+                Apply recommendation & log result
+              </div>
+            </div>
+          </a>
+        </div>
       </div>
 
       {/* Filters */}
