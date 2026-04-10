@@ -53,6 +53,9 @@ export type ApprovalStatus =
   | "expired"
   | "cancelled";
 
+/** Standardized risk levels used by all governed capability outputs. */
+export type RiskLevel = "low" | "medium" | "high" | "critical";
+
 /**
  * Generic envelope every call into the OpenClaw Intelligence Plane must carry.
  * The Control Plane (Edge Function) is responsible for enforcing
@@ -129,11 +132,138 @@ export interface AgentTaskResult<TOutput extends object> {
   output: TOutput;
 }
 
-// ---------------------------------------------------------------------------
-// First capability: draft reliability assessment for a work order.
+// ===========================================================================
+// GOVERNED CAPABILITY PATTERN
 //
-// This is the one capability wired up by PR 3 and exercised by the golden
-// path E2E rail in PR 4.
+// Every governed capability in the system must define a registration object
+// that satisfies GovernedCapabilityDefinition. This enforces:
+//   - three-plane model (can't skip Autonomous or bypass approval)
+//   - governed autonomy (autonomy_level, decision_type, approval_type are required)
+//   - standardized output (risk_level, evidence, confidence are structural)
+//   - lifecycle clarity (input → intelligence → decision → approval → execution)
+//
+// See docs/architecture/governed-capability-pattern.md for the full checklist.
+// ===========================================================================
+
+/**
+ * Base output shape every governed capability must include.
+ * Capability-specific fields extend this interface.
+ *
+ * Standardizes the fields that the UI, audit chain, and approval
+ * workflow all depend on — regardless of what the capability does.
+ */
+export interface GovernedOutputBase {
+  /** Operational risk level of the recommendation. */
+  risk_level: RiskLevel;
+
+  /**
+   * Evidence trail supporting the recommendation.
+   * Each entry cites a source type and a human-readable note.
+   * This is what a reviewer reads before approving or rejecting.
+   */
+  evidence: Array<{
+    source_type: string;
+    source_ref?: string;
+    note: string;
+  }>;
+}
+
+/**
+ * Compile-time registration for a governed capability.
+ *
+ * Every capability must define one of these as a const object. The type
+ * system enforces that no field is skippable — if you forget to specify
+ * `decision_type` or `default_autonomy_level`, it won't compile.
+ *
+ * This is NOT a runtime class or factory. It is a typed configuration
+ * record that documents the capability's contract and is referenced by
+ * edge functions, UI components, and tests.
+ *
+ * @template TTaskCode  - Literal string type for the task_code
+ * @template TDecision  - Literal string type for the Autonomous decision_type
+ *
+ * Input/output types are enforced at the registration site via the
+ * companion Envelope and Result type aliases, not in this interface.
+ */
+export interface GovernedCapabilityDefinition<
+  TTaskCode extends string,
+  TDecision extends string,
+> {
+  // --- Identity ---
+
+  /** Stable task_code persisted in sir_orchestration_runs.workflow_definition_code. */
+  task_code: TTaskCode;
+
+  /** Agent implementation code routed to by ai-agent-processor. */
+  agent_code: string;
+
+  /** Human-readable name for UI display and audit logs. */
+  display_name: string;
+
+  /** One-line description for the UI help text. */
+  description: string;
+
+  // --- Governance ---
+
+  /**
+   * Default autonomy level. Policy or the caller can downgrade
+   * (e.g. from 'controlled' to 'conditional') but never upgrade.
+   */
+  default_autonomy_level: AutonomyLevel;
+
+  /**
+   * The value written to `autonomous_decisions.decision_type`.
+   * Must be a stable string unique to this capability.
+   */
+  decision_type: TDecision;
+
+  /**
+   * Whether this capability ALWAYS requires human review, regardless
+   * of confidence or risk level. If false, the agent's output
+   * `requires_human_review` field is respected.
+   */
+  always_requires_human_review: boolean;
+
+  // --- Schema versioning ---
+
+  input_schema_version: string;
+  output_schema_version: string;
+  prompt_version: string;
+}
+
+/**
+ * Convenience type: the full typed envelope for a governed capability.
+ */
+export type CapabilityEnvelope<TInput extends object> =
+  AgentTaskEnvelope<TInput>;
+
+/**
+ * Convenience type: the full typed result for a governed capability.
+ * TOutput must extend GovernedOutputBase, which is enforced at the
+ * definition site — not here, so existing code continues to compile.
+ */
+export type CapabilityResult<TOutput extends GovernedOutputBase> =
+  AgentTaskResult<TOutput>;
+
+// ===========================================================================
+// CAPABILITY REGISTRY
+//
+// Each governed capability is defined below as:
+//   1. Input interface
+//   2. Output interface (extends GovernedOutputBase)
+//   3. GovernedCapabilityDefinition const (the registration)
+//   4. Envelope + Result type aliases (convenience)
+//
+// To add a new capability:
+//   - Define its input, output, and registration below
+//   - Follow the checklist in docs/architecture/governed-capability-pattern.md
+//   - DO NOT skip governance fields — the type system will catch you
+// ===========================================================================
+
+// ---------------------------------------------------------------------------
+// Capability #1: draft_reliability_assessment
+//
+// Wired up in PR 3. Exercised by the golden-path E2E rail in PR 4.
 // ---------------------------------------------------------------------------
 
 export interface DraftReliabilityAssessmentInput {
@@ -142,38 +272,46 @@ export interface DraftReliabilityAssessmentInput {
   trigger_reason: "manual_request" | "failure_event" | "priority_review";
 }
 
-export type RiskLevel = "low" | "medium" | "high" | "critical";
-
-export interface DraftReliabilityAssessmentOutput {
+export interface DraftReliabilityAssessmentOutput extends GovernedOutputBase {
   likely_causes: string[];
   recommended_actions: string[];
-  risk_level: RiskLevel;
-  evidence: Array<{
-    source_type:
-      | "work_order_history"
-      | "condition_data"
-      | "document"
-      | "inference";
-    source_ref?: string;
-    note: string;
-  }>;
 }
 
+/** Registration for draft_reliability_assessment. */
+export const DRAFT_RELIABILITY_ASSESSMENT: GovernedCapabilityDefinition<
+  "draft_reliability_assessment",
+  "reliability_recommendation"
+> = {
+  task_code: "draft_reliability_assessment",
+  agent_code: "reliability_engineer",
+  display_name: "Draft Reliability Assessment",
+  description:
+    "Analyzes a work order for reliability risks and recommends maintenance actions.",
+  default_autonomy_level: "conditional",
+  decision_type: "reliability_recommendation",
+  always_requires_human_review: false,
+  input_schema_version: "1.0.0",
+  output_schema_version: "1.0.0",
+  prompt_version: "1.0.0",
+};
+
 export type DraftReliabilityAssessmentEnvelope =
-  AgentTaskEnvelope<DraftReliabilityAssessmentInput>;
+  CapabilityEnvelope<DraftReliabilityAssessmentInput>;
 
 export type DraftReliabilityAssessmentResult =
-  AgentTaskResult<DraftReliabilityAssessmentOutput>;
+  CapabilityResult<DraftReliabilityAssessmentOutput>;
 
-/** Stable code persisted in `sir_orchestration_runs.workflow_definition_code`. */
+/** @deprecated Use DRAFT_RELIABILITY_ASSESSMENT.task_code instead. */
 export const DRAFT_RELIABILITY_ASSESSMENT_TASK_CODE =
-  "draft_reliability_assessment" as const;
+  DRAFT_RELIABILITY_ASSESSMENT.task_code;
 
+/** @deprecated Use DRAFT_RELIABILITY_ASSESSMENT.input_schema_version instead. */
 export const DRAFT_RELIABILITY_ASSESSMENT_INPUT_SCHEMA_VERSION =
-  "1.0.0" as const;
+  DRAFT_RELIABILITY_ASSESSMENT.input_schema_version;
 
+/** @deprecated Use DRAFT_RELIABILITY_ASSESSMENT.output_schema_version instead. */
 export const DRAFT_RELIABILITY_ASSESSMENT_OUTPUT_SCHEMA_VERSION =
-  "1.0.0" as const;
+  DRAFT_RELIABILITY_ASSESSMENT.output_schema_version;
 
 // ---------------------------------------------------------------------------
 // Approval authority — central constant for role codes that may approve
