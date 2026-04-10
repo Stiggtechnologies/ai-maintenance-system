@@ -1,0 +1,165 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ---------------------------------------------------------------
+  # Job 1: lint + typecheck (fast, no infrastructure needed)
+  # ---------------------------------------------------------------
+  lint-typecheck:
+    name: Lint + Typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci --no-audit --no-fund
+
+      - name: ESLint
+        run: npx eslint .
+
+      - name: TypeScript
+        run: npx tsc --noEmit -p tsconfig.app.json
+
+  # ---------------------------------------------------------------
+  # Job 2: vitest unit tests
+  # ---------------------------------------------------------------
+  vitest:
+    name: Vitest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci --no-audit --no-fund
+      - run: npm run test
+
+  # ---------------------------------------------------------------
+  # Job 3: Playwright E2E (golden path)
+  #
+  # Requires: Supabase local dev, LLM mock server, Vite dev server
+  # ---------------------------------------------------------------
+  playwright:
+    name: Playwright E2E
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci --no-audit --no-fund
+
+      # Install Playwright browsers
+      - name: Install Playwright
+        run: npx playwright install --with-deps chromium
+
+      # Install Supabase CLI
+      - name: Install Supabase CLI
+        run: |
+          curl -sSL https://raw.githubusercontent.com/supabase/cli/main/install.sh | bash
+          supabase --version
+
+      # Start Supabase local dev
+      - name: Start Supabase
+        run: |
+          supabase start
+          echo "SUPABASE_URL=$(supabase status --output json | jq -r '.API_URL')" >> $GITHUB_ENV
+          echo "SUPABASE_ANON_KEY=$(supabase status --output json | jq -r '.ANON_KEY')" >> $GITHUB_ENV
+          echo "SUPABASE_SERVICE_ROLE_KEY=$(supabase status --output json | jq -r '.SERVICE_ROLE_KEY')" >> $GITHUB_ENV
+
+      # Run seeds
+      - name: Seed database
+        run: |
+          for f in supabase/seed/001_core_seed_data.sql supabase/seed/demo-seed.sql; do
+            [ -f "$f" ] && supabase db execute --file "$f" || true
+          done
+
+      # Create test user
+      - name: Setup test user
+        run: npx tsx tests/e2e/fixtures/setup-test-user.ts
+
+      # Start LLM mock server (happy path)
+      - name: Start mock LLM
+        run: |
+          npx tsx tests/e2e/fixtures/llm-mock-server.ts &
+          sleep 2
+        env:
+          LLM_MOCK_FAIL: "0"
+
+      # Set LLM_BASE_URL for the Edge Functions
+      - name: Configure Edge Function environment
+        run: |
+          mkdir -p supabase/.env.local 2>/dev/null || true
+          echo "LLM_BASE_URL=http://host.docker.internal:54400" > supabase/.env.local
+          echo "OPENAI_API_KEY=mock-key-for-ci" >> supabase/.env.local
+
+      # Start Supabase Edge Functions
+      - name: Start Edge Functions
+        run: |
+          supabase functions serve --env-file supabase/.env.local &
+          sleep 5
+
+      # Start Vite dev server
+      - name: Start Vite
+        run: |
+          npx vite --port 5173 &
+          sleep 5
+        env:
+          VITE_SUPABASE_URL: ${{ env.SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ env.SUPABASE_ANON_KEY }}
+
+      # Run golden-path tests (happy path)
+      - name: Playwright — happy path
+        run: npx playwright test tests/e2e/golden-path.spec.ts --grep "happy path"
+        env:
+          SUPABASE_URL: ${{ env.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ env.SUPABASE_SERVICE_ROLE_KEY }}
+
+      # Restart mock LLM in failure mode
+      - name: Restart mock LLM (failure mode)
+        run: |
+          pkill -f "llm-mock-server" || true
+          sleep 1
+          LLM_MOCK_FAIL=1 npx tsx tests/e2e/fixtures/llm-mock-server.ts &
+          sleep 2
+
+      # Run golden-path tests (failure path)
+      - name: Playwright — failure path
+        run: npx playwright test tests/e2e/golden-path.spec.ts --grep "failure path"
+        env:
+          SUPABASE_URL: ${{ env.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ env.SUPABASE_SERVICE_ROLE_KEY }}
+
+      # Upload test artifacts on failure
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: test-results/
+          retention-days: 7
+
+      # Cleanup
+      - name: Stop Supabase
+        if: always()
+        run: supabase stop || true
