@@ -55,16 +55,17 @@ export function WorkOrderManagement() {
   });
 
   const statusColors: Record<string, string> = {
-    pending: "bg-blue-100 text-blue-800",
-    in_progress: "bg-yellow-100 text-yellow-800",
-    completed: "bg-green-100 text-green-800",
+    pending: "bg-teal-500/10 text-teal-400 border border-teal-500/20",
+    in_progress: "bg-amber-500/10 text-amber-400 border border-amber-500/20",
+    completed:
+      "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20",
     cancelled: "bg-[#1A2030] text-slate-400",
   };
 
   const priorityColors: Record<string, string> = {
     critical: "text-red-600 font-bold",
     high: "text-orange-600 font-semibold",
-    medium: "text-blue-600",
+    medium: "text-teal-400",
     low: "text-slate-500",
   };
 
@@ -108,7 +109,7 @@ export function WorkOrderManagement() {
             placeholder="Search work orders..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 border border-[#232A33] rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full pl-9 pr-4 py-2 border border-[#232A33] rounded-lg text-sm focus:ring-2 focus:ring-teal-500/40 focus:border-transparent"
           />
         </div>
         <select

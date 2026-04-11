@@ -50,17 +50,19 @@ export function WorkDashboard() {
   }
 
   const statusColors: Record<string, string> = {
-    new: "bg-blue-100 text-blue-800",
-    in_progress: "bg-yellow-100 text-yellow-800",
-    pending_approval: "bg-orange-100 text-orange-800",
-    completed: "bg-green-100 text-green-800",
+    new: "bg-teal-500/10 text-teal-400 border border-teal-500/20",
+    in_progress: "bg-amber-500/10 text-amber-400 border border-amber-500/20",
+    pending_approval:
+      "bg-orange-500/10 text-orange-400 border border-orange-500/20",
+    completed:
+      "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20",
     cancelled: "bg-[#1A2030] text-slate-400",
   };
 
   const priorityColors: Record<string, string> = {
     critical: "text-red-600",
     high: "text-orange-600",
-    medium: "text-blue-600",
+    medium: "text-teal-400",
     low: "text-slate-400",
   };
 
@@ -80,7 +82,7 @@ export function WorkDashboard() {
           <h2 className="text-lg font-semibold text-[#E6EDF3]">
             Recent Notifications
           </h2>
-          <span className="ml-auto px-2 py-1 bg-blue-100 text-blue-800 text-sm font-medium rounded">
+          <span className="ml-auto px-2 py-1 bg-teal-500/10 text-teal-400 border border-teal-500/20 text-sm font-medium rounded">
             {notifications.length}
           </span>
         </div>
@@ -129,7 +131,7 @@ export function WorkDashboard() {
         <div className="flex items-center gap-2 mb-4">
           <Wrench size={20} className="text-slate-400" />
           <h2 className="text-lg font-semibold text-[#E6EDF3]">Work Orders</h2>
-          <span className="ml-auto px-2 py-1 bg-blue-100 text-blue-800 text-sm font-medium rounded">
+          <span className="ml-auto px-2 py-1 bg-teal-500/10 text-teal-400 border border-teal-500/20 text-sm font-medium rounded">
             {workOrders.length}
           </span>
         </div>

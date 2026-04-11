@@ -1,8 +1,10 @@
 import { useState, useEffect } from "react";
-import { Upload, Search, Package, MapPin } from "lucide-react";
+import { Upload, Search, Package, MapPin, ChevronRight } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { CSVImportWizard } from "./CSVImportWizard";
 import { supabase } from "../lib/supabase";
 import { platformService } from "../services/platform";
+import { PageHeader } from "./ui";
 
 interface Asset {
   id: string;
@@ -17,7 +19,24 @@ interface Asset {
   sites?: { name: string };
 }
 
+const statusStyles: Record<string, string> = {
+  operational:
+    "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20",
+  degraded: "bg-amber-500/10 text-amber-400 border border-amber-500/20",
+  failed: "bg-red-500/10 text-red-400 border border-red-500/20",
+  maintenance: "bg-teal-500/10 text-teal-400 border border-teal-500/20",
+  decommissioned: "bg-slate-500/10 text-slate-500 border border-slate-500/20",
+};
+
+const criticalityDot: Record<string, string> = {
+  critical: "bg-red-400",
+  high: "bg-orange-400",
+  medium: "bg-teal-400",
+  low: "bg-slate-500",
+};
+
 export function AssetManagement() {
+  const navigate = useNavigate();
   const [showImportWizard, setShowImportWizard] = useState(false);
   const [assets, setAssets] = useState<Asset[]>([]);
   const [loading, setLoading] = useState(true);
@@ -61,57 +80,49 @@ export function AssetManagement() {
     return true;
   });
 
-  const statusColors: Record<string, string> = {
-    operational: "bg-green-100 text-green-800",
-    degraded: "bg-yellow-100 text-yellow-800",
-    failed: "bg-red-100 text-red-800",
-    maintenance: "bg-blue-100 text-blue-800",
-    decommissioned: "bg-[#1A2030] text-slate-400",
-  };
-
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-slate-400">Loading assets...</div>
+        <div className="text-slate-500 pulse-live">Loading assets...</div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-xl font-bold text-[#E6EDF3]">Asset Management</h2>
-          <p className="text-sm text-slate-500 mt-1">
-            {assets.length} assets registered
-          </p>
-        </div>
-        <button
-          onClick={() => setShowImportWizard(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
-        >
-          <Upload size={16} /> Import CSV
-        </button>
-      </div>
+    <div className="space-y-6 relative z-10">
+      <PageHeader
+        icon={Package}
+        title="Asset Management"
+        subtitle={`${assets.length} assets registered`}
+        actions={
+          <button
+            onClick={() => setShowImportWizard(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-500 text-sm font-medium transition-colors"
+          >
+            <Upload size={16} /> Import CSV
+          </button>
+        }
+      />
 
+      {/* Search + Filter */}
       <div className="flex items-center gap-3">
         <div className="relative flex-1">
           <Search
-            size={16}
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+            size={14}
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500"
           />
           <input
             type="text"
             placeholder="Search assets by name or tag..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 border border-[#232A33] rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full pl-9 pr-4 py-2.5 bg-white/[0.04] border border-white/[0.06] rounded-lg text-sm text-[#E6EDF3] placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-teal-500/40 focus:border-teal-500/30 transition-colors"
           />
         </div>
         <select
           value={filterStatus}
           onChange={(e) => setFilterStatus(e.target.value)}
-          className="px-3 py-2 border border-[#232A33] rounded-lg text-sm"
+          className="px-3 py-2.5 bg-white/[0.04] border border-white/[0.06] rounded-lg text-sm text-[#E6EDF3] focus:outline-none focus:ring-2 focus:ring-teal-500/40"
         >
           <option value="all">All Statuses</option>
           <option value="operational">Operational</option>
@@ -121,51 +132,80 @@ export function AssetManagement() {
         </select>
       </div>
 
+      {/* Asset Grid */}
       {filtered.length === 0 ? (
-        <div className="text-center py-12 text-slate-500">
-          <Package size={48} className="mx-auto mb-3 text-slate-300" />
-          <p>No assets found. Import assets using CSV to get started.</p>
+        <div className="glass border border-white/[0.06] rounded-xl text-center py-16">
+          <Package size={48} className="mx-auto mb-3 text-slate-600" />
+          <p className="text-slate-400">
+            No assets found. Import assets using CSV to get started.
+          </p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtered.map((asset) => (
             <div
               key={asset.id}
-              className="bg-[#11161D] border border-[#232A33] rounded-xl p-5 hover:border-blue-300 transition-colors"
+              onClick={() => navigate(`/assets/${asset.id}`)}
+              className="glass border border-white/[0.06] rounded-xl p-5 cursor-pointer transition-all duration-300 hover:border-teal-500/30 hover:shadow-[0_0_20px_rgba(20,184,166,0.06)] group"
             >
-              <div className="flex items-start justify-between mb-2">
-                <div>
-                  <h3 className="font-semibold text-[#E6EDF3]">{asset.name}</h3>
+              <div className="flex items-start justify-between mb-3">
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-semibold text-[#E6EDF3] group-hover:text-teal-300 transition-colors truncate">
+                    {asset.name}
+                  </h3>
                   {asset.asset_tag && (
-                    <div className="text-xs text-slate-500">
+                    <div className="text-xs text-slate-500 font-mono mt-0.5">
                       {asset.asset_tag}
                     </div>
                   )}
                 </div>
-                <span
-                  className={`text-xs px-2 py-1 rounded-full ${statusColors[asset.status] || "bg-[#1A2030] text-slate-400"}`}
-                >
-                  {asset.status}
-                </span>
+                <div className="flex items-center gap-2 ml-2">
+                  <span
+                    className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusStyles[asset.status] || "bg-slate-500/10 text-slate-500 border border-slate-500/20"}`}
+                  >
+                    {asset.status}
+                  </span>
+                  <ChevronRight
+                    size={14}
+                    className="text-slate-600 group-hover:text-teal-400 transition-colors"
+                  />
+                </div>
               </div>
-              <div className="space-y-1 text-xs text-slate-500 mt-3">
+
+              <div className="space-y-1.5 text-xs text-slate-500">
                 {asset.asset_classes?.name && (
-                  <div>Class: {asset.asset_classes.name}</div>
+                  <div className="flex items-center justify-between">
+                    <span>Class</span>
+                    <span className="text-slate-300">
+                      {asset.asset_classes.name}
+                    </span>
+                  </div>
                 )}
                 {asset.manufacturer && (
-                  <div>
-                    {asset.manufacturer} {asset.model}
+                  <div className="flex items-center justify-between">
+                    <span>Manufacturer</span>
+                    <span className="text-slate-300">
+                      {asset.manufacturer} {asset.model}
+                    </span>
                   </div>
                 )}
                 {asset.asset_locations?.name && (
-                  <div className="flex items-center gap-1">
-                    <MapPin size={10} /> {asset.asset_locations.name}
+                  <div className="flex items-center justify-between">
+                    <span className="flex items-center gap-1">
+                      <MapPin size={10} /> Location
+                    </span>
+                    <span className="text-slate-300">
+                      {asset.asset_locations.name}
+                    </span>
                   </div>
                 )}
                 {asset.criticality && (
-                  <div>
-                    Criticality:{" "}
-                    <span className="font-medium capitalize">
+                  <div className="flex items-center justify-between">
+                    <span>Criticality</span>
+                    <span className="flex items-center gap-1.5 text-slate-300 capitalize">
+                      <span
+                        className={`w-1.5 h-1.5 rounded-full ${criticalityDot[asset.criticality] || "bg-slate-500"}`}
+                      />
                       {asset.criticality}
                     </span>
                   </div>

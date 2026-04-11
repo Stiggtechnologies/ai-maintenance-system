@@ -332,7 +332,7 @@ export function ApprovalQueue() {
                     <h3 className="text-lg font-semibold text-[#E6EDF3]">
                       {decision.decision_type.replace(/_/g, " ").toUpperCase()}
                     </h3>
-                    <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
+                    <span className="px-2 py-1 text-xs font-medium bg-teal-500/10 text-teal-400 border border-teal-500/20 rounded-full">
                       {Math.round(decision.confidence_score)}% confidence
                     </span>
                   </div>
@@ -397,7 +397,7 @@ export function ApprovalQueue() {
                       value={comment}
                       onChange={(e) => setComment(e.target.value)}
                       placeholder="Add your comments or reason for decision..."
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500/40 focus:border-transparent"
                       rows={3}
                     />
                   </div>
@@ -406,7 +406,7 @@ export function ApprovalQueue() {
                     <button
                       onClick={() => handleApprove(decision.id)}
                       disabled={processingId === decision.id}
-                      className="flex items-center space-x-2 px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+                      className="flex items-center space-x-2 px-6 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-500 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
                     >
                       <CheckCircle className="w-5 h-5" />
                       <span>
@@ -419,7 +419,7 @@ export function ApprovalQueue() {
                     <button
                       onClick={() => startEdit(decision)}
                       disabled={processingId === decision.id}
-                      className="flex items-center space-x-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+                      className="flex items-center space-x-2 px-6 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-500 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
                     >
                       <Edit className="w-5 h-5" />
                       <span>Edit & Approve</span>
@@ -487,7 +487,7 @@ export function ApprovalQueue() {
                         <button
                           onClick={() => handleEditAndApprove(decision.id)}
                           disabled={processingId === decision.id}
-                          className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                          className="flex items-center space-x-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-500"
                         >
                           <CheckCircle className="w-4 h-4" />
                           <span>Save & Approve</span>

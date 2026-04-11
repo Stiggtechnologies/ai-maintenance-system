@@ -106,9 +106,9 @@ export function GovernanceDashboard() {
   ];
 
   const priorityColors: Record<string, string> = {
-    critical: "bg-red-100 text-red-800",
-    high: "bg-orange-100 text-orange-800",
-    medium: "bg-blue-100 text-blue-800",
+    critical: "bg-red-500/10 text-red-400 border border-red-500/20",
+    high: "bg-orange-500/10 text-orange-400 border border-orange-500/20",
+    medium: "bg-teal-500/10 text-teal-400 border border-teal-500/20",
     low: "bg-[#1A2030] text-slate-400",
   };
 
@@ -165,11 +165,11 @@ export function GovernanceDashboard() {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`pb-3 text-sm font-medium border-b-2 transition-colors ${activeTab === tab.id ? "border-blue-600 text-blue-600" : "border-transparent text-slate-500 hover:text-slate-300"}`}
+              className={`pb-3 text-sm font-medium border-b-2 transition-colors ${activeTab === tab.id ? "border-teal-500 text-teal-400" : "border-transparent text-slate-500 hover:text-slate-300"}`}
             >
               {tab.label}
               {tab.count !== undefined && tab.count > 0 && (
-                <span className="ml-2 text-xs bg-orange-100 text-orange-800 px-1.5 py-0.5 rounded-full">
+                <span className="ml-2 text-xs bg-orange-500/10 text-orange-400 border border-orange-500/20 px-1.5 py-0.5 rounded-full">
                   {tab.count}
                 </span>
               )}
@@ -203,7 +203,7 @@ export function GovernanceDashboard() {
                         Created {new Date(approval.created_at).toLocaleString()}
                       </div>
                     </div>
-                    <span className="px-2 py-1 bg-orange-100 text-orange-800 text-xs font-medium rounded">
+                    <span className="px-2 py-1 bg-orange-500/10 text-orange-400 border border-orange-500/20 text-xs font-medium rounded">
                       {approval.status}
                     </span>
                   </div>
@@ -216,7 +216,7 @@ export function GovernanceDashboard() {
                   <div className="flex gap-2">
                     <button
                       onClick={() => handleApprove(approval.entity_id)}
-                      className="flex items-center gap-1 px-3 py-1.5 bg-green-600 text-white text-sm font-medium rounded hover:bg-green-700"
+                      className="flex items-center gap-1 px-3 py-1.5 bg-emerald-600 text-white text-sm font-medium rounded hover:bg-emerald-500"
                     >
                       <CheckCircle size={16} /> Approve
                     </button>
@@ -289,7 +289,7 @@ export function GovernanceDashboard() {
                     <div className="flex gap-2">
                       <button
                         onClick={() => handleAcceptRec(rec.id)}
-                        className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded hover:bg-blue-700"
+                        className="flex items-center gap-1 px-3 py-1.5 bg-teal-600 text-white text-sm font-medium rounded hover:bg-teal-500"
                       >
                         <CheckCircle size={16} /> Accept
                       </button>
@@ -303,7 +303,7 @@ export function GovernanceDashboard() {
                   )}
                   {rec.status !== "pending" && (
                     <span
-                      className={`text-xs px-2 py-1 rounded ${rec.status === "accepted" ? "bg-green-100 text-green-800" : "bg-[#1A2030] text-slate-400"}`}
+                      className={`text-xs px-2 py-1 rounded ${rec.status === "accepted" ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : "bg-[#1A2030] text-slate-400"}`}
                     >
                       {rec.status}
                     </span>

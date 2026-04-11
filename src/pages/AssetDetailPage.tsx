@@ -85,17 +85,18 @@ export function AssetDetailPage() {
     );
 
   const statusColors: Record<string, string> = {
-    operational: "bg-green-100 text-green-800",
-    degraded: "bg-yellow-100 text-yellow-800",
-    failed: "bg-red-100 text-red-800",
-    maintenance: "bg-blue-100 text-blue-800",
+    operational:
+      "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20",
+    degraded: "bg-amber-500/10 text-amber-400 border border-amber-500/20",
+    failed: "bg-red-500/10 text-red-400 border border-red-500/20",
+    maintenance: "bg-teal-500/10 text-teal-400 border border-teal-500/20",
     decommissioned: "bg-[#1A2030] text-slate-400",
   };
 
   const priorityColors: Record<string, string> = {
-    critical: "text-red-600",
+    critical: "text-red-400",
     high: "text-orange-600",
-    medium: "text-blue-600",
+    medium: "text-teal-400",
     low: "text-slate-400",
   };
 
@@ -145,7 +146,7 @@ export function AssetDetailPage() {
           <div className="flex items-center gap-3">
             {latestHealth && (
               <div
-                className={`px-3 py-1 rounded-lg text-sm font-medium ${latestHealth.health_score >= 80 ? "bg-green-100 text-green-800" : latestHealth.health_score >= 60 ? "bg-yellow-100 text-yellow-800" : "bg-red-100 text-red-800"}`}
+                className={`px-3 py-1 rounded-lg text-sm font-medium ${latestHealth.health_score >= 80 ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : latestHealth.health_score >= 60 ? "bg-amber-500/10 text-amber-400 border border-amber-500/20" : "bg-red-500/10 text-red-400 border border-red-500/20"}`}
               >
                 Health: {latestHealth.health_score}%
               </div>
@@ -166,7 +167,7 @@ export function AssetDetailPage() {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`pb-3 text-sm font-medium border-b-2 transition-colors ${activeTab === tab.id ? "border-blue-600 text-blue-600" : "border-transparent text-slate-500 hover:text-slate-300"}`}
+              className={`pb-3 text-sm font-medium border-b-2 transition-colors ${activeTab === tab.id ? "border-teal-500 text-teal-400" : "border-transparent text-slate-500 hover:text-slate-300"}`}
             >
               {tab.label}{" "}
               {tab.count !== undefined && (
@@ -238,7 +239,7 @@ export function AssetDetailPage() {
                   ).toLocaleString()}
                 </div>
                 {latestHealth.anomaly_detected && (
-                  <div className="mt-2 flex items-center gap-1 text-sm text-red-600">
+                  <div className="mt-2 flex items-center gap-1 text-sm text-red-400">
                     <AlertTriangle size={14} /> Anomaly Detected
                   </div>
                 )}
@@ -304,7 +305,7 @@ export function AssetDetailPage() {
                 >
                   <div className="flex items-center gap-3">
                     <div
-                      className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold ${h.health_score >= 80 ? "bg-green-100 text-green-700" : h.health_score >= 60 ? "bg-yellow-100 text-yellow-700" : "bg-red-100 text-red-700"}`}
+                      className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold ${h.health_score >= 80 ? "bg-emerald-500/10 text-emerald-400" : h.health_score >= 60 ? "bg-amber-500/10 text-amber-400" : "bg-red-500/10 text-red-400"}`}
                     >
                       {h.health_score}
                     </div>
@@ -315,7 +316,7 @@ export function AssetDetailPage() {
                         ).toLocaleString()}
                       </div>
                       {h.anomaly_detected && (
-                        <span className="text-xs text-red-600">
+                        <span className="text-xs text-red-400">
                           Anomaly detected
                         </span>
                       )}
@@ -371,7 +372,7 @@ export function AssetDetailPage() {
                     </td>
                     <td className="py-3">
                       <span
-                        className={`text-xs px-2 py-1 rounded-full ${wo.status === "completed" ? "bg-green-100 text-green-800" : wo.status === "in_progress" ? "bg-yellow-100 text-yellow-800" : "bg-blue-100 text-blue-800"}`}
+                        className={`text-xs px-2 py-1 rounded-full ${wo.status === "completed" ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : wo.status === "in_progress" ? "bg-amber-500/10 text-amber-400 border border-amber-500/20" : "bg-teal-500/10 text-teal-400 border border-teal-500/20"}`}
                       >
                         {wo.status?.replace("_", " ")}
                       </span>
@@ -407,7 +408,7 @@ export function AssetDetailPage() {
                     Total Criticality Score
                   </div>
                   <div
-                    className={`text-sm font-medium ${criticality.criticality_band === "A" ? "text-red-600" : criticality.criticality_band === "B" ? "text-orange-600" : criticality.criticality_band === "C" ? "text-yellow-600" : "text-green-600"}`}
+                    className={`text-sm font-medium ${criticality.criticality_band === "A" ? "text-red-400" : criticality.criticality_band === "B" ? "text-orange-600" : criticality.criticality_band === "C" ? "text-yellow-600" : "text-green-600"}`}
                   >
                     Band {criticality.criticality_band}
                   </div>

@@ -357,18 +357,20 @@ export function WorkOrderDetailPage() {
   };
 
   const statusColors: Record<string, string> = {
-    new: "bg-blue-100 text-blue-800",
+    new: "bg-teal-500/10 text-teal-400 border border-teal-500/20",
     pending: "bg-slate-100 text-slate-700",
-    in_progress: "bg-yellow-100 text-yellow-800",
-    pending_approval: "bg-orange-100 text-orange-800",
-    completed: "bg-green-100 text-green-800",
+    in_progress: "bg-amber-500/10 text-amber-400 border border-amber-500/20",
+    pending_approval:
+      "bg-orange-500/10 text-orange-400 border border-orange-500/20",
+    completed:
+      "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20",
     cancelled: "bg-slate-100 text-slate-400",
   };
 
   const priorityColors: Record<string, string> = {
-    critical: "bg-red-100 text-red-700",
-    high: "bg-orange-100 text-orange-700",
-    medium: "bg-blue-100 text-blue-700",
+    critical: "bg-red-500/10 text-red-400",
+    high: "bg-orange-500/10 text-orange-400",
+    medium: "bg-teal-500/10 text-teal-400",
     low: "bg-slate-100 text-slate-400",
   };
 
@@ -400,7 +402,7 @@ export function WorkOrderDetailPage() {
         <div className="text-slate-500">Work order not found</div>
         <button
           onClick={() => navigate("/work")}
-          className="text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1"
+          className="text-teal-400 hover:text-teal-300 font-medium flex items-center gap-1"
         >
           <ArrowLeft size={16} />
           Back to Work Management
@@ -443,7 +445,7 @@ export function WorkOrderDetailPage() {
         <div className="flex flex-col sm:flex-row sm:items-center gap-3">
           <div className="flex items-center gap-3 flex-1">
             <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-              <Wrench size={20} className="text-blue-600" />
+              <Wrench size={20} className="text-teal-400" />
             </div>
             <div>
               <h1 className="text-xl font-bold text-[#E6EDF3]">
@@ -539,8 +541,8 @@ export function WorkOrderDetailPage() {
               disabled={updatingStatus}
               className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors disabled:opacity-50 ${
                 nextStatus[workOrder.status] === "completed"
-                  ? "bg-green-600 text-white hover:bg-green-700"
-                  : "bg-blue-600 text-white hover:bg-blue-700"
+                  ? "bg-emerald-600 text-white hover:bg-emerald-500"
+                  : "bg-teal-600 text-white hover:bg-teal-500"
               }`}
             >
               {updatingStatus
@@ -556,7 +558,7 @@ export function WorkOrderDetailPage() {
         <div className="glass border border-white/[0.06] rounded-xl p-6">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
-              <Sparkles size={18} className="text-blue-600" />
+              <Sparkles size={18} className="text-teal-400" />
               <h2 className="text-lg font-semibold text-[#E6EDF3]">
                 Reliability Assessment
               </h2>
@@ -565,7 +567,7 @@ export function WorkOrderDetailPage() {
               <button
                 onClick={handleDraftAssessment}
                 disabled={assessmentLoading}
-                className="px-4 py-2 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+                className="px-4 py-2 text-sm font-medium rounded-lg bg-teal-600 text-white hover:bg-teal-500 transition-colors disabled:opacity-50 flex items-center gap-2"
               >
                 {assessmentLoading ? (
                   <>
@@ -604,9 +606,9 @@ export function WorkOrderDetailPage() {
                 <span
                   className={`px-2.5 py-1 text-xs font-semibold rounded-full ${
                     assessment.approval_status === "pending"
-                      ? "bg-orange-100 text-orange-800"
+                      ? "bg-orange-500/10 text-orange-400 border border-orange-500/20"
                       : assessment.approval_status === "approved"
-                        ? "bg-green-100 text-green-800"
+                        ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
                         : "bg-slate-100 text-slate-400"
                   }`}
                 >
@@ -620,12 +622,12 @@ export function WorkOrderDetailPage() {
                 <span
                   className={`px-2.5 py-1 text-xs font-semibold rounded-full ${
                     assessment.risk_level === "critical"
-                      ? "bg-red-100 text-red-700"
+                      ? "bg-red-500/10 text-red-400"
                       : assessment.risk_level === "high"
-                        ? "bg-orange-100 text-orange-700"
+                        ? "bg-orange-500/10 text-orange-400"
                         : assessment.risk_level === "medium"
                           ? "bg-yellow-100 text-yellow-700"
-                          : "bg-green-100 text-green-700"
+                          : "bg-emerald-500/10 text-emerald-400"
                   }`}
                 >
                   Risk: {formatLabel(assessment.risk_level)}
@@ -677,7 +679,7 @@ export function WorkOrderDetailPage() {
                     <button
                       onClick={handleApproveAndExecute}
                       disabled={approvalLoading}
-                      className="px-4 py-2 text-sm font-medium rounded-lg bg-green-600 text-white hover:bg-green-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+                      className="px-4 py-2 text-sm font-medium rounded-lg bg-emerald-600 text-white hover:bg-emerald-500 transition-colors disabled:opacity-50 flex items-center gap-2"
                     >
                       {approvalLoading ? (
                         <>
@@ -775,18 +777,18 @@ export function WorkOrderDetailPage() {
             <div className="space-y-4">
               {/* Classification header */}
               <div className="flex items-center gap-3 flex-wrap">
-                <span className="px-2.5 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
+                <span className="px-2.5 py-1 text-xs font-semibold rounded-full bg-teal-500/10 text-teal-400 border border-teal-500/20">
                   Advisory
                 </span>
                 <span
                   className={`px-2.5 py-1 text-xs font-semibold rounded-full ${
                     classification.risk_level === "critical"
-                      ? "bg-red-100 text-red-700"
+                      ? "bg-red-500/10 text-red-400"
                       : classification.risk_level === "high"
-                        ? "bg-orange-100 text-orange-700"
+                        ? "bg-orange-500/10 text-orange-400"
                         : classification.risk_level === "medium"
                           ? "bg-yellow-100 text-yellow-700"
-                          : "bg-green-100 text-green-700"
+                          : "bg-emerald-500/10 text-emerald-400"
                   }`}
                 >
                   Risk:{" "}
@@ -876,7 +878,7 @@ export function WorkOrderDetailPage() {
               onClick={() => setActiveTab(tab.key)}
               className={`pb-2.5 text-sm font-medium border-b-2 transition-colors ${
                 activeTab === tab.key
-                  ? "border-blue-600 text-blue-600"
+                  ? "border-teal-500 text-teal-400"
                   : "border-transparent text-slate-500 hover:text-slate-700"
               }`}
             >
