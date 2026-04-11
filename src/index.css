@@ -3,7 +3,11 @@
 @tailwind utilities;
 
 :root {
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family:
+    "Inter",
+    system-ui,
+    -apple-system,
+    sans-serif;
   line-height: 1.5;
   font-weight: 400;
   color-scheme: dark;
@@ -24,11 +28,188 @@ body {
   min-width: 320px;
   min-height: 100vh;
   background: #0a0a0a;
-  color: #ffffff;
+  color: #e6edf3;
 }
 
 #root {
   width: 100%;
   height: 100vh;
   overflow: hidden;
+}
+
+/* ============================================
+   GLASS MORPHISM UTILITIES
+   ============================================ */
+
+.glass {
+  background: rgba(17, 22, 29, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.glass-strong {
+  background: rgba(17, 22, 29, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.glass-subtle {
+  background: rgba(17, 22, 29, 0.5);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+/* ============================================
+   GRADIENT TEXT
+   ============================================ */
+
+.text-gradient {
+  background: linear-gradient(135deg, #e6edf3 0%, #14b8a6 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.text-gradient-teal {
+  background: linear-gradient(135deg, #2dd4bf 0%, #14b8a6 50%, #0d9488 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ============================================
+   GLOW EFFECTS
+   ============================================ */
+
+.glow-teal {
+  box-shadow:
+    0 0 20px rgba(20, 184, 166, 0.15),
+    0 0 60px rgba(20, 184, 166, 0.05);
+}
+
+.glow-teal-sm {
+  box-shadow: 0 0 10px rgba(20, 184, 166, 0.1);
+}
+
+.glow-border-teal {
+  border-color: rgba(20, 184, 166, 0.3);
+}
+
+.glow-border-teal:hover {
+  border-color: rgba(20, 184, 166, 0.5);
+  box-shadow: 0 0 20px rgba(20, 184, 166, 0.1);
+}
+
+/* ============================================
+   ANIMATED GRADIENT MESH (page background)
+   ============================================ */
+
+.gradient-mesh {
+  position: relative;
+}
+
+.gradient-mesh::before {
+  content: "";
+  position: fixed;
+  top: -20%;
+  right: -10%;
+  width: 50%;
+  height: 50%;
+  background: radial-gradient(
+    circle,
+    rgba(20, 184, 166, 0.06) 0%,
+    transparent 70%
+  );
+  pointer-events: none;
+  z-index: 0;
+  animation: mesh-drift 20s ease-in-out infinite alternate;
+}
+
+.gradient-mesh::after {
+  content: "";
+  position: fixed;
+  bottom: -20%;
+  left: -10%;
+  width: 40%;
+  height: 40%;
+  background: radial-gradient(
+    circle,
+    rgba(20, 184, 166, 0.04) 0%,
+    transparent 70%
+  );
+  pointer-events: none;
+  z-index: 0;
+  animation: mesh-drift 25s ease-in-out infinite alternate-reverse;
+}
+
+@keyframes mesh-drift {
+  0% {
+    transform: translate(0, 0) scale(1);
+  }
+  50% {
+    transform: translate(30px, -20px) scale(1.1);
+  }
+  100% {
+    transform: translate(-20px, 30px) scale(0.95);
+  }
+}
+
+/* ============================================
+   STATUS PULSE INDICATORS
+   ============================================ */
+
+.pulse-live {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+@keyframes pulse-glow {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.pulse-dot::before {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #14b8a6;
+  margin-right: 6px;
+  animation: pulse-glow 2s ease-in-out infinite;
+  box-shadow: 0 0 6px rgba(20, 184, 166, 0.4);
+}
+
+/* ============================================
+   SMOOTH TRANSITIONS
+   ============================================ */
+
+.transition-premium {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
 }

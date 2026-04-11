@@ -281,7 +281,7 @@ export function RunsAuditPage() {
         </button>
 
         {/* Header */}
-        <div className="bg-[#11161D] border border-[#232A33] rounded-xl p-6">
+        <div className="glass border border-white/[0.06] rounded-xl p-6">
           <div className="flex items-center gap-3 mb-3">
             <Sparkles size={20} className="text-blue-600" />
             <h1 className="text-xl font-bold text-[#E6EDF3]">
@@ -319,7 +319,7 @@ export function RunsAuditPage() {
           <>
             {/* Summary + Confidence */}
             {decisionData && (
-              <div className="bg-[#11161D] border border-[#232A33] rounded-xl p-6">
+              <div className="glass border border-white/[0.06] rounded-xl p-6">
                 <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-3">
                   Decision Summary
                 </h2>
@@ -348,7 +348,7 @@ export function RunsAuditPage() {
               Array.isArray(decisionData.evidence) &&
               (decisionData.evidence as Array<Record<string, unknown>>).length >
                 0 && (
-                <div className="bg-[#11161D] border border-[#232A33] rounded-xl p-6">
+                <div className="glass border border-white/[0.06] rounded-xl p-6">
                   <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-3">
                     Evidence
                   </h2>
@@ -371,7 +371,7 @@ export function RunsAuditPage() {
               )}
 
             {/* Approval Trail */}
-            <div className="bg-[#11161D] border border-[#232A33] rounded-xl p-6">
+            <div className="glass border border-white/[0.06] rounded-xl p-6">
               <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-3">
                 Governance Trail
               </h2>
@@ -418,7 +418,7 @@ export function RunsAuditPage() {
 
             {/* Execution Result */}
             {action && (action as Record<string, unknown>).execution_result && (
-              <div className="bg-[#11161D] border border-[#232A33] rounded-xl p-6">
+              <div className="glass border border-white/[0.06] rounded-xl p-6">
                 <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-3">
                   Execution Result
                 </h2>
@@ -610,7 +610,7 @@ export function RunsAuditPage() {
       </div>
 
       {/* Runs table */}
-      <div className="bg-[#11161D] border border-[#232A33] rounded-xl overflow-hidden">
+      <div className="glass border border-white/[0.06] rounded-xl overflow-hidden">
         {loading ? (
           <div className="flex items-center justify-center py-16">
             <Loader2 className="w-6 h-6 animate-spin text-slate-400" />

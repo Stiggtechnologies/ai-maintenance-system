@@ -225,17 +225,17 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
   const selectedSite = sites.find((s) => s.id === selectedSiteId);
 
   return (
-    <div className="flex h-screen bg-slate-50 overflow-hidden">
+    <div className="flex h-screen bg-[#0B0F14] overflow-hidden">
       {/* Sidebar */}
       <aside
         style={{
           width: isCollapsed ? "4rem" : "16rem",
           minWidth: isCollapsed ? "4rem" : "16rem",
         }}
-        className="bg-slate-900 text-white transition-all duration-300 flex-shrink-0 overflow-hidden flex flex-col"
+        className="bg-[#0B0F14] border-r border-white/[0.06] text-white transition-all duration-300 flex-shrink-0 overflow-hidden flex flex-col"
       >
         {/* Logo */}
-        <div className="p-4 border-b border-slate-700">
+        <div className="p-4 border-b border-white/[0.06]">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 bg-gradient-to-br from-teal-500 to-teal-400 rounded-lg flex items-center justify-center font-bold text-sm shadow-lg">
               SA
@@ -253,7 +253,7 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
 
         {/* Organization + Site Picker */}
         {!isCollapsed && userContext && (
-          <div className="px-4 py-3 border-b border-slate-700">
+          <div className="px-4 py-3 border-b border-white/[0.06]">
             <div className="text-xs text-slate-400">Organization</div>
             <div className="text-sm font-medium truncate">
               {userContext.organization_name}
@@ -267,7 +267,7 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
               <div className="relative mt-2">
                 <button
                   onClick={() => setSitePickerOpen(!sitePickerOpen)}
-                  className="w-full flex items-center gap-2 px-2 py-1.5 bg-slate-800 rounded-lg text-xs text-slate-300 hover:bg-slate-700 transition-colors"
+                  className="w-full flex items-center gap-2 px-2 py-1.5 bg-white/[0.04] rounded-lg text-xs text-slate-300 hover:bg-white/[0.06] transition-colors"
                 >
                   <MapPin size={12} />
                   <span className="flex-1 text-left truncate">
@@ -279,10 +279,10 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
                   />
                 </button>
                 {sitePickerOpen && (
-                  <div className="absolute top-full left-0 right-0 mt-1 bg-slate-800 border border-slate-700 rounded-lg shadow-lg z-50 max-h-48 overflow-y-auto">
+                  <div className="absolute top-full left-0 right-0 mt-1 bg-white/[0.04] border border-white/[0.06] rounded-lg shadow-lg z-50 max-h-48 overflow-y-auto">
                     <button
                       onClick={() => handleSiteChange(null)}
-                      className={`w-full text-left px-3 py-2 text-xs hover:bg-slate-700 ${!selectedSiteId ? "text-blue-400" : "text-slate-300"}`}
+                      className={`w-full text-left px-3 py-2 text-xs hover:bg-white/[0.06] ${!selectedSiteId ? "text-blue-400" : "text-slate-300"}`}
                     >
                       All Sites
                     </button>
@@ -290,7 +290,7 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
                       <button
                         key={site.id}
                         onClick={() => handleSiteChange(site.id)}
-                        className={`w-full text-left px-3 py-2 text-xs hover:bg-slate-700 ${selectedSiteId === site.id ? "text-blue-400" : "text-slate-300"}`}
+                        className={`w-full text-left px-3 py-2 text-xs hover:bg-white/[0.06] ${selectedSiteId === site.id ? "text-blue-400" : "text-slate-300"}`}
                       >
                         {site.name} ({site.code})
                       </button>
@@ -318,7 +318,7 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
                   onClick={() => onNavigate(item.path)}
                   className={`
                     w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors
-                    ${isActive ? "bg-gradient-to-r from-teal-600 to-teal-500 text-white shadow-md" : "text-slate-400 hover:bg-slate-800 hover:text-white"}
+                    ${isActive ? "bg-gradient-to-r from-teal-600 to-teal-500 text-white shadow-[0_0_15px_rgba(20,184,166,0.25)]" : "text-slate-400 hover:bg-white/[0.04] hover:text-white"}
                     ${isCollapsed ? "justify-center" : ""}
                   `}
                 >
@@ -342,12 +342,12 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
         </nav>
 
         {/* Sign Out */}
-        <div className="p-3 border-t border-slate-700">
+        <div className="p-3 border-t border-white/[0.06]">
           <button
             onClick={handleSignOut}
             className={`
               w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors
-              text-slate-300 hover:bg-slate-800 hover:text-white
+              text-slate-300 hover:bg-white/[0.04] hover:text-white
               ${isCollapsed ? "justify-center" : ""}
             `}
           >
@@ -432,7 +432,7 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
         </header>
 
         {/* Page Content */}
-        <main className="flex-1 overflow-auto p-6 bg-[#0B0F14] min-w-0">
+        <main className="flex-1 overflow-auto p-6 bg-[#0B0F14] min-w-0 gradient-mesh">
           <div className="max-w-full">{children}</div>
         </main>
       </div>

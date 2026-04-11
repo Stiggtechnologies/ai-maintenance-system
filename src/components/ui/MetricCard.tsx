@@ -13,23 +13,23 @@ interface MetricCardProps {
 }
 
 const variantBorder = {
-  default: "border-[#232A33]",
-  success: "border-emerald-500/20",
-  warning: "border-amber-500/20",
-  danger: "border-red-500/20",
-  info: "border-teal-500/20",
+  default: "border-white/[0.06]",
+  success: "border-emerald-500/20 hover:border-emerald-500/30",
+  warning: "border-amber-500/20 hover:border-amber-500/30",
+  danger: "border-red-500/20 hover:border-red-500/30",
+  info: "border-teal-500/20 hover:border-teal-500/30",
 };
 
 const variantGlow = {
   default: "",
-  success: "shadow-[0_0_15px_rgba(16,185,129,0.05)]",
-  warning: "shadow-[0_0_15px_rgba(245,158,11,0.05)]",
-  danger: "shadow-[0_0_15px_rgba(239,68,68,0.05)]",
-  info: "shadow-[0_0_15px_rgba(20,184,166,0.05)]",
+  success: "hover:shadow-[0_0_20px_rgba(16,185,129,0.08)]",
+  warning: "hover:shadow-[0_0_20px_rgba(245,158,11,0.08)]",
+  danger: "hover:shadow-[0_0_20px_rgba(239,68,68,0.08)]",
+  info: "hover:shadow-[0_0_20px_rgba(20,184,166,0.08)]",
 };
 
 const iconBg = {
-  default: "bg-[#1A2030] text-slate-400",
+  default: "bg-white/[0.04] text-slate-400",
   success: "bg-emerald-500/10 text-emerald-400",
   warning: "bg-amber-500/10 text-amber-400",
   danger: "bg-red-500/10 text-red-400",
@@ -57,10 +57,10 @@ export function MetricCard({
 
   return (
     <div
-      className={`bg-[#11161D] border rounded-xl p-5 transition-all duration-200 hover:bg-[#161C24] ${variantBorder[variant]} ${variantGlow[variant]}`}
+      className={`glass border rounded-xl p-5 transition-all duration-300 ${variantBorder[variant]} ${variantGlow[variant]}`}
     >
       <div className="flex items-center justify-between mb-3">
-        <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+        <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-widest">
           {label}
         </span>
         {Icon && (
@@ -72,10 +72,12 @@ export function MetricCard({
         )}
       </div>
       {loading ? (
-        <div className="h-8 w-24 bg-[#1A2030] rounded animate-pulse" />
+        <div className="h-8 w-24 bg-white/[0.04] rounded animate-pulse" />
       ) : (
         <div className="flex items-end gap-1.5">
-          <span className="text-2xl font-bold text-[#E6EDF3]">{value}</span>
+          <span className="text-2xl font-bold text-[#E6EDF3] tracking-tight">
+            {value}
+          </span>
           {unit && (
             <span className="text-sm text-slate-500 mb-0.5">{unit}</span>
           )}

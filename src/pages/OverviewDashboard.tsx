@@ -35,15 +35,15 @@ function StatCard({
   status,
 }: StatCardProps) {
   const statusColors = {
-    good: "border-emerald-500/20 bg-[#11161D]",
-    warning: "border-amber-500/20 bg-[#11161D]",
-    critical: "border-red-500/20 bg-[#11161D]",
-    neutral: "border-[#232A33] bg-[#11161D]",
+    good: "border-emerald-500/20",
+    warning: "border-amber-500/20",
+    critical: "border-red-500/20",
+    neutral: "border-white/[0.06]",
   };
 
   return (
     <div
-      className={`border rounded-xl p-6 transition-all duration-200 hover:bg-[#161C24] ${statusColors[status || "neutral"]}`}
+      className={`glass border rounded-xl p-6 transition-all duration-300 hover:border-white/[0.1] ${statusColors[status || "neutral"]}`}
     >
       <div className="flex items-start justify-between">
         <div className="flex-1">
@@ -286,7 +286,7 @@ export function OverviewDashboard() {
           </p>
         </div>
 
-        <div className="bg-gradient-to-br from-teal-950/30 to-[#11161D] border border-teal-500/20 rounded-xl p-8">
+        <div className="glass-strong border border-teal-500/20 rounded-xl p-8 glow-teal-sm">
           <h2 className="text-xl font-bold text-[#E6EDF3] mb-2">Get Started</h2>
           <p className="text-slate-400 mb-6">
             Set up your organization to start using SyncAI. Here's what to do
@@ -294,7 +294,7 @@ export function OverviewDashboard() {
           </p>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="bg-[#11161D] rounded-xl p-6 border border-[#232A33]">
+            <div className="glass rounded-xl p-6 border border-white/[0.06]">
               <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center mb-3">
                 <Package size={20} className="text-blue-600" />
               </div>
@@ -312,7 +312,7 @@ export function OverviewDashboard() {
               </a>
             </div>
 
-            <div className="bg-[#11161D] rounded-xl p-6 border border-[#232A33]">
+            <div className="glass rounded-xl p-6 border border-white/[0.06]">
               <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center mb-3">
                 <LayoutDashboard size={20} className="text-green-600" />
               </div>
@@ -331,7 +331,7 @@ export function OverviewDashboard() {
               </a>
             </div>
 
-            <div className="bg-[#11161D] rounded-xl p-6 border border-[#232A33]">
+            <div className="glass rounded-xl p-6 border border-white/[0.06]">
               <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center mb-3">
                 <Wrench size={20} className="text-purple-600" />
               </div>
@@ -352,7 +352,7 @@ export function OverviewDashboard() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="bg-[#11161D] border border-[#232A33] rounded-xl p-6">
+          <div className="glass border border-white/[0.06] rounded-xl p-6">
             <h3 className="font-semibold text-[#E6EDF3] mb-3">
               Platform Status
             </h3>
@@ -382,7 +382,7 @@ export function OverviewDashboard() {
             </div>
           </div>
 
-          <div className="bg-[#11161D] border border-[#232A33] rounded-xl p-6">
+          <div className="glass border border-white/[0.06] rounded-xl p-6">
             <h3 className="font-semibold text-[#E6EDF3] mb-3">
               What SyncAI Does
             </h3>
@@ -539,7 +539,7 @@ export function OverviewDashboard() {
 
       {/* Recent Alerts + Recent Work Orders */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-[#11161D] border border-[#232A33] rounded-xl p-6">
+        <div className="glass border border-white/[0.06] rounded-xl p-6">
           <div className="flex items-center gap-2 mb-4">
             <AlertTriangle size={20} className="text-slate-400" />
             <h2 className="text-lg font-semibold text-[#E6EDF3]">
@@ -574,7 +574,7 @@ export function OverviewDashboard() {
           )}
         </div>
 
-        <div className="bg-[#11161D] border border-[#232A33] rounded-xl p-6">
+        <div className="glass border border-white/[0.06] rounded-xl p-6">
           <div className="flex items-center gap-2 mb-4">
             <Wrench size={20} className="text-slate-400" />
             <h2 className="text-lg font-semibold text-[#E6EDF3]">

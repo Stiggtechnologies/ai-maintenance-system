@@ -439,7 +439,7 @@ export function WorkOrderDetailPage() {
       </button>
 
       {/* Header */}
-      <div className="bg-[#11161D] border border-[#232A33] rounded-xl p-6">
+      <div className="glass border border-white/[0.06] rounded-xl p-6">
         <div className="flex flex-col sm:flex-row sm:items-center gap-3">
           <div className="flex items-center gap-3 flex-1">
             <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
@@ -475,7 +475,7 @@ export function WorkOrderDetailPage() {
       </div>
 
       {/* Info Grid */}
-      <div className="bg-[#11161D] border border-[#232A33] rounded-xl p-6">
+      <div className="glass border border-white/[0.06] rounded-xl p-6">
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
           <InfoItem
             icon={<Wrench size={16} className="text-slate-400" />}
@@ -529,7 +529,7 @@ export function WorkOrderDetailPage() {
 
       {/* Status Action Buttons */}
       {nextStatus[workOrder.status] && (
-        <div className="bg-[#11161D] border border-[#232A33] rounded-xl p-6">
+        <div className="glass border border-white/[0.06] rounded-xl p-6">
           <div className="flex items-center gap-3">
             <span className="text-sm text-slate-400 font-medium">
               Update Status:
@@ -553,7 +553,7 @@ export function WorkOrderDetailPage() {
 
       {/* Reliability Assessment — three-plane governed flow */}
       <AgentErrorBoundary correlationId={assessmentCorrelationId || undefined}>
-        <div className="bg-[#11161D] border border-[#232A33] rounded-xl p-6">
+        <div className="glass border border-white/[0.06] rounded-xl p-6">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <Sparkles size={18} className="text-blue-600" />
@@ -727,7 +727,7 @@ export function WorkOrderDetailPage() {
       <AgentErrorBoundary
         correlationId={classificationCorrelationId || undefined}
       >
-        <div className="bg-[#11161D] border border-[#232A33] rounded-xl p-6">
+        <div className="glass border border-white/[0.06] rounded-xl p-6">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <AlertTriangle size={18} className="text-orange-600" />
@@ -888,7 +888,7 @@ export function WorkOrderDetailPage() {
 
       {/* Tab Content */}
       {activeTab === "details" && (
-        <div className="bg-[#11161D] border border-[#232A33] rounded-xl p-6 space-y-5">
+        <div className="glass border border-white/[0.06] rounded-xl p-6 space-y-5">
           {workOrder.work_type && (
             <div>
               <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-1">
@@ -921,7 +921,7 @@ export function WorkOrderDetailPage() {
       )}
 
       {activeTab === "tasks" && (
-        <div className="bg-[#11161D] border border-[#232A33] rounded-xl p-6">
+        <div className="glass border border-white/[0.06] rounded-xl p-6">
           <div className="flex items-center gap-2 mb-4">
             <FileText size={18} className="text-slate-500" />
             <h2 className="text-lg font-semibold text-[#E6EDF3]">Tasks</h2>
@@ -993,7 +993,7 @@ export function WorkOrderDetailPage() {
       )}
 
       {activeTab === "history" && (
-        <div className="bg-[#11161D] border border-[#232A33] rounded-xl p-6">
+        <div className="glass border border-white/[0.06] rounded-xl p-6">
           <div className="flex items-center gap-2 mb-4">
             <Clock size={18} className="text-slate-500" />
             <h2 className="text-lg font-semibold text-[#E6EDF3]">
