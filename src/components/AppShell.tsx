@@ -237,7 +237,7 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
         {/* Logo */}
         <div className="p-4 border-b border-slate-700">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-cyan-400 rounded-lg flex items-center justify-center font-bold text-sm">
+            <div className="w-8 h-8 bg-gradient-to-br from-teal-500 to-teal-400 rounded-lg flex items-center justify-center font-bold text-sm shadow-lg">
               SA
             </div>
             {!isCollapsed && (
@@ -318,7 +318,7 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
                   onClick={() => onNavigate(item.path)}
                   className={`
                     w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors
-                    ${isActive ? "bg-blue-600 text-white" : "text-slate-300 hover:bg-slate-800 hover:text-white"}
+                    ${isActive ? "bg-gradient-to-r from-teal-600 to-teal-500 text-white shadow-md" : "text-slate-400 hover:bg-slate-800 hover:text-white"}
                     ${isCollapsed ? "justify-center" : ""}
                   `}
                 >
@@ -432,7 +432,7 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
         </header>
 
         {/* Page Content */}
-        <main className="flex-1 overflow-auto p-6 bg-slate-50 min-w-0">
+        <main className="flex-1 overflow-auto p-6 bg-gradient-to-br from-slate-50 via-white to-slate-50 min-w-0">
           <div className="max-w-full">{children}</div>
         </main>
       </div>

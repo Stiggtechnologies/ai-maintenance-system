@@ -18,11 +18,13 @@ export function PageHeader({
       <div>
         <div className="flex items-center gap-2">
           {Icon && (
-            <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
-              <Icon size={18} className="text-blue-600" />
+            <div className="w-9 h-9 bg-gradient-to-br from-teal-500 to-teal-600 rounded-xl flex items-center justify-center shadow-sm">
+              <Icon size={18} className="text-white" />
             </div>
           )}
-          <h1 className="text-2xl font-bold text-slate-900">{title}</h1>
+          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
+            {title}
+          </h1>
         </div>
         {subtitle && <p className="text-slate-600 mt-1">{subtitle}</p>}
       </div>

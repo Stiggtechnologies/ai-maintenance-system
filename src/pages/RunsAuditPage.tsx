@@ -1,6 +1,18 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "../lib/supabase";
-import { Activity, CircleCheck as CheckCircle, Clock, Shield, ChevronRight, ArrowLeft, Sparkles, Circle as XCircle, Loader as Loader2, Search, Filter } from "lucide-react";
+import {
+  Activity,
+  CircleCheck as CheckCircle,
+  Clock,
+  Shield,
+  ChevronRight,
+  ArrowLeft,
+  Sparkles,
+  Circle as XCircle,
+  Loader as Loader2,
+  Search,
+  Filter,
+} from "lucide-react";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -269,7 +281,7 @@ export function RunsAuditPage() {
         </button>
 
         {/* Header */}
-        <div className="bg-white border border-slate-200 rounded-xl p-6">
+        <div className="bg-white border border-slate-200/60 rounded-xl shadow-card p-6">
           <div className="flex items-center gap-3 mb-3">
             <Sparkles size={20} className="text-blue-600" />
             <h1 className="text-xl font-bold text-slate-900">
@@ -307,7 +319,7 @@ export function RunsAuditPage() {
           <>
             {/* Summary + Confidence */}
             {decisionData && (
-              <div className="bg-white border border-slate-200 rounded-xl p-6">
+              <div className="bg-white border border-slate-200/60 rounded-xl shadow-card p-6">
                 <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-3">
                   Decision Summary
                 </h2>
@@ -336,7 +348,7 @@ export function RunsAuditPage() {
               Array.isArray(decisionData.evidence) &&
               (decisionData.evidence as Array<Record<string, unknown>>).length >
                 0 && (
-                <div className="bg-white border border-slate-200 rounded-xl p-6">
+                <div className="bg-white border border-slate-200/60 rounded-xl shadow-card p-6">
                   <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-3">
                     Evidence
                   </h2>
@@ -359,7 +371,7 @@ export function RunsAuditPage() {
               )}
 
             {/* Approval Trail */}
-            <div className="bg-white border border-slate-200 rounded-xl p-6">
+            <div className="bg-white border border-slate-200/60 rounded-xl shadow-card p-6">
               <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-3">
                 Governance Trail
               </h2>
@@ -406,7 +418,7 @@ export function RunsAuditPage() {
 
             {/* Execution Result */}
             {action && (action as Record<string, unknown>).execution_result && (
-              <div className="bg-white border border-slate-200 rounded-xl p-6">
+              <div className="bg-white border border-slate-200/60 rounded-xl shadow-card p-6">
                 <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-3">
                   Execution Result
                 </h2>
@@ -598,7 +610,7 @@ export function RunsAuditPage() {
       </div>
 
       {/* Runs table */}
-      <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+      <div className="bg-white border border-slate-200/60 rounded-xl shadow-card overflow-hidden">
         {loading ? (
           <div className="flex items-center justify-center py-16">
             <Loader2 className="w-6 h-6 animate-spin text-slate-400" />

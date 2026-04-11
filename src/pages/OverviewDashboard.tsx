@@ -35,15 +35,15 @@ function StatCard({
   status,
 }: StatCardProps) {
   const statusColors = {
-    good: "border-green-200 bg-green-50",
-    warning: "border-yellow-200 bg-yellow-50",
-    critical: "border-red-200 bg-red-50",
-    neutral: "border-slate-200 bg-white",
+    good: "border-green-200/60 bg-white",
+    warning: "border-amber-200/60 bg-white",
+    critical: "border-red-200/60 bg-white",
+    neutral: "border-slate-200/60 bg-white",
   };
 
   return (
     <div
-      className={`border rounded-xl p-6 ${statusColors[status || "neutral"]}`}
+      className={`border rounded-xl p-6 shadow-card hover:shadow-card-hover transition-shadow ${statusColors[status || "neutral"]}`}
     >
       <div className="flex items-start justify-between">
         <div className="flex-1">
@@ -352,7 +352,7 @@ export function OverviewDashboard() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="bg-white border border-slate-200 rounded-xl p-6">
+          <div className="bg-white border border-slate-200/60 rounded-xl p-6 shadow-card">
             <h3 className="font-semibold text-slate-900 mb-3">
               Platform Status
             </h3>
@@ -382,7 +382,7 @@ export function OverviewDashboard() {
             </div>
           </div>
 
-          <div className="bg-white border border-slate-200 rounded-xl p-6">
+          <div className="bg-white border border-slate-200/60 rounded-xl p-6 shadow-card">
             <h3 className="font-semibold text-slate-900 mb-3">
               What SyncAI Does
             </h3>
@@ -539,7 +539,7 @@ export function OverviewDashboard() {
 
       {/* Recent Alerts + Recent Work Orders */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white border border-slate-200 rounded-xl p-6">
+        <div className="bg-white border border-slate-200/60 rounded-xl p-6 shadow-card">
           <div className="flex items-center gap-2 mb-4">
             <AlertTriangle size={20} className="text-slate-600" />
             <h2 className="text-lg font-semibold text-slate-900">
@@ -574,7 +574,7 @@ export function OverviewDashboard() {
           )}
         </div>
 
-        <div className="bg-white border border-slate-200 rounded-xl p-6">
+        <div className="bg-white border border-slate-200/60 rounded-xl p-6 shadow-card">
           <div className="flex items-center gap-2 mb-4">
             <Wrench size={20} className="text-slate-600" />
             <h2 className="text-lg font-semibold text-slate-900">

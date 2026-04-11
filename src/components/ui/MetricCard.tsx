@@ -13,19 +13,23 @@ interface MetricCardProps {
 }
 
 const variantStyles = {
-  default: "bg-white border-slate-200",
-  success: "bg-white border-green-200",
-  warning: "bg-white border-yellow-200",
-  danger: "bg-white border-red-200",
-  info: "bg-white border-blue-200",
+  default:
+    "bg-white border-slate-200/60 shadow-card hover:shadow-card-hover transition-shadow",
+  success:
+    "bg-white border-green-200/60 shadow-card hover:shadow-card-hover transition-shadow",
+  warning:
+    "bg-white border-yellow-200/60 shadow-card hover:shadow-card-hover transition-shadow",
+  danger:
+    "bg-white border-red-200/60 shadow-card hover:shadow-card-hover transition-shadow",
+  info: "bg-white border-teal-200/60 shadow-card hover:shadow-card-hover transition-shadow",
 };
 
 const iconBg = {
   default: "bg-slate-100 text-slate-600",
-  success: "bg-green-100 text-green-600",
-  warning: "bg-yellow-100 text-yellow-600",
-  danger: "bg-red-100 text-red-600",
-  info: "bg-blue-100 text-blue-600",
+  success: "bg-green-50 text-green-600",
+  warning: "bg-amber-50 text-amber-600",
+  danger: "bg-red-50 text-red-600",
+  info: "bg-teal-50 text-teal-600",
 };
 
 const trendColors = {
