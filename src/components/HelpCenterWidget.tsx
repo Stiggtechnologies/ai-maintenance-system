@@ -1,5 +1,12 @@
-import { useState } from 'react';
-import { HelpCircle, Search, BookOpen, X, ExternalLink, ChevronRight } from 'lucide-react';
+import { useState } from "react";
+import {
+  HelpCircle,
+  Search,
+  BookOpen,
+  X,
+  ExternalLink,
+  ChevronRight,
+} from "lucide-react";
 
 interface HelpArticle {
   id: string;
@@ -11,10 +18,10 @@ interface HelpArticle {
 
 const helpArticles: HelpArticle[] = [
   {
-    id: '01',
-    title: 'Getting Started with SyncAI',
-    category: 'Quick Start',
-    summary: 'Learn the basics and set up your account',
+    id: "01",
+    title: "Getting Started with SyncAI",
+    category: "Quick Start",
+    summary: "Learn the basics and set up your account",
     content: `# Getting Started
 
 Welcome to SyncAI! This guide will help you get up and running.
@@ -29,13 +36,13 @@ Import your assets via CSV or add them manually.
 Enable the AI agents relevant to your industry.
 
 ## Step 4: Start Monitoring
-View real-time insights and alerts in your dashboard.`
+View real-time insights and alerts in your dashboard.`,
   },
   {
-    id: '02',
-    title: 'Adding and Managing Assets',
-    category: 'Assets',
-    summary: 'Import, organize, and monitor your equipment',
+    id: "02",
+    title: "Adding and Managing Assets",
+    category: "Assets",
+    summary: "Import, organize, and monitor your equipment",
     content: `# Asset Management
 
 ## Adding Assets Manually
@@ -54,13 +61,13 @@ View real-time insights and alerts in your dashboard.`
 ## Asset Organization
 - Use tags for easy filtering
 - Set criticality levels (Low, Medium, High, Critical)
-- Group by location or type`
+- Group by location or type`,
   },
   {
-    id: '03',
-    title: 'Understanding AI Agents',
-    category: 'AI Features',
-    summary: 'How AI agents monitor and optimize your operations',
+    id: "03",
+    title: "Understanding AI Agents",
+    category: "AI Features",
+    summary: "How AI agents monitor and optimize your operations",
     content: `# AI Agents Explained
 
 SyncAI uses 15 specialized AI agents to monitor your operations.
@@ -77,13 +84,13 @@ SyncAI uses 15 specialized AI agents to monitor your operations.
 4. Recommendations provided for action
 
 ## Customization:
-Adjust sensitivity thresholds in Settings → AI Agents`
+Adjust sensitivity thresholds in Settings → AI Agents`,
   },
   {
-    id: '04',
-    title: 'Work Order Management',
-    category: 'Operations',
-    summary: 'Create, assign, and track maintenance tasks',
+    id: "04",
+    title: "Work Order Management",
+    category: "Operations",
+    summary: "Create, assign, and track maintenance tasks",
     content: `# Work Order Management
 
 ## Creating Work Orders
@@ -103,13 +110,13 @@ Adjust sensitivity thresholds in Settings → AI Agents`
 - Pending: Not yet started
 - In Progress: Currently being worked on
 - Completed: Work finished
-- Blocked: Waiting on parts/approval`
+- Blocked: Waiting on parts/approval`,
   },
   {
-    id: '05',
-    title: 'Billing and Subscriptions',
-    category: 'Billing',
-    summary: 'Manage your plan, usage, and payments',
+    id: "05",
+    title: "Billing and Subscriptions",
+    category: "Billing",
+    summary: "Manage your plan, usage, and payments",
     content: `# Billing Overview
 
 ## Subscription Plans:
@@ -127,13 +134,13 @@ Access all invoices in Billing → Invoices
 1. Go to Billing → Plans
 2. Select new plan
 3. Confirm change
-4. Takes effect next billing cycle`
+4. Takes effect next billing cycle`,
   },
   {
-    id: '06',
-    title: 'Security and Compliance',
-    category: 'Security',
-    summary: 'How we protect your data',
+    id: "06",
+    title: "Security and Compliance",
+    category: "Security",
+    summary: "How we protect your data",
     content: `# Security & Compliance
 
 ## Data Protection:
@@ -154,13 +161,13 @@ Your data is yours. We never sell or share it.
 ## Backup & Recovery:
 - Daily automated backups
 - 30-day retention
-- Disaster recovery plan in place`
+- Disaster recovery plan in place`,
   },
   {
-    id: '07',
-    title: 'API Access and Integrations',
-    category: 'Developers',
-    summary: 'Connect SyncAI to your existing systems',
+    id: "07",
+    title: "API Access and Integrations",
+    category: "Developers",
+    summary: "Connect SyncAI to your existing systems",
     content: `# API & Integrations
 
 ## REST API:
@@ -177,22 +184,25 @@ Full API documentation available at docs.syncai.ca/api
 Generate API keys in Settings → API Access
 
 ## Webhooks:
-Configure webhooks to receive real-time updates`
-  }
+Configure webhooks to receive real-time updates`,
+  },
 ];
 
 export function HelpCenterWidget() {
   const [isOpen, setIsOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedArticle, setSelectedArticle] = useState<HelpArticle | null>(null);
-
-  const filteredArticles = helpArticles.filter(article =>
-    article.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    article.summary.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    article.category.toLowerCase().includes(searchQuery.toLowerCase())
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedArticle, setSelectedArticle] = useState<HelpArticle | null>(
+    null,
   );
 
-  const categories = Array.from(new Set(helpArticles.map(a => a.category)));
+  const filteredArticles = helpArticles.filter(
+    (article) =>
+      article.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      article.summary.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      article.category.toLowerCase().includes(searchQuery.toLowerCase()),
+  );
+
+  const categories = Array.from(new Set(helpArticles.map((a) => a.category)));
 
   return (
     <>
@@ -210,26 +220,28 @@ export function HelpCenterWidget() {
       {/* Help Center Modal */}
       {isOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-300">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl h-[80vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-300">
+          <div className="bg-[#11161D] rounded-2xl shadow-2xl w-full max-w-5xl h-[80vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-300">
             {/* Header */}
             <div className="bg-gradient-to-r from-teal-600 to-blue-600 p-6 text-white">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center space-x-3">
-                  <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm">
+                  <div className="w-12 h-12 bg-[#11161D]/20 rounded-xl flex items-center justify-center backdrop-blur-sm">
                     <BookOpen className="w-6 h-6" />
                   </div>
                   <div>
                     <h2 className="text-2xl font-bold">Help Center</h2>
-                    <p className="text-teal-100">Find answers and learn how to use SyncAI</p>
+                    <p className="text-teal-100">
+                      Find answers and learn how to use SyncAI
+                    </p>
                   </div>
                 </div>
                 <button
                   onClick={() => {
                     setIsOpen(false);
                     setSelectedArticle(null);
-                    setSearchQuery('');
+                    setSearchQuery("");
                   }}
-                  className="w-8 h-8 rounded-lg bg-white/20 hover:bg-white/30 transition-colors flex items-center justify-center"
+                  className="w-8 h-8 rounded-lg bg-[#11161D]/20 hover:bg-[#11161D]/30 transition-colors flex items-center justify-center"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -243,7 +255,7 @@ export function HelpCenterWidget() {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search help articles..."
-                  className="w-full pl-11 pr-4 py-3 rounded-lg bg-white/20 backdrop-blur-sm border border-white/30 text-white placeholder-teal-200 focus:outline-none focus:ring-2 focus:ring-white/50"
+                  className="w-full pl-11 pr-4 py-3 rounded-lg bg-[#11161D]/20 backdrop-blur-sm border border-white/30 text-white placeholder-teal-200 focus:outline-none focus:ring-2 focus:ring-white/50"
                 />
               </div>
             </div>
@@ -264,22 +276,24 @@ export function HelpCenterWidget() {
                   <span className="inline-block px-3 py-1 bg-teal-100 text-teal-800 rounded-full text-sm font-medium mb-4">
                     {selectedArticle.category}
                   </span>
-                  <h2 className="text-3xl font-bold text-gray-900 mb-4">
+                  <h2 className="text-3xl font-bold text-[#E6EDF3] mb-4">
                     {selectedArticle.title}
                   </h2>
                   <div className="prose prose-teal max-w-none">
-                    <div className="whitespace-pre-wrap text-gray-700 leading-relaxed">
+                    <div className="whitespace-pre-wrap text-slate-300 leading-relaxed">
                       {selectedArticle.content}
                     </div>
                   </div>
 
-                  <div className="mt-8 pt-8 border-t border-gray-200">
-                    <p className="text-sm text-gray-600 mb-4">Was this article helpful?</p>
+                  <div className="mt-8 pt-8 border-t border-[#232A33]">
+                    <p className="text-sm text-slate-400 mb-4">
+                      Was this article helpful?
+                    </p>
                     <div className="flex space-x-3">
-                      <button className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium">
+                      <button className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-[#0B0F14] transition-colors text-sm font-medium">
                         👍 Yes
                       </button>
-                      <button className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium">
+                      <button className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-[#0B0F14] transition-colors text-sm font-medium">
                         👎 No
                       </button>
                     </div>
@@ -289,31 +303,38 @@ export function HelpCenterWidget() {
                 /* Article List */
                 <div className="flex-1 overflow-y-auto p-8">
                   {searchQuery && (
-                    <p className="text-sm text-gray-600 mb-6">
-                      Found {filteredArticles.length} article{filteredArticles.length !== 1 ? 's' : ''}
+                    <p className="text-sm text-slate-400 mb-6">
+                      Found {filteredArticles.length} article
+                      {filteredArticles.length !== 1 ? "s" : ""}
                     </p>
                   )}
 
-                  {categories.map(category => {
-                    const categoryArticles = filteredArticles.filter(a => a.category === category);
+                  {categories.map((category) => {
+                    const categoryArticles = filteredArticles.filter(
+                      (a) => a.category === category,
+                    );
                     if (categoryArticles.length === 0) return null;
 
                     return (
                       <div key={category} className="mb-8">
-                        <h3 className="text-lg font-bold text-gray-900 mb-4">{category}</h3>
+                        <h3 className="text-lg font-bold text-[#E6EDF3] mb-4">
+                          {category}
+                        </h3>
                         <div className="space-y-3">
-                          {categoryArticles.map(article => (
+                          {categoryArticles.map((article) => (
                             <button
                               key={article.id}
                               onClick={() => setSelectedArticle(article)}
-                              className="w-full text-left p-4 rounded-xl border border-gray-200 hover:border-teal-300 hover:bg-teal-50 transition-all group"
+                              className="w-full text-left p-4 rounded-xl border border-[#232A33] hover:border-teal-300 hover:bg-teal-50 transition-all group"
                             >
                               <div className="flex items-start justify-between">
                                 <div className="flex-1">
-                                  <h4 className="font-semibold text-gray-900 mb-1 group-hover:text-teal-600 transition-colors">
+                                  <h4 className="font-semibold text-[#E6EDF3] mb-1 group-hover:text-teal-600 transition-colors">
                                     {article.title}
                                   </h4>
-                                  <p className="text-sm text-gray-600">{article.summary}</p>
+                                  <p className="text-sm text-slate-400">
+                                    {article.summary}
+                                  </p>
                                 </div>
                                 <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-teal-600 transition-colors flex-shrink-0 ml-4" />
                               </div>
@@ -326,9 +347,11 @@ export function HelpCenterWidget() {
 
                   {filteredArticles.length === 0 && (
                     <div className="text-center py-12">
-                      <p className="text-gray-600 mb-4">No articles found matching "{searchQuery}"</p>
+                      <p className="text-slate-400 mb-4">
+                        No articles found matching "{searchQuery}"
+                      </p>
                       <button
-                        onClick={() => setSearchQuery('')}
+                        onClick={() => setSearchQuery("")}
                         className="text-teal-600 hover:text-teal-700 font-medium"
                       >
                         Clear search
@@ -340,9 +363,9 @@ export function HelpCenterWidget() {
             </div>
 
             {/* Footer */}
-            <div className="px-8 py-4 border-t bg-gray-50">
+            <div className="px-8 py-4 border-t bg-[#0B0F14]">
               <div className="flex items-center justify-between text-sm">
-                <div className="text-gray-600">
+                <div className="text-slate-400">
                   Can't find what you're looking for?
                 </div>
                 <div className="flex space-x-4">

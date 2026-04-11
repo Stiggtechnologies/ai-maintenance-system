@@ -202,36 +202,36 @@ export function ResearchDashboard() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
+        <h1 className="text-2xl font-bold text-[#E6EDF3] flex items-center gap-2">
           <FlaskConical size={24} className="text-purple-600" />
           Research Orchestrator
         </h1>
-        <p className="text-slate-600 mt-1">
+        <p className="text-slate-400 mt-1">
           Internal experimentation system for optimizing intelligence
         </p>
       </div>
 
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white border border-slate-200 rounded-xl p-4">
+        <div className="bg-[#11161D] border border-[#232A33] rounded-xl p-4">
           <div className="text-sm text-slate-500">Active Programs</div>
-          <div className="text-2xl font-bold text-slate-900">
+          <div className="text-2xl font-bold text-[#E6EDF3]">
             {stats.activePrograms}
           </div>
         </div>
-        <div className="bg-white border border-slate-200 rounded-xl p-4">
+        <div className="bg-[#11161D] border border-[#232A33] rounded-xl p-4">
           <div className="text-sm text-slate-500">Recent Runs</div>
-          <div className="text-2xl font-bold text-slate-900">
+          <div className="text-2xl font-bold text-[#E6EDF3]">
             {stats.totalRuns}
           </div>
         </div>
-        <div className="bg-white border border-slate-200 rounded-xl p-4">
+        <div className="bg-[#11161D] border border-[#232A33] rounded-xl p-4">
           <div className="text-sm text-slate-500">Successful</div>
           <div className="text-2xl font-bold text-green-600">
             {stats.successfulRuns}
           </div>
         </div>
-        <div className="bg-white border border-slate-200 rounded-xl p-4">
+        <div className="bg-[#11161D] border border-[#232A33] rounded-xl p-4">
           <div className="text-sm text-slate-500">Pending Promotions</div>
           <div className="text-2xl font-bold text-orange-600">
             {stats.pendingPromotions}
@@ -240,13 +240,13 @@ export function ResearchDashboard() {
       </div>
 
       {/* Tabs */}
-      <div className="border-b border-slate-200">
+      <div className="border-b border-[#232A33]">
         <nav className="flex gap-6">
           {tabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`pb-3 text-sm font-medium border-b-2 transition-colors ${activeTab === tab.id ? "border-purple-600 text-purple-600" : "border-transparent text-slate-500 hover:text-slate-700"}`}
+              className={`pb-3 text-sm font-medium border-b-2 transition-colors ${activeTab === tab.id ? "border-purple-600 text-purple-600" : "border-transparent text-slate-500 hover:text-slate-300"}`}
             >
               {tab.label}
               {tab.count !== undefined && tab.count > 0 && (
@@ -263,9 +263,9 @@ export function ResearchDashboard() {
       {activeTab === "overview" && (
         <div className="space-y-4">
           {programs.length === 0 ? (
-            <div className="bg-white border border-slate-200 rounded-xl p-12 text-center">
+            <div className="bg-[#11161D] border border-[#232A33] rounded-xl p-12 text-center">
               <FlaskConical size={48} className="mx-auto text-slate-300 mb-4" />
-              <h3 className="text-lg font-semibold text-slate-700">
+              <h3 className="text-lg font-semibold text-slate-300">
                 No Research Programs
               </h3>
               <p className="text-sm text-slate-500 mt-2">
@@ -291,11 +291,11 @@ export function ResearchDashboard() {
               return (
                 <div
                   key={program.id}
-                  className="bg-white border border-slate-200 rounded-xl p-6"
+                  className="bg-[#11161D] border border-[#232A33] rounded-xl p-6"
                 >
                   <div className="flex items-start justify-between">
                     <div>
-                      <h3 className="text-lg font-semibold text-slate-900">
+                      <h3 className="text-lg font-semibold text-[#E6EDF3]">
                         {program.program_name}
                       </h3>
                       <div className="flex items-center gap-3 mt-1">
@@ -307,7 +307,7 @@ export function ResearchDashboard() {
                         </span>
                       </div>
                       {program.description && (
-                        <p className="text-sm text-slate-600 mt-2">
+                        <p className="text-sm text-slate-400 mt-2">
                           {program.description}
                         </p>
                       )}
@@ -319,22 +319,22 @@ export function ResearchDashboard() {
                       <Play size={14} /> Run Experiment
                     </button>
                   </div>
-                  <div className="grid grid-cols-3 gap-4 mt-4 pt-4 border-t border-slate-100">
+                  <div className="grid grid-cols-3 gap-4 mt-4 pt-4 border-t border-[#1A2030]">
                     <div>
                       <div className="text-xs text-slate-500">Total Runs</div>
-                      <div className="text-lg font-bold text-slate-900">
+                      <div className="text-lg font-bold text-[#E6EDF3]">
                         {programRuns.length}
                       </div>
                     </div>
                     <div>
                       <div className="text-xs text-slate-500">Success Rate</div>
-                      <div className="text-lg font-bold text-slate-900">
+                      <div className="text-lg font-bold text-[#E6EDF3]">
                         {successRate}%
                       </div>
                     </div>
                     <div>
                       <div className="text-xs text-slate-500">Last Run</div>
-                      <div className="text-sm text-slate-700">
+                      <div className="text-sm text-slate-300">
                         {programRuns[0]
                           ? new Date(
                               programRuns[0].started_at,
@@ -358,10 +358,10 @@ export function ResearchDashboard() {
               No experiment runs yet
             </div>
           ) : (
-            <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+            <div className="bg-[#11161D] border border-[#232A33] rounded-xl overflow-hidden">
               <table className="w-full">
                 <thead>
-                  <tr className="text-left text-xs text-slate-500 bg-slate-50 border-b border-slate-200">
+                  <tr className="text-left text-xs text-slate-500 bg-[#0B0F14] border-b border-[#232A33]">
                     <th className="px-4 py-3">Run #</th>
                     <th className="px-4 py-3">Variant</th>
                     <th className="px-4 py-3">Status</th>
@@ -374,13 +374,13 @@ export function ResearchDashboard() {
                   {recentRuns.map((run) => (
                     <tr
                       key={run.id}
-                      className="border-b border-slate-100 hover:bg-slate-50"
+                      className="border-b border-[#1A2030] hover:bg-[#0B0F14]"
                     >
-                      <td className="px-4 py-3 text-sm font-mono text-slate-900">
+                      <td className="px-4 py-3 text-sm font-mono text-[#E6EDF3]">
                         #{run.run_number}
                       </td>
                       <td className="px-4 py-3">
-                        <div className="text-sm font-medium text-slate-900">
+                        <div className="text-sm font-medium text-[#E6EDF3]">
                           {run.research_variants?.variant_code || "-"}
                         </div>
                         <div className="text-xs text-slate-500 truncate max-w-xs">
@@ -396,13 +396,13 @@ export function ResearchDashboard() {
                                 ? "bg-blue-100 text-blue-800"
                                 : run.status === "failed"
                                   ? "bg-red-100 text-red-800"
-                                  : "bg-slate-100 text-slate-600"
+                                  : "bg-[#1A2030] text-slate-400"
                           }`}
                         >
                           {run.status}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-sm text-slate-600">
+                      <td className="px-4 py-3 text-sm text-slate-400">
                         {run.duration_ms
                           ? `${(run.duration_ms / 1000).toFixed(1)}s`
                           : "-"}
@@ -427,9 +427,9 @@ export function ResearchDashboard() {
 
           {/* Results detail panel */}
           {selectedRunId && selectedRunResults.length > 0 && (
-            <div className="bg-white border border-purple-200 rounded-xl p-6">
+            <div className="bg-[#11161D] border border-purple-200 rounded-xl p-6">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-slate-900">
+                <h3 className="text-lg font-semibold text-[#E6EDF3]">
                   Run Results
                 </h3>
                 <button
@@ -437,7 +437,7 @@ export function ResearchDashboard() {
                     setSelectedRunId(null);
                     setSelectedRunResults([]);
                   }}
-                  className="text-xs text-slate-500 hover:text-slate-700"
+                  className="text-xs text-slate-500 hover:text-slate-300"
                 >
                   Close
                 </button>
@@ -446,13 +446,13 @@ export function ResearchDashboard() {
                 {selectedRunResults.map((result) => (
                   <div
                     key={result.id}
-                    className={`border rounded-lg p-4 ${result.improved ? "border-green-200 bg-green-50" : "border-slate-200"}`}
+                    className={`border rounded-lg p-4 ${result.improved ? "border-green-200 bg-green-50" : "border-[#232A33]"}`}
                   >
-                    <div className="text-sm font-medium text-slate-900">
+                    <div className="text-sm font-medium text-[#E6EDF3]">
                       {result.metric_name}
                     </div>
                     <div className="flex items-baseline gap-2 mt-1">
-                      <span className="text-2xl font-bold text-slate-900">
+                      <span className="text-2xl font-bold text-[#E6EDF3]">
                         {result.metric_value.toFixed(1)}
                       </span>
                       {result.baseline_value != null && (
@@ -489,19 +489,19 @@ export function ResearchDashboard() {
             promotions.map((promo) => (
               <div
                 key={promo.id}
-                className={`bg-white border rounded-xl p-6 ${promo.review_status === "pending" ? "border-orange-200" : "border-slate-200"}`}
+                className={`bg-[#11161D] border rounded-xl p-6 ${promo.review_status === "pending" ? "border-orange-200" : "border-[#232A33]"}`}
               >
                 <div className="flex items-start justify-between">
                   <div>
                     <div className="flex items-center gap-2">
-                      <h3 className="font-semibold text-slate-900">
+                      <h3 className="font-semibold text-[#E6EDF3]">
                         {promo.research_variants?.variant_code}
                       </h3>
                       <span className="text-xs px-2 py-1 bg-purple-100 text-purple-800 rounded-full">
                         {promo.research_programs?.domain}
                       </span>
                     </div>
-                    <p className="text-sm text-slate-600 mt-1">
+                    <p className="text-sm text-slate-400 mt-1">
                       {promo.research_variants?.description}
                     </p>
                     <div className="flex items-center gap-4 mt-2 text-xs text-slate-500">
@@ -529,7 +529,7 @@ export function ResearchDashboard() {
                             ? "bg-blue-100 text-blue-800"
                             : promo.review_status === "rejected"
                               ? "bg-red-100 text-red-800"
-                              : "bg-slate-100 text-slate-600"
+                              : "bg-[#1A2030] text-slate-400"
                     }`}
                   >
                     {promo.review_status?.replace(/_/g, " ")}
@@ -537,7 +537,7 @@ export function ResearchDashboard() {
                 </div>
 
                 {promo.review_status === "pending" && (
-                  <div className="flex gap-2 mt-4 pt-4 border-t border-slate-100">
+                  <div className="flex gap-2 mt-4 pt-4 border-t border-[#1A2030]">
                     <button
                       onClick={() =>
                         updatePromotionStatus(
@@ -566,7 +566,7 @@ export function ResearchDashboard() {
                           "Does not meet quality bar",
                         )
                       }
-                      className="flex items-center gap-1 px-3 py-1.5 bg-slate-200 text-slate-700 text-sm font-medium rounded hover:bg-slate-300"
+                      className="flex items-center gap-1 px-3 py-1.5 bg-slate-200 text-slate-300 text-sm font-medium rounded hover:bg-slate-300"
                     >
                       <XCircle size={14} /> Reject
                     </button>

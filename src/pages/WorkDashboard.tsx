@@ -54,30 +54,30 @@ export function WorkDashboard() {
     in_progress: "bg-yellow-100 text-yellow-800",
     pending_approval: "bg-orange-100 text-orange-800",
     completed: "bg-green-100 text-green-800",
-    cancelled: "bg-slate-100 text-slate-600",
+    cancelled: "bg-[#1A2030] text-slate-400",
   };
 
   const priorityColors: Record<string, string> = {
     critical: "text-red-600",
     high: "text-orange-600",
     medium: "text-blue-600",
-    low: "text-slate-600",
+    low: "text-slate-400",
   };
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">Work Management</h1>
-        <p className="text-slate-600 mt-1">
+        <h1 className="text-2xl font-bold text-[#E6EDF3]">Work Management</h1>
+        <p className="text-slate-400 mt-1">
           Notifications, work requests, and work orders
         </p>
       </div>
 
       {/* Notifications */}
-      <div className="bg-white border border-slate-200 rounded-xl p-6">
+      <div className="bg-[#11161D] border border-[#232A33] rounded-xl p-6">
         <div className="flex items-center gap-2 mb-4">
-          <AlertCircle size={20} className="text-slate-600" />
-          <h2 className="text-lg font-semibold text-slate-900">
+          <AlertCircle size={20} className="text-slate-400" />
+          <h2 className="text-lg font-semibold text-[#E6EDF3]">
             Recent Notifications
           </h2>
           <span className="ml-auto px-2 py-1 bg-blue-100 text-blue-800 text-sm font-medium rounded">
@@ -90,17 +90,17 @@ export function WorkDashboard() {
             notifications.slice(0, 10).map((notif) => (
               <div
                 key={notif.id}
-                className="flex items-start gap-3 p-3 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+                className="flex items-start gap-3 p-3 bg-[#0B0F14] rounded-lg hover:bg-[#1A2030] transition-colors cursor-pointer"
               >
                 <div
                   className={`w-2 h-2 rounded-full mt-2 ${notif.status === "new" ? "bg-blue-500" : "bg-slate-300"}`}
                 />
                 <div className="flex-1">
-                  <div className="font-medium text-slate-900">
+                  <div className="font-medium text-[#E6EDF3]">
                     {notif.title}
                   </div>
                   {notif.description && (
-                    <div className="text-sm text-slate-600 mt-1">
+                    <div className="text-sm text-slate-400 mt-1">
                       {notif.description}
                     </div>
                   )}
@@ -110,7 +110,7 @@ export function WorkDashboard() {
                   </div>
                 </div>
                 <div
-                  className={`px-2 py-1 rounded text-xs font-medium ${priorityColors[notif.priority] || "text-slate-600"}`}
+                  className={`px-2 py-1 rounded text-xs font-medium ${priorityColors[notif.priority] || "text-slate-400"}`}
                 >
                   {notif.priority}
                 </div>
@@ -125,10 +125,10 @@ export function WorkDashboard() {
       </div>
 
       {/* Work Orders */}
-      <div className="bg-white border border-slate-200 rounded-xl p-6">
+      <div className="bg-[#11161D] border border-[#232A33] rounded-xl p-6">
         <div className="flex items-center gap-2 mb-4">
-          <Wrench size={20} className="text-slate-600" />
-          <h2 className="text-lg font-semibold text-slate-900">Work Orders</h2>
+          <Wrench size={20} className="text-slate-400" />
+          <h2 className="text-lg font-semibold text-[#E6EDF3]">Work Orders</h2>
           <span className="ml-auto px-2 py-1 bg-blue-100 text-blue-800 text-sm font-medium rounded">
             {workOrders.length}
           </span>
@@ -137,20 +137,20 @@ export function WorkDashboard() {
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="border-b border-slate-200">
-                <th className="text-left py-3 px-4 text-sm font-semibold text-slate-900">
+              <tr className="border-b border-[#232A33]">
+                <th className="text-left py-3 px-4 text-sm font-semibold text-[#E6EDF3]">
                   WO #
                 </th>
-                <th className="text-left py-3 px-4 text-sm font-semibold text-slate-900">
+                <th className="text-left py-3 px-4 text-sm font-semibold text-[#E6EDF3]">
                   Title
                 </th>
-                <th className="text-left py-3 px-4 text-sm font-semibold text-slate-900">
+                <th className="text-left py-3 px-4 text-sm font-semibold text-[#E6EDF3]">
                   Priority
                 </th>
-                <th className="text-left py-3 px-4 text-sm font-semibold text-slate-900">
+                <th className="text-left py-3 px-4 text-sm font-semibold text-[#E6EDF3]">
                   Status
                 </th>
-                <th className="text-left py-3 px-4 text-sm font-semibold text-slate-900">
+                <th className="text-left py-3 px-4 text-sm font-semibold text-[#E6EDF3]">
                   Due Date
                 </th>
               </tr>
@@ -160,17 +160,17 @@ export function WorkDashboard() {
                 workOrders.slice(0, 20).map((wo) => (
                   <tr
                     key={wo.id}
-                    className="border-b border-slate-100 hover:bg-slate-50 cursor-pointer"
+                    className="border-b border-[#1A2030] hover:bg-[#0B0F14] cursor-pointer"
                   >
-                    <td className="py-3 px-4 text-sm font-mono text-slate-600">
+                    <td className="py-3 px-4 text-sm font-mono text-slate-400">
                       {wo.work_order_number || wo.id.slice(0, 8)}
                     </td>
-                    <td className="py-3 px-4 text-sm text-slate-900">
+                    <td className="py-3 px-4 text-sm text-[#E6EDF3]">
                       {wo.title || "Untitled Work Order"}
                     </td>
                     <td className="py-3 px-4">
                       <span
-                        className={`text-sm font-medium ${priorityColors[wo.priority] || "text-slate-600"}`}
+                        className={`text-sm font-medium ${priorityColors[wo.priority] || "text-slate-400"}`}
                       >
                         {wo.priority || "medium"}
                       </span>
@@ -182,7 +182,7 @@ export function WorkDashboard() {
                         {wo.status || "new"}
                       </span>
                     </td>
-                    <td className="py-3 px-4 text-sm text-slate-600">
+                    <td className="py-3 px-4 text-sm text-slate-400">
                       {wo.planned_finish
                         ? new Date(
                             String(wo.planned_finish),

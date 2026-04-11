@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
-import { FileText, Download, ExternalLink } from 'lucide-react';
+import { useState, useEffect } from "react";
+import { supabase } from "../../lib/supabase";
+import { FileText, Download, ExternalLink } from "lucide-react";
 
 interface Invoice {
   id: string;
@@ -26,9 +26,9 @@ export function InvoiceList() {
   const fetchInvoices = async () => {
     try {
       const { data: subscriptions } = await supabase
-        .from('billing_subscriptions')
-        .select('id')
-        .eq('status', 'active')
+        .from("billing_subscriptions")
+        .select("id")
+        .eq("status", "active")
         .limit(1);
 
       if (!subscriptions || subscriptions.length === 0) {
@@ -37,15 +37,15 @@ export function InvoiceList() {
       }
 
       const { data, error } = await supabase
-        .from('billing_invoices')
-        .select('*')
-        .eq('subscription_id', subscriptions[0].id)
-        .order('created_at', { ascending: false });
+        .from("billing_invoices")
+        .select("*")
+        .eq("subscription_id", subscriptions[0].id)
+        .order("created_at", { ascending: false });
 
       if (error) throw error;
       setInvoices(data || []);
     } catch (error) {
-      console.error('Error fetching invoices:', error);
+      console.error("Error fetching invoices:", error);
     } finally {
       setLoading(false);
     }
@@ -53,16 +53,16 @@ export function InvoiceList() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'paid':
-        return 'bg-green-100 text-green-700 border-green-200';
-      case 'open':
-        return 'bg-blue-100 text-blue-700 border-blue-200';
-      case 'draft':
-        return 'bg-gray-100 text-gray-700 border-gray-200';
-      case 'void':
-        return 'bg-red-100 text-red-700 border-red-200';
+      case "paid":
+        return "bg-green-100 text-green-700 border-green-200";
+      case "open":
+        return "bg-blue-100 text-blue-700 border-blue-200";
+      case "draft":
+        return "bg-[#161C24] text-slate-300 border-[#232A33]";
+      case "void":
+        return "bg-red-100 text-red-700 border-red-200";
       default:
-        return 'bg-gray-100 text-gray-700 border-gray-200';
+        return "bg-[#161C24] text-slate-300 border-[#232A33]";
     }
   };
 
@@ -75,23 +75,29 @@ export function InvoiceList() {
   }
 
   return (
-    <div className="h-full overflow-auto bg-gray-50">
+    <div className="h-full overflow-auto bg-[#0B0F14]">
       <div className="max-w-7xl mx-auto p-6">
         <div className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Invoices</h1>
-          <p className="text-gray-600">View and download your billing invoices</p>
+          <h1 className="text-3xl font-bold text-[#E6EDF3] mb-2">Invoices</h1>
+          <p className="text-slate-400">
+            View and download your billing invoices
+          </p>
         </div>
 
         {invoices.length === 0 ? (
-          <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
+          <div className="bg-[#11161D] rounded-xl border border-[#232A33] p-12 text-center">
             <FileText className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-            <h2 className="text-xl font-semibold text-gray-900 mb-2">No Invoices Yet</h2>
-            <p className="text-gray-600">Your invoices will appear here once generated</p>
+            <h2 className="text-xl font-semibold text-[#E6EDF3] mb-2">
+              No Invoices Yet
+            </h2>
+            <p className="text-slate-400">
+              Your invoices will appear here once generated
+            </p>
           </div>
         ) : (
-          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+          <div className="bg-[#11161D] rounded-xl border border-[#232A33] overflow-hidden">
             <table className="w-full">
-              <thead className="bg-gray-50 border-b border-gray-200">
+              <thead className="bg-[#0B0F14] border-b border-[#232A33]">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                     Invoice Period
@@ -112,29 +118,31 @@ export function InvoiceList() {
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {invoices.map((invoice) => (
-                  <tr key={invoice.id} className="hover:bg-gray-50">
+                  <tr key={invoice.id} className="hover:bg-[#0B0F14]">
                     <td className="px-6 py-4">
-                      <div className="font-medium text-gray-900">
-                        {new Date(invoice.period_start).toLocaleDateString()} -{' '}
+                      <div className="font-medium text-[#E6EDF3]">
+                        {new Date(invoice.period_start).toLocaleDateString()} -{" "}
                         {new Date(invoice.period_end).toLocaleDateString()}
                       </div>
                       <div className="text-xs text-gray-500 mt-1">
-                        Base: ${invoice.base_amount_cad.toFixed(2)} |
-                        Assets: ${invoice.asset_uplift_cad.toFixed(2)} |
-                        Usage: ${invoice.usage_overage_cad.toFixed(2)}
+                        Base: ${invoice.base_amount_cad.toFixed(2)} | Assets: $
+                        {invoice.asset_uplift_cad.toFixed(2)} | Usage: $
+                        {invoice.usage_overage_cad.toFixed(2)}
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-700">
+                    <td className="px-6 py-4 text-sm text-slate-300">
                       {new Date(invoice.created_at).toLocaleDateString()}
                     </td>
                     <td className="px-6 py-4">
-                      <div className="text-lg font-semibold text-gray-900">
+                      <div className="text-lg font-semibold text-[#E6EDF3]">
                         ${invoice.total_cad.toFixed(2)}
                       </div>
                       <div className="text-xs text-gray-500">CAD</div>
                     </td>
                     <td className="px-6 py-4">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium border ${getStatusColor(invoice.status)}`}>
+                      <span
+                        className={`px-2 py-1 rounded-full text-xs font-medium border ${getStatusColor(invoice.status)}`}
+                      >
                         {invoice.status.toUpperCase()}
                       </span>
                     </td>
@@ -151,7 +159,7 @@ export function InvoiceList() {
                             View
                           </a>
                         )}
-                        <button className="text-gray-600 hover:text-gray-700 flex items-center gap-1 text-sm">
+                        <button className="text-slate-400 hover:text-slate-300 flex items-center gap-1 text-sm">
                           <Download className="w-4 h-4" />
                           PDF
                         </button>

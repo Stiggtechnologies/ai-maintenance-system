@@ -204,16 +204,18 @@ Ask me anything about your operations, and I'll provide insights based on your r
   };
 
   return (
-    <div className="h-full flex flex-col bg-gray-50">
-      <div className="bg-white border-b border-gray-200 p-6">
+    <div className="h-full flex flex-col bg-[#0B0F14]">
+      <div className="bg-[#11161D] border-b border-[#232A33] p-6">
         <div className="max-w-4xl mx-auto">
           <div className="flex items-center gap-3 mb-2">
             <div className="w-10 h-10 bg-gradient-to-br from-teal-500 to-teal-600 rounded-full flex items-center justify-center">
               <Sparkles className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">AI Assistant</h1>
-              <p className="text-sm text-gray-600">
+              <h1 className="text-2xl font-bold text-[#E6EDF3]">
+                AI Assistant
+              </h1>
+              <p className="text-sm text-slate-400">
                 Role-specific guidance for {orgLevel || "your role"}
               </p>
             </div>
@@ -237,12 +239,12 @@ Ask me anything about your operations, and I'll provide insights based on your r
                   {msg.content}
                 </div>
               ) : (
-                <div className="bg-white border border-gray-200 rounded-2xl p-6 max-w-3xl shadow-sm">
+                <div className="bg-[#11161D] border border-[#232A33] rounded-2xl p-6 max-w-3xl shadow-sm">
                   <div className="flex items-center gap-2 mb-3">
                     <div className="w-8 h-8 bg-gradient-to-br from-teal-100 to-teal-200 rounded-full flex items-center justify-center">
                       <Sparkles className="w-4 h-4 text-teal-600" />
                     </div>
-                    <span className="text-sm font-medium text-gray-700">
+                    <span className="text-sm font-medium text-slate-300">
                       AI Assistant
                     </span>
                   </div>
@@ -263,17 +265,17 @@ Ask me anything about your operations, and I'll provide insights based on your r
         </div>
       </div>
 
-      <div className="bg-white border-t border-gray-200 p-6">
+      <div className="bg-[#11161D] border-t border-[#232A33] p-6">
         <div className="max-w-4xl mx-auto">
           {messages.length === 1 && (
             <div className="mb-4">
-              <div className="text-sm text-gray-600 mb-2">Quick Actions:</div>
+              <div className="text-sm text-slate-400 mb-2">Quick Actions:</div>
               <div className="flex flex-wrap gap-2">
                 {quickActions.map((action, idx) => (
                   <button
                     key={idx}
                     onClick={() => handleQuickAction(action.query)}
-                    className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm transition-colors"
+                    className="px-4 py-2 bg-[#161C24] hover:bg-gray-200 text-slate-300 rounded-lg text-sm transition-colors"
                   >
                     {action.label}
                   </button>
@@ -289,7 +291,7 @@ Ask me anything about your operations, and I'll provide insights based on your r
               onChange={(e) => setInput(e.target.value)}
               onKeyPress={(e) => e.key === "Enter" && handleSend()}
               placeholder={`Ask anything about ${getRoleContext()}...`}
-              className="w-full px-6 py-4 pr-24 rounded-2xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+              className="w-full px-6 py-4 pr-24 rounded-2xl border border-[#232A33] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
               disabled={isProcessing}
             />
             <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
@@ -299,7 +301,7 @@ Ask me anything about your operations, and I'll provide insights based on your r
                 className={`p-2 rounded-lg transition-colors ${
                   isRecording
                     ? "bg-red-100 text-red-600"
-                    : "hover:bg-gray-100 text-gray-400"
+                    : "hover:bg-[#161C24] text-gray-400"
                 }`}
               >
                 {isRecording ? (

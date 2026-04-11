@@ -109,43 +109,43 @@ export function GovernanceDashboard() {
     critical: "bg-red-100 text-red-800",
     high: "bg-orange-100 text-orange-800",
     medium: "bg-blue-100 text-blue-800",
-    low: "bg-slate-100 text-slate-600",
+    low: "bg-[#1A2030] text-slate-400",
   };
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">
+        <h1 className="text-2xl font-bold text-[#E6EDF3]">
           Governance & Compliance
         </h1>
-        <p className="text-slate-600 mt-1">
+        <p className="text-slate-400 mt-1">
           Approvals, AI recommendations, and audit trail
         </p>
       </div>
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white border border-slate-200 rounded-xl p-4">
+        <div className="bg-[#11161D] border border-[#232A33] rounded-xl p-4">
           <div className="text-sm text-slate-500">Pending Approvals</div>
-          <div className="text-2xl font-bold text-slate-900">
+          <div className="text-2xl font-bold text-[#E6EDF3]">
             {pendingApprovals.length}
           </div>
         </div>
-        <div className="bg-white border border-slate-200 rounded-xl p-4">
+        <div className="bg-[#11161D] border border-[#232A33] rounded-xl p-4">
           <div className="text-sm text-slate-500">AI Recommendations</div>
-          <div className="text-2xl font-bold text-slate-900">
+          <div className="text-2xl font-bold text-[#E6EDF3]">
             {pendingRecs.length}
           </div>
         </div>
-        <div className="bg-white border border-slate-200 rounded-xl p-4">
+        <div className="bg-[#11161D] border border-[#232A33] rounded-xl p-4">
           <div className="text-sm text-slate-500">Audit Events (7d)</div>
-          <div className="text-2xl font-bold text-slate-900">
+          <div className="text-2xl font-bold text-[#E6EDF3]">
             {auditEvents.length}
           </div>
         </div>
-        <div className="bg-white border border-slate-200 rounded-xl p-4">
+        <div className="bg-[#11161D] border border-[#232A33] rounded-xl p-4">
           <div className="text-sm text-slate-500">Approval Rate</div>
-          <div className="text-2xl font-bold text-slate-900">
+          <div className="text-2xl font-bold text-[#E6EDF3]">
             {approvals.length > 0
               ? Math.round(
                   (approvals.filter((a) => a.status === "approved").length /
@@ -159,13 +159,13 @@ export function GovernanceDashboard() {
       </div>
 
       {/* Tabs */}
-      <div className="border-b border-slate-200">
+      <div className="border-b border-[#232A33]">
         <nav className="flex gap-6">
           {tabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`pb-3 text-sm font-medium border-b-2 transition-colors ${activeTab === tab.id ? "border-blue-600 text-blue-600" : "border-transparent text-slate-500 hover:text-slate-700"}`}
+              className={`pb-3 text-sm font-medium border-b-2 transition-colors ${activeTab === tab.id ? "border-blue-600 text-blue-600" : "border-transparent text-slate-500 hover:text-slate-300"}`}
             >
               {tab.label}
               {tab.count !== undefined && tab.count > 0 && (
@@ -180,10 +180,10 @@ export function GovernanceDashboard() {
 
       {/* Approvals Tab */}
       {activeTab === "approvals" && (
-        <div className="bg-white border border-slate-200 rounded-xl p-6">
+        <div className="bg-[#11161D] border border-[#232A33] rounded-xl p-6">
           <div className="flex items-center gap-2 mb-4">
-            <Clock size={20} className="text-slate-600" />
-            <h2 className="text-lg font-semibold text-slate-900">
+            <Clock size={20} className="text-slate-400" />
+            <h2 className="text-lg font-semibold text-[#E6EDF3]">
               Pending Approvals
             </h2>
           </div>
@@ -192,14 +192,14 @@ export function GovernanceDashboard() {
               pendingApprovals.map((approval) => (
                 <div
                   key={approval.id}
-                  className="border border-slate-200 rounded-lg p-4"
+                  className="border border-[#232A33] rounded-lg p-4"
                 >
                   <div className="flex items-start justify-between mb-3">
                     <div>
-                      <div className="font-medium text-slate-900">
+                      <div className="font-medium text-[#E6EDF3]">
                         {approval.entity_type}
                       </div>
-                      <div className="text-sm text-slate-600 mt-1">
+                      <div className="text-sm text-slate-400 mt-1">
                         Created {new Date(approval.created_at).toLocaleString()}
                       </div>
                     </div>
@@ -208,7 +208,7 @@ export function GovernanceDashboard() {
                     </span>
                   </div>
                   {approval.recommendations && (
-                    <div className="text-sm text-slate-700 mb-3 p-3 bg-slate-50 rounded">
+                    <div className="text-sm text-slate-300 mb-3 p-3 bg-[#0B0F14] rounded">
                       {approval.recommendations.recommendation_text ||
                         "No description available"}
                     </div>
@@ -240,10 +240,10 @@ export function GovernanceDashboard() {
 
       {/* Recommendations Tab */}
       {activeTab === "recommendations" && (
-        <div className="bg-white border border-slate-200 rounded-xl p-6">
+        <div className="bg-[#11161D] border border-[#232A33] rounded-xl p-6">
           <div className="flex items-center gap-2 mb-4">
             <Lightbulb size={20} className="text-yellow-500" />
-            <h2 className="text-lg font-semibold text-slate-900">
+            <h2 className="text-lg font-semibold text-[#E6EDF3]">
               AI Recommendations
             </h2>
           </div>
@@ -252,11 +252,11 @@ export function GovernanceDashboard() {
               recommendations.map((rec) => (
                 <div
                   key={rec.id}
-                  className="border border-slate-200 rounded-lg p-4"
+                  className="border border-[#232A33] rounded-lg p-4"
                 >
                   <div className="flex items-start justify-between mb-2">
                     <div className="flex-1">
-                      <div className="font-medium text-slate-900">
+                      <div className="font-medium text-[#E6EDF3]">
                         {rec.title}
                       </div>
                       {rec.assets?.name && (
@@ -273,13 +273,13 @@ export function GovernanceDashboard() {
                         </span>
                       )}
                       <span
-                        className={`px-2 py-1 text-xs font-medium rounded ${priorityColors[rec.priority] || "bg-slate-100 text-slate-600"}`}
+                        className={`px-2 py-1 text-xs font-medium rounded ${priorityColors[rec.priority] || "bg-[#1A2030] text-slate-400"}`}
                       >
                         {rec.priority}
                       </span>
                     </div>
                   </div>
-                  <p className="text-sm text-slate-600 mb-3">{rec.summary}</p>
+                  <p className="text-sm text-slate-400 mb-3">{rec.summary}</p>
                   {rec.risk_score && (
                     <div className="flex items-center gap-1 text-xs text-slate-500 mb-3">
                       <AlertTriangle size={12} /> Risk score: {rec.risk_score}
@@ -295,7 +295,7 @@ export function GovernanceDashboard() {
                       </button>
                       <button
                         onClick={() => handleDismissRec(rec.id)}
-                        className="flex items-center gap-1 px-3 py-1.5 bg-slate-200 text-slate-700 text-sm font-medium rounded hover:bg-slate-300"
+                        className="flex items-center gap-1 px-3 py-1.5 bg-slate-200 text-slate-300 text-sm font-medium rounded hover:bg-slate-300"
                       >
                         Dismiss
                       </button>
@@ -303,7 +303,7 @@ export function GovernanceDashboard() {
                   )}
                   {rec.status !== "pending" && (
                     <span
-                      className={`text-xs px-2 py-1 rounded ${rec.status === "accepted" ? "bg-green-100 text-green-800" : "bg-slate-100 text-slate-600"}`}
+                      className={`text-xs px-2 py-1 rounded ${rec.status === "accepted" ? "bg-green-100 text-green-800" : "bg-[#1A2030] text-slate-400"}`}
                     >
                       {rec.status}
                     </span>
@@ -321,10 +321,10 @@ export function GovernanceDashboard() {
 
       {/* Audit Trail Tab */}
       {activeTab === "audit" && (
-        <div className="bg-white border border-slate-200 rounded-xl p-6">
+        <div className="bg-[#11161D] border border-[#232A33] rounded-xl p-6">
           <div className="flex items-center gap-2 mb-4">
-            <Shield size={20} className="text-slate-600" />
-            <h2 className="text-lg font-semibold text-slate-900">
+            <Shield size={20} className="text-slate-400" />
+            <h2 className="text-lg font-semibold text-[#E6EDF3]">
               Audit Trail
             </h2>
           </div>
@@ -333,11 +333,11 @@ export function GovernanceDashboard() {
               auditEvents.map((event) => (
                 <div
                   key={event.id}
-                  className="flex items-start gap-3 p-3 bg-slate-50 rounded-lg"
+                  className="flex items-start gap-3 p-3 bg-[#0B0F14] rounded-lg"
                 >
                   <div className="w-2 h-2 bg-blue-500 rounded-full mt-2" />
                   <div className="flex-1">
-                    <div className="text-sm text-slate-900">
+                    <div className="text-sm text-[#E6EDF3]">
                       <span className="font-medium">{event.event_type}</span> on{" "}
                       <span className="font-medium">{event.entity_type}</span>
                     </div>

@@ -81,10 +81,10 @@ const FAMILY_CONFIG: Record<
 };
 
 const DEFAULT_FAMILY_CONFIG = {
-  color: "text-slate-700",
-  bg: "bg-slate-50",
-  border: "border-slate-200",
-  badge: "bg-slate-100 text-slate-800",
+  color: "text-slate-300",
+  bg: "bg-[#0B0F14]",
+  border: "border-[#232A33]",
+  badge: "bg-[#1A2030] text-slate-800",
   icon: Building2,
 };
 
@@ -193,7 +193,7 @@ export function TemplateSelectorPage() {
     <div className="max-w-7xl mx-auto">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-slate-900">New Deployment</h1>
+        <h1 className="text-2xl font-bold text-[#E6EDF3]">New Deployment</h1>
         <p className="text-sm text-slate-500 mt-1">
           Select an industry template to start configuring your deployment.
         </p>
@@ -211,7 +211,7 @@ export function TemplateSelectorPage() {
             placeholder="Search templates..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 text-sm border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full pl-9 pr-4 py-2 text-sm border border-[#232A33] rounded-lg bg-[#11161D] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           />
         </div>
         <div className="flex items-center gap-2">
@@ -221,7 +221,7 @@ export function TemplateSelectorPage() {
             className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
               !filterFamily
                 ? "bg-slate-900 text-white"
-                : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"
+                : "bg-[#11161D] text-slate-400 border border-[#232A33] hover:bg-[#0B0F14]"
             }`}
           >
             All
@@ -237,7 +237,7 @@ export function TemplateSelectorPage() {
                 className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
                   filterFamily === family
                     ? `${config.badge}`
-                    : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"
+                    : "bg-[#11161D] text-slate-400 border border-[#232A33] hover:bg-[#0B0F14]"
                 }`}
               >
                 {family}
@@ -262,9 +262,9 @@ export function TemplateSelectorPage() {
 
       {/* Empty State */}
       {!error && filteredTemplates.length === 0 && (
-        <div className="bg-white border border-slate-200 rounded-xl p-12 text-center">
+        <div className="bg-[#11161D] border border-[#232A33] rounded-xl p-12 text-center">
           <Factory size={40} className="text-slate-300 mx-auto mb-3" />
-          <h3 className="text-lg font-medium text-slate-700">
+          <h3 className="text-lg font-medium text-slate-300">
             No templates found
           </h3>
           <p className="text-sm text-slate-500 mt-1">
@@ -296,7 +296,7 @@ export function TemplateSelectorPage() {
           return (
             <div
               key={template.id}
-              className={`bg-white border ${config.border} rounded-xl overflow-hidden hover:shadow-lg transition-shadow`}
+              className={`bg-[#11161D] border ${config.border} rounded-xl overflow-hidden hover:shadow-lg transition-shadow`}
             >
               {/* Card Header */}
               <div
@@ -310,7 +310,7 @@ export function TemplateSelectorPage() {
                       <FamilyIcon size={20} />
                     </div>
                     <div>
-                      <h3 className="font-semibold text-slate-900 text-sm">
+                      <h3 className="font-semibold text-[#E6EDF3] text-sm">
                         {template.name}
                       </h3>
                       {template.master_template_name && (
@@ -330,25 +330,25 @@ export function TemplateSelectorPage() {
 
               {/* Card Body */}
               <div className="px-5 py-4">
-                <p className="text-xs text-slate-600 leading-relaxed line-clamp-2 mb-4">
+                <p className="text-xs text-slate-400 leading-relaxed line-clamp-2 mb-4">
                   {template.description || "No description available."}
                 </p>
 
                 {/* Stats */}
                 <div className="grid grid-cols-2 gap-2 mb-4">
-                  <div className="flex items-center gap-2 text-xs text-slate-600">
+                  <div className="flex items-center gap-2 text-xs text-slate-400">
                     <BarChart3 size={13} className="text-slate-400" />
                     <span>{kpiCount} KPIs</span>
                   </div>
-                  <div className="flex items-center gap-2 text-xs text-slate-600">
+                  <div className="flex items-center gap-2 text-xs text-slate-400">
                     <Package size={13} className="text-slate-400" />
                     <span>{assetCount} Asset Classes</span>
                   </div>
-                  <div className="flex items-center gap-2 text-xs text-slate-600">
+                  <div className="flex items-center gap-2 text-xs text-slate-400">
                     <AlertTriangle size={13} className="text-slate-400" />
                     <span>{failureCount} Failure Modes</span>
                   </div>
-                  <div className="flex items-center gap-2 text-xs text-slate-600">
+                  <div className="flex items-center gap-2 text-xs text-slate-400">
                     <Gauge size={13} className="text-slate-400" />
                     <span>{oeeModel}</span>
                   </div>
@@ -357,16 +357,16 @@ export function TemplateSelectorPage() {
                 {/* Governance */}
                 <div className="flex items-center gap-2 text-xs mb-4">
                   <Shield size={13} className="text-slate-400" />
-                  <span className="text-slate-600">{governanceProfile}</span>
+                  <span className="text-slate-400">{governanceProfile}</span>
                   <span className="text-slate-300">|</span>
                   <span className="text-slate-500">{autonomyMode}</span>
                 </div>
 
                 {/* Actions */}
-                <div className="flex items-center gap-2 pt-3 border-t border-slate-100">
+                <div className="flex items-center gap-2 pt-3 border-t border-[#1A2030]">
                   <button
                     onClick={() => setPreviewTemplate(template)}
-                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium text-slate-600 bg-slate-50 hover:bg-slate-100 rounded-lg transition-colors"
+                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium text-slate-400 bg-[#0B0F14] hover:bg-[#1A2030] rounded-lg transition-colors"
                   >
                     <Eye size={14} />
                     Preview

@@ -127,8 +127,8 @@ export function IntegrationsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Integrations</h1>
-          <p className="text-slate-600 mt-1">
+          <h1 className="text-2xl font-bold text-[#E6EDF3]">Integrations</h1>
+          <p className="text-slate-400 mt-1">
             Connect external systems and data sources
           </p>
         </div>
@@ -138,20 +138,20 @@ export function IntegrationsPage() {
       </div>
 
       {/* Tabs */}
-      <div className="border-b border-slate-200">
+      <div className="border-b border-[#232A33]">
         <nav className="flex gap-6">
           <button
             onClick={() => setActiveTab("connectors")}
-            className={`pb-3 text-sm font-medium border-b-2 transition-colors ${activeTab === "connectors" ? "border-blue-600 text-blue-600" : "border-transparent text-slate-500 hover:text-slate-700"}`}
+            className={`pb-3 text-sm font-medium border-b-2 transition-colors ${activeTab === "connectors" ? "border-blue-600 text-blue-600" : "border-transparent text-slate-500 hover:text-slate-300"}`}
           >
             Active Connectors{" "}
-            <span className="ml-1 text-xs bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded-full">
+            <span className="ml-1 text-xs bg-[#1A2030] text-slate-400 px-1.5 py-0.5 rounded-full">
               {connectors.length}
             </span>
           </button>
           <button
             onClick={() => setActiveTab("history")}
-            className={`pb-3 text-sm font-medium border-b-2 transition-colors ${activeTab === "history" ? "border-blue-600 text-blue-600" : "border-transparent text-slate-500 hover:text-slate-700"}`}
+            className={`pb-3 text-sm font-medium border-b-2 transition-colors ${activeTab === "history" ? "border-blue-600 text-blue-600" : "border-transparent text-slate-500 hover:text-slate-300"}`}
           >
             Sync History
           </button>
@@ -166,12 +166,12 @@ export function IntegrationsPage() {
               {connectors.map((conn) => (
                 <div
                   key={conn.id}
-                  className="bg-white border border-slate-200 rounded-xl p-5 hover:border-blue-300 transition-colors"
+                  className="bg-[#11161D] border border-[#232A33] rounded-xl p-5 hover:border-blue-300 transition-colors"
                 >
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex items-center gap-2">
                       <Plug size={18} className="text-slate-400" />
-                      <h3 className="font-semibold text-slate-900">
+                      <h3 className="font-semibold text-[#E6EDF3]">
                         {conn.name}
                       </h3>
                     </div>
@@ -196,7 +196,7 @@ export function IntegrationsPage() {
                     <button className="text-xs text-blue-600 hover:text-blue-700 font-medium">
                       Configure
                     </button>
-                    <button className="text-xs text-slate-500 hover:text-slate-600 font-medium flex items-center gap-1">
+                    <button className="text-xs text-slate-500 hover:text-slate-400 font-medium flex items-center gap-1">
                       <RefreshCw size={12} /> Sync Now
                     </button>
                   </div>
@@ -207,7 +207,7 @@ export function IntegrationsPage() {
 
           {/* Available Connector Types */}
           <div>
-            <h2 className="text-lg font-semibold text-slate-900 mb-4">
+            <h2 className="text-lg font-semibold text-[#E6EDF3] mb-4">
               Available Integrations
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -218,10 +218,10 @@ export function IntegrationsPage() {
                 return (
                   <div
                     key={ct.type}
-                    className={`border rounded-xl p-4 ${isConnected ? "border-green-200 bg-green-50" : "border-slate-200 bg-white"}`}
+                    className={`border rounded-xl p-4 ${isConnected ? "border-green-200 bg-green-50" : "border-[#232A33] bg-[#11161D]"}`}
                   >
                     <div className="flex items-center justify-between mb-2">
-                      <h3 className="font-medium text-slate-900 text-sm">
+                      <h3 className="font-medium text-[#E6EDF3] text-sm">
                         {ct.label}
                       </h3>
                       {isConnected && (
@@ -242,8 +242,8 @@ export function IntegrationsPage() {
       )}
 
       {activeTab === "history" && (
-        <div className="bg-white border border-slate-200 rounded-xl p-6">
-          <h2 className="text-lg font-semibold text-slate-900 mb-4">
+        <div className="bg-[#11161D] border border-[#232A33] rounded-xl p-6">
+          <h2 className="text-lg font-semibold text-[#E6EDF3] mb-4">
             Sync History
           </h2>
           {runs.length === 0 ? (
@@ -253,7 +253,7 @@ export function IntegrationsPage() {
           ) : (
             <table className="w-full">
               <thead>
-                <tr className="text-left text-xs text-slate-500 border-b border-slate-200">
+                <tr className="text-left text-xs text-slate-500 border-b border-[#232A33]">
                   <th className="pb-2">Connector</th>
                   <th className="pb-2">Type</th>
                   <th className="pb-2">Status</th>
@@ -276,11 +276,11 @@ export function IntegrationsPage() {
                         )
                       : null;
                   return (
-                    <tr key={run.id} className="border-b border-slate-100">
-                      <td className="py-3 text-sm font-medium text-slate-900">
+                    <tr key={run.id} className="border-b border-[#1A2030]">
+                      <td className="py-3 text-sm font-medium text-[#E6EDF3]">
                         {connector?.name || "Unknown"}
                       </td>
-                      <td className="py-3 text-sm text-slate-600">
+                      <td className="py-3 text-sm text-slate-400">
                         {run.run_type}
                       </td>
                       <td className="py-3">
@@ -290,7 +290,7 @@ export function IntegrationsPage() {
                           {run.status}
                         </span>
                       </td>
-                      <td className="py-3 text-sm text-slate-600">
+                      <td className="py-3 text-sm text-slate-400">
                         {run.records_processed?.toLocaleString() || "-"}
                       </td>
                       <td className="py-3 text-sm text-slate-500">

@@ -1,25 +1,25 @@
-import { useState, useEffect } from 'react';
-import { Volume2, Clock, Bell, Save, TestTube } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { useState, useEffect } from "react";
+import { Volume2, Clock, Bell, Save, TestTube } from "lucide-react";
+import { supabase } from "../lib/supabase";
 
 export function JavisPreferences() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [preferences, setPreferences] = useState({
-    display_name: '',
+    display_name: "",
     prefers_voice: false,
-    voice_locale: 'en-CA',
-    voice_gender: 'neutral',
+    voice_locale: "en-CA",
+    voice_gender: "neutral",
     voice_speed: 1.0,
-    morning_brief_time: '07:30',
+    morning_brief_time: "07:30",
     javis_enabled: true,
-    timezone: 'America/Toronto',
+    timezone: "America/Toronto",
     notify_channels: {
       in_app: true,
       email: false,
       sms: false,
-      push: true
-    }
+      push: true,
+    },
   });
 
   useEffect(() => {
@@ -29,44 +29,46 @@ export function JavisPreferences() {
   const loadPreferences = async () => {
     try {
       setLoading(true);
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) return;
 
       const { data: profile } = await supabase
-        .from('user_profiles')
-        .select('tenant_id, display_name')
-        .eq('id', user.id)
+        .from("user_profiles")
+        .select("tenant_id, display_name")
+        .eq("id", user.id)
         .single();
 
       const tenantId = profile?.tenant_id || user.id;
 
       const { data: prefs } = await supabase
-        .from('user_preferences')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('tenant_id', tenantId)
+        .from("user_preferences")
+        .select("*")
+        .eq("user_id", user.id)
+        .eq("tenant_id", tenantId)
         .maybeSingle();
 
       if (prefs) {
         setPreferences({
-          display_name: prefs.display_name || profile?.display_name || '',
+          display_name: prefs.display_name || profile?.display_name || "",
           prefers_voice: prefs.prefers_voice || false,
-          voice_locale: prefs.voice_locale || 'en-CA',
-          voice_gender: prefs.voice_gender || 'neutral',
+          voice_locale: prefs.voice_locale || "en-CA",
+          voice_gender: prefs.voice_gender || "neutral",
           voice_speed: prefs.voice_speed || 1.0,
-          morning_brief_time: prefs.morning_brief_time || '07:30',
+          morning_brief_time: prefs.morning_brief_time || "07:30",
           javis_enabled: prefs.javis_enabled ?? true,
-          timezone: prefs.timezone || 'America/Toronto',
+          timezone: prefs.timezone || "America/Toronto",
           notify_channels: prefs.notify_channels || {
             in_app: true,
             email: false,
             sms: false,
-            push: true
-          }
+            push: true,
+          },
         });
       }
     } catch (error) {
-      console.error('Error loading preferences:', error);
+      console.error("Error loading preferences:", error);
     } finally {
       setLoading(false);
     }
@@ -75,57 +77,70 @@ export function JavisPreferences() {
   const savePreferences = async () => {
     try {
       setSaving(true);
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) return;
 
       const { data: profile } = await supabase
-        .from('user_profiles')
-        .select('tenant_id')
-        .eq('id', user.id)
+        .from("user_profiles")
+        .select("tenant_id")
+        .eq("id", user.id)
         .single();
 
       const tenantId = profile?.tenant_id || user.id;
 
       // Ensure tenant and profile exist
-      await supabase.from('tenants').upsert({ id: tenantId, name: preferences.display_name || 'Default Tenant' });
-      await supabase.from('user_profiles').upsert({ id: user.id, tenant_id: tenantId, full_name: preferences.display_name });
+      await supabase
+        .from("tenants")
+        .upsert({
+          id: tenantId,
+          name: preferences.display_name || "Default Tenant",
+        });
+      await supabase
+        .from("user_profiles")
+        .upsert({
+          id: user.id,
+          tenant_id: tenantId,
+          full_name: preferences.display_name,
+        });
 
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/javis-orchestrator/preferences`,
         {
-          method: 'POST',
+          method: "POST",
           headers: {
-            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-            'Content-Type': 'application/json',
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+            "Content-Type": "application/json",
           },
           body: JSON.stringify({
             tenant_id: tenantId,
             user_id: user.id,
-            ...preferences
-          })
-        }
+            ...preferences,
+          }),
+        },
       );
 
-      if (!response.ok) throw new Error('Failed to save preferences');
+      if (!response.ok) throw new Error("Failed to save preferences");
 
-      alert('Preferences saved successfully!');
+      alert("Preferences saved successfully!");
     } catch (error) {
-      console.error('Error saving preferences:', error);
-      alert('Failed to save preferences');
+      console.error("Error saving preferences:", error);
+      alert("Failed to save preferences");
     } finally {
       setSaving(false);
     }
   };
 
   const testVoice = () => {
-    if (!('speechSynthesis' in window)) {
-      alert('Speech synthesis not supported in this browser');
+    if (!("speechSynthesis" in window)) {
+      alert("Speech synthesis not supported in this browser");
       return;
     }
 
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(
-      `Good morning. This is a test of J.A.V.I.S voice output at ${preferences.voice_speed} speed.`
+      `Good morning. This is a test of J.A.V.I.S voice output at ${preferences.voice_speed} speed.`,
     );
     utterance.rate = preferences.voice_speed;
     utterance.pitch = 1.0;
@@ -135,33 +150,40 @@ export function JavisPreferences() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <p className="text-gray-600">Loading preferences...</p>
+      <div className="min-h-screen bg-[#0B0F14] flex items-center justify-center">
+        <p className="text-slate-400">Loading preferences...</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <div className="min-h-screen bg-[#0B0F14] p-6">
       <div className="max-w-3xl mx-auto">
-        <div className="bg-white rounded-2xl shadow-lg p-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-8">
+        <div className="bg-[#11161D] rounded-2xl shadow-lg p-8">
+          <h1 className="text-3xl font-bold text-[#E6EDF3] mb-8">
             J.A.V.I.S Preferences
           </h1>
 
           {/* General Settings */}
           <div className="mb-8">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">General</h2>
+            <h2 className="text-xl font-semibold text-[#E6EDF3] mb-4">
+              General
+            </h2>
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-slate-300 mb-2">
                   Display Name
                 </label>
                 <input
                   type="text"
                   value={preferences.display_name}
-                  onChange={(e) => setPreferences({ ...preferences, display_name: e.target.value })}
+                  onChange={(e) =>
+                    setPreferences({
+                      ...preferences,
+                      display_name: e.target.value,
+                    })
+                  }
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                   placeholder="How J.A.V.I.S should address you"
                 />
@@ -172,10 +194,18 @@ export function JavisPreferences() {
                   type="checkbox"
                   id="javis-enabled"
                   checked={preferences.javis_enabled}
-                  onChange={(e) => setPreferences({ ...preferences, javis_enabled: e.target.checked })}
+                  onChange={(e) =>
+                    setPreferences({
+                      ...preferences,
+                      javis_enabled: e.target.checked,
+                    })
+                  }
                   className="w-4 h-4 text-teal-600 border-gray-300 rounded focus:ring-teal-500"
                 />
-                <label htmlFor="javis-enabled" className="text-sm font-medium text-gray-700">
+                <label
+                  htmlFor="javis-enabled"
+                  className="text-sm font-medium text-slate-300"
+                >
                   Enable J.A.V.I.S Assistant
                 </label>
               </div>
@@ -183,8 +213,8 @@ export function JavisPreferences() {
           </div>
 
           {/* Voice Settings */}
-          <div className="mb-8 pb-8 border-b border-gray-200">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
+          <div className="mb-8 pb-8 border-b border-[#232A33]">
+            <h2 className="text-xl font-semibold text-[#E6EDF3] mb-4 flex items-center gap-2">
               <Volume2 className="w-5 h-5" />
               Voice Settings
             </h2>
@@ -195,21 +225,34 @@ export function JavisPreferences() {
                   type="checkbox"
                   id="prefers-voice"
                   checked={preferences.prefers_voice}
-                  onChange={(e) => setPreferences({ ...preferences, prefers_voice: e.target.checked })}
+                  onChange={(e) =>
+                    setPreferences({
+                      ...preferences,
+                      prefers_voice: e.target.checked,
+                    })
+                  }
                   className="w-4 h-4 text-teal-600 border-gray-300 rounded focus:ring-teal-500"
                 />
-                <label htmlFor="prefers-voice" className="text-sm font-medium text-gray-700">
+                <label
+                  htmlFor="prefers-voice"
+                  className="text-sm font-medium text-slate-300"
+                >
                   Enable voice responses
                 </label>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-slate-300 mb-2">
                   Voice Locale
                 </label>
                 <select
                   value={preferences.voice_locale}
-                  onChange={(e) => setPreferences({ ...preferences, voice_locale: e.target.value })}
+                  onChange={(e) =>
+                    setPreferences({
+                      ...preferences,
+                      voice_locale: e.target.value,
+                    })
+                  }
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                   disabled={!preferences.prefers_voice}
                 >
@@ -221,7 +264,7 @@ export function JavisPreferences() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-slate-300 mb-2">
                   Voice Speed: {preferences.voice_speed.toFixed(1)}x
                 </label>
                 <input
@@ -230,7 +273,12 @@ export function JavisPreferences() {
                   max="2.0"
                   step="0.1"
                   value={preferences.voice_speed}
-                  onChange={(e) => setPreferences({ ...preferences, voice_speed: parseFloat(e.target.value) })}
+                  onChange={(e) =>
+                    setPreferences({
+                      ...preferences,
+                      voice_speed: parseFloat(e.target.value),
+                    })
+                  }
                   className="w-full"
                   disabled={!preferences.prefers_voice}
                 />
@@ -253,21 +301,26 @@ export function JavisPreferences() {
           </div>
 
           {/* Briefing Schedule */}
-          <div className="mb-8 pb-8 border-b border-gray-200">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
+          <div className="mb-8 pb-8 border-b border-[#232A33]">
+            <h2 className="text-xl font-semibold text-[#E6EDF3] mb-4 flex items-center gap-2">
               <Clock className="w-5 h-5" />
               Briefing Schedule
             </h2>
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-slate-300 mb-2">
                   Morning Brief Time
                 </label>
                 <input
                   type="time"
                   value={preferences.morning_brief_time}
-                  onChange={(e) => setPreferences({ ...preferences, morning_brief_time: e.target.value })}
+                  onChange={(e) =>
+                    setPreferences({
+                      ...preferences,
+                      morning_brief_time: e.target.value,
+                    })
+                  }
                   className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                 />
                 <p className="text-xs text-gray-500 mt-1">
@@ -276,19 +329,23 @@ export function JavisPreferences() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-slate-300 mb-2">
                   Timezone
                 </label>
                 <select
                   value={preferences.timezone}
-                  onChange={(e) => setPreferences({ ...preferences, timezone: e.target.value })}
+                  onChange={(e) =>
+                    setPreferences({ ...preferences, timezone: e.target.value })
+                  }
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                 >
                   <option value="America/Toronto">Eastern Time</option>
                   <option value="America/Chicago">Central Time</option>
                   <option value="America/Denver">Mountain Time</option>
                   <option value="America/Los_Angeles">Pacific Time</option>
-                  <option value="America/Vancouver">Pacific Time (Vancouver)</option>
+                  <option value="America/Vancouver">
+                    Pacific Time (Vancouver)
+                  </option>
                 </select>
               </div>
             </div>
@@ -296,7 +353,7 @@ export function JavisPreferences() {
 
           {/* Notification Channels */}
           <div className="mb-8">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
+            <h2 className="text-xl font-semibold text-[#E6EDF3] mb-4 flex items-center gap-2">
               <Bell className="w-5 h-5" />
               Notification Channels
             </h2>
@@ -307,13 +364,21 @@ export function JavisPreferences() {
                   type="checkbox"
                   id="notify-in-app"
                   checked={preferences.notify_channels.in_app}
-                  onChange={(e) => setPreferences({
-                    ...preferences,
-                    notify_channels: { ...preferences.notify_channels, in_app: e.target.checked }
-                  })}
+                  onChange={(e) =>
+                    setPreferences({
+                      ...preferences,
+                      notify_channels: {
+                        ...preferences.notify_channels,
+                        in_app: e.target.checked,
+                      },
+                    })
+                  }
                   className="w-4 h-4 text-teal-600 border-gray-300 rounded focus:ring-teal-500"
                 />
-                <label htmlFor="notify-in-app" className="text-sm font-medium text-gray-700">
+                <label
+                  htmlFor="notify-in-app"
+                  className="text-sm font-medium text-slate-300"
+                >
                   In-app notifications
                 </label>
               </div>
@@ -323,13 +388,21 @@ export function JavisPreferences() {
                   type="checkbox"
                   id="notify-push"
                   checked={preferences.notify_channels.push}
-                  onChange={(e) => setPreferences({
-                    ...preferences,
-                    notify_channels: { ...preferences.notify_channels, push: e.target.checked }
-                  })}
+                  onChange={(e) =>
+                    setPreferences({
+                      ...preferences,
+                      notify_channels: {
+                        ...preferences.notify_channels,
+                        push: e.target.checked,
+                      },
+                    })
+                  }
                   className="w-4 h-4 text-teal-600 border-gray-300 rounded focus:ring-teal-500"
                 />
-                <label htmlFor="notify-push" className="text-sm font-medium text-gray-700">
+                <label
+                  htmlFor="notify-push"
+                  className="text-sm font-medium text-slate-300"
+                >
                   Push notifications
                 </label>
               </div>
@@ -339,13 +412,21 @@ export function JavisPreferences() {
                   type="checkbox"
                   id="notify-email"
                   checked={preferences.notify_channels.email}
-                  onChange={(e) => setPreferences({
-                    ...preferences,
-                    notify_channels: { ...preferences.notify_channels, email: e.target.checked }
-                  })}
+                  onChange={(e) =>
+                    setPreferences({
+                      ...preferences,
+                      notify_channels: {
+                        ...preferences.notify_channels,
+                        email: e.target.checked,
+                      },
+                    })
+                  }
                   className="w-4 h-4 text-teal-600 border-gray-300 rounded focus:ring-teal-500"
                 />
-                <label htmlFor="notify-email" className="text-sm font-medium text-gray-700">
+                <label
+                  htmlFor="notify-email"
+                  className="text-sm font-medium text-slate-300"
+                >
                   Email notifications
                 </label>
               </div>
@@ -355,14 +436,22 @@ export function JavisPreferences() {
                   type="checkbox"
                   id="notify-sms"
                   checked={preferences.notify_channels.sms}
-                  onChange={(e) => setPreferences({
-                    ...preferences,
-                    notify_channels: { ...preferences.notify_channels, sms: e.target.checked }
-                  })}
+                  onChange={(e) =>
+                    setPreferences({
+                      ...preferences,
+                      notify_channels: {
+                        ...preferences.notify_channels,
+                        sms: e.target.checked,
+                      },
+                    })
+                  }
                   className="w-4 h-4 text-teal-600 border-gray-300 rounded focus:ring-teal-500"
                   disabled
                 />
-                <label htmlFor="notify-sms" className="text-sm font-medium text-gray-700">
+                <label
+                  htmlFor="notify-sms"
+                  className="text-sm font-medium text-slate-300"
+                >
                   SMS notifications (coming soon)
                 </label>
               </div>
@@ -373,7 +462,7 @@ export function JavisPreferences() {
           <div className="flex justify-end gap-3">
             <button
               onClick={() => window.history.back()}
-              className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+              className="px-6 py-2 border border-gray-300 text-slate-300 rounded-lg hover:bg-[#0B0F14] transition-colors"
             >
               Cancel
             </button>
@@ -383,7 +472,7 @@ export function JavisPreferences() {
               className="flex items-center gap-2 px-6 py-2 bg-teal-500 text-white rounded-lg hover:bg-teal-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               <Save className="w-4 h-4" />
-              {saving ? 'Saving...' : 'Save Preferences'}
+              {saving ? "Saving..." : "Save Preferences"}
             </button>
           </div>
         </div>

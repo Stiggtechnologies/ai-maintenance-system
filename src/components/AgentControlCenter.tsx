@@ -1,17 +1,15 @@
 // SyncAI Agent Control Center
 // AI Agent Monitoring and Management Interface
 
-import { useState } from 'react';
-import { 
-  Bot, Play, Settings, Activity, MessageSquare
-} from 'lucide-react';
+import { useState } from "react";
+import { Bot, Play, Settings, Activity, MessageSquare } from "lucide-react";
 
 interface Agent {
   id: string;
   name: string;
   role: string;
-  status: 'active' | 'idle' | 'error' | 'disabled';
-  autonomyLevel: 'manual' | 'advisory' | 'autonomous';
+  status: "active" | "idle" | "error" | "disabled";
+  autonomyLevel: "manual" | "advisory" | "autonomous";
   tasksToday: number;
   insightsGenerated: number;
   avgResponseTime: number;
@@ -21,109 +19,243 @@ interface Agent {
 
 const agents: Agent[] = [
   {
-    id: '1', name: 'Maintenance Strategy Agent', role: 'Strategy Development',
-    status: 'active', autonomyLevel: 'autonomous', tasksToday: 12, insightsGenerated: 8,
-    avgResponseTime: 2.3, lastActivity: '2 min ago',
-    capabilities: ['Strategy development', 'Policy generation', 'Best practice identification']
+    id: "1",
+    name: "Maintenance Strategy Agent",
+    role: "Strategy Development",
+    status: "active",
+    autonomyLevel: "autonomous",
+    tasksToday: 12,
+    insightsGenerated: 8,
+    avgResponseTime: 2.3,
+    lastActivity: "2 min ago",
+    capabilities: [
+      "Strategy development",
+      "Policy generation",
+      "Best practice identification",
+    ],
   },
   {
-    id: '2', name: 'Asset Management Agent', role: 'Asset Lifecycle',
-    status: 'active', autonomyLevel: 'autonomous', tasksToday: 34, insightsGenerated: 21,
-    avgResponseTime: 1.1, lastActivity: '30 sec ago',
-    capabilities: ['Criticality analysis', 'Life cycle optimization', 'Depreciation tracking']
+    id: "2",
+    name: "Asset Management Agent",
+    role: "Asset Lifecycle",
+    status: "active",
+    autonomyLevel: "autonomous",
+    tasksToday: 34,
+    insightsGenerated: 21,
+    avgResponseTime: 1.1,
+    lastActivity: "30 sec ago",
+    capabilities: [
+      "Criticality analysis",
+      "Life cycle optimization",
+      "Depreciation tracking",
+    ],
   },
   {
-    id: '3', name: 'Reliability Engineering Agent', role: 'Predictive Analytics',
-    status: 'active', autonomyLevel: 'advisory', tasksToday: 89, insightsGenerated: 56,
-    avgResponseTime: 0.8, lastActivity: '10 sec ago',
-    capabilities: ['Failure prediction', 'Root cause analysis', 'Pattern detection']
+    id: "3",
+    name: "Reliability Engineering Agent",
+    role: "Predictive Analytics",
+    status: "active",
+    autonomyLevel: "advisory",
+    tasksToday: 89,
+    insightsGenerated: 56,
+    avgResponseTime: 0.8,
+    lastActivity: "10 sec ago",
+    capabilities: [
+      "Failure prediction",
+      "Root cause analysis",
+      "Pattern detection",
+    ],
   },
   {
-    id: '4', name: 'Planning & Scheduling Agent', role: 'Work Order Optimization',
-    status: 'active', autonomyLevel: 'autonomous', tasksToday: 45, insightsGenerated: 32,
-    avgResponseTime: 1.5, lastActivity: '1 min ago',
-    capabilities: ['Schedule optimization', 'Resource allocation', 'Backlog management']
+    id: "4",
+    name: "Planning & Scheduling Agent",
+    role: "Work Order Optimization",
+    status: "active",
+    autonomyLevel: "autonomous",
+    tasksToday: 45,
+    insightsGenerated: 32,
+    avgResponseTime: 1.5,
+    lastActivity: "1 min ago",
+    capabilities: [
+      "Schedule optimization",
+      "Resource allocation",
+      "Backlog management",
+    ],
   },
   {
-    id: '5', name: 'Work Order Agent', role: 'Execution Management',
-    status: 'active', autonomyLevel: 'autonomous', tasksToday: 67, insightsGenerated: 43,
-    avgResponseTime: 0.9, lastActivity: '45 sec ago',
-    capabilities: ['WO creation', 'Task assignment', 'Status tracking']
+    id: "5",
+    name: "Work Order Agent",
+    role: "Execution Management",
+    status: "active",
+    autonomyLevel: "autonomous",
+    tasksToday: 67,
+    insightsGenerated: 43,
+    avgResponseTime: 0.9,
+    lastActivity: "45 sec ago",
+    capabilities: ["WO creation", "Task assignment", "Status tracking"],
   },
   {
-    id: '6', name: 'Condition Monitoring Agent', role: 'Real-time Analytics',
-    status: 'active', autonomyLevel: 'advisory', tasksToday: 234, insightsGenerated: 89,
-    avgResponseTime: 0.2, lastActivity: '5 sec ago',
-    capabilities: ['Anomaly detection', 'Threshold monitoring', 'Trend analysis']
+    id: "6",
+    name: "Condition Monitoring Agent",
+    role: "Real-time Analytics",
+    status: "active",
+    autonomyLevel: "advisory",
+    tasksToday: 234,
+    insightsGenerated: 89,
+    avgResponseTime: 0.2,
+    lastActivity: "5 sec ago",
+    capabilities: [
+      "Anomaly detection",
+      "Threshold monitoring",
+      "Trend analysis",
+    ],
   },
   {
-    id: '7', name: 'Inventory Agent', role: 'Spare Parts Management',
-    status: 'idle', autonomyLevel: 'autonomous', tasksToday: 8, insightsGenerated: 12,
-    avgResponseTime: 3.2, lastActivity: '45 min ago',
-    capabilities: ['Reorder suggestions', 'Inventory optimization', 'Lead time tracking']
+    id: "7",
+    name: "Inventory Agent",
+    role: "Spare Parts Management",
+    status: "idle",
+    autonomyLevel: "autonomous",
+    tasksToday: 8,
+    insightsGenerated: 12,
+    avgResponseTime: 3.2,
+    lastActivity: "45 min ago",
+    capabilities: [
+      "Reorder suggestions",
+      "Inventory optimization",
+      "Lead time tracking",
+    ],
   },
   {
-    id: '8', name: 'Operations Agent', role: 'Day-to-Day Management',
-    status: 'active', autonomyLevel: 'autonomous', tasksToday: 156, insightsGenerated: 78,
-    avgResponseTime: 0.5, lastActivity: '15 sec ago',
-    capabilities: ['Task orchestration', 'Resource coordination', 'Escalation handling']
+    id: "8",
+    name: "Operations Agent",
+    role: "Day-to-Day Management",
+    status: "active",
+    autonomyLevel: "autonomous",
+    tasksToday: 156,
+    insightsGenerated: 78,
+    avgResponseTime: 0.5,
+    lastActivity: "15 sec ago",
+    capabilities: [
+      "Task orchestration",
+      "Resource coordination",
+      "Escalation handling",
+    ],
   },
   {
-    id: '9', name: 'Quality Assurance Agent', role: 'Compliance & Standards',
-    status: 'active', autonomyLevel: 'advisory', tasksToday: 23, insightsGenerated: 15,
-    avgResponseTime: 2.1, lastActivity: '5 min ago',
-    capabilities: ['Audit prep', 'Compliance checking', 'Documentation review']
+    id: "9",
+    name: "Quality Assurance Agent",
+    role: "Compliance & Standards",
+    status: "active",
+    autonomyLevel: "advisory",
+    tasksToday: 23,
+    insightsGenerated: 15,
+    avgResponseTime: 2.1,
+    lastActivity: "5 min ago",
+    capabilities: ["Audit prep", "Compliance checking", "Documentation review"],
   },
   {
-    id: '10', name: 'Sustainability Agent', role: 'ESG Monitoring',
-    status: 'active', autonomyLevel: 'advisory', tasksToday: 12, insightsGenerated: 7,
-    avgResponseTime: 4.5, lastActivity: '10 min ago',
-    capabilities: ['Carbon tracking', 'Energy optimization', 'Sustainability reporting']
+    id: "10",
+    name: "Sustainability Agent",
+    role: "ESG Monitoring",
+    status: "active",
+    autonomyLevel: "advisory",
+    tasksToday: 12,
+    insightsGenerated: 7,
+    avgResponseTime: 4.5,
+    lastActivity: "10 min ago",
+    capabilities: [
+      "Carbon tracking",
+      "Energy optimization",
+      "Sustainability reporting",
+    ],
   },
   {
-    id: '11', name: 'Financial Intelligence Agent', role: 'Cost Optimization',
-    status: 'active', autonomyLevel: 'advisory', tasksToday: 18, insightsGenerated: 11,
-    avgResponseTime: 2.8, lastActivity: '8 min ago',
-    capabilities: ['Cost analysis', 'Budget forecasting', 'ROI calculation']
+    id: "11",
+    name: "Financial Intelligence Agent",
+    role: "Cost Optimization",
+    status: "active",
+    autonomyLevel: "advisory",
+    tasksToday: 18,
+    insightsGenerated: 11,
+    avgResponseTime: 2.8,
+    lastActivity: "8 min ago",
+    capabilities: ["Cost analysis", "Budget forecasting", "ROI calculation"],
   },
   {
-    id: '12', name: 'Safety Agent', role: 'Risk Management',
-    status: 'active', autonomyLevel: 'autonomous', tasksToday: 34, insightsGenerated: 22,
-    avgResponseTime: 0.6, lastActivity: '2 min ago',
-    capabilities: ['Risk assessment', 'Incident prediction', 'Safety alerts']
+    id: "12",
+    name: "Safety Agent",
+    role: "Risk Management",
+    status: "active",
+    autonomyLevel: "autonomous",
+    tasksToday: 34,
+    insightsGenerated: 22,
+    avgResponseTime: 0.6,
+    lastActivity: "2 min ago",
+    capabilities: ["Risk assessment", "Incident prediction", "Safety alerts"],
   },
   {
-    id: '13', name: 'Procurement Agent', role: 'Vendor Management',
-    status: 'idle', autonomyLevel: 'advisory', tasksToday: 5, insightsGenerated: 8,
-    avgResponseTime: 5.2, lastActivity: '2 hours ago',
-    capabilities: ['Vendor selection', 'Price negotiation', 'Contract management']
+    id: "13",
+    name: "Procurement Agent",
+    role: "Vendor Management",
+    status: "idle",
+    autonomyLevel: "advisory",
+    tasksToday: 5,
+    insightsGenerated: 8,
+    avgResponseTime: 5.2,
+    lastActivity: "2 hours ago",
+    capabilities: [
+      "Vendor selection",
+      "Price negotiation",
+      "Contract management",
+    ],
   },
   {
-    id: '14', name: 'Training Agent', role: 'Skill Development',
-    status: 'active', autonomyLevel: 'autonomous', tasksToday: 15, insightsGenerated: 9,
-    avgResponseTime: 1.8, lastActivity: '12 min ago',
-    capabilities: ['Skill assessment', 'Training recommendations', 'Certification tracking']
+    id: "14",
+    name: "Training Agent",
+    role: "Skill Development",
+    status: "active",
+    autonomyLevel: "autonomous",
+    tasksToday: 15,
+    insightsGenerated: 9,
+    avgResponseTime: 1.8,
+    lastActivity: "12 min ago",
+    capabilities: [
+      "Skill assessment",
+      "Training recommendations",
+      "Certification tracking",
+    ],
   },
   {
-    id: '15', name: 'Central Coordination Agent', role: 'Cross-System Integration',
-    status: 'active', autonomyLevel: 'autonomous', tasksToday: 78, insightsGenerated: 45,
-    avgResponseTime: 0.4, lastActivity: '20 sec ago',
-    capabilities: ['Multi-agent coordination', 'Cross-system insights', 'Escalation management']
+    id: "15",
+    name: "Central Coordination Agent",
+    role: "Cross-System Integration",
+    status: "active",
+    autonomyLevel: "autonomous",
+    tasksToday: 78,
+    insightsGenerated: 45,
+    avgResponseTime: 0.4,
+    lastActivity: "20 sec ago",
+    capabilities: [
+      "Multi-agent coordination",
+      "Cross-system insights",
+      "Escalation management",
+    ],
   },
 ];
 
 function AgentCard({ agent }: { agent: Agent }) {
   const statusColors = {
-    active: 'bg-emerald-500',
-    idle: 'bg-gray-500', 
-    error: 'bg-red-500',
-    disabled: 'bg-amber-500'
+    active: "bg-emerald-500",
+    idle: "bg-[#0B0F14]0",
+    error: "bg-red-500",
+    disabled: "bg-amber-500",
   };
 
   const autonomyColors = {
-    manual: 'text-gray-400',
-    advisory: 'text-amber-400',
-    autonomous: 'text-emerald-400'
+    manual: "text-gray-400",
+    advisory: "text-amber-400",
+    autonomous: "text-emerald-400",
   };
 
   return (
@@ -138,11 +270,15 @@ function AgentCard({ agent }: { agent: Agent }) {
             <p className="text-xs text-gray-400">{agent.role}</p>
           </div>
         </div>
-        <span className={`w-2.5 h-2.5 rounded-full ${statusColors[agent.status]}`} />
+        <span
+          className={`w-2.5 h-2.5 rounded-full ${statusColors[agent.status]}`}
+        />
       </div>
 
       <div className="flex items-center gap-2 mb-3">
-        <span className={`text-xs px-2 py-0.5 rounded ${autonomyColors[agent.autonomyLevel]} bg-[#2A3344]`}>
+        <span
+          className={`text-xs px-2 py-0.5 rounded ${autonomyColors[agent.autonomyLevel]} bg-[#2A3344]`}
+        >
           {agent.autonomyLevel.toUpperCase()}
         </span>
       </div>
@@ -153,11 +289,15 @@ function AgentCard({ agent }: { agent: Agent }) {
           <div className="text-gray-500">Tasks</div>
         </div>
         <div className="bg-[#11161D] rounded p-2 text-center">
-          <div className="text-lg font-bold text-blue-400">{agent.insightsGenerated}</div>
+          <div className="text-lg font-bold text-blue-400">
+            {agent.insightsGenerated}
+          </div>
           <div className="text-gray-500">Insights</div>
         </div>
         <div className="bg-[#11161D] rounded p-2 text-center">
-          <div className="text-lg font-bold text-amber-400">{agent.avgResponseTime}s</div>
+          <div className="text-lg font-bold text-amber-400">
+            {agent.avgResponseTime}s
+          </div>
           <div className="text-gray-500">Avg Time</div>
         </div>
       </div>
@@ -184,20 +324,23 @@ function AgentCard({ agent }: { agent: Agent }) {
 }
 
 export function AgentControlCenter() {
-  const [filter, setFilter] = useState<'all' | 'active' | 'idle' | 'error'>('all');
-  const [search, setSearch] = useState('');
+  const [filter, setFilter] = useState<"all" | "active" | "idle" | "error">(
+    "all",
+  );
+  const [search, setSearch] = useState("");
 
-  const filteredAgents = agents.filter(agent => {
-    if (filter !== 'all' && agent.status !== filter) return false;
-    if (search && !agent.name.toLowerCase().includes(search.toLowerCase())) return false;
+  const filteredAgents = agents.filter((agent) => {
+    if (filter !== "all" && agent.status !== filter) return false;
+    if (search && !agent.name.toLowerCase().includes(search.toLowerCase()))
+      return false;
     return true;
   });
 
   const stats = {
     total: agents.length,
-    active: agents.filter(a => a.status === 'active').length,
+    active: agents.filter((a) => a.status === "active").length,
     tasksToday: agents.reduce((acc, a) => acc + a.tasksToday, 0),
-    insightsToday: agents.reduce((acc, a) => acc + a.insightsGenerated, 0)
+    insightsToday: agents.reduce((acc, a) => acc + a.insightsGenerated, 0),
   };
 
   return (
@@ -223,15 +366,21 @@ export function AgentControlCenter() {
           <div className="text-sm text-gray-400">Total Agents</div>
         </div>
         <div className="bg-[#1A1F2E] rounded-lg p-4 border border-[#2A3344]">
-          <div className="text-3xl font-bold text-emerald-400">{stats.active}</div>
+          <div className="text-3xl font-bold text-emerald-400">
+            {stats.active}
+          </div>
           <div className="text-sm text-gray-400">Active Now</div>
         </div>
         <div className="bg-[#1A1F2E] rounded-lg p-4 border border-[#2A3344]">
-          <div className="text-3xl font-bold text-blue-400">{stats.tasksToday}</div>
+          <div className="text-3xl font-bold text-blue-400">
+            {stats.tasksToday}
+          </div>
           <div className="text-sm text-gray-400">Tasks Today</div>
         </div>
         <div className="bg-[#1A1F2E] rounded-lg p-4 border border-[#2A3344]">
-          <div className="text-3xl font-bold text-amber-400">{stats.insightsToday}</div>
+          <div className="text-3xl font-bold text-amber-400">
+            {stats.insightsToday}
+          </div>
           <div className="text-sm text-gray-400">Insights Today</div>
         </div>
       </div>
@@ -240,8 +389,8 @@ export function AgentControlCenter() {
       <div className="flex items-center gap-4 mb-6">
         <div className="relative flex-1 max-w-md">
           <Bot className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
-          <input 
-            type="text" 
+          <input
+            type="text"
             placeholder="Search agents..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -249,14 +398,14 @@ export function AgentControlCenter() {
           />
         </div>
         <div className="flex gap-2">
-          {(['all', 'active', 'idle', 'error'] as const).map(f => (
+          {(["all", "active", "idle", "error"] as const).map((f) => (
             <button
               key={f}
               onClick={() => setFilter(f)}
               className={`px-3 py-1.5 rounded-lg text-sm capitalize ${
-                filter === f 
-                  ? 'bg-blue-600 text-white' 
-                  : 'bg-[#1A1F2E] text-gray-400 hover:bg-[#2A3344]'
+                filter === f
+                  ? "bg-blue-600 text-white"
+                  : "bg-[#1A1F2E] text-gray-400 hover:bg-[#2A3344]"
               }`}
             >
               {f}
@@ -267,7 +416,7 @@ export function AgentControlCenter() {
 
       {/* Agent Grid */}
       <div className="grid grid-cols-3 gap-4">
-        {filteredAgents.map(agent => (
+        {filteredAgents.map((agent) => (
           <AgentCard key={agent.id} agent={agent} />
         ))}
       </div>

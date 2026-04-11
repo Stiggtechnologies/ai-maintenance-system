@@ -1,7 +1,16 @@
-import { useState, useEffect } from 'react';
-import { CheckCircle2, Circle, Sparkles, Upload, Bot, TrendingUp, X } from 'lucide-react';
-import { supabase } from '../lib/supabase';
-import { useAuth } from './AuthProvider';
+/* eslint-disable @typescript-eslint/no-explicit-any, react-hooks/exhaustive-deps */
+import { useState, useEffect } from "react";
+import {
+  CheckCircle2,
+  Circle,
+  Sparkles,
+  Upload,
+  Bot,
+  TrendingUp,
+  X,
+} from "lucide-react";
+import { supabase } from "../lib/supabase";
+import { useAuth } from "./AuthProvider";
 
 interface OnboardingStep {
   id: string;
@@ -17,33 +26,33 @@ export function OnboardingWizard() {
   const [currentStep, setCurrentStep] = useState(0);
   const [steps, setSteps] = useState<OnboardingStep[]>([
     {
-      id: 'profile',
-      title: 'Complete Your Profile',
-      description: 'Tell us about your organization',
+      id: "profile",
+      title: "Complete Your Profile",
+      description: "Tell us about your organization",
       icon: Circle,
-      completed: false
+      completed: false,
     },
     {
-      id: 'assets',
-      title: 'Add Your First Assets',
-      description: 'Import or create assets to monitor',
+      id: "assets",
+      title: "Add Your First Assets",
+      description: "Import or create assets to monitor",
       icon: Upload,
-      completed: false
+      completed: false,
     },
     {
-      id: 'agents',
-      title: 'Activate AI Agents',
-      description: 'Enable intelligent monitoring',
+      id: "agents",
+      title: "Activate AI Agents",
+      description: "Enable intelligent monitoring",
       icon: Bot,
-      completed: false
+      completed: false,
     },
     {
-      id: 'insights',
-      title: 'Review First Insights',
-      description: 'See what AI discovered',
+      id: "insights",
+      title: "Review First Insights",
+      description: "See what AI discovered",
       icon: TrendingUp,
-      completed: false
-    }
+      completed: false,
+    },
   ]);
 
   useEffect(() => {
@@ -53,15 +62,24 @@ export function OnboardingWizard() {
   const checkOnboardingStatus = async () => {
     if (!user) return;
 
-    const [{ data: profile }, { count: assetsCount }, { count: agentsCount }, { count: insightsCount }] = await Promise.all([
+    const [
+      { data: profile },
+      { count: assetsCount },
+      { count: agentsCount },
+      { count: insightsCount },
+    ] = await Promise.all([
       supabase
-        .from('user_profiles')
-        .select('onboarding_completed, onboarding_progress, full_name')
-        .eq('id', user.id)
+        .from("user_profiles")
+        .select("onboarding_completed, onboarding_progress, full_name")
+        .eq("id", user.id)
         .single(),
-      supabase.from('assets').select('*', { count: 'exact', head: true }),
-      supabase.from('openclaw_agents').select('*', { count: 'exact', head: true }),
-      supabase.from('ai_agent_logs').select('*', { count: 'exact', head: true })
+      supabase.from("assets").select("*", { count: "exact", head: true }),
+      supabase
+        .from("openclaw_agents")
+        .select("*", { count: "exact", head: true }),
+      supabase
+        .from("ai_agent_logs")
+        .select("*", { count: "exact", head: true }),
     ]);
 
     if (!profile?.onboarding_completed) {
@@ -71,7 +89,7 @@ export function OnboardingWizard() {
         profile: Boolean(profile?.full_name),
         assets: (assetsCount || 0) > 0,
         agents: (agentsCount || 0) > 0,
-        insights: (insightsCount || 0) > 0
+        insights: (insightsCount || 0) > 0,
       };
 
       if (profile?.onboarding_progress) {
@@ -79,56 +97,61 @@ export function OnboardingWizard() {
         Object.assign(derivedProgress, progress);
       }
 
-      setSteps(prev => prev.map(step => ({
-        ...step,
-        completed: derivedProgress[step.id] || false
-      })));
+      setSteps((prev) =>
+        prev.map((step) => ({
+          ...step,
+          completed: derivedProgress[step.id] || false,
+        })),
+      );
     }
   };
 
   const openStep = (stepId: string) => {
-    window.dispatchEvent(new CustomEvent('onboarding:navigate', { detail: { stepId } }));
+    window.dispatchEvent(
+      new CustomEvent("onboarding:navigate", { detail: { stepId } }),
+    );
     setShow(false);
   };
 
   const dismissOnboarding = async () => {
     if (!user) return;
-    
-    await supabase
-      .from('user_profiles')
-      .upsert({
-        id: user.id,
-        onboarding_completed: true
-      });
-    
+
+    await supabase.from("user_profiles").upsert({
+      id: user.id,
+      onboarding_completed: true,
+    });
+
     setShow(false);
   };
 
   if (!show) return null;
 
-  const progress = (steps.filter(s => s.completed).length / steps.length) * 100;
-  const allComplete = steps.every(s => s.completed);
+  const progress =
+    (steps.filter((s) => s.completed).length / steps.length) * 100;
+  const allComplete = steps.every((s) => s.completed);
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-300">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full overflow-hidden animate-in zoom-in-95 duration-300">
+      <div className="bg-[#11161D] rounded-2xl shadow-2xl max-w-2xl w-full overflow-hidden animate-in zoom-in-95 duration-300">
         {/* Header */}
         <div className="bg-gradient-to-r from-teal-600 via-blue-600 to-purple-600 p-8 text-white relative overflow-hidden">
           <div className="absolute inset-0 bg-black/10"></div>
           <div className="relative">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center space-x-3">
-                <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm">
+                <div className="w-12 h-12 bg-[#11161D]/20 rounded-xl flex items-center justify-center backdrop-blur-sm">
                   <Sparkles className="w-7 h-7" />
                 </div>
                 <div>
                   <h2 className="text-2xl font-bold">Welcome to SyncAI</h2>
-                  <p className="text-teal-100">Let's get you started in 4 simple steps</p>
+                  <p className="text-teal-100">
+                    Let's get you started in 4 simple steps
+                  </p>
                 </div>
               </div>
               <button
                 onClick={dismissOnboarding}
-                className="w-8 h-8 rounded-lg bg-white/20 hover:bg-white/30 transition-colors flex items-center justify-center"
+                className="w-8 h-8 rounded-lg bg-[#11161D]/20 hover:bg-[#11161D]/30 transition-colors flex items-center justify-center"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -138,11 +161,13 @@ export function OnboardingWizard() {
             <div className="mt-6">
               <div className="flex justify-between text-sm mb-2">
                 <span>Progress</span>
-                <span className="font-semibold">{Math.round(progress)}% Complete</span>
+                <span className="font-semibold">
+                  {Math.round(progress)}% Complete
+                </span>
               </div>
-              <div className="h-2 bg-white/20 rounded-full overflow-hidden">
+              <div className="h-2 bg-[#11161D]/20 rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-white rounded-full transition-all duration-500 ease-out"
+                  className="h-full bg-[#11161D] rounded-full transition-all duration-500 ease-out"
                   style={{ width: `${progress}%` }}
                 />
               </div>
@@ -159,20 +184,20 @@ export function OnboardingWizard() {
                 onClick={() => setCurrentStep(index)}
                 className={`w-full text-left p-6 rounded-xl border-2 transition-all duration-200 ${
                   currentStep === index
-                    ? 'border-teal-500 bg-teal-50 shadow-lg shadow-teal-100'
+                    ? "border-teal-500 bg-teal-50 shadow-lg shadow-teal-100"
                     : step.completed
-                    ? 'border-green-200 bg-green-50'
-                    : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                      ? "border-green-200 bg-green-50"
+                      : "border-[#232A33] hover:border-gray-300 hover:bg-[#0B0F14]"
                 }`}
               >
                 <div className="flex items-start space-x-4">
                   <div
                     className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${
                       step.completed
-                        ? 'bg-green-500 text-white'
+                        ? "bg-green-500 text-white"
                         : currentStep === index
-                        ? 'bg-teal-600 text-white'
-                        : 'bg-gray-200 text-gray-600'
+                          ? "bg-teal-600 text-white"
+                          : "bg-gray-200 text-slate-400"
                     }`}
                   >
                     {step.completed ? (
@@ -182,14 +207,22 @@ export function OnboardingWizard() {
                     )}
                   </div>
                   <div className="flex-1">
-                    <h3 className={`font-semibold mb-1 ${
-                      currentStep === index ? 'text-teal-900' : 'text-gray-900'
-                    }`}>
+                    <h3
+                      className={`font-semibold mb-1 ${
+                        currentStep === index
+                          ? "text-teal-900"
+                          : "text-[#E6EDF3]"
+                      }`}
+                    >
                       {step.title}
                     </h3>
-                    <p className={`text-sm ${
-                      currentStep === index ? 'text-teal-700' : 'text-gray-600'
-                    }`}>
+                    <p
+                      className={`text-sm ${
+                        currentStep === index
+                          ? "text-teal-700"
+                          : "text-slate-400"
+                      }`}
+                    >
                       {step.description}
                     </p>
                   </div>
@@ -220,7 +253,8 @@ export function OnboardingWizard() {
                     🎉 Onboarding Complete!
                   </h3>
                   <p className="text-sm text-green-700">
-                    You're all set. Start exploring your AI-powered maintenance platform.
+                    You're all set. Start exploring your AI-powered maintenance
+                    platform.
                   </p>
                 </div>
                 <button
@@ -236,7 +270,9 @@ export function OnboardingWizard() {
 
         {/* Quick Actions */}
         <div className="px-8 pb-8 pt-4 border-t">
-          <p className="text-sm text-gray-600 mb-3">Need help getting started?</p>
+          <p className="text-sm text-slate-400 mb-3">
+            Need help getting started?
+          </p>
           <div className="flex space-x-3">
             <a
               href="#"

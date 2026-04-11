@@ -61,20 +61,20 @@ export function PerformanceDashboard() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">
+        <h1 className="text-2xl font-bold text-[#E6EDF3]">
           Performance Dashboard
         </h1>
-        <p className="text-slate-600 mt-1">
+        <p className="text-slate-400 mt-1">
           Operational metrics and equipment effectiveness
         </p>
       </div>
 
       {/* OEE Overview */}
       {oeeData && (
-        <div className="bg-white border border-slate-200 rounded-xl p-6">
+        <div className="bg-[#11161D] border border-[#232A33] rounded-xl p-6">
           <div className="flex items-center gap-2 mb-6">
-            <Activity size={20} className="text-slate-600" />
-            <h2 className="text-lg font-semibold text-slate-900">
+            <Activity size={20} className="text-slate-400" />
+            <h2 className="text-lg font-semibold text-[#E6EDF3]">
               Overall Equipment Effectiveness
             </h2>
             <span className="text-sm text-slate-500 ml-auto">
@@ -84,7 +84,7 @@ export function PerformanceDashboard() {
 
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             <div className="text-center">
-              <div className="text-sm text-slate-600 mb-3">OEE</div>
+              <div className="text-sm text-slate-400 mb-3">OEE</div>
               <div className="relative inline-flex items-center justify-center">
                 <svg className="transform -rotate-90 w-32 h-32">
                   <circle
@@ -109,14 +109,14 @@ export function PerformanceDashboard() {
                     strokeLinecap="round"
                   />
                 </svg>
-                <div className="absolute text-2xl font-bold text-slate-900">
+                <div className="absolute text-2xl font-bold text-[#E6EDF3]">
                   {(oeeData.oee || 0).toFixed(1)}%
                 </div>
               </div>
             </div>
 
             <div className="text-center">
-              <div className="text-sm text-slate-600 mb-3">Availability</div>
+              <div className="text-sm text-slate-400 mb-3">Availability</div>
               <div className="relative inline-flex items-center justify-center">
                 <svg className="transform -rotate-90 w-32 h-32">
                   <circle
@@ -141,14 +141,14 @@ export function PerformanceDashboard() {
                     strokeLinecap="round"
                   />
                 </svg>
-                <div className="absolute text-2xl font-bold text-slate-900">
+                <div className="absolute text-2xl font-bold text-[#E6EDF3]">
                   {(oeeData.availability || 0).toFixed(1)}%
                 </div>
               </div>
             </div>
 
             <div className="text-center">
-              <div className="text-sm text-slate-600 mb-3">Performance</div>
+              <div className="text-sm text-slate-400 mb-3">Performance</div>
               <div className="relative inline-flex items-center justify-center">
                 <svg className="transform -rotate-90 w-32 h-32">
                   <circle
@@ -173,14 +173,14 @@ export function PerformanceDashboard() {
                     strokeLinecap="round"
                   />
                 </svg>
-                <div className="absolute text-2xl font-bold text-slate-900">
+                <div className="absolute text-2xl font-bold text-[#E6EDF3]">
                   {(oeeData.performance || 0).toFixed(1)}%
                 </div>
               </div>
             </div>
 
             <div className="text-center">
-              <div className="text-sm text-slate-600 mb-3">Quality</div>
+              <div className="text-sm text-slate-400 mb-3">Quality</div>
               <div className="relative inline-flex items-center justify-center">
                 <svg className="transform -rotate-90 w-32 h-32">
                   <circle
@@ -205,7 +205,7 @@ export function PerformanceDashboard() {
                     strokeLinecap="round"
                   />
                 </svg>
-                <div className="absolute text-2xl font-bold text-slate-900">
+                <div className="absolute text-2xl font-bold text-[#E6EDF3]">
                   {(oeeData.quality || 0).toFixed(1)}%
                 </div>
               </div>
@@ -215,10 +215,10 @@ export function PerformanceDashboard() {
       )}
 
       {/* Key Performance Indicators */}
-      <div className="bg-white border border-slate-200 rounded-xl p-6">
+      <div className="bg-[#11161D] border border-[#232A33] rounded-xl p-6">
         <div className="flex items-center gap-2 mb-6">
-          <Target size={20} className="text-slate-600" />
-          <h2 className="text-lg font-semibold text-slate-900">
+          <Target size={20} className="text-slate-400" />
+          <h2 className="text-lg font-semibold text-[#E6EDF3]">
             Key Performance Indicators
           </h2>
         </div>
@@ -228,15 +228,15 @@ export function PerformanceDashboard() {
             operationalKPIs.map((kpi) => (
               <div
                 key={kpi.kpi_code}
-                className="border border-slate-200 rounded-lg p-4"
+                className="border border-[#232A33] rounded-lg p-4"
               >
                 <div className="flex items-start justify-between mb-2">
-                  <div className="text-sm font-medium text-slate-900">
+                  <div className="text-sm font-medium text-[#E6EDF3]">
                     {kpi.kpi_name}
                   </div>
                   <TrendingUp size={16} className="text-green-500" />
                 </div>
-                <div className="text-2xl font-bold text-slate-900">
+                <div className="text-2xl font-bold text-[#E6EDF3]">
                   {kpi.value.toFixed(1)}
                   {kpi.unit && (
                     <span className="text-sm text-slate-500 ml-1">
@@ -259,36 +259,36 @@ export function PerformanceDashboard() {
       </div>
 
       {/* Reliability Metrics */}
-      <div className="bg-white border border-slate-200 rounded-xl p-6">
-        <h2 className="text-lg font-semibold text-slate-900 mb-6">
+      <div className="bg-[#11161D] border border-[#232A33] rounded-xl p-6">
+        <h2 className="text-lg font-semibold text-[#E6EDF3] mb-6">
           Reliability Metrics
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div>
-            <div className="text-sm text-slate-600 mb-2">
+            <div className="text-sm text-slate-400 mb-2">
               Mean Time Between Failures
             </div>
-            <div className="text-3xl font-bold text-slate-900">
+            <div className="text-3xl font-bold text-[#E6EDF3]">
               {kpiValues.find((k) => k.kpi_code === "mtbf")?.value.toFixed(0) ||
                 "—"}
               <span className="text-lg text-slate-500 ml-1">hrs</span>
             </div>
           </div>
           <div>
-            <div className="text-sm text-slate-600 mb-2">
+            <div className="text-sm text-slate-400 mb-2">
               Mean Time To Repair
             </div>
-            <div className="text-3xl font-bold text-slate-900">
+            <div className="text-3xl font-bold text-[#E6EDF3]">
               {kpiValues.find((k) => k.kpi_code === "mttr")?.value.toFixed(1) ||
                 "—"}
               <span className="text-lg text-slate-500 ml-1">hrs</span>
             </div>
           </div>
           <div>
-            <div className="text-sm text-slate-600 mb-2">
+            <div className="text-sm text-slate-400 mb-2">
               Planned vs Unplanned
             </div>
-            <div className="text-3xl font-bold text-slate-900">
+            <div className="text-3xl font-bold text-[#E6EDF3]">
               {kpiValues
                 .find((k) => k.kpi_code === "planned_vs_unplanned")
                 ?.value.toFixed(0) || "—"}

@@ -199,16 +199,16 @@ export function OEEDashboard() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">OEE Dashboard</h1>
+        <h1 className="text-2xl font-bold text-[#E6EDF3]">OEE Dashboard</h1>
         <p className="text-sm text-slate-500 mt-1">
           Overall Equipment Effectiveness across your production lines
         </p>
       </div>
 
       {!hasData ? (
-        <div className="bg-white border border-slate-200 rounded-xl p-12 text-center">
+        <div className="bg-[#11161D] border border-[#232A33] rounded-xl p-12 text-center">
           <Factory className="mx-auto text-slate-300 mb-4" size={48} />
-          <h3 className="text-lg font-semibold text-slate-700">
+          <h3 className="text-lg font-semibold text-slate-300">
             No OEE Data Available
           </h3>
           <p className="text-sm text-slate-500 mt-2">
@@ -241,7 +241,7 @@ export function OEEDashboard() {
                   className={`border rounded-xl p-5 ${getBgColorClass(card.value)}`}
                 >
                   <div className="flex items-center justify-between mb-3">
-                    <span className="text-sm font-medium text-slate-600">
+                    <span className="text-sm font-medium text-slate-400">
                       {card.label}
                     </span>
                     <Icon size={18} className={getColorClass(card.value)} />
@@ -251,7 +251,7 @@ export function OEEDashboard() {
                   >
                     {card.value}%
                   </div>
-                  <div className="mt-2 w-full bg-white/60 rounded-full h-2">
+                  <div className="mt-2 w-full bg-[#11161D]/60 rounded-full h-2">
                     <div
                       className={`h-2 rounded-full ${getBarColor(card.value)}`}
                       style={{ width: `${Math.min(card.value, 100)}%` }}
@@ -263,9 +263,9 @@ export function OEEDashboard() {
           </div>
 
           {/* Production Line Breakdown */}
-          <div className="bg-white border border-slate-200 rounded-xl">
-            <div className="px-6 py-4 border-b border-slate-200">
-              <h2 className="text-lg font-semibold text-slate-900">
+          <div className="bg-[#11161D] border border-[#232A33] rounded-xl">
+            <div className="px-6 py-4 border-b border-[#232A33]">
+              <h2 className="text-lg font-semibold text-[#E6EDF3]">
                 Production Line Breakdown
               </h2>
               <p className="text-sm text-slate-500">
@@ -280,7 +280,7 @@ export function OEEDashboard() {
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
-                    <tr className="border-b border-slate-100">
+                    <tr className="border-b border-[#1A2030]">
                       <th className="text-left px-6 py-3 text-xs font-medium text-slate-500 uppercase tracking-wider">
                         Production Line
                       </th>
@@ -305,9 +305,9 @@ export function OEEDashboard() {
                     {latestByLine.map((line) => (
                       <tr
                         key={line.production_line_id}
-                        className="hover:bg-slate-50"
+                        className="hover:bg-[#0B0F14]"
                       >
-                        <td className="px-6 py-3 text-sm font-medium text-slate-900">
+                        <td className="px-6 py-3 text-sm font-medium text-[#E6EDF3]">
                           {(Array.isArray(line.production_lines)
                             ? line.production_lines[0]?.name
                             : line.production_lines?.name) || "Unknown Line"}
@@ -344,9 +344,9 @@ export function OEEDashboard() {
           </div>
 
           {/* Loss Events */}
-          <div className="bg-white border border-slate-200 rounded-xl">
-            <div className="px-6 py-4 border-b border-slate-200">
-              <h2 className="text-lg font-semibold text-slate-900">
+          <div className="bg-[#11161D] border border-[#232A33] rounded-xl">
+            <div className="px-6 py-4 border-b border-[#232A33]">
+              <h2 className="text-lg font-semibold text-[#E6EDF3]">
                 Loss Events
               </h2>
               <p className="text-sm text-slate-500">
@@ -367,7 +367,7 @@ export function OEEDashboard() {
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-2">
                           <AlertTriangle size={16} className="text-amber-500" />
-                          <span className="text-sm font-semibold text-slate-900">
+                          <span className="text-sm font-semibold text-[#E6EDF3]">
                             {category}
                           </span>
                           <span className="text-xs text-slate-400">
@@ -375,7 +375,7 @@ export function OEEDashboard() {
                             {group.events.length !== 1 ? "s" : ""})
                           </span>
                         </div>
-                        <div className="flex items-center gap-1 text-sm text-slate-600">
+                        <div className="flex items-center gap-1 text-sm text-slate-400">
                           <Clock size={14} />
                           <span className="font-medium">
                             {group.totalMinutes >= 60
@@ -389,7 +389,7 @@ export function OEEDashboard() {
                         {group.events.slice(0, 5).map((event) => (
                           <div
                             key={event.id}
-                            className="flex items-center justify-between text-xs text-slate-600"
+                            className="flex items-center justify-between text-xs text-slate-400"
                           >
                             <span className="truncate flex-1">
                               {event.description || "No description"}

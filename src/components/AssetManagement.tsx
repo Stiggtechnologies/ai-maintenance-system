@@ -66,7 +66,7 @@ export function AssetManagement() {
     degraded: "bg-yellow-100 text-yellow-800",
     failed: "bg-red-100 text-red-800",
     maintenance: "bg-blue-100 text-blue-800",
-    decommissioned: "bg-slate-100 text-slate-600",
+    decommissioned: "bg-[#1A2030] text-slate-400",
   };
 
   if (loading) {
@@ -81,7 +81,7 @@ export function AssetManagement() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-bold text-slate-900">Asset Management</h2>
+          <h2 className="text-xl font-bold text-[#E6EDF3]">Asset Management</h2>
           <p className="text-sm text-slate-500 mt-1">
             {assets.length} assets registered
           </p>
@@ -105,13 +105,13 @@ export function AssetManagement() {
             placeholder="Search assets by name or tag..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full pl-9 pr-4 py-2 border border-[#232A33] rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           />
         </div>
         <select
           value={filterStatus}
           onChange={(e) => setFilterStatus(e.target.value)}
-          className="px-3 py-2 border border-slate-200 rounded-lg text-sm"
+          className="px-3 py-2 border border-[#232A33] rounded-lg text-sm"
         >
           <option value="all">All Statuses</option>
           <option value="operational">Operational</option>
@@ -131,11 +131,11 @@ export function AssetManagement() {
           {filtered.map((asset) => (
             <div
               key={asset.id}
-              className="bg-white border border-slate-200 rounded-xl p-5 hover:border-blue-300 transition-colors"
+              className="bg-[#11161D] border border-[#232A33] rounded-xl p-5 hover:border-blue-300 transition-colors"
             >
               <div className="flex items-start justify-between mb-2">
                 <div>
-                  <h3 className="font-semibold text-slate-900">{asset.name}</h3>
+                  <h3 className="font-semibold text-[#E6EDF3]">{asset.name}</h3>
                   {asset.asset_tag && (
                     <div className="text-xs text-slate-500">
                       {asset.asset_tag}
@@ -143,7 +143,7 @@ export function AssetManagement() {
                   )}
                 </div>
                 <span
-                  className={`text-xs px-2 py-1 rounded-full ${statusColors[asset.status] || "bg-slate-100 text-slate-600"}`}
+                  className={`text-xs px-2 py-1 rounded-full ${statusColors[asset.status] || "bg-[#1A2030] text-slate-400"}`}
                 >
                   {asset.status}
                 </span>

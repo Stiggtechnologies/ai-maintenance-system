@@ -384,12 +384,12 @@ export function JavisDockInteractive() {
 
   return (
     <div
-      className={`fixed bottom-6 right-6 bg-white rounded-lg shadow-2xl border border-gray-200 z-50 transition-all ${
+      className={`fixed bottom-6 right-6 bg-[#11161D] rounded-lg shadow-2xl border border-[#232A33] z-50 transition-all ${
         isMinimized ? "w-80 h-16" : "w-96 h-[600px]"
       }`}
     >
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-gradient-to-r from-teal-50 to-cyan-50">
+      <div className="flex items-center justify-between p-4 border-b border-[#232A33] bg-gradient-to-r from-teal-50 to-cyan-50">
         <div className="flex items-center gap-2">
           <div
             className={`w-3 h-3 rounded-full animate-pulse ${wsConnected ? "bg-green-500" : "bg-red-500"}`}
@@ -402,30 +402,30 @@ export function JavisDockInteractive() {
         <div className="flex items-center gap-2">
           <button
             onClick={() => setVoiceEnabled(!voiceEnabled)}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            className="p-2 hover:bg-[#161C24] rounded-lg transition-colors"
             aria-label={voiceEnabled ? "Disable voice" : "Enable voice"}
           >
             {voiceEnabled ? (
-              <Volume2 className="w-4 h-4 text-gray-600" />
+              <Volume2 className="w-4 h-4 text-slate-400" />
             ) : (
               <VolumeX className="w-4 h-4 text-gray-400" />
             )}
           </button>
           <button
             onClick={() => setIsMinimized(!isMinimized)}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            className="p-2 hover:bg-[#161C24] rounded-lg transition-colors"
           >
             {isMinimized ? (
-              <Maximize2 className="w-4 h-4 text-gray-600" />
+              <Maximize2 className="w-4 h-4 text-slate-400" />
             ) : (
-              <Minimize2 className="w-4 h-4 text-gray-600" />
+              <Minimize2 className="w-4 h-4 text-slate-400" />
             )}
           </button>
           <button
             onClick={() => setIsOpen(false)}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            className="p-2 hover:bg-[#161C24] rounded-lg transition-colors"
           >
-            <X className="w-4 h-4 text-gray-600" />
+            <X className="w-4 h-4 text-slate-400" />
           </button>
         </div>
       </div>
@@ -451,7 +451,7 @@ export function JavisDockInteractive() {
                       ? "bg-teal-500 text-white"
                       : message.role === "system"
                         ? "bg-yellow-50 text-gray-800 border border-yellow-200"
-                        : "bg-gray-100 text-gray-800"
+                        : "bg-[#161C24] text-gray-800"
                   }`}
                 >
                   <div className="text-sm whitespace-pre-wrap">
@@ -466,16 +466,16 @@ export function JavisDockInteractive() {
                           (action: Record<string, unknown>) => (
                             <div
                               key={String(action.id)}
-                              className="bg-white rounded-lg p-3 border border-gray-200"
+                              className="bg-[#11161D] rounded-lg p-3 border border-[#232A33]"
                             >
                               <div className="flex items-start justify-between gap-2 mb-2">
                                 <div className="flex-1">
-                                  <div className="text-xs font-semibold text-gray-700 mb-1">
+                                  <div className="text-xs font-semibold text-slate-300 mb-1">
                                     {String(action.action_type || "")
                                       .replace(/_/g, " ")
                                       .toUpperCase()}
                                   </div>
-                                  <div className="text-xs text-gray-600">
+                                  <div className="text-xs text-slate-400">
                                     {JSON.stringify(
                                       action.action_payload,
                                       null,
@@ -519,7 +519,7 @@ export function JavisDockInteractive() {
 
             {isLoading && (
               <div className="flex justify-start">
-                <div className="bg-gray-100 rounded-lg p-3">
+                <div className="bg-[#161C24] rounded-lg p-3">
                   <div className="flex gap-1">
                     <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
                     <div
@@ -539,7 +539,7 @@ export function JavisDockInteractive() {
           </div>
 
           {/* Input */}
-          <div className="p-4 border-t border-gray-200">
+          <div className="p-4 border-t border-[#232A33]">
             <div className="flex gap-2">
               <input
                 type="text"
@@ -555,7 +555,7 @@ export function JavisDockInteractive() {
                 className={`p-2 rounded-lg transition-colors ${
                   isListening
                     ? "bg-red-500 text-white"
-                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                    : "bg-[#161C24] text-slate-400 hover:bg-gray-200"
                 }`}
                 disabled={!wsConnected}
                 aria-label={isListening ? "Stop listening" : "Start listening"}

@@ -63,13 +63,13 @@ function AccordionSection({
   const [open, setOpen] = useState(defaultOpen);
 
   return (
-    <div className="border-b border-slate-100 last:border-0">
+    <div className="border-b border-[#1A2030] last:border-0">
       <button
         onClick={() => setOpen(!open)}
-        className="w-full flex items-center gap-3 px-5 py-3.5 text-left hover:bg-slate-50 transition-colors"
+        className="w-full flex items-center gap-3 px-5 py-3.5 text-left hover:bg-[#0B0F14] transition-colors"
       >
         <span className="text-slate-400">{icon}</span>
-        <span className="flex-1 text-sm font-medium text-slate-900">
+        <span className="flex-1 text-sm font-medium text-[#E6EDF3]">
           {title}
         </span>
         {open ? (
@@ -218,11 +218,11 @@ export function TemplatePreviewModal({
       <div className="absolute inset-0 bg-black/30" onClick={onClose} />
 
       {/* Slide-over Panel */}
-      <div className="relative w-full max-w-lg bg-white shadow-2xl flex flex-col animate-slide-in-right">
+      <div className="relative w-full max-w-lg bg-[#11161D] shadow-2xl flex flex-col animate-slide-in-right">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 bg-white">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-[#232A33] bg-[#11161D]">
           <div>
-            <h2 className="text-lg font-bold text-slate-900">
+            <h2 className="text-lg font-bold text-[#E6EDF3]">
               {template.name}
             </h2>
             {template.master_template_name && (
@@ -233,7 +233,7 @@ export function TemplatePreviewModal({
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
+            className="p-1.5 rounded-lg hover:bg-[#1A2030] text-slate-400 hover:text-slate-400 transition-colors"
           >
             <X size={20} />
           </button>
@@ -254,21 +254,21 @@ export function TemplatePreviewModal({
                 defaultOpen
               >
                 <div className="space-y-3">
-                  <p className="text-sm text-slate-600 leading-relaxed">
+                  <p className="text-sm text-slate-400 leading-relaxed">
                     {template.description}
                   </p>
                   <div className="grid grid-cols-2 gap-3">
-                    <div className="bg-slate-50 rounded-lg p-3">
+                    <div className="bg-[#0B0F14] rounded-lg p-3">
                       <div className="text-xs text-slate-500">
                         Master Family
                       </div>
-                      <div className="text-sm font-medium text-slate-900 mt-0.5">
+                      <div className="text-sm font-medium text-[#E6EDF3] mt-0.5">
                         {template.master_family}
                       </div>
                     </div>
-                    <div className="bg-slate-50 rounded-lg p-3">
+                    <div className="bg-[#0B0F14] rounded-lg p-3">
                       <div className="text-xs text-slate-500">Governance</div>
-                      <div className="text-sm font-medium text-slate-900 mt-0.5">
+                      <div className="text-sm font-medium text-[#E6EDF3] mt-0.5">
                         {template.industry_governance_profiles
                           ?.default_autonomy_mode || "Advisory"}
                       </div>
@@ -276,7 +276,7 @@ export function TemplatePreviewModal({
                   </div>
                   {template.operating_assumptions &&
                     Object.keys(template.operating_assumptions).length > 0 && (
-                      <div className="bg-slate-50 rounded-lg p-3">
+                      <div className="bg-[#0B0F14] rounded-lg p-3">
                         <div className="text-xs text-slate-500 mb-2">
                           Operating Assumptions
                         </div>
@@ -287,10 +287,10 @@ export function TemplatePreviewModal({
                                 key={key}
                                 className="flex items-center justify-between text-xs"
                               >
-                                <span className="text-slate-600 capitalize">
+                                <span className="text-slate-400 capitalize">
                                   {key.replace(/_/g, " ")}
                                 </span>
-                                <span className="font-medium text-slate-900">
+                                <span className="font-medium text-[#E6EDF3]">
                                   {String(value)}
                                 </span>
                               </div>
@@ -319,9 +319,9 @@ export function TemplatePreviewModal({
                             {kpis.map((kpi: any, i: number) => (
                               <div
                                 key={i}
-                                className="flex items-center justify-between text-xs py-1 px-2 rounded bg-slate-50"
+                                className="flex items-center justify-between text-xs py-1 px-2 rounded bg-[#0B0F14]"
                               >
-                                <span className="text-slate-700">
+                                <span className="text-slate-300">
                                   {kpi.name}
                                 </span>
                                 {kpi.unit && (
@@ -360,7 +360,7 @@ export function TemplatePreviewModal({
                             {assets.map((asset: any, i: number) => (
                               <span
                                 key={i}
-                                className="text-xs px-2 py-1 bg-slate-100 text-slate-700 rounded-md"
+                                className="text-xs px-2 py-1 bg-[#1A2030] text-slate-300 rounded-md"
                               >
                                 {asset.name}
                               </span>
@@ -387,14 +387,14 @@ export function TemplatePreviewModal({
                     {details.criticality.map((item: any, i: number) => (
                       <div key={i}>
                         <div className="flex items-center justify-between text-xs mb-1">
-                          <span className="text-slate-700">
+                          <span className="text-slate-300">
                             {item.factor_name || item.name}
                           </span>
-                          <span className="font-medium text-slate-900">
+                          <span className="font-medium text-[#E6EDF3]">
                             {Math.round((item.weight || 0) * 100)}%
                           </span>
                         </div>
-                        <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                        <div className="h-2 bg-[#1A2030] rounded-full overflow-hidden">
                           <div
                             className="h-full bg-blue-500 rounded-full transition-all"
                             style={{
@@ -415,9 +415,9 @@ export function TemplatePreviewModal({
               {/* Governance */}
               <AccordionSection title="Governance" icon={<Shield size={16} />}>
                 <div className="space-y-3">
-                  <div className="bg-slate-50 rounded-lg p-3">
+                  <div className="bg-[#0B0F14] rounded-lg p-3">
                     <div className="text-xs text-slate-500">Autonomy Mode</div>
-                    <div className="text-sm font-medium text-slate-900 mt-0.5">
+                    <div className="text-sm font-medium text-[#E6EDF3] mt-0.5">
                       {template.industry_governance_profiles
                         ?.default_autonomy_mode || "Advisory"}
                     </div>
@@ -427,9 +427,9 @@ export function TemplatePreviewModal({
                       {details.governance.map((rule: any, i: number) => (
                         <div
                           key={i}
-                          className="text-xs py-2 px-3 bg-slate-50 rounded-lg"
+                          className="text-xs py-2 px-3 bg-[#0B0F14] rounded-lg"
                         >
-                          <div className="font-medium text-slate-700">
+                          <div className="font-medium text-slate-300">
                             {rule.rule_name || rule.name}
                           </div>
                           {rule.description && (
@@ -438,7 +438,7 @@ export function TemplatePreviewModal({
                             </div>
                           )}
                           {rule.rule_type && (
-                            <span className="inline-block mt-1 px-1.5 py-0.5 bg-slate-200 text-slate-600 rounded text-[10px] uppercase">
+                            <span className="inline-block mt-1 px-1.5 py-0.5 bg-slate-200 text-slate-400 rounded text-[10px] uppercase">
                               {rule.rule_type}
                             </span>
                           )}
@@ -463,9 +463,9 @@ export function TemplatePreviewModal({
                     {details.workTypes.map((wt: any, i: number) => (
                       <div
                         key={i}
-                        className="flex items-center gap-3 text-xs py-2 px-3 bg-slate-50 rounded-lg"
+                        className="flex items-center gap-3 text-xs py-2 px-3 bg-[#0B0F14] rounded-lg"
                       >
-                        <span className="flex-1 font-medium text-slate-700">
+                        <span className="flex-1 font-medium text-slate-300">
                           {wt.name}
                         </span>
                         {wt.default_sla_hours && (
@@ -499,12 +499,12 @@ export function TemplatePreviewModal({
                     {details.failureModes.map((fm: any, i: number) => (
                       <div
                         key={i}
-                        className="flex items-center gap-3 text-xs py-2 px-3 bg-slate-50 rounded-lg"
+                        className="flex items-center gap-3 text-xs py-2 px-3 bg-[#0B0F14] rounded-lg"
                       >
                         <div
                           className={`w-2 h-2 rounded-full ${severityColor(fm.severity)}`}
                         />
-                        <span className="flex-1 text-slate-700">
+                        <span className="flex-1 text-slate-300">
                           {fm.name || fm.mode_name}
                         </span>
                         {fm.severity && (
@@ -531,14 +531,14 @@ export function TemplatePreviewModal({
                         {config.availability_weight != null && (
                           <div>
                             <div className="flex items-center justify-between text-xs mb-1">
-                              <span className="text-slate-600">
+                              <span className="text-slate-400">
                                 Availability Weight
                               </span>
                               <span className="font-medium">
                                 {Math.round(config.availability_weight * 100)}%
                               </span>
                             </div>
-                            <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                            <div className="h-2 bg-[#1A2030] rounded-full overflow-hidden">
                               <div
                                 className="h-full bg-green-500 rounded-full"
                                 style={{
@@ -551,14 +551,14 @@ export function TemplatePreviewModal({
                         {config.performance_weight != null && (
                           <div>
                             <div className="flex items-center justify-between text-xs mb-1">
-                              <span className="text-slate-600">
+                              <span className="text-slate-400">
                                 Performance Weight
                               </span>
                               <span className="font-medium">
                                 {Math.round(config.performance_weight * 100)}%
                               </span>
                             </div>
-                            <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                            <div className="h-2 bg-[#1A2030] rounded-full overflow-hidden">
                               <div
                                 className="h-full bg-blue-500 rounded-full"
                                 style={{
@@ -571,14 +571,14 @@ export function TemplatePreviewModal({
                         {config.quality_weight != null && (
                           <div>
                             <div className="flex items-center justify-between text-xs mb-1">
-                              <span className="text-slate-600">
+                              <span className="text-slate-400">
                                 Quality Weight
                               </span>
                               <span className="font-medium">
                                 {Math.round(config.quality_weight * 100)}%
                               </span>
                             </div>
-                            <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                            <div className="h-2 bg-[#1A2030] rounded-full overflow-hidden">
                               <div
                                 className="h-full bg-purple-500 rounded-full"
                                 style={{
@@ -589,11 +589,11 @@ export function TemplatePreviewModal({
                           </div>
                         )}
                         {config.target_oee != null && (
-                          <div className="bg-slate-50 rounded-lg p-3 mt-2">
+                          <div className="bg-[#0B0F14] rounded-lg p-3 mt-2">
                             <div className="text-xs text-slate-500">
                               Target OEE
                             </div>
-                            <div className="text-lg font-bold text-slate-900">
+                            <div className="text-lg font-bold text-[#E6EDF3]">
                               {Math.round(config.target_oee * 100)}%
                             </div>
                           </div>
@@ -622,9 +622,9 @@ export function TemplatePreviewModal({
                     ))}
                   </div>
                 ) : (
-                  <div className="bg-slate-50 rounded-lg p-3">
+                  <div className="bg-[#0B0F14] rounded-lg p-3">
                     <div className="text-xs text-slate-500">Model</div>
-                    <div className="text-sm font-medium text-slate-900 mt-0.5">
+                    <div className="text-sm font-medium text-[#E6EDF3] mt-0.5">
                       {template.industry_oee_models?.model_name || "Standard"}
                     </div>
                   </div>
@@ -644,7 +644,7 @@ export function TemplatePreviewModal({
                         {i < details.rollout.length - 1 && (
                           <div className="absolute left-[5px] top-4 w-0.5 h-full bg-blue-200" />
                         )}
-                        <div className="text-sm font-medium text-slate-900">
+                        <div className="text-sm font-medium text-[#E6EDF3]">
                           {phase.phase_name || phase.name}
                         </div>
                         {phase.description && (
@@ -671,10 +671,10 @@ export function TemplatePreviewModal({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center gap-3 px-5 py-4 border-t border-slate-200 bg-white">
+        <div className="flex items-center gap-3 px-5 py-4 border-t border-[#232A33] bg-[#11161D]">
           <button
             onClick={onClose}
-            className="flex-1 px-4 py-2.5 text-sm font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
+            className="flex-1 px-4 py-2.5 text-sm font-medium text-slate-400 bg-[#1A2030] hover:bg-slate-200 rounded-lg transition-colors"
           >
             Close
           </button>

@@ -1,14 +1,25 @@
-import { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
-import { Wrench, AlertCircle, CheckCircle, Clock, Camera, Mic } from 'lucide-react';
-import { useAuth } from './AuthProvider';
-import { useWorkOrderUpdates, useAlertUpdates } from '../hooks/useRealtimeUpdates';
+/* eslint-disable @typescript-eslint/no-explicit-any, no-empty-pattern */
+import { useState, useEffect } from "react";
+import { supabase } from "../lib/supabase";
+import {
+  Wrench,
+  AlertCircle,
+  CheckCircle,
+  Clock,
+  Camera,
+  Mic,
+} from "lucide-react";
+import { useAuth } from "./AuthProvider";
+import {
+  useWorkOrderUpdates,
+  useAlertUpdates,
+} from "../hooks/useRealtimeUpdates";
 
 interface WorkOrder {
   id: string;
   title: string;
   description: string;
-  priority: 'low' | 'medium' | 'high';
+  priority: "low" | "medium" | "high";
   status: string;
   asset_name?: string;
   due_date?: string;
@@ -23,11 +34,13 @@ interface Alert {
 }
 
 export function OperationalDashboard() {
-  const { } = useAuth();
+  const {} = useAuth();
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedWorkOrder, setSelectedWorkOrder] = useState<WorkOrder | null>(null);
+  const [selectedWorkOrder, setSelectedWorkOrder] = useState<WorkOrder | null>(
+    null,
+  );
 
   useEffect(() => {
     fetchData();
@@ -44,8 +57,9 @@ export function OperationalDashboard() {
   const fetchData = async () => {
     try {
       const { data: workOrdersData } = await supabase
-        .from('work_orders')
-        .select(`
+        .from("work_orders")
+        .select(
+          `
           id,
           title,
           description,
@@ -53,32 +67,34 @@ export function OperationalDashboard() {
           status,
           due_date,
           assets (asset_name)
-        `)
-        .in('status', ['pending', 'in_progress'])
-        .order('priority', { ascending: false })
+        `,
+        )
+        .in("status", ["pending", "in_progress"])
+        .order("priority", { ascending: false })
         .limit(10);
 
       const { data: alertsData } = await supabase
-        .from('system_alerts')
-        .select('*')
-        .eq('status', 'active')
-        .order('created_at', { ascending: false})
+        .from("system_alerts")
+        .select("*")
+        .eq("status", "active")
+        .order("created_at", { ascending: false })
         .limit(5);
 
-      const enrichedWorkOrders = workOrdersData?.map((wo: any) => ({
-        id: wo.id,
-        title: wo.title,
-        description: wo.description,
-        priority: wo.priority,
-        status: wo.status,
-        due_date: wo.due_date,
-        asset_name: wo.assets?.asset_name
-      })) || [];
+      const enrichedWorkOrders =
+        workOrdersData?.map((wo: any) => ({
+          id: wo.id,
+          title: wo.title,
+          description: wo.description,
+          priority: wo.priority,
+          status: wo.status,
+          due_date: wo.due_date,
+          asset_name: wo.assets?.asset_name,
+        })) || [];
 
       setWorkOrders(enrichedWorkOrders);
       setAlerts(alertsData || []);
     } catch (error) {
-      console.error('Error fetching data:', error);
+      console.error("Error fetching data:", error);
     } finally {
       setLoading(false);
     }
@@ -86,11 +102,13 @@ export function OperationalDashboard() {
 
   const getPriorityIndicator = (priority: string) => {
     switch (priority) {
-      case 'high':
-        return <div className="w-3 h-3 rounded-full bg-red-500 animate-pulse"></div>;
-      case 'medium':
+      case "high":
+        return (
+          <div className="w-3 h-3 rounded-full bg-red-500 animate-pulse"></div>
+        );
+      case "medium":
         return <div className="w-3 h-3 rounded-full bg-yellow-500"></div>;
-      case 'low':
+      case "low":
         return <div className="w-3 h-3 rounded-full bg-green-500"></div>;
       default:
         return <div className="w-3 h-3 rounded-full bg-gray-300"></div>;
@@ -99,10 +117,14 @@ export function OperationalDashboard() {
 
   const getSeverityColor = (severity: string) => {
     switch (severity) {
-      case 'critical': return 'bg-red-100 text-red-700 border-red-300';
-      case 'warning': return 'bg-yellow-100 text-yellow-700 border-yellow-300';
-      case 'info': return 'bg-blue-100 text-blue-700 border-blue-300';
-      default: return 'bg-gray-100 text-gray-700 border-gray-300';
+      case "critical":
+        return "bg-red-100 text-red-700 border-red-300";
+      case "warning":
+        return "bg-yellow-100 text-yellow-700 border-yellow-300";
+      case "info":
+        return "bg-blue-100 text-blue-700 border-blue-300";
+      default:
+        return "bg-[#161C24] text-slate-300 border-gray-300";
     }
   };
 
@@ -115,14 +137,14 @@ export function OperationalDashboard() {
 
     try {
       await supabase
-        .from('work_orders')
-        .update({ status: 'completed', completed_at: new Date().toISOString() })
-        .eq('id', selectedWorkOrder.id);
+        .from("work_orders")
+        .update({ status: "completed", completed_at: new Date().toISOString() })
+        .eq("id", selectedWorkOrder.id);
 
       setSelectedWorkOrder(null);
       fetchData();
     } catch (error) {
-      console.error('Error completing task:', error);
+      console.error("Error completing task:", error);
     }
   };
 
@@ -136,14 +158,16 @@ export function OperationalDashboard() {
 
   if (selectedWorkOrder) {
     return (
-      <div className="h-full overflow-auto bg-gray-50">
+      <div className="h-full overflow-auto bg-[#0B0F14]">
         <div className="max-w-4xl mx-auto p-6">
-          <div className="bg-white rounded-xl border border-gray-200 p-6">
+          <div className="bg-[#11161D] rounded-xl border border-[#232A33] p-6">
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold text-gray-900">{selectedWorkOrder.title}</h2>
+              <h2 className="text-2xl font-bold text-[#E6EDF3]">
+                {selectedWorkOrder.title}
+              </h2>
               <button
                 onClick={() => setSelectedWorkOrder(null)}
-                className="px-4 py-2 text-gray-600 hover:text-gray-900"
+                className="px-4 py-2 text-slate-400 hover:text-[#E6EDF3]"
               >
                 Back to List
               </button>
@@ -151,57 +175,83 @@ export function OperationalDashboard() {
 
             <div className="mb-6">
               <div className="text-sm text-gray-500 mb-2">Asset</div>
-              <div className="text-lg font-medium text-gray-900">{selectedWorkOrder.asset_name || 'N/A'}</div>
+              <div className="text-lg font-medium text-[#E6EDF3]">
+                {selectedWorkOrder.asset_name || "N/A"}
+              </div>
             </div>
 
             <div className="mb-6">
               <div className="text-sm text-gray-500 mb-2">Description</div>
-              <div className="text-gray-700">{selectedWorkOrder.description}</div>
+              <div className="text-slate-300">
+                {selectedWorkOrder.description}
+              </div>
             </div>
 
             <div className="space-y-4 mb-6">
-              <div className="text-sm font-medium text-gray-900 mb-3">Task Checklist</div>
+              <div className="text-sm font-medium text-[#E6EDF3] mb-3">
+                Task Checklist
+              </div>
 
-              <label className="flex items-center gap-3 p-4 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
-                <input type="checkbox" className="w-5 h-5 text-teal-600 rounded" />
-                <span className="text-gray-700">Inspect equipment condition</span>
+              <label className="flex items-center gap-3 p-4 border border-[#232A33] rounded-lg hover:bg-[#0B0F14] cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="w-5 h-5 text-teal-600 rounded"
+                />
+                <span className="text-slate-300">
+                  Inspect equipment condition
+                </span>
               </label>
 
-              <label className="flex items-center gap-3 p-4 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
-                <input type="checkbox" className="w-5 h-5 text-teal-600 rounded" />
-                <span className="text-gray-700">Check safety systems</span>
+              <label className="flex items-center gap-3 p-4 border border-[#232A33] rounded-lg hover:bg-[#0B0F14] cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="w-5 h-5 text-teal-600 rounded"
+                />
+                <span className="text-slate-300">Check safety systems</span>
               </label>
 
-              <label className="flex items-center gap-3 p-4 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
-                <input type="checkbox" className="w-5 h-5 text-teal-600 rounded" />
-                <span className="text-gray-700">Perform maintenance tasks</span>
+              <label className="flex items-center gap-3 p-4 border border-[#232A33] rounded-lg hover:bg-[#0B0F14] cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="w-5 h-5 text-teal-600 rounded"
+                />
+                <span className="text-slate-300">
+                  Perform maintenance tasks
+                </span>
               </label>
 
-              <label className="flex items-center gap-3 p-4 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
-                <input type="checkbox" className="w-5 h-5 text-teal-600 rounded" />
-                <span className="text-gray-700">Document findings</span>
+              <label className="flex items-center gap-3 p-4 border border-[#232A33] rounded-lg hover:bg-[#0B0F14] cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="w-5 h-5 text-teal-600 rounded"
+                />
+                <span className="text-slate-300">Document findings</span>
               </label>
             </div>
 
             <div className="mb-6">
-              <div className="text-sm font-medium text-gray-900 mb-3">Add Documentation</div>
+              <div className="text-sm font-medium text-[#E6EDF3] mb-3">
+                Add Documentation
+              </div>
               <div className="flex gap-3">
-                <button className="flex items-center gap-2 px-4 py-3 border border-gray-200 rounded-lg hover:bg-gray-50">
-                  <Camera className="w-5 h-5 text-gray-600" />
+                <button className="flex items-center gap-2 px-4 py-3 border border-[#232A33] rounded-lg hover:bg-[#0B0F14]">
+                  <Camera className="w-5 h-5 text-slate-400" />
                   <span className="text-sm">Add Photo</span>
                 </button>
-                <button className="flex items-center gap-2 px-4 py-3 border border-gray-200 rounded-lg hover:bg-gray-50">
-                  <Mic className="w-5 h-5 text-gray-600" />
+                <button className="flex items-center gap-2 px-4 py-3 border border-[#232A33] rounded-lg hover:bg-[#0B0F14]">
+                  <Mic className="w-5 h-5 text-slate-400" />
                   <span className="text-sm">Voice Note</span>
                 </button>
               </div>
             </div>
 
             <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-900 mb-2">Work Notes</label>
+              <label className="block text-sm font-medium text-[#E6EDF3] mb-2">
+                Work Notes
+              </label>
               <textarea
                 rows={4}
-                className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                className="w-full px-4 py-3 border border-[#232A33] rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
                 placeholder="Add any notes about the work performed..."
               />
             </div>
@@ -220,55 +270,84 @@ export function OperationalDashboard() {
   }
 
   return (
-    <div className="h-full overflow-auto bg-gray-50">
+    <div className="h-full overflow-auto bg-[#0B0F14]">
       <div className="max-w-7xl mx-auto p-6">
         <div className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Operational Dashboard</h1>
-          <p className="text-gray-600">Your assigned work orders and active alerts</p>
+          <h1 className="text-3xl font-bold text-[#E6EDF3] mb-2">
+            Operational Dashboard
+          </h1>
+          <p className="text-slate-400">
+            Your assigned work orders and active alerts
+          </p>
         </div>
 
         <div className="grid grid-cols-3 gap-4 mb-6">
-          <div className="bg-white rounded-xl p-5 border border-gray-200">
+          <div className="bg-[#11161D] rounded-xl p-5 border border-[#232A33]">
             <Wrench className="w-8 h-8 text-teal-600 mb-2" />
-            <div className="text-2xl font-bold text-gray-900">{workOrders.length}</div>
-            <div className="text-sm text-gray-600">My Work Orders</div>
+            <div className="text-2xl font-bold text-[#E6EDF3]">
+              {workOrders.length}
+            </div>
+            <div className="text-sm text-slate-400">My Work Orders</div>
           </div>
           <div className="bg-red-50 rounded-xl p-5 border border-red-200">
             <AlertCircle className="w-8 h-8 text-red-600 mb-2" />
-            <div className="text-2xl font-bold text-red-700">{alerts.length}</div>
+            <div className="text-2xl font-bold text-red-700">
+              {alerts.length}
+            </div>
             <div className="text-sm text-red-700">Active Alerts</div>
           </div>
           <div className="bg-teal-50 rounded-xl p-5 border border-teal-200">
             <Clock className="w-8 h-8 text-teal-600 mb-2" />
             <div className="text-2xl font-bold text-teal-700">
-              {workOrders.filter(wo => wo.due_date && new Date(wo.due_date) <= new Date(Date.now() + 86400000)).length}
+              {
+                workOrders.filter(
+                  (wo) =>
+                    wo.due_date &&
+                    new Date(wo.due_date) <= new Date(Date.now() + 86400000),
+                ).length
+              }
             </div>
             <div className="text-sm text-teal-700">Due Today</div>
           </div>
         </div>
 
-        <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+        <div className="bg-[#11161D] rounded-xl border border-[#232A33] p-6 mb-6">
+          <h2 className="text-lg font-semibold text-[#E6EDF3] mb-4 flex items-center gap-2">
             <Wrench className="w-5 h-5 text-teal-600" />
             My Tasks
           </h2>
           <div className="space-y-3">
             {workOrders.length === 0 ? (
-              <p className="text-gray-500 text-center py-8">No work orders assigned</p>
+              <p className="text-gray-500 text-center py-8">
+                No work orders assigned
+              </p>
             ) : (
-              workOrders.map(wo => (
-                <div key={wo.id} className="border border-gray-200 rounded-lg p-4 hover:border-teal-300 transition-colors">
+              workOrders.map((wo) => (
+                <div
+                  key={wo.id}
+                  className="border border-[#232A33] rounded-lg p-4 hover:border-teal-300 transition-colors"
+                >
                   <div className="flex items-start gap-4">
-                    <div className="mt-1">{getPriorityIndicator(wo.priority)}</div>
+                    <div className="mt-1">
+                      {getPriorityIndicator(wo.priority)}
+                    </div>
                     <div className="flex-1">
-                      <h3 className="font-medium text-gray-900 mb-1">{wo.title}</h3>
-                      <p className="text-sm text-gray-600 mb-2">{wo.description}</p>
+                      <h3 className="font-medium text-[#E6EDF3] mb-1">
+                        {wo.title}
+                      </h3>
+                      <p className="text-sm text-slate-400 mb-2">
+                        {wo.description}
+                      </p>
                       <div className="flex items-center gap-4 text-xs text-gray-500">
-                        <span>{wo.asset_name || 'No asset'}</span>
+                        <span>{wo.asset_name || "No asset"}</span>
                         {wo.due_date && (
-                          <span>Due: {new Date(wo.due_date).toLocaleDateString()}</span>
+                          <span>
+                            Due: {new Date(wo.due_date).toLocaleDateString()}
+                          </span>
                         )}
-                        <span className="capitalize">{wo.priority} priority</span>
+                        <span className="capitalize">
+                          {wo.priority} priority
+                        </span>
                       </div>
                     </div>
                     <button
@@ -285,23 +364,30 @@ export function OperationalDashboard() {
         </div>
 
         {alerts.length > 0 && (
-          <div className="bg-white rounded-xl border border-gray-200 p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+          <div className="bg-[#11161D] rounded-xl border border-[#232A33] p-6">
+            <h2 className="text-lg font-semibold text-[#E6EDF3] mb-4 flex items-center gap-2">
               <AlertCircle className="w-5 h-5 text-red-600" />
               Active Alerts
             </h2>
             <div className="space-y-3">
-              {alerts.map(alert => (
-                <div key={alert.id} className="border border-gray-200 rounded-lg p-4">
+              {alerts.map((alert) => (
+                <div
+                  key={alert.id}
+                  className="border border-[#232A33] rounded-lg p-4"
+                >
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2">
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium border ${getSeverityColor(alert.severity)}`}>
+                        <span
+                          className={`px-2 py-1 rounded-full text-xs font-medium border ${getSeverityColor(alert.severity)}`}
+                        >
                           {alert.severity.toUpperCase()}
                         </span>
-                        <span className="text-xs text-gray-500">{alert.alert_type}</span>
+                        <span className="text-xs text-gray-500">
+                          {alert.alert_type}
+                        </span>
                       </div>
-                      <p className="text-sm text-gray-700">{alert.message}</p>
+                      <p className="text-sm text-slate-300">{alert.message}</p>
                       <p className="text-xs text-gray-500 mt-2">
                         {new Date(alert.created_at).toLocaleString()}
                       </p>

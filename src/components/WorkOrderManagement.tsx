@@ -58,7 +58,7 @@ export function WorkOrderManagement() {
     pending: "bg-blue-100 text-blue-800",
     in_progress: "bg-yellow-100 text-yellow-800",
     completed: "bg-green-100 text-green-800",
-    cancelled: "bg-slate-100 text-slate-600",
+    cancelled: "bg-[#1A2030] text-slate-400",
   };
 
   const priorityColors: Record<string, string> = {
@@ -87,7 +87,7 @@ export function WorkOrderManagement() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-bold text-slate-900">
+          <h2 className="text-xl font-bold text-[#E6EDF3]">
             Work Order Management
           </h2>
           <p className="text-sm text-slate-500 mt-1">
@@ -108,13 +108,13 @@ export function WorkOrderManagement() {
             placeholder="Search work orders..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full pl-9 pr-4 py-2 border border-[#232A33] rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           />
         </div>
         <select
           value={filterStatus}
           onChange={(e) => setFilterStatus(e.target.value)}
-          className="px-3 py-2 border border-slate-200 rounded-lg text-sm"
+          className="px-3 py-2 border border-[#232A33] rounded-lg text-sm"
         >
           <option value="all">All Statuses</option>
           <option value="pending">Pending</option>
@@ -129,10 +129,10 @@ export function WorkOrderManagement() {
           No work orders found
         </div>
       ) : (
-        <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+        <div className="bg-[#11161D] border border-[#232A33] rounded-xl overflow-hidden">
           <table className="w-full">
             <thead>
-              <tr className="text-left text-xs text-slate-500 bg-slate-50 border-b border-slate-200">
+              <tr className="text-left text-xs text-slate-500 bg-[#0B0F14] border-b border-[#232A33]">
                 <th className="px-4 py-3">Title</th>
                 <th className="px-4 py-3">Asset</th>
                 <th className="px-4 py-3">Priority</th>
@@ -144,12 +144,12 @@ export function WorkOrderManagement() {
               {filtered.map((wo) => (
                 <tr
                   key={wo.id}
-                  className="border-b border-slate-100 hover:bg-slate-50"
+                  className="border-b border-[#1A2030] hover:bg-[#0B0F14]"
                 >
-                  <td className="px-4 py-3 text-sm font-medium text-slate-900">
+                  <td className="px-4 py-3 text-sm font-medium text-[#E6EDF3]">
                     {wo.title}
                   </td>
-                  <td className="px-4 py-3 text-sm text-slate-600">
+                  <td className="px-4 py-3 text-sm text-slate-400">
                     {wo.assets?.name || "-"}
                   </td>
                   <td
@@ -159,7 +159,7 @@ export function WorkOrderManagement() {
                   </td>
                   <td className="px-4 py-3">
                     <span
-                      className={`text-xs px-2 py-1 rounded-full ${statusColors[wo.status] || "bg-slate-100 text-slate-600"}`}
+                      className={`text-xs px-2 py-1 rounded-full ${statusColors[wo.status] || "bg-[#1A2030] text-slate-400"}`}
                     >
                       {wo.status?.replace("_", " ")}
                     </span>

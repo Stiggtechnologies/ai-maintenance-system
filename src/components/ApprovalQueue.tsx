@@ -1,6 +1,17 @@
-import { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
-import { CheckCircle, XCircle, Clock, AlertTriangle, ChevronDown, ChevronUp, MessageSquare, CreditCard as Edit, ArrowUp } from 'lucide-react';
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
+import { useState, useEffect } from "react";
+import { supabase } from "../lib/supabase";
+import {
+  CheckCircle,
+  XCircle,
+  Clock,
+  AlertTriangle,
+  ChevronDown,
+  ChevronUp,
+  MessageSquare,
+  CreditCard as Edit,
+  ArrowUp,
+} from "lucide-react";
 
 interface Decision {
   id: string;
@@ -22,11 +33,11 @@ export function ApprovalQueue() {
   const [decisions, setDecisions] = useState<Decision[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedDecision, setExpandedDecision] = useState<string | null>(null);
-  const [comment, setComment] = useState('');
+  const [comment, setComment] = useState("");
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [editMode, setEditMode] = useState<string | null>(null);
   const [editedData, setEditedData] = useState<any>(null);
-  const [escalationReason, setEscalationReason] = useState('');
+  const [escalationReason, setEscalationReason] = useState("");
 
   useEffect(() => {
     loadDecisions();
@@ -40,18 +51,20 @@ export function ApprovalQueue() {
       if (!user.user) return;
 
       const { data, error } = await supabase
-        .from('autonomous_decisions')
-        .select(`
+        .from("autonomous_decisions")
+        .select(
+          `
           *,
           workflows:approval_workflows(*)
-        `)
-        .eq('status', 'pending')
-        .order('created_at', { ascending: false });
+        `,
+        )
+        .eq("status", "pending")
+        .order("created_at", { ascending: false });
 
       if (error) throw error;
       setDecisions(data || []);
     } catch (error) {
-      console.error('Error loading decisions:', error);
+      console.error("Error loading decisions:", error);
     } finally {
       setLoading(false);
     }
@@ -64,37 +77,37 @@ export function ApprovalQueue() {
       if (!user.user) return;
 
       await supabase
-        .from('autonomous_decisions')
+        .from("autonomous_decisions")
         .update({
-          status: 'approved',
+          status: "approved",
           approved_by: user.user.id,
-          executed_at: new Date().toISOString()
+          executed_at: new Date().toISOString(),
         })
-        .eq('id', decisionId);
+        .eq("id", decisionId);
 
       if (comment) {
         await supabase
-          .from('approval_workflows')
+          .from("approval_workflows")
           .update({
-            status: 'approved',
+            status: "approved",
             comments: comment,
-            responded_at: new Date().toISOString()
+            responded_at: new Date().toISOString(),
           })
-          .eq('decision_id', decisionId);
+          .eq("decision_id", decisionId);
       }
 
-      await supabase.rpc('broadcast_to_channel', {
-        p_channel_name: 'approvals.pending',
-        p_message_type: 'decision_approved',
+      await supabase.rpc("broadcast_to_channel", {
+        p_channel_name: "approvals.pending",
+        p_message_type: "decision_approved",
         p_payload: { decision_id: decisionId },
         p_sender_id: user.user.id,
-        p_priority: 'high'
+        p_priority: "high",
       });
 
-      setComment('');
+      setComment("");
       await loadDecisions();
     } catch (error) {
-      console.error('Error approving decision:', error);
+      console.error("Error approving decision:", error);
     } finally {
       setProcessingId(null);
     }
@@ -102,7 +115,7 @@ export function ApprovalQueue() {
 
   async function handleReject(decisionId: string) {
     if (!comment) {
-      alert('Please provide a reason for rejection');
+      alert("Please provide a reason for rejection");
       return;
     }
 
@@ -112,34 +125,34 @@ export function ApprovalQueue() {
       if (!user.user) return;
 
       await supabase
-        .from('autonomous_decisions')
+        .from("autonomous_decisions")
         .update({
-          status: 'rejected',
-          approved_by: user.user.id
+          status: "rejected",
+          approved_by: user.user.id,
         })
-        .eq('id', decisionId);
+        .eq("id", decisionId);
 
       await supabase
-        .from('approval_workflows')
+        .from("approval_workflows")
         .update({
-          status: 'rejected',
+          status: "rejected",
           comments: comment,
-          responded_at: new Date().toISOString()
+          responded_at: new Date().toISOString(),
         })
-        .eq('decision_id', decisionId);
+        .eq("decision_id", decisionId);
 
-      await supabase.rpc('broadcast_to_channel', {
-        p_channel_name: 'approvals.pending',
-        p_message_type: 'decision_rejected',
+      await supabase.rpc("broadcast_to_channel", {
+        p_channel_name: "approvals.pending",
+        p_message_type: "decision_rejected",
         p_payload: { decision_id: decisionId, reason: comment },
         p_sender_id: user.user.id,
-        p_priority: 'high'
+        p_priority: "high",
       });
 
-      setComment('');
+      setComment("");
       await loadDecisions();
     } catch (error) {
-      console.error('Error rejecting decision:', error);
+      console.error("Error rejecting decision:", error);
     } finally {
       setProcessingId(null);
     }
@@ -147,7 +160,7 @@ export function ApprovalQueue() {
 
   async function handleEscalate(decisionId: string) {
     if (!escalationReason) {
-      alert('Please provide a reason for escalation');
+      alert("Please provide a reason for escalation");
       return;
     }
 
@@ -156,26 +169,26 @@ export function ApprovalQueue() {
       const { data: user } = await supabase.auth.getUser();
       if (!user.user) return;
 
-      const { data, error } = await supabase.rpc('escalate_approval', {
+      const { data, error } = await supabase.rpc("escalate_approval", {
         p_approval_id: decisionId,
-        p_reason: escalationReason
+        p_reason: escalationReason,
       });
 
       if (error) throw error;
 
-      await supabase.rpc('broadcast_to_channel', {
-        p_channel_name: 'approvals.pending',
-        p_message_type: 'decision_escalated',
+      await supabase.rpc("broadcast_to_channel", {
+        p_channel_name: "approvals.pending",
+        p_message_type: "decision_escalated",
         p_payload: { decision_id: decisionId, ...data },
         p_sender_id: user.user.id,
-        p_priority: 'high'
+        p_priority: "high",
       });
 
-      setEscalationReason('');
+      setEscalationReason("");
       await loadDecisions();
     } catch (error) {
-      console.error('Error escalating decision:', error);
-      alert('Failed to escalate: ' + (error as Error).message);
+      console.error("Error escalating decision:", error);
+      alert("Failed to escalate: " + (error as Error).message);
     } finally {
       setProcessingId(null);
     }
@@ -183,7 +196,7 @@ export function ApprovalQueue() {
 
   async function handleEditAndApprove(decisionId: string) {
     if (!editedData) {
-      alert('No changes made');
+      alert("No changes made");
       return;
     }
 
@@ -193,39 +206,39 @@ export function ApprovalQueue() {
       if (!user.user) return;
 
       await supabase
-        .from('autonomous_decisions')
+        .from("autonomous_decisions")
         .update({
           decision_data: editedData,
-          status: 'approved',
+          status: "approved",
           approved_by: user.user.id,
           executed_at: new Date().toISOString(),
-          modified_before_approval: true
+          modified_before_approval: true,
         })
-        .eq('id', decisionId);
+        .eq("id", decisionId);
 
       await supabase
-        .from('approval_workflows')
+        .from("approval_workflows")
         .update({
-          status: 'approved',
-          comments: comment || 'Modified and approved',
-          responded_at: new Date().toISOString()
+          status: "approved",
+          comments: comment || "Modified and approved",
+          responded_at: new Date().toISOString(),
         })
-        .eq('decision_id', decisionId);
+        .eq("decision_id", decisionId);
 
-      await supabase.rpc('broadcast_to_channel', {
-        p_channel_name: 'approvals.pending',
-        p_message_type: 'decision_modified_approved',
+      await supabase.rpc("broadcast_to_channel", {
+        p_channel_name: "approvals.pending",
+        p_message_type: "decision_modified_approved",
         p_payload: { decision_id: decisionId, modifications: editedData },
         p_sender_id: user.user.id,
-        p_priority: 'high'
+        p_priority: "high",
       });
 
       setEditMode(null);
       setEditedData(null);
-      setComment('');
+      setComment("");
       await loadDecisions();
     } catch (error) {
-      console.error('Error editing and approving decision:', error);
+      console.error("Error editing and approving decision:", error);
     } finally {
       setProcessingId(null);
     }
@@ -238,32 +251,35 @@ export function ApprovalQueue() {
 
   function getDecisionIcon(type: string) {
     switch (type) {
-      case 'create_work_order':
-        return '📋';
-      case 'schedule_maintenance':
-        return '🔧';
-      case 'order_parts':
-        return '📦';
-      case 'escalate_alert':
-        return '🚨';
+      case "create_work_order":
+        return "📋";
+      case "schedule_maintenance":
+        return "🔧";
+      case "order_parts":
+        return "📦";
+      case "escalate_alert":
+        return "🚨";
       default:
-        return '⚙️';
+        return "⚙️";
     }
   }
 
   function getUrgencyColor(deadline: string) {
-    const hoursRemaining = (new Date(deadline).getTime() - Date.now()) / (1000 * 60 * 60);
-    if (hoursRemaining < 2) return 'text-red-600';
-    if (hoursRemaining < 6) return 'text-orange-600';
-    return 'text-gray-600';
+    const hoursRemaining =
+      (new Date(deadline).getTime() - Date.now()) / (1000 * 60 * 60);
+    if (hoursRemaining < 2) return "text-red-600";
+    if (hoursRemaining < 6) return "text-orange-600";
+    return "text-slate-400";
   }
 
   function formatTimeRemaining(deadline: string) {
     const msRemaining = new Date(deadline).getTime() - Date.now();
     const hoursRemaining = Math.floor(msRemaining / (1000 * 60 * 60));
-    const minutesRemaining = Math.floor((msRemaining % (1000 * 60 * 60)) / (1000 * 60));
+    const minutesRemaining = Math.floor(
+      (msRemaining % (1000 * 60 * 60)) / (1000 * 60),
+    );
 
-    if (hoursRemaining < 0) return 'Expired';
+    if (hoursRemaining < 0) return "Expired";
     if (hoursRemaining === 0) return `${minutesRemaining}m remaining`;
     return `${hoursRemaining}h ${minutesRemaining}m remaining`;
   }
@@ -278,10 +294,12 @@ export function ApprovalQueue() {
 
   if (decisions.length === 0) {
     return (
-      <div className="bg-white rounded-lg shadow p-8 text-center">
+      <div className="bg-[#11161D] rounded-lg shadow p-8 text-center">
         <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
-        <h3 className="text-xl font-semibold text-gray-900 mb-2">All Clear!</h3>
-        <p className="text-gray-600">No pending approvals at this time.</p>
+        <h3 className="text-xl font-semibold text-[#E6EDF3] mb-2">
+          All Clear!
+        </h3>
+        <p className="text-slate-400">No pending approvals at this time.</p>
       </div>
     );
   }
@@ -289,71 +307,89 @@ export function ApprovalQueue() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold text-gray-900">Approval Queue</h2>
+        <h2 className="text-2xl font-bold text-[#E6EDF3]">Approval Queue</h2>
         <div className="flex items-center space-x-2">
           <AlertTriangle className="w-5 h-5 text-orange-500" />
-          <span className="text-lg font-semibold text-gray-700">{decisions.length} pending</span>
+          <span className="text-lg font-semibold text-slate-300">
+            {decisions.length} pending
+          </span>
         </div>
       </div>
 
       {decisions.map((decision) => (
         <div
           key={decision.id}
-          className="bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden"
+          className="bg-[#11161D] rounded-lg shadow-md border border-[#232A33] overflow-hidden"
         >
           <div className="p-6">
             <div className="flex items-start justify-between">
               <div className="flex items-start space-x-4 flex-1">
-                <div className="text-4xl">{getDecisionIcon(decision.decision_type)}</div>
+                <div className="text-4xl">
+                  {getDecisionIcon(decision.decision_type)}
+                </div>
                 <div className="flex-1">
                   <div className="flex items-center space-x-2 mb-2">
-                    <h3 className="text-lg font-semibold text-gray-900">
-                      {decision.decision_type.replace(/_/g, ' ').toUpperCase()}
+                    <h3 className="text-lg font-semibold text-[#E6EDF3]">
+                      {decision.decision_type.replace(/_/g, " ").toUpperCase()}
                     </h3>
                     <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
                       {Math.round(decision.confidence_score)}% confidence
                     </span>
                   </div>
 
-                  <div className="text-sm text-gray-600 space-y-1">
-                    {Object.entries(decision.decision_data).map(([key, value]) => (
-                      <div key={key}>
-                        <span className="font-medium">{key.replace(/_/g, ' ')}:</span>{' '}
-                        <span>{JSON.stringify(value)}</span>
-                      </div>
-                    ))}
+                  <div className="text-sm text-slate-400 space-y-1">
+                    {Object.entries(decision.decision_data).map(
+                      ([key, value]) => (
+                        <div key={key}>
+                          <span className="font-medium">
+                            {key.replace(/_/g, " ")}:
+                          </span>{" "}
+                          <span>{JSON.stringify(value)}</span>
+                        </div>
+                      ),
+                    )}
                   </div>
 
                   <div className="flex items-center space-x-4 mt-3 text-sm">
                     <div className="flex items-center space-x-1 text-gray-500">
                       <Clock className="w-4 h-4" />
-                      <span>{new Date(decision.created_at).toLocaleString()}</span>
+                      <span>
+                        {new Date(decision.created_at).toLocaleString()}
+                      </span>
                     </div>
-                    <div className={`flex items-center space-x-1 font-medium ${getUrgencyColor(decision.approval_deadline)}`}>
+                    <div
+                      className={`flex items-center space-x-1 font-medium ${getUrgencyColor(decision.approval_deadline)}`}
+                    >
                       <AlertTriangle className="w-4 h-4" />
-                      <span>{formatTimeRemaining(decision.approval_deadline)}</span>
+                      <span>
+                        {formatTimeRemaining(decision.approval_deadline)}
+                      </span>
                     </div>
                   </div>
                 </div>
               </div>
 
               <button
-                onClick={() => setExpandedDecision(expandedDecision === decision.id ? null : decision.id)}
-                className="ml-4 p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                onClick={() =>
+                  setExpandedDecision(
+                    expandedDecision === decision.id ? null : decision.id,
+                  )
+                }
+                className="ml-4 p-2 hover:bg-[#161C24] rounded-lg transition-colors"
               >
                 {expandedDecision === decision.id ? (
-                  <ChevronUp className="w-5 h-5 text-gray-600" />
+                  <ChevronUp className="w-5 h-5 text-slate-400" />
                 ) : (
-                  <ChevronDown className="w-5 h-5 text-gray-600" />
+                  <ChevronDown className="w-5 h-5 text-slate-400" />
                 )}
               </button>
             </div>
 
             {expandedDecision === decision.id && (
-              <div className="mt-6 pt-6 border-t border-gray-200">
+              <div className="mt-6 pt-6 border-t border-[#232A33]">
                 <div className="space-y-4">
                   <div>
-                    <label className="flex items-center space-x-2 text-sm font-medium text-gray-700 mb-2">
+                    <label className="flex items-center space-x-2 text-sm font-medium text-slate-300 mb-2">
                       <MessageSquare className="w-4 h-4" />
                       <span>Comment (required for rejection)</span>
                     </label>
@@ -373,7 +409,11 @@ export function ApprovalQueue() {
                       className="flex items-center space-x-2 px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
                     >
                       <CheckCircle className="w-5 h-5" />
-                      <span>{processingId === decision.id ? 'Processing...' : 'Approve'}</span>
+                      <span>
+                        {processingId === decision.id
+                          ? "Processing..."
+                          : "Approve"}
+                      </span>
                     </button>
 
                     <button
@@ -391,12 +431,16 @@ export function ApprovalQueue() {
                       className="flex items-center space-x-2 px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
                     >
                       <XCircle className="w-5 h-5" />
-                      <span>{processingId === decision.id ? 'Processing...' : 'Reject'}</span>
+                      <span>
+                        {processingId === decision.id
+                          ? "Processing..."
+                          : "Reject"}
+                      </span>
                     </button>
 
                     <button
                       onClick={() => {
-                        const reason = prompt('Enter escalation reason:');
+                        const reason = prompt("Enter escalation reason:");
                         if (reason) {
                           setEscalationReason(reason);
                           handleEscalate(decision.id);
@@ -412,11 +456,11 @@ export function ApprovalQueue() {
                     <button
                       onClick={() => {
                         setExpandedDecision(null);
-                        setComment('');
+                        setComment("");
                         setEditMode(null);
                         setEditedData(null);
                       }}
-                      className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                      className="px-6 py-2 border border-gray-300 text-slate-300 rounded-lg hover:bg-[#0B0F14] transition-colors"
                     >
                       Cancel
                     </button>
@@ -424,7 +468,9 @@ export function ApprovalQueue() {
 
                   {editMode === decision.id && editedData && (
                     <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                      <h4 className="font-semibold text-blue-900 mb-3">Edit Decision Data</h4>
+                      <h4 className="font-semibold text-blue-900 mb-3">
+                        Edit Decision Data
+                      </h4>
                       <textarea
                         value={JSON.stringify(editedData, null, 2)}
                         onChange={(e) => {
@@ -451,7 +497,7 @@ export function ApprovalQueue() {
                             setEditMode(null);
                             setEditedData(null);
                           }}
-                          className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                          className="px-4 py-2 border border-gray-300 text-slate-300 rounded-lg hover:bg-[#0B0F14]"
                         >
                           Cancel Edit
                         </button>

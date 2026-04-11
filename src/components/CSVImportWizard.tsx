@@ -1,7 +1,16 @@
-import { useState, useCallback } from 'react';
-import { Upload, FileSpreadsheet, CheckCircle2, AlertCircle, Download, Loader2, X } from 'lucide-react';
-import { supabase } from '../lib/supabase';
-import { useAuth } from './AuthProvider';
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { useState, useCallback } from "react";
+import {
+  Upload,
+  FileSpreadsheet,
+  CheckCircle2,
+  AlertCircle,
+  Download,
+  Loader2,
+  X,
+} from "lucide-react";
+import { supabase } from "../lib/supabase";
+import { useAuth } from "./AuthProvider";
 
 interface ImportResult {
   success: number;
@@ -9,7 +18,13 @@ interface ImportResult {
   errors: string[];
 }
 
-export function CSVImportWizard({ onClose, onComplete }: { onClose: () => void; onComplete: () => void }) {
+export function CSVImportWizard({
+  onClose,
+  onComplete,
+}: {
+  onClose: () => void;
+  onComplete: () => void;
+}) {
   const { user } = useAuth();
   const [dragActive, setDragActive] = useState(false);
   const [file, setFile] = useState<File | null>(null);
@@ -32,7 +47,7 @@ export function CSVImportWizard({ onClose, onComplete }: { onClose: () => void; 
     e.preventDefault();
     e.stopPropagation();
     setDragActive(false);
-    
+
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       handleFile(e.dataTransfer.files[0]);
     }
@@ -46,8 +61,8 @@ export function CSVImportWizard({ onClose, onComplete }: { onClose: () => void; 
   };
 
   const handleFile = async (file: File) => {
-    if (!file.name.endsWith('.csv')) {
-      alert('Please upload a CSV file');
+    if (!file.name.endsWith(".csv")) {
+      alert("Please upload a CSV file");
       return;
     }
 
@@ -56,22 +71,25 @@ export function CSVImportWizard({ onClose, onComplete }: { onClose: () => void; 
 
     try {
       const text = await file.text();
-      const lines = text.split('\n').filter(line => line.trim());
-      const headers = lines[0].split(',').map(h => h.trim());
-      
+      const lines = text.split("\n").filter((line) => line.trim());
+      const headers = lines[0].split(",").map((h) => h.trim());
+
       // Parse first 5 rows for preview
-      const previewData = lines.slice(1, 6).map(line => {
-        const values = line.split(',').map(v => v.trim());
-        return headers.reduce((obj, header, index) => ({
-          ...obj,
-          [header]: values[index] || ''
-        }), {});
+      const previewData = lines.slice(1, 6).map((line) => {
+        const values = line.split(",").map((v) => v.trim());
+        return headers.reduce(
+          (obj, header, index) => ({
+            ...obj,
+            [header]: values[index] || "",
+          }),
+          {},
+        );
       });
 
       setPreview(previewData);
     } catch (error) {
-      console.error('Error parsing CSV:', error);
-      alert('Error parsing CSV file');
+      console.error("Error parsing CSV:", error);
+      alert("Error parsing CSV file");
     } finally {
       setParsing(false);
     }
@@ -87,15 +105,18 @@ export function CSVImportWizard({ onClose, onComplete }: { onClose: () => void; 
 
     try {
       const text = await file.text();
-      const lines = text.split('\n').filter(line => line.trim());
-      const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+      const lines = text.split("\n").filter((line) => line.trim());
+      const headers = lines[0].split(",").map((h) => h.trim().toLowerCase());
 
       for (let i = 1; i < lines.length; i++) {
-        const values = lines[i].split(',').map(v => v.trim());
-        const row = headers.reduce((obj, header, index) => ({
-          ...obj,
-          [header]: values[index] || ''
-        }), {} as Record<string, string>);
+        const values = lines[i].split(",").map((v) => v.trim());
+        const row = headers.reduce(
+          (obj, header, index) => ({
+            ...obj,
+            [header]: values[index] || "",
+          }),
+          {} as Record<string, string>,
+        );
 
         // Validate required fields
         if (!row.name || !row.type) {
@@ -105,16 +126,14 @@ export function CSVImportWizard({ onClose, onComplete }: { onClose: () => void; 
         }
 
         try {
-          const { error } = await supabase
-            .from('assets')
-            .insert({
-              tenant_id: user.id,
-              name: row.name,
-              type: row.type,
-              location: row.location || null,
-              criticality: row.criticality || 'medium',
-              status: row.status || 'operational'
-            });
+          const { error } = await supabase.from("assets").insert({
+            tenant_id: user.id,
+            name: row.name,
+            type: row.type,
+            location: row.location || null,
+            criticality: row.criticality || "medium",
+            status: row.status || "operational",
+          });
 
           if (error) {
             errors.push(`Row ${i + 1}: ${error.message}`);
@@ -123,48 +142,57 @@ export function CSVImportWizard({ onClose, onComplete }: { onClose: () => void; 
             successCount++;
           }
         } catch (error) {
-          errors.push(`Row ${i + 1}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+          errors.push(
+            `Row ${i + 1}: ${error instanceof Error ? error.message : "Unknown error"}`,
+          );
           failedCount++;
         }
       }
 
       setResult({ success: successCount, failed: failedCount, errors });
     } catch (error) {
-      console.error('Import error:', error);
-      setResult({ success: 0, failed: 0, errors: ['Failed to process CSV file'] });
+      console.error("Import error:", error);
+      setResult({
+        success: 0,
+        failed: 0,
+        errors: ["Failed to process CSV file"],
+      });
     } finally {
       setImporting(false);
     }
   };
 
   const downloadTemplate = () => {
-    const template = 'name,type,location,criticality,status\nPump P-101,Centrifugal Pump,Building A,high,operational\nMotor M-205,Electric Motor,Building B,medium,operational\nCompressor C-300,Air Compressor,Building A,critical,operational';
-    const blob = new Blob([template], { type: 'text/csv' });
+    const template =
+      "name,type,location,criticality,status\nPump P-101,Centrifugal Pump,Building A,high,operational\nMotor M-205,Electric Motor,Building B,medium,operational\nCompressor C-300,Air Compressor,Building A,critical,operational";
+    const blob = new Blob([template], { type: "text/csv" });
     const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
+    const a = document.createElement("a");
     a.href = url;
-    a.download = 'syncai-asset-template.csv';
+    a.download = "syncai-asset-template.csv";
     a.click();
   };
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-300">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden animate-in zoom-in-95 duration-300">
+      <div className="bg-[#11161D] rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden animate-in zoom-in-95 duration-300">
         {/* Header */}
         <div className="bg-gradient-to-r from-teal-600 to-blue-600 p-6 text-white">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
-              <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm">
+              <div className="w-12 h-12 bg-[#11161D]/20 rounded-xl flex items-center justify-center backdrop-blur-sm">
                 <FileSpreadsheet className="w-6 h-6" />
               </div>
               <div>
                 <h2 className="text-2xl font-bold">Import Assets from CSV</h2>
-                <p className="text-teal-100">Bulk upload your asset inventory</p>
+                <p className="text-teal-100">
+                  Bulk upload your asset inventory
+                </p>
               </div>
             </div>
             <button
               onClick={onClose}
-              className="w-8 h-8 rounded-lg bg-white/20 hover:bg-white/30 transition-colors flex items-center justify-center"
+              className="w-8 h-8 rounded-lg bg-[#11161D]/20 hover:bg-[#11161D]/30 transition-colors flex items-center justify-center"
             >
               <X className="w-5 h-5" />
             </button>
@@ -177,26 +205,54 @@ export function CSVImportWizard({ onClose, onComplete }: { onClose: () => void; 
               {/* Step 1: Download Template */}
               {!file && (
                 <div className="mb-8">
-                  <h3 className="font-semibold text-gray-900 mb-4">Step 1: Download Template</h3>
-                  <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
-                    <p className="text-gray-600 mb-4">
-                      Start with our CSV template to ensure your data is formatted correctly.
+                  <h3 className="font-semibold text-[#E6EDF3] mb-4">
+                    Step 1: Download Template
+                  </h3>
+                  <div className="bg-[#0B0F14] rounded-xl p-6 border border-[#232A33]">
+                    <p className="text-slate-400 mb-4">
+                      Start with our CSV template to ensure your data is
+                      formatted correctly.
                     </p>
                     <button
                       onClick={downloadTemplate}
-                      className="flex items-center space-x-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium"
+                      className="flex items-center space-x-2 px-4 py-2 bg-[#11161D] border border-gray-300 rounded-lg hover:bg-[#0B0F14] transition-colors text-sm font-medium"
                     >
                       <Download className="w-4 h-4" />
                       <span>Download CSV Template</span>
                     </button>
-                    <div className="mt-4 text-sm text-gray-600">
+                    <div className="mt-4 text-sm text-slate-400">
                       <p className="font-medium mb-2">Required columns:</p>
                       <ul className="list-disc list-inside space-y-1 text-gray-500">
-                        <li><code className="bg-gray-200 px-1 py-0.5 rounded">name</code> - Asset name</li>
-                        <li><code className="bg-gray-200 px-1 py-0.5 rounded">type</code> - Asset type (e.g., Pump, Motor)</li>
-                        <li><code className="bg-gray-200 px-1 py-0.5 rounded">location</code> - Physical location (optional)</li>
-                        <li><code className="bg-gray-200 px-1 py-0.5 rounded">criticality</code> - low, medium, high, critical (optional)</li>
-                        <li><code className="bg-gray-200 px-1 py-0.5 rounded">status</code> - operational, maintenance, offline (optional)</li>
+                        <li>
+                          <code className="bg-gray-200 px-1 py-0.5 rounded">
+                            name
+                          </code>{" "}
+                          - Asset name
+                        </li>
+                        <li>
+                          <code className="bg-gray-200 px-1 py-0.5 rounded">
+                            type
+                          </code>{" "}
+                          - Asset type (e.g., Pump, Motor)
+                        </li>
+                        <li>
+                          <code className="bg-gray-200 px-1 py-0.5 rounded">
+                            location
+                          </code>{" "}
+                          - Physical location (optional)
+                        </li>
+                        <li>
+                          <code className="bg-gray-200 px-1 py-0.5 rounded">
+                            criticality
+                          </code>{" "}
+                          - low, medium, high, critical (optional)
+                        </li>
+                        <li>
+                          <code className="bg-gray-200 px-1 py-0.5 rounded">
+                            status
+                          </code>{" "}
+                          - operational, maintenance, offline (optional)
+                        </li>
                       </ul>
                     </div>
                   </div>
@@ -205,8 +261,8 @@ export function CSVImportWizard({ onClose, onComplete }: { onClose: () => void; 
 
               {/* Step 2: Upload File */}
               <div>
-                <h3 className="font-semibold text-gray-900 mb-4">
-                  {file ? 'Step 3: Review & Import' : 'Step 2: Upload CSV File'}
+                <h3 className="font-semibold text-[#E6EDF3] mb-4">
+                  {file ? "Step 3: Review & Import" : "Step 2: Upload CSV File"}
                 </h3>
 
                 {!file ? (
@@ -217,17 +273,21 @@ export function CSVImportWizard({ onClose, onComplete }: { onClose: () => void; 
                     onDrop={handleDrop}
                     className={`border-2 border-dashed rounded-xl p-12 text-center transition-all ${
                       dragActive
-                        ? 'border-teal-500 bg-teal-50'
-                        : 'border-gray-300 hover:border-gray-400'
+                        ? "border-teal-500 bg-teal-50"
+                        : "border-gray-300 hover:border-gray-400"
                     }`}
                   >
-                    <Upload className={`w-16 h-16 mx-auto mb-4 ${
-                      dragActive ? 'text-teal-600' : 'text-gray-400'
-                    }`} />
-                    <p className="text-lg font-medium text-gray-900 mb-2">
-                      {dragActive ? 'Drop your CSV file here' : 'Drag and drop your CSV file'}
+                    <Upload
+                      className={`w-16 h-16 mx-auto mb-4 ${
+                        dragActive ? "text-teal-600" : "text-gray-400"
+                      }`}
+                    />
+                    <p className="text-lg font-medium text-[#E6EDF3] mb-2">
+                      {dragActive
+                        ? "Drop your CSV file here"
+                        : "Drag and drop your CSV file"}
                     </p>
-                    <p className="text-sm text-gray-600 mb-4">or</p>
+                    <p className="text-sm text-slate-400 mb-4">or</p>
                     <label className="inline-flex items-center space-x-2 px-6 py-3 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors cursor-pointer font-medium">
                       <Upload className="w-5 h-5" />
                       <span>Browse Files</span>
@@ -246,15 +306,20 @@ export function CSVImportWizard({ onClose, onComplete }: { onClose: () => void; 
                       <div className="flex items-center space-x-3">
                         <FileSpreadsheet className="w-8 h-8 text-teal-600" />
                         <div>
-                          <p className="font-medium text-gray-900">{file.name}</p>
-                          <p className="text-sm text-gray-600">
+                          <p className="font-medium text-[#E6EDF3]">
+                            {file.name}
+                          </p>
+                          <p className="text-sm text-slate-400">
                             {(file.size / 1024).toFixed(2)} KB • Ready to import
                           </p>
                         </div>
                       </div>
                       <button
-                        onClick={() => { setFile(null); setPreview([]); }}
-                        className="text-gray-600 hover:text-gray-800"
+                        onClick={() => {
+                          setFile(null);
+                          setPreview([]);
+                        }}
+                        className="text-slate-400 hover:text-gray-800"
                       >
                         <X className="w-5 h-5" />
                       </button>
@@ -263,28 +328,31 @@ export function CSVImportWizard({ onClose, onComplete }: { onClose: () => void; 
                     {/* Preview */}
                     {preview.length > 0 && (
                       <div>
-                        <p className="text-sm font-medium text-gray-700 mb-3">
+                        <p className="text-sm font-medium text-slate-300 mb-3">
                           Preview (first 5 rows):
                         </p>
-                        <div className="overflow-x-auto border border-gray-200 rounded-lg">
+                        <div className="overflow-x-auto border border-[#232A33] rounded-lg">
                           <table className="min-w-full divide-y divide-gray-200">
-                            <thead className="bg-gray-50">
+                            <thead className="bg-[#0B0F14]">
                               <tr>
                                 {Object.keys(preview[0]).map((key) => (
                                   <th
                                     key={key}
-                                    className="px-4 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider"
+                                    className="px-4 py-2 text-left text-xs font-medium text-slate-300 uppercase tracking-wider"
                                   >
                                     {key}
                                   </th>
                                 ))}
                               </tr>
                             </thead>
-                            <tbody className="bg-white divide-y divide-gray-200">
+                            <tbody className="bg-[#11161D] divide-y divide-gray-200">
                               {preview.map((row, idx) => (
                                 <tr key={idx}>
                                   {Object.values(row).map((val: any, i) => (
-                                    <td key={i} className="px-4 py-2 text-sm text-gray-900">
+                                    <td
+                                      key={i}
+                                      className="px-4 py-2 text-sm text-[#E6EDF3]"
+                                    >
                                       {val}
                                     </td>
                                   ))}
@@ -299,8 +367,11 @@ export function CSVImportWizard({ onClose, onComplete }: { onClose: () => void; 
                     {/* Import Button */}
                     <div className="flex justify-end space-x-3">
                       <button
-                        onClick={() => { setFile(null); setPreview([]); }}
-                        className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+                        onClick={() => {
+                          setFile(null);
+                          setPreview([]);
+                        }}
+                        className="px-6 py-3 border border-gray-300 text-slate-300 rounded-lg hover:bg-[#0B0F14] transition-colors font-medium"
                       >
                         Cancel
                       </button>
@@ -329,11 +400,13 @@ export function CSVImportWizard({ onClose, onComplete }: { onClose: () => void; 
           ) : (
             /* Results */
             <div className="space-y-6">
-              <div className={`p-6 rounded-xl border-2 ${
-                result.failed === 0
-                  ? 'bg-green-50 border-green-200'
-                  : 'bg-yellow-50 border-yellow-200'
-              }`}>
+              <div
+                className={`p-6 rounded-xl border-2 ${
+                  result.failed === 0
+                    ? "bg-green-50 border-green-200"
+                    : "bg-yellow-50 border-yellow-200"
+                }`}
+              >
                 <div className="flex items-center space-x-3 mb-4">
                   {result.failed === 0 ? (
                     <CheckCircle2 className="w-8 h-8 text-green-600" />
@@ -341,14 +414,25 @@ export function CSVImportWizard({ onClose, onComplete }: { onClose: () => void; 
                     <AlertCircle className="w-8 h-8 text-yellow-600" />
                   )}
                   <div>
-                    <h3 className={`text-xl font-bold ${
-                      result.failed === 0 ? 'text-green-900' : 'text-yellow-900'
-                    }`}>
-                      Import {result.failed === 0 ? 'Complete!' : 'Completed with Errors'}
+                    <h3
+                      className={`text-xl font-bold ${
+                        result.failed === 0
+                          ? "text-green-900"
+                          : "text-yellow-900"
+                      }`}
+                    >
+                      Import{" "}
+                      {result.failed === 0
+                        ? "Complete!"
+                        : "Completed with Errors"}
                     </h3>
-                    <p className={`text-sm ${
-                      result.failed === 0 ? 'text-green-700' : 'text-yellow-700'
-                    }`}>
+                    <p
+                      className={`text-sm ${
+                        result.failed === 0
+                          ? "text-green-700"
+                          : "text-yellow-700"
+                      }`}
+                    >
                       {result.success} assets imported successfully
                       {result.failed > 0 && `, ${result.failed} failed`}
                     </p>
@@ -357,8 +441,10 @@ export function CSVImportWizard({ onClose, onComplete }: { onClose: () => void; 
 
                 {result.errors.length > 0 && (
                   <div className="mt-4">
-                    <p className="text-sm font-medium text-yellow-900 mb-2">Errors:</p>
-                    <div className="bg-white rounded-lg p-4 max-h-48 overflow-y-auto">
+                    <p className="text-sm font-medium text-yellow-900 mb-2">
+                      Errors:
+                    </p>
+                    <div className="bg-[#11161D] rounded-lg p-4 max-h-48 overflow-y-auto">
                       <ul className="space-y-1 text-sm text-yellow-800">
                         {result.errors.map((error, idx) => (
                           <li key={idx}>• {error}</li>
@@ -376,7 +462,7 @@ export function CSVImportWizard({ onClose, onComplete }: { onClose: () => void; 
                     setFile(null);
                     setPreview([]);
                   }}
-                  className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+                  className="px-6 py-3 border border-gray-300 text-slate-300 rounded-lg hover:bg-[#0B0F14] transition-colors font-medium"
                 >
                   Import More
                 </button>

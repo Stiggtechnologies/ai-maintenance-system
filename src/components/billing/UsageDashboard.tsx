@@ -1,6 +1,13 @@
-import { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
-import { TrendingUp, Zap, Eye, Cpu, PlayCircle, AlertTriangle } from 'lucide-react';
+import { useState, useEffect } from "react";
+import { supabase } from "../../lib/supabase";
+import {
+  TrendingUp,
+  Zap,
+  Eye,
+  Cpu,
+  PlayCircle,
+  AlertTriangle,
+} from "lucide-react";
 
 interface UsageSummary {
   subscription_id: string;
@@ -29,9 +36,13 @@ interface BillingSubscription {
 
 export function UsageDashboard() {
   const [usage, setUsage] = useState<UsageSummary | null>(null);
-  const [historicalData, setHistoricalData] = useState<Array<{ month: string; total_credits: number }>>([]);
+  const [historicalData, setHistoricalData] = useState<
+    Array<{ month: string; total_credits: number }>
+  >([]);
   const [loading, setLoading] = useState(true);
-  const [subscription, setSubscription] = useState<BillingSubscription | null>(null);
+  const [subscription, setSubscription] = useState<BillingSubscription | null>(
+    null,
+  );
 
   useEffect(() => {
     fetchUsageData();
@@ -41,13 +52,15 @@ export function UsageDashboard() {
     try {
       // Get active subscription
       const { data: subscriptions } = await supabase
-        .from('billing_subscriptions')
-        .select(`
+        .from("billing_subscriptions")
+        .select(
+          `
           *,
           plan:billing_plans(*),
           limits:subscription_limits(*)
-        `)
-        .eq('status', 'active')
+        `,
+        )
+        .eq("status", "active")
         .limit(1);
 
       if (!subscriptions || subscriptions.length === 0) {
@@ -68,9 +81,9 @@ export function UsageDashboard() {
         `${supabaseUrl}/functions/v1/billing-api/usage/summary?subscriptionId=${sub.id}&period=${currentPeriod}`,
         {
           headers: {
-            'Authorization': `Bearer ${supabaseKey}`,
+            Authorization: `Bearer ${supabaseKey}`,
           },
-        }
+        },
       );
 
       if (response.ok) {
@@ -80,15 +93,15 @@ export function UsageDashboard() {
 
       // Get historical monthly data
       const { data: monthlyData } = await supabase
-        .from('v_tenant_monthly_usage')
-        .select('*')
-        .eq('subscription_id', sub.id)
-        .order('month', { ascending: false })
+        .from("v_tenant_monthly_usage")
+        .select("*")
+        .eq("subscription_id", sub.id)
+        .order("month", { ascending: false })
         .limit(6);
 
       setHistoricalData(monthlyData || []);
     } catch (error) {
-      console.error('Error fetching usage data:', error);
+      console.error("Error fetching usage data:", error);
     } finally {
       setLoading(false);
     }
@@ -105,8 +118,8 @@ export function UsageDashboard() {
   if (!subscription) {
     return (
       <div className="max-w-7xl mx-auto p-6">
-        <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
-          <p className="text-gray-600">No active subscription found</p>
+        <div className="bg-[#11161D] rounded-xl border border-[#232A33] p-12 text-center">
+          <p className="text-slate-400">No active subscription found</p>
         </div>
       </div>
     );
@@ -119,25 +132,29 @@ export function UsageDashboard() {
   const isLow = usagePercent > 90;
 
   const eventTypeIcons: Record<string, typeof Zap> = {
-    'LLM_token_usage': Zap,
-    'vision_frame_batch': Eye,
-    'optimizer_job': Cpu,
-    'simulator_run': PlayCircle,
+    LLM_token_usage: Zap,
+    vision_frame_batch: Eye,
+    optimizer_job: Cpu,
+    simulator_run: PlayCircle,
   };
 
   const eventTypeLabels: Record<string, string> = {
-    'LLM_token_usage': 'LLM Queries',
-    'vision_frame_batch': 'Vision Analysis',
-    'optimizer_job': 'Optimizer Jobs',
-    'simulator_run': 'Simulator Runs',
+    LLM_token_usage: "LLM Queries",
+    vision_frame_batch: "Vision Analysis",
+    optimizer_job: "Optimizer Jobs",
+    simulator_run: "Simulator Runs",
   };
 
   return (
-    <div className="h-full overflow-auto bg-gray-50">
+    <div className="h-full overflow-auto bg-[#0B0F14]">
       <div className="max-w-7xl mx-auto p-6">
         <div className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Usage Dashboard</h1>
-          <p className="text-gray-600">Monitor your credit consumption and usage patterns</p>
+          <h1 className="text-3xl font-bold text-[#E6EDF3] mb-2">
+            Usage Dashboard
+          </h1>
+          <p className="text-slate-400">
+            Monitor your credit consumption and usage patterns
+          </p>
         </div>
 
         {/* Alert for low credits */}
@@ -145,9 +162,13 @@ export function UsageDashboard() {
           <div className="mb-6 bg-yellow-50 border border-yellow-200 rounded-xl p-4 flex items-start gap-3">
             <AlertTriangle className="w-5 h-5 text-yellow-600 mt-0.5" />
             <div>
-              <h3 className="font-semibold text-yellow-900">Credit Usage Alert</h3>
+              <h3 className="font-semibold text-yellow-900">
+                Credit Usage Alert
+              </h3>
               <p className="text-sm text-yellow-700">
-                You've used {usagePercent.toFixed(0)}% of your monthly credit allowance. Consider upgrading your plan or monitoring usage carefully.
+                You've used {usagePercent.toFixed(0)}% of your monthly credit
+                allowance. Consider upgrading your plan or monitoring usage
+                carefully.
               </p>
             </div>
           </div>
@@ -155,9 +176,11 @@ export function UsageDashboard() {
 
         {/* Current Period Summary */}
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-6">
-          <div className="lg:col-span-1 bg-white rounded-xl border border-gray-200 p-6">
-            <div className="text-sm text-gray-600 mb-1">Total Credits Used</div>
-            <div className="text-3xl font-bold text-gray-900">
+          <div className="lg:col-span-1 bg-[#11161D] rounded-xl border border-[#232A33] p-6">
+            <div className="text-sm text-slate-400 mb-1">
+              Total Credits Used
+            </div>
+            <div className="text-3xl font-bold text-[#E6EDF3]">
               {creditsUsed.toLocaleString()}
             </div>
             <div className="text-sm text-gray-500 mt-1">
@@ -165,27 +188,31 @@ export function UsageDashboard() {
             </div>
             <div className="mt-4 w-full bg-gray-200 rounded-full h-2">
               <div
-                className={`h-2 rounded-full ${isLow ? 'bg-yellow-500' : 'bg-teal-500'}`}
+                className={`h-2 rounded-full ${isLow ? "bg-yellow-500" : "bg-teal-500"}`}
                 style={{ width: `${Math.min(usagePercent, 100)}%` }}
               ></div>
             </div>
           </div>
 
-          <div className="lg:col-span-3 bg-white rounded-xl border border-gray-200 p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Usage by Type</h2>
+          <div className="lg:col-span-3 bg-[#11161D] rounded-xl border border-[#232A33] p-6">
+            <h2 className="text-lg font-semibold text-[#E6EDF3] mb-4">
+              Usage by Type
+            </h2>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {Object.entries(usage?.by_type || {}).map(([type, data]) => {
                 const Icon = eventTypeIcons[type] || Zap;
                 const label = eventTypeLabels[type] || type;
 
                 return (
-                  <div key={type} className="bg-gray-50 rounded-lg p-4">
+                  <div key={type} className="bg-[#0B0F14] rounded-lg p-4">
                     <Icon className="w-6 h-6 text-teal-600 mb-2" />
-                    <div className="text-2xl font-bold text-gray-900">
+                    <div className="text-2xl font-bold text-[#E6EDF3]">
                       {data.credits.toLocaleString()}
                     </div>
-                    <div className="text-xs text-gray-600 mb-1">{label}</div>
-                    <div className="text-xs text-gray-500">{data.count} events</div>
+                    <div className="text-xs text-slate-400 mb-1">{label}</div>
+                    <div className="text-xs text-gray-500">
+                      {data.count} events
+                    </div>
                   </div>
                 );
               })}
@@ -200,8 +227,8 @@ export function UsageDashboard() {
         </div>
 
         {/* Historical Trend */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+        <div className="bg-[#11161D] rounded-xl border border-[#232A33] p-6 mb-6">
+          <h2 className="text-lg font-semibold text-[#E6EDF3] mb-4 flex items-center gap-2">
             <TrendingUp className="w-5 h-5 text-teal-600" />
             Historical Usage Trend
           </h2>
@@ -210,15 +237,22 @@ export function UsageDashboard() {
             <div className="space-y-3">
               {historicalData.map((month) => {
                 const monthDate = new Date(month.month);
-                const monthLabel = monthDate.toLocaleDateString('en-US', { year: 'numeric', month: 'short' });
-                const monthPercent = (month.total_credits / limits?.included_credits) * 100;
+                const monthLabel = monthDate.toLocaleDateString("en-US", {
+                  year: "numeric",
+                  month: "short",
+                });
+                const monthPercent =
+                  (month.total_credits / limits?.included_credits) * 100;
 
                 return (
                   <div key={month.month}>
                     <div className="flex items-center justify-between mb-1">
-                      <span className="text-sm font-medium text-gray-700">{monthLabel}</span>
-                      <span className="text-sm text-gray-600">
-                        {month.total_credits?.toLocaleString()} credits ({monthPercent.toFixed(0)}%)
+                      <span className="text-sm font-medium text-slate-300">
+                        {monthLabel}
+                      </span>
+                      <span className="text-sm text-slate-400">
+                        {month.total_credits?.toLocaleString()} credits (
+                        {monthPercent.toFixed(0)}%)
                       </span>
                     </div>
                     <div className="w-full bg-gray-200 rounded-full h-2">
@@ -239,36 +273,38 @@ export function UsageDashboard() {
         </div>
 
         {/* Rate Information */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Credit Rates for Your Plan</h2>
+        <div className="bg-[#11161D] rounded-xl border border-[#232A33] p-6">
+          <h2 className="text-lg font-semibold text-[#E6EDF3] mb-4">
+            Credit Rates for Your Plan
+          </h2>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="border border-gray-200 rounded-lg p-4">
-              <div className="text-sm text-gray-600 mb-1">LLM Token Usage</div>
-              <div className="font-semibold text-gray-900">1 credit</div>
+            <div className="border border-[#232A33] rounded-lg p-4">
+              <div className="text-sm text-slate-400 mb-1">LLM Token Usage</div>
+              <div className="font-semibold text-[#E6EDF3]">1 credit</div>
               <div className="text-xs text-gray-500">per 1,000 tokens</div>
             </div>
-            <div className="border border-gray-200 rounded-lg p-4">
-              <div className="text-sm text-gray-600 mb-1">Vision Frames</div>
-              <div className="font-semibold text-gray-900">5 credits</div>
+            <div className="border border-[#232A33] rounded-lg p-4">
+              <div className="text-sm text-slate-400 mb-1">Vision Frames</div>
+              <div className="font-semibold text-[#E6EDF3]">5 credits</div>
               <div className="text-xs text-gray-500">per 100 frames</div>
             </div>
-            <div className="border border-gray-200 rounded-lg p-4">
-              <div className="text-sm text-gray-600 mb-1">Optimizer Job</div>
-              <div className="font-semibold text-gray-900">500 credits</div>
+            <div className="border border-[#232A33] rounded-lg p-4">
+              <div className="text-sm text-slate-400 mb-1">Optimizer Job</div>
+              <div className="font-semibold text-[#E6EDF3]">500 credits</div>
               <div className="text-xs text-gray-500">per job</div>
             </div>
-            <div className="border border-gray-200 rounded-lg p-4">
-              <div className="text-sm text-gray-600 mb-1">Simulator Run</div>
-              <div className="font-semibold text-gray-900">1,000 credits</div>
+            <div className="border border-[#232A33] rounded-lg p-4">
+              <div className="text-sm text-slate-400 mb-1">Simulator Run</div>
+              <div className="font-semibold text-[#E6EDF3]">1,000 credits</div>
               <div className="text-xs text-gray-500">per run</div>
             </div>
           </div>
 
-          <div className="mt-6 pt-6 border-t border-gray-200">
+          <div className="mt-6 pt-6 border-t border-[#232A33]">
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-sm text-gray-600">Overage Rate</div>
-                <div className="font-semibold text-gray-900">
+                <div className="text-sm text-slate-400">Overage Rate</div>
+                <div className="font-semibold text-[#E6EDF3]">
                   ${plan?.overage_per_credit_cad.toFixed(4)} CAD per credit
                 </div>
               </div>
