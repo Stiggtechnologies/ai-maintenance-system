@@ -12,30 +12,34 @@ interface MetricCardProps {
   loading?: boolean;
 }
 
-const variantStyles = {
-  default:
-    "bg-white border-slate-200/60 shadow-card hover:shadow-card-hover transition-shadow",
-  success:
-    "bg-white border-green-200/60 shadow-card hover:shadow-card-hover transition-shadow",
-  warning:
-    "bg-white border-yellow-200/60 shadow-card hover:shadow-card-hover transition-shadow",
-  danger:
-    "bg-white border-red-200/60 shadow-card hover:shadow-card-hover transition-shadow",
-  info: "bg-white border-teal-200/60 shadow-card hover:shadow-card-hover transition-shadow",
+const variantBorder = {
+  default: "border-[#232A33]",
+  success: "border-emerald-500/20",
+  warning: "border-amber-500/20",
+  danger: "border-red-500/20",
+  info: "border-teal-500/20",
+};
+
+const variantGlow = {
+  default: "",
+  success: "shadow-[0_0_15px_rgba(16,185,129,0.05)]",
+  warning: "shadow-[0_0_15px_rgba(245,158,11,0.05)]",
+  danger: "shadow-[0_0_15px_rgba(239,68,68,0.05)]",
+  info: "shadow-[0_0_15px_rgba(20,184,166,0.05)]",
 };
 
 const iconBg = {
-  default: "bg-slate-100 text-slate-600",
-  success: "bg-green-50 text-green-600",
-  warning: "bg-amber-50 text-amber-600",
-  danger: "bg-red-50 text-red-600",
-  info: "bg-teal-50 text-teal-600",
+  default: "bg-[#1A2030] text-slate-400",
+  success: "bg-emerald-500/10 text-emerald-400",
+  warning: "bg-amber-500/10 text-amber-400",
+  danger: "bg-red-500/10 text-red-400",
+  info: "bg-teal-500/10 text-teal-400",
 };
 
 const trendColors = {
-  up: "text-green-600",
-  down: "text-red-600",
-  flat: "text-slate-400",
+  up: "text-emerald-400",
+  down: "text-red-400",
+  flat: "text-slate-500",
 };
 
 export function MetricCard({
@@ -52,9 +56,11 @@ export function MetricCard({
     trend === "up" ? TrendingUp : trend === "down" ? TrendingDown : Minus;
 
   return (
-    <div className={`border rounded-xl p-5 ${variantStyles[variant]}`}>
+    <div
+      className={`bg-[#11161D] border rounded-xl p-5 transition-all duration-200 hover:bg-[#161C24] ${variantBorder[variant]} ${variantGlow[variant]}`}
+    >
       <div className="flex items-center justify-between mb-3">
-        <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
+        <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
           {label}
         </span>
         {Icon && (
@@ -66,10 +72,10 @@ export function MetricCard({
         )}
       </div>
       {loading ? (
-        <div className="h-8 w-24 bg-slate-100 rounded animate-pulse" />
+        <div className="h-8 w-24 bg-[#1A2030] rounded animate-pulse" />
       ) : (
         <div className="flex items-end gap-1.5">
-          <span className="text-2xl font-bold text-slate-900">{value}</span>
+          <span className="text-2xl font-bold text-[#E6EDF3]">{value}</span>
           {unit && (
             <span className="text-sm text-slate-500 mb-0.5">{unit}</span>
           )}

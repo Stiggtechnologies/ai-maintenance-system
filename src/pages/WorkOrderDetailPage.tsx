@@ -362,14 +362,14 @@ export function WorkOrderDetailPage() {
     in_progress: "bg-yellow-100 text-yellow-800",
     pending_approval: "bg-orange-100 text-orange-800",
     completed: "bg-green-100 text-green-800",
-    cancelled: "bg-slate-100 text-slate-600",
+    cancelled: "bg-slate-100 text-slate-400",
   };
 
   const priorityColors: Record<string, string> = {
     critical: "bg-red-100 text-red-700",
     high: "bg-orange-100 text-orange-700",
     medium: "bg-blue-100 text-blue-700",
-    low: "bg-slate-100 text-slate-600",
+    low: "bg-slate-100 text-slate-400",
   };
 
   const formatDate = (dateStr: string | null | undefined) => {
@@ -432,30 +432,30 @@ export function WorkOrderDetailPage() {
       {/* Back button */}
       <button
         onClick={() => navigate("/work")}
-        className="flex items-center gap-1.5 text-slate-600 hover:text-slate-900 transition-colors font-medium text-sm"
+        className="flex items-center gap-1.5 text-slate-400 hover:text-[#E6EDF3] transition-colors font-medium text-sm"
       >
         <ArrowLeft size={16} />
         Back to Work Management
       </button>
 
       {/* Header */}
-      <div className="bg-white border border-slate-200/60 rounded-xl shadow-card p-6">
+      <div className="bg-[#11161D] border border-[#232A33] rounded-xl p-6">
         <div className="flex flex-col sm:flex-row sm:items-center gap-3">
           <div className="flex items-center gap-3 flex-1">
             <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
               <Wrench size={20} className="text-blue-600" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-slate-900">
+              <h1 className="text-xl font-bold text-[#E6EDF3]">
                 {workOrder.wo_number || `WO-${workOrder.id?.slice(0, 8)}`}
               </h1>
-              <p className="text-slate-600 text-sm">{workOrder.title}</p>
+              <p className="text-slate-400 text-sm">{workOrder.title}</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
             <span
               className={`px-2.5 py-1 text-xs font-semibold rounded-full ${
-                statusColors[workOrder.status] || "bg-slate-100 text-slate-600"
+                statusColors[workOrder.status] || "bg-slate-100 text-slate-400"
               }`}
             >
               {formatLabel(workOrder.status || "unknown")}
@@ -464,7 +464,7 @@ export function WorkOrderDetailPage() {
               <span
                 className={`px-2.5 py-1 text-xs font-semibold rounded-full ${
                   priorityColors[workOrder.priority] ||
-                  "bg-slate-100 text-slate-600"
+                  "bg-slate-100 text-slate-400"
                 }`}
               >
                 {formatLabel(workOrder.priority)}
@@ -475,7 +475,7 @@ export function WorkOrderDetailPage() {
       </div>
 
       {/* Info Grid */}
-      <div className="bg-white border border-slate-200/60 rounded-xl shadow-card p-6">
+      <div className="bg-[#11161D] border border-[#232A33] rounded-xl p-6">
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
           <InfoItem
             icon={<Wrench size={16} className="text-slate-400" />}
@@ -529,9 +529,9 @@ export function WorkOrderDetailPage() {
 
       {/* Status Action Buttons */}
       {nextStatus[workOrder.status] && (
-        <div className="bg-white border border-slate-200/60 rounded-xl shadow-card p-6">
+        <div className="bg-[#11161D] border border-[#232A33] rounded-xl p-6">
           <div className="flex items-center gap-3">
-            <span className="text-sm text-slate-600 font-medium">
+            <span className="text-sm text-slate-400 font-medium">
               Update Status:
             </span>
             <button
@@ -553,11 +553,11 @@ export function WorkOrderDetailPage() {
 
       {/* Reliability Assessment — three-plane governed flow */}
       <AgentErrorBoundary correlationId={assessmentCorrelationId || undefined}>
-        <div className="bg-white border border-slate-200/60 rounded-xl shadow-card p-6">
+        <div className="bg-[#11161D] border border-[#232A33] rounded-xl p-6">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <Sparkles size={18} className="text-blue-600" />
-              <h2 className="text-lg font-semibold text-slate-900">
+              <h2 className="text-lg font-semibold text-[#E6EDF3]">
                 Reliability Assessment
               </h2>
             </div>
@@ -607,7 +607,7 @@ export function WorkOrderDetailPage() {
                       ? "bg-orange-100 text-orange-800"
                       : assessment.approval_status === "approved"
                         ? "bg-green-100 text-green-800"
-                        : "bg-slate-100 text-slate-600"
+                        : "bg-slate-100 text-slate-400"
                   }`}
                 >
                   {assessment.requires_human_review &&
@@ -673,7 +673,7 @@ export function WorkOrderDetailPage() {
               {assessment.requires_human_review &&
                 assessment.approval_status !== "approved" &&
                 assessment.decision_id && (
-                  <div className="pt-3 border-t border-slate-100">
+                  <div className="pt-3 border-t border-[#1A2030]">
                     <button
                       onClick={handleApproveAndExecute}
                       disabled={approvalLoading}
@@ -699,7 +699,7 @@ export function WorkOrderDetailPage() {
                 )}
 
               {/* Governance trail */}
-              <div className="pt-3 border-t border-slate-100 flex items-center gap-4 text-xs text-slate-400">
+              <div className="pt-3 border-t border-[#1A2030] flex items-center gap-4 text-xs text-slate-400">
                 <span className="flex items-center gap-1">
                   <Shield size={12} /> Governed by Autonomous
                 </span>
@@ -727,11 +727,11 @@ export function WorkOrderDetailPage() {
       <AgentErrorBoundary
         correlationId={classificationCorrelationId || undefined}
       >
-        <div className="bg-white border border-slate-200/60 rounded-xl shadow-card p-6">
+        <div className="bg-[#11161D] border border-[#232A33] rounded-xl p-6">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <AlertTriangle size={18} className="text-orange-600" />
-              <h2 className="text-lg font-semibold text-slate-900">
+              <h2 className="text-lg font-semibold text-[#E6EDF3]">
                 Failure Mode Classification
               </h2>
             </div>
@@ -808,31 +808,31 @@ export function WorkOrderDetailPage() {
 
               {/* Classification details */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="bg-slate-50 rounded-lg p-3">
+                <div className="bg-[#0B0F14] rounded-lg p-3">
                   <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">
                     Failure Mode
                   </div>
-                  <div className="text-sm font-medium text-slate-900">
+                  <div className="text-sm font-medium text-[#E6EDF3]">
                     {classification.failure_mode}
                   </div>
                 </div>
-                <div className="bg-slate-50 rounded-lg p-3">
+                <div className="bg-[#0B0F14] rounded-lg p-3">
                   <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">
                     Family
                   </div>
-                  <div className="text-sm font-medium text-slate-900 capitalize">
+                  <div className="text-sm font-medium text-[#E6EDF3] capitalize">
                     {classification.failure_mode_family}
                   </div>
                 </div>
-                <div className="bg-slate-50 rounded-lg p-3">
+                <div className="bg-[#0B0F14] rounded-lg p-3">
                   <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">
                     Cause Family
                   </div>
-                  <div className="text-sm font-medium text-slate-900 capitalize">
+                  <div className="text-sm font-medium text-[#E6EDF3] capitalize">
                     {classification.likely_cause_family}
                   </div>
                 </div>
-                <div className="bg-slate-50 rounded-lg p-3 sm:col-span-2">
+                <div className="bg-[#0B0F14] rounded-lg p-3 sm:col-span-2">
                   <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">
                     Next Diagnostic Step
                   </div>
@@ -843,7 +843,7 @@ export function WorkOrderDetailPage() {
               </div>
 
               {/* Governance trail */}
-              <div className="pt-3 border-t border-slate-100 flex items-center gap-4 text-xs text-slate-400">
+              <div className="pt-3 border-t border-[#1A2030] flex items-center gap-4 text-xs text-slate-400">
                 <span className="flex items-center gap-1">
                   <Shield size={12} /> Governed by Autonomous
                 </span>
@@ -868,7 +868,7 @@ export function WorkOrderDetailPage() {
       </AgentErrorBoundary>
 
       {/* Tab Bar */}
-      <div className="border-b border-slate-200">
+      <div className="border-b border-[#232A33]">
         <div className="flex gap-6">
           {tabs.map((tab) => (
             <button
@@ -888,13 +888,13 @@ export function WorkOrderDetailPage() {
 
       {/* Tab Content */}
       {activeTab === "details" && (
-        <div className="bg-white border border-slate-200/60 rounded-xl shadow-card p-6 space-y-5">
+        <div className="bg-[#11161D] border border-[#232A33] rounded-xl p-6 space-y-5">
           {workOrder.work_type && (
             <div>
               <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-1">
                 Work Type
               </h3>
-              <p className="text-slate-900">
+              <p className="text-[#E6EDF3]">
                 {formatLabel(workOrder.work_type)}
               </p>
             </div>
@@ -921,11 +921,11 @@ export function WorkOrderDetailPage() {
       )}
 
       {activeTab === "tasks" && (
-        <div className="bg-white border border-slate-200/60 rounded-xl shadow-card p-6">
+        <div className="bg-[#11161D] border border-[#232A33] rounded-xl p-6">
           <div className="flex items-center gap-2 mb-4">
             <FileText size={18} className="text-slate-500" />
-            <h2 className="text-lg font-semibold text-slate-900">Tasks</h2>
-            <span className="ml-auto px-2 py-0.5 bg-slate-100 text-slate-600 text-xs font-medium rounded">
+            <h2 className="text-lg font-semibold text-[#E6EDF3]">Tasks</h2>
+            <span className="ml-auto px-2 py-0.5 bg-slate-100 text-slate-400 text-xs font-medium rounded">
               {tasks.length}
             </span>
           </div>
@@ -938,7 +938,7 @@ export function WorkOrderDetailPage() {
               {tasks.map((task) => (
                 <div
                   key={task.id}
-                  className="flex items-start gap-3 p-3 bg-slate-50 rounded-lg"
+                  className="flex items-start gap-3 p-3 bg-[#0B0F14] rounded-lg"
                 >
                   <div className="mt-0.5">
                     {task.status === "completed" ? (
@@ -956,7 +956,7 @@ export function WorkOrderDetailPage() {
                         className={`font-medium text-sm ${
                           task.status === "completed"
                             ? "text-slate-400 line-through"
-                            : "text-slate-900"
+                            : "text-[#E6EDF3]"
                         }`}
                       >
                         {task.description}
@@ -966,7 +966,7 @@ export function WorkOrderDetailPage() {
                       <span
                         className={`px-1.5 py-0.5 rounded ${
                           statusColors[task.status] ||
-                          "bg-slate-100 text-slate-600"
+                          "bg-slate-100 text-slate-400"
                         }`}
                       >
                         {formatLabel(task.status || "pending")}
@@ -993,10 +993,10 @@ export function WorkOrderDetailPage() {
       )}
 
       {activeTab === "history" && (
-        <div className="bg-white border border-slate-200/60 rounded-xl shadow-card p-6">
+        <div className="bg-[#11161D] border border-[#232A33] rounded-xl p-6">
           <div className="flex items-center gap-2 mb-4">
             <Clock size={18} className="text-slate-500" />
-            <h2 className="text-lg font-semibold text-slate-900">
+            <h2 className="text-lg font-semibold text-[#E6EDF3]">
               Status History
             </h2>
           </div>
@@ -1018,7 +1018,7 @@ export function WorkOrderDetailPage() {
                         <span
                           className={`px-2 py-0.5 rounded text-xs font-medium ${
                             statusColors[entry.status_from] ||
-                            "bg-slate-100 text-slate-600"
+                            "bg-slate-100 text-slate-400"
                           }`}
                         >
                           {formatLabel(entry.status_from || "unknown")}
@@ -1027,7 +1027,7 @@ export function WorkOrderDetailPage() {
                         <span
                           className={`px-2 py-0.5 rounded text-xs font-medium ${
                             statusColors[entry.status_to] ||
-                            "bg-slate-100 text-slate-600"
+                            "bg-slate-100 text-slate-400"
                           }`}
                         >
                           {formatLabel(entry.status_to || "unknown")}
@@ -1043,7 +1043,7 @@ export function WorkOrderDetailPage() {
                         )}
                       </div>
                       {entry.comments && (
-                        <p className="text-sm text-slate-600 mt-1.5 bg-slate-50 rounded-lg p-2">
+                        <p className="text-sm text-slate-400 mt-1.5 bg-[#0B0F14] rounded-lg p-2">
                           {entry.comments}
                         </p>
                       )}
@@ -1073,7 +1073,7 @@ function InfoItem({
       <div className="mt-0.5">{icon}</div>
       <div>
         <div className="text-xs text-slate-500 font-medium">{label}</div>
-        <div className="text-sm text-slate-900 font-medium">{value}</div>
+        <div className="text-sm text-[#E6EDF3] font-medium">{value}</div>
       </div>
     </div>
   );

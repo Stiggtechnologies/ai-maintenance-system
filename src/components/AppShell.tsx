@@ -432,7 +432,7 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
         </header>
 
         {/* Page Content */}
-        <main className="flex-1 overflow-auto p-6 bg-gradient-to-br from-slate-50 via-white to-slate-50 min-w-0">
+        <main className="flex-1 overflow-auto p-6 bg-[#0B0F14] min-w-0">
           <div className="max-w-full">{children}</div>
         </main>
       </div>

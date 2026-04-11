@@ -35,21 +35,21 @@ function StatCard({
   status,
 }: StatCardProps) {
   const statusColors = {
-    good: "border-green-200/60 bg-white",
-    warning: "border-amber-200/60 bg-white",
-    critical: "border-red-200/60 bg-white",
-    neutral: "border-slate-200/60 bg-white",
+    good: "border-emerald-500/20 bg-[#11161D]",
+    warning: "border-amber-500/20 bg-[#11161D]",
+    critical: "border-red-500/20 bg-[#11161D]",
+    neutral: "border-[#232A33] bg-[#11161D]",
   };
 
   return (
     <div
-      className={`border rounded-xl p-6 shadow-card hover:shadow-card-hover transition-shadow ${statusColors[status || "neutral"]}`}
+      className={`border rounded-xl p-6 transition-all duration-200 hover:bg-[#161C24] ${statusColors[status || "neutral"]}`}
     >
       <div className="flex items-start justify-between">
         <div className="flex-1">
-          <div className="text-sm font-medium text-slate-600 mb-1">{title}</div>
+          <div className="text-sm font-medium text-slate-500 mb-1">{title}</div>
           <div className="flex items-baseline gap-2">
-            <div className="text-3xl font-bold text-slate-900">{value}</div>
+            <div className="text-3xl font-bold text-[#E6EDF3]">{value}</div>
             {unit && <div className="text-sm text-slate-500">{unit}</div>}
           </div>
         </div>
@@ -278,30 +278,30 @@ export function OverviewDashboard() {
     return (
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">
+          <h1 className="text-2xl font-bold text-[#E6EDF3]">
             Welcome to SyncAI
           </h1>
-          <p className="text-slate-600 mt-1">
+          <p className="text-slate-400 mt-1">
             AI-powered autonomous asset maintenance and reliability platform
           </p>
         </div>
 
-        <div className="bg-gradient-to-br from-blue-50 to-cyan-50 border border-blue-200 rounded-xl p-8">
-          <h2 className="text-xl font-bold text-slate-900 mb-2">Get Started</h2>
-          <p className="text-slate-600 mb-6">
+        <div className="bg-gradient-to-br from-teal-950/30 to-[#11161D] border border-teal-500/20 rounded-xl p-8">
+          <h2 className="text-xl font-bold text-[#E6EDF3] mb-2">Get Started</h2>
+          <p className="text-slate-400 mb-6">
             Set up your organization to start using SyncAI. Here's what to do
             first:
           </p>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="bg-white rounded-xl p-6 border border-slate-200">
+            <div className="bg-[#11161D] rounded-xl p-6 border border-[#232A33]">
               <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center mb-3">
                 <Package size={20} className="text-blue-600" />
               </div>
-              <h3 className="font-semibold text-slate-900 mb-1">
+              <h3 className="font-semibold text-[#E6EDF3] mb-1">
                 1. Register Assets
               </h3>
-              <p className="text-sm text-slate-600 mb-3">
+              <p className="text-sm text-slate-400 mb-3">
                 Import your asset register via CSV or add assets manually.
               </p>
               <a
@@ -312,14 +312,14 @@ export function OverviewDashboard() {
               </a>
             </div>
 
-            <div className="bg-white rounded-xl p-6 border border-slate-200">
+            <div className="bg-[#11161D] rounded-xl p-6 border border-[#232A33]">
               <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center mb-3">
                 <LayoutDashboard size={20} className="text-green-600" />
               </div>
-              <h3 className="font-semibold text-slate-900 mb-1">
+              <h3 className="font-semibold text-[#E6EDF3] mb-1">
                 2. Choose Template
               </h3>
-              <p className="text-sm text-slate-600 mb-3">
+              <p className="text-sm text-slate-400 mb-3">
                 Select an industry template to auto-configure KPIs, governance,
                 and workflows.
               </p>
@@ -331,14 +331,14 @@ export function OverviewDashboard() {
               </a>
             </div>
 
-            <div className="bg-white rounded-xl p-6 border border-slate-200">
+            <div className="bg-[#11161D] rounded-xl p-6 border border-[#232A33]">
               <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center mb-3">
                 <Wrench size={20} className="text-purple-600" />
               </div>
-              <h3 className="font-semibold text-slate-900 mb-1">
+              <h3 className="font-semibold text-[#E6EDF3] mb-1">
                 3. Create Work Orders
               </h3>
-              <p className="text-sm text-slate-600 mb-3">
+              <p className="text-sm text-slate-400 mb-3">
                 Start managing maintenance work with AI-assisted prioritization.
               </p>
               <a
@@ -352,29 +352,29 @@ export function OverviewDashboard() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="bg-white border border-slate-200/60 rounded-xl p-6 shadow-card">
-            <h3 className="font-semibold text-slate-900 mb-3">
+          <div className="bg-[#11161D] border border-[#232A33] rounded-xl p-6">
+            <h3 className="font-semibold text-[#E6EDF3] mb-3">
               Platform Status
             </h3>
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-sm text-slate-600">Authentication</span>
+                <span className="text-sm text-slate-400">Authentication</span>
                 <span className="flex items-center gap-1 text-sm text-green-600">
                   <CheckCircle2 size={14} /> Connected
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-sm text-slate-600">Database</span>
+                <span className="text-sm text-slate-400">Database</span>
                 <span className="flex items-center gap-1 text-sm text-green-600">
                   <CheckCircle2 size={14} /> Connected
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-sm text-slate-600">Assets</span>
+                <span className="text-sm text-slate-400">Assets</span>
                 <span className="text-sm text-slate-400">0 registered</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-sm text-slate-600">
+                <span className="text-sm text-slate-400">
                   Industry Template
                 </span>
                 <span className="text-sm text-slate-400">Not configured</span>
@@ -382,11 +382,11 @@ export function OverviewDashboard() {
             </div>
           </div>
 
-          <div className="bg-white border border-slate-200/60 rounded-xl p-6 shadow-card">
-            <h3 className="font-semibold text-slate-900 mb-3">
+          <div className="bg-[#11161D] border border-[#232A33] rounded-xl p-6">
+            <h3 className="font-semibold text-[#E6EDF3] mb-3">
               What SyncAI Does
             </h3>
-            <ul className="space-y-2 text-sm text-slate-600">
+            <ul className="space-y-2 text-sm text-slate-400">
               <li className="flex items-start gap-2">
                 <Zap size={14} className="text-blue-500 mt-0.5 flex-shrink-0" />
                 AI-powered asset health monitoring and anomaly detection
@@ -424,7 +424,7 @@ export function OverviewDashboard() {
     critical: "bg-red-100 text-red-800",
     high: "bg-orange-100 text-orange-800",
     medium: "bg-blue-100 text-blue-800",
-    low: "bg-slate-100 text-slate-600",
+    low: "bg-slate-100 text-slate-400",
   };
 
   const statusColors: Record<string, string> = {
@@ -539,10 +539,10 @@ export function OverviewDashboard() {
 
       {/* Recent Alerts + Recent Work Orders */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white border border-slate-200/60 rounded-xl p-6 shadow-card">
+        <div className="bg-[#11161D] border border-[#232A33] rounded-xl p-6">
           <div className="flex items-center gap-2 mb-4">
-            <AlertTriangle size={20} className="text-slate-600" />
-            <h2 className="text-lg font-semibold text-slate-900">
+            <AlertTriangle size={20} className="text-slate-400" />
+            <h2 className="text-lg font-semibold text-[#E6EDF3]">
               Recent Alerts
             </h2>
           </div>
@@ -551,10 +551,10 @@ export function OverviewDashboard() {
               {recentAlerts.map((alert) => (
                 <div
                   key={alert.id}
-                  className="flex items-center justify-between p-3 bg-slate-50 rounded-lg"
+                  className="flex items-center justify-between p-3 bg-[#0B0F14] rounded-lg"
                 >
                   <div className="flex-1">
-                    <div className="text-sm font-medium text-slate-900">
+                    <div className="text-sm font-medium text-[#E6EDF3]">
                       {alert.title}
                     </div>
                     <div className="text-xs text-slate-500 mt-0.5">
@@ -562,7 +562,7 @@ export function OverviewDashboard() {
                     </div>
                   </div>
                   <span
-                    className={`text-xs px-2 py-1 rounded-full ${severityColors[alert.severity] || "bg-slate-100 text-slate-600"}`}
+                    className={`text-xs px-2 py-1 rounded-full ${severityColors[alert.severity] || "bg-slate-100 text-slate-400"}`}
                   >
                     {alert.severity}
                   </span>
@@ -574,10 +574,10 @@ export function OverviewDashboard() {
           )}
         </div>
 
-        <div className="bg-white border border-slate-200/60 rounded-xl p-6 shadow-card">
+        <div className="bg-[#11161D] border border-[#232A33] rounded-xl p-6">
           <div className="flex items-center gap-2 mb-4">
-            <Wrench size={20} className="text-slate-600" />
-            <h2 className="text-lg font-semibold text-slate-900">
+            <Wrench size={20} className="text-slate-400" />
+            <h2 className="text-lg font-semibold text-[#E6EDF3]">
               Recent Work Orders
             </h2>
           </div>
@@ -586,10 +586,10 @@ export function OverviewDashboard() {
               {recentWorkOrders.map((wo) => (
                 <div
                   key={wo.id}
-                  className="flex items-center justify-between p-3 bg-slate-50 rounded-lg"
+                  className="flex items-center justify-between p-3 bg-[#0B0F14] rounded-lg"
                 >
                   <div className="flex-1">
-                    <div className="text-sm font-medium text-slate-900">
+                    <div className="text-sm font-medium text-[#E6EDF3]">
                       {wo.title}
                     </div>
                     <div className="text-xs text-slate-500 mt-0.5">
@@ -598,7 +598,7 @@ export function OverviewDashboard() {
                     </div>
                   </div>
                   <span
-                    className={`text-xs px-2 py-1 rounded-full ${statusColors[wo.status] || "bg-slate-100 text-slate-600"}`}
+                    className={`text-xs px-2 py-1 rounded-full ${statusColors[wo.status] || "bg-slate-100 text-slate-400"}`}
                   >
                     {wo.status?.replace("_", " ")}
                   </span>

@@ -28,7 +28,7 @@ export class AgentErrorBoundary extends Component<Props, State> {
   render() {
     if (this.state.hasError) {
       return (
-        <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+        <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-lg">
           <div className="flex items-center gap-2 text-red-700 mb-2">
             <AlertTriangle size={16} />
             <span className="font-medium text-sm">Assessment Error</span>

@@ -5,12 +5,12 @@ interface StatusBadgeProps {
 }
 
 const variantStyles = {
-  default: "bg-slate-100 text-slate-700",
-  success: "bg-green-100 text-green-800",
-  warning: "bg-yellow-100 text-yellow-800",
-  danger: "bg-red-100 text-red-700",
-  info: "bg-blue-100 text-blue-800",
-  muted: "bg-slate-50 text-slate-500",
+  default: "bg-slate-500/10 text-slate-400 border border-slate-500/20",
+  success: "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20",
+  warning: "bg-amber-500/10 text-amber-400 border border-amber-500/20",
+  danger: "bg-red-500/10 text-red-400 border border-red-500/20",
+  info: "bg-teal-500/10 text-teal-400 border border-teal-500/20",
+  muted: "bg-slate-800/50 text-slate-500 border border-slate-700/30",
 };
 
 const sizeStyles = {
@@ -18,10 +18,6 @@ const sizeStyles = {
   md: "px-2.5 py-1 text-xs",
 };
 
-/**
- * Renders a status label automatically if no variant is provided.
- * Known statuses get auto-colored; unknown statuses use "default".
- */
 function autoVariant(status: string): StatusBadgeProps["variant"] {
   const s = status.toLowerCase();
   if (
@@ -56,7 +52,7 @@ export function StatusBadge({
 
   return (
     <span
-      className={`inline-flex items-center font-semibold rounded-full ${variantStyles[v]} ${sizeStyles[size]}`}
+      className={`inline-flex items-center font-medium rounded-full ${variantStyles[v]} ${sizeStyles[size]}`}
     >
       {display}
     </span>
