@@ -99,7 +99,7 @@ export function CommandCenter() {
   const [toastMessage, setToastMessage] = useState("");
   const [userName, setUserName] = useState("");
   const [firstLogin, setFirstLogin] = useState(true);
-  const [activeView, setActiveView] = useState<ActiveView>("command");
+  const [activeView, setActiveView] = useState<ActiveView>("dashboard");
 
   const { sessionsRemaining, decrementSession } = useTrialStore();
   const { toggleSidebar, executiveMode, toggleExecutiveMode } = useUIStore();

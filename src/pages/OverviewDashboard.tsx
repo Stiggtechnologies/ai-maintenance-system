@@ -10,9 +10,12 @@ import {
   LayoutDashboard,
   ArrowRight,
   CheckCircle2,
+  Gauge,
+  Rocket,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { supabase } from "../lib/supabase";
+import { PageHeader, MetricCard } from "../components/ui";
 
 interface StatCardProps {
   title: string;
@@ -87,6 +90,13 @@ export function OverviewDashboard() {
     }>
   >([]);
   const [hasData, setHasData] = useState(false);
+  const [enterpriseKPIs, setEnterpriseKPIs] = useState({
+    riskIndex: null as number | null,
+    governanceMode: "Not configured",
+    aiConfidence: null as number | null,
+    pendingApprovals: 0,
+    deploymentCount: 0,
+  });
 
   useEffect(() => {
     loadDashboardData();
@@ -151,6 +161,85 @@ export function OverviewDashboard() {
       } catch {
         /* table may not exist */
       }
+
+      // Enterprise KPIs from real data
+      let pendingApprovals = 0;
+      let avgConfidence: number | null = null;
+      let governanceMode = "Not configured";
+      let deploymentCount = 0;
+
+      try {
+        const res = await supabase
+          .from("autonomous_decisions")
+          .select("id", { count: "exact", head: true })
+          .eq("status", "pending");
+        pendingApprovals = res.count || 0;
+      } catch {
+        /* */
+      }
+
+      try {
+        const res = await supabase
+          .from("autonomous_decisions")
+          .select("confidence_score")
+          .not("confidence_score", "is", null)
+          .order("created_at", { ascending: false })
+          .limit(20);
+        if (res.data && res.data.length > 0) {
+          const scores = res.data.map((d) => d.confidence_score as number);
+          avgConfidence = Math.round(
+            scores.reduce((a, b) => a + b, 0) / scores.length,
+          );
+        }
+      } catch {
+        /* */
+      }
+
+      try {
+        const res = await supabase
+          .from("tenant_settings")
+          .select("autonomy_mode_default")
+          .limit(1)
+          .maybeSingle();
+        if (res.data?.autonomy_mode_default) {
+          governanceMode = String(res.data.autonomy_mode_default).replace(
+            /\b\w/g,
+            (c: string) => c.toUpperCase(),
+          );
+        }
+      } catch {
+        /* */
+      }
+
+      try {
+        const res = await supabase
+          .from("deployment_instances")
+          .select("id", { count: "exact", head: true });
+        deploymentCount = res.count || 0;
+      } catch {
+        /* */
+      }
+
+      // Risk index: derived from unresolved critical/high alerts + open critical WOs
+      const criticalAlerts = alerts.filter(
+        (a) =>
+          !a.resolved && (a.severity === "critical" || a.severity === "high"),
+      ).length;
+      const criticalWOs = workOrders.filter(
+        (w) => w.priority === "critical" && w.status !== "completed",
+      ).length;
+      const riskIndex =
+        criticalAlerts + criticalWOs > 0
+          ? Math.min(100, criticalAlerts * 15 + criticalWOs * 10)
+          : null;
+
+      setEnterpriseKPIs({
+        riskIndex,
+        governanceMode,
+        aiConfidence: avgConfidence,
+        pendingApprovals,
+        deploymentCount,
+      });
 
       const dataExists =
         assetCount > 0 || workOrders.length > 0 || alerts.length > 0;
@@ -346,16 +435,71 @@ export function OverviewDashboard() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900">
-          Strategic Overview
-        </h1>
-        <p className="text-slate-600 mt-1">
-          Enterprise intelligence and operational performance
-        </p>
+      <PageHeader
+        icon={LayoutDashboard}
+        title="Strategic Overview"
+        subtitle="Enterprise intelligence and operational performance"
+      />
+
+      {/* Enterprise KPI Row */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+        <MetricCard
+          label="Enterprise Risk"
+          value={
+            enterpriseKPIs.riskIndex !== null ? enterpriseKPIs.riskIndex : "—"
+          }
+          unit={enterpriseKPIs.riskIndex !== null ? "/100" : ""}
+          icon={AlertTriangle}
+          variant={
+            enterpriseKPIs.riskIndex === null
+              ? "default"
+              : enterpriseKPIs.riskIndex > 50
+                ? "danger"
+                : enterpriseKPIs.riskIndex > 20
+                  ? "warning"
+                  : "success"
+          }
+        />
+        <MetricCard
+          label="Pending Approvals"
+          value={enterpriseKPIs.pendingApprovals}
+          icon={Shield}
+          variant={enterpriseKPIs.pendingApprovals > 0 ? "warning" : "success"}
+        />
+        <MetricCard
+          label="Governance Mode"
+          value={enterpriseKPIs.governanceMode}
+          icon={Shield}
+          variant="info"
+        />
+        <MetricCard
+          label="AI Confidence"
+          value={
+            enterpriseKPIs.aiConfidence !== null
+              ? enterpriseKPIs.aiConfidence
+              : "—"
+          }
+          unit={enterpriseKPIs.aiConfidence !== null ? "%" : ""}
+          icon={Gauge}
+          variant={
+            enterpriseKPIs.aiConfidence === null
+              ? "default"
+              : enterpriseKPIs.aiConfidence >= 75
+                ? "success"
+                : enterpriseKPIs.aiConfidence >= 50
+                  ? "warning"
+                  : "danger"
+          }
+        />
+        <MetricCard
+          label="Deployments"
+          value={enterpriseKPIs.deploymentCount}
+          icon={Rocket}
+          variant="info"
+        />
       </div>
 
-      {/* Summary Cards */}
+      {/* Operational Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard
           title="Total Assets"
