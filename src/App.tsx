@@ -1,5 +1,12 @@
 import { useState, useEffect } from "react";
-import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  Navigate,
+  useNavigate,
+  useLocation,
+} from "react-router-dom";
 import { supabase } from "./lib/supabase";
 import { Login } from "./pages/Login";
 import { Signup } from "./pages/Signup";
@@ -16,6 +23,7 @@ import { PerformanceDashboard } from "./pages/PerformanceDashboard";
 import { WorkDashboard } from "./pages/WorkDashboard";
 import { GovernanceDashboard } from "./pages/GovernanceDashboard";
 import { RunsAuditPage } from "./pages/RunsAuditPage";
+import { ResearchDashboard } from "./pages/ResearchDashboard";
 import { WorkOrderDetailPage } from "./pages/WorkOrderDetailPage";
 import { OEEDashboard } from "./pages/OEEDashboard";
 import { SettingsPage } from "./pages/SettingsPage";
@@ -144,6 +152,7 @@ function AuthenticatedApp() {
         <Route path="/work" element={<WorkDashboard />} />
         <Route path="/governance" element={<GovernanceDashboard />} />
         <Route path="/runs" element={<RunsAuditPage />} />
+        <Route path="/research" element={<ResearchDashboard />} />
         <Route path="/assets/:assetId" element={<AssetDetailPage />} />
         <Route path="/assets" element={<AssetManagement />} />
         <Route path="/integrations" element={<IntegrationsPage />} />

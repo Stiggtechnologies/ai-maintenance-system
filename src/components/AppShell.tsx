@@ -189,6 +189,12 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
       requiredLevel: ["executive", "strategic", "tactical"],
     },
     { id: "runs", label: "Runs", icon: Activity, path: "/runs" },
+    {
+      id: "research",
+      label: "Research",
+      icon: CheckCircle2,
+      path: "/research",
+    },
     { id: "assets", label: "Assets", icon: Package, path: "/assets" },
     {
       id: "integrations",
