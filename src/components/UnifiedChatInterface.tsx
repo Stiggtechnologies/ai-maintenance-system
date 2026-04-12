@@ -239,7 +239,7 @@ Ask me anything about your operations, and I'll provide insights based on your r
                   {msg.content}
                 </div>
               ) : (
-                <div className="bg-[#11161D] border border-[#232A33] rounded-2xl p-6 max-w-3xl shadow-sm">
+                <div className="glass border border-white/[0.06] rounded-2xl p-6 max-w-3xl shadow-sm">
                   <div className="flex items-center gap-2 mb-3">
                     <div className="w-8 h-8 bg-gradient-to-br from-teal-100 to-teal-200 rounded-full flex items-center justify-center">
                       <Sparkles className="w-4 h-4 text-teal-600" />
@@ -275,7 +275,7 @@ Ask me anything about your operations, and I'll provide insights based on your r
                   <button
                     key={idx}
                     onClick={() => handleQuickAction(action.query)}
-                    className="px-4 py-2 bg-[#161C24] hover:bg-gray-200 text-slate-300 rounded-lg text-sm transition-colors"
+                    className="px-4 py-2 bg-[#161C24] hover:bg-white/[0.06] text-slate-300 rounded-lg text-sm transition-colors"
                   >
                     {action.label}
                   </button>

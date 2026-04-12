@@ -224,31 +224,31 @@ export function CSVImportWizard({
                       <p className="font-medium mb-2">Required columns:</p>
                       <ul className="list-disc list-inside space-y-1 text-gray-500">
                         <li>
-                          <code className="bg-gray-200 px-1 py-0.5 rounded">
+                          <code className="bg-white/[0.06] px-1 py-0.5 rounded">
                             name
                           </code>{" "}
                           - Asset name
                         </li>
                         <li>
-                          <code className="bg-gray-200 px-1 py-0.5 rounded">
+                          <code className="bg-white/[0.06] px-1 py-0.5 rounded">
                             type
                           </code>{" "}
                           - Asset type (e.g., Pump, Motor)
                         </li>
                         <li>
-                          <code className="bg-gray-200 px-1 py-0.5 rounded">
+                          <code className="bg-white/[0.06] px-1 py-0.5 rounded">
                             location
                           </code>{" "}
                           - Physical location (optional)
                         </li>
                         <li>
-                          <code className="bg-gray-200 px-1 py-0.5 rounded">
+                          <code className="bg-white/[0.06] px-1 py-0.5 rounded">
                             criticality
                           </code>{" "}
                           - low, medium, high, critical (optional)
                         </li>
                         <li>
-                          <code className="bg-gray-200 px-1 py-0.5 rounded">
+                          <code className="bg-white/[0.06] px-1 py-0.5 rounded">
                             status
                           </code>{" "}
                           - operational, maintenance, offline (optional)

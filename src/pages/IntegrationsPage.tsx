@@ -145,7 +145,7 @@ export function IntegrationsPage() {
             className={`pb-3 text-sm font-medium border-b-2 transition-colors ${activeTab === "connectors" ? "border-blue-600 text-blue-600" : "border-transparent text-slate-500 hover:text-slate-300"}`}
           >
             Active Connectors{" "}
-            <span className="ml-1 text-xs bg-[#1A2030] text-slate-400 px-1.5 py-0.5 rounded-full">
+            <span className="ml-1 text-xs bg-white/[0.04] text-slate-500 px-1.5 py-0.5 rounded-full">
               {connectors.length}
             </span>
           </button>
@@ -166,7 +166,7 @@ export function IntegrationsPage() {
               {connectors.map((conn) => (
                 <div
                   key={conn.id}
-                  className="bg-[#11161D] border border-[#232A33] rounded-xl p-5 hover:border-blue-300 transition-colors"
+                  className="glass border border-white/[0.06] rounded-xl p-5 hover:border-blue-300 transition-colors"
                 >
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex items-center gap-2">
@@ -242,7 +242,7 @@ export function IntegrationsPage() {
       )}
 
       {activeTab === "history" && (
-        <div className="bg-[#11161D] border border-[#232A33] rounded-xl p-6">
+        <div className="glass border border-white/[0.06] rounded-xl p-6">
           <h2 className="text-lg font-semibold text-[#E6EDF3] mb-4">
             Sync History
           </h2>

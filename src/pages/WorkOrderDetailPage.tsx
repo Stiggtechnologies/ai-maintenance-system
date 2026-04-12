@@ -1012,7 +1012,7 @@ export function WorkOrderDetailPage() {
               <div className="space-y-4">
                 {statusHistory.map((entry) => (
                   <div key={entry.id} className="flex gap-4 relative">
-                    <div className="w-6 h-6 bg-white border-2 border-slate-300 rounded-full flex items-center justify-center z-10 mt-0.5">
+                    <div className="w-6 h-6 bg-[#0B0F14] border-2 border-teal-500/30 rounded-full flex items-center justify-center z-10 mt-0.5">
                       <div className="w-2 h-2 bg-slate-400 rounded-full" />
                     </div>
                     <div className="flex-1 pb-1">

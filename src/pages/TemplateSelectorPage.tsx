@@ -182,7 +182,7 @@ export function TemplateSelectorPage() {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="flex flex-col items-center gap-3">
-          <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+          <div className="w-8 h-8 border-2 border-teal-500 border-t-transparent rounded-full animate-spin" />
           <p className="text-sm text-slate-500">Loading templates...</p>
         </div>
       </div>
@@ -211,7 +211,7 @@ export function TemplateSelectorPage() {
             placeholder="Search templates..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 text-sm border border-[#232A33] rounded-lg bg-[#11161D] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full pl-9 pr-4 py-2 text-sm border border-[#232A33] rounded-lg bg-[#11161D] focus:outline-none focus:ring-2 focus:ring-teal-500/40 focus:border-transparent"
           />
         </div>
         <div className="flex items-center gap-2">
@@ -262,7 +262,7 @@ export function TemplateSelectorPage() {
 
       {/* Empty State */}
       {!error && filteredTemplates.length === 0 && (
-        <div className="bg-[#11161D] border border-[#232A33] rounded-xl p-12 text-center">
+        <div className="glass border border-white/[0.06] rounded-xl p-12 text-center">
           <Factory size={40} className="text-slate-300 mx-auto mb-3" />
           <h3 className="text-lg font-medium text-slate-300">
             No templates found

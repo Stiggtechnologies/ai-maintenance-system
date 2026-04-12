@@ -362,19 +362,19 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden min-w-0">
         {/* Top Bar */}
-        <header className="bg-white border-b border-slate-200 px-6 py-3">
+        <header className="bg-[#0B0F14] border-b border-white/[0.06] px-6 py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-6">
               <button
                 onClick={() => setIsCollapsed(!isCollapsed)}
-                className="text-slate-400 hover:text-slate-600"
+                className="text-slate-500 hover:text-teal-400 transition-colors"
               >
                 <ChevronRight
                   size={20}
                   className={`transition-transform ${isCollapsed ? "" : "rotate-180"}`}
                 />
               </button>
-              <div className="text-sm font-medium text-slate-900">
+              <div className="text-sm font-medium text-[#E6EDF3]">
                 {navItems.find((item) => currentPath.startsWith(item.path))
                   ?.label || "Dashboard"}
               </div>
@@ -385,41 +385,41 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
               <div className="flex items-center gap-2 text-xs">
                 <div className="flex items-center gap-1.5">
                   {healthStatusIcon(systemHealth.intelligence)}
-                  <span className="text-slate-600">
+                  <span className="text-slate-500">
                     Intelligence:{" "}
-                    <span className="font-medium text-slate-900 capitalize">
+                    <span className="font-medium text-[#E6EDF3] capitalize">
                       {systemHealth.intelligence}
                     </span>
                   </span>
                 </div>
-                <div className="w-px h-4 bg-slate-300" />
+                <div className="w-px h-4 bg-white/[0.06]" />
                 <div className="flex items-center gap-1.5">
                   {healthStatusIcon(systemHealth.integration)}
-                  <span className="text-slate-600">
+                  <span className="text-slate-500">
                     Integration:{" "}
-                    <span className="font-medium text-slate-900 capitalize">
+                    <span className="font-medium text-[#E6EDF3] capitalize">
                       {systemHealth.integration}
                     </span>
                   </span>
                 </div>
-                <div className="w-px h-4 bg-slate-300" />
+                <div className="w-px h-4 bg-white/[0.06]" />
                 <div className="flex items-center gap-1.5">
                   {healthStatusIcon(systemHealth.governance)}
-                  <span className="text-slate-600">
+                  <span className="text-slate-500">
                     Governance:{" "}
-                    <span className="font-medium text-slate-900 capitalize">
+                    <span className="font-medium text-[#E6EDF3] capitalize">
                       {systemHealth.governance}
                     </span>
                   </span>
                 </div>
                 {systemHealth.syncPercent > 0 && (
                   <>
-                    <div className="w-px h-4 bg-slate-300" />
+                    <div className="w-px h-4 bg-white/[0.06]" />
                     <div className="flex items-center gap-1.5">
-                      <Gauge size={14} className="text-blue-500" />
-                      <span className="text-slate-600">
+                      <Gauge size={14} className="text-teal-400" />
+                      <span className="text-slate-500">
                         Sync:{" "}
-                        <span className="font-medium text-slate-900">
+                        <span className="font-medium text-[#E6EDF3]">
                           {systemHealth.syncPercent}%
                         </span>
                       </span>

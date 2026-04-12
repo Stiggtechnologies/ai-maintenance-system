@@ -400,7 +400,7 @@ export function BillingOverview() {
                 {creditUsagePercent?.toFixed(1)}%
               </span>
             </div>
-            <div className="w-full bg-gray-200 rounded-full h-3">
+            <div className="w-full bg-white/[0.06] rounded-full h-3">
               <div
                 className={`h-3 rounded-full transition-all ${
                   isOverage

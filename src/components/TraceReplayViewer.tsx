@@ -155,7 +155,7 @@ export function TraceReplayViewer({
           <div className="flex items-center gap-2">
             <button
               onClick={exportTrace}
-              className="flex items-center gap-2 px-4 py-2 text-slate-300 bg-[#161C24] rounded-lg hover:bg-gray-200"
+              className="flex items-center gap-2 px-4 py-2 text-slate-300 bg-[#161C24] rounded-lg hover:bg-white/[0.06]"
             >
               <Download className="w-4 h-4" />
               Export
@@ -245,7 +245,7 @@ export function TraceReplayViewer({
           </div>
 
           <div className="relative">
-            <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+            <div className="w-full h-2 bg-white/[0.06] rounded-full overflow-hidden">
               <div
                 className="h-full bg-blue-600 transition-all duration-300"
                 style={{

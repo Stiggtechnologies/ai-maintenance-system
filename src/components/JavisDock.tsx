@@ -380,7 +380,7 @@ export function JavisDock() {
                 className={`p-2 rounded-lg transition-colors ${
                   isListening
                     ? "bg-red-500 text-white"
-                    : "bg-[#161C24] text-slate-400 hover:bg-gray-200"
+                    : "bg-[#161C24] text-slate-400 hover:bg-white/[0.06]"
                 }`}
                 aria-label={isListening ? "Stop listening" : "Start listening"}
               >

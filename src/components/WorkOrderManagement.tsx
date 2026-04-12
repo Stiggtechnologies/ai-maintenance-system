@@ -130,7 +130,7 @@ export function WorkOrderManagement() {
           No work orders found
         </div>
       ) : (
-        <div className="bg-[#11161D] border border-[#232A33] rounded-xl overflow-hidden">
+        <div className="glass border border-white/[0.06] rounded-xl overflow-hidden">
           <table className="w-full">
             <thead>
               <tr className="text-left text-xs text-slate-500 bg-[#0B0F14] border-b border-[#232A33]">

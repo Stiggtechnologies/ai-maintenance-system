@@ -198,7 +198,7 @@ export function PlansAndPricing() {
                   className={`w-full py-3 px-4 rounded-lg font-semibold transition-colors ${
                     isPopular
                       ? "bg-teal-600 text-white hover:bg-teal-700"
-                      : "bg-[#161C24] text-[#E6EDF3] hover:bg-gray-200"
+                      : "bg-[#161C24] text-[#E6EDF3] hover:bg-white/[0.06]"
                   } disabled:opacity-50 disabled:cursor-not-allowed`}
                 >
                   {selectedPlan === plan.code ? "Selected" : "Get Started"}

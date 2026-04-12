@@ -312,7 +312,7 @@ export default function ExecutiveDashboard() {
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
               selectedPeriod === "current"
                 ? "bg-teal-600 text-white"
-                : "bg-[#161C24] text-slate-300 hover:bg-gray-200"
+                : "bg-[#161C24] text-slate-300 hover:bg-white/[0.06]"
             }`}
           >
             Current Period
@@ -322,7 +322,7 @@ export default function ExecutiveDashboard() {
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
               selectedPeriod === "ytd"
                 ? "bg-teal-600 text-white"
-                : "bg-[#161C24] text-slate-300 hover:bg-gray-200"
+                : "bg-[#161C24] text-slate-300 hover:bg-white/[0.06]"
             }`}
           >
             Year to Date

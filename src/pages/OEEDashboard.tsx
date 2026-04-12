@@ -206,7 +206,7 @@ export function OEEDashboard() {
       </div>
 
       {!hasData ? (
-        <div className="bg-[#11161D] border border-[#232A33] rounded-xl p-12 text-center">
+        <div className="glass border border-white/[0.06] rounded-xl p-12 text-center">
           <Factory className="mx-auto text-slate-300 mb-4" size={48} />
           <h3 className="text-lg font-semibold text-slate-300">
             No OEE Data Available
@@ -263,7 +263,7 @@ export function OEEDashboard() {
           </div>
 
           {/* Production Line Breakdown */}
-          <div className="bg-[#11161D] border border-[#232A33] rounded-xl">
+          <div className="glass border border-white/[0.06] rounded-xl">
             <div className="px-6 py-4 border-b border-[#232A33]">
               <h2 className="text-lg font-semibold text-[#E6EDF3]">
                 Production Line Breakdown
@@ -344,7 +344,7 @@ export function OEEDashboard() {
           </div>
 
           {/* Loss Events */}
-          <div className="bg-[#11161D] border border-[#232A33] rounded-xl">
+          <div className="glass border border-white/[0.06] rounded-xl">
             <div className="px-6 py-4 border-b border-[#232A33]">
               <h2 className="text-lg font-semibold text-[#E6EDF3]">
                 Loss Events

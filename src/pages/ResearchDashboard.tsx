@@ -213,25 +213,25 @@ export function ResearchDashboard() {
 
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-[#11161D] border border-[#232A33] rounded-xl p-4">
+        <div className="glass border border-white/[0.06] rounded-xl p-4">
           <div className="text-sm text-slate-500">Active Programs</div>
           <div className="text-2xl font-bold text-[#E6EDF3]">
             {stats.activePrograms}
           </div>
         </div>
-        <div className="bg-[#11161D] border border-[#232A33] rounded-xl p-4">
+        <div className="glass border border-white/[0.06] rounded-xl p-4">
           <div className="text-sm text-slate-500">Recent Runs</div>
           <div className="text-2xl font-bold text-[#E6EDF3]">
             {stats.totalRuns}
           </div>
         </div>
-        <div className="bg-[#11161D] border border-[#232A33] rounded-xl p-4">
+        <div className="glass border border-white/[0.06] rounded-xl p-4">
           <div className="text-sm text-slate-500">Successful</div>
           <div className="text-2xl font-bold text-green-600">
             {stats.successfulRuns}
           </div>
         </div>
-        <div className="bg-[#11161D] border border-[#232A33] rounded-xl p-4">
+        <div className="glass border border-white/[0.06] rounded-xl p-4">
           <div className="text-sm text-slate-500">Pending Promotions</div>
           <div className="text-2xl font-bold text-orange-600">
             {stats.pendingPromotions}
@@ -263,7 +263,7 @@ export function ResearchDashboard() {
       {activeTab === "overview" && (
         <div className="space-y-4">
           {programs.length === 0 ? (
-            <div className="bg-[#11161D] border border-[#232A33] rounded-xl p-12 text-center">
+            <div className="glass border border-white/[0.06] rounded-xl p-12 text-center">
               <FlaskConical size={48} className="mx-auto text-slate-300 mb-4" />
               <h3 className="text-lg font-semibold text-slate-300">
                 No Research Programs
@@ -291,7 +291,7 @@ export function ResearchDashboard() {
               return (
                 <div
                   key={program.id}
-                  className="bg-[#11161D] border border-[#232A33] rounded-xl p-6"
+                  className="glass border border-white/[0.06] rounded-xl p-6"
                 >
                   <div className="flex items-start justify-between">
                     <div>
@@ -358,7 +358,7 @@ export function ResearchDashboard() {
               No experiment runs yet
             </div>
           ) : (
-            <div className="bg-[#11161D] border border-[#232A33] rounded-xl overflow-hidden">
+            <div className="glass border border-white/[0.06] rounded-xl overflow-hidden">
               <table className="w-full">
                 <thead>
                   <tr className="text-left text-xs text-slate-500 bg-[#0B0F14] border-b border-[#232A33]">
@@ -396,7 +396,7 @@ export function ResearchDashboard() {
                                 ? "bg-blue-100 text-blue-800"
                                 : run.status === "failed"
                                   ? "bg-red-100 text-red-800"
-                                  : "bg-[#1A2030] text-slate-400"
+                                  : "bg-white/[0.04] text-slate-500"
                           }`}
                         >
                           {run.status}
@@ -529,7 +529,7 @@ export function ResearchDashboard() {
                             ? "bg-blue-100 text-blue-800"
                             : promo.review_status === "rejected"
                               ? "bg-red-100 text-red-800"
-                              : "bg-[#1A2030] text-slate-400"
+                              : "bg-white/[0.04] text-slate-500"
                     }`}
                   >
                     {promo.review_status?.replace(/_/g, " ")}

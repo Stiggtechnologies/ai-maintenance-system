@@ -209,7 +209,7 @@ export function MetricsDashboard() {
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                 timeRange === range
                   ? "bg-blue-600 text-white"
-                  : "bg-[#161C24] text-slate-300 hover:bg-gray-200"
+                  : "bg-[#161C24] text-slate-300 hover:bg-white/[0.06]"
               }`}
             >
               {range === "1h"
@@ -298,7 +298,7 @@ export function MetricsDashboard() {
                   {metrics.latency.avg.toFixed(0)}ms
                 </span>
               </div>
-              <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+              <div className="w-full h-2 bg-white/[0.06] rounded-full overflow-hidden">
                 <div
                   className="h-full bg-blue-500"
                   style={{
@@ -314,7 +314,7 @@ export function MetricsDashboard() {
                   {metrics.latency.p50.toFixed(0)}ms
                 </span>
               </div>
-              <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+              <div className="w-full h-2 bg-white/[0.06] rounded-full overflow-hidden">
                 <div
                   className="h-full bg-green-500"
                   style={{
@@ -330,7 +330,7 @@ export function MetricsDashboard() {
                   {metrics.latency.p95.toFixed(0)}ms
                 </span>
               </div>
-              <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+              <div className="w-full h-2 bg-white/[0.06] rounded-full overflow-hidden">
                 <div
                   className="h-full bg-yellow-500"
                   style={{
@@ -346,7 +346,7 @@ export function MetricsDashboard() {
                   {metrics.latency.p99.toFixed(0)}ms
                 </span>
               </div>
-              <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+              <div className="w-full h-2 bg-white/[0.06] rounded-full overflow-hidden">
                 <div className="h-full bg-red-500" style={{ width: "100%" }} />
               </div>
             </div>
@@ -370,7 +370,7 @@ export function MetricsDashboard() {
                       ${cost.toFixed(4)}
                     </span>
                   </div>
-                  <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                  <div className="w-full h-2 bg-white/[0.06] rounded-full overflow-hidden">
                     <div
                       className="h-full bg-green-500"
                       style={{ width: `${(cost / metrics.cost.total) * 100}%` }}
@@ -420,7 +420,7 @@ export function MetricsDashboard() {
             <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
               <span className="text-sm text-slate-400">Success Rate</span>
               <div className="flex items-center gap-2">
-                <div className="w-12 h-2 bg-gray-200 rounded-full overflow-hidden">
+                <div className="w-12 h-2 bg-white/[0.06] rounded-full overflow-hidden">
                   <div
                     className="h-full bg-green-500"
                     style={{ width: `${metrics.throughput.successRate}%` }}

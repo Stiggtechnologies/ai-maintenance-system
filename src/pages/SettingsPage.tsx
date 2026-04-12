@@ -120,7 +120,7 @@ function ProfileTab({ user, profile }: { user: any; profile: any }) {
   };
 
   return (
-    <div className="bg-[#11161D] border border-[#232A33] rounded-xl p-6 max-w-2xl">
+    <div className="glass border border-white/[0.06] rounded-xl p-6 max-w-2xl">
       <h2 className="text-lg font-semibold text-[#E6EDF3] mb-4">
         Profile Information
       </h2>
@@ -134,7 +134,7 @@ function ProfileTab({ user, profile }: { user: any; profile: any }) {
             type="text"
             value={fullName}
             onChange={(e) => setFullName(e.target.value)}
-            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/40 focus:border-teal-500"
             placeholder="Enter your full name"
           />
         </div>
@@ -236,7 +236,7 @@ function OrganizationTab({ profile }: { profile: any }) {
 
   if (!org) {
     return (
-      <div className="bg-[#11161D] border border-[#232A33] rounded-xl p-6 max-w-2xl text-center">
+      <div className="glass border border-white/[0.06] rounded-xl p-6 max-w-2xl text-center">
         <Building2 className="mx-auto text-slate-300 mb-3" size={40} />
         <p className="text-sm text-slate-500">No organization found.</p>
       </div>
@@ -246,7 +246,7 @@ function OrganizationTab({ profile }: { profile: any }) {
   const isAdmin = profile?.role === "admin";
 
   return (
-    <div className="bg-[#11161D] border border-[#232A33] rounded-xl p-6 max-w-2xl">
+    <div className="glass border border-white/[0.06] rounded-xl p-6 max-w-2xl">
       <h2 className="text-lg font-semibold text-[#E6EDF3] mb-4">
         Organization Details
       </h2>
@@ -378,7 +378,7 @@ function NotificationsTab({ user, profile }: { user: any; profile: any }) {
   ];
 
   return (
-    <div className="bg-[#11161D] border border-[#232A33] rounded-xl p-6 max-w-2xl">
+    <div className="glass border border-white/[0.06] rounded-xl p-6 max-w-2xl">
       <h2 className="text-lg font-semibold text-[#E6EDF3] mb-4">
         Notification Preferences
       </h2>

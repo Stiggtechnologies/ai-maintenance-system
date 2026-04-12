@@ -91,28 +91,28 @@ export function AIAnalyticsDashboard() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-[#11161D] border border-[#232A33] rounded-xl p-4">
+        <div className="glass border border-white/[0.06] rounded-xl p-4">
           <Zap size={18} className="text-purple-500 mb-2" />
           <div className="text-2xl font-bold text-[#E6EDF3]">
             {stats?.total_decisions || 0}
           </div>
           <div className="text-xs text-slate-500">Total Decisions</div>
         </div>
-        <div className="bg-[#11161D] border border-[#232A33] rounded-xl p-4">
+        <div className="glass border border-white/[0.06] rounded-xl p-4">
           <CheckCircle size={18} className="text-green-500 mb-2" />
           <div className="text-2xl font-bold text-[#E6EDF3]">
             {stats?.auto_executed || 0}
           </div>
           <div className="text-xs text-slate-500">Auto-Executed</div>
         </div>
-        <div className="bg-[#11161D] border border-[#232A33] rounded-xl p-4">
+        <div className="glass border border-white/[0.06] rounded-xl p-4">
           <TrendingUp size={18} className="text-blue-500 mb-2" />
           <div className="text-2xl font-bold text-[#E6EDF3]">
             {stats?.avg_confidence || 0}%
           </div>
           <div className="text-xs text-slate-500">Avg Confidence</div>
         </div>
-        <div className="bg-[#11161D] border border-[#232A33] rounded-xl p-4">
+        <div className="glass border border-white/[0.06] rounded-xl p-4">
           <AlertTriangle size={18} className="text-yellow-500 mb-2" />
           <div className="text-2xl font-bold text-[#E6EDF3]">
             {recentDecisions.filter((d) => d.requires_approval).length}
@@ -122,7 +122,7 @@ export function AIAnalyticsDashboard() {
       </div>
 
       {/* Recent Decisions */}
-      <div className="bg-[#11161D] border border-[#232A33] rounded-xl p-6">
+      <div className="glass border border-white/[0.06] rounded-xl p-6">
         <h3 className="text-lg font-semibold text-[#E6EDF3] mb-4">
           Recent Autonomous Decisions
         </h3>

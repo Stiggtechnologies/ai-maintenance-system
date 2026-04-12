@@ -250,7 +250,7 @@ export function DeploymentConfiguratorPage() {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="flex flex-col items-center gap-3">
-          <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+          <div className="w-8 h-8 border-2 border-teal-500 border-t-transparent rounded-full animate-spin" />
           <p className="text-sm text-slate-500">Loading configuration...</p>
         </div>
       </div>
@@ -260,7 +260,7 @@ export function DeploymentConfiguratorPage() {
   if (success) {
     return (
       <div className="max-w-2xl mx-auto mt-16">
-        <div className="bg-[#11161D] border border-[#232A33] rounded-xl p-8 text-center">
+        <div className="glass border border-white/[0.06] rounded-xl p-8 text-center">
           <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <Check size={32} className="text-green-600" />
           </div>
@@ -294,7 +294,7 @@ export function DeploymentConfiguratorPage() {
   if (!template) {
     return (
       <div className="max-w-2xl mx-auto mt-16">
-        <div className="bg-[#11161D] border border-[#232A33] rounded-xl p-8 text-center">
+        <div className="glass border border-white/[0.06] rounded-xl p-8 text-center">
           <Factory size={40} className="text-slate-300 mx-auto mb-3" />
           <h3 className="text-lg font-medium text-slate-300">
             No template selected
@@ -334,7 +334,7 @@ export function DeploymentConfiguratorPage() {
       </div>
 
       {/* Step Indicator */}
-      <div className="bg-[#11161D] border border-[#232A33] rounded-xl p-4 mb-6">
+      <div className="glass border border-white/[0.06] rounded-xl p-4 mb-6">
         <div className="flex items-center justify-between">
           {STEPS.map((step, index) => {
             const isActive = index === currentStep;
@@ -380,7 +380,7 @@ export function DeploymentConfiguratorPage() {
       </div>
 
       {/* Step Content */}
-      <div className="bg-[#11161D] border border-[#232A33] rounded-xl p-6 mb-6">
+      <div className="glass border border-white/[0.06] rounded-xl p-6 mb-6">
         {/* Step 1: Template Review */}
         {currentStep === 0 && (
           <div>
@@ -472,7 +472,7 @@ export function DeploymentConfiguratorPage() {
                   type="text"
                   value={orgName}
                   onChange={(e) => setOrgName(e.target.value)}
-                  className="w-full px-3 py-2.5 text-sm border border-[#232A33] rounded-lg bg-[#11161D] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2.5 text-sm border border-[#232A33] rounded-lg bg-[#11161D] focus:outline-none focus:ring-2 focus:ring-teal-500/40 focus:border-transparent"
                   placeholder="Enter organization name"
                 />
               </div>
@@ -494,7 +494,7 @@ export function DeploymentConfiguratorPage() {
                           );
                         }
                       }}
-                      className="w-full px-3 py-2.5 text-sm border border-[#232A33] rounded-lg bg-[#11161D] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-3 py-2.5 text-sm border border-[#232A33] rounded-lg bg-[#11161D] focus:outline-none focus:ring-2 focus:ring-teal-500/40 focus:border-transparent"
                     >
                       <option value="">Create new site...</option>
                       {sites.map((site) => (
@@ -508,7 +508,7 @@ export function DeploymentConfiguratorPage() {
                         type="text"
                         value={newSiteName}
                         onChange={(e) => setNewSiteName(e.target.value)}
-                        className="w-full px-3 py-2.5 text-sm border border-[#232A33] rounded-lg bg-[#11161D] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="w-full px-3 py-2.5 text-sm border border-[#232A33] rounded-lg bg-[#11161D] focus:outline-none focus:ring-2 focus:ring-teal-500/40 focus:border-transparent"
                         placeholder="New site name"
                       />
                     )}
@@ -518,7 +518,7 @@ export function DeploymentConfiguratorPage() {
                     type="text"
                     value={siteName}
                     onChange={(e) => setSiteName(e.target.value)}
-                    className="w-full px-3 py-2.5 text-sm border border-[#232A33] rounded-lg bg-[#11161D] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2.5 text-sm border border-[#232A33] rounded-lg bg-[#11161D] focus:outline-none focus:ring-2 focus:ring-teal-500/40 focus:border-transparent"
                     placeholder="Enter site name"
                   />
                 )}
@@ -532,7 +532,7 @@ export function DeploymentConfiguratorPage() {
                   type="text"
                   value={operatingRegion}
                   onChange={(e) => setOperatingRegion(e.target.value)}
-                  className="w-full px-3 py-2.5 text-sm border border-[#232A33] rounded-lg bg-[#11161D] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2.5 text-sm border border-[#232A33] rounded-lg bg-[#11161D] focus:outline-none focus:ring-2 focus:ring-teal-500/40 focus:border-transparent"
                   placeholder="e.g., North America, Europe, Asia-Pacific"
                 />
               </div>
@@ -544,7 +544,7 @@ export function DeploymentConfiguratorPage() {
                 <select
                   value={timezone}
                   onChange={(e) => setTimezone(e.target.value)}
-                  className="w-full px-3 py-2.5 text-sm border border-[#232A33] rounded-lg bg-[#11161D] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2.5 text-sm border border-[#232A33] rounded-lg bg-[#11161D] focus:outline-none focus:ring-2 focus:ring-teal-500/40 focus:border-transparent"
                 >
                   {TIMEZONES.map((tz) => (
                     <option key={tz} value={tz}>
@@ -575,7 +575,7 @@ export function DeploymentConfiguratorPage() {
                       onClick={() => setAssetRange(range)}
                       className={`px-4 py-3 text-sm font-medium rounded-lg border transition-colors ${
                         assetRange === range
-                          ? "border-blue-500 bg-blue-50 text-blue-700"
+                          ? "border-teal-500 bg-blue-50 text-blue-700"
                           : "border-[#232A33] bg-[#11161D] text-slate-400 hover:bg-[#0B0F14]"
                       }`}
                     >
@@ -595,7 +595,7 @@ export function DeploymentConfiguratorPage() {
                   onChange={(e) => setSiteCount(e.target.value)}
                   min="1"
                   max="999"
-                  className="w-full max-w-xs px-3 py-2.5 text-sm border border-[#232A33] rounded-lg bg-[#11161D] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full max-w-xs px-3 py-2.5 text-sm border border-[#232A33] rounded-lg bg-[#11161D] focus:outline-none focus:ring-2 focus:ring-teal-500/40 focus:border-transparent"
                 />
               </div>
 
@@ -610,7 +610,7 @@ export function DeploymentConfiguratorPage() {
                       onClick={() => setOperatingModel(model)}
                       className={`px-4 py-3 text-sm font-medium rounded-lg border transition-colors ${
                         operatingModel === model
-                          ? "border-blue-500 bg-blue-50 text-blue-700"
+                          ? "border-teal-500 bg-blue-50 text-blue-700"
                           : "border-[#232A33] bg-[#11161D] text-slate-400 hover:bg-[#0B0F14]"
                       }`}
                     >
@@ -627,7 +627,7 @@ export function DeploymentConfiguratorPage() {
                 <select
                   value={primaryCmms}
                   onChange={(e) => setPrimaryCmms(e.target.value)}
-                  className="w-full max-w-xs px-3 py-2.5 text-sm border border-[#232A33] rounded-lg bg-[#11161D] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full max-w-xs px-3 py-2.5 text-sm border border-[#232A33] rounded-lg bg-[#11161D] focus:outline-none focus:ring-2 focus:ring-teal-500/40 focus:border-transparent"
                 >
                   {CMMS_OPTIONS.map((opt) => (
                     <option key={opt} value={opt}>
@@ -658,7 +658,7 @@ export function DeploymentConfiguratorPage() {
                       onClick={() => setAutonomyMode(mode.value)}
                       className={`w-full text-left px-4 py-3 rounded-lg border transition-colors ${
                         autonomyMode === mode.value
-                          ? "border-blue-500 bg-blue-50"
+                          ? "border-teal-500 bg-blue-50"
                           : "border-[#232A33] bg-[#11161D] hover:bg-[#0B0F14]"
                       }`}
                     >
@@ -684,7 +684,7 @@ export function DeploymentConfiguratorPage() {
                       onClick={() => setApprovalStrictness(level.value)}
                       className={`w-full text-left px-4 py-3 rounded-lg border transition-colors ${
                         approvalStrictness === level.value
-                          ? "border-blue-500 bg-blue-50"
+                          ? "border-teal-500 bg-blue-50"
                           : "border-[#232A33] bg-[#11161D] hover:bg-[#0B0F14]"
                       }`}
                     >
@@ -710,7 +710,7 @@ export function DeploymentConfiguratorPage() {
                       onClick={() => setAuditRetention(opt)}
                       className={`px-4 py-3 text-sm font-medium rounded-lg border transition-colors ${
                         auditRetention === opt
-                          ? "border-blue-500 bg-blue-50 text-blue-700"
+                          ? "border-teal-500 bg-blue-50 text-blue-700"
                           : "border-[#232A33] bg-[#11161D] text-slate-400 hover:bg-[#0B0F14]"
                       }`}
                     >

@@ -186,7 +186,7 @@ export function UsageDashboard() {
             <div className="text-sm text-gray-500 mt-1">
               of {limits?.included_credits?.toLocaleString()} included
             </div>
-            <div className="mt-4 w-full bg-gray-200 rounded-full h-2">
+            <div className="mt-4 w-full bg-white/[0.06] rounded-full h-2">
               <div
                 className={`h-2 rounded-full ${isLow ? "bg-yellow-500" : "bg-teal-500"}`}
                 style={{ width: `${Math.min(usagePercent, 100)}%` }}
@@ -255,7 +255,7 @@ export function UsageDashboard() {
                         {monthPercent.toFixed(0)}%)
                       </span>
                     </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div className="w-full bg-white/[0.06] rounded-full h-2">
                       <div
                         className="h-2 rounded-full bg-teal-500"
                         style={{ width: `${Math.min(monthPercent, 100)}%` }}

@@ -71,7 +71,7 @@ export function PerformanceDashboard() {
 
       {/* OEE Overview */}
       {oeeData && (
-        <div className="bg-[#11161D] border border-[#232A33] rounded-xl p-6">
+        <div className="glass border border-white/[0.06] rounded-xl p-6">
           <div className="flex items-center gap-2 mb-6">
             <Activity size={20} className="text-slate-400" />
             <h2 className="text-lg font-semibold text-[#E6EDF3]">
@@ -215,7 +215,7 @@ export function PerformanceDashboard() {
       )}
 
       {/* Key Performance Indicators */}
-      <div className="bg-[#11161D] border border-[#232A33] rounded-xl p-6">
+      <div className="glass border border-white/[0.06] rounded-xl p-6">
         <div className="flex items-center gap-2 mb-6">
           <Target size={20} className="text-slate-400" />
           <h2 className="text-lg font-semibold text-[#E6EDF3]">
@@ -259,7 +259,7 @@ export function PerformanceDashboard() {
       </div>
 
       {/* Reliability Metrics */}
-      <div className="bg-[#11161D] border border-[#232A33] rounded-xl p-6">
+      <div className="glass border border-white/[0.06] rounded-xl p-6">
         <h2 className="text-lg font-semibold text-[#E6EDF3] mb-6">
           Reliability Metrics
         </h2>

@@ -197,7 +197,7 @@ export function OnboardingWizard() {
                         ? "bg-green-500 text-white"
                         : currentStep === index
                           ? "bg-teal-600 text-white"
-                          : "bg-gray-200 text-slate-400"
+                          : "bg-white/[0.06] text-slate-400"
                     }`}
                   >
                     {step.completed ? (

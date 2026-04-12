@@ -109,7 +109,7 @@ export function GovernanceDashboard() {
     critical: "bg-red-500/10 text-red-400 border border-red-500/20",
     high: "bg-orange-500/10 text-orange-400 border border-orange-500/20",
     medium: "bg-teal-500/10 text-teal-400 border border-teal-500/20",
-    low: "bg-[#1A2030] text-slate-400",
+    low: "bg-white/[0.04] text-slate-500",
   };
 
   return (
@@ -125,25 +125,25 @@ export function GovernanceDashboard() {
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-[#11161D] border border-[#232A33] rounded-xl p-4">
+        <div className="glass border border-white/[0.06] rounded-xl p-4">
           <div className="text-sm text-slate-500">Pending Approvals</div>
           <div className="text-2xl font-bold text-[#E6EDF3]">
             {pendingApprovals.length}
           </div>
         </div>
-        <div className="bg-[#11161D] border border-[#232A33] rounded-xl p-4">
+        <div className="glass border border-white/[0.06] rounded-xl p-4">
           <div className="text-sm text-slate-500">AI Recommendations</div>
           <div className="text-2xl font-bold text-[#E6EDF3]">
             {pendingRecs.length}
           </div>
         </div>
-        <div className="bg-[#11161D] border border-[#232A33] rounded-xl p-4">
+        <div className="glass border border-white/[0.06] rounded-xl p-4">
           <div className="text-sm text-slate-500">Audit Events (7d)</div>
           <div className="text-2xl font-bold text-[#E6EDF3]">
             {auditEvents.length}
           </div>
         </div>
-        <div className="bg-[#11161D] border border-[#232A33] rounded-xl p-4">
+        <div className="glass border border-white/[0.06] rounded-xl p-4">
           <div className="text-sm text-slate-500">Approval Rate</div>
           <div className="text-2xl font-bold text-[#E6EDF3]">
             {approvals.length > 0
@@ -180,7 +180,7 @@ export function GovernanceDashboard() {
 
       {/* Approvals Tab */}
       {activeTab === "approvals" && (
-        <div className="bg-[#11161D] border border-[#232A33] rounded-xl p-6">
+        <div className="glass border border-white/[0.06] rounded-xl p-6">
           <div className="flex items-center gap-2 mb-4">
             <Clock size={20} className="text-slate-400" />
             <h2 className="text-lg font-semibold text-[#E6EDF3]">
@@ -240,7 +240,7 @@ export function GovernanceDashboard() {
 
       {/* Recommendations Tab */}
       {activeTab === "recommendations" && (
-        <div className="bg-[#11161D] border border-[#232A33] rounded-xl p-6">
+        <div className="glass border border-white/[0.06] rounded-xl p-6">
           <div className="flex items-center gap-2 mb-4">
             <Lightbulb size={20} className="text-yellow-500" />
             <h2 className="text-lg font-semibold text-[#E6EDF3]">
@@ -273,7 +273,7 @@ export function GovernanceDashboard() {
                         </span>
                       )}
                       <span
-                        className={`px-2 py-1 text-xs font-medium rounded ${priorityColors[rec.priority] || "bg-[#1A2030] text-slate-400"}`}
+                        className={`px-2 py-1 text-xs font-medium rounded ${priorityColors[rec.priority] || "bg-white/[0.04] text-slate-500"}`}
                       >
                         {rec.priority}
                       </span>
@@ -303,7 +303,7 @@ export function GovernanceDashboard() {
                   )}
                   {rec.status !== "pending" && (
                     <span
-                      className={`text-xs px-2 py-1 rounded ${rec.status === "accepted" ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : "bg-[#1A2030] text-slate-400"}`}
+                      className={`text-xs px-2 py-1 rounded ${rec.status === "accepted" ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : "bg-white/[0.04] text-slate-500"}`}
                     >
                       {rec.status}
                     </span>
@@ -321,7 +321,7 @@ export function GovernanceDashboard() {
 
       {/* Audit Trail Tab */}
       {activeTab === "audit" && (
-        <div className="bg-[#11161D] border border-[#232A33] rounded-xl p-6">
+        <div className="glass border border-white/[0.06] rounded-xl p-6">
           <div className="flex items-center gap-2 mb-4">
             <Shield size={20} className="text-slate-400" />
             <h2 className="text-lg font-semibold text-[#E6EDF3]">
@@ -333,7 +333,7 @@ export function GovernanceDashboard() {
               auditEvents.map((event) => (
                 <div
                   key={event.id}
-                  className="flex items-start gap-3 p-3 bg-[#0B0F14] rounded-lg"
+                  className="flex items-start gap-3 p-3 bg-white/[0.02] rounded-lg"
                 >
                   <div className="w-2 h-2 bg-blue-500 rounded-full mt-2" />
                   <div className="flex-1">
