@@ -203,6 +203,42 @@ Deno.serve(async (req: Request) => {
         alert = 'WARNING';
       }
 
+      // If this is a marketplace subscription, queue usage for Azure Commerce Metering
+      const { data: subData } = await supabase
+        .from('billing_subscriptions')
+        .select('billing_source, marketplace_subscription_id')
+        .eq('id', subscription_id)
+        .single();
+
+      let marketplace_metering_queued = false;
+      if (subData?.billing_source === 'azure_marketplace' && subData?.marketplace_subscription_id) {
+        // Map internal event types to Azure metering dimensions
+        const dimensionMap: Record<string, string> = {
+          'LLM_token_usage': 'ai_credits',
+          'vision_frame_batch': 'ai_credits',
+          'optimizer_job': 'ai_credits',
+          'simulator_run': 'ai_credits',
+        };
+        const dimension = dimensionMap[event_type] || 'ai_credits';
+
+        // Queue the metering record for batch submission to Azure
+        const { error: meterError } = await supabase
+          .from('marketplace_metering_records')
+          .insert({
+            marketplace_subscription_id: subData.marketplace_subscription_id,
+            dimension,
+            quantity: credits,
+            effective_start_time: new Date().toISOString(),
+            status: 'pending',
+          });
+
+        if (meterError) {
+          console.error('Failed to queue marketplace metering:', meterError);
+        } else {
+          marketplace_metering_queued = true;
+        }
+      }
+
       return new Response(
         JSON.stringify({
           ok: true,
@@ -211,6 +247,7 @@ Deno.serve(async (req: Request) => {
           overage_credits: newRemaining < 0 ? Math.abs(newRemaining) : 0,
           usage_percent: usagePercent.toFixed(1),
           alert,
+          marketplace_metering_queued,
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );

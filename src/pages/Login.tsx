@@ -1,24 +1,27 @@
-import { useState } from 'react';
-import { AuthShell } from '../components/AuthShell';
-import { AuthTabs } from '../components/AuthTabs';
-import { signIn } from '../lib/auth';
-import { motion } from 'framer-motion';
+import { useState } from "react";
+import { AuthShell } from "../components/AuthShell";
+import { AuthTabs } from "../components/AuthTabs";
+import { signIn } from "../lib/auth";
+import { signInWithAzureAD } from "../lib/azure-ad";
+import { motion } from "framer-motion";
 
 interface LoginProps {
   onSuccess: () => void;
-  onTabChange: (tab: 'signin' | 'signup' | 'enterprise' | 'privacy' | 'terms' | 'security') => void;
+  onTabChange: (
+    tab: "signin" | "signup" | "enterprise" | "privacy" | "terms" | "security",
+  ) => void;
 }
 
 export function Login({ onSuccess, onTabChange }: LoginProps) {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    setError('');
+    setError("");
 
     const result = await signIn(email, password);
 
@@ -37,7 +40,10 @@ export function Login({ onSuccess, onTabChange }: LoginProps) {
 
         <form onSubmit={handleLogin} className="space-y-6">
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-[#E6EDF3] mb-2">
+            <label
+              htmlFor="email"
+              className="block text-sm font-medium text-[#E6EDF3] mb-2"
+            >
               Work Email
             </label>
             <input
@@ -49,11 +55,16 @@ export function Login({ onSuccess, onTabChange }: LoginProps) {
               placeholder="your.email@company.com"
               required
             />
-            <p className="mt-2 text-xs text-[#9BA7B4]">Use your enterprise work email.</p>
+            <p className="mt-2 text-xs text-[#9BA7B4]">
+              Use your enterprise work email.
+            </p>
           </div>
 
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-[#E6EDF3] mb-2">
+            <label
+              htmlFor="password"
+              className="block text-sm font-medium text-[#E6EDF3] mb-2"
+            >
               Password
             </label>
             <input
@@ -94,7 +105,7 @@ export function Login({ onSuccess, onTabChange }: LoginProps) {
             whileTap={{ scale: 0.98 }}
             className="w-full py-3 px-4 bg-[#3A8DFF] hover:bg-[#2E7AE6] text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {loading ? 'Accessing...' : 'Access SyncAI'}
+            {loading ? "Accessing..." : "Access SyncAI"}
           </motion.button>
 
           <div className="space-y-3">
@@ -103,12 +114,25 @@ export function Login({ onSuccess, onTabChange }: LoginProps) {
                 <div className="w-full border-t border-[#232A33]"></div>
               </div>
               <div className="relative flex justify-center text-xs">
-                <span className="px-2 bg-[#161C24] text-[#9BA7B4]">Or continue with</span>
+                <span className="px-2 bg-[#161C24] text-[#9BA7B4]">
+                  Or continue with
+                </span>
               </div>
             </div>
 
             <button
               type="button"
+              onClick={async () => {
+                try {
+                  await signInWithAzureAD();
+                } catch (error) {
+                  setError(
+                    error instanceof Error
+                      ? error.message
+                      : "Failed to initiate Azure AD sign-in",
+                  );
+                }
+              }}
               className="w-full py-3 px-4 bg-[#11161D] hover:bg-[#161C24] border border-[#232A33] text-[#E6EDF3] font-medium rounded-lg transition-colors"
             >
               Microsoft Azure AD
@@ -139,21 +163,21 @@ export function Login({ onSuccess, onTabChange }: LoginProps) {
         <div className="mt-8 pt-6 border-t border-[#232A33]">
           <div className="flex justify-center gap-4 text-xs text-[#9BA7B4]">
             <button
-              onClick={() => onTabChange('security')}
+              onClick={() => onTabChange("security")}
               className="hover:text-[#E6EDF3] transition-colors"
             >
               Security
             </button>
             <span>•</span>
             <button
-              onClick={() => onTabChange('privacy')}
+              onClick={() => onTabChange("privacy")}
               className="hover:text-[#E6EDF3] transition-colors"
             >
               Privacy
             </button>
             <span>•</span>
             <button
-              onClick={() => onTabChange('terms')}
+              onClick={() => onTabChange("terms")}
               className="hover:text-[#E6EDF3] transition-colors"
             >
               Terms

@@ -11,6 +11,8 @@ import { supabase } from "./lib/supabase";
 import { Login } from "./pages/Login";
 import { Signup } from "./pages/Signup";
 import { EnterpriseAccess } from "./pages/EnterpriseAccess";
+import { MarketplaceSignup } from "./pages/MarketplaceSignup";
+import { AzureADCallback } from "./pages/AzureADCallback";
 import { LoadingScreen } from "./components/LoadingScreen";
 import { Security } from "./pages/Security";
 import { Privacy } from "./pages/Privacy";
@@ -86,49 +88,70 @@ function App() {
 
   return (
     <BrowserRouter>
-      <AnimatePresence mode="wait">
-        {currentPage === "signin" && (
-          <motion.div key="signin" {...pageTransition}>
-            <Login onSuccess={handleAuthSuccess} onTabChange={setCurrentPage} />
-          </motion.div>
-        )}
-        {currentPage === "signup" && (
-          <motion.div key="signup" {...pageTransition}>
-            <Signup
-              onSuccess={handleAuthSuccess}
-              onTabChange={setCurrentPage}
-            />
-          </motion.div>
-        )}
-        {currentPage === "enterprise" && (
-          <motion.div key="enterprise" {...pageTransition}>
-            <EnterpriseAccess
-              onSuccess={handleAuthSuccess}
-              onTabChange={setCurrentPage}
-            />
-          </motion.div>
-        )}
-        {currentPage === "app" && isAuthenticated && (
-          <motion.div key="app" {...pageTransition} style={{ height: "100vh" }}>
-            <AuthenticatedApp />
-          </motion.div>
-        )}
-        {currentPage === "security" && (
-          <motion.div key="security" {...pageTransition}>
-            <Security onNavigate={setCurrentPage} />
-          </motion.div>
-        )}
-        {currentPage === "privacy" && (
-          <motion.div key="privacy" {...pageTransition}>
-            <Privacy onNavigate={setCurrentPage} />
-          </motion.div>
-        )}
-        {currentPage === "terms" && (
-          <motion.div key="terms" {...pageTransition}>
-            <Terms onNavigate={setCurrentPage} />
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <Routes>
+        {/* Marketplace signup route (unauthenticated) */}
+        <Route path="/marketplace/signup" element={<MarketplaceSignup />} />
+
+        {/* Azure AD callback route (unauthenticated) */}
+        <Route path="/auth/callback/azure" element={<AzureADCallback />} />
+
+        {/* Auth and public pages */}
+        <Route
+          path="/*"
+          element={
+            <AnimatePresence mode="wait">
+              {currentPage === "signin" && (
+                <motion.div key="signin" {...pageTransition}>
+                  <Login
+                    onSuccess={handleAuthSuccess}
+                    onTabChange={setCurrentPage}
+                  />
+                </motion.div>
+              )}
+              {currentPage === "signup" && (
+                <motion.div key="signup" {...pageTransition}>
+                  <Signup
+                    onSuccess={handleAuthSuccess}
+                    onTabChange={setCurrentPage}
+                  />
+                </motion.div>
+              )}
+              {currentPage === "enterprise" && (
+                <motion.div key="enterprise" {...pageTransition}>
+                  <EnterpriseAccess
+                    onSuccess={handleAuthSuccess}
+                    onTabChange={setCurrentPage}
+                  />
+                </motion.div>
+              )}
+              {currentPage === "app" && isAuthenticated && (
+                <motion.div
+                  key="app"
+                  {...pageTransition}
+                  style={{ height: "100vh" }}
+                >
+                  <AuthenticatedApp />
+                </motion.div>
+              )}
+              {currentPage === "security" && (
+                <motion.div key="security" {...pageTransition}>
+                  <Security onNavigate={setCurrentPage} />
+                </motion.div>
+              )}
+              {currentPage === "privacy" && (
+                <motion.div key="privacy" {...pageTransition}>
+                  <Privacy onNavigate={setCurrentPage} />
+                </motion.div>
+              )}
+              {currentPage === "terms" && (
+                <motion.div key="terms" {...pageTransition}>
+                  <Terms onNavigate={setCurrentPage} />
+                </motion.div>
+              )}
+            </AnimatePresence>
+          }
+        />
+      </Routes>
     </BrowserRouter>
   );
 }
