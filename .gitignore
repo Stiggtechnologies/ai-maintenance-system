@@ -516,6 +516,14 @@ models/
 # Large data files
 *.csv
 *.json
+!package.json
+!package-lock.json
+!tsconfig.json
+!tsconfig.*.json
+!components.json
+!netlify.toml
+!vercel.json
+!.vercel/project.json
 data/
 datasets/
 
