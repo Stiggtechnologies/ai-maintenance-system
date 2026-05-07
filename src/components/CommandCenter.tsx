@@ -4,7 +4,7 @@ import { Sidebar } from './Sidebar';
 import { Toast } from './Toast';
 import { useTrialStore } from '../store/trialStore';
 import { useUIStore } from '../store/uiStore';
-import { Send, Menu, LogOut, Sparkles, CircleAlert as AlertCircle, ChartBar as BarChart3, X } from 'lucide-react';
+import { Send, Menu, LogOut, Sparkles, AlertCircle, BarChart3, X } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { createTypewriterEffect } from '../utils/typewriter';
 
@@ -20,6 +20,7 @@ import { OpenClawControlPanel } from './OpenClawControlPanel';
 import { OpenClawEnterprisePanel } from './OpenClawEnterprisePanel';
 
 // Newly integrated components
+import Overview from '../pages/Overview';
 import { BillingOverview } from './billing/BillingOverview';
 import { ApprovalQueue } from './ApprovalQueue';
 import { MetricsDashboard } from './MetricsDashboard';
@@ -34,6 +35,7 @@ import { AutonomyControlPanel } from './AutonomyControlPanel';
 import { SustainabilityDashboard } from './SustainabilityDashboard';
 import { IntegrationsDashboard } from './IntegrationsDashboard';
 import { DecisionLogs } from './DecisionLogs';
+import { TemplateSelector } from './TemplateSelector';
 
 interface Message {
   id: string;
@@ -69,6 +71,7 @@ type ActiveView =
   | 'risk'
   | 'reports'
   | 'settings'
+  | 'overview'
   | 'admin'
   | 'executive'
   | 'strategic'
@@ -80,7 +83,8 @@ type ActiveView =
   | 'billing'
   | 'approvals'
   | 'metrics'
-  | 'war-room';
+  | 'war-room'
+  | 'deploy';
 
 export function CommandCenter() {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -91,7 +95,7 @@ export function CommandCenter() {
   const [toastMessage, setToastMessage] = useState('');
   const [userName, setUserName] = useState('');
   const [firstLogin, setFirstLogin] = useState(true);
-  const [activeView, setActiveView] = useState<ActiveView>('command');
+  const [activeView, setActiveView] = useState<ActiveView>('overview');
 
   const { sessionsRemaining, decrementSession } = useTrialStore();
   const { toggleSidebar, executiveMode, toggleExecutiveMode } = useUIStore();
@@ -183,7 +187,18 @@ export function CommandCenter() {
 
   const renderView = () => {
     switch (activeView) {
-      case 'executive': return <ExecutiveDashboard />;
+      case 'overview': return <Overview onNavigate={(v) => setActiveView(v as ActiveView)} />;
+      case 'deploy': return (
+        <TemplateSelector
+          onComplete={(result) => {
+            if (result.ok) {
+              showToastNotification(`Deployed ${result.template.name}`);
+              setActiveView('overview');
+            }
+          }}
+        />
+      );
+      case 'executive': return <ExecutiveDashboard />; ;
       case 'strategic': return <StrategicDashboard />;
       case 'tactical': return <TacticalDashboard />;
       case 'operational': return <OperationalDashboard />;

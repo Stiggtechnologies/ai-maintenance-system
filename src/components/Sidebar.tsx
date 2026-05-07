@@ -4,7 +4,7 @@ import {
   Hop as Home, Factory, ClipboardList, Package, 
   Bot, Settings, LayoutDashboard, Cpu, Zap, 
   ChevronDown, ChevronRight, DollarSign, CheckSquare, ShieldAlert,
-  Gauge, Recycle, Plug, FileBarChart, Wrench, ActivitySquare
+  Gauge, Recycle, Plug, FileBarChart, Wrench, ActivitySquare, Rocket
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -19,6 +19,7 @@ interface NavItem {
 // SyncAI Navigation - 14 Primary Sections per Design Spec
 const menuItems: NavItem[] = [
   { icon: Home, label: 'Dashboard', id: 'dashboard' },
+  { icon: Rocket, label: 'Deploy Template', id: 'deploy' },
   { icon: Factory, label: 'Assets', id: 'assets', badge: 12 },
   { icon: ClipboardList, label: 'Work Orders', id: 'work-orders', badge: 8 },
   { icon: Wrench, label: 'Maintenance Planning', id: 'maintenance-planning' },

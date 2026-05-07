@@ -1,8 +1,37 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { AuthShell } from '../components/AuthShell';
 import { AuthTabs } from '../components/AuthTabs';
 import { signUp } from '../lib/auth';
 import { motion } from 'framer-motion';
+
+// Reads ?industry=<slug> from the URL and normalizes the slug to the
+// industry-select value used in the form. Comes from marketing
+// /industries CTA links → preserves industry context across domains.
+const INDUSTRY_FROM_SLUG: Record<string, string> = {
+  'oil-and-gas': 'oil_and_gas',
+  'data-centers': 'data_centers',
+  'pharmaceuticals': 'pharmaceuticals',
+  'mining-and-metals': 'mining',
+  'mining': 'mining',
+  'power-generation-and-utilities': 'utilities',
+  'utilities': 'utilities',
+  'heavy-manufacturing': 'manufacturing',
+  'manufacturing': 'manufacturing',
+  'chemicals-and-petrochemicals': 'chemicals_petrochemicals',
+  'pulp-paper-and-packaging': 'pulp_paper_packaging',
+  'aerospace-and-defense': 'aerospace_defense',
+  'pipelines-and-midstream': 'pipelines_midstream',
+  'rail-marine-and-aviation': 'rail_marine_aviation',
+  'equipment-rental': 'equipment_rental',
+  'multi-site-operators': 'multi_site_operators',
+};
+
+function readIndustryFromUrl(): string {
+  if (typeof window === 'undefined') return '';
+  const slug = new URLSearchParams(window.location.search).get('industry');
+  if (!slug) return '';
+  return INDUSTRY_FROM_SLUG[slug.toLowerCase()] ?? '';
+}
 
 interface SignupProps {
   onSuccess: () => void;
@@ -20,6 +49,16 @@ export function Signup({ onSuccess, onTabChange }: SignupProps) {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    const fromUrl = readIndustryFromUrl();
+    if (fromUrl) {
+      setFormData((prev) => ({ ...prev, industry: fromUrl }));
+      try {
+        sessionStorage.setItem('syncai.preselected_industry', fromUrl);
+      } catch { /* SSR / private browsing */ }
+    }
+  }, []);
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
