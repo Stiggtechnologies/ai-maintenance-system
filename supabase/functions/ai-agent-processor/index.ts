@@ -1,191 +1,312 @@
+/**
+ * ai-agent-processor Edge Function — v2 (DB-driven, integrations-aware)
+ * =====================================================================
+ * Resolves agent definitions from `agent_definitions` (migration 014),
+ * routes to the org's connected Anthropic integration when available,
+ * and logs every run to `agent_runs`.
+ *
+ * Provider resolution order:
+ *   1. Org's connected Anthropic integration (preferred — customer's own key)
+ *   2. ANTHROPIC_API_KEY env var (platform fallback)
+ *   3. Per-request `openaiKey` (legacy v1 caller path)
+ *   4. OPENAI_API_KEY env var (final fallback)
+ *
+ * Request body:
+ *   {
+ *     agent_code: string;             // e.g. "reliability_engineering"
+ *     query: string;                  // user message
+ *     industry?: string;
+ *     organization_id?: string;       // resolved from auth if absent
+ *     requires_approval?: boolean;
+ *     // legacy v1 aliases (still accepted):
+ *     agentType?: string;             // mapped from old camelCase names
+ *     openaiKey?: string;
+ *   }
+ *
+ * Response:
+ *   {
+ *     ok, run_id, response, model_used, provider, latency_ms,
+ *     agent: { code, name, role }
+ *   }
+ *
+ * Schema dependency: 014_ai_agents.sql, 013_integrations.sql
+ */
+
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "npm:@supabase/supabase-js@2";
+import { createClient, SupabaseClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
 };
 
+// Legacy v1 → v2 agent code map. Old callers (UnifiedChatInterface, etc.)
+// pass camelCase agentType strings; map them to canonical snake_case codes
+// from migration 014.
+const LEGACY_AGENT_MAP: Record<string, string> = {
+  PreventiveMaintenanceAgent: "maintenance_strategy",
+  PredictiveAnalyticsAgent: "condition_monitoring",
+  AssetHealthAgent: "asset_management",
+  WorkOrderAgent: "work_order_management",
+  RootCauseAnalysisAgent: "reliability_engineering",
+  SparePartsAgent: "inventory_management",
+  PerformanceAnalysisAgent: "data_analytics",
+  FailureModeAgent: "reliability_engineering",
+  CostOptimizationAgent: "financial_contract",
+  ComplianceAgent: "compliance_auditing",
+  RiskAssessmentAgent: "compliance_auditing",
+  EnergyEfficiencyAgent: "sustainability_esg",
+  EnvironmentalAgent: "sustainability_esg",
+  SafetyAgent: "compliance_auditing",
+  ReliabilityAgent: "reliability_engineering",
+  CentralCoordinationAgent: "central_coordination",
+};
+
 interface AgentRequest {
-  agentType: string;
+  agent_code?: string;
+  agentType?: string;            // legacy alias
+  query: string;
   industry?: string;
-  query?: string;
-  assetId?: string;
-  openaiKey?: string;
-  requiresApproval?: boolean;
+  organization_id?: string;
+  requires_approval?: boolean;
+  openaiKey?: string;            // legacy
 }
 
-function selectOptimalModel(agentType: string, query?: string): string {
-  const queryLength = query?.length || 0;
-
-  const complexAgents = [
-    "PreventiveMaintenanceAgent",
-    "PredictiveAnalyticsAgent",
-    "RootCauseAnalysisAgent",
-    "FailureModeAgent",
-    "RiskAssessmentAgent",
-    "ReliabilityAgent",
-    "CentralCoordinationAgent"
-  ];
-
-  if (complexAgents.includes(agentType) || queryLength > 500) {
-    return "gpt-4o";
-  }
-
-  return "gpt-4o-mini";
-}
-
-function buildSystemPrompt(agentType: string, industry?: string): string {
-  const industryContext = industry ? ` in the ${industry} industry` : "";
-
-  const agentPrompts: Record<string, string> = {
-    "PreventiveMaintenanceAgent": `You are a world-class Preventive Maintenance (PM) Agent for asset-intensive industries${industryContext}. Build time-based and usage-based maintenance strategies. Create PM calendars, standardize tasks, optimize schedules, and support work packaging. Use RCM logic and FMEA. Track PM compliance and effectiveness. Provide PM task lists, calendars, and optimization reports.`,
-
-    "PredictiveAnalyticsAgent": `You are a world-class Predictive Analytics Agent${industryContext}. Anticipate equipment failures using real-time data and historical insights. Monitor condition-based data, forecast Remaining Useful Life (RUL), and trigger intelligent alerts. Apply CBM, ISO 13374, trend analysis, and ML models. Output predictive alerts, RUL dashboards, and risk scoring.`,
-
-    "AssetHealthAgent": `You are a world-class Asset Health Agent${industryContext}. Provide real-time holistic health views of critical equipment. Calculate Asset Health Index (AHI), detect degradation patterns, and prioritize interventions. Track sensor data, work history, and inspection findings. Output health dashboards, AHI rankings, and watchlists.`,
-
-    "WorkOrderAgent": `You are a world-class Work Order Agent${industryContext}. Manage the full lifecycle: validate requests, create WOs, support planning, track status, and ensure close-out. Monitor all stages from Created to Closed. Flag overdue and incomplete WOs. Output aging reports, backlog dashboards, and rework analysis.`,
-
-    "RootCauseAnalysisAgent": `You are a world-class Root Cause Analysis (RCA) Agent${industryContext}. Identify underlying failure causes using 5 Whys, Fishbone, FTA, and Pareto. Recommend corrective actions and monitor post-RCA performance. Focus on root causes, not symptoms. Output RCA reports, action trackers, and improvement metrics.`,
-
-    "SparePartsAgent": `You are a world-class Spare Parts Agent${industryContext}. Ensure right part, right time, right quantity. Optimize inventory using min-max, EOQ, and ABC classification. Identify critical spares, support kitting, manage obsolescence. Output critical spare lists, optimization reports, and inventory dashboards.`,
-
-    "PerformanceAnalysisAgent": `You are a world-class Performance Analysis Agent${industryContext}. Monitor KPIs including MTBF, MTTR, PM compliance, backlog, and wrench time. Provide benchmarking, trend analysis, and actionable recommendations. Output KPI reports, dashboards, scorecards, and Pareto charts.`,
-
-    "FailureModeAgent": `You are a world-class Failure Mode Agent${industryContext}. Identify and classify failure modes using FMEA and RCM. Assign RPN scores, recommend mitigations, and update based on field data. Apply SAE JA1011/1012 and ISO 14224. Output FMEA tables, risk heat maps, and mitigation plans.`,
-
-    "CostOptimizationAgent": `You are a world-class Cost Optimization Agent${industryContext}. Reduce costs without compromising reliability. Analyze labor, parts, contractors, and emergency work. Run TCO models and cost-benefit scenarios. Apply ISO 55010 and Lean principles. Output cost driver dashboards, savings reports, and TCO models.`,
-
-    "ComplianceAgent": `You are a world-class Compliance Agent${industryContext}. Ensure regulatory, legal, and safety compliance. Track inspections, permits, and certifications. Support audits and flag risks. Monitor OSHA, CSA, API, ASME, ISO standards. Output compliance calendars, overdue task reports, and audit readiness summaries.`,
-
-    "RiskAssessmentAgent": `You are a world-class Risk Assessment Agent${industryContext}. Identify, quantify, and mitigate operational, safety, and financial risks. Apply risk matrices, FMEA, Bowtie, and cost of failure models. Use ISO 31000 and ISO 55001. Output risk registers, heat maps, and mitigation trackers.`,
-
-    "EnergyEfficiencyAgent": `You are a world-class Energy Efficiency Agent${industryContext}. Identify and reduce energy waste. Monitor consumption, detect inefficiencies, and recommend improvements. Support ISO 50001 and ESG goals. Track kWh per production unit and emissions. Output usage reports, efficiency dashboards, and ROI analyses.`,
-
-    "EnvironmentalAgent": `You are a world-class Environmental Agent${industryContext}. Monitor emissions, waste, and environmental impact. Ensure ISO 14001 compliance and support ESG reporting. Track GHG, effluent, spills, and incidents. Recommend pollution prevention. Output impact dashboards, compliance calendars, and ESG packages.`,
-
-    "SafetyAgent": `You are a world-class Safety Agent${industryContext}. Enhance workplace safety and prevent incidents. Track hazards, analyze incidents, ensure ISO 45001 and OSHA compliance. Monitor TRIR, LTIR, and training. Use JSA, FLRA, and permit-to-work systems. Output safety reports, action trackers, and performance dashboards.`,
-
-    "ReliabilityAgent": `You are a world-class Reliability Agent${industryContext}. Maximize uptime and reduce failures using reliability engineering. Identify bad actors, develop reliability strategies, and model lifecycle costs. Apply RCM, Weibull analysis, and ISO 55000. Output reliability improvement projects, MTBF/MTTR trends, and bad actor analyses.`,
-
-    "CentralCoordinationAgent": `You are the Central Coordination Agent orchestrating 15 specialized AI agents for asset-intensive industries${industryContext}. Coordinate inter-agent data exchange, detect conflicts, and facilitate human-in-the-loop (HITL) approval for high-risk decisions. Route critical events for human review with decision summaries, data visualizations, and recommended actions. Apply ISO 55001 and ISO 31000. Monitor risk scores, budget impacts, and regulatory compliance. Output coordinated decision briefings, escalation logs, and intelligence roundups.`
-  };
-
-  return agentPrompts[agentType] || `You are an expert AI agent for asset-intensive industries${industryContext}. Provide detailed, actionable insights with specific metrics and recommendations.`;
-}
-
-async function callOpenAI(model: string, systemPrompt: string, userQuery: string, apiKey: string): Promise<string> {
-  const response = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${apiKey}`
-    },
-    body: JSON.stringify({
-      model: model,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userQuery }
-      ],
-      temperature: 0.7,
-      max_completion_tokens: 800
-    })
-  });
-
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`OpenAI API error: ${response.status} - ${error}`);
-  }
-
-  const data = await response.json();
-  return data.choices[0].message.content;
+interface AgentDefinition {
+  code: string;
+  name: string;
+  role: string;
+  category: string;
+  system_prompt: string;
+  preferred_model: string;
+  max_tokens: number;
+  is_active: boolean;
 }
 
 Deno.serve(async (req: Request) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, {
-      status: 200,
-      headers: corsHeaders,
-    });
-  }
+  if (req.method === "OPTIONS") return new Response(null, { status: 200, headers: corsHeaders });
 
   try {
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    const body = (await req.json().catch(() => ({}))) as AgentRequest;
 
-    const { agentType, industry, query, assetId, openaiKey, requiresApproval }: AgentRequest = await req.json();
+    const code = resolveAgentCode(body);
+    if (!code) return json({ ok: false, error: "agent_code (or legacy agentType) is required", error_code: "MISSING_AGENT" }, 400);
+    if (!body.query) return json({ ok: false, error: "query is required", error_code: "MISSING_QUERY" }, 400);
 
-    if (!agentType) {
-      return new Response(
-        JSON.stringify({ error: "agentType is required" }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
-    }
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    if (!supabaseUrl || !serviceKey) return json({ ok: false, error: "Server misconfigured", error_code: "MISSING_ENV" }, 500);
 
-    const apiKey = openaiKey || Deno.env.get("OPENAI_API_KEY");
+    const supabase = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
 
-    if (!apiKey) {
-      return new Response(
-        JSON.stringify({ error: "OpenAI API key not configured" }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
-    }
+    const auth = await resolveAuth(supabase, req, body.organization_id);
+    if (!auth.ok) return json({ ok: false, error: auth.error, error_code: "AUTH" }, 401);
 
-    const startTime = Date.now();
-    const selectedModel = selectOptimalModel(agentType, query);
-    const systemPrompt = buildSystemPrompt(agentType, industry);
+    const { data: agent, error: agentErr } = await supabase
+      .from("agent_definitions")
+      .select("code, name, role, category, system_prompt, preferred_model, max_tokens, is_active")
+      .eq("code", code)
+      .maybeSingle();
 
-    let userQuery = query;
-    const industryContextStr = industry ? ` in the ${industry} industry` : "";
+    if (agentErr) return json({ ok: false, error: `Agent lookup failed: ${agentErr.message}` }, 500);
+    if (!agent || !agent.is_active) return json({ ok: false, error: `Unknown or inactive agent: ${code}`, error_code: "UNKNOWN_AGENT" }, 404);
 
-    if (!userQuery) {
-      userQuery = `Provide a concise analysis and actionable recommendations for ${agentType.replace("Agent", "")}${industryContextStr}. Include key metrics and next steps.`;
-    } else if (userQuery.length < 50) {
-      userQuery = `${userQuery}\n\nProvide a brief, helpful response. If this is a greeting, respond conversationally then offer relevant insights.`;
-    }
+    const def = agent as AgentDefinition;
 
-    const aiResponse = await callOpenAI(selectedModel, systemPrompt, userQuery, apiKey);
-    const processingTime = Date.now() - startTime;
-
-    await supabase.from("ai_agent_logs").insert({
-      agent_type: agentType,
-      query: userQuery,
-      response: aiResponse,
-      industry: industry || "general",
-      processing_time_ms: processingTime,
+    const { data: runIdRaw, error: startErr } = await supabase.rpc("agent_record_run_start", {
+      p_organization_id: auth.organizationId,
+      p_agent_code: code,
+      p_user_id: auth.userId,
+      p_industry: body.industry ?? null,
+      p_query: body.query,
+      p_requires_approval: !!body.requires_approval,
     });
+    if (startErr || !runIdRaw) return json({ ok: false, error: `Run start failed: ${startErr?.message ?? "unknown"}` }, 500);
+    const runId = runIdRaw as string;
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        response: aiResponse,
-        processingTime: processingTime,
-        agentType: agentType,
-        industry: industry || "general",
-        modelUsed: selectedModel,
-        requiresApproval: requiresApproval || false
-      }),
-      {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+    const t0 = Date.now();
+
+    try {
+      const provider = await resolveProvider(supabase, auth.organizationId, body.openaiKey);
+      const industryContext = body.industry ? ` in the ${body.industry} industry` : "";
+      const userQuery = body.query.length < 50
+        ? `${body.query}\n\nProvide a brief, helpful response. If this is a greeting, respond conversationally then offer relevant insights${industryContext}.`
+        : body.query;
+
+      let response: string;
+      let modelUsed: string;
+
+      if (provider.kind === "anthropic") {
+        modelUsed = provider.model ?? def.preferred_model;
+        response = await callAnthropic(modelUsed, def.system_prompt + industryContext, userQuery, provider.apiKey, def.max_tokens);
+      } else {
+        modelUsed = pickOpenAIModel(def.category);
+        response = await callOpenAI(modelUsed, def.system_prompt + industryContext, userQuery, provider.apiKey, def.max_tokens);
       }
-    );
-  } catch (error) {
-    console.error("Error processing AI agent request:", error);
-    return new Response(
-      JSON.stringify({ error: error.message || "Internal server error" }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
-    );
+
+      const latency = Date.now() - t0;
+
+      await supabase.rpc("agent_record_run_complete", {
+        p_run_id: runId,
+        p_response: response,
+        p_model_used: modelUsed,
+        p_provider: provider.kind,
+        p_integration_id: provider.integrationId ?? null,
+        p_latency_ms: latency,
+      });
+
+      return json({
+        ok: true,
+        run_id: runId,
+        response,
+        model_used: modelUsed,
+        provider: provider.kind,
+        latency_ms: latency,
+        agent: { code: def.code, name: def.name, role: def.role },
+      });
+    } catch (err) {
+      const latency = Date.now() - t0;
+      const message = err instanceof Error ? err.message : String(err);
+      await supabase.rpc("agent_record_run_failure", { p_run_id: runId, p_error: message, p_latency_ms: latency });
+      return json({ ok: false, error: message, run_id: runId, error_code: "PROVIDER_ERROR" }, 502);
+    }
+  } catch (err) {
+    console.error("[ai-agent-processor] uncaught", err);
+    return json({ ok: false, error: String((err as Error)?.message ?? err), error_code: "INTERNAL" }, 500);
   }
 });
+
+function resolveAgentCode(body: AgentRequest): string | null {
+  if (body.agent_code) return body.agent_code;
+  if (body.agentType) return LEGACY_AGENT_MAP[body.agentType] ?? body.agentType;
+  return null;
+}
+
+async function resolveAuth(
+  supabase: SupabaseClient,
+  req: Request,
+  fallbackOrgId?: string,
+): Promise<{ ok: true; userId: string | null; organizationId: string } | { ok: false; error: string }> {
+  const authHeader = req.headers.get("Authorization") ?? "";
+  const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
+
+  if (token) {
+    const { data: userResult } = await supabase.auth.getUser(token);
+    if (userResult?.user) {
+      const { data: profile } = await supabase
+        .from("user_profiles")
+        .select("organization_id")
+        .eq("id", userResult.user.id)
+        .maybeSingle();
+      if (profile?.organization_id) {
+        return { ok: true, userId: userResult.user.id, organizationId: profile.organization_id };
+      }
+    }
+  }
+
+  if (fallbackOrgId) return { ok: true, userId: null, organizationId: fallbackOrgId };
+  return { ok: false, error: "No organization context — pass Authorization: Bearer <jwt> or organization_id" };
+}
+
+interface ResolvedProvider {
+  kind: "anthropic" | "openai";
+  apiKey: string;
+  model?: string;
+  integrationId?: string;
+}
+
+async function resolveProvider(
+  supabase: SupabaseClient,
+  orgId: string,
+  legacyOpenAIKey?: string,
+): Promise<ResolvedProvider> {
+  // 1. Org's connected Anthropic integration
+  const { data: anthropicRow } = await supabase
+    .from("integrations")
+    .select("id, status")
+    .eq("organization_id", orgId)
+    .eq("catalog_code", "anthropic")
+    .eq("status", "connected")
+    .order("updated_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (anthropicRow) {
+    const { data: creds } = await supabase.rpc("integration_read_credentials", { p_id: anthropicRow.id });
+    if (creds && (creds as Record<string, string>).api_key) {
+      const c = creds as Record<string, string>;
+      return { kind: "anthropic", apiKey: c.api_key, model: c.model, integrationId: anthropicRow.id };
+    }
+  }
+
+  // 2. Platform Anthropic key
+  const platformAnthropic = Deno.env.get("ANTHROPIC_API_KEY");
+  if (platformAnthropic) return { kind: "anthropic", apiKey: platformAnthropic };
+
+  // 3. Legacy per-request OpenAI key
+  if (legacyOpenAIKey) return { kind: "openai", apiKey: legacyOpenAIKey };
+
+  // 4. Platform OpenAI key
+  const platformOpenAI = Deno.env.get("OPENAI_API_KEY");
+  if (platformOpenAI) return { kind: "openai", apiKey: platformOpenAI };
+
+  throw new Error("No AI provider configured. Connect Anthropic in Integrations, or set ANTHROPIC_API_KEY / OPENAI_API_KEY.");
+}
+
+async function callAnthropic(model: string, system: string, query: string, apiKey: string, maxTokens: number): Promise<string> {
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "x-api-key": apiKey,
+      "anthropic-version": "2023-06-01",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model,
+      max_tokens: maxTokens,
+      system,
+      messages: [{ role: "user", content: query }],
+    }),
+  });
+  if (!res.ok) {
+    const errBody = await res.text().catch(() => "");
+    throw new Error(`Anthropic ${res.status}: ${errBody.slice(0, 300)}`);
+  }
+  const data = await res.json();
+  const text = Array.isArray(data?.content)
+    ? data.content.filter((c: { type: string }) => c.type === "text").map((c: { text: string }) => c.text).join("\n")
+    : (data?.content ?? "");
+  return text || "(empty response)";
+}
+
+async function callOpenAI(model: string, system: string, query: string, apiKey: string, maxTokens: number): Promise<string> {
+  const res = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+    body: JSON.stringify({
+      model,
+      messages: [{ role: "system", content: system }, { role: "user", content: query }],
+      temperature: 0.7,
+      max_completion_tokens: maxTokens,
+    }),
+  });
+  if (!res.ok) {
+    const errBody = await res.text().catch(() => "");
+    throw new Error(`OpenAI ${res.status}: ${errBody.slice(0, 300)}`);
+  }
+  const data = await res.json();
+  return data?.choices?.[0]?.message?.content ?? "(empty response)";
+}
+
+function pickOpenAIModel(category: string): string {
+  if (category === "strategic" || category === "orchestration") return "gpt-4o";
+  return "gpt-4o-mini";
+}
+
+function json(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
