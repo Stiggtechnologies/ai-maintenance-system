@@ -13,6 +13,8 @@ import { Signup } from "./pages/Signup";
 import { EnterpriseAccess } from "./pages/EnterpriseAccess";
 import { MarketplaceSignup } from "./pages/MarketplaceSignup";
 import { AzureADCallback } from "./pages/AzureADCallback";
+import { AwsMarketplaceSignup } from "./pages/AwsMarketplaceSignup";
+import { SalesforceSignup } from "./pages/SalesforceSignup";
 import { LoadingScreen } from "./components/LoadingScreen";
 import { Security } from "./pages/Security";
 import { Privacy } from "./pages/Privacy";
@@ -89,8 +91,16 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Marketplace signup route (unauthenticated) */}
+        {/* Marketplace signup routes (unauthenticated) */}
         <Route path="/marketplace/signup" element={<MarketplaceSignup />} />
+        <Route
+          path="/marketplace/aws/signup"
+          element={<AwsMarketplaceSignup />}
+        />
+        <Route
+          path="/marketplace/salesforce/signup"
+          element={<SalesforceSignup />}
+        />
 
         {/* Azure AD callback route (unauthenticated) */}
         <Route path="/auth/callback/azure" element={<AzureADCallback />} />
