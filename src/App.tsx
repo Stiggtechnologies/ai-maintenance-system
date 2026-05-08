@@ -10,9 +10,16 @@ import { Security } from './pages/Security';
 import { Privacy } from './pages/Privacy';
 import { Terms } from './pages/Terms';
 import { MarketplaceActivate } from './pages/MarketplaceActivate';
+import { AwsMarketplaceActivate } from './pages/AwsMarketplaceActivate';
+import { SalesforceActivate } from './pages/SalesforceActivate';
 import { motion, AnimatePresence } from 'framer-motion';
 
-type Page = 'signin' | 'signup' | 'enterprise' | 'app' | 'pricing' | 'security' | 'privacy' | 'terms' | 'marketplace_activate';
+type Page =
+  | 'signin' | 'signup' | 'enterprise' | 'app'
+  | 'pricing' | 'security' | 'privacy' | 'terms'
+  | 'marketplace_activate'         // Microsoft AppSource
+  | 'aws_marketplace_activate'     // AWS Marketplace
+  | 'salesforce_activate';         // Salesforce AppExchange
 
 function App() {
   const [currentPage, setCurrentPage] = useState<Page>('signin');
@@ -20,13 +27,26 @@ function App() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Microsoft AppSource activation deep-link: /marketplace/activate?token=…
-    // Check this BEFORE auth resolution so the buyer always lands on the
-    // activation flow regardless of any existing session.
-    if (typeof window !== 'undefined' && window.location.pathname.startsWith('/marketplace/activate')) {
-      setCurrentPage('marketplace_activate');
-      setLoading(false);
-      return;
+    // Marketplace activation deep-links — match the most specific paths
+    // first so /marketplace/aws/activate and /marketplace/salesforce/activate
+    // don't fall into the bare /marketplace/activate (Microsoft) branch.
+    if (typeof window !== 'undefined') {
+      const path = window.location.pathname;
+      if (path.startsWith('/marketplace/aws/activate')) {
+        setCurrentPage('aws_marketplace_activate');
+        setLoading(false);
+        return;
+      }
+      if (path.startsWith('/marketplace/salesforce/activate')) {
+        setCurrentPage('salesforce_activate');
+        setLoading(false);
+        return;
+      }
+      if (path.startsWith('/marketplace/activate')) {
+        setCurrentPage('marketplace_activate');
+        setLoading(false);
+        return;
+      }
     }
 
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -103,12 +123,21 @@ function App() {
       {currentPage === 'marketplace_activate' && (
         <motion.div key="marketplace_activate" {...pageTransition}>
           <MarketplaceActivate
-            onContinueToSignup={() => {
-              // After activation, send buyer to signup. The MarketplaceActivate
-              // component has already stashed purchaser_email + plan_id in
-              // sessionStorage; Signup picks them up there.
-              setCurrentPage('signup');
-            }}
+            onContinueToSignup={() => setCurrentPage('signup')}
+          />
+        </motion.div>
+      )}
+      {currentPage === 'aws_marketplace_activate' && (
+        <motion.div key="aws_marketplace_activate" {...pageTransition}>
+          <AwsMarketplaceActivate
+            onContinueToSignup={() => setCurrentPage('signup')}
+          />
+        </motion.div>
+      )}
+      {currentPage === 'salesforce_activate' && (
+        <motion.div key="salesforce_activate" {...pageTransition}>
+          <SalesforceActivate
+            onContinueToSignup={() => setCurrentPage('signup')}
           />
         </motion.div>
       )}
