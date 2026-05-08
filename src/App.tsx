@@ -9,9 +9,10 @@ import { Pricing } from './pages/Pricing';
 import { Security } from './pages/Security';
 import { Privacy } from './pages/Privacy';
 import { Terms } from './pages/Terms';
+import { MarketplaceActivate } from './pages/MarketplaceActivate';
 import { motion, AnimatePresence } from 'framer-motion';
 
-type Page = 'signin' | 'signup' | 'enterprise' | 'app' | 'pricing' | 'security' | 'privacy' | 'terms';
+type Page = 'signin' | 'signup' | 'enterprise' | 'app' | 'pricing' | 'security' | 'privacy' | 'terms' | 'marketplace_activate';
 
 function App() {
   const [currentPage, setCurrentPage] = useState<Page>('signin');
@@ -19,6 +20,15 @@ function App() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Microsoft AppSource activation deep-link: /marketplace/activate?token=…
+    // Check this BEFORE auth resolution so the buyer always lands on the
+    // activation flow regardless of any existing session.
+    if (typeof window !== 'undefined' && window.location.pathname.startsWith('/marketplace/activate')) {
+      setCurrentPage('marketplace_activate');
+      setLoading(false);
+      return;
+    }
+
     supabase.auth.getSession().then(({ data: { session } }) => {
       setIsAuthenticated(!!session);
       if (session) setCurrentPage('app');
@@ -88,6 +98,18 @@ function App() {
       {currentPage === 'terms' && (
         <motion.div key="terms" {...pageTransition}>
           <Terms onNavigate={setCurrentPage} />
+        </motion.div>
+      )}
+      {currentPage === 'marketplace_activate' && (
+        <motion.div key="marketplace_activate" {...pageTransition}>
+          <MarketplaceActivate
+            onContinueToSignup={() => {
+              // After activation, send buyer to signup. The MarketplaceActivate
+              // component has already stashed purchaser_email + plan_id in
+              // sessionStorage; Signup picks them up there.
+              setCurrentPage('signup');
+            }}
+          />
         </motion.div>
       )}
     </AnimatePresence>
