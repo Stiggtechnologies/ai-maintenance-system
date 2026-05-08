@@ -538,3 +538,6 @@ datasets/
 # Local environment checks
 .env.check
 .env.production.check
+
+# Build output (Vite)
+dist/
