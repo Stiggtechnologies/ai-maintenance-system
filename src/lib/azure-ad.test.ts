@@ -14,6 +14,7 @@ vi.stubGlobal("import", {
 // We need to test the functions in isolation since they depend on browser APIs
 describe("Azure AD Integration", () => {
   let mockSessionStorage: Record<string, string>;
+  let originalSessionStorage: Storage;
 
   beforeEach(() => {
     mockSessionStorage = {};
@@ -41,6 +42,11 @@ describe("Azure AD Integration", () => {
   });
 
   afterEach(() => {
+    Object.defineProperty(window, "sessionStorage", {
+      value: originalSessionStorage,
+      writable: true,
+      configurable: true,
+    });
     vi.restoreAllMocks();
   });
 
