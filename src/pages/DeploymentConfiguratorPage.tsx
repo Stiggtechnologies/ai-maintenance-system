@@ -201,6 +201,7 @@ export function DeploymentConfiguratorPage() {
     try {
       const { error } = await supabase.from("deployment_instances").insert({
         template_id: template.id,
+        name: `${template.name} - ${selectedSiteId ? sites.find((s) => s.id === selectedSiteId)?.name : newSiteName || siteName || "New Site"}`,
         organization_id: userContext.organization_id,
         site_id: selectedSiteId,
         site_name: selectedSiteId
