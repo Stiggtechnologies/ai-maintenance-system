@@ -1,24 +1,10 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import {
-  Factory,
-  Flame,
-  Cpu,
-  Building2,
-  Landmark,
-  Eye,
-  ArrowRight,
-  BarChart3,
-  Package,
-  AlertTriangle,
-  Shield,
-  Gauge,
-  Search,
-  Filter,
-} from "lucide-react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { Factory, Flame, Cpu, Building2, Landmark, Eye, ArrowRight, ChartBar as BarChart3, Package, TriangleAlert as AlertTriangle, Shield, Gauge, Search, Filter, Sparkles } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { TemplatePreviewModal } from "../components/TemplatePreviewModal";
+import { useSetupStore, INDUSTRY_TEMPLATE_MAP } from "../store/setupStore";
 
 interface TemplateData {
   id: string;
@@ -94,6 +80,10 @@ function getFamilyConfig(family: string) {
 
 export function TemplateSelectorPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const { industry, setTemplate } = useSetupStore();
+  const fromSetup = searchParams.get("from") === "setup" || !!industry;
+
   const [templates, setTemplates] = useState<TemplateData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -171,10 +161,25 @@ export function TemplateSelectorPage() {
       t.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       t.description?.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesFamily = !filterFamily || t.master_family === filterFamily;
-    return matchesSearch && matchesFamily;
+
+    if (!matchesSearch || !matchesFamily) return false;
+
+    if (fromSetup && industry && !searchQuery && !filterFamily) {
+      const familySlugs = INDUSTRY_TEMPLATE_MAP[industry] || [];
+      if (familySlugs.length > 0) {
+        return familySlugs.some(
+          (slug) =>
+            t.slug?.includes(slug) ||
+            t.master_family?.toLowerCase().includes(slug.replace("-", " "))
+        );
+      }
+    }
+
+    return true;
   });
 
   const handleSelect = (template: TemplateData) => {
+    setTemplate(template.slug, template.name);
     navigate(`/deployments/new/configure?template=${template.slug}`);
   };
 
@@ -197,6 +202,14 @@ export function TemplateSelectorPage() {
         <p className="text-sm text-slate-500 mt-1">
           Select an industry template to start configuring your deployment.
         </p>
+        {fromSetup && industry && (
+          <div className="mt-3 bg-teal-500/5 border border-teal-500/20 rounded-lg p-3 flex items-center gap-2">
+            <Sparkles size={14} className="text-teal-400 flex-shrink-0" />
+            <span className="text-xs text-slate-400">
+              Showing templates recommended for your industry. Use search or filters to see all.
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Search and Filter Bar */}

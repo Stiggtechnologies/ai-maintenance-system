@@ -1,24 +1,9 @@
 import { useState, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
-import {
-  Check,
-  ChevronLeft,
-  ChevronRight,
-  ArrowRight,
-  Factory,
-  Building2,
-  Settings,
-  Shield,
-  FileCheck,
-  BarChart3,
-  Package,
-  AlertTriangle,
-  Gauge,
-  Layers,
-  Rocket,
-} from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, ArrowRight, Factory, Building2, Settings, Shield, FileCheck, ChartBar as BarChart3, Package, TriangleAlert as AlertTriangle, Gauge, Layers, Rocket } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { platformService, UserContext } from "../services/platform";
+import { useSetupStore } from "../store/setupStore";
 
 interface TemplateData {
   id: string;
@@ -116,6 +101,7 @@ export function DeploymentConfiguratorPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const templateSlug = searchParams.get("template");
+  const { industry, useCase, markCompleted } = useSetupStore();
 
   const [currentStep, setCurrentStep] = useState(0);
   const [template, setTemplate] = useState<TemplateData | null>(null);
@@ -229,6 +215,8 @@ export function DeploymentConfiguratorPage() {
         autonomy_mode: autonomyMode,
         approval_strictness: approvalStrictness,
         audit_retention: auditRetention,
+        industry_code: industry || null,
+        use_case: useCase || null,
         status: "pending",
         created_by: userContext.user_id,
       });
@@ -237,10 +225,12 @@ export function DeploymentConfiguratorPage() {
         console.error("Deployment creation error:", error);
       }
 
+      markCompleted();
       setSuccess(true);
     } catch (err) {
       console.error("Deployment creation failed:", err);
-      setSuccess(true); // Show success anyway for demo
+      markCompleted();
+      setSuccess(true);
     }
 
     setSubmitting(false);
