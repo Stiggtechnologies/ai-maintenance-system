@@ -512,6 +512,3 @@ export function SetupWizard() {
     </div>
   );
 }
-
-
-export { SetupWizard }
