@@ -56,6 +56,8 @@ import { ArtifactWorkspace } from "./pages/ArtifactWorkspace";
 import { AutonomyControlPanel } from "./components/AutonomyControlPanel";
 import { ApprovalQueue } from "./components/ApprovalQueue";
 import { motion, AnimatePresence } from "framer-motion";
+import { ReliabilityCopilotPage } from "./pages/ReliabilityCopilotPage";
+import { FirstCustomerPilotPage } from "./pages/FirstCustomerPilotPage";
 
 type Page =
   | "signin"
@@ -170,7 +172,7 @@ function AuthenticatedApp() {
   return (
     <AppShell currentPath={location.pathname} onNavigate={(path) => navigate(path)}>
       <Routes>
-        {/* Default → Mission Control */}
+        {/* Default â Mission Control */}
         <Route path="/" element={<Navigate to="/mission-control" replace />} />
         <Route path="/overview" element={<Navigate to="/mission-control" replace />} />
 
@@ -222,6 +224,12 @@ function AuthenticatedApp() {
         <Route path="/deployments" element={<TemplateSelectorPage />} />
         <Route path="/settings" element={<SettingsPage />} />
 
+        <Route path="/pilot/reliability" element={<FirstCustomerPilotPage />} />
+        <Route path="/demo/copilot" element={
+          <div className="min-h-screen bg-gradient-to-br from-slate-950 via-blue-950 to-slate-900">
+            <ReliabilityCopilotPage />
+          </div>
+        } />
         <Route path="*" element={<Navigate to="/mission-control" replace />} />
       </Routes>
     </AppShell>
