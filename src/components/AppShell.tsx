@@ -3,6 +3,7 @@ import { Zap, ChevronLeft, ChevronRight, LogOut, MapPin, ChevronDown, Shield, Wi
 import { platformService, UserContext } from "../services/platform";
 import { supabase } from "../lib/supabase";
 import { motion, AnimatePresence } from "framer-motion";
+import { CommandSearch } from "./CommandSearch";
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -73,6 +74,7 @@ const navGroups: NavGroup[] = [
     items: [
       { id: "work", label: "Work Action Board", path: "/work" },
       { id: "scenario-simulator", label: "Scenario Simulator", path: "/scenarios" },
+      { id: "briefing", label: "Operational Briefing", path: "/briefing" },
     ],
   },
   {
@@ -91,6 +93,7 @@ const navGroups: NavGroup[] = [
     icon: Settings,
     items: [
       { id: "integrations", label: "Integrations", path: "/integrations" },
+      { id: "integration-health", label: "Integration Health", path: "/integration-health" },
       { id: "research", label: "Research", path: "/research" },
       { id: "settings", label: "Settings", path: "/settings" },
     ],
@@ -104,6 +107,7 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
   const [selectedSiteId, setSelectedSiteId] = useState<string | null>(null);
   const [sitePickerOpen, setSitePickerOpen] = useState(false);
   const [badges, setBadges] = useState({ work: 0, approvals: 0 });
+  const [commandSearchOpen, setCommandSearchOpen] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(
     new Set(["mission", "ai", "assets", "work", "performance", "system"])
   );
@@ -111,6 +115,17 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
 
   useEffect(() => {
     loadUserContext();
+  }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        setCommandSearchOpen((prev) => !prev);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
   useEffect(() => {
@@ -417,8 +432,9 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
 
             {/* Command */}
             <button
-              onClick={() => onNavigate("/mission-control")}
+              onClick={() => setCommandSearchOpen(true)}
               className="p-1.5 text-slate-500 hover:text-teal-400 transition-colors"
+              title="Command Search (Cmd+K)"
             >
               <Command className="w-4 h-4" />
             </button>
@@ -435,6 +451,9 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
           {children}
         </main>
       </div>
+
+      {/* Command Search */}
+      <CommandSearch open={commandSearchOpen} onClose={() => setCommandSearchOpen(false)} onNavigate={onNavigate} />
     </div>
   );
 }

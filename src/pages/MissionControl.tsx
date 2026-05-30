@@ -1,6 +1,8 @@
 import { useState } from "react";
-import { Target, TriangleAlert as AlertTriangle, CircleCheck as CheckCircle, Clock, TrendingUp, TrendingDown, Activity, Zap, DollarSign, Shield, Package, Users, Bot, ChevronRight, Eye, ThumbsUp, MoveHorizontal as MoreHorizontal, ArrowUpRight, Cpu, Radio, ChartBar as BarChart2 } from "lucide-react";
+import { Target, TriangleAlert as AlertTriangle, CircleCheck as CheckCircle, Clock, TrendingUp, TrendingDown, Activity, Zap, DollarSign, Shield, Package, Users, Bot, ChevronRight, Eye, ThumbsUp, ArrowUpRight, Cpu, Radio, ChartBar as BarChart2, Swords } from "lucide-react";
 import { motion } from "framer-motion";
+import { EvidenceDrawer } from "../components/EvidenceDrawer";
+import { ChallengeAIModal } from "../components/ChallengeAIModal";
 
 const readinessScore = 87;
 const readinessStatus = "Watch";
@@ -180,7 +182,7 @@ function FactorBar({ factor }: { factor: (typeof readinessFactors)[0] }) {
   );
 }
 
-function RecommendationCard({ rec }: { rec: (typeof aiRecommendations)[0] }) {
+function RecommendationCard({ rec, onEvidence, onChallenge }: { rec: (typeof aiRecommendations)[0]; onEvidence: () => void; onChallenge: () => void }) {
   const [expanded, setExpanded] = useState(false);
   const level = alertLevels[rec.urgency];
 
@@ -237,11 +239,17 @@ function RecommendationCard({ rec }: { rec: (typeof aiRecommendations)[0] }) {
                 <button className="flex items-center gap-1.5 px-3 py-1.5 bg-teal-500/20 border border-teal-500/30 text-teal-400 text-xs font-medium rounded-lg hover:bg-teal-500/30 transition-colors">
                   <ThumbsUp className="w-3 h-3" /> Approve
                 </button>
-                <button className="flex items-center gap-1.5 px-3 py-1.5 bg-white/[0.04] border border-white/[0.08] text-slate-400 text-xs font-medium rounded-lg hover:bg-white/[0.08] transition-colors">
+                <button
+                  onClick={(e) => { e.stopPropagation(); onEvidence(); }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-white/[0.04] border border-white/[0.08] text-slate-400 text-xs font-medium rounded-lg hover:bg-white/[0.08] transition-colors"
+                >
                   <Eye className="w-3 h-3" /> Evidence
                 </button>
-                <button className="flex items-center gap-1.5 px-3 py-1.5 bg-white/[0.04] border border-white/[0.08] text-slate-400 text-xs font-medium rounded-lg hover:bg-white/[0.08] transition-colors">
-                  <MoreHorizontal className="w-3 h-3" />
+                <button
+                  onClick={(e) => { e.stopPropagation(); onChallenge(); }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-white/[0.04] border border-white/[0.08] text-amber-400 text-xs font-medium rounded-lg hover:bg-amber-500/10 transition-colors"
+                >
+                  <Swords className="w-3 h-3" /> Challenge
                 </button>
               </div>
             </div>
@@ -266,6 +274,9 @@ function AnimatePresenceInline({ show, children }: { show: boolean; children: Re
 }
 
 export function MissionControl() {
+  const [evidenceOpen, setEvidenceOpen] = useState(false);
+  const [challengeOpen, setChallengeOpen] = useState(false);
+  const [selectedRec, setSelectedRec] = useState<(typeof aiRecommendations)[0] | null>(null);
   const scoreColor = readinessScore >= 90 ? "text-green-400" : readinessScore >= 75 ? "text-amber-400" : "text-red-400";
   const statusColor = readinessScore >= 90 ? "bg-green-500/20 text-green-400 border-green-500/30" : readinessScore >= 75 ? "bg-amber-500/20 text-amber-400 border-amber-500/30" : "bg-red-500/20 text-red-400 border-red-500/30";
 
@@ -427,7 +438,12 @@ export function MissionControl() {
           </div>
           <div className="space-y-3">
             {aiRecommendations.map((rec) => (
-              <RecommendationCard key={rec.id} rec={rec} />
+              <RecommendationCard
+                key={rec.id}
+                rec={rec}
+                onEvidence={() => { setSelectedRec(rec); setEvidenceOpen(true); }}
+                onChallenge={() => { setSelectedRec(rec); setChallengeOpen(true); }}
+              />
             ))}
           </div>
         </div>
@@ -470,6 +486,26 @@ export function MissionControl() {
           })}
         </div>
       </div>
+
+      {/* Evidence Drawer */}
+      <EvidenceDrawer
+        open={evidenceOpen}
+        onClose={() => setEvidenceOpen(false)}
+        title={selectedRec?.title || ""}
+        asset={selectedRec?.asset}
+      />
+
+      {/* Challenge AI Modal */}
+      <ChallengeAIModal
+        open={challengeOpen}
+        onClose={() => setChallengeOpen(false)}
+        recommendation={selectedRec ? {
+          title: selectedRec.title,
+          confidence: selectedRec.confidence,
+          asset: selectedRec.asset,
+          action: selectedRec.action,
+        } : undefined}
+      />
     </div>
   );
 }

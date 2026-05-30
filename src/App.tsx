@@ -41,6 +41,9 @@ import { ScenarioSimulator } from "./pages/ScenarioSimulator";
 import { LearningLoop } from "./pages/LearningLoop";
 import { Reliability } from "./pages/ReliabilityPage";
 import { ReadinessPage } from "./pages/ReadinessPage";
+import { OperationalBriefing } from "./pages/OperationalBriefing";
+import { AssetIntelligencePage } from "./pages/AssetIntelligencePage";
+import { IntegrationHealthPanel } from "./pages/IntegrationHealthPanel";
 import { AutonomyControlPanel } from "./components/AutonomyControlPanel";
 import { ApprovalQueue } from "./components/ApprovalQueue";
 import { motion, AnimatePresence } from "framer-motion";
@@ -175,6 +178,7 @@ function AuthenticatedApp() {
 
         {/* Asset Intelligence */}
         <Route path="/assets/:assetId" element={<AssetDetailPage />} />
+        <Route path="/assets/intelligence" element={<AssetIntelligencePage />} />
         <Route path="/assets" element={<AssetManagement />} />
         <Route path="/reliability" element={<Reliability />} />
         <Route path="/risk" element={<RiskConsequence />} />
@@ -183,6 +187,7 @@ function AuthenticatedApp() {
         <Route path="/work/:workOrderId" element={<WorkOrderDetailPage />} />
         <Route path="/work" element={<WorkActionBoard />} />
         <Route path="/scenarios" element={<ScenarioSimulator />} />
+        <Route path="/briefing" element={<OperationalBriefing />} />
 
         {/* Performance */}
         <Route path="/performance" element={<PerformanceDashboard />} />
@@ -191,6 +196,7 @@ function AuthenticatedApp() {
 
         {/* System */}
         <Route path="/integrations" element={<IntegrationsPage />} />
+        <Route path="/integration-health" element={<IntegrationHealthPanel />} />
         <Route path="/research" element={<ResearchDashboard />} />
         <Route path="/runs" element={<RunsAuditPage />} />
         <Route path="/deployments/new/configure" element={<DeploymentConfiguratorPage />} />
