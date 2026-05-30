@@ -44,6 +44,7 @@ const navGroups: NavGroup[] = [
       { id: "mission-control", label: "Mission Control", path: "/mission-control", accent: "teal" },
       { id: "command-centers", label: "Command Centers", path: "/command-centers" },
       { id: "readiness", label: "Readiness", path: "/readiness" },
+      { id: "cowork", label: "Cowork Studio", path: "/cowork" },
     ],
   },
   {
@@ -53,6 +54,7 @@ const navGroups: NavGroup[] = [
     items: [
       { id: "ai-workforce", label: "AI Agents", path: "/ai-workforce" },
       { id: "autonomy", label: "Autonomy Control", path: "/autonomy" },
+      { id: "autonomy-maturity", label: "Autonomy Maturity", path: "/autonomy-maturity" },
       { id: "approvals", label: "Approvals", path: "/approvals" },
       { id: "decision-governance", label: "Decision Governance", path: "/governance" },
     ],
@@ -75,6 +77,8 @@ const navGroups: NavGroup[] = [
       { id: "work", label: "Work Action Board", path: "/work" },
       { id: "scenario-simulator", label: "Scenario Simulator", path: "/scenarios" },
       { id: "briefing", label: "Operational Briefing", path: "/briefing" },
+      { id: "playbooks", label: "Playbooks", path: "/playbooks" },
+      { id: "emergency", label: "Emergency Mode", path: "/emergency" },
     ],
   },
   {
@@ -85,6 +89,9 @@ const navGroups: NavGroup[] = [
       { id: "performance", label: "Performance", path: "/performance" },
       { id: "oee", label: "OEE Dashboard", path: "/oee" },
       { id: "learning-loop", label: "Learning Loop", path: "/learning-loop" },
+      { id: "value", label: "Value Realization", path: "/value" },
+      { id: "benchmarking", label: "Benchmarking", path: "/benchmarking" },
+      { id: "trust", label: "Trust & Explainability", path: "/trust" },
     ],
   },
   {
@@ -94,7 +101,8 @@ const navGroups: NavGroup[] = [
     items: [
       { id: "integrations", label: "Integrations", path: "/integrations" },
       { id: "integration-health", label: "Integration Health", path: "/integration-health" },
-      { id: "research", label: "Research", path: "/research" },
+      { id: "artifacts", label: "Artifacts", path: "/artifacts" },
+      { id: "setup", label: "Setup Wizard", path: "/setup" },
       { id: "settings", label: "Settings", path: "/settings" },
     ],
   },

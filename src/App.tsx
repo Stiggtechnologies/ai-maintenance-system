@@ -44,6 +44,15 @@ import { ReadinessPage } from "./pages/ReadinessPage";
 import { OperationalBriefing } from "./pages/OperationalBriefing";
 import { AssetIntelligencePage } from "./pages/AssetIntelligencePage";
 import { IntegrationHealthPanel } from "./pages/IntegrationHealthPanel";
+import { CoworkStudio } from "./pages/CoworkStudio";
+import { ValueRealization } from "./pages/ValueRealization";
+import { EmergencyMode } from "./pages/EmergencyMode";
+import { PlaybooksLibrary } from "./pages/PlaybooksLibrary";
+import { TrustExplainability } from "./pages/TrustExplainability";
+import { BenchmarkingPanel } from "./pages/BenchmarkingPanel";
+import { AutonomyMaturity } from "./pages/AutonomyMaturity";
+import { SetupWizard } from "./pages/SetupWizard";
+import { ArtifactWorkspace } from "./pages/ArtifactWorkspace";
 import { AutonomyControlPanel } from "./components/AutonomyControlPanel";
 import { ApprovalQueue } from "./components/ApprovalQueue";
 import { motion, AnimatePresence } from "framer-motion";
@@ -169,10 +178,12 @@ function AuthenticatedApp() {
         <Route path="/mission-control" element={<MissionControl />} />
         <Route path="/command-centers" element={<CommandCenters />} />
         <Route path="/readiness" element={<ReadinessPage />} />
+        <Route path="/cowork" element={<CoworkStudio />} />
 
         {/* AI Workforce layer */}
         <Route path="/ai-workforce" element={<AIWorkforce />} />
         <Route path="/autonomy" element={<AutonomyControlPanel />} />
+        <Route path="/autonomy-maturity" element={<AutonomyMaturity />} />
         <Route path="/approvals" element={<ApprovalQueue />} />
         <Route path="/governance" element={<DecisionGovernance />} />
 
@@ -193,10 +204,17 @@ function AuthenticatedApp() {
         <Route path="/performance" element={<PerformanceDashboard />} />
         <Route path="/oee" element={<OEEDashboard />} />
         <Route path="/learning-loop" element={<LearningLoop />} />
+        <Route path="/value" element={<ValueRealization />} />
+        <Route path="/benchmarking" element={<BenchmarkingPanel />} />
+        <Route path="/trust" element={<TrustExplainability />} />
 
         {/* System */}
         <Route path="/integrations" element={<IntegrationsPage />} />
         <Route path="/integration-health" element={<IntegrationHealthPanel />} />
+        <Route path="/playbooks" element={<PlaybooksLibrary />} />
+        <Route path="/emergency" element={<EmergencyMode />} />
+        <Route path="/artifacts" element={<ArtifactWorkspace />} />
+        <Route path="/setup" element={<SetupWizard />} />
         <Route path="/research" element={<ResearchDashboard />} />
         <Route path="/runs" element={<RunsAuditPage />} />
         <Route path="/deployments/new/configure" element={<DeploymentConfiguratorPage />} />
