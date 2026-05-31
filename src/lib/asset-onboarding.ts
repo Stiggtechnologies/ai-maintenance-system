@@ -1,5 +1,7 @@
-import { getIndustryTemplatePack, type IndustryTemplatePack } from './industry-template-packs';
-import { getAssetClassTemplate, ASSET_CLASS_ALIAS_MAP, type AssetClassTemplate } from './asset-class-templates';
+import { getIndustryTemplatePack } from './industry-template-packs';
+import { getAssetClassTemplate, ASSET_CLASS_ALIAS_MAP as _ASSET_CLASS_ALIAS_MAP } from './asset-class-templates';
+import type { IndustryTemplatePack } from './industry-template-packs';
+import type { AssetClassTemplate } from './asset-class-templates';
 
 export type AssetOnboardingMode =
   | "quick"
@@ -957,7 +959,7 @@ const ASSET_CLASS_ALIASES: Record<string, AssetClass> = {
   analyzer: "instrumentation",
   sensor: "instrumentation",
   ...Object.fromEntries(
-    Object.entries(ASSET_CLASS_ALIAS_MAP).map(([k, v]) => [k, v as AssetClass])
+    Object.entries(_ASSET_CLASS_ALIAS_MAP).map(([k, v]) => [k, v as AssetClass])
   ),
 };
 
@@ -2578,10 +2580,8 @@ export function getOnboardingContext(industry: AssetOnboardingIndustry, assetCla
 }
 
 // Re-export template pack types for consumers
-export type { IndustryTemplatePack, AssetClassTemplate };
-export { getIndustryTemplatePack, getAssetClassTemplate, ASSET_CLASS_ALIAS_MAP };
+export type { IndustryTemplatePack } from './industry-template-packs';
+export type { AssetClassTemplate } from './asset-class-templates';
 export { listIndustryTemplatePacks } from './industry-template-packs';
 export { listAssetClassTemplates } from './asset-class-templates';
-
-
-export { parseAssetOnboardingCommand, createAssetOnboardingSession, applyAssetOnboardingAnswer, buildAssetOnboardingExports, selectOnboardingTemplates, getOnboardingContext, getTemplateVersion }
+export { ASSET_CLASS_ALIAS_MAP } from './asset-class-templates';
