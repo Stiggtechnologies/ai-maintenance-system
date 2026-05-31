@@ -1,3 +1,6 @@
+import { getIndustryTemplatePack, type IndustryTemplatePack } from './industry-template-packs';
+import { getAssetClassTemplate, ASSET_CLASS_ALIAS_MAP, type AssetClassTemplate } from './asset-class-templates';
+
 export type AssetOnboardingMode =
   | "quick"
   | "standard"
@@ -12,7 +15,30 @@ export type AssetClass =
   | "mobile_equipment"
   | "fleet"
   | "compressor"
-  | "motor";
+  | "motor"
+  | "turbine"
+  | "generator"
+  | "boiler"
+  | "transformer"
+  | "valve"
+  | "tank"
+  | "pipeline"
+  | "heat_exchanger"
+  | "pressure_vessel"
+  | "hvac_system"
+  | "refrigeration_system"
+  | "packaging_line"
+  | "aircraft_system"
+  | "marine_engine"
+  | "crane"
+  | "ups"
+  | "battery_system"
+  | "chiller"
+  | "data_center_rack"
+  | "server"
+  | "switchgear"
+  | "plc_control_system"
+  | "instrumentation";
 
 export type OnboardingSource =
   | "manual"
@@ -43,14 +69,22 @@ export type AssetOnboardingIndustry =
   | "mining"
   | "oil_gas"
   | "petrochemical"
-  | "power"
+  | "power_generation"
   | "utilities"
   | "manufacturing"
+  | "food_beverage"
+  | "pharmaceuticals"
+  | "transportation_logistics"
+  | "aviation"
+  | "marine_shipping"
+  | "data_centers"
+  | "defense"
+  | "aerospace_launch"
   | "pulp_paper"
   | "rail"
-  | "aviation"
   | "water_wastewater"
-  | "defense";
+  | "healthcare"
+  | "heavy_equipment_rental";
 
 export type OnboardingStepId =
   | "asset_identity"
@@ -853,6 +887,78 @@ const ASSET_CLASS_ALIASES: Record<string, AssetClass> = {
   compressors: "compressor",
   motor: "motor",
   motors: "motor",
+  turbine: "turbine",
+  "gas-turbine": "turbine",
+  "steam-turbine": "turbine",
+  generator: "generator",
+  genset: "generator",
+  alternator: "generator",
+  boiler: "boiler",
+  "steam-boiler": "boiler",
+  transformer: "transformer",
+  xfmr: "transformer",
+  valve: "valve",
+  valves: "valve",
+  "control-valve": "valve",
+  tank: "tank",
+  tanks: "tank",
+  vessel: "tank",
+  pipeline: "pipeline",
+  pipe: "pipeline",
+  piping: "pipeline",
+  "heat-exchanger": "heat_exchanger",
+  heat_exchanger: "heat_exchanger",
+  hx: "heat_exchanger",
+  exchanger: "heat_exchanger",
+  "pressure-vessel": "pressure_vessel",
+  pressure_vessel: "pressure_vessel",
+  reactor: "pressure_vessel",
+  separator: "pressure_vessel",
+  column: "pressure_vessel",
+  "hvac-system": "hvac_system",
+  hvac_system: "hvac_system",
+  hvac: "hvac_system",
+  ahu: "hvac_system",
+  "refrigeration-system": "refrigeration_system",
+  refrigeration_system: "refrigeration_system",
+  refrigeration: "refrigeration_system",
+  "packaging-line": "packaging_line",
+  packaging_line: "packaging_line",
+  packaging: "packaging_line",
+  "aircraft-system": "aircraft_system",
+  aircraft_system: "aircraft_system",
+  aircraft: "aircraft_system",
+  "marine-engine": "marine_engine",
+  marine_engine: "marine_engine",
+  "marine-diesel": "marine_engine",
+  crane: "crane",
+  cranes: "crane",
+  hoist: "crane",
+  ups: "ups",
+  "battery-system": "battery_system",
+  battery_system: "battery_system",
+  battery: "battery_system",
+  chiller: "chiller",
+  chillers: "chiller",
+  "data-center-rack": "data_center_rack",
+  data_center_rack: "data_center_rack",
+  rack: "data_center_rack",
+  server: "server",
+  servers: "server",
+  switchgear: "switchgear",
+  breaker: "switchgear",
+  "plc-control-system": "plc_control_system",
+  plc_control_system: "plc_control_system",
+  plc: "plc_control_system",
+  dcs: "plc_control_system",
+  scada: "plc_control_system",
+  instrumentation: "instrumentation",
+  transmitter: "instrumentation",
+  analyzer: "instrumentation",
+  sensor: "instrumentation",
+  ...Object.fromEntries(
+    Object.entries(ASSET_CLASS_ALIAS_MAP).map(([k, v]) => [k, v as AssetClass])
+  ),
 };
 
 const ASSET_CLASS_LABELS: Record<AssetClass, string> = {
@@ -863,6 +969,29 @@ const ASSET_CLASS_LABELS: Record<AssetClass, string> = {
   fleet: "Fleet",
   compressor: "Compressor",
   motor: "Electric motor",
+  turbine: "Turbine",
+  generator: "Generator",
+  boiler: "Boiler",
+  transformer: "Transformer",
+  valve: "Valve",
+  tank: "Tank / Storage vessel",
+  pipeline: "Pipeline",
+  heat_exchanger: "Heat exchanger",
+  pressure_vessel: "Pressure vessel",
+  hvac_system: "HVAC system",
+  refrigeration_system: "Refrigeration system",
+  packaging_line: "Packaging line",
+  aircraft_system: "Aircraft system",
+  marine_engine: "Marine engine",
+  crane: "Crane",
+  ups: "UPS",
+  battery_system: "Battery system",
+  chiller: "Chiller",
+  data_center_rack: "Data center rack",
+  server: "Server",
+  switchgear: "Switchgear",
+  plc_control_system: "PLC / Control system",
+  instrumentation: "Instrumentation",
 };
 
 const INDUSTRY_ALIASES: Record<string, AssetOnboardingIndustry> = {
@@ -877,17 +1006,53 @@ const INDUSTRY_ALIASES: Record<string, AssetOnboardingIndustry> = {
   oil_gas: "oil_gas",
   "o&g": "oil_gas",
   petrochemical: "petrochemical",
-  power: "power",
+  refinery: "petrochemical",
+  chemical: "petrochemical",
+  "power-generation": "power_generation",
+  power_generation: "power_generation",
+  power: "power_generation",
   utilities: "utilities",
   utility: "utilities",
   manufacturing: "manufacturing",
+  "food-beverage": "food_beverage",
+  food_beverage: "food_beverage",
+  food: "food_beverage",
+  beverage: "food_beverage",
+  dairy: "food_beverage",
+  pharmaceuticals: "pharmaceuticals",
+  pharma: "pharmaceuticals",
+  gmp: "pharmaceuticals",
+  "transportation-logistics": "transportation_logistics",
+  transportation_logistics: "transportation_logistics",
+  transportation: "transportation_logistics",
+  logistics: "transportation_logistics",
+  aviation: "aviation",
+  mro: "aviation",
+  airline: "aviation",
+  "marine-shipping": "marine_shipping",
+  marine_shipping: "marine_shipping",
+  marine: "marine_shipping",
+  shipping: "marine_shipping",
+  "data-centers": "data_centers",
+  data_centers: "data_centers",
+  datacenter: "data_centers",
+  "data-center": "data_centers",
+  defense: "defense",
+  military: "defense",
+  "aerospace-launch": "aerospace_launch",
+  aerospace_launch: "aerospace_launch",
+  aerospace: "aerospace_launch",
+  launch: "aerospace_launch",
   "pulp-paper": "pulp_paper",
   pulp_paper: "pulp_paper",
   rail: "rail",
-  aviation: "aviation",
   "water-wastewater": "water_wastewater",
   water_wastewater: "water_wastewater",
-  defense: "defense",
+  healthcare: "healthcare",
+  hospital: "healthcare",
+  "heavy-equipment-rental": "heavy_equipment_rental",
+  heavy_equipment_rental: "heavy_equipment_rental",
+  rental: "heavy_equipment_rental",
 };
 
 const INDUSTRY_TEMPLATE_LABELS: Record<AssetOnboardingIndustry, string> = {
@@ -896,14 +1061,22 @@ const INDUSTRY_TEMPLATE_LABELS: Record<AssetOnboardingIndustry, string> = {
   mining: "Mining production and safety template",
   oil_gas: "Oil and gas integrity and production template",
   petrochemical: "Petrochemical process safety and availability template",
-  power: "Power generation availability template",
+  power_generation: "Power generation availability and dispatch template",
   utilities: "Utilities continuity and regulatory template",
   manufacturing: "Manufacturing OEE and quality template",
+  food_beverage: "Food and beverage HACCP and sanitation template",
+  pharmaceuticals: "Pharmaceutical GMP and validation template",
+  transportation_logistics: "Transportation schedule reliability template",
+  aviation: "Aviation airworthiness and dispatch template",
+  marine_shipping: "Marine class society and vessel integrity template",
+  data_centers: "Data center uptime and redundancy template",
+  defense: "Defense sustainment and readiness template",
+  aerospace_launch: "Aerospace launch readiness and mission assurance template",
   pulp_paper: "Pulp and paper uptime and process reliability template",
   rail: "Rail maintenance and safety template",
-  aviation: "Aviation maintenance and compliance template",
   water_wastewater: "Water and wastewater continuity template",
-  defense: "Defense sustainment and readiness template",
+  healthcare: "Healthcare facility compliance and uptime template",
+  heavy_equipment_rental: "Heavy equipment rental fleet utilization template",
 };
 
 const LIFECYCLE_ALIASES: Record<string, AssetOnboardingLifecycle> = {
@@ -1104,6 +1277,10 @@ export function getOnboardingStepDefinitions() {
 }
 
 function getAssetSpecificQuestions(assetClass: AssetClass): string[] {
+  const template = getAssetClassTemplate(assetClass);
+  if (template) {
+    return template.operatingContextQuestions;
+  }
   if (assetClass === "pump") {
     return [
       "Fluid, specific gravity, viscosity, solids content, suction conditions, NPSH margin, seal type, and operating point vs BEP.",
@@ -1164,11 +1341,43 @@ function getLifecycleSpecificQuestions(lifecycle: AssetOnboardingLifecycle): str
 }
 
 function industryContext(industry: AssetOnboardingIndustry) {
-  const common = {
+  const pack = getIndustryTemplatePack(industry);
+
+  if (pack) {
+    return {
+      name: pack.industryName,
+      templateCode: pack.industryCode,
+      sourceTables: [
+        "deployment_templates",
+        "industry_template_packs",
+        "asset_class_templates",
+        "industry_asset_libraries",
+        "industry_criticality_profiles",
+        "industry_governance_profiles",
+        "industry_work_taxonomies",
+        "industry_failure_mode_packs",
+        "industry_oee_models",
+      ],
+      questions: pack.onboardingQuestions,
+      riskDrivers: pack.riskDrivers,
+      safeguards: pack.safeguards,
+      failureModeNotes: pack.failureModeFocusAreas.slice(0, 3),
+      approvalGates: pack.approvalGates,
+      blockedAutomationRules: pack.blockedAutomationRules,
+      confidenceRules: pack.confidenceRules,
+      regulatoryConsiderations: pack.regulatoryConsiderations,
+      kpiModel: pack.kpiModel,
+      readinessModel: pack.readinessModel,
+    };
+  }
+
+  return {
     name: INDUSTRY_TEMPLATE_LABELS[industry],
     templateCode: industry === "general" ? "heavy_industrial_master" : industry,
     sourceTables: [
       "deployment_templates",
+      "industry_template_packs",
+      "asset_class_templates",
       "industry_asset_libraries",
       "industry_criticality_profiles",
       "industry_governance_profiles",
@@ -1182,70 +1391,33 @@ function industryContext(industry: AssetOnboardingIndustry) {
     riskDrivers: ["Incomplete site-specific operating context"],
     safeguards: ["Human approval required for safety, environmental, regulatory, OEM-limit, and production-critical changes."],
     failureModeNotes: ["Use customer documents and failure codes when available; generated library remains draft until SME validation."],
+    approvalGates: ["Reliability engineer review", "Site engineering authority"],
+    blockedAutomationRules: ["Do not auto-approve strategy changes without operating context validation"],
+    confidenceRules: ["Operating hours must be verified before MTBF is trusted"],
+    regulatoryConsiderations: ["Site-specific regulatory requirements must be confirmed"],
+    kpiModel: { primaryKpis: ["Availability", "MTBF", "MTTR"], secondaryKpis: ["PM compliance"], kpiTargets: {} },
+    readinessModel: { readinessLevels: ["Ad-hoc", "Reactive", "Planned", "Proactive", "Optimized"], minimumForOperation: "Planned", minimumForOptimization: "Proactive" },
   };
-
-  if (industry === "oil_sands") {
-    return {
-      name: INDUSTRY_TEMPLATE_LABELS[industry],
-      templateCode: "oil_sands",
-      sourceTables: common.sourceTables,
-      questions: [
-        "Confirm winterization, abrasive slurry/service exposure, tailings/process-water impacts, environmental consequence, remote repair constraints, and turnaround dependency.",
-      ],
-      riskDrivers: ["Environmental consequence", "Production bottleneck", "Remote execution constraints", "Abrasive or contaminated service"],
-      safeguards: [
-        "Route environmental, pressure, lifting, electrical, hot-work, isolation, and regulatory implications through qualified approval.",
-        "Do not recommend operating-envelope or integrity-limit changes without site engineering authority.",
-      ],
-      failureModeNotes: [
-        "Prioritize slurry/abrasive wear, contamination ingress, seal flush reliability, cold-weather exposure, corrosion/erosion, and access constraints where applicable.",
-      ],
-    };
-  }
-
-  if (industry === "mining") {
-    return {
-      name: INDUSTRY_TEMPLATE_LABELS[industry],
-      templateCode: "mining",
-      sourceTables: common.sourceTables,
-      questions: [
-        "Confirm throughput bottleneck role, dust/abrasion exposure, shift schedule, mobile/fixed plant interaction, operator variability, and safety isolation constraints.",
-      ],
-      riskDrivers: ["Throughput loss", "Dust and abrasive wear", "Mobile/fixed plant dependency", "Safety isolation risk"],
-      safeguards: [
-        "Route high-energy, guarding, lifting, mobile equipment, confined-space, and production-critical recommendations through site authority.",
-        "Treat production bottleneck assets as high governance even when historical data is incomplete.",
-      ],
-      failureModeNotes: [
-        "Prioritize abrasion, impact damage, contamination, structural fatigue, seized rotating components, belt/pulley/idler risks, and duty-cycle overload where applicable.",
-      ],
-    };
-  }
-
-  if (industry === "manufacturing") {
-    return {
-      ...common,
-      questions: [
-        "Confirm OEE losses, quality impact, changeover pattern, line bottleneck role, sanitation/cleaning exposure, and shift utilization.",
-      ],
-      riskDrivers: ["OEE loss", "Quality impact", "Line bottleneck dependency"],
-    };
-  }
-
-  if (industry === "utilities" || industry === "power" || industry === "water_wastewater") {
-    return {
-      ...common,
-      questions: [
-        "Confirm continuity-of-service impact, redundancy, regulatory reporting exposure, emergency response requirements, and public/customer consequence.",
-      ],
-      riskDrivers: ["Service continuity", "Regulatory exposure", "Redundancy constraints"],
-    };
-  }
-
-  return common;
 }
 
 function failureModeLibrary(assetClass: AssetClass): AssetFailureMode[] {
+  // Check for rich template-based failure modes from asset class templates
+  const classTemplate = getAssetClassTemplate(assetClass);
+  const hasHardcoded = ["pump", "conveyor", "mobile_equipment", "fleet", "motor"].includes(assetClass);
+
+  if (classTemplate && !hasHardcoded) {
+    return classTemplate.commonFailureModes.map((mode) => ({
+      failureMode: mode,
+      failureMechanism: "See asset class template for detailed mechanism",
+      cause: "Operating context, age, maintenance quality, or design limitation",
+      effect: "Loss of function, reduced performance, or unplanned corrective work",
+      detectionMethod: classTemplate.conditionMonitoringMethods.join("; "),
+      consequence: "Availability loss, cost, safety, or regulatory exposure depending on criticality",
+      currentControls: "Existing PMs and operator awareness",
+      recommendedControls: classTemplate.pmStrategyPatterns.join("; "),
+    }));
+  }
+
   if (assetClass === "pump") {
     return [
       {
@@ -1416,7 +1588,7 @@ function defaultCriticality(
   const industryLift =
     industry === "oil_sands" || industry === "mining"
       ? 8
-      : industry === "petrochemical" || industry === "power" || industry === "utilities"
+      : industry === "petrochemical" || industry === "power_generation" || industry === "utilities"
         ? 5
         : 0;
   const score = Math.min(
@@ -2303,3 +2475,113 @@ export function getAssetOnboardingIndustryLabel(
 ) {
   return INDUSTRY_TEMPLATE_LABELS[industry];
 }
+
+// --- Template Selection Engine ---
+
+export interface OnboardingTemplateSelection {
+  industryPack: IndustryTemplatePack | undefined;
+  assetClassTemplate: AssetClassTemplate | undefined;
+  lifecycle: AssetOnboardingLifecycle;
+  mode: AssetOnboardingMode;
+  source: OnboardingSource;
+  resolvedAt: string;
+  isOfflineMode: boolean;
+}
+
+export function selectOnboardingTemplates({
+  industry,
+  assetClass,
+  lifecycle,
+  mode,
+  source,
+}: {
+  industry: AssetOnboardingIndustry;
+  assetClass: AssetClass;
+  lifecycle: AssetOnboardingLifecycle;
+  mode: AssetOnboardingMode;
+  source: OnboardingSource;
+}): OnboardingTemplateSelection {
+  return {
+    industryPack: getIndustryTemplatePack(industry),
+    assetClassTemplate: getAssetClassTemplate(assetClass),
+    lifecycle,
+    mode,
+    source,
+    resolvedAt: new Date().toISOString(),
+    isOfflineMode: true,
+  };
+}
+
+// --- Template Versioning ---
+
+export interface OnboardingTemplateVersion {
+  templateVersion: string;
+  createdAt: string;
+  updatedAt: string;
+  reviewedBy: string | null;
+  validationStatus: "draft" | "reviewed" | "customer_validated" | "deprecated";
+}
+
+export function getTemplateVersion(industry: AssetOnboardingIndustry, assetClass: AssetClass): OnboardingTemplateVersion {
+  const pack = getIndustryTemplatePack(industry);
+  const classTemplate = getAssetClassTemplate(assetClass);
+
+  return {
+    templateVersion: pack?.templateVersion || classTemplate?.templateVersion || "1.0.0",
+    createdAt: "2026-01-01T00:00:00Z",
+    updatedAt: new Date().toISOString(),
+    reviewedBy: null,
+    validationStatus: pack?.validationStatus || classTemplate?.validationStatus || "draft",
+  };
+}
+
+// --- Offline/Demo Mode Support ---
+
+export function isOfflineMode(): boolean {
+  if (typeof window === "undefined") return true;
+  const supabaseUrl = (import.meta as { env?: Record<string, string> }).env?.VITE_SUPABASE_URL;
+  return !supabaseUrl || supabaseUrl === "" || supabaseUrl === "https://placeholder.supabase.co";
+}
+
+export function getOnboardingContext(industry: AssetOnboardingIndustry, assetClass: AssetClass) {
+  const pack = getIndustryTemplatePack(industry);
+  const classTemplate = getAssetClassTemplate(assetClass);
+  const template = industryContext(industry);
+
+  return {
+    industry: {
+      code: industry,
+      name: template.name,
+      pack: pack || null,
+    },
+    assetClass: {
+      code: assetClass,
+      label: ASSET_CLASS_LABELS[assetClass],
+      template: classTemplate || null,
+    },
+    templateVersion: getTemplateVersion(industry, assetClass),
+    offlineMode: isOfflineMode(),
+    questions: [
+      ...template.questions,
+      ...getAssetSpecificQuestions(assetClass),
+    ],
+    riskDrivers: template.riskDrivers,
+    safeguards: template.safeguards,
+    approvalGates: template.approvalGates,
+    failureModes: failureModeLibrary(assetClass),
+    regulatoryConsiderations: template.regulatoryConsiderations,
+    confidenceRules: template.confidenceRules,
+    blockedAutomationRules: template.blockedAutomationRules,
+    kpiModel: template.kpiModel,
+    readinessModel: template.readinessModel,
+  };
+}
+
+// Re-export template pack types for consumers
+export type { IndustryTemplatePack, AssetClassTemplate };
+export { getIndustryTemplatePack, getAssetClassTemplate, ASSET_CLASS_ALIAS_MAP };
+export { listIndustryTemplatePacks } from './industry-template-packs';
+export { listAssetClassTemplates } from './asset-class-templates';
+
+
+export { parseAssetOnboardingCommand, createAssetOnboardingSession, applyAssetOnboardingAnswer, buildAssetOnboardingExports, selectOnboardingTemplates, getOnboardingContext, getTemplateVersion }
