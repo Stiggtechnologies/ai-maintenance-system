@@ -102,24 +102,6 @@ export function TemplateSelectorPage() {
     setError(null);
 
     try {
-      // Try edge function first
-      const { data: fnData, error: fnError } = await supabase.functions.invoke(
-        "template-resolver",
-        {
-          body: { action: "list_templates" },
-        },
-      );
-
-      if (!fnError && fnData?.templates) {
-        setTemplates(fnData.templates);
-        setLoading(false);
-        return;
-      }
-    } catch {
-      // Edge function not available, fall back to direct query
-    }
-
-    try {
       const { data, error: queryError } = await supabase
         .from("deployment_templates")
         .select(

@@ -113,21 +113,6 @@ export function SetupWizard() {
     const familySlugs = INDUSTRY_TEMPLATE_MAP[industryId] || [];
 
     try {
-      const { data: fnData, error: fnError } = await supabase.functions.invoke("template-resolver", {
-        body: { action: "list_templates" },
-      });
-
-      if (!fnError && fnData?.templates) {
-        const filtered = fnData.templates.filter((t: TemplateData) =>
-          familySlugs.some((slug: string) => t.slug?.includes(slug) || t.master_family?.toLowerCase().includes(slug.replace("-", " ")))
-        );
-        setTemplates(filtered.length > 0 ? filtered : fnData.templates);
-        setLoadingTemplates(false);
-        return;
-      }
-    } catch { /* fallback to direct query */ }
-
-    try {
       const { data } = await supabase
         .from("deployment_templates")
         .select(`*, kpi_packs(pack_name, kpi_count), industry_asset_libraries(library_name, asset_class_count), industry_governance_profiles(profile_name, default_autonomy_mode), industry_failure_mode_packs(pack_name, failure_mode_count), industry_oee_models(model_name)`)
@@ -135,7 +120,7 @@ export function SetupWizard() {
         .eq("template_type", "derived")
         .order("name");
 
-      if (data) {
+      if (data && data.length > 0) {
         const filtered = data.filter((t) =>
           familySlugs.some((slug) => t.slug?.includes(slug) || t.master_family?.toLowerCase().includes(slug.replace("-", " ")))
         );
