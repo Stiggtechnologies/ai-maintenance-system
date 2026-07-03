@@ -8,12 +8,17 @@ import {
   getOnboardingContext,
   getTemplateVersion,
 } from "./asset-onboarding";
-import { getIndustryTemplatePack, listIndustryTemplatePacks } from "./industry-template-packs";
-import { getAssetClassTemplate, listAssetClassTemplates } from "./asset-class-templates";
+import { listIndustryTemplatePacks } from "./industry-template-packs";
+import {
+  getAssetClassTemplate,
+  listAssetClassTemplates,
+} from "./asset-class-templates";
 
 describe("parseAssetOnboardingCommand", () => {
   it("parses oil-sands pump deep onboarding", () => {
-    const cmd = parseAssetOnboardingCommand("/onboard used pump P-101 oil-sands deep");
+    const cmd = parseAssetOnboardingCommand(
+      "/onboard used pump P-101 oil-sands deep",
+    );
     expect(cmd.isOnboarding).toBe(true);
     expect(cmd.assetClass).toBe("pump");
     expect(cmd.assetId).toBe("P-101");
@@ -24,7 +29,9 @@ describe("parseAssetOnboardingCommand", () => {
   });
 
   it("parses power-generation transformer regulatory onboarding", () => {
-    const cmd = parseAssetOnboardingCommand("/onboard new transformer TR-01 power-generation regulatory");
+    const cmd = parseAssetOnboardingCommand(
+      "/onboard new transformer TR-01 power-generation regulatory",
+    );
     expect(cmd.isOnboarding).toBe(true);
     expect(cmd.assetClass).toBe("transformer");
     expect(cmd.assetId).toBe("TR-01");
@@ -34,7 +41,9 @@ describe("parseAssetOnboardingCommand", () => {
   });
 
   it("parses data-centers chiller deep onboarding", () => {
-    const cmd = parseAssetOnboardingCommand("/onboard in-service chiller CH-04 data-centers deep");
+    const cmd = parseAssetOnboardingCommand(
+      "/onboard in-service chiller CH-04 data-centers deep",
+    );
     expect(cmd.isOnboarding).toBe(true);
     expect(cmd.assetClass).toBe("chiller");
     expect(cmd.assetId).toBe("CH-04");
@@ -44,7 +53,9 @@ describe("parseAssetOnboardingCommand", () => {
   });
 
   it("parses aviation aircraft-system regulatory onboarding", () => {
-    const cmd = parseAssetOnboardingCommand("/onboard transferred aircraft-system ENG-02 aviation regulatory");
+    const cmd = parseAssetOnboardingCommand(
+      "/onboard transferred aircraft-system ENG-02 aviation regulatory",
+    );
     expect(cmd.isOnboarding).toBe(true);
     expect(cmd.assetClass).toBe("aircraft_system");
     expect(cmd.assetId).toBe("ENG-02");
@@ -54,7 +65,9 @@ describe("parseAssetOnboardingCommand", () => {
   });
 
   it("parses marine-shipping marine-engine deep onboarding", () => {
-    const cmd = parseAssetOnboardingCommand("/onboard used marine-engine ME-12 marine-shipping deep");
+    const cmd = parseAssetOnboardingCommand(
+      "/onboard used marine-engine ME-12 marine-shipping deep",
+    );
     expect(cmd.isOnboarding).toBe(true);
     expect(cmd.assetClass).toBe("marine_engine");
     expect(cmd.assetId).toBe("ME-12");
@@ -70,14 +83,18 @@ describe("parseAssetOnboardingCommand", () => {
   });
 
   it("parses pharmaceuticals with GMP alias", () => {
-    const cmd = parseAssetOnboardingCommand("/onboard new packaging-line PL-01 pharma regulatory");
+    const cmd = parseAssetOnboardingCommand(
+      "/onboard new packaging-line PL-01 pharma regulatory",
+    );
     expect(cmd.industry).toBe("pharmaceuticals");
     expect(cmd.assetClass).toBe("packaging_line");
     expect(cmd.mode).toBe("regulatory");
   });
 
   it("parses mining conveyor standard", () => {
-    const cmd = parseAssetOnboardingCommand("/onboard existing conveyor CV-200 mining");
+    const cmd = parseAssetOnboardingCommand(
+      "/onboard existing conveyor CV-200 mining",
+    );
     expect(cmd.assetClass).toBe("conveyor");
     expect(cmd.industry).toBe("mining");
     expect(cmd.lifecycle).toBe("in_service");
@@ -109,7 +126,9 @@ describe("selectOnboardingTemplates", () => {
       source: "manual",
     });
     expect(selection.assetClassTemplate?.assetClassCode).toBe("transformer");
-    expect(selection.assetClassTemplate?.commonComponents.length).toBeGreaterThan(3);
+    expect(
+      selection.assetClassTemplate?.commonComponents.length,
+    ).toBeGreaterThan(3);
   });
 
   it("handles unknown industry gracefully", () => {
@@ -138,7 +157,9 @@ describe("createAssetOnboardingSession", () => {
     expect(session.status).toBe("active");
     expect(session.steps.length).toBe(15);
     expect(session.profile.criticality.riskDrivers.length).toBeGreaterThan(2);
-    expect(session.profile.onboardingContext.industryTemplateCode).toBe("oil_sands");
+    expect(session.profile.onboardingContext.industryTemplateCode).toBe(
+      "oil_sands",
+    );
   });
 
   it("creates data center chiller session", () => {
@@ -153,7 +174,8 @@ describe("createAssetOnboardingSession", () => {
 
   it("creates aviation aircraft-system session with regulatory mode", () => {
     const session = createAssetOnboardingSession({
-      commandText: "/onboard transferred aircraft-system ENG-02 aviation regulatory",
+      commandText:
+        "/onboard transferred aircraft-system ENG-02 aviation regulatory",
     });
     expect(session.assetId).toBe("ENG-02");
     expect(session.industry).toBe("aviation");
@@ -169,7 +191,9 @@ describe("createAssetOnboardingSession", () => {
     });
     expect(session.industry).toBe("marine_shipping");
     expect(session.assetClass).toBe("marine_engine");
-    expect(session.profile.onboardingContext.industryTemplateCode).toBe("marine_shipping");
+    expect(session.profile.onboardingContext.industryTemplateCode).toBe(
+      "marine_shipping",
+    );
   });
 
   it("generates different risk drivers per industry", () => {
@@ -179,7 +203,9 @@ describe("createAssetOnboardingSession", () => {
     const mining = createAssetOnboardingSession({
       commandText: "/onboard used pump P-201 mining deep",
     });
-    expect(oilSands.profile.criticality.riskDrivers).not.toEqual(mining.profile.criticality.riskDrivers);
+    expect(oilSands.profile.criticality.riskDrivers).not.toEqual(
+      mining.profile.criticality.riskDrivers,
+    );
   });
 });
 
@@ -190,7 +216,8 @@ describe("applyAssetOnboardingAnswer", () => {
     });
     const updated = applyAssetOnboardingAnswer({
       session,
-      answer: "Asset tag: P-101. Name: Tailings Transfer Pump. OEM: Warman. Model: AH-300. Serial: WM-2019-4421. Commissioned: 2019-06-15.",
+      answer:
+        "Asset tag: P-101. Name: Tailings Transfer Pump. OEM: Warman. Model: AH-300. Serial: WM-2019-4421. Commissioned: 2019-06-15.",
     });
     expect(updated.steps[0].completionStatus).toBe("complete");
     expect(updated.steps[0].completionScore).toBe(100);
@@ -251,7 +278,9 @@ describe("getOnboardingContext", () => {
   it("returns failure modes from asset class template for new classes", () => {
     const ctx = getOnboardingContext("data_centers", "chiller");
     expect(ctx.failureModes.length).toBeGreaterThan(3);
-    expect(ctx.assetClass.template?.commonFailureModes.length).toBeGreaterThan(3);
+    expect(ctx.assetClass.template?.commonFailureModes.length).toBeGreaterThan(
+      3,
+    );
   });
 
   it("returns blocked automation rules", () => {
@@ -283,7 +312,9 @@ describe("automation blocked when data missing", () => {
       commandText: "/onboard new transformer TR-01 power-generation regulatory",
     });
     expect(session.approvalRequired.length).toBeGreaterThan(5);
-    expect(session.profile.riskSafeguards.doNotChangeRules.length).toBeGreaterThan(0);
+    expect(
+      session.profile.riskSafeguards.doNotChangeRules.length,
+    ).toBeGreaterThan(0);
   });
 });
 

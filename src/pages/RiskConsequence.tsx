@@ -1,5 +1,13 @@
 import { useState } from "react";
-import { TriangleAlert as AlertTriangle, TrendingDown, DollarSign, Clock, Activity, Shield, ChevronRight, ChartBar as BarChart2, Target, Zap, ArrowUpRight } from "lucide-react";
+import {
+  TriangleAlert as AlertTriangle,
+  DollarSign,
+  Clock,
+  Shield,
+  ChartBar as BarChart2,
+  Target,
+  Zap,
+} from "lucide-react";
 import { motion } from "framer-motion";
 
 interface RiskItem {
@@ -118,16 +126,38 @@ const risks: RiskItem[] = [
   },
 ];
 
-const consequenceColors: Record<string, { color: string; bg: string; border: string }> = {
-  Catastrophic: { color: "text-red-400", bg: "bg-red-500/10", border: "border-red-500/30" },
-  Critical: { color: "text-red-400", bg: "bg-red-500/10", border: "border-red-500/30" },
-  High: { color: "text-amber-400", bg: "bg-amber-500/10", border: "border-amber-500/30" },
-  Medium: { color: "text-blue-400", bg: "bg-blue-500/10", border: "border-blue-500/30" },
-  Low: { color: "text-slate-400", bg: "bg-slate-500/10", border: "border-slate-500/20" },
+const consequenceColors: Record<
+  string,
+  { color: string; bg: string; border: string }
+> = {
+  Catastrophic: {
+    color: "text-red-400",
+    bg: "bg-red-500/10",
+    border: "border-red-500/30",
+  },
+  Critical: {
+    color: "text-red-400",
+    bg: "bg-red-500/10",
+    border: "border-red-500/30",
+  },
+  High: {
+    color: "text-amber-400",
+    bg: "bg-amber-500/10",
+    border: "border-amber-500/30",
+  },
+  Medium: {
+    color: "text-blue-400",
+    bg: "bg-blue-500/10",
+    border: "border-blue-500/30",
+  },
+  Low: {
+    color: "text-slate-400",
+    bg: "bg-slate-500/10",
+    border: "border-slate-500/20",
+  },
 };
 
 function RiskMatrix() {
-  const cells: { prob: string; conseq: string; items: RiskItem[] }[] = [];
   const probBuckets = [
     { label: "Very High (80–100%)", min: 80 },
     { label: "High (60–80%)", min: 60 },
@@ -149,21 +179,28 @@ function RiskMatrix() {
     <div className="overflow-x-auto">
       <div className="min-w-[500px]">
         <div className="flex items-center gap-2 mb-2">
-          <div className="text-[10px] text-slate-600 uppercase tracking-wider w-32 text-right">Probability</div>
+          <div className="text-[10px] text-slate-600 uppercase tracking-wider w-32 text-right">
+            Probability
+          </div>
           <div className="flex-1 grid grid-cols-5 gap-1 text-[10px] text-slate-600 text-center">
-            {consLevels.map((c) => <div key={c}>{c}</div>)}
+            {consLevels.map((c) => (
+              <div key={c}>{c}</div>
+            ))}
           </div>
         </div>
         {probBuckets.map((bucket, pi) => (
           <div key={bucket.label} className="flex items-center gap-2 mb-1">
-            <div className="text-[10px] text-slate-600 w-32 text-right">{bucket.label}</div>
+            <div className="text-[10px] text-slate-600 w-32 text-right">
+              {bucket.label}
+            </div>
             <div className="flex-1 grid grid-cols-5 gap-1">
               {consLevels.map((cons, ci) => {
                 const inCell = risks.filter(
                   (r) =>
                     r.failureProbability >= bucket.min &&
-                    (pi === 0 || r.failureProbability < probBuckets[pi - 1].min) &&
-                    r.consequence === cons
+                    (pi === 0 ||
+                      r.failureProbability < probBuckets[pi - 1].min) &&
+                    r.consequence === cons,
                 );
                 return (
                   <div
@@ -179,7 +216,9 @@ function RiskMatrix() {
         ))}
         <div className="flex items-center gap-2 mt-1">
           <div className="w-32" />
-          <div className="flex-1 text-[10px] text-slate-600 text-center">Consequence</div>
+          <div className="flex-1 text-[10px] text-slate-600 text-center">
+            Consequence
+          </div>
         </div>
       </div>
     </div>
@@ -189,7 +228,14 @@ function RiskMatrix() {
 function RiskCard({ risk }: { risk: RiskItem }) {
   const [expanded, setExpanded] = useState(false);
   const c = consequenceColors[risk.consequence];
-  const barColor = risk.riskScore >= 80 ? "bg-red-500" : risk.riskScore >= 60 ? "bg-amber-500" : risk.riskScore >= 40 ? "bg-blue-500" : "bg-slate-500";
+  const barColor =
+    risk.riskScore >= 80
+      ? "bg-red-500"
+      : risk.riskScore >= 60
+        ? "bg-amber-500"
+        : risk.riskScore >= 40
+          ? "bg-blue-500"
+          : "bg-slate-500";
 
   return (
     <motion.div
@@ -201,16 +247,22 @@ function RiskCard({ risk }: { risk: RiskItem }) {
         <div className="flex items-start justify-between gap-3">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
-              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${c.bg} ${c.color} border ${c.border}`}>
+              <span
+                className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${c.bg} ${c.color} border ${c.border}`}
+              >
                 {risk.consequence}
               </span>
               <span className="text-[10px] text-slate-600">{risk.area}</span>
             </div>
             <h3 className="text-sm font-bold text-slate-200">{risk.asset}</h3>
-            <div className="text-xs text-slate-500 mt-0.5">{risk.recommendedIntervention}</div>
+            <div className="text-xs text-slate-500 mt-0.5">
+              {risk.recommendedIntervention}
+            </div>
           </div>
           <div className="text-right flex-shrink-0">
-            <div className={`text-xl font-black ${c.color}`}>{risk.riskScore}</div>
+            <div className={`text-xl font-black ${c.color}`}>
+              {risk.riskScore}
+            </div>
             <div className="text-[10px] text-slate-600">Risk Score</div>
           </div>
         </div>
@@ -218,7 +270,9 @@ function RiskCard({ risk }: { risk: RiskItem }) {
         <div className="mt-3 space-y-1">
           <div className="flex items-center justify-between text-xs">
             <span className="text-slate-600">Failure probability</span>
-            <span className="text-slate-300 font-medium">{risk.failureProbability}% in {risk.failureWindow}</span>
+            <span className="text-slate-300 font-medium">
+              {risk.failureProbability}% in {risk.failureWindow}
+            </span>
           </div>
           <div className="h-1.5 bg-white/[0.05] rounded-full overflow-hidden">
             <motion.div
@@ -233,7 +287,9 @@ function RiskCard({ risk }: { risk: RiskItem }) {
         <div className="mt-3 flex items-center gap-4 text-xs">
           <div>
             <span className="text-slate-600">Exposure: </span>
-            <span className={`font-bold ${c.color}`}>{risk.financialExposure}</span>
+            <span className={`font-bold ${c.color}`}>
+              {risk.financialExposure}
+            </span>
           </div>
           <div>
             <span className="text-slate-600">Act by: </span>
@@ -255,10 +311,22 @@ function RiskCard({ risk }: { risk: RiskItem }) {
 
         {expanded && (
           <div className="mt-3 pt-3 border-t border-white/[0.05] grid grid-cols-2 gap-2 text-xs">
-            <div><span className="text-slate-600">Mission Impact: </span><span className="text-slate-300">{risk.missionImpact}</span></div>
-            <div><span className="text-slate-600">Safety Risk: </span><span className="text-slate-300">{risk.safetyRisk}</span></div>
-            <div><span className="text-slate-600">Environmental: </span><span className="text-slate-300">{risk.environmentalRisk}</span></div>
-            <div><span className="text-slate-600">Downtime Exposure: </span><span className="text-slate-300">{risk.downtimeExposure}</span></div>
+            <div>
+              <span className="text-slate-600">Mission Impact: </span>
+              <span className="text-slate-300">{risk.missionImpact}</span>
+            </div>
+            <div>
+              <span className="text-slate-600">Safety Risk: </span>
+              <span className="text-slate-300">{risk.safetyRisk}</span>
+            </div>
+            <div>
+              <span className="text-slate-600">Environmental: </span>
+              <span className="text-slate-300">{risk.environmentalRisk}</span>
+            </div>
+            <div>
+              <span className="text-slate-600">Downtime Exposure: </span>
+              <span className="text-slate-300">{risk.downtimeExposure}</span>
+            </div>
             <div className="col-span-2">
               <button className="mt-2 w-full px-4 py-2 bg-teal-500/10 border border-teal-500/20 text-teal-400 text-xs font-medium rounded-lg hover:bg-teal-500/20 transition-colors flex items-center gap-2 justify-center">
                 <Zap className="w-3 h-3" /> Create Intervention Work Order
@@ -273,7 +341,9 @@ function RiskCard({ risk }: { risk: RiskItem }) {
 
 export function RiskConsequence() {
   const [view, setView] = useState<"list" | "matrix">("list");
-  const [sortBy, setSortBy] = useState<"riskScore" | "probability" | "exposure">("riskScore");
+  const [sortBy, setSortBy] = useState<
+    "riskScore" | "probability" | "exposure"
+  >("riskScore");
 
   const totalExposure = risks.reduce((acc, r) => {
     const val = parseFloat(r.financialExposure.replace(/[^0-9.]/g, ""));
@@ -283,7 +353,8 @@ export function RiskConsequence() {
 
   const sorted = [...risks].sort((a, b) => {
     if (sortBy === "riskScore") return b.riskScore - a.riskScore;
-    if (sortBy === "probability") return b.failureProbability - a.failureProbability;
+    if (sortBy === "probability")
+      return b.failureProbability - a.failureProbability;
     return 0;
   });
 
@@ -291,8 +362,12 @@ export function RiskConsequence() {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">Risk & Consequence</h1>
-          <p className="text-sm text-slate-500 mt-0.5">Prioritized by consequence, not just work order priority</p>
+          <h1 className="text-2xl font-bold text-white tracking-tight">
+            Risk & Consequence
+          </h1>
+          <p className="text-sm text-slate-500 mt-0.5">
+            Prioritized by consequence, not just work order priority
+          </p>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -313,19 +388,53 @@ export function RiskConsequence() {
       {/* Summary Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
-          { label: "Total Exposure", value: `$${(totalExposure / 1000000).toFixed(1)}M`, icon: DollarSign, color: "red" },
-          { label: "Critical Risks", value: risks.filter((r) => r.riskScore >= 80).length, icon: AlertTriangle, color: "red" },
-          { label: "Action Required", value: risks.filter((r) => r.riskScore >= 60 && r.riskScore < 80).length, icon: Clock, color: "amber" },
-          { label: "Advisory", value: risks.filter((r) => r.riskScore < 60).length, icon: BarChart2, color: "blue" },
+          {
+            label: "Total Exposure",
+            value: `$${(totalExposure / 1000000).toFixed(1)}M`,
+            icon: DollarSign,
+            color: "red",
+          },
+          {
+            label: "Critical Risks",
+            value: risks.filter((r) => r.riskScore >= 80).length,
+            icon: AlertTriangle,
+            color: "red",
+          },
+          {
+            label: "Action Required",
+            value: risks.filter((r) => r.riskScore >= 60 && r.riskScore < 80)
+              .length,
+            icon: Clock,
+            color: "amber",
+          },
+          {
+            label: "Advisory",
+            value: risks.filter((r) => r.riskScore < 60).length,
+            icon: BarChart2,
+            color: "blue",
+          },
         ].map((s) => {
           const Icon = s.icon;
-          const colorMap: Record<string, string> = { red: "text-red-400 bg-red-500/10", amber: "text-amber-400 bg-amber-500/10", blue: "text-blue-400 bg-blue-500/10" };
+          const colorMap: Record<string, string> = {
+            red: "text-red-400 bg-red-500/10",
+            amber: "text-amber-400 bg-amber-500/10",
+            blue: "text-blue-400 bg-blue-500/10",
+          };
           return (
-            <div key={s.label} className="bg-[#0D1520] border border-white/[0.06] rounded-xl p-4">
-              <div className={`w-8 h-8 rounded-lg ${colorMap[s.color]} flex items-center justify-center mb-2`}>
+            <div
+              key={s.label}
+              className="bg-[#0D1520] border border-white/[0.06] rounded-xl p-4"
+            >
+              <div
+                className={`w-8 h-8 rounded-lg ${colorMap[s.color]} flex items-center justify-center mb-2`}
+              >
                 <Icon className="w-4 h-4" />
               </div>
-              <div className={`text-2xl font-black ${colorMap[s.color].split(" ")[0]}`}>{s.value}</div>
+              <div
+                className={`text-2xl font-black ${colorMap[s.color].split(" ")[0]}`}
+              >
+                {s.value}
+              </div>
               <div className="text-[10px] text-slate-600 mt-0.5">{s.label}</div>
             </div>
           );
@@ -342,13 +451,22 @@ export function RiskConsequence() {
                 onClick={() => setSortBy(s)}
                 className={`px-3 py-1 rounded-full text-xs transition-colors ${sortBy === s ? "bg-teal-500/20 text-teal-400 border border-teal-500/30" : "bg-white/[0.03] border border-white/[0.06] text-slate-500"}`}
               >
-                {s === "riskScore" ? "Risk Score" : s === "probability" ? "Probability" : "Exposure"}
+                {s === "riskScore"
+                  ? "Risk Score"
+                  : s === "probability"
+                    ? "Probability"
+                    : "Exposure"}
               </button>
             ))}
           </div>
           <div className="space-y-3">
             {sorted.map((risk, i) => (
-              <motion.div key={risk.id} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.06 }}>
+              <motion.div
+                key={risk.id}
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: i * 0.06 }}
+              >
                 <RiskCard risk={risk} />
               </motion.div>
             ))}
@@ -362,9 +480,18 @@ export function RiskConsequence() {
           </h3>
           <RiskMatrix />
           <div className="mt-4 flex items-center gap-4 text-[11px]">
-            <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded bg-red-500/30 border border-red-500/40" /><span className="text-slate-500">Critical / Unacceptable</span></div>
-            <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded bg-amber-500/20 border border-amber-500/30" /><span className="text-slate-500">Action Required</span></div>
-            <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded bg-blue-500/10 border border-blue-500/20" /><span className="text-slate-500">Advisory</span></div>
+            <div className="flex items-center gap-1.5">
+              <div className="w-3 h-3 rounded bg-red-500/30 border border-red-500/40" />
+              <span className="text-slate-500">Critical / Unacceptable</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className="w-3 h-3 rounded bg-amber-500/20 border border-amber-500/30" />
+              <span className="text-slate-500">Action Required</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className="w-3 h-3 rounded bg-blue-500/10 border border-blue-500/20" />
+              <span className="text-slate-500">Advisory</span>
+            </div>
           </div>
         </div>
       )}
@@ -373,11 +500,17 @@ export function RiskConsequence() {
       <div className="bg-[#0D1520] border border-white/[0.06] rounded-xl p-4 flex items-start gap-3">
         <Shield className="w-4 h-4 text-blue-400 flex-shrink-0 mt-0.5" />
         <div>
-          <div className="text-sm font-medium text-blue-400">Consequence-First Prioritization</div>
+          <div className="text-sm font-medium text-blue-400">
+            Consequence-First Prioritization
+          </div>
           <p className="text-xs text-slate-400 mt-1 leading-relaxed">
-            SyncAI prioritizes by <span className="text-slate-200">consequence × probability × time sensitivity</span>, not work order number.
-            High-probability / low-consequence items rank below low-probability / catastrophic-consequence items.
-            This approach reflects ISO 55000 asset criticality principles.
+            SyncAI prioritizes by{" "}
+            <span className="text-slate-200">
+              consequence × probability × time sensitivity
+            </span>
+            , not work order number. High-probability / low-consequence items
+            rank below low-probability / catastrophic-consequence items. This
+            approach reflects ISO 55000 asset criticality principles.
           </p>
         </div>
       </div>

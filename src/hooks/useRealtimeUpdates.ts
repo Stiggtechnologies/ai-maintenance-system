@@ -1,45 +1,51 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
-import { supabase } from '../lib/supabase';
+import { useEffect, useRef, useState, useCallback } from "react";
+import { supabase } from "../lib/supabase";
+import type { RealtimeChannel } from "@supabase/supabase-js";
 
 interface RealtimeMessage {
   type: string;
   channel_name: string;
-  payload: any;
+  payload: unknown;
   priority: string;
   created_at: string;
 }
 
-export function useRealtimeUpdates(channels: string[], onMessage?: (message: RealtimeMessage) => void) {
+export function useRealtimeUpdates(
+  channels: string[],
+  onMessage?: (message: RealtimeMessage) => void,
+) {
   const [connected, setConnected] = useState(false);
   const [messages, setMessages] = useState<RealtimeMessage[]>([]);
-  const subscriptionsRef = useRef<any[]>([]);
+  const subscriptionsRef = useRef<RealtimeChannel[]>([]);
 
   useEffect(() => {
     if (!channels.length) return;
 
     const setupRealtimeSubscriptions = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) return;
 
-      channels.forEach(channelName => {
+      channels.forEach((channelName) => {
         const channel = supabase
           .channel(`realtime:${channelName}`)
           .on(
-            'postgres_changes',
+            "postgres_changes",
             {
-              event: 'INSERT',
-              schema: 'public',
-              table: 'realtime_messages',
-              filter: `channel_id=eq.${channelName}`
+              event: "INSERT",
+              schema: "public",
+              table: "realtime_messages",
+              filter: `channel_id=eq.${channelName}`,
             },
             (payload) => {
               const message = payload.new as RealtimeMessage;
-              setMessages(prev => [...prev, message]);
+              setMessages((prev) => [...prev, message]);
               onMessage?.(message);
-            }
+            },
           )
           .subscribe((status) => {
-            if (status === 'SUBSCRIBED') {
+            if (status === "SUBSCRIBED") {
               setConnected(true);
             }
           });
@@ -51,7 +57,7 @@ export function useRealtimeUpdates(channels: string[], onMessage?: (message: Rea
     setupRealtimeSubscriptions();
 
     return () => {
-      subscriptionsRef.current.forEach(sub => {
+      subscriptionsRef.current.forEach((sub) => {
         supabase.removeChannel(sub);
       });
       subscriptionsRef.current = [];
@@ -62,16 +68,18 @@ export function useRealtimeUpdates(channels: string[], onMessage?: (message: Rea
   return { connected, messages };
 }
 
-export function useWorkOrderUpdates(onUpdate?: (workOrder: any) => void) {
+export function useWorkOrderUpdates(
+  onUpdate?: (workOrder: Record<string, unknown>) => void,
+) {
   useEffect(() => {
     const channel = supabase
-      .channel('work-orders-changes')
+      .channel("work-orders-changes")
       .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'work_orders' },
+        "postgres_changes",
+        { event: "*", schema: "public", table: "work_orders" },
         (payload) => {
           onUpdate?.(payload.new);
-        }
+        },
       )
       .subscribe();
 
@@ -81,16 +89,18 @@ export function useWorkOrderUpdates(onUpdate?: (workOrder: any) => void) {
   }, [onUpdate]);
 }
 
-export function useAssetHealthUpdates(onUpdate?: (health: any) => void) {
+export function useAssetHealthUpdates(
+  onUpdate?: (health: Record<string, unknown>) => void,
+) {
   useEffect(() => {
     const channel = supabase
-      .channel('asset-health-changes')
+      .channel("asset-health-changes")
       .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'asset_health_monitoring' },
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "asset_health_monitoring" },
         (payload) => {
           onUpdate?.(payload.new);
-        }
+        },
       )
       .subscribe();
 
@@ -100,16 +110,18 @@ export function useAssetHealthUpdates(onUpdate?: (health: any) => void) {
   }, [onUpdate]);
 }
 
-export function useAlertUpdates(onUpdate?: (alert: any) => void) {
+export function useAlertUpdates(
+  onUpdate?: (alert: Record<string, unknown>) => void,
+) {
   useEffect(() => {
     const channel = supabase
-      .channel('alerts-changes')
+      .channel("alerts-changes")
       .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'system_alerts' },
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "system_alerts" },
         (payload) => {
           onUpdate?.(payload.new);
-        }
+        },
       )
       .subscribe();
 
@@ -119,16 +131,18 @@ export function useAlertUpdates(onUpdate?: (alert: any) => void) {
   }, [onUpdate]);
 }
 
-export function useDecisionUpdates(onUpdate?: (decision: any) => void) {
+export function useDecisionUpdates(
+  onUpdate?: (decision: Record<string, unknown>) => void,
+) {
   useEffect(() => {
     const channel = supabase
-      .channel('decisions-changes')
+      .channel("decisions-changes")
       .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'autonomous_decisions' },
+        "postgres_changes",
+        { event: "*", schema: "public", table: "autonomous_decisions" },
         (payload) => {
           onUpdate?.(payload.new);
-        }
+        },
       )
       .subscribe();
 
@@ -138,11 +152,14 @@ export function useDecisionUpdates(onUpdate?: (decision: any) => void) {
   }, [onUpdate]);
 }
 
-export function useBroadcastChannel(channelName: string, onMessage: (payload: any) => void) {
+export function useBroadcastChannel(
+  channelName: string,
+  onMessage: (payload: unknown) => void,
+) {
   useEffect(() => {
     const channel = supabase.channel(channelName);
 
-    channel.on('broadcast', { event: 'message' }, ({ payload }) => {
+    channel.on("broadcast", { event: "message" }, ({ payload }) => {
       onMessage(payload);
     });
 
@@ -153,14 +170,17 @@ export function useBroadcastChannel(channelName: string, onMessage: (payload: an
     };
   }, [channelName, onMessage]);
 
-  const broadcast = useCallback((payload: any) => {
-    const channel = supabase.channel(channelName);
-    channel.send({
-      type: 'broadcast',
-      event: 'message',
-      payload
-    });
-  }, [channelName]);
+  const broadcast = useCallback(
+    (payload: Record<string, unknown>) => {
+      const channel = supabase.channel(channelName);
+      channel.send({
+        type: "broadcast",
+        event: "message",
+        payload,
+      });
+    },
+    [channelName],
+  );
 
   return { broadcast };
 }
