@@ -1,5 +1,17 @@
 import { useState } from "react";
-import { Sun, Moon, Clock, Zap, TriangleAlert as AlertTriangle, CircleCheck as CheckCircle, TrendingUp, Users, Wrench, Shield, ChevronRight, Radio, Calendar, Target } from "lucide-react";
+import {
+  Sun,
+  Clock,
+  Zap,
+  TrendingUp,
+  Users,
+  Wrench,
+  Shield,
+  ChevronRight,
+  Radio,
+  Calendar,
+  Target,
+} from "lucide-react";
 import { motion } from "framer-motion";
 
 type BriefingType = "shift" | "daily" | "weekly" | "executive";
@@ -99,20 +111,77 @@ const briefings: BriefingCard[] = [
   },
 ];
 
-const typeConfig: Record<BriefingType, { icon: React.ElementType; color: string; bg: string; border: string; label: string }> = {
-  shift: { icon: Sun, color: "text-amber-400", bg: "bg-amber-500/10", border: "border-amber-500/20", label: "Shift Brief" },
-  daily: { icon: Zap, color: "text-teal-400", bg: "bg-teal-500/10", border: "border-teal-500/20", label: "Daily Intelligence" },
-  weekly: { icon: Calendar, color: "text-blue-400", bg: "bg-blue-500/10", border: "border-blue-500/20", label: "Weekly Review" },
-  executive: { icon: Target, color: "text-cyan-400", bg: "bg-cyan-500/10", border: "border-cyan-500/20", label: "Executive" },
+const typeConfig: Record<
+  BriefingType,
+  {
+    icon: React.ElementType;
+    color: string;
+    bg: string;
+    border: string;
+    label: string;
+  }
+> = {
+  shift: {
+    icon: Sun,
+    color: "text-amber-400",
+    bg: "bg-amber-500/10",
+    border: "border-amber-500/20",
+    label: "Shift Brief",
+  },
+  daily: {
+    icon: Zap,
+    color: "text-teal-400",
+    bg: "bg-teal-500/10",
+    border: "border-teal-500/20",
+    label: "Daily Intelligence",
+  },
+  weekly: {
+    icon: Calendar,
+    color: "text-blue-400",
+    bg: "bg-blue-500/10",
+    border: "border-blue-500/20",
+    label: "Weekly Review",
+  },
+  executive: {
+    icon: Target,
+    color: "text-cyan-400",
+    bg: "bg-cyan-500/10",
+    border: "border-cyan-500/20",
+    label: "Executive",
+  },
 };
 
-const statusConfig: Record<string, { color: string; bg: string; dot: string; label: string }> = {
-  live: { color: "text-teal-400", bg: "bg-teal-500/10", dot: "bg-teal-400 animate-pulse", label: "LIVE" },
-  upcoming: { color: "text-amber-400", bg: "bg-amber-500/10", dot: "bg-amber-400", label: "Upcoming" },
-  completed: { color: "text-slate-400", bg: "bg-slate-500/10", dot: "bg-slate-400", label: "Completed" },
+const statusConfig: Record<
+  string,
+  { color: string; bg: string; dot: string; label: string }
+> = {
+  live: {
+    color: "text-teal-400",
+    bg: "bg-teal-500/10",
+    dot: "bg-teal-400 animate-pulse",
+    label: "LIVE",
+  },
+  upcoming: {
+    color: "text-amber-400",
+    bg: "bg-amber-500/10",
+    dot: "bg-amber-400",
+    label: "Upcoming",
+  },
+  completed: {
+    color: "text-slate-400",
+    bg: "bg-slate-500/10",
+    dot: "bg-slate-400",
+    label: "Completed",
+  },
 };
 
-function BriefCard({ briefing, index }: { briefing: BriefingCard; index: number }) {
+function BriefCard({
+  briefing,
+  index,
+}: {
+  briefing: BriefingCard;
+  index: number;
+}) {
   const [expanded, setExpanded] = useState(briefing.status === "live");
   const tc = typeConfig[briefing.type];
   const sc = statusConfig[briefing.status];
@@ -137,20 +206,38 @@ function BriefCard({ briefing, index }: { briefing: BriefingCard; index: number 
             </div>
             <div>
               <div className="flex items-center gap-2 mb-0.5">
-                <span className={`text-[10px] font-bold uppercase tracking-wider ${tc.color}`}>{tc.label}</span>
-                <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full ${sc.bg}`}>
+                <span
+                  className={`text-[10px] font-bold uppercase tracking-wider ${tc.color}`}
+                >
+                  {tc.label}
+                </span>
+                <div
+                  className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full ${sc.bg}`}
+                >
                   <div className={`w-1.5 h-1.5 rounded-full ${sc.dot}`} />
-                  <span className={`text-[10px] font-semibold ${sc.color}`}>{sc.label}</span>
+                  <span className={`text-[10px] font-semibold ${sc.color}`}>
+                    {sc.label}
+                  </span>
                 </div>
               </div>
-              <h3 className="text-base font-bold text-white">{briefing.title}</h3>
+              <h3 className="text-base font-bold text-white">
+                {briefing.title}
+              </h3>
               <div className="flex items-center gap-3 mt-1 text-xs text-slate-500">
-                <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{briefing.time}</span>
-                <span className="flex items-center gap-1"><Users className="w-3 h-3" />{briefing.audience}</span>
+                <span className="flex items-center gap-1">
+                  <Clock className="w-3 h-3" />
+                  {briefing.time}
+                </span>
+                <span className="flex items-center gap-1">
+                  <Users className="w-3 h-3" />
+                  {briefing.audience}
+                </span>
               </div>
             </div>
           </div>
-          <ChevronRight className={`w-4 h-4 text-slate-600 transition-transform flex-shrink-0 mt-2 ${expanded ? "rotate-90" : ""}`} />
+          <ChevronRight
+            className={`w-4 h-4 text-slate-600 transition-transform flex-shrink-0 mt-2 ${expanded ? "rotate-90" : ""}`}
+          />
         </div>
       </div>
 
@@ -165,11 +252,19 @@ function BriefCard({ briefing, index }: { briefing: BriefingCard; index: number 
           {/* KPI Summary */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
             {briefing.kpiSummary.map((kpi) => (
-              <div key={kpi.label} className="bg-white/[0.03] border border-white/[0.05] rounded-xl p-3">
+              <div
+                key={kpi.label}
+                className="bg-white/[0.03] border border-white/[0.05] rounded-xl p-3"
+              >
                 <div className="text-[10px] text-slate-500">{kpi.label}</div>
-                <div className="text-lg font-black text-slate-200 mt-0.5">{kpi.value}</div>
-                <div className={`text-[10px] mt-0.5 flex items-center gap-1 ${kpi.up ? "text-teal-400" : "text-amber-400"}`}>
-                  <TrendingUp className="w-2.5 h-2.5" />{kpi.trend}
+                <div className="text-lg font-black text-slate-200 mt-0.5">
+                  {kpi.value}
+                </div>
+                <div
+                  className={`text-[10px] mt-0.5 flex items-center gap-1 ${kpi.up ? "text-teal-400" : "text-amber-400"}`}
+                >
+                  <TrendingUp className="w-2.5 h-2.5" />
+                  {kpi.trend}
                 </div>
               </div>
             ))}
@@ -177,14 +272,22 @@ function BriefCard({ briefing, index }: { briefing: BriefingCard; index: number 
 
           {/* Highlights */}
           <div className="space-y-2">
-            <div className="text-xs font-semibold text-slate-400 mb-2">Key Highlights</div>
+            <div className="text-xs font-semibold text-slate-400 mb-2">
+              Key Highlights
+            </div>
             {briefing.highlights.map((highlight, i) => (
-              <div key={i} className="flex items-start gap-2 text-sm text-slate-300">
-                <div className={`w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0 ${
-                  highlight.toLowerCase().includes("critical") || highlight.toLowerCase().includes("risk")
-                    ? "bg-amber-400"
-                    : "bg-teal-400"
-                }`} />
+              <div
+                key={i}
+                className="flex items-start gap-2 text-sm text-slate-300"
+              >
+                <div
+                  className={`w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0 ${
+                    highlight.toLowerCase().includes("critical") ||
+                    highlight.toLowerCase().includes("risk")
+                      ? "bg-amber-400"
+                      : "bg-teal-400"
+                  }`}
+                />
                 <span className="leading-relaxed">{highlight}</span>
               </div>
             ))}
@@ -214,20 +317,24 @@ function BriefCard({ briefing, index }: { briefing: BriefingCard; index: number 
 
 export function OperationalBriefing() {
   const [filter, setFilter] = useState<BriefingType | "all">("all");
-  const filtered = filter === "all" ? briefings : briefings.filter((b) => b.type === filter);
+  const filtered =
+    filter === "all" ? briefings : briefings.filter((b) => b.type === filter);
 
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">Operational Briefing</h1>
-          <p className="text-sm text-slate-500 mt-0.5">AI-generated briefings aligned to operational cadence</p>
+          <h1 className="text-2xl font-bold text-white tracking-tight">
+            Operational Briefing
+          </h1>
+          <p className="text-sm text-slate-500 mt-0.5">
+            AI-generated briefings aligned to operational cadence
+          </p>
         </div>
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-1.5 px-3 py-1.5 bg-teal-500/10 border border-teal-500/20 rounded-lg text-xs text-teal-400 font-medium">
-            <Radio className="w-3.5 h-3.5 animate-pulse" />
-            1 Active Brief
+            <Radio className="w-3.5 h-3.5 animate-pulse" />1 Active Brief
           </div>
         </div>
       </div>
@@ -262,18 +369,51 @@ export function OperationalBriefing() {
         </h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {[
-            { label: "Shift Handover", frequency: "Every 8 hours", next: "06:00 today", icon: Sun, color: "amber" },
-            { label: "Daily Intelligence", frequency: "Daily at 07:30", next: "07:30 today", icon: Zap, color: "teal" },
-            { label: "Weekly Reliability", frequency: "Monday 09:00", next: "Jun 2", icon: Wrench, color: "blue" },
-            { label: "Executive Summary", frequency: "1st of month", next: "Jun 1", icon: Shield, color: "cyan" },
+            {
+              label: "Shift Handover",
+              frequency: "Every 8 hours",
+              next: "06:00 today",
+              icon: Sun,
+              color: "amber",
+            },
+            {
+              label: "Daily Intelligence",
+              frequency: "Daily at 07:30",
+              next: "07:30 today",
+              icon: Zap,
+              color: "teal",
+            },
+            {
+              label: "Weekly Reliability",
+              frequency: "Monday 09:00",
+              next: "Jun 2",
+              icon: Wrench,
+              color: "blue",
+            },
+            {
+              label: "Executive Summary",
+              frequency: "1st of month",
+              next: "Jun 1",
+              icon: Shield,
+              color: "cyan",
+            },
           ].map((c) => {
             const CIcon = c.icon;
             return (
-              <div key={c.label} className="p-3 rounded-xl bg-white/[0.03] border border-white/[0.05]">
+              <div
+                key={c.label}
+                className="p-3 rounded-xl bg-white/[0.03] border border-white/[0.05]"
+              >
                 <CIcon className={`w-4 h-4 text-${c.color}-400 mb-2`} />
-                <div className="text-xs font-semibold text-slate-200">{c.label}</div>
-                <div className="text-[10px] text-slate-500 mt-0.5">{c.frequency}</div>
-                <div className="text-[10px] text-slate-600 mt-0.5">Next: {c.next}</div>
+                <div className="text-xs font-semibold text-slate-200">
+                  {c.label}
+                </div>
+                <div className="text-[10px] text-slate-500 mt-0.5">
+                  {c.frequency}
+                </div>
+                <div className="text-[10px] text-slate-600 mt-0.5">
+                  Next: {c.next}
+                </div>
               </div>
             );
           })}
@@ -291,10 +431,13 @@ export function OperationalBriefing() {
       <div className="bg-[#0D1520] border border-teal-500/10 rounded-xl p-4 flex items-start gap-3">
         <Zap className="w-4 h-4 text-teal-400 flex-shrink-0 mt-0.5" />
         <div>
-          <div className="text-sm font-bold text-teal-400">AI-Generated Briefings</div>
+          <div className="text-sm font-bold text-teal-400">
+            AI-Generated Briefings
+          </div>
           <p className="text-xs text-slate-400 mt-1 leading-relaxed">
-            All briefings are automatically generated by SyncAI based on real-time system data, overnight events,
-            and predictive analytics. Content is tailored to the audience role and operational context.
+            All briefings are automatically generated by SyncAI based on
+            real-time system data, overnight events, and predictive analytics.
+            Content is tailored to the audience role and operational context.
           </p>
         </div>
       </div>

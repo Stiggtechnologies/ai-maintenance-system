@@ -8,6 +8,7 @@ import {
   useLocation,
 } from "react-router-dom";
 import { supabase } from "./lib/supabase";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import { Login } from "./pages/Login";
 import { Signup } from "./pages/Signup";
 import { EnterpriseAccess } from "./pages/EnterpriseAccess";
@@ -115,36 +116,58 @@ function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/marketplace/signup" element={<MarketplaceSignup />} />
-        <Route path="/marketplace/aws/signup" element={<AwsMarketplaceSignup />} />
-        <Route path="/marketplace/salesforce/signup" element={<SalesforceSignup />} />
+        <Route
+          path="/marketplace/aws/signup"
+          element={<AwsMarketplaceSignup />}
+        />
+        <Route
+          path="/marketplace/salesforce/signup"
+          element={<SalesforceSignup />}
+        />
         <Route path="/auth/callback/azure" element={<AzureADCallback />} />
         <Route path="/pilot/reliability" element={<FirstCustomerPilotPage />} />
-        <Route path="/demo/copilot" element={
-          <div className="min-h-screen bg-gradient-to-br from-slate-950 via-blue-950 to-slate-900">
-            <ReliabilityCopilotPage />
-          </div>
-        } />
+        <Route
+          path="/demo/copilot"
+          element={
+            <div className="min-h-screen bg-gradient-to-br from-slate-950 via-blue-950 to-slate-900">
+              <ReliabilityCopilotPage />
+            </div>
+          }
+        />
         <Route
           path="/*"
           element={
             <AnimatePresence mode="wait">
               {currentPage === "signin" && (
                 <motion.div key="signin" {...pageTransition}>
-                  <Login onSuccess={handleAuthSuccess} onTabChange={setCurrentPage} />
+                  <Login
+                    onSuccess={handleAuthSuccess}
+                    onTabChange={setCurrentPage}
+                  />
                 </motion.div>
               )}
               {currentPage === "signup" && (
                 <motion.div key="signup" {...pageTransition}>
-                  <Signup onSuccess={handleAuthSuccess} onTabChange={setCurrentPage} />
+                  <Signup
+                    onSuccess={handleAuthSuccess}
+                    onTabChange={setCurrentPage}
+                  />
                 </motion.div>
               )}
               {currentPage === "enterprise" && (
                 <motion.div key="enterprise" {...pageTransition}>
-                  <EnterpriseAccess onSuccess={handleAuthSuccess} onTabChange={setCurrentPage} />
+                  <EnterpriseAccess
+                    onSuccess={handleAuthSuccess}
+                    onTabChange={setCurrentPage}
+                  />
                 </motion.div>
               )}
               {currentPage === "app" && isAuthenticated && (
-                <motion.div key="app" {...pageTransition} style={{ height: "100vh" }}>
+                <motion.div
+                  key="app"
+                  {...pageTransition}
+                  style={{ height: "100vh" }}
+                >
                   <AuthenticatedApp />
                 </motion.div>
               )}
@@ -176,62 +199,85 @@ function AuthenticatedApp() {
   const location = useLocation();
 
   return (
-    <AppShell currentPath={location.pathname} onNavigate={(path) => navigate(path)}>
-      <Routes>
-        {/* Default Ã¢ÂÂ Mission Control */}
-        <Route path="/" element={<Navigate to="/mission-control" replace />} />
-        <Route path="/overview" element={<Navigate to="/mission-control" replace />} />
+    <AppShell
+      currentPath={location.pathname}
+      onNavigate={(path) => navigate(path)}
+    >
+      <ErrorBoundary inline resetKey={location.pathname}>
+        <Routes>
+          {/* Default Ã¢ÂÂ Mission Control */}
+          <Route
+            path="/"
+            element={<Navigate to="/mission-control" replace />}
+          />
+          <Route
+            path="/overview"
+            element={<Navigate to="/mission-control" replace />}
+          />
 
-        {/* Mission layer */}
-        <Route path="/mission-control" element={<MissionControl />} />
-        <Route path="/command-centers" element={<CommandCenters />} />
-        <Route path="/readiness" element={<ReadinessPage />} />
-        <Route path="/cowork" element={<CoworkStudio />} />
+          {/* Mission layer */}
+          <Route path="/mission-control" element={<MissionControl />} />
+          <Route path="/command-centers" element={<CommandCenters />} />
+          <Route path="/readiness" element={<ReadinessPage />} />
+          <Route path="/cowork" element={<CoworkStudio />} />
 
-        {/* AI Workforce layer */}
-        <Route path="/ai-workforce" element={<AIWorkforce />} />
-        <Route path="/autonomy" element={<AutonomyControlPanel />} />
-        <Route path="/autonomy-maturity" element={<AutonomyMaturity />} />
-        <Route path="/approvals" element={<ApprovalQueue />} />
-        <Route path="/governance" element={<DecisionGovernance />} />
+          {/* AI Workforce layer */}
+          <Route path="/ai-workforce" element={<AIWorkforce />} />
+          <Route path="/autonomy" element={<AutonomyControlPanel />} />
+          <Route path="/autonomy-maturity" element={<AutonomyMaturity />} />
+          <Route path="/approvals" element={<ApprovalQueue />} />
+          <Route path="/governance" element={<DecisionGovernance />} />
 
-        {/* Asset Intelligence */}
-        <Route path="/assets/:assetId" element={<AssetDetailPage />} />
-        <Route path="/assets/intelligence" element={<AssetIntelligencePage />} />
-        <Route path="/assets" element={<AssetManagement />} />
-        <Route path="/reliability" element={<Reliability />} />
-        <Route path="/risk" element={<RiskConsequence />} />
+          {/* Asset Intelligence */}
+          <Route path="/assets/:assetId" element={<AssetDetailPage />} />
+          <Route
+            path="/assets/intelligence"
+            element={<AssetIntelligencePage />}
+          />
+          <Route path="/assets" element={<AssetManagement />} />
+          <Route path="/reliability" element={<Reliability />} />
+          <Route path="/risk" element={<RiskConsequence />} />
 
-        {/* Work & Execution */}
-        <Route path="/work/:workOrderId" element={<WorkOrderDetailPage />} />
-        <Route path="/work" element={<WorkActionBoard />} />
-        <Route path="/scenarios" element={<ScenarioSimulator />} />
-        <Route path="/briefing" element={<OperationalBriefing />} />
+          {/* Work & Execution */}
+          <Route path="/work/:workOrderId" element={<WorkOrderDetailPage />} />
+          <Route path="/work" element={<WorkActionBoard />} />
+          <Route path="/scenarios" element={<ScenarioSimulator />} />
+          <Route path="/briefing" element={<OperationalBriefing />} />
 
-        {/* Performance */}
-        <Route path="/performance" element={<PerformanceDashboard />} />
-        <Route path="/oee" element={<OEEDashboard />} />
-        <Route path="/learning-loop" element={<LearningLoop />} />
-        <Route path="/value" element={<ValueRealization />} />
-        <Route path="/benchmarking" element={<BenchmarkingPanel />} />
-        <Route path="/trust" element={<TrustExplainability />} />
+          {/* Performance */}
+          <Route path="/performance" element={<PerformanceDashboard />} />
+          <Route path="/oee" element={<OEEDashboard />} />
+          <Route path="/learning-loop" element={<LearningLoop />} />
+          <Route path="/value" element={<ValueRealization />} />
+          <Route path="/benchmarking" element={<BenchmarkingPanel />} />
+          <Route path="/trust" element={<TrustExplainability />} />
 
-        {/* System */}
-        <Route path="/integrations" element={<IntegrationsPage />} />
-        <Route path="/integration-health" element={<IntegrationHealthPanel />} />
-        <Route path="/playbooks" element={<PlaybooksLibrary />} />
-        <Route path="/emergency" element={<EmergencyMode />} />
-        <Route path="/artifacts" element={<ArtifactWorkspace />} />
-        <Route path="/setup" element={<SetupWizard />} />
-        <Route path="/research" element={<ResearchDashboard />} />
-        <Route path="/runs" element={<RunsAuditPage />} />
-        <Route path="/deployments/new/configure" element={<DeploymentConfiguratorPage />} />
-        <Route path="/deployments/new" element={<TemplateSelectorPage />} />
-        <Route path="/deployments" element={<TemplateSelectorPage />} />
-        <Route path="/settings" element={<SettingsPage />} />
+          {/* System */}
+          <Route path="/integrations" element={<IntegrationsPage />} />
+          <Route
+            path="/integration-health"
+            element={<IntegrationHealthPanel />}
+          />
+          <Route path="/playbooks" element={<PlaybooksLibrary />} />
+          <Route path="/emergency" element={<EmergencyMode />} />
+          <Route path="/artifacts" element={<ArtifactWorkspace />} />
+          <Route path="/setup" element={<SetupWizard />} />
+          <Route path="/research" element={<ResearchDashboard />} />
+          <Route path="/runs" element={<RunsAuditPage />} />
+          <Route
+            path="/deployments/new/configure"
+            element={<DeploymentConfiguratorPage />}
+          />
+          <Route path="/deployments/new" element={<TemplateSelectorPage />} />
+          <Route path="/deployments" element={<TemplateSelectorPage />} />
+          <Route path="/settings" element={<SettingsPage />} />
 
-        <Route path="*" element={<Navigate to="/mission-control" replace />} />
-      </Routes>
+          <Route
+            path="*"
+            element={<Navigate to="/mission-control" replace />}
+          />
+        </Routes>
+      </ErrorBoundary>
     </AppShell>
   );
 }
