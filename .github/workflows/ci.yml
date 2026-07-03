@@ -108,6 +108,27 @@ jobs:
           test "$ROLE" = "reliability_engineer"
           echo "Smoke passed: login + RLS ($COUNT recs) + RPC ($ROLE)"
 
+      - name: Smoke — continuous agent loop
+        run: |
+          set -euo pipefail
+          trap 'echo "FAILED at line $LINENO: $BASH_COMMAND"' ERR
+          eval "$(supabase status -o env | grep -E '^(API_URL|SERVICE_ROLE_KEY)=')"
+          LOOP=$(curl -s -X POST "$API_URL/rest/v1/rpc/run_agent_loop" \
+            -H "apikey: $SERVICE_ROLE_KEY" -H "Authorization: Bearer $SERVICE_ROLE_KEY" \
+            -H "Content-Type: application/json" -d '{}' || true)
+          CREATED=$(echo "$LOOP" | python3 -c "import sys,json;print(json.load(sys.stdin).get('recommendations_created',-1))" 2>/dev/null || echo -1)
+          FLAGGED=$(echo "$LOOP" | python3 -c "import sys,json;print(json.load(sys.stdin).get('sensors_flagged',-1))" 2>/dev/null || echo -1)
+          echo "loop: flagged=$FLAGGED created=$CREATED"
+          test "$FLAGGED" -ge 3
+          test "$CREATED" -ge 0
+          # second run must be idempotent
+          AGAIN=$(curl -s -X POST "$API_URL/rest/v1/rpc/run_agent_loop" \
+            -H "apikey: $SERVICE_ROLE_KEY" -H "Authorization: Bearer $SERVICE_ROLE_KEY" \
+            -H "Content-Type: application/json" -d '{}' || true)
+          SECOND=$(echo "$AGAIN" | python3 -c "import sys,json;print(json.load(sys.stdin).get('recommendations_created',-1))" 2>/dev/null || echo -1)
+          test "$SECOND" = "0"
+          echo "Agent-loop smoke passed: flagged=$FLAGGED first=$CREATED second=$SECOND (idempotent)"
+
       - name: Stop Supabase
         if: always()
         run: supabase stop || true
