@@ -74,15 +74,18 @@ jobs:
           set -euo pipefail
           eval "$(supabase status -o env | grep -E '^(ANON_KEY|API_URL)=')"
           echo "API_URL=$API_URL anon_len=${#ANON_KEY}"
-          # GoTrue can lag supabase start — retry the login briefly.
+          # GoTrue can lag supabase start — retry the login briefly. Every
+          # command in the loop is failure-tolerant so set -e can't kill the
+          # retry itself.
           TOKEN=""
           for i in $(seq 1 12); do
+            HEALTH=$(curl -s -o /dev/null -w "%{http_code}" "$API_URL/auth/v1/health" -H "apikey: $ANON_KEY" || echo "conn-fail")
             RESP=$(curl -s "$API_URL/auth/v1/token?grant_type=password" \
               -H "apikey: $ANON_KEY" -H "Content-Type: application/json" \
-              -d '{"email":"demo@syncai.ca","password":"Demo123!@#"}')
+              -d '{"email":"demo@syncai.ca","password":"Demo123!@#"}' || true)
             TOKEN=$(echo "$RESP" | python3 -c "import sys,json;print(json.load(sys.stdin).get('access_token',''))" 2>/dev/null || true)
             if [ -n "$TOKEN" ]; then break; fi
-            echo "login attempt $i failed: $(echo "$RESP" | head -c 200)"
+            echo "attempt $i: auth health=$HEALTH resp=$(echo "$RESP" | head -c 200)"
             sleep 5
           done
           test -n "$TOKEN"
