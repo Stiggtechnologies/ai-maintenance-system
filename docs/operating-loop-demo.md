@@ -5,6 +5,23 @@ End-to-end, Supabase-backed demo of the buyer-value loop:
 > Mission Control → AI Recommendation → Evidence → Scenario Comparison → Human
 > Approval → Work Action → Decision Logged → Value Realization → Learning Loop
 
+## Hosted staging (cloud Supabase)
+
+The repo is linked to the **SyncAI** cloud project (`pjvoswbwomesuwhygpby`,
+Canada Central). Schema + demo data are applied as one deterministic migration
+chain (`supabase db push` / `supabase db reset --linked`).
+
+Point the app at it via `.env.local`:
+
+```
+VITE_SUPABASE_URL=https://pjvoswbwomesuwhygpby.supabase.co
+VITE_SUPABASE_ANON_KEY=<from `supabase projects api-keys --project-ref pjvoswbwomesuwhygpby`>
+VITE_ENVIRONMENT=staging
+```
+
+Same demo login. To restore pristine demo state: `supabase db reset --linked`.
+The old Bolt-managed prod project serving app.syncai.ca is untouched.
+
 ## Prerequisites
 
 - Docker running
@@ -15,7 +32,7 @@ End-to-end, Supabase-backed demo of the buyer-value loop:
 
 ```bash
 supabase start            # boots local Postgres/Auth/REST and applies the baseline migration
-supabase db reset         # (re)applies migration + loads supabase/seed.sql (idempotent)
+supabase db reset         # applies the 4-migration chain (schema + demo data)
 npm run dev               # Vite dev server → http://localhost:5173
 ```
 

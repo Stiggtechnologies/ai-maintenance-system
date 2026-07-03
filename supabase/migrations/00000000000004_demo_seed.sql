@@ -1,5 +1,6 @@
 -- ============================================================================
--- SyncAI demo seed — Fort McMurray Oil Sands Demo Site
+-- SyncAI demo seed (as migration: one deterministic chain for local + cloud)
+-- Fort McMurray Oil Sands Demo Site — EXCLUDE for customer production deployments.
 -- Repeated conveyor bearing failures and pump seal failures threaten production.
 -- Login: demo@syncai.ca / Demo123!@#
 -- ============================================================================
@@ -16,7 +17,7 @@ insert into auth.users (
   '00000000-0000-0000-0000-000000000000',
   '00000000-0000-0000-0000-000000000001',
   'authenticated', 'authenticated', 'demo@syncai.ca',
-  crypt('Demo123!@#', gen_salt('bf')),
+  extensions.crypt('Demo123!@#', extensions.gen_salt('bf')),
   now(), now(), now(),
   '{"provider":"email","providers":["email"]}', '{"full_name":"Demo Reliability Engineer"}',
   '', '', '', '', '', '', '', ''
