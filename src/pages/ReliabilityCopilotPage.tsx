@@ -55,6 +55,7 @@ import {
   saveAssetOnboardingSession,
   type AssetOnboardingSummary,
 } from "../services/assetOnboardingPersistence";
+import { useOnboardingStore } from "../store/onboardingStore";
 import {
   runLiveReliabilityAgent,
   type LiveReliabilityAgentResult,
@@ -88,7 +89,8 @@ const workflowCards = [
   },
   {
     title: "Executive Brief",
-    detail: "Bad actors, cost of unreliability, next decisions, approval needs.",
+    detail:
+      "Bad actors, cost of unreliability, next decisions, approval needs.",
     icon: FileText,
   },
 ];
@@ -212,7 +214,11 @@ type ChatMessage = {
 
 const executiveSignals = [
   { label: "Workspace mode", value: "Agentic", detail: "human-led cowork" },
-  { label: "Live agents", value: "7 roles", detail: "specialized reliability flow" },
+  {
+    label: "Live agents",
+    value: "7 roles",
+    detail: "specialized reliability flow",
+  },
   { label: "Evidence mode", value: "Cited", detail: "RAG + calculations" },
   { label: "Governance", value: "Human gate", detail: "safety and OEM limits" },
 ];
@@ -246,10 +252,12 @@ export function ReliabilityCopilotPage() {
       },
     }),
   );
-  const [lastGeneratedMode, setLastGeneratedMode] = useState<CopilotMode>("RCA");
+  const [lastGeneratedMode, setLastGeneratedMode] =
+    useState<CopilotMode>("RCA");
   const [inputs, setInputs] = useState(initialInputs);
-  const [onboardingCommand, setOnboardingCommand] =
-    useState("/onboard used pump P-101 oil-sands deep");
+  const [onboardingCommand, setOnboardingCommand] = useState(
+    "/onboard used pump P-101 oil-sands deep",
+  );
   const [onboardingSession, setOnboardingSession] =
     useState<AssetOnboardingSession>(() =>
       createAssetOnboardingSession({
@@ -270,6 +278,15 @@ export function ReliabilityCopilotPage() {
     "Demo session is ready. Save progress to make it resumable.",
   );
   const [isSavingOnboarding, setIsSavingOnboarding] = useState(false);
+  const registerOnboardingSession = useOnboardingStore(
+    (state) => state.registerSession,
+  );
+  const recordOnboardingStep = useOnboardingStore(
+    (state) => state.recordStepCompleted,
+  );
+  const recordOnboardingExport = useOnboardingStore(
+    (state) => state.recordExport,
+  );
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
     {
       id: "system-1",
@@ -466,6 +483,7 @@ export function ReliabilityCopilotPage() {
           meta: "Asset onboarding",
         },
       ]);
+      void persistOnboardingSession(nextSession, "Onboarding started.");
       return;
     }
 
@@ -536,10 +554,16 @@ export function ReliabilityCopilotPage() {
     try {
       const exports = buildAssetOnboardingExports(session);
       const result = await saveAssetOnboardingSession(session, exports);
+      // Make this operational across SyncAI (Asset Intelligence, Reliability,
+      // Work Action Board, Governance, Mission Control, Value, Cowork, Learning).
+      registerOnboardingSession(session, result);
       setOnboardingSaveMessage(
-        `${messagePrefix} Saved via ${
-          result.mode === "supabase" ? "tenant database" : "browser demo storage"
-        }.${result.warning ? ` ${result.warning}` : ""}`,
+        result.mode === "supabase"
+          ? `${messagePrefix} Saved to the tenant database.`
+          : `${messagePrefix} ⚠ Not saved to the tenant database — saved only in this browser. ${
+              result.warning ??
+              "Sign in with a Supabase-connected tenant to persist this session."
+            }`,
       );
       await refreshSavedOnboardingSessions();
     } catch (error) {
@@ -562,6 +586,7 @@ export function ReliabilityCopilotPage() {
   };
 
   const saveOnboardingAnswer = async () => {
+    const completedStepName = getCurrentOnboardingStep(onboardingSession).name;
     const nextSession = applyAssetOnboardingAnswer({
       session: onboardingSession,
       answer: onboardingAnswer,
@@ -569,12 +594,15 @@ export function ReliabilityCopilotPage() {
     setOnboardingSession(nextSession);
     setOnboardingAnswer(getOnboardingSampleAnswer(nextSession));
     await persistOnboardingSession(nextSession, "Step saved.");
+    recordOnboardingStep(nextSession, completedStepName);
   };
 
   const resumeOnboardingSession = async (sessionId: string) => {
     const savedSession = await loadAssetOnboardingSession(sessionId);
     if (!savedSession) {
-      setOnboardingSaveMessage("That saved onboarding session could not be loaded.");
+      setOnboardingSaveMessage(
+        "That saved onboarding session could not be loaded.",
+      );
       return;
     }
 
@@ -602,6 +630,7 @@ export function ReliabilityCopilotPage() {
       `syncai-${onboardingSession.assetId.toLowerCase()}-asset-onboarding-${key}.${extension}`,
       mime,
     );
+    recordOnboardingExport(onboardingSession, 1);
   };
 
   const handleFailureFile = async (
@@ -618,29 +647,30 @@ export function ReliabilityCopilotPage() {
       <section className="relative overflow-hidden rounded-2xl border border-white/[0.08] bg-[linear-gradient(135deg,rgba(13,19,26,0.96),rgba(8,12,17,0.98))] p-4 shadow-xl shadow-black/20">
         <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-teal-300/50 to-transparent" />
         <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-        <div>
-          <div className="inline-flex items-center gap-2 rounded-full border border-teal-300/20 bg-teal-300/10 px-3 py-1 text-xs font-medium text-teal-200">
-            <Bot size={14} />
-            Reliability decision support
-          </div>
-          <h1 className="mt-3 text-2xl font-semibold tracking-tight text-[#F8FAFC]">
-            Reliability Engineering Copilot
-          </h1>
-          <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-400">
-            A governed reliability workspace for RCA, FRACAS, FMEA, RCM, PM
-            optimization, RAM calculations, and executive reliability reporting.
-          </p>
-        </div>
-        <div className="rounded-xl border border-amber-300/20 bg-amber-300/[0.08] p-4 text-sm text-amber-100 lg:max-w-md">
-          <div className="flex items-start gap-3">
-            <AlertTriangle size={18} className="mt-0.5 text-amber-300" />
-            <p>
-              Decision support only. Safety, environmental, regulatory, OEM
-              limit, and production-critical changes require qualified
-              engineering approval.
+          <div>
+            <div className="inline-flex items-center gap-2 rounded-full border border-teal-300/20 bg-teal-300/10 px-3 py-1 text-xs font-medium text-teal-200">
+              <Bot size={14} />
+              Reliability decision support
+            </div>
+            <h1 className="mt-3 text-2xl font-semibold tracking-tight text-[#F8FAFC]">
+              Reliability Engineering Copilot
+            </h1>
+            <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-400">
+              A governed reliability workspace for RCA, FRACAS, FMEA, RCM, PM
+              optimization, RAM calculations, and executive reliability
+              reporting.
             </p>
           </div>
-        </div>
+          <div className="rounded-xl border border-amber-300/20 bg-amber-300/[0.08] p-4 text-sm text-amber-100 lg:max-w-md">
+            <div className="flex items-start gap-3">
+              <AlertTriangle size={18} className="mt-0.5 text-amber-300" />
+              <p>
+                Decision support only. Safety, environmental, regulatory, OEM
+                limit, and production-critical changes require qualified
+                engineering approval.
+              </p>
+            </div>
+          </div>
         </div>
 
         <div className="hidden">
@@ -715,568 +745,606 @@ export function ReliabilityCopilotPage() {
           </button>
           <div className="grid grid-cols-3 gap-2 rounded-xl border border-white/[0.06] bg-black/20 p-3">
             <CompactMetric label="Risk" value={report.riskLevel} />
-            <CompactMetric label="Readiness" value={onboardingSession.reliabilityReadiness} />
+            <CompactMetric
+              label="Readiness"
+              value={onboardingSession.reliabilityReadiness}
+            />
             <CompactMetric label="RAG" value="Live" />
           </div>
         </div>
       </section>
 
       {activeWorkspace === "onboarding" && (
-      <section className="glass rounded-xl border border-teal-500/20 p-5">
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-          <div>
-            <div className="inline-flex items-center gap-2 rounded-lg border border-teal-500/20 bg-teal-500/10 px-3 py-1 text-xs font-medium text-teal-300">
-              <PackageCheck size={14} />
-              One-command workflow
+        <section className="glass rounded-xl border border-teal-500/20 p-5">
+          <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+            <div>
+              <div className="inline-flex items-center gap-2 rounded-lg border border-teal-500/20 bg-teal-500/10 px-3 py-1 text-xs font-medium text-teal-300">
+                <PackageCheck size={14} />
+                One-command workflow
+              </div>
+              <h2 className="mt-3 text-xl font-bold text-[#E6EDF3]">
+                Guided Asset Onboarding
+              </h2>
+              <p className="mt-1 max-w-3xl text-sm text-slate-400">
+                Convert any asset into a reliability-ready digital profile for
+                RCA, FMEA, PM optimization, FRACAS, RAM, criticality, spares,
+                and lifecycle planning.
+              </p>
             </div>
-            <h2 className="mt-3 text-xl font-bold text-[#E6EDF3]">
-              Guided Asset Onboarding
-            </h2>
-            <p className="mt-1 max-w-3xl text-sm text-slate-400">
-              Convert any asset into a reliability-ready digital profile for
-              RCA, FMEA, PM optimization, FRACAS, RAM, criticality, spares, and
-              lifecycle planning.
-            </p>
+            <div className="grid grid-cols-2 gap-3 text-center sm:min-w-[520px] lg:grid-cols-5">
+              <div className="rounded-lg border border-white/[0.06] bg-black/20 p-3">
+                <div className="text-xs text-slate-500">Completion</div>
+                <div className="mt-1 text-2xl font-bold text-[#E6EDF3]">
+                  {onboardingSession.completionScore}%
+                </div>
+              </div>
+              <div className="rounded-lg border border-white/[0.06] bg-black/20 p-3">
+                <div className="text-xs text-slate-500">Readiness</div>
+                <div className="mt-1 text-lg font-bold capitalize text-teal-300">
+                  {onboardingSession.reliabilityReadiness}
+                </div>
+              </div>
+              <div className="rounded-lg border border-white/[0.06] bg-black/20 p-3">
+                <div className="text-xs text-slate-500">Mode</div>
+                <div className="mt-1 text-lg font-bold capitalize text-[#E6EDF3]">
+                  {onboardingSession.mode}
+                </div>
+              </div>
+              <div className="rounded-lg border border-white/[0.06] bg-black/20 p-3">
+                <div className="text-xs text-slate-500">Lifecycle</div>
+                <div className="mt-1 text-sm font-bold text-[#E6EDF3]">
+                  {getAssetOnboardingLifecycleLabel(
+                    onboardingSession.lifecycle,
+                  )}
+                </div>
+              </div>
+              <div className="rounded-lg border border-white/[0.06] bg-black/20 p-3">
+                <div className="text-xs text-slate-500">Template</div>
+                <div className="mt-1 text-sm font-bold text-teal-300">
+                  {getAssetOnboardingIndustryLabel(onboardingSession.industry)}
+                </div>
+              </div>
+            </div>
           </div>
-          <div className="grid grid-cols-2 gap-3 text-center sm:min-w-[520px] lg:grid-cols-5">
-            <div className="rounded-lg border border-white/[0.06] bg-black/20 p-3">
-              <div className="text-xs text-slate-500">Completion</div>
-              <div className="mt-1 text-2xl font-bold text-[#E6EDF3]">
-                {onboardingSession.completionScore}%
-              </div>
-            </div>
-            <div className="rounded-lg border border-white/[0.06] bg-black/20 p-3">
-              <div className="text-xs text-slate-500">Readiness</div>
-              <div className="mt-1 text-lg font-bold capitalize text-teal-300">
-                {onboardingSession.reliabilityReadiness}
-              </div>
-            </div>
-            <div className="rounded-lg border border-white/[0.06] bg-black/20 p-3">
-              <div className="text-xs text-slate-500">Mode</div>
-              <div className="mt-1 text-lg font-bold capitalize text-[#E6EDF3]">
-                {onboardingSession.mode}
-              </div>
-            </div>
-            <div className="rounded-lg border border-white/[0.06] bg-black/20 p-3">
-              <div className="text-xs text-slate-500">Lifecycle</div>
-              <div className="mt-1 text-sm font-bold text-[#E6EDF3]">
-                {getAssetOnboardingLifecycleLabel(onboardingSession.lifecycle)}
-              </div>
-            </div>
-            <div className="rounded-lg border border-white/[0.06] bg-black/20 p-3">
-              <div className="text-xs text-slate-500">Template</div>
-              <div className="mt-1 text-sm font-bold text-teal-300">
-                {getAssetOnboardingIndustryLabel(onboardingSession.industry)}
-              </div>
-            </div>
-          </div>
-        </div>
 
-        <div className="mt-5 grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(360px,0.8fr)]">
-          <div className="space-y-4">
-            <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto]">
-              <input
-                value={onboardingCommand}
-                onChange={(event) => setOnboardingCommand(event.target.value)}
-                className="rounded-xl border border-white/[0.08] bg-black/20 px-4 py-3 font-mono text-sm text-[#E6EDF3] outline-none focus:border-teal-500/60"
-                aria-label="Asset onboarding command"
-              />
-              <button
-                onClick={() => startOnboarding()}
-                className="inline-flex items-center justify-center gap-2 rounded-lg bg-teal-500 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-teal-400"
-              >
-                <Send size={16} />
-                Start Onboarding
-              </button>
-            </div>
-            <div className="flex flex-wrap gap-2 text-xs text-slate-400">
-              {[
-                "/onboard asset",
-                "/onboard used pump P-101 oil-sands deep",
-                "/onboard new conveyor CV-204 mining",
-                "/onboard transferred fleet haul_trucks mining",
-                "/onboard from SAP export oil-sands",
-                "/onboard from OEM manual",
-              ].map((command) => (
+          <div className="mt-5 grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(360px,0.8fr)]">
+            <div className="space-y-4">
+              <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto]">
+                <input
+                  value={onboardingCommand}
+                  onChange={(event) => setOnboardingCommand(event.target.value)}
+                  className="rounded-xl border border-white/[0.08] bg-black/20 px-4 py-3 font-mono text-sm text-[#E6EDF3] outline-none focus:border-teal-500/60"
+                  aria-label="Asset onboarding command"
+                />
                 <button
-                  key={command}
-                  onClick={() => startOnboarding(command)}
-                  className="rounded-lg border border-white/[0.06] bg-white/[0.03] px-2.5 py-1.5 transition-colors hover:bg-white/[0.08]"
+                  onClick={() => startOnboarding()}
+                  className="inline-flex items-center justify-center gap-2 rounded-lg bg-teal-500 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-teal-400"
                 >
-                  {command}
+                  <Send size={16} />
+                  Start Onboarding
                 </button>
-              ))}
-            </div>
-
-            <div className="rounded-xl border border-white/[0.06] bg-black/20 p-4">
-              <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                <div>
-                  <div className="flex items-center gap-2 text-sm font-semibold text-[#E6EDF3]">
-                    <ListChecks size={17} className="text-teal-300" />
-                    Current step: {currentOnboardingStep.name}
-                  </div>
-                  <p className="mt-1 text-sm text-slate-500">
-                    {currentOnboardingStep.purpose}
-                  </p>
-                </div>
-                <span className="rounded-lg bg-white/[0.04] px-2 py-1 text-xs font-medium text-slate-300">
-                  {currentOnboardingStep.completionScore}% complete
-                </span>
               </div>
-              <div className="mt-4 grid gap-4 lg:grid-cols-2">
-                <div>
-                  <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    Guided questions
+              <div className="flex flex-wrap gap-2 text-xs text-slate-400">
+                {[
+                  "/onboard asset",
+                  "/onboard used pump P-101 oil-sands deep",
+                  "/onboard new conveyor CV-204 mining",
+                  "/onboard transferred fleet haul_trucks mining",
+                  "/onboard from SAP export oil-sands",
+                  "/onboard from OEM manual",
+                ].map((command) => (
+                  <button
+                    key={command}
+                    onClick={() => startOnboarding(command)}
+                    className="rounded-lg border border-white/[0.06] bg-white/[0.03] px-2.5 py-1.5 transition-colors hover:bg-white/[0.08]"
+                  >
+                    {command}
+                  </button>
+                ))}
+              </div>
+
+              <div className="rounded-xl border border-white/[0.06] bg-black/20 p-4">
+                <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                  <div>
+                    <div className="flex items-center gap-2 text-sm font-semibold text-[#E6EDF3]">
+                      <ListChecks size={17} className="text-teal-300" />
+                      Current step: {currentOnboardingStep.name}
+                    </div>
+                    <p className="mt-1 text-sm text-slate-500">
+                      {currentOnboardingStep.purpose}
+                    </p>
                   </div>
-                  <ul className="mt-2 space-y-2 text-sm text-slate-300">
-                    {currentOnboardingStep.questions.map((question) => (
-                      <li key={question} className="flex gap-2">
-                        <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-teal-300" />
-                        <span>{question}</span>
-                      </li>
-                    ))}
-                  </ul>
+                  <span className="rounded-lg bg-white/[0.04] px-2 py-1 text-xs font-medium text-slate-300">
+                    {currentOnboardingStep.completionScore}% complete
+                  </span>
                 </div>
-                <div>
-                  <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    Required fields
-                  </div>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {currentOnboardingStep.requiredFields
-                      .slice(0, 14)
-                      .map((field) => (
-                        <span
-                          key={field}
-                          className="rounded-lg bg-white/[0.04] px-2 py-1 text-xs text-slate-300"
-                        >
-                          {field}
-                        </span>
+                <div className="mt-4 grid gap-4 lg:grid-cols-2">
+                  <div>
+                    <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      Guided questions
+                    </div>
+                    <ul className="mt-2 space-y-2 text-sm text-slate-300">
+                      {currentOnboardingStep.questions.map((question) => (
+                        <li key={question} className="flex gap-2">
+                          <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-teal-300" />
+                          <span>{question}</span>
+                        </li>
                       ))}
+                    </ul>
+                  </div>
+                  <div>
+                    <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      Required fields
+                    </div>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {currentOnboardingStep.requiredFields
+                        .slice(0, 14)
+                        .map((field) => (
+                          <span
+                            key={field}
+                            className="rounded-lg bg-white/[0.04] px-2 py-1 text-xs text-slate-300"
+                          >
+                            {field}
+                          </span>
+                        ))}
+                    </div>
                   </div>
                 </div>
+                <textarea
+                  value={onboardingAnswer}
+                  onChange={(event) => setOnboardingAnswer(event.target.value)}
+                  className="mt-4 min-h-32 w-full resize-y rounded-xl border border-white/[0.08] bg-black/20 p-3 text-sm text-[#E6EDF3] outline-none focus:border-teal-500/60"
+                  aria-label="Asset onboarding answer"
+                />
+                <div className="mt-3 flex flex-wrap gap-3">
+                  <button
+                    onClick={saveOnboardingAnswer}
+                    className="inline-flex items-center gap-2 rounded-lg bg-teal-500 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-teal-400"
+                  >
+                    {isSavingOnboarding ? (
+                      <RefreshCw size={16} />
+                    ) : (
+                      <Save size={16} />
+                    )}
+                    Save Step And Continue
+                  </button>
+                  <button
+                    onClick={() =>
+                      setOnboardingAnswer(
+                        getOnboardingSampleAnswer(onboardingSession),
+                      )
+                    }
+                    className="inline-flex items-center gap-2 rounded-lg border border-white/[0.08] px-4 py-2 text-sm font-semibold text-slate-200 transition-colors hover:bg-white/[0.04]"
+                  >
+                    <BrainCircuit size={16} />
+                    Use Guided Draft
+                  </button>
+                </div>
               </div>
-              <textarea
-                value={onboardingAnswer}
-                onChange={(event) => setOnboardingAnswer(event.target.value)}
-                className="mt-4 min-h-32 w-full resize-y rounded-xl border border-white/[0.08] bg-black/20 p-3 text-sm text-[#E6EDF3] outline-none focus:border-teal-500/60"
-                aria-label="Asset onboarding answer"
-              />
-              <div className="mt-3 flex flex-wrap gap-3">
-                <button
-                  onClick={saveOnboardingAnswer}
-                  className="inline-flex items-center gap-2 rounded-lg bg-teal-500 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-teal-400"
+
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                <Signal
+                  icon={PackageCheck}
+                  label="Asset"
+                  value={`${onboardingSession.assetId} - ${getAssetClassLabel(
+                    onboardingSession.assetClass,
+                  )}`}
+                />
+                <Signal
+                  icon={ShieldCheck}
+                  label="Criticality"
+                  value={`${onboardingSession.profile.criticality.criticalityClass} (${onboardingSession.profile.criticality.score}/${onboardingSession.profile.criticality.maxScore})`}
+                />
+                <Signal
+                  icon={AlertTriangle}
+                  label="Readiness"
+                  value={onboardingSession.readinessMessage}
+                />
+              </div>
+
+              <div className="rounded-xl border border-white/[0.06] bg-black/20 p-4">
+                <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                  <div>
+                    <div className="flex items-center gap-2 text-sm font-semibold text-[#E6EDF3]">
+                      <Database size={17} className="text-teal-300" />
+                      Persistence and resume
+                    </div>
+                    <p className="mt-1 text-sm text-slate-500">
+                      {onboardingSaveMessage}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => void refreshSavedOnboardingSessions()}
+                    className="inline-flex items-center gap-2 rounded-lg border border-white/[0.08] px-3 py-2 text-xs font-semibold text-slate-200 transition-colors hover:bg-white/[0.04]"
+                  >
+                    <RefreshCw size={14} />
+                    Refresh
+                  </button>
+                </div>
+                <div
+                  className="mt-3 grid gap-2 md:grid-cols-2"
+                  aria-label="Saved onboarding sessions"
                 >
-                  {isSavingOnboarding ? <RefreshCw size={16} /> : <Save size={16} />}
-                  Save Step And Continue
-                </button>
-                <button
-                  onClick={() =>
-                    setOnboardingAnswer(
-                      getOnboardingSampleAnswer(onboardingSession),
-                    )
-                  }
-                  className="inline-flex items-center gap-2 rounded-lg border border-white/[0.08] px-4 py-2 text-sm font-semibold text-slate-200 transition-colors hover:bg-white/[0.04]"
-                >
-                  <BrainCircuit size={16} />
-                  Use Guided Draft
-                </button>
+                  {savedOnboardingSessions.length ? (
+                    savedOnboardingSessions.slice(0, 4).map((session) => (
+                      <button
+                        key={session.sessionId}
+                        onClick={() =>
+                          void resumeOnboardingSession(session.sessionId)
+                        }
+                        className="rounded-lg border border-white/[0.06] bg-white/[0.03] p-3 text-left transition-colors hover:bg-white/[0.08]"
+                      >
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="font-mono text-sm font-semibold text-[#E6EDF3]">
+                            {session.assetId}
+                          </div>
+                          <span className="rounded bg-teal-500/10 px-2 py-0.5 text-xs capitalize text-teal-300">
+                            {session.source}
+                          </span>
+                        </div>
+                        <div className="mt-1 text-xs capitalize text-slate-500">
+                          {session.assetClass.replace("_", " ")} ·{" "}
+                          {session.mode} · {session.lifecycle.replace("_", " ")}{" "}
+                          · {session.industry.replace("_", " ")} ·{" "}
+                          {session.completionScore}% ·{" "}
+                          {session.currentStep.replace("_", " ")}
+                        </div>
+                      </button>
+                    ))
+                  ) : (
+                    <div className="rounded-lg border border-white/[0.06] bg-white/[0.03] p-3 text-sm text-slate-500 md:col-span-2">
+                      No saved sessions yet. Start onboarding or save a step to
+                      create a resumable asset profile.
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-              <Signal
-                icon={PackageCheck}
-                label="Asset"
-                value={`${onboardingSession.assetId} - ${getAssetClassLabel(
-                  onboardingSession.assetClass,
-                )}`}
-              />
-              <Signal
-                icon={ShieldCheck}
-                label="Criticality"
-                value={`${onboardingSession.profile.criticality.criticalityClass} (${onboardingSession.profile.criticality.score}/${onboardingSession.profile.criticality.maxScore})`}
-              />
-              <Signal
-                icon={AlertTriangle}
-                label="Readiness"
-                value={onboardingSession.readinessMessage}
-              />
-            </div>
-
-            <div className="rounded-xl border border-white/[0.06] bg-black/20 p-4">
-              <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                <div>
-                  <div className="flex items-center gap-2 text-sm font-semibold text-[#E6EDF3]">
-                    <Database size={17} className="text-teal-300" />
-                    Persistence and resume
-                  </div>
-                  <p className="mt-1 text-sm text-slate-500">
-                    {onboardingSaveMessage}
-                  </p>
+            <div className="space-y-4">
+              <div className="rounded-xl border border-white/[0.06] bg-black/20 p-4">
+                <div className="flex items-center gap-2 text-sm font-semibold text-[#E6EDF3]">
+                  <PackageCheck size={17} className="text-teal-300" />
+                  Final Package Exports
                 </div>
-                <button
-                  onClick={() => void refreshSavedOnboardingSessions()}
-                  className="inline-flex items-center gap-2 rounded-lg border border-white/[0.08] px-3 py-2 text-xs font-semibold text-slate-200 transition-colors hover:bg-white/[0.04]"
-                >
-                  <RefreshCw size={14} />
-                  Refresh
-                </button>
-              </div>
-              <div
-                className="mt-3 grid gap-2 md:grid-cols-2"
-                aria-label="Saved onboarding sessions"
-              >
-                {savedOnboardingSessions.length ? (
-                  savedOnboardingSessions.slice(0, 4).map((session) => (
+                <p className="mt-2 text-sm text-slate-500">
+                  Export the onboarding package as Word, PDF-ready HTML, Excel
+                  CSV, JSON, CMMS import CSV, Power BI dataset JSON, or API
+                  payload.
+                </p>
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  {exportOptions.map((option) => (
                     <button
-                      key={session.sessionId}
-                      onClick={() => void resumeOnboardingSession(session.sessionId)}
-                      className="rounded-lg border border-white/[0.06] bg-white/[0.03] p-3 text-left transition-colors hover:bg-white/[0.08]"
+                      key={option.key}
+                      onClick={() => exportOnboarding(option)}
+                      className="inline-flex items-center justify-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-xs font-semibold text-slate-200 transition-colors hover:bg-white/[0.08]"
+                    >
+                      <Download size={14} />
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-white/[0.06] bg-black/20 p-4">
+                <div className="text-sm font-semibold text-[#E6EDF3]">
+                  Progress
+                </div>
+                <div className="mt-3 max-h-[520px] space-y-2 overflow-auto pr-1">
+                  {onboardingSession.steps.map((step, index) => (
+                    <div
+                      key={step.id}
+                      className={`rounded-lg border px-3 py-2 ${
+                        step.id === onboardingSession.currentStep
+                          ? "border-teal-500/40 bg-teal-500/10"
+                          : "border-white/[0.06] bg-white/[0.03]"
+                      }`}
                     >
                       <div className="flex items-center justify-between gap-3">
-                        <div className="font-mono text-sm font-semibold text-[#E6EDF3]">
-                          {session.assetId}
+                        <div className="min-w-0">
+                          <div className="truncate text-sm font-medium text-[#E6EDF3]">
+                            {index + 1}. {step.name}
+                          </div>
+                          <div className="text-xs capitalize text-slate-500">
+                            {step.completionStatus.replace("_", " ")}
+                          </div>
                         </div>
-                        <span className="rounded bg-teal-500/10 px-2 py-0.5 text-xs capitalize text-teal-300">
-                          {session.source}
-                        </span>
+                        <div className="text-right text-xs font-semibold text-teal-300">
+                          {step.completionScore}%
+                        </div>
                       </div>
-                      <div className="mt-1 text-xs capitalize text-slate-500">
-                        {session.assetClass.replace("_", " ")} · {session.mode} ·{" "}
-                        {session.lifecycle.replace("_", " ")} · {session.industry.replace("_", " ")} ·{" "}
-                        {session.completionScore}% · {session.currentStep.replace("_", " ")}
+                      <div className="mt-2 h-1.5 rounded-full bg-white/[0.06]">
+                        <div
+                          className="h-1.5 rounded-full bg-teal-400"
+                          style={{ width: `${step.completionScore}%` }}
+                        />
                       </div>
-                    </button>
-                  ))
-                ) : (
-                  <div className="rounded-lg border border-white/[0.06] bg-white/[0.03] p-3 text-sm text-slate-500 md:col-span-2">
-                    No saved sessions yet. Start onboarding or save a step to create
-                    a resumable asset profile.
-                  </div>
-                )}
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
+        </section>
+      )}
 
-          <div className="space-y-4">
-            <div className="rounded-xl border border-white/[0.06] bg-black/20 p-4">
-              <div className="flex items-center gap-2 text-sm font-semibold text-[#E6EDF3]">
-                <PackageCheck size={17} className="text-teal-300" />
-                Final Package Exports
+      {activeWorkspace === "analysis" && (
+        <section className="grid grid-cols-1 gap-5">
+          <div className="rounded-2xl border border-white/[0.08] bg-[#0D131A]/90 p-4 shadow-xl shadow-black/20">
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div>
+                <div className="text-xs font-semibold uppercase tracking-[0.2em] text-teal-300/80">
+                  Active workspace
+                </div>
+                <h2 className="mt-1 text-lg font-semibold tracking-tight text-[#F8FAFC]">
+                  Ask, analyze, and produce the decision packet
+                </h2>
+                <p className="text-sm text-slate-500">
+                  Select a reliability method, add context, and generate a
+                  review-ready starter pack.
+                </p>
               </div>
-              <p className="mt-2 text-sm text-slate-500">
-                Export the onboarding package as Word, PDF-ready HTML, Excel
-                CSV, JSON, CMMS import CSV, Power BI dataset JSON, or API
-                payload.
-              </p>
-              <div className="mt-3 grid grid-cols-2 gap-2">
-                {exportOptions.map((option) => (
+              <div className="flex flex-wrap gap-2">
+                {modes.map((item) => (
                   <button
-                    key={option.key}
-                    onClick={() => exportOnboarding(option)}
-                    className="inline-flex items-center justify-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-xs font-semibold text-slate-200 transition-colors hover:bg-white/[0.08]"
+                    key={item}
+                    onClick={() => setMode(item)}
+                    className={`rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
+                      mode === item
+                        ? "bg-teal-400 text-slate-950 shadow-lg shadow-teal-950/20"
+                        : "bg-white/[0.04] text-slate-300 hover:bg-white/[0.08]"
+                    }`}
                   >
-                    <Download size={14} />
-                    {option.label}
+                    {item}
                   </button>
                 ))}
               </div>
             </div>
 
-            <div className="rounded-xl border border-white/[0.06] bg-black/20 p-4">
-              <div className="text-sm font-semibold text-[#E6EDF3]">
-                Progress
-              </div>
-              <div className="mt-3 max-h-[520px] space-y-2 overflow-auto pr-1">
-                {onboardingSession.steps.map((step, index) => (
-                  <div
-                    key={step.id}
-                    className={`rounded-lg border px-3 py-2 ${
-                      step.id === onboardingSession.currentStep
-                        ? "border-teal-500/40 bg-teal-500/10"
-                        : "border-white/[0.06] bg-white/[0.03]"
-                    }`}
-                  >
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="min-w-0">
-                        <div className="truncate text-sm font-medium text-[#E6EDF3]">
-                          {index + 1}. {step.name}
+            <div className="mt-4 space-y-4">
+              <div className="grid min-h-[620px] gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
+                <div className="flex min-h-[620px] flex-col rounded-2xl border border-white/[0.08] bg-[#080C11] shadow-xl shadow-black/20">
+                  <div className="order-1 border-b border-white/[0.06] p-4">
+                    <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                      <div>
+                        <div className="flex items-center gap-2 text-base font-semibold text-[#F8FAFC]">
+                          <MessageSquare size={18} className="text-teal-300" />
+                          Cowork Thread
                         </div>
-                        <div className="text-xs capitalize text-slate-500">
-                          {step.completionStatus.replace("_", " ")}
-                        </div>
+                        <p className="mt-1 text-sm leading-6 text-slate-500">
+                          The conversation, decisions, and generated reliability
+                          packet stay together.
+                        </p>
                       </div>
-                      <div className="text-right text-xs font-semibold text-teal-300">
-                        {step.completionScore}%
+                      <div className="grid min-w-[260px] grid-cols-3 gap-2 text-center">
+                        <CompactMetric label="Mode" value={lastGeneratedMode} />
+                        <CompactMetric
+                          label="Records"
+                          value={String(report.dataSummary.recordCount)}
+                        />
+                        <CompactMetric
+                          label="Status"
+                          value={liveAgent.status}
+                        />
                       </div>
-                    </div>
-                    <div className="mt-2 h-1.5 rounded-full bg-white/[0.06]">
-                      <div
-                        className="h-1.5 rounded-full bg-teal-400"
-                        style={{ width: `${step.completionScore}%` }}
-                      />
                     </div>
                   </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-      )}
-
-      {activeWorkspace === "analysis" && (
-      <section className="grid grid-cols-1 gap-5">
-        <div className="rounded-2xl border border-white/[0.08] bg-[#0D131A]/90 p-4 shadow-xl shadow-black/20">
-          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <div>
-              <div className="text-xs font-semibold uppercase tracking-[0.2em] text-teal-300/80">
-                Active workspace
-              </div>
-              <h2 className="mt-1 text-lg font-semibold tracking-tight text-[#F8FAFC]">
-                Ask, analyze, and produce the decision packet
-              </h2>
-              <p className="text-sm text-slate-500">
-                Select a reliability method, add context, and generate a
-                review-ready starter pack.
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {modes.map((item) => (
-                <button
-                  key={item}
-                  onClick={() => setMode(item)}
-                  className={`rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
-                    mode === item
-                      ? "bg-teal-400 text-slate-950 shadow-lg shadow-teal-950/20"
-                      : "bg-white/[0.04] text-slate-300 hover:bg-white/[0.08]"
-                  }`}
-                >
-                  {item}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="mt-4 space-y-4">
-            <div className="grid min-h-[620px] gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
-              <div className="flex min-h-[620px] flex-col rounded-2xl border border-white/[0.08] bg-[#080C11] shadow-xl shadow-black/20">
-                <div className="order-1 border-b border-white/[0.06] p-4">
-                  <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                    <div>
-                      <div className="flex items-center gap-2 text-base font-semibold text-[#F8FAFC]">
-                        <MessageSquare size={18} className="text-teal-300" />
-                        Cowork Thread
+                  <div className="order-3 flex-1 space-y-4 overflow-auto p-5">
+                    {chatMessages.map((message) => (
+                      <ChatBubble key={message.id} message={message} />
+                    ))}
+                    <div className="rounded-2xl border border-teal-300/15 bg-[linear-gradient(135deg,rgba(20,184,166,0.08),rgba(8,12,17,0.8))] p-4">
+                      <div className="flex items-center gap-2 text-sm font-semibold text-[#F8FAFC]">
+                        <Bot size={17} className="text-teal-300" />
+                        Current Decision Packet
                       </div>
-                      <p className="mt-1 text-sm leading-6 text-slate-500">
-                        The conversation, decisions, and generated reliability
-                        packet stay together.
-                      </p>
+                      <div className="mt-3 grid gap-3 md:grid-cols-2">
+                        <div>
+                          <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+                            Recommendation
+                          </div>
+                          <p className="mt-1 text-sm leading-6 text-slate-200">
+                            {report.recommendations[0]}
+                          </p>
+                        </div>
+                        <div>
+                          <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+                            Approval Gate
+                          </div>
+                          <p className="mt-1 text-sm leading-6 text-slate-200">
+                            {report.approvalBoundary[0]}
+                          </p>
+                        </div>
+                      </div>
                     </div>
-                    <div className="grid min-w-[260px] grid-cols-3 gap-2 text-center">
-                      <CompactMetric label="Mode" value={lastGeneratedMode} />
-                      <CompactMetric
-                        label="Records"
-                        value={String(report.dataSummary.recordCount)}
-                      />
-                      <CompactMetric label="Status" value={liveAgent.status} />
+                  </div>
+                  <div className="hidden">
+                    <div className="mb-2 flex items-center justify-between gap-3">
+                      <div className="text-xs font-semibold uppercase tracking-[0.18em] text-teal-300">
+                        Ask SyncAI
+                      </div>
+                      <div className="text-xs text-slate-500">
+                        Press Cmd/Ctrl + Enter to send
+                      </div>
+                    </div>
+                    <textarea
+                      value={prompt}
+                      onChange={(event) => setPrompt(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (
+                          event.key === "Enter" &&
+                          (event.metaKey || event.ctrlKey)
+                        ) {
+                          event.preventDefault();
+                          void generateReport();
+                        }
+                      }}
+                      className="min-h-28 w-full resize-none rounded-2xl border border-teal-300/20 bg-black/45 p-4 text-sm leading-6 text-[#E6EDF3] outline-none transition-colors placeholder:text-slate-500 focus:border-teal-400/70 focus:ring-4 focus:ring-teal-400/10"
+                      placeholder="Ask for RCA, FRACAS, PM optimization, RAM, or /onboard pump P-101..."
+                      aria-label="Interactive reliability chat input"
+                    />
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
+                      <button
+                        onClick={() => void generateReport()}
+                        disabled={!!calculation.error || isRunningLiveAgent}
+                        aria-label="Generate Report"
+                        className="inline-flex items-center gap-2 rounded-xl bg-teal-400 px-4 py-2.5 text-sm font-semibold text-slate-950 shadow-lg shadow-teal-950/20 transition-colors hover:bg-teal-300 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {isRunningLiveAgent ? (
+                          <RefreshCw size={16} />
+                        ) : (
+                          <Send size={16} />
+                        )}
+                        {isRunningLiveAgent ? "Working" : "Send"}
+                      </button>
+                      <button
+                        onClick={() =>
+                          setPrompt("/onboard used pump P-101 oil-sands deep")
+                        }
+                        className="inline-flex items-center gap-2 rounded-xl border border-white/[0.08] px-3 py-2.5 text-xs font-semibold text-slate-200 transition-colors hover:bg-white/[0.04]"
+                      >
+                        <Sparkles size={14} />
+                        /onboard
+                      </button>
+                      <button
+                        onClick={exportReport}
+                        className="inline-flex items-center gap-2 rounded-xl border border-white/[0.08] px-3 py-2.5 text-xs font-semibold text-slate-200 transition-colors hover:bg-white/[0.04]"
+                      >
+                        <Download size={14} />
+                        Export
+                      </button>
                     </div>
                   </div>
                 </div>
-                <div className="order-3 flex-1 space-y-4 overflow-auto p-5">
-                  {chatMessages.map((message) => (
-                    <ChatBubble key={message.id} message={message} />
-                  ))}
-                  <div className="rounded-2xl border border-teal-300/15 bg-[linear-gradient(135deg,rgba(20,184,166,0.08),rgba(8,12,17,0.8))] p-4">
+
+                <div className="space-y-4">
+                  <div className="rounded-2xl border border-white/[0.08] bg-[#080C11] p-4 shadow-xl shadow-black/20">
                     <div className="flex items-center gap-2 text-sm font-semibold text-[#F8FAFC]">
                       <Bot size={17} className="text-teal-300" />
-                      Current Decision Packet
+                      Agent Workstream
                     </div>
-                    <div className="mt-3 grid gap-3 md:grid-cols-2">
-                      <div>
-                        <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
-                          Recommendation
+                    <p className="mt-1 text-xs leading-5 text-slate-500">
+                      Real-time feedback from the reliability workflow.
+                    </p>
+                    <div className="mt-4 rounded-2xl border border-white/[0.07] bg-black/25 p-4">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                          Live Work Stream
                         </div>
-                        <p className="mt-1 text-sm leading-6 text-slate-200">
-                          {report.recommendations[0]}
-                        </p>
+                        <span className="rounded-full border border-teal-300/20 bg-teal-300/10 px-2.5 py-1 text-xs font-semibold text-teal-200">
+                          {isRunningLiveAgent ? "running" : "ready"}
+                        </span>
                       </div>
-                      <div>
-                        <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
-                          Approval Gate
-                        </div>
-                        <p className="mt-1 text-sm leading-6 text-slate-200">
-                          {report.approvalBoundary[0]}
-                        </p>
+                      <div className="mt-4 space-y-2">
+                        {liveWorkItems.map((item) => (
+                          <LiveWorkItem key={item.label} {...item} />
+                        ))}
                       </div>
                     </div>
                   </div>
-                </div>
-                <div className="hidden">
-                  <div className="mb-2 flex items-center justify-between gap-3">
-                    <div className="text-xs font-semibold uppercase tracking-[0.18em] text-teal-300">
-                      Ask SyncAI
-                    </div>
-                    <div className="text-xs text-slate-500">
-                      Press Cmd/Ctrl + Enter to send
-                    </div>
-                  </div>
-                  <textarea
-                    value={prompt}
-                    onChange={(event) => setPrompt(event.target.value)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
-                        event.preventDefault();
-                        void generateReport();
-                      }
-                    }}
-                    className="min-h-28 w-full resize-none rounded-2xl border border-teal-300/20 bg-black/45 p-4 text-sm leading-6 text-[#E6EDF3] outline-none transition-colors placeholder:text-slate-500 focus:border-teal-400/70 focus:ring-4 focus:ring-teal-400/10"
-                    placeholder="Ask for RCA, FRACAS, PM optimization, RAM, or /onboard pump P-101..."
-                    aria-label="Interactive reliability chat input"
-                  />
-                  <div className="mt-3 flex flex-wrap items-center gap-2">
-                    <button
-                      onClick={() => void generateReport()}
-                      disabled={!!calculation.error || isRunningLiveAgent}
-                      aria-label="Generate Report"
-                      className="inline-flex items-center gap-2 rounded-xl bg-teal-400 px-4 py-2.5 text-sm font-semibold text-slate-950 shadow-lg shadow-teal-950/20 transition-colors hover:bg-teal-300 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      {isRunningLiveAgent ? <RefreshCw size={16} /> : <Send size={16} />}
-                      {isRunningLiveAgent ? "Working" : "Send"}
-                    </button>
-                    <button
-                      onClick={() =>
-                        setPrompt("/onboard used pump P-101 oil-sands deep")
-                      }
-                      className="inline-flex items-center gap-2 rounded-xl border border-white/[0.08] px-3 py-2.5 text-xs font-semibold text-slate-200 transition-colors hover:bg-white/[0.04]"
-                    >
-                      <Sparkles size={14} />
-                      /onboard
-                    </button>
-                    <button
-                      onClick={exportReport}
-                      className="inline-flex items-center gap-2 rounded-xl border border-white/[0.08] px-3 py-2.5 text-xs font-semibold text-slate-200 transition-colors hover:bg-white/[0.04]"
-                    >
-                      <Download size={14} />
-                      Export
-                    </button>
-                  </div>
-                </div>
-              </div>
 
-              <div className="space-y-4">
-                <div className="rounded-2xl border border-white/[0.08] bg-[#080C11] p-4 shadow-xl shadow-black/20">
-                  <div className="flex items-center gap-2 text-sm font-semibold text-[#F8FAFC]">
-                    <Bot size={17} className="text-teal-300" />
-                    Agent Workstream
-                  </div>
-                  <p className="mt-1 text-xs leading-5 text-slate-500">
-                    Real-time feedback from the reliability workflow.
-                  </p>
-                  <div className="mt-4 rounded-2xl border border-white/[0.07] bg-black/25 p-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-                      Live Work Stream
+                  <div className="rounded-2xl border border-white/[0.08] bg-[#080C11] p-4 shadow-xl shadow-black/20">
+                    <div className="flex items-center gap-2 text-sm font-semibold text-[#F8FAFC]">
+                      <CircleDot size={17} className="text-teal-300" />
+                      Artifact Snapshot
                     </div>
-                    <span className="rounded-full border border-teal-300/20 bg-teal-300/10 px-2.5 py-1 text-xs font-semibold text-teal-200">
-                      {isRunningLiveAgent ? "running" : "ready"}
-                    </span>
-                  </div>
-                  <div className="mt-4 space-y-2">
-                    {liveWorkItems.map((item) => (
-                      <LiveWorkItem key={item.label} {...item} />
-                    ))}
-                  </div>
-                  </div>
-                </div>
-
-                <div className="rounded-2xl border border-white/[0.08] bg-[#080C11] p-4 shadow-xl shadow-black/20">
-                  <div className="flex items-center gap-2 text-sm font-semibold text-[#F8FAFC]">
-                    <CircleDot size={17} className="text-teal-300" />
-                    Artifact Snapshot
-                  </div>
-                  <div className="mt-4 space-y-3">
-                    <DecisionRow label="Risk" value={report.riskLevel} tone="amber" />
-                    <DecisionRow label="Confidence" value={report.confidence} />
-                    <DecisionRow
-                      label="RAG"
-                      value={report.sources[0]?.source ?? "General guidance"}
-                    />
-                    <DecisionRow
-                      label="Top Asset"
-                      value={report.badActors[0]?.assetId ?? "Pending data"}
-                    />
-                  </div>
-                </div>
-
-                <div className="rounded-2xl border border-white/[0.08] bg-[#080C11] p-4 shadow-xl shadow-black/20">
-                  <div className="flex items-center gap-2 text-sm font-semibold text-[#F8FAFC]">
-                    <Gauge size={17} className="text-teal-300" />
-                    Live Math
-                  </div>
-                  {calculation.error ? (
-                    <div className="mt-4 rounded-lg border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-200">
-                      {calculation.error}
-                    </div>
-                  ) : (
-                    <div className="mt-4 grid grid-cols-2 gap-2">
-                      <Metric label="MTBF calc" value={formatNumber(calculation.mtbf)} />
-                      <Metric label="MTTR" value={formatNumber(calculation.mttr)} />
-                      <Metric
-                        label="Avail."
-                        value={formatPercent(calculation.inherentAvailability)}
-                        wide
+                    <div className="mt-4 space-y-3">
+                      <DecisionRow
+                        label="Risk"
+                        value={report.riskLevel}
+                        tone="amber"
+                      />
+                      <DecisionRow
+                        label="Confidence"
+                        value={report.confidence}
+                      />
+                      <DecisionRow
+                        label="RAG"
+                        value={report.sources[0]?.source ?? "General guidance"}
+                      />
+                      <DecisionRow
+                        label="Top Asset"
+                        value={report.badActors[0]?.assetId ?? "Pending data"}
                       />
                     </div>
-                    )}
-                </div>
-              </div>
-            </div>
+                  </div>
 
-            <details className="rounded-2xl border border-dashed border-white/[0.12] bg-white/[0.025] p-4">
-              <summary className="cursor-pointer list-none">
-                <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="flex items-center gap-2 text-sm font-semibold text-[#E6EDF3]">
-                    <Upload size={17} className="text-teal-300" />
-                    Add failure-history data
+                  <div className="rounded-2xl border border-white/[0.08] bg-[#080C11] p-4 shadow-xl shadow-black/20">
+                    <div className="flex items-center gap-2 text-sm font-semibold text-[#F8FAFC]">
+                      <Gauge size={17} className="text-teal-300" />
+                      Live Math
+                    </div>
+                    {calculation.error ? (
+                      <div className="mt-4 rounded-lg border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-200">
+                        {calculation.error}
+                      </div>
+                    ) : (
+                      <div className="mt-4 grid grid-cols-2 gap-2">
+                        <Metric
+                          label="MTBF calc"
+                          value={formatNumber(calculation.mtbf)}
+                        />
+                        <Metric
+                          label="MTTR"
+                          value={formatNumber(calculation.mttr)}
+                        />
+                        <Metric
+                          label="Avail."
+                          value={formatPercent(
+                            calculation.inherentAvailability,
+                          )}
+                          wide
+                        />
+                      </div>
+                    )}
                   </div>
-                  <span className="text-xs text-slate-500">
-                    Optional CSV intake
-                  </span>
                 </div>
-              </summary>
-              <p className="mt-3 text-sm text-slate-500">
-                Paste or upload CSV failure history. The report updates from
-                this data when you generate.
-              </p>
-              <label className="mt-4 flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-white/[0.08] bg-black/20 px-3 py-2 text-sm font-medium text-slate-200 transition-colors hover:bg-white/[0.04]">
-                <Upload size={16} />
-                Upload CSV
-                <input
-                  type="file"
-                  accept=".csv,text/csv,text/plain"
-                  onChange={handleFailureFile}
-                  className="hidden"
-                />
-              </label>
-              <textarea
-                value={csvText}
-                onChange={(event) => setCsvText(event.target.value)}
-                className="mt-3 min-h-44 w-full resize-y rounded-xl border border-white/[0.08] bg-[#080C11] p-3 font-mono text-xs text-[#E6EDF3] outline-none focus:border-teal-500/60"
-                aria-label="Failure history CSV"
-              />
-              <div className="mt-4 grid gap-2 md:grid-cols-2">
-                {intakeItems.map((item) => (
-                  <div
-                    key={item}
-                    className="flex items-center gap-2 rounded-lg bg-black/20 px-3 py-2 text-sm text-slate-300"
-                  >
-                    <ClipboardCheck size={15} className="text-teal-300" />
-                    {item}
-                  </div>
-                ))}
               </div>
-            </details>
+
+              <details className="rounded-2xl border border-dashed border-white/[0.12] bg-white/[0.025] p-4">
+                <summary className="cursor-pointer list-none">
+                  <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex items-center gap-2 text-sm font-semibold text-[#E6EDF3]">
+                      <Upload size={17} className="text-teal-300" />
+                      Add failure-history data
+                    </div>
+                    <span className="text-xs text-slate-500">
+                      Optional CSV intake
+                    </span>
+                  </div>
+                </summary>
+                <p className="mt-3 text-sm text-slate-500">
+                  Paste or upload CSV failure history. The report updates from
+                  this data when you generate.
+                </p>
+                <label className="mt-4 flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-white/[0.08] bg-black/20 px-3 py-2 text-sm font-medium text-slate-200 transition-colors hover:bg-white/[0.04]">
+                  <Upload size={16} />
+                  Upload CSV
+                  <input
+                    type="file"
+                    accept=".csv,text/csv,text/plain"
+                    onChange={handleFailureFile}
+                    className="hidden"
+                  />
+                </label>
+                <textarea
+                  value={csvText}
+                  onChange={(event) => setCsvText(event.target.value)}
+                  className="mt-3 min-h-44 w-full resize-y rounded-xl border border-white/[0.08] bg-[#080C11] p-3 font-mono text-xs text-[#E6EDF3] outline-none focus:border-teal-500/60"
+                  aria-label="Failure history CSV"
+                />
+                <div className="mt-4 grid gap-2 md:grid-cols-2">
+                  {intakeItems.map((item) => (
+                    <div
+                      key={item}
+                      className="flex items-center gap-2 rounded-lg bg-black/20 px-3 py-2 text-sm text-slate-300"
+                    >
+                      <ClipboardCheck size={15} className="text-teal-300" />
+                      {item}
+                    </div>
+                  ))}
+                </div>
+              </details>
 
               <div className="rounded-2xl border border-white/[0.08] bg-[linear-gradient(180deg,rgba(255,255,255,0.045),rgba(255,255,255,0.02))] p-4 shadow-xl shadow-black/10">
                 <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
@@ -1422,116 +1490,120 @@ export function ReliabilityCopilotPage() {
                   </p>
                 )}
               </div>
-          </div>
-        </div>
-
-        <div className="hidden space-y-4">
-          <div className="rounded-2xl border border-teal-300/20 bg-[#0D131A]/90 p-5 shadow-xl shadow-black/20">
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2 text-sm font-semibold text-[#E6EDF3]">
-                <Bot size={17} className="text-teal-300" />
-                Agent Runtime
-              </div>
-              <span className="rounded-full border border-teal-300/20 bg-teal-300/10 px-2.5 py-1 text-xs font-semibold text-teal-200">
-                visible work
-              </span>
-            </div>
-            <div className="mt-4 space-y-2">
-              {agentRuntimeSteps.map((step) => (
-                <AgentRuntimeStep key={step.agent} {...step} />
-              ))}
             </div>
           </div>
 
-          <div className="rounded-2xl border border-white/[0.08] bg-[#0D131A]/90 p-5 shadow-xl shadow-black/20">
-            <div className="flex items-center gap-2 text-sm font-semibold text-[#E6EDF3]">
-              <ShieldCheck size={17} className="text-teal-300" />
-              Decision Snapshot
-            </div>
-            <div className="mt-4 space-y-3">
-              <DecisionRow label="Risk" value={report.riskLevel} tone="amber" />
-              <DecisionRow label="Confidence" value={report.confidence} />
-              <DecisionRow
-                label="Approval"
-                value={report.approvalBoundary[0]}
-              />
-              <DecisionRow
-                label="RAG"
-                value={report.sources[0]?.source ?? "General guidance"}
-              />
-            </div>
-          </div>
-
-          <div className="rounded-2xl border border-white/[0.08] bg-[#0D131A]/90 p-5 shadow-xl shadow-black/20">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-lg font-semibold text-[#E6EDF3]">
-                  RAM Calculator
-                </h2>
-                <p className="text-sm text-slate-500">
-                  Deterministic formulas, not LLM math.
-                </p>
+          <div className="hidden space-y-4">
+            <div className="rounded-2xl border border-teal-300/20 bg-[#0D131A]/90 p-5 shadow-xl shadow-black/20">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2 text-sm font-semibold text-[#E6EDF3]">
+                  <Bot size={17} className="text-teal-300" />
+                  Agent Runtime
+                </div>
+                <span className="rounded-full border border-teal-300/20 bg-teal-300/10 px-2.5 py-1 text-xs font-semibold text-teal-200">
+                  visible work
+                </span>
               </div>
-              <Gauge size={24} className="text-teal-300" />
-            </div>
-
-            {calculation.error ? (
-              <div className="mt-4 rounded-lg border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-200">
-                {calculation.error}
-              </div>
-            ) : (
-              <div className="mt-5 grid grid-cols-2 gap-3">
-                <Metric label="MTBF" value={formatNumber(calculation.mtbf)} />
-                <Metric label="MTTR" value={formatNumber(calculation.mttr)} />
-                <Metric
-                  label="Availability"
-                  value={formatPercent(calculation.inherentAvailability)}
-                />
-                <Metric
-                  label="Failure rate"
-                  value={formatNumber(calculation.failureRate, 5)}
-                />
-                <Metric
-                  label="Mission reliability"
-                  value={formatPercent(calculation.missionReliability)}
-                  wide
-                />
-              </div>
-            )}
-
-            <details className="mt-4 rounded-xl border border-white/[0.06] bg-black/20 p-3">
-              <summary className="cursor-pointer text-sm font-semibold text-slate-200">
-                Adjust calculation inputs
-              </summary>
-              <div className="mt-4 grid grid-cols-2 gap-3">
-                {[
-                  ["operatingHours", "Operating hours"],
-                  ["failures", "Failures"],
-                  ["repairHours", "Repair hours"],
-                  ["repairEvents", "Repair events"],
-                  ["missionTime", "Mission time"],
-                ].map(([key, label]) => (
-                  <label key={key} className="space-y-1">
-                    <span className="text-xs font-medium text-slate-500">
-                      {label}
-                    </span>
-                    <input
-                      value={inputs[key as keyof typeof inputs]}
-                      onChange={(event) =>
-                        handleInputChange(
-                          key as keyof typeof inputs,
-                          event.target.value,
-                        )
-                      }
-                      className="w-full rounded-lg border border-white/[0.08] bg-black/20 px-3 py-2 text-sm text-[#E6EDF3] outline-none focus:border-teal-500/60"
-                    />
-                  </label>
+              <div className="mt-4 space-y-2">
+                {agentRuntimeSteps.map((step) => (
+                  <AgentRuntimeStep key={step.agent} {...step} />
                 ))}
               </div>
-            </details>
+            </div>
+
+            <div className="rounded-2xl border border-white/[0.08] bg-[#0D131A]/90 p-5 shadow-xl shadow-black/20">
+              <div className="flex items-center gap-2 text-sm font-semibold text-[#E6EDF3]">
+                <ShieldCheck size={17} className="text-teal-300" />
+                Decision Snapshot
+              </div>
+              <div className="mt-4 space-y-3">
+                <DecisionRow
+                  label="Risk"
+                  value={report.riskLevel}
+                  tone="amber"
+                />
+                <DecisionRow label="Confidence" value={report.confidence} />
+                <DecisionRow
+                  label="Approval"
+                  value={report.approvalBoundary[0]}
+                />
+                <DecisionRow
+                  label="RAG"
+                  value={report.sources[0]?.source ?? "General guidance"}
+                />
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-white/[0.08] bg-[#0D131A]/90 p-5 shadow-xl shadow-black/20">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-lg font-semibold text-[#E6EDF3]">
+                    RAM Calculator
+                  </h2>
+                  <p className="text-sm text-slate-500">
+                    Deterministic formulas, not LLM math.
+                  </p>
+                </div>
+                <Gauge size={24} className="text-teal-300" />
+              </div>
+
+              {calculation.error ? (
+                <div className="mt-4 rounded-lg border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-200">
+                  {calculation.error}
+                </div>
+              ) : (
+                <div className="mt-5 grid grid-cols-2 gap-3">
+                  <Metric label="MTBF" value={formatNumber(calculation.mtbf)} />
+                  <Metric label="MTTR" value={formatNumber(calculation.mttr)} />
+                  <Metric
+                    label="Availability"
+                    value={formatPercent(calculation.inherentAvailability)}
+                  />
+                  <Metric
+                    label="Failure rate"
+                    value={formatNumber(calculation.failureRate, 5)}
+                  />
+                  <Metric
+                    label="Mission reliability"
+                    value={formatPercent(calculation.missionReliability)}
+                    wide
+                  />
+                </div>
+              )}
+
+              <details className="mt-4 rounded-xl border border-white/[0.06] bg-black/20 p-3">
+                <summary className="cursor-pointer text-sm font-semibold text-slate-200">
+                  Adjust calculation inputs
+                </summary>
+                <div className="mt-4 grid grid-cols-2 gap-3">
+                  {[
+                    ["operatingHours", "Operating hours"],
+                    ["failures", "Failures"],
+                    ["repairHours", "Repair hours"],
+                    ["repairEvents", "Repair events"],
+                    ["missionTime", "Mission time"],
+                  ].map(([key, label]) => (
+                    <label key={key} className="space-y-1">
+                      <span className="text-xs font-medium text-slate-500">
+                        {label}
+                      </span>
+                      <input
+                        value={inputs[key as keyof typeof inputs]}
+                        onChange={(event) =>
+                          handleInputChange(
+                            key as keyof typeof inputs,
+                            event.target.value,
+                          )
+                        }
+                        className="w-full rounded-lg border border-white/[0.08] bg-black/20 px-3 py-2 text-sm text-[#E6EDF3] outline-none focus:border-teal-500/60"
+                      />
+                    </label>
+                  ))}
+                </div>
+              </details>
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
       )}
 
       {activeWorkspace === "evidence" && (
@@ -1656,83 +1728,83 @@ export function ReliabilityCopilotPage() {
       )}
 
       {activeWorkspace === "analysis" && (
-      <details className="glass rounded-xl border border-white/[0.06] p-4">
-        <summary className="cursor-pointer text-sm font-semibold text-[#E6EDF3]">
-          Bad actor detail
-        </summary>
-      <section className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-        {report.badActors.slice(0, 4).map((actor, index) => (
-          <div
-            key={actor.assetId}
-            className="glass rounded-xl border border-white/[0.06] p-4"
-          >
-            <div className="flex items-start justify-between gap-3">
-              <div className="rounded-lg bg-teal-500/10 p-2">
-                <BarChart3 size={19} className="text-teal-300" />
+        <details className="glass rounded-xl border border-white/[0.06] p-4">
+          <summary className="cursor-pointer text-sm font-semibold text-[#E6EDF3]">
+            Bad actor detail
+          </summary>
+          <section className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+            {report.badActors.slice(0, 4).map((actor, index) => (
+              <div
+                key={actor.assetId}
+                className="glass rounded-xl border border-white/[0.06] p-4"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="rounded-lg bg-teal-500/10 p-2">
+                    <BarChart3 size={19} className="text-teal-300" />
+                  </div>
+                  <span className="rounded-lg bg-white/[0.04] px-2 py-1 text-xs font-medium text-slate-300">
+                    #{index + 1}
+                  </span>
+                </div>
+                <h3 className="mt-4 text-sm font-semibold text-[#E6EDF3]">
+                  {actor.assetId}
+                </h3>
+                <p className="mt-2 text-sm text-slate-500">
+                  {formatNumber(actor.downtimeHours)} downtime hours,{" "}
+                  {actor.failures} failures, top mode: {actor.topFailureMode}.
+                </p>
               </div>
-              <span className="rounded-lg bg-white/[0.04] px-2 py-1 text-xs font-medium text-slate-300">
-                #{index + 1}
-              </span>
-            </div>
-            <h3 className="mt-4 text-sm font-semibold text-[#E6EDF3]">
-              {actor.assetId}
-            </h3>
-            <p className="mt-2 text-sm text-slate-500">
-              {formatNumber(actor.downtimeHours)} downtime hours,{" "}
-              {actor.failures} failures, top mode: {actor.topFailureMode}.
-            </p>
-          </div>
-        ))}
-      </section>
-      </details>
+            ))}
+          </section>
+        </details>
       )}
 
       <details className="glass rounded-xl border border-white/[0.06] p-4">
         <summary className="cursor-pointer text-sm font-semibold text-[#E6EDF3]">
           Product capabilities and go-to-market notes
         </summary>
-      <section className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-        {workflowCards.map((card) => {
-          const Icon = card.icon;
-          return (
-            <div
-              key={card.title}
-              className="glass rounded-xl border border-white/[0.06] p-4"
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div className="rounded-lg bg-teal-500/10 p-2">
-                  <Icon size={19} className="text-teal-300" />
+        <section className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+          {workflowCards.map((card) => {
+            const Icon = card.icon;
+            return (
+              <div
+                key={card.title}
+                className="glass rounded-xl border border-white/[0.06] p-4"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="rounded-lg bg-teal-500/10 p-2">
+                    <Icon size={19} className="text-teal-300" />
+                  </div>
+                  <span className="rounded-lg bg-emerald-500/10 px-2 py-1 text-xs font-medium text-emerald-300">
+                    MVP
+                  </span>
                 </div>
-                <span className="rounded-lg bg-emerald-500/10 px-2 py-1 text-xs font-medium text-emerald-300">
-                  MVP
-                </span>
+                <h3 className="mt-4 text-sm font-semibold text-[#E6EDF3]">
+                  {card.title}
+                </h3>
+                <p className="mt-2 text-sm text-slate-500">{card.detail}</p>
               </div>
-              <h3 className="mt-4 text-sm font-semibold text-[#E6EDF3]">
-                {card.title}
-              </h3>
-              <p className="mt-2 text-sm text-slate-500">{card.detail}</p>
-            </div>
-          );
-        })}
-      </section>
+            );
+          })}
+        </section>
 
-      <section className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <Signal
-          icon={Wrench}
-          label="First sellable outcome"
-          value="RCA + FRACAS starter pack from customer maintenance data"
-        />
-        <Signal
-          icon={BarChart3}
-          label="Expansion motion"
-          value="Bad actors, PM optimization, executive reliability report"
-        />
-        <Signal
-          icon={ShieldCheck}
-          label="Marketplace posture"
-          value="Private Teams app first, AppSource listing after pilot proof"
-        />
-      </section>
+        <section className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
+          <Signal
+            icon={Wrench}
+            label="First sellable outcome"
+            value="RCA + FRACAS starter pack from customer maintenance data"
+          />
+          <Signal
+            icon={BarChart3}
+            label="Expansion motion"
+            value="Bad actors, PM optimization, executive reliability report"
+          />
+          <Signal
+            icon={ShieldCheck}
+            label="Marketplace posture"
+            value="Private Teams app first, AppSource listing after pilot proof"
+          />
+        </section>
       </details>
 
       {activeWorkspace === "analysis" && (
@@ -1763,7 +1835,9 @@ export function ReliabilityCopilotPage() {
             <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
               <div className="flex flex-wrap gap-2">
                 <button
-                  onClick={() => setPrompt("/onboard used pump P-101 oil-sands deep")}
+                  onClick={() =>
+                    setPrompt("/onboard used pump P-101 oil-sands deep")
+                  }
                   className="inline-flex items-center gap-2 rounded-lg border border-white/[0.08] px-3 py-2 text-xs font-semibold text-slate-200 transition-colors hover:bg-white/[0.04]"
                 >
                   <Sparkles size={14} />
@@ -1782,7 +1856,11 @@ export function ReliabilityCopilotPage() {
                 disabled={!!calculation.error || isRunningLiveAgent}
                 className="inline-flex items-center gap-2 rounded-xl bg-teal-400 px-5 py-2.5 text-sm font-semibold text-slate-950 shadow-lg shadow-teal-950/20 transition-colors hover:bg-teal-300 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {isRunningLiveAgent ? <RefreshCw size={16} /> : <Send size={16} />}
+                {isRunningLiveAgent ? (
+                  <RefreshCw size={16} />
+                ) : (
+                  <Send size={16} />
+                )}
                 {isRunningLiveAgent ? "Working" : "Send"}
               </button>
             </div>
@@ -1922,21 +2000,21 @@ function ChatBubble({ message }: { message: ChatMessage }) {
             </span>
           )}
         </div>
-        <p className="mt-2 whitespace-pre-wrap text-sm leading-6">{message.text}</p>
+        <p className="mt-2 whitespace-pre-wrap text-sm leading-6">
+          {message.text}
+        </p>
       </div>
     </div>
   );
 }
 
-function LiveWorkItem({
-  label,
-  status,
-}: {
-  label: string;
-  status: string;
-}) {
+function LiveWorkItem({ label, status }: { label: string; status: string }) {
   const Icon =
-    status === "complete" ? CheckCircle2 : status === "active" ? RefreshCw : Clock3;
+    status === "complete"
+      ? CheckCircle2
+      : status === "active"
+        ? RefreshCw
+        : Clock3;
 
   return (
     <div
@@ -1948,10 +2026,7 @@ function LiveWorkItem({
             : "border-white/[0.06] bg-white/[0.025] text-slate-500"
       }`}
     >
-      <Icon
-        size={16}
-        className={status === "active" ? "animate-spin" : ""}
-      />
+      <Icon size={16} className={status === "active" ? "animate-spin" : ""} />
       <div className="min-w-0 flex-1">
         <div className="truncate text-sm font-semibold text-[#F8FAFC]">
           {label}
