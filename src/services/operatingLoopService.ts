@@ -178,6 +178,45 @@ export async function getValueMetrics(): Promise<ValueMetricRow[]> {
   return data ?? [];
 }
 
+/** Human verification of a projected value metric — feeds the Learning Loop. */
+export async function verifyValueMetric(
+  metricId: string,
+  verified: boolean,
+  note?: string,
+): Promise<void> {
+  const { error } = await supabase.rpc("verify_value_metric", {
+    p_metric_id: metricId,
+    p_verified: verified,
+    p_note: note ?? null,
+  });
+  if (error) fail("Could not verify value metric", error);
+}
+
+export interface PilotScorecard {
+  pilot_started_at: string;
+  pilot_day: number;
+  pilot_length_days: number;
+  recommendations_total: number;
+  recommendations_approved: number;
+  recommendations_pending: number;
+  recommendations_from_agent_loop: number;
+  acceptance_rate_pct: number;
+  autonomous_actions_executed: number;
+  work_orders_total: number;
+  work_orders_approval_gated: number;
+  value_verified_usd: number;
+  value_projected_usd: number;
+  downtime_avoided_hours: number;
+  risk_exposure_reduced_usd: number;
+}
+
+/** Live 90-day pilot scorecard derived from real operating data. */
+export async function getPilotScorecard(): Promise<PilotScorecard> {
+  const { data, error } = await supabase.rpc("get_pilot_scorecard");
+  if (error) fail("Could not load pilot scorecard", error);
+  return data as PilotScorecard;
+}
+
 export async function getLearningEvents(): Promise<LearningEventRow[]> {
   const { data, error } = await supabase
     .from("learning_events")

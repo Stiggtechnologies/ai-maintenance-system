@@ -29,11 +29,17 @@ vi.mock("../lib/supabase", () => {
         getUser: vi.fn().mockResolvedValue({ data: { user: { id: "u1" } } }),
       },
       from: vi.fn(() => builder),
+      rpc: vi.fn(() => Promise.resolve(state.result)),
     },
   };
 });
 
-import { getAssets, getMissionControl } from "./operatingLoopService";
+import {
+  getAssets,
+  getMissionControl,
+  verifyValueMetric,
+  getPilotScorecard,
+} from "./operatingLoopService";
 
 describe("operatingLoopService", () => {
   beforeEach(() => {
@@ -58,5 +64,32 @@ describe("operatingLoopService", () => {
     expect(mc.topRecommendations).toEqual([]);
     expect(mc.valueCreated).toBe(0);
     expect(mc.factors.length).toBeGreaterThan(0);
+  });
+
+  it("verifyValueMetric surfaces RPC errors instead of swallowing them", async () => {
+    state.result = {
+      data: null,
+      error: { message: "not in your organization" },
+    };
+    await expect(verifyValueMetric("m1", true)).rejects.toThrow(
+      /not in your organization/,
+    );
+  });
+
+  it("verifyValueMetric resolves on success", async () => {
+    state.result = { data: { status: "verified" }, error: null };
+    await expect(
+      verifyValueMetric("m1", true, "confirmed"),
+    ).resolves.toBeUndefined();
+  });
+
+  it("getPilotScorecard returns the RPC payload", async () => {
+    state.result = {
+      data: { pilot_day: 5, pilot_length_days: 90, value_verified_usd: 1000 },
+      error: null,
+    };
+    const sc = await getPilotScorecard();
+    expect(sc.pilot_day).toBe(5);
+    expect(sc.value_verified_usd).toBe(1000);
   });
 });
