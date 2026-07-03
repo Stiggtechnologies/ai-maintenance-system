@@ -73,10 +73,18 @@ jobs:
         run: |
           set -euo pipefail
           eval "$(supabase status -o env | grep -E '^(ANON_KEY|API_URL)=')"
-          TOKEN=$(curl -sf "$API_URL/auth/v1/token?grant_type=password" \
-            -H "apikey: $ANON_KEY" -H "Content-Type: application/json" \
-            -d '{"email":"demo@syncai.ca","password":"Demo123!@#"}' \
-            | python3 -c "import sys,json;print(json.load(sys.stdin)['access_token'])")
+          echo "API_URL=$API_URL anon_len=${#ANON_KEY}"
+          # GoTrue can lag supabase start — retry the login briefly.
+          TOKEN=""
+          for i in $(seq 1 12); do
+            RESP=$(curl -s "$API_URL/auth/v1/token?grant_type=password" \
+              -H "apikey: $ANON_KEY" -H "Content-Type: application/json" \
+              -d '{"email":"demo@syncai.ca","password":"Demo123!@#"}')
+            TOKEN=$(echo "$RESP" | python3 -c "import sys,json;print(json.load(sys.stdin).get('access_token',''))" 2>/dev/null || true)
+            [ -n "$TOKEN" ] && break
+            echo "login attempt $i failed: $(echo "$RESP" | head -c 200)"
+            sleep 5
+          done
           test -n "$TOKEN"
           COUNT=$(curl -sf "$API_URL/rest/v1/recommendations?select=id" \
             -H "apikey: $ANON_KEY" -H "Authorization: Bearer $TOKEN" \
