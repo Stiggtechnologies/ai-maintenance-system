@@ -81,7 +81,7 @@ jobs:
               -H "apikey: $ANON_KEY" -H "Content-Type: application/json" \
               -d '{"email":"demo@syncai.ca","password":"Demo123!@#"}')
             TOKEN=$(echo "$RESP" | python3 -c "import sys,json;print(json.load(sys.stdin).get('access_token',''))" 2>/dev/null || true)
-            [ -n "$TOKEN" ] && break
+            if [ -n "$TOKEN" ]; then break; fi
             echo "login attempt $i failed: $(echo "$RESP" | head -c 200)"
             sleep 5
           done
