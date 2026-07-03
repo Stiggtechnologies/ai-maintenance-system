@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   TrendingUp,
   DollarSign,
@@ -7,11 +8,20 @@ import {
   Target,
   Activity,
   Layers,
+  CircleCheck as CheckCircle,
+  Circle as XCircle,
+  Loader2,
+  Rocket,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { useOnboardingOperatingLoop } from "../hooks/useOnboardingOperatingLoop";
 import { useAsyncData } from "../hooks/useAsyncData";
-import { getValueMetrics } from "../services/operatingLoopService";
+import {
+  getValueMetrics,
+  verifyValueMetric,
+  getPilotScorecard,
+  type PilotScorecard,
+} from "../services/operatingLoopService";
 import type { ValueMetricRow } from "../types/operating";
 import {
   LoadingState,
@@ -113,8 +123,31 @@ export function ValueRealization() {
     () => getValueMetrics(),
     [],
   );
+  const scorecard = useAsyncData<PilotScorecard>(() => getPilotScorecard(), []);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
+
+  const handleVerify = async (m: ValueMetricRow, isVerified: boolean) => {
+    setBusyId(m.id);
+    try {
+      await verifyValueMetric(m.id, isVerified);
+      setToast(
+        isVerified
+          ? `Verified ${fmt(Number(m.value), m.unit)} — ${m.label ?? m.metric_type}. Learning Loop updated.`
+          : `Rejected ${m.label ?? m.metric_type} — logged as false positive for model feedback.`,
+      );
+      refetch();
+      scorecard.refetch();
+      window.setTimeout(() => setToast(null), 5000);
+    } catch (e) {
+      setToast(e instanceof Error ? e.message : "Verification failed.");
+    } finally {
+      setBusyId(null);
+    }
+  };
 
   const metrics = data ?? [];
+  const projected = metrics.filter((m) => m.status === "projected");
   const verified = metrics.filter((m) => m.status === "verified");
   const usdVerified = verified.filter((m) => m.unit === "usd");
   const totalSavings = usdVerified.reduce((s, m) => s + Number(m.value), 0);
@@ -178,11 +211,161 @@ export function ValueRealization() {
         </div>
       </div>
 
+      {toast && (
+        <div className="fixed top-4 right-4 z-[60] max-w-sm bg-[#0D1520] border border-teal-500/30 rounded-xl px-4 py-3 text-xs text-teal-200 shadow-xl shadow-black/40">
+          {toast}
+        </div>
+      )}
+
       {loading && <LoadingState label="Loading value metrics…" />}
       {error && <ErrorState message={error} onRetry={refetch} />}
 
       {!loading && !error && (
         <>
+          {/* 90-day pilot scorecard — live, derived from real operating data */}
+          {scorecard.data && (
+            <div className="bg-[#0D1520] border border-teal-500/20 rounded-2xl p-5">
+              <div className="flex items-center gap-2 mb-4">
+                <Rocket className="w-4 h-4 text-teal-400" />
+                <h3 className="text-sm font-semibold text-slate-200">
+                  90-Day Pilot Scorecard
+                </h3>
+                <span className="text-[10px] text-slate-600 ml-auto">
+                  Live · derived from operating data · started{" "}
+                  {scorecard.data.pilot_started_at.slice(0, 10)}
+                </span>
+              </div>
+              <div className="mb-4">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-[10px] text-slate-600">
+                    Day {scorecard.data.pilot_day} of{" "}
+                    {scorecard.data.pilot_length_days}
+                  </span>
+                  <span className="text-[10px] font-bold text-teal-400">
+                    {Math.round(
+                      (scorecard.data.pilot_day /
+                        scorecard.data.pilot_length_days) *
+                        100,
+                    )}
+                    %
+                  </span>
+                </div>
+                <div className="h-1.5 bg-white/[0.05] rounded-full overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-teal-500"
+                    style={{
+                      width: `${(scorecard.data.pilot_day / scorecard.data.pilot_length_days) * 100}%`,
+                    }}
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-3 text-center">
+                {[
+                  {
+                    label: "Recommendations",
+                    value: scorecard.data.recommendations_total,
+                  },
+                  {
+                    label: "From Agent Loop",
+                    value: scorecard.data.recommendations_from_agent_loop,
+                  },
+                  {
+                    label: "Acceptance Rate",
+                    value: `${scorecard.data.acceptance_rate_pct}%`,
+                  },
+                  {
+                    label: "Autonomous Actions",
+                    value: scorecard.data.autonomous_actions_executed,
+                  },
+                  {
+                    label: "Work Orders",
+                    value: scorecard.data.work_orders_total,
+                  },
+                  {
+                    label: "Approval-Gated",
+                    value: scorecard.data.work_orders_approval_gated,
+                  },
+                  {
+                    label: "Value Verified",
+                    value: fmt(scorecard.data.value_verified_usd, "usd"),
+                  },
+                  {
+                    label: "Value Projected",
+                    value: fmt(scorecard.data.value_projected_usd, "usd"),
+                  },
+                ].map((s) => (
+                  <div
+                    key={s.label}
+                    className="p-2.5 rounded-xl bg-white/[0.02] border border-white/[0.05]"
+                  >
+                    <div className="text-lg font-black text-teal-400">
+                      {s.value}
+                    </div>
+                    <div className="text-[10px] text-slate-500 mt-0.5">
+                      {s.label}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Pending verification — human sign-off closes the value loop */}
+          {projected.length > 0 && (
+            <div className="bg-[#0D1520] border border-amber-500/20 rounded-2xl p-5">
+              <div className="flex items-center gap-2 mb-4">
+                <Clock className="w-4 h-4 text-amber-400" />
+                <h3 className="text-sm font-semibold text-slate-200">
+                  Pending Verification
+                </h3>
+                <span className="text-[10px] text-slate-600 ml-auto">
+                  Projected value requires operator sign-off before it counts
+                </span>
+              </div>
+              <div className="space-y-2">
+                {projected.map((m) => (
+                  <div
+                    key={m.id}
+                    className="flex items-center gap-4 p-3 rounded-xl bg-white/[0.02] border border-white/[0.04]"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm text-slate-200">
+                        {m.label ?? m.metric_type}
+                      </div>
+                      <div className="text-[10px] text-slate-500 mt-0.5">
+                        {m.period ?? "—"} · projected
+                      </div>
+                    </div>
+                    <div className="text-base font-black text-amber-400">
+                      {fmt(Number(m.value), m.unit)}
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        disabled={busyId === m.id}
+                        onClick={() => handleVerify(m, true)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-teal-500/20 border border-teal-500/30 text-teal-400 text-xs font-medium rounded-lg hover:bg-teal-500/30 disabled:opacity-50"
+                      >
+                        {busyId === m.id ? (
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                        ) : (
+                          <CheckCircle className="w-3 h-3" />
+                        )}
+                        Verify
+                      </button>
+                      <button
+                        disabled={busyId === m.id}
+                        onClick={() => handleVerify(m, false)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-medium rounded-lg hover:bg-red-500/20 disabled:opacity-50"
+                      >
+                        <XCircle className="w-3 h-3" /> Reject
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
             {hero.map((s) => (
               <div
