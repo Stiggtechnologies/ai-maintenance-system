@@ -72,6 +72,8 @@ jobs:
       - name: Smoke — demo login, RLS read, RPC
         run: |
           set -euo pipefail
+          trap 'echo "FAILED at line $LINENO: $BASH_COMMAND"' ERR
+          set -x
           eval "$(supabase status -o env | grep -E '^(ANON_KEY|API_URL)=')"
           echo "API_URL=$API_URL anon_len=${#ANON_KEY}"
           # GoTrue can lag supabase start — retry the login briefly. Every
