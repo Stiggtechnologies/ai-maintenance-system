@@ -10,6 +10,7 @@ on:
     paths:
       - "supabase/migrations/**"
       - "supabase/functions/agent-loop-enrich/**"
+      - "supabase/functions/ai-agent-processor/**"
   workflow_dispatch:
 
 concurrency:
@@ -40,7 +41,9 @@ jobs:
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
 
-      - name: Deploy agent-loop-enrich edge function
-        run: supabase functions deploy agent-loop-enrich --no-verify-jwt
+      - name: Deploy edge functions
+        run: |
+          supabase functions deploy agent-loop-enrich --no-verify-jwt
+          supabase functions deploy ai-agent-processor
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
