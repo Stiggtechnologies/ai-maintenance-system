@@ -88,7 +88,6 @@ Deno.serve(async (req) => {
           model: LLM_MODEL,
           temperature: 0.3,
           max_completion_tokens: 400,
-          response_format: { type: "json_object" },
           messages: [
             {
               role: "system",
@@ -113,7 +112,10 @@ Deno.serve(async (req) => {
       }
 
       const data = await resp.json();
-      const parsed = JSON.parse(data.choices?.[0]?.message?.content ?? "{}");
+      const content: string = data.choices?.[0]?.message?.content ?? "";
+      // Providers differ on JSON-mode support — extract the first JSON object.
+      const match = content.match(/\{[\s\S]*\}/);
+      const parsed = match ? JSON.parse(match[0]) : {};
       if (!parsed.analysis) {
         failures.push(`${rec.id}: no analysis in response`);
         continue;
