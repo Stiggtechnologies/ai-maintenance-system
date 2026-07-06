@@ -521,6 +521,54 @@ How to respond:
   return agentPrompts[agentType] || `You are an expert AI agent for asset-intensive industries${industryContext}. Provide detailed, actionable insights with specific metrics and recommendations.`;
 }
 
+
+// ---------------------------------------------------------------------------
+// Reliability knowledge base retrieval (RAG) — fail-soft.
+// Embeds the query with gemini-embedding-2 (768 dims, ENRICH_LLM_API_KEY /
+// GEMINI_API_KEY) and retrieves top chunks from reliability_kb_chunks so the
+// copilot can cite MIL-HDBK-338B / DoD RAM Guide the way the owner's GPT does.
+// Any failure returns null and the copilot answers without citations.
+// ---------------------------------------------------------------------------
+const KB_EMBED_KEY = Deno.env.get("ENRICH_LLM_API_KEY") ?? Deno.env.get("GEMINI_API_KEY") ?? "";
+const KB_AGENTS = new Set(["ReliabilityAgent", "PreventiveMaintenanceAgent", "AssetHealthAgent", "RiskAssessmentAgent"]);
+
+async function retrieveKbContext(supabase: any, query: string): Promise<string | null> {
+  try {
+    if (!KB_EMBED_KEY || !query || query.length < 12) return null;
+    const embedRes = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-2:embedContent?key=${KB_EMBED_KEY}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "models/gemini-embedding-2",
+          content: { parts: [{ text: query.slice(0, 8000) }] },
+          outputDimensionality: 768,
+        }),
+      },
+    );
+    if (!embedRes.ok) return null;
+    const embedding = (await embedRes.json())?.embedding?.values;
+    if (!embedding) return null;
+
+    const { data, error } = await supabase.rpc("match_reliability_kb", {
+      query_embedding: JSON.stringify(embedding),
+      match_count: 4,
+    });
+    if (error || !data || data.length === 0) return null;
+
+    const passages = data
+      .filter((m: any) => m.similarity > 0.35)
+      .map((m: any) =>
+        `[${m.title}, p.${m.page_start}${m.page_end !== m.page_start ? "-" + m.page_end : ""}]\n${String(m.content).slice(0, 1400)}`,
+      );
+    if (passages.length === 0) return null;
+    return passages.join("\n\n---\n\n");
+  } catch {
+    return null;
+  }
+}
+
 async function handleLegacyRequest(
   supabase: any,
   body: LegacyAgentRequest,
@@ -544,7 +592,22 @@ async function handleLegacyRequest(
     userQuery = `${userQuery}\n\nProvide a brief, helpful response.`;
   }
 
-  const { content: aiResponse, usage } = await callLLM(selectedModel, systemPrompt, userQuery, apiKey);
+  // RAG: ground knowledge-heavy agents in the reliability body of knowledge.
+  let groundedSystemPrompt = systemPrompt;
+  let citedSources = false;
+  if (KB_AGENTS.has(agentType)) {
+    const kbContext = await retrieveKbContext(supabase, userQuery);
+    if (kbContext) {
+      citedSources = true;
+      groundedSystemPrompt = `${systemPrompt}
+
+REFERENCE PASSAGES (retrieved from the reliability engineering body of knowledge — ground your answer in these where relevant and cite them inline using their bracketed labels, e.g. [MIL-HDBK-338B, p.123]):
+
+${kbContext}`;
+    }
+  }
+
+  const { content: aiResponse, usage } = await callLLM(selectedModel, groundedSystemPrompt, userQuery, apiKey);
   const processingTime = Date.now() - startTime;
 
   await supabase.from("ai_agent_logs").insert({
@@ -569,6 +632,7 @@ async function handleLegacyRequest(
       agentType,
       industry: industry || "general",
       modelUsed: selectedModel,
+      knowledgeBaseUsed: citedSources,
       requiresApproval: requiresApproval || false,
     }),
     { headers: { ...corsHeaders, "Content-Type": "application/json" } },
