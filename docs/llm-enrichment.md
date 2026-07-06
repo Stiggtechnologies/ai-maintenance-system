@@ -54,6 +54,9 @@ not yet deployed (`stigg-ai-gateway.fly.dev` does not exist; the repo at
    supabase secrets set \
      LLM_BASE_URL=https://stigg-ai-gateway.fly.dev \
      LLM_API_KEY=<ai-maintenance-system-staging virtual key>
+
+   (`ENRICH_SHARED_SECRET` is already set on the project and stored in the
+   cron config — the caller-auth path is live and verified.)
    ```
 
 That's it — the cron plumbing is already configured on the cloud project.

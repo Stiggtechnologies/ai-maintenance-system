@@ -24,6 +24,9 @@ const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const LLM_BASE_URL = Deno.env.get("LLM_BASE_URL") ?? "";
 const LLM_API_KEY = Deno.env.get("LLM_API_KEY") ?? "";
 const LLM_MODEL = Deno.env.get("LLM_MODEL") ?? "stigg/fast";
+// Dedicated caller secret — decoupled from platform key formats. Set with:
+//   supabase secrets set ENRICH_SHARED_SECRET=<random>
+const ENRICH_SHARED_SECRET = Deno.env.get("ENRICH_SHARED_SECRET") ?? "";
 
 const BATCH_LIMIT = 5;
 
@@ -43,9 +46,12 @@ function json(body: unknown, status = 200): Response {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
-  // Service-role only — this is a platform job, not a user surface.
+  // Platform-only — accept the injected service key or our dedicated secret.
   const auth = req.headers.get("Authorization") ?? "";
-  if (!SERVICE_ROLE_KEY || auth !== `Bearer ${SERVICE_ROLE_KEY}`) {
+  const authorized =
+    (SERVICE_ROLE_KEY && auth === `Bearer ${SERVICE_ROLE_KEY}`) ||
+    (ENRICH_SHARED_SECRET && auth === `Bearer ${ENRICH_SHARED_SECRET}`);
+  if (!authorized) {
     return json({ error: "service role required" }, 401);
   }
 
