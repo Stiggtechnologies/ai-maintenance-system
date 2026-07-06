@@ -166,7 +166,11 @@ function EvidenceDrawer({
       <div className="relative w-full max-w-md h-full bg-[#0D1520] border-l border-white/[0.08] overflow-y-auto p-5">
         <div className="flex items-center justify-between mb-1">
           <h3 className="text-sm font-semibold text-slate-200">Evidence</h3>
-          <button onClick={onClose} className="text-slate-500 hover:text-white">
+          <button
+            aria-label="Close"
+            onClick={onClose}
+            className="text-slate-500 hover:text-white"
+          >
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -246,7 +250,11 @@ function ScenarioModal({
             <FlaskConical className="w-4 h-4 text-teal-400" /> Scenario
             comparison
           </h3>
-          <button onClick={onClose} className="text-slate-500 hover:text-white">
+          <button
+            aria-label="Close"
+            onClick={onClose}
+            className="text-slate-500 hover:text-white"
+          >
             <X className="w-4 h-4" />
           </button>
         </div>
