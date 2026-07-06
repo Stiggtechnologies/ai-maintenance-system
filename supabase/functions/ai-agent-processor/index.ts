@@ -601,7 +601,10 @@ async function handleLegacyRequest(
       citedSources = true;
       groundedSystemPrompt = `${systemPrompt}
 
-REFERENCE PASSAGES (retrieved from the reliability engineering body of knowledge — ground your answer in these where relevant and cite them inline using their bracketed labels, e.g. [MIL-HDBK-338B, p.123]):
+REFERENCE PASSAGES from the reliability engineering body of knowledge are provided below. CITATION REQUIREMENTS:
+- You MUST include inline citations using the exact bracketed labels of the passages, e.g. [MIL-HDBK-338B, p.123] or [DoD RAM Guide, p.196].
+- Cite at least two passages: anchor case-specific claims where a passage supports them, and anchor your methodology (e.g. FRACAS closure discipline, RCA process, monitoring practice) to the passage that prescribes it.
+- Never invent citations — only use the bracketed labels provided.
 
 ${kbContext}`;
     }
