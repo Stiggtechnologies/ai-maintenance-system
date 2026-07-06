@@ -70,6 +70,17 @@ Within 10 minutes, loop-raised recommendations start carrying
 `AI analysis (stigg/fast): …` rationale, visible in Mission Control, and each
 enrichment logs an `agent_runs` row.
 
+## Model notes (learned the hard way, 2026-07-06)
+
+- **Live config:** enrichment = `gemini-flash-latest` via Google's OpenAI-compat
+  endpoint (free tier, key attribution in Google AI Studio); copilot =
+  OpenAI default (`LLM_BASE_URL` unset) + `OPENAI_API_KEY`.
+- `gemini-2.5-flash` is a _thinking_ model — its reasoning consumes the token
+  budget and can return empty content. `gemini-2.0-flash` no longer has free
+  quota. `gemini-flash-latest` returns clean JSON.
+- Function reports `provider: {base, model, key_len}` and upstream error
+  snippets in `failures` — a 14-char key means someone left the placeholder in.
+
 ## Verify
 
 ```bash
