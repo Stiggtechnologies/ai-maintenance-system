@@ -78,6 +78,8 @@ Deno.serve(async (req) => {
   if (error) return json({ enriched: 0, skipped: `query_failed: ${error.message}` });
   if (!recs || recs.length === 0) return json({ enriched: 0, skipped: "nothing_to_enrich" });
 
+  const providerInfo = { base: LLM_BASE_URL, model: LLM_MODEL, key_len: LLM_API_KEY.length };
+
   let enriched = 0;
   const failures: string[] = [];
 
@@ -92,7 +94,7 @@ Deno.serve(async (req) => {
         body: JSON.stringify({
           model: LLM_MODEL,
           temperature: 0.3,
-          max_completion_tokens: 400,
+          max_completion_tokens: 1500,
           messages: [
             {
               role: "system",
@@ -112,7 +114,8 @@ Deno.serve(async (req) => {
       });
 
       if (!resp.ok) {
-        failures.push(`${rec.id}: HTTP ${resp.status}`);
+        const errBody = (await resp.text()).slice(0, 180);
+        failures.push(`${rec.id}: HTTP ${resp.status} — ${errBody}`);
         continue;
       }
 
@@ -162,5 +165,5 @@ Deno.serve(async (req) => {
     }
   }
 
-  return json({ enriched, of: recs.length, failures });
+  return json({ enriched, of: recs.length, failures, provider: providerInfo });
 });
