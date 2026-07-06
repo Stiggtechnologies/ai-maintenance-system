@@ -25,6 +25,24 @@ const chunks = readFileSync(chunksPath, "utf8")
 
 console.log(`chunks: ${chunks.length}`);
 
+// Skip chunks already ingested (resume without re-embedding).
+const existing = new Set();
+{
+  let off = 0;
+  for (;;) {
+    const r = await fetch(
+      `${supabaseUrl}/rest/v1/reliability_kb_chunks?select=chunk_id&limit=1000&offset=${off}`,
+      { headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` } },
+    );
+    const rows = await r.json();
+    if (!Array.isArray(rows) || rows.length === 0) break;
+    rows.forEach((x) => existing.add(x.chunk_id));
+    off += 1000;
+  }
+}
+const pending = chunks.filter((c) => !existing.has(c.chunk_id));
+console.log(`already ingested: ${existing.size} · pending: ${pending.length}`);
+
 const EMBED_BATCH = 40; // rows per upsert page
 const EMBED_MODEL = "gemini-embedding-2"; // 768-dim truncation via outputDimensionality
 const CONCURRENCY = 8;
@@ -83,8 +101,8 @@ async function upsertRows(rows) {
 }
 
 let done = 0;
-for (let i = 0; i < chunks.length; i += EMBED_BATCH) {
-  const batch = chunks.slice(i, i + EMBED_BATCH);
+for (let i = 0; i < pending.length; i += EMBED_BATCH) {
+  const batch = pending.slice(i, i + EMBED_BATCH);
   const embeddings = await embedBatch(batch.map((c) => c.text));
   const rows = batch.map((c, j) => ({
     chunk_id: c.chunk_id,
@@ -100,7 +118,7 @@ for (let i = 0; i < chunks.length; i += EMBED_BATCH) {
   }));
   await upsertRows(rows);
   done += batch.length;
-  console.log(`  upserted ${done}/${chunks.length}`);
+  console.log(`  upserted ${done}/${pending.length}`);
   await sleep(800); // stay under free-tier RPM
 }
 console.log("ingestion complete");
