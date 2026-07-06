@@ -21,9 +21,14 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-const LLM_BASE_URL = Deno.env.get("LLM_BASE_URL") ?? "";
-const LLM_API_KEY = Deno.env.get("LLM_API_KEY") ?? "";
-const LLM_MODEL = Deno.env.get("LLM_MODEL") ?? "stigg/fast";
+// ENRICH_* lets this background surface use a different (cheaper) provider
+// than the interactive copilot, which owns LLM_BASE_URL/OPENAI_API_KEY.
+const LLM_BASE_URL =
+  Deno.env.get("ENRICH_LLM_BASE_URL") ?? Deno.env.get("LLM_BASE_URL") ?? "";
+const LLM_API_KEY =
+  Deno.env.get("ENRICH_LLM_API_KEY") ?? Deno.env.get("LLM_API_KEY") ?? "";
+const LLM_MODEL =
+  Deno.env.get("ENRICH_LLM_MODEL") ?? Deno.env.get("LLM_MODEL") ?? "stigg/fast";
 // Dedicated caller secret — decoupled from platform key formats. Set with:
 //   supabase secrets set ENRICH_SHARED_SECRET=<random>
 const ENRICH_SHARED_SECRET = Deno.env.get("ENRICH_SHARED_SECRET") ?? "";

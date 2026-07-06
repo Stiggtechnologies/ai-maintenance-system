@@ -1,5 +1,11 @@
 # LLM enrichment for the continuous agent loop
 
+> **Per-surface providers:** enrichment reads `ENRICH_LLM_BASE_URL` /
+> `ENRICH_LLM_API_KEY` / `ENRICH_LLM_MODEL` (falls back to `LLM_*`). The
+> interactive copilot (`ai-agent-processor`) uses `LLM_BASE_URL` (default
+> OpenAI) + `OPENAI_API_KEY`. This lets background enrichment run on free
+> Gemini Flash while the copilot stays on the model your testing validated.
+
 The deterministic agent loop (`run_agent_loop`, every 5 min) raises pending
 recommendations from live sensor state. The **enrichment pipeline** upgrades
 those with real model reasoning through the **Stigg AI Gateway** (LiteLLM,
