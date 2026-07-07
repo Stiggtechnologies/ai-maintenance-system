@@ -23,24 +23,27 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+// Deliberately NOT inheriting ENRICH_LLM_* here: that surface runs on the
+// free-tier Gemini endpoint whose rate limits stall long batch calls. This
+// function shares the copilot's OpenAI provider unless ONBOARD_* overrides.
 const LLM_BASE_URL =
   Deno.env.get("ONBOARD_LLM_BASE_URL") ??
-  Deno.env.get("ENRICH_LLM_BASE_URL") ??
   Deno.env.get("LLM_BASE_URL") ??
   "https://api.openai.com";
 const LLM_API_KEY =
   Deno.env.get("ONBOARD_LLM_API_KEY") ??
-  Deno.env.get("ENRICH_LLM_API_KEY") ??
   Deno.env.get("OPENAI_API_KEY") ??
   Deno.env.get("LLM_API_KEY") ??
   "";
-const LLM_MODEL =
-  Deno.env.get("ONBOARD_LLM_MODEL") ??
-  Deno.env.get("ENRICH_LLM_MODEL") ??
-  "gpt-4o-mini";
+const LLM_MODEL = Deno.env.get("ONBOARD_LLM_MODEL") ?? "gpt-4o-mini";
 const ENRICH_SHARED_SECRET = Deno.env.get("ENRICH_SHARED_SECRET") ?? "";
 
-const ASSET_BATCH = 3;
+// One asset per invocation, deduced in small chunks with incremental writes:
+// edge functions are killed at the platform's response deadline, so progress
+// must persist as it happens. The 15-min cron drains the queue over time.
+const ASSET_BATCH = 1;
+const CHUNK_SIZE = 8;
+const DEADLINE_MS = 100_000;
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -106,101 +109,120 @@ Deno.serve(async (req) => {
   let demotedToHuman = 0;
   const failures: string[] = [];
 
+  const startedAt = Date.now();
+
   for (const entry of entries) {
     const pending = entry.pending ?? [];
     if (pending.length === 0) continue;
 
-    try {
-      const askList = pending
-        .map((p) => `- "${p.key}": ${p.label}${p.hint ? ` (${p.hint})` : ""}`)
-        .join("\n");
+    let assetDeduced = 0;
+    let assetDemoted = 0;
+    let asked = 0;
 
-      const resp = await fetch(`${LLM_BASE_URL}/v1/chat/completions`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${LLM_API_KEY}`,
-        },
-        body: JSON.stringify({
-          model: LLM_MODEL,
-          temperature: 0.2,
-          max_completion_tokens: 3000,
-          messages: [
-            {
-              role: "system",
-              content:
-                "You are a senior reliability engineer (RCM/FMEA/MIL-HDBK-338B practice) onboarding an asset " +
-                "into a reliability platform. Deduce ONLY what a competent engineer could infer from the asset's " +
-                "class, OEM, model and operating context. Return strict JSON keyed by requirement key: " +
-                '{"<key>": {"summary": "<concise engineering answer, 1-3 sentences>", ' +
-                '"confidence": "high"|"medium"|"low", "rationale": "<why / basis>"}}. ' +
-                "Use confidence \"low\" whenever the answer genuinely requires site-specific data you were not given " +
-                "(that routes it to a human). Never invent serial numbers, dates, document links or stock levels.",
-            },
-            {
-              role: "user",
-              content:
-                `Asset: ${JSON.stringify(entry.asset)}\n` +
-                `Already established during onboarding: ${JSON.stringify(entry.known).slice(0, 4000)}\n\n` +
-                `Deduce the following requirements:\n${askList}`,
-            },
-          ],
-        }),
-      });
-
-      if (!resp.ok) {
-        const errBody = (await resp.text()).slice(0, 180);
-        failures.push(`${entry.asset_id}: HTTP ${resp.status} — ${errBody}`);
-        continue;
-      }
-
-      const data = await resp.json();
-      const content: string = data.choices?.[0]?.message?.content ?? "";
-      const match = content.match(/\{[\s\S]*\}/);
-      const parsed = match ? JSON.parse(match[0]) : {};
-
-      let assetDeduced = 0;
-      let assetDemoted = 0;
-      for (const item of pending) {
-        const answer = parsed[item.key];
-        if (!answer || !answer.summary) continue;
-        const confidence = ["high", "medium", "low"].includes(answer.confidence)
-          ? answer.confidence
-          : "low";
-
-        const { error: applyError } = await supabase.rpc(
-          "apply_onboarding_ai_deduction",
-          {
-            p_item_id: item.item_id,
-            p_value: { summary: answer.summary },
-            p_confidence: confidence,
-            p_rationale: answer.rationale ?? null,
-          },
+    for (let i = 0; i < pending.length; i += CHUNK_SIZE) {
+      if (Date.now() - startedAt > DEADLINE_MS) {
+        failures.push(
+          "deadline reached — remaining items stay queued for the next cron pass",
         );
-        if (applyError) {
-          failures.push(`${item.key}: ${applyError.message}`);
-        } else if (confidence === "low") {
-          assetDemoted += 1;
-        } else {
-          assetDeduced += 1;
-        }
+        break;
       }
-      deduced += assetDeduced;
-      demotedToHuman += assetDemoted;
+      const chunk = pending.slice(i, i + CHUNK_SIZE);
+      asked += chunk.length;
 
-      await supabase.from("asset_onboarding_runs").insert({
-        organization_id: entry.organization_id,
-        asset_id: entry.asset_id,
-        run_type: "ai_deduction",
-        items_deduced: assetDeduced,
-        items_human_required: assetDemoted,
-        detail: { model: LLM_MODEL, asked: pending.length },
-      });
-    } catch (e) {
-      failures.push(
-        `${entry.asset_id}: ${e instanceof Error ? e.message : String(e)}`,
-      );
+      try {
+        const askList = chunk
+          .map((p) => `- "${p.key}": ${p.label}${p.hint ? ` (${p.hint})` : ""}`)
+          .join("\n");
+
+        const resp = await fetch(`${LLM_BASE_URL}/v1/chat/completions`, {
+          method: "POST",
+          signal: AbortSignal.timeout(45_000),
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${LLM_API_KEY}`,
+          },
+          body: JSON.stringify({
+            model: LLM_MODEL,
+            temperature: 0.2,
+            max_completion_tokens: 1200,
+            messages: [
+              {
+                role: "system",
+                content:
+                  "You are a senior reliability engineer (RCM/FMEA/MIL-HDBK-338B practice) onboarding an asset " +
+                  "into a reliability platform. Deduce ONLY what a competent engineer could infer from the asset's " +
+                  "class, OEM, model and operating context. Return strict JSON keyed by requirement key: " +
+                  '{"<key>": {"summary": "<concise engineering answer, 1-2 sentences>", ' +
+                  '"confidence": "high"|"medium"|"low", "rationale": "<why / basis, one short phrase>"}}. ' +
+                  'Use confidence "low" whenever the answer genuinely requires site-specific data you were not given ' +
+                  "(that routes it to a human). Never invent serial numbers, dates, document links or stock levels.",
+              },
+              {
+                role: "user",
+                content:
+                  `Asset: ${JSON.stringify(entry.asset)}\n` +
+                  `Already established during onboarding: ${JSON.stringify(entry.known).slice(0, 2500)}\n\n` +
+                  `Deduce the following requirements:\n${askList}`,
+              },
+            ],
+          }),
+        });
+
+        if (!resp.ok) {
+          const errBody = (await resp.text()).slice(0, 180);
+          failures.push(`${entry.asset_id}: HTTP ${resp.status} — ${errBody}`);
+          continue;
+        }
+
+        const data = await resp.json();
+        const content: string = data.choices?.[0]?.message?.content ?? "";
+        const match = content.match(/\{[\s\S]*\}/);
+        const parsed = match ? JSON.parse(match[0]) : {};
+
+        for (const item of chunk) {
+          const answer = parsed[item.key];
+          if (!answer || !answer.summary) continue;
+          const confidence = ["high", "medium", "low"].includes(
+            answer.confidence,
+          )
+            ? answer.confidence
+            : "low";
+
+          const { error: applyError } = await supabase.rpc(
+            "apply_onboarding_ai_deduction",
+            {
+              p_item_id: item.item_id,
+              p_value: { summary: answer.summary },
+              p_confidence: confidence,
+              p_rationale: answer.rationale ?? null,
+            },
+          );
+          if (applyError) {
+            failures.push(`${item.key}: ${applyError.message}`);
+          } else if (confidence === "low") {
+            assetDemoted += 1;
+          } else {
+            assetDeduced += 1;
+          }
+        }
+      } catch (e) {
+        failures.push(
+          `${entry.asset_id}: ${e instanceof Error ? e.message : String(e)}`,
+        );
+      }
     }
+
+    deduced += assetDeduced;
+    demotedToHuman += assetDemoted;
+
+    await supabase.from("asset_onboarding_runs").insert({
+      organization_id: entry.organization_id,
+      asset_id: entry.asset_id,
+      run_type: "ai_deduction",
+      items_deduced: assetDeduced,
+      items_human_required: assetDemoted,
+      detail: { model: LLM_MODEL, asked },
+    });
   }
 
   return json({
