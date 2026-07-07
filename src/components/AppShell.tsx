@@ -114,6 +114,7 @@ const navGroups: NavGroup[] = [
     icon: Factory,
     items: [
       { id: "assets", label: "Assets", path: "/assets" },
+      { id: "onboarding", label: "Asset Onboarding", path: "/onboarding" },
       { id: "reliability", label: "Reliability", path: "/reliability" },
       { id: "risk", label: "Risk & Consequence", path: "/risk" },
     ],

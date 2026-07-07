@@ -11,6 +11,7 @@ on:
       - "supabase/migrations/**"
       - "supabase/functions/agent-loop-enrich/**"
       - "supabase/functions/ai-agent-processor/**"
+      - "supabase/functions/onboarding-enrich/**"
   workflow_dispatch:
 
 concurrency:
@@ -45,5 +46,6 @@ jobs:
         run: |
           supabase functions deploy agent-loop-enrich --no-verify-jwt
           supabase functions deploy ai-agent-processor
+          supabase functions deploy onboarding-enrich --no-verify-jwt
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
