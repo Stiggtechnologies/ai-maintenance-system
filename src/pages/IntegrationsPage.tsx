@@ -142,16 +142,16 @@ export function IntegrationsPage() {
         <nav className="flex gap-6">
           <button
             onClick={() => setActiveTab("connectors")}
-            className={`pb-3 text-sm font-medium border-b-2 transition-colors ${activeTab === "connectors" ? "border-blue-600 text-blue-600" : "border-transparent text-slate-500 hover:text-slate-300"}`}
+            className={`pb-3 text-sm font-medium border-b-2 transition-colors ${activeTab === "connectors" ? "border-blue-600 text-blue-600" : "border-transparent text-slate-400 hover:text-slate-300"}`}
           >
             Active Connectors{" "}
-            <span className="ml-1 text-xs bg-white/[0.04] text-slate-500 px-1.5 py-0.5 rounded-full">
+            <span className="ml-1 text-xs bg-white/[0.04] text-slate-400 px-1.5 py-0.5 rounded-full">
               {connectors.length}
             </span>
           </button>
           <button
             onClick={() => setActiveTab("history")}
-            className={`pb-3 text-sm font-medium border-b-2 transition-colors ${activeTab === "history" ? "border-blue-600 text-blue-600" : "border-transparent text-slate-500 hover:text-slate-300"}`}
+            className={`pb-3 text-sm font-medium border-b-2 transition-colors ${activeTab === "history" ? "border-blue-600 text-blue-600" : "border-transparent text-slate-400 hover:text-slate-300"}`}
           >
             Sync History
           </button>
@@ -177,7 +177,7 @@ export function IntegrationsPage() {
                     </div>
                     {statusIcon(conn.status)}
                   </div>
-                  <div className="text-xs text-slate-500 mb-3">
+                  <div className="text-xs text-slate-400 mb-3">
                     Type: {conn.connector_type}
                   </div>
                   {conn.last_success_at && (
@@ -196,7 +196,7 @@ export function IntegrationsPage() {
                     <button className="text-xs text-blue-600 hover:text-blue-700 font-medium">
                       Configure
                     </button>
-                    <button className="text-xs text-slate-500 hover:text-slate-400 font-medium flex items-center gap-1">
+                    <button className="text-xs text-slate-400 hover:text-slate-400 font-medium flex items-center gap-1">
                       <RefreshCw size={12} /> Sync Now
                     </button>
                   </div>
@@ -228,7 +228,7 @@ export function IntegrationsPage() {
                         <CheckCircle size={14} className="text-green-500" />
                       )}
                     </div>
-                    <p className="text-xs text-slate-500">{ct.description}</p>
+                    <p className="text-xs text-slate-400">{ct.description}</p>
                     <button className="mt-3 text-xs text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1">
                       {isConnected ? "Manage" : "Connect"}{" "}
                       <ExternalLink size={10} />
@@ -247,13 +247,13 @@ export function IntegrationsPage() {
             Sync History
           </h2>
           {runs.length === 0 ? (
-            <p className="text-slate-500 text-center py-8">
+            <p className="text-slate-400 text-center py-8">
               No sync history available
             </p>
           ) : (
             <table className="w-full">
               <thead>
-                <tr className="text-left text-xs text-slate-500 border-b border-[#232A33]">
+                <tr className="text-left text-xs text-slate-400 border-b border-[#232A33]">
                   <th className="pb-2">Connector</th>
                   <th className="pb-2">Type</th>
                   <th className="pb-2">Status</th>
@@ -293,10 +293,10 @@ export function IntegrationsPage() {
                       <td className="py-3 text-sm text-slate-400">
                         {run.records_processed?.toLocaleString() || "-"}
                       </td>
-                      <td className="py-3 text-sm text-slate-500">
+                      <td className="py-3 text-sm text-slate-400">
                         {new Date(run.started_at).toLocaleString()}
                       </td>
-                      <td className="py-3 text-sm text-slate-500">
+                      <td className="py-3 text-sm text-slate-400">
                         {duration ? `${duration}s` : "-"}
                       </td>
                     </tr>

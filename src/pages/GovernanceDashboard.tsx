@@ -109,7 +109,7 @@ export function GovernanceDashboard() {
     critical: "bg-red-500/10 text-red-400 border border-red-500/20",
     high: "bg-orange-500/10 text-orange-400 border border-orange-500/20",
     medium: "bg-teal-500/10 text-teal-400 border border-teal-500/20",
-    low: "bg-white/[0.04] text-slate-500",
+    low: "bg-white/[0.04] text-slate-400",
   };
 
   return (
@@ -126,25 +126,25 @@ export function GovernanceDashboard() {
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="glass border border-white/[0.06] rounded-xl p-4">
-          <div className="text-sm text-slate-500">Pending Approvals</div>
+          <div className="text-sm text-slate-400">Pending Approvals</div>
           <div className="text-2xl font-bold text-[#E6EDF3]">
             {pendingApprovals.length}
           </div>
         </div>
         <div className="glass border border-white/[0.06] rounded-xl p-4">
-          <div className="text-sm text-slate-500">AI Recommendations</div>
+          <div className="text-sm text-slate-400">AI Recommendations</div>
           <div className="text-2xl font-bold text-[#E6EDF3]">
             {pendingRecs.length}
           </div>
         </div>
         <div className="glass border border-white/[0.06] rounded-xl p-4">
-          <div className="text-sm text-slate-500">Audit Events (7d)</div>
+          <div className="text-sm text-slate-400">Audit Events (7d)</div>
           <div className="text-2xl font-bold text-[#E6EDF3]">
             {auditEvents.length}
           </div>
         </div>
         <div className="glass border border-white/[0.06] rounded-xl p-4">
-          <div className="text-sm text-slate-500">Approval Rate</div>
+          <div className="text-sm text-slate-400">Approval Rate</div>
           <div className="text-2xl font-bold text-[#E6EDF3]">
             {approvals.length > 0
               ? Math.round(
@@ -165,7 +165,7 @@ export function GovernanceDashboard() {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`pb-3 text-sm font-medium border-b-2 transition-colors ${activeTab === tab.id ? "border-teal-500 text-teal-400" : "border-transparent text-slate-500 hover:text-slate-300"}`}
+              className={`pb-3 text-sm font-medium border-b-2 transition-colors ${activeTab === tab.id ? "border-teal-500 text-teal-400" : "border-transparent text-slate-400 hover:text-slate-300"}`}
             >
               {tab.label}
               {tab.count !== undefined && tab.count > 0 && (
@@ -230,7 +230,7 @@ export function GovernanceDashboard() {
                 </div>
               ))
             ) : (
-              <div className="text-center text-slate-500 py-8">
+              <div className="text-center text-slate-400 py-8">
                 No pending approvals
               </div>
             )}
@@ -260,20 +260,20 @@ export function GovernanceDashboard() {
                         {rec.title}
                       </div>
                       {rec.assets?.name && (
-                        <div className="text-xs text-slate-500 mt-1">
+                        <div className="text-xs text-slate-400 mt-1">
                           Asset: {rec.assets.name} ({rec.assets.asset_tag})
                         </div>
                       )}
                     </div>
                     <div className="flex items-center gap-2">
                       {rec.confidence_score && (
-                        <span className="text-xs text-slate-500 flex items-center gap-1">
+                        <span className="text-xs text-slate-400 flex items-center gap-1">
                           <TrendingUp size={12} /> {rec.confidence_score}%
                           confidence
                         </span>
                       )}
                       <span
-                        className={`px-2 py-1 text-xs font-medium rounded ${priorityColors[rec.priority] || "bg-white/[0.04] text-slate-500"}`}
+                        className={`px-2 py-1 text-xs font-medium rounded ${priorityColors[rec.priority] || "bg-white/[0.04] text-slate-400"}`}
                       >
                         {rec.priority}
                       </span>
@@ -281,7 +281,7 @@ export function GovernanceDashboard() {
                   </div>
                   <p className="text-sm text-slate-400 mb-3">{rec.summary}</p>
                   {rec.risk_score && (
-                    <div className="flex items-center gap-1 text-xs text-slate-500 mb-3">
+                    <div className="flex items-center gap-1 text-xs text-slate-400 mb-3">
                       <AlertTriangle size={12} /> Risk score: {rec.risk_score}
                     </div>
                   )}
@@ -303,7 +303,7 @@ export function GovernanceDashboard() {
                   )}
                   {rec.status !== "pending" && (
                     <span
-                      className={`text-xs px-2 py-1 rounded ${rec.status === "accepted" ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : "bg-white/[0.04] text-slate-500"}`}
+                      className={`text-xs px-2 py-1 rounded ${rec.status === "accepted" ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : "bg-white/[0.04] text-slate-400"}`}
                     >
                       {rec.status}
                     </span>
@@ -311,7 +311,7 @@ export function GovernanceDashboard() {
                 </div>
               ))
             ) : (
-              <div className="text-center text-slate-500 py-8">
+              <div className="text-center text-slate-400 py-8">
                 No AI recommendations at this time
               </div>
             )}
@@ -341,7 +341,7 @@ export function GovernanceDashboard() {
                       <span className="font-medium">{event.event_type}</span> on{" "}
                       <span className="font-medium">{event.entity_type}</span>
                     </div>
-                    <div className="text-xs text-slate-500 mt-1">
+                    <div className="text-xs text-slate-400 mt-1">
                       {new Date(
                         event.event_time || event.created_at,
                       ).toLocaleString()}{" "}
@@ -351,7 +351,7 @@ export function GovernanceDashboard() {
                 </div>
               ))
             ) : (
-              <div className="text-center text-slate-500 py-8">
+              <div className="text-center text-slate-400 py-8">
                 No audit events found
               </div>
             )}

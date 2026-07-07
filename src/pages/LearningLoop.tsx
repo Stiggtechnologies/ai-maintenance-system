@@ -232,7 +232,7 @@ export function LearningLoop() {
           <h1 className="text-2xl font-bold text-white tracking-tight">
             Learning Loop
           </h1>
-          <p className="text-sm text-slate-500 mt-0.5">
+          <p className="text-sm text-slate-400 mt-0.5">
             SyncAI improves with every recommendation, outcome, and override
           </p>
         </div>
@@ -256,7 +256,7 @@ export function LearningLoop() {
               key={s.label}
               className="bg-[#0D1520] border border-white/[0.06] rounded-xl p-4"
             >
-              <div className="text-[10px] text-slate-500 mb-1 leading-tight">
+              <div className="text-xs text-slate-400 mb-1 leading-tight">
                 {s.label}
               </div>
               <div className={`text-xl font-black ${textColor}`}>
@@ -289,7 +289,7 @@ export function LearningLoop() {
             <span className="text-xl font-black text-teal-400">88%</span>
           </div>
           <TrendLine data={confidenceTrend} color="#14b8a6" />
-          <div className="mt-2 text-[10px] text-slate-600">
+          <div className="mt-2 text-xs text-slate-400">
             Last 9 weeks · Fleet average confidence
           </div>
         </div>
@@ -302,7 +302,7 @@ export function LearningLoop() {
             <span className="text-xl font-black text-blue-400">84%</span>
           </div>
           <TrendLine data={acceptanceTrend} color="#3b82f6" />
-          <div className="mt-2 text-[10px] text-slate-600">
+          <div className="mt-2 text-xs text-slate-400">
             Last 9 weeks · Approved / total recommendations
           </div>
         </div>
@@ -330,7 +330,7 @@ export function LearningLoop() {
                 className="flex items-start gap-3 p-3 bg-white/[0.02] rounded-xl border border-white/[0.04]"
               >
                 <div
-                  className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${tc.bg} ${tc.color} whitespace-nowrap flex-shrink-0`}
+                  className={`px-2 py-0.5 rounded-full text-xs font-semibold ${tc.bg} ${tc.color} whitespace-nowrap flex-shrink-0`}
                 >
                   {tc.label}
                 </div>
@@ -338,18 +338,18 @@ export function LearningLoop() {
                   <div className="text-sm font-semibold text-slate-200">
                     {item.title}
                   </div>
-                  <div className="text-xs text-slate-500 mt-0.5">
+                  <div className="text-xs text-slate-400 mt-0.5">
                     {item.source}
                   </div>
                   <div className="flex items-center gap-3 mt-1.5 text-xs">
                     <span className="text-teal-400 font-medium">
                       {item.impact}
                     </span>
-                    <span className="text-slate-600">·</span>
-                    <span className="text-slate-500">{item.agent}</span>
-                    <span className="text-slate-600">·</span>
-                    <span className="text-slate-600">{item.date}</span>
-                    <span className="ml-auto font-mono text-slate-500">
+                    <span className="text-slate-400">·</span>
+                    <span className="text-slate-400">{item.agent}</span>
+                    <span className="text-slate-400">·</span>
+                    <span className="text-slate-400">{item.date}</span>
+                    <span className="ml-auto font-mono text-slate-400">
                       {item.confidence}% conf
                     </span>
                   </div>

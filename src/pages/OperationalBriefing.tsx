@@ -207,7 +207,7 @@ function BriefCard({
             <div>
               <div className="flex items-center gap-2 mb-0.5">
                 <span
-                  className={`text-[10px] font-bold uppercase tracking-wider ${tc.color}`}
+                  className={`text-xs font-bold uppercase tracking-wider ${tc.color}`}
                 >
                   {tc.label}
                 </span>
@@ -215,7 +215,7 @@ function BriefCard({
                   className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full ${sc.bg}`}
                 >
                   <div className={`w-1.5 h-1.5 rounded-full ${sc.dot}`} />
-                  <span className={`text-[10px] font-semibold ${sc.color}`}>
+                  <span className={`text-xs font-semibold ${sc.color}`}>
                     {sc.label}
                   </span>
                 </div>
@@ -223,7 +223,7 @@ function BriefCard({
               <h3 className="text-base font-bold text-white">
                 {briefing.title}
               </h3>
-              <div className="flex items-center gap-3 mt-1 text-xs text-slate-500">
+              <div className="flex items-center gap-3 mt-1 text-xs text-slate-400">
                 <span className="flex items-center gap-1">
                   <Clock className="w-3 h-3" />
                   {briefing.time}
@@ -236,7 +236,7 @@ function BriefCard({
             </div>
           </div>
           <ChevronRight
-            className={`w-4 h-4 text-slate-600 transition-transform flex-shrink-0 mt-2 ${expanded ? "rotate-90" : ""}`}
+            className={`w-4 h-4 text-slate-400 transition-transform flex-shrink-0 mt-2 ${expanded ? "rotate-90" : ""}`}
           />
         </div>
       </div>
@@ -256,12 +256,12 @@ function BriefCard({
                 key={kpi.label}
                 className="bg-white/[0.03] border border-white/[0.05] rounded-xl p-3"
               >
-                <div className="text-[10px] text-slate-500">{kpi.label}</div>
+                <div className="text-xs text-slate-400">{kpi.label}</div>
                 <div className="text-lg font-black text-slate-200 mt-0.5">
                   {kpi.value}
                 </div>
                 <div
-                  className={`text-[10px] mt-0.5 flex items-center gap-1 ${kpi.up ? "text-teal-400" : "text-amber-400"}`}
+                  className={`text-xs mt-0.5 flex items-center gap-1 ${kpi.up ? "text-teal-400" : "text-amber-400"}`}
                 >
                   <TrendingUp className="w-2.5 h-2.5" />
                   {kpi.trend}
@@ -328,7 +328,7 @@ export function OperationalBriefing() {
           <h1 className="text-2xl font-bold text-white tracking-tight">
             Operational Briefing
           </h1>
-          <p className="text-sm text-slate-500 mt-0.5">
+          <p className="text-sm text-slate-400 mt-0.5">
             AI-generated briefings aligned to operational cadence
           </p>
         </div>
@@ -408,10 +408,10 @@ export function OperationalBriefing() {
                 <div className="text-xs font-semibold text-slate-200">
                   {c.label}
                 </div>
-                <div className="text-[10px] text-slate-500 mt-0.5">
+                <div className="text-xs text-slate-400 mt-0.5">
                   {c.frequency}
                 </div>
-                <div className="text-[10px] text-slate-600 mt-0.5">
+                <div className="text-xs text-slate-400 mt-0.5">
                   Next: {c.next}
                 </div>
               </div>

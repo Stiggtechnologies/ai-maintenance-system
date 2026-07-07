@@ -160,7 +160,7 @@ function ReadinessCard({ area }: { area: (typeof readinessAreas)[0] }) {
                 {area.label}
               </span>
               <span
-                className={`text-[10px] px-1.5 py-0.5 rounded-full border font-bold ${statusColors[area.status]}`}
+                className={`text-xs px-1.5 py-0.5 rounded-full border font-bold ${statusColors[area.status]}`}
               >
                 {area.status}
               </span>
@@ -188,7 +188,7 @@ function ReadinessCard({ area }: { area: (typeof readinessAreas)[0] }) {
                 key={item.label}
                 className="flex items-center justify-between text-xs"
               >
-                <span className="text-slate-500 flex items-center gap-1.5">
+                <span className="text-slate-400 flex items-center gap-1.5">
                   {item.ok ? (
                     <CheckCircle className="w-3 h-3 text-teal-400" />
                   ) : (
@@ -227,14 +227,14 @@ export function ReadinessPage() {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <div className="flex items-center gap-2 text-[11px] text-slate-600 mb-1">
+          <div className="flex items-center gap-2 text-[11px] text-slate-400 mb-1">
             <Radio className="w-3 h-3 text-teal-400" />
             <span className="text-teal-400">LIVE</span>
           </div>
           <h1 className="text-2xl font-bold text-white tracking-tight">
             Readiness
           </h1>
-          <p className="text-sm text-slate-500 mt-0.5">
+          <p className="text-sm text-slate-400 mt-0.5">
             Operational readiness across all dimensions
           </p>
         </div>
@@ -306,10 +306,10 @@ export function ReadinessPage() {
                 <div className="text-xs font-semibold text-slate-200">
                   {gap.issue}
                 </div>
-                <div className="text-xs text-slate-500 mt-0.5">
+                <div className="text-xs text-slate-400 mt-0.5">
                   {gap.action}
                 </div>
-                <div className="text-[10px] text-slate-600 mt-0.5">
+                <div className="text-xs text-slate-400 mt-0.5">
                   Owner: {gap.owner}
                 </div>
               </div>

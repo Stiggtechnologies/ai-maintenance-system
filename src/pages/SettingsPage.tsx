@@ -42,7 +42,7 @@ export function SettingsPage() {
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-[#E6EDF3]">Settings</h1>
-        <p className="text-sm text-slate-500 mt-1">
+        <p className="text-sm text-slate-400 mt-1">
           Manage your profile, organization, and notification preferences
         </p>
       </div>
@@ -62,7 +62,7 @@ export function SettingsPage() {
                   ${
                     isActive
                       ? "border-blue-600 text-blue-600"
-                      : "border-transparent text-slate-500 hover:text-slate-300 hover:border-slate-300"
+                      : "border-transparent text-slate-400 hover:text-slate-300 hover:border-slate-300"
                   }
                 `}
               >
@@ -147,7 +147,7 @@ function ProfileTab({ user, profile }: { user: any; profile: any }) {
             type="text"
             value={user?.email || ""}
             readOnly
-            className="w-full px-3 py-2 border border-[#232A33] rounded-lg text-sm bg-[#0B0F14] text-slate-500 cursor-not-allowed"
+            className="w-full px-3 py-2 border border-[#232A33] rounded-lg text-sm bg-[#0B0F14] text-slate-400 cursor-not-allowed"
           />
         </div>
 
@@ -159,7 +159,7 @@ function ProfileTab({ user, profile }: { user: any; profile: any }) {
             type="text"
             value={profile?.role || "N/A"}
             readOnly
-            className="w-full px-3 py-2 border border-[#232A33] rounded-lg text-sm bg-[#0B0F14] text-slate-500 cursor-not-allowed capitalize"
+            className="w-full px-3 py-2 border border-[#232A33] rounded-lg text-sm bg-[#0B0F14] text-slate-400 cursor-not-allowed capitalize"
           />
         </div>
 
@@ -227,7 +227,7 @@ function OrganizationTab({ profile }: { profile: any }) {
     return (
       <div className="flex items-center justify-center h-32">
         <Loader2 className="animate-spin text-blue-500" size={24} />
-        <span className="ml-2 text-slate-500 text-sm">
+        <span className="ml-2 text-slate-400 text-sm">
           Loading organization...
         </span>
       </div>
@@ -238,7 +238,7 @@ function OrganizationTab({ profile }: { profile: any }) {
     return (
       <div className="glass border border-white/[0.06] rounded-xl p-6 max-w-2xl text-center">
         <Building2 className="mx-auto text-slate-300 mb-3" size={40} />
-        <p className="text-sm text-slate-500">No organization found.</p>
+        <p className="text-sm text-slate-400">No organization found.</p>
       </div>
     );
   }
@@ -265,7 +265,7 @@ function OrganizationTab({ profile }: { profile: any }) {
             type="text"
             value={org.name || ""}
             readOnly
-            className="w-full px-3 py-2 border border-[#232A33] rounded-lg text-sm bg-[#0B0F14] text-slate-500 cursor-not-allowed"
+            className="w-full px-3 py-2 border border-[#232A33] rounded-lg text-sm bg-[#0B0F14] text-slate-400 cursor-not-allowed"
           />
         </div>
 
@@ -277,7 +277,7 @@ function OrganizationTab({ profile }: { profile: any }) {
             type="text"
             value={org.industry || "Not specified"}
             readOnly
-            className="w-full px-3 py-2 border border-[#232A33] rounded-lg text-sm bg-[#0B0F14] text-slate-500 cursor-not-allowed"
+            className="w-full px-3 py-2 border border-[#232A33] rounded-lg text-sm bg-[#0B0F14] text-slate-400 cursor-not-allowed"
           />
         </div>
 
@@ -289,7 +289,7 @@ function OrganizationTab({ profile }: { profile: any }) {
             type="text"
             value={org.timezone || "Not specified"}
             readOnly
-            className="w-full px-3 py-2 border border-[#232A33] rounded-lg text-sm bg-[#0B0F14] text-slate-500 cursor-not-allowed"
+            className="w-full px-3 py-2 border border-[#232A33] rounded-lg text-sm bg-[#0B0F14] text-slate-400 cursor-not-allowed"
           />
         </div>
       </div>
@@ -393,7 +393,7 @@ function NotificationsTab({ user, profile }: { user: any; profile: any }) {
               <div className="text-sm font-medium text-[#E6EDF3]">
                 {item.label}
               </div>
-              <div className="text-xs text-slate-500 mt-0.5">
+              <div className="text-xs text-slate-400 mt-0.5">
                 {item.description}
               </div>
             </div>

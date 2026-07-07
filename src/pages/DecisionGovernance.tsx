@@ -224,30 +224,30 @@ function DecisionCard({
                 {d.title}
               </h4>
               <ChevronRight
-                className={`w-3.5 h-3.5 text-slate-600 flex-shrink-0 transition-transform ${expanded ? "rotate-90" : ""}`}
+                className={`w-3.5 h-3.5 text-slate-400 flex-shrink-0 transition-transform ${expanded ? "rotate-90" : ""}`}
               />
             </div>
             <div className="flex items-center gap-2 mt-1 flex-wrap">
               <span
-                className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full border ${status.bg} ${status.color}`}
+                className={`text-xs font-semibold px-1.5 py-0.5 rounded-full border ${status.bg} ${status.color}`}
               >
                 {status.label}
               </span>
-              <span className="text-[11px] text-slate-500">{d.agent}</span>
-              <span className="text-[11px] text-slate-600">·</span>
-              <span className="text-[11px] text-slate-500">{d.timestamp}</span>
+              <span className="text-[11px] text-slate-400">{d.agent}</span>
+              <span className="text-[11px] text-slate-400">·</span>
+              <span className="text-[11px] text-slate-400">{d.timestamp}</span>
             </div>
             <div className="text-xs text-slate-400 mt-1.5">{d.action}</div>
             <div className="flex items-center gap-3 mt-2 text-xs">
               <span className="text-teal-400 font-medium">
                 {d.financialImpact}
               </span>
-              <span className="text-slate-600">·</span>
-              <span className="text-slate-500 font-mono">
+              <span className="text-slate-400">·</span>
+              <span className="text-slate-400 font-mono">
                 {d.confidence}% confidence
               </span>
-              <span className="text-slate-600">·</span>
-              <span className="text-slate-500">
+              <span className="text-slate-400">·</span>
+              <span className="text-slate-400">
                 Accountable:{" "}
                 <span className="text-slate-300">{d.accountable}</span>
               </span>
@@ -258,18 +258,18 @@ function DecisionCard({
         {expanded && (
           <div className="mt-3 pt-3 border-t border-white/[0.05] space-y-2">
             <div className="text-xs text-slate-400">
-              <span className="text-slate-600">Reasoning: </span>
+              <span className="text-slate-400">Reasoning: </span>
               {d.reasoning}
             </div>
             {d.ownerRole && (
               <div className="text-xs text-slate-400">
-                <span className="text-slate-600">Owner role: </span>
+                <span className="text-slate-400">Owner role: </span>
                 {d.ownerRole}
               </div>
             )}
             {d.consequenceOfWrong && (
               <div className="text-xs text-slate-400">
-                <span className="text-slate-600">
+                <span className="text-slate-400">
                   Consequence of being wrong:{" "}
                 </span>
                 {d.consequenceOfWrong}
@@ -277,19 +277,19 @@ function DecisionCard({
             )}
             {d.requiredValidation && (
               <div className="text-xs text-slate-400">
-                <span className="text-slate-600">Required validation: </span>
+                <span className="text-slate-400">Required validation: </span>
                 {d.requiredValidation}
               </div>
             )}
             {d.outcome && (
               <div className="text-xs text-slate-400">
-                <span className="text-slate-600">Outcome: </span>
+                <span className="text-slate-400">Outcome: </span>
                 {d.outcome}
               </div>
             )}
             {d.approver && (
               <div className="text-xs text-slate-400">
-                <span className="text-slate-600">Actioned by: </span>
+                <span className="text-slate-400">Actioned by: </span>
                 <span className="flex items-center gap-1 inline-flex">
                   <User className="w-3 h-3" />
                   {d.approver}
@@ -402,7 +402,7 @@ export function DecisionGovernance() {
           <h1 className="text-2xl font-bold text-white tracking-tight">
             Decision Governance
           </h1>
-          <p className="text-sm text-slate-500 mt-0.5">
+          <p className="text-sm text-slate-400 mt-0.5">
             Every AI decision is logged, traceable, and auditable
           </p>
         </div>
@@ -458,7 +458,7 @@ export function DecisionGovernance() {
               <div className={`text-2xl font-black ${textColor}`}>
                 {s.value}
               </div>
-              <div className="text-[10px] text-slate-600 mt-0.5">{s.label}</div>
+              <div className="text-xs text-slate-400 mt-0.5">{s.label}</div>
             </div>
           );
         })}
@@ -473,7 +473,7 @@ export function DecisionGovernance() {
             className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
               tab === t
                 ? "border-teal-400 text-teal-400"
-                : "border-transparent text-slate-500 hover:text-slate-300"
+                : "border-transparent text-slate-400 hover:text-slate-300"
             }`}
           >
             {t === "log"
@@ -488,7 +488,7 @@ export function DecisionGovernance() {
       {tab === "log" && (
         <>
           <div className="flex items-center gap-2 flex-wrap">
-            <Filter className="w-3.5 h-3.5 text-slate-600" />
+            <Filter className="w-3.5 h-3.5 text-slate-400" />
             {(
               ["all", "pending", "approved", "rejected", "autonomous"] as const
             ).map((f) => (
@@ -498,7 +498,7 @@ export function DecisionGovernance() {
                 className={`px-3 py-1 rounded-full text-xs transition-colors ${
                   statusFilter === f
                     ? "bg-teal-500/20 text-teal-400 border border-teal-500/30"
-                    : "bg-white/[0.03] border border-white/[0.06] text-slate-500"
+                    : "bg-white/[0.03] border border-white/[0.06] text-slate-400"
                 }`}
               >
                 {f.charAt(0).toUpperCase() + f.slice(1)}{" "}
@@ -549,8 +549,8 @@ export function DecisionGovernance() {
                 >
                   {rule.mode}
                 </div>
-                <div className="text-slate-500">{rule.threshold}</div>
-                <div className="text-slate-500">{rule.limit}</div>
+                <div className="text-slate-400">{rule.threshold}</div>
+                <div className="text-slate-400">{rule.limit}</div>
               </div>
             ))}
           </div>
@@ -568,7 +568,7 @@ export function DecisionGovernance() {
           <div className="overflow-x-auto">
             <table className="w-full min-w-[600px]">
               <thead>
-                <tr className="text-[11px] text-slate-600 border-b border-white/[0.04]">
+                <tr className="text-[11px] text-slate-400 border-b border-white/[0.04]">
                   <th className="text-left px-4 py-3 w-48">Decision Type</th>
                   <th className="px-4 py-3">Accountable</th>
                   <th className="px-4 py-3">Responsible</th>
@@ -641,7 +641,7 @@ export function DecisionGovernance() {
                     <td className="px-4 py-2.5 text-center text-blue-400">
                       {row.C}
                     </td>
-                    <td className="px-4 py-2.5 text-center text-slate-500">
+                    <td className="px-4 py-2.5 text-center text-slate-400">
                       {row.I}
                     </td>
                   </tr>
@@ -663,7 +663,7 @@ export function DecisionGovernance() {
               (input required)
             </div>
             <div>
-              <span className="text-slate-500 font-bold">I</span> = Informed
+              <span className="text-slate-400 font-bold">I</span> = Informed
               (notified)
             </div>
           </div>

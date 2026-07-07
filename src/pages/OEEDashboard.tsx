@@ -173,7 +173,7 @@ export function OEEDashboard() {
     return (
       <div className="flex items-center justify-center h-64">
         <Loader2 className="animate-spin text-blue-500" size={32} />
-        <span className="ml-3 text-slate-500">Loading OEE data...</span>
+        <span className="ml-3 text-slate-400">Loading OEE data...</span>
       </div>
     );
   }
@@ -200,7 +200,7 @@ export function OEEDashboard() {
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-[#E6EDF3]">OEE Dashboard</h1>
-        <p className="text-sm text-slate-500 mt-1">
+        <p className="text-sm text-slate-400 mt-1">
           Overall Equipment Effectiveness across your production lines
         </p>
       </div>
@@ -211,7 +211,7 @@ export function OEEDashboard() {
           <h3 className="text-lg font-semibold text-slate-300">
             No OEE Data Available
           </h3>
-          <p className="text-sm text-slate-500 mt-2">
+          <p className="text-sm text-slate-400 mt-2">
             OEE measurements will appear here once production data is being
             tracked.
           </p>
@@ -268,12 +268,12 @@ export function OEEDashboard() {
               <h2 className="text-lg font-semibold text-[#E6EDF3]">
                 Production Line Breakdown
               </h2>
-              <p className="text-sm text-slate-500">
+              <p className="text-sm text-slate-400">
                 Latest OEE values per production line
               </p>
             </div>
             {latestByLine.length === 0 ? (
-              <div className="p-6 text-center text-sm text-slate-500">
+              <div className="p-6 text-center text-sm text-slate-400">
                 No production line data available.
               </div>
             ) : (
@@ -281,22 +281,22 @@ export function OEEDashboard() {
                 <table className="w-full">
                   <thead>
                     <tr className="border-b border-[#1A2030]">
-                      <th className="text-left px-6 py-3 text-xs font-medium text-slate-500 uppercase tracking-wider">
+                      <th className="text-left px-6 py-3 text-xs font-medium text-slate-400 uppercase tracking-wider">
                         Production Line
                       </th>
-                      <th className="text-right px-6 py-3 text-xs font-medium text-slate-500 uppercase tracking-wider">
+                      <th className="text-right px-6 py-3 text-xs font-medium text-slate-400 uppercase tracking-wider">
                         OEE
                       </th>
-                      <th className="text-right px-6 py-3 text-xs font-medium text-slate-500 uppercase tracking-wider">
+                      <th className="text-right px-6 py-3 text-xs font-medium text-slate-400 uppercase tracking-wider">
                         Availability
                       </th>
-                      <th className="text-right px-6 py-3 text-xs font-medium text-slate-500 uppercase tracking-wider">
+                      <th className="text-right px-6 py-3 text-xs font-medium text-slate-400 uppercase tracking-wider">
                         Performance
                       </th>
-                      <th className="text-right px-6 py-3 text-xs font-medium text-slate-500 uppercase tracking-wider">
+                      <th className="text-right px-6 py-3 text-xs font-medium text-slate-400 uppercase tracking-wider">
                         Quality
                       </th>
-                      <th className="text-right px-6 py-3 text-xs font-medium text-slate-500 uppercase tracking-wider">
+                      <th className="text-right px-6 py-3 text-xs font-medium text-slate-400 uppercase tracking-wider">
                         Date
                       </th>
                     </tr>
@@ -332,7 +332,7 @@ export function OEEDashboard() {
                         >
                           {Math.round(line.quality * 10) / 10}%
                         </td>
-                        <td className="px-6 py-3 text-sm text-right text-slate-500">
+                        <td className="px-6 py-3 text-sm text-right text-slate-400">
                           {new Date(line.measurement_date).toLocaleDateString()}
                         </td>
                       </tr>
@@ -349,12 +349,12 @@ export function OEEDashboard() {
               <h2 className="text-lg font-semibold text-[#E6EDF3]">
                 Loss Events
               </h2>
-              <p className="text-sm text-slate-500">
+              <p className="text-sm text-slate-400">
                 Recent loss events grouped by category (last 30 days)
               </p>
             </div>
             {lossEvents.length === 0 ? (
-              <div className="p-6 text-center text-sm text-slate-500">
+              <div className="p-6 text-center text-sm text-slate-400">
                 No loss events recorded in the last 30 days.
               </div>
             ) : (
@@ -399,7 +399,7 @@ export function OEEDashboard() {
                                 </span>
                               )}
                             </span>
-                            <span className="text-slate-500 ml-3 whitespace-nowrap">
+                            <span className="text-slate-400 ml-3 whitespace-nowrap">
                               {event.duration_minutes}m
                             </span>
                           </div>

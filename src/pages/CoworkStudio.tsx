@@ -199,7 +199,7 @@ function WorkspaceCard({
               {workspace.title}
             </h3>
             <span
-              className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${sc.bg} ${sc.color}`}
+              className={`text-xs px-2 py-0.5 rounded-full font-semibold ${sc.bg} ${sc.color}`}
             >
               {sc.label}
             </span>
@@ -211,8 +211,8 @@ function WorkspaceCard({
           <div className="flex items-center gap-4 mt-3">
             <div className="flex-1">
               <div className="flex items-center justify-between mb-1">
-                <span className="text-[10px] text-slate-600">Progress</span>
-                <span className="text-[10px] font-bold text-slate-400">
+                <span className="text-xs text-slate-400">Progress</span>
+                <span className="text-xs font-bold text-slate-400">
                   {workspace.progress}%
                 </span>
               </div>
@@ -225,7 +225,7 @@ function WorkspaceCard({
             </div>
           </div>
 
-          <div className="flex items-center gap-4 mt-3 text-[10px] text-slate-500">
+          <div className="flex items-center gap-4 mt-3 text-xs text-slate-400">
             <span className="flex items-center gap-1">
               <Bot className="w-3 h-3" />
               {workspace.agents.length} agents
@@ -244,13 +244,13 @@ function WorkspaceCard({
             {workspace.agents.slice(0, 3).map((a) => (
               <span
                 key={a}
-                className="text-[10px] px-2 py-0.5 rounded-full bg-white/[0.04] border border-white/[0.06] text-slate-400"
+                className="text-xs px-2 py-0.5 rounded-full bg-white/[0.04] border border-white/[0.06] text-slate-400"
               >
                 {a}
               </span>
             ))}
             {workspace.agents.length > 3 && (
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/[0.04] border border-white/[0.06] text-slate-500">
+              <span className="text-xs px-2 py-0.5 rounded-full bg-white/[0.04] border border-white/[0.06] text-slate-400">
                 +{workspace.agents.length - 3}
               </span>
             )}
@@ -260,13 +260,13 @@ function WorkspaceCard({
             <div className="mt-3 flex items-start gap-1.5 text-[11px] text-teal-400">
               <Zap className="w-3 h-3 flex-shrink-0 mt-0.5" />
               <span>
-                <span className="text-slate-500">Next action: </span>
+                <span className="text-slate-400">Next action: </span>
                 {workspace.nextAction}
               </span>
             </div>
           )}
         </div>
-        <ChevronRight className="w-4 h-4 text-slate-700 group-hover:text-teal-400 transition-colors flex-shrink-0 mt-1" />
+        <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-teal-400 transition-colors flex-shrink-0 mt-1" />
       </div>
     </motion.div>
   );
@@ -362,7 +362,7 @@ export function CoworkStudio() {
           <h1 className="text-2xl font-bold text-white tracking-tight">
             Cowork Studio
           </h1>
-          <p className="text-sm text-slate-500 mt-0.5">
+          <p className="text-sm text-slate-400 mt-0.5">
             Collaborative AI workspaces for maintenance, reliability, and
             mission assurance
           </p>
@@ -427,11 +427,11 @@ export function CoworkStudio() {
                     onClick={() => handleStart(t.label)}
                     className="text-left p-4 bg-[#0D1520] border border-white/[0.06] rounded-xl hover:border-teal-500/30 hover:bg-teal-500/5 transition-all group"
                   >
-                    <TIcon className="w-5 h-5 text-slate-500 group-hover:text-teal-400 transition-colors mb-2" />
+                    <TIcon className="w-5 h-5 text-slate-400 group-hover:text-teal-400 transition-colors mb-2" />
                     <div className="text-xs font-semibold text-slate-200 mb-1">
                       {t.label}
                     </div>
-                    <div className="text-[10px] text-slate-500 leading-relaxed">
+                    <div className="text-xs text-slate-400 leading-relaxed">
                       {t.description}
                     </div>
                   </button>
@@ -457,7 +457,7 @@ export function CoworkStudio() {
                   <h3 className="text-sm font-bold text-white">
                     {activeWs?.title ?? "Workspace"}
                   </h3>
-                  <p className="text-[11px] text-slate-500">
+                  <p className="text-[11px] text-slate-400">
                     {activeWs?.agents.length ?? 0} agents collaborating ·{" "}
                     {activeWs?.objective}
                   </p>
@@ -465,7 +465,7 @@ export function CoworkStudio() {
               </div>
               <button
                 onClick={() => setView("workspaces")}
-                className="text-xs text-slate-500 hover:text-white transition-colors"
+                className="text-xs text-slate-400 hover:text-white transition-colors"
               >
                 Back to workspaces
               </button>
@@ -473,10 +473,10 @@ export function CoworkStudio() {
 
             <div className="p-5 space-y-4 max-h-[400px] overflow-y-auto">
               {threadLoading && (
-                <p className="text-xs text-slate-500">Loading thread…</p>
+                <p className="text-xs text-slate-400">Loading thread…</p>
               )}
               {!threadLoading && threadMsgs.length === 0 && (
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-slate-400">
                   No messages yet — direct the agents below to begin.
                 </p>
               )}
@@ -492,11 +492,11 @@ export function CoworkStudio() {
                       >
                         {msg.agent}
                       </span>
-                      <span className="text-[10px] text-slate-600">
+                      <span className="text-xs text-slate-400">
                         {new Date(msg.created_at).toLocaleTimeString()}
                       </span>
                       {msg.confidence != null && (
-                        <span className="text-[10px] font-mono text-slate-500 ml-auto">
+                        <span className="text-xs font-mono text-slate-400 ml-auto">
                           {msg.confidence}% conf
                         </span>
                       )}

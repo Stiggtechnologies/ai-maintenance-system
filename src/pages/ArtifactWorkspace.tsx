@@ -151,7 +151,7 @@ export function ArtifactWorkspace() {
           <h1 className="text-2xl font-bold text-white tracking-tight">
             Artifacts
           </h1>
-          <p className="text-sm text-slate-500 mt-0.5">
+          <p className="text-sm text-slate-400 mt-0.5">
             AI-generated operational documents, reports, and plans
           </p>
         </div>
@@ -163,7 +163,7 @@ export function ArtifactWorkspace() {
 
       {/* Filters */}
       <div className="flex items-center gap-2">
-        <Filter className="w-3.5 h-3.5 text-slate-600" />
+        <Filter className="w-3.5 h-3.5 text-slate-400" />
         {[
           { value: "all", label: "All" },
           { value: "draft", label: "Drafts" },
@@ -199,7 +199,7 @@ export function ArtifactWorkspace() {
             >
               <div className="flex items-start gap-4">
                 <div className="p-2.5 rounded-lg bg-white/[0.04] border border-white/[0.06] flex-shrink-0">
-                  <FileText className="w-5 h-5 text-slate-500" />
+                  <FileText className="w-5 h-5 text-slate-400" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-0.5">
@@ -207,12 +207,12 @@ export function ArtifactWorkspace() {
                       {artifact.title}
                     </h4>
                     <span
-                      className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${sc.bg} ${sc.color} flex-shrink-0`}
+                      className={`text-xs px-2 py-0.5 rounded-full font-semibold ${sc.bg} ${sc.color} flex-shrink-0`}
                     >
                       {sc.label}
                     </span>
                   </div>
-                  <div className="flex items-center gap-3 text-[10px] text-slate-500 mt-1">
+                  <div className="flex items-center gap-3 text-xs text-slate-400 mt-1">
                     <span className="px-1.5 py-0.5 rounded bg-white/[0.04] border border-white/[0.06]">
                       {artifact.type}
                     </span>
@@ -228,7 +228,7 @@ export function ArtifactWorkspace() {
                       </span>
                     )}
                   </div>
-                  <div className="flex items-center gap-3 mt-2 text-[10px] text-slate-600">
+                  <div className="flex items-center gap-3 mt-2 text-xs text-slate-400">
                     <span className="flex items-center gap-1">
                       <Clock className="w-3 h-3" />
                       Updated {artifact.updated}
@@ -237,13 +237,13 @@ export function ArtifactWorkspace() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
-                  <button className="p-1.5 rounded-lg text-slate-500 hover:text-teal-400 hover:bg-teal-500/10 transition-colors">
+                  <button className="p-1.5 rounded-lg text-slate-400 hover:text-teal-400 hover:bg-teal-500/10 transition-colors">
                     <Eye className="w-4 h-4" />
                   </button>
-                  <button className="p-1.5 rounded-lg text-slate-500 hover:text-blue-400 hover:bg-blue-500/10 transition-colors">
+                  <button className="p-1.5 rounded-lg text-slate-400 hover:text-blue-400 hover:bg-blue-500/10 transition-colors">
                     <Download className="w-4 h-4" />
                   </button>
-                  <ChevronRight className="w-4 h-4 text-slate-700" />
+                  <ChevronRight className="w-4 h-4 text-slate-400" />
                 </div>
               </div>
             </motion.div>

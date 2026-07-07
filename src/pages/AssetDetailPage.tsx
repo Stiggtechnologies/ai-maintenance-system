@@ -119,7 +119,7 @@ export function AssetDetailPage() {
       <div>
         <button
           onClick={() => navigate("/assets")}
-          className="flex items-center gap-1 text-sm text-slate-500 hover:text-slate-300 mb-3"
+          className="flex items-center gap-1 text-sm text-slate-400 hover:text-slate-300 mb-3"
         >
           <ArrowLeft size={16} /> Back to Assets
         </button>
@@ -167,7 +167,7 @@ export function AssetDetailPage() {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`pb-3 text-sm font-medium border-b-2 transition-colors ${activeTab === tab.id ? "border-teal-500 text-teal-400" : "border-transparent text-slate-500 hover:text-slate-300"}`}
+              className={`pb-3 text-sm font-medium border-b-2 transition-colors ${activeTab === tab.id ? "border-teal-500 text-teal-400" : "border-transparent text-slate-400 hover:text-slate-300"}`}
             >
               {tab.label}{" "}
               {tab.count !== undefined && (
@@ -214,7 +214,7 @@ export function AssetDetailPage() {
                 .filter(([, val]) => val)
                 .map(([label, value]) => (
                   <div key={String(label)} className="flex justify-between">
-                    <dt className="text-sm text-slate-500">{label}</dt>
+                    <dt className="text-sm text-slate-400">{label}</dt>
                     <dd className="text-sm font-medium text-[#E6EDF3]">
                       {value}
                     </dd>
@@ -227,13 +227,13 @@ export function AssetDetailPage() {
           <div className="space-y-4">
             {latestHealth && (
               <div className="bg-[#11161D] border border-[#232A33] rounded-xl p-6">
-                <h3 className="text-sm font-medium text-slate-500 mb-2">
+                <h3 className="text-sm font-medium text-slate-400 mb-2">
                   Latest Health Assessment
                 </h3>
                 <div className="text-3xl font-bold text-[#E6EDF3]">
                   {latestHealth.health_score}%
                 </div>
-                <div className="text-sm text-slate-500 mt-1">
+                <div className="text-sm text-slate-400 mt-1">
                   {new Date(
                     latestHealth.recorded_at || latestHealth.created_at,
                   ).toLocaleString()}
@@ -254,7 +254,7 @@ export function AssetDetailPage() {
               </div>
             )}
             <div className="bg-[#11161D] border border-[#232A33] rounded-xl p-6">
-              <h3 className="text-sm font-medium text-slate-500 mb-2">
+              <h3 className="text-sm font-medium text-slate-400 mb-2">
                 Work Order Summary
               </h3>
               <div className="grid grid-cols-3 gap-4 text-center">
@@ -267,19 +267,19 @@ export function AssetDetailPage() {
                       ).length
                     }
                   </div>
-                  <div className="text-xs text-slate-500">Open</div>
+                  <div className="text-xs text-slate-400">Open</div>
                 </div>
                 <div>
                   <div className="text-2xl font-bold text-[#E6EDF3]">
                     {workOrders.filter((w) => w.status === "completed").length}
                   </div>
-                  <div className="text-xs text-slate-500">Completed</div>
+                  <div className="text-xs text-slate-400">Completed</div>
                 </div>
                 <div>
                   <div className="text-2xl font-bold text-[#E6EDF3]">
                     {workOrders.length}
                   </div>
-                  <div className="text-xs text-slate-500">Total</div>
+                  <div className="text-xs text-slate-400">Total</div>
                 </div>
               </div>
             </div>
@@ -293,7 +293,7 @@ export function AssetDetailPage() {
             Health History
           </h2>
           {healthHistory.length === 0 ? (
-            <p className="text-slate-500 text-center py-8">
+            <p className="text-slate-400 text-center py-8">
               No health readings recorded
             </p>
           ) : (
@@ -323,7 +323,7 @@ export function AssetDetailPage() {
                     </div>
                   </div>
                   {h.recommendations && (
-                    <div className="text-xs text-slate-500 max-w-xs truncate">
+                    <div className="text-xs text-slate-400 max-w-xs truncate">
                       {typeof h.recommendations === "string"
                         ? h.recommendations
                         : JSON.stringify(h.recommendations)}
@@ -342,13 +342,13 @@ export function AssetDetailPage() {
             Work Orders
           </h2>
           {workOrders.length === 0 ? (
-            <p className="text-slate-500 text-center py-8">
+            <p className="text-slate-400 text-center py-8">
               No work orders for this asset
             </p>
           ) : (
             <table className="w-full">
               <thead>
-                <tr className="text-left text-xs text-slate-500 border-b border-[#232A33]">
+                <tr className="text-left text-xs text-slate-400 border-b border-[#232A33]">
                   <th className="pb-2">Title</th>
                   <th className="pb-2">Priority</th>
                   <th className="pb-2">Status</th>
@@ -377,7 +377,7 @@ export function AssetDetailPage() {
                         {wo.status?.replace("_", " ")}
                       </span>
                     </td>
-                    <td className="py-3 text-sm text-slate-500">
+                    <td className="py-3 text-sm text-slate-400">
                       {new Date(wo.created_at).toLocaleDateString()}
                     </td>
                   </tr>
@@ -394,7 +394,7 @@ export function AssetDetailPage() {
             Criticality Assessment
           </h2>
           {!criticality ? (
-            <p className="text-slate-500 text-center py-8">
+            <p className="text-slate-400 text-center py-8">
               No criticality assessment available
             </p>
           ) : (
@@ -432,7 +432,7 @@ export function AssetDetailPage() {
                   .map(([label, score, Icon]: any) => (
                     <div key={label} className="bg-[#0B0F14] rounded-lg p-4">
                       <Icon size={16} className="text-slate-400 mb-1" />
-                      <div className="text-sm text-slate-500">{label}</div>
+                      <div className="text-sm text-slate-400">{label}</div>
                       <div className="text-xl font-bold text-[#E6EDF3]">
                         {score}
                       </div>

@@ -1,5 +1,14 @@
 import { useState } from "react";
-import { X, FileText, TrendingUp, Activity, Clock, ChevronRight, ExternalLink, TriangleAlert as AlertTriangle } from "lucide-react";
+import {
+  X,
+  FileText,
+  TrendingUp,
+  Activity,
+  Clock,
+  ChevronRight,
+  ExternalLink,
+  TriangleAlert as AlertTriangle,
+} from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface EvidenceItem {
@@ -26,11 +35,13 @@ const defaultEvidence: EvidenceItem[] = [
     id: "ev-1",
     type: "sensor",
     title: "Vibration Level — Bearing DE",
-    summary: "Peak velocity 12.4 mm/s (threshold 10.0 mm/s). Trending upward for 14 days.",
+    summary:
+      "Peak velocity 12.4 mm/s (threshold 10.0 mm/s). Trending upward for 14 days.",
     confidence: 94,
     timestamp: "2026-05-30 06:42 UTC",
     source: "Sensor GW-C22-VIB-01",
-    details: "Spectral analysis shows 1x and 2x harmonics consistent with inner race defect at 142 Hz BPFI.",
+    details:
+      "Spectral analysis shows 1x and 2x harmonics consistent with inner race defect at 142 Hz BPFI.",
   },
   {
     id: "ev-2",
@@ -45,34 +56,42 @@ const defaultEvidence: EvidenceItem[] = [
     id: "ev-3",
     type: "historical",
     title: "Historical Failure Pattern Match",
-    summary: "Current signature matches 4 of 5 previous bearing failures on this asset class.",
+    summary:
+      "Current signature matches 4 of 5 previous bearing failures on this asset class.",
     confidence: 82,
     timestamp: "2026-05-30 05:00 UTC",
     source: "Failure History DB — 847 records analyzed",
-    details: "Mean time from this signature to failure: 9.2 days (std dev: 3.1 days). P10: 4 days, P90: 14 days.",
+    details:
+      "Mean time from this signature to failure: 9.2 days (std dev: 3.1 days). P10: 4 days, P90: 14 days.",
   },
   {
     id: "ev-4",
     type: "model",
     title: "Predictive Model Output",
-    summary: "Random forest model predicts 82% failure probability within 14-day window.",
+    summary:
+      "Random forest model predicts 82% failure probability within 14-day window.",
     confidence: 91,
     timestamp: "2026-05-30 06:00 UTC",
     source: "Model: bearing-failure-rf-v4.2",
-    details: "Top features: vibration_velocity (0.34), temperature_delta (0.22), operating_hours_since_pm (0.18).",
+    details:
+      "Top features: vibration_velocity (0.34), temperature_delta (0.22), operating_hours_since_pm (0.18).",
   },
   {
     id: "ev-5",
     type: "document",
     title: "OEM Technical Bulletin",
-    summary: "Manufacturer recommends replacement when vibration exceeds 10 mm/s sustained for 7+ days.",
+    summary:
+      "Manufacturer recommends replacement when vibration exceeds 10 mm/s sustained for 7+ days.",
     confidence: 100,
     timestamp: "2024-03-15",
     source: "TB-2024-0891 — ABC Bearings Ltd",
   },
 ];
 
-const typeConfig: Record<string, { icon: React.ElementType; color: string; bg: string }> = {
+const typeConfig: Record<
+  string,
+  { icon: React.ElementType; color: string; bg: string }
+> = {
   sensor: { icon: Activity, color: "text-teal-400", bg: "bg-teal-500/10" },
   trend: { icon: TrendingUp, color: "text-blue-400", bg: "bg-blue-500/10" },
   document: { icon: FileText, color: "text-slate-400", bg: "bg-slate-500/10" },
@@ -96,14 +115,22 @@ function EvidenceCard({ item }: { item: EvidenceItem }) {
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between gap-2">
-            <h4 className="text-sm font-semibold text-slate-200">{item.title}</h4>
-            <ChevronRight className={`w-3.5 h-3.5 text-slate-600 transition-transform flex-shrink-0 ${expanded ? "rotate-90" : ""}`} />
+            <h4 className="text-sm font-semibold text-slate-200">
+              {item.title}
+            </h4>
+            <ChevronRight
+              className={`w-3.5 h-3.5 text-slate-400 transition-transform flex-shrink-0 ${expanded ? "rotate-90" : ""}`}
+            />
           </div>
-          <p className="text-xs text-slate-400 mt-1 leading-relaxed">{item.summary}</p>
-          <div className="flex items-center gap-3 mt-2 text-[10px]">
-            <span className="text-slate-500">{item.source}</span>
-            <span className="text-slate-600">|</span>
-            <span className="font-mono text-teal-400">{item.confidence}% confidence</span>
+          <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+            {item.summary}
+          </p>
+          <div className="flex items-center gap-3 mt-2 text-xs">
+            <span className="text-slate-400">{item.source}</span>
+            <span className="text-slate-400">|</span>
+            <span className="font-mono text-teal-400">
+              {item.confidence}% confidence
+            </span>
           </div>
 
           <AnimatePresence>
@@ -116,8 +143,12 @@ function EvidenceCard({ item }: { item: EvidenceItem }) {
                 className="overflow-hidden"
               >
                 <div className="mt-3 pt-3 border-t border-white/[0.06]">
-                  <p className="text-xs text-slate-300 leading-relaxed">{item.details}</p>
-                  <div className="text-[10px] text-slate-600 mt-2">{item.timestamp}</div>
+                  <p className="text-xs text-slate-300 leading-relaxed">
+                    {item.details}
+                  </p>
+                  <div className="text-xs text-slate-400 mt-2">
+                    {item.timestamp}
+                  </div>
                 </div>
               </motion.div>
             )}
@@ -128,8 +159,16 @@ function EvidenceCard({ item }: { item: EvidenceItem }) {
   );
 }
 
-export function EvidenceDrawer({ open, onClose, title, asset, evidence = defaultEvidence }: EvidenceDrawerProps) {
-  const overallConfidence = Math.round(evidence.reduce((acc, e) => acc + e.confidence, 0) / evidence.length);
+export function EvidenceDrawer({
+  open,
+  onClose,
+  title,
+  asset,
+  evidence = defaultEvidence,
+}: EvidenceDrawerProps) {
+  const overallConfidence = Math.round(
+    evidence.reduce((acc, e) => acc + e.confidence, 0) / evidence.length,
+  );
 
   return (
     <AnimatePresence>
@@ -152,12 +191,17 @@ export function EvidenceDrawer({ open, onClose, title, asset, evidence = default
             {/* Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.06] flex-shrink-0">
               <div>
-                <h2 className="text-lg font-bold text-white">Evidence Package</h2>
-                <p className="text-xs text-slate-500 mt-0.5">{title}{asset ? ` — ${asset}` : ""}</p>
+                <h2 className="text-lg font-bold text-white">
+                  Evidence Package
+                </h2>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  {title}
+                  {asset ? ` — ${asset}` : ""}
+                </p>
               </div>
               <button
                 onClick={onClose}
-                className="p-2 rounded-lg text-slate-500 hover:text-white hover:bg-white/[0.06] transition-colors"
+                className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-white/[0.06] transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -166,18 +210,30 @@ export function EvidenceDrawer({ open, onClose, title, asset, evidence = default
             {/* Summary Bar */}
             <div className="px-6 py-3 border-b border-white/[0.06] flex items-center gap-4 bg-white/[0.02] flex-shrink-0">
               <div>
-                <div className="text-[10px] text-slate-500 uppercase tracking-wider">Evidence Points</div>
-                <div className="text-lg font-black text-slate-200">{evidence.length}</div>
+                <div className="text-xs text-slate-400 uppercase tracking-wider">
+                  Evidence Points
+                </div>
+                <div className="text-lg font-black text-slate-200">
+                  {evidence.length}
+                </div>
               </div>
               <div className="w-px h-8 bg-white/[0.06]" />
               <div>
-                <div className="text-[10px] text-slate-500 uppercase tracking-wider">Avg Confidence</div>
-                <div className="text-lg font-black text-teal-400">{overallConfidence}%</div>
+                <div className="text-xs text-slate-400 uppercase tracking-wider">
+                  Avg Confidence
+                </div>
+                <div className="text-lg font-black text-teal-400">
+                  {overallConfidence}%
+                </div>
               </div>
               <div className="w-px h-8 bg-white/[0.06]" />
               <div>
-                <div className="text-[10px] text-slate-500 uppercase tracking-wider">Sources</div>
-                <div className="text-lg font-black text-blue-400">{new Set(evidence.map(e => e.type)).size}</div>
+                <div className="text-xs text-slate-400 uppercase tracking-wider">
+                  Sources
+                </div>
+                <div className="text-lg font-black text-blue-400">
+                  {new Set(evidence.map((e) => e.type)).size}
+                </div>
               </div>
             </div>
 
@@ -190,11 +246,11 @@ export function EvidenceDrawer({ open, onClose, title, asset, evidence = default
 
             {/* Footer */}
             <div className="px-6 py-4 border-t border-white/[0.06] flex-shrink-0 flex items-center justify-between">
-              <button className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-300 transition-colors">
+              <button className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-300 transition-colors">
                 <ExternalLink className="w-3.5 h-3.5" />
                 Export Evidence Package
               </button>
-              <div className="text-[10px] text-slate-600">
+              <div className="text-xs text-slate-400">
                 All evidence is immutable and audit-logged
               </div>
             </div>

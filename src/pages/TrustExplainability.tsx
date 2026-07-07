@@ -89,7 +89,7 @@ export function TrustExplainability() {
           <h1 className="text-2xl font-bold text-white tracking-tight">
             Trust & Explainability
           </h1>
-          <p className="text-sm text-slate-500 mt-0.5">
+          <p className="text-sm text-slate-400 mt-0.5">
             Every AI decision is traceable, explainable, and auditable
           </p>
         </div>
@@ -107,7 +107,7 @@ export function TrustExplainability() {
               key={m.label}
               className="bg-[#0D1520] border border-white/[0.06] rounded-xl p-4"
             >
-              <div className="text-[10px] text-slate-500 mb-1">{m.label}</div>
+              <div className="text-xs text-slate-400 mb-1">{m.label}</div>
               <div className={`text-xl font-black ${c.text}`}>{m.value}</div>
             </div>
           );
@@ -167,28 +167,28 @@ export function TrustExplainability() {
           <table className="w-full text-xs">
             <thead>
               <tr className="border-b border-white/[0.06]">
-                <th className="text-left py-3 px-3 text-slate-500 font-semibold">
+                <th className="text-left py-3 px-3 text-slate-400 font-semibold">
                   Decision
                 </th>
-                <th className="text-center py-3 px-2 text-slate-500 font-semibold">
+                <th className="text-center py-3 px-2 text-slate-400 font-semibold">
                   Confidence
                 </th>
-                <th className="text-center py-3 px-2 text-slate-500 font-semibold">
+                <th className="text-center py-3 px-2 text-slate-400 font-semibold">
                   Data Quality
                 </th>
-                <th className="text-center py-3 px-2 text-slate-500 font-semibold">
+                <th className="text-center py-3 px-2 text-slate-400 font-semibold">
                   Sources
                 </th>
-                <th className="text-center py-3 px-2 text-slate-500 font-semibold">
+                <th className="text-center py-3 px-2 text-slate-400 font-semibold">
                   Uncertainty
                 </th>
-                <th className="text-center py-3 px-2 text-slate-500 font-semibold">
+                <th className="text-center py-3 px-2 text-slate-400 font-semibold">
                   Model
                 </th>
-                <th className="text-center py-3 px-2 text-slate-500 font-semibold">
+                <th className="text-center py-3 px-2 text-slate-400 font-semibold">
                   Overrides
                 </th>
-                <th className="text-center py-3 px-2 text-slate-500 font-semibold">
+                <th className="text-center py-3 px-2 text-slate-400 font-semibold">
                   Outcome
                 </th>
               </tr>
@@ -220,12 +220,12 @@ export function TrustExplainability() {
                   </td>
                   <td className="py-3 px-2 text-center">
                     <span
-                      className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${d.uncertainty === "Low" ? "bg-teal-500/10 text-teal-400" : "bg-amber-500/10 text-amber-400"}`}
+                      className={`px-1.5 py-0.5 rounded-full text-xs font-bold ${d.uncertainty === "Low" ? "bg-teal-500/10 text-teal-400" : "bg-amber-500/10 text-amber-400"}`}
                     >
                       {d.uncertainty}
                     </span>
                   </td>
-                  <td className="py-3 px-2 text-center text-slate-500 font-mono text-[10px]">
+                  <td className="py-3 px-2 text-center text-slate-400 font-mono text-xs">
                     {d.model}
                   </td>
                   <td className="py-3 px-2 text-center text-slate-400">
@@ -233,7 +233,7 @@ export function TrustExplainability() {
                   </td>
                   <td className="py-3 px-2 text-center">
                     <span
-                      className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${outcomeColors[d.outcome]}`}
+                      className={`px-2 py-0.5 rounded-full text-xs font-bold ${outcomeColors[d.outcome]}`}
                     >
                       {d.outcome}
                     </span>

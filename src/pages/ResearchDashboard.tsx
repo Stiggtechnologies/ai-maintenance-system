@@ -214,25 +214,25 @@ export function ResearchDashboard() {
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="glass border border-white/[0.06] rounded-xl p-4">
-          <div className="text-sm text-slate-500">Active Programs</div>
+          <div className="text-sm text-slate-400">Active Programs</div>
           <div className="text-2xl font-bold text-[#E6EDF3]">
             {stats.activePrograms}
           </div>
         </div>
         <div className="glass border border-white/[0.06] rounded-xl p-4">
-          <div className="text-sm text-slate-500">Recent Runs</div>
+          <div className="text-sm text-slate-400">Recent Runs</div>
           <div className="text-2xl font-bold text-[#E6EDF3]">
             {stats.totalRuns}
           </div>
         </div>
         <div className="glass border border-white/[0.06] rounded-xl p-4">
-          <div className="text-sm text-slate-500">Successful</div>
+          <div className="text-sm text-slate-400">Successful</div>
           <div className="text-2xl font-bold text-green-600">
             {stats.successfulRuns}
           </div>
         </div>
         <div className="glass border border-white/[0.06] rounded-xl p-4">
-          <div className="text-sm text-slate-500">Pending Promotions</div>
+          <div className="text-sm text-slate-400">Pending Promotions</div>
           <div className="text-2xl font-bold text-orange-600">
             {stats.pendingPromotions}
           </div>
@@ -246,7 +246,7 @@ export function ResearchDashboard() {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`pb-3 text-sm font-medium border-b-2 transition-colors ${activeTab === tab.id ? "border-purple-600 text-purple-600" : "border-transparent text-slate-500 hover:text-slate-300"}`}
+              className={`pb-3 text-sm font-medium border-b-2 transition-colors ${activeTab === tab.id ? "border-purple-600 text-purple-600" : "border-transparent text-slate-400 hover:text-slate-300"}`}
             >
               {tab.label}
               {tab.count !== undefined && tab.count > 0 && (
@@ -268,7 +268,7 @@ export function ResearchDashboard() {
               <h3 className="text-lg font-semibold text-slate-300">
                 No Research Programs
               </h3>
-              <p className="text-sm text-slate-500 mt-2">
+              <p className="text-sm text-slate-400 mt-2">
                 Create research programs to start optimizing SyncAI
                 intelligence.
               </p>
@@ -302,7 +302,7 @@ export function ResearchDashboard() {
                         <span className="text-xs px-2 py-1 bg-purple-100 text-purple-800 rounded-full">
                           {program.domain}
                         </span>
-                        <span className="text-xs text-slate-500">
+                        <span className="text-xs text-slate-400">
                           {program.max_experiment_duration_minutes} min budget
                         </span>
                       </div>
@@ -321,19 +321,19 @@ export function ResearchDashboard() {
                   </div>
                   <div className="grid grid-cols-3 gap-4 mt-4 pt-4 border-t border-[#1A2030]">
                     <div>
-                      <div className="text-xs text-slate-500">Total Runs</div>
+                      <div className="text-xs text-slate-400">Total Runs</div>
                       <div className="text-lg font-bold text-[#E6EDF3]">
                         {programRuns.length}
                       </div>
                     </div>
                     <div>
-                      <div className="text-xs text-slate-500">Success Rate</div>
+                      <div className="text-xs text-slate-400">Success Rate</div>
                       <div className="text-lg font-bold text-[#E6EDF3]">
                         {successRate}%
                       </div>
                     </div>
                     <div>
-                      <div className="text-xs text-slate-500">Last Run</div>
+                      <div className="text-xs text-slate-400">Last Run</div>
                       <div className="text-sm text-slate-300">
                         {programRuns[0]
                           ? new Date(
@@ -354,14 +354,14 @@ export function ResearchDashboard() {
       {activeTab === "runs" && (
         <div className="space-y-4">
           {recentRuns.length === 0 ? (
-            <div className="text-center py-12 text-slate-500">
+            <div className="text-center py-12 text-slate-400">
               No experiment runs yet
             </div>
           ) : (
             <div className="glass border border-white/[0.06] rounded-xl overflow-hidden">
               <table className="w-full">
                 <thead>
-                  <tr className="text-left text-xs text-slate-500 bg-[#0B0F14] border-b border-[#232A33]">
+                  <tr className="text-left text-xs text-slate-400 bg-[#0B0F14] border-b border-[#232A33]">
                     <th className="px-4 py-3">Run #</th>
                     <th className="px-4 py-3">Variant</th>
                     <th className="px-4 py-3">Status</th>
@@ -383,7 +383,7 @@ export function ResearchDashboard() {
                         <div className="text-sm font-medium text-[#E6EDF3]">
                           {run.research_variants?.variant_code || "-"}
                         </div>
-                        <div className="text-xs text-slate-500 truncate max-w-xs">
+                        <div className="text-xs text-slate-400 truncate max-w-xs">
                           {run.research_variants?.description || ""}
                         </div>
                       </td>
@@ -396,7 +396,7 @@ export function ResearchDashboard() {
                                 ? "bg-blue-100 text-blue-800"
                                 : run.status === "failed"
                                   ? "bg-red-100 text-red-800"
-                                  : "bg-white/[0.04] text-slate-500"
+                                  : "bg-white/[0.04] text-slate-400"
                           }`}
                         >
                           {run.status}
@@ -407,7 +407,7 @@ export function ResearchDashboard() {
                           ? `${(run.duration_ms / 1000).toFixed(1)}s`
                           : "-"}
                       </td>
-                      <td className="px-4 py-3 text-sm text-slate-500">
+                      <td className="px-4 py-3 text-sm text-slate-400">
                         {new Date(run.started_at).toLocaleString()}
                       </td>
                       <td className="px-4 py-3">
@@ -437,7 +437,7 @@ export function ResearchDashboard() {
                     setSelectedRunId(null);
                     setSelectedRunResults([]);
                   }}
-                  className="text-xs text-slate-500 hover:text-slate-300"
+                  className="text-xs text-slate-400 hover:text-slate-300"
                 >
                   Close
                 </button>
@@ -456,7 +456,7 @@ export function ResearchDashboard() {
                         {result.metric_value.toFixed(1)}
                       </span>
                       {result.baseline_value != null && (
-                        <span className="text-xs text-slate-500">
+                        <span className="text-xs text-slate-400">
                           vs {result.baseline_value.toFixed(1)} baseline
                         </span>
                       )}
@@ -482,7 +482,7 @@ export function ResearchDashboard() {
       {activeTab === "promotions" && (
         <div className="space-y-4">
           {promotions.length === 0 ? (
-            <div className="text-center py-12 text-slate-500">
+            <div className="text-center py-12 text-slate-400">
               No promotion candidates yet
             </div>
           ) : (
@@ -504,7 +504,7 @@ export function ResearchDashboard() {
                     <p className="text-sm text-slate-400 mt-1">
                       {promo.research_variants?.description}
                     </p>
-                    <div className="flex items-center gap-4 mt-2 text-xs text-slate-500">
+                    <div className="flex items-center gap-4 mt-2 text-xs text-slate-400">
                       <span>
                         Benchmarks: {promo.benchmarks_passed}/
                         {promo.benchmarks_total} passed
@@ -529,7 +529,7 @@ export function ResearchDashboard() {
                             ? "bg-blue-100 text-blue-800"
                             : promo.review_status === "rejected"
                               ? "bg-red-100 text-red-800"
-                              : "bg-white/[0.04] text-slate-500"
+                              : "bg-white/[0.04] text-slate-400"
                     }`}
                   >
                     {promo.review_status?.replace(/_/g, " ")}
@@ -574,7 +574,7 @@ export function ResearchDashboard() {
                 )}
 
                 {promo.review_comments && (
-                  <div className="mt-3 text-xs text-slate-500 italic">
+                  <div className="mt-3 text-xs text-slate-400 italic">
                     Review: {promo.review_comments}
                   </div>
                 )}

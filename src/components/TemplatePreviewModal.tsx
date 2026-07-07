@@ -226,7 +226,7 @@ export function TemplatePreviewModal({
               {template.name}
             </h2>
             {template.master_template_name && (
-              <p className="text-xs text-slate-500 mt-0.5">
+              <p className="text-xs text-slate-400 mt-0.5">
                 Built on: {template.master_template_name}
               </p>
             )}
@@ -259,7 +259,7 @@ export function TemplatePreviewModal({
                   </p>
                   <div className="grid grid-cols-2 gap-3">
                     <div className="bg-[#0B0F14] rounded-lg p-3">
-                      <div className="text-xs text-slate-500">
+                      <div className="text-xs text-slate-400">
                         Master Family
                       </div>
                       <div className="text-sm font-medium text-[#E6EDF3] mt-0.5">
@@ -267,7 +267,7 @@ export function TemplatePreviewModal({
                       </div>
                     </div>
                     <div className="bg-[#0B0F14] rounded-lg p-3">
-                      <div className="text-xs text-slate-500">Governance</div>
+                      <div className="text-xs text-slate-400">Governance</div>
                       <div className="text-sm font-medium text-[#E6EDF3] mt-0.5">
                         {template.industry_governance_profiles
                           ?.default_autonomy_mode || "Advisory"}
@@ -277,7 +277,7 @@ export function TemplatePreviewModal({
                   {template.operating_assumptions &&
                     Object.keys(template.operating_assumptions).length > 0 && (
                       <div className="bg-[#0B0F14] rounded-lg p-3">
-                        <div className="text-xs text-slate-500 mb-2">
+                        <div className="text-xs text-slate-400 mb-2">
                           Operating Assumptions
                         </div>
                         <div className="space-y-1">
@@ -312,7 +312,7 @@ export function TemplatePreviewModal({
                     {Object.entries(groupBy(details.kpis, "level")).map(
                       ([level, kpis]: [string, any[]]) => (
                         <div key={level}>
-                          <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">
+                          <div className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1.5">
                             {level}
                           </div>
                           <div className="space-y-1">
@@ -353,7 +353,7 @@ export function TemplatePreviewModal({
                     {Object.entries(groupBy(details.assets, "category")).map(
                       ([category, assets]: [string, any[]]) => (
                         <div key={category}>
-                          <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">
+                          <div className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1.5">
                             {category}
                           </div>
                           <div className="flex flex-wrap gap-1.5">
@@ -416,7 +416,7 @@ export function TemplatePreviewModal({
               <AccordionSection title="Governance" icon={<Shield size={16} />}>
                 <div className="space-y-3">
                   <div className="bg-[#0B0F14] rounded-lg p-3">
-                    <div className="text-xs text-slate-500">Autonomy Mode</div>
+                    <div className="text-xs text-slate-400">Autonomy Mode</div>
                     <div className="text-sm font-medium text-[#E6EDF3] mt-0.5">
                       {template.industry_governance_profiles
                         ?.default_autonomy_mode || "Advisory"}
@@ -433,12 +433,12 @@ export function TemplatePreviewModal({
                             {rule.rule_name || rule.name}
                           </div>
                           {rule.description && (
-                            <div className="text-slate-500 mt-0.5">
+                            <div className="text-slate-400 mt-0.5">
                               {rule.description}
                             </div>
                           )}
                           {rule.rule_type && (
-                            <span className="inline-block mt-1 px-1.5 py-0.5 bg-slate-200 text-slate-400 rounded text-[10px] uppercase">
+                            <span className="inline-block mt-1 px-1.5 py-0.5 bg-slate-200 text-slate-400 rounded text-xs uppercase">
                               {rule.rule_type}
                             </span>
                           )}
@@ -469,13 +469,13 @@ export function TemplatePreviewModal({
                           {wt.name}
                         </span>
                         {wt.default_sla_hours && (
-                          <span className="flex items-center gap-1 text-slate-500">
+                          <span className="flex items-center gap-1 text-slate-400">
                             <Clock size={11} />
                             {wt.default_sla_hours}h SLA
                           </span>
                         )}
                         {wt.requires_permit && (
-                          <span className="px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded text-[10px]">
+                          <span className="px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded text-xs">
                             Permit
                           </span>
                         )}
@@ -508,7 +508,7 @@ export function TemplatePreviewModal({
                           {fm.name || fm.mode_name}
                         </span>
                         {fm.severity && (
-                          <span className="text-slate-500">
+                          <span className="text-slate-400">
                             Severity: {fm.severity}
                           </span>
                         )}
@@ -590,7 +590,7 @@ export function TemplatePreviewModal({
                         )}
                         {config.target_oee != null && (
                           <div className="bg-[#0B0F14] rounded-lg p-3 mt-2">
-                            <div className="text-xs text-slate-500">
+                            <div className="text-xs text-slate-400">
                               Target OEE
                             </div>
                             <div className="text-lg font-bold text-[#E6EDF3]">
@@ -600,7 +600,7 @@ export function TemplatePreviewModal({
                         )}
                         {config.loss_categories && (
                           <div className="mt-2">
-                            <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">
+                            <div className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1.5">
                               Loss Categories
                             </div>
                             <div className="flex flex-wrap gap-1.5">
@@ -623,7 +623,7 @@ export function TemplatePreviewModal({
                   </div>
                 ) : (
                   <div className="bg-[#0B0F14] rounded-lg p-3">
-                    <div className="text-xs text-slate-500">Model</div>
+                    <div className="text-xs text-slate-400">Model</div>
                     <div className="text-sm font-medium text-[#E6EDF3] mt-0.5">
                       {template.industry_oee_models?.model_name || "Standard"}
                     </div>
@@ -648,7 +648,7 @@ export function TemplatePreviewModal({
                           {phase.phase_name || phase.name}
                         </div>
                         {phase.description && (
-                          <p className="text-xs text-slate-500 mt-0.5">
+                          <p className="text-xs text-slate-400 mt-0.5">
                             {phase.description}
                           </p>
                         )}

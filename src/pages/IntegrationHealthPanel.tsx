@@ -200,12 +200,12 @@ function IntegrationCard({
                   {integration.name}
                 </h4>
                 <span
-                  className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${sc.bg} ${sc.color}`}
+                  className={`text-xs px-1.5 py-0.5 rounded-full font-semibold ${sc.bg} ${sc.color}`}
                 >
                   {sc.label}
                 </span>
               </div>
-              <p className="text-xs text-slate-500 mt-0.5">
+              <p className="text-xs text-slate-400 mt-0.5">
                 {integration.description}
               </p>
             </div>
@@ -215,10 +215,10 @@ function IntegrationCard({
               <div className="text-xs font-mono text-slate-300">
                 {integration.latency}
               </div>
-              <div className="text-[10px] text-slate-600">latency</div>
+              <div className="text-xs text-slate-400">latency</div>
             </div>
             <ChevronRight
-              className={`w-3.5 h-3.5 text-slate-600 transition-transform ${expanded ? "rotate-90" : ""}`}
+              className={`w-3.5 h-3.5 text-slate-400 transition-transform ${expanded ? "rotate-90" : ""}`}
             />
           </div>
         </div>
@@ -233,25 +233,25 @@ function IntegrationCard({
         <div className="px-4 pb-4 pt-0">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-3 border-t border-white/[0.06]">
             <div>
-              <div className="text-[10px] text-slate-600">Uptime</div>
+              <div className="text-xs text-slate-400">Uptime</div>
               <div className="text-sm font-bold text-teal-400 mt-0.5">
                 {integration.uptime}
               </div>
             </div>
             <div>
-              <div className="text-[10px] text-slate-600">Last Sync</div>
+              <div className="text-xs text-slate-400">Last Sync</div>
               <div className="text-sm font-bold text-slate-200 mt-0.5">
                 {integration.lastSync}
               </div>
             </div>
             <div>
-              <div className="text-[10px] text-slate-600">Throughput</div>
+              <div className="text-xs text-slate-400">Throughput</div>
               <div className="text-sm font-bold text-blue-400 mt-0.5">
                 {integration.throughput}
               </div>
             </div>
             <div>
-              <div className="text-[10px] text-slate-600">Type</div>
+              <div className="text-xs text-slate-400">Type</div>
               <div className="text-sm font-bold text-slate-200 mt-0.5">
                 {typeLabels[integration.type]}
               </div>
@@ -282,7 +282,7 @@ export function IntegrationHealthPanel() {
           <h1 className="text-2xl font-bold text-white tracking-tight">
             Integration Health
           </h1>
-          <p className="text-sm text-slate-500 mt-0.5">
+          <p className="text-sm text-slate-400 mt-0.5">
             Real-time status of all connected systems and data pipelines
           </p>
         </div>
@@ -298,36 +298,36 @@ export function IntegrationHealthPanel() {
         <div className="bg-[#0D1520] border border-white/[0.06] rounded-xl p-4">
           <div className="flex items-center gap-2 mb-2">
             <div className="w-2 h-2 rounded-full bg-teal-400" />
-            <span className="text-xs text-slate-500">Healthy</span>
+            <span className="text-xs text-slate-400">Healthy</span>
           </div>
           <div className="text-3xl font-black text-teal-400">{healthy}</div>
-          <div className="text-[10px] text-slate-600 mt-0.5">integrations</div>
+          <div className="text-xs text-slate-400 mt-0.5">integrations</div>
         </div>
         <div className="bg-[#0D1520] border border-white/[0.06] rounded-xl p-4">
           <div className="flex items-center gap-2 mb-2">
             <div className="w-2 h-2 rounded-full bg-amber-400" />
-            <span className="text-xs text-slate-500">Degraded</span>
+            <span className="text-xs text-slate-400">Degraded</span>
           </div>
           <div className="text-3xl font-black text-amber-400">{degraded}</div>
-          <div className="text-[10px] text-slate-600 mt-0.5">integrations</div>
+          <div className="text-xs text-slate-400 mt-0.5">integrations</div>
         </div>
         <div className="bg-[#0D1520] border border-white/[0.06] rounded-xl p-4">
           <div className="flex items-center gap-2 mb-2">
             <div className="w-2 h-2 rounded-full bg-red-400" />
-            <span className="text-xs text-slate-500">Down</span>
+            <span className="text-xs text-slate-400">Down</span>
           </div>
           <div className="text-3xl font-black text-red-400">{down}</div>
-          <div className="text-[10px] text-slate-600 mt-0.5">integrations</div>
+          <div className="text-xs text-slate-400 mt-0.5">integrations</div>
         </div>
         <div className="bg-[#0D1520] border border-white/[0.06] rounded-xl p-4">
           <div className="flex items-center gap-2 mb-2">
             <Activity className="w-3.5 h-3.5 text-blue-400" />
-            <span className="text-xs text-slate-500">Avg Latency</span>
+            <span className="text-xs text-slate-400">Avg Latency</span>
           </div>
           <div className="text-3xl font-black text-blue-400">
-            102<span className="text-sm text-slate-500">ms</span>
+            102<span className="text-sm text-slate-400">ms</span>
           </div>
-          <div className="text-[10px] text-slate-600 mt-0.5">
+          <div className="text-xs text-slate-400 mt-0.5">
             across all systems
           </div>
         </div>

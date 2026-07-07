@@ -227,12 +227,12 @@ function HealthRing({ score, size = 100 }: { score: number; size?: number }) {
 function KeyValueGrid({ data }: { data: Record<string, string> }) {
   const entries = Object.entries(data);
   if (entries.length === 0)
-    return <div className="text-xs text-slate-600">Pending validation</div>;
+    return <div className="text-xs text-slate-400">Pending validation</div>;
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1.5 text-xs">
       {entries.map(([key, value]) => (
         <div key={key}>
-          <span className="text-slate-600">{key}: </span>
+          <span className="text-slate-400">{key}: </span>
           <span className="text-slate-300">{value}</span>
         </div>
       ))}
@@ -249,7 +249,7 @@ function Section({
 }) {
   return (
     <div className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.05]">
-      <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-2">
+      <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-2">
         {title}
       </div>
       {children}
@@ -271,7 +271,7 @@ function OnboardedAssetDetail({ asset }: { asset: DerivedAssetIntelligence }) {
               key={`${level.level}-${i}`}
               className="flex items-center gap-1"
             >
-              {i > 0 && <ChevronRight className="w-3 h-3 text-slate-700" />}
+              {i > 0 && <ChevronRight className="w-3 h-3 text-slate-400" />}
               <span className="text-slate-300">{level.name}</span>
             </span>
           ))}
@@ -287,7 +287,7 @@ function OnboardedAssetDetail({ asset }: { asset: DerivedAssetIntelligence }) {
         <div className="text-xs text-slate-300">
           {asset.criticality.criticalityClass} · {asset.criticality.score}/
           {asset.criticality.maxScore} · Class {asset.criticalityLetter}
-          <div className="text-slate-500 mt-1">
+          <div className="text-slate-400 mt-1">
             Drivers: {asset.criticality.riskDrivers.join(", ")}
           </div>
         </div>
@@ -296,7 +296,7 @@ function OnboardedAssetDetail({ asset }: { asset: DerivedAssetIntelligence }) {
         <div className="text-xs text-slate-300">
           Failures: {baseline.failureCount} · Data quality:{" "}
           {baseline.dataQualityScore}% · Confidence: {baseline.confidence}
-          <div className="text-slate-500 mt-1">
+          <div className="text-slate-400 mt-1">
             Bad actor: {baseline.badActorStatus}
           </div>
         </div>
@@ -304,7 +304,7 @@ function OnboardedAssetDetail({ asset }: { asset: DerivedAssetIntelligence }) {
       <Section title="Lifecycle">
         <div className="text-xs text-slate-300">
           {asset.lifecycle.lifecycleStatus}
-          <div className="text-slate-500 mt-1">
+          <div className="text-slate-400 mt-1">
             RUL: {asset.lifecycle.remainingUsefulLifeEstimate} · Obsolescence:{" "}
             {asset.lifecycle.obsolescenceRisk}
           </div>
@@ -314,7 +314,7 @@ function OnboardedAssetDetail({ asset }: { asset: DerivedAssetIntelligence }) {
         <div className="text-xs text-slate-300">
           Safety: {asset.riskSafeguards.safetyCriticality}
           {asset.riskSafeguards.humanApprovalGates.length > 0 && (
-            <div className="text-slate-500 mt-1">
+            <div className="text-slate-400 mt-1">
               Approval gates: {asset.riskSafeguards.humanApprovalGates.length}
             </div>
           )}
@@ -330,7 +330,7 @@ function OnboardedAssetDetail({ asset }: { asset: DerivedAssetIntelligence }) {
             asset.dataGaps.map((gap) => (
               <span
                 key={gap}
-                className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20"
+                className="text-xs px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20"
               >
                 {gap}
               </span>
@@ -342,7 +342,7 @@ function OnboardedAssetDetail({ asset }: { asset: DerivedAssetIntelligence }) {
         <div className="text-xs text-slate-300">
           {asset.status} · {asset.completionScore}% onboarded ·{" "}
           {asset.readiness} readiness
-          <div className="text-slate-500 mt-1">{asset.readinessMessage}</div>
+          <div className="text-slate-400 mt-1">{asset.readinessMessage}</div>
         </div>
       </Section>
     </div>
@@ -366,7 +366,7 @@ function OnboardedAssetsPanel({
         <h3 className="text-sm font-semibold text-slate-200">
           Onboarded Assets
         </h3>
-        <span className="text-[10px] text-slate-600 ml-auto">
+        <span className="text-xs text-slate-400 ml-auto">
           Reliability-ready intelligence from asset onboarding
         </span>
       </div>
@@ -382,7 +382,7 @@ function OnboardedAssetsPanel({
             }`}
           >
             {asset.assetId} · {asset.classLabel}
-            <span className="ml-1.5 text-[10px] text-slate-500">
+            <span className="ml-1.5 text-xs text-slate-400">
               {asset.completionScore}%
             </span>
           </button>
@@ -412,7 +412,7 @@ export function AssetIntelligencePage() {
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
-          <div className="flex items-center gap-2 text-[11px] text-slate-600 mb-1">
+          <div className="flex items-center gap-2 text-[11px] text-slate-400 mb-1">
             <Layers className="w-3 h-3 text-teal-400" />
             <span>
               {assetData.area} / {assetData.system}
@@ -421,7 +421,7 @@ export function AssetIntelligencePage() {
           <h1 className="text-2xl font-bold text-white tracking-tight">
             {assetData.name}
           </h1>
-          <p className="text-sm text-slate-500 mt-0.5">
+          <p className="text-sm text-slate-400 mt-0.5">
             {assetData.class} · Criticality {assetData.criticality} ·{" "}
             {assetData.manufacturer} {assetData.model}
           </p>
@@ -456,11 +456,11 @@ export function AssetIntelligencePage() {
             </div>
           </div>
           <div>
-            <div className="text-xs text-slate-500">Asset Health Index</div>
+            <div className="text-xs text-slate-400">Asset Health Index</div>
             <div className={`text-xl font-black ${healthColor} mt-1`}>
               {assetData.healthScore}/100
             </div>
-            <div className="text-[10px] text-slate-600 mt-1">
+            <div className="text-xs text-slate-400 mt-1">
               Based on 8 sensor signals
             </div>
           </div>
@@ -469,7 +469,7 @@ export function AssetIntelligencePage() {
         <div className="bg-[#0D1520] border border-white/[0.06] rounded-2xl p-5">
           <div className="flex items-center gap-2 mb-3">
             <AlertTriangle className="w-4 h-4 text-red-400" />
-            <span className="text-xs text-slate-500">Risk Score</span>
+            <span className="text-xs text-slate-400">Risk Score</span>
           </div>
           <div className="text-3xl font-black text-red-400">
             {assetData.riskScore}%
@@ -488,25 +488,25 @@ export function AssetIntelligencePage() {
         <div className="bg-[#0D1520] border border-white/[0.06] rounded-2xl p-5">
           <div className="grid grid-cols-2 gap-3 text-xs">
             <div>
-              <div className="text-slate-600">Installed</div>
+              <div className="text-slate-400">Installed</div>
               <div className="text-slate-200 font-semibold mt-0.5">
                 {assetData.installedDate}
               </div>
             </div>
             <div>
-              <div className="text-slate-600">Serial</div>
+              <div className="text-slate-400">Serial</div>
               <div className="text-slate-200 font-semibold mt-0.5 truncate">
                 {assetData.serialNumber}
               </div>
             </div>
             <div>
-              <div className="text-slate-600">Last Inspection</div>
+              <div className="text-slate-400">Last Inspection</div>
               <div className="text-slate-200 font-semibold mt-0.5">
                 {assetData.lastInspection}
               </div>
             </div>
             <div>
-              <div className="text-slate-600">Next PM</div>
+              <div className="text-slate-400">Next PM</div>
               <div className="text-amber-400 font-semibold mt-0.5">
                 {assetData.nextPM}
               </div>
@@ -536,7 +536,7 @@ export function AssetIntelligencePage() {
               className={`flex items-center gap-1.5 px-4 py-3 text-xs font-medium transition-colors border-b-2 -mb-[1px] ${
                 tab === t.id
                   ? "text-teal-400 border-teal-400"
-                  : "text-slate-500 border-transparent hover:text-slate-300"
+                  : "text-slate-400 border-transparent hover:text-slate-300"
               }`}
             >
               <TIcon className="w-3.5 h-3.5" />
@@ -567,7 +567,7 @@ export function AssetIntelligencePage() {
                         <div className={`text-sm font-semibold ${sc.color}`}>
                           {sig.label}
                         </div>
-                        <div className="text-xs text-slate-500 mt-0.5">
+                        <div className="text-xs text-slate-400 mt-0.5">
                           Threshold: {sig.threshold}
                         </div>
                       </div>
@@ -575,7 +575,7 @@ export function AssetIntelligencePage() {
                         <div className={`text-lg font-black ${sc.color}`}>
                           {sig.value}
                         </div>
-                        <div className="flex items-center gap-1 text-[10px] text-slate-500">
+                        <div className="flex items-center gap-1 text-xs text-slate-400">
                           {sig.trend === "up" && (
                             <TrendingUp className="w-3 h-3 text-red-400" />
                           )}
@@ -601,7 +601,7 @@ export function AssetIntelligencePage() {
                   Inner race defect signature detected. Recommend intervention
                   within 36 hours.
                 </p>
-                <div className="text-[10px] text-slate-500 mt-2">
+                <div className="text-xs text-slate-400 mt-2">
                   Confidence: 91% | Model: bearing-failure-rf-v4.2
                 </div>
               </div>
@@ -613,7 +613,7 @@ export function AssetIntelligencePage() {
                   Drive end temperature increasing at 0.4C/day. Will reach alarm
                   threshold in ~17 days if unchecked.
                 </p>
-                <div className="text-[10px] text-slate-500 mt-2">
+                <div className="text-xs text-slate-400 mt-2">
                   Confidence: 82% | Model: thermal-regression-v2.1
                 </div>
               </div>
@@ -628,7 +628,7 @@ export function AssetIntelligencePage() {
             <h3 className="text-sm font-semibold text-slate-200 flex items-center gap-2">
               <Radio className="w-4 h-4 text-teal-400" /> Live Sensor Feed
             </h3>
-            <span className="text-[10px] text-teal-400 font-medium">
+            <span className="text-xs text-teal-400 font-medium">
               8 signals active
             </span>
           </div>
@@ -647,7 +647,7 @@ export function AssetIntelligencePage() {
                     <div className="text-xs font-semibold text-slate-200">
                       {sig.label}
                     </div>
-                    <div className="text-[10px] text-slate-500 mt-0.5">
+                    <div className="text-xs text-slate-400 mt-0.5">
                       Threshold: {sig.threshold}
                     </div>
                   </div>
@@ -655,7 +655,7 @@ export function AssetIntelligencePage() {
                     <div className={`text-base font-black ${sc.color}`}>
                       {sig.value}
                     </div>
-                    <div className="flex items-center gap-1 justify-end text-[10px] text-slate-500">
+                    <div className="flex items-center gap-1 justify-end text-xs text-slate-400">
                       {sig.trend === "up" ? (
                         <TrendingUp className="w-2.5 h-2.5" />
                       ) : sig.trend === "down" ? (
@@ -681,19 +681,19 @@ export function AssetIntelligencePage() {
             <table className="w-full text-xs">
               <thead>
                 <tr className="border-b border-white/[0.06]">
-                  <th className="text-left py-3 px-3 text-slate-500 font-semibold">
+                  <th className="text-left py-3 px-3 text-slate-400 font-semibold">
                     Failure Mode
                   </th>
-                  <th className="text-center py-3 px-3 text-slate-500 font-semibold">
+                  <th className="text-center py-3 px-3 text-slate-400 font-semibold">
                     Probability
                   </th>
-                  <th className="text-center py-3 px-3 text-slate-500 font-semibold">
+                  <th className="text-center py-3 px-3 text-slate-400 font-semibold">
                     Severity
                   </th>
-                  <th className="text-center py-3 px-3 text-slate-500 font-semibold">
+                  <th className="text-center py-3 px-3 text-slate-400 font-semibold">
                     Detection
                   </th>
-                  <th className="text-center py-3 px-3 text-slate-500 font-semibold">
+                  <th className="text-center py-3 px-3 text-slate-400 font-semibold">
                     Risk Score
                   </th>
                 </tr>
@@ -716,7 +716,7 @@ export function AssetIntelligencePage() {
                     </td>
                     <td className="py-3 px-3 text-center">
                       <span
-                        className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                        className={`px-2 py-0.5 rounded-full text-xs font-bold ${
                           fm.severity === "Critical"
                             ? "bg-red-500/20 text-red-400"
                             : fm.severity === "High"
@@ -762,7 +762,7 @@ export function AssetIntelligencePage() {
                 className="flex items-start gap-3 p-3 rounded-xl bg-white/[0.02] border border-white/[0.04]"
               >
                 <div
-                  className={`px-2 py-0.5 rounded-full text-[10px] font-bold flex-shrink-0 ${
+                  className={`px-2 py-0.5 rounded-full text-xs font-bold flex-shrink-0 ${
                     entry.type === "Corrective"
                       ? "bg-amber-500/20 text-amber-400"
                       : entry.type === "PM"
@@ -776,7 +776,7 @@ export function AssetIntelligencePage() {
                   <div className="text-sm text-slate-200">
                     {entry.description}
                   </div>
-                  <div className="text-[10px] text-slate-600 mt-1">
+                  <div className="text-xs text-slate-400 mt-1">
                     {entry.date}
                   </div>
                 </div>
@@ -804,7 +804,7 @@ export function AssetIntelligencePage() {
                 {i > 0 && (
                   <div className="flex items-center gap-1">
                     <div className="w-4 h-px bg-white/[0.1]" />
-                    <ChevronRight className="w-3 h-3 text-slate-700" />
+                    <ChevronRight className="w-3 h-3 text-slate-400" />
                   </div>
                 )}
                 <div
@@ -815,7 +815,7 @@ export function AssetIntelligencePage() {
                   }`}
                 >
                   <span
-                    className={`text-[10px] font-bold uppercase tracking-wider ${h.level === "Asset" ? "text-teal-400" : "text-slate-600"}`}
+                    className={`text-xs font-bold uppercase tracking-wider ${h.level === "Asset" ? "text-teal-400" : "text-slate-400"}`}
                   >
                     {h.level}
                   </span>

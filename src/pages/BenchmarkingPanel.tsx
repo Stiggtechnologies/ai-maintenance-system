@@ -130,7 +130,7 @@ export function BenchmarkingPanel() {
           <h1 className="text-2xl font-bold text-white tracking-tight">
             Benchmarking
           </h1>
-          <p className="text-sm text-slate-500 mt-0.5">
+          <p className="text-sm text-slate-400 mt-0.5">
             Performance vs. industry benchmarks and peer organizations
           </p>
         </div>
@@ -150,22 +150,22 @@ export function BenchmarkingPanel() {
           <table className="w-full text-xs">
             <thead>
               <tr className="border-b border-white/[0.06]">
-                <th className="text-left py-3 px-3 text-slate-500 font-semibold">
+                <th className="text-left py-3 px-3 text-slate-400 font-semibold">
                   Metric
                 </th>
-                <th className="text-center py-3 px-3 text-slate-500 font-semibold">
+                <th className="text-center py-3 px-3 text-slate-400 font-semibold">
                   Your Value
                 </th>
-                <th className="text-center py-3 px-3 text-slate-500 font-semibold">
+                <th className="text-center py-3 px-3 text-slate-400 font-semibold">
                   Benchmark
                 </th>
-                <th className="text-center py-3 px-3 text-slate-500 font-semibold">
+                <th className="text-center py-3 px-3 text-slate-400 font-semibold">
                   Percentile
                 </th>
-                <th className="text-center py-3 px-3 text-slate-500 font-semibold">
+                <th className="text-center py-3 px-3 text-slate-400 font-semibold">
                   Gap
                 </th>
-                <th className="text-center py-3 px-3 text-slate-500 font-semibold">
+                <th className="text-center py-3 px-3 text-slate-400 font-semibold">
                   Status
                 </th>
               </tr>
@@ -187,7 +187,7 @@ export function BenchmarkingPanel() {
                     <td className="py-3 px-3 text-center font-mono text-slate-200">
                       {b.yourValue}
                     </td>
-                    <td className="py-3 px-3 text-center font-mono text-slate-500">
+                    <td className="py-3 px-3 text-center font-mono text-slate-400">
                       {b.benchmark}
                     </td>
                     <td className="py-3 px-3 text-center">
@@ -210,7 +210,7 @@ export function BenchmarkingPanel() {
                     </td>
                     <td className="py-3 px-3 text-center">
                       <span
-                        className={`px-2 py-0.5 rounded-full text-[10px] font-bold capitalize ${sc.bg} ${sc.text}`}
+                        className={`px-2 py-0.5 rounded-full text-xs font-bold capitalize ${sc.bg} ${sc.text}`}
                       >
                         {b.status}
                       </span>

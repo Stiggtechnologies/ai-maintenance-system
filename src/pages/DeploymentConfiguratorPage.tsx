@@ -1,6 +1,22 @@
 import { useState, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
-import { Check, ChevronLeft, ChevronRight, ArrowRight, Factory, Building2, Settings, Shield, FileCheck, ChartBar as BarChart3, Package, TriangleAlert as AlertTriangle, Gauge, Layers, Rocket } from "lucide-react";
+import {
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  ArrowRight,
+  Factory,
+  Building2,
+  Settings,
+  Shield,
+  FileCheck,
+  ChartBar as BarChart3,
+  Package,
+  TriangleAlert as AlertTriangle,
+  Gauge,
+  Layers,
+  Rocket,
+} from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { platformService, UserContext } from "../services/platform";
 import { useSetupStore } from "../store/setupStore";
@@ -242,7 +258,7 @@ export function DeploymentConfiguratorPage() {
       <div className="flex items-center justify-center h-64">
         <div className="flex flex-col items-center gap-3">
           <div className="w-8 h-8 border-2 border-teal-500 border-t-transparent rounded-full animate-spin" />
-          <p className="text-sm text-slate-500">Loading configuration...</p>
+          <p className="text-sm text-slate-400">Loading configuration...</p>
         </div>
       </div>
     );
@@ -258,7 +274,7 @@ export function DeploymentConfiguratorPage() {
           <h2 className="text-xl font-bold text-[#E6EDF3] mb-2">
             Deployment Created
           </h2>
-          <p className="text-sm text-slate-500 mb-6">
+          <p className="text-sm text-slate-400 mb-6">
             Your deployment using the{" "}
             <span className="font-medium">{template?.name}</span> template has
             been successfully created and is being provisioned.
@@ -290,7 +306,7 @@ export function DeploymentConfiguratorPage() {
           <h3 className="text-lg font-medium text-slate-300">
             No template selected
           </h3>
-          <p className="text-sm text-slate-500 mt-1 mb-4">
+          <p className="text-sm text-slate-400 mt-1 mb-4">
             Please select a template to configure your deployment.
           </p>
           <button
@@ -310,7 +326,7 @@ export function DeploymentConfiguratorPage() {
       <div className="mb-6">
         <button
           onClick={() => navigate("/deployments/new")}
-          className="flex items-center gap-1 text-sm text-slate-500 hover:text-slate-300 mb-3 transition-colors"
+          className="flex items-center gap-1 text-sm text-slate-400 hover:text-slate-300 mb-3 transition-colors"
         >
           <ChevronLeft size={16} />
           Back to Templates
@@ -318,7 +334,7 @@ export function DeploymentConfiguratorPage() {
         <h1 className="text-2xl font-bold text-[#E6EDF3]">
           Configure Deployment
         </h1>
-        <p className="text-sm text-slate-500 mt-1">
+        <p className="text-sm text-slate-400 mt-1">
           Set up your <span className="font-medium">{template.name}</span>{" "}
           deployment.
         </p>
@@ -350,7 +366,7 @@ export function DeploymentConfiguratorPage() {
                         ? "bg-blue-600 text-white"
                         : isComplete
                           ? "bg-green-500 text-white"
-                          : "bg-slate-200 text-slate-500"
+                          : "bg-slate-200 text-slate-400"
                     }`}
                   >
                     {isComplete ? <Check size={14} /> : index + 1}
@@ -388,7 +404,7 @@ export function DeploymentConfiguratorPage() {
                     {template.name}
                   </h3>
                   {template.master_template_name && (
-                    <p className="text-xs text-slate-500 mt-0.5">
+                    <p className="text-xs text-slate-400 mt-0.5">
                       Built on: {template.master_template_name}
                     </p>
                   )}
@@ -656,7 +672,7 @@ export function DeploymentConfiguratorPage() {
                       <div className="text-sm font-medium text-[#E6EDF3]">
                         {mode.label}
                       </div>
-                      <div className="text-xs text-slate-500 mt-0.5">
+                      <div className="text-xs text-slate-400 mt-0.5">
                         {mode.desc}
                       </div>
                     </button>
@@ -682,7 +698,7 @@ export function DeploymentConfiguratorPage() {
                       <div className="text-sm font-medium text-[#E6EDF3]">
                         {level.label}
                       </div>
-                      <div className="text-xs text-slate-500 mt-0.5">
+                      <div className="text-xs text-slate-400 mt-0.5">
                         {level.desc}
                       </div>
                     </button>
@@ -720,14 +736,14 @@ export function DeploymentConfiguratorPage() {
             <h2 className="text-lg font-semibold text-[#E6EDF3] mb-4">
               Deployment Summary
             </h2>
-            <p className="text-sm text-slate-500 mb-6">
+            <p className="text-sm text-slate-400 mb-6">
               Review your configuration before creating the deployment.
             </p>
 
             <div className="space-y-4">
               {/* Template */}
               <div className="bg-[#0B0F14] border border-[#232A33] rounded-xl p-4">
-                <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">
+                <div className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">
                   Template
                 </div>
                 <div className="flex items-center gap-3">
@@ -738,7 +754,7 @@ export function DeploymentConfiguratorPage() {
                     <div className="text-sm font-semibold text-[#E6EDF3]">
                       {template.name}
                     </div>
-                    <div className="text-xs text-slate-500">
+                    <div className="text-xs text-slate-400">
                       {template.master_family}
                     </div>
                   </div>
@@ -747,18 +763,18 @@ export function DeploymentConfiguratorPage() {
 
               {/* Organization */}
               <div className="bg-[#0B0F14] border border-[#232A33] rounded-xl p-4">
-                <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">
+                <div className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">
                   Organization
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <div className="text-xs text-slate-500">Organization</div>
+                    <div className="text-xs text-slate-400">Organization</div>
                     <div className="text-sm font-medium text-[#E6EDF3]">
                       {orgName || "--"}
                     </div>
                   </div>
                   <div>
-                    <div className="text-xs text-slate-500">Site</div>
+                    <div className="text-xs text-slate-400">Site</div>
                     <div className="text-sm font-medium text-[#E6EDF3]">
                       {selectedSiteId
                         ? sites.find((s) => s.id === selectedSiteId)?.name
@@ -766,13 +782,13 @@ export function DeploymentConfiguratorPage() {
                     </div>
                   </div>
                   <div>
-                    <div className="text-xs text-slate-500">Region</div>
+                    <div className="text-xs text-slate-400">Region</div>
                     <div className="text-sm font-medium text-[#E6EDF3]">
                       {operatingRegion || "--"}
                     </div>
                   </div>
                   <div>
-                    <div className="text-xs text-slate-500">Timezone</div>
+                    <div className="text-xs text-slate-400">Timezone</div>
                     <div className="text-sm font-medium text-[#E6EDF3]">
                       {timezone}
                     </div>
@@ -782,24 +798,24 @@ export function DeploymentConfiguratorPage() {
 
               {/* Operational */}
               <div className="bg-[#0B0F14] border border-[#232A33] rounded-xl p-4">
-                <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">
+                <div className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">
                   Operational Profile
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <div className="text-xs text-slate-500">Asset Count</div>
+                    <div className="text-xs text-slate-400">Asset Count</div>
                     <div className="text-sm font-medium text-[#E6EDF3]">
                       {assetRange}
                     </div>
                   </div>
                   <div>
-                    <div className="text-xs text-slate-500">Sites</div>
+                    <div className="text-xs text-slate-400">Sites</div>
                     <div className="text-sm font-medium text-[#E6EDF3]">
                       {siteCount}
                     </div>
                   </div>
                   <div>
-                    <div className="text-xs text-slate-500">
+                    <div className="text-xs text-slate-400">
                       Operating Model
                     </div>
                     <div className="text-sm font-medium text-[#E6EDF3]">
@@ -807,7 +823,7 @@ export function DeploymentConfiguratorPage() {
                     </div>
                   </div>
                   <div>
-                    <div className="text-xs text-slate-500">Primary CMMS</div>
+                    <div className="text-xs text-slate-400">Primary CMMS</div>
                     <div className="text-sm font-medium text-[#E6EDF3]">
                       {primaryCmms}
                     </div>
@@ -817,24 +833,24 @@ export function DeploymentConfiguratorPage() {
 
               {/* Governance */}
               <div className="bg-[#0B0F14] border border-[#232A33] rounded-xl p-4">
-                <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">
+                <div className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">
                   Governance
                 </div>
                 <div className="grid grid-cols-3 gap-3">
                   <div>
-                    <div className="text-xs text-slate-500">Autonomy Mode</div>
+                    <div className="text-xs text-slate-400">Autonomy Mode</div>
                     <div className="text-sm font-medium text-[#E6EDF3] capitalize">
                       {autonomyMode}
                     </div>
                   </div>
                   <div>
-                    <div className="text-xs text-slate-500">Approval Level</div>
+                    <div className="text-xs text-slate-400">Approval Level</div>
                     <div className="text-sm font-medium text-[#E6EDF3] capitalize">
                       {approvalStrictness}
                     </div>
                   </div>
                   <div>
-                    <div className="text-xs text-slate-500">
+                    <div className="text-xs text-slate-400">
                       Audit Retention
                     </div>
                     <div className="text-sm font-medium text-[#E6EDF3]">
@@ -846,7 +862,7 @@ export function DeploymentConfiguratorPage() {
 
               {/* Template Capabilities */}
               <div className="bg-[#0B0F14] border border-[#232A33] rounded-xl p-4">
-                <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">
+                <div className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">
                   Template Capabilities
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
@@ -856,7 +872,7 @@ export function DeploymentConfiguratorPage() {
                       <div className="text-sm font-medium text-[#E6EDF3]">
                         {template.kpi_packs?.kpi_count ?? 0}
                       </div>
-                      <div className="text-xs text-slate-500">KPIs</div>
+                      <div className="text-xs text-slate-400">KPIs</div>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
@@ -866,7 +882,7 @@ export function DeploymentConfiguratorPage() {
                         {template.industry_asset_libraries?.asset_class_count ??
                           0}
                       </div>
-                      <div className="text-xs text-slate-500">
+                      <div className="text-xs text-slate-400">
                         Asset Classes
                       </div>
                     </div>
@@ -878,7 +894,7 @@ export function DeploymentConfiguratorPage() {
                         {template.industry_failure_mode_packs
                           ?.failure_mode_count ?? 0}
                       </div>
-                      <div className="text-xs text-slate-500">
+                      <div className="text-xs text-slate-400">
                         Failure Modes
                       </div>
                     </div>
@@ -889,17 +905,17 @@ export function DeploymentConfiguratorPage() {
                       <div className="text-sm font-medium text-[#E6EDF3]">
                         {template.industry_oee_models?.model_name ?? "Standard"}
                       </div>
-                      <div className="text-xs text-slate-500">OEE Model</div>
+                      <div className="text-xs text-slate-400">OEE Model</div>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Shield size={14} className="text-slate-500" />
+                    <Shield size={14} className="text-slate-400" />
                     <div>
                       <div className="text-sm font-medium text-[#E6EDF3]">
                         {template.industry_governance_profiles?.profile_name ??
                           "Standard"}
                       </div>
-                      <div className="text-xs text-slate-500">
+                      <div className="text-xs text-slate-400">
                         Governance Profile
                       </div>
                     </div>
