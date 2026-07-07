@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   CircleCheck as CheckCircle,
   Activity,
@@ -14,7 +15,12 @@ import { motion } from "framer-motion";
 import { useOnboardingOperatingLoop } from "../hooks/useOnboardingOperatingLoop";
 import type { DerivedWorkAction } from "../services/onboardingOperatingLoop";
 import { useAsyncData } from "../hooks/useAsyncData";
-import { getWorkOrders } from "../services/operatingLoopService";
+import {
+  getWorkOrders,
+  approveWorkOrder,
+  assignWorkOrder,
+  createHumanWorkOrder,
+} from "../services/operatingLoopService";
 import type { WorkOrderRow } from "../types/operating";
 import { LoadingState, ErrorState } from "../components/ui/AsyncStates";
 
@@ -189,7 +195,19 @@ const priorityColors: Record<WorkPriority, string> = {
   low: "text-slate-500",
 };
 
-function WorkCard({ item }: { item: WorkItem }) {
+const isDbRow = (id: string) => /^[0-9a-f]{8}-[0-9a-f]{4}/.test(id);
+
+function WorkCard({
+  item,
+  onApprove,
+  onAssign,
+  onOpen,
+}: {
+  item: WorkItem;
+  onApprove: (item: WorkItem) => void;
+  onAssign: (item: WorkItem) => void;
+  onOpen: (item: WorkItem) => void;
+}) {
   const [expanded, setExpanded] = useState(false);
   const status = statusConfig[item.status];
 
@@ -295,15 +313,33 @@ function WorkCard({ item }: { item: WorkItem }) {
                 </div>
                 <div className="flex gap-2 mt-2">
                   {item.approvalRequired ? (
-                    <button className="flex items-center gap-1.5 px-3 py-1.5 bg-teal-500/20 border border-teal-500/30 text-teal-400 text-xs font-medium rounded-lg hover:bg-teal-500/30 transition-colors">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onApprove(item);
+                      }}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-teal-500/20 border border-teal-500/30 text-teal-400 text-xs font-medium rounded-lg hover:bg-teal-500/30 transition-colors"
+                    >
                       <CheckCircle className="w-3 h-3" /> Approve
                     </button>
                   ) : (
-                    <button className="flex items-center gap-1.5 px-3 py-1.5 bg-teal-500/20 border border-teal-500/30 text-teal-400 text-xs font-medium rounded-lg hover:bg-teal-500/30 transition-colors">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onOpen(item);
+                      }}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-teal-500/20 border border-teal-500/30 text-teal-400 text-xs font-medium rounded-lg hover:bg-teal-500/30 transition-colors"
+                    >
                       <ArrowUpRight className="w-3 h-3" /> Open WO
                     </button>
                   )}
-                  <button className="flex items-center gap-1.5 px-3 py-1.5 bg-white/[0.04] border border-white/[0.08] text-slate-400 text-xs rounded-lg hover:bg-white/[0.08] transition-colors">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onAssign(item);
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-white/[0.04] border border-white/[0.08] text-slate-400 text-xs rounded-lg hover:bg-white/[0.08] transition-colors"
+                  >
                     <User className="w-3 h-3" /> Assign
                   </button>
                 </div>
@@ -317,9 +353,14 @@ function WorkCard({ item }: { item: WorkItem }) {
 }
 
 export function WorkActionBoard() {
+  const navigate = useNavigate();
   const [filter, setFilter] = useState<"all" | WorkStatus>("all");
   const [sortBy, setSortBy] = useState<"risk" | "date" | "priority">("risk");
   const [search, setSearch] = useState("");
+  const [toast, setToast] = useState<string | null>(null);
+  const [showNewWo, setShowNewWo] = useState(false);
+  const [newWoTitle, setNewWoTitle] = useState("");
+  const [newWoPriority, setNewWoPriority] = useState("medium");
   const { workActions } = useOnboardingOperatingLoop();
   const {
     data: rows,
@@ -327,6 +368,68 @@ export function WorkActionBoard() {
     error,
     refetch,
   } = useAsyncData<WorkOrderRow[]>(() => getWorkOrders(), []);
+
+  const flash = (m: string) => {
+    setToast(m);
+    window.setTimeout(() => setToast(null), 4000);
+  };
+
+  const handleApprove = async (item: WorkItem) => {
+    if (!isDbRow(item.id)) {
+      flash(
+        "This draft comes from asset onboarding — approve its gate in Decision Governance first.",
+      );
+      return;
+    }
+    try {
+      await approveWorkOrder(item.id, item.title);
+      flash(`Approved ${item.woNumber} — now scheduled. Decision logged.`);
+      refetch();
+    } catch (e) {
+      flash(e instanceof Error ? e.message : "Approval failed.");
+    }
+  };
+
+  const handleAssign = async (item: WorkItem) => {
+    if (!isDbRow(item.id)) {
+      flash("Onboarding drafts can be assigned once converted to work orders.");
+      return;
+    }
+    const assignee = window.prompt(
+      `Assign ${item.woNumber} to:`,
+      item.assignee ?? "",
+    );
+    if (!assignee) return;
+    try {
+      await assignWorkOrder(item.id, assignee);
+      flash(`${item.woNumber} assigned to ${assignee}.`);
+      refetch();
+    } catch (e) {
+      flash(e instanceof Error ? e.message : "Assignment failed.");
+    }
+  };
+
+  const handleOpen = (item: WorkItem) => {
+    if (isDbRow(item.id)) navigate(`/work/${item.id}`);
+    else flash("Onboarding drafts have no work-order detail yet.");
+  };
+
+  const handleCreate = async () => {
+    if (!newWoTitle.trim()) return;
+    try {
+      await createHumanWorkOrder({
+        title: newWoTitle.trim(),
+        assetId: null,
+        priority: newWoPriority,
+      });
+      setShowNewWo(false);
+      setNewWoTitle("");
+      flash("Work order created.");
+      refetch();
+    } catch (e) {
+      flash(e instanceof Error ? e.message : "Could not create work order.");
+    }
+  };
 
   const allWorkItems: WorkItem[] = [
     ...workActions.map(derivedWorkActionToItem),
@@ -367,6 +470,68 @@ export function WorkActionBoard() {
 
   return (
     <div className="p-6 space-y-6">
+      {toast && (
+        <div className="fixed top-4 right-4 z-[60] max-w-sm bg-[#0D1520] border border-teal-500/30 rounded-xl px-4 py-3 text-xs text-teal-200 shadow-xl shadow-black/40">
+          {toast}
+        </div>
+      )}
+      {showNewWo && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/60"
+            onClick={() => setShowNewWo(false)}
+          />
+          <div className="relative w-full max-w-md bg-[#0D1520] border border-white/[0.1] rounded-2xl p-5">
+            <h3 className="text-sm font-semibold text-slate-200 mb-3">
+              New Work Order
+            </h3>
+            <label
+              className="block text-xs text-slate-400 mb-1"
+              htmlFor="new-wo-title"
+            >
+              Title
+            </label>
+            <input
+              id="new-wo-title"
+              value={newWoTitle}
+              onChange={(e) => setNewWoTitle(e.target.value)}
+              placeholder="e.g. Inspect HX-08 bypass valve"
+              className="w-full px-3 py-2 mb-3 bg-white/[0.03] border border-white/[0.08] rounded-lg text-sm text-white placeholder-slate-600 focus:outline-none focus:border-teal-500/40"
+            />
+            <label
+              className="block text-xs text-slate-400 mb-1"
+              htmlFor="new-wo-priority"
+            >
+              Priority
+            </label>
+            <select
+              id="new-wo-priority"
+              value={newWoPriority}
+              onChange={(e) => setNewWoPriority(e.target.value)}
+              className="w-full px-3 py-2 mb-4 bg-white/[0.03] border border-white/[0.08] rounded-lg text-sm text-white focus:outline-none focus:border-teal-500/40"
+            >
+              <option value="critical">Critical</option>
+              <option value="high">High</option>
+              <option value="medium">Medium</option>
+              <option value="low">Low</option>
+            </select>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setShowNewWo(false)}
+                className="px-3 py-1.5 text-xs text-slate-400 hover:text-white"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreate}
+                className="px-3 py-1.5 bg-teal-500/20 border border-teal-500/30 text-teal-400 text-xs font-medium rounded-lg hover:bg-teal-500/30"
+              >
+                Create
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-white tracking-tight">
@@ -376,7 +541,10 @@ export function WorkActionBoard() {
             Ranked by risk, consequence, and mission impact
           </p>
         </div>
-        <button className="px-4 py-2 bg-teal-500/20 border border-teal-500/30 rounded-lg text-xs text-teal-400 font-medium hover:bg-teal-500/30 transition-colors flex items-center gap-1.5">
+        <button
+          onClick={() => setShowNewWo(true)}
+          className="px-4 py-2 bg-teal-500/20 border border-teal-500/30 rounded-lg text-xs text-teal-400 font-medium hover:bg-teal-500/30 transition-colors flex items-center gap-1.5"
+        >
           <Plus className="w-3.5 h-3.5" /> New Work Order
         </button>
       </div>
@@ -481,7 +649,12 @@ export function WorkActionBoard() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.05 }}
             >
-              <WorkCard item={item} />
+              <WorkCard
+                item={item}
+                onApprove={handleApprove}
+                onAssign={handleAssign}
+                onOpen={handleOpen}
+              />
             </motion.div>
           ))}
         {!loading && !error && filtered.length === 0 && (

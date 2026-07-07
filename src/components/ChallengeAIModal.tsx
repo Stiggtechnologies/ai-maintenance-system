@@ -1,10 +1,18 @@
 import { useState } from "react";
-import { X, TriangleAlert as AlertTriangle, Send, Shield, Brain, Clock } from "lucide-react";
+import {
+  X,
+  TriangleAlert as AlertTriangle,
+  Send,
+  Shield,
+  Brain,
+  Clock,
+} from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface ChallengeAIModalProps {
   open: boolean;
   onClose: () => void;
+  onSubmit?: (reason: string, notes: string) => Promise<void> | void;
   recommendation?: {
     title: string;
     confidence: number;
@@ -18,17 +26,30 @@ const challengeReasons = [
   { id: "wrong_priority", label: "Priority / urgency is incorrect" },
   { id: "missing_context", label: "AI is missing important context" },
   { id: "incorrect_data", label: "Underlying data appears incorrect" },
-  { id: "operational_constraint", label: "Operational constraint not considered" },
+  {
+    id: "operational_constraint",
+    label: "Operational constraint not considered",
+  },
   { id: "other", label: "Other reason" },
 ];
 
-export function ChallengeAIModal({ open, onClose, recommendation }: ChallengeAIModalProps) {
+export function ChallengeAIModal({
+  open,
+  onClose,
+  onSubmit,
+  recommendation,
+}: ChallengeAIModalProps) {
   const [selectedReason, setSelectedReason] = useState<string | null>(null);
   const [notes, setNotes] = useState("");
   const [submitted, setSubmitted] = useState(false);
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!selectedReason) return;
+    try {
+      await onSubmit?.(selectedReason, notes);
+    } catch {
+      /* feedback capture is best-effort; the modal still closes */
+    }
     setSubmitted(true);
     setTimeout(() => {
       setSubmitted(false);
@@ -61,7 +82,7 @@ export function ChallengeAIModal({ open, onClose, recommendation }: ChallengeAIM
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
-            className="fixed inset-x-4 top-[15%] mx-auto max-w-lg bg-[#0E1520] border border-white/[0.08] rounded-2xl z-50 overflow-hidden shadow-2xl"
+            className="fixed inset-x-4 top-[8%] mx-auto max-w-lg max-h-[85vh] overflow-y-auto bg-[#0E1520] border border-white/[0.08] rounded-2xl z-50 shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
             {submitted ? (
@@ -69,9 +90,12 @@ export function ChallengeAIModal({ open, onClose, recommendation }: ChallengeAIM
                 <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-teal-500/20 flex items-center justify-center">
                   <Shield className="w-6 h-6 text-teal-400" />
                 </div>
-                <h3 className="text-lg font-bold text-white mb-2">Challenge Recorded</h3>
+                <h3 className="text-lg font-bold text-white mb-2">
+                  Challenge Recorded
+                </h3>
                 <p className="text-sm text-slate-400">
-                  Your override has been logged. The AI will incorporate this feedback into future recommendations.
+                  Your override has been logged. The AI will incorporate this
+                  feedback into future recommendations.
                 </p>
               </div>
             ) : (
@@ -83,8 +107,12 @@ export function ChallengeAIModal({ open, onClose, recommendation }: ChallengeAIM
                       <AlertTriangle className="w-4 h-4 text-amber-400" />
                     </div>
                     <div>
-                      <h3 className="text-sm font-bold text-white">Challenge AI Recommendation</h3>
-                      <p className="text-[11px] text-slate-500">Your override improves future model accuracy</p>
+                      <h3 className="text-sm font-bold text-white">
+                        Challenge AI Recommendation
+                      </h3>
+                      <p className="text-[11px] text-slate-500">
+                        Your override improves future model accuracy
+                      </p>
                     </div>
                   </div>
                   <button
@@ -98,19 +126,27 @@ export function ChallengeAIModal({ open, onClose, recommendation }: ChallengeAIM
                 {/* Recommendation Context */}
                 {recommendation && (
                   <div className="mx-6 mt-4 p-3 rounded-xl bg-white/[0.03] border border-white/[0.06]">
-                    <div className="text-xs text-slate-500 mb-1">Challenging recommendation:</div>
-                    <div className="text-sm font-semibold text-slate-200">{recommendation.title}</div>
+                    <div className="text-xs text-slate-500 mb-1">
+                      Challenging recommendation:
+                    </div>
+                    <div className="text-sm font-semibold text-slate-200">
+                      {recommendation.title}
+                    </div>
                     <div className="flex items-center gap-3 mt-1.5 text-[11px] text-slate-500">
                       <span>{recommendation.asset}</span>
                       <span className="text-slate-700">|</span>
-                      <span className="font-mono text-teal-400">{recommendation.confidence}% conf</span>
+                      <span className="font-mono text-teal-400">
+                        {recommendation.confidence}% conf
+                      </span>
                     </div>
                   </div>
                 )}
 
                 {/* Reason Selection */}
                 <div className="px-6 py-4">
-                  <div className="text-xs font-semibold text-slate-400 mb-3 uppercase tracking-wider">Why are you challenging this?</div>
+                  <div className="text-xs font-semibold text-slate-400 mb-3 uppercase tracking-wider">
+                    Why are you challenging this?
+                  </div>
                   <div className="space-y-2">
                     {challengeReasons.map((reason) => (
                       <button
@@ -170,8 +206,9 @@ export function ChallengeAIModal({ open, onClose, recommendation }: ChallengeAIM
                 <div className="mx-6 mb-4 p-3 rounded-xl bg-teal-500/5 border border-teal-500/10 flex items-start gap-2">
                   <Clock className="w-3.5 h-3.5 text-teal-400 flex-shrink-0 mt-0.5" />
                   <p className="text-[11px] text-slate-400 leading-relaxed">
-                    Challenges are reviewed within 4 hours. The AI model retrains weekly incorporating all human overrides.
-                    Your expertise directly improves system accuracy.
+                    Challenges are reviewed within 4 hours. The AI model
+                    retrains weekly incorporating all human overrides. Your
+                    expertise directly improves system accuracy.
                   </p>
                 </div>
               </>

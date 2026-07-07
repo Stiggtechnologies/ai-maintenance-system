@@ -851,3 +851,197 @@ export async function createCoworkWorkspaceFromObjective(
 
   return { workspaceId, artifactId: artifact?.id ?? null, recommendationId };
 }
+
+/* -------------------------------------------------------------------------- */
+/* Interactive controls — every button writes something real                  */
+/* -------------------------------------------------------------------------- */
+
+/** Human approves an approval-gated work order → scheduled, decision logged. */
+export async function approveWorkOrder(
+  id: string,
+  title: string,
+): Promise<void> {
+  const ctx = await getOrgContext();
+  const { error } = await supabase
+    .from("work_orders")
+    .update({
+      status: "scheduled",
+      approval_required: false,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", id);
+  if (error) fail("Could not approve work order", error);
+  await supabase.from("decisions").insert({
+    organization_id: ctx.organizationId,
+    decision_type: "work_order_approval",
+    action_taken: `Approved work order: ${title}`,
+    approval_status: "approved",
+    autonomy_mode: "advisory",
+    confidence_score: 100,
+    human_actor: ctx.userId,
+    rationale: "Operator approved gated work order from the Work Action Board.",
+    outcome_status: "executed",
+  });
+}
+
+export async function assignWorkOrder(
+  id: string,
+  assignee: string,
+): Promise<void> {
+  const { error } = await supabase
+    .from("work_orders")
+    .update({ assignee, updated_at: new Date().toISOString() })
+    .eq("id", id);
+  if (error) fail("Could not assign work order", error);
+}
+
+export async function createHumanWorkOrder(input: {
+  title: string;
+  assetId: string | null;
+  priority: string;
+  description?: string;
+}): Promise<string | null> {
+  const ctx = await getOrgContext();
+  const { data, error } = await supabase
+    .from("work_orders")
+    .insert({
+      organization_id: ctx.organizationId,
+      asset_id: input.assetId,
+      wo_number: `WO-${Date.now().toString().slice(-5)}`,
+      title: input.title,
+      description: input.description ?? null,
+      status: "pending",
+      priority: input.priority,
+      type: "human_created",
+    })
+    .select("id")
+    .maybeSingle()
+    .returns<{ id: string }>();
+  if (error) fail("Could not create work order", error);
+  return data?.id ?? null;
+}
+
+/** Approve/reject a logged decision awaiting human review. */
+export async function decideDecision(
+  id: string,
+  approved: boolean,
+): Promise<void> {
+  const ctx = await getOrgContext();
+  const { error } = await supabase
+    .from("decisions")
+    .update({
+      approval_status: approved ? "approved" : "rejected",
+      human_actor: ctx.userId,
+      outcome_status: approved ? "executed" : "reverted",
+    })
+    .eq("id", id);
+  if (error) fail("Could not record decision", error);
+}
+
+/** Challenge-AI feedback is genuine model feedback → Learning Loop. */
+export async function submitChallengeFeedback(
+  rec: { title: string; asset?: string },
+  reason: string,
+  notes: string,
+): Promise<void> {
+  const ctx = await getOrgContext();
+  const { error } = await supabase.from("learning_events").insert({
+    organization_id: ctx.organizationId,
+    event_type: "false_positive",
+    title: `AI challenged — ${rec.title}`,
+    detail: `Operator challenge (${reason})${notes ? `: ${notes}` : ""}. Captured for model feedback.`,
+    model_confidence: null,
+  });
+  if (error) fail("Could not submit challenge", error);
+}
+
+export interface NotificationRow {
+  id: string;
+  title: string | null;
+  message: string | null;
+  read: boolean;
+  created_at: string;
+}
+
+export async function getNotifications(): Promise<NotificationRow[]> {
+  const { data, error } = await supabase
+    .from("notifications")
+    .select("id,title,message,read,created_at")
+    .order("created_at", { ascending: false })
+    .limit(15)
+    .returns<NotificationRow[]>();
+  if (error) fail("Could not load notifications", error);
+  return data ?? [];
+}
+
+export async function markNotificationRead(id: string): Promise<void> {
+  await supabase.from("notifications").update({ read: true }).eq("id", id);
+}
+
+/** Send a message in a cowork workspace; the Reliability agent replies live. */
+export async function sendCoworkMessage(
+  workspaceId: string,
+  objective: string,
+  text: string,
+): Promise<void> {
+  const ctx = await getOrgContext();
+  const { error } = await supabase.from("cowork_messages").insert({
+    organization_id: ctx.organizationId,
+    workspace_id: workspaceId,
+    agent: "You",
+    role: "user",
+    message: text,
+    confidence: null,
+  });
+  if (error) fail("Could not send message", error);
+
+  const { data, error: fnError } = await supabase.functions.invoke(
+    "ai-agent-processor",
+    {
+      body: {
+        agentType: "ReliabilityAgent",
+        query: `Workspace objective: ${objective}\n\nTeam member says: ${text}\n\nRespond as the collaborating reliability engineering agent — concise, specific, actionable.`,
+      },
+    },
+  );
+  const reply = fnError
+    ? "The reliability agent is unavailable right now — your message is saved and the team can continue."
+    : ((data as { response?: string })?.response ?? "(no response)");
+
+  await supabase.from("cowork_messages").insert({
+    organization_id: ctx.organizationId,
+    workspace_id: workspaceId,
+    agent: "Reliability Engineering",
+    role: "agent",
+    message: reply.slice(0, 4000),
+    confidence: fnError ? null : 85,
+  });
+  await supabase
+    .from("cowork_workspaces")
+    .update({ updated_at: new Date().toISOString() })
+    .eq("id", workspaceId);
+}
+
+/** Client-side CSV download — real export, no server round-trip. */
+export function downloadCsv(
+  rows: Record<string, unknown>[],
+  filename: string,
+): void {
+  if (rows.length === 0) return;
+  const headers = Object.keys(rows[0]);
+  const escape = (v: unknown) => {
+    const s = v == null ? "" : String(v);
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  const csv = [
+    headers.join(","),
+    ...rows.map((r) => headers.map((h) => escape(r[h])).join(",")),
+  ].join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}

@@ -23,7 +23,10 @@ import { useAsyncData } from "../hooks/useAsyncData";
 import {
   getCoworkWorkspaces,
   createCoworkWorkspaceFromObjective,
+  getCoworkMessages,
+  sendCoworkMessage,
 } from "../services/operatingLoopService";
+import type { CoworkMessageRow } from "../types/operating";
 import type { CoworkWorkspaceRow } from "../types/operating";
 import { LoadingState, ErrorState } from "../components/ui/AsyncStates";
 
@@ -141,30 +144,6 @@ const workspaceTemplates = [
     label: "Emergency Recovery",
     icon: AlertTriangle,
     description: "Post-incident recovery and return-to-service planning",
-  },
-];
-
-const agentThread = [
-  {
-    agent: "Reliability Engineering",
-    message:
-      "Analyzed 847 failure records for belt conveyor class. Identified 3 dominant failure modes: bearing defects (42%), belt splice failures (28%), and idler seizures (18%).",
-    time: "14:22",
-    confidence: 91,
-  },
-  {
-    agent: "Data Analytics",
-    message:
-      "Cross-referenced vibration data with failure events. Current PM interval of 90 days is suboptimal — data suggests 65-day interval reduces bearing failures by 34% with minimal cost increase.",
-    time: "14:28",
-    confidence: 87,
-  },
-  {
-    agent: "Maintenance Strategy",
-    message:
-      "Proposed revised PM strategy: reduce interval to 70 days for critical conveyors (Criticality A), maintain 90 days for B-class. Estimated annual cost increase: $42K. Estimated downtime savings: $1.8M.",
-    time: "14:35",
-    confidence: 84,
   },
 ];
 
@@ -297,6 +276,42 @@ export function CoworkStudio() {
   const [view, setView] = useState<"workspaces" | "new" | "thread">(
     "workspaces",
   );
+  const [activeWs, setActiveWs] = useState<Workspace | null>(null);
+  const [threadMsgs, setThreadMsgs] = useState<CoworkMessageRow[]>([]);
+  const [threadLoading, setThreadLoading] = useState(false);
+  const [chatText, setChatText] = useState("");
+  const [sending, setSending] = useState(false);
+
+  const isDbWs = (id: string) => /^[0-9a-f]{8}-[0-9a-f]{4}/.test(id);
+
+  const openThread = async (ws: Workspace) => {
+    setActiveWs(ws);
+    setView("thread");
+    if (!isDbWs(ws.id)) {
+      setThreadMsgs([]);
+      return;
+    }
+    setThreadLoading(true);
+    try {
+      setThreadMsgs(await getCoworkMessages(ws.id));
+    } finally {
+      setThreadLoading(false);
+    }
+  };
+
+  const handleSend = async () => {
+    const text = chatText.trim();
+    if (!text || !activeWs || sending) return;
+    if (!isDbWs(activeWs.id)) return;
+    setSending(true);
+    setChatText("");
+    try {
+      await sendCoworkMessage(activeWs.id, activeWs.objective, text);
+      setThreadMsgs(await getCoworkMessages(activeWs.id));
+    } finally {
+      setSending(false);
+    }
+  };
   const [filter, setFilter] = useState<WorkspaceStatus | "all">("all");
   const [objective, setObjective] = useState("");
   const [creating, setCreating] = useState(false);
@@ -440,10 +455,11 @@ export function CoworkStudio() {
                 <Wrench className="w-5 h-5 text-amber-400" />
                 <div>
                   <h3 className="text-sm font-bold text-white">
-                    PM Optimization — Conveyor Class
+                    {activeWs?.title ?? "Workspace"}
                   </h3>
                   <p className="text-[11px] text-slate-500">
-                    3 agents collaborating
+                    {activeWs?.agents.length ?? 0} agents collaborating ·{" "}
+                    {activeWs?.objective}
                   </p>
                 </div>
               </div>
@@ -456,44 +472,65 @@ export function CoworkStudio() {
             </div>
 
             <div className="p-5 space-y-4 max-h-[400px] overflow-y-auto">
-              {agentThread.map((msg, i) => (
-                <motion.div
-                  key={i}
-                  initial={{ opacity: 0, y: 5 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: i * 0.1 }}
-                  className="flex items-start gap-3"
-                >
+              {threadLoading && (
+                <p className="text-xs text-slate-500">Loading thread…</p>
+              )}
+              {!threadLoading && threadMsgs.length === 0 && (
+                <p className="text-xs text-slate-500">
+                  No messages yet — direct the agents below to begin.
+                </p>
+              )}
+              {threadMsgs.map((msg) => (
+                <div key={msg.id} className="flex items-start gap-3">
                   <div className="w-8 h-8 rounded-lg bg-teal-500/10 border border-teal-500/20 flex items-center justify-center flex-shrink-0">
                     <Bot className="w-4 h-4 text-teal-400" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="text-xs font-bold text-teal-400">
+                      <span
+                        className={`text-xs font-bold ${msg.role === "user" ? "text-slate-200" : "text-teal-400"}`}
+                      >
                         {msg.agent}
                       </span>
                       <span className="text-[10px] text-slate-600">
-                        {msg.time}
+                        {new Date(msg.created_at).toLocaleTimeString()}
                       </span>
-                      <span className="text-[10px] font-mono text-slate-500 ml-auto">
-                        {msg.confidence}% conf
-                      </span>
+                      {msg.confidence != null && (
+                        <span className="text-[10px] font-mono text-slate-500 ml-auto">
+                          {msg.confidence}% conf
+                        </span>
+                      )}
                     </div>
                     <p className="text-sm text-slate-300 leading-relaxed">
                       {msg.message}
                     </p>
                   </div>
-                </motion.div>
+                </div>
               ))}
+              {sending && (
+                <p className="text-xs text-teal-400 animate-pulse">
+                  Reliability Engineering agent is thinking…
+                </p>
+              )}
             </div>
 
             <div className="px-5 py-4 border-t border-white/[0.06] flex gap-3">
               <input
                 type="text"
+                value={chatText}
+                onChange={(e) => setChatText(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleSend();
+                }}
                 placeholder="Ask the agents a question or provide direction..."
                 className="flex-1 px-4 py-2.5 bg-white/[0.03] border border-white/[0.06] rounded-xl text-sm text-white placeholder-slate-600 focus:outline-none focus:border-teal-500/40 transition-colors"
               />
-              <button className="px-4 py-2.5 bg-teal-500/20 border border-teal-500/30 text-teal-400 text-xs font-medium rounded-xl hover:bg-teal-500/30 transition-colors">
+              <button
+                onClick={handleSend}
+                disabled={sending}
+                aria-label="Send message"
+                className="px-4 py-2.5 bg-teal-500/20 border border-teal-500/30 text-teal-400 text-xs font-medium rounded-xl hover:bg-teal-500/30 transition-colors disabled:opacity-50"
+              >
                 <Send className="w-4 h-4" />
               </button>
             </div>
@@ -524,7 +561,10 @@ export function CoworkStudio() {
               </button>
             ))}
             <button
-              onClick={() => setView("thread")}
+              onClick={() => {
+                const first = allWorkspaces.find((w) => isDbWs(w.id));
+                if (first) openThread(first);
+              }}
               className="ml-auto px-3 py-1.5 rounded-lg text-xs font-medium bg-white/[0.04] border border-white/[0.08] text-slate-400 hover:bg-white/[0.08] transition-colors"
             >
               View Active Thread
@@ -538,7 +578,9 @@ export function CoworkStudio() {
             {!loading &&
               !error &&
               filtered.map((ws, i) => (
-                <WorkspaceCard key={ws.id} workspace={ws} index={i} />
+                <div key={ws.id} onClick={() => openThread(ws)}>
+                  <WorkspaceCard workspace={ws} index={i} />
+                </div>
               ))}
           </div>
 

@@ -38,6 +38,7 @@ import {
   approveRecommendation,
   setRecommendationStatus,
   createWorkOrderFromRecommendation,
+  submitChallengeFeedback,
   type RecommendationAction,
 } from "../services/operatingLoopService";
 import type {
@@ -877,6 +878,15 @@ export function MissionControl() {
       <ChallengeAIModal
         open={!!challengeRec}
         onClose={() => setChallengeRec(null)}
+        onSubmit={async (reason, notes) => {
+          if (!challengeRec) return;
+          await submitChallengeFeedback(
+            { title: challengeRec.title, asset: challengeRec.asset?.name },
+            reason,
+            notes,
+          );
+          flash("Challenge logged to the Learning Loop as model feedback.");
+        }}
         recommendation={
           challengeRec
             ? {

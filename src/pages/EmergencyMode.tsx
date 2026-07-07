@@ -11,6 +11,27 @@ import {
   Target,
 } from "lucide-react";
 import { motion } from "framer-motion";
+import { supabase } from "../lib/supabase";
+import { useAsyncData } from "../hooks/useAsyncData";
+import { LoadingState } from "../components/ui/AsyncStates";
+
+interface CriticalAlert {
+  id: string;
+  title: string | null;
+  description: string | null;
+  created_at: string;
+}
+
+async function getActiveCriticalAlerts(): Promise<CriticalAlert[]> {
+  const { data, error } = await supabase
+    .from("system_alerts")
+    .select("id,title,description,created_at")
+    .eq("severity", "critical")
+    .eq("resolved", false)
+    .order("created_at", { ascending: false });
+  if (error) throw new Error(error.message);
+  return (data as CriticalAlert[]) ?? [];
+}
 
 type IncidentSeverity = "critical" | "major" | "moderate";
 
@@ -158,6 +179,42 @@ const typeColors: Record<string, string> = {
 
 export function EmergencyMode() {
   const [showAllTimeline, setShowAllTimeline] = useState(false);
+  const { data: alerts, loading } = useAsyncData<CriticalAlert[]>(
+    () => getActiveCriticalAlerts(),
+    [],
+  );
+
+  if (loading) return <LoadingState label="Checking for active incidents…" />;
+
+  if (!alerts || alerts.length === 0) {
+    return (
+      <div className="p-6">
+        <h1 className="text-2xl font-bold text-white tracking-tight">
+          Emergency Mode
+        </h1>
+        <p className="text-sm text-slate-500 mt-0.5 mb-6">
+          Incident command view — activates automatically when a critical system
+          alert is raised.
+        </p>
+        <div className="bg-[#0D1520] border border-teal-500/20 rounded-2xl p-10 text-center">
+          <div className="text-teal-400 text-lg font-semibold">
+            No active incidents
+          </div>
+          <p className="text-sm text-slate-400 mt-2 max-w-md mx-auto">
+            All critical alerts are resolved. When an unresolved critical alert
+            exists, this view becomes the incident command center with timeline,
+            affected assets, and recovery tracking.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Bind headline to the real alert; the recovery template below structures the response.
+  activeIncident.title = alerts[0].title ?? activeIncident.title;
+  activeIncident.id = `ALERT-${alerts[0].id.slice(0, 8)}`;
+  activeIncident.startTime = new Date(alerts[0].created_at).toLocaleString();
+
   const sc = severityConfig[activeIncident.severity];
   const visibleTimeline = showAllTimeline ? timeline : timeline.slice(-6);
 

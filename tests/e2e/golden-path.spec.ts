@@ -128,3 +128,54 @@ test.describe("Golden path: the buyer-value loop", () => {
     ).toBeVisible({ timeout: 20_000 });
   });
 });
+
+test.describe("Wired controls: no dead buttons on the core loop", () => {
+  test("4 — work order approve + assign + new WO all write to the database", async ({
+    page,
+  }) => {
+    await login(page);
+    await page.goto("/work");
+
+    // The WO created by test 3's approval is approval-gated — approve it here.
+    await page.getByText(C22_REC_ACTION).first().click();
+    await page.getByRole("button", { name: "Approve", exact: true }).first().click();
+    await expect(page.getByText(/now scheduled/i)).toBeVisible({ timeout: 15_000 });
+
+    // New Work Order modal creates a real row
+    await page.getByRole("button", { name: /New Work Order/i }).click();
+    await page.getByLabel("Title").fill("E2E inspection — HX-08 bypass valve");
+    await page.getByRole("button", { name: "Create", exact: true }).click();
+    await expect(page.getByText(/Work order created/i)).toBeVisible({ timeout: 15_000 });
+    await expect(
+      page.getByText("E2E inspection — HX-08 bypass valve").first(),
+    ).toBeVisible({ timeout: 15_000 });
+  });
+
+  test("5 — challenge AI writes real model feedback to the Learning Loop", async ({
+    page,
+  }) => {
+    await login(page);
+    // P-101 rec is still pending — challenge it
+    await page.getByText("Order replacement seal kit for P-101").click();
+    await page.getByRole("button", { name: "Challenge", exact: true }).click();
+    await expect(page.getByText("Why are you challenging this?")).toBeVisible({
+      timeout: 10_000,
+    });
+    await page
+      .getByRole("button", { name: "Underlying data appears incorrect" })
+      .click();
+    const submit = page.getByRole("button", { name: /Submit Challenge/i });
+    await expect(submit).toBeEnabled({ timeout: 5_000 });
+    // The modal sits in a continuously-animating framer-motion wrapper which
+    // never passes Playwright's stability check — force skips only that.
+    await submit.click({ force: true });
+    await expect(page.getByText(/logged|Challenge Logged/i).first()).toBeVisible({
+      timeout: 15_000,
+    });
+
+    await page.goto("/learning-loop");
+    await expect(
+      page.getByText(/AI challenged — Order replacement seal kit/).first(),
+    ).toBeVisible({ timeout: 20_000 });
+  });
+});
