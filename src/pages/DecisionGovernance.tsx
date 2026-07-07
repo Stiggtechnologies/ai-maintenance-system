@@ -18,7 +18,11 @@ import { useOnboardingOperatingLoop } from "../hooks/useOnboardingOperatingLoop"
 import { useOnboardingStore } from "../store/onboardingStore";
 import type { DerivedGovernanceRecord } from "../services/onboardingOperatingLoop";
 import { useAsyncData } from "../hooks/useAsyncData";
-import { getDecisions } from "../services/operatingLoopService";
+import {
+  getDecisions,
+  decideDecision,
+  downloadCsv,
+} from "../services/operatingLoopService";
 import type { DecisionRow } from "../types/operating";
 import { LoadingState, ErrorState } from "../components/ui/AsyncStates";
 
@@ -49,6 +53,7 @@ function decisionRowToLog(row: DecisionRow): DecisionLog {
     reasoning: row.rationale ?? "",
     outcome: row.outcome_status,
     accountable: row.human_actor ?? "AI Agent (autonomous)",
+    dbDecisionId: row.id,
   };
 }
 
@@ -73,6 +78,7 @@ interface DecisionLog {
   consequenceOfWrong?: string;
   requiredValidation?: string;
   onboardingSessionId?: string;
+  dbDecisionId?: string;
 }
 
 const GOVERNANCE_STATUS_TO_DECISION: Record<
@@ -346,14 +352,37 @@ export function DecisionGovernance() {
     ...(rows ?? []).map(decisionRowToLog),
   ];
 
-  const handleDecision = (
+  const handleDecision = async (
     d: DecisionLog,
     decision: "approved" | "rejected",
   ) => {
+    if (d.dbDecisionId) {
+      await decideDecision(d.dbDecisionId, decision === "approved");
+      refetch();
+      return;
+    }
     if (!d.onboardingSessionId) return;
     const session = sessions.find((s) => s.sessionId === d.onboardingSessionId);
     if (!session) return;
     recordRecommendationDecision(d.id, session, decision, d.action);
+  };
+
+  const exportAuditLog = () => {
+    downloadCsv(
+      allDecisions.map((d) => ({
+        title: d.title,
+        agent: d.agent,
+        asset: d.asset,
+        action: d.action,
+        status: d.status,
+        timestamp: d.timestamp,
+        confidence: d.confidence,
+        accountable: d.accountable,
+        reasoning: d.reasoning,
+        outcome: d.outcome ?? "",
+      })),
+      `syncai-decision-audit-${new Date().toISOString().slice(0, 10)}.csv`,
+    );
   };
 
   const filtered = allDecisions.filter(
@@ -377,7 +406,10 @@ export function DecisionGovernance() {
             Every AI decision is logged, traceable, and auditable
           </p>
         </div>
-        <button className="px-4 py-2 bg-white/[0.04] border border-white/[0.08] rounded-lg text-xs text-slate-400 hover:bg-white/[0.08] transition-colors flex items-center gap-1.5">
+        <button
+          onClick={exportAuditLog}
+          className="px-4 py-2 bg-white/[0.04] border border-white/[0.08] rounded-lg text-xs text-slate-400 hover:bg-white/[0.08] transition-colors flex items-center gap-1.5"
+        >
           <BookOpen className="w-3.5 h-3.5" /> Export Audit Log
         </button>
       </div>

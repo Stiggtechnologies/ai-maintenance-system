@@ -1,7 +1,39 @@
 import { useState, useEffect } from "react";
-import { Zap, ChevronLeft, ChevronRight, LogOut, MapPin, ChevronDown, Shield, Wifi, Activity, Target, Bot, Factory, Wrench, ChartBar as BarChart3, TriangleAlert as AlertTriangle, Cpu, Plug, Settings, BookOpen, TrendingUp, FlaskConical, Layers, SquareCheck as CheckSquare, Users, Bell, Command } from "lucide-react";
+import {
+  Zap,
+  ChevronLeft,
+  ChevronRight,
+  LogOut,
+  MapPin,
+  ChevronDown,
+  Shield,
+  Wifi,
+  Activity,
+  Target,
+  Bot,
+  Factory,
+  Wrench,
+  ChartBar as BarChart3,
+  TriangleAlert as AlertTriangle,
+  Cpu,
+  Plug,
+  Settings,
+  BookOpen,
+  TrendingUp,
+  FlaskConical,
+  Layers,
+  SquareCheck as CheckSquare,
+  Users,
+  Bell,
+  Command,
+} from "lucide-react";
 import { platformService, UserContext } from "../services/platform";
 import { supabase } from "../lib/supabase";
+import {
+  getNotifications,
+  markNotificationRead,
+  type NotificationRow,
+} from "../services/operatingLoopService";
 import { motion, AnimatePresence } from "framer-motion";
 import { CommandSearch } from "./CommandSearch";
 
@@ -41,8 +73,17 @@ const navGroups: NavGroup[] = [
     label: "Mission",
     icon: Target,
     items: [
-      { id: "mission-control", label: "Mission Control", path: "/mission-control", accent: "teal" },
-      { id: "command-centers", label: "Command Centers", path: "/command-centers" },
+      {
+        id: "mission-control",
+        label: "Mission Control",
+        path: "/mission-control",
+        accent: "teal",
+      },
+      {
+        id: "command-centers",
+        label: "Command Centers",
+        path: "/command-centers",
+      },
       { id: "readiness", label: "Readiness", path: "/readiness" },
       { id: "cowork", label: "Cowork Studio", path: "/cowork" },
     ],
@@ -54,9 +95,17 @@ const navGroups: NavGroup[] = [
     items: [
       { id: "ai-workforce", label: "AI Agents", path: "/ai-workforce" },
       { id: "autonomy", label: "Autonomy Control", path: "/autonomy" },
-      { id: "autonomy-maturity", label: "Autonomy Maturity", path: "/autonomy-maturity" },
+      {
+        id: "autonomy-maturity",
+        label: "Autonomy Maturity",
+        path: "/autonomy-maturity",
+      },
       { id: "approvals", label: "Approvals", path: "/approvals" },
-      { id: "decision-governance", label: "Decision Governance", path: "/governance" },
+      {
+        id: "decision-governance",
+        label: "Decision Governance",
+        path: "/governance",
+      },
     ],
   },
   {
@@ -75,7 +124,11 @@ const navGroups: NavGroup[] = [
     icon: Wrench,
     items: [
       { id: "work", label: "Work Action Board", path: "/work" },
-      { id: "scenario-simulator", label: "Scenario Simulator", path: "/scenarios" },
+      {
+        id: "scenario-simulator",
+        label: "Scenario Simulator",
+        path: "/scenarios",
+      },
       { id: "briefing", label: "Operational Briefing", path: "/briefing" },
       { id: "playbooks", label: "Playbooks", path: "/playbooks" },
       { id: "emergency", label: "Emergency Mode", path: "/emergency" },
@@ -100,7 +153,11 @@ const navGroups: NavGroup[] = [
     icon: Settings,
     items: [
       { id: "integrations", label: "Integrations", path: "/integrations" },
-      { id: "integration-health", label: "Integration Health", path: "/integration-health" },
+      {
+        id: "integration-health",
+        label: "Integration Health",
+        path: "/integration-health",
+      },
       { id: "artifacts", label: "Artifacts", path: "/artifacts" },
       { id: "setup", label: "Setup Wizard", path: "/setup" },
       { id: "settings", label: "Settings", path: "/settings" },
@@ -116,10 +173,16 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
   const [sitePickerOpen, setSitePickerOpen] = useState(false);
   const [badges, setBadges] = useState({ work: 0, approvals: 0 });
   const [commandSearchOpen, setCommandSearchOpen] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [notifs, setNotifs] = useState<NotificationRow[]>([]);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(
-    new Set(["mission", "ai", "assets", "work", "performance", "system"])
+    new Set(["mission", "ai", "assets", "work", "performance", "system"]),
   );
-  const [systemHealth] = useState({ intelligence: "active", integration: "stable", governance: "enforced" });
+  const [systemHealth] = useState({
+    intelligence: "active",
+    integration: "stable",
+    governance: "enforced",
+  });
 
   useEffect(() => {
     loadUserContext();
@@ -141,7 +204,7 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
       loadSites();
       loadBadges();
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userContext]);
 
   const loadUserContext = async () => {
@@ -163,8 +226,14 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
   const loadBadges = async () => {
     if (!userContext) return;
     const [woRes, approvalRes] = await Promise.all([
-      supabase.from("work_orders").select("id", { count: "exact", head: true }).in("status", ["pending", "in_progress"]),
-      supabase.from("approvals").select("id", { count: "exact", head: true }).eq("status", "pending"),
+      supabase
+        .from("work_orders")
+        .select("id", { count: "exact", head: true })
+        .in("status", ["pending", "in_progress"]),
+      supabase
+        .from("approvals")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "pending"),
     ]);
     setBadges({ work: woRes.count || 0, approvals: approvalRes.count || 0 });
   };
@@ -172,9 +241,14 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
   const handleSiteChange = async (siteId: string | null) => {
     setSelectedSiteId(siteId);
     setSitePickerOpen(false);
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     if (user) {
-      await supabase.from("user_profiles").update({ default_site_id: siteId }).eq("id", user.id);
+      await supabase
+        .from("user_profiles")
+        .update({ default_site_id: siteId })
+        .eq("id", user.id);
     }
   };
 
@@ -192,7 +266,10 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
   };
 
   const isActive = (path: string) =>
-    currentPath === path || (path !== "/" && path !== "/mission-control" && currentPath.startsWith(path));
+    currentPath === path ||
+    (path !== "/" &&
+      path !== "/mission-control" &&
+      currentPath.startsWith(path));
 
   const selectedSite = sites.find((s) => s.id === selectedSiteId);
 
@@ -205,7 +282,9 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
   const getPageTitle = () => {
     for (const group of navGroups) {
       const found = group.items.find(
-        (item) => currentPath === item.path || (item.path !== "/" && currentPath.startsWith(item.path))
+        (item) =>
+          currentPath === item.path ||
+          (item.path !== "/" && currentPath.startsWith(item.path)),
       );
       if (found) return found.label;
     }
@@ -226,9 +305,17 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
             <Zap className="w-4 h-4 text-white" />
           </div>
           {!isCollapsed && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-              <div className="text-sm font-bold text-white tracking-wide">SyncAI</div>
-              <div className="text-[10px] text-slate-500 font-medium tracking-widest uppercase">Mission Assurance</div>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            >
+              <div className="text-sm font-bold text-white tracking-wide">
+                SyncAI
+              </div>
+              <div className="text-[10px] text-slate-500 font-medium tracking-widest uppercase">
+                Mission Assurance
+              </div>
             </motion.div>
           )}
         </div>
@@ -248,10 +335,16 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
         {/* Org + Site */}
         {!isCollapsed && userContext && (
           <div className="px-3 py-2.5 border-b border-white/[0.05]">
-            <div className="text-[10px] text-slate-600 uppercase tracking-wider mb-1">Organization</div>
-            <div className="text-xs font-semibold text-slate-200 truncate">{userContext.organization_name}</div>
+            <div className="text-[10px] text-slate-600 uppercase tracking-wider mb-1">
+              Organization
+            </div>
+            <div className="text-xs font-semibold text-slate-200 truncate">
+              {userContext.organization_name}
+            </div>
             {userContext.roles && userContext.roles.length > 0 && (
-              <div className="text-[10px] text-teal-400 mt-0.5">{userContext.roles[0].name}</div>
+              <div className="text-[10px] text-teal-400 mt-0.5">
+                {userContext.roles[0].name}
+              </div>
             )}
             {sites.length > 0 && (
               <div className="relative mt-2">
@@ -260,8 +353,12 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
                   className="w-full flex items-center gap-1.5 px-2 py-1.5 bg-white/[0.03] border border-white/[0.06] rounded-md text-[11px] text-slate-400 hover:bg-white/[0.06] transition-colors"
                 >
                   <MapPin className="w-3 h-3 flex-shrink-0" />
-                  <span className="flex-1 text-left truncate">{selectedSite?.name || "All Sites"}</span>
-                  <ChevronDown className={`w-3 h-3 transition-transform ${sitePickerOpen ? "rotate-180" : ""}`} />
+                  <span className="flex-1 text-left truncate">
+                    {selectedSite?.name || "All Sites"}
+                  </span>
+                  <ChevronDown
+                    className={`w-3 h-3 transition-transform ${sitePickerOpen ? "rotate-180" : ""}`}
+                  />
                 </button>
                 {sitePickerOpen && (
                   <div className="absolute top-full left-0 right-0 mt-1 bg-[#0E1520] border border-white/[0.08] rounded-lg shadow-2xl z-50 max-h-48 overflow-y-auto">
@@ -277,7 +374,8 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
                         onClick={() => handleSiteChange(site.id)}
                         className={`w-full text-left px-3 py-2 text-xs hover:bg-white/[0.05] ${selectedSiteId === site.id ? "text-teal-400" : "text-slate-300"}`}
                       >
-                        {site.name} <span className="text-slate-500">({site.code})</span>
+                        {site.name}{" "}
+                        <span className="text-slate-500">({site.code})</span>
                       </button>
                     ))}
                   </div>
@@ -331,7 +429,9 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
                             onClick={() => onNavigate(item.path)}
                             title={isCollapsed ? item.label : undefined}
                             className={`w-full flex items-center gap-3 transition-all relative group ${
-                              isCollapsed ? "justify-center px-2 py-2.5" : "px-4 py-2"
+                              isCollapsed
+                                ? "justify-center px-2 py-2.5"
+                                : "px-4 py-2"
                             } ${
                               active
                                 ? "text-teal-400 bg-teal-500/10"
@@ -342,7 +442,9 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
                               <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-teal-400 rounded-r" />
                             )}
                             {!isCollapsed && (
-                              <span className="text-sm font-medium">{item.label}</span>
+                              <span className="text-sm font-medium">
+                                {item.label}
+                              </span>
                             )}
                             {!isCollapsed && badge ? (
                               <span className="ml-auto text-[10px] font-bold bg-red-500/20 text-red-400 border border-red-500/30 px-1.5 py-0.5 rounded-full">
@@ -378,7 +480,9 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
           </button>
           {!isCollapsed && (
             <div className="mt-2 px-2 py-1">
-              <div className="text-[10px] text-slate-700">SyncAI Platform v3.0 · 15 Agents</div>
+              <div className="text-[10px] text-slate-700">
+                SyncAI Platform v3.0 · 15 Agents
+              </div>
             </div>
           )}
         </div>
@@ -393,10 +497,16 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
               onClick={() => setIsCollapsed(!isCollapsed)}
               className="p-1.5 rounded-md text-slate-600 hover:text-teal-400 hover:bg-teal-500/10 transition-colors"
             >
-              {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+              {isCollapsed ? (
+                <ChevronRight className="w-4 h-4" />
+              ) : (
+                <ChevronLeft className="w-4 h-4" />
+              )}
             </button>
             <div className="flex items-center gap-2">
-              <span className="text-sm font-semibold text-slate-200">{getPageTitle()}</span>
+              <span className="text-sm font-semibold text-slate-200">
+                {getPageTitle()}
+              </span>
             </div>
           </div>
 
@@ -406,24 +516,32 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
               <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-white/[0.03] border border-white/[0.05]">
                 <div className="w-1.5 h-1.5 rounded-full bg-teal-400" />
                 <span className="text-slate-500">Intelligence</span>
-                <span className="text-teal-400 font-medium capitalize">{systemHealth.intelligence}</span>
+                <span className="text-teal-400 font-medium capitalize">
+                  {systemHealth.intelligence}
+                </span>
               </div>
               <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-white/[0.03] border border-white/[0.05]">
                 <div className="w-1.5 h-1.5 rounded-full bg-green-400" />
                 <span className="text-slate-500">Integration</span>
-                <span className="text-green-400 font-medium capitalize">{systemHealth.integration}</span>
+                <span className="text-green-400 font-medium capitalize">
+                  {systemHealth.integration}
+                </span>
               </div>
               <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-white/[0.03] border border-white/[0.05]">
                 <Shield className="w-3 h-3 text-blue-400" />
                 <span className="text-slate-500">Governance</span>
-                <span className="text-blue-400 font-medium capitalize">{systemHealth.governance}</span>
+                <span className="text-blue-400 font-medium capitalize">
+                  {systemHealth.governance}
+                </span>
               </div>
             </div>
 
             <div className="w-px h-5 bg-white/[0.06]" />
 
             {/* Autonomy Badge */}
-            <div className={`flex items-center gap-1.5 text-[11px] font-semibold ${AUTONOMY_COLOR}`}>
+            <div
+              className={`flex items-center gap-1.5 text-[11px] font-semibold ${AUTONOMY_COLOR}`}
+            >
               <Cpu className="w-3.5 h-3.5" />
               <span className="hidden sm:block">{AUTONOMY_MODE}</span>
             </div>
@@ -431,12 +549,65 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
             <div className="w-px h-5 bg-white/[0.06]" />
 
             {/* Alerts */}
-            <button className="relative p-1.5 text-slate-500 hover:text-slate-200 transition-colors">
-              <Bell className="w-4 h-4" />
-              {badges.approvals > 0 && (
-                <span className="absolute top-0.5 right-0.5 w-2 h-2 bg-red-500 rounded-full" />
+            <div className="relative">
+              <button
+                aria-label="Notifications"
+                onClick={async () => {
+                  const next = !notifOpen;
+                  setNotifOpen(next);
+                  if (next) {
+                    try {
+                      setNotifs(await getNotifications());
+                    } catch {
+                      setNotifs([]);
+                    }
+                  }
+                }}
+                className="relative p-1.5 text-slate-500 hover:text-slate-200 transition-colors"
+              >
+                <Bell className="w-4 h-4" />
+                {(badges.approvals > 0 || notifs.some((n) => !n.read)) && (
+                  <span className="absolute top-0.5 right-0.5 w-2 h-2 bg-red-500 rounded-full" />
+                )}
+              </button>
+              {notifOpen && (
+                <div className="absolute right-0 top-9 z-50 w-80 bg-[#0D1520] border border-white/[0.1] rounded-xl shadow-xl shadow-black/40 p-2">
+                  <div className="px-2 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                    Notifications
+                  </div>
+                  {notifs.length === 0 && (
+                    <div className="px-2 py-3 text-xs text-slate-500">
+                      No notifications.
+                    </div>
+                  )}
+                  {notifs.map((n) => (
+                    <button
+                      key={n.id}
+                      onClick={async () => {
+                        await markNotificationRead(n.id);
+                        setNotifs((cur) =>
+                          cur.map((x) =>
+                            x.id === n.id ? { ...x, read: true } : x,
+                          ),
+                        );
+                      }}
+                      className={`w-full text-left px-2 py-2 rounded-lg hover:bg-white/[0.04] ${n.read ? "opacity-60" : ""}`}
+                    >
+                      <div className="text-xs font-medium text-slate-200">
+                        {n.title}
+                      </div>
+                      <div className="text-[11px] text-slate-500 mt-0.5">
+                        {n.message}
+                      </div>
+                      <div className="text-[10px] text-slate-600 mt-0.5">
+                        {new Date(n.created_at).toLocaleString()}
+                        {!n.read && " · click to mark read"}
+                      </div>
+                    </button>
+                  ))}
+                </div>
               )}
-            </button>
+            </div>
 
             {/* Command */}
             <button
@@ -461,10 +632,23 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
       </div>
 
       {/* Command Search */}
-      <CommandSearch open={commandSearchOpen} onClose={() => setCommandSearchOpen(false)} onNavigate={onNavigate} />
+      <CommandSearch
+        open={commandSearchOpen}
+        onClose={() => setCommandSearchOpen(false)}
+        onNavigate={onNavigate}
+      />
     </div>
   );
 }
 
 // Suppress unused import warnings — kept for potential future use
-void Activity; void Wifi; void AlertTriangle; void BookOpen; void TrendingUp; void FlaskConical; void Layers; void CheckSquare; void Users; void Plug;
+void Activity;
+void Wifi;
+void AlertTriangle;
+void BookOpen;
+void TrendingUp;
+void FlaskConical;
+void Layers;
+void CheckSquare;
+void Users;
+void Plug;

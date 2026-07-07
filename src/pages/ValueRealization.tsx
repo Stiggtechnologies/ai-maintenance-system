@@ -20,6 +20,7 @@ import {
   getValueMetrics,
   verifyValueMetric,
   getPilotScorecard,
+  downloadCsv,
   type PilotScorecard,
 } from "../services/operatingLoopService";
 import type { ValueMetricRow } from "../types/operating";
@@ -494,9 +495,30 @@ export function ValueRealization() {
           )}
 
           <div className="bg-[#0D1520] border border-white/[0.06] rounded-2xl p-5">
-            <h3 className="text-sm font-semibold text-slate-200 flex items-center gap-2 mb-4">
-              <Shield className="w-4 h-4 text-teal-400" /> Verified Savings Log
-            </h3>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-semibold text-slate-200 flex items-center gap-2">
+                <Shield className="w-4 h-4 text-teal-400" /> Verified Savings
+                Log
+              </h3>
+              <button
+                onClick={() =>
+                  downloadCsv(
+                    verified.map((m) => ({
+                      metric: m.label ?? m.metric_type,
+                      value: m.value,
+                      unit: m.unit ?? "",
+                      status: m.status,
+                      period: m.period ?? "",
+                      verified_at: m.created_at,
+                    })),
+                    `syncai-verified-savings-${new Date().toISOString().slice(0, 10)}.csv`,
+                  )
+                }
+                className="text-[11px] text-teal-400 hover:text-teal-300 px-2 py-1 rounded border border-teal-500/20 hover:bg-teal-500/10"
+              >
+                Export CSV
+              </button>
+            </div>
             {verified.length === 0 && (
               <EmptyState message="No verified savings recorded yet." />
             )}

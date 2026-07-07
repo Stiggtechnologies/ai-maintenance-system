@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   TrendingUp,
   TrendingDown,
@@ -133,6 +134,7 @@ const reliabilityMetrics = [
 ];
 
 export function Reliability() {
+  const navigate = useNavigate();
   const [tab, setTab] = useState<"bad-actors" | "rca" | "fmea" | "pm">(
     "bad-actors",
   );
@@ -369,7 +371,10 @@ export function Reliability() {
                     )}
                   </div>
                 </div>
-                <button className="flex items-center gap-1 text-xs text-teal-400 hover:text-teal-300 flex-shrink-0">
+                <button
+                  onClick={() => navigate("/cowork")}
+                  className="flex items-center gap-1 text-xs text-teal-400 hover:text-teal-300 flex-shrink-0"
+                >
                   {rca.status === "completed" ? "View" : "Continue"}{" "}
                   <ChevronRight className="w-3 h-3" />
                 </button>
@@ -482,7 +487,10 @@ export function Reliability() {
                 Centered Maintenance. SyncAI generates and maintains FMEA tables
                 from asset failure history and maintenance data.
               </p>
-              <button className="mt-4 px-4 py-2 bg-teal-500/10 border border-teal-500/20 text-teal-400 text-xs rounded-lg hover:bg-teal-500/20 transition-colors">
+              <button
+                onClick={() => navigate("/pilot/reliability")}
+                className="mt-4 px-4 py-2 bg-teal-500/10 border border-teal-500/20 text-teal-400 text-xs rounded-lg hover:bg-teal-500/20 transition-colors"
+              >
                 Launch FMEA Wizard
               </button>
             </div>
@@ -529,7 +537,10 @@ export function Reliability() {
               interval adjustments based on failure history, condition data, and
               cost optimization principles.
             </p>
-            <button className="mt-4 px-4 py-2 bg-teal-500/10 border border-teal-500/20 text-teal-400 text-xs rounded-lg hover:bg-teal-500/20 transition-colors">
+            <button
+              onClick={() => navigate("/work?filter=approval")}
+              className="mt-4 px-4 py-2 bg-teal-500/10 border border-teal-500/20 text-teal-400 text-xs rounded-lg hover:bg-teal-500/20 transition-colors"
+            >
               Review PM Recommendations
             </button>
           </div>
