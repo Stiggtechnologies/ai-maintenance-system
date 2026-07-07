@@ -44,6 +44,7 @@ import { Reliability } from "./pages/ReliabilityPage";
 import { ReadinessPage } from "./pages/ReadinessPage";
 import { OperationalBriefing } from "./pages/OperationalBriefing";
 import { AssetIntelligencePage } from "./pages/AssetIntelligencePage";
+import { AssetOnboardingHub } from "./pages/AssetOnboardingHub";
 import { IntegrationHealthPanel } from "./pages/IntegrationHealthPanel";
 import { CoworkStudio } from "./pages/CoworkStudio";
 import { ValueRealization } from "./pages/ValueRealization";
@@ -235,6 +236,7 @@ function AuthenticatedApp() {
             element={<AssetIntelligencePage />}
           />
           <Route path="/assets" element={<AssetManagement />} />
+          <Route path="/onboarding" element={<AssetOnboardingHub />} />
           <Route path="/reliability" element={<Reliability />} />
           <Route path="/risk" element={<RiskConsequence />} />
 

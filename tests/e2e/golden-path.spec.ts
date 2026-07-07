@@ -179,3 +179,58 @@ test.describe("Wired controls: no dead buttons on the core loop", () => {
     ).toBeVisible({ timeout: 20_000 });
   });
 });
+
+test.describe("Autonomous asset onboarding: RAM checklist + HITL + go-live gate", () => {
+  test("6 — assets self-onboard; humans close only the true gaps; SME gate works", async ({
+    page,
+  }) => {
+    await login(page);
+    await page.goto("/onboarding");
+
+    // Every seeded asset was backfilled by the migration's autonomous pass.
+    const hub = page.getByTestId("onboarding-hub");
+    await expect(hub).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByText("Assets in onboarding")).toBeVisible();
+
+    // P-101 has sensors + WO history → highest completion, listed first.
+    const assetList = page.getByTestId("onboarding-asset-list");
+    await expect(assetList.getByText("Pump P-101")).toBeVisible({
+      timeout: 20_000,
+    });
+    await assetList.getByText("Pump P-101").click();
+
+    // Go-live gate reports autonomous progress against Section-21 requirements
+    const gate = page.getByTestId("golive-gate");
+    await expect(gate).toBeVisible();
+    await expect(gate.getByText(/of \d+ go-live requirements satisfied/)).toBeVisible({
+      timeout: 20_000,
+    });
+
+    // Approve must be disabled while required items are outstanding.
+    const approve = page.getByTestId("approve-golive");
+    await expect(approve).toBeDisabled();
+
+    // The HITL queue holds only what autonomy couldn't find or deduce.
+    const queue = page.getByTestId("hitl-queue");
+    await expect(queue).toBeVisible();
+
+    // Human closes a real gap: asset ownership (a find-only fact).
+    const ownerGap = page.getByTestId("gap-s19_asset_owner");
+    await expect(ownerGap).toBeVisible({ timeout: 15_000 });
+    await ownerGap
+      .getByLabel("Answer for Asset owner assigned")
+      .fill("Utilities Operations — J. Tremblay");
+    await ownerGap.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(
+      page.getByText(/Asset owner assigned recorded/).first(),
+    ).toBeVisible({ timeout: 15_000 });
+
+    // Checklist renders the RAM sections with autonomous fills.
+    const checklistPanel = page.getByTestId("onboarding-checklist");
+    await expect(
+      checklistPanel.getByText("1. Asset Identification"),
+    ).toBeVisible();
+    await checklistPanel.getByText("1. Asset Identification").click();
+    await expect(checklistPanel.getByText("Auto-filled").first()).toBeVisible();
+  });
+});
