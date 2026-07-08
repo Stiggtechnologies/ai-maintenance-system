@@ -60,7 +60,7 @@ export function MetricCard({
       className={`glass border rounded-xl p-5 transition-all duration-300 ${variantBorder[variant]} ${variantGlow[variant]}`}
     >
       <div className="flex items-center justify-between mb-3">
-        <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest">
+        <span className="text-xs font-semibold text-slate-400 uppercase tracking-widest">
           {label}
         </span>
         {Icon && (

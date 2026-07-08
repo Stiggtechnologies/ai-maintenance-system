@@ -152,7 +152,7 @@ function AgentCard({ agent }: { agent: Agent }) {
                 <h3 className="text-sm font-semibold text-slate-200 leading-tight">
                   {agent.name}
                 </h3>
-                <p className="text-[11px] text-slate-400 mt-0.5 leading-snug">
+                <p className="text-xs text-slate-400 mt-0.5 leading-snug">
                   {agent.purpose}
                 </p>
               </div>
@@ -165,7 +165,7 @@ function AgentCard({ agent }: { agent: Agent }) {
             </div>
 
             {/* Current Task */}
-            <div className="mt-2 text-[11px] text-slate-400 bg-white/[0.03] rounded-lg px-2 py-1.5 border border-white/[0.04]">
+            <div className="mt-2 text-xs text-slate-400 bg-white/[0.03] rounded-lg px-2 py-1.5 border border-white/[0.04]">
               {agent.currentTask}
             </div>
 
@@ -207,16 +207,16 @@ function AgentCard({ agent }: { agent: Agent }) {
         style={{ overflow: "hidden" }}
       >
         <div className="px-4 pb-4 border-t border-white/[0.05] pt-3 space-y-2">
-          <div className="text-[11px] text-slate-400">
+          <div className="text-xs text-slate-400">
             <span className="text-slate-400">Last action: </span>
             {agent.lastAction}
           </div>
-          <div className="text-[11px] text-slate-400">
+          <div className="text-xs text-slate-400">
             <span className="text-slate-400">Supervisor: </span>
             {agent.supervisor}
           </div>
           {agent.approvalRequired && (
-            <div className="flex items-center gap-1.5 text-[11px] text-amber-400">
+            <div className="flex items-center gap-1.5 text-xs text-amber-400">
               <AlertCircle className="w-3 h-3" />
               Approval required for next action
             </div>

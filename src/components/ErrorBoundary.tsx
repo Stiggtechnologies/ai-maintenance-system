@@ -49,7 +49,7 @@ export class ErrorBoundary extends Component<Props, State> {
                 continue.
               </p>
               {this.state.error?.message && (
-                <p className="text-[11px] text-slate-400 mb-5 font-mono break-words">
+                <p className="text-xs text-slate-400 mb-5 font-mono break-words">
                   {this.state.error.message}
                 </p>
               )}

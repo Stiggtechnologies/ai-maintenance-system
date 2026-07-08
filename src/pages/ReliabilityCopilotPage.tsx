@@ -679,7 +679,7 @@ export function ReliabilityCopilotPage() {
               key={signal.label}
               className="rounded-xl border border-white/[0.07] bg-black/20 px-4 py-3"
             >
-              <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+              <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
                 {signal.label}
               </div>
               <div className="mt-1 text-lg font-semibold text-[#F8FAFC]">
@@ -1991,11 +1991,11 @@ function ChatBubble({ message }: { message: ChatMessage }) {
           ) : (
             <Bot size={14} className="text-teal-300" />
           )}
-          <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">
+          <span className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
             {isUser ? "You" : isSystem ? "System" : "SyncAI"}
           </span>
           {message.meta && (
-            <span className="truncate rounded-full bg-white/[0.05] px-2 py-0.5 text-[11px] text-slate-400">
+            <span className="truncate rounded-full bg-white/[0.05] px-2 py-0.5 text-xs text-slate-400">
               {message.meta}
             </span>
           )}

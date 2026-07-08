@@ -504,7 +504,7 @@ export function RiskConsequence() {
             Risk Score vs Asset Criticality Matrix
           </h3>
           <RiskMatrix entries={entries} />
-          <div className="mt-4 flex items-center gap-4 text-[11px]">
+          <div className="mt-4 flex items-center gap-4 text-xs">
             <div className="flex items-center gap-1.5">
               <div className="w-3 h-3 rounded bg-red-500/30 border border-red-500/40" />
               <span className="text-slate-400">Critical / Unacceptable</span>

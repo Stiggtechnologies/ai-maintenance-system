@@ -249,7 +249,7 @@ function Section({
 }) {
   return (
     <div className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.05]">
-      <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-2">
+      <div className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">
         {title}
       </div>
       {children}
@@ -412,7 +412,7 @@ export function AssetIntelligencePage() {
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
-          <div className="flex items-center gap-2 text-[11px] text-slate-400 mb-1">
+          <div className="flex items-center gap-2 text-xs text-slate-400 mb-1">
             <Layers className="w-3 h-3 text-teal-400" />
             <span>
               {assetData.area} / {assetData.system}

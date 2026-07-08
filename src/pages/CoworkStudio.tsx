@@ -257,7 +257,7 @@ function WorkspaceCard({
           </div>
 
           {workspace.nextAction && (
-            <div className="mt-3 flex items-start gap-1.5 text-[11px] text-teal-400">
+            <div className="mt-3 flex items-start gap-1.5 text-xs text-teal-400">
               <Zap className="w-3 h-3 flex-shrink-0 mt-0.5" />
               <span>
                 <span className="text-slate-400">Next action: </span>
@@ -457,7 +457,7 @@ export function CoworkStudio() {
                   <h3 className="text-sm font-bold text-white">
                     {activeWs?.title ?? "Workspace"}
                   </h3>
-                  <p className="text-[11px] text-slate-400">
+                  <p className="text-xs text-slate-400">
                     {activeWs?.agents.length ?? 0} agents collaborating ·{" "}
                     {activeWs?.objective}
                   </p>

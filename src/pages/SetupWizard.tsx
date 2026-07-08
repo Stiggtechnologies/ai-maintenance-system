@@ -495,7 +495,7 @@ export function SetupWizard() {
                             <CheckCircle className="w-4 h-4 text-teal-400" />
                           )}
                         </div>
-                        <p className="text-[11px] text-slate-400 leading-relaxed mb-3 line-clamp-2">
+                        <p className="text-xs text-slate-400 leading-relaxed mb-3 line-clamp-2">
                           {template.description ||
                             "Industry-specific deployment template"}
                         </p>

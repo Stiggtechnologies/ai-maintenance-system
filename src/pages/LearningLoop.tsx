@@ -264,7 +264,7 @@ export function LearningLoop() {
                 {s.suffix}
               </div>
               <div
-                className={`flex items-center gap-1 text-[11px] mt-1 ${s.up ? "text-teal-400" : "text-amber-400"}`}
+                className={`flex items-center gap-1 text-xs mt-1 ${s.up ? "text-teal-400" : "text-amber-400"}`}
               >
                 {s.up ? (
                   <TrendingUp className="w-3 h-3" />

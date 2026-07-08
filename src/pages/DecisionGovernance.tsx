@@ -233,9 +233,9 @@ function DecisionCard({
               >
                 {status.label}
               </span>
-              <span className="text-[11px] text-slate-400">{d.agent}</span>
-              <span className="text-[11px] text-slate-400">·</span>
-              <span className="text-[11px] text-slate-400">{d.timestamp}</span>
+              <span className="text-xs text-slate-400">{d.agent}</span>
+              <span className="text-xs text-slate-400">·</span>
+              <span className="text-xs text-slate-400">{d.timestamp}</span>
             </div>
             <div className="text-xs text-slate-400 mt-1.5">{d.action}</div>
             <div className="flex items-center gap-3 mt-2 text-xs">
@@ -568,7 +568,7 @@ export function DecisionGovernance() {
           <div className="overflow-x-auto">
             <table className="w-full min-w-[600px]">
               <thead>
-                <tr className="text-[11px] text-slate-400 border-b border-white/[0.04]">
+                <tr className="text-xs text-slate-400 border-b border-white/[0.04]">
                   <th className="text-left px-4 py-3 w-48">Decision Type</th>
                   <th className="px-4 py-3">Accountable</th>
                   <th className="px-4 py-3">Responsible</th>
@@ -649,7 +649,7 @@ export function DecisionGovernance() {
               </tbody>
             </table>
           </div>
-          <div className="px-4 py-3 border-t border-white/[0.04] flex gap-4 text-[11px]">
+          <div className="px-4 py-3 border-t border-white/[0.04] flex gap-4 text-xs">
             <div>
               <span className="text-amber-400 font-bold">A</span> = Accountable
               (final decision)

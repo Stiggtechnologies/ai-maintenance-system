@@ -284,7 +284,7 @@ export function EmergencyMode() {
             </h3>
             <button
               onClick={() => setShowAllTimeline(!showAllTimeline)}
-              className="text-[11px] text-teal-400 hover:text-teal-300"
+              className="text-xs text-teal-400 hover:text-teal-300"
             >
               {showAllTimeline ? "Show Recent" : "Show All"}
             </button>

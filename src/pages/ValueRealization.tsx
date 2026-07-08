@@ -578,7 +578,7 @@ export function ValueRealization() {
                     `syncai-verified-savings-${new Date().toISOString().slice(0, 10)}.csv`,
                   )
                 }
-                className="text-[11px] text-teal-400 hover:text-teal-300 px-2 py-1 rounded border border-teal-500/20 hover:bg-teal-500/10"
+                className="text-xs text-teal-400 hover:text-teal-300 px-2 py-1 rounded border border-teal-500/20 hover:bg-teal-500/10"
               >
                 Export CSV
               </button>
