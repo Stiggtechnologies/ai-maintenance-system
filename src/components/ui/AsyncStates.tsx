@@ -2,18 +2,37 @@
  * Shared loading / error / empty state primitives so every Supabase-backed
  * surface degrades gracefully and never crashes on missing data.
  */
-import {
-  Loader2,
-  TriangleAlert as AlertTriangle,
-  Inbox,
-  RefreshCw,
-} from "lucide-react";
+import { TriangleAlert as AlertTriangle, Inbox, RefreshCw } from "lucide-react";
 
+/**
+ * Skeleton shimmer instead of a blocking spinner: content shape appears
+ * immediately (perceived performance), the pulse respects
+ * prefers-reduced-motion, and the label stays available to screen readers.
+ */
 export function LoadingState({ label = "Loading…" }: { label?: string }) {
   return (
-    <div className="flex items-center justify-center gap-3 py-16 text-slate-400">
-      <Loader2 className="w-5 h-5 animate-spin text-teal-400" />
-      <span className="text-sm">{label}</span>
+    <div
+      role="status"
+      aria-label={label}
+      className="space-y-3 py-8"
+      data-testid="loading-skeleton"
+    >
+      <span className="sr-only">{label}</span>
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        {[0, 1, 2, 3].map((i) => (
+          <div
+            key={i}
+            className="h-20 rounded-xl border border-white/[0.04] bg-white/[0.03] animate-pulse motion-reduce:animate-none"
+          />
+        ))}
+      </div>
+      {[0, 1, 2].map((i) => (
+        <div
+          key={i}
+          className="h-14 rounded-xl border border-white/[0.04] bg-white/[0.03] animate-pulse motion-reduce:animate-none"
+          style={{ animationDelay: `${i * 120}ms` }}
+        />
+      ))}
     </div>
   );
 }
