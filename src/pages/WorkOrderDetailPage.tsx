@@ -360,20 +360,20 @@ export function WorkOrderDetailPage() {
 
   const statusColors: Record<string, string> = {
     new: "bg-teal-500/10 text-teal-400 border border-teal-500/20",
-    pending: "bg-slate-100 text-slate-400",
+    pending: "bg-white/[0.06] text-slate-300",
     in_progress: "bg-amber-500/10 text-amber-400 border border-amber-500/20",
     pending_approval:
       "bg-orange-500/10 text-orange-400 border border-orange-500/20",
     completed:
       "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20",
-    cancelled: "bg-slate-100 text-slate-400",
+    cancelled: "bg-white/[0.06] text-slate-300",
   };
 
   const priorityColors: Record<string, string> = {
-    critical: "bg-red-500/10 text-red-400",
+    critical: "bg-red-500/100/10 text-red-400",
     high: "bg-orange-500/10 text-orange-400",
     medium: "bg-teal-500/10 text-teal-400",
-    low: "bg-slate-100 text-slate-400",
+    low: "bg-white/[0.06] text-slate-300",
   };
 
   const formatDate = (dateStr: string | null | undefined) => {
@@ -446,7 +446,7 @@ export function WorkOrderDetailPage() {
       <div className="glass border border-white/[0.06] rounded-xl p-6">
         <div className="flex flex-col sm:flex-row sm:items-center gap-3">
           <div className="flex items-center gap-3 flex-1">
-            <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+            <div className="w-10 h-10 bg-blue-500/100/10 rounded-lg flex items-center justify-center">
               <Wrench size={20} className="text-teal-400" />
             </div>
             <div>
@@ -459,7 +459,8 @@ export function WorkOrderDetailPage() {
           <div className="flex items-center gap-2">
             <span
               className={`px-2.5 py-1 text-xs font-semibold rounded-full ${
-                statusColors[workOrder.status] || "bg-slate-100 text-slate-400"
+                statusColors[workOrder.status] ||
+                "bg-white/[0.06] text-slate-300"
               }`}
             >
               {formatLabel(workOrder.status || "unknown")}
@@ -468,7 +469,7 @@ export function WorkOrderDetailPage() {
               <span
                 className={`px-2.5 py-1 text-xs font-semibold rounded-full ${
                   priorityColors[workOrder.priority] ||
-                  "bg-slate-100 text-slate-400"
+                  "bg-white/[0.06] text-slate-300"
                 }`}
               >
                 {formatLabel(workOrder.priority)}
@@ -591,8 +592,8 @@ export function WorkOrderDetailPage() {
           </div>
 
           {assessmentError && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-lg mb-3">
-              <div className="flex items-center gap-2 text-red-700 text-sm font-medium mb-1">
+            <div className="p-3 bg-red-500/100/10 border border-red-500/30 rounded-lg mb-3">
+              <div className="flex items-center gap-2 text-red-300 text-sm font-medium mb-1">
                 <AlertTriangle size={14} />
                 Assessment Failed
               </div>
@@ -615,7 +616,7 @@ export function WorkOrderDetailPage() {
                       ? "bg-orange-500/10 text-orange-400 border border-orange-500/20"
                       : assessment.approval_status === "approved"
                         ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
-                        : "bg-slate-100 text-slate-400"
+                        : "bg-white/[0.06] text-slate-300"
                   }`}
                 >
                   {assessment.requires_human_review &&
@@ -628,11 +629,11 @@ export function WorkOrderDetailPage() {
                 <span
                   className={`px-2.5 py-1 text-xs font-semibold rounded-full ${
                     assessment.risk_level === "critical"
-                      ? "bg-red-500/10 text-red-400"
+                      ? "bg-red-500/100/10 text-red-400"
                       : assessment.risk_level === "high"
                         ? "bg-orange-500/10 text-orange-400"
                         : assessment.risk_level === "medium"
-                          ? "bg-yellow-100 text-yellow-700"
+                          ? "bg-amber-500/10 text-amber-300"
                           : "bg-emerald-500/10 text-emerald-400"
                   }`}
                 >
@@ -765,8 +766,8 @@ export function WorkOrderDetailPage() {
           </div>
 
           {classificationError && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-lg mb-3">
-              <div className="flex items-center gap-2 text-red-700 text-sm font-medium mb-1">
+            <div className="p-3 bg-red-500/100/10 border border-red-500/30 rounded-lg mb-3">
+              <div className="flex items-center gap-2 text-red-300 text-sm font-medium mb-1">
                 <AlertTriangle size={14} />
                 Classification Failed
               </div>
@@ -789,11 +790,11 @@ export function WorkOrderDetailPage() {
                 <span
                   className={`px-2.5 py-1 text-xs font-semibold rounded-full ${
                     classification.risk_level === "critical"
-                      ? "bg-red-500/10 text-red-400"
+                      ? "bg-red-500/100/10 text-red-400"
                       : classification.risk_level === "high"
                         ? "bg-orange-500/10 text-orange-400"
                         : classification.risk_level === "medium"
-                          ? "bg-yellow-100 text-yellow-700"
+                          ? "bg-amber-500/10 text-amber-300"
                           : "bg-emerald-500/10 text-emerald-400"
                   }`}
                 >
@@ -933,7 +934,7 @@ export function WorkOrderDetailPage() {
           <div className="flex items-center gap-2 mb-4">
             <FileText size={18} className="text-slate-400" />
             <h2 className="text-lg font-semibold text-[#E6EDF3]">Tasks</h2>
-            <span className="ml-auto px-2 py-0.5 bg-slate-100 text-slate-400 text-xs font-medium rounded">
+            <span className="ml-auto px-2 py-0.5 bg-white/[0.06] text-slate-300 text-xs font-medium rounded">
               {tasks.length}
             </span>
           </div>
@@ -974,7 +975,7 @@ export function WorkOrderDetailPage() {
                       <span
                         className={`px-1.5 py-0.5 rounded ${
                           statusColors[task.status] ||
-                          "bg-slate-100 text-slate-400"
+                          "bg-white/[0.06] text-slate-300"
                         }`}
                       >
                         {formatLabel(task.status || "pending")}
@@ -1026,7 +1027,7 @@ export function WorkOrderDetailPage() {
                         <span
                           className={`px-2 py-0.5 rounded text-xs font-medium ${
                             statusColors[entry.status_from] ||
-                            "bg-slate-100 text-slate-400"
+                            "bg-white/[0.06] text-slate-300"
                           }`}
                         >
                           {formatLabel(entry.status_from || "unknown")}
@@ -1035,7 +1036,7 @@ export function WorkOrderDetailPage() {
                         <span
                           className={`px-2 py-0.5 rounded text-xs font-medium ${
                             statusColors[entry.status_to] ||
-                            "bg-slate-100 text-slate-400"
+                            "bg-white/[0.06] text-slate-300"
                           }`}
                         >
                           {formatLabel(entry.status_to || "unknown")}
