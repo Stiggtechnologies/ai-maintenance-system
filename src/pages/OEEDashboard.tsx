@@ -52,15 +52,15 @@ const LOSS_CATEGORIES = [
 ];
 
 function getColorClass(value: number): string {
-  if (value >= 85) return "text-green-600";
-  if (value >= 70) return "text-yellow-600";
-  return "text-red-600";
+  if (value >= 85) return "text-green-400";
+  if (value >= 70) return "text-amber-300";
+  return "text-red-400";
 }
 
 function getBgColorClass(value: number): string {
-  if (value >= 85) return "bg-green-50 border-green-200";
-  if (value >= 70) return "bg-yellow-50 border-yellow-200";
-  return "bg-red-50 border-red-200";
+  if (value >= 85) return "bg-green-500/10 border-green-500/30";
+  if (value >= 70) return "bg-amber-500/10 border-amber-500/30";
+  return "bg-red-500/10 border-red-500/30";
 }
 
 function getBarColor(value: number): string {
@@ -180,12 +180,12 @@ export function OEEDashboard() {
 
   if (error) {
     return (
-      <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
-        <AlertTriangle className="mx-auto text-red-500 mb-2" size={32} />
-        <p className="text-red-700">{error}</p>
+      <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-6 text-center">
+        <AlertTriangle className="mx-auto text-red-400 mb-2" size={32} />
+        <p className="text-red-300">{error}</p>
         <button
           onClick={loadData}
-          className="mt-3 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm"
+          className="mt-3 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-500 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-red-300"
         >
           Retry
         </button>
@@ -301,7 +301,7 @@ export function OEEDashboard() {
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
+                  <tbody className="divide-y divide-white/[0.06]">
                     {latestByLine.map((line) => (
                       <tr
                         key={line.production_line_id}
@@ -358,7 +358,7 @@ export function OEEDashboard() {
                 No loss events recorded in the last 30 days.
               </div>
             ) : (
-              <div className="divide-y divide-slate-100">
+              <div className="divide-y divide-white/[0.06]">
                 {Object.entries(lossGrouped)
                   .filter(([, group]) => group.events.length > 0)
                   .sort((a, b) => b[1].totalMinutes - a[1].totalMinutes)
