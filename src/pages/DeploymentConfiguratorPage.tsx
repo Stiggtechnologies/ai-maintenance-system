@@ -126,6 +126,12 @@ export function DeploymentConfiguratorPage() {
   const [sites, setSites] = useState<Site[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [provisionResult, setProvisionResult] = useState<{
+    site?: string;
+    assets_created?: number;
+    sensors_created?: number;
+  } | null>(null);
 
   // Form state
   const [orgName, setOrgName] = useState("");
@@ -213,41 +219,64 @@ export function DeploymentConfiguratorPage() {
   const handleCreateDeployment = async () => {
     if (!template || !userContext) return;
     setSubmitting(true);
+    setSubmitError(null);
 
     try {
-      const { error } = await supabase.from("deployment_instances").insert({
-        template_id: template.id,
-        name: `${template.name} - ${selectedSiteId ? sites.find((s) => s.id === selectedSiteId)?.name : newSiteName || siteName || "New Site"}`,
-        organization_id: userContext.organization_id,
-        site_id: selectedSiteId,
-        site_name: selectedSiteId
-          ? sites.find((s) => s.id === selectedSiteId)?.name
-          : newSiteName || siteName,
-        operating_region: operatingRegion,
-        timezone,
-        asset_range: assetRange,
-        site_count: parseInt(siteCount, 10) || 1,
-        operating_model: operatingModel,
-        primary_cmms: primaryCmms,
-        autonomy_mode: autonomyMode,
-        approval_strictness: approvalStrictness,
-        audit_retention: auditRetention,
-        industry_code: industry || null,
-        use_case: useCase || null,
-        status: "pending",
-        created_by: userContext.user_id,
-      });
+      const { data: instance, error } = await supabase
+        .from("deployment_instances")
+        .insert({
+          template_id: template.id,
+          name: `${template.name} - ${selectedSiteId ? sites.find((s) => s.id === selectedSiteId)?.name : newSiteName || siteName || "New Site"}`,
+          organization_id: userContext.organization_id,
+          site_id: selectedSiteId,
+          site_name: selectedSiteId
+            ? sites.find((s) => s.id === selectedSiteId)?.name
+            : newSiteName || siteName,
+          operating_region: operatingRegion,
+          timezone,
+          asset_range: assetRange,
+          site_count: parseInt(siteCount, 10) || 1,
+          operating_model: operatingModel,
+          primary_cmms: primaryCmms,
+          autonomy_mode: autonomyMode,
+          approval_strictness: approvalStrictness,
+          audit_retention: auditRetention,
+          industry_code: industry || null,
+          use_case: useCase || null,
+          status: "pending",
+          created_by: userContext.user_id,
+        })
+        .select("id")
+        .single();
 
-      if (error) {
-        console.error("Deployment creation error:", error);
+      if (error || !instance) {
+        throw new Error(error?.message ?? "Could not record the deployment.");
       }
 
+      // Fulfillment: provision the workspace autonomously — site + industry
+      // starter assets that self-onboard via the RAM checklist engine, with
+      // live monitored points the telemetry loop picks up within a minute.
+      const { data: provisioned, error: provisionError } = await supabase.rpc(
+        "provision_deployment",
+        { p_instance_id: instance.id },
+      );
+      if (provisionError) throw new Error(provisionError.message);
+      const result = provisioned as {
+        provisioned?: boolean;
+        site?: string;
+        assets_created?: number;
+        sensors_created?: number;
+        error?: string;
+      };
+      if (result.error) {
+        throw new Error(`Provisioning failed: ${result.error}`);
+      }
+
+      setProvisionResult(result);
       markCompleted();
       setSuccess(true);
     } catch (err) {
-      console.error("Deployment creation failed:", err);
-      markCompleted();
-      setSuccess(true);
+      setSubmitError(err instanceof Error ? err.message : "Deployment failed.");
     }
 
     setSubmitting(false);
@@ -268,29 +297,40 @@ export function DeploymentConfiguratorPage() {
     return (
       <div className="max-w-2xl mx-auto mt-16">
         <div className="glass border border-white/[0.06] rounded-xl p-8 text-center">
-          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Check size={32} className="text-green-600" />
+          <div className="w-16 h-16 bg-green-500/10 border border-green-500/30 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Check size={32} className="text-green-400" />
           </div>
           <h2 className="text-xl font-bold text-[#E6EDF3] mb-2">
-            Deployment Created
+            Workspace Provisioned
           </h2>
-          <p className="text-sm text-slate-400 mb-6">
-            Your deployment using the{" "}
-            <span className="font-medium">{template?.name}</span> template has
-            been successfully created and is being provisioned.
+          <p className="text-sm text-slate-300 mb-2">
+            <span className="font-medium">{template?.name}</span>
+            {provisionResult?.site ? ` at ${provisionResult.site}` : ""} is
+            live: {provisionResult?.assets_created ?? 0} starter assets with{" "}
+            {provisionResult?.sensors_created ?? 0} monitored points were
+            created and are{" "}
+            <span className="text-teal-300">
+              self-onboarding through the RAM checklist engine right now
+            </span>
+            .
+          </p>
+          <p className="text-xs text-slate-400 mb-6">
+            Telemetry starts moving within a minute and the agent loop begins
+            monitoring within five. Replace the starter assets with your real
+            register — every new asset onboards itself the same way.
           </p>
           <div className="flex items-center justify-center gap-3">
             <button
-              onClick={() => navigate("/deployments/new")}
-              className="px-4 py-2.5 text-sm font-medium text-slate-400 bg-[#1A2030] hover:bg-slate-200 rounded-lg transition-colors"
+              onClick={() => navigate("/onboarding")}
+              className="px-4 py-2.5 text-sm font-medium text-slate-950 bg-teal-500 hover:bg-teal-400 rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-300"
             >
-              Create Another
+              Watch Assets Self-Onboard
             </button>
             <button
-              onClick={() => navigate("/overview")}
-              className="px-4 py-2.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+              onClick={() => navigate("/mission-control")}
+              className="px-4 py-2.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-500 rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-300"
             >
-              Go to Dashboard
+              Go to Mission Control
             </button>
           </div>
         </div>
@@ -959,17 +999,22 @@ export function DeploymentConfiguratorPage() {
             {submitting ? (
               <>
                 <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                Creating...
+                Provisioning...
               </>
             ) : (
               <>
-                Create Deployment
+                Deploy Workspace
                 <ArrowRight size={16} />
               </>
             )}
           </button>
         )}
       </div>
+      {submitError && (
+        <p className="mt-3 text-sm text-red-300 text-right" role="alert">
+          {submitError}
+        </p>
+      )}
     </div>
   );
 }
