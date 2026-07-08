@@ -232,5 +232,72 @@ test.describe("Autonomous asset onboarding: RAM checklist + HITL + go-live gate"
     ).toBeVisible();
     await checklistPanel.getByText("1. Asset Identification").click();
     await expect(checklistPanel.getByText("Auto-filled").first()).toBeVisible();
+
+    // Governance layer: the data-quality gate section is present and passing.
+    await expect(
+      checklistPanel.getByText("20. Data Quality Gate"),
+    ).toBeVisible();
+    await checklistPanel.getByText("20. Data Quality Gate").click();
+    await expect(
+      checklistPanel.getByText(/All 8 data-quality checks pass/).first(),
+    ).toBeVisible();
+  });
+
+  test("7 — work orders cannot close without FRACAS-quality closeout data", async ({
+    page,
+  }) => {
+    await login(page);
+    await page.goto("/work");
+
+    // Open the WO created in test 4.
+    await page.getByText("E2E inspection — HX-08 bypass valve").first().click();
+    await page
+      .getByRole("button", { name: /Open WO/i })
+      .first()
+      .click();
+    await expect(page.getByText("Update Status:")).toBeVisible({
+      timeout: 20_000,
+    });
+
+    // Advance to in-progress, then attempt completion → closeout modal.
+    // The button relabels to "Updating…" the instant it is clicked, which
+    // fails Playwright's post-click re-query — tolerate that and assert on
+    // the resulting state instead.
+    await page
+      .getByRole("button", { name: "Start Work" })
+      .click({ timeout: 10_000 })
+      .catch(() => {});
+    await expect(page.getByRole("button", { name: "Mark Completed" })).toBeVisible(
+      { timeout: 15_000 },
+    );
+    await page.getByRole("button", { name: "Mark Completed" }).click();
+    await expect(page.getByText("Close out work order")).toBeVisible();
+
+    // Mandatory fields gate the submit button.
+    const submit = page.getByTestId("submit-closeout");
+    await expect(submit).toBeDisabled();
+
+    await page.getByLabel("Actual failure mode").fill("Bypass valve passing");
+    await page.getByLabel("Actual cause").fill("Seat erosion from throttling");
+    await page
+      .getByLabel("Corrective action")
+      .fill("Lapped seat, reset to full open/closed operation");
+    await page.getByLabel("Labour hours").fill("3");
+    await page.getByLabel("Downtime hours").fill("0");
+    await expect(submit).toBeEnabled();
+    await submit.click();
+
+    // WO is completed: the closeout modal closes and no further status
+    // transition is offered.
+    await expect(page.getByText("Close out work order")).toBeHidden({
+      timeout: 20_000,
+    });
+    await expect(
+      page.getByRole("button", { name: "Mark Completed" }),
+    ).toBeHidden();
+    await page.goto("/learning-loop");
+    await expect(
+      page.getByText(/Closed: E2E inspection — HX-08 bypass valve/).first(),
+    ).toBeVisible({ timeout: 20_000 });
   });
 });

@@ -145,7 +145,8 @@ export interface AutofillResult {
 export async function runOnboardingAutofill(
   assetId: string,
 ): Promise<AutofillResult> {
-  const { data, error } = await supabase.rpc("run_onboarding_autofill", {
+  // Umbrella pass: deterministic autofill + governance/validation layer.
+  const { data, error } = await supabase.rpc("run_asset_onboarding", {
     p_asset_id: assetId,
   });
   if (error) fail("Autonomous onboarding pass failed", error);

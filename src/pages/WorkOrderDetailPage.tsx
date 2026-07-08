@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { AgentErrorBoundary } from "../components/AgentErrorBoundary";
+import { WorkOrderCloseoutModal } from "../components/WorkOrderCloseoutModal";
 import {
   ArrowLeft,
   Wrench,
@@ -57,6 +58,7 @@ export function WorkOrderDetailPage() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TabKey>("details");
   const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [closeoutOpen, setCloseoutOpen] = useState(false);
   const [assessment, setAssessment] = useState<ReliabilityAssessment | null>(
     null,
   );
@@ -537,7 +539,11 @@ export function WorkOrderDetailPage() {
               Update Status:
             </span>
             <button
-              onClick={() => updateStatus(nextStatus[workOrder.status])}
+              onClick={() =>
+                nextStatus[workOrder.status] === "completed"
+                  ? setCloseoutOpen(true)
+                  : updateStatus(nextStatus[workOrder.status])
+              }
               disabled={updatingStatus}
               className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors disabled:opacity-50 ${
                 nextStatus[workOrder.status] === "completed"
@@ -1056,6 +1062,19 @@ export function WorkOrderDetailPage() {
             </div>
           )}
         </div>
+      )}
+
+      {closeoutOpen && workOrderId && (
+        <WorkOrderCloseoutModal
+          workOrderId={workOrderId}
+          workOrderTitle={workOrder.title}
+          isAiGenerated={workOrder.type === "ai_generated"}
+          onClose={() => setCloseoutOpen(false)}
+          onClosedOut={() => {
+            setCloseoutOpen(false);
+            loadWorkOrderData(workOrderId);
+          }}
+        />
       )}
     </div>
   );
