@@ -6,172 +6,107 @@ import {
   Shield,
   ChartBar as BarChart2,
   Target,
-  Zap,
+  Wrench,
 } from "lucide-react";
 import { motion } from "framer-motion";
+import { useAsyncData } from "../hooks/useAsyncData";
+import {
+  LoadingState,
+  ErrorState,
+  EmptyState,
+} from "../components/ui/AsyncStates";
+import {
+  getAssets,
+  getRecommendations,
+  getWorkOrders,
+} from "../services/operatingLoopService";
+import type {
+  AssetRow,
+  RecommendationRow,
+  WorkOrderRow,
+} from "../types/operating";
 
-interface RiskItem {
-  id: string;
-  asset: string;
-  area: string;
-  failureProbability: number;
-  failureWindow: string;
-  consequence: "Catastrophic" | "Critical" | "High" | "Medium" | "Low";
-  missionImpact: "High" | "Medium" | "Low";
-  downtimeExposure: string;
-  safetyRisk: "High" | "Medium" | "Low";
-  environmentalRisk: "High" | "Medium" | "Low";
-  financialExposure: string;
-  recommendedIntervention: string;
-  interventionWindow: string;
-  riskScore: number;
+/** Parse a dollar figure out of free-text like "$2.4M risk mitigation". */
+function parseMoney(text: string | null): number {
+  if (!text) return 0;
+  const match = text.replace(/,/g, "").match(/\$\s*([\d.]+)\s*([mMkK])?/);
+  if (!match) return 0;
+  const base = parseFloat(match[1]);
+  const scale =
+    match[2]?.toLowerCase() === "m"
+      ? 1_000_000
+      : match[2]?.toLowerCase() === "k"
+        ? 1_000
+        : 1;
+  return Math.round(base * scale);
 }
 
-const risks: RiskItem[] = [
-  {
-    id: "r1",
-    asset: "Conveyor C-22",
-    area: "Processing Plant A",
-    failureProbability: 82,
-    failureWindow: "9 days",
-    consequence: "Critical",
-    missionImpact: "High",
-    downtimeExposure: "$2.4M",
-    safetyRisk: "Medium",
-    environmentalRisk: "Low",
-    financialExposure: "$2.4M",
-    recommendedIntervention: "Advance PM — bearing replacement",
-    interventionWindow: "Within 36 hours",
-    riskScore: 94,
-  },
-  {
-    id: "r2",
-    asset: "Pump P-101",
-    area: "Cooling Circuit",
-    failureProbability: 67,
-    failureWindow: "14 days",
-    consequence: "High",
-    missionImpact: "High",
-    downtimeExposure: "$1.1M",
-    safetyRisk: "High",
-    environmentalRisk: "Medium",
-    financialExposure: "$1.1M",
-    recommendedIntervention: "Seal replacement — schedule immediately",
-    interventionWindow: "Within 72 hours",
-    riskScore: 81,
-  },
-  {
-    id: "r3",
-    asset: "Compressor K-05",
-    area: "Gas Handling",
-    failureProbability: 44,
-    failureWindow: "21 days",
-    consequence: "High",
-    missionImpact: "Medium",
-    downtimeExposure: "$680K",
-    safetyRisk: "High",
-    environmentalRisk: "High",
-    financialExposure: "$680K",
-    recommendedIntervention: "Increase monitoring — prepare parts",
-    interventionWindow: "Within 7 days",
-    riskScore: 68,
-  },
-  {
-    id: "r4",
-    asset: "Heat Exchanger HX-08",
-    area: "Utility Block",
-    failureProbability: 31,
-    failureWindow: "30 days",
-    consequence: "Medium",
-    missionImpact: "Low",
-    downtimeExposure: "$290K",
-    safetyRisk: "Low",
-    environmentalRisk: "Medium",
-    financialExposure: "$290K",
-    recommendedIntervention: "Schedule for next planned outage",
-    interventionWindow: "Within 30 days",
-    riskScore: 42,
-  },
-  {
-    id: "r5",
-    asset: "Motor M-14",
-    area: "Production Line 2",
-    failureProbability: 28,
-    failureWindow: "35 days",
-    consequence: "Medium",
-    missionImpact: "Medium",
-    downtimeExposure: "$210K",
-    safetyRisk: "Low",
-    environmentalRisk: "Low",
-    financialExposure: "$210K",
-    recommendedIntervention: "Thermal scan — verify cooling",
-    interventionWindow: "Within 14 days",
-    riskScore: 36,
-  },
-  {
-    id: "r6",
-    asset: "Valve V-33",
-    area: "Water Treatment",
-    failureProbability: 18,
-    failureWindow: "45 days",
-    consequence: "Low",
-    missionImpact: "Low",
-    downtimeExposure: "$85K",
-    safetyRisk: "Low",
-    environmentalRisk: "Medium",
-    financialExposure: "$85K",
-    recommendedIntervention: "Inspect on next area walkdown",
-    interventionWindow: "Within 45 days",
-    riskScore: 21,
-  },
-];
+function formatMoney(value: number): string {
+  if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(1)}M`;
+  if (value >= 1_000) return `$${Math.round(value / 1_000)}K`;
+  return `$${value}`;
+}
 
-const consequenceColors: Record<
+interface RiskEntry {
+  asset: AssetRow;
+  openRecs: RecommendationRow[];
+  safetyWorkOrders: WorkOrderRow[];
+  citedExposureUsd: number;
+}
+
+interface RiskData {
+  assets: AssetRow[];
+  recommendations: RecommendationRow[];
+  workOrders: WorkOrderRow[];
+}
+
+const OPEN_REC_STATUSES = new Set(["pending", "escalated"]);
+const CRITICALITY_LEVELS = ["low", "medium", "high", "critical"] as const;
+
+const criticalityColors: Record<
   string,
   { color: string; bg: string; border: string }
 > = {
-  Catastrophic: {
+  critical: {
     color: "text-red-400",
     bg: "bg-red-500/10",
     border: "border-red-500/30",
   },
-  Critical: {
-    color: "text-red-400",
-    bg: "bg-red-500/10",
-    border: "border-red-500/30",
-  },
-  High: {
+  high: {
     color: "text-amber-400",
     bg: "bg-amber-500/10",
     border: "border-amber-500/30",
   },
-  Medium: {
+  medium: {
     color: "text-blue-400",
     bg: "bg-blue-500/10",
     border: "border-blue-500/30",
   },
-  Low: {
+  low: {
     color: "text-slate-400",
     bg: "bg-slate-500/10",
     border: "border-slate-500/20",
   },
 };
 
-function RiskMatrix() {
-  const probBuckets = [
-    { label: "Very High (80–100%)", min: 80 },
-    { label: "High (60–80%)", min: 60 },
-    { label: "Medium (40–60%)", min: 40 },
-    { label: "Low (20–40%)", min: 20 },
-    { label: "Very Low (<20%)", min: 0 },
-  ];
-  const consLevels = ["Low", "Medium", "High", "Critical", "Catastrophic"];
+function criticalityStyle(criticality: string) {
+  return criticalityColors[criticality] ?? criticalityColors.medium;
+}
 
-  const getColor = (prob: number, consIndex: number) => {
-    const score = (prob / 100) * consIndex;
-    if (score > 3) return "bg-red-500/30 border-red-500/40";
-    if (score > 2) return "bg-amber-500/20 border-amber-500/30";
-    if (score > 1) return "bg-blue-500/10 border-blue-500/20";
+function RiskMatrix({ entries }: { entries: RiskEntry[] }) {
+  const riskBuckets = [
+    { label: "Very High (80–100)", min: 80 },
+    { label: "High (60–80)", min: 60 },
+    { label: "Medium (40–60)", min: 40 },
+    { label: "Low (20–40)", min: 20 },
+    { label: "Very Low (<20)", min: 0 },
+  ];
+
+  const getColor = (bucketMin: number, criticalityIndex: number) => {
+    const score = (bucketMin / 100) * (criticalityIndex + 1);
+    if (score > 2.4) return "bg-red-500/30 border-red-500/40";
+    if (score > 1.2) return "bg-amber-500/20 border-amber-500/30";
+    if (score > 0.4) return "bg-blue-500/10 border-blue-500/20";
     return "bg-white/[0.02] border-white/[0.04]";
   };
 
@@ -179,32 +114,33 @@ function RiskMatrix() {
     <div className="overflow-x-auto">
       <div className="min-w-[500px]">
         <div className="flex items-center gap-2 mb-2">
-          <div className="text-xs text-slate-400 uppercase tracking-wider w-32 text-right">
-            Probability
+          <div className="text-xs text-slate-400 uppercase tracking-wider w-36 text-right">
+            Risk Score
           </div>
-          <div className="flex-1 grid grid-cols-5 gap-1 text-xs text-slate-400 text-center">
-            {consLevels.map((c) => (
+          <div className="flex-1 grid grid-cols-4 gap-1 text-xs text-slate-400 text-center capitalize">
+            {CRITICALITY_LEVELS.map((c) => (
               <div key={c}>{c}</div>
             ))}
           </div>
         </div>
-        {probBuckets.map((bucket, pi) => (
+        {riskBuckets.map((bucket, bi) => (
           <div key={bucket.label} className="flex items-center gap-2 mb-1">
-            <div className="text-xs text-slate-400 w-32 text-right">
+            <div className="text-xs text-slate-400 w-36 text-right">
               {bucket.label}
             </div>
-            <div className="flex-1 grid grid-cols-5 gap-1">
-              {consLevels.map((cons, ci) => {
-                const inCell = risks.filter(
-                  (r) =>
-                    r.failureProbability >= bucket.min &&
-                    (pi === 0 ||
-                      r.failureProbability < probBuckets[pi - 1].min) &&
-                    r.consequence === cons,
+            <div className="flex-1 grid grid-cols-4 gap-1">
+              {CRITICALITY_LEVELS.map((crit, ci) => {
+                const inCell = entries.filter(
+                  (e) =>
+                    e.asset.risk_score >= bucket.min &&
+                    (bi === 0 ||
+                      e.asset.risk_score < riskBuckets[bi - 1].min) &&
+                    e.asset.criticality === crit,
                 );
                 return (
                   <div
-                    key={cons}
+                    key={crit}
+                    title={inCell.map((e) => e.asset.name).join(", ")}
                     className={`h-10 rounded border ${getColor(bucket.min, ci)} flex items-center justify-center text-xs font-bold text-white`}
                   >
                     {inCell.length > 0 ? inCell.length : ""}
@@ -215,9 +151,9 @@ function RiskMatrix() {
           </div>
         ))}
         <div className="flex items-center gap-2 mt-1">
-          <div className="w-32" />
+          <div className="w-36" />
           <div className="flex-1 text-xs text-slate-400 text-center">
-            Consequence
+            Asset Criticality
           </div>
         </div>
       </div>
@@ -225,17 +161,19 @@ function RiskMatrix() {
   );
 }
 
-function RiskCard({ risk }: { risk: RiskItem }) {
+function RiskCard({ entry }: { entry: RiskEntry }) {
   const [expanded, setExpanded] = useState(false);
-  const c = consequenceColors[risk.consequence];
+  const { asset, openRecs, safetyWorkOrders, citedExposureUsd } = entry;
+  const c = criticalityStyle(asset.criticality);
   const barColor =
-    risk.riskScore >= 80
+    asset.risk_score >= 70
       ? "bg-red-500"
-      : risk.riskScore >= 60
+      : asset.risk_score >= 45
         ? "bg-amber-500"
-        : risk.riskScore >= 40
+        : asset.risk_score >= 20
           ? "bg-blue-500"
           : "bg-slate-500";
+  const topRec = openRecs[0];
 
   return (
     <motion.div
@@ -248,20 +186,31 @@ function RiskCard({ risk }: { risk: RiskItem }) {
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
               <span
-                className={`text-xs font-bold px-1.5 py-0.5 rounded-full ${c.bg} ${c.color} border ${c.border}`}
+                className={`text-xs font-bold px-1.5 py-0.5 rounded-full capitalize ${c.bg} ${c.color} border ${c.border}`}
               >
-                {risk.consequence}
+                {asset.criticality}
               </span>
-              <span className="text-xs text-slate-400">{risk.area}</span>
+              {asset.area && (
+                <span className="text-xs text-slate-400">{asset.area}</span>
+              )}
             </div>
-            <h3 className="text-sm font-bold text-slate-200">{risk.asset}</h3>
+            <h3 className="text-sm font-bold text-slate-200">
+              {asset.name}
+              {asset.tag && (
+                <span className="ml-2 text-xs font-mono text-slate-400">
+                  {asset.tag}
+                </span>
+              )}
+            </h3>
             <div className="text-xs text-slate-400 mt-0.5">
-              {risk.recommendedIntervention}
+              {topRec
+                ? (topRec.action ?? topRec.title)
+                : "No open recommendations"}
             </div>
           </div>
           <div className="text-right flex-shrink-0">
             <div className={`text-xl font-black ${c.color}`}>
-              {risk.riskScore}
+              {asset.risk_score}
             </div>
             <div className="text-xs text-slate-400">Risk Score</div>
           </div>
@@ -269,15 +218,15 @@ function RiskCard({ risk }: { risk: RiskItem }) {
 
         <div className="mt-3 space-y-1">
           <div className="flex items-center justify-between text-xs">
-            <span className="text-slate-400">Failure probability</span>
+            <span className="text-slate-400">Risk score (AI-modelled)</span>
             <span className="text-slate-300 font-medium">
-              {risk.failureProbability}% in {risk.failureWindow}
+              {asset.risk_score}/100 · health {asset.health_score}/100
             </span>
           </div>
           <div className="h-1.5 bg-white/[0.05] rounded-full overflow-hidden">
             <motion.div
               initial={{ width: 0 }}
-              animate={{ width: `${risk.failureProbability}%` }}
+              animate={{ width: `${asset.risk_score}%` }}
               transition={{ duration: 0.8 }}
               className={`h-full rounded-full ${barColor}`}
             />
@@ -286,51 +235,91 @@ function RiskCard({ risk }: { risk: RiskItem }) {
 
         <div className="mt-3 flex items-center gap-4 text-xs">
           <div>
-            <span className="text-slate-400">Exposure: </span>
+            <span className="text-slate-400">Cited exposure: </span>
             <span className={`font-bold ${c.color}`}>
-              {risk.financialExposure}
+              {citedExposureUsd > 0 ? formatMoney(citedExposureUsd) : "—"}
             </span>
           </div>
           <div>
-            <span className="text-slate-400">Act by: </span>
-            <span className="text-slate-300">{risk.interventionWindow}</span>
+            <span className="text-slate-400">Open recs: </span>
+            <span className="text-slate-300">{openRecs.length}</span>
           </div>
           <div className="ml-auto flex gap-2">
-            {risk.safetyRisk === "High" && (
+            {safetyWorkOrders.length > 0 && (
               <span className="text-xs px-1.5 py-0.5 rounded bg-red-500/10 text-red-400 border border-red-500/20 font-semibold">
-                Safety Risk
+                {safetyWorkOrders.length} Safety WO
+                {safetyWorkOrders.length === 1 ? "" : "s"}
               </span>
             )}
-            {risk.environmentalRisk === "High" && (
-              <span className="text-xs px-1.5 py-0.5 rounded bg-green-500/10 text-green-400 border border-green-500/20 font-semibold">
-                Env Risk
-              </span>
-            )}
+            <span className="text-xs px-1.5 py-0.5 rounded bg-white/[0.04] text-slate-300 border border-white/[0.08] capitalize">
+              {asset.status}
+            </span>
           </div>
         </div>
 
         {expanded && (
-          <div className="mt-3 pt-3 border-t border-white/[0.05] grid grid-cols-2 gap-2 text-xs">
+          <div className="mt-3 pt-3 border-t border-white/[0.05] space-y-3 text-xs">
             <div>
-              <span className="text-slate-400">Mission Impact: </span>
-              <span className="text-slate-300">{risk.missionImpact}</span>
+              <div className="text-slate-400 uppercase tracking-wider mb-1.5">
+                Open Recommendations
+              </div>
+              {openRecs.length === 0 ? (
+                <div className="text-slate-400">None open for this asset.</div>
+              ) : (
+                <div className="space-y-1.5">
+                  {openRecs.map((r) => (
+                    <div
+                      key={r.id}
+                      className="flex items-center justify-between gap-2 p-2 rounded-lg bg-white/[0.02] border border-white/[0.04]"
+                    >
+                      <span className="text-slate-200">{r.title}</span>
+                      <span className="flex items-center gap-2 flex-shrink-0">
+                        <span
+                          className={`px-1.5 py-0.5 rounded-full font-bold capitalize ${
+                            r.urgency === "critical"
+                              ? "bg-red-500/10 text-red-400"
+                              : r.urgency === "action"
+                                ? "bg-amber-500/10 text-amber-400"
+                                : "bg-blue-500/10 text-blue-400"
+                          }`}
+                        >
+                          {r.urgency}
+                        </span>
+                        <span className="font-mono text-slate-400">
+                          {r.confidence}%
+                        </span>
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
             <div>
-              <span className="text-slate-400">Safety Risk: </span>
-              <span className="text-slate-300">{risk.safetyRisk}</span>
-            </div>
-            <div>
-              <span className="text-slate-400">Environmental: </span>
-              <span className="text-slate-300">{risk.environmentalRisk}</span>
-            </div>
-            <div>
-              <span className="text-slate-400">Downtime Exposure: </span>
-              <span className="text-slate-300">{risk.downtimeExposure}</span>
-            </div>
-            <div className="col-span-2">
-              <button className="mt-2 w-full px-4 py-2 bg-teal-500/10 border border-teal-500/20 text-teal-400 text-xs font-medium rounded-lg hover:bg-teal-500/20 transition-colors flex items-center gap-2 justify-center">
-                <Zap className="w-3 h-3" /> Create Intervention Work Order
-              </button>
+              <div className="text-slate-400 uppercase tracking-wider mb-1.5">
+                Safety-Flagged Work Orders
+              </div>
+              {safetyWorkOrders.length === 0 ? (
+                <div className="text-slate-400">
+                  No safety-flagged work orders.
+                </div>
+              ) : (
+                <div className="space-y-1.5">
+                  {safetyWorkOrders.map((w) => (
+                    <div
+                      key={w.id}
+                      className="flex items-center justify-between gap-2 p-2 rounded-lg bg-red-500/[0.04] border border-red-500/10"
+                    >
+                      <span className="text-slate-200 flex items-center gap-1.5">
+                        <Wrench className="w-3 h-3 text-red-400 flex-shrink-0" />
+                        {w.title}
+                      </span>
+                      <span className="text-slate-400 capitalize flex-shrink-0">
+                        {w.status} · {w.priority}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -341,21 +330,54 @@ function RiskCard({ risk }: { risk: RiskItem }) {
 
 export function RiskConsequence() {
   const [view, setView] = useState<"list" | "matrix">("list");
-  const [sortBy, setSortBy] = useState<
-    "riskScore" | "probability" | "exposure"
-  >("riskScore");
+  const [sortBy, setSortBy] = useState<"riskScore" | "health" | "exposure">(
+    "riskScore",
+  );
 
-  const totalExposure = risks.reduce((acc, r) => {
-    const val = parseFloat(r.financialExposure.replace(/[^0-9.]/g, ""));
-    const mult = r.financialExposure.includes("M") ? 1000000 : 1000;
-    return acc + val * mult;
-  }, 0);
+  const { data, loading, error, refetch, isEmpty } = useAsyncData<RiskData>(
+    async () => {
+      const [assets, recommendations, workOrders] = await Promise.all([
+        getAssets(),
+        getRecommendations(),
+        getWorkOrders(),
+      ]);
+      return { assets, recommendations, workOrders };
+    },
+    [],
+    { isEmpty: (d) => !d || d.assets.length === 0 },
+  );
 
-  const sorted = [...risks].sort((a, b) => {
-    if (sortBy === "riskScore") return b.riskScore - a.riskScore;
-    if (sortBy === "probability")
-      return b.failureProbability - a.failureProbability;
-    return 0;
+  if (loading) return <LoadingState label="Loading risk register…" />;
+  if (error) return <ErrorState message={error} onRetry={refetch} />;
+  if (isEmpty || !data)
+    return (
+      <EmptyState message="No assets yet — the risk register populates once assets are onboarded from your CMMS." />
+    );
+
+  const entries: RiskEntry[] = data.assets.map((asset) => {
+    const openRecs = data.recommendations.filter(
+      (r) => r.asset_id === asset.id && OPEN_REC_STATUSES.has(r.status),
+    );
+    const safetyWorkOrders = data.workOrders.filter(
+      (w) =>
+        w.asset_id === asset.id && w.safety_flag && w.status !== "completed",
+    );
+    const citedExposureUsd = openRecs.reduce(
+      (sum, r) => sum + parseMoney(r.financial_impact),
+      0,
+    );
+    return { asset, openRecs, safetyWorkOrders, citedExposureUsd };
+  });
+
+  const totalCitedExposure = entries.reduce(
+    (sum, e) => sum + e.citedExposureUsd,
+    0,
+  );
+
+  const sorted = [...entries].sort((a, b) => {
+    if (sortBy === "riskScore") return b.asset.risk_score - a.asset.risk_score;
+    if (sortBy === "health") return a.asset.health_score - b.asset.health_score;
+    return b.citedExposureUsd - a.citedExposureUsd;
   });
 
   return (
@@ -366,7 +388,8 @@ export function RiskConsequence() {
             Risk & Consequence
           </h1>
           <p className="text-sm text-slate-400 mt-0.5">
-            Prioritized by consequence, not just work order priority
+            Live asset risk register — prioritized by consequence, not just work
+            order priority
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -389,27 +412,29 @@ export function RiskConsequence() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
           {
-            label: "Total Exposure",
-            value: `$${(totalExposure / 1000000).toFixed(1)}M`,
+            label: "Cited Exposure (open recs)",
+            value:
+              totalCitedExposure > 0 ? formatMoney(totalCitedExposure) : "—",
             icon: DollarSign,
             color: "red",
           },
           {
-            label: "Critical Risks",
-            value: risks.filter((r) => r.riskScore >= 80).length,
+            label: "Critical Risk (≥70)",
+            value: entries.filter((e) => e.asset.risk_score >= 70).length,
             icon: AlertTriangle,
             color: "red",
           },
           {
-            label: "Action Required",
-            value: risks.filter((r) => r.riskScore >= 60 && r.riskScore < 80)
-              .length,
+            label: "Action Required (45–69)",
+            value: entries.filter(
+              (e) => e.asset.risk_score >= 45 && e.asset.risk_score < 70,
+            ).length,
             icon: Clock,
             color: "amber",
           },
           {
-            label: "Advisory",
-            value: risks.filter((r) => r.riskScore < 60).length,
+            label: "Advisory (<45)",
+            value: entries.filter((e) => e.asset.risk_score < 45).length,
             icon: BarChart2,
             color: "blue",
           },
@@ -445,7 +470,7 @@ export function RiskConsequence() {
         <>
           <div className="flex items-center gap-2">
             <span className="text-xs text-slate-400">Sort by:</span>
-            {(["riskScore", "probability", "exposure"] as const).map((s) => (
+            {(["riskScore", "health", "exposure"] as const).map((s) => (
               <button
                 key={s}
                 onClick={() => setSortBy(s)}
@@ -453,21 +478,21 @@ export function RiskConsequence() {
               >
                 {s === "riskScore"
                   ? "Risk Score"
-                  : s === "probability"
-                    ? "Probability"
-                    : "Exposure"}
+                  : s === "health"
+                    ? "Health (worst first)"
+                    : "Cited Exposure"}
               </button>
             ))}
           </div>
           <div className="space-y-3">
-            {sorted.map((risk, i) => (
+            {sorted.map((entry, i) => (
               <motion.div
-                key={risk.id}
+                key={entry.asset.id}
                 initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: i * 0.06 }}
               >
-                <RiskCard risk={risk} />
+                <RiskCard entry={entry} />
               </motion.div>
             ))}
           </div>
@@ -476,9 +501,9 @@ export function RiskConsequence() {
         <div className="bg-[#0D1520] border border-white/[0.06] rounded-2xl p-6">
           <h3 className="text-sm font-semibold text-slate-200 mb-4 flex items-center gap-2">
             <Target className="w-4 h-4 text-teal-400" />
-            Probability vs Consequence Matrix
+            Risk Score vs Asset Criticality Matrix
           </h3>
-          <RiskMatrix />
+          <RiskMatrix entries={entries} />
           <div className="mt-4 flex items-center gap-4 text-[11px]">
             <div className="flex items-center gap-1.5">
               <div className="w-3 h-3 rounded bg-red-500/30 border border-red-500/40" />
@@ -506,11 +531,12 @@ export function RiskConsequence() {
           <p className="text-xs text-slate-400 mt-1 leading-relaxed">
             SyncAI prioritizes by{" "}
             <span className="text-slate-200">
-              consequence × probability × time sensitivity
+              modelled risk score × asset criticality
             </span>
-            , not work order number. High-probability / low-consequence items
-            rank below low-probability / catastrophic-consequence items. This
-            approach reflects ISO 55000 asset criticality principles.
+            , not work order number. Cited exposure is the sum of dollar figures
+            referenced in this asset's open recommendations — no figures are
+            estimated outside the data. This approach reflects ISO 55000 asset
+            criticality principles.
           </p>
         </div>
       </div>

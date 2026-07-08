@@ -1,320 +1,263 @@
 import { useState } from "react";
 import {
   Users,
-  Target,
-  Wrench,
-  Calendar,
-  Shield,
-  HardHat,
-  Settings,
-  Bot,
-  TrendingUp,
+  Factory,
+  MapPin,
   TriangleAlert as AlertTriangle,
   CircleCheck as CheckCircle,
   Activity,
-  ChartBar as BarChart2,
   ChevronRight,
   Zap,
-  ArrowUpRight,
 } from "lucide-react";
 import { motion } from "framer-motion";
+import { supabase } from "../lib/supabase";
+import { useAsyncData } from "../hooks/useAsyncData";
+import {
+  getAssets,
+  getWorkOrders,
+  getRecommendations,
+} from "../services/operatingLoopService";
+import type { AssetRow } from "../types/operating";
+import {
+  LoadingState,
+  ErrorState,
+  EmptyState,
+} from "../components/ui/AsyncStates";
 
-type CommandCenterId =
-  | "executive"
-  | "asset"
-  | "reliability"
-  | "maintenance"
-  | "planning"
-  | "operations"
-  | "hse"
-  | "technician"
-  | "ai-admin";
+/* -------------------------------------------------------------------------- */
+/* Page-local queries                                                         */
+/* -------------------------------------------------------------------------- */
 
-interface CommandCenter {
-  id: CommandCenterId;
+interface SiteRow {
+  id: string;
   name: string;
-  role: string;
-  icon: React.ElementType;
-  color: string;
-  description: string;
-  kpis: {
-    label: string;
-    value: string;
-    trend: "up" | "down" | "stable";
-    unit?: string;
-  }[];
-  alerts: { text: string; level: "critical" | "action" | "advisory" }[];
-  actions: string[];
+  code: string | null;
+  location: string | null;
 }
 
-const commandCenters: CommandCenter[] = [
-  {
-    id: "executive",
-    name: "Executive Command Center",
-    role: "C-Suite / Senior Leadership",
-    icon: Target,
-    color: "teal",
-    description:
-      "Enterprise mission readiness, financial exposure, and strategic risk overview.",
-    kpis: [
-      { label: "Mission Readiness", value: "87%", trend: "up" },
-      { label: "Asset Availability", value: "94.2%", trend: "up" },
-      { label: "Maintenance Cost / RAV", value: "3.1%", trend: "down" },
-      { label: "Downtime Exposure", value: "$4.8M", trend: "down" },
-      { label: "AI Actions Executed", value: "142", trend: "up" },
-      { label: "Autonomous Rate", value: "68%", trend: "up" },
-    ],
-    alerts: [
-      {
-        text: "Conveyor C-22 poses $2.4M downtime risk — action within 36 hours",
-        level: "critical",
-      },
-      {
-        text: "Parts availability at 76% — 4 critical spares below reorder point",
-        level: "action",
-      },
-    ],
-    actions: [
-      "View Mission Readiness Report",
-      "Approve Capital Request",
-      "Review AI Performance",
-    ],
-  },
-  {
-    id: "asset",
-    name: "Asset Management Command Center",
-    role: "Asset Manager / Lifecycle Manager",
-    icon: Settings,
-    color: "blue",
-    description:
-      "Asset health, lifecycle status, criticality rankings, and replacement planning.",
-    kpis: [
-      { label: "Assets Monitored", value: "487", trend: "stable" },
-      { label: "Critical Assets", value: "62", trend: "stable" },
-      { label: "Asset Health Score", value: "91%", trend: "up" },
-      { label: "Overdue Inspections", value: "8", trend: "down" },
-      { label: "End-of-Life Assets", value: "14", trend: "stable" },
-      { label: "Digital Twin Coverage", value: "34%", trend: "up" },
-    ],
-    alerts: [
-      {
-        text: "Heat Exchanger HX-08 approaching end-of-useful-life",
-        level: "advisory",
-      },
-      { text: "8 assets overdue for mandatory inspection", level: "action" },
-    ],
-    actions: [
-      "Review Asset Registry",
-      "Approve Replacement Plan",
-      "Update Criticality Rankings",
-    ],
-  },
-  {
-    id: "reliability",
-    name: "Reliability Command Center",
-    role: "Reliability Engineer / RCM Specialist",
-    icon: TrendingUp,
-    color: "teal",
-    description:
-      "Bad actors, failure analysis, PM strategy, and reliability growth tracking.",
-    kpis: [
-      { label: "MTBF (Fleet)", value: "2,847 hr", trend: "up" },
-      { label: "MTTR (Fleet)", value: "4.2 hr", trend: "down" },
-      { label: "Bad Actors", value: "7", trend: "down" },
-      { label: "Open RCAs", value: "3", trend: "stable" },
-      { label: "PM Effectiveness", value: "83%", trend: "up" },
-      { label: "Repeated Failures", value: "4", trend: "down" },
-    ],
-    alerts: [
-      {
-        text: "Conveyor C-22 is a bad actor — 4th bearing failure in 12 months",
-        level: "critical",
-      },
-      { text: "RCA for Pump P-101 overdue by 3 days", level: "action" },
-    ],
-    actions: ["Open RCA Workflow", "Review Bad Actor List", "Update FMEA"],
-  },
-  {
-    id: "maintenance",
-    name: "Maintenance Command Center",
-    role: "Maintenance Manager / Supervisor",
-    icon: Wrench,
-    color: "amber",
-    description:
-      "Work order execution, backlog management, and maintenance team performance.",
-    kpis: [
-      { label: "Open Work Orders", value: "34", trend: "stable" },
-      { label: "Overdue WOs", value: "6", trend: "down" },
-      { label: "PM Compliance", value: "88%", trend: "up" },
-      { label: "Emergency Work %", value: "12%", trend: "down" },
-      { label: "Backlog Hours", value: "218 hr", trend: "down" },
-      { label: "Schedule Compliance", value: "79%", trend: "up" },
-    ],
-    alerts: [
-      {
-        text: "6 work orders overdue — risk of safety non-compliance",
-        level: "action",
-      },
-      {
-        text: "Emergency work % trending upward — investigate root cause",
-        level: "advisory",
-      },
-    ],
-    actions: ["View Work Board", "Assign Technicians", "Approve Overtime"],
-  },
-  {
-    id: "planning",
-    name: "Planning & Scheduling Command Center",
-    role: "Planner / Scheduler",
-    icon: Calendar,
-    color: "blue",
-    description:
-      "2-week rolling schedule, resource loading, parts readiness, and schedule optimization.",
-    kpis: [
-      { label: "Scheduled WOs", value: "18", trend: "stable" },
-      { label: "Parts Ready", value: "76%", trend: "down" },
-      { label: "Resource Loading", value: "91%", trend: "up" },
-      { label: "Schedule Compliance", value: "79%", trend: "up" },
-      { label: "Awaiting Parts", value: "5 WOs", trend: "stable" },
-      { label: "AI-Planned WOs", value: "11", trend: "up" },
-    ],
-    alerts: [
-      {
-        text: "5 work orders blocked — parts not yet received",
-        level: "action",
-      },
-      {
-        text: "Resource loading at 91% — consider contractor support",
-        level: "advisory",
-      },
-    ],
-    actions: [
-      "View 2-Week Schedule",
-      "Identify Parts Gaps",
-      "Optimize Schedule",
-    ],
-  },
-  {
-    id: "operations",
-    name: "Operations Command Center",
-    role: "Operations Manager / Shift Supervisor",
-    icon: Activity,
-    color: "teal",
-    description:
-      "Production impact, equipment availability, and operations/maintenance interface.",
-    kpis: [
-      { label: "Production Availability", value: "96.1%", trend: "up" },
-      { label: "Planned Downtime", value: "4.2 hr", trend: "stable" },
-      { label: "Unplanned Downtime", value: "1.8 hr", trend: "down" },
-      { label: "OEE", value: "81.4%", trend: "up" },
-      { label: "Critical Deferrals", value: "2", trend: "stable" },
-      { label: "Maintenance Requests", value: "9", trend: "stable" },
-    ],
-    alerts: [
-      {
-        text: "Conveyor C-22 PM deferral increases risk to production plan",
-        level: "critical",
-      },
-      {
-        text: "2 maintenance requests awaiting Operations approval",
-        level: "action",
-      },
-    ],
-    actions: [
-      "Approve Deferrals",
-      "View Production Impact",
-      "Release Equipment",
-    ],
-  },
-  {
-    id: "hse",
-    name: "HSE / Compliance Command Center",
-    role: "HSE Manager / Safety Officer",
-    icon: Shield,
-    color: "green",
-    description:
-      "Critical control compliance, safety work orders, regulatory status, and incident tracking.",
-    kpis: [
-      { label: "Critical Controls Compliant", value: "98%", trend: "up" },
-      { label: "Overdue Safety WOs", value: "2", trend: "down" },
-      { label: "Open Safety Actions", value: "7", trend: "stable" },
-      { label: "LOTO Compliance", value: "100%", trend: "stable" },
-      { label: "Inspections Due", value: "4", trend: "stable" },
-      { label: "Regulatory Actions", value: "1", trend: "stable" },
-    ],
-    alerts: [
-      {
-        text: "2 safety-critical work orders overdue — immediate attention required",
-        level: "critical",
-      },
-      {
-        text: "Regulatory inspection due in 14 days — documentation review needed",
-        level: "action",
-      },
-    ],
-    actions: [
-      "Review Safety WOs",
-      "Audit Critical Controls",
-      "Generate Compliance Report",
-    ],
-  },
-  {
-    id: "technician",
-    name: "Technician Command Center",
-    role: "Maintenance Technician / Field Technician",
-    icon: HardHat,
-    color: "amber",
-    description:
-      "My assigned work orders, step-by-step job instructions, parts, and safety requirements.",
-    kpis: [
-      { label: "My Open WOs", value: "4", trend: "stable" },
-      { label: "Due Today", value: "2", trend: "stable" },
-      { label: "Parts Ready", value: "3 of 4", trend: "stable" },
-      { label: "Overdue", value: "0", trend: "stable" },
-      { label: "Completed Today", value: "1", trend: "up" },
-      { label: "Approvals Needed", value: "0", trend: "stable" },
-    ],
-    alerts: [
-      {
-        text: "WO #4821 — Pump P-101 seal inspection due by 14:00 today",
-        level: "action",
-      },
-      {
-        text: "Parts for WO #4823 not yet picked from storeroom",
-        level: "advisory",
-      },
-    ],
-    actions: ["Start WO #4821", "View Job Instructions", "Record Readings"],
-  },
-  {
-    id: "ai-admin",
-    name: "AI Admin Command Center",
-    role: "AI Administrator / System Admin",
-    icon: Bot,
-    color: "teal",
-    description:
-      "Agent performance, autonomy configuration, model health, and system governance.",
-    kpis: [
-      { label: "Agents Online", value: "15/15", trend: "stable" },
-      { label: "Actions Executed", value: "142", trend: "up" },
-      { label: "Avg Confidence", value: "88%", trend: "up" },
-      { label: "False Positives", value: "3%", trend: "down" },
-      { label: "Autonomy Rate", value: "68%", trend: "up" },
-      { label: "Human Overrides", value: "4", trend: "down" },
-    ],
-    alerts: [
-      {
-        text: "Condition Monitoring agent confidence dropped 4% — review sensor data quality",
-        level: "advisory",
-      },
-      {
-        text: "4 human overrides this week — review for model improvement",
-        level: "advisory",
-      },
-    ],
-    actions: ["Configure Autonomy", "Review Agent Logs", "Tune Thresholds"],
-  },
-];
+interface SensorRow {
+  id: string;
+  asset_id: string;
+  name: string;
+  status: string | null;
+  last_value: number | null;
+  threshold: number | null;
+  unit: string | null;
+}
+
+interface SystemAlertRow {
+  id: string;
+  severity: string | null;
+  title: string | null;
+  description: string | null;
+}
+
+async function getSites(): Promise<SiteRow[]> {
+  const { data, error } = await supabase
+    .from("sites")
+    .select("id,name,code,location")
+    .order("name")
+    .returns<SiteRow[]>();
+  if (error) throw new Error(`Could not load sites: ${error.message}`);
+  return data ?? [];
+}
+
+async function getSensors(): Promise<SensorRow[]> {
+  const { data, error } = await supabase
+    .from("sensors")
+    .select("id,asset_id,name,status,last_value,threshold,unit")
+    .returns<SensorRow[]>();
+  if (error) throw new Error(`Could not load sensors: ${error.message}`);
+  return data ?? [];
+}
+
+async function getOpenSystemAlerts(): Promise<SystemAlertRow[]> {
+  const { data, error } = await supabase
+    .from("system_alerts")
+    .select("id,severity,title,description")
+    .eq("resolved", false)
+    .returns<SystemAlertRow[]>();
+  if (error) throw new Error(`Could not load system alerts: ${error.message}`);
+  return data ?? [];
+}
+
+/* -------------------------------------------------------------------------- */
+/* Rollup model — every number aggregated from queried rows                   */
+/* -------------------------------------------------------------------------- */
+
+type AlertLevel = "critical" | "action" | "advisory";
+
+interface RollupAlert {
+  text: string;
+  level: AlertLevel;
+}
+
+interface RollupRec {
+  title: string;
+  action: string | null;
+  urgency: string;
+}
+
+interface SiteRollup {
+  id: string;
+  name: string;
+  code: string | null;
+  location: string | null;
+  color: string;
+  assetCount: number;
+  avgHealth: number | null;
+  criticalAssets: number;
+  highRiskAssets: number;
+  openWOs: number;
+  activeAlarms: number;
+  warningSensors: number;
+  pendingRecs: number;
+  alerts: RollupAlert[];
+  assets: AssetRow[];
+  recommendations: RollupRec[];
+}
+
+interface CommandCenterData {
+  rollups: SiteRollup[];
+  orgAlerts: SystemAlertRow[];
+}
+
+const CLOSED_WO_STATUSES = new Set(["completed", "closed", "cancelled"]);
+
+async function loadCommandCenters(): Promise<CommandCenterData> {
+  const [sites, assets, workOrders, recs, sensors, orgAlerts] =
+    await Promise.all([
+      getSites(),
+      getAssets(),
+      getWorkOrders(),
+      getRecommendations(),
+      getSensors(),
+      getOpenSystemAlerts(),
+    ]);
+
+  const buildRollup = (
+    id: string,
+    name: string,
+    code: string | null,
+    location: string | null,
+    siteAssets: AssetRow[],
+  ): SiteRollup => {
+    const assetIds = new Set(siteAssets.map((a) => a.id));
+    const assetById = new Map(siteAssets.map((a) => [a.id, a]));
+    const siteSensors = sensors.filter((s) => assetIds.has(s.asset_id));
+    const alarms = siteSensors.filter((s) => s.status === "alarm");
+    const warnings = siteSensors.filter((s) => s.status === "warning");
+    const openWOs = workOrders.filter(
+      (w) =>
+        w.asset_id != null &&
+        assetIds.has(w.asset_id) &&
+        !CLOSED_WO_STATUSES.has(w.status),
+    );
+    const pendingRecs = recs.filter(
+      (r) =>
+        r.asset_id != null &&
+        assetIds.has(r.asset_id) &&
+        (r.status === "pending" || r.status === "escalated"),
+    );
+    const highRisk = siteAssets.filter((a) => a.risk_score >= 70);
+    const avgHealth = siteAssets.length
+      ? Math.round(
+          siteAssets.reduce((s, a) => s + a.health_score, 0) /
+            siteAssets.length,
+        )
+      : null;
+
+    const alerts: RollupAlert[] = [
+      ...alarms.map((s) => {
+        const asset = assetById.get(s.asset_id);
+        const reading =
+          s.last_value != null && s.threshold != null
+            ? ` — ${s.last_value}${s.unit ? ` ${s.unit}` : ""} vs ${s.threshold} threshold`
+            : "";
+        return {
+          text: `${s.name}${asset ? ` on ${asset.name}` : ""} in alarm${reading}`,
+          level: "critical" as const,
+        };
+      }),
+      ...warnings.map((s) => {
+        const asset = assetById.get(s.asset_id);
+        const reading =
+          s.last_value != null && s.threshold != null
+            ? ` — ${s.last_value}${s.unit ? ` ${s.unit}` : ""} vs ${s.threshold} threshold`
+            : "";
+        return {
+          text: `${s.name}${asset ? ` on ${asset.name}` : ""} in warning${reading}`,
+          level: "action" as const,
+        };
+      }),
+      ...highRisk.map((a) => ({
+        text: `${a.name} at elevated risk — risk score ${a.risk_score}, health ${a.health_score}%`,
+        level: (a.risk_score >= 80 ? "critical" : "action") as AlertLevel,
+      })),
+    ];
+
+    return {
+      id,
+      name,
+      code,
+      location,
+      color:
+        alarms.length > 0 || highRisk.length > 0
+          ? "amber"
+          : (avgHealth ?? 100) >= 85
+            ? "teal"
+            : "blue",
+      assetCount: siteAssets.length,
+      avgHealth,
+      criticalAssets: siteAssets.filter((a) => a.criticality === "critical")
+        .length,
+      highRiskAssets: highRisk.length,
+      openWOs: openWOs.length,
+      activeAlarms: alarms.length,
+      warningSensors: warnings.length,
+      pendingRecs: pendingRecs.length,
+      alerts,
+      assets: [...siteAssets].sort((a, b) => b.risk_score - a.risk_score),
+      recommendations: pendingRecs.map((r) => ({
+        title: r.title,
+        action: r.action,
+        urgency: r.urgency,
+      })),
+    };
+  };
+
+  const rollups = sites.map((site) =>
+    buildRollup(
+      site.id,
+      site.name,
+      site.code,
+      site.location,
+      assets.filter((a) => a.site_id === site.id),
+    ),
+  );
+
+  // Assets not linked to any site still deserve an honest rollup card.
+  const unassigned = assets.filter(
+    (a) => a.site_id == null || !sites.some((s) => s.id === a.site_id),
+  );
+  if (unassigned.length > 0) {
+    rollups.push(
+      buildRollup(
+        "unassigned",
+        "Unassigned Assets",
+        null,
+        "Not linked to a site",
+        unassigned,
+      ),
+    );
+  }
+
+  return { rollups, orgAlerts };
+}
+
+/* -------------------------------------------------------------------------- */
+/* Presentation                                                               */
+/* -------------------------------------------------------------------------- */
 
 const colorMap: Record<
   string,
@@ -346,106 +289,126 @@ const colorMap: Record<
   },
 };
 
-const alertColors = {
+const alertColors: Record<AlertLevel, string> = {
   critical: "text-red-400 bg-red-500/10 border-red-500/20",
   action: "text-amber-400 bg-amber-500/10 border-amber-500/20",
   advisory: "text-blue-400 bg-blue-500/10 border-blue-500/20",
 };
 
-function CommandCenterCard({
-  cc,
+const healthColor = (h: number) =>
+  h >= 85 ? "text-teal-400" : h >= 70 ? "text-amber-400" : "text-red-400";
+
+function rollupKpis(site: SiteRollup) {
+  return [
+    { label: "Assets", value: `${site.assetCount}` },
+    {
+      label: "Avg Health",
+      value: site.avgHealth != null ? `${site.avgHealth}%` : "—",
+    },
+    { label: "Critical Assets", value: `${site.criticalAssets}` },
+    { label: "Open Work Orders", value: `${site.openWOs}` },
+    { label: "Active Alarms", value: `${site.activeAlarms}` },
+    { label: "Pending Recs", value: `${site.pendingRecs}` },
+  ];
+}
+
+function SiteCard({
+  site,
   onOpen,
 }: {
-  cc: CommandCenter;
-  onOpen: (id: CommandCenterId) => void;
+  site: SiteRollup;
+  onOpen: (id: string) => void;
 }) {
-  const Icon = cc.icon;
-  const c = colorMap[cc.color];
-  const criticalAlert = cc.alerts.find((a) => a.level === "critical");
+  const c = colorMap[site.color];
+  const criticalAlert = site.alerts.find((a) => a.level === "critical");
 
   return (
     <motion.div
       className={`bg-[#0D1520] border ${c.card} rounded-2xl p-5 cursor-pointer transition-all group`}
       whileHover={{ y: -2 }}
-      onClick={() => onOpen(cc.id)}
+      onClick={() => onOpen(site.id)}
     >
       <div className="flex items-start gap-3 mb-4">
         <div
           className={`w-10 h-10 rounded-xl ${c.icon} flex items-center justify-center flex-shrink-0`}
         >
-          <Icon className={`w-5 h-5 ${c.text}`} />
+          <Factory className={`w-5 h-5 ${c.text}`} />
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-bold text-slate-200 leading-tight">
-              {cc.name}
+              {site.name}
             </h3>
             <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-teal-400 transition-colors" />
           </div>
-          <div className={`text-xs font-semibold mt-0.5 ${c.text}`}>
-            {cc.role}
+          <div
+            className={`text-xs font-semibold mt-0.5 flex items-center gap-1 ${c.text}`}
+          >
+            <MapPin className="w-3 h-3" />
+            {[site.code, site.location].filter(Boolean).join(" — ") ||
+              "No location on record"}
           </div>
         </div>
       </div>
 
       <p className="text-xs text-slate-400 mb-4 leading-relaxed">
-        {cc.description}
+        {site.assetCount} asset{site.assetCount === 1 ? "" : "s"} monitored —{" "}
+        {site.criticalAssets} critical-criticality, {site.openWOs} open work
+        order{site.openWOs === 1 ? "" : "s"}, {site.activeAlarms} active alarm
+        {site.activeAlarms === 1 ? "" : "s"}.
       </p>
 
       {/* KPI Grid */}
       <div className="grid grid-cols-2 gap-2 mb-4">
-        {cc.kpis.slice(0, 4).map((kpi) => (
-          <div key={kpi.label} className="bg-white/[0.02] rounded-lg p-2">
-            <div className="text-xs text-slate-400 truncate">{kpi.label}</div>
-            <div className="flex items-center gap-1 mt-0.5">
-              <span className="text-sm font-bold text-slate-200">
+        {rollupKpis(site)
+          .slice(0, 4)
+          .map((kpi) => (
+            <div key={kpi.label} className="bg-white/[0.02] rounded-lg p-2">
+              <div className="text-xs text-slate-400 truncate">{kpi.label}</div>
+              <div className="text-sm font-bold text-slate-200 mt-0.5">
                 {kpi.value}
-              </span>
-              {kpi.trend === "up" && (
-                <TrendingUp className="w-2.5 h-2.5 text-teal-400" />
-              )}
-              {kpi.trend === "down" && (
-                <ArrowUpRight className="w-2.5 h-2.5 text-amber-400 rotate-180" />
-              )}
+              </div>
             </div>
-          </div>
-        ))}
+          ))}
       </div>
 
       {/* Critical Alert */}
       {criticalAlert && (
         <div
-          className={`text-[11px] px-2.5 py-2 rounded-lg border ${alertColors[criticalAlert.level]} mb-3`}
+          className={`text-xs px-2.5 py-2 rounded-lg border ${alertColors[criticalAlert.level]} mb-3`}
         >
           <AlertTriangle className="w-3 h-3 inline mr-1" />
           {criticalAlert.text}
         </div>
       )}
 
-      {/* Actions */}
-      <div className="flex flex-wrap gap-1.5">
-        {cc.actions.slice(0, 2).map((action) => (
-          <span
-            key={action}
-            className="text-xs px-2 py-1 bg-white/[0.03] border border-white/[0.06] rounded-full text-slate-400"
-          >
-            {action}
-          </span>
-        ))}
-      </div>
+      {/* Top pending recommendations */}
+      {site.recommendations.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {site.recommendations.slice(0, 2).map((rec) => (
+            <span
+              key={rec.title}
+              className="text-xs px-2 py-1 bg-white/[0.03] border border-white/[0.06] rounded-full text-slate-400 truncate max-w-full"
+            >
+              {rec.title}
+            </span>
+          ))}
+        </div>
+      )}
     </motion.div>
   );
 }
 
-function CommandCenterDetail({
-  cc,
+function SiteDetail({
+  site,
+  orgAlerts,
   onBack,
 }: {
-  cc: CommandCenter;
+  site: SiteRollup;
+  orgAlerts: SystemAlertRow[];
   onBack: () => void;
 }) {
-  const Icon = cc.icon;
-  const c = colorMap[cc.color];
+  const c = colorMap[site.color];
 
   return (
     <div className="space-y-6">
@@ -457,27 +420,34 @@ function CommandCenterDetail({
           <ChevronRight className="w-3 h-3 rotate-180" /> Command Centers
         </button>
         <ChevronRight className="w-3 h-3 text-slate-400" />
-        <span className="text-xs text-slate-400">{cc.name}</span>
+        <span className="text-xs text-slate-400">{site.name}</span>
       </div>
 
       <div className="flex items-start gap-4">
         <div
           className={`w-12 h-12 rounded-xl ${c.icon} flex items-center justify-center flex-shrink-0`}
         >
-          <Icon className={`w-6 h-6 ${c.text}`} />
+          <Factory className={`w-6 h-6 ${c.text}`} />
         </div>
         <div>
-          <h1 className="text-2xl font-bold text-white">{cc.name}</h1>
-          <div className={`text-sm font-semibold mt-0.5 ${c.text}`}>
-            {cc.role}
+          <h1 className="text-2xl font-bold text-white">{site.name}</h1>
+          <div
+            className={`text-sm font-semibold mt-0.5 flex items-center gap-1 ${c.text}`}
+          >
+            <MapPin className="w-3.5 h-3.5" />
+            {[site.code, site.location].filter(Boolean).join(" — ") ||
+              "No location on record"}
           </div>
-          <p className="text-sm text-slate-400 mt-1">{cc.description}</p>
+          <p className="text-sm text-slate-400 mt-1">
+            Live rollup computed from this site's assets, sensors, work orders
+            and recommendations.
+          </p>
         </div>
       </div>
 
       {/* All KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-        {cc.kpis.map((kpi) => (
+        {rollupKpis(site).map((kpi) => (
           <div
             key={kpi.label}
             className="bg-[#0D1520] border border-white/[0.06] rounded-xl p-3 text-center"
@@ -485,17 +455,6 @@ function CommandCenterDetail({
             <div className="text-xs text-slate-400">{kpi.label}</div>
             <div className={`text-xl font-black mt-1 ${c.text}`}>
               {kpi.value}
-            </div>
-            <div className="flex items-center justify-center gap-1 mt-1">
-              {kpi.trend === "up" && (
-                <TrendingUp className="w-3 h-3 text-teal-400" />
-              )}
-              {kpi.trend === "down" && (
-                <ArrowUpRight className="w-3 h-3 text-amber-400 rotate-180" />
-              )}
-              {kpi.trend === "stable" && (
-                <BarChart2 className="w-3 h-3 text-slate-400" />
-              )}
             </div>
           </div>
         ))}
@@ -506,92 +465,190 @@ function CommandCenterDetail({
         <h3 className="text-sm font-semibold text-slate-200 mb-3 flex items-center gap-2">
           <AlertTriangle className="w-4 h-4 text-amber-400" /> Active Alerts
         </h3>
-        <div className="space-y-2">
-          {cc.alerts.map((alert, i) => (
-            <div
-              key={i}
-              className={`flex items-start gap-2.5 p-3 rounded-lg border ${alertColors[alert.level]} text-xs`}
-            >
+        {site.alerts.length === 0 && orgAlerts.length === 0 ? (
+          <EmptyState message="No active sensor alarms, warnings or unresolved alerts for this site." />
+        ) : (
+          <div className="space-y-2">
+            {site.alerts.map((alert, i) => (
               <div
-                className={`w-1.5 h-1.5 rounded-full mt-0.5 flex-shrink-0 ${alert.level === "critical" ? "bg-red-500" : alert.level === "action" ? "bg-amber-500" : "bg-blue-400"}`}
-              />
-              {alert.text}
-            </div>
-          ))}
-        </div>
+                key={`site-${i}`}
+                className={`flex items-start gap-2.5 p-3 rounded-lg border ${alertColors[alert.level]} text-xs`}
+              >
+                <div
+                  className={`w-1.5 h-1.5 rounded-full mt-0.5 flex-shrink-0 ${alert.level === "critical" ? "bg-red-500" : alert.level === "action" ? "bg-amber-500" : "bg-blue-400"}`}
+                />
+                {alert.text}
+              </div>
+            ))}
+            {orgAlerts.map((alert) => (
+              <div
+                key={alert.id}
+                className={`flex items-start gap-2.5 p-3 rounded-lg border ${alertColors[alert.severity === "critical" ? "critical" : alert.severity === "warning" ? "action" : "advisory"]} text-xs`}
+              >
+                <div
+                  className={`w-1.5 h-1.5 rounded-full mt-0.5 flex-shrink-0 ${alert.severity === "critical" ? "bg-red-500" : alert.severity === "warning" ? "bg-amber-500" : "bg-blue-400"}`}
+                />
+                <span>
+                  {alert.title ?? "System alert"}
+                  {alert.description ? ` — ${alert.description}` : ""}
+                  <span className="text-slate-400"> (org-wide)</span>
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
-      {/* Recommended Actions */}
+      {/* Assets */}
       <div className="bg-[#0D1520] border border-white/[0.06] rounded-xl p-5">
         <h3 className="text-sm font-semibold text-slate-200 mb-3 flex items-center gap-2">
-          <Zap className="w-4 h-4 text-teal-400" /> Recommended Actions
+          <Activity className="w-4 h-4 text-teal-400" /> Assets at this Site
         </h3>
-        <div className="space-y-2">
-          {cc.actions.map((action) => (
-            <button
-              key={action}
-              className="w-full flex items-center gap-3 px-4 py-3 bg-white/[0.03] border border-white/[0.06] rounded-lg text-sm text-slate-300 hover:bg-white/[0.06] hover:text-white transition-colors text-left"
-            >
-              <CheckCircle className="w-4 h-4 text-teal-400 flex-shrink-0" />
-              {action}
-              <ChevronRight className="w-3.5 h-3.5 text-slate-400 ml-auto" />
-            </button>
-          ))}
-        </div>
+        {site.assets.length === 0 ? (
+          <EmptyState message="No assets linked to this site yet." />
+        ) : (
+          <div className="space-y-2">
+            {site.assets.map((asset) => (
+              <div
+                key={asset.id}
+                className="flex items-center gap-3 px-4 py-3 bg-white/[0.03] border border-white/[0.06] rounded-lg text-sm"
+              >
+                <span className="text-xs font-mono text-slate-400 w-16 flex-shrink-0">
+                  {asset.tag ?? "—"}
+                </span>
+                <span className="text-slate-200 flex-1 min-w-0 truncate">
+                  {asset.name}
+                </span>
+                <span className="text-xs text-slate-400 capitalize hidden md:inline">
+                  {asset.criticality} criticality
+                </span>
+                <span
+                  className={`text-xs font-bold ${healthColor(asset.health_score)}`}
+                >
+                  {asset.health_score}% health
+                </span>
+                <span className="text-xs text-slate-400">
+                  risk {asset.risk_score}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Pending Recommendations */}
+      <div className="bg-[#0D1520] border border-white/[0.06] rounded-xl p-5">
+        <h3 className="text-sm font-semibold text-slate-200 mb-3 flex items-center gap-2">
+          <Zap className="w-4 h-4 text-teal-400" /> Pending Recommendations
+        </h3>
+        {site.recommendations.length === 0 ? (
+          <EmptyState message="No pending recommendations for this site's assets." />
+        ) : (
+          <div className="space-y-2">
+            {site.recommendations.map((rec) => (
+              <div
+                key={rec.title}
+                className="w-full flex items-center gap-3 px-4 py-3 bg-white/[0.03] border border-white/[0.06] rounded-lg text-sm text-slate-300"
+              >
+                <CheckCircle
+                  className={`w-4 h-4 flex-shrink-0 ${rec.urgency === "critical" ? "text-red-400" : rec.urgency === "action" ? "text-amber-400" : "text-teal-400"}`}
+                />
+                <div className="flex-1 min-w-0">
+                  <div className="text-slate-200">{rec.title}</div>
+                  {rec.action && (
+                    <div className="text-xs text-slate-400 mt-0.5">
+                      {rec.action}
+                    </div>
+                  )}
+                </div>
+                <span className="text-xs text-slate-400 capitalize flex-shrink-0">
+                  {rec.urgency}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
 export function CommandCenters() {
-  const [selected, setSelected] = useState<CommandCenterId | null>(null);
+  const [selected, setSelected] = useState<string | null>(null);
+  const { data, loading, error, refetch } = useAsyncData(loadCommandCenters);
 
-  const selectedCC = commandCenters.find((cc) => cc.id === selected);
+  if (loading) {
+    return (
+      <div className="p-6">
+        <LoadingState label="Rolling up live site data…" />
+      </div>
+    );
+  }
+  if (error) {
+    return (
+      <div className="p-6">
+        <ErrorState message={error} onRetry={refetch} />
+      </div>
+    );
+  }
+  if (!data || data.rollups.length === 0) {
+    return (
+      <div className="p-6">
+        <EmptyState message="No sites configured yet — command centers connect once sites and assets are onboarded." />
+      </div>
+    );
+  }
+
+  const selectedSite = data.rollups.find((r) => r.id === selected);
 
   return (
     <div className="p-6 space-y-6">
-      {!selectedCC ? (
+      {!selectedSite ? (
         <>
           <div>
             <h1 className="text-2xl font-bold text-white tracking-tight">
               Command Centers
             </h1>
             <p className="text-sm text-slate-400 mt-0.5">
-              Role-based intelligence views — select your command center
+              Per-site operational rollups — {data.rollups.length} site
+              {data.rollups.length === 1 ? "" : "s"} monitored live
             </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-            {commandCenters.map((cc, i) => (
+            {data.rollups.map((site, i) => (
               <motion.div
-                key={cc.id}
+                key={site.id}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.06 }}
               >
-                <CommandCenterCard cc={cc} onOpen={(id) => setSelected(id)} />
+                <SiteCard site={site} onOpen={(id) => setSelected(id)} />
               </motion.div>
             ))}
           </div>
 
-          {/* RACI Note */}
+          {/* Live rollup note */}
           <div className="bg-[#0D1520] border border-white/[0.06] rounded-xl p-4 flex items-start gap-3">
             <Users className="w-4 h-4 text-teal-400 flex-shrink-0 mt-0.5" />
             <div>
               <div className="text-sm font-medium text-teal-400">
-                RACI-Aware Interface
+                Live Site Rollups
               </div>
               <p className="text-xs text-slate-400 mt-1">
-                Each command center adapts to your role, decision authority, and
-                RACI responsibility. Every KPI, recommendation, and alert
-                identifies who is Accountable, Responsible, Consulted, and
-                Informed.
+                Every figure on this page is aggregated at load time from the
+                assets, sensors, work orders and recommendations recorded for
+                each site — no static snapshots.
               </p>
             </div>
           </div>
         </>
       ) : (
-        <CommandCenterDetail cc={selectedCC} onBack={() => setSelected(null)} />
+        <SiteDetail
+          site={selectedSite}
+          orgAlerts={data.orgAlerts}
+          onBack={() => setSelected(null)}
+        />
       )}
     </div>
   );

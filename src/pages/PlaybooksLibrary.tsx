@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   BookOpen,
   Target,
@@ -10,13 +11,30 @@ import {
   FileText,
   ChevronRight,
   Users,
-  Clock,
   CircleCheck as CheckCircle,
   Play,
+  ClipboardList,
 } from "lucide-react";
 import { motion } from "framer-motion";
+import { useAsyncData } from "../hooks/useAsyncData";
+import {
+  getRecommendations,
+  getWorkOrders,
+} from "../services/operatingLoopService";
+import {
+  LoadingState,
+  ErrorState,
+  EmptyState,
+} from "../components/ui/AsyncStates";
 
-interface Playbook {
+/**
+ * Playbook TEMPLATES — static best-practice reference content (methodology),
+ * clearly presented as templates rather than org-specific live playbooks.
+ * The live element on this page is the open-work context pulled from
+ * recommendations and work_orders; activating a template routes to the live
+ * work board.
+ */
+interface PlaybookTemplate {
   id: string;
   title: string;
   objective: string;
@@ -27,11 +45,11 @@ interface Playbook {
   outputs: string[];
   triggerConditions: string;
   successMetrics: string;
-  lastRun?: string;
-  timesRun: number;
+  /** When true, the live critical-work count is surfaced on the card. */
+  criticalScope?: boolean;
 }
 
-const playbooks: Playbook[] = [
+const templates: PlaybookTemplate[] = [
   {
     id: "pb-1",
     title: "Bad Actor Elimination",
@@ -47,8 +65,7 @@ const playbooks: Playbook[] = [
     outputs: ["Bad actor report", "Elimination plan", "Cost-benefit analysis"],
     triggerConditions: "Asset exceeds 3 failures in 90 days",
     successMetrics: "Failures reduced by 50% within 6 months",
-    lastRun: "2026-05-22",
-    timesRun: 4,
+    criticalScope: true,
   },
   {
     id: "pb-2",
@@ -66,8 +83,6 @@ const playbooks: Playbook[] = [
     outputs: ["Optimized PM schedule", "Cost analysis", "Risk assessment"],
     triggerConditions: "PM effectiveness below 65% or cost/benefit degraded",
     successMetrics: "PM effectiveness > 75%, reduced total cost",
-    lastRun: "2026-05-28",
-    timesRun: 7,
   },
   {
     id: "pb-3",
@@ -90,8 +105,6 @@ const playbooks: Playbook[] = [
     ],
     triggerConditions: "30 days before planned shutdown",
     successMetrics: "Zero critical scope additions during shutdown",
-    lastRun: "2026-04-15",
-    timesRun: 2,
   },
   {
     id: "pb-4",
@@ -104,8 +117,7 @@ const playbooks: Playbook[] = [
     outputs: ["RCA report", "Corrective actions", "Strategy updates"],
     triggerConditions: "Any Criticality A asset failure or repeat failure",
     successMetrics: "No repeat failure within 12 months",
-    lastRun: "2026-05-27",
-    timesRun: 12,
+    criticalScope: true,
   },
   {
     id: "pb-5",
@@ -127,7 +139,6 @@ const playbooks: Playbook[] = [
     ],
     triggerConditions: "Quarterly review or stockout event",
     successMetrics: "Zero critical stockouts, inventory cost reduced 15%",
-    timesRun: 3,
   },
   {
     id: "pb-6",
@@ -149,7 +160,6 @@ const playbooks: Playbook[] = [
     ],
     triggerConditions: "New asset commissioned or acquired",
     successMetrics: "Full strategy deployed within 5 business days",
-    timesRun: 8,
   },
   {
     id: "pb-7",
@@ -173,7 +183,6 @@ const playbooks: Playbook[] = [
     ],
     triggerConditions: "New site deployment or maturity gap identified",
     successMetrics: "Maturity level 3 within 12 months",
-    timesRun: 1,
   },
   {
     id: "pb-8",
@@ -195,7 +204,6 @@ const playbooks: Playbook[] = [
     ],
     triggerConditions: "Annual maturity assessment or audit preparation",
     successMetrics: "One maturity level improvement per year",
-    timesRun: 2,
   },
   {
     id: "pb-9",
@@ -218,8 +226,7 @@ const playbooks: Playbook[] = [
     ],
     triggerConditions: "Critical safety event or unplanned major failure",
     successMetrics: "Return to service within target MTTR",
-    lastRun: "2026-05-30",
-    timesRun: 3,
+    criticalScope: true,
   },
   {
     id: "pb-10",
@@ -243,8 +250,6 @@ const playbooks: Playbook[] = [
     ],
     triggerConditions: "Pre-mission or pre-production ramp-up",
     successMetrics: "Mission readiness score > 90%",
-    lastRun: "2026-05-26",
-    timesRun: 5,
   },
   {
     id: "pb-11",
@@ -262,7 +267,6 @@ const playbooks: Playbook[] = [
     ],
     triggerConditions: "Scheduled audit or regulatory notification",
     successMetrics: "Zero major non-conformances",
-    timesRun: 4,
   },
 ];
 
@@ -299,16 +303,35 @@ const colorMap: Record<string, { text: string; bg: string; border: string }> = {
   },
 };
 
+const CLOSED_WO_STATUSES = new Set([
+  "done",
+  "completed",
+  "closed",
+  "cancelled",
+]);
+
+interface LiveWorkContext {
+  openRecommendations: number;
+  criticalRecommendations: number;
+  openWorkOrders: number;
+  criticalWorkOrders: number;
+}
+
 function PlaybookCard({
-  playbook,
+  template,
   index,
+  criticalOpenItems,
+  onActivate,
 }: {
-  playbook: Playbook;
+  template: PlaybookTemplate;
   index: number;
+  /** Live count of critical open recs + WOs; null while unavailable. */
+  criticalOpenItems: number | null;
+  onActivate: () => void;
 }) {
   const [expanded, setExpanded] = useState(false);
-  const Icon = playbook.icon;
-  const c = colorMap[playbook.color];
+  const Icon = template.icon;
+  const c = colorMap[template.color];
 
   return (
     <motion.div
@@ -324,35 +347,40 @@ function PlaybookCard({
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <h4 className="text-sm font-bold text-white">{playbook.title}</h4>
-            <span className="text-xs text-slate-400 font-mono">
-              x{playbook.timesRun} runs
+            <h4 className="text-sm font-bold text-white">{template.title}</h4>
+            <span className="text-xs px-1.5 py-0.5 rounded-full bg-white/[0.06] border border-white/[0.08] text-slate-300 font-semibold">
+              Template
             </span>
           </div>
-          <p className="text-xs text-slate-400 mt-0.5">{playbook.objective}</p>
+          <p className="text-xs text-slate-400 mt-0.5">{template.objective}</p>
           <div className="flex items-center gap-3 mt-2 text-xs text-slate-400">
             <span className="flex items-center gap-1">
               <Users className="w-3 h-3" />
-              {playbook.agents.length} agents
+              {template.agents.length} agents
             </span>
-            <span>{playbook.steps} steps</span>
-            <span>{playbook.outputs.length} outputs</span>
-            {playbook.lastRun && (
-              <span className="flex items-center gap-1">
-                <Clock className="w-3 h-3" />
-                Last: {playbook.lastRun}
-              </span>
-            )}
+            <span>{template.steps} steps</span>
+            <span>{template.outputs.length} outputs</span>
+            {template.criticalScope &&
+              criticalOpenItems !== null &&
+              criticalOpenItems > 0 && (
+                <span className="flex items-center gap-1 text-red-400 font-semibold">
+                  <AlertTriangle className="w-3 h-3" />
+                  {criticalOpenItems} critical item
+                  {criticalOpenItems === 1 ? "" : "s"} open now
+                </span>
+              )}
           </div>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
           <button
             onClick={(e) => {
               e.stopPropagation();
+              onActivate();
             }}
+            title="Template — activate to bind to live work"
             className={`flex items-center gap-1 px-3 py-1.5 ${c.bg} border ${c.border} ${c.text} text-xs font-medium rounded-lg hover:opacity-80 transition-opacity`}
           >
-            <Play className="w-3 h-3" /> Run
+            <Play className="w-3 h-3" /> Activate
           </button>
           <ChevronRight
             className={`w-3.5 h-3.5 text-slate-400 transition-transform ${expanded ? "rotate-90" : ""}`}
@@ -373,7 +401,7 @@ function PlaybookCard({
                 Trigger Conditions
               </div>
               <p className="text-xs text-slate-300">
-                {playbook.triggerConditions}
+                {template.triggerConditions}
               </p>
             </div>
             <div>
@@ -381,7 +409,7 @@ function PlaybookCard({
                 Success Metrics
               </div>
               <p className="text-xs text-slate-300">
-                {playbook.successMetrics}
+                {template.successMetrics}
               </p>
             </div>
             <div>
@@ -389,7 +417,7 @@ function PlaybookCard({
                 Output Artifacts
               </div>
               <div className="flex flex-wrap gap-1">
-                {playbook.outputs.map((o) => (
+                {template.outputs.map((o) => (
                   <span
                     key={o}
                     className="text-xs px-2 py-0.5 rounded-full bg-white/[0.04] border border-white/[0.06] text-slate-400"
@@ -405,7 +433,7 @@ function PlaybookCard({
               Assigned Agents
             </div>
             <div className="flex flex-wrap gap-1.5">
-              {playbook.agents.map((a) => (
+              {template.agents.map((a) => (
                 <span
                   key={a}
                   className={`text-xs px-2 py-0.5 rounded-full ${c.bg} ${c.text} font-medium`}
@@ -415,6 +443,9 @@ function PlaybookCard({
               ))}
             </div>
           </div>
+          <div className="mt-3 text-xs text-slate-400">
+            Template — activate to bind to live work on the Work Action Board.
+          </div>
         </div>
       </motion.div>
     </motion.div>
@@ -423,13 +454,37 @@ function PlaybookCard({
 
 export function PlaybooksLibrary() {
   const [search, setSearch] = useState("");
+  const navigate = useNavigate();
+  const { data, loading, error, refetch } = useAsyncData(
+    () => Promise.all([getRecommendations(), getWorkOrders()]),
+    [],
+  );
+
   const filtered = search.trim()
-    ? playbooks.filter(
+    ? templates.filter(
         (p) =>
           p.title.toLowerCase().includes(search.toLowerCase()) ||
           p.objective.toLowerCase().includes(search.toLowerCase()),
       )
-    : playbooks;
+    : templates;
+
+  let context: LiveWorkContext | null = null;
+  if (data) {
+    const [recs, wos] = data;
+    const openRecs = recs.filter((r) => r.status === "pending");
+    const openWos = wos.filter((w) => !CLOSED_WO_STATUSES.has(w.status));
+    context = {
+      openRecommendations: openRecs.length,
+      criticalRecommendations: openRecs.filter((r) => r.urgency === "critical")
+        .length,
+      openWorkOrders: openWos.length,
+      criticalWorkOrders: openWos.filter((w) => w.priority === "critical")
+        .length,
+    };
+  }
+  const criticalOpenItems = context
+    ? context.criticalRecommendations + context.criticalWorkOrders
+    : null;
 
   return (
     <div className="p-6 space-y-6">
@@ -439,26 +494,86 @@ export function PlaybooksLibrary() {
             Playbooks
           </h1>
           <p className="text-sm text-slate-400 mt-0.5">
-            Reusable industrial workflows powered by AI agents
+            Best-practice workflow templates — activate one to bind it to live
+            work
           </p>
         </div>
         <div className="flex items-center gap-2 text-xs text-slate-400">
           <BookOpen className="w-4 h-4 text-teal-400" />
-          <span>{playbooks.length} playbooks available</span>
+          <span>{templates.length} templates available</span>
         </div>
       </div>
+
+      {/* Live work context — from recommendations + work_orders */}
+      {loading ? (
+        <LoadingState label="Loading live work context…" />
+      ) : error ? (
+        <ErrorState message={error} onRetry={refetch} />
+      ) : context &&
+        context.openRecommendations === 0 &&
+        context.openWorkOrders === 0 ? (
+        <EmptyState message="No open work yet — templates activate against the live work board once recommendations or work orders exist." />
+      ) : (
+        context && (
+          <div className="bg-[#0D1520] border border-white/[0.06] rounded-xl p-4 flex flex-wrap items-center gap-x-6 gap-y-2">
+            <div className="flex items-center gap-2 text-xs text-slate-400">
+              <ClipboardList className="w-4 h-4 text-teal-400" />
+              <span className="font-bold text-slate-200 uppercase tracking-wider">
+                Live work context
+              </span>
+            </div>
+            <div className="text-sm text-slate-300">
+              <span className="font-bold text-teal-400">
+                {context.openRecommendations}
+              </span>{" "}
+              pending recommendation
+              {context.openRecommendations === 1 ? "" : "s"}
+              {context.criticalRecommendations > 0 && (
+                <span className="text-red-400">
+                  {" "}
+                  ({context.criticalRecommendations} critical)
+                </span>
+              )}
+            </div>
+            <div className="text-sm text-slate-300">
+              <span className="font-bold text-blue-400">
+                {context.openWorkOrders}
+              </span>{" "}
+              open work order{context.openWorkOrders === 1 ? "" : "s"}
+              {context.criticalWorkOrders > 0 && (
+                <span className="text-red-400">
+                  {" "}
+                  ({context.criticalWorkOrders} critical priority)
+                </span>
+              )}
+            </div>
+            <button
+              onClick={() => navigate("/work")}
+              className="ml-auto flex items-center gap-1.5 px-3 py-1.5 bg-teal-500/10 border border-teal-500/20 rounded-lg text-xs font-medium text-teal-400 hover:bg-teal-500/20 transition-colors"
+            >
+              Open work board <ChevronRight className="w-3 h-3" />
+            </button>
+          </div>
+        )
+      )}
 
       <input
         type="text"
         value={search}
         onChange={(e) => setSearch(e.target.value)}
-        placeholder="Search playbooks..."
-        className="w-full px-4 py-2.5 bg-[#0D1520] border border-white/[0.06] rounded-xl text-sm text-white placeholder-slate-600 focus:outline-none focus:border-teal-500/40 transition-colors"
+        placeholder="Search templates..."
+        className="w-full px-4 py-2.5 bg-[#0D1520] border border-white/[0.06] rounded-xl text-sm text-white placeholder-slate-400 focus:outline-none focus:border-teal-500/40 transition-colors"
       />
 
       <div className="space-y-3">
         {filtered.map((pb, i) => (
-          <PlaybookCard key={pb.id} playbook={pb} index={i} />
+          <PlaybookCard
+            key={pb.id}
+            template={pb}
+            index={i}
+            criticalOpenItems={criticalOpenItems}
+            onActivate={() => navigate("/work")}
+          />
         ))}
       </div>
 
@@ -466,13 +581,14 @@ export function PlaybooksLibrary() {
         <BookOpen className="w-4 h-4 text-teal-400 flex-shrink-0 mt-0.5" />
         <div>
           <div className="text-sm font-bold text-teal-400">
-            Industrial Playbooks
+            Industrial Playbook Templates
           </div>
           <p className="text-xs text-slate-400 mt-1 leading-relaxed">
-            Playbooks codify best-practice workflows for maintenance and
-            reliability. Each playbook assigns the right AI agents, gathers
-            evidence, and produces actionable artifacts. Run them on-demand or
-            configure automatic triggers.
+            These are reference templates that codify best-practice workflows
+            for maintenance and reliability — not yet bound to this
+            organization's history. The open-work counts above are live from
+            your recommendations and work orders; activating a template takes
+            you to the Work Action Board where that work lives.
           </p>
         </div>
       </div>
