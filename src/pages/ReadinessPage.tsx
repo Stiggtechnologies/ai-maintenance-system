@@ -3,101 +3,436 @@ import {
   Target,
   Activity,
   Package,
-  Users,
+  Bot,
   Shield,
   TriangleAlert as AlertTriangle,
   CircleCheck as CheckCircle,
   ChevronRight,
   Radio,
+  ClipboardCheck,
 } from "lucide-react";
 import { motion } from "framer-motion";
+import { supabase } from "../lib/supabase";
+import { useAsyncData } from "../hooks/useAsyncData";
+import {
+  getAssets,
+  getAgents,
+  getRecommendations,
+  getWorkOrders,
+  getApprovals,
+} from "../services/operatingLoopService";
+import {
+  LoadingState,
+  ErrorState,
+  EmptyState,
+} from "../components/ui/AsyncStates";
 
-const readinessAreas = [
-  {
-    id: "asset",
-    label: "Asset Health",
-    score: 91,
-    icon: Activity,
-    color: "teal",
-    status: "Ready",
-    items: [
-      { label: "Critical assets at risk", value: "2 of 62", ok: false },
-      { label: "Assets monitored", value: "487", ok: true },
-      { label: "Overdue inspections", value: "8", ok: false },
-      { label: "Digital twin coverage", value: "34%", ok: true },
-    ],
-  },
-  {
-    id: "maintenance",
-    label: "Maintenance Readiness",
-    score: 84,
-    icon: CheckCircle,
-    color: "blue",
-    status: "Watch",
-    items: [
-      { label: "Open work orders", value: "34", ok: true },
-      { label: "Overdue WOs", value: "6", ok: false },
-      { label: "PM Compliance", value: "88%", ok: true },
-      { label: "Critical PMs due 7d", value: "4", ok: true },
-    ],
-  },
-  {
-    id: "parts",
-    label: "Parts Availability",
-    score: 76,
-    icon: Package,
-    color: "amber",
-    status: "Caution",
-    items: [
-      { label: "Critical spares below reorder", value: "4", ok: false },
-      { label: "Parts ready for scheduled WOs", value: "76%", ok: false },
-      { label: "Open purchase orders", value: "12", ok: true },
-      { label: "Average lead time", value: "8 days", ok: true },
-    ],
-  },
-  {
-    id: "workforce",
-    label: "Workforce Readiness",
-    score: 93,
-    icon: Users,
-    color: "teal",
-    status: "Ready",
-    items: [
-      { label: "Technicians on shift", value: "8 of 8", ok: true },
-      { label: "Certified for critical tasks", value: "7 of 8", ok: true },
-      { label: "Training gaps identified", value: "2", ok: false },
-      { label: "AI agents active", value: "15 of 15", ok: true },
-    ],
-  },
-  {
-    id: "safety",
-    label: "Safety & Critical Controls",
-    score: 98,
-    icon: Shield,
-    color: "green",
-    status: "Ready",
-    items: [
-      { label: "Critical controls compliant", value: "98%", ok: true },
-      { label: "Safety WOs overdue", value: "2", ok: false },
-      { label: "LOTO compliance", value: "100%", ok: true },
-      { label: "Open safety actions", value: "7", ok: true },
-    ],
-  },
-  {
-    id: "risk",
-    label: "Operational Risk",
-    score: 82,
-    icon: AlertTriangle,
-    color: "amber",
-    status: "Watch",
-    items: [
-      { label: "Critical risk items", value: "2", ok: false },
-      { label: "Total exposure", value: "$4.8M", ok: false },
-      { label: "Overdue mitigations", value: "1", ok: false },
-      { label: "Risk trend", value: "Improving", ok: true },
-    ],
-  },
-];
+/* -------------------------------------------------------------------------- */
+/* Page-local queries (tables without a shared service function)              */
+/* -------------------------------------------------------------------------- */
+
+interface SensorLite {
+  id: string;
+  name: string;
+  status: string | null;
+}
+
+interface SystemAlertLite {
+  id: string;
+  severity: string | null;
+  title: string | null;
+  description: string | null;
+  alert_type: string | null;
+  resolved: boolean | null;
+}
+
+interface OnboardingLite {
+  asset_id: string;
+  status: string;
+  completion_pct: number;
+  human_required_count: number;
+}
+
+async function getSensorsLite(): Promise<SensorLite[]> {
+  const { data, error } = await supabase
+    .from("sensors")
+    .select("id,name,status")
+    .returns<SensorLite[]>();
+  if (error) throw new Error(`Could not load sensors: ${error.message}`);
+  return data ?? [];
+}
+
+async function getSystemAlertsLite(): Promise<SystemAlertLite[]> {
+  const { data, error } = await supabase
+    .from("system_alerts")
+    .select("id,severity,title,description,alert_type,resolved")
+    .eq("resolved", false)
+    .returns<SystemAlertLite[]>();
+  if (error) throw new Error(`Could not load system alerts: ${error.message}`);
+  return data ?? [];
+}
+
+async function getOnboardingLite(): Promise<OnboardingLite[]> {
+  const { data, error } = await supabase
+    .from("asset_onboarding_state")
+    .select("asset_id,status,completion_pct,human_required_count")
+    .returns<OnboardingLite[]>();
+  if (error)
+    throw new Error(`Could not load onboarding state: ${error.message}`);
+  return data ?? [];
+}
+
+/* -------------------------------------------------------------------------- */
+/* Readiness model — every figure below is computed from queried rows         */
+/* -------------------------------------------------------------------------- */
+
+interface FactorItem {
+  label: string;
+  value: string;
+  ok: boolean;
+}
+
+interface ReadinessArea {
+  id: string;
+  label: string;
+  score: number;
+  icon: React.ElementType;
+  color: string;
+  status: string;
+  items: FactorItem[];
+}
+
+interface ReadinessGap {
+  issue: string;
+  action: string;
+  owner: string;
+  urgency: "red" | "amber";
+}
+
+interface ReadinessData {
+  areas: ReadinessArea[];
+  gaps: ReadinessGap[];
+  hasAnyData: boolean;
+}
+
+const CLOSED_WO_STATUSES = new Set(["completed", "closed", "cancelled"]);
+
+function scoreColor(score: number): string {
+  if (score >= 95) return "green";
+  if (score >= 85) return "teal";
+  if (score >= 70) return "blue";
+  return "amber";
+}
+
+function scoreStatus(score: number): string {
+  if (score >= 90) return "Ready";
+  if (score >= 75) return "Watch";
+  if (score >= 60) return "Caution";
+  return "Critical";
+}
+
+function avg(values: number[]): number {
+  if (values.length === 0) return 100;
+  return Math.round(values.reduce((a, b) => a + b, 0) / values.length);
+}
+
+async function loadReadiness(): Promise<ReadinessData> {
+  const [
+    assets,
+    agents,
+    recs,
+    workOrders,
+    approvals,
+    sensors,
+    alerts,
+    onboarding,
+  ] = await Promise.all([
+    getAssets(),
+    getAgents(),
+    getRecommendations(),
+    getWorkOrders(),
+    getApprovals(),
+    getSensorsLite(),
+    getSystemAlertsLite(),
+    getOnboardingLite(),
+  ]);
+
+  const today = new Date().toISOString().slice(0, 10);
+  const openWOs = workOrders.filter((w) => !CLOSED_WO_STATUSES.has(w.status));
+  const blockedWOs = openWOs.filter((w) => w.status === "blocked");
+  const overdueWOs = openWOs.filter(
+    (w) => w.scheduled_date != null && w.scheduled_date < today,
+  );
+  const approvalGatedWOs = openWOs.filter((w) => w.approval_required);
+  const pendingRecs = recs.filter(
+    (r) => r.status === "pending" || r.status === "escalated",
+  );
+  const pendingApprovals = approvals.filter(
+    (a) => a.status === "required" || a.status === "pending",
+  );
+  const highRiskAssets = assets.filter((a) => a.risk_score >= 70);
+  const criticalStatusAssets = assets.filter((a) => a.status === "critical");
+  const sensorsAlarm = sensors.filter((s) => s.status === "alarm");
+  const sensorsWarning = sensors.filter((s) => s.status === "warning");
+  const criticalAlerts = alerts.filter((a) => a.severity === "critical");
+  const activeAgents = agents.filter((a) => a.status === "active");
+  const humanRequired = onboarding.reduce(
+    (sum, o) => sum + o.human_required_count,
+    0,
+  );
+  const liveAssets = onboarding.filter((o) => o.status === "live").length;
+  const readyForGolive = onboarding.filter(
+    (o) => o.status === "ready_for_golive",
+  ).length;
+
+  const assetHealth = avg(assets.map((a) => a.health_score));
+  const maintenanceReadiness = openWOs.length
+    ? Math.round(((openWOs.length - blockedWOs.length) / openWOs.length) * 100)
+    : 100;
+  const partsReadiness = openWOs.length
+    ? Math.round(
+        (openWOs.filter((w) => w.parts_ready).length / openWOs.length) * 100,
+      )
+    : 100;
+  const alertPosture = sensors.length
+    ? Math.round(
+        ((sensors.length - sensorsAlarm.length) / sensors.length) * 100,
+      )
+    : 100;
+  const aiWorkforce = agents.length
+    ? Math.round((activeAgents.length / agents.length) * 100)
+    : 100;
+  const onboardingCompletion = onboarding.length
+    ? avg(onboarding.map((o) => o.completion_pct))
+    : 100;
+
+  const areas: ReadinessArea[] = [
+    {
+      id: "asset",
+      label: "Asset Health",
+      score: assetHealth,
+      icon: Activity,
+      color: scoreColor(assetHealth),
+      status: scoreStatus(assetHealth),
+      items: [
+        {
+          label: "Assets monitored",
+          value: `${assets.length}`,
+          ok: assets.length > 0,
+        },
+        {
+          label: "High-risk assets (risk ≥ 70)",
+          value: `${highRiskAssets.length}`,
+          ok: highRiskAssets.length === 0,
+        },
+        {
+          label: "Assets in critical status",
+          value: `${criticalStatusAssets.length}`,
+          ok: criticalStatusAssets.length === 0,
+        },
+        {
+          label: "Average risk score",
+          value: assets.length
+            ? `${avg(assets.map((a) => a.risk_score))}`
+            : "—",
+          ok: assets.length > 0 && avg(assets.map((a) => a.risk_score)) < 45,
+        },
+      ],
+    },
+    {
+      id: "maintenance",
+      label: "Maintenance Readiness",
+      score: maintenanceReadiness,
+      icon: CheckCircle,
+      color: scoreColor(maintenanceReadiness),
+      status: scoreStatus(maintenanceReadiness),
+      items: [
+        {
+          label: "Open work orders",
+          value: `${openWOs.length}`,
+          ok: true,
+        },
+        {
+          label: "Blocked work orders",
+          value: `${blockedWOs.length}`,
+          ok: blockedWOs.length === 0,
+        },
+        {
+          label: "Past scheduled date",
+          value: `${overdueWOs.length}`,
+          ok: overdueWOs.length === 0,
+        },
+        {
+          label: "Awaiting approval gate",
+          value: `${approvalGatedWOs.length}`,
+          ok: approvalGatedWOs.length === 0,
+        },
+      ],
+    },
+    {
+      id: "parts",
+      label: "Parts Availability",
+      score: partsReadiness,
+      icon: Package,
+      color: scoreColor(partsReadiness),
+      status: scoreStatus(partsReadiness),
+      items: [
+        {
+          label: "Open WOs with parts ready",
+          value: `${openWOs.filter((w) => w.parts_ready).length} of ${openWOs.length}`,
+          ok: openWOs.length === 0 || openWOs.every((w) => w.parts_ready),
+        },
+        {
+          label: "Open WOs awaiting parts",
+          value: `${openWOs.filter((w) => !w.parts_ready).length}`,
+          ok: openWOs.filter((w) => !w.parts_ready).length === 0,
+        },
+        {
+          label: "Safety-flagged WOs awaiting parts",
+          value: `${openWOs.filter((w) => w.safety_flag && !w.parts_ready).length}`,
+          ok:
+            openWOs.filter((w) => w.safety_flag && !w.parts_ready).length === 0,
+        },
+      ],
+    },
+    {
+      id: "alerts",
+      label: "Alert Posture",
+      score: alertPosture,
+      icon: Shield,
+      color: scoreColor(alertPosture),
+      status: scoreStatus(alertPosture),
+      items: [
+        {
+          label: "Sensors in alarm",
+          value: `${sensorsAlarm.length} of ${sensors.length}`,
+          ok: sensorsAlarm.length === 0,
+        },
+        {
+          label: "Sensors in warning",
+          value: `${sensorsWarning.length}`,
+          ok: sensorsWarning.length === 0,
+        },
+        {
+          label: "Unresolved critical alerts",
+          value: `${criticalAlerts.length}`,
+          ok: criticalAlerts.length === 0,
+        },
+        {
+          label: "Unresolved alerts (all)",
+          value: `${alerts.length}`,
+          ok: alerts.length === 0,
+        },
+      ],
+    },
+    {
+      id: "ai-workforce",
+      label: "AI Workforce",
+      score: aiWorkforce,
+      icon: Bot,
+      color: scoreColor(aiWorkforce),
+      status: scoreStatus(aiWorkforce),
+      items: [
+        {
+          label: "Agents active",
+          value: `${activeAgents.length} of ${agents.length}`,
+          ok: agents.length > 0 && activeAgents.length === agents.length,
+        },
+        {
+          label: "Average agent confidence",
+          value: agents.length
+            ? `${avg(agents.map((a) => a.confidence))}%`
+            : "—",
+          ok: agents.length > 0 && avg(agents.map((a) => a.confidence)) >= 80,
+        },
+        {
+          label: "Recommendations pending review",
+          value: `${pendingRecs.length}`,
+          ok: pendingRecs.length === 0,
+        },
+        {
+          label: "Approvals pending",
+          value: `${pendingApprovals.length}`,
+          ok: pendingApprovals.length === 0,
+        },
+      ],
+    },
+    {
+      id: "onboarding",
+      label: "Onboarding Completion",
+      score: onboardingCompletion,
+      icon: ClipboardCheck,
+      color: scoreColor(onboardingCompletion),
+      status: scoreStatus(onboardingCompletion),
+      items: [
+        {
+          label: "Assets live",
+          value: `${liveAssets} of ${onboarding.length}`,
+          ok: onboarding.length > 0 && liveAssets === onboarding.length,
+        },
+        {
+          label: "Ready for go-live",
+          value: `${readyForGolive}`,
+          ok: readyForGolive > 0 || liveAssets === onboarding.length,
+        },
+        {
+          label: "Still in progress",
+          value: `${onboarding.filter((o) => o.status === "in_progress").length}`,
+          ok: onboarding.filter((o) => o.status === "in_progress").length === 0,
+        },
+        {
+          label: "Human actions required",
+          value: `${humanRequired}`,
+          ok: humanRequired === 0,
+        },
+      ],
+    },
+  ];
+
+  // Readiness gaps — assembled from real pending recommendations, blocked
+  // work orders and unresolved critical alerts. No invented items.
+  const gaps: ReadinessGap[] = [
+    ...pendingRecs
+      .filter((r) => r.urgency === "critical" || r.urgency === "action")
+      .map((r) => ({
+        issue: r.title,
+        action: r.action ?? r.issue ?? "Review recommendation",
+        owner: r.accountable ?? "Unassigned",
+        urgency: (r.urgency === "critical" ? "red" : "amber") as
+          | "red"
+          | "amber",
+      })),
+    ...blockedWOs.map((w) => ({
+      issue: `Work order ${w.wo_number ?? ""} blocked — ${w.title}`,
+      action: "Resolve blocker and reschedule",
+      owner: w.assignee ?? "Unassigned",
+      urgency: (w.safety_flag ? "red" : "amber") as "red" | "amber",
+    })),
+    ...criticalAlerts.map((a) => ({
+      issue: a.title ?? "Critical alert",
+      action: a.description ?? "Investigate and resolve alert",
+      owner: a.alert_type ? `${a.alert_type} monitoring` : "Operations",
+      urgency: "red" as const,
+    })),
+  ]
+    .sort((a, b) =>
+      a.urgency === b.urgency ? 0 : a.urgency === "red" ? -1 : 1,
+    )
+    .slice(0, 8);
+
+  const hasAnyData =
+    assets.length > 0 ||
+    workOrders.length > 0 ||
+    agents.length > 0 ||
+    sensors.length > 0 ||
+    onboarding.length > 0;
+
+  return { areas, gaps, hasAnyData };
+}
+
+/* -------------------------------------------------------------------------- */
+/* Presentation                                                               */
+/* -------------------------------------------------------------------------- */
 
 const colorMap: Record<
   string,
@@ -136,7 +471,7 @@ const statusColors: Record<string, string> = {
   Critical: "text-red-400 bg-red-500/10 border-red-500/20",
 };
 
-function ReadinessCard({ area }: { area: (typeof readinessAreas)[0] }) {
+function ReadinessCard({ area }: { area: ReadinessArea }) {
   const [expanded, setExpanded] = useState(false);
   const Icon = area.icon;
   const c = colorMap[area.color];
@@ -211,15 +546,39 @@ function ReadinessCard({ area }: { area: (typeof readinessAreas)[0] }) {
 }
 
 export function ReadinessPage() {
+  const { data, loading, error, refetch } = useAsyncData(loadReadiness);
+
+  if (loading) {
+    return (
+      <div className="p-6">
+        <LoadingState label="Computing readiness from live operating data…" />
+      </div>
+    );
+  }
+  if (error) {
+    return (
+      <div className="p-6">
+        <ErrorState message={error} onRetry={refetch} />
+      </div>
+    );
+  }
+  if (!data || !data.hasAnyData) {
+    return (
+      <div className="p-6">
+        <EmptyState message="No operating data yet — readiness connects once assets, work orders and agents are onboarded." />
+      </div>
+    );
+  }
+
   const overallScore = Math.round(
-    readinessAreas.reduce((acc, a) => acc + a.score, 0) / readinessAreas.length,
+    data.areas.reduce((acc, a) => acc + a.score, 0) / data.areas.length,
   );
   const statusLabel =
-    overallScore >= 90 ? "Ready" : overallScore >= 80 ? "Watch" : "Caution";
+    overallScore >= 90 ? "Ready" : overallScore >= 75 ? "Watch" : "Caution";
   const statusColor =
     overallScore >= 90
       ? "text-teal-400"
-      : overallScore >= 80
+      : overallScore >= 75
         ? "text-amber-400"
         : "text-red-400";
 
@@ -235,7 +594,8 @@ export function ReadinessPage() {
             Readiness
           </h1>
           <p className="text-sm text-slate-400 mt-0.5">
-            Operational readiness across all dimensions
+            Operational readiness computed from live assets, work orders,
+            sensors and agents
           </p>
         </div>
         <div className="text-right">
@@ -250,7 +610,7 @@ export function ReadinessPage() {
 
       {/* Readiness Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-        {readinessAreas.map((area, i) => (
+        {data.areas.map((area, i) => (
           <motion.div
             key={area.id}
             initial={{ opacity: 0, y: 10 }}
@@ -268,57 +628,36 @@ export function ReadinessPage() {
           <Target className="w-4 h-4 text-teal-400" /> Readiness Gaps —
           Recommended Actions
         </h3>
-        <div className="space-y-2">
-          {[
-            {
-              issue: "Parts below reorder point",
-              action: "Trigger emergency procurement for 4 critical spares",
-              owner: "Planner",
-              urgency: "amber",
-            },
-            {
-              issue: "8 assets with overdue inspections",
-              action: "Schedule inspection work orders immediately",
-              owner: "Maintenance Supervisor",
-              urgency: "amber",
-            },
-            {
-              issue: "2 critical assets at elevated risk",
-              action: "Review and advance preventive maintenance",
-              owner: "Maintenance Manager",
-              urgency: "red",
-            },
-            {
-              issue: "2 overdue safety work orders",
-              action: "Assign and complete today — compliance risk",
-              owner: "HSE Manager",
-              urgency: "red",
-            },
-          ].map((gap, i) => (
-            <div
-              key={i}
-              className={`flex items-start gap-3 p-3 rounded-xl border ${gap.urgency === "red" ? "border-red-500/20 bg-red-500/5" : "border-amber-500/20 bg-amber-500/5"}`}
-            >
-              <AlertTriangle
-                className={`w-4 h-4 flex-shrink-0 mt-0.5 ${gap.urgency === "red" ? "text-red-400" : "text-amber-400"}`}
-              />
-              <div className="flex-1">
-                <div className="text-xs font-semibold text-slate-200">
-                  {gap.issue}
+        {data.gaps.length === 0 ? (
+          <EmptyState message="No readiness gaps open — no pending critical recommendations, blocked work orders or unresolved critical alerts." />
+        ) : (
+          <div className="space-y-2">
+            {data.gaps.map((gap, i) => (
+              <div
+                key={i}
+                className={`flex items-start gap-3 p-3 rounded-xl border ${gap.urgency === "red" ? "border-red-500/20 bg-red-500/5" : "border-amber-500/20 bg-amber-500/5"}`}
+              >
+                <AlertTriangle
+                  className={`w-4 h-4 flex-shrink-0 mt-0.5 ${gap.urgency === "red" ? "text-red-400" : "text-amber-400"}`}
+                />
+                <div className="flex-1">
+                  <div className="text-xs font-semibold text-slate-200">
+                    {gap.issue}
+                  </div>
+                  <div className="text-xs text-slate-400 mt-0.5">
+                    {gap.action}
+                  </div>
+                  <div className="text-xs text-slate-400 mt-0.5">
+                    Owner: {gap.owner}
+                  </div>
                 </div>
-                <div className="text-xs text-slate-400 mt-0.5">
-                  {gap.action}
-                </div>
-                <div className="text-xs text-slate-400 mt-0.5">
-                  Owner: {gap.owner}
-                </div>
+                <button className="text-teal-400 hover:text-teal-300 text-xs flex items-center gap-1 flex-shrink-0">
+                  Act <ChevronRight className="w-3 h-3" />
+                </button>
               </div>
-              <button className="text-teal-400 hover:text-teal-300 text-xs flex items-center gap-1 flex-shrink-0">
-                Act <ChevronRight className="w-3 h-3" />
-              </button>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

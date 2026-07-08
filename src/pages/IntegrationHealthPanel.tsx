@@ -1,132 +1,170 @@
 import { useState } from "react";
 import {
   Plug,
-  Activity,
+  Database as DatabaseIcon,
   RefreshCw,
   Server,
-  Database,
-  Cloud,
   Radio,
   ChevronRight,
   Zap,
-  Shield,
   Cpu,
+  Layers,
 } from "lucide-react";
 import { motion } from "framer-motion";
+import { useAsyncData } from "../hooks/useAsyncData";
+import { getIntegrations } from "../services/operatingLoopService";
+import { supabase } from "../lib/supabase";
+import type { IntegrationRow } from "../types/operating";
+import {
+  LoadingState,
+  ErrorState,
+  EmptyState,
+} from "../components/ui/AsyncStates";
 
 type IntegrationStatus = "healthy" | "degraded" | "down" | "maintenance";
 
-interface Integration {
+interface LiveIntegration {
   id: string;
   name: string;
-  type: "data_source" | "ai_model" | "enterprise" | "iot";
+  category: string;
   status: IntegrationStatus;
-  latency: string;
-  uptime: string;
-  lastSync: string;
-  throughput: string;
   description: string;
   icon: React.ElementType;
+  /** Real timestamp of last sync/run; null when the source has none. */
+  lastSyncAt: string | null;
+  /** Honest label used when there is no timestamp to show. */
+  lastSyncFallback: string;
+  recordsSynced: number | null;
+  connectedSince: string | null;
 }
 
-const integrations: Integration[] = [
-  {
-    id: "erp",
-    name: "SAP EAM",
-    type: "enterprise",
-    status: "healthy",
-    latency: "42ms",
-    uptime: "99.97%",
-    lastSync: "2 min ago",
-    throughput: "1,240 records/hr",
-    description: "Work orders, asset master, parts inventory",
-    icon: Database,
-  },
-  {
-    id: "scada",
-    name: "SCADA / OSIsoft PI",
-    type: "data_source",
-    status: "healthy",
-    latency: "8ms",
-    uptime: "99.99%",
-    lastSync: "Real-time",
-    throughput: "48K points/sec",
-    description: "Process data, sensor signals, alarms",
-    icon: Radio,
-  },
-  {
-    id: "iot",
-    name: "IoT Gateway Cluster",
-    type: "iot",
-    status: "healthy",
-    latency: "15ms",
-    uptime: "99.94%",
-    lastSync: "Real-time",
-    throughput: "12K messages/sec",
-    description: "Vibration, temperature, pressure sensors",
-    icon: Cpu,
-  },
-  {
-    id: "cmms",
-    name: "Maximo (Legacy)",
-    type: "enterprise",
-    status: "degraded",
-    latency: "380ms",
-    uptime: "98.2%",
-    lastSync: "14 min ago",
-    throughput: "420 records/hr",
-    description: "Historical work orders, PM schedules",
-    icon: Server,
-  },
-  {
-    id: "ai-primary",
-    name: "SyncAI Inference Engine",
-    type: "ai_model",
-    status: "healthy",
-    latency: "120ms",
-    uptime: "99.98%",
-    lastSync: "Active",
-    throughput: "2.4K inferences/hr",
-    description: "Predictive models, anomaly detection, NLP",
-    icon: Zap,
-  },
-  {
-    id: "ai-training",
-    name: "Model Training Pipeline",
-    type: "ai_model",
-    status: "healthy",
-    latency: "—",
-    uptime: "99.5%",
-    lastSync: "Last run: 6h ago",
-    throughput: "3 models/week",
-    description: "Retraining, validation, deployment",
-    icon: RefreshCw,
-  },
-  {
-    id: "weather",
-    name: "Weather Service API",
-    type: "data_source",
-    status: "healthy",
-    latency: "95ms",
-    uptime: "99.9%",
-    lastSync: "5 min ago",
-    throughput: "24 calls/hr",
-    description: "Ambient conditions for baseline adjustment",
-    icon: Cloud,
-  },
-  {
-    id: "identity",
-    name: "Azure AD / SSO",
-    type: "enterprise",
-    status: "healthy",
-    latency: "55ms",
-    uptime: "99.99%",
-    lastSync: "Active",
-    throughput: "—",
-    description: "Authentication, role mapping, access control",
-    icon: Shield,
-  },
-];
+interface LoopStats {
+  loopRecommendations: number;
+  latestLoopRecAt: string | null;
+  latestRun: {
+    status: string;
+    summary: string | null;
+    started_at: string | null;
+    completed_at: string | null;
+  } | null;
+}
+
+async function getLoopStats(): Promise<LoopStats> {
+  const [recsRes, runsRes] = await Promise.all([
+    supabase
+      .from("recommendations")
+      .select("id, created_at")
+      .like("rationale", "Raised by the continuous%")
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("agent_runs")
+      .select("status, summary, started_at, completed_at")
+      .order("started_at", { ascending: false })
+      .limit(1),
+  ]);
+  if (recsRes.error) throw new Error(recsRes.error.message);
+  if (runsRes.error) throw new Error(runsRes.error.message);
+  const recs = recsRes.data ?? [];
+  const runs = runsRes.data ?? [];
+  return {
+    loopRecommendations: recs.length,
+    latestLoopRecAt: recs[0]?.created_at ?? null,
+    latestRun: runs[0] ?? null,
+  };
+}
+
+function timeAgo(iso: string): string {
+  const then = new Date(iso).getTime();
+  if (Number.isNaN(then)) return iso;
+  const diffMs = Date.now() - then;
+  if (diffMs < 0) return new Date(iso).toLocaleString();
+  const minutes = Math.floor(diffMs / 60000);
+  if (minutes < 1) return "just now";
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 30) return `${days}d ago`;
+  return new Date(iso).toLocaleDateString();
+}
+
+function mapStatus(status: string): IntegrationStatus {
+  const s = status.toLowerCase();
+  if (s === "connected" || s === "active" || s === "healthy") return "healthy";
+  if (s === "degraded") return "degraded";
+  if (s === "down" || s === "error" || s === "disconnected" || s === "failed")
+    return "down";
+  return "maintenance";
+}
+
+function categoryIcon(category: string): React.ElementType {
+  const c = category.toLowerCase();
+  if (c.includes("cmms")) return DatabaseIcon;
+  if (c.includes("historian")) return Radio;
+  if (c.includes("condition")) return Cpu;
+  if (c.includes("native")) return Zap;
+  return Server;
+}
+
+const NATIVE_CATEGORY = "SyncAI Native";
+
+function buildLiveIntegrations(
+  rows: IntegrationRow[],
+  loop: LoopStats,
+): LiveIntegration[] {
+  const external: LiveIntegration[] = rows.map((row) => ({
+    id: row.id,
+    name: row.name,
+    category: row.category ?? "Uncategorized",
+    status: mapStatus(row.status),
+    description: `${row.category ?? "External"} connector`,
+    icon: categoryIcon(row.category ?? ""),
+    lastSyncAt: row.last_sync,
+    lastSyncFallback: "Sync telemetry connects with the live connector",
+    recordsSynced: row.records_synced,
+    connectedSince: row.created_at,
+  }));
+
+  const loopHealthy =
+    loop.latestRun !== null && loop.latestRun.status !== "failed";
+  const native: LiveIntegration[] = [
+    {
+      id: "native-supabase",
+      name: "Supabase Data Plane",
+      category: NATIVE_CATEGORY,
+      status: "healthy",
+      description:
+        "This workspace's own database — it served the live data on this page",
+      icon: DatabaseIcon,
+      lastSyncAt: null,
+      lastSyncFallback: "Live — serving this session",
+      recordsSynced: null,
+      connectedSince: null,
+    },
+    {
+      id: "native-agent-loop",
+      name: "Continuous Agent Loop (pg_cron)",
+      category: NATIVE_CATEGORY,
+      status:
+        loop.latestRun === null && loop.loopRecommendations === 0
+          ? "maintenance"
+          : loopHealthy
+            ? "healthy"
+            : "degraded",
+      description: `Scheduled agent loop — ${loop.loopRecommendations} recommendation${loop.loopRecommendations === 1 ? "" : "s"} raised autonomously`,
+      icon: Zap,
+      lastSyncAt:
+        loop.latestRun?.completed_at ??
+        loop.latestRun?.started_at ??
+        loop.latestLoopRecAt,
+      lastSyncFallback: "No loop runs recorded yet",
+      recordsSynced: null,
+      connectedSince: null,
+    },
+  ];
+
+  return [...external, ...native];
+}
 
 const statusConfig: Record<
   IntegrationStatus,
@@ -158,27 +196,23 @@ const statusConfig: Record<
     bg: "bg-blue-500/10",
     border: "border-blue-500/20",
     dot: "bg-blue-400",
-    label: "Maintenance",
+    label: "Standby",
   },
-};
-
-const typeLabels: Record<string, string> = {
-  data_source: "Data Source",
-  ai_model: "AI / ML",
-  enterprise: "Enterprise",
-  iot: "IoT / Edge",
 };
 
 function IntegrationCard({
   integration,
   index,
 }: {
-  integration: Integration;
+  integration: LiveIntegration;
   index: number;
 }) {
   const [expanded, setExpanded] = useState(false);
   const sc = statusConfig[integration.status];
   const Icon = integration.icon;
+  const lastSyncLabel = integration.lastSyncAt
+    ? timeAgo(integration.lastSyncAt)
+    : integration.lastSyncFallback;
 
   return (
     <motion.div
@@ -213,9 +247,13 @@ function IntegrationCard({
           <div className="flex items-center gap-3 flex-shrink-0">
             <div className="text-right hidden sm:block">
               <div className="text-xs font-mono text-slate-300">
-                {integration.latency}
+                {integration.lastSyncAt
+                  ? lastSyncLabel
+                  : integration.id === "native-supabase"
+                    ? "live"
+                    : "—"}
               </div>
-              <div className="text-xs text-slate-400">latency</div>
+              <div className="text-xs text-slate-400">last sync</div>
             </div>
             <ChevronRight
               className={`w-3.5 h-3.5 text-slate-400 transition-transform ${expanded ? "rotate-90" : ""}`}
@@ -233,27 +271,31 @@ function IntegrationCard({
         <div className="px-4 pb-4 pt-0">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-3 border-t border-white/[0.06]">
             <div>
-              <div className="text-xs text-slate-400">Uptime</div>
-              <div className="text-sm font-bold text-teal-400 mt-0.5">
-                {integration.uptime}
-              </div>
-            </div>
-            <div>
               <div className="text-xs text-slate-400">Last Sync</div>
               <div className="text-sm font-bold text-slate-200 mt-0.5">
-                {integration.lastSync}
+                {lastSyncLabel}
               </div>
             </div>
             <div>
-              <div className="text-xs text-slate-400">Throughput</div>
+              <div className="text-xs text-slate-400">Records Synced</div>
               <div className="text-sm font-bold text-blue-400 mt-0.5">
-                {integration.throughput}
+                {integration.recordsSynced !== null
+                  ? integration.recordsSynced.toLocaleString()
+                  : "—"}
               </div>
             </div>
             <div>
-              <div className="text-xs text-slate-400">Type</div>
+              <div className="text-xs text-slate-400">Connected Since</div>
               <div className="text-sm font-bold text-slate-200 mt-0.5">
-                {typeLabels[integration.type]}
+                {integration.connectedSince
+                  ? new Date(integration.connectedSince).toLocaleDateString()
+                  : "Built-in"}
+              </div>
+            </div>
+            <div>
+              <div className="text-xs text-slate-400">Category</div>
+              <div className="text-sm font-bold text-slate-200 mt-0.5">
+                {integration.category}
               </div>
             </div>
           </div>
@@ -265,33 +307,75 @@ function IntegrationCard({
 
 export function IntegrationHealthPanel() {
   const [filter, setFilter] = useState<string>("all");
+  const { data, loading, error, refetch } = useAsyncData(
+    () => Promise.all([getIntegrations(), getLoopStats()]),
+    [],
+  );
+
+  const header = (
+    <div className="flex items-center justify-between">
+      <div>
+        <h1 className="text-2xl font-bold text-white tracking-tight">
+          Integration Health
+        </h1>
+        <p className="text-sm text-slate-400 mt-0.5">
+          Live status of connected systems, from the integrations registry
+        </p>
+      </div>
+      <div className="flex items-center gap-2">
+        <button
+          onClick={refetch}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-white/[0.04] border border-white/[0.08] rounded-lg text-xs text-slate-400 hover:bg-white/[0.08] transition-colors"
+        >
+          <RefreshCw className="w-3.5 h-3.5" /> Refresh All
+        </button>
+      </div>
+    </div>
+  );
+
+  if (loading) {
+    return (
+      <div className="p-6 space-y-6">
+        {header}
+        <LoadingState label="Loading integration health…" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-6 space-y-6">
+        {header}
+        <ErrorState message={error} onRetry={refetch} />
+      </div>
+    );
+  }
+
+  const [rows, loop] = data ?? [[], null];
+  const integrations = buildLiveIntegrations(
+    rows,
+    loop ?? { loopRecommendations: 0, latestLoopRecAt: null, latestRun: null },
+  );
+
   const healthy = integrations.filter((i) => i.status === "healthy").length;
   const degraded = integrations.filter((i) => i.status === "degraded").length;
   const down = integrations.filter((i) => i.status === "down").length;
+  const totalRecords = rows.reduce(
+    (sum, r) => sum + (r.records_synced ?? 0),
+    0,
+  );
 
+  const categories = Array.from(
+    new Set(integrations.map((i) => i.category)),
+  ).sort();
   const filtered =
     filter === "all"
       ? integrations
-      : integrations.filter((i) => i.type === filter);
+      : integrations.filter((i) => i.category === filter);
 
   return (
     <div className="p-6 space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">
-            Integration Health
-          </h1>
-          <p className="text-sm text-slate-400 mt-0.5">
-            Real-time status of all connected systems and data pipelines
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button className="flex items-center gap-1.5 px-3 py-1.5 bg-white/[0.04] border border-white/[0.08] rounded-lg text-xs text-slate-400 hover:bg-white/[0.08] transition-colors">
-            <RefreshCw className="w-3.5 h-3.5" /> Refresh All
-          </button>
-        </div>
-      </div>
+      {header}
 
       {/* Health Summary */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -321,14 +405,15 @@ export function IntegrationHealthPanel() {
         </div>
         <div className="bg-[#0D1520] border border-white/[0.06] rounded-xl p-4">
           <div className="flex items-center gap-2 mb-2">
-            <Activity className="w-3.5 h-3.5 text-blue-400" />
-            <span className="text-xs text-slate-400">Avg Latency</span>
+            <Layers className="w-3.5 h-3.5 text-blue-400" />
+            <span className="text-xs text-slate-400">Records Synced</span>
           </div>
           <div className="text-3xl font-black text-blue-400">
-            102<span className="text-sm text-slate-400">ms</span>
+            {totalRecords.toLocaleString()}
           </div>
           <div className="text-xs text-slate-400 mt-0.5">
-            across all systems
+            across {rows.length} external connector
+            {rows.length === 1 ? "" : "s"}
           </div>
         </div>
       </div>
@@ -337,10 +422,7 @@ export function IntegrationHealthPanel() {
       <div className="flex items-center gap-2 overflow-x-auto pb-1">
         {[
           { value: "all", label: "All Systems" },
-          { value: "data_source", label: "Data Sources" },
-          { value: "ai_model", label: "AI / ML" },
-          { value: "enterprise", label: "Enterprise" },
-          { value: "iot", label: "IoT / Edge" },
+          ...categories.map((c) => ({ value: c, label: c })),
         ].map((f) => (
           <button
             key={f.value}
@@ -367,6 +449,10 @@ export function IntegrationHealthPanel() {
         ))}
       </div>
 
+      {rows.length === 0 && (
+        <EmptyState message="No external integrations connected yet — connect a CMMS, historian, or condition-monitoring system to see live sync health here." />
+      )}
+
       {/* Data Pipeline Status */}
       <div className="bg-[#0D1520] border border-teal-500/10 rounded-xl p-4 flex items-start gap-3">
         <Plug className="w-4 h-4 text-teal-400 flex-shrink-0 mt-0.5" />
@@ -375,9 +461,11 @@ export function IntegrationHealthPanel() {
             Data Pipeline Health
           </div>
           <p className="text-xs text-slate-400 mt-1 leading-relaxed">
-            All integration health is monitored by SyncAI. Degraded connections
-            trigger automatic failover or buffering. Historical data is
-            preserved during outages and reconciled on reconnection.
+            Status, last-sync timestamps, and record counts above come directly
+            from the integrations registry. SyncAI-native services (the Supabase
+            data plane and the continuous agent loop) report their own live
+            activity. Latency and throughput telemetry connects when live
+            connectors stream metrics.
           </p>
         </div>
       </div>
