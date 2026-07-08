@@ -15,6 +15,8 @@ import { motion } from "framer-motion";
 import { useOnboardingOperatingLoop } from "../hooks/useOnboardingOperatingLoop";
 import type { DerivedWorkAction } from "../services/onboardingOperatingLoop";
 import { useAsyncData } from "../hooks/useAsyncData";
+import { useRealtimeRefetch } from "../hooks/useRealtimeRefetch";
+import { LiveBadge } from "../components/ui/LiveBadge";
 import {
   getWorkOrders,
   approveWorkOrder,
@@ -368,6 +370,10 @@ export function WorkActionBoard() {
     error,
     refetch,
   } = useAsyncData<WorkOrderRow[]>(() => getWorkOrders(), []);
+  const { live } = useRealtimeRefetch(
+    ["work_orders", "recommendations", "approvals"],
+    refetch,
+  );
 
   const flash = (m: string) => {
     setToast(m);
@@ -534,9 +540,12 @@ export function WorkActionBoard() {
       )}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">
-            Work Action Board
-          </h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-bold text-white tracking-tight">
+              Work Action Board
+            </h1>
+            <LiveBadge live={live} />
+          </div>
           <p className="text-sm text-slate-400 mt-0.5">
             Ranked by risk, consequence, and mission impact
           </p>

@@ -21,6 +21,8 @@ import {
   X,
 } from "lucide-react";
 import { useAsyncData } from "../hooks/useAsyncData";
+import { useRealtimeRefetch } from "../hooks/useRealtimeRefetch";
+import { LiveBadge } from "../components/ui/LiveBadge";
 import {
   approveAssetGolive,
   formatItemValue,
@@ -192,6 +194,11 @@ export function AssetOnboardingHub() {
     checklist.refetch();
     readiness.refetch();
   };
+  // AI deductions and autonomous passes land live — no manual refresh needed.
+  const { live } = useRealtimeRefetch(
+    ["asset_onboarding_items", "asset_onboarding_state"],
+    refreshAll,
+  );
 
   const handleAutofill = async () => {
     if (!selectedId) return;
@@ -285,9 +292,12 @@ export function AssetOnboardingHub() {
     <div className="space-y-6 p-6" data-testid="onboarding-hub">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold text-white">
-            Asset Onboarding
-          </h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-semibold text-white">
+              Asset Onboarding
+            </h1>
+            <LiveBadge live={live} />
+          </div>
           <p className="mt-1 max-w-2xl text-sm text-slate-300">
             Fully autonomous RAM-checklist onboarding (DoD RAM Guide aligned).
             SyncAI fills everything it can find or deduce — you only answer what

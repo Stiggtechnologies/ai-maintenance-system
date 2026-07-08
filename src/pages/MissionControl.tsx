@@ -29,6 +29,8 @@ import {
   EmptyState,
 } from "../components/ui/AsyncStates";
 import { useAsyncData } from "../hooks/useAsyncData";
+import { useRealtimeRefetch } from "../hooks/useRealtimeRefetch";
+import { LiveBadge } from "../components/ui/LiveBadge";
 import { useAuth } from "../components/AuthProvider";
 import { useOnboardingOperatingLoop } from "../hooks/useOnboardingOperatingLoop";
 import {
@@ -508,6 +510,10 @@ export function MissionControl() {
     () => getMissionControl(),
     [],
   );
+  const { live } = useRealtimeRefetch(
+    ["sensors", "recommendations", "work_orders", "value_metrics"],
+    refetch,
+  );
 
   const [evidenceRec, setEvidenceRec] = useState<RecommendationRow | null>(
     null,
@@ -592,7 +598,7 @@ export function MissionControl() {
         <div>
           <div className="flex items-center gap-2 text-[11px] text-slate-400 mb-1">
             <Radio className="w-3 h-3 text-teal-400" />
-            <span className="text-teal-400 font-medium">LIVE</span>
+            <LiveBadge live={live} />
             <span>· Mission Control · {ROLE_LABEL[role] ?? role} view</span>
           </div>
           <h1 className="text-2xl font-bold text-white tracking-tight">
