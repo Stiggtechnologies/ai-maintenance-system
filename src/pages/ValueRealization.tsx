@@ -20,8 +20,10 @@ import {
   getValueMetrics,
   verifyValueMetric,
   getPilotScorecard,
+  getCycleTimeMetrics,
   downloadCsv,
   type PilotScorecard,
+  type CycleTimeMetrics,
 } from "../services/operatingLoopService";
 import type { ValueMetricRow } from "../types/operating";
 import {
@@ -125,6 +127,10 @@ export function ValueRealization() {
     [],
   );
   const scorecard = useAsyncData<PilotScorecard>(() => getPilotScorecard(), []);
+  const cycles = useAsyncData<CycleTimeMetrics>(
+    () => getCycleTimeMetrics(),
+    [],
+  );
   const [busyId, setBusyId] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
@@ -223,6 +229,64 @@ export function ValueRealization() {
 
       {!loading && !error && (
         <>
+          {/* Decision velocity — SyncAI's own cycle-time compression */}
+          {cycles.data && (
+            <div className="bg-[#0D1520] border border-blue-500/20 rounded-2xl p-5">
+              <div className="flex items-center gap-2 mb-3">
+                <Zap className="w-4 h-4 text-blue-400" />
+                <h3 className="text-sm font-semibold text-slate-200">
+                  Decision Velocity
+                </h3>
+                <span className="text-xs text-slate-400 ml-auto">
+                  Measured from live operating data
+                </span>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-center">
+                {[
+                  {
+                    label: "Telemetry scan",
+                    value: `${cycles.data.telemetry_interval_minutes} min`,
+                  },
+                  {
+                    label: "Alert → recommendation",
+                    value: `≤ ${cycles.data.loop_scan_interval_minutes} min`,
+                  },
+                  {
+                    label: "Recommendation → decision",
+                    value:
+                      cycles.data.recommendation_to_decision_hours != null
+                        ? `${cycles.data.recommendation_to_decision_hours} h avg`
+                        : "—",
+                  },
+                  {
+                    label: "Work order → closeout",
+                    value:
+                      cycles.data.workorder_open_to_close_hours != null
+                        ? `${cycles.data.workorder_open_to_close_hours} h avg`
+                        : "—",
+                  },
+                  {
+                    label: "Onboarding items autonomous",
+                    value:
+                      cycles.data.onboarding_items_filled_autonomously ?? "—",
+                  },
+                ].map((c) => (
+                  <div
+                    key={c.label}
+                    className="rounded-xl bg-white/[0.03] px-2 py-3"
+                  >
+                    <div className="text-lg font-bold text-blue-300">
+                      {c.value}
+                    </div>
+                    <div className="text-xs text-slate-400 mt-0.5">
+                      {c.label}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* 90-day pilot scorecard — live, derived from real operating data */}
           {scorecard.data && (
             <div className="bg-[#0D1520] border border-teal-500/20 rounded-2xl p-5">

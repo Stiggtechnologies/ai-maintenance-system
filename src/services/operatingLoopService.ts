@@ -211,6 +211,25 @@ export interface PilotScorecard {
 }
 
 /** Live 90-day pilot scorecard derived from real operating data. */
+export interface CycleTimeMetrics {
+  recommendation_to_decision_hours: number | null;
+  decisions_measured: number;
+  workorder_open_to_close_hours: number | null;
+  workorders_closed: number;
+  onboarding_assets: number;
+  onboarding_avg_completion_pct: number | null;
+  onboarding_items_filled_autonomously: number | null;
+  loop_scan_interval_minutes: number;
+  telemetry_interval_minutes: number;
+}
+
+/** SyncAI's own cycle-time compression numbers (ShipOS-style evidence). */
+export async function getCycleTimeMetrics(): Promise<CycleTimeMetrics> {
+  const { data, error } = await supabase.rpc("get_cycle_time_metrics");
+  if (error) fail("Could not load cycle-time metrics", error);
+  return data as CycleTimeMetrics;
+}
+
 export async function getPilotScorecard(): Promise<PilotScorecard> {
   const { data, error } = await supabase.rpc("get_pilot_scorecard");
   if (error) fail("Could not load pilot scorecard", error);
