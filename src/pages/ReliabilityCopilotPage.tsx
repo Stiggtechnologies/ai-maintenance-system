@@ -679,13 +679,13 @@ export function ReliabilityCopilotPage() {
               key={signal.label}
               className="rounded-xl border border-white/[0.07] bg-black/20 px-4 py-3"
             >
-              <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
                 {signal.label}
               </div>
               <div className="mt-1 text-lg font-semibold text-[#F8FAFC]">
                 {signal.value}
               </div>
-              <div className="mt-0.5 text-xs text-slate-500">
+              <div className="mt-0.5 text-xs text-slate-400">
                 {signal.detail}
               </div>
             </div>
@@ -707,7 +707,7 @@ export function ReliabilityCopilotPage() {
               <BrainCircuit size={17} className="text-teal-300" />
               Analyze a reliability problem
             </div>
-            <p className="mt-1 text-xs leading-5 text-slate-500">
+            <p className="mt-1 text-xs leading-5 text-slate-400">
               RCA, FRACAS, FMEA, RAM, PM optimization, and governed reports.
             </p>
           </button>
@@ -723,7 +723,7 @@ export function ReliabilityCopilotPage() {
               <PackageCheck size={17} className="text-teal-300" />
               Guided Asset Onboarding
             </div>
-            <p className="mt-1 text-xs leading-5 text-slate-500">
+            <p className="mt-1 text-xs leading-5 text-slate-400">
               Build a reliability-ready asset profile from one command.
             </p>
           </button>
@@ -739,7 +739,7 @@ export function ReliabilityCopilotPage() {
               <BookOpenText size={17} className="text-teal-300" />
               Evidence & Governance
             </div>
-            <p className="mt-1 text-xs leading-5 text-slate-500">
+            <p className="mt-1 text-xs leading-5 text-slate-400">
               Source trail, deterministic math, and approval controls.
             </p>
           </button>
@@ -773,25 +773,25 @@ export function ReliabilityCopilotPage() {
             </div>
             <div className="grid grid-cols-2 gap-3 text-center sm:min-w-[520px] lg:grid-cols-5">
               <div className="rounded-lg border border-white/[0.06] bg-black/20 p-3">
-                <div className="text-xs text-slate-500">Completion</div>
+                <div className="text-xs text-slate-400">Completion</div>
                 <div className="mt-1 text-2xl font-bold text-[#E6EDF3]">
                   {onboardingSession.completionScore}%
                 </div>
               </div>
               <div className="rounded-lg border border-white/[0.06] bg-black/20 p-3">
-                <div className="text-xs text-slate-500">Readiness</div>
+                <div className="text-xs text-slate-400">Readiness</div>
                 <div className="mt-1 text-lg font-bold capitalize text-teal-300">
                   {onboardingSession.reliabilityReadiness}
                 </div>
               </div>
               <div className="rounded-lg border border-white/[0.06] bg-black/20 p-3">
-                <div className="text-xs text-slate-500">Mode</div>
+                <div className="text-xs text-slate-400">Mode</div>
                 <div className="mt-1 text-lg font-bold capitalize text-[#E6EDF3]">
                   {onboardingSession.mode}
                 </div>
               </div>
               <div className="rounded-lg border border-white/[0.06] bg-black/20 p-3">
-                <div className="text-xs text-slate-500">Lifecycle</div>
+                <div className="text-xs text-slate-400">Lifecycle</div>
                 <div className="mt-1 text-sm font-bold text-[#E6EDF3]">
                   {getAssetOnboardingLifecycleLabel(
                     onboardingSession.lifecycle,
@@ -799,7 +799,7 @@ export function ReliabilityCopilotPage() {
                 </div>
               </div>
               <div className="rounded-lg border border-white/[0.06] bg-black/20 p-3">
-                <div className="text-xs text-slate-500">Template</div>
+                <div className="text-xs text-slate-400">Template</div>
                 <div className="mt-1 text-sm font-bold text-teal-300">
                   {getAssetOnboardingIndustryLabel(onboardingSession.industry)}
                 </div>
@@ -850,7 +850,7 @@ export function ReliabilityCopilotPage() {
                       <ListChecks size={17} className="text-teal-300" />
                       Current step: {currentOnboardingStep.name}
                     </div>
-                    <p className="mt-1 text-sm text-slate-500">
+                    <p className="mt-1 text-sm text-slate-400">
                       {currentOnboardingStep.purpose}
                     </p>
                   </div>
@@ -860,7 +860,7 @@ export function ReliabilityCopilotPage() {
                 </div>
                 <div className="mt-4 grid gap-4 lg:grid-cols-2">
                   <div>
-                    <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">
                       Guided questions
                     </div>
                     <ul className="mt-2 space-y-2 text-sm text-slate-300">
@@ -873,7 +873,7 @@ export function ReliabilityCopilotPage() {
                     </ul>
                   </div>
                   <div>
-                    <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">
                       Required fields
                     </div>
                     <div className="mt-2 flex flex-wrap gap-2">
@@ -949,7 +949,7 @@ export function ReliabilityCopilotPage() {
                       <Database size={17} className="text-teal-300" />
                       Persistence and resume
                     </div>
-                    <p className="mt-1 text-sm text-slate-500">
+                    <p className="mt-1 text-sm text-slate-400">
                       {onboardingSaveMessage}
                     </p>
                   </div>
@@ -982,7 +982,7 @@ export function ReliabilityCopilotPage() {
                             {session.source}
                           </span>
                         </div>
-                        <div className="mt-1 text-xs capitalize text-slate-500">
+                        <div className="mt-1 text-xs capitalize text-slate-400">
                           {session.assetClass.replace("_", " ")} ·{" "}
                           {session.mode} · {session.lifecycle.replace("_", " ")}{" "}
                           · {session.industry.replace("_", " ")} ·{" "}
@@ -992,7 +992,7 @@ export function ReliabilityCopilotPage() {
                       </button>
                     ))
                   ) : (
-                    <div className="rounded-lg border border-white/[0.06] bg-white/[0.03] p-3 text-sm text-slate-500 md:col-span-2">
+                    <div className="rounded-lg border border-white/[0.06] bg-white/[0.03] p-3 text-sm text-slate-400 md:col-span-2">
                       No saved sessions yet. Start onboarding or save a step to
                       create a resumable asset profile.
                     </div>
@@ -1007,7 +1007,7 @@ export function ReliabilityCopilotPage() {
                   <PackageCheck size={17} className="text-teal-300" />
                   Final Package Exports
                 </div>
-                <p className="mt-2 text-sm text-slate-500">
+                <p className="mt-2 text-sm text-slate-400">
                   Export the onboarding package as Word, PDF-ready HTML, Excel
                   CSV, JSON, CMMS import CSV, Power BI dataset JSON, or API
                   payload.
@@ -1045,7 +1045,7 @@ export function ReliabilityCopilotPage() {
                           <div className="truncate text-sm font-medium text-[#E6EDF3]">
                             {index + 1}. {step.name}
                           </div>
-                          <div className="text-xs capitalize text-slate-500">
+                          <div className="text-xs capitalize text-slate-400">
                             {step.completionStatus.replace("_", " ")}
                           </div>
                         </div>
@@ -1079,7 +1079,7 @@ export function ReliabilityCopilotPage() {
                 <h2 className="mt-1 text-lg font-semibold tracking-tight text-[#F8FAFC]">
                   Ask, analyze, and produce the decision packet
                 </h2>
-                <p className="text-sm text-slate-500">
+                <p className="text-sm text-slate-400">
                   Select a reliability method, add context, and generate a
                   review-ready starter pack.
                 </p>
@@ -1111,7 +1111,7 @@ export function ReliabilityCopilotPage() {
                           <MessageSquare size={18} className="text-teal-300" />
                           Cowork Thread
                         </div>
-                        <p className="mt-1 text-sm leading-6 text-slate-500">
+                        <p className="mt-1 text-sm leading-6 text-slate-400">
                           The conversation, decisions, and generated reliability
                           packet stay together.
                         </p>
@@ -1140,7 +1140,7 @@ export function ReliabilityCopilotPage() {
                       </div>
                       <div className="mt-3 grid gap-3 md:grid-cols-2">
                         <div>
-                          <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+                          <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
                             Recommendation
                           </div>
                           <p className="mt-1 text-sm leading-6 text-slate-200">
@@ -1148,7 +1148,7 @@ export function ReliabilityCopilotPage() {
                           </p>
                         </div>
                         <div>
-                          <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+                          <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
                             Approval Gate
                           </div>
                           <p className="mt-1 text-sm leading-6 text-slate-200">
@@ -1163,7 +1163,7 @@ export function ReliabilityCopilotPage() {
                       <div className="text-xs font-semibold uppercase tracking-[0.18em] text-teal-300">
                         Ask SyncAI
                       </div>
-                      <div className="text-xs text-slate-500">
+                      <div className="text-xs text-slate-400">
                         Press Cmd/Ctrl + Enter to send
                       </div>
                     </div>
@@ -1179,7 +1179,7 @@ export function ReliabilityCopilotPage() {
                           void generateReport();
                         }
                       }}
-                      className="min-h-28 w-full resize-none rounded-2xl border border-teal-300/20 bg-black/45 p-4 text-sm leading-6 text-[#E6EDF3] outline-none transition-colors placeholder:text-slate-500 focus:border-teal-400/70 focus:ring-4 focus:ring-teal-400/10"
+                      className="min-h-28 w-full resize-none rounded-2xl border border-teal-300/20 bg-black/45 p-4 text-sm leading-6 text-[#E6EDF3] outline-none transition-colors placeholder:text-slate-400 focus:border-teal-400/70 focus:ring-4 focus:ring-teal-400/10"
                       placeholder="Ask for RCA, FRACAS, PM optimization, RAM, or /onboard pump P-101..."
                       aria-label="Interactive reliability chat input"
                     />
@@ -1223,12 +1223,12 @@ export function ReliabilityCopilotPage() {
                       <Bot size={17} className="text-teal-300" />
                       Agent Workstream
                     </div>
-                    <p className="mt-1 text-xs leading-5 text-slate-500">
+                    <p className="mt-1 text-xs leading-5 text-slate-400">
                       Real-time feedback from the reliability workflow.
                     </p>
                     <div className="mt-4 rounded-2xl border border-white/[0.07] bg-black/25 p-4">
                       <div className="flex items-center justify-between gap-3">
-                        <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                        <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
                           Live Work Stream
                         </div>
                         <span className="rounded-full border border-teal-300/20 bg-teal-300/10 px-2.5 py-1 text-xs font-semibold text-teal-200">
@@ -1308,12 +1308,12 @@ export function ReliabilityCopilotPage() {
                       <Upload size={17} className="text-teal-300" />
                       Add failure-history data
                     </div>
-                    <span className="text-xs text-slate-500">
+                    <span className="text-xs text-slate-400">
                       Optional CSV intake
                     </span>
                   </div>
                 </summary>
-                <p className="mt-3 text-sm text-slate-500">
+                <p className="mt-3 text-sm text-slate-400">
                   Paste or upload CSV failure history. The report updates from
                   this data when you generate.
                 </p>
@@ -1366,13 +1366,13 @@ export function ReliabilityCopilotPage() {
                 </div>
                 <div className="mt-3 grid gap-3 text-sm text-slate-300 md:grid-cols-2">
                   <div>
-                    <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">
                       Recommendation
                     </div>
                     <p className="mt-1">{report.recommendations[0]}</p>
                   </div>
                   <div>
-                    <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">
                       Top Bad Actor
                     </div>
                     <p className="mt-1">
@@ -1384,13 +1384,13 @@ export function ReliabilityCopilotPage() {
                     </p>
                   </div>
                   <div>
-                    <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">
                       Next Actions
                     </div>
                     <p className="mt-1">{report.actions[0]}</p>
                   </div>
                   <div>
-                    <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">
                       Approval Boundary
                     </div>
                     <p className="mt-1">{report.approvalBoundary[0]}</p>
@@ -1398,7 +1398,7 @@ export function ReliabilityCopilotPage() {
                 </div>
                 <div className="mt-4 grid gap-3 lg:grid-cols-3">
                   <div className="rounded-xl border border-white/[0.06] bg-black/20 p-3">
-                    <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
                       <BookOpenText size={15} className="text-teal-300" />
                       Source Grounding
                     </div>
@@ -1409,7 +1409,7 @@ export function ReliabilityCopilotPage() {
                             {source.source}
                           </div>
                           <div>{source.title}</div>
-                          <div className="text-slate-500">
+                          <div className="text-slate-400">
                             Confidence: {source.confidence}
                           </div>
                         </div>
@@ -1423,19 +1423,19 @@ export function ReliabilityCopilotPage() {
                     </div>
                   </div>
                   <div className="rounded-xl border border-white/[0.06] bg-black/20 p-3">
-                    <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
                       <ShieldCheck size={15} className="text-teal-300" />
                       Governed Recommendation
                     </div>
                     <p className="mt-2 text-xs text-slate-300">
                       {report.governedRecommendations[0]?.requiredValidation}
                     </p>
-                    <p className="mt-2 text-xs text-slate-500">
+                    <p className="mt-2 text-xs text-slate-400">
                       Owner: {report.governedRecommendations[0]?.ownerRole}
                     </p>
                   </div>
                   <div className="rounded-xl border border-white/[0.06] bg-black/20 p-3">
-                    <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
                       <AlertTriangle size={15} className="text-amber-300" />
                       Data Quality
                     </div>
@@ -1443,7 +1443,7 @@ export function ReliabilityCopilotPage() {
                       {report.dataQualityFindings[0]?.issue ??
                         "No high-impact data quality issues were detected."}
                     </p>
-                    <p className="mt-2 text-xs text-slate-500">
+                    <p className="mt-2 text-xs text-slate-400">
                       {report.dataQualityFindings[0]?.nextAction ??
                         "Keep failure modes, dates, downtime, and repair hours normalized."}
                     </p>
@@ -1540,7 +1540,7 @@ export function ReliabilityCopilotPage() {
                   <h2 className="text-lg font-semibold text-[#E6EDF3]">
                     RAM Calculator
                   </h2>
-                  <p className="text-sm text-slate-500">
+                  <p className="text-sm text-slate-400">
                     Deterministic formulas, not LLM math.
                   </p>
                 </div>
@@ -1584,7 +1584,7 @@ export function ReliabilityCopilotPage() {
                     ["missionTime", "Mission time"],
                   ].map(([key, label]) => (
                     <label key={key} className="space-y-1">
-                      <span className="text-xs font-medium text-slate-500">
+                      <span className="text-xs font-medium text-slate-400">
                         {label}
                       </span>
                       <input
@@ -1671,7 +1671,7 @@ export function ReliabilityCopilotPage() {
                       <div className="mt-1 text-sm text-slate-400">
                         {source.title}
                       </div>
-                      <div className="mt-2 text-xs text-slate-500">
+                      <div className="mt-2 text-xs text-slate-400">
                         Confidence: {source.confidence}
                       </div>
                     </div>
@@ -1749,7 +1749,7 @@ export function ReliabilityCopilotPage() {
                 <h3 className="mt-4 text-sm font-semibold text-[#E6EDF3]">
                   {actor.assetId}
                 </h3>
-                <p className="mt-2 text-sm text-slate-500">
+                <p className="mt-2 text-sm text-slate-400">
                   {formatNumber(actor.downtimeHours)} downtime hours,{" "}
                   {actor.failures} failures, top mode: {actor.topFailureMode}.
                 </p>
@@ -1782,7 +1782,7 @@ export function ReliabilityCopilotPage() {
                 <h3 className="mt-4 text-sm font-semibold text-[#E6EDF3]">
                   {card.title}
                 </h3>
-                <p className="mt-2 text-sm text-slate-500">{card.detail}</p>
+                <p className="mt-2 text-sm text-slate-400">{card.detail}</p>
               </div>
             );
           })}
@@ -1815,7 +1815,7 @@ export function ReliabilityCopilotPage() {
                 <MessageSquare size={14} />
                 Ask SyncAI
               </div>
-              <span className="hidden text-xs text-slate-500 sm:block">
+              <span className="hidden text-xs text-slate-400 sm:block">
                 Reliability cowork session · Cmd/Ctrl + Enter
               </span>
             </div>
@@ -1828,7 +1828,7 @@ export function ReliabilityCopilotPage() {
                   void generateReport();
                 }
               }}
-              className="max-h-40 min-h-16 w-full resize-none rounded-xl border border-white/[0.08] bg-black/40 p-3 text-sm leading-6 text-[#E6EDF3] outline-none transition-colors placeholder:text-slate-500 focus:border-teal-400/70 focus:ring-4 focus:ring-teal-400/10"
+              className="max-h-40 min-h-16 w-full resize-none rounded-xl border border-white/[0.08] bg-black/40 p-3 text-sm leading-6 text-[#E6EDF3] outline-none transition-colors placeholder:text-slate-400 focus:border-teal-400/70 focus:ring-4 focus:ring-teal-400/10"
               placeholder="Ask SyncAI to analyze failures, build RCA/FRACAS, optimize PMs, or /onboard pump P-101..."
               aria-label="Floating SyncAI chat input"
             />
@@ -1874,7 +1874,7 @@ export function ReliabilityCopilotPage() {
 function CompactMetric({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <div className="text-xs font-medium text-slate-500">{label}</div>
+      <div className="text-xs font-medium text-slate-400">{label}</div>
       <div className="mt-1 truncate text-sm font-semibold capitalize text-[#E6EDF3]">
         {value}
       </div>
@@ -1895,7 +1895,7 @@ function Metric({
     <div
       className={`rounded-lg border border-white/[0.06] bg-black/20 p-3 ${wide ? "col-span-2" : ""}`}
     >
-      <div className="text-xs text-slate-500">{label}</div>
+      <div className="text-xs text-slate-400">{label}</div>
       <div className="mt-1 text-xl font-bold text-[#E6EDF3]">{value}</div>
     </div>
   );
@@ -1912,7 +1912,7 @@ function DecisionRow({
 }) {
   return (
     <div className="rounded-lg border border-white/[0.06] bg-black/20 p-3">
-      <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+      <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">
         {label}
       </div>
       <div
@@ -1955,7 +1955,7 @@ function AgentRuntimeStep({
           <Icon size={compact ? 15 : 16} className="text-current" />
         </div>
         <div className="min-w-0">
-          <div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+          <div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
             {agent}
           </div>
           <div className="mt-1 text-sm font-semibold text-[#F8FAFC]">
@@ -1991,7 +1991,7 @@ function ChatBubble({ message }: { message: ChatMessage }) {
           ) : (
             <Bot size={14} className="text-teal-300" />
           )}
-          <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+          <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">
             {isUser ? "You" : isSystem ? "System" : "SyncAI"}
           </span>
           {message.meta && (
@@ -2023,7 +2023,7 @@ function LiveWorkItem({ label, status }: { label: string; status: string }) {
           ? "border-emerald-300/15 bg-emerald-300/[0.06] text-emerald-200"
           : status === "active"
             ? "border-teal-300/25 bg-teal-300/[0.09] text-teal-200"
-            : "border-white/[0.06] bg-white/[0.025] text-slate-500"
+            : "border-white/[0.06] bg-white/[0.025] text-slate-400"
       }`}
     >
       <Icon size={16} className={status === "active" ? "animate-spin" : ""} />
@@ -2031,7 +2031,7 @@ function LiveWorkItem({ label, status }: { label: string; status: string }) {
         <div className="truncate text-sm font-semibold text-[#F8FAFC]">
           {label}
         </div>
-        <div className="text-xs capitalize text-slate-500">{status}</div>
+        <div className="text-xs capitalize text-slate-400">{status}</div>
       </div>
     </div>
   );
@@ -2048,7 +2048,7 @@ function EvidenceTile({
 }) {
   return (
     <div className="rounded-2xl border border-white/[0.07] bg-black/20 p-4">
-      <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+      <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
         <Icon size={15} className="text-teal-300" />
         {label}
       </div>
@@ -2072,7 +2072,7 @@ function Signal({
         <Icon size={18} className="text-teal-300" />
       </div>
       <div>
-        <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+        <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">
           {label}
         </div>
         <div className="mt-1 text-sm text-[#E6EDF3]">{value}</div>

@@ -275,7 +275,7 @@ export function RunsAuditPage() {
             setSelectedRun(null);
             setAuditChain(null);
           }}
-          className="flex items-center gap-1 text-sm text-slate-500 hover:text-slate-700"
+          className="flex items-center gap-1 text-sm text-slate-400 hover:text-slate-400"
         >
           <ArrowLeft size={16} /> Back to Runs
         </button>
@@ -293,7 +293,7 @@ export function RunsAuditPage() {
               {display}
             </span>
           </div>
-          <div className="flex items-center gap-4 text-sm text-slate-500 flex-wrap">
+          <div className="flex items-center gap-4 text-sm text-slate-400 flex-wrap">
             <span>{formatTime(selectedRun.created_at)}</span>
             {selectedRun.duration_ms && (
               <span className="flex items-center gap-1">
@@ -320,10 +320,10 @@ export function RunsAuditPage() {
             {/* Summary + Confidence */}
             {decisionData && (
               <div className="glass border border-white/[0.06] rounded-xl p-6">
-                <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-3">
+                <h2 className="text-sm font-semibold text-slate-400 uppercase tracking-wide mb-3">
                   Decision Summary
                 </h2>
-                <p className="text-sm text-slate-700 mb-3">
+                <p className="text-sm text-slate-400 mb-3">
                   {(decisionData.raw_summary as string) ||
                     (decisionData.summary as string) ||
                     "No summary available"}
@@ -349,7 +349,7 @@ export function RunsAuditPage() {
               (decisionData.evidence as Array<Record<string, unknown>>).length >
                 0 && (
                 <div className="glass border border-white/[0.06] rounded-xl p-6">
-                  <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-3">
+                  <h2 className="text-sm font-semibold text-slate-400 uppercase tracking-wide mb-3">
                     Evidence
                   </h2>
                   <div className="space-y-2">
@@ -363,7 +363,7 @@ export function RunsAuditPage() {
                         <span className="px-1.5 py-0.5 text-xs bg-slate-200 text-slate-400 rounded font-mono whitespace-nowrap">
                           {e.source_type}
                         </span>
-                        <span className="text-sm text-slate-700">{e.note}</span>
+                        <span className="text-sm text-slate-400">{e.note}</span>
                       </div>
                     ))}
                   </div>
@@ -372,7 +372,7 @@ export function RunsAuditPage() {
 
             {/* Approval Trail */}
             <div className="glass border border-white/[0.06] rounded-xl p-6">
-              <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-3">
+              <h2 className="text-sm font-semibold text-slate-400 uppercase tracking-wide mb-3">
                 Governance Trail
               </h2>
               <div className="space-y-3">
@@ -419,7 +419,7 @@ export function RunsAuditPage() {
             {/* Execution Result */}
             {action && (action as Record<string, unknown>).execution_result && (
               <div className="glass border border-white/[0.06] rounded-xl p-6">
-                <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-3">
+                <h2 className="text-sm font-semibold text-slate-400 uppercase tracking-wide mb-3">
                   Execution Result
                 </h2>
                 {(() => {
@@ -438,13 +438,13 @@ export function RunsAuditPage() {
                         </span>
                       </div>
                       {typeof result.duration_ms === "number" && (
-                        <span className="text-xs text-slate-500">
+                        <span className="text-xs text-slate-400">
                           Duration: {result.duration_ms}ms
                         </span>
                       )}
                       {(result.affected_records as string[])?.length > 0 && (
                         <div>
-                          <span className="text-xs text-slate-500">
+                          <span className="text-xs text-slate-400">
                             Affected:{" "}
                           </span>
                           {(result.affected_records as string[]).map((r, i) => (
@@ -492,7 +492,7 @@ export function RunsAuditPage() {
 
       {/* Quick Action Options */}
       <div className="bg-gradient-to-r from-blue-50 to-slate-50 border border-blue-200 rounded-xl p-6">
-        <h2 className="text-sm font-semibold text-slate-700 uppercase tracking-wide mb-4">
+        <h2 className="text-sm font-semibold text-slate-400 uppercase tracking-wide mb-4">
           Start New Governed Workflow
         </h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -507,7 +507,7 @@ export function RunsAuditPage() {
               <div className="font-medium text-sm text-[#E6EDF3]">
                 Select Work Order
               </div>
-              <div className="text-xs text-slate-500">
+              <div className="text-xs text-slate-400">
                 Choose asset and create work order
               </div>
             </div>
@@ -524,7 +524,7 @@ export function RunsAuditPage() {
               <div className="font-medium text-sm text-[#E6EDF3]">
                 Draft Assessment
               </div>
-              <div className="text-xs text-slate-500">
+              <div className="text-xs text-slate-400">
                 Trigger AI reliability analysis
               </div>
             </div>
@@ -541,7 +541,7 @@ export function RunsAuditPage() {
               <div className="font-medium text-sm text-[#E6EDF3]">
                 Review & Approve
               </div>
-              <div className="text-xs text-slate-500">
+              <div className="text-xs text-slate-400">
                 Check confidence, approve decision
               </div>
             </div>
@@ -558,7 +558,7 @@ export function RunsAuditPage() {
               <div className="font-medium text-sm text-[#E6EDF3]">
                 Execute Action
               </div>
-              <div className="text-xs text-slate-500">
+              <div className="text-xs text-slate-400">
                 Apply recommendation & log result
               </div>
             </div>
@@ -616,29 +616,29 @@ export function RunsAuditPage() {
             <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
           </div>
         ) : filteredRuns.length === 0 ? (
-          <div className="text-center text-slate-500 py-16">
+          <div className="text-center text-slate-400 py-16">
             No governed runs found
           </div>
         ) : (
           <table className="w-full">
             <thead>
               <tr className="border-b border-slate-200 bg-[#0B0F14]">
-                <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase">
+                <th className="text-left py-3 px-4 text-xs font-semibold text-slate-400 uppercase">
                   Time
                 </th>
-                <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase">
+                <th className="text-left py-3 px-4 text-xs font-semibold text-slate-400 uppercase">
                   Capability
                 </th>
-                <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase">
+                <th className="text-left py-3 px-4 text-xs font-semibold text-slate-400 uppercase">
                   Status
                 </th>
-                <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase">
+                <th className="text-left py-3 px-4 text-xs font-semibold text-slate-400 uppercase">
                   Confidence
                 </th>
-                <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase">
+                <th className="text-left py-3 px-4 text-xs font-semibold text-slate-400 uppercase">
                   Duration
                 </th>
-                <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase">
+                <th className="text-left py-3 px-4 text-xs font-semibold text-slate-400 uppercase">
                   Correlation
                 </th>
                 <th className="w-8"></th>
@@ -674,7 +674,7 @@ export function RunsAuditPage() {
                     <td className="py-3 px-4 text-sm text-slate-400">
                       {run.confidence_score}%
                     </td>
-                    <td className="py-3 px-4 text-sm text-slate-500">
+                    <td className="py-3 px-4 text-sm text-slate-400">
                       {run.duration_ms ? `${run.duration_ms}ms` : "—"}
                     </td>
                     <td className="py-3 px-4">
@@ -730,7 +730,7 @@ function TrailStep({
       </div>
       <div className="flex-1 min-w-0">
         <div className="text-sm font-medium text-[#E6EDF3]">{label}</div>
-        <div className="text-xs text-slate-500">{detail}</div>
+        <div className="text-xs text-slate-400">{detail}</div>
         <div className="flex items-center gap-3 mt-1 text-xs text-slate-400">
           {time && <span>{formatTime(time)}</span>}
           {duration && (

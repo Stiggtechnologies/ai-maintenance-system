@@ -27,7 +27,7 @@ export function PageHeader({
           </h1>
         </div>
         {subtitle && (
-          <p className="text-slate-500 mt-1.5 text-sm">{subtitle}</p>
+          <p className="text-slate-400 mt-1.5 text-sm">{subtitle}</p>
         )}
       </div>
       {actions && <div className="flex items-center gap-2">{actions}</div>}

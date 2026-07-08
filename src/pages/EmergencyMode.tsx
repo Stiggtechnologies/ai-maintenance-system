@@ -192,7 +192,7 @@ export function EmergencyMode() {
         <h1 className="text-2xl font-bold text-white tracking-tight">
           Emergency Mode
         </h1>
-        <p className="text-sm text-slate-500 mt-0.5 mb-6">
+        <p className="text-sm text-slate-400 mt-0.5 mb-6">
           Incident command view — activates automatically when a critical system
           alert is raised.
         </p>
@@ -230,11 +230,11 @@ export function EmergencyMode() {
             <div>
               <div className="flex items-center gap-2 mb-1">
                 <span
-                  className={`text-[10px] font-black uppercase tracking-wider ${sc.color}`}
+                  className={`text-xs font-black uppercase tracking-wider ${sc.color}`}
                 >
                   {sc.label} INCIDENT
                 </span>
-                <span className="text-[10px] text-slate-500 font-mono">
+                <span className="text-xs text-slate-400 font-mono">
                   {activeIncident.id}
                 </span>
               </div>
@@ -308,10 +308,10 @@ export function EmergencyMode() {
                 </div>
                 <div className="flex-1 min-w-0 pb-2">
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-mono text-slate-500">
+                    <span className="text-xs font-mono text-slate-400">
                       {event.time}
                     </span>
-                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-white/[0.04] text-slate-500">
+                    <span className="text-xs px-1.5 py-0.5 rounded-full bg-white/[0.04] text-slate-400">
                       {event.agent}
                     </span>
                   </div>
@@ -338,7 +338,7 @@ export function EmergencyMode() {
                   <div className="w-1.5 h-1.5 rounded-full bg-red-400" />
                   <span className="text-xs text-slate-200">{asset}</span>
                   {i === 0 && (
-                    <span className="ml-auto text-[10px] text-red-400 font-bold">
+                    <span className="ml-auto text-xs text-red-400 font-bold">
                       Primary
                     </span>
                   )}
@@ -376,12 +376,12 @@ export function EmergencyMode() {
                   className="flex items-center gap-3 text-xs"
                 >
                   <div
-                    className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
+                    className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold ${
                       step.status === "in_progress"
                         ? "bg-teal-500/20 text-teal-400 ring-1 ring-teal-500/40"
                         : step.status === "completed"
                           ? "bg-green-500/20 text-green-400"
-                          : "bg-white/[0.05] text-slate-600"
+                          : "bg-white/[0.05] text-slate-400"
                     }`}
                   >
                     {i + 1}
@@ -391,11 +391,11 @@ export function EmergencyMode() {
                   >
                     {step.step}
                   </span>
-                  <span className="text-slate-600 font-mono">{step.eta}</span>
+                  <span className="text-slate-400 font-mono">{step.eta}</span>
                 </div>
               ))}
             </div>
-            <div className="mt-3 pt-3 border-t border-white/[0.06] text-[10px] text-slate-500">
+            <div className="mt-3 pt-3 border-t border-white/[0.06] text-xs text-slate-400">
               Estimated return to service: 08:45 UTC
             </div>
           </div>

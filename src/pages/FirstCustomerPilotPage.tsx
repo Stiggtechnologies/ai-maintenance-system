@@ -54,8 +54,8 @@ export function FirstCustomerPilotPage() {
             First 3 design partners
           </div>
           <h1 className="mt-5 max-w-4xl text-4xl font-bold leading-tight md:text-6xl">
-            Turn one work-order export into a reliability decision package in
-            14 days.
+            Turn one work-order export into a reliability decision package in 14
+            days.
           </h1>
           <p className="mt-5 max-w-3xl text-lg leading-8 text-slate-300">
             SyncAI Reliability Engineering Copilot helps maintenance and
@@ -82,8 +82,16 @@ export function FirstCustomerPilotPage() {
 
         <div className="mt-10 grid gap-4 md:grid-cols-3">
           <Metric icon={Gauge} label="Pilot length" value="14 days" />
-          <Metric icon={BarChart3} label="Design partner fee" value="CAD $7.5K" />
-          <Metric icon={ShieldCheck} label="Operating mode" value="Decision support" />
+          <Metric
+            icon={BarChart3}
+            label="Design partner fee"
+            value="CAD $7.5K"
+          />
+          <Metric
+            icon={ShieldCheck}
+            label="Operating mode"
+            value="Decision support"
+          />
         </div>
       </section>
 
@@ -94,14 +102,19 @@ export function FirstCustomerPilotPage() {
               <ClipboardCheck size={17} />
               What the pilot delivers
             </div>
-            <h2 className="mt-3 text-2xl font-bold">Concrete outputs, not a generic AI demo.</h2>
+            <h2 className="mt-3 text-2xl font-bold">
+              Concrete outputs, not a generic AI demo.
+            </h2>
             <div className="mt-6 grid gap-3 sm:grid-cols-2">
               {deliverables.map((item) => (
                 <div
                   key={item}
                   className="flex gap-3 rounded-lg border border-white/[0.06] bg-white/[0.03] p-4 text-sm text-slate-300"
                 >
-                  <CheckCircle2 size={17} className="mt-0.5 shrink-0 text-teal-300" />
+                  <CheckCircle2
+                    size={17}
+                    className="mt-0.5 shrink-0 text-teal-300"
+                  />
                   {item}
                 </div>
               ))}
@@ -149,7 +162,7 @@ function Metric({
   return (
     <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] p-5">
       <Icon size={18} className="text-teal-300" />
-      <div className="mt-4 text-xs font-semibold uppercase text-slate-500">
+      <div className="mt-4 text-xs font-semibold uppercase text-slate-400">
         {label}
       </div>
       <div className="mt-1 text-2xl font-bold">{value}</div>

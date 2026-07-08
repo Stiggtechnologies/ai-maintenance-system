@@ -1,6 +1,22 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Factory, Flame, Cpu, Building2, Landmark, Eye, ArrowRight, ChartBar as BarChart3, Package, TriangleAlert as AlertTriangle, Shield, Gauge, Search, Filter, Sparkles } from "lucide-react";
+import {
+  Factory,
+  Flame,
+  Cpu,
+  Building2,
+  Landmark,
+  Eye,
+  ArrowRight,
+  ChartBar as BarChart3,
+  Package,
+  TriangleAlert as AlertTriangle,
+  Shield,
+  Gauge,
+  Search,
+  Filter,
+  Sparkles,
+} from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { TemplatePreviewModal } from "../components/TemplatePreviewModal";
@@ -152,7 +168,7 @@ export function TemplateSelectorPage() {
         return familySlugs.some(
           (slug) =>
             t.slug?.includes(slug) ||
-            t.master_family?.toLowerCase().includes(slug.replace("-", " "))
+            t.master_family?.toLowerCase().includes(slug.replace("-", " ")),
         );
       }
     }
@@ -170,7 +186,7 @@ export function TemplateSelectorPage() {
       <div className="flex items-center justify-center h-64">
         <div className="flex flex-col items-center gap-3">
           <div className="w-8 h-8 border-2 border-teal-500 border-t-transparent rounded-full animate-spin" />
-          <p className="text-sm text-slate-500">Loading templates...</p>
+          <p className="text-sm text-slate-400">Loading templates...</p>
         </div>
       </div>
     );
@@ -181,14 +197,15 @@ export function TemplateSelectorPage() {
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-[#E6EDF3]">New Deployment</h1>
-        <p className="text-sm text-slate-500 mt-1">
+        <p className="text-sm text-slate-400 mt-1">
           Select an industry template to start configuring your deployment.
         </p>
         {fromSetup && industry && (
           <div className="mt-3 bg-teal-500/5 border border-teal-500/20 rounded-lg p-3 flex items-center gap-2">
             <Sparkles size={14} className="text-teal-400 flex-shrink-0" />
             <span className="text-xs text-slate-400">
-              Showing templates recommended for your industry. Use search or filters to see all.
+              Showing templates recommended for your industry. Use search or
+              filters to see all.
             </span>
           </div>
         )}
@@ -262,7 +279,7 @@ export function TemplateSelectorPage() {
           <h3 className="text-lg font-medium text-slate-300">
             No templates found
           </h3>
-          <p className="text-sm text-slate-500 mt-1">
+          <p className="text-sm text-slate-400 mt-1">
             {searchQuery || filterFamily
               ? "Try adjusting your search or filters."
               : "No deployment templates are available yet."}
@@ -309,7 +326,7 @@ export function TemplateSelectorPage() {
                         {template.name}
                       </h3>
                       {template.master_template_name && (
-                        <p className="text-xs text-slate-500 mt-0.5">
+                        <p className="text-xs text-slate-400 mt-0.5">
                           Built on: {template.master_template_name}
                         </p>
                       )}
@@ -354,7 +371,7 @@ export function TemplateSelectorPage() {
                   <Shield size={13} className="text-slate-400" />
                   <span className="text-slate-400">{governanceProfile}</span>
                   <span className="text-slate-300">|</span>
-                  <span className="text-slate-500">{autonomyMode}</span>
+                  <span className="text-slate-400">{autonomyMode}</span>
                 </div>
 
                 {/* Actions */}

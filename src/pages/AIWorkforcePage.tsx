@@ -105,7 +105,7 @@ const statusConfig: Record<
   },
   idle: {
     label: "Idle",
-    color: "text-slate-500",
+    color: "text-slate-400",
     bg: "bg-slate-500/10",
     dot: "bg-slate-600",
     icon: Pause,
@@ -152,7 +152,7 @@ function AgentCard({ agent }: { agent: Agent }) {
                 <h3 className="text-sm font-semibold text-slate-200 leading-tight">
                   {agent.name}
                 </h3>
-                <p className="text-[11px] text-slate-500 mt-0.5 leading-snug">
+                <p className="text-[11px] text-slate-400 mt-0.5 leading-snug">
                   {agent.purpose}
                 </p>
               </div>
@@ -175,22 +175,22 @@ function AgentCard({ agent }: { agent: Agent }) {
                 <div className="text-sm font-bold text-slate-200">
                   {agent.recommendationsGenerated}
                 </div>
-                <div className="text-[10px] text-slate-600">Recs</div>
+                <div className="text-xs text-slate-400">Recs</div>
               </div>
               <div className="text-center">
                 <div className="text-sm font-bold text-slate-200">
                   {agent.actionsExecuted}
                 </div>
-                <div className="text-[10px] text-slate-600">Actions</div>
+                <div className="text-xs text-slate-400">Actions</div>
               </div>
               <div className="text-center">
                 <div className="text-sm font-bold text-slate-200">
                   {agent.confidence}%
                 </div>
-                <div className="text-[10px] text-slate-600">Confidence</div>
+                <div className="text-xs text-slate-400">Confidence</div>
               </div>
               <div
-                className={`ml-auto px-2 py-0.5 rounded-full border text-[10px] font-semibold ${autonomyColors[agent.autonomyMode]}`}
+                className={`ml-auto px-2 py-0.5 rounded-full border text-xs font-semibold ${autonomyColors[agent.autonomyMode]}`}
               >
                 {agent.autonomyMode}
               </div>
@@ -208,11 +208,11 @@ function AgentCard({ agent }: { agent: Agent }) {
       >
         <div className="px-4 pb-4 border-t border-white/[0.05] pt-3 space-y-2">
           <div className="text-[11px] text-slate-400">
-            <span className="text-slate-600">Last action: </span>
+            <span className="text-slate-400">Last action: </span>
             {agent.lastAction}
           </div>
           <div className="text-[11px] text-slate-400">
-            <span className="text-slate-600">Supervisor: </span>
+            <span className="text-slate-400">Supervisor: </span>
             {agent.supervisor}
           </div>
           {agent.approvalRequired && (
@@ -269,7 +269,7 @@ export function AIWorkforce() {
           <h1 className="text-2xl font-bold text-white tracking-tight">
             AI Workforce
           </h1>
-          <p className="text-sm text-slate-500 mt-0.5">
+          <p className="text-sm text-slate-400 mt-0.5">
             15 specialized agents · Your digital M&R department
           </p>
         </div>
@@ -302,14 +302,14 @@ export function AIWorkforce() {
             >
               {s.value}
             </div>
-            <div className="text-[10px] text-slate-600 mt-0.5">{s.label}</div>
+            <div className="text-xs text-slate-400 mt-0.5">{s.label}</div>
           </div>
         ))}
       </div>
 
       {/* Filters */}
       <div className="flex items-center gap-2 flex-wrap">
-        <span className="text-xs text-slate-600">Status:</span>
+        <span className="text-xs text-slate-400">Status:</span>
         {(["all", "active", "processing", "idle"] as const).map((f) => (
           <button
             key={f}
@@ -317,13 +317,13 @@ export function AIWorkforce() {
             className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
               filter === f
                 ? "bg-teal-500/20 text-teal-400 border border-teal-500/30"
-                : "bg-white/[0.03] border border-white/[0.06] text-slate-500 hover:text-slate-300"
+                : "bg-white/[0.03] border border-white/[0.06] text-slate-400 hover:text-slate-300"
             }`}
           >
             {f === "all" ? "All" : f.charAt(0).toUpperCase() + f.slice(1)}
           </button>
         ))}
-        <span className="text-xs text-slate-600 ml-4">Autonomy:</span>
+        <span className="text-xs text-slate-400 ml-4">Autonomy:</span>
         {(["all", "Human-Led", "Human-in-the-Loop", "Autonomous"] as const).map(
           (f) => (
             <button
@@ -332,7 +332,7 @@ export function AIWorkforce() {
               className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
                 autonomyFilter === f
                   ? "bg-teal-500/20 text-teal-400 border border-teal-500/30"
-                  : "bg-white/[0.03] border border-white/[0.06] text-slate-500 hover:text-slate-300"
+                  : "bg-white/[0.03] border border-white/[0.06] text-slate-400 hover:text-slate-300"
               }`}
             >
               {f === "all" ? "All" : f}
@@ -363,7 +363,7 @@ export function AIWorkforce() {
       </div>
 
       {filtered.length === 0 && (
-        <div className="text-center py-16 text-slate-600">
+        <div className="text-center py-16 text-slate-400">
           <Bot className="w-10 h-10 mx-auto mb-3 opacity-50" />
           <p className="text-sm">No agents match the selected filters</p>
         </div>

@@ -170,12 +170,12 @@ function EvidenceDrawer({
           <button
             aria-label="Close"
             onClick={onClose}
-            className="text-slate-500 hover:text-white"
+            className="text-slate-400 hover:text-white"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
-        <p className="text-xs text-slate-500 mb-4">
+        <p className="text-xs text-slate-400 mb-4">
           {rec.title} · {rec.asset?.name ?? "—"}
         </p>
         {loading && <LoadingState label="Loading evidence…" />}
@@ -193,12 +193,12 @@ function EvidenceDrawer({
                 <span className="text-sm font-semibold text-slate-200">
                   {e.evidence_type}
                 </span>
-                <span className="text-[10px] font-mono text-teal-400">
+                <span className="text-xs font-mono text-teal-400">
                   +{e.confidence_contribution}% conf
                 </span>
               </div>
               <p className="text-xs text-slate-400 mt-1">{e.description}</p>
-              <div className="grid grid-cols-2 gap-x-4 gap-y-1 mt-2 text-[10px] text-slate-500">
+              <div className="grid grid-cols-2 gap-x-4 gap-y-1 mt-2 text-xs text-slate-400">
                 <div>
                   Source:{" "}
                   <span className="text-slate-400">{e.source_system}</span>
@@ -254,12 +254,12 @@ function ScenarioModal({
           <button
             aria-label="Close"
             onClick={onClose}
-            className="text-slate-500 hover:text-white"
+            className="text-slate-400 hover:text-white"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
-        <p className="text-xs text-slate-500 mb-4">
+        <p className="text-xs text-slate-400 mb-4">
           {rec.title} · {rec.asset?.name ?? "—"}
         </p>
         {loading && <LoadingState label="Modeling scenarios…" />}
@@ -278,7 +278,7 @@ function ScenarioModal({
                   {s.label}
                 </span>
                 {s.recommended && (
-                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-teal-500/20 text-teal-400">
+                  <span className="text-xs px-1.5 py-0.5 rounded-full bg-teal-500/20 text-teal-400">
                     Recommended
                   </span>
                 )}
@@ -382,11 +382,11 @@ function RecommendationCard({
               {rec.title}
             </h4>
             <div className="flex items-center gap-2 flex-shrink-0">
-              <span className="text-[10px] text-slate-500 font-mono">
+              <span className="text-xs text-slate-400 font-mono">
                 {rec.confidence}% conf
               </span>
               <ChevronRight
-                className={`w-3.5 h-3.5 text-slate-600 transition-transform ${expanded ? "rotate-90" : ""}`}
+                className={`w-3.5 h-3.5 text-slate-400 transition-transform ${expanded ? "rotate-90" : ""}`}
               />
             </div>
           </div>
@@ -398,7 +398,7 @@ function RecommendationCard({
               {rec.impact}
             </span>
             <span
-              className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${autonomous ? "bg-teal-500/20 text-teal-400" : "bg-amber-500/20 text-amber-400"}`}
+              className={`text-xs px-1.5 py-0.5 rounded-full font-semibold ${autonomous ? "bg-teal-500/20 text-teal-400" : "bg-amber-500/20 text-amber-400"}`}
             >
               {rec.approval_required}
             </span>
@@ -408,24 +408,24 @@ function RecommendationCard({
       {expanded && (
         <div className="mt-3 pt-3 border-t border-white/[0.06] space-y-2">
           <div className="text-xs text-slate-300">
-            <span className="text-slate-500">Recommended: </span>
+            <span className="text-slate-400">Recommended: </span>
             {rec.action}
           </div>
           <div className="grid grid-cols-2 gap-2 text-[11px]">
             <div>
-              <span className="text-slate-600">Accountable: </span>
+              <span className="text-slate-400">Accountable: </span>
               <span className="text-slate-300">{rec.accountable}</span>
             </div>
             <div>
-              <span className="text-slate-600">Responsible: </span>
+              <span className="text-slate-400">Responsible: </span>
               <span className="text-slate-300">{rec.responsible}</span>
             </div>
             <div>
-              <span className="text-slate-600">Consulted: </span>
+              <span className="text-slate-400">Consulted: </span>
               <span className="text-slate-300">{rec.consulted}</span>
             </div>
             <div>
-              <span className="text-slate-600">Informed: </span>
+              <span className="text-slate-400">Informed: </span>
               <span className="text-slate-300">{rec.informed}</span>
             </div>
           </div>
@@ -590,7 +590,7 @@ export function MissionControl() {
 
       <div className="flex items-center justify-between">
         <div>
-          <div className="flex items-center gap-2 text-[11px] text-slate-600 mb-1">
+          <div className="flex items-center gap-2 text-[11px] text-slate-400 mb-1">
             <Radio className="w-3 h-3 text-teal-400" />
             <span className="text-teal-400 font-medium">LIVE</span>
             <span>· Mission Control · {ROLE_LABEL[role] ?? role} view</span>
@@ -598,7 +598,7 @@ export function MissionControl() {
           <h1 className="text-2xl font-bold text-white tracking-tight">
             Mission Control
           </h1>
-          <p className="text-sm text-slate-500 mt-0.5">
+          <p className="text-sm text-slate-400 mt-0.5">
             Can we safely and reliably deliver the production plan?
           </p>
         </div>
@@ -611,7 +611,7 @@ export function MissionControl() {
         <>
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-1 bg-[#0D1520] border border-white/[0.06] rounded-2xl p-6 flex flex-col items-center justify-center">
-              <div className="text-xs text-slate-500 uppercase tracking-widest mb-4">
+              <div className="text-xs text-slate-400 uppercase tracking-widest mb-4">
                 Mission Readiness
               </div>
               <div className="relative">
@@ -622,7 +622,7 @@ export function MissionControl() {
                   >
                     {data.readinessScore}
                   </span>
-                  <span className="text-xs text-slate-500 font-medium">
+                  <span className="text-xs text-slate-400 font-medium">
                     / 100
                   </span>
                 </div>
@@ -691,16 +691,14 @@ export function MissionControl() {
                     <div className="p-1.5 rounded-lg text-teal-400 bg-teal-500/10">
                       <Icon className="w-3.5 h-3.5" />
                     </div>
-                    <span className="text-[11px] text-slate-500">
+                    <span className="text-[11px] text-slate-400">
                       {s.label}
                     </span>
                   </div>
                   <div className="text-2xl font-black text-teal-400">
                     {s.value}
                   </div>
-                  <div className="text-[10px] text-slate-600 mt-0.5">
-                    {s.sub}
-                  </div>
+                  <div className="text-xs text-slate-400 mt-0.5">{s.sub}</div>
                 </div>
               );
             })}
@@ -734,11 +732,11 @@ export function MissionControl() {
                             {risk.exposure}
                           </span>
                         </div>
-                        <div className="text-xs text-slate-500 mt-0.5">
+                        <div className="text-xs text-slate-400 mt-0.5">
                           {risk.probability}% risk score · {risk.missionImpact}{" "}
                           impact
                         </div>
-                        <div className="text-[10px] text-slate-500 mt-1">
+                        <div className="text-xs text-slate-400 mt-1">
                           {risk.recommendedAction}
                         </div>
                       </div>
@@ -783,7 +781,7 @@ export function MissionControl() {
                 <h2 className="text-sm font-semibold text-slate-200">
                   Onboarding Readiness Risks
                 </h2>
-                <span className="text-[10px] text-slate-600 ml-auto">
+                <span className="text-xs text-slate-400 ml-auto">
                   Newly onboarded assets not yet reliability-ready
                 </span>
               </div>
@@ -800,12 +798,12 @@ export function MissionControl() {
                           {signal.assetId} · {signal.classLabel}
                         </span>
                         <span
-                          className={`text-[10px] px-1.5 py-0.5 rounded-full border ${level.border} ${level.color} font-semibold capitalize`}
+                          className={`text-xs px-1.5 py-0.5 rounded-full border ${level.border} ${level.color} font-semibold capitalize`}
                         >
                           {signal.urgency}
                         </span>
                       </div>
-                      <div className="text-xs text-slate-500 mt-1">
+                      <div className="text-xs text-slate-400 mt-1">
                         {signal.completionScore}% onboarded · {signal.readiness}{" "}
                         readiness
                       </div>
@@ -852,7 +850,7 @@ export function MissionControl() {
                       style={{ width: `${item.probability}%` }}
                     />
                   </div>
-                  <div className="text-[10px] text-slate-500 mt-1">
+                  <div className="text-xs text-slate-400 mt-1">
                     {item.probability}% risk score
                   </div>
                 </div>

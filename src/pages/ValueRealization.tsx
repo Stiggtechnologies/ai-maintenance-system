@@ -206,7 +206,7 @@ export function ValueRealization() {
           <h1 className="text-2xl font-bold text-white tracking-tight">
             Value Realization
           </h1>
-          <p className="text-sm text-slate-500 mt-0.5">
+          <p className="text-sm text-slate-400 mt-0.5">
             What has SyncAI saved, improved, protected, and accelerated?
           </p>
         </div>
@@ -231,18 +231,18 @@ export function ValueRealization() {
                 <h3 className="text-sm font-semibold text-slate-200">
                   90-Day Pilot Scorecard
                 </h3>
-                <span className="text-[10px] text-slate-600 ml-auto">
+                <span className="text-xs text-slate-400 ml-auto">
                   Live · derived from operating data · started{" "}
                   {scorecard.data.pilot_started_at.slice(0, 10)}
                 </span>
               </div>
               <div className="mb-4">
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-[10px] text-slate-600">
+                  <span className="text-xs text-slate-400">
                     Day {scorecard.data.pilot_day} of{" "}
                     {scorecard.data.pilot_length_days}
                   </span>
-                  <span className="text-[10px] font-bold text-teal-400">
+                  <span className="text-xs font-bold text-teal-400">
                     {Math.round(
                       (scorecard.data.pilot_day /
                         scorecard.data.pilot_length_days) *
@@ -302,7 +302,7 @@ export function ValueRealization() {
                     <div className="text-lg font-black text-teal-400">
                       {s.value}
                     </div>
-                    <div className="text-[10px] text-slate-500 mt-0.5">
+                    <div className="text-xs text-slate-400 mt-0.5">
                       {s.label}
                     </div>
                   </div>
@@ -319,7 +319,7 @@ export function ValueRealization() {
                 <h3 className="text-sm font-semibold text-slate-200">
                   Pending Verification
                 </h3>
-                <span className="text-[10px] text-slate-600 ml-auto">
+                <span className="text-xs text-slate-400 ml-auto">
                   Projected value requires operator sign-off before it counts
                 </span>
               </div>
@@ -333,7 +333,7 @@ export function ValueRealization() {
                       <div className="text-sm text-slate-200">
                         {m.label ?? m.metric_type}
                       </div>
-                      <div className="text-[10px] text-slate-500 mt-0.5">
+                      <div className="text-xs text-slate-400 mt-0.5">
                         {m.period ?? "—"} · projected
                       </div>
                     </div>
@@ -373,7 +373,7 @@ export function ValueRealization() {
                 key={s.label}
                 className="bg-[#0D1520] border border-white/[0.06] rounded-xl p-4"
               >
-                <div className="text-[10px] text-slate-500 mb-1">{s.label}</div>
+                <div className="text-xs text-slate-400 mb-1">{s.label}</div>
                 <div className="text-xl font-black text-teal-400">
                   {s.value}
                 </div>
@@ -416,7 +416,7 @@ export function ValueRealization() {
                       <div className="text-sm font-semibold text-slate-200">
                         {cat.meta.label}
                       </div>
-                      <div className="text-[10px] text-slate-500 mt-0.5">
+                      <div className="text-xs text-slate-400 mt-0.5">
                         {cat.breakdown}
                       </div>
                     </div>
@@ -436,7 +436,7 @@ export function ValueRealization() {
                 <h3 className="text-sm font-semibold text-slate-200">
                   Onboarding Value Baselines
                 </h3>
-                <span className="text-[10px] text-amber-400 ml-auto font-medium">
+                <span className="text-xs text-amber-400 ml-auto font-medium">
                   Baseline · pending validation
                 </span>
               </div>
@@ -450,13 +450,13 @@ export function ValueRealization() {
                       <span className="text-sm font-semibold text-slate-200">
                         {baseline.assetId} · {baseline.classLabel}
                       </span>
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20 font-semibold">
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20 font-semibold">
                         baseline_pending_validation
                       </span>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1.5 mt-3 text-xs">
                       <div>
-                        <span className="text-slate-600">
+                        <span className="text-slate-400">
                           Risk exposure baseline:{" "}
                         </span>
                         <span className="text-slate-300">
@@ -464,7 +464,7 @@ export function ValueRealization() {
                         </span>
                       </div>
                       <div>
-                        <span className="text-slate-600">
+                        <span className="text-slate-400">
                           Downtime exposure:{" "}
                         </span>
                         <span className="text-slate-300">
@@ -472,7 +472,7 @@ export function ValueRealization() {
                         </span>
                       </div>
                       <div>
-                        <span className="text-slate-600">
+                        <span className="text-slate-400">
                           Maintenance cost baseline:{" "}
                         </span>
                         <span className="text-slate-300">
@@ -480,7 +480,7 @@ export function ValueRealization() {
                         </span>
                       </div>
                       <div>
-                        <span className="text-slate-600">
+                        <span className="text-slate-400">
                           Projected annualized value:{" "}
                         </span>
                         <span className="text-slate-300">
@@ -538,7 +538,7 @@ export function ValueRealization() {
                     <div className="text-sm text-slate-200">
                       {m.label ?? m.metric_type}
                     </div>
-                    <div className="text-[10px] text-slate-500 mt-0.5">
+                    <div className="text-xs text-slate-400 mt-0.5">
                       {m.period ?? "—"} · {m.status}
                     </div>
                   </div>

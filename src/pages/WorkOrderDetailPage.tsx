@@ -358,7 +358,7 @@ export function WorkOrderDetailPage() {
 
   const statusColors: Record<string, string> = {
     new: "bg-teal-500/10 text-teal-400 border border-teal-500/20",
-    pending: "bg-slate-100 text-slate-700",
+    pending: "bg-slate-100 text-slate-400",
     in_progress: "bg-amber-500/10 text-amber-400 border border-amber-500/20",
     pending_approval:
       "bg-orange-500/10 text-orange-400 border border-orange-500/20",
@@ -399,7 +399,7 @@ export function WorkOrderDetailPage() {
   if (!workOrder) {
     return (
       <div className="flex flex-col items-center justify-center h-full gap-4">
-        <div className="text-slate-500">Work order not found</div>
+        <div className="text-slate-400">Work order not found</div>
         <button
           onClick={() => navigate("/work")}
           className="text-teal-400 hover:text-teal-300 font-medium flex items-center gap-1"
@@ -632,7 +632,7 @@ export function WorkOrderDetailPage() {
                 >
                   Risk: {formatLabel(assessment.risk_level)}
                 </span>
-                <span className="text-xs text-slate-500">
+                <span className="text-xs text-slate-400">
                   Confidence: {Math.round(assessment.confidence * 100)}%
                 </span>
                 <span className="text-xs text-slate-400 font-mono">
@@ -641,15 +641,15 @@ export function WorkOrderDetailPage() {
               </div>
 
               {/* Summary */}
-              <p className="text-sm text-slate-700">{assessment.raw_summary}</p>
+              <p className="text-sm text-slate-400">{assessment.raw_summary}</p>
 
               {/* Likely causes */}
               {assessment.likely_causes.length > 0 && (
                 <div>
-                  <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">
+                  <h4 className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">
                     Likely Causes
                   </h4>
-                  <ul className="text-sm text-slate-700 list-disc list-inside space-y-0.5">
+                  <ul className="text-sm text-slate-400 list-disc list-inside space-y-0.5">
                     {assessment.likely_causes.map((c, i) => (
                       <li key={i}>{c}</li>
                     ))}
@@ -660,10 +660,10 @@ export function WorkOrderDetailPage() {
               {/* Recommended actions */}
               {assessment.recommended_actions.length > 0 && (
                 <div>
-                  <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">
+                  <h4 className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">
                     Recommended Actions
                   </h4>
-                  <ul className="text-sm text-slate-700 list-disc list-inside space-y-0.5">
+                  <ul className="text-sm text-slate-400 list-disc list-inside space-y-0.5">
                     {assessment.recommended_actions.map((a, i) => (
                       <li key={i}>{a}</li>
                     ))}
@@ -716,7 +716,7 @@ export function WorkOrderDetailPage() {
           )}
 
           {!assessment && !assessmentLoading && !assessmentError && (
-            <p className="text-sm text-slate-500">
+            <p className="text-sm text-slate-400">
               Request an AI-powered reliability assessment for this work order.
               The recommendation will require manager approval before any action
               is taken.
@@ -795,7 +795,7 @@ export function WorkOrderDetailPage() {
                   {classification.risk_level.charAt(0).toUpperCase() +
                     classification.risk_level.slice(1)}
                 </span>
-                <span className="text-xs text-slate-500">
+                <span className="text-xs text-slate-400">
                   Confidence: {Math.round(classification.confidence * 100)}%
                 </span>
                 <span className="text-xs text-slate-400 font-mono">
@@ -804,14 +804,14 @@ export function WorkOrderDetailPage() {
               </div>
 
               {/* Summary */}
-              <p className="text-sm text-slate-700">
+              <p className="text-sm text-slate-400">
                 {classification.raw_summary}
               </p>
 
               {/* Classification details */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="bg-[#0B0F14] rounded-lg p-3">
-                  <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">
+                  <div className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">
                     Failure Mode
                   </div>
                   <div className="text-sm font-medium text-[#E6EDF3]">
@@ -819,7 +819,7 @@ export function WorkOrderDetailPage() {
                   </div>
                 </div>
                 <div className="bg-[#0B0F14] rounded-lg p-3">
-                  <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">
+                  <div className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">
                     Family
                   </div>
                   <div className="text-sm font-medium text-[#E6EDF3] capitalize">
@@ -827,7 +827,7 @@ export function WorkOrderDetailPage() {
                   </div>
                 </div>
                 <div className="bg-[#0B0F14] rounded-lg p-3">
-                  <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">
+                  <div className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">
                     Cause Family
                   </div>
                   <div className="text-sm font-medium text-[#E6EDF3] capitalize">
@@ -835,10 +835,10 @@ export function WorkOrderDetailPage() {
                   </div>
                 </div>
                 <div className="bg-[#0B0F14] rounded-lg p-3 sm:col-span-2">
-                  <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">
+                  <div className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">
                     Next Diagnostic Step
                   </div>
-                  <div className="text-sm text-slate-700">
+                  <div className="text-sm text-slate-400">
                     {classification.recommended_next_diagnostic_step}
                   </div>
                 </div>
@@ -861,7 +861,7 @@ export function WorkOrderDetailPage() {
           {!classification &&
             !classificationLoading &&
             !classificationError && (
-              <p className="text-sm text-slate-500">
+              <p className="text-sm text-slate-400">
                 Classify the likely failure mode using FMEA/RCM methodology for
                 FRACAS and reliability reporting.
               </p>
@@ -879,7 +879,7 @@ export function WorkOrderDetailPage() {
               className={`pb-2.5 text-sm font-medium border-b-2 transition-colors ${
                 activeTab === tab.key
                   ? "border-teal-500 text-teal-400"
-                  : "border-transparent text-slate-500 hover:text-slate-700"
+                  : "border-transparent text-slate-400 hover:text-slate-400"
               }`}
             >
               {tab.label}
@@ -893,7 +893,7 @@ export function WorkOrderDetailPage() {
         <div className="glass border border-white/[0.06] rounded-xl p-6 space-y-5">
           {workOrder.work_type && (
             <div>
-              <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-1">
+              <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wide mb-1">
                 Work Type
               </h3>
               <p className="text-[#E6EDF3]">
@@ -902,19 +902,19 @@ export function WorkOrderDetailPage() {
             </div>
           )}
           <div>
-            <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-1">
+            <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wide mb-1">
               Description
             </h3>
-            <p className="text-slate-700 whitespace-pre-wrap">
+            <p className="text-slate-400 whitespace-pre-wrap">
               {workOrder.description || "No description provided."}
             </p>
           </div>
           {workOrder.closeout_notes && (
             <div>
-              <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-1">
+              <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wide mb-1">
                 Closeout Notes
               </h3>
-              <p className="text-slate-700 whitespace-pre-wrap">
+              <p className="text-slate-400 whitespace-pre-wrap">
                 {workOrder.closeout_notes}
               </p>
             </div>
@@ -925,14 +925,14 @@ export function WorkOrderDetailPage() {
       {activeTab === "tasks" && (
         <div className="glass border border-white/[0.06] rounded-xl p-6">
           <div className="flex items-center gap-2 mb-4">
-            <FileText size={18} className="text-slate-500" />
+            <FileText size={18} className="text-slate-400" />
             <h2 className="text-lg font-semibold text-[#E6EDF3]">Tasks</h2>
             <span className="ml-auto px-2 py-0.5 bg-slate-100 text-slate-400 text-xs font-medium rounded">
               {tasks.length}
             </span>
           </div>
           {tasks.length === 0 ? (
-            <p className="text-slate-500 text-sm">
+            <p className="text-slate-400 text-sm">
               No tasks for this work order.
             </p>
           ) : (
@@ -964,7 +964,7 @@ export function WorkOrderDetailPage() {
                         {task.description}
                       </span>
                     </div>
-                    <div className="flex items-center gap-3 mt-1 text-xs text-slate-500">
+                    <div className="flex items-center gap-3 mt-1 text-xs text-slate-400">
                       <span
                         className={`px-1.5 py-0.5 rounded ${
                           statusColors[task.status] ||
@@ -997,13 +997,13 @@ export function WorkOrderDetailPage() {
       {activeTab === "history" && (
         <div className="glass border border-white/[0.06] rounded-xl p-6">
           <div className="flex items-center gap-2 mb-4">
-            <Clock size={18} className="text-slate-500" />
+            <Clock size={18} className="text-slate-400" />
             <h2 className="text-lg font-semibold text-[#E6EDF3]">
               Status History
             </h2>
           </div>
           {statusHistory.length === 0 ? (
-            <p className="text-slate-500 text-sm">
+            <p className="text-slate-400 text-sm">
               No status changes recorded.
             </p>
           ) : (
@@ -1035,7 +1035,7 @@ export function WorkOrderDetailPage() {
                           {formatLabel(entry.status_to || "unknown")}
                         </span>
                       </div>
-                      <div className="flex items-center gap-3 mt-1 text-xs text-slate-500">
+                      <div className="flex items-center gap-3 mt-1 text-xs text-slate-400">
                         <span>{formatDate(entry.changed_at)}</span>
                         {entry.changed_by && (
                           <span className="flex items-center gap-1">
@@ -1074,7 +1074,7 @@ function InfoItem({
     <div className="flex items-start gap-2">
       <div className="mt-0.5">{icon}</div>
       <div>
-        <div className="text-xs text-slate-500 font-medium">{label}</div>
+        <div className="text-xs text-slate-400 font-medium">{label}</div>
         <div className="text-sm text-[#E6EDF3] font-medium">{value}</div>
       </div>
     </div>

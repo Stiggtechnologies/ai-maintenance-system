@@ -380,15 +380,15 @@ function CommandCenterCard({
             <h3 className="text-sm font-bold text-slate-200 leading-tight">
               {cc.name}
             </h3>
-            <ChevronRight className="w-4 h-4 text-slate-600 group-hover:text-teal-400 transition-colors" />
+            <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-teal-400 transition-colors" />
           </div>
-          <div className={`text-[10px] font-semibold mt-0.5 ${c.text}`}>
+          <div className={`text-xs font-semibold mt-0.5 ${c.text}`}>
             {cc.role}
           </div>
         </div>
       </div>
 
-      <p className="text-xs text-slate-500 mb-4 leading-relaxed">
+      <p className="text-xs text-slate-400 mb-4 leading-relaxed">
         {cc.description}
       </p>
 
@@ -396,9 +396,7 @@ function CommandCenterCard({
       <div className="grid grid-cols-2 gap-2 mb-4">
         {cc.kpis.slice(0, 4).map((kpi) => (
           <div key={kpi.label} className="bg-white/[0.02] rounded-lg p-2">
-            <div className="text-[10px] text-slate-600 truncate">
-              {kpi.label}
-            </div>
+            <div className="text-xs text-slate-400 truncate">{kpi.label}</div>
             <div className="flex items-center gap-1 mt-0.5">
               <span className="text-sm font-bold text-slate-200">
                 {kpi.value}
@@ -429,7 +427,7 @@ function CommandCenterCard({
         {cc.actions.slice(0, 2).map((action) => (
           <span
             key={action}
-            className="text-[10px] px-2 py-1 bg-white/[0.03] border border-white/[0.06] rounded-full text-slate-500"
+            className="text-xs px-2 py-1 bg-white/[0.03] border border-white/[0.06] rounded-full text-slate-400"
           >
             {action}
           </span>
@@ -454,11 +452,11 @@ function CommandCenterDetail({
       <div className="flex items-center gap-3">
         <button
           onClick={onBack}
-          className="text-slate-500 hover:text-slate-200 transition-colors text-xs flex items-center gap-1"
+          className="text-slate-400 hover:text-slate-200 transition-colors text-xs flex items-center gap-1"
         >
           <ChevronRight className="w-3 h-3 rotate-180" /> Command Centers
         </button>
-        <ChevronRight className="w-3 h-3 text-slate-700" />
+        <ChevronRight className="w-3 h-3 text-slate-400" />
         <span className="text-xs text-slate-400">{cc.name}</span>
       </div>
 
@@ -473,7 +471,7 @@ function CommandCenterDetail({
           <div className={`text-sm font-semibold mt-0.5 ${c.text}`}>
             {cc.role}
           </div>
-          <p className="text-sm text-slate-500 mt-1">{cc.description}</p>
+          <p className="text-sm text-slate-400 mt-1">{cc.description}</p>
         </div>
       </div>
 
@@ -484,7 +482,7 @@ function CommandCenterDetail({
             key={kpi.label}
             className="bg-[#0D1520] border border-white/[0.06] rounded-xl p-3 text-center"
           >
-            <div className="text-[10px] text-slate-600">{kpi.label}</div>
+            <div className="text-xs text-slate-400">{kpi.label}</div>
             <div className={`text-xl font-black mt-1 ${c.text}`}>
               {kpi.value}
             </div>
@@ -496,7 +494,7 @@ function CommandCenterDetail({
                 <ArrowUpRight className="w-3 h-3 text-amber-400 rotate-180" />
               )}
               {kpi.trend === "stable" && (
-                <BarChart2 className="w-3 h-3 text-slate-600" />
+                <BarChart2 className="w-3 h-3 text-slate-400" />
               )}
             </div>
           </div>
@@ -536,7 +534,7 @@ function CommandCenterDetail({
             >
               <CheckCircle className="w-4 h-4 text-teal-400 flex-shrink-0" />
               {action}
-              <ChevronRight className="w-3.5 h-3.5 text-slate-600 ml-auto" />
+              <ChevronRight className="w-3.5 h-3.5 text-slate-400 ml-auto" />
             </button>
           ))}
         </div>
@@ -558,7 +556,7 @@ export function CommandCenters() {
             <h1 className="text-2xl font-bold text-white tracking-tight">
               Command Centers
             </h1>
-            <p className="text-sm text-slate-500 mt-0.5">
+            <p className="text-sm text-slate-400 mt-0.5">
               Role-based intelligence views — select your command center
             </p>
           </div>

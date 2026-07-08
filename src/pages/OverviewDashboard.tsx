@@ -47,10 +47,10 @@ function StatCard({
     >
       <div className="flex items-start justify-between">
         <div className="flex-1">
-          <div className="text-sm font-medium text-slate-500 mb-1">{title}</div>
+          <div className="text-sm font-medium text-slate-400 mb-1">{title}</div>
           <div className="flex items-baseline gap-2">
             <div className="text-3xl font-bold text-[#E6EDF3]">{value}</div>
-            {unit && <div className="text-sm text-slate-500">{unit}</div>}
+            {unit && <div className="text-sm text-slate-400">{unit}</div>}
           </div>
         </div>
         <div className={`p-3 rounded-lg ${iconColor}`}>
@@ -557,7 +557,7 @@ export function OverviewDashboard() {
                     <div className="text-sm font-medium text-[#E6EDF3]">
                       {alert.title}
                     </div>
-                    <div className="text-xs text-slate-500 mt-0.5">
+                    <div className="text-xs text-slate-400 mt-0.5">
                       {new Date(alert.created_at).toLocaleString()}
                     </div>
                   </div>
@@ -570,7 +570,7 @@ export function OverviewDashboard() {
               ))}
             </div>
           ) : (
-            <p className="text-slate-500 text-center py-6">No recent alerts</p>
+            <p className="text-slate-400 text-center py-6">No recent alerts</p>
           )}
         </div>
 
@@ -592,7 +592,7 @@ export function OverviewDashboard() {
                     <div className="text-sm font-medium text-[#E6EDF3]">
                       {wo.title}
                     </div>
-                    <div className="text-xs text-slate-500 mt-0.5">
+                    <div className="text-xs text-slate-400 mt-0.5">
                       {new Date(wo.created_at).toLocaleDateString()} |{" "}
                       {wo.priority}
                     </div>
@@ -606,7 +606,7 @@ export function OverviewDashboard() {
               ))}
             </div>
           ) : (
-            <p className="text-slate-500 text-center py-6">
+            <p className="text-slate-400 text-center py-6">
               No work orders yet
             </p>
           )}

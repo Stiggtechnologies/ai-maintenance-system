@@ -25,7 +25,7 @@ const statusStyles: Record<string, string> = {
   degraded: "bg-amber-500/10 text-amber-400 border border-amber-500/20",
   failed: "bg-red-500/10 text-red-400 border border-red-500/20",
   maintenance: "bg-teal-500/10 text-teal-400 border border-teal-500/20",
-  decommissioned: "bg-slate-500/10 text-slate-500 border border-slate-500/20",
+  decommissioned: "bg-slate-500/10 text-slate-400 border border-slate-500/20",
 };
 
 const criticalityDot: Record<string, string> = {
@@ -83,7 +83,7 @@ export function AssetManagement() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-slate-500 pulse-live">Loading assets...</div>
+        <div className="text-slate-400 pulse-live">Loading assets...</div>
       </div>
     );
   }
@@ -109,7 +109,7 @@ export function AssetManagement() {
         <div className="relative flex-1">
           <Search
             size={14}
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500"
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
           />
           <input
             type="text"
@@ -135,7 +135,7 @@ export function AssetManagement() {
       {/* Asset Grid */}
       {filtered.length === 0 ? (
         <div className="glass border border-white/[0.06] rounded-xl text-center py-16">
-          <Package size={48} className="mx-auto mb-3 text-slate-600" />
+          <Package size={48} className="mx-auto mb-3 text-slate-400" />
           <p className="text-slate-400">
             No assets found. Import assets using CSV to get started.
           </p>
@@ -154,25 +154,25 @@ export function AssetManagement() {
                     {asset.name}
                   </h3>
                   {asset.asset_tag && (
-                    <div className="text-xs text-slate-500 font-mono mt-0.5">
+                    <div className="text-xs text-slate-400 font-mono mt-0.5">
                       {asset.asset_tag}
                     </div>
                   )}
                 </div>
                 <div className="flex items-center gap-2 ml-2">
                   <span
-                    className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusStyles[asset.status] || "bg-slate-500/10 text-slate-500 border border-slate-500/20"}`}
+                    className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusStyles[asset.status] || "bg-slate-500/10 text-slate-400 border border-slate-500/20"}`}
                   >
                     {asset.status}
                   </span>
                   <ChevronRight
                     size={14}
-                    className="text-slate-600 group-hover:text-teal-400 transition-colors"
+                    className="text-slate-400 group-hover:text-teal-400 transition-colors"
                   />
                 </div>
               </div>
 
-              <div className="space-y-1.5 text-xs text-slate-500">
+              <div className="space-y-1.5 text-xs text-slate-400">
                 {asset.asset_classes?.name && (
                   <div className="flex items-center justify-between">
                     <span>Class</span>

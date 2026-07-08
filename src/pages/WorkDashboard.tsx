@@ -61,7 +61,7 @@ export function WorkDashboard() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
-        <div className="text-slate-500 pulse-live">Loading work data...</div>
+        <div className="text-slate-400 pulse-live">Loading work data...</div>
       </div>
     );
   }
@@ -87,7 +87,7 @@ export function WorkDashboard() {
       {/* Summary Strip */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="glass border border-white/[0.06] rounded-xl p-4">
-          <div className="text-xs font-semibold text-slate-500 uppercase tracking-widest mb-1">
+          <div className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-1">
             Total Work Orders
           </div>
           <div className="text-2xl font-bold text-[#E6EDF3]">
@@ -95,19 +95,19 @@ export function WorkDashboard() {
           </div>
         </div>
         <div className="glass border border-white/[0.06] rounded-xl p-4">
-          <div className="text-xs font-semibold text-slate-500 uppercase tracking-widest mb-1">
+          <div className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-1">
             Open
           </div>
           <div className="text-2xl font-bold text-teal-400">{openCount}</div>
         </div>
         <div className="glass border border-white/[0.06] rounded-xl p-4">
-          <div className="text-xs font-semibold text-slate-500 uppercase tracking-widest mb-1">
+          <div className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-1">
             Critical
           </div>
           <div className="text-2xl font-bold text-red-400">{criticalCount}</div>
         </div>
         <div className="glass border border-white/[0.06] rounded-xl p-4">
-          <div className="text-xs font-semibold text-slate-500 uppercase tracking-widest mb-1">
+          <div className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-1">
             Notifications
           </div>
           <div className="text-2xl font-bold text-amber-400">
@@ -147,7 +147,7 @@ export function WorkDashboard() {
                       {notif.description}
                     </div>
                   )}
-                  <div className="text-xs text-slate-500 mt-1">
+                  <div className="text-xs text-slate-400 mt-1">
                     {new Date(notif.reported_at).toLocaleString()} •{" "}
                     {notif.source_type}
                   </div>
@@ -163,7 +163,7 @@ export function WorkDashboard() {
               </div>
             ))
           ) : (
-            <div className="text-center text-slate-500 py-8 text-sm">
+            <div className="text-center text-slate-400 py-8 text-sm">
               No notifications
             </div>
           )}
@@ -187,19 +187,19 @@ export function WorkDashboard() {
             <table className="w-full">
               <thead>
                 <tr className="border-t border-white/[0.04] bg-white/[0.02]">
-                  <th className="text-left py-2.5 px-4 text-[11px] font-semibold text-slate-500 uppercase tracking-widest">
+                  <th className="text-left py-2.5 px-4 text-[11px] font-semibold text-slate-400 uppercase tracking-widest">
                     WO #
                   </th>
-                  <th className="text-left py-2.5 px-4 text-[11px] font-semibold text-slate-500 uppercase tracking-widest">
+                  <th className="text-left py-2.5 px-4 text-[11px] font-semibold text-slate-400 uppercase tracking-widest">
                     Title
                   </th>
-                  <th className="text-left py-2.5 px-4 text-[11px] font-semibold text-slate-500 uppercase tracking-widest">
+                  <th className="text-left py-2.5 px-4 text-[11px] font-semibold text-slate-400 uppercase tracking-widest">
                     Priority
                   </th>
-                  <th className="text-left py-2.5 px-4 text-[11px] font-semibold text-slate-500 uppercase tracking-widest">
+                  <th className="text-left py-2.5 px-4 text-[11px] font-semibold text-slate-400 uppercase tracking-widest">
                     Status
                   </th>
-                  <th className="text-left py-2.5 px-4 text-[11px] font-semibold text-slate-500 uppercase tracking-widest">
+                  <th className="text-left py-2.5 px-4 text-[11px] font-semibold text-slate-400 uppercase tracking-widest">
                     Due Date
                   </th>
                   <th className="w-8"></th>
@@ -212,7 +212,7 @@ export function WorkDashboard() {
                     onClick={() => navigate(`/work/${wo.id}`)}
                     className="border-t border-white/[0.04] hover:bg-white/[0.02] cursor-pointer transition-colors group"
                   >
-                    <td className="py-3 px-4 text-xs font-mono text-slate-500">
+                    <td className="py-3 px-4 text-xs font-mono text-slate-400">
                       {wo.wo_number ||
                         wo.work_order_number ||
                         wo.id.slice(0, 8)}
@@ -233,7 +233,7 @@ export function WorkDashboard() {
                     <td className="py-3 px-4">
                       <StatusBadge status={wo.status || "new"} size="sm" />
                     </td>
-                    <td className="py-3 px-4 text-xs text-slate-500">
+                    <td className="py-3 px-4 text-xs text-slate-400">
                       {wo.planned_finish || wo.due_date
                         ? new Date(
                             String(wo.planned_finish || wo.due_date),
@@ -243,7 +243,7 @@ export function WorkDashboard() {
                     <td className="py-3 px-4">
                       <ChevronRight
                         size={14}
-                        className="text-slate-600 group-hover:text-teal-400 transition-colors"
+                        className="text-slate-400 group-hover:text-teal-400 transition-colors"
                       />
                     </td>
                   </tr>
@@ -252,7 +252,7 @@ export function WorkDashboard() {
             </table>
           </div>
         ) : (
-          <div className="text-center text-slate-500 py-12 text-sm border-t border-white/[0.04]">
+          <div className="text-center text-slate-400 py-12 text-sm border-t border-white/[0.04]">
             No work orders found
           </div>
         )}

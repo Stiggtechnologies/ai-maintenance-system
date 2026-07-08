@@ -11,7 +11,7 @@ import {
 
 export function LoadingState({ label = "Loading…" }: { label?: string }) {
   return (
-    <div className="flex items-center justify-center gap-3 py-16 text-slate-500">
+    <div className="flex items-center justify-center gap-3 py-16 text-slate-400">
       <Loader2 className="w-5 h-5 animate-spin text-teal-400" />
       <span className="text-sm">{label}</span>
     </div>
@@ -29,7 +29,7 @@ export function ErrorState({
     <div className="flex flex-col items-center justify-center gap-3 py-12 text-center">
       <AlertTriangle className="w-8 h-8 text-amber-400" />
       <div className="text-sm text-slate-300 max-w-md">{message}</div>
-      <div className="text-[11px] text-slate-600">
+      <div className="text-[11px] text-slate-400">
         Showing no data rather than stale values.
       </div>
       {onRetry && (
@@ -46,7 +46,7 @@ export function ErrorState({
 
 export function EmptyState({ message }: { message: string }) {
   return (
-    <div className="flex flex-col items-center justify-center gap-2 py-12 text-center text-slate-600">
+    <div className="flex flex-col items-center justify-center gap-2 py-12 text-center text-slate-400">
       <Inbox className="w-8 h-8 opacity-50" />
       <div className="text-sm">{message}</div>
     </div>

@@ -39,7 +39,7 @@ const iconBg = {
 const trendColors = {
   up: "text-emerald-400",
   down: "text-red-400",
-  flat: "text-slate-500",
+  flat: "text-slate-400",
 };
 
 export function MetricCard({
@@ -60,7 +60,7 @@ export function MetricCard({
       className={`glass border rounded-xl p-5 transition-all duration-300 ${variantBorder[variant]} ${variantGlow[variant]}`}
     >
       <div className="flex items-center justify-between mb-3">
-        <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-widest">
+        <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest">
           {label}
         </span>
         {Icon && (
@@ -79,7 +79,7 @@ export function MetricCard({
             {value}
           </span>
           {unit && (
-            <span className="text-sm text-slate-500 mb-0.5">{unit}</span>
+            <span className="text-sm text-slate-400 mb-0.5">{unit}</span>
           )}
         </div>
       )}

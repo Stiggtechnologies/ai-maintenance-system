@@ -194,12 +194,12 @@ function ScenarioCard({
                 {scenario.label}
               </h3>
               {scenario.aiRecommended && (
-                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-teal-500/20 text-teal-400 border border-teal-500/30 font-semibold flex items-center gap-1">
+                <span className="text-xs px-1.5 py-0.5 rounded-full bg-teal-500/20 text-teal-400 border border-teal-500/30 font-semibold flex items-center gap-1">
                   <Zap className="w-2.5 h-2.5" /> AI Recommended
                 </span>
               )}
             </div>
-            <p className="text-xs text-slate-500 mt-0.5">
+            <p className="text-xs text-slate-400 mt-0.5">
               {scenario.description}
             </p>
           </div>
@@ -212,13 +212,13 @@ function ScenarioCard({
 
         <div className="grid grid-cols-2 gap-2 mt-3">
           <div className="bg-white/[0.02] rounded-lg p-2">
-            <div className="text-[10px] text-slate-600">Immediate Cost</div>
+            <div className="text-xs text-slate-400">Immediate Cost</div>
             <div className="text-sm font-bold text-slate-200 mt-0.5">
               {scenario.cost}
             </div>
           </div>
           <div className="bg-white/[0.02] rounded-lg p-2">
-            <div className="text-[10px] text-slate-600">Downtime</div>
+            <div className="text-xs text-slate-400">Downtime</div>
             <div className="text-sm font-bold text-slate-200 mt-0.5">
               {scenario.downtimeHours}h
             </div>
@@ -227,7 +227,7 @@ function ScenarioCard({
 
         <div className="mt-3">
           <div className="flex items-center justify-between text-xs mb-1">
-            <span className="text-slate-600">Failure probability</span>
+            <span className="text-slate-400">Failure probability</span>
             <span className={`font-bold ${probColor}`}>
               {scenario.failureProbability}%
             </span>
@@ -244,11 +244,11 @@ function ScenarioCard({
 
         <div className="mt-3 flex items-center gap-2">
           <span
-            className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${safetyColors[scenario.safetyRisk]}`}
+            className={`text-xs px-1.5 py-0.5 rounded-full font-semibold ${safetyColors[scenario.safetyRisk]}`}
           >
             {scenario.safetyRisk} Safety Risk
           </span>
-          <span className="text-xs text-slate-500">
+          <span className="text-xs text-slate-400">
             Exposure:{" "}
             <span className="text-slate-300 font-medium">
               {scenario.financialExposure}
@@ -283,7 +283,7 @@ export function ScenarioSimulator() {
           <h1 className="text-2xl font-bold text-white tracking-tight">
             Scenario Simulator
           </h1>
-          <p className="text-sm text-slate-500 mt-0.5">
+          <p className="text-sm text-slate-400 mt-0.5">
             Compare operational decisions before committing
           </p>
         </div>
@@ -299,7 +299,7 @@ export function ScenarioSimulator() {
 
       {/* Asset Selector */}
       <div className="bg-[#0D1520] border border-white/[0.06] rounded-xl p-4">
-        <div className="text-xs text-slate-500 mb-3">
+        <div className="text-xs text-slate-400 mb-3">
           Select Asset to Simulate
         </div>
         <div className="flex flex-wrap gap-2">
@@ -318,7 +318,7 @@ export function ScenarioSimulator() {
               }`}
             >
               <div>{a.label}</div>
-              <div className="text-[10px] mt-0.5 font-normal opacity-70">
+              <div className="text-xs mt-0.5 font-normal opacity-70">
                 {a.risk}% risk · {a.window}
               </div>
             </button>
@@ -329,7 +329,7 @@ export function ScenarioSimulator() {
       {/* Scenario Grid */}
       {!comparing && (
         <>
-          <div className="text-xs text-slate-500">
+          <div className="text-xs text-slate-400">
             Select 2+ scenarios to compare.{" "}
             <span className="text-teal-400">
               AI recommendation highlighted.
@@ -369,7 +369,7 @@ export function ScenarioSimulator() {
               </h2>
               <button
                 onClick={() => setComparing(false)}
-                className="text-xs text-slate-500 hover:text-slate-200"
+                className="text-xs text-slate-400 hover:text-slate-200"
               >
                 Back to Selection
               </button>
@@ -379,7 +379,7 @@ export function ScenarioSimulator() {
               <table className="w-full min-w-[600px]">
                 <thead>
                   <tr>
-                    <td className="text-[11px] text-slate-600 pb-3 w-36">
+                    <td className="text-[11px] text-slate-400 pb-3 w-36">
                       Metric
                     </td>
                     {compareScenarios.map((s) => (
@@ -389,7 +389,7 @@ export function ScenarioSimulator() {
                       >
                         {s.label}
                         {s.aiRecommended && (
-                          <span className="ml-1 text-[10px] text-teal-400">
+                          <span className="ml-1 text-xs text-teal-400">
                             ★ AI
                           </span>
                         )}
@@ -424,7 +424,7 @@ export function ScenarioSimulator() {
                     },
                   ].map((metric) => (
                     <tr key={metric.key}>
-                      <td className="text-[11px] text-slate-600 py-2.5">
+                      <td className="text-[11px] text-slate-400 py-2.5">
                         {metric.label}
                       </td>
                       {compareScenarios.map((s) => {

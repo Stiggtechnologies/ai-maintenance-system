@@ -179,10 +179,10 @@ function RiskMatrix() {
     <div className="overflow-x-auto">
       <div className="min-w-[500px]">
         <div className="flex items-center gap-2 mb-2">
-          <div className="text-[10px] text-slate-600 uppercase tracking-wider w-32 text-right">
+          <div className="text-xs text-slate-400 uppercase tracking-wider w-32 text-right">
             Probability
           </div>
-          <div className="flex-1 grid grid-cols-5 gap-1 text-[10px] text-slate-600 text-center">
+          <div className="flex-1 grid grid-cols-5 gap-1 text-xs text-slate-400 text-center">
             {consLevels.map((c) => (
               <div key={c}>{c}</div>
             ))}
@@ -190,7 +190,7 @@ function RiskMatrix() {
         </div>
         {probBuckets.map((bucket, pi) => (
           <div key={bucket.label} className="flex items-center gap-2 mb-1">
-            <div className="text-[10px] text-slate-600 w-32 text-right">
+            <div className="text-xs text-slate-400 w-32 text-right">
               {bucket.label}
             </div>
             <div className="flex-1 grid grid-cols-5 gap-1">
@@ -216,7 +216,7 @@ function RiskMatrix() {
         ))}
         <div className="flex items-center gap-2 mt-1">
           <div className="w-32" />
-          <div className="flex-1 text-[10px] text-slate-600 text-center">
+          <div className="flex-1 text-xs text-slate-400 text-center">
             Consequence
           </div>
         </div>
@@ -248,14 +248,14 @@ function RiskCard({ risk }: { risk: RiskItem }) {
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
               <span
-                className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${c.bg} ${c.color} border ${c.border}`}
+                className={`text-xs font-bold px-1.5 py-0.5 rounded-full ${c.bg} ${c.color} border ${c.border}`}
               >
                 {risk.consequence}
               </span>
-              <span className="text-[10px] text-slate-600">{risk.area}</span>
+              <span className="text-xs text-slate-400">{risk.area}</span>
             </div>
             <h3 className="text-sm font-bold text-slate-200">{risk.asset}</h3>
-            <div className="text-xs text-slate-500 mt-0.5">
+            <div className="text-xs text-slate-400 mt-0.5">
               {risk.recommendedIntervention}
             </div>
           </div>
@@ -263,13 +263,13 @@ function RiskCard({ risk }: { risk: RiskItem }) {
             <div className={`text-xl font-black ${c.color}`}>
               {risk.riskScore}
             </div>
-            <div className="text-[10px] text-slate-600">Risk Score</div>
+            <div className="text-xs text-slate-400">Risk Score</div>
           </div>
         </div>
 
         <div className="mt-3 space-y-1">
           <div className="flex items-center justify-between text-xs">
-            <span className="text-slate-600">Failure probability</span>
+            <span className="text-slate-400">Failure probability</span>
             <span className="text-slate-300 font-medium">
               {risk.failureProbability}% in {risk.failureWindow}
             </span>
@@ -286,23 +286,23 @@ function RiskCard({ risk }: { risk: RiskItem }) {
 
         <div className="mt-3 flex items-center gap-4 text-xs">
           <div>
-            <span className="text-slate-600">Exposure: </span>
+            <span className="text-slate-400">Exposure: </span>
             <span className={`font-bold ${c.color}`}>
               {risk.financialExposure}
             </span>
           </div>
           <div>
-            <span className="text-slate-600">Act by: </span>
+            <span className="text-slate-400">Act by: </span>
             <span className="text-slate-300">{risk.interventionWindow}</span>
           </div>
           <div className="ml-auto flex gap-2">
             {risk.safetyRisk === "High" && (
-              <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-500/10 text-red-400 border border-red-500/20 font-semibold">
+              <span className="text-xs px-1.5 py-0.5 rounded bg-red-500/10 text-red-400 border border-red-500/20 font-semibold">
                 Safety Risk
               </span>
             )}
             {risk.environmentalRisk === "High" && (
-              <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-500/10 text-green-400 border border-green-500/20 font-semibold">
+              <span className="text-xs px-1.5 py-0.5 rounded bg-green-500/10 text-green-400 border border-green-500/20 font-semibold">
                 Env Risk
               </span>
             )}
@@ -312,19 +312,19 @@ function RiskCard({ risk }: { risk: RiskItem }) {
         {expanded && (
           <div className="mt-3 pt-3 border-t border-white/[0.05] grid grid-cols-2 gap-2 text-xs">
             <div>
-              <span className="text-slate-600">Mission Impact: </span>
+              <span className="text-slate-400">Mission Impact: </span>
               <span className="text-slate-300">{risk.missionImpact}</span>
             </div>
             <div>
-              <span className="text-slate-600">Safety Risk: </span>
+              <span className="text-slate-400">Safety Risk: </span>
               <span className="text-slate-300">{risk.safetyRisk}</span>
             </div>
             <div>
-              <span className="text-slate-600">Environmental: </span>
+              <span className="text-slate-400">Environmental: </span>
               <span className="text-slate-300">{risk.environmentalRisk}</span>
             </div>
             <div>
-              <span className="text-slate-600">Downtime Exposure: </span>
+              <span className="text-slate-400">Downtime Exposure: </span>
               <span className="text-slate-300">{risk.downtimeExposure}</span>
             </div>
             <div className="col-span-2">
@@ -365,7 +365,7 @@ export function RiskConsequence() {
           <h1 className="text-2xl font-bold text-white tracking-tight">
             Risk & Consequence
           </h1>
-          <p className="text-sm text-slate-500 mt-0.5">
+          <p className="text-sm text-slate-400 mt-0.5">
             Prioritized by consequence, not just work order priority
           </p>
         </div>
@@ -435,7 +435,7 @@ export function RiskConsequence() {
               >
                 {s.value}
               </div>
-              <div className="text-[10px] text-slate-600 mt-0.5">{s.label}</div>
+              <div className="text-xs text-slate-400 mt-0.5">{s.label}</div>
             </div>
           );
         })}
@@ -444,12 +444,12 @@ export function RiskConsequence() {
       {view === "list" ? (
         <>
           <div className="flex items-center gap-2">
-            <span className="text-xs text-slate-600">Sort by:</span>
+            <span className="text-xs text-slate-400">Sort by:</span>
             {(["riskScore", "probability", "exposure"] as const).map((s) => (
               <button
                 key={s}
                 onClick={() => setSortBy(s)}
-                className={`px-3 py-1 rounded-full text-xs transition-colors ${sortBy === s ? "bg-teal-500/20 text-teal-400 border border-teal-500/30" : "bg-white/[0.03] border border-white/[0.06] text-slate-500"}`}
+                className={`px-3 py-1 rounded-full text-xs transition-colors ${sortBy === s ? "bg-teal-500/20 text-teal-400 border border-teal-500/30" : "bg-white/[0.03] border border-white/[0.06] text-slate-400"}`}
               >
                 {s === "riskScore"
                   ? "Risk Score"
@@ -482,15 +482,15 @@ export function RiskConsequence() {
           <div className="mt-4 flex items-center gap-4 text-[11px]">
             <div className="flex items-center gap-1.5">
               <div className="w-3 h-3 rounded bg-red-500/30 border border-red-500/40" />
-              <span className="text-slate-500">Critical / Unacceptable</span>
+              <span className="text-slate-400">Critical / Unacceptable</span>
             </div>
             <div className="flex items-center gap-1.5">
               <div className="w-3 h-3 rounded bg-amber-500/20 border border-amber-500/30" />
-              <span className="text-slate-500">Action Required</span>
+              <span className="text-slate-400">Action Required</span>
             </div>
             <div className="flex items-center gap-1.5">
               <div className="w-3 h-3 rounded bg-blue-500/10 border border-blue-500/20" />
-              <span className="text-slate-500">Advisory</span>
+              <span className="text-slate-400">Advisory</span>
             </div>
           </div>
         </div>

@@ -66,7 +66,7 @@ export function WorkOrderManagement() {
     critical: "text-red-600 font-bold",
     high: "text-orange-600 font-semibold",
     medium: "text-teal-400",
-    low: "text-slate-500",
+    low: "text-slate-400",
   };
 
   const stats = {
@@ -91,7 +91,7 @@ export function WorkOrderManagement() {
           <h2 className="text-xl font-bold text-[#E6EDF3]">
             Work Order Management
           </h2>
-          <p className="text-sm text-slate-500 mt-1">
+          <p className="text-sm text-slate-400 mt-1">
             {stats.total} total, {stats.pending} pending, {stats.in_progress} in
             progress
           </p>
@@ -126,14 +126,14 @@ export function WorkOrderManagement() {
       </div>
 
       {filtered.length === 0 ? (
-        <div className="text-center py-12 text-slate-500">
+        <div className="text-center py-12 text-slate-400">
           No work orders found
         </div>
       ) : (
         <div className="glass border border-white/[0.06] rounded-xl overflow-hidden">
           <table className="w-full">
             <thead>
-              <tr className="text-left text-xs text-slate-500 bg-[#0B0F14] border-b border-[#232A33]">
+              <tr className="text-left text-xs text-slate-400 bg-[#0B0F14] border-b border-[#232A33]">
                 <th className="px-4 py-3">Title</th>
                 <th className="px-4 py-3">Asset</th>
                 <th className="px-4 py-3">Priority</th>
@@ -165,7 +165,7 @@ export function WorkOrderManagement() {
                       {wo.status?.replace("_", " ")}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-sm text-slate-500">
+                  <td className="px-4 py-3 text-sm text-slate-400">
                     {new Date(wo.created_at).toLocaleDateString()}
                   </td>
                 </tr>

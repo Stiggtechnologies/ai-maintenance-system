@@ -110,14 +110,14 @@ export function ChallengeAIModal({
                       <h3 className="text-sm font-bold text-white">
                         Challenge AI Recommendation
                       </h3>
-                      <p className="text-[11px] text-slate-500">
+                      <p className="text-[11px] text-slate-400">
                         Your override improves future model accuracy
                       </p>
                     </div>
                   </div>
                   <button
                     onClick={handleClose}
-                    className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-white/[0.06] transition-colors"
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/[0.06] transition-colors"
                   >
                     <X className="w-4 h-4" />
                   </button>
@@ -126,15 +126,15 @@ export function ChallengeAIModal({
                 {/* Recommendation Context */}
                 {recommendation && (
                   <div className="mx-6 mt-4 p-3 rounded-xl bg-white/[0.03] border border-white/[0.06]">
-                    <div className="text-xs text-slate-500 mb-1">
+                    <div className="text-xs text-slate-400 mb-1">
                       Challenging recommendation:
                     </div>
                     <div className="text-sm font-semibold text-slate-200">
                       {recommendation.title}
                     </div>
-                    <div className="flex items-center gap-3 mt-1.5 text-[11px] text-slate-500">
+                    <div className="flex items-center gap-3 mt-1.5 text-[11px] text-slate-400">
                       <span>{recommendation.asset}</span>
-                      <span className="text-slate-700">|</span>
+                      <span className="text-slate-400">|</span>
                       <span className="font-mono text-teal-400">
                         {recommendation.confidence}% conf
                       </span>
@@ -176,7 +176,7 @@ export function ChallengeAIModal({
 
                 {/* Footer */}
                 <div className="px-6 py-4 border-t border-white/[0.06] flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-[10px] text-slate-600">
+                  <div className="flex items-center gap-2 text-xs text-slate-400">
                     <Brain className="w-3 h-3" />
                     Feedback feeds into closed-loop learning
                   </div>
@@ -193,7 +193,7 @@ export function ChallengeAIModal({
                       className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-medium transition-all ${
                         selectedReason
                           ? "bg-amber-500/20 border border-amber-500/30 text-amber-400 hover:bg-amber-500/30"
-                          : "bg-white/[0.04] border border-white/[0.06] text-slate-600 cursor-not-allowed"
+                          : "bg-white/[0.04] border border-white/[0.06] text-slate-400 cursor-not-allowed"
                       }`}
                     >
                       <Send className="w-3 h-3" />

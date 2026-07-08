@@ -146,7 +146,7 @@ export function AutonomyMaturity() {
           <h1 className="text-2xl font-bold text-white tracking-tight">
             Autonomy Maturity
           </h1>
-          <p className="text-sm text-slate-500 mt-0.5">
+          <p className="text-sm text-slate-400 mt-0.5">
             Your journey from visibility to autonomous maintenance and
             reliability
           </p>
@@ -169,7 +169,7 @@ export function AutonomyMaturity() {
                     ? "bg-green-500/20 text-green-400 ring-2 ring-green-500/30"
                     : level.status === "current"
                       ? "bg-teal-500/20 text-teal-400 ring-2 ring-teal-500/40 animate-pulse"
-                      : "bg-white/[0.05] text-slate-600 ring-1 ring-white/[0.08]"
+                      : "bg-white/[0.05] text-slate-400 ring-1 ring-white/[0.08]"
                 }`}
               >
                 {level.level}
@@ -188,7 +188,7 @@ export function AutonomyMaturity() {
             </div>
           ))}
         </div>
-        <div className="flex items-center justify-between text-[10px] text-slate-600">
+        <div className="flex items-center justify-between text-xs text-slate-400">
           {maturityLevels.map((l) => (
             <span key={l.level} className="text-center">
               {l.title}
@@ -227,24 +227,24 @@ export function AutonomyMaturity() {
                     <CheckCircle className="w-3.5 h-3.5 text-green-400 absolute -top-1 -right-1" />
                   )}
                   {isLocked && (
-                    <Lock className="w-3 h-3 text-slate-500 absolute -top-1 -right-1" />
+                    <Lock className="w-3 h-3 text-slate-400 absolute -top-1 -right-1" />
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-3 mb-1">
                     <span
-                      className={`text-[10px] font-black uppercase tracking-wider ${c.text}`}
+                      className={`text-xs font-black uppercase tracking-wider ${c.text}`}
                     >
                       Level {level.level}
                     </span>
                     <h3 className="text-base font-bold text-white">
                       {level.title}
                     </h3>
-                    <span className="text-xs text-slate-500">
+                    <span className="text-xs text-slate-400">
                       — {level.subtitle}
                     </span>
                     {level.status === "current" && (
-                      <span className="ml-auto text-[10px] px-2 py-0.5 rounded-full bg-teal-500/20 text-teal-400 font-bold">
+                      <span className="ml-auto text-xs px-2 py-0.5 rounded-full bg-teal-500/20 text-teal-400 font-bold">
                         CURRENT
                       </span>
                     )}
@@ -256,7 +256,7 @@ export function AutonomyMaturity() {
                     {level.capabilities.map((cap) => (
                       <span
                         key={cap}
-                        className={`text-[10px] px-2 py-0.5 rounded-full border ${isLocked ? "bg-white/[0.02] border-white/[0.05] text-slate-600" : `${c.bg} ${c.border} ${c.text}`}`}
+                        className={`text-xs px-2 py-0.5 rounded-full border ${isLocked ? "bg-white/[0.02] border-white/[0.05] text-slate-400" : `${c.bg} ${c.border} ${c.text}`}`}
                       >
                         {cap}
                       </span>
