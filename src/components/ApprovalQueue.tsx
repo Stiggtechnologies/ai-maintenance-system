@@ -287,7 +287,7 @@ export function ApprovalQueue() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-gray-500">Loading approvals...</div>
+        <div className="text-slate-400">Loading approvals...</div>
       </div>
     );
   }
@@ -351,7 +351,7 @@ export function ApprovalQueue() {
                   </div>
 
                   <div className="flex items-center space-x-4 mt-3 text-sm">
-                    <div className="flex items-center space-x-1 text-gray-500">
+                    <div className="flex items-center space-x-1 text-slate-400">
                       <Clock className="w-4 h-4" />
                       <span>
                         {new Date(decision.created_at).toLocaleString()}
@@ -467,7 +467,7 @@ export function ApprovalQueue() {
                   </div>
 
                   {editMode === decision.id && editedData && (
-                    <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                    <div className="mt-4 p-4 bg-blue-500/10 border border-blue-500/30 rounded-lg">
                       <h4 className="font-semibold text-blue-900 mb-3">
                         Edit Decision Data
                       </h4>

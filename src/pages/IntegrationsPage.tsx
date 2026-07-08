@@ -193,7 +193,7 @@ export function IntegrationsPage() {
                     </div>
                   )}
                   <div className="flex gap-2 mt-3">
-                    <button className="text-xs text-blue-600 hover:text-blue-700 font-medium">
+                    <button className="text-xs text-blue-600 hover:text-blue-300 font-medium">
                       Configure
                     </button>
                     <button className="text-xs text-slate-400 hover:text-slate-400 font-medium flex items-center gap-1">
@@ -218,7 +218,7 @@ export function IntegrationsPage() {
                 return (
                   <div
                     key={ct.type}
-                    className={`border rounded-xl p-4 ${isConnected ? "border-green-200 bg-green-50" : "border-[#232A33] bg-[#11161D]"}`}
+                    className={`border rounded-xl p-4 ${isConnected ? "border-green-500/30 bg-green-500/10" : "border-[#232A33] bg-[#11161D]"}`}
                   >
                     <div className="flex items-center justify-between mb-2">
                       <h3 className="font-medium text-[#E6EDF3] text-sm">
@@ -229,7 +229,7 @@ export function IntegrationsPage() {
                       )}
                     </div>
                     <p className="text-xs text-slate-400">{ct.description}</p>
-                    <button className="mt-3 text-xs text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1">
+                    <button className="mt-3 text-xs text-blue-600 hover:text-blue-300 font-medium flex items-center gap-1">
                       {isConnected ? "Manage" : "Connect"}{" "}
                       <ExternalLink size={10} />
                     </button>
@@ -285,7 +285,7 @@ export function IntegrationsPage() {
                       </td>
                       <td className="py-3">
                         <span
-                          className={`text-xs px-2 py-1 rounded-full ${run.status === "success" ? "bg-green-100 text-green-800" : run.status === "failure" ? "bg-red-100 text-red-800" : "bg-yellow-100 text-yellow-800"}`}
+                          className={`text-xs px-2 py-1 rounded-full ${run.status === "success" ? "bg-green-500/100/10 text-green-300" : run.status === "failure" ? "bg-red-500/10 text-red-300" : "bg-amber-500/10 text-amber-300"}`}
                         >
                           {run.status}
                         </span>

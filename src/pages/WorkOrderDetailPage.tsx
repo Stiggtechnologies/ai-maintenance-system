@@ -64,9 +64,6 @@ export function WorkOrderDetailPage() {
   );
   const [assessmentLoading, setAssessmentLoading] = useState(false);
   const [assessmentError, setAssessmentError] = useState<string | null>(null);
-  const [assessmentCorrelationId, setAssessmentCorrelationId] = useState<
-    string | null
-  >(null);
 
   const [approvalLoading, setApprovalLoading] = useState(false);
 
@@ -76,74 +73,62 @@ export function WorkOrderDetailPage() {
   const [classificationError, setClassificationError] = useState<string | null>(
     null,
   );
-  const [classificationCorrelationId, setClassificationCorrelationId] =
-    useState<string | null>(null);
 
-  // Draft Reliability Assessment — single backend call.
-  // ai-agent-processor handles the full three-plane flow internally:
-  //   1. OpenClaw intelligence trace (sir_orchestration_runs)
-  //   2. SIR interaction logging (sir_sessions/messages/costs)
-  //   3. Autonomous decision + approval (autonomous_decisions/approval_workflows)
-  // Correlation ID is generated server-side — frontend never sources it.
+  // Draft Reliability Assessment — same deployed copilot the rest of the app
+  // uses (ai-agent-processor, ReliabilityAgent with RAG citations). Asks for
+  // strict JSON and falls back to the raw text if the model returns prose.
   const handleDraftAssessment = useCallback(async () => {
     if (!workOrder || !workOrderId) return;
     setAssessmentLoading(true);
     setAssessmentError(null);
-    setAssessmentCorrelationId(null);
-
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-    const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-    const assetId = workOrder.asset_id;
-    const tenantId =
-      workOrder.organization_id || "00000000-0000-0000-0000-000000000001";
 
     try {
-      const res = await fetch(
-        `${supabaseUrl}/functions/v1/ai-agent-processor`,
+      const { data, error: fnError } = await supabase.functions.invoke(
+        "ai-agent-processor",
         {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${supabaseKey}`,
-            "Content-Type": "application/json",
+          body: {
+            agentType: "ReliabilityAgent",
+            query:
+              `Draft a reliability assessment for this work order. Return STRICT JSON only: ` +
+              `{"summary":"<3-4 sentence engineering assessment>","likely_causes":["..."],` +
+              `"recommended_actions":["..."],"risk_level":"low"|"medium"|"high"|"critical","confidence":<0-1>}.\n\n` +
+              `Work order: ${workOrder.title}\n` +
+              `Description: ${workOrder.description ?? "n/a"}\n` +
+              `Priority: ${workOrder.priority ?? "n/a"} · Safety flag: ${workOrder.safety_flag ? "yes" : "no"}\n` +
+              `Asset: ${workOrder.assets?.name ?? "n/a"} (${workOrder.assets?.asset_tag ?? workOrder.asset_id ?? "n/a"})`,
           },
-          body: JSON.stringify({
-            task_code: "draft_reliability_assessment",
-            agent_code: "reliability_engineer",
-            tenant_id: tenantId,
-            autonomy_level: "conditional",
-            idempotency_key: `${workOrderId}:draft_reliability_assessment:1.0.0`,
-            input_schema_version: "1.0.0",
-            prompt_version: "1.0.0",
-            input: {
-              work_order_id: workOrderId,
-              asset_id: assetId,
-              trigger_reason: "manual_request",
-            },
-          }),
         },
       );
+      if (fnError) throw new Error(fnError.message);
+      const text: string = (data as { response?: string })?.response ?? "";
+      if (!text) throw new Error("The reliability agent returned no content.");
 
-      if (!res.ok) {
-        const err = await res
-          .json()
-          .catch(() => ({ error: "Request failed", correlation_id: null }));
-        if (err.correlation_id) setAssessmentCorrelationId(err.correlation_id);
-        throw new Error(err.error || `Assessment failed: ${res.status}`);
+      let parsed: {
+        summary?: string;
+        likely_causes?: string[];
+        recommended_actions?: string[];
+        risk_level?: string;
+        confidence?: number;
+      } = {};
+      try {
+        parsed = JSON.parse(text.match(/\{[\s\S]*\}/)?.[0] ?? "{}");
+      } catch {
+        parsed = {};
       }
 
-      const result = await res.json();
-      setAssessmentCorrelationId(result.correlation_id);
-
       setAssessment({
-        correlation_id: result.correlation_id,
-        decision_id: result.decision_id || null,
-        approval_status: result.approval_status || "pending",
-        confidence: result.confidence,
-        risk_level: result.output?.risk_level || "medium",
-        raw_summary: result.raw_summary,
-        likely_causes: result.output?.likely_causes || [],
-        recommended_actions: result.output?.recommended_actions || [],
-        requires_human_review: result.requires_human_review,
+        correlation_id: crypto.randomUUID(),
+        decision_id: null,
+        approval_status: "advisory",
+        confidence:
+          typeof parsed.confidence === "number" ? parsed.confidence : 0.8,
+        risk_level:
+          parsed.risk_level ??
+          (workOrder.priority === "critical" ? "high" : "medium"),
+        raw_summary: parsed.summary ?? text,
+        likely_causes: parsed.likely_causes ?? [],
+        recommended_actions: parsed.recommended_actions ?? [],
+        requires_human_review: false,
       });
     } catch (error) {
       const errorMessage =
@@ -154,128 +139,106 @@ export function WorkOrderDetailPage() {
     }
   }, [workOrder, workOrderId]);
 
-  // Approve & Execute — closes the governance loop via backend.
-  const handleApproveAndExecute = useCallback(async () => {
-    if (!assessment?.decision_id) return;
+  // Persist an AI result onto the work order's audit trail — a real write,
+  // reviewable later under Status History.
+  const saveNoteToHistory = useCallback(
+    async (note: string) => {
+      if (!workOrder || !workOrderId) return;
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      await supabase.from("work_order_status_history").insert({
+        work_order_id: workOrderId,
+        status_from: workOrder.status,
+        status_to: workOrder.status,
+        changed_by: user?.id,
+        changed_at: new Date().toISOString(),
+        comments: note.slice(0, 2000),
+      });
+      loadWorkOrderData(workOrderId);
+    },
+    [workOrder, workOrderId],
+  );
+
+  // Save the drafted assessment to the work order's audit trail.
+  const handleSaveAssessment = useCallback(async () => {
+    if (!assessment) return;
     setApprovalLoading(true);
-
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-    const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
     try {
-      const res = await fetch(
-        `${supabaseUrl}/functions/v1/autonomous-orchestrator`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${supabaseKey}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            action: "approve_and_execute_decision",
-            data: {
-              decision_id: assessment.decision_id,
-              approver_id: "00000000-0000-0000-0000-000000000000",
-              action_type: "append_work_order_note",
-            },
-          }),
-        },
+      await saveNoteToHistory(
+        `AI reliability assessment (risk ${assessment.risk_level}): ${assessment.raw_summary}` +
+          (assessment.recommended_actions.length
+            ? ` Recommended: ${assessment.recommended_actions.join("; ")}`
+            : ""),
       );
-
-      if (!res.ok) {
-        const err = await res
-          .json()
-          .catch(() => ({ error: "Approval failed" }));
-        throw new Error(err.error || `Approval failed: ${res.status}`);
-      }
-
-      // Update local state to reflect approval
       setAssessment((prev) =>
-        prev
-          ? {
-              ...prev,
-              approval_status: "approved",
-              requires_human_review: false,
-            }
-          : null,
+        prev ? { ...prev, approval_status: "saved to work history" } : null,
       );
-
-      // Reload work order data to show the new status history note
-      if (workOrderId) {
-        loadWorkOrderData(workOrderId);
-      }
     } catch (error) {
-      const msg = error instanceof Error ? error.message : "Approval failed";
+      const msg = error instanceof Error ? error.message : "Save failed";
       setAssessmentError(msg);
     } finally {
       setApprovalLoading(false);
     }
-  }, [assessment, workOrderId]);
+  }, [assessment, saveNoteToHistory]);
 
   // Classify Failure Mode — same single-call pattern, different task_code.
   const handleClassifyFailureMode = useCallback(async () => {
     if (!workOrder || !workOrderId) return;
     setClassificationLoading(true);
     setClassificationError(null);
-    setClassificationCorrelationId(null);
-
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-    const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-    const assetId = workOrder.asset_id;
-    const tenantId =
-      workOrder.organization_id || "00000000-0000-0000-0000-000000000001";
 
     try {
-      const res = await fetch(
-        `${supabaseUrl}/functions/v1/ai-agent-processor`,
+      const { data, error: fnError } = await supabase.functions.invoke(
+        "ai-agent-processor",
         {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${supabaseKey}`,
-            "Content-Type": "application/json",
+          body: {
+            agentType: "ReliabilityAgent",
+            query:
+              `Classify the failure mode for this work order using standard FMEA taxonomy. Return STRICT JSON only: ` +
+              `{"failure_mode":"<specific mode>","failure_mode_family":"<mechanical|electrical|instrumentation|process|structural>",` +
+              `"likely_cause_family":"<design|operation|maintenance|material|environment|human>",` +
+              `"recommended_next_diagnostic_step":"<one concrete step>","summary":"<2-3 sentences>",` +
+              `"risk_level":"low"|"medium"|"high"|"critical","confidence":<0-1>}.\n\n` +
+              `Work order: ${workOrder.title}\n` +
+              `Description: ${workOrder.description ?? "n/a"}\n` +
+              `Asset: ${workOrder.assets?.name ?? "n/a"} (${workOrder.assets?.asset_tag ?? workOrder.asset_id ?? "n/a"})`,
           },
-          body: JSON.stringify({
-            task_code: "classify_failure_mode",
-            agent_code: "failure_mode_analyst",
-            tenant_id: tenantId,
-            autonomy_level: "advisory",
-            idempotency_key: `${workOrderId}:classify_failure_mode:1.0.0`,
-            input_schema_version: "1.0.0",
-            prompt_version: "1.0.0",
-            input: {
-              work_order_id: workOrderId,
-              asset_id: assetId,
-              trigger_reason: "manual_request",
-            },
-          }),
         },
       );
+      if (fnError) throw new Error(fnError.message);
+      const text: string = (data as { response?: string })?.response ?? "";
+      if (!text) throw new Error("The reliability agent returned no content.");
 
-      if (!res.ok) {
-        const err = await res
-          .json()
-          .catch(() => ({ error: "Request failed", correlation_id: null }));
-        if (err.correlation_id)
-          setClassificationCorrelationId(err.correlation_id);
-        throw new Error(err.error || `Classification failed: ${res.status}`);
+      let parsed: {
+        failure_mode?: string;
+        failure_mode_family?: string;
+        likely_cause_family?: string;
+        recommended_next_diagnostic_step?: string;
+        summary?: string;
+        risk_level?: string;
+        confidence?: number;
+      } = {};
+      try {
+        parsed = JSON.parse(text.match(/\{[\s\S]*\}/)?.[0] ?? "{}");
+      } catch {
+        parsed = {};
       }
 
-      const result = await res.json();
-      setClassificationCorrelationId(result.correlation_id);
-
       setClassification({
-        correlation_id: result.correlation_id,
-        decision_id: result.decision_id || null,
-        approval_status: result.approval_status || "pending",
-        confidence: result.confidence,
-        risk_level: result.output?.risk_level || "medium",
-        raw_summary: result.raw_summary,
-        failure_mode: result.output?.failure_mode || "Unknown",
-        failure_mode_family: result.output?.failure_mode_family || "unknown",
-        likely_cause_family: result.output?.likely_cause_family || "unknown",
+        correlation_id: crypto.randomUUID(),
+        decision_id: null,
+        approval_status: "advisory",
+        confidence:
+          typeof parsed.confidence === "number" ? parsed.confidence : 0.8,
+        risk_level: parsed.risk_level ?? "medium",
+        raw_summary: parsed.summary ?? text,
+        failure_mode: parsed.failure_mode ?? "See summary",
+        failure_mode_family: parsed.failure_mode_family ?? "unclassified",
+        likely_cause_family: parsed.likely_cause_family ?? "unclassified",
         recommended_next_diagnostic_step:
-          result.output?.recommended_next_diagnostic_step ||
-          "No recommendation",
+          parsed.recommended_next_diagnostic_step ??
+          "Review with reliability engineer",
       });
     } catch (error) {
       const errorMessage =
@@ -360,20 +323,20 @@ export function WorkOrderDetailPage() {
 
   const statusColors: Record<string, string> = {
     new: "bg-teal-500/10 text-teal-400 border border-teal-500/20",
-    pending: "bg-slate-100 text-slate-400",
+    pending: "bg-white/[0.06] text-slate-300",
     in_progress: "bg-amber-500/10 text-amber-400 border border-amber-500/20",
     pending_approval:
       "bg-orange-500/10 text-orange-400 border border-orange-500/20",
     completed:
       "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20",
-    cancelled: "bg-slate-100 text-slate-400",
+    cancelled: "bg-white/[0.06] text-slate-300",
   };
 
   const priorityColors: Record<string, string> = {
     critical: "bg-red-500/10 text-red-400",
     high: "bg-orange-500/10 text-orange-400",
     medium: "bg-teal-500/10 text-teal-400",
-    low: "bg-slate-100 text-slate-400",
+    low: "bg-white/[0.06] text-slate-300",
   };
 
   const formatDate = (dateStr: string | null | undefined) => {
@@ -446,7 +409,7 @@ export function WorkOrderDetailPage() {
       <div className="glass border border-white/[0.06] rounded-xl p-6">
         <div className="flex flex-col sm:flex-row sm:items-center gap-3">
           <div className="flex items-center gap-3 flex-1">
-            <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+            <div className="w-10 h-10 bg-blue-500/100/10 rounded-lg flex items-center justify-center">
               <Wrench size={20} className="text-teal-400" />
             </div>
             <div>
@@ -459,7 +422,8 @@ export function WorkOrderDetailPage() {
           <div className="flex items-center gap-2">
             <span
               className={`px-2.5 py-1 text-xs font-semibold rounded-full ${
-                statusColors[workOrder.status] || "bg-slate-100 text-slate-400"
+                statusColors[workOrder.status] ||
+                "bg-white/[0.06] text-slate-300"
               }`}
             >
               {formatLabel(workOrder.status || "unknown")}
@@ -468,7 +432,7 @@ export function WorkOrderDetailPage() {
               <span
                 className={`px-2.5 py-1 text-xs font-semibold rounded-full ${
                   priorityColors[workOrder.priority] ||
-                  "bg-slate-100 text-slate-400"
+                  "bg-white/[0.06] text-slate-300"
                 }`}
               >
                 {formatLabel(workOrder.priority)}
@@ -560,7 +524,7 @@ export function WorkOrderDetailPage() {
       )}
 
       {/* Reliability Assessment — three-plane governed flow */}
-      <AgentErrorBoundary correlationId={assessmentCorrelationId || undefined}>
+      <AgentErrorBoundary>
         <div className="glass border border-white/[0.06] rounded-xl p-6">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
@@ -591,17 +555,12 @@ export function WorkOrderDetailPage() {
           </div>
 
           {assessmentError && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-lg mb-3">
-              <div className="flex items-center gap-2 text-red-700 text-sm font-medium mb-1">
+            <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-lg mb-3">
+              <div className="flex items-center gap-2 text-red-300 text-sm font-medium mb-1">
                 <AlertTriangle size={14} />
                 Assessment Failed
               </div>
-              <p className="text-sm text-red-600">{assessmentError}</p>
-              {assessmentCorrelationId && (
-                <p className="text-xs text-red-400 mt-1 font-mono">
-                  Correlation: {assessmentCorrelationId}
-                </p>
-              )}
+              <p className="text-sm text-red-300">{assessmentError}</p>
             </div>
           )}
 
@@ -615,7 +574,7 @@ export function WorkOrderDetailPage() {
                       ? "bg-orange-500/10 text-orange-400 border border-orange-500/20"
                       : assessment.approval_status === "approved"
                         ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
-                        : "bg-slate-100 text-slate-400"
+                        : "bg-white/[0.06] text-slate-300"
                   }`}
                 >
                   {assessment.requires_human_review &&
@@ -632,7 +591,7 @@ export function WorkOrderDetailPage() {
                       : assessment.risk_level === "high"
                         ? "bg-orange-500/10 text-orange-400"
                         : assessment.risk_level === "medium"
-                          ? "bg-yellow-100 text-yellow-700"
+                          ? "bg-amber-500/10 text-amber-300"
                           : "bg-emerald-500/10 text-emerald-400"
                   }`}
                 >
@@ -677,45 +636,43 @@ export function WorkOrderDetailPage() {
                 </div>
               )}
 
-              {/* Approve & Execute button (visible only when pending) */}
-              {assessment.requires_human_review &&
-                assessment.approval_status !== "approved" &&
-                assessment.decision_id && (
-                  <div className="pt-3 border-t border-[#1A2030]">
-                    <button
-                      onClick={handleApproveAndExecute}
-                      disabled={approvalLoading}
-                      className="px-4 py-2 text-sm font-medium rounded-lg bg-emerald-600 text-white hover:bg-emerald-500 transition-colors disabled:opacity-50 flex items-center gap-2"
-                    >
-                      {approvalLoading ? (
-                        <>
-                          <Loader2 size={14} className="animate-spin" />
-                          Approving...
-                        </>
-                      ) : (
-                        <>
-                          <CheckCircle size={14} />
-                          Approve &amp; Execute Recommendation
-                        </>
-                      )}
-                    </button>
-                    <p className="text-xs text-slate-400 mt-1">
-                      Appends the recommendation as a governed note on this work
-                      order.
-                    </p>
-                  </div>
-                )}
+              {/* Save to the work order's audit trail */}
+              {assessment.approval_status !== "saved to work history" && (
+                <div className="pt-3 border-t border-[#1A2030]">
+                  <button
+                    onClick={handleSaveAssessment}
+                    disabled={approvalLoading}
+                    className="px-4 py-2 text-sm font-medium rounded-lg bg-emerald-600 text-white hover:bg-emerald-500 transition-colors disabled:opacity-50 flex items-center gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
+                  >
+                    {approvalLoading ? (
+                      <>
+                        <Loader2 size={14} className="animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle size={14} />
+                        Save to Work History
+                      </>
+                    )}
+                  </button>
+                  <p className="text-xs text-slate-400 mt-1">
+                    Appends the assessment as an auditable note in this work
+                    order&apos;s status history.
+                  </p>
+                </div>
+              )}
 
               {/* Governance trail */}
               <div className="pt-3 border-t border-[#1A2030] flex items-center gap-4 text-xs text-slate-400">
                 <span className="flex items-center gap-1">
-                  <Shield size={12} /> Governed by Autonomous
+                  <Shield size={12} /> Advisory only — actions stay
+                  human-approved
                 </span>
-                {assessment.decision_id && (
-                  <span>Decision: {assessment.decision_id.slice(0, 8)}</span>
-                )}
-                {assessment.approval_status === "approved" && (
-                  <span className="text-green-600 font-medium">Executed</span>
+                {assessment.approval_status === "saved to work history" && (
+                  <span className="text-green-400 font-medium">
+                    Saved to work history
+                  </span>
                 )}
               </div>
             </div>
@@ -732,13 +689,11 @@ export function WorkOrderDetailPage() {
       </AgentErrorBoundary>
 
       {/* Failure Mode Classification — same governed pattern, advisory mode */}
-      <AgentErrorBoundary
-        correlationId={classificationCorrelationId || undefined}
-      >
+      <AgentErrorBoundary>
         <div className="glass border border-white/[0.06] rounded-xl p-6">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
-              <AlertTriangle size={18} className="text-orange-600" />
+              <AlertTriangle size={18} className="text-orange-400" />
               <h2 className="text-lg font-semibold text-[#E6EDF3]">
                 Failure Mode Classification
               </h2>
@@ -765,17 +720,12 @@ export function WorkOrderDetailPage() {
           </div>
 
           {classificationError && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-lg mb-3">
-              <div className="flex items-center gap-2 text-red-700 text-sm font-medium mb-1">
+            <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-lg mb-3">
+              <div className="flex items-center gap-2 text-red-300 text-sm font-medium mb-1">
                 <AlertTriangle size={14} />
                 Classification Failed
               </div>
-              <p className="text-sm text-red-600">{classificationError}</p>
-              {classificationCorrelationId && (
-                <p className="text-xs text-red-400 mt-1 font-mono">
-                  Correlation: {classificationCorrelationId}
-                </p>
-              )}
+              <p className="text-sm text-red-300">{classificationError}</p>
             </div>
           )}
 
@@ -793,7 +743,7 @@ export function WorkOrderDetailPage() {
                       : classification.risk_level === "high"
                         ? "bg-orange-500/10 text-orange-400"
                         : classification.risk_level === "medium"
-                          ? "bg-yellow-100 text-yellow-700"
+                          ? "bg-amber-500/10 text-amber-300"
                           : "bg-emerald-500/10 text-emerald-400"
                   }`}
                 >
@@ -933,7 +883,7 @@ export function WorkOrderDetailPage() {
           <div className="flex items-center gap-2 mb-4">
             <FileText size={18} className="text-slate-400" />
             <h2 className="text-lg font-semibold text-[#E6EDF3]">Tasks</h2>
-            <span className="ml-auto px-2 py-0.5 bg-slate-100 text-slate-400 text-xs font-medium rounded">
+            <span className="ml-auto px-2 py-0.5 bg-white/[0.06] text-slate-300 text-xs font-medium rounded">
               {tasks.length}
             </span>
           </div>
@@ -974,7 +924,7 @@ export function WorkOrderDetailPage() {
                       <span
                         className={`px-1.5 py-0.5 rounded ${
                           statusColors[task.status] ||
-                          "bg-slate-100 text-slate-400"
+                          "bg-white/[0.06] text-slate-300"
                         }`}
                       >
                         {formatLabel(task.status || "pending")}
@@ -1026,7 +976,7 @@ export function WorkOrderDetailPage() {
                         <span
                           className={`px-2 py-0.5 rounded text-xs font-medium ${
                             statusColors[entry.status_from] ||
-                            "bg-slate-100 text-slate-400"
+                            "bg-white/[0.06] text-slate-300"
                           }`}
                         >
                           {formatLabel(entry.status_from || "unknown")}
@@ -1035,7 +985,7 @@ export function WorkOrderDetailPage() {
                         <span
                           className={`px-2 py-0.5 rounded text-xs font-medium ${
                             statusColors[entry.status_to] ||
-                            "bg-slate-100 text-slate-400"
+                            "bg-white/[0.06] text-slate-300"
                           }`}
                         >
                           {formatLabel(entry.status_to || "unknown")}

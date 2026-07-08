@@ -193,7 +193,7 @@ export function AutonomyControlPanel() {
                 </button>
                 <button
                   onClick={saveConfig}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-sm flex items-center gap-2"
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-500/100 rounded-lg text-sm flex items-center gap-2"
                 >
                   <Save className="w-4 h-4" />
                   Save Changes
@@ -238,7 +238,7 @@ export function AutonomyControlPanel() {
               onClick={() => setSystemMode(mode.value)}
               className={`flex-1 p-4 rounded-lg border text-left transition-all ${
                 systemMode === mode.value
-                  ? "border-blue-500 bg-blue-500/10"
+                  ? "border-blue-500 bg-blue-500/100/10"
                   : "border-[#2A3344] hover:border-[#3A4354]"
               }`}
             >
@@ -298,7 +298,7 @@ export function AutonomyControlPanel() {
 
             <div className="col-span-2">
               <div className="flex items-center gap-2">
-                <span className="text-gray-500">$</span>
+                <span className="text-slate-400">$</span>
                 <input
                   type="number"
                   value={item.financialLimit}
@@ -339,7 +339,7 @@ export function AutonomyControlPanel() {
 
             <div className="col-span-3">
               {item.approvalRequired.length === 0 ? (
-                <span className="text-xs text-gray-500">None required</span>
+                <span className="text-xs text-slate-400">None required</span>
               ) : (
                 <div className="flex flex-wrap gap-1">
                   {item.approvalRequired.map((approval) => (
