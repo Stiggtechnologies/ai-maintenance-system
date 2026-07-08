@@ -297,7 +297,7 @@ export function PerformanceDashboard() {
               key={t.label}
               className="bg-[#0D1520] border border-white/[0.06] rounded-xl p-4"
             >
-              <div className="text-[11px] text-slate-400 mb-1">{t.label}</div>
+              <div className="text-xs text-slate-400 mb-1">{t.label}</div>
               <div className={`text-xl font-black ${c.text} mb-2`}>
                 {t.current}
               </div>

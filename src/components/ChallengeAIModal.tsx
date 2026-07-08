@@ -110,7 +110,7 @@ export function ChallengeAIModal({
                       <h3 className="text-sm font-bold text-white">
                         Challenge AI Recommendation
                       </h3>
-                      <p className="text-[11px] text-slate-400">
+                      <p className="text-xs text-slate-400">
                         Your override improves future model accuracy
                       </p>
                     </div>
@@ -132,7 +132,7 @@ export function ChallengeAIModal({
                     <div className="text-sm font-semibold text-slate-200">
                       {recommendation.title}
                     </div>
-                    <div className="flex items-center gap-3 mt-1.5 text-[11px] text-slate-400">
+                    <div className="flex items-center gap-3 mt-1.5 text-xs text-slate-400">
                       <span>{recommendation.asset}</span>
                       <span className="text-slate-400">|</span>
                       <span className="font-mono text-teal-400">
@@ -205,7 +205,7 @@ export function ChallengeAIModal({
                 {/* Learning note */}
                 <div className="mx-6 mb-4 p-3 rounded-xl bg-teal-500/5 border border-teal-500/10 flex items-start gap-2">
                   <Clock className="w-3.5 h-3.5 text-teal-400 flex-shrink-0 mt-0.5" />
-                  <p className="text-[11px] text-slate-400 leading-relaxed">
+                  <p className="text-xs text-slate-400 leading-relaxed">
                     Challenges are reviewed within 4 hours. The AI model
                     retrains weekly incorporating all human overrides. Your
                     expertise directly improves system accuracy.

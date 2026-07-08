@@ -187,19 +187,19 @@ export function WorkDashboard() {
             <table className="w-full">
               <thead>
                 <tr className="border-t border-white/[0.04] bg-white/[0.02]">
-                  <th className="text-left py-2.5 px-4 text-[11px] font-semibold text-slate-400 uppercase tracking-widest">
+                  <th className="text-left py-2.5 px-4 text-xs font-semibold text-slate-400 uppercase tracking-widest">
                     WO #
                   </th>
-                  <th className="text-left py-2.5 px-4 text-[11px] font-semibold text-slate-400 uppercase tracking-widest">
+                  <th className="text-left py-2.5 px-4 text-xs font-semibold text-slate-400 uppercase tracking-widest">
                     Title
                   </th>
-                  <th className="text-left py-2.5 px-4 text-[11px] font-semibold text-slate-400 uppercase tracking-widest">
+                  <th className="text-left py-2.5 px-4 text-xs font-semibold text-slate-400 uppercase tracking-widest">
                     Priority
                   </th>
-                  <th className="text-left py-2.5 px-4 text-[11px] font-semibold text-slate-400 uppercase tracking-widest">
+                  <th className="text-left py-2.5 px-4 text-xs font-semibold text-slate-400 uppercase tracking-widest">
                     Status
                   </th>
-                  <th className="text-left py-2.5 px-4 text-[11px] font-semibold text-slate-400 uppercase tracking-widest">
+                  <th className="text-left py-2.5 px-4 text-xs font-semibold text-slate-400 uppercase tracking-widest">
                     Due Date
                   </th>
                   <th className="w-8"></th>

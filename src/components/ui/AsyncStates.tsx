@@ -48,7 +48,7 @@ export function ErrorState({
     <div className="flex flex-col items-center justify-center gap-3 py-12 text-center">
       <AlertTriangle className="w-8 h-8 text-amber-400" />
       <div className="text-sm text-slate-300 max-w-md">{message}</div>
-      <div className="text-[11px] text-slate-400">
+      <div className="text-xs text-slate-400">
         Showing no data rather than stale values.
       </div>
       {onRetry && (

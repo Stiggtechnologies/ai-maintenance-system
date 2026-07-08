@@ -288,7 +288,7 @@ function ScenarioModal({
               <div className="text-lg font-black text-white mt-1">
                 {money(Number(s.cost))}
               </div>
-              <div className="mt-2 space-y-1 text-[11px] text-slate-400">
+              <div className="mt-2 space-y-1 text-xs text-slate-400">
                 <div>
                   Downtime:{" "}
                   <span className="text-slate-300">{s.downtime_impact}</span>
@@ -413,7 +413,7 @@ function RecommendationCard({
             <span className="text-slate-400">Recommended: </span>
             {rec.action}
           </div>
-          <div className="grid grid-cols-2 gap-2 text-[11px]">
+          <div className="grid grid-cols-2 gap-2 text-xs">
             <div>
               <span className="text-slate-400">Accountable: </span>
               <span className="text-slate-300">{rec.accountable}</span>
@@ -596,7 +596,7 @@ export function MissionControl() {
 
       <div className="flex items-center justify-between">
         <div>
-          <div className="flex items-center gap-2 text-[11px] text-slate-400 mb-1">
+          <div className="flex items-center gap-2 text-xs text-slate-400 mb-1">
             <Radio className="w-3 h-3 text-teal-400" />
             <LiveBadge live={live} />
             <span>· Mission Control · {ROLE_LABEL[role] ?? role} view</span>
@@ -697,9 +697,7 @@ export function MissionControl() {
                     <div className="p-1.5 rounded-lg text-teal-400 bg-teal-500/10">
                       <Icon className="w-3.5 h-3.5" />
                     </div>
-                    <span className="text-[11px] text-slate-400">
-                      {s.label}
-                    </span>
+                    <span className="text-xs text-slate-400">{s.label}</span>
                   </div>
                   <div className="text-2xl font-black text-teal-400">
                     {s.value}
@@ -817,7 +815,7 @@ export function MissionControl() {
                         {signal.reasons.map((reason) => (
                           <li
                             key={reason}
-                            className="flex items-start gap-1.5 text-[11px] text-slate-400"
+                            className="flex items-start gap-1.5 text-xs text-slate-400"
                           >
                             <AlertTriangle className="w-3 h-3 text-amber-400 flex-shrink-0 mt-0.5" />
                             {reason}

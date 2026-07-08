@@ -379,13 +379,11 @@ export function ScenarioSimulator() {
               <table className="w-full min-w-[600px]">
                 <thead>
                   <tr>
-                    <td className="text-[11px] text-slate-400 pb-3 w-36">
-                      Metric
-                    </td>
+                    <td className="text-xs text-slate-400 pb-3 w-36">Metric</td>
                     {compareScenarios.map((s) => (
                       <td
                         key={s.id}
-                        className="text-[11px] text-slate-200 font-semibold pb-3 px-3"
+                        className="text-xs text-slate-200 font-semibold pb-3 px-3"
                       >
                         {s.label}
                         {s.aiRecommended && (
@@ -424,7 +422,7 @@ export function ScenarioSimulator() {
                     },
                   ].map((metric) => (
                     <tr key={metric.key}>
-                      <td className="text-[11px] text-slate-400 py-2.5">
+                      <td className="text-xs text-slate-400 py-2.5">
                         {metric.label}
                       </td>
                       {compareScenarios.map((s) => {

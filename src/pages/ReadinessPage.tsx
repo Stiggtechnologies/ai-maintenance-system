@@ -586,7 +586,7 @@ export function ReadinessPage() {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <div className="flex items-center gap-2 text-[11px] text-slate-400 mb-1">
+          <div className="flex items-center gap-2 text-xs text-slate-400 mb-1">
             <Radio className="w-3 h-3 text-teal-400" />
             <span className="text-teal-400">LIVE</span>
           </div>

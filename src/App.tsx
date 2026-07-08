@@ -58,6 +58,7 @@ import { ArtifactWorkspace } from "./pages/ArtifactWorkspace";
 import { AutonomyControlPanel } from "./components/AutonomyControlPanel";
 import { ApprovalQueue } from "./components/ApprovalQueue";
 import { motion, AnimatePresence, MotionConfig } from "framer-motion";
+import { useAuth } from "./components/AuthProvider";
 import { ReliabilityCopilotPage } from "./pages/ReliabilityCopilotPage";
 import { FirstCustomerPilotPage } from "./pages/FirstCustomerPilotPage";
 
@@ -202,6 +203,22 @@ function App() {
   );
 }
 
+/**
+ * Internal/experimental surfaces (research orchestrator, run traces, deployment
+ * configurator, setup wizard) are hidden from pilot roles — they are platform
+ * admin tooling, not buyer-facing product. Everyone else lands on Mission
+ * Control.
+ */
+function AdminGate({ children }: { children: React.ReactElement }) {
+  const { profile, loading } = useAuth();
+  if (loading) return null;
+  const role = (profile?.role as string) ?? "";
+  if (role !== "admin" && role !== "ai_admin") {
+    return <Navigate to="/mission-control" replace />;
+  }
+  return children;
+}
+
 function AuthenticatedApp() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -270,15 +287,54 @@ function AuthenticatedApp() {
           <Route path="/playbooks" element={<PlaybooksLibrary />} />
           <Route path="/emergency" element={<EmergencyMode />} />
           <Route path="/artifacts" element={<ArtifactWorkspace />} />
-          <Route path="/setup" element={<SetupWizard />} />
-          <Route path="/research" element={<ResearchDashboard />} />
-          <Route path="/runs" element={<RunsAuditPage />} />
+          <Route
+            path="/setup"
+            element={
+              <AdminGate>
+                <SetupWizard />
+              </AdminGate>
+            }
+          />
+          <Route
+            path="/research"
+            element={
+              <AdminGate>
+                <ResearchDashboard />
+              </AdminGate>
+            }
+          />
+          <Route
+            path="/runs"
+            element={
+              <AdminGate>
+                <RunsAuditPage />
+              </AdminGate>
+            }
+          />
           <Route
             path="/deployments/new/configure"
-            element={<DeploymentConfiguratorPage />}
+            element={
+              <AdminGate>
+                <DeploymentConfiguratorPage />
+              </AdminGate>
+            }
           />
-          <Route path="/deployments/new" element={<TemplateSelectorPage />} />
-          <Route path="/deployments" element={<TemplateSelectorPage />} />
+          <Route
+            path="/deployments/new"
+            element={
+              <AdminGate>
+                <TemplateSelectorPage />
+              </AdminGate>
+            }
+          />
+          <Route
+            path="/deployments"
+            element={
+              <AdminGate>
+                <TemplateSelectorPage />
+              </AdminGate>
+            }
+          />
           <Route path="/settings" element={<SettingsPage />} />
 
           <Route
