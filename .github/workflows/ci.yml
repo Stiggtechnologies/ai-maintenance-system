@@ -153,6 +153,14 @@ jobs:
       - name: Start local Supabase (fresh migration chain + demo data)
         run: supabase start
 
+      - name: Freeze background crons for deterministic E2E
+        # The telemetry simulator (1-min) and operating loop (5-min) mutate
+        # sensors/recommendations mid-suite in CI, pushing seeded fixtures out
+        # of top-N lists. Product behavior — but tests need a frozen world.
+        run: |
+          PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -c \
+            "select cron.unschedule(jobid) from cron.job where jobname in ('syncai-telemetry-sim','syncai-agent-loop','syncai-agent-enrich','syncai-onboarding-enrich');"
+
       - name: Install Playwright
         run: npx playwright install --with-deps chromium
 
