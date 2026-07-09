@@ -355,9 +355,20 @@ export async function getMissionControl(): Promise<MissionControlData> {
       getValueMetrics(),
     ]);
 
-  const pendingRecs = recs.filter(
-    (r) => r.status === "pending" || r.status === "escalated",
-  );
+  // Most consequential decision first — urgency then model confidence —
+  // so a fresh advisory can never displace a critical call to action.
+  const urgencyWeight: Record<string, number> = {
+    critical: 3,
+    action: 2,
+    advisory: 1,
+  };
+  const pendingRecs = recs
+    .filter((r) => r.status === "pending" || r.status === "escalated")
+    .sort(
+      (a, b) =>
+        (urgencyWeight[b.urgency] ?? 0) - (urgencyWeight[a.urgency] ?? 0) ||
+        (b.confidence ?? 0) - (a.confidence ?? 0),
+    );
 
   // Readiness factors derived from live data.
   const assetHealth = avg(assets.map((a) => a.health_score));

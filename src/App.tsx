@@ -45,6 +45,7 @@ import { ReadinessPage } from "./pages/ReadinessPage";
 import { OperationalBriefing } from "./pages/OperationalBriefing";
 import { AssetIntelligencePage } from "./pages/AssetIntelligencePage";
 import { AssetOnboardingHub } from "./pages/AssetOnboardingHub";
+import { ExecutiveIntelligence } from "./pages/ExecutiveIntelligence";
 import { IntegrationHealthPanel } from "./pages/IntegrationHealthPanel";
 import { CoworkStudio } from "./pages/CoworkStudio";
 import { ValueRealization } from "./pages/ValueRealization";
@@ -271,6 +272,7 @@ function AuthenticatedApp() {
           <Route path="/briefing" element={<OperationalBriefing />} />
 
           {/* Performance */}
+          <Route path="/executive" element={<ExecutiveIntelligence />} />
           <Route path="/performance" element={<PerformanceDashboard />} />
           <Route path="/oee" element={<OEEDashboard />} />
           <Route path="/learning-loop" element={<LearningLoop />} />
