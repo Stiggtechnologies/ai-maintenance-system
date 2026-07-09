@@ -326,13 +326,43 @@ test.describe("ISO 55000 KPI service: access-controlled executive intelligence",
     await email.fill("executive@syncai.ca");
     await page.locator('input[type="password"]').fill("Exec123!@#");
     await page.getByRole("button", { name: /access syncai/i }).click();
+
+    // Role command center: the executive LANDS on Executive Intelligence.
     await expect(
-      page.getByRole("heading", { name: "Mission Control" }),
+      page.getByRole("heading", { name: "Executive Asset Intelligence" }),
     ).toBeVisible({ timeout: 30_000 });
-    await page.goto("/executive");
     await expect(
       page.getByText("Asset Value Realization").first(),
     ).toBeVisible({ timeout: 20_000 });
     await expect(page.getByText(/visible to the executive role/)).toBeVisible();
+    // Role-trimmed navigation: executives see governance, not the setup wizard.
+    await expect(
+      page.getByRole("button", { name: "Setup Wizard" }),
+    ).toHaveCount(0);
+  });
+
+  test("9 — technician lands on the Work Action Board with a trimmed nav", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    const email = page.getByRole("textbox", { name: /work email/i });
+    await expect(email).toBeVisible({ timeout: 20_000 });
+    await email.fill("technician@syncai.ca");
+    await page.locator('input[type="password"]').fill("Tech123!@#");
+    await page.getByRole("button", { name: /access syncai/i }).click();
+
+    await expect(
+      page.getByRole("heading", { name: "Work Action Board" }),
+    ).toBeVisible({ timeout: 30_000 });
+    // Execution-focused nav: no governance or benchmarking for technicians.
+    await expect(
+      page.getByRole("button", { name: "Decision Governance" }),
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole("button", { name: "Benchmarking" }),
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole("button", { name: "Work Action Board" }),
+    ).toBeVisible();
   });
 });

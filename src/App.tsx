@@ -60,6 +60,7 @@ import { AutonomyControlPanel } from "./components/AutonomyControlPanel";
 import { ApprovalQueue } from "./components/ApprovalQueue";
 import { motion, AnimatePresence, MotionConfig } from "framer-motion";
 import { useAuth } from "./components/AuthProvider";
+import { getRoleHome } from "./lib/roleNavigation";
 import { ReliabilityCopilotPage } from "./pages/ReliabilityCopilotPage";
 import { FirstCustomerPilotPage } from "./pages/FirstCustomerPilotPage";
 
@@ -220,6 +221,13 @@ function AdminGate({ children }: { children: React.ReactElement }) {
   return children;
 }
 
+/** Post-login landing: every role gets its own command center. */
+function RoleLanding() {
+  const { profile, loading } = useAuth();
+  if (loading) return null;
+  return <Navigate to={getRoleHome(profile?.role as string)} replace />;
+}
+
 function AuthenticatedApp() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -232,14 +240,8 @@ function AuthenticatedApp() {
       <ErrorBoundary inline resetKey={location.pathname}>
         <Routes>
           {/* Default Ã¢ÂÂ Mission Control */}
-          <Route
-            path="/"
-            element={<Navigate to="/mission-control" replace />}
-          />
-          <Route
-            path="/overview"
-            element={<Navigate to="/mission-control" replace />}
-          />
+          <Route path="/" element={<RoleLanding />} />
+          <Route path="/overview" element={<RoleLanding />} />
 
           {/* Mission layer */}
           <Route path="/mission-control" element={<MissionControl />} />
