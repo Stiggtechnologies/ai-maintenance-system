@@ -301,3 +301,38 @@ test.describe("Autonomous asset onboarding: RAM checklist + HITL + go-live gate"
     ).toBeVisible({ timeout: 20_000 });
   });
 });
+
+test.describe("ISO 55000 KPI service: access-controlled executive intelligence", () => {
+  test("8 — KPIs render with RACI ownership; board-tier rows are role-gated", async ({
+    page,
+  }) => {
+    // Reliability engineer: sees operational KPIs, NOT board-tier ones.
+    await login(page);
+    await page.goto("/executive");
+    const dash = page.getByTestId("executive-intelligence");
+    await expect(dash).toBeVisible({ timeout: 20_000 });
+    await expect(
+      dash.getByText("Overall Equipment Effectiveness").first(),
+    ).toBeVisible();
+    await expect(dash.getByText(/visible to the reliability engineer role/)).toBeVisible();
+    await expect(dash.getByText("Asset Value Realization")).toHaveCount(0);
+
+    // Executive: board-tier KPIs appear.
+    await page.goto("/");
+    await page.evaluate(() => window.localStorage.clear());
+    await page.goto("/");
+    const email = page.getByRole("textbox", { name: /work email/i });
+    await expect(email).toBeVisible({ timeout: 20_000 });
+    await email.fill("executive@syncai.ca");
+    await page.locator('input[type="password"]').fill("Exec123!@#");
+    await page.getByRole("button", { name: /access syncai/i }).click();
+    await expect(
+      page.getByRole("heading", { name: "Mission Control" }),
+    ).toBeVisible({ timeout: 30_000 });
+    await page.goto("/executive");
+    await expect(
+      page.getByText("Asset Value Realization").first(),
+    ).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByText(/visible to the executive role/)).toBeVisible();
+  });
+});
