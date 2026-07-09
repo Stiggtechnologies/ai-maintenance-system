@@ -36,6 +36,8 @@ import {
 } from "../services/operatingLoopService";
 import { motion, AnimatePresence } from "framer-motion";
 import { CommandSearch } from "./CommandSearch";
+import { useAuth } from "./AuthProvider";
+import { isNavItemVisible } from "../lib/roleNavigation";
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -172,6 +174,15 @@ const navGroups: NavGroup[] = [
 ];
 
 export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
+  const { profile } = useAuth();
+  const appRole = (profile?.role as string) ?? null;
+  // Role-shaped command center: each level sees its own working surface.
+  const visibleGroups = navGroups
+    .map((group) => ({
+      ...group,
+      items: group.items.filter((item) => isNavItemVisible(appRole, item.id)),
+    }))
+    .filter((group) => group.items.length > 0);
   const [userContext, setUserContext] = useState<UserContext | null>(null);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [sites, setSites] = useState<Site[]>([]);
@@ -393,7 +404,7 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
 
         {/* Navigation */}
         <nav className="flex-1 overflow-y-auto overflow-x-hidden py-2">
-          {navGroups.map((group) => {
+          {visibleGroups.map((group) => {
             const GroupIcon = group.icon;
             const isGroupExpanded = expandedGroups.has(group.id);
             return (
