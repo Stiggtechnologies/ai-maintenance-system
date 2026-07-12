@@ -643,7 +643,7 @@ export function ReliabilityCopilotPage() {
   };
 
   return (
-    <div className="mx-auto max-w-[1440px] space-y-4 pb-60">
+    <div className="mx-auto max-w-[1440px] space-y-4 pb-10">
       <section className="relative overflow-hidden rounded-2xl border border-white/[0.08] bg-[linear-gradient(135deg,rgba(13,19,26,0.96),rgba(8,12,17,0.98))] p-4 shadow-xl shadow-black/20">
         <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-teal-300/50 to-transparent" />
         <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
@@ -1158,7 +1158,7 @@ export function ReliabilityCopilotPage() {
                       </div>
                     </div>
                   </div>
-                  <div className="hidden">
+                  <div className="order-4 border-t border-white/[0.06] p-4">
                     <div className="mb-2 flex items-center justify-between gap-3">
                       <div className="text-xs font-semibold uppercase tracking-[0.18em] text-teal-300">
                         Ask SyncAI
@@ -1806,67 +1806,6 @@ export function ReliabilityCopilotPage() {
           />
         </section>
       </details>
-
-      {activeWorkspace === "analysis" && (
-        <div className="fixed inset-x-0 bottom-4 z-50 px-4">
-          <div className="mx-auto max-w-4xl rounded-2xl border border-white/[0.12] bg-[#080C11]/95 p-3 shadow-2xl shadow-black/50 backdrop-blur-xl">
-            <div className="mb-2 flex items-center justify-between gap-3 px-1">
-              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-teal-300">
-                <MessageSquare size={14} />
-                Ask SyncAI
-              </div>
-              <span className="hidden text-xs text-slate-400 sm:block">
-                Reliability cowork session · Cmd/Ctrl + Enter
-              </span>
-            </div>
-            <textarea
-              value={prompt}
-              onChange={(event) => setPrompt(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
-                  event.preventDefault();
-                  void generateReport();
-                }
-              }}
-              className="max-h-40 min-h-16 w-full resize-none rounded-xl border border-white/[0.08] bg-black/40 p-3 text-sm leading-6 text-[#E6EDF3] outline-none transition-colors placeholder:text-slate-400 focus:border-teal-400/70 focus:ring-4 focus:ring-teal-400/10"
-              placeholder="Ask SyncAI to analyze failures, build RCA/FRACAS, optimize PMs, or /onboard pump P-101..."
-              aria-label="Floating SyncAI chat input"
-            />
-            <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
-              <div className="flex flex-wrap gap-2">
-                <button
-                  onClick={() =>
-                    setPrompt("/onboard used pump P-101 oil-sands deep")
-                  }
-                  className="inline-flex items-center gap-2 rounded-lg border border-white/[0.08] px-3 py-2 text-xs font-semibold text-slate-200 transition-colors hover:bg-white/[0.04]"
-                >
-                  <Sparkles size={14} />
-                  /onboard
-                </button>
-                <button
-                  onClick={exportReport}
-                  className="inline-flex items-center gap-2 rounded-lg border border-white/[0.08] px-3 py-2 text-xs font-semibold text-slate-200 transition-colors hover:bg-white/[0.04]"
-                >
-                  <Download size={14} />
-                  Export
-                </button>
-              </div>
-              <button
-                onClick={() => void generateReport()}
-                disabled={!!calculation.error || isRunningLiveAgent}
-                className="inline-flex items-center gap-2 rounded-xl bg-teal-400 px-5 py-2.5 text-sm font-semibold text-slate-950 shadow-lg shadow-teal-950/20 transition-colors hover:bg-teal-300 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {isRunningLiveAgent ? (
-                  <RefreshCw size={16} />
-                ) : (
-                  <Send size={16} />
-                )}
-                {isRunningLiveAgent ? "Working" : "Send"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
