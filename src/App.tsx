@@ -223,8 +223,16 @@ function AdminGate({ children }: { children: React.ReactElement }) {
 
 /** Post-login landing: every role gets its own command center. */
 function RoleLanding() {
-  const { profile, loading } = useAuth();
-  if (loading) return null;
+  const { user, profile, loading } = useAuth();
+  // The profile row arrives after the session on real network latency —
+  // navigating before it lands would send every role to the default home.
+  // Wait for it briefly; after the grace period, fall back to the default.
+  const [graceExpired, setGraceExpired] = useState(false);
+  useEffect(() => {
+    const t = window.setTimeout(() => setGraceExpired(true), 5000);
+    return () => window.clearTimeout(t);
+  }, []);
+  if (loading || (user && !profile && !graceExpired)) return null;
   return <Navigate to={getRoleHome(profile?.role as string)} replace />;
 }
 
