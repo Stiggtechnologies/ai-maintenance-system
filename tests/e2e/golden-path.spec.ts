@@ -366,3 +366,40 @@ test.describe("ISO 55000 KPI service: access-controlled executive intelligence",
     ).toBeVisible();
   });
 });
+
+test.describe("Role-aware copilot dock", () => {
+  test("10 — each layer gets its own copilot persona, fail-soft when LLM is absent", async ({
+    page,
+  }) => {
+    // Reliability engineer persona
+    await login(page);
+    await page.getByTestId("copilot-launcher").click();
+    const dock = page.getByTestId("copilot-dock");
+    await expect(dock).toBeVisible();
+    await expect(dock.getByText("Reliability Copilot")).toBeVisible();
+    await expect(page.getByTestId("copilot-suggestions")).toBeVisible();
+
+    // Asking works end-to-end and degrades gracefully without an LLM locally.
+    await dock.getByRole("button", { name: /Which assets are trending/ }).click();
+    await expect(
+      dock.getByText(/unavailable right now|failure|vibration|monitor/i).first(),
+    ).toBeVisible({ timeout: 30_000 });
+
+    // Technician persona differs.
+    await page.goto("/");
+    await page.evaluate(() => window.localStorage.clear());
+    await page.goto("/");
+    const email = page.getByRole("textbox", { name: /work email/i });
+    await expect(email).toBeVisible({ timeout: 20_000 });
+    await email.fill("technician@syncai.ca");
+    await page.locator('input[type="password"]').fill("Tech123!@#");
+    await page.getByRole("button", { name: /access syncai/i }).click();
+    await expect(
+      page.getByRole("heading", { name: "Work Action Board" }),
+    ).toBeVisible({ timeout: 30_000 });
+    await page.getByTestId("copilot-launcher").click();
+    await expect(
+      page.getByTestId("copilot-dock").getByText("Field Copilot"),
+    ).toBeVisible();
+  });
+});
