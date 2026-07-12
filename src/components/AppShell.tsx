@@ -36,6 +36,7 @@ import {
 } from "../services/operatingLoopService";
 import { motion, AnimatePresence } from "framer-motion";
 import { CommandSearch } from "./CommandSearch";
+import { CopilotDock } from "./CopilotDock";
 import { useAuth } from "./AuthProvider";
 import { isNavItemVisible } from "../lib/roleNavigation";
 
@@ -652,6 +653,7 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
       </div>
 
       {/* Command Search */}
+      <CopilotDock />
       <CommandSearch
         open={commandSearchOpen}
         onClose={() => setCommandSearchOpen(false)}
