@@ -159,6 +159,9 @@ export function Login({ onSuccess, onTabChange }: LoginProps) {
             MFA enabled for enterprise tenants
           </p>
         </form>
+        <p className="mt-4 text-center text-xs text-slate-400">
+          build {__BUILD_SHA__}
+        </p>
 
         <div className="mt-8 pt-6 border-t border-[#232A33]">
           <div className="flex justify-center gap-4 text-xs text-[#9BA7B4]">
