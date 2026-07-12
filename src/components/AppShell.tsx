@@ -500,7 +500,7 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
           {!isCollapsed && (
             <div className="mt-2 px-2 py-1">
               <div className="text-xs text-slate-400">
-                SyncAI Platform v3.0 · 15 Agents
+                SyncAI Platform v3.0 · build {__BUILD_SHA__}
               </div>
             </div>
           )}
