@@ -1,0 +1,5 @@
+Contact: mailto:security@syncai.ca
+Preferred-Languages: en
+Canonical: https://app.syncai.ca/.well-known/security.txt
+Policy: https://github.com/Stiggtechnologies/ai-maintenance-system/blob/main/SECURITY.md
+Expires: 2027-07-15T00:00:00.000Z
