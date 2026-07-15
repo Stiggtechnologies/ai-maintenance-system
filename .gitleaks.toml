@@ -1,0 +1,15 @@
+title = "SyncAI gitleaks config"
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Public/dev artifacts that are not secrets"
+paths = [
+  '''docs/compliance/.*''',
+  '''SECRETS\.md''',            # secrets *reference template* — placeholders + local demo keys only
+  '''supabase/migrations/.*''', # seeded demo auth uses bcrypt hashes, not live secrets
+]
+regexes = [
+  # Universal Supabase local-development demo JWT (public, shipped with the CLI).
+  '''eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\.eyJpc3MiOiJzdXBhYmFzZS1kZW1v''',
+]
