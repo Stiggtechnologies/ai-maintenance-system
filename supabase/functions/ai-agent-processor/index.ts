@@ -71,6 +71,7 @@ async function callLLM(
   userQuery: string,
   apiKey: string,
   jsonMode: boolean = false,
+  maxTokens: number = 1200,
 ): Promise<{ content: string; usage: any }> {
   const body: any = {
     model,
@@ -79,7 +80,7 @@ async function callLLM(
       { role: "user", content: userQuery },
     ],
     temperature: 0.7,
-    max_completion_tokens: 1200,
+    max_completion_tokens: maxTokens,
   };
 
   if (jsonMode) {
@@ -532,7 +533,7 @@ How to respond:
 const KB_EMBED_KEY = Deno.env.get("ENRICH_LLM_API_KEY") ?? Deno.env.get("GEMINI_API_KEY") ?? "";
 const KB_AGENTS = new Set(["ReliabilityAgent", "PreventiveMaintenanceAgent", "AssetHealthAgent", "RiskAssessmentAgent"]);
 
-async function retrieveKbContext(supabase: any, query: string): Promise<string | null> {
+async function retrieveKbContext(supabase: any, query: string, matchCount = 4): Promise<string | null> {
   try {
     if (!KB_EMBED_KEY || !query || query.length < 12) return null;
     const embedRes = await fetch(
@@ -553,7 +554,7 @@ async function retrieveKbContext(supabase: any, query: string): Promise<string |
 
     const { data, error } = await supabase.rpc("match_reliability_kb", {
       query_embedding: JSON.stringify(embedding),
-      match_count: 4,
+      match_count: matchCount,
     });
     if (error || !data || data.length === 0) return null;
 
@@ -574,15 +575,41 @@ async function handleLegacyRequest(
   body: LegacyAgentRequest,
   apiKey: string,
 ): Promise<Response> {
-  const { agentType, industry, query, requiresApproval } = body;
+  const { agentType, industry, query, requiresApproval, depth } = body;
 
   if (!agentType) {
     return errorResponse(400, "agentType is required");
   }
 
   const startTime = Date.now();
-  const selectedModel = selectOptimalModel(agentType, query);
-  const systemPrompt = buildSystemPrompt(agentType, industry);
+  // Deliverable mode: the caller asked for a complete work product (an FMEA
+  // register, RCA packet, assessment...), not a summary. Explicit flag from
+  // the UI, or detected from work-product phrasing in the question.
+  const DELIVERABLE_RE =
+    /\b(complete|produce|create|build|generate|develop|prepare|draft|perform)\b[\s\S]{0,120}\b(fmea|rca|fracas|rcm|register|assessment|analysis|packet|report|plan|study|review)\b/i;
+  const isDeliverable = depth === "deliverable" || DELIVERABLE_RE.test(query ?? "");
+  const selectedModel = isDeliverable ? "gpt-4o" : selectOptimalModel(agentType, query);
+  const maxTokens = isDeliverable ? 12000 : 1200;
+  let systemPrompt = buildSystemPrompt(agentType, industry);
+  if (isDeliverable) {
+    systemPrompt += `
+
+DELIVERABLE MODE — the user asked you to PRODUCE a work product, not describe how one would be made:
+- Do the complete work in this answer. Never reply with a methodology outline, a numbered how-to, or "you should" framing.
+- For an FMEA: produce a full register as a markdown table — one row per failure mode — with columns: ID | Item | Function | Failure Mode | Local Effect | Plant Effect | Safety/Env Effect | Causes/Mechanisms | Prevention | Detection | S | O | D | RPN | Recommended Action | Owner Role | Priority | Residual S/O/D/RPN. The register MUST contain AT LEAST 20 rows — the output budget is large; do not stop early or abbreviate.
+- Severity honesty: loss-of-containment, overpressure, relief-unavailable, and external-fire scenarios on pressure equipment are S 9-10 and remain high-severity in the residual column (actions reduce O and D, rarely S).
+- For pressure equipment (heat exchangers, vessels, boilers, piping) the register must cover at minimum: tube/pressure-boundary rupture; tube-to-tubesheet joints; shell wall thinning; channel/cover; flanges and gaskets; nozzles and attachment welds; overpressure scenarios and relief-device unavailability; low-pressure-side overpressure after tube rupture; blocked-in thermal expansion; fouling; passage plugging; cooling-water scaling/MIC; erosion/impingement; flow-induced vibration and fretting; thermal fatigue/shock; expansion joint or floating head; water/steam hammer; climate-specific freeze-up where the location is cold; corrosion under insulation; environmentally assisted cracking per credible metallurgy and service (wet H2S, chlorides); instrumentation and control-valve failures; supports/foundations and piping loads; maintenance and reassembly error; cleaning damage; deadlegs/stagnant zones; external events (fire/impact); and systemic modes — inspection-program inadequacy and management-of-change failure.
+- Follow the register with: scoring-scale notes, key assumptions requiring site validation, a prioritized action plan, and jurisdiction/regulatory applicability notes when a location is given (e.g. Alberta: ABSA pressure-equipment integrity, relief-device servicing, winterization).
+- For RCA/FRACAS/RCM or other deliverables: the analogous complete artifact with the discipline's standard structure.
+- OUTPUT CONTRACT — every deliverable MUST contain these sections in order, each present:
+  1) The register table (>=20 rows)
+  2) "### Scoring Scales" — S/O/D scale notes
+  3) "### Key Assumptions" — what requires site validation
+  4) "### Prioritized Action Plan"
+  5) "### Regulatory Applicability" — jurisdiction notes when a location is given
+  6) "### Method References" — a short paragraph anchoring your FMEA process, scoring discipline, detection philosophy, and corrective-action verification to the provided reference passages, with AT LEAST FOUR inline citations using their exact bracketed labels (e.g. [MIL-HDBK-338B, p.453]). A deliverable without this section is nonconforming and will be rejected.
+  7) "**Bottom Line**" — the dominant risk and the on-site validation caveats.`;
+  }
   const industryContextStr = industry ? ` in the ${industry} industry` : "";
 
   let userQuery = query;
@@ -596,7 +623,7 @@ async function handleLegacyRequest(
   let groundedSystemPrompt = systemPrompt;
   let citedSources = false;
   if (KB_AGENTS.has(agentType)) {
-    const kbContext = await retrieveKbContext(supabase, userQuery);
+    const kbContext = await retrieveKbContext(supabase, userQuery, isDeliverable ? 8 : 4);
     if (kbContext) {
       citedSources = true;
       groundedSystemPrompt = `${systemPrompt}
@@ -610,7 +637,7 @@ ${kbContext}`;
     }
   }
 
-  const { content: aiResponse, usage } = await callLLM(selectedModel, groundedSystemPrompt, userQuery, apiKey);
+  const { content: aiResponse, usage } = await callLLM(selectedModel, groundedSystemPrompt, userQuery, apiKey, false, maxTokens);
   const processingTime = Date.now() - startTime;
 
   await supabase.from("ai_agent_logs").insert({
@@ -635,6 +662,7 @@ ${kbContext}`;
       agentType,
       industry: industry || "general",
       modelUsed: selectedModel,
+      depth: isDeliverable ? "deliverable" : "standard",
       knowledgeBaseUsed: citedSources,
       requiresApproval: requiresApproval || false,
     }),

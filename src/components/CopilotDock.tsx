@@ -8,7 +8,7 @@
  * caller's own credentials — the copilot can only see what the user can.
  */
 import { useEffect, useRef, useState } from "react";
-import { Bot, Loader2, Send, Sparkles, X } from "lucide-react";
+import { Bot, Download, Loader2, Send, Sparkles, X } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "./AuthProvider";
 import { getRolePersona } from "../lib/rolePersonas";
@@ -18,6 +18,36 @@ import { MarkdownRenderer } from "./MarkdownRenderer";
 interface ChatMessage {
   role: "user" | "agent";
   text: string;
+}
+
+const DELIVERABLE_RE =
+  /\b(complete|produce|create|build|generate|develop|prepare|draft|perform)\b[\s\S]{0,120}\b(fmea|rca|fracas|rcm|register|assessment|analysis|packet|report|plan|study|review)\b/i;
+
+/** Extract the first markdown table from an agent reply as CSV. */
+function markdownTableToCsv(text: string): string | null {
+  const lines = text.split("\n").filter((l) => l.trim().startsWith("|"));
+  if (lines.length < 3) return null;
+  const rows = lines
+    .filter((l) => !/^\s*\|[\s:|-]+\|\s*$/.test(l))
+    .map((l) =>
+      l
+        .replace(/^\s*\|/, "")
+        .replace(/\|\s*$/, "")
+        .split("|")
+        .map((c) => `"${c.trim().replace(/"/g, '""')}"`)
+        .join(","),
+    );
+  return rows.length >= 2 ? rows.join("\n") : null;
+}
+
+function downloadCsvText(csv: string, filename: string) {
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 /** Compact, role-scoped operating context for grounding answers. */
@@ -87,17 +117,21 @@ export function CopilotDock() {
     setMessages((m) => [...m, { role: "user", text: q }]);
     setSending(true);
     try {
+      const deliverable = DELIVERABLE_RE.test(q);
       const context = await buildLiveContext();
       const { data, error } = await supabase.functions.invoke(
         "ai-agent-processor",
         {
           body: {
             agentType: "ReliabilityAgent",
+            depth: deliverable ? "deliverable" : "standard",
             query:
               `${persona.framing}\n\n` +
               (context ? `${context}\n\n` : "") +
               `QUESTION: ${q}\n\n` +
-              `Answer for this audience. Where the live context above is relevant, use its real numbers.`,
+              (deliverable
+                ? `This is a work-product request: produce the COMPLETE deliverable now.`
+                : `Answer for this audience. Where the live context above is relevant, use its real numbers.`),
           },
         },
       );
@@ -178,6 +212,20 @@ export function CopilotDock() {
                 <div key={i} className="flex justify-start">
                   <div className="max-w-[92%] rounded-xl rounded-bl-sm border border-white/[0.06] bg-white/[0.03] px-3 py-2 text-sm text-slate-200">
                     <MarkdownRenderer content={m.text} />
+                    {markdownTableToCsv(m.text) && (
+                      <button
+                        onClick={() =>
+                          downloadCsvText(
+                            markdownTableToCsv(m.text)!,
+                            "syncai-deliverable.csv",
+                          )
+                        }
+                        className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-teal-500/30 bg-teal-500/10 px-2.5 py-1.5 text-xs font-medium text-teal-300 hover:bg-teal-500/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-300"
+                      >
+                        <Download className="h-3.5 w-3.5" aria-hidden />
+                        Download register (CSV)
+                      </button>
+                    )}
                   </div>
                 </div>
               ),
