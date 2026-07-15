@@ -105,7 +105,11 @@ export async function signIn(
       return {
         success: false,
         error: {
-          message: signInError.message,
+          message:
+            typeof signInError.message === "string" &&
+            signInError.message.trim().length > 2
+              ? signInError.message
+              : "Sign-in is temporarily unavailable. Please try again in a moment.",
           code: signInError.status?.toString(),
         },
       };

@@ -673,7 +673,9 @@ async function handleLegacyRequest(
   // the UI, or detected from work-product phrasing in the question.
   const DELIVERABLE_RE =
     /\b(complete|produce|create|build|generate|develop|prepare|draft|perform)\b[\s\S]{0,120}\b(fmea|rca|fracas|rcm|register|assessment|analysis|packet|report|plan|study|review)\b/i;
-  const isDeliverable = depth === "deliverable" || DELIVERABLE_RE.test(query ?? "");
+  const isDeliverable =
+    depth === "deliverable" ||
+    (depth !== "standard" && DELIVERABLE_RE.test(query ?? ""));
   const selectedModel = isDeliverable ? "gpt-4o" : selectOptimalModel(agentType, query);
   const maxTokens = isDeliverable ? 12000 : 1200;
   let systemPrompt = buildSystemPrompt(agentType, industry);
