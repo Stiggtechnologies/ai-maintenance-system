@@ -88,6 +88,7 @@ export function WorkOrderDetailPage() {
         {
           body: {
             agentType: "ReliabilityAgent",
+            depth: "standard",
             query:
               `Draft a reliability assessment for this work order. Return STRICT JSON only: ` +
               `{"summary":"<3-4 sentence engineering assessment>","likely_causes":["..."],` +
@@ -194,6 +195,7 @@ export function WorkOrderDetailPage() {
         {
           body: {
             agentType: "ReliabilityAgent",
+            depth: "standard",
             query:
               `Classify the failure mode for this work order using standard FMEA taxonomy. Return STRICT JSON only: ` +
               `{"failure_mode":"<specific mode>","failure_mode_family":"<mechanical|electrical|instrumentation|process|structural>",` +

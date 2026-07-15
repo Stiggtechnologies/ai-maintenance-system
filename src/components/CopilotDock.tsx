@@ -104,6 +104,7 @@ export function CopilotDock() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
+  const [longRun, setLongRun] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -118,6 +119,7 @@ export function CopilotDock() {
     setSending(true);
     try {
       const deliverable = DELIVERABLE_RE.test(q);
+      setLongRun(deliverable);
       const context = await buildLiveContext();
       const { data, error } = await supabase.functions.invoke(
         "ai-agent-processor",
@@ -233,7 +235,9 @@ export function CopilotDock() {
             {sending && (
               <div className="flex items-center gap-2 text-xs text-slate-400">
                 <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
-                Reading your live operating data…
+                {longRun
+                  ? "Producing the complete deliverable — this can take a minute or two…"
+                  : "Reading your live operating data…"}
               </div>
             )}
           </div>
