@@ -1,10 +1,19 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, react-hooks/exhaustive-deps */
 import { useState, useEffect } from "react";
-import { User, Building2, Bell, Save, Check, Loader2 } from "lucide-react";
+import {
+  User,
+  Building2,
+  Bell,
+  Save,
+  Check,
+  Loader2,
+  ShieldCheck,
+} from "lucide-react";
+import { MfaManager } from "../components/MfaManager";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../components/AuthProvider";
 
-type Tab = "profile" | "organization" | "notifications";
+type Tab = "profile" | "security" | "organization" | "notifications";
 
 interface Organization {
   id: string;
@@ -33,6 +42,7 @@ export function SettingsPage() {
 
   const tabs: { id: Tab; label: string; icon: typeof User }[] = [
     { id: "profile", label: "Profile", icon: User },
+    { id: "security", label: "Security", icon: ShieldCheck },
     { id: "organization", label: "Organization", icon: Building2 },
     { id: "notifications", label: "Notifications", icon: Bell },
   ];
@@ -76,6 +86,19 @@ export function SettingsPage() {
 
       {/* Tab Content */}
       {activeTab === "profile" && <ProfileTab user={user} profile={profile} />}
+      {activeTab === "security" && (
+        <div className="space-y-3">
+          <div>
+            <h2 className="text-lg font-semibold text-[#E6EDF3]">
+              Account security
+            </h2>
+            <p className="text-sm text-slate-400">
+              Protect your account with multi-factor authentication.
+            </p>
+          </div>
+          <MfaManager />
+        </div>
+      )}
       {activeTab === "organization" && <OrganizationTab profile={profile} />}
       {activeTab === "notifications" && (
         <NotificationsTab user={user} profile={profile} />
