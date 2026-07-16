@@ -120,6 +120,9 @@ export function isNavItemVisible(
   role: AppRoleKey | null | undefined,
   itemId: string,
 ): boolean {
+  // Admin-only surfaces are hidden from every non-admin role, even those
+  // that otherwise get the full navigation.
+  if (itemId === "security-log") return role === "admin" || role === "ai_admin";
   const allow = role ? NAV_ALLOW[role] : undefined;
   if (allow === null || allow === undefined) return true; // full nav
   return allow.has(itemId);

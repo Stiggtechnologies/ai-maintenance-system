@@ -6,6 +6,7 @@ import {
   ReactNode,
 } from "react";
 import { supabase } from "../lib/supabase";
+import { recordSecurityEvent } from "../lib/securityEvents";
 import type { User, Session } from "@supabase/supabase-js";
 
 interface UserProfile {
@@ -54,12 +55,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       const {
         data: { subscription },
-      } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
+      } = supabase.auth.onAuthStateChange(async (event, newSession) => {
         setSession(newSession);
         setUser(newSession?.user ?? null);
 
         if (newSession?.user) {
           await loadProfile(newSession.user.id);
+          if (event === "SIGNED_IN") {
+            void recordSecurityEvent("sign_in", "Signed in");
+          }
         } else {
           setProfile(null);
         }
@@ -104,6 +108,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signOut = async () => {
+    await recordSecurityEvent("sign_out", "Signed out");
     const { error } = await supabase.auth.signOut();
     if (error) throw error;
   };
