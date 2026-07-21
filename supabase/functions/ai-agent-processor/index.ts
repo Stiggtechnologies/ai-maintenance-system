@@ -1,57 +1,40 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 
-// ---------------------------------------------------------------------------
-// ai-agent-processor — Intelligence Plane entry point
-//
-// Plane ownership (see docs/architecture/canonical-plane-ownership.md):
-//   - This function is INTELLIGENCE PLANE ONLY (OpenClaw).
-//   - It writes to OpenClaw tables (sir_orchestration_runs) and SIR
-//     tables (sir_sessions, sir_messages, sir_costs).
-//   - It NEVER writes to Autonomous tables (autonomous_decisions,
-//     approval_workflows, autonomous_actions). That handoff happens
-//     in the caller (frontend → autonomous-orchestrator).
-//
-// Audit truth: Autonomous is the only canonical audit chain. Records
-// written here are observational intelligence traces, not governance.
-// ---------------------------------------------------------------------------
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
+const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY") ?? "";
+const LLM_BASE_URL = Deno.env.get("LLM_BASE_URL") ?? "https://api.openai.com";
+const ALLOWED_ORIGIN = Deno.env.get("ALLOWED_ORIGIN") ?? "https://app.syncai.ca";
 
 const corsHeaders = {
-  "Access-Control-Allow-Origin": Deno.env.get('ALLOWED_ORIGIN') || 'https://app.syncai.ca',
-  "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
+  "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Vary": "Origin",
 };
 
-// LLM_BASE_URL seam: defaults to OpenAI; override in CI/test to point
-// at a local mock server for deterministic golden-path tests.
-const LLM_BASE_URL = Deno.env.get("LLM_BASE_URL") || "https://api.openai.com";
-
-// ---------------------------------------------------------------------------
-// Legacy interface (preserved for backwards compat with UnifiedChatInterface
-// and other callers that don't send task_code).
-// ---------------------------------------------------------------------------
+interface AuthContext {
+  internal: boolean;
+  userId: string;
+  organizationId: string;
+  role: string;
+}
 
 interface LegacyAgentRequest {
   agentType: string;
   industry?: string;
   query?: string;
-  assetId?: string;
   requiresApproval?: boolean;
+  depth?: "standard" | "deliverable";
 }
-
-// ---------------------------------------------------------------------------
-// Typed interface for the new three-plane flow.
-// Mirrors AgentTaskEnvelope<DraftReliabilityAssessmentInput> from
-// src/types/sir-contracts.ts (which can't be imported in Deno).
-// ---------------------------------------------------------------------------
 
 interface TypedAgentRequest {
   task_code: string;
   agent_code: string;
-  tenant_id: string;
+  tenant_id?: string;
   autonomy_level: "advisory" | "conditional" | "controlled";
   idempotency_key: string;
-  correlation_id: string;
   input_schema_version: string;
   prompt_version: string;
   input: {
@@ -61,735 +44,428 @@ interface TypedAgentRequest {
   };
 }
 
-// ---------------------------------------------------------------------------
-// Shared LLM call (uses LLM_BASE_URL seam)
-// ---------------------------------------------------------------------------
+function response(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: {
+      ...corsHeaders,
+      "Content-Type": "application/json",
+      "Cache-Control": "no-store",
+      "X-Content-Type-Options": "nosniff",
+    },
+  });
+}
+
+function extractBearer(req: Request): string {
+  const value = req.headers.get("Authorization") ?? "";
+  return value.startsWith("Bearer ") ? value.slice(7) : "";
+}
+
+function safeEqual(a: string, b: string): boolean {
+  const enc = new TextEncoder();
+  const left = enc.encode(a);
+  const right = enc.encode(b);
+  if (left.length !== right.length) return false;
+  let mismatch = 0;
+  for (let i = 0; i < left.length; i += 1) mismatch |= left[i] ^ right[i];
+  return mismatch === 0;
+}
+
+function serviceClient() {
+  return createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+}
+
+async function authenticate(req: Request): Promise<AuthContext | null> {
+  const token = extractBearer(req);
+  if (!token) return null;
+
+  if (SERVICE_ROLE_KEY && safeEqual(token, SERVICE_ROLE_KEY)) {
+    return {
+      internal: true,
+      userId: "00000000-0000-0000-0000-000000000000",
+      organizationId: "",
+      role: "service_role",
+    };
+  }
+
+  const admin = serviceClient();
+  const { data: userResult, error: userError } = await admin.auth.getUser(token);
+  if (userError || !userResult.user) return null;
+
+  const { data: profile, error: profileError } = await admin
+    .from("user_profiles")
+    .select("organization_id, role")
+    .eq("id", userResult.user.id)
+    .maybeSingle();
+
+  if (profileError || !profile?.organization_id) return null;
+  return {
+    internal: false,
+    userId: userResult.user.id,
+    organizationId: profile.organization_id,
+    role: profile.role ?? "user",
+  };
+}
+
+function getProviderUrl(path: string): URL {
+  const url = new URL(path, LLM_BASE_URL);
+  const localTest = ["localhost", "127.0.0.1"].includes(url.hostname);
+  if (url.protocol !== "https:" && !localTest) throw new Error("invalid_provider_configuration");
+  return url;
+}
 
 async function callLLM(
   model: string,
   systemPrompt: string,
   userQuery: string,
-  apiKey: string,
-  jsonMode: boolean = false,
-  maxTokens: number = 1200,
-): Promise<{ content: string; usage: any }> {
-  const body: any = {
+  jsonMode = false,
+  maxTokens = 1200,
+): Promise<{ content: string; usage: Record<string, number> }> {
+  const providerUrl = getProviderUrl("/v1/chat/completions");
+  const payload: Record<string, unknown> = {
     model,
     messages: [
       { role: "system", content: systemPrompt },
       { role: "user", content: userQuery },
     ],
-    temperature: 0.7,
+    temperature: 0.3,
     max_completion_tokens: maxTokens,
   };
+  if (jsonMode) payload.response_format = { type: "json_object" };
 
-  if (jsonMode) {
-    body.response_format = { type: "json_object" };
-  }
-
-  const response = await fetch(`${LLM_BASE_URL}/v1/chat/completions`, {
+  const llmResponse = await fetch(providerUrl, {
     method: "POST",
+    signal: AbortSignal.timeout(60_000),
     headers: {
       "Content-Type": "application/json",
-      "Authorization": `Bearer ${apiKey}`,
+      "Authorization": `Bearer ${OPENAI_API_KEY}`,
     },
-    body: JSON.stringify(body),
+    body: JSON.stringify(payload),
   });
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`LLM API error: ${response.status} - ${errorText}`);
+  if (!llmResponse.ok) {
+    console.error("ai-agent-processor provider failure", { status: llmResponse.status });
+    throw new Error("provider_unavailable");
   }
 
-  const data = await response.json();
-  return { content: data.choices[0].message.content, usage: data.usage };
+  const data = await llmResponse.json();
+  const content = data?.choices?.[0]?.message?.content;
+  if (typeof content !== "string" || !content.trim()) throw new Error("invalid_provider_response");
+  return { content, usage: data.usage ?? {} };
 }
 
-// ---------------------------------------------------------------------------
-// SIR interaction logging (shared by both paths)
-// ---------------------------------------------------------------------------
+const AGENT_PURPOSE: Record<string, string> = {
+  ReliabilityAgent: "reliability engineering, failure analysis, FRACAS, RCM and lifecycle risk",
+  PreventiveMaintenanceAgent: "failure-mode-driven preventive and predictive maintenance strategy",
+  AssetHealthAgent: "condition monitoring, degradation assessment and asset health",
+  RiskAssessmentAgent: "asset risk, consequence, safeguards and risk-based prioritization",
+  WorkOrderAgent: "work request quality, job planning, execution and closeout discipline",
+  PlanningSchedulingAgent: "maintenance planning, scheduling, readiness and resource deconfliction",
+  InventoryAgent: "MRO spares, criticality, stockout risk and materials readiness",
+  RootCauseAnalysisAgent: "evidence-led root cause analysis and corrective-action verification",
+  HSEComplianceAgent: "HSE critical controls, regulatory applicability and audit traceability",
+  CentralCoordinationAgent: "cross-functional maintenance, reliability, materials, HSE and production coordination",
+};
 
-async function logToSIR(
-  supabase: any,
-  tenantId: string,
-  userId: string,
+function buildLegacyPrompt(agentType: string, industry?: string, deliverable = false): string {
+  const purpose = AGENT_PURPOSE[agentType] ?? AGENT_PURPOSE.CentralCoordinationAgent;
+  let prompt = `You are SyncAI's senior industrial AI specialist for ${purpose}${industry ? ` in ${industry}` : ""}.
+Use only supplied facts and clearly label assumptions. Distinguish symptoms, mechanisms, causes and systemic causes. Quantify deviations where data permits. Recommend reversible field verification before permanent changes. Every material recommendation must name an owner role, time window, verification metric, consequence of being wrong, and whether qualified human approval is required. Never advise bypassing safety, regulatory, OEM, change-management or operational approvals. End with a concise bottom line.`;
+
+  if (deliverable) {
+    prompt += `\nThe user requested a complete work product. Produce the artifact now rather than a methodology outline. For an FMEA, include at least 20 scored failure-mode rows plus scoring scales, assumptions, a prioritized action plan, regulatory applicability, method references and a bottom line. For RCA, FRACAS, RCM, risk or planning requests, provide the corresponding complete professional artifact.`;
+  }
+  return prompt;
+}
+
+async function retrieveReliabilityContext(admin: ReturnType<typeof serviceClient>, query: string): Promise<string> {
+  try {
+    if (query.trim().length < 12) return "";
+    const { data } = await admin
+      .from("reliability_kb_chunks")
+      .select("title, page_start, page_end, content")
+      .textSearch("content", query.slice(0, 500))
+      .limit(4);
+    if (!data?.length) return "";
+    return data.map((item: Record<string, unknown>) =>
+      `[${item.title}, p.${item.page_start}${item.page_end !== item.page_start ? `-${item.page_end}` : ""}]\n${String(item.content).slice(0, 1200)}`
+    ).join("\n\n---\n\n");
+  } catch {
+    return "";
+  }
+}
+
+async function logToSir(
+  admin: ReturnType<typeof serviceClient>,
+  auth: AuthContext,
   agentType: string,
   userQuery: string,
   aiResponse: string,
   model: string,
-  usage: any,
+  usage: Record<string, number>,
   processingTimeMs: number,
   correlationId?: string,
 ) {
   try {
-    // Ensure session exists
-    const { data: existingSession } = await supabase
-      .from('sir_sessions')
-      .select('id')
-      .eq('tenant_id', tenantId)
-      .eq('user_id', userId)
-      .eq('status', 'active')
-      .order('last_active_at', { ascending: false })
+    const { data: existing } = await admin
+      .from("sir_sessions")
+      .select("id")
+      .eq("tenant_id", auth.organizationId)
+      .eq("user_id", auth.userId)
+      .eq("status", "active")
+      .order("last_active_at", { ascending: false })
       .limit(1)
       .maybeSingle();
 
-    let sessionId: string;
-    if (existingSession) {
-      await supabase.from('sir_sessions').update({ last_active_at: new Date().toISOString() }).eq('id', existingSession.id);
-      sessionId = existingSession.id;
-    } else {
-      const { data: agent } = await supabase
-        .from('sir_agents')
-        .select('id')
-        .eq('agent_type', agentType)
-        .eq('tenant_id', tenantId)
-        .limit(1)
-        .maybeSingle();
-
-      const { data: session } = await supabase
-        .from('sir_sessions')
-        .insert({ tenant_id: tenantId, agent_id: agent?.id || null, user_id: userId, context: { source: 'ai-agent-processor', correlation_id: correlationId }, status: 'active' })
-        .select('id')
+    let sessionId = existing?.id;
+    if (!sessionId) {
+      const { data: session } = await admin
+        .from("sir_sessions")
+        .insert({
+          tenant_id: auth.organizationId,
+          user_id: auth.userId,
+          context: { source: "ai-agent-processor", agent_type: agentType, correlation_id: correlationId },
+          status: "active",
+        })
+        .select("id")
         .single();
       sessionId = session?.id;
     }
+    if (!sessionId) return;
 
-    if (!sessionId) return null;
-
-    const metadata = { source: 'ai-agent-processor', agent_type: agentType, correlation_id: correlationId };
-
-    await supabase.from('sir_messages').insert({ session_id: sessionId, role: 'user', content: userQuery, metadata });
-    await supabase.from('sir_messages').insert({ session_id: sessionId, role: 'assistant', content: aiResponse, metadata: { ...metadata, processing_time_ms: processingTimeMs } });
-    await supabase.from('sir_costs').insert({
-      tenant_id: tenantId,
+    await admin.from("sir_messages").insert([
+      { session_id: sessionId, role: "user", content: userQuery, metadata: { agent_type: agentType, correlation_id: correlationId } },
+      { session_id: sessionId, role: "assistant", content: aiResponse, metadata: { agent_type: agentType, correlation_id: correlationId, processing_time_ms: processingTimeMs } },
+    ]);
+    await admin.from("sir_costs").insert({
+      tenant_id: auth.organizationId,
       session_id: sessionId,
       model,
-      prompt_tokens: usage?.prompt_tokens || 0,
-      completion_tokens: usage?.completion_tokens || 0,
-      cost_usd: ((usage?.prompt_tokens || 0) * 0.00015 + (usage?.completion_tokens || 0) * 0.0006) / 1000,
+      prompt_tokens: usage.prompt_tokens ?? 0,
+      completion_tokens: usage.completion_tokens ?? 0,
+      cost_usd: (((usage.prompt_tokens ?? 0) * 0.00015) + ((usage.completion_tokens ?? 0) * 0.0006)) / 1000,
     });
-
-    return sessionId;
-  } catch (e) {
-    console.error('SIR logging error:', e);
-    return null;
+  } catch (error) {
+    console.error("ai-agent-processor SIR logging failed", error);
   }
 }
 
-// ---------------------------------------------------------------------------
-// Task-specific prompt builder.
-// Each governed capability gets a case here. The lifecycle machinery in
-// handleTypedRequest stays generic — only the prompt changes.
-// ---------------------------------------------------------------------------
-
-const COMMON_JSON_INSTRUCTIONS = `
-Also include a plain-text "summary" field with a 2-3 sentence human-readable summary.
-Also include a "confidence" field (number between 0 and 1) indicating your confidence.
-Also include a "requires_human_review" boolean field (true if risk_level is high or critical).
-
-Return ONLY valid JSON. No markdown, no code fences.`;
-
-function formatContext(woContext: any, assetContext: any, triggerReason: string): string {
-  return `Work Order: ${woContext.title}
-Description: ${woContext.description || 'None provided'}
-Priority: ${woContext.priority || 'unspecified'}
-Status: ${woContext.status || 'pending'}
-Work Type: ${woContext.work_type || 'unspecified'}
-
-Asset: ${assetContext.name}
-Tag: ${assetContext.asset_tag || 'N/A'}
-Status: ${assetContext.status || 'unknown'}
-Criticality: ${assetContext.criticality || 'unspecified'}
-Manufacturer: ${assetContext.manufacturer || 'unknown'}
-Model: ${assetContext.model || 'unknown'}
-
-Trigger: ${triggerReason}`;
-}
-
-function buildTaskPrompts(
-  taskCode: string,
-  woContext: any,
-  assetContext: any,
-  input: { trigger_reason: string },
-): { systemPrompt: string; userPrompt: string } {
-  const context = formatContext(woContext, assetContext, input.trigger_reason);
-
-  switch (taskCode) {
-    case 'draft_reliability_assessment':
-      return {
-        systemPrompt: `You are a reliability engineer AI agent for industrial asset maintenance. You produce structured JSON reliability assessments.
-
-Given a work order and asset context, analyze the situation and return a JSON object with this exact schema:
-{
-  "likely_causes": ["string array of probable failure causes"],
-  "recommended_actions": ["string array of recommended maintenance actions"],
-  "risk_level": "low" | "medium" | "high" | "critical",
-  "evidence": [{"source_type": "work_order_history" | "asset_record" | "condition_data" | "document" | "inference", "note": "string explanation"}]
-}
-${COMMON_JSON_INSTRUCTIONS}`,
-        userPrompt: `Analyze this work order for reliability risks:\n\n${context}`,
-      };
-
-    case 'classify_failure_mode':
-      return {
-        systemPrompt: `You are a failure mode analysis AI agent for industrial asset maintenance. You classify failure modes using FMEA/RCM methodology aligned with ISO 14224 and SAE JA1012.
-
-Given a work order and asset context, classify the likely failure mode and return a JSON object with this exact schema:
-{
-  "failure_mode": "specific failure mode name (e.g. 'bearing seizure', 'seal leak', 'winding insulation breakdown')",
-  "failure_mode_family": "mechanical" | "electrical" | "instrumentation" | "structural" | "process" | "external" | "unknown",
-  "likely_cause_family": "root cause category (e.g. 'wear', 'corrosion', 'overload', 'fatigue', 'contamination', 'design deficiency')",
-  "recommended_next_diagnostic_step": "concrete next step for the maintenance team to confirm or refine this classification",
-  "risk_level": "low" | "medium" | "high" | "critical",
-  "evidence": [{"source_type": "work_order_history" | "asset_record" | "condition_data" | "document" | "inference", "note": "string explanation"}]
-}
-${COMMON_JSON_INSTRUCTIONS}`,
-        userPrompt: `Classify the likely failure mode for this work order:\n\n${context}`,
-      };
-
-    default:
-      throw new Error(`Unknown task_code: ${taskCode}`);
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Typed path: governed capability handler (generic)
-//
-// OpenClaw data access: task-scoped, tenant-scoped reads only.
-// Reads work_orders and assets filtered by tenant + specific IDs.
-// ---------------------------------------------------------------------------
-
-async function handleTypedRequest(
-  supabase: any,
-  envelope: TypedAgentRequest,
-  apiKey: string,
+async function handleLegacy(
+  admin: ReturnType<typeof serviceClient>,
+  auth: AuthContext,
+  body: LegacyAgentRequest,
 ): Promise<Response> {
-  const startTime = Date.now();
-  const { task_code, agent_code, tenant_id, idempotency_key, autonomy_level, input_schema_version, prompt_version, input } = envelope;
+  const agentType = body.agentType;
+  if (!agentType) return response({ success: false, error: "agentType_required" }, 400);
+  const query = String(body.query ?? "").trim();
+  if (!query) return response({ success: false, error: "query_required" }, 400);
+  if (query.length > 30_000) return response({ success: false, error: "query_too_large" }, 413);
 
-  // Backend-authoritative correlation_id. Frontend-supplied values are
-  // ignored — the backend is the source of truth for audit correlation.
-  const correlation_id = crypto.randomUUID();
+  const deliverable = body.depth === "deliverable" || /\b(fmea|rca|fracas|rcm|register|assessment|report|plan)\b/i.test(query);
+  const model = deliverable ? "gpt-4o" : "gpt-4o-mini";
+  const maxTokens = deliverable ? 12_000 : 1_500;
+  const kb = await retrieveReliabilityContext(admin, query);
+  const systemPrompt = `${buildLegacyPrompt(agentType, body.industry, deliverable)}${kb ? `\n\nApproved reliability reference passages:\n${kb}\nUse only the exact bracket labels supplied for citations.` : ""}`;
+  const started = Date.now();
+  const { content, usage } = await callLLM(model, systemPrompt, query, false, maxTokens);
+  const elapsed = Date.now() - started;
 
-  // Create the OpenClaw orchestration run (Intelligence Plane trace)
-  const { data: run, error: runError } = await supabase
-    .from('sir_orchestration_runs')
-    .insert({
-      tenant_id,
-      status: 'running',
-      input: input,
-      started_at: new Date().toISOString(),
-      correlation_id,
-      idempotency_key,
-      autonomy_level,
-      workflow_definition_code: task_code,
-      prompt_version,
-    })
-    .select('id')
-    .single();
+  await admin.from("ai_agent_logs").insert({
+    agent_type: agentType,
+    query,
+    response: content,
+    industry: body.industry ?? "general",
+    processing_time_ms: elapsed,
+  }).then(({ error }) => error && console.error("ai_agent_logs insert failed", error));
+  await logToSir(admin, auth, agentType, query, content, model, usage, elapsed);
 
-  if (runError) {
-    console.error(`event=orchestration_run_create_failed agent=${agent_code} correlation_id=${correlation_id} error=${runError.message}`);
-    return errorResponse(500, `Failed to create orchestration run: ${runError.message}`, correlation_id);
+  return response({
+    success: true,
+    response: content,
+    processingTime: elapsed,
+    agentType,
+    industry: body.industry ?? "general",
+    modelUsed: model,
+    depth: deliverable ? "deliverable" : "standard",
+    knowledgeBaseUsed: Boolean(kb),
+    requiresApproval: body.requiresApproval ?? false,
+  });
+}
+
+function buildTypedPrompts(body: TypedAgentRequest, workOrder: Record<string, unknown>, asset: Record<string, unknown>) {
+  const context = `Work order: ${workOrder.title}\nDescription: ${workOrder.description ?? "not supplied"}\nPriority: ${workOrder.priority ?? "unspecified"}\nStatus: ${workOrder.status ?? "unspecified"}\nType: ${workOrder.type ?? "unspecified"}\n\nAsset: ${asset.name}\nTag: ${asset.tag ?? "not supplied"}\nCriticality: ${asset.criticality ?? "unspecified"}\nStatus: ${asset.status ?? "unspecified"}\nManufacturer/model: ${asset.manufacturer ?? "unknown"} ${asset.model ?? ""}\nTrigger: ${body.input.trigger_reason}`;
+
+  if (body.task_code === "classify_failure_mode") {
+    return {
+      system: `You are a reliability engineer. Return strict JSON with failure_mode, failure_mode_family, likely_cause_family, recommended_next_diagnostic_step, risk_level, evidence, summary, confidence (0-1), and requires_human_review. Never invent evidence or bypass human approval.`,
+      user: `Classify the likely failure mode:\n\n${context}`,
+    };
+  }
+  if (body.task_code === "draft_reliability_assessment") {
+    return {
+      system: `You are a reliability engineer. Return strict JSON with likely_causes, recommended_actions, risk_level, evidence, summary, confidence (0-1), and requires_human_review. Recommendations are advisory and must preserve qualified human approval.`,
+      user: `Draft a reliability assessment:\n\n${context}`,
+    };
+  }
+  throw new Error("unsupported_task_code");
+}
+
+async function handleTyped(
+  admin: ReturnType<typeof serviceClient>,
+  auth: AuthContext,
+  body: TypedAgentRequest,
+): Promise<Response> {
+  const organizationId = auth.internal ? String(body.tenant_id ?? "") : auth.organizationId;
+  if (!organizationId || (!auth.internal && body.tenant_id && body.tenant_id !== organizationId)) {
+    return response({ success: false, error: "tenant_scope_invalid" }, 403);
+  }
+  if (!body.input?.work_order_id || !body.input?.asset_id || !body.task_code || !body.idempotency_key) {
+    return response({ success: false, error: "invalid_task_envelope" }, 400);
   }
 
-  const runId = run.id;
+  const correlationId = crypto.randomUUID();
+  const { data: existingRun } = await admin
+    .from("sir_orchestration_runs")
+    .select("id, status, output")
+    .eq("tenant_id", organizationId)
+    .eq("idempotency_key", body.idempotency_key)
+    .maybeSingle();
+  if (existingRun?.status === "completed") {
+    return response({ success: true, idempotent_replay: true, agent_run_id: existingRun.id, output: existingRun.output });
+  }
+
+  const { data: run, error: runError } = await admin
+    .from("sir_orchestration_runs")
+    .insert({
+      tenant_id: organizationId,
+      status: "running",
+      input: body.input,
+      started_at: new Date().toISOString(),
+      correlation_id: correlationId,
+      idempotency_key: body.idempotency_key,
+      autonomy_level: body.autonomy_level,
+      workflow_definition_code: body.task_code,
+      prompt_version: body.prompt_version,
+    })
+    .select("id")
+    .single();
+  if (runError || !run) {
+    console.error("typed orchestration run creation failed", runError);
+    return response({ success: false, error: "orchestration_start_failed", correlation_id: correlationId }, 500);
+  }
 
   try {
-    // Fetch scoped context — task-scoped, tenant-scoped reads only.
-    // This is the governed data access pattern: OpenClaw reads only
-    // what it needs for this specific task.
-    const [woResult, assetResult] = await Promise.all([
-      supabase.from('work_orders')
-        .select('title, description, priority, status, work_type')
-        .eq('id', input.work_order_id)
-        .eq('organization_id', tenant_id)
-        .single(),
-      supabase.from('assets')
-        .select('name, asset_tag, status, criticality, manufacturer, model')
-        .eq('id', input.asset_id)
-        .eq('organization_id', tenant_id)
-        .single(),
+    const [workOrderResult, assetResult] = await Promise.all([
+      admin.from("work_orders").select("title, description, priority, status, type").eq("id", body.input.work_order_id).eq("organization_id", organizationId).single(),
+      admin.from("assets").select("name, tag, status, criticality, manufacturer, model").eq("id", body.input.asset_id).eq("organization_id", organizationId).single(),
     ]);
+    if (!workOrderResult.data || !assetResult.data) throw new Error("scoped_context_not_found");
 
-    const woContext = woResult.data || { title: 'Unknown', description: 'No description' };
-    const assetContext = assetResult.data || { name: 'Unknown asset' };
+    const prompts = buildTypedPrompts(body, workOrderResult.data, assetResult.data);
+    const started = Date.now();
+    const { content, usage } = await callLLM("gpt-4o-mini", prompts.system, prompts.user, true, 1800);
+    const parsed = JSON.parse(content);
+    const confidence = Math.max(0, Math.min(1, Number(parsed.confidence ?? 0.5)));
+    const requiresHumanReview = Boolean(parsed.requires_human_review) || ["high", "critical"].includes(parsed.risk_level);
+    const finishedAt = new Date().toISOString();
 
-    // Build task-specific prompts. The three-plane lifecycle is generic;
-    // only the prompt and expected output fields change per capability.
-    const { systemPrompt, userPrompt } = buildTaskPrompts(
-      task_code, woContext, assetContext, input,
-    );
+    await admin.from("sir_orchestration_runs").update({
+      status: "completed",
+      output: parsed,
+      finished_at: finishedAt,
+      duration_ms: Date.now() - started,
+    }).eq("id", run.id);
 
-    const model = "gpt-4o-mini";
-    const { content: aiResponse, usage } = await callLLM(model, systemPrompt, userPrompt, apiKey, true);
-    const processingTime = Date.now() - startTime;
-
-    // Parse structured output
-    let parsed: any;
-    try {
-      parsed = JSON.parse(aiResponse);
-    } catch {
-      // LLM returned non-JSON despite json_mode — mark as failed
-      throw new Error(`LLM returned invalid JSON: ${aiResponse.slice(0, 200)}`);
-    }
-
-    const confidence = Math.min(1, Math.max(0, parsed.confidence ?? 0.5));
-    const requiresHumanReview = parsed.requires_human_review ?? (parsed.risk_level === 'high' || parsed.risk_level === 'critical');
-
-    // Extract the structured output generically. The common fields
-    // (summary, confidence, requires_human_review) are handled above.
-    // Everything else the LLM returned is the capability-specific payload.
-    const { summary: _s, confidence: _c, requires_human_review: _r, ...capabilityFields } = parsed;
-    const structuredOutput = {
-      ...capabilityFields,
-      risk_level: parsed.risk_level || 'medium',
-      evidence: parsed.evidence || [],
-    };
-
-    // Update the OpenClaw orchestration run with the result
-    await supabase
-      .from('sir_orchestration_runs')
-      .update({
-        status: 'completed',
-        output: structuredOutput,
-        finished_at: new Date().toISOString(),
-        confidence,
-        output_schema_version: '1.0.0',
-        requires_human_review: requiresHumanReview,
-        duration_ms: processingTime,
-      })
-      .eq('id', runId);
-
-    // SIR interaction logging
-    const sessionId = await logToSIR(
-      supabase, tenant_id, '00000000-0000-0000-0000-000000000000',
-      agent_code, userPrompt, aiResponse, model, usage, processingTime, correlation_id,
-    );
-
-    // Legacy ai_agent_logs (will be deprecated; keeping for observability continuity)
-    await supabase.from("ai_agent_logs").insert({
-      agent_type: agent_code,
-      query: userPrompt,
-      response: aiResponse,
-      industry: "reliability",
-      processing_time_ms: processingTime,
-    }).catch(() => {}); // non-critical
-
-    console.log(`event=agent_invocation_completed agent=${agent_code} correlation_id=${correlation_id} task_code=${task_code} confidence=${confidence} risk_level=${structuredOutput.risk_level} processing_time_ms=${processingTime}`);
-
-    // --- Cross-plane handoff: Intelligence → Governance ---
-    // Call autonomous-orchestrator internally to create the canonical
-    // Autonomous decision. This keeps the frontend to a single call
-    // and ensures correlation_id is backend-authoritative.
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-
-    let governanceResult: any = { decision_id: null, approval_status: 'unknown' };
-    try {
-      const govRes = await fetch(
-        `${supabaseUrl}/functions/v1/autonomous-orchestrator`,
-        {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${serviceKey}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            action: 'create_intelligence_decision',
-            data: {
-              tenant_id,
-              correlation_id,
-              asset_id: input.asset_id,
-              work_order_id: input.work_order_id,
-              autonomy_level,
-              agent_run_id: runId,
-              task_code,
-              confidence,
-              requires_human_review: requiresHumanReview,
-              raw_summary: parsed.summary || 'Assessment complete.',
-              structured_output: structuredOutput,
-            },
-          }),
+    const governanceResponse = await fetch(`${SUPABASE_URL}/functions/v1/autonomous-orchestrator`, {
+      method: "POST",
+      signal: AbortSignal.timeout(30_000),
+      headers: { Authorization: `Bearer ${SERVICE_ROLE_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "create_intelligence_decision",
+        data: {
+          tenant_id: organizationId,
+          correlation_id: correlationId,
+          asset_id: body.input.asset_id,
+          work_order_id: body.input.work_order_id,
+          autonomy_level: body.autonomy_level,
+          agent_run_id: run.id,
+          task_code: body.task_code,
+          confidence,
+          requires_human_review: requiresHumanReview,
+          raw_summary: parsed.summary ?? "Assessment complete.",
+          structured_output: parsed,
         },
-      );
-      if (govRes.ok) {
-        governanceResult = await govRes.json();
-      } else {
-        console.error(`event=governance_handoff_failed correlation_id=${correlation_id} status=${govRes.status}`);
-      }
-    } catch (govError) {
-      // Governance handoff failure is non-fatal — the intelligence result
-      // is already persisted in OpenClaw. Log and continue.
-      console.error(`event=governance_handoff_error correlation_id=${correlation_id} error=${govError.message}`);
-    }
-
-    return new Response(
-      JSON.stringify({
-        success: true,
-        task_code,
-        correlation_id,
-        agent_run_id: runId,
-        decision_id: governanceResult.decision_id,
-        approval_status: governanceResult.approval_status || 'pending',
-        output_schema_version: '1.0.0',
-        confidence,
-        requires_human_review: requiresHumanReview,
-        raw_summary: parsed.summary || 'Assessment complete.',
-        output: structuredOutput,
-        processingTime,
       }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
-    );
+    });
+    if (!governanceResponse.ok) throw new Error("governance_handoff_failed");
+    const governance = await governanceResponse.json();
+    await logToSir(admin, { ...auth, organizationId }, body.agent_code, prompts.user, parsed.summary ?? content, "gpt-4o-mini", usage, Date.now() - started, correlationId);
 
+    return response({
+      success: true,
+      task_code: body.task_code,
+      correlation_id: correlationId,
+      agent_run_id: run.id,
+      decision_id: governance.decision_id,
+      approval_status: governance.approval_status ?? "pending",
+      output_schema_version: "1.0.0",
+      confidence,
+      requires_human_review: requiresHumanReview,
+      raw_summary: parsed.summary ?? "Assessment complete.",
+      output: parsed,
+    });
   } catch (error) {
-    const processingTime = Date.now() - startTime;
-
-    // Mark the OpenClaw orchestration run as failed
-    await supabase
-      .from('sir_orchestration_runs')
-      .update({
-        status: 'failed',
-        output: { error: error.message },
-        finished_at: new Date().toISOString(),
-        duration_ms: processingTime,
-      })
-      .eq('id', runId);
-
-    // Record failure in Autonomous plane (audit completeness).
-    // Uses 'failed' status, not 'rejected' (rejected = human decision).
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const safeMessage = error instanceof Error ? error.message : "task_failed";
+    console.error("typed agent invocation failed", { correlationId, error });
+    await admin.from("sir_orchestration_runs").update({
+      status: "failed",
+      output: { error: safeMessage },
+      finished_at: new Date().toISOString(),
+    }).eq("id", run.id);
     try {
-      await fetch(`${supabaseUrl}/functions/v1/autonomous-orchestrator`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' },
+      await fetch(`${SUPABASE_URL}/functions/v1/autonomous-orchestrator`, {
+        method: "POST",
+        signal: AbortSignal.timeout(15_000),
+        headers: { Authorization: `Bearer ${SERVICE_ROLE_KEY}`, "Content-Type": "application/json" },
         body: JSON.stringify({
-          action: 'create_failed_decision',
-          data: { tenant_id, correlation_id, asset_id: input.asset_id, work_order_id: input.work_order_id, task_code, error_message: error.message },
+          action: "create_failed_decision",
+          data: {
+            tenant_id: organizationId,
+            correlation_id: correlationId,
+            asset_id: body.input.asset_id,
+            work_order_id: body.input.work_order_id,
+            task_code: body.task_code,
+            error_message: safeMessage,
+          },
         }),
       });
     } catch {
-      // Best-effort audit — don't compound the error
+      // Best-effort audit completion.
     }
-
-    console.error(`event=agent_invocation_failed agent=${agent_code} correlation_id=${correlation_id} task_code=${task_code} error=${error.message} processing_time_ms=${processingTime}`);
-
-    return errorResponse(500, error.message || "Intelligence task failed", correlation_id);
+    return response({ success: false, error: "intelligence_task_failed", correlation_id: correlationId }, 500);
   }
 }
-
-function errorResponse(status: number, message: string, correlationId?: string): Response {
-  return new Response(
-    JSON.stringify({ success: false, error: message, correlation_id: correlationId }),
-    { status, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Legacy path (preserved for backwards compat)
-// ---------------------------------------------------------------------------
-
-function selectOptimalModel(agentType: string, query?: string): string {
-  const queryLength = query?.length || 0;
-  const complexAgents = [
-    "PreventiveMaintenanceAgent", "PredictiveAnalyticsAgent",
-    "RootCauseAnalysisAgent", "FailureModeAgent",
-    "RiskAssessmentAgent", "ReliabilityAgent", "CentralCoordinationAgent",
-  ];
-  if (complexAgents.includes(agentType) || queryLength > 500) return "gpt-4o";
-  return "gpt-4o-mini";
-}
-
-function buildSystemPrompt(agentType: string, industry?: string): string {
-  const industryContext = industry ? ` in the ${industry} industry` : "";
-  const agentPrompts: Record<string, string> = {
-    "ReliabilityAgent": `You are the Stigg Reliability Engineer${industryContext} — a world-class reliability engineering expert operating per the reliability engineering body of knowledge (MIL-HDBK-338B, DoD RAM Guide, RADC-TR-85-194, ISO 14224, SAE JA1012, ISO 55000).
-
-Core capabilities: failure analysis and root-cause identification; risk assessment and mitigation; maintenance strategy development (RCM, preventive/predictive); Weibull and life-data analysis; FRACAS closed-loop incident management; lifecycle asset management (LCAM); reliability testing and validation; data-driven trend analysis.
-
-How to respond:
-- ANSWER THE USER'S SPECIFIC QUESTION using the specific data they provide. Never substitute a generic template or hypothetical examples for the case in front of you.
-- Reason as a root-cause analysis: distinguish symptom from cause (a failing component is often the victim, not the culprit); lay out the failure chain explicitly; quantify deviations against limits (e.g. "3.1 vs 2.5 bar — 24% high").
-- Recommend immediate field verifications first, then permanent corrective actions; tie actions to alarms/trips/permissives, and specify post-fix verification metrics (MTBF, trend removal) per FRACAS practice — corrective action is not closed until verified effective.
-- Be specific and conservative. Flag safety-critical or OEM-limit changes as requiring human approval. If key data is missing, state your assumptions and the minimum data needed.
-- End with a one-sentence bottom line stating the dominant root cause or key decision.`,
-    "PreventiveMaintenanceAgent": `You are the Stigg PM Strategy Engineer${industryContext} — a world-class preventive/predictive maintenance strategist operating per RCM and FMEA practice (SAE JA1011/JA1012, MIL-HDBK-338B, DoD RAM Guide, ISO 14224).
-
-Core capabilities: failure-mode-driven task selection; time/usage/condition-based interval optimization; PM rationalization (kill low-value PMs); P-F interval reasoning; task packaging and craft loading; PM compliance and effectiveness analytics; spares alignment to strategy.
-
-How to respond:
-- ANSWER THE USER'S SPECIFIC QUESTION using the specific data they provide. Never substitute a generic template or hypothetical examples for the case in front of you.
-- Quantify against limits and targets; state assumptions and the minimum missing data when the case is under-specified.
-- Recommend actions with an owner role, a time window, and a post-action verification metric — an action is not closed until verified effective (FRACAS discipline).
-- Flag safety-critical, OEM-limit, regulatory, or production-critical changes as requiring qualified human approval.
-- End with a one-sentence bottom line stating the dominant finding or key decision.`,
-    "AssetHealthAgent": `You are the Stigg Asset Health Engineer${industryContext} — a condition-monitoring and asset-health expert operating per the reliability body of knowledge (MIL-HDBK-338B, DoD RAM Guide, ISO 13374 condition monitoring practice).
-
-Core capabilities: multi-signal health assessment (vibration, temperature, pressure, oil, electrical); degradation and P-F trajectory interpretation; health-index composition and thresholds; anomaly triage — symptom vs cause; monitoring-coverage gap analysis; escalation criteria to inspection or work.
-
-How to respond:
-- ANSWER THE USER'S SPECIFIC QUESTION using the specific data they provide. Never substitute a generic template or hypothetical examples for the case in front of you.
-- Quantify against limits and targets; state assumptions and the minimum missing data when the case is under-specified.
-- Recommend actions with an owner role, a time window, and a post-action verification metric — an action is not closed until verified effective (FRACAS discipline).
-- Flag safety-critical, OEM-limit, regulatory, or production-critical changes as requiring qualified human approval.
-- End with a one-sentence bottom line stating the dominant finding or key decision.`,
-    "RiskAssessmentAgent": `You are the Stigg Asset Risk Engineer${industryContext} — a risk assessment expert operating per ISO 31000/55000 practice and the reliability body of knowledge (MIL-HDBK-338B, DoD RAM Guide).
-
-Core capabilities: likelihood x consequence scoring with explicit criteria; risk matrices and appetite/tolerability framing (ALARP); FMEA/HAZOP-informed scenario construction; barrier and safeguard adequacy review; top-risk-mover and exposure-trend analysis; risk-based prioritization of work and inspection.
-
-How to respond:
-- ANSWER THE USER'S SPECIFIC QUESTION using the specific data they provide. Never substitute a generic template or hypothetical examples for the case in front of you.
-- Quantify against limits and targets; state assumptions and the minimum missing data when the case is under-specified.
-- Recommend actions with an owner role, a time window, and a post-action verification metric — an action is not closed until verified effective (FRACAS discipline).
-- Flag safety-critical, OEM-limit, regulatory, or production-critical changes as requiring qualified human approval.
-- End with a one-sentence bottom line stating the dominant finding or key decision.`,
-    "WorkOrderAgent": `You are the Stigg Work Management Engineer${industryContext} — a work-management expert covering the full lifecycle per maintenance planning and scheduling best practice and FRACAS closure discipline (DoD RAM Guide).
-
-Core capabilities: request validation and prioritization; job-plan quality (steps, crafts, parts, permits, durations); schedule compliance and backlog health analytics; closeout data quality (failure mode, cause, action, hours, downtime); rework and repeat-failure detection.
-
-How to respond:
-- ANSWER THE USER'S SPECIFIC QUESTION using the specific data they provide. Never substitute a generic template or hypothetical examples for the case in front of you.
-- Quantify against limits and targets; state assumptions and the minimum missing data when the case is under-specified.
-- Recommend actions with an owner role, a time window, and a post-action verification metric — an action is not closed until verified effective (FRACAS discipline).
-- Flag safety-critical, OEM-limit, regulatory, or production-critical changes as requiring qualified human approval.
-- End with a one-sentence bottom line stating the dominant finding or key decision.`,
-    "PlanningSchedulingAgent": `You are the Stigg Planning & Scheduling Engineer${industryContext} — a planner/scheduler expert per maintenance planning and scheduling best practice.
-
-Core capabilities: weekly/outage schedule construction; window and resource deconfliction; kitting and materials-readiness gating; schedule-compliance and break-in analytics; priority arbitration across safety, production, and asset risk; critical-path reasoning for shutdowns.
-
-How to respond:
-- ANSWER THE USER'S SPECIFIC QUESTION using the specific data they provide. Never substitute a generic template or hypothetical examples for the case in front of you.
-- Quantify against limits and targets; state assumptions and the minimum missing data when the case is under-specified.
-- Recommend actions with an owner role, a time window, and a post-action verification metric — an action is not closed until verified effective (FRACAS discipline).
-- Flag safety-critical, OEM-limit, regulatory, or production-critical changes as requiring qualified human approval.
-- End with a one-sentence bottom line stating the dominant finding or key decision.`,
-    "InventoryAgent": `You are the Stigg Spares & Materials Engineer${industryContext} — an MRO inventory strategist per spares-optimization practice and the reliability body of knowledge (DoD RAM Guide provisioning and support principles).
-
-Core capabilities: criticality-driven stocking policy (critical/insurance/consumable); reorder point and lead-time economics; BOM completeness and interchangeability; obsolescence/DMSMS handling; stockout-risk vs carrying-cost trade-offs tied to failure-mode consequences.
-
-How to respond:
-- ANSWER THE USER'S SPECIFIC QUESTION using the specific data they provide. Never substitute a generic template or hypothetical examples for the case in front of you.
-- Quantify against limits and targets; state assumptions and the minimum missing data when the case is under-specified.
-- Recommend actions with an owner role, a time window, and a post-action verification metric — an action is not closed until verified effective (FRACAS discipline).
-- Flag safety-critical, OEM-limit, regulatory, or production-critical changes as requiring qualified human approval.
-- End with a one-sentence bottom line stating the dominant finding or key decision.`,
-    "RootCauseAnalysisAgent": `You are the Stigg RCA Specialist${industryContext} — a root-cause analysis expert per FRACAS and RCA practice (MIL-HDBK-338B, DoD RAM Guide).
-
-Core capabilities: evidence-led failure-chain construction (symptom -> mechanism -> cause -> systemic cause); 5-Why and causal-factor tree discipline; physical/human/latent cause separation; evidence-preservation and verification planning; corrective-action definition with effectiveness verification; repeat-event linkage.
-
-How to respond:
-- ANSWER THE USER'S SPECIFIC QUESTION using the specific data they provide. Never substitute a generic template or hypothetical examples for the case in front of you.
-- Quantify against limits and targets; state assumptions and the minimum missing data when the case is under-specified.
-- Recommend actions with an owner role, a time window, and a post-action verification metric — an action is not closed until verified effective (FRACAS discipline).
-- Flag safety-critical, OEM-limit, regulatory, or production-critical changes as requiring qualified human approval.
-- End with a one-sentence bottom line stating the dominant finding or key decision.`,
-    "HSEComplianceAgent": `You are the Stigg HSE & Compliance Engineer${industryContext} — a process-safety and compliance expert for asset-intensive operations (critical-control/barrier management practice, jurisdictional pressure-equipment and safety frameworks).
-
-Core capabilities: critical-control verification and barrier-health review; safety-work aging and exposure escalation; regulatory applicability mapping (state the jurisdiction's framework, e.g. Alberta: ABSA pressure-equipment integrity, relief-device servicing); incident-precursor analytics; audit-trail and reportability guidance.
-
-How to respond:
-- ANSWER THE USER'S SPECIFIC QUESTION using the specific data they provide. Never substitute a generic template or hypothetical examples for the case in front of you.
-- Quantify against limits and targets; state assumptions and the minimum missing data when the case is under-specified.
-- Recommend actions with an owner role, a time window, and a post-action verification metric — an action is not closed until verified effective (FRACAS discipline).
-- Flag safety-critical, OEM-limit, regulatory, or production-critical changes as requiring qualified human approval.
-- End with a one-sentence bottom line stating the dominant finding or key decision.`,
-    "CentralCoordinationAgent": `You are the Stigg Central Coordination Agent${industryContext} — the orchestrator across reliability, maintenance, planning, materials, health, risk, and HSE disciplines.
-
-Core capabilities: decompose cross-functional problems into discipline workstreams; reconcile conflicting recommendations against safety-first then value criteria; produce integrated action plans with owners per RACI; summarize state across the operating loop for decision-makers.
-
-How to respond:
-- ANSWER THE USER'S SPECIFIC QUESTION using the specific data they provide. Never substitute a generic template or hypothetical examples for the case in front of you.
-- Quantify against limits and targets; state assumptions and the minimum missing data when the case is under-specified.
-- Recommend actions with an owner role, a time window, and a post-action verification metric — an action is not closed until verified effective (FRACAS discipline).
-- Flag safety-critical, OEM-limit, regulatory, or production-critical changes as requiring qualified human approval.
-- End with a one-sentence bottom line stating the dominant finding or key decision.`,
-  };
-  return agentPrompts[agentType] || `You are an expert AI agent for asset-intensive industries${industryContext}. Provide detailed, actionable insights with specific metrics and recommendations.`;
-}
-
-
-// ---------------------------------------------------------------------------
-// Reliability knowledge base retrieval (RAG) — fail-soft.
-// Embeds the query with gemini-embedding-2 (768 dims, ENRICH_LLM_API_KEY /
-// GEMINI_API_KEY) and retrieves top chunks from reliability_kb_chunks so the
-// copilot can cite MIL-HDBK-338B / DoD RAM Guide the way the owner's GPT does.
-// Any failure returns null and the copilot answers without citations.
-// ---------------------------------------------------------------------------
-const KB_EMBED_KEY = Deno.env.get("ENRICH_LLM_API_KEY") ?? Deno.env.get("GEMINI_API_KEY") ?? "";
-const KB_AGENTS = new Set(["ReliabilityAgent", "PreventiveMaintenanceAgent", "AssetHealthAgent", "RiskAssessmentAgent", "WorkOrderAgent", "PlanningSchedulingAgent", "InventoryAgent", "RootCauseAnalysisAgent", "HSEComplianceAgent", "CentralCoordinationAgent"]);
-
-async function retrieveKbContext(supabase: any, query: string, matchCount = 4): Promise<string | null> {
-  try {
-    if (!KB_EMBED_KEY || !query || query.length < 12) return null;
-    const embedRes = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-2:embedContent?key=${KB_EMBED_KEY}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: "models/gemini-embedding-2",
-          content: { parts: [{ text: query.slice(0, 8000) }] },
-          outputDimensionality: 768,
-        }),
-      },
-    );
-    if (!embedRes.ok) return null;
-    const embedding = (await embedRes.json())?.embedding?.values;
-    if (!embedding) return null;
-
-    const { data, error } = await supabase.rpc("match_reliability_kb", {
-      query_embedding: JSON.stringify(embedding),
-      match_count: matchCount,
-    });
-    if (error || !data || data.length === 0) return null;
-
-    const passages = data
-      .filter((m: any) => m.similarity > 0.35)
-      .map((m: any) =>
-        `[${m.title}, p.${m.page_start}${m.page_end !== m.page_start ? "-" + m.page_end : ""}]\n${String(m.content).slice(0, 1400)}`,
-      );
-    if (passages.length === 0) return null;
-    return passages.join("\n\n---\n\n");
-  } catch {
-    return null;
-  }
-}
-
-async function handleLegacyRequest(
-  supabase: any,
-  body: LegacyAgentRequest,
-  apiKey: string,
-): Promise<Response> {
-  const { agentType, industry, query, requiresApproval, depth } = body;
-
-  if (!agentType) {
-    return errorResponse(400, "agentType is required");
-  }
-
-  const startTime = Date.now();
-  // Deliverable mode: the caller asked for a complete work product (an FMEA
-  // register, RCA packet, assessment...), not a summary. Explicit flag from
-  // the UI, or detected from work-product phrasing in the question.
-  const DELIVERABLE_RE =
-    /\b(complete|produce|create|build|generate|develop|prepare|draft|perform)\b[\s\S]{0,120}\b(fmea|rca|fracas|rcm|register|assessment|analysis|packet|report|plan|study|review)\b/i;
-  const isDeliverable =
-    depth === "deliverable" ||
-    (depth !== "standard" && DELIVERABLE_RE.test(query ?? ""));
-  const selectedModel = isDeliverable ? "gpt-4o" : selectOptimalModel(agentType, query);
-  const maxTokens = isDeliverable ? 12000 : 1200;
-  let systemPrompt = buildSystemPrompt(agentType, industry);
-  if (isDeliverable) {
-    systemPrompt += `
-
-DELIVERABLE MODE — the user asked you to PRODUCE a work product, not describe how one would be made:
-- Do the complete work in this answer. Never reply with a methodology outline, a numbered how-to, or "you should" framing.
-- For an FMEA: produce a full register as a markdown table — one row per failure mode — with columns: ID | Item | Function | Failure Mode | Local Effect | Plant Effect | Safety/Env Effect | Causes/Mechanisms | Prevention | Detection | S | O | D | RPN | Recommended Action | Owner Role | Priority | Residual S/O/D/RPN. The register MUST contain AT LEAST 20 rows — the output budget is large; do not stop early or abbreviate.
-- Severity honesty: loss-of-containment, overpressure, relief-unavailable, and external-fire scenarios on pressure equipment are S 9-10 and remain high-severity in the residual column (actions reduce O and D, rarely S).
-- For pressure equipment (heat exchangers, vessels, boilers, piping) the register must cover at minimum: tube/pressure-boundary rupture; tube-to-tubesheet joints; shell wall thinning; channel/cover; flanges and gaskets; nozzles and attachment welds; overpressure scenarios and relief-device unavailability; low-pressure-side overpressure after tube rupture; blocked-in thermal expansion; fouling; passage plugging; cooling-water scaling/MIC; erosion/impingement; flow-induced vibration and fretting; thermal fatigue/shock; expansion joint or floating head; water/steam hammer; climate-specific freeze-up where the location is cold; corrosion under insulation; environmentally assisted cracking per credible metallurgy and service (wet H2S, chlorides); instrumentation and control-valve failures; supports/foundations and piping loads; maintenance and reassembly error; cleaning damage; deadlegs/stagnant zones; external events (fire/impact); and systemic modes — inspection-program inadequacy and management-of-change failure.
-- Follow the register with: scoring-scale notes, key assumptions requiring site validation, a prioritized action plan, and jurisdiction/regulatory applicability notes when a location is given (e.g. Alberta: ABSA pressure-equipment integrity, relief-device servicing, winterization).
-- For RCA/FRACAS/RCM or other deliverables: the analogous complete artifact with the discipline's standard structure.
-- OUTPUT CONTRACT — every deliverable MUST contain these sections in order, each present:
-  1) The register table (>=20 rows)
-  2) "### Scoring Scales" — S/O/D scale notes
-  3) "### Key Assumptions" — what requires site validation
-  4) "### Prioritized Action Plan"
-  5) "### Regulatory Applicability" — jurisdiction notes when a location is given
-  6) "### Method References" — a short paragraph anchoring your FMEA process, scoring discipline, detection philosophy, and corrective-action verification to the provided reference passages, with AT LEAST FOUR inline citations using their exact bracketed labels (e.g. [MIL-HDBK-338B, p.453]). A deliverable without this section is nonconforming and will be rejected.
-  7) "**Bottom Line**" — the dominant risk and the on-site validation caveats.`;
-  }
-  const industryContextStr = industry ? ` in the ${industry} industry` : "";
-
-  let userQuery = query;
-  if (!userQuery) {
-    userQuery = `Provide a concise analysis and actionable recommendations for ${agentType.replace("Agent", "")}${industryContextStr}. Include key metrics and next steps.`;
-  } else if (userQuery.length < 50) {
-    userQuery = `${userQuery}\n\nProvide a brief, helpful response.`;
-  }
-
-  // RAG: ground knowledge-heavy agents in the reliability body of knowledge.
-  let groundedSystemPrompt = systemPrompt;
-  let citedSources = false;
-  if (KB_AGENTS.has(agentType)) {
-    const kbContext = await retrieveKbContext(supabase, userQuery, isDeliverable ? 8 : 4);
-    if (kbContext) {
-      citedSources = true;
-      groundedSystemPrompt = `${systemPrompt}
-
-REFERENCE PASSAGES from the reliability engineering body of knowledge are provided below. CITATION REQUIREMENTS:
-- You MUST include inline citations using the exact bracketed labels of the passages, e.g. [MIL-HDBK-338B, p.123] or [DoD RAM Guide, p.196].
-- Cite at least two passages: anchor case-specific claims where a passage supports them, and anchor your methodology (e.g. FRACAS closure discipline, RCA process, monitoring practice) to the passage that prescribes it.
-- Never invent citations — only use the bracketed labels provided.
-
-${kbContext}`;
-    }
-  }
-
-  const { content: aiResponse, usage } = await callLLM(selectedModel, groundedSystemPrompt, userQuery, apiKey, false, maxTokens);
-  const processingTime = Date.now() - startTime;
-
-  await supabase.from("ai_agent_logs").insert({
-    agent_type: agentType,
-    query: userQuery,
-    response: aiResponse,
-    industry: industry || "general",
-    processing_time_ms: processingTime,
-  });
-
-  // SIR logging
-  await logToSIR(
-    supabase, '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000000',
-    agentType, userQuery, aiResponse, selectedModel, usage, processingTime,
-  );
-
-  return new Response(
-    JSON.stringify({
-      success: true,
-      response: aiResponse,
-      processingTime,
-      agentType,
-      industry: industry || "general",
-      modelUsed: selectedModel,
-      depth: isDeliverable ? "deliverable" : "standard",
-      knowledgeBaseUsed: citedSources,
-      requiresApproval: requiresApproval || false,
-    }),
-    { headers: { ...corsHeaders, "Content-Type": "application/json" } },
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Main handler — routes to typed or legacy path
-// ---------------------------------------------------------------------------
 
 Deno.serve(async (req: Request) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { status: 200, headers: corsHeaders });
+  if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders });
+  if (req.method !== "POST") return response({ success: false, error: "method_not_allowed" }, 405);
+  if (!SUPABASE_URL || !SERVICE_ROLE_KEY || !OPENAI_API_KEY) {
+    console.error("ai-agent-processor missing required configuration");
+    return response({ success: false, error: "service_unavailable" }, 503);
   }
 
+  const auth = await authenticate(req);
+  if (!auth) return response({ success: false, error: "unauthorized" }, 401);
+
   try {
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    // PR 2.5 fix: use SERVICE_ROLE_KEY (was ANON_KEY — the only edge
-    // function in the repo using anon, causing silent SIR write failures).
-    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
-
-    const apiKey = Deno.env.get("OPENAI_API_KEY");
-    if (!apiKey) {
-      return errorResponse(400, "OpenAI API key not configured");
-    }
-
     const body = await req.json();
-
-    // Route: if task_code is present, use the typed three-plane path.
-    // Otherwise fall through to the legacy path for backwards compat.
-    if (body.task_code) {
-      return await handleTypedRequest(supabase, body as TypedAgentRequest, apiKey);
-    } else {
-      return await handleLegacyRequest(supabase, body as LegacyAgentRequest, apiKey);
-    }
+    const admin = serviceClient();
+    if (body?.task_code) return await handleTyped(admin, auth, body as TypedAgentRequest);
+    return await handleLegacy(admin, auth, body as LegacyAgentRequest);
   } catch (error) {
-    console.error("Error processing AI agent request:", error);
-    return errorResponse(500, error.message || "Internal server error");
+    console.error("ai-agent-processor request failed", error);
+    return response({ success: false, error: "request_failed" }, 500);
   }
 });

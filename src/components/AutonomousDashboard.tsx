@@ -1,30 +1,30 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "./AuthProvider";
 import {
-  CheckCircle,
-  XCircle,
-  Clock,
-  AlertTriangle,
   Activity,
-  TrendingUp,
-  Zap,
-  FileCheck,
+  AlertTriangle,
+  CheckCircle,
+  Clock,
   Eye,
-  ThumbsUp,
+  FileCheck,
   ThumbsDown,
+  ThumbsUp,
+  TrendingUp,
+  XCircle,
+  type LucideIcon,
 } from "lucide-react";
 
 interface Decision {
   id: string;
   decision_type: string;
-  decision_data: any;
+  decision_data: Record<string, any>;
   confidence_score: number;
   status: string;
   requires_approval: boolean;
   created_at: string;
-  approval_deadline: string;
+  approval_deadline?: string;
 }
 
 interface Alert {
@@ -36,334 +36,191 @@ interface Alert {
   created_at: string;
 }
 
+interface StatCard {
+  label: string;
+  value: number;
+  icon: LucideIcon;
+}
+
+const APPROVAL_ROLES = new Set([
+  "admin",
+  "manager",
+  "maintenance_manager",
+  "plant_manager",
+  "operations_manager",
+  "reliability_engineer",
+]);
+
 export function AutonomousDashboard() {
   const { profile } = useAuth();
   const [decisions, setDecisions] = useState<Decision[]>([]);
   const [alerts, setAlerts] = useState<Alert[]>([]);
-  const [stats, setStats] = useState({
-    pending_decisions: 0,
-    auto_executed: 0,
-    critical_alerts: 0,
-    assets_monitored: 0,
-  });
+  const [stats, setStats] = useState({ pending: 0, approved: 0, critical: 0, monitored: 0 });
   const [loading, setLoading] = useState(true);
+  const [actioning, setActioning] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadDashboardData();
-    const interval = setInterval(loadDashboardData, 30000);
-    return () => clearInterval(interval);
-  }, []);
+  const canApprove = APPROVAL_ROLES.has(String(profile?.role ?? "").toLowerCase());
+  const statCards: StatCard[] = [
+    { label: "Pending decisions", value: stats.pending, icon: Clock },
+    { label: "Approved decisions", value: stats.approved, icon: CheckCircle },
+    { label: "Critical alerts", value: stats.critical, icon: AlertTriangle },
+    { label: "Assets monitored", value: stats.monitored, icon: Activity },
+  ];
 
   const loadDashboardData = async () => {
     try {
-      const [decisionsRes, alertsRes, metricsRes] = await Promise.all([
-        supabase
-          .from("autonomous_decisions")
-          .select("*")
-          .order("created_at", { ascending: false })
-          .limit(10),
-        supabase
-          .from("system_alerts")
-          .select("*")
-          .eq("resolved", false)
-          .order("created_at", { ascending: false })
-          .limit(5),
-        supabase
-          .from("maintenance_metrics")
-          .select("*")
-          .order("recorded_at", { ascending: false })
-          .limit(1)
-          .maybeSingle(),
+      const [decisionsRes, alertsRes, assetsRes] = await Promise.all([
+        supabase.from("autonomous_decisions").select("*").order("created_at", { ascending: false }).limit(20),
+        supabase.from("system_alerts").select("*").eq("resolved", false).order("created_at", { ascending: false }).limit(8),
+        supabase.from("assets").select("id", { count: "exact", head: true }),
       ]);
-
-      if (decisionsRes.data) setDecisions(decisionsRes.data);
-      if (alertsRes.data) setAlerts(alertsRes.data);
-
-      const pendingCount =
-        decisionsRes.data?.filter((d) => d.status === "pending").length || 0;
-      const autoExecutedCount =
-        decisionsRes.data?.filter((d) => d.status === "auto_executed").length ||
-        0;
-      const criticalAlerts =
-        alertsRes.data?.filter((a) => a.severity === "critical").length || 0;
-
+      if (decisionsRes.error) throw decisionsRes.error;
+      if (alertsRes.error) throw alertsRes.error;
+      const decisionRows = (decisionsRes.data ?? []) as Decision[];
+      const alertRows = (alertsRes.data ?? []) as Alert[];
+      setDecisions(decisionRows);
+      setAlerts(alertRows);
       setStats({
-        pending_decisions: pendingCount,
-        auto_executed: autoExecutedCount,
-        critical_alerts: criticalAlerts,
-        assets_monitored: metricsRes.data?.total_assets || 0,
+        pending: decisionRows.filter((d) => d.status === "pending").length,
+        approved: decisionRows.filter((d) => d.status === "approved").length,
+        critical: alertRows.filter((a) => a.severity === "critical").length,
+        monitored: assetsRes.count ?? 0,
       });
-
-      setLoading(false);
     } catch (error) {
-      console.error("Error loading dashboard:", error);
+      console.error("Error loading autonomous dashboard", error);
+      setNotice("The dashboard could not be refreshed. Existing operating controls remain unaffected.");
+    } finally {
       setLoading(false);
     }
   };
 
-  const handleDecision = async (decisionId: string, approved: boolean) => {
-    try {
-      await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/autonomous-orchestrator`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            action: "process_decision",
-            data: {
-              decision_id: decisionId,
-              approved,
-              approver_id: profile?.id,
-            },
-          }),
-        },
-      );
+  useEffect(() => {
+    void loadDashboardData();
+    const interval = window.setInterval(() => void loadDashboardData(), 30_000);
+    return () => window.clearInterval(interval);
+  }, []);
 
+  const handleDecision = async (decisionId: string, approved: boolean) => {
+    if (!canApprove) return;
+    setActioning(decisionId);
+    setNotice(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("autonomous-orchestrator", {
+        body: { action: "process_decision", data: { decision_id: decisionId, approved } },
+      });
+      if (error || !data?.success) throw new Error(error?.message || data?.error || "Decision update failed");
+      setNotice(approved
+        ? "Decision approved. No operational side-effect is applied until a governed execute action is selected."
+        : "Decision rejected. No operational side-effect was applied.");
       await loadDashboardData();
     } catch (error) {
-      console.error("Error processing decision:", error);
+      console.error("Error processing decision", error);
+      setNotice("The decision was not changed. Please verify your approval authority and try again.");
+    } finally {
+      setActioning(null);
     }
   };
 
   const acknowledgeAlert = async (alertId: string) => {
-    await supabase
-      .from("system_alerts")
-      .update({ acknowledged: true })
-      .eq("id", alertId);
-
-    await loadDashboardData();
+    const { error } = await supabase.from("system_alerts").update({ acknowledged: true }).eq("id", alertId);
+    if (!error) await loadDashboardData();
   };
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case "pending":
-        return <Clock className="w-5 h-5 text-yellow-600" />;
-      case "approved":
-        return <CheckCircle className="w-5 h-5 text-green-600" />;
-      case "rejected":
-        return <XCircle className="w-5 h-5 text-red-600" />;
-      case "auto_executed":
-        return <Zap className="w-5 h-5 text-teal-600" />;
-      default:
-        return <Eye className="w-5 h-5 text-slate-400" />;
-    }
+  const statusIcon = (status: string) => {
+    if (status === "pending") return <Clock className="h-5 w-5 text-amber-400" />;
+    if (status === "approved") return <CheckCircle className="h-5 w-5 text-emerald-400" />;
+    if (status === "rejected") return <XCircle className="h-5 w-5 text-red-400" />;
+    return <Eye className="h-5 w-5 text-slate-400" />;
   };
 
-  const getSeverityColor = (severity: string) => {
-    switch (severity) {
-      case "critical":
-        return "bg-red-100 border-red-300 text-red-800";
-      case "high":
-        return "bg-orange-100 border-orange-300 text-orange-800";
-      case "medium":
-        return "bg-yellow-100 border-yellow-300 text-yellow-800";
-      default:
-        return "bg-blue-100 border-blue-300 text-blue-800";
-    }
+  const severityClass = (severity: string) => {
+    if (severity === "critical") return "border-red-500/30 bg-red-500/10 text-red-200";
+    if (severity === "high") return "border-orange-500/30 bg-orange-500/10 text-orange-200";
+    if (severity === "medium") return "border-amber-500/30 bg-amber-500/10 text-amber-200";
+    return "border-blue-500/30 bg-blue-500/10 text-blue-200";
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600"></div>
-      </div>
-    );
+    return <div className="flex h-64 items-center justify-center"><div className="h-12 w-12 animate-spin rounded-full border-b-2 border-teal-500" /></div>;
   }
 
-  const canApprove = profile?.role === "admin" || profile?.role === "manager";
-
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6 p-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-industrial-text">
-            Autonomous Operations
-          </h1>
-          <p className="text-slate-400 mt-1">
-            AI-powered asset management with human oversight
-          </p>
+          <h1 className="text-2xl font-bold text-[#E6EDF3]">Governed AI Operations</h1>
+          <p className="mt-1 text-slate-400">AI recommendations remain advisory until an authorized human approves a governed action.</p>
         </div>
-        <div className="flex items-center gap-2 bg-green-50 px-4 py-2 rounded-lg border border-green-200">
-          <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-          <span className="text-sm font-medium text-green-700">
-            System Active
-          </span>
-        </div>
+        <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 px-4 py-2 text-sm font-medium text-amber-300">Human-in-the-Loop</div>
       </div>
 
-      <div className="grid grid-cols-4 gap-4">
-        <div className="bg-industrial-graphite rounded-xl border border-industrial-border p-6">
-          <div className="flex items-center justify-between mb-2">
-            <Clock className="w-8 h-8 text-yellow-600" />
-            <span className="text-3xl font-bold text-industrial-text">
-              {stats.pending_decisions}
-            </span>
-          </div>
-          <p className="text-sm font-medium text-slate-400">
-            Pending Decisions
-          </p>
-        </div>
+      {notice && <div className="rounded-lg border border-teal-500/20 bg-teal-500/10 px-4 py-3 text-sm text-teal-100">{notice}</div>}
 
-        <div className="bg-industrial-graphite rounded-xl border border-industrial-border p-6">
-          <div className="flex items-center justify-between mb-2">
-            <Zap className="w-8 h-8 text-teal-600" />
-            <span className="text-3xl font-bold text-industrial-text">
-              {stats.auto_executed}
-            </span>
+      <div className="grid gap-4 md:grid-cols-4">
+        {statCards.map(({ label, value, icon: Icon }) => (
+          <div key={label} className="rounded-xl border border-[#232A33] bg-[#11161D] p-5">
+            <div className="mb-2 flex items-center justify-between"><Icon className="h-7 w-7 text-teal-400" /><span className="text-3xl font-bold text-[#E6EDF3]">{value}</span></div>
+            <p className="text-sm text-slate-400">{label}</p>
           </div>
-          <p className="text-sm font-medium text-slate-400">Auto-Executed</p>
-        </div>
-
-        <div className="bg-industrial-graphite rounded-xl border border-industrial-border p-6">
-          <div className="flex items-center justify-between mb-2">
-            <AlertTriangle className="w-8 h-8 text-red-600" />
-            <span className="text-3xl font-bold text-industrial-text">
-              {stats.critical_alerts}
-            </span>
-          </div>
-          <p className="text-sm font-medium text-slate-400">Critical Alerts</p>
-        </div>
-
-        <div className="bg-industrial-graphite rounded-xl border border-industrial-border p-6">
-          <div className="flex items-center justify-between mb-2">
-            <Activity className="w-8 h-8 text-blue-600" />
-            <span className="text-3xl font-bold text-industrial-text">
-              {stats.assets_monitored}
-            </span>
-          </div>
-          <p className="text-sm font-medium text-slate-400">Assets Monitored</p>
-        </div>
+        ))}
       </div>
 
       {alerts.length > 0 && (
-        <div className="bg-industrial-graphite rounded-xl border border-industrial-border p-6">
-          <h2 className="text-lg font-semibold text-industrial-text mb-4">
-            Active Alerts
-          </h2>
+        <section className="rounded-xl border border-[#232A33] bg-[#11161D] p-6">
+          <h2 className="mb-4 text-lg font-semibold text-[#E6EDF3]">Active Alerts</h2>
           <div className="space-y-3">
             {alerts.map((alert) => (
-              <div
-                key={alert.id}
-                className={`p-4 rounded-lg border ${getSeverityColor(alert.severity)}`}
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <AlertTriangle className="w-4 h-4" />
-                      <p className="font-semibold">{alert.title}</p>
-                      <span className="text-xs px-2 py-0.5 bg-industrial-graphite rounded-sm uppercase font-medium">
-                        {alert.severity}
-                      </span>
-                    </div>
-                    <p className="text-sm">{alert.description}</p>
-                    <p className="text-xs mt-2 opacity-75">
-                      {new Date(alert.created_at).toLocaleString()}
-                    </p>
+              <div key={alert.id} className={`rounded-lg border p-4 ${severityClass(alert.severity)}`}>
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <div className="mb-1 flex items-center gap-2"><AlertTriangle className="h-4 w-4" /><p className="font-semibold">{alert.title}</p></div>
+                    <p className="text-sm opacity-90">{alert.description}</p>
+                    <p className="mt-2 text-xs opacity-70">{new Date(alert.created_at).toLocaleString()}</p>
                   </div>
-                  {!alert.acknowledged && (
-                    <button
-                      onClick={() => acknowledgeAlert(alert.id)}
-                      className="ml-4 px-3 py-1.5 bg-industrial-graphite hover:bg-industrial-black border border-gray-300 rounded-lg text-sm font-medium transition-colors"
-                    >
-                      Acknowledge
-                    </button>
-                  )}
+                  {!alert.acknowledged && <button onClick={() => void acknowledgeAlert(alert.id)} className="rounded-lg border border-white/10 px-3 py-1.5 text-sm hover:bg-white/5">Acknowledge</button>}
                 </div>
               </div>
             ))}
           </div>
-        </div>
+        </section>
       )}
 
-      <div className="bg-industrial-graphite rounded-xl border border-industrial-border p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-industrial-text">
-            Autonomous Decisions
-          </h2>
-          {!canApprove && (
-            <span className="text-xs bg-industrial-slate px-3 py-1 rounded-full text-slate-400">
-              View Only - {profile?.role}
-            </span>
-          )}
+      <section className="rounded-xl border border-[#232A33] bg-[#11161D] p-6">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-[#E6EDF3]">AI Decisions</h2>
+          {!canApprove && <span className="rounded-full bg-[#161C24] px-3 py-1 text-xs text-slate-400">View only · {profile?.role}</span>}
         </div>
-
         <div className="space-y-3">
           {decisions.map((decision) => (
-            <div
-              key={decision.id}
-              className="border border-industrial-border rounded-lg p-4 hover:border-teal-300 transition-colors"
-            >
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-2">
-                    {getStatusIcon(decision.status)}
+            <article key={decision.id} className="rounded-lg border border-[#232A33] p-4 hover:border-teal-500/30">
+              <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0 flex-1">
+                  <div className="mb-2 flex items-center gap-3">
+                    {statusIcon(decision.status)}
                     <div>
-                      <p className="font-semibold text-industrial-text">
-                        {decision.decision_data.asset_name || "Asset"} -{" "}
-                        {decision.decision_type.replace("_", " ")}
-                      </p>
-                      <p className="text-sm text-slate-400">
-                        {decision.decision_data.reason}
-                      </p>
+                      <p className="font-semibold text-[#E6EDF3]">{decision.decision_data?.asset_name || "Asset"} · {decision.decision_type.replaceAll("_", " ")}</p>
+                      <p className="text-sm text-slate-400">{decision.decision_data?.reason || decision.decision_data?.raw_summary || "AI recommendation awaiting review"}</p>
                     </div>
                   </div>
-
-                  <div className="flex items-center gap-4 text-sm text-slate-400 mt-3">
-                    <div className="flex items-center gap-1">
-                      <TrendingUp className="w-4 h-4" />
-                      <span>
-                        Confidence: {decision.confidence_score.toFixed(0)}%
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <FileCheck className="w-4 h-4" />
-                      <span className="capitalize">
-                        {decision.status.replace("_", " ")}
-                      </span>
-                    </div>
-                    {decision.requires_approval && (
-                      <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-1 rounded-sm">
-                        Requires Approval
-                      </span>
-                    )}
+                  <div className="mt-3 flex flex-wrap items-center gap-4 text-sm text-slate-400">
+                    <span className="flex items-center gap-1"><TrendingUp className="h-4 w-4" />Confidence: {Number(decision.confidence_score ?? 0).toFixed(0)}%</span>
+                    <span className="flex items-center gap-1 capitalize"><FileCheck className="h-4 w-4" />{decision.status.replaceAll("_", " ")}</span>
+                    {decision.requires_approval && <span className="rounded bg-amber-500/10 px-2 py-1 text-xs text-amber-300">Qualified approval required</span>}
                   </div>
                 </div>
-
-                {decision.status === "pending" &&
-                  decision.requires_approval &&
-                  canApprove && (
-                    <div className="flex gap-2 ml-4">
-                      <button
-                        onClick={() => handleDecision(decision.id, true)}
-                        className="flex items-center gap-1 px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition-colors"
-                      >
-                        <ThumbsUp className="w-4 h-4" />
-                        Approve
-                      </button>
-                      <button
-                        onClick={() => handleDecision(decision.id, false)}
-                        className="flex items-center gap-1 px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium transition-colors"
-                      >
-                        <ThumbsDown className="w-4 h-4" />
-                        Reject
-                      </button>
-                    </div>
-                  )}
+                {decision.status === "pending" && decision.requires_approval && canApprove && (
+                  <div className="flex gap-2">
+                    <button disabled={actioning === decision.id} onClick={() => void handleDecision(decision.id, true)} className="flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-50"><ThumbsUp className="h-4 w-4" />Approve</button>
+                    <button disabled={actioning === decision.id} onClick={() => void handleDecision(decision.id, false)} className="flex items-center gap-1 rounded-lg bg-red-600 px-3 py-2 text-sm font-medium text-white hover:bg-red-500 disabled:opacity-50"><ThumbsDown className="h-4 w-4" />Reject</button>
+                  </div>
+                )}
               </div>
-            </div>
+            </article>
           ))}
-
-          {decisions.length === 0 && (
-            <div className="text-center py-12">
-              <FileCheck className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-              <p className="text-gray-500">No recent decisions</p>
-            </div>
-          )}
+          {decisions.length === 0 && <div className="py-12 text-center"><FileCheck className="mx-auto mb-3 h-12 w-12 text-slate-600" /><p className="text-slate-400">No recent decisions</p></div>}
         </div>
-      </div>
+      </section>
     </div>
   );
 }
