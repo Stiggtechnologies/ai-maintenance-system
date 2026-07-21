@@ -11,60 +11,80 @@
 //   - HITL preserved: enrichment only edits rationale/confidence metadata on
 //     PENDING recommendations. It never changes status, never approves.
 //   - Service-role only: invoked by pg_cron (via pg_net) or operators.
-//
-// Secrets (supabase secrets set):
-//   LLM_BASE_URL  e.g. https://stigg-ai-gateway.fly.dev
-//   LLM_API_KEY   virtual key `ai-maintenance-system-staging` from the gateway
-//   LLM_MODEL     optional, default "stigg/fast"
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-// ENRICH_* lets this background surface use a different (cheaper) provider
-// than the interactive copilot, which owns LLM_BASE_URL/OPENAI_API_KEY.
 const LLM_BASE_URL =
   Deno.env.get("ENRICH_LLM_BASE_URL") ?? Deno.env.get("LLM_BASE_URL") ?? "";
 const LLM_API_KEY =
   Deno.env.get("ENRICH_LLM_API_KEY") ?? Deno.env.get("LLM_API_KEY") ?? "";
 const LLM_MODEL =
   Deno.env.get("ENRICH_LLM_MODEL") ?? Deno.env.get("LLM_MODEL") ?? "stigg/fast";
-// Dedicated caller secret — decoupled from platform key formats. Set with:
-//   supabase secrets set ENRICH_SHARED_SECRET=<random>
 const ENRICH_SHARED_SECRET = Deno.env.get("ENRICH_SHARED_SECRET") ?? "";
 
 const BATCH_LIMIT = 5;
-
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Origin": "https://app.syncai.ca",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Vary": "Origin",
 };
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
+    headers: {
+      ...corsHeaders,
+      "Content-Type": "application/json",
+      "Cache-Control": "no-store",
+      "X-Content-Type-Options": "nosniff",
+    },
   });
 }
 
-Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+function safeEqual(a: string, b: string): boolean {
+  const encoder = new TextEncoder();
+  const left = encoder.encode(a);
+  const right = encoder.encode(b);
+  if (left.length !== right.length) return false;
+  let mismatch = 0;
+  for (let i = 0; i < left.length; i += 1) mismatch |= left[i] ^ right[i];
+  return mismatch === 0;
+}
 
-  // Platform-only — accept the injected service key or our dedicated secret.
-  const auth = req.headers.get("Authorization") ?? "";
-  const authorized =
-    (SERVICE_ROLE_KEY && auth === `Bearer ${SERVICE_ROLE_KEY}`) ||
-    (ENRICH_SHARED_SECRET && auth === `Bearer ${ENRICH_SHARED_SECRET}`);
-  if (!authorized) {
-    return json({ error: "service role required" }, 401);
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders });
+  if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
+
+  if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
+    console.error("agent-loop-enrich missing required platform configuration");
+    return json({ error: "service_unavailable" }, 503);
   }
+
+  const auth = req.headers.get("Authorization") ?? "";
+  const serviceToken = `Bearer ${SERVICE_ROLE_KEY}`;
+  const sharedToken = ENRICH_SHARED_SECRET ? `Bearer ${ENRICH_SHARED_SECRET}` : "";
+  const authorized = safeEqual(auth, serviceToken) || (sharedToken !== "" && safeEqual(auth, sharedToken));
+  if (!authorized) return json({ error: "unauthorized" }, 401);
 
   if (!LLM_BASE_URL || !LLM_API_KEY) {
     return json({ enriched: 0, skipped: "llm_not_configured" });
   }
 
-  const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+  let providerUrl: URL;
+  try {
+    providerUrl = new URL("/v1/chat/completions", LLM_BASE_URL);
+    if (providerUrl.protocol !== "https:") throw new Error("HTTPS required");
+  } catch {
+    console.error("agent-loop-enrich invalid LLM_BASE_URL");
+    return json({ enriched: 0, skipped: "invalid_llm_configuration" }, 503);
+  }
+
+  const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
 
   const { data: recs, error } = await supabase
     .from("recommendations")
@@ -75,18 +95,20 @@ Deno.serve(async (req) => {
     .order("created_at", { ascending: true })
     .limit(BATCH_LIMIT);
 
-  if (error) return json({ enriched: 0, skipped: `query_failed: ${error.message}` });
+  if (error) {
+    console.error("agent-loop-enrich query failed", error);
+    return json({ enriched: 0, skipped: "query_failed" }, 500);
+  }
   if (!recs || recs.length === 0) return json({ enriched: 0, skipped: "nothing_to_enrich" });
-
-  const providerInfo = { base: LLM_BASE_URL, model: LLM_MODEL, key_len: LLM_API_KEY.length };
 
   let enriched = 0;
   const failures: string[] = [];
 
   for (const rec of recs) {
     try {
-      const resp = await fetch(`${LLM_BASE_URL}/v1/chat/completions`, {
+      const resp = await fetch(providerUrl, {
         method: "POST",
+        signal: AbortSignal.timeout(45_000),
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${LLM_API_KEY}`,
@@ -114,31 +136,31 @@ Deno.serve(async (req) => {
       });
 
       if (!resp.ok) {
-        const errBody = (await resp.text()).slice(0, 180);
-        failures.push(`${rec.id}: HTTP ${resp.status} — ${errBody}`);
+        console.error("agent-loop-enrich provider request failed", { id: rec.id, status: resp.status });
+        failures.push(`${rec.id}: provider_error`);
         continue;
       }
 
       const data = await resp.json();
       const content: string = data.choices?.[0]?.message?.content ?? "";
-      // Providers differ on JSON-mode support — extract the first JSON object.
       const match = content.match(/\{[\s\S]*\}/);
       const parsed = match ? JSON.parse(match[0]) : {};
-      if (!parsed.analysis) {
-        failures.push(`${rec.id}: no analysis in response`);
+      if (typeof parsed.analysis !== "string" || parsed.analysis.trim().length === 0) {
+        failures.push(`${rec.id}: invalid_response`);
         continue;
       }
 
+      const requestedConfidence = Number(parsed.confidence);
       const confidence = Math.min(
         95,
-        Math.max(rec.confidence ?? 70, Math.round(Number(parsed.confidence) || 0)),
+        Math.max(rec.confidence ?? 70, Number.isFinite(requestedConfidence) ? Math.round(requestedConfidence) : 0),
       );
 
-      await supabase
+      const { error: updateError } = await supabase
         .from("recommendations")
         .update({
           rationale:
-            `AI analysis (${LLM_MODEL}): ${parsed.analysis} ` +
+            `AI analysis (${LLM_MODEL}): ${parsed.analysis.trim()} ` +
             `Suggested action window: ${parsed.recommended_window_hours ?? "n/a"}h. ` +
             "Raised by the continuous condition-monitoring loop; human approval required before any action.",
           confidence,
@@ -147,9 +169,15 @@ Deno.serve(async (req) => {
           updated_at: new Date().toISOString(),
         })
         .eq("id", rec.id)
-        .eq("status", "pending"); // never touch anything a human already actioned
+        .eq("status", "pending");
 
-      await supabase.from("agent_runs").insert({
+      if (updateError) {
+        console.error("agent-loop-enrich recommendation update failed", { id: rec.id, error: updateError });
+        failures.push(`${rec.id}: update_failed`);
+        continue;
+      }
+
+      const { error: runError } = await supabase.from("agent_runs").insert({
         organization_id: rec.organization_id,
         asset_id: rec.asset_id,
         status: "completed",
@@ -158,12 +186,14 @@ Deno.serve(async (req) => {
         started_at: new Date().toISOString(),
         completed_at: new Date().toISOString(),
       });
+      if (runError) console.error("agent-loop-enrich agent run insert failed", { id: rec.id, error: runError });
 
       enriched += 1;
-    } catch (e) {
-      failures.push(`${rec.id}: ${e instanceof Error ? e.message : String(e)}`);
+    } catch (error) {
+      console.error("agent-loop-enrich failed", { id: rec.id, error });
+      failures.push(`${rec.id}: enrichment_failed`);
     }
   }
 
-  return json({ enriched, of: recs.length, failures, provider: providerInfo });
+  return json({ enriched, of: recs.length, failures });
 });
