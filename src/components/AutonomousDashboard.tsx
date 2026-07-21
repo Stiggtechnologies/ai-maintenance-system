@@ -13,6 +13,7 @@ import {
   ThumbsUp,
   TrendingUp,
   XCircle,
+  type LucideIcon,
 } from "lucide-react";
 
 interface Decision {
@@ -35,6 +36,12 @@ interface Alert {
   created_at: string;
 }
 
+interface StatCard {
+  label: string;
+  value: number;
+  icon: LucideIcon;
+}
+
 const APPROVAL_ROLES = new Set([
   "admin",
   "manager",
@@ -54,6 +61,12 @@ export function AutonomousDashboard() {
   const [notice, setNotice] = useState<string | null>(null);
 
   const canApprove = APPROVAL_ROLES.has(String(profile?.role ?? "").toLowerCase());
+  const statCards: StatCard[] = [
+    { label: "Pending decisions", value: stats.pending, icon: Clock },
+    { label: "Approved decisions", value: stats.approved, icon: CheckCircle },
+    { label: "Critical alerts", value: stats.critical, icon: AlertTriangle },
+    { label: "Assets monitored", value: stats.monitored, icon: Activity },
+  ];
 
   const loadDashboardData = async () => {
     try {
@@ -145,15 +158,10 @@ export function AutonomousDashboard() {
       {notice && <div className="rounded-lg border border-teal-500/20 bg-teal-500/10 px-4 py-3 text-sm text-teal-100">{notice}</div>}
 
       <div className="grid gap-4 md:grid-cols-4">
-        {[
-          ["Pending decisions", stats.pending, Clock],
-          ["Approved decisions", stats.approved, CheckCircle],
-          ["Critical alerts", stats.critical, AlertTriangle],
-          ["Assets monitored", stats.monitored, Activity],
-        ].map(([label, value, Icon]) => (
-          <div key={String(label)} className="rounded-xl border border-[#232A33] bg-[#11161D] p-5">
-            <div className="mb-2 flex items-center justify-between"><Icon className="h-7 w-7 text-teal-400" /><span className="text-3xl font-bold text-[#E6EDF3]">{String(value)}</span></div>
-            <p className="text-sm text-slate-400">{String(label)}</p>
+        {statCards.map(({ label, value, icon: Icon }) => (
+          <div key={label} className="rounded-xl border border-[#232A33] bg-[#11161D] p-5">
+            <div className="mb-2 flex items-center justify-between"><Icon className="h-7 w-7 text-teal-400" /><span className="text-3xl font-bold text-[#E6EDF3]">{value}</span></div>
+            <p className="text-sm text-slate-400">{label}</p>
           </div>
         ))}
       </div>
