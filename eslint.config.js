@@ -19,6 +19,15 @@ export default tseslint.config(
     },
     rules: {
       ...reactHooks.configs.recommended.rules,
+      // hooks-plugin 7 ships React Compiler diagnostics enabled as errors.
+      // Classic correctness rules stay on; the compiler-readiness rules are
+      // off until the dedicated burn-down (they flag patterns the compiler
+      // bails on, not bugs) — see the React 19 migration PR.
+      'react-hooks/immutability': 'off',
+      'react-hooks/set-state-in-effect': 'off',
+      'react-hooks/purity': 'off',
+      'react-hooks/refs': 'off',
+      'react-hooks/exhaustive-deps': 'warn',
       'react-refresh/only-export-components': [
         'warn',
         { allowConstantExport: true },
