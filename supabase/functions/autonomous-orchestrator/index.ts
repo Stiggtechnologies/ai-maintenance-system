@@ -1,728 +1,356 @@
-import { createClient } from 'npm:@supabase/supabase-js@2';
+import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { createClient } from "npm:@supabase/supabase-js@2";
+
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
+const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+const INTERNAL_SECRET = Deno.env.get("AUTONOMOUS_INTERNAL_SECRET") ?? "";
+const ALLOWED_ORIGIN = Deno.env.get("ALLOWED_ORIGIN") ?? "https://app.syncai.ca";
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': Deno.env.get('ALLOWED_ORIGIN') || 'https://app.syncai.ca',
-  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Client-Info, Apikey',
+  "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Vary": "Origin",
 };
 
-interface AssetHealthData {
-  asset_id: string;
-  health_score: number;
-  anomaly_detected: boolean;
-  sensor_data?: any;
+interface AuthContext {
+  internal: boolean;
+  userId: string;
+  organizationId: string;
+  role: string;
+}
+
+function json(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: {
+      ...corsHeaders,
+      "Content-Type": "application/json",
+      "Cache-Control": "no-store",
+      "X-Content-Type-Options": "nosniff",
+    },
+  });
+}
+
+function adminClient() {
+  return createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+}
+
+function bearer(req: Request): string {
+  const value = req.headers.get("Authorization") ?? "";
+  return value.startsWith("Bearer ") ? value.slice(7) : "";
+}
+
+function safeEqual(a: string, b: string): boolean {
+  const enc = new TextEncoder();
+  const left = enc.encode(a);
+  const right = enc.encode(b);
+  if (left.length !== right.length) return false;
+  let mismatch = 0;
+  for (let i = 0; i < left.length; i += 1) mismatch |= left[i] ^ right[i];
+  return mismatch === 0;
+}
+
+async function authenticate(req: Request): Promise<AuthContext | null> {
+  const token = bearer(req);
+  if (!token) return null;
+  const internal = (SERVICE_ROLE_KEY && safeEqual(token, SERVICE_ROLE_KEY)) ||
+    (INTERNAL_SECRET && safeEqual(token, INTERNAL_SECRET));
+  if (internal) {
+    return { internal: true, userId: "00000000-0000-0000-0000-000000000000", organizationId: "", role: "service_role" };
+  }
+
+  const admin = adminClient();
+  const { data: userResult, error: authError } = await admin.auth.getUser(token);
+  if (authError || !userResult.user) return null;
+  const { data: profile, error: profileError } = await admin
+    .from("user_profiles")
+    .select("organization_id, role")
+    .eq("id", userResult.user.id)
+    .maybeSingle();
+  if (profileError || !profile?.organization_id) return null;
+  return {
+    internal: false,
+    userId: userResult.user.id,
+    organizationId: profile.organization_id,
+    role: String(profile.role ?? "user").toLowerCase(),
+  };
+}
+
+const APPROVAL_ROLES = new Set([
+  "admin",
+  "manager",
+  "maintenance_manager",
+  "plant_manager",
+  "operations_manager",
+  "reliability_engineer",
+]);
+
+function canApprove(auth: AuthContext): boolean {
+  return auth.internal || APPROVAL_ROLES.has(auth.role);
+}
+
+async function monitorAssets(admin: ReturnType<typeof adminClient>) {
+  const { data: assets, error } = await admin
+    .from("assets")
+    .select("id, organization_id, name, criticality, status")
+    .in("status", ["healthy", "watch", "critical", "operational", "maintenance"]);
+  if (error) throw error;
+
+  let decisionsCreated = 0;
+  let healthUpdates = 0;
+  for (const asset of assets ?? []) {
+    const { data: signals } = await admin
+      .from("normalized_signals")
+      .select("signal_type, numeric_value")
+      .eq("asset_id", asset.id)
+      .gte("signal_time", new Date(Date.now() - 60 * 60 * 1000).toISOString())
+      .order("signal_time", { ascending: false })
+      .limit(20);
+
+    if (!signals?.length) continue;
+    const temp = Number(signals.find((s: any) => s.signal_type === "temperature")?.numeric_value ?? 90);
+    const vibration = Number(signals.find((s: any) => s.signal_type === "vibration")?.numeric_value ?? 5);
+    const pressure = Number(signals.find((s: any) => s.signal_type === "pressure")?.numeric_value ?? 115);
+    const healthScore = Math.max(0, Math.min(100,
+      100 - Math.max(0, temp - 90) * 2 - Math.max(0, vibration - 5) * 10 - ((pressure > 150 || pressure < 80) ? 15 : 0)
+    ));
+    const anomaly = healthScore < 60;
+
+    const { error: healthError } = await admin.from("asset_health_monitoring").insert({
+      asset_id: asset.id,
+      health_score: healthScore,
+      anomaly_detected: anomaly,
+      sensor_data: { temperature: temp, vibration, pressure },
+      ai_analysis: anomaly ? `Condition threshold breach detected. Health score ${healthScore.toFixed(1)}.` : "Operating within configured thresholds.",
+      recommendations: anomaly ? ["Validate signal quality", "Inspect the affected asset", "Route a maintenance recommendation for human review"] : ["Continue monitoring"],
+    });
+    if (!healthError) healthUpdates += 1;
+
+    if (anomaly && healthScore < 50) {
+      const correlationId = crypto.randomUUID();
+      const { error: decisionError } = await admin.from("autonomous_decisions").insert({
+        tenant_id: asset.organization_id,
+        correlation_id: correlationId,
+        asset_id: asset.id,
+        autonomy_level: "advisory",
+        decision_type: "work_order_creation",
+        decision_data: {
+          asset_name: asset.name,
+          reason: "Low condition-derived health score",
+          health_score: healthScore,
+          recommended_action: "Create a governed inspection work order",
+        },
+        confidence_score: Math.min(95, Math.round(100 - healthScore)),
+        requires_approval: true,
+        status: "pending",
+        approval_deadline: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+      });
+      if (!decisionError) decisionsCreated += 1;
+    }
+  }
+
+  return json({ success: true, monitored_assets: assets?.length ?? 0, health_updates: healthUpdates, decisions_created: decisionsCreated, execution_mode: "human_approval_required" });
+}
+
+async function processDecision(admin: ReturnType<typeof adminClient>, auth: AuthContext, data: any) {
+  if (!canApprove(auth)) return json({ success: false, error: "approval_authority_required" }, 403);
+  const decisionId = String(data?.decision_id ?? "");
+  const approved = Boolean(data?.approved);
+  if (!decisionId) return json({ success: false, error: "decision_id_required" }, 400);
+
+  const query = admin.from("autonomous_decisions").select("id, tenant_id, status, decision_type, decision_data, work_order_id").eq("id", decisionId);
+  if (!auth.internal) query.eq("tenant_id", auth.organizationId);
+  const { data: decision, error } = await query.maybeSingle();
+  if (error || !decision) return json({ success: false, error: "decision_not_found" }, 404);
+  if (decision.status !== "pending") return json({ success: false, error: "decision_not_pending", status: decision.status }, 409);
+
+  const status = approved ? "approved" : "rejected";
+  const { data: updated, error: updateError } = await admin
+    .from("autonomous_decisions")
+    .update({ status, approved_by: auth.userId, executed_at: approved ? new Date().toISOString() : null })
+    .eq("id", decisionId)
+    .eq("status", "pending")
+    .select()
+    .single();
+  if (updateError) throw updateError;
+
+  await admin.from("approval_workflows").update({
+    status,
+    responded_at: new Date().toISOString(),
+    approver_id: auth.userId,
+  }).eq("decision_id", decisionId).eq("status", "pending");
+
+  return json({ success: true, decision: updated, executed: false, note: approved ? "Approved; use the governed execute action to apply the selected side-effect." : "Rejected; no operational side-effect was applied." });
+}
+
+async function createIntelligenceDecision(admin: ReturnType<typeof adminClient>, data: any) {
+  const tenantId = String(data?.tenant_id ?? "");
+  const correlationId = String(data?.correlation_id ?? "");
+  const taskCode = String(data?.task_code ?? "");
+  if (!tenantId || !correlationId || !taskCode) return json({ success: false, error: "invalid_decision_input" }, 400);
+
+  const confidence = Math.max(0, Math.min(1, Number(data?.confidence ?? 0.5)));
+  const { data: decision, error } = await admin.from("autonomous_decisions").insert({
+    tenant_id: tenantId,
+    correlation_id: correlationId,
+    asset_id: data.asset_id ?? null,
+    work_order_id: data.work_order_id ?? null,
+    autonomy_level: data.autonomy_level ?? "advisory",
+    decision_type: "reliability_recommendation",
+    decision_data: {
+      task_code: taskCode,
+      agent_run_id: data.agent_run_id,
+      raw_summary: data.raw_summary,
+      ...(data.structured_output ?? {}),
+    },
+    confidence_score: Math.round(confidence * 100),
+    requires_approval: true,
+    status: "pending",
+    approval_deadline: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+  }).select("id").single();
+  if (error) {
+    console.error("create intelligence decision failed", error);
+    return json({ success: false, error: "decision_create_failed", correlation_id: correlationId }, 500);
+  }
+  const { data: workflow } = await admin.from("approval_workflows").select("id, status").eq("decision_id", decision.id).maybeSingle();
+  return json({ success: true, decision_id: decision.id, correlation_id: correlationId, approval_workflow_id: workflow?.id ?? null, approval_status: workflow?.status ?? "pending" });
+}
+
+async function createFailedDecision(admin: ReturnType<typeof adminClient>, data: any) {
+  const correlationId = String(data?.correlation_id ?? crypto.randomUUID());
+  const { data: decision, error } = await admin.from("autonomous_decisions").insert({
+    tenant_id: data?.tenant_id,
+    correlation_id: correlationId,
+    asset_id: data?.asset_id ?? null,
+    work_order_id: data?.work_order_id ?? null,
+    decision_type: "reliability_recommendation",
+    decision_data: { task_code: data?.task_code, error: "intelligence_invocation_failed", failed: true },
+    confidence_score: 0,
+    status: "failed",
+    requires_approval: false,
+  }).select("id").single();
+  if (error) console.error("failed decision audit record failed", error);
+  return json({ success: !error, decision_id: decision?.id ?? null, correlation_id: correlationId });
+}
+
+async function approveAndExecute(admin: ReturnType<typeof adminClient>, auth: AuthContext, data: any) {
+  if (!canApprove(auth)) return json({ success: false, error: "approval_authority_required" }, 403);
+  const decisionId = String(data?.decision_id ?? "");
+  if (!decisionId) return json({ success: false, error: "decision_id_required" }, 400);
+  const actionType = String(data?.action_type ?? "append_work_order_note");
+  const allowedActions = new Set(["append_work_order_note", "create_follow_up_task", "flag_for_engineering_review"]);
+  if (!allowedActions.has(actionType)) return json({ success: false, error: "action_type_not_allowed" }, 400);
+
+  const idempotencyKey = `approve_execute:${decisionId}`;
+  const { data: existing } = await admin.from("autonomous_actions").select("id, correlation_id, action_type").eq("idempotency_key", idempotencyKey).eq("success", true).maybeSingle();
+  if (existing) return json({ success: true, idempotent_replay: true, action_id: existing.id, correlation_id: existing.correlation_id, action_type: existing.action_type });
+
+  const decisionQuery = admin.from("autonomous_decisions").select("*").eq("id", decisionId);
+  if (!auth.internal) decisionQuery.eq("tenant_id", auth.organizationId);
+  const { data: decision } = await decisionQuery.maybeSingle();
+  if (!decision) return json({ success: false, error: "decision_not_found" }, 404);
+  if (!["pending", "approved"].includes(decision.status)) return json({ success: false, error: "decision_not_executable", status: decision.status }, 409);
+
+  const tenantId = decision.tenant_id;
+  const correlationId = decision.correlation_id ?? crypto.randomUUID();
+  const noteText = String(data?.action_note ?? decision.decision_data?.raw_summary ?? decision.decision_data?.summary ?? "Approved SyncAI recommendation.");
+  const affected: string[] = [];
+
+  if (actionType === "append_work_order_note" && decision.work_order_id) {
+    const { data: history, error: historyError } = await admin.from("work_order_status_history").insert({
+      work_order_id: decision.work_order_id,
+      status_from: "in_progress",
+      status_to: "in_progress",
+      changed_by: auth.userId,
+      changed_at: new Date().toISOString(),
+      comments: `[SyncAI recommendation approved]\n${noteText}`,
+    }).select("id").single();
+    if (historyError) throw historyError;
+    affected.push(`work_order_status_history:${history.id}`);
+  }
+
+  if (actionType === "create_follow_up_task" && decision.work_order_id) {
+    const { data: task, error: taskError } = await admin.from("work_orders").insert({
+      organization_id: tenantId,
+      asset_id: decision.asset_id,
+      recommendation_id: null,
+      title: `Follow-up: ${noteText.slice(0, 120)}`,
+      description: noteText,
+      status: "pending",
+      priority: "medium",
+      type: "ai_generated",
+      approval_required: false,
+    }).select("id").single();
+    if (taskError) throw taskError;
+    affected.push(`work_orders:${task.id}`);
+  }
+
+  await admin.from("autonomous_decisions").update({ status: "approved", approved_by: auth.userId, executed_at: new Date().toISOString() }).eq("id", decisionId);
+  await admin.from("approval_workflows").update({ status: "approved", responded_at: new Date().toISOString(), approver_id: auth.userId }).eq("decision_id", decisionId).eq("status", "pending");
+
+  const executionResult = { status: "success", affected_records: affected, timestamp: new Date().toISOString() };
+  const { data: action, error: actionError } = await admin.from("autonomous_actions").insert({
+    tenant_id: tenantId,
+    correlation_id: correlationId,
+    decision_id: decisionId,
+    idempotency_key: idempotencyKey,
+    action_type: actionType,
+    target_id: decision.work_order_id,
+    action_data: { note: noteText, approved_by: auth.userId },
+    triggered_by: "ApprovalExecution",
+    success: true,
+    executed_at: new Date().toISOString(),
+    execution_result: executionResult,
+  }).select("id").single();
+  if (actionError) throw actionError;
+  return json({ success: true, decision_id: decisionId, action_id: action.id, correlation_id: correlationId, action_type: actionType, executed: true, execution_result: executionResult });
+}
+
+async function generateHealthReport(admin: ReturnType<typeof adminClient>, auth: AuthContext) {
+  const assetQuery = admin.from("assets").select("id, name, organization_id, status, health_score, risk_score");
+  if (!auth.internal) assetQuery.eq("organization_id", auth.organizationId);
+  const { data: assets, error } = await assetQuery;
+  if (error) throw error;
+  const rows = assets ?? [];
+  const avg = rows.length ? rows.reduce((sum: number, asset: any) => sum + Number(asset.health_score ?? 0), 0) / rows.length : 0;
+  return json({
+    total_assets: rows.length,
+    critical_assets: rows.filter((asset: any) => Number(asset.health_score ?? 100) < 50 || asset.status === "critical").length,
+    average_health: Number(avg.toFixed(1)),
+    assets: rows,
+  });
 }
 
 Deno.serve(async (req: Request) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { status: 200, headers: corsHeaders });
-  }
+  if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders });
+  if (req.method !== "POST") return json({ success: false, error: "method_not_allowed" }, 405);
+  if (!SUPABASE_URL || !SERVICE_ROLE_KEY) return json({ success: false, error: "service_unavailable" }, 503);
+
+  const auth = await authenticate(req);
+  if (!auth) return json({ success: false, error: "unauthorized" }, 401);
 
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
-
     const { action, data } = await req.json();
+    const admin = adminClient();
+    const internalOnly = new Set(["monitor_assets", "execute_autonomous_action", "create_intelligence_decision", "create_failed_decision"]);
+    if (internalOnly.has(action) && !auth.internal) return json({ success: false, error: "internal_authorization_required" }, 403);
 
     switch (action) {
-      case 'monitor_assets':
-        return await monitorAssets(supabase);
-
-      case 'process_decision':
-        return await processDecision(supabase, data);
-
-      case 'execute_autonomous_action':
-        return await executeAutonomousAction(supabase, data);
-
-      case 'generate_health_report':
-        return await generateHealthReport(supabase);
-
-      // Approve→Execute: closes the governance loop for a decision.
-      // Creates the canonical action record and executes the side-effect.
-      case 'approve_and_execute_decision':
-        return await approveAndExecuteDecision(supabase, data);
-
-      // PR 3: Cross-plane handoff — Intelligence Plane result → Autonomous decision.
-      // This is the Control/Governance Plane entry point for intelligence-driven
-      // decisions. Called by the frontend AFTER ai-agent-processor returns.
-      // Creates the canonical decision record + the approval workflow is auto-
-      // created by the DB trigger (create_approval_workflow).
-      case 'create_intelligence_decision':
-        return await createIntelligenceDecision(supabase, data);
-
-      // PR 3: Record a failed intelligence invocation as a failed decision.
-      case 'create_failed_decision':
-        return await createFailedDecision(supabase, data);
-
-      default:
-        return new Response(
-          JSON.stringify({ error: 'Unknown action' }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+      case "monitor_assets": return await monitorAssets(admin);
+      case "process_decision": return await processDecision(admin, auth, data);
+      case "approve_and_execute_decision": return await approveAndExecute(admin, auth, data);
+      case "generate_health_report": return await generateHealthReport(admin, auth);
+      case "create_intelligence_decision": return await createIntelligenceDecision(admin, data);
+      case "create_failed_decision": return await createFailedDecision(admin, data);
+      case "execute_autonomous_action":
+        return json({ success: false, error: "direct_execution_disabled_use_approval_workflow" }, 409);
+      default: return json({ success: false, error: "unknown_action" }, 400);
     }
   } catch (error) {
-    console.error('Error:', error);
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    console.error("autonomous-orchestrator request failed", error);
+    return json({ success: false, error: "request_failed" }, 500);
   }
 });
-
-async function monitorAssets(supabase: any) {
-  // Get all operational assets
-  const { data: assets, error } = await supabase
-    .from('assets')
-    .select('*')
-    .in('status', ['operational', 'maintenance']);
-
-  if (error) throw error;
-
-  const healthUpdates = [];
-  const decisions = [];
-
-  for (const asset of assets) {
-    // Read latest sensor data if available, otherwise derive from recent health records
-    const { data: latestHealth } = await supabase
-      .from('asset_health_monitoring')
-      .select('health_score, sensor_data')
-      .eq('asset_id', asset.id)
-      .order('recorded_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    // Read from normalized signals if available
-    const { data: signals } = await supabase
-      .from('normalized_signals')
-      .select('signal_type, numeric_value')
-      .eq('asset_id', asset.id)
-      .gte('signal_time', new Date(Date.now() - 60 * 60 * 1000).toISOString())
-      .order('signal_time', { ascending: false })
-      .limit(10);
-
-    // Calculate health score from real data when available
-    let healthScore: number;
-    let sensorData: Record<string, number>;
-
-    if (signals && signals.length > 0) {
-      // Derive health from actual sensor signals
-      const tempSignal = signals.find(s => s.signal_type === 'temperature');
-      const vibSignal = signals.find(s => s.signal_type === 'vibration');
-      const pressSignal = signals.find(s => s.signal_type === 'pressure');
-      sensorData = {
-        temperature: tempSignal?.numeric_value ?? 85,
-        vibration: vibSignal?.numeric_value ?? 3,
-        pressure: pressSignal?.numeric_value ?? 120,
-      };
-      // Score: penalize high temp (>100), high vibration (>8), abnormal pressure
-      const tempPenalty = Math.max(0, (sensorData.temperature - 90) * 2);
-      const vibPenalty = Math.max(0, (sensorData.vibration - 5) * 10);
-      const pressPenalty = sensorData.pressure > 150 || sensorData.pressure < 80 ? 15 : 0;
-      healthScore = Math.max(0, Math.min(100, 100 - tempPenalty - vibPenalty - pressPenalty));
-    } else if (latestHealth?.health_score != null) {
-      // Use previous health with slight degradation model
-      healthScore = Math.max(0, latestHealth.health_score - (Math.random() * 2 - 0.5));
-      sensorData = latestHealth.sensor_data || { temperature: 85, vibration: 3, pressure: 120 };
-    } else {
-      // No data available — default to healthy with a note
-      healthScore = 85;
-      sensorData = { temperature: 85, vibration: 3, pressure: 120 };
-    }
-
-    const anomalyDetected = healthScore < 60;
-    
-    // Create health record
-    const { data: healthData } = await supabase
-      .from('asset_health_monitoring')
-      .insert({
-        asset_id: asset.id,
-        health_score: healthScore,
-        anomaly_detected: anomalyDetected,
-        sensor_data: sensorData,
-        ai_analysis: anomalyDetected 
-          ? `Anomaly detected on ${asset.name}. Health score: ${healthScore.toFixed(2)}%` 
-          : `${asset.name} operating normally`,
-        recommendations: anomalyDetected ? [
-          'Schedule preventive maintenance',
-          'Inspect for wear and tear',
-          'Monitor closely for next 24 hours'
-        ] : ['Continue normal operations']
-      })
-      .select()
-      .single();
-
-    healthUpdates.push(healthData);
-
-    // Create autonomous decision if anomaly detected
-    if (anomalyDetected && healthScore < 50) {
-      const confidence = 100 - healthScore;
-      const requiresApproval = asset.criticality === 'critical' || confidence < 80;
-
-      const { data: decision } = await supabase
-        .from('autonomous_decisions')
-        .insert({
-          decision_type: 'work_order_creation',
-          decision_data: {
-            asset_id: asset.id,
-            asset_name: asset.name,
-            reason: 'Low health score detected',
-            health_score: healthScore,
-            recommended_action: 'Create preventive maintenance work order'
-          },
-          confidence_score: confidence,
-          requires_approval: requiresApproval,
-          approval_deadline: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString() // 2 hours
-        })
-        .select()
-        .single();
-
-      decisions.push(decision);
-
-      // If high confidence and not critical, auto-execute
-      if (!requiresApproval) {
-        await executeWorkOrderCreation(supabase, decision);
-      } else {
-        // Create alert for managers
-        await supabase
-          .from('system_alerts')
-          .insert({
-            severity: asset.criticality === 'critical' ? 'critical' : 'high',
-            title: `Approval Required: ${asset.name}`,
-            description: `Health score dropped to ${healthScore.toFixed(2)}%. Work order creation pending approval.`,
-            alert_type: 'approval_required',
-            target_users: [] // Will be populated by RLS
-          });
-      }
-    }
-  }
-
-  return new Response(
-    JSON.stringify({ 
-      success: true,
-      monitored_assets: assets.length,
-      health_updates: healthUpdates.length,
-      decisions_created: decisions.length
-    }),
-    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-  );
-}
-
-async function executeWorkOrderCreation(supabase: any, decision: any) {
-  const { asset_id, asset_name, health_score } = decision.decision_data;
-
-  // Create work order
-  const { data: workOrder, error } = await supabase
-    .from('work_orders')
-    .insert({
-      asset_id,
-      title: `Preventive Maintenance - ${asset_name}`,
-      description: `Autonomous system detected health score of ${health_score.toFixed(2)}%. Immediate inspection required.`,
-      priority: health_score < 30 ? 'critical' : 'high',
-      status: 'pending',
-      assigned_to: 'Auto-assigned'
-    })
-    .select()
-    .single();
-
-  if (!error) {
-    // Log the action
-    await supabase
-      .from('autonomous_actions')
-      .insert({
-        action_type: 'create_work_order',
-        target_id: workOrder.id,
-        action_data: { decision_id: decision.id, work_order_id: workOrder.id },
-        triggered_by: 'AutonomousOrchestrator',
-        success: true
-      });
-
-    // Update decision
-    await supabase
-      .from('autonomous_decisions')
-      .update({ status: 'auto_executed', executed_at: new Date().toISOString() })
-      .eq('id', decision.id);
-  }
-
-  return workOrder;
-}
-
-async function processDecision(supabase: any, data: any) {
-  const { decision_id, approved, approver_id } = data;
-
-  // Update decision
-  const { data: decision } = await supabase
-    .from('autonomous_decisions')
-    .update({
-      status: approved ? 'approved' : 'rejected',
-      approved_by: approver_id,
-      executed_at: approved ? new Date().toISOString() : null
-    })
-    .eq('id', decision_id)
-    .select()
-    .single();
-
-  if (approved && decision) {
-    // Execute the decision
-    if (decision.decision_type === 'work_order_creation') {
-      await executeWorkOrderCreation(supabase, decision);
-    }
-  }
-
-  return new Response(
-    JSON.stringify({ success: true, decision }),
-    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-  );
-}
-
-async function executeAutonomousAction(supabase: any, data: any) {
-  const { action_type, target_id, action_data } = data;
-
-  // Log the action
-  await supabase
-    .from('autonomous_actions')
-    .insert({
-      action_type,
-      target_id,
-      action_data,
-      triggered_by: 'ManualTrigger',
-      success: true
-    });
-
-  return new Response(
-    JSON.stringify({ success: true }),
-    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-  );
-}
-
-async function generateHealthReport(supabase: any) {
-  // Get latest health data for all assets
-  const { data: healthData } = await supabase
-    .from('asset_health_monitoring')
-    .select('*, assets(name, type, criticality)')
-    .order('recorded_at', { ascending: false });
-
-  // Group by asset and get latest
-  const latestHealth = healthData?.reduce((acc: any, curr: any) => {
-    if (!acc[curr.asset_id] || curr.recorded_at > acc[curr.asset_id].recorded_at) {
-      acc[curr.asset_id] = curr;
-    }
-    return acc;
-  }, {});
-
-  const report = {
-    total_assets: Object.keys(latestHealth || {}).length,
-    critical_assets: Object.values(latestHealth || {}).filter((h: any) => h.health_score < 50).length,
-    anomalies_detected: Object.values(latestHealth || {}).filter((h: any) => h.anomaly_detected).length,
-    average_health: Object.values(latestHealth || {}).reduce((sum: number, h: any) => sum + h.health_score, 0) / Object.keys(latestHealth || {}).length,
-    assets: Object.values(latestHealth || {})
-  };
-
-  return new Response(
-    JSON.stringify(report),
-    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-  );
-}
-
-// ---------------------------------------------------------------------------
-// PR 3: create_intelligence_decision
-//
-// Cross-plane handoff: takes the structured result from the Intelligence
-// Plane (ai-agent-processor) and creates the canonical Autonomous decision
-// record. The DB trigger (create_approval_workflow) auto-creates the
-// approval_workflows row routed to the correct manager via RBAC.
-//
-// Plane ownership: this function is CONTROL/GOVERNANCE PLANE.
-//   - Writes to Autonomous tables ONLY (autonomous_decisions).
-//   - Never writes to OpenClaw or SIR tables.
-//   - Autonomous is the single source of audit truth for this decision.
-// ---------------------------------------------------------------------------
-
-interface IntelligenceDecisionInput {
-  tenant_id: string;
-  correlation_id: string;
-  asset_id: string;
-  work_order_id: string;
-  autonomy_level: string;
-  agent_run_id: string;
-  task_code: string;
-  confidence: number;
-  requires_human_review: boolean;
-  raw_summary: string;
-  structured_output: any;
-}
-
-async function createIntelligenceDecision(supabase: any, input: IntelligenceDecisionInput) {
-  const {
-    tenant_id, correlation_id, asset_id, work_order_id,
-    autonomy_level, agent_run_id, task_code, confidence,
-    requires_human_review, raw_summary, structured_output,
-  } = input;
-
-  if (!tenant_id || !correlation_id || !task_code) {
-    return new Response(
-      JSON.stringify({ error: 'tenant_id, correlation_id, and task_code are required' }),
-      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-    );
-  }
-
-  // Map confidence from [0,1] to [0,100] for autonomous_decisions.confidence_score
-  const confidenceScore = Math.round(confidence * 100);
-
-  // Insert the canonical Autonomous decision.
-  // The trigger create_approval_workflow() will auto-create the
-  // approval_workflows row if requires_approval = true.
-  const { data: decision, error } = await supabase
-    .from('autonomous_decisions')
-    .insert({
-      tenant_id,
-      correlation_id,
-      asset_id,
-      work_order_id,
-      autonomy_level,
-      decision_type: 'reliability_recommendation',
-      decision_data: {
-        task_code,
-        agent_run_id,
-        raw_summary,
-        ...structured_output,
-      },
-      confidence_score: confidenceScore,
-      requires_approval: requires_human_review,
-      approval_deadline: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-    })
-    .select('id')
-    .single();
-
-  if (error) {
-    console.error(`event=decision_create_failed correlation_id=${correlation_id} error=${error.message}`);
-    return new Response(
-      JSON.stringify({ error: `Failed to create decision: ${error.message}` }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-    );
-  }
-
-  // Fetch the auto-created approval workflow (created by DB trigger)
-  const { data: workflow } = await supabase
-    .from('approval_workflows')
-    .select('id, approver_id, status')
-    .eq('decision_id', decision.id)
-    .maybeSingle();
-
-  console.log(`event=intelligence_decision_created correlation_id=${correlation_id} decision_id=${decision.id} approval_workflow_id=${workflow?.id || 'none'} autonomy_level=${autonomy_level} confidence=${confidenceScore}`);
-
-  return new Response(
-    JSON.stringify({
-      success: true,
-      decision_id: decision.id,
-      correlation_id,
-      approval_workflow_id: workflow?.id || null,
-      approval_status: workflow?.status || 'no_approval_required',
-    }),
-    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-  );
-}
-
-// ---------------------------------------------------------------------------
-// PR 3: create_failed_decision
-//
-// Records a failed intelligence invocation as an Autonomous decision
-// with status='rejected' so the audit chain is complete even on failure.
-// ---------------------------------------------------------------------------
-
-async function createFailedDecision(supabase: any, input: any) {
-  const { tenant_id, correlation_id, asset_id, work_order_id, task_code, error_message } = input;
-
-  const { data: decision, error } = await supabase
-    .from('autonomous_decisions')
-    .insert({
-      tenant_id,
-      correlation_id,
-      asset_id,
-      work_order_id,
-      decision_type: 'reliability_recommendation',
-      decision_data: {
-        task_code,
-        error: error_message,
-        failed: true,
-      },
-      confidence_score: 0,
-      status: 'failed',
-      requires_approval: false,
-    })
-    .select('id')
-    .single();
-
-  if (error) {
-    console.error(`event=failed_decision_create_failed correlation_id=${correlation_id} error=${error.message}`);
-  } else {
-    console.log(`event=failed_decision_created correlation_id=${correlation_id} decision_id=${decision.id}`);
-  }
-
-  return new Response(
-    JSON.stringify({ success: !error, decision_id: decision?.id, correlation_id }),
-    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-  );
-}
-
-// ---------------------------------------------------------------------------
-// approve_and_execute_decision
-//
-// Closes the governance loop: approved decision → governed action →
-// canonical execution record → intact audit chain.
-//
-// State transitions (all separate — never collapsed):
-//   1. autonomous_decisions.status: pending → approved
-//   2. approval_workflows.status: pending → approved
-//   3. autonomous_actions: new row with action_type + success
-//   4. work_order_status_history: the actual side-effect
-//
-// Governed action types (from sir-contracts.ts GovernedActionType):
-//   - append_work_order_note
-//   - create_follow_up_task
-//   - flag_for_engineering_review
-// ---------------------------------------------------------------------------
-
-interface ApproveAndExecuteInput {
-  decision_id: string;
-  approver_id: string;
-  action_type: string;
-  action_note?: string;
-}
-
-async function approveAndExecuteDecision(supabase: any, input: ApproveAndExecuteInput) {
-  const { decision_id, approver_id, action_type, action_note } = input;
-
-  if (!decision_id || !approver_id) {
-    return new Response(
-      JSON.stringify({ error: 'decision_id and approver_id are required' }),
-      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-    );
-  }
-
-  // --- Idempotency check ---
-  // One successful execution per decision. Derived key = decision_id.
-  // If an action already exists for this decision, return it as a no-op.
-  const idempotencyKey = `approve_execute:${decision_id}`;
-
-  const { data: existingAction } = await supabase
-    .from('autonomous_actions')
-    .select('id, correlation_id, action_type, success')
-    .eq('idempotency_key', idempotencyKey)
-    .eq('success', true)
-    .maybeSingle();
-
-  if (existingAction) {
-    console.log(`event=idempotent_replay correlation_id=${existingAction.correlation_id} decision_id=${decision_id} action_id=${existingAction.id}`);
-    return new Response(
-      JSON.stringify({
-        success: true,
-        decision_id,
-        action_id: existingAction.id,
-        correlation_id: existingAction.correlation_id,
-        action_type: existingAction.action_type,
-        executed: true,
-        idempotent_replay: true,
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-    );
-  }
-
-  // 1. Fetch and validate the decision
-  const { data: decision, error: fetchError } = await supabase
-    .from('autonomous_decisions')
-    .select('*')
-    .eq('id', decision_id)
-    .eq('status', 'pending')
-    .single();
-
-  if (fetchError || !decision) {
-    // Could be already approved (idempotent) or not found
-    const { data: anyDecision } = await supabase
-      .from('autonomous_decisions')
-      .select('status')
-      .eq('id', decision_id)
-      .maybeSingle();
-
-    if (anyDecision?.status === 'approved') {
-      return new Response(
-        JSON.stringify({ error: 'Decision already approved', status: anyDecision.status }),
-        { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-      );
-    }
-
-    return new Response(
-      JSON.stringify({ error: 'Decision not found or not in pending state' }),
-      { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-    );
-  }
-
-  const correlation_id = decision.correlation_id;
-  const tenant_id = decision.tenant_id;
-  const executionStart = Date.now();
-
-  // --- Server-side approval authority enforcement ---
-  // Even though the UI is role-gated, verify the approver has a
-  // qualifying role in this tenant. Service_role bypasses RLS but
-  // we enforce authority explicitly.
-  const { data: approverRoles } = await supabase
-    .from('user_role_assignments')
-    .select('roles(code)')
-    .eq('user_id', approver_id)
-    .eq('organization_id', tenant_id);
-
-  const roleCodes = (approverRoles || [])
-    .map((r: any) => r.roles?.code)
-    .filter(Boolean);
-
-  const APPROVAL_ROLES = [
-    'maintenance_manager', 'plant_manager',
-    'operations_manager', 'reliability_engineer', 'admin',
-  ];
-
-  // For test/demo users without role assignments, allow execution
-  // but log a warning. In production, this should be a hard block.
-  if (roleCodes.length > 0 && !roleCodes.some((c: string) => APPROVAL_ROLES.includes(c))) {
-    return new Response(
-      JSON.stringify({ error: 'Approver does not have approval authority for this tenant' }),
-      { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-    );
-  }
-
-  try {
-    // 2. Update decision status → approved
-    await supabase
-      .from('autonomous_decisions')
-      .update({
-        status: 'approved',
-        approved_by: approver_id,
-        executed_at: new Date().toISOString(),
-      })
-      .eq('id', decision_id);
-
-    // 3. Update approval workflow → approved
-    await supabase
-      .from('approval_workflows')
-      .update({
-        status: 'approved',
-        responded_at: new Date().toISOString(),
-      })
-      .eq('decision_id', decision_id)
-      .eq('status', 'pending');
-
-    // 4. Execute the side-effect
-    const resolvedActionType = action_type || 'append_work_order_note';
-    const recommendation = decision.decision_data?.raw_summary
-      || decision.decision_data?.summary
-      || 'AI reliability recommendation approved.';
-    const noteText = action_note || recommendation;
-
-    const affectedRecords: string[] = [];
-
-    if (resolvedActionType === 'append_work_order_note' && decision.work_order_id) {
-      const { data: historyRow } = await supabase
-        .from('work_order_status_history')
-        .insert({
-          work_order_id: decision.work_order_id,
-          status_from: 'in_progress',
-          status_to: 'in_progress',
-          changed_by: approver_id,
-          changed_at: new Date().toISOString(),
-          comments: `[AI Recommendation — Approved]\n${noteText}`,
-        })
-        .select('id')
-        .single();
-
-      if (historyRow) affectedRecords.push(`work_order_status_history:${historyRow.id}`);
-    }
-
-    const executionDuration = Date.now() - executionStart;
-
-    // 5. Create the canonical action record with structured result
-    const executionResult = {
-      status: 'success',
-      message: `${resolvedActionType} completed successfully`,
-      affected_records: affectedRecords,
-      timestamp: new Date().toISOString(),
-      duration_ms: executionDuration,
-    };
-
-    const { data: actionRecord, error: actionError } = await supabase
-      .from('autonomous_actions')
-      .insert({
-        tenant_id,
-        correlation_id,
-        decision_id,
-        idempotency_key: idempotencyKey,
-        action_type: resolvedActionType,
-        target_id: decision.work_order_id,
-        action_data: {
-          decision_id,
-          work_order_id: decision.work_order_id,
-          action_type: resolvedActionType,
-          note: noteText,
-          approved_by: approver_id,
-        },
-        triggered_by: 'ApprovalExecution',
-        success: true,
-        executed_at: new Date().toISOString(),
-        execution_result: executionResult,
-      })
-      .select('id')
-      .single();
-
-    if (actionError) {
-      throw new Error(`Failed to create action: ${actionError.message}`);
-    }
-
-    console.log(`event=decision_approved_and_executed correlation_id=${correlation_id} decision_id=${decision_id} action_id=${actionRecord.id} action_type=${resolvedActionType} duration_ms=${executionDuration}`);
-
-    return new Response(
-      JSON.stringify({
-        success: true,
-        decision_id,
-        action_id: actionRecord.id,
-        correlation_id,
-        action_type: resolvedActionType,
-        executed: true,
-        execution_result: executionResult,
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-    );
-
-  } catch (error) {
-    const executionDuration = Date.now() - executionStart;
-    console.error(`event=execution_failed correlation_id=${correlation_id} decision_id=${decision_id} error=${error.message}`);
-
-    const failedResult = {
-      status: 'failed',
-      message: error.message,
-      affected_records: [],
-      timestamp: new Date().toISOString(),
-      duration_ms: executionDuration,
-    };
-
-    await supabase
-      .from('autonomous_actions')
-      .insert({
-        tenant_id,
-        correlation_id,
-        decision_id,
-        idempotency_key: `${idempotencyKey}:failed:${Date.now()}`,
-        action_type: action_type || 'append_work_order_note',
-        target_id: decision.work_order_id,
-        action_data: { error: error.message },
-        triggered_by: 'ApprovalExecution',
-        success: false,
-        error_message: error.message,
-        executed_at: new Date().toISOString(),
-        execution_result: failedResult,
-      })
-      .catch(() => {});
-
-    return new Response(
-      JSON.stringify({ success: false, error: error.message, correlation_id }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-    );
-  }
-}
