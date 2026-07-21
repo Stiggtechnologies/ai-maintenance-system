@@ -1,31 +1,11 @@
 // onboarding-enrich — AI deduction pass for autonomous asset onboarding.
 //
-// run_onboarding_autofill() fills everything findable deterministically and
-// marks items an experienced reliability engineer could INFER (function,
-// failure definition, operating envelope, skills, isolation, regulatory
-// context…) as pending_ai. This function deduces those from the asset's
-// class, OEM, model and everything already known, and writes them back via
-// apply_onboarding_ai_deduction().
-//
-// Design constraints:
-//   - FAIL-SOFT: no LLM secrets → {skipped: "llm_not_configured"}; items stay
-//     pending_ai and remain answerable by a human in the onboarding hub.
-//   - HITL preserved: low-confidence deductions are demoted to human_required
-//     (by apply_onboarding_ai_deduction), never silently accepted. Find-only
-//     facts (serials, documents, ownership, stocking levels) are never routed
-//     here — the catalog marks them 'human'.
-//   - Service-role only: invoked by pg_cron (via pg_net) or operators.
-//
-// Uses the copilot's provider (OPENAI_API_KEY / LLM_BASE_URL) with optional
-// ONBOARD_LLM_* overrides so this surface can run on a cheaper model.
+// Service-only, fail-soft, and human-in-the-loop by design.
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-// Deliberately NOT inheriting ENRICH_LLM_* here: that surface runs on the
-// free-tier Gemini endpoint whose rate limits stall long batch calls. This
-// function shares the copilot's OpenAI provider unless ONBOARD_* overrides.
 const LLM_BASE_URL =
   Deno.env.get("ONBOARD_LLM_BASE_URL") ??
   Deno.env.get("LLM_BASE_URL") ??
@@ -38,24 +18,37 @@ const LLM_API_KEY =
 const LLM_MODEL = Deno.env.get("ONBOARD_LLM_MODEL") ?? "gpt-4o-mini";
 const ENRICH_SHARED_SECRET = Deno.env.get("ENRICH_SHARED_SECRET") ?? "";
 
-// One asset per invocation, deduced in small chunks with incremental writes:
-// edge functions are killed at the platform's response deadline, so progress
-// must persist as it happens. The 15-min cron drains the queue over time.
 const ASSET_BATCH = 1;
 const CHUNK_SIZE = 8;
 const DEADLINE_MS = 100_000;
 
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Origin": "https://app.syncai.ca",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Vary": "Origin",
 };
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
+    headers: {
+      ...corsHeaders,
+      "Content-Type": "application/json",
+      "Cache-Control": "no-store",
+      "X-Content-Type-Options": "nosniff",
+    },
   });
+}
+
+function safeEqual(a: string, b: string): boolean {
+  const encoder = new TextEncoder();
+  const left = encoder.encode(a);
+  const right = encoder.encode(b);
+  if (left.length !== right.length) return false;
+  let mismatch = 0;
+  for (let i = 0; i < left.length; i += 1) mismatch |= left[i] ^ right[i];
+  return mismatch === 0;
 }
 
 interface PendingItem {
@@ -74,41 +67,49 @@ interface QueueEntry {
 }
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS")
-    return new Response("ok", { headers: corsHeaders });
+  if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders });
+  if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
+
+  if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
+    console.error("onboarding-enrich missing required platform configuration");
+    return json({ error: "service_unavailable" }, 503);
+  }
 
   const auth = req.headers.get("Authorization") ?? "";
-  const authorized =
-    (SERVICE_ROLE_KEY && auth === `Bearer ${SERVICE_ROLE_KEY}`) ||
-    (ENRICH_SHARED_SECRET && auth === `Bearer ${ENRICH_SHARED_SECRET}`);
-  if (!authorized) {
-    return json({ error: "service role required" }, 401);
+  const serviceToken = `Bearer ${SERVICE_ROLE_KEY}`;
+  const sharedToken = ENRICH_SHARED_SECRET ? `Bearer ${ENRICH_SHARED_SECRET}` : "";
+  const authorized = safeEqual(auth, serviceToken) || (sharedToken !== "" && safeEqual(auth, sharedToken));
+  if (!authorized) return json({ error: "unauthorized" }, 401);
+
+  if (!LLM_API_KEY) return json({ deduced: 0, skipped: "llm_not_configured" });
+
+  let providerUrl: URL;
+  try {
+    providerUrl = new URL("/v1/chat/completions", LLM_BASE_URL);
+    if (providerUrl.protocol !== "https:") throw new Error("HTTPS required");
+  } catch {
+    console.error("onboarding-enrich invalid LLM_BASE_URL");
+    return json({ deduced: 0, skipped: "invalid_llm_configuration" }, 503);
   }
 
-  if (!LLM_API_KEY) {
-    return json({ deduced: 0, skipped: "llm_not_configured" });
-  }
-
-  const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+  const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
 
   const { data: queue, error } = await supabase.rpc("get_onboarding_ai_queue", {
     p_limit: ASSET_BATCH,
   });
-  if (error) return json({ deduced: 0, skipped: `queue_failed: ${error.message}` });
+  if (error) {
+    console.error("onboarding-enrich queue lookup failed", error);
+    return json({ deduced: 0, skipped: "queue_failed" }, 500);
+  }
 
   const entries = (queue ?? []) as QueueEntry[];
   if (entries.length === 0) return json({ deduced: 0, skipped: "queue_empty" });
 
-  const providerInfo = {
-    base: LLM_BASE_URL,
-    model: LLM_MODEL,
-    key_len: LLM_API_KEY.length,
-  };
-
   let deduced = 0;
   let demotedToHuman = 0;
   const failures: string[] = [];
-
   const startedAt = Date.now();
 
   for (const entry of entries) {
@@ -121,20 +122,19 @@ Deno.serve(async (req) => {
 
     for (let i = 0; i < pending.length; i += CHUNK_SIZE) {
       if (Date.now() - startedAt > DEADLINE_MS) {
-        failures.push(
-          "deadline reached — remaining items stay queued for the next cron pass",
-        );
+        failures.push("deadline_reached");
         break;
       }
+
       const chunk = pending.slice(i, i + CHUNK_SIZE);
       asked += chunk.length;
 
       try {
         const askList = chunk
-          .map((p) => `- "${p.key}": ${p.label}${p.hint ? ` (${p.hint})` : ""}`)
+          .map((item) => `- "${item.key}": ${item.label}${item.hint ? ` (${item.hint})` : ""}`)
           .join("\n");
 
-        const resp = await fetch(`${LLM_BASE_URL}/v1/chat/completions`, {
+        const resp = await fetch(providerUrl, {
           method: "POST",
           signal: AbortSignal.timeout(45_000),
           headers: {
@@ -154,13 +154,12 @@ Deno.serve(async (req) => {
                   "class, OEM, model and operating context. Return strict JSON keyed by requirement key: " +
                   '{"<key>": {"summary": "<concise engineering answer, 1-2 sentences>", ' +
                   '"confidence": "high"|"medium"|"low", "rationale": "<why / basis, one short phrase>"}}. ' +
-                  'Use confidence "low" whenever the answer genuinely requires site-specific data you were not given ' +
-                  "(that routes it to a human). Never invent serial numbers, dates, document links or stock levels.",
+                  'Use confidence "low" whenever site-specific data is required. Never invent serial numbers, dates, document links or stock levels.',
               },
               {
                 role: "user",
                 content:
-                  `Asset: ${JSON.stringify(entry.asset)}\n` +
+                  `Asset: ${JSON.stringify(entry.asset).slice(0, 5000)}\n` +
                   `Already established during onboarding: ${JSON.stringify(entry.known).slice(0, 2500)}\n\n` +
                   `Deduce the following requirements:\n${askList}`,
               },
@@ -169,8 +168,8 @@ Deno.serve(async (req) => {
         });
 
         if (!resp.ok) {
-          const errBody = (await resp.text()).slice(0, 180);
-          failures.push(`${entry.asset_id}: HTTP ${resp.status} — ${errBody}`);
+          console.error("onboarding-enrich provider request failed", { assetId: entry.asset_id, status: resp.status });
+          failures.push(`${entry.asset_id}: provider_error`);
           continue;
         }
 
@@ -181,41 +180,37 @@ Deno.serve(async (req) => {
 
         for (const item of chunk) {
           const answer = parsed[item.key];
-          if (!answer || !answer.summary) continue;
-          const confidence = ["high", "medium", "low"].includes(
-            answer.confidence,
-          )
+          if (!answer || typeof answer.summary !== "string" || answer.summary.trim().length === 0) continue;
+          const confidence = ["high", "medium", "low"].includes(answer.confidence)
             ? answer.confidence
             : "low";
 
-          const { error: applyError } = await supabase.rpc(
-            "apply_onboarding_ai_deduction",
-            {
-              p_item_id: item.item_id,
-              p_value: { summary: answer.summary },
-              p_confidence: confidence,
-              p_rationale: answer.rationale ?? null,
-            },
-          );
+          const { error: applyError } = await supabase.rpc("apply_onboarding_ai_deduction", {
+            p_item_id: item.item_id,
+            p_value: { summary: answer.summary.trim() },
+            p_confidence: confidence,
+            p_rationale: typeof answer.rationale === "string" ? answer.rationale.slice(0, 500) : null,
+          });
+
           if (applyError) {
-            failures.push(`${item.key}: ${applyError.message}`);
+            console.error("onboarding-enrich deduction apply failed", { itemId: item.item_id, error: applyError });
+            failures.push(`${item.key}: apply_failed`);
           } else if (confidence === "low") {
             assetDemoted += 1;
           } else {
             assetDeduced += 1;
           }
         }
-      } catch (e) {
-        failures.push(
-          `${entry.asset_id}: ${e instanceof Error ? e.message : String(e)}`,
-        );
+      } catch (error) {
+        console.error("onboarding-enrich chunk failed", { assetId: entry.asset_id, error });
+        failures.push(`${entry.asset_id}: deduction_failed`);
       }
     }
 
     deduced += assetDeduced;
     demotedToHuman += assetDemoted;
 
-    await supabase.from("asset_onboarding_runs").insert({
+    const { error: runError } = await supabase.from("asset_onboarding_runs").insert({
       organization_id: entry.organization_id,
       asset_id: entry.asset_id,
       run_type: "ai_deduction",
@@ -223,6 +218,7 @@ Deno.serve(async (req) => {
       items_human_required: assetDemoted,
       detail: { model: LLM_MODEL, asked },
     });
+    if (runError) console.error("onboarding-enrich run audit insert failed", { assetId: entry.asset_id, error: runError });
   }
 
   return json({
@@ -230,6 +226,5 @@ Deno.serve(async (req) => {
     demoted_to_human: demotedToHuman,
     assets: entries.length,
     failures,
-    provider: providerInfo,
   });
 });
