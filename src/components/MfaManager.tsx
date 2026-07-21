@@ -16,6 +16,7 @@ import {
   QrCode,
 } from "lucide-react";
 import { supabase } from "../lib/supabase";
+import { recordSecurityEvent } from "../lib/securityEvents";
 
 interface Factor {
   id: string;
@@ -99,6 +100,11 @@ export function MfaManager() {
       setEnrolling(null);
       setCode("");
       setMessage("Multi-factor authentication is now active on your account.");
+      void recordSecurityEvent(
+        "mfa_enrolled",
+        "TOTP authenticator activated",
+        "notice",
+      );
       await loadFactors();
     } catch (e) {
       setError(
@@ -118,6 +124,11 @@ export function MfaManager() {
       const { error: unErr } = await supabase.auth.mfa.unenroll({ factorId });
       if (unErr) throw new Error(unErr.message);
       setMessage("Authenticator removed.");
+      void recordSecurityEvent(
+        "mfa_removed",
+        "TOTP authenticator removed",
+        "warning",
+      );
       await loadFactors();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not remove the factor.");
