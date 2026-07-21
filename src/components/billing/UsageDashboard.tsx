@@ -118,7 +118,7 @@ export function UsageDashboard() {
   if (!subscription) {
     return (
       <div className="max-w-7xl mx-auto p-6">
-        <div className="bg-[#11161D] rounded-xl border border-[#232A33] p-12 text-center">
+        <div className="bg-industrial-graphite rounded-xl border border-industrial-border p-12 text-center">
           <p className="text-slate-400">No active subscription found</p>
         </div>
       </div>
@@ -146,10 +146,10 @@ export function UsageDashboard() {
   };
 
   return (
-    <div className="h-full overflow-auto bg-[#0B0F14]">
+    <div className="h-full overflow-auto bg-industrial-black">
       <div className="max-w-7xl mx-auto p-6">
         <div className="mb-6">
-          <h1 className="text-3xl font-bold text-[#E6EDF3] mb-2">
+          <h1 className="text-3xl font-bold text-industrial-text mb-2">
             Usage Dashboard
           </h1>
           <p className="text-slate-400">
@@ -176,17 +176,17 @@ export function UsageDashboard() {
 
         {/* Current Period Summary */}
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-6">
-          <div className="lg:col-span-1 bg-[#11161D] rounded-xl border border-[#232A33] p-6">
+          <div className="lg:col-span-1 bg-industrial-graphite rounded-xl border border-industrial-border p-6">
             <div className="text-sm text-slate-400 mb-1">
               Total Credits Used
             </div>
-            <div className="text-3xl font-bold text-[#E6EDF3]">
+            <div className="text-3xl font-bold text-industrial-text">
               {creditsUsed.toLocaleString()}
             </div>
             <div className="text-sm text-gray-500 mt-1">
               of {limits?.included_credits?.toLocaleString()} included
             </div>
-            <div className="mt-4 w-full bg-white/[0.06] rounded-full h-2">
+            <div className="mt-4 w-full bg-white/6 rounded-full h-2">
               <div
                 className={`h-2 rounded-full ${isLow ? "bg-yellow-500" : "bg-teal-500"}`}
                 style={{ width: `${Math.min(usagePercent, 100)}%` }}
@@ -194,8 +194,8 @@ export function UsageDashboard() {
             </div>
           </div>
 
-          <div className="lg:col-span-3 bg-[#11161D] rounded-xl border border-[#232A33] p-6">
-            <h2 className="text-lg font-semibold text-[#E6EDF3] mb-4">
+          <div className="lg:col-span-3 bg-industrial-graphite rounded-xl border border-industrial-border p-6">
+            <h2 className="text-lg font-semibold text-industrial-text mb-4">
               Usage by Type
             </h2>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -204,9 +204,12 @@ export function UsageDashboard() {
                 const label = eventTypeLabels[type] || type;
 
                 return (
-                  <div key={type} className="bg-[#0B0F14] rounded-lg p-4">
+                  <div
+                    key={type}
+                    className="bg-industrial-black rounded-lg p-4"
+                  >
                     <Icon className="w-6 h-6 text-teal-600 mb-2" />
-                    <div className="text-2xl font-bold text-[#E6EDF3]">
+                    <div className="text-2xl font-bold text-industrial-text">
                       {data.credits.toLocaleString()}
                     </div>
                     <div className="text-xs text-slate-400 mb-1">{label}</div>
@@ -227,8 +230,8 @@ export function UsageDashboard() {
         </div>
 
         {/* Historical Trend */}
-        <div className="bg-[#11161D] rounded-xl border border-[#232A33] p-6 mb-6">
-          <h2 className="text-lg font-semibold text-[#E6EDF3] mb-4 flex items-center gap-2">
+        <div className="bg-industrial-graphite rounded-xl border border-industrial-border p-6 mb-6">
+          <h2 className="text-lg font-semibold text-industrial-text mb-4 flex items-center gap-2">
             <TrendingUp className="w-5 h-5 text-teal-600" />
             Historical Usage Trend
           </h2>
@@ -255,7 +258,7 @@ export function UsageDashboard() {
                         {monthPercent.toFixed(0)}%)
                       </span>
                     </div>
-                    <div className="w-full bg-white/[0.06] rounded-full h-2">
+                    <div className="w-full bg-white/6 rounded-full h-2">
                       <div
                         className="h-2 rounded-full bg-teal-500"
                         style={{ width: `${Math.min(monthPercent, 100)}%` }}
@@ -273,38 +276,44 @@ export function UsageDashboard() {
         </div>
 
         {/* Rate Information */}
-        <div className="bg-[#11161D] rounded-xl border border-[#232A33] p-6">
-          <h2 className="text-lg font-semibold text-[#E6EDF3] mb-4">
+        <div className="bg-industrial-graphite rounded-xl border border-industrial-border p-6">
+          <h2 className="text-lg font-semibold text-industrial-text mb-4">
             Credit Rates for Your Plan
           </h2>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="border border-[#232A33] rounded-lg p-4">
+            <div className="border border-industrial-border rounded-lg p-4">
               <div className="text-sm text-slate-400 mb-1">LLM Token Usage</div>
-              <div className="font-semibold text-[#E6EDF3]">1 credit</div>
+              <div className="font-semibold text-industrial-text">1 credit</div>
               <div className="text-xs text-gray-500">per 1,000 tokens</div>
             </div>
-            <div className="border border-[#232A33] rounded-lg p-4">
+            <div className="border border-industrial-border rounded-lg p-4">
               <div className="text-sm text-slate-400 mb-1">Vision Frames</div>
-              <div className="font-semibold text-[#E6EDF3]">5 credits</div>
+              <div className="font-semibold text-industrial-text">
+                5 credits
+              </div>
               <div className="text-xs text-gray-500">per 100 frames</div>
             </div>
-            <div className="border border-[#232A33] rounded-lg p-4">
+            <div className="border border-industrial-border rounded-lg p-4">
               <div className="text-sm text-slate-400 mb-1">Optimizer Job</div>
-              <div className="font-semibold text-[#E6EDF3]">500 credits</div>
+              <div className="font-semibold text-industrial-text">
+                500 credits
+              </div>
               <div className="text-xs text-gray-500">per job</div>
             </div>
-            <div className="border border-[#232A33] rounded-lg p-4">
+            <div className="border border-industrial-border rounded-lg p-4">
               <div className="text-sm text-slate-400 mb-1">Simulator Run</div>
-              <div className="font-semibold text-[#E6EDF3]">1,000 credits</div>
+              <div className="font-semibold text-industrial-text">
+                1,000 credits
+              </div>
               <div className="text-xs text-gray-500">per run</div>
             </div>
           </div>
 
-          <div className="mt-6 pt-6 border-t border-[#232A33]">
+          <div className="mt-6 pt-6 border-t border-industrial-border">
             <div className="flex items-center justify-between">
               <div>
                 <div className="text-sm text-slate-400">Overage Rate</div>
-                <div className="font-semibold text-[#E6EDF3]">
+                <div className="font-semibold text-industrial-text">
                   ${plan?.overage_per_credit_cad.toFixed(4)} CAD per credit
                 </div>
               </div>

@@ -330,7 +330,7 @@ function SiteCard({
     >
       <div className="flex items-start gap-3 mb-4">
         <div
-          className={`w-10 h-10 rounded-xl ${c.icon} flex items-center justify-center flex-shrink-0`}
+          className={`w-10 h-10 rounded-xl ${c.icon} flex items-center justify-center shrink-0`}
         >
           <Factory className={`w-5 h-5 ${c.text}`} />
         </div>
@@ -363,7 +363,7 @@ function SiteCard({
         {rollupKpis(site)
           .slice(0, 4)
           .map((kpi) => (
-            <div key={kpi.label} className="bg-white/[0.02] rounded-lg p-2">
+            <div key={kpi.label} className="bg-white/2 rounded-lg p-2">
               <div className="text-xs text-slate-400 truncate">{kpi.label}</div>
               <div className="text-sm font-bold text-slate-200 mt-0.5">
                 {kpi.value}
@@ -388,7 +388,7 @@ function SiteCard({
           {site.recommendations.slice(0, 2).map((rec) => (
             <span
               key={rec.title}
-              className="text-xs px-2 py-1 bg-white/[0.03] border border-white/[0.06] rounded-full text-slate-400 truncate max-w-full"
+              className="text-xs px-2 py-1 bg-white/3 border border-white/6 rounded-full text-slate-400 truncate max-w-full"
             >
               {rec.title}
             </span>
@@ -425,7 +425,7 @@ function SiteDetail({
 
       <div className="flex items-start gap-4">
         <div
-          className={`w-12 h-12 rounded-xl ${c.icon} flex items-center justify-center flex-shrink-0`}
+          className={`w-12 h-12 rounded-xl ${c.icon} flex items-center justify-center shrink-0`}
         >
           <Factory className={`w-6 h-6 ${c.text}`} />
         </div>
@@ -450,7 +450,7 @@ function SiteDetail({
         {rollupKpis(site).map((kpi) => (
           <div
             key={kpi.label}
-            className="bg-[#0D1520] border border-white/[0.06] rounded-xl p-3 text-center"
+            className="bg-[#0D1520] border border-white/6 rounded-xl p-3 text-center"
           >
             <div className="text-xs text-slate-400">{kpi.label}</div>
             <div className={`text-xl font-black mt-1 ${c.text}`}>
@@ -461,7 +461,7 @@ function SiteDetail({
       </div>
 
       {/* Alerts */}
-      <div className="bg-[#0D1520] border border-white/[0.06] rounded-xl p-5">
+      <div className="bg-[#0D1520] border border-white/6 rounded-xl p-5">
         <h3 className="text-sm font-semibold text-slate-200 mb-3 flex items-center gap-2">
           <AlertTriangle className="w-4 h-4 text-amber-400" /> Active Alerts
         </h3>
@@ -475,7 +475,7 @@ function SiteDetail({
                 className={`flex items-start gap-2.5 p-3 rounded-lg border ${alertColors[alert.level]} text-xs`}
               >
                 <div
-                  className={`w-1.5 h-1.5 rounded-full mt-0.5 flex-shrink-0 ${alert.level === "critical" ? "bg-red-500" : alert.level === "action" ? "bg-amber-500" : "bg-blue-400"}`}
+                  className={`w-1.5 h-1.5 rounded-full mt-0.5 shrink-0 ${alert.level === "critical" ? "bg-red-500" : alert.level === "action" ? "bg-amber-500" : "bg-blue-400"}`}
                 />
                 {alert.text}
               </div>
@@ -486,7 +486,7 @@ function SiteDetail({
                 className={`flex items-start gap-2.5 p-3 rounded-lg border ${alertColors[alert.severity === "critical" ? "critical" : alert.severity === "warning" ? "action" : "advisory"]} text-xs`}
               >
                 <div
-                  className={`w-1.5 h-1.5 rounded-full mt-0.5 flex-shrink-0 ${alert.severity === "critical" ? "bg-red-500" : alert.severity === "warning" ? "bg-amber-500" : "bg-blue-400"}`}
+                  className={`w-1.5 h-1.5 rounded-full mt-0.5 shrink-0 ${alert.severity === "critical" ? "bg-red-500" : alert.severity === "warning" ? "bg-amber-500" : "bg-blue-400"}`}
                 />
                 <span>
                   {alert.title ?? "System alert"}
@@ -500,7 +500,7 @@ function SiteDetail({
       </div>
 
       {/* Assets */}
-      <div className="bg-[#0D1520] border border-white/[0.06] rounded-xl p-5">
+      <div className="bg-[#0D1520] border border-white/6 rounded-xl p-5">
         <h3 className="text-sm font-semibold text-slate-200 mb-3 flex items-center gap-2">
           <Activity className="w-4 h-4 text-teal-400" /> Assets at this Site
         </h3>
@@ -511,9 +511,9 @@ function SiteDetail({
             {site.assets.map((asset) => (
               <div
                 key={asset.id}
-                className="flex items-center gap-3 px-4 py-3 bg-white/[0.03] border border-white/[0.06] rounded-lg text-sm"
+                className="flex items-center gap-3 px-4 py-3 bg-white/3 border border-white/6 rounded-lg text-sm"
               >
-                <span className="text-xs font-mono text-slate-400 w-16 flex-shrink-0">
+                <span className="text-xs font-mono text-slate-400 w-16 shrink-0">
                   {asset.tag ?? "—"}
                 </span>
                 <span className="text-slate-200 flex-1 min-w-0 truncate">
@@ -537,7 +537,7 @@ function SiteDetail({
       </div>
 
       {/* Pending Recommendations */}
-      <div className="bg-[#0D1520] border border-white/[0.06] rounded-xl p-5">
+      <div className="bg-[#0D1520] border border-white/6 rounded-xl p-5">
         <h3 className="text-sm font-semibold text-slate-200 mb-3 flex items-center gap-2">
           <Zap className="w-4 h-4 text-teal-400" /> Pending Recommendations
         </h3>
@@ -548,10 +548,10 @@ function SiteDetail({
             {site.recommendations.map((rec) => (
               <div
                 key={rec.title}
-                className="w-full flex items-center gap-3 px-4 py-3 bg-white/[0.03] border border-white/[0.06] rounded-lg text-sm text-slate-300"
+                className="w-full flex items-center gap-3 px-4 py-3 bg-white/3 border border-white/6 rounded-lg text-sm text-slate-300"
               >
                 <CheckCircle
-                  className={`w-4 h-4 flex-shrink-0 ${rec.urgency === "critical" ? "text-red-400" : rec.urgency === "action" ? "text-amber-400" : "text-teal-400"}`}
+                  className={`w-4 h-4 shrink-0 ${rec.urgency === "critical" ? "text-red-400" : rec.urgency === "action" ? "text-amber-400" : "text-teal-400"}`}
                 />
                 <div className="flex-1 min-w-0">
                   <div className="text-slate-200">{rec.title}</div>
@@ -561,7 +561,7 @@ function SiteDetail({
                     </div>
                   )}
                 </div>
-                <span className="text-xs text-slate-400 capitalize flex-shrink-0">
+                <span className="text-xs text-slate-400 capitalize shrink-0">
                   {rec.urgency}
                 </span>
               </div>
@@ -629,8 +629,8 @@ export function CommandCenters() {
           </div>
 
           {/* Live rollup note */}
-          <div className="bg-[#0D1520] border border-white/[0.06] rounded-xl p-4 flex items-start gap-3">
-            <Users className="w-4 h-4 text-teal-400 flex-shrink-0 mt-0.5" />
+          <div className="bg-[#0D1520] border border-white/6 rounded-xl p-4 flex items-start gap-3">
+            <Users className="w-4 h-4 text-teal-400 shrink-0 mt-0.5" />
             <div>
               <div className="text-sm font-medium text-teal-400">
                 Live Site Rollups

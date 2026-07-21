@@ -116,13 +116,13 @@ export function AssetManagement() {
             placeholder="Search assets by name or tag..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-9 pr-4 py-2.5 bg-white/[0.04] border border-white/[0.06] rounded-lg text-sm text-[#E6EDF3] placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-teal-500/40 focus:border-teal-500/30 transition-colors"
+            className="w-full pl-9 pr-4 py-2.5 bg-white/4 border border-white/6 rounded-lg text-sm text-industrial-text placeholder-slate-500 focus:outline-hidden focus:ring-2 focus:ring-teal-500/40 focus:border-teal-500/30 transition-colors"
           />
         </div>
         <select
           value={filterStatus}
           onChange={(e) => setFilterStatus(e.target.value)}
-          className="px-3 py-2.5 bg-white/[0.04] border border-white/[0.06] rounded-lg text-sm text-[#E6EDF3] focus:outline-none focus:ring-2 focus:ring-teal-500/40"
+          className="px-3 py-2.5 bg-white/4 border border-white/6 rounded-lg text-sm text-industrial-text focus:outline-hidden focus:ring-2 focus:ring-teal-500/40"
         >
           <option value="all">All Statuses</option>
           <option value="operational">Operational</option>
@@ -134,7 +134,7 @@ export function AssetManagement() {
 
       {/* Asset Grid */}
       {filtered.length === 0 ? (
-        <div className="glass border border-white/[0.06] rounded-xl text-center py-16">
+        <div className="glass border border-white/6 rounded-xl text-center py-16">
           <Package size={48} className="mx-auto mb-3 text-slate-400" />
           <p className="text-slate-400">
             No assets found. Import assets using CSV to get started.
@@ -146,11 +146,11 @@ export function AssetManagement() {
             <div
               key={asset.id}
               onClick={() => navigate(`/assets/${asset.id}`)}
-              className="glass border border-white/[0.06] rounded-xl p-5 cursor-pointer transition-all duration-300 hover:border-teal-500/30 hover:shadow-[0_0_20px_rgba(20,184,166,0.06)] group"
+              className="glass border border-white/6 rounded-xl p-5 cursor-pointer transition-all duration-300 hover:border-teal-500/30 hover:shadow-[0_0_20px_rgba(20,184,166,0.06)] group"
             >
               <div className="flex items-start justify-between mb-3">
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold text-[#E6EDF3] group-hover:text-teal-300 transition-colors truncate">
+                  <h3 className="font-semibold text-industrial-text group-hover:text-teal-300 transition-colors truncate">
                     {asset.name}
                   </h3>
                   {asset.asset_tag && (

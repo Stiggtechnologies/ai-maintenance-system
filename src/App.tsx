@@ -140,7 +140,7 @@ function App() {
           <Route
             path="/demo/copilot"
             element={
-              <div className="min-h-screen bg-gradient-to-br from-slate-950 via-blue-950 to-slate-900">
+              <div className="min-h-screen bg-linear-to-br from-slate-950 via-blue-950 to-slate-900">
                 <ReliabilityCopilotPage />
               </div>
             }

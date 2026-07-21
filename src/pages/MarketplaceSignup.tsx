@@ -9,11 +9,7 @@ import {
 import { signInWithAzureAD } from "../lib/azure-ad";
 
 type MarketplaceStep =
-  | "loading"
-  | "resolved"
-  | "auth-in-progress"
-  | "activation-complete"
-  | "error";
+  "loading" | "resolved" | "auth-in-progress" | "activation-complete" | "error";
 
 interface ErrorState {
   type: "invalid-token" | "resolution-failed" | "activation-failed" | "unknown";
@@ -110,16 +106,16 @@ export function MarketplaceSignup() {
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
-        className="bg-[#161C24] rounded-xl p-8 border border-[#232A33] backdrop-blur-sm"
+        className="bg-industrial-slate rounded-xl p-8 border border-industrial-border backdrop-blur-xs"
       >
         {/* Loading State */}
         {step === "loading" && (
           <div className="space-y-6">
             <div className="text-center">
-              <h2 className="text-2xl font-bold text-[#E6EDF3] mb-2">
+              <h2 className="text-2xl font-bold text-industrial-text mb-2">
                 Activating your SyncAI subscription...
               </h2>
-              <p className="text-[#9BA7B4]">
+              <p className="text-industrial-muted">
                 Please wait while we process your Azure Marketplace purchase.
               </p>
             </div>
@@ -129,7 +125,7 @@ export function MarketplaceSignup() {
               <motion.div
                 animate={{ rotate: 360 }}
                 transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                className="w-12 h-12 border-4 border-[#232A33] border-t-[#3A8DFF] rounded-full"
+                className="w-12 h-12 border-4 border-industrial-border border-t-[#3A8DFF] rounded-full"
               />
             </div>
           </div>
@@ -143,7 +139,7 @@ export function MarketplaceSignup() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.2 }}
-                className="text-2xl font-bold text-[#E6EDF3] mb-2"
+                className="text-2xl font-bold text-industrial-text mb-2"
               >
                 Welcome to SyncAI!
               </motion.h2>
@@ -151,7 +147,7 @@ export function MarketplaceSignup() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.3 }}
-                className="text-[#9BA7B4]"
+                className="text-industrial-muted"
               >
                 Complete your setup to start using SyncAI
               </motion.p>
@@ -162,44 +158,48 @@ export function MarketplaceSignup() {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.4 }}
-              className="bg-[#0B0F14] border border-[#232A33] rounded-lg p-6 space-y-4"
+              className="bg-industrial-black border border-industrial-border rounded-lg p-6 space-y-4"
             >
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <p className="text-xs text-[#9BA7B4] mb-1">Plan</p>
-                  <p className="text-sm font-semibold text-[#E6EDF3]">
+                  <p className="text-xs text-industrial-muted mb-1">Plan</p>
+                  <p className="text-sm font-semibold text-industrial-text">
                     {subscription.subscription.name || "Standard Plan"}
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs text-[#9BA7B4] mb-1">Licenses</p>
-                  <p className="text-sm font-semibold text-[#E6EDF3]">
+                  <p className="text-xs text-industrial-muted mb-1">Licenses</p>
+                  <p className="text-sm font-semibold text-industrial-text">
                     {subscription.quantity} seats
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs text-[#9BA7B4] mb-1">Billing Term</p>
-                  <p className="text-sm font-semibold text-[#E6EDF3]">
+                  <p className="text-xs text-industrial-muted mb-1">
+                    Billing Term
+                  </p>
+                  <p className="text-sm font-semibold text-industrial-text">
                     {subscription.term || "Monthly"}
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs text-[#9BA7B4] mb-1">Status</p>
+                  <p className="text-xs text-industrial-muted mb-1">Status</p>
                   <p className="text-sm font-semibold text-[#3A8DFF]">
                     {subscription.saasSubscriptionStatus || "Pending"}
                   </p>
                 </div>
               </div>
 
-              <div className="border-t border-[#232A33] pt-4">
-                <p className="text-xs text-[#9BA7B4] mb-2">Account Details</p>
+              <div className="border-t border-industrial-border pt-4">
+                <p className="text-xs text-industrial-muted mb-2">
+                  Account Details
+                </p>
                 <div className="space-y-2">
-                  <p className="text-sm text-[#E6EDF3]">
-                    <span className="text-[#9BA7B4]">Purchaser:</span>{" "}
+                  <p className="text-sm text-industrial-text">
+                    <span className="text-industrial-muted">Purchaser:</span>{" "}
                     {subscription.purchaser.emailId}
                   </p>
-                  <p className="text-sm text-[#E6EDF3]">
-                    <span className="text-[#9BA7B4]">Beneficiary:</span>{" "}
+                  <p className="text-sm text-industrial-text">
+                    <span className="text-industrial-muted">Beneficiary:</span>{" "}
                     {subscription.beneficiary.emailId}
                   </p>
                 </div>
@@ -219,7 +219,7 @@ export function MarketplaceSignup() {
               Sign in with Azure AD
             </motion.button>
 
-            <p className="text-xs text-[#9BA7B4] text-center">
+            <p className="text-xs text-industrial-muted text-center">
               You will be redirected to Microsoft Azure AD to authenticate your
               account.
             </p>
@@ -230,10 +230,10 @@ export function MarketplaceSignup() {
         {step === "auth-in-progress" && (
           <div className="space-y-6">
             <div className="text-center">
-              <h2 className="text-2xl font-bold text-[#E6EDF3] mb-2">
+              <h2 className="text-2xl font-bold text-industrial-text mb-2">
                 Completing your authentication...
               </h2>
-              <p className="text-[#9BA7B4]">
+              <p className="text-industrial-muted">
                 We're setting up your SyncAI account with your Azure AD
                 credentials.
               </p>
@@ -243,7 +243,7 @@ export function MarketplaceSignup() {
               <motion.div
                 animate={{ rotate: 360 }}
                 transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                className="w-12 h-12 border-4 border-[#232A33] border-t-[#3A8DFF] rounded-full"
+                className="w-12 h-12 border-4 border-industrial-border border-t-[#3A8DFF] rounded-full"
               />
             </div>
           </div>
@@ -269,10 +269,10 @@ export function MarketplaceSignup() {
                 </motion.span>
               </motion.div>
 
-              <h2 className="text-2xl font-bold text-[#E6EDF3] mb-2">
+              <h2 className="text-2xl font-bold text-industrial-text mb-2">
                 You&apos;re all set!
               </h2>
-              <p className="text-[#9BA7B4] mb-6">
+              <p className="text-industrial-muted mb-6">
                 Your SyncAI subscription has been activated and is ready to use.
               </p>
             </div>
@@ -311,14 +311,14 @@ export function MarketplaceSignup() {
                 </motion.span>
               </motion.div>
 
-              <h2 className="text-2xl font-bold text-[#E6EDF3] mb-2">
+              <h2 className="text-2xl font-bold text-industrial-text mb-2">
                 {error.type === "invalid-token" && "Invalid Access Link"}
                 {error.type === "resolution-failed" &&
                   "Failed to Load Subscription"}
                 {error.type === "activation-failed" && "Activation Failed"}
                 {error.type === "unknown" && "Something went wrong"}
               </h2>
-              <p className="text-[#9BA7B4] mb-6">{error.message}</p>
+              <p className="text-industrial-muted mb-6">{error.message}</p>
             </div>
 
             <motion.button
@@ -333,7 +333,7 @@ export function MarketplaceSignup() {
               Try Again
             </motion.button>
 
-            <p className="text-xs text-[#9BA7B4] text-center">
+            <p className="text-xs text-industrial-muted text-center">
               If this problem persists, please contact{" "}
               <a
                 href="mailto:support@syncai.com"

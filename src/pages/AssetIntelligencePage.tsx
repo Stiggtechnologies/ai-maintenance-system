@@ -248,7 +248,7 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <div className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.05]">
+    <div className="p-3 rounded-xl bg-white/2 border border-white/5">
       <div className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">
         {title}
       </div>
@@ -378,7 +378,7 @@ function OnboardedAssetsPanel({
             className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
               active.sessionId === asset.sessionId
                 ? "bg-cyan-500/20 border border-cyan-500/30 text-cyan-400"
-                : "bg-white/[0.04] border border-white/[0.08] text-slate-400 hover:bg-white/[0.08]"
+                : "bg-white/4 border border-white/8 text-slate-400 hover:bg-white/8"
             }`}
           >
             {asset.assetId} · {asset.classLabel}
@@ -446,7 +446,7 @@ export function AssetIntelligencePage() {
 
       {/* Health & Risk Summary */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-[#0D1520] border border-white/[0.06] rounded-2xl p-5 flex items-center gap-5">
+        <div className="bg-[#0D1520] border border-white/6 rounded-2xl p-5 flex items-center gap-5">
           <div className="relative">
             <HealthRing score={assetData.healthScore} />
             <div className="absolute inset-0 flex flex-col items-center justify-center">
@@ -466,7 +466,7 @@ export function AssetIntelligencePage() {
           </div>
         </div>
 
-        <div className="bg-[#0D1520] border border-white/[0.06] rounded-2xl p-5">
+        <div className="bg-[#0D1520] border border-white/6 rounded-2xl p-5">
           <div className="flex items-center gap-2 mb-3">
             <AlertTriangle className="w-4 h-4 text-red-400" />
             <span className="text-xs text-slate-400">Risk Score</span>
@@ -477,7 +477,7 @@ export function AssetIntelligencePage() {
           <div className="text-xs text-slate-400 mt-1">
             Failure probability within 14 days
           </div>
-          <div className="h-2 bg-white/[0.05] rounded-full mt-3 overflow-hidden">
+          <div className="h-2 bg-white/5 rounded-full mt-3 overflow-hidden">
             <div
               className="h-full bg-red-500 rounded-full"
               style={{ width: `${assetData.riskScore}%` }}
@@ -485,7 +485,7 @@ export function AssetIntelligencePage() {
           </div>
         </div>
 
-        <div className="bg-[#0D1520] border border-white/[0.06] rounded-2xl p-5">
+        <div className="bg-[#0D1520] border border-white/6 rounded-2xl p-5">
           <div className="grid grid-cols-2 gap-3 text-xs">
             <div>
               <div className="text-slate-400">Installed</div>
@@ -516,7 +516,7 @@ export function AssetIntelligencePage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex items-center gap-1 border-b border-white/[0.06] pb-0">
+      <div className="flex items-center gap-1 border-b border-white/6 pb-0">
         {[
           { id: "overview" as Tab, label: "Overview", icon: Gauge },
           { id: "sensors" as Tab, label: "Sensor Signals", icon: Activity },
@@ -533,7 +533,7 @@ export function AssetIntelligencePage() {
             <button
               key={t.id}
               onClick={() => setTab(t.id)}
-              className={`flex items-center gap-1.5 px-4 py-3 text-xs font-medium transition-colors border-b-2 -mb-[1px] ${
+              className={`flex items-center gap-1.5 px-4 py-3 text-xs font-medium transition-colors border-b-2 -mb-px ${
                 tab === t.id
                   ? "text-teal-400 border-teal-400"
                   : "text-slate-400 border-transparent hover:text-slate-300"
@@ -549,7 +549,7 @@ export function AssetIntelligencePage() {
       {/* Tab Content */}
       {tab === "overview" && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="bg-[#0D1520] border border-white/[0.06] rounded-2xl p-5">
+          <div className="bg-[#0D1520] border border-white/6 rounded-2xl p-5">
             <h3 className="text-sm font-semibold text-slate-200 mb-4 flex items-center gap-2">
               <Activity className="w-4 h-4 text-teal-400" /> Active Alerts
             </h3>
@@ -561,7 +561,7 @@ export function AssetIntelligencePage() {
                   return (
                     <div
                       key={sig.id}
-                      className={`flex items-center justify-between p-3 rounded-xl ${sc.bg} border border-white/[0.06]`}
+                      className={`flex items-center justify-between p-3 rounded-xl ${sc.bg} border border-white/6`}
                     >
                       <div>
                         <div className={`text-sm font-semibold ${sc.color}`}>
@@ -588,7 +588,7 @@ export function AssetIntelligencePage() {
             </div>
           </div>
 
-          <div className="bg-[#0D1520] border border-white/[0.06] rounded-2xl p-5">
+          <div className="bg-[#0D1520] border border-white/6 rounded-2xl p-5">
             <h3 className="text-sm font-semibold text-slate-200 mb-4 flex items-center gap-2">
               <Zap className="w-4 h-4 text-teal-400" /> AI Insights
             </h3>
@@ -623,7 +623,7 @@ export function AssetIntelligencePage() {
       )}
 
       {tab === "sensors" && (
-        <div className="bg-[#0D1520] border border-white/[0.06] rounded-2xl p-5">
+        <div className="bg-[#0D1520] border border-white/6 rounded-2xl p-5">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-sm font-semibold text-slate-200 flex items-center gap-2">
               <Radio className="w-4 h-4 text-teal-400" /> Live Sensor Feed
@@ -641,7 +641,7 @@ export function AssetIntelligencePage() {
                   initial={{ opacity: 0, y: 5 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: i * 0.05 }}
-                  className={`flex items-center justify-between p-3 rounded-xl border border-white/[0.06] ${sc.bg}`}
+                  className={`flex items-center justify-between p-3 rounded-xl border border-white/6 ${sc.bg}`}
                 >
                   <div>
                     <div className="text-xs font-semibold text-slate-200">
@@ -672,7 +672,7 @@ export function AssetIntelligencePage() {
       )}
 
       {tab === "failures" && (
-        <div className="bg-[#0D1520] border border-white/[0.06] rounded-2xl p-5">
+        <div className="bg-[#0D1520] border border-white/6 rounded-2xl p-5">
           <h3 className="text-sm font-semibold text-slate-200 mb-4 flex items-center gap-2">
             <AlertTriangle className="w-4 h-4 text-amber-400" /> Failure Mode
             Analysis (FMEA)
@@ -680,7 +680,7 @@ export function AssetIntelligencePage() {
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
-                <tr className="border-b border-white/[0.06]">
+                <tr className="border-b border-white/6">
                   <th className="text-left py-3 px-3 text-slate-400 font-semibold">
                     Failure Mode
                   </th>
@@ -702,7 +702,7 @@ export function AssetIntelligencePage() {
                 {failureModes.map((fm) => (
                   <tr
                     key={fm.mode}
-                    className="border-b border-white/[0.04] hover:bg-white/[0.02] transition-colors"
+                    className="border-b border-white/4 hover:bg-white/2 transition-colors"
                   >
                     <td className="py-3 px-3 text-slate-200 font-medium">
                       {fm.mode}
@@ -748,7 +748,7 @@ export function AssetIntelligencePage() {
       )}
 
       {tab === "history" && (
-        <div className="bg-[#0D1520] border border-white/[0.06] rounded-2xl p-5">
+        <div className="bg-[#0D1520] border border-white/6 rounded-2xl p-5">
           <h3 className="text-sm font-semibold text-slate-200 mb-4 flex items-center gap-2">
             <Clock className="w-4 h-4 text-blue-400" /> Maintenance History
           </h3>
@@ -759,10 +759,10 @@ export function AssetIntelligencePage() {
                 initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: i * 0.05 }}
-                className="flex items-start gap-3 p-3 rounded-xl bg-white/[0.02] border border-white/[0.04]"
+                className="flex items-start gap-3 p-3 rounded-xl bg-white/2 border border-white/4"
               >
                 <div
-                  className={`px-2 py-0.5 rounded-full text-xs font-bold flex-shrink-0 ${
+                  className={`px-2 py-0.5 rounded-full text-xs font-bold shrink-0 ${
                     entry.type === "Corrective"
                       ? "bg-amber-500/20 text-amber-400"
                       : entry.type === "PM"
@@ -787,7 +787,7 @@ export function AssetIntelligencePage() {
       )}
 
       {tab === "hierarchy" && (
-        <div className="bg-[#0D1520] border border-white/[0.06] rounded-2xl p-5">
+        <div className="bg-[#0D1520] border border-white/6 rounded-2xl p-5">
           <h3 className="text-sm font-semibold text-slate-200 mb-4 flex items-center gap-2">
             <Layers className="w-4 h-4 text-cyan-400" /> Asset Hierarchy
           </h3>
@@ -803,7 +803,7 @@ export function AssetIntelligencePage() {
               >
                 {i > 0 && (
                   <div className="flex items-center gap-1">
-                    <div className="w-4 h-px bg-white/[0.1]" />
+                    <div className="w-4 h-px bg-white/10" />
                     <ChevronRight className="w-3 h-3 text-slate-400" />
                   </div>
                 )}
@@ -811,7 +811,7 @@ export function AssetIntelligencePage() {
                   className={`flex items-center gap-2 px-3 py-2 rounded-lg ${
                     h.level === "Asset"
                       ? "bg-teal-500/10 border border-teal-500/20"
-                      : "bg-white/[0.03] border border-white/[0.05]"
+                      : "bg-white/3 border border-white/5"
                   }`}
                 >
                   <span

@@ -204,15 +204,15 @@ Ask me anything about your operations, and I'll provide insights based on your r
   };
 
   return (
-    <div className="h-full flex flex-col bg-[#0B0F14]">
-      <div className="bg-[#11161D] border-b border-[#232A33] p-6">
+    <div className="h-full flex flex-col bg-industrial-black">
+      <div className="bg-industrial-graphite border-b border-industrial-border p-6">
         <div className="max-w-4xl mx-auto">
           <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 bg-gradient-to-br from-teal-500 to-teal-600 rounded-full flex items-center justify-center">
+            <div className="w-10 h-10 bg-linear-to-br from-teal-500 to-teal-600 rounded-full flex items-center justify-center">
               <Sparkles className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-[#E6EDF3]">
+              <h1 className="text-2xl font-bold text-industrial-text">
                 AI Assistant
               </h1>
               <p className="text-sm text-slate-400">
@@ -239,9 +239,9 @@ Ask me anything about your operations, and I'll provide insights based on your r
                   {msg.content}
                 </div>
               ) : (
-                <div className="glass border border-white/[0.06] rounded-2xl p-6 max-w-3xl shadow-sm">
+                <div className="glass border border-white/6 rounded-2xl p-6 max-w-3xl shadow-xs">
                   <div className="flex items-center gap-2 mb-3">
-                    <div className="w-8 h-8 bg-gradient-to-br from-teal-100 to-teal-200 rounded-full flex items-center justify-center">
+                    <div className="w-8 h-8 bg-linear-to-br from-teal-100 to-teal-200 rounded-full flex items-center justify-center">
                       <Sparkles className="w-4 h-4 text-teal-600" />
                     </div>
                     <span className="text-sm font-medium text-slate-300">
@@ -265,7 +265,7 @@ Ask me anything about your operations, and I'll provide insights based on your r
         </div>
       </div>
 
-      <div className="bg-[#11161D] border-t border-[#232A33] p-6">
+      <div className="bg-industrial-graphite border-t border-industrial-border p-6">
         <div className="max-w-4xl mx-auto">
           {messages.length === 1 && (
             <div className="mb-4">
@@ -275,7 +275,7 @@ Ask me anything about your operations, and I'll provide insights based on your r
                   <button
                     key={idx}
                     onClick={() => handleQuickAction(action.query)}
-                    className="px-4 py-2 bg-[#161C24] hover:bg-white/[0.06] text-slate-300 rounded-lg text-sm transition-colors"
+                    className="px-4 py-2 bg-industrial-slate hover:bg-white/6 text-slate-300 rounded-lg text-sm transition-colors"
                   >
                     {action.label}
                   </button>
@@ -291,7 +291,7 @@ Ask me anything about your operations, and I'll provide insights based on your r
               onChange={(e) => setInput(e.target.value)}
               onKeyPress={(e) => e.key === "Enter" && handleSend()}
               placeholder={`Ask anything about ${getRoleContext()}...`}
-              className="w-full px-6 py-4 pr-24 rounded-2xl border border-[#232A33] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+              className="w-full px-6 py-4 pr-24 rounded-2xl border border-industrial-border focus:outline-hidden focus:ring-2 focus:ring-teal-500 focus:border-transparent"
               disabled={isProcessing}
             />
             <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
@@ -301,7 +301,7 @@ Ask me anything about your operations, and I'll provide insights based on your r
                 className={`p-2 rounded-lg transition-colors ${
                   isRecording
                     ? "bg-red-100 text-red-600"
-                    : "hover:bg-[#161C24] text-gray-400"
+                    : "hover:bg-industrial-slate text-gray-400"
                 }`}
               >
                 {isRecording ? (

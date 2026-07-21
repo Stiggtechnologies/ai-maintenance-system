@@ -177,7 +177,7 @@ export function ArtifactWorkspace() {
             className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
               filter === f.value
                 ? "bg-teal-500/20 border border-teal-500/30 text-teal-400"
-                : "bg-white/[0.04] border border-white/[0.08] text-slate-400 hover:bg-white/[0.08]"
+                : "bg-white/4 border border-white/8 text-slate-400 hover:bg-white/8"
             }`}
           >
             {f.label}
@@ -195,10 +195,10 @@ export function ArtifactWorkspace() {
               initial={{ opacity: 0, y: 5 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.04 }}
-              className="bg-[#0D1520] border border-white/[0.06] rounded-xl p-4 hover:border-white/[0.12] transition-colors cursor-pointer"
+              className="bg-[#0D1520] border border-white/6 rounded-xl p-4 hover:border-white/12 transition-colors cursor-pointer"
             >
               <div className="flex items-start gap-4">
-                <div className="p-2.5 rounded-lg bg-white/[0.04] border border-white/[0.06] flex-shrink-0">
+                <div className="p-2.5 rounded-lg bg-white/4 border border-white/6 shrink-0">
                   <FileText className="w-5 h-5 text-slate-400" />
                 </div>
                 <div className="flex-1 min-w-0">
@@ -207,13 +207,13 @@ export function ArtifactWorkspace() {
                       {artifact.title}
                     </h4>
                     <span
-                      className={`text-xs px-2 py-0.5 rounded-full font-semibold ${sc.bg} ${sc.color} flex-shrink-0`}
+                      className={`text-xs px-2 py-0.5 rounded-full font-semibold ${sc.bg} ${sc.color} shrink-0`}
                     >
                       {sc.label}
                     </span>
                   </div>
                   <div className="flex items-center gap-3 text-xs text-slate-400 mt-1">
-                    <span className="px-1.5 py-0.5 rounded bg-white/[0.04] border border-white/[0.06]">
+                    <span className="px-1.5 py-0.5 rounded-sm bg-white/4 border border-white/6">
                       {artifact.type}
                     </span>
                     <span className="font-mono">{artifact.version}</span>
@@ -236,7 +236,7 @@ export function ArtifactWorkspace() {
                     <span>Workspace: {artifact.workspace}</span>
                   </div>
                 </div>
-                <div className="flex items-center gap-2 flex-shrink-0">
+                <div className="flex items-center gap-2 shrink-0">
                   <button className="p-1.5 rounded-lg text-slate-400 hover:text-teal-400 hover:bg-teal-500/10 transition-colors">
                     <Eye className="w-4 h-4" />
                   </button>
@@ -252,7 +252,7 @@ export function ArtifactWorkspace() {
       </div>
 
       <div className="bg-[#0D1520] border border-teal-500/10 rounded-xl p-4 flex items-start gap-3">
-        <FileText className="w-4 h-4 text-teal-400 flex-shrink-0 mt-0.5" />
+        <FileText className="w-4 h-4 text-teal-400 shrink-0 mt-0.5" />
         <div>
           <div className="text-sm font-bold text-teal-400">
             Operational Artifacts

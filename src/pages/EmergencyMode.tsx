@@ -221,7 +221,7 @@ export function EmergencyMode() {
   return (
     <div className="p-6 space-y-6">
       {/* Emergency Header */}
-      <div className="bg-gradient-to-r from-red-500/10 via-amber-500/5 to-transparent border border-red-500/20 rounded-2xl p-5">
+      <div className="bg-linear-to-r from-red-500/10 via-amber-500/5 to-transparent border border-red-500/20 rounded-2xl p-5">
         <div className="flex items-start justify-between">
           <div className="flex items-start gap-4">
             <div className="p-3 rounded-xl bg-red-500/20 animate-pulse">
@@ -276,7 +276,7 @@ export function EmergencyMode() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Timeline */}
-        <div className="lg:col-span-2 bg-[#0D1520] border border-white/[0.06] rounded-2xl p-5">
+        <div className="lg:col-span-2 bg-[#0D1520] border border-white/6 rounded-2xl p-5">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-sm font-semibold text-slate-200 flex items-center gap-2">
               <Radio className="w-4 h-4 text-teal-400 animate-pulse" /> Live
@@ -298,12 +298,12 @@ export function EmergencyMode() {
                 transition={{ delay: i * 0.04 }}
                 className="flex items-start gap-3"
               >
-                <div className="flex flex-col items-center flex-shrink-0">
+                <div className="flex flex-col items-center shrink-0">
                   <div
                     className={`w-2.5 h-2.5 rounded-full ${typeColors[event.type] || "bg-slate-500"}`}
                   />
                   {i < visibleTimeline.length - 1 && (
-                    <div className="w-px h-8 bg-white/[0.06] mt-1" />
+                    <div className="w-px h-8 bg-white/6 mt-1" />
                   )}
                 </div>
                 <div className="flex-1 min-w-0 pb-2">
@@ -311,7 +311,7 @@ export function EmergencyMode() {
                     <span className="text-xs font-mono text-slate-400">
                       {event.time}
                     </span>
-                    <span className="text-xs px-1.5 py-0.5 rounded-full bg-white/[0.04] text-slate-400">
+                    <span className="text-xs px-1.5 py-0.5 rounded-full bg-white/4 text-slate-400">
                       {event.agent}
                     </span>
                   </div>
@@ -325,7 +325,7 @@ export function EmergencyMode() {
         {/* Right Panel */}
         <div className="space-y-4">
           {/* Affected Assets */}
-          <div className="bg-[#0D1520] border border-white/[0.06] rounded-2xl p-5">
+          <div className="bg-[#0D1520] border border-white/6 rounded-2xl p-5">
             <h3 className="text-sm font-semibold text-slate-200 mb-3">
               Affected Assets
             </h3>
@@ -348,7 +348,7 @@ export function EmergencyMode() {
           </div>
 
           {/* Critical Controls */}
-          <div className="bg-[#0D1520] border border-white/[0.06] rounded-2xl p-5">
+          <div className="bg-[#0D1520] border border-white/6 rounded-2xl p-5">
             <h3 className="text-sm font-semibold text-slate-200 mb-3 flex items-center gap-2">
               <Shield className="w-4 h-4 text-green-400" /> Critical Controls
             </h3>
@@ -365,7 +365,7 @@ export function EmergencyMode() {
           </div>
 
           {/* Recovery Plan */}
-          <div className="bg-[#0D1520] border border-white/[0.06] rounded-2xl p-5">
+          <div className="bg-[#0D1520] border border-white/6 rounded-2xl p-5">
             <h3 className="text-sm font-semibold text-slate-200 mb-3 flex items-center gap-2">
               <Target className="w-4 h-4 text-teal-400" /> Recovery Plan
             </h3>
@@ -381,7 +381,7 @@ export function EmergencyMode() {
                         ? "bg-teal-500/20 text-teal-400 ring-1 ring-teal-500/40"
                         : step.status === "completed"
                           ? "bg-green-500/20 text-green-400"
-                          : "bg-white/[0.05] text-slate-400"
+                          : "bg-white/5 text-slate-400"
                     }`}
                   >
                     {i + 1}
@@ -395,7 +395,7 @@ export function EmergencyMode() {
                 </div>
               ))}
             </div>
-            <div className="mt-3 pt-3 border-t border-white/[0.06] text-xs text-slate-400">
+            <div className="mt-3 pt-3 border-t border-white/6 text-xs text-slate-400">
               Estimated return to service: 08:45 UTC
             </div>
           </div>

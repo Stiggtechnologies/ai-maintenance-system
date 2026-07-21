@@ -171,7 +171,7 @@ function KPICard({ kpi, index }: { kpi: (typeof kpis)[0]; index: number }) {
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.03 }}
-      className="bg-[#0D1520] border border-white/[0.06] rounded-xl p-4 hover:border-white/[0.12] transition-colors"
+      className="bg-[#0D1520] border border-white/6 rounded-xl p-4 hover:border-white/12 transition-colors"
     >
       <div className="flex items-start justify-between gap-2 mb-2">
         <div className="text-xs text-slate-400 leading-tight">{kpi.label}</div>
@@ -256,7 +256,7 @@ export function PerformanceDashboard() {
           {["MTD", "QTD", "YTD"].map((p) => (
             <button
               key={p}
-              className="px-3 py-1.5 bg-white/[0.04] border border-white/[0.08] rounded-lg text-xs text-slate-400 hover:bg-white/[0.08] transition-colors"
+              className="px-3 py-1.5 bg-white/4 border border-white/8 rounded-lg text-xs text-slate-400 hover:bg-white/8 transition-colors"
             >
               {p}
             </button>
@@ -295,7 +295,7 @@ export function PerformanceDashboard() {
           return (
             <div
               key={t.label}
-              className="bg-[#0D1520] border border-white/[0.06] rounded-xl p-4"
+              className="bg-[#0D1520] border border-white/6 rounded-xl p-4"
             >
               <div className="text-xs text-slate-400 mb-1">{t.label}</div>
               <div className={`text-xl font-black ${c.text} mb-2`}>

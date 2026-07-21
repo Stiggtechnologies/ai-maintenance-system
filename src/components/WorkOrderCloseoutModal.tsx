@@ -91,7 +91,7 @@ export function WorkOrderCloseoutModal({
         onChange={(e) => set(key)(e.target.value)}
         placeholder={placeholder}
         aria-label={label}
-        className="mt-1 w-full rounded-md border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-white placeholder-slate-400 focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
+        className="mt-1 w-full rounded-md border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-white placeholder-slate-400 focus:border-teal-400 focus:outline-hidden focus:ring-1 focus:ring-teal-400"
       />
     </div>
   );
@@ -109,7 +109,7 @@ export function WorkOrderCloseoutModal({
           <button
             onClick={onClose}
             aria-label="Close dialog"
-            className="text-slate-400 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-300"
+            className="text-slate-400 hover:text-white focus:outline-hidden focus-visible:ring-2 focus-visible:ring-teal-300"
           >
             <X className="h-5 w-5" aria-hidden />
           </button>
@@ -149,7 +149,7 @@ export function WorkOrderCloseoutModal({
                 value={form.laborHours}
                 onChange={(e) => set("laborHours")(e.target.value)}
                 aria-label="Labour hours"
-                className="mt-1 w-full rounded-md border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-white focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
+                className="mt-1 w-full rounded-md border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-white focus:border-teal-400 focus:outline-hidden focus:ring-1 focus:ring-teal-400"
               />
             </div>
             <div>
@@ -163,7 +163,7 @@ export function WorkOrderCloseoutModal({
                 value={form.downtimeHours}
                 onChange={(e) => set("downtimeHours")(e.target.value)}
                 aria-label="Downtime hours"
-                className="mt-1 w-full rounded-md border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-white focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
+                className="mt-1 w-full rounded-md border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-white focus:border-teal-400 focus:outline-hidden focus:ring-1 focus:ring-teal-400"
               />
             </div>
           </div>
@@ -190,7 +190,7 @@ export function WorkOrderCloseoutModal({
                 <button
                   onClick={() => setAiUseful(true)}
                   aria-pressed={aiUseful === true}
-                  className={`rounded-md border px-3 py-1.5 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-300 ${
+                  className={`rounded-md border px-3 py-1.5 text-sm focus:outline-hidden focus-visible:ring-2 focus-visible:ring-teal-300 ${
                     aiUseful === true
                       ? "border-teal-400 bg-teal-500/15 text-teal-300"
                       : "border-slate-600 text-slate-300 hover:bg-slate-800"
@@ -201,7 +201,7 @@ export function WorkOrderCloseoutModal({
                 <button
                   onClick={() => setAiUseful(false)}
                   aria-pressed={aiUseful === false}
-                  className={`rounded-md border px-3 py-1.5 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-300 ${
+                  className={`rounded-md border px-3 py-1.5 text-sm focus:outline-hidden focus-visible:ring-2 focus-visible:ring-teal-300 ${
                     aiUseful === false
                       ? "border-amber-400 bg-amber-500/15 text-amber-300"
                       : "border-slate-600 text-slate-300 hover:bg-slate-800"
@@ -219,7 +219,7 @@ export function WorkOrderCloseoutModal({
             <button
               onClick={onClose}
               disabled={saving}
-              className="rounded-lg border border-slate-600 px-4 py-2 text-sm text-slate-300 hover:bg-slate-800 disabled:opacity-40 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-300"
+              className="rounded-lg border border-slate-600 px-4 py-2 text-sm text-slate-300 hover:bg-slate-800 disabled:opacity-40 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-teal-300"
             >
               Cancel
             </button>
@@ -227,7 +227,7 @@ export function WorkOrderCloseoutModal({
               onClick={() => void submit()}
               disabled={saving || !requiredComplete}
               data-testid="submit-closeout"
-              className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-40 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
+              className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-40 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-emerald-300"
             >
               {saving && (
                 <Loader2 className="h-4 w-4 animate-spin" aria-hidden />

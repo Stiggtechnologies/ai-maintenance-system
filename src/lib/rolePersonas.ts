@@ -57,7 +57,7 @@ const PERSONAS: Record<string, RolePersona> = {
       "What is driving the repeated P-101 seal alerts?",
       "Which assets are trending toward failure right now?",
       "Recommend PM interval changes from our failure history",
-      "Draft an RCA outline for the C-22 vibration alarm",
+      "Draft an RCA outline-solid for the C-22 vibration alarm",
     ],
   },
   planner: {

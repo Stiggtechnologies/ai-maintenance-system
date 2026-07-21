@@ -88,7 +88,7 @@ export function WorkOrderManagement() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-bold text-[#E6EDF3]">
+          <h2 className="text-xl font-bold text-industrial-text">
             Work Order Management
           </h2>
           <p className="text-sm text-slate-400 mt-1">
@@ -109,13 +109,13 @@ export function WorkOrderManagement() {
             placeholder="Search work orders..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 border border-[#232A33] rounded-lg text-sm focus:ring-2 focus:ring-teal-500/40 focus:border-transparent"
+            className="w-full pl-9 pr-4 py-2 border border-industrial-border rounded-lg text-sm focus:ring-2 focus:ring-teal-500/40 focus:border-transparent"
           />
         </div>
         <select
           value={filterStatus}
           onChange={(e) => setFilterStatus(e.target.value)}
-          className="px-3 py-2 border border-[#232A33] rounded-lg text-sm"
+          className="px-3 py-2 border border-industrial-border rounded-lg text-sm"
         >
           <option value="all">All Statuses</option>
           <option value="pending">Pending</option>
@@ -130,10 +130,10 @@ export function WorkOrderManagement() {
           No work orders found
         </div>
       ) : (
-        <div className="glass border border-white/[0.06] rounded-xl overflow-hidden">
+        <div className="glass border border-white/6 rounded-xl overflow-hidden">
           <table className="w-full">
             <thead>
-              <tr className="text-left text-xs text-slate-400 bg-[#0B0F14] border-b border-[#232A33]">
+              <tr className="text-left text-xs text-slate-400 bg-industrial-black border-b border-industrial-border">
                 <th className="px-4 py-3">Title</th>
                 <th className="px-4 py-3">Asset</th>
                 <th className="px-4 py-3">Priority</th>
@@ -145,9 +145,9 @@ export function WorkOrderManagement() {
               {filtered.map((wo) => (
                 <tr
                   key={wo.id}
-                  className="border-b border-[#1A2030] hover:bg-[#0B0F14]"
+                  className="border-b border-[#1A2030] hover:bg-industrial-black"
                 >
-                  <td className="px-4 py-3 text-sm font-medium text-[#E6EDF3]">
+                  <td className="px-4 py-3 text-sm font-medium text-industrial-text">
                     {wo.title}
                   </td>
                   <td className="px-4 py-3 text-sm text-slate-400">

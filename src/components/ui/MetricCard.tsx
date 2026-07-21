@@ -13,7 +13,7 @@ interface MetricCardProps {
 }
 
 const variantBorder = {
-  default: "border-white/[0.06]",
+  default: "border-white/6",
   success: "border-emerald-500/20 hover:border-emerald-500/30",
   warning: "border-amber-500/20 hover:border-amber-500/30",
   danger: "border-red-500/20 hover:border-red-500/30",
@@ -29,7 +29,7 @@ const variantGlow = {
 };
 
 const iconBg = {
-  default: "bg-white/[0.04] text-slate-400",
+  default: "bg-white/4 text-slate-400",
   success: "bg-emerald-500/10 text-emerald-400",
   warning: "bg-amber-500/10 text-amber-400",
   danger: "bg-red-500/10 text-red-400",
@@ -72,10 +72,10 @@ export function MetricCard({
         )}
       </div>
       {loading ? (
-        <div className="h-8 w-24 bg-white/[0.04] rounded animate-pulse" />
+        <div className="h-8 w-24 bg-white/4 rounded-sm animate-pulse" />
       ) : (
         <div className="flex items-end gap-1.5">
-          <span className="text-2xl font-bold text-[#E6EDF3] tracking-tight">
+          <span className="text-2xl font-bold text-industrial-text tracking-tight">
             {value}
           </span>
           {unit && (

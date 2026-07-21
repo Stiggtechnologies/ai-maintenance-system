@@ -84,8 +84,8 @@ const FAMILY_CONFIG: Record<
 
 const DEFAULT_FAMILY_CONFIG = {
   color: "text-slate-300",
-  bg: "bg-[#0B0F14]",
-  border: "border-[#232A33]",
+  bg: "bg-industrial-black",
+  border: "border-industrial-border",
   badge: "bg-[#1A2030] text-slate-800",
   icon: Building2,
 };
@@ -196,13 +196,15 @@ export function TemplateSelectorPage() {
     <div className="max-w-7xl mx-auto">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-[#E6EDF3]">New Deployment</h1>
+        <h1 className="text-2xl font-bold text-industrial-text">
+          New Deployment
+        </h1>
         <p className="text-sm text-slate-400 mt-1">
           Select an industry template to start configuring your deployment.
         </p>
         {fromSetup && industry && (
           <div className="mt-3 bg-teal-500/5 border border-teal-500/20 rounded-lg p-3 flex items-center gap-2">
-            <Sparkles size={14} className="text-teal-400 flex-shrink-0" />
+            <Sparkles size={14} className="text-teal-400 shrink-0" />
             <span className="text-xs text-slate-400">
               Showing templates recommended for your industry. Use search or
               filters to see all.
@@ -223,7 +225,7 @@ export function TemplateSelectorPage() {
             placeholder="Search templates..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 text-sm border border-[#232A33] rounded-lg bg-[#11161D] focus:outline-none focus:ring-2 focus:ring-teal-500/40 focus:border-transparent"
+            className="w-full pl-9 pr-4 py-2 text-sm border border-industrial-border rounded-lg bg-industrial-graphite focus:outline-hidden focus:ring-2 focus:ring-teal-500/40 focus:border-transparent"
           />
         </div>
         <div className="flex items-center gap-2">
@@ -233,7 +235,7 @@ export function TemplateSelectorPage() {
             className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
               !filterFamily
                 ? "bg-slate-900 text-white"
-                : "bg-[#11161D] text-slate-400 border border-[#232A33] hover:bg-[#0B0F14]"
+                : "bg-industrial-graphite text-slate-400 border border-industrial-border hover:bg-industrial-black"
             }`}
           >
             All
@@ -249,7 +251,7 @@ export function TemplateSelectorPage() {
                 className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
                   filterFamily === family
                     ? `${config.badge}`
-                    : "bg-[#11161D] text-slate-400 border border-[#232A33] hover:bg-[#0B0F14]"
+                    : "bg-industrial-graphite text-slate-400 border border-industrial-border hover:bg-industrial-black"
                 }`}
               >
                 {family}
@@ -274,7 +276,7 @@ export function TemplateSelectorPage() {
 
       {/* Empty State */}
       {!error && filteredTemplates.length === 0 && (
-        <div className="glass border border-white/[0.06] rounded-xl p-12 text-center">
+        <div className="glass border border-white/6 rounded-xl p-12 text-center">
           <Factory size={40} className="text-slate-300 mx-auto mb-3" />
           <h3 className="text-lg font-medium text-slate-300">
             No templates found
@@ -308,7 +310,7 @@ export function TemplateSelectorPage() {
           return (
             <div
               key={template.id}
-              className={`bg-[#11161D] border ${config.border} rounded-xl overflow-hidden hover:shadow-lg transition-shadow`}
+              className={`bg-industrial-graphite border ${config.border} rounded-xl overflow-hidden hover:shadow-lg transition-shadow`}
             >
               {/* Card Header */}
               <div
@@ -322,7 +324,7 @@ export function TemplateSelectorPage() {
                       <FamilyIcon size={20} />
                     </div>
                     <div>
-                      <h3 className="font-semibold text-[#E6EDF3] text-sm">
+                      <h3 className="font-semibold text-industrial-text text-sm">
                         {template.name}
                       </h3>
                       {template.master_template_name && (
@@ -378,7 +380,7 @@ export function TemplateSelectorPage() {
                 <div className="flex items-center gap-2 pt-3 border-t border-[#1A2030]">
                   <button
                     onClick={() => setPreviewTemplate(template)}
-                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium text-slate-400 bg-[#0B0F14] hover:bg-[#1A2030] rounded-lg transition-colors"
+                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium text-slate-400 bg-industrial-black hover:bg-[#1A2030] rounded-lg transition-colors"
                   >
                     <Eye size={14} />
                     Preview

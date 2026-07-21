@@ -179,7 +179,7 @@ export function AutonomousDashboard() {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-[#E6EDF3]">
+          <h1 className="text-2xl font-bold text-industrial-text">
             Autonomous Operations
           </h1>
           <p className="text-slate-400 mt-1">
@@ -195,10 +195,10 @@ export function AutonomousDashboard() {
       </div>
 
       <div className="grid grid-cols-4 gap-4">
-        <div className="bg-[#11161D] rounded-xl border border-[#232A33] p-6">
+        <div className="bg-industrial-graphite rounded-xl border border-industrial-border p-6">
           <div className="flex items-center justify-between mb-2">
             <Clock className="w-8 h-8 text-yellow-600" />
-            <span className="text-3xl font-bold text-[#E6EDF3]">
+            <span className="text-3xl font-bold text-industrial-text">
               {stats.pending_decisions}
             </span>
           </div>
@@ -207,30 +207,30 @@ export function AutonomousDashboard() {
           </p>
         </div>
 
-        <div className="bg-[#11161D] rounded-xl border border-[#232A33] p-6">
+        <div className="bg-industrial-graphite rounded-xl border border-industrial-border p-6">
           <div className="flex items-center justify-between mb-2">
             <Zap className="w-8 h-8 text-teal-600" />
-            <span className="text-3xl font-bold text-[#E6EDF3]">
+            <span className="text-3xl font-bold text-industrial-text">
               {stats.auto_executed}
             </span>
           </div>
           <p className="text-sm font-medium text-slate-400">Auto-Executed</p>
         </div>
 
-        <div className="bg-[#11161D] rounded-xl border border-[#232A33] p-6">
+        <div className="bg-industrial-graphite rounded-xl border border-industrial-border p-6">
           <div className="flex items-center justify-between mb-2">
             <AlertTriangle className="w-8 h-8 text-red-600" />
-            <span className="text-3xl font-bold text-[#E6EDF3]">
+            <span className="text-3xl font-bold text-industrial-text">
               {stats.critical_alerts}
             </span>
           </div>
           <p className="text-sm font-medium text-slate-400">Critical Alerts</p>
         </div>
 
-        <div className="bg-[#11161D] rounded-xl border border-[#232A33] p-6">
+        <div className="bg-industrial-graphite rounded-xl border border-industrial-border p-6">
           <div className="flex items-center justify-between mb-2">
             <Activity className="w-8 h-8 text-blue-600" />
-            <span className="text-3xl font-bold text-[#E6EDF3]">
+            <span className="text-3xl font-bold text-industrial-text">
               {stats.assets_monitored}
             </span>
           </div>
@@ -239,8 +239,8 @@ export function AutonomousDashboard() {
       </div>
 
       {alerts.length > 0 && (
-        <div className="bg-[#11161D] rounded-xl border border-[#232A33] p-6">
-          <h2 className="text-lg font-semibold text-[#E6EDF3] mb-4">
+        <div className="bg-industrial-graphite rounded-xl border border-industrial-border p-6">
+          <h2 className="text-lg font-semibold text-industrial-text mb-4">
             Active Alerts
           </h2>
           <div className="space-y-3">
@@ -254,7 +254,7 @@ export function AutonomousDashboard() {
                     <div className="flex items-center gap-2 mb-1">
                       <AlertTriangle className="w-4 h-4" />
                       <p className="font-semibold">{alert.title}</p>
-                      <span className="text-xs px-2 py-0.5 bg-[#11161D] rounded uppercase font-medium">
+                      <span className="text-xs px-2 py-0.5 bg-industrial-graphite rounded-sm uppercase font-medium">
                         {alert.severity}
                       </span>
                     </div>
@@ -266,7 +266,7 @@ export function AutonomousDashboard() {
                   {!alert.acknowledged && (
                     <button
                       onClick={() => acknowledgeAlert(alert.id)}
-                      className="ml-4 px-3 py-1.5 bg-[#11161D] hover:bg-[#0B0F14] border border-gray-300 rounded-lg text-sm font-medium transition-colors"
+                      className="ml-4 px-3 py-1.5 bg-industrial-graphite hover:bg-industrial-black border border-gray-300 rounded-lg text-sm font-medium transition-colors"
                     >
                       Acknowledge
                     </button>
@@ -278,13 +278,13 @@ export function AutonomousDashboard() {
         </div>
       )}
 
-      <div className="bg-[#11161D] rounded-xl border border-[#232A33] p-6">
+      <div className="bg-industrial-graphite rounded-xl border border-industrial-border p-6">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-[#E6EDF3]">
+          <h2 className="text-lg font-semibold text-industrial-text">
             Autonomous Decisions
           </h2>
           {!canApprove && (
-            <span className="text-xs bg-[#161C24] px-3 py-1 rounded-full text-slate-400">
+            <span className="text-xs bg-industrial-slate px-3 py-1 rounded-full text-slate-400">
               View Only - {profile?.role}
             </span>
           )}
@@ -294,14 +294,14 @@ export function AutonomousDashboard() {
           {decisions.map((decision) => (
             <div
               key={decision.id}
-              className="border border-[#232A33] rounded-lg p-4 hover:border-teal-300 transition-colors"
+              className="border border-industrial-border rounded-lg p-4 hover:border-teal-300 transition-colors"
             >
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-2">
                     {getStatusIcon(decision.status)}
                     <div>
-                      <p className="font-semibold text-[#E6EDF3]">
+                      <p className="font-semibold text-industrial-text">
                         {decision.decision_data.asset_name || "Asset"} -{" "}
                         {decision.decision_type.replace("_", " ")}
                       </p>
@@ -325,7 +325,7 @@ export function AutonomousDashboard() {
                       </span>
                     </div>
                     {decision.requires_approval && (
-                      <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-1 rounded">
+                      <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-1 rounded-sm">
                         Requires Approval
                       </span>
                     )}

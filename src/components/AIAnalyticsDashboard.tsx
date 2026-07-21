@@ -81,7 +81,7 @@ export function AIAnalyticsDashboard() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-xl font-bold text-[#E6EDF3] flex items-center gap-2">
+        <h2 className="text-xl font-bold text-industrial-text flex items-center gap-2">
           <Brain size={24} className="text-purple-600" /> AI Analytics
         </h2>
         <p className="text-sm text-slate-400 mt-1">
@@ -91,30 +91,30 @@ export function AIAnalyticsDashboard() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="glass border border-white/[0.06] rounded-xl p-4">
+        <div className="glass border border-white/6 rounded-xl p-4">
           <Zap size={18} className="text-purple-500 mb-2" />
-          <div className="text-2xl font-bold text-[#E6EDF3]">
+          <div className="text-2xl font-bold text-industrial-text">
             {stats?.total_decisions || 0}
           </div>
           <div className="text-xs text-slate-400">Total Decisions</div>
         </div>
-        <div className="glass border border-white/[0.06] rounded-xl p-4">
+        <div className="glass border border-white/6 rounded-xl p-4">
           <CheckCircle size={18} className="text-green-500 mb-2" />
-          <div className="text-2xl font-bold text-[#E6EDF3]">
+          <div className="text-2xl font-bold text-industrial-text">
             {stats?.auto_executed || 0}
           </div>
           <div className="text-xs text-slate-400">Auto-Executed</div>
         </div>
-        <div className="glass border border-white/[0.06] rounded-xl p-4">
+        <div className="glass border border-white/6 rounded-xl p-4">
           <TrendingUp size={18} className="text-blue-500 mb-2" />
-          <div className="text-2xl font-bold text-[#E6EDF3]">
+          <div className="text-2xl font-bold text-industrial-text">
             {stats?.avg_confidence || 0}%
           </div>
           <div className="text-xs text-slate-400">Avg Confidence</div>
         </div>
-        <div className="glass border border-white/[0.06] rounded-xl p-4">
+        <div className="glass border border-white/6 rounded-xl p-4">
           <AlertTriangle size={18} className="text-yellow-500 mb-2" />
-          <div className="text-2xl font-bold text-[#E6EDF3]">
+          <div className="text-2xl font-bold text-industrial-text">
             {recentDecisions.filter((d) => d.requires_approval).length}
           </div>
           <div className="text-xs text-slate-400">Required Approval</div>
@@ -122,8 +122,8 @@ export function AIAnalyticsDashboard() {
       </div>
 
       {/* Recent Decisions */}
-      <div className="glass border border-white/[0.06] rounded-xl p-6">
-        <h3 className="text-lg font-semibold text-[#E6EDF3] mb-4">
+      <div className="glass border border-white/6 rounded-xl p-6">
+        <h3 className="text-lg font-semibold text-industrial-text mb-4">
           Recent Autonomous Decisions
         </h3>
         {recentDecisions.length === 0 ? (
@@ -135,10 +135,10 @@ export function AIAnalyticsDashboard() {
             {recentDecisions.map((d) => (
               <div
                 key={d.id}
-                className="flex items-center justify-between p-3 bg-[#0B0F14] rounded-lg"
+                className="flex items-center justify-between p-3 bg-industrial-black rounded-lg"
               >
                 <div className="flex-1">
-                  <div className="text-sm font-medium text-[#E6EDF3]">
+                  <div className="text-sm font-medium text-industrial-text">
                     {d.decision_type?.replace(/_/g, " ")}
                   </div>
                   <div className="text-xs text-slate-400 mt-0.5">

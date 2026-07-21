@@ -101,7 +101,7 @@ export function GainShareConsole() {
       case "rejected":
         return "bg-red-100 text-red-700 border-red-200";
       default:
-        return "bg-[#161C24] text-slate-300 border-[#232A33]";
+        return "bg-industrial-slate text-slate-300 border-industrial-border";
     }
   };
 
@@ -114,11 +114,11 @@ export function GainShareConsole() {
   }
 
   return (
-    <div className="h-full overflow-auto bg-[#0B0F14]">
+    <div className="h-full overflow-auto bg-industrial-black">
       <div className="max-w-7xl mx-auto p-6">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-3xl font-bold text-[#E6EDF3] mb-2">
+            <h1 className="text-3xl font-bold text-industrial-text mb-2">
               Gain-Share Console
             </h1>
             <p className="text-slate-400">
@@ -134,13 +134,13 @@ export function GainShareConsole() {
         </div>
 
         {/* Info Card */}
-        <div className="bg-gradient-to-r from-teal-50 to-blue-50 rounded-xl border border-teal-200 p-6 mb-6">
-          <h2 className="text-lg font-semibold text-[#E6EDF3] mb-3">
+        <div className="bg-linear-to-r from-teal-50 to-blue-50 rounded-xl border border-teal-200 p-6 mb-6">
+          <h2 className="text-lg font-semibold text-industrial-text mb-3">
             How Gain-Share Works
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
             <div>
-              <div className="font-semibold text-[#E6EDF3] mb-1">
+              <div className="font-semibold text-industrial-text mb-1">
                 1. Baseline Metrics
               </div>
               <p className="text-slate-300">
@@ -149,7 +149,7 @@ export function GainShareConsole() {
               </p>
             </div>
             <div>
-              <div className="font-semibold text-[#E6EDF3] mb-1">
+              <div className="font-semibold text-industrial-text mb-1">
                 2. Measure Improvements
               </div>
               <p className="text-slate-300">
@@ -158,7 +158,7 @@ export function GainShareConsole() {
               </p>
             </div>
             <div>
-              <div className="font-semibold text-[#E6EDF3] mb-1">
+              <div className="font-semibold text-industrial-text mb-1">
                 3. Share Savings
               </div>
               <p className="text-slate-300">
@@ -170,8 +170,8 @@ export function GainShareConsole() {
 
         {/* Create Form */}
         {showCreateForm && (
-          <div className="bg-[#11161D] rounded-xl border border-[#232A33] p-6 mb-6">
-            <h2 className="text-lg font-semibold text-[#E6EDF3] mb-4">
+          <div className="bg-industrial-graphite rounded-xl border border-industrial-border p-6 mb-6">
+            <h2 className="text-lg font-semibold text-industrial-text mb-4">
               New Gain-Share Calculation
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -185,7 +185,7 @@ export function GainShareConsole() {
                   onChange={(e) =>
                     setFormData({ ...formData, period_start: e.target.value })
                   }
-                  className="w-full px-4 py-2 border border-[#232A33] rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  className="w-full px-4 py-2 border border-industrial-border rounded-lg focus:outline-hidden focus:ring-2 focus:ring-teal-500"
                 />
               </div>
               <div>
@@ -198,7 +198,7 @@ export function GainShareConsole() {
                   onChange={(e) =>
                     setFormData({ ...formData, period_end: e.target.value })
                   }
-                  className="w-full px-4 py-2 border border-[#232A33] rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  className="w-full px-4 py-2 border border-industrial-border rounded-lg focus:outline-hidden focus:ring-2 focus:ring-teal-500"
                 />
               </div>
               <div>
@@ -217,7 +217,7 @@ export function GainShareConsole() {
                       share_pct: parseFloat(e.target.value),
                     })
                   }
-                  className="w-full px-4 py-2 border border-[#232A33] rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  className="w-full px-4 py-2 border border-industrial-border rounded-lg focus:outline-hidden focus:ring-2 focus:ring-teal-500"
                 />
               </div>
             </div>
@@ -234,9 +234,9 @@ export function GainShareConsole() {
 
         {/* Runs List */}
         {runs.length === 0 ? (
-          <div className="bg-[#11161D] rounded-xl border border-[#232A33] p-12 text-center">
+          <div className="bg-industrial-graphite rounded-xl border border-industrial-border p-12 text-center">
             <TrendingUp className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-            <h2 className="text-xl font-semibold text-[#E6EDF3] mb-2">
+            <h2 className="text-xl font-semibold text-industrial-text mb-2">
               No Gain-Share Calculations Yet
             </h2>
             <p className="text-slate-400">
@@ -248,12 +248,12 @@ export function GainShareConsole() {
             {runs.map((run) => (
               <div
                 key={run.id}
-                className="bg-[#11161D] rounded-xl border border-[#232A33] p-6"
+                className="bg-industrial-graphite rounded-xl border border-industrial-border p-6"
               >
                 <div className="flex items-start justify-between mb-4">
                   <div>
                     <div className="flex items-center gap-3 mb-2">
-                      <h3 className="text-lg font-semibold text-[#E6EDF3]">
+                      <h3 className="text-lg font-semibold text-industrial-text">
                         {new Date(run.period_start).toLocaleDateString()} -{" "}
                         {new Date(run.period_end).toLocaleDateString()}
                       </h3>
@@ -268,7 +268,7 @@ export function GainShareConsole() {
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="text-3xl font-bold text-[#E6EDF3]">
+                    <div className="text-3xl font-bold text-industrial-text">
                       ${run.fee_cad.toLocaleString()}
                     </div>
                     <div className="text-sm text-slate-400">
@@ -278,29 +278,29 @@ export function GainShareConsole() {
                 </div>
 
                 <div className="grid grid-cols-3 gap-4 mb-4">
-                  <div className="bg-[#0B0F14] rounded-lg p-4">
+                  <div className="bg-industrial-black rounded-lg p-4">
                     <DollarSign className="w-5 h-5 text-teal-600 mb-2" />
-                    <div className="text-2xl font-bold text-[#E6EDF3]">
+                    <div className="text-2xl font-bold text-industrial-text">
                       ${run.calculated_savings_cad.toLocaleString()}
                     </div>
                     <div className="text-xs text-slate-400">Total Savings</div>
                   </div>
-                  <div className="bg-[#0B0F14] rounded-lg p-4">
+                  <div className="bg-industrial-black rounded-lg p-4">
                     <TrendingUp className="w-5 h-5 text-teal-600 mb-2" />
-                    <div className="text-2xl font-bold text-[#E6EDF3]">
+                    <div className="text-2xl font-bold text-industrial-text">
                       {run.share_pct}%
                     </div>
                     <div className="text-xs text-slate-400">
                       Share Percentage
                     </div>
                   </div>
-                  <div className="bg-[#0B0F14] rounded-lg p-4">
+                  <div className="bg-industrial-black rounded-lg p-4">
                     {run.status === "approved" ? (
                       <CheckCircle className="w-5 h-5 text-green-600 mb-2" />
                     ) : (
                       <Clock className="w-5 h-5 text-yellow-600 mb-2" />
                     )}
-                    <div className="text-lg font-bold text-[#E6EDF3]">
+                    <div className="text-lg font-bold text-industrial-text">
                       {run.status === "approved" ? "Approved" : "Pending"}
                     </div>
                     <div className="text-xs text-slate-400">Status</div>
@@ -308,8 +308,8 @@ export function GainShareConsole() {
                 </div>
 
                 {run.report?.savings_breakdown && (
-                  <div className="pt-4 border-t border-[#232A33]">
-                    <h4 className="font-semibold text-[#E6EDF3] mb-3 text-sm">
+                  <div className="pt-4 border-t border-industrial-border">
+                    <h4 className="font-semibold text-industrial-text mb-3 text-sm">
                       Savings Breakdown
                     </h4>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
@@ -317,9 +317,9 @@ export function GainShareConsole() {
                         ([key, value]: [string, any]) => (
                           <div
                             key={key}
-                            className="border border-[#232A33] rounded-lg p-3"
+                            className="border border-industrial-border rounded-lg p-3"
                           >
-                            <div className="font-medium text-[#E6EDF3] mb-1 capitalize">
+                            <div className="font-medium text-industrial-text mb-1 capitalize">
                               {key.replace("_", " ")}
                             </div>
                             <div className="text-teal-600 font-semibold">

@@ -125,7 +125,9 @@ export function AssetDetailPage() {
         </button>
         <div className="flex items-start justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-[#E6EDF3]">{asset.name}</h1>
+            <h1 className="text-2xl font-bold text-industrial-text">
+              {asset.name}
+            </h1>
             <div className="flex items-center gap-3 mt-1 text-sm text-slate-400">
               {asset.asset_tag && (
                 <span className="flex items-center gap-1">
@@ -161,7 +163,7 @@ export function AssetDetailPage() {
       </div>
 
       {/* Tabs */}
-      <div className="border-b border-[#232A33]">
+      <div className="border-b border-industrial-border">
         <nav className="flex gap-6">
           {tabs.map((tab) => (
             <button
@@ -184,8 +186,8 @@ export function AssetDetailPage() {
       {activeTab === "overview" && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Asset Info */}
-          <div className="bg-[#11161D] border border-[#232A33] rounded-xl p-6">
-            <h2 className="text-lg font-semibold text-[#E6EDF3] mb-4">
+          <div className="bg-industrial-graphite border border-industrial-border rounded-xl p-6">
+            <h2 className="text-lg font-semibold text-industrial-text mb-4">
               Asset Information
             </h2>
             <dl className="space-y-3">
@@ -215,7 +217,7 @@ export function AssetDetailPage() {
                 .map(([label, value]) => (
                   <div key={String(label)} className="flex justify-between">
                     <dt className="text-sm text-slate-400">{label}</dt>
-                    <dd className="text-sm font-medium text-[#E6EDF3]">
+                    <dd className="text-sm font-medium text-industrial-text">
                       {value}
                     </dd>
                   </div>
@@ -226,11 +228,11 @@ export function AssetDetailPage() {
           {/* Quick Stats */}
           <div className="space-y-4">
             {latestHealth && (
-              <div className="bg-[#11161D] border border-[#232A33] rounded-xl p-6">
+              <div className="bg-industrial-graphite border border-industrial-border rounded-xl p-6">
                 <h3 className="text-sm font-medium text-slate-400 mb-2">
                   Latest Health Assessment
                 </h3>
-                <div className="text-3xl font-bold text-[#E6EDF3]">
+                <div className="text-3xl font-bold text-industrial-text">
                   {latestHealth.health_score}%
                 </div>
                 <div className="text-sm text-slate-400 mt-1">
@@ -253,13 +255,13 @@ export function AssetDetailPage() {
                 )}
               </div>
             )}
-            <div className="bg-[#11161D] border border-[#232A33] rounded-xl p-6">
+            <div className="bg-industrial-graphite border border-industrial-border rounded-xl p-6">
               <h3 className="text-sm font-medium text-slate-400 mb-2">
                 Work Order Summary
               </h3>
               <div className="grid grid-cols-3 gap-4 text-center">
                 <div>
-                  <div className="text-2xl font-bold text-[#E6EDF3]">
+                  <div className="text-2xl font-bold text-industrial-text">
                     {
                       workOrders.filter(
                         (w) =>
@@ -270,13 +272,13 @@ export function AssetDetailPage() {
                   <div className="text-xs text-slate-400">Open</div>
                 </div>
                 <div>
-                  <div className="text-2xl font-bold text-[#E6EDF3]">
+                  <div className="text-2xl font-bold text-industrial-text">
                     {workOrders.filter((w) => w.status === "completed").length}
                   </div>
                   <div className="text-xs text-slate-400">Completed</div>
                 </div>
                 <div>
-                  <div className="text-2xl font-bold text-[#E6EDF3]">
+                  <div className="text-2xl font-bold text-industrial-text">
                     {workOrders.length}
                   </div>
                   <div className="text-xs text-slate-400">Total</div>
@@ -288,8 +290,8 @@ export function AssetDetailPage() {
       )}
 
       {activeTab === "health" && (
-        <div className="bg-[#11161D] border border-[#232A33] rounded-xl p-6">
-          <h2 className="text-lg font-semibold text-[#E6EDF3] mb-4">
+        <div className="bg-industrial-graphite border border-industrial-border rounded-xl p-6">
+          <h2 className="text-lg font-semibold text-industrial-text mb-4">
             Health History
           </h2>
           {healthHistory.length === 0 ? (
@@ -301,7 +303,7 @@ export function AssetDetailPage() {
               {healthHistory.map((h, i) => (
                 <div
                   key={h.id || i}
-                  className="flex items-center justify-between p-3 bg-[#0B0F14] rounded-lg"
+                  className="flex items-center justify-between p-3 bg-industrial-black rounded-lg"
                 >
                   <div className="flex items-center gap-3">
                     <div
@@ -310,7 +312,7 @@ export function AssetDetailPage() {
                       {h.health_score}
                     </div>
                     <div>
-                      <div className="text-sm font-medium text-[#E6EDF3]">
+                      <div className="text-sm font-medium text-industrial-text">
                         {new Date(
                           h.recorded_at || h.created_at,
                         ).toLocaleString()}
@@ -337,8 +339,8 @@ export function AssetDetailPage() {
       )}
 
       {activeTab === "work" && (
-        <div className="bg-[#11161D] border border-[#232A33] rounded-xl p-6">
-          <h2 className="text-lg font-semibold text-[#E6EDF3] mb-4">
+        <div className="bg-industrial-graphite border border-industrial-border rounded-xl p-6">
+          <h2 className="text-lg font-semibold text-industrial-text mb-4">
             Work Orders
           </h2>
           {workOrders.length === 0 ? (
@@ -348,7 +350,7 @@ export function AssetDetailPage() {
           ) : (
             <table className="w-full">
               <thead>
-                <tr className="text-left text-xs text-slate-400 border-b border-[#232A33]">
+                <tr className="text-left text-xs text-slate-400 border-b border-industrial-border">
                   <th className="pb-2">Title</th>
                   <th className="pb-2">Priority</th>
                   <th className="pb-2">Status</th>
@@ -359,10 +361,10 @@ export function AssetDetailPage() {
                 {workOrders.map((wo) => (
                   <tr
                     key={wo.id}
-                    className="border-b border-[#1A2030] hover:bg-[#0B0F14] cursor-pointer"
+                    className="border-b border-[#1A2030] hover:bg-industrial-black cursor-pointer"
                     onClick={() => navigate(`/work/${wo.id}`)}
                   >
-                    <td className="py-3 text-sm font-medium text-[#E6EDF3]">
+                    <td className="py-3 text-sm font-medium text-industrial-text">
                       {wo.title}
                     </td>
                     <td
@@ -389,8 +391,8 @@ export function AssetDetailPage() {
       )}
 
       {activeTab === "criticality" && (
-        <div className="bg-[#11161D] border border-[#232A33] rounded-xl p-6">
-          <h2 className="text-lg font-semibold text-[#E6EDF3] mb-4">
+        <div className="bg-industrial-graphite border border-industrial-border rounded-xl p-6">
+          <h2 className="text-lg font-semibold text-industrial-text mb-4">
             Criticality Assessment
           </h2>
           {!criticality ? (
@@ -400,11 +402,11 @@ export function AssetDetailPage() {
           ) : (
             <div>
               <div className="flex items-center gap-4 mb-6">
-                <div className="text-4xl font-bold text-[#E6EDF3]">
+                <div className="text-4xl font-bold text-industrial-text">
                   {criticality.total_criticality_score?.toFixed(1)}
                 </div>
                 <div>
-                  <div className="text-sm font-medium text-[#E6EDF3]">
+                  <div className="text-sm font-medium text-industrial-text">
                     Total Criticality Score
                   </div>
                   <div
@@ -430,10 +432,13 @@ export function AssetDetailPage() {
                 ]
                   .filter(([, val]) => val != null)
                   .map(([label, score, Icon]: any) => (
-                    <div key={label} className="bg-[#0B0F14] rounded-lg p-4">
+                    <div
+                      key={label}
+                      className="bg-industrial-black rounded-lg p-4"
+                    >
                       <Icon size={16} className="text-slate-400 mb-1" />
                       <div className="text-sm text-slate-400">{label}</div>
-                      <div className="text-xl font-bold text-[#E6EDF3]">
+                      <div className="text-xl font-bold text-industrial-text">
                         {score}
                       </div>
                     </div>

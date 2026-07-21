@@ -41,7 +41,7 @@ export class ErrorBoundary extends Component<Props, State> {
               <div className="w-14 h-14 bg-amber-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
                 <AlertTriangle className="w-7 h-7 text-amber-400" />
               </div>
-              <h2 className="text-lg font-semibold text-[#E6EDF3] mb-2">
+              <h2 className="text-lg font-semibold text-industrial-text mb-2">
                 This view hit an error
               </h2>
               <p className="text-sm text-slate-400 mb-2">
@@ -49,7 +49,7 @@ export class ErrorBoundary extends Component<Props, State> {
                 continue.
               </p>
               {this.state.error?.message && (
-                <p className="text-xs text-slate-400 mb-5 font-mono break-words">
+                <p className="text-xs text-slate-400 mb-5 font-mono wrap-break-word">
                   {this.state.error.message}
                 </p>
               )}
@@ -64,12 +64,12 @@ export class ErrorBoundary extends Component<Props, State> {
         );
       }
       return (
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 p-4">
-          <div className="bg-[#11161D] rounded-2xl shadow-xl p-8 max-w-md text-center">
+        <div className="min-h-screen flex items-center justify-center bg-linear-to-br from-gray-50 to-gray-100 p-4">
+          <div className="bg-industrial-graphite rounded-2xl shadow-xl p-8 max-w-md text-center">
             <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
               <AlertTriangle className="w-8 h-8 text-red-600" />
             </div>
-            <h1 className="text-2xl font-bold text-[#E6EDF3] mb-2">
+            <h1 className="text-2xl font-bold text-industrial-text mb-2">
               Something went wrong
             </h1>
             <p className="text-slate-400 mb-6">

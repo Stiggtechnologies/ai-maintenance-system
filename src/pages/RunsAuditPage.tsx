@@ -250,23 +250,18 @@ export function RunsAuditPage() {
   if (selectedRun) {
     const display = deriveDisplayStatus(selectedRun);
     const decision = auditChain?.decisions?.[0] as
-      | Record<string, unknown>
-      | undefined;
+      Record<string, unknown> | undefined;
     const approval = auditChain?.approvals?.[0] as
-      | Record<string, unknown>
-      | undefined;
+      Record<string, unknown> | undefined;
     const action = auditChain?.actions?.[0] as
-      | Record<string, unknown>
-      | undefined;
+      Record<string, unknown> | undefined;
     const intelligenceRun = auditChain?.intelligence_runs?.[0] as
-      | Record<string, unknown>
-      | undefined;
+      Record<string, unknown> | undefined;
 
     // Extract decision_data for evidence/summary
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- decision_data is untyped jsonb
     const decisionData = (decision as any)?.decision_data as
-      | Record<string, unknown>
-      | undefined;
+      Record<string, unknown> | undefined;
 
     return (
       <div className="space-y-6">
@@ -281,10 +276,10 @@ export function RunsAuditPage() {
         </button>
 
         {/* Header */}
-        <div className="glass border border-white/[0.06] rounded-xl p-6">
+        <div className="glass border border-white/6 rounded-xl p-6">
           <div className="flex items-center gap-3 mb-3">
             <Sparkles size={20} className="text-blue-600" />
-            <h1 className="text-xl font-bold text-[#E6EDF3]">
+            <h1 className="text-xl font-bold text-industrial-text">
               {taskLabel(selectedRun.decision_type)}
             </h1>
             <span
@@ -319,7 +314,7 @@ export function RunsAuditPage() {
           <>
             {/* Summary + Confidence */}
             {decisionData && (
-              <div className="glass border border-white/[0.06] rounded-xl p-6">
+              <div className="glass border border-white/6 rounded-xl p-6">
                 <h2 className="text-sm font-semibold text-slate-400 uppercase tracking-wide mb-3">
                   Decision Summary
                 </h2>
@@ -334,7 +329,7 @@ export function RunsAuditPage() {
                   </span>
                   {typeof decisionData.risk_level === "string" && (
                     <span
-                      className={`px-2 py-0.5 text-xs font-medium rounded ${riskColor(decisionData.risk_level as string)}`}
+                      className={`px-2 py-0.5 text-xs font-medium rounded-sm ${riskColor(decisionData.risk_level as string)}`}
                     >
                       Risk: {taskLabel(String(decisionData.risk_level))}
                     </span>
@@ -348,7 +343,7 @@ export function RunsAuditPage() {
               Array.isArray(decisionData.evidence) &&
               (decisionData.evidence as Array<Record<string, unknown>>).length >
                 0 && (
-                <div className="glass border border-white/[0.06] rounded-xl p-6">
+                <div className="glass border border-white/6 rounded-xl p-6">
                   <h2 className="text-sm font-semibold text-slate-400 uppercase tracking-wide mb-3">
                     Evidence
                   </h2>
@@ -358,9 +353,9 @@ export function RunsAuditPage() {
                     ).map((e, i) => (
                       <div
                         key={i}
-                        className="flex items-start gap-3 p-2 bg-[#0B0F14] rounded"
+                        className="flex items-start gap-3 p-2 bg-industrial-black rounded-sm"
                       >
-                        <span className="px-1.5 py-0.5 text-xs bg-slate-200 text-slate-400 rounded font-mono whitespace-nowrap">
+                        <span className="px-1.5 py-0.5 text-xs bg-slate-200 text-slate-400 rounded-sm font-mono whitespace-nowrap">
                           {e.source_type}
                         </span>
                         <span className="text-sm text-slate-400">{e.note}</span>
@@ -371,7 +366,7 @@ export function RunsAuditPage() {
               )}
 
             {/* Approval Trail */}
-            <div className="glass border border-white/[0.06] rounded-xl p-6">
+            <div className="glass border border-white/6 rounded-xl p-6">
               <h2 className="text-sm font-semibold text-slate-400 uppercase tracking-wide mb-3">
                 Governance Trail
               </h2>
@@ -418,7 +413,7 @@ export function RunsAuditPage() {
 
             {/* Execution Result */}
             {action && (action as Record<string, unknown>).execution_result && (
-              <div className="glass border border-white/[0.06] rounded-xl p-6">
+              <div className="glass border border-white/6 rounded-xl p-6">
                 <h2 className="text-sm font-semibold text-slate-400 uppercase tracking-wide mb-3">
                   Execution Result
                 </h2>
@@ -433,7 +428,7 @@ export function RunsAuditPage() {
                         ) : (
                           <XCircle size={16} className="text-red-600" />
                         )}
-                        <span className="text-sm font-medium text-[#E6EDF3]">
+                        <span className="text-sm font-medium text-industrial-text">
                           {result.message as string}
                         </span>
                       </div>
@@ -484,27 +479,29 @@ export function RunsAuditPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-[#E6EDF3]">Governed Runs</h1>
+        <h1 className="text-2xl font-bold text-industrial-text">
+          Governed Runs
+        </h1>
         <p className="text-slate-400 mt-1">
           Intelligence decisions, approvals, and executions across the platform
         </p>
       </div>
 
       {/* Quick Action Options */}
-      <div className="bg-gradient-to-r from-blue-50 to-slate-50 border border-blue-200 rounded-xl p-6">
+      <div className="bg-linear-to-r from-blue-50 to-slate-50 border border-blue-200 rounded-xl p-6">
         <h2 className="text-sm font-semibold text-slate-400 uppercase tracking-wide mb-4">
           Start New Governed Workflow
         </h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <a
             href="/work-dashboard"
-            className="flex items-start gap-3 p-3 bg-[#11161D] rounded-lg border border-[#232A33] hover:border-teal-500/30 hover:bg-[#161C24] transition-colors"
+            className="flex items-start gap-3 p-3 bg-industrial-graphite rounded-lg border border-industrial-border hover:border-teal-500/30 hover:bg-industrial-slate transition-colors"
           >
-            <div className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-100 text-blue-700 font-semibold text-sm flex-shrink-0">
+            <div className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-100 text-blue-700 font-semibold text-sm shrink-0">
               1
             </div>
             <div>
-              <div className="font-medium text-sm text-[#E6EDF3]">
+              <div className="font-medium text-sm text-industrial-text">
                 Select Work Order
               </div>
               <div className="text-xs text-slate-400">
@@ -515,13 +512,13 @@ export function RunsAuditPage() {
 
           <a
             href="/work-dashboard"
-            className="flex items-start gap-3 p-3 bg-[#11161D] rounded-lg border border-[#232A33] hover:border-teal-500/30 hover:bg-[#161C24] transition-colors"
+            className="flex items-start gap-3 p-3 bg-industrial-graphite rounded-lg border border-industrial-border hover:border-teal-500/30 hover:bg-industrial-slate transition-colors"
           >
-            <div className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-100 text-blue-700 font-semibold text-sm flex-shrink-0">
+            <div className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-100 text-blue-700 font-semibold text-sm shrink-0">
               2
             </div>
             <div>
-              <div className="font-medium text-sm text-[#E6EDF3]">
+              <div className="font-medium text-sm text-industrial-text">
                 Draft Assessment
               </div>
               <div className="text-xs text-slate-400">
@@ -532,13 +529,13 @@ export function RunsAuditPage() {
 
           <a
             href="/work-dashboard"
-            className="flex items-start gap-3 p-3 bg-[#11161D] rounded-lg border border-[#232A33] hover:border-teal-500/30 hover:bg-[#161C24] transition-colors"
+            className="flex items-start gap-3 p-3 bg-industrial-graphite rounded-lg border border-industrial-border hover:border-teal-500/30 hover:bg-industrial-slate transition-colors"
           >
-            <div className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-100 text-blue-700 font-semibold text-sm flex-shrink-0">
+            <div className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-100 text-blue-700 font-semibold text-sm shrink-0">
               3
             </div>
             <div>
-              <div className="font-medium text-sm text-[#E6EDF3]">
+              <div className="font-medium text-sm text-industrial-text">
                 Review & Approve
               </div>
               <div className="text-xs text-slate-400">
@@ -549,13 +546,13 @@ export function RunsAuditPage() {
 
           <a
             href="/work-dashboard"
-            className="flex items-start gap-3 p-3 bg-[#11161D] rounded-lg border border-[#232A33] hover:border-teal-500/30 hover:bg-[#161C24] transition-colors"
+            className="flex items-start gap-3 p-3 bg-industrial-graphite rounded-lg border border-industrial-border hover:border-teal-500/30 hover:bg-industrial-slate transition-colors"
           >
-            <div className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-100 text-blue-700 font-semibold text-sm flex-shrink-0">
+            <div className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-100 text-blue-700 font-semibold text-sm shrink-0">
               4
             </div>
             <div>
-              <div className="font-medium text-sm text-[#E6EDF3]">
+              <div className="font-medium text-sm text-industrial-text">
                 Execute Action
               </div>
               <div className="text-xs text-slate-400">
@@ -578,7 +575,7 @@ export function RunsAuditPage() {
             placeholder="Search by type, correlation, WO, asset..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           />
         </div>
         <div className="flex items-center gap-1.5">
@@ -586,7 +583,7 @@ export function RunsAuditPage() {
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="text-sm border border-slate-200 rounded-lg px-2 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="text-sm border border-slate-200 rounded-lg px-2 py-2 focus:outline-hidden focus:ring-2 focus:ring-blue-500"
           >
             <option value="all">All statuses</option>
             <option value="pending">Pending</option>
@@ -596,7 +593,7 @@ export function RunsAuditPage() {
           <select
             value={capabilityFilter}
             onChange={(e) => setCapabilityFilter(e.target.value)}
-            className="text-sm border border-slate-200 rounded-lg px-2 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="text-sm border border-slate-200 rounded-lg px-2 py-2 focus:outline-hidden focus:ring-2 focus:ring-blue-500"
           >
             <option value="all">All capabilities</option>
             <option value="reliability_recommendation">
@@ -610,7 +607,7 @@ export function RunsAuditPage() {
       </div>
 
       {/* Runs table */}
-      <div className="glass border border-white/[0.06] rounded-xl overflow-hidden">
+      <div className="glass border border-white/6 rounded-xl overflow-hidden">
         {loading ? (
           <div className="flex items-center justify-center py-16">
             <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
@@ -622,7 +619,7 @@ export function RunsAuditPage() {
         ) : (
           <table className="w-full">
             <thead>
-              <tr className="border-b border-slate-200 bg-[#0B0F14]">
+              <tr className="border-b border-slate-200 bg-industrial-black">
                 <th className="text-left py-3 px-4 text-xs font-semibold text-slate-400 uppercase">
                   Time
                 </th>
@@ -651,7 +648,7 @@ export function RunsAuditPage() {
                   <tr
                     key={run.id}
                     onClick={() => handleSelectRun(run)}
-                    className={`border-b border-slate-100 hover:bg-[#0B0F14] cursor-pointer transition-colors ${
+                    className={`border-b border-slate-100 hover:bg-industrial-black cursor-pointer transition-colors ${
                       display === "Failed" ? "bg-red-50/30" : ""
                     }`}
                   >
@@ -659,7 +656,7 @@ export function RunsAuditPage() {
                       {formatTime(run.created_at)}
                     </td>
                     <td className="py-3 px-4">
-                      <span className="text-sm font-medium text-[#E6EDF3]">
+                      <span className="text-sm font-medium text-industrial-text">
                         {taskLabel(run.decision_type)}
                       </span>
                     </td>
@@ -718,7 +715,7 @@ function TrailStep({
   const isBad = status === "failed" || status === "error";
 
   return (
-    <div className="flex items-start gap-3 p-3 bg-[#0B0F14] rounded-lg">
+    <div className="flex items-start gap-3 p-3 bg-industrial-black rounded-lg">
       <div className="mt-0.5">
         {isGood ? (
           <CheckCircle size={16} className="text-green-500" />
@@ -729,7 +726,7 @@ function TrailStep({
         )}
       </div>
       <div className="flex-1 min-w-0">
-        <div className="text-sm font-medium text-[#E6EDF3]">{label}</div>
+        <div className="text-sm font-medium text-industrial-text">{label}</div>
         <div className="text-xs text-slate-400">{detail}</div>
         <div className="flex items-center gap-3 mt-1 text-xs text-slate-400">
           {time && <span>{formatTime(time)}</span>}
@@ -739,7 +736,7 @@ function TrailStep({
             </span>
           )}
           <span
-            className={`px-1.5 py-0.5 rounded text-xs ${isGood ? "bg-green-100 text-green-700" : isBad ? "bg-red-100 text-red-700" : "bg-yellow-100 text-yellow-700"}`}
+            className={`px-1.5 py-0.5 rounded-sm text-xs ${isGood ? "bg-green-100 text-green-700" : isBad ? "bg-red-100 text-red-700" : "bg-yellow-100 text-yellow-700"}`}
           >
             {status}
           </span>

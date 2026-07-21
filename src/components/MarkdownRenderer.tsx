@@ -18,7 +18,7 @@ function renderMarkdown(content: string): string {
   // Inline code
   html = html.replace(
     /`(.+?)`/g,
-    '<code class="bg-[#1A2030] px-1 rounded text-sm">$1</code>',
+    '<code class="bg-[#1A2030] px-1 rounded-sm text-sm">$1</code>',
   );
   // Headers
   html = html.replace(

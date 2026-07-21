@@ -124,7 +124,7 @@ export function OperationalDashboard() {
       case "info":
         return "bg-blue-100 text-blue-700 border-blue-300";
       default:
-        return "bg-[#161C24] text-slate-300 border-gray-300";
+        return "bg-industrial-slate text-slate-300 border-gray-300";
     }
   };
 
@@ -158,16 +158,16 @@ export function OperationalDashboard() {
 
   if (selectedWorkOrder) {
     return (
-      <div className="h-full overflow-auto bg-[#0B0F14]">
+      <div className="h-full overflow-auto bg-industrial-black">
         <div className="max-w-4xl mx-auto p-6">
-          <div className="bg-[#11161D] rounded-xl border border-[#232A33] p-6">
+          <div className="bg-industrial-graphite rounded-xl border border-industrial-border p-6">
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold text-[#E6EDF3]">
+              <h2 className="text-2xl font-bold text-industrial-text">
                 {selectedWorkOrder.title}
               </h2>
               <button
                 onClick={() => setSelectedWorkOrder(null)}
-                className="px-4 py-2 text-slate-400 hover:text-[#E6EDF3]"
+                className="px-4 py-2 text-slate-400 hover:text-industrial-text"
               >
                 Back to List
               </button>
@@ -175,7 +175,7 @@ export function OperationalDashboard() {
 
             <div className="mb-6">
               <div className="text-sm text-gray-500 mb-2">Asset</div>
-              <div className="text-lg font-medium text-[#E6EDF3]">
+              <div className="text-lg font-medium text-industrial-text">
                 {selectedWorkOrder.asset_name || "N/A"}
               </div>
             </div>
@@ -188,57 +188,57 @@ export function OperationalDashboard() {
             </div>
 
             <div className="space-y-4 mb-6">
-              <div className="text-sm font-medium text-[#E6EDF3] mb-3">
+              <div className="text-sm font-medium text-industrial-text mb-3">
                 Task Checklist
               </div>
 
-              <label className="flex items-center gap-3 p-4 border border-[#232A33] rounded-lg hover:bg-[#0B0F14] cursor-pointer">
+              <label className="flex items-center gap-3 p-4 border border-industrial-border rounded-lg hover:bg-industrial-black cursor-pointer">
                 <input
                   type="checkbox"
-                  className="w-5 h-5 text-teal-600 rounded"
+                  className="w-5 h-5 text-teal-600 rounded-sm"
                 />
                 <span className="text-slate-300">
                   Inspect equipment condition
                 </span>
               </label>
 
-              <label className="flex items-center gap-3 p-4 border border-[#232A33] rounded-lg hover:bg-[#0B0F14] cursor-pointer">
+              <label className="flex items-center gap-3 p-4 border border-industrial-border rounded-lg hover:bg-industrial-black cursor-pointer">
                 <input
                   type="checkbox"
-                  className="w-5 h-5 text-teal-600 rounded"
+                  className="w-5 h-5 text-teal-600 rounded-sm"
                 />
                 <span className="text-slate-300">Check safety systems</span>
               </label>
 
-              <label className="flex items-center gap-3 p-4 border border-[#232A33] rounded-lg hover:bg-[#0B0F14] cursor-pointer">
+              <label className="flex items-center gap-3 p-4 border border-industrial-border rounded-lg hover:bg-industrial-black cursor-pointer">
                 <input
                   type="checkbox"
-                  className="w-5 h-5 text-teal-600 rounded"
+                  className="w-5 h-5 text-teal-600 rounded-sm"
                 />
                 <span className="text-slate-300">
                   Perform maintenance tasks
                 </span>
               </label>
 
-              <label className="flex items-center gap-3 p-4 border border-[#232A33] rounded-lg hover:bg-[#0B0F14] cursor-pointer">
+              <label className="flex items-center gap-3 p-4 border border-industrial-border rounded-lg hover:bg-industrial-black cursor-pointer">
                 <input
                   type="checkbox"
-                  className="w-5 h-5 text-teal-600 rounded"
+                  className="w-5 h-5 text-teal-600 rounded-sm"
                 />
                 <span className="text-slate-300">Document findings</span>
               </label>
             </div>
 
             <div className="mb-6">
-              <div className="text-sm font-medium text-[#E6EDF3] mb-3">
+              <div className="text-sm font-medium text-industrial-text mb-3">
                 Add Documentation
               </div>
               <div className="flex gap-3">
-                <button className="flex items-center gap-2 px-4 py-3 border border-[#232A33] rounded-lg hover:bg-[#0B0F14]">
+                <button className="flex items-center gap-2 px-4 py-3 border border-industrial-border rounded-lg hover:bg-industrial-black">
                   <Camera className="w-5 h-5 text-slate-400" />
                   <span className="text-sm">Add Photo</span>
                 </button>
-                <button className="flex items-center gap-2 px-4 py-3 border border-[#232A33] rounded-lg hover:bg-[#0B0F14]">
+                <button className="flex items-center gap-2 px-4 py-3 border border-industrial-border rounded-lg hover:bg-industrial-black">
                   <Mic className="w-5 h-5 text-slate-400" />
                   <span className="text-sm">Voice Note</span>
                 </button>
@@ -246,12 +246,12 @@ export function OperationalDashboard() {
             </div>
 
             <div className="mb-6">
-              <label className="block text-sm font-medium text-[#E6EDF3] mb-2">
+              <label className="block text-sm font-medium text-industrial-text mb-2">
                 Work Notes
               </label>
               <textarea
                 rows={4}
-                className="w-full px-4 py-3 border border-[#232A33] rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                className="w-full px-4 py-3 border border-industrial-border rounded-lg focus:outline-hidden focus:ring-2 focus:ring-teal-500"
                 placeholder="Add any notes about the work performed..."
               />
             </div>
@@ -270,10 +270,10 @@ export function OperationalDashboard() {
   }
 
   return (
-    <div className="h-full overflow-auto bg-[#0B0F14]">
+    <div className="h-full overflow-auto bg-industrial-black">
       <div className="max-w-7xl mx-auto p-6">
         <div className="mb-6">
-          <h1 className="text-3xl font-bold text-[#E6EDF3] mb-2">
+          <h1 className="text-3xl font-bold text-industrial-text mb-2">
             Operational Dashboard
           </h1>
           <p className="text-slate-400">
@@ -282,9 +282,9 @@ export function OperationalDashboard() {
         </div>
 
         <div className="grid grid-cols-3 gap-4 mb-6">
-          <div className="bg-[#11161D] rounded-xl p-5 border border-[#232A33]">
+          <div className="bg-industrial-graphite rounded-xl p-5 border border-industrial-border">
             <Wrench className="w-8 h-8 text-teal-600 mb-2" />
-            <div className="text-2xl font-bold text-[#E6EDF3]">
+            <div className="text-2xl font-bold text-industrial-text">
               {workOrders.length}
             </div>
             <div className="text-sm text-slate-400">My Work Orders</div>
@@ -311,8 +311,8 @@ export function OperationalDashboard() {
           </div>
         </div>
 
-        <div className="bg-[#11161D] rounded-xl border border-[#232A33] p-6 mb-6">
-          <h2 className="text-lg font-semibold text-[#E6EDF3] mb-4 flex items-center gap-2">
+        <div className="bg-industrial-graphite rounded-xl border border-industrial-border p-6 mb-6">
+          <h2 className="text-lg font-semibold text-industrial-text mb-4 flex items-center gap-2">
             <Wrench className="w-5 h-5 text-teal-600" />
             My Tasks
           </h2>
@@ -325,14 +325,14 @@ export function OperationalDashboard() {
               workOrders.map((wo) => (
                 <div
                   key={wo.id}
-                  className="border border-[#232A33] rounded-lg p-4 hover:border-teal-300 transition-colors"
+                  className="border border-industrial-border rounded-lg p-4 hover:border-teal-300 transition-colors"
                 >
                   <div className="flex items-start gap-4">
                     <div className="mt-1">
                       {getPriorityIndicator(wo.priority)}
                     </div>
                     <div className="flex-1">
-                      <h3 className="font-medium text-[#E6EDF3] mb-1">
+                      <h3 className="font-medium text-industrial-text mb-1">
                         {wo.title}
                       </h3>
                       <p className="text-sm text-slate-400 mb-2">
@@ -364,8 +364,8 @@ export function OperationalDashboard() {
         </div>
 
         {alerts.length > 0 && (
-          <div className="bg-[#11161D] rounded-xl border border-[#232A33] p-6">
-            <h2 className="text-lg font-semibold text-[#E6EDF3] mb-4 flex items-center gap-2">
+          <div className="bg-industrial-graphite rounded-xl border border-industrial-border p-6">
+            <h2 className="text-lg font-semibold text-industrial-text mb-4 flex items-center gap-2">
               <AlertCircle className="w-5 h-5 text-red-600" />
               Active Alerts
             </h2>
@@ -373,7 +373,7 @@ export function OperationalDashboard() {
               {alerts.map((alert) => (
                 <div
                   key={alert.id}
-                  className="border border-[#232A33] rounded-lg p-4"
+                  className="border border-industrial-border rounded-lg p-4"
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex-1">

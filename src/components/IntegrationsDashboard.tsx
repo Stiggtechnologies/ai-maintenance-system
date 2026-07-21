@@ -202,16 +202,16 @@ function IntegrationCard({ integration }: { integration: Integration }) {
       </div>
 
       <div className="flex gap-2">
-        <button className="flex-1 py-1.5 bg-[#2A3344] hover:bg-[#3A4354] rounded text-xs text-gray-300 flex items-center justify-center gap-1">
+        <button className="flex-1 py-1.5 bg-[#2A3344] hover:bg-[#3A4354] rounded-sm text-xs text-gray-300 flex items-center justify-center gap-1">
           <Settings className="w-3 h-3" />
           Configure
         </button>
         {integration.status === "connected" ? (
-          <button className="px-3 py-1.5 bg-[#2A3344] hover:bg-[#3A4354] rounded text-gray-300">
+          <button className="px-3 py-1.5 bg-[#2A3344] hover:bg-[#3A4354] rounded-sm text-gray-300">
             <RefreshCw className="w-3 h-3" />
           </button>
         ) : (
-          <button className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 rounded text-white text-xs">
+          <button className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 rounded-sm text-white text-xs">
             Connect
           </button>
         )}

@@ -399,8 +399,7 @@ async function loadReadiness(): Promise<ReadinessData> {
         action: r.action ?? r.issue ?? "Review recommendation",
         owner: r.accountable ?? "Unassigned",
         urgency: (r.urgency === "critical" ? "red" : "amber") as
-          | "red"
-          | "amber",
+          "red" | "amber",
       })),
     ...blockedWOs.map((w) => ({
       issue: `Work order ${w.wo_number ?? ""} blocked — ${w.title}`,
@@ -479,13 +478,13 @@ function ReadinessCard({ area }: { area: ReadinessArea }) {
   return (
     <motion.div
       layout
-      className={`bg-[#0D1520] border border-white/[0.06] rounded-xl overflow-hidden cursor-pointer hover:border-white/[0.12] transition-colors`}
+      className={`bg-[#0D1520] border border-white/6 rounded-xl overflow-hidden cursor-pointer hover:border-white/12 transition-colors`}
       onClick={() => setExpanded(!expanded)}
     >
       <div className="p-4">
         <div className="flex items-center gap-3 mb-3">
           <div
-            className={`w-9 h-9 rounded-xl ${c.bg} flex items-center justify-center flex-shrink-0`}
+            className={`w-9 h-9 rounded-xl ${c.bg} flex items-center justify-center shrink-0`}
           >
             <Icon className={`w-4 h-4 ${c.text}`} />
           </div>
@@ -501,7 +500,7 @@ function ReadinessCard({ area }: { area: ReadinessArea }) {
               </span>
             </div>
             <div className="flex items-center gap-2 mt-1">
-              <div className="flex-1 h-1.5 bg-white/[0.05] rounded-full overflow-hidden">
+              <div className="flex-1 h-1.5 bg-white/5 rounded-full overflow-hidden">
                 <motion.div
                   initial={{ width: 0 }}
                   animate={{ width: `${area.score}%` }}
@@ -517,7 +516,7 @@ function ReadinessCard({ area }: { area: ReadinessArea }) {
         </div>
 
         {expanded && (
-          <div className="pt-3 border-t border-white/[0.05] space-y-2">
+          <div className="pt-3 border-t border-white/5 space-y-2">
             {area.items.map((item) => (
               <div
                 key={item.label}
@@ -623,7 +622,7 @@ export function ReadinessPage() {
       </div>
 
       {/* Readiness Gap Insights */}
-      <div className="bg-[#0D1520] border border-white/[0.06] rounded-2xl p-5">
+      <div className="bg-[#0D1520] border border-white/6 rounded-2xl p-5">
         <h3 className="text-sm font-semibold text-slate-200 mb-4 flex items-center gap-2">
           <Target className="w-4 h-4 text-teal-400" /> Readiness Gaps —
           Recommended Actions
@@ -638,7 +637,7 @@ export function ReadinessPage() {
                 className={`flex items-start gap-3 p-3 rounded-xl border ${gap.urgency === "red" ? "border-red-500/20 bg-red-500/5" : "border-amber-500/20 bg-amber-500/5"}`}
               >
                 <AlertTriangle
-                  className={`w-4 h-4 flex-shrink-0 mt-0.5 ${gap.urgency === "red" ? "text-red-400" : "text-amber-400"}`}
+                  className={`w-4 h-4 shrink-0 mt-0.5 ${gap.urgency === "red" ? "text-red-400" : "text-amber-400"}`}
                 />
                 <div className="flex-1">
                   <div className="text-xs font-semibold text-slate-200">
@@ -651,7 +650,7 @@ export function ReadinessPage() {
                     Owner: {gap.owner}
                   </div>
                 </div>
-                <button className="text-teal-400 hover:text-teal-300 text-xs flex items-center gap-1 flex-shrink-0">
+                <button className="text-teal-400 hover:text-teal-300 text-xs flex items-center gap-1 shrink-0">
                   Act <ChevronRight className="w-3 h-3" />
                 </button>
               </div>

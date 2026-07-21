@@ -162,7 +162,7 @@ function AssetHierarchyTree({
     return (
       <div key={node.id}>
         <div
-          className={`flex items-center gap-2 py-2 px-3 hover:bg-[#1E293B] cursor-pointer rounded`}
+          className={`flex items-center gap-2 py-2 px-3 hover:bg-[#1E293B] cursor-pointer rounded-sm`}
           style={{ paddingLeft: `${depth * 16 + 12}px` }}
           onClick={() => onSelect(node)}
         >
@@ -172,7 +172,7 @@ function AssetHierarchyTree({
                 e.stopPropagation();
                 toggle(node.id);
               }}
-              className="p-0.5 hover:bg-[#2A3344] rounded"
+              className="p-0.5 hover:bg-[#2A3344] rounded-sm"
             >
               {isExpanded ? (
                 <ChevronDown className="w-4 h-4 text-gray-500" />
@@ -257,13 +257,13 @@ function AIDecisionPanel({ insights }: { insights: AIInsight[] }) {
               </div>
             </div>
             <div className="flex gap-2 mt-3">
-              <button className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs rounded">
+              <button className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs rounded-sm">
                 Approve
               </button>
-              <button className="px-3 py-1.5 bg-[#2A3344] hover:bg-[#3A4354] text-gray-300 text-xs rounded">
+              <button className="px-3 py-1.5 bg-[#2A3344] hover:bg-[#3A4354] text-gray-300 text-xs rounded-sm">
                 Modify
               </button>
-              <button className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs rounded">
+              <button className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs rounded-sm">
                 Execute
               </button>
             </div>
@@ -354,7 +354,7 @@ function EventFeed({
           <Activity className="w-4 h-4 text-purple-400" />
           EVENTS
         </h3>
-        <button className="p-1 hover:bg-[#2A3344] rounded">
+        <button className="p-1 hover:bg-[#2A3344] rounded-sm">
           <RefreshCw className="w-4 h-4 text-gray-500" />
         </button>
       </div>
@@ -407,7 +407,7 @@ function AgentStatusPanel({ agents }: { agents: AgentStatus[] }) {
         {agents.map((agent) => (
           <div
             key={agent.name}
-            className="p-2 bg-[#1A1F2E] rounded border border-[#2A3344]"
+            className="p-2 bg-[#1A1F2E] rounded-sm border border-[#2A3344]"
           >
             <div className="flex items-center gap-2 mb-1">
               <span
@@ -703,7 +703,7 @@ export function CommandCenterDashboard() {
   return (
     <div className="min-h-screen bg-[#0D1117] text-white">
       {/* Global KPI Bar */}
-      <div className="border-b border-[#232A33] p-4">
+      <div className="border-b border-industrial-border p-4">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-4">
             <h1 className="text-xl font-bold text-white flex items-center gap-2">
@@ -718,7 +718,7 @@ export function CommandCenterDashboard() {
               <input
                 type="text"
                 placeholder="Search assets, work orders, ask SyncAI..."
-                className="bg-[#1A1F2E] border border-[#2A3344] rounded-lg pl-10 pr-4 py-2 text-sm w-80 focus:border-blue-500 focus:outline-none"
+                className="bg-[#1A1F2E] border border-[#2A3344] rounded-lg pl-10 pr-4 py-2 text-sm w-80 focus:border-blue-500 focus:outline-hidden"
               />
             </div>
           </div>
@@ -738,13 +738,13 @@ export function CommandCenterDashboard() {
         style={{ minHeight: "calc(100vh - 200px)" }}
       >
         {/* Zone 1: Asset Health Map (Left, 4 cols) */}
-        <div className="col-span-4 bg-[#11161D] rounded-lg border border-[#232A33] p-4">
+        <div className="col-span-4 bg-industrial-graphite rounded-lg border border-industrial-border p-4">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-semibold text-gray-300 flex items-center gap-2">
               <Activity className="w-4 h-4 text-emerald-400" />
               ASSET HEALTH MAP
             </h3>
-            <button className="p-1 hover:bg-[#2A3344] rounded">
+            <button className="p-1 hover:bg-[#2A3344] rounded-sm">
               <Filter className="w-4 h-4 text-gray-500" />
             </button>
           </div>
@@ -755,29 +755,29 @@ export function CommandCenterDashboard() {
         </div>
 
         {/* Zone 2: AI Decision Panel (Right, 4 cols) */}
-        <div className="col-span-4 bg-[#11161D] rounded-lg border border-[#232A33] p-4">
+        <div className="col-span-4 bg-industrial-graphite rounded-lg border border-industrial-border p-4">
           <AIDecisionPanel insights={insights} />
         </div>
 
         {/* Zone 3: Maintenance Operations (Left-Bottom, 4 cols) */}
-        <div className="col-span-4 bg-[#11161D] rounded-lg border border-[#232A33] p-4">
+        <div className="col-span-4 bg-industrial-graphite rounded-lg border border-industrial-border p-4">
           <MaintenanceOperationsPanel workOrders={workOrders} />
         </div>
 
         {/* Row 2 */}
 
         {/* Zone 4: Event Feed (Left, 4 cols) */}
-        <div className="col-span-4 bg-[#11161D] rounded-lg border border-[#232A33] p-4">
+        <div className="col-span-4 bg-industrial-graphite rounded-lg border border-industrial-border p-4">
           <EventFeed events={events} />
         </div>
 
         {/* Agent Status Panel (Middle, 4 cols) */}
-        <div className="col-span-4 bg-[#11161D] rounded-lg border border-[#232A33] p-4">
+        <div className="col-span-4 bg-industrial-graphite rounded-lg border border-industrial-border p-4">
           <AgentStatusPanel agents={agents} />
         </div>
 
         {/* Financial Impact (Right, 4 cols) */}
-        <div className="col-span-4 bg-[#11161D] rounded-lg border border-[#232A33] p-4 flex flex-col justify-between">
+        <div className="col-span-4 bg-industrial-graphite rounded-lg border border-industrial-border p-4 flex flex-col justify-between">
           <FinancialImpactWidget savings={1200000} interventions={17} />
           <div className="mt-4">
             <div className="p-3 bg-[#1A1F2E] rounded-lg border border-[#2A3344]">

@@ -149,8 +149,7 @@ export function JavisDockInteractive() {
           content: data.content as string,
           tool_calls: data.tool_calls as Record<string, unknown>[] | undefined,
           pending_actions: data.pending_actions as
-            | Record<string, unknown>[]
-            | undefined,
+            Record<string, unknown>[] | undefined,
           citations: data.citations as Record<string, unknown>[] | undefined,
           timestamp: new Date(),
         };
@@ -369,7 +368,7 @@ export function JavisDockInteractive() {
     return (
       <button
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-6 right-6 w-16 h-16 bg-gradient-to-r from-teal-500 to-cyan-600 rounded-full shadow-lg hover:shadow-xl transition-shadow flex items-center justify-center text-white z-50"
+        className="fixed bottom-6 right-6 w-16 h-16 bg-linear-to-r from-teal-500 to-cyan-600 rounded-full shadow-lg hover:shadow-xl transition-shadow flex items-center justify-center text-white z-50"
         aria-label="Open J.A.V.I.S"
       >
         <MessageCircle className="w-7 h-7" />
@@ -384,12 +383,12 @@ export function JavisDockInteractive() {
 
   return (
     <div
-      className={`fixed bottom-6 right-6 bg-[#11161D] rounded-lg shadow-2xl border border-[#232A33] z-50 transition-all ${
+      className={`fixed bottom-6 right-6 bg-industrial-graphite rounded-lg shadow-2xl border border-industrial-border z-50 transition-all ${
         isMinimized ? "w-80 h-16" : "w-96 h-[600px]"
       }`}
     >
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-[#232A33] bg-gradient-to-r from-teal-50 to-cyan-50">
+      <div className="flex items-center justify-between p-4 border-b border-industrial-border bg-linear-to-r from-teal-50 to-cyan-50">
         <div className="flex items-center gap-2">
           <div
             className={`w-3 h-3 rounded-full animate-pulse ${wsConnected ? "bg-green-500" : "bg-red-500"}`}
@@ -402,7 +401,7 @@ export function JavisDockInteractive() {
         <div className="flex items-center gap-2">
           <button
             onClick={() => setVoiceEnabled(!voiceEnabled)}
-            className="p-2 hover:bg-[#161C24] rounded-lg transition-colors"
+            className="p-2 hover:bg-industrial-slate rounded-lg transition-colors"
             aria-label={voiceEnabled ? "Disable voice" : "Enable voice"}
           >
             {voiceEnabled ? (
@@ -413,7 +412,7 @@ export function JavisDockInteractive() {
           </button>
           <button
             onClick={() => setIsMinimized(!isMinimized)}
-            className="p-2 hover:bg-[#161C24] rounded-lg transition-colors"
+            className="p-2 hover:bg-industrial-slate rounded-lg transition-colors"
           >
             {isMinimized ? (
               <Maximize2 className="w-4 h-4 text-slate-400" />
@@ -423,7 +422,7 @@ export function JavisDockInteractive() {
           </button>
           <button
             onClick={() => setIsOpen(false)}
-            className="p-2 hover:bg-[#161C24] rounded-lg transition-colors"
+            className="p-2 hover:bg-industrial-slate rounded-lg transition-colors"
           >
             <X className="w-4 h-4 text-slate-400" />
           </button>
@@ -433,7 +432,7 @@ export function JavisDockInteractive() {
       {!isMinimized && (
         <>
           {/* Messages */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-4 h-[calc(600px-140px)]">
+          <div className="flex-1 overflow-y-auto p-4 space-y-4 h-[460px]">
             {greeting && (
               <div className="text-sm text-gray-500 italic mb-2">
                 {greeting}
@@ -451,7 +450,7 @@ export function JavisDockInteractive() {
                       ? "bg-teal-500 text-white"
                       : message.role === "system"
                         ? "bg-yellow-50 text-gray-800 border border-yellow-200"
-                        : "bg-[#161C24] text-gray-800"
+                        : "bg-industrial-slate text-gray-800"
                   }`}
                 >
                   <div className="text-sm whitespace-pre-wrap">
@@ -466,7 +465,7 @@ export function JavisDockInteractive() {
                           (action: Record<string, unknown>) => (
                             <div
                               key={String(action.id)}
-                              className="bg-[#11161D] rounded-lg p-3 border border-[#232A33]"
+                              className="bg-industrial-graphite rounded-lg p-3 border border-industrial-border"
                             >
                               <div className="flex items-start justify-between gap-2 mb-2">
                                 <div className="flex-1">
@@ -489,7 +488,7 @@ export function JavisDockInteractive() {
                                   onClick={() =>
                                     handleConfirmAction(String(action.id))
                                   }
-                                  className="flex-1 flex items-center justify-center gap-1 px-3 py-1.5 bg-green-500 text-white rounded text-xs font-medium hover:bg-green-600 transition-colors"
+                                  className="flex-1 flex items-center justify-center gap-1 px-3 py-1.5 bg-green-500 text-white rounded-sm text-xs font-medium hover:bg-green-600 transition-colors"
                                 >
                                   <Check className="w-3 h-3" />
                                   Confirm
@@ -498,7 +497,7 @@ export function JavisDockInteractive() {
                                   onClick={() =>
                                     handleRejectAction(String(action.id))
                                   }
-                                  className="flex-1 flex items-center justify-center gap-1 px-3 py-1.5 bg-red-500 text-white rounded text-xs font-medium hover:bg-red-600 transition-colors"
+                                  className="flex-1 flex items-center justify-center gap-1 px-3 py-1.5 bg-red-500 text-white rounded-sm text-xs font-medium hover:bg-red-600 transition-colors"
                                 >
                                   <XCircle className="w-3 h-3" />
                                   Cancel
@@ -519,7 +518,7 @@ export function JavisDockInteractive() {
 
             {isLoading && (
               <div className="flex justify-start">
-                <div className="bg-[#161C24] rounded-lg p-3">
+                <div className="bg-industrial-slate rounded-lg p-3">
                   <div className="flex gap-1">
                     <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
                     <div
@@ -539,7 +538,7 @@ export function JavisDockInteractive() {
           </div>
 
           {/* Input */}
-          <div className="p-4 border-t border-[#232A33]">
+          <div className="p-4 border-t border-industrial-border">
             <div className="flex gap-2">
               <input
                 type="text"
@@ -547,7 +546,7 @@ export function JavisDockInteractive() {
                 onChange={(e) => setInput(e.target.value)}
                 onKeyPress={(e) => e.key === "Enter" && handleSend()}
                 placeholder="Ask J.A.V.I.S..."
-                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 text-sm"
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-teal-500 text-sm"
                 disabled={isLoading || !wsConnected}
               />
               <button
@@ -555,7 +554,7 @@ export function JavisDockInteractive() {
                 className={`p-2 rounded-lg transition-colors ${
                   isListening
                     ? "bg-red-500 text-white"
-                    : "bg-[#161C24] text-slate-400 hover:bg-white/[0.06]"
+                    : "bg-industrial-slate text-slate-400 hover:bg-white/6"
                 }`}
                 disabled={!wsConnected}
                 aria-label={isListening ? "Stop listening" : "Start listening"}

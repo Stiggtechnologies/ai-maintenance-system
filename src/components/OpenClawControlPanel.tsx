@@ -148,7 +148,7 @@ export function OpenClawControlPanel() {
         <div className="flex gap-2">
           <button
             onClick={refresh}
-            className="flex items-center gap-2 px-3 py-2 text-sm bg-[#11161D]/10 border border-white/15 rounded-lg hover:bg-[#11161D]/20"
+            className="flex items-center gap-2 px-3 py-2 text-sm bg-industrial-graphite/10 border border-white/15 rounded-lg hover:bg-industrial-graphite/20"
           >
             <RefreshCw className="w-4 h-4" /> Refresh
           </button>
@@ -184,7 +184,7 @@ export function OpenClawControlPanel() {
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
               activeTab === tab
                 ? "bg-emerald-500 text-white"
-                : "bg-[#11161D]/10 text-white/80 hover:bg-[#11161D]/20"
+                : "bg-industrial-graphite/10 text-white/80 hover:bg-industrial-graphite/20"
             }`}
           >
             {tab.charAt(0).toUpperCase() + tab.slice(1)}
@@ -202,7 +202,7 @@ export function OpenClawControlPanel() {
       </div>
 
       {activeTab === "agents" && (
-        <div className="bg-[#11161D]/5 border border-white/10 rounded-2xl divide-y divide-white/10">
+        <div className="bg-industrial-graphite/5 border border-white/10 rounded-2xl divide-y divide-white/10">
           {agents.map((a) => (
             <div key={a.id} className="p-4">
               <div className="font-semibold text-white">{a.name}</div>
@@ -226,7 +226,7 @@ export function OpenClawControlPanel() {
       )}
 
       {activeTab === "sessions" && (
-        <div className="bg-[#11161D]/5 border border-white/10 rounded-2xl divide-y divide-white/10">
+        <div className="bg-industrial-graphite/5 border border-white/10 rounded-2xl divide-y divide-white/10">
           {sessions.map((s) => (
             <div key={s.id} className="p-4">
               <div className="font-semibold text-white">
@@ -247,7 +247,7 @@ export function OpenClawControlPanel() {
       )}
 
       {activeTab === "memory" && (
-        <div className="bg-[#11161D]/5 border border-white/10 rounded-2xl divide-y divide-white/10">
+        <div className="bg-industrial-graphite/5 border border-white/10 rounded-2xl divide-y divide-white/10">
           {memories.map((m) => (
             <div key={m.id} className="p-4">
               <div className="text-sm text-white">{m.content}</div>
@@ -265,7 +265,7 @@ export function OpenClawControlPanel() {
       )}
 
       {activeTab === "events" && (
-        <div className="bg-[#11161D]/5 border border-white/10 rounded-2xl divide-y divide-white/10">
+        <div className="bg-industrial-graphite/5 border border-white/10 rounded-2xl divide-y divide-white/10">
           {events.map((e) => (
             <div key={e.id} className="p-4">
               <div className="font-semibold text-white">
@@ -286,7 +286,7 @@ export function OpenClawControlPanel() {
       )}
 
       {activeTab === "tools" && (
-        <div className="bg-[#11161D]/5 border border-white/10 rounded-2xl divide-y divide-white/10">
+        <div className="bg-industrial-graphite/5 border border-white/10 rounded-2xl divide-y divide-white/10">
           {tools.map((t) => (
             <div key={t.id} className="p-4">
               <div className="font-semibold text-white">{t.name}</div>
@@ -304,7 +304,7 @@ export function OpenClawControlPanel() {
       )}
 
       {activeTab === "skills" && (
-        <div className="bg-[#11161D]/5 border border-white/10 rounded-2xl divide-y divide-white/10">
+        <div className="bg-industrial-graphite/5 border border-white/10 rounded-2xl divide-y divide-white/10">
           {skills.map((s) => (
             <div key={s.id} className="p-4">
               <div className="font-semibold text-white">{s.name}</div>
@@ -322,7 +322,7 @@ export function OpenClawControlPanel() {
       )}
 
       {activeTab === "queue" && (
-        <div className="bg-[#11161D]/5 border border-white/10 rounded-2xl divide-y divide-white/10">
+        <div className="bg-industrial-graphite/5 border border-white/10 rounded-2xl divide-y divide-white/10">
           {queue.map((q) => (
             <div key={q.id} className="p-4">
               <div className="font-semibold text-white">{q.queue_name}</div>
@@ -338,7 +338,7 @@ export function OpenClawControlPanel() {
       )}
 
       {activeTab === "notifications" && (
-        <div className="bg-[#11161D]/5 border border-white/10 rounded-2xl divide-y divide-white/10">
+        <div className="bg-industrial-graphite/5 border border-white/10 rounded-2xl divide-y divide-white/10">
           {notifications.map((n) => (
             <div key={n.id} className="p-4">
               <div className="font-semibold text-white">
@@ -354,7 +354,7 @@ export function OpenClawControlPanel() {
       )}
 
       {activeTab === "costs" && (
-        <div className="bg-[#11161D]/5 border border-white/10 rounded-2xl divide-y divide-white/10">
+        <div className="bg-industrial-graphite/5 border border-white/10 rounded-2xl divide-y divide-white/10">
           {costs.map((c) => (
             <div key={c.id} className="p-4">
               <div className="font-semibold text-white">
@@ -372,7 +372,7 @@ export function OpenClawControlPanel() {
       )}
 
       {activeTab === "errors" && (
-        <div className="bg-[#11161D]/5 border border-white/10 rounded-2xl divide-y divide-white/10">
+        <div className="bg-industrial-graphite/5 border border-white/10 rounded-2xl divide-y divide-white/10">
           {errors.map((e) => (
             <div key={e.id} className="p-4">
               <div className="font-semibold text-white">

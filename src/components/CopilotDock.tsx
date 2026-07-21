@@ -162,7 +162,7 @@ export function CopilotDock() {
         onClick={() => setOpen((v) => !v)}
         aria-label={open ? "Close copilot" : `Open ${persona.title}`}
         data-testid="copilot-launcher"
-        className="fixed bottom-5 right-5 z-40 flex h-12 w-12 items-center justify-center rounded-full bg-teal-500 text-slate-950 shadow-lg shadow-teal-500/20 hover:bg-teal-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-300"
+        className="fixed bottom-5 right-5 z-40 flex h-12 w-12 items-center justify-center rounded-full bg-teal-500 text-slate-950 shadow-lg shadow-teal-500/20 hover:bg-teal-400 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-teal-300"
       >
         {open ? (
           <X className="h-5 w-5" aria-hidden />
@@ -176,9 +176,9 @@ export function CopilotDock() {
           role="dialog"
           aria-label={persona.title}
           data-testid="copilot-dock"
-          className="fixed bottom-20 right-5 z-40 flex h-[560px] max-h-[calc(100vh-7rem)] w-[380px] max-w-[calc(100vw-2.5rem)] flex-col overflow-hidden rounded-2xl border border-white/[0.08] bg-[#0D1520] shadow-2xl shadow-black/50"
+          className="fixed bottom-20 right-5 z-40 flex h-[560px] max-h-[calc(100vh-7rem)] w-[380px] max-w-[calc(100vw-2.5rem)] flex-col overflow-hidden rounded-2xl border border-white/8 bg-[#0D1520] shadow-2xl shadow-black/50"
         >
-          <div className="border-b border-white/[0.06] px-4 py-3">
+          <div className="border-b border-white/6 px-4 py-3">
             <div className="flex items-center gap-2">
               <Sparkles className="h-4 w-4 text-teal-300" aria-hidden />
               <h2 className="text-sm font-semibold text-white">
@@ -196,7 +196,7 @@ export function CopilotDock() {
                   <button
                     key={s}
                     onClick={() => void ask(s)}
-                    className="block w-full rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 py-2 text-left text-xs text-slate-300 hover:border-teal-500/40 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-300"
+                    className="block w-full rounded-lg border border-white/6 bg-white/2 px-3 py-2 text-left text-xs text-slate-300 hover:border-teal-500/40 hover:text-white focus:outline-hidden focus-visible:ring-2 focus-visible:ring-teal-300"
                   >
                     {s}
                   </button>
@@ -212,7 +212,7 @@ export function CopilotDock() {
                 </div>
               ) : (
                 <div key={i} className="flex justify-start">
-                  <div className="max-w-[92%] rounded-xl rounded-bl-sm border border-white/[0.06] bg-white/[0.03] px-3 py-2 text-sm text-slate-200">
+                  <div className="max-w-[92%] rounded-xl rounded-bl-sm border border-white/6 bg-white/3 px-3 py-2 text-sm text-slate-200">
                     <MarkdownRenderer content={m.text} />
                     {markdownTableToCsv(m.text) && (
                       <button
@@ -222,7 +222,7 @@ export function CopilotDock() {
                             "syncai-deliverable.csv",
                           )
                         }
-                        className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-teal-500/30 bg-teal-500/10 px-2.5 py-1.5 text-xs font-medium text-teal-300 hover:bg-teal-500/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-300"
+                        className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-teal-500/30 bg-teal-500/10 px-2.5 py-1.5 text-xs font-medium text-teal-300 hover:bg-teal-500/20 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-teal-300"
                       >
                         <Download className="h-3.5 w-3.5" aria-hidden />
                         Download register (CSV)
@@ -247,7 +247,7 @@ export function CopilotDock() {
               e.preventDefault();
               void ask(input);
             }}
-            className="border-t border-white/[0.06] p-3"
+            className="border-t border-white/6 p-3"
           >
             <div className="flex gap-2">
               <input
@@ -255,13 +255,13 @@ export function CopilotDock() {
                 onChange={(e) => setInput(e.target.value)}
                 placeholder="Ask about your operation…"
                 aria-label={`Ask the ${persona.title}`}
-                className="min-w-0 flex-1 rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-white placeholder-slate-400 focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
+                className="min-w-0 flex-1 rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-white placeholder-slate-400 focus:border-teal-400 focus:outline-hidden focus:ring-1 focus:ring-teal-400"
               />
               <button
                 type="submit"
                 disabled={sending || !input.trim()}
                 aria-label="Send"
-                className="flex h-9 w-9 items-center justify-center rounded-lg bg-teal-500 text-slate-950 hover:bg-teal-400 disabled:opacity-40 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-300"
+                className="flex h-9 w-9 items-center justify-center rounded-lg bg-teal-500 text-slate-950 hover:bg-teal-400 disabled:opacity-40 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-teal-300"
               >
                 <Send className="h-4 w-4" aria-hidden />
               </button>

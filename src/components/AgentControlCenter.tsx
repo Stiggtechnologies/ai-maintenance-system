@@ -277,24 +277,24 @@ function AgentCard({ agent }: { agent: Agent }) {
 
       <div className="flex items-center gap-2 mb-3">
         <span
-          className={`text-xs px-2 py-0.5 rounded ${autonomyColors[agent.autonomyLevel]} bg-[#2A3344]`}
+          className={`text-xs px-2 py-0.5 rounded-sm ${autonomyColors[agent.autonomyLevel]} bg-[#2A3344]`}
         >
           {agent.autonomyLevel.toUpperCase()}
         </span>
       </div>
 
       <div className="grid grid-cols-3 gap-2 mb-3 text-xs">
-        <div className="bg-[#11161D] rounded p-2 text-center">
+        <div className="bg-industrial-graphite rounded-sm p-2 text-center">
           <div className="text-lg font-bold text-white">{agent.tasksToday}</div>
           <div className="text-gray-500">Tasks</div>
         </div>
-        <div className="bg-[#11161D] rounded p-2 text-center">
+        <div className="bg-industrial-graphite rounded-sm p-2 text-center">
           <div className="text-lg font-bold text-blue-400">
             {agent.insightsGenerated}
           </div>
           <div className="text-gray-500">Insights</div>
         </div>
-        <div className="bg-[#11161D] rounded p-2 text-center">
+        <div className="bg-industrial-graphite rounded-sm p-2 text-center">
           <div className="text-lg font-bold text-amber-400">
             {agent.avgResponseTime}s
           </div>
@@ -307,15 +307,15 @@ function AgentCard({ agent }: { agent: Agent }) {
       </div>
 
       <div className="flex gap-2">
-        <button className="flex-1 py-1.5 bg-[#2A3344] hover:bg-[#3A4354] rounded text-xs text-gray-300 flex items-center justify-center gap-1">
+        <button className="flex-1 py-1.5 bg-[#2A3344] hover:bg-[#3A4354] rounded-sm text-xs text-gray-300 flex items-center justify-center gap-1">
           <MessageSquare className="w-3 h-3" />
           View
         </button>
-        <button className="flex-1 py-1.5 bg-[#2A3344] hover:bg-[#3A4354] rounded text-xs text-gray-300 flex items-center justify-center gap-1">
+        <button className="flex-1 py-1.5 bg-[#2A3344] hover:bg-[#3A4354] rounded-sm text-xs text-gray-300 flex items-center justify-center gap-1">
           <Activity className="w-3 h-3" />
           Metrics
         </button>
-        <button className="px-2 py-1.5 bg-[#2A3344] hover:bg-[#3A4354] rounded text-gray-300">
+        <button className="px-2 py-1.5 bg-[#2A3344] hover:bg-[#3A4354] rounded-sm text-gray-300">
           <Settings className="w-3 h-3" />
         </button>
       </div>
@@ -394,7 +394,7 @@ export function AgentControlCenter() {
             placeholder="Search agents..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full bg-[#1A1F2E] border border-[#2A3344] rounded-lg pl-10 pr-4 py-2 text-sm focus:border-blue-500 focus:outline-none"
+            className="w-full bg-[#1A1F2E] border border-[#2A3344] rounded-lg pl-10 pr-4 py-2 text-sm focus:border-blue-500 focus:outline-hidden"
           />
         </div>
         <div className="flex gap-2">

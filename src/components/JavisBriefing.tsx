@@ -105,7 +105,7 @@ export function JavisBriefing() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#0B0F14] flex items-center justify-center">
+      <div className="min-h-screen bg-industrial-black flex items-center justify-center">
         <div className="text-center">
           <RefreshCw className="w-12 h-12 text-teal-500 animate-spin mx-auto mb-4" />
           <p className="text-slate-400">Loading your briefing...</p>
@@ -115,13 +115,13 @@ export function JavisBriefing() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-teal-50 via-cyan-50 to-blue-50 p-6">
+    <div className="min-h-screen bg-linear-to-br from-teal-50 via-cyan-50 to-blue-50 p-6">
       <div className="max-w-5xl mx-auto">
         {/* Header */}
-        <div className="bg-[#11161D] rounded-2xl shadow-lg p-8 mb-6">
+        <div className="bg-industrial-graphite rounded-2xl shadow-lg p-8 mb-6">
           <div className="flex items-start justify-between mb-6">
             <div>
-              <h1 className="text-3xl font-bold text-[#E6EDF3] mb-2">
+              <h1 className="text-3xl font-bold text-industrial-text mb-2">
                 {greeting}
               </h1>
               <p className="text-slate-400">Your {role} briefing is ready</p>
@@ -145,8 +145,8 @@ export function JavisBriefing() {
 
         {/* Summary */}
         {brief && (
-          <div className="bg-[#11161D] rounded-2xl shadow-lg p-8 mb-6">
-            <h2 className="text-xl font-semibold text-[#E6EDF3] mb-4">
+          <div className="bg-industrial-graphite rounded-2xl shadow-lg p-8 mb-6">
+            <h2 className="text-xl font-semibold text-industrial-text mb-4">
               Summary
             </h2>
             <p className="text-slate-300 leading-relaxed">{brief.summary}</p>
@@ -161,11 +161,11 @@ export function JavisBriefing() {
               .map((section, idx) => (
                 <div
                   key={idx}
-                  className="bg-[#11161D] rounded-2xl shadow-lg p-6 hover:shadow-xl transition-shadow"
+                  className="bg-industrial-graphite rounded-2xl shadow-lg p-6 hover:shadow-xl transition-shadow"
                 >
                   <div className="flex items-center gap-3 mb-4">
                     {getSectionIcon(section.title)}
-                    <h3 className="text-lg font-semibold text-[#E6EDF3]">
+                    <h3 className="text-lg font-semibold text-industrial-text">
                       {section.title}
                     </h3>
                   </div>
@@ -174,9 +174,9 @@ export function JavisBriefing() {
                     {section.items.map((item, itemIdx) => (
                       <div
                         key={itemIdx}
-                        className="flex items-start gap-3 p-3 bg-[#0B0F14] rounded-lg"
+                        className="flex items-start gap-3 p-3 bg-industrial-black rounded-lg"
                       >
-                        <div className="w-6 h-6 bg-teal-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <div className="w-6 h-6 bg-teal-100 rounded-full flex items-center justify-center shrink-0 mt-0.5">
                           <span className="text-xs font-semibold text-teal-600">
                             {itemIdx + 1}
                           </span>
@@ -192,8 +192,8 @@ export function JavisBriefing() {
 
         {/* Citations */}
         {brief?.citations && brief.citations.length > 0 && (
-          <div className="bg-[#11161D] rounded-2xl shadow-lg p-6 mt-6">
-            <h3 className="text-lg font-semibold text-[#E6EDF3] mb-4">
+          <div className="bg-industrial-graphite rounded-2xl shadow-lg p-6 mt-6">
+            <h3 className="text-lg font-semibold text-industrial-text mb-4">
               Sources
             </h3>
             <div className="space-y-2">
@@ -202,7 +202,7 @@ export function JavisBriefing() {
                   key={idx}
                   className="text-sm text-slate-400 flex items-center gap-2"
                 >
-                  <span className="w-6 h-6 bg-[#161C24] rounded-full flex items-center justify-center text-xs font-semibold">
+                  <span className="w-6 h-6 bg-industrial-slate rounded-full flex items-center justify-center text-xs font-semibold">
                     {idx + 1}
                   </span>
                   <span>{citation.document_title}</span>
@@ -214,9 +214,9 @@ export function JavisBriefing() {
 
         {/* Empty State */}
         {brief?.sections && brief.sections.length === 0 && (
-          <div className="bg-[#11161D] rounded-2xl shadow-lg p-12 text-center">
+          <div className="bg-industrial-graphite rounded-2xl shadow-lg p-12 text-center">
             <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold text-[#E6EDF3] mb-2">
+            <h3 className="text-xl font-semibold text-industrial-text mb-2">
               All Systems Operational
             </h3>
             <p className="text-slate-400">

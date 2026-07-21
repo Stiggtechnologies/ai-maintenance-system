@@ -60,14 +60,14 @@ export function EnterpriseAccess({ onTabChange }: EnterpriseAccessProps) {
 
   return (
     <AuthShell>
-      <div className="bg-[#161C24] rounded-xl p-8 border border-[#232A33] backdrop-blur-sm">
+      <div className="bg-industrial-slate rounded-xl p-8 border border-industrial-border backdrop-blur-xs">
         <AuthTabs activeTab="enterprise" onTabChange={onTabChange} />
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
             <label
               htmlFor="companyCode"
-              className="block text-sm font-medium text-[#E6EDF3] mb-2"
+              className="block text-sm font-medium text-industrial-text mb-2"
             >
               Company Code
             </label>
@@ -78,11 +78,11 @@ export function EnterpriseAccess({ onTabChange }: EnterpriseAccessProps) {
               onChange={(e) =>
                 setFormData({ ...formData, companyCode: e.target.value })
               }
-              className="w-full px-4 py-3 bg-[#0B0F14] border border-[#232A33] rounded-lg text-[#E6EDF3] placeholder-[#9BA7B4] focus:outline-none focus:border-[#3A8DFF] focus:ring-1 focus:ring-[#3A8DFF] transition-colors uppercase"
+              className="w-full px-4 py-3 bg-industrial-black border border-industrial-border rounded-lg text-industrial-text placeholder-industrial-muted focus:outline-hidden focus:border-[#3A8DFF] focus:ring-1 focus:ring-[#3A8DFF] transition-colors uppercase"
               placeholder="XXXX-XXXX"
               required
             />
-            <p className="mt-2 text-xs text-[#9BA7B4]">
+            <p className="mt-2 text-xs text-industrial-muted">
               Use your assigned company code.
             </p>
           </div>
@@ -90,7 +90,7 @@ export function EnterpriseAccess({ onTabChange }: EnterpriseAccessProps) {
           <div>
             <label
               htmlFor="employeeId"
-              className="block text-sm font-medium text-[#E6EDF3] mb-2"
+              className="block text-sm font-medium text-industrial-text mb-2"
             >
               Employee ID
             </label>
@@ -101,7 +101,7 @@ export function EnterpriseAccess({ onTabChange }: EnterpriseAccessProps) {
               onChange={(e) =>
                 setFormData({ ...formData, employeeId: e.target.value })
               }
-              className="w-full px-4 py-3 bg-[#0B0F14] border border-[#232A33] rounded-lg text-[#E6EDF3] placeholder-[#9BA7B4] focus:outline-none focus:border-[#3A8DFF] focus:ring-1 focus:ring-[#3A8DFF] transition-colors"
+              className="w-full px-4 py-3 bg-industrial-black border border-industrial-border rounded-lg text-industrial-text placeholder-industrial-muted focus:outline-hidden focus:border-[#3A8DFF] focus:ring-1 focus:ring-[#3A8DFF] transition-colors"
               required
             />
           </div>
@@ -109,7 +109,7 @@ export function EnterpriseAccess({ onTabChange }: EnterpriseAccessProps) {
           <div>
             <label
               htmlFor="mfaCode"
-              className="block text-sm font-medium text-[#E6EDF3] mb-2"
+              className="block text-sm font-medium text-industrial-text mb-2"
             >
               MFA Code
             </label>
@@ -120,7 +120,7 @@ export function EnterpriseAccess({ onTabChange }: EnterpriseAccessProps) {
               onChange={(e) =>
                 setFormData({ ...formData, mfaCode: e.target.value })
               }
-              className="w-full px-4 py-3 bg-[#0B0F14] border border-[#232A33] rounded-lg text-[#E6EDF3] placeholder-[#9BA7B4] focus:outline-none focus:border-[#3A8DFF] focus:ring-1 focus:ring-[#3A8DFF] transition-colors text-center tracking-widest"
+              className="w-full px-4 py-3 bg-industrial-black border border-industrial-border rounded-lg text-industrial-text placeholder-industrial-muted focus:outline-hidden focus:border-[#3A8DFF] focus:ring-1 focus:ring-[#3A8DFF] transition-colors text-center tracking-widest"
               placeholder="000000"
               maxLength={6}
               required
@@ -152,25 +152,25 @@ export function EnterpriseAccess({ onTabChange }: EnterpriseAccessProps) {
           </p>
         </form>
 
-        <div className="mt-8 pt-6 border-t border-[#232A33]">
-          <div className="flex justify-center gap-4 text-xs text-[#9BA7B4]">
+        <div className="mt-8 pt-6 border-t border-industrial-border">
+          <div className="flex justify-center gap-4 text-xs text-industrial-muted">
             <button
               onClick={() => onTabChange("security")}
-              className="hover:text-[#E6EDF3] transition-colors"
+              className="hover:text-industrial-text transition-colors"
             >
               Security
             </button>
             <span>•</span>
             <button
               onClick={() => onTabChange("privacy")}
-              className="hover:text-[#E6EDF3] transition-colors"
+              className="hover:text-industrial-text transition-colors"
             >
               Privacy
             </button>
             <span>•</span>
             <button
               onClick={() => onTabChange("terms")}
-              className="hover:text-[#E6EDF3] transition-colors"
+              className="hover:text-industrial-text transition-colors"
             >
               Terms
             </button>

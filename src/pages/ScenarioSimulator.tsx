@@ -183,7 +183,7 @@ function ScenarioCard({
           ? "border-teal-500/50 ring-1 ring-teal-500/30"
           : scenario.aiRecommended
             ? "border-teal-500/20 hover:border-teal-500/40"
-            : "border-white/[0.06] hover:border-white/[0.12]"
+            : "border-white/6 hover:border-white/12"
       }`}
     >
       <div className="p-4">
@@ -204,20 +204,20 @@ function ScenarioCard({
             </p>
           </div>
           <div
-            className={`w-5 h-5 rounded-full border-2 flex-shrink-0 flex items-center justify-center ${selected ? "border-teal-400 bg-teal-400" : "border-slate-700"}`}
+            className={`w-5 h-5 rounded-full border-2 shrink-0 flex items-center justify-center ${selected ? "border-teal-400 bg-teal-400" : "border-slate-700"}`}
           >
             {selected && <div className="w-2 h-2 rounded-full bg-white" />}
           </div>
         </div>
 
         <div className="grid grid-cols-2 gap-2 mt-3">
-          <div className="bg-white/[0.02] rounded-lg p-2">
+          <div className="bg-white/2 rounded-lg p-2">
             <div className="text-xs text-slate-400">Immediate Cost</div>
             <div className="text-sm font-bold text-slate-200 mt-0.5">
               {scenario.cost}
             </div>
           </div>
-          <div className="bg-white/[0.02] rounded-lg p-2">
+          <div className="bg-white/2 rounded-lg p-2">
             <div className="text-xs text-slate-400">Downtime</div>
             <div className="text-sm font-bold text-slate-200 mt-0.5">
               {scenario.downtimeHours}h
@@ -232,7 +232,7 @@ function ScenarioCard({
               {scenario.failureProbability}%
             </span>
           </div>
-          <div className="h-1.5 bg-white/[0.05] rounded-full overflow-hidden">
+          <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
             <motion.div
               initial={{ width: 0 }}
               animate={{ width: `${scenario.failureProbability}%` }}
@@ -298,7 +298,7 @@ export function ScenarioSimulator() {
       </div>
 
       {/* Asset Selector */}
-      <div className="bg-[#0D1520] border border-white/[0.06] rounded-xl p-4">
+      <div className="bg-[#0D1520] border border-white/6 rounded-xl p-4">
         <div className="text-xs text-slate-400 mb-3">
           Select Asset to Simulate
         </div>
@@ -314,7 +314,7 @@ export function ScenarioSimulator() {
               className={`px-4 py-2 rounded-xl border text-sm font-medium transition-all ${
                 selectedAsset === a.id
                   ? "border-teal-500/40 bg-teal-500/10 text-teal-400"
-                  : "border-white/[0.06] bg-white/[0.02] text-slate-400 hover:text-slate-200"
+                  : "border-white/6 bg-white/2 text-slate-400 hover:text-slate-200"
               }`}
             >
               <div>{a.label}</div>
@@ -395,7 +395,7 @@ export function ScenarioSimulator() {
                     ))}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-white/[0.04]">
+                <tbody className="divide-y divide-white/4">
                   {[
                     { label: "Immediate Cost", key: "cost" as keyof Scenario },
                     {
@@ -446,7 +446,7 @@ export function ScenarioSimulator() {
 
             {/* Recommendation Summary */}
             <div className="bg-[#0D1520] border border-teal-500/20 rounded-xl p-4 flex items-start gap-3">
-              <Zap className="w-4 h-4 text-teal-400 flex-shrink-0 mt-0.5" />
+              <Zap className="w-4 h-4 text-teal-400 shrink-0 mt-0.5" />
               <div>
                 <div className="text-sm font-bold text-teal-400">
                   AI Recommendation

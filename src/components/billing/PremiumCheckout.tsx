@@ -146,7 +146,7 @@ export function PremiumCheckout() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50 py-16 px-4">
+    <div className="min-h-screen bg-linear-to-br from-gray-50 via-white to-gray-50 py-16 px-4">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="text-center mb-16">
@@ -154,7 +154,7 @@ export function PremiumCheckout() {
             <Sparkles className="w-4 h-4" />
             <span>Simple, Transparent Pricing</span>
           </div>
-          <h1 className="text-5xl font-bold text-[#E6EDF3] mb-4">
+          <h1 className="text-5xl font-bold text-industrial-text mb-4">
             Choose Your Plan
           </h1>
           <p className="text-xl text-slate-400 max-w-2xl mx-auto">
@@ -177,13 +177,13 @@ export function PremiumCheckout() {
           {plans.map((plan) => (
             <div
               key={plan.code}
-              className={`relative bg-[#11161D] rounded-2xl shadow-xl border-2 transition-all duration-300 hover:shadow-2xl hover:scale-105 ${
-                plan.popular ? "border-purple-500" : "border-[#232A33]"
+              className={`relative bg-industrial-graphite rounded-2xl shadow-xl border-2 transition-all duration-300 hover:shadow-2xl hover:scale-105 ${
+                plan.popular ? "border-purple-500" : "border-industrial-border"
               }`}
             >
               {plan.popular && (
                 <div className="absolute -top-5 left-1/2 transform -translate-x-1/2">
-                  <div className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-6 py-2 rounded-full text-sm font-bold shadow-lg">
+                  <div className="bg-linear-to-r from-purple-600 to-pink-600 text-white px-6 py-2 rounded-full text-sm font-bold shadow-lg">
                     Most Popular
                   </div>
                 </div>
@@ -192,12 +192,12 @@ export function PremiumCheckout() {
               <div className="p-8">
                 {/* Icon & Name */}
                 <div
-                  className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${plan.gradient} flex items-center justify-center mb-6 shadow-lg`}
+                  className={`w-16 h-16 rounded-2xl bg-linear-to-br ${plan.gradient} flex items-center justify-center mb-6 shadow-lg`}
                 >
                   <plan.icon className="w-8 h-8 text-white" />
                 </div>
 
-                <h3 className="text-2xl font-bold text-[#E6EDF3] mb-2">
+                <h3 className="text-2xl font-bold text-industrial-text mb-2">
                   {plan.name}
                 </h3>
                 <p className="text-slate-400 mb-6">{plan.tagline}</p>
@@ -205,7 +205,7 @@ export function PremiumCheckout() {
                 {/* Price */}
                 <div className="mb-8">
                   <div className="flex items-baseline">
-                    <span className="text-5xl font-bold text-[#E6EDF3]">
+                    <span className="text-5xl font-bold text-industrial-text">
                       ${plan.price.toLocaleString()}
                     </span>
                     <span className="text-slate-400 ml-2">/{plan.period}</span>
@@ -221,7 +221,7 @@ export function PremiumCheckout() {
                   disabled={loading !== null}
                   className={`w-full py-4 rounded-xl font-semibold transition-all duration-200 flex items-center justify-center space-x-2 ${
                     plan.popular
-                      ? "bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:from-purple-700 hover:to-pink-700 shadow-lg hover:shadow-xl"
+                      ? "bg-linear-to-r from-purple-600 to-pink-600 text-white hover:from-purple-700 hover:to-pink-700 shadow-lg hover:shadow-xl"
                       : "bg-gray-900 text-white hover:bg-gray-800"
                   } disabled:opacity-50 disabled:cursor-not-allowed`}
                 >
@@ -240,14 +240,14 @@ export function PremiumCheckout() {
 
                 {/* Features */}
                 <div className="mt-8 space-y-4">
-                  <p className="text-sm font-semibold text-[#E6EDF3] uppercase tracking-wide">
+                  <p className="text-sm font-semibold text-industrial-text uppercase tracking-wide">
                     What's Included:
                   </p>
                   <ul className="space-y-3">
                     {plan.features.map((feature, index) => (
                       <li key={index} className="flex items-start space-x-3">
                         <Check
-                          className={`w-5 h-5 flex-shrink-0 ${plan.iconColor}`}
+                          className={`w-5 h-5 shrink-0 ${plan.iconColor}`}
                         />
                         <span className="text-slate-300 text-sm">
                           {feature}
@@ -263,7 +263,7 @@ export function PremiumCheckout() {
 
         {/* Trust Indicators */}
         <div className="max-w-4xl mx-auto">
-          <div className="bg-[#11161D] rounded-2xl shadow-lg border border-[#232A33] p-8">
+          <div className="bg-industrial-graphite rounded-2xl shadow-lg border border-industrial-border p-8">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-center">
               <div>
                 <div className="text-3xl font-bold text-teal-600 mb-2">

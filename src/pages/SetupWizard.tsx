@@ -314,17 +314,17 @@ export function SetupWizard() {
       </div>
 
       {/* Progress */}
-      <div className="bg-[#0D1520] border border-white/[0.06] rounded-2xl p-5">
+      <div className="bg-[#0D1520] border border-white/6 rounded-2xl p-5">
         <div className="flex items-center gap-1 overflow-x-auto pb-2">
           {steps.map((step, i) => (
-            <div key={step.id} className="flex items-center flex-shrink-0">
+            <div key={step.id} className="flex items-center shrink-0">
               <div
                 className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
                   currentStep > step.id
                     ? "bg-teal-500/20 text-teal-400"
                     : currentStep === step.id
                       ? "bg-teal-500/30 text-teal-400 ring-2 ring-teal-500/40"
-                      : "bg-white/[0.05] text-slate-400"
+                      : "bg-white/5 text-slate-400"
                 }`}
               >
                 {currentStep > step.id ? (
@@ -335,7 +335,7 @@ export function SetupWizard() {
               </div>
               {i < steps.length - 1 && (
                 <div
-                  className={`w-8 h-0.5 mx-0.5 rounded-full ${currentStep > step.id ? "bg-teal-500/40" : "bg-white/[0.05]"}`}
+                  className={`w-8 h-0.5 mx-0.5 rounded-full ${currentStep > step.id ? "bg-teal-500/40" : "bg-white/5"}`}
                 />
               )}
             </div>
@@ -376,7 +376,7 @@ export function SetupWizard() {
                     className={`p-4 rounded-xl border text-left transition-all ${
                       isSelected
                         ? "bg-teal-500/10 border-teal-500/30 ring-1 ring-teal-500/20"
-                        : "bg-[#0D1520] border-white/[0.06] hover:border-white/[0.12]"
+                        : "bg-[#0D1520] border-white/6 hover:border-white/12"
                     }`}
                   >
                     <Icon
@@ -409,11 +409,11 @@ export function SetupWizard() {
                     className={`w-full flex items-center gap-3 text-left px-4 py-3 rounded-xl border transition-all text-sm ${
                       isSelected
                         ? "bg-teal-500/10 border-teal-500/30 text-teal-400"
-                        : "bg-[#0D1520] border-white/[0.06] text-slate-300 hover:border-white/[0.12]"
+                        : "bg-[#0D1520] border-white/6 text-slate-300 hover:border-white/12"
                     }`}
                   >
                     <Icon
-                      className={`w-4 h-4 flex-shrink-0 ${isSelected ? "text-teal-400" : "text-slate-400"}`}
+                      className={`w-4 h-4 shrink-0 ${isSelected ? "text-teal-400" : "text-slate-400"}`}
                     />
                     {uc.label}
                   </button>
@@ -426,7 +426,7 @@ export function SetupWizard() {
           {currentStep === 3 && (
             <div className="space-y-4">
               <div className="bg-teal-500/5 border border-teal-500/20 rounded-xl p-4 flex items-start gap-3">
-                <Sparkles className="w-4 h-4 text-teal-400 flex-shrink-0 mt-0.5" />
+                <Sparkles className="w-4 h-4 text-teal-400 shrink-0 mt-0.5" />
                 <div>
                   <div className="text-xs font-bold text-teal-400">
                     AI-Recommended Templates
@@ -450,7 +450,7 @@ export function SetupWizard() {
                   </div>
                 </div>
               ) : templates.length === 0 ? (
-                <div className="bg-[#0D1520] border border-white/[0.06] rounded-xl p-8 text-center">
+                <div className="bg-[#0D1520] border border-white/6 rounded-xl p-8 text-center">
                   <Package className="w-8 h-8 text-slate-400 mx-auto mb-3" />
                   <div className="text-sm text-slate-400">
                     No templates available yet for this industry.
@@ -477,7 +477,7 @@ export function SetupWizard() {
                         className={`text-left p-4 rounded-xl border transition-all ${
                           isSelected
                             ? "bg-teal-500/10 border-teal-500/30 ring-1 ring-teal-500/20"
-                            : "bg-[#0D1520] border-white/[0.06] hover:border-white/[0.12]"
+                            : "bg-[#0D1520] border-white/6 hover:border-white/12"
                         }`}
                       >
                         <div className="flex items-start justify-between mb-2">
@@ -548,7 +548,7 @@ export function SetupWizard() {
           {/* Step 4: Data Sources */}
           {currentStep === 4 && (
             <div className="space-y-4">
-              <div className="bg-[#0D1520] border-2 border-dashed border-white/[0.1] rounded-2xl p-10 text-center">
+              <div className="bg-[#0D1520] border-2 border-dashed border-white/10 rounded-2xl p-10 text-center">
                 <Upload className="w-10 h-10 text-slate-400 mx-auto mb-4" />
                 <div className="text-sm font-semibold text-slate-300 mb-1">
                   Upload Asset Data
@@ -564,8 +564,8 @@ export function SetupWizard() {
                   Or drag and drop files here
                 </div>
               </div>
-              <div className="bg-[#0D1520] border border-white/[0.06] rounded-xl p-3 flex items-center gap-3">
-                <Sparkles className="w-4 h-4 text-teal-400 flex-shrink-0" />
+              <div className="bg-[#0D1520] border border-white/6 rounded-xl p-3 flex items-center gap-3">
+                <Sparkles className="w-4 h-4 text-teal-400 shrink-0" />
                 <p className="text-xs text-slate-400">
                   SyncAI auto-detects your file format, maps columns to the
                   asset hierarchy, and begins building reliability models
@@ -582,7 +582,7 @@ export function SetupWizard() {
                 {connectors.map((conn) => (
                   <button
                     key={conn.id}
-                    className="flex items-center gap-3 p-4 bg-[#0D1520] border border-white/[0.06] rounded-xl hover:border-teal-500/30 transition-colors text-left group"
+                    className="flex items-center gap-3 p-4 bg-[#0D1520] border border-white/6 rounded-xl hover:border-teal-500/30 transition-colors text-left group"
                   >
                     <Plug className="w-5 h-5 text-slate-400 group-hover:text-teal-400 transition-colors" />
                     <div className="flex-1">
@@ -595,8 +595,8 @@ export function SetupWizard() {
                   </button>
                 ))}
               </div>
-              <div className="bg-[#0D1520] border border-white/[0.06] rounded-xl p-3 flex items-center gap-3">
-                <Sparkles className="w-4 h-4 text-teal-400 flex-shrink-0" />
+              <div className="bg-[#0D1520] border border-white/6 rounded-xl p-3 flex items-center gap-3">
+                <Sparkles className="w-4 h-4 text-teal-400 shrink-0" />
                 <p className="text-xs text-slate-400">
                   You can skip this step and connect systems later from
                   Settings. SyncAI works with uploaded data immediately.
@@ -620,20 +620,20 @@ export function SetupWizard() {
               </p>
 
               <div className="grid grid-cols-3 gap-3 max-w-sm mx-auto mb-6">
-                <div className="p-3 rounded-xl bg-white/[0.03] border border-white/[0.06]">
+                <div className="p-3 rounded-xl bg-white/3 border border-white/6">
                   <div className="text-xs font-bold text-teal-400">
                     {industries.find((i) => i.id === selectedIndustry)?.label ||
                       "—"}
                   </div>
                   <div className="text-xs text-slate-400">Industry</div>
                 </div>
-                <div className="p-3 rounded-xl bg-white/[0.03] border border-white/[0.06]">
+                <div className="p-3 rounded-xl bg-white/3 border border-white/6">
                   <div className="text-xs font-bold text-teal-400 truncate">
                     {useSetupStore.getState().templateName || "Custom"}
                   </div>
                   <div className="text-xs text-slate-400">Template</div>
                 </div>
-                <div className="p-3 rounded-xl bg-white/[0.03] border border-white/[0.06]">
+                <div className="p-3 rounded-xl bg-white/3 border border-white/6">
                   <div className="text-xs font-bold text-teal-400">
                     Human-in-Loop
                   </div>
@@ -732,7 +732,7 @@ export function SetupWizard() {
             className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-medium transition-colors ${
               currentStep === 1
                 ? "text-slate-400 cursor-not-allowed"
-                : "text-slate-400 hover:text-white bg-white/[0.04] border border-white/[0.08] hover:bg-white/[0.08]"
+                : "text-slate-400 hover:text-white bg-white/4 border border-white/8 hover:bg-white/8"
             }`}
           >
             <ChevronLeft className="w-3.5 h-3.5" /> Back
@@ -745,7 +745,7 @@ export function SetupWizard() {
               className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-medium transition-colors ${
                 canProceed || currentStep > 3
                   ? "bg-teal-500/20 border border-teal-500/30 text-teal-400 hover:bg-teal-500/30"
-                  : "bg-white/[0.04] border border-white/[0.06] text-slate-400 cursor-not-allowed"
+                  : "bg-white/4 border border-white/6 text-slate-400 cursor-not-allowed"
               }`}
             >
               {currentStep >= 4 ? "Skip" : "Next"}{" "}

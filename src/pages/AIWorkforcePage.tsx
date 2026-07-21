@@ -134,14 +134,14 @@ function AgentCard({ agent }: { agent: Agent }) {
   return (
     <motion.div
       layout
-      className={`bg-[#0D1520] border border-white/[0.06] rounded-xl overflow-hidden hover:border-white/[0.12] transition-colors cursor-pointer`}
+      className={`bg-[#0D1520] border border-white/6 rounded-xl overflow-hidden hover:border-white/12 transition-colors cursor-pointer`}
       onClick={() => setExpanded(!expanded)}
     >
       <div className="p-4">
         <div className="flex items-start gap-3">
           {/* Icon */}
           <div
-            className={`w-9 h-9 rounded-xl ${status.bg} flex items-center justify-center flex-shrink-0`}
+            className={`w-9 h-9 rounded-xl ${status.bg} flex items-center justify-center shrink-0`}
           >
             <Icon className={`w-4 h-4 ${status.color}`} />
           </div>
@@ -156,7 +156,7 @@ function AgentCard({ agent }: { agent: Agent }) {
                   {agent.purpose}
                 </p>
               </div>
-              <div className="flex items-center gap-1.5 flex-shrink-0">
+              <div className="flex items-center gap-1.5 shrink-0">
                 <div
                   className={`w-1.5 h-1.5 rounded-full ${status.dot} ${agent.status === "processing" ? "animate-pulse" : ""}`}
                 />
@@ -165,7 +165,7 @@ function AgentCard({ agent }: { agent: Agent }) {
             </div>
 
             {/* Current Task */}
-            <div className="mt-2 text-xs text-slate-400 bg-white/[0.03] rounded-lg px-2 py-1.5 border border-white/[0.04]">
+            <div className="mt-2 text-xs text-slate-400 bg-white/3 rounded-lg px-2 py-1.5 border border-white/4">
               {agent.currentTask}
             </div>
 
@@ -206,7 +206,7 @@ function AgentCard({ agent }: { agent: Agent }) {
         transition={{ duration: 0.2 }}
         style={{ overflow: "hidden" }}
       >
-        <div className="px-4 pb-4 border-t border-white/[0.05] pt-3 space-y-2">
+        <div className="px-4 pb-4 border-t border-white/5 pt-3 space-y-2">
           <div className="text-xs text-slate-400">
             <span className="text-slate-400">Last action: </span>
             {agent.lastAction}
@@ -225,7 +225,7 @@ function AgentCard({ agent }: { agent: Agent }) {
             <button className="flex items-center gap-1.5 px-3 py-1.5 bg-teal-500/10 border border-teal-500/20 text-teal-400 text-xs rounded-lg hover:bg-teal-500/20 transition-colors">
               <Eye className="w-3 h-3" /> Audit Trail
             </button>
-            <button className="flex items-center gap-1.5 px-3 py-1.5 bg-white/[0.04] border border-white/[0.08] text-slate-400 text-xs rounded-lg hover:bg-white/[0.08] transition-colors">
+            <button className="flex items-center gap-1.5 px-3 py-1.5 bg-white/4 border border-white/8 text-slate-400 text-xs rounded-lg hover:bg-white/8 transition-colors">
               <Settings className="w-3 h-3" /> Configure
             </button>
           </div>
@@ -278,7 +278,7 @@ export function AIWorkforce() {
             <div className="w-1.5 h-1.5 rounded-full bg-teal-400 animate-pulse" />
             {counts.active + counts.processing} Active
           </div>
-          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-white/[0.04] border border-white/[0.08] rounded-lg text-xs text-slate-400">
+          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-white/4 border border-white/8 rounded-lg text-xs text-slate-400">
             {counts.autonomous} Autonomous
           </div>
         </div>
@@ -295,7 +295,7 @@ export function AIWorkforce() {
         ].map((s) => (
           <div
             key={s.label}
-            className="bg-[#0D1520] border border-white/[0.06] rounded-xl p-3 text-center"
+            className="bg-[#0D1520] border border-white/6 rounded-xl p-3 text-center"
           >
             <div
               className={`text-xl font-black ${s.color === "teal" ? "text-teal-400" : s.color === "blue" ? "text-blue-400" : "text-slate-300"}`}
@@ -317,7 +317,7 @@ export function AIWorkforce() {
             className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
               filter === f
                 ? "bg-teal-500/20 text-teal-400 border border-teal-500/30"
-                : "bg-white/[0.03] border border-white/[0.06] text-slate-400 hover:text-slate-300"
+                : "bg-white/3 border border-white/6 text-slate-400 hover:text-slate-300"
             }`}
           >
             {f === "all" ? "All" : f.charAt(0).toUpperCase() + f.slice(1)}
@@ -332,7 +332,7 @@ export function AIWorkforce() {
               className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
                 autonomyFilter === f
                   ? "bg-teal-500/20 text-teal-400 border border-teal-500/30"
-                  : "bg-white/[0.03] border border-white/[0.06] text-slate-400 hover:text-slate-300"
+                  : "bg-white/3 border border-white/6 text-slate-400 hover:text-slate-300"
               }`}
             >
               {f === "all" ? "All" : f}
@@ -371,7 +371,7 @@ export function AIWorkforce() {
 
       {/* Workforce Summary Note */}
       <div className="bg-[#0D1520] border border-teal-500/20 rounded-xl p-4 flex items-start gap-3">
-        <Zap className="w-4 h-4 text-teal-400 flex-shrink-0 mt-0.5" />
+        <Zap className="w-4 h-4 text-teal-400 shrink-0 mt-0.5" />
         <div>
           <div className="text-sm font-medium text-teal-400">
             AI Workforce Active

@@ -123,12 +123,12 @@ function GapForm({ item, onSubmit }: GapFormProps) {
             item.requirement.hint ?? "Provide the missing information"
           }
           aria-label={`Answer for ${item.requirement.item_label}`}
-          className="min-w-0 flex-1 rounded-md border border-slate-600 bg-slate-900 px-3 py-1.5 text-sm text-white placeholder-slate-400 focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
+          className="min-w-0 flex-1 rounded-md border border-slate-600 bg-slate-900 px-3 py-1.5 text-sm text-white placeholder-slate-400 focus:border-teal-400 focus:outline-hidden focus:ring-1 focus:ring-teal-400"
         />
         <button
           onClick={() => void submit(false)}
           disabled={saving || !answer.trim()}
-          className="rounded-md bg-teal-500 px-3 py-1.5 text-sm font-medium text-slate-950 hover:bg-teal-400 disabled:opacity-40 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-300"
+          className="rounded-md bg-teal-500 px-3 py-1.5 text-sm font-medium text-slate-950 hover:bg-teal-400 disabled:opacity-40 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-teal-300"
         >
           {saving ? (
             <Loader2 className="h-4 w-4 animate-spin" aria-label="Saving" />
@@ -140,7 +140,7 @@ function GapForm({ item, onSubmit }: GapFormProps) {
           onClick={() => void submit(true)}
           disabled={saving}
           title="Mark this requirement as not applicable to this asset"
-          className="rounded-md border border-slate-600 px-3 py-1.5 text-sm text-slate-300 hover:bg-slate-700 disabled:opacity-40 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-300"
+          className="rounded-md border border-slate-600 px-3 py-1.5 text-sm text-slate-300 hover:bg-slate-700 disabled:opacity-40 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-teal-300"
         >
           N/A
         </button>
@@ -307,7 +307,7 @@ export function AssetOnboardingHub() {
         <button
           onClick={() => void handleAiPass()}
           disabled={busy !== null}
-          className="inline-flex items-center gap-2 rounded-lg border border-blue-500/40 bg-blue-500/10 px-4 py-2 text-sm font-medium text-blue-300 hover:bg-blue-500/20 disabled:opacity-40 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-300"
+          className="inline-flex items-center gap-2 rounded-lg border border-blue-500/40 bg-blue-500/10 px-4 py-2 text-sm font-medium text-blue-300 hover:bg-blue-500/20 disabled:opacity-40 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-300"
         >
           {busy === "ai" ? (
             <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
@@ -356,7 +356,7 @@ export function AssetOnboardingHub() {
               key={entry.asset_id}
               onClick={() => setSelectedId(entry.asset_id)}
               aria-pressed={entry.asset_id === selectedId}
-              className={`w-full rounded-xl border p-4 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-300 ${
+              className={`w-full rounded-xl border p-4 text-left transition focus:outline-hidden focus-visible:ring-2 focus-visible:ring-teal-300 ${
                 entry.asset_id === selectedId
                   ? "border-teal-500/50 bg-teal-500/5"
                   : "border-slate-700/60 bg-slate-800/40 hover:border-slate-500"
@@ -420,7 +420,7 @@ export function AssetOnboardingHub() {
                   <button
                     onClick={() => void handleAutofill()}
                     disabled={busy !== null}
-                    className="inline-flex items-center gap-2 rounded-lg border border-slate-600 px-3 py-1.5 text-sm text-slate-200 hover:bg-slate-700 disabled:opacity-40 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-300"
+                    className="inline-flex items-center gap-2 rounded-lg border border-slate-600 px-3 py-1.5 text-sm text-slate-200 hover:bg-slate-700 disabled:opacity-40 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-teal-300"
                   >
                     {busy === "autofill" ? (
                       <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
@@ -439,7 +439,7 @@ export function AssetOnboardingHub() {
                           : "Complete the required items below first"
                       }
                       data-testid="approve-golive"
-                      className="inline-flex items-center gap-2 rounded-lg bg-teal-500 px-4 py-1.5 text-sm font-semibold text-slate-950 hover:bg-teal-400 disabled:opacity-40 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-300"
+                      className="inline-flex items-center gap-2 rounded-lg bg-teal-500 px-4 py-1.5 text-sm font-semibold text-slate-950 hover:bg-teal-400 disabled:opacity-40 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-teal-300"
                     >
                       {busy === "approve" ? (
                         <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
@@ -534,7 +534,7 @@ export function AssetOnboardingHub() {
                           })
                         }
                         aria-expanded={open}
-                        className="flex w-full items-center justify-between px-4 py-3 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-300"
+                        className="flex w-full items-center justify-between px-4 py-3 text-left focus:outline-hidden focus-visible:ring-2 focus-visible:ring-teal-300"
                       >
                         <span className="text-sm font-medium text-white">
                           {section.sectionNumber}. {section.sectionTitle}
@@ -605,7 +605,7 @@ export function AssetOnboardingHub() {
           <button
             onClick={() => setToast(null)}
             aria-label="Dismiss notification"
-            className="text-slate-400 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-300"
+            className="text-slate-400 hover:text-white focus:outline-hidden focus-visible:ring-2 focus-visible:ring-teal-300"
           >
             <X className="h-4 w-4" aria-hidden />
           </button>

@@ -644,8 +644,8 @@ export function ReliabilityCopilotPage() {
 
   return (
     <div className="mx-auto max-w-[1440px] space-y-4 pb-10">
-      <section className="relative overflow-hidden rounded-2xl border border-white/[0.08] bg-[linear-gradient(135deg,rgba(13,19,26,0.96),rgba(8,12,17,0.98))] p-4 shadow-xl shadow-black/20">
-        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-teal-300/50 to-transparent" />
+      <section className="relative overflow-hidden rounded-2xl border border-white/8 bg-[linear-gradient(135deg,rgba(13,19,26,0.96),rgba(8,12,17,0.98))] p-4 shadow-xl shadow-black/20">
+        <div className="absolute inset-x-0 top-0 h-px bg-linear-to-r from-transparent via-teal-300/50 to-transparent" />
         <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <div className="inline-flex items-center gap-2 rounded-full border border-teal-300/20 bg-teal-300/10 px-3 py-1 text-xs font-medium text-teal-200">
@@ -661,7 +661,7 @@ export function ReliabilityCopilotPage() {
               reporting.
             </p>
           </div>
-          <div className="rounded-xl border border-amber-300/20 bg-amber-300/[0.08] p-4 text-sm text-amber-100 lg:max-w-md">
+          <div className="rounded-xl border border-amber-300/20 bg-amber-300/8 p-4 text-sm text-amber-100 lg:max-w-md">
             <div className="flex items-start gap-3">
               <AlertTriangle size={18} className="mt-0.5 text-amber-300" />
               <p>
@@ -693,17 +693,17 @@ export function ReliabilityCopilotPage() {
         </div>
       </section>
 
-      <section className="rounded-2xl border border-white/[0.08] bg-[#0D131A]/75 p-1.5 shadow-lg shadow-black/10">
+      <section className="rounded-2xl border border-white/8 bg-[#0D131A]/75 p-1.5 shadow-lg shadow-black/10">
         <div className="grid gap-3 lg:grid-cols-[1fr_1fr_1fr_1.1fr]">
           <button
             onClick={() => setActiveWorkspace("analysis")}
             className={`rounded-xl border p-3 text-left transition-all ${
               activeWorkspace === "analysis"
-                ? "border-teal-300/40 bg-teal-300/[0.09] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]"
-                : "border-white/[0.06] bg-white/[0.025] hover:border-white/[0.1] hover:bg-white/[0.05]"
+                ? "border-teal-300/40 bg-teal-300/9 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]"
+                : "border-white/6 bg-white/2.5 hover:border-white/10 hover:bg-white/5"
             }`}
           >
-            <div className="flex items-center gap-2 text-sm font-semibold text-[#E6EDF3]">
+            <div className="flex items-center gap-2 text-sm font-semibold text-industrial-text">
               <BrainCircuit size={17} className="text-teal-300" />
               Analyze a reliability problem
             </div>
@@ -715,11 +715,11 @@ export function ReliabilityCopilotPage() {
             onClick={() => setActiveWorkspace("onboarding")}
             className={`rounded-xl border p-3 text-left transition-all ${
               activeWorkspace === "onboarding"
-                ? "border-teal-300/40 bg-teal-300/[0.09] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]"
-                : "border-white/[0.06] bg-white/[0.025] hover:border-white/[0.1] hover:bg-white/[0.05]"
+                ? "border-teal-300/40 bg-teal-300/9 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]"
+                : "border-white/6 bg-white/2.5 hover:border-white/10 hover:bg-white/5"
             }`}
           >
-            <div className="flex items-center gap-2 text-sm font-semibold text-[#E6EDF3]">
+            <div className="flex items-center gap-2 text-sm font-semibold text-industrial-text">
               <PackageCheck size={17} className="text-teal-300" />
               Guided Asset Onboarding
             </div>
@@ -731,11 +731,11 @@ export function ReliabilityCopilotPage() {
             onClick={() => setActiveWorkspace("evidence")}
             className={`rounded-xl border p-3 text-left transition-all ${
               activeWorkspace === "evidence"
-                ? "border-teal-300/40 bg-teal-300/[0.09] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]"
-                : "border-white/[0.06] bg-white/[0.025] hover:border-white/[0.1] hover:bg-white/[0.05]"
+                ? "border-teal-300/40 bg-teal-300/9 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]"
+                : "border-white/6 bg-white/2.5 hover:border-white/10 hover:bg-white/5"
             }`}
           >
-            <div className="flex items-center gap-2 text-sm font-semibold text-[#E6EDF3]">
+            <div className="flex items-center gap-2 text-sm font-semibold text-industrial-text">
               <BookOpenText size={17} className="text-teal-300" />
               Evidence & Governance
             </div>
@@ -743,7 +743,7 @@ export function ReliabilityCopilotPage() {
               Source trail, deterministic math, and approval controls.
             </p>
           </button>
-          <div className="grid grid-cols-3 gap-2 rounded-xl border border-white/[0.06] bg-black/20 p-3">
+          <div className="grid grid-cols-3 gap-2 rounded-xl border border-white/6 bg-black/20 p-3">
             <CompactMetric label="Risk" value={report.riskLevel} />
             <CompactMetric
               label="Readiness"
@@ -762,7 +762,7 @@ export function ReliabilityCopilotPage() {
                 <PackageCheck size={14} />
                 One-command workflow
               </div>
-              <h2 className="mt-3 text-xl font-bold text-[#E6EDF3]">
+              <h2 className="mt-3 text-xl font-bold text-industrial-text">
                 Guided Asset Onboarding
               </h2>
               <p className="mt-1 max-w-3xl text-sm text-slate-400">
@@ -772,33 +772,33 @@ export function ReliabilityCopilotPage() {
               </p>
             </div>
             <div className="grid grid-cols-2 gap-3 text-center sm:min-w-[520px] lg:grid-cols-5">
-              <div className="rounded-lg border border-white/[0.06] bg-black/20 p-3">
+              <div className="rounded-lg border border-white/6 bg-black/20 p-3">
                 <div className="text-xs text-slate-400">Completion</div>
-                <div className="mt-1 text-2xl font-bold text-[#E6EDF3]">
+                <div className="mt-1 text-2xl font-bold text-industrial-text">
                   {onboardingSession.completionScore}%
                 </div>
               </div>
-              <div className="rounded-lg border border-white/[0.06] bg-black/20 p-3">
+              <div className="rounded-lg border border-white/6 bg-black/20 p-3">
                 <div className="text-xs text-slate-400">Readiness</div>
                 <div className="mt-1 text-lg font-bold capitalize text-teal-300">
                   {onboardingSession.reliabilityReadiness}
                 </div>
               </div>
-              <div className="rounded-lg border border-white/[0.06] bg-black/20 p-3">
+              <div className="rounded-lg border border-white/6 bg-black/20 p-3">
                 <div className="text-xs text-slate-400">Mode</div>
-                <div className="mt-1 text-lg font-bold capitalize text-[#E6EDF3]">
+                <div className="mt-1 text-lg font-bold capitalize text-industrial-text">
                   {onboardingSession.mode}
                 </div>
               </div>
-              <div className="rounded-lg border border-white/[0.06] bg-black/20 p-3">
+              <div className="rounded-lg border border-white/6 bg-black/20 p-3">
                 <div className="text-xs text-slate-400">Lifecycle</div>
-                <div className="mt-1 text-sm font-bold text-[#E6EDF3]">
+                <div className="mt-1 text-sm font-bold text-industrial-text">
                   {getAssetOnboardingLifecycleLabel(
                     onboardingSession.lifecycle,
                   )}
                 </div>
               </div>
-              <div className="rounded-lg border border-white/[0.06] bg-black/20 p-3">
+              <div className="rounded-lg border border-white/6 bg-black/20 p-3">
                 <div className="text-xs text-slate-400">Template</div>
                 <div className="mt-1 text-sm font-bold text-teal-300">
                   {getAssetOnboardingIndustryLabel(onboardingSession.industry)}
@@ -813,7 +813,7 @@ export function ReliabilityCopilotPage() {
                 <input
                   value={onboardingCommand}
                   onChange={(event) => setOnboardingCommand(event.target.value)}
-                  className="rounded-xl border border-white/[0.08] bg-black/20 px-4 py-3 font-mono text-sm text-[#E6EDF3] outline-none focus:border-teal-500/60"
+                  className="rounded-xl border border-white/8 bg-black/20 px-4 py-3 font-mono text-sm text-industrial-text outline-hidden focus:border-teal-500/60"
                   aria-label="Asset onboarding command"
                 />
                 <button
@@ -836,17 +836,17 @@ export function ReliabilityCopilotPage() {
                   <button
                     key={command}
                     onClick={() => startOnboarding(command)}
-                    className="rounded-lg border border-white/[0.06] bg-white/[0.03] px-2.5 py-1.5 transition-colors hover:bg-white/[0.08]"
+                    className="rounded-lg border border-white/6 bg-white/3 px-2.5 py-1.5 transition-colors hover:bg-white/8"
                   >
                     {command}
                   </button>
                 ))}
               </div>
 
-              <div className="rounded-xl border border-white/[0.06] bg-black/20 p-4">
+              <div className="rounded-xl border border-white/6 bg-black/20 p-4">
                 <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                   <div>
-                    <div className="flex items-center gap-2 text-sm font-semibold text-[#E6EDF3]">
+                    <div className="flex items-center gap-2 text-sm font-semibold text-industrial-text">
                       <ListChecks size={17} className="text-teal-300" />
                       Current step: {currentOnboardingStep.name}
                     </div>
@@ -854,7 +854,7 @@ export function ReliabilityCopilotPage() {
                       {currentOnboardingStep.purpose}
                     </p>
                   </div>
-                  <span className="rounded-lg bg-white/[0.04] px-2 py-1 text-xs font-medium text-slate-300">
+                  <span className="rounded-lg bg-white/4 px-2 py-1 text-xs font-medium text-slate-300">
                     {currentOnboardingStep.completionScore}% complete
                   </span>
                 </div>
@@ -882,7 +882,7 @@ export function ReliabilityCopilotPage() {
                         .map((field) => (
                           <span
                             key={field}
-                            className="rounded-lg bg-white/[0.04] px-2 py-1 text-xs text-slate-300"
+                            className="rounded-lg bg-white/4 px-2 py-1 text-xs text-slate-300"
                           >
                             {field}
                           </span>
@@ -893,7 +893,7 @@ export function ReliabilityCopilotPage() {
                 <textarea
                   value={onboardingAnswer}
                   onChange={(event) => setOnboardingAnswer(event.target.value)}
-                  className="mt-4 min-h-32 w-full resize-y rounded-xl border border-white/[0.08] bg-black/20 p-3 text-sm text-[#E6EDF3] outline-none focus:border-teal-500/60"
+                  className="mt-4 min-h-32 w-full resize-y rounded-xl border border-white/8 bg-black/20 p-3 text-sm text-industrial-text outline-hidden focus:border-teal-500/60"
                   aria-label="Asset onboarding answer"
                 />
                 <div className="mt-3 flex flex-wrap gap-3">
@@ -914,7 +914,7 @@ export function ReliabilityCopilotPage() {
                         getOnboardingSampleAnswer(onboardingSession),
                       )
                     }
-                    className="inline-flex items-center gap-2 rounded-lg border border-white/[0.08] px-4 py-2 text-sm font-semibold text-slate-200 transition-colors hover:bg-white/[0.04]"
+                    className="inline-flex items-center gap-2 rounded-lg border border-white/8 px-4 py-2 text-sm font-semibold text-slate-200 transition-colors hover:bg-white/4"
                   >
                     <BrainCircuit size={16} />
                     Use Guided Draft
@@ -942,10 +942,10 @@ export function ReliabilityCopilotPage() {
                 />
               </div>
 
-              <div className="rounded-xl border border-white/[0.06] bg-black/20 p-4">
+              <div className="rounded-xl border border-white/6 bg-black/20 p-4">
                 <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                   <div>
-                    <div className="flex items-center gap-2 text-sm font-semibold text-[#E6EDF3]">
+                    <div className="flex items-center gap-2 text-sm font-semibold text-industrial-text">
                       <Database size={17} className="text-teal-300" />
                       Persistence and resume
                     </div>
@@ -955,7 +955,7 @@ export function ReliabilityCopilotPage() {
                   </div>
                   <button
                     onClick={() => void refreshSavedOnboardingSessions()}
-                    className="inline-flex items-center gap-2 rounded-lg border border-white/[0.08] px-3 py-2 text-xs font-semibold text-slate-200 transition-colors hover:bg-white/[0.04]"
+                    className="inline-flex items-center gap-2 rounded-lg border border-white/8 px-3 py-2 text-xs font-semibold text-slate-200 transition-colors hover:bg-white/4"
                   >
                     <RefreshCw size={14} />
                     Refresh
@@ -972,13 +972,13 @@ export function ReliabilityCopilotPage() {
                         onClick={() =>
                           void resumeOnboardingSession(session.sessionId)
                         }
-                        className="rounded-lg border border-white/[0.06] bg-white/[0.03] p-3 text-left transition-colors hover:bg-white/[0.08]"
+                        className="rounded-lg border border-white/6 bg-white/3 p-3 text-left transition-colors hover:bg-white/8"
                       >
                         <div className="flex items-center justify-between gap-3">
-                          <div className="font-mono text-sm font-semibold text-[#E6EDF3]">
+                          <div className="font-mono text-sm font-semibold text-industrial-text">
                             {session.assetId}
                           </div>
-                          <span className="rounded bg-teal-500/10 px-2 py-0.5 text-xs capitalize text-teal-300">
+                          <span className="rounded-sm bg-teal-500/10 px-2 py-0.5 text-xs capitalize text-teal-300">
                             {session.source}
                           </span>
                         </div>
@@ -992,7 +992,7 @@ export function ReliabilityCopilotPage() {
                       </button>
                     ))
                   ) : (
-                    <div className="rounded-lg border border-white/[0.06] bg-white/[0.03] p-3 text-sm text-slate-400 md:col-span-2">
+                    <div className="rounded-lg border border-white/6 bg-white/3 p-3 text-sm text-slate-400 md:col-span-2">
                       No saved sessions yet. Start onboarding or save a step to
                       create a resumable asset profile.
                     </div>
@@ -1002,8 +1002,8 @@ export function ReliabilityCopilotPage() {
             </div>
 
             <div className="space-y-4">
-              <div className="rounded-xl border border-white/[0.06] bg-black/20 p-4">
-                <div className="flex items-center gap-2 text-sm font-semibold text-[#E6EDF3]">
+              <div className="rounded-xl border border-white/6 bg-black/20 p-4">
+                <div className="flex items-center gap-2 text-sm font-semibold text-industrial-text">
                   <PackageCheck size={17} className="text-teal-300" />
                   Final Package Exports
                 </div>
@@ -1017,7 +1017,7 @@ export function ReliabilityCopilotPage() {
                     <button
                       key={option.key}
                       onClick={() => exportOnboarding(option)}
-                      className="inline-flex items-center justify-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-xs font-semibold text-slate-200 transition-colors hover:bg-white/[0.08]"
+                      className="inline-flex items-center justify-center gap-2 rounded-lg border border-white/8 bg-white/3 px-3 py-2 text-xs font-semibold text-slate-200 transition-colors hover:bg-white/8"
                     >
                       <Download size={14} />
                       {option.label}
@@ -1026,8 +1026,8 @@ export function ReliabilityCopilotPage() {
                 </div>
               </div>
 
-              <div className="rounded-xl border border-white/[0.06] bg-black/20 p-4">
-                <div className="text-sm font-semibold text-[#E6EDF3]">
+              <div className="rounded-xl border border-white/6 bg-black/20 p-4">
+                <div className="text-sm font-semibold text-industrial-text">
                   Progress
                 </div>
                 <div className="mt-3 max-h-[520px] space-y-2 overflow-auto pr-1">
@@ -1037,12 +1037,12 @@ export function ReliabilityCopilotPage() {
                       className={`rounded-lg border px-3 py-2 ${
                         step.id === onboardingSession.currentStep
                           ? "border-teal-500/40 bg-teal-500/10"
-                          : "border-white/[0.06] bg-white/[0.03]"
+                          : "border-white/6 bg-white/3"
                       }`}
                     >
                       <div className="flex items-center justify-between gap-3">
                         <div className="min-w-0">
-                          <div className="truncate text-sm font-medium text-[#E6EDF3]">
+                          <div className="truncate text-sm font-medium text-industrial-text">
                             {index + 1}. {step.name}
                           </div>
                           <div className="text-xs capitalize text-slate-400">
@@ -1053,7 +1053,7 @@ export function ReliabilityCopilotPage() {
                           {step.completionScore}%
                         </div>
                       </div>
-                      <div className="mt-2 h-1.5 rounded-full bg-white/[0.06]">
+                      <div className="mt-2 h-1.5 rounded-full bg-white/6">
                         <div
                           className="h-1.5 rounded-full bg-teal-400"
                           style={{ width: `${step.completionScore}%` }}
@@ -1070,7 +1070,7 @@ export function ReliabilityCopilotPage() {
 
       {activeWorkspace === "analysis" && (
         <section className="grid grid-cols-1 gap-5">
-          <div className="rounded-2xl border border-white/[0.08] bg-[#0D131A]/90 p-4 shadow-xl shadow-black/20">
+          <div className="rounded-2xl border border-white/8 bg-[#0D131A]/90 p-4 shadow-xl shadow-black/20">
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <div>
                 <div className="text-xs font-semibold uppercase tracking-[0.2em] text-teal-300/80">
@@ -1092,7 +1092,7 @@ export function ReliabilityCopilotPage() {
                     className={`rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
                       mode === item
                         ? "bg-teal-400 text-slate-950 shadow-lg shadow-teal-950/20"
-                        : "bg-white/[0.04] text-slate-300 hover:bg-white/[0.08]"
+                        : "bg-white/4 text-slate-300 hover:bg-white/8"
                     }`}
                   >
                     {item}
@@ -1103,8 +1103,8 @@ export function ReliabilityCopilotPage() {
 
             <div className="mt-4 space-y-4">
               <div className="grid min-h-[620px] gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
-                <div className="flex min-h-[620px] flex-col rounded-2xl border border-white/[0.08] bg-[#080C11] shadow-xl shadow-black/20">
-                  <div className="order-1 border-b border-white/[0.06] p-4">
+                <div className="flex min-h-[620px] flex-col rounded-2xl border border-white/8 bg-[#080C11] shadow-xl shadow-black/20">
+                  <div className="order-1 border-b border-white/6 p-4">
                     <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                       <div>
                         <div className="flex items-center gap-2 text-base font-semibold text-[#F8FAFC]">
@@ -1158,7 +1158,7 @@ export function ReliabilityCopilotPage() {
                       </div>
                     </div>
                   </div>
-                  <div className="order-4 border-t border-white/[0.06] p-4">
+                  <div className="order-4 border-t border-white/6 p-4">
                     <div className="mb-2 flex items-center justify-between gap-3">
                       <div className="text-xs font-semibold uppercase tracking-[0.18em] text-teal-300">
                         Ask SyncAI
@@ -1179,7 +1179,7 @@ export function ReliabilityCopilotPage() {
                           void generateReport();
                         }
                       }}
-                      className="min-h-28 w-full resize-none rounded-2xl border border-teal-300/20 bg-black/45 p-4 text-sm leading-6 text-[#E6EDF3] outline-none transition-colors placeholder:text-slate-400 focus:border-teal-400/70 focus:ring-4 focus:ring-teal-400/10"
+                      className="min-h-28 w-full resize-none rounded-2xl border border-teal-300/20 bg-black/45 p-4 text-sm leading-6 text-industrial-text outline-hidden transition-colors placeholder:text-slate-400 focus:border-teal-400/70 focus:ring-4 focus:ring-teal-400/10"
                       placeholder="Ask for RCA, FRACAS, PM optimization, RAM, or /onboard pump P-101..."
                       aria-label="Interactive reliability chat input"
                     />
@@ -1201,14 +1201,14 @@ export function ReliabilityCopilotPage() {
                         onClick={() =>
                           setPrompt("/onboard used pump P-101 oil-sands deep")
                         }
-                        className="inline-flex items-center gap-2 rounded-xl border border-white/[0.08] px-3 py-2.5 text-xs font-semibold text-slate-200 transition-colors hover:bg-white/[0.04]"
+                        className="inline-flex items-center gap-2 rounded-xl border border-white/8 px-3 py-2.5 text-xs font-semibold text-slate-200 transition-colors hover:bg-white/4"
                       >
                         <Sparkles size={14} />
                         /onboard
                       </button>
                       <button
                         onClick={exportReport}
-                        className="inline-flex items-center gap-2 rounded-xl border border-white/[0.08] px-3 py-2.5 text-xs font-semibold text-slate-200 transition-colors hover:bg-white/[0.04]"
+                        className="inline-flex items-center gap-2 rounded-xl border border-white/8 px-3 py-2.5 text-xs font-semibold text-slate-200 transition-colors hover:bg-white/4"
                       >
                         <Download size={14} />
                         Export
@@ -1218,7 +1218,7 @@ export function ReliabilityCopilotPage() {
                 </div>
 
                 <div className="space-y-4">
-                  <div className="rounded-2xl border border-white/[0.08] bg-[#080C11] p-4 shadow-xl shadow-black/20">
+                  <div className="rounded-2xl border border-white/8 bg-[#080C11] p-4 shadow-xl shadow-black/20">
                     <div className="flex items-center gap-2 text-sm font-semibold text-[#F8FAFC]">
                       <Bot size={17} className="text-teal-300" />
                       Agent Workstream
@@ -1243,7 +1243,7 @@ export function ReliabilityCopilotPage() {
                     </div>
                   </div>
 
-                  <div className="rounded-2xl border border-white/[0.08] bg-[#080C11] p-4 shadow-xl shadow-black/20">
+                  <div className="rounded-2xl border border-white/8 bg-[#080C11] p-4 shadow-xl shadow-black/20">
                     <div className="flex items-center gap-2 text-sm font-semibold text-[#F8FAFC]">
                       <CircleDot size={17} className="text-teal-300" />
                       Artifact Snapshot
@@ -1269,7 +1269,7 @@ export function ReliabilityCopilotPage() {
                     </div>
                   </div>
 
-                  <div className="rounded-2xl border border-white/[0.08] bg-[#080C11] p-4 shadow-xl shadow-black/20">
+                  <div className="rounded-2xl border border-white/8 bg-[#080C11] p-4 shadow-xl shadow-black/20">
                     <div className="flex items-center gap-2 text-sm font-semibold text-[#F8FAFC]">
                       <Gauge size={17} className="text-teal-300" />
                       Live Math
@@ -1301,10 +1301,10 @@ export function ReliabilityCopilotPage() {
                 </div>
               </div>
 
-              <details className="rounded-2xl border border-dashed border-white/[0.12] bg-white/[0.025] p-4">
+              <details className="rounded-2xl border border-dashed border-white/12 bg-white/2.5 p-4">
                 <summary className="cursor-pointer list-none">
                   <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="flex items-center gap-2 text-sm font-semibold text-[#E6EDF3]">
+                    <div className="flex items-center gap-2 text-sm font-semibold text-industrial-text">
                       <Upload size={17} className="text-teal-300" />
                       Add failure-history data
                     </div>
@@ -1317,7 +1317,7 @@ export function ReliabilityCopilotPage() {
                   Paste or upload CSV failure history. The report updates from
                   this data when you generate.
                 </p>
-                <label className="mt-4 flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-white/[0.08] bg-black/20 px-3 py-2 text-sm font-medium text-slate-200 transition-colors hover:bg-white/[0.04]">
+                <label className="mt-4 flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-white/8 bg-black/20 px-3 py-2 text-sm font-medium text-slate-200 transition-colors hover:bg-white/4">
                   <Upload size={16} />
                   Upload CSV
                   <input
@@ -1330,7 +1330,7 @@ export function ReliabilityCopilotPage() {
                 <textarea
                   value={csvText}
                   onChange={(event) => setCsvText(event.target.value)}
-                  className="mt-3 min-h-44 w-full resize-y rounded-xl border border-white/[0.08] bg-[#080C11] p-3 font-mono text-xs text-[#E6EDF3] outline-none focus:border-teal-500/60"
+                  className="mt-3 min-h-44 w-full resize-y rounded-xl border border-white/8 bg-[#080C11] p-3 font-mono text-xs text-industrial-text outline-hidden focus:border-teal-500/60"
                   aria-label="Failure history CSV"
                 />
                 <div className="mt-4 grid gap-2 md:grid-cols-2">
@@ -1346,7 +1346,7 @@ export function ReliabilityCopilotPage() {
                 </div>
               </details>
 
-              <div className="rounded-2xl border border-white/[0.08] bg-[linear-gradient(180deg,rgba(255,255,255,0.045),rgba(255,255,255,0.02))] p-4 shadow-xl shadow-black/10">
+              <div className="rounded-2xl border border-white/8 bg-[linear-gradient(180deg,rgba(255,255,255,0.045),rgba(255,255,255,0.02))] p-4 shadow-xl shadow-black/10">
                 <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
                   <div className="flex items-center gap-2 text-sm font-semibold text-[#F8FAFC]">
                     <ShieldCheck size={17} className="text-teal-300" />
@@ -1359,7 +1359,7 @@ export function ReliabilityCopilotPage() {
                     <span className="rounded-full border border-sky-300/20 bg-sky-300/10 px-2.5 py-1 text-sky-100">
                       Confidence: {report.confidence}
                     </span>
-                    <span className="rounded-full border border-white/[0.08] bg-white/[0.04] px-2.5 py-1 text-slate-300">
+                    <span className="rounded-full border border-white/8 bg-white/4 px-2.5 py-1 text-slate-300">
                       Records: {report.dataSummary.recordCount}
                     </span>
                   </div>
@@ -1397,7 +1397,7 @@ export function ReliabilityCopilotPage() {
                   </div>
                 </div>
                 <div className="mt-4 grid gap-3 lg:grid-cols-3">
-                  <div className="rounded-xl border border-white/[0.06] bg-black/20 p-3">
+                  <div className="rounded-xl border border-white/6 bg-black/20 p-3">
                     <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
                       <BookOpenText size={15} className="text-teal-300" />
                       Source Grounding
@@ -1405,7 +1405,7 @@ export function ReliabilityCopilotPage() {
                     <div className="mt-2 space-y-2">
                       {report.sources.slice(0, 2).map((source) => (
                         <div key={source.id} className="text-xs text-slate-300">
-                          <div className="font-semibold text-[#E6EDF3]">
+                          <div className="font-semibold text-industrial-text">
                             {source.source}
                           </div>
                           <div>{source.title}</div>
@@ -1422,7 +1422,7 @@ export function ReliabilityCopilotPage() {
                       )}
                     </div>
                   </div>
-                  <div className="rounded-xl border border-white/[0.06] bg-black/20 p-3">
+                  <div className="rounded-xl border border-white/6 bg-black/20 p-3">
                     <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
                       <ShieldCheck size={15} className="text-teal-300" />
                       Governed Recommendation
@@ -1434,7 +1434,7 @@ export function ReliabilityCopilotPage() {
                       Owner: {report.governedRecommendations[0]?.ownerRole}
                     </p>
                   </div>
-                  <div className="rounded-xl border border-white/[0.06] bg-black/20 p-3">
+                  <div className="rounded-xl border border-white/6 bg-black/20 p-3">
                     <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
                       <AlertTriangle size={15} className="text-amber-300" />
                       Data Quality
@@ -1449,11 +1449,11 @@ export function ReliabilityCopilotPage() {
                     </p>
                   </div>
                 </div>
-                <details className="mt-4 rounded-xl border border-white/[0.06] bg-black/30">
+                <details className="mt-4 rounded-xl border border-white/6 bg-black/30">
                   <summary className="cursor-pointer px-4 py-3 text-sm font-semibold text-slate-200">
                     View full deterministic report
                   </summary>
-                  <pre className="max-h-96 overflow-auto whitespace-pre-wrap border-t border-white/[0.06] p-4 text-xs leading-5 text-slate-200">
+                  <pre className="max-h-96 overflow-auto whitespace-pre-wrap border-t border-white/6 p-4 text-xs leading-5 text-slate-200">
                     {report.markdown}
                   </pre>
                 </details>
@@ -1461,7 +1461,7 @@ export function ReliabilityCopilotPage() {
 
               <div className="rounded-2xl border border-teal-300/20 bg-teal-300/[0.07] p-4">
                 <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
-                  <div className="flex items-center gap-2 text-sm font-semibold text-[#E6EDF3]">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-industrial-text">
                     <Bot size={17} className="text-teal-300" />
                     Live AI Reliability Review
                   </div>
@@ -1496,7 +1496,7 @@ export function ReliabilityCopilotPage() {
           <div className="hidden space-y-4">
             <div className="rounded-2xl border border-teal-300/20 bg-[#0D131A]/90 p-5 shadow-xl shadow-black/20">
               <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2 text-sm font-semibold text-[#E6EDF3]">
+                <div className="flex items-center gap-2 text-sm font-semibold text-industrial-text">
                   <Bot size={17} className="text-teal-300" />
                   Agent Runtime
                 </div>
@@ -1511,8 +1511,8 @@ export function ReliabilityCopilotPage() {
               </div>
             </div>
 
-            <div className="rounded-2xl border border-white/[0.08] bg-[#0D131A]/90 p-5 shadow-xl shadow-black/20">
-              <div className="flex items-center gap-2 text-sm font-semibold text-[#E6EDF3]">
+            <div className="rounded-2xl border border-white/8 bg-[#0D131A]/90 p-5 shadow-xl shadow-black/20">
+              <div className="flex items-center gap-2 text-sm font-semibold text-industrial-text">
                 <ShieldCheck size={17} className="text-teal-300" />
                 Decision Snapshot
               </div>
@@ -1534,10 +1534,10 @@ export function ReliabilityCopilotPage() {
               </div>
             </div>
 
-            <div className="rounded-2xl border border-white/[0.08] bg-[#0D131A]/90 p-5 shadow-xl shadow-black/20">
+            <div className="rounded-2xl border border-white/8 bg-[#0D131A]/90 p-5 shadow-xl shadow-black/20">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-lg font-semibold text-[#E6EDF3]">
+                  <h2 className="text-lg font-semibold text-industrial-text">
                     RAM Calculator
                   </h2>
                   <p className="text-sm text-slate-400">
@@ -1571,7 +1571,7 @@ export function ReliabilityCopilotPage() {
                 </div>
               )}
 
-              <details className="mt-4 rounded-xl border border-white/[0.06] bg-black/20 p-3">
+              <details className="mt-4 rounded-xl border border-white/6 bg-black/20 p-3">
                 <summary className="cursor-pointer text-sm font-semibold text-slate-200">
                   Adjust calculation inputs
                 </summary>
@@ -1595,7 +1595,7 @@ export function ReliabilityCopilotPage() {
                             event.target.value,
                           )
                         }
-                        className="w-full rounded-lg border border-white/[0.08] bg-black/20 px-3 py-2 text-sm text-[#E6EDF3] outline-none focus:border-teal-500/60"
+                        className="w-full rounded-lg border border-white/8 bg-black/20 px-3 py-2 text-sm text-industrial-text outline-hidden focus:border-teal-500/60"
                       />
                     </label>
                   ))}
@@ -1608,7 +1608,7 @@ export function ReliabilityCopilotPage() {
 
       {activeWorkspace === "evidence" && (
         <section className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1.2fr)_420px]">
-          <div className="rounded-2xl border border-white/[0.08] bg-[#0D131A]/90 p-5 shadow-2xl shadow-black/20">
+          <div className="rounded-2xl border border-white/8 bg-[#0D131A]/90 p-5 shadow-2xl shadow-black/20">
             <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
               <div>
                 <div className="text-xs font-semibold uppercase tracking-[0.2em] text-teal-300/80">
@@ -1625,7 +1625,7 @@ export function ReliabilityCopilotPage() {
               </div>
               <button
                 onClick={exportReport}
-                className="inline-flex items-center gap-2 rounded-xl border border-white/[0.08] px-4 py-2.5 text-sm font-semibold text-slate-200 transition-colors hover:bg-white/[0.04]"
+                className="inline-flex items-center gap-2 rounded-xl border border-white/8 px-4 py-2.5 text-sm font-semibold text-slate-200 transition-colors hover:bg-white/4"
               >
                 <Download size={16} />
                 Export Evidence Pack
@@ -1655,7 +1655,7 @@ export function ReliabilityCopilotPage() {
             </div>
 
             <div className="mt-5 grid gap-4 lg:grid-cols-2">
-              <div className="rounded-2xl border border-white/[0.06] bg-black/20 p-4">
+              <div className="rounded-2xl border border-white/6 bg-black/20 p-4">
                 <div className="text-sm font-semibold text-[#F8FAFC]">
                   Retrieved knowledge
                 </div>
@@ -1663,9 +1663,9 @@ export function ReliabilityCopilotPage() {
                   {report.sources.map((source) => (
                     <div
                       key={source.id}
-                      className="rounded-xl border border-white/[0.06] bg-white/[0.03] p-3"
+                      className="rounded-xl border border-white/6 bg-white/3 p-3"
                     >
-                      <div className="text-sm font-semibold text-[#E6EDF3]">
+                      <div className="text-sm font-semibold text-industrial-text">
                         {source.source}
                       </div>
                       <div className="mt-1 text-sm text-slate-400">
@@ -1679,7 +1679,7 @@ export function ReliabilityCopilotPage() {
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-white/[0.06] bg-black/20 p-4">
+              <div className="rounded-2xl border border-white/6 bg-black/20 p-4">
                 <div className="text-sm font-semibold text-[#F8FAFC]">
                   Data quality and assumptions
                 </div>
@@ -1687,9 +1687,9 @@ export function ReliabilityCopilotPage() {
                   {report.dataQualityFindings.map((finding) => (
                     <div
                       key={finding.issue}
-                      className="rounded-xl border border-white/[0.06] bg-white/[0.03] p-3"
+                      className="rounded-xl border border-white/6 bg-white/3 p-3"
                     >
-                      <div className="text-sm font-semibold text-[#E6EDF3]">
+                      <div className="text-sm font-semibold text-industrial-text">
                         {finding.issue}
                       </div>
                       <div className="mt-1 text-sm text-slate-400">
@@ -1704,7 +1704,7 @@ export function ReliabilityCopilotPage() {
 
           <div className="space-y-4">
             <div className="rounded-2xl border border-teal-300/20 bg-[#0D131A]/90 p-5 shadow-xl shadow-black/20">
-              <div className="flex items-center gap-2 text-sm font-semibold text-[#E6EDF3]">
+              <div className="flex items-center gap-2 text-sm font-semibold text-industrial-text">
                 <Bot size={17} className="text-teal-300" />
                 Agent Work Trace
               </div>
@@ -1715,11 +1715,11 @@ export function ReliabilityCopilotPage() {
               </div>
             </div>
 
-            <div className="rounded-2xl border border-white/[0.08] bg-[#0D131A]/90 p-5 shadow-xl shadow-black/20">
+            <div className="rounded-2xl border border-white/8 bg-[#0D131A]/90 p-5 shadow-xl shadow-black/20">
               <div className="text-sm font-semibold text-[#F8FAFC]">
                 Deterministic report
               </div>
-              <pre className="mt-3 max-h-[520px] overflow-auto whitespace-pre-wrap rounded-xl border border-white/[0.06] bg-black/30 p-4 text-xs leading-5 text-slate-200">
+              <pre className="mt-3 max-h-[520px] overflow-auto whitespace-pre-wrap rounded-xl border border-white/6 bg-black/30 p-4 text-xs leading-5 text-slate-200">
                 {report.markdown}
               </pre>
             </div>
@@ -1728,25 +1728,25 @@ export function ReliabilityCopilotPage() {
       )}
 
       {activeWorkspace === "analysis" && (
-        <details className="glass rounded-xl border border-white/[0.06] p-4">
-          <summary className="cursor-pointer text-sm font-semibold text-[#E6EDF3]">
+        <details className="glass rounded-xl border border-white/6 p-4">
+          <summary className="cursor-pointer text-sm font-semibold text-industrial-text">
             Bad actor detail
           </summary>
           <section className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
             {report.badActors.slice(0, 4).map((actor, index) => (
               <div
                 key={actor.assetId}
-                className="glass rounded-xl border border-white/[0.06] p-4"
+                className="glass rounded-xl border border-white/6 p-4"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="rounded-lg bg-teal-500/10 p-2">
                     <BarChart3 size={19} className="text-teal-300" />
                   </div>
-                  <span className="rounded-lg bg-white/[0.04] px-2 py-1 text-xs font-medium text-slate-300">
+                  <span className="rounded-lg bg-white/4 px-2 py-1 text-xs font-medium text-slate-300">
                     #{index + 1}
                   </span>
                 </div>
-                <h3 className="mt-4 text-sm font-semibold text-[#E6EDF3]">
+                <h3 className="mt-4 text-sm font-semibold text-industrial-text">
                   {actor.assetId}
                 </h3>
                 <p className="mt-2 text-sm text-slate-400">
@@ -1759,8 +1759,8 @@ export function ReliabilityCopilotPage() {
         </details>
       )}
 
-      <details className="glass rounded-xl border border-white/[0.06] p-4">
-        <summary className="cursor-pointer text-sm font-semibold text-[#E6EDF3]">
+      <details className="glass rounded-xl border border-white/6 p-4">
+        <summary className="cursor-pointer text-sm font-semibold text-industrial-text">
           Product capabilities and go-to-market notes
         </summary>
         <section className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -1769,7 +1769,7 @@ export function ReliabilityCopilotPage() {
             return (
               <div
                 key={card.title}
-                className="glass rounded-xl border border-white/[0.06] p-4"
+                className="glass rounded-xl border border-white/6 p-4"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="rounded-lg bg-teal-500/10 p-2">
@@ -1779,7 +1779,7 @@ export function ReliabilityCopilotPage() {
                     MVP
                   </span>
                 </div>
-                <h3 className="mt-4 text-sm font-semibold text-[#E6EDF3]">
+                <h3 className="mt-4 text-sm font-semibold text-industrial-text">
                   {card.title}
                 </h3>
                 <p className="mt-2 text-sm text-slate-400">{card.detail}</p>
@@ -1814,7 +1814,7 @@ function CompactMetric({ label, value }: { label: string; value: string }) {
   return (
     <div>
       <div className="text-xs font-medium text-slate-400">{label}</div>
-      <div className="mt-1 truncate text-sm font-semibold capitalize text-[#E6EDF3]">
+      <div className="mt-1 truncate text-sm font-semibold capitalize text-industrial-text">
         {value}
       </div>
     </div>
@@ -1832,10 +1832,10 @@ function Metric({
 }) {
   return (
     <div
-      className={`rounded-lg border border-white/[0.06] bg-black/20 p-3 ${wide ? "col-span-2" : ""}`}
+      className={`rounded-lg border border-white/6 bg-black/20 p-3 ${wide ? "col-span-2" : ""}`}
     >
       <div className="text-xs text-slate-400">{label}</div>
-      <div className="mt-1 text-xl font-bold text-[#E6EDF3]">{value}</div>
+      <div className="mt-1 text-xl font-bold text-industrial-text">{value}</div>
     </div>
   );
 }
@@ -1850,13 +1850,13 @@ function DecisionRow({
   tone?: "default" | "amber";
 }) {
   return (
-    <div className="rounded-lg border border-white/[0.06] bg-black/20 p-3">
+    <div className="rounded-lg border border-white/6 bg-black/20 p-3">
       <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">
         {label}
       </div>
       <div
         className={`mt-1 text-sm font-semibold ${
-          tone === "amber" ? "text-amber-200" : "text-[#E6EDF3]"
+          tone === "amber" ? "text-amber-200" : "text-industrial-text"
         }`}
       >
         {value}
@@ -1884,8 +1884,8 @@ function AgentRuntimeStep({
     state === "attention"
       ? "border-amber-300/20 bg-amber-300/[0.07] text-amber-200"
       : state === "active"
-        ? "border-teal-300/25 bg-teal-300/[0.08] text-teal-200"
-        : "border-white/[0.06] bg-white/[0.03] text-slate-300";
+        ? "border-teal-300/25 bg-teal-300/8 text-teal-200"
+        : "border-white/6 bg-white/3 text-slate-300";
 
   return (
     <div className={`rounded-xl border p-3 ${stateClass}`}>
@@ -1916,10 +1916,10 @@ function ChatBubble({ message }: { message: ChatMessage }) {
       <div
         className={`max-w-[92%] rounded-2xl border px-3 py-2.5 ${
           isUser
-            ? "border-teal-300/25 bg-teal-300/[0.12] text-teal-50"
+            ? "border-teal-300/25 bg-teal-300/12 text-teal-50"
             : isSystem
-              ? "border-white/[0.08] bg-white/[0.035] text-slate-300"
-              : "border-white/[0.08] bg-black/30 text-slate-200"
+              ? "border-white/8 bg-white/[0.035] text-slate-300"
+              : "border-white/8 bg-black/30 text-slate-200"
         }`}
       >
         <div className="flex items-center gap-2">
@@ -1934,7 +1934,7 @@ function ChatBubble({ message }: { message: ChatMessage }) {
             {isUser ? "You" : isSystem ? "System" : "SyncAI"}
           </span>
           {message.meta && (
-            <span className="truncate rounded-full bg-white/[0.05] px-2 py-0.5 text-xs text-slate-400">
+            <span className="truncate rounded-full bg-white/5 px-2 py-0.5 text-xs text-slate-400">
               {message.meta}
             </span>
           )}
@@ -1959,10 +1959,10 @@ function LiveWorkItem({ label, status }: { label: string; status: string }) {
     <div
       className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 ${
         status === "complete"
-          ? "border-emerald-300/15 bg-emerald-300/[0.06] text-emerald-200"
+          ? "border-emerald-300/15 bg-emerald-300/6 text-emerald-200"
           : status === "active"
-            ? "border-teal-300/25 bg-teal-300/[0.09] text-teal-200"
-            : "border-white/[0.06] bg-white/[0.025] text-slate-400"
+            ? "border-teal-300/25 bg-teal-300/9 text-teal-200"
+            : "border-white/6 bg-white/2.5 text-slate-400"
       }`}
     >
       <Icon size={16} className={status === "active" ? "animate-spin" : ""} />
@@ -2006,15 +2006,15 @@ function Signal({
   value: string;
 }) {
   return (
-    <div className="glass flex items-start gap-3 rounded-xl border border-white/[0.06] p-4">
-      <div className="rounded-lg bg-white/[0.04] p-2">
+    <div className="glass flex items-start gap-3 rounded-xl border border-white/6 p-4">
+      <div className="rounded-lg bg-white/4 p-2">
         <Icon size={18} className="text-teal-300" />
       </div>
       <div>
         <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">
           {label}
         </div>
-        <div className="mt-1 text-sm text-[#E6EDF3]">{value}</div>
+        <div className="mt-1 text-sm text-industrial-text">{value}</div>
       </div>
     </div>
   );

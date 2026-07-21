@@ -91,19 +91,15 @@ export function JavisPreferences() {
       const tenantId = profile?.tenant_id || user.id;
 
       // Ensure tenant and profile exist
-      await supabase
-        .from("tenants")
-        .upsert({
-          id: tenantId,
-          name: preferences.display_name || "Default Tenant",
-        });
-      await supabase
-        .from("user_profiles")
-        .upsert({
-          id: user.id,
-          tenant_id: tenantId,
-          full_name: preferences.display_name,
-        });
+      await supabase.from("tenants").upsert({
+        id: tenantId,
+        name: preferences.display_name || "Default Tenant",
+      });
+      await supabase.from("user_profiles").upsert({
+        id: user.id,
+        tenant_id: tenantId,
+        full_name: preferences.display_name,
+      });
 
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/javis-orchestrator/preferences`,
@@ -150,23 +146,23 @@ export function JavisPreferences() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#0B0F14] flex items-center justify-center">
+      <div className="min-h-screen bg-industrial-black flex items-center justify-center">
         <p className="text-slate-400">Loading preferences...</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#0B0F14] p-6">
+    <div className="min-h-screen bg-industrial-black p-6">
       <div className="max-w-3xl mx-auto">
-        <div className="bg-[#11161D] rounded-2xl shadow-lg p-8">
-          <h1 className="text-3xl font-bold text-[#E6EDF3] mb-8">
+        <div className="bg-industrial-graphite rounded-2xl shadow-lg p-8">
+          <h1 className="text-3xl font-bold text-industrial-text mb-8">
             J.A.V.I.S Preferences
           </h1>
 
           {/* General Settings */}
           <div className="mb-8">
-            <h2 className="text-xl font-semibold text-[#E6EDF3] mb-4">
+            <h2 className="text-xl font-semibold text-industrial-text mb-4">
               General
             </h2>
 
@@ -200,7 +196,7 @@ export function JavisPreferences() {
                       javis_enabled: e.target.checked,
                     })
                   }
-                  className="w-4 h-4 text-teal-600 border-gray-300 rounded focus:ring-teal-500"
+                  className="w-4 h-4 text-teal-600 border-gray-300 rounded-sm focus:ring-teal-500"
                 />
                 <label
                   htmlFor="javis-enabled"
@@ -213,8 +209,8 @@ export function JavisPreferences() {
           </div>
 
           {/* Voice Settings */}
-          <div className="mb-8 pb-8 border-b border-[#232A33]">
-            <h2 className="text-xl font-semibold text-[#E6EDF3] mb-4 flex items-center gap-2">
+          <div className="mb-8 pb-8 border-b border-industrial-border">
+            <h2 className="text-xl font-semibold text-industrial-text mb-4 flex items-center gap-2">
               <Volume2 className="w-5 h-5" />
               Voice Settings
             </h2>
@@ -231,7 +227,7 @@ export function JavisPreferences() {
                       prefers_voice: e.target.checked,
                     })
                   }
-                  className="w-4 h-4 text-teal-600 border-gray-300 rounded focus:ring-teal-500"
+                  className="w-4 h-4 text-teal-600 border-gray-300 rounded-sm focus:ring-teal-500"
                 />
                 <label
                   htmlFor="prefers-voice"
@@ -301,8 +297,8 @@ export function JavisPreferences() {
           </div>
 
           {/* Briefing Schedule */}
-          <div className="mb-8 pb-8 border-b border-[#232A33]">
-            <h2 className="text-xl font-semibold text-[#E6EDF3] mb-4 flex items-center gap-2">
+          <div className="mb-8 pb-8 border-b border-industrial-border">
+            <h2 className="text-xl font-semibold text-industrial-text mb-4 flex items-center gap-2">
               <Clock className="w-5 h-5" />
               Briefing Schedule
             </h2>
@@ -353,7 +349,7 @@ export function JavisPreferences() {
 
           {/* Notification Channels */}
           <div className="mb-8">
-            <h2 className="text-xl font-semibold text-[#E6EDF3] mb-4 flex items-center gap-2">
+            <h2 className="text-xl font-semibold text-industrial-text mb-4 flex items-center gap-2">
               <Bell className="w-5 h-5" />
               Notification Channels
             </h2>
@@ -373,7 +369,7 @@ export function JavisPreferences() {
                       },
                     })
                   }
-                  className="w-4 h-4 text-teal-600 border-gray-300 rounded focus:ring-teal-500"
+                  className="w-4 h-4 text-teal-600 border-gray-300 rounded-sm focus:ring-teal-500"
                 />
                 <label
                   htmlFor="notify-in-app"
@@ -397,7 +393,7 @@ export function JavisPreferences() {
                       },
                     })
                   }
-                  className="w-4 h-4 text-teal-600 border-gray-300 rounded focus:ring-teal-500"
+                  className="w-4 h-4 text-teal-600 border-gray-300 rounded-sm focus:ring-teal-500"
                 />
                 <label
                   htmlFor="notify-push"
@@ -421,7 +417,7 @@ export function JavisPreferences() {
                       },
                     })
                   }
-                  className="w-4 h-4 text-teal-600 border-gray-300 rounded focus:ring-teal-500"
+                  className="w-4 h-4 text-teal-600 border-gray-300 rounded-sm focus:ring-teal-500"
                 />
                 <label
                   htmlFor="notify-email"
@@ -445,7 +441,7 @@ export function JavisPreferences() {
                       },
                     })
                   }
-                  className="w-4 h-4 text-teal-600 border-gray-300 rounded focus:ring-teal-500"
+                  className="w-4 h-4 text-teal-600 border-gray-300 rounded-sm focus:ring-teal-500"
                   disabled
                 />
                 <label
@@ -462,7 +458,7 @@ export function JavisPreferences() {
           <div className="flex justify-end gap-3">
             <button
               onClick={() => window.history.back()}
-              className="px-6 py-2 border border-gray-300 text-slate-300 rounded-lg hover:bg-[#0B0F14] transition-colors"
+              className="px-6 py-2 border border-gray-300 text-slate-300 rounded-lg hover:bg-industrial-black transition-colors"
             >
               Cancel
             </button>

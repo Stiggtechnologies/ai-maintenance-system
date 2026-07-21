@@ -131,15 +131,15 @@ export function OnboardingWizard() {
   const allComplete = steps.every((s) => s.completed);
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-300">
-      <div className="bg-[#11161D] rounded-2xl shadow-2xl max-w-2xl w-full overflow-hidden animate-in zoom-in-95 duration-300">
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-in fade-in duration-300">
+      <div className="bg-industrial-graphite rounded-2xl shadow-2xl max-w-2xl w-full overflow-hidden animate-in zoom-in-95 duration-300">
         {/* Header */}
-        <div className="bg-gradient-to-r from-teal-600 via-blue-600 to-purple-600 p-8 text-white relative overflow-hidden">
+        <div className="bg-linear-to-r from-teal-600 via-blue-600 to-purple-600 p-8 text-white relative overflow-hidden">
           <div className="absolute inset-0 bg-black/10"></div>
           <div className="relative">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center space-x-3">
-                <div className="w-12 h-12 bg-[#11161D]/20 rounded-xl flex items-center justify-center backdrop-blur-sm">
+                <div className="w-12 h-12 bg-industrial-graphite/20 rounded-xl flex items-center justify-center backdrop-blur-xs">
                   <Sparkles className="w-7 h-7" />
                 </div>
                 <div>
@@ -151,7 +151,7 @@ export function OnboardingWizard() {
               </div>
               <button
                 onClick={dismissOnboarding}
-                className="w-8 h-8 rounded-lg bg-[#11161D]/20 hover:bg-[#11161D]/30 transition-colors flex items-center justify-center"
+                className="w-8 h-8 rounded-lg bg-industrial-graphite/20 hover:bg-industrial-graphite/30 transition-colors flex items-center justify-center"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -165,9 +165,9 @@ export function OnboardingWizard() {
                   {Math.round(progress)}% Complete
                 </span>
               </div>
-              <div className="h-2 bg-[#11161D]/20 rounded-full overflow-hidden">
+              <div className="h-2 bg-industrial-graphite/20 rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-[#11161D] rounded-full transition-all duration-500 ease-out"
+                  className="h-full bg-industrial-graphite rounded-full transition-all duration-500 ease-out"
                   style={{ width: `${progress}%` }}
                 />
               </div>
@@ -187,17 +187,17 @@ export function OnboardingWizard() {
                     ? "border-teal-500 bg-teal-50 shadow-lg shadow-teal-100"
                     : step.completed
                       ? "border-green-200 bg-green-50"
-                      : "border-[#232A33] hover:border-gray-300 hover:bg-[#0B0F14]"
+                      : "border-industrial-border hover:border-gray-300 hover:bg-industrial-black"
                 }`}
               >
                 <div className="flex items-start space-x-4">
                   <div
-                    className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${
+                    className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${
                       step.completed
                         ? "bg-green-500 text-white"
                         : currentStep === index
                           ? "bg-teal-600 text-white"
-                          : "bg-white/[0.06] text-slate-400"
+                          : "bg-white/6 text-slate-400"
                     }`}
                   >
                     {step.completed ? (
@@ -211,7 +211,7 @@ export function OnboardingWizard() {
                       className={`font-semibold mb-1 ${
                         currentStep === index
                           ? "text-teal-900"
-                          : "text-[#E6EDF3]"
+                          : "text-industrial-text"
                       }`}
                     >
                       {step.title}
@@ -243,7 +243,7 @@ export function OnboardingWizard() {
           </div>
 
           {allComplete && (
-            <div className="mt-6 p-6 bg-gradient-to-r from-green-50 to-teal-50 border-2 border-green-200 rounded-xl">
+            <div className="mt-6 p-6 bg-linear-to-r from-green-50 to-teal-50 border-2 border-green-200 rounded-xl">
               <div className="flex items-center space-x-4">
                 <div className="w-12 h-12 bg-green-500 rounded-xl flex items-center justify-center">
                   <CheckCircle2 className="w-7 h-7 text-white" />

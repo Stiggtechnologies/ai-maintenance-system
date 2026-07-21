@@ -22,14 +22,14 @@ export function LoadingState({ label = "Loading…" }: { label?: string }) {
         {[0, 1, 2, 3].map((i) => (
           <div
             key={i}
-            className="h-20 rounded-xl border border-white/[0.04] bg-white/[0.03] animate-pulse motion-reduce:animate-none"
+            className="h-20 rounded-xl border border-white/4 bg-white/3 animate-pulse motion-reduce:animate-none"
           />
         ))}
       </div>
       {[0, 1, 2].map((i) => (
         <div
           key={i}
-          className="h-14 rounded-xl border border-white/[0.04] bg-white/[0.03] animate-pulse motion-reduce:animate-none"
+          className="h-14 rounded-xl border border-white/4 bg-white/3 animate-pulse motion-reduce:animate-none"
           style={{ animationDelay: `${i * 120}ms` }}
         />
       ))}
@@ -54,7 +54,7 @@ export function ErrorState({
       {onRetry && (
         <button
           onClick={onRetry}
-          className="mt-1 flex items-center gap-1.5 px-3 py-1.5 bg-white/[0.04] border border-white/[0.08] rounded-lg text-xs text-slate-300 hover:bg-white/[0.08] transition-colors"
+          className="mt-1 flex items-center gap-1.5 px-3 py-1.5 bg-white/4 border border-white/8 rounded-lg text-xs text-slate-300 hover:bg-white/8 transition-colors"
         >
           <RefreshCw className="w-3 h-3" /> Retry
         </button>

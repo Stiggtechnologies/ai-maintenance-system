@@ -1,5 +1,5 @@
-import { motion, AnimatePresence } from 'framer-motion';
-import { CheckCircle } from 'lucide-react';
+import { motion, AnimatePresence } from "framer-motion";
+import { CheckCircle } from "lucide-react";
 
 interface ToastProps {
   message: string;
@@ -17,9 +17,9 @@ export function Toast({ message, show }: ToastProps) {
           exit={{ opacity: 0, y: -20 }}
           className="fixed top-6 left-1/2 -translate-x-1/2 z-50"
         >
-          <div className="bg-[#161C24] border border-[#3A8DFF] rounded-lg px-6 py-3 shadow-premium flex items-center gap-3">
+          <div className="bg-industrial-slate border border-[#3A8DFF] rounded-lg px-6 py-3 shadow-premium flex items-center gap-3">
             <CheckCircle className="w-5 h-5 text-[#3A8DFF]" />
-            <span className="text-sm text-[#E6EDF3]">{message}</span>
+            <span className="text-sm text-industrial-text">{message}</span>
           </div>
         </motion.div>
       )}

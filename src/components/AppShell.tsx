@@ -320,11 +320,11 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
       <motion.aside
         animate={{ width: isCollapsed ? 64 : 240 }}
         transition={{ duration: 0.2, ease: "easeInOut" }}
-        className="bg-[#080C10] border-r border-white/[0.05] flex-shrink-0 overflow-hidden flex flex-col z-20"
+        className="bg-[#080C10] border-r border-white/5 shrink-0 overflow-hidden flex flex-col z-20"
       >
         {/* Logo */}
-        <div className="h-14 px-4 flex items-center gap-3 border-b border-white/[0.05] flex-shrink-0">
-          <div className="w-8 h-8 bg-gradient-to-br from-teal-500 to-cyan-400 rounded-lg flex items-center justify-center flex-shrink-0 shadow-[0_0_20px_rgba(20,184,166,0.4)]">
+        <div className="h-14 px-4 flex items-center gap-3 border-b border-white/5 shrink-0">
+          <div className="w-8 h-8 bg-linear-to-br from-teal-500 to-cyan-400 rounded-lg flex items-center justify-center shrink-0 shadow-[0_0_20px_rgba(20,184,166,0.4)]">
             <Zap className="w-4 h-4 text-white" />
           </div>
           {!isCollapsed && (
@@ -345,7 +345,7 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
 
         {/* Autonomy Mode Indicator */}
         {!isCollapsed && (
-          <div className="px-3 py-2 border-b border-white/[0.05]">
+          <div className="px-3 py-2 border-b border-white/5">
             <div className="flex items-center gap-2 px-2 py-1.5 rounded-md bg-amber-500/10 border border-amber-500/20">
               <div className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
               <span className="text-xs font-semibold text-amber-400 tracking-wide uppercase">
@@ -357,7 +357,7 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
 
         {/* Org + Site */}
         {!isCollapsed && userContext && (
-          <div className="px-3 py-2.5 border-b border-white/[0.05]">
+          <div className="px-3 py-2.5 border-b border-white/5">
             <div className="text-xs text-slate-400 uppercase tracking-wider mb-1">
               Organization
             </div>
@@ -373,9 +373,9 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
               <div className="relative mt-2">
                 <button
                   onClick={() => setSitePickerOpen(!sitePickerOpen)}
-                  className="w-full flex items-center gap-1.5 px-2 py-1.5 bg-white/[0.03] border border-white/[0.06] rounded-md text-xs text-slate-400 hover:bg-white/[0.06] transition-colors"
+                  className="w-full flex items-center gap-1.5 px-2 py-1.5 bg-white/3 border border-white/6 rounded-md text-xs text-slate-400 hover:bg-white/6 transition-colors"
                 >
-                  <MapPin className="w-3 h-3 flex-shrink-0" />
+                  <MapPin className="w-3 h-3 shrink-0" />
                   <span className="flex-1 text-left truncate">
                     {selectedSite?.name || "All Sites"}
                   </span>
@@ -384,10 +384,10 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
                   />
                 </button>
                 {sitePickerOpen && (
-                  <div className="absolute top-full left-0 right-0 mt-1 bg-[#0E1520] border border-white/[0.08] rounded-lg shadow-2xl z-50 max-h-48 overflow-y-auto">
+                  <div className="absolute top-full left-0 right-0 mt-1 bg-[#0E1520] border border-white/8 rounded-lg shadow-2xl z-50 max-h-48 overflow-y-auto">
                     <button
                       onClick={() => handleSiteChange(null)}
-                      className={`w-full text-left px-3 py-2 text-xs hover:bg-white/[0.05] ${!selectedSiteId ? "text-teal-400" : "text-slate-300"}`}
+                      className={`w-full text-left px-3 py-2 text-xs hover:bg-white/5 ${!selectedSiteId ? "text-teal-400" : "text-slate-300"}`}
                     >
                       All Sites
                     </button>
@@ -395,7 +395,7 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
                       <button
                         key={site.id}
                         onClick={() => handleSiteChange(site.id)}
-                        className={`w-full text-left px-3 py-2 text-xs hover:bg-white/[0.05] ${selectedSiteId === site.id ? "text-teal-400" : "text-slate-300"}`}
+                        className={`w-full text-left px-3 py-2 text-xs hover:bg-white/5 ${selectedSiteId === site.id ? "text-teal-400" : "text-slate-300"}`}
                       >
                         {site.name}{" "}
                         <span className="text-slate-400">({site.code})</span>
@@ -421,7 +421,7 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
                     isCollapsed ? "justify-center" : "gap-2"
                   } text-slate-400 hover:text-slate-400`}
                 >
-                  <GroupIcon className="w-3.5 h-3.5 flex-shrink-0" />
+                  <GroupIcon className="w-3.5 h-3.5 shrink-0" />
                   {!isCollapsed && (
                     <>
                       <span className="flex-1 text-left text-xs font-semibold uppercase tracking-widest">
@@ -458,7 +458,7 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
                             } ${
                               active
                                 ? "text-teal-400 bg-teal-500/10"
-                                : "text-slate-400 hover:text-slate-200 hover:bg-white/[0.03]"
+                                : "text-slate-400 hover:text-slate-200 hover:bg-white/3"
                             }`}
                           >
                             {active && (
@@ -475,7 +475,7 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
                               </span>
                             ) : null}
                             {isCollapsed && (
-                              <div className="absolute left-full ml-2 px-2 py-1 bg-[#1A2332] border border-white/[0.08] text-white text-xs rounded-md whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none z-50 transition-opacity shadow-xl">
+                              <div className="absolute left-full ml-2 px-2 py-1 bg-[#1A2332] border border-white/8 text-white text-xs rounded-md whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none z-50 transition-opacity shadow-xl">
                                 {item.label}
                               </div>
                             )}
@@ -491,15 +491,15 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
         </nav>
 
         {/* Footer */}
-        <div className="border-t border-white/[0.05] p-2">
+        <div className="border-t border-white/5 p-2">
           <button
             onClick={handleSignOut}
             aria-label="Sign out"
-            className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-300 ${
+            className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-colors focus:outline-hidden focus-visible:ring-2 focus-visible:ring-teal-300 ${
               isCollapsed ? "justify-center" : ""
             }`}
           >
-            <LogOut className="w-4 h-4 flex-shrink-0" />
+            <LogOut className="w-4 h-4 shrink-0" />
             {!isCollapsed && <span className="text-sm">Sign Out</span>}
           </button>
           {!isCollapsed && (
@@ -515,13 +515,13 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
       {/* Main */}
       <div className="flex-1 flex flex-col overflow-hidden min-w-0">
         {/* Top Bar */}
-        <header className="h-14 bg-[#080C10] border-b border-white/[0.05] px-4 flex items-center justify-between flex-shrink-0 z-10">
+        <header className="h-14 bg-[#080C10] border-b border-white/5 px-4 flex items-center justify-between shrink-0 z-10">
           <div className="flex items-center gap-4">
             <button
               onClick={() => setIsCollapsed(!isCollapsed)}
               aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
               aria-expanded={!isCollapsed}
-              className="p-1.5 rounded-md text-slate-400 hover:text-teal-400 hover:bg-teal-500/10 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-300"
+              className="p-1.5 rounded-md text-slate-400 hover:text-teal-400 hover:bg-teal-500/10 transition-colors focus:outline-hidden focus-visible:ring-2 focus-visible:ring-teal-300"
             >
               {isCollapsed ? (
                 <ChevronRight className="w-4 h-4" />
@@ -539,21 +539,21 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
           <div className="flex items-center gap-3">
             {/* System Health Pills */}
             <div className="hidden md:flex items-center gap-2 text-xs">
-              <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-white/[0.03] border border-white/[0.05]">
+              <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-white/3 border border-white/5">
                 <div className="w-1.5 h-1.5 rounded-full bg-teal-400" />
                 <span className="text-slate-400">Intelligence</span>
                 <span className="text-teal-400 font-medium capitalize">
                   {systemHealth.intelligence}
                 </span>
               </div>
-              <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-white/[0.03] border border-white/[0.05]">
+              <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-white/3 border border-white/5">
                 <div className="w-1.5 h-1.5 rounded-full bg-green-400" />
                 <span className="text-slate-400">Integration</span>
                 <span className="text-green-400 font-medium capitalize">
                   {systemHealth.integration}
                 </span>
               </div>
-              <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-white/[0.03] border border-white/[0.05]">
+              <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-white/3 border border-white/5">
                 <Shield className="w-3 h-3 text-blue-400" />
                 <span className="text-slate-400">Governance</span>
                 <span className="text-blue-400 font-medium capitalize">
@@ -562,7 +562,7 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
               </div>
             </div>
 
-            <div className="w-px h-5 bg-white/[0.06]" />
+            <div className="w-px h-5 bg-white/6" />
 
             {/* Autonomy Badge */}
             <div
@@ -572,7 +572,7 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
               <span className="hidden sm:block">{AUTONOMY_MODE}</span>
             </div>
 
-            <div className="w-px h-5 bg-white/[0.06]" />
+            <div className="w-px h-5 bg-white/6" />
 
             {/* Alerts */}
             <div className="relative">
@@ -597,7 +597,7 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
                 )}
               </button>
               {notifOpen && (
-                <div className="absolute right-0 top-9 z-50 w-80 bg-[#0D1520] border border-white/[0.1] rounded-xl shadow-xl shadow-black/40 p-2">
+                <div className="absolute right-0 top-9 z-50 w-80 bg-[#0D1520] border border-white/10 rounded-xl shadow-xl shadow-black/40 p-2">
                   <div className="px-2 py-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400">
                     Notifications
                   </div>
@@ -617,7 +617,7 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
                           ),
                         );
                       }}
-                      className={`w-full text-left px-2 py-2 rounded-lg hover:bg-white/[0.04] ${n.read ? "opacity-60" : ""}`}
+                      className={`w-full text-left px-2 py-2 rounded-lg hover:bg-white/4 ${n.read ? "opacity-60" : ""}`}
                     >
                       <div className="text-xs font-medium text-slate-200">
                         {n.title}
@@ -645,7 +645,7 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
             </button>
 
             {/* User */}
-            <div className="w-7 h-7 rounded-full bg-gradient-to-br from-teal-500 to-cyan-400 flex items-center justify-center text-xs font-bold text-white flex-shrink-0">
+            <div className="w-7 h-7 rounded-full bg-linear-to-br from-teal-500 to-cyan-400 flex items-center justify-center text-xs font-bold text-white shrink-0">
               {userContext?.organization_name?.[0] || "U"}
             </div>
           </div>
