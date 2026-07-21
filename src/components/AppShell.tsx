@@ -170,6 +170,11 @@ const navGroups: NavGroup[] = [
       { id: "artifacts", label: "Artifacts", path: "/artifacts" },
       { id: "setup", label: "Setup Wizard", path: "/setup" },
       { id: "settings", label: "Settings", path: "/settings" },
+      {
+        id: "security-log",
+        label: "Security Audit Log",
+        path: "/security-log",
+      },
     ],
   },
 ];

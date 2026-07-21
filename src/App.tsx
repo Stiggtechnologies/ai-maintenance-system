@@ -45,6 +45,7 @@ import { ReadinessPage } from "./pages/ReadinessPage";
 import { OperationalBriefing } from "./pages/OperationalBriefing";
 import { AssetIntelligencePage } from "./pages/AssetIntelligencePage";
 import { AssetOnboardingHub } from "./pages/AssetOnboardingHub";
+import { SecurityAuditLog } from "./pages/SecurityAuditLog";
 import { ExecutiveIntelligence } from "./pages/ExecutiveIntelligence";
 import { IntegrationHealthPanel } from "./pages/IntegrationHealthPanel";
 import { CoworkStudio } from "./pages/CoworkStudio";
@@ -348,6 +349,14 @@ function AuthenticatedApp() {
             }
           />
           <Route path="/settings" element={<SettingsPage />} />
+          <Route
+            path="/security-log"
+            element={
+              <AdminGate>
+                <SecurityAuditLog />
+              </AdminGate>
+            }
+          />
 
           <Route
             path="*"

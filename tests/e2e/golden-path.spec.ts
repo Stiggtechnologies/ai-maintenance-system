@@ -403,3 +403,41 @@ test.describe("Role-aware copilot dock", () => {
     ).toBeVisible();
   });
 });
+
+  test("11 — security audit log is admin-only and records sign-ins", async ({
+    page,
+  }) => {
+    // Admin (seeded by migration 19) sees the log — including their own
+    // sign-in event, recorded moments ago by the AuthProvider hook.
+    await page.goto("/");
+    const email = page.getByRole("textbox", { name: /work email/i });
+    await expect(email).toBeVisible({ timeout: 20_000 });
+    await email.fill("admin@syncai.ca");
+    await page.locator('input[type="password"]').fill("Admin123!@#");
+    await page.getByRole("button", { name: /access syncai/i }).click();
+    await page.waitForTimeout(1500); // let the sign_in event record
+    await page.goto("/security-log");
+    await expect(
+      page.getByRole("heading", { name: "Security Audit Log" }),
+    ).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText("sign in").first()).toBeVisible({
+      timeout: 15_000,
+    });
+
+    // Technician is bounced by the AdminGate and never sees the page.
+    await page.goto("/");
+    await page.evaluate(() => window.localStorage.clear());
+    await page.goto("/");
+    const email2 = page.getByRole("textbox", { name: /work email/i });
+    await expect(email2).toBeVisible({ timeout: 20_000 });
+    await email2.fill("technician@syncai.ca");
+    await page.locator('input[type="password"]').fill("Tech123!@#");
+    await page.getByRole("button", { name: /access syncai/i }).click();
+    await expect(
+      page.getByRole("heading", { name: "Work Action Board" }),
+    ).toBeVisible({ timeout: 30_000 });
+    await page.goto("/security-log");
+    await expect(
+      page.getByRole("heading", { name: "Security Audit Log" }),
+    ).not.toBeVisible({ timeout: 10_000 });
+  });

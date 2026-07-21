@@ -61,9 +61,11 @@ and noted where relevant._
 | CC6.7 | Data-in-transit / restrict movement | ✅             | TLS everywhere; no PII in URL params; secrets in Supabase secret store not code                                                                                                                                                                                       | Encryption policy doc                                     |
 | CC6.8 | Malicious software prevention       | 🟡             | No user file execution; dependency install pinned in CI                                                                                                                                                                                                               | Dependency-scanning (Dependabot/Snyk); document           |
 
-**MFA is the notable CC6 gap:** Azure AD SSO is wired but **not enforced**, and
-email/password logins have no MFA. Auditors expect enforced MFA on all
-privileged and, increasingly, all user access. This is a Phase 1 priority.
+**MFA:** **TOTP multi-factor authentication is now implemented** (enroll in
+Settings → Security; enrolled users are challenged at sign-in via GoTrue AAL2).
+Enrollment is opt-in per account; **organization-wide enforcement** (making it
+mandatory) remains the follow-on policy step. Azure AD SSO is wired but not yet
+enforced for staff.
 
 ## CC7 — System Operations
 
