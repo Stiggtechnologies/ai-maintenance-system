@@ -6,6 +6,12 @@ updates:
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 10
+    # Majors are deliberate migration projects (React 19, Tailwind 4, Vite 8…),
+    # not auto-merge material — CI proved the bundled majors break the build.
+    # Keep the continuous stream to minors/patches; do majors intentionally.
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
     groups:
       production-dependencies:
         dependency-type: "production"
