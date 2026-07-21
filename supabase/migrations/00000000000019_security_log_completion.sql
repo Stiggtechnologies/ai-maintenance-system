@@ -28,6 +28,14 @@ do $$
 declare
   v_uid uuid := '00000000-0000-0000-0000-000000000006';
 begin
+  -- Idempotent by EMAIL, not just id: production already has admin@syncai.ca
+  -- (provisioned via the GoTrue admin API with a strong password, different
+  -- uuid). There, this seed must be a no-op — the demo-tier account is for
+  -- local dev and CI only.
+  if exists (select 1 from auth.users where email = 'admin@syncai.ca') then
+    return;
+  end if;
+
   insert into auth.users (
     instance_id, id, aud, role, email, encrypted_password,
     email_confirmed_at, created_at, updated_at,
