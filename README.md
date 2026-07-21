@@ -79,7 +79,7 @@ accounts for each organizational layer (executive, manager, planner,
 technician) are seeded by migration 16 — demo-tier credentials by design.
 
 ```bash
-npm run typecheck       # tsc --noEmit (build does NOT typecheck)
+npm run typecheck       # tsc --noEmit
 npm run lint
 npm test                # unit tests
 npx playwright test     # 10-test golden-path E2E (needs local stack)
@@ -101,7 +101,6 @@ npx playwright test     # 10-test golden-path E2E (needs local stack)
 - Every change lands via PR with the four required CI checks green — no direct
   commits to `main`; deploys happen only from `main`.
 - Schema changes only through the migration chain.
-- `npm run build` skips typechecking — always run `npm run typecheck`.
 
 ## License
 
