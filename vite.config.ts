@@ -15,10 +15,11 @@ export default defineConfig({
   build: {
     rollupOptions: {
       output: {
-        manualChunks: {
-          'react-vendor': ['react', 'react-dom'],
-          'supabase': ['@supabase/supabase-js'],
-          'icons': ['lucide-react']
+        // Vite 8 (Rolldown) removed the object form of manualChunks.
+        manualChunks(id: string) {
+          if (id.includes('node_modules/react')) return 'react-vendor';
+          if (id.includes('node_modules/@supabase')) return 'supabase';
+          if (id.includes('node_modules/lucide-react')) return 'icons';
         }
       }
     },

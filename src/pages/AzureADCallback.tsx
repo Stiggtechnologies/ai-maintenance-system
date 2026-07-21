@@ -57,6 +57,7 @@ export function AzureADCallback() {
           exchangeErr instanceof Error
             ? exchangeErr.message
             : "Failed to authenticate with Azure AD",
+          { cause: exchangeErr },
         );
       }
     } catch (err) {
