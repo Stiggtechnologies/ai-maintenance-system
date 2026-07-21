@@ -219,7 +219,7 @@ export function ValueRealization() {
       </div>
 
       {toast && (
-        <div className="fixed top-4 right-4 z-[60] max-w-sm bg-[#0D1520] border border-teal-500/30 rounded-xl px-4 py-3 text-xs text-teal-200 shadow-xl shadow-black/40">
+        <div className="fixed top-4 right-4 z-60 max-w-sm bg-[#0D1520] border border-teal-500/30 rounded-xl px-4 py-3 text-xs text-teal-200 shadow-xl shadow-black/40">
           {toast}
         </div>
       )}
@@ -273,7 +273,7 @@ export function ValueRealization() {
                 ].map((c) => (
                   <div
                     key={c.label}
-                    className="rounded-xl bg-white/[0.03] px-2 py-3"
+                    className="rounded-xl bg-white/3 px-2 py-3"
                   >
                     <div className="text-lg font-bold text-blue-300">
                       {c.value}
@@ -315,7 +315,7 @@ export function ValueRealization() {
                     %
                   </span>
                 </div>
-                <div className="h-1.5 bg-white/[0.05] rounded-full overflow-hidden">
+                <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
                   <div
                     className="h-full rounded-full bg-teal-500"
                     style={{
@@ -361,7 +361,7 @@ export function ValueRealization() {
                 ].map((s) => (
                   <div
                     key={s.label}
-                    className="p-2.5 rounded-xl bg-white/[0.02] border border-white/[0.05]"
+                    className="p-2.5 rounded-xl bg-white/2 border border-white/5"
                   >
                     <div className="text-lg font-black text-teal-400">
                       {s.value}
@@ -391,7 +391,7 @@ export function ValueRealization() {
                 {projected.map((m) => (
                   <div
                     key={m.id}
-                    className="flex items-center gap-4 p-3 rounded-xl bg-white/[0.02] border border-white/[0.04]"
+                    className="flex items-center gap-4 p-3 rounded-xl bg-white/2 border border-white/4"
                   >
                     <div className="flex-1 min-w-0">
                       <div className="text-sm text-slate-200">
@@ -435,7 +435,7 @@ export function ValueRealization() {
             {hero.map((s) => (
               <div
                 key={s.label}
-                className="bg-[#0D1520] border border-white/[0.06] rounded-xl p-4"
+                className="bg-[#0D1520] border border-white/6 rounded-xl p-4"
               >
                 <div className="text-xs text-slate-400 mb-1">{s.label}</div>
                 <div className="text-xl font-black text-teal-400">
@@ -446,7 +446,7 @@ export function ValueRealization() {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="bg-[#0D1520] border border-white/[0.06] rounded-2xl p-5">
+            <div className="bg-[#0D1520] border border-white/6 rounded-2xl p-5">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-sm font-semibold text-slate-200">
                   Cumulative Value (MTD)
@@ -471,9 +471,9 @@ export function ValueRealization() {
                     initial={{ opacity: 0, x: -8 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: i * 0.05 }}
-                    className="bg-[#0D1520] border border-white/[0.06] rounded-xl p-4 flex items-center gap-4"
+                    className="bg-[#0D1520] border border-white/6 rounded-xl p-4 flex items-center gap-4"
                   >
-                    <div className={`p-2.5 rounded-xl ${c.bg} flex-shrink-0`}>
+                    <div className={`p-2.5 rounded-xl ${c.bg} shrink-0`}>
                       <Icon className={`w-5 h-5 ${c.text}`} />
                     </div>
                     <div className="flex-1 min-w-0">
@@ -508,7 +508,7 @@ export function ValueRealization() {
                 {valueBaselines.map((baseline) => (
                   <div
                     key={baseline.sessionId}
-                    className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.05]"
+                    className="p-4 rounded-xl bg-white/2 border border-white/5"
                   >
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-semibold text-slate-200">
@@ -558,7 +558,7 @@ export function ValueRealization() {
             </div>
           )}
 
-          <div className="bg-[#0D1520] border border-white/[0.06] rounded-2xl p-5">
+          <div className="bg-[#0D1520] border border-white/6 rounded-2xl p-5">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-semibold text-slate-200 flex items-center gap-2">
                 <Shield className="w-4 h-4 text-teal-400" /> Verified Savings
@@ -578,7 +578,7 @@ export function ValueRealization() {
                     `syncai-verified-savings-${new Date().toISOString().slice(0, 10)}.csv`,
                   )
                 }
-                className="text-xs text-teal-400 hover:text-teal-300 px-2 py-1 rounded border border-teal-500/20 hover:bg-teal-500/10"
+                className="text-xs text-teal-400 hover:text-teal-300 px-2 py-1 rounded-sm border border-teal-500/20 hover:bg-teal-500/10"
               >
                 Export CSV
               </button>
@@ -593,9 +593,9 @@ export function ValueRealization() {
                   initial={{ opacity: 0, y: 5 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: i * 0.05 }}
-                  className="flex items-center gap-4 p-3 rounded-xl bg-white/[0.02] border border-white/[0.04]"
+                  className="flex items-center gap-4 p-3 rounded-xl bg-white/2 border border-white/4"
                 >
-                  <div className="w-8 h-8 rounded-lg bg-teal-500/10 flex items-center justify-center flex-shrink-0">
+                  <div className="w-8 h-8 rounded-lg bg-teal-500/10 flex items-center justify-center shrink-0">
                     <DollarSign className="w-4 h-4 text-teal-400" />
                   </div>
                   <div className="flex-1 min-w-0">
@@ -606,7 +606,7 @@ export function ValueRealization() {
                       {m.period ?? "—"} · {m.status}
                     </div>
                   </div>
-                  <div className="text-base font-black text-teal-400 flex-shrink-0">
+                  <div className="text-base font-black text-teal-400 shrink-0">
                     {fmt(Number(m.value), m.unit)}
                   </div>
                 </motion.div>

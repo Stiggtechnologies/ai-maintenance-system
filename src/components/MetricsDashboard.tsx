@@ -200,7 +200,9 @@ export function MetricsDashboard() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-[#E6EDF3]">System Metrics</h2>
+        <h2 className="text-2xl font-bold text-industrial-text">
+          System Metrics
+        </h2>
         <div className="flex items-center gap-2">
           {(["1h", "24h", "7d", "30d"] as const).map((range) => (
             <button
@@ -209,7 +211,7 @@ export function MetricsDashboard() {
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                 timeRange === range
                   ? "bg-blue-600 text-white"
-                  : "bg-[#161C24] text-slate-300 hover:bg-white/[0.06]"
+                  : "bg-industrial-slate text-slate-300 hover:bg-white/6"
               }`}
             >
               {range === "1h"
@@ -225,7 +227,7 @@ export function MetricsDashboard() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-6 border border-blue-200">
+        <div className="bg-linear-to-br from-blue-50 to-blue-100 rounded-lg p-6 border border-blue-200">
           <div className="flex items-center justify-between mb-4">
             <Clock className="w-8 h-8 text-blue-600" />
             <span className="text-xs text-blue-600 font-medium">
@@ -240,7 +242,7 @@ export function MetricsDashboard() {
           </div>
         </div>
 
-        <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-6 border border-green-200">
+        <div className="bg-linear-to-br from-green-50 to-green-100 rounded-lg p-6 border border-green-200">
           <div className="flex items-center justify-between mb-4">
             <DollarSign className="w-8 h-8 text-green-600" />
             <span className="text-xs text-green-600 font-medium">
@@ -255,7 +257,7 @@ export function MetricsDashboard() {
           </div>
         </div>
 
-        <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-6 border border-purple-200">
+        <div className="bg-linear-to-br from-purple-50 to-purple-100 rounded-lg p-6 border border-purple-200">
           <div className="flex items-center justify-between mb-4">
             <Activity className="w-8 h-8 text-purple-600" />
             <span className="text-xs text-purple-600 font-medium">
@@ -268,7 +270,7 @@ export function MetricsDashboard() {
           <div className="mt-2 text-sm text-purple-700">runs/hour</div>
         </div>
 
-        <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-lg p-6 border border-orange-200">
+        <div className="bg-linear-to-br from-orange-50 to-orange-100 rounded-lg p-6 border border-orange-200">
           <div className="flex items-center justify-between mb-4">
             <Zap className="w-8 h-8 text-orange-600" />
             <span className="text-xs text-orange-600 font-medium">
@@ -285,8 +287,8 @@ export function MetricsDashboard() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-[#11161D] rounded-lg shadow p-6">
-          <h3 className="text-lg font-semibold text-[#E6EDF3] mb-4 flex items-center gap-2">
+        <div className="bg-industrial-graphite rounded-lg shadow-sm p-6">
+          <h3 className="text-lg font-semibold text-industrial-text mb-4 flex items-center gap-2">
             <Clock className="w-5 h-5 text-blue-600" />
             Latency Distribution
           </h3>
@@ -294,11 +296,11 @@ export function MetricsDashboard() {
             <div>
               <div className="flex items-center justify-between text-sm mb-1">
                 <span className="text-slate-400">Average</span>
-                <span className="font-medium text-[#E6EDF3]">
+                <span className="font-medium text-industrial-text">
                   {metrics.latency.avg.toFixed(0)}ms
                 </span>
               </div>
-              <div className="w-full h-2 bg-white/[0.06] rounded-full overflow-hidden">
+              <div className="w-full h-2 bg-white/6 rounded-full overflow-hidden">
                 <div
                   className="h-full bg-blue-500"
                   style={{
@@ -310,11 +312,11 @@ export function MetricsDashboard() {
             <div>
               <div className="flex items-center justify-between text-sm mb-1">
                 <span className="text-slate-400">P50 (Median)</span>
-                <span className="font-medium text-[#E6EDF3]">
+                <span className="font-medium text-industrial-text">
                   {metrics.latency.p50.toFixed(0)}ms
                 </span>
               </div>
-              <div className="w-full h-2 bg-white/[0.06] rounded-full overflow-hidden">
+              <div className="w-full h-2 bg-white/6 rounded-full overflow-hidden">
                 <div
                   className="h-full bg-green-500"
                   style={{
@@ -326,11 +328,11 @@ export function MetricsDashboard() {
             <div>
               <div className="flex items-center justify-between text-sm mb-1">
                 <span className="text-slate-400">P95</span>
-                <span className="font-medium text-[#E6EDF3]">
+                <span className="font-medium text-industrial-text">
                   {metrics.latency.p95.toFixed(0)}ms
                 </span>
               </div>
-              <div className="w-full h-2 bg-white/[0.06] rounded-full overflow-hidden">
+              <div className="w-full h-2 bg-white/6 rounded-full overflow-hidden">
                 <div
                   className="h-full bg-yellow-500"
                   style={{
@@ -342,19 +344,19 @@ export function MetricsDashboard() {
             <div>
               <div className="flex items-center justify-between text-sm mb-1">
                 <span className="text-slate-400">P99</span>
-                <span className="font-medium text-[#E6EDF3]">
+                <span className="font-medium text-industrial-text">
                   {metrics.latency.p99.toFixed(0)}ms
                 </span>
               </div>
-              <div className="w-full h-2 bg-white/[0.06] rounded-full overflow-hidden">
+              <div className="w-full h-2 bg-white/6 rounded-full overflow-hidden">
                 <div className="h-full bg-red-500" style={{ width: "100%" }} />
               </div>
             </div>
           </div>
         </div>
 
-        <div className="bg-[#11161D] rounded-lg shadow p-6">
-          <h3 className="text-lg font-semibold text-[#E6EDF3] mb-4 flex items-center gap-2">
+        <div className="bg-industrial-graphite rounded-lg shadow-sm p-6">
+          <h3 className="text-lg font-semibold text-industrial-text mb-4 flex items-center gap-2">
             <DollarSign className="w-5 h-5 text-green-600" />
             Cost by Model
           </h3>
@@ -366,11 +368,11 @@ export function MetricsDashboard() {
                 <div key={model}>
                   <div className="flex items-center justify-between text-sm mb-1">
                     <span className="text-slate-400 truncate">{model}</span>
-                    <span className="font-medium text-[#E6EDF3]">
+                    <span className="font-medium text-industrial-text">
                       ${cost.toFixed(4)}
                     </span>
                   </div>
-                  <div className="w-full h-2 bg-white/[0.06] rounded-full overflow-hidden">
+                  <div className="w-full h-2 bg-white/6 rounded-full overflow-hidden">
                     <div
                       className="h-full bg-green-500"
                       style={{ width: `${(cost / metrics.cost.total) * 100}%` }}
@@ -384,8 +386,8 @@ export function MetricsDashboard() {
           </div>
         </div>
 
-        <div className="bg-[#11161D] rounded-lg shadow p-6">
-          <h3 className="text-lg font-semibold text-[#E6EDF3] mb-4 flex items-center gap-2">
+        <div className="bg-industrial-graphite rounded-lg shadow-sm p-6">
+          <h3 className="text-lg font-semibold text-industrial-text mb-4 flex items-center gap-2">
             <Server className="w-5 h-5 text-purple-600" />
             Tool Execution
           </h3>
@@ -411,8 +413,8 @@ export function MetricsDashboard() {
           </div>
         </div>
 
-        <div className="bg-[#11161D] rounded-lg shadow p-6">
-          <h3 className="text-lg font-semibold text-[#E6EDF3] mb-4 flex items-center gap-2">
+        <div className="bg-industrial-graphite rounded-lg shadow-sm p-6">
+          <h3 className="text-lg font-semibold text-industrial-text mb-4 flex items-center gap-2">
             <TrendingUp className="w-5 h-5 text-orange-600" />
             System Health
           </h3>
@@ -420,7 +422,7 @@ export function MetricsDashboard() {
             <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
               <span className="text-sm text-slate-400">Success Rate</span>
               <div className="flex items-center gap-2">
-                <div className="w-12 h-2 bg-white/[0.06] rounded-full overflow-hidden">
+                <div className="w-12 h-2 bg-white/6 rounded-full overflow-hidden">
                   <div
                     className="h-full bg-green-500"
                     style={{ width: `${metrics.throughput.successRate}%` }}

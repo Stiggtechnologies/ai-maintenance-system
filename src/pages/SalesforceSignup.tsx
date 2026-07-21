@@ -41,35 +41,37 @@ export function SalesforceSignup() {
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
-        className="bg-[#161C24] rounded-xl p-8 border border-[#232A33] backdrop-blur-sm"
+        className="bg-industrial-slate rounded-xl p-8 border border-industrial-border backdrop-blur-xs"
       >
         <div className="space-y-6">
           <div className="text-center">
-            <h2 className="text-2xl font-bold text-[#E6EDF3] mb-2">
+            <h2 className="text-2xl font-bold text-industrial-text mb-2">
               Welcome from Salesforce AppExchange
             </h2>
-            <p className="text-[#9BA7B4]">
+            <p className="text-industrial-muted">
               The SyncAI managed package is installed in your Salesforce org.
               Three steps to complete activation.
             </p>
           </div>
 
           {orgId && (
-            <div className="bg-[#0B0F14] border border-[#232A33] rounded-lg p-6">
-              <p className="text-xs text-[#9BA7B4] mb-3 uppercase tracking-wide">
+            <div className="bg-industrial-black border border-industrial-border rounded-lg p-6">
+              <p className="text-xs text-industrial-muted mb-3 uppercase tracking-wide">
                 Salesforce Org
               </p>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <p className="text-xs text-[#9BA7B4] mb-1">Org ID</p>
-                  <p className="text-xs font-mono text-[#E6EDF3]">{orgId}</p>
+                  <p className="text-xs text-industrial-muted mb-1">Org ID</p>
+                  <p className="text-xs font-mono text-industrial-text">
+                    {orgId}
+                  </p>
                 </div>
                 {packageVersion && (
                   <div>
-                    <p className="text-xs text-[#9BA7B4] mb-1">
+                    <p className="text-xs text-industrial-muted mb-1">
                       Package version
                     </p>
-                    <p className="text-xs font-mono text-[#E6EDF3]">
+                    <p className="text-xs font-mono text-industrial-text">
                       {packageVersion}
                     </p>
                   </div>
@@ -108,7 +110,7 @@ export function SalesforceSignup() {
             Continue to account setup
           </motion.button>
 
-          <p className="text-xs text-[#9BA7B4] text-center">
+          <p className="text-xs text-industrial-muted text-center">
             License records in LMA sync to SyncAI within 5 minutes of
             activation.
           </p>
@@ -129,12 +131,14 @@ function SetupStep({
 }) {
   return (
     <div className="flex gap-3">
-      <div className="flex-shrink-0 w-7 h-7 rounded-full bg-[#00A1E0]/15 text-[#00A1E0] text-sm font-bold flex items-center justify-center">
+      <div className="shrink-0 w-7 h-7 rounded-full bg-[#00A1E0]/15 text-[#00A1E0] text-sm font-bold flex items-center justify-center">
         {number}
       </div>
       <div className="flex-1">
-        <p className="text-sm font-medium text-[#E6EDF3] mb-0.5">{title}</p>
-        <p className="text-xs text-[#9BA7B4] leading-relaxed">{body}</p>
+        <p className="text-sm font-medium text-industrial-text mb-0.5">
+          {title}
+        </p>
+        <p className="text-xs text-industrial-muted leading-relaxed">{body}</p>
       </div>
     </div>
   );

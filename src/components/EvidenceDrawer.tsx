@@ -106,11 +106,11 @@ function EvidenceCard({ item }: { item: EvidenceItem }) {
 
   return (
     <div
-      className="border border-white/[0.06] rounded-xl p-4 bg-white/[0.02] hover:bg-white/[0.03] transition-colors cursor-pointer"
+      className="border border-white/6 rounded-xl p-4 bg-white/2 hover:bg-white/3 transition-colors cursor-pointer"
       onClick={() => setExpanded(!expanded)}
     >
       <div className="flex items-start gap-3">
-        <div className={`p-2 rounded-lg ${config.bg} flex-shrink-0`}>
+        <div className={`p-2 rounded-lg ${config.bg} shrink-0`}>
           <Icon className={`w-4 h-4 ${config.color}`} />
         </div>
         <div className="flex-1 min-w-0">
@@ -119,7 +119,7 @@ function EvidenceCard({ item }: { item: EvidenceItem }) {
               {item.title}
             </h4>
             <ChevronRight
-              className={`w-3.5 h-3.5 text-slate-400 transition-transform flex-shrink-0 ${expanded ? "rotate-90" : ""}`}
+              className={`w-3.5 h-3.5 text-slate-400 transition-transform shrink-0 ${expanded ? "rotate-90" : ""}`}
             />
           </div>
           <p className="text-xs text-slate-400 mt-1 leading-relaxed">
@@ -142,7 +142,7 @@ function EvidenceCard({ item }: { item: EvidenceItem }) {
                 transition={{ duration: 0.15 }}
                 className="overflow-hidden"
               >
-                <div className="mt-3 pt-3 border-t border-white/[0.06]">
+                <div className="mt-3 pt-3 border-t border-white/6">
                   <p className="text-xs text-slate-300 leading-relaxed">
                     {item.details}
                   </p>
@@ -178,7 +178,7 @@ export function EvidenceDrawer({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40"
+            className="fixed inset-0 bg-black/60 backdrop-blur-xs z-40"
             onClick={onClose}
           />
           <motion.div
@@ -186,10 +186,10 @@ export function EvidenceDrawer({
             animate={{ x: 0 }}
             exit={{ x: "100%" }}
             transition={{ type: "spring", damping: 30, stiffness: 300 }}
-            className="fixed top-0 right-0 h-full w-full max-w-lg bg-[#0A0F15] border-l border-white/[0.06] z-50 flex flex-col overflow-hidden shadow-2xl"
+            className="fixed top-0 right-0 h-full w-full max-w-lg bg-[#0A0F15] border-l border-white/6 z-50 flex flex-col overflow-hidden shadow-2xl"
           >
             {/* Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.06] flex-shrink-0">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-white/6 shrink-0">
               <div>
                 <h2 className="text-lg font-bold text-white">
                   Evidence Package
@@ -201,14 +201,14 @@ export function EvidenceDrawer({
               </div>
               <button
                 onClick={onClose}
-                className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-white/[0.06] transition-colors"
+                className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-white/6 transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             {/* Summary Bar */}
-            <div className="px-6 py-3 border-b border-white/[0.06] flex items-center gap-4 bg-white/[0.02] flex-shrink-0">
+            <div className="px-6 py-3 border-b border-white/6 flex items-center gap-4 bg-white/2 shrink-0">
               <div>
                 <div className="text-xs text-slate-400 uppercase tracking-wider">
                   Evidence Points
@@ -217,7 +217,7 @@ export function EvidenceDrawer({
                   {evidence.length}
                 </div>
               </div>
-              <div className="w-px h-8 bg-white/[0.06]" />
+              <div className="w-px h-8 bg-white/6" />
               <div>
                 <div className="text-xs text-slate-400 uppercase tracking-wider">
                   Avg Confidence
@@ -226,7 +226,7 @@ export function EvidenceDrawer({
                   {overallConfidence}%
                 </div>
               </div>
-              <div className="w-px h-8 bg-white/[0.06]" />
+              <div className="w-px h-8 bg-white/6" />
               <div>
                 <div className="text-xs text-slate-400 uppercase tracking-wider">
                   Sources
@@ -245,7 +245,7 @@ export function EvidenceDrawer({
             </div>
 
             {/* Footer */}
-            <div className="px-6 py-4 border-t border-white/[0.06] flex-shrink-0 flex items-center justify-between">
+            <div className="px-6 py-4 border-t border-white/6 shrink-0 flex items-center justify-between">
               <button className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-300 transition-colors">
                 <ExternalLink className="w-3.5 h-3.5" />
                 Export Evidence Package

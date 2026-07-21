@@ -58,11 +58,11 @@ export function InvoiceList() {
       case "open":
         return "bg-blue-100 text-blue-700 border-blue-200";
       case "draft":
-        return "bg-[#161C24] text-slate-300 border-[#232A33]";
+        return "bg-industrial-slate text-slate-300 border-industrial-border";
       case "void":
         return "bg-red-100 text-red-700 border-red-200";
       default:
-        return "bg-[#161C24] text-slate-300 border-[#232A33]";
+        return "bg-industrial-slate text-slate-300 border-industrial-border";
     }
   };
 
@@ -75,19 +75,21 @@ export function InvoiceList() {
   }
 
   return (
-    <div className="h-full overflow-auto bg-[#0B0F14]">
+    <div className="h-full overflow-auto bg-industrial-black">
       <div className="max-w-7xl mx-auto p-6">
         <div className="mb-6">
-          <h1 className="text-3xl font-bold text-[#E6EDF3] mb-2">Invoices</h1>
+          <h1 className="text-3xl font-bold text-industrial-text mb-2">
+            Invoices
+          </h1>
           <p className="text-slate-400">
             View and download your billing invoices
           </p>
         </div>
 
         {invoices.length === 0 ? (
-          <div className="bg-[#11161D] rounded-xl border border-[#232A33] p-12 text-center">
+          <div className="bg-industrial-graphite rounded-xl border border-industrial-border p-12 text-center">
             <FileText className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-            <h2 className="text-xl font-semibold text-[#E6EDF3] mb-2">
+            <h2 className="text-xl font-semibold text-industrial-text mb-2">
               No Invoices Yet
             </h2>
             <p className="text-slate-400">
@@ -95,9 +97,9 @@ export function InvoiceList() {
             </p>
           </div>
         ) : (
-          <div className="bg-[#11161D] rounded-xl border border-[#232A33] overflow-hidden">
+          <div className="bg-industrial-graphite rounded-xl border border-industrial-border overflow-hidden">
             <table className="w-full">
-              <thead className="bg-[#0B0F14] border-b border-[#232A33]">
+              <thead className="bg-industrial-black border-b border-industrial-border">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                     Invoice Period
@@ -118,9 +120,9 @@ export function InvoiceList() {
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {invoices.map((invoice) => (
-                  <tr key={invoice.id} className="hover:bg-[#0B0F14]">
+                  <tr key={invoice.id} className="hover:bg-industrial-black">
                     <td className="px-6 py-4">
-                      <div className="font-medium text-[#E6EDF3]">
+                      <div className="font-medium text-industrial-text">
                         {new Date(invoice.period_start).toLocaleDateString()} -{" "}
                         {new Date(invoice.period_end).toLocaleDateString()}
                       </div>
@@ -134,7 +136,7 @@ export function InvoiceList() {
                       {new Date(invoice.created_at).toLocaleDateString()}
                     </td>
                     <td className="px-6 py-4">
-                      <div className="text-lg font-semibold text-[#E6EDF3]">
+                      <div className="text-lg font-semibold text-industrial-text">
                         ${invoice.total_cad.toFixed(2)}
                       </div>
                       <div className="text-xs text-gray-500">CAD</div>

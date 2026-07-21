@@ -185,11 +185,11 @@ function WorkspaceCard({
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.05 }}
-      className="bg-[#0D1520] border border-white/[0.06] rounded-2xl p-5 hover:border-white/[0.12] transition-all cursor-pointer group"
+      className="bg-[#0D1520] border border-white/6 rounded-2xl p-5 hover:border-white/12 transition-all cursor-pointer group"
     >
       <div className="flex items-start gap-4">
         <div
-          className={`p-2.5 rounded-xl ${cm.split(" ").slice(1, 2).join(" ")} border ${cm.split(" ").slice(2).join(" ")} flex-shrink-0`}
+          className={`p-2.5 rounded-xl ${cm.split(" ").slice(1, 2).join(" ")} border ${cm.split(" ").slice(2).join(" ")} shrink-0`}
         >
           <Icon className={`w-5 h-5 ${textColor}`} />
         </div>
@@ -216,7 +216,7 @@ function WorkspaceCard({
                   {workspace.progress}%
                 </span>
               </div>
-              <div className="h-1.5 bg-white/[0.05] rounded-full overflow-hidden">
+              <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
                 <div
                   className={`h-full rounded-full ${workspace.status === "completed" ? "bg-green-500" : "bg-teal-500"}`}
                   style={{ width: `${workspace.progress}%` }}
@@ -244,13 +244,13 @@ function WorkspaceCard({
             {workspace.agents.slice(0, 3).map((a) => (
               <span
                 key={a}
-                className="text-xs px-2 py-0.5 rounded-full bg-white/[0.04] border border-white/[0.06] text-slate-400"
+                className="text-xs px-2 py-0.5 rounded-full bg-white/4 border border-white/6 text-slate-400"
               >
                 {a}
               </span>
             ))}
             {workspace.agents.length > 3 && (
-              <span className="text-xs px-2 py-0.5 rounded-full bg-white/[0.04] border border-white/[0.06] text-slate-400">
+              <span className="text-xs px-2 py-0.5 rounded-full bg-white/4 border border-white/6 text-slate-400">
                 +{workspace.agents.length - 3}
               </span>
             )}
@@ -258,7 +258,7 @@ function WorkspaceCard({
 
           {workspace.nextAction && (
             <div className="mt-3 flex items-start gap-1.5 text-xs text-teal-400">
-              <Zap className="w-3 h-3 flex-shrink-0 mt-0.5" />
+              <Zap className="w-3 h-3 shrink-0 mt-0.5" />
               <span>
                 <span className="text-slate-400">Next action: </span>
                 {workspace.nextAction}
@@ -266,7 +266,7 @@ function WorkspaceCard({
             </div>
           )}
         </div>
-        <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-teal-400 transition-colors flex-shrink-0 mt-1" />
+        <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-teal-400 transition-colors shrink-0 mt-1" />
       </div>
     </motion.div>
   );
@@ -401,7 +401,7 @@ export function CoworkStudio() {
                   if (e.key === "Enter") handleStart(objective);
                 }}
                 placeholder="e.g., Create RCA for Pump P-101 with 5 seal failures in 9 months."
-                className="flex-1 px-4 py-3 bg-white/[0.03] border border-white/[0.06] rounded-xl text-sm text-white placeholder-slate-600 focus:outline-none focus:border-teal-500/40 transition-colors"
+                className="flex-1 px-4 py-3 bg-white/3 border border-white/6 rounded-xl text-sm text-white placeholder-slate-600 focus:outline-hidden focus:border-teal-500/40 transition-colors"
               />
               <button
                 onClick={() => handleStart(objective)}
@@ -425,7 +425,7 @@ export function CoworkStudio() {
                   <button
                     key={t.id}
                     onClick={() => handleStart(t.label)}
-                    className="text-left p-4 bg-[#0D1520] border border-white/[0.06] rounded-xl hover:border-teal-500/30 hover:bg-teal-500/5 transition-all group"
+                    className="text-left p-4 bg-[#0D1520] border border-white/6 rounded-xl hover:border-teal-500/30 hover:bg-teal-500/5 transition-all group"
                   >
                     <TIcon className="w-5 h-5 text-slate-400 group-hover:text-teal-400 transition-colors mb-2" />
                     <div className="text-xs font-semibold text-slate-200 mb-1">
@@ -449,8 +449,8 @@ export function CoworkStudio() {
           className="space-y-4"
         >
           {/* Active Workspace Thread */}
-          <div className="bg-[#0D1520] border border-white/[0.06] rounded-2xl overflow-hidden">
-            <div className="px-5 py-4 border-b border-white/[0.06] flex items-center justify-between">
+          <div className="bg-[#0D1520] border border-white/6 rounded-2xl overflow-hidden">
+            <div className="px-5 py-4 border-b border-white/6 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <Wrench className="w-5 h-5 text-amber-400" />
                 <div>
@@ -482,7 +482,7 @@ export function CoworkStudio() {
               )}
               {threadMsgs.map((msg) => (
                 <div key={msg.id} className="flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-teal-500/10 border border-teal-500/20 flex items-center justify-center flex-shrink-0">
+                  <div className="w-8 h-8 rounded-lg bg-teal-500/10 border border-teal-500/20 flex items-center justify-center shrink-0">
                     <Bot className="w-4 h-4 text-teal-400" />
                   </div>
                   <div className="flex-1 min-w-0">
@@ -514,7 +514,7 @@ export function CoworkStudio() {
               )}
             </div>
 
-            <div className="px-5 py-4 border-t border-white/[0.06] flex gap-3">
+            <div className="px-5 py-4 border-t border-white/6 flex gap-3">
               <input
                 type="text"
                 value={chatText}
@@ -523,7 +523,7 @@ export function CoworkStudio() {
                   if (e.key === "Enter") handleSend();
                 }}
                 placeholder="Ask the agents a question or provide direction..."
-                className="flex-1 px-4 py-2.5 bg-white/[0.03] border border-white/[0.06] rounded-xl text-sm text-white placeholder-slate-600 focus:outline-none focus:border-teal-500/40 transition-colors"
+                className="flex-1 px-4 py-2.5 bg-white/3 border border-white/6 rounded-xl text-sm text-white placeholder-slate-600 focus:outline-hidden focus:border-teal-500/40 transition-colors"
               />
               <button
                 onClick={handleSend}
@@ -554,7 +554,7 @@ export function CoworkStudio() {
                 className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                   filter === f.value
                     ? "bg-teal-500/20 border border-teal-500/30 text-teal-400"
-                    : "bg-white/[0.04] border border-white/[0.08] text-slate-400 hover:bg-white/[0.08]"
+                    : "bg-white/4 border border-white/8 text-slate-400 hover:bg-white/8"
                 }`}
               >
                 {f.label}
@@ -565,7 +565,7 @@ export function CoworkStudio() {
                 const first = allWorkspaces.find((w) => isDbWs(w.id));
                 if (first) openThread(first);
               }}
-              className="ml-auto px-3 py-1.5 rounded-lg text-xs font-medium bg-white/[0.04] border border-white/[0.08] text-slate-400 hover:bg-white/[0.08] transition-colors"
+              className="ml-auto px-3 py-1.5 rounded-lg text-xs font-medium bg-white/4 border border-white/8 text-slate-400 hover:bg-white/8 transition-colors"
             >
               View Active Thread
             </button>
@@ -586,7 +586,7 @@ export function CoworkStudio() {
 
           {/* Cowork Explanation */}
           <div className="bg-[#0D1520] border border-teal-500/10 rounded-xl p-4 flex items-start gap-3">
-            <Brain className="w-4 h-4 text-teal-400 flex-shrink-0 mt-0.5" />
+            <Brain className="w-4 h-4 text-teal-400 shrink-0 mt-0.5" />
             <div>
               <div className="text-sm font-bold text-teal-400">
                 AI-Powered Collaboration

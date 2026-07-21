@@ -109,13 +109,13 @@ export function GovernanceDashboard() {
     critical: "bg-red-500/10 text-red-400 border border-red-500/20",
     high: "bg-orange-500/10 text-orange-400 border border-orange-500/20",
     medium: "bg-teal-500/10 text-teal-400 border border-teal-500/20",
-    low: "bg-white/[0.04] text-slate-400",
+    low: "bg-white/4 text-slate-400",
   };
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-[#E6EDF3]">
+        <h1 className="text-2xl font-bold text-industrial-text">
           Governance & Compliance
         </h1>
         <p className="text-slate-400 mt-1">
@@ -125,27 +125,27 @@ export function GovernanceDashboard() {
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="glass border border-white/[0.06] rounded-xl p-4">
+        <div className="glass border border-white/6 rounded-xl p-4">
           <div className="text-sm text-slate-400">Pending Approvals</div>
-          <div className="text-2xl font-bold text-[#E6EDF3]">
+          <div className="text-2xl font-bold text-industrial-text">
             {pendingApprovals.length}
           </div>
         </div>
-        <div className="glass border border-white/[0.06] rounded-xl p-4">
+        <div className="glass border border-white/6 rounded-xl p-4">
           <div className="text-sm text-slate-400">AI Recommendations</div>
-          <div className="text-2xl font-bold text-[#E6EDF3]">
+          <div className="text-2xl font-bold text-industrial-text">
             {pendingRecs.length}
           </div>
         </div>
-        <div className="glass border border-white/[0.06] rounded-xl p-4">
+        <div className="glass border border-white/6 rounded-xl p-4">
           <div className="text-sm text-slate-400">Audit Events (7d)</div>
-          <div className="text-2xl font-bold text-[#E6EDF3]">
+          <div className="text-2xl font-bold text-industrial-text">
             {auditEvents.length}
           </div>
         </div>
-        <div className="glass border border-white/[0.06] rounded-xl p-4">
+        <div className="glass border border-white/6 rounded-xl p-4">
           <div className="text-sm text-slate-400">Approval Rate</div>
-          <div className="text-2xl font-bold text-[#E6EDF3]">
+          <div className="text-2xl font-bold text-industrial-text">
             {approvals.length > 0
               ? Math.round(
                   (approvals.filter((a) => a.status === "approved").length /
@@ -159,7 +159,7 @@ export function GovernanceDashboard() {
       </div>
 
       {/* Tabs */}
-      <div className="border-b border-[#232A33]">
+      <div className="border-b border-industrial-border">
         <nav className="flex gap-6">
           {tabs.map((tab) => (
             <button
@@ -180,10 +180,10 @@ export function GovernanceDashboard() {
 
       {/* Approvals Tab */}
       {activeTab === "approvals" && (
-        <div className="glass border border-white/[0.06] rounded-xl p-6">
+        <div className="glass border border-white/6 rounded-xl p-6">
           <div className="flex items-center gap-2 mb-4">
             <Clock size={20} className="text-slate-400" />
-            <h2 className="text-lg font-semibold text-[#E6EDF3]">
+            <h2 className="text-lg font-semibold text-industrial-text">
               Pending Approvals
             </h2>
           </div>
@@ -192,23 +192,23 @@ export function GovernanceDashboard() {
               pendingApprovals.map((approval) => (
                 <div
                   key={approval.id}
-                  className="border border-[#232A33] rounded-lg p-4"
+                  className="border border-industrial-border rounded-lg p-4"
                 >
                   <div className="flex items-start justify-between mb-3">
                     <div>
-                      <div className="font-medium text-[#E6EDF3]">
+                      <div className="font-medium text-industrial-text">
                         {approval.entity_type}
                       </div>
                       <div className="text-sm text-slate-400 mt-1">
                         Created {new Date(approval.created_at).toLocaleString()}
                       </div>
                     </div>
-                    <span className="px-2 py-1 bg-orange-500/10 text-orange-400 border border-orange-500/20 text-xs font-medium rounded">
+                    <span className="px-2 py-1 bg-orange-500/10 text-orange-400 border border-orange-500/20 text-xs font-medium rounded-sm">
                       {approval.status}
                     </span>
                   </div>
                   {approval.recommendations && (
-                    <div className="text-sm text-slate-300 mb-3 p-3 bg-[#0B0F14] rounded">
+                    <div className="text-sm text-slate-300 mb-3 p-3 bg-industrial-black rounded-sm">
                       {approval.recommendations.recommendation_text ||
                         "No description available"}
                     </div>
@@ -216,13 +216,13 @@ export function GovernanceDashboard() {
                   <div className="flex gap-2">
                     <button
                       onClick={() => handleApprove(approval.entity_id)}
-                      className="flex items-center gap-1 px-3 py-1.5 bg-emerald-600 text-white text-sm font-medium rounded hover:bg-emerald-500"
+                      className="flex items-center gap-1 px-3 py-1.5 bg-emerald-600 text-white text-sm font-medium rounded-sm hover:bg-emerald-500"
                     >
                       <CheckCircle size={16} /> Approve
                     </button>
                     <button
                       onClick={() => handleReject(approval.entity_id)}
-                      className="flex items-center gap-1 px-3 py-1.5 bg-red-600 text-white text-sm font-medium rounded hover:bg-red-700"
+                      className="flex items-center gap-1 px-3 py-1.5 bg-red-600 text-white text-sm font-medium rounded-sm hover:bg-red-700"
                     >
                       <XCircle size={16} /> Reject
                     </button>
@@ -240,10 +240,10 @@ export function GovernanceDashboard() {
 
       {/* Recommendations Tab */}
       {activeTab === "recommendations" && (
-        <div className="glass border border-white/[0.06] rounded-xl p-6">
+        <div className="glass border border-white/6 rounded-xl p-6">
           <div className="flex items-center gap-2 mb-4">
             <Lightbulb size={20} className="text-yellow-500" />
-            <h2 className="text-lg font-semibold text-[#E6EDF3]">
+            <h2 className="text-lg font-semibold text-industrial-text">
               AI Recommendations
             </h2>
           </div>
@@ -252,11 +252,11 @@ export function GovernanceDashboard() {
               recommendations.map((rec) => (
                 <div
                   key={rec.id}
-                  className="border border-[#232A33] rounded-lg p-4"
+                  className="border border-industrial-border rounded-lg p-4"
                 >
                   <div className="flex items-start justify-between mb-2">
                     <div className="flex-1">
-                      <div className="font-medium text-[#E6EDF3]">
+                      <div className="font-medium text-industrial-text">
                         {rec.title}
                       </div>
                       {rec.assets?.name && (
@@ -273,7 +273,7 @@ export function GovernanceDashboard() {
                         </span>
                       )}
                       <span
-                        className={`px-2 py-1 text-xs font-medium rounded ${priorityColors[rec.priority] || "bg-white/[0.04] text-slate-400"}`}
+                        className={`px-2 py-1 text-xs font-medium rounded-sm ${priorityColors[rec.priority] || "bg-white/4 text-slate-400"}`}
                       >
                         {rec.priority}
                       </span>
@@ -289,13 +289,13 @@ export function GovernanceDashboard() {
                     <div className="flex gap-2">
                       <button
                         onClick={() => handleAcceptRec(rec.id)}
-                        className="flex items-center gap-1 px-3 py-1.5 bg-teal-600 text-white text-sm font-medium rounded hover:bg-teal-500"
+                        className="flex items-center gap-1 px-3 py-1.5 bg-teal-600 text-white text-sm font-medium rounded-sm hover:bg-teal-500"
                       >
                         <CheckCircle size={16} /> Accept
                       </button>
                       <button
                         onClick={() => handleDismissRec(rec.id)}
-                        className="flex items-center gap-1 px-3 py-1.5 bg-slate-200 text-slate-300 text-sm font-medium rounded hover:bg-slate-300"
+                        className="flex items-center gap-1 px-3 py-1.5 bg-slate-200 text-slate-300 text-sm font-medium rounded-sm hover:bg-slate-300"
                       >
                         Dismiss
                       </button>
@@ -303,7 +303,7 @@ export function GovernanceDashboard() {
                   )}
                   {rec.status !== "pending" && (
                     <span
-                      className={`text-xs px-2 py-1 rounded ${rec.status === "accepted" ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : "bg-white/[0.04] text-slate-400"}`}
+                      className={`text-xs px-2 py-1 rounded-sm ${rec.status === "accepted" ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : "bg-white/4 text-slate-400"}`}
                     >
                       {rec.status}
                     </span>
@@ -321,10 +321,10 @@ export function GovernanceDashboard() {
 
       {/* Audit Trail Tab */}
       {activeTab === "audit" && (
-        <div className="glass border border-white/[0.06] rounded-xl p-6">
+        <div className="glass border border-white/6 rounded-xl p-6">
           <div className="flex items-center gap-2 mb-4">
             <Shield size={20} className="text-slate-400" />
-            <h2 className="text-lg font-semibold text-[#E6EDF3]">
+            <h2 className="text-lg font-semibold text-industrial-text">
               Audit Trail
             </h2>
           </div>
@@ -333,11 +333,11 @@ export function GovernanceDashboard() {
               auditEvents.map((event) => (
                 <div
                   key={event.id}
-                  className="flex items-start gap-3 p-3 bg-white/[0.02] rounded-lg"
+                  className="flex items-start gap-3 p-3 bg-white/2 rounded-lg"
                 >
                   <div className="w-2 h-2 bg-blue-500 rounded-full mt-2" />
                   <div className="flex-1">
-                    <div className="text-sm text-[#E6EDF3]">
+                    <div className="text-sm text-industrial-text">
                       <span className="font-medium">{event.event_type}</span> on{" "}
                       <span className="font-medium">{event.entity_type}</span>
                     </div>

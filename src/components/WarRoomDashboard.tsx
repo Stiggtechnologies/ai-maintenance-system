@@ -191,10 +191,10 @@ export function WarRoomDashboard() {
   return (
     <div className="min-h-screen bg-gray-900 p-6">
       <div className="max-w-7xl mx-auto">
-        <div className="bg-gradient-to-r from-red-600 to-orange-600 rounded-lg shadow-lg p-6 mb-6">
+        <div className="bg-linear-to-r from-red-600 to-orange-600 rounded-lg shadow-lg p-6 mb-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <div className="bg-[#11161D]/20 p-3 rounded-lg">
+              <div className="bg-industrial-graphite/20 p-3 rounded-lg">
                 <AlertTriangle className="w-8 h-8 text-white" />
               </div>
               <div>
@@ -409,7 +409,7 @@ export function WarRoomDashboard() {
                 {teamMembers.map((member) => (
                   <div
                     key={member.id}
-                    className="flex items-center gap-3 p-2 rounded hover:bg-gray-700/50"
+                    className="flex items-center gap-3 p-2 rounded-sm hover:bg-gray-700/50"
                   >
                     <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white text-sm font-medium">
                       {member.display_name?.charAt(0) || "U"}

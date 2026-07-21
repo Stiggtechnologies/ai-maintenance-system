@@ -219,13 +219,13 @@ function IntegrationCard({
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.05 }}
-      className={`border ${sc.border} rounded-xl overflow-hidden bg-[#0D1520] cursor-pointer hover:border-white/[0.12] transition-colors`}
+      className={`border ${sc.border} rounded-xl overflow-hidden bg-[#0D1520] cursor-pointer hover:border-white/12 transition-colors`}
       onClick={() => setExpanded(!expanded)}
     >
       <div className="p-4">
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-start gap-3">
-            <div className={`p-2 rounded-lg ${sc.bg} flex-shrink-0`}>
+            <div className={`p-2 rounded-lg ${sc.bg} shrink-0`}>
               <Icon className={`w-4 h-4 ${sc.color}`} />
             </div>
             <div>
@@ -244,7 +244,7 @@ function IntegrationCard({
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-3 flex-shrink-0">
+          <div className="flex items-center gap-3 shrink-0">
             <div className="text-right hidden sm:block">
               <div className="text-xs font-mono text-slate-300">
                 {integration.lastSyncAt
@@ -269,7 +269,7 @@ function IntegrationCard({
         className="overflow-hidden"
       >
         <div className="px-4 pb-4 pt-0">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-3 border-t border-white/[0.06]">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-3 border-t border-white/6">
             <div>
               <div className="text-xs text-slate-400">Last Sync</div>
               <div className="text-sm font-bold text-slate-200 mt-0.5">
@@ -325,7 +325,7 @@ export function IntegrationHealthPanel() {
       <div className="flex items-center gap-2">
         <button
           onClick={refetch}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-white/[0.04] border border-white/[0.08] rounded-lg text-xs text-slate-400 hover:bg-white/[0.08] transition-colors"
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-white/4 border border-white/8 rounded-lg text-xs text-slate-400 hover:bg-white/8 transition-colors"
         >
           <RefreshCw className="w-3.5 h-3.5" /> Refresh All
         </button>
@@ -379,7 +379,7 @@ export function IntegrationHealthPanel() {
 
       {/* Health Summary */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-[#0D1520] border border-white/[0.06] rounded-xl p-4">
+        <div className="bg-[#0D1520] border border-white/6 rounded-xl p-4">
           <div className="flex items-center gap-2 mb-2">
             <div className="w-2 h-2 rounded-full bg-teal-400" />
             <span className="text-xs text-slate-400">Healthy</span>
@@ -387,7 +387,7 @@ export function IntegrationHealthPanel() {
           <div className="text-3xl font-black text-teal-400">{healthy}</div>
           <div className="text-xs text-slate-400 mt-0.5">integrations</div>
         </div>
-        <div className="bg-[#0D1520] border border-white/[0.06] rounded-xl p-4">
+        <div className="bg-[#0D1520] border border-white/6 rounded-xl p-4">
           <div className="flex items-center gap-2 mb-2">
             <div className="w-2 h-2 rounded-full bg-amber-400" />
             <span className="text-xs text-slate-400">Degraded</span>
@@ -395,7 +395,7 @@ export function IntegrationHealthPanel() {
           <div className="text-3xl font-black text-amber-400">{degraded}</div>
           <div className="text-xs text-slate-400 mt-0.5">integrations</div>
         </div>
-        <div className="bg-[#0D1520] border border-white/[0.06] rounded-xl p-4">
+        <div className="bg-[#0D1520] border border-white/6 rounded-xl p-4">
           <div className="flex items-center gap-2 mb-2">
             <div className="w-2 h-2 rounded-full bg-red-400" />
             <span className="text-xs text-slate-400">Down</span>
@@ -403,7 +403,7 @@ export function IntegrationHealthPanel() {
           <div className="text-3xl font-black text-red-400">{down}</div>
           <div className="text-xs text-slate-400 mt-0.5">integrations</div>
         </div>
-        <div className="bg-[#0D1520] border border-white/[0.06] rounded-xl p-4">
+        <div className="bg-[#0D1520] border border-white/6 rounded-xl p-4">
           <div className="flex items-center gap-2 mb-2">
             <Layers className="w-3.5 h-3.5 text-blue-400" />
             <span className="text-xs text-slate-400">Records Synced</span>
@@ -430,7 +430,7 @@ export function IntegrationHealthPanel() {
             className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors whitespace-nowrap ${
               filter === f.value
                 ? "bg-teal-500/20 border border-teal-500/30 text-teal-400"
-                : "bg-white/[0.04] border border-white/[0.08] text-slate-400 hover:bg-white/[0.08]"
+                : "bg-white/4 border border-white/8 text-slate-400 hover:bg-white/8"
             }`}
           >
             {f.label}
@@ -455,7 +455,7 @@ export function IntegrationHealthPanel() {
 
       {/* Data Pipeline Status */}
       <div className="bg-[#0D1520] border border-teal-500/10 rounded-xl p-4 flex items-start gap-3">
-        <Plug className="w-4 h-4 text-teal-400 flex-shrink-0 mt-0.5" />
+        <Plug className="w-4 h-4 text-teal-400 shrink-0 mt-0.5" />
         <div>
           <div className="text-sm font-bold text-teal-400">
             Data Pipeline Health

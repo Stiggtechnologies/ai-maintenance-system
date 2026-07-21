@@ -190,7 +190,7 @@ export default function ExecutiveDashboard() {
       case "red":
         return "bg-red-50 border-red-200";
       default:
-        return "bg-[#0B0F14] border-[#232A33]";
+        return "bg-industrial-black border-industrial-border";
     }
   };
 
@@ -228,14 +228,14 @@ export default function ExecutiveDashboard() {
         <div className="flex items-center justify-between">
           <button
             onClick={() => setCategoryView(null)}
-            className="flex items-center gap-2 text-slate-400 hover:text-[#E6EDF3]"
+            className="flex items-center gap-2 text-slate-400 hover:text-industrial-text"
           >
             <ArrowDownRight className="w-5 h-5 rotate-180" />
             Back to Overview
           </button>
           <div className="flex items-center gap-3">
             <category.icon className={`w-6 h-6 text-${category.color}-600`} />
-            <h2 className="text-2xl font-bold text-[#E6EDF3]">
+            <h2 className="text-2xl font-bold text-industrial-text">
               {category.category}
             </h2>
           </div>
@@ -251,17 +251,17 @@ export default function ExecutiveDashboard() {
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-2">
                     {getStatusIcon(kpi.status)}
-                    <h3 className="text-lg font-semibold text-[#E6EDF3]">
+                    <h3 className="text-lg font-semibold text-industrial-text">
                       {kpi.kpi_name}
                     </h3>
-                    <span className="text-xs text-gray-500 bg-[#11161D] px-2 py-1 rounded">
+                    <span className="text-xs text-gray-500 bg-industrial-graphite px-2 py-1 rounded-sm">
                       {kpi.kpi_code}
                     </span>
                   </div>
                   <div className="flex items-center gap-4">
                     <div>
                       <p className="text-sm text-slate-400">Current</p>
-                      <p className="text-2xl font-bold text-[#E6EDF3]">
+                      <p className="text-2xl font-bold text-industrial-text">
                         {formatValue(kpi.latest_value, kpi.kpi_name)}
                       </p>
                     </div>
@@ -299,7 +299,7 @@ export default function ExecutiveDashboard() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-[#E6EDF3]">
+          <h1 className="text-3xl font-bold text-industrial-text">
             Executive Dashboard
           </h1>
           <p className="text-slate-400 mt-1">
@@ -312,7 +312,7 @@ export default function ExecutiveDashboard() {
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
               selectedPeriod === "current"
                 ? "bg-teal-600 text-white"
-                : "bg-[#161C24] text-slate-300 hover:bg-white/[0.06]"
+                : "bg-industrial-slate text-slate-300 hover:bg-white/6"
             }`}
           >
             Current Period
@@ -322,7 +322,7 @@ export default function ExecutiveDashboard() {
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
               selectedPeriod === "ytd"
                 ? "bg-teal-600 text-white"
-                : "bg-[#161C24] text-slate-300 hover:bg-white/[0.06]"
+                : "bg-industrial-slate text-slate-300 hover:bg-white/6"
             }`}
           >
             Year to Date
@@ -343,7 +343,7 @@ export default function ExecutiveDashboard() {
               <category.icon className={`w-8 h-8 text-${category.color}-600`} />
               {getStatusIcon(category.avgStatus)}
             </div>
-            <h3 className="text-lg font-semibold text-[#E6EDF3] mb-2">
+            <h3 className="text-lg font-semibold text-industrial-text mb-2">
               {category.category}
             </h3>
             <div className="flex items-center justify-between text-sm">
@@ -360,9 +360,9 @@ export default function ExecutiveDashboard() {
       </div>
 
       {kpis.length === 0 && (
-        <div className="text-center py-12 bg-[#11161D] rounded-xl border-2 border-[#232A33]">
+        <div className="text-center py-12 bg-industrial-graphite rounded-xl border-2 border-industrial-border">
           <Target className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-[#E6EDF3] mb-2">
+          <h3 className="text-lg font-semibold text-industrial-text mb-2">
             No KPIs Available
           </h3>
           <p className="text-slate-400">

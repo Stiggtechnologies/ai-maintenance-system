@@ -132,7 +132,7 @@ function FactorBar({
             <span className="text-xs font-bold text-slate-200">{score}%</span>
           </div>
         </div>
-        <div className="h-1.5 bg-white/[0.05] rounded-full overflow-hidden">
+        <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
           <motion.div
             initial={{ width: 0 }}
             animate={{ width: `${score}%` }}
@@ -166,7 +166,7 @@ function EvidenceDrawer({
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative w-full max-w-md h-full bg-[#0D1520] border-l border-white/[0.08] overflow-y-auto p-5">
+      <div className="relative w-full max-w-md h-full bg-[#0D1520] border-l border-white/8 overflow-y-auto p-5">
         <div className="flex items-center justify-between mb-1">
           <h3 className="text-sm font-semibold text-slate-200">Evidence</h3>
           <button
@@ -189,7 +189,7 @@ function EvidenceDrawer({
           {(data ?? []).map((e) => (
             <div
               key={e.id}
-              className="rounded-xl border border-white/[0.06] bg-black/20 p-3"
+              className="rounded-xl border border-white/6 bg-black/20 p-3"
             >
               <div className="flex items-center justify-between">
                 <span className="text-sm font-semibold text-slate-200">
@@ -247,7 +247,7 @@ function ScenarioModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
-      <div className="relative w-full max-w-4xl max-h-[85vh] overflow-y-auto bg-[#0D1520] border border-white/[0.1] rounded-2xl p-5">
+      <div className="relative w-full max-w-4xl max-h-[85vh] overflow-y-auto bg-[#0D1520] border border-white/10 rounded-2xl p-5">
         <div className="flex items-center justify-between mb-1">
           <h3 className="text-sm font-semibold text-slate-200 flex items-center gap-2">
             <FlaskConical className="w-4 h-4 text-teal-400" /> Scenario
@@ -273,7 +273,7 @@ function ScenarioModal({
           {(data ?? []).map((s) => (
             <div
               key={s.id}
-              className={`rounded-xl border p-4 ${s.recommended ? "border-teal-500/40 bg-teal-500/[0.06]" : "border-white/[0.06] bg-black/20"}`}
+              className={`rounded-xl border p-4 ${s.recommended ? "border-teal-500/40 bg-teal-500/6" : "border-white/6 bg-black/20"}`}
             >
               <div className="flex items-center justify-between">
                 <span className="text-sm font-semibold text-slate-200">
@@ -376,14 +376,14 @@ function RecommendationCard({
         onClick={() => setExpanded(!expanded)}
       >
         <div
-          className={`mt-2 w-2 h-2 rounded-full ${level.dot} flex-shrink-0 animate-pulse`}
+          className={`mt-2 w-2 h-2 rounded-full ${level.dot} shrink-0 animate-pulse`}
         />
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between gap-2">
             <h4 className={`text-sm font-semibold ${level.color}`}>
               {rec.title}
             </h4>
-            <div className="flex items-center gap-2 flex-shrink-0">
+            <div className="flex items-center gap-2 shrink-0">
               <span className="text-xs text-slate-400 font-mono">
                 {rec.confidence}% conf
               </span>
@@ -408,7 +408,7 @@ function RecommendationCard({
         </div>
       </div>
       {expanded && (
-        <div className="mt-3 pt-3 border-t border-white/[0.06] space-y-2">
+        <div className="mt-3 pt-3 border-t border-white/6 space-y-2">
           <div className="text-xs text-slate-300">
             <span className="text-slate-400">Recommended: </span>
             {rec.action}
@@ -446,43 +446,43 @@ function RecommendationCard({
             </button>
             <button
               onClick={() => onEvidence(rec)}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-white/[0.04] border border-white/[0.08] text-slate-400 text-xs rounded-lg hover:bg-white/[0.08]"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-white/4 border border-white/8 text-slate-400 text-xs rounded-lg hover:bg-white/8"
             >
               <Eye className="w-3 h-3" /> Evidence
             </button>
             <button
               onClick={() => onScenarios(rec)}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-white/[0.04] border border-white/[0.08] text-slate-400 text-xs rounded-lg hover:bg-white/[0.08]"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-white/4 border border-white/8 text-slate-400 text-xs rounded-lg hover:bg-white/8"
             >
               <FlaskConical className="w-3 h-3" /> Compare Scenarios
             </button>
             <button
               onClick={() => onChallenge(rec)}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-white/[0.04] border border-white/[0.08] text-amber-400 text-xs rounded-lg hover:bg-amber-500/10"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-white/4 border border-white/8 text-amber-400 text-xs rounded-lg hover:bg-amber-500/10"
             >
               <Swords className="w-3 h-3" /> Challenge
             </button>
             <button
               onClick={() => onCreateWO(rec)}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-white/[0.04] border border-white/[0.08] text-slate-400 text-xs rounded-lg hover:bg-white/[0.08]"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-white/4 border border-white/8 text-slate-400 text-xs rounded-lg hover:bg-white/8"
             >
               <Package className="w-3 h-3" /> Create Work Order
             </button>
             <button
               onClick={() => onAction(rec, "modified")}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-white/[0.04] border border-white/[0.08] text-slate-400 text-xs rounded-lg hover:bg-white/[0.08]"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-white/4 border border-white/8 text-slate-400 text-xs rounded-lg hover:bg-white/8"
             >
               <Pencil className="w-3 h-3" /> Modify
             </button>
             <button
               onClick={() => onAction(rec, "escalated")}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-white/[0.04] border border-white/[0.08] text-slate-400 text-xs rounded-lg hover:bg-white/[0.08]"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-white/4 border border-white/8 text-slate-400 text-xs rounded-lg hover:bg-white/8"
             >
               <ArrowUpCircle className="w-3 h-3" /> Escalate
             </button>
             <button
               onClick={() => onAction(rec, "dismissed")}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-white/[0.04] border border-white/[0.08] text-slate-400 text-xs rounded-lg hover:bg-white/[0.08]"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-white/4 border border-white/8 text-slate-400 text-xs rounded-lg hover:bg-white/8"
             >
               <ThumbsDown className="w-3 h-3" /> Dismiss
             </button>
@@ -589,7 +589,7 @@ export function MissionControl() {
   return (
     <div className="p-6 space-y-6 min-h-full">
       {toast && (
-        <div className="fixed top-4 right-4 z-[60] max-w-sm bg-[#0D1520] border border-teal-500/30 rounded-xl px-4 py-3 text-xs text-teal-200 shadow-xl shadow-black/40">
+        <div className="fixed top-4 right-4 z-60 max-w-sm bg-[#0D1520] border border-teal-500/30 rounded-xl px-4 py-3 text-xs text-teal-200 shadow-xl shadow-black/40">
           {toast}
         </div>
       )}
@@ -616,7 +616,7 @@ export function MissionControl() {
       {!loading && !error && data && (
         <>
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-1 bg-[#0D1520] border border-white/[0.06] rounded-2xl p-6 flex flex-col items-center justify-center">
+            <div className="lg:col-span-1 bg-[#0D1520] border border-white/6 rounded-2xl p-6 flex flex-col items-center justify-center">
               <div className="text-xs text-slate-400 uppercase tracking-widest mb-4">
                 Mission Readiness
               </div>
@@ -643,7 +643,7 @@ export function MissionControl() {
               </p>
             </div>
 
-            <div className="lg:col-span-2 bg-[#0D1520] border border-white/[0.06] rounded-2xl p-6">
+            <div className="lg:col-span-2 bg-[#0D1520] border border-white/6 rounded-2xl p-6">
               <h2 className="text-sm font-semibold text-slate-200 mb-4">
                 Readiness Factors
               </h2>
@@ -691,7 +691,7 @@ export function MissionControl() {
               return (
                 <div
                   key={s.label}
-                  className="bg-[#0D1520] border border-white/[0.06] rounded-xl p-4"
+                  className="bg-[#0D1520] border border-white/6 rounded-xl p-4"
                 >
                   <div className="flex items-center gap-2 mb-2">
                     <div className="p-1.5 rounded-lg text-teal-400 bg-teal-500/10">
@@ -709,7 +709,7 @@ export function MissionControl() {
           </div>
 
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-            <div className="bg-[#0D1520] border border-white/[0.06] rounded-2xl p-6">
+            <div className="bg-[#0D1520] border border-white/6 rounded-2xl p-6">
               <h2 className="text-sm font-semibold text-slate-200 flex items-center gap-2 mb-4">
                 <AlertTriangle className="w-4 h-4 text-amber-400" /> Top Mission
                 Risks
@@ -753,7 +753,7 @@ export function MissionControl() {
               </div>
             </div>
 
-            <div className="bg-[#0D1520] border border-white/[0.06] rounded-2xl p-6">
+            <div className="bg-[#0D1520] border border-white/6 rounded-2xl p-6">
               <h2 className="text-sm font-semibold text-slate-200 flex items-center gap-2 mb-4">
                 <Zap className="w-4 h-4 text-teal-400" /> Top AI Recommendations
               </h2>
@@ -817,7 +817,7 @@ export function MissionControl() {
                             key={reason}
                             className="flex items-start gap-1.5 text-xs text-slate-400"
                           >
-                            <AlertTriangle className="w-3 h-3 text-amber-400 flex-shrink-0 mt-0.5" />
+                            <AlertTriangle className="w-3 h-3 text-amber-400 shrink-0 mt-0.5" />
                             {reason}
                           </li>
                         ))}
@@ -829,7 +829,7 @@ export function MissionControl() {
             </div>
           )}
 
-          <div className="bg-[#0D1520] border border-white/[0.06] rounded-2xl p-6">
+          <div className="bg-[#0D1520] border border-white/6 rounded-2xl p-6">
             <div className="flex items-center gap-2 mb-4">
               <DollarSign className="w-4 h-4 text-teal-400" />
               <h2 className="text-sm font-semibold text-slate-200">
@@ -840,7 +840,7 @@ export function MissionControl() {
               {data.financialExposures.map((item) => (
                 <div
                   key={item.asset}
-                  className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.05]"
+                  className="p-4 rounded-xl bg-white/2 border border-white/5"
                 >
                   <div className="text-xs text-slate-400 mb-1 truncate">
                     {item.asset}
@@ -848,7 +848,7 @@ export function MissionControl() {
                   <div className="text-xl font-black text-amber-400">
                     {item.exposure}
                   </div>
-                  <div className="mt-2 h-1.5 bg-white/[0.05] rounded-full overflow-hidden">
+                  <div className="mt-2 h-1.5 bg-white/5 rounded-full overflow-hidden">
                     <div
                       className="h-full rounded-full bg-amber-500"
                       style={{ width: `${item.probability}%` }}

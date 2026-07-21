@@ -127,7 +127,9 @@ export function IntegrationsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-[#E6EDF3]">Integrations</h1>
+          <h1 className="text-2xl font-bold text-industrial-text">
+            Integrations
+          </h1>
           <p className="text-slate-400 mt-1">
             Connect external systems and data sources
           </p>
@@ -138,14 +140,14 @@ export function IntegrationsPage() {
       </div>
 
       {/* Tabs */}
-      <div className="border-b border-[#232A33]">
+      <div className="border-b border-industrial-border">
         <nav className="flex gap-6">
           <button
             onClick={() => setActiveTab("connectors")}
             className={`pb-3 text-sm font-medium border-b-2 transition-colors ${activeTab === "connectors" ? "border-blue-600 text-blue-600" : "border-transparent text-slate-400 hover:text-slate-300"}`}
           >
             Active Connectors{" "}
-            <span className="ml-1 text-xs bg-white/[0.04] text-slate-400 px-1.5 py-0.5 rounded-full">
+            <span className="ml-1 text-xs bg-white/4 text-slate-400 px-1.5 py-0.5 rounded-full">
               {connectors.length}
             </span>
           </button>
@@ -166,12 +168,12 @@ export function IntegrationsPage() {
               {connectors.map((conn) => (
                 <div
                   key={conn.id}
-                  className="glass border border-white/[0.06] rounded-xl p-5 hover:border-blue-300 transition-colors"
+                  className="glass border border-white/6 rounded-xl p-5 hover:border-blue-300 transition-colors"
                 >
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex items-center gap-2">
                       <Plug size={18} className="text-slate-400" />
-                      <h3 className="font-semibold text-[#E6EDF3]">
+                      <h3 className="font-semibold text-industrial-text">
                         {conn.name}
                       </h3>
                     </div>
@@ -207,7 +209,7 @@ export function IntegrationsPage() {
 
           {/* Available Connector Types */}
           <div>
-            <h2 className="text-lg font-semibold text-[#E6EDF3] mb-4">
+            <h2 className="text-lg font-semibold text-industrial-text mb-4">
               Available Integrations
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -218,10 +220,10 @@ export function IntegrationsPage() {
                 return (
                   <div
                     key={ct.type}
-                    className={`border rounded-xl p-4 ${isConnected ? "border-green-500/30 bg-green-500/10" : "border-[#232A33] bg-[#11161D]"}`}
+                    className={`border rounded-xl p-4 ${isConnected ? "border-green-500/30 bg-green-500/10" : "border-industrial-border bg-industrial-graphite"}`}
                   >
                     <div className="flex items-center justify-between mb-2">
-                      <h3 className="font-medium text-[#E6EDF3] text-sm">
+                      <h3 className="font-medium text-industrial-text text-sm">
                         {ct.label}
                       </h3>
                       {isConnected && (
@@ -242,8 +244,8 @@ export function IntegrationsPage() {
       )}
 
       {activeTab === "history" && (
-        <div className="glass border border-white/[0.06] rounded-xl p-6">
-          <h2 className="text-lg font-semibold text-[#E6EDF3] mb-4">
+        <div className="glass border border-white/6 rounded-xl p-6">
+          <h2 className="text-lg font-semibold text-industrial-text mb-4">
             Sync History
           </h2>
           {runs.length === 0 ? (
@@ -253,7 +255,7 @@ export function IntegrationsPage() {
           ) : (
             <table className="w-full">
               <thead>
-                <tr className="text-left text-xs text-slate-400 border-b border-[#232A33]">
+                <tr className="text-left text-xs text-slate-400 border-b border-industrial-border">
                   <th className="pb-2">Connector</th>
                   <th className="pb-2">Type</th>
                   <th className="pb-2">Status</th>
@@ -277,7 +279,7 @@ export function IntegrationsPage() {
                       : null;
                   return (
                     <tr key={run.id} className="border-b border-[#1A2030]">
-                      <td className="py-3 text-sm font-medium text-[#E6EDF3]">
+                      <td className="py-3 text-sm font-medium text-industrial-text">
                         {connector?.name || "Unknown"}
                       </td>
                       <td className="py-3 text-sm text-slate-400">

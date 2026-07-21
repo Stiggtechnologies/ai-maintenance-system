@@ -74,7 +74,7 @@ export function SecurityAuditLog() {
         <div className="flex gap-2">
           <button
             onClick={refetch}
-            className="inline-flex items-center gap-2 rounded-lg border border-slate-600 px-3 py-1.5 text-sm text-slate-200 hover:bg-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-300"
+            className="inline-flex items-center gap-2 rounded-lg border border-slate-600 px-3 py-1.5 text-sm text-slate-200 hover:bg-slate-800 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-teal-300"
           >
             <RefreshCw className="h-4 w-4" aria-hidden />
             Refresh
@@ -93,7 +93,7 @@ export function SecurityAuditLog() {
               )
             }
             disabled={events.length === 0}
-            className="inline-flex items-center gap-2 rounded-lg bg-teal-500 px-3 py-1.5 text-sm font-medium text-slate-950 hover:bg-teal-400 disabled:opacity-40 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-300"
+            className="inline-flex items-center gap-2 rounded-lg bg-teal-500 px-3 py-1.5 text-sm font-medium text-slate-950 hover:bg-teal-400 disabled:opacity-40 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-teal-300"
           >
             <Download className="h-4 w-4" aria-hidden />
             Export CSV
@@ -104,10 +104,10 @@ export function SecurityAuditLog() {
       {events.length === 0 ? (
         <EmptyState message="No security events recorded yet — they appear here as users sign in, change roles, or manage MFA." />
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-white/[0.06]">
+        <div className="overflow-x-auto rounded-xl border border-white/6">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-white/[0.06] text-left text-xs uppercase tracking-wide text-slate-400">
+              <tr className="border-b border-white/6 text-left text-xs uppercase tracking-wide text-slate-400">
                 <th className="px-4 py-3">When</th>
                 <th className="px-4 py-3">Event</th>
                 <th className="px-4 py-3">Severity</th>
@@ -119,7 +119,7 @@ export function SecurityAuditLog() {
               {events.map((e) => (
                 <tr
                   key={e.id}
-                  className="border-b border-white/[0.04] hover:bg-white/[0.02]"
+                  className="border-b border-white/4 hover:bg-white/2"
                 >
                   <td className="whitespace-nowrap px-4 py-2.5 text-slate-400">
                     {new Date(e.created_at).toLocaleString()}

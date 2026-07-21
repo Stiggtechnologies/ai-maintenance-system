@@ -107,7 +107,7 @@ function RiskMatrix({ entries }: { entries: RiskEntry[] }) {
     if (score > 2.4) return "bg-red-500/30 border-red-500/40";
     if (score > 1.2) return "bg-amber-500/20 border-amber-500/30";
     if (score > 0.4) return "bg-blue-500/10 border-blue-500/20";
-    return "bg-white/[0.02] border-white/[0.04]";
+    return "bg-white/2 border-white/4";
   };
 
   return (
@@ -141,7 +141,7 @@ function RiskMatrix({ entries }: { entries: RiskEntry[] }) {
                   <div
                     key={crit}
                     title={inCell.map((e) => e.asset.name).join(", ")}
-                    className={`h-10 rounded border ${getColor(bucket.min, ci)} flex items-center justify-center text-xs font-bold text-white`}
+                    className={`h-10 rounded-sm border ${getColor(bucket.min, ci)} flex items-center justify-center text-xs font-bold text-white`}
                   >
                     {inCell.length > 0 ? inCell.length : ""}
                   </div>
@@ -208,7 +208,7 @@ function RiskCard({ entry }: { entry: RiskEntry }) {
                 : "No open recommendations"}
             </div>
           </div>
-          <div className="text-right flex-shrink-0">
+          <div className="text-right shrink-0">
             <div className={`text-xl font-black ${c.color}`}>
               {asset.risk_score}
             </div>
@@ -223,7 +223,7 @@ function RiskCard({ entry }: { entry: RiskEntry }) {
               {asset.risk_score}/100 · health {asset.health_score}/100
             </span>
           </div>
-          <div className="h-1.5 bg-white/[0.05] rounded-full overflow-hidden">
+          <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
             <motion.div
               initial={{ width: 0 }}
               animate={{ width: `${asset.risk_score}%` }}
@@ -246,19 +246,19 @@ function RiskCard({ entry }: { entry: RiskEntry }) {
           </div>
           <div className="ml-auto flex gap-2">
             {safetyWorkOrders.length > 0 && (
-              <span className="text-xs px-1.5 py-0.5 rounded bg-red-500/10 text-red-400 border border-red-500/20 font-semibold">
+              <span className="text-xs px-1.5 py-0.5 rounded-sm bg-red-500/10 text-red-400 border border-red-500/20 font-semibold">
                 {safetyWorkOrders.length} Safety WO
                 {safetyWorkOrders.length === 1 ? "" : "s"}
               </span>
             )}
-            <span className="text-xs px-1.5 py-0.5 rounded bg-white/[0.04] text-slate-300 border border-white/[0.08] capitalize">
+            <span className="text-xs px-1.5 py-0.5 rounded-sm bg-white/4 text-slate-300 border border-white/8 capitalize">
               {asset.status}
             </span>
           </div>
         </div>
 
         {expanded && (
-          <div className="mt-3 pt-3 border-t border-white/[0.05] space-y-3 text-xs">
+          <div className="mt-3 pt-3 border-t border-white/5 space-y-3 text-xs">
             <div>
               <div className="text-slate-400 uppercase tracking-wider mb-1.5">
                 Open Recommendations
@@ -270,10 +270,10 @@ function RiskCard({ entry }: { entry: RiskEntry }) {
                   {openRecs.map((r) => (
                     <div
                       key={r.id}
-                      className="flex items-center justify-between gap-2 p-2 rounded-lg bg-white/[0.02] border border-white/[0.04]"
+                      className="flex items-center justify-between gap-2 p-2 rounded-lg bg-white/2 border border-white/4"
                     >
                       <span className="text-slate-200">{r.title}</span>
-                      <span className="flex items-center gap-2 flex-shrink-0">
+                      <span className="flex items-center gap-2 shrink-0">
                         <span
                           className={`px-1.5 py-0.5 rounded-full font-bold capitalize ${
                             r.urgency === "critical"
@@ -307,13 +307,13 @@ function RiskCard({ entry }: { entry: RiskEntry }) {
                   {safetyWorkOrders.map((w) => (
                     <div
                       key={w.id}
-                      className="flex items-center justify-between gap-2 p-2 rounded-lg bg-red-500/[0.04] border border-red-500/10"
+                      className="flex items-center justify-between gap-2 p-2 rounded-lg bg-red-500/4 border border-red-500/10"
                     >
                       <span className="text-slate-200 flex items-center gap-1.5">
-                        <Wrench className="w-3 h-3 text-red-400 flex-shrink-0" />
+                        <Wrench className="w-3 h-3 text-red-400 shrink-0" />
                         {w.title}
                       </span>
-                      <span className="text-slate-400 capitalize flex-shrink-0">
+                      <span className="text-slate-400 capitalize shrink-0">
                         {w.status} · {w.priority}
                       </span>
                     </div>
@@ -395,13 +395,13 @@ export function RiskConsequence() {
         <div className="flex items-center gap-2">
           <button
             onClick={() => setView("list")}
-            className={`px-3 py-1.5 text-xs rounded-lg border transition-colors ${view === "list" ? "bg-teal-500/20 border-teal-500/30 text-teal-400" : "bg-white/[0.04] border-white/[0.08] text-slate-400"}`}
+            className={`px-3 py-1.5 text-xs rounded-lg border transition-colors ${view === "list" ? "bg-teal-500/20 border-teal-500/30 text-teal-400" : "bg-white/4 border-white/8 text-slate-400"}`}
           >
             Risk List
           </button>
           <button
             onClick={() => setView("matrix")}
-            className={`px-3 py-1.5 text-xs rounded-lg border transition-colors ${view === "matrix" ? "bg-teal-500/20 border-teal-500/30 text-teal-400" : "bg-white/[0.04] border-white/[0.08] text-slate-400"}`}
+            className={`px-3 py-1.5 text-xs rounded-lg border transition-colors ${view === "matrix" ? "bg-teal-500/20 border-teal-500/30 text-teal-400" : "bg-white/4 border-white/8 text-slate-400"}`}
           >
             Risk Matrix
           </button>
@@ -448,7 +448,7 @@ export function RiskConsequence() {
           return (
             <div
               key={s.label}
-              className="bg-[#0D1520] border border-white/[0.06] rounded-xl p-4"
+              className="bg-[#0D1520] border border-white/6 rounded-xl p-4"
             >
               <div
                 className={`w-8 h-8 rounded-lg ${colorMap[s.color]} flex items-center justify-center mb-2`}
@@ -474,7 +474,7 @@ export function RiskConsequence() {
               <button
                 key={s}
                 onClick={() => setSortBy(s)}
-                className={`px-3 py-1 rounded-full text-xs transition-colors ${sortBy === s ? "bg-teal-500/20 text-teal-400 border border-teal-500/30" : "bg-white/[0.03] border border-white/[0.06] text-slate-400"}`}
+                className={`px-3 py-1 rounded-full text-xs transition-colors ${sortBy === s ? "bg-teal-500/20 text-teal-400 border border-teal-500/30" : "bg-white/3 border border-white/6 text-slate-400"}`}
               >
                 {s === "riskScore"
                   ? "Risk Score"
@@ -498,7 +498,7 @@ export function RiskConsequence() {
           </div>
         </>
       ) : (
-        <div className="bg-[#0D1520] border border-white/[0.06] rounded-2xl p-6">
+        <div className="bg-[#0D1520] border border-white/6 rounded-2xl p-6">
           <h3 className="text-sm font-semibold text-slate-200 mb-4 flex items-center gap-2">
             <Target className="w-4 h-4 text-teal-400" />
             Risk Score vs Asset Criticality Matrix
@@ -506,15 +506,15 @@ export function RiskConsequence() {
           <RiskMatrix entries={entries} />
           <div className="mt-4 flex items-center gap-4 text-xs">
             <div className="flex items-center gap-1.5">
-              <div className="w-3 h-3 rounded bg-red-500/30 border border-red-500/40" />
+              <div className="w-3 h-3 rounded-sm bg-red-500/30 border border-red-500/40" />
               <span className="text-slate-400">Critical / Unacceptable</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <div className="w-3 h-3 rounded bg-amber-500/20 border border-amber-500/30" />
+              <div className="w-3 h-3 rounded-sm bg-amber-500/20 border border-amber-500/30" />
               <span className="text-slate-400">Action Required</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <div className="w-3 h-3 rounded bg-blue-500/10 border border-blue-500/20" />
+              <div className="w-3 h-3 rounded-sm bg-blue-500/10 border border-blue-500/20" />
               <span className="text-slate-400">Advisory</span>
             </div>
           </div>
@@ -522,8 +522,8 @@ export function RiskConsequence() {
       )}
 
       {/* Risk Prioritization Note */}
-      <div className="bg-[#0D1520] border border-white/[0.06] rounded-xl p-4 flex items-start gap-3">
-        <Shield className="w-4 h-4 text-blue-400 flex-shrink-0 mt-0.5" />
+      <div className="bg-[#0D1520] border border-white/6 rounded-xl p-4 flex items-start gap-3">
+        <Shield className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
         <div>
           <div className="text-sm font-medium text-blue-400">
             Consequence-First Prioritization

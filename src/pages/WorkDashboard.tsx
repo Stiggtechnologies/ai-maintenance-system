@@ -86,27 +86,27 @@ export function WorkDashboard() {
 
       {/* Summary Strip */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="glass border border-white/[0.06] rounded-xl p-4">
+        <div className="glass border border-white/6 rounded-xl p-4">
           <div className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-1">
             Total Work Orders
           </div>
-          <div className="text-2xl font-bold text-[#E6EDF3]">
+          <div className="text-2xl font-bold text-industrial-text">
             {workOrders.length}
           </div>
         </div>
-        <div className="glass border border-white/[0.06] rounded-xl p-4">
+        <div className="glass border border-white/6 rounded-xl p-4">
           <div className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-1">
             Open
           </div>
           <div className="text-2xl font-bold text-teal-400">{openCount}</div>
         </div>
-        <div className="glass border border-white/[0.06] rounded-xl p-4">
+        <div className="glass border border-white/6 rounded-xl p-4">
           <div className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-1">
             Critical
           </div>
           <div className="text-2xl font-bold text-red-400">{criticalCount}</div>
         </div>
-        <div className="glass border border-white/[0.06] rounded-xl p-4">
+        <div className="glass border border-white/6 rounded-xl p-4">
           <div className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-1">
             Notifications
           </div>
@@ -117,10 +117,10 @@ export function WorkDashboard() {
       </div>
 
       {/* Notifications */}
-      <div className="glass border border-white/[0.06] rounded-xl p-6">
+      <div className="glass border border-white/6 rounded-xl p-6">
         <div className="flex items-center gap-2 mb-4">
           <AlertCircle size={18} className="text-amber-400" />
-          <h2 className="text-base font-semibold text-[#E6EDF3]">
+          <h2 className="text-base font-semibold text-industrial-text">
             Recent Notifications
           </h2>
           <span className="ml-auto px-2 py-0.5 bg-amber-500/10 text-amber-400 border border-amber-500/20 text-xs font-medium rounded-full">
@@ -133,13 +133,13 @@ export function WorkDashboard() {
             notifications.slice(0, 10).map((notif) => (
               <div
                 key={notif.id}
-                className="flex items-start gap-3 p-3 bg-white/[0.02] border border-white/[0.04] rounded-lg hover:border-white/[0.08] hover:bg-white/[0.04] transition-all cursor-pointer"
+                className="flex items-start gap-3 p-3 bg-white/2 border border-white/4 rounded-lg hover:border-white/8 hover:bg-white/4 transition-all cursor-pointer"
               >
                 <div
                   className={`w-2 h-2 rounded-full mt-1.5 ${notif.status === "new" ? "bg-teal-400 shadow-[0_0_8px_rgba(20,184,166,0.5)]" : "bg-slate-600"}`}
                 />
                 <div className="flex-1 min-w-0">
-                  <div className="font-medium text-[#E6EDF3] text-sm">
+                  <div className="font-medium text-industrial-text text-sm">
                     {notif.title}
                   </div>
                   {notif.description && (
@@ -171,10 +171,10 @@ export function WorkDashboard() {
       </div>
 
       {/* Work Orders */}
-      <div className="glass border border-white/[0.06] rounded-xl overflow-hidden">
+      <div className="glass border border-white/6 rounded-xl overflow-hidden">
         <div className="flex items-center gap-2 p-6 pb-4">
           <Wrench size={18} className="text-teal-400" />
-          <h2 className="text-base font-semibold text-[#E6EDF3]">
+          <h2 className="text-base font-semibold text-industrial-text">
             Work Orders
           </h2>
           <span className="ml-auto px-2 py-0.5 bg-teal-500/10 text-teal-400 border border-teal-500/20 text-xs font-medium rounded-full">
@@ -186,7 +186,7 @@ export function WorkDashboard() {
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="border-t border-white/[0.04] bg-white/[0.02]">
+                <tr className="border-t border-white/4 bg-white/2">
                   <th className="text-left py-2.5 px-4 text-xs font-semibold text-slate-400 uppercase tracking-widest">
                     WO #
                   </th>
@@ -210,14 +210,14 @@ export function WorkDashboard() {
                   <tr
                     key={wo.id}
                     onClick={() => navigate(`/work/${wo.id}`)}
-                    className="border-t border-white/[0.04] hover:bg-white/[0.02] cursor-pointer transition-colors group"
+                    className="border-t border-white/4 hover:bg-white/2 cursor-pointer transition-colors group"
                   >
                     <td className="py-3 px-4 text-xs font-mono text-slate-400">
                       {wo.wo_number ||
                         wo.work_order_number ||
                         wo.id.slice(0, 8)}
                     </td>
-                    <td className="py-3 px-4 text-sm text-[#E6EDF3] group-hover:text-teal-300 transition-colors">
+                    <td className="py-3 px-4 text-sm text-industrial-text group-hover:text-teal-300 transition-colors">
                       {wo.title || "Untitled Work Order"}
                     </td>
                     <td className="py-3 px-4">
@@ -252,7 +252,7 @@ export function WorkDashboard() {
             </table>
           </div>
         ) : (
-          <div className="text-center text-slate-400 py-12 text-sm border-t border-white/[0.04]">
+          <div className="text-center text-slate-400 py-12 text-sm border-t border-white/4">
             No work orders found
           </div>
         )}

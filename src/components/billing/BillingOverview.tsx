@@ -172,9 +172,9 @@ export function BillingOverview() {
   if (!data.subscription) {
     return (
       <div className="max-w-7xl mx-auto p-6">
-        <div className="bg-[#11161D] rounded-xl border border-[#232A33] p-12 text-center">
+        <div className="bg-industrial-graphite rounded-xl border border-industrial-border p-12 text-center">
           <CreditCard className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-[#E6EDF3] mb-2">
+          <h2 className="text-2xl font-bold text-industrial-text mb-2">
             No Active Subscription
           </h2>
           <p className="text-slate-400 mb-6">
@@ -204,10 +204,10 @@ export function BillingOverview() {
   const isOverage = (limits?.remaining_credits || 0) < 0;
 
   return (
-    <div className="h-full overflow-auto bg-[#0B0F14]">
+    <div className="h-full overflow-auto bg-industrial-black">
       <div className="max-w-7xl mx-auto p-6">
         <div className="mb-6">
-          <h1 className="text-3xl font-bold text-[#E6EDF3] mb-2">
+          <h1 className="text-3xl font-bold text-industrial-text mb-2">
             Billing Overview
           </h1>
           <p className="text-slate-400">
@@ -246,10 +246,10 @@ export function BillingOverview() {
 
         {/* Current Plan */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-          <div className="lg:col-span-2 bg-[#11161D] rounded-xl border border-[#232A33] p-6">
+          <div className="lg:col-span-2 bg-industrial-graphite rounded-xl border border-industrial-border p-6">
             <div className="flex items-center justify-between mb-6">
               <div>
-                <h2 className="text-xl font-bold text-[#E6EDF3] mb-1">
+                <h2 className="text-xl font-bold text-industrial-text mb-1">
                   {plan?.name}
                 </h2>
                 <p className="text-sm text-slate-400">
@@ -257,7 +257,7 @@ export function BillingOverview() {
                 </p>
               </div>
               <div className="text-right">
-                <div className="text-3xl font-bold text-[#E6EDF3]">
+                <div className="text-3xl font-bold text-industrial-text">
                   ${plan?.base_price_cad?.toLocaleString()}
                 </div>
                 <div className="text-sm text-slate-400">CAD/month</div>
@@ -267,7 +267,7 @@ export function BillingOverview() {
             <div className="grid grid-cols-2 gap-6">
               <div>
                 <div className="text-sm text-slate-400 mb-1">Assets</div>
-                <div className="text-2xl font-bold text-[#E6EDF3]">
+                <div className="text-2xl font-bold text-industrial-text">
                   {assetCount}{" "}
                   <span className="text-sm text-gray-500">
                     / {plan?.included_assets}
@@ -291,7 +291,7 @@ export function BillingOverview() {
                 <div className="text-sm text-slate-400 mb-1">
                   Credits Remaining
                 </div>
-                <div className="text-2xl font-bold text-[#E6EDF3]">
+                <div className="text-2xl font-bold text-industrial-text">
                   {(limits?.remaining_credits || 0).toLocaleString()}
                 </div>
                 <div className="text-xs text-gray-500 mt-1">
@@ -301,7 +301,7 @@ export function BillingOverview() {
 
               <div>
                 <div className="text-sm text-slate-400 mb-1">Max Sites</div>
-                <div className="text-2xl font-bold text-[#E6EDF3]">
+                <div className="text-2xl font-bold text-industrial-text">
                   {plan?.max_sites}
                 </div>
               </div>
@@ -310,7 +310,7 @@ export function BillingOverview() {
                 <div className="text-sm text-slate-400 mb-1">
                   Billing Period
                 </div>
-                <div className="text-sm text-[#E6EDF3]">
+                <div className="text-sm text-industrial-text">
                   {new Date(
                     subscription?.current_period_start,
                   ).toLocaleDateString()}{" "}
@@ -322,7 +322,7 @@ export function BillingOverview() {
               </div>
             </div>
 
-            <div className="mt-6 pt-6 border-t border-[#232A33] flex gap-3">
+            <div className="mt-6 pt-6 border-t border-industrial-border flex gap-3">
               <button
                 onClick={handleManageSubscription}
                 className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 font-medium text-sm"
@@ -348,9 +348,9 @@ export function BillingOverview() {
               <div className="text-sm text-teal-700">Plan Tier</div>
             </div>
 
-            <div className="bg-[#11161D] rounded-xl border border-[#232A33] p-5">
+            <div className="bg-industrial-graphite rounded-xl border border-industrial-border p-5">
               <Calendar className="w-8 h-8 text-slate-400 mb-2" />
-              <div className="text-2xl font-bold text-[#E6EDF3]">
+              <div className="text-2xl font-bold text-industrial-text">
                 {Math.ceil(
                   (new Date(subscription?.current_period_end).getTime() -
                     Date.now()) /
@@ -361,9 +361,9 @@ export function BillingOverview() {
             </div>
 
             {latestInvoice && (
-              <div className="bg-[#11161D] rounded-xl border border-[#232A33] p-5">
+              <div className="bg-industrial-graphite rounded-xl border border-industrial-border p-5">
                 <DollarSign className="w-8 h-8 text-slate-400 mb-2" />
-                <div className="text-2xl font-bold text-[#E6EDF3]">
+                <div className="text-2xl font-bold text-industrial-text">
                   ${latestInvoice.total_cad?.toFixed(2)}
                 </div>
                 <div className="text-sm text-slate-400">Last invoice</div>
@@ -382,8 +382,8 @@ export function BillingOverview() {
         </div>
 
         {/* Credit Usage */}
-        <div className="bg-[#11161D] rounded-xl border border-[#232A33] p-6 mb-6">
-          <h2 className="text-lg font-semibold text-[#E6EDF3] mb-4">
+        <div className="bg-industrial-graphite rounded-xl border border-industrial-border p-6 mb-6">
+          <h2 className="text-lg font-semibold text-industrial-text mb-4">
             Credit Usage This Period
           </h2>
 
@@ -400,7 +400,7 @@ export function BillingOverview() {
                 {creditUsagePercent?.toFixed(1)}%
               </span>
             </div>
-            <div className="w-full bg-white/[0.06] rounded-full h-3">
+            <div className="w-full bg-white/6 rounded-full h-3">
               <div
                 className={`h-3 rounded-full transition-all ${
                   isOverage
@@ -417,13 +417,13 @@ export function BillingOverview() {
           <div className="grid grid-cols-4 gap-4 text-sm">
             <div>
               <div className="text-slate-400">Included</div>
-              <div className="font-semibold text-[#E6EDF3]">
+              <div className="font-semibold text-industrial-text">
                 {(limits?.included_credits || 0).toLocaleString()}
               </div>
             </div>
             <div>
               <div className="text-slate-400">Used</div>
-              <div className="font-semibold text-[#E6EDF3]">
+              <div className="font-semibold text-industrial-text">
                 {(
                   (limits?.included_credits ?? 0) -
                     (limits?.remaining_credits ?? 0) || 0
@@ -432,7 +432,7 @@ export function BillingOverview() {
             </div>
             <div>
               <div className="text-slate-400">Remaining</div>
-              <div className="font-semibold text-[#E6EDF3]">
+              <div className="font-semibold text-industrial-text">
                 {Math.max(limits?.remaining_credits || 0, 0).toLocaleString()}
               </div>
             </div>
@@ -451,10 +451,10 @@ export function BillingOverview() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <button
             onClick={() => (window.location.href = "/app/billing/usage")}
-            className="bg-[#11161D] rounded-xl border border-[#232A33] p-6 hover:border-teal-300 hover:shadow-sm transition-all text-left"
+            className="bg-industrial-graphite rounded-xl border border-industrial-border p-6 hover:border-teal-300 hover:shadow-xs transition-all text-left"
           >
             <TrendingUp className="w-8 h-8 text-teal-600 mb-2" />
-            <h3 className="font-semibold text-[#E6EDF3] mb-1">
+            <h3 className="font-semibold text-industrial-text mb-1">
               Usage Dashboard
             </h3>
             <p className="text-sm text-slate-400">
@@ -464,19 +464,23 @@ export function BillingOverview() {
 
           <button
             onClick={() => (window.location.href = "/app/billing/invoices")}
-            className="bg-[#11161D] rounded-xl border border-[#232A33] p-6 hover:border-teal-300 hover:shadow-sm transition-all text-left"
+            className="bg-industrial-graphite rounded-xl border border-industrial-border p-6 hover:border-teal-300 hover:shadow-xs transition-all text-left"
           >
             <CreditCard className="w-8 h-8 text-teal-600 mb-2" />
-            <h3 className="font-semibold text-[#E6EDF3] mb-1">Invoices</h3>
+            <h3 className="font-semibold text-industrial-text mb-1">
+              Invoices
+            </h3>
             <p className="text-sm text-slate-400">View and download invoices</p>
           </button>
 
           <button
             onClick={() => (window.location.href = "/app/billing/gain-share")}
-            className="bg-[#11161D] rounded-xl border border-[#232A33] p-6 hover:border-teal-300 hover:shadow-sm transition-all text-left"
+            className="bg-industrial-graphite rounded-xl border border-industrial-border p-6 hover:border-teal-300 hover:shadow-xs transition-all text-left"
           >
             <DollarSign className="w-8 h-8 text-teal-600 mb-2" />
-            <h3 className="font-semibold text-[#E6EDF3] mb-1">Gain-Share</h3>
+            <h3 className="font-semibold text-industrial-text mb-1">
+              Gain-Share
+            </h3>
             <p className="text-sm text-slate-400">Performance-based billing</p>
           </button>
         </div>

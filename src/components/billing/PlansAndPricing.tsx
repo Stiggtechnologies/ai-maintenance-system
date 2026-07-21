@@ -116,10 +116,10 @@ export function PlansAndPricing() {
   }
 
   return (
-    <div className="h-full overflow-auto bg-[#0B0F14]">
+    <div className="h-full overflow-auto bg-industrial-black">
       <div className="max-w-7xl mx-auto p-6">
         <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold text-[#E6EDF3] mb-4">
+          <h1 className="text-4xl font-bold text-industrial-text mb-4">
             Choose Your Plan
           </h1>
           <p className="text-xl text-slate-400">
@@ -155,8 +155,10 @@ export function PlansAndPricing() {
             return (
               <div
                 key={plan.id}
-                className={`relative bg-[#11161D] rounded-2xl border-2 p-8 ${
-                  isPopular ? "border-teal-500 shadow-xl" : "border-[#232A33]"
+                className={`relative bg-industrial-graphite rounded-2xl border-2 p-8 ${
+                  isPopular
+                    ? "border-teal-500 shadow-xl"
+                    : "border-industrial-border"
                 }`}
               >
                 {isPopular && (
@@ -169,11 +171,11 @@ export function PlansAndPricing() {
                 )}
 
                 <div className="text-center mb-6">
-                  <h3 className="text-2xl font-bold text-[#E6EDF3] mb-2">
+                  <h3 className="text-2xl font-bold text-industrial-text mb-2">
                     {plan.name}
                   </h3>
                   <div className="flex items-baseline justify-center gap-1">
-                    <span className="text-5xl font-bold text-[#E6EDF3]">
+                    <span className="text-5xl font-bold text-industrial-text">
                       ${(plan.base_price_cad / 1000).toFixed(0)}K
                     </span>
                     <span className="text-slate-400">/month</span>
@@ -186,7 +188,7 @@ export function PlansAndPricing() {
                 <ul className="space-y-3 mb-8">
                   {features.map((feature, i) => (
                     <li key={i} className="flex items-start gap-2">
-                      <Check className="w-5 h-5 text-teal-600 flex-shrink-0 mt-0.5" />
+                      <Check className="w-5 h-5 text-teal-600 shrink-0 mt-0.5" />
                       <span className="text-slate-300 text-sm">{feature}</span>
                     </li>
                   ))}
@@ -198,7 +200,7 @@ export function PlansAndPricing() {
                   className={`w-full py-3 px-4 rounded-lg font-semibold transition-colors ${
                     isPopular
                       ? "bg-teal-600 text-white hover:bg-teal-700"
-                      : "bg-[#161C24] text-[#E6EDF3] hover:bg-white/[0.06]"
+                      : "bg-industrial-slate text-industrial-text hover:bg-white/6"
                   } disabled:opacity-50 disabled:cursor-not-allowed`}
                 >
                   {selectedPlan === plan.code ? "Selected" : "Get Started"}
@@ -209,8 +211,8 @@ export function PlansAndPricing() {
         </div>
 
         {/* Pricing Details */}
-        <div className="mt-16 bg-[#11161D] rounded-xl border border-[#232A33] p-8">
-          <h2 className="text-2xl font-bold text-[#E6EDF3] mb-6 text-center">
+        <div className="mt-16 bg-industrial-graphite rounded-xl border border-industrial-border p-8">
+          <h2 className="text-2xl font-bold text-industrial-text mb-6 text-center">
             How Pricing Works
           </h2>
 
@@ -252,27 +254,31 @@ export function PlansAndPricing() {
             </div>
           </div>
 
-          <div className="mt-8 pt-8 border-t border-[#232A33]">
-            <h3 className="font-semibold text-[#E6EDF3] mb-4">
+          <div className="mt-8 pt-8 border-t border-industrial-border">
+            <h3 className="font-semibold text-industrial-text mb-4">
               Credit Consumption Guide
             </h3>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-              <div className="bg-[#0B0F14] rounded-lg p-3">
-                <div className="font-semibold text-[#E6EDF3]">LLM Query</div>
+              <div className="bg-industrial-black rounded-lg p-3">
+                <div className="font-semibold text-industrial-text">
+                  LLM Query
+                </div>
                 <div className="text-slate-400">1 credit / 1K tokens</div>
               </div>
-              <div className="bg-[#0B0F14] rounded-lg p-3">
-                <div className="font-semibold text-[#E6EDF3]">Vision Batch</div>
+              <div className="bg-industrial-black rounded-lg p-3">
+                <div className="font-semibold text-industrial-text">
+                  Vision Batch
+                </div>
                 <div className="text-slate-400">5 credits / 100 frames</div>
               </div>
-              <div className="bg-[#0B0F14] rounded-lg p-3">
-                <div className="font-semibold text-[#E6EDF3]">
+              <div className="bg-industrial-black rounded-lg p-3">
+                <div className="font-semibold text-industrial-text">
                   Optimizer Job
                 </div>
                 <div className="text-slate-400">500 credits / job</div>
               </div>
-              <div className="bg-[#0B0F14] rounded-lg p-3">
-                <div className="font-semibold text-[#E6EDF3]">
+              <div className="bg-industrial-black rounded-lg p-3">
+                <div className="font-semibold text-industrial-text">
                   Simulator Run
                 </div>
                 <div className="text-slate-400">1000 credits / run</div>
@@ -282,13 +288,13 @@ export function PlansAndPricing() {
         </div>
 
         {/* Enterprise CTA */}
-        <div className="mt-8 bg-gradient-to-r from-teal-600 to-teal-700 rounded-xl p-8 text-white text-center">
+        <div className="mt-8 bg-linear-to-r from-teal-600 to-teal-700 rounded-xl p-8 text-white text-center">
           <h2 className="text-2xl font-bold mb-2">Need a Custom Solution?</h2>
           <p className="text-teal-100 mb-6">
             Enterprise plan includes gain-share pricing based on performance
             improvements
           </p>
-          <button className="px-6 py-3 bg-[#11161D] text-teal-600 rounded-lg font-semibold hover:bg-teal-50 transition-colors">
+          <button className="px-6 py-3 bg-industrial-graphite text-teal-600 rounded-lg font-semibold hover:bg-teal-50 transition-colors">
             Contact Sales
           </button>
         </div>

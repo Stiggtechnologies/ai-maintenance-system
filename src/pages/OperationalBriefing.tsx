@@ -495,7 +495,7 @@ function BriefCard({
       >
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-start gap-3">
-            <div className={`p-2.5 rounded-xl ${tc.bg} flex-shrink-0`}>
+            <div className={`p-2.5 rounded-xl ${tc.bg} shrink-0`}>
               <Icon className={`w-5 h-5 ${tc.color}`} />
             </div>
             <div>
@@ -530,7 +530,7 @@ function BriefCard({
             </div>
           </div>
           <ChevronRight
-            className={`w-4 h-4 text-slate-400 transition-transform flex-shrink-0 mt-2 ${expanded ? "rotate-90" : ""}`}
+            className={`w-4 h-4 text-slate-400 transition-transform shrink-0 mt-2 ${expanded ? "rotate-90" : ""}`}
           />
         </div>
       </div>
@@ -548,7 +548,7 @@ function BriefCard({
             {briefing.kpiSummary.map((kpi) => (
               <div
                 key={kpi.label}
-                className="bg-white/[0.03] border border-white/[0.05] rounded-xl p-3"
+                className="bg-white/3 border border-white/5 rounded-xl p-3"
               >
                 <div className="text-xs text-slate-400">{kpi.label}</div>
                 <div className="text-lg font-black text-slate-200 mt-0.5">
@@ -577,7 +577,7 @@ function BriefCard({
                 className="flex items-start gap-2 text-sm text-slate-300"
               >
                 <div
-                  className={`w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0 ${
+                  className={`w-1.5 h-1.5 rounded-full mt-1.5 shrink-0 ${
                     highlight.toLowerCase().includes("critical") ||
                     highlight.toLowerCase().includes("alarm")
                       ? "bg-amber-400"
@@ -662,7 +662,7 @@ export function OperationalBriefing() {
             className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors whitespace-nowrap ${
               filter === f.value
                 ? "bg-teal-500/20 border border-teal-500/30 text-teal-400"
-                : "bg-white/[0.04] border border-white/[0.08] text-slate-400 hover:bg-white/[0.08]"
+                : "bg-white/4 border border-white/8 text-slate-400 hover:bg-white/8"
             }`}
           >
             {f.label}
@@ -671,7 +671,7 @@ export function OperationalBriefing() {
       </div>
 
       {/* Data Sources */}
-      <div className="bg-[#0D1520] border border-white/[0.06] rounded-2xl p-5">
+      <div className="bg-[#0D1520] border border-white/6 rounded-2xl p-5">
         <h3 className="text-sm font-semibold text-slate-200 mb-3 flex items-center gap-2">
           <Shield className="w-4 h-4 text-teal-400" /> Briefing Data Sources
         </h3>
@@ -682,7 +682,7 @@ export function OperationalBriefing() {
             {data.integrations.map((integration) => (
               <div
                 key={integration.id}
-                className="p-3 rounded-xl bg-white/[0.03] border border-white/[0.05]"
+                className="p-3 rounded-xl bg-white/3 border border-white/5"
               >
                 <Zap
                   className={`w-4 h-4 mb-2 ${integrationStatusColor[integration.status] ?? "text-slate-400"}`}
@@ -713,7 +713,7 @@ export function OperationalBriefing() {
 
       {/* Footer Note */}
       <div className="bg-[#0D1520] border border-teal-500/10 rounded-xl p-4 flex items-start gap-3">
-        <Zap className="w-4 h-4 text-teal-400 flex-shrink-0 mt-0.5" />
+        <Zap className="w-4 h-4 text-teal-400 shrink-0 mt-0.5" />
         <div>
           <div className="text-sm font-bold text-teal-400">
             Live-Data Briefings

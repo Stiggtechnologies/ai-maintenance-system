@@ -338,17 +338,17 @@ function PlaybookCard({
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.04 }}
-      className={`bg-[#0D1520] border ${c.border} rounded-xl overflow-hidden cursor-pointer hover:border-white/[0.12] transition-colors`}
+      className={`bg-[#0D1520] border ${c.border} rounded-xl overflow-hidden cursor-pointer hover:border-white/12 transition-colors`}
       onClick={() => setExpanded(!expanded)}
     >
       <div className="p-4 flex items-start gap-3">
-        <div className={`p-2 rounded-lg ${c.bg} flex-shrink-0`}>
+        <div className={`p-2 rounded-lg ${c.bg} shrink-0`}>
           <Icon className={`w-4 h-4 ${c.text}`} />
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <h4 className="text-sm font-bold text-white">{template.title}</h4>
-            <span className="text-xs px-1.5 py-0.5 rounded-full bg-white/[0.06] border border-white/[0.08] text-slate-300 font-semibold">
+            <span className="text-xs px-1.5 py-0.5 rounded-full bg-white/6 border border-white/8 text-slate-300 font-semibold">
               Template
             </span>
           </div>
@@ -371,7 +371,7 @@ function PlaybookCard({
               )}
           </div>
         </div>
-        <div className="flex items-center gap-2 flex-shrink-0">
+        <div className="flex items-center gap-2 shrink-0">
           <button
             onClick={(e) => {
               e.stopPropagation();
@@ -394,7 +394,7 @@ function PlaybookCard({
         transition={{ duration: 0.15 }}
         className="overflow-hidden"
       >
-        <div className="px-4 pb-4 pt-0 border-t border-white/[0.04]">
+        <div className="px-4 pb-4 pt-0 border-t border-white/4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-3">
             <div>
               <div className="text-xs text-slate-400 uppercase tracking-wider mb-1">
@@ -420,7 +420,7 @@ function PlaybookCard({
                 {template.outputs.map((o) => (
                   <span
                     key={o}
-                    className="text-xs px-2 py-0.5 rounded-full bg-white/[0.04] border border-white/[0.06] text-slate-400"
+                    className="text-xs px-2 py-0.5 rounded-full bg-white/4 border border-white/6 text-slate-400"
                   >
                     {o}
                   </span>
@@ -515,7 +515,7 @@ export function PlaybooksLibrary() {
         <EmptyState message="No open work yet — templates activate against the live work board once recommendations or work orders exist." />
       ) : (
         context && (
-          <div className="bg-[#0D1520] border border-white/[0.06] rounded-xl p-4 flex flex-wrap items-center gap-x-6 gap-y-2">
+          <div className="bg-[#0D1520] border border-white/6 rounded-xl p-4 flex flex-wrap items-center gap-x-6 gap-y-2">
             <div className="flex items-center gap-2 text-xs text-slate-400">
               <ClipboardList className="w-4 h-4 text-teal-400" />
               <span className="font-bold text-slate-200 uppercase tracking-wider">
@@ -562,7 +562,7 @@ export function PlaybooksLibrary() {
         value={search}
         onChange={(e) => setSearch(e.target.value)}
         placeholder="Search templates..."
-        className="w-full px-4 py-2.5 bg-[#0D1520] border border-white/[0.06] rounded-xl text-sm text-white placeholder-slate-400 focus:outline-none focus:border-teal-500/40 transition-colors"
+        className="w-full px-4 py-2.5 bg-[#0D1520] border border-white/6 rounded-xl text-sm text-white placeholder-slate-400 focus:outline-hidden focus:border-teal-500/40 transition-colors"
       />
 
       <div className="space-y-3">
@@ -578,7 +578,7 @@ export function PlaybooksLibrary() {
       </div>
 
       <div className="bg-[#0D1520] border border-teal-500/10 rounded-xl p-4 flex items-start gap-3">
-        <BookOpen className="w-4 h-4 text-teal-400 flex-shrink-0 mt-0.5" />
+        <BookOpen className="w-4 h-4 text-teal-400 shrink-0 mt-0.5" />
         <div>
           <div className="text-sm font-bold text-teal-400">
             Industrial Playbook Templates

@@ -46,7 +46,7 @@ export function FirstCustomerPilotPage() {
   );
 
   return (
-    <main className="min-h-screen bg-[#0B0F14] text-[#E6EDF3] gradient-mesh">
+    <main className="min-h-screen bg-industrial-black text-industrial-text gradient-mesh">
       <section className="mx-auto flex min-h-[88vh] max-w-7xl flex-col justify-center px-6 py-10">
         <div className="max-w-4xl">
           <div className="inline-flex items-center gap-2 rounded-lg border border-teal-500/20 bg-teal-500/10 px-3 py-1 text-xs font-semibold text-teal-300">
@@ -73,7 +73,7 @@ export function FirstCustomerPilotPage() {
             </a>
             <a
               href="/demo/copilot"
-              className="inline-flex items-center gap-2 rounded-lg border border-white/[0.08] px-5 py-3 text-sm font-semibold text-slate-200 transition-colors hover:bg-white/[0.05]"
+              className="inline-flex items-center gap-2 rounded-lg border border-white/8 px-5 py-3 text-sm font-semibold text-slate-200 transition-colors hover:bg-white/5"
             >
               Open live demo
             </a>
@@ -95,7 +95,7 @@ export function FirstCustomerPilotPage() {
         </div>
       </section>
 
-      <section className="border-y border-white/[0.06] bg-black/20 px-6 py-12">
+      <section className="border-y border-white/6 bg-black/20 px-6 py-12">
         <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[1fr_0.9fr]">
           <div>
             <div className="flex items-center gap-2 text-sm font-semibold text-teal-300">
@@ -109,7 +109,7 @@ export function FirstCustomerPilotPage() {
               {deliverables.map((item) => (
                 <div
                   key={item}
-                  className="flex gap-3 rounded-lg border border-white/[0.06] bg-white/[0.03] p-4 text-sm text-slate-300"
+                  className="flex gap-3 rounded-lg border border-white/6 bg-white/3 p-4 text-sm text-slate-300"
                 >
                   <CheckCircle2
                     size={17}
@@ -131,7 +131,7 @@ export function FirstCustomerPilotPage() {
               production-critical decisions remain with qualified customer
               approvers.
             </p>
-            <div className="mt-5 flex items-center gap-2 text-sm font-semibold text-[#E6EDF3]">
+            <div className="mt-5 flex items-center gap-2 text-sm font-semibold text-industrial-text">
               <FileText size={17} className="text-teal-300" />
               Best fit
             </div>
@@ -160,7 +160,7 @@ function Metric({
   value: string;
 }) {
   return (
-    <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] p-5">
+    <div className="rounded-xl border border-white/6 bg-white/3 p-5">
       <Icon size={18} className="text-teal-300" />
       <div className="mt-4 text-xs font-semibold uppercase text-slate-400">
         {label}

@@ -154,7 +154,7 @@ export function StrategicDashboard() {
       case "red":
         return "text-red-600 bg-red-50 border-red-200";
       default:
-        return "text-slate-400 bg-[#0B0F14] border-[#232A33]";
+        return "text-slate-400 bg-industrial-black border-industrial-border";
     }
   };
 
@@ -178,10 +178,10 @@ export function StrategicDashboard() {
   }
 
   return (
-    <div className="h-full overflow-auto bg-[#0B0F14]">
+    <div className="h-full overflow-auto bg-industrial-black">
       <div className="max-w-7xl mx-auto p-6">
         <div className="mb-6">
-          <h1 className="text-3xl font-bold text-[#E6EDF3] mb-2">
+          <h1 className="text-3xl font-bold text-industrial-text mb-2">
             Strategic Performance Dashboard
           </h1>
           <p className="text-slate-400">
@@ -190,9 +190,9 @@ export function StrategicDashboard() {
         </div>
 
         <div className="grid grid-cols-4 gap-4 mb-6">
-          <div className="bg-[#11161D] rounded-xl p-4 border border-[#232A33]">
+          <div className="bg-industrial-graphite rounded-xl p-4 border border-industrial-border">
             <div className="text-sm text-slate-400 mb-1">Total KPIs</div>
-            <div className="text-3xl font-bold text-[#E6EDF3]">
+            <div className="text-3xl font-bold text-industrial-text">
               {summary.total}
             </div>
           </div>
@@ -214,13 +214,13 @@ export function StrategicDashboard() {
           </div>
         </div>
 
-        <div className="bg-[#11161D] rounded-xl border border-[#232A33] p-4 mb-6">
+        <div className="bg-industrial-graphite rounded-xl border border-industrial-border p-4 mb-6">
           <div className="flex items-center gap-4">
             <Filter className="w-5 h-5 text-gray-400" />
             <select
               value={selectedCategory}
               onChange={(e) => setSelectedCategory(e.target.value)}
-              className="px-4 py-2 border border-[#232A33] rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+              className="px-4 py-2 border border-industrial-border rounded-lg focus:outline-hidden focus:ring-2 focus:ring-teal-500"
             >
               <option value="all">All Categories</option>
               {categories.map((cat) => (
@@ -232,7 +232,7 @@ export function StrategicDashboard() {
             <select
               value={selectedStatus}
               onChange={(e) => setSelectedStatus(e.target.value)}
-              className="px-4 py-2 border border-[#232A33] rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+              className="px-4 py-2 border border-industrial-border rounded-lg focus:outline-hidden focus:ring-2 focus:ring-teal-500"
             >
               <option value="all">All Status</option>
               <option value="green">Green</option>
@@ -250,14 +250,14 @@ export function StrategicDashboard() {
           {filteredKPIs.map((kpi) => (
             <div
               key={kpi.id}
-              className="bg-[#11161D] rounded-xl border border-[#232A33] p-5 hover:shadow-lg transition-shadow"
+              className="bg-industrial-graphite rounded-xl border border-industrial-border p-5 hover:shadow-lg transition-shadow"
             >
               <div className="flex items-start justify-between mb-3">
                 <div>
                   <div className="text-xs font-medium text-gray-500 mb-1">
                     {kpi.kpi_code}
                   </div>
-                  <h3 className="font-semibold text-[#E6EDF3] text-sm">
+                  <h3 className="font-semibold text-industrial-text text-sm">
                     {kpi.kpi_name}
                   </h3>
                 </div>
@@ -275,7 +275,7 @@ export function StrategicDashboard() {
               <div className="space-y-2 mb-3">
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-gray-500">Current</span>
-                  <span className="text-lg font-bold text-[#E6EDF3]">
+                  <span className="text-lg font-bold text-industrial-text">
                     {kpi.current_value?.toFixed(1)} {kpi.unit_of_measure}
                   </span>
                 </div>
@@ -321,7 +321,7 @@ export function StrategicDashboard() {
         </div>
 
         {filteredKPIs.length === 0 && (
-          <div className="bg-[#11161D] rounded-xl border border-[#232A33] p-12 text-center">
+          <div className="bg-industrial-graphite rounded-xl border border-industrial-border p-12 text-center">
             <p className="text-gray-500">No KPIs match the selected filters</p>
           </div>
         )}

@@ -209,7 +209,7 @@ export function HelpCenterWidget() {
       {/* Floating Help Button */}
       <button
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-6 right-6 w-14 h-14 bg-gradient-to-r from-teal-600 to-blue-600 text-white rounded-full shadow-2xl hover:scale-110 transition-transform duration-200 flex items-center justify-center z-40 group"
+        className="fixed bottom-6 right-6 w-14 h-14 bg-linear-to-r from-teal-600 to-blue-600 text-white rounded-full shadow-2xl hover:scale-110 transition-transform duration-200 flex items-center justify-center z-40 group"
       >
         <HelpCircle className="w-6 h-6" />
         <span className="absolute right-full mr-3 bg-gray-900 text-white px-3 py-2 rounded-lg text-sm font-medium opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
@@ -219,13 +219,13 @@ export function HelpCenterWidget() {
 
       {/* Help Center Modal */}
       {isOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-300">
-          <div className="bg-[#11161D] rounded-2xl shadow-2xl w-full max-w-5xl h-[80vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-300">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-in fade-in duration-300">
+          <div className="bg-industrial-graphite rounded-2xl shadow-2xl w-full max-w-5xl h-[80vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-300">
             {/* Header */}
-            <div className="bg-gradient-to-r from-teal-600 to-blue-600 p-6 text-white">
+            <div className="bg-linear-to-r from-teal-600 to-blue-600 p-6 text-white">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center space-x-3">
-                  <div className="w-12 h-12 bg-[#11161D]/20 rounded-xl flex items-center justify-center backdrop-blur-sm">
+                  <div className="w-12 h-12 bg-industrial-graphite/20 rounded-xl flex items-center justify-center backdrop-blur-xs">
                     <BookOpen className="w-6 h-6" />
                   </div>
                   <div>
@@ -241,7 +241,7 @@ export function HelpCenterWidget() {
                     setSelectedArticle(null);
                     setSearchQuery("");
                   }}
-                  className="w-8 h-8 rounded-lg bg-[#11161D]/20 hover:bg-[#11161D]/30 transition-colors flex items-center justify-center"
+                  className="w-8 h-8 rounded-lg bg-industrial-graphite/20 hover:bg-industrial-graphite/30 transition-colors flex items-center justify-center"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -255,7 +255,7 @@ export function HelpCenterWidget() {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search help articles..."
-                  className="w-full pl-11 pr-4 py-3 rounded-lg bg-[#11161D]/20 backdrop-blur-sm border border-white/30 text-white placeholder-teal-200 focus:outline-none focus:ring-2 focus:ring-white/50"
+                  className="w-full pl-11 pr-4 py-3 rounded-lg bg-industrial-graphite/20 backdrop-blur-xs border border-white/30 text-white placeholder-teal-200 focus:outline-hidden focus:ring-2 focus:ring-white/50"
                 />
               </div>
             </div>
@@ -276,7 +276,7 @@ export function HelpCenterWidget() {
                   <span className="inline-block px-3 py-1 bg-teal-100 text-teal-800 rounded-full text-sm font-medium mb-4">
                     {selectedArticle.category}
                   </span>
-                  <h2 className="text-3xl font-bold text-[#E6EDF3] mb-4">
+                  <h2 className="text-3xl font-bold text-industrial-text mb-4">
                     {selectedArticle.title}
                   </h2>
                   <div className="prose prose-teal max-w-none">
@@ -285,15 +285,15 @@ export function HelpCenterWidget() {
                     </div>
                   </div>
 
-                  <div className="mt-8 pt-8 border-t border-[#232A33]">
+                  <div className="mt-8 pt-8 border-t border-industrial-border">
                     <p className="text-sm text-slate-400 mb-4">
                       Was this article helpful?
                     </p>
                     <div className="flex space-x-3">
-                      <button className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-[#0B0F14] transition-colors text-sm font-medium">
+                      <button className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-industrial-black transition-colors text-sm font-medium">
                         👍 Yes
                       </button>
-                      <button className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-[#0B0F14] transition-colors text-sm font-medium">
+                      <button className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-industrial-black transition-colors text-sm font-medium">
                         👎 No
                       </button>
                     </div>
@@ -317,7 +317,7 @@ export function HelpCenterWidget() {
 
                     return (
                       <div key={category} className="mb-8">
-                        <h3 className="text-lg font-bold text-[#E6EDF3] mb-4">
+                        <h3 className="text-lg font-bold text-industrial-text mb-4">
                           {category}
                         </h3>
                         <div className="space-y-3">
@@ -325,18 +325,18 @@ export function HelpCenterWidget() {
                             <button
                               key={article.id}
                               onClick={() => setSelectedArticle(article)}
-                              className="w-full text-left p-4 rounded-xl border border-[#232A33] hover:border-teal-300 hover:bg-teal-50 transition-all group"
+                              className="w-full text-left p-4 rounded-xl border border-industrial-border hover:border-teal-300 hover:bg-teal-50 transition-all group"
                             >
                               <div className="flex items-start justify-between">
                                 <div className="flex-1">
-                                  <h4 className="font-semibold text-[#E6EDF3] mb-1 group-hover:text-teal-600 transition-colors">
+                                  <h4 className="font-semibold text-industrial-text mb-1 group-hover:text-teal-600 transition-colors">
                                     {article.title}
                                   </h4>
                                   <p className="text-sm text-slate-400">
                                     {article.summary}
                                   </p>
                                 </div>
-                                <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-teal-600 transition-colors flex-shrink-0 ml-4" />
+                                <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-teal-600 transition-colors shrink-0 ml-4" />
                               </div>
                             </button>
                           ))}
@@ -363,7 +363,7 @@ export function HelpCenterWidget() {
             </div>
 
             {/* Footer */}
-            <div className="px-8 py-4 border-t bg-[#0B0F14]">
+            <div className="px-8 py-4 border-t bg-industrial-black">
               <div className="flex items-center justify-between text-sm">
                 <div className="text-slate-400">
                   Can't find what you're looking for?

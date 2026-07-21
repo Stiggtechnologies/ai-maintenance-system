@@ -48,7 +48,7 @@ const HEADLINE_KEYS = [
 
 function KpiCard({ row }: { row: KpiRow }) {
   return (
-    <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+    <div className="rounded-xl border border-white/6 bg-white/2 p-4">
       <div className="flex items-start justify-between gap-2">
         <p className="text-sm font-medium text-slate-200">{row.name}</p>
         {row.status ? (
@@ -142,7 +142,7 @@ export function ExecutiveIntelligence() {
         {breaches.length > 0 && (
           <button
             onClick={() => navigate("/mission-control")}
-            className="inline-flex items-center gap-2 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-2 text-sm font-medium text-red-300 hover:bg-red-500/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-300"
+            className="inline-flex items-center gap-2 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-2 text-sm font-medium text-red-300 hover:bg-red-500/20 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-red-300"
           >
             <ShieldAlert className="h-4 w-4" aria-hidden />
             {breaches.length} KPI breach{breaches.length > 1 ? "es" : ""} —
@@ -158,7 +158,7 @@ export function ExecutiveIntelligence() {
           {headline.map((row) => (
             <div
               key={row.kpi_key}
-              className={`rounded-xl border p-4 ${STATUS_STYLE[row.status ?? "on_target"] ?? "border-white/[0.06]"}`}
+              className={`rounded-xl border p-4 ${STATUS_STYLE[row.status ?? "on_target"] ?? "border-white/6"}`}
             >
               <div className="flex items-center gap-1.5 text-xs text-slate-300">
                 {row.kpi_key === "oee" ? (

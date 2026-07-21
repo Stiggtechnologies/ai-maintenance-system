@@ -294,9 +294,9 @@ export function ApprovalQueue() {
 
   if (decisions.length === 0) {
     return (
-      <div className="bg-[#11161D] rounded-lg shadow p-8 text-center">
+      <div className="bg-industrial-graphite rounded-lg shadow-sm p-8 text-center">
         <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
-        <h3 className="text-xl font-semibold text-[#E6EDF3] mb-2">
+        <h3 className="text-xl font-semibold text-industrial-text mb-2">
           All Clear!
         </h3>
         <p className="text-slate-400">No pending approvals at this time.</p>
@@ -307,7 +307,9 @@ export function ApprovalQueue() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold text-[#E6EDF3]">Approval Queue</h2>
+        <h2 className="text-2xl font-bold text-industrial-text">
+          Approval Queue
+        </h2>
         <div className="flex items-center space-x-2">
           <AlertTriangle className="w-5 h-5 text-orange-500" />
           <span className="text-lg font-semibold text-slate-300">
@@ -319,7 +321,7 @@ export function ApprovalQueue() {
       {decisions.map((decision) => (
         <div
           key={decision.id}
-          className="bg-[#11161D] rounded-lg shadow-md border border-[#232A33] overflow-hidden"
+          className="bg-industrial-graphite rounded-lg shadow-md border border-industrial-border overflow-hidden"
         >
           <div className="p-6">
             <div className="flex items-start justify-between">
@@ -329,7 +331,7 @@ export function ApprovalQueue() {
                 </div>
                 <div className="flex-1">
                   <div className="flex items-center space-x-2 mb-2">
-                    <h3 className="text-lg font-semibold text-[#E6EDF3]">
+                    <h3 className="text-lg font-semibold text-industrial-text">
                       {decision.decision_type.replace(/_/g, " ").toUpperCase()}
                     </h3>
                     <span className="px-2 py-1 text-xs font-medium bg-teal-500/10 text-teal-400 border border-teal-500/20 rounded-full">
@@ -375,7 +377,7 @@ export function ApprovalQueue() {
                     expandedDecision === decision.id ? null : decision.id,
                   )
                 }
-                className="ml-4 p-2 hover:bg-[#161C24] rounded-lg transition-colors"
+                className="ml-4 p-2 hover:bg-industrial-slate rounded-lg transition-colors"
               >
                 {expandedDecision === decision.id ? (
                   <ChevronUp className="w-5 h-5 text-slate-400" />
@@ -386,7 +388,7 @@ export function ApprovalQueue() {
             </div>
 
             {expandedDecision === decision.id && (
-              <div className="mt-6 pt-6 border-t border-[#232A33]">
+              <div className="mt-6 pt-6 border-t border-industrial-border">
                 <div className="space-y-4">
                   <div>
                     <label className="flex items-center space-x-2 text-sm font-medium text-slate-300 mb-2">
@@ -460,7 +462,7 @@ export function ApprovalQueue() {
                         setEditMode(null);
                         setEditedData(null);
                       }}
-                      className="px-6 py-2 border border-gray-300 text-slate-300 rounded-lg hover:bg-[#0B0F14] transition-colors"
+                      className="px-6 py-2 border border-gray-300 text-slate-300 rounded-lg hover:bg-industrial-black transition-colors"
                     >
                       Cancel
                     </button>
@@ -497,7 +499,7 @@ export function ApprovalQueue() {
                             setEditMode(null);
                             setEditedData(null);
                           }}
-                          className="px-4 py-2 border border-gray-300 text-slate-300 rounded-lg hover:bg-[#0B0F14]"
+                          className="px-4 py-2 border border-gray-300 text-slate-300 rounded-lg hover:bg-industrial-black"
                         >
                           Cancel Edit
                         </button>

@@ -51,14 +51,14 @@ export function SettingsPage() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-[#E6EDF3]">Settings</h1>
+        <h1 className="text-2xl font-bold text-industrial-text">Settings</h1>
         <p className="text-sm text-slate-400 mt-1">
           Manage your profile, organization, and notification preferences
         </p>
       </div>
 
       {/* Tab Navigation */}
-      <div className="border-b border-[#232A33]">
+      <div className="border-b border-industrial-border">
         <nav className="flex gap-6">
           {tabs.map((tab) => {
             const Icon = tab.icon;
@@ -89,7 +89,7 @@ export function SettingsPage() {
       {activeTab === "security" && (
         <div className="space-y-3">
           <div>
-            <h2 className="text-lg font-semibold text-[#E6EDF3]">
+            <h2 className="text-lg font-semibold text-industrial-text">
               Account security
             </h2>
             <p className="text-sm text-slate-400">
@@ -143,8 +143,8 @@ function ProfileTab({ user, profile }: { user: any; profile: any }) {
   };
 
   return (
-    <div className="glass border border-white/[0.06] rounded-xl p-6 max-w-2xl">
-      <h2 className="text-lg font-semibold text-[#E6EDF3] mb-4">
+    <div className="glass border border-white/6 rounded-xl p-6 max-w-2xl">
+      <h2 className="text-lg font-semibold text-industrial-text mb-4">
         Profile Information
       </h2>
 
@@ -157,7 +157,7 @@ function ProfileTab({ user, profile }: { user: any; profile: any }) {
             type="text"
             value={fullName}
             onChange={(e) => setFullName(e.target.value)}
-            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/40 focus:border-teal-500"
+            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-hidden focus:ring-2 focus:ring-teal-500/40 focus:border-teal-500"
             placeholder="Enter your full name"
           />
         </div>
@@ -170,7 +170,7 @@ function ProfileTab({ user, profile }: { user: any; profile: any }) {
             type="text"
             value={user?.email || ""}
             readOnly
-            className="w-full px-3 py-2 border border-[#232A33] rounded-lg text-sm bg-[#0B0F14] text-slate-400 cursor-not-allowed"
+            className="w-full px-3 py-2 border border-industrial-border rounded-lg text-sm bg-industrial-black text-slate-400 cursor-not-allowed"
           />
         </div>
 
@@ -182,7 +182,7 @@ function ProfileTab({ user, profile }: { user: any; profile: any }) {
             type="text"
             value={profile?.role || "N/A"}
             readOnly
-            className="w-full px-3 py-2 border border-[#232A33] rounded-lg text-sm bg-[#0B0F14] text-slate-400 cursor-not-allowed capitalize"
+            className="w-full px-3 py-2 border border-industrial-border rounded-lg text-sm bg-industrial-black text-slate-400 cursor-not-allowed capitalize"
           />
         </div>
 
@@ -259,7 +259,7 @@ function OrganizationTab({ profile }: { profile: any }) {
 
   if (!org) {
     return (
-      <div className="glass border border-white/[0.06] rounded-xl p-6 max-w-2xl text-center">
+      <div className="glass border border-white/6 rounded-xl p-6 max-w-2xl text-center">
         <Building2 className="mx-auto text-slate-300 mb-3" size={40} />
         <p className="text-sm text-slate-400">No organization found.</p>
       </div>
@@ -269,8 +269,8 @@ function OrganizationTab({ profile }: { profile: any }) {
   const isAdmin = profile?.role === "admin";
 
   return (
-    <div className="glass border border-white/[0.06] rounded-xl p-6 max-w-2xl">
-      <h2 className="text-lg font-semibold text-[#E6EDF3] mb-4">
+    <div className="glass border border-white/6 rounded-xl p-6 max-w-2xl">
+      <h2 className="text-lg font-semibold text-industrial-text mb-4">
         Organization Details
       </h2>
       {!isAdmin && (
@@ -288,7 +288,7 @@ function OrganizationTab({ profile }: { profile: any }) {
             type="text"
             value={org.name || ""}
             readOnly
-            className="w-full px-3 py-2 border border-[#232A33] rounded-lg text-sm bg-[#0B0F14] text-slate-400 cursor-not-allowed"
+            className="w-full px-3 py-2 border border-industrial-border rounded-lg text-sm bg-industrial-black text-slate-400 cursor-not-allowed"
           />
         </div>
 
@@ -300,7 +300,7 @@ function OrganizationTab({ profile }: { profile: any }) {
             type="text"
             value={org.industry || "Not specified"}
             readOnly
-            className="w-full px-3 py-2 border border-[#232A33] rounded-lg text-sm bg-[#0B0F14] text-slate-400 cursor-not-allowed"
+            className="w-full px-3 py-2 border border-industrial-border rounded-lg text-sm bg-industrial-black text-slate-400 cursor-not-allowed"
           />
         </div>
 
@@ -312,7 +312,7 @@ function OrganizationTab({ profile }: { profile: any }) {
             type="text"
             value={org.timezone || "Not specified"}
             readOnly
-            className="w-full px-3 py-2 border border-[#232A33] rounded-lg text-sm bg-[#0B0F14] text-slate-400 cursor-not-allowed"
+            className="w-full px-3 py-2 border border-industrial-border rounded-lg text-sm bg-industrial-black text-slate-400 cursor-not-allowed"
           />
         </div>
       </div>
@@ -401,8 +401,8 @@ function NotificationsTab({ user, profile }: { user: any; profile: any }) {
   ];
 
   return (
-    <div className="glass border border-white/[0.06] rounded-xl p-6 max-w-2xl">
-      <h2 className="text-lg font-semibold text-[#E6EDF3] mb-4">
+    <div className="glass border border-white/6 rounded-xl p-6 max-w-2xl">
+      <h2 className="text-lg font-semibold text-industrial-text mb-4">
         Notification Preferences
       </h2>
 
@@ -413,7 +413,7 @@ function NotificationsTab({ user, profile }: { user: any; profile: any }) {
             className="flex items-center justify-between py-3 border-b border-[#1A2030] last:border-0"
           >
             <div>
-              <div className="text-sm font-medium text-[#E6EDF3]">
+              <div className="text-sm font-medium text-industrial-text">
                 {item.label}
               </div>
               <div className="text-xs text-slate-400 mt-0.5">
@@ -429,7 +429,7 @@ function NotificationsTab({ user, profile }: { user: any; profile: any }) {
             >
               <span
                 className={`
-                  inline-block h-4 w-4 transform rounded-full bg-[#11161D] transition-transform
+                  inline-block h-4 w-4 transform rounded-full bg-industrial-graphite transition-transform
                   ${preferences[item.key] ? "translate-x-6" : "translate-x-1"}
                 `}
               />

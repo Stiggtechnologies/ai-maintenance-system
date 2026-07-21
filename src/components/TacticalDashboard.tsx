@@ -145,7 +145,7 @@ export function TacticalDashboard() {
       case "low":
         return "bg-green-100 text-green-700 border-green-300";
       default:
-        return "bg-[#161C24] text-slate-300 border-gray-300";
+        return "bg-industrial-slate text-slate-300 border-gray-300";
     }
   };
 
@@ -184,10 +184,10 @@ export function TacticalDashboard() {
   }
 
   return (
-    <div className="h-full overflow-auto bg-[#0B0F14]">
+    <div className="h-full overflow-auto bg-industrial-black">
       <div className="max-w-7xl mx-auto p-6">
         <div className="mb-6">
-          <h1 className="text-3xl font-bold text-[#E6EDF3] mb-2">
+          <h1 className="text-3xl font-bold text-industrial-text mb-2">
             Tactical Management Dashboard
           </h1>
           <p className="text-slate-400">
@@ -195,13 +195,13 @@ export function TacticalDashboard() {
           </p>
         </div>
 
-        <div className="flex gap-4 mb-6 border-b border-[#232A33]">
+        <div className="flex gap-4 mb-6 border-b border-industrial-border">
           <button
             onClick={() => setActiveTab("overview")}
             className={`px-4 py-3 font-medium transition-colors relative ${
               activeTab === "overview"
                 ? "text-teal-600 border-b-2 border-teal-600"
-                : "text-slate-400 hover:text-[#E6EDF3]"
+                : "text-slate-400 hover:text-industrial-text"
             }`}
           >
             Overview
@@ -211,7 +211,7 @@ export function TacticalDashboard() {
             className={`px-4 py-3 font-medium transition-colors relative ${
               activeTab === "workorders"
                 ? "text-teal-600 border-b-2 border-teal-600"
-                : "text-slate-400 hover:text-[#E6EDF3]"
+                : "text-slate-400 hover:text-industrial-text"
             }`}
           >
             Work Orders
@@ -221,7 +221,7 @@ export function TacticalDashboard() {
             className={`px-4 py-3 font-medium transition-colors relative ${
               activeTab === "kpis"
                 ? "text-teal-600 border-b-2 border-teal-600"
-                : "text-slate-400 hover:text-[#E6EDF3]"
+                : "text-slate-400 hover:text-industrial-text"
             }`}
           >
             Performance KPIs
@@ -231,9 +231,9 @@ export function TacticalDashboard() {
         {activeTab === "overview" && (
           <div className="space-y-6">
             <div className="grid grid-cols-4 gap-4">
-              <div className="bg-[#11161D] rounded-xl p-5 border border-[#232A33]">
+              <div className="bg-industrial-graphite rounded-xl p-5 border border-industrial-border">
                 <FileText className="w-8 h-8 text-teal-600 mb-2" />
-                <div className="text-2xl font-bold text-[#E6EDF3]">
+                <div className="text-2xl font-bold text-industrial-text">
                   {metrics.openWorkOrders}
                 </div>
                 <div className="text-sm text-slate-400">Open Work Orders</div>
@@ -261,8 +261,8 @@ export function TacticalDashboard() {
               </div>
             </div>
 
-            <div className="bg-[#11161D] rounded-xl border border-[#232A33] p-6">
-              <h2 className="text-lg font-semibold text-[#E6EDF3] mb-4 flex items-center gap-2">
+            <div className="bg-industrial-graphite rounded-xl border border-industrial-border p-6">
+              <h2 className="text-lg font-semibold text-industrial-text mb-4 flex items-center gap-2">
                 <Clock className="w-5 h-5 text-teal-600" />
                 Pending Approvals
               </h2>
@@ -275,11 +275,11 @@ export function TacticalDashboard() {
                   decisions.map((decision) => (
                     <div
                       key={decision.id}
-                      className="border border-[#232A33] rounded-lg p-4"
+                      className="border border-industrial-border rounded-lg p-4"
                     >
                       <div className="flex items-start justify-between mb-2">
                         <div>
-                          <h3 className="font-medium text-[#E6EDF3]">
+                          <h3 className="font-medium text-industrial-text">
                             {decision.decision_type}
                           </h3>
                           <p className="text-sm text-slate-400 mt-1">
@@ -316,10 +316,10 @@ export function TacticalDashboard() {
         )}
 
         {activeTab === "workorders" && (
-          <div className="bg-[#11161D] rounded-xl border border-[#232A33] overflow-hidden">
+          <div className="bg-industrial-graphite rounded-xl border border-industrial-border overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-[#0B0F14] border-b border-[#232A33]">
+                <thead className="bg-industrial-black border-b border-industrial-border">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                       Title
@@ -340,9 +340,9 @@ export function TacticalDashboard() {
                 </thead>
                 <tbody className="divide-y divide-gray-200">
                   {workOrders.map((wo) => (
-                    <tr key={wo.id} className="hover:bg-[#0B0F14]">
+                    <tr key={wo.id} className="hover:bg-industrial-black">
                       <td className="px-6 py-4">
-                        <div className="font-medium text-[#E6EDF3]">
+                        <div className="font-medium text-industrial-text">
                           {wo.title}
                         </div>
                         <div className="text-sm text-gray-500">
@@ -377,17 +377,17 @@ export function TacticalDashboard() {
 
         {activeTab === "kpis" && (
           <div className="grid grid-cols-3 gap-6">
-            <div className="bg-[#11161D] rounded-xl border border-[#232A33] p-6">
+            <div className="bg-industrial-graphite rounded-xl border border-industrial-border p-6">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold text-[#E6EDF3]">MTBF</h3>
+                <h3 className="font-semibold text-industrial-text">MTBF</h3>
                 <TrendingUp className="w-5 h-5 text-green-600" />
               </div>
-              <div className="text-3xl font-bold text-[#E6EDF3] mb-1">
+              <div className="text-3xl font-bold text-industrial-text mb-1">
                 {metrics.mtbf.toFixed(0)}{" "}
                 <span className="text-lg text-gray-500">hrs</span>
               </div>
               <div className="text-sm text-slate-400">Target: 720 hrs</div>
-              <div className="mt-4 h-2 bg-[#161C24] rounded-full overflow-hidden">
+              <div className="mt-4 h-2 bg-industrial-slate rounded-full overflow-hidden">
                 <div
                   className="h-full bg-green-500"
                   style={{
@@ -397,17 +397,17 @@ export function TacticalDashboard() {
               </div>
             </div>
 
-            <div className="bg-[#11161D] rounded-xl border border-[#232A33] p-6">
+            <div className="bg-industrial-graphite rounded-xl border border-industrial-border p-6">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold text-[#E6EDF3]">MTTR</h3>
+                <h3 className="font-semibold text-industrial-text">MTTR</h3>
                 <Clock className="w-5 h-5 text-teal-600" />
               </div>
-              <div className="text-3xl font-bold text-[#E6EDF3] mb-1">
+              <div className="text-3xl font-bold text-industrial-text mb-1">
                 {metrics.mttr.toFixed(1)}{" "}
                 <span className="text-lg text-gray-500">hrs</span>
               </div>
               <div className="text-sm text-slate-400">Target: 4 hrs</div>
-              <div className="mt-4 h-2 bg-[#161C24] rounded-full overflow-hidden">
+              <div className="mt-4 h-2 bg-industrial-slate rounded-full overflow-hidden">
                 <div
                   className="h-full bg-teal-500"
                   style={{
@@ -417,19 +417,19 @@ export function TacticalDashboard() {
               </div>
             </div>
 
-            <div className="bg-[#11161D] rounded-xl border border-[#232A33] p-6">
+            <div className="bg-industrial-graphite rounded-xl border border-industrial-border p-6">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold text-[#E6EDF3]">
+                <h3 className="font-semibold text-industrial-text">
                   Planned Maintenance
                 </h3>
                 <Users className="w-5 h-5 text-teal-600" />
               </div>
-              <div className="text-3xl font-bold text-[#E6EDF3] mb-1">
+              <div className="text-3xl font-bold text-industrial-text mb-1">
                 {metrics.plannedMaintenance.toFixed(0)}
                 <span className="text-lg text-gray-500">%</span>
               </div>
               <div className="text-sm text-slate-400">Target: 80%</div>
-              <div className="mt-4 h-2 bg-[#161C24] rounded-full overflow-hidden">
+              <div className="mt-4 h-2 bg-industrial-slate rounded-full overflow-hidden">
                 <div
                   className="h-full bg-teal-500"
                   style={{

@@ -86,7 +86,7 @@ export function Login({ onSuccess, onTabChange }: LoginProps) {
 
   return (
     <AuthShell>
-      <div className="bg-[#161C24] rounded-xl p-8 border border-[#232A33] backdrop-blur-sm">
+      <div className="bg-industrial-slate rounded-xl p-8 border border-industrial-border backdrop-blur-xs">
         <AuthTabs activeTab="signin" onTabChange={onTabChange} />
 
         {mfaStep ? (
@@ -94,7 +94,7 @@ export function Login({ onSuccess, onTabChange }: LoginProps) {
             <div>
               <label
                 htmlFor="mfa-code"
-                className="block text-sm font-medium text-[#E6EDF3] mb-2"
+                className="block text-sm font-medium text-industrial-text mb-2"
               >
                 Two-factor code
               </label>
@@ -107,11 +107,11 @@ export function Login({ onSuccess, onTabChange }: LoginProps) {
                 inputMode="numeric"
                 autoComplete="one-time-code"
                 autoFocus
-                className="w-full px-4 py-3 bg-[#0B0F14] border border-[#232A33] rounded-lg text-[#E6EDF3] tracking-[0.4em] text-center placeholder-[#9BA7B4] focus:outline-none focus:border-[#3A8DFF] focus:ring-1 focus:ring-[#3A8DFF] transition-colors"
+                className="w-full px-4 py-3 bg-industrial-black border border-industrial-border rounded-lg text-industrial-text tracking-[0.4em] text-center placeholder-industrial-muted focus:outline-hidden focus:border-[#3A8DFF] focus:ring-1 focus:ring-[#3A8DFF] transition-colors"
                 placeholder="123456"
                 required
               />
-              <p className="mt-2 text-xs text-[#9BA7B4]">
+              <p className="mt-2 text-xs text-industrial-muted">
                 Enter the 6-digit code from your authenticator app.
               </p>
             </div>
@@ -133,7 +133,7 @@ export function Login({ onSuccess, onTabChange }: LoginProps) {
             <div>
               <label
                 htmlFor="email"
-                className="block text-sm font-medium text-[#E6EDF3] mb-2"
+                className="block text-sm font-medium text-industrial-text mb-2"
               >
                 Work Email
               </label>
@@ -142,11 +142,11 @@ export function Login({ onSuccess, onTabChange }: LoginProps) {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-4 py-3 bg-[#0B0F14] border border-[#232A33] rounded-lg text-[#E6EDF3] placeholder-[#9BA7B4] focus:outline-none focus:border-[#3A8DFF] focus:ring-1 focus:ring-[#3A8DFF] transition-colors"
+                className="w-full px-4 py-3 bg-industrial-black border border-industrial-border rounded-lg text-industrial-text placeholder-industrial-muted focus:outline-hidden focus:border-[#3A8DFF] focus:ring-1 focus:ring-[#3A8DFF] transition-colors"
                 placeholder="your.email@company.com"
                 required
               />
-              <p className="mt-2 text-xs text-[#9BA7B4]">
+              <p className="mt-2 text-xs text-industrial-muted">
                 Use your enterprise work email.
               </p>
             </div>
@@ -154,7 +154,7 @@ export function Login({ onSuccess, onTabChange }: LoginProps) {
             <div>
               <label
                 htmlFor="password"
-                className="block text-sm font-medium text-[#E6EDF3] mb-2"
+                className="block text-sm font-medium text-industrial-text mb-2"
               >
                 Password
               </label>
@@ -163,7 +163,7 @@ export function Login({ onSuccess, onTabChange }: LoginProps) {
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-3 bg-[#0B0F14] border border-[#232A33] rounded-lg text-[#E6EDF3] placeholder-[#9BA7B4] focus:outline-none focus:border-[#3A8DFF] focus:ring-1 focus:ring-[#3A8DFF] transition-colors"
+                className="w-full px-4 py-3 bg-industrial-black border border-industrial-border rounded-lg text-industrial-text placeholder-industrial-muted focus:outline-hidden focus:border-[#3A8DFF] focus:ring-1 focus:ring-[#3A8DFF] transition-colors"
                 placeholder="••••••••"
                 required
               />
@@ -180,8 +180,11 @@ export function Login({ onSuccess, onTabChange }: LoginProps) {
             )}
 
             <div className="flex items-center justify-between text-sm">
-              <label className="flex items-center gap-2 text-[#9BA7B4] cursor-pointer">
-                <input type="checkbox" className="rounded border-[#232A33]" />
+              <label className="flex items-center gap-2 text-industrial-muted cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="rounded-sm border-industrial-border"
+                />
                 <span>Remember me</span>
               </label>
               <button type="button" className="text-[#3A8DFF] hover:underline">
@@ -202,10 +205,10 @@ export function Login({ onSuccess, onTabChange }: LoginProps) {
             <div className="space-y-3">
               <div className="relative">
                 <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-[#232A33]"></div>
+                  <div className="w-full border-t border-industrial-border"></div>
                 </div>
                 <div className="relative flex justify-center text-xs">
-                  <span className="px-2 bg-[#161C24] text-[#9BA7B4]">
+                  <span className="px-2 bg-industrial-slate text-industrial-muted">
                     Or continue with
                   </span>
                 </div>
@@ -224,13 +227,13 @@ export function Login({ onSuccess, onTabChange }: LoginProps) {
                     );
                   }
                 }}
-                className="w-full py-3 px-4 bg-[#11161D] hover:bg-[#161C24] border border-[#232A33] text-[#E6EDF3] font-medium rounded-lg transition-colors"
+                className="w-full py-3 px-4 bg-industrial-graphite hover:bg-industrial-slate border border-industrial-border text-industrial-text font-medium rounded-lg transition-colors"
               >
                 Microsoft Azure AD
               </button>
               <button
                 type="button"
-                className="w-full py-3 px-4 bg-[#11161D] hover:bg-[#161C24] border border-[#232A33] text-[#E6EDF3] font-medium rounded-lg transition-colors"
+                className="w-full py-3 px-4 bg-industrial-graphite hover:bg-industrial-slate border border-industrial-border text-industrial-text font-medium rounded-lg transition-colors"
               >
                 Google Workspace
               </button>
@@ -240,13 +243,13 @@ export function Login({ onSuccess, onTabChange }: LoginProps) {
                 onClick={onSuccess}
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
-                className="w-full py-3 px-4 bg-gradient-to-r from-[#3A8DFF]/20 to-[#2E7AE6]/20 hover:from-[#3A8DFF]/30 hover:to-[#2E7AE6]/30 border border-[#3A8DFF]/30 text-[#3A8DFF] font-medium rounded-lg transition-all"
+                className="w-full py-3 px-4 bg-linear-to-r from-[#3A8DFF]/20 to-[#2E7AE6]/20 hover:from-[#3A8DFF]/30 hover:to-[#2E7AE6]/30 border border-[#3A8DFF]/30 text-[#3A8DFF] font-medium rounded-lg transition-all"
               >
                 Try Demo Mode
               </motion.button>
             </div>
 
-            <p className="text-xs text-[#9BA7B4] text-center">
+            <p className="text-xs text-industrial-muted text-center">
               MFA enabled for enterprise tenants
             </p>
           </form>
@@ -255,25 +258,25 @@ export function Login({ onSuccess, onTabChange }: LoginProps) {
           build {__BUILD_SHA__}
         </p>
 
-        <div className="mt-8 pt-6 border-t border-[#232A33]">
-          <div className="flex justify-center gap-4 text-xs text-[#9BA7B4]">
+        <div className="mt-8 pt-6 border-t border-industrial-border">
+          <div className="flex justify-center gap-4 text-xs text-industrial-muted">
             <button
               onClick={() => onTabChange("security")}
-              className="hover:text-[#E6EDF3] transition-colors"
+              className="hover:text-industrial-text transition-colors"
             >
               Security
             </button>
             <span>•</span>
             <button
               onClick={() => onTabChange("privacy")}
-              className="hover:text-[#E6EDF3] transition-colors"
+              className="hover:text-industrial-text transition-colors"
             >
               Privacy
             </button>
             <span>•</span>
             <button
               onClick={() => onTabChange("terms")}
-              className="hover:text-[#E6EDF3] transition-colors"
+              className="hover:text-industrial-text transition-colors"
             >
               Terms
             </button>

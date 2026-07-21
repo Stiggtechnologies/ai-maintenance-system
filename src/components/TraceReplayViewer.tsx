@@ -130,7 +130,7 @@ export function TraceReplayViewer({
 
   if (!snapshot) {
     return (
-      <div className="bg-[#11161D] rounded-lg shadow p-6">
+      <div className="bg-industrial-graphite rounded-lg shadow-sm p-6">
         <p className="text-gray-500">No trace data available</p>
       </div>
     );
@@ -144,10 +144,12 @@ export function TraceReplayViewer({
 
   return (
     <div className="space-y-4">
-      <div className="bg-[#11161D] rounded-lg shadow p-6">
+      <div className="bg-industrial-graphite rounded-lg shadow-sm p-6">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h2 className="text-2xl font-bold text-[#E6EDF3]">Trace Replay</h2>
+            <h2 className="text-2xl font-bold text-industrial-text">
+              Trace Replay
+            </h2>
             <p className="text-sm text-gray-500 mt-1">
               Run ID: {snapshot.run_id}
             </p>
@@ -155,7 +157,7 @@ export function TraceReplayViewer({
           <div className="flex items-center gap-2">
             <button
               onClick={exportTrace}
-              className="flex items-center gap-2 px-4 py-2 text-slate-300 bg-[#161C24] rounded-lg hover:bg-white/[0.06]"
+              className="flex items-center gap-2 px-4 py-2 text-slate-300 bg-industrial-slate rounded-lg hover:bg-white/6"
             >
               <Download className="w-4 h-4" />
               Export
@@ -163,29 +165,29 @@ export function TraceReplayViewer({
           </div>
         </div>
 
-        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 mb-6">
+        <div className="bg-linear-to-r from-blue-50 to-indigo-50 rounded-lg p-4 mb-6">
           <div className="grid grid-cols-4 gap-4">
             <div>
               <p className="text-sm text-slate-400">Status</p>
-              <p className="text-lg font-semibold text-[#E6EDF3]">
+              <p className="text-lg font-semibold text-industrial-text">
                 {snapshot.trace_data.status}
               </p>
             </div>
             <div>
               <p className="text-sm text-slate-400">Tool Calls</p>
-              <p className="text-lg font-semibold text-[#E6EDF3]">
+              <p className="text-lg font-semibold text-industrial-text">
                 {snapshot.tool_calls.length}
               </p>
             </div>
             <div>
               <p className="text-sm text-slate-400">Total Cost</p>
-              <p className="text-lg font-semibold text-[#E6EDF3]">
+              <p className="text-lg font-semibold text-industrial-text">
                 ${totalCost.toFixed(4)}
               </p>
             </div>
             <div>
               <p className="text-sm text-slate-400">Duration</p>
-              <p className="text-lg font-semibold text-[#E6EDF3]">
+              <p className="text-lg font-semibold text-industrial-text">
                 {snapshot.trace_data.total_duration_ms || 0}ms
               </p>
             </div>
@@ -197,7 +199,7 @@ export function TraceReplayViewer({
             <div className="flex items-center gap-4">
               <button
                 onClick={handleReset}
-                className="p-2 text-slate-300 hover:bg-[#161C24] rounded-lg"
+                className="p-2 text-slate-300 hover:bg-industrial-slate rounded-lg"
                 title="Reset"
               >
                 <SkipBack className="w-5 h-5" />
@@ -205,7 +207,7 @@ export function TraceReplayViewer({
               <button
                 onClick={handleStepBack}
                 disabled={currentStep === 0}
-                className="p-2 text-slate-300 hover:bg-[#161C24] rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                className="p-2 text-slate-300 hover:bg-industrial-slate rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
                 title="Previous Step"
               >
                 <SkipBack className="w-5 h-5" />
@@ -223,7 +225,7 @@ export function TraceReplayViewer({
               <button
                 onClick={handleStepForward}
                 disabled={currentStep >= snapshot.tool_calls.length - 1}
-                className="p-2 text-slate-300 hover:bg-[#161C24] rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                className="p-2 text-slate-300 hover:bg-industrial-slate rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
                 title="Next Step"
               >
                 <SkipForward className="w-5 h-5" />
@@ -245,7 +247,7 @@ export function TraceReplayViewer({
           </div>
 
           <div className="relative">
-            <div className="w-full h-2 bg-white/[0.06] rounded-full overflow-hidden">
+            <div className="w-full h-2 bg-white/6 rounded-full overflow-hidden">
               <div
                 className="h-full bg-blue-600 transition-all duration-300"
                 style={{
@@ -269,7 +271,7 @@ export function TraceReplayViewer({
         </div>
 
         {currentToolCall && (
-          <div className="bg-[#0B0F14] rounded-lg p-4 border border-[#232A33]">
+          <div className="bg-industrial-black rounded-lg p-4 border border-industrial-border">
             <div className="flex items-start justify-between mb-3">
               <div className="flex items-center gap-3">
                 <div
@@ -282,7 +284,7 @@ export function TraceReplayViewer({
                   }`}
                 />
                 <div>
-                  <h3 className="font-semibold text-[#E6EDF3]">
+                  <h3 className="font-semibold text-industrial-text">
                     {currentToolCall.tool_name}
                   </h3>
                   <p className="text-sm text-gray-500">
@@ -308,7 +310,7 @@ export function TraceReplayViewer({
                 <p className="text-sm font-medium text-slate-300 mb-1">
                   Input:
                 </p>
-                <pre className="bg-[#11161D] p-3 rounded border border-[#232A33] text-xs overflow-x-auto">
+                <pre className="bg-industrial-graphite p-3 rounded-sm border border-industrial-border text-xs overflow-x-auto">
                   {JSON.stringify(currentToolCall.input, null, 2)}
                 </pre>
               </div>
@@ -319,20 +321,20 @@ export function TraceReplayViewer({
                 <p className="text-sm font-medium text-slate-300 mb-1">
                   Output:
                 </p>
-                <pre className="bg-[#11161D] p-3 rounded border border-[#232A33] text-xs overflow-x-auto max-h-64 overflow-y-auto">
+                <pre className="bg-industrial-graphite p-3 rounded-sm border border-industrial-border text-xs overflow-x-auto max-h-64 overflow-y-auto">
                   {JSON.stringify(currentToolCall.output, null, 2)}
                 </pre>
               </div>
             )}
 
             {currentToolCall.error && (
-              <div className="bg-red-50 border border-red-200 rounded p-3">
+              <div className="bg-red-50 border border-red-200 rounded-sm p-3">
                 <p className="text-sm font-medium text-red-800 mb-1">Error:</p>
                 <p className="text-sm text-red-700">{currentToolCall.error}</p>
               </div>
             )}
 
-            <div className="flex items-center gap-4 text-xs text-gray-500 mt-3 pt-3 border-t border-[#232A33]">
+            <div className="flex items-center gap-4 text-xs text-gray-500 mt-3 pt-3 border-t border-industrial-border">
               <span>Duration: {currentToolCall.duration_ms || 0}ms</span>
               {currentToolCall.cost && (
                 <span>Cost: ${currentToolCall.cost.toFixed(4)}</span>
@@ -342,8 +344,8 @@ export function TraceReplayViewer({
         )}
       </div>
 
-      <div className="bg-[#11161D] rounded-lg shadow p-6">
-        <h3 className="font-semibold text-[#E6EDF3] mb-4">
+      <div className="bg-industrial-graphite rounded-lg shadow-sm p-6">
+        <h3 className="font-semibold text-industrial-text mb-4">
           Execution Timeline
         </h3>
         <div className="space-y-2">
@@ -354,13 +356,13 @@ export function TraceReplayViewer({
               className={`w-full text-left p-3 rounded-lg transition-colors ${
                 index === currentStep
                   ? "bg-blue-50 border-2 border-blue-500"
-                  : "bg-[#0B0F14] border border-[#232A33] hover:bg-[#161C24]"
+                  : "bg-industrial-black border border-industrial-border hover:bg-industrial-slate"
               }`}
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <span className="text-sm text-gray-500">#{index + 1}</span>
-                  <span className="font-medium text-[#E6EDF3]">
+                  <span className="font-medium text-industrial-text">
                     {call.tool_name}
                   </span>
                 </div>

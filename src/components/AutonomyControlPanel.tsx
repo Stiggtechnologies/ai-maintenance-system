@@ -193,7 +193,7 @@ export function AutonomyControlPanel() {
                 </button>
                 <button
                   onClick={saveConfig}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-500/100 rounded-lg text-sm flex items-center gap-2"
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-sm flex items-center gap-2"
                 >
                   <Save className="w-4 h-4" />
                   Save Changes
@@ -258,7 +258,7 @@ export function AutonomyControlPanel() {
 
       {/* Agent Autonomy Config */}
       <div className="bg-[#1A1F2E] rounded-lg border border-[#2A3344] overflow-hidden">
-        <div className="grid grid-cols-12 gap-4 p-4 bg-[#11161D] border-b border-[#2A3344] text-xs text-gray-400 uppercase">
+        <div className="grid grid-cols-12 gap-4 p-4 bg-industrial-graphite border-b border-[#2A3344] text-xs text-gray-400 uppercase">
           <div className="col-span-3">Agent</div>
           <div className="col-span-2">Autonomy Level</div>
           <div className="col-span-2">Financial Limit</div>
@@ -269,10 +269,10 @@ export function AutonomyControlPanel() {
         {config.map((item, index) => (
           <div
             key={item.agent}
-            className="grid grid-cols-12 gap-4 p-4 border-b border-[#2A3344] hover:bg-[#11161D]"
+            className="grid grid-cols-12 gap-4 p-4 border-b border-[#2A3344] hover:bg-industrial-graphite"
           >
             <div className="col-span-3 flex items-center gap-2">
-              <div className="w-8 h-8 rounded bg-[#2A3344] flex items-center justify-center">
+              <div className="w-8 h-8 rounded-sm bg-[#2A3344] flex items-center justify-center">
                 <Zap className="w-4 h-4 text-blue-400" />
               </div>
               <span className="text-sm">{item.agent}</span>
@@ -288,7 +288,7 @@ export function AutonomyControlPanel() {
                     e.target.value as AutonomyConfig["autonomyLevel"],
                   )
                 }
-                className={`w-full bg-[#1A1F2E] border rounded px-2 py-1 text-sm ${getLevelColor(item.autonomyLevel)}`}
+                className={`w-full bg-[#1A1F2E] border rounded-sm px-2 py-1 text-sm ${getLevelColor(item.autonomyLevel)}`}
               >
                 <option value="manual">Manual</option>
                 <option value="advisory">Advisory</option>
@@ -309,7 +309,7 @@ export function AutonomyControlPanel() {
                       parseInt(e.target.value) || 0,
                     )
                   }
-                  className="w-full bg-[#1A1F2E] border border-[#2A3344] rounded px-2 py-1 text-sm"
+                  className="w-full bg-[#1A1F2E] border border-[#2A3344] rounded-sm px-2 py-1 text-sm"
                   disabled={item.autonomyLevel === "manual"}
                 />
               </div>
@@ -345,7 +345,7 @@ export function AutonomyControlPanel() {
                   {item.approvalRequired.map((approval) => (
                     <span
                       key={approval}
-                      className="text-xs px-2 py-0.5 bg-[#2A3344] rounded"
+                      className="text-xs px-2 py-0.5 bg-[#2A3344] rounded-sm"
                     >
                       {approval}
                     </span>
@@ -364,19 +364,19 @@ export function AutonomyControlPanel() {
           Global Financial Approval Thresholds
         </h3>
         <div className="grid grid-cols-4 gap-4">
-          <div className="bg-[#11161D] rounded p-3">
+          <div className="bg-industrial-graphite rounded-sm p-3">
             <div className="text-xs text-gray-400 mb-1">Technician Level</div>
             <div className="text-lg font-semibold text-white">$500</div>
           </div>
-          <div className="bg-[#11161D] rounded p-3">
+          <div className="bg-industrial-graphite rounded-sm p-3">
             <div className="text-xs text-gray-400 mb-1">Supervisor Level</div>
             <div className="text-lg font-semibold text-white">$5,000</div>
           </div>
-          <div className="bg-[#11161D] rounded p-3">
+          <div className="bg-industrial-graphite rounded-sm p-3">
             <div className="text-xs text-gray-400 mb-1">Manager Level</div>
             <div className="text-lg font-semibold text-white">$25,000</div>
           </div>
-          <div className="bg-[#11161D] rounded p-3">
+          <div className="bg-industrial-graphite rounded-sm p-3">
             <div className="text-xs text-gray-400 mb-1">Executive Level</div>
             <div className="text-lg font-semibold text-white">$100,000+</div>
           </div>

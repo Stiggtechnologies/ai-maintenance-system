@@ -202,7 +202,7 @@ export function ResearchDashboard() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-[#E6EDF3] flex items-center gap-2">
+        <h1 className="text-2xl font-bold text-industrial-text flex items-center gap-2">
           <FlaskConical size={24} className="text-purple-600" />
           Research Orchestrator
         </h1>
@@ -213,25 +213,25 @@ export function ResearchDashboard() {
 
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="glass border border-white/[0.06] rounded-xl p-4">
+        <div className="glass border border-white/6 rounded-xl p-4">
           <div className="text-sm text-slate-400">Active Programs</div>
-          <div className="text-2xl font-bold text-[#E6EDF3]">
+          <div className="text-2xl font-bold text-industrial-text">
             {stats.activePrograms}
           </div>
         </div>
-        <div className="glass border border-white/[0.06] rounded-xl p-4">
+        <div className="glass border border-white/6 rounded-xl p-4">
           <div className="text-sm text-slate-400">Recent Runs</div>
-          <div className="text-2xl font-bold text-[#E6EDF3]">
+          <div className="text-2xl font-bold text-industrial-text">
             {stats.totalRuns}
           </div>
         </div>
-        <div className="glass border border-white/[0.06] rounded-xl p-4">
+        <div className="glass border border-white/6 rounded-xl p-4">
           <div className="text-sm text-slate-400">Successful</div>
           <div className="text-2xl font-bold text-green-600">
             {stats.successfulRuns}
           </div>
         </div>
-        <div className="glass border border-white/[0.06] rounded-xl p-4">
+        <div className="glass border border-white/6 rounded-xl p-4">
           <div className="text-sm text-slate-400">Pending Promotions</div>
           <div className="text-2xl font-bold text-orange-600">
             {stats.pendingPromotions}
@@ -240,7 +240,7 @@ export function ResearchDashboard() {
       </div>
 
       {/* Tabs */}
-      <div className="border-b border-[#232A33]">
+      <div className="border-b border-industrial-border">
         <nav className="flex gap-6">
           {tabs.map((tab) => (
             <button
@@ -263,7 +263,7 @@ export function ResearchDashboard() {
       {activeTab === "overview" && (
         <div className="space-y-4">
           {programs.length === 0 ? (
-            <div className="glass border border-white/[0.06] rounded-xl p-12 text-center">
+            <div className="glass border border-white/6 rounded-xl p-12 text-center">
               <FlaskConical size={48} className="mx-auto text-slate-300 mb-4" />
               <h3 className="text-lg font-semibold text-slate-300">
                 No Research Programs
@@ -291,11 +291,11 @@ export function ResearchDashboard() {
               return (
                 <div
                   key={program.id}
-                  className="glass border border-white/[0.06] rounded-xl p-6"
+                  className="glass border border-white/6 rounded-xl p-6"
                 >
                   <div className="flex items-start justify-between">
                     <div>
-                      <h3 className="text-lg font-semibold text-[#E6EDF3]">
+                      <h3 className="text-lg font-semibold text-industrial-text">
                         {program.program_name}
                       </h3>
                       <div className="flex items-center gap-3 mt-1">
@@ -322,13 +322,13 @@ export function ResearchDashboard() {
                   <div className="grid grid-cols-3 gap-4 mt-4 pt-4 border-t border-[#1A2030]">
                     <div>
                       <div className="text-xs text-slate-400">Total Runs</div>
-                      <div className="text-lg font-bold text-[#E6EDF3]">
+                      <div className="text-lg font-bold text-industrial-text">
                         {programRuns.length}
                       </div>
                     </div>
                     <div>
                       <div className="text-xs text-slate-400">Success Rate</div>
-                      <div className="text-lg font-bold text-[#E6EDF3]">
+                      <div className="text-lg font-bold text-industrial-text">
                         {successRate}%
                       </div>
                     </div>
@@ -358,10 +358,10 @@ export function ResearchDashboard() {
               No experiment runs yet
             </div>
           ) : (
-            <div className="glass border border-white/[0.06] rounded-xl overflow-hidden">
+            <div className="glass border border-white/6 rounded-xl overflow-hidden">
               <table className="w-full">
                 <thead>
-                  <tr className="text-left text-xs text-slate-400 bg-[#0B0F14] border-b border-[#232A33]">
+                  <tr className="text-left text-xs text-slate-400 bg-industrial-black border-b border-industrial-border">
                     <th className="px-4 py-3">Run #</th>
                     <th className="px-4 py-3">Variant</th>
                     <th className="px-4 py-3">Status</th>
@@ -374,13 +374,13 @@ export function ResearchDashboard() {
                   {recentRuns.map((run) => (
                     <tr
                       key={run.id}
-                      className="border-b border-[#1A2030] hover:bg-[#0B0F14]"
+                      className="border-b border-[#1A2030] hover:bg-industrial-black"
                     >
-                      <td className="px-4 py-3 text-sm font-mono text-[#E6EDF3]">
+                      <td className="px-4 py-3 text-sm font-mono text-industrial-text">
                         #{run.run_number}
                       </td>
                       <td className="px-4 py-3">
-                        <div className="text-sm font-medium text-[#E6EDF3]">
+                        <div className="text-sm font-medium text-industrial-text">
                           {run.research_variants?.variant_code || "-"}
                         </div>
                         <div className="text-xs text-slate-400 truncate max-w-xs">
@@ -396,7 +396,7 @@ export function ResearchDashboard() {
                                 ? "bg-blue-100 text-blue-800"
                                 : run.status === "failed"
                                   ? "bg-red-100 text-red-800"
-                                  : "bg-white/[0.04] text-slate-400"
+                                  : "bg-white/4 text-slate-400"
                           }`}
                         >
                           {run.status}
@@ -427,9 +427,9 @@ export function ResearchDashboard() {
 
           {/* Results detail panel */}
           {selectedRunId && selectedRunResults.length > 0 && (
-            <div className="bg-[#11161D] border border-purple-200 rounded-xl p-6">
+            <div className="bg-industrial-graphite border border-purple-200 rounded-xl p-6">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-[#E6EDF3]">
+                <h3 className="text-lg font-semibold text-industrial-text">
                   Run Results
                 </h3>
                 <button
@@ -446,13 +446,13 @@ export function ResearchDashboard() {
                 {selectedRunResults.map((result) => (
                   <div
                     key={result.id}
-                    className={`border rounded-lg p-4 ${result.improved ? "border-green-200 bg-green-50" : "border-[#232A33]"}`}
+                    className={`border rounded-lg p-4 ${result.improved ? "border-green-200 bg-green-50" : "border-industrial-border"}`}
                   >
-                    <div className="text-sm font-medium text-[#E6EDF3]">
+                    <div className="text-sm font-medium text-industrial-text">
                       {result.metric_name}
                     </div>
                     <div className="flex items-baseline gap-2 mt-1">
-                      <span className="text-2xl font-bold text-[#E6EDF3]">
+                      <span className="text-2xl font-bold text-industrial-text">
                         {result.metric_value.toFixed(1)}
                       </span>
                       {result.baseline_value != null && (
@@ -489,12 +489,12 @@ export function ResearchDashboard() {
             promotions.map((promo) => (
               <div
                 key={promo.id}
-                className={`bg-[#11161D] border rounded-xl p-6 ${promo.review_status === "pending" ? "border-orange-200" : "border-[#232A33]"}`}
+                className={`bg-industrial-graphite border rounded-xl p-6 ${promo.review_status === "pending" ? "border-orange-200" : "border-industrial-border"}`}
               >
                 <div className="flex items-start justify-between">
                   <div>
                     <div className="flex items-center gap-2">
-                      <h3 className="font-semibold text-[#E6EDF3]">
+                      <h3 className="font-semibold text-industrial-text">
                         {promo.research_variants?.variant_code}
                       </h3>
                       <span className="text-xs px-2 py-1 bg-purple-100 text-purple-800 rounded-full">
@@ -529,7 +529,7 @@ export function ResearchDashboard() {
                             ? "bg-blue-100 text-blue-800"
                             : promo.review_status === "rejected"
                               ? "bg-red-100 text-red-800"
-                              : "bg-white/[0.04] text-slate-400"
+                              : "bg-white/4 text-slate-400"
                     }`}
                   >
                     {promo.review_status?.replace(/_/g, " ")}
@@ -546,7 +546,7 @@ export function ResearchDashboard() {
                           "Approved for staging deployment",
                         )
                       }
-                      className="flex items-center gap-1 px-3 py-1.5 bg-green-600 text-white text-sm font-medium rounded hover:bg-green-700"
+                      className="flex items-center gap-1 px-3 py-1.5 bg-green-600 text-white text-sm font-medium rounded-sm hover:bg-green-700"
                     >
                       <CheckCircle size={14} /> Approve
                     </button>
@@ -554,7 +554,7 @@ export function ResearchDashboard() {
                       onClick={() =>
                         updatePromotionStatus(promo.id, "promoted_to_staging")
                       }
-                      className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded hover:bg-blue-700"
+                      className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-sm hover:bg-blue-700"
                     >
                       <ArrowRight size={14} /> Promote to Staging
                     </button>
@@ -566,7 +566,7 @@ export function ResearchDashboard() {
                           "Does not meet quality bar",
                         )
                       }
-                      className="flex items-center gap-1 px-3 py-1.5 bg-slate-200 text-slate-300 text-sm font-medium rounded hover:bg-slate-300"
+                      className="flex items-center gap-1 px-3 py-1.5 bg-slate-200 text-slate-300 text-sm font-medium rounded-sm hover:bg-slate-300"
                     >
                       <XCircle size={14} /> Reject
                     </button>

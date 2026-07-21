@@ -21,11 +21,7 @@ import {
  */
 
 type AwsStep =
-  | "loading"
-  | "resolved"
-  | "auth-in-progress"
-  | "activation-complete"
-  | "error";
+  "loading" | "resolved" | "auth-in-progress" | "activation-complete" | "error";
 
 interface ErrorState {
   type: "invalid-token" | "resolution-failed" | "activation-failed" | "unknown";
@@ -110,15 +106,15 @@ export function AwsMarketplaceSignup() {
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
-        className="bg-[#161C24] rounded-xl p-8 border border-[#232A33] backdrop-blur-sm"
+        className="bg-industrial-slate rounded-xl p-8 border border-industrial-border backdrop-blur-xs"
       >
         {step === "loading" && (
           <div className="space-y-6">
             <div className="text-center">
-              <h2 className="text-2xl font-bold text-[#E6EDF3] mb-2">
+              <h2 className="text-2xl font-bold text-industrial-text mb-2">
                 Activating your SyncAI subscription…
               </h2>
-              <p className="text-[#9BA7B4]">
+              <p className="text-industrial-muted">
                 Resolving your AWS Marketplace customer via the ResolveCustomer
                 API.
               </p>
@@ -127,7 +123,7 @@ export function AwsMarketplaceSignup() {
               <motion.div
                 animate={{ rotate: 360 }}
                 transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                className="w-12 h-12 border-4 border-[#232A33] border-t-[#FF9900] rounded-full"
+                className="w-12 h-12 border-4 border-industrial-border border-t-[#FF9900] rounded-full"
               />
             </div>
           </div>
@@ -136,10 +132,10 @@ export function AwsMarketplaceSignup() {
         {step === "resolved" && subscription && (
           <div className="space-y-6">
             <div className="text-center">
-              <h2 className="text-2xl font-bold text-[#E6EDF3] mb-2">
+              <h2 className="text-2xl font-bold text-industrial-text mb-2">
                 Welcome from AWS Marketplace
               </h2>
-              <p className="text-[#9BA7B4]">
+              <p className="text-industrial-muted">
                 Your subscription is linked. One last step: create your SyncAI
                 account.
               </p>
@@ -149,39 +145,45 @@ export function AwsMarketplaceSignup() {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2 }}
-              className="bg-[#0B0F14] border border-[#232A33] rounded-lg p-6 space-y-4"
+              className="bg-industrial-black border border-industrial-border rounded-lg p-6 space-y-4"
             >
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <p className="text-xs text-[#9BA7B4] mb-1">Customer ID</p>
-                  <p className="text-xs font-mono text-[#E6EDF3] truncate">
+                  <p className="text-xs text-industrial-muted mb-1">
+                    Customer ID
+                  </p>
+                  <p className="text-xs font-mono text-industrial-text truncate">
                     {subscription.customerIdentifier}
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs text-[#9BA7B4] mb-1">AWS account</p>
-                  <p className="text-xs font-mono text-[#E6EDF3]">
+                  <p className="text-xs text-industrial-muted mb-1">
+                    AWS account
+                  </p>
+                  <p className="text-xs font-mono text-industrial-text">
                     {subscription.customerAWSAccountId || "—"}
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs text-[#9BA7B4] mb-1">Product code</p>
-                  <p className="text-xs font-mono text-[#E6EDF3]">
+                  <p className="text-xs text-industrial-muted mb-1">
+                    Product code
+                  </p>
+                  <p className="text-xs font-mono text-industrial-text">
                     {subscription.productCode}
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs text-[#9BA7B4] mb-1">Status</p>
+                  <p className="text-xs text-industrial-muted mb-1">Status</p>
                   <p className="text-sm font-semibold text-[#FF9900]">
                     {subscription.status.replace("aws_", "").replace(/_/g, " ")}
                   </p>
                 </div>
               </div>
-              <div className="border-t border-[#232A33] pt-4">
-                <p className="text-xs text-[#9BA7B4]">
+              <div className="border-t border-industrial-border pt-4">
+                <p className="text-xs text-industrial-muted">
                   AWS will send a SubscribeSuccess event within ~5 minutes;
                   status will update to{" "}
-                  <code className="bg-[#161C24] px-1 rounded">
+                  <code className="bg-industrial-slate px-1 rounded-sm">
                     aws_subscribed
                   </code>{" "}
                   automatically.
@@ -214,14 +216,14 @@ export function AwsMarketplaceSignup() {
               >
                 <span className="text-3xl text-red-400">!</span>
               </motion.div>
-              <h2 className="text-2xl font-bold text-[#E6EDF3] mb-2">
+              <h2 className="text-2xl font-bold text-industrial-text mb-2">
                 {error.type === "invalid-token" && "Invalid Access Link"}
                 {error.type === "resolution-failed" &&
                   "Failed to Load Subscription"}
                 {error.type === "activation-failed" && "Activation Failed"}
                 {error.type === "unknown" && "Something went wrong"}
               </h2>
-              <p className="text-[#9BA7B4] mb-6">{error.message}</p>
+              <p className="text-industrial-muted mb-6">{error.message}</p>
             </div>
             <motion.button
               onClick={handleRetry}
@@ -231,7 +233,7 @@ export function AwsMarketplaceSignup() {
             >
               Try Again
             </motion.button>
-            <p className="text-xs text-[#9BA7B4] text-center">
+            <p className="text-xs text-industrial-muted text-center">
               If this problem persists, contact{" "}
               <a
                 href="mailto:support@syncai.ca"

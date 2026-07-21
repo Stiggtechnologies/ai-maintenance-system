@@ -293,7 +293,7 @@ export function AutonomyMaturity() {
             </span>
           </div>
         ) : (
-          <div className="flex items-center gap-2 px-3 py-1.5 bg-white/[0.04] border border-white/[0.08] rounded-lg">
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-white/4 border border-white/8 rounded-lg">
             <span className="text-xs font-bold text-slate-300">
               No live agents yet
             </span>
@@ -304,7 +304,7 @@ export function AutonomyMaturity() {
       {/* Live statistics — computed from ai_agents and decisions */}
       {hasAgents ? (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="bg-[#0D1520] border border-white/[0.06] rounded-xl p-4">
+          <div className="bg-[#0D1520] border border-white/6 rounded-xl p-4">
             <div className="flex items-center gap-2 mb-2">
               <Bot className="w-3.5 h-3.5 text-teal-400" />
               <span className="text-xs text-slate-400">Agent Autonomy Mix</span>
@@ -326,7 +326,7 @@ export function AutonomyMaturity() {
               {live.totalAgents} agents total
             </div>
           </div>
-          <div className="bg-[#0D1520] border border-white/[0.06] rounded-xl p-4">
+          <div className="bg-[#0D1520] border border-white/6 rounded-xl p-4">
             <div className="flex items-center gap-2 mb-2">
               <Activity className="w-3.5 h-3.5 text-blue-400" />
               <span className="text-xs text-slate-400">Actions Executed</span>
@@ -338,7 +338,7 @@ export function AutonomyMaturity() {
               from {live.recommendationsGenerated} recommendations generated
             </div>
           </div>
-          <div className="bg-[#0D1520] border border-white/[0.06] rounded-xl p-4">
+          <div className="bg-[#0D1520] border border-white/6 rounded-xl p-4">
             <div className="flex items-center gap-2 mb-2">
               <Users className="w-3.5 h-3.5 text-amber-400" />
               <span className="text-xs text-slate-400">Approvals Pending</span>
@@ -350,7 +350,7 @@ export function AutonomyMaturity() {
               awaiting human review
             </div>
           </div>
-          <div className="bg-[#0D1520] border border-white/[0.06] rounded-xl p-4">
+          <div className="bg-[#0D1520] border border-white/6 rounded-xl p-4">
             <div className="flex items-center gap-2 mb-2">
               <ShieldCheck className="w-3.5 h-3.5 text-teal-400" />
               <span className="text-xs text-slate-400">
@@ -380,7 +380,7 @@ export function AutonomyMaturity() {
       )}
 
       {/* Progress Bar */}
-      <div className="bg-[#0D1520] border border-white/[0.06] rounded-2xl p-5">
+      <div className="bg-[#0D1520] border border-white/6 rounded-2xl p-5">
         <div className="flex items-center gap-2 mb-4">
           {maturityLevels.map((level, i) => {
             const status = levelStatus(level.level, live.currentLevel);
@@ -392,7 +392,7 @@ export function AutonomyMaturity() {
                       ? "bg-green-500/20 text-green-400 ring-2 ring-green-500/30"
                       : status === "current"
                         ? "bg-teal-500/20 text-teal-400 ring-2 ring-teal-500/40 animate-pulse"
-                        : "bg-white/[0.05] text-slate-400 ring-1 ring-white/[0.08]"
+                        : "bg-white/5 text-slate-400 ring-1 ring-white/8"
                   }`}
                 >
                   {level.level}
@@ -403,8 +403,8 @@ export function AutonomyMaturity() {
                       status === "completed"
                         ? "bg-green-500/40"
                         : status === "current"
-                          ? "bg-gradient-to-r from-teal-500/40 to-white/[0.05]"
-                          : "bg-white/[0.05]"
+                          ? "bg-linear-to-r from-teal-500/40 to-white/5"
+                          : "bg-white/5"
                     }`}
                   />
                 )}
@@ -420,7 +420,7 @@ export function AutonomyMaturity() {
           ))}
         </div>
         {hasAgents && live.dominantMode && live.currentLevel !== null && (
-          <div className="mt-4 pt-3 border-t border-white/[0.06] text-xs text-slate-400">
+          <div className="mt-4 pt-3 border-t border-white/6 text-xs text-slate-400">
             Level derived from live agent autonomy modes:{" "}
             <span className="text-slate-300 font-semibold">
               {live.modeCounts[live.dominantMode]} of {live.totalAgents} agents
@@ -453,14 +453,12 @@ export function AutonomyMaturity() {
                 status === "current"
                   ? `${c.border} ring-1 ${c.ring}`
                   : isLocked
-                    ? "border-white/[0.04] opacity-70"
-                    : "border-white/[0.06]"
+                    ? "border-white/4 opacity-70"
+                    : "border-white/6"
               }`}
             >
               <div className="flex items-start gap-4">
-                <div
-                  className={`p-3 rounded-xl ${c.bg} flex-shrink-0 relative`}
-                >
+                <div className={`p-3 rounded-xl ${c.bg} shrink-0 relative`}>
                   <Icon className={`w-5 h-5 ${c.text}`} />
                   {status === "completed" && (
                     <CheckCircle className="w-3.5 h-3.5 text-green-400 absolute -top-1 -right-1" />
@@ -503,7 +501,7 @@ export function AutonomyMaturity() {
                     {level.capabilities.map((cap) => (
                       <span
                         key={cap}
-                        className={`text-xs px-2 py-0.5 rounded-full border ${isLocked ? "bg-white/[0.02] border-white/[0.05] text-slate-400" : `${c.bg} ${c.border} ${c.text}`}`}
+                        className={`text-xs px-2 py-0.5 rounded-full border ${isLocked ? "bg-white/2 border-white/5 text-slate-400" : `${c.bg} ${c.border} ${c.text}`}`}
                       >
                         {cap}
                       </span>
@@ -517,7 +515,7 @@ export function AutonomyMaturity() {
       </div>
 
       <div className="bg-[#0D1520] border border-teal-500/10 rounded-xl p-4 flex items-start gap-3">
-        <ArrowRight className="w-4 h-4 text-teal-400 flex-shrink-0 mt-0.5" />
+        <ArrowRight className="w-4 h-4 text-teal-400 shrink-0 mt-0.5" />
         <div>
           <div className="text-sm font-bold text-teal-400">
             Progressive Adoption

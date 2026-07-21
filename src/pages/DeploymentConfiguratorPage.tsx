@@ -296,11 +296,11 @@ export function DeploymentConfiguratorPage() {
   if (success) {
     return (
       <div className="max-w-2xl mx-auto mt-16">
-        <div className="glass border border-white/[0.06] rounded-xl p-8 text-center">
+        <div className="glass border border-white/6 rounded-xl p-8 text-center">
           <div className="w-16 h-16 bg-green-500/10 border border-green-500/30 rounded-full flex items-center justify-center mx-auto mb-4">
             <Check size={32} className="text-green-400" />
           </div>
-          <h2 className="text-xl font-bold text-[#E6EDF3] mb-2">
+          <h2 className="text-xl font-bold text-industrial-text mb-2">
             Workspace Provisioned
           </h2>
           <p className="text-sm text-slate-300 mb-2">
@@ -322,13 +322,13 @@ export function DeploymentConfiguratorPage() {
           <div className="flex items-center justify-center gap-3">
             <button
               onClick={() => navigate("/onboarding")}
-              className="px-4 py-2.5 text-sm font-medium text-slate-950 bg-teal-500 hover:bg-teal-400 rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-300"
+              className="px-4 py-2.5 text-sm font-medium text-slate-950 bg-teal-500 hover:bg-teal-400 rounded-lg transition-colors focus:outline-hidden focus-visible:ring-2 focus-visible:ring-teal-300"
             >
               Watch Assets Self-Onboard
             </button>
             <button
               onClick={() => navigate("/mission-control")}
-              className="px-4 py-2.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-500 rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-300"
+              className="px-4 py-2.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-500 rounded-lg transition-colors focus:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-300"
             >
               Go to Mission Control
             </button>
@@ -341,7 +341,7 @@ export function DeploymentConfiguratorPage() {
   if (!template) {
     return (
       <div className="max-w-2xl mx-auto mt-16">
-        <div className="glass border border-white/[0.06] rounded-xl p-8 text-center">
+        <div className="glass border border-white/6 rounded-xl p-8 text-center">
           <Factory size={40} className="text-slate-300 mx-auto mb-3" />
           <h3 className="text-lg font-medium text-slate-300">
             No template selected
@@ -371,7 +371,7 @@ export function DeploymentConfiguratorPage() {
           <ChevronLeft size={16} />
           Back to Templates
         </button>
-        <h1 className="text-2xl font-bold text-[#E6EDF3]">
+        <h1 className="text-2xl font-bold text-industrial-text">
           Configure Deployment
         </h1>
         <p className="text-sm text-slate-400 mt-1">
@@ -381,7 +381,7 @@ export function DeploymentConfiguratorPage() {
       </div>
 
       {/* Step Indicator */}
-      <div className="glass border border-white/[0.06] rounded-xl p-4 mb-6">
+      <div className="glass border border-white/6 rounded-xl p-4 mb-6">
         <div className="flex items-center justify-between">
           {STEPS.map((step, index) => {
             const isActive = index === currentStep;
@@ -427,20 +427,20 @@ export function DeploymentConfiguratorPage() {
       </div>
 
       {/* Step Content */}
-      <div className="glass border border-white/[0.06] rounded-xl p-6 mb-6">
+      <div className="glass border border-white/6 rounded-xl p-6 mb-6">
         {/* Step 1: Template Review */}
         {currentStep === 0 && (
           <div>
-            <h2 className="text-lg font-semibold text-[#E6EDF3] mb-4">
+            <h2 className="text-lg font-semibold text-industrial-text mb-4">
               Template Review
             </h2>
-            <div className="bg-[#0B0F14] border border-[#232A33] rounded-xl p-5">
+            <div className="bg-industrial-black border border-industrial-border rounded-xl p-5">
               <div className="flex items-start gap-4">
                 <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
                   <Factory size={24} className="text-blue-600" />
                 </div>
                 <div className="flex-1">
-                  <h3 className="text-base font-semibold text-[#E6EDF3]">
+                  <h3 className="text-base font-semibold text-industrial-text">
                     {template.name}
                   </h3>
                   {template.master_template_name && (
@@ -507,7 +507,7 @@ export function DeploymentConfiguratorPage() {
         {/* Step 2: Organization Context */}
         {currentStep === 1 && (
           <div>
-            <h2 className="text-lg font-semibold text-[#E6EDF3] mb-4">
+            <h2 className="text-lg font-semibold text-industrial-text mb-4">
               Organization Context
             </h2>
             <div className="space-y-5">
@@ -519,7 +519,7 @@ export function DeploymentConfiguratorPage() {
                   type="text"
                   value={orgName}
                   onChange={(e) => setOrgName(e.target.value)}
-                  className="w-full px-3 py-2.5 text-sm border border-[#232A33] rounded-lg bg-[#11161D] focus:outline-none focus:ring-2 focus:ring-teal-500/40 focus:border-transparent"
+                  className="w-full px-3 py-2.5 text-sm border border-industrial-border rounded-lg bg-industrial-graphite focus:outline-hidden focus:ring-2 focus:ring-teal-500/40 focus:border-transparent"
                   placeholder="Enter organization name"
                 />
               </div>
@@ -541,7 +541,7 @@ export function DeploymentConfiguratorPage() {
                           );
                         }
                       }}
-                      className="w-full px-3 py-2.5 text-sm border border-[#232A33] rounded-lg bg-[#11161D] focus:outline-none focus:ring-2 focus:ring-teal-500/40 focus:border-transparent"
+                      className="w-full px-3 py-2.5 text-sm border border-industrial-border rounded-lg bg-industrial-graphite focus:outline-hidden focus:ring-2 focus:ring-teal-500/40 focus:border-transparent"
                     >
                       <option value="">Create new site...</option>
                       {sites.map((site) => (
@@ -555,7 +555,7 @@ export function DeploymentConfiguratorPage() {
                         type="text"
                         value={newSiteName}
                         onChange={(e) => setNewSiteName(e.target.value)}
-                        className="w-full px-3 py-2.5 text-sm border border-[#232A33] rounded-lg bg-[#11161D] focus:outline-none focus:ring-2 focus:ring-teal-500/40 focus:border-transparent"
+                        className="w-full px-3 py-2.5 text-sm border border-industrial-border rounded-lg bg-industrial-graphite focus:outline-hidden focus:ring-2 focus:ring-teal-500/40 focus:border-transparent"
                         placeholder="New site name"
                       />
                     )}
@@ -565,7 +565,7 @@ export function DeploymentConfiguratorPage() {
                     type="text"
                     value={siteName}
                     onChange={(e) => setSiteName(e.target.value)}
-                    className="w-full px-3 py-2.5 text-sm border border-[#232A33] rounded-lg bg-[#11161D] focus:outline-none focus:ring-2 focus:ring-teal-500/40 focus:border-transparent"
+                    className="w-full px-3 py-2.5 text-sm border border-industrial-border rounded-lg bg-industrial-graphite focus:outline-hidden focus:ring-2 focus:ring-teal-500/40 focus:border-transparent"
                     placeholder="Enter site name"
                   />
                 )}
@@ -579,7 +579,7 @@ export function DeploymentConfiguratorPage() {
                   type="text"
                   value={operatingRegion}
                   onChange={(e) => setOperatingRegion(e.target.value)}
-                  className="w-full px-3 py-2.5 text-sm border border-[#232A33] rounded-lg bg-[#11161D] focus:outline-none focus:ring-2 focus:ring-teal-500/40 focus:border-transparent"
+                  className="w-full px-3 py-2.5 text-sm border border-industrial-border rounded-lg bg-industrial-graphite focus:outline-hidden focus:ring-2 focus:ring-teal-500/40 focus:border-transparent"
                   placeholder="e.g., North America, Europe, Asia-Pacific"
                 />
               </div>
@@ -591,7 +591,7 @@ export function DeploymentConfiguratorPage() {
                 <select
                   value={timezone}
                   onChange={(e) => setTimezone(e.target.value)}
-                  className="w-full px-3 py-2.5 text-sm border border-[#232A33] rounded-lg bg-[#11161D] focus:outline-none focus:ring-2 focus:ring-teal-500/40 focus:border-transparent"
+                  className="w-full px-3 py-2.5 text-sm border border-industrial-border rounded-lg bg-industrial-graphite focus:outline-hidden focus:ring-2 focus:ring-teal-500/40 focus:border-transparent"
                 >
                   {TIMEZONES.map((tz) => (
                     <option key={tz} value={tz}>
@@ -607,7 +607,7 @@ export function DeploymentConfiguratorPage() {
         {/* Step 3: Operational Profile */}
         {currentStep === 2 && (
           <div>
-            <h2 className="text-lg font-semibold text-[#E6EDF3] mb-4">
+            <h2 className="text-lg font-semibold text-industrial-text mb-4">
               Operational Profile
             </h2>
             <div className="space-y-5">
@@ -623,7 +623,7 @@ export function DeploymentConfiguratorPage() {
                       className={`px-4 py-3 text-sm font-medium rounded-lg border transition-colors ${
                         assetRange === range
                           ? "border-teal-500 bg-blue-50 text-blue-700"
-                          : "border-[#232A33] bg-[#11161D] text-slate-400 hover:bg-[#0B0F14]"
+                          : "border-industrial-border bg-industrial-graphite text-slate-400 hover:bg-industrial-black"
                       }`}
                     >
                       {range}
@@ -642,7 +642,7 @@ export function DeploymentConfiguratorPage() {
                   onChange={(e) => setSiteCount(e.target.value)}
                   min="1"
                   max="999"
-                  className="w-full max-w-xs px-3 py-2.5 text-sm border border-[#232A33] rounded-lg bg-[#11161D] focus:outline-none focus:ring-2 focus:ring-teal-500/40 focus:border-transparent"
+                  className="w-full max-w-xs px-3 py-2.5 text-sm border border-industrial-border rounded-lg bg-industrial-graphite focus:outline-hidden focus:ring-2 focus:ring-teal-500/40 focus:border-transparent"
                 />
               </div>
 
@@ -658,7 +658,7 @@ export function DeploymentConfiguratorPage() {
                       className={`px-4 py-3 text-sm font-medium rounded-lg border transition-colors ${
                         operatingModel === model
                           ? "border-teal-500 bg-blue-50 text-blue-700"
-                          : "border-[#232A33] bg-[#11161D] text-slate-400 hover:bg-[#0B0F14]"
+                          : "border-industrial-border bg-industrial-graphite text-slate-400 hover:bg-industrial-black"
                       }`}
                     >
                       {model}
@@ -674,7 +674,7 @@ export function DeploymentConfiguratorPage() {
                 <select
                   value={primaryCmms}
                   onChange={(e) => setPrimaryCmms(e.target.value)}
-                  className="w-full max-w-xs px-3 py-2.5 text-sm border border-[#232A33] rounded-lg bg-[#11161D] focus:outline-none focus:ring-2 focus:ring-teal-500/40 focus:border-transparent"
+                  className="w-full max-w-xs px-3 py-2.5 text-sm border border-industrial-border rounded-lg bg-industrial-graphite focus:outline-hidden focus:ring-2 focus:ring-teal-500/40 focus:border-transparent"
                 >
                   {CMMS_OPTIONS.map((opt) => (
                     <option key={opt} value={opt}>
@@ -690,7 +690,7 @@ export function DeploymentConfiguratorPage() {
         {/* Step 4: Governance Preferences */}
         {currentStep === 3 && (
           <div>
-            <h2 className="text-lg font-semibold text-[#E6EDF3] mb-4">
+            <h2 className="text-lg font-semibold text-industrial-text mb-4">
               Governance Preferences
             </h2>
             <div className="space-y-6">
@@ -706,10 +706,10 @@ export function DeploymentConfiguratorPage() {
                       className={`w-full text-left px-4 py-3 rounded-lg border transition-colors ${
                         autonomyMode === mode.value
                           ? "border-teal-500 bg-blue-50"
-                          : "border-[#232A33] bg-[#11161D] hover:bg-[#0B0F14]"
+                          : "border-industrial-border bg-industrial-graphite hover:bg-industrial-black"
                       }`}
                     >
-                      <div className="text-sm font-medium text-[#E6EDF3]">
+                      <div className="text-sm font-medium text-industrial-text">
                         {mode.label}
                       </div>
                       <div className="text-xs text-slate-400 mt-0.5">
@@ -732,10 +732,10 @@ export function DeploymentConfiguratorPage() {
                       className={`w-full text-left px-4 py-3 rounded-lg border transition-colors ${
                         approvalStrictness === level.value
                           ? "border-teal-500 bg-blue-50"
-                          : "border-[#232A33] bg-[#11161D] hover:bg-[#0B0F14]"
+                          : "border-industrial-border bg-industrial-graphite hover:bg-industrial-black"
                       }`}
                     >
-                      <div className="text-sm font-medium text-[#E6EDF3]">
+                      <div className="text-sm font-medium text-industrial-text">
                         {level.label}
                       </div>
                       <div className="text-xs text-slate-400 mt-0.5">
@@ -758,7 +758,7 @@ export function DeploymentConfiguratorPage() {
                       className={`px-4 py-3 text-sm font-medium rounded-lg border transition-colors ${
                         auditRetention === opt
                           ? "border-teal-500 bg-blue-50 text-blue-700"
-                          : "border-[#232A33] bg-[#11161D] text-slate-400 hover:bg-[#0B0F14]"
+                          : "border-industrial-border bg-industrial-graphite text-slate-400 hover:bg-industrial-black"
                       }`}
                     >
                       {opt}
@@ -773,7 +773,7 @@ export function DeploymentConfiguratorPage() {
         {/* Step 5: Deployment Summary */}
         {currentStep === 4 && (
           <div>
-            <h2 className="text-lg font-semibold text-[#E6EDF3] mb-4">
+            <h2 className="text-lg font-semibold text-industrial-text mb-4">
               Deployment Summary
             </h2>
             <p className="text-sm text-slate-400 mb-6">
@@ -782,7 +782,7 @@ export function DeploymentConfiguratorPage() {
 
             <div className="space-y-4">
               {/* Template */}
-              <div className="bg-[#0B0F14] border border-[#232A33] rounded-xl p-4">
+              <div className="bg-industrial-black border border-industrial-border rounded-xl p-4">
                 <div className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">
                   Template
                 </div>
@@ -791,7 +791,7 @@ export function DeploymentConfiguratorPage() {
                     <Factory size={20} className="text-blue-600" />
                   </div>
                   <div>
-                    <div className="text-sm font-semibold text-[#E6EDF3]">
+                    <div className="text-sm font-semibold text-industrial-text">
                       {template.name}
                     </div>
                     <div className="text-xs text-slate-400">
@@ -802,20 +802,20 @@ export function DeploymentConfiguratorPage() {
               </div>
 
               {/* Organization */}
-              <div className="bg-[#0B0F14] border border-[#232A33] rounded-xl p-4">
+              <div className="bg-industrial-black border border-industrial-border rounded-xl p-4">
                 <div className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">
                   Organization
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <div className="text-xs text-slate-400">Organization</div>
-                    <div className="text-sm font-medium text-[#E6EDF3]">
+                    <div className="text-sm font-medium text-industrial-text">
                       {orgName || "--"}
                     </div>
                   </div>
                   <div>
                     <div className="text-xs text-slate-400">Site</div>
-                    <div className="text-sm font-medium text-[#E6EDF3]">
+                    <div className="text-sm font-medium text-industrial-text">
                       {selectedSiteId
                         ? sites.find((s) => s.id === selectedSiteId)?.name
                         : newSiteName || siteName || "--"}
@@ -823,13 +823,13 @@ export function DeploymentConfiguratorPage() {
                   </div>
                   <div>
                     <div className="text-xs text-slate-400">Region</div>
-                    <div className="text-sm font-medium text-[#E6EDF3]">
+                    <div className="text-sm font-medium text-industrial-text">
                       {operatingRegion || "--"}
                     </div>
                   </div>
                   <div>
                     <div className="text-xs text-slate-400">Timezone</div>
-                    <div className="text-sm font-medium text-[#E6EDF3]">
+                    <div className="text-sm font-medium text-industrial-text">
                       {timezone}
                     </div>
                   </div>
@@ -837,20 +837,20 @@ export function DeploymentConfiguratorPage() {
               </div>
 
               {/* Operational */}
-              <div className="bg-[#0B0F14] border border-[#232A33] rounded-xl p-4">
+              <div className="bg-industrial-black border border-industrial-border rounded-xl p-4">
                 <div className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">
                   Operational Profile
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <div className="text-xs text-slate-400">Asset Count</div>
-                    <div className="text-sm font-medium text-[#E6EDF3]">
+                    <div className="text-sm font-medium text-industrial-text">
                       {assetRange}
                     </div>
                   </div>
                   <div>
                     <div className="text-xs text-slate-400">Sites</div>
-                    <div className="text-sm font-medium text-[#E6EDF3]">
+                    <div className="text-sm font-medium text-industrial-text">
                       {siteCount}
                     </div>
                   </div>
@@ -858,13 +858,13 @@ export function DeploymentConfiguratorPage() {
                     <div className="text-xs text-slate-400">
                       Operating Model
                     </div>
-                    <div className="text-sm font-medium text-[#E6EDF3]">
+                    <div className="text-sm font-medium text-industrial-text">
                       {operatingModel}
                     </div>
                   </div>
                   <div>
                     <div className="text-xs text-slate-400">Primary CMMS</div>
-                    <div className="text-sm font-medium text-[#E6EDF3]">
+                    <div className="text-sm font-medium text-industrial-text">
                       {primaryCmms}
                     </div>
                   </div>
@@ -872,20 +872,20 @@ export function DeploymentConfiguratorPage() {
               </div>
 
               {/* Governance */}
-              <div className="bg-[#0B0F14] border border-[#232A33] rounded-xl p-4">
+              <div className="bg-industrial-black border border-industrial-border rounded-xl p-4">
                 <div className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">
                   Governance
                 </div>
                 <div className="grid grid-cols-3 gap-3">
                   <div>
                     <div className="text-xs text-slate-400">Autonomy Mode</div>
-                    <div className="text-sm font-medium text-[#E6EDF3] capitalize">
+                    <div className="text-sm font-medium text-industrial-text capitalize">
                       {autonomyMode}
                     </div>
                   </div>
                   <div>
                     <div className="text-xs text-slate-400">Approval Level</div>
-                    <div className="text-sm font-medium text-[#E6EDF3] capitalize">
+                    <div className="text-sm font-medium text-industrial-text capitalize">
                       {approvalStrictness}
                     </div>
                   </div>
@@ -893,7 +893,7 @@ export function DeploymentConfiguratorPage() {
                     <div className="text-xs text-slate-400">
                       Audit Retention
                     </div>
-                    <div className="text-sm font-medium text-[#E6EDF3]">
+                    <div className="text-sm font-medium text-industrial-text">
                       {auditRetention}
                     </div>
                   </div>
@@ -901,7 +901,7 @@ export function DeploymentConfiguratorPage() {
               </div>
 
               {/* Template Capabilities */}
-              <div className="bg-[#0B0F14] border border-[#232A33] rounded-xl p-4">
+              <div className="bg-industrial-black border border-industrial-border rounded-xl p-4">
                 <div className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">
                   Template Capabilities
                 </div>
@@ -909,7 +909,7 @@ export function DeploymentConfiguratorPage() {
                   <div className="flex items-center gap-2">
                     <BarChart3 size={14} className="text-blue-500" />
                     <div>
-                      <div className="text-sm font-medium text-[#E6EDF3]">
+                      <div className="text-sm font-medium text-industrial-text">
                         {template.kpi_packs?.kpi_count ?? 0}
                       </div>
                       <div className="text-xs text-slate-400">KPIs</div>
@@ -918,7 +918,7 @@ export function DeploymentConfiguratorPage() {
                   <div className="flex items-center gap-2">
                     <Package size={14} className="text-green-500" />
                     <div>
-                      <div className="text-sm font-medium text-[#E6EDF3]">
+                      <div className="text-sm font-medium text-industrial-text">
                         {template.industry_asset_libraries?.asset_class_count ??
                           0}
                       </div>
@@ -930,7 +930,7 @@ export function DeploymentConfiguratorPage() {
                   <div className="flex items-center gap-2">
                     <AlertTriangle size={14} className="text-amber-500" />
                     <div>
-                      <div className="text-sm font-medium text-[#E6EDF3]">
+                      <div className="text-sm font-medium text-industrial-text">
                         {template.industry_failure_mode_packs
                           ?.failure_mode_count ?? 0}
                       </div>
@@ -942,7 +942,7 @@ export function DeploymentConfiguratorPage() {
                   <div className="flex items-center gap-2">
                     <Gauge size={14} className="text-purple-500" />
                     <div>
-                      <div className="text-sm font-medium text-[#E6EDF3]">
+                      <div className="text-sm font-medium text-industrial-text">
                         {template.industry_oee_models?.model_name ?? "Standard"}
                       </div>
                       <div className="text-xs text-slate-400">OEE Model</div>
@@ -951,7 +951,7 @@ export function DeploymentConfiguratorPage() {
                   <div className="flex items-center gap-2">
                     <Shield size={14} className="text-slate-400" />
                     <div>
-                      <div className="text-sm font-medium text-[#E6EDF3]">
+                      <div className="text-sm font-medium text-industrial-text">
                         {template.industry_governance_profiles?.profile_name ??
                           "Standard"}
                       </div>
@@ -975,7 +975,7 @@ export function DeploymentConfiguratorPage() {
           className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg transition-colors ${
             currentStep === 0
               ? "text-slate-300 cursor-not-allowed"
-              : "text-slate-400 bg-[#11161D] border border-[#232A33] hover:bg-[#0B0F14]"
+              : "text-slate-400 bg-industrial-graphite border border-industrial-border hover:bg-industrial-black"
           }`}
         >
           <ChevronLeft size={16} />

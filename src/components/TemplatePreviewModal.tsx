@@ -66,10 +66,10 @@ function AccordionSection({
     <div className="border-b border-[#1A2030] last:border-0">
       <button
         onClick={() => setOpen(!open)}
-        className="w-full flex items-center gap-3 px-5 py-3.5 text-left hover:bg-[#0B0F14] transition-colors"
+        className="w-full flex items-center gap-3 px-5 py-3.5 text-left hover:bg-industrial-black transition-colors"
       >
         <span className="text-slate-400">{icon}</span>
-        <span className="flex-1 text-sm font-medium text-[#E6EDF3]">
+        <span className="flex-1 text-sm font-medium text-industrial-text">
           {title}
         </span>
         {open ? (
@@ -218,11 +218,11 @@ export function TemplatePreviewModal({
       <div className="absolute inset-0 bg-black/30" onClick={onClose} />
 
       {/* Slide-over Panel */}
-      <div className="relative w-full max-w-lg bg-[#11161D] shadow-2xl flex flex-col animate-slide-in-right">
+      <div className="relative w-full max-w-lg bg-industrial-graphite shadow-2xl flex flex-col animate-slide-in-right">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-[#232A33] bg-[#11161D]">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-industrial-border bg-industrial-graphite">
           <div>
-            <h2 className="text-lg font-bold text-[#E6EDF3]">
+            <h2 className="text-lg font-bold text-industrial-text">
               {template.name}
             </h2>
             {template.master_template_name && (
@@ -258,17 +258,17 @@ export function TemplatePreviewModal({
                     {template.description}
                   </p>
                   <div className="grid grid-cols-2 gap-3">
-                    <div className="bg-[#0B0F14] rounded-lg p-3">
+                    <div className="bg-industrial-black rounded-lg p-3">
                       <div className="text-xs text-slate-400">
                         Master Family
                       </div>
-                      <div className="text-sm font-medium text-[#E6EDF3] mt-0.5">
+                      <div className="text-sm font-medium text-industrial-text mt-0.5">
                         {template.master_family}
                       </div>
                     </div>
-                    <div className="bg-[#0B0F14] rounded-lg p-3">
+                    <div className="bg-industrial-black rounded-lg p-3">
                       <div className="text-xs text-slate-400">Governance</div>
-                      <div className="text-sm font-medium text-[#E6EDF3] mt-0.5">
+                      <div className="text-sm font-medium text-industrial-text mt-0.5">
                         {template.industry_governance_profiles
                           ?.default_autonomy_mode || "Advisory"}
                       </div>
@@ -276,7 +276,7 @@ export function TemplatePreviewModal({
                   </div>
                   {template.operating_assumptions &&
                     Object.keys(template.operating_assumptions).length > 0 && (
-                      <div className="bg-[#0B0F14] rounded-lg p-3">
+                      <div className="bg-industrial-black rounded-lg p-3">
                         <div className="text-xs text-slate-400 mb-2">
                           Operating Assumptions
                         </div>
@@ -290,7 +290,7 @@ export function TemplatePreviewModal({
                                 <span className="text-slate-400 capitalize">
                                   {key.replace(/_/g, " ")}
                                 </span>
-                                <span className="font-medium text-[#E6EDF3]">
+                                <span className="font-medium text-industrial-text">
                                   {String(value)}
                                 </span>
                               </div>
@@ -319,7 +319,7 @@ export function TemplatePreviewModal({
                             {kpis.map((kpi: any, i: number) => (
                               <div
                                 key={i}
-                                className="flex items-center justify-between text-xs py-1 px-2 rounded bg-[#0B0F14]"
+                                className="flex items-center justify-between text-xs py-1 px-2 rounded-sm bg-industrial-black"
                               >
                                 <span className="text-slate-300">
                                   {kpi.name}
@@ -390,7 +390,7 @@ export function TemplatePreviewModal({
                           <span className="text-slate-300">
                             {item.factor_name || item.name}
                           </span>
-                          <span className="font-medium text-[#E6EDF3]">
+                          <span className="font-medium text-industrial-text">
                             {Math.round((item.weight || 0) * 100)}%
                           </span>
                         </div>
@@ -415,9 +415,9 @@ export function TemplatePreviewModal({
               {/* Governance */}
               <AccordionSection title="Governance" icon={<Shield size={16} />}>
                 <div className="space-y-3">
-                  <div className="bg-[#0B0F14] rounded-lg p-3">
+                  <div className="bg-industrial-black rounded-lg p-3">
                     <div className="text-xs text-slate-400">Autonomy Mode</div>
-                    <div className="text-sm font-medium text-[#E6EDF3] mt-0.5">
+                    <div className="text-sm font-medium text-industrial-text mt-0.5">
                       {template.industry_governance_profiles
                         ?.default_autonomy_mode || "Advisory"}
                     </div>
@@ -427,7 +427,7 @@ export function TemplatePreviewModal({
                       {details.governance.map((rule: any, i: number) => (
                         <div
                           key={i}
-                          className="text-xs py-2 px-3 bg-[#0B0F14] rounded-lg"
+                          className="text-xs py-2 px-3 bg-industrial-black rounded-lg"
                         >
                           <div className="font-medium text-slate-300">
                             {rule.rule_name || rule.name}
@@ -438,7 +438,7 @@ export function TemplatePreviewModal({
                             </div>
                           )}
                           {rule.rule_type && (
-                            <span className="inline-block mt-1 px-1.5 py-0.5 bg-slate-200 text-slate-400 rounded text-xs uppercase">
+                            <span className="inline-block mt-1 px-1.5 py-0.5 bg-slate-200 text-slate-400 rounded-sm text-xs uppercase">
                               {rule.rule_type}
                             </span>
                           )}
@@ -463,7 +463,7 @@ export function TemplatePreviewModal({
                     {details.workTypes.map((wt: any, i: number) => (
                       <div
                         key={i}
-                        className="flex items-center gap-3 text-xs py-2 px-3 bg-[#0B0F14] rounded-lg"
+                        className="flex items-center gap-3 text-xs py-2 px-3 bg-industrial-black rounded-lg"
                       >
                         <span className="flex-1 font-medium text-slate-300">
                           {wt.name}
@@ -475,7 +475,7 @@ export function TemplatePreviewModal({
                           </span>
                         )}
                         {wt.requires_permit && (
-                          <span className="px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded text-xs">
+                          <span className="px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded-sm text-xs">
                             Permit
                           </span>
                         )}
@@ -499,7 +499,7 @@ export function TemplatePreviewModal({
                     {details.failureModes.map((fm: any, i: number) => (
                       <div
                         key={i}
-                        className="flex items-center gap-3 text-xs py-2 px-3 bg-[#0B0F14] rounded-lg"
+                        className="flex items-center gap-3 text-xs py-2 px-3 bg-industrial-black rounded-lg"
                       >
                         <div
                           className={`w-2 h-2 rounded-full ${severityColor(fm.severity)}`}
@@ -589,11 +589,11 @@ export function TemplatePreviewModal({
                           </div>
                         )}
                         {config.target_oee != null && (
-                          <div className="bg-[#0B0F14] rounded-lg p-3 mt-2">
+                          <div className="bg-industrial-black rounded-lg p-3 mt-2">
                             <div className="text-xs text-slate-400">
                               Target OEE
                             </div>
-                            <div className="text-lg font-bold text-[#E6EDF3]">
+                            <div className="text-lg font-bold text-industrial-text">
                               {Math.round(config.target_oee * 100)}%
                             </div>
                           </div>
@@ -622,9 +622,9 @@ export function TemplatePreviewModal({
                     ))}
                   </div>
                 ) : (
-                  <div className="bg-[#0B0F14] rounded-lg p-3">
+                  <div className="bg-industrial-black rounded-lg p-3">
                     <div className="text-xs text-slate-400">Model</div>
-                    <div className="text-sm font-medium text-[#E6EDF3] mt-0.5">
+                    <div className="text-sm font-medium text-industrial-text mt-0.5">
                       {template.industry_oee_models?.model_name || "Standard"}
                     </div>
                   </div>
@@ -640,11 +640,11 @@ export function TemplatePreviewModal({
                   <div className="space-y-3">
                     {details.rollout.map((phase: any, i: number) => (
                       <div key={i} className="relative pl-6">
-                        <div className="absolute left-0 top-1.5 w-3 h-3 bg-blue-500 rounded-full border-2 border-white shadow" />
+                        <div className="absolute left-0 top-1.5 w-3 h-3 bg-blue-500 rounded-full border-2 border-white shadow-sm" />
                         {i < details.rollout.length - 1 && (
                           <div className="absolute left-[5px] top-4 w-0.5 h-full bg-blue-200" />
                         )}
-                        <div className="text-sm font-medium text-[#E6EDF3]">
+                        <div className="text-sm font-medium text-industrial-text">
                           {phase.phase_name || phase.name}
                         </div>
                         {phase.description && (
@@ -671,7 +671,7 @@ export function TemplatePreviewModal({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center gap-3 px-5 py-4 border-t border-[#232A33] bg-[#11161D]">
+        <div className="flex items-center gap-3 px-5 py-4 border-t border-industrial-border bg-industrial-graphite">
           <button
             onClick={onClose}
             className="flex-1 px-4 py-2.5 text-sm font-medium text-slate-400 bg-[#1A2030] hover:bg-slate-200 rounded-lg transition-colors"

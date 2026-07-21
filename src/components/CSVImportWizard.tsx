@@ -174,13 +174,13 @@ export function CSVImportWizard({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-300">
-      <div className="bg-[#11161D] rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden animate-in zoom-in-95 duration-300">
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-in fade-in duration-300">
+      <div className="bg-industrial-graphite rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden animate-in zoom-in-95 duration-300">
         {/* Header */}
-        <div className="bg-gradient-to-r from-teal-600 to-blue-600 p-6 text-white">
+        <div className="bg-linear-to-r from-teal-600 to-blue-600 p-6 text-white">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
-              <div className="w-12 h-12 bg-[#11161D]/20 rounded-xl flex items-center justify-center backdrop-blur-sm">
+              <div className="w-12 h-12 bg-industrial-graphite/20 rounded-xl flex items-center justify-center backdrop-blur-xs">
                 <FileSpreadsheet className="w-6 h-6" />
               </div>
               <div>
@@ -192,7 +192,7 @@ export function CSVImportWizard({
             </div>
             <button
               onClick={onClose}
-              className="w-8 h-8 rounded-lg bg-[#11161D]/20 hover:bg-[#11161D]/30 transition-colors flex items-center justify-center"
+              className="w-8 h-8 rounded-lg bg-industrial-graphite/20 hover:bg-industrial-graphite/30 transition-colors flex items-center justify-center"
             >
               <X className="w-5 h-5" />
             </button>
@@ -205,17 +205,17 @@ export function CSVImportWizard({
               {/* Step 1: Download Template */}
               {!file && (
                 <div className="mb-8">
-                  <h3 className="font-semibold text-[#E6EDF3] mb-4">
+                  <h3 className="font-semibold text-industrial-text mb-4">
                     Step 1: Download Template
                   </h3>
-                  <div className="bg-[#0B0F14] rounded-xl p-6 border border-[#232A33]">
+                  <div className="bg-industrial-black rounded-xl p-6 border border-industrial-border">
                     <p className="text-slate-400 mb-4">
                       Start with our CSV template to ensure your data is
                       formatted correctly.
                     </p>
                     <button
                       onClick={downloadTemplate}
-                      className="flex items-center space-x-2 px-4 py-2 bg-[#11161D] border border-gray-300 rounded-lg hover:bg-[#0B0F14] transition-colors text-sm font-medium"
+                      className="flex items-center space-x-2 px-4 py-2 bg-industrial-graphite border border-gray-300 rounded-lg hover:bg-industrial-black transition-colors text-sm font-medium"
                     >
                       <Download className="w-4 h-4" />
                       <span>Download CSV Template</span>
@@ -224,31 +224,31 @@ export function CSVImportWizard({
                       <p className="font-medium mb-2">Required columns:</p>
                       <ul className="list-disc list-inside space-y-1 text-gray-500">
                         <li>
-                          <code className="bg-white/[0.06] px-1 py-0.5 rounded">
+                          <code className="bg-white/6 px-1 py-0.5 rounded-sm">
                             name
                           </code>{" "}
                           - Asset name
                         </li>
                         <li>
-                          <code className="bg-white/[0.06] px-1 py-0.5 rounded">
+                          <code className="bg-white/6 px-1 py-0.5 rounded-sm">
                             type
                           </code>{" "}
                           - Asset type (e.g., Pump, Motor)
                         </li>
                         <li>
-                          <code className="bg-white/[0.06] px-1 py-0.5 rounded">
+                          <code className="bg-white/6 px-1 py-0.5 rounded-sm">
                             location
                           </code>{" "}
                           - Physical location (optional)
                         </li>
                         <li>
-                          <code className="bg-white/[0.06] px-1 py-0.5 rounded">
+                          <code className="bg-white/6 px-1 py-0.5 rounded-sm">
                             criticality
                           </code>{" "}
                           - low, medium, high, critical (optional)
                         </li>
                         <li>
-                          <code className="bg-white/[0.06] px-1 py-0.5 rounded">
+                          <code className="bg-white/6 px-1 py-0.5 rounded-sm">
                             status
                           </code>{" "}
                           - operational, maintenance, offline (optional)
@@ -261,7 +261,7 @@ export function CSVImportWizard({
 
               {/* Step 2: Upload File */}
               <div>
-                <h3 className="font-semibold text-[#E6EDF3] mb-4">
+                <h3 className="font-semibold text-industrial-text mb-4">
                   {file ? "Step 3: Review & Import" : "Step 2: Upload CSV File"}
                 </h3>
 
@@ -282,7 +282,7 @@ export function CSVImportWizard({
                         dragActive ? "text-teal-600" : "text-gray-400"
                       }`}
                     />
-                    <p className="text-lg font-medium text-[#E6EDF3] mb-2">
+                    <p className="text-lg font-medium text-industrial-text mb-2">
                       {dragActive
                         ? "Drop your CSV file here"
                         : "Drag and drop your CSV file"}
@@ -306,7 +306,7 @@ export function CSVImportWizard({
                       <div className="flex items-center space-x-3">
                         <FileSpreadsheet className="w-8 h-8 text-teal-600" />
                         <div>
-                          <p className="font-medium text-[#E6EDF3]">
+                          <p className="font-medium text-industrial-text">
                             {file.name}
                           </p>
                           <p className="text-sm text-slate-400">
@@ -331,9 +331,9 @@ export function CSVImportWizard({
                         <p className="text-sm font-medium text-slate-300 mb-3">
                           Preview (first 5 rows):
                         </p>
-                        <div className="overflow-x-auto border border-[#232A33] rounded-lg">
+                        <div className="overflow-x-auto border border-industrial-border rounded-lg">
                           <table className="min-w-full divide-y divide-gray-200">
-                            <thead className="bg-[#0B0F14]">
+                            <thead className="bg-industrial-black">
                               <tr>
                                 {Object.keys(preview[0]).map((key) => (
                                   <th
@@ -345,13 +345,13 @@ export function CSVImportWizard({
                                 ))}
                               </tr>
                             </thead>
-                            <tbody className="bg-[#11161D] divide-y divide-gray-200">
+                            <tbody className="bg-industrial-graphite divide-y divide-gray-200">
                               {preview.map((row, idx) => (
                                 <tr key={idx}>
                                   {Object.values(row).map((val: any, i) => (
                                     <td
                                       key={i}
-                                      className="px-4 py-2 text-sm text-[#E6EDF3]"
+                                      className="px-4 py-2 text-sm text-industrial-text"
                                     >
                                       {val}
                                     </td>
@@ -371,7 +371,7 @@ export function CSVImportWizard({
                           setFile(null);
                           setPreview([]);
                         }}
-                        className="px-6 py-3 border border-gray-300 text-slate-300 rounded-lg hover:bg-[#0B0F14] transition-colors font-medium"
+                        className="px-6 py-3 border border-gray-300 text-slate-300 rounded-lg hover:bg-industrial-black transition-colors font-medium"
                       >
                         Cancel
                       </button>
@@ -444,7 +444,7 @@ export function CSVImportWizard({
                     <p className="text-sm font-medium text-yellow-900 mb-2">
                       Errors:
                     </p>
-                    <div className="bg-[#11161D] rounded-lg p-4 max-h-48 overflow-y-auto">
+                    <div className="bg-industrial-graphite rounded-lg p-4 max-h-48 overflow-y-auto">
                       <ul className="space-y-1 text-sm text-yellow-800">
                         {result.errors.map((error, idx) => (
                           <li key={idx}>• {error}</li>
@@ -462,7 +462,7 @@ export function CSVImportWizard({
                     setFile(null);
                     setPreview([]);
                   }}
-                  className="px-6 py-3 border border-gray-300 text-slate-300 rounded-lg hover:bg-[#0B0F14] transition-colors font-medium"
+                  className="px-6 py-3 border border-gray-300 text-slate-300 rounded-lg hover:bg-industrial-black transition-colors font-medium"
                 >
                   Import More
                 </button>

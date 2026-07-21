@@ -38,7 +38,7 @@ export function OpenClawEnterprisePanel() {
   return (
     <div className="p-6 space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-[#E6EDF3]">
+        <h1 className="text-2xl font-bold text-industrial-text">
           OpenClaw Enterprise
         </h1>
         <p className="text-slate-400 mt-1">
@@ -47,7 +47,7 @@ export function OpenClawEnterprisePanel() {
       </div>
 
       <div className="grid grid-cols-3 gap-4">
-        <div className="bg-[#11161D] border rounded-xl p-4">
+        <div className="bg-industrial-graphite border rounded-xl p-4">
           <h2 className="font-semibold">Notification Endpoints</h2>
           <div className="mt-3 space-y-2 text-sm">
             {endpoints.map((e) => (
@@ -66,7 +66,7 @@ export function OpenClawEnterprisePanel() {
           </div>
         </div>
 
-        <div className="bg-[#11161D] border rounded-xl p-4">
+        <div className="bg-industrial-graphite border rounded-xl p-4">
           <h2 className="font-semibold">Audit Log</h2>
           <div className="mt-3 space-y-2 text-sm">
             {audit.map((a) => (
@@ -83,7 +83,7 @@ export function OpenClawEnterprisePanel() {
           </div>
         </div>
 
-        <div className="bg-[#11161D] border rounded-xl p-4">
+        <div className="bg-industrial-graphite border rounded-xl p-4">
           <h2 className="font-semibold">Health Checks</h2>
           <div className="mt-3 space-y-2 text-sm">
             {health.map((h) => (

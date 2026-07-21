@@ -227,7 +227,7 @@ export function TrustExplainability() {
           return (
             <div
               key={m.label}
-              className="bg-[#0D1520] border border-white/[0.06] rounded-xl p-4"
+              className="bg-[#0D1520] border border-white/6 rounded-xl p-4"
             >
               <div className="text-xs text-slate-400 mb-1">{m.label}</div>
               <div className={`text-xl font-black ${c.text}`}>{m.value}</div>
@@ -270,7 +270,7 @@ export function TrustExplainability() {
           return (
             <div
               key={p.title}
-              className="bg-[#0D1520] border border-white/[0.06] rounded-2xl p-5"
+              className="bg-[#0D1520] border border-white/6 rounded-2xl p-5"
             >
               <div className={`p-2.5 rounded-xl ${c.bg} w-fit mb-3`}>
                 <Icon className={`w-5 h-5 ${c.text}`} />
@@ -285,7 +285,7 @@ export function TrustExplainability() {
       </div>
 
       {/* Decision Trace Table — live decisions log */}
-      <div className="bg-[#0D1520] border border-white/[0.06] rounded-2xl p-5">
+      <div className="bg-[#0D1520] border border-white/6 rounded-2xl p-5">
         <h3 className="text-sm font-semibold text-slate-200 mb-4 flex items-center gap-2">
           <Brain className="w-4 h-4 text-teal-400" /> Decision Traces
         </h3>
@@ -295,7 +295,7 @@ export function TrustExplainability() {
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
-                <tr className="border-b border-white/[0.06]">
+                <tr className="border-b border-white/6">
                   <th className="text-left py-3 px-3 text-slate-400 font-semibold">
                     Decision
                   </th>
@@ -329,7 +329,7 @@ export function TrustExplainability() {
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     transition={{ delay: i * 0.05 }}
-                    className="border-b border-white/[0.04] hover:bg-white/[0.02] transition-colors"
+                    className="border-b border-white/4 hover:bg-white/2 transition-colors"
                   >
                     <td className="py-3 px-3 text-slate-200 font-medium">
                       {d.action_taken ?? d.decision_type ?? "—"}
@@ -359,7 +359,7 @@ export function TrustExplainability() {
                     </td>
                     <td className="py-3 px-2 text-center">
                       <span
-                        className={`px-2 py-0.5 rounded-full text-xs font-bold capitalize ${approvalColors[d.approval_status] ?? "text-slate-300 bg-white/[0.05]"}`}
+                        className={`px-2 py-0.5 rounded-full text-xs font-bold capitalize ${approvalColors[d.approval_status] ?? "text-slate-300 bg-white/5"}`}
                       >
                         {d.approval_status}
                       </span>
@@ -376,8 +376,8 @@ export function TrustExplainability() {
       </div>
 
       {/* Knowledge-base grounding — honest state */}
-      <div className="bg-[#0D1520] border border-white/[0.06] rounded-xl p-4 flex items-start gap-3">
-        <BookOpen className="w-4 h-4 text-blue-400 flex-shrink-0 mt-0.5" />
+      <div className="bg-[#0D1520] border border-white/6 rounded-xl p-4 flex items-start gap-3">
+        <BookOpen className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
         <div>
           <div className="text-sm font-medium text-blue-400">
             Knowledge-Base Grounding
@@ -404,7 +404,7 @@ export function TrustExplainability() {
       </div>
 
       <div className="bg-[#0D1520] border border-teal-500/10 rounded-xl p-4 flex items-start gap-3">
-        <Shield className="w-4 h-4 text-teal-400 flex-shrink-0 mt-0.5" />
+        <Shield className="w-4 h-4 text-teal-400 shrink-0 mt-0.5" />
         <div>
           <div className="text-sm font-bold text-teal-400">
             Enterprise-Grade Trust

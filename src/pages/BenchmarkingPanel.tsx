@@ -190,14 +190,14 @@ export function BenchmarkingPanel() {
       </div>
 
       {/* Fleet Benchmark Table */}
-      <div className="bg-[#0D1520] border border-white/[0.06] rounded-2xl p-5">
+      <div className="bg-[#0D1520] border border-white/6 rounded-2xl p-5">
         <h3 className="text-sm font-semibold text-slate-200 mb-4 flex items-center gap-2">
           <Activity className="w-4 h-4 text-teal-400" /> Asset vs Fleet Average
         </h3>
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead>
-              <tr className="border-b border-white/[0.06]">
+              <tr className="border-b border-white/6">
                 <th className="text-left py-3 px-3 text-slate-400 font-semibold">
                   Asset
                 </th>
@@ -233,7 +233,7 @@ export function BenchmarkingPanel() {
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     transition={{ delay: i * 0.04 }}
-                    className="border-b border-white/[0.04] hover:bg-white/[0.02] transition-colors"
+                    className="border-b border-white/4 hover:bg-white/2 transition-colors"
                   >
                     <td className="py-3 px-3 text-slate-200 font-medium">
                       {r.asset.name}
@@ -255,7 +255,7 @@ export function BenchmarkingPanel() {
                     </td>
                     <td className="py-3 px-3 text-center">
                       <div className="flex items-center gap-2 justify-center">
-                        <div className="w-16 h-1.5 bg-white/[0.05] rounded-full overflow-hidden">
+                        <div className="w-16 h-1.5 bg-white/5 rounded-full overflow-hidden">
                           <div
                             className={`h-full rounded-full ${r.percentile >= 70 ? "bg-teal-500" : r.percentile >= 40 ? "bg-amber-500" : "bg-red-500"}`}
                             style={{ width: `${Math.max(r.percentile, 4)}%` }}
@@ -298,7 +298,7 @@ export function BenchmarkingPanel() {
       </div>
 
       {/* Fleet Insights (computed from live data) */}
-      <div className="bg-[#0D1520] border border-white/[0.06] rounded-2xl p-5">
+      <div className="bg-[#0D1520] border border-white/6 rounded-2xl p-5">
         <h3 className="text-sm font-semibold text-slate-200 mb-4 flex items-center gap-2">
           <TrendingUp className="w-4 h-4 text-teal-400" /> Fleet Insights
         </h3>
@@ -312,10 +312,10 @@ export function BenchmarkingPanel() {
                 initial={{ opacity: 0, x: -5 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: i * 0.06 }}
-                className="flex items-start gap-2 p-3 rounded-xl bg-white/[0.02] border border-white/[0.04]"
+                className="flex items-start gap-2 p-3 rounded-xl bg-white/2 border border-white/4"
               >
                 <div
-                  className={`w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0 ${
+                  className={`w-1.5 h-1.5 rounded-full mt-1.5 shrink-0 ${
                     insight.type === "positive"
                       ? "bg-teal-400"
                       : insight.type === "negative"
@@ -333,8 +333,8 @@ export function BenchmarkingPanel() {
       </div>
 
       {/* External benchmarks — honest connect state */}
-      <div className="bg-[#0D1520] border border-white/[0.06] rounded-xl p-4 flex items-start gap-3">
-        <Plug className="w-4 h-4 text-blue-400 flex-shrink-0 mt-0.5" />
+      <div className="bg-[#0D1520] border border-white/6 rounded-xl p-4 flex items-start gap-3">
+        <Plug className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
         <div>
           <div className="text-sm font-medium text-blue-400">
             External Industry Benchmarks

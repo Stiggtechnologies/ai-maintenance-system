@@ -38,18 +38,20 @@ function StatCard({
     good: "border-emerald-500/20",
     warning: "border-amber-500/20",
     critical: "border-red-500/20",
-    neutral: "border-white/[0.06]",
+    neutral: "border-white/6",
   };
 
   return (
     <div
-      className={`glass border rounded-xl p-6 transition-all duration-300 hover:border-white/[0.1] ${statusColors[status || "neutral"]}`}
+      className={`glass border rounded-xl p-6 transition-all duration-300 hover:border-white/10 ${statusColors[status || "neutral"]}`}
     >
       <div className="flex items-start justify-between">
         <div className="flex-1">
           <div className="text-sm font-medium text-slate-400 mb-1">{title}</div>
           <div className="flex items-baseline gap-2">
-            <div className="text-3xl font-bold text-[#E6EDF3]">{value}</div>
+            <div className="text-3xl font-bold text-industrial-text">
+              {value}
+            </div>
             {unit && <div className="text-sm text-slate-400">{unit}</div>}
           </div>
         </div>
@@ -278,7 +280,7 @@ export function OverviewDashboard() {
     return (
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-bold text-[#E6EDF3]">
+          <h1 className="text-2xl font-bold text-industrial-text">
             Welcome to SyncAI
           </h1>
           <p className="text-slate-400 mt-1">
@@ -287,18 +289,20 @@ export function OverviewDashboard() {
         </div>
 
         <div className="glass-strong border border-teal-500/20 rounded-xl p-8 glow-teal-sm">
-          <h2 className="text-xl font-bold text-[#E6EDF3] mb-2">Get Started</h2>
+          <h2 className="text-xl font-bold text-industrial-text mb-2">
+            Get Started
+          </h2>
           <p className="text-slate-400 mb-6">
             Set up your organization to start using SyncAI. Here's what to do
             first:
           </p>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="glass rounded-xl p-6 border border-white/[0.06]">
+            <div className="glass rounded-xl p-6 border border-white/6">
               <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center mb-3">
                 <Package size={20} className="text-blue-600" />
               </div>
-              <h3 className="font-semibold text-[#E6EDF3] mb-1">
+              <h3 className="font-semibold text-industrial-text mb-1">
                 1. Register Assets
               </h3>
               <p className="text-sm text-slate-400 mb-3">
@@ -312,11 +316,11 @@ export function OverviewDashboard() {
               </a>
             </div>
 
-            <div className="glass rounded-xl p-6 border border-white/[0.06]">
+            <div className="glass rounded-xl p-6 border border-white/6">
               <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center mb-3">
                 <LayoutDashboard size={20} className="text-green-600" />
               </div>
-              <h3 className="font-semibold text-[#E6EDF3] mb-1">
+              <h3 className="font-semibold text-industrial-text mb-1">
                 2. Choose Template
               </h3>
               <p className="text-sm text-slate-400 mb-3">
@@ -331,11 +335,11 @@ export function OverviewDashboard() {
               </a>
             </div>
 
-            <div className="glass rounded-xl p-6 border border-white/[0.06]">
+            <div className="glass rounded-xl p-6 border border-white/6">
               <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center mb-3">
                 <Wrench size={20} className="text-purple-600" />
               </div>
-              <h3 className="font-semibold text-[#E6EDF3] mb-1">
+              <h3 className="font-semibold text-industrial-text mb-1">
                 3. Create Work Orders
               </h3>
               <p className="text-sm text-slate-400 mb-3">
@@ -352,8 +356,8 @@ export function OverviewDashboard() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="glass border border-white/[0.06] rounded-xl p-6">
-            <h3 className="font-semibold text-[#E6EDF3] mb-3">
+          <div className="glass border border-white/6 rounded-xl p-6">
+            <h3 className="font-semibold text-industrial-text mb-3">
               Platform Status
             </h3>
             <div className="space-y-3">
@@ -382,33 +386,30 @@ export function OverviewDashboard() {
             </div>
           </div>
 
-          <div className="glass border border-white/[0.06] rounded-xl p-6">
-            <h3 className="font-semibold text-[#E6EDF3] mb-3">
+          <div className="glass border border-white/6 rounded-xl p-6">
+            <h3 className="font-semibold text-industrial-text mb-3">
               What SyncAI Does
             </h3>
             <ul className="space-y-2 text-sm text-slate-400">
               <li className="flex items-start gap-2">
-                <Zap size={14} className="text-blue-500 mt-0.5 flex-shrink-0" />
+                <Zap size={14} className="text-blue-500 mt-0.5 shrink-0" />
                 AI-powered asset health monitoring and anomaly detection
               </li>
               <li className="flex items-start gap-2">
-                <Shield
-                  size={14}
-                  className="text-green-500 mt-0.5 flex-shrink-0"
-                />
+                <Shield size={14} className="text-green-500 mt-0.5 shrink-0" />
                 Governed autonomous decision-making with approval workflows
               </li>
               <li className="flex items-start gap-2">
                 <Activity
                   size={14}
-                  className="text-purple-500 mt-0.5 flex-shrink-0"
+                  className="text-purple-500 mt-0.5 shrink-0"
                 />
                 OEE tracking with industry-specific loss categorization
               </li>
               <li className="flex items-start gap-2">
                 <TrendingUp
                   size={14}
-                  className="text-orange-500 mt-0.5 flex-shrink-0"
+                  className="text-orange-500 mt-0.5 shrink-0"
                 />
                 KPI dashboards aligned to ISO 55000 asset management standards
               </li>
@@ -505,21 +506,21 @@ export function OverviewDashboard() {
           title="Total Assets"
           value={stats.assetCount}
           icon={Package}
-          iconColor="bg-gradient-to-br from-blue-500 to-cyan-500"
+          iconColor="bg-linear-to-br from-blue-500 to-cyan-500"
           status="neutral"
         />
         <StatCard
           title="Open Work Orders"
           value={stats.openWorkOrders}
           icon={Wrench}
-          iconColor="bg-gradient-to-br from-orange-500 to-amber-500"
+          iconColor="bg-linear-to-br from-orange-500 to-amber-500"
           status={stats.openWorkOrders > 10 ? "warning" : "neutral"}
         />
         <StatCard
           title="Unresolved Alerts"
           value={stats.unresolvedAlerts}
           icon={AlertTriangle}
-          iconColor="bg-gradient-to-br from-red-500 to-rose-500"
+          iconColor="bg-linear-to-br from-red-500 to-rose-500"
           status={
             stats.unresolvedAlerts > 5
               ? "critical"
@@ -532,17 +533,17 @@ export function OverviewDashboard() {
           title="AI Decisions"
           value={stats.decisionCount}
           icon={Zap}
-          iconColor="bg-gradient-to-br from-violet-500 to-purple-500"
+          iconColor="bg-linear-to-br from-violet-500 to-purple-500"
           status="neutral"
         />
       </div>
 
       {/* Recent Alerts + Recent Work Orders */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="glass border border-white/[0.06] rounded-xl p-6">
+        <div className="glass border border-white/6 rounded-xl p-6">
           <div className="flex items-center gap-2 mb-4">
             <AlertTriangle size={20} className="text-slate-400" />
-            <h2 className="text-lg font-semibold text-[#E6EDF3]">
+            <h2 className="text-lg font-semibold text-industrial-text">
               Recent Alerts
             </h2>
           </div>
@@ -551,10 +552,10 @@ export function OverviewDashboard() {
               {recentAlerts.map((alert) => (
                 <div
                   key={alert.id}
-                  className="flex items-center justify-between p-3 bg-[#0B0F14] rounded-lg"
+                  className="flex items-center justify-between p-3 bg-industrial-black rounded-lg"
                 >
                   <div className="flex-1">
-                    <div className="text-sm font-medium text-[#E6EDF3]">
+                    <div className="text-sm font-medium text-industrial-text">
                       {alert.title}
                     </div>
                     <div className="text-xs text-slate-400 mt-0.5">
@@ -574,10 +575,10 @@ export function OverviewDashboard() {
           )}
         </div>
 
-        <div className="glass border border-white/[0.06] rounded-xl p-6">
+        <div className="glass border border-white/6 rounded-xl p-6">
           <div className="flex items-center gap-2 mb-4">
             <Wrench size={20} className="text-slate-400" />
-            <h2 className="text-lg font-semibold text-[#E6EDF3]">
+            <h2 className="text-lg font-semibold text-industrial-text">
               Recent Work Orders
             </h2>
           </div>
@@ -586,10 +587,10 @@ export function OverviewDashboard() {
               {recentWorkOrders.map((wo) => (
                 <div
                   key={wo.id}
-                  className="flex items-center justify-between p-3 bg-[#0B0F14] rounded-lg"
+                  className="flex items-center justify-between p-3 bg-industrial-black rounded-lg"
                 >
                   <div className="flex-1">
-                    <div className="text-sm font-medium text-[#E6EDF3]">
+                    <div className="text-sm font-medium text-industrial-text">
                       {wo.title}
                     </div>
                     <div className="text-xs text-slate-400 mt-0.5">
