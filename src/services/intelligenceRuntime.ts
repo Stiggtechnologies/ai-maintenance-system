@@ -1,33 +1,17 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { supabase } from "../lib/supabase";
+
 /**
- * SyncAI Intelligence Runtime (SIR)
- *
- * Client-side service for communicating with the SIR orchestrator edge function.
- * This module replaces the former OpenClaw control service.
+ * Authenticated client for the SyncAI Intelligence Runtime control surface.
+ * The caller's current Supabase session is forwarded automatically so the
+ * edge function can derive the authoritative user and organization.
  */
 export async function sirRequest(action: string, data: Record<string, any>) {
-  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-  const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-  if (!supabaseUrl || !supabaseKey) {
-    throw new Error("Supabase configuration missing");
-  }
-
-  const response = await fetch(`${supabaseUrl}/functions/v1/sir-orchestrator`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${supabaseKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ action, data }),
+  const { data: result, error } = await supabase.functions.invoke("sir-orchestrator", {
+    body: { action, data },
   });
-
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`SIR request failed: ${response.status} ${text}`);
-  }
-
-  return response.json();
+  if (error) throw new Error(`SIR request failed: ${error.message}`);
+  return result;
 }
 
 export const SIR = {

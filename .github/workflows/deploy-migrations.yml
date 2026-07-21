@@ -1,8 +1,7 @@
 name: Deploy migrations
 
-# Pushes the migration chain to the cloud SyncAI project when migration files
-# land on main. Requires the SUPABASE_ACCESS_TOKEN repo secret.
-# The project ref targets the staging/demo project — NOT the legacy Bolt DB.
+# Pushes the deterministic migration chain and governed production edge functions
+# to the hardened SyncAI cloud project after protected changes land on main.
 
 on:
   push:
@@ -11,6 +10,7 @@ on:
       - "supabase/migrations/**"
       - "supabase/functions/agent-loop-enrich/**"
       - "supabase/functions/ai-agent-processor/**"
+      - "supabase/functions/autonomous-orchestrator/**"
       - "supabase/functions/onboarding-enrich/**"
   workflow_dispatch:
 
@@ -23,7 +23,7 @@ env:
 
 jobs:
   push-migrations:
-    name: supabase db push
+    name: supabase db push and edge deploy
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -46,6 +46,7 @@ jobs:
         run: |
           supabase functions deploy agent-loop-enrich --no-verify-jwt
           supabase functions deploy ai-agent-processor
+          supabase functions deploy autonomous-orchestrator
           supabase functions deploy onboarding-enrich --no-verify-jwt
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
