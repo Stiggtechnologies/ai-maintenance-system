@@ -3,6 +3,7 @@ import type { AssetClassTemplate } from "./types";
 
 export * from "./types";
 export * from "./mining-library";
+export * from "./compiler";
 
 export interface LibraryValidationIssue {
   path: string;
