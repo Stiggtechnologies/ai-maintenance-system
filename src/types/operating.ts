@@ -48,6 +48,7 @@ export interface RecommendationRow {
   organization_id: string;
   asset_id: string | null;
   agent_id: string | null;
+  source_finding_id?: string | null;
   title: string;
   issue: string | null;
   action: string | null;
