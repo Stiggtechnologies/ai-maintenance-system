@@ -126,6 +126,15 @@ export function createInspectionRecommendationPackage(
   if (finding.disposition === "rejected") {
     throw new Error("Rejected inspection findings cannot generate recommendations.");
   }
+  if (finding.evidenceArtifactIds.length === 0) {
+    throw new Error("Inspection recommendations require at least one evidence artifact.");
+  }
+  if (
+    finding.disposition !== "engineer_confirmed" &&
+    finding.verificationRequired.length === 0
+  ) {
+    throw new Error("Unconfirmed inspection findings require an independent verification path.");
+  }
 
   const component = template.components.find((item) => item.code === finding.componentCode);
   if (!component) throw new Error(`Unknown canonical component ${finding.componentCode}.`);
@@ -190,7 +199,7 @@ export function createInspectionRecommendationPackage(
       reason: `Inspection finding ${finding.id} requires a human decision before downstream work action.`,
       consequence_of_wrong:
         "A false positive may create unnecessary inspection or work; a false negative may leave a developing failure or safety exposure unmitigated.",
-      required_validation: requiredValidation || "Qualified human review and site-approved validation are required.",
+      required_validation: requiredValidation,
     },
     evidenceItems: [toEvidenceItemDraft(finding)],
     autonomousExecutionAllowed: false,
