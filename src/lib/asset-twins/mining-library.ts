@@ -1,3 +1,4 @@
+import { extendedElectricRopeShovelComponents } from "./electric-rope-shovel-components";
 import type { AssetClassTemplate, FailureModeTemplate } from "./types";
 
 const draftFailure = (
@@ -23,7 +24,7 @@ const draftFailure = (
 });
 
 export const electricRopeShovelTemplate: AssetClassTemplate = {
-  schemaVersion: "0.1.0",
+  schemaVersion: "0.2.0",
   code: "MIN-LOAD-ERS",
   name: "Electric rope shovel",
   family: "mobile_mining_loading",
@@ -162,6 +163,7 @@ export const electricRopeShovelTemplate: AssetClassTemplate = {
         ),
       ],
     },
+    ...extendedElectricRopeShovelComponents,
   ],
 };
 
