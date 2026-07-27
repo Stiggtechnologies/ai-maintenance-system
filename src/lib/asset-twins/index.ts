@@ -5,6 +5,8 @@ export * from "./types";
 export * from "./mining-library";
 export * from "./oem-overlays";
 export * from "./compiler";
+export * from "./inspection-contracts";
+export * from "./komatsu-4100xpc-inspections";
 
 export interface LibraryValidationIssue {
   path: string;
