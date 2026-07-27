@@ -7,6 +7,7 @@ export * from "./oem-overlays";
 export * from "./compiler";
 export * from "./inspection-contracts";
 export * from "./komatsu-4100xpc-inspections";
+export * from "./inspection-findings";
 
 export interface LibraryValidationIssue {
   path: string;
