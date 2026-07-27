@@ -3,6 +3,7 @@ import type { AssetClassTemplate } from "./types";
 
 export * from "./types";
 export * from "./mining-library";
+export * from "./oem-overlays";
 export * from "./compiler";
 
 export interface LibraryValidationIssue {
