@@ -9,6 +9,8 @@ export * from "./inspection-contracts";
 export * from "./komatsu-4100xpc-inspections";
 export * from "./inspection-findings";
 export * from "./inspection-recommendations";
+export * from "./engineering-dna";
+export * from "./electric-rope-shovel-dna";
 
 export interface LibraryValidationIssue {
   path: string;
