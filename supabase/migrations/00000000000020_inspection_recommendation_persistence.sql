@@ -28,13 +28,14 @@ as $$
 declare
   v_org uuid := app_current_org();
   v_asset_id uuid;
+  v_agent_id uuid;
   v_recommendation_id uuid;
   v_approval_id uuid;
   v_evidence_id uuid;
   v_evidence_ids uuid[] := array[]::uuid[];
   v_item jsonb;
   v_confidence numeric;
-  v_existing boolean := false;
+  v_data_quality text;
 begin
   if v_org is null then
     raise exception 'Not signed in to an organization';
@@ -56,8 +57,9 @@ begin
 
   begin
     v_asset_id := nullif(p_recommendation ->> 'asset_id', '')::uuid;
+    v_agent_id := nullif(p_recommendation ->> 'agent_id', '')::uuid;
   exception when invalid_text_representation then
-    raise exception 'Recommendation asset ID must be a valid UUID';
+    raise exception 'Recommendation asset and agent IDs must be valid UUIDs';
   end;
 
   if v_asset_id is null or not exists (
@@ -67,11 +69,28 @@ begin
     raise exception 'Asset not found in current organization';
   end if;
 
+  if v_agent_id is not null and not exists (
+    select 1 from ai_agents
+    where id = v_agent_id and organization_id = v_org
+  ) then
+    raise exception 'Agent not found in current organization';
+  end if;
+
+  if nullif(btrim(p_recommendation ->> 'title'), '') is null
+     or nullif(btrim(p_recommendation ->> 'issue'), '') is null
+     or nullif(btrim(p_recommendation ->> 'action'), '') is null then
+    raise exception 'Recommendation title, issue, and action are required';
+  end if;
   if coalesce(p_recommendation ->> 'status', '') <> 'pending' then
     raise exception 'Inspection recommendations must start pending';
   end if;
   if coalesce(p_approval ->> 'status', '') <> 'required' then
     raise exception 'Inspection recommendations require an approval record';
+  end if;
+  if nullif(btrim(p_approval ->> 'reason'), '') is null
+     or nullif(btrim(p_approval ->> 'consequence_of_wrong'), '') is null
+     or nullif(btrim(p_approval ->> 'required_validation'), '') is null then
+    raise exception 'Approval reason, consequence, and required validation are required';
   end if;
   if nullif(p_recommendation ->> 'financial_impact', '') is not null then
     raise exception 'Financial impact requires separate site evidence';
@@ -102,8 +121,6 @@ begin
     and source_finding_id = p_source_finding_id;
 
   if found then
-    v_existing := true;
-
     select id into v_approval_id
     from approvals
     where organization_id = v_org
@@ -152,10 +169,7 @@ begin
   ) values (
     v_org,
     v_asset_id,
-    case
-      when nullif(p_recommendation ->> 'agent_id', '') is null then null
-      else (p_recommendation ->> 'agent_id')::uuid
-    end,
+    v_agent_id,
     p_source_finding_id,
     p_recommendation ->> 'title',
     p_recommendation ->> 'issue',
@@ -206,12 +220,17 @@ begin
     if coalesce(v_item ->> 'source_system', '') <> 'inspection_intelligence' then
       raise exception 'Inspection evidence must use the inspection_intelligence source system';
     end if;
-    if nullif(v_item ->> 'evidence_type', '') is null
-       or nullif(v_item ->> 'description', '') is null then
+    if nullif(btrim(v_item ->> 'evidence_type'), '') is null
+       or nullif(btrim(v_item ->> 'description'), '') is null then
       raise exception 'Evidence type and description are required';
     end if;
     if nullif(v_item ->> 'asset_id', '')::uuid <> v_asset_id then
       raise exception 'Evidence asset must match recommendation asset';
+    end if;
+
+    v_data_quality := coalesce(nullif(v_item ->> 'data_quality', ''), 'unverified');
+    if v_data_quality not in ('unverified', 'reviewed', 'validated') then
+      raise exception 'Unsupported inspection evidence data quality';
     end if;
 
     v_confidence := (v_item ->> 'confidence_contribution')::numeric;
@@ -243,7 +262,7 @@ begin
       v_item ->> 'evidence_type',
       v_item ->> 'description',
       v_confidence::int,
-      coalesce(nullif(v_item ->> 'data_quality', ''), 'unverified'),
+      v_data_quality,
       coalesce(nullif(v_item ->> 'related_asset', ''), v_asset_id::text),
       coalesce(nullif(v_item ->> 'ts', '')::timestamptz, now())
     )
@@ -256,7 +275,7 @@ begin
     'recommendation_id', v_recommendation_id,
     'approval_id', v_approval_id,
     'evidence_item_ids', to_jsonb(v_evidence_ids),
-    'created', not v_existing
+    'created', true
   );
 end
 $$;
