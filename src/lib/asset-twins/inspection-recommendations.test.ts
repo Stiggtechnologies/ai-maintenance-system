@@ -111,4 +111,20 @@ describe("inspection recommendation bridge", () => {
       ),
     ).toThrow("Rejected inspection findings");
   });
+
+  it("refuses unconfirmed findings without evidence or independent verification", () => {
+    expect(() =>
+      createInspectionRecommendationPackage(
+        { ...finding, evidenceArtifactIds: [] },
+        electricRopeShovelTemplate,
+      ),
+    ).toThrow("at least one evidence artifact");
+
+    expect(() =>
+      createInspectionRecommendationPackage(
+        { ...finding, verificationRequired: [] },
+        electricRopeShovelTemplate,
+      ),
+    ).toThrow("independent verification path");
+  });
 });
