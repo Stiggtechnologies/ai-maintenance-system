@@ -1,4 +1,5 @@
 import { miningAssetClassLibrary } from "./mining-library";
+import { ultraClassHaulTruckTemplate } from "./ultra-class-haul-truck";
 import type { AssetClassTemplate } from "./types";
 
 export * from "./types";
@@ -11,6 +12,9 @@ export * from "./inspection-findings";
 export * from "./inspection-recommendations";
 export * from "./engineering-dna";
 export * from "./electric-rope-shovel-dna";
+export * from "./ultra-class-haul-truck";
+export * from "./ultra-class-haul-truck-inspections";
+export * from "./ultra-class-haul-truck-dna";
 
 export interface LibraryValidationIssue {
   path: string;
@@ -72,5 +76,6 @@ export function validateAssetClassTemplate(
 }
 
 export function getAssetClassTemplate(code: string): AssetClassTemplate | undefined {
+  if (code === ultraClassHaulTruckTemplate.code) return ultraClassHaulTruckTemplate;
   return miningAssetClassLibrary.find((template) => template.code === code);
 }

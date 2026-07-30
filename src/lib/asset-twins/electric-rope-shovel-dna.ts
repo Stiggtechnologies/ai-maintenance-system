@@ -1,6 +1,7 @@
 import { electricRopeShovelTemplate } from "./mining-library";
 import { komatsu4100XpcInspectionZones } from "./komatsu-4100xpc-inspections";
 import type { EngineeringDnaProfile } from "./engineering-dna";
+import { ultraClassHaulTruckEngineeringDna } from "./ultra-class-haul-truck-dna";
 
 const unique = (values: string[]): string[] => [...new Set(values)];
 
@@ -46,7 +47,10 @@ export const electricRopeShovelEngineeringDna: EngineeringDnaProfile = {
   },
 };
 
-export const engineeringDnaLibrary: EngineeringDnaProfile[] = [electricRopeShovelEngineeringDna];
+export const engineeringDnaLibrary: EngineeringDnaProfile[] = [
+  electricRopeShovelEngineeringDna,
+  ultraClassHaulTruckEngineeringDna,
+];
 
 export function getEngineeringDnaProfile(code: string): EngineeringDnaProfile | undefined {
   return engineeringDnaLibrary.find((profile) => profile.code === code);
