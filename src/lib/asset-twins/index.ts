@@ -15,6 +15,8 @@ export * from "./electric-rope-shovel-dna";
 export * from "./ultra-class-haul-truck";
 export * from "./ultra-class-haul-truck-inspections";
 export * from "./ultra-class-haul-truck-dna";
+export * from "./core-engineering-standards";
+export * from "./core-engineering-standards-library";
 
 export interface LibraryValidationIssue {
   path: string;
