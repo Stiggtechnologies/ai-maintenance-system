@@ -1,4 +1,5 @@
 import { blastholeDrillEngineeringDna } from "./blasthole-drill-dna";
+import { centrifugalPumpEngineeringDna } from "./centrifugal-pump-dna";
 import { conveyorSystemEngineeringDna } from "./conveyor-system-dna";
 import { electricRopeShovelTemplate } from "./mining-library";
 import { hydraulicMiningShovelEngineeringDna } from "./hydraulic-mining-shovel-dna";
@@ -14,25 +15,13 @@ export const electricRopeShovelEngineeringDna: EngineeringDnaProfile = {
   schemaVersion: "0.1.0",
   code: "DEDNA-MIN-LOAD-ERS",
   name: "Electric rope shovel Digital Engineering DNA",
-  description:
-    "Governed reusable blueprint for instantiating electric rope shovel twins with canonical engineering, inspection, telemetry and recommendation references.",
+  description: "Governed reusable blueprint for instantiating electric rope shovel twins with canonical engineering, inspection, telemetry and recommendation references.",
   assetClassCode: electricRopeShovelTemplate.code,
-  capabilities: [
-    "canonical_hierarchy",
-    "failure_mechanisms",
-    "inspection_contracts",
-    "telemetry_concepts",
-    "digital_twin_instantiation",
-    "governed_recommendations",
-  ],
+  capabilities: ["canonical_hierarchy", "failure_mechanisms", "inspection_contracts", "telemetry_concepts", "digital_twin_instantiation", "governed_recommendations"],
   componentCodes: electricRopeShovelTemplate.components.map((component) => component.code),
-  failureModeCodes: electricRopeShovelTemplate.components.flatMap((component) =>
-    component.failureModes.map((failure) => failure.code),
-  ),
+  failureModeCodes: electricRopeShovelTemplate.components.flatMap((component) => component.failureModes.map((failure) => failure.code)),
   inspectionZoneCodes: komatsu4100XpcInspectionZones.map((zone) => zone.code),
-  telemetryConcepts: unique(
-    electricRopeShovelTemplate.components.flatMap((component) => component.telemetryConcepts),
-  ),
+  telemetryConcepts: unique(electricRopeShovelTemplate.components.flatMap((component) => component.telemetryConcepts)),
   standards: electricRopeShovelTemplate.standards,
   evidence: [],
   governance: {
@@ -53,14 +42,13 @@ export const engineeringDnaLibrary: EngineeringDnaProfile[] = [
   blastholeDrillEngineeringDna,
   primaryCrusherEngineeringDna,
   conveyorSystemEngineeringDna,
+  centrifugalPumpEngineeringDna,
 ];
 
 export function getEngineeringDnaProfile(code: string): EngineeringDnaProfile | undefined {
   return engineeringDnaLibrary.find((profile) => profile.code === code);
 }
 
-export function getEngineeringDnaForAssetClass(
-  assetClassCode: string,
-): EngineeringDnaProfile | undefined {
+export function getEngineeringDnaForAssetClass(assetClassCode: string): EngineeringDnaProfile | undefined {
   return engineeringDnaLibrary.find((profile) => profile.assetClassCode === assetClassCode);
 }
