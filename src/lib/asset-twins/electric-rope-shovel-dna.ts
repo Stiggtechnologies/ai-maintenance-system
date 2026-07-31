@@ -1,17 +1,14 @@
+import { blastholeDrillEngineeringDna } from "./blasthole-drill-dna";
 import { electricRopeShovelTemplate } from "./mining-library";
+import { hydraulicMiningShovelEngineeringDna } from "./hydraulic-mining-shovel-dna";
 import { komatsu4100XpcInspectionZones } from "./komatsu-4100xpc-inspections";
+import { largeWheelLoaderEngineeringDna } from "./large-wheel-loader-dna";
+import { primaryCrusherEngineeringDna } from "./primary-crusher-dna";
 import type { EngineeringDnaProfile } from "./engineering-dna";
 import { ultraClassHaulTruckEngineeringDna } from "./ultra-class-haul-truck-dna";
 
 const unique = (values: string[]): string[] => [...new Set(values)];
 
-/**
- * First production-shaped Digital Engineering DNA profile.
- *
- * The profile intentionally references the canonical asset library and governed
- * inspection contracts instead of copying component, failure-mode, or inspection
- * definitions into another persistence model.
- */
 export const electricRopeShovelEngineeringDna: EngineeringDnaProfile = {
   schemaVersion: "0.1.0",
   code: "DEDNA-MIN-LOAD-ERS",
@@ -50,6 +47,10 @@ export const electricRopeShovelEngineeringDna: EngineeringDnaProfile = {
 export const engineeringDnaLibrary: EngineeringDnaProfile[] = [
   electricRopeShovelEngineeringDna,
   ultraClassHaulTruckEngineeringDna,
+  hydraulicMiningShovelEngineeringDna,
+  largeWheelLoaderEngineeringDna,
+  blastholeDrillEngineeringDna,
+  primaryCrusherEngineeringDna,
 ];
 
 export function getEngineeringDnaProfile(code: string): EngineeringDnaProfile | undefined {
