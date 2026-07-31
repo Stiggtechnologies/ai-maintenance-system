@@ -1,0 +1,81 @@
+import type { AssetClassTemplate, FailureModeTemplate } from "./types";
+
+const draftFailure = (
+  code: string,
+  componentCode: string,
+  name: string,
+  mechanism: string,
+  causes: string[],
+  effects: string[],
+  detectableBy: string[],
+  verificationMethods: string[],
+  severity: 1 | 2 | 3 | 4 | 5,
+): FailureModeTemplate => ({
+  code,
+  componentCode,
+  name,
+  mechanism,
+  causes,
+  effects,
+  detectableBy,
+  verificationMethods,
+  recommendedActions: [],
+  severity,
+  evidence: [],
+  reviewState: "draft",
+});
+
+/** Manufacturer-neutral template. Approved OEM/site evidence is required for limits and intervals. */
+export const hydraulicMiningShovelTemplate: AssetClassTemplate = {
+  schemaVersion: "0.1.0",
+  code: "MIN-HYD-SHOVEL",
+  name: "Hydraulic mining shovel",
+  family: "mobile_mining_loading",
+  description: "Governed component, failure, telemetry, and inspection foundation for large hydraulic mining shovels.",
+  functions: ["dig", "crowd", "hoist", "swing", "dump", "propel", "support_attachment", "control_hydraulic_power"],
+  operatingStates: ["offline", "idle", "digging", "swinging_loaded", "dumping", "returning_empty", "propelling", "maintenance_test"],
+  standards: ["ISO 55000", "ISO 13374", "ISO 23247"],
+  reviewState: "draft",
+  components: [
+    {
+      code: "HMS-STRUCT",
+      name: "Upper and lower structure",
+      functions: ["support operating loads", "maintain geometry", "transfer attachment and propel loads"],
+      telemetryConcepts: ["cycle_count", "structural_strain", "shock_load", "swing_load"],
+      inspectionZones: ["carbody", "upper frame", "boom foot", "counterweight supports"],
+      failureModes: [draftFailure("HMS-STRUCT-FATIGUE", "HMS-STRUCT", "Structural fatigue cracking", "fatigue", ["cyclic loading", "stress concentration", "impact"], ["loss of structural capacity", "geometry change"], ["drone_rgb", "drone_thermal", "drone_lidar", "inspection"], ["non_destructive_testing", "dimensional_survey", "structural_engineering_assessment"], 5)],
+    },
+    {
+      code: "HMS-ATTACH",
+      name: "Boom, stick, bucket, and linkage",
+      functions: ["excavate material", "control bucket path", "transfer digging loads"],
+      telemetryConcepts: ["boom_position", "stick_position", "bucket_position", "cylinder_pressure", "joint_clearance"],
+      inspectionZones: ["boom", "stick", "bucket", "pins", "bushings", "cylinder mounts"],
+      failureModes: [draftFailure("HMS-ATTACH-WEAR", "HMS-ATTACH", "Pin, bushing, or wear-surface degradation", "wear", ["abrasion", "lubrication loss", "misalignment", "impact"], ["excess clearance", "load redistribution", "reduced control"], ["inspection", "drone_rgb", "vibration"], ["dimensional_inspection", "qualified_engineering_inspection"], 4)],
+    },
+    {
+      code: "HMS-HYD",
+      name: "Hydraulic power and actuation",
+      functions: ["generate hydraulic flow", "control pressure", "actuate digging and steering functions", "reject heat"],
+      telemetryConcepts: ["system_pressure", "pump_case_drain", "oil_temperature", "filter_differential_pressure", "cylinder_drift"],
+      inspectionZones: ["pumps", "valves", "reservoir", "hoses", "cylinders", "coolers"],
+      failureModes: [draftFailure("HMS-HYD-DEGRADE", "HMS-HYD", "Hydraulic pump, valve, hose, or cylinder degradation", "wear", ["contamination", "overheating", "cavitation", "seal deterioration"], ["loss of force", "uncontrolled leakage", "heat generation", "function loss"], ["oil_analysis", "pressure", "temperature", "drone_thermal", "inspection"], ["hydraulic_performance_test", "oil_sample_confirmation", "leak_source_inspection"], 5)],
+    },
+    {
+      code: "HMS-SWING-PROPEL",
+      name: "Swing and propel drives",
+      functions: ["rotate upper structure", "hold commanded position", "propel machine", "support braking"],
+      telemetryConcepts: ["swing_speed", "drive_pressure", "gearcase_temperature", "bearing_vibration", "propel_speed"],
+      inspectionZones: ["swing drives", "swing bearing", "propel motors", "final drives", "crawler frames"],
+      failureModes: [draftFailure("HMS-DRIVE-DEGRADE", "HMS-SWING-PROPEL", "Swing or propel drivetrain degradation", "wear", ["lubrication loss", "contamination", "misalignment", "overload"], ["abnormal heat", "vibration", "loss of movement or holding capability"], ["vibration", "oil_analysis", "drone_thermal", "inspection"], ["drivetrain_inspection", "oil_sample_confirmation", "backlash_or_clearance_check"], 5)],
+    },
+    {
+      code: "HMS-ELEC-CTRL",
+      name: "Electrical, control, and protective systems",
+      functions: ["distribute electrical power", "control machine functions", "protect personnel and equipment", "record faults"],
+      telemetryConcepts: ["voltage", "current", "insulation_status", "cabinet_temperature", "fault_code", "communication_health"],
+      inspectionZones: ["electrical cabinets", "terminations", "sensors", "control networks", "protective devices"],
+      failureModes: [draftFailure("HMS-ELEC-HOT-CONNECTION", "HMS-ELEC-CTRL", "High-resistance electrical connection", "thermal degradation", ["looseness", "contamination", "corrosion", "conductor damage"], ["thermal damage", "arc fault", "loss of function"], ["drone_thermal", "thermal", "current_imbalance", "fault_code"], ["deenergized_electrical_inspection", "insulation_test", "connection_resistance_test"], 5)],
+    },
+  ],
+};
