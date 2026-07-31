@@ -2,11 +2,10 @@ import { describe, expect, it } from "vitest";
 import { conveyorSystemEngineeringDna } from "./conveyor-system-dna";
 import { conveyorSystemInspectionZones } from "./conveyor-system-inspections";
 import { conveyorSystemTemplate } from "./conveyor-system";
+import { getEngineeringDnaForAssetClass } from "./electric-rope-shovel-dna";
+import { instantiateEngineeringTwin, validateEngineeringDnaProfile } from "./engineering-dna";
 import { getAssetClassTemplate, validateAssetClassTemplate } from "./index";
-import { getEngineeringDnaForAssetClass, instantiateEngineeringTwin, validateEngineeringDnaProfile } from "./electric-rope-shovel-dna";
 import { validateInspectionZoneContract } from "./inspection-contracts";
-
-// Note: instantiateEngineeringTwin and validateEngineeringDnaProfile are exported by engineering-dna via index in production.
 
 describe("conveyor system Digital Engineering DNA", () => {
   it("keeps the canonical asset hierarchy valid", () => {
