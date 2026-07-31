@@ -1,4 +1,5 @@
 import { hydraulicMiningShovelTemplate } from "./hydraulic-mining-shovel";
+import { largeWheelLoaderTemplate } from "./large-wheel-loader";
 import { miningAssetClassLibrary } from "./mining-library";
 import { ultraClassHaulTruckTemplate } from "./ultra-class-haul-truck";
 import type { AssetClassTemplate } from "./types";
@@ -19,6 +20,8 @@ export * from "./ultra-class-haul-truck-dna";
 export * from "./hydraulic-mining-shovel";
 export * from "./hydraulic-mining-shovel-inspections";
 export * from "./hydraulic-mining-shovel-dna";
+export * from "./large-wheel-loader";
+export * from "./large-wheel-loader-dna";
 export * from "./core-engineering-standards";
 export * from "./core-engineering-standards-library";
 
@@ -84,5 +87,6 @@ export function validateAssetClassTemplate(
 export function getAssetClassTemplate(code: string): AssetClassTemplate | undefined {
   if (code === ultraClassHaulTruckTemplate.code) return ultraClassHaulTruckTemplate;
   if (code === hydraulicMiningShovelTemplate.code) return hydraulicMiningShovelTemplate;
+  if (code === largeWheelLoaderTemplate.code) return largeWheelLoaderTemplate;
   return miningAssetClassLibrary.find((template) => template.code === code);
 }
