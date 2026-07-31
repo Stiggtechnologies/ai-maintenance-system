@@ -2,6 +2,7 @@ import { blastholeDrillTemplate } from "./blasthole-drill";
 import { hydraulicMiningShovelTemplate } from "./hydraulic-mining-shovel";
 import { largeWheelLoaderTemplate } from "./large-wheel-loader";
 import { miningAssetClassLibrary } from "./mining-library";
+import { primaryCrusherTemplate } from "./primary-crusher";
 import { ultraClassHaulTruckTemplate } from "./ultra-class-haul-truck";
 import type { AssetClassTemplate } from "./types";
 
@@ -26,6 +27,8 @@ export * from "./large-wheel-loader-dna";
 export * from "./blasthole-drill";
 export * from "./blasthole-drill-inspections";
 export * from "./blasthole-drill-dna";
+export * from "./primary-crusher";
+export * from "./primary-crusher-dna";
 export * from "./core-engineering-standards";
 export * from "./core-engineering-standards-library";
 
@@ -65,5 +68,6 @@ export function getAssetClassTemplate(code: string): AssetClassTemplate | undefi
   if (code === hydraulicMiningShovelTemplate.code) return hydraulicMiningShovelTemplate;
   if (code === largeWheelLoaderTemplate.code) return largeWheelLoaderTemplate;
   if (code === blastholeDrillTemplate.code) return blastholeDrillTemplate;
+  if (code === primaryCrusherTemplate.code) return primaryCrusherTemplate;
   return miningAssetClassLibrary.find((template) => template.code === code);
 }
