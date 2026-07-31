@@ -1,4 +1,5 @@
 import { blastholeDrillTemplate } from "./blasthole-drill";
+import { centrifugalPumpTemplate } from "./centrifugal-pump";
 import { conveyorSystemTemplate } from "./conveyor-system";
 import { hydraulicMiningShovelTemplate } from "./hydraulic-mining-shovel";
 import { largeWheelLoaderTemplate } from "./large-wheel-loader";
@@ -33,6 +34,8 @@ export * from "./primary-crusher-dna";
 export * from "./conveyor-system";
 export * from "./conveyor-system-inspections";
 export * from "./conveyor-system-dna";
+export * from "./centrifugal-pump";
+export * from "./centrifugal-pump-dna";
 export * from "./core-engineering-standards";
 export * from "./core-engineering-standards-library";
 
@@ -74,5 +77,6 @@ export function getAssetClassTemplate(code: string): AssetClassTemplate | undefi
   if (code === blastholeDrillTemplate.code) return blastholeDrillTemplate;
   if (code === primaryCrusherTemplate.code) return primaryCrusherTemplate;
   if (code === conveyorSystemTemplate.code) return conveyorSystemTemplate;
+  if (code === centrifugalPumpTemplate.code) return centrifugalPumpTemplate;
   return miningAssetClassLibrary.find((template) => template.code === code);
 }
