@@ -4,25 +4,65 @@ import { instantiateEngineeringTwin, validateEngineeringDnaProfile } from "./eng
 import { getAssetClassTemplate, validateAssetClassTemplate } from "./index";
 import { industrialGearboxEngineeringDna } from "./industrial-gearbox-dna";
 import { industrialGearboxTemplate } from "./industrial-gearbox";
+import { sharedComponentDnaLibrary } from "./shared-component-dna-library";
 
 describe("industrial gearbox Digital Engineering DNA", () => {
-  it("keeps hierarchy and references valid", () => {
+  it("keeps hierarchy, references, and shared composition valid", () => {
     expect(validateAssetClassTemplate(industrialGearboxTemplate)).toEqual([]);
-    expect(validateEngineeringDnaProfile(industrialGearboxEngineeringDna, industrialGearboxTemplate, [])).toEqual([]);
+    expect(
+      validateEngineeringDnaProfile(
+        industrialGearboxEngineeringDna,
+        industrialGearboxTemplate,
+        [],
+        sharedComponentDnaLibrary,
+      ),
+    ).toEqual([]);
+    expect(industrialGearboxEngineeringDna.capabilities).toContain("shared_component_composition");
+    expect(industrialGearboxEngineeringDna.sharedComponentBindings).toHaveLength(4);
   });
 
   it("registers the asset and DNA profile uniquely", () => {
     expect(getAssetClassTemplate(industrialGearboxTemplate.code)).toBe(industrialGearboxTemplate);
     expect(getEngineeringDnaForAssetClass(industrialGearboxTemplate.code)).toBe(industrialGearboxEngineeringDna);
-    expect(new Set(industrialGearboxEngineeringDna.componentCodes).size).toBe(industrialGearboxEngineeringDna.componentCodes.length);
-    expect(new Set(industrialGearboxEngineeringDna.failureModeCodes).size).toBe(industrialGearboxEngineeringDna.failureModeCodes.length);
+    expect(new Set(industrialGearboxEngineeringDna.componentCodes).size).toBe(
+      industrialGearboxEngineeringDna.componentCodes.length,
+    );
+    expect(new Set(industrialGearboxEngineeringDna.failureModeCodes).size).toBe(
+      industrialGearboxEngineeringDna.failureModeCodes.length,
+    );
   });
 
-  it("creates a governed customer twin", () => {
-    const twin = instantiateEngineeringTwin(industrialGearboxEngineeringDna, { assetId: "GB-101", siteId: "SITE-1" });
+  it("creates a governed customer twin with shared component composition", () => {
+    const twin = instantiateEngineeringTwin(industrialGearboxEngineeringDna, {
+      assetId: "GB-101",
+      siteId: "SITE-1",
+    });
     expect(twin.assetClassCode).toBe(industrialGearboxTemplate.code);
     expect(twin.customerOverrides.approvalRequired).toBe(true);
+    expect(twin.customerOverrides.sharedComponentBindings).toEqual(
+      industrialGearboxEngineeringDna.sharedComponentBindings,
+    );
     expect(industrialGearboxEngineeringDna.governance.autonomousOperationalActionAllowed).toBe(false);
     expect(industrialGearboxEngineeringDna.governance.thresholdsPolicy).toBe("approved_source_only");
+  });
+
+  it("rejects unknown shared component endpoints", () => {
+    const invalid = {
+      ...industrialGearboxEngineeringDna,
+      sharedComponentBindings: [
+        {
+          assetComponentCode: "GB-BEARINGS",
+          sharedComponentDnaCode: "COMP-DNA-UNKNOWN",
+          role: "invalid_reference",
+        },
+      ],
+    };
+    const issues = validateEngineeringDnaProfile(
+      invalid,
+      industrialGearboxTemplate,
+      [],
+      sharedComponentDnaLibrary,
+    );
+    expect(issues.some((issue) => issue.path.endsWith("sharedComponentDnaCode"))).toBe(true);
   });
 });
