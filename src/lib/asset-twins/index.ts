@@ -44,6 +44,8 @@ export * from "./industrial-gearbox";
 export * from "./industrial-gearbox-dna";
 export * from "./shared-component-dna";
 export * from "./shared-component-dna-library";
+export * from "./physics-capability";
+export * from "./physics-capability-library";
 export * from "./core-engineering-standards";
 export * from "./core-engineering-standards-library";
 
