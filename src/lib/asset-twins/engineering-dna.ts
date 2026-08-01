@@ -5,6 +5,7 @@ import type {
   ReviewState,
 } from "./types";
 import type { InspectionZoneContract } from "./inspection-contracts";
+import type { SharedComponentDnaProfile } from "./shared-component-dna";
 
 export type EngineeringDnaCapability =
   | "canonical_hierarchy"
@@ -12,7 +13,8 @@ export type EngineeringDnaCapability =
   | "inspection_contracts"
   | "telemetry_concepts"
   | "digital_twin_instantiation"
-  | "governed_recommendations";
+  | "governed_recommendations"
+  | "shared_component_composition";
 
 export interface EngineeringDnaGovernance {
   reviewState: ReviewState;
@@ -21,6 +23,12 @@ export interface EngineeringDnaGovernance {
   customerOverridesRequireApproval: boolean;
   autonomousOperationalActionAllowed: false;
   thresholdsPolicy: "approved_source_only";
+}
+
+export interface SharedComponentBinding {
+  assetComponentCode: string;
+  sharedComponentDnaCode: string;
+  role: string;
 }
 
 export interface EngineeringDnaProfile {
@@ -34,6 +42,7 @@ export interface EngineeringDnaProfile {
   failureModeCodes: string[];
   inspectionZoneCodes: string[];
   telemetryConcepts: string[];
+  sharedComponentBindings?: SharedComponentBinding[];
   standards: string[];
   evidence: EvidenceReference[];
   governance: EngineeringDnaGovernance;
@@ -48,6 +57,7 @@ export function validateEngineeringDnaProfile(
   profile: EngineeringDnaProfile,
   assetClass: AssetClassTemplate,
   inspectionZones: InspectionZoneContract[],
+  sharedComponents: SharedComponentDnaProfile[] = [],
 ): EngineeringDnaValidationIssue[] {
   const issues: EngineeringDnaValidationIssue[] = [];
   const canonicalComponentCodes = new Set(assetClass.components.map((component) => component.code));
@@ -58,6 +68,7 @@ export function validateEngineeringDnaProfile(
     assetClass.components.flatMap((component) => component.telemetryConcepts),
   );
   const canonicalInspectionZoneCodes = new Set(inspectionZones.map((zone) => zone.code));
+  const sharedComponentCodes = new Set(sharedComponents.map((component) => component.code));
 
   if (profile.assetClassCode !== assetClass.code) {
     issues.push({
@@ -68,38 +79,41 @@ export function validateEngineeringDnaProfile(
 
   for (const [index, componentCode] of profile.componentCodes.entries()) {
     if (!canonicalComponentCodes.has(componentCode)) {
-      issues.push({
-        path: `componentCodes[${index}]`,
-        message: `Unknown canonical component ${componentCode}.`,
-      });
+      issues.push({ path: `componentCodes[${index}]`, message: `Unknown canonical component ${componentCode}.` });
     }
   }
 
   for (const [index, failureModeCode] of profile.failureModeCodes.entries()) {
     if (!canonicalFailureModeCodes.has(failureModeCode)) {
-      issues.push({
-        path: `failureModeCodes[${index}]`,
-        message: `Unknown canonical failure mode ${failureModeCode}.`,
-      });
+      issues.push({ path: `failureModeCodes[${index}]`, message: `Unknown canonical failure mode ${failureModeCode}.` });
     }
   }
 
   for (const [index, inspectionZoneCode] of profile.inspectionZoneCodes.entries()) {
     if (!canonicalInspectionZoneCodes.has(inspectionZoneCode)) {
-      issues.push({
-        path: `inspectionZoneCodes[${index}]`,
-        message: `Unknown inspection zone ${inspectionZoneCode}.`,
-      });
+      issues.push({ path: `inspectionZoneCodes[${index}]`, message: `Unknown inspection zone ${inspectionZoneCode}.` });
     }
   }
 
   for (const [index, telemetryConcept] of profile.telemetryConcepts.entries()) {
     if (!canonicalTelemetryConcepts.has(telemetryConcept)) {
-      issues.push({
-        path: `telemetryConcepts[${index}]`,
-        message: `Unknown canonical telemetry concept ${telemetryConcept}.`,
-      });
+      issues.push({ path: `telemetryConcepts[${index}]`, message: `Unknown canonical telemetry concept ${telemetryConcept}.` });
     }
+  }
+
+  const bindingIdentities = new Set<string>();
+  for (const [index, binding] of (profile.sharedComponentBindings ?? []).entries()) {
+    const path = `sharedComponentBindings[${index}]`;
+    if (!canonicalComponentCodes.has(binding.assetComponentCode)) {
+      issues.push({ path: `${path}.assetComponentCode`, message: `Unknown canonical component ${binding.assetComponentCode}.` });
+    }
+    if (!sharedComponentCodes.has(binding.sharedComponentDnaCode)) {
+      issues.push({ path: `${path}.sharedComponentDnaCode`, message: `Unknown shared component DNA ${binding.sharedComponentDnaCode}.` });
+    }
+    if (!binding.role.trim()) issues.push({ path: `${path}.role`, message: "Shared component role is required." });
+    const identity = `${binding.assetComponentCode}:${binding.sharedComponentDnaCode}:${binding.role}`;
+    if (bindingIdentities.has(identity)) issues.push({ path, message: `Duplicate shared component binding ${identity}.` });
+    bindingIdentities.add(identity);
   }
 
   const duplicateSets: Array<[string, string[]]> = [
@@ -110,26 +124,12 @@ export function validateEngineeringDnaProfile(
   ];
 
   for (const [path, values] of duplicateSets) {
-    if (new Set(values).size !== values.length) {
-      issues.push({ path, message: `${path} must not contain duplicate references.` });
-    }
+    if (new Set(values).size !== values.length) issues.push({ path, message: `${path} must not contain duplicate references.` });
   }
 
-  if (!profile.governance.siteApprovalRequired) {
-    issues.push({ path: "governance.siteApprovalRequired", message: "Site approval must remain required." });
-  }
-  if (!profile.governance.engineeringApprovalRequired) {
-    issues.push({
-      path: "governance.engineeringApprovalRequired",
-      message: "Engineering approval must remain required.",
-    });
-  }
-  if (profile.governance.thresholdsPolicy !== "approved_source_only") {
-    issues.push({
-      path: "governance.thresholdsPolicy",
-      message: "Engineering thresholds may only come from approved sources.",
-    });
-  }
+  if (!profile.governance.siteApprovalRequired) issues.push({ path: "governance.siteApprovalRequired", message: "Site approval must remain required." });
+  if (!profile.governance.engineeringApprovalRequired) issues.push({ path: "governance.engineeringApprovalRequired", message: "Engineering approval must remain required." });
+  if (profile.governance.thresholdsPolicy !== "approved_source_only") issues.push({ path: "governance.thresholdsPolicy", message: "Engineering thresholds may only come from approved sources." });
 
   return issues;
 }
@@ -164,6 +164,7 @@ export function instantiateEngineeringTwin(
     customerOverrides: {
       engineeringDnaProfileCode: profile.code,
       engineeringDnaSchemaVersion: profile.schemaVersion,
+      sharedComponentBindings: profile.sharedComponentBindings ?? [],
       approvalRequired: profile.governance.customerOverridesRequireApproval,
       ...(input.customerOverrides ?? {}),
     },
