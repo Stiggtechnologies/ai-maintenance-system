@@ -4,6 +4,7 @@ import { conveyorSystemEngineeringDna } from "./conveyor-system-dna";
 import { electricMotorEngineeringDna } from "./electric-motor-dna";
 import { electricRopeShovelTemplate } from "./mining-library";
 import { hydraulicMiningShovelEngineeringDna } from "./hydraulic-mining-shovel-dna";
+import { industrialGearboxEngineeringDna } from "./industrial-gearbox-dna";
 import { komatsu4100XpcInspectionZones } from "./komatsu-4100xpc-inspections";
 import { largeWheelLoaderEngineeringDna } from "./large-wheel-loader-dna";
 import { primaryCrusherEngineeringDna } from "./primary-crusher-dna";
@@ -45,6 +46,7 @@ export const engineeringDnaLibrary: EngineeringDnaProfile[] = [
   conveyorSystemEngineeringDna,
   centrifugalPumpEngineeringDna,
   electricMotorEngineeringDna,
+  industrialGearboxEngineeringDna,
 ];
 
 export function getEngineeringDnaProfile(code: string): EngineeringDnaProfile | undefined {
