@@ -1,6 +1,7 @@
 import { blastholeDrillTemplate } from "./blasthole-drill";
 import { centrifugalPumpTemplate } from "./centrifugal-pump";
 import { conveyorSystemTemplate } from "./conveyor-system";
+import { electricMotorTemplate } from "./electric-motor";
 import { hydraulicMiningShovelTemplate } from "./hydraulic-mining-shovel";
 import { largeWheelLoaderTemplate } from "./large-wheel-loader";
 import { miningAssetClassLibrary } from "./mining-library";
@@ -36,6 +37,8 @@ export * from "./conveyor-system-inspections";
 export * from "./conveyor-system-dna";
 export * from "./centrifugal-pump";
 export * from "./centrifugal-pump-dna";
+export * from "./electric-motor";
+export * from "./electric-motor-dna";
 export * from "./core-engineering-standards";
 export * from "./core-engineering-standards-library";
 
@@ -78,5 +81,6 @@ export function getAssetClassTemplate(code: string): AssetClassTemplate | undefi
   if (code === primaryCrusherTemplate.code) return primaryCrusherTemplate;
   if (code === conveyorSystemTemplate.code) return conveyorSystemTemplate;
   if (code === centrifugalPumpTemplate.code) return centrifugalPumpTemplate;
+  if (code === electricMotorTemplate.code) return electricMotorTemplate;
   return miningAssetClassLibrary.find((template) => template.code === code);
 }
