@@ -7,7 +7,9 @@ import {
   instantiateEngineeringTwin,
   primaryCrusherEngineeringDna,
   primaryCrusherTemplate,
+  sharedComponentDnaLibrary,
   validateAssetClassTemplate,
+  validateEngineeringDnaProfile,
 } from "./index";
 
 describe("primary crusher Digital Engineering DNA", () => {
@@ -18,13 +20,19 @@ describe("primary crusher Digital Engineering DNA", () => {
     );
   });
 
-  it("references only canonical components and failure modes", () => {
-    const components = new Set(primaryCrusherTemplate.components.map((component) => component.code));
-    const failures = new Set(
-      primaryCrusherTemplate.components.flatMap((component) => component.failureModes.map((failure) => failure.code)),
-    );
-    expect(primaryCrusherEngineeringDna.componentCodes.every((code) => components.has(code))).toBe(true);
-    expect(primaryCrusherEngineeringDna.failureModeCodes.every((code) => failures.has(code))).toBe(true);
+  it("keeps shared component composition canonical and governed", () => {
+    expect(
+      validateEngineeringDnaProfile(
+        primaryCrusherEngineeringDna,
+        primaryCrusherTemplate,
+        [],
+        sharedComponentDnaLibrary,
+      ),
+    ).toEqual([]);
+    expect(primaryCrusherEngineeringDna.capabilities).toContain("shared_component_composition");
+    expect(primaryCrusherEngineeringDna.sharedComponentBindings).toHaveLength(3);
+    expect(primaryCrusherEngineeringDna.governance.autonomousOperationalActionAllowed).toBe(false);
+    expect(primaryCrusherEngineeringDna.governance.thresholdsPolicy).toBe("approved_source_only");
   });
 
   it("registers every production-shaped DNA profile without duplicate asset classes", () => {
@@ -33,7 +41,7 @@ describe("primary crusher Digital Engineering DNA", () => {
     expect(new Set(engineeringDnaLibrary.map((profile) => profile.assetClassCode)).size).toBe(engineeringDnaLibrary.length);
   });
 
-  it("creates a governed customer twin", () => {
+  it("carries shared components into a governed customer twin", () => {
     const twin = instantiateEngineeringTwin(primaryCrusherEngineeringDna, {
       assetId: "crusher-01",
       siteId: "mine-a",
@@ -41,8 +49,30 @@ describe("primary crusher Digital Engineering DNA", () => {
     });
     expect(twin.assetClassCode).toBe(primaryCrusherTemplate.code);
     expect(twin.customerOverrides.approvalRequired).toBe(true);
-    expect(primaryCrusherEngineeringDna.governance.autonomousOperationalActionAllowed).toBe(false);
-    expect(primaryCrusherEngineeringDna.governance.thresholdsPolicy).toBe("approved_source_only");
+    expect(twin.customerOverrides.sharedComponentBindings).toEqual(
+      primaryCrusherEngineeringDna.sharedComponentBindings,
+    );
     expect(getAssetClassTemplate(primaryCrusherTemplate.code)).toBe(primaryCrusherTemplate);
+  });
+
+  it("rejects unknown shared component references", () => {
+    const invalid = {
+      ...primaryCrusherEngineeringDna,
+      sharedComponentBindings: [
+        ...(primaryCrusherEngineeringDna.sharedComponentBindings ?? []),
+        {
+          assetComponentCode: "PCR-DRIVE",
+          sharedComponentDnaCode: "COMP-DNA-UNKNOWN",
+          role: "invalid test binding",
+        },
+      ],
+    };
+    expect(
+      validateEngineeringDnaProfile(invalid, primaryCrusherTemplate, [], sharedComponentDnaLibrary),
+    ).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ path: expect.stringContaining("sharedComponentDnaCode") }),
+      ]),
+    );
   });
 });
