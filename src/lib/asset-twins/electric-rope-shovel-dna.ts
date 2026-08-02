@@ -11,6 +11,7 @@ import { komatsu4100XpcInspectionZones } from "./komatsu-4100xpc-inspections";
 import { largeWheelLoaderEngineeringDna } from "./large-wheel-loader-dna";
 import { primaryCrusherEngineeringDna } from "./primary-crusher-dna";
 import { sagMillEngineeringDna } from "./sag-mill-dna";
+import { thickenerEngineeringDna } from "./thickener-dna";
 import type { EngineeringDnaProfile } from "./engineering-dna";
 import { ultraClassHaulTruckEngineeringDna } from "./ultra-class-haul-truck-dna";
 
@@ -69,6 +70,7 @@ export const engineeringDnaLibrary: EngineeringDnaProfile[] = [
   industrialGearboxEngineeringDna,
   draglineEngineeringDna,
   sagMillEngineeringDna,
+  thickenerEngineeringDna,
 ];
 
 export function getEngineeringDnaProfile(
