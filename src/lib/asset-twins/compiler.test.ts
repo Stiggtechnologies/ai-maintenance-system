@@ -27,14 +27,17 @@ describe("compileAssetTwin", () => {
     );
 
     expect(compiled.compiledAt).toBe("2026-07-26T00:00:00.000Z");
-    expect(compiled.asset.telemetryMap.hoist_current).toBe("hoist_motor_current");
-    expect(compiled.template.components.find((item) => item.code === "ERS-HOIST")?.inspectionZones).toContain(
-      "hoist drum",
+    expect(compiled.asset.telemetryMap.hoist_current).toBe(
+      "hoist_motor_current",
     );
+    expect(
+      compiled.template.components.find((item) => item.code === "ERS-HOIST")
+        ?.inspectionZones,
+    ).toContain("hoist drum");
     expect(compiled.provenance.overlay).toEqual({
       manufacturer: "Komatsu",
       model: "P&H 4100XPC",
-      schemaVersion: "0.1.0",
+      schemaVersion: "0.2.0",
     });
     expect(compiled.provenance.customerOverrideKeys).toEqual(["criticality"]);
   });
@@ -46,7 +49,9 @@ describe("compileAssetTwin", () => {
       komatsuPh4100XpcOverlay,
     );
 
-    expect(compiled.asset.telemetryMap.hoist_current).toBe("SITE_SH04_HOIST_CURRENT");
+    expect(compiled.asset.telemetryMap.hoist_current).toBe(
+      "SITE_SH04_HOIST_CURRENT",
+    );
   });
 
   it("accepts a governed model alias", () => {
