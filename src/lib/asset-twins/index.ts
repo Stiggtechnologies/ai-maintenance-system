@@ -8,6 +8,7 @@ import { industrialGearboxTemplate } from "./industrial-gearbox";
 import { largeWheelLoaderTemplate } from "./large-wheel-loader";
 import { miningAssetClassLibrary } from "./mining-library";
 import { primaryCrusherTemplate } from "./primary-crusher";
+import { sagMillTemplate } from "./sag-mill";
 import { ultraClassHaulTruckTemplate } from "./ultra-class-haul-truck";
 import type { AssetClassTemplate } from "./types";
 
@@ -45,6 +46,8 @@ export * from "./industrial-gearbox";
 export * from "./industrial-gearbox-dna";
 export * from "./dragline";
 export * from "./dragline-dna";
+export * from "./sag-mill";
+export * from "./sag-mill-dna";
 export * from "./shared-component-dna";
 export * from "./shared-component-dna-library";
 export * from "./physics-capability";
@@ -89,5 +92,6 @@ export function getAssetClassTemplate(code: string): AssetClassTemplate | undefi
   if (code === electricMotorTemplate.code) return electricMotorTemplate;
   if (code === industrialGearboxTemplate.code) return industrialGearboxTemplate;
   if (code === draglineTemplate.code) return draglineTemplate;
+  if (code === sagMillTemplate.code) return sagMillTemplate;
   return miningAssetClassLibrary.find((template) => template.code === code);
 }
