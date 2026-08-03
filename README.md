@@ -1,4 +1,4 @@
-# SyncAI — Industrial Engineering Intelligence for Asset-Intensive Operations
+# SyncAI — Governed Industrial Engineering Intelligence
 
 [![CI](https://github.com/Stiggtechnologies/ai-maintenance-system/actions/workflows/ci.yml/badge.svg)](.github/workflows/ci.yml)
 [![CodeQL](https://github.com/Stiggtechnologies/ai-maintenance-system/actions/workflows/codeql.yml/badge.svg)](.github/workflows/codeql.yml)
@@ -6,334 +6,194 @@
 [![React](https://img.shields.io/badge/React-19-blue.svg)](https://react.dev)
 [![Supabase](https://img.shields.io/badge/Supabase-Postgres%20%2B%20Edge-green.svg)](https://supabase.com)
 
-SyncAI is a governed Industrial Engineering Intelligence platform for mining,
-energy, utilities, manufacturing, transportation, defence, aerospace, and other
-asset-intensive or mission-critical operations.
+SyncAI is a governed Industrial Engineering Intelligence platform for high-risk,
+asset-intensive operations.
 
-It connects engineering knowledge, asset and component models, deterministic
-physics, operational evidence, digital twins, reliability workflows, and
-human-approved AI agents so teams can make safer and more reliable maintenance,
-risk, readiness, and production decisions.
+It connects asset and component models, engineering knowledge, deterministic
+physics, operational evidence, reliability workflows, human approval, and AI
+reasoning so teams can make safer and more reliable maintenance, risk,
+readiness, and production decisions.
 
-The operating question remains:
+The common operating question is:
 
-> **Can we safely and reliably deliver the production or mission plan?**
+> **Can we safely and reliably deliver the operating plan?**
 
 The application is available at **[app.syncai.ca](https://app.syncai.ca)**.
-Capability maturity varies by module; see [Capability status](#capability-status)
-below.
+Capability maturity varies by module and deployment.
+
+## Current product state
+
+SyncAI is in **advanced pilot development**. It has a substantial working
+application and database foundation, but it is not yet a fully hardened,
+independently assured enterprise platform for unrestricted high-consequence
+production use.
+
+The current source of truth is the
+[Product Capability Audit](docs/product-capability-audit-2026-08-03.md).
+Commercial claims are governed by the
+[Claims and Evidence Register](docs/enterprise-readiness/claims-and-evidence-register.md).
+
+### Operational foundations
+
+| Capability | Current state |
+| --- | --- |
+| Authenticated application and role-shaped operating views | Implemented foundation with broad operational, engineering, work, approval, briefing, value, and administrative surfaces |
+| Organization-scoped Supabase data plane | Implemented for core operational records; fine-grained enterprise write authorization is incomplete |
+| Governed operating loop | Implemented for recommendations, evidence, scenarios, approvals, bounded work actions, decisions, value, and learning |
+| Human approval boundary | Implemented in the canonical AI/orchestrator path; direct autonomous operational execution is disabled |
+| Asset onboarding and RAM governance | Implemented pilot foundation with evidence gaps, readiness gates, FMEA/FRACAS concepts, and approvals |
+| ISO 55000-aligned KPI service | Implemented; some KPIs honestly remain unavailable until external systems are connected |
+| Engineering DNA and asset-twin library | Implemented foundation and expanding across mining and process asset classes |
+| Shared Component DNA and deterministic physics | Implemented foundation with governed, testable calculations and approved-source-only limits |
+| Inspection intelligence | Implemented governed foundation with evidence, verification, approval, prohibited-action boundaries, and atomic persistence |
+| Password authentication and per-user TOTP code paths | Implemented in application code; tenant-wide enterprise enforcement and hosted configuration require validation |
+| CI and deployment automation | Build, type, unit, migration, smoke, E2E, security, and selected deployment workflows exist; database/E2E CI is currently impaired by local Supabase startup |
+
+### Implemented foundations still requiring integration or validation
+
+- **Engineering knowledge ontology** — canonical entities, relationships,
+  authority, review, confidentiality, provenance, applicability, and
+  supersession contracts.
+- **Knowledge Base Factory** — deterministic publish, review, and reject planning
+  against canonical engineering registries.
+- **Engineering extraction resolution** — confidence- and provenance-gated
+  mapping of upstream extraction candidates; it is not itself a complete
+  extraction service.
+- **Asset-aware retrieval** — under active validation in draft PR #115 and not
+  yet part of `main`.
+- **Digital-twin persistence** — versioned templates, OEM/model overlays,
+  customer instances, maturity, evidence, and compilation logs.
+- **Operational briefing and shift handover** — live-data briefing surfaces are
+  present; broader human-systems assurance remains roadmap work.
+- **Integration registry and health monitoring** — connector records and health
+  views exist; major industrial connectors are not yet production-validated.
+
+### Simulation and pilot dependencies
+
+The default demo and deployment experience uses seeded assets, simulated
+telemetry, starter thresholds, and scheduled operating-loop activity. These are
+useful for workflow validation and pilot design, but they are not evidence of a
+live historian, SCADA, CMMS, ERP, or customer asset deployment.
+
+`provision_deployment()` creates a configured workspace, starter assets, sensors,
+onboarding records, and audit history inside SyncAI. It does **not** provision
+customer cloud, private-cloud, on-premises, edge, or disconnected
+infrastructure.
+
+## Not yet production-ready
+
+The following must not be represented as generally delivered or certified:
+
+- production-ready enterprise SSO or Google Workspace authentication;
+- comprehensive role-, site-, asset-, program-, classification-, and
+  action-based authorization;
+- a clean-deployment, end-to-end governed RAG and persistent knowledge graph;
+- production SAP, Maximo, PI/historian, SCADA, OPC-UA, MQTT, ERP, or PLM
+  connectors;
+- supported private-cloud, on-premises, sovereign, edge, or air-gapped
+  deployment;
+- unrestricted autonomous execution against operational control or command
+  systems;
+- independently verified model assurance, penetration testing, resilience, or
+  customer outcomes;
+- SOC 2, ISO 27001, defence, aerospace, OT-security, functional-safety, or other
+  formal certification or authorization.
+
+Several legacy Edge Functions and schemas remain in the repository for
+historical or migration purposes. They are not equivalent to the canonical,
+deployed, governed runtime and must not be used as production evidence.
 
 ## Core principles
 
-- **Human authority is preserved.** AI can detect, explain, recommend, and draft,
-  but safety-, mission-, or production-critical actions require explicit approval.
-- **Engineering truth is governed.** Approved source material, provenance,
-  applicability, revision status, and authority level are carried with results.
-- **Deterministic logic stays separate from generative AI.** Calculations,
-  thresholds, rules, and physics are implemented as inspectable capabilities;
-  language models do not invent engineering limits.
-- **Canonical models are reused.** Asset DNA, shared component DNA, physics
-  capabilities, and graph references are linked rather than copied into
-  competing stores.
-- **Tenant isolation is enforced in the data layer.** Organization and role
-  boundaries are implemented with Supabase Row Level Security and controlled
-  RPCs.
-- **Security and safety are lifecycle properties.** Threat modelling,
-  authorization, evidence, change control, monitoring, recovery, and residual
-  risk acceptance must continue throughout deployment and operation.
-- **The platform advises before it acts.** SyncAI is designed to integrate with
-  operational systems without becoming an uncontrolled safety or command path.
+- **Human technical authority is preserved.** AI can detect, explain, calculate,
+  recommend, draft, and route; high-consequence decisions require accountable
+  approval.
+- **Engineering authority is explicit.** Sources, limits, revisions,
+  applicability, provenance, confidence, and review state travel with results.
+- **Deterministic engineering stays separate from generative language.** Physics,
+  rules, constraints, and calculations are inspectable and testable.
+- **Canonical models are reused.** Asset DNA, shared components, physics,
+  evidence, work, and decisions are referenced rather than duplicated.
+- **Tenant scope must come from trusted identity.** Caller-supplied organization
+  or user identifiers are not an acceptable enterprise security boundary.
+- **Safety and security override optimization.** The platform abstains or
+  escalates when evidence, authority, or operating context is insufficient.
+- **Learning does not silently rewrite approved truth.** New information creates
+  reviewable, versioned proposals and supersession decisions.
+- **Verified outcomes matter.** Projected, observed, validated, and independently
+  verified value are distinct states.
 
-## Platform capabilities
+## Platform architecture
 
-### Industrial engineering intelligence
-
-- **Digital Engineering DNA** — manufacturer-neutral asset-class definitions,
-  functional systems, failure mechanisms, inspections, controls, and governed
-  applicability metadata.
-- **Shared Component DNA** — reusable component models that prevent duplicate
-  engineering definitions across asset classes.
-- **Physics Capability Library** — deterministic, testable engineering
-  calculations and reasoning primitives, separated from AI-generated text.
-- **Digital Twin Factory** — canonical asset templates with customer, site, and
-  model overlays that preserve lineage and approval boundaries.
-- **Engineering Knowledge Ontology** — typed entities, canonical references,
-  authority levels, review states, provenance, and applicability rules.
-- **Knowledge Base Factory** — validation and publication planning before
-  engineering content is indexed or exposed to agents.
-- **Engineering extraction** — source-backed candidate extraction with
-  confidence gates and accepted, ambiguous, unknown, or rejected mapping states.
-- **Asset-aware retrieval** — tenant, site, twin, asset-class, component,
-  failure-mode, physics, authority, freshness, and supersession filters.
-
-### Operations and reliability
-
-- **Governed operating loop** — telemetry ingestion, condition and KPI breach
-  detection, recommendations, human approval, verification, and audit history.
-- **Asset onboarding** — RAM and FMEA-oriented onboarding with confidence-based
-  evidence gaps and role-based approval gates.
-- **ISO 55000-aligned KPI layer** — role-aware operational and asset-management
-  measures with lineage and database-enforced access controls.
-- **Role command centres** — role-shaped navigation and operational views for
-  executives, managers, planners, reliability professionals, and technicians.
-- **Chartered engineering and reliability agents** — specialized agents for
-  reliability, maintenance strategy, asset health, risk, work management,
-  planning, spares, RCA, HSE, coordination, and related engineering workflows.
-- **RAG with citations** — retrieved evidence is packaged with source and
-  authority metadata; model-generated text is never treated as approved
-  engineering authority.
-- **FRACAS closeout** — failure coding, verification, and feedback into the
-  engineering and reliability learning loop.
-
-## Capability status
-
-| Capability | Current status |
+| Layer | Current responsibility |
 | --- | --- |
-| Role-based application, command centres, Supabase backend, RLS, audit controls | Implemented |
-| Operating-loop simulation and governed recommendations | Implemented; historian and production integrations are customer-specific |
-| Asset onboarding and approval workflow | Implemented foundation |
-| Engineering DNA and canonical asset registry | Implemented and expanding by asset class |
-| Shared Component DNA and Physics Capability Library | Implemented foundation and expanding |
-| Engineering ontology, Knowledge Base Factory, and extraction contracts | Implemented foundation |
-| Asset-aware engineering retrieval | In active validation and integration |
-| Knowledge graph persistence and graph-query services | Planned / in development |
-| Customer-specific digital twins and live sensor integrations | Pilot and deployment work |
-| Private-cloud, sovereign, disconnected, and edge deployment patterns | Target-state capability; architecture and certification work required |
-| Enterprise identity, privileged-access, policy-as-code, and security operations integrations | Target-state capability; customer-specific integration required |
-| Formal safety case, model assurance, red-team evidence, and independent verification packages | Target-state assurance program |
-| Autonomous execution against operational control or command systems | Not permitted without separately authorized, bounded, independently assured controls |
-| SOC 2 and ISO 27001 certification | Control implementation/readiness work exists; formal audit and certification are separate activities |
-| Defence cyber-security certification and controlled-information handling | Not currently certified; target requirements depend on contract, information classification, jurisdiction, and deployment boundary |
+| Frontend | React 19, TypeScript, Vite 8, Tailwind CSS 4, React Router 7, Zustand, and Framer Motion |
+| Data plane | Supabase Postgres, Row Level Security, controlled RPCs, Realtime, scheduled jobs, and audit records |
+| Operating loop | Assets, sensors, recommendations, evidence, scenarios, approvals, work, decisions, value, and learning |
+| Engineering model | Asset templates, Engineering DNA, Shared Component DNA, physics capabilities, inspection contracts, overlays, and twin instances |
+| Knowledge foundation | Ontology, authority, provenance, Knowledge Base Factory, extraction resolution, and retrieval contracts |
+| AI runtime | Deployed agent processor and approval orchestrator with tenant scope, idempotency, human review, and bounded side effects |
+| Quality and delivery | GitHub Actions, Vitest, Playwright, CodeQL, secret scanning, dependency review, Vercel, and selected Supabase deployment |
 
-For commercial or deployment decisions, use
-[`docs/gtm-readiness.md`](docs/gtm-readiness.md) as the capability-versus-promise
-reference.
+The active deployment workflow automatically deploys the migration chain and the
+governed `agent-loop-enrich`, `ai-agent-processor`,
+`autonomous-orchestrator`, and `onboarding-enrich` functions. Other functions in
+the repository must not be assumed to be part of the active production boundary.
 
-## Target state at completion
+## Product direction
 
-At completion, SyncAI is intended to become the governed engineering and
-operational-intelligence layer across the full lifecycle of mission-critical
-assets. It should continuously convert approved engineering knowledge, asset
-configuration, operational data, maintenance history, risk, mission or
-production demand, and verified outcomes into traceable decisions and approved
-workflows.
+The desired product is described in
+[Enterprise Target State](docs/enterprise-target-state.md).
 
-The completed platform is intended to provide:
+At maturity, SyncAI is intended to connect:
 
-- **Enterprise-wide asset intelligence** across fleets, facilities, business
-  units, contractors, sites, and jurisdictions while preserving tenant,
-  program, need-to-know, and data-sovereignty boundaries.
-- **A broad manufacturer-neutral Engineering DNA library** with governed OEM,
-  customer, configuration, environmental, and site overlays.
-- **Continuously updated digital twins** connected to approved engineering
-  baselines, operating context, inspections, condition data, work history,
-  failures, modifications, and configuration state.
-- **A persistent engineering knowledge graph** linking assets, components,
-  functions, requirements, hazards, controls, failure modes, evidence,
-  documents, calculations, decisions, and outcomes.
-- **Deterministic engineering and reliability models** operating alongside AI,
-  with validation envelopes, applicability constraints, uncertainty, units,
-  assumptions, and test evidence.
-- **Closed-loop learning** from inspections, maintenance execution, incidents,
-  failures, operating changes, and verified results without silently rewriting
-  approved engineering truth.
-- **Multi-domain integration** with historians, SCADA and DCS read replicas,
-  condition-monitoring systems, CMMS and EAM, ERP, PLM, document control,
-  GIS, laboratory systems, supply chains, simulation environments, and approved
-  mission or production-planning systems.
-- **Governed workflow orchestration** that can create, route, simulate, and
-  verify recommendations while keeping critical authorization with accountable
-  human authorities and approved external systems.
-- **Deployment flexibility** for public cloud, private cloud, sovereign cloud,
-  customer-controlled infrastructure, industrial edge, intermittently connected
-  sites, and appropriately designed disconnected environments.
-- **Evidence-ready assurance** for engineering review, cybersecurity
-  authorization, procurement, regulatory review, incident investigation,
-  certification, and independent audit.
+> approved engineering knowledge and requirements → asset configuration →
+> trustworthy operational evidence → deterministic analysis and governed AI →
+> human technical authority → controlled work and change → verification →
+> measured outcomes and learning.
 
-This target state is a roadmap and design direction. It must not be read as a
-claim that every capability is currently production-deployed, independently
-assured, authorized for a particular environment, or certified.
+Priority target capabilities include:
 
-## Mission-critical enterprise scope
+- one canonical secure orchestration and engineering-knowledge plane;
+- enterprise identity and fine-grained authorization;
+- trustworthy industrial data, calibration, uncertainty, time quality, and
+  evidence fitness;
+- technical change, configuration, and return-to-service assurance;
+- production historian and CMMS/EAM connectors;
+- validated models, simulations, and controlled experimentation;
+- immutable technical-assurance evidence packs;
+- human-systems integration;
+- repeatable secure deployment, operations, recovery, support, and independent
+  assurance.
 
-Organizations operating refineries, mines, spacecraft, defence systems,
-utilities, transportation networks, and other high-consequence assets require
-more than predictive analytics. The platform must earn trust across engineering,
-operations, cybersecurity, safety, legal, procurement, and executive governance.
-The following scope is therefore part of the desired enterprise product.
+## Sector outcomes
 
-### 1. OT-safe and mission-safe integration
+SyncAI remains one industrial platform with sector-specific outcomes:
 
-- Passive or read-only integration as the default for historians, SCADA, DCS,
-  PLC, vehicle, test, and mission systems.
-- Explicit trust zones, conduits, data diodes or one-way transfer patterns where
-  required, and no assumption of direct internet connectivity.
-- Separate advisory, workflow, and control planes, with fail-safe behaviour when
-  SyncAI, a model provider, or a network dependency is unavailable.
-- Bounded command interfaces only where separately designed, hazard-assessed,
-  approved, tested, and authorized by the customer’s technical and operational
-  authorities.
-- Configuration-aware recommendations that account for asset variant,
-  modification state, environment, duty, operating mode, and current approved
-  baseline.
-
-### 2. Zero-trust enterprise security
-
-- Enterprise SSO and federation, phishing-resistant MFA, least privilege,
-  just-in-time and just-enough administration, privileged-access workflows, and
-  machine identities.
-- Attribute- and policy-based access controls for organization, site, program,
-  asset, information classification, nationality, contract, and need-to-know.
-- Encryption in transit and at rest, customer-managed keys, key rotation,
-  secrets management, hardware-backed key options, and cryptographic inventory.
-- Secure software supply-chain controls, signed builds and artifacts, software
-  bills of materials, provenance attestations, dependency governance, and
-  vulnerability response.
-- Continuous logging, security analytics, anomaly detection, tamper evidence,
-  retention controls, and integration with customer SIEM, SOC, SOAR, and case
-  management.
-- Formal incident response, breach notification, forensic preservation,
-  vulnerability disclosure, disaster recovery, and cyber-recovery exercises.
-
-### 3. Controlled and sovereign information handling
-
-- Data residency and sovereignty controls by tenant, program, jurisdiction, and
-  deployment.
-- Information labelling, classification-aware storage and retrieval, export and
-  disclosure controls, legal hold, retention, defensible deletion, and records
-  management.
-- Segregated environments for sensitive programs and the ability to prevent
-  customer data from being used to train shared models.
-- Customer-controlled model endpoints, approved model allow-lists, prompt and
-  response inspection, data-loss prevention, and model-provider isolation.
-- Architecture paths for protected, controlled, export-controlled, proprietary,
-  and contractually restricted information, subject to applicable authorization
-  and certification.
-
-### 4. AI and model assurance
-
-- A governed model registry recording purpose, owner, version, data sources,
-  evaluation results, limitations, risk class, approval state, and retirement.
-- Scenario-based testing, adversarial testing, prompt-injection resistance,
-  retrieval poisoning controls, hallucination measurement, and regression
-  suites tied to high-consequence use cases.
-- Calibrated confidence and uncertainty, abstention, contradictory-evidence
-  handling, out-of-distribution detection, and mandatory escalation rules.
-- Independent verification and validation for critical calculations, models,
-  agents, retrieval policies, and workflow logic.
-- Full traceability from recommendation to source evidence, canonical model,
-  calculation, model version, prompt context, reviewer, approval, execution
-  record, and observed outcome.
-- No silent model changes in validated deployments; controlled rollout,
-  rollback, shadow mode, canary evaluation, and post-change monitoring.
-
-### 5. Safety, reliability, and mission assurance
-
-- Hazard analysis and assurance cases linking hazards, failure conditions,
-  safeguards, evidence, residual risk, and accountable approval authorities.
-- Support for FMEA/FMECA, FRACAS, reliability-centred maintenance, fault trees,
-  bow ties, barrier assurance, configuration control, verification, and
-  validation workflows.
-- Safety and mission constraints that override optimization goals and remain
-  enforceable when AI services are unavailable.
-- High availability, graceful degradation, backup and restore, regional or site
-  failover, recovery objectives, capacity management, and tested continuity
-  plans.
-- Evidence that recommendations improve outcomes without increasing operational,
-  cyber, environmental, safety, or mission risk.
-
-### 6. Enterprise integration and data governance
-
-- Versioned APIs, event streams, bulk exchange, connector certification, and
-  integration observability.
-- Canonical data contracts, semantic mapping, master-data alignment, lineage,
-  quality rules, reconciliation, and source-system authority.
-- Supported connectors for major EAM/CMMS, ERP, historian, PLM, document,
-  condition-monitoring, laboratory, GIS, and planning ecosystems.
-- Customer-controlled data onboarding, mapping review, exception management,
-  and auditable transformation pipelines.
-- Open export of customer data, models, evidence, and audit history to reduce
-  lock-in and support long-term stewardship.
-
-### 7. Operationalization and procurement readiness
-
-- Reference architectures, threat models, security-control mappings, data-flow
-  diagrams, deployment guides, hardening standards, and customer responsibility
-  matrices.
-- Service-level objectives, support and escalation models, vulnerability and
-  patch commitments, maintenance windows, lifecycle policy, and end-of-support
-  planning.
-- Pilot-to-production gates with measurable technical, safety, cyber,
-  operational, and economic acceptance criteria.
-- Independent audit reports, penetration tests, resilience exercises,
-  certification evidence, supplier-risk information, and escrow or continuity
-  options appropriate to customer risk.
-- Transparent commercial boundaries covering data ownership, intellectual
-  property, derived insights, model use, subcontractors, breach obligations,
-  warranties, liability, and exit assistance.
-
-### 8. Executive and portfolio value
-
-- Portfolio-level views of mission readiness, production risk, deferred risk,
-  asset health, maintenance effectiveness, supply exposure, critical skills,
-  and capital priorities.
-- Explainable prioritization that connects engineering risk to operational,
-  financial, environmental, safety, and mission consequences.
-- Scenario and resilience analysis for outages, supply disruption, workforce
-  constraints, configuration changes, severe weather, cyber incidents, and
-  other credible operating threats.
-- Benefit tracking that distinguishes predicted value from verified value and
-  ties decisions to reliability, availability, cost, risk, safety, emissions,
-  readiness, and production outcomes.
-
-## Architecture
-
-| Layer | Technology and responsibility |
+| Sector | Typical outcome language |
 | --- | --- |
-| Frontend | React 19, TypeScript, Vite 8, Tailwind CSS 4, React Router 7, Zustand, Framer Motion |
-| Backend | Supabase Postgres, Row Level Security, security-definer RPCs, Realtime, scheduled jobs, and Edge Functions |
-| Engineering model | Asset DNA, Shared Component DNA, Physics Capabilities, Digital Twin Factory, engineering ontology, and canonical registries |
-| Knowledge and AI | Governed ingestion and extraction, asset-aware retrieval, RAG, provenance packaging, and specialized OpenAI/Gemini-backed agents |
-| Schema | Ordered SQL migrations in [`supabase/migrations/`](supabase/migrations/) with reproducible local reset and CI validation |
-| CI/CD | GitHub Actions for lint, type-check, build, unit tests, migration/auth smoke tests, agent-loop smoke tests, Playwright E2E, CodeQL, secret scanning, and dependency review; deployment from `main` |
-
-### Canonical ownership model
-
-The platform treats canonical stores as sources of truth:
-
-- asset-class and asset-twin definitions live in the asset-twin layer;
-- reusable components live in Shared Component DNA;
-- deterministic calculations live in the Physics Capability Library;
-- knowledge relationships reference canonical IDs instead of copying complete
-  records;
-- customer and site variations are overlays with provenance and approval state;
-- AI outputs remain proposals until accepted through governed workflows.
-
-See
-[`docs/architecture/canonical-plane-ownership.md`](docs/architecture/canonical-plane-ownership.md).
+| Energy and mining | Production assurance, asset integrity, process safety, reliability, and maintenance effectiveness |
+| Manufacturing | Equipment effectiveness, quality, throughput, and maintenance readiness |
+| Utilities and infrastructure | Service reliability, resilience, and lifecycle stewardship |
+| Aerospace | Configuration assurance, system readiness, verification, and technical risk control |
+| Defence | Equipment readiness, sustainment, technical assurance, and mission assurance only where relevant |
+| Transportation | Fleet readiness, safety, reliability, and service continuity |
 
 ## Security and compliance
 
-- Organization-scoped Row Level Security on tenant data
-- Role-based database access and controlled RPCs
-- TOTP MFA and sign-in challenge support
-- Append-only security audit records and server-side role-change capture
-- CodeQL, secret scanning, dependency review, and CI quality gates
-- Coordinated disclosure through [`SECURITY.md`](SECURITY.md)
+Current foundations include organization-scoped RLS, security events, MFA code
+paths, audit records, CodeQL, secret scanning, dependency review, policies,
+control mappings, and evidence indexes.
 
-SOC 2 and ISO 27001 readiness material is maintained in
-[`docs/compliance/`](docs/compliance/README.md), including control mappings,
-evidence references, policies, gap-remediation work, and the
-[Vanta evidence index](docs/compliance/vanta-evidence-index.md).
+The material in [`docs/compliance/`](docs/compliance/README.md) supports SOC 2
+and ISO 27001 readiness and audit preparation. It does not constitute completed
+certification. Regulated or controlled deployments require additional
+contract-, jurisdiction-, information-, and deployment-specific authorization
+and independent evidence.
 
-These materials support readiness and audit preparation; they do not by
-themselves represent completed certification. Defence, aerospace, and other
-regulated deployments may require additional contract-specific controls,
-security authorization, controlled-goods or export-control processes,
-independent assessment, and jurisdiction-specific certification.
+Coordinated disclosure is described in [`SECURITY.md`](SECURITY.md).
 
-## Getting started
+## Local development
 
 ### Prerequisites
 
@@ -341,8 +201,6 @@ independent assessment, and jurisdiction-specific certification.
 - npm
 - Docker
 - Supabase CLI
-
-### Local development
 
 ```bash
 git clone https://github.com/Stiggtechnologies/ai-maintenance-system.git
@@ -355,9 +213,9 @@ npm run dev
 
 The application runs at `http://localhost:5173` by default.
 
-Local demo personas are created by the seed/migration chain. Keep credentials in
+Local demo personas are created by the migration chain. Keep credentials in
 approved development configuration or internal onboarding documentation rather
-than publishing passwords in the repository README.
+than publishing passwords in this README.
 
 ### Validation
 
@@ -369,56 +227,43 @@ npm run build
 npm run test:e2e
 ```
 
-Playwright E2E requires the local Supabase stack and seeded data.
-
-## Repository structure
-
-```text
-src/
-  lib/
-    asset-twins/             canonical asset templates and Engineering DNA
-    engineering-knowledge/   ontology, factory, extraction, and retrieval contracts
-  components/                application UI
-  pages/                     role and workflow pages
-supabase/
-  functions/                 Edge Functions and AI/RAG services
-  migrations/                ordered database migration chain
-docs/
-  architecture/              canonical ownership and design decisions
-  compliance/                SOC 2 / ISO 27001 readiness and evidence
-  ...                        operating, onboarding, AI, GTM, and deployment guides
-tests/
-  e2e/                       Playwright golden-path coverage
-```
+Playwright E2E requires the local Supabase stack and seeded data. At the date of
+the product audit, GitHub's migration and E2E jobs are not green because the
+local Supabase Postgres container fails during startup. A successful frontend
+build or unit-test run does not replace those database and E2E gates.
 
 ## Documentation
 
 | Document | Purpose |
 | --- | --- |
+| [`docs/product-capability-audit-2026-08-03.md`](docs/product-capability-audit-2026-08-03.md) | Evidence-based current capability and gap assessment |
+| [`docs/enterprise-target-state.md`](docs/enterprise-target-state.md) | Desired enterprise product and completion criteria |
+| [`docs/enterprise-readiness/claims-and-evidence-register.md`](docs/enterprise-readiness/claims-and-evidence-register.md) | Permitted commercial claims and required evidence |
 | [`docs/architecture/canonical-plane-ownership.md`](docs/architecture/canonical-plane-ownership.md) | Canonical model ownership and anti-duplication rules |
-| [`docs/operating-loop-demo.md`](docs/operating-loop-demo.md) | Buyer-value operating loop, end to end |
+| [`docs/operating-loop-demo.md`](docs/operating-loop-demo.md) | Governed operating-loop walkthrough |
 | [`docs/asset-onboarding.md`](docs/asset-onboarding.md) | RAM onboarding and governance gates |
-| [`docs/reliability-kb.md`](docs/reliability-kb.md) | Reliability knowledge base and citation model |
-| [`docs/llm-enrichment.md`](docs/llm-enrichment.md) | Agent-loop language-model enrichment |
-| [`docs/gtm-readiness.md`](docs/gtm-readiness.md) | Capability-versus-promise assessment |
-| [`docs/compliance/`](docs/compliance/README.md) | SOC 2 / ISO 27001 readiness pack |
-| [`AI-AGENT-TRAINING-GUIDE.md`](AI-AGENT-TRAINING-GUIDE.md) | Agent training and governance guidance |
-| [`RAG-TRAINING-GUIDE.md`](RAG-TRAINING-GUIDE.md) | RAG ingestion and training guidance |
+| [`docs/reliability-kb.md`](docs/reliability-kb.md) | Reliability knowledge and citation model |
+| [`docs/gtm-readiness.md`](docs/gtm-readiness.md) | Go-to-market readiness; reconcile against the current audit before use |
+| [`docs/compliance/`](docs/compliance/README.md) | SOC 2 and ISO 27001 readiness material |
+
+Historical completion and audit reports may describe earlier architectures,
+counts, tests, or readiness states. They are not current product evidence unless
+they are explicitly reconciled to the capability audit.
 
 ## Repository conventions
 
 - Changes land through pull requests; avoid direct commits to `main`.
-- Schema changes are made only through ordered migrations.
-- Canonical contracts, registries, RLS policies, and shared engineering models
-  are serialized and reviewed carefully to prevent parallel drift.
-- Asset-class implementations should reuse existing shared contracts and include
-  deterministic tests.
+- Schema changes use the ordered active migration chain.
+- Do not restore archived legacy migrations into the active chain without an
+  explicit convergence plan.
+- Canonical contracts, registries, RLS policies, service boundaries, and shared
+  engineering models require careful review to prevent parallel drift.
 - Do not encode unverified OEM thresholds, setpoints, wear limits, maintenance
-  intervals, or operating limits as platform defaults.
-- Engineering recommendations must retain provenance, applicability, review
-  state, and human approval requirements.
-- Mission-critical capabilities must be represented by evidence, validation,
-  authorization, and operational acceptance—not by marketing language alone.
+  intervals, or acceptance criteria as product defaults.
+- Recommendations must retain evidence, applicability, uncertainty, review, and
+  human-approval requirements.
+- Simulated, pilot, target, prohibited, independently verified, and certified
+  states must remain visibly distinct.
 
 ## License
 
