@@ -1,0 +1,93 @@
+name: Approval authority
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/approval-authority.yml"
+      - "supabase/migrations/00000000000022_approval_authority_contract.sql"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/approval-authority.yml"
+      - "supabase/migrations/00000000000022_approval_authority_contract.sql"
+
+permissions:
+  contents: read
+
+jobs:
+  role-matrix:
+    name: Verify approval role matrix
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: supabase/setup-cli@v2
+        with:
+          version: 2.84.2
+          github-token: ${{ github.token }}
+
+      - name: Prepare clean local Supabase state
+        run: supabase stop --all --no-backup || true
+
+      - name: Start local Supabase
+        run: bash scripts/ci-start-supabase.sh /tmp/authz-start.log /tmp/authz-diagnostics.txt
+
+      - name: Verify authenticated role decisions
+        run: |
+          set -euo pipefail
+          export PGPASSWORD=postgres
+
+          check_user() {
+            local user_id="$1"
+            local expected_role="$2"
+            local expected_authority="$3"
+            local result
+
+            result=$(psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -Atv ON_ERROR_STOP=1 <<SQL
+          begin;
+          set local role authenticated;
+          select set_config('request.jwt.claim.sub', '$user_id', true);
+          select public.app_current_role() || '|' || public.app_has_approval_authority()::text;
+          rollback;
+          SQL
+            )
+
+            result=$(echo "$result" | grep '|')
+            test "$result" = "$expected_role|$expected_authority"
+            echo "$user_id: $result"
+          }
+
+          check_user "00000000-0000-0000-0000-000000000003" "maintenance_manager" "true"
+          check_user "00000000-0000-0000-0000-000000000001" "reliability_engineer" "true"
+          check_user "00000000-0000-0000-0000-000000000004" "planner" "false"
+          check_user "00000000-0000-0000-0000-000000000005" "technician" "false"
+
+      - name: Verify anonymous execution is denied
+        run: |
+          set -euo pipefail
+          export PGPASSWORD=postgres
+          if psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -v ON_ERROR_STOP=1 <<'SQL'
+          begin;
+          set local role anon;
+          select public.app_has_approval_authority();
+          rollback;
+          SQL
+          then
+            echo "anonymous role unexpectedly executed app_has_approval_authority" >&2
+            exit 1
+          fi
+          echo "anonymous execution denied"
+
+      - name: Upload startup diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: approval-authority-diagnostics
+          path: |
+            /tmp/authz-start.log
+            /tmp/authz-diagnostics.txt
+          retention-days: 7
+
+      - name: Stop Supabase
+        if: always()
+        run: supabase stop --no-backup || true
