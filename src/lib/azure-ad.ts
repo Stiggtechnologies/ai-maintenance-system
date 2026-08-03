@@ -43,7 +43,8 @@ function enterpriseSsoDisabledError(): Error {
  * Authorization URL generation is blocked until the complete, verified OIDC
  * session flow is implemented and independently tested.
  */
-export function getAzureADAuthUrl(_state?: string): never {
+export function getAzureADAuthUrl(state?: string): never {
+  void state;
   throw enterpriseSsoDisabledError();
 }
 
@@ -67,7 +68,8 @@ export async function handleAzureADCallback(): Promise<null> {
 }
 
 /** Fail closed instead of accepting an unverified token exchange response. */
-export async function exchangeCodeForSession(_code: string): Promise<never> {
+export async function exchangeCodeForSession(code: string): Promise<never> {
+  void code;
   throw enterpriseSsoDisabledError();
 }
 
