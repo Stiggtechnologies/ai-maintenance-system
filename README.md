@@ -14,8 +14,6 @@ physics, operational evidence, reliability workflows, human approval, and AI
 reasoning so teams can make safer and more reliable maintenance, risk,
 readiness, and production decisions.
 
-The common operating question is:
-
 > **Can we safely and reliably deliver the operating plan?**
 
 The application is available at **[app.syncai.ca](https://app.syncai.ca)**.
@@ -24,51 +22,36 @@ Capability maturity varies by module and deployment.
 ## Current product state
 
 SyncAI is in **advanced pilot development**. It has a substantial working
-application and database foundation, but it is not yet a fully hardened,
-independently assured enterprise platform for unrestricted high-consequence
-production use.
+application, database, operating-loop, engineering-model, and governed-AI
+foundation. It is not yet a fully hardened, independently assured enterprise
+platform for unrestricted high-consequence production use.
 
-The current source of truth is the
+The source of truth for current claims is the
 [Product Capability Audit](docs/product-capability-audit-2026-08-03.md).
 Commercial claims are governed by the
 [Claims and Evidence Register](docs/enterprise-readiness/claims-and-evidence-register.md).
+The desired completed product is defined separately in the
+[Enterprise Target State](docs/enterprise-target-state.md).
 
-### Operational foundations
+## Capability status
 
 | Capability | Current state |
 | --- | --- |
 | Authenticated application and role-shaped operating views | Implemented foundation with broad operational, engineering, work, approval, briefing, value, and administrative surfaces |
-| Organization-scoped Supabase data plane | Implemented for core operational records; fine-grained enterprise write authorization is incomplete |
+| Organization-scoped Supabase data plane | Implemented for core operational records; fine-grained enterprise write authorization remains incomplete |
 | Governed operating loop | Implemented for recommendations, evidence, scenarios, approvals, bounded work actions, decisions, value, and learning |
 | Human approval boundary | Implemented in the canonical AI/orchestrator path; direct autonomous operational execution is disabled |
-| Asset onboarding and RAM governance | Implemented pilot foundation with evidence gaps, readiness gates, FMEA/FRACAS concepts, and approvals |
-| ISO 55000-aligned KPI service | Implemented; some KPIs honestly remain unavailable until external systems are connected |
-| Engineering DNA and asset-twin library | Implemented foundation and expanding across mining and process asset classes |
-| Shared Component DNA and deterministic physics | Implemented foundation with governed, testable calculations and approved-source-only limits |
-| Inspection intelligence | Implemented governed foundation with evidence, verification, approval, prohibited-action boundaries, and atomic persistence |
-| Password authentication and per-user TOTP code paths | Implemented in application code; tenant-wide enterprise enforcement and hosted configuration require validation |
-| CI and deployment automation | Build, type, unit, migration, smoke, E2E, security, and selected deployment workflows exist; database/E2E CI is currently impaired by local Supabase startup |
+| Asset onboarding and RAM governance | Pilot-capable foundation with evidence gaps, readiness gates, FMEA/FRACAS concepts, and approvals |
+| ISO 55000-aligned KPI service | Implemented; some KPIs remain unavailable until required external systems are connected |
+| Engineering DNA and asset-twin library | Implemented foundation across multiple mining and process asset classes |
+| Shared Component DNA and deterministic physics | Implemented foundation with governed calculations and approved-source-only limits |
+| Inspection intelligence | Governed foundation with evidence, verification, approval, prohibited-action boundaries, and atomic persistence |
+| Engineering knowledge ontology and factory | Implemented deterministic contracts; end-to-end governed ingestion and retrieval are not yet complete |
+| Asset-aware retrieval | Implemented on draft PR #115 and awaiting integration into the active knowledge runtime |
+| Password authentication and per-user TOTP paths | Implemented in application code; enterprise enforcement and hosted configuration require validation |
+| CI and delivery gates | Lint, type-check, build, unit, clean migration, auth/RLS/RPC smoke, agent-loop idempotency, Playwright E2E, CodeQL, and secret scanning are operational |
 
-### Implemented foundations still requiring integration or validation
-
-- **Engineering knowledge ontology** — canonical entities, relationships,
-  authority, review, confidentiality, provenance, applicability, and
-  supersession contracts.
-- **Knowledge Base Factory** — deterministic publish, review, and reject planning
-  against canonical engineering registries.
-- **Engineering extraction resolution** — confidence- and provenance-gated
-  mapping of upstream extraction candidates; it is not itself a complete
-  extraction service.
-- **Asset-aware retrieval** — under active validation in draft PR #115 and not
-  yet part of `main`.
-- **Digital-twin persistence** — versioned templates, OEM/model overlays,
-  customer instances, maturity, evidence, and compilation logs.
-- **Operational briefing and shift handover** — live-data briefing surfaces are
-  present; broader human-systems assurance remains roadmap work.
-- **Integration registry and health monitoring** — connector records and health
-  views exist; major industrial connectors are not yet production-validated.
-
-### Simulation and pilot dependencies
+## Simulation and pilot boundaries
 
 The default demo and deployment experience uses seeded assets, simulated
 telemetry, starter thresholds, and scheduled operating-loop activity. These are
@@ -77,17 +60,19 @@ live historian, SCADA, CMMS, ERP, or customer asset deployment.
 
 `provision_deployment()` creates a configured workspace, starter assets, sensors,
 onboarding records, and audit history inside SyncAI. It does **not** provision
-customer cloud, private-cloud, on-premises, edge, or disconnected
+customer cloud, private-cloud, on-premises, edge, sovereign, or disconnected
 infrastructure.
 
 ## Not yet production-ready
 
-The following must not be represented as generally delivered or certified:
+The following must not be represented as generally delivered, independently
+validated, or certified:
 
 - production-ready enterprise SSO or Google Workspace authentication;
 - comprehensive role-, site-, asset-, program-, classification-, and
   action-based authorization;
-- a clean-deployment, end-to-end governed RAG and persistent knowledge graph;
+- a clean-deployment, end-to-end governed RAG service and persistent knowledge
+  graph;
 - production SAP, Maximo, PI/historian, SCADA, OPC-UA, MQTT, ERP, or PLM
   connectors;
 - supported private-cloud, on-premises, sovereign, edge, or air-gapped
@@ -114,14 +99,14 @@ deployed, governed runtime and must not be used as production evidence.
   rules, constraints, and calculations are inspectable and testable.
 - **Canonical models are reused.** Asset DNA, shared components, physics,
   evidence, work, and decisions are referenced rather than duplicated.
-- **Tenant scope must come from trusted identity.** Caller-supplied organization
-  or user identifiers are not an acceptable enterprise security boundary.
+- **Tenant scope comes from trusted identity.** Caller-supplied organization or
+  user identifiers are not an acceptable enterprise security boundary.
 - **Safety and security override optimization.** The platform abstains or
   escalates when evidence, authority, or operating context is insufficient.
 - **Learning does not silently rewrite approved truth.** New information creates
   reviewable, versioned proposals and supersession decisions.
 - **Verified outcomes matter.** Projected, observed, validated, and independently
-  verified value are distinct states.
+  verified value remain distinct states.
 
 ## Platform architecture
 
@@ -131,7 +116,7 @@ deployed, governed runtime and must not be used as production evidence.
 | Data plane | Supabase Postgres, Row Level Security, controlled RPCs, Realtime, scheduled jobs, and audit records |
 | Operating loop | Assets, sensors, recommendations, evidence, scenarios, approvals, work, decisions, value, and learning |
 | Engineering model | Asset templates, Engineering DNA, Shared Component DNA, physics capabilities, inspection contracts, overlays, and twin instances |
-| Knowledge foundation | Ontology, authority, provenance, Knowledge Base Factory, extraction resolution, and retrieval contracts |
+| Knowledge foundation | Ontology, authority, provenance, Knowledge Base Factory, extraction resolution, and asset-aware retrieval contracts |
 | AI runtime | Deployed agent processor and approval orchestrator with tenant scope, idempotency, human review, and bounded side effects |
 | Quality and delivery | GitHub Actions, Vitest, Playwright, CodeQL, secret scanning, dependency review, Vercel, and selected Supabase deployment |
 
@@ -141,9 +126,6 @@ governed `agent-loop-enrich`, `ai-agent-processor`,
 the repository must not be assumed to be part of the active production boundary.
 
 ## Product direction
-
-The desired product is described in
-[Enterprise Target State](docs/enterprise-target-state.md).
 
 At maturity, SyncAI is intended to connect:
 
@@ -200,7 +182,7 @@ Coordinated disclosure is described in [`SECURITY.md`](SECURITY.md).
 - Node.js 22
 - npm
 - Docker
-- Supabase CLI
+- Supabase CLI 2.84.2 or the repository-pinned CI version
 
 ```bash
 git clone https://github.com/Stiggtechnologies/ai-maintenance-system.git
@@ -227,10 +209,10 @@ npm run build
 npm run test:e2e
 ```
 
-Playwright E2E requires the local Supabase stack and seeded data. At the date of
-the product audit, GitHub's migration and E2E jobs are not green because the
-local Supabase Postgres container fails during startup. A successful frontend
-build or unit-test run does not replace those database and E2E gates.
+The CI workflow also proves a clean local Supabase start, the complete ordered
+migration chain, seeded authentication, tenant-scoped RLS access, the app-shell
+context RPC, continuous-agent-loop idempotency, and the Playwright golden path.
+Failure-only startup artifacts preserve Supabase and Docker diagnostics.
 
 ## Documentation
 
@@ -253,17 +235,17 @@ they are explicitly reconciled to the capability audit.
 ## Repository conventions
 
 - Changes land through pull requests; avoid direct commits to `main`.
-- Schema changes use the ordered active migration chain.
+- Schema changes use the ordered active migration chain with unique versions.
 - Do not restore archived legacy migrations into the active chain without an
   explicit convergence plan.
 - Canonical contracts, registries, RLS policies, service boundaries, and shared
   engineering models require careful review to prevent parallel drift.
 - Do not encode unverified OEM thresholds, setpoints, wear limits, maintenance
   intervals, or acceptance criteria as product defaults.
-- Recommendations must retain evidence, applicability, uncertainty, review, and
+- Recommendations retain evidence, applicability, uncertainty, review, and
   human-approval requirements.
 - Simulated, pilot, target, prohibited, independently verified, and certified
-  states must remain visibly distinct.
+  states remain visibly distinct.
 
 ## License
 
