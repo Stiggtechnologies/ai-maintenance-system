@@ -1,7 +1,8 @@
 name: Deploy migrations
 
-# Pushes the deterministic migration chain and governed production edge functions
-# to the hardened SyncAI cloud project after protected changes land on main.
+# Pushes the deterministic migration chain and explicitly approved production
+# Edge Functions after protected changes land on main. The allowlist is enforced
+# by scripts/check-edge-function-boundary.mjs.
 
 on:
   push:
@@ -28,9 +29,13 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - uses: supabase/setup-cli@v3
+      - uses: supabase/setup-cli@v2
         with:
-          version: 2.75.0
+          version: 2.84.2
+          github-token: ${{ github.token }}
+
+      - name: Verify approved Edge Function boundary
+        run: node scripts/check-edge-function-boundary.mjs
 
       - name: Link project
         run: supabase link --project-ref "$SUPABASE_PROJECT_ID"
@@ -42,7 +47,7 @@ jobs:
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
 
-      - name: Deploy edge functions
+      - name: Deploy approved Edge Functions
         run: |
           supabase functions deploy agent-loop-enrich --no-verify-jwt
           supabase functions deploy ai-agent-processor
