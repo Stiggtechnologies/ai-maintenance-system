@@ -152,7 +152,8 @@ The completed platform is intended to provide:
   certification, and independent audit.
 
 This target state is a roadmap and design direction. It must not be read as a
-claim that every capability is currently production-deployed or certified.
+claim that every capability is currently production-deployed, independently
+assured, authorized for a particular environment, or certified.
 
 ## Mission-critical enterprise scope
 
