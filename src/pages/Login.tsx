@@ -2,14 +2,16 @@ import { useState } from "react";
 import { AuthShell } from "../components/AuthShell";
 import { AuthTabs } from "../components/AuthTabs";
 import { signIn } from "../lib/auth";
-import { signInWithAzureAD } from "../lib/azure-ad";
 import { supabase } from "../lib/supabase";
 import { motion } from "framer-motion";
 
 /** True when the signed-in user has a verified factor and must step up to AAL2. */
 async function mfaChallengeRequired(): Promise<boolean> {
-  const { data } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
-  return !!data && data.currentLevel === "aal1" && data.nextLevel === "aal2";
+  const { data, error } =
+    await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+  if (error) throw new Error(error.message);
+  if (!data) throw new Error("Unable to verify authentication assurance.");
+  return data.currentLevel === "aal1" && data.nextLevel === "aal2";
 }
 
 interface LoginProps {
@@ -40,17 +42,22 @@ export function Login({ onSuccess, onTabChange }: LoginProps) {
       return;
     }
 
-    // Second factor: enrolled users must complete an AAL2 challenge before entry.
     try {
       if (await mfaChallengeRequired()) {
         setMfaStep(true);
         setLoading(false);
         return;
       }
+      onSuccess();
     } catch {
-      /* if the AAL probe fails, fall through — password auth already succeeded */
+      // Password authentication alone is not enough when assurance state cannot
+      // be established. End the partial session rather than failing open.
+      await supabase.auth.signOut();
+      setError(
+        "Authentication assurance could not be verified. Please try again or contact your administrator.",
+      );
+      setLoading(false);
     }
-    onSuccess();
   };
 
   const handleMfaVerify = async (e: React.FormEvent) => {
@@ -58,27 +65,37 @@ export function Login({ onSuccess, onTabChange }: LoginProps) {
     setLoading(true);
     setError("");
     try {
-      const { data: factors, error: fErr } =
+      const { data: factors, error: factorError } =
         await supabase.auth.mfa.listFactors();
-      if (fErr) throw new Error(fErr.message);
-      const factor = factors?.totp?.find((f) => f.status === "verified");
-      if (!factor)
-        throw new Error("No authenticator is enrolled on this account.");
-      const { data: challenge, error: cErr } =
+      if (factorError) throw new Error(factorError.message);
+      const factor = factors?.totp?.find((item) => item.status === "verified");
+      if (!factor) {
+        throw new Error("No verified authenticator is enrolled on this account.");
+      }
+
+      const { data: challenge, error: challengeError } =
         await supabase.auth.mfa.challenge({ factorId: factor.id });
-      if (cErr) throw new Error(cErr.message);
-      const { error: vErr } = await supabase.auth.mfa.verify({
+      if (challengeError) throw new Error(challengeError.message);
+
+      const { error: verifyError } = await supabase.auth.mfa.verify({
         factorId: factor.id,
         challengeId: challenge.id,
         code: mfaCode.trim(),
       });
-      if (vErr) throw new Error(vErr.message);
+      if (verifyError) throw new Error(verifyError.message);
+
+      const { data: assurance, error: assuranceError } =
+        await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+      if (assuranceError || assurance?.currentLevel !== "aal2") {
+        throw new Error("Two-factor assurance was not established.");
+      }
+
       onSuccess();
     } catch (err) {
       setError(
         err instanceof Error
           ? err.message
-          : "That code didn't verify. Please try again.",
+          : "That code could not be verified. Please try again.",
       );
       setLoading(false);
     }
@@ -101,8 +118,10 @@ export function Login({ onSuccess, onTabChange }: LoginProps) {
               <input
                 id="mfa-code"
                 value={mfaCode}
-                onChange={(e) =>
-                  setMfaCode(e.target.value.replace(/\D/g, "").slice(0, 6))
+                onChange={(event) =>
+                  setMfaCode(
+                    event.target.value.replace(/\D/g, "").slice(0, 6),
+                  )
                 }
                 inputMode="numeric"
                 autoComplete="one-time-code"
@@ -112,20 +131,22 @@ export function Login({ onSuccess, onTabChange }: LoginProps) {
                 required
               />
               <p className="mt-2 text-xs text-industrial-muted">
-                Enter the 6-digit code from your authenticator app.
+                Enter the six-digit code from your authenticator app.
               </p>
             </div>
+
             {error && (
               <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-sm text-red-400">
                 {error}
               </div>
             )}
+
             <button
               type="submit"
               disabled={loading || mfaCode.length < 6}
               className="w-full py-3 px-4 bg-[#3A8DFF] hover:bg-[#2E7AE6] text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loading ? "Verifying…" : "Verify & continue"}
+              {loading ? "Verifying…" : "Verify and continue"}
             </button>
           </form>
         ) : (
@@ -135,20 +156,18 @@ export function Login({ onSuccess, onTabChange }: LoginProps) {
                 htmlFor="email"
                 className="block text-sm font-medium text-industrial-text mb-2"
               >
-                Work Email
+                Work email
               </label>
               <input
                 id="email"
                 type="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(event) => setEmail(event.target.value)}
+                autoComplete="username"
                 className="w-full px-4 py-3 bg-industrial-black border border-industrial-border rounded-lg text-industrial-text placeholder-industrial-muted focus:outline-hidden focus:border-[#3A8DFF] focus:ring-1 focus:ring-[#3A8DFF] transition-colors"
                 placeholder="your.email@company.com"
                 required
               />
-              <p className="mt-2 text-xs text-industrial-muted">
-                Use your enterprise work email.
-              </p>
             </div>
 
             <div>
@@ -162,7 +181,8 @@ export function Login({ onSuccess, onTabChange }: LoginProps) {
                 id="password"
                 type="password"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(event) => setPassword(event.target.value)}
+                autoComplete="current-password"
                 className="w-full px-4 py-3 bg-industrial-black border border-industrial-border rounded-lg text-industrial-text placeholder-industrial-muted focus:outline-hidden focus:border-[#3A8DFF] focus:ring-1 focus:ring-[#3A8DFF] transition-colors"
                 placeholder="••••••••"
                 required
@@ -179,19 +199,6 @@ export function Login({ onSuccess, onTabChange }: LoginProps) {
               </motion.div>
             )}
 
-            <div className="flex items-center justify-between text-sm">
-              <label className="flex items-center gap-2 text-industrial-muted cursor-pointer">
-                <input
-                  type="checkbox"
-                  className="rounded-sm border-industrial-border"
-                />
-                <span>Remember me</span>
-              </label>
-              <button type="button" className="text-[#3A8DFF] hover:underline">
-                Forgot password?
-              </button>
-            </div>
-
             <motion.button
               type="submit"
               disabled={loading}
@@ -199,61 +206,18 @@ export function Login({ onSuccess, onTabChange }: LoginProps) {
               whileTap={{ scale: 0.98 }}
               className="w-full py-3 px-4 bg-[#3A8DFF] hover:bg-[#2E7AE6] text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loading ? "Accessing..." : "Access SyncAI"}
+              {loading ? "Authenticating…" : "Access SyncAI"}
             </motion.button>
 
-            <div className="space-y-3">
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-industrial-border"></div>
-                </div>
-                <div className="relative flex justify-center text-xs">
-                  <span className="px-2 bg-industrial-slate text-industrial-muted">
-                    Or continue with
-                  </span>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={async () => {
-                  try {
-                    await signInWithAzureAD();
-                  } catch (error) {
-                    setError(
-                      error instanceof Error
-                        ? error.message
-                        : "Failed to initiate Azure AD sign-in",
-                    );
-                  }
-                }}
-                className="w-full py-3 px-4 bg-industrial-graphite hover:bg-industrial-slate border border-industrial-border text-industrial-text font-medium rounded-lg transition-colors"
-              >
-                Microsoft Azure AD
-              </button>
-              <button
-                type="button"
-                className="w-full py-3 px-4 bg-industrial-graphite hover:bg-industrial-slate border border-industrial-border text-industrial-text font-medium rounded-lg transition-colors"
-              >
-                Google Workspace
-              </button>
-
-              <motion.button
-                type="button"
-                onClick={onSuccess}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                className="w-full py-3 px-4 bg-linear-to-r from-[#3A8DFF]/20 to-[#2E7AE6]/20 hover:from-[#3A8DFF]/30 hover:to-[#2E7AE6]/30 border border-[#3A8DFF]/30 text-[#3A8DFF] font-medium rounded-lg transition-all"
-              >
-                Try Demo Mode
-              </motion.button>
+            <div className="rounded-lg border border-industrial-border bg-industrial-black/40 p-3 text-xs text-industrial-muted">
+              Only a verified Supabase session can enter the application.
+              Authenticator verification is enforced for enrolled accounts.
+              Enterprise federation remains disabled until its supported OIDC
+              session path is complete.
             </div>
-
-            <p className="text-xs text-industrial-muted text-center">
-              MFA enabled for enterprise tenants
-            </p>
           </form>
         )}
+
         <p className="mt-4 text-center text-xs text-slate-400">
           build {__BUILD_SHA__}
         </p>
