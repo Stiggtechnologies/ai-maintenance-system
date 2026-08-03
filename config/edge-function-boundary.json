@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "supabaseCliVersion": "2.84.2",
+  "activeFunctions": [
+    "agent-loop-enrich",
+    "ai-agent-processor",
+    "autonomous-orchestrator",
+    "onboarding-enrich"
+  ],
+  "allowedNoVerifyJwt": [
+    "agent-loop-enrich",
+    "onboarding-enrich"
+  ],
+  "blockedLegacyFunctions": [
+    "document-processor",
+    "edge-node-manager",
+    "gateway",
+    "javis-event-listener",
+    "javis-orchestrator",
+    "job-processor",
+    "marketplace-resolve",
+    "model-router",
+    "openclaw-orchestrator",
+    "rag-document-processor",
+    "rag-semantic-search",
+    "sir-orchestrator",
+    "template-resolver"
+  ]
+}
