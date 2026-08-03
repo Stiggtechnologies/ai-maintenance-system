@@ -69,7 +69,17 @@ jobs:
           docker system df
 
       - name: Start local Supabase (applies full migration chain)
-        run: bash scripts/ci-start-supabase.sh /tmp/migrations-supabase-start.log
+        run: bash scripts/ci-start-supabase.sh /tmp/migrations-supabase-start.log /tmp/migrations-supabase-diagnostics.txt
+
+      - name: Upload migration startup diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: migration-supabase-startup-diagnostics
+          path: |
+            /tmp/migrations-supabase-start.log
+            /tmp/migrations-supabase-diagnostics.txt
+          retention-days: 7
 
       - name: Smoke — demo login, RLS read, RPC
         run: |
@@ -159,7 +169,17 @@ jobs:
           docker system df
 
       - name: Start local Supabase (fresh migration chain + demo data)
-        run: bash scripts/ci-start-supabase.sh /tmp/e2e-supabase-start.log
+        run: bash scripts/ci-start-supabase.sh /tmp/e2e-supabase-start.log /tmp/e2e-supabase-diagnostics.txt
+
+      - name: Upload E2E startup diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-supabase-startup-diagnostics
+          path: |
+            /tmp/e2e-supabase-start.log
+            /tmp/e2e-supabase-diagnostics.txt
+          retention-days: 7
 
       - name: Freeze background crons for deterministic E2E
         # The telemetry simulator (1-min) and operating loop (5-min) mutate
