@@ -5,10 +5,6 @@ name: CI
 #   2. unit tests (vitest)
 #   3. the full Supabase migration chain applying from scratch, then a live
 #      smoke test: seeded demo login → RLS-scoped read → app-shell RPC.
-#
-# NOTE: the legacy Playwright golden-path job was removed — it targets the
-# pre-baseline schema (Axium org, legacy seeds, old orchestration tables).
-# Reviving it against the current chain is tracked in docs/gtm-readiness.md.
 
 on:
   pull_request:
@@ -73,18 +69,7 @@ jobs:
           docker system df
 
       - name: Start local Supabase (applies full migration chain)
-        run: supabase start --debug
-
-      - name: Diagnose Supabase startup failure
-        if: failure()
-        run: |
-          supabase status || true
-          docker ps -a --filter "name=supabase" --format "table {{.ID}}\t{{.Names}}\t{{.Image}}\t{{.Status}}" || true
-          for id in $(docker ps -aq --filter "name=supabase"); do
-            echo "::group::docker logs $id"
-            docker logs "$id" 2>&1 | tail -n 300 || true
-            echo "::endgroup::"
-          done
+        run: bash scripts/ci-start-supabase.sh /tmp/migrations-supabase-start.log
 
       - name: Smoke — demo login, RLS read, RPC
         run: |
@@ -174,18 +159,7 @@ jobs:
           docker system df
 
       - name: Start local Supabase (fresh migration chain + demo data)
-        run: supabase start --debug
-
-      - name: Diagnose Supabase startup failure
-        if: failure()
-        run: |
-          supabase status || true
-          docker ps -a --filter "name=supabase" --format "table {{.ID}}\t{{.Names}}\t{{.Image}}\t{{.Status}}" || true
-          for id in $(docker ps -aq --filter "name=supabase"); do
-            echo "::group::docker logs $id"
-            docker logs "$id" 2>&1 | tail -n 300 || true
-            echo "::endgroup::"
-          done
+        run: bash scripts/ci-start-supabase.sh /tmp/e2e-supabase-start.log
 
       - name: Freeze background crons for deterministic E2E
         # The telemetry simulator (1-min) and operating loop (5-min) mutate
