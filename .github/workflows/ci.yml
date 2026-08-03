@@ -64,10 +64,27 @@ jobs:
 
       - uses: supabase/setup-cli@v2
         with:
-          version: 2.75.0
+          version: 2.84.2
+          github-token: ${{ github.token }}
+
+      - name: Prepare clean local Supabase state
+        run: |
+          supabase stop --all --no-backup || true
+          docker system df
 
       - name: Start local Supabase (applies full migration chain)
-        run: supabase start
+        run: supabase start --debug
+
+      - name: Diagnose Supabase startup failure
+        if: failure()
+        run: |
+          supabase status || true
+          docker ps -a --filter "name=supabase" --format "table {{.ID}}\t{{.Names}}\t{{.Image}}\t{{.Status}}" || true
+          for id in $(docker ps -aq --filter "name=supabase"); do
+            echo "::group::docker logs $id"
+            docker logs "$id" 2>&1 | tail -n 300 || true
+            echo "::endgroup::"
+          done
 
       - name: Smoke — demo login, RLS read, RPC
         run: |
@@ -131,7 +148,7 @@ jobs:
 
       - name: Stop Supabase
         if: always()
-        run: supabase stop || true
+        run: supabase stop --no-backup || true
 
   e2e:
     name: Golden-path E2E
@@ -148,10 +165,27 @@ jobs:
 
       - uses: supabase/setup-cli@v2
         with:
-          version: 2.75.0
+          version: 2.84.2
+          github-token: ${{ github.token }}
+
+      - name: Prepare clean local Supabase state
+        run: |
+          supabase stop --all --no-backup || true
+          docker system df
 
       - name: Start local Supabase (fresh migration chain + demo data)
-        run: supabase start
+        run: supabase start --debug
+
+      - name: Diagnose Supabase startup failure
+        if: failure()
+        run: |
+          supabase status || true
+          docker ps -a --filter "name=supabase" --format "table {{.ID}}\t{{.Names}}\t{{.Image}}\t{{.Status}}" || true
+          for id in $(docker ps -aq --filter "name=supabase"); do
+            echo "::group::docker logs $id"
+            docker logs "$id" 2>&1 | tail -n 300 || true
+            echo "::endgroup::"
+          done
 
       - name: Freeze background crons for deterministic E2E
         # The telemetry simulator (1-min) and operating loop (5-min) mutate
@@ -177,4 +211,4 @@ jobs:
 
       - name: Stop Supabase
         if: always()
-        run: supabase stop || true
+        run: supabase stop --no-backup || true
