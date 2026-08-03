@@ -1,0 +1,149 @@
+name: Approval enforcement
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/approval-enforcement.yml"
+      - "supabase/migrations/00000000000022_approval_authority_contract.sql"
+      - "supabase/migrations/00000000000023_enforce_approval_authority.sql"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/approval-enforcement.yml"
+      - "supabase/migrations/00000000000022_approval_authority_contract.sql"
+      - "supabase/migrations/00000000000023_enforce_approval_authority.sql"
+
+permissions:
+  contents: read
+
+jobs:
+  enforce:
+    name: Verify approval mutation policies
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: supabase/setup-cli@v2
+        with:
+          version: 2.84.2
+          github-token: ${{ github.token }}
+
+      - name: Prepare clean local Supabase state
+        run: supabase stop --all --no-backup || true
+
+      - name: Start local Supabase
+        run: bash scripts/ci-start-supabase.sh /tmp/approval-enforcement-start.log /tmp/approval-enforcement-diagnostics.txt
+
+      - name: Verify policy shape
+        run: |
+          set -euo pipefail
+          export PGPASSWORD=postgres
+
+          psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -v ON_ERROR_STOP=1 <<'SQL'
+          do $$
+          declare
+            v_count int;
+          begin
+            select count(*) into v_count
+            from pg_policies
+            where schemaname = 'public'
+              and tablename = 'autonomous_actions'
+              and cmd in ('ALL', 'INSERT', 'UPDATE', 'DELETE')
+              and 'authenticated' = any(roles);
+            if v_count <> 0 then
+              raise exception 'authenticated autonomous_actions write policies remain: %', v_count;
+            end if;
+
+            select count(*) into v_count
+            from pg_policies
+            where schemaname = 'public'
+              and tablename = 'autonomous_decisions'
+              and policyname = 'autonomous_decisions_authority_update'
+              and cmd = 'UPDATE';
+            if v_count <> 1 then
+              raise exception 'autonomous decision authority update policy missing';
+            end if;
+
+            select count(*) into v_count
+            from pg_policies
+            where schemaname = 'public'
+              and tablename = 'approvals'
+              and policyname = 'approvals_authority_update'
+              and cmd = 'UPDATE';
+            if v_count <> 1 then
+              raise exception 'core approval authority update policy missing';
+            end if;
+          end
+          $$;
+          SQL
+
+      - name: Verify allowed and denied mutations
+        run: |
+          set -euo pipefail
+          export PGPASSWORD=postgres
+
+          row_count() {
+            local user_id="$1"
+            local table_name="$2"
+            local result
+
+            case "$table_name" in
+              approvals)
+                result=$(psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -Atv ON_ERROR_STOP=1 <<SQL
+          begin;
+          set local role authenticated;
+          select set_config('request.jwt.claim.sub', '$user_id', true);
+          with changed as (
+            update public.approvals
+            set status = status
+            where id = (select id from public.approvals order by created_at limit 1)
+            returning id
+          ) select count(*) from changed;
+          rollback;
+          SQL
+                )
+                ;;
+              autonomous_decisions)
+                result=$(psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -Atv ON_ERROR_STOP=1 <<SQL
+          begin;
+          set local role authenticated;
+          select set_config('request.jwt.claim.sub', '$user_id', true);
+          with changed as (
+            update public.autonomous_decisions
+            set status = status
+            where id = (select id from public.autonomous_decisions order by created_at limit 1)
+            returning id
+          ) select count(*) from changed;
+          rollback;
+          SQL
+                )
+                ;;
+              *) echo "unknown table" >&2; exit 1 ;;
+            esac
+
+            echo "$result" | grep -E '^[0-9]+$' | tail -n 1
+          }
+
+          manager_id="00000000-0000-0000-0000-000000000003"
+          planner_id="00000000-0000-0000-0000-000000000004"
+
+          test "$(row_count "$manager_id" approvals)" -ge 1
+          test "$(row_count "$planner_id" approvals)" = "0"
+          test "$(row_count "$manager_id" autonomous_decisions)" -ge 1
+          test "$(row_count "$planner_id" autonomous_decisions)" = "0"
+
+          echo "approval mutations: manager allowed; planner denied"
+
+      - name: Upload startup diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: approval-enforcement-diagnostics
+          path: |
+            /tmp/approval-enforcement-start.log
+            /tmp/approval-enforcement-diagnostics.txt
+          retention-days: 7
+
+      - name: Stop Supabase
+        if: always()
+        run: supabase stop --no-backup || true
