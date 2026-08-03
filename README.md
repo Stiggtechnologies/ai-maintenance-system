@@ -7,17 +7,17 @@
 [![Supabase](https://img.shields.io/badge/Supabase-Postgres%20%2B%20Edge-green.svg)](https://supabase.com)
 
 SyncAI is a governed Industrial Engineering Intelligence platform for mining,
-energy, utilities, manufacturing, transportation, and other asset-intensive
-operations.
+energy, utilities, manufacturing, transportation, defence, aerospace, and other
+asset-intensive or mission-critical operations.
 
 It connects engineering knowledge, asset and component models, deterministic
 physics, operational evidence, digital twins, reliability workflows, and
 human-approved AI agents so teams can make safer and more reliable maintenance,
-risk, and production decisions.
+risk, readiness, and production decisions.
 
 The operating question remains:
 
-> **Can we safely and reliably deliver the production plan?**
+> **Can we safely and reliably deliver the production or mission plan?**
 
 The application is available at **[app.syncai.ca](https://app.syncai.ca)**.
 Capability maturity varies by module; see [Capability status](#capability-status)
@@ -26,7 +26,7 @@ below.
 ## Core principles
 
 - **Human authority is preserved.** AI can detect, explain, recommend, and draft,
-  but safety- or production-critical actions require explicit approval.
+  but safety-, mission-, or production-critical actions require explicit approval.
 - **Engineering truth is governed.** Approved source material, provenance,
   applicability, revision status, and authority level are carried with results.
 - **Deterministic logic stays separate from generative AI.** Calculations,
@@ -38,6 +38,11 @@ below.
 - **Tenant isolation is enforced in the data layer.** Organization and role
   boundaries are implemented with Supabase Row Level Security and controlled
   RPCs.
+- **Security and safety are lifecycle properties.** Threat modelling,
+  authorization, evidence, change control, monitoring, recovery, and residual
+  risk acceptance must continue throughout deployment and operation.
+- **The platform advises before it acts.** SyncAI is designed to integrate with
+  operational systems without becoming an uncontrolled safety or command path.
 
 ## Platform capabilities
 
@@ -93,12 +98,193 @@ below.
 | Asset-aware engineering retrieval | In active validation and integration |
 | Knowledge graph persistence and graph-query services | Planned / in development |
 | Customer-specific digital twins and live sensor integrations | Pilot and deployment work |
-| Autonomous execution against operational control systems | Not permitted by platform governance |
+| Private-cloud, sovereign, disconnected, and edge deployment patterns | Target-state capability; architecture and certification work required |
+| Enterprise identity, privileged-access, policy-as-code, and security operations integrations | Target-state capability; customer-specific integration required |
+| Formal safety case, model assurance, red-team evidence, and independent verification packages | Target-state assurance program |
+| Autonomous execution against operational control or command systems | Not permitted without separately authorized, bounded, independently assured controls |
 | SOC 2 and ISO 27001 certification | Control implementation/readiness work exists; formal audit and certification are separate activities |
+| Defence cyber-security certification and controlled-information handling | Not currently certified; target requirements depend on contract, information classification, jurisdiction, and deployment boundary |
 
 For commercial or deployment decisions, use
 [`docs/gtm-readiness.md`](docs/gtm-readiness.md) as the capability-versus-promise
 reference.
+
+## Target state at completion
+
+At completion, SyncAI is intended to become the governed engineering and
+operational-intelligence layer across the full lifecycle of mission-critical
+assets. It should continuously convert approved engineering knowledge, asset
+configuration, operational data, maintenance history, risk, mission or
+production demand, and verified outcomes into traceable decisions and approved
+workflows.
+
+The completed platform is intended to provide:
+
+- **Enterprise-wide asset intelligence** across fleets, facilities, business
+  units, contractors, sites, and jurisdictions while preserving tenant,
+  program, need-to-know, and data-sovereignty boundaries.
+- **A broad manufacturer-neutral Engineering DNA library** with governed OEM,
+  customer, configuration, environmental, and site overlays.
+- **Continuously updated digital twins** connected to approved engineering
+  baselines, operating context, inspections, condition data, work history,
+  failures, modifications, and configuration state.
+- **A persistent engineering knowledge graph** linking assets, components,
+  functions, requirements, hazards, controls, failure modes, evidence,
+  documents, calculations, decisions, and outcomes.
+- **Deterministic engineering and reliability models** operating alongside AI,
+  with validation envelopes, applicability constraints, uncertainty, units,
+  assumptions, and test evidence.
+- **Closed-loop learning** from inspections, maintenance execution, incidents,
+  failures, operating changes, and verified results without silently rewriting
+  approved engineering truth.
+- **Multi-domain integration** with historians, SCADA and DCS read replicas,
+  condition-monitoring systems, CMMS and EAM, ERP, PLM, document control,
+  GIS, laboratory systems, supply chains, simulation environments, and approved
+  mission or production-planning systems.
+- **Governed workflow orchestration** that can create, route, simulate, and
+  verify recommendations while keeping critical authorization with accountable
+  human authorities and approved external systems.
+- **Deployment flexibility** for public cloud, private cloud, sovereign cloud,
+  customer-controlled infrastructure, industrial edge, intermittently connected
+  sites, and appropriately designed disconnected environments.
+- **Evidence-ready assurance** for engineering review, cybersecurity
+  authorization, procurement, regulatory review, incident investigation,
+  certification, and independent audit.
+
+This target state is a roadmap and design direction. It must not be read as a
+claim that every capability is currently production-deployed or certified.
+
+## Mission-critical enterprise scope
+
+Organizations operating refineries, mines, spacecraft, defence systems,
+utilities, transportation networks, and other high-consequence assets require
+more than predictive analytics. The platform must earn trust across engineering,
+operations, cybersecurity, safety, legal, procurement, and executive governance.
+The following scope is therefore part of the desired enterprise product.
+
+### 1. OT-safe and mission-safe integration
+
+- Passive or read-only integration as the default for historians, SCADA, DCS,
+  PLC, vehicle, test, and mission systems.
+- Explicit trust zones, conduits, data diodes or one-way transfer patterns where
+  required, and no assumption of direct internet connectivity.
+- Separate advisory, workflow, and control planes, with fail-safe behaviour when
+  SyncAI, a model provider, or a network dependency is unavailable.
+- Bounded command interfaces only where separately designed, hazard-assessed,
+  approved, tested, and authorized by the customer’s technical and operational
+  authorities.
+- Configuration-aware recommendations that account for asset variant,
+  modification state, environment, duty, operating mode, and current approved
+  baseline.
+
+### 2. Zero-trust enterprise security
+
+- Enterprise SSO and federation, phishing-resistant MFA, least privilege,
+  just-in-time and just-enough administration, privileged-access workflows, and
+  machine identities.
+- Attribute- and policy-based access controls for organization, site, program,
+  asset, information classification, nationality, contract, and need-to-know.
+- Encryption in transit and at rest, customer-managed keys, key rotation,
+  secrets management, hardware-backed key options, and cryptographic inventory.
+- Secure software supply-chain controls, signed builds and artifacts, software
+  bills of materials, provenance attestations, dependency governance, and
+  vulnerability response.
+- Continuous logging, security analytics, anomaly detection, tamper evidence,
+  retention controls, and integration with customer SIEM, SOC, SOAR, and case
+  management.
+- Formal incident response, breach notification, forensic preservation,
+  vulnerability disclosure, disaster recovery, and cyber-recovery exercises.
+
+### 3. Controlled and sovereign information handling
+
+- Data residency and sovereignty controls by tenant, program, jurisdiction, and
+  deployment.
+- Information labelling, classification-aware storage and retrieval, export and
+  disclosure controls, legal hold, retention, defensible deletion, and records
+  management.
+- Segregated environments for sensitive programs and the ability to prevent
+  customer data from being used to train shared models.
+- Customer-controlled model endpoints, approved model allow-lists, prompt and
+  response inspection, data-loss prevention, and model-provider isolation.
+- Architecture paths for protected, controlled, export-controlled, proprietary,
+  and contractually restricted information, subject to applicable authorization
+  and certification.
+
+### 4. AI and model assurance
+
+- A governed model registry recording purpose, owner, version, data sources,
+  evaluation results, limitations, risk class, approval state, and retirement.
+- Scenario-based testing, adversarial testing, prompt-injection resistance,
+  retrieval poisoning controls, hallucination measurement, and regression
+  suites tied to high-consequence use cases.
+- Calibrated confidence and uncertainty, abstention, contradictory-evidence
+  handling, out-of-distribution detection, and mandatory escalation rules.
+- Independent verification and validation for critical calculations, models,
+  agents, retrieval policies, and workflow logic.
+- Full traceability from recommendation to source evidence, canonical model,
+  calculation, model version, prompt context, reviewer, approval, execution
+  record, and observed outcome.
+- No silent model changes in validated deployments; controlled rollout,
+  rollback, shadow mode, canary evaluation, and post-change monitoring.
+
+### 5. Safety, reliability, and mission assurance
+
+- Hazard analysis and assurance cases linking hazards, failure conditions,
+  safeguards, evidence, residual risk, and accountable approval authorities.
+- Support for FMEA/FMECA, FRACAS, reliability-centred maintenance, fault trees,
+  bow ties, barrier assurance, configuration control, verification, and
+  validation workflows.
+- Safety and mission constraints that override optimization goals and remain
+  enforceable when AI services are unavailable.
+- High availability, graceful degradation, backup and restore, regional or site
+  failover, recovery objectives, capacity management, and tested continuity
+  plans.
+- Evidence that recommendations improve outcomes without increasing operational,
+  cyber, environmental, safety, or mission risk.
+
+### 6. Enterprise integration and data governance
+
+- Versioned APIs, event streams, bulk exchange, connector certification, and
+  integration observability.
+- Canonical data contracts, semantic mapping, master-data alignment, lineage,
+  quality rules, reconciliation, and source-system authority.
+- Supported connectors for major EAM/CMMS, ERP, historian, PLM, document,
+  condition-monitoring, laboratory, GIS, and planning ecosystems.
+- Customer-controlled data onboarding, mapping review, exception management,
+  and auditable transformation pipelines.
+- Open export of customer data, models, evidence, and audit history to reduce
+  lock-in and support long-term stewardship.
+
+### 7. Operationalization and procurement readiness
+
+- Reference architectures, threat models, security-control mappings, data-flow
+  diagrams, deployment guides, hardening standards, and customer responsibility
+  matrices.
+- Service-level objectives, support and escalation models, vulnerability and
+  patch commitments, maintenance windows, lifecycle policy, and end-of-support
+  planning.
+- Pilot-to-production gates with measurable technical, safety, cyber,
+  operational, and economic acceptance criteria.
+- Independent audit reports, penetration tests, resilience exercises,
+  certification evidence, supplier-risk information, and escrow or continuity
+  options appropriate to customer risk.
+- Transparent commercial boundaries covering data ownership, intellectual
+  property, derived insights, model use, subcontractors, breach obligations,
+  warranties, liability, and exit assistance.
+
+### 8. Executive and portfolio value
+
+- Portfolio-level views of mission readiness, production risk, deferred risk,
+  asset health, maintenance effectiveness, supply exposure, critical skills,
+  and capital priorities.
+- Explainable prioritization that connects engineering risk to operational,
+  financial, environmental, safety, and mission consequences.
+- Scenario and resilience analysis for outages, supply disruption, workforce
+  constraints, configuration changes, severe weather, cyber incidents, and
+  other credible operating threats.
+- Benefit tracking that distinguishes predicted value from verified value and
+  ties decisions to reliability, availability, cost, risk, safety, emissions,
+  readiness, and production outcomes.
 
 ## Architecture
 
@@ -141,7 +327,10 @@ evidence references, policies, gap-remediation work, and the
 [Vanta evidence index](docs/compliance/vanta-evidence-index.md).
 
 These materials support readiness and audit preparation; they do not by
-themselves represent completed certification.
+themselves represent completed certification. Defence, aerospace, and other
+regulated deployments may require additional contract-specific controls,
+security authorization, controlled-goods or export-control processes,
+independent assessment, and jurisdiction-specific certification.
 
 ## Getting started
 
@@ -227,6 +416,8 @@ tests/
   intervals, or operating limits as platform defaults.
 - Engineering recommendations must retain provenance, applicability, review
   state, and human approval requirements.
+- Mission-critical capabilities must be represented by evidence, validation,
+  authorization, and operational acceptance—not by marketing language alone.
 
 ## License
 
