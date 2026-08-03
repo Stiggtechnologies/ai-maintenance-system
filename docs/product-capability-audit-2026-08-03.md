@@ -2,7 +2,8 @@
 
 **Audit date:** 2026-08-03  
 **Audited branch:** `main`  
-**Reference commit:** `a07f920c1271a46154885670332da680f00c087d`
+**Initial reference commit:** `a07f920c1271a46154885670332da680f00c087d`  
+**Post-audit correction commit:** `076b8c5656d2d336a727c879b7e6137a09e216be`
 
 ## Purpose
 
@@ -11,764 +12,575 @@ This audit establishes an evidence-based representation of:
 1. what SyncAI currently implements;
 2. what is implemented as a foundation but not yet end-to-end operational;
 3. what is simulated, demo-oriented, incomplete, legacy, or externally unvalidated;
-4. what remains necessary for enterprise deployment in high-risk, asset-intensive organizations.
+4. what remains necessary for enterprise deployment in high-risk,
+   asset-intensive organizations.
 
-The result is intended to govern README, sales, pilot, security, architecture, and roadmap claims.
+It governs README, sales, pilot, security, architecture, and roadmap claims.
 
 ## Method and limitations
 
-The review covered all major repository layers discoverable through the connected GitHub index:
+The review covered all major repository layers discoverable through the connected
+GitHub index:
 
 - application routes, pages, components, hooks, and services;
-- active Supabase migrations and archived legacy migrations;
+- the active Supabase migration chain and relevant archived migrations;
 - Row Level Security, RPCs, triggers, scheduled jobs, and persistence contracts;
 - Edge Functions and orchestration runtimes;
-- asset twins, Engineering DNA, Shared Component DNA, physics, inspections, engineering knowledge, and RAG;
-- authentication, MFA, enterprise access, tenancy, approvals, audit, and security controls;
-- integrations, deployments, edge-node artifacts, billing, marketplace, tests, CI/CD, compliance, readiness, and historical reports;
-- recent merged and open pull requests that materially affect the product state.
+- asset twins, Engineering DNA, Shared Component DNA, physics, inspections,
+  engineering knowledge, and RAG;
+- authentication, MFA, enterprise access, tenancy, approvals, audit, and
+  security controls;
+- integrations, deployments, edge-node artifacts, billing, marketplace, tests,
+  CI/CD, compliance, readiness, and historical reports;
+- recent merged and open pull requests that materially affect product state.
 
-A local clone was attempted for a literal line-by-line review, but the execution environment could not resolve GitHub. This is therefore a repository-wide capability audit based on GitHub-indexed source, not a penetration test, production configuration attestation, independent verification and validation exercise, or guarantee that every static asset and prose file was manually read.
+A local clone was attempted for literal line-by-line review, but the execution
+environment could not resolve GitHub. This is therefore a repository-wide
+capability audit based on GitHub-indexed source, not a penetration test,
+production-configuration attestation, independent verification and validation
+exercise, certification, or guarantee that every static asset and historical
+prose file was manually read.
 
-Runtime behavior, hosted environment configuration, customer deployments, external integrations, and certifications must be independently validated.
+Hosted configuration, customer deployments, external integrations, security
+controls, resilience, model performance, and certifications require independent
+runtime validation.
+
+## Post-audit correction
+
+During the audit, migration and Playwright CI were failing. The failure was
+subsequently diagnosed and repaired in PR #117.
+
+The confirmed cause was two active migrations sharing version
+`00000000000019`. The security-log migration was moved to version 21, the
+Supabase CLI setup was refreshed, and startup diagnostics were added. The
+following gates then passed together:
+
+- lint, TypeScript, and production build;
+- unit tests;
+- clean local Supabase startup;
+- the complete ordered migration chain;
+- seeded login, organization-scoped RLS read, and app-shell context RPC;
+- continuous-agent-loop smoke and idempotency;
+- Playwright golden path;
+- CodeQL and secret scanning.
+
+CI is therefore an **operational foundation**, not a current blocker. This
+correction does not change the broader enterprise-readiness findings below.
 
 ## Maturity definitions
 
 | Classification | Meaning |
 | --- | --- |
-| **Operational foundation** | Working code and persistence exist in the active architecture, with meaningful tests or application use. External production assurance may still be incomplete. |
+| **Operational foundation** | Working code and active persistence exist, with meaningful application use or automated validation. External production assurance may remain incomplete. |
 | **Pilot-capable** | Suitable for bounded, supervised use with agreed data, users, controls, and acceptance criteria. |
-| **Implemented foundation** | Contracts, models, libraries, UI, or persistence exist, but the complete end-to-end workflow is not yet proven. |
-| **Simulation / demo** | Demonstrates workflow or product value using seeded or simulated data; not evidence of a live industrial integration. |
-| **Incomplete / unsafe to claim** | Material functional, security, schema, integration, or validation gaps prevent a production claim. |
-| **Design-supported** | Architecture or code artifacts indicate intent, but a validated deployment is not present. |
-| **External evidence required** | Certification, penetration testing, customer results, regulatory authorization, or other independent evidence is required. |
-| **Legacy / stale** | Preserved historical implementation or documentation that is not the current source of truth. |
+| **Implemented foundation** | Contracts, libraries, schemas, or workflows exist but require integration, field validation, or production hardening. |
+| **Simulation/demo** | Uses seeded, generated, or simulated data to validate workflow behavior. |
+| **Incomplete or unsafe** | A visible surface exists but security, tenancy, correctness, deployment, or operational controls are insufficient. |
+| **Design evidence only** | Documentation, schema history, or inactive code shows intent but not an active supported capability. |
+| **Externally unvalidated** | The repository cannot prove the hosted configuration, customer outcome, independent assurance, or certification claim. |
 
-## Executive verdict
+## Executive conclusion
 
-SyncAI is best described today as an **advanced, governed industrial engineering intelligence pilot platform**.
+SyncAI is an **advanced governed industrial-engineering pilot**. It is more than
+a prototype: the repository contains a broad application, active Supabase data
+plane, operating-loop records, tenant-scoped workflows, human approvals,
+reliability and KPI services, asset onboarding, deterministic engineering
+libraries, inspection governance, AI orchestration, automated tests, and a
+reproducible migration/E2E gate.
 
-It has a substantial working product foundation:
+It is not yet a generally production-ready platform for unrestricted
+high-consequence use. The largest remaining gaps are enterprise identity,
+fine-grained authorization, canonical-runtime consolidation, end-to-end
+governed engineering knowledge, production industrial connectors, trustworthy
+measurement governance, technical-change assurance, private/edge deployment,
+independent security and model assurance, and verified customer outcomes.
 
-- a broad authenticated application;
-- organization-scoped operational data;
-- a governed recommendation-to-approval operating loop;
-- assets, work orders, evidence, scenarios, decisions, value, learning, onboarding, KPIs, and audit records;
-- real Supabase persistence and Realtime use;
-- deployed AI processing and approval orchestration paths;
-- manufacturer-neutral asset templates, Engineering DNA, shared components, deterministic physics, inspections, and asset-twin persistence;
-- meaningful unit, migration, smoke, and Playwright test intentions;
-- strong human-authority and approved-source governance principles.
+The primary category remains:
 
-It is **not yet accurately described as a hardened enterprise platform ready for unrestricted deployment in a major energy company, aerospace program, defence environment, or other high-consequence production setting**.
+> **Governed Industrial Engineering Intelligence for high-risk,
+> asset-intensive operations.**
 
-The primary blockers are not a lack of screens or AI concepts. They are identity assurance, tenant-safe service boundaries, authorization depth, active-schema convergence, real industrial connectors, trustworthy measurement governance, runtime consolidation, reproducible database/E2E validation, independent security evidence, and externally verified operating results.
+“Mission assurance” is a defence or aerospace outcome, not the universal product
+category.
 
-## Capability assessment
+## Repository-wide capability assessment
 
-### 1. Application and user experience
+### 1. Application and operating surfaces
 
 **Classification: Operational foundation / pilot-capable**
 
-The application exposes substantial surfaces for:
+The authenticated application exposes broad operational and management
+surfaces, including assets, sensors, recommendations, evidence, scenarios,
+approvals, work orders, operational briefing, reliability, risk, integrations,
+value, research, deployments, trust, administration, and executive views.
 
-- operational overview and role command centres;
-- assets, onboarding, reliability, work, scenarios, approvals, governance, evidence, artifacts, learning, and value;
-- executive, OEE, benchmarking, risk, emergency, trust, integrations, deployments, and administration;
-- operational briefings and shift handover.
+This demonstrates substantial product breadth. Route presence alone does not
+prove every surface has equivalent production maturity. Several pages read
+active Supabase records, while others are compatibility, configuration, seeded,
+or presentation layers.
 
-Evidence:
+**Representative evidence**
 
 - `src/App.tsx`
-- `src/pages/MissionControl.tsx`
-- `src/pages/OperationalBriefing.tsx`
+- `src/lib/roleNavigation.ts`
 - `src/services/operatingLoopService.ts`
-- `src/services/syncaiDataService.ts`
+- `src/pages/OperationalBriefing.tsx`
+- `src/pages/IntegrationHealthPanel.tsx`
+- `src/pages/IntegrationsPage.tsx`
 
-Limitations:
+### 2. Core data plane and operating loop
 
-- The number of routes exceeds the number of fully hardened domain services.
-- Some surfaces are compatibility, registry, seeded-data, or presentation layers rather than complete enterprise workflows.
-- Several visible controls have no operational handler, including parts of integration setup and alternate authentication.
+**Classification: Operational foundation**
 
-### 2. Governed operating loop
+The active migration chain implements organization-scoped records for assets,
+sensors, agents, runs, recommendations, evidence, scenarios, work orders,
+approvals, decisions, value, learning, onboarding, integrations, and related
+operational records.
 
-**Classification: Operational foundation / pilot-capable**
+The system has real RLS and an app-current-organization boundary. However, many
+core tables use broad same-organization read/write policies. Comprehensive
+role-, site-, asset-, program-, classification-, and action-level write
+authorization is not yet consistently evidenced.
 
-The active database and application support:
-
-- assets and telemetry concepts;
-- recommendations, evidence, scenarios, approvals, work orders, decisions, value metrics, and learning events;
-- human approval before bounded side effects;
-- audit history and verified-value concepts;
-- scheduled agent-loop and KPI processing.
-
-Evidence:
+**Representative evidence**
 
 - `supabase/migrations/00000000000001_operating_loop_baseline.sql`
-- `src/services/operatingLoopService.ts`
+- `supabase/migrations/00000000000005_rls_hardening.sql`
+- `supabase/migrations/00000000000006_function_grants.sql`
+- `supabase/migrations/00000000000008_value_verification.sql`
+- `supabase/migrations/00000000000013_realtime_operating_picture.sql`
+
+### 3. CI, migration reproducibility, and E2E
+
+**Classification: Operational foundation**
+
+The repository now validates:
+
+- lint, type-check, and production build;
+- Vitest unit tests;
+- clean local Supabase startup;
+- every active migration from an empty database;
+- seeded authentication, RLS, and app-shell RPC behavior;
+- continuous-agent-loop execution and idempotency;
+- the Playwright golden path;
+- CodeQL and secret scanning.
+
+Failure-only Supabase and Docker artifacts preserve startup evidence.
+
+**Representative evidence**
+
+- `.github/workflows/ci.yml`
+- `scripts/ci-start-supabase.sh`
+- `tests/e2e/golden-path.spec.ts`
+- active migrations 1 through 21, with unique version numbers
+
+### 4. Canonical AI and approval runtime
+
+**Classification: Pilot-capable operational foundation**
+
+The strongest active AI path is:
+
+`ai-agent-processor` → governed intelligence decision →
+`autonomous-orchestrator` → approval → bounded downstream action.
+
+Strengths include:
+
+- authenticated user or internal-service context;
+- organization-scoped work-order and asset retrieval;
+- idempotent orchestration runs;
+- correlation IDs and audit records;
+- confidence and human-review flags;
+- mandatory approval records;
+- a narrow action allow-list;
+- direct autonomous execution disabled.
+
+Remaining issues include limited strongly typed output validation, generic
+condition thresholds in some monitoring logic, incomplete model-evaluation
+controls, and the coexistence of other less-secure runtimes.
+
+**Representative evidence**
+
 - `supabase/functions/ai-agent-processor/index.ts`
 - `supabase/functions/autonomous-orchestrator/index.ts`
+- `supabase/migrations/00000000000009_llm_enrichment.sql`
 
-Limitations:
+### 5. Asset onboarding and RAM governance
 
-- The default operating picture is seeded and simulated until customer systems are connected.
-- The orchestrator's condition scoring contains generic fallback values and thresholds. These must not be represented as approved customer engineering limits.
-- Only a small, bounded set of post-approval record changes is currently supported.
+**Classification: Pilot-capable foundation**
 
-### 3. Human authority and governed execution
+Asset onboarding persists sessions, steps, evidence, reliability profiles,
+failure-mode libraries, strategy recommendations, approvals, and exports.
+Readiness gates distinguish known data, assumptions, missing evidence, and
+human approval requirements.
 
-**Classification: Operational foundation**
+The platform should not claim that every asset is field-validated merely because
+an onboarding session or starter template exists.
 
-Strong implemented controls include:
+**Representative evidence**
 
-- mandatory approval records for governed recommendations;
-- role checks in the deployed autonomous orchestrator;
-- idempotent orchestration and execution records;
-- direct autonomous execution disabled;
-- prohibited operational actions encoded for inspection recommendations;
-- human review escalation based on risk and confidence.
-
-Evidence:
-
-- `supabase/functions/autonomous-orchestrator/index.ts`
-- `src/lib/asset-twins/inspection-recommendations.ts`
-- `supabase/migrations/00000000000020_inspection_recommendation_persistence.sql`
-
-Limitations:
-
-- Human approval in the application does not replace an independently validated safety or control-system authorization boundary.
-- Some older orchestration functions do not implement equivalent authentication and tenant validation.
-
-### 4. Asset onboarding and RAM governance
-
-**Classification: Operational foundation / pilot-capable**
-
-Implemented elements include:
-
-- structured asset onboarding;
-- a broad RAM/FMEA-oriented checklist;
-- confidence and evidence gaps;
-- readiness gates and role approvals;
-- failure-mode libraries;
-- FRACAS-oriented closeout;
-- triggers for re-evaluation after selected asset changes.
-
-Evidence:
-
+- `src/lib/asset-onboarding.ts`
+- `src/services/assetOnboardingPersistence.ts`
+- `docs/asset-onboarding.md`
 - `supabase/migrations/00000000000011_autonomous_onboarding.sql`
 - `supabase/migrations/00000000000012_onboarding_governance.sql`
-- `src/lib/asset-onboarding.ts`
-- `docs/asset-onboarding.md`
 
-Limitations:
+### 6. KPI and operating-performance intelligence
 
-- Several data-quality checks are represented as configured booleans rather than independently calculated measurement-quality evidence.
-- Management-of-change behavior reruns onboarding for selected changes; it is not yet a complete technical-change, deviation, waiver, return-to-service, and effectiveness-verification lifecycle.
+**Classification: Operational foundation with external-data dependencies**
 
-### 5. KPI and operating-performance layer
+The KPI service stores formulas, targets, RACI ownership, audience controls,
+lineage, confidence, calculated values, and breach-triggered recommendations.
+It honestly identifies KPIs that cannot be computed without ERP, historian,
+mobile, strategy, or assessment inputs.
 
-**Classification: Operational foundation**
+This is a strong governance pattern. Values based on seeded or proxy data must
+not be represented as verified customer performance.
 
-Implemented elements include:
-
-- a 29-KPI ISO 55000-aligned catalog;
-- computation from current operating records where data is available;
-- lineage metadata;
-- explicit identification of KPIs awaiting ERP, historian, mobile, strategy, or lifecycle data;
-- audience filtering at the database RPC boundary;
-- threshold-driven recommendation generation.
-
-Evidence:
+**Representative evidence**
 
 - `supabase/migrations/00000000000017_kpi_service.sql`
 
-Limitations:
+### 7. Engineering DNA and digital twins
 
-- ISO alignment is not certification.
-- Several KPIs remain unavailable without real source systems.
-- Formula validation against each customer's approved definitions is required.
+**Classification: Implemented foundation**
 
-### 6. Asset twins and Digital Engineering DNA
+The repository contains manufacturer-neutral asset templates, Engineering DNA,
+OEM/model overlays, customer instances, shared component definitions,
+validation rules, maturity states, evidence references, compilation logs, and
+approval boundaries.
 
-**Classification: Implemented foundation / expanding**
+The active library covers multiple mobile mining and fixed/process asset
+classes. Most engineering records remain draft until customer, OEM, site, or
+engineering evidence is approved.
 
-Implemented elements include:
+**Representative evidence**
 
-- canonical manufacturer-neutral asset templates;
-- Engineering DNA profiles;
-- Shared Component DNA;
-- inspection contracts and findings;
-- deterministic physics capabilities;
-- OEM/model overlays;
-- customer twin compilation;
-- versioned database persistence with maturity and evidence states.
-
-Current asset coverage includes multiple mining and process assets such as haul trucks, shovels, drills, conveyors, crushers, pumps, motors, gearboxes, mills, thickeners, loaders, and draglines.
-
-Evidence:
-
-- `src/lib/asset-twins/`
 - `src/lib/asset-twins/index.ts`
 - `src/lib/asset-twins/compiler.ts`
-- `src/lib/asset-twins/physics-capability.ts`
+- `src/lib/asset-twins/engineering-dna.ts`
+- `src/lib/asset-twins/shared-component-dna-library.ts`
 - `supabase/migrations/00000000000019_asset_twin_library.sql`
 
-Limitations:
+### 8. Deterministic physics
 
-- Much of the library remains draft or approval-gated pending authorized engineering evidence.
-- Asset-class coverage is still narrow relative to a major multi-industry enterprise.
-- Customer overrides and overlay compilation require stronger schema validation and change governance before high-consequence use.
-- Live operational synchronization of twin configuration is not yet a general product capability.
+**Classification: Implemented foundation**
 
-### 7. Inspection intelligence
+The physics library separates deterministic calculations from generative AI,
+requires defined units and formula references, preserves assumptions, requires
+engineering approval, and prohibits autonomous operational action.
 
-**Classification: Strong implemented foundation**
+Current calculations are useful engineering building blocks, not a complete
+validated multi-physics simulation environment. Site and OEM limits must come
+from approved evidence.
 
-Implemented elements include:
+**Representative evidence**
 
-- canonical inspection-zone contracts;
-- evidence artifacts with repeatability keys and optional checksums;
-- finding confidence, severity, disposition, assumptions, and verification requirements;
-- linkage to canonical components and failure modes;
-- recommendation, approval, and evidence package generation;
-- explicit prohibition of autonomous operating-limit, safeguard, shutdown, or return-to-service changes;
-- atomic, tenant-scoped, idempotent persistence.
+- `src/lib/asset-twins/physics-capability.ts`
+- `src/lib/asset-twins/physics-capability-library.ts`
 
-Evidence:
+### 9. Inspection intelligence
 
+**Classification: Strong implemented foundation / pilot-capable slice**
+
+Inspection findings reference canonical components, failure modes, inspection
+contracts, evidence artifacts, repeatability keys, confidence, review state,
+and independent verification.
+
+Recommendation packages preserve evidence and approval ownership, prohibit
+unsafe autonomous actions, and persist recommendation, approval, and evidence
+records atomically and idempotently.
+
+This is one of the repository's strongest governed engineering slices. Field
+capture applications, validated computer-vision models, and complete assurance
+pack export remain separate work.
+
+**Representative evidence**
+
+- `src/lib/asset-twins/inspection-contracts.ts`
 - `src/lib/asset-twins/inspection-findings.ts`
 - `src/lib/asset-twins/inspection-recommendations.ts`
 - `supabase/migrations/00000000000020_inspection_recommendation_persistence.sql`
 
-Limitations:
+### 10. Engineering knowledge and extraction
 
-- Field capture applications, device integrations, inference models, model qualification, evidence storage controls, and complete immutable export packages are not yet proven end to end.
+**Classification: Implemented deterministic foundation; not end-to-end**
 
-### 8. Engineering knowledge and retrieval
+The engineering ontology defines canonical entities, relationships, authority,
+review state, confidentiality, provenance, applicability, and supersession.
+The Knowledge Base Factory can publish, route for review, or reject proposed
+knowledge mappings. Extraction resolution applies confidence and provenance
+requirements and refuses unknown or ambiguous canonical mappings.
 
-**Classification: Implemented contract foundation; end-to-end service incomplete**
+Asset-aware retrieval in draft PR #115 adds tenant, twin, asset-class,
+component, failure-mode, physics, authority, freshness, provenance, and conflict
+rules.
 
-Implemented on `main`:
+The missing layer is a single active-schema, authenticated, persisted ingestion
+and retrieval service that connects document processing, approval, canonical
+mapping, embeddings, revision control, retrieval, citations, and audit.
 
-- engineering entity and relationship types;
-- authority, review, confidentiality, provenance, applicability, and supersession metadata;
-- deterministic Knowledge Base Factory publication planning;
-- extraction-candidate resolution against canonical registries;
-- confidence gates and required human review.
-
-Evidence:
+**Representative evidence**
 
 - `src/lib/engineering-knowledge/ontology.ts`
 - `src/lib/engineering-knowledge/knowledge-base-factory.ts`
 - `src/lib/engineering-knowledge/engineering-extraction.ts`
+- draft PR #115
 
-Important boundaries:
+### 11. Legacy RAG
 
-- The extraction module resolves candidates supplied to it; it is not itself a document extraction service.
-- The Knowledge Base Factory produces a plan; it does not persist and publish the full knowledge graph or RAG corpus.
-- Asset-aware retrieval is in draft PR #115 and is not part of `main`.
-- Persistent graph-query services are not implemented.
+**Classification: Incomplete and not part of the supported production boundary**
 
-### 9. Legacy RAG stack
+Legacy document-processing and semantic-search functions exist, but their
+knowledge-base tables are associated with archived migrations rather than the
+active deterministic chain. They also do not apply the newer authority,
+review, supersession, and canonical-engineering contracts end to end.
 
-**Classification: Incomplete / unsafe to claim as a current clean-deployment capability**
+These functions should be replaced or converged, not promoted as the final
+engineering-knowledge runtime.
 
-The repository contains document-processing and semantic-search Edge Functions, but:
-
-- they use service-role clients and accept caller-supplied tenant IDs without explicit identity-to-tenant validation;
-- their required `knowledge_base_documents` and `knowledge_base_chunks` schema is found in archived legacy migrations rather than the active deterministic chain;
-- they are not connected to the newer engineering authority, review, provenance, supersession, and applicability contracts;
-- they use a legacy embedding model configuration;
-- they are not included in the active production Edge Function deployment workflow.
-
-Evidence:
+**Representative evidence**
 
 - `supabase/functions/rag-document-processor/index.ts`
 - `supabase/functions/rag-semantic-search/index.ts`
-- `supabase/_legacy_migrations/20251024080921_enable_vector_and_create_rag_system.sql`
-- `.github/workflows/deploy-migrations.yml`
+- relevant files under `supabase/_legacy_migrations/`
 
-Required action:
+### 12. Integrations
 
-Replace or migrate the legacy RAG path into one authenticated, tenant-derived, active-schema engineering knowledge service before making end-to-end RAG claims.
+**Classification: Registry and health foundation; production connectors not proven**
 
-### 10. AI agents and orchestration
+The application stores connector and integration records, sync history, health,
+last-sync time, and record counts. UI options reference SAP, Maximo, PI,
+Ignition, OPC-UA, MQTT, REST, and CSV.
 
-**Classification: Mixed**
+These surfaces do not prove that production-grade connectors, authentication,
+schema mapping, replay, reconciliation, retry, dead-letter handling, support,
+or customer validation exist for those systems.
 
-**Deployed governed path — operational foundation:**
+**Representative evidence**
 
-- authenticated user or internal-service context;
-- tenant-scoped work-order and asset loading;
-- idempotent orchestration runs;
-- structured tasks for failure classification and reliability assessment;
-- recommendation and approval handoff;
-- bounded post-approval side effects;
-- trace, cost, and conversation records.
+- `src/pages/IntegrationsPage.tsx`
+- `src/pages/IntegrationHealthPanel.tsx`
+- integration tables in the active compatibility migration
 
-Evidence:
+### 13. Deployment and edge
 
-- `supabase/functions/ai-agent-processor/index.ts`
-- `supabase/functions/autonomous-orchestrator/index.ts`
-- `.github/workflows/deploy-migrations.yml`
+**Classification: Workspace provisioning is simulated/pilot; edge is design evidence**
 
-**Legacy or parallel paths — incomplete and security-sensitive:**
+`provision_deployment()` creates a site, starter assets, sensors, onboarding,
+workspace, notification, and audit records inside SyncAI. It is a useful pilot
+factory, not customer infrastructure deployment.
 
-- `sir-orchestrator` and `openclaw-orchestrator` are near-parallel service-role runtimes;
-- `gateway` checks for an authorization header but does not derive and enforce tenant identity at its service-role boundary;
-- several endpoints accept caller-supplied tenant, user, session, run, or object IDs;
-- the gateway contains an explicit TODO to validate agent ownership;
-- multiple orchestration generations create architecture, security, and source-of-truth ambiguity.
+Edge-node functions and schemas show design intent, but the required schema is
+associated with archived migrations and the reviewed function does not provide
+an adequate enterprise node-authentication boundary.
 
-Evidence:
+Do not claim supported private-cloud, on-premises, sovereign, edge, or
+air-gapped deployment until repeatable deployment packages, identity,
+certificate lifecycle, update, rollback, observability, recovery, and support
+are validated.
+
+**Representative evidence**
+
+- `supabase/migrations/00000000000015_autonomous_deployment.sql`
+- `src/pages/DeploymentConfiguratorPage.tsx`
+- `supabase/functions/edge-node-manager/index.ts`
+
+### 14. Authentication and enterprise access
+
+**Classification: Mixed; enterprise SSO incomplete and security-sensitive**
+
+Supabase password login and per-user TOTP paths are real application code.
+Enterprise and alternative-login surfaces are incomplete:
+
+- company-code validation is marked mock;
+- the Azure exchange path does not establish a proper Supabase session;
+- a decoded identity token is not equivalent to verified issuer, signature,
+  audience, nonce, and tenant validation;
+- organization-wide MFA enforcement is not complete;
+- demo mode and inactive provider buttons must not be confused with
+  authenticated enterprise access.
+
+Enterprise SSO must be rebuilt around supported OIDC/SAML and Supabase session
+semantics with testable tenant and role provisioning.
+
+### 15. Legacy orchestration runtimes
+
+**Classification: Duplicate and security-sensitive**
+
+SIR, OpenClaw, gateway, model-router, marketplace, and other historical
+functions coexist with the canonical runtime. Some use service-role clients and
+accept caller-supplied tenant, user, session, or sensitivity values without a
+sufficient identity-to-tenant boundary.
+
+They are not deployed by the active production workflow and should not be used
+as production-readiness evidence. Useful capabilities should be migrated into
+one canonical runtime; the remaining functions should be disabled, archived,
+or removed after dependency review.
+
+**Representative evidence**
 
 - `supabase/functions/sir-orchestrator/index.ts`
 - `supabase/functions/openclaw-orchestrator/index.ts`
 - `supabase/functions/gateway/index.ts`
+- `supabase/functions/model-router/index.ts`
 
-Required action:
+### 16. Active deployment boundary
 
-Designate one canonical orchestration runtime, migrate necessary records and tools, disable or remove obsolete functions, and apply a common authenticated tenant and authorization boundary.
+**Classification: Defined but narrow**
 
-### 11. LLM and model assurance
+The active deployment workflow pushes the ordered migration chain and deploys:
 
-**Classification: Implemented foundation; enterprise assurance incomplete**
+- `agent-loop-enrich`;
+- `ai-agent-processor`;
+- `autonomous-orchestrator`;
+- `onboarding-enrich`.
 
-Implemented elements include:
+Other Edge Functions in the repository are not automatically part of the active
+supported boundary.
 
-- provider abstraction in selected paths;
-- prompt purpose boundaries;
-- human-review requirements;
-- idempotency and run logging;
-- model, token, cost, confidence, and output records;
-- explicit instructions not to invent evidence or bypass approvals.
+**Representative evidence**
 
-Limitations:
-
-- Typed LLM output is JSON-parsed but not comprehensively validated against strong runtime schemas.
-- Some model routing paths use service-role access and caller-supplied user/sensitivity context.
-- No complete model registry, approved-evaluation suite, deployment-specific model lock, adversarial test evidence, rollback evidence, or independent validation package is proven.
-- Customer data-use, provider isolation, and residency controls remain deployment-specific.
-
-### 12. Authentication and enterprise identity
-
-**Classification: Mixed; enterprise SSO incomplete**
-
-Implemented:
-
-- Supabase password authentication;
-- real session and profile handling;
-- TOTP enrollment and AAL2 challenge code;
-- security-event recording.
-
-Incomplete or unsafe to claim:
-
-- organization-wide MFA enforcement is explicitly not implemented;
-- local Supabase configuration disables TOTP enrollment and verification;
-- the enterprise-access company-code check is labelled mock;
-- the enterprise MFA field is not used;
-- Google Workspace login has no handler;
-- “Try Demo Mode” enters the application UI without establishing a Supabase session;
-- the Azure client and Edge Function do not form a correct, validated Supabase SSO flow;
-- the Azure Edge Function decodes ID tokens without validating their signature;
-- the client and function paths/actions are inconsistent;
-- returned Azure tokens are not converted into a Supabase session.
-
-Evidence:
-
-- `src/components/AuthProvider.tsx`
-- `src/components/MfaManager.tsx`
-- `src/pages/Login.tsx`
-- `src/pages/EnterpriseAccess.tsx`
-- `src/lib/azure-ad.ts`
-- `supabase/functions/marketplace-resolve/index.ts`
-- `supabase/config.toml`
-
-Required action:
-
-Disable unsupported sign-in controls and demo bypass in production, use a validated Supabase/OIDC enterprise flow, validate issuer/audience/signature/nonce/state, enforce tenant mapping, add phishing-resistant MFA options, and test organization policy enforcement.
-
-### 13. Tenancy and authorization
-
-**Classification: Organization isolation implemented; enterprise authorization incomplete**
-
-Implemented:
-
-- `app_current_org()` tenant resolution;
-- RLS on core organization-scoped tables;
-- child-record hardening for selected tables;
-- user-scoped preferences and KPI dashboard records;
-- server-side KPI audience filtering;
-- explicit tenant checks in the newer deployed AI/orchestrator path.
-
-Limitations:
-
-- many core operational tables grant authenticated users broad read/write access within their organization;
-- comprehensive role-, site-, asset-, program-, classification-, and action-level write authorization is not proven;
-- some legacy service-role Edge Functions bypass RLS and trust caller-supplied scope;
-- a client fallback can represent a user as admin when role data is unavailable, even though database controls remain separate.
-
-Evidence:
-
-- `supabase/migrations/00000000000001_operating_loop_baseline.sql`
-- `supabase/migrations/00000000000005_rls_hardening.sql`
-- `supabase/migrations/00000000000017_kpi_service.sql`
-- `src/services/platform.ts`
-
-Required action:
-
-Build an authorization matrix and enforce it in database policies and authenticated service boundaries for every read, create, update, approval, execution, export, and administrative action.
-
-### 14. Integrations
-
-**Classification: Registry and monitoring foundation; production connectors not evidenced**
-
-Implemented:
-
-- integration and connector records;
-- connector-run history;
-- integration health and freshness views;
-- UI catalogs for SAP, Maximo, PI/historian, OPC-UA, MQTT, REST, and CSV;
-- operating-loop and KPI contracts that can consume external data.
-
-Not implemented or not proven:
-
-- the visible Add, Configure, Sync, Connect, and Sync Now controls are not wired to connector provisioning;
-- no production-certified SAP, Maximo, PI, SCADA, OPC-UA, MQTT, ERP, PLM, or other major industrial connector is evidenced in the active path;
-- connector security, reconciliation, replay, schema versioning, and certification are not proven.
-
-Evidence:
-
-- `src/pages/IntegrationsPage.tsx`
-- `src/pages/IntegrationHealthPanel.tsx`
-- `supabase/migrations/00000000000002_legacy_compat.sql`
-- `docs/enterprise-readiness/claims-and-evidence-register.md`
-
-### 15. Deployment and edge
-
-**Classification: Workspace provisioning simulation implemented; infrastructure deployment design-supported only**
-
-The `provision_deployment()` RPC creates a site, starter assets, simulated sensors, an onboarding workspace, notifications, and audit records inside the current SyncAI application.
-
-This is a useful demo/pilot workspace factory. It is not cloud infrastructure provisioning, private-cloud deployment, on-prem installation, edge runtime installation, air-gap deployment, or production historian/CMMS integration.
-
-Edge-node registration and heartbeat code exists, but:
-
-- its required schema is found in archived legacy migrations;
-- its service boundary only checks for the presence of an authorization header;
-- it uses the service-role key and does not derive tenant identity;
-- it is not in the active Edge Function deployment workflow.
-
-Evidence:
-
-- `supabase/migrations/00000000000015_autonomous_deployment.sql`
-- `supabase/functions/edge-node-manager/index.ts`
-- `supabase/_legacy_migrations/20260323065113_20260323070000_add_edge_node_manager.sql`
 - `.github/workflows/deploy-migrations.yml`
 
-### 16. Data quality and measurement trust
-
-**Classification: Partial foundation**
-
-Present:
-
-- units on sensors and physics variables;
-- data-quality labels on evidence;
-- data completeness and update latency KPIs;
-- calibration concepts in asset templates and onboarding;
-- source, timestamp, confidence, and lineage fields.
-
-Not yet proven as a complete capability:
-
-- calibration status and expiry governance;
-- measurement uncertainty propagation;
-- time synchronization and sequence integrity;
-- sensor drift, bias, frozen value, substitution, and historian-compression handling;
-- bad-quality flag ingestion from source systems;
-- derived-tag lineage and confidence;
-- evidence fitness-for-purpose decisions.
-
-This is a genuine product gap for high-consequence engineering decisions.
-
-### 17. Technical change and configuration assurance
-
-**Classification: Partial foundation**
-
-Present:
-
-- versioned asset templates and overlays;
-- customer overrides and compilation logs;
-- selected onboarding MOC triggers;
-- approvals, audit events, work history, and learning records;
-- prohibition of autonomous return-to-service and operating-limit changes.
-
-Not yet evidenced as a complete workflow:
-
-- requirements and interface traceability;
-- formal Management of Change cases;
-- temporary changes and expiry;
-- deviations, waivers, concessions, and technical queries;
-- design-basis and configuration-baseline approval;
-- pre-startup or return-to-service review;
-- affected-document, procedure, training, and spares updates;
-- implementation verification and change-effectiveness review.
-
-This remains a high-value target capability, not an absent idea.
-
-### 18. Human-systems integration
-
-**Classification: Partial foundation**
-
-Present:
-
-- role-shaped navigation and command centres;
-- operational briefing and shift-handover surfaces;
-- accountability and approval roles;
-- explicit explanations, evidence, consequences, and verification needs.
-
-Not yet evidenced as a complete capability:
-
-- competency and authorization validation;
-- human workload and alarm/recommendation burden management;
-- workforce fatigue-sensitive workflows;
-- usability validation under abnormal and emergency conditions;
-- automation-bias controls and comprehension checks;
-- field offline execution and accessibility assurance;
-- training and simulation tied to authorization.
-
-### 19. Scenario, research, and verification
-
-**Classification: Scenario foundation; controlled experimentation incomplete**
-
-Present:
-
-- recommendation scenarios;
-- research program/run/result records;
-- promotion-candidate concepts;
-- value verification and learning events;
-- trace and orchestration records.
-
-Not yet proven:
-
-- historical incident replay;
-- shadow-mode comparison against current practice;
-- digital-twin simulation with validated models;
-- synthetic failure injection;
-- operator-in-the-loop exercises;
-- controlled canary promotion and rollback evidence;
-- statistically governed experiment acceptance.
-
-### 20. Evidence and technical assurance packs
-
-**Classification: Partial foundation**
-
-Present:
-
-- evidence items;
-- inspection evidence artifacts and optional checksums;
-- recommendation rationale;
-- source IDs, authority, review, applicability, and provenance contracts;
-- approvals, decisions, audit records, execution results, and verified value;
-- cowork artifacts and exports.
-
-Not yet proven:
-
-- one immutable, signed evidence package that reconstructs the complete path from source data and configuration through model/calculation, conflicts, review, approval, execution, verification, residual risk, and final disposition;
-- evidence retention, legal hold, export, and regulator/auditor formats;
-- cryptographic signing and independent verification.
-
-### 21. CI/CD and reproducibility
-
-**Classification: Strong intent; database and E2E gate currently impaired**
-
-Implemented workflow coverage includes:
-
-- lint;
-- TypeScript checking;
-- production build;
-- unit tests;
-- migration/auth/agent-loop smoke tests;
-- Playwright golden-path E2E;
-- CodeQL and security scanning;
-- migration and selected Edge Function deployment from `main`.
-
-Current limitation:
-
-- the local Supabase database container fails to start in GitHub Actions, so migration and E2E success is not currently established;
-- Vercel failures have also been affected by account build-rate limits;
-- only `agent-loop-enrich`, `ai-agent-processor`, `autonomous-orchestrator`, and `onboarding-enrich` are included in the active function deployment workflow.
-
-Evidence:
-
-- `.github/workflows/ci.yml`
-- `.github/workflows/deploy-migrations.yml`
-- PR #117
-
-### 22. Security, compliance, and external assurance
-
-**Classification: Readiness foundation; external evidence required**
-
-Present:
-
-- RLS and security hardening migrations;
-- MFA code paths;
-- security-event logging;
-- CodeQL, secret scanning, dependency review, and policies;
-- SOC 2 and ISO 27001 mappings, policies, gaps, and evidence indexes;
-- claims-and-evidence governance.
-
-Not established:
-
-- SOC 2 report;
-- ISO 27001 certification;
-- independent penetration test;
-- formal production threat-model review and residual-risk acceptance;
-- defence, controlled-goods, export-control, protected-information, or classified-environment authorization;
-- IEC 62443, IEC 61511, aerospace, or other sector certification;
-- verified sovereign, private, on-prem, edge, or disconnected deployment.
-
-Evidence:
-
-- `docs/compliance/`
-- `docs/enterprise-readiness/claims-and-evidence-register.md`
-- `SECURITY.md`
-
-### 23. Value and customer evidence
-
-**Classification: Product measurement foundation; external proof pending**
-
-Present:
-
-- projected and verified value fields;
-- recommendation acceptance and learning records;
-- value metrics and portfolio views;
-- pilot scorecard concepts.
-
-Not established:
-
-- independently verified customer savings;
-- quantified reliability, availability, safety, emissions, or production outcomes at a named customer;
-- externally validated ROI benchmark;
-- customer reference evidence.
-
-## Critical findings and required response
-
-### P0 — Resolve before enterprise production positioning
-
-1. **Enterprise SSO flow is incomplete and security-sensitive.**  
-   Disable unsupported enterprise/Google controls in production or implement a validated OIDC/Supabase flow with signature, issuer, audience, nonce, state, tenant mapping, and session establishment.
-
-2. **Legacy service-role Edge Functions trust caller-supplied scope.**  
-   Disable, isolate, or rewrite `gateway`, `sir-orchestrator`, `openclaw-orchestrator`, legacy RAG, model-router, marketplace, and edge-node boundaries before treating them as enterprise services.
-
-3. **Legacy RAG schema is absent from the active migration chain.**  
-   Build one authenticated active-schema engineering knowledge ingestion and retrieval path connected to the new ontology, authority, provenance, and applicability contracts.
-
-4. **Authorization is primarily organization-scoped, not comprehensively action- and role-scoped.**  
-   Implement and test an enterprise authorization matrix across the database and service boundary.
-
-5. **Database migration and E2E CI are not currently reproducible.**  
-   Repair local Supabase startup and require the migration/auth/agent-loop and Playwright gates before merge and deployment.
-
-### P1 — Resolve before high-consequence pilot expansion
-
-1. Remove generic hard-coded operational thresholds from governed decision paths or explicitly confine them to simulation fixtures.
-2. Consolidate SIR, OpenClaw, Javis, gateway, and autonomous orchestration into one canonical runtime and data model.
-3. Separate starter-workspace provisioning from infrastructure/deployment claims.
-4. Replace inert connector controls with real bounded connector workflows or label them clearly as planned.
-5. Establish measurement-quality, time-quality, calibration, and uncertainty controls.
-6. Complete technical change/configuration assurance and return-to-service governance.
-7. Add runtime output schemas, model evaluations, adversarial tests, controlled model promotion, and rollback.
-8. Archive or label stale completion and audit reports so they cannot be mistaken for current evidence.
-
-## Truthful current-state positioning
-
-Use:
-
-> **SyncAI is a governed industrial engineering intelligence platform in advanced pilot development. It combines an implemented recommendation, evidence, approval, work, KPI, onboarding, inspection, and asset-intelligence foundation with expanding Engineering DNA, digital-twin, physics, and engineering-knowledge capabilities. Production integrations, enterprise identity, authorization hardening, end-to-end governed RAG, private/edge deployment, independent security assurance, and formal certifications remain deployment or roadmap work.**
-
-Do not use as a general current-state claim:
-
-- fully autonomous industrial operations;
-- production-ready enterprise SSO;
-- production SAP, Maximo, PI, SCADA, OPC-UA, or other named connector support;
-- completed end-to-end governed RAG or knowledge graph;
-- air-gapped, on-prem, sovereign, or edge deployment availability;
-- comprehensive role-based authorization;
-- SOC 2, ISO 27001, defence, aerospace, OT-security, or functional-safety certification;
-- independently verified customer savings;
-- autonomous control-system or command-system execution.
-
-## Target-state priorities
-
-The strongest target-state differentiators are:
-
-1. one canonical secure orchestration and engineering knowledge plane;
-2. authenticated tenant-derived service boundaries and fine-grained authorization;
-3. trustworthy industrial data, metrology, lineage, and evidence fitness;
-4. technical change and configuration assurance from requirement to verified outcome;
-5. validated digital twins and deterministic engineering models;
-6. real read-only industrial connectors with reconciliation and observability;
-7. human-systems integration and qualified technical authority;
-8. immutable technical-assurance evidence packs;
-9. model assurance, controlled promotion, rollback, and independent validation;
-10. deployable, supportable, independently tested enterprise architecture.
-
-The complete design direction is maintained in [`enterprise-target-state.md`](enterprise-target-state.md).
-
-## Recommended execution sequence
-
-### Phase 0 — Contain and converge
-
-- disable or restrict unsupported legacy service-role functions;
-- remove production demo/auth bypasses;
-- repair enterprise SSO or hide it;
-- repair Supabase CI and E2E;
-- designate canonical schemas and orchestration runtime;
-- mark stale documents and compatibility surfaces.
-
-### Phase 1 — Make the pilot defensible
-
-- complete active-schema governed RAG;
-- enforce fine-grained authorization;
-- replace generic thresholds with approved customer configuration;
-- implement one historian and one CMMS read-only connector;
-- establish data-quality and evidence-fitness gates;
-- add immutable recommendation evidence packages.
-
-### Phase 2 — Make the enterprise deployment repeatable
-
-- add reference architecture, threat model, hardening, SLO, backup, recovery, and support packages;
-- add enterprise OIDC, MFA policy, privileged access, customer-managed keys, SIEM, and audit exports;
-- add deployment automation for the chosen hosted/private pattern;
-- execute independent penetration and resilience testing;
-- implement pilot-to-production acceptance gates.
-
-### Phase 3 — Expand high-consequence assurance
-
-- technical-change and configuration-assurance lifecycle;
-- independent model and physics validation;
-- sector assurance profiles;
-- controlled edge/disconnected patterns where commercially required;
-- formal certification and authorization programs;
-- verified customer outcome evidence.
-
-## Documentation governance
-
-The current source-of-truth order should be:
-
-1. this capability audit for product maturity;
-2. `docs/enterprise-readiness/claims-and-evidence-register.md` for commercial claims;
-3. `docs/gtm-readiness.md` for go-to-market gating, after it is reconciled to this audit;
-4. active migrations, deployed functions, tests, and production evidence for technical verification;
-5. `docs/enterprise-target-state.md` for desired-state design direction.
-
-Historical documents such as `FINAL-AUDIT-REPORT.md`, `OPERATIONAL-COMPLETION-REPORT.md`, and broad “completed” reports must be labelled historical or archived. They contain earlier counts and claims that no longer represent the current repository.
-
-## Bottom line
-
-SyncAI already contains a differentiated product foundation. Its strongest assets are governed human approval, a real operating-loop data model, broad asset and reliability workflows, Engineering DNA, deterministic physics, inspection governance, and an explicit refusal to invent engineering authority.
-
-The path to organizations such as major energy operators, aerospace companies, defence departments, utilities, and other high-risk enterprises is not to add more feature labels. It is to converge the architecture, secure every service boundary, connect real industrial data, prove authorization and evidence integrity, validate outcomes, and make current-versus-target claims impossible to confuse.
+### 17. Security and compliance
+
+**Classification: Readiness foundation; externally unvalidated**
+
+The repository includes RLS, grants, security-event records, audit trails,
+CodeQL, secret scanning, dependency review, policies, mappings, evidence
+indexes, and compliance documentation.
+
+Repository evidence does not prove hosted hardening, key management, customer
+isolation, incident response performance, disaster recovery, penetration-test
+results, SOC 2, ISO 27001, defence authorization, OT-security certification, or
+functional-safety certification.
+
+The correct claim is **readiness and audit preparation**, not certification.
+
+## Confirmed gaps by priority
+
+### P0 — required before high-consequence enterprise production
+
+1. **Enterprise identity and access**
+   - supported OIDC/SAML session establishment;
+   - issuer, signature, audience, nonce, tenant, and domain validation;
+   - phishing-resistant MFA and organization enforcement;
+   - lifecycle provisioning and deprovisioning;
+   - role-, site-, asset-, action-, and classification-aware authorization.
+
+2. **Canonical runtime consolidation**
+   - inventory every Edge Function and caller;
+   - migrate useful capabilities to the canonical runtime;
+   - eliminate caller-controlled tenant identities;
+   - require authenticated internal-service credentials;
+   - disable or remove duplicate service-role runtimes.
+
+3. **Governed engineering knowledge runtime**
+   - active migrations for documents, revisions, chunks, embeddings, mappings,
+     approvals, supersession, and retrieval logs;
+   - authenticated tenant and asset scope;
+   - canonical authority and applicability rules;
+   - conflict surfacing, citations, abstention, and audit.
+
+4. **Fine-grained authorization**
+   - database and service enforcement beyond same-organization membership;
+   - separation of read, propose, approve, execute, administer, and audit powers;
+   - negative cross-tenant and cross-role tests.
+
+5. **Production data trust**
+   - calibration status, units, uncertainty, drift, freshness, latency, quality,
+     substitution, time synchronization, and derived-tag lineage;
+   - evidence-fitness gates before high-consequence recommendations.
+
+6. **Technical change and configuration assurance**
+   - requirement and design-basis linkage;
+   - management of change, deviation, waiver, and temporary-change control;
+   - configuration baselines, implementation evidence, return-to-service review,
+     verification, rollback, and supersession.
+
+### P1 — required for repeatable pilots and enterprise procurement
+
+1. One production historian or telemetry connector.
+2. One production CMMS/EAM connector with bounded write-back.
+3. Typed model inputs and outputs with schema rejection.
+4. Model registry, evaluation, red-team, rollback, and incident controls.
+5. Immutable technical-assurance evidence packs.
+6. Historical replay, shadow mode, scenario testing, and acceptance gates.
+7. Human-systems integration: workload, handover, competency, explanation,
+   automation-bias, mobile, offline, and accessibility controls.
+8. Service levels, observability, backup, recovery, patch, support, and exit
+   procedures.
+9. Independent penetration testing and remediation evidence.
+10. A measured pilot with verified operational and economic outcomes.
+
+### P2 — strategic expansion
+
+- persistent engineering knowledge graph and graph services;
+- broad OEM and asset-class coverage;
+- private-cloud, on-premises, sovereign, edge, and disconnected packages;
+- sector assurance profiles for energy, mining, utilities, aerospace, defence,
+  transportation, and manufacturing;
+- portfolio optimization and enterprise scenario planning;
+- completed SOC 2, ISO 27001, and applicable sector authorization.
+
+## Claims that are supportable now
+
+SyncAI may be described as:
+
+- a governed Industrial Engineering Intelligence platform in advanced pilot
+  development;
+- a multi-tenant Supabase application with organization-scoped operating data;
+- a human-approved operating-loop and AI decision-support foundation;
+- a platform with governed asset onboarding, KPI, asset-DNA, twin, physics,
+  inspection, evidence, approval, work, value, and learning capabilities;
+- a repository with reproducible build, unit, clean-migration, smoke, E2E,
+  CodeQL, and secret-scan gates;
+- a platform whose active autonomous boundary is advisory and approval-gated;
+- a product with SOC 2 and ISO 27001 readiness material, not completed
+  certification.
+
+## Claims that are not supportable without additional evidence
+
+Do not state that SyncAI currently has:
+
+- general production readiness for unrestricted high-consequence use;
+- complete enterprise SSO or comprehensive least-privilege authorization;
+- certified SAP, Maximo, PI, SCADA, OPC-UA, MQTT, ERP, PLM, or other industrial
+  integrations;
+- complete governed RAG or a production persistent knowledge graph;
+- supported private-cloud, on-premises, edge, sovereign, or air-gapped
+  deployment;
+- autonomous authority over process control, protection settings, shutdown,
+  return-to-service, safety-critical work, or command systems;
+- independently validated model performance, resilience, cybersecurity, or
+  customer value;
+- SOC 2, ISO 27001, defence, aerospace, OT-security, or functional-safety
+  certification unless formal evidence is obtained.
+
+## Recommended execution order
+
+1. Merge and enforce the repaired CI baseline.
+2. Merge the audited documentation and claims boundary.
+3. Complete asset-aware retrieval and connect it to the active governed
+   knowledge runtime.
+4. Repair enterprise identity and fine-grained authorization.
+5. Consolidate orchestration and disable unsafe legacy functions.
+6. Build active-schema governed document ingestion and retrieval.
+7. Implement data-trust and technical-change assurance.
+8. Deliver one historian and one CMMS/EAM connector for a bounded pilot.
+9. Run shadow-mode and controlled pilot validation with defined acceptance
+   criteria.
+10. Complete independent security, resilience, model, compliance, and customer
+    outcome evidence.
+
+## Audit governance
+
+- The README summarizes this audit; it must not exceed this evidence boundary.
+- The Enterprise Target State describes desired completion, not delivered state.
+- The Claims and Evidence Register controls commercial wording.
+- Historical completion reports are not current evidence unless reconciled to
+  this audit.
+- Every material new capability should update its maturity, evidence path,
+  deployment status, test status, and permitted claim.
+- Simulated, pilot, implemented, production-validated, independently assured,
+  and certified states must remain visibly distinct.
