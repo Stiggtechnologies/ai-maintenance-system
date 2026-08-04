@@ -1,6 +1,23 @@
 @import "tailwindcss";
 
 @theme {
+  /* ── Overlook design language ────────────────────────────────────────────
+     Derived from the SyncAI flagship investor decks: night-operations
+     photography, cyan wireframe telemetry over real industrial scenes, and
+     gold reserved for the signal that matters. Deep field, bright signal. */
+  --color-overlook-void: #06111d;
+  --color-overlook-deep: #081a2c;
+  --color-overlook-hull: #0b2035;
+  --color-overlook-steel: #0f2d48;
+  --color-overlook-rule: #123657;
+  --color-overlook-haze: #536a7e;
+  --color-overlook-mist: #9db3c5;
+  --color-overlook-paper: #f5f7fa;
+  --color-signal-gold: #d6a84f;
+  --color-signal-gold-soft: #f2d183;
+  --color-signal-cyan: #38c8f4;
+  --color-signal-cyan-soft: #86e9ff;
+
   --color-industrial-black: #0b0f14;
   --color-industrial-graphite: #11161d;
   --color-industrial-slate: #161c24;
@@ -98,12 +115,6 @@
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-}
-
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
 }
 
 body {
@@ -295,4 +306,61 @@ body {
 
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.2);
+}
+
+/* ── Overlook entrance reveals ──────────────────────────────────────────────
+   Deliberately CSS, and deliberately NOT fill-mode:backwards. The resting
+   state of every element below is fully visible; the keyframe only plays on
+   top of it. So if animations are frozen, disabled, or unsupported (headless
+   browsers, some embedded webviews, aggressive power saving), the content
+   still renders — an entrance flourish must never decide whether a user can
+   see the page. prefers-reduced-motion removes the motion entirely. */
+@keyframes overlook-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes overlook-settle {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.reveal-rise {
+  animation: overlook-rise 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.reveal-settle {
+  animation: overlook-settle 0.55s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.reveal-d1 {
+  animation-delay: 0.08s;
+}
+.reveal-d2 {
+  animation-delay: 0.16s;
+}
+.reveal-d3 {
+  animation-delay: 0.24s;
+}
+.reveal-d4 {
+  animation-delay: 0.32s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal-rise,
+  .reveal-settle {
+    animation: none;
+  }
 }

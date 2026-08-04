@@ -126,7 +126,7 @@ export function Login({ onSuccess, onTabChange }: LoginProps) {
                 inputMode="numeric"
                 autoComplete="one-time-code"
                 autoFocus
-                className="w-full px-4 py-3 bg-industrial-black border border-industrial-border rounded-lg text-industrial-text tracking-[0.4em] text-center placeholder-industrial-muted focus:outline-hidden focus:border-[#3A8DFF] focus:ring-1 focus:ring-[#3A8DFF] transition-colors"
+                className="w-full px-4 py-3 bg-overlook-void/60 border border-overlook-rule rounded-lg text-overlook-paper tracking-[0.4em] text-center placeholder-overlook-haze focus:outline-hidden focus:border-signal-cyan/70 focus:ring-1 focus:ring-signal-cyan/50 transition-colors"
                 placeholder="123456"
                 required
               />
@@ -144,7 +144,7 @@ export function Login({ onSuccess, onTabChange }: LoginProps) {
             <button
               type="submit"
               disabled={loading || mfaCode.length < 6}
-              className="w-full py-3 px-4 bg-[#3A8DFF] hover:bg-[#2E7AE6] text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full py-3 px-4 bg-signal-gold hover:bg-signal-gold-soft text-overlook-void font-semibold tracking-wide rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? "Verifying…" : "Verify and continue"}
             </button>
@@ -164,7 +164,7 @@ export function Login({ onSuccess, onTabChange }: LoginProps) {
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
                 autoComplete="username"
-                className="w-full px-4 py-3 bg-industrial-black border border-industrial-border rounded-lg text-industrial-text placeholder-industrial-muted focus:outline-hidden focus:border-[#3A8DFF] focus:ring-1 focus:ring-[#3A8DFF] transition-colors"
+                className="w-full px-4 py-3 bg-overlook-void/60 border border-overlook-rule rounded-lg text-overlook-paper placeholder-overlook-haze focus:outline-hidden focus:border-signal-cyan/70 focus:ring-1 focus:ring-signal-cyan/50 transition-colors"
                 placeholder="your.email@company.com"
                 required
               />
@@ -183,7 +183,7 @@ export function Login({ onSuccess, onTabChange }: LoginProps) {
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
                 autoComplete="current-password"
-                className="w-full px-4 py-3 bg-industrial-black border border-industrial-border rounded-lg text-industrial-text placeholder-industrial-muted focus:outline-hidden focus:border-[#3A8DFF] focus:ring-1 focus:ring-[#3A8DFF] transition-colors"
+                className="w-full px-4 py-3 bg-overlook-void/60 border border-overlook-rule rounded-lg text-overlook-paper placeholder-overlook-haze focus:outline-hidden focus:border-signal-cyan/70 focus:ring-1 focus:ring-signal-cyan/50 transition-colors"
                 placeholder="••••••••"
                 required
               />
@@ -204,12 +204,12 @@ export function Login({ onSuccess, onTabChange }: LoginProps) {
               disabled={loading}
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
-              className="w-full py-3 px-4 bg-[#3A8DFF] hover:bg-[#2E7AE6] text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full py-3 px-4 bg-signal-gold hover:bg-signal-gold-soft text-overlook-void font-semibold tracking-wide rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? "Authenticating…" : "Access SyncAI"}
             </motion.button>
 
-            <div className="rounded-lg border border-industrial-border bg-industrial-black/40 p-3 text-xs text-industrial-muted">
+            <div className="rounded-lg border border-overlook-rule bg-overlook-void/40 p-3 text-xs text-overlook-haze">
               Only a verified Supabase session can enter the application.
               Authenticator verification is enforced for enrolled accounts.
               Enterprise federation remains disabled until its supported OIDC
