@@ -315,12 +315,12 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
   };
 
   return (
-    <div className="flex h-screen bg-[#080C10] overflow-hidden">
+    <div className="flex h-screen bg-overlook-void overflow-hidden">
       {/* Sidebar */}
       <motion.aside
         animate={{ width: isCollapsed ? 64 : 240 }}
         transition={{ duration: 0.2, ease: "easeInOut" }}
-        className="bg-[#080C10] border-r border-white/5 shrink-0 overflow-hidden flex flex-col z-20"
+        className="bg-overlook-void border-r border-white/5 shrink-0 overflow-hidden flex flex-col z-20"
       >
         {/* Logo */}
         <div className="h-14 px-4 flex items-center gap-3 border-b border-white/5 shrink-0">
@@ -365,7 +365,7 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
               {userContext.organization_name}
             </div>
             {userContext.roles && userContext.roles.length > 0 && (
-              <div className="text-xs text-teal-400 mt-0.5">
+              <div className="text-xs text-signal-cyan mt-0.5">
                 {userContext.roles[0].name}
               </div>
             )}
@@ -384,10 +384,10 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
                   />
                 </button>
                 {sitePickerOpen && (
-                  <div className="absolute top-full left-0 right-0 mt-1 bg-[#0E1520] border border-white/8 rounded-lg shadow-2xl z-50 max-h-48 overflow-y-auto">
+                  <div className="absolute top-full left-0 right-0 mt-1 bg-overlook-deep border border-white/8 rounded-lg shadow-2xl z-50 max-h-48 overflow-y-auto">
                     <button
                       onClick={() => handleSiteChange(null)}
-                      className={`w-full text-left px-3 py-2 text-xs hover:bg-white/5 ${!selectedSiteId ? "text-teal-400" : "text-slate-300"}`}
+                      className={`w-full text-left px-3 py-2 text-xs hover:bg-white/5 ${!selectedSiteId ? "text-signal-cyan" : "text-slate-300"}`}
                     >
                       All Sites
                     </button>
@@ -395,7 +395,7 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
                       <button
                         key={site.id}
                         onClick={() => handleSiteChange(site.id)}
-                        className={`w-full text-left px-3 py-2 text-xs hover:bg-white/5 ${selectedSiteId === site.id ? "text-teal-400" : "text-slate-300"}`}
+                        className={`w-full text-left px-3 py-2 text-xs hover:bg-white/5 ${selectedSiteId === site.id ? "text-signal-cyan" : "text-slate-300"}`}
                       >
                         {site.name}{" "}
                         <span className="text-slate-400">({site.code})</span>
@@ -457,12 +457,12 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
                                 : "px-4 py-2"
                             } ${
                               active
-                                ? "text-teal-400 bg-teal-500/10"
+                                ? "text-signal-gold bg-signal-gold/10"
                                 : "text-slate-400 hover:text-slate-200 hover:bg-white/3"
                             }`}
                           >
                             {active && (
-                              <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-teal-400 rounded-r" />
+                              <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-signal-gold rounded-r" />
                             )}
                             {!isCollapsed && (
                               <span className="text-sm font-medium">
@@ -475,7 +475,7 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
                               </span>
                             ) : null}
                             {isCollapsed && (
-                              <div className="absolute left-full ml-2 px-2 py-1 bg-[#1A2332] border border-white/8 text-white text-xs rounded-md whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none z-50 transition-opacity shadow-xl">
+                              <div className="absolute left-full ml-2 px-2 py-1 bg-overlook-hull border border-white/8 text-white text-xs rounded-md whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none z-50 transition-opacity shadow-xl">
                                 {item.label}
                               </div>
                             )}
@@ -515,13 +515,13 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
       {/* Main */}
       <div className="flex-1 flex flex-col overflow-hidden min-w-0">
         {/* Top Bar */}
-        <header className="h-14 bg-[#080C10] border-b border-white/5 px-4 flex items-center justify-between shrink-0 z-10">
+        <header className="h-14 bg-overlook-void/80 backdrop-blur-md border-b border-white/5 px-4 flex items-center justify-between shrink-0 z-10">
           <div className="flex items-center gap-4">
             <button
               onClick={() => setIsCollapsed(!isCollapsed)}
               aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
               aria-expanded={!isCollapsed}
-              className="p-1.5 rounded-md text-slate-400 hover:text-teal-400 hover:bg-teal-500/10 transition-colors focus:outline-hidden focus-visible:ring-2 focus-visible:ring-teal-300"
+              className="p-1.5 rounded-md text-slate-400 hover:text-signal-cyan hover:bg-signal-cyan/10 transition-colors focus:outline-hidden focus-visible:ring-2 focus-visible:ring-teal-300"
             >
               {isCollapsed ? (
                 <ChevronRight className="w-4 h-4" />
@@ -540,7 +540,7 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
             {/* System Health Pills */}
             <div className="hidden md:flex items-center gap-2 text-xs">
               <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-white/3 border border-white/5">
-                <div className="w-1.5 h-1.5 rounded-full bg-teal-400" />
+                <div className="w-1.5 h-1.5 rounded-full bg-signal-cyan" />
                 <span className="text-slate-400">Intelligence</span>
                 <span className="text-teal-400 font-medium capitalize">
                   {systemHealth.intelligence}
@@ -597,7 +597,7 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
                 )}
               </button>
               {notifOpen && (
-                <div className="absolute right-0 top-9 z-50 w-80 bg-[#0D1520] border border-white/10 rounded-xl shadow-xl shadow-black/40 p-2">
+                <div className="absolute right-0 top-9 z-50 w-80 bg-overlook-deep border border-white/10 rounded-xl shadow-xl shadow-black/40 p-2">
                   <div className="px-2 py-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400">
                     Notifications
                   </div>
@@ -652,7 +652,7 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
         </header>
 
         {/* Page Content */}
-        <main className="flex-1 overflow-auto bg-[#080C10] min-w-0">
+        <main className="flex-1 overflow-auto bg-overlook-void min-w-0">
           {children}
         </main>
       </div>
