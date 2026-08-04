@@ -15,6 +15,16 @@ number a prospect questions can be traced to a row in the source spreadsheets.
 **The one-line pitch:** "This isn't seeded demo data — it's fifteen months of a
 real operation, rebuilt by the platform's own onboarding engine in an afternoon."
 
+**Fleet composition (operator-provided):** T2-series — Komatsu 930-4 ·
+T3-series — Komatsu 980-4 · SH1611 — Komatsu PC 9000. (SH1006/1008/1010:
+make/model not provided — deliberately left blank rather than guessed.)
+
+**The autonomy-lift beat (use it in Act 3):** onboarding autonomy ran at 47.5%
+on event data alone. Adding one operator-provided column — make/model — lifted
+it to **56.9%** as the engine auto-filled nameplate items and re-deduced
+OEM-dependent specs under its own confidence gate. "Give it one more column,
+it gives you nine points back — and tells you exactly what still needs a human."
+
 ## Pre-flight (2 minutes, do before every showing)
 
 1. Open **app.syncai.ca** in a fresh private window (avoids stale sessions).
