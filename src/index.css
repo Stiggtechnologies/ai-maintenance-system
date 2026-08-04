@@ -39,7 +39,9 @@
   --color-brand-800: #115e59;
   --color-brand-900: #134e4a;
 
-  --font-sans: Inter, system-ui, -apple-system, sans-serif;
+  --font-sans: "Inter Variable", Inter, system-ui, -apple-system, sans-serif;
+  --font-mono:
+    "JetBrains Mono Variable", ui-monospace, SFMono-Regular, Menlo, monospace;
 
   --text-h1: 48px;
   --text-h1--line-height: 1.2;
@@ -104,6 +106,7 @@
 
 :root {
   font-family:
+    "Inter Variable",
     "Inter",
     system-ui,
     -apple-system,
@@ -363,4 +366,38 @@ body {
   .reveal-settle {
     animation: none;
   }
+}
+
+/* ── Overlook type & chrome discipline ─────────────────────────────────────
+   Live data must not jitter: every monospace/numeric context gets tabular
+   figures. Scrollbars become hairline instruments instead of OS chrome. */
+code,
+kbd,
+pre,
+.font-mono {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-overlook-rule) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: var(--color-overlook-rule);
+  border-radius: 9999px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--color-overlook-haze);
 }

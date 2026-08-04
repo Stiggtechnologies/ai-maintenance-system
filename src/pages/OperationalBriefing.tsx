@@ -431,9 +431,9 @@ const typeConfig: Record<
   },
   weekly: {
     icon: Calendar,
-    color: "text-blue-400",
-    bg: "bg-blue-500/10",
-    border: "border-blue-500/20",
+    color: "text-signal-cyan",
+    bg: "bg-signal-cyan/10",
+    border: "border-signal-cyan/20",
     label: "Weekly Review",
   },
   executive: {

@@ -469,7 +469,7 @@ export function ApprovalQueue() {
                   </div>
 
                   {editMode === decision.id && editedData && (
-                    <div className="mt-4 p-4 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+                    <div className="mt-4 p-4 bg-signal-cyan/10 border border-signal-cyan/30 rounded-lg">
                       <h4 className="font-semibold text-blue-900 mb-3">
                         Edit Decision Data
                       </h4>

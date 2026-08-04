@@ -554,7 +554,7 @@ export function ResearchDashboard() {
                       onClick={() =>
                         updatePromotionStatus(promo.id, "promoted_to_staging")
                       }
-                      className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-sm hover:bg-blue-700"
+                      className="flex items-center gap-1 px-3 py-1.5 bg-signal-gold text-overlook-void text-sm font-medium rounded-sm hover:bg-signal-gold-soft"
                     >
                       <ArrowRight size={14} /> Promote to Staging
                     </button>

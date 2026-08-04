@@ -300,7 +300,7 @@ export function OverviewDashboard() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="glass rounded-xl p-6 border border-white/6">
               <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center mb-3">
-                <Package size={20} className="text-blue-600" />
+                <Package size={20} className="text-signal-cyan" />
               </div>
               <h3 className="font-semibold text-industrial-text mb-1">
                 1. Register Assets
@@ -310,7 +310,7 @@ export function OverviewDashboard() {
               </p>
               <a
                 href="/assets"
-                className="text-sm text-blue-600 font-medium flex items-center gap-1 hover:text-blue-700"
+                className="text-sm text-signal-cyan font-medium flex items-center gap-1 hover:text-blue-700"
               >
                 Go to Assets <ArrowRight size={14} />
               </a>
@@ -329,7 +329,7 @@ export function OverviewDashboard() {
               </p>
               <a
                 href="/deployments/new"
-                className="text-sm text-blue-600 font-medium flex items-center gap-1 hover:text-blue-700"
+                className="text-sm text-signal-cyan font-medium flex items-center gap-1 hover:text-blue-700"
               >
                 Browse Templates <ArrowRight size={14} />
               </a>
@@ -347,7 +347,7 @@ export function OverviewDashboard() {
               </p>
               <a
                 href="/work"
-                className="text-sm text-blue-600 font-medium flex items-center gap-1 hover:text-blue-700"
+                className="text-sm text-signal-cyan font-medium flex items-center gap-1 hover:text-blue-700"
               >
                 Go to Work <ArrowRight size={14} />
               </a>
@@ -392,7 +392,7 @@ export function OverviewDashboard() {
             </h3>
             <ul className="space-y-2 text-sm text-slate-400">
               <li className="flex items-start gap-2">
-                <Zap size={14} className="text-blue-500 mt-0.5 shrink-0" />
+                <Zap size={14} className="text-signal-cyan mt-0.5 shrink-0" />
                 AI-powered asset health monitoring and anomaly detection
               </li>
               <li className="flex items-start gap-2">

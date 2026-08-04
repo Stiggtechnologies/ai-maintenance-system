@@ -157,7 +157,7 @@ function IntegrationCard({ integration }: { integration: Integration }) {
     <div className="bg-[#1A1F2E] rounded-lg border border-[#2A3344] p-4 hover:border-[#3A4354] transition-all">
       <div className="flex items-start justify-between mb-3">
         <div className="w-12 h-12 rounded-lg bg-[#2A3344] flex items-center justify-center">
-          <span className="text-sm font-bold text-blue-400">
+          <span className="text-sm font-bold text-signal-cyan">
             {integration.logo}
           </span>
         </div>
@@ -211,7 +211,7 @@ function IntegrationCard({ integration }: { integration: Integration }) {
             <RefreshCw className="w-3 h-3" />
           </button>
         ) : (
-          <button className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 rounded-sm text-white text-xs">
+          <button className="px-3 py-1.5 bg-signal-gold hover:bg-signal-cyan rounded-sm text-white text-xs">
             Connect
           </button>
         )}
@@ -246,10 +246,10 @@ export function IntegrationsDashboard() {
       <div className="mb-6">
         <div className="flex items-center justify-between mb-2">
           <h1 className="text-2xl font-bold flex items-center gap-3">
-            <Plug className="w-8 h-8 text-blue-500" />
+            <Plug className="w-8 h-8 text-signal-cyan" />
             Integrations
           </h1>
-          <button className="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-sm flex items-center gap-2">
+          <button className="px-4 py-2 bg-signal-gold hover:bg-signal-cyan rounded-lg text-sm flex items-center gap-2">
             <Plug className="w-4 h-4" />
             Add Integration
           </button>
@@ -292,7 +292,7 @@ export function IntegrationsDashboard() {
               onClick={() => setCategoryFilter(cat)}
               className={`px-3 py-1.5 rounded-lg text-sm capitalize whitespace-nowrap ${
                 categoryFilter === cat
-                  ? "bg-blue-600 text-white"
+                  ? "bg-signal-gold text-overlook-void"
                   : "bg-[#1A1F2E] text-gray-400 hover:bg-[#2A3344]"
               }`}
             >
@@ -310,7 +310,7 @@ export function IntegrationsDashboard() {
             onClick={() => setFilter(f)}
             className={`px-4 py-2 rounded-lg text-sm capitalize ${
               filter === f
-                ? "bg-blue-600 text-white"
+                ? "bg-signal-gold text-overlook-void"
                 : "bg-[#1A1F2E] text-gray-400 hover:bg-[#2A3344]"
             }`}
           >

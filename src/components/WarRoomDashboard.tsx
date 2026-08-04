@@ -180,7 +180,7 @@ export function WarRoomDashboard() {
       case "investigating":
         return "bg-yellow-500";
       case "mitigating":
-        return "bg-blue-500";
+        return "bg-signal-cyan";
       case "resolved":
         return "bg-green-500";
       default:
@@ -238,7 +238,7 @@ export function WarRoomDashboard() {
 
           <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
             <div className="flex items-center justify-between mb-2">
-              <Users className="w-5 h-5 text-blue-400" />
+              <Users className="w-5 h-5 text-signal-cyan" />
               <span className="text-2xl font-bold text-white">
                 {metrics.activeResponders}
               </span>
@@ -371,7 +371,7 @@ export function WarRoomDashboard() {
                     {timeline.map((event) => (
                       <div key={event.id} className="flex gap-3">
                         <div className="flex flex-col items-center">
-                          <div className="w-2 h-2 bg-blue-500 rounded-full" />
+                          <div className="w-2 h-2 bg-signal-cyan rounded-full" />
                           <div className="w-px h-full bg-gray-700" />
                         </div>
                         <div className="flex-1 pb-4">
@@ -411,7 +411,7 @@ export function WarRoomDashboard() {
                     key={member.id}
                     className="flex items-center gap-3 p-2 rounded-sm hover:bg-gray-700/50"
                   >
-                    <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white text-sm font-medium">
+                    <div className="w-8 h-8 bg-signal-gold rounded-full flex items-center justify-center text-white text-sm font-medium">
                       {member.display_name?.charAt(0) || "U"}
                     </div>
                     <div className="flex-1">

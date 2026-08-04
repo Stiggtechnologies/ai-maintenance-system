@@ -214,7 +214,7 @@ export function TraceReplayViewer({
               </button>
               <button
                 onClick={handlePlayPause}
-                className="p-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                className="p-3 bg-signal-gold text-overlook-void rounded-lg hover:bg-signal-gold-soft"
               >
                 {isPlaying ? (
                   <Pause className="w-5 h-5" />
@@ -249,7 +249,7 @@ export function TraceReplayViewer({
           <div className="relative">
             <div className="w-full h-2 bg-white/6 rounded-full overflow-hidden">
               <div
-                className="h-full bg-blue-600 transition-all duration-300"
+                className="h-full bg-signal-gold transition-all duration-300"
                 style={{
                   width: `${((currentStep + 1) / snapshot.tool_calls.length) * 100}%`,
                 }}

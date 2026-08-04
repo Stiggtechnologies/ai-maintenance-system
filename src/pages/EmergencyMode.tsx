@@ -161,16 +161,16 @@ const severityConfig: Record<
     label: "MAJOR",
   },
   moderate: {
-    color: "text-blue-400",
-    bg: "bg-blue-500/10",
-    border: "border-blue-500/20",
+    color: "text-signal-cyan",
+    bg: "bg-signal-cyan/10",
+    border: "border-signal-cyan/20",
     label: "MODERATE",
   },
 };
 
 const typeColors: Record<string, string> = {
   detection: "bg-red-500",
-  analysis: "bg-blue-500",
+  analysis: "bg-signal-cyan",
   action: "bg-teal-500",
   escalation: "bg-amber-500",
   safety: "bg-red-500",

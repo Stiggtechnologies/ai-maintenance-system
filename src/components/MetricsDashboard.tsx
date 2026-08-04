@@ -210,7 +210,7 @@ export function MetricsDashboard() {
               onClick={() => setTimeRange(range)}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                 timeRange === range
-                  ? "bg-blue-600 text-white"
+                  ? "bg-signal-gold text-overlook-void"
                   : "bg-industrial-slate text-slate-300 hover:bg-white/6"
               }`}
             >
@@ -229,8 +229,8 @@ export function MetricsDashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-linear-to-br from-blue-50 to-blue-100 rounded-lg p-6 border border-blue-200">
           <div className="flex items-center justify-between mb-4">
-            <Clock className="w-8 h-8 text-blue-600" />
-            <span className="text-xs text-blue-600 font-medium">
+            <Clock className="w-8 h-8 text-signal-cyan" />
+            <span className="text-xs text-signal-cyan font-medium">
               AVG LATENCY
             </span>
           </div>
@@ -289,7 +289,7 @@ export function MetricsDashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-industrial-graphite rounded-lg shadow-sm p-6">
           <h3 className="text-lg font-semibold text-industrial-text mb-4 flex items-center gap-2">
-            <Clock className="w-5 h-5 text-blue-600" />
+            <Clock className="w-5 h-5 text-signal-cyan" />
             Latency Distribution
           </h3>
           <div className="space-y-3">
@@ -302,7 +302,7 @@ export function MetricsDashboard() {
               </div>
               <div className="w-full h-2 bg-white/6 rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-blue-500"
+                  className="h-full bg-signal-cyan"
                   style={{
                     width: `${Math.min((metrics.latency.avg / metrics.latency.p99) * 100, 100)}%`,
                   }}

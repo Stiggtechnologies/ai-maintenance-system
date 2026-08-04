@@ -32,7 +32,7 @@ interface Insight {
 
 const statusColors: Record<string, { text: string; bg: string }> = {
   above: { text: "text-teal-400", bg: "bg-teal-500/10" },
-  at: { text: "text-blue-400", bg: "bg-blue-500/10" },
+  at: { text: "text-signal-cyan", bg: "bg-signal-cyan/10" },
   below: { text: "text-amber-400", bg: "bg-amber-500/10" },
 };
 
@@ -334,9 +334,9 @@ export function BenchmarkingPanel() {
 
       {/* External benchmarks — honest connect state */}
       <div className="bg-[#0D1520] border border-white/6 rounded-xl p-4 flex items-start gap-3">
-        <Plug className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
+        <Plug className="w-4 h-4 text-signal-cyan shrink-0 mt-0.5" />
         <div>
-          <div className="text-sm font-medium text-blue-400">
+          <div className="text-sm font-medium text-signal-cyan">
             External Industry Benchmarks
           </div>
           <p className="text-xs text-slate-400 mt-1 leading-relaxed">

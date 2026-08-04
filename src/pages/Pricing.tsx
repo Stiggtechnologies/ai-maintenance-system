@@ -23,7 +23,7 @@ export function Pricing() {
             </ul>
           </div>
 
-          <div className="bg-blue-600/20 border-2 border-blue-500 rounded-lg p-8">
+          <div className="bg-signal-gold/20 border-2 border-blue-500 rounded-lg p-8">
             <h3 className="text-xl font-semibold text-white mb-2">
               Professional
             </h3>

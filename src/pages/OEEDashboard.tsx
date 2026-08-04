@@ -172,7 +172,7 @@ export function OEEDashboard() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="animate-spin text-blue-500" size={32} />
+        <Loader2 className="animate-spin text-signal-cyan" size={32} />
         <span className="ml-3 text-slate-400">Loading OEE data...</span>
       </div>
     );

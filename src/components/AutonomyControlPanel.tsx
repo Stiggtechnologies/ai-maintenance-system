@@ -193,7 +193,7 @@ export function AutonomyControlPanel() {
                 </button>
                 <button
                   onClick={saveConfig}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-sm flex items-center gap-2"
+                  className="px-4 py-2 bg-signal-gold hover:bg-signal-cyan rounded-lg text-sm flex items-center gap-2"
                 >
                   <Save className="w-4 h-4" />
                   Save Changes
@@ -238,13 +238,13 @@ export function AutonomyControlPanel() {
               onClick={() => setSystemMode(mode.value)}
               className={`flex-1 p-4 rounded-lg border text-left transition-all ${
                 systemMode === mode.value
-                  ? "border-blue-500 bg-blue-500/100/10"
+                  ? "border-blue-500 bg-signal-cyan/100/10"
                   : "border-[#2A3344] hover:border-[#3A4354]"
               }`}
             >
               <div className="flex items-center gap-2 mb-1">
                 {systemMode === mode.value ? (
-                  <CheckCircle className="w-5 h-5 text-blue-400" />
+                  <CheckCircle className="w-5 h-5 text-signal-cyan" />
                 ) : (
                   <div className="w-5 h-5 rounded-full border border-gray-500" />
                 )}
@@ -273,7 +273,7 @@ export function AutonomyControlPanel() {
           >
             <div className="col-span-3 flex items-center gap-2">
               <div className="w-8 h-8 rounded-sm bg-[#2A3344] flex items-center justify-center">
-                <Zap className="w-4 h-4 text-blue-400" />
+                <Zap className="w-4 h-4 text-signal-cyan" />
               </div>
               <span className="text-sm">{item.agent}</span>
             </div>

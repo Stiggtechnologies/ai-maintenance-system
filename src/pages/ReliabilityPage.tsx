@@ -272,7 +272,7 @@ export function Reliability() {
                           ba.rcaStatus === "Completed"
                             ? "text-teal-400"
                             : ba.rcaStatus === "In Progress"
-                              ? "text-blue-400"
+                              ? "text-signal-cyan"
                               : "text-amber-400"
                         }
                       >
@@ -328,13 +328,13 @@ export function Reliability() {
               initial={{ opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.08 }}
-              className={`bg-[#0D1520] border rounded-xl p-4 ${rca.status === "completed" ? "border-teal-500/20" : rca.status === "in_progress" ? "border-blue-500/20" : "border-amber-500/20"}`}
+              className={`bg-[#0D1520] border rounded-xl p-4 ${rca.status === "completed" ? "border-teal-500/20" : rca.status === "in_progress" ? "border-signal-cyan/20" : "border-amber-500/20"}`}
             >
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <div className="flex items-center gap-2 mb-1">
                     <span
-                      className={`text-xs font-bold px-1.5 py-0.5 rounded-full ${rca.status === "completed" ? "bg-teal-500/10 text-teal-400" : rca.status === "in_progress" ? "bg-blue-500/10 text-blue-400" : "bg-amber-500/10 text-amber-400"}`}
+                      className={`text-xs font-bold px-1.5 py-0.5 rounded-full ${rca.status === "completed" ? "bg-teal-500/10 text-teal-400" : rca.status === "in_progress" ? "bg-signal-cyan/10 text-signal-cyan" : "bg-amber-500/10 text-amber-400"}`}
                     >
                       {rca.status === "in_progress"
                         ? "In Progress"
@@ -355,7 +355,7 @@ export function Reliability() {
                         className={
                           rca.priority === "High"
                             ? "text-amber-400"
-                            : "text-blue-400"
+                            : "text-signal-cyan"
                         }
                       >
                         {rca.priority}

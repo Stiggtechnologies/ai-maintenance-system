@@ -277,9 +277,9 @@ const colorMap: Record<string, { text: string; bg: string; border: string }> = {
     border: "border-teal-500/20",
   },
   blue: {
-    text: "text-blue-400",
-    bg: "bg-blue-500/10",
-    border: "border-blue-500/20",
+    text: "text-signal-cyan",
+    bg: "bg-signal-cyan/10",
+    border: "border-signal-cyan/20",
   },
   amber: {
     text: "text-amber-400",
@@ -536,7 +536,7 @@ export function PlaybooksLibrary() {
               )}
             </div>
             <div className="text-sm text-slate-300">
-              <span className="font-bold text-blue-400">
+              <span className="font-bold text-signal-cyan">
                 {context.openWorkOrders}
               </span>{" "}
               open work order{context.openWorkOrders === 1 ? "" : "s"}

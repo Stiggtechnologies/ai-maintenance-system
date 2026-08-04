@@ -419,12 +419,12 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
                   onClick={() => toggleGroup(group.id)}
                   className={`w-full flex items-center px-4 py-2 transition-colors ${
                     isCollapsed ? "justify-center" : "gap-2"
-                  } text-slate-400 hover:text-slate-400`}
+                  } text-overlook-haze hover:text-overlook-mist`}
                 >
                   <GroupIcon className="w-3.5 h-3.5 shrink-0" />
                   {!isCollapsed && (
                     <>
-                      <span className="flex-1 text-left text-xs font-semibold uppercase tracking-widest">
+                      <span className="flex-1 text-left text-[11px] font-semibold uppercase tracking-[0.18em]">
                         {group.label}
                       </span>
                       <ChevronDown
@@ -458,7 +458,7 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
                             } ${
                               active
                                 ? "text-signal-gold bg-signal-gold/10"
-                                : "text-slate-400 hover:text-slate-200 hover:bg-white/3"
+                                : "text-overlook-mist/75 hover:text-overlook-paper hover:bg-white/3"
                             }`}
                           >
                             {active && (
@@ -554,9 +554,9 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
                 </span>
               </div>
               <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-white/3 border border-white/5">
-                <Shield className="w-3 h-3 text-blue-400" />
+                <Shield className="w-3 h-3 text-signal-cyan" />
                 <span className="text-slate-400">Governance</span>
-                <span className="text-blue-400 font-medium capitalize">
+                <span className="text-signal-cyan font-medium capitalize">
                   {systemHealth.governance}
                 </span>
               </div>

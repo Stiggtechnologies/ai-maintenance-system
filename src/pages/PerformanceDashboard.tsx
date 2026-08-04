@@ -158,7 +158,11 @@ const trendData = [
 
 const colorMap: Record<string, { text: string; bg: string; bar: string }> = {
   teal: { text: "text-teal-400", bg: "bg-teal-500/10", bar: "bg-teal-500" },
-  blue: { text: "text-blue-400", bg: "bg-blue-500/10", bar: "bg-blue-500" },
+  blue: {
+    text: "text-signal-cyan",
+    bg: "bg-signal-cyan/10",
+    bar: "bg-signal-cyan",
+  },
   amber: { text: "text-amber-400", bg: "bg-amber-500/10", bar: "bg-amber-500" },
   green: { text: "text-green-400", bg: "bg-green-500/10", bar: "bg-green-500" },
   red: { text: "text-red-400", bg: "bg-red-500/10", bar: "bg-red-500" },

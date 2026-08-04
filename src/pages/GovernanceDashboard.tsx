@@ -335,7 +335,7 @@ export function GovernanceDashboard() {
                   key={event.id}
                   className="flex items-start gap-3 p-3 bg-white/2 rounded-lg"
                 >
-                  <div className="w-2 h-2 bg-blue-500 rounded-full mt-2" />
+                  <div className="w-2 h-2 bg-signal-cyan rounded-full mt-2" />
                   <div className="flex-1">
                     <div className="text-sm text-industrial-text">
                       <span className="font-medium">{event.event_type}</span> on{" "}

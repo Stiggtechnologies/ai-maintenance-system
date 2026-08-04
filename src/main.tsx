@@ -3,6 +3,8 @@ import { createRoot } from "react-dom/client";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { AuthProvider } from "./components/AuthProvider";
 import App from "./App.tsx";
+import "@fontsource-variable/inter";
+import "@fontsource-variable/jetbrains-mono";
 import "./index.css";
 
 createRoot(document.getElementById("root")!).render(

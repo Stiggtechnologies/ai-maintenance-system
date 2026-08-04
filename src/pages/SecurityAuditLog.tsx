@@ -28,7 +28,7 @@ interface SecurityEvent {
 
 const SEVERITY_STYLE: Record<string, string> = {
   info: "bg-slate-500/10 text-slate-300 border-slate-500/30",
-  notice: "bg-blue-500/10 text-blue-300 border-blue-500/30",
+  notice: "bg-signal-cyan/10 text-signal-cyan border-signal-cyan/30",
   warning: "bg-amber-500/10 text-amber-300 border-amber-500/30",
   critical: "bg-red-500/10 text-red-300 border-red-500/30",
 };

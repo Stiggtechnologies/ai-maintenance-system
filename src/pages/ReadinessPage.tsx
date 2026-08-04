@@ -444,9 +444,9 @@ const colorMap: Record<
     ring: "ring-teal-500/30",
   },
   blue: {
-    text: "text-blue-400",
-    bg: "bg-blue-500/10",
-    bar: "bg-blue-500",
+    text: "text-signal-cyan",
+    bg: "bg-signal-cyan/10",
+    bar: "bg-signal-cyan",
     ring: "ring-blue-500/30",
   },
   amber: {

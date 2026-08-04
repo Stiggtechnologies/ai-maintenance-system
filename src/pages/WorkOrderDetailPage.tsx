@@ -411,7 +411,7 @@ export function WorkOrderDetailPage() {
       <div className="glass border border-white/6 rounded-xl p-6">
         <div className="flex flex-col sm:flex-row sm:items-center gap-3">
           <div className="flex items-center gap-3 flex-1">
-            <div className="w-10 h-10 bg-blue-500/100/10 rounded-lg flex items-center justify-center">
+            <div className="w-10 h-10 bg-signal-cyan/100/10 rounded-lg flex items-center justify-center">
               <Wrench size={20} className="text-teal-400" />
             </div>
             <div>
