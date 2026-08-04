@@ -137,8 +137,8 @@ const statusConfig: Record<
   },
   autonomous: {
     label: "Autonomous",
-    color: "text-blue-400",
-    bg: "bg-blue-500/10 border-blue-500/20",
+    color: "text-signal-cyan",
+    bg: "bg-signal-cyan/10 border-signal-cyan/20",
     icon: Bot,
   },
 };
@@ -441,7 +441,7 @@ export function DecisionGovernance() {
           const c: Record<string, string> = {
             amber: "text-amber-400 bg-amber-500/10",
             teal: "text-teal-400 bg-teal-500/10",
-            blue: "text-blue-400 bg-blue-500/10",
+            blue: "text-signal-cyan bg-signal-cyan/10",
             red: "text-red-400 bg-red-500/10",
           };
           const [textColor, bgColor] = c[s.color].split(" ");
@@ -638,7 +638,7 @@ export function DecisionGovernance() {
                     <td className="px-4 py-2.5 text-center text-teal-400">
                       {row.R}
                     </td>
-                    <td className="px-4 py-2.5 text-center text-blue-400">
+                    <td className="px-4 py-2.5 text-center text-signal-cyan">
                       {row.C}
                     </td>
                     <td className="px-4 py-2.5 text-center text-slate-400">
@@ -659,7 +659,7 @@ export function DecisionGovernance() {
               (executes)
             </div>
             <div>
-              <span className="text-blue-400 font-bold">C</span> = Consulted
+              <span className="text-signal-cyan font-bold">C</span> = Consulted
               (input required)
             </div>
             <div>

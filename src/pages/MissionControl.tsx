@@ -66,9 +66,9 @@ const alertLevels: Record<
     dot: "bg-amber-500",
   },
   advisory: {
-    color: "text-blue-400",
-    bg: "bg-blue-500/10",
-    border: "border-blue-500/30",
+    color: "text-signal-cyan",
+    bg: "bg-signal-cyan/10",
+    border: "border-signal-cyan/30",
     dot: "bg-blue-400",
   },
 };

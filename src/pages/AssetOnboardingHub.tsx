@@ -45,7 +45,7 @@ import {
 
 const TONE_STYLES: Record<string, string> = {
   auto: "bg-teal-500/10 text-teal-300 border-teal-500/30",
-  ai: "bg-blue-500/10 text-blue-300 border-blue-500/30",
+  ai: "bg-signal-cyan/10 text-signal-cyan border-signal-cyan/30",
   human: "bg-amber-500/10 text-amber-300 border-amber-500/30",
   muted: "bg-slate-500/10 text-slate-300 border-slate-500/30",
 };
@@ -106,7 +106,7 @@ function GapForm({ item, onSubmit }: GapFormProps) {
             {item.requirement.hint ? ` — ${item.requirement.hint}` : ""}
           </p>
           {item.note && (
-            <p className="mt-1 text-xs text-blue-300">{item.note}</p>
+            <p className="mt-1 text-xs text-signal-cyan">{item.note}</p>
           )}
         </div>
         <StatusChip status={item.status} />
@@ -307,7 +307,7 @@ export function AssetOnboardingHub() {
         <button
           onClick={() => void handleAiPass()}
           disabled={busy !== null}
-          className="inline-flex items-center gap-2 rounded-lg border border-blue-500/40 bg-blue-500/10 px-4 py-2 text-sm font-medium text-blue-300 hover:bg-blue-500/20 disabled:opacity-40 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-300"
+          className="inline-flex items-center gap-2 rounded-lg border border-blue-500/40 bg-signal-cyan/10 px-4 py-2 text-sm font-medium text-signal-cyan hover:bg-signal-cyan/15 disabled:opacity-40 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-300"
         >
           {busy === "ai" ? (
             <Loader2 className="h-4 w-4 animate-spin" aria-hidden />

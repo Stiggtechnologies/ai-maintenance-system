@@ -71,7 +71,7 @@ export function SettingsPage() {
                   flex items-center gap-2 pb-3 px-1 text-sm font-medium border-b-2 transition-colors
                   ${
                     isActive
-                      ? "border-blue-600 text-blue-600"
+                      ? "border-signal-cyan text-signal-cyan"
                       : "border-transparent text-slate-400 hover:text-slate-300 hover:border-slate-300"
                   }
                 `}
@@ -190,7 +190,7 @@ function ProfileTab({ user, profile }: { user: any; profile: any }) {
           <button
             onClick={handleSave}
             disabled={saving}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 text-sm font-medium"
+            className="flex items-center gap-2 px-4 py-2 bg-signal-gold text-overlook-void rounded-lg hover:bg-signal-gold-soft disabled:opacity-50 text-sm font-medium"
           >
             {saving ? (
               <Loader2 size={16} className="animate-spin" />
@@ -249,7 +249,7 @@ function OrganizationTab({ profile }: { profile: any }) {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-32">
-        <Loader2 className="animate-spin text-blue-500" size={24} />
+        <Loader2 className="animate-spin text-signal-cyan" size={24} />
         <span className="ml-2 text-slate-400 text-sm">
           Loading organization...
         </span>
@@ -424,7 +424,7 @@ function NotificationsTab({ user, profile }: { user: any; profile: any }) {
               onClick={() => handleToggle(item.key)}
               className={`
                 relative inline-flex h-6 w-11 items-center rounded-full transition-colors
-                ${preferences[item.key] ? "bg-blue-600" : "bg-slate-300"}
+                ${preferences[item.key] ? "bg-signal-gold" : "bg-slate-300"}
               `}
             >
               <span
@@ -442,7 +442,7 @@ function NotificationsTab({ user, profile }: { user: any; profile: any }) {
         <button
           onClick={handleSave}
           disabled={saving}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 text-sm font-medium"
+          className="flex items-center gap-2 px-4 py-2 bg-signal-gold text-overlook-void rounded-lg hover:bg-signal-gold-soft disabled:opacity-50 text-sm font-medium"
         >
           {saving ? (
             <Loader2 size={16} className="animate-spin" />

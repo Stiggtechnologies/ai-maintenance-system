@@ -387,7 +387,7 @@ export function TemplateSelectorPage() {
                   </button>
                   <button
                     onClick={() => handleSelect(template)}
-                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium text-white bg-signal-gold hover:bg-signal-gold-soft rounded-lg transition-colors"
                   >
                     Select
                     <ArrowRight size={14} />

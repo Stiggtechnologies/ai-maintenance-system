@@ -76,14 +76,14 @@ async function loadTrustData(): Promise<TrustData> {
 
 const colorMap: Record<string, { text: string; bg: string }> = {
   teal: { text: "text-teal-400", bg: "bg-teal-500/10" },
-  blue: { text: "text-blue-400", bg: "bg-blue-500/10" },
+  blue: { text: "text-signal-cyan", bg: "bg-signal-cyan/10" },
   amber: { text: "text-amber-400", bg: "bg-amber-500/10" },
   green: { text: "text-green-400", bg: "bg-green-500/10" },
 };
 
 const approvalColors: Record<string, string> = {
   approved: "text-teal-400 bg-teal-500/10",
-  autonomous: "text-blue-400 bg-blue-500/10",
+  autonomous: "text-signal-cyan bg-signal-cyan/10",
   rejected: "text-red-400 bg-red-500/10",
   pending: "text-amber-400 bg-amber-500/10",
 };
@@ -352,7 +352,7 @@ export function TrustExplainability() {
                     </td>
                     <td className="py-3 px-2 text-center">
                       <span
-                        className={`px-1.5 py-0.5 rounded-full text-xs font-bold ${d.human_actor ? "bg-teal-500/10 text-teal-400" : "bg-blue-500/10 text-blue-400"}`}
+                        className={`px-1.5 py-0.5 rounded-full text-xs font-bold ${d.human_actor ? "bg-teal-500/10 text-teal-400" : "bg-signal-cyan/10 text-signal-cyan"}`}
                       >
                         {d.human_actor ? "Human" : "AI"}
                       </span>
@@ -377,9 +377,9 @@ export function TrustExplainability() {
 
       {/* Knowledge-base grounding — honest state */}
       <div className="bg-[#0D1520] border border-white/6 rounded-xl p-4 flex items-start gap-3">
-        <BookOpen className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
+        <BookOpen className="w-4 h-4 text-signal-cyan shrink-0 mt-0.5" />
         <div>
-          <div className="text-sm font-medium text-blue-400">
+          <div className="text-sm font-medium text-signal-cyan">
             Knowledge-Base Grounding
           </div>
           <p className="text-xs text-slate-400 mt-1 leading-relaxed">

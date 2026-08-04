@@ -93,7 +93,11 @@ const typeConfig: Record<
   { icon: React.ElementType; color: string; bg: string }
 > = {
   sensor: { icon: Activity, color: "text-teal-400", bg: "bg-teal-500/10" },
-  trend: { icon: TrendingUp, color: "text-blue-400", bg: "bg-blue-500/10" },
+  trend: {
+    icon: TrendingUp,
+    color: "text-signal-cyan",
+    bg: "bg-signal-cyan/10",
+  },
   document: { icon: FileText, color: "text-slate-400", bg: "bg-slate-500/10" },
   historical: { icon: Clock, color: "text-amber-400", bg: "bg-amber-500/10" },
   model: { icon: AlertTriangle, color: "text-cyan-400", bg: "bg-cyan-500/10" },
@@ -231,7 +235,7 @@ export function EvidenceDrawer({
                 <div className="text-xs text-slate-400 uppercase tracking-wider">
                   Sources
                 </div>
-                <div className="text-lg font-black text-blue-400">
+                <div className="text-lg font-black text-signal-cyan">
                   {new Set(evidence.map((e) => e.type)).size}
                 </div>
               </div>

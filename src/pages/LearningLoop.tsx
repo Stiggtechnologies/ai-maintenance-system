@@ -80,8 +80,8 @@ const typeConfig: Record<string, { color: string; bg: string; label: string }> =
       label: "Strategy Update",
     },
     model_improvement: {
-      color: "text-blue-400",
-      bg: "bg-blue-500/10",
+      color: "text-signal-cyan",
+      bg: "bg-signal-cyan/10",
       label: "Model Improvement",
     },
     false_positive_resolved: {
@@ -105,8 +105,8 @@ const typeConfig: Record<string, { color: string; bg: string; label: string }> =
       label: "Step Completed",
     },
     package_exported: {
-      color: "text-blue-400",
-      bg: "bg-blue-500/10",
+      color: "text-signal-cyan",
+      bg: "bg-signal-cyan/10",
       label: "Package Exported",
     },
     recommendation_approved: {
@@ -145,8 +145,8 @@ const typeConfig: Record<string, { color: string; bg: string; label: string }> =
       label: "False Negative",
     },
     lesson_learned: {
-      color: "text-blue-400",
-      bg: "bg-blue-500/10",
+      color: "text-signal-cyan",
+      bg: "bg-signal-cyan/10",
       label: "Lesson Learned",
     },
     model_confidence: {
@@ -247,7 +247,7 @@ export function LearningLoop() {
         {learningStats.map((s) => {
           const c: Record<string, string> = {
             teal: "text-teal-400 bg-teal-500/10",
-            blue: "text-blue-400 bg-blue-500/10",
+            blue: "text-signal-cyan bg-signal-cyan/10",
             amber: "text-amber-400 bg-amber-500/10",
           };
           const [textColor] = c[s.color].split(" ");
@@ -296,10 +296,10 @@ export function LearningLoop() {
         <div className="bg-[#0D1520] border border-white/6 rounded-2xl p-5">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-sm font-semibold text-slate-200 flex items-center gap-2">
-              <CheckCircle className="w-4 h-4 text-blue-400" /> Recommendation
-              Acceptance Rate
+              <CheckCircle className="w-4 h-4 text-signal-cyan" />{" "}
+              Recommendation Acceptance Rate
             </h3>
-            <span className="text-xl font-black text-blue-400">84%</span>
+            <span className="text-xl font-black text-signal-cyan">84%</span>
           </div>
           <TrendLine data={acceptanceTrend} color="#3b82f6" />
           <div className="mt-2 text-xs text-slate-400">

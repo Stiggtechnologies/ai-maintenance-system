@@ -148,9 +148,9 @@ const colorMap: Record<
     ring: "ring-teal-500/40",
   },
   blue: {
-    text: "text-blue-400",
-    bg: "bg-blue-500/10",
-    border: "border-blue-500/20",
+    text: "text-signal-cyan",
+    bg: "bg-signal-cyan/10",
+    border: "border-signal-cyan/20",
     ring: "ring-blue-500/20",
   },
   cyan: {
@@ -318,7 +318,7 @@ export function AutonomyMaturity() {
                 {live.modeCounts.conditional} conditional
               </span>
               {" · "}
-              <span className="text-blue-400">
+              <span className="text-signal-cyan">
                 {live.modeCounts.controlled} controlled
               </span>
             </div>
@@ -328,10 +328,10 @@ export function AutonomyMaturity() {
           </div>
           <div className="bg-[#0D1520] border border-white/6 rounded-xl p-4">
             <div className="flex items-center gap-2 mb-2">
-              <Activity className="w-3.5 h-3.5 text-blue-400" />
+              <Activity className="w-3.5 h-3.5 text-signal-cyan" />
               <span className="text-xs text-slate-400">Actions Executed</span>
             </div>
-            <div className="text-3xl font-black text-blue-400">
+            <div className="text-3xl font-black text-signal-cyan">
               {live.actionsExecuted}
             </div>
             <div className="text-xs text-slate-400 mt-0.5">

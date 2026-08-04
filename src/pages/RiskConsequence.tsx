@@ -78,9 +78,9 @@ const criticalityColors: Record<
     border: "border-amber-500/30",
   },
   medium: {
-    color: "text-blue-400",
-    bg: "bg-blue-500/10",
-    border: "border-blue-500/30",
+    color: "text-signal-cyan",
+    bg: "bg-signal-cyan/10",
+    border: "border-signal-cyan/30",
   },
   low: {
     color: "text-slate-400",
@@ -106,7 +106,7 @@ function RiskMatrix({ entries }: { entries: RiskEntry[] }) {
     const score = (bucketMin / 100) * (criticalityIndex + 1);
     if (score > 2.4) return "bg-red-500/30 border-red-500/40";
     if (score > 1.2) return "bg-amber-500/20 border-amber-500/30";
-    if (score > 0.4) return "bg-blue-500/10 border-blue-500/20";
+    if (score > 0.4) return "bg-signal-cyan/10 border-signal-cyan/20";
     return "bg-white/2 border-white/4";
   };
 
@@ -171,7 +171,7 @@ function RiskCard({ entry }: { entry: RiskEntry }) {
       : asset.risk_score >= 45
         ? "bg-amber-500"
         : asset.risk_score >= 20
-          ? "bg-blue-500"
+          ? "bg-signal-cyan"
           : "bg-slate-500";
   const topRec = openRecs[0];
 
@@ -280,7 +280,7 @@ function RiskCard({ entry }: { entry: RiskEntry }) {
                               ? "bg-red-500/10 text-red-400"
                               : r.urgency === "action"
                                 ? "bg-amber-500/10 text-amber-400"
-                                : "bg-blue-500/10 text-blue-400"
+                                : "bg-signal-cyan/10 text-signal-cyan"
                           }`}
                         >
                           {r.urgency}
@@ -443,7 +443,7 @@ export function RiskConsequence() {
           const colorMap: Record<string, string> = {
             red: "text-red-400 bg-red-500/10",
             amber: "text-amber-400 bg-amber-500/10",
-            blue: "text-blue-400 bg-blue-500/10",
+            blue: "text-signal-cyan bg-signal-cyan/10",
           };
           return (
             <div
@@ -514,7 +514,7 @@ export function RiskConsequence() {
               <span className="text-slate-400">Action Required</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <div className="w-3 h-3 rounded-sm bg-blue-500/10 border border-blue-500/20" />
+              <div className="w-3 h-3 rounded-sm bg-signal-cyan/10 border border-signal-cyan/20" />
               <span className="text-slate-400">Advisory</span>
             </div>
           </div>
@@ -523,9 +523,9 @@ export function RiskConsequence() {
 
       {/* Risk Prioritization Note */}
       <div className="bg-[#0D1520] border border-white/6 rounded-xl p-4 flex items-start gap-3">
-        <Shield className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
+        <Shield className="w-4 h-4 text-signal-cyan shrink-0 mt-0.5" />
         <div>
-          <div className="text-sm font-medium text-blue-400">
+          <div className="text-sm font-medium text-signal-cyan">
             Consequence-First Prioritization
           </div>
           <p className="text-xs text-slate-400 mt-1 leading-relaxed">

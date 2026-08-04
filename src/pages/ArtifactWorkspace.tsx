@@ -240,7 +240,7 @@ export function ArtifactWorkspace() {
                   <button className="p-1.5 rounded-lg text-slate-400 hover:text-teal-400 hover:bg-teal-500/10 transition-colors">
                     <Eye className="w-4 h-4" />
                   </button>
-                  <button className="p-1.5 rounded-lg text-slate-400 hover:text-blue-400 hover:bg-blue-500/10 transition-colors">
+                  <button className="p-1.5 rounded-lg text-slate-400 hover:text-signal-cyan hover:bg-signal-cyan/10 transition-colors">
                     <Download className="w-4 h-4" />
                   </button>
                   <ChevronRight className="w-4 h-4 text-slate-400" />

@@ -138,7 +138,7 @@ function LogEntry({ log }: { log: DecisionLog }) {
     },
     executed: {
       icon: CheckCircle,
-      color: "text-blue-400",
+      color: "text-signal-cyan",
       bg: "bg-blue-400/10",
     },
     rejected: { icon: XCircle, color: "text-red-400", bg: "bg-red-400/10" },
@@ -165,7 +165,7 @@ function LogEntry({ log }: { log: DecisionLog }) {
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-sm bg-[#2A3344] flex items-center justify-center">
-            <Bot className="w-4 h-4 text-blue-400" />
+            <Bot className="w-4 h-4 text-signal-cyan" />
           </div>
           <div>
             <div className="text-sm font-medium text-white">{log.agent}</div>
@@ -255,7 +255,7 @@ export function DecisionLogs() {
       <div className="mb-6">
         <div className="flex items-center justify-between mb-2">
           <h1 className="text-2xl font-bold flex items-center gap-3">
-            <FileText className="w-8 h-8 text-blue-500" />
+            <FileText className="w-8 h-8 text-signal-cyan" />
             Decision Logs
           </h1>
           <button className="px-4 py-2 bg-[#1A1F2E] border border-[#2A3344] rounded-lg text-sm flex items-center gap-2 hover:bg-[#2A3344]">
@@ -275,7 +275,7 @@ export function DecisionLogs() {
           <div className="text-sm text-gray-400">Total Decisions</div>
         </div>
         <div className="bg-[#1A1F2E] rounded-lg border border-[#2A3344] p-4">
-          <div className="text-3xl font-bold text-blue-400">
+          <div className="text-3xl font-bold text-signal-cyan">
             {stats.executed}
           </div>
           <div className="text-sm text-gray-400">Auto-Executed</div>
@@ -329,7 +329,7 @@ export function DecisionLogs() {
               onClick={() => setStatusFilter(f)}
               className={`px-3 py-1.5 rounded-lg text-sm capitalize ${
                 statusFilter === f
-                  ? "bg-blue-600 text-white"
+                  ? "bg-signal-gold text-overlook-void"
                   : "bg-[#1A1F2E] text-gray-400 hover:bg-[#2A3344]"
               }`}
             >

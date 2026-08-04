@@ -155,9 +155,9 @@ const statusConfig: Record<
   },
   in_progress: {
     label: "In Progress",
-    color: "text-blue-400",
-    bg: "bg-blue-500/10",
-    border: "border-blue-500/20",
+    color: "text-signal-cyan",
+    bg: "bg-signal-cyan/10",
+    border: "border-signal-cyan/20",
     dot: "bg-blue-400",
   },
   scheduled: {
@@ -193,7 +193,7 @@ const statusConfig: Record<
 const priorityColors: Record<WorkPriority, string> = {
   critical: "text-red-400",
   high: "text-amber-400",
-  medium: "text-blue-400",
+  medium: "text-signal-cyan",
   low: "text-slate-400",
 };
 
@@ -233,7 +233,7 @@ function WorkCard({
                   {item.woNumber}
                 </span>
                 {item.type === "ai_generated" && (
-                  <span className="text-xs px-1.5 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 flex items-center gap-1">
+                  <span className="text-xs px-1.5 py-0.5 rounded-full bg-signal-cyan/10 text-signal-cyan border border-signal-cyan/20 flex items-center gap-1">
                     <Bot className="w-2.5 h-2.5" /> AI
                   </span>
                 )}
@@ -574,7 +574,7 @@ export function WorkActionBoard() {
           const c: Record<string, string> = {
             red: "text-red-400",
             amber: "text-amber-400",
-            blue: "text-blue-400",
+            blue: "text-signal-cyan",
             slate: "text-slate-300",
           };
           return (

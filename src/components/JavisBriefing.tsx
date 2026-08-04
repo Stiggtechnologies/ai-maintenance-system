@@ -98,7 +98,7 @@ export function JavisBriefing() {
       return <AlertTriangle className="w-5 h-5 text-amber-600" />;
     }
     if (title.toLowerCase().includes("work order")) {
-      return <CheckCircle className="w-5 h-5 text-blue-600" />;
+      return <CheckCircle className="w-5 h-5 text-signal-cyan" />;
     }
     return <Calendar className="w-5 h-5 text-slate-400" />;
   };

@@ -98,8 +98,8 @@ const statusConfig: Record<
   },
   processing: {
     label: "Processing",
-    color: "text-blue-400",
-    bg: "bg-blue-500/10",
+    color: "text-signal-cyan",
+    bg: "bg-signal-cyan/10",
     dot: "bg-blue-400",
     icon: RefreshCw,
   },
@@ -298,7 +298,7 @@ export function AIWorkforce() {
             className="bg-[#0D1520] border border-white/6 rounded-xl p-3 text-center"
           >
             <div
-              className={`text-xl font-black ${s.color === "teal" ? "text-teal-400" : s.color === "blue" ? "text-blue-400" : "text-slate-300"}`}
+              className={`text-xl font-black ${s.color === "teal" ? "text-teal-400" : s.color === "blue" ? "text-signal-cyan" : "text-slate-300"}`}
             >
               {s.value}
             </div>

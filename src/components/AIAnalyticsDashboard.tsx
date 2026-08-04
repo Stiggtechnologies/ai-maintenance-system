@@ -106,7 +106,7 @@ export function AIAnalyticsDashboard() {
           <div className="text-xs text-slate-400">Auto-Executed</div>
         </div>
         <div className="glass border border-white/6 rounded-xl p-4">
-          <TrendingUp size={18} className="text-blue-500 mb-2" />
+          <TrendingUp size={18} className="text-signal-cyan mb-2" />
           <div className="text-2xl font-bold text-industrial-text">
             {stats?.avg_confidence || 0}%
           </div>

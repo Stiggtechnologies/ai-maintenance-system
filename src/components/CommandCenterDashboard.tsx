@@ -145,7 +145,7 @@ function AssetHierarchyTree({
       case "critical":
         return "bg-red-500";
       case "maintenance":
-        return "bg-blue-500";
+        return "bg-signal-cyan";
       default:
         return "bg-[#0B0F14]0";
     }
@@ -216,7 +216,7 @@ function AIDecisionPanel({ insights }: { insights: AIInsight[] }) {
       case "medium":
         return "border-amber-500 bg-amber-500/10";
       case "low":
-        return "border-blue-500 bg-blue-500/10";
+        return "border-blue-500 bg-signal-cyan/10";
       default:
         return "border-gray-500";
     }
@@ -226,7 +226,7 @@ function AIDecisionPanel({ insights }: { insights: AIInsight[] }) {
     <div className="h-full overflow-auto">
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-semibold text-gray-300 flex items-center gap-2">
-          <Bot className="w-4 h-4 text-blue-400" />
+          <Bot className="w-4 h-4 text-signal-cyan" />
           AI DECISIONS
         </h3>
         <span className="text-xs text-gray-500">Live</span>
@@ -257,7 +257,7 @@ function AIDecisionPanel({ insights }: { insights: AIInsight[] }) {
               </div>
             </div>
             <div className="flex gap-2 mt-3">
-              <button className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs rounded-sm">
+              <button className="px-3 py-1.5 bg-signal-gold hover:bg-signal-cyan text-white text-xs rounded-sm">
                 Approve
               </button>
               <button className="px-3 py-1.5 bg-[#2A3344] hover:bg-[#3A4354] text-gray-300 text-xs rounded-sm">
@@ -283,7 +283,7 @@ function MaintenanceOperationsPanel({
   const getStatusColor = (status: string) => {
     switch (status) {
       case "in_progress":
-        return "bg-blue-500";
+        return "bg-signal-cyan";
       case "scheduled":
         return "bg-amber-500";
       case "pending":
@@ -316,7 +316,9 @@ function MaintenanceOperationsPanel({
             className="p-3 bg-[#1A1F2E] rounded-lg border border-[#2A3344] hover:border-[#3A4354] transition-colors"
           >
             <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-mono text-blue-400">{wo.id}</span>
+              <span className="text-sm font-mono text-signal-cyan">
+                {wo.id}
+              </span>
               <span
                 className={`w-2 h-2 rounded-full ${getStatusColor(wo.status)}`}
               />
@@ -432,7 +434,7 @@ function AutonomyIndicator({
   mode: "human-directed" | "human-in-loop" | "autonomous";
 }) {
   const colors = {
-    "human-directed": "bg-blue-500",
+    "human-directed": "bg-signal-cyan",
     "human-in-loop": "bg-amber-500",
     autonomous: "bg-emerald-500",
   };
@@ -473,7 +475,9 @@ function FinancialImpactWidget({
           <div className="text-xs text-gray-500">Downtime Avoided</div>
         </div>
         <div>
-          <div className="text-xl font-bold text-blue-400">{interventions}</div>
+          <div className="text-xl font-bold text-signal-cyan">
+            {interventions}
+          </div>
           <div className="text-xs text-gray-500">AI Interventions</div>
         </div>
       </div>
@@ -707,7 +711,7 @@ export function CommandCenterDashboard() {
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-4">
             <h1 className="text-xl font-bold text-white flex items-center gap-2">
-              <Factory className="w-6 h-6 text-blue-500" />
+              <Factory className="w-6 h-6 text-signal-cyan" />
               SyncAI Command Center
             </h1>
             <AutonomyIndicator mode="human-in-loop" />
@@ -718,7 +722,7 @@ export function CommandCenterDashboard() {
               <input
                 type="text"
                 placeholder="Search assets, work orders, ask SyncAI..."
-                className="bg-[#1A1F2E] border border-[#2A3344] rounded-lg pl-10 pr-4 py-2 text-sm w-80 focus:border-blue-500 focus:outline-hidden"
+                className="bg-[#1A1F2E] border border-[#2A3344] rounded-lg pl-10 pr-4 py-2 text-sm w-80 focus:border-signal-cyan focus:outline-hidden"
               />
             </div>
           </div>

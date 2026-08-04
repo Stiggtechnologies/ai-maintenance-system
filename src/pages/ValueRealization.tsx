@@ -34,7 +34,7 @@ import {
 
 const colorMap: Record<string, { text: string; bg: string }> = {
   teal: { text: "text-teal-400", bg: "bg-teal-500/10" },
-  blue: { text: "text-blue-400", bg: "bg-blue-500/10" },
+  blue: { text: "text-signal-cyan", bg: "bg-signal-cyan/10" },
   amber: { text: "text-amber-400", bg: "bg-amber-500/10" },
   cyan: { text: "text-cyan-400", bg: "bg-cyan-500/10" },
   green: { text: "text-green-400", bg: "bg-green-500/10" },
@@ -231,9 +231,9 @@ export function ValueRealization() {
         <>
           {/* Decision velocity — SyncAI's own cycle-time compression */}
           {cycles.data && (
-            <div className="bg-[#0D1520] border border-blue-500/20 rounded-2xl p-5">
+            <div className="bg-[#0D1520] border border-signal-cyan/20 rounded-2xl p-5">
               <div className="flex items-center gap-2 mb-3">
-                <Zap className="w-4 h-4 text-blue-400" />
+                <Zap className="w-4 h-4 text-signal-cyan" />
                 <h3 className="text-sm font-semibold text-slate-200">
                   Decision Velocity
                 </h3>
@@ -275,7 +275,7 @@ export function ValueRealization() {
                     key={c.label}
                     className="rounded-xl bg-white/3 px-2 py-3"
                   >
-                    <div className="text-lg font-bold text-blue-300">
+                    <div className="text-lg font-bold text-signal-cyan">
                       {c.value}
                     </div>
                     <div className="text-xs text-slate-400 mt-0.5">

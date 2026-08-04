@@ -328,7 +328,7 @@ export function DeploymentConfiguratorPage() {
             </button>
             <button
               onClick={() => navigate("/mission-control")}
-              className="px-4 py-2.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-500 rounded-lg transition-colors focus:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-300"
+              className="px-4 py-2.5 text-sm font-medium text-white bg-signal-gold hover:bg-signal-cyan rounded-lg transition-colors focus:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-300"
             >
               Go to Mission Control
             </button>
@@ -351,7 +351,7 @@ export function DeploymentConfiguratorPage() {
           </p>
           <button
             onClick={handleChangeTemplate}
-            className="px-4 py-2.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+            className="px-4 py-2.5 text-sm font-medium text-white bg-signal-gold hover:bg-signal-gold-soft rounded-lg transition-colors"
           >
             Browse Templates
           </button>
@@ -403,7 +403,7 @@ export function DeploymentConfiguratorPage() {
                   <div
                     className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${
                       isActive
-                        ? "bg-blue-600 text-white"
+                        ? "bg-signal-gold text-overlook-void"
                         : isComplete
                           ? "bg-green-500 text-white"
                           : "bg-slate-200 text-slate-400"
@@ -437,7 +437,7 @@ export function DeploymentConfiguratorPage() {
             <div className="bg-industrial-black border border-industrial-border rounded-xl p-5">
               <div className="flex items-start gap-4">
                 <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
-                  <Factory size={24} className="text-blue-600" />
+                  <Factory size={24} className="text-signal-cyan" />
                 </div>
                 <div className="flex-1">
                   <h3 className="text-base font-semibold text-industrial-text">
@@ -497,7 +497,7 @@ export function DeploymentConfiguratorPage() {
             </div>
             <button
               onClick={handleChangeTemplate}
-              className="mt-4 text-sm text-blue-600 hover:text-blue-700 font-medium transition-colors"
+              className="mt-4 text-sm text-signal-cyan hover:text-blue-700 font-medium transition-colors"
             >
               Change Template
             </button>
@@ -788,7 +788,7 @@ export function DeploymentConfiguratorPage() {
                 </div>
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                    <Factory size={20} className="text-blue-600" />
+                    <Factory size={20} className="text-signal-cyan" />
                   </div>
                   <div>
                     <div className="text-sm font-semibold text-industrial-text">
@@ -907,7 +907,7 @@ export function DeploymentConfiguratorPage() {
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                   <div className="flex items-center gap-2">
-                    <BarChart3 size={14} className="text-blue-500" />
+                    <BarChart3 size={14} className="text-signal-cyan" />
                     <div>
                       <div className="text-sm font-medium text-industrial-text">
                         {template.kpi_packs?.kpi_count ?? 0}
@@ -985,7 +985,7 @@ export function DeploymentConfiguratorPage() {
         {currentStep < STEPS.length - 1 ? (
           <button
             onClick={handleNext}
-            className="flex items-center gap-2 px-5 py-2.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+            className="flex items-center gap-2 px-5 py-2.5 text-sm font-medium text-white bg-signal-gold hover:bg-signal-gold-soft rounded-lg transition-colors"
           >
             Next
             <ChevronRight size={16} />

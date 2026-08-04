@@ -30,7 +30,7 @@ const plans: Plan[] = [
     price: 4000,
     period: "month",
     icon: Sparkles,
-    iconColor: "text-blue-600",
+    iconColor: "text-signal-cyan",
     gradient: "from-blue-500 to-cyan-500",
     features: [
       "200 assets monitored",

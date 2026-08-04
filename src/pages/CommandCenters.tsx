@@ -270,10 +270,10 @@ const colorMap: Record<
     icon: "bg-teal-500/10",
   },
   blue: {
-    card: "border-blue-500/20 hover:border-blue-500/40",
-    badge: "bg-blue-500/10 text-blue-400",
-    text: "text-blue-400",
-    icon: "bg-blue-500/10",
+    card: "border-signal-cyan/20 hover:border-blue-500/40",
+    badge: "bg-signal-cyan/10 text-signal-cyan",
+    text: "text-signal-cyan",
+    icon: "bg-signal-cyan/10",
   },
   amber: {
     card: "border-amber-500/20 hover:border-amber-500/40",
@@ -292,7 +292,7 @@ const colorMap: Record<
 const alertColors: Record<AlertLevel, string> = {
   critical: "text-red-400 bg-red-500/10 border-red-500/20",
   action: "text-amber-400 bg-amber-500/10 border-amber-500/20",
-  advisory: "text-blue-400 bg-blue-500/10 border-blue-500/20",
+  advisory: "text-signal-cyan bg-signal-cyan/10 border-signal-cyan/20",
 };
 
 const healthColor = (h: number) =>

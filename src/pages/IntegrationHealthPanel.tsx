@@ -192,9 +192,9 @@ const statusConfig: Record<
     label: "Down",
   },
   maintenance: {
-    color: "text-blue-400",
-    bg: "bg-blue-500/10",
-    border: "border-blue-500/20",
+    color: "text-signal-cyan",
+    bg: "bg-signal-cyan/10",
+    border: "border-signal-cyan/20",
     dot: "bg-blue-400",
     label: "Standby",
   },
@@ -278,7 +278,7 @@ function IntegrationCard({
             </div>
             <div>
               <div className="text-xs text-slate-400">Records Synced</div>
-              <div className="text-sm font-bold text-blue-400 mt-0.5">
+              <div className="text-sm font-bold text-signal-cyan mt-0.5">
                 {integration.recordsSynced !== null
                   ? integration.recordsSynced.toLocaleString()
                   : "—"}
@@ -405,10 +405,10 @@ export function IntegrationHealthPanel() {
         </div>
         <div className="bg-[#0D1520] border border-white/6 rounded-xl p-4">
           <div className="flex items-center gap-2 mb-2">
-            <Layers className="w-3.5 h-3.5 text-blue-400" />
+            <Layers className="w-3.5 h-3.5 text-signal-cyan" />
             <span className="text-xs text-slate-400">Records Synced</span>
           </div>
-          <div className="text-3xl font-black text-blue-400">
+          <div className="text-3xl font-black text-signal-cyan">
             {totalRecords.toLocaleString()}
           </div>
           <div className="text-xs text-slate-400 mt-0.5">

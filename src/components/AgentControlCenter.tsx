@@ -263,7 +263,7 @@ function AgentCard({ agent }: { agent: Agent }) {
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-lg bg-[#2A3344] flex items-center justify-center">
-            <Bot className="w-5 h-5 text-blue-400" />
+            <Bot className="w-5 h-5 text-signal-cyan" />
           </div>
           <div>
             <h4 className="text-sm font-semibold text-white">{agent.name}</h4>
@@ -289,7 +289,7 @@ function AgentCard({ agent }: { agent: Agent }) {
           <div className="text-gray-500">Tasks</div>
         </div>
         <div className="bg-industrial-graphite rounded-sm p-2 text-center">
-          <div className="text-lg font-bold text-blue-400">
+          <div className="text-lg font-bold text-signal-cyan">
             {agent.insightsGenerated}
           </div>
           <div className="text-gray-500">Insights</div>
@@ -348,10 +348,10 @@ export function AgentControlCenter() {
       <div className="mb-6">
         <div className="flex items-center justify-between mb-2">
           <h1 className="text-2xl font-bold flex items-center gap-3">
-            <Bot className="w-8 h-8 text-blue-500" />
+            <Bot className="w-8 h-8 text-signal-cyan" />
             AI Agent Control Center
           </h1>
-          <button className="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-sm flex items-center gap-2">
+          <button className="px-4 py-2 bg-signal-gold hover:bg-signal-cyan rounded-lg text-sm flex items-center gap-2">
             <Play className="w-4 h-4" />
             Trigger Agent
           </button>
@@ -372,7 +372,7 @@ export function AgentControlCenter() {
           <div className="text-sm text-gray-400">Active Now</div>
         </div>
         <div className="bg-[#1A1F2E] rounded-lg p-4 border border-[#2A3344]">
-          <div className="text-3xl font-bold text-blue-400">
+          <div className="text-3xl font-bold text-signal-cyan">
             {stats.tasksToday}
           </div>
           <div className="text-sm text-gray-400">Tasks Today</div>
@@ -394,7 +394,7 @@ export function AgentControlCenter() {
             placeholder="Search agents..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full bg-[#1A1F2E] border border-[#2A3344] rounded-lg pl-10 pr-4 py-2 text-sm focus:border-blue-500 focus:outline-hidden"
+            className="w-full bg-[#1A1F2E] border border-[#2A3344] rounded-lg pl-10 pr-4 py-2 text-sm focus:border-signal-cyan focus:outline-hidden"
           />
         </div>
         <div className="flex gap-2">
@@ -404,7 +404,7 @@ export function AgentControlCenter() {
               onClick={() => setFilter(f)}
               className={`px-3 py-1.5 rounded-lg text-sm capitalize ${
                 filter === f
-                  ? "bg-blue-600 text-white"
+                  ? "bg-signal-gold text-overlook-void"
                   : "bg-[#1A1F2E] text-gray-400 hover:bg-[#2A3344]"
               }`}
             >

@@ -134,7 +134,7 @@ export function IntegrationsPage() {
             Connect external systems and data sources
           </p>
         </div>
-        <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium">
+        <button className="flex items-center gap-2 px-4 py-2 bg-signal-gold text-overlook-void rounded-lg hover:bg-signal-gold-soft text-sm font-medium">
           <Plus size={16} /> Add Connector
         </button>
       </div>
@@ -144,7 +144,7 @@ export function IntegrationsPage() {
         <nav className="flex gap-6">
           <button
             onClick={() => setActiveTab("connectors")}
-            className={`pb-3 text-sm font-medium border-b-2 transition-colors ${activeTab === "connectors" ? "border-blue-600 text-blue-600" : "border-transparent text-slate-400 hover:text-slate-300"}`}
+            className={`pb-3 text-sm font-medium border-b-2 transition-colors ${activeTab === "connectors" ? "border-signal-cyan text-signal-cyan" : "border-transparent text-slate-400 hover:text-slate-300"}`}
           >
             Active Connectors{" "}
             <span className="ml-1 text-xs bg-white/4 text-slate-400 px-1.5 py-0.5 rounded-full">
@@ -153,7 +153,7 @@ export function IntegrationsPage() {
           </button>
           <button
             onClick={() => setActiveTab("history")}
-            className={`pb-3 text-sm font-medium border-b-2 transition-colors ${activeTab === "history" ? "border-blue-600 text-blue-600" : "border-transparent text-slate-400 hover:text-slate-300"}`}
+            className={`pb-3 text-sm font-medium border-b-2 transition-colors ${activeTab === "history" ? "border-signal-cyan text-signal-cyan" : "border-transparent text-slate-400 hover:text-slate-300"}`}
           >
             Sync History
           </button>
@@ -195,7 +195,7 @@ export function IntegrationsPage() {
                     </div>
                   )}
                   <div className="flex gap-2 mt-3">
-                    <button className="text-xs text-blue-600 hover:text-blue-300 font-medium">
+                    <button className="text-xs text-signal-cyan hover:text-signal-cyan font-medium">
                       Configure
                     </button>
                     <button className="text-xs text-slate-400 hover:text-slate-400 font-medium flex items-center gap-1">
@@ -231,7 +231,7 @@ export function IntegrationsPage() {
                       )}
                     </div>
                     <p className="text-xs text-slate-400">{ct.description}</p>
-                    <button className="mt-3 text-xs text-blue-600 hover:text-blue-300 font-medium flex items-center gap-1">
+                    <button className="mt-3 text-xs text-signal-cyan hover:text-signal-cyan font-medium flex items-center gap-1">
                       {isConnected ? "Manage" : "Connect"}{" "}
                       <ExternalLink size={10} />
                     </button>

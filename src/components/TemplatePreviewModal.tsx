@@ -396,7 +396,7 @@ export function TemplatePreviewModal({
                         </div>
                         <div className="h-2 bg-[#1A2030] rounded-full overflow-hidden">
                           <div
-                            className="h-full bg-blue-500 rounded-full transition-all"
+                            className="h-full bg-signal-cyan rounded-full transition-all"
                             style={{
                               width: `${Math.round((item.weight || 0) * 100)}%`,
                             }}
@@ -560,7 +560,7 @@ export function TemplatePreviewModal({
                             </div>
                             <div className="h-2 bg-[#1A2030] rounded-full overflow-hidden">
                               <div
-                                className="h-full bg-blue-500 rounded-full"
+                                className="h-full bg-signal-cyan rounded-full"
                                 style={{
                                   width: `${config.performance_weight * 100}%`,
                                 }}
@@ -640,7 +640,7 @@ export function TemplatePreviewModal({
                   <div className="space-y-3">
                     {details.rollout.map((phase: any, i: number) => (
                       <div key={i} className="relative pl-6">
-                        <div className="absolute left-0 top-1.5 w-3 h-3 bg-blue-500 rounded-full border-2 border-white shadow-sm" />
+                        <div className="absolute left-0 top-1.5 w-3 h-3 bg-signal-cyan rounded-full border-2 border-white shadow-sm" />
                         {i < details.rollout.length - 1 && (
                           <div className="absolute left-[5px] top-4 w-0.5 h-full bg-blue-200" />
                         )}
@@ -653,7 +653,7 @@ export function TemplatePreviewModal({
                           </p>
                         )}
                         {phase.duration_weeks && (
-                          <span className="inline-block mt-1 text-xs text-blue-600">
+                          <span className="inline-block mt-1 text-xs text-signal-cyan">
                             {phase.duration_weeks} weeks
                           </span>
                         )}
@@ -680,7 +680,7 @@ export function TemplatePreviewModal({
           </button>
           <button
             onClick={onSelect}
-            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-signal-gold hover:bg-signal-gold-soft rounded-lg transition-colors"
           >
             Select Template
             <ArrowRight size={16} />

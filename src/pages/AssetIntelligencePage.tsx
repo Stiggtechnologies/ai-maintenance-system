@@ -722,7 +722,7 @@ export function AssetIntelligencePage() {
                             : fm.severity === "High"
                               ? "bg-amber-500/20 text-amber-400"
                               : fm.severity === "Medium"
-                                ? "bg-blue-500/20 text-blue-400"
+                                ? "bg-signal-cyan/15 text-signal-cyan"
                                 : "bg-slate-500/20 text-slate-400"
                         }`}
                       >
@@ -750,7 +750,7 @@ export function AssetIntelligencePage() {
       {tab === "history" && (
         <div className="bg-[#0D1520] border border-white/6 rounded-2xl p-5">
           <h3 className="text-sm font-semibold text-slate-200 mb-4 flex items-center gap-2">
-            <Clock className="w-4 h-4 text-blue-400" /> Maintenance History
+            <Clock className="w-4 h-4 text-signal-cyan" /> Maintenance History
           </h3>
           <div className="space-y-3">
             {maintenanceHistory.map((entry, i) => (
@@ -767,7 +767,7 @@ export function AssetIntelligencePage() {
                       ? "bg-amber-500/20 text-amber-400"
                       : entry.type === "PM"
                         ? "bg-teal-500/20 text-teal-400"
-                        : "bg-blue-500/20 text-blue-400"
+                        : "bg-signal-cyan/15 text-signal-cyan"
                   }`}
                 >
                   {entry.type}
