@@ -1,0 +1,165 @@
+name: Engineering knowledge persistence
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/engineering-knowledge-persistence.yml"
+      - "supabase/migrations/00000000000024_engineering_knowledge_persistence.sql"
+      - "supabase/migrations/00000000000025_engineering_knowledge_tenant_integrity.sql"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/engineering-knowledge-persistence.yml"
+      - "supabase/migrations/00000000000024_engineering_knowledge_persistence.sql"
+      - "supabase/migrations/00000000000025_engineering_knowledge_tenant_integrity.sql"
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Verify knowledge authority and provenance
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: supabase/setup-cli@v2
+        with:
+          version: 2.84.2
+          github-token: ${{ github.token }}
+
+      - name: Prepare clean local Supabase state
+        run: supabase stop --all --no-backup || true
+
+      - name: Start local Supabase
+        run: bash scripts/ci-start-supabase.sh /tmp/knowledge-start.log /tmp/knowledge-diagnostics.txt
+
+      - name: Verify steward workflow and denial
+        run: |
+          set -euo pipefail
+          export PGPASSWORD=postgres
+
+          psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -v ON_ERROR_STOP=1 <<'SQL'
+          begin;
+          update public.user_profiles
+          set role = 'reliability_engineer'
+          where id = '00000000-0000-0000-0000-000000000001';
+          set local role authenticated;
+          select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000001', true);
+
+          insert into public.engineering_knowledge_sources (
+            organization_id, source_id, title, document_type, asset_class_code,
+            authority_level, review_state, confidentiality, checksum
+          ) values (
+            '11111111-1111-1111-1111-111111111111',
+            'TEST:OEM:MANUAL:A', 'Test OEM manual', 'manual', 'PROC-BALL-MILL',
+            'oem_authorized', 'in_review', 'customer_confidential', 'source-sha-256'
+          ) returning id as source_uuid \gset
+
+          insert into public.engineering_knowledge_chunks (
+            organization_id, source_id, chunk_key, chunk_index, content,
+            content_checksum, page_start, page_end, provenance
+          ) values (
+            '11111111-1111-1111-1111-111111111111', :'source_uuid',
+            'PAGE-1', 0, 'Approved engineering source passage.',
+            'chunk-sha-256', 1, 1, '{"page":1,"extractor":"test"}'::jsonb
+          ) returning id as chunk_uuid \gset
+
+          insert into public.engineering_knowledge_mappings (
+            organization_id, source_id, entity_type, canonical_id,
+            relationship_type, confidence, review_state, provenance_chunk_ids
+          ) values (
+            '11111111-1111-1111-1111-111111111111', :'source_uuid',
+            'asset_class', 'PROC-BALL-MILL', 'applies_to', 0.99, 'approved',
+            array[:'chunk_uuid'::uuid]
+          );
+
+          select public.approve_engineering_knowledge_source(:'source_uuid'::uuid);
+
+          do $$
+          begin
+            if not exists (
+              select 1 from public.engineering_knowledge_sources
+              where id = :'source_uuid'::uuid
+                and review_state = 'approved'
+                and approved_by = auth.uid()
+            ) then
+              raise exception 'source approval was not persisted';
+            end if;
+          end
+          $$;
+          rollback;
+
+          begin;
+          update public.user_profiles
+          set role = 'planner'
+          where id = '00000000-0000-0000-0000-000000000001';
+          set local role authenticated;
+          select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000001', true);
+
+          do $$
+          begin
+            insert into public.engineering_knowledge_sources (
+              organization_id, source_id, title, document_type,
+              authority_level, checksum
+            ) values (
+              '11111111-1111-1111-1111-111111111111',
+              'TEST:DENIED', 'Denied', 'manual', 'internal_approved', 'denied'
+            );
+            raise exception 'planner knowledge write unexpectedly succeeded';
+          exception
+            when insufficient_privilege then null;
+          end
+          $$;
+          rollback;
+          SQL
+
+      - name: Verify composite tenant integrity
+        run: |
+          set -euo pipefail
+          export PGPASSWORD=postgres
+          psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -v ON_ERROR_STOP=1 <<'SQL'
+          begin;
+          insert into public.organizations (id, name, industry)
+          values ('99999999-9999-9999-9999-999999999999', 'Other tenant', 'test');
+
+          insert into public.engineering_knowledge_sources (
+            id, organization_id, source_id, title, document_type,
+            authority_level, checksum
+          ) values (
+            '88888888-8888-8888-8888-888888888888',
+            '99999999-9999-9999-9999-999999999999',
+            'OTHER:SOURCE', 'Other source', 'manual', 'internal_approved', 'other'
+          );
+
+          do $$
+          begin
+            insert into public.engineering_knowledge_chunks (
+              organization_id, source_id, chunk_key, chunk_index,
+              content, content_checksum, provenance
+            ) values (
+              '11111111-1111-1111-1111-111111111111',
+              '88888888-8888-8888-8888-888888888888',
+              'INVALID', 0, 'Cross-tenant child', 'invalid', '{"test":true}'
+            );
+            raise exception 'cross-tenant child unexpectedly succeeded';
+          exception
+            when foreign_key_violation then null;
+          end
+          $$;
+          rollback;
+          SQL
+
+      - name: Upload startup diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: engineering-knowledge-persistence-diagnostics
+          path: |
+            /tmp/knowledge-start.log
+            /tmp/knowledge-diagnostics.txt
+          retention-days: 7
+
+      - name: Stop Supabase
+        if: always()
+        run: supabase stop --no-backup || true
