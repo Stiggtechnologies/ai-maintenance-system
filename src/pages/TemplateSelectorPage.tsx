@@ -60,10 +60,10 @@ const FAMILY_CONFIG: Record<
     icon: Flame,
   },
   Process: {
-    color: "text-blue-700",
-    bg: "bg-blue-50",
-    border: "border-blue-200",
-    badge: "bg-blue-100 text-blue-800",
+    color: "text-signal-cyan",
+    bg: "bg-signal-cyan/10",
+    border: "border-signal-cyan/30",
+    badge: "bg-signal-cyan/15 text-signal-cyan",
     icon: Cpu,
   },
   Manufacturing: {
@@ -387,7 +387,7 @@ export function TemplateSelectorPage() {
                   </button>
                   <button
                     onClick={() => handleSelect(template)}
-                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium text-white bg-signal-gold hover:bg-signal-gold-soft rounded-lg transition-colors"
+                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium text-overlook-void bg-signal-gold hover:bg-signal-gold-soft rounded-lg transition-colors"
                   >
                     Select
                     <ArrowRight size={14} />
