@@ -1,13 +1,10 @@
 -- ============================================================================
 -- Governed engineering-knowledge persistence v1.
 --
--- This active-schema foundation replaces reliance on archived RAG tables. It
--- persists source metadata, immutable chunks, and canonical applicability
--- mappings using the same authority, review, confidentiality, provenance, and
--- supersession concepts as src/lib/engineering-knowledge.
---
--- It deliberately does not add embeddings, generative extraction, or direct
--- operational action. Those are separate bounded layers.
+-- Active-schema foundation for source metadata, immutable source chunks, and
+-- canonical applicability mappings. This replaces reliance on archived RAG
+-- tables without yet adding embeddings, generative extraction, or operational
+-- action.
 -- ============================================================================
 
 create or replace function public.app_role_has_knowledge_steward_authority(p_role text)
@@ -17,9 +14,7 @@ immutable
 set search_path = public
 as $$
   select lower(coalesce(p_role, '')) = any(array[
-    'admin',
-    'ai_admin',
-    'reliability_engineer'
+    'admin', 'ai_admin', 'reliability_engineer'
   ]::text[])
 $$;
 
@@ -56,16 +51,10 @@ create table if not exists public.engineering_knowledge_sources (
   effective_date date,
   superseded_date date,
   authority_level text not null check (authority_level in (
-    'customer_approved',
-    'oem_authorized',
-    'regulatory',
-    'engineering_standard',
-    'internal_approved',
-    'verified_operational_record',
-    'authoritative_public',
-    'draft_internal',
-    'general_public',
-    'ai_generated'
+    'customer_approved', 'oem_authorized', 'regulatory',
+    'engineering_standard', 'internal_approved',
+    'verified_operational_record', 'authoritative_public',
+    'draft_internal', 'general_public', 'ai_generated'
   )),
   review_state text not null default 'draft' check (review_state in (
     'draft', 'in_review', 'approved', 'rejected', 'superseded'
@@ -113,16 +102,9 @@ create table if not exists public.engineering_knowledge_mappings (
   organization_id uuid not null references public.organizations(id) on delete cascade,
   source_id uuid not null references public.engineering_knowledge_sources(id) on delete cascade,
   entity_type text not null check (entity_type in (
-    'asset_class',
-    'asset_twin',
-    'component',
-    'shared_component',
-    'failure_mode',
-    'physics_capability',
-    'inspection_method',
-    'sensor',
-    'procedure',
-    'standard'
+    'asset_class', 'asset_twin', 'component', 'shared_component',
+    'failure_mode', 'physics_capability', 'inspection_method',
+    'sensor', 'procedure', 'standard'
   )),
   canonical_id text not null check (length(btrim(canonical_id)) > 0),
   relationship_type text not null default 'applies_to' check (relationship_type in (
@@ -141,206 +123,58 @@ create table if not exists public.engineering_knowledge_mappings (
 
 create index if not exists engineering_knowledge_sources_scope_idx
   on public.engineering_knowledge_sources(
-    organization_id,
-    review_state,
-    authority_level,
-    asset_class_code,
-    asset_twin_id
+    organization_id, review_state, authority_level,
+    asset_class_code, asset_twin_id
   );
-
 create index if not exists engineering_knowledge_sources_revision_idx
   on public.engineering_knowledge_sources(
-    organization_id,
-    source_id,
-    revision,
-    effective_date desc
+    organization_id, source_id, revision, effective_date desc
   );
-
 create index if not exists engineering_knowledge_chunks_source_idx
   on public.engineering_knowledge_chunks(source_id, chunk_index);
-
 create index if not exists engineering_knowledge_mappings_lookup_idx
   on public.engineering_knowledge_mappings(
-    organization_id,
-    entity_type,
-    canonical_id,
-    review_state
+    organization_id, entity_type, canonical_id, review_state
   );
 
 alter table public.engineering_knowledge_sources enable row level security;
 alter table public.engineering_knowledge_chunks enable row level security;
 alter table public.engineering_knowledge_mappings enable row level security;
 
-drop policy if exists engineering_knowledge_sources_org_read on public.engineering_knowledge_sources;
-drop policy if exists engineering_knowledge_sources_steward_insert on public.engineering_knowledge_sources;
-drop policy if exists engineering_knowledge_sources_steward_update on public.engineering_knowledge_sources;
-drop policy if exists engineering_knowledge_sources_steward_delete on public.engineering_knowledge_sources;
-
-create policy engineering_knowledge_sources_org_read
-  on public.engineering_knowledge_sources
-  for select to authenticated
-  using (organization_id = public.app_current_org());
-
-create policy engineering_knowledge_sources_steward_insert
-  on public.engineering_knowledge_sources
-  for insert to authenticated
-  with check (
-    organization_id = public.app_current_org()
-    and public.app_has_knowledge_steward_authority()
-  );
-
-create policy engineering_knowledge_sources_steward_update
-  on public.engineering_knowledge_sources
-  for update to authenticated
-  using (
-    organization_id = public.app_current_org()
-    and public.app_has_knowledge_steward_authority()
-  )
-  with check (
-    organization_id = public.app_current_org()
-    and public.app_has_knowledge_steward_authority()
-  );
-
-create policy engineering_knowledge_sources_steward_delete
-  on public.engineering_knowledge_sources
-  for delete to authenticated
-  using (
-    organization_id = public.app_current_org()
-    and public.app_has_knowledge_steward_authority()
-    and review_state <> 'approved'
-  );
-
-drop policy if exists engineering_knowledge_chunks_org_read on public.engineering_knowledge_chunks;
-drop policy if exists engineering_knowledge_chunks_steward_insert on public.engineering_knowledge_chunks;
-drop policy if exists engineering_knowledge_chunks_steward_update on public.engineering_knowledge_chunks;
-drop policy if exists engineering_knowledge_chunks_steward_delete on public.engineering_knowledge_chunks;
-
-create policy engineering_knowledge_chunks_org_read
-  on public.engineering_knowledge_chunks
-  for select to authenticated
-  using (organization_id = public.app_current_org());
-
-create policy engineering_knowledge_chunks_steward_insert
-  on public.engineering_knowledge_chunks
-  for insert to authenticated
-  with check (
-    organization_id = public.app_current_org()
-    and public.app_has_knowledge_steward_authority()
-    and exists (
-      select 1
-      from public.engineering_knowledge_sources source
-      where source.id = source_id
-        and source.organization_id = public.app_current_org()
-        and source.review_state <> 'approved'
-    )
-  );
-
-create policy engineering_knowledge_chunks_steward_update
-  on public.engineering_knowledge_chunks
-  for update to authenticated
-  using (
-    organization_id = public.app_current_org()
-    and public.app_has_knowledge_steward_authority()
-    and exists (
-      select 1
-      from public.engineering_knowledge_sources source
-      where source.id = source_id
-        and source.organization_id = public.app_current_org()
-        and source.review_state <> 'approved'
-    )
-  )
-  with check (
-    organization_id = public.app_current_org()
-    and public.app_has_knowledge_steward_authority()
-    and exists (
-      select 1
-      from public.engineering_knowledge_sources source
-      where source.id = source_id
-        and source.organization_id = public.app_current_org()
-        and source.review_state <> 'approved'
-    )
-  );
-
-create policy engineering_knowledge_chunks_steward_delete
-  on public.engineering_knowledge_chunks
-  for delete to authenticated
-  using (
-    organization_id = public.app_current_org()
-    and public.app_has_knowledge_steward_authority()
-    and exists (
-      select 1
-      from public.engineering_knowledge_sources source
-      where source.id = source_id
-        and source.organization_id = public.app_current_org()
-        and source.review_state <> 'approved'
-    )
-  );
-
-drop policy if exists engineering_knowledge_mappings_org_read on public.engineering_knowledge_mappings;
-drop policy if exists engineering_knowledge_mappings_steward_insert on public.engineering_knowledge_mappings;
-drop policy if exists engineering_knowledge_mappings_steward_update on public.engineering_knowledge_mappings;
-drop policy if exists engineering_knowledge_mappings_steward_delete on public.engineering_knowledge_mappings;
-
-create policy engineering_knowledge_mappings_org_read
-  on public.engineering_knowledge_mappings
-  for select to authenticated
-  using (organization_id = public.app_current_org());
-
-create policy engineering_knowledge_mappings_steward_insert
-  on public.engineering_knowledge_mappings
-  for insert to authenticated
-  with check (
-    organization_id = public.app_current_org()
-    and public.app_has_knowledge_steward_authority()
-    and exists (
-      select 1
-      from public.engineering_knowledge_sources source
-      where source.id = source_id
-        and source.organization_id = public.app_current_org()
-        and source.review_state <> 'approved'
-    )
-  );
-
-create policy engineering_knowledge_mappings_steward_update
-  on public.engineering_knowledge_mappings
-  for update to authenticated
-  using (
-    organization_id = public.app_current_org()
-    and public.app_has_knowledge_steward_authority()
-    and exists (
-      select 1
-      from public.engineering_knowledge_sources source
-      where source.id = source_id
-        and source.organization_id = public.app_current_org()
-        and source.review_state <> 'approved'
-    )
-  )
-  with check (
-    organization_id = public.app_current_org()
-    and public.app_has_knowledge_steward_authority()
-    and exists (
-      select 1
-      from public.engineering_knowledge_sources source
-      where source.id = source_id
-        and source.organization_id = public.app_current_org()
-        and source.review_state <> 'approved'
-    )
-  );
-
-create policy engineering_knowledge_mappings_steward_delete
-  on public.engineering_knowledge_mappings
-  for delete to authenticated
-  using (
-    organization_id = public.app_current_org()
-    and public.app_has_knowledge_steward_authority()
-    and exists (
-      select 1
-      from public.engineering_knowledge_sources source
-      where source.id = source_id
-        and source.organization_id = public.app_current_org()
-        and source.review_state <> 'approved'
-    )
-  );
+-- Organization members may read. Only knowledge stewards may mutate. Source,
+-- chunk, and mapping organization IDs are checked again by the approval RPC.
+do $$
+declare
+  table_name text;
+begin
+  foreach table_name in array array[
+    'engineering_knowledge_sources',
+    'engineering_knowledge_chunks',
+    'engineering_knowledge_mappings'
+  ] loop
+    execute format('drop policy if exists %I on public.%I', table_name || '_org_read', table_name);
+    execute format('drop policy if exists %I on public.%I', table_name || '_steward_insert', table_name);
+    execute format('drop policy if exists %I on public.%I', table_name || '_steward_update', table_name);
+    execute format('drop policy if exists %I on public.%I', table_name || '_steward_delete', table_name);
+    execute format(
+      'create policy %I on public.%I for select to authenticated using (organization_id = public.app_current_org())',
+      table_name || '_org_read', table_name
+    );
+    execute format(
+      'create policy %I on public.%I for insert to authenticated with check (organization_id = public.app_current_org() and public.app_has_knowledge_steward_authority())',
+      table_name || '_steward_insert', table_name
+    );
+    execute format(
+      'create policy %I on public.%I for update to authenticated using (organization_id = public.app_current_org() and public.app_has_knowledge_steward_authority()) with check (organization_id = public.app_current_org() and public.app_has_knowledge_steward_authority())',
+      table_name || '_steward_update', table_name
+    );
+    execute format(
+      'create policy %I on public.%I for delete to authenticated using (organization_id = public.app_current_org() and public.app_has_knowledge_steward_authority())',
+      table_name || '_steward_delete', table_name
+    );
+  end loop;
+end
+$$;
 
 create or replace function public.approve_engineering_knowledge_source(p_source_id uuid)
 returns jsonb
@@ -357,25 +191,21 @@ begin
   if auth.uid() is null or v_org is null then
     raise exception 'Authenticated organization context is required';
   end if;
-
   if not public.app_has_knowledge_steward_authority() then
     raise exception 'Knowledge steward authority is required';
   end if;
 
   select * into v_source
   from public.engineering_knowledge_sources
-  where id = p_source_id
-    and organization_id = v_org
+  where id = p_source_id and organization_id = v_org
   for update;
 
   if not found then
     raise exception 'Engineering knowledge source not found in current organization';
   end if;
-
   if v_source.review_state in ('rejected', 'superseded') then
     raise exception 'Rejected or superseded sources cannot be approved';
   end if;
-
   if v_source.authority_level = 'ai_generated' then
     raise exception 'AI-generated material cannot be approved as authoritative knowledge';
   end if;
@@ -385,7 +215,8 @@ begin
   where source_id = p_source_id
     and organization_id = v_org
     and length(btrim(content_checksum)) > 0
-    and jsonb_typeof(provenance) = 'object';
+    and jsonb_typeof(provenance) = 'object'
+    and provenance <> '{}'::jsonb;
 
   if v_chunk_count = 0 then
     raise exception 'At least one provenance-bearing source chunk is required';
@@ -396,10 +227,14 @@ begin
   where source_id = p_source_id
     and organization_id = v_org
     and review_state = 'approved'
-    and cardinality(provenance_chunk_ids) > 0;
+    and cardinality(provenance_chunk_ids) > 0
+    and provenance_chunk_ids <@ array(
+      select id from public.engineering_knowledge_chunks
+      where source_id = p_source_id and organization_id = v_org
+    );
 
   if v_mapping_count = 0 then
-    raise exception 'At least one approved canonical mapping with chunk provenance is required';
+    raise exception 'At least one approved canonical mapping with valid chunk provenance is required';
   end if;
 
   update public.engineering_knowledge_sources
