@@ -1,11 +1,23 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
+import {
+  RELIABILITY_PROMPT_VERSION,
+  buildReliabilityEngineerPrompt,
+  retrieveReliabilityKnowledge,
+  sanitizeReliabilityCitations,
+} from "../_shared/reliability-engineer-core.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY") ?? "";
-const MODEL = Deno.env.get("PUBLIC_RELIABILITY_MODEL") ?? "gpt-5.6-terra";
+const MODEL = Deno.env.get("PUBLIC_RELIABILITY_MODEL")
+  ?? Deno.env.get("RELIABILITY_MODEL")
+  ?? "gpt-5.6-terra";
 const RATE_LIMIT_SECRET = Deno.env.get("PUBLIC_RELIABILITY_RATE_LIMIT_SECRET") ?? "";
+const RELIABILITY_EMBEDDING_API_KEY = Deno.env.get("RELIABILITY_EMBEDDING_API_KEY")
+  ?? Deno.env.get("ENRICH_LLM_API_KEY")
+  ?? Deno.env.get("GEMINI_API_KEY")
+  ?? "";
 const ALLOWED_ORIGINS = (Deno.env.get("ALLOWED_ORIGINS") ?? "https://app.syncai.ca,http://localhost:5173")
   .split(",").map((item) => item.trim()).filter(Boolean);
 
@@ -137,7 +149,18 @@ Deno.serve(async (req) => {
   if (!allowed) return json({ error: "public_reliability_limit_reached", resetsAt }, 429, origin);
 
   const scenario = scenarios[body.scenarioId as ScenarioId];
-  const instructions = `You are SyncAI's senior Reliability Engineer. Produce a concise, board-ready but field-usable assessment. Treat statements in the user's question as unverified user context unless they also appear in the trusted reference facts. Separate observations, user assertions, hypotheses, and verified facts. Do not claim a root cause. Never invent standards, citations, operating limits, costs, measurements, or evidence. If structured exposure and repair inputs are absent, do not calculate or imply MTBF, MTTR, availability, Weibull parameters, or financial impact. Recommend reversible verification before permanent changes. Every action needs an owner, time window, effectiveness check, and approval boundary. Safety, OEM, MOC, site procedures, and qualified human approval always prevail. Return the required JSON only.`;
+  const knowledgeQuery = [question, scenario.asset, ...scenario.facts].join("\n");
+  const knowledge = await retrieveReliabilityKnowledge({
+    client: admin,
+    query: knowledgeQuery,
+    embeddingApiKey: RELIABILITY_EMBEDDING_API_KEY,
+  });
+  const instructions = `${buildReliabilityEngineerPrompt({
+    industry: "asset-intensive industry",
+    accessMode: "public",
+    knowledgeContext: knowledge.context,
+    structuredOutput: true,
+  })}\nProduce a concise, board-ready and field-usable assessment. Return the required JSON only.`;
   const input = [
     `Assessment context: ${scenario.asset}`,
     `User question and unverified context: ${question}`,
@@ -159,8 +182,24 @@ Deno.serve(async (req) => {
     }
     const payload = await provider.json() as Record<string, unknown>;
     const text = extractText(payload);
-    const analysis = JSON.parse(text);
-    return json({ success: true, analysis, modelUsed: MODEL, resetsAt }, 200, origin);
+    const analysis = JSON.parse(text) as Record<string, unknown>;
+    analysis.citations = sanitizeReliabilityCitations(
+      analysis.citations,
+      knowledge.citations,
+    );
+    return json({
+      success: true,
+      analysis,
+      modelUsed: MODEL,
+      promptVersion: RELIABILITY_PROMPT_VERSION,
+      knowledgeBaseUsed: knowledge.citations.length > 0,
+      retrievedSources: knowledge.citations.map(({ title, pageRange, label }) => ({
+        title,
+        pageRange,
+        label,
+      })),
+      resetsAt,
+    }, 200, origin);
   } catch (error) {
     console.error("public-reliability-agent failed", { name: error instanceof Error ? error.name : "unknown" });
     return json({ error: "expert_review_unavailable" }, 502, origin);

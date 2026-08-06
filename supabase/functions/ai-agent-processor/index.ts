@@ -1,11 +1,22 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
+import {
+  RELIABILITY_PROMPT_VERSION,
+  appendReliabilityKnowledge,
+  buildReliabilityEngineerPrompt,
+  retrieveReliabilityKnowledge,
+} from "../_shared/reliability-engineer-core.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY") ?? "";
 const LLM_BASE_URL = Deno.env.get("LLM_BASE_URL") ?? "https://api.openai.com";
 const ALLOWED_ORIGIN = Deno.env.get("ALLOWED_ORIGIN") ?? "https://app.syncai.ca";
+const RELIABILITY_MODEL = Deno.env.get("RELIABILITY_MODEL") ?? "";
+const RELIABILITY_EMBEDDING_API_KEY = Deno.env.get("RELIABILITY_EMBEDDING_API_KEY")
+  ?? Deno.env.get("ENRICH_LLM_API_KEY")
+  ?? Deno.env.get("GEMINI_API_KEY")
+  ?? "";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
@@ -169,7 +180,27 @@ const AGENT_PURPOSE: Record<string, string> = {
   CentralCoordinationAgent: "cross-functional maintenance, reliability, materials, HSE and production coordination",
 };
 
-function buildLegacyPrompt(agentType: string, industry?: string, deliverable = false): string {
+const RELIABILITY_KB_AGENTS = new Set([
+  "ReliabilityAgent",
+  "PreventiveMaintenanceAgent",
+  "AssetHealthAgent",
+  "RiskAssessmentAgent",
+]);
+
+function buildLegacyPrompt(
+  agentType: string,
+  industry?: string,
+  deliverable = false,
+  knowledgeContext = "",
+): string {
+  if (agentType === "ReliabilityAgent") {
+    return buildReliabilityEngineerPrompt({
+      industry,
+      accessMode: "authenticated",
+      knowledgeContext,
+    });
+  }
+
   const purpose = AGENT_PURPOSE[agentType] ?? AGENT_PURPOSE.CentralCoordinationAgent;
   let prompt = `You are SyncAI's senior industrial AI specialist for ${purpose}${industry ? ` in ${industry}` : ""}.
 Use only supplied facts and clearly label assumptions. Distinguish symptoms, mechanisms, causes and systemic causes. Quantify deviations where data permits. Recommend reversible field verification before permanent changes. Every material recommendation must name an owner role, time window, verification metric, consequence of being wrong, and whether qualified human approval is required. Never advise bypassing safety, regulatory, OEM, change-management or operational approvals. End with a concise bottom line.`;
@@ -177,24 +208,7 @@ Use only supplied facts and clearly label assumptions. Distinguish symptoms, mec
   if (deliverable) {
     prompt += `\nThe user requested a complete work product. Produce the artifact now rather than a methodology outline. For an FMEA, include at least 20 scored failure-mode rows plus scoring scales, assumptions, a prioritized action plan, regulatory applicability, method references and a bottom line. For RCA, FRACAS, RCM, risk or planning requests, provide the corresponding complete professional artifact.`;
   }
-  return prompt;
-}
-
-async function retrieveReliabilityContext(admin: ReturnType<typeof serviceClient>, query: string): Promise<string> {
-  try {
-    if (query.trim().length < 12) return "";
-    const { data } = await admin
-      .from("reliability_kb_chunks")
-      .select("title, page_start, page_end, content")
-      .textSearch("content", query.slice(0, 500))
-      .limit(4);
-    if (!data?.length) return "";
-    return data.map((item: Record<string, unknown>) =>
-      `[${item.title}, p.${item.page_start}${item.page_end !== item.page_start ? `-${item.page_end}` : ""}]\n${String(item.content).slice(0, 1200)}`
-    ).join("\n\n---\n\n");
-  } catch {
-    return "";
-  }
+  return appendReliabilityKnowledge(prompt, knowledgeContext);
 }
 
 async function logToSir(
@@ -264,10 +278,23 @@ async function handleLegacy(
   if (query.length > 30_000) return response({ success: false, error: "query_too_large" }, 413);
 
   const deliverable = body.depth === "deliverable" || /\b(fmea|rca|fracas|rcm|register|assessment|report|plan)\b/i.test(query);
-  const model = deliverable ? "gpt-4o" : "gpt-4o-mini";
+  const model = agentType === "ReliabilityAgent" && RELIABILITY_MODEL
+    ? RELIABILITY_MODEL
+    : deliverable ? "gpt-4o" : "gpt-4o-mini";
   const maxTokens = deliverable ? 12_000 : 1_500;
-  const kb = await retrieveReliabilityContext(admin, query);
-  const systemPrompt = `${buildLegacyPrompt(agentType, body.industry, deliverable)}${kb ? `\n\nApproved reliability reference passages:\n${kb}\nUse only the exact bracket labels supplied for citations.` : ""}`;
+  const kb = RELIABILITY_KB_AGENTS.has(agentType)
+    ? await retrieveReliabilityKnowledge({
+      client: admin,
+      query,
+      embeddingApiKey: RELIABILITY_EMBEDDING_API_KEY,
+    })
+    : { context: "", citations: [] };
+  const systemPrompt = buildLegacyPrompt(
+    agentType,
+    body.industry,
+    deliverable,
+    kb.context,
+  );
   const started = Date.now();
   const { content, usage } = await callLLM(model, systemPrompt, query, false, maxTokens);
   const elapsed = Date.now() - started;
@@ -289,23 +316,41 @@ async function handleLegacy(
     industry: body.industry ?? "general",
     modelUsed: model,
     depth: deliverable ? "deliverable" : "standard",
-    knowledgeBaseUsed: Boolean(kb),
+    knowledgeBaseUsed: kb.citations.length > 0,
+    citationSources: kb.citations.map(({ title, pageRange, label }) => ({
+      title,
+      pageRange,
+      label,
+    })),
+    promptVersion: agentType === "ReliabilityAgent"
+      ? RELIABILITY_PROMPT_VERSION
+      : undefined,
     requiresApproval: body.requiresApproval ?? false,
   });
 }
 
-function buildTypedPrompts(body: TypedAgentRequest, workOrder: Record<string, unknown>, asset: Record<string, unknown>) {
+function buildTypedPrompts(
+  body: TypedAgentRequest,
+  workOrder: Record<string, unknown>,
+  asset: Record<string, unknown>,
+  knowledgeContext = "",
+) {
   const context = `Work order: ${workOrder.title}\nDescription: ${workOrder.description ?? "not supplied"}\nPriority: ${workOrder.priority ?? "unspecified"}\nStatus: ${workOrder.status ?? "unspecified"}\nType: ${workOrder.type ?? "unspecified"}\n\nAsset: ${asset.name}\nTag: ${asset.tag ?? "not supplied"}\nCriticality: ${asset.criticality ?? "unspecified"}\nStatus: ${asset.status ?? "unspecified"}\nManufacturer/model: ${asset.manufacturer ?? "unknown"} ${asset.model ?? ""}\nTrigger: ${body.input.trigger_reason}`;
+  const reliabilityPrompt = buildReliabilityEngineerPrompt({
+    accessMode: "authenticated",
+    knowledgeContext,
+    structuredOutput: true,
+  });
 
   if (body.task_code === "classify_failure_mode") {
     return {
-      system: `You are a reliability engineer. Return strict JSON with failure_mode, failure_mode_family, likely_cause_family, recommended_next_diagnostic_step, risk_level, evidence, summary, confidence (0-1), and requires_human_review. Never invent evidence or bypass human approval.`,
+      system: `${reliabilityPrompt}\nReturn strict JSON with failure_mode, failure_mode_family, likely_cause_family, recommended_next_diagnostic_step, risk_level, evidence, summary, confidence (0-1), and requires_human_review.`,
       user: `Classify the likely failure mode:\n\n${context}`,
     };
   }
   if (body.task_code === "draft_reliability_assessment") {
     return {
-      system: `You are a reliability engineer. Return strict JSON with likely_causes, recommended_actions, risk_level, evidence, summary, confidence (0-1), and requires_human_review. Recommendations are advisory and must preserve qualified human approval.`,
+      system: `${reliabilityPrompt}\nReturn strict JSON with likely_causes, recommended_actions, risk_level, evidence, summary, confidence (0-1), and requires_human_review.`,
       user: `Draft a reliability assessment:\n\n${context}`,
     };
   }
@@ -363,9 +408,28 @@ async function handleTyped(
     ]);
     if (!workOrderResult.data || !assetResult.data) throw new Error("scoped_context_not_found");
 
-    const prompts = buildTypedPrompts(body, workOrderResult.data, assetResult.data);
+    const typedQuery = [
+      workOrderResult.data.title,
+      workOrderResult.data.description,
+      assetResult.data.name,
+      assetResult.data.manufacturer,
+      assetResult.data.model,
+      body.input.trigger_reason,
+    ].filter(Boolean).join(" ");
+    const kb = await retrieveReliabilityKnowledge({
+      client: admin,
+      query: typedQuery,
+      embeddingApiKey: RELIABILITY_EMBEDDING_API_KEY,
+    });
+    const prompts = buildTypedPrompts(
+      body,
+      workOrderResult.data,
+      assetResult.data,
+      kb.context,
+    );
     const started = Date.now();
-    const { content, usage } = await callLLM("gpt-4o-mini", prompts.system, prompts.user, true, 1800);
+    const typedModel = RELIABILITY_MODEL || "gpt-4o-mini";
+    const { content, usage } = await callLLM(typedModel, prompts.system, prompts.user, true, 1800);
     const parsed = JSON.parse(content);
     const confidence = Math.max(0, Math.min(1, Number(parsed.confidence ?? 0.5)));
     const requiresHumanReview = Boolean(parsed.requires_human_review) || ["high", "critical"].includes(parsed.risk_level);
@@ -401,7 +465,7 @@ async function handleTyped(
     });
     if (!governanceResponse.ok) throw new Error("governance_handoff_failed");
     const governance = await governanceResponse.json();
-    await logToSir(admin, { ...auth, organizationId }, body.agent_code, prompts.user, parsed.summary ?? content, "gpt-4o-mini", usage, Date.now() - started, correlationId);
+    await logToSir(admin, { ...auth, organizationId }, body.agent_code, prompts.user, parsed.summary ?? content, typedModel, usage, Date.now() - started, correlationId);
 
     return response({
       success: true,
@@ -411,6 +475,14 @@ async function handleTyped(
       decision_id: governance.decision_id,
       approval_status: governance.approval_status ?? "pending",
       output_schema_version: "1.0.0",
+      prompt_version: RELIABILITY_PROMPT_VERSION,
+      model_used: typedModel,
+      knowledge_base_used: kb.citations.length > 0,
+      citation_sources: kb.citations.map(({ title, pageRange, label }) => ({
+        title,
+        pageRange,
+        label,
+      })),
       confidence,
       requires_human_review: requiresHumanReview,
       raw_summary: parsed.summary ?? "Assessment complete.",

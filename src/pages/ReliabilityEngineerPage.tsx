@@ -11,6 +11,7 @@ import {
   CircleStop,
   Clipboard,
   Clock3,
+  Cpu,
   Database,
   FileSearch,
   History,
@@ -965,6 +966,14 @@ function ChatAnswer({
                 ? "Verified calculation mode"
                 : "Evidence-gathering mode"}
           </span>
+          {expertResult?.status === "success" && (
+            <span className={`rounded-md border px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide ${expertResult.knowledgeBaseUsed
+              ? "border-teal-300/15 bg-teal-300/[0.045] text-teal-300"
+              : "border-white/7 text-slate-500"
+            }`}>
+              {expertResult.knowledgeBaseUsed ? "RAG grounded" : "No KB match"}
+            </span>
+          )}
         </div>
 
         <div className="mt-3 text-sm leading-7 text-slate-300">
@@ -1359,7 +1368,10 @@ function ArtifactPanel({
             {activeTab === "summary" && <ArtifactSummary result={result} expertResult={expertResult} />}
             {activeTab === "evidence" && <ArtifactEvidence result={result} expertResult={expertResult} />}
             {activeTab === "governance" && (
-              <ArtifactGovernance result={result} />
+              <ArtifactGovernance
+                result={result}
+                expertResult={expertResult}
+              />
             )}
           </>
         ) : (
@@ -1589,11 +1601,14 @@ function ArtifactEvidence({ result, expertResult }: { result: PublicReliabilityR
 
 function ArtifactGovernance({
   result,
+  expertResult,
 }: {
   result: PublicReliabilityResult;
+  expertResult: PublicExpertResult | null;
 }) {
   const { report } = result;
   const recommendation = report.governedRecommendations[0];
+  const expert = expertResult?.status === "success" ? expertResult : null;
   return (
     <div className="space-y-4">
       <div className="rounded-xl border border-amber-300/15 bg-amber-300/[0.045] p-4">
@@ -1618,6 +1633,33 @@ function ArtifactGovernance({
           ))}
         </div>
       </ArtifactSection>
+
+      {expert && (
+        <ArtifactSection title="Expert runtime" icon={Cpu}>
+          <div className="space-y-2 text-[10px] leading-4 text-slate-500">
+            <div className="flex items-center justify-between gap-3">
+              <span>Methodology</span>
+              <span className="text-right text-slate-300">
+                {expert.promptVersion ?? "Stigg Reliability Engineer"}
+              </span>
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <span>Model</span>
+              <span className="text-right text-slate-300">
+                {expert.modelUsed ?? "Configured reliability model"}
+              </span>
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <span>Knowledge grounding</span>
+              <span className="text-right text-slate-300">
+                {expert.knowledgeBaseUsed
+                  ? `${expert.retrievedSources.length} approved passages`
+                  : "No approved passage matched"}
+              </span>
+            </div>
+          </div>
+        </ArtifactSection>
+      )}
 
       <ArtifactSection title="Assumptions" icon={Sparkles}>
         <ListItems items={report.assumptions} />
