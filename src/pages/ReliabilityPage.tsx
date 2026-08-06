@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { ReliabilityAnalytics } from "../components/ReliabilityAnalytics";
+import { CaEffectivenessPanel } from "../components/CaEffectivenessPanel";
 import { useNavigate } from "react-router-dom";
 import {
   TrendingUp,
@@ -157,6 +158,8 @@ export function Reliability() {
       </div>
 
       <ReliabilityAnalytics />
+
+      <CaEffectivenessPanel />
 
       {/* Metrics */}
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
