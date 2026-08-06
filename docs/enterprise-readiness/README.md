@@ -22,6 +22,7 @@ The remaining enterprise blockers are primarily external, operational, or eviden
 ## Required documents
 
 ### Sales and executive
+
 - `asia-market-access-technical-brief.md`
 - `claims-and-evidence-register.md`
 - Executive platform overview
@@ -30,6 +31,7 @@ The remaining enterprise blockers are primarily external, operational, or eviden
 - ROI model and value-verification methodology
 
 ### Security and architecture
+
 - Security whitepaper
 - Architecture and data-flow diagrams
 - Deployment and data-residency guide
@@ -39,6 +41,7 @@ The remaining enterprise blockers are primarily external, operational, or eviden
 - Standard security questionnaire response library
 
 ### Procurement and legal
+
 - Data Processing Agreement
 - Pilot agreement and statement of work
 - Support and service-level schedule
@@ -48,6 +51,7 @@ The remaining enterprise blockers are primarily external, operational, or eviden
 - Customer reference authorization process
 
 ### Audit evidence
+
 - SOC 2 control matrix
 - ISO/IEC 27001 control matrix and Statement of Applicability
 - Risk register and treatment plan
@@ -65,3 +69,5 @@ Approved language before the independent audits are completed:
 > SyncAI has implemented a substantial set of technical controls aligned with SOC 2 and ISO/IEC 27001, including access control, tenant isolation, MFA, audit logging, secure change management, automated security testing, and human-governed AI workflows. Formal certification and independent assurance remain subject to completion of the audit process, organizational evidence review, and the applicable observation period.
 
 Do not state that SyncAI is SOC 2 compliant, SOC 2 certified, ISO 27001 certified, or audit-ready without qualification until the relevant independent body has issued the report or certificate.
+
+- [Gap Analysis — Enterprise Maintenance Operating System target](gap-analysis-enterprise-maintenance-os.md): current verified state vs. the 12-agent / five-engine enterprise OS specification, reconciled with the capability audit into one sequenced roadmap.
