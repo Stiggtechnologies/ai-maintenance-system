@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { ReliabilityAnalytics } from "../components/ReliabilityAnalytics";
 import { useNavigate } from "react-router-dom";
 import {
   TrendingUp,
@@ -154,6 +155,8 @@ export function Reliability() {
           AI-powered reliability engineering department
         </p>
       </div>
+
+      <ReliabilityAnalytics />
 
       {/* Metrics */}
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
