@@ -31,7 +31,7 @@ data; they are not presented as customer evidence.
 
 ## Production configuration
 
-Apply migration `00000000000024_public_reliability_access.sql`, deploy the edge
+Apply migration `00000000000025_public_reliability_access.sql`, deploy the edge
 function, and set these Supabase secrets:
 
 ```text
