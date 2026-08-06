@@ -64,7 +64,7 @@ import { useAuth } from "./components/AuthProvider";
 import { getRoleHome } from "./lib/roleNavigation";
 import { ReliabilityCopilotPage } from "./pages/ReliabilityCopilotPage";
 import { FirstCustomerPilotPage } from "./pages/FirstCustomerPilotPage";
-import { PublicReliabilityDemoPage } from "./pages/PublicReliabilityDemoPage";
+import { ReliabilityEngineerPage } from "./pages/ReliabilityEngineerPage";
 
 type Page =
   | "demo"
@@ -146,7 +146,7 @@ function App() {
               <AnimatePresence mode="wait">
                 {currentPage === "demo" && !isAuthenticated && (
                   <motion.div key="demo" {...pageTransition}>
-                    <PublicReliabilityDemoPage
+                    <ReliabilityEngineerPage
                       onSignup={() => setCurrentPage("signup")}
                       onSignIn={() => setCurrentPage("signin")}
                     />
