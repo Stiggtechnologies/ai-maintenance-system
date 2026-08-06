@@ -25,6 +25,7 @@ import {
 } from "../services/operatingLoopService";
 import type { DecisionRow } from "../types/operating";
 import { LoadingState, ErrorState } from "../components/ui/AsyncStates";
+import { DecisionRightsMatrix } from "../components/DecisionRightsMatrix";
 
 const DECISION_STATUSES: DecisionStatus[] = [
   "pending",
@@ -413,6 +414,8 @@ export function DecisionGovernance() {
           <BookOpen className="w-3.5 h-3.5" /> Export Audit Log
         </button>
       </div>
+
+      <DecisionRightsMatrix />
 
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
