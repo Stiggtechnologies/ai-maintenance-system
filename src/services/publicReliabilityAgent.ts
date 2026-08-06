@@ -1,5 +1,5 @@
 import { supabase } from "../lib/supabase";
-import type { PublicReliabilityScenarioId } from "../lib/public-reliability-demo";
+import type { PublicReliabilityScenarioId } from "../lib/public-reliability";
 
 export interface PublicExpertHypothesis {
   hypothesis: string;
@@ -64,16 +64,16 @@ export async function runPublicReliabilityAgent(input: {
       {
         body: {
           scenarioId: input.scenarioId,
-          question: input.question.trim().slice(0, 600),
+          question: input.question.trim().slice(0, 1600),
           browserId: getBrowserId(),
         },
       },
     );
 
-    if (data?.error === "public_demo_limit_reached") {
+    if (data?.error === "public_reliability_limit_reached") {
       return {
         status: "rate_limited",
-        error: "The live expert review has already been used for this public sandbox window.",
+        error: "The included live assessment has already been used for this access window.",
         resetsAt: data.resetsAt,
       };
     }
