@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
+  ArrowRight,
   BarChart3,
   BookOpenText,
   Bot,
@@ -55,7 +56,6 @@ import {
   saveAssetOnboardingSession,
   type AssetOnboardingSummary,
 } from "../services/assetOnboardingPersistence";
-import { useOnboardingStore } from "../store/onboardingStore";
 import {
   runLiveReliabilityAgent,
   type LiveReliabilityAgentResult,
@@ -203,6 +203,17 @@ const initialInputs = {
 const initialPrompt =
   "Analyze chronic pump seal failures from the last 12 months and create a defensible RCA starter pack.";
 
+const sampleDecisionPrompt =
+  "Run the sample decision packet: rank the next reliability dollar, identify the first risk to address, recommend the governed action, and define how value will be verified.";
+
+const FREE_TRIAL_TOKEN_ALLOWANCE = 12000;
+const FREE_TRIAL_USAGE_STORAGE_KEY = "syncai.reliability.freeUsage.v1";
+
+type FreeTrialUsage = {
+  tokensUsed: number;
+  decisionPackets: number;
+};
+
 type WorkspaceView = "analysis" | "onboarding" | "evidence";
 
 type ChatMessage = {
@@ -212,16 +223,151 @@ type ChatMessage = {
   meta?: string;
 };
 
+type ValueProofInputs = {
+  actionCost: string;
+  downtimeHourValue: string;
+  expectedAvoidedHours: string;
+  verificationWindowDays: string;
+  owner: string;
+};
+
 const executiveSignals = [
-  { label: "Workspace mode", value: "Agentic", detail: "human-led cowork" },
+  { label: "Next dollar", value: "Ranked", detail: "risk-adjusted spend" },
   {
-    label: "Live agents",
-    value: "7 roles",
-    detail: "specialized reliability flow",
+    label: "First risk",
+    value: "Prioritized",
+    detail: "safety, uptime, value",
   },
-  { label: "Evidence mode", value: "Cited", detail: "RAG + calculations" },
-  { label: "Governance", value: "Human gate", detail: "safety and OEM limits" },
+  { label: "Action", value: "Governed", detail: "approval-ready steps" },
+  { label: "Value", value: "Verified", detail: "estimated to realized" },
 ];
+
+const valueDecisionCards = [
+  {
+    title: "Where should we spend next?",
+    detail: "Rank assets, sites, and failure modes by risk-adjusted value.",
+    metric: "Next CAD",
+    icon: BarChart3,
+  },
+  {
+    title: "Which risk comes first?",
+    detail:
+      "Balance safety, availability, production, environmental, and cost exposure.",
+    metric: "Priority risk",
+    icon: AlertTriangle,
+  },
+  {
+    title: "What action should be taken?",
+    detail:
+      "Choose inspection, redesign, PM change, spares, operating change, or escalation.",
+    metric: "Governed action",
+    icon: Wrench,
+  },
+  {
+    title: "Did it create value?",
+    detail:
+      "Track estimated, approved, and verified realized value after execution.",
+    metric: "Value proof",
+    icon: CheckCircle2,
+  },
+];
+
+const industryProfiles = [
+  "Oil sands and upstream",
+  "Refining and chemicals",
+  "High-volume manufacturing",
+  "Battery and energy systems",
+];
+
+const enterpriseReadiness = [
+  "Process safety",
+  "Asset integrity",
+  "AI safety",
+  "Financial controls",
+  "Workforce reality",
+  "Decision traceability",
+];
+
+function estimateTokenUsage(text: string): number {
+  return Math.ceil(text.trim().length / 4);
+}
+
+function estimateDecisionPacketCost({
+  mode,
+  prompt,
+  csvText,
+}: {
+  mode: CopilotMode;
+  prompt: string;
+  csvText: string;
+}): number {
+  const baseWorkflowCost = 1800;
+  const responseAllowance = 1400;
+  const inputCost = estimateTokenUsage([mode, prompt, csvText].join("\n"));
+
+  return Math.max(3200, inputCost + baseWorkflowCost + responseAllowance);
+}
+
+function loadFreeTrialUsage(): FreeTrialUsage {
+  if (
+    typeof window === "undefined" ||
+    typeof window.localStorage?.getItem !== "function"
+  ) {
+    return { tokensUsed: 0, decisionPackets: 0 };
+  }
+
+  try {
+    const saved = window.localStorage.getItem(FREE_TRIAL_USAGE_STORAGE_KEY);
+    if (!saved) return { tokensUsed: 0, decisionPackets: 0 };
+    const parsed = JSON.parse(saved) as Partial<FreeTrialUsage>;
+
+    return {
+      tokensUsed: Math.max(0, Number(parsed.tokensUsed) || 0),
+      decisionPackets: Math.max(0, Number(parsed.decisionPackets) || 0),
+    };
+  } catch {
+    return { tokensUsed: 0, decisionPackets: 0 };
+  }
+}
+
+function saveFreeTrialUsage(usage: FreeTrialUsage) {
+  if (
+    typeof window === "undefined" ||
+    typeof window.localStorage?.setItem !== "function"
+  ) {
+    return;
+  }
+
+  try {
+    window.localStorage.setItem(
+      FREE_TRIAL_USAGE_STORAGE_KEY,
+      JSON.stringify(usage),
+    );
+  } catch {
+    // Demo metering should not interrupt the reliability workflow.
+  }
+}
+
+function trackTrialEvent(
+  eventName: string,
+  metadata: Record<string, string | number | boolean> = {},
+) {
+  if (typeof window === "undefined") return;
+  const payload = {
+    event: eventName,
+    page: "reliability_copilot_demo",
+    ...metadata,
+  };
+  const analyticsWindow = window as Window & {
+    dataLayer?: Array<Record<string, unknown>>;
+  };
+
+  analyticsWindow.dataLayer?.push(payload);
+
+  if (import.meta.env.DEV) {
+    console.info("[SyncAI trial event]", payload);
+  }
+}
 
 const liveWorkLabels = [
   "Reading the request",
@@ -255,6 +401,13 @@ export function ReliabilityCopilotPage() {
   const [lastGeneratedMode, setLastGeneratedMode] =
     useState<CopilotMode>("RCA");
   const [inputs, setInputs] = useState(initialInputs);
+  const [valueProofInputs, setValueProofInputs] = useState<ValueProofInputs>({
+    actionCost: "12500",
+    downtimeHourValue: "8500",
+    expectedAvoidedHours: "22",
+    verificationWindowDays: "90",
+    owner: "Reliability engineer",
+  });
   const [onboardingCommand, setOnboardingCommand] = useState(
     "/onboard used pump P-101 oil-sands deep",
   );
@@ -278,15 +431,6 @@ export function ReliabilityCopilotPage() {
     "Demo session is ready. Save progress to make it resumable.",
   );
   const [isSavingOnboarding, setIsSavingOnboarding] = useState(false);
-  const registerOnboardingSession = useOnboardingStore(
-    (state) => state.registerSession,
-  );
-  const recordOnboardingStep = useOnboardingStore(
-    (state) => state.recordStepCompleted,
-  );
-  const recordOnboardingExport = useOnboardingStore(
-    (state) => state.recordExport,
-  );
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
     {
       id: "system-1",
@@ -308,7 +452,24 @@ export function ReliabilityCopilotPage() {
       "Generate a report to run the live AI review against the deterministic reliability workflow.",
   });
   const [isRunningLiveAgent, setIsRunningLiveAgent] = useState(false);
+  const [freeTrialUsage, setFreeTrialUsage] = useState<FreeTrialUsage>(() =>
+    loadFreeTrialUsage(),
+  );
 
+  const estimatedCurrentRunCost = useMemo(
+    () => estimateDecisionPacketCost({ mode, prompt, csvText }),
+    [csvText, mode, prompt],
+  );
+  const freeTrialRemaining = Math.max(
+    0,
+    FREE_TRIAL_TOKEN_ALLOWANCE - freeTrialUsage.tokensUsed,
+  );
+  const freeTrialPercentUsed = Math.min(
+    100,
+    Math.round((freeTrialUsage.tokensUsed / FREE_TRIAL_TOKEN_ALLOWANCE) * 100),
+  );
+  const freeTrialPercentRemaining = Math.max(0, 100 - freeTrialPercentUsed);
+  const freeTrialIsExhausted = freeTrialRemaining <= 0;
   const currentOnboardingStep = useMemo(
     () => getCurrentOnboardingStep(onboardingSession),
     [onboardingSession],
@@ -382,6 +543,38 @@ export function ReliabilityCopilotPage() {
     setInputs((current) => ({ ...current, [key]: value }));
   };
 
+  const handleValueProofInputChange = (
+    key: keyof ValueProofInputs,
+    value: string,
+  ) => {
+    setValueProofInputs((current) => ({ ...current, [key]: value }));
+  };
+
+  const valueProof = useMemo(() => {
+    const actionCost = asNumber(valueProofInputs.actionCost);
+    const downtimeHourValue = asNumber(valueProofInputs.downtimeHourValue);
+    const expectedAvoidedHours = asNumber(
+      valueProofInputs.expectedAvoidedHours,
+    );
+    const verificationWindowDays = asNumber(
+      valueProofInputs.verificationWindowDays,
+    );
+    const estimatedAvoidedCost = downtimeHourValue * expectedAvoidedHours;
+    const netValue = estimatedAvoidedCost - actionCost;
+    const roiPercent =
+      actionCost > 0 ? Math.round((netValue / actionCost) * 100) : 0;
+
+    return {
+      actionCost,
+      downtimeHourValue,
+      expectedAvoidedHours,
+      verificationWindowDays,
+      estimatedAvoidedCost,
+      netValue,
+      roiPercent,
+    };
+  }, [valueProofInputs]);
+
   const agentRuntimeSteps = useMemo(
     () => [
       {
@@ -454,8 +647,43 @@ export function ReliabilityCopilotPage() {
     [isRunningLiveAgent, liveStage],
   );
 
-  const generateReport = async () => {
-    const submittedPrompt = prompt.trim() || initialPrompt;
+  const generateReport = async (
+    options: {
+      promptOverride?: string;
+      modeOverride?: CopilotMode;
+      csvTextOverride?: string;
+    } = {},
+  ) => {
+    const activeMode = options.modeOverride ?? mode;
+    const activeCsvText = options.csvTextOverride ?? csvText;
+    const submittedPrompt =
+      options.promptOverride?.trim() || prompt.trim() || initialPrompt;
+    const estimatedCost = estimateDecisionPacketCost({
+      mode: activeMode,
+      prompt: submittedPrompt,
+      csvText: activeCsvText,
+    });
+    const hasRunCapacity =
+      freeTrialRemaining >= estimatedCost || freeTrialUsage.tokensUsed === 0;
+
+    if (!hasRunCapacity) {
+      trackTrialEvent("free_capacity_cutoff", {
+        decisionPackets: freeTrialUsage.decisionPackets,
+        tokensUsed: freeTrialUsage.tokensUsed,
+      });
+      setActiveWorkspace("analysis");
+      setChatMessages((current) => [
+        ...current,
+        {
+          id: `assistant-limit-${Date.now()}`,
+          role: "assistant",
+          text: "You have used the included free analysis capacity. Start a 48-hour value proof to use sanitized customer data, then continue into a secure workspace to save cases, collaborate with your team, and verify realized value after execution.",
+          meta: "Free capacity reached",
+        },
+      ]);
+      return;
+    }
+
     setActiveWorkspace("analysis");
     setChatMessages((current) => [
       ...current,
@@ -463,14 +691,16 @@ export function ReliabilityCopilotPage() {
         id: `user-${Date.now()}`,
         role: "user",
         text: submittedPrompt,
-        meta: mode,
+        meta: activeMode,
       },
     ]);
 
-    const onboarding = parseAssetOnboardingCommand(prompt);
+    const onboarding = parseAssetOnboardingCommand(submittedPrompt);
     if (onboarding.isOnboarding) {
-      const nextSession = createAssetOnboardingSession({ commandText: prompt });
-      setOnboardingCommand(prompt);
+      const nextSession = createAssetOnboardingSession({
+        commandText: submittedPrompt,
+      });
+      setOnboardingCommand(submittedPrompt);
       setOnboardingSession(nextSession);
       setOnboardingAnswer(getOnboardingSampleAnswer(nextSession));
       setActiveWorkspace("onboarding");
@@ -483,7 +713,6 @@ export function ReliabilityCopilotPage() {
           meta: "Asset onboarding",
         },
       ]);
-      void persistOnboardingSession(nextSession, "Onboarding started.");
       return;
     }
 
@@ -498,9 +727,9 @@ export function ReliabilityCopilotPage() {
       },
     ]);
     const nextReport = generateReliabilityReport({
-      mode,
-      prompt,
-      csvText,
+      mode: activeMode,
+      prompt: submittedPrompt,
+      csvText: activeCsvText,
       inputs: {
         operatingHours: asNumber(inputs.operatingHours),
         failures: asNumber(inputs.failures),
@@ -509,17 +738,26 @@ export function ReliabilityCopilotPage() {
         missionTimeHours: asNumber(inputs.missionTime),
       },
     });
+    const nextFreeTrialUsage = {
+      tokensUsed: Math.min(
+        FREE_TRIAL_TOKEN_ALLOWANCE,
+        freeTrialUsage.tokensUsed + estimatedCost,
+      ),
+      decisionPackets: freeTrialUsage.decisionPackets + 1,
+    };
+    setFreeTrialUsage(nextFreeTrialUsage);
+    saveFreeTrialUsage(nextFreeTrialUsage);
     setReport(nextReport);
-    setLastGeneratedMode(mode);
+    setLastGeneratedMode(activeMode);
     setIsRunningLiveAgent(true);
     setLiveAgent({
       status: "disabled",
       response: "Running live AI reliability review...",
     });
     const liveResult = await runLiveReliabilityAgent({
-      mode,
-      prompt,
-      csvText,
+      mode: activeMode,
+      prompt: submittedPrompt,
+      csvText: activeCsvText,
       report: nextReport,
     });
     setLiveAgent(liveResult);
@@ -536,6 +774,21 @@ export function ReliabilityCopilotPage() {
             : "Deterministic workflow complete",
       },
     ]);
+    trackTrialEvent("decision_packet_generated", {
+      mode: activeMode,
+      decisionPackets: nextFreeTrialUsage.decisionPackets,
+      tokensUsed: nextFreeTrialUsage.tokensUsed,
+    });
+  };
+
+  const runSampleDecisionPacket = () => {
+    setPrompt(sampleDecisionPrompt);
+    setMode("Executive Brief");
+    setActiveWorkspace("analysis");
+    void generateReport({
+      promptOverride: sampleDecisionPrompt,
+      modeOverride: "Executive Brief",
+    });
   };
 
   const exportReport = () => {
@@ -554,16 +807,12 @@ export function ReliabilityCopilotPage() {
     try {
       const exports = buildAssetOnboardingExports(session);
       const result = await saveAssetOnboardingSession(session, exports);
-      // Make this operational across SyncAI (Asset Intelligence, Reliability,
-      // Work Action Board, Governance, Mission Control, Value, Cowork, Learning).
-      registerOnboardingSession(session, result);
       setOnboardingSaveMessage(
-        result.mode === "supabase"
-          ? `${messagePrefix} Saved to the tenant database.`
-          : `${messagePrefix} ⚠ Not saved to the tenant database — saved only in this browser. ${
-              result.warning ??
-              "Sign in with a Supabase-connected tenant to persist this session."
-            }`,
+        `${messagePrefix} Saved via ${
+          result.mode === "supabase"
+            ? "tenant database"
+            : "browser demo storage"
+        }.${result.warning ? ` ${result.warning}` : ""}`,
       );
       await refreshSavedOnboardingSessions();
     } catch (error) {
@@ -586,7 +835,6 @@ export function ReliabilityCopilotPage() {
   };
 
   const saveOnboardingAnswer = async () => {
-    const completedStepName = getCurrentOnboardingStep(onboardingSession).name;
     const nextSession = applyAssetOnboardingAnswer({
       session: onboardingSession,
       answer: onboardingAnswer,
@@ -594,7 +842,6 @@ export function ReliabilityCopilotPage() {
     setOnboardingSession(nextSession);
     setOnboardingAnswer(getOnboardingSampleAnswer(nextSession));
     await persistOnboardingSession(nextSession, "Step saved.");
-    recordOnboardingStep(nextSession, completedStepName);
   };
 
   const resumeOnboardingSession = async (sessionId: string) => {
@@ -630,7 +877,6 @@ export function ReliabilityCopilotPage() {
       `syncai-${onboardingSession.assetId.toLowerCase()}-asset-onboarding-${key}.${extension}`,
       mime,
     );
-    recordOnboardingExport(onboardingSession, 1);
   };
 
   const handleFailureFile = async (
@@ -643,71 +889,172 @@ export function ReliabilityCopilotPage() {
   };
 
   return (
-    <div className="mx-auto max-w-[1440px] space-y-4 pb-10">
-      <section className="relative overflow-hidden rounded-2xl border border-white/8 bg-[linear-gradient(135deg,rgba(13,19,26,0.96),rgba(8,12,17,0.98))] p-4 shadow-xl shadow-black/20">
-        <div className="absolute inset-x-0 top-0 h-px bg-linear-to-r from-transparent via-teal-300/50 to-transparent" />
-        <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+    <div className="mx-auto max-w-[1440px] space-y-4 pb-60">
+      <section className="relative overflow-hidden rounded-2xl border border-white/[0.08] bg-[linear-gradient(135deg,rgba(13,19,26,0.98),rgba(8,12,17,0.99))] p-4 shadow-xl shadow-black/20 md:p-6">
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-teal-300/50 to-transparent" />
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_430px]">
           <div>
             <div className="inline-flex items-center gap-2 rounded-full border border-teal-300/20 bg-teal-300/10 px-3 py-1 text-xs font-medium text-teal-200">
               <Bot size={14} />
-              Reliability decision support
+              Industrial value decision intelligence
             </div>
-            <h1 className="mt-3 text-2xl font-semibold tracking-tight text-[#F8FAFC]">
-              Reliability Engineering Copilot
+            <h1 className="mt-4 max-w-4xl text-3xl font-semibold tracking-tight text-[#F8FAFC] md:text-5xl">
+              Know where the next reliability dollar should go.
             </h1>
-            <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-400">
-              A governed reliability workspace for RCA, FRACAS, FMEA, RCM, PM
-              optimization, RAM calculations, and executive reliability
-              reporting.
+            <p className="mt-4 max-w-3xl text-base leading-7 text-slate-300">
+              SyncAI helps industrial teams decide which risk to address first,
+              what action should be taken, and whether that action actually
+              created value.
             </p>
+            <div className="mt-5 flex flex-wrap gap-2">
+              {industryProfiles.map((profile) => (
+                <span
+                  key={profile}
+                  className="rounded-full border border-white/[0.08] bg-white/[0.04] px-3 py-1.5 text-xs font-medium text-slate-300"
+                >
+                  {profile}
+                </span>
+              ))}
+            </div>
+            <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+              <button
+                onClick={runSampleDecisionPacket}
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-teal-400 px-5 py-3 text-sm font-semibold text-slate-950 shadow-lg shadow-teal-950/20 transition-colors hover:bg-teal-300"
+              >
+                <Sparkles size={16} />
+                Run sample decision packet
+              </button>
+              <a
+                href="/pilot/reliability"
+                onClick={() => trackTrialEvent("secure_workspace_clicked")}
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/[0.1] px-5 py-3 text-sm font-semibold text-slate-200 transition-colors hover:bg-white/[0.05]"
+              >
+                <ShieldCheck size={16} />
+                Start 48-hour value proof
+              </a>
+            </div>
           </div>
-          <div className="rounded-xl border border-amber-300/20 bg-amber-300/8 p-4 text-sm text-amber-100 lg:max-w-md">
-            <div className="flex items-start gap-3">
-              <AlertTriangle size={18} className="mt-0.5 text-amber-300" />
-              <p>
-                Decision support only. Safety, environmental, regulatory, OEM
-                limit, and production-critical changes require qualified
-                engineering approval.
-              </p>
+
+          <div className="rounded-2xl border border-teal-300/20 bg-[linear-gradient(180deg,rgba(20,184,166,0.12),rgba(0,0,0,0.18))] p-4">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <div className="text-xs font-semibold uppercase tracking-[0.18em] text-teal-200">
+                  Decision packet preview
+                </div>
+                <div className="mt-1 text-lg font-semibold text-[#F8FAFC]">
+                  Risk-to-value recommendation
+                </div>
+              </div>
+              <ShieldCheck size={22} className="text-teal-300" />
+            </div>
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <Metric label="Top risk" value={report.riskLevel} />
+              <Metric
+                label="Top asset"
+                value={report.badActors[0]?.assetId ?? "Pending"}
+              />
+              <Metric
+                label="Availability"
+                value={
+                  calculation.error
+                    ? "Check inputs"
+                    : formatPercent(calculation.inherentAvailability)
+                }
+              />
+              <Metric label="Confidence" value={report.confidence} />
+            </div>
+            <div className="mt-4 rounded-xl border border-amber-300/20 bg-amber-300/[0.08] p-3 text-sm leading-6 text-amber-100">
+              Safety, environmental, regulatory, OEM limit, and
+              production-critical changes require qualified engineering
+              approval.
             </div>
           </div>
         </div>
 
-        <div className="hidden">
+        <div className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          {valueDecisionCards.map((card) => {
+            const Icon = card.icon;
+            return (
+              <button
+                key={card.title}
+                onClick={() => setActiveWorkspace("analysis")}
+                className="rounded-2xl border border-white/[0.07] bg-white/[0.035] p-4 text-left transition-colors hover:border-teal-300/25 hover:bg-teal-300/[0.06]"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="rounded-xl bg-teal-300/10 p-2 text-teal-200">
+                    <Icon size={18} />
+                  </div>
+                  <span className="rounded-full bg-black/25 px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400">
+                    {card.metric}
+                  </span>
+                </div>
+                <div className="mt-4 text-sm font-semibold text-[#F8FAFC]">
+                  {card.title}
+                </div>
+                <p className="mt-2 text-sm leading-6 text-slate-400">
+                  {card.detail}
+                </p>
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="mt-5 grid gap-3 md:grid-cols-4">
           {executiveSignals.map((signal) => (
             <div
               key={signal.label}
               className="rounded-xl border border-white/[0.07] bg-black/20 px-4 py-3"
             >
-              <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
                 {signal.label}
               </div>
               <div className="mt-1 text-lg font-semibold text-[#F8FAFC]">
                 {signal.value}
               </div>
-              <div className="mt-0.5 text-xs text-slate-400">
+              <div className="mt-0.5 text-xs text-slate-500">
                 {signal.detail}
               </div>
             </div>
           ))}
         </div>
+
+        <div className="mt-5 flex flex-wrap gap-2">
+          {enterpriseReadiness.map((item) => (
+            <span
+              key={item}
+              className="inline-flex items-center gap-2 rounded-full border border-white/[0.08] bg-black/20 px-3 py-1.5 text-xs font-medium text-slate-300"
+            >
+              <CheckCircle2 size={13} className="text-teal-300" />
+              {item}
+            </span>
+          ))}
+        </div>
+
+        <FreeCapacityPanel
+          percentUsed={freeTrialPercentUsed}
+          percentRemaining={freeTrialPercentRemaining}
+          packetsGenerated={freeTrialUsage.decisionPackets}
+          estimatedRunCost={estimatedCurrentRunCost}
+          remainingTokens={freeTrialRemaining}
+          isExhausted={freeTrialIsExhausted}
+        />
       </section>
 
-      <section className="rounded-2xl border border-white/8 bg-[#0D131A]/75 p-1.5 shadow-lg shadow-black/10">
+      <section className="rounded-2xl border border-white/[0.08] bg-[#0D131A]/75 p-1.5 shadow-lg shadow-black/10">
         <div className="grid gap-3 lg:grid-cols-[1fr_1fr_1fr_1.1fr]">
           <button
             onClick={() => setActiveWorkspace("analysis")}
             className={`rounded-xl border p-3 text-left transition-all ${
               activeWorkspace === "analysis"
-                ? "border-teal-300/40 bg-teal-300/9 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]"
-                : "border-white/6 bg-white/2.5 hover:border-white/10 hover:bg-white/5"
+                ? "border-teal-300/40 bg-teal-300/[0.09] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]"
+                : "border-white/[0.06] bg-white/[0.025] hover:border-white/[0.1] hover:bg-white/[0.05]"
             }`}
           >
-            <div className="flex items-center gap-2 text-sm font-semibold text-industrial-text">
+            <div className="flex items-center gap-2 text-sm font-semibold text-[#E6EDF3]">
               <BrainCircuit size={17} className="text-teal-300" />
               Analyze a reliability problem
             </div>
-            <p className="mt-1 text-xs leading-5 text-slate-400">
+            <p className="mt-1 text-xs leading-5 text-slate-500">
               RCA, FRACAS, FMEA, RAM, PM optimization, and governed reports.
             </p>
           </button>
@@ -715,15 +1062,15 @@ export function ReliabilityCopilotPage() {
             onClick={() => setActiveWorkspace("onboarding")}
             className={`rounded-xl border p-3 text-left transition-all ${
               activeWorkspace === "onboarding"
-                ? "border-teal-300/40 bg-teal-300/9 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]"
-                : "border-white/6 bg-white/2.5 hover:border-white/10 hover:bg-white/5"
+                ? "border-teal-300/40 bg-teal-300/[0.09] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]"
+                : "border-white/[0.06] bg-white/[0.025] hover:border-white/[0.1] hover:bg-white/[0.05]"
             }`}
           >
-            <div className="flex items-center gap-2 text-sm font-semibold text-industrial-text">
+            <div className="flex items-center gap-2 text-sm font-semibold text-[#E6EDF3]">
               <PackageCheck size={17} className="text-teal-300" />
               Guided Asset Onboarding
             </div>
-            <p className="mt-1 text-xs leading-5 text-slate-400">
+            <p className="mt-1 text-xs leading-5 text-slate-500">
               Build a reliability-ready asset profile from one command.
             </p>
           </button>
@@ -731,25 +1078,28 @@ export function ReliabilityCopilotPage() {
             onClick={() => setActiveWorkspace("evidence")}
             className={`rounded-xl border p-3 text-left transition-all ${
               activeWorkspace === "evidence"
-                ? "border-teal-300/40 bg-teal-300/9 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]"
-                : "border-white/6 bg-white/2.5 hover:border-white/10 hover:bg-white/5"
+                ? "border-teal-300/40 bg-teal-300/[0.09] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]"
+                : "border-white/[0.06] bg-white/[0.025] hover:border-white/[0.1] hover:bg-white/[0.05]"
             }`}
           >
-            <div className="flex items-center gap-2 text-sm font-semibold text-industrial-text">
+            <div className="flex items-center gap-2 text-sm font-semibold text-[#E6EDF3]">
               <BookOpenText size={17} className="text-teal-300" />
               Evidence & Governance
             </div>
-            <p className="mt-1 text-xs leading-5 text-slate-400">
+            <p className="mt-1 text-xs leading-5 text-slate-500">
               Source trail, deterministic math, and approval controls.
             </p>
           </button>
-          <div className="grid grid-cols-3 gap-2 rounded-xl border border-white/6 bg-black/20 p-3">
+          <div className="grid grid-cols-3 gap-2 rounded-xl border border-white/[0.06] bg-black/20 p-3">
             <CompactMetric label="Risk" value={report.riskLevel} />
             <CompactMetric
               label="Readiness"
               value={onboardingSession.reliabilityReadiness}
             />
-            <CompactMetric label="RAG" value="Live" />
+            <CompactMetric
+              label="Free capacity"
+              value={`${freeTrialPercentRemaining}% left`}
+            />
           </div>
         </div>
       </section>
@@ -762,7 +1112,7 @@ export function ReliabilityCopilotPage() {
                 <PackageCheck size={14} />
                 One-command workflow
               </div>
-              <h2 className="mt-3 text-xl font-bold text-industrial-text">
+              <h2 className="mt-3 text-xl font-bold text-[#E6EDF3]">
                 Guided Asset Onboarding
               </h2>
               <p className="mt-1 max-w-3xl text-sm text-slate-400">
@@ -772,34 +1122,34 @@ export function ReliabilityCopilotPage() {
               </p>
             </div>
             <div className="grid grid-cols-2 gap-3 text-center sm:min-w-[520px] lg:grid-cols-5">
-              <div className="rounded-lg border border-white/6 bg-black/20 p-3">
-                <div className="text-xs text-slate-400">Completion</div>
-                <div className="mt-1 text-2xl font-bold text-industrial-text">
+              <div className="rounded-lg border border-white/[0.06] bg-black/20 p-3">
+                <div className="text-xs text-slate-500">Completion</div>
+                <div className="mt-1 text-2xl font-bold text-[#E6EDF3]">
                   {onboardingSession.completionScore}%
                 </div>
               </div>
-              <div className="rounded-lg border border-white/6 bg-black/20 p-3">
-                <div className="text-xs text-slate-400">Readiness</div>
+              <div className="rounded-lg border border-white/[0.06] bg-black/20 p-3">
+                <div className="text-xs text-slate-500">Readiness</div>
                 <div className="mt-1 text-lg font-bold capitalize text-teal-300">
                   {onboardingSession.reliabilityReadiness}
                 </div>
               </div>
-              <div className="rounded-lg border border-white/6 bg-black/20 p-3">
-                <div className="text-xs text-slate-400">Mode</div>
-                <div className="mt-1 text-lg font-bold capitalize text-industrial-text">
+              <div className="rounded-lg border border-white/[0.06] bg-black/20 p-3">
+                <div className="text-xs text-slate-500">Mode</div>
+                <div className="mt-1 text-lg font-bold capitalize text-[#E6EDF3]">
                   {onboardingSession.mode}
                 </div>
               </div>
-              <div className="rounded-lg border border-white/6 bg-black/20 p-3">
-                <div className="text-xs text-slate-400">Lifecycle</div>
-                <div className="mt-1 text-sm font-bold text-industrial-text">
+              <div className="rounded-lg border border-white/[0.06] bg-black/20 p-3">
+                <div className="text-xs text-slate-500">Lifecycle</div>
+                <div className="mt-1 text-sm font-bold text-[#E6EDF3]">
                   {getAssetOnboardingLifecycleLabel(
                     onboardingSession.lifecycle,
                   )}
                 </div>
               </div>
-              <div className="rounded-lg border border-white/6 bg-black/20 p-3">
-                <div className="text-xs text-slate-400">Template</div>
+              <div className="rounded-lg border border-white/[0.06] bg-black/20 p-3">
+                <div className="text-xs text-slate-500">Template</div>
                 <div className="mt-1 text-sm font-bold text-teal-300">
                   {getAssetOnboardingIndustryLabel(onboardingSession.industry)}
                 </div>
@@ -813,7 +1163,7 @@ export function ReliabilityCopilotPage() {
                 <input
                   value={onboardingCommand}
                   onChange={(event) => setOnboardingCommand(event.target.value)}
-                  className="rounded-xl border border-white/8 bg-black/20 px-4 py-3 font-mono text-sm text-industrial-text outline-hidden focus:border-teal-500/60"
+                  className="rounded-xl border border-white/[0.08] bg-black/20 px-4 py-3 font-mono text-sm text-[#E6EDF3] outline-none focus:border-teal-500/60"
                   aria-label="Asset onboarding command"
                 />
                 <button
@@ -836,31 +1186,31 @@ export function ReliabilityCopilotPage() {
                   <button
                     key={command}
                     onClick={() => startOnboarding(command)}
-                    className="rounded-lg border border-white/6 bg-white/3 px-2.5 py-1.5 transition-colors hover:bg-white/8"
+                    className="rounded-lg border border-white/[0.06] bg-white/[0.03] px-2.5 py-1.5 transition-colors hover:bg-white/[0.08]"
                   >
                     {command}
                   </button>
                 ))}
               </div>
 
-              <div className="rounded-xl border border-white/6 bg-black/20 p-4">
+              <div className="rounded-xl border border-white/[0.06] bg-black/20 p-4">
                 <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                   <div>
-                    <div className="flex items-center gap-2 text-sm font-semibold text-industrial-text">
+                    <div className="flex items-center gap-2 text-sm font-semibold text-[#E6EDF3]">
                       <ListChecks size={17} className="text-teal-300" />
                       Current step: {currentOnboardingStep.name}
                     </div>
-                    <p className="mt-1 text-sm text-slate-400">
+                    <p className="mt-1 text-sm text-slate-500">
                       {currentOnboardingStep.purpose}
                     </p>
                   </div>
-                  <span className="rounded-lg bg-white/4 px-2 py-1 text-xs font-medium text-slate-300">
+                  <span className="rounded-lg bg-white/[0.04] px-2 py-1 text-xs font-medium text-slate-300">
                     {currentOnboardingStep.completionScore}% complete
                   </span>
                 </div>
                 <div className="mt-4 grid gap-4 lg:grid-cols-2">
                   <div>
-                    <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                    <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                       Guided questions
                     </div>
                     <ul className="mt-2 space-y-2 text-sm text-slate-300">
@@ -873,7 +1223,7 @@ export function ReliabilityCopilotPage() {
                     </ul>
                   </div>
                   <div>
-                    <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                    <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                       Required fields
                     </div>
                     <div className="mt-2 flex flex-wrap gap-2">
@@ -882,7 +1232,7 @@ export function ReliabilityCopilotPage() {
                         .map((field) => (
                           <span
                             key={field}
-                            className="rounded-lg bg-white/4 px-2 py-1 text-xs text-slate-300"
+                            className="rounded-lg bg-white/[0.04] px-2 py-1 text-xs text-slate-300"
                           >
                             {field}
                           </span>
@@ -893,7 +1243,7 @@ export function ReliabilityCopilotPage() {
                 <textarea
                   value={onboardingAnswer}
                   onChange={(event) => setOnboardingAnswer(event.target.value)}
-                  className="mt-4 min-h-32 w-full resize-y rounded-xl border border-white/8 bg-black/20 p-3 text-sm text-industrial-text outline-hidden focus:border-teal-500/60"
+                  className="mt-4 min-h-32 w-full resize-y rounded-xl border border-white/[0.08] bg-black/20 p-3 text-sm text-[#E6EDF3] outline-none focus:border-teal-500/60"
                   aria-label="Asset onboarding answer"
                 />
                 <div className="mt-3 flex flex-wrap gap-3">
@@ -914,7 +1264,7 @@ export function ReliabilityCopilotPage() {
                         getOnboardingSampleAnswer(onboardingSession),
                       )
                     }
-                    className="inline-flex items-center gap-2 rounded-lg border border-white/8 px-4 py-2 text-sm font-semibold text-slate-200 transition-colors hover:bg-white/4"
+                    className="inline-flex items-center gap-2 rounded-lg border border-white/[0.08] px-4 py-2 text-sm font-semibold text-slate-200 transition-colors hover:bg-white/[0.04]"
                   >
                     <BrainCircuit size={16} />
                     Use Guided Draft
@@ -942,20 +1292,20 @@ export function ReliabilityCopilotPage() {
                 />
               </div>
 
-              <div className="rounded-xl border border-white/6 bg-black/20 p-4">
+              <div className="rounded-xl border border-white/[0.06] bg-black/20 p-4">
                 <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                   <div>
-                    <div className="flex items-center gap-2 text-sm font-semibold text-industrial-text">
+                    <div className="flex items-center gap-2 text-sm font-semibold text-[#E6EDF3]">
                       <Database size={17} className="text-teal-300" />
                       Persistence and resume
                     </div>
-                    <p className="mt-1 text-sm text-slate-400">
+                    <p className="mt-1 text-sm text-slate-500">
                       {onboardingSaveMessage}
                     </p>
                   </div>
                   <button
                     onClick={() => void refreshSavedOnboardingSessions()}
-                    className="inline-flex items-center gap-2 rounded-lg border border-white/8 px-3 py-2 text-xs font-semibold text-slate-200 transition-colors hover:bg-white/4"
+                    className="inline-flex items-center gap-2 rounded-lg border border-white/[0.08] px-3 py-2 text-xs font-semibold text-slate-200 transition-colors hover:bg-white/[0.04]"
                   >
                     <RefreshCw size={14} />
                     Refresh
@@ -972,17 +1322,17 @@ export function ReliabilityCopilotPage() {
                         onClick={() =>
                           void resumeOnboardingSession(session.sessionId)
                         }
-                        className="rounded-lg border border-white/6 bg-white/3 p-3 text-left transition-colors hover:bg-white/8"
+                        className="rounded-lg border border-white/[0.06] bg-white/[0.03] p-3 text-left transition-colors hover:bg-white/[0.08]"
                       >
                         <div className="flex items-center justify-between gap-3">
-                          <div className="font-mono text-sm font-semibold text-industrial-text">
+                          <div className="font-mono text-sm font-semibold text-[#E6EDF3]">
                             {session.assetId}
                           </div>
-                          <span className="rounded-sm bg-teal-500/10 px-2 py-0.5 text-xs capitalize text-teal-300">
+                          <span className="rounded bg-teal-500/10 px-2 py-0.5 text-xs capitalize text-teal-300">
                             {session.source}
                           </span>
                         </div>
-                        <div className="mt-1 text-xs capitalize text-slate-400">
+                        <div className="mt-1 text-xs capitalize text-slate-500">
                           {session.assetClass.replace("_", " ")} ·{" "}
                           {session.mode} · {session.lifecycle.replace("_", " ")}{" "}
                           · {session.industry.replace("_", " ")} ·{" "}
@@ -992,7 +1342,7 @@ export function ReliabilityCopilotPage() {
                       </button>
                     ))
                   ) : (
-                    <div className="rounded-lg border border-white/6 bg-white/3 p-3 text-sm text-slate-400 md:col-span-2">
+                    <div className="rounded-lg border border-white/[0.06] bg-white/[0.03] p-3 text-sm text-slate-500 md:col-span-2">
                       No saved sessions yet. Start onboarding or save a step to
                       create a resumable asset profile.
                     </div>
@@ -1002,12 +1352,12 @@ export function ReliabilityCopilotPage() {
             </div>
 
             <div className="space-y-4">
-              <div className="rounded-xl border border-white/6 bg-black/20 p-4">
-                <div className="flex items-center gap-2 text-sm font-semibold text-industrial-text">
+              <div className="rounded-xl border border-white/[0.06] bg-black/20 p-4">
+                <div className="flex items-center gap-2 text-sm font-semibold text-[#E6EDF3]">
                   <PackageCheck size={17} className="text-teal-300" />
                   Final Package Exports
                 </div>
-                <p className="mt-2 text-sm text-slate-400">
+                <p className="mt-2 text-sm text-slate-500">
                   Export the onboarding package as Word, PDF-ready HTML, Excel
                   CSV, JSON, CMMS import CSV, Power BI dataset JSON, or API
                   payload.
@@ -1017,7 +1367,7 @@ export function ReliabilityCopilotPage() {
                     <button
                       key={option.key}
                       onClick={() => exportOnboarding(option)}
-                      className="inline-flex items-center justify-center gap-2 rounded-lg border border-white/8 bg-white/3 px-3 py-2 text-xs font-semibold text-slate-200 transition-colors hover:bg-white/8"
+                      className="inline-flex items-center justify-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-xs font-semibold text-slate-200 transition-colors hover:bg-white/[0.08]"
                     >
                       <Download size={14} />
                       {option.label}
@@ -1026,8 +1376,8 @@ export function ReliabilityCopilotPage() {
                 </div>
               </div>
 
-              <div className="rounded-xl border border-white/6 bg-black/20 p-4">
-                <div className="text-sm font-semibold text-industrial-text">
+              <div className="rounded-xl border border-white/[0.06] bg-black/20 p-4">
+                <div className="text-sm font-semibold text-[#E6EDF3]">
                   Progress
                 </div>
                 <div className="mt-3 max-h-[520px] space-y-2 overflow-auto pr-1">
@@ -1037,15 +1387,15 @@ export function ReliabilityCopilotPage() {
                       className={`rounded-lg border px-3 py-2 ${
                         step.id === onboardingSession.currentStep
                           ? "border-teal-500/40 bg-teal-500/10"
-                          : "border-white/6 bg-white/3"
+                          : "border-white/[0.06] bg-white/[0.03]"
                       }`}
                     >
                       <div className="flex items-center justify-between gap-3">
                         <div className="min-w-0">
-                          <div className="truncate text-sm font-medium text-industrial-text">
+                          <div className="truncate text-sm font-medium text-[#E6EDF3]">
                             {index + 1}. {step.name}
                           </div>
-                          <div className="text-xs capitalize text-slate-400">
+                          <div className="text-xs capitalize text-slate-500">
                             {step.completionStatus.replace("_", " ")}
                           </div>
                         </div>
@@ -1053,7 +1403,7 @@ export function ReliabilityCopilotPage() {
                           {step.completionScore}%
                         </div>
                       </div>
-                      <div className="mt-2 h-1.5 rounded-full bg-white/6">
+                      <div className="mt-2 h-1.5 rounded-full bg-white/[0.06]">
                         <div
                           className="h-1.5 rounded-full bg-teal-400"
                           style={{ width: `${step.completionScore}%` }}
@@ -1070,18 +1420,20 @@ export function ReliabilityCopilotPage() {
 
       {activeWorkspace === "analysis" && (
         <section className="grid grid-cols-1 gap-5">
-          <div className="rounded-2xl border border-white/8 bg-[#0D131A]/90 p-4 shadow-xl shadow-black/20">
+          <div className="rounded-2xl border border-white/[0.08] bg-[#0D131A]/90 p-4 shadow-xl shadow-black/20">
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <div>
                 <div className="text-xs font-semibold uppercase tracking-[0.2em] text-teal-300/80">
-                  Active workspace
+                  Live value decision workspace
                 </div>
                 <h2 className="mt-1 text-lg font-semibold tracking-tight text-[#F8FAFC]">
-                  Ask, analyze, and produce the decision packet
+                  Turn failure history into a spend, risk, action, and value
+                  decision
                 </h2>
-                <p className="text-sm text-slate-400">
-                  Select a reliability method, add context, and generate a
-                  review-ready starter pack.
+                <p className="text-sm text-slate-500">
+                  Select a reliability method, add context, and produce a
+                  review-ready packet that links technical action to verified
+                  business value.
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
@@ -1092,7 +1444,7 @@ export function ReliabilityCopilotPage() {
                     className={`rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
                       mode === item
                         ? "bg-teal-400 text-slate-950 shadow-lg shadow-teal-950/20"
-                        : "bg-white/4 text-slate-300 hover:bg-white/8"
+                        : "bg-white/[0.04] text-slate-300 hover:bg-white/[0.08]"
                     }`}
                   >
                     {item}
@@ -1102,18 +1454,73 @@ export function ReliabilityCopilotPage() {
             </div>
 
             <div className="mt-4 space-y-4">
+              <div className="rounded-2xl border border-amber-300/20 bg-amber-300/[0.08] p-4">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle size={18} className="mt-0.5 text-amber-300" />
+                  <div>
+                    <div className="text-sm font-semibold text-amber-100">
+                      Free mode is for examples and non-sensitive context
+                    </div>
+                    <p className="mt-1 text-sm leading-6 text-amber-100/80">
+                      Do not enter confidential site data, controlled documents,
+                      personal information, or proprietary operating history in
+                      the free demo. Use the secure workspace for
+                      tenant-isolated company analysis.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid gap-3 lg:grid-cols-4">
+                <ValueLensCard
+                  label="Spend next"
+                  value={
+                    report.badActors[0]
+                      ? `${report.badActors[0].assetId} bad actor`
+                      : "Highest value asset"
+                  }
+                  detail="Direct the next maintenance dollar to the repeat pattern with the clearest exposure."
+                />
+                <ValueLensCard
+                  label="Address first"
+                  value={`${report.riskLevel} risk`}
+                  detail="Prioritize by safety, production, environmental, and cost consequence."
+                />
+                <ValueLensCard
+                  label="Take action"
+                  value={
+                    report.governedRecommendations[0]?.recommendation ??
+                    report.actions[0]
+                  }
+                  detail="Recommend the smallest governed action that can validate or reduce the risk."
+                />
+                <ValueLensCard
+                  label="Prove value"
+                  value="Estimated -> approved -> verified"
+                  detail="Separate forecasted value from authorized value and realized value after execution."
+                />
+              </div>
+
+              <ValueProofPanel
+                inputs={valueProofInputs}
+                proof={valueProof}
+                onChange={handleValueProofInputChange}
+              />
+
+              <ProofHandoffPanel />
+
               <div className="grid min-h-[620px] gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
-                <div className="flex min-h-[620px] flex-col rounded-2xl border border-white/8 bg-[#080C11] shadow-xl shadow-black/20">
-                  <div className="order-1 border-b border-white/6 p-4">
+                <div className="flex min-h-[620px] flex-col rounded-2xl border border-white/[0.08] bg-[#080C11] shadow-xl shadow-black/20">
+                  <div className="order-1 border-b border-white/[0.06] p-4">
                     <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                       <div>
                         <div className="flex items-center gap-2 text-base font-semibold text-[#F8FAFC]">
                           <MessageSquare size={18} className="text-teal-300" />
-                          Cowork Thread
+                          Decision Thread
                         </div>
-                        <p className="mt-1 text-sm leading-6 text-slate-400">
-                          The conversation, decisions, and generated reliability
-                          packet stay together.
+                        <p className="mt-1 text-sm leading-6 text-slate-500">
+                          The question, evidence, recommendation, approval gate,
+                          and value trail stay together.
                         </p>
                       </div>
                       <div className="grid min-w-[260px] grid-cols-3 gap-2 text-center">
@@ -1140,7 +1547,7 @@ export function ReliabilityCopilotPage() {
                       </div>
                       <div className="mt-3 grid gap-3 md:grid-cols-2">
                         <div>
-                          <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
+                          <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
                             Recommendation
                           </div>
                           <p className="mt-1 text-sm leading-6 text-slate-200">
@@ -1148,7 +1555,7 @@ export function ReliabilityCopilotPage() {
                           </p>
                         </div>
                         <div>
-                          <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
+                          <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
                             Approval Gate
                           </div>
                           <p className="mt-1 text-sm leading-6 text-slate-200">
@@ -1158,12 +1565,12 @@ export function ReliabilityCopilotPage() {
                       </div>
                     </div>
                   </div>
-                  <div className="order-4 border-t border-white/6 p-4">
+                  <div className="hidden">
                     <div className="mb-2 flex items-center justify-between gap-3">
                       <div className="text-xs font-semibold uppercase tracking-[0.18em] text-teal-300">
                         Ask SyncAI
                       </div>
-                      <div className="text-xs text-slate-400">
+                      <div className="text-xs text-slate-500">
                         Press Cmd/Ctrl + Enter to send
                       </div>
                     </div>
@@ -1179,7 +1586,7 @@ export function ReliabilityCopilotPage() {
                           void generateReport();
                         }
                       }}
-                      className="min-h-28 w-full resize-none rounded-2xl border border-teal-300/20 bg-black/45 p-4 text-sm leading-6 text-industrial-text outline-hidden transition-colors placeholder:text-slate-400 focus:border-teal-400/70 focus:ring-4 focus:ring-teal-400/10"
+                      className="min-h-28 w-full resize-none rounded-2xl border border-teal-300/20 bg-black/45 p-4 text-sm leading-6 text-[#E6EDF3] outline-none transition-colors placeholder:text-slate-500 focus:border-teal-400/70 focus:ring-4 focus:ring-teal-400/10"
                       placeholder="Ask for RCA, FRACAS, PM optimization, RAM, or /onboard pump P-101..."
                       aria-label="Interactive reliability chat input"
                     />
@@ -1201,14 +1608,14 @@ export function ReliabilityCopilotPage() {
                         onClick={() =>
                           setPrompt("/onboard used pump P-101 oil-sands deep")
                         }
-                        className="inline-flex items-center gap-2 rounded-xl border border-white/8 px-3 py-2.5 text-xs font-semibold text-slate-200 transition-colors hover:bg-white/4"
+                        className="inline-flex items-center gap-2 rounded-xl border border-white/[0.08] px-3 py-2.5 text-xs font-semibold text-slate-200 transition-colors hover:bg-white/[0.04]"
                       >
                         <Sparkles size={14} />
                         /onboard
                       </button>
                       <button
                         onClick={exportReport}
-                        className="inline-flex items-center gap-2 rounded-xl border border-white/8 px-3 py-2.5 text-xs font-semibold text-slate-200 transition-colors hover:bg-white/4"
+                        className="inline-flex items-center gap-2 rounded-xl border border-white/[0.08] px-3 py-2.5 text-xs font-semibold text-slate-200 transition-colors hover:bg-white/[0.04]"
                       >
                         <Download size={14} />
                         Export
@@ -1218,17 +1625,17 @@ export function ReliabilityCopilotPage() {
                 </div>
 
                 <div className="space-y-4">
-                  <div className="rounded-2xl border border-white/8 bg-[#080C11] p-4 shadow-xl shadow-black/20">
+                  <div className="rounded-2xl border border-white/[0.08] bg-[#080C11] p-4 shadow-xl shadow-black/20">
                     <div className="flex items-center gap-2 text-sm font-semibold text-[#F8FAFC]">
                       <Bot size={17} className="text-teal-300" />
                       Agent Workstream
                     </div>
-                    <p className="mt-1 text-xs leading-5 text-slate-400">
+                    <p className="mt-1 text-xs leading-5 text-slate-500">
                       Real-time feedback from the reliability workflow.
                     </p>
                     <div className="mt-4 rounded-2xl border border-white/[0.07] bg-black/25 p-4">
                       <div className="flex items-center justify-between gap-3">
-                        <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+                        <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
                           Live Work Stream
                         </div>
                         <span className="rounded-full border border-teal-300/20 bg-teal-300/10 px-2.5 py-1 text-xs font-semibold text-teal-200">
@@ -1243,7 +1650,7 @@ export function ReliabilityCopilotPage() {
                     </div>
                   </div>
 
-                  <div className="rounded-2xl border border-white/8 bg-[#080C11] p-4 shadow-xl shadow-black/20">
+                  <div className="rounded-2xl border border-white/[0.08] bg-[#080C11] p-4 shadow-xl shadow-black/20">
                     <div className="flex items-center gap-2 text-sm font-semibold text-[#F8FAFC]">
                       <CircleDot size={17} className="text-teal-300" />
                       Artifact Snapshot
@@ -1269,7 +1676,7 @@ export function ReliabilityCopilotPage() {
                     </div>
                   </div>
 
-                  <div className="rounded-2xl border border-white/8 bg-[#080C11] p-4 shadow-xl shadow-black/20">
+                  <div className="rounded-2xl border border-white/[0.08] bg-[#080C11] p-4 shadow-xl shadow-black/20">
                     <div className="flex items-center gap-2 text-sm font-semibold text-[#F8FAFC]">
                       <Gauge size={17} className="text-teal-300" />
                       Live Math
@@ -1301,23 +1708,23 @@ export function ReliabilityCopilotPage() {
                 </div>
               </div>
 
-              <details className="rounded-2xl border border-dashed border-white/12 bg-white/2.5 p-4">
+              <details className="rounded-2xl border border-dashed border-white/[0.12] bg-white/[0.025] p-4">
                 <summary className="cursor-pointer list-none">
                   <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="flex items-center gap-2 text-sm font-semibold text-industrial-text">
+                    <div className="flex items-center gap-2 text-sm font-semibold text-[#E6EDF3]">
                       <Upload size={17} className="text-teal-300" />
                       Add failure-history data
                     </div>
-                    <span className="text-xs text-slate-400">
+                    <span className="text-xs text-slate-500">
                       Optional CSV intake
                     </span>
                   </div>
                 </summary>
-                <p className="mt-3 text-sm text-slate-400">
+                <p className="mt-3 text-sm text-slate-500">
                   Paste or upload CSV failure history. The report updates from
                   this data when you generate.
                 </p>
-                <label className="mt-4 flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-white/8 bg-black/20 px-3 py-2 text-sm font-medium text-slate-200 transition-colors hover:bg-white/4">
+                <label className="mt-4 flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-white/[0.08] bg-black/20 px-3 py-2 text-sm font-medium text-slate-200 transition-colors hover:bg-white/[0.04]">
                   <Upload size={16} />
                   Upload CSV
                   <input
@@ -1330,7 +1737,7 @@ export function ReliabilityCopilotPage() {
                 <textarea
                   value={csvText}
                   onChange={(event) => setCsvText(event.target.value)}
-                  className="mt-3 min-h-44 w-full resize-y rounded-xl border border-white/8 bg-[#080C11] p-3 font-mono text-xs text-industrial-text outline-hidden focus:border-teal-500/60"
+                  className="mt-3 min-h-44 w-full resize-y rounded-xl border border-white/[0.08] bg-[#080C11] p-3 font-mono text-xs text-[#E6EDF3] outline-none focus:border-teal-500/60"
                   aria-label="Failure history CSV"
                 />
                 <div className="mt-4 grid gap-2 md:grid-cols-2">
@@ -1346,7 +1753,7 @@ export function ReliabilityCopilotPage() {
                 </div>
               </details>
 
-              <div className="rounded-2xl border border-white/8 bg-[linear-gradient(180deg,rgba(255,255,255,0.045),rgba(255,255,255,0.02))] p-4 shadow-xl shadow-black/10">
+              <div className="rounded-2xl border border-white/[0.08] bg-[linear-gradient(180deg,rgba(255,255,255,0.045),rgba(255,255,255,0.02))] p-4 shadow-xl shadow-black/10">
                 <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
                   <div className="flex items-center gap-2 text-sm font-semibold text-[#F8FAFC]">
                     <ShieldCheck size={17} className="text-teal-300" />
@@ -1359,20 +1766,42 @@ export function ReliabilityCopilotPage() {
                     <span className="rounded-full border border-sky-300/20 bg-sky-300/10 px-2.5 py-1 text-sky-100">
                       Confidence: {report.confidence}
                     </span>
-                    <span className="rounded-full border border-white/8 bg-white/4 px-2.5 py-1 text-slate-300">
+                    <span className="rounded-full border border-white/[0.08] bg-white/[0.04] px-2.5 py-1 text-slate-300">
                       Records: {report.dataSummary.recordCount}
                     </span>
                   </div>
                 </div>
+                <div className="mt-4 grid gap-3 lg:grid-cols-2">
+                  <div className="rounded-2xl border border-white/[0.06] bg-black/25 p-4">
+                    <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+                      Before SyncAI
+                    </div>
+                    <p className="mt-2 text-sm leading-6 text-slate-300">
+                      Scattered work orders, unclear mechanism, competing
+                      maintenance requests, and no clean trail from spend to
+                      realized value.
+                    </p>
+                  </div>
+                  <div className="rounded-2xl border border-teal-300/20 bg-teal-300/[0.07] p-4">
+                    <div className="text-xs font-semibold uppercase tracking-[0.16em] text-teal-200">
+                      After SyncAI
+                    </div>
+                    <p className="mt-2 text-sm leading-6 text-slate-100">
+                      Pattern detected, first risk ranked, governed action
+                      proposed, approval boundary preserved, and value ready to
+                      verify after execution.
+                    </p>
+                  </div>
+                </div>
                 <div className="mt-3 grid gap-3 text-sm text-slate-300 md:grid-cols-2">
                   <div>
-                    <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                    <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                       Recommendation
                     </div>
                     <p className="mt-1">{report.recommendations[0]}</p>
                   </div>
                   <div>
-                    <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                    <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                       Top Bad Actor
                     </div>
                     <p className="mt-1">
@@ -1384,32 +1813,32 @@ export function ReliabilityCopilotPage() {
                     </p>
                   </div>
                   <div>
-                    <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                    <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                       Next Actions
                     </div>
                     <p className="mt-1">{report.actions[0]}</p>
                   </div>
                   <div>
-                    <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                    <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                       Approval Boundary
                     </div>
                     <p className="mt-1">{report.approvalBoundary[0]}</p>
                   </div>
                 </div>
                 <div className="mt-4 grid gap-3 lg:grid-cols-3">
-                  <div className="rounded-xl border border-white/6 bg-black/20 p-3">
-                    <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                  <div className="rounded-xl border border-white/[0.06] bg-black/20 p-3">
+                    <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
                       <BookOpenText size={15} className="text-teal-300" />
                       Source Grounding
                     </div>
                     <div className="mt-2 space-y-2">
                       {report.sources.slice(0, 2).map((source) => (
                         <div key={source.id} className="text-xs text-slate-300">
-                          <div className="font-semibold text-industrial-text">
+                          <div className="font-semibold text-[#E6EDF3]">
                             {source.source}
                           </div>
                           <div>{source.title}</div>
-                          <div className="text-slate-400">
+                          <div className="text-slate-500">
                             Confidence: {source.confidence}
                           </div>
                         </div>
@@ -1422,20 +1851,20 @@ export function ReliabilityCopilotPage() {
                       )}
                     </div>
                   </div>
-                  <div className="rounded-xl border border-white/6 bg-black/20 p-3">
-                    <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                  <div className="rounded-xl border border-white/[0.06] bg-black/20 p-3">
+                    <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
                       <ShieldCheck size={15} className="text-teal-300" />
                       Governed Recommendation
                     </div>
                     <p className="mt-2 text-xs text-slate-300">
                       {report.governedRecommendations[0]?.requiredValidation}
                     </p>
-                    <p className="mt-2 text-xs text-slate-400">
+                    <p className="mt-2 text-xs text-slate-500">
                       Owner: {report.governedRecommendations[0]?.ownerRole}
                     </p>
                   </div>
-                  <div className="rounded-xl border border-white/6 bg-black/20 p-3">
-                    <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                  <div className="rounded-xl border border-white/[0.06] bg-black/20 p-3">
+                    <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
                       <AlertTriangle size={15} className="text-amber-300" />
                       Data Quality
                     </div>
@@ -1443,17 +1872,17 @@ export function ReliabilityCopilotPage() {
                       {report.dataQualityFindings[0]?.issue ??
                         "No high-impact data quality issues were detected."}
                     </p>
-                    <p className="mt-2 text-xs text-slate-400">
+                    <p className="mt-2 text-xs text-slate-500">
                       {report.dataQualityFindings[0]?.nextAction ??
                         "Keep failure modes, dates, downtime, and repair hours normalized."}
                     </p>
                   </div>
                 </div>
-                <details className="mt-4 rounded-xl border border-white/6 bg-black/30">
+                <details className="mt-4 rounded-xl border border-white/[0.06] bg-black/30">
                   <summary className="cursor-pointer px-4 py-3 text-sm font-semibold text-slate-200">
                     View full deterministic report
                   </summary>
-                  <pre className="max-h-96 overflow-auto whitespace-pre-wrap border-t border-white/6 p-4 text-xs leading-5 text-slate-200">
+                  <pre className="max-h-96 overflow-auto whitespace-pre-wrap border-t border-white/[0.06] p-4 text-xs leading-5 text-slate-200">
                     {report.markdown}
                   </pre>
                 </details>
@@ -1461,7 +1890,7 @@ export function ReliabilityCopilotPage() {
 
               <div className="rounded-2xl border border-teal-300/20 bg-teal-300/[0.07] p-4">
                 <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
-                  <div className="flex items-center gap-2 text-sm font-semibold text-industrial-text">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-[#E6EDF3]">
                     <Bot size={17} className="text-teal-300" />
                     Live AI Reliability Review
                   </div>
@@ -1496,7 +1925,7 @@ export function ReliabilityCopilotPage() {
           <div className="hidden space-y-4">
             <div className="rounded-2xl border border-teal-300/20 bg-[#0D131A]/90 p-5 shadow-xl shadow-black/20">
               <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2 text-sm font-semibold text-industrial-text">
+                <div className="flex items-center gap-2 text-sm font-semibold text-[#E6EDF3]">
                   <Bot size={17} className="text-teal-300" />
                   Agent Runtime
                 </div>
@@ -1511,8 +1940,8 @@ export function ReliabilityCopilotPage() {
               </div>
             </div>
 
-            <div className="rounded-2xl border border-white/8 bg-[#0D131A]/90 p-5 shadow-xl shadow-black/20">
-              <div className="flex items-center gap-2 text-sm font-semibold text-industrial-text">
+            <div className="rounded-2xl border border-white/[0.08] bg-[#0D131A]/90 p-5 shadow-xl shadow-black/20">
+              <div className="flex items-center gap-2 text-sm font-semibold text-[#E6EDF3]">
                 <ShieldCheck size={17} className="text-teal-300" />
                 Decision Snapshot
               </div>
@@ -1534,13 +1963,13 @@ export function ReliabilityCopilotPage() {
               </div>
             </div>
 
-            <div className="rounded-2xl border border-white/8 bg-[#0D131A]/90 p-5 shadow-xl shadow-black/20">
+            <div className="rounded-2xl border border-white/[0.08] bg-[#0D131A]/90 p-5 shadow-xl shadow-black/20">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-lg font-semibold text-industrial-text">
+                  <h2 className="text-lg font-semibold text-[#E6EDF3]">
                     RAM Calculator
                   </h2>
-                  <p className="text-sm text-slate-400">
+                  <p className="text-sm text-slate-500">
                     Deterministic formulas, not LLM math.
                   </p>
                 </div>
@@ -1571,7 +2000,7 @@ export function ReliabilityCopilotPage() {
                 </div>
               )}
 
-              <details className="mt-4 rounded-xl border border-white/6 bg-black/20 p-3">
+              <details className="mt-4 rounded-xl border border-white/[0.06] bg-black/20 p-3">
                 <summary className="cursor-pointer text-sm font-semibold text-slate-200">
                   Adjust calculation inputs
                 </summary>
@@ -1584,7 +2013,7 @@ export function ReliabilityCopilotPage() {
                     ["missionTime", "Mission time"],
                   ].map(([key, label]) => (
                     <label key={key} className="space-y-1">
-                      <span className="text-xs font-medium text-slate-400">
+                      <span className="text-xs font-medium text-slate-500">
                         {label}
                       </span>
                       <input
@@ -1595,7 +2024,7 @@ export function ReliabilityCopilotPage() {
                             event.target.value,
                           )
                         }
-                        className="w-full rounded-lg border border-white/8 bg-black/20 px-3 py-2 text-sm text-industrial-text outline-hidden focus:border-teal-500/60"
+                        className="w-full rounded-lg border border-white/[0.08] bg-black/20 px-3 py-2 text-sm text-[#E6EDF3] outline-none focus:border-teal-500/60"
                       />
                     </label>
                   ))}
@@ -1608,7 +2037,7 @@ export function ReliabilityCopilotPage() {
 
       {activeWorkspace === "evidence" && (
         <section className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1.2fr)_420px]">
-          <div className="rounded-2xl border border-white/8 bg-[#0D131A]/90 p-5 shadow-2xl shadow-black/20">
+          <div className="rounded-2xl border border-white/[0.08] bg-[#0D131A]/90 p-5 shadow-2xl shadow-black/20">
             <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
               <div>
                 <div className="text-xs font-semibold uppercase tracking-[0.2em] text-teal-300/80">
@@ -1625,7 +2054,7 @@ export function ReliabilityCopilotPage() {
               </div>
               <button
                 onClick={exportReport}
-                className="inline-flex items-center gap-2 rounded-xl border border-white/8 px-4 py-2.5 text-sm font-semibold text-slate-200 transition-colors hover:bg-white/4"
+                className="inline-flex items-center gap-2 rounded-xl border border-white/[0.08] px-4 py-2.5 text-sm font-semibold text-slate-200 transition-colors hover:bg-white/[0.04]"
               >
                 <Download size={16} />
                 Export Evidence Pack
@@ -1655,7 +2084,7 @@ export function ReliabilityCopilotPage() {
             </div>
 
             <div className="mt-5 grid gap-4 lg:grid-cols-2">
-              <div className="rounded-2xl border border-white/6 bg-black/20 p-4">
+              <div className="rounded-2xl border border-white/[0.06] bg-black/20 p-4">
                 <div className="text-sm font-semibold text-[#F8FAFC]">
                   Retrieved knowledge
                 </div>
@@ -1663,15 +2092,15 @@ export function ReliabilityCopilotPage() {
                   {report.sources.map((source) => (
                     <div
                       key={source.id}
-                      className="rounded-xl border border-white/6 bg-white/3 p-3"
+                      className="rounded-xl border border-white/[0.06] bg-white/[0.03] p-3"
                     >
-                      <div className="text-sm font-semibold text-industrial-text">
+                      <div className="text-sm font-semibold text-[#E6EDF3]">
                         {source.source}
                       </div>
                       <div className="mt-1 text-sm text-slate-400">
                         {source.title}
                       </div>
-                      <div className="mt-2 text-xs text-slate-400">
+                      <div className="mt-2 text-xs text-slate-500">
                         Confidence: {source.confidence}
                       </div>
                     </div>
@@ -1679,7 +2108,7 @@ export function ReliabilityCopilotPage() {
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-white/6 bg-black/20 p-4">
+              <div className="rounded-2xl border border-white/[0.06] bg-black/20 p-4">
                 <div className="text-sm font-semibold text-[#F8FAFC]">
                   Data quality and assumptions
                 </div>
@@ -1687,9 +2116,9 @@ export function ReliabilityCopilotPage() {
                   {report.dataQualityFindings.map((finding) => (
                     <div
                       key={finding.issue}
-                      className="rounded-xl border border-white/6 bg-white/3 p-3"
+                      className="rounded-xl border border-white/[0.06] bg-white/[0.03] p-3"
                     >
-                      <div className="text-sm font-semibold text-industrial-text">
+                      <div className="text-sm font-semibold text-[#E6EDF3]">
                         {finding.issue}
                       </div>
                       <div className="mt-1 text-sm text-slate-400">
@@ -1704,7 +2133,7 @@ export function ReliabilityCopilotPage() {
 
           <div className="space-y-4">
             <div className="rounded-2xl border border-teal-300/20 bg-[#0D131A]/90 p-5 shadow-xl shadow-black/20">
-              <div className="flex items-center gap-2 text-sm font-semibold text-industrial-text">
+              <div className="flex items-center gap-2 text-sm font-semibold text-[#E6EDF3]">
                 <Bot size={17} className="text-teal-300" />
                 Agent Work Trace
               </div>
@@ -1715,11 +2144,11 @@ export function ReliabilityCopilotPage() {
               </div>
             </div>
 
-            <div className="rounded-2xl border border-white/8 bg-[#0D131A]/90 p-5 shadow-xl shadow-black/20">
+            <div className="rounded-2xl border border-white/[0.08] bg-[#0D131A]/90 p-5 shadow-xl shadow-black/20">
               <div className="text-sm font-semibold text-[#F8FAFC]">
                 Deterministic report
               </div>
-              <pre className="mt-3 max-h-[520px] overflow-auto whitespace-pre-wrap rounded-xl border border-white/6 bg-black/30 p-4 text-xs leading-5 text-slate-200">
+              <pre className="mt-3 max-h-[520px] overflow-auto whitespace-pre-wrap rounded-xl border border-white/[0.06] bg-black/30 p-4 text-xs leading-5 text-slate-200">
                 {report.markdown}
               </pre>
             </div>
@@ -1728,28 +2157,28 @@ export function ReliabilityCopilotPage() {
       )}
 
       {activeWorkspace === "analysis" && (
-        <details className="glass rounded-xl border border-white/6 p-4">
-          <summary className="cursor-pointer text-sm font-semibold text-industrial-text">
+        <details className="glass rounded-xl border border-white/[0.06] p-4">
+          <summary className="cursor-pointer text-sm font-semibold text-[#E6EDF3]">
             Bad actor detail
           </summary>
           <section className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
             {report.badActors.slice(0, 4).map((actor, index) => (
               <div
                 key={actor.assetId}
-                className="glass rounded-xl border border-white/6 p-4"
+                className="glass rounded-xl border border-white/[0.06] p-4"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="rounded-lg bg-teal-500/10 p-2">
                     <BarChart3 size={19} className="text-teal-300" />
                   </div>
-                  <span className="rounded-lg bg-white/4 px-2 py-1 text-xs font-medium text-slate-300">
+                  <span className="rounded-lg bg-white/[0.04] px-2 py-1 text-xs font-medium text-slate-300">
                     #{index + 1}
                   </span>
                 </div>
-                <h3 className="mt-4 text-sm font-semibold text-industrial-text">
+                <h3 className="mt-4 text-sm font-semibold text-[#E6EDF3]">
                   {actor.assetId}
                 </h3>
-                <p className="mt-2 text-sm text-slate-400">
+                <p className="mt-2 text-sm text-slate-500">
                   {formatNumber(actor.downtimeHours)} downtime hours,{" "}
                   {actor.failures} failures, top mode: {actor.topFailureMode}.
                 </p>
@@ -1759,8 +2188,8 @@ export function ReliabilityCopilotPage() {
         </details>
       )}
 
-      <details className="glass rounded-xl border border-white/6 p-4">
-        <summary className="cursor-pointer text-sm font-semibold text-industrial-text">
+      <details className="glass rounded-xl border border-white/[0.06] p-4">
+        <summary className="cursor-pointer text-sm font-semibold text-[#E6EDF3]">
           Product capabilities and go-to-market notes
         </summary>
         <section className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -1769,7 +2198,7 @@ export function ReliabilityCopilotPage() {
             return (
               <div
                 key={card.title}
-                className="glass rounded-xl border border-white/6 p-4"
+                className="glass rounded-xl border border-white/[0.06] p-4"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="rounded-lg bg-teal-500/10 p-2">
@@ -1779,10 +2208,10 @@ export function ReliabilityCopilotPage() {
                     MVP
                   </span>
                 </div>
-                <h3 className="mt-4 text-sm font-semibold text-industrial-text">
+                <h3 className="mt-4 text-sm font-semibold text-[#E6EDF3]">
                   {card.title}
                 </h3>
-                <p className="mt-2 text-sm text-slate-400">{card.detail}</p>
+                <p className="mt-2 text-sm text-slate-500">{card.detail}</p>
               </div>
             );
           })}
@@ -1806,6 +2235,279 @@ export function ReliabilityCopilotPage() {
           />
         </section>
       </details>
+
+      {activeWorkspace === "analysis" && (
+        <div className="px-0">
+          <div className="mx-auto max-w-4xl rounded-2xl border border-white/[0.12] bg-[#080C11]/95 p-3 shadow-2xl shadow-black/50 backdrop-blur-xl">
+            <div className="mb-2 flex items-center justify-between gap-3 px-1">
+              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-teal-300">
+                <MessageSquare size={14} />
+                Ask SyncAI
+              </div>
+              <span className="hidden text-xs text-slate-500 sm:block">
+                Reliability cowork session · Cmd/Ctrl + Enter
+              </span>
+            </div>
+            <textarea
+              value={prompt}
+              onChange={(event) => setPrompt(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+                  event.preventDefault();
+                  void generateReport();
+                }
+              }}
+              className="max-h-40 min-h-16 w-full resize-none rounded-xl border border-white/[0.08] bg-black/40 p-3 text-sm leading-6 text-[#E6EDF3] outline-none transition-colors placeholder:text-slate-500 focus:border-teal-400/70 focus:ring-4 focus:ring-teal-400/10"
+              placeholder="Ask SyncAI to analyze failures, build RCA/FRACAS, optimize PMs, or /onboard pump P-101..."
+              aria-label="Floating SyncAI chat input"
+            />
+            <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={() =>
+                    setPrompt("/onboard used pump P-101 oil-sands deep")
+                  }
+                  className="inline-flex items-center gap-2 rounded-lg border border-white/[0.08] px-3 py-2 text-xs font-semibold text-slate-200 transition-colors hover:bg-white/[0.04]"
+                >
+                  <Sparkles size={14} />
+                  /onboard
+                </button>
+                <button
+                  onClick={exportReport}
+                  className="inline-flex items-center gap-2 rounded-lg border border-white/[0.08] px-3 py-2 text-xs font-semibold text-slate-200 transition-colors hover:bg-white/[0.04]"
+                >
+                  <Download size={14} />
+                  Export
+                </button>
+              </div>
+              <button
+                onClick={() => void generateReport()}
+                disabled={!!calculation.error || isRunningLiveAgent}
+                className="inline-flex items-center gap-2 rounded-xl bg-teal-400 px-5 py-2.5 text-sm font-semibold text-slate-950 shadow-lg shadow-teal-950/20 transition-colors hover:bg-teal-300 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isRunningLiveAgent ? (
+                  <RefreshCw size={16} />
+                ) : (
+                  <Send size={16} />
+                )}
+                {isRunningLiveAgent ? "Working" : "Send"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function FreeCapacityPanel({
+  percentUsed,
+  percentRemaining,
+  packetsGenerated,
+  estimatedRunCost,
+  remainingTokens,
+  isExhausted,
+}: {
+  percentUsed: number;
+  percentRemaining: number;
+  packetsGenerated: number;
+  estimatedRunCost: number;
+  remainingTokens: number;
+  isExhausted: boolean;
+}) {
+  const estimatedRunsRemaining =
+    estimatedRunCost > 0 ? Math.floor(remainingTokens / estimatedRunCost) : 0;
+
+  return (
+    <div className="mt-5 rounded-2xl border border-white/[0.08] bg-black/20 p-4">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <div className="flex items-center gap-2 text-sm font-semibold text-[#F8FAFC]">
+            <Gauge size={17} className="text-teal-300" />
+            Free analysis capacity
+          </div>
+          <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-400">
+            Visitors can experience a complete risk-to-value packet before the
+            48-hour value proof gate. Capacity is metered behind the scenes by
+            estimated token use.
+          </p>
+        </div>
+        <a
+          href="/pilot/reliability"
+          onClick={() => trackTrialEvent("secure_workspace_clicked")}
+          className="inline-flex items-center justify-center gap-2 rounded-xl bg-teal-400 px-4 py-2.5 text-sm font-semibold text-slate-950 transition-colors hover:bg-teal-300"
+        >
+          Start 48-hour value proof
+        </a>
+      </div>
+
+      <div className="mt-4 grid gap-3 md:grid-cols-[1fr_auto_auto] md:items-center">
+        <div>
+          <div className="h-2 overflow-hidden rounded-full bg-white/[0.06]">
+            <div
+              className={`h-full rounded-full ${
+                isExhausted ? "bg-amber-300" : "bg-teal-300"
+              }`}
+              style={{ width: `${percentUsed}%` }}
+            />
+          </div>
+          <div className="mt-2 text-xs text-slate-500">
+            {isExhausted
+              ? "Included free capacity used."
+              : `${percentRemaining}% free capacity remaining.`}
+          </div>
+        </div>
+        <CompactMetric
+          label="Packets run"
+          value={`${packetsGenerated} included`}
+        />
+        <CompactMetric
+          label="Next run"
+          value={
+            isExhausted || estimatedRunsRemaining < 1
+              ? "Secure workspace"
+              : "Included"
+          }
+        />
+      </div>
+    </div>
+  );
+}
+
+function ValueLensCard({
+  label,
+  value,
+  detail,
+}: {
+  label: string;
+  value: string;
+  detail: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-white/[0.07] bg-black/20 p-4">
+      <div className="text-xs font-semibold uppercase tracking-[0.16em] text-teal-300/80">
+        {label}
+      </div>
+      <div className="mt-2 line-clamp-2 text-sm font-semibold text-[#F8FAFC]">
+        {value}
+      </div>
+      <p className="mt-2 text-xs leading-5 text-slate-500">{detail}</p>
+    </div>
+  );
+}
+
+function ValueProofPanel({
+  inputs,
+  proof,
+  onChange,
+}: {
+  inputs: ValueProofInputs;
+  proof: {
+    estimatedAvoidedCost: number;
+    netValue: number;
+    roiPercent: number;
+    verificationWindowDays: number;
+  };
+  onChange: (key: keyof ValueProofInputs, value: string) => void;
+}) {
+  const fields: Array<{
+    key: keyof ValueProofInputs;
+    label: string;
+    prefix?: string;
+  }> = [
+    { key: "actionCost", label: "Action cost", prefix: "CAD" },
+    { key: "downtimeHourValue", label: "Downtime value / hour", prefix: "CAD" },
+    { key: "expectedAvoidedHours", label: "Avoided hours" },
+    { key: "verificationWindowDays", label: "Verify after days" },
+    { key: "owner", label: "Value owner" },
+  ];
+
+  return (
+    <div className="rounded-2xl border border-teal-300/15 bg-[linear-gradient(135deg,rgba(20,184,166,0.07),rgba(0,0,0,0.2))] p-4">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <div className="flex items-center gap-2 text-sm font-semibold text-[#F8FAFC]">
+            <BarChart3 size={17} className="text-teal-300" />
+            Value proof model
+          </div>
+          <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-400">
+            Make the recommendation measurable before it becomes work. Track
+            estimated value, authorized value, and verified realized value after
+            the action window.
+          </p>
+        </div>
+        <div className="grid min-w-full grid-cols-2 gap-2 sm:min-w-[420px]">
+          <Metric
+            label="Estimated avoided cost"
+            value={`CAD ${formatNumber(proof.estimatedAvoidedCost, 0)}`}
+          />
+          <Metric
+            label="Net value"
+            value={`CAD ${formatNumber(proof.netValue, 0)}`}
+          />
+          <Metric label="ROI" value={`${proof.roiPercent}%`} />
+          <Metric
+            label="Verification"
+            value={`${formatNumber(proof.verificationWindowDays, 0)} days`}
+          />
+        </div>
+      </div>
+      <div className="mt-4 grid gap-3 md:grid-cols-5">
+        {fields.map((field) => (
+          <label key={field.key} className="space-y-1">
+            <span className="text-xs font-medium text-slate-500">
+              {field.label}
+            </span>
+            <div className="flex rounded-lg border border-white/[0.08] bg-black/20 focus-within:border-teal-500/60">
+              {field.prefix && (
+                <span className="border-r border-white/[0.06] px-2 py-2 text-xs font-semibold text-slate-500">
+                  {field.prefix}
+                </span>
+              )}
+              <input
+                value={inputs[field.key]}
+                onChange={(event) => onChange(field.key, event.target.value)}
+                className="min-w-0 flex-1 bg-transparent px-2 py-2 text-sm text-[#E6EDF3] outline-none"
+                aria-label={field.label}
+              />
+            </div>
+          </label>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ProofHandoffPanel() {
+  return (
+    <div className="grid gap-4 rounded-2xl border border-teal-300/15 bg-[#07110F] p-5 lg:grid-cols-[1fr_auto] lg:items-center">
+      <div>
+        <div className="flex items-center gap-2 text-sm font-semibold text-teal-300">
+          <PackageCheck size={17} />
+          Ready for one-click onboarding?
+        </div>
+        <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-300">
+          Start with a sanitized export for the 48-hour value proof. If the
+          packet shows a real opportunity, SyncAI can generate the workspace
+          shell, data checklist, role invites, approval gates, and first
+          analysis queue in one guided step.
+        </p>
+      </div>
+      <div className="flex flex-wrap gap-3 lg:justify-end">
+        <a
+          href="/pilot/reliability"
+          className="inline-flex items-center justify-center gap-2 rounded-lg bg-teal-500 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-teal-400"
+        >
+          Start 48-hour value proof
+          <ArrowRight size={16} />
+        </a>
+        <a
+          href="/pilot/reliability#onboarding"
+          className="inline-flex items-center justify-center gap-2 rounded-lg border border-white/[0.08] px-5 py-3 text-sm font-semibold text-slate-200 transition-colors hover:bg-white/[0.05]"
+        >
+          Preview onboarding
+        </a>
+      </div>
     </div>
   );
 }
@@ -1813,8 +2515,8 @@ export function ReliabilityCopilotPage() {
 function CompactMetric({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <div className="text-xs font-medium text-slate-400">{label}</div>
-      <div className="mt-1 truncate text-sm font-semibold capitalize text-industrial-text">
+      <div className="text-xs font-medium text-slate-500">{label}</div>
+      <div className="mt-1 truncate text-sm font-semibold capitalize text-[#E6EDF3]">
         {value}
       </div>
     </div>
@@ -1832,10 +2534,10 @@ function Metric({
 }) {
   return (
     <div
-      className={`rounded-lg border border-white/6 bg-black/20 p-3 ${wide ? "col-span-2" : ""}`}
+      className={`rounded-lg border border-white/[0.06] bg-black/20 p-3 ${wide ? "col-span-2" : ""}`}
     >
-      <div className="text-xs text-slate-400">{label}</div>
-      <div className="mt-1 text-xl font-bold text-industrial-text">{value}</div>
+      <div className="text-xs text-slate-500">{label}</div>
+      <div className="mt-1 text-xl font-bold text-[#E6EDF3]">{value}</div>
     </div>
   );
 }
@@ -1850,13 +2552,13 @@ function DecisionRow({
   tone?: "default" | "amber";
 }) {
   return (
-    <div className="rounded-lg border border-white/6 bg-black/20 p-3">
-      <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+    <div className="rounded-lg border border-white/[0.06] bg-black/20 p-3">
+      <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
         {label}
       </div>
       <div
         className={`mt-1 text-sm font-semibold ${
-          tone === "amber" ? "text-amber-200" : "text-industrial-text"
+          tone === "amber" ? "text-amber-200" : "text-[#E6EDF3]"
         }`}
       >
         {value}
@@ -1884,8 +2586,8 @@ function AgentRuntimeStep({
     state === "attention"
       ? "border-amber-300/20 bg-amber-300/[0.07] text-amber-200"
       : state === "active"
-        ? "border-teal-300/25 bg-teal-300/8 text-teal-200"
-        : "border-white/6 bg-white/3 text-slate-300";
+        ? "border-teal-300/25 bg-teal-300/[0.08] text-teal-200"
+        : "border-white/[0.06] bg-white/[0.03] text-slate-300";
 
   return (
     <div className={`rounded-xl border p-3 ${stateClass}`}>
@@ -1894,7 +2596,7 @@ function AgentRuntimeStep({
           <Icon size={compact ? 15 : 16} className="text-current" />
         </div>
         <div className="min-w-0">
-          <div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
+          <div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
             {agent}
           </div>
           <div className="mt-1 text-sm font-semibold text-[#F8FAFC]">
@@ -1916,10 +2618,10 @@ function ChatBubble({ message }: { message: ChatMessage }) {
       <div
         className={`max-w-[92%] rounded-2xl border px-3 py-2.5 ${
           isUser
-            ? "border-teal-300/25 bg-teal-300/12 text-teal-50"
+            ? "border-teal-300/25 bg-teal-300/[0.12] text-teal-50"
             : isSystem
-              ? "border-white/8 bg-white/[0.035] text-slate-300"
-              : "border-white/8 bg-black/30 text-slate-200"
+              ? "border-white/[0.08] bg-white/[0.035] text-slate-300"
+              : "border-white/[0.08] bg-black/30 text-slate-200"
         }`}
       >
         <div className="flex items-center gap-2">
@@ -1930,11 +2632,11 @@ function ChatBubble({ message }: { message: ChatMessage }) {
           ) : (
             <Bot size={14} className="text-teal-300" />
           )}
-          <span className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
+          <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
             {isUser ? "You" : isSystem ? "System" : "SyncAI"}
           </span>
           {message.meta && (
-            <span className="truncate rounded-full bg-white/5 px-2 py-0.5 text-xs text-slate-400">
+            <span className="truncate rounded-full bg-white/[0.05] px-2 py-0.5 text-[11px] text-slate-400">
               {message.meta}
             </span>
           )}
@@ -1959,10 +2661,10 @@ function LiveWorkItem({ label, status }: { label: string; status: string }) {
     <div
       className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 ${
         status === "complete"
-          ? "border-emerald-300/15 bg-emerald-300/6 text-emerald-200"
+          ? "border-emerald-300/15 bg-emerald-300/[0.06] text-emerald-200"
           : status === "active"
-            ? "border-teal-300/25 bg-teal-300/9 text-teal-200"
-            : "border-white/6 bg-white/2.5 text-slate-400"
+            ? "border-teal-300/25 bg-teal-300/[0.09] text-teal-200"
+            : "border-white/[0.06] bg-white/[0.025] text-slate-500"
       }`}
     >
       <Icon size={16} className={status === "active" ? "animate-spin" : ""} />
@@ -1970,7 +2672,7 @@ function LiveWorkItem({ label, status }: { label: string; status: string }) {
         <div className="truncate text-sm font-semibold text-[#F8FAFC]">
           {label}
         </div>
-        <div className="text-xs capitalize text-slate-400">{status}</div>
+        <div className="text-xs capitalize text-slate-500">{status}</div>
       </div>
     </div>
   );
@@ -1987,7 +2689,7 @@ function EvidenceTile({
 }) {
   return (
     <div className="rounded-2xl border border-white/[0.07] bg-black/20 p-4">
-      <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
+      <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
         <Icon size={15} className="text-teal-300" />
         {label}
       </div>
@@ -2006,15 +2708,15 @@ function Signal({
   value: string;
 }) {
   return (
-    <div className="glass flex items-start gap-3 rounded-xl border border-white/6 p-4">
-      <div className="rounded-lg bg-white/4 p-2">
+    <div className="glass flex items-start gap-3 rounded-xl border border-white/[0.06] p-4">
+      <div className="rounded-lg bg-white/[0.04] p-2">
         <Icon size={18} className="text-teal-300" />
       </div>
       <div>
-        <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+        <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
           {label}
         </div>
-        <div className="mt-1 text-sm text-industrial-text">{value}</div>
+        <div className="mt-1 text-sm text-[#E6EDF3]">{value}</div>
       </div>
     </div>
   );

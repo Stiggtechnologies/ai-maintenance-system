@@ -59,10 +59,14 @@ function getStorage(): BrowserStorage | null {
 function isSupabaseConfigured() {
   const url = import.meta.env.VITE_SUPABASE_URL || "";
   const key = import.meta.env.VITE_SUPABASE_ANON_KEY || "";
-  return Boolean(url && key && !url.includes("placeholder") && key !== "placeholder");
+  return Boolean(
+    url && key && !url.includes("placeholder") && key !== "placeholder",
+  );
 }
 
-function readLocalStore(storage = getStorage()): StoredAssetOnboardingSession[] {
+function readLocalStore(
+  storage = getStorage(),
+): StoredAssetOnboardingSession[] {
   if (!storage) return [];
 
   try {
@@ -343,27 +347,27 @@ async function saveSupabaseArtifacts({
       .throwOnError(),
     answeredSteps.length
       ? supabase
-        .from("asset_onboarding_evidence_items")
-        .insert(
-          answeredSteps.map((step) => ({
-            session_id: sessionId,
-            organization_id: organizationId,
-            asset_id: assetId,
-            evidence_type: "guided_answer",
-            title: step.name,
-            source_reference: step.source,
-            confidence:
-              step.confidenceScore >= 70
-                ? "high"
-                : step.confidenceScore >= 45
-                  ? "medium"
-                  : "low",
-            notes: step.answer,
-            payload: step,
-            created_by: userId,
-          })),
-        )
-        .throwOnError()
+          .from("asset_onboarding_evidence_items")
+          .insert(
+            answeredSteps.map((step) => ({
+              session_id: sessionId,
+              organization_id: organizationId,
+              asset_id: assetId,
+              evidence_type: "guided_answer",
+              title: step.name,
+              source_reference: step.source,
+              confidence:
+                step.confidenceScore >= 70
+                  ? "high"
+                  : step.confidenceScore >= 45
+                    ? "medium"
+                    : "low",
+              notes: step.answer,
+              payload: step,
+              created_by: userId,
+            })),
+          )
+          .throwOnError()
       : Promise.resolve(),
     supabase
       .from("recommendation_approval_workflows")
@@ -470,10 +474,10 @@ export async function listAssetOnboardingSessions(): Promise<
       assetId: row.asset_id as string,
       assetClass: row.asset_class as string,
       mode: row.mode as string,
-      lifecycle: ((row.session_payload as AssetOnboardingSession | null)?.lifecycle ??
-        "in_service") as AssetOnboardingLifecycle,
-      industry: ((row.session_payload as AssetOnboardingSession | null)?.industry ??
-        "general") as AssetOnboardingIndustry,
+      lifecycle: ((row.session_payload as AssetOnboardingSession | null)
+        ?.lifecycle ?? "in_service") as AssetOnboardingLifecycle,
+      industry: ((row.session_payload as AssetOnboardingSession | null)
+        ?.industry ?? "general") as AssetOnboardingIndustry,
       status: row.status as string,
       completionScore: row.completion_score as number,
       reliabilityReadiness: row.reliability_readiness as string,

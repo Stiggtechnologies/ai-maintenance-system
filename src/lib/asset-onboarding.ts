@@ -1,14 +1,5 @@
-import { getIndustryTemplatePack } from './industry-template-packs';
-import { getAssetClassTemplate, ASSET_CLASS_ALIAS_MAP as _ASSET_CLASS_ALIAS_MAP } from './asset-class-templates';
-import type { IndustryTemplatePack } from './industry-template-packs';
-import type { AssetClassTemplate } from './asset-class-templates';
-
 export type AssetOnboardingMode =
-  | "quick"
-  | "standard"
-  | "deep"
-  | "regulatory"
-  | "fleet";
+  "quick" | "standard" | "deep" | "regulatory" | "fleet";
 
 export type AssetClass =
   | "generic"
@@ -17,30 +8,7 @@ export type AssetClass =
   | "mobile_equipment"
   | "fleet"
   | "compressor"
-  | "motor"
-  | "turbine"
-  | "generator"
-  | "boiler"
-  | "transformer"
-  | "valve"
-  | "tank"
-  | "pipeline"
-  | "heat_exchanger"
-  | "pressure_vessel"
-  | "hvac_system"
-  | "refrigeration_system"
-  | "packaging_line"
-  | "aircraft_system"
-  | "marine_engine"
-  | "crane"
-  | "ups"
-  | "battery_system"
-  | "chiller"
-  | "data_center_rack"
-  | "server"
-  | "switchgear"
-  | "plc_control_system"
-  | "instrumentation";
+  | "motor";
 
 export type OnboardingSource =
   | "manual"
@@ -51,10 +19,7 @@ export type OnboardingSource =
   | "oem_manual"
   | "work_order_history";
 
-export type OnboardingStatus =
-  | "not_started"
-  | "in_progress"
-  | "complete";
+export type OnboardingStatus = "not_started" | "in_progress" | "complete";
 
 export type AssetOnboardingLifecycle =
   | "new"
@@ -71,22 +36,14 @@ export type AssetOnboardingIndustry =
   | "mining"
   | "oil_gas"
   | "petrochemical"
-  | "power_generation"
+  | "power"
   | "utilities"
   | "manufacturing"
-  | "food_beverage"
-  | "pharmaceuticals"
-  | "transportation_logistics"
-  | "aviation"
-  | "marine_shipping"
-  | "data_centers"
-  | "defense"
-  | "aerospace_launch"
   | "pulp_paper"
   | "rail"
+  | "aviation"
   | "water_wastewater"
-  | "healthcare"
-  | "heavy_equipment_rental";
+  | "defense";
 
 export type OnboardingStepId =
   | "asset_identity"
@@ -889,78 +846,6 @@ const ASSET_CLASS_ALIASES: Record<string, AssetClass> = {
   compressors: "compressor",
   motor: "motor",
   motors: "motor",
-  turbine: "turbine",
-  "gas-turbine": "turbine",
-  "steam-turbine": "turbine",
-  generator: "generator",
-  genset: "generator",
-  alternator: "generator",
-  boiler: "boiler",
-  "steam-boiler": "boiler",
-  transformer: "transformer",
-  xfmr: "transformer",
-  valve: "valve",
-  valves: "valve",
-  "control-valve": "valve",
-  tank: "tank",
-  tanks: "tank",
-  vessel: "tank",
-  pipeline: "pipeline",
-  pipe: "pipeline",
-  piping: "pipeline",
-  "heat-exchanger": "heat_exchanger",
-  heat_exchanger: "heat_exchanger",
-  hx: "heat_exchanger",
-  exchanger: "heat_exchanger",
-  "pressure-vessel": "pressure_vessel",
-  pressure_vessel: "pressure_vessel",
-  reactor: "pressure_vessel",
-  separator: "pressure_vessel",
-  column: "pressure_vessel",
-  "hvac-system": "hvac_system",
-  hvac_system: "hvac_system",
-  hvac: "hvac_system",
-  ahu: "hvac_system",
-  "refrigeration-system": "refrigeration_system",
-  refrigeration_system: "refrigeration_system",
-  refrigeration: "refrigeration_system",
-  "packaging-line": "packaging_line",
-  packaging_line: "packaging_line",
-  packaging: "packaging_line",
-  "aircraft-system": "aircraft_system",
-  aircraft_system: "aircraft_system",
-  aircraft: "aircraft_system",
-  "marine-engine": "marine_engine",
-  marine_engine: "marine_engine",
-  "marine-diesel": "marine_engine",
-  crane: "crane",
-  cranes: "crane",
-  hoist: "crane",
-  ups: "ups",
-  "battery-system": "battery_system",
-  battery_system: "battery_system",
-  battery: "battery_system",
-  chiller: "chiller",
-  chillers: "chiller",
-  "data-center-rack": "data_center_rack",
-  data_center_rack: "data_center_rack",
-  rack: "data_center_rack",
-  server: "server",
-  servers: "server",
-  switchgear: "switchgear",
-  breaker: "switchgear",
-  "plc-control-system": "plc_control_system",
-  plc_control_system: "plc_control_system",
-  plc: "plc_control_system",
-  dcs: "plc_control_system",
-  scada: "plc_control_system",
-  instrumentation: "instrumentation",
-  transmitter: "instrumentation",
-  analyzer: "instrumentation",
-  sensor: "instrumentation",
-  ...Object.fromEntries(
-    Object.entries(_ASSET_CLASS_ALIAS_MAP).map(([k, v]) => [k, v as AssetClass])
-  ),
 };
 
 const ASSET_CLASS_LABELS: Record<AssetClass, string> = {
@@ -971,29 +856,6 @@ const ASSET_CLASS_LABELS: Record<AssetClass, string> = {
   fleet: "Fleet",
   compressor: "Compressor",
   motor: "Electric motor",
-  turbine: "Turbine",
-  generator: "Generator",
-  boiler: "Boiler",
-  transformer: "Transformer",
-  valve: "Valve",
-  tank: "Tank / Storage vessel",
-  pipeline: "Pipeline",
-  heat_exchanger: "Heat exchanger",
-  pressure_vessel: "Pressure vessel",
-  hvac_system: "HVAC system",
-  refrigeration_system: "Refrigeration system",
-  packaging_line: "Packaging line",
-  aircraft_system: "Aircraft system",
-  marine_engine: "Marine engine",
-  crane: "Crane",
-  ups: "UPS",
-  battery_system: "Battery system",
-  chiller: "Chiller",
-  data_center_rack: "Data center rack",
-  server: "Server",
-  switchgear: "Switchgear",
-  plc_control_system: "PLC / Control system",
-  instrumentation: "Instrumentation",
 };
 
 const INDUSTRY_ALIASES: Record<string, AssetOnboardingIndustry> = {
@@ -1008,53 +870,17 @@ const INDUSTRY_ALIASES: Record<string, AssetOnboardingIndustry> = {
   oil_gas: "oil_gas",
   "o&g": "oil_gas",
   petrochemical: "petrochemical",
-  refinery: "petrochemical",
-  chemical: "petrochemical",
-  "power-generation": "power_generation",
-  power_generation: "power_generation",
-  power: "power_generation",
+  power: "power",
   utilities: "utilities",
   utility: "utilities",
   manufacturing: "manufacturing",
-  "food-beverage": "food_beverage",
-  food_beverage: "food_beverage",
-  food: "food_beverage",
-  beverage: "food_beverage",
-  dairy: "food_beverage",
-  pharmaceuticals: "pharmaceuticals",
-  pharma: "pharmaceuticals",
-  gmp: "pharmaceuticals",
-  "transportation-logistics": "transportation_logistics",
-  transportation_logistics: "transportation_logistics",
-  transportation: "transportation_logistics",
-  logistics: "transportation_logistics",
-  aviation: "aviation",
-  mro: "aviation",
-  airline: "aviation",
-  "marine-shipping": "marine_shipping",
-  marine_shipping: "marine_shipping",
-  marine: "marine_shipping",
-  shipping: "marine_shipping",
-  "data-centers": "data_centers",
-  data_centers: "data_centers",
-  datacenter: "data_centers",
-  "data-center": "data_centers",
-  defense: "defense",
-  military: "defense",
-  "aerospace-launch": "aerospace_launch",
-  aerospace_launch: "aerospace_launch",
-  aerospace: "aerospace_launch",
-  launch: "aerospace_launch",
   "pulp-paper": "pulp_paper",
   pulp_paper: "pulp_paper",
   rail: "rail",
+  aviation: "aviation",
   "water-wastewater": "water_wastewater",
   water_wastewater: "water_wastewater",
-  healthcare: "healthcare",
-  hospital: "healthcare",
-  "heavy-equipment-rental": "heavy_equipment_rental",
-  heavy_equipment_rental: "heavy_equipment_rental",
-  rental: "heavy_equipment_rental",
+  defense: "defense",
 };
 
 const INDUSTRY_TEMPLATE_LABELS: Record<AssetOnboardingIndustry, string> = {
@@ -1063,22 +889,14 @@ const INDUSTRY_TEMPLATE_LABELS: Record<AssetOnboardingIndustry, string> = {
   mining: "Mining production and safety template",
   oil_gas: "Oil and gas integrity and production template",
   petrochemical: "Petrochemical process safety and availability template",
-  power_generation: "Power generation availability and dispatch template",
+  power: "Power generation availability template",
   utilities: "Utilities continuity and regulatory template",
   manufacturing: "Manufacturing OEE and quality template",
-  food_beverage: "Food and beverage HACCP and sanitation template",
-  pharmaceuticals: "Pharmaceutical GMP and validation template",
-  transportation_logistics: "Transportation schedule reliability template",
-  aviation: "Aviation airworthiness and dispatch template",
-  marine_shipping: "Marine class society and vessel integrity template",
-  data_centers: "Data center uptime and redundancy template",
-  defense: "Defense sustainment and readiness template",
-  aerospace_launch: "Aerospace launch readiness and mission assurance template",
   pulp_paper: "Pulp and paper uptime and process reliability template",
   rail: "Rail maintenance and safety template",
+  aviation: "Aviation maintenance and compliance template",
   water_wastewater: "Water and wastewater continuity template",
-  healthcare: "Healthcare facility compliance and uptime template",
-  heavy_equipment_rental: "Heavy equipment rental fleet utilization template",
+  defense: "Defense sustainment and readiness template",
 };
 
 const LIFECYCLE_ALIASES: Record<string, AssetOnboardingLifecycle> = {
@@ -1118,7 +936,10 @@ function nowIso(now = new Date()): string {
 }
 
 function slug(value: string): string {
-  return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
 }
 
 export function parseAssetOnboardingCommand(
@@ -1179,7 +1000,10 @@ export function parseAssetOnboardingCommand(
   const lifecycle =
     lifecycleToken !== undefined
       ? LIFECYCLE_ALIASES[lifecycleToken]
-      : tokens.includes("from") && (tokens.includes("sap") || tokens.includes("maximo") || tokens.includes("work"))
+      : tokens.includes("from") &&
+          (tokens.includes("sap") ||
+            tokens.includes("maximo") ||
+            tokens.includes("work"))
         ? "in_service"
         : "in_service";
 
@@ -1192,14 +1016,17 @@ export function parseAssetOnboardingCommand(
   if (tokens.includes("sap")) source = "sap_export";
   if (tokens.includes("maximo")) source = "maximo_export";
   if (tokens.includes("p&id") || tokens.includes("pid")) source = "pid";
-  if (tokens.includes("oem") || tokens.includes("manual")) source = "oem_manual";
+  if (tokens.includes("oem") || tokens.includes("manual"))
+    source = "oem_manual";
   if (tokens.includes("work") && tokens.includes("history")) {
     source = "work_order_history";
   }
 
   const assetClassToken = tokens.find((token) => ASSET_CLASS_ALIASES[token]);
   const assetClass =
-    assetClassToken !== undefined ? ASSET_CLASS_ALIASES[assetClassToken] : "generic";
+    assetClassToken !== undefined
+      ? ASSET_CLASS_ALIASES[assetClassToken]
+      : "generic";
   const commandWords = new Set([
     "/onboard",
     "/generate",
@@ -1279,10 +1106,6 @@ export function getOnboardingStepDefinitions() {
 }
 
 function getAssetSpecificQuestions(assetClass: AssetClass): string[] {
-  const template = getAssetClassTemplate(assetClass);
-  if (template) {
-    return template.operatingContextQuestions;
-  }
   if (assetClass === "pump") {
     return [
       "Fluid, specific gravity, viscosity, solids content, suction conditions, NPSH margin, seal type, and operating point vs BEP.",
@@ -1308,10 +1131,14 @@ function getAssetSpecificQuestions(assetClass: AssetClass): string[] {
       "Voltage, power rating, enclosure, insulation class, duty, driven equipment, starts/hour, and protection settings.",
     ];
   }
-  return ["Operating envelope, duty cycle, process conditions, access constraints, and known failure mechanisms."];
+  return [
+    "Operating envelope, duty cycle, process conditions, access constraints, and known failure mechanisms.",
+  ];
 }
 
-function getLifecycleSpecificQuestions(lifecycle: AssetOnboardingLifecycle): string[] {
+function getLifecycleSpecificQuestions(
+  lifecycle: AssetOnboardingLifecycle,
+): string[] {
   if (lifecycle === "new") {
     return [
       "Confirm OEM manual, datasheet, P&ID, commissioning date, warranty dates, reliability requirements, FAT/SAT records, and baseline measurements before service.",
@@ -1343,43 +1170,11 @@ function getLifecycleSpecificQuestions(lifecycle: AssetOnboardingLifecycle): str
 }
 
 function industryContext(industry: AssetOnboardingIndustry) {
-  const pack = getIndustryTemplatePack(industry);
-
-  if (pack) {
-    return {
-      name: pack.industryName,
-      templateCode: pack.industryCode,
-      sourceTables: [
-        "deployment_templates",
-        "industry_template_packs",
-        "asset_class_templates",
-        "industry_asset_libraries",
-        "industry_criticality_profiles",
-        "industry_governance_profiles",
-        "industry_work_taxonomies",
-        "industry_failure_mode_packs",
-        "industry_oee_models",
-      ],
-      questions: pack.onboardingQuestions,
-      riskDrivers: pack.riskDrivers,
-      safeguards: pack.safeguards,
-      failureModeNotes: pack.failureModeFocusAreas.slice(0, 3),
-      approvalGates: pack.approvalGates,
-      blockedAutomationRules: pack.blockedAutomationRules,
-      confidenceRules: pack.confidenceRules,
-      regulatoryConsiderations: pack.regulatoryConsiderations,
-      kpiModel: pack.kpiModel,
-      readinessModel: pack.readinessModel,
-    };
-  }
-
-  return {
+  const common = {
     name: INDUSTRY_TEMPLATE_LABELS[industry],
     templateCode: industry === "general" ? "heavy_industrial_master" : industry,
     sourceTables: [
       "deployment_templates",
-      "industry_template_packs",
-      "asset_class_templates",
       "industry_asset_libraries",
       "industry_criticality_profiles",
       "industry_governance_profiles",
@@ -1391,76 +1186,151 @@ function industryContext(industry: AssetOnboardingIndustry) {
       "Confirm the site risk matrix, approval authority, data rights, and CMMS/EAM source before publishing the asset profile.",
     ],
     riskDrivers: ["Incomplete site-specific operating context"],
-    safeguards: ["Human approval required for safety, environmental, regulatory, OEM-limit, and production-critical changes."],
-    failureModeNotes: ["Use customer documents and failure codes when available; generated library remains draft until SME validation."],
-    approvalGates: ["Reliability engineer review", "Site engineering authority"],
-    blockedAutomationRules: ["Do not auto-approve strategy changes without operating context validation"],
-    confidenceRules: ["Operating hours must be verified before MTBF is trusted"],
-    regulatoryConsiderations: ["Site-specific regulatory requirements must be confirmed"],
-    kpiModel: { primaryKpis: ["Availability", "MTBF", "MTTR"], secondaryKpis: ["PM compliance"], kpiTargets: {} },
-    readinessModel: { readinessLevels: ["Ad-hoc", "Reactive", "Planned", "Proactive", "Optimized"], minimumForOperation: "Planned", minimumForOptimization: "Proactive" },
+    safeguards: [
+      "Human approval required for safety, environmental, regulatory, OEM-limit, and production-critical changes.",
+    ],
+    failureModeNotes: [
+      "Use customer documents and failure codes when available; generated library remains draft until SME validation.",
+    ],
   };
+
+  if (industry === "oil_sands") {
+    return {
+      name: INDUSTRY_TEMPLATE_LABELS[industry],
+      templateCode: "oil_sands",
+      sourceTables: common.sourceTables,
+      questions: [
+        "Confirm winterization, abrasive slurry/service exposure, tailings/process-water impacts, environmental consequence, remote repair constraints, and turnaround dependency.",
+      ],
+      riskDrivers: [
+        "Environmental consequence",
+        "Production bottleneck",
+        "Remote execution constraints",
+        "Abrasive or contaminated service",
+      ],
+      safeguards: [
+        "Route environmental, pressure, lifting, electrical, hot-work, isolation, and regulatory implications through qualified approval.",
+        "Do not recommend operating-envelope or integrity-limit changes without site engineering authority.",
+      ],
+      failureModeNotes: [
+        "Prioritize slurry/abrasive wear, contamination ingress, seal flush reliability, cold-weather exposure, corrosion/erosion, and access constraints where applicable.",
+      ],
+    };
+  }
+
+  if (industry === "mining") {
+    return {
+      name: INDUSTRY_TEMPLATE_LABELS[industry],
+      templateCode: "mining",
+      sourceTables: common.sourceTables,
+      questions: [
+        "Confirm throughput bottleneck role, dust/abrasion exposure, shift schedule, mobile/fixed plant interaction, operator variability, and safety isolation constraints.",
+      ],
+      riskDrivers: [
+        "Throughput loss",
+        "Dust and abrasive wear",
+        "Mobile/fixed plant dependency",
+        "Safety isolation risk",
+      ],
+      safeguards: [
+        "Route high-energy, guarding, lifting, mobile equipment, confined-space, and production-critical recommendations through site authority.",
+        "Treat production bottleneck assets as high governance even when historical data is incomplete.",
+      ],
+      failureModeNotes: [
+        "Prioritize abrasion, impact damage, contamination, structural fatigue, seized rotating components, belt/pulley/idler risks, and duty-cycle overload where applicable.",
+      ],
+    };
+  }
+
+  if (industry === "manufacturing") {
+    return {
+      ...common,
+      questions: [
+        "Confirm OEE losses, quality impact, changeover pattern, line bottleneck role, sanitation/cleaning exposure, and shift utilization.",
+      ],
+      riskDrivers: ["OEE loss", "Quality impact", "Line bottleneck dependency"],
+    };
+  }
+
+  if (
+    industry === "utilities" ||
+    industry === "power" ||
+    industry === "water_wastewater"
+  ) {
+    return {
+      ...common,
+      questions: [
+        "Confirm continuity-of-service impact, redundancy, regulatory reporting exposure, emergency response requirements, and public/customer consequence.",
+      ],
+      riskDrivers: [
+        "Service continuity",
+        "Regulatory exposure",
+        "Redundancy constraints",
+      ],
+    };
+  }
+
+  return common;
 }
 
 function failureModeLibrary(assetClass: AssetClass): AssetFailureMode[] {
-  // Check for rich template-based failure modes from asset class templates
-  const classTemplate = getAssetClassTemplate(assetClass);
-  const hasHardcoded = ["pump", "conveyor", "mobile_equipment", "fleet", "motor"].includes(assetClass);
-
-  if (classTemplate && !hasHardcoded) {
-    return classTemplate.commonFailureModes.map((mode) => ({
-      failureMode: mode,
-      failureMechanism: "See asset class template for detailed mechanism",
-      cause: "Operating context, age, maintenance quality, or design limitation",
-      effect: "Loss of function, reduced performance, or unplanned corrective work",
-      detectionMethod: classTemplate.conditionMonitoringMethods.join("; "),
-      consequence: "Availability loss, cost, safety, or regulatory exposure depending on criticality",
-      currentControls: "Existing PMs and operator awareness",
-      recommendedControls: classTemplate.pmStrategyPatterns.join("; "),
-    }));
-  }
-
   if (assetClass === "pump") {
     return [
       {
         failureMode: "Mechanical seal leakage",
         failureMechanism: "Seal face wear or thermal/mechanical distortion",
-        cause: "Poor flush, dry running, misalignment, process contamination, or operation away from BEP",
-        effect: "Loss of containment, unplanned shutdown, environmental exposure, and repeat maintenance",
-        detectionMethod: "Leak inspection, seal pot trend, vibration, process pressure/flow deviation",
-        consequence: "Production loss and potential safety/environmental consequence",
+        cause:
+          "Poor flush, dry running, misalignment, process contamination, or operation away from BEP",
+        effect:
+          "Loss of containment, unplanned shutdown, environmental exposure, and repeat maintenance",
+        detectionMethod:
+          "Leak inspection, seal pot trend, vibration, process pressure/flow deviation",
+        consequence:
+          "Production loss and potential safety/environmental consequence",
         currentControls: "Operator rounds and basic PM inspection",
-        recommendedControls: "Seal plan review, operating point verification, flush health check, and FRACAS trigger on recurrence",
+        recommendedControls:
+          "Seal plan review, operating point verification, flush health check, and FRACAS trigger on recurrence",
       },
       {
         failureMode: "Bearing failure",
-        failureMechanism: "Fatigue, lubrication degradation, contamination, or overload",
-        cause: "Incorrect lubrication, water ingress, misalignment, high vibration, or installation defect",
+        failureMechanism:
+          "Fatigue, lubrication degradation, contamination, or overload",
+        cause:
+          "Incorrect lubrication, water ingress, misalignment, high vibration, or installation defect",
         effect: "High vibration, heat, seizure risk, and secondary damage",
-        detectionMethod: "Vibration, ultrasound, bearing temperature, oil/grease inspection",
+        detectionMethod:
+          "Vibration, ultrasound, bearing temperature, oil/grease inspection",
         consequence: "Unplanned downtime and repair cost",
         currentControls: "Lubrication PM and route inspection",
-        recommendedControls: "Vibration route, lubrication standard, contamination control, and precision alignment",
+        recommendedControls:
+          "Vibration route, lubrication standard, contamination control, and precision alignment",
       },
       {
         failureMode: "Cavitation damage",
         failureMechanism: "Vapor bubble collapse and hydraulic instability",
-        cause: "Insufficient NPSH margin, suction restriction, low level, high temperature, or off-curve operation",
-        effect: "Impeller damage, noise, vibration, loss of performance, seal/bearing stress",
-        detectionMethod: "Noise, vibration, suction/discharge pressure, flow trend, inspection",
+        cause:
+          "Insufficient NPSH margin, suction restriction, low level, high temperature, or off-curve operation",
+        effect:
+          "Impeller damage, noise, vibration, loss of performance, seal/bearing stress",
+        detectionMethod:
+          "Noise, vibration, suction/discharge pressure, flow trend, inspection",
         consequence: "Progressive degradation and reduced availability",
         currentControls: "Operator observation and process alarms",
-        recommendedControls: "NPSH verification, suction screen strategy, operating envelope alarm, and hydraulic review",
+        recommendedControls:
+          "NPSH verification, suction screen strategy, operating envelope alarm, and hydraulic review",
       },
       {
         failureMode: "Shaft misalignment",
         failureMechanism: "Angular/parallel offset and soft-foot strain",
-        cause: "Poor installation, baseplate looseness, pipe strain, thermal growth, or foundation movement",
+        cause:
+          "Poor installation, baseplate looseness, pipe strain, thermal growth, or foundation movement",
         effect: "Coupling wear, bearing load, seal distress, high vibration",
-        detectionMethod: "Vibration, alignment readings, coupling inspection, thermography",
+        detectionMethod:
+          "Vibration, alignment readings, coupling inspection, thermography",
         consequence: "Repeat rotating-equipment failures",
         currentControls: "Corrective alignment after repair",
-        recommendedControls: "Precision alignment standard, pipe strain check, baseplate/foundation inspection",
+        recommendedControls:
+          "Precision alignment standard, pipe strain check, baseplate/foundation inspection",
       },
     ];
   }
@@ -1470,32 +1340,41 @@ function failureModeLibrary(assetClass: AssetClass): AssetFailureMode[] {
       {
         failureMode: "Belt mistracking",
         failureMechanism: "Lateral belt drift and edge damage",
-        cause: "Material buildup, pulley misalignment, idler failure, uneven loading, or take-up issue",
-        effect: "Spillage, belt damage, cleanup, trip, and production interruption",
-        detectionMethod: "Operator rounds, belt wander switch, inspection route, camera/vision",
+        cause:
+          "Material buildup, pulley misalignment, idler failure, uneven loading, or take-up issue",
+        effect:
+          "Spillage, belt damage, cleanup, trip, and production interruption",
+        detectionMethod:
+          "Operator rounds, belt wander switch, inspection route, camera/vision",
         consequence: "Production loss and cleanup cost",
         currentControls: "Operator observation and corrective adjustment",
-        recommendedControls: "Idler route, loading-zone inspection, cleaning-system PM, and mistracking trigger threshold",
+        recommendedControls:
+          "Idler route, loading-zone inspection, cleaning-system PM, and mistracking trigger threshold",
       },
       {
         failureMode: "Idler bearing failure",
         failureMechanism: "Bearing wear, contamination, seizure, or shell wear",
-        cause: "Dust/water ingress, overloading, misalignment, or inadequate sealing",
+        cause:
+          "Dust/water ingress, overloading, misalignment, or inadequate sealing",
         effect: "Heat, belt damage, fire risk, drag, and unplanned replacement",
-        detectionMethod: "Thermography, ultrasound, acoustic inspection, route inspection",
+        detectionMethod:
+          "Thermography, ultrasound, acoustic inspection, route inspection",
         consequence: "Fire/safety exposure and production loss",
         currentControls: "Visual route inspection",
-        recommendedControls: "Thermography/ultrasound route, critical idler spares, and replacement criteria",
+        recommendedControls:
+          "Thermography/ultrasound route, critical idler spares, and replacement criteria",
       },
       {
         failureMode: "Drive pulley lagging failure",
         failureMechanism: "Lagging wear or delamination",
         cause: "Contamination, over-tension, poor bonding, carryback, or age",
         effect: "Slip, heat, belt damage, reduced capacity",
-        detectionMethod: "Slip trend, thermography, inspection, motor current trend",
+        detectionMethod:
+          "Slip trend, thermography, inspection, motor current trend",
         consequence: "Throughput loss and repair downtime",
         currentControls: "Shutdown inspection",
-        recommendedControls: "Pulley inspection criteria, cleaning improvement, and load/tension verification",
+        recommendedControls:
+          "Pulley inspection criteria, cleaning improvement, and load/tension verification",
       },
     ];
   }
@@ -1505,22 +1384,28 @@ function failureModeLibrary(assetClass: AssetClass): AssetFailureMode[] {
       {
         failureMode: "Hydraulic hose failure",
         failureMechanism: "Abrasion, fatigue, burst, or fitting leak",
-        cause: "Routing issue, contamination, pressure spike, age, or physical damage",
+        cause:
+          "Routing issue, contamination, pressure spike, age, or physical damage",
         effect: "Loss of function, spill, safety exposure, and downtime",
-        detectionMethod: "Inspection, leak detection, pressure trend, operator report",
+        detectionMethod:
+          "Inspection, leak detection, pressure trend, operator report",
         consequence: "Safety/environmental exposure and lost availability",
         currentControls: "PM inspection",
-        recommendedControls: "Hose life tracking, routing review, critical hose kits, and inspection criteria",
+        recommendedControls:
+          "Hose life tracking, routing review, critical hose kits, and inspection criteria",
       },
       {
         failureMode: "Undercarriage or tire wear",
         failureMechanism: "Wear, impact, heat, or fatigue",
-        cause: "Route profile, payload, operator variability, ground conditions, or inflation/tension issues",
+        cause:
+          "Route profile, payload, operator variability, ground conditions, or inflation/tension issues",
         effect: "Reduced availability, high cost, safety exposure",
-        detectionMethod: "Inspection, wear measurement, telematics, operator logs",
+        detectionMethod:
+          "Inspection, wear measurement, telematics, operator logs",
         consequence: "High maintenance cost and availability loss",
         currentControls: "Routine inspection",
-        recommendedControls: "Route/duty review, wear trend, operator coaching, and replacement forecast",
+        recommendedControls:
+          "Route/duty review, wear trend, operator coaching, and replacement forecast",
       },
     ];
   }
@@ -1529,13 +1414,18 @@ function failureModeLibrary(assetClass: AssetClass): AssetFailureMode[] {
     return [
       {
         failureMode: "Winding insulation failure",
-        failureMechanism: "Thermal, electrical, moisture, contamination, or aging degradation",
-        cause: "Overload, poor cooling, voltage imbalance, frequent starts, ingress, or loose connections",
-        effect: "Trip, motor failure, production loss, possible electrical hazard",
-        detectionMethod: "MCA, insulation resistance, thermography, current trend, protection relay event",
+        failureMechanism:
+          "Thermal, electrical, moisture, contamination, or aging degradation",
+        cause:
+          "Overload, poor cooling, voltage imbalance, frequent starts, ingress, or loose connections",
+        effect:
+          "Trip, motor failure, production loss, possible electrical hazard",
+        detectionMethod:
+          "MCA, insulation resistance, thermography, current trend, protection relay event",
         consequence: "Production loss and electrical safety exposure",
         currentControls: "Protection relay and PM inspection",
-        recommendedControls: "MCA route, thermography, cooling inspection, starts/hour review, and protection-setting governance",
+        recommendedControls:
+          "MCA route, thermography, cooling inspection, starts/hour review, and protection-setting governance",
       },
     ];
   }
@@ -1544,12 +1434,14 @@ function failureModeLibrary(assetClass: AssetClass): AssetFailureMode[] {
     {
       failureMode: "Functional failure",
       failureMechanism: "Component degradation or operating context mismatch",
-      cause: "Incomplete asset context, poor maintenance basis, or uncontrolled operating condition",
+      cause:
+        "Incomplete asset context, poor maintenance basis, or uncontrolled operating condition",
       effect: "Loss of required function and unplanned corrective work",
       detectionMethod: "Inspection, trend review, work history, and SME review",
       consequence: "Reliability risk requiring further asset-specific analysis",
       currentControls: "Existing PMs and operator awareness",
-      recommendedControls: "Complete onboarding, build FMEA, and link tasks to credible failure modes",
+      recommendedControls:
+        "Complete onboarding, build FMEA, and link tasks to credible failure modes",
     },
   ];
 }
@@ -1557,7 +1449,10 @@ function failureModeLibrary(assetClass: AssetClass): AssetFailureMode[] {
 function defaultIdentity(assetId: string, assetClass: AssetClass) {
   return {
     "Asset tag": assetId,
-    "Asset name": assetId === "NEW-ASSET" ? "" : `${assetId} ${ASSET_CLASS_LABELS[assetClass]}`,
+    "Asset name":
+      assetId === "NEW-ASSET"
+        ? ""
+        : `${assetId} ${ASSET_CLASS_LABELS[assetClass]}`,
     "Asset type": ASSET_CLASS_LABELS[assetClass],
     "Functional location": "",
     Site: "",
@@ -1580,17 +1475,37 @@ function defaultCriticality(
   const template = industryContext(industry);
   const riskDrivers =
     assetClass === "pump"
-      ? ["Production loss", "Repeat seal/bearing failures", "Potential loss of containment", "No confirmed standby status"]
+      ? [
+          "Production loss",
+          "Repeat seal/bearing failures",
+          "Potential loss of containment",
+          "No confirmed standby status",
+        ]
       : assetClass === "conveyor"
-        ? ["Production bottleneck", "Fire risk from seized rotating components", "Cleanup and spillage exposure"]
+        ? [
+            "Production bottleneck",
+            "Fire risk from seized rotating components",
+            "Cleanup and spillage exposure",
+          ]
         : assetClass === "fleet" || assetClass === "mobile_equipment"
-          ? ["Availability loss", "High repair cost", "Safety/environmental exposure", "Operator variability"]
-          : ["Incomplete criticality inputs", "Unknown redundancy", "Unknown consequence profile"];
+          ? [
+              "Availability loss",
+              "High repair cost",
+              "Safety/environmental exposure",
+              "Operator variability",
+            ]
+          : [
+              "Incomplete criticality inputs",
+              "Unknown redundancy",
+              "Unknown consequence profile",
+            ];
 
   const industryLift =
     industry === "oil_sands" || industry === "mining"
       ? 8
-      : industry === "petrochemical" || industry === "power_generation" || industry === "utilities"
+      : industry === "petrochemical" ||
+          industry === "power" ||
+          industry === "utilities"
         ? 5
         : 0;
   const score = Math.min(
@@ -1599,7 +1514,13 @@ function defaultCriticality(
       industryLift,
   );
   const criticalityClass =
-    score >= 44 ? "critical" : score >= 34 ? "high" : score >= 22 ? "medium" : "low";
+    score >= 44
+      ? "critical"
+      : score >= 34
+        ? "high"
+        : score >= 22
+          ? "medium"
+          : "low";
 
   return {
     score,
@@ -1662,18 +1583,35 @@ function buildDefaultProfile(
       ],
       parentChildRelationships:
         assetClass === "pump"
-          ? [`Motor -> driven equipment ${assetId}`, `${assetId} -> seal, bearings, coupling, impeller`]
+          ? [
+              `Motor -> driven equipment ${assetId}`,
+              `${assetId} -> seal, bearings, coupling, impeller`,
+            ]
           : assetClass === "conveyor"
-            ? [`Conveyor system -> ${assetId}`, `${assetId} -> belt, pulleys, idlers, drive, take-up, cleaning system`]
-            : [`System -> ${assetId}`, `${assetId} -> maintainable items and critical components`],
+            ? [
+                `Conveyor system -> ${assetId}`,
+                `${assetId} -> belt, pulleys, idlers, drive, take-up, cleaning system`,
+              ]
+            : [
+                `System -> ${assetId}`,
+                `${assetId} -> maintainable items and critical components`,
+              ],
       missingLevels: ["Site", "Area", "System", "Functional location"],
       qualityScore: assetId === "NEW-ASSET" ? 20 : 35,
       flags:
         assetClass === "pump"
-          ? ["Pump has no confirmed driver asset link.", "Functional location is not confirmed."]
+          ? [
+              "Pump has no confirmed driver asset link.",
+              "Functional location is not confirmed.",
+            ]
           : assetClass === "conveyor"
-            ? ["Conveyor has no confirmed upstream/downstream system links.", "Critical idler/pulley components are not confirmed."]
-            : ["Asset hierarchy requires validation before reliability calculations are trusted."],
+            ? [
+                "Conveyor has no confirmed upstream/downstream system links.",
+                "Critical idler/pulley components are not confirmed.",
+              ]
+            : [
+                "Asset hierarchy requires validation before reliability calculations are trusted.",
+              ],
     },
     functionalDefinition: {
       "Primary function":
@@ -1684,8 +1622,14 @@ function buildDefaultProfile(
             : `Perform required function for ${assetId} under stated operating conditions.`,
       "Performance standard": "Not confirmed",
       "Required capacity": "Not confirmed",
-      "Required pressure": assetClass === "pump" ? "Not confirmed" : "Not applicable or not confirmed",
-      "Required flow": assetClass === "pump" ? "Not confirmed" : "Not applicable or not confirmed",
+      "Required pressure":
+        assetClass === "pump"
+          ? "Not confirmed"
+          : "Not applicable or not confirmed",
+      "Required flow":
+        assetClass === "pump"
+          ? "Not confirmed"
+          : "Not applicable or not confirmed",
       "Required speed": "Not confirmed",
       "Required temperature": "Not confirmed",
       "Required duty cycle": "Not confirmed",
@@ -1710,8 +1654,10 @@ function buildDefaultProfile(
       "Operator interaction": "Not confirmed",
       "Accessibility constraints": "Not confirmed",
       "Safety/environmental hazards": "Not confirmed",
-      "Asset-class-specific context": getAssetSpecificQuestions(assetClass).join(" "),
-      "Lifecycle-specific context": getLifecycleSpecificQuestions(lifecycle).join(" "),
+      "Asset-class-specific context":
+        getAssetSpecificQuestions(assetClass).join(" "),
+      "Lifecycle-specific context":
+        getLifecycleSpecificQuestions(lifecycle).join(" "),
       "Industry template context": template.questions.join(" "),
     },
     criticality,
@@ -1722,10 +1668,13 @@ function buildDefaultProfile(
         failureMechanism: "Industry operating context not fully captured",
         cause: note,
         effect: "Generic recommendations may miss site-specific risk drivers",
-        detectionMethod: "Template review, SME validation, and source document retrieval",
-        consequence: "Reduced confidence until industry template evidence is confirmed",
+        detectionMethod:
+          "Template review, SME validation, and source document retrieval",
+        consequence:
+          "Reduced confidence until industry template evidence is confirmed",
         currentControls: "Existing SyncAI industry template pack",
-        recommendedControls: "Validate against customer CMMS/EAM codes, OEM documents, and site standards",
+        recommendedControls:
+          "Validate against customer CMMS/EAM codes, OEM documents, and site standards",
       })),
     ],
     existingMaintenance: {
@@ -1770,7 +1719,9 @@ function buildDefaultProfile(
       evidenceUsed: [
         `${ASSET_CLASS_LABELS[assetClass]} starter failure-mode library`,
         `${template.name} from existing SyncAI industry template packs`,
-        isNewAsset ? "Design/OEM/commissioning context required" : "Actual condition and work history required",
+        isNewAsset
+          ? "Design/OEM/commissioning context required"
+          : "Actual condition and work history required",
       ],
       assumptions: [
         "Operating context has not yet been fully validated.",
@@ -1785,15 +1736,43 @@ function buildDefaultProfile(
     conditionMonitoring: {
       plan:
         assetClass === "pump"
-          ? ["Vibration route", "Bearing temperature trend", "Seal leak inspection", "Suction/discharge pressure trend", "Lubrication health check"]
+          ? [
+              "Vibration route",
+              "Bearing temperature trend",
+              "Seal leak inspection",
+              "Suction/discharge pressure trend",
+              "Lubrication health check",
+            ]
           : assetClass === "conveyor"
-            ? ["Thermography route", "Idler/pulley inspection route", "Belt tracking checks", "Drive current trend", "Cleaning system inspection"]
-            : ["Inspection route", "Condition indicators tied to failure modes", "Baseline measurement plan"],
+            ? [
+                "Thermography route",
+                "Idler/pulley inspection route",
+                "Belt tracking checks",
+                "Drive current trend",
+                "Cleaning system inspection",
+              ]
+            : [
+                "Inspection route",
+                "Condition indicators tied to failure modes",
+                "Baseline measurement plan",
+              ],
       measurementPoints:
         assetClass === "pump"
-          ? ["Inboard bearing", "Outboard bearing", "Motor drive end", "Motor non-drive end", "Seal flush/plan point"]
+          ? [
+              "Inboard bearing",
+              "Outboard bearing",
+              "Motor drive end",
+              "Motor non-drive end",
+              "Seal flush/plan point",
+            ]
           : assetClass === "conveyor"
-            ? ["Head pulley", "Tail pulley", "Drive gearbox", "Take-up", "Critical idler zones"]
+            ? [
+                "Head pulley",
+                "Tail pulley",
+                "Drive gearbox",
+                "Take-up",
+                "Critical idler zones",
+              ]
             : ["Critical component points to be defined"],
       alertResponseProcedure: [
         "Confirm alert against baseline.",
@@ -1810,16 +1789,38 @@ function buildDefaultProfile(
         "Normal operating vibration/temperature/load baseline",
         "Alarm/action limits",
         "Known good inspection condition",
-        isUsedAsset ? "Current condition inspection and history reconciliation" : "Commissioning baseline before routine operation",
+        isUsedAsset
+          ? "Current condition inspection and history reconciliation"
+          : "Commissioning baseline before routine operation",
       ],
     },
     spares: {
       recommendedBom:
         assetClass === "pump"
-          ? ["Mechanical seal", "Bearing set", "Coupling insert", "Gaskets/O-rings", "Impeller wear parts", "Lubricant"]
+          ? [
+              "Mechanical seal",
+              "Bearing set",
+              "Coupling insert",
+              "Gaskets/O-rings",
+              "Impeller wear parts",
+              "Lubricant",
+            ]
           : assetClass === "conveyor"
-            ? ["Critical idlers", "Belt repair kit", "Pulley lagging materials", "Cleaner blades", "Drive components", "Bearings"]
-            : ["Critical components", "Consumables", "Long-lead items", "Repairables", "Rotables"],
+            ? [
+                "Critical idlers",
+                "Belt repair kit",
+                "Pulley lagging materials",
+                "Cleaner blades",
+                "Drive components",
+                "Bearings",
+              ]
+            : [
+                "Critical components",
+                "Consumables",
+                "Long-lead items",
+                "Repairables",
+                "Rotables",
+              ],
       criticalSpares:
         assetClass === "pump"
           ? ["Mechanical seal", "Bearing set", "Coupling parts"]
@@ -1832,7 +1833,13 @@ function buildDefaultProfile(
         "Validate substitutes and obsolescence risk.",
       ],
       sparesRiskScore: assetClass === "generic" ? 45 : 65,
-      missingBomItems: ["Vendor lead time", "Stock level", "Usage history", "Substitutes", "Obsolescence risk"],
+      missingBomItems: [
+        "Vendor lead time",
+        "Stock level",
+        "Usage history",
+        "Substitutes",
+        "Obsolescence risk",
+      ],
     },
     reliabilityBaseline: {
       failureCount: 0,
@@ -1876,7 +1883,9 @@ function buildDefaultProfile(
       ],
       assetSpecificFailureCodes: failureModes.map((mode) => mode.failureMode),
       investigationTriggerThresholds: [
-        isNewAsset ? "Any failure during warranty or early-life period" : "Any repeat failure on a known mode",
+        isNewAsset
+          ? "Any failure during warranty or early-life period"
+          : "Any repeat failure on a known mode",
         "Same failure mode repeats within 90 days",
         "Single event causes more than 8 hours downtime",
         "Safety or environmental consequence occurs",
@@ -1898,7 +1907,8 @@ function buildDefaultProfile(
         "Check recurrence",
         "Capture lessons learned",
       ],
-      effectivenessCheckTiming: "After next operating cycle or 90 days, whichever provides meaningful exposure.",
+      effectivenessCheckTiming:
+        "After next operating cycle or 90 days, whichever provides meaningful exposure.",
       recurrenceDetectionRules: [
         "Same asset and failure mode within configured recurrence window",
         "Same root cause on sibling asset",
@@ -1906,7 +1916,10 @@ function buildDefaultProfile(
       ],
     },
     riskSafeguards: {
-      safetyCriticality: criticality.criticalityClass === "high" ? "High until validated" : "Not confirmed",
+      safetyCriticality:
+        criticality.criticalityClass === "high"
+          ? "High until validated"
+          : "Not confirmed",
       safetyAndComplianceNotes: [
         "LOTO, stored energy, pressure, electrical, lifting, confined space, and environmental controls must be confirmed before work execution.",
         "Regulatory inspection requirements and OEM constraints are not yet fully validated.",
@@ -1965,20 +1978,28 @@ function completedFieldCount(
   if (step.id === "asset_identity") {
     return assetId === "NEW-ASSET" ? 1 : lifecycle === "new" ? 4 : 3;
   }
-  if (step.id === "failure_modes") return Math.min(step.requiredFields.length, 5);
+  if (step.id === "failure_modes")
+    return Math.min(step.requiredFields.length, 5);
   if (step.id === "criticality") {
-    const industryBoost = industry === "oil_sands" || industry === "mining" ? 2 : 0;
+    const industryBoost =
+      industry === "oil_sands" || industry === "mining" ? 2 : 0;
     return Math.min(
       step.requiredFields.length,
       (assetClass === "generic" ? 3 : 6) + industryBoost,
     );
   }
-  if (step.id === "recommended_strategy") return Math.min(step.requiredFields.length, 4);
-  if (step.id === "fracas_readiness") return Math.min(step.requiredFields.length, 4);
+  if (step.id === "recommended_strategy")
+    return Math.min(step.requiredFields.length, 4);
+  if (step.id === "fracas_readiness")
+    return Math.min(step.requiredFields.length, 4);
   if (step.id === "lifecycle") {
     return Math.min(
       step.requiredFields.length,
-      lifecycle === "new" || lifecycle === "newly_commissioned" ? 4 : lifecycle === "unknown" ? 1 : 3,
+      lifecycle === "new" || lifecycle === "newly_commissioned"
+        ? 4
+        : lifecycle === "unknown"
+          ? 1
+          : 3,
     );
   }
   if (step.id === "final_package") return 0;
@@ -1995,7 +2016,13 @@ function initializeSteps(
   const template = industryContext(industry);
 
   return STEP_DEFINITIONS.map((step, index) => {
-    const completed = completedFieldCount(step, assetId, assetClass, lifecycle, industry);
+    const completed = completedFieldCount(
+      step,
+      assetId,
+      assetClass,
+      lifecycle,
+      industry,
+    );
     const score = Math.round((completed / step.requiredFields.length) * 100);
     const questions =
       step.id === "operating_context"
@@ -2028,12 +2055,22 @@ function missingFieldsForSteps(steps: OnboardingStepState[]) {
     step.completionScore >= 100
       ? []
       : step.requiredFields
-          .slice(0, Math.max(1, Math.ceil(step.requiredFields.length * (1 - step.completionScore / 100))))
+          .slice(
+            0,
+            Math.max(
+              1,
+              Math.ceil(
+                step.requiredFields.length * (1 - step.completionScore / 100),
+              ),
+            ),
+          )
           .map((field) => `${step.name}: ${field}`),
   );
 }
 
-function readinessFromScore(score: number): AssetOnboardingSession["reliabilityReadiness"] {
+function readinessFromScore(
+  score: number,
+): AssetOnboardingSession["reliabilityReadiness"] {
   if (score >= 95) return "complete";
   if (score >= 80) return "high";
   if (score >= 55) return "medium";
@@ -2063,11 +2100,16 @@ function readinessMessage(
   return "This asset is not yet reliability-ready. Complete identity, hierarchy, function, operating context, criticality, failure modes, and baseline data first.";
 }
 
-function buildFinalPackage(profile: AssetOnboardingProfile, assetId: string): AssetOnboardingPackage {
+function buildFinalPackage(
+  profile: AssetOnboardingProfile,
+  assetId: string,
+): AssetOnboardingPackage {
   const dataGaps = [
     ...profile.hierarchy.missingLevels.map((item) => `Hierarchy: ${item}`),
     ...profile.existingMaintenance.taskQualityFlags,
-    ...profile.reliabilityBaseline.missingData.map((item) => `Reliability baseline: ${item}`),
+    ...profile.reliabilityBaseline.missingData.map(
+      (item) => `Reliability baseline: ${item}`,
+    ),
     ...profile.spares.missingBomItems.map((item) => `Spares/BOM: ${item}`),
   ];
 
@@ -2099,7 +2141,9 @@ function buildFinalPackage(profile: AssetOnboardingProfile, assetId: string): As
   };
 }
 
-function recomputeSession(session: AssetOnboardingSession): AssetOnboardingSession {
+function recomputeSession(
+  session: AssetOnboardingSession,
+): AssetOnboardingSession {
   const completionScore = Math.round(
     session.steps.reduce((total, step) => total + step.completionScore, 0) /
       session.steps.length,
@@ -2138,8 +2182,19 @@ export function createAssetOnboardingSession({
   const command = parseAssetOnboardingCommand(commandText);
   const assetId = command.assetId ?? "NEW-ASSET";
   const timestamp = nowIso(now);
-  const profile = buildDefaultProfile(assetId, command.assetClass, command.lifecycle, command.industry);
-  const steps = initializeSteps(assetId, command.assetClass, command.source, command.lifecycle, command.industry);
+  const profile = buildDefaultProfile(
+    assetId,
+    command.assetClass,
+    command.lifecycle,
+    command.industry,
+  );
+  const steps = initializeSteps(
+    assetId,
+    command.assetClass,
+    command.source,
+    command.lifecycle,
+    command.industry,
+  );
 
   return recomputeSession({
     sessionId: `onboard-${slug(assetId)}-${now.getTime()}`,
@@ -2195,38 +2250,43 @@ export function applyAssetOnboardingAnswer({
 
   if (currentIndex < 0) return session;
 
-  const updatedSteps: OnboardingStepState[] = session.steps.map((step, index) => {
-    if (index !== currentIndex) return step;
-    const answerLength = answer.trim().length;
-    const score = answerLength >= 20 ? 100 : Math.max(step.completionScore, 50);
-    const completionStatus: OnboardingStatus =
-      score >= 100 ? "complete" : "in_progress";
-    const source: OnboardingSource = "manual";
-    return {
-      ...step,
-      answer,
-      completionStatus,
-      completionScore: score,
-      confidenceScore: score >= 100 ? 75 : 45,
-      source,
-      lastUpdated: timestamp,
-    };
-  });
+  const updatedSteps: OnboardingStepState[] = session.steps.map(
+    (step, index) => {
+      if (index !== currentIndex) return step;
+      const answerLength = answer.trim().length;
+      const score =
+        answerLength >= 20 ? 100 : Math.max(step.completionScore, 50);
+      const completionStatus: OnboardingStatus =
+        score >= 100 ? "complete" : "in_progress";
+      const source: OnboardingSource = "manual";
+      return {
+        ...step,
+        answer,
+        completionStatus,
+        completionScore: score,
+        confidenceScore: score >= 100 ? 75 : 45,
+        source,
+        lastUpdated: timestamp,
+      };
+    },
+  );
 
   const nextIncomplete = updatedSteps.findIndex(
     (step) => step.completionStatus !== "complete",
   );
-  const promotedSteps: OnboardingStepState[] = updatedSteps.map((step, index) => {
-    const completionStatus: OnboardingStatus =
-      index === nextIncomplete && step.completionStatus === "not_started"
-        ? "in_progress"
-        : step.completionStatus;
+  const promotedSteps: OnboardingStepState[] = updatedSteps.map(
+    (step, index) => {
+      const completionStatus: OnboardingStatus =
+        index === nextIncomplete && step.completionStatus === "not_started"
+          ? "in_progress"
+          : step.completionStatus;
 
-    return {
-      ...step,
-      completionStatus,
-    };
-  });
+      return {
+        ...step,
+        completionStatus,
+      };
+    },
+  );
 
   return recomputeSession({
     ...session,
@@ -2236,7 +2296,10 @@ export function applyAssetOnboardingAnswer({
 }
 
 export function getCurrentOnboardingStep(session: AssetOnboardingSession) {
-  return session.steps.find((step) => step.id === session.currentStep) ?? session.steps[0];
+  return (
+    session.steps.find((step) => step.id === session.currentStep) ??
+    session.steps[0]
+  );
 }
 
 export function getOnboardingSampleAnswer(session: AssetOnboardingSession) {
@@ -2347,7 +2410,10 @@ export function buildAssetOnboardingExports(
     "## Reliability Baseline",
     "",
     Object.entries(pkg.reliabilityBaseline)
-      .map(([key, value]) => `- ${key}: ${Array.isArray(value) ? value.join("; ") : String(value)}`)
+      .map(
+        ([key, value]) =>
+          `- ${key}: ${Array.isArray(value) ? value.join("; ") : String(value)}`,
+      )
       .join("\n"),
     "",
     "## FRACAS Setup",
@@ -2385,14 +2451,20 @@ export function buildAssetOnboardingExports(
     ["identity", "asset_id", session.assetId],
     ["identity", "asset_class", ASSET_CLASS_LABELS[session.assetClass]],
     ["context", "lifecycle_path", LIFECYCLE_LABELS[session.lifecycle]],
-    ["context", "industry_template", INDUSTRY_TEMPLATE_LABELS[session.industry]],
+    [
+      "context",
+      "industry_template",
+      INDUSTRY_TEMPLATE_LABELS[session.industry],
+    ],
     ["readiness", "completion_score", `${session.completionScore}`],
     ["readiness", "reliability_readiness", session.reliabilityReadiness],
     ...pkg.dataGaps.map((gap) => ["data_gap", "gap", gap]),
     ...pkg.approvalChecklist.map((item) => ["approval", "gate", item]),
   ];
   const excelWorkbookCsv = excelRows
-    .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","))
+    .map((row) =>
+      row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","),
+    )
     .join("\n");
   const cmmsImportCsv = [
     "asset_tag,asset_type,lifecycle_path,industry_template,functional_location,criticality_class,maintenance_strategy,approval_required",
@@ -2412,13 +2484,15 @@ export function buildAssetOnboardingExports(
   const powerBiDatasetJson = JSON.stringify(
     {
       tables: {
-        asset: [{
-          assetId: session.assetId,
-          assetClass: session.assetClass,
-          lifecycle: session.lifecycle,
-          industry: session.industry,
-          industryTemplate: INDUSTRY_TEMPLATE_LABELS[session.industry],
-        }],
+        asset: [
+          {
+            assetId: session.assetId,
+            assetClass: session.assetClass,
+            lifecycle: session.lifecycle,
+            industry: session.industry,
+            industryTemplate: INDUSTRY_TEMPLATE_LABELS[session.industry],
+          },
+        ],
         completion: session.steps.map((step) => ({
           stepId: step.id,
           stepName: step.name,
@@ -2477,111 +2551,3 @@ export function getAssetOnboardingIndustryLabel(
 ) {
   return INDUSTRY_TEMPLATE_LABELS[industry];
 }
-
-// --- Template Selection Engine ---
-
-export interface OnboardingTemplateSelection {
-  industryPack: IndustryTemplatePack | undefined;
-  assetClassTemplate: AssetClassTemplate | undefined;
-  lifecycle: AssetOnboardingLifecycle;
-  mode: AssetOnboardingMode;
-  source: OnboardingSource;
-  resolvedAt: string;
-  isOfflineMode: boolean;
-}
-
-export function selectOnboardingTemplates({
-  industry,
-  assetClass,
-  lifecycle,
-  mode,
-  source,
-}: {
-  industry: AssetOnboardingIndustry;
-  assetClass: AssetClass;
-  lifecycle: AssetOnboardingLifecycle;
-  mode: AssetOnboardingMode;
-  source: OnboardingSource;
-}): OnboardingTemplateSelection {
-  return {
-    industryPack: getIndustryTemplatePack(industry),
-    assetClassTemplate: getAssetClassTemplate(assetClass),
-    lifecycle,
-    mode,
-    source,
-    resolvedAt: new Date().toISOString(),
-    isOfflineMode: true,
-  };
-}
-
-// --- Template Versioning ---
-
-export interface OnboardingTemplateVersion {
-  templateVersion: string;
-  createdAt: string;
-  updatedAt: string;
-  reviewedBy: string | null;
-  validationStatus: "draft" | "reviewed" | "customer_validated" | "deprecated";
-}
-
-export function getTemplateVersion(industry: AssetOnboardingIndustry, assetClass: AssetClass): OnboardingTemplateVersion {
-  const pack = getIndustryTemplatePack(industry);
-  const classTemplate = getAssetClassTemplate(assetClass);
-
-  return {
-    templateVersion: pack?.templateVersion || classTemplate?.templateVersion || "1.0.0",
-    createdAt: "2026-01-01T00:00:00Z",
-    updatedAt: new Date().toISOString(),
-    reviewedBy: null,
-    validationStatus: pack?.validationStatus || classTemplate?.validationStatus || "draft",
-  };
-}
-
-// --- Offline/Demo Mode Support ---
-
-export function isOfflineMode(): boolean {
-  if (typeof window === "undefined") return true;
-  const supabaseUrl = (import.meta as { env?: Record<string, string> }).env?.VITE_SUPABASE_URL;
-  return !supabaseUrl || supabaseUrl === "" || supabaseUrl === "https://placeholder.supabase.co";
-}
-
-export function getOnboardingContext(industry: AssetOnboardingIndustry, assetClass: AssetClass) {
-  const pack = getIndustryTemplatePack(industry);
-  const classTemplate = getAssetClassTemplate(assetClass);
-  const template = industryContext(industry);
-
-  return {
-    industry: {
-      code: industry,
-      name: template.name,
-      pack: pack || null,
-    },
-    assetClass: {
-      code: assetClass,
-      label: ASSET_CLASS_LABELS[assetClass],
-      template: classTemplate || null,
-    },
-    templateVersion: getTemplateVersion(industry, assetClass),
-    offlineMode: isOfflineMode(),
-    questions: [
-      ...template.questions,
-      ...getAssetSpecificQuestions(assetClass),
-    ],
-    riskDrivers: template.riskDrivers,
-    safeguards: template.safeguards,
-    approvalGates: template.approvalGates,
-    failureModes: failureModeLibrary(assetClass),
-    regulatoryConsiderations: template.regulatoryConsiderations,
-    confidenceRules: template.confidenceRules,
-    blockedAutomationRules: template.blockedAutomationRules,
-    kpiModel: template.kpiModel,
-    readinessModel: template.readinessModel,
-  };
-}
-
-// Re-export template pack types for consumers
-export type { IndustryTemplatePack } from './industry-template-packs';
-export type { AssetClassTemplate } from './asset-class-templates';
-export { listIndustryTemplatePacks } from './industry-template-packs';
-export { listAssetClassTemplates } from './asset-class-templates';
-export { ASSET_CLASS_ALIAS_MAP } from './asset-class-templates';

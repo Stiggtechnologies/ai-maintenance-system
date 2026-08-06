@@ -64,7 +64,6 @@ import { useAuth } from "./components/AuthProvider";
 import { getRoleHome } from "./lib/roleNavigation";
 import { ReliabilityCopilotPage } from "./pages/ReliabilityCopilotPage";
 import { FirstCustomerPilotPage } from "./pages/FirstCustomerPilotPage";
-import { ReliabilityEngineerPage } from "./pages/ReliabilityEngineerPage";
 
 type Page =
   | "demo"
@@ -135,21 +134,26 @@ function App() {
             element={<SalesforceSignup />}
           />
           <Route path="/auth/callback/azure" element={<AzureADCallback />} />
+          <Route path="/setup" element={<FirstCustomerPilotPage />} />
           <Route
             path="/pilot/reliability"
             element={<FirstCustomerPilotPage />}
           />
-          <Route path="/demo/copilot" element={<Navigate to="/" replace />} />
+          <Route
+            path="/demo/copilot"
+            element={
+              <div className="min-h-screen bg-[#0B0F14] p-6 gradient-mesh">
+                <ReliabilityCopilotPage />
+              </div>
+            }
+          />
           <Route
             path="/*"
             element={
               <AnimatePresence mode="wait">
                 {currentPage === "demo" && !isAuthenticated && (
                   <motion.div key="demo" {...pageTransition}>
-                    <ReliabilityEngineerPage
-                      onSignup={() => setCurrentPage("signup")}
-                      onSignIn={() => setCurrentPage("signin")}
-                    />
+                    <ReliabilityCopilotPage />
                   </motion.div>
                 )}
                 {currentPage === "signin" && (
