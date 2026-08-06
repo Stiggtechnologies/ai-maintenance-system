@@ -20,8 +20,14 @@ const C22_REC_TITLE = "Reschedule PM on Conveyor C-22";
 const C22_REC_ACTION = "Advance PM from Day 14 to Day 3 — bearing replacement";
 const C22_VALUE_LABEL = "Risk mitigated — Reschedule PM on Conveyor C-22";
 
-async function login(page: Page) {
+async function openLogin(page: Page) {
   await page.goto("/");
+  const signIn = page.getByRole("button", { name: /^sign in$/i });
+  if (await signIn.isVisible()) await signIn.click();
+}
+
+async function login(page: Page) {
+  await openLogin(page);
   const email = page.getByRole("textbox", { name: /work email/i });
   await expect(email).toBeVisible({ timeout: 20_000 });
   await email.fill(DEMO_EMAIL);
@@ -320,7 +326,7 @@ test.describe("ISO 55000 KPI service: access-controlled executive intelligence",
     // Executive: board-tier KPIs appear.
     await page.goto("/");
     await page.evaluate(() => window.localStorage.clear());
-    await page.goto("/");
+    await openLogin(page);
     const email = page.getByRole("textbox", { name: /work email/i });
     await expect(email).toBeVisible({ timeout: 20_000 });
     await email.fill("executive@syncai.ca");
@@ -344,7 +350,7 @@ test.describe("ISO 55000 KPI service: access-controlled executive intelligence",
   test("9 — technician lands on the Work Action Board with a trimmed nav", async ({
     page,
   }) => {
-    await page.goto("/");
+    await openLogin(page);
     const email = page.getByRole("textbox", { name: /work email/i });
     await expect(email).toBeVisible({ timeout: 20_000 });
     await email.fill("technician@syncai.ca");
@@ -388,7 +394,7 @@ test.describe("Role-aware copilot dock", () => {
     // Technician persona differs.
     await page.goto("/");
     await page.evaluate(() => window.localStorage.clear());
-    await page.goto("/");
+    await openLogin(page);
     const email = page.getByRole("textbox", { name: /work email/i });
     await expect(email).toBeVisible({ timeout: 20_000 });
     await email.fill("technician@syncai.ca");
@@ -409,7 +415,7 @@ test.describe("Role-aware copilot dock", () => {
   }) => {
     // Admin (seeded by migration 19) sees the log — including their own
     // sign-in event, recorded moments ago by the AuthProvider hook.
-    await page.goto("/");
+    await openLogin(page);
     const email = page.getByRole("textbox", { name: /work email/i });
     await expect(email).toBeVisible({ timeout: 20_000 });
     await email.fill("admin@syncai.ca");
@@ -427,7 +433,7 @@ test.describe("Role-aware copilot dock", () => {
     // Technician is bounced by the AdminGate and never sees the page.
     await page.goto("/");
     await page.evaluate(() => window.localStorage.clear());
-    await page.goto("/");
+    await openLogin(page);
     const email2 = page.getByRole("textbox", { name: /work email/i });
     await expect(email2).toBeVisible({ timeout: 20_000 });
     await email2.fill("technician@syncai.ca");

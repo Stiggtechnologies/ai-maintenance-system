@@ -72,10 +72,10 @@ export function FirstCustomerPilotPage() {
               <ArrowRight size={16} />
             </a>
             <a
-              href="/demo/copilot"
+              href="/"
               className="inline-flex items-center gap-2 rounded-lg border border-white/8 px-5 py-3 text-sm font-semibold text-slate-200 transition-colors hover:bg-white/5"
             >
-              Open live demo
+              Try the Reliability Engineer
             </a>
           </div>
         </div>

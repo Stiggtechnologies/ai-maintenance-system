@@ -5,7 +5,8 @@
     "agent-loop-enrich",
     "ai-agent-processor",
     "autonomous-orchestrator",
-    "onboarding-enrich"
+    "onboarding-enrich",
+    "public-reliability-agent"
   ],
   "allowedNoVerifyJwt": [
     "agent-loop-enrich",
