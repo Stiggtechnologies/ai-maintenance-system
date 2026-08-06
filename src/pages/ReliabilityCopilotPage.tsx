@@ -901,7 +901,7 @@ export function ReliabilityCopilotPage() {
             <h1 className="mt-4 max-w-4xl text-3xl font-semibold tracking-tight text-[#F8FAFC] md:text-5xl">
               Know where the next reliability dollar should go.
             </h1>
-            <p className="mt-4 max-w-3xl text-base leading-7 text-slate-300">
+            <p className="mt-4 max-w-3xl text-base leading-[1.65] text-slate-300">
               SyncAI helps industrial teams decide which risk to address first,
               what action should be taken, and whether that action actually
               created value.
@@ -963,7 +963,7 @@ export function ReliabilityCopilotPage() {
               />
               <Metric label="Confidence" value={report.confidence} />
             </div>
-            <div className="mt-4 rounded-xl border border-amber-300/20 bg-amber-300/[0.08] p-3 text-sm leading-6 text-amber-100">
+            <div className="mt-4 rounded-xl border border-amber-300/20 bg-amber-300/[0.08] p-3 text-sm leading-[1.6] text-amber-100">
               Safety, environmental, regulatory, OEM limit, and
               production-critical changes require qualified engineering
               approval.
@@ -991,7 +991,7 @@ export function ReliabilityCopilotPage() {
                 <div className="mt-4 text-sm font-semibold text-[#F8FAFC]">
                   {card.title}
                 </div>
-                <p className="mt-2 text-sm leading-6 text-slate-400">
+                <p className="mt-2 text-sm leading-[1.6] text-slate-400">
                   {card.detail}
                 </p>
               </button>
@@ -1054,7 +1054,7 @@ export function ReliabilityCopilotPage() {
               <BrainCircuit size={17} className="text-teal-300" />
               Analyze a reliability problem
             </div>
-            <p className="mt-1 text-xs leading-5 text-slate-500">
+            <p className="mt-1 text-xs leading-[1.45] text-slate-500">
               RCA, FRACAS, FMEA, RAM, PM optimization, and governed reports.
             </p>
           </button>
@@ -1070,7 +1070,7 @@ export function ReliabilityCopilotPage() {
               <PackageCheck size={17} className="text-teal-300" />
               Guided Asset Onboarding
             </div>
-            <p className="mt-1 text-xs leading-5 text-slate-500">
+            <p className="mt-1 text-xs leading-[1.45] text-slate-500">
               Build a reliability-ready asset profile from one command.
             </p>
           </button>
@@ -1086,7 +1086,7 @@ export function ReliabilityCopilotPage() {
               <BookOpenText size={17} className="text-teal-300" />
               Evidence & Governance
             </div>
-            <p className="mt-1 text-xs leading-5 text-slate-500">
+            <p className="mt-1 text-xs leading-[1.45] text-slate-500">
               Source trail, deterministic math, and approval controls.
             </p>
           </button>
@@ -1461,7 +1461,7 @@ export function ReliabilityCopilotPage() {
                     <div className="text-sm font-semibold text-amber-100">
                       Free mode is for examples and non-sensitive context
                     </div>
-                    <p className="mt-1 text-sm leading-6 text-amber-100/80">
+                    <p className="mt-1 text-sm leading-[1.6] text-amber-100/80">
                       Do not enter confidential site data, controlled documents,
                       personal information, or proprietary operating history in
                       the free demo. Use the secure workspace for
@@ -1518,7 +1518,7 @@ export function ReliabilityCopilotPage() {
                           <MessageSquare size={18} className="text-teal-300" />
                           Decision Thread
                         </div>
-                        <p className="mt-1 text-sm leading-6 text-slate-500">
+                        <p className="mt-1 text-sm leading-[1.6] text-slate-500">
                           The question, evidence, recommendation, approval gate,
                           and value trail stay together.
                         </p>
@@ -1550,7 +1550,7 @@ export function ReliabilityCopilotPage() {
                           <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
                             Recommendation
                           </div>
-                          <p className="mt-1 text-sm leading-6 text-slate-200">
+                          <p className="mt-1 text-sm leading-[1.6] text-slate-200">
                             {report.recommendations[0]}
                           </p>
                         </div>
@@ -1558,7 +1558,7 @@ export function ReliabilityCopilotPage() {
                           <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
                             Approval Gate
                           </div>
-                          <p className="mt-1 text-sm leading-6 text-slate-200">
+                          <p className="mt-1 text-sm leading-[1.6] text-slate-200">
                             {report.approvalBoundary[0]}
                           </p>
                         </div>
@@ -1586,7 +1586,7 @@ export function ReliabilityCopilotPage() {
                           void generateReport();
                         }
                       }}
-                      className="min-h-28 w-full resize-none rounded-2xl border border-teal-300/20 bg-black/45 p-4 text-sm leading-6 text-[#E6EDF3] outline-none transition-colors placeholder:text-slate-500 focus:border-teal-400/70 focus:ring-4 focus:ring-teal-400/10"
+                      className="min-h-28 w-full resize-none rounded-2xl border border-teal-300/20 bg-black/45 p-4 text-sm leading-[1.6] text-[#E6EDF3] outline-none transition-colors placeholder:text-slate-500 focus:border-teal-400/70 focus:ring-4 focus:ring-teal-400/10"
                       placeholder="Ask for RCA, FRACAS, PM optimization, RAM, or /onboard pump P-101..."
                       aria-label="Interactive reliability chat input"
                     />
@@ -1630,7 +1630,7 @@ export function ReliabilityCopilotPage() {
                       <Bot size={17} className="text-teal-300" />
                       Agent Workstream
                     </div>
-                    <p className="mt-1 text-xs leading-5 text-slate-500">
+                    <p className="mt-1 text-xs leading-[1.45] text-slate-500">
                       Real-time feedback from the reliability workflow.
                     </p>
                     <div className="mt-4 rounded-2xl border border-white/[0.07] bg-black/25 p-4">
@@ -1776,7 +1776,7 @@ export function ReliabilityCopilotPage() {
                     <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
                       Before SyncAI
                     </div>
-                    <p className="mt-2 text-sm leading-6 text-slate-300">
+                    <p className="mt-2 text-sm leading-[1.6] text-slate-300">
                       Scattered work orders, unclear mechanism, competing
                       maintenance requests, and no clean trail from spend to
                       realized value.
@@ -1786,7 +1786,7 @@ export function ReliabilityCopilotPage() {
                     <div className="text-xs font-semibold uppercase tracking-[0.16em] text-teal-200">
                       After SyncAI
                     </div>
-                    <p className="mt-2 text-sm leading-6 text-slate-100">
+                    <p className="mt-2 text-sm leading-[1.6] text-slate-100">
                       Pattern detected, first risk ranked, governed action
                       proposed, approval boundary preserved, and value ready to
                       verify after execution.
@@ -1882,7 +1882,7 @@ export function ReliabilityCopilotPage() {
                   <summary className="cursor-pointer px-4 py-3 text-sm font-semibold text-slate-200">
                     View full deterministic report
                   </summary>
-                  <pre className="max-h-96 overflow-auto whitespace-pre-wrap border-t border-white/[0.06] p-4 text-xs leading-5 text-slate-200">
+                  <pre className="max-h-96 overflow-auto whitespace-pre-wrap border-t border-white/[0.06] p-4 text-xs leading-[1.45] text-slate-200">
                     {report.markdown}
                   </pre>
                 </details>
@@ -1910,7 +1910,7 @@ export function ReliabilityCopilotPage() {
                     )}
                   </div>
                 </div>
-                <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-200">
+                <p className="mt-3 whitespace-pre-wrap text-sm leading-[1.6] text-slate-200">
                   {liveAgent.response}
                 </p>
                 {liveAgent.error && (
@@ -2046,7 +2046,7 @@ export function ReliabilityCopilotPage() {
                 <h2 className="mt-1 text-xl font-semibold tracking-tight text-[#F8FAFC]">
                   Source Trail And Governance
                 </h2>
-                <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-400">
+                <p className="mt-1 max-w-3xl text-sm leading-[1.6] text-slate-400">
                   This screen is the audit surface: what was used, what was
                   calculated, what is uncertain, and what requires human
                   approval before implementation.
@@ -2148,7 +2148,7 @@ export function ReliabilityCopilotPage() {
               <div className="text-sm font-semibold text-[#F8FAFC]">
                 Deterministic report
               </div>
-              <pre className="mt-3 max-h-[520px] overflow-auto whitespace-pre-wrap rounded-xl border border-white/[0.06] bg-black/30 p-4 text-xs leading-5 text-slate-200">
+              <pre className="mt-3 max-h-[520px] overflow-auto whitespace-pre-wrap rounded-xl border border-white/[0.06] bg-black/30 p-4 text-xs leading-[1.45] text-slate-200">
                 {report.markdown}
               </pre>
             </div>
@@ -2257,7 +2257,7 @@ export function ReliabilityCopilotPage() {
                   void generateReport();
                 }
               }}
-              className="max-h-40 min-h-16 w-full resize-none rounded-xl border border-white/[0.08] bg-black/40 p-3 text-sm leading-6 text-[#E6EDF3] outline-none transition-colors placeholder:text-slate-500 focus:border-teal-400/70 focus:ring-4 focus:ring-teal-400/10"
+              className="max-h-40 min-h-16 w-full resize-none rounded-xl border border-white/[0.08] bg-black/40 p-3 text-sm leading-[1.6] text-[#E6EDF3] outline-none transition-colors placeholder:text-slate-500 focus:border-teal-400/70 focus:ring-4 focus:ring-teal-400/10"
               placeholder="Ask SyncAI to analyze failures, build RCA/FRACAS, optimize PMs, or /onboard pump P-101..."
               aria-label="Floating SyncAI chat input"
             />
@@ -2326,7 +2326,7 @@ function FreeCapacityPanel({
             <Gauge size={17} className="text-teal-300" />
             Free analysis capacity
           </div>
-          <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-400">
+          <p className="mt-1 max-w-3xl text-sm leading-[1.6] text-slate-400">
             Visitors can experience a complete risk-to-value packet before the
             48-hour value proof gate. Capacity is metered behind the scenes by
             estimated token use.
@@ -2391,7 +2391,7 @@ function ValueLensCard({
       <div className="mt-2 line-clamp-2 text-sm font-semibold text-[#F8FAFC]">
         {value}
       </div>
-      <p className="mt-2 text-xs leading-5 text-slate-500">{detail}</p>
+      <p className="mt-2 text-xs leading-[1.45] text-slate-500">{detail}</p>
     </div>
   );
 }
@@ -2430,7 +2430,7 @@ function ValueProofPanel({
             <BarChart3 size={17} className="text-teal-300" />
             Value proof model
           </div>
-          <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-400">
+          <p className="mt-1 max-w-3xl text-sm leading-[1.6] text-slate-400">
             Make the recommendation measurable before it becomes work. Track
             estimated value, authorized value, and verified realized value after
             the action window.
@@ -2486,7 +2486,7 @@ function ProofHandoffPanel() {
           <PackageCheck size={17} />
           Ready for one-click onboarding?
         </div>
-        <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-300">
+        <p className="mt-2 max-w-3xl text-sm leading-[1.6] text-slate-300">
           Start with a sanitized export for the 48-hour value proof. If the
           packet shows a real opportunity, SyncAI can generate the workspace
           shell, data checklist, role invites, approval gates, and first
@@ -2602,7 +2602,9 @@ function AgentRuntimeStep({
           <div className="mt-1 text-sm font-semibold text-[#F8FAFC]">
             {status}
           </div>
-          <div className="mt-1 text-xs leading-5 text-slate-400">{detail}</div>
+          <div className="mt-1 text-xs leading-[1.45] text-slate-400">
+            {detail}
+          </div>
         </div>
       </div>
     </div>
@@ -2641,7 +2643,7 @@ function ChatBubble({ message }: { message: ChatMessage }) {
             </span>
           )}
         </div>
-        <p className="mt-2 whitespace-pre-wrap text-sm leading-6">
+        <p className="mt-2 whitespace-pre-wrap text-sm leading-[1.6]">
           {message.text}
         </p>
       </div>

@@ -317,10 +317,10 @@ export function FirstCustomerPilotPage() {
             <Wrench size={14} />
             First 3 design partners
           </div>
-          <h1 className="mt-5 max-w-4xl text-4xl font-bold leading-tight md:text-6xl">
+          <h1 className="mt-5 max-w-4xl text-[2rem] font-bold leading-[1.12] sm:text-5xl md:text-6xl">
             See your first reliability value proof in 48 hours.
           </h1>
-          <p className="mt-5 max-w-3xl text-lg leading-8 text-slate-300">
+          <p className="mt-5 max-w-3xl text-base leading-[1.7] text-slate-300 sm:text-lg sm:leading-[1.75]">
             SyncAI turns a small sanitized work-order export into a governed
             decision packet: where to spend the next dollar, which risk to
             address first, what action to take, and whether that action created
@@ -360,7 +360,7 @@ export function FirstCustomerPilotPage() {
               <h2 id="value-proof-intake" className="mt-5 text-2xl font-bold">
                 Request captured.
               </h2>
-              <p className="mt-3 text-sm leading-6 text-slate-300">
+              <p className="mt-3 text-sm leading-[1.6] text-slate-300">
                 The next step is a short scope check: confirm the asset/system,
                 data export shape, security boundary, and the business outcome
                 the proof needs to make visible.
@@ -369,7 +369,7 @@ export function FirstCustomerPilotPage() {
                 <div className="text-sm font-semibold text-teal-200">
                   Proof target
                 </div>
-                <p className="mt-2 text-sm leading-6 text-slate-300">
+                <p className="mt-2 text-sm leading-[1.6] text-slate-300">
                   {intake.company || "Your organization"} wants to evaluate{" "}
                   {intake.assetScope || "a reliability opportunity"} using{" "}
                   {intake.systemOfRecord || "available maintenance history"}.
@@ -382,7 +382,7 @@ export function FirstCustomerPilotPage() {
                     <PackageCheck size={17} className="text-teal-300" />
                     Automated onboarding package generated
                   </div>
-                  <p className="mt-2 text-xs leading-5 text-slate-400">
+                  <p className="mt-2 text-xs leading-[1.45] text-slate-400">
                     {onboardingStatus === "saved"
                       ? "Saved to the pilot onboarding queue."
                       : onboardingStatus === "saving"
@@ -406,7 +406,7 @@ export function FirstCustomerPilotPage() {
                             <div className="text-sm font-semibold text-[#E6EDF3]">
                               {item.title}
                             </div>
-                            <p className="mt-1 text-xs leading-5 text-slate-400">
+                            <p className="mt-1 text-xs leading-[1.45] text-slate-400">
                               {item.detail}
                             </p>
                           </div>
@@ -450,7 +450,7 @@ export function FirstCustomerPilotPage() {
               <h2 id="value-proof-intake" className="mt-2 text-2xl font-bold">
                 Start with one decision worth proving.
               </h2>
-              <p className="mt-2 text-sm leading-6 text-slate-400">
+              <p className="mt-2 text-sm leading-[1.6] text-slate-400">
                 Use sanitized, non-sensitive context here. Company-sensitive
                 data belongs in the secure workspace after scope and access are
                 confirmed.
@@ -559,7 +559,7 @@ export function FirstCustomerPilotPage() {
               />
 
               {submitStatus === "error" && (
-                <div className="mt-4 rounded-lg border border-amber-300/20 bg-amber-300/[0.08] p-3 text-sm leading-6 text-amber-100">
+                <div className="mt-4 rounded-lg border border-amber-300/20 bg-amber-300/[0.08] p-3 text-sm leading-[1.6] text-amber-100">
                   We could not save the intake request automatically. Your
                   answers are still here, and the email handoff is ready.
                   <a href={mailtoHref} className="ml-1 font-semibold underline">
@@ -613,7 +613,7 @@ export function FirstCustomerPilotPage() {
               <ShieldCheck size={17} />
               Trust and engineering boundary
             </div>
-            <p className="mt-3 text-sm leading-6 text-amber-50">
+            <p className="mt-3 text-sm leading-[1.6] text-amber-50">
               SyncAI starts with sanitized, non-sensitive data for the 48-hour
               proof. Safety, environmental, regulatory, OEM-limit,
               operating-envelope, and production-critical decisions remain with
@@ -646,7 +646,7 @@ export function FirstCustomerPilotPage() {
               <h2 className="mt-3 text-2xl font-bold">
                 Turn the proof into a working pilot without a setup drag.
               </h2>
-              <p className="mt-3 text-sm leading-6 text-slate-400">
+              <p className="mt-3 text-sm leading-[1.6] text-slate-400">
                 After the intake is captured, SyncAI generates the secure pilot
                 setup package from the proof scope so the team can move from
                 interest to action quickly.
@@ -668,7 +668,7 @@ export function FirstCustomerPilotPage() {
                         <div className="text-sm font-semibold text-[#E6EDF3]">
                           {item.title}
                         </div>
-                        <p className="mt-1 text-xs leading-5 text-slate-400">
+                        <p className="mt-1 text-xs leading-[1.45] text-slate-400">
                           {item.detail}
                         </p>
                       </div>
@@ -693,7 +693,7 @@ export function FirstCustomerPilotPage() {
                       {step.label}
                     </div>
                     <div className="mt-3 text-lg font-bold">{step.title}</div>
-                    <p className="mt-2 text-sm leading-6 text-slate-400">
+                    <p className="mt-2 text-sm leading-[1.6] text-slate-400">
                       {step.detail}
                     </p>
                   </div>
@@ -763,7 +763,7 @@ function TextArea({
         required={required}
         rows={3}
         onChange={(event) => onChange(event.target.value)}
-        className="w-full resize-none rounded-lg border border-white/[0.08] bg-black/20 px-3 py-2 text-sm leading-6 text-[#E6EDF3] outline-none transition-colors placeholder:text-slate-600 focus:border-teal-500/60"
+        className="w-full resize-none rounded-lg border border-white/[0.08] bg-black/20 px-3 py-2 text-sm leading-[1.6] text-[#E6EDF3] outline-none transition-colors placeholder:text-slate-600 focus:border-teal-500/60"
       />
     </label>
   );
