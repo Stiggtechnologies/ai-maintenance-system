@@ -277,3 +277,148 @@ verification tail**, **process-safety/integrity capability**, and
 chassis that already exist. The honest label for today remains the README's:
 an advanced pilot with an operating-system skeleton — and this document plus
 the capability audit define, without inflation, what "finished" means.
+
+---
+
+# Appendix — Item-level scoring
+
+_Added 2026-08-04 after review: the body scores the spec at section level;
+this appendix scores every individual item so nothing is hidden by grouping._
+
+## A. Decision rights, all 21 items (spec §5)
+
+### Automatically permitted (8)
+
+| Item                                        | Status                                                                      |
+| ------------------------------------------- | --------------------------------------------------------------------------- |
+| Clean and classify work-order data          | ✅ Demonstrated (15-month ingest: category→work-type/failure-mode coding)   |
+| Draft job plans                             | 🟡 Copilot drafts plans as text; no structured job-plan objects             |
+| Identify missing materials or documentation | 🟡 Onboarding flags missing docs/data; no materials check (no inventory)    |
+| Produce weekly schedule options             | ❌                                                                          |
+| Calculate RAM and maintenance KPIs          | ✅ 29-KPI service + real MTBF/MTTR/availability from history                |
+| Detect duplicate notifications              | ❌ (idempotent dedup exists for AI recommendations, not user notifications) |
+| Flag repeat failures and bad actors         | ✅ Demonstrated (real-fleet bad-actor ranking; repeat modes coded)          |
+| Recommend inspections or engineering review | ✅ Recommendation engine + inspection-intelligence contracts                |
+| Generate meeting packs and shift handovers  | 🟡 Planning briefing exists; no handover/meeting-pack generator             |
+
+### Approval required (8)
+
+| Item                                   | Enforced today?                                                                                         |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| Change PM intervals                    | 🟡 No PM-plan object yet; strategy changes route via HITL recommendations                               |
+| Defer critical work                    | 🟡 Approval boundary exists; deferral is not a modeled action with risk assessment                      |
+| Change equipment operating limits      | ✅ Charters flag OEM-limit changes for human approval; limits are approved-source-only in physics layer |
+| Approve repair vs replacement          | 🟡 Recommendation + approval path exists; no LCC analysis behind it                                     |
+| Alter safety-critical procedures       | ❌ No procedure objects                                                                                 |
+| Release turnaround scope               | ❌ No turnaround capability                                                                             |
+| Commit significant expenditures        | ❌ No financial commitment objects                                                                      |
+| Create/reschedule safety-critical work | 🟡 Safety-flagged WOs exist; scheduling actions not modeled                                             |
+
+### Never autonomous (5)
+
+| Item                                              | Status                                                                                                    |
+| ------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| Bypass protective systems                         | ✅ No control-system write path exists at all (structurally impossible today)                             |
+| Override permits or isolations                    | ✅ Same — no permit/isolation objects, no write path                                                      |
+| Suppress safety alarms                            | ✅ Same                                                                                                   |
+| Return to service without authorized verification | 🟡 RTS not modeled; nothing _can_ return equipment to service, but the prohibition is absence, not policy |
+| Trade safety/environment for production           | ✅ Charter + core principles; enforced culturally and by HITL, not yet by a codified consequence model    |
+
+**Appendix verdict on §5:** the "never" tier is satisfied today mostly by
+_absence of capability_ — acceptable now, but as connectors arrive these must
+become enforced policy, not architectural accident.
+
+## B. KPI hierarchy, all items (spec §6)
+
+### Enterprise outcomes (6)
+
+| KPI                                       | Status                                              |
+| ----------------------------------------- | --------------------------------------------------- |
+| Safety and environmental events           | 🟡 HSE escalations counted; no TRIF/spill registers |
+| Production availability                   | ✅ Computed from real history per unit              |
+| Maintenance cost per production unit      | ❌ No production-unit denominator                   |
+| Production loss attributable to equipment | 🟡 Downtime hours attributed; no loss valuation     |
+| Asset lifecycle risk                      | 🟡 Risk scores exist; no lifecycle risk model       |
+| Capital avoidance and verified benefit    | ✅ Value states incl. verified (pilot scorecard)    |
+
+### Work-management health (9)
+
+Planned-work % ❌ · Emergency-work % 🟡 (priority coding exists in history) ·
+Schedule compliance ❌ · PM compliance 🟡 (KPI exists; awaits PM plans) ·
+Ready backlog ❌ · Backlog age/risk 🟡 (backlog views exist) · Break-in work ❌
+· Planning accuracy ❌ · Waiting-on-material ❌ · Rework/repeat 🟡 (repeat
+failures codable from history).
+**Family verdict: mostly ❌ — requires Stage-2 work-management objects; honest
+in body, now explicit.**
+
+### Reliability performance (9)
+
+MTBF by failure mode ✅ (computable; currently by unit — segmentation gap) ·
+MTTR ✅ · Availability ✅ · Repeat failures 🟡 · Top loss bad actors ✅
+(demonstrated) · Corrective-action effectiveness ❌ · Failure-mode elimination
+rate ❌ · CM warning lead time ❌ (needs real CM) · PM task effectiveness ❌.
+
+**Segmentation (the spec's closing requirement):** ❌ — KPIs are org-scope;
+class/criticality/site/regime/failure-mode segmentation is not implemented.
+
+## C. Failure-taxonomy definitions, all 11 (spec §3)
+
+| Definition                                | Governed today?                                                          |
+| ----------------------------------------- | ------------------------------------------------------------------------ |
+| What constitutes a failure                | 🟡 Per-asset (onboarding s3_failure_definition), not enterprise-governed |
+| Functional failure vs degraded            | 🟡 Same per-asset item; no enterprise rule                               |
+| Equipment boundary                        | 🟡 Onboarding boundary item; no governed model                           |
+| Downtime start/end                        | ❌ (ingest used event log's own timestamps; no owned definition)         |
+| Maintenance-induced failure               | ❌                                                                       |
+| Repeat failure                            | ❌ as definition (detectable in data)                                    |
+| Emergency work                            | 🟡 Priority field exists; no definition governance                       |
+| Deferral risk                             | ❌                                                                       |
+| Mechanism / mode / cause / consequence    | 🟡 Mode+cause fields live; mechanism/consequence partial                 |
+| Production loss attribution               | ❌                                                                       |
+| Safety/environmental/business criticality | 🟡 Criticality + safety flags; env/business dimensions not separated     |
+
+## D. Calculation tools, all 14 (spec §7) — corrected scoring
+
+Weibull/censored ❌ · RBD ❌ · Availability/repairable modeling 🟡 (simple
+availability computed from real data; no repairable-system models) ·
+Crow-AMSAA ❌ · Monte Carlo ❌ · Spares optimization ❌ · Age-replacement/
+inspection-interval ❌ · PM optimization ❌ · **FMEA/FMECA & RCM logic 🟡**
+(45-class FMEA library + RCM-based charters — body's "❌ library" was too
+harsh here) · FTA/ETA ❌ · **Defect elimination & Pareto 🟡** (Pareto
+performed on the real fleet 2026-08-04) · Cost forecasting ❌ · Shutdown
+critical-path ❌ · Survival/CBM prediction ❌.
+
+**Corrected §7 verdict: 2 of 14 partial, 12 absent — on a chassis
+(deterministic physics + real dataset) purpose-built to host them.**
+
+## E. Universal layer, all 24 items individually (spec's second extension)
+
+| #   | Item                                                 | Status                                                                   |
+| --- | ---------------------------------------------------- | ------------------------------------------------------------------------ |
+| 1   | Mission/service outcomes (vs production)             | 🟡 Mission-assurance framing generalizes; no per-sector outcome models   |
+| 2   | Systems-of-systems dependencies                      | ❌                                                                       |
+| 3   | Universal asset ontology (linear/network/civil/etc.) | 🟡 Fixed+mobile real; others absent                                      |
+| 4   | Complete lifecycle (need→disposal)                   | 🟡 Onboarding→operate covered; concept/procure/decommission absent       |
+| 5   | Modular sector packs                                 | 🟡 Mining depth exists; pack architecture absent                         |
+| 6   | Jurisdiction/regulatory packs                        | ❌ (single-jurisdiction notes only, e.g. ABSA references)                |
+| 7   | Configuration & baseline management                  | ❌                                                                       |
+| 8   | Product/service quality linkage                      | ❌                                                                       |
+| 9   | Customer/community/public consequences               | ❌                                                                       |
+| 10  | Geospatial intelligence                              | ❌                                                                       |
+| 11  | Enterprise portfolio optimization                    | ❌                                                                       |
+| 12  | Multi-party ownership/service models                 | ❌                                                                       |
+| 13  | SLA/contractual management                           | ❌                                                                       |
+| 14  | Materials/chemistry degradation science              | 🟡 Corrosion/wear concepts in DNA audits; no degradation-model library   |
+| 15  | Natural-hazard/climate resilience                    | ❌                                                                       |
+| 16  | Emergency/restoration command modes                  | ❌                                                                       |
+| 17  | Knowledge provenance & evidence quality tiers        | 🟡 Authority/provenance model designed; runtime incomplete               |
+| 18  | Uncertainty-aware decisions                          | 🟡 Confidence tiers exist; no probability ranges/VoI/thresholds          |
+| 19  | Model applicability envelopes                        | ❌                                                                       |
+| 20  | Federated organizational architecture                | ❌ (target-state doc names it; nothing built)                            |
+| 21  | Interoperability & vendor neutrality                 | 🟡 Open stack, exportable data; no connector abstraction/portable models |
+| 22  | Organizational maturity assessment                   | ❌                                                                       |
+| 23  | Implementation & adoption management                 | 🟡 Runbooks/demo assets; no adoption tooling                             |
+| 24  | Explicit ethical boundaries                          | 🟡 Several encoded in charters/principles; not a governed register       |
+
+**Universal tally: 0 ✅ · 10 🟡 · 14 ❌ — confirming the body's sequencing:
+this layer is real but correctly last.**
