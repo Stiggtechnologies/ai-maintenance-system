@@ -317,10 +317,10 @@ export function FirstCustomerPilotPage() {
             <Wrench size={14} />
             First 3 design partners
           </div>
-          <h1 className="mt-5 max-w-4xl text-[2rem] font-bold leading-[1.12] sm:text-5xl md:text-6xl">
+          <h1 className="mt-5 max-w-4xl text-[1.75rem] font-bold leading-[1.15] min-[420px]:text-[2rem] sm:text-5xl md:text-6xl">
             See your first reliability value proof in 48 hours.
           </h1>
-          <p className="mt-5 max-w-3xl text-base leading-[1.7] text-slate-300 sm:text-lg sm:leading-[1.75]">
+          <p className="mt-5 max-w-3xl text-[0.95rem] leading-[1.7] text-slate-300 min-[420px]:text-base sm:text-lg sm:leading-[1.75]">
             SyncAI turns a small sanitized work-order export into a governed
             decision packet: where to spend the next dollar, which risk to
             address first, what action to take, and whether that action created
