@@ -5,16 +5,20 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY") ?? "";
 const MODEL = Deno.env.get("PUBLIC_RELIABILITY_MODEL") ?? "gpt-5.6-terra";
-const RATE_LIMIT_SECRET = Deno.env.get("PUBLIC_DEMO_RATE_LIMIT_SECRET") ?? "";
+const RATE_LIMIT_SECRET = Deno.env.get("PUBLIC_RELIABILITY_RATE_LIMIT_SECRET") ?? "";
 const ALLOWED_ORIGINS = (Deno.env.get("ALLOWED_ORIGINS") ?? "https://app.syncai.ca,http://localhost:5173")
   .split(",").map((item) => item.trim()).filter(Boolean);
 
 const scenarios = {
+  "open-question": {
+    asset: "User-described asset or system",
+    facts: [] as string[],
+  },
   "pump-seal": {
     asset: "P-101 process pump",
     question: "Why does P-101 keep leaking after seal replacement?",
     facts: [
-      "P-101 has six coded events in the synthetic history: five seal leaks and one bearing-temperature event.",
+      "P-101 has six coded events in the approved reference-case history: five seal leaks and one bearing-temperature event.",
       "The five seal events total 89 downtime hours and CAD 21,300 captured maintenance cost.",
       "Seal leakage recurred after replacement and around restart/change in operating conditions.",
       "Deterministic portfolio inputs: 8,760 operating hours, 8 failures, 38 repair hours, 168-hour mission.",
@@ -116,7 +120,7 @@ Deno.serve(async (req) => {
   if (!body.scenarioId || !(body.scenarioId in scenarios) || typeof body.question !== "string" || typeof body.browserId !== "string") {
     return json({ error: "invalid_request" }, 400, origin);
   }
-  const question = body.question.trim().slice(0, 600);
+  const question = body.question.trim().slice(0, 1600);
   if (!question || body.browserId.length < 8 || body.browserId.length > 100) return json({ error: "invalid_request" }, 400, origin);
 
   const clientAddress = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
@@ -126,15 +130,22 @@ Deno.serve(async (req) => {
   const windowStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
   const resetsAt = new Date(windowStart.getTime() + 86_400_000).toISOString();
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, { auth: { persistSession: false } });
-  const { data: allowed, error: allowanceError } = await admin.rpc("consume_public_demo_allowance", {
+  const { data: allowed, error: allowanceError } = await admin.rpc("consume_public_reliability_allowance", {
     p_fingerprint_hash: fingerprint, p_window_start: windowStart.toISOString(), p_limit: 1,
   });
   if (allowanceError) return json({ error: "rate_limit_unavailable" }, 503, origin);
-  if (!allowed) return json({ error: "public_demo_limit_reached", resetsAt }, 429, origin);
+  if (!allowed) return json({ error: "public_reliability_limit_reached", resetsAt }, 429, origin);
 
   const scenario = scenarios[body.scenarioId as ScenarioId];
-  const instructions = `You are SyncAI's senior Reliability Engineer. Produce a concise, board-ready but field-usable assessment. Use only supplied facts. Separate observations from hypotheses. Do not claim a root cause. Never invent standards, citations, operating limits, costs or evidence. MTBF inputs are a portfolio baseline and must not be misrepresented as the selected asset's precise MTBF. Financial impact is limited to captured maintenance cost and downtime unless a production value is supplied. Recommend reversible verification before permanent changes. Every action needs an owner, time window, effectiveness check and approval boundary. Safety, OEM, MOC and qualified human approval always prevail. Return the required JSON only.`;
-  const input = [`Selected synthetic case: ${scenario.asset}`, `User question: ${question}`, "Trusted synthetic facts:", ...scenario.facts.map((fact) => `- ${fact}`), "The public sandbox has no site-specific operating envelope, teardown evidence, vibration spectra, alignment measurements, production value, consequence model or OEM limits."].join("\n");
+  const instructions = `You are SyncAI's senior Reliability Engineer. Produce a concise, board-ready but field-usable assessment. Treat statements in the user's question as unverified user context unless they also appear in the trusted reference facts. Separate observations, user assertions, hypotheses, and verified facts. Do not claim a root cause. Never invent standards, citations, operating limits, costs, measurements, or evidence. If structured exposure and repair inputs are absent, do not calculate or imply MTBF, MTTR, availability, Weibull parameters, or financial impact. Recommend reversible verification before permanent changes. Every action needs an owner, time window, effectiveness check, and approval boundary. Safety, OEM, MOC, site procedures, and qualified human approval always prevail. Return the required JSON only.`;
+  const input = [
+    `Assessment context: ${scenario.asset}`,
+    `User question and unverified context: ${question}`,
+    ...(scenario.facts.length > 0
+      ? ["Trusted reference-case facts:", ...scenario.facts.map((fact) => `- ${fact}`)]
+      : ["Trusted reference-case facts: none supplied."]),
+    "No tenant documents, site operating envelope, teardown evidence, condition-monitoring data, production value, consequence model, or OEM limits are available in free access.",
+  ].join("\n");
 
   try {
     const provider = await fetch("https://api.openai.com/v1/responses", {
