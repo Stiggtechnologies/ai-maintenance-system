@@ -64,8 +64,10 @@ import { useAuth } from "./components/AuthProvider";
 import { getRoleHome } from "./lib/roleNavigation";
 import { ReliabilityCopilotPage } from "./pages/ReliabilityCopilotPage";
 import { FirstCustomerPilotPage } from "./pages/FirstCustomerPilotPage";
+import { PublicReliabilityDemoPage } from "./pages/PublicReliabilityDemoPage";
 
 type Page =
+  | "demo"
   | "signin"
   | "signup"
   | "enterprise"
@@ -76,7 +78,7 @@ type Page =
   | "terms";
 
 function App() {
-  const [currentPage, setCurrentPage] = useState<Page>("signin");
+  const [currentPage, setCurrentPage] = useState<Page>("demo");
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -97,7 +99,7 @@ function App() {
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setIsAuthenticated(!!session);
       if (session) setCurrentPage("app");
-      else setCurrentPage("signin");
+      else setCurrentPage("demo");
     });
 
     return () => subscription.unsubscribe();
@@ -137,18 +139,19 @@ function App() {
             path="/pilot/reliability"
             element={<FirstCustomerPilotPage />}
           />
-          <Route
-            path="/demo/copilot"
-            element={
-              <div className="min-h-screen bg-linear-to-br from-slate-950 via-blue-950 to-slate-900">
-                <ReliabilityCopilotPage />
-              </div>
-            }
-          />
+          <Route path="/demo/copilot" element={<Navigate to="/" replace />} />
           <Route
             path="/*"
             element={
               <AnimatePresence mode="wait">
+                {currentPage === "demo" && !isAuthenticated && (
+                  <motion.div key="demo" {...pageTransition}>
+                    <PublicReliabilityDemoPage
+                      onSignup={() => setCurrentPage("signup")}
+                      onSignIn={() => setCurrentPage("signin")}
+                    />
+                  </motion.div>
+                )}
                 {currentPage === "signin" && (
                   <motion.div key="signin" {...pageTransition}>
                     <Login
@@ -274,6 +277,10 @@ function AuthenticatedApp() {
           <Route path="/assets" element={<AssetManagement />} />
           <Route path="/onboarding" element={<AssetOnboardingHub />} />
           <Route path="/reliability" element={<Reliability />} />
+          <Route
+            path="/reliability-copilot"
+            element={<ReliabilityCopilotPage />}
+          />
           <Route path="/risk" element={<RiskConsequence />} />
 
           {/* Work & Execution */}
