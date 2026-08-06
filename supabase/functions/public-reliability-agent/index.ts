@@ -1,0 +1,157 @@
+import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { createClient } from "npm:@supabase/supabase-js@2";
+
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
+const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY") ?? "";
+const MODEL = Deno.env.get("PUBLIC_RELIABILITY_MODEL") ?? "gpt-5.6-terra";
+const RATE_LIMIT_SECRET = Deno.env.get("PUBLIC_DEMO_RATE_LIMIT_SECRET") ?? "";
+const ALLOWED_ORIGINS = (Deno.env.get("ALLOWED_ORIGINS") ?? "https://app.syncai.ca,http://localhost:5173")
+  .split(",").map((item) => item.trim()).filter(Boolean);
+
+const scenarios = {
+  "pump-seal": {
+    asset: "P-101 process pump",
+    question: "Why does P-101 keep leaking after seal replacement?",
+    facts: [
+      "P-101 has six coded events in the synthetic history: five seal leaks and one bearing-temperature event.",
+      "The five seal events total 89 downtime hours and CAD 21,300 captured maintenance cost.",
+      "Seal leakage recurred after replacement and around restart/change in operating conditions.",
+      "Deterministic portfolio inputs: 8,760 operating hours, 8 failures, 38 repair hours, 168-hour mission.",
+    ],
+  },
+  "conveyor-mistracking": {
+    asset: "CV-204 conveyor",
+    question: "What is driving CV-204 belt mistracking?",
+    facts: [
+      "CV-204 has five coded events: four belt-mistracking events and one carryback-buildup event.",
+      "Those events total 45 downtime hours and CAD 5,500 captured maintenance cost.",
+      "Spillage, wet feed, carryback and only temporary recovery after idler adjustment are recorded.",
+      "Deterministic portfolio inputs: 6,200 operating hours, 7 failures, 22 repair hours, 120-hour mission.",
+    ],
+  },
+  "compressor-vibration": {
+    asset: "C-330 compressor",
+    question: "What evidence should be collected before a permanent mechanical change?",
+    facts: [
+      "C-330 has five coded events: four high-vibration events and one coupling-wear event.",
+      "Those events total 114 downtime hours and CAD 33,400 captured maintenance cost.",
+      "A process-rate change, drive-end vibration, coupling wear and repeat excursions are recorded.",
+      "Deterministic portfolio inputs: 7,100 operating hours, 7 failures, 51 repair hours, 168-hour mission.",
+    ],
+  },
+} as const;
+
+type ScenarioId = keyof typeof scenarios;
+
+function headers(origin: string | null): Record<string, string> {
+  const allowed = origin && ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
+  return {
+    "Access-Control-Allow-Origin": allowed,
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Cache-Control": "no-store",
+    "Content-Type": "application/json",
+    "Vary": "Origin",
+    "X-Content-Type-Options": "nosniff",
+  };
+}
+
+function json(body: unknown, status: number, origin: string | null): Response {
+  return new Response(JSON.stringify(body), { status, headers: headers(origin) });
+}
+
+async function hmac(value: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    "raw", encoder.encode(RATE_LIMIT_SECRET), { name: "HMAC", hash: "SHA-256" }, false, ["sign"],
+  );
+  const signature = await crypto.subtle.sign("HMAC", key, encoder.encode(value));
+  return [...new Uint8Array(signature)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+function extractText(payload: Record<string, unknown>): string {
+  if (typeof payload.output_text === "string") return payload.output_text;
+  const output = Array.isArray(payload.output) ? payload.output : [];
+  for (const item of output) {
+    if (!item || typeof item !== "object") continue;
+    const content = Array.isArray((item as { content?: unknown[] }).content)
+      ? (item as { content: unknown[] }).content : [];
+    for (const part of content) {
+      if (part && typeof part === "object" && typeof (part as { text?: unknown }).text === "string") {
+        return (part as { text: string }).text;
+      }
+    }
+  }
+  return "";
+}
+
+const schema = {
+  type: "object",
+  additionalProperties: false,
+  required: ["executiveSummary", "observedPattern", "ramInterpretation", "riskExposure", "financialImpact", "confidence", "hypotheses", "actions", "evidenceGaps", "bottomLine", "citations"],
+  properties: {
+    executiveSummary: { type: "string" }, observedPattern: { type: "string" },
+    ramInterpretation: { type: "string" }, riskExposure: { type: "string" },
+    financialImpact: { type: "string" }, confidence: { enum: ["low", "medium", "high"] },
+    hypotheses: { type: "array", minItems: 2, maxItems: 3, items: { type: "object", additionalProperties: false, required: ["hypothesis", "evidenceFor", "verification", "confidence"], properties: { hypothesis: { type: "string" }, evidenceFor: { type: "string" }, verification: { type: "string" }, confidence: { enum: ["low", "medium", "high"] } } } },
+    actions: { type: "array", minItems: 3, maxItems: 5, items: { type: "object", additionalProperties: false, required: ["action", "owner", "timeWindow", "verification", "approvalRequired"], properties: { action: { type: "string" }, owner: { type: "string" }, timeWindow: { type: "string" }, verification: { type: "string" }, approvalRequired: { type: "boolean" } } } },
+    evidenceGaps: { type: "array", minItems: 2, maxItems: 6, items: { type: "string" } },
+    bottomLine: { type: "string" },
+    citations: { type: "array", maxItems: 4, items: { type: "object", additionalProperties: false, required: ["title", "pageRange"], properties: { title: { type: "string" }, pageRange: { type: "string" } } } },
+  },
+};
+
+Deno.serve(async (req) => {
+  const origin = req.headers.get("Origin");
+  if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: headers(origin) });
+  if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405, origin);
+  if (origin && !ALLOWED_ORIGINS.includes(origin)) return json({ error: "origin_not_allowed" }, 403, origin);
+  if (!SUPABASE_URL || !SERVICE_ROLE_KEY || !OPENAI_API_KEY || !RATE_LIMIT_SECRET) {
+    return json({ error: "service_not_configured" }, 503, origin);
+  }
+
+  let body: { scenarioId?: string; question?: string; browserId?: string };
+  try { body = await req.json(); } catch { return json({ error: "invalid_json" }, 400, origin); }
+  if (!body.scenarioId || !(body.scenarioId in scenarios) || typeof body.question !== "string" || typeof body.browserId !== "string") {
+    return json({ error: "invalid_request" }, 400, origin);
+  }
+  const question = body.question.trim().slice(0, 600);
+  if (!question || body.browserId.length < 8 || body.browserId.length > 100) return json({ error: "invalid_request" }, 400, origin);
+
+  const clientAddress = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
+    ?? req.headers.get("cf-connecting-ip") ?? "unknown";
+  const fingerprint = await hmac(`${clientAddress}|${req.headers.get("user-agent") ?? ""}|${body.browserId}`);
+  const now = new Date();
+  const windowStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  const resetsAt = new Date(windowStart.getTime() + 86_400_000).toISOString();
+  const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, { auth: { persistSession: false } });
+  const { data: allowed, error: allowanceError } = await admin.rpc("consume_public_demo_allowance", {
+    p_fingerprint_hash: fingerprint, p_window_start: windowStart.toISOString(), p_limit: 1,
+  });
+  if (allowanceError) return json({ error: "rate_limit_unavailable" }, 503, origin);
+  if (!allowed) return json({ error: "public_demo_limit_reached", resetsAt }, 429, origin);
+
+  const scenario = scenarios[body.scenarioId as ScenarioId];
+  const instructions = `You are SyncAI's senior Reliability Engineer. Produce a concise, board-ready but field-usable assessment. Use only supplied facts. Separate observations from hypotheses. Do not claim a root cause. Never invent standards, citations, operating limits, costs or evidence. MTBF inputs are a portfolio baseline and must not be misrepresented as the selected asset's precise MTBF. Financial impact is limited to captured maintenance cost and downtime unless a production value is supplied. Recommend reversible verification before permanent changes. Every action needs an owner, time window, effectiveness check and approval boundary. Safety, OEM, MOC and qualified human approval always prevail. Return the required JSON only.`;
+  const input = [`Selected synthetic case: ${scenario.asset}`, `User question: ${question}`, "Trusted synthetic facts:", ...scenario.facts.map((fact) => `- ${fact}`), "The public sandbox has no site-specific operating envelope, teardown evidence, vibration spectra, alignment measurements, production value, consequence model or OEM limits."].join("\n");
+
+  try {
+    const provider = await fetch("https://api.openai.com/v1/responses", {
+      method: "POST", signal: AbortSignal.timeout(60_000),
+      headers: { "Authorization": `Bearer ${OPENAI_API_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ model: MODEL, store: false, max_output_tokens: 2600, instructions, input, text: { format: { type: "json_schema", name: "reliability_analysis", strict: true, schema } } }),
+    });
+    if (!provider.ok) {
+      console.error("public-reliability-agent provider failure", { status: provider.status });
+      return json({ error: "provider_unavailable" }, 502, origin);
+    }
+    const payload = await provider.json() as Record<string, unknown>;
+    const text = extractText(payload);
+    const analysis = JSON.parse(text);
+    return json({ success: true, analysis, modelUsed: MODEL, resetsAt }, 200, origin);
+  } catch (error) {
+    console.error("public-reliability-agent failed", { name: error instanceof Error ? error.name : "unknown" });
+    return json({ error: "expert_review_unavailable" }, 502, origin);
+  }
+});
