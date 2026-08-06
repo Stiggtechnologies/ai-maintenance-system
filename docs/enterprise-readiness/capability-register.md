@@ -658,6 +658,6 @@ with the PR that changes an item's status._
 
 ## Register statistics
 
-Atomic items tracked: **307**. Current tally: ✅ 34 · 🟡 88 · ❌ 185.
+Atomic items tracked: **307**. Current tally: ✅ 38 · 🟡 86 · ❌ 183. _(2026-08-04: C7.01/03/04/11 ✅ via validated reliability engine.)_
 Every ❌ and 🟡 is an open obligation of the program. No item may be removed;
 items may only change status with linked evidence in the PR that changes them.
