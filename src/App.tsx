@@ -153,6 +153,18 @@ function App() {
               <AnimatePresence mode="wait">
                 {currentPage === "demo" && !isAuthenticated && (
                   <motion.div key="demo" {...pageTransition}>
+                    {/* The public landing is the signed-out entry point, so it
+                        must always offer a route to authentication — without
+                        this control a visitor cannot reach the sign-in form. */}
+                    <div className="flex justify-end gap-2 px-6 pt-6">
+                      <button
+                        type="button"
+                        onClick={() => setCurrentPage("signin")}
+                        className="rounded-lg bg-signal-gold px-4 py-2 text-sm font-semibold text-overlook-void hover:bg-signal-gold-soft focus:outline-hidden focus-visible:ring-2 focus-visible:ring-signal-gold"
+                      >
+                        Sign in
+                      </button>
+                    </div>
                     <ReliabilityCopilotPage />
                   </motion.div>
                 )}
