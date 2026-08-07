@@ -19,24 +19,24 @@ with the PR that changes an item's status._
 
 ### C1 — Specialized agent roles (separate authority, tools, prompts, approval limits per agent)
 
-| ID    | Capability                                                                                               | Status |
-| ----- | -------------------------------------------------------------------------------------------------------- | ------ |
-| C1.01 | Maintenance Executive agent — enterprise performance, governance, budgets, risk, strategy                | 🟡     |
-| C1.02 | Site Maintenance Manager agent — site execution, constraints, production coordination, escalation        | 🟡     |
-| C1.03 | Reliability Engineer agent — bad actors, failure analysis, Weibull, RCM, FMEA, improvement cases         | 🟡     |
-| C1.04 | Planner agent — job scopes, task lists, labor, tools, permits, materials, estimates                      | 🟡     |
-| C1.05 | Scheduler agent — weekly schedule optimization, resource leveling, frozen-schedule control               | ❌     |
-| C1.06 | Condition Monitoring agent — vibration, oil, thermography, motor current, process anomaly interpretation | 🟡     |
-| C1.07 | FRACAS/RCA agent — incident capture, causal analysis, corrective actions, recurrence tracking            | 🟡     |
-| C1.08 | MRO Materials agent — critical spares, reorder policies, repairables, stockouts, obsolescence            | 🟡     |
-| C1.09 | Shutdown/Turnaround agent — scope challenge, critical path, readiness, execution, closeout               | ❌     |
-| C1.10 | Asset Strategy agent — PM optimization, task intervals, run-to-failure decisions, lifecycle plans        | 🟡     |
-| C1.11 | Safety Gatekeeper agent — process-safety and occupational-safety decision controls (enforced veto)       | 🟡     |
-| C1.12 | Data Steward agent — asset hierarchy, failure codes, master data, data-quality management                | 🟡     |
-| C1.13 | Shared controlled asset model across all agents                                                          | ✅     |
-| C1.14 | Separate authority per agent (not shared envelope)                                                       | ❌     |
-| C1.15 | Separate tools per agent                                                                                 | ❌     |
-| C1.16 | Separate approval limits per agent                                                                       | ❌     |
+| ID    | Capability                                                                                               | Status                                                                                                                                            |
+| ----- | -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| C1.01 | Maintenance Executive agent — enterprise performance, governance, budgets, risk, strategy                | 🟡                                                                                                                                                |
+| C1.02 | Site Maintenance Manager agent — site execution, constraints, production coordination, escalation        | 🟡                                                                                                                                                |
+| C1.03 | Reliability Engineer agent — bad actors, failure analysis, Weibull, RCM, FMEA, improvement cases         | 🟡                                                                                                                                                |
+| C1.04 | Planner agent — job scopes, task lists, labor, tools, permits, materials, estimates                      | 🟡                                                                                                                                                |
+| C1.05 | Scheduler agent — weekly schedule optimization, resource leveling, frozen-schedule control               | 🟡 deterministic schedule options + release/freeze shipped (migration 20260806190000); resource leveling by daily capacity; agent charter pending |
+| C1.06 | Condition Monitoring agent — vibration, oil, thermography, motor current, process anomaly interpretation | 🟡                                                                                                                                                |
+| C1.07 | FRACAS/RCA agent — incident capture, causal analysis, corrective actions, recurrence tracking            | 🟡                                                                                                                                                |
+| C1.08 | MRO Materials agent — critical spares, reorder policies, repairables, stockouts, obsolescence            | 🟡                                                                                                                                                |
+| C1.09 | Shutdown/Turnaround agent — scope challenge, critical path, readiness, execution, closeout               | ❌                                                                                                                                                |
+| C1.10 | Asset Strategy agent — PM optimization, task intervals, run-to-failure decisions, lifecycle plans        | 🟡                                                                                                                                                |
+| C1.11 | Safety Gatekeeper agent — process-safety and occupational-safety decision controls (enforced veto)       | 🟡                                                                                                                                                |
+| C1.12 | Data Steward agent — asset hierarchy, failure codes, master data, data-quality management                | 🟡                                                                                                                                                |
+| C1.13 | Shared controlled asset model across all agents                                                          | ✅                                                                                                                                                |
+| C1.14 | Separate authority per agent (not shared envelope)                                                       | ❌                                                                                                                                                |
+| C1.15 | Separate tools per agent                                                                                 | ❌                                                                                                                                                |
+| C1.16 | Separate approval limits per agent                                                                       | ❌                                                                                                                                                |
 
 ### C2 — Operational data access (governed)
 
@@ -81,54 +81,54 @@ with the PR that changes an item's status._
 
 ### C4 — Closed-loop maintenance process
 
-| ID    | Capability                                                  | Status |
-| ----- | ----------------------------------------------------------- | ------ |
-| C4.01 | Detect                                                      | ✅     |
-| C4.02 | Validate                                                    | ✅     |
-| C4.03 | Assess consequence                                          | 🟡     |
-| C4.04 | Prioritize                                                  | ✅     |
-| C4.05 | Plan                                                        | 🟡     |
-| C4.06 | Schedule                                                    | ❌     |
-| C4.07 | Execute (bounded, approved)                                 | ✅     |
-| C4.08 | Verify                                                      | 🟡     |
-| C4.09 | Capture failure data (FRACAS closeout)                      | ✅     |
-| C4.10 | Analyze                                                     | ✅     |
-| C4.11 | Correct                                                     | 🟡     |
-| C4.12 | Update strategy                                             | 🟡     |
-| C4.13 | CA completion: physical correction verified                 | ❌     |
-| C4.14 | CA completion: causal mechanism addressed                   | ❌     |
-| C4.15 | CA completion: documentation and asset strategy updated     | ❌     |
-| C4.16 | CA completion: effectiveness measured over operating period | ❌     |
-| C4.17 | CA completion: similar assets screened for exposure         | ❌     |
+| ID    | Capability                                                  | Status                                                                     |
+| ----- | ----------------------------------------------------------- | -------------------------------------------------------------------------- |
+| C4.01 | Detect                                                      | ✅                                                                         |
+| C4.02 | Validate                                                    | ✅                                                                         |
+| C4.03 | Assess consequence                                          | 🟡                                                                         |
+| C4.04 | Prioritize                                                  | ✅                                                                         |
+| C4.05 | Plan                                                        | 🟡                                                                         |
+| C4.06 | Schedule                                                    | 🟡 weekly options + frozen release; outage/critical-path scheduling absent |
+| C4.07 | Execute (bounded, approved)                                 | ✅                                                                         |
+| C4.08 | Verify                                                      | 🟡                                                                         |
+| C4.09 | Capture failure data (FRACAS closeout)                      | ✅                                                                         |
+| C4.10 | Analyze                                                     | ✅                                                                         |
+| C4.11 | Correct                                                     | 🟡                                                                         |
+| C4.12 | Update strategy                                             | 🟡                                                                         |
+| C4.13 | CA completion: physical correction verified                 | ❌                                                                         |
+| C4.14 | CA completion: causal mechanism addressed                   | ❌                                                                         |
+| C4.15 | CA completion: documentation and asset strategy updated     | ❌                                                                         |
+| C4.16 | CA completion: effectiveness measured over operating period | ❌                                                                         |
+| C4.17 | CA completion: similar assets screened for exposure         | ❌                                                                         |
 
 ### C5 — Explicit decision rights (enforced policy, not convention)
 
-| ID    | Capability                                                                                               | Status                         |
-| ----- | -------------------------------------------------------------------------------------------------------- | ------------------------------ |
-| C5.01 | AUTO: clean and classify work-order data                                                                 | ✅                             |
-| C5.02 | AUTO: draft job plans                                                                                    | 🟡                             |
-| C5.03 | AUTO: identify missing materials or documentation                                                        | 🟡                             |
-| C5.04 | AUTO: produce weekly schedule options                                                                    | ❌                             |
-| C5.05 | AUTO: calculate RAM and maintenance KPIs                                                                 | ✅                             |
-| C5.06 | AUTO: detect duplicate notifications                                                                     | ❌                             |
-| C5.07 | AUTO: flag repeat failures and bad actors                                                                | ✅                             |
-| C5.08 | AUTO: recommend inspections or engineering review                                                        | ✅                             |
-| C5.09 | AUTO: generate meeting packs and shift handovers                                                         | 🟡                             |
-| C5.10 | APPROVAL: change PM intervals                                                                            | 🟡                             |
-| C5.11 | APPROVAL: defer critical work                                                                            | 🟡                             |
-| C5.12 | APPROVAL: change equipment operating limits                                                              | ✅                             |
-| C5.13 | APPROVAL: major repair vs replacement decisions                                                          | 🟡                             |
-| C5.14 | APPROVAL: alter safety-critical procedures                                                               | ❌                             |
-| C5.15 | APPROVAL: release turnaround scope                                                                       | ❌                             |
-| C5.16 | APPROVAL: commit significant expenditures                                                                | ❌                             |
-| C5.17 | APPROVAL: create/reschedule safety-critical work                                                         | 🟡                             |
-| C5.18 | NEVER: bypass protective systems                                                                         | ✅                             |
-| C5.19 | NEVER: override permits or isolations                                                                    | ✅                             |
-| C5.20 | NEVER: suppress safety alarms                                                                            | ✅                             |
-| C5.21 | NEVER: return equipment to service without authorized verification                                       | 🟡                             |
-| C5.22 | NEVER: trade safety or environmental compliance for production                                           | ✅                             |
-| C5.23 | Decision-rights matrix as governed, versioned policy-as-code                                             | ❌→build in progress (slice 1) |
-| C5.24 | Recommendation contract: evidence, assumptions, consequence, confidence, alternatives, required approver | 🟡→build in progress (slice 1) |
+| ID    | Capability                                                                                               | Status                                                                                                                            |
+| ----- | -------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| C5.01 | AUTO: clean and classify work-order data                                                                 | ✅                                                                                                                                |
+| C5.02 | AUTO: draft job plans                                                                                    | 🟡                                                                                                                                |
+| C5.03 | AUTO: identify missing materials or documentation                                                        | 🟡                                                                                                                                |
+| C5.04 | AUTO: produce weekly schedule options                                                                    | ✅ generate_schedule_options consults check_decision_right live (fail-closed); release reserved to planner/manager; live-verified |
+| C5.05 | AUTO: calculate RAM and maintenance KPIs                                                                 | ✅                                                                                                                                |
+| C5.06 | AUTO: detect duplicate notifications                                                                     | ❌                                                                                                                                |
+| C5.07 | AUTO: flag repeat failures and bad actors                                                                | ✅                                                                                                                                |
+| C5.08 | AUTO: recommend inspections or engineering review                                                        | ✅                                                                                                                                |
+| C5.09 | AUTO: generate meeting packs and shift handovers                                                         | 🟡                                                                                                                                |
+| C5.10 | APPROVAL: change PM intervals                                                                            | 🟡                                                                                                                                |
+| C5.11 | APPROVAL: defer critical work                                                                            | 🟡                                                                                                                                |
+| C5.12 | APPROVAL: change equipment operating limits                                                              | ✅                                                                                                                                |
+| C5.13 | APPROVAL: major repair vs replacement decisions                                                          | 🟡                                                                                                                                |
+| C5.14 | APPROVAL: alter safety-critical procedures                                                               | ❌                                                                                                                                |
+| C5.15 | APPROVAL: release turnaround scope                                                                       | ❌                                                                                                                                |
+| C5.16 | APPROVAL: commit significant expenditures                                                                | ❌                                                                                                                                |
+| C5.17 | APPROVAL: create/reschedule safety-critical work                                                         | 🟡                                                                                                                                |
+| C5.18 | NEVER: bypass protective systems                                                                         | ✅                                                                                                                                |
+| C5.19 | NEVER: override permits or isolations                                                                    | ✅                                                                                                                                |
+| C5.20 | NEVER: suppress safety alarms                                                                            | ✅                                                                                                                                |
+| C5.21 | NEVER: return equipment to service without authorized verification                                       | 🟡                                                                                                                                |
+| C5.22 | NEVER: trade safety or environmental compliance for production                                           | ✅                                                                                                                                |
+| C5.23 | Decision-rights matrix as governed, versioned policy-as-code                                             | ❌→build in progress (slice 1)                                                                                                    |
+| C5.24 | Recommendation contract: evidence, assumptions, consequence, confidence, alternatives, required approver | 🟡→build in progress (slice 1)                                                                                                    |
 
 ### C6 — Balanced KPI hierarchy
 
