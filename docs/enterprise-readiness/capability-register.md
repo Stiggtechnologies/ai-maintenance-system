@@ -64,20 +64,20 @@ with the PR that changes an item's status._
 
 ### C3 — Enterprise asset and failure taxonomy (governed master data)
 
-| ID    | Capability                                                                  | Status |
-| ----- | --------------------------------------------------------------------------- | ------ |
-| C3.01 | Definition: what constitutes a failure                                      | 🟡     |
-| C3.02 | Definition: functional failure vs degraded performance                      | 🟡     |
-| C3.03 | Definition: equipment boundary                                              | 🟡     |
-| C3.04 | Definition: downtime start and end                                          | ❌     |
-| C3.05 | Definition: maintenance-induced failure                                     | ❌     |
-| C3.06 | Definition: repeat failure                                                  | ❌     |
-| C3.07 | Definition: emergency work                                                  | 🟡     |
-| C3.08 | Definition: deferral risk                                                   | ❌     |
-| C3.09 | Definition: failure mechanism, mode, cause, consequence                     | 🟡     |
-| C3.10 | Definition: production loss attribution                                     | ❌     |
-| C3.11 | Definition: safety-, environmental-, business-critical assets               | 🟡     |
-| C3.12 | Taxonomy as versioned, enterprise-governed master data (not per-asset text) | ❌     |
+| ID    | Capability                                                                  | Status                                                                                                                                      |
+| ----- | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| C3.01 | Definition: what constitutes a failure                                      | ✅ governed definition v1 (draft/adopt lifecycle; migration 20260806170000)                                                                 |
+| C3.02 | Definition: functional failure vs degraded performance                      | ✅ governed definition v1                                                                                                                   |
+| C3.03 | Definition: equipment boundary                                              | ✅ governed definition v1                                                                                                                   |
+| C3.04 | Definition: downtime start and end                                          | ✅ governed definition v1                                                                                                                   |
+| C3.05 | Definition: maintenance-induced failure                                     | ✅ governed definition v1                                                                                                                   |
+| C3.06 | Definition: repeat failure                                                  | ✅ governed definition v1 (enforced measurably by CA-effectiveness loop)                                                                    |
+| C3.07 | Definition: emergency work                                                  | ✅ governed definition v1                                                                                                                   |
+| C3.08 | Definition: deferral risk                                                   | ✅ governed definition v1                                                                                                                   |
+| C3.09 | Definition: failure mechanism, mode, cause, consequence                     | ✅ governed definition v1                                                                                                                   |
+| C3.10 | Definition: production loss attribution                                     | ✅ governed definition v1                                                                                                                   |
+| C3.11 | Definition: safety-, environmental-, business-critical assets               | ✅ governed definition v1                                                                                                                   |
+| C3.12 | Taxonomy as versioned, enterprise-governed master data (not per-asset text) | ✅ taxonomy_definitions: versioned, org-scoped, draft→adopt→supersede lifecycle, RPC-only writes, /governance panel; adoption live-verified |
 
 ### C4 — Closed-loop maintenance process
 
@@ -658,6 +658,6 @@ with the PR that changes an item's status._
 
 ## Register statistics
 
-Atomic items tracked: **307**. Current tally: ✅ 43 · 🟡 87 · ❌ 177. _(2026-08-04: C7.01/03/04/11 ✅ reliability engine; C4.13–17 ✅ + C6.22 🟡 closed-loop tail.)_
+Atomic items tracked: **307**. Current tally: ✅ 55 · 🟡 81 · ❌ 171. _(2026-08-06: C3.01–C3.12 ✅ enterprise taxonomy as governed master data.)_
 Every ❌ and 🟡 is an open obligation of the program. No item may be removed;
 items may only change status with linked evidence in the PR that changes them.

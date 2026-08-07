@@ -26,6 +26,7 @@ import {
 import type { DecisionRow } from "../types/operating";
 import { LoadingState, ErrorState } from "../components/ui/AsyncStates";
 import { DecisionRightsMatrix } from "../components/DecisionRightsMatrix";
+import { TaxonomyGovernance } from "../components/TaxonomyGovernance";
 
 const DECISION_STATUSES: DecisionStatus[] = [
   "pending",
@@ -416,6 +417,8 @@ export function DecisionGovernance() {
       </div>
 
       <DecisionRightsMatrix />
+
+      <TaxonomyGovernance />
 
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
