@@ -8,6 +8,7 @@
  * recommendations on the operating loop automatically.
  */
 import { useMemo } from "react";
+import { SegmentedReliability } from "../components/SegmentedReliability";
 import {
   Gauge,
   ShieldAlert,
@@ -67,6 +68,8 @@ function KpiCard({ row }: { row: KpiRow }) {
           </span>
         )}
       </div>
+
+      <SegmentedReliability />
       <div className="mt-2 flex items-baseline gap-2">
         <span className="text-2xl font-bold text-white">
           {formatKpiValue(row)}

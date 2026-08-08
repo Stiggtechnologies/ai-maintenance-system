@@ -132,34 +132,34 @@ with the PR that changes an item's status._
 
 ### C6 — Balanced KPI hierarchy
 
-| ID    | Capability                                                                     | Status                                       |
-| ----- | ------------------------------------------------------------------------------ | -------------------------------------------- |
-| C6.01 | Enterprise: safety and environmental events                                    | 🟡                                           |
-| C6.02 | Enterprise: production availability                                            | ✅                                           |
-| C6.03 | Enterprise: maintenance cost per production unit                               | ❌                                           |
-| C6.04 | Enterprise: total production loss attributable to equipment                    | 🟡                                           |
-| C6.05 | Enterprise: asset lifecycle risk                                               | 🟡                                           |
-| C6.06 | Enterprise: capital avoidance and verified benefit                             | ✅                                           |
-| C6.07 | Work health: planned-work percentage                                           | ❌                                           |
-| C6.08 | Work health: emergency-work percentage                                         | 🟡                                           |
-| C6.09 | Work health: schedule compliance                                               | ❌                                           |
-| C6.10 | Work health: PM compliance                                                     | 🟡                                           |
-| C6.11 | Work health: ready backlog                                                     | ❌                                           |
-| C6.12 | Work health: backlog age and risk                                              | 🟡                                           |
-| C6.13 | Work health: break-in work                                                     | ❌                                           |
-| C6.14 | Work health: planning accuracy                                                 | ❌                                           |
-| C6.15 | Work health: waiting-on-material time                                          | ❌                                           |
-| C6.16 | Work health: rework and repeat work                                            | 🟡                                           |
-| C6.17 | Reliability: MTBF / event rate by failure mode                                 | 🟡                                           |
-| C6.18 | Reliability: MTTR and restoration-time components                              | 🟡                                           |
-| C6.19 | Reliability: availability                                                      | ✅                                           |
-| C6.20 | Reliability: repeat failures                                                   | 🟡                                           |
-| C6.21 | Reliability: top production-loss bad actors                                    | ✅                                           |
-| C6.22 | Reliability: corrective-action effectiveness                                   | 🟡 measured per-CA; % KPI not yet in catalog |
-| C6.23 | Reliability: failure-mode elimination rate                                     | ❌                                           |
-| C6.24 | Reliability: condition-monitoring warning lead time                            | ❌                                           |
-| C6.25 | Reliability: PM task effectiveness                                             | ❌                                           |
-| C6.26 | Segmentation by asset class, criticality, site, operating regime, failure mode | ❌                                           |
+| ID    | Capability                                                                     | Status                                                                                                                                                                                                                        |
+| ----- | ------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| C6.01 | Enterprise: safety and environmental events                                    | 🟡                                                                                                                                                                                                                            |
+| C6.02 | Enterprise: production availability                                            | ✅                                                                                                                                                                                                                            |
+| C6.03 | Enterprise: maintenance cost per production unit                               | ❌                                                                                                                                                                                                                            |
+| C6.04 | Enterprise: total production loss attributable to equipment                    | 🟡                                                                                                                                                                                                                            |
+| C6.05 | Enterprise: asset lifecycle risk                                               | 🟡                                                                                                                                                                                                                            |
+| C6.06 | Enterprise: capital avoidance and verified benefit                             | ✅                                                                                                                                                                                                                            |
+| C6.07 | Work health: planned-work percentage                                           | ❌                                                                                                                                                                                                                            |
+| C6.08 | Work health: emergency-work percentage                                         | 🟡                                                                                                                                                                                                                            |
+| C6.09 | Work health: schedule compliance                                               | ❌                                                                                                                                                                                                                            |
+| C6.10 | Work health: PM compliance                                                     | 🟡                                                                                                                                                                                                                            |
+| C6.11 | Work health: ready backlog                                                     | ❌                                                                                                                                                                                                                            |
+| C6.12 | Work health: backlog age and risk                                              | 🟡                                                                                                                                                                                                                            |
+| C6.13 | Work health: break-in work                                                     | ❌                                                                                                                                                                                                                            |
+| C6.14 | Work health: planning accuracy                                                 | ❌                                                                                                                                                                                                                            |
+| C6.15 | Work health: waiting-on-material time                                          | ❌                                                                                                                                                                                                                            |
+| C6.16 | Work health: rework and repeat work                                            | 🟡                                                                                                                                                                                                                            |
+| C6.17 | Reliability: MTBF / event rate by failure mode                                 | 🟡                                                                                                                                                                                                                            |
+| C6.18 | Reliability: MTTR and restoration-time components                              | 🟡                                                                                                                                                                                                                            |
+| C6.19 | Reliability: availability                                                      | ✅                                                                                                                                                                                                                            |
+| C6.20 | Reliability: repeat failures                                                   | 🟡                                                                                                                                                                                                                            |
+| C6.21 | Reliability: top production-loss bad actors                                    | ✅                                                                                                                                                                                                                            |
+| C6.22 | Reliability: corrective-action effectiveness                                   | 🟡 measured per-CA; % KPI not yet in catalog                                                                                                                                                                                  |
+| C6.23 | Reliability: failure-mode elimination rate                                     | ❌                                                                                                                                                                                                                            |
+| C6.24 | Reliability: condition-monitoring warning lead time                            | ❌                                                                                                                                                                                                                            |
+| C6.25 | Reliability: PM task effectiveness                                             | ❌                                                                                                                                                                                                                            |
+| C6.26 | Segmentation by asset class, criticality, site, operating regime, failure mode | 🟡 get_segmented_reliability over asset class / criticality / site / failure mode with data-derived windows (migration 20260808150000; /executive panel). Operating-regime segmentation awaits operating-context data (C2.04) |
 
 ### C7 — Technical calculation engines (validated code, not plausible equations)
 
@@ -660,6 +660,6 @@ with the PR that changes an item's status._
 
 Atomic items tracked: **397** — counted programmatically from the tables
 themselves (an earlier hand-stated figure of 307 under-counted; the enumeration
-never changed, only the count of it). Current tally: ✅ 66 · 🟡 99 · ❌ 232. _(2026-08-07: reconciled after parallel merges — C7.01/03/04/11 reliability engine, C4.13–17 + C6.22 closed-loop tail, C3.01–12 taxonomy, C5.04 scheduler all verified present on main.)_
+never changed, only the count of it). Current tally: ✅ 66 · 🟡 100 · ❌ 231. _(2026-08-07: reconciled after parallel merges — C7.01/03/04/11 reliability engine, C4.13–17 + C6.22 closed-loop tail, C3.01–12 taxonomy, C5.04 scheduler all verified present on main.)_
 Every ❌ and 🟡 is an open obligation of the program. No item may be removed;
 items may only change status with linked evidence in the PR that changes them.
