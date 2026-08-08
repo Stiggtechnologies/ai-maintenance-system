@@ -29,6 +29,7 @@ import { DecisionRightsMatrix } from "../components/DecisionRightsMatrix";
 import { TaxonomyGovernance } from "../components/TaxonomyGovernance";
 import { SafetyGatekeeperPanel } from "../components/SafetyGatekeeperPanel";
 import { ControlAssurance } from "../components/ControlAssurance";
+import { GovernanceStandards } from "../components/GovernanceStandards";
 
 const DECISION_STATUSES: DecisionStatus[] = [
   "pending",
@@ -423,6 +424,8 @@ export function DecisionGovernance() {
       <DecisionRightsMatrix />
 
       <TaxonomyGovernance />
+
+      <GovernanceStandards />
 
       <ControlAssurance />
 
