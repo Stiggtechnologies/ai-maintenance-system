@@ -10,6 +10,7 @@
 import { useMemo } from "react";
 import { SegmentedReliability } from "../components/SegmentedReliability";
 import { WorkManagementHealth } from "../components/WorkManagementHealth";
+import { AccountabilityCascade } from "../components/AccountabilityCascade";
 import {
   Gauge,
   ShieldAlert,
@@ -33,6 +34,14 @@ import {
   ErrorState,
   EmptyState,
 } from "../components/ui/AsyncStates";
+
+/** Which organizational layer owns the metric — board through crew. */
+const TIER_STYLE: Record<string, string> = {
+  board: "bg-signal-gold/15 text-signal-gold border border-signal-gold/30",
+  executive: "bg-signal-cyan/10 text-signal-cyan border border-signal-cyan/25",
+  functional: "bg-white/5 text-slate-300 border border-white/10",
+  site: "bg-white/[0.03] text-slate-400 border border-white/6",
+};
 
 const STATUS_STYLE: Record<string, string> = {
   on_target: "bg-green-500/10 text-green-300 border-green-500/30",
@@ -70,9 +79,6 @@ function KpiCard({ row }: { row: KpiRow }) {
         )}
       </div>
 
-      <WorkManagementHealth />
-
-      <SegmentedReliability />
       <div className="mt-2 flex items-baseline gap-2">
         <span className="text-2xl font-bold text-white">
           {formatKpiValue(row)}
@@ -89,10 +95,38 @@ function KpiCard({ row }: { row: KpiRow }) {
           ? (row.computed_from?.source ?? row.formula)
           : `Connects with: ${row.source_note}`}
       </p>
-      <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-400">
-        <span title="Accountable">A: {row.accountable}</span>
+      {/* The complete RACI chain. Consulted and Informed were populated on
+          every catalog row but were dropped by get_kpi_dashboard, so the
+          extended half of the accountability chain never reached a human. */}
+      <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-400">
+        <span
+          className={`rounded px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide ${TIER_STYLE[row.accountability_tier ?? "site"]}`}
+        >
+          {row.accountability_tier ?? "site"}
+        </span>
+        <span title="Accountable — owns the outcome">
+          <span className="text-slate-500">A</span> {row.accountable}
+        </span>
         <span aria-hidden>·</span>
-        <span title="Responsible">R: {row.responsible}</span>
+        <span title="Responsible — does the work">
+          <span className="text-slate-500">R</span> {row.responsible}
+        </span>
+        {row.consulted && (
+          <>
+            <span aria-hidden>·</span>
+            <span title="Consulted — two-way input before the decision">
+              <span className="text-slate-500">C</span> {row.consulted}
+            </span>
+          </>
+        )}
+        {row.informed && (
+          <>
+            <span aria-hidden>·</span>
+            <span title="Informed — told after the decision">
+              <span className="text-slate-500">I</span> {row.informed}
+            </span>
+          </>
+        )}
         {row.confidence && (
           <>
             <span aria-hidden>·</span>
@@ -202,6 +236,10 @@ export function ExecutiveIntelligence() {
           </section>
         );
       })}
+
+      <WorkManagementHealth />
+      <SegmentedReliability />
+      <AccountabilityCascade />
     </div>
   );
 }
