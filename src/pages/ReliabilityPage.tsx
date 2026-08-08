@@ -3,6 +3,7 @@ import { ReliabilityAnalytics } from "../components/ReliabilityAnalytics";
 import { CaEffectivenessPanel } from "../components/CaEffectivenessPanel";
 import { ConditionMonitoring } from "../components/ConditionMonitoring";
 import { MonitoringCoverageGaps } from "../components/MonitoringCoverageGaps";
+import { FailureCoding } from "../components/FailureCoding";
 import { useNavigate } from "react-router-dom";
 import {
   TrendingUp,
@@ -162,6 +163,8 @@ export function Reliability() {
       <ReliabilityAnalytics />
 
       <ConditionMonitoring />
+
+      <FailureCoding />
 
       <MonitoringCoverageGaps />
 
