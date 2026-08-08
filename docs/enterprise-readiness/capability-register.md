@@ -159,7 +159,7 @@ with the PR that changes an item's status._
 | C6.23 | Reliability: failure-mode elimination rate                                     | ❌                                           |
 | C6.24 | Reliability: condition-monitoring warning lead time                            | ❌                                           |
 | C6.25 | Reliability: PM task effectiveness                                             | ❌                                           |
-| C6.26 | Segmentation by asset class, criticality, site, operating regime, failure mode | ❌                                           |
+| C6.26 | Segmentation by asset class, criticality, site, operating regime, failure mode | 🟡 get_segmented_reliability over asset class / criticality / site / failure mode with data-derived windows (migration 20260808150000; /executive panel). Operating-regime segmentation awaits operating-context data (C2.04) |
 
 ### C7 — Technical calculation engines (validated code, not plausible equations)
 
@@ -660,6 +660,6 @@ with the PR that changes an item's status._
 
 Atomic items tracked: **397** — counted programmatically from the tables
 themselves (an earlier hand-stated figure of 307 under-counted; the enumeration
-never changed, only the count of it). Current tally: ✅ 64 · 🟡 100 · ❌ 233. _(2026-08-07: reconciled after parallel merges — C7.01/03/04/11 reliability engine, C4.13–17 + C6.22 closed-loop tail, C3.01–12 taxonomy, C5.04 scheduler all verified present on main.)_
+never changed, only the count of it). Current tally: ✅ 64 · 🟡 101 · ❌ 232. _(2026-08-07: reconciled after parallel merges — C7.01/03/04/11 reliability engine, C4.13–17 + C6.22 closed-loop tail, C3.01–12 taxonomy, C5.04 scheduler all verified present on main.)_
 Every ❌ and 🟡 is an open obligation of the program. No item may be removed;
 items may only change status with linked evidence in the PR that changes them.
