@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { physicsCapabilityLibrary } from "./physics-capability-library";
 import {
   flexibleCouplingDna,
   getSharedComponentDna,
@@ -12,7 +13,7 @@ import { validateComponentDependencyGraph, validateSharedComponentDna } from "./
 
 describe("shared component DNA", () => {
   it("keeps the shared component library valid and unique", () => {
-    expect(validateSharedComponentDna(sharedComponentDnaLibrary)).toEqual([]);
+    expect(validateSharedComponentDna(sharedComponentDnaLibrary, physicsCapabilityLibrary)).toEqual([]);
     expect(new Set(sharedComponentDnaLibrary.map((profile) => profile.code)).size).toBe(sharedComponentDnaLibrary.length);
   });
 
@@ -25,6 +26,24 @@ describe("shared component DNA", () => {
     expect(getSharedComponentDna(flexibleCouplingDna.code)).toBe(flexibleCouplingDna);
     expect(getSharedComponentDna(mechanicalSealDna.code)).toBe(mechanicalSealDna);
     expect(getSharedComponentDna(lubricationSystemDna.code)).toBe(lubricationSystemDna);
+  });
+
+  it("binds only applicable canonical physics capabilities", () => {
+    expect(rollingElementBearingDna.physicsCapabilityCodes).toHaveLength(2);
+    expect(flexibleCouplingDna.physicsCapabilityCodes).toHaveLength(1);
+    const availablePhysics = new Set(physicsCapabilityLibrary.map((capability) => capability.code));
+    for (const profile of sharedComponentDnaLibrary) {
+      expect((profile.physicsCapabilityCodes ?? []).every((code) => availablePhysics.has(code))).toBe(true);
+    }
+  });
+
+  it("rejects unknown physics capability references", () => {
+    const invalid = sharedComponentDnaLibrary.map((profile, index) =>
+      index === 0 ? { ...profile, physicsCapabilityCodes: [...(profile.physicsCapabilityCodes ?? []), "PHYS-UNKNOWN"] } : profile,
+    );
+    expect(validateSharedComponentDna(invalid, physicsCapabilityLibrary)).toEqual(
+      expect.arrayContaining([expect.objectContaining({ path: expect.stringContaining("physicsCapabilityCodes") })]),
+    );
   });
 
   it("keeps every shared component approval-gated", () => {
