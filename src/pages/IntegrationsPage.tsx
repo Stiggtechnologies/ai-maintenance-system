@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { ConnectorHealth } from "../components/ConnectorHealth";
 import {
   Plug,
   CheckCircle,
@@ -309,6 +310,8 @@ export function IntegrationsPage() {
           )}
         </div>
       )}
+
+      <ConnectorHealth />
     </div>
   );
 }
