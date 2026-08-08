@@ -28,6 +28,7 @@ import { LoadingState, ErrorState } from "../components/ui/AsyncStates";
 import { DecisionRightsMatrix } from "../components/DecisionRightsMatrix";
 import { TaxonomyGovernance } from "../components/TaxonomyGovernance";
 import { SafetyGatekeeperPanel } from "../components/SafetyGatekeeperPanel";
+import { ControlAssurance } from "../components/ControlAssurance";
 
 const DECISION_STATUSES: DecisionStatus[] = [
   "pending",
@@ -422,6 +423,8 @@ export function DecisionGovernance() {
       <DecisionRightsMatrix />
 
       <TaxonomyGovernance />
+
+      <ControlAssurance />
 
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
