@@ -1,0 +1,58 @@
+{
+  "$schema": "https://adaptivecards.io/schemas/adaptive-card.json",
+  "type": "AdaptiveCard",
+  "version": "1.5",
+  "body": [
+    {
+      "type": "TextBlock",
+      "text": "FRACAS Action",
+      "weight": "Bolder",
+      "size": "Medium"
+    },
+    {
+      "type": "FactSet",
+      "facts": [
+        {
+          "title": "Case",
+          "value": "${caseId}"
+        },
+        {
+          "title": "Asset",
+          "value": "${assetName}"
+        },
+        {
+          "title": "Owner",
+          "value": "${owner}"
+        },
+        {
+          "title": "Due",
+          "value": "${dueDate}"
+        },
+        {
+          "title": "Status",
+          "value": "${status}"
+        }
+      ]
+    },
+    {
+      "type": "TextBlock",
+      "text": "${correctiveAction}",
+      "wrap": true
+    }
+  ],
+  "actions": [
+    {
+      "type": "Action.OpenUrl",
+      "title": "Open Case",
+      "url": "${caseUrl}"
+    },
+    {
+      "type": "Action.Submit",
+      "title": "Mark Reviewed",
+      "data": {
+        "action": "markFracasReviewed",
+        "caseId": "${caseId}"
+      }
+    }
+  ]
+}

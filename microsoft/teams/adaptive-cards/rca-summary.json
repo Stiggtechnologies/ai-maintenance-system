@@ -1,0 +1,54 @@
+{
+  "$schema": "https://adaptivecards.io/schemas/adaptive-card.json",
+  "type": "AdaptiveCard",
+  "version": "1.5",
+  "body": [
+    {
+      "type": "TextBlock",
+      "text": "RCA Draft Ready",
+      "weight": "Bolder",
+      "size": "Medium"
+    },
+    {
+      "type": "FactSet",
+      "facts": [
+        {
+          "title": "Asset",
+          "value": "${assetName}"
+        },
+        {
+          "title": "Problem",
+          "value": "${problemStatement}"
+        },
+        {
+          "title": "Confidence",
+          "value": "${confidence}"
+        },
+        {
+          "title": "Approval",
+          "value": "${approvalStatus}"
+        }
+      ]
+    },
+    {
+      "type": "TextBlock",
+      "text": "${summary}",
+      "wrap": true
+    }
+  ],
+  "actions": [
+    {
+      "type": "Action.OpenUrl",
+      "title": "Open RCA",
+      "url": "${rcaUrl}"
+    },
+    {
+      "type": "Action.Submit",
+      "title": "Request Review",
+      "data": {
+        "action": "requestRcaReview",
+        "rcaId": "${rcaId}"
+      }
+    }
+  ]
+}

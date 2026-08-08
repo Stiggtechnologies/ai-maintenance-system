@@ -1,0 +1,269 @@
+openapi: 3.1.0
+info:
+  title: SyncAI Reliability Tool Actions
+  version: 0.1.0
+  description: >
+    Tool contract for Reliability Engineering Copilot actions. This contract is
+    a launch scaffold and should be backed by authenticated SyncAI API routes
+    before production use.
+servers:
+  - url: https://api.syncai.ca
+    description: Production placeholder
+  - url: https://staging-api.syncai.ca
+    description: Staging placeholder
+security:
+  - bearerAuth: []
+paths:
+  /reliability/tools/calculate-availability:
+    post:
+      operationId: calculateAvailability
+      summary: Calculate MTBF, MTTR, and inherent availability.
+      x-syncai-approval: not-required
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AvailabilityRequest"
+      responses:
+        "200":
+          description: Availability calculation result.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AvailabilityResult"
+  /reliability/tools/exponential-reliability:
+    post:
+      operationId: calculateExponentialReliability
+      summary: Calculate exponential reliability for a mission time.
+      x-syncai-approval: not-required
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExponentialReliabilityRequest"
+      responses:
+        "200":
+          description: Exponential reliability result.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExponentialReliabilityResult"
+  /reliability/analysis/bad-actor-pareto:
+    post:
+      operationId: createBadActorPareto
+      summary: Rank assets by downtime, failure count, cost, or risk.
+      x-syncai-approval: review-recommended
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BadActorParetoRequest"
+      responses:
+        "200":
+          description: Bad actor ranking result.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BadActorParetoResult"
+  /reliability/reports/rca-draft:
+    post:
+      operationId: createRcaDraft
+      summary: Create an RCA draft from failure context and evidence.
+      x-syncai-approval: engineer-review-required
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RcaDraftRequest"
+      responses:
+        "200":
+          description: RCA draft.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RcaDraftResult"
+  /reliability/fracas/cases:
+    post:
+      operationId: createFracasCase
+      summary: Create a FRACAS case from a failure event.
+      x-syncai-approval: engineer-review-required
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FracasCaseRequest"
+      responses:
+        "201":
+          description: FRACAS case created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FracasCaseResult"
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    AvailabilityRequest:
+      type: object
+      required:
+        - operatingHours
+        - failures
+        - totalRepairHours
+        - repairEvents
+      properties:
+        operatingHours:
+          type: number
+          minimum: 0
+        failures:
+          type: integer
+          minimum: 1
+        totalRepairHours:
+          type: number
+          minimum: 0
+        repairEvents:
+          type: integer
+          minimum: 1
+    AvailabilityResult:
+      type: object
+      required:
+        - mtbf
+        - mttr
+        - inherentAvailability
+        - formula
+      properties:
+        mtbf:
+          type: number
+        mttr:
+          type: number
+        inherentAvailability:
+          type: number
+        formula:
+          type: string
+    ExponentialReliabilityRequest:
+      type: object
+      required:
+        - failureRate
+        - missionTimeHours
+      properties:
+        failureRate:
+          type: number
+          minimum: 0
+        missionTimeHours:
+          type: number
+          minimum: 0
+    ExponentialReliabilityResult:
+      type: object
+      required:
+        - reliability
+        - formula
+      properties:
+        reliability:
+          type: number
+        formula:
+          type: string
+    BadActorParetoRequest:
+      type: object
+      required:
+        - rankingMetric
+        - records
+      properties:
+        rankingMetric:
+          type: string
+          enum:
+            - downtimeHours
+            - failureCount
+            - maintenanceCost
+            - riskScore
+        records:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+    BadActorParetoResult:
+      type: object
+      required:
+        - rankingMetric
+        - rankedAssets
+      properties:
+        rankingMetric:
+          type: string
+        rankedAssets:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+    RcaDraftRequest:
+      type: object
+      required:
+        - problemStatement
+        - assetContext
+        - evidence
+      properties:
+        problemStatement:
+          type: string
+        assetContext:
+          type: string
+        evidence:
+          type: array
+          items:
+            type: string
+        requestedMethod:
+          type: string
+          enum:
+            - fiveWhy
+            - causeMap
+            - fishbone
+            - faultTree
+    RcaDraftResult:
+      type: object
+      required:
+        - reportMarkdown
+        - approvalRequired
+      properties:
+        reportMarkdown:
+          type: string
+        approvalRequired:
+          type: boolean
+    FracasCaseRequest:
+      type: object
+      required:
+        - assetId
+        - eventDatetime
+        - failureSymptom
+      properties:
+        assetId:
+          type: string
+        eventDatetime:
+          type: string
+          format: date-time
+        operatingContext:
+          type: string
+        failureSymptom:
+          type: string
+        functionalFailure:
+          type: string
+        failureMode:
+          type: string
+        evidenceSummary:
+          type: string
+    FracasCaseResult:
+      type: object
+      required:
+        - caseId
+        - status
+        - approvalRequired
+      properties:
+        caseId:
+          type: string
+        status:
+          type: string
+        approvalRequired:
+          type: boolean

@@ -1,0 +1,56 @@
+{
+  "agentName": "SyncAI Reliability Engineering Copilot",
+  "agentType": "prompt-agent",
+  "status": "template-not-deployed",
+  "foundryProject": {
+    "subscriptionId": "<AZURE_SUBSCRIPTION_ID>",
+    "resourceGroup": "<RESOURCE_GROUP>",
+    "foundryResourceName": "<FOUNDRY_RESOURCE_NAME>",
+    "projectName": "<FOUNDRY_PROJECT_NAME>"
+  },
+  "model": {
+    "provider": "azure-openai",
+    "deployment": "<MODEL_DEPLOYMENT_NAME>",
+    "recommendedClass": "frontier-reasoning-or-gpt-4.1-class-model",
+    "temperature": 0.2
+  },
+  "instructionsFile": "./reliability-engineering-copilot.prompt.md",
+  "knowledgeSources": [
+    {
+      "name": "Customer reliability documents",
+      "type": "sharepoint-or-azure-ai-search",
+      "status": "required-for-pilot"
+    },
+    {
+      "name": "Curated reliability standards summaries",
+      "type": "azure-ai-search",
+      "status": "required-for-pilot"
+    },
+    {
+      "name": "Work-order exports and failure history",
+      "type": "syncai-upload-or-sharepoint",
+      "status": "required-for-pilot"
+    }
+  ],
+  "tools": [
+    {
+      "name": "syncaiReliabilityTools",
+      "type": "openapi-or-mcp",
+      "definition": "./tool-actions.openapi.yaml",
+      "status": "wire-to-syncai-api"
+    }
+  ],
+  "publishing": {
+    "target": "Microsoft 365 Copilot and Microsoft Teams",
+    "pilotScope": "individual",
+    "productionScope": "organization",
+    "requiresAzureBotService": true,
+    "requiresEntraAppRegistration": true
+  },
+  "security": {
+    "identity": "Microsoft Entra",
+    "rbac": "least-privilege",
+    "humanApprovalRequiredForHighRiskActions": true,
+    "conversationRetention": "customer-configured"
+  }
+}
