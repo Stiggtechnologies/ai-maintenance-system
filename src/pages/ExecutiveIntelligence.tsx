@@ -9,6 +9,7 @@
  */
 import { useMemo } from "react";
 import { SegmentedReliability } from "../components/SegmentedReliability";
+import { WorkManagementHealth } from "../components/WorkManagementHealth";
 import {
   Gauge,
   ShieldAlert,
@@ -68,6 +69,8 @@ function KpiCard({ row }: { row: KpiRow }) {
           </span>
         )}
       </div>
+
+      <WorkManagementHealth />
 
       <SegmentedReliability />
       <div className="mt-2 flex items-baseline gap-2">

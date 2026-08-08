@@ -140,16 +140,16 @@ with the PR that changes an item's status._
 | C6.04 | Enterprise: total production loss attributable to equipment                    | 🟡                                           |
 | C6.05 | Enterprise: asset lifecycle risk                                               | 🟡                                           |
 | C6.06 | Enterprise: capital avoidance and verified benefit                             | ✅                                           |
-| C6.07 | Work health: planned-work percentage                                           | ❌                                           |
-| C6.08 | Work health: emergency-work percentage                                         | 🟡                                           |
-| C6.09 | Work health: schedule compliance                                               | ❌                                           |
-| C6.10 | Work health: PM compliance                                                     | 🟡                                           |
-| C6.11 | Work health: ready backlog                                                     | ❌                                           |
-| C6.12 | Work health: backlog age and risk                                              | 🟡                                           |
-| C6.13 | Work health: break-in work                                                     | ❌                                           |
-| C6.14 | Work health: planning accuracy                                                 | ❌                                           |
-| C6.15 | Work health: waiting-on-material time                                          | ❌                                           |
-| C6.16 | Work health: rework and repeat work                                            | 🟡                                           |
+| C6.07 | Work health: planned-work percentage | ✅ get_work_management_health (migration 20260808180000); /executive panel |
+| C6.08 | Work health: emergency-work percentage | 🟡 computed via critical-priority proxy; true emergency flag awaits dispatch-level urgency (C2.02) |
+| C6.09 | Work health: schedule compliance | ✅ measured against RELEASED (frozen) weekly schedules — enabled by the Scheduler (C5.04) |
+| C6.10 | Work health: PM compliance | 🟡 completed-vs-raised preventive work; true PM-due denominator needs maintenance plans (C2.02) |
+| C6.11 | Work health: ready backlog | 🟡 parts-ready flag share; true kitting status needs inventory integration (C2.07) |
+| C6.12 | Work health: backlog age and risk | ✅ mean open-WO age + count at critical/high priority |
+| C6.13 | Work health: break-in work | ✅ completions inside a released week absent from the frozen schedule |
+| C6.14 | Work health: planning accuracy | ❌ reported available:false with reason — needs planned-vs-actual hours on job plans (C8.07) |
+| C6.15 | Work health: waiting-on-material time | ❌ reported available:false with reason — needs inventory reservation/delivery events (C2.07/C2.17) |
+| C6.16 | Work health: rework and repeat work | ✅ asset + coded-failure-mode pairs with repeat corrective completions (441 on the real fleet) |
 | C6.17 | Reliability: MTBF / event rate by failure mode                                 | 🟡                                           |
 | C6.18 | Reliability: MTTR and restoration-time components                              | 🟡                                           |
 | C6.19 | Reliability: availability                                                      | ✅                                           |
@@ -660,6 +660,6 @@ with the PR that changes an item's status._
 
 Atomic items tracked: **397** — counted programmatically from the tables
 themselves (an earlier hand-stated figure of 307 under-counted; the enumeration
-never changed, only the count of it). Current tally: ✅ 64 · 🟡 101 · ❌ 232. _(2026-08-07: reconciled after parallel merges — C7.01/03/04/11 reliability engine, C4.13–17 + C6.22 closed-loop tail, C3.01–12 taxonomy, C5.04 scheduler all verified present on main.)_
+never changed, only the count of it). Current tally: ✅ 69 · 🟡 100 · ❌ 228. _(2026-08-07: reconciled after parallel merges — C7.01/03/04/11 reliability engine, C4.13–17 + C6.22 closed-loop tail, C3.01–12 taxonomy, C5.04 scheduler all verified present on main.)_
 Every ❌ and 🟡 is an open obligation of the program. No item may be removed;
 items may only change status with linked evidence in the PR that changes them.
