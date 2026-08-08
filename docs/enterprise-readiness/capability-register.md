@@ -81,25 +81,25 @@ with the PR that changes an item's status._
 
 ### C4 — Closed-loop maintenance process
 
-| ID    | Capability                                                  | Status                                                                     |
-| ----- | ----------------------------------------------------------- | -------------------------------------------------------------------------- |
-| C4.01 | Detect                                                      | ✅                                                                         |
-| C4.02 | Validate                                                    | ✅                                                                         |
-| C4.03 | Assess consequence                                          | 🟡                                                                         |
-| C4.04 | Prioritize                                                  | ✅                                                                         |
-| C4.05 | Plan                                                        | 🟡                                                                         |
-| C4.06 | Schedule                                                    | 🟡 weekly options + frozen release; outage/critical-path scheduling absent |
-| C4.07 | Execute (bounded, approved)                                 | ✅                                                                         |
-| C4.08 | Verify                                                      | 🟡                                                                         |
-| C4.09 | Capture failure data (FRACAS closeout)                      | ✅                                                                         |
-| C4.10 | Analyze                                                     | ✅                                                                         |
-| C4.11 | Correct                                                     | 🟡                                                                         |
-| C4.12 | Update strategy                                             | 🟡                                                                         |
-| C4.13 | CA completion: physical correction verified                 | ❌                                                                         |
-| C4.14 | CA completion: causal mechanism addressed                   | ❌                                                                         |
-| C4.15 | CA completion: documentation and asset strategy updated     | ❌                                                                         |
-| C4.16 | CA completion: effectiveness measured over operating period | ❌                                                                         |
-| C4.17 | CA completion: similar assets screened for exposure         | ❌                                                                         |
+| ID    | Capability                                                  | Status                                                                                                                                                           |
+| ----- | ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| C4.01 | Detect                                                      | ✅                                                                                                                                                               |
+| C4.02 | Validate                                                    | ✅                                                                                                                                                               |
+| C4.03 | Assess consequence                                          | 🟡                                                                                                                                                               |
+| C4.04 | Prioritize                                                  | ✅                                                                                                                                                               |
+| C4.05 | Plan                                                        | 🟡                                                                                                                                                               |
+| C4.06 | Schedule                                                    | 🟡 weekly options + frozen release; outage/critical-path scheduling absent                                                                                       |
+| C4.07 | Execute (bounded, approved)                                 | ✅                                                                                                                                                               |
+| C4.08 | Verify                                                      | 🟡                                                                                                                                                               |
+| C4.09 | Capture failure data (FRACAS closeout)                      | ✅                                                                                                                                                               |
+| C4.10 | Analyze                                                     | ✅                                                                                                                                                               |
+| C4.11 | Correct                                                     | 🟡                                                                                                                                                               |
+| C4.12 | Update strategy                                             | 🟡                                                                                                                                                               |
+| C4.13 | CA completion: physical correction verified                 | ✅ human attestation via attest_ca_stage (migration ..._ca_effectiveness_loop; /reliability panel)                                                               |
+| C4.14 | CA completion: causal mechanism addressed                   | ✅ human attestation stage                                                                                                                                       |
+| C4.15 | CA completion: documentation and asset strategy updated     | ✅ human attestation stage                                                                                                                                       |
+| C4.16 | CA completion: effectiveness measured over operating period | ✅ deterministic recurrence measurement (evaluate_ca_effectiveness, hourly); live-proven on T301 (Engine Group recurred in 12 days → ineffective → governed rec) |
+| C4.17 | CA completion: similar assets screened for exposure         | ✅ screen_similar_assets exposure computation + panel                                                                                                            |
 
 ### C5 — Explicit decision rights (enforced policy, not convention)
 
@@ -132,53 +132,53 @@ with the PR that changes an item's status._
 
 ### C6 — Balanced KPI hierarchy
 
-| ID    | Capability                                                                     | Status |
-| ----- | ------------------------------------------------------------------------------ | ------ |
-| C6.01 | Enterprise: safety and environmental events                                    | 🟡     |
-| C6.02 | Enterprise: production availability                                            | ✅     |
-| C6.03 | Enterprise: maintenance cost per production unit                               | ❌     |
-| C6.04 | Enterprise: total production loss attributable to equipment                    | 🟡     |
-| C6.05 | Enterprise: asset lifecycle risk                                               | 🟡     |
-| C6.06 | Enterprise: capital avoidance and verified benefit                             | ✅     |
-| C6.07 | Work health: planned-work percentage                                           | ❌     |
-| C6.08 | Work health: emergency-work percentage                                         | 🟡     |
-| C6.09 | Work health: schedule compliance                                               | ❌     |
-| C6.10 | Work health: PM compliance                                                     | 🟡     |
-| C6.11 | Work health: ready backlog                                                     | ❌     |
-| C6.12 | Work health: backlog age and risk                                              | 🟡     |
-| C6.13 | Work health: break-in work                                                     | ❌     |
-| C6.14 | Work health: planning accuracy                                                 | ❌     |
-| C6.15 | Work health: waiting-on-material time                                          | ❌     |
-| C6.16 | Work health: rework and repeat work                                            | 🟡     |
-| C6.17 | Reliability: MTBF / event rate by failure mode                                 | 🟡     |
-| C6.18 | Reliability: MTTR and restoration-time components                              | 🟡     |
-| C6.19 | Reliability: availability                                                      | ✅     |
-| C6.20 | Reliability: repeat failures                                                   | 🟡     |
-| C6.21 | Reliability: top production-loss bad actors                                    | ✅     |
-| C6.22 | Reliability: corrective-action effectiveness                                   | ❌     |
-| C6.23 | Reliability: failure-mode elimination rate                                     | ❌     |
-| C6.24 | Reliability: condition-monitoring warning lead time                            | ❌     |
-| C6.25 | Reliability: PM task effectiveness                                             | ❌     |
-| C6.26 | Segmentation by asset class, criticality, site, operating regime, failure mode | ❌     |
+| ID    | Capability                                                                     | Status                                       |
+| ----- | ------------------------------------------------------------------------------ | -------------------------------------------- |
+| C6.01 | Enterprise: safety and environmental events                                    | 🟡                                           |
+| C6.02 | Enterprise: production availability                                            | ✅                                           |
+| C6.03 | Enterprise: maintenance cost per production unit                               | ❌                                           |
+| C6.04 | Enterprise: total production loss attributable to equipment                    | 🟡                                           |
+| C6.05 | Enterprise: asset lifecycle risk                                               | 🟡                                           |
+| C6.06 | Enterprise: capital avoidance and verified benefit                             | ✅                                           |
+| C6.07 | Work health: planned-work percentage                                           | ❌                                           |
+| C6.08 | Work health: emergency-work percentage                                         | 🟡                                           |
+| C6.09 | Work health: schedule compliance                                               | ❌                                           |
+| C6.10 | Work health: PM compliance                                                     | 🟡                                           |
+| C6.11 | Work health: ready backlog                                                     | ❌                                           |
+| C6.12 | Work health: backlog age and risk                                              | 🟡                                           |
+| C6.13 | Work health: break-in work                                                     | ❌                                           |
+| C6.14 | Work health: planning accuracy                                                 | ❌                                           |
+| C6.15 | Work health: waiting-on-material time                                          | ❌                                           |
+| C6.16 | Work health: rework and repeat work                                            | 🟡                                           |
+| C6.17 | Reliability: MTBF / event rate by failure mode                                 | 🟡                                           |
+| C6.18 | Reliability: MTTR and restoration-time components                              | 🟡                                           |
+| C6.19 | Reliability: availability                                                      | ✅                                           |
+| C6.20 | Reliability: repeat failures                                                   | 🟡                                           |
+| C6.21 | Reliability: top production-loss bad actors                                    | ✅                                           |
+| C6.22 | Reliability: corrective-action effectiveness                                   | 🟡 measured per-CA; % KPI not yet in catalog |
+| C6.23 | Reliability: failure-mode elimination rate                                     | ❌                                           |
+| C6.24 | Reliability: condition-monitoring warning lead time                            | ❌                                           |
+| C6.25 | Reliability: PM task effectiveness                                             | ❌                                           |
+| C6.26 | Segmentation by asset class, criticality, site, operating regime, failure mode | ❌                                           |
 
 ### C7 — Technical calculation engines (validated code, not plausible equations)
 
-| ID    | Capability                                             | Status       |
-| ----- | ------------------------------------------------------ | ------------ |
-| C7.01 | Weibull and censored life-data analysis                | ❌ (slice 2) |
-| C7.02 | Reliability block diagrams                             | ❌           |
-| C7.03 | Availability and repairable-system modeling            | 🟡 (slice 2) |
-| C7.04 | Crow-AMSAA and reliability growth                      | ❌ (slice 2) |
-| C7.05 | Monte Carlo risk and production simulation             | ❌           |
-| C7.06 | Spares optimization                                    | ❌           |
-| C7.07 | Age-replacement and inspection-interval optimization   | ❌           |
-| C7.08 | Preventive-maintenance optimization                    | ❌           |
-| C7.09 | FMEA/FMECA and RCM decision logic                      | 🟡           |
-| C7.10 | Fault-tree and event-tree analysis                     | ❌           |
-| C7.11 | Defect elimination and Pareto analysis                 | 🟡 (slice 2) |
-| C7.12 | Maintenance-cost forecasting                           | ❌           |
-| C7.13 | Shutdown critical-path and schedule-risk analysis      | ❌           |
-| C7.14 | Survival models and condition-based failure prediction | ❌           |
+| ID    | Capability                                             | Status                                                                              |
+| ----- | ------------------------------------------------------ | ----------------------------------------------------------------------------------- |
+| C7.01 | Weibull and censored life-data analysis                | ✅ src/lib/reliability censored MLE; 22-test validation suite; live on /reliability |
+| C7.02 | Reliability block diagrams                             | ❌                                                                                  |
+| C7.03 | Availability and repairable-system modeling            | ✅ repairableSummary + NHPP modeling on real history                                |
+| C7.04 | Crow-AMSAA and reliability growth                      | ✅ exact MLE + deteriorating/improving classification                               |
+| C7.05 | Monte Carlo risk and production simulation             | ❌                                                                                  |
+| C7.06 | Spares optimization                                    | ❌                                                                                  |
+| C7.07 | Age-replacement and inspection-interval optimization   | ❌                                                                                  |
+| C7.08 | Preventive-maintenance optimization                    | ❌                                                                                  |
+| C7.09 | FMEA/FMECA and RCM decision logic                      | 🟡                                                                                  |
+| C7.10 | Fault-tree and event-tree analysis                     | ❌                                                                                  |
+| C7.11 | Defect elimination and Pareto analysis                 | ✅ pareto() + failure-mode Pareto panel                                             |
+| C7.12 | Maintenance-cost forecasting                           | ❌                                                                                  |
+| C7.13 | Shutdown critical-path and schedule-risk analysis      | ❌                                                                                  |
+| C7.14 | Survival models and condition-based failure prediction | ❌                                                                                  |
 
 ### C8 — Operating mandate (management system + recommendation contract)
 
@@ -658,6 +658,8 @@ with the PR that changes an item's status._
 
 ## Register statistics
 
-Atomic items tracked: **307**. Current tally: ✅ 55 · 🟡 81 · ❌ 171. _(2026-08-06: C3.01–C3.12 ✅ enterprise taxonomy as governed master data.)_
+Atomic items tracked: **397** — counted programmatically from the tables
+themselves (an earlier hand-stated figure of 307 under-counted; the enumeration
+never changed, only the count of it). Current tally: ✅ 64 · 🟡 100 · ❌ 233. _(2026-08-07: reconciled after parallel merges — C7.01/03/04/11 reliability engine, C4.13–17 + C6.22 closed-loop tail, C3.01–12 taxonomy, C5.04 scheduler all verified present on main.)_
 Every ❌ and 🟡 is an open obligation of the program. No item may be removed;
 items may only change status with linked evidence in the PR that changes them.
