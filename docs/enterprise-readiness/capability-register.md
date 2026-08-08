@@ -19,24 +19,24 @@ with the PR that changes an item's status._
 
 ### C1 — Specialized agent roles (separate authority, tools, prompts, approval limits per agent)
 
-| ID    | Capability                                                                                               | Status                                                                                                                                            |
-| ----- | -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| C1.01 | Maintenance Executive agent — enterprise performance, governance, budgets, risk, strategy                | 🟡                                                                                                                                                |
-| C1.02 | Site Maintenance Manager agent — site execution, constraints, production coordination, escalation        | 🟡                                                                                                                                                |
-| C1.03 | Reliability Engineer agent — bad actors, failure analysis, Weibull, RCM, FMEA, improvement cases         | 🟡                                                                                                                                                |
-| C1.04 | Planner agent — job scopes, task lists, labor, tools, permits, materials, estimates                      | 🟡                                                                                                                                                |
-| C1.05 | Scheduler agent — weekly schedule optimization, resource leveling, frozen-schedule control               | 🟡 deterministic schedule options + release/freeze shipped (migration 20260806190000); resource leveling by daily capacity; agent charter pending |
-| C1.06 | Condition Monitoring agent — vibration, oil, thermography, motor current, process anomaly interpretation | 🟡                                                                                                                                                |
-| C1.07 | FRACAS/RCA agent — incident capture, causal analysis, corrective actions, recurrence tracking            | 🟡                                                                                                                                                |
-| C1.08 | MRO Materials agent — critical spares, reorder policies, repairables, stockouts, obsolescence            | 🟡                                                                                                                                                |
-| C1.09 | Shutdown/Turnaround agent — scope challenge, critical path, readiness, execution, closeout               | ❌                                                                                                                                                |
-| C1.10 | Asset Strategy agent — PM optimization, task intervals, run-to-failure decisions, lifecycle plans        | 🟡                                                                                                                                                |
-| C1.11 | Safety Gatekeeper agent — process-safety and occupational-safety decision controls (enforced veto)       | 🟡                                                                                                                                                |
-| C1.12 | Data Steward agent — asset hierarchy, failure codes, master data, data-quality management                | 🟡                                                                                                                                                |
-| C1.13 | Shared controlled asset model across all agents                                                          | ✅                                                                                                                                                |
-| C1.14 | Separate authority per agent (not shared envelope)                                                       | ❌                                                                                                                                                |
-| C1.15 | Separate tools per agent                                                                                 | ❌                                                                                                                                                |
-| C1.16 | Separate approval limits per agent                                                                       | ❌                                                                                                                                                |
+| ID    | Capability                                                                                               | Status                                                                                                                                                                                     |
+| ----- | -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| C1.01 | Maintenance Executive agent — enterprise performance, governance, budgets, risk, strategy                | 🟡                                                                                                                                                                                         |
+| C1.02 | Site Maintenance Manager agent — site execution, constraints, production coordination, escalation        | 🟡                                                                                                                                                                                         |
+| C1.03 | Reliability Engineer agent — bad actors, failure analysis, Weibull, RCM, FMEA, improvement cases         | 🟡                                                                                                                                                                                         |
+| C1.04 | Planner agent — job scopes, task lists, labor, tools, permits, materials, estimates                      | 🟡                                                                                                                                                                                         |
+| C1.05 | Scheduler agent — weekly schedule optimization, resource leveling, frozen-schedule control               | 🟡 deterministic schedule options + release/freeze shipped (migration 20260806190000); resource leveling by daily capacity; agent charter pending                                          |
+| C1.06 | Condition Monitoring agent — vibration, oil, thermography, motor current, process anomaly interpretation | 🟡                                                                                                                                                                                         |
+| C1.07 | FRACAS/RCA agent — incident capture, causal analysis, corrective actions, recurrence tracking            | 🟡                                                                                                                                                                                         |
+| C1.08 | MRO Materials agent — critical spares, reorder policies, repairables, stockouts, obsolescence            | 🟡                                                                                                                                                                                         |
+| C1.09 | Shutdown/Turnaround agent — scope challenge, critical path, readiness, execution, closeout               | ❌                                                                                                                                                                                         |
+| C1.10 | Asset Strategy agent — PM optimization, task intervals, run-to-failure decisions, lifecycle plans        | 🟡                                                                                                                                                                                         |
+| C1.11 | Safety Gatekeeper agent — process-safety and occupational-safety decision controls (enforced veto)       | ✅ 12-dimension consequence screening + trigger-ENFORCED veto (migration 20260808120000); approval impossible past an unattested safety gate — proven against a service-role direct UPDATE |
+| C1.12 | Data Steward agent — asset hierarchy, failure codes, master data, data-quality management                | 🟡                                                                                                                                                                                         |
+| C1.13 | Shared controlled asset model across all agents                                                          | ✅                                                                                                                                                                                         |
+| C1.14 | Separate authority per agent (not shared envelope)                                                       | ❌                                                                                                                                                                                         |
+| C1.15 | Separate tools per agent                                                                                 | ❌                                                                                                                                                                                         |
+| C1.16 | Separate approval limits per agent                                                                       | ❌                                                                                                                                                                                         |
 
 ### C2 — Operational data access (governed)
 
@@ -182,33 +182,33 @@ with the PR that changes an item's status._
 
 ### C8 — Operating mandate (management system + recommendation contract)
 
-| ID    | Capability                                                                                                                         | Status       |
-| ----- | ---------------------------------------------------------------------------------------------------------------------------------- | ------------ |
-| C8.01 | Verified asset hierarchy, criticality model, equipment-boundary definition                                                         | 🟡           |
-| C8.02 | Convert operational requirements into measurable RAM and lifecycle objectives                                                      | 🟡           |
-| C8.03 | Monitor condition, work history, production impact, emerging risk                                                                  | 🟡           |
-| C8.04 | Identify bad actors, repeat failures, maintenance-induced failures, ineffective PMs                                                | 🟡           |
-| C8.05 | FRACAS: capture, analyze, assign, verify, measure effectiveness                                                                    | 🟡           |
-| C8.06 | Risk-based strategy development: RCM, FMEA/FMECA, CBM, inspection, TBM, RTF                                                        | 🟡           |
-| C8.07 | Executable job plans: scope, sequence, labor, duration, materials, tools, permits, isolations, quality checks, acceptance criteria | ❌           |
-| C8.08 | Optimize weekly and outage schedules within safety, operational, resource, material constraints                                    | ❌           |
-| C8.09 | Evaluate repair/replace/redesign/defer via lifecycle cost, consequence, uncertainty                                                | ❌           |
-| C8.10 | Continuously update strategies from verified field experience                                                                      | 🟡           |
-| C8.11 | Recommendation field: asset and functional location                                                                                | ✅           |
-| C8.12 | Recommendation field: current condition or problem                                                                                 | ✅           |
-| C8.13 | Recommendation field: evidence used                                                                                                | ✅           |
-| C8.14 | Recommendation field: failure mode or risk scenario                                                                                | 🟡           |
-| C8.15 | Recommendation field: safety, environmental, production, financial consequence                                                     | ❌ (slice 1) |
-| C8.16 | Recommendation field: recommended action                                                                                           | ✅           |
-| C8.17 | Recommendation field: alternative actions considered                                                                               | ❌ (slice 1) |
-| C8.18 | Recommendation field: required completion date                                                                                     | ❌ (slice 1) |
-| C8.19 | Recommendation field: confidence and uncertainty                                                                                   | ✅           |
-| C8.20 | Recommendation field: required human approval (named authority)                                                                    | 🟡 (slice 1) |
-| C8.21 | Recommendation field: method for verifying effectiveness                                                                           | ❌ (slice 1) |
-| C8.22 | Never invent missing operational data; label assumptions                                                                           | ✅           |
-| C8.23 | Never authorize bypasses, unsafe operation, unapproved deferrals, RTS decisions                                                    | ✅           |
-| C8.24 | Escalate safety-critical, process-safety, regulatory, unacceptable-risk conflicts                                                  | 🟡           |
-| C8.25 | Optimize the whole system, not a single KPI                                                                                        | 🟡           |
+| ID    | Capability                                                                                                                         | Status                                                                                                                                                   |
+| ----- | ---------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| C8.01 | Verified asset hierarchy, criticality model, equipment-boundary definition                                                         | 🟡                                                                                                                                                       |
+| C8.02 | Convert operational requirements into measurable RAM and lifecycle objectives                                                      | 🟡                                                                                                                                                       |
+| C8.03 | Monitor condition, work history, production impact, emerging risk                                                                  | 🟡                                                                                                                                                       |
+| C8.04 | Identify bad actors, repeat failures, maintenance-induced failures, ineffective PMs                                                | 🟡                                                                                                                                                       |
+| C8.05 | FRACAS: capture, analyze, assign, verify, measure effectiveness                                                                    | 🟡                                                                                                                                                       |
+| C8.06 | Risk-based strategy development: RCM, FMEA/FMECA, CBM, inspection, TBM, RTF                                                        | 🟡                                                                                                                                                       |
+| C8.07 | Executable job plans: scope, sequence, labor, duration, materials, tools, permits, isolations, quality checks, acceptance criteria | ❌                                                                                                                                                       |
+| C8.08 | Optimize weekly and outage schedules within safety, operational, resource, material constraints                                    | ❌                                                                                                                                                       |
+| C8.09 | Evaluate repair/replace/redesign/defer via lifecycle cost, consequence, uncertainty                                                | ❌                                                                                                                                                       |
+| C8.10 | Continuously update strategies from verified field experience                                                                      | 🟡                                                                                                                                                       |
+| C8.11 | Recommendation field: asset and functional location                                                                                | ✅                                                                                                                                                       |
+| C8.12 | Recommendation field: current condition or problem                                                                                 | ✅                                                                                                                                                       |
+| C8.13 | Recommendation field: evidence used                                                                                                | ✅                                                                                                                                                       |
+| C8.14 | Recommendation field: failure mode or risk scenario                                                                                | 🟡                                                                                                                                                       |
+| C8.15 | Recommendation field: safety, environmental, production, financial consequence                                                     | ❌ (slice 1)                                                                                                                                             |
+| C8.16 | Recommendation field: recommended action                                                                                           | ✅                                                                                                                                                       |
+| C8.17 | Recommendation field: alternative actions considered                                                                               | ❌ (slice 1)                                                                                                                                             |
+| C8.18 | Recommendation field: required completion date                                                                                     | ❌ (slice 1)                                                                                                                                             |
+| C8.19 | Recommendation field: confidence and uncertainty                                                                                   | ✅                                                                                                                                                       |
+| C8.20 | Recommendation field: required human approval (named authority)                                                                    | 🟡 (slice 1)                                                                                                                                             |
+| C8.21 | Recommendation field: method for verifying effectiveness                                                                           | ❌ (slice 1)                                                                                                                                             |
+| C8.22 | Never invent missing operational data; label assumptions                                                                           | ✅                                                                                                                                                       |
+| C8.23 | Never authorize bypasses, unsafe operation, unapproved deferrals, RTS decisions                                                    | ✅                                                                                                                                                       |
+| C8.24 | Escalate safety-critical, process-safety, regulatory, unacceptable-risk conflicts                                                  | ✅ consequence_dimensions reference data with per-dimension escalation authority; gatekeeper clearance recorded with identity, time and substantive note |
+| C8.25 | Optimize the whole system, not a single KPI                                                                                        | 🟡                                                                                                                                                       |
 
 ### C9 — Progressive deployment
 
@@ -239,21 +239,21 @@ with the PR that changes an item's status._
 
 ### E2 — Process safety and asset integrity
 
-| ID    | Capability                                                             | Status |
-| ----- | ---------------------------------------------------------------------- | ------ |
-| E2.01 | Safety-critical equipment and barrier registers                        | ❌     |
-| E2.02 | Bow-tie and major-accident hazard models                               | ❌     |
-| E2.03 | Integrity operating windows                                            | ❌     |
-| E2.04 | Pressure equipment and piping integrity                                | ❌     |
-| E2.05 | Corrosion-management circuits                                          | ❌     |
-| E2.06 | Risk-based inspection                                                  | ❌     |
-| E2.07 | Safety-instrumented systems and proof testing                          | ❌     |
-| E2.08 | Relief-device management                                               | ❌     |
-| E2.09 | Alarm-system performance                                               | ❌     |
-| E2.10 | Leak, loss-of-containment, environmental risk                          | ❌     |
-| E2.11 | Management of change (integrity)                                       | 🟡     |
-| E2.12 | Temporary repairs, overrides, bypasses, impairments control            | ❌     |
-| E2.13 | Guard: maintenance optimization never weakens a process-safety barrier | ❌     |
+| ID    | Capability                                                             | Status                                                                                             |
+| ----- | ---------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| E2.01 | Safety-critical equipment and barrier registers                        | ❌                                                                                                 |
+| E2.02 | Bow-tie and major-accident hazard models                               | ❌                                                                                                 |
+| E2.03 | Integrity operating windows                                            | ❌                                                                                                 |
+| E2.04 | Pressure equipment and piping integrity                                | ❌                                                                                                 |
+| E2.05 | Corrosion-management circuits                                          | ❌                                                                                                 |
+| E2.06 | Risk-based inspection                                                  | ❌                                                                                                 |
+| E2.07 | Safety-instrumented systems and proof testing                          | ❌                                                                                                 |
+| E2.08 | Relief-device management                                               | ❌                                                                                                 |
+| E2.09 | Alarm-system performance                                               | ❌                                                                                                 |
+| E2.10 | Leak, loss-of-containment, environmental risk                          | ❌                                                                                                 |
+| E2.11 | Management of change (integrity)                                       | 🟡                                                                                                 |
+| E2.12 | Temporary repairs, overrides, bypasses, impairments control            | ❌                                                                                                 |
+| E2.13 | Guard: maintenance optimization never weakens a process-safety barrier | 🟡 enforced veto blocks approval on safety-dimension hits; full barrier/bow-tie model still absent |
 
 ### E3 — Operations–maintenance integration
 
@@ -660,6 +660,6 @@ with the PR that changes an item's status._
 
 Atomic items tracked: **397** — counted programmatically from the tables
 themselves (an earlier hand-stated figure of 307 under-counted; the enumeration
-never changed, only the count of it). Current tally: ✅ 64 · 🟡 100 · ❌ 233. _(2026-08-07: reconciled after parallel merges — C7.01/03/04/11 reliability engine, C4.13–17 + C6.22 closed-loop tail, C3.01–12 taxonomy, C5.04 scheduler all verified present on main.)_
+never changed, only the count of it). Current tally: ✅ 66 · 🟡 99 · ❌ 232. _(2026-08-07: reconciled after parallel merges — C7.01/03/04/11 reliability engine, C4.13–17 + C6.22 closed-loop tail, C3.01–12 taxonomy, C5.04 scheduler all verified present on main.)_
 Every ❌ and 🟡 is an open obligation of the program. No item may be removed;
 items may only change status with linked evidence in the PR that changes them.
