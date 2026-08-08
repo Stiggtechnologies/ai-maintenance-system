@@ -13,10 +13,14 @@ DoD RAM Guide · MIL-HDBK-338B · RADC-TR-85-194 · Failure Investigation Report
 2. `scripts/ingest_reliability_kb.mjs <chunks.jsonl> <url> <service_key> <gemini_key>` — embeds with `gemini-embedding-2` (768 dims via `outputDimensionality`, free tier), resume-safe upserts
 3. `scripts/transfer_kb_to_cloud.mjs <src…> <dst…>` — copies embedded rows between projects without re-embedding (free-tier quota preservation); cleans citation titles
 
-**Retrieval** (in `ai-agent-processor`): embed query → `match_reliability_kb`
-(pgvector cosine, top 4, similarity > 0.35) → passages injected with mandatory
-citation directives. Fail-soft: missing key/table/matches → uncited answer.
-Response exposes `knowledgeBaseUsed`.
+**Retrieval** (shared by `ai-agent-processor` and
+`public-reliability-agent`): `reliability-engineer-core.ts` embeds the query →
+`match_reliability_kb` (pgvector cosine, top 4, similarity > 0.35) → passages
+are injected into the versioned Stigg methodology prompt with exact-label
+citation directives. Proposed citations are checked against the retrieved
+title/page allowlist before the public response is returned. Fail-soft: missing
+key/table/matches → uncited answer. Responses expose `knowledgeBaseUsed`, the
+prompt version, and retrieved source metadata.
 
 **Verified benchmark** (P-101 seal failures): response cites
 `[DoD RAM Guide, p.188-189]` for seal-face loading and `[p.112-113]` for

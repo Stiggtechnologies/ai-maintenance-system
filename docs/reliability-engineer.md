@@ -17,6 +17,13 @@ data; they are not presented as customer evidence.
   reference case with deterministic RAM/RCA calculations.
 - `public-reliability-agent` adds a server-side expert synthesis through the
   OpenAI Responses API with structured output and `store: false`.
+- Public and authenticated requests share
+  `supabase/functions/_shared/reliability-engineer-core.ts`, which contains the
+  versioned Stigg Reliability Engineer methodology charter. The public route no
+  longer carries a parallel abbreviated expert prompt.
+- Both routes retrieve approved global reliability passages through the
+  `match_reliability_kb` vector RPC. Returned citations are restricted to exact
+  retrieved title/page labels; model-invented citations are removed.
 - The UI labels a result `Live production analysis` only when the server-side
   expert call succeeds. Reference cases can still display verified deterministic
   calculations if the model service is unavailable; open questions fall back to
@@ -36,10 +43,19 @@ function, and set these Supabase secrets:
 
 ```text
 OPENAI_API_KEY=<server-side key>
-PUBLIC_RELIABILITY_MODEL=gpt-5.6-terra
+RELIABILITY_MODEL=<approved model or fine-tuned model ID>
+PUBLIC_RELIABILITY_MODEL=<optional compatible public override>
+RELIABILITY_EMBEDDING_API_KEY=<server-side Gemini key>
 PUBLIC_RELIABILITY_RATE_LIMIT_SECRET=<long random secret>
 ALLOWED_ORIGINS=https://app.syncai.ca
 ```
+
+`RELIABILITY_MODEL` is the canonical model selector for the authenticated and
+public Reliability Engineer. If `PUBLIC_RELIABILITY_MODEL` is set, it overrides
+the public route only. The repository intentionally does not invent or embed a
+fine-tuned model ID; the production secret must be set to the verified model
+artifact and validated against both the Chat Completions and Responses API
+paths before release.
 
 The frontend uses its existing `VITE_SUPABASE_URL` and
 `VITE_SUPABASE_ANON_KEY`. The edge function must retain JWT verification so the
@@ -54,5 +70,6 @@ verified calculation mode and open questions return evidence-gathering guidance.
 
 Do not claim production readiness until CI, the production migration, the edge
 deployment, required secrets, live model response, rate enforcement, CORS,
-tenant isolation, and the authenticated handoff have all been verified in the
-production environment.
+vector RAG retrieval with page citations, parity evaluation, tenant isolation,
+and the authenticated handoff have all been verified in the production
+environment.
