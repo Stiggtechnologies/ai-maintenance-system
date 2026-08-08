@@ -1,7 +1,8 @@
 /**
  * KPI service client — the ISO 55000 KPI layer (migration 17).
  * get_kpi_dashboard() enforces role-based access SERVER-side: board-tier
- * KPIs never reach the browser for roles outside their audience.
+ * KPIs never reach the browser for roles outside their audience. It returns
+ * the COMPLETE RACI chain — A, R, C and I — plus the accountability tier.
  */
 import { supabase } from "../lib/supabase";
 
@@ -22,6 +23,12 @@ export interface KpiRow {
   unit: string | null;
   accountable: string;
   responsible: string;
+  /** Two-way input before the decision. Populated on all 29 catalog rows. */
+  consulted: string | null;
+  /** Told after the decision. */
+  informed: string | null;
+  /** Which organizational layer owns the metric. */
+  accountability_tier: "board" | "executive" | "functional" | "site" | null;
   agent_owner: string | null;
   computable: boolean;
   source_note: string | null;

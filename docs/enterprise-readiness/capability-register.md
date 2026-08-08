@@ -132,33 +132,33 @@ with the PR that changes an item's status._
 
 ### C6 — Balanced KPI hierarchy
 
-| ID    | Capability                                                                     | Status                                       |
-| ----- | ------------------------------------------------------------------------------ | -------------------------------------------- |
-| C6.01 | Enterprise: safety and environmental events                                    | 🟡                                           |
-| C6.02 | Enterprise: production availability                                            | ✅                                           |
-| C6.03 | Enterprise: maintenance cost per production unit                               | ❌                                           |
-| C6.04 | Enterprise: total production loss attributable to equipment                    | 🟡                                           |
-| C6.05 | Enterprise: asset lifecycle risk                                               | 🟡                                           |
-| C6.06 | Enterprise: capital avoidance and verified benefit                             | ✅                                           |
-| C6.07 | Work health: planned-work percentage | ✅ get_work_management_health (migration 20260808180000); /executive panel |
-| C6.08 | Work health: emergency-work percentage | 🟡 computed via critical-priority proxy; true emergency flag awaits dispatch-level urgency (C2.02) |
-| C6.09 | Work health: schedule compliance | ✅ measured against RELEASED (frozen) weekly schedules — enabled by the Scheduler (C5.04) |
-| C6.10 | Work health: PM compliance | 🟡 completed-vs-raised preventive work; true PM-due denominator needs maintenance plans (C2.02) |
-| C6.11 | Work health: ready backlog | 🟡 parts-ready flag share; true kitting status needs inventory integration (C2.07) |
-| C6.12 | Work health: backlog age and risk | ✅ mean open-WO age + count at critical/high priority |
-| C6.13 | Work health: break-in work | ✅ completions inside a released week absent from the frozen schedule |
-| C6.14 | Work health: planning accuracy | ❌ reported available:false with reason — needs planned-vs-actual hours on job plans (C8.07) |
-| C6.15 | Work health: waiting-on-material time | ❌ reported available:false with reason — needs inventory reservation/delivery events (C2.07/C2.17) |
-| C6.16 | Work health: rework and repeat work | ✅ asset + coded-failure-mode pairs with repeat corrective completions (441 on the real fleet) |
-| C6.17 | Reliability: MTBF / event rate by failure mode                                 | 🟡                                           |
-| C6.18 | Reliability: MTTR and restoration-time components                              | 🟡                                           |
-| C6.19 | Reliability: availability                                                      | ✅                                           |
-| C6.20 | Reliability: repeat failures                                                   | 🟡                                           |
-| C6.21 | Reliability: top production-loss bad actors                                    | ✅                                           |
-| C6.22 | Reliability: corrective-action effectiveness                                   | 🟡 measured per-CA; % KPI not yet in catalog |
-| C6.23 | Reliability: failure-mode elimination rate                                     | ❌                                           |
-| C6.24 | Reliability: condition-monitoring warning lead time                            | ❌                                           |
-| C6.25 | Reliability: PM task effectiveness                                             | ❌                                           |
+| ID    | Capability                                                                     | Status                                                                                                                                                                                                                        |
+| ----- | ------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| C6.01 | Enterprise: safety and environmental events                                    | 🟡                                                                                                                                                                                                                            |
+| C6.02 | Enterprise: production availability                                            | ✅                                                                                                                                                                                                                            |
+| C6.03 | Enterprise: maintenance cost per production unit                               | ❌                                                                                                                                                                                                                            |
+| C6.04 | Enterprise: total production loss attributable to equipment                    | 🟡                                                                                                                                                                                                                            |
+| C6.05 | Enterprise: asset lifecycle risk                                               | 🟡                                                                                                                                                                                                                            |
+| C6.06 | Enterprise: capital avoidance and verified benefit                             | ✅                                                                                                                                                                                                                            |
+| C6.07 | Work health: planned-work percentage                                           | ✅ get_work_management_health (migration 20260808180000); /executive panel                                                                                                                                                    |
+| C6.08 | Work health: emergency-work percentage                                         | 🟡 computed via critical-priority proxy; true emergency flag awaits dispatch-level urgency (C2.02)                                                                                                                            |
+| C6.09 | Work health: schedule compliance                                               | ✅ measured against RELEASED (frozen) weekly schedules — enabled by the Scheduler (C5.04)                                                                                                                                     |
+| C6.10 | Work health: PM compliance                                                     | 🟡 completed-vs-raised preventive work; true PM-due denominator needs maintenance plans (C2.02)                                                                                                                               |
+| C6.11 | Work health: ready backlog                                                     | 🟡 parts-ready flag share; true kitting status needs inventory integration (C2.07)                                                                                                                                            |
+| C6.12 | Work health: backlog age and risk                                              | ✅ mean open-WO age + count at critical/high priority                                                                                                                                                                         |
+| C6.13 | Work health: break-in work                                                     | ✅ completions inside a released week absent from the frozen schedule                                                                                                                                                         |
+| C6.14 | Work health: planning accuracy                                                 | ❌ reported available:false with reason — needs planned-vs-actual hours on job plans (C8.07)                                                                                                                                  |
+| C6.15 | Work health: waiting-on-material time                                          | ❌ reported available:false with reason — needs inventory reservation/delivery events (C2.07/C2.17)                                                                                                                           |
+| C6.16 | Work health: rework and repeat work                                            | ✅ asset + coded-failure-mode pairs with repeat corrective completions (441 on the real fleet)                                                                                                                                |
+| C6.17 | Reliability: MTBF / event rate by failure mode                                 | 🟡                                                                                                                                                                                                                            |
+| C6.18 | Reliability: MTTR and restoration-time components                              | 🟡                                                                                                                                                                                                                            |
+| C6.19 | Reliability: availability                                                      | ✅                                                                                                                                                                                                                            |
+| C6.20 | Reliability: repeat failures                                                   | 🟡                                                                                                                                                                                                                            |
+| C6.21 | Reliability: top production-loss bad actors                                    | ✅                                                                                                                                                                                                                            |
+| C6.22 | Reliability: corrective-action effectiveness                                   | 🟡 measured per-CA; % KPI not yet in catalog                                                                                                                                                                                  |
+| C6.23 | Reliability: failure-mode elimination rate                                     | ❌                                                                                                                                                                                                                            |
+| C6.24 | Reliability: condition-monitoring warning lead time                            | ❌                                                                                                                                                                                                                            |
+| C6.25 | Reliability: PM task effectiveness                                             | ❌                                                                                                                                                                                                                            |
 | C6.26 | Segmentation by asset class, criticality, site, operating regime, failure mode | 🟡 get_segmented_reliability over asset class / criticality / site / failure mode with data-derived windows (migration 20260808150000; /executive panel). Operating-regime segmentation awaits operating-context data (C2.04) |
 
 ### C7 — Technical calculation engines (validated code, not plausible equations)
@@ -271,20 +271,20 @@ with the PR that changes an item's status._
 
 ### E4 — Enterprise governance
 
-| ID    | Capability                                                                | Status |
-| ----- | ------------------------------------------------------------------------- | ------ |
-| E4.01 | Global standards vs site-level authority                                  | ❌     |
-| E4.02 | RACI and accountable executive ownership                                  | ✅     |
-| E4.03 | Delegation-of-authority limits                                            | ❌     |
-| E4.04 | Risk-acceptance thresholds                                                | ❌     |
-| E4.05 | Segregation of duties                                                     | 🟡     |
-| E4.06 | Engineering approval requirements                                         | 🟡     |
-| E4.07 | Escalation paths                                                          | 🟡     |
-| E4.08 | Records retention                                                         | ❌     |
-| E4.09 | Regulatory evidence                                                       | 🟡     |
-| E4.10 | Internal auditing                                                         | ❌     |
-| E4.11 | Recommendation version control                                            | 🟡     |
-| E4.12 | Decision traceability: proposer, reviewer, authorizer, evidence preserved | ✅     |
+| ID    | Capability                                                                | Status                                                                                                                                                                                                                                                                                          |
+| ----- | ------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| E4.01 | Global standards vs site-level authority                                  | ❌                                                                                                                                                                                                                                                                                              |
+| E4.02 | RACI and accountable executive ownership                                  | ✅ full A/R/C/I on all 29 ISO 55000 KPIs; C and I now returned by get_kpi_dashboard and rendered with accountability tier (board/executive/functional/site) — previously populated but dropped at the API boundary                                                                              |
+| E4.03 | Delegation-of-authority limits                                            | 🟡 authority_limits ladder (crew→board) with commitment/risk/downtime ceilings + enforce_authority_limit BEFORE UPDATE trigger (migration 20260808210000). Seeded amounts are DRAFT placeholders and enforce nothing until an executive adopts the customer's delegation instrument — by design |
+| E4.04 | Risk-acceptance thresholds                                                | ❌                                                                                                                                                                                                                                                                                              |
+| E4.05 | Segregation of duties                                                     | 🟡                                                                                                                                                                                                                                                                                              |
+| E4.06 | Engineering approval requirements                                         | 🟡                                                                                                                                                                                                                                                                                              |
+| E4.07 | Escalation paths                                                          | 🟡 every authority limit names escalates_to_role, so a refused approval states who holds the authority above it; incident/on-call escalation still absent                                                                                                                                       |
+| E4.08 | Records retention                                                         | ❌                                                                                                                                                                                                                                                                                              |
+| E4.09 | Regulatory evidence                                                       | 🟡                                                                                                                                                                                                                                                                                              |
+| E4.10 | Internal auditing                                                         | ❌                                                                                                                                                                                                                                                                                              |
+| E4.11 | Recommendation version control                                            | 🟡                                                                                                                                                                                                                                                                                              |
+| E4.12 | Decision traceability: proposer, reviewer, authorizer, evidence preserved | ✅ plus board_packs: a period's board-tier KPIs frozen at preparation, attested with a signature, and made immutable by trigger thereafter                                                                                                                                                      |
 
 ### E5 — AI safety, cybersecurity, model risk
 
@@ -660,6 +660,6 @@ with the PR that changes an item's status._
 
 Atomic items tracked: **397** — counted programmatically from the tables
 themselves (an earlier hand-stated figure of 307 under-counted; the enumeration
-never changed, only the count of it). Current tally: ✅ 71 · 🟡 99 · ❌ 227. _(2026-08-07: reconciled after parallel merges — C7.01/03/04/11 reliability engine, C4.13–17 + C6.22 closed-loop tail, C3.01–12 taxonomy, C5.04 scheduler all verified present on main.)_
+never changed, only the count of it). Current tally: ✅ 71 · 🟡 100 · ❌ 226. _(2026-08-07: reconciled after parallel merges — C7.01/03/04/11 reliability engine, C4.13–17 + C6.22 closed-loop tail, C3.01–12 taxonomy, C5.04 scheduler all verified present on main.)_
 Every ❌ and 🟡 is an open obligation of the program. No item may be removed;
 items may only change status with linked evidence in the PR that changes them.
