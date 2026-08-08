@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { ReliabilityAnalytics } from "../components/ReliabilityAnalytics";
 import { CaEffectivenessPanel } from "../components/CaEffectivenessPanel";
+import { ConditionMonitoring } from "../components/ConditionMonitoring";
+import { MonitoringCoverageGaps } from "../components/MonitoringCoverageGaps";
 import { useNavigate } from "react-router-dom";
 import {
   TrendingUp,
@@ -158,6 +160,10 @@ export function Reliability() {
       </div>
 
       <ReliabilityAnalytics />
+
+      <ConditionMonitoring />
+
+      <MonitoringCoverageGaps />
 
       <CaEffectivenessPanel />
 
