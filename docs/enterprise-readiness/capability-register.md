@@ -482,22 +482,22 @@ with the PR that changes an item's status._
 
 ### U4 — Complete asset lifecycle
 
-| ID    | Capability                            | Status |
-| ----- | ------------------------------------- | ------ |
-| U4.01 | Need identification                   | ❌     |
-| U4.02 | Options analysis                      | ❌     |
-| U4.03 | Concept selection                     | ❌     |
-| U4.04 | Design                                | ❌     |
-| U4.05 | Procurement                           | ❌     |
-| U4.06 | Construction or manufacture           | ❌     |
-| U4.07 | Commissioning                         | ❌     |
-| U4.08 | Operation                             | ✅     |
-| U4.09 | Maintenance                           | ✅     |
-| U4.10 | Modification                          | 🟡     |
-| U4.11 | Life extension                        | ❌     |
-| U4.12 | Replacement                           | ❌     |
-| U4.13 | Decommissioning                       | ❌     |
-| U4.14 | Disposal, recycling, site restoration | ❌     |
+| ID    | Capability                            | Status                                                                                                                                                                                                                                |
+| ----- | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| U4.01 | Need identification                   | ✅ Stage in the whole-life model with the decision it owns ("is a new asset the right answer?") and mandatory gate criteria including a stated do-nothing consequence                                                                 |
+| U4.02 | Options analysis                      | ✅ Gate criteria require at least one NON-ASSET option and whole-life cost per option rather than purchase price                                                                                                                      |
+| U4.03 | Concept selection                     | ✅ Rejected options and the reason for rejecting them are a mandatory criterion — a selection with no recorded rejections cannot be reviewed later                                                                                    |
+| U4.04 | Design                                | ✅ Maintainability reviewed by someone who will maintain it, and criticality/failure modes assessed before procurement, both mandatory                                                                                                |
+| U4.05 | Procurement                           | ✅ Vendor data requirements in the purchase order and spares/warranty terms agreed before award — the point after which that data is nearly unobtainable                                                                              |
+| U4.06 | Construction or manufacture           | ✅ Deviations recorded as concessions; an undocumented deviation becomes an unexplained failure mode                                                                                                                                  |
+| U4.07 | Commissioning                         | ✅ Handover dossier, initial strategy and spares, and an as-built configuration baseline (the reference every U7 drift comparison depends on)                                                                                         |
+| U4.08 | Operation                             | ✅                                                                                                                                                                                                                                    |
+| U4.09 | Maintenance                           | ✅                                                                                                                                                                                                                                    |
+| U4.10 | Modification                          | ✅ In-service stage whose gate criterion requires MOC approval AND an updated configuration baseline — a modification that does not update the as-maintained baseline creates drift by design                                         |
+| U4.11 | Life extension                        | ✅ Stage plus an enforced gate: entering it requires a review LINKING a `lifecycle_evaluations` record. Reuses the existing evaluation engine rather than adding a second one, and refuses without it — "an opinion with a timestamp" |
+| U4.12 | Replacement                           | ✅ Same enforced evaluation link. Leaving the in-service phase at all requires a passing gate review, which is the transition most often made by drift rather than by decision                                                        |
+| U4.13 | Decommissioning                       | ✅ Stage with a mandatory criterion on stored energy, process inventory and hazardous materials — taking an asset out of service can create a hazard rather than remove one                                                           |
+| U4.14 | Disposal, recycling, site restoration | ✅ `disposal_records` with route, recovered value, and site-restoration obligations tracked separately from disposal; claiming restoration complete without stating the obligation is rejected by a check constraint                  |
 
 ### U5 — Modular sector packs
 
@@ -662,6 +662,6 @@ with the PR that changes an item's status._
 
 Atomic items tracked: **397** — counted programmatically from the tables
 themselves (an earlier hand-stated figure of 307 under-counted; the enumeration
-never changed, only the count of it). Current tally: ✅ 110 · 🟡 112 · ❌ 177. _(2026-08-07: reconciled after parallel merges — C7.01/03/04/11 reliability engine, C4.13–17 + C6.22 closed-loop tail, C3.01–12 taxonomy, C5.04 scheduler all verified present on main.)_
+never changed, only the count of it). Current tally: ✅ 122 · 🟡 111 · ❌ 166. _(2026-08-07: reconciled after parallel merges — C7.01/03/04/11 reliability engine, C4.13–17 + C6.22 closed-loop tail, C3.01–12 taxonomy, C5.04 scheduler all verified present on main.)_
 Every ❌ and 🟡 is an open obligation of the program. No item may be removed;
 items may only change status with linked evidence in the PR that changes them.
