@@ -17,6 +17,7 @@ import { useOnboardingOperatingLoop } from "../hooks/useOnboardingOperatingLoop"
 import type { DerivedAssetIntelligence } from "../services/onboardingOperatingLoop";
 import { LifecycleStages } from "../components/LifecycleStages";
 import { AssetOntology } from "../components/AssetOntology";
+import { ReliabilityByDesign } from "../components/ReliabilityByDesign";
 
 const assetData = {
   id: "C-22",
@@ -835,6 +836,8 @@ export function AssetIntelligencePage() {
       <AssetOntology />
 
       <LifecycleStages />
+
+      <ReliabilityByDesign />
     </div>
   );
 }
