@@ -15,6 +15,7 @@ import { motion } from "framer-motion";
 import { supabase } from "../lib/supabase";
 import { SchedulerPanel } from "../components/SchedulerPanel";
 import { WorkforceReadiness } from "../components/WorkforceReadiness";
+import { SupplyExposure } from "../components/SupplyExposure";
 import { MaterialsReadiness } from "../components/MaterialsReadiness";
 import { SparesOptimization } from "../components/SparesOptimization";
 import { OutagePlanning } from "../components/OutagePlanning";
@@ -734,6 +735,8 @@ export function OperationalBriefing() {
       <MaterialsReadiness />
 
       <SparesOptimization />
+
+      <SupplyExposure />
 
       <div className="bg-[#0D1520] border border-teal-500/10 rounded-xl p-4 flex items-start gap-3">
         <Zap className="w-4 h-4 text-teal-400 shrink-0 mt-0.5" />

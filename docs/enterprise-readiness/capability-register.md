@@ -328,22 +328,22 @@ with the PR that changes an item's status._
 
 ### E7 — Contractor and supplier management
 
-| ID    | Capability                       | Status |
-| ----- | -------------------------------- | ------ |
-| E7.01 | Contractor performance           | ❌     |
-| E7.02 | Scope clarity                    | ❌     |
-| E7.03 | Bid comparisons                  | ❌     |
-| E7.04 | Productivity assumptions         | ❌     |
-| E7.05 | Safety qualifications            | ❌     |
-| E7.06 | Quality escapes                  | ❌     |
-| E7.07 | Warranty recovery                | ❌     |
-| E7.08 | Repair-vendor quality            | ❌     |
-| E7.09 | Supplier reliability             | ❌     |
-| E7.10 | Long-lead components             | ❌     |
-| E7.11 | Counterfeit and unapproved parts | ❌     |
-| E7.12 | Vendor technical advisories      | ❌     |
-| E7.13 | Sole-source exposure             | ❌     |
-| E7.14 | Obsolescence risk                | ❌     |
+| ID    | Capability                       | Status                                                                                                                                                                                                                                                                                                                      |
+| ----- | -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| E7.01 | Contractor performance           | ✅ `contract_performance` per period with planned vs actual hours and cost, rework, safety incidents and quality escapes — recorded as events rather than collapsed into a score nobody can argue with                                                                                                                      |
+| E7.02 | Scope clarity                    | ✅ `contract_packages` carries scope, exclusions, interfaces, acceptance criteria and a site-conditions flag, and `compareBids` reports each gap: bids against an unclear scope get settled later as claims                                                                                                                 |
+| E7.03 | Bid comparisons                  | ✅ `compareBids` normalises to a common productivity assumption. On the demo package the $205k bid is DEARER per hour of assumed work ($128.13) than the $240k one ($120.00), because it assumed half the productivity                                                                                                      |
+| E7.04 | Productivity assumptions         | ✅ Recorded per bid and **required for a ranking**. Where any bid omits it the comparison is returned as NOT COMPARABLE — the cheapest price is still named, explicitly as "a fact about the prices, not a recommendation"                                                                                                  |
+| E7.05 | Safety qualifications            | ✅ Per-supplier status and expiry; expired qualifications are counted in the posture line rather than left to a filter nobody applies                                                                                                                                                                                       |
+| E7.06 | Quality escapes                  | ✅ Counted per contract period, and separately as delivery outcomes distinguishing wrong item / quality / documentation — a late delivery and a wrong delivery are different failures                                                                                                                                       |
+| E7.07 | Warranty recovery                | ✅ `warranty_terms` (date OR usage limits) and `warranty_claims`, with the posture line counting work orders raised inside a warranty period against which no claim exists — the money left on the table                                                                                                                    |
+| E7.08 | Repair-vendor quality            | ✅ `repair_vendor` supplier kind with the same delivery-outcome and performance records as any other supplier                                                                                                                                                                                                               |
+| E7.09 | Supplier reliability             | ✅ `supplier_deliveries` records ordered / promised / received per event, so lateness is measurable rather than remembered                                                                                                                                                                                                  |
+| E7.10 | Long-lead components             | ✅ Quoted lead time per supplier alongside the catalogue figure, and sole-source exposure ranked by criticality then lead time                                                                                                                                                                                              |
+| E7.11 | Counterfeit and unapproved parts | ✅ `suspect_parts` as its own table, not a delivery outcome — a suspect part has a life after receipt (quarantine, investigation, units already installed, affected assets identified), and that trail is the value                                                                                                         |
+| E7.12 | Vendor technical advisories      | ✅ `vendor_advisories` with an assessment status; a check constraint requires an assessor before anything leaves `unassessed`, and mandatory advisories past their required-by date are surfaced in the posture line                                                                                                        |
+| E7.13 | Sole-source exposure             | ✅ `soleSourceRisk` returns THREE buckets, deliberately not one list: one approved supplier (a genuine single point of failure), one recorded and none approved (unfinished sourcing), and none at all (a lead time nobody can be held to). They need different work. Completes the set with U2 (assets) and E6.09 (people) |
+| E7.14 | Obsolescence risk                | ✅ `assessObsolescence` ranks by the years of ASSET LIFE left uncovered, not by the end-of-life date — a part going obsolete in 2030 is irrelevant for a machine retired in 2028 and urgent for one running to 2045. Refuses to rate urgency where remaining life is not recorded                                           |
 
 ### E8 — Capital projects and reliability by design
 
@@ -662,6 +662,6 @@ with the PR that changes an item's status._
 
 Atomic items tracked: **397** — counted programmatically from the tables
 themselves (an earlier hand-stated figure of 307 under-counted; the enumeration
-never changed, only the count of it). Current tally: ✅ 149 · 🟡 111 · ❌ 139. _(2026-08-07: reconciled after parallel merges — C7.01/03/04/11 reliability engine, C4.13–17 + C6.22 closed-loop tail, C3.01–12 taxonomy, C5.04 scheduler all verified present on main.)_
+never changed, only the count of it). Current tally: ✅ 163 · 🟡 111 · ❌ 125. _(2026-08-07: reconciled after parallel merges — C7.01/03/04/11 reliability engine, C4.13–17 + C6.22 closed-loop tail, C3.01–12 taxonomy, C5.04 scheduler all verified present on main.)_
 Every ❌ and 🟡 is an open obligation of the program. No item may be removed;
 items may only change status with linked evidence in the PR that changes them.
