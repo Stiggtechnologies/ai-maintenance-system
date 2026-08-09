@@ -7,6 +7,7 @@
  * gated on the Section-21 minimum data set plus explicit SME approval.
  */
 import { useEffect, useMemo, useState } from "react";
+import { FleetHistoryImport } from "../components/FleetHistoryImport";
 import {
   Bot,
   CheckCircle2,
@@ -273,9 +274,15 @@ export function AssetOnboardingHub() {
     return <LoadingState label="Loading asset onboarding" />;
   if (overview.error)
     return <ErrorState message={overview.error} onRetry={overview.refetch} />;
+  // The empty state must NOT hide the importer: a tenant with no assets is
+  // exactly who needs it, and returning early here made the tool that fixes
+  // the empty state invisible to the only people in it.
   if (overview.isEmpty)
     return (
-      <EmptyState message="No assets in onboarding yet — add an asset to the register and it will onboard itself automatically." />
+      <div className="space-y-6 p-6" data-testid="onboarding-hub">
+        <EmptyState message="No assets in onboarding yet — add an asset to the register and it will onboard itself automatically, or import a fleet's history below." />
+        <FleetHistoryImport />
+      </div>
     );
 
   const liveCount = overview.data!.filter((o) => o.status === "live").length;
@@ -611,6 +618,7 @@ export function AssetOnboardingHub() {
           </button>
         </div>
       )}
+      <FleetHistoryImport />
     </div>
   );
 }
