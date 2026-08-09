@@ -1,9 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Zap,
   ChevronLeft,
   ChevronRight,
   LogOut,
+  Menu,
+  X,
   MapPin,
   ChevronDown,
   Shield,
@@ -191,6 +193,13 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
     .filter((group) => group.items.length > 0);
   const [userContext, setUserContext] = useState<UserContext | null>(null);
   const [isCollapsed, setIsCollapsed] = useState(false);
+  // Below `md` the sidebar is not a column, it is a drawer over the content.
+  // Two separate pieces of state: collapsing is a desktop preference, opening
+  // the drawer is a transient mobile action, and conflating them made the
+  // desktop rail disappear after any phone-sized visit.
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const drawerRef = useRef<HTMLElement | null>(null);
+  const menuButtonRef = useRef<HTMLButtonElement | null>(null);
   const [sites, setSites] = useState<Site[]>([]);
   const [selectedSiteId, setSelectedSiteId] = useState<string | null>(null);
   const [sitePickerOpen, setSitePickerOpen] = useState(false);
@@ -229,6 +238,56 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userContext]);
+
+  // Drawer keyboard contract: Escape closes, Tab cycles inside the drawer.
+  // Without the trap, tabbing walks into the page underneath the backdrop —
+  // a screen-reader or keyboard user is then operating a surface they cannot
+  // see and cannot leave.
+  useEffect(() => {
+    if (!mobileNavOpen) return;
+
+    const focusable = () =>
+      Array.from(
+        drawerRef.current?.querySelectorAll<HTMLElement>(
+          'a[href], button, input, select, textarea, [tabindex]:not([tabindex="-1"])',
+        ) ?? [],
+      ).filter((el) => !el.hasAttribute("disabled"));
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setMobileNavOpen(false);
+        return;
+      }
+      if (e.key !== "Tab") return;
+      const items = focusable();
+      if (items.length === 0) return;
+      const first = items[0];
+      const last = items[items.length - 1];
+      const active = document.activeElement as HTMLElement | null;
+      const inside = !!active && !!drawerRef.current?.contains(active);
+      if (e.shiftKey) {
+        if (!inside || active === first) {
+          e.preventDefault();
+          last.focus();
+        }
+      } else if (!inside || active === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    focusable()[0]?.focus();
+    const opener = menuButtonRef.current;
+
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      // Focus must land somewhere deliberate on close, and the control that
+      // opened the drawer is the only place the user can still see.
+      opener?.focus();
+    };
+  }, [mobileNavOpen]);
 
   const loadUserContext = async () => {
     const context = await platformService.getCurrentUserContext();
@@ -279,6 +338,13 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
     await platformService.signOut();
   };
 
+  // The drawer covers the page it navigates to, so it must close on every
+  // navigation — otherwise a tap looks like it did nothing.
+  const handleNavigate = (path: string) => {
+    setMobileNavOpen(false);
+    onNavigate(path);
+  };
+
   const toggleGroup = (id: string) => {
     setExpandedGroups((prev) => {
       const next = new Set(prev);
@@ -314,214 +380,288 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
     return "Mission Control";
   };
 
+  // One sidebar body, rendered twice: as the desktop rail and as the mobile
+  // drawer. Duplicating the markup would let the two navigations drift apart.
+  const renderSidebarBody = (collapsed: boolean, isDrawer: boolean) => (
+    <>
+      {/* Logo */}
+      <div className="h-14 px-4 flex items-center gap-3 border-b border-white/5 shrink-0">
+        <div className="w-8 h-8 bg-linear-to-br from-teal-500 to-cyan-400 rounded-lg flex items-center justify-center shrink-0 shadow-[0_0_20px_rgba(20,184,166,0.4)]">
+          <Zap className="w-4 h-4 text-white" />
+        </div>
+        {!collapsed && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <div className="text-sm font-bold text-white tracking-wide">
+              SyncAI
+            </div>
+            <div className="text-xs text-slate-400 font-medium tracking-widest uppercase">
+              Mission Assurance
+            </div>
+          </motion.div>
+        )}
+        {isDrawer && (
+          <button
+            onClick={() => setMobileNavOpen(false)}
+            aria-label="Close navigation"
+            className="ml-auto -mr-2 h-11 w-11 inline-flex items-center justify-center rounded-md text-slate-400 hover:text-signal-cyan hover:bg-signal-cyan/10 transition-colors focus:outline-hidden focus-visible:ring-2 focus-visible:ring-teal-300"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        )}
+      </div>
+      {sidebarSections(collapsed, isDrawer)}
+    </>
+  );
+
+  const sidebarSections = (isCollapsed: boolean, isDrawer = false) => (
+    <>
+      {/* Autonomy Mode Indicator */}
+      {!isCollapsed && (
+        <div className="px-3 py-2 border-b border-white/5">
+          <div className="flex items-center gap-2 px-2 py-1.5 rounded-md bg-amber-500/10 border border-amber-500/20">
+            <div className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+            <span className="text-xs font-semibold text-amber-400 tracking-wide uppercase">
+              {AUTONOMY_MODE}
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* Org + Site */}
+      {!isCollapsed && userContext && (
+        <div className="px-3 py-2.5 border-b border-white/5">
+          <div className="text-xs text-slate-400 uppercase tracking-wider mb-1">
+            Organization
+          </div>
+          <div className="text-xs font-semibold text-slate-200 truncate">
+            {userContext.organization_name}
+          </div>
+          {userContext.roles && userContext.roles.length > 0 && (
+            <div className="text-xs text-signal-cyan mt-0.5">
+              {userContext.roles[0].name}
+            </div>
+          )}
+          {sites.length > 0 && (
+            <div className="relative mt-2">
+              <button
+                onClick={() => setSitePickerOpen(!sitePickerOpen)}
+                className="w-full flex items-center gap-1.5 px-2 py-1.5 bg-white/3 border border-white/6 rounded-md text-xs text-slate-400 hover:bg-white/6 transition-colors"
+              >
+                <MapPin className="w-3 h-3 shrink-0" />
+                <span className="flex-1 text-left truncate">
+                  {selectedSite?.name || "All Sites"}
+                </span>
+                <ChevronDown
+                  className={`w-3 h-3 transition-transform ${sitePickerOpen ? "rotate-180" : ""}`}
+                />
+              </button>
+              {sitePickerOpen && (
+                <div className="absolute top-full left-0 right-0 mt-1 bg-overlook-deep border border-white/8 rounded-lg shadow-2xl z-50 max-h-48 overflow-y-auto">
+                  <button
+                    onClick={() => handleSiteChange(null)}
+                    className={`w-full text-left px-3 py-2 text-xs hover:bg-white/5 ${!selectedSiteId ? "text-signal-cyan" : "text-slate-300"}`}
+                  >
+                    All Sites
+                  </button>
+                  {sites.map((site) => (
+                    <button
+                      key={site.id}
+                      onClick={() => handleSiteChange(site.id)}
+                      className={`w-full text-left px-3 py-2 text-xs hover:bg-white/5 ${selectedSiteId === site.id ? "text-signal-cyan" : "text-slate-300"}`}
+                    >
+                      {site.name}{" "}
+                      <span className="text-slate-400">({site.code})</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Navigation */}
+      <nav className="flex-1 overflow-y-auto overflow-x-hidden py-2">
+        {visibleGroups.map((group) => {
+          const GroupIcon = group.icon;
+          const isGroupExpanded = expandedGroups.has(group.id);
+          return (
+            <div key={group.id} className="mb-1">
+              <button
+                onClick={() => toggleGroup(group.id)}
+                className={`w-full flex items-center px-4 transition-colors ${
+                  isDrawer ? "py-3 min-h-11" : "py-2"
+                } ${
+                  isCollapsed ? "justify-center" : "gap-2"
+                } text-overlook-haze hover:text-overlook-mist`}
+              >
+                <GroupIcon className="w-3.5 h-3.5 shrink-0" />
+                {!isCollapsed && (
+                  <>
+                    <span className="flex-1 text-left text-[11px] font-semibold uppercase tracking-[0.18em]">
+                      {group.label}
+                    </span>
+                    <ChevronDown
+                      className={`w-3 h-3 transition-transform ${isGroupExpanded ? "" : "-rotate-90"}`}
+                    />
+                  </>
+                )}
+              </button>
+
+              <AnimatePresence>
+                {(isGroupExpanded || isCollapsed) && (
+                  <motion.div
+                    initial={isCollapsed ? false : { height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.15 }}
+                    className="overflow-hidden"
+                  >
+                    {group.items.map((item) => {
+                      const active = isActive(item.path);
+                      const badge = getBadge(item);
+                      return (
+                        <button
+                          key={item.id}
+                          onClick={() => handleNavigate(item.path)}
+                          title={isCollapsed ? item.label : undefined}
+                          className={`w-full flex items-center gap-3 transition-all relative group ${
+                            isCollapsed
+                              ? "justify-center px-2 py-2.5"
+                              : // 44px minimum row: the drawer is tapped in the
+                                // field, not clicked with a mouse.
+                                isDrawer
+                                ? "px-4 py-3 min-h-11"
+                                : "px-4 py-2"
+                          } ${
+                            active
+                              ? "text-signal-gold bg-signal-gold/10"
+                              : "text-overlook-mist/75 hover:text-overlook-paper hover:bg-white/3"
+                          }`}
+                        >
+                          {active && (
+                            <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-signal-gold rounded-r" />
+                          )}
+                          {!isCollapsed && (
+                            <span className="text-sm font-medium">
+                              {item.label}
+                            </span>
+                          )}
+                          {!isCollapsed && badge ? (
+                            <span className="ml-auto text-xs font-bold bg-red-500/20 text-red-400 border border-red-500/30 px-1.5 py-0.5 rounded-full">
+                              {badge}
+                            </span>
+                          ) : null}
+                          {isCollapsed && (
+                            <div className="absolute left-full ml-2 px-2 py-1 bg-overlook-hull border border-white/8 text-white text-xs rounded-md whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none z-50 transition-opacity shadow-xl">
+                              {item.label}
+                            </div>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          );
+        })}
+      </nav>
+
+      {/* Footer */}
+      <div className="border-t border-white/5 p-2">
+        <button
+          onClick={handleSignOut}
+          aria-label="Sign out"
+          className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-colors focus:outline-hidden focus-visible:ring-2 focus-visible:ring-teal-300 ${
+            isCollapsed ? "justify-center" : ""
+          }`}
+        >
+          <LogOut className="w-4 h-4 shrink-0" />
+          {!isCollapsed && <span className="text-sm">Sign Out</span>}
+        </button>
+        {!isCollapsed && (
+          <div className="mt-2 px-2 py-1">
+            <div className="text-xs text-slate-400">
+              SyncAI Platform v3.0 · build {__BUILD_SHA__}
+            </div>
+          </div>
+        )}
+      </div>
+    </>
+  );
+
   return (
     <div className="flex h-screen bg-overlook-void overflow-hidden">
-      {/* Sidebar */}
+      {/* Sidebar — desktop rail. Hidden below `md`, where 240px of fixed,
+          non-shrinking chrome left 135px of content on a 375px phone. */}
       <motion.aside
         animate={{ width: isCollapsed ? 64 : 240 }}
         transition={{ duration: 0.2, ease: "easeInOut" }}
-        className="bg-overlook-void border-r border-white/5 shrink-0 overflow-hidden flex flex-col z-20"
+        className="bg-overlook-void border-r border-white/5 shrink-0 overflow-hidden hidden md:flex flex-col z-20"
       >
-        {/* Logo */}
-        <div className="h-14 px-4 flex items-center gap-3 border-b border-white/5 shrink-0">
-          <div className="w-8 h-8 bg-linear-to-br from-teal-500 to-cyan-400 rounded-lg flex items-center justify-center shrink-0 shadow-[0_0_20px_rgba(20,184,166,0.4)]">
-            <Zap className="w-4 h-4 text-white" />
-          </div>
-          {!isCollapsed && (
+        {renderSidebarBody(isCollapsed, false)}
+      </motion.aside>
+
+      {/* Sidebar — mobile drawer */}
+      <AnimatePresence>
+        {mobileNavOpen && (
+          <>
             <motion.div
+              key="nav-backdrop"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
+              transition={{ duration: 0.15 }}
+              onClick={() => setMobileNavOpen(false)}
+              data-testid="mobile-nav-backdrop"
+              aria-hidden="true"
+              className="md:hidden fixed inset-0 z-40 bg-black/60 backdrop-blur-xs"
+            />
+            <motion.aside
+              key="nav-drawer"
+              ref={drawerRef}
+              role="dialog"
+              aria-modal="true"
+              aria-label="Main navigation"
+              initial={{ x: "-100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "-100%" }}
+              transition={{ duration: 0.2, ease: "easeInOut" }}
+              className="md:hidden fixed inset-y-0 left-0 z-50 w-72 max-w-[85vw] bg-overlook-void border-r border-white/5 flex flex-col shadow-2xl shadow-black/60"
             >
-              <div className="text-sm font-bold text-white tracking-wide">
-                SyncAI
-              </div>
-              <div className="text-xs text-slate-400 font-medium tracking-widest uppercase">
-                Mission Assurance
-              </div>
-            </motion.div>
-          )}
-        </div>
-
-        {/* Autonomy Mode Indicator */}
-        {!isCollapsed && (
-          <div className="px-3 py-2 border-b border-white/5">
-            <div className="flex items-center gap-2 px-2 py-1.5 rounded-md bg-amber-500/10 border border-amber-500/20">
-              <div className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-              <span className="text-xs font-semibold text-amber-400 tracking-wide uppercase">
-                {AUTONOMY_MODE}
-              </span>
-            </div>
-          </div>
+              {renderSidebarBody(false, true)}
+            </motion.aside>
+          </>
         )}
-
-        {/* Org + Site */}
-        {!isCollapsed && userContext && (
-          <div className="px-3 py-2.5 border-b border-white/5">
-            <div className="text-xs text-slate-400 uppercase tracking-wider mb-1">
-              Organization
-            </div>
-            <div className="text-xs font-semibold text-slate-200 truncate">
-              {userContext.organization_name}
-            </div>
-            {userContext.roles && userContext.roles.length > 0 && (
-              <div className="text-xs text-signal-cyan mt-0.5">
-                {userContext.roles[0].name}
-              </div>
-            )}
-            {sites.length > 0 && (
-              <div className="relative mt-2">
-                <button
-                  onClick={() => setSitePickerOpen(!sitePickerOpen)}
-                  className="w-full flex items-center gap-1.5 px-2 py-1.5 bg-white/3 border border-white/6 rounded-md text-xs text-slate-400 hover:bg-white/6 transition-colors"
-                >
-                  <MapPin className="w-3 h-3 shrink-0" />
-                  <span className="flex-1 text-left truncate">
-                    {selectedSite?.name || "All Sites"}
-                  </span>
-                  <ChevronDown
-                    className={`w-3 h-3 transition-transform ${sitePickerOpen ? "rotate-180" : ""}`}
-                  />
-                </button>
-                {sitePickerOpen && (
-                  <div className="absolute top-full left-0 right-0 mt-1 bg-overlook-deep border border-white/8 rounded-lg shadow-2xl z-50 max-h-48 overflow-y-auto">
-                    <button
-                      onClick={() => handleSiteChange(null)}
-                      className={`w-full text-left px-3 py-2 text-xs hover:bg-white/5 ${!selectedSiteId ? "text-signal-cyan" : "text-slate-300"}`}
-                    >
-                      All Sites
-                    </button>
-                    {sites.map((site) => (
-                      <button
-                        key={site.id}
-                        onClick={() => handleSiteChange(site.id)}
-                        className={`w-full text-left px-3 py-2 text-xs hover:bg-white/5 ${selectedSiteId === site.id ? "text-signal-cyan" : "text-slate-300"}`}
-                      >
-                        {site.name}{" "}
-                        <span className="text-slate-400">({site.code})</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Navigation */}
-        <nav className="flex-1 overflow-y-auto overflow-x-hidden py-2">
-          {visibleGroups.map((group) => {
-            const GroupIcon = group.icon;
-            const isGroupExpanded = expandedGroups.has(group.id);
-            return (
-              <div key={group.id} className="mb-1">
-                <button
-                  onClick={() => toggleGroup(group.id)}
-                  className={`w-full flex items-center px-4 py-2 transition-colors ${
-                    isCollapsed ? "justify-center" : "gap-2"
-                  } text-overlook-haze hover:text-overlook-mist`}
-                >
-                  <GroupIcon className="w-3.5 h-3.5 shrink-0" />
-                  {!isCollapsed && (
-                    <>
-                      <span className="flex-1 text-left text-[11px] font-semibold uppercase tracking-[0.18em]">
-                        {group.label}
-                      </span>
-                      <ChevronDown
-                        className={`w-3 h-3 transition-transform ${isGroupExpanded ? "" : "-rotate-90"}`}
-                      />
-                    </>
-                  )}
-                </button>
-
-                <AnimatePresence>
-                  {(isGroupExpanded || isCollapsed) && (
-                    <motion.div
-                      initial={isCollapsed ? false : { height: 0, opacity: 0 }}
-                      animate={{ height: "auto", opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      transition={{ duration: 0.15 }}
-                      className="overflow-hidden"
-                    >
-                      {group.items.map((item) => {
-                        const active = isActive(item.path);
-                        const badge = getBadge(item);
-                        return (
-                          <button
-                            key={item.id}
-                            onClick={() => onNavigate(item.path)}
-                            title={isCollapsed ? item.label : undefined}
-                            className={`w-full flex items-center gap-3 transition-all relative group ${
-                              isCollapsed
-                                ? "justify-center px-2 py-2.5"
-                                : "px-4 py-2"
-                            } ${
-                              active
-                                ? "text-signal-gold bg-signal-gold/10"
-                                : "text-overlook-mist/75 hover:text-overlook-paper hover:bg-white/3"
-                            }`}
-                          >
-                            {active && (
-                              <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-signal-gold rounded-r" />
-                            )}
-                            {!isCollapsed && (
-                              <span className="text-sm font-medium">
-                                {item.label}
-                              </span>
-                            )}
-                            {!isCollapsed && badge ? (
-                              <span className="ml-auto text-xs font-bold bg-red-500/20 text-red-400 border border-red-500/30 px-1.5 py-0.5 rounded-full">
-                                {badge}
-                              </span>
-                            ) : null}
-                            {isCollapsed && (
-                              <div className="absolute left-full ml-2 px-2 py-1 bg-overlook-hull border border-white/8 text-white text-xs rounded-md whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none z-50 transition-opacity shadow-xl">
-                                {item.label}
-                              </div>
-                            )}
-                          </button>
-                        );
-                      })}
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-            );
-          })}
-        </nav>
-
-        {/* Footer */}
-        <div className="border-t border-white/5 p-2">
-          <button
-            onClick={handleSignOut}
-            aria-label="Sign out"
-            className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-colors focus:outline-hidden focus-visible:ring-2 focus-visible:ring-teal-300 ${
-              isCollapsed ? "justify-center" : ""
-            }`}
-          >
-            <LogOut className="w-4 h-4 shrink-0" />
-            {!isCollapsed && <span className="text-sm">Sign Out</span>}
-          </button>
-          {!isCollapsed && (
-            <div className="mt-2 px-2 py-1">
-              <div className="text-xs text-slate-400">
-                SyncAI Platform v3.0 · build {__BUILD_SHA__}
-              </div>
-            </div>
-          )}
-        </div>
-      </motion.aside>
+      </AnimatePresence>
 
       {/* Main */}
       <div className="flex-1 flex flex-col overflow-hidden min-w-0">
         {/* Top Bar */}
-        <header className="h-14 bg-overlook-void/80 backdrop-blur-md border-b border-white/5 px-4 flex items-center justify-between shrink-0 z-10">
-          <div className="flex items-center gap-4">
+        <header className="h-14 bg-overlook-void/80 backdrop-blur-md border-b border-white/5 px-2 sm:px-4 flex items-center justify-between gap-2 shrink-0 z-10">
+          <div className="flex items-center gap-2 sm:gap-4 min-w-0">
+            {/* 44x44 is the minimum reliable touch target in gloves, which is
+                how this navigation is actually opened in the field. */}
+            <button
+              ref={menuButtonRef}
+              onClick={() => setMobileNavOpen((open) => !open)}
+              aria-label="Open navigation"
+              aria-expanded={mobileNavOpen}
+              aria-haspopup="dialog"
+              className="md:hidden h-11 w-11 -ml-1 inline-flex items-center justify-center shrink-0 rounded-md text-slate-300 hover:text-signal-cyan hover:bg-signal-cyan/10 transition-colors focus:outline-hidden focus-visible:ring-2 focus-visible:ring-teal-300"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
             <button
               onClick={() => setIsCollapsed(!isCollapsed)}
               aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
               aria-expanded={!isCollapsed}
-              className="p-1.5 rounded-md text-slate-400 hover:text-signal-cyan hover:bg-signal-cyan/10 transition-colors focus:outline-hidden focus-visible:ring-2 focus-visible:ring-teal-300"
+              className="hidden md:inline-flex p-1.5 rounded-md text-slate-400 hover:text-signal-cyan hover:bg-signal-cyan/10 transition-colors focus:outline-hidden focus-visible:ring-2 focus-visible:ring-teal-300"
             >
               {isCollapsed ? (
                 <ChevronRight className="w-4 h-4" />
@@ -529,14 +669,14 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
                 <ChevronLeft className="w-4 h-4" />
               )}
             </button>
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-semibold text-slate-200">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="text-sm font-semibold text-slate-200 truncate">
                 {getPageTitle()}
               </span>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             {/* System Health Pills */}
             <div className="hidden md:flex items-center gap-2 text-xs">
               <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-white/3 border border-white/5">
@@ -662,7 +802,7 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
       <CommandSearch
         open={commandSearchOpen}
         onClose={() => setCommandSearchOpen(false)}
-        onNavigate={onNavigate}
+        onNavigate={handleNavigate}
       />
     </div>
   );
