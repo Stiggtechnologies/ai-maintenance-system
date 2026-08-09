@@ -446,17 +446,17 @@ with the PR that changes an item's status._
 
 ### U2 — Systems-of-systems modeling
 
-| ID    | Capability                     | Status |
-| ----- | ------------------------------ | ------ |
-| U2.01 | Functional dependency models   | ❌     |
-| U2.02 | Network topology               | ❌     |
-| U2.03 | Common-cause failures          | ❌     |
-| U2.04 | Shared utility dependencies    | ❌     |
-| U2.05 | Cascading-failure analysis     | ❌     |
-| U2.06 | Capacity and bottleneck models | ❌     |
-| U2.07 | Geographic dependencies        | ❌     |
-| U2.08 | Service-level consequences     | ❌     |
-| U2.09 | System restoration sequencing  | ❌     |
+| ID    | Capability                     | Status                                                                                                                                                                                                                                                                                |
+| ----- | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| U2.01 | Functional dependency models   | ✅ `asset_dependencies` directed edges with a `dependency_kind` of functional; `propagateLoss` settles the graph to a fixpoint. Dependencies are never inferred from the `area`/`system` text fields — proximity is not a dependency                                                  |
+| U2.02 | Network topology               | ✅ `topological` edge kind for upstream/downstream position, with `capacity_share_pct` carrying flow share. Separate redundancy groups are treated as CONJUNCTIVE (power and cooling), so a dependent is limited by its worst-supplied group, not the sum                             |
+| U2.03 | Common-cause failures          | ✅ `common_cause_groups` over six cause kinds, and `commonCauseExposure` reports DEFEATED REDUNDANCY — a redundancy group whose members all sit in one common-cause group defends against nothing. Refuses to imply independence when no groups are defined                           |
+| U2.04 | Shared utility dependencies    | ✅ `utility` edge kind; demonstrated on the demo cooling pair whose N+1 redundancy is defeated by a shared MCC                                                                                                                                                                        |
+| U2.05 | Cascading-failure analysis     | ✅ `propagateLoss` to a fixpoint, reported against a BASELINE settle so an asset already short of capacity does not appear in every cascade as though this outage caused it (src/lib/interdependency, 26 tests on a hand-traced plant)                                                |
+| U2.06 | Capacity and bottleneck models | ✅ Proportional degradation through the graph — a stacker fed by a conveyor at 50% reports 50%, not 'up'. `capacityGaps` flags supply groups declaring under 100% rather than quietly scaling; an N+1 pair declaring 100+100 is correctly not a gap                                   |
+| U2.07 | Geographic dependencies        | ✅ `geographic` edge kind, plus a candidate generator that proposes co-location groupings from the real asset register. Co-location becomes a COMMON-CAUSE candidate, never a functional edge                                                                                         |
+| U2.08 | Service-level consequences     | ✅ `asset_service_levels` (service, beneficiary, tolerable downtime, consequence class, restoration rank); cascades report which services are stranded                                                                                                                                |
+| U2.09 | System restoration sequencing  | ✅ `restorationOrder` topologically orders the failed set so nothing is restored before what it depends on, ties broken by consequence. A dependency cycle is NAMED and refused rather than given an arbitrary order — it needs a blackstart source, which is an engineering decision |
 
 ### U3 — Universal asset ontology
 
@@ -662,6 +662,6 @@ with the PR that changes an item's status._
 
 Atomic items tracked: **397** — counted programmatically from the tables
 themselves (an earlier hand-stated figure of 307 under-counted; the enumeration
-never changed, only the count of it). Current tally: ✅ 92 · 🟡 112 · ❌ 195. _(2026-08-07: reconciled after parallel merges — C7.01/03/04/11 reliability engine, C4.13–17 + C6.22 closed-loop tail, C3.01–12 taxonomy, C5.04 scheduler all verified present on main.)_
+never changed, only the count of it). Current tally: ✅ 101 · 🟡 112 · ❌ 186. _(2026-08-07: reconciled after parallel merges — C7.01/03/04/11 reliability engine, C4.13–17 + C6.22 closed-loop tail, C3.01–12 taxonomy, C5.04 scheduler all verified present on main.)_
 Every ❌ and 🟡 is an open obligation of the program. No item may be removed;
 items may only change status with linked evidence in the PR that changes them.
