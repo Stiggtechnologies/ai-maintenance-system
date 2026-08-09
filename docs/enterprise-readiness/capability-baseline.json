@@ -365,7 +365,7 @@
   },
   "C6.04": {
     "status": "🟡",
-    "evidence": false
+    "evidence": true
   },
   "C6.05": {
     "status": "🟡",
@@ -732,20 +732,20 @@
     "evidence": false
   },
   "E3.05": {
-    "status": "❌",
-    "evidence": false
+    "status": "✅",
+    "evidence": true
   },
   "E3.06": {
-    "status": "❌",
-    "evidence": false
+    "status": "✅",
+    "evidence": true
   },
   "E3.07": {
     "status": "❌",
     "evidence": false
   },
   "E3.08": {
-    "status": "❌",
-    "evidence": false
+    "status": "✅",
+    "evidence": true
   },
   "E3.09": {
     "status": "❌",
