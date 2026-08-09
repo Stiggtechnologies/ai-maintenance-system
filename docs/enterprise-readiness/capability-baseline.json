@@ -808,8 +808,8 @@
     "evidence": false
   },
   "E5.03": {
-    "status": "❌",
-    "evidence": false
+    "status": "✅",
+    "evidence": true
   },
   "E5.04": {
     "status": "✅",
@@ -824,24 +824,24 @@
     "evidence": false
   },
   "E5.07": {
-    "status": "❌",
-    "evidence": false
+    "status": "✅",
+    "evidence": true
   },
   "E5.08": {
-    "status": "❌",
-    "evidence": false
+    "status": "✅",
+    "evidence": true
   },
   "E5.09": {
-    "status": "🟡",
-    "evidence": false
+    "status": "✅",
+    "evidence": true
   },
   "E5.10": {
-    "status": "❌",
-    "evidence": false
+    "status": "✅",
+    "evidence": true
   },
   "E5.11": {
-    "status": "❌",
-    "evidence": false
+    "status": "✅",
+    "evidence": true
   },
   "E5.12": {
     "status": "✅",
@@ -852,12 +852,12 @@
     "evidence": false
   },
   "E5.14": {
-    "status": "❌",
-    "evidence": false
+    "status": "✅",
+    "evidence": true
   },
   "E5.15": {
-    "status": "❌",
-    "evidence": false
+    "status": "✅",
+    "evidence": true
   },
   "E5.16": {
     "status": "✅",
