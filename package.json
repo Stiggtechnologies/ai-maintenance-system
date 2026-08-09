@@ -14,7 +14,10 @@
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
     "test:e2e:headed": "playwright test --headed",
-    "prepare": "husky"
+    "prepare": "husky",
+    "register:tally": "node scripts/register-tally.mjs --write",
+    "register:check": "node scripts/register-tally.mjs --check && node scripts/register-baseline.mjs --check",
+    "register:accept": "node scripts/register-tally.mjs --write && node scripts/register-baseline.mjs --write"
   },
   "lint-staged": {
     "src/**/*.{ts,tsx}": [

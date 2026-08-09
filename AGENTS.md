@@ -69,3 +69,23 @@ Every production change requires:
 - passing automated checks before merge.
 
 When instructions conflict, this contract and the repository's explicit governance tests take precedence.
+
+## Capability register
+
+The register at `docs/enterprise-readiness/capability-register.md` is the
+program of record. It is protected by a ratchet, not by good intentions:
+
+- an item may never be removed;
+- an item's status may never regress (✅ → 🟡 → ❌), and a claim that carried
+  evidence may never become a bare glyph;
+- the headline tally is derived, never hand-typed.
+
+Both are enforced by `npm run register:check` and by the unit tests, because a
+merge once reverted C8.07 from "✅ all ten modelled" to a bare "❌" while the
+totals still added up — the count was consistent and the register was wrong.
+
+A downgrade is still legitimate when it is honest — five decision rights were
+demoted from `enforced` to `policy` once an audit showed nothing consulted
+them. Make it deliberate: run `npm run register:accept` in the same commit and
+say why in the message, so the downgrade appears in the diff a reviewer reads
+rather than inside a merge nobody does.
