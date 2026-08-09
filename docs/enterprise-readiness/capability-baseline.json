@@ -480,12 +480,12 @@
     "evidence": false
   },
   "C7.07": {
-    "status": "❌",
-    "evidence": false
+    "status": "✅",
+    "evidence": true
   },
   "C7.08": {
-    "status": "❌",
-    "evidence": false
+    "status": "🟡",
+    "evidence": true
   },
   "C7.09": {
     "status": "🟡",
@@ -508,8 +508,8 @@
     "evidence": false
   },
   "C7.14": {
-    "status": "❌",
-    "evidence": false
+    "status": "🟡",
+    "evidence": true
   },
   "C8.01": {
     "status": "🟡",
