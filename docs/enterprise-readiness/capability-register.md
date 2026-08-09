@@ -618,9 +618,10 @@ with the PR that changes an item's status._
 
 ### U21 — Interoperability and vendor neutrality
 
-| ID     | Capability                                                                                                                                                                                        | Status |
-| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
-| U21.01 | Open APIs, standard identifiers, import/export, event-driven integration, lineage, vendor-independent calculations, portable models, replaceable connectors, archival formats, platform migration | 🟡     |
+| ID     | Capability                                                                                                                                                                                                                                          | Status                                                                                                                                                                     |
+| ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| U21.01 | Open APIs, standard identifiers, import/export, event-driven integration, lineage, vendor-independent calculations, portable models, replaceable connectors, archival formats, platform migration                                                   | 🟡                                                                                                                                                                         |
+| U21.02 | Self-serve fleet-history onboarding: upload a downtime/work-history export, profile it, propose a column and vocabulary mapping for human review, preview what will load and what will be rejected, then load through the validated ingest contract | ❌ raised after the auxiliary fleet was loaded by a hand-written script. A customer onboarding cannot depend on someone writing a parser: the platform must do this itself |
 
 ### U22 — Organizational maturity assessment
 
@@ -660,6 +661,6 @@ with the PR that changes an item's status._
 
 Atomic items tracked: **397** — counted programmatically from the tables
 themselves (an earlier hand-stated figure of 307 under-counted; the enumeration
-never changed, only the count of it). Current tally: ✅ 89 · 🟡 109 · ❌ 199. _(2026-08-07: reconciled after parallel merges — C7.01/03/04/11 reliability engine, C4.13–17 + C6.22 closed-loop tail, C3.01–12 taxonomy, C5.04 scheduler all verified present on main.)_
+never changed, only the count of it). Current tally: ✅ 89 · 🟡 109 · ❌ 200. _(2026-08-07: reconciled after parallel merges — C7.01/03/04/11 reliability engine, C4.13–17 + C6.22 closed-loop tail, C3.01–12 taxonomy, C5.04 scheduler all verified present on main.)_
 Every ❌ and 🟡 is an open obligation of the program. No item may be removed;
 items may only change status with linked evidence in the PR that changes them.
