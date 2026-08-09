@@ -366,20 +366,20 @@ with the PR that changes an item's status._
 
 ### E9 — Financial and value-management controls
 
-| ID    | Capability                                               | Status |
-| ----- | -------------------------------------------------------- | ------ |
-| E9.01 | Lifecycle cost                                           | ❌     |
-| E9.02 | Net present value                                        | ❌     |
-| E9.03 | Risk-adjusted business cases                             | ❌     |
-| E9.04 | Maintenance budget forecasting                           | ❌     |
-| E9.05 | Repair-versus-replace analysis                           | ❌     |
-| E9.06 | Capital replacement prioritization                       | ❌     |
-| E9.07 | Production-loss valuation                                | ❌     |
-| E9.08 | Cost-of-risk calculations                                | ❌     |
-| E9.09 | Benefit realization                                      | ✅     |
-| E9.10 | Avoided-cost verification                                | ✅     |
-| E9.11 | Sensitivity and uncertainty analysis                     | ❌     |
-| E9.12 | Distinguish estimated, approved, verified realized value | ✅     |
+| ID    | Capability                                               | Status                                                                                                                                                                                                                                                                                                                                  |
+| ----- | -------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| E9.01 | Lifecycle cost                                           | ✅ Whole-life cash flows per option in `business_case_options`, discounted by `npv()` with period 0 undiscounted and costs signed negative                                                                                                                                                                                              |
+| E9.02 | Net present value                                        | ✅ `npv()` pinned to hand arithmetic (100/yr for 3 years at 10% = 248.685199). The discount rate is stored WITH its source, because a rate nobody owns quietly decides every long-dated decision                                                                                                                                        |
+| E9.03 | Risk-adjusted business cases                             | ✅ `benefit_probability` per option, and a check that every case carries a do-nothing option — without one there is nothing to justify spending against                                                                                                                                                                                 |
+| E9.04 | Maintenance budget forecasting                           | ✅ `budget_lines` with budgeted / committed / actual / forecast, and a forecast basis; forecasts stating no basis are counted in the posture line                                                                                                                                                                                       |
+| E9.05 | Repair-versus-replace analysis                           | ✅ Extends the existing `lifecycle_evaluations` engine with the correct comparison basis. On the demo case: refurbish −$835,001/yr against replace −$1,033,474/yr                                                                                                                                                                       |
+| E9.06 | Capital replacement prioritization                       | ✅ `prioritiseUnderBudget` ranks by benefit PER UNIT COST and reports what ranking by size would have cost. On the demo plan: $3,950,000 of benefit against $3,100,000 — **$850,000 more from the same budget**. Mandatory items are funded first and excluded from the ratio contest                                                   |
+| E9.07 | Production-loss valuation                                | ✅ Value of an hour of throughput held as a sourced `financial_assumptions` row, joined to the existing `get_production_loss()` from the ops-coordination slice                                                                                                                                                                         |
+| E9.08 | Cost-of-risk calculations                                | ✅ `costOfRisk` returns the expectation and the return period, and states in the same breath that expected value is NOT risk — a 1-in-1000 chance of £50m and a certain £50k are not the same decision, and for low-probability high-consequence exposure it says the organisation experiences the event or does not, never the average |
+| E9.09 | Benefit realization                                      | ✅                                                                                                                                                                                                                                                                                                                                      |
+| E9.10 | Avoided-cost verification                                | ✅                                                                                                                                                                                                                                                                                                                                      |
+| E9.11 | Sensitivity and uncertainty analysis                     | ✅ `findBreakEven` bisects to the value at which the DECISION REVERSES, rather than drawing ±10% swings. Reports headroom as a percentage and says whether the answer rests on the assumption being right, or whether "arguing about this is not the argument to have"                                                                  |
+| E9.12 | Distinguish estimated, approved, verified realized value | ✅                                                                                                                                                                                                                                                                                                                                      |
 
 ### E10 — Environmental and sustainability performance
 
@@ -662,6 +662,6 @@ with the PR that changes an item's status._
 
 Atomic items tracked: **397** — counted programmatically from the tables
 themselves (an earlier hand-stated figure of 307 under-counted; the enumeration
-never changed, only the count of it). Current tally: ✅ 198 · 🟡 107 · ❌ 94. _(2026-08-07: reconciled after parallel merges — C7.01/03/04/11 reliability engine, C4.13–17 + C6.22 closed-loop tail, C3.01–12 taxonomy, C5.04 scheduler all verified present on main.)_
+never changed, only the count of it). Current tally: ✅ 207 · 🟡 107 · ❌ 85. _(2026-08-07: reconciled after parallel merges — C7.01/03/04/11 reliability engine, C4.13–17 + C6.22 closed-loop tail, C3.01–12 taxonomy, C5.04 scheduler all verified present on main.)_
 Every ❌ and 🟡 is an open obligation of the program. No item may be removed;
 items may only change status with linked evidence in the PR that changes them.

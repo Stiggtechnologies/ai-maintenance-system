@@ -23,6 +23,7 @@ import { useNavigate } from "react-router-dom";
 import { useAsyncData } from "../hooks/useAsyncData";
 import { useRealtimeRefetch } from "../hooks/useRealtimeRefetch";
 import { LiveBadge } from "../components/ui/LiveBadge";
+import { ValueManagement } from "../components/ValueManagement";
 import {
   getKpiDashboard,
   formatKpiValue,
@@ -243,6 +244,7 @@ export function ExecutiveIntelligence() {
       <WorkManagementHealth />
       <SegmentedReliability />
       <AccountabilityCascade />
+      <ValueManagement />
     </div>
   );
 }
