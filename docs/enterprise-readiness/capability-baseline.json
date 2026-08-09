@@ -92,8 +92,8 @@
     "evidence": true
   },
   "C2.08": {
-    "status": "❌",
-    "evidence": false
+    "status": "✅",
+    "evidence": true
   },
   "C2.09": {
     "status": "🟡",
@@ -864,60 +864,60 @@
     "evidence": false
   },
   "E6.01": {
-    "status": "❌",
-    "evidence": false
+    "status": "✅",
+    "evidence": true
   },
   "E6.02": {
-    "status": "❌",
-    "evidence": false
+    "status": "✅",
+    "evidence": true
   },
   "E6.03": {
-    "status": "❌",
-    "evidence": false
+    "status": "✅",
+    "evidence": true
   },
   "E6.04": {
-    "status": "❌",
-    "evidence": false
+    "status": "✅",
+    "evidence": true
   },
   "E6.05": {
-    "status": "❌",
-    "evidence": false
+    "status": "✅",
+    "evidence": true
   },
   "E6.06": {
-    "status": "❌",
-    "evidence": false
+    "status": "✅",
+    "evidence": true
   },
   "E6.07": {
-    "status": "❌",
-    "evidence": false
+    "status": "✅",
+    "evidence": true
   },
   "E6.08": {
-    "status": "❌",
-    "evidence": false
+    "status": "✅",
+    "evidence": true
   },
   "E6.09": {
-    "status": "❌",
-    "evidence": false
+    "status": "✅",
+    "evidence": true
   },
   "E6.10": {
-    "status": "❌",
-    "evidence": false
+    "status": "✅",
+    "evidence": true
   },
   "E6.11": {
-    "status": "❌",
-    "evidence": false
+    "status": "✅",
+    "evidence": true
   },
   "E6.12": {
-    "status": "❌",
-    "evidence": false
+    "status": "✅",
+    "evidence": true
   },
   "E6.13": {
     "status": "❌",
-    "evidence": false
+    "evidence": true
   },
   "E6.14": {
-    "status": "❌",
-    "evidence": false
+    "status": "✅",
+    "evidence": true
   },
   "E7.01": {
     "status": "❌",
