@@ -521,19 +521,19 @@ with the PR that changes an item's status._
 
 ### U7 — Configuration and baseline management
 
-| ID    | Capability                                         | Status |
-| ----- | -------------------------------------------------- | ------ |
-| U7.01 | As-designed, as-built, as-maintained configuration | ❌     |
-| U7.02 | Serial-number traceability                         | 🟡     |
-| U7.03 | Software and firmware versions                     | ❌     |
-| U7.04 | Approved substitutions                             | ❌     |
-| U7.05 | Engineering change control                         | 🟡     |
-| U7.06 | Temporary modifications                            | ❌     |
-| U7.07 | Red-line drawing control                           | ❌     |
-| U7.08 | Equipment interchangeability                       | ❌     |
-| U7.09 | Product and model variants                         | ❌     |
-| U7.10 | Safety-critical configuration identification       | ❌     |
-| U7.11 | Baseline reconciliation after outages/projects     | ❌     |
+| ID    | Capability                                         | Status                                                                                                                                                                                                                                                                                                                                         |
+| ----- | -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| U7.01 | As-designed, as-built, as-maintained configuration | ✅ Three separate baselines per asset, one current of each kind (partial unique index). Collapsing them is the mistake the schema prevents — the value is entirely in the DIFFERENCE, and `compareBaselines` refuses to report drift when either side is absent because "no baseline" and "no drift" are opposite findings that look identical |
+| U7.02 | Serial-number traceability                         | 🟡                                                                                                                                                                                                                                                                                                                                             |
+| U7.03 | Software and firmware versions                     | ✅ `firmware_version`/`software_version` per configuration item; compared only where the design states one, so silence is not scored as a match. Named in the finding as the change a CMMS cannot see                                                                                                                                          |
+| U7.04 | Approved substitutions                             | ✅ `approved_substitutions` with conditions, approver and expiry, honoured directionally (a one-way approval does not license the reverse fit). A LAPSED approval stops covering the difference and it is reported again                                                                                                                       |
+| U7.05 | Engineering change control                         | 🟡                                                                                                                                                                                                                                                                                                                                             |
+| U7.06 | Temporary modifications                            | ✅ `required_removal_by` is NOT NULL — a temporary change with no removal date is refused at the constraint, not accepted and forgotten. Overdue reported in days and years, with defeated safety functions ranked first and missing risk assessments counted                                                                                  |
+| U7.07 | Red-line drawing control                           | ✅ `red_line_markups` draft→in_review→incorporated, with the age of an unincorporated markup as the finding                                                                                                                                                                                                                                    |
+| U7.08 | Equipment interchangeability                       | ✅ `interchangeability_rules` full/one-way/conditional between model variants; a conditional rule without written conditions is rejected by a check constraint, because it reads as permission                                                                                                                                                 |
+| U7.09 | Product and model variants                         | ✅ `model_variants` with mandatory distinguishing attributes and supersession, plus per-asset assignment                                                                                                                                                                                                                                       |
+| U7.10 | Safety-critical configuration identification       | ✅ Marked per configuration ITEM rather than per asset — the same relay is safety-critical in a trip circuit and not in a lighting panel — and a safety-critical mark without a stated basis is rejected by a check constraint                                                                                                                 |
+| U7.11 | Baseline reconciliation after outages/projects     | ✅ `configuration_reconciliations` keyed to a trigger (outage/project/audit/incident/scheduled/onboarding); `reconciliationStatus` calls a stale one "a claim about the past" and an absent one out loud, so a drift result is never read as more current than the walkdown behind it                                                          |
 
 ### U8 — Product and service quality linkage
 
@@ -662,6 +662,6 @@ with the PR that changes an item's status._
 
 Atomic items tracked: **397** — counted programmatically from the tables
 themselves (an earlier hand-stated figure of 307 under-counted; the enumeration
-never changed, only the count of it). Current tally: ✅ 101 · 🟡 112 · ❌ 186. _(2026-08-07: reconciled after parallel merges — C7.01/03/04/11 reliability engine, C4.13–17 + C6.22 closed-loop tail, C3.01–12 taxonomy, C5.04 scheduler all verified present on main.)_
+never changed, only the count of it). Current tally: ✅ 110 · 🟡 112 · ❌ 177. _(2026-08-07: reconciled after parallel merges — C7.01/03/04/11 reliability engine, C4.13–17 + C6.22 closed-loop tail, C3.01–12 taxonomy, C5.04 scheduler all verified present on main.)_
 Every ❌ and 🟡 is an open obligation of the program. No item may be removed;
 items may only change status with linked evidence in the PR that changes them.
