@@ -13,6 +13,7 @@ import { supabase } from "../lib/supabase";
 import { useAuth } from "./AuthProvider";
 import { getRolePersona } from "../lib/rolePersonas";
 import { getKpiDashboard } from "../services/kpiService";
+import { getCopilotEphemeralContext } from "../lib/copilot-context";
 import { MarkdownRenderer } from "./MarkdownRenderer";
 
 interface ChatMessage {
@@ -52,6 +53,10 @@ function downloadCsvText(csv: string, filename: string) {
 
 /** Compact, role-scoped operating context for grounding answers. */
 async function buildLiveContext(): Promise<string> {
+  // An uploaded dataset displaces the live one. Blending them would let the
+  // agent answer about a prospect's file using another fleet's KPIs.
+  const adhoc = getCopilotEphemeralContext();
+  if (adhoc) return adhoc;
   const parts: string[] = [];
   try {
     const dash = await getKpiDashboard();
