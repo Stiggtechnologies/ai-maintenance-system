@@ -10,6 +10,7 @@
 import { useMemo } from "react";
 import { SegmentedReliability } from "../components/SegmentedReliability";
 import { WorkManagementHealth } from "../components/WorkManagementHealth";
+import { OperatingContext } from "../components/OperatingContext";
 import { AccountabilityCascade } from "../components/AccountabilityCascade";
 import {
   Gauge,
@@ -236,6 +237,8 @@ export function ExecutiveIntelligence() {
           </section>
         );
       })}
+
+      <OperatingContext />
 
       <WorkManagementHealth />
       <SegmentedReliability />
