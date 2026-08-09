@@ -101,7 +101,7 @@
   },
   "C2.10": {
     "status": "🟡",
-    "evidence": false
+    "evidence": true
   },
   "C2.11": {
     "status": "🟡",
@@ -544,8 +544,8 @@
     "evidence": true
   },
   "C8.09": {
-    "status": "❌",
-    "evidence": false
+    "status": "🟡",
+    "evidence": true
   },
   "C8.10": {
     "status": "🟡",
