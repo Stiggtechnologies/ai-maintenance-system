@@ -6,9 +6,21 @@
  * live, server-side); releasing — the act that freezes the week — is reserved
  * for planner/manager authority. Options are deterministic: three strategies
  * greedily leveled against stated daily capacity.
+ *
+ * Release now passes through a feasibility check (C8.08). HARD constraints —
+ * an un-cleared safety gate, an outstanding approval — refuse the release and
+ * cannot be acknowledged away. SOFT constraints — material shortages, labour
+ * over-commitment — are shown and require the planner to release with explicit
+ * acknowledgement, so a known shortage is never waved through silently.
  */
 import { useState } from "react";
-import { CalendarClock, Lock, Sparkles } from "lucide-react";
+import {
+  CalendarClock,
+  Lock,
+  Sparkles,
+  ShieldX,
+  AlertTriangle,
+} from "lucide-react";
 import { useAsyncData } from "../hooks/useAsyncData";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "./AuthProvider";
@@ -47,6 +59,20 @@ async function getOptions(): Promise<ScheduleOption[]> {
     .limit(9);
   if (error) throw new Error(error.message);
   return (data ?? []) as ScheduleOption[];
+}
+
+interface FeasibilityCheck {
+  constraint: string;
+  severity: "blocking" | "warning";
+  passed: boolean | null;
+  detail: string;
+}
+
+interface Feasibility {
+  blocking_failures: number;
+  warnings: number;
+  releasable: boolean;
+  checks: FeasibilityCheck[];
 }
 
 const RELEASE_ROLES = new Set([
@@ -184,26 +210,112 @@ export function SchedulerPanel() {
                 )}
               </ul>
               {o.status === "draft" && canRelease && !released && (
-                <button
-                  disabled={busy}
-                  onClick={() =>
-                    act(async () => {
-                      const { data: r } = await supabase.rpc(
-                        "release_schedule_option",
-                        { p_id: o.id },
-                      );
-                      return r as { error?: string };
-                    })
-                  }
-                  className="mt-3 w-full rounded-lg border border-signal-gold/40 bg-signal-gold/10 px-3 py-1.5 text-xs font-medium text-signal-gold hover:bg-signal-gold/20 disabled:opacity-40 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-signal-gold"
-                >
-                  Release & freeze week
-                </button>
+                <ReleaseControl optionId={o.id} busy={busy} act={act} />
               )}
             </div>
           ))}
         </div>
       )}
     </section>
+  );
+}
+
+/**
+ * The release control does the feasibility check BEFORE offering the button,
+ * so a planner sees why a week cannot be frozen rather than clicking into an
+ * error. Blocking failures remove the button entirely — there is nothing to
+ * acknowledge, the constraint has to be fixed.
+ */
+function ReleaseControl({
+  optionId,
+  busy,
+  act,
+}: {
+  optionId: string;
+  busy: boolean;
+  act: (fn: () => Promise<{ error?: string }>) => void;
+}) {
+  const [f, setF] = useState<Feasibility | null>(null);
+  const [checking, setChecking] = useState(false);
+
+  async function check() {
+    setChecking(true);
+    const { data } = await supabase.rpc("evaluate_schedule_feasibility", {
+      p_option_id: optionId,
+    });
+    setChecking(false);
+    setF(data as Feasibility);
+  }
+
+  if (!f) {
+    return (
+      <button
+        disabled={checking}
+        onClick={check}
+        className="mt-3 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-slate-200 hover:bg-white/10 disabled:opacity-40 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-signal-cyan"
+      >
+        {checking ? "Checking constraints…" : "Check constraints to release"}
+      </button>
+    );
+  }
+
+  const blockers = f.checks.filter(
+    (c) => c.severity === "blocking" && c.passed === false,
+  );
+  const warnings = f.checks.filter(
+    (c) => c.severity === "warning" && c.passed === false,
+  );
+
+  return (
+    <div className="mt-3 space-y-2">
+      {blockers.map((c) => (
+        <p
+          key={c.constraint}
+          className="flex items-start gap-1.5 rounded-lg border border-red-500/30 bg-red-500/5 p-2 text-[11px] leading-relaxed text-red-200"
+        >
+          <ShieldX className="mt-0.5 h-3 w-3 shrink-0" aria-hidden />
+          <span>
+            <strong>{c.constraint}:</strong> {c.detail}
+          </span>
+        </p>
+      ))}
+      {warnings.map((c) => (
+        <p
+          key={c.constraint}
+          className="flex items-start gap-1.5 rounded-lg border border-amber-500/25 bg-amber-500/5 p-2 text-[11px] leading-relaxed text-amber-200/90"
+        >
+          <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" aria-hidden />
+          <span>
+            <strong>{c.constraint}:</strong> {c.detail}
+          </span>
+        </p>
+      ))}
+
+      {f.releasable ? (
+        <button
+          disabled={busy}
+          onClick={() =>
+            act(async () => {
+              const { data: r } = await supabase.rpc(
+                "release_schedule_option",
+                { p_id: optionId, p_acknowledge_warnings: true },
+              );
+              return r as { error?: string };
+            })
+          }
+          className="w-full rounded-lg border border-signal-gold/40 bg-signal-gold/10 px-3 py-1.5 text-xs font-medium text-signal-gold hover:bg-signal-gold/20 disabled:opacity-40 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-signal-gold"
+        >
+          {warnings.length > 0
+            ? `Acknowledge ${warnings.length} warning${warnings.length > 1 ? "s" : ""} & freeze week`
+            : "Release & freeze week"}
+        </button>
+      ) : (
+        <p className="text-[11px] text-slate-500">
+          {f.blocking_failures} hard constraint
+          {f.blocking_failures > 1 ? "s" : ""} must be resolved before this week
+          can be frozen. These cannot be acknowledged away.
+        </p>
+      )}
+    </div>
   );
 }

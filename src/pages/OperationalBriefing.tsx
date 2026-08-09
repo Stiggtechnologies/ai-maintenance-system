@@ -15,6 +15,7 @@ import { motion } from "framer-motion";
 import { supabase } from "../lib/supabase";
 import { SchedulerPanel } from "../components/SchedulerPanel";
 import { MaterialsReadiness } from "../components/MaterialsReadiness";
+import { OutagePlanning } from "../components/OutagePlanning";
 import { JobPlans } from "../components/JobPlans";
 import { useAsyncData } from "../hooks/useAsyncData";
 import {
@@ -718,6 +719,8 @@ export function OperationalBriefing() {
       {/* Slice 5 built the Scheduler and never rendered it — schedule options
           existed in the database with no route to a human. */}
       <SchedulerPanel />
+
+      <OutagePlanning />
 
       <JobPlans />
 
