@@ -46,3 +46,55 @@ describe("capability register", () => {
     expect(done).toBeLessThan(rows.length);
   });
 });
+
+/**
+ * The tally catches the COUNT drifting; it does not catch a single row quietly
+ * losing its status or its evidence. That happened during a merge — C8.07 went
+ * from "✅ all ten modelled (job_plans…)" back to a bare "❌" while the totals
+ * still added up, because another row had moved the other way.
+ *
+ * The baseline is a ratchet. A deliberate downgrade stays possible — slice 10
+ * honestly demoted five decision rights — but it requires regenerating the
+ * baseline in the same commit, which puts the downgrade in the diff where a
+ * reviewer sees it rather than in a merge nobody reads.
+ */
+const BASELINE = JSON.parse(
+  readFileSync("docs/enterprise-readiness/capability-baseline.json", "utf8"),
+) as Record<string, { status: string; evidence: boolean }>;
+
+const EVIDENCED = /^\|\s*([A-Z]\d+\.\d+)\s*\|([^|]*)\|\s*(✅|🟡|❌)([^|]*)\|/u;
+const RANK: Record<string, number> = { "❌": 0, "🟡": 1, "✅": 2 };
+
+const detailed = new Map<string, { status: string; evidence: boolean }>();
+for (const line of SOURCE.split("\n")) {
+  const m = EVIDENCED.exec(line);
+  if (m) {
+    detailed.set(m[1], { status: m[3], evidence: m[4].trim().length >= 12 });
+  }
+}
+
+describe("capability register ratchet", () => {
+  it("never regresses an item's status without an updated baseline", () => {
+    const regressed = Object.entries(BASELINE)
+      .filter(([id, was]) => {
+        const now = detailed.get(id);
+        return now && RANK[now.status] < RANK[was.status];
+      })
+      .map(([id]) => id);
+    expect(regressed).toEqual([]);
+  });
+
+  it("never strips the evidence from a claim that had it", () => {
+    const stripped = Object.entries(BASELINE)
+      .filter(
+        ([id, was]) => was.evidence && detailed.get(id)?.evidence === false,
+      )
+      .map(([id]) => id);
+    expect(stripped).toEqual([]);
+  });
+
+  it("never drops an item the baseline knows about", () => {
+    const missing = Object.keys(BASELINE).filter((id) => !detailed.has(id));
+    expect(missing).toEqual([]);
+  });
+});
