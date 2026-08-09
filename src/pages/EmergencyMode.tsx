@@ -14,6 +14,7 @@ import { motion } from "framer-motion";
 import { supabase } from "../lib/supabase";
 import { useAsyncData } from "../hooks/useAsyncData";
 import { LoadingState } from "../components/ui/AsyncStates";
+import { ResiliencePanel } from "../components/ResiliencePanel";
 
 interface CriticalAlert {
   id: string;
@@ -401,6 +402,7 @@ export function EmergencyMode() {
           </div>
         </div>
       </div>
+      <ResiliencePanel />
     </div>
   );
 }
