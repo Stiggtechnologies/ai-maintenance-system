@@ -347,22 +347,22 @@ with the PR that changes an item's status._
 
 ### E8 — Capital projects and reliability by design
 
-| ID    | Capability                              | Status |
-| ----- | --------------------------------------- | ------ |
-| E8.01 | Design requirements influence           | ❌     |
-| E8.02 | RAM allocation                          | ❌     |
-| E8.03 | Equipment selection                     | ❌     |
-| E8.04 | Maintainability reviews                 | ❌     |
-| E8.05 | Access, lifting, removal studies        | ❌     |
-| E8.06 | Standardization                         | ❌     |
-| E8.07 | Instrumentation requirements            | ❌     |
-| E8.08 | Spare-parts provisioning                | ❌     |
-| E8.09 | Factory and site acceptance testing     | ❌     |
-| E8.10 | Commissioning                           | ❌     |
-| E8.11 | Asset-data handover                     | 🟡     |
-| E8.12 | Warranty management                     | ❌     |
-| E8.13 | Early-life failure elimination          | ❌     |
-| E8.14 | Lessons transferred into future designs | ❌     |
+| ID    | Capability                              | Status                                                                                                                                                                                                                                                                                                                            |
+| ----- | --------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| E8.01 | Design requirements influence           | ✅ `design_requirements` per project with category, source, verification method and status; a waiver without a stated reason is rejected by a check constraint — a requirement quietly dropped is the failure mode                                                                                                                |
+| E8.02 | RAM allocation                          | ✅ `allocateAvailability` with the exact closed form A_i = A_target^(w_i/Σw), so the product IS the target. Demonstrated on production: a 99% series target across four subsystems needs 99.749% from the screen deck, which delivers 99.20%, so the train reaches 98.903% — the target is refused as not achievable as specified |
+| E8.03 | Equipment selection                     | ✅ `design_studies` of kind `equipment_selection` with findings raised and closed tracked separately                                                                                                                                                                                                                              |
+| E8.04 | Maintainability reviews                 | ✅ Recorded with `maintainer_participated` and `operator_participated` — who was in the room decides whether the review was real, and the posture line counts studies that ran without anyone who will maintain the asset                                                                                                         |
+| E8.05 | Access, lifting, removal studies        | ✅ `access_and_lifting` and `removal_route` study kinds with the same findings tracking                                                                                                                                                                                                                                           |
+| E8.06 | Standardization                         | ✅ `assessStandardisation` counts distinct make/models per function and names who carries the cost: "another spares holding, another procedure set and another training requirement — carried by maintenance, chosen by the project"                                                                                              |
+| E8.07 | Instrumentation requirements            | ✅ An `instrumentation` requirement category and study kind; the demo shows a permanent-monitoring requirement waived to portable-route with the reason recorded                                                                                                                                                                  |
+| E8.08 | Spare-parts provisioning                | ✅ `sparing_review` study kind, joined to the materials catalogue and the E7 supplier model                                                                                                                                                                                                                                       |
+| E8.09 | Factory and site acceptance testing     | ✅ `acceptance_tests` across FAT/SAT/pre-commissioning/performance/reliability-run, with `witnessed_by_owner` and punch items raised vs still open — the open ones follow the asset into service and are counted in the posture line                                                                                              |
+| E8.10 | Commissioning                           | ✅ A commissioning test stage plus the U4 commissioning gate criteria (handover dossier, initial strategy, as-built baseline)                                                                                                                                                                                                     |
+| E8.11 | Asset-data handover                     | ✅ A `data_handover` requirement category joined to the U4 commissioning gate, which requires an as-built configuration baseline — the reference every later U7 drift comparison depends on                                                                                                                                       |
+| E8.12 | Warranty management                     | ✅ Delivered by the E7 slice (`warranty_terms`, `warranty_claims`), linked here through the project's handover date; the posture line counts work orders raised inside a warranty period with no claim                                                                                                                            |
+| E8.13 | Early-life failure elimination          | ✅ `early_life_failures` attributed to design / manufacture / installation / commissioning / operating-envelope / random — each preventable by a different party at a different stage, which is the actionable part that "infant mortality" as a single label destroys. Reports how many were fed back to design                  |
+| E8.14 | Lessons transferred into future designs | ✅ `derived_from_failure_mode` links a requirement to a mode learned in service, and `get_design_feedback_loop()` reports the plant's most frequent modes against whether ANY requirement references them. On real work orders: 582 Engine Group failures across 24 assets, and the loop closed exactly once                      |
 
 ### E9 — Financial and value-management controls
 
@@ -662,6 +662,6 @@ with the PR that changes an item's status._
 
 Atomic items tracked: **397** — counted programmatically from the tables
 themselves (an earlier hand-stated figure of 307 under-counted; the enumeration
-never changed, only the count of it). Current tally: ✅ 163 · 🟡 111 · ❌ 125. _(2026-08-07: reconciled after parallel merges — C7.01/03/04/11 reliability engine, C4.13–17 + C6.22 closed-loop tail, C3.01–12 taxonomy, C5.04 scheduler all verified present on main.)_
+never changed, only the count of it). Current tally: ✅ 177 · 🟡 110 · ❌ 112. _(2026-08-07: reconciled after parallel merges — C7.01/03/04/11 reliability engine, C4.13–17 + C6.22 closed-loop tail, C3.01–12 taxonomy, C5.04 scheduler all verified present on main.)_
 Every ❌ and 🟡 is an open obligation of the program. No item may be removed;
 items may only change status with linked evidence in the PR that changes them.
