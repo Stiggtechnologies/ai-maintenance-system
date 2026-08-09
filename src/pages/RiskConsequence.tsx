@@ -12,6 +12,7 @@ import { motion } from "framer-motion";
 import { useAsyncData } from "../hooks/useAsyncData";
 import { AssetInterdependency } from "../components/AssetInterdependency";
 import { ConfigurationControl } from "../components/ConfigurationControl";
+import { ProcessSafety } from "../components/ProcessSafety";
 import {
   LoadingState,
   ErrorState,
@@ -522,6 +523,8 @@ export function RiskConsequence() {
           </div>
         </div>
       )}
+
+      <ProcessSafety />
 
       <AssetInterdependency />
 
