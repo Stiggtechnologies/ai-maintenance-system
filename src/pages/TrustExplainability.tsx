@@ -1,5 +1,6 @@
 import { Shield, Eye, Database, Brain, Lock, BookOpen } from "lucide-react";
 import { KnowledgeCorpus } from "../components/KnowledgeCorpus";
+import { ContributionPosture } from "../components/ContributionPosture";
 import { motion } from "framer-motion";
 import { useAsyncData } from "../hooks/useAsyncData";
 import {
@@ -420,6 +421,7 @@ export function TrustExplainability() {
       </div>
 
       <KnowledgeCorpus />
+      <ContributionPosture />
     </div>
   );
 }
