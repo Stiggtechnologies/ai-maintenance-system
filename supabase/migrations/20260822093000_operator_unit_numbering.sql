@@ -44,6 +44,26 @@ begin
     -- Confirmed by the owner on 2026-08-10 after the platform flagged that the
     -- two wheel dozers sit at 6804-6805, inside the 6-series the owner had
     -- described as backhoes/excavators/shovels. The 68 prefix is wheel dozers.
+    -- 65: Caterpillar large wheel loaders in a support role. Confirmed by the
+    -- owner 2026-08-10. Model not stated, and Cat large loaders span several.
+    (v_org, '65', 'Support Loader', 'Caterpillar', null,
+     'Caterpillar large wheel loaders in a support role. Model not stated.',
+     v_src || ' Amended 2026-08-10: "65-series Support Loaders ... Caterpillar large."'),
+    -- 20xx: machine transporters and water trucks. The recorded classes were
+    -- already correct; the rule exists so they stop reporting as unmatched.
+    -- No manufacturer was stated and none is invented.
+    (v_org, '2003', 'Transporter', null, null,
+     'Machine transporter. Manufacturer not stated.',
+     v_src || ' Amended 2026-08-10: "Machine transporter and water trucks."'),
+    (v_org, '2004', 'Transporter', null, null,
+     'Machine transporter. Manufacturer not stated.',
+     v_src || ' Amended 2026-08-10: "Machine transporter and water trucks."'),
+    (v_org, '2005', 'Water Truck', null, null,
+     'Water truck. Manufacturer not stated.',
+     v_src || ' Amended 2026-08-10: "Machine transporter and water trucks."'),
+    (v_org, '2006', 'Water Truck', null, null,
+     'Water truck. Manufacturer not stated.',
+     v_src || ' Amended 2026-08-10: "Machine transporter and water trucks."'),
     -- 63 and 64: the platform observed heavy undercarriage with boom, stick and
     -- bucket and ZERO tires, transmission, differential or steering — tracked
     -- machines. The owner confirmed on 2026-08-10 that they are excavators, so
