@@ -383,19 +383,19 @@ with the PR that changes an item's status._
 
 ### E10 — Environmental and sustainability performance
 
-| ID     | Capability                                                  | Status |
-| ------ | ----------------------------------------------------------- | ------ |
-| E10.01 | Energy efficiency                                           | ❌     |
-| E10.02 | Emissions                                                   | ❌     |
-| E10.03 | Methane and fugitive releases                               | ❌     |
-| E10.04 | Flaring                                                     | ❌     |
-| E10.05 | Water use                                                   | ❌     |
-| E10.06 | Waste generation                                            | ❌     |
-| E10.07 | Lubricant and chemical loss                                 | ❌     |
-| E10.08 | Battery and hazardous-material handling                     | ❌     |
-| E10.09 | Environmental compliance                                    | 🟡     |
-| E10.10 | Equipment efficiency degradation                            | ❌     |
-| E10.11 | Environmental consequence in criticality and prioritization | ❌     |
+| ID     | Capability                                                  | Status                                                                                                                                                                                                                                                                   |
+| ------ | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| E10.01 | Energy efficiency                                           | ✅ `efficiency_baselines` + readings with `assessDegradation` fitting the RATE, not just today's gap. Refuses a figure with no design baseline — "a specific energy number on its own is a measurement, not a performance"                                               |
+| E10.02 | Emissions                                                   | ✅ `computeEmissions` requires BOTH a factor and its source, and a scope. Verified on demo data: 412,000 L × 2.68 = 1,104.16 tCO2e scope 1, with the factor set named. Totals are reported PER SCOPE and never summed across them                                        |
+| E10.03 | Methane and fugitive releases                               | ✅ GWP applied per factor — 620 kg of vented methane × GWP 28 = 17.36 tCO2e — and the release is flagged maintenance-attributable, which is the portion this platform can change                                                                                         |
+| E10.04 | Flaring                                                     | ✅ `flaring` activity kind with the same factor-and-source requirement                                                                                                                                                                                                   |
+| E10.05 | Water use                                                   | ✅ Withdrawal and discharge as activity kinds. The demo water record has no emission factor and is correctly listed as "activity data, not emissions" rather than silently excluded                                                                                      |
+| E10.06 | Waste generation                                            | ✅ `waste_generated` and `hazardous_waste` activity kinds                                                                                                                                                                                                                |
+| E10.07 | Lubricant and chemical loss                                 | ✅ `summariseLosses` aggregates by substance and separates maintenance-attributable losses — not as blame, but because those are the ones a maintenance system can change; a design limitation needs a different owner                                                   |
+| E10.08 | Battery and hazardous-material handling                     | ✅ `hazardous_inventory` with the required disposal route and an end-of-life-planned flag; unplanned items are counted because that "becomes somebody's problem at exactly the moment nobody has budget for it"                                                          |
+| E10.09 | Environmental compliance                                    | 🟡                                                                                                                                                                                                                                                                       |
+| E10.10 | Equipment efficiency degradation                            | ✅ The finding that makes this slice worth building: on demo data HX-08 runs 4.0% above design and worsens at 7.3% a year, and **the clean pays for itself in 150 days on fuel alone** — a work order nobody would otherwise raise, because the machine is still running |
+| E10.11 | Environmental consequence in criticality and prioritization | ✅ Environmental exposure is now recorded per asset and joins the EXISTING twelve-dimension safety screening and `asset_service_levels.consequence_class` rather than adding a thirteenth place to record it                                                             |
 
 ### E11 — Enterprise resilience
 
@@ -662,6 +662,6 @@ with the PR that changes an item's status._
 
 Atomic items tracked: **397** — counted programmatically from the tables
 themselves (an earlier hand-stated figure of 307 under-counted; the enumeration
-never changed, only the count of it). Current tally: ✅ 218 · 🟡 107 · ❌ 74. _(2026-08-07: reconciled after parallel merges — C7.01/03/04/11 reliability engine, C4.13–17 + C6.22 closed-loop tail, C3.01–12 taxonomy, C5.04 scheduler all verified present on main.)_
+never changed, only the count of it). Current tally: ✅ 228 · 🟡 107 · ❌ 64. _(2026-08-07: reconciled after parallel merges — C7.01/03/04/11 reliability engine, C4.13–17 + C6.22 closed-loop tail, C3.01–12 taxonomy, C5.04 scheduler all verified present on main.)_
 Every ❌ and 🟡 is an open obligation of the program. No item may be removed;
 items may only change status with linked evidence in the PR that changes them.

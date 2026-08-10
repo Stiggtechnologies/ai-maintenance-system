@@ -1,5 +1,6 @@
 import { TrendingUp, TrendingDown, ChartBar as BarChart2 } from "lucide-react";
 import { motion } from "framer-motion";
+import { EnvironmentalPerformance } from "../components/EnvironmentalPerformance";
 
 const kpis = [
   {
@@ -327,6 +328,7 @@ export function PerformanceDashboard() {
           </div>
         </div>
       ))}
+      <EnvironmentalPerformance />
     </div>
   );
 }
