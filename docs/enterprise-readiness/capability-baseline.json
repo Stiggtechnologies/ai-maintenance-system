@@ -1080,48 +1080,48 @@
     "evidence": false
   },
   "E10.01": {
-    "status": "❌",
-    "evidence": false
+    "status": "✅",
+    "evidence": true
   },
   "E10.02": {
-    "status": "❌",
-    "evidence": false
+    "status": "✅",
+    "evidence": true
   },
   "E10.03": {
-    "status": "❌",
-    "evidence": false
+    "status": "✅",
+    "evidence": true
   },
   "E10.04": {
-    "status": "❌",
-    "evidence": false
+    "status": "✅",
+    "evidence": true
   },
   "E10.05": {
-    "status": "❌",
-    "evidence": false
+    "status": "✅",
+    "evidence": true
   },
   "E10.06": {
-    "status": "❌",
-    "evidence": false
+    "status": "✅",
+    "evidence": true
   },
   "E10.07": {
-    "status": "❌",
-    "evidence": false
+    "status": "✅",
+    "evidence": true
   },
   "E10.08": {
-    "status": "❌",
-    "evidence": false
+    "status": "✅",
+    "evidence": true
   },
   "E10.09": {
     "status": "🟡",
     "evidence": false
   },
   "E10.10": {
-    "status": "❌",
-    "evidence": false
+    "status": "✅",
+    "evidence": true
   },
   "E10.11": {
-    "status": "❌",
-    "evidence": false
+    "status": "✅",
+    "evidence": true
   },
   "E11.01": {
     "status": "✅",
