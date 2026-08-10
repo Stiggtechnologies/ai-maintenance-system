@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { platformService } from "../services/platform";
+import { DataGovernance } from "../components/DataGovernance";
 
 interface Connector {
   id: string;
@@ -312,6 +313,7 @@ export function IntegrationsPage() {
       )}
 
       <ConnectorHealth />
+      <DataGovernance />
     </div>
   );
 }
