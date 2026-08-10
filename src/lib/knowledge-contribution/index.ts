@@ -241,12 +241,17 @@ export interface ContributionPosture {
   ownWithdrawn: number;
   freshBenchmarks: number;
   staleBenchmarks: number;
+  /** Reciprocal model: contributing is what grants the right to read. */
+  mayReadBenchmarks: boolean;
+  accessBasis: string;
 }
 
 export interface PostureVerdict {
   contributing: boolean;
   /** True when consent exists but was given against superseded terms. */
   consentNeedsRenewal: boolean;
+  /** True when this tenant may read the shared pool. */
+  mayRead: boolean;
   reason: string;
 }
 
@@ -257,6 +262,7 @@ export function assessContributionPosture(
     return {
       contributing: false,
       consentNeedsRenewal: false,
+      mayRead: false,
       reason:
         "No contribution policy is configured, so nothing can be contributed and nothing can be published. This is the default state and it is the safe one.",
     };
@@ -269,18 +275,22 @@ export function assessContributionPosture(
     return {
       contributing: false,
       consentNeedsRenewal: false,
+      mayRead: p.mayReadBenchmarks,
       reason:
         `This organization contributes nothing to the shared knowledge base. No derived artefact, no statistic, nothing. ` +
         `Consent is off for both lanes and off is the default — a tenant that has never been asked and a tenant that declined are treated identically. ` +
-        (p.freshBenchmarks > 0
-          ? `${p.freshBenchmarks} shared benchmark(s) are readable here; they were published by others under k-anonymity and contain nothing from this tenant.`
-          : `No shared benchmarks have been published yet.`),
+        // Access is reciprocal, so a non-contributor is normally also a
+        // non-reader. Saying which of the two applies matters: "you give
+        // nothing" and "you also get nothing" are separate facts and a
+        // customer weighing the opt-in needs both.
+        p.accessBasis,
     };
   }
 
   return {
     contributing: !needsRenewal,
     consentNeedsRenewal: needsRenewal,
+    mayRead: p.mayReadBenchmarks,
     reason:
       (needsRenewal
         ? `Consent was given under terms "${p.termsVersion}" and the current policy is "${p.policyTermsVersion}". That consent does not carry forward — contributions are held and excluded from every published figure until the current terms are agreed. `

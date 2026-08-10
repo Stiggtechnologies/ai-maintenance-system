@@ -103,6 +103,9 @@ describe("assessContributionPosture", () => {
     ownWithdrawn: 0,
     freshBenchmarks: 0,
     staleBenchmarks: 0,
+    mayReadBenchmarks: false,
+    accessBasis:
+      "No access. Shared benchmarks are reciprocal: contributing to the pool is what grants the right to read it. A pilot override can be granted instead.",
   };
 
   it("states plainly that a non-consenting tenant contributes nothing", () => {
@@ -116,9 +119,30 @@ describe("assessContributionPosture", () => {
     );
   });
 
-  it("reassures a non-contributor that readable benchmarks are not theirs", () => {
+  it("tells a non-contributor they also cannot read the pool", () => {
+    // Under the reciprocal model these are two separate facts and a customer
+    // weighing the opt-in needs both: what they give AND what they forgo.
     const r = assessContributionPosture({ ...base, freshBenchmarks: 4 });
-    expect(r.reason).toMatch(/contain nothing from this tenant/);
+    expect(r.contributing).toBe(false);
+    expect(r.mayRead).toBe(false);
+    expect(r.reason).toMatch(
+      /contributes nothing to the shared knowledge base/,
+    );
+    expect(r.reason).toMatch(
+      /contributing to the pool is what grants the right to read it/,
+    );
+  });
+
+  it("reports a pilot override as read access without contribution", () => {
+    const r = assessContributionPosture({
+      ...base,
+      freshBenchmarks: 4,
+      mayReadBenchmarks: true,
+      accessBasis: "Read access granted without contributing: 90-day pilot",
+    });
+    expect(r.contributing).toBe(false);
+    expect(r.mayRead).toBe(true);
+    expect(r.reason).toMatch(/90-day pilot/);
   });
 
   it("treats consent under superseded terms as not contributing", () => {
@@ -146,6 +170,9 @@ describe("assessContributionPosture", () => {
       ownContributions: 3,
       ownWithdrawn: 1,
       staleBenchmarks: 2,
+      mayReadBenchmarks: true,
+      accessBasis:
+        "Reciprocal — this organization contributes and may therefore read",
     });
     expect(r.contributing).toBe(true);
     expect(r.reason).toMatch(/structural and statistical/);

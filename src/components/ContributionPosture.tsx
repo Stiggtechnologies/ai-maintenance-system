@@ -24,6 +24,8 @@ import { LoadingState, ErrorState } from "./ui/AsyncStates";
 
 interface Eligibility {
   eligible: boolean;
+  policyKey: string;
+  failureEvents: number;
   contributingTenants: number;
   contributingAssets: number;
   maxSingleTenantSharePct: number;
@@ -33,6 +35,9 @@ interface Eligibility {
 }
 
 interface Policy {
+  policy_key: string;
+  label: string | null;
+  min_failure_events: number;
   min_contributing_tenants: number;
   min_contributing_assets: number;
   max_single_tenant_share_pct: number;
@@ -55,7 +60,7 @@ export function ContributionPosture() {
       supabase
         .from("contribution_policy")
         .select(
-          "min_contributing_tenants, min_contributing_assets, max_single_tenant_share_pct, terms_version, rationale",
+          "policy_key, label, min_contributing_tenants, min_contributing_assets, min_failure_events, max_single_tenant_share_pct, terms_version, rationale",
         )
         .eq("policy_key", "default")
         .maybeSingle(),
@@ -150,6 +155,13 @@ export function ContributionPosture() {
               <dd className="font-mono tabular-nums text-slate-300">
                 {eligibility.contributingAssets} /{" "}
                 {policy.min_contributing_assets} required
+              </dd>
+            </div>
+            <div>
+              <dt className="text-slate-500">Failure events</dt>
+              <dd className="font-mono tabular-nums text-slate-300">
+                {eligibility.failureEvents} / {policy.min_failure_events}{" "}
+                required
               </dd>
             </div>
             <div>
