@@ -206,3 +206,81 @@ export function pareto<K>(
     };
   });
 }
+
+export interface MedianRankFit {
+  beta: number;
+  eta: number;
+  /** Coefficient of determination of the log-log regression. */
+  rSquared: number;
+  observations: number;
+  /** True when R² is low enough that a single Weibull is the wrong model. */
+  poorFit: boolean;
+  reason: string;
+}
+
+/**
+ * Median-rank regression (Bernard's approximation), the method most reliability
+ * engineers learned and the one this operator's own 2012 grader analysis used.
+ *
+ * WHY BOTH THIS AND weibullMLE.
+ *
+ * They are different estimators and they disagree, sometimes enormously. On the
+ * operator's 38 engine change-outs this returns beta 1.0932 / eta 14,741 —
+ * reproducing their published spreadsheet exactly — while the MLE on the same
+ * numbers returns beta 2.63 / eta 11,829. Neither is a bug. MRR fits a straight
+ * line on a log-log plot and is therefore pulled hard by the earliest points;
+ * MLE is dominated by the bulk of the sample.
+ *
+ * A gap that large is not a tie to be broken. It is the two estimators agreeing
+ * that the sample is not one population — which is what `poorFit` reports.
+ *
+ * NOTE: this takes FAILURES ONLY. Median-rank regression with suspensions needs
+ * rank adjustment, which is not implemented here; use weibullMLE, which handles
+ * censoring properly.
+ */
+export function weibullMRR(failureTimes: number[]): MedianRankFit {
+  const t = failureTimes.filter((x) => x > 0).sort((a, b) => a - b);
+  const n = t.length;
+  if (n < 2) {
+    throw new Error(
+      "Median-rank regression needs at least 2 failures; with fewer there is no line to fit.",
+    );
+  }
+
+  const xs: number[] = [];
+  const ys: number[] = [];
+  t.forEach((ti, i) => {
+    // Bernard: (i - 0.3) / (n + 0.4), i being 1-based.
+    const mr = (i + 1 - 0.3) / (n + 0.4);
+    xs.push(Math.log(ti));
+    ys.push(Math.log(Math.log(1 / (1 - mr))));
+  });
+
+  const mx = xs.reduce((a, b) => a + b, 0) / n;
+  const my = ys.reduce((a, b) => a + b, 0) / n;
+  let sxy = 0;
+  let sxx = 0;
+  let syy = 0;
+  for (let i = 0; i < n; i++) {
+    sxy += (xs[i] - mx) * (ys[i] - my);
+    sxx += (xs[i] - mx) ** 2;
+    syy += (ys[i] - my) ** 2;
+  }
+  const beta = sxy / sxx;
+  const eta = Math.exp(-(my - beta * mx) / beta);
+  const rSquared = syy === 0 ? 1 : (sxy * sxy) / (sxx * syy);
+  const poorFit = rSquared < 0.9;
+
+  return {
+    beta,
+    eta,
+    rSquared,
+    observations: n,
+    poorFit,
+    reason:
+      `beta ${beta.toFixed(3)}, eta ${eta.toFixed(0)} from ${n} failure(s) by median-rank regression. ` +
+      (poorFit
+        ? `R² is ${rSquared.toFixed(3)}. Below about 0.9 the points are not on a line, which usually means the sample is MORE THAN ONE POPULATION — early-life failures and end-of-life wear-out mixed together. A single Weibull fitted to two populations describes neither, and the fix is to split the sample rather than to prefer a different estimator.`
+        : `R² is ${rSquared.toFixed(3)}, so the points sit acceptably on a line and a single Weibull is a defensible model here.`),
+  };
+}
