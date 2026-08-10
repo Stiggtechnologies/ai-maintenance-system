@@ -1176,24 +1176,24 @@
     "evidence": false
   },
   "E12.02": {
-    "status": "🟡",
-    "evidence": false
+    "status": "✅",
+    "evidence": true
   },
   "E12.03": {
-    "status": "❌",
-    "evidence": false
+    "status": "✅",
+    "evidence": true
   },
   "E12.04": {
-    "status": "❌",
-    "evidence": false
+    "status": "✅",
+    "evidence": true
   },
   "E12.05": {
-    "status": "❌",
-    "evidence": false
+    "status": "✅",
+    "evidence": true
   },
   "E12.06": {
-    "status": "❌",
-    "evidence": false
+    "status": "✅",
+    "evidence": true
   },
   "E12.07": {
     "status": "🟡",
@@ -1204,24 +1204,24 @@
     "evidence": false
   },
   "E12.09": {
-    "status": "❌",
-    "evidence": false
+    "status": "✅",
+    "evidence": true
   },
   "E12.10": {
     "status": "🟡",
     "evidence": false
   },
   "E12.11": {
-    "status": "❌",
-    "evidence": false
+    "status": "✅",
+    "evidence": true
   },
   "E12.12": {
-    "status": "❌",
-    "evidence": false
+    "status": "✅",
+    "evidence": true
   },
   "E12.13": {
-    "status": "❌",
-    "evidence": false
+    "status": "✅",
+    "evidence": true
   },
   "E12.14": {
     "status": "🟡",
