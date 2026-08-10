@@ -1,4 +1,5 @@
 import { Shield, Eye, Database, Brain, Lock, BookOpen } from "lucide-react";
+import { KnowledgeCorpus } from "../components/KnowledgeCorpus";
 import { motion } from "framer-motion";
 import { useAsyncData } from "../hooks/useAsyncData";
 import {
@@ -417,6 +418,8 @@ export function TrustExplainability() {
           </p>
         </div>
       </div>
+
+      <KnowledgeCorpus />
     </div>
   );
 }

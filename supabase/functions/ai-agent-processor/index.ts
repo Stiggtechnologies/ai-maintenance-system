@@ -180,18 +180,88 @@ Use only supplied facts and clearly label assumptions. Distinguish symptoms, mec
   return prompt;
 }
 
-async function retrieveReliabilityContext(admin: ReturnType<typeof serviceClient>, query: string): Promise<string> {
+/**
+ * Claim types the copilot's answers actually rest on.
+ *
+ * The copilot reasons about how things fail and about the methods for analysing
+ * that, so it retrieves against those two and nothing else. It deliberately
+ * does NOT request nameplate_spec: a brochure has standing on rated power, and
+ * feeding sales copy into an FMEA prompt is exactly the contamination the
+ * document classes exist to prevent.
+ */
+const COPILOT_CLAIM_TYPES = ["analysis_method", "failure_behaviour"] as const;
+
+/**
+ * Retrieve reference passages, class-checked and tenant-scoped.
+ *
+ * This used to select from reliability_kb_chunks directly, which meant there was
+ * no enforcement point at all: any document in the corpus could be cited in
+ * support of any claim, and — once client material starts arriving — any tenant
+ * could be served another tenant's manuals.
+ *
+ * The organization id is passed explicitly because this runs under the service
+ * role, where there is no session for app_current_org() to read. Without it the
+ * copilot would silently answer from generic handbooks while the client's own
+ * documents sat unread.
+ */
+async function retrieveReliabilityContext(
+  admin: ReturnType<typeof serviceClient>,
+  query: string,
+  organizationId: string,
+): Promise<string> {
   try {
     if (query.trim().length < 12) return "";
-    const { data } = await admin
-      .from("reliability_kb_chunks")
-      .select("title, page_start, page_end, content")
-      .textSearch("content", query.slice(0, 500))
-      .limit(4);
-    if (!data?.length) return "";
-    return data.map((item: Record<string, unknown>) =>
-      `[${item.title}, p.${item.page_start}${item.page_end !== item.page_start ? `-${item.page_end}` : ""}]\n${String(item.content).slice(0, 1200)}`
-    ).join("\n\n---\n\n");
+
+    const results = await Promise.all(
+      COPILOT_CLAIM_TYPES.map((claimType) =>
+        admin.rpc("retrieve_kb_context", {
+          p_query: query.slice(0, 500),
+          p_claim_type: claimType,
+          p_limit: 3,
+          p_organization_id: organizationId,
+        }),
+      ),
+    );
+
+    type Chunk = {
+      title: string;
+      page_start: number;
+      page_end: number;
+      content: string;
+      documentClass: string;
+      isClientPrivate: boolean;
+    };
+
+    // Deduplicated across claim types: a handbook page with standing on both
+    // would otherwise be pasted into the prompt twice and read as two
+    // independent sources agreeing with each other.
+    const seen = new Set<string>();
+    const chunks: Chunk[] = [];
+    for (const r of results) {
+      for (const c of (r.data ?? []) as Chunk[]) {
+        const key = `${c.title}|${c.page_start}|${c.content.slice(0, 60)}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        chunks.push(c);
+      }
+    }
+    if (chunks.length === 0) return "";
+
+    return chunks
+      .map((c) => {
+        const pages = c.page_end !== c.page_start
+          ? `p.${c.page_start}-${c.page_end}`
+          : `p.${c.page_start}`;
+        // The class travels with the citation. A reader who sees a claim
+        // attributed to an OEM brochure can weigh it differently from one
+        // attributed to a handbook, which they cannot do if both render
+        // identically.
+        const provenance = c.isClientPrivate
+          ? `${c.documentClass}, client-supplied`
+          : c.documentClass;
+        return `[${c.title}, ${pages} — ${provenance}]\n${String(c.content).slice(0, 1200)}`;
+      })
+      .join("\n\n---\n\n");
   } catch {
     return "";
   }
@@ -266,7 +336,7 @@ async function handleLegacy(
   const deliverable = body.depth === "deliverable" || /\b(fmea|rca|fracas|rcm|register|assessment|report|plan)\b/i.test(query);
   const model = deliverable ? "gpt-4o" : "gpt-4o-mini";
   const maxTokens = deliverable ? 12_000 : 1_500;
-  const kb = await retrieveReliabilityContext(admin, query);
+  const kb = await retrieveReliabilityContext(admin, query, auth.organizationId);
   const systemPrompt = `${buildLegacyPrompt(agentType, body.industry, deliverable)}${kb ? `\n\nApproved reliability reference passages:\n${kb}\nUse only the exact bracket labels supplied for citations.` : ""}`;
   const started = Date.now();
   const { content, usage } = await callLLM(model, systemPrompt, query, false, maxTokens);
