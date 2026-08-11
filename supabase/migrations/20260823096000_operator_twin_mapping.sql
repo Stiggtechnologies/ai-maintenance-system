@@ -64,6 +64,21 @@ create policy twin_map_read on asset_class_twin_map
 -- This operator's rows. Every source is the owner's own statement about their
 -- fleet, made during the unit-numbering work — not an inference.
 -- ---------------------------------------------------------------------------
+-- ---------------------------------------------------------------------------
+-- GUARD: everything below is specific to one operator's organization, and that
+-- organization exists only in production. A migration runs on every
+-- environment, so a hard-coded organization_id with a foreign key is a chain
+-- that breaks on any fresh database — which is exactly how this failed CI while
+-- passing in production, where the row happens to exist.
+--
+-- 20260822093000 already guards the same way. This did not, and should have.
+-- ---------------------------------------------------------------------------
+do $guard$
+begin
+if not exists (select 1 from organizations where id = '5e08b0a4-bb63-43d6-90f8-e42d532f65fd') then
+  raise notice 'Operator organization not present; skipping operator-specific twin mapping.';
+  return;
+end if;
 insert into asset_class_aliases (organization_id, local_class, catalogue_class, source)
 values
   ('5e08b0a4-bb63-43d6-90f8-e42d532f65fd','Support Loader','Wheel Loader',
@@ -129,6 +144,8 @@ values
 on conflict (organization_id, local_class) do update
   set template_key = excluded.template_key, fit = excluded.fit,
       rationale = excluded.rationale, source = excluded.source;
+
+end $guard$;
 
 -- ---------------------------------------------------------------------------
 -- Provision draft twin instances.
