@@ -1172,8 +1172,8 @@
     "evidence": true
   },
   "E12.01": {
-    "status": "🟡",
-    "evidence": false
+    "status": "✅",
+    "evidence": true
   },
   "E12.02": {
     "status": "✅",

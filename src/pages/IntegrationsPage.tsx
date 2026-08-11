@@ -12,6 +12,7 @@ import {
 import { supabase } from "../lib/supabase";
 import { platformService } from "../services/platform";
 import { DataGovernance } from "../components/DataGovernance";
+import { AssetTwinCoverage } from "../components/AssetTwinCoverage";
 
 interface Connector {
   id: string;
@@ -314,6 +315,7 @@ export function IntegrationsPage() {
 
       <ConnectorHealth />
       <DataGovernance />
+      <AssetTwinCoverage />
     </div>
   );
 }
