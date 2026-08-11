@@ -4,6 +4,12 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY") ?? "";
+// Resilient provider chain — gateway-first when configured, direct OpenAI as
+// fallback. Deno-free and unit-tested by vitest against this exact file.
+import {
+  buildProviderChain,
+  callWithResilience,
+} from "../_shared/llm-provider.ts";
 const LLM_BASE_URL = Deno.env.get("LLM_BASE_URL") ?? "https://api.openai.com";
 const ALLOWED_ORIGIN = Deno.env.get("ALLOWED_ORIGIN") ?? "https://app.syncai.ca";
 
@@ -109,12 +115,6 @@ async function authenticate(req: Request): Promise<AuthContext | null> {
   };
 }
 
-function getProviderUrl(path: string): URL {
-  const url = new URL(path, LLM_BASE_URL);
-  const localTest = ["localhost", "127.0.0.1"].includes(url.hostname);
-  if (url.protocol !== "https:" && !localTest) throw new Error("invalid_provider_configuration");
-  return url;
-}
 
 async function callLLM(
   model: string,
@@ -123,37 +123,47 @@ async function callLLM(
   jsonMode = false,
   maxTokens = 1200,
 ): Promise<{ content: string; usage: Record<string, number> }> {
-  const providerUrl = getProviderUrl("/v1/chat/completions");
-  const payload: Record<string, unknown> = {
-    model,
-    messages: [
-      { role: "system", content: systemPrompt },
-      { role: "user", content: userQuery },
-    ],
-    temperature: 0.3,
-    max_completion_tokens: maxTokens,
-  };
-  if (jsonMode) payload.response_format = { type: "json_object" };
-
-  const llmResponse = await fetch(providerUrl, {
-    method: "POST",
-    signal: AbortSignal.timeout(60_000),
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${OPENAI_API_KEY}`,
-    },
-    body: JSON.stringify(payload),
+  // Chain: LLM_BASE_URL (the gateway, when set and not plain OpenAI) first,
+  // then direct OpenAI. Today LLM_BASE_URL is unset, so this is OpenAI with
+  // retry; the moment the gateway secret is set, routing flips with no deploy.
+  const gatewayUrl =
+    LLM_BASE_URL && !LLM_BASE_URL.includes("api.openai.com") ? LLM_BASE_URL : undefined;
+  const providers = buildProviderChain({
+    gatewayUrl,
+    gatewayKey: gatewayUrl ? (Deno.env.get("LLM_API_KEY") ?? OPENAI_API_KEY) : undefined,
+    gatewayModel: model,
+    openaiKey: OPENAI_API_KEY,
+    openaiModel: model,
   });
 
-  if (!llmResponse.ok) {
-    console.error("ai-agent-processor provider failure", { status: llmResponse.status });
-    throw new Error("provider_unavailable");
+  const result = await callWithResilience(fetch, providers, {
+    systemPrompt,
+    userContent: userQuery,
+    jsonMode,
+    maxTokens,
+    timeoutMs: 60_000,
+  });
+
+  // Every non-first-attempt trail is recorded, so a background failure can
+  // never again sit invisible for a month.
+  if (result.events.length > 1 || !result.ok) {
+    console.error("ai-agent-processor provider trail", JSON.stringify(result.events));
+    try {
+      const admin = serviceClient();
+      await admin.from("llm_provider_events").insert(
+        result.events.map((e) => ({
+          function_name: "ai-agent-processor",
+          provider: e.provider,
+          outcome: e.outcome,
+          status: e.status,
+          detail: e.detail,
+        })),
+      );
+    } catch { /* health logging must never take the copilot down */ }
   }
 
-  const data = await llmResponse.json();
-  const content = data?.choices?.[0]?.message?.content;
-  if (typeof content !== "string" || !content.trim()) throw new Error("invalid_provider_response");
-  return { content, usage: data.usage ?? {} };
+  if (!result.ok) throw new Error("provider_unavailable");
+  return { content: result.content, usage: result.usage };
 }
 
 const AGENT_PURPOSE: Record<string, string> = {
