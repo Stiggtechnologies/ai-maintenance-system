@@ -169,6 +169,60 @@ describe("callWithResilience", () => {
   });
 });
 
+describe("the answering model is what gets recorded", () => {
+  it("reports the model the API says it used, not the one requested", async () => {
+    // A gateway alias resolves to a concrete model server-side. Recording the
+    // alias would put a false provenance claim into a signed record.
+    const r = await callWithResilience(
+      async () =>
+        new Response(
+          JSON.stringify({
+            choices: [{ message: { content: "a" } }],
+            model: "claude-sonnet-5",
+          }),
+          { status: 200 },
+        ),
+      [gateway],
+      OPTS,
+      noSleep,
+    );
+    expect(r.model).toBe("claude-sonnet-5");
+    expect(r.model).not.toBe("stigg/fast");
+  });
+
+  it("after failover, reports the FALLBACK's model — the whole point", async () => {
+    const r = await callWithResilience(
+      async (url) => (url.includes("fly.dev") ? respond(401) : respond(200)),
+      [gateway, openai],
+      OPTS,
+      noSleep,
+    );
+    expect(r.provider).toBe("openai-direct");
+    expect(r.model).toBe("gpt-4o-mini");
+  });
+
+  it("falls back to the provider's configured model when the API omits one", async () => {
+    const r = await callWithResilience(
+      async () => respond(200),
+      [openai],
+      OPTS,
+      noSleep,
+    );
+    expect(r.model).toBe("gpt-4o-mini");
+  });
+
+  it("reports no model when nothing answered", async () => {
+    const r = await callWithResilience(
+      async () => respond(500),
+      [openai],
+      { ...OPTS, attemptsPerProvider: 1 },
+      noSleep,
+    );
+    expect(r.ok).toBe(false);
+    expect(r.model).toBeNull();
+  });
+});
+
 describe("buildProviderChain", () => {
   it("leads with the gateway when configured, OpenAI as fallback", () => {
     const c = buildProviderChain({
@@ -192,5 +246,46 @@ describe("buildProviderChain", () => {
 
   it("returns an empty chain when nothing is configured", () => {
     expect(buildProviderChain({})).toEqual([]);
+  });
+
+  it("appends a safety-net model so a frontier default cannot go dark", () => {
+    // Betting the chain on this key having gpt-5.6 access is the risk; an
+    // unavailable model 404s, which is fatal, so the drop must be instant.
+    const c = buildProviderChain({
+      openaiKey: "o",
+      openaiModel: "gpt-5.6-terra",
+      openaiSafetyModel: "gpt-4o-mini",
+    });
+    expect(c.map((p) => p.model)).toEqual(["gpt-5.6-terra", "gpt-4o-mini"]);
+    expect(c.map((p) => p.name)).toEqual(["openai-direct", "openai-safety"]);
+  });
+
+  it("does not duplicate the provider when the safety net equals the primary", () => {
+    const c = buildProviderChain({
+      openaiKey: "o",
+      openaiModel: "gpt-4o-mini",
+      openaiSafetyModel: "gpt-4o-mini",
+    });
+    expect(c).toHaveLength(1);
+  });
+
+  it("an unavailable frontier model degrades instead of going dark", async () => {
+    const chain = buildProviderChain({
+      openaiKey: "o",
+      openaiModel: "gpt-5.6-terra",
+      openaiSafetyModel: "gpt-4o-mini",
+    });
+    const r = await callWithResilience(
+      async (_u, init) =>
+        JSON.parse(String(init.body)).model === "gpt-5.6-terra"
+          ? respond(404)
+          : respond(200),
+      chain,
+      OPTS,
+      noSleep,
+    );
+    expect(r.ok).toBe(true);
+    expect(r.model).toBe("gpt-4o-mini");
+    expect(r.events[0].outcome).toBe("failed_over");
   });
 });
