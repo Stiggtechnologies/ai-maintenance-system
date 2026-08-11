@@ -88,7 +88,13 @@ Deno.serve(async (req) => {
     gatewayKey: gatewayUrl ? LLM_API_KEY : undefined,
     gatewayModel: LLM_MODEL,
     openaiKey: OPENAI_API_KEY,
-    openaiModel: "gpt-4o-mini",
+    // Enrichment output is read and signed by an engineer, so the direct
+    // fallback is an `agent`-class model, not the cheapest thing available.
+    // gpt-4o-mini stays as the safety net beneath it: if this key lacks
+    // 5.6 access the 404 is fatal and the chain drops instantly rather than
+    // going dark, and llm_provider_events records which one answered.
+    openaiModel: Deno.env.get("OPENAI_FALLBACK_MODEL") ?? "gpt-5.6-terra",
+    openaiSafetyModel: "gpt-4o-mini",
   });
   if (providers.length === 0) {
     return json({ enriched: 0, skipped: "llm_not_configured" });
@@ -168,12 +174,15 @@ Deno.serve(async (req) => {
         .from("recommendations")
         .update({
           rationale:
-            `AI analysis (${LLM_MODEL}): ${parsed.analysis.trim()} ` +
+            `AI analysis (${result.model ?? LLM_MODEL}): ${parsed.analysis.trim()} ` +
             `Suggested action window: ${parsed.recommended_window_hours ?? "n/a"}h. ` +
             "Raised by the continuous condition-monitoring loop; human approval required before any action.",
           confidence,
           enriched_at: new Date().toISOString(),
-          enrichment_model: LLM_MODEL,
+          // The model that ACTUALLY answered, not the one requested. When the
+          // chain fails over these differ, and storing the request would put a
+          // false provenance claim into a record an engineer signs.
+          enrichment_model: result.model ?? LLM_MODEL,
           updated_at: new Date().toISOString(),
         })
         .eq("id", rec.id)

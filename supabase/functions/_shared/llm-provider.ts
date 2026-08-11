@@ -61,6 +61,12 @@ export interface LlmResult {
   usage: Record<string, number>;
   /** Which provider ultimately answered. */
   provider: string | null;
+  /**
+   * The model that ACTUALLY produced the content — not the one requested.
+   * When a chain fails over, the two differ, and a governance record that
+   * stores the requested model is simply false. Null when nothing answered.
+   */
+  model: string | null;
   /** The trail, for the health log. Never empty. */
   events: ProviderEvent[];
 }
@@ -84,6 +90,14 @@ export function buildProviderChain(env: {
   gatewayModel?: string;
   openaiKey?: string;
   openaiModel?: string;
+  /**
+   * Last-resort OpenAI model, tried only after `openaiModel` fails. Exists so
+   * a frontier model can be the default WITHOUT betting the whole chain on
+   * this key having access to it: an unavailable model returns 404, which is
+   * classified fatal, so the chain drops to this one instantly instead of
+   * going dark. Skipped when it equals openaiModel.
+   */
+  openaiSafetyModel?: string;
 }): LlmProvider[] {
   const chain: LlmProvider[] = [];
   if (env.gatewayUrl && env.gatewayKey) {
@@ -95,12 +109,21 @@ export function buildProviderChain(env: {
     });
   }
   if (env.openaiKey) {
+    const primary = env.openaiModel ?? "gpt-4o-mini";
     chain.push({
       name: "openai-direct",
       baseUrl: "https://api.openai.com",
       apiKey: env.openaiKey,
-      model: env.openaiModel ?? "gpt-4o-mini",
+      model: primary,
     });
+    if (env.openaiSafetyModel && env.openaiSafetyModel !== primary) {
+      chain.push({
+        name: "openai-safety",
+        baseUrl: "https://api.openai.com",
+        apiKey: env.openaiKey,
+        model: env.openaiSafetyModel,
+      });
+    }
   }
   return chain;
 }
@@ -121,6 +144,7 @@ export async function callWithResilience(
       content: "",
       usage: {},
       provider: null,
+      model: null,
       events: [
         {
           provider: "(none)",
@@ -180,6 +204,9 @@ export async function callWithResilience(
             content: data.choices?.[0]?.message?.content ?? "",
             usage: data.usage ?? {},
             provider: provider.name,
+            // Prefer what the API says it used over what we asked for; a
+            // gateway alias resolves to a concrete model server-side.
+            model: data.model ?? provider.model,
             events,
           };
         }
@@ -206,5 +233,5 @@ export async function callWithResilience(
     }
   }
 
-  return { ok: false, content: "", usage: {}, provider: null, events };
+  return { ok: false, content: "", usage: {}, provider: null, model: null, events };
 }

@@ -3,6 +3,19 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+// Model tiers. These were pinned to gpt-4o / gpt-4o-mini — two generations
+// stale — on paths that produce FMEA, RCA and FRACAS deliverables a technical
+// authority signs. Anything a human puts their name to is agent-class.
+//
+// MODEL_SAFETY is the last resort beneath all three: an unavailable model
+// returns 404, classified fatal, so the chain drops to a known-good model
+// instantly rather than going dark. That is the difference between a
+// degraded answer and the month of silence this chain exists to prevent.
+const MODEL_DELIVERABLE = Deno.env.get("MODEL_DELIVERABLE") ?? "gpt-5.6-terra";
+const MODEL_CHAT = Deno.env.get("MODEL_CHAT") ?? "gpt-5.6-luna";
+const MODEL_STRUCTURED = Deno.env.get("MODEL_STRUCTURED") ?? "gpt-5.6-luna";
+const MODEL_SAFETY = "gpt-4o-mini";
+
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY") ?? "";
 // Resilient provider chain — gateway-first when configured, direct OpenAI as
 // fallback. Deno-free and unit-tested by vitest against this exact file.
@@ -122,7 +135,9 @@ async function callLLM(
   userQuery: string,
   jsonMode = false,
   maxTokens = 1200,
-): Promise<{ content: string; usage: Record<string, number> }> {
+  // `model` is what we ASK for. The returned `model` is what answered — after
+  // a failover they differ, and the SIR log must carry the latter.
+): Promise<{ content: string; usage: Record<string, number>; model: string }> {
   // Chain: LLM_BASE_URL (the gateway, when set and not plain OpenAI) first,
   // then direct OpenAI. Today LLM_BASE_URL is unset, so this is OpenAI with
   // retry; the moment the gateway secret is set, routing flips with no deploy.
@@ -134,6 +149,7 @@ async function callLLM(
     gatewayModel: model,
     openaiKey: OPENAI_API_KEY,
     openaiModel: model,
+    openaiSafetyModel: MODEL_SAFETY,
   });
 
   const result = await callWithResilience(fetch, providers, {
@@ -163,7 +179,7 @@ async function callLLM(
   }
 
   if (!result.ok) throw new Error("provider_unavailable");
-  return { content: result.content, usage: result.usage };
+  return { content: result.content, usage: result.usage, model: result.model ?? model };
 }
 
 const AGENT_PURPOSE: Record<string, string> = {
@@ -344,12 +360,12 @@ async function handleLegacy(
   if (query.length > 30_000) return response({ success: false, error: "query_too_large" }, 413);
 
   const deliverable = body.depth === "deliverable" || /\b(fmea|rca|fracas|rcm|register|assessment|report|plan)\b/i.test(query);
-  const model = deliverable ? "gpt-4o" : "gpt-4o-mini";
+  const model = deliverable ? MODEL_DELIVERABLE : MODEL_CHAT;
   const maxTokens = deliverable ? 12_000 : 1_500;
   const kb = await retrieveReliabilityContext(admin, query, auth.organizationId);
   const systemPrompt = `${buildLegacyPrompt(agentType, body.industry, deliverable)}${kb ? `\n\nApproved reliability reference passages:\n${kb}\nUse only the exact bracket labels supplied for citations.` : ""}`;
   const started = Date.now();
-  const { content, usage } = await callLLM(model, systemPrompt, query, false, maxTokens);
+  const { content, usage, model: answeredBy } = await callLLM(model, systemPrompt, query, false, maxTokens);
   const elapsed = Date.now() - started;
 
   await admin.from("ai_agent_logs").insert({
@@ -359,7 +375,7 @@ async function handleLegacy(
     industry: body.industry ?? "general",
     processing_time_ms: elapsed,
   }).then(({ error }) => error && console.error("ai_agent_logs insert failed", error));
-  await logToSir(admin, auth, agentType, query, content, model, usage, elapsed);
+  await logToSir(admin, auth, agentType, query, content, answeredBy, usage, elapsed);
 
   return response({
     success: true,
@@ -445,7 +461,7 @@ async function handleTyped(
 
     const prompts = buildTypedPrompts(body, workOrderResult.data, assetResult.data);
     const started = Date.now();
-    const { content, usage } = await callLLM("gpt-4o-mini", prompts.system, prompts.user, true, 1800);
+    const { content, usage, model: answeredBy } = await callLLM(MODEL_STRUCTURED, prompts.system, prompts.user, true, 1800);
     const parsed = JSON.parse(content);
     const confidence = Math.max(0, Math.min(1, Number(parsed.confidence ?? 0.5)));
     const requiresHumanReview = Boolean(parsed.requires_human_review) || ["high", "critical"].includes(parsed.risk_level);
@@ -481,7 +497,7 @@ async function handleTyped(
     });
     if (!governanceResponse.ok) throw new Error("governance_handoff_failed");
     const governance = await governanceResponse.json();
-    await logToSir(admin, { ...auth, organizationId }, body.agent_code, prompts.user, parsed.summary ?? content, "gpt-4o-mini", usage, Date.now() - started, correlationId);
+    await logToSir(admin, { ...auth, organizationId }, body.agent_code, prompts.user, parsed.summary ?? content, answeredBy, usage, Date.now() - started, correlationId);
 
     return response({
       success: true,
