@@ -19,5 +19,11 @@
     "composite": true,
     "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo"
   },
-  "include": ["src"]
+  // supabase/functions/_shared holds edge-function modules written WITHOUT any
+  // Deno globals precisely so vitest can test the exact file that deploys.
+  // Typechecking them here is the other half of that bargain: Deno is not
+  // installed locally or in CI, so this project is the only thing standing
+  // between an edge function and shipping untypechecked. Only _shared is
+  // included — the function entrypoints themselves do use Deno globals.
+  "include": ["src", "supabase/functions/_shared"]
 }
