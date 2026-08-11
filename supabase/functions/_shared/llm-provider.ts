@@ -159,6 +159,27 @@ export function buildProviderChain(env: {
   return chain;
 }
 
+/**
+ * Parameters a given provider+model has already rejected, remembered across
+ * calls within a warm instance.
+ *
+ * Without this the negotiation in the previous fix repeats on EVERY request:
+ * one wasted round-trip each time, and — worse — a "retried" event logged on
+ * every single call. The health table's value is that noise means something;
+ * a retry on 100% of calls buries the one that matters.
+ *
+ * Keyed by provider AND model, because the same provider serves models with
+ * different parameter rules. Bounded by the number of provider/model pairs a
+ * function uses, so it cannot grow without limit. Cold starts simply
+ * renegotiate once, which is correct — a provider's rules can change.
+ */
+const rejectedParams = new Map<string, Set<string>>();
+
+/** Exposed for tests; a warm instance would otherwise leak state between them. */
+export function resetParamMemo(): void {
+  rejectedParams.clear();
+}
+
 export async function callWithResilience(
   fetchLike: FetchLike,
   providers: LlmProvider[],
@@ -190,9 +211,14 @@ export async function callWithResilience(
 
   for (let p = 0; p < providers.length; p++) {
     const provider = providers[p];
-    // Optional parameters this provider has explicitly rejected. Reset per
-    // provider: what GPT-5.x refuses, the gateway may require.
-    const dropped = new Set<string>();
+    // Optional parameters this provider+model has explicitly rejected. Keyed
+    // per provider AND model: what GPT-5.x refuses, the gateway may require.
+    const memoKey = `${provider.name}:${provider.model}`;
+    let dropped = rejectedParams.get(memoKey);
+    if (!dropped) {
+      dropped = new Set<string>();
+      rejectedParams.set(memoKey, dropped);
+    }
     const url = new URL("/v1/chat/completions", provider.baseUrl).toString();
     const hasNext = p < providers.length - 1;
 
