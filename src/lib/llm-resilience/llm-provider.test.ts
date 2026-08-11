@@ -169,6 +169,136 @@ describe("callWithResilience", () => {
   });
 });
 
+describe("parameter negotiation — the real production failure", () => {
+  // Verbatim from OpenAI when the chain sent temperature 0.3 to gpt-5.6-terra.
+  // It classifies as a 400 = fatal, so the chain failed the provider over and
+  // enrichment silently ran on the gpt-4o-mini safety net for its first live
+  // run. One unsupported optional parameter looked exactly like an outage.
+  const TEMP_REJECTION = JSON.stringify({
+    error: {
+      message:
+        "Unsupported value: 'temperature' does not support 0.3 with this model. Only the default (1) value is supported.",
+      type: "invalid_request_error",
+      param: "temperature",
+      code: "unsupported_value",
+    },
+  });
+
+  it("drops the rejected parameter and retries the SAME provider", async () => {
+    const sent: Array<Record<string, unknown>> = [];
+    const r = await callWithResilience(
+      async (_u, init) => {
+        const body = JSON.parse(String(init.body));
+        sent.push(body);
+        return "temperature" in body
+          ? new Response(TEMP_REJECTION, { status: 400 })
+          : respond(200);
+      },
+      [openai],
+      OPTS,
+      noSleep,
+    );
+    expect(r.ok).toBe(true);
+    expect(r.provider).toBe("openai-direct"); // did NOT fail over
+    expect(sent).toHaveLength(2);
+    expect(sent[1]).not.toHaveProperty("temperature");
+    // max_completion_tokens was never rejected, so it must survive.
+    expect(sent[1]).toHaveProperty("max_completion_tokens");
+  });
+
+  it("does not consume the retry budget on a renegotiation", async () => {
+    // attemptsPerProvider 1 still succeeds: the first request was never tried
+    // in a form the provider accepts, so it does not count as an attempt.
+    const r = await callWithResilience(
+      async (_u, init) =>
+        "temperature" in JSON.parse(String(init.body))
+          ? new Response(TEMP_REJECTION, { status: 400 })
+          : respond(200),
+      [openai],
+      { ...OPTS, attemptsPerProvider: 1 },
+      noSleep,
+    );
+    expect(r.ok).toBe(true);
+    expect(r.events.map((e) => e.outcome)).toEqual(["retried", "ok"]);
+  });
+
+  it("terminates instead of looping when the provider rejects it again", async () => {
+    // A parameter is renegotiated at most once, so a provider that keeps
+    // returning the same complaint must still terminate.
+    let calls = 0;
+    const r = await callWithResilience(
+      async () => {
+        calls++;
+        return new Response(TEMP_REJECTION, { status: 400 });
+      },
+      [openai],
+      { ...OPTS, attemptsPerProvider: 2 },
+      noSleep,
+    );
+    expect(r.ok).toBe(false);
+    expect(calls).toBeLessThanOrEqual(4);
+  });
+
+  it("leaves a genuine auth failure fatal — negotiation is narrow", async () => {
+    const r = await callWithResilience(
+      async () =>
+        new Response(
+          JSON.stringify({
+            error: { message: "Incorrect API key", code: "invalid_api_key" },
+          }),
+          { status: 401 },
+        ),
+      [openai],
+      OPTS,
+      noSleep,
+    );
+    expect(r.ok).toBe(false);
+    expect(r.events[0].outcome).toBe("exhausted");
+  });
+
+  it("puts the provider's own words in the health record", async () => {
+    // "fatal status 400" is not a diagnosis. Storing only the status is why
+    // the production cause took a manual curl to find.
+    const r = await callWithResilience(
+      async () =>
+        new Response(
+          JSON.stringify({ error: { message: "model not found" } }),
+          {
+            status: 404,
+          },
+        ),
+      [openai],
+      OPTS,
+      noSleep,
+    );
+    expect(r.events[0].detail).toMatch(/model not found/);
+  });
+
+  it("re-offers a dropped parameter to the NEXT provider", async () => {
+    // What GPT-5.x refuses, the gateway may require. `dropped` is per-provider.
+    const seen: Array<{ host: string; hasTemp: boolean }> = [];
+    await callWithResilience(
+      async (url, init) => {
+        const body = JSON.parse(String(init.body));
+        seen.push({
+          host: new URL(url).hostname,
+          hasTemp: "temperature" in body,
+        });
+        return url.includes("fly.dev") && "temperature" in body
+          ? new Response(TEMP_REJECTION, { status: 400 })
+          : url.includes("fly.dev")
+            ? new Response("{}", { status: 500 })
+            : respond(200);
+      },
+      [gateway, openai],
+      { ...OPTS, attemptsPerProvider: 1 },
+      noSleep,
+    );
+    const openaiCalls = seen.filter((x) => x.host.includes("openai"));
+    expect(openaiCalls[0].hasTemp).toBe(true);
+  });
+});
+
 describe("the answering model is what gets recorded", () => {
   it("reports the model the API says it used, not the one requested", async () => {
     // A gateway alias resolves to a concrete model server-side. Recording the
