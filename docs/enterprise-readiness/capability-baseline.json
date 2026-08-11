@@ -568,32 +568,32 @@
     "evidence": false
   },
   "C8.15": {
-    "status": "❌",
-    "evidence": false
+    "status": "✅",
+    "evidence": true
   },
   "C8.16": {
     "status": "✅",
     "evidence": false
   },
   "C8.17": {
-    "status": "❌",
-    "evidence": false
+    "status": "✅",
+    "evidence": true
   },
   "C8.18": {
-    "status": "❌",
-    "evidence": false
+    "status": "✅",
+    "evidence": true
   },
   "C8.19": {
     "status": "✅",
     "evidence": false
   },
   "C8.20": {
-    "status": "🟡",
-    "evidence": false
+    "status": "✅",
+    "evidence": true
   },
   "C8.21": {
-    "status": "❌",
-    "evidence": false
+    "status": "✅",
+    "evidence": true
   },
   "C8.22": {
     "status": "✅",

@@ -5,7 +5,13 @@
  * code, not plausible equations" evidence the spec demands.
  */
 import { describe, expect, it } from "vitest";
-import { crowAMSAA, pareto, repairableSummary, weibullMLE } from "./index";
+import {
+  crowAMSAA,
+  pareto,
+  repairableSummary,
+  weibullMLE,
+  weibullMRR,
+} from "./index";
 
 /** Deterministic LCG so sampled validations are reproducible. */
 function lcg(seed: number): () => number {
@@ -128,5 +134,56 @@ describe("pareto", () => {
 
   it("returns empty for zero totals", () => {
     expect(pareto([{ key: "x", value: 0 }])).toEqual([]);
+  });
+});
+
+describe("weibullMRR — validated against the operator's own 2012 analysis", () => {
+  /**
+   * The 38 engine change-outs from the Cat 24H/M grader Weibull workbook.
+   * Their spreadsheet published beta 1.0931746394221005 and
+   * alpha 14740.583299996084 via median-rank regression.
+   */
+  const engineChangeOuts = [
+    96.09, 1478.64, 1663.24, 4253.98, 4297.92, 6510.8, 6875.77, 7105.18,
+    7508.17, 9093.58, 9308.35, 10938.5, 11019.88, 11134.84, 11540.0, 11767.23,
+    11953.62, 12113.26, 12159.66, 12178.3, 12227.46, 12439.87, 12790.21,
+    12887.86, 12953.94, 12979.03, 12979.43, 13079.65, 13225.84, 13330.6,
+    13522.45, 13666.69, 14260.96, 14584.94, 14746.57, 15655.22, 15670.94,
+    16432.83,
+  ];
+
+  it("reproduces the published beta and eta exactly", () => {
+    const fit = weibullMRR(engineChangeOuts);
+    // Their spreadsheet, to the precision it reported.
+    expect(fit.beta).toBeCloseTo(1.0931746394221005, 9);
+    expect(fit.eta).toBeCloseTo(14740.583299996084, 4);
+    expect(fit.observations).toBe(38);
+  });
+
+  it("flags that this sample is not one population", () => {
+    const fit = weibullMRR(engineChangeOuts);
+    // Their own regression reported R² = 0.7070. Three change-outs at 96h,
+    // 1479h and 1663h sit against a cluster at 9,000–16,000h: infant mortality
+    // and wear-out in one sample.
+    expect(fit.rSquared).toBeCloseTo(0.707, 2);
+    expect(fit.poorFit).toBe(true);
+    expect(fit.reason).toMatch(/MORE THAN ONE POPULATION/);
+    expect(fit.reason).toMatch(
+      /split the sample rather than to prefer a different estimator/,
+    );
+  });
+
+  it("disagrees with the MLE on the same data, which is the point", () => {
+    const mrr = weibullMRR(engineChangeOuts);
+    const mle = weibullMLE(engineChangeOuts);
+    // Not a tie to break: MRR is pulled by the earliest points on a log-log
+    // plot, MLE by the bulk. A gap this size is the estimators agreeing the
+    // model is wrong.
+    expect(mrr.beta).toBeCloseTo(1.093, 3);
+    expect(mle.beta).toBeGreaterThan(2.5);
+  });
+
+  it("refuses a single failure rather than fitting a line to a point", () => {
+    expect(() => weibullMRR([1000])).toThrow(/no line to fit/);
   });
 });
