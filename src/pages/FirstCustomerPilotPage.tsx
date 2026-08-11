@@ -1,19 +1,26 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
+  ArrowLeft,
   ArrowRight,
+  ArrowUpRight,
   BarChart3,
   CheckCircle2,
   ClipboardCheck,
   FileText,
   Gauge,
+  LockKeyhole,
   Mail,
+  MessageSquare,
   PackageCheck,
   ShieldCheck,
   Sparkles,
+  Target,
+  TrendingUp,
   Upload,
   Users,
   Wrench,
 } from "lucide-react";
+import { PublicProductHeader } from "../components/PublicProductHeader";
 import {
   createPilotOnboardingPackage,
   submitPilotIntake,
@@ -62,10 +69,30 @@ const proofSteps = [
 ];
 
 const roleOutcomes = [
-  "Plant manager: ranked downtime and production exposure",
-  "Reliability leader: governed RCA / FRACAS starter pack",
-  "Maintenance owner: action list tied to work-order evidence",
-  "Executive / finance sponsor: value hypothesis and proof trail",
+  {
+    label: "Plant manager",
+    outcome: "Rank downtime and production exposure",
+    role: "Plant / operations manager",
+    pain: "Downtime cost is visible but root causes are not",
+  },
+  {
+    label: "Reliability leader",
+    outcome: "Build a governed RCA / FRACAS starter pack",
+    role: "Reliability leader",
+    pain: "RCA / FRACAS follow-through is inconsistent",
+  },
+  {
+    label: "Maintenance owner",
+    outcome: "Tie the action list to work-order evidence",
+    role: "Maintenance manager",
+    pain: "Backlog pressure and competing priorities",
+  },
+  {
+    label: "Executive / finance sponsor",
+    outcome: "Create a value hypothesis and proof trail",
+    role: "Executive / finance sponsor",
+    pain: "Need to prove whether actions created value",
+  },
 ];
 
 const roleOptions = [
@@ -217,6 +244,7 @@ function trackPilotEvent(event: string, detail: Record<string, unknown> = {}) {
 
 export function FirstCustomerPilotPage() {
   const [intake, setIntake] = useState<IntakeData>(initialIntakeData);
+  const [intakeStep, setIntakeStep] = useState(1);
   const [intakeRequestId, setIntakeRequestId] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
   const [onboardingStarted, setOnboardingStarted] = useState(false);
@@ -226,6 +254,10 @@ export function FirstCustomerPilotPage() {
   const [onboardingStatus, setOnboardingStatus] = useState<
     "idle" | "saving" | "saved" | "local"
   >("idle");
+
+  useEffect(() => {
+    document.title = "48-Hour Reliability Value Proof | SyncAI";
+  }, []);
 
   const mailtoHref = useMemo(() => {
     const subject = encodeURIComponent(
@@ -258,12 +290,78 @@ export function FirstCustomerPilotPage() {
     return `mailto:support@syncai.ca?subject=${subject}&body=${body}`;
   }, [intake]);
 
+  const copilotHref = useMemo(() => {
+    const params = new URLSearchParams();
+    if (intake.assetScope) params.set("asset", intake.assetScope);
+    if (intake.primaryPain) params.set("pain", intake.primaryPain);
+    if (intake.role) params.set("role", intake.role);
+    const query = params.toString();
+
+    return `/demo/copilot${query ? `?${query}` : ""}#syncai-chat`;
+  }, [intake.assetScope, intake.primaryPain, intake.role]);
+
   const updateField = (key: keyof IntakeData, value: string) => {
     setIntake((current) => ({ ...current, [key]: value }));
   };
 
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  const scrollToSection = (id: string) => {
+    document.getElementById(id)?.scrollIntoView?.({
+      behavior: "smooth",
+      block: "start",
+    });
+  };
+
+  const scrollToIntake = () => {
+    scrollToSection("value-proof-intake");
+  };
+
+  const chooseRoleOutcome = (outcome: (typeof roleOutcomes)[number]) => {
+    setIntake((current) => ({
+      ...current,
+      role: outcome.role,
+      primaryPain: outcome.pain,
+    }));
+    setIntakeStep(1);
+    scrollToIntake();
+    trackPilotEvent("pilot_role_outcome_selected", {
+      role: outcome.role,
+      primaryPain: outcome.pain,
+    });
+  };
+
+  const chooseJourneyStep = (step: (typeof proofSteps)[number]) => {
+    if (step.label === "48 hours") {
+      scrollToSection("proof-deliverables");
+      return;
+    }
+
+    if (step.label === "One click") {
+      scrollToSection("onboarding");
+      return;
+    }
+
+    if (step.label === "10 days") {
+      updateField("commercialModel", "10-day secure pilot");
+      setIntakeStep(2);
+    } else {
+      setIntakeStep(1);
+    }
+    scrollToIntake();
+  };
+
+  const canContinue =
+    intakeStep === 1
+      ? Boolean(
+          intake.role &&
+          intake.industry &&
+          intake.assetScope &&
+          intake.primaryPain,
+        )
+      : intakeStep === 2
+        ? Boolean(intake.systemOfRecord && intake.historyAvailable)
+        : Boolean(intake.name && intake.email && intake.company);
+
+  const handleSubmit = async () => {
     setSubmitStatus("submitting");
 
     try {
@@ -284,6 +382,21 @@ export function FirstCustomerPilotPage() {
         commercialModel: intake.commercialModel,
       });
     }
+  };
+
+  const handleFormSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (intakeStep < 3) {
+      if (!canContinue) return;
+      setIntakeStep((current) => current + 1);
+      trackPilotEvent("value_proof_intake_step_completed", {
+        step: intakeStep,
+      });
+      return;
+    }
+
+    if (canContinue) void handleSubmit();
   };
 
   const handleGenerateOnboarding = async () => {
@@ -311,7 +424,8 @@ export function FirstCustomerPilotPage() {
 
   return (
     <main className="min-h-screen bg-[#0B0F14] text-[#E6EDF3] gradient-mesh">
-      <section className="mx-auto grid min-h-screen max-w-7xl gap-8 px-6 py-8 lg:grid-cols-[minmax(0,0.9fr)_minmax(460px,0.7fr)] lg:items-center">
+      <PublicProductHeader active="proof" />
+      <section className="mx-auto grid min-h-[calc(100vh-4rem)] max-w-7xl gap-8 px-4 py-8 sm:px-6 lg:grid-cols-[minmax(0,0.9fr)_minmax(460px,0.7fr)] lg:items-center">
         <div>
           <div className="inline-flex items-center gap-2 rounded-lg border border-teal-500/20 bg-teal-500/10 px-3 py-1 text-xs font-semibold text-teal-300">
             <Wrench size={14} />
@@ -326,7 +440,24 @@ export function FirstCustomerPilotPage() {
             address first, what action to take, and whether that action created
             measurable value.
           </p>
-          <div className="mt-7 grid gap-3 sm:grid-cols-3">
+          <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+            <button
+              type="button"
+              onClick={scrollToIntake}
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-teal-400 px-5 py-3 text-sm font-semibold text-slate-950 shadow-lg shadow-teal-950/20 transition-colors hover:bg-teal-300"
+            >
+              Scope my value proof
+              <ArrowRight size={16} />
+            </button>
+            <a
+              href="/demo/copilot#syncai-chat"
+              className="inline-flex items-center justify-center gap-2 rounded-lg border border-white/[0.1] px-5 py-3 text-sm font-semibold text-slate-200 transition-colors hover:bg-white/[0.05]"
+            >
+              <MessageSquare size={16} />
+              Try the live copilot
+            </a>
+          </div>
+          <div className="mt-7 hidden grid-cols-3 gap-3 sm:grid">
             <Metric icon={Gauge} label="First proof" value="48 hours" />
             <Metric icon={BarChart3} label="Secure pilot" value="10 days" />
             <Metric
@@ -335,29 +466,50 @@ export function FirstCustomerPilotPage() {
               value="Governed decisions"
             />
           </div>
-          <div className="mt-8 grid gap-3 sm:grid-cols-2">
-            {roleOutcomes.map((item) => (
-              <div
-                key={item}
-                className="flex gap-3 rounded-lg border border-white/[0.06] bg-white/[0.03] p-4 text-sm text-slate-300"
+          <div className="mt-8 hidden grid-cols-2 gap-3 sm:grid">
+            {roleOutcomes.map((outcome) => (
+              <button
+                type="button"
+                key={outcome.label}
+                onClick={() => chooseRoleOutcome(outcome)}
+                className={`group flex min-w-0 items-start gap-2 rounded-lg border p-3 text-left transition-colors sm:gap-3 sm:p-4 ${
+                  intake.role === outcome.role
+                    ? "border-teal-300/35 bg-teal-300/[0.08]"
+                    : "border-white/[0.06] bg-white/[0.03] hover:border-teal-300/25 hover:bg-white/[0.05]"
+                }`}
               >
                 <Sparkles size={17} className="mt-0.5 shrink-0 text-teal-300" />
-                {item}
-              </div>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-semibold text-slate-100">
+                    {outcome.label}
+                  </span>
+                  <span className="mt-1 block text-xs leading-[1.45] text-slate-400">
+                    {outcome.outcome}
+                  </span>
+                </span>
+                <ArrowRight
+                  size={15}
+                  className="mt-0.5 shrink-0 text-slate-600 transition-colors group-hover:text-teal-300"
+                />
+              </button>
             ))}
           </div>
         </div>
 
         <section
-          aria-labelledby="value-proof-intake"
-          className="rounded-2xl border border-white/[0.08] bg-[#080C11] p-5 shadow-2xl shadow-black/30"
+          id="value-proof-intake"
+          aria-labelledby="value-proof-intake-title"
+          className="scroll-mt-20 rounded-2xl border border-white/[0.08] bg-[#080C11] p-5 shadow-2xl shadow-black/30"
         >
           {submitted ? (
             <div className="flex min-h-[620px] flex-col justify-center">
               <div className="inline-flex h-12 w-12 items-center justify-center rounded-lg bg-teal-500/15 text-teal-300">
                 <CheckCircle2 size={24} />
               </div>
-              <h2 id="value-proof-intake" className="mt-5 text-2xl font-bold">
+              <h2
+                id="value-proof-intake-title"
+                className="mt-5 text-2xl font-bold"
+              >
                 Request captured.
               </h2>
               <p className="mt-3 text-sm leading-[1.6] text-slate-300">
@@ -427,136 +579,214 @@ export function FirstCustomerPilotPage() {
               )}
               <div className="mt-6 flex flex-wrap gap-3">
                 <a
-                  href={mailtoHref}
-                  className="inline-flex items-center gap-2 rounded-lg bg-teal-500 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-teal-400"
+                  href={copilotHref}
+                  className="inline-flex items-center gap-2 rounded-lg bg-teal-400 px-5 py-3 text-sm font-semibold text-slate-950 transition-colors hover:bg-teal-300"
                 >
-                  <Mail size={16} />
-                  Send intake by email
+                  <MessageSquare size={16} />
+                  Open personalized copilot
+                  <ArrowUpRight size={15} />
                 </a>
                 <a
-                  href="/demo/copilot"
+                  href={mailtoHref}
                   className="inline-flex items-center gap-2 rounded-lg border border-white/[0.08] px-5 py-3 text-sm font-semibold text-slate-200 transition-colors hover:bg-white/[0.05]"
                 >
-                  Return to live demo
+                  <Mail size={16} />
+                  Email a copy
                 </a>
               </div>
             </div>
           ) : (
-            <form onSubmit={handleSubmit}>
-              <div className="flex items-center gap-2 text-sm font-semibold text-teal-300">
-                <ClipboardCheck size={17} />
-                48-hour value proof intake
+            <form onSubmit={handleFormSubmit}>
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <div className="flex items-center gap-2 text-sm font-semibold text-teal-300">
+                    <ClipboardCheck size={17} />
+                    48-hour value proof intake
+                  </div>
+                  <h2
+                    id="value-proof-intake-title"
+                    className="mt-2 text-2xl font-bold"
+                  >
+                    Start with one decision worth proving.
+                  </h2>
+                </div>
+                <span className="hidden shrink-0 rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-xs font-semibold text-slate-400 sm:block">
+                  About 2 minutes
+                </span>
               </div>
-              <h2 id="value-proof-intake" className="mt-2 text-2xl font-bold">
-                Start with one decision worth proving.
-              </h2>
               <p className="mt-2 text-sm leading-[1.6] text-slate-400">
-                Use sanitized, non-sensitive context here. Company-sensitive
-                data belongs in the secure workspace after scope and access are
-                confirmed.
+                No upload is required here. Company-sensitive data only enters a
+                secure workspace after scope and access are confirmed.
               </p>
 
-              <div className="mt-5 grid gap-3 sm:grid-cols-2">
-                <TextField
-                  label="Name"
-                  value={intake.name}
-                  required
-                  onChange={(value) => updateField("name", value)}
-                />
-                <TextField
-                  label="Work email"
-                  type="email"
-                  value={intake.email}
-                  required
-                  onChange={(value) => updateField("email", value)}
-                />
-                <TextField
-                  label="Company"
-                  value={intake.company}
-                  required
-                  onChange={(value) => updateField("company", value)}
-                />
-                <SelectField
-                  label="Role"
-                  value={intake.role}
-                  placeholder="Select role"
-                  options={roleOptions}
-                  onChange={(value) => updateField("role", value)}
-                />
-                <SelectField
-                  label="Industry"
-                  value={intake.industry}
-                  placeholder="Select industry"
-                  options={industryOptions}
-                  onChange={(value) => updateField("industry", value)}
-                />
-                <SelectField
-                  label="CMMS / EAM"
-                  value={intake.systemOfRecord}
-                  placeholder="Select system"
-                  options={systemOptions}
-                  onChange={(value) => updateField("systemOfRecord", value)}
-                />
+              <div
+                className="mt-5 grid grid-cols-3 gap-2"
+                aria-label={`Intake step ${intakeStep} of 3`}
+              >
+                {["Decision", "Data", "Contact"].map((label, index) => {
+                  const step = index + 1;
+                  const isCurrent = intakeStep === step;
+                  const isComplete = intakeStep > step;
+
+                  return (
+                    <div key={label} className="min-w-0">
+                      <div
+                        className={`h-1 rounded-full ${
+                          isCurrent || isComplete
+                            ? "bg-teal-300"
+                            : "bg-white/[0.08]"
+                        }`}
+                      />
+                      <div
+                        className={`mt-2 text-xs font-semibold ${
+                          isCurrent ? "text-slate-100" : "text-slate-500"
+                        }`}
+                      >
+                        {step}. {label}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
 
-              <div className="mt-3 grid gap-3">
-                <TextField
-                  label="Asset or system in scope"
-                  value={intake.assetScope}
-                  required
-                  onChange={(value) => updateField("assetScope", value)}
-                />
-                <SelectField
-                  label="Work-order history available"
-                  value={intake.historyAvailable}
-                  placeholder="Select data history"
-                  options={historyOptions}
-                  onChange={(value) => updateField("historyAvailable", value)}
-                />
-                <SelectField
-                  label="Primary reliability pain"
-                  value={intake.primaryPain}
-                  placeholder="Select primary pain"
-                  required
-                  options={painOptions}
-                  onChange={(value) => updateField("primaryPain", value)}
-                />
-              </div>
+              <div className="min-h-[350px]">
+                {intakeStep === 1 && (
+                  <div className="mt-6 grid gap-3 sm:grid-cols-2">
+                    <SelectField
+                      label="Your role"
+                      value={intake.role}
+                      placeholder="Select role"
+                      required
+                      options={roleOptions}
+                      onChange={(value) => updateField("role", value)}
+                    />
+                    <SelectField
+                      label="Industry"
+                      value={intake.industry}
+                      placeholder="Select industry"
+                      required
+                      options={industryOptions}
+                      onChange={(value) => updateField("industry", value)}
+                    />
+                    <div className="sm:col-span-2">
+                      <TextField
+                        label="Asset, system, line, or failure pattern"
+                        value={intake.assetScope}
+                        required
+                        placeholder="e.g. P-101 pump train or chronic seal failures"
+                        onChange={(value) => updateField("assetScope", value)}
+                      />
+                    </div>
+                    <div className="sm:col-span-2">
+                      <SelectField
+                        label="Decision you need to improve"
+                        value={intake.primaryPain}
+                        placeholder="Select the primary challenge"
+                        required
+                        options={painOptions}
+                        onChange={(value) => updateField("primaryPain", value)}
+                      />
+                    </div>
+                  </div>
+                )}
 
-              <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                <SelectField
-                  label="Data readiness"
-                  value={intake.dataReadiness}
-                  options={[
-                    "Sanitized export can be shared",
-                    "Need help shaping export",
-                    "Secure workspace required first",
-                  ]}
-                  onChange={(value) => updateField("dataReadiness", value)}
-                />
-                <SelectField
-                  label="Security / NDA"
-                  value={intake.securityNeed}
-                  options={[
-                    "NDA not required for first proof",
-                    "NDA preferred before data share",
-                    "Security review required",
-                  ]}
-                  onChange={(value) => updateField("securityNeed", value)}
-                />
-                <SelectField
-                  label="Preferred buying path"
-                  value={intake.commercialModel}
-                  options={commercialOptions}
-                  onChange={(value) => updateField("commercialModel", value)}
-                />
-              </div>
+                {intakeStep === 2 && (
+                  <div className="mt-6 grid gap-3 sm:grid-cols-2">
+                    <SelectField
+                      label="CMMS / EAM"
+                      value={intake.systemOfRecord}
+                      placeholder="Select system"
+                      required
+                      options={systemOptions}
+                      onChange={(value) => updateField("systemOfRecord", value)}
+                    />
+                    <SelectField
+                      label="Work-order history available"
+                      value={intake.historyAvailable}
+                      placeholder="Select data history"
+                      required
+                      options={historyOptions}
+                      onChange={(value) =>
+                        updateField("historyAvailable", value)
+                      }
+                    />
+                    <SelectField
+                      label="Data readiness"
+                      value={intake.dataReadiness}
+                      options={[
+                        "Sanitized export can be shared",
+                        "Need help shaping export",
+                        "Secure workspace required first",
+                      ]}
+                      onChange={(value) => updateField("dataReadiness", value)}
+                    />
+                    <SelectField
+                      label="Security / NDA"
+                      value={intake.securityNeed}
+                      options={[
+                        "NDA not required for first proof",
+                        "NDA preferred before data share",
+                        "Security review required",
+                      ]}
+                      onChange={(value) => updateField("securityNeed", value)}
+                    />
+                    <div className="sm:col-span-2">
+                      <SelectField
+                        label="Preferred path after value is proven"
+                        value={intake.commercialModel}
+                        options={commercialOptions}
+                        onChange={(value) =>
+                          updateField("commercialModel", value)
+                        }
+                      />
+                    </div>
+                  </div>
+                )}
 
-              <TextArea
-                label="Anything SyncAI should know?"
-                value={intake.notes}
-                onChange={(value) => updateField("notes", value)}
-              />
+                {intakeStep === 3 && (
+                  <div className="mt-6">
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <TextField
+                        label="Name"
+                        value={intake.name}
+                        required
+                        onChange={(value) => updateField("name", value)}
+                      />
+                      <TextField
+                        label="Work email"
+                        type="email"
+                        value={intake.email}
+                        required
+                        onChange={(value) => updateField("email", value)}
+                      />
+                      <div className="sm:col-span-2">
+                        <TextField
+                          label="Company"
+                          value={intake.company}
+                          required
+                          onChange={(value) => updateField("company", value)}
+                        />
+                      </div>
+                    </div>
+                    <TextArea
+                      label="Anything we should know? (optional)"
+                      value={intake.notes}
+                      onChange={(value) => updateField("notes", value)}
+                    />
+                    <div className="mt-4 flex items-start gap-3 rounded-lg border border-teal-300/15 bg-teal-300/[0.06] p-3">
+                      <LockKeyhole
+                        size={16}
+                        className="mt-0.5 shrink-0 text-teal-300"
+                      />
+                      <p className="text-xs leading-[1.5] text-slate-400">
+                        You are requesting a scope review, not purchasing a
+                        subscription. We will confirm the proof boundary before
+                        any customer data is shared.
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
 
               {submitStatus === "error" && (
                 <div className="mt-4 rounded-lg border border-amber-300/20 bg-amber-300/[0.08] p-3 text-sm leading-[1.6] text-amber-100">
@@ -568,22 +798,39 @@ export function FirstCustomerPilotPage() {
                 </div>
               )}
 
-              <button
-                type="submit"
-                disabled={submitStatus === "submitting"}
-                className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-teal-500 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-teal-400"
-              >
-                {submitStatus === "submitting"
-                  ? "Submitting value proof request..."
-                  : "Request 48-hour value proof"}
-                <ArrowRight size={16} />
-              </button>
+              <div className="mt-5 flex items-center gap-3">
+                {intakeStep > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => setIntakeStep((current) => current - 1)}
+                    className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-white/[0.09] px-4 text-sm font-semibold text-slate-300 transition-colors hover:bg-white/[0.05]"
+                  >
+                    <ArrowLeft size={16} />
+                    Back
+                  </button>
+                )}
+                <button
+                  type="submit"
+                  disabled={!canContinue || submitStatus === "submitting"}
+                  className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-lg bg-teal-400 px-5 text-sm font-semibold text-slate-950 shadow-lg shadow-teal-950/20 transition-colors hover:bg-teal-300 disabled:cursor-not-allowed disabled:opacity-45"
+                >
+                  {submitStatus === "submitting"
+                    ? "Submitting request..."
+                    : intakeStep === 3
+                      ? "Request 48-hour value proof"
+                      : "Continue"}
+                  <ArrowRight size={16} />
+                </button>
+              </div>
             </form>
           )}
         </section>
       </section>
 
-      <section className="border-y border-white/[0.06] bg-black/20 px-6 py-12">
+      <section
+        id="proof-deliverables"
+        className="scroll-mt-20 border-y border-white/[0.06] bg-black/20 px-4 py-14 sm:px-6"
+      >
         <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[1fr_0.9fr]">
           <div>
             <div className="flex items-center gap-2 text-sm font-semibold text-teal-300">
@@ -608,34 +855,101 @@ export function FirstCustomerPilotPage() {
               ))}
             </div>
           </div>
-          <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-5">
-            <div className="flex items-center gap-2 text-sm font-semibold text-amber-200">
-              <ShieldCheck size={17} />
-              Trust and engineering boundary
-            </div>
-            <p className="mt-3 text-sm leading-[1.6] text-amber-50">
-              SyncAI starts with sanitized, non-sensitive data for the 48-hour
-              proof. Safety, environmental, regulatory, OEM-limit,
-              operating-envelope, and production-critical decisions remain with
-              qualified customer approvers.
-            </p>
-            <div className="mt-5 flex items-center gap-2 text-sm font-semibold text-[#E6EDF3]">
-              <FileText size={17} className="text-teal-300" />
-              Best fit
-            </div>
-            <div className="mt-3 space-y-2">
-              {fitSignals.map((item) => (
-                <div key={item} className="flex gap-2 text-sm text-slate-300">
-                  <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-teal-300" />
-                  {item}
+          <div className="space-y-4">
+            <div className="overflow-hidden rounded-xl border border-teal-300/20 bg-[#080C11] shadow-2xl shadow-black/30">
+              <div className="flex items-center justify-between border-b border-white/[0.07] px-5 py-4">
+                <div>
+                  <div className="text-xs font-semibold text-teal-300">
+                    Sample decision packet
+                  </div>
+                  <div className="mt-1 text-base font-bold text-slate-100">
+                    P-101 chronic seal failures
+                  </div>
                 </div>
-              ))}
+                <span className="rounded-lg border border-amber-300/20 bg-amber-300/10 px-2.5 py-1 text-xs font-semibold text-amber-100">
+                  High priority
+                </span>
+              </div>
+              <div className="grid grid-cols-2 border-b border-white/[0.07]">
+                <div className="border-r border-white/[0.07] p-5">
+                  <div className="text-xs text-slate-500">Value exposure</div>
+                  <div className="mt-1 text-2xl font-bold text-slate-100">
+                    CAD 187k
+                  </div>
+                  <div className="mt-1 text-xs text-slate-500">
+                    90-day hypothesis
+                  </div>
+                </div>
+                <div className="p-5">
+                  <div className="text-xs text-slate-500">Confidence</div>
+                  <div className="mt-1 text-2xl font-bold text-slate-100">
+                    Medium
+                  </div>
+                  <div className="mt-1 text-xs text-slate-500">
+                    2 evidence gaps
+                  </div>
+                </div>
+              </div>
+              <div className="space-y-4 p-5">
+                <div className="flex items-start gap-3">
+                  <Target size={17} className="mt-0.5 shrink-0 text-teal-300" />
+                  <div>
+                    <div className="text-xs font-semibold text-slate-500">
+                      Recommended next action
+                    </div>
+                    <p className="mt-1 text-sm leading-[1.55] text-slate-200">
+                      Validate solids ingress and startup conditions before
+                      changing the seal strategy.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <TrendingUp
+                    size={17}
+                    className="mt-0.5 shrink-0 text-sky-300"
+                  />
+                  <div>
+                    <div className="text-xs font-semibold text-slate-500">
+                      Value verification
+                    </div>
+                    <p className="mt-1 text-sm leading-[1.55] text-slate-200">
+                      Track avoided downtime, repeat failures, and action cost
+                      for 90 days after approval.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-5">
+              <div className="flex items-center gap-2 text-sm font-semibold text-amber-200">
+                <ShieldCheck size={17} />
+                Trust and engineering boundary
+              </div>
+              <p className="mt-3 text-sm leading-[1.6] text-amber-50">
+                SyncAI starts with sanitized, non-sensitive data for the 48-hour
+                proof. Safety, environmental, regulatory, OEM-limit,
+                operating-envelope, and production-critical decisions remain
+                with qualified customer approvers.
+              </p>
+              <div className="mt-5 flex items-center gap-2 text-sm font-semibold text-[#E6EDF3]">
+                <FileText size={17} className="text-teal-300" />
+                Best fit
+              </div>
+              <div className="mt-3 space-y-2">
+                {fitSignals.map((item) => (
+                  <div key={item} className="flex gap-2 text-sm text-slate-300">
+                    <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-teal-300" />
+                    {item}
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </div>
       </section>
 
-      <section id="onboarding" className="px-6 py-12">
+      <section id="onboarding" className="scroll-mt-20 px-4 py-14 sm:px-6">
         <div className="mx-auto max-w-7xl">
           <div className="grid gap-8 lg:grid-cols-[0.9fr_1fr] lg:items-start">
             <div>
@@ -685,18 +999,26 @@ export function FirstCustomerPilotPage() {
               </div>
               <div className="mt-6 grid gap-3 sm:grid-cols-2">
                 {proofSteps.map((step) => (
-                  <div
+                  <button
+                    type="button"
                     key={step.label}
-                    className="rounded-xl border border-white/[0.06] bg-white/[0.03] p-5"
+                    onClick={() => chooseJourneyStep(step)}
+                    className="group rounded-xl border border-white/[0.06] bg-white/[0.03] p-5 text-left transition-colors hover:border-teal-300/25 hover:bg-white/[0.05]"
                   >
-                    <div className="text-xs font-semibold uppercase text-teal-300">
-                      {step.label}
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="text-xs font-semibold uppercase text-teal-300">
+                        {step.label}
+                      </div>
+                      <ArrowRight
+                        size={15}
+                        className="text-slate-600 transition-colors group-hover:text-teal-300"
+                      />
                     </div>
                     <div className="mt-3 text-lg font-bold">{step.title}</div>
                     <p className="mt-2 text-sm leading-[1.6] text-slate-400">
                       {step.detail}
                     </p>
-                  </div>
+                  </button>
                 ))}
               </div>
               <a
@@ -818,12 +1140,14 @@ function Metric({
   value: string;
 }) {
   return (
-    <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] p-5">
-      <Icon size={18} className="text-teal-300" />
-      <div className="mt-4 text-xs font-semibold uppercase text-slate-500">
+    <div className="min-w-0 rounded-xl border border-white/[0.06] bg-white/[0.03] p-3 sm:p-5">
+      <Icon size={17} className="text-teal-300" />
+      <div className="mt-3 text-[10px] font-semibold uppercase text-slate-500 sm:mt-4 sm:text-xs">
         {label}
       </div>
-      <div className="mt-1 text-2xl font-bold">{value}</div>
+      <div className="mt-1 break-words text-sm font-bold leading-[1.35] sm:text-2xl">
+        {value}
+      </div>
     </div>
   );
 }

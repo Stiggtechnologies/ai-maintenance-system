@@ -192,6 +192,16 @@ function downloadTextFile(
   URL.revokeObjectURL(url);
 }
 
+function scrollToWorkspaceElement(
+  id: string,
+  block: ScrollLogicalPosition = "start",
+) {
+  document.getElementById(id)?.scrollIntoView?.({
+    behavior: "smooth",
+    block,
+  });
+}
+
 const initialInputs = {
   operatingHours: "10000",
   failures: "20",
@@ -202,6 +212,26 @@ const initialInputs = {
 
 const initialPrompt =
   "Analyze chronic pump seal failures from the last 12 months and create a defensible RCA starter pack.";
+
+function getJourneyPrompt(): string {
+  if (typeof window === "undefined") return initialPrompt;
+
+  const params = new URLSearchParams(window.location.search);
+  const asset = params.get("asset")?.trim();
+  const pain = params.get("pain")?.trim();
+  const role = params.get("role")?.trim();
+
+  if (!asset && !pain && !role) return initialPrompt;
+
+  return [
+    `Analyze ${asset || "this reliability opportunity"}.`,
+    pain ? `Focus on: ${pain}.` : "",
+    role ? `Prepare the decision for the ${role} role.` : "",
+    "Rank where the next dollar should go, identify the first risk, recommend the governed action, and define how value will be verified.",
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
 
 const sampleDecisionPrompt =
   "Run the sample decision packet: rank the next reliability dollar, identify the first risk to address, recommend the governed action, and define how value will be verified.";
@@ -247,6 +277,8 @@ const valueDecisionCards = [
     title: "Where should we spend next?",
     detail: "Rank assets, sites, and failure modes by risk-adjusted value.",
     metric: "Next CAD",
+    prompt:
+      "Rank the next reliability dollar across the sample assets using risk-adjusted value, then explain the evidence and approval boundary.",
     icon: BarChart3,
   },
   {
@@ -254,6 +286,8 @@ const valueDecisionCards = [
     detail:
       "Balance safety, availability, production, environmental, and cost exposure.",
     metric: "Priority risk",
+    prompt:
+      "Prioritize the first reliability risk to address using safety, production, environmental, availability, and cost exposure.",
     icon: AlertTriangle,
   },
   {
@@ -261,6 +295,8 @@ const valueDecisionCards = [
     detail:
       "Choose inspection, redesign, PM change, spares, operating change, or escalation.",
     metric: "Governed action",
+    prompt:
+      "Recommend the smallest governed action that will reduce or validate the top reliability risk, including owner and approval gate.",
     icon: Wrench,
   },
   {
@@ -268,6 +304,8 @@ const valueDecisionCards = [
     detail:
       "Track estimated, approved, and verified realized value after execution.",
     metric: "Value proof",
+    prompt:
+      "Build a value verification plan for the recommended action, separating estimated, approved, and verified realized value.",
     icon: CheckCircle2,
   },
 ];
@@ -382,12 +420,13 @@ export function ReliabilityCopilotPage() {
   const [activeWorkspace, setActiveWorkspace] =
     useState<WorkspaceView>("analysis");
   const [mode, setMode] = useState<CopilotMode>("RCA");
-  const [prompt, setPrompt] = useState(initialPrompt);
+  const [journeyPrompt] = useState(() => getJourneyPrompt());
+  const [prompt, setPrompt] = useState(journeyPrompt);
   const [csvText, setCsvText] = useState(SAMPLE_FAILURE_HISTORY_CSV);
   const [report, setReport] = useState<ReliabilityReport>(() =>
     generateReliabilityReport({
       mode: "RCA",
-      prompt: initialPrompt,
+      prompt: journeyPrompt,
       csvText: SAMPLE_FAILURE_HISTORY_CSV,
       inputs: {
         operatingHours: asNumber(initialInputs.operatingHours),
@@ -470,6 +509,8 @@ export function ReliabilityCopilotPage() {
   );
   const freeTrialPercentRemaining = Math.max(0, 100 - freeTrialPercentUsed);
   const freeTrialIsExhausted = freeTrialRemaining <= 0;
+  const customerAgentStatus =
+    liveAgent.status === "disabled" ? "ready" : liveAgent.status;
   const currentOnboardingStep = useMemo(
     () => getCurrentOnboardingStep(onboardingSession),
     [onboardingSession],
@@ -657,7 +698,7 @@ export function ReliabilityCopilotPage() {
     const activeMode = options.modeOverride ?? mode;
     const activeCsvText = options.csvTextOverride ?? csvText;
     const submittedPrompt =
-      options.promptOverride?.trim() || prompt.trim() || initialPrompt;
+      options.promptOverride?.trim() || prompt.trim() || journeyPrompt;
     const estimatedCost = estimateDecisionPacketCost({
       mode: activeMode,
       prompt: submittedPrompt,
@@ -779,6 +820,9 @@ export function ReliabilityCopilotPage() {
       decisionPackets: nextFreeTrialUsage.decisionPackets,
       tokensUsed: nextFreeTrialUsage.tokensUsed,
     });
+    window.requestAnimationFrame(() => {
+      scrollToWorkspaceElement("decision-thread");
+    });
   };
 
   const runSampleDecisionPacket = () => {
@@ -788,6 +832,17 @@ export function ReliabilityCopilotPage() {
     void generateReport({
       promptOverride: sampleDecisionPrompt,
       modeOverride: "Executive Brief",
+    });
+  };
+
+  const selectDecisionQuestion = (
+    card: (typeof valueDecisionCards)[number],
+  ) => {
+    setActiveWorkspace("analysis");
+    setPrompt(card.prompt);
+    trackTrialEvent("decision_question_selected", { question: card.metric });
+    window.requestAnimationFrame(() => {
+      scrollToWorkspaceElement("syncai-chat", "center");
     });
   };
 
@@ -889,7 +944,7 @@ export function ReliabilityCopilotPage() {
   };
 
   return (
-    <div className="mx-auto max-w-[1440px] space-y-4 pb-60">
+    <div className="mx-auto max-w-[1440px] space-y-4 pb-16">
       <section className="relative overflow-hidden rounded-2xl border border-white/[0.08] bg-[linear-gradient(135deg,rgba(13,19,26,0.98),rgba(8,12,17,0.99))] p-4 shadow-xl shadow-black/20 md:p-6">
         <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-teal-300/50 to-transparent" />
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_430px]">
@@ -898,7 +953,7 @@ export function ReliabilityCopilotPage() {
               <Bot size={14} />
               Industrial value decision intelligence
             </div>
-            <h1 className="mt-4 max-w-4xl text-3xl font-semibold tracking-tight text-[#F8FAFC] md:text-5xl">
+            <h1 className="mt-4 max-w-4xl text-3xl font-semibold text-[#F8FAFC] md:text-5xl">
               Know where the next reliability dollar should go.
             </h1>
             <p className="mt-4 max-w-3xl text-base leading-[1.65] text-slate-300">
@@ -925,13 +980,62 @@ export function ReliabilityCopilotPage() {
                 Run sample decision packet
               </button>
               <a
-                href="/pilot/reliability"
+                href="/setup"
                 onClick={() => trackTrialEvent("secure_workspace_clicked")}
                 className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/[0.1] px-5 py-3 text-sm font-semibold text-slate-200 transition-colors hover:bg-white/[0.05]"
               >
                 <ShieldCheck size={16} />
                 Start 48-hour value proof
               </a>
+            </div>
+
+            <div
+              id="syncai-chat"
+              className="mt-6 scroll-mt-24 border-y border-white/[0.08] py-4"
+            >
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2 text-xs font-semibold text-teal-300">
+                  <MessageSquare size={14} />
+                  Ask SyncAI
+                </div>
+                <span className="text-xs text-slate-500">
+                  {freeTrialPercentRemaining}% complimentary capacity
+                </span>
+              </div>
+              <textarea
+                value={prompt}
+                onChange={(event) => setPrompt(event.target.value)}
+                onKeyDown={(event) => {
+                  if (
+                    event.key === "Enter" &&
+                    (event.metaKey || event.ctrlKey)
+                  ) {
+                    event.preventDefault();
+                    void generateReport();
+                  }
+                }}
+                className="min-h-24 w-full resize-none rounded-lg border border-white/[0.1] bg-black/30 p-3 text-sm leading-[1.6] text-[#E6EDF3] outline-none transition-colors placeholder:text-slate-500 focus:border-teal-400/70 focus:ring-4 focus:ring-teal-400/10"
+                placeholder="Describe the asset, failure pattern, risk, or decision you need to make..."
+                aria-label="SyncAI chat input"
+              />
+              <div className="mt-2 flex items-center justify-between gap-3">
+                <span className="hidden text-xs text-slate-500 sm:block">
+                  Examples and non-sensitive context only
+                </span>
+                <button
+                  type="button"
+                  onClick={() => void generateReport()}
+                  disabled={!!calculation.error || isRunningLiveAgent}
+                  className="ml-auto inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-teal-400 px-5 text-sm font-semibold text-slate-950 transition-colors hover:bg-teal-300 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isRunningLiveAgent ? (
+                    <RefreshCw size={16} />
+                  ) : (
+                    <Send size={16} />
+                  )}
+                  {isRunningLiveAgent ? "Working" : "Build decision packet"}
+                </button>
+              </div>
             </div>
           </div>
 
@@ -977,7 +1081,7 @@ export function ReliabilityCopilotPage() {
             return (
               <button
                 key={card.title}
-                onClick={() => setActiveWorkspace("analysis")}
+                onClick={() => selectDecisionQuestion(card)}
                 className="rounded-2xl border border-white/[0.07] bg-white/[0.035] p-4 text-left transition-colors hover:border-teal-300/25 hover:bg-teal-300/[0.06]"
               >
                 <div className="flex items-start justify-between gap-3">
@@ -1509,8 +1613,11 @@ export function ReliabilityCopilotPage() {
 
               <ProofHandoffPanel />
 
-              <div className="grid min-h-[620px] gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
-                <div className="flex min-h-[620px] flex-col rounded-2xl border border-white/[0.08] bg-[#080C11] shadow-xl shadow-black/20">
+              <div className="grid min-h-[620px] min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
+                <div
+                  id="decision-thread"
+                  className="scroll-mt-24 flex min-h-[620px] min-w-0 flex-col rounded-2xl border border-white/[0.08] bg-[#080C11] shadow-xl shadow-black/20"
+                >
                   <div className="order-1 border-b border-white/[0.06] p-4">
                     <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                       <div>
@@ -1531,7 +1638,7 @@ export function ReliabilityCopilotPage() {
                         />
                         <CompactMetric
                           label="Status"
-                          value={liveAgent.status}
+                          value={customerAgentStatus}
                         />
                       </div>
                     </div>
@@ -1624,7 +1731,7 @@ export function ReliabilityCopilotPage() {
                   </div>
                 </div>
 
-                <div className="space-y-4">
+                <div className="min-w-0 space-y-4">
                   <div className="rounded-2xl border border-white/[0.08] bg-[#080C11] p-4 shadow-xl shadow-black/20">
                     <div className="flex items-center gap-2 text-sm font-semibold text-[#F8FAFC]">
                       <Bot size={17} className="text-teal-300" />
@@ -1892,11 +1999,11 @@ export function ReliabilityCopilotPage() {
                 <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
                   <div className="flex items-center gap-2 text-sm font-semibold text-[#E6EDF3]">
                     <Bot size={17} className="text-teal-300" />
-                    Live AI Reliability Review
+                    Reliability review
                   </div>
                   <div className="flex flex-wrap gap-2 text-xs">
                     <span className="rounded-lg bg-black/20 px-2 py-1 text-slate-200">
-                      Status: {liveAgent.status}
+                      Status: {customerAgentStatus}
                     </span>
                     {liveAgent.provider && (
                       <span className="rounded-lg bg-black/20 px-2 py-1 text-slate-200">
@@ -1911,11 +2018,14 @@ export function ReliabilityCopilotPage() {
                   </div>
                 </div>
                 <p className="mt-3 whitespace-pre-wrap text-sm leading-[1.6] text-slate-200">
-                  {liveAgent.response}
+                  {liveAgent.status === "disabled"
+                    ? "The deterministic decision engine is ready. Build a packet to calculate RAM metrics, rank risk, assemble the evidence trail, and apply approval gates."
+                    : liveAgent.response}
                 </p>
                 {liveAgent.error && (
                   <p className="mt-3 rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
-                    Live endpoint note: {liveAgent.error}
+                    The live model was unavailable, so the governed
+                    deterministic packet was preserved for review.
                   </p>
                 )}
               </div>
@@ -2190,7 +2300,7 @@ export function ReliabilityCopilotPage() {
 
       <details className="glass rounded-xl border border-white/[0.06] p-4">
         <summary className="cursor-pointer text-sm font-semibold text-[#E6EDF3]">
-          Product capabilities and go-to-market notes
+          Secure workspace capabilities
         </summary>
         <section className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
           {workflowCards.map((card) => {
@@ -2205,7 +2315,7 @@ export function ReliabilityCopilotPage() {
                     <Icon size={19} className="text-teal-300" />
                   </div>
                   <span className="rounded-lg bg-emerald-500/10 px-2 py-1 text-xs font-medium text-emerald-300">
-                    MVP
+                    Included
                   </span>
                 </div>
                 <h3 className="mt-4 text-sm font-semibold text-[#E6EDF3]">
@@ -2220,82 +2330,21 @@ export function ReliabilityCopilotPage() {
         <section className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
           <Signal
             icon={Wrench}
-            label="First sellable outcome"
+            label="First 48 hours"
             value="RCA + FRACAS starter pack from customer maintenance data"
           />
           <Signal
             icon={BarChart3}
-            label="Expansion motion"
+            label="Expand the value"
             value="Bad actors, PM optimization, executive reliability report"
           />
           <Signal
             icon={ShieldCheck}
-            label="Marketplace posture"
-            value="Private Teams app first, AppSource listing after pilot proof"
+            label="Enterprise deployment"
+            value="Tenant-isolated workspace with governed team access"
           />
         </section>
       </details>
-
-      {activeWorkspace === "analysis" && (
-        <div className="px-0">
-          <div className="mx-auto max-w-4xl rounded-2xl border border-white/[0.12] bg-[#080C11]/95 p-3 shadow-2xl shadow-black/50 backdrop-blur-xl">
-            <div className="mb-2 flex items-center justify-between gap-3 px-1">
-              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-teal-300">
-                <MessageSquare size={14} />
-                Ask SyncAI
-              </div>
-              <span className="hidden text-xs text-slate-500 sm:block">
-                Reliability cowork session · Cmd/Ctrl + Enter
-              </span>
-            </div>
-            <textarea
-              value={prompt}
-              onChange={(event) => setPrompt(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
-                  event.preventDefault();
-                  void generateReport();
-                }
-              }}
-              className="max-h-40 min-h-16 w-full resize-none rounded-xl border border-white/[0.08] bg-black/40 p-3 text-sm leading-[1.6] text-[#E6EDF3] outline-none transition-colors placeholder:text-slate-500 focus:border-teal-400/70 focus:ring-4 focus:ring-teal-400/10"
-              placeholder="Ask SyncAI to analyze failures, build RCA/FRACAS, optimize PMs, or /onboard pump P-101..."
-              aria-label="Floating SyncAI chat input"
-            />
-            <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
-              <div className="flex flex-wrap gap-2">
-                <button
-                  onClick={() =>
-                    setPrompt("/onboard used pump P-101 oil-sands deep")
-                  }
-                  className="inline-flex items-center gap-2 rounded-lg border border-white/[0.08] px-3 py-2 text-xs font-semibold text-slate-200 transition-colors hover:bg-white/[0.04]"
-                >
-                  <Sparkles size={14} />
-                  /onboard
-                </button>
-                <button
-                  onClick={exportReport}
-                  className="inline-flex items-center gap-2 rounded-lg border border-white/[0.08] px-3 py-2 text-xs font-semibold text-slate-200 transition-colors hover:bg-white/[0.04]"
-                >
-                  <Download size={14} />
-                  Export
-                </button>
-              </div>
-              <button
-                onClick={() => void generateReport()}
-                disabled={!!calculation.error || isRunningLiveAgent}
-                className="inline-flex items-center gap-2 rounded-xl bg-teal-400 px-5 py-2.5 text-sm font-semibold text-slate-950 shadow-lg shadow-teal-950/20 transition-colors hover:bg-teal-300 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {isRunningLiveAgent ? (
-                  <RefreshCw size={16} />
-                ) : (
-                  <Send size={16} />
-                )}
-                {isRunningLiveAgent ? "Working" : "Send"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -2324,16 +2373,15 @@ function FreeCapacityPanel({
         <div>
           <div className="flex items-center gap-2 text-sm font-semibold text-[#F8FAFC]">
             <Gauge size={17} className="text-teal-300" />
-            Free analysis capacity
+            Complimentary analysis capacity
           </div>
           <p className="mt-1 max-w-3xl text-sm leading-[1.6] text-slate-400">
-            Visitors can experience a complete risk-to-value packet before the
-            48-hour value proof gate. Capacity is metered behind the scenes by
-            estimated token use.
+            Experience complete risk-to-value decision packets with examples and
+            non-sensitive context before moving into a secure value proof.
           </p>
         </div>
         <a
-          href="/pilot/reliability"
+          href="/setup"
           onClick={() => trackTrialEvent("secure_workspace_clicked")}
           className="inline-flex items-center justify-center gap-2 rounded-xl bg-teal-400 px-4 py-2.5 text-sm font-semibold text-slate-950 transition-colors hover:bg-teal-300"
         >
@@ -2495,14 +2543,14 @@ function ProofHandoffPanel() {
       </div>
       <div className="flex flex-wrap gap-3 lg:justify-end">
         <a
-          href="/pilot/reliability"
+          href="/setup"
           className="inline-flex items-center justify-center gap-2 rounded-lg bg-teal-500 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-teal-400"
         >
           Start 48-hour value proof
           <ArrowRight size={16} />
         </a>
         <a
-          href="/pilot/reliability#onboarding"
+          href="/setup#onboarding"
           className="inline-flex items-center justify-center gap-2 rounded-lg border border-white/[0.08] px-5 py-3 text-sm font-semibold text-slate-200 transition-colors hover:bg-white/[0.05]"
         >
           Preview onboarding

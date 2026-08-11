@@ -6,6 +6,7 @@ const FREE_TRIAL_USAGE_STORAGE_KEY = "syncai.reliability.freeUsage.v1";
 
 describe("ReliabilityCopilotPage", () => {
   beforeEach(() => {
+    window.history.replaceState({}, "", "/demo/copilot");
     const storage = new Map<string, string>();
     Object.defineProperty(window, "localStorage", {
       configurable: true,
@@ -18,13 +19,34 @@ describe("ReliabilityCopilotPage", () => {
     });
   });
 
+  it("carries value-proof context into the copilot prompt", async () => {
+    window.history.replaceState(
+      {},
+      "",
+      "/demo/copilot?asset=P-101%20pump%20train&pain=Repeat%20failures&role=Executive%20sponsor",
+    );
+
+    render(<ReliabilityCopilotPage />);
+
+    await waitFor(() => {
+      const value = (
+        screen.getByLabelText("SyncAI chat input") as HTMLTextAreaElement
+      ).value;
+      expect(value).toContain("Analyze P-101 pump train");
+      expect(value).toContain(
+        "Prepare the decision for the Executive sponsor role",
+      );
+    });
+  });
+
   it("renders a generated reliability report on first load", () => {
     render(<ReliabilityCopilotPage />);
 
     expect(
       screen.getByText("Know where the next reliability dollar should go."),
     ).toBeTruthy();
-    expect(screen.getByText("Free analysis capacity")).toBeTruthy();
+    expect(screen.getByText("Complimentary analysis capacity")).toBeTruthy();
+    expect(screen.getByLabelText("SyncAI chat input")).toBeTruthy();
     expect(screen.getAllByText("RCA Report").length).toBeGreaterThan(0);
     expect(screen.getByText(/# RCA Reliability Analysis/)).toBeTruthy();
     expect(screen.getAllByText(/P-101/).length).toBeGreaterThan(0);
@@ -34,9 +56,8 @@ describe("ReliabilityCopilotPage", () => {
     expect(screen.getByText("Data Quality")).toBeTruthy();
     expect(screen.getByText("Guided Asset Onboarding")).toBeTruthy();
     expect(screen.getByText("Analyze a reliability problem")).toBeTruthy();
-    expect(
-      screen.getByText("Product capabilities and go-to-market notes"),
-    ).toBeTruthy();
+    expect(screen.getByText("Secure workspace capabilities")).toBeTruthy();
+    expect(screen.queryByText(/^disabled$/i)).toBeNull();
   });
 
   it("regenerates reports from pasted failure history", async () => {
@@ -54,7 +75,9 @@ describe("ReliabilityCopilotPage", () => {
     fireEvent.change(screen.getByLabelText("Failure history CSV"), {
       target: { value: csv },
     });
-    fireEvent.click(screen.getByRole("button", { name: /Generate Report/i }));
+    fireEvent.click(
+      screen.getByRole("button", { name: /Build decision packet/i }),
+    );
 
     await waitFor(() => {
       expect(screen.getByText("FRACAS Report")).toBeTruthy();
@@ -96,7 +119,9 @@ describe("ReliabilityCopilotPage", () => {
     );
     render(<ReliabilityCopilotPage />);
 
-    fireEvent.click(screen.getByRole("button", { name: /^Send$/i }));
+    fireEvent.click(
+      screen.getByRole("button", { name: /Build decision packet/i }),
+    );
 
     await waitFor(() => {
       expect(screen.getByText(/included free analysis capacity/i)).toBeTruthy();

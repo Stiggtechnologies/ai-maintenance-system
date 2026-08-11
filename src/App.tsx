@@ -64,6 +64,7 @@ import { useAuth } from "./components/AuthProvider";
 import { getRoleHome } from "./lib/roleNavigation";
 import { ReliabilityCopilotPage } from "./pages/ReliabilityCopilotPage";
 import { FirstCustomerPilotPage } from "./pages/FirstCustomerPilotPage";
+import { PublicProductHeader } from "./components/PublicProductHeader";
 
 type Page =
   | "demo"
@@ -75,6 +76,21 @@ type Page =
   | "security"
   | "privacy"
   | "terms";
+
+function PublicCopilotExperience() {
+  useEffect(() => {
+    document.title = "SyncAI | Reliability Decision Intelligence";
+  }, []);
+
+  return (
+    <main className="min-h-screen bg-[#0B0F14] text-[#E6EDF3] gradient-mesh">
+      <PublicProductHeader active="copilot" />
+      <div className="px-4 py-4 sm:px-6 sm:py-6">
+        <ReliabilityCopilotPage />
+      </div>
+    </main>
+  );
+}
 
 function App() {
   const [currentPage, setCurrentPage] = useState<Page>("demo");
@@ -139,21 +155,14 @@ function App() {
             path="/pilot/reliability"
             element={<FirstCustomerPilotPage />}
           />
-          <Route
-            path="/demo/copilot"
-            element={
-              <div className="min-h-screen bg-[#0B0F14] p-6 gradient-mesh">
-                <ReliabilityCopilotPage />
-              </div>
-            }
-          />
+          <Route path="/demo/copilot" element={<PublicCopilotExperience />} />
           <Route
             path="/*"
             element={
               <AnimatePresence mode="wait">
                 {currentPage === "demo" && !isAuthenticated && (
                   <motion.div key="demo" {...pageTransition}>
-                    <ReliabilityCopilotPage />
+                    <PublicCopilotExperience />
                   </motion.div>
                 )}
                 {currentPage === "signin" && (
