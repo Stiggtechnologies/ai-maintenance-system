@@ -16,6 +16,25 @@ const MODEL_CHAT = Deno.env.get("MODEL_CHAT") ?? "gpt-5.6-luna";
 const MODEL_STRUCTURED = Deno.env.get("MODEL_STRUCTURED") ?? "gpt-5.6-luna";
 const MODEL_SAFETY = "gpt-4o-mini";
 
+// Gateway tier aliases. A provider must be asked for a name IT recognises —
+// the same rule the chain already applies to models, now applied to the
+// gateway. Asking the gateway for "gpt-5.6-terra" is not merely redundant:
+// SyncAI's virtual key is scoped to `['stigg/agent','stigg/fast', ...]`, so a
+// concrete vendor name is REFUSED, fatal, and fails straight over to direct
+// OpenAI — the gateway would be configured, billed for, and never used.
+//
+// Deliverables are agent-class; chat and structured output are fast-class.
+const TIER_DELIVERABLE = Deno.env.get("TIER_DELIVERABLE") ?? "stigg/agent";
+const TIER_CHAT = Deno.env.get("TIER_CHAT") ?? "stigg/fast";
+const TIER_STRUCTURED = Deno.env.get("TIER_STRUCTURED") ?? "stigg/fast";
+
+/** The alias this gateway knows for a given direct-provider model. */
+function gatewayTierFor(directModel: string): string {
+  if (directModel === MODEL_DELIVERABLE) return TIER_DELIVERABLE;
+  if (directModel === MODEL_STRUCTURED) return TIER_STRUCTURED;
+  return TIER_CHAT;
+}
+
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY") ?? "";
 // Resilient provider chain — gateway-first when configured, direct OpenAI as
 // fallback. Deno-free and unit-tested by vitest against this exact file.
@@ -146,7 +165,7 @@ async function callLLM(
   const providers = buildProviderChain({
     gatewayUrl,
     gatewayKey: gatewayUrl ? (Deno.env.get("LLM_API_KEY") ?? OPENAI_API_KEY) : undefined,
-    gatewayModel: model,
+    gatewayModel: gatewayTierFor(model),
     openaiKey: OPENAI_API_KEY,
     openaiModel: model,
     openaiSafetyModel: MODEL_SAFETY,
