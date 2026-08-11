@@ -79,7 +79,7 @@ type Page =
 
 function PublicCopilotExperience() {
   useEffect(() => {
-    document.title = "SyncAI | Reliability Decision Intelligence";
+    document.title = "SyncAI | Governed Engineering Intelligence";
   }, []);
 
   return (

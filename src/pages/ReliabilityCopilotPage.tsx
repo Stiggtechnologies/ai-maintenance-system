@@ -60,6 +60,7 @@ import {
   runLiveReliabilityAgent,
   type LiveReliabilityAgentResult,
 } from "../services/reliabilityCopilotAgent";
+import { GovernedEngineeringLoop } from "../components/GovernedEngineeringLoop";
 
 const modes: CopilotMode[] = [
   "RCA",
@@ -262,14 +263,11 @@ type ValueProofInputs = {
 };
 
 const executiveSignals = [
-  { label: "Next dollar", value: "Ranked", detail: "risk-adjusted spend" },
-  {
-    label: "First risk",
-    value: "Prioritized",
-    detail: "safety, uptime, value",
-  },
-  { label: "Action", value: "Governed", detail: "approval-ready steps" },
-  { label: "Value", value: "Verified", detail: "estimated to realized" },
+  { label: "Evidence", value: "Grounded", detail: "source to asset" },
+  { label: "Analysis", value: "Deterministic", detail: "visible math" },
+  { label: "Authority", value: "Human", detail: "qualified approval" },
+  { label: "Action", value: "Controlled", detail: "work and change" },
+  { label: "Outcome", value: "Verified", detail: "measured to learned" },
 ];
 
 const valueDecisionCards = [
@@ -300,12 +298,12 @@ const valueDecisionCards = [
     icon: Wrench,
   },
   {
-    title: "Did it create value?",
+    title: "Did it create value, and what changes next?",
     detail:
-      "Track estimated, approved, and verified realized value after execution.",
-    metric: "Value proof",
+      "Verify realized outcomes and feed the evidence into the next decision.",
+    metric: "Verify + learn",
     prompt:
-      "Build a value verification plan for the recommended action, separating estimated, approved, and verified realized value.",
+      "Build a value verification and learning plan for the recommended action, separating estimated, approved, and realized value and defining what should update next.",
     icon: CheckCircle2,
   },
 ];
@@ -957,9 +955,10 @@ export function ReliabilityCopilotPage() {
               Know where the next reliability dollar should go.
             </h1>
             <p className="mt-4 max-w-3xl text-base leading-[1.65] text-slate-300">
-              SyncAI helps industrial teams decide which risk to address first,
-              what action should be taken, and whether that action actually
-              created value.
+              SyncAI connects approved engineering knowledge to asset state and
+              operational evidence, calculates deterministic options, preserves
+              human technical authority, controls the action, and verifies what
+              changed afterward.
             </p>
             <div className="mt-5 flex flex-wrap gap-2">
               {industryProfiles.map((profile) => (
@@ -1046,7 +1045,7 @@ export function ReliabilityCopilotPage() {
                   Decision packet preview
                 </div>
                 <div className="mt-1 text-lg font-semibold text-[#F8FAFC]">
-                  Risk-to-value recommendation
+                  Governed decision recommendation
                 </div>
               </div>
               <ShieldCheck size={22} className="text-teal-300" />
@@ -1103,7 +1102,7 @@ export function ReliabilityCopilotPage() {
           })}
         </div>
 
-        <div className="mt-5 grid gap-3 md:grid-cols-4">
+        <div className="mt-5 grid gap-3 md:grid-cols-5">
           {executiveSignals.map((signal) => (
             <div
               key={signal.label}
@@ -1143,6 +1142,8 @@ export function ReliabilityCopilotPage() {
           isExhausted={freeTrialIsExhausted}
         />
       </section>
+
+      <GovernedEngineeringLoop />
 
       <section className="rounded-2xl border border-white/[0.08] bg-[#0D131A]/75 p-1.5 shadow-lg shadow-black/10">
         <div className="grid gap-3 lg:grid-cols-[1fr_1fr_1fr_1.1fr]">
@@ -1596,12 +1597,12 @@ export function ReliabilityCopilotPage() {
                     report.governedRecommendations[0]?.recommendation ??
                     report.actions[0]
                   }
-                  detail="Recommend the smallest governed action that can validate or reduce the risk."
+                  detail="Create the smallest controlled work or change package that can validate or reduce the risk."
                 />
                 <ValueLensCard
-                  label="Prove value"
-                  value="Estimated -> approved -> verified"
-                  detail="Separate forecasted value from authorized value and realized value after execution."
+                  label="Verify and learn"
+                  value="Estimated -> approved -> verified -> learned"
+                  detail="Measure the outcome, preserve the result, and update the next engineering decision."
                 />
               </div>
 
@@ -1626,8 +1627,9 @@ export function ReliabilityCopilotPage() {
                           Decision Thread
                         </div>
                         <p className="mt-1 text-sm leading-[1.6] text-slate-500">
-                          The question, evidence, recommendation, approval gate,
-                          and value trail stay together.
+                          Approved intent, evidence, calculation, authority,
+                          controlled action, outcome, and learning stay
+                          together.
                         </p>
                       </div>
                       <div className="grid min-w-[260px] grid-cols-3 gap-2 text-center">
@@ -1894,9 +1896,10 @@ export function ReliabilityCopilotPage() {
                       After SyncAI
                     </div>
                     <p className="mt-2 text-sm leading-[1.6] text-slate-100">
-                      Pattern detected, first risk ranked, governed action
-                      proposed, approval boundary preserved, and value ready to
-                      verify after execution.
+                      Approved intent connected to asset evidence, deterministic
+                      analysis completed, controlled action proposed, technical
+                      authority preserved, and the outcome ready to verify and
+                      learn from.
                     </p>
                   </div>
                 </div>
@@ -2376,8 +2379,9 @@ function FreeCapacityPanel({
             Complimentary analysis capacity
           </div>
           <p className="mt-1 max-w-3xl text-sm leading-[1.6] text-slate-400">
-            Experience complete risk-to-value decision packets with examples and
-            non-sensitive context before moving into a secure value proof.
+            Experience a governed decision packet from evidence through
+            deterministic analysis, technical authority, controlled action, and
+            outcome verification before moving into a secure value proof.
           </p>
         </div>
         <a
@@ -2536,9 +2540,10 @@ function ProofHandoffPanel() {
         </div>
         <p className="mt-2 max-w-3xl text-sm leading-[1.6] text-slate-300">
           Start with a sanitized export for the 48-hour value proof. If the
-          packet shows a real opportunity, SyncAI can generate the workspace
-          shell, data checklist, role invites, approval gates, and first
-          analysis queue in one guided step.
+          packet shows a real opportunity, SyncAI can generate the approved
+          baseline, asset-state request, evidence checklist, authority map,
+          governance gates, controlled-work handoff, and verification plan in
+          one guided step.
         </p>
       </div>
       <div className="flex flex-wrap gap-3 lg:justify-end">

@@ -21,7 +21,7 @@ export function PublicProductHeader({ active }: PublicProductHeaderProps) {
               SyncAI
             </span>
             <span className="hidden text-xs text-slate-500 sm:block">
-              Reliability Decision Intelligence
+              Governed Engineering Intelligence
             </span>
           </span>
         </a>

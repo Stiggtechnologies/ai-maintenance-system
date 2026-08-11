@@ -47,6 +47,10 @@ describe("ReliabilityCopilotPage", () => {
     ).toBeTruthy();
     expect(screen.getByText("Complimentary analysis capacity")).toBeTruthy();
     expect(screen.getByLabelText("SyncAI chat input")).toBeTruthy();
+    expect(
+      screen.getByText("From approved intent to measured outcome."),
+    ).toBeTruthy();
+    expect(screen.getByText("Technical authority")).toBeTruthy();
     expect(screen.getAllByText("RCA Report").length).toBeGreaterThan(0);
     expect(screen.getByText(/# RCA Reliability Analysis/)).toBeTruthy();
     expect(screen.getAllByText(/P-101/).length).toBeGreaterThan(0);

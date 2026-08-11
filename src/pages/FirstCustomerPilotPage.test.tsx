@@ -24,6 +24,10 @@ describe("FirstCustomerPilotPage", () => {
     ).toBeTruthy();
     expect(screen.getByText("One-click automated onboarding")).toBeTruthy();
     expect(screen.getByText("Trust and engineering boundary")).toBeTruthy();
+    expect(
+      screen.getByText("From approved intent to measured outcome."),
+    ).toBeTruthy();
+    expect(screen.getByText("Controlled execution")).toBeTruthy();
   });
 
   it("uses role outcome tiles to personalize the intake", () => {
@@ -112,7 +116,9 @@ describe("FirstCustomerPilotPage", () => {
         screen.getByText("Saved to the pilot onboarding queue."),
       ).toBeTruthy();
     });
-    expect(screen.getAllByText("Workspace shell").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Engineering baseline").length).toBeGreaterThan(
+      0,
+    );
     expect(
       screen.getByRole("link", { name: /Open personalized copilot/i }),
     ).toBeTruthy();

@@ -21,18 +21,19 @@ import {
   Wrench,
 } from "lucide-react";
 import { PublicProductHeader } from "../components/PublicProductHeader";
+import { GovernedEngineeringLoop } from "../components/GovernedEngineeringLoop";
 import {
   createPilotOnboardingPackage,
   submitPilotIntake,
 } from "../services/pilotIntake";
 
 const deliverables = [
+  "Approved requirement and configuration trace",
   "Bad actor and risk-to-value ranking",
-  "Recommended next-dollar action with approval boundary",
-  "Evidence gaps and data-quality score",
+  "Deterministic analysis with assumptions and evidence gaps",
+  "Controlled next action with technical approval boundary",
   "Value hypothesis with verification window",
-  "Executive-ready decision packet",
-  "10-day secure workspace path if the proof is useful",
+  "Learning update for the next engineering decision",
 ];
 
 const fitSignals = [
@@ -52,7 +53,7 @@ const proofSteps = [
     label: "48 hours",
     title: "Receive the value packet",
     detail:
-      "See where to spend, what risk to address, what action to take, and how to verify value.",
+      "See where to spend, what risk comes first, the controlled action, approval gate, and value test.",
   },
   {
     label: "One click",
@@ -64,7 +65,7 @@ const proofSteps = [
     label: "10 days",
     title: "Secure workspace",
     detail:
-      "Move qualified opportunities into tenant-isolated analysis with your team.",
+      "Connect requirements, asset state, evidence, controlled work, verification, and learning with your team.",
   },
 ];
 
@@ -160,20 +161,27 @@ const commercialOptions = [
 
 const onboardingItems = [
   {
-    title: "Workspace shell",
-    detail: "Company, pilot scope, asset/system name, and value owner.",
+    title: "Engineering baseline",
+    detail:
+      "Approved requirements, standards, operating limits, pilot scope, and value owner.",
+    icon: FileText,
+  },
+  {
+    title: "Asset truth",
+    detail:
+      "Asset hierarchy, configuration state, system boundaries, and operating context.",
     icon: PackageCheck,
   },
   {
-    title: "Data request",
+    title: "Operational evidence",
     detail:
-      "CMMS/EAM export checklist for work orders, downtime, costs, failure codes, and asset hierarchy.",
+      "CMMS/EAM checklist for work history, downtime, costs, inspections, and failure evidence.",
     icon: Upload,
   },
   {
-    title: "Role invites",
+    title: "Authority map",
     detail:
-      "Reliability, maintenance, operations, finance, security, and approval owners.",
+      "Reliability, maintenance, operations, finance, security, and qualified technical approvers.",
     icon: Users,
   },
   {
@@ -183,9 +191,9 @@ const onboardingItems = [
     icon: ShieldCheck,
   },
   {
-    title: "Agent usage path",
+    title: "Execution and value path",
     detail:
-      "Choose proof-first, pay-per-use agent packets, secure pilot, or enterprise rollout.",
+      "Controlled work handoff, outcome verification, learning, and the preferred commercial model.",
     icon: BarChart3,
   },
 ];
@@ -435,10 +443,10 @@ export function FirstCustomerPilotPage() {
             See your first reliability value proof in 48 hours.
           </h1>
           <p className="mt-5 max-w-3xl text-[0.95rem] leading-[1.7] text-slate-300 min-[420px]:text-base sm:text-lg sm:leading-[1.75]">
-            SyncAI turns a small sanitized work-order export into a governed
-            decision packet: where to spend the next dollar, which risk to
-            address first, what action to take, and whether that action created
-            measurable value.
+            SyncAI connects approved engineering knowledge to asset state and
+            operational evidence, produces a deterministic decision packet,
+            preserves human technical authority, and verifies whether the
+            controlled action created measurable value.
           </p>
           <div className="mt-6 flex flex-col gap-3 sm:flex-row">
             <button
@@ -827,6 +835,8 @@ export function FirstCustomerPilotPage() {
         </section>
       </section>
 
+      <GovernedEngineeringLoop />
+
       <section
         id="proof-deliverables"
         className="scroll-mt-20 border-y border-white/[0.06] bg-black/20 px-4 py-14 sm:px-6"
@@ -838,7 +848,7 @@ export function FirstCustomerPilotPage() {
               What the proof delivers
             </div>
             <h2 className="mt-3 text-2xl font-bold">
-              Concrete outputs, not a generic AI demo.
+              A governed decision packet, not a generic AI answer.
             </h2>
             <div className="mt-6 grid gap-3 sm:grid-cols-2">
               {deliverables.map((item) => (
@@ -958,12 +968,13 @@ export function FirstCustomerPilotPage() {
                 One-click automated onboarding
               </div>
               <h2 className="mt-3 text-2xl font-bold">
-                Turn the proof into a working pilot without a setup drag.
+                Turn the proof into a controlled working loop.
               </h2>
               <p className="mt-3 text-sm leading-[1.6] text-slate-400">
-                After the intake is captured, SyncAI generates the secure pilot
-                setup package from the proof scope so the team can move from
-                interest to action quickly.
+                After the intake is captured, SyncAI generates the baseline,
+                asset-state request, evidence checklist, authority map,
+                governance gates, execution handoff, and value-verification path
+                from the proof scope.
               </p>
               <div className="mt-5 grid gap-3 sm:grid-cols-2">
                 {onboardingItems.map((item) => {
