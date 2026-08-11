@@ -460,8 +460,8 @@
     "evidence": true
   },
   "C7.02": {
-    "status": "❌",
-    "evidence": false
+    "status": "✅",
+    "evidence": true
   },
   "C7.03": {
     "status": "✅",
@@ -472,8 +472,8 @@
     "evidence": true
   },
   "C7.05": {
-    "status": "❌",
-    "evidence": false
+    "status": "✅",
+    "evidence": true
   },
   "C7.06": {
     "status": "✅",
@@ -492,20 +492,20 @@
     "evidence": false
   },
   "C7.10": {
-    "status": "❌",
-    "evidence": false
+    "status": "✅",
+    "evidence": true
   },
   "C7.11": {
     "status": "✅",
     "evidence": true
   },
   "C7.12": {
-    "status": "❌",
-    "evidence": false
+    "status": "✅",
+    "evidence": true
   },
   "C7.13": {
-    "status": "❌",
-    "evidence": false
+    "status": "✅",
+    "evidence": true
   },
   "C7.14": {
     "status": "🟡",
