@@ -216,8 +216,8 @@
     "evidence": false
   },
   "C4.08": {
-    "status": "🟡",
-    "evidence": false
+    "status": "✅",
+    "evidence": true
   },
   "C4.09": {
     "status": "✅",
