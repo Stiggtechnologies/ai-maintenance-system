@@ -4,12 +4,17 @@
  * edge change shipped untypechecked because Deno is not installed locally;
  * this module cannot ship untested.
  */
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import {
   buildProviderChain,
   callWithResilience,
+  resetParamMemo,
   type LlmProvider,
 } from "../../../supabase/functions/_shared/llm-provider";
+
+// The rejection memo persists across calls by design, so every test starts
+// from a cold instance rather than inheriting the previous test's discovery.
+beforeEach(resetParamMemo);
 
 const gateway: LlmProvider = {
   name: "stigg-gateway",
@@ -272,6 +277,54 @@ describe("parameter negotiation — the real production failure", () => {
       noSleep,
     );
     expect(r.events[0].detail).toMatch(/model not found/);
+  });
+
+  it("renegotiates ONCE, then remembers — no retry event on every call", async () => {
+    // The negotiation fix repeated on every request: a wasted round-trip each
+    // time, and a "retried" event on 100% of calls. A health table where noise
+    // is constant cannot surface the one failure that matters.
+    let requests = 0;
+    const call = () =>
+      callWithResilience(
+        async (_u, init) => {
+          requests++;
+          return "temperature" in JSON.parse(String(init.body))
+            ? new Response(TEMP_REJECTION, { status: 400 })
+            : respond(200);
+        },
+        [openai],
+        OPTS,
+        noSleep,
+      );
+
+    const first = await call();
+    expect(first.events.map((e) => e.outcome)).toEqual(["retried", "ok"]);
+    expect(requests).toBe(2);
+
+    const second = await call();
+    // Clean single event — the discovery is not repeated.
+    expect(second.events.map((e) => e.outcome)).toEqual(["ok"]);
+    expect(requests).toBe(3);
+  });
+
+  it("keeps the memo per MODEL, not just per provider", async () => {
+    // Same provider name, different model: gpt-4o-mini accepts temperature
+    // even though gpt-5.6 does not, so the rejection must not leak across.
+    const strict = { ...openai, model: "gpt-5.6-terra" };
+    const sent: Array<{ model: string; hasTemp: boolean }> = [];
+    const handler = async (_u: string, init: RequestInit) => {
+      const b = JSON.parse(String(init.body));
+      sent.push({ model: b.model, hasTemp: "temperature" in b });
+      return b.model === "gpt-5.6-terra" && "temperature" in b
+        ? new Response(TEMP_REJECTION, { status: 400 })
+        : respond(200);
+    };
+    await callWithResilience(handler, [strict], OPTS, noSleep);
+    await callWithResilience(handler, [openai], OPTS, noSleep);
+
+    const mini = sent.filter((x) => x.model === "gpt-4o-mini");
+    expect(mini).toHaveLength(1);
+    expect(mini[0].hasTemp).toBe(true);
   });
 
   it("re-offers a dropped parameter to the NEXT provider", async () => {
