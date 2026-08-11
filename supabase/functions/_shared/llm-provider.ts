@@ -80,6 +80,37 @@ function classify(status: number): "retryable" | "fatal" {
 }
 
 /**
+ * Some providers reject an OPTIONAL parameter outright rather than ignoring
+ * it. GPT-5.x returns 400 for `temperature: 0.3` — "Only the default (1) value
+ * is supported" — which classifies as fatal and fails the provider over, even
+ * though the request would have succeeded without that one field.
+ *
+ * This cost real production quality: enrichment silently ran on the gpt-4o-mini
+ * safety net because a single unsupported parameter looked like an outage.
+ *
+ * Returns the offending parameter name so the caller can drop it and retry the
+ * SAME provider. Deliberately narrow — only an explicit provider complaint
+ * about a named parameter qualifies. Anything else stays fatal.
+ */
+function unsupportedParam(body: string): string | null {
+  try {
+    const e = JSON.parse(body)?.error;
+    const code = String(e?.code ?? "");
+    const param = e?.param ? String(e.param) : "";
+    const negotiable = new Set(["temperature", "max_completion_tokens", "response_format"]);
+    if (
+      negotiable.has(param) &&
+      ["unsupported_value", "unknown_parameter", "unsupported_parameter"].includes(code)
+    ) {
+      return param;
+    }
+  } catch {
+    // Not JSON, or not shaped like an OpenAI error. Stays fatal.
+  }
+  return null;
+}
+
+/**
  * Build the chain from environment values. The gateway leads when configured;
  * direct OpenAI is the fallback whenever an OpenAI key exists. A chain of one
  * is legal and simply has no failover.
@@ -159,6 +190,9 @@ export async function callWithResilience(
 
   for (let p = 0; p < providers.length; p++) {
     const provider = providers[p];
+    // Optional parameters this provider has explicitly rejected. Reset per
+    // provider: what GPT-5.x refuses, the gateway may require.
+    const dropped = new Set<string>();
     const url = new URL("/v1/chat/completions", provider.baseUrl).toString();
     const hasNext = p < providers.length - 1;
 
@@ -166,18 +200,24 @@ export async function callWithResilience(
       let status: number | null = null;
       let detail = "";
       let fatal = false;
+      let renegotiated = false;
 
       try {
         const payload: Record<string, unknown> = {
           model: provider.model,
-          temperature: opts.temperature ?? 0.3,
-          max_completion_tokens: opts.maxTokens ?? 1200,
           messages: [
             { role: "system", content: opts.systemPrompt },
             { role: "user", content: opts.userContent },
           ],
         };
-        if (opts.jsonMode) payload.response_format = { type: "json_object" };
+        // Optional parameters, omitted once a provider has rejected them.
+        if (!dropped.has("temperature")) payload.temperature = opts.temperature ?? 0.3;
+        if (!dropped.has("max_completion_tokens")) {
+          payload.max_completion_tokens = opts.maxTokens ?? 1200;
+        }
+        if (opts.jsonMode && !dropped.has("response_format")) {
+          payload.response_format = { type: "json_object" };
+        }
 
         const resp = await fetchLike(url, {
           method: "POST",
@@ -211,14 +251,37 @@ export async function callWithResilience(
           };
         }
 
-        fatal = classify(resp.status) === "fatal";
-        detail = fatal
-          ? `fatal status ${resp.status} — configuration or auth, not transient; failing over without retry`
-          : `retryable status ${resp.status}`;
+        // Read the body. "fatal status 400" is not a diagnosis — the body
+        // names the actual problem, and without it the cause of a failover is
+        // invisible in the health log.
+        const body = await resp.text().catch(() => "");
+        const reason = body.slice(0, 200).replace(/\s+/g, " ").trim();
+
+        const bad = classify(resp.status) === "fatal" ? unsupportedParam(body) : null;
+        if (bad && !dropped.has(bad)) {
+          // Not an outage — a parameter this provider will not accept. Drop it
+          // and retry the SAME provider rather than failing over.
+          dropped.add(bad);
+          renegotiated = true;
+          detail = `provider rejected optional parameter "${bad}"; retrying without it — ${reason}`;
+        } else {
+          fatal = classify(resp.status) === "fatal";
+          detail = fatal
+            ? `fatal status ${resp.status} — not transient; failing over without retry — ${reason}`
+            : `retryable status ${resp.status} — ${reason}`;
+        }
       } catch (e) {
         // Network-level failure (DNS, timeout, reset) — exactly what took the
         // gateway path down for a month. Retryable within budget.
         detail = `network failure: ${e instanceof Error ? e.name : "unknown"}`;
+      }
+
+      if (renegotiated) {
+        // Does not consume the retry budget: the request was never actually
+        // tried in a form this provider accepts.
+        events.push({ provider: provider.name, outcome: "retried", status, detail });
+        attempt--;
+        continue;
       }
 
       const lastAttempt = fatal || attempt === attempts;
