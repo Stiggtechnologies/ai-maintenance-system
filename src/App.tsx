@@ -85,11 +85,14 @@ function PublicCopilotExperience() {
 }
 
 function App() {
-  const [currentPage, setCurrentPage] = useState<Page>(() =>
-    new URLSearchParams(window.location.search).get("view") === "signin"
-      ? "signin"
-      : "demo",
-  );
+  const [currentPage, setCurrentPage] = useState<Page>(() => {
+    const requested = new URLSearchParams(window.location.search).get("view");
+    return requested === "signin" ||
+      requested === "signup" ||
+      requested === "enterprise"
+      ? requested
+      : "demo";
+  });
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -146,6 +149,21 @@ function App() {
             element={<SalesforceSignup />}
           />
           <Route path="/auth/callback/azure" element={<AzureADCallback />} />
+          <Route
+            path="/signin"
+            element={
+              isAuthenticated ? (
+                <Navigate to="/" replace />
+              ) : (
+                <Login
+                  onSuccess={() => window.location.assign("/")}
+                  onTabChange={(page) =>
+                    window.location.assign(`/?view=${page}`)
+                  }
+                />
+              )
+            }
+          />
           <Route path="/setup" element={<FirstCustomerPilotPage />} />
           <Route
             path="/pilot/reliability"
