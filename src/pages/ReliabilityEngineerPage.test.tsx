@@ -15,7 +15,16 @@ vi.mock("../services/publicReliabilityAgent", () => ({
 
 describe("ReliabilityEngineerPage", () => {
   beforeEach(() => {
-    window.localStorage.clear();
+    const storage = new Map<string, string>();
+    Object.defineProperty(window, "localStorage", {
+      configurable: true,
+      value: {
+        getItem: (key: string) => storage.get(key) ?? null,
+        setItem: (key: string, value: string) => storage.set(key, value),
+        removeItem: (key: string) => storage.delete(key),
+        clear: () => storage.clear(),
+      },
+    });
   });
 
   afterEach(() => {
@@ -25,9 +34,7 @@ describe("ReliabilityEngineerPage", () => {
   it("puts the Reliability Engineer before signup", () => {
     const onSignup = vi.fn();
     const onSignIn = vi.fn();
-    render(
-      <ReliabilityEngineerPage onSignup={onSignup} onSignIn={onSignIn} />,
-    );
+    render(<ReliabilityEngineerPage onSignup={onSignup} onSignIn={onSignIn} />);
 
     expect(
       screen.getByRole("heading", {
@@ -40,7 +47,9 @@ describe("ReliabilityEngineerPage", () => {
     expect(
       screen.getByRole("button", { name: /send message/i }),
     ).toBeInTheDocument();
-    expect(screen.getAllByText(/limited free access/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/limited free access/i).length).toBeGreaterThan(
+      0,
+    );
 
     fireEvent.click(screen.getByRole("button", { name: /sign in/i }));
     expect(onSignIn).toHaveBeenCalledOnce();
@@ -67,7 +76,9 @@ describe("ReliabilityEngineerPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Stop" }));
 
     expect(screen.getByText(/generation stopped/i)).toBeInTheDocument();
-    expect(window.localStorage.getItem(PUBLIC_RELIABILITY_STORAGE_KEY)).toBeNull();
+    expect(
+      window.localStorage.getItem(PUBLIC_RELIABILITY_STORAGE_KEY),
+    ).toBeNull();
   });
 
   it("streams the governed analysis and records the completed public run", async () => {
@@ -84,7 +95,9 @@ describe("ReliabilityEngineerPage", () => {
     expect(
       screen.getAllByText(/decision packet ready/i).length,
     ).toBeGreaterThan(0);
-    expect(window.localStorage.getItem(PUBLIC_RELIABILITY_STORAGE_KEY)).not.toBeNull();
+    expect(
+      window.localStorage.getItem(PUBLIC_RELIABILITY_STORAGE_KEY),
+    ).not.toBeNull();
     expect(
       screen.getByRole("button", { name: /continue with your own data/i }),
     ).toBeInTheDocument();
@@ -98,9 +111,7 @@ describe("ReliabilityEngineerPage", () => {
     );
     const onSignup = vi.fn();
 
-    render(
-      <ReliabilityEngineerPage onSignup={onSignup} onSignIn={vi.fn()} />,
-    );
+    render(<ReliabilityEngineerPage onSignup={onSignup} onSignIn={vi.fn()} />);
 
     expect(
       screen.getAllByText(/decision packet ready/i).length,

@@ -120,7 +120,7 @@ describe("FirstCustomerPilotPage", () => {
       0,
     );
     expect(
-      screen.getByRole("link", { name: /Open personalized copilot/i }),
+      screen.getByRole("link", { name: /Open personalized Decision Case/i }),
     ).toBeTruthy();
     expect(screen.getByRole("link", { name: /Email a copy/i })).toBeTruthy();
   });

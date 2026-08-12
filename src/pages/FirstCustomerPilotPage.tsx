@@ -303,10 +303,23 @@ export function FirstCustomerPilotPage() {
     if (intake.assetScope) params.set("asset", intake.assetScope);
     if (intake.primaryPain) params.set("pain", intake.primaryPain);
     if (intake.role) params.set("role", intake.role);
+    if (intake.company) params.set("company", intake.company);
+    if (intake.systemOfRecord) params.set("system", intake.systemOfRecord);
+    if (intakeRequestId) params.set("intake", intakeRequestId);
     const query = params.toString();
+    const decisionCaseId = intakeRequestId
+      ? `intake-${intakeRequestId}`
+      : "demo";
 
-    return `/demo/copilot${query ? `?${query}` : ""}#syncai-chat`;
-  }, [intake.assetScope, intake.primaryPain, intake.role]);
+    return `/workspace/cases/${decisionCaseId}${query ? `?${query}` : ""}#syncai-chat`;
+  }, [
+    intake.assetScope,
+    intake.company,
+    intake.primaryPain,
+    intake.role,
+    intake.systemOfRecord,
+    intakeRequestId,
+  ]);
 
   const updateField = (key: keyof IntakeData, value: string) => {
     setIntake((current) => ({ ...current, [key]: value }));
@@ -591,7 +604,7 @@ export function FirstCustomerPilotPage() {
                   className="inline-flex items-center gap-2 rounded-lg bg-teal-400 px-5 py-3 text-sm font-semibold text-slate-950 transition-colors hover:bg-teal-300"
                 >
                   <MessageSquare size={16} />
-                  Open personalized copilot
+                  Open personalized Decision Case
                   <ArrowUpRight size={15} />
                 </a>
                 <a

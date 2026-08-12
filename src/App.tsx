@@ -48,7 +48,6 @@ import { AssetOnboardingHub } from "./pages/AssetOnboardingHub";
 import { SecurityAuditLog } from "./pages/SecurityAuditLog";
 import { ExecutiveIntelligence } from "./pages/ExecutiveIntelligence";
 import { IntegrationHealthPanel } from "./pages/IntegrationHealthPanel";
-import { CoworkStudio } from "./pages/CoworkStudio";
 import { ValueRealization } from "./pages/ValueRealization";
 import { EmergencyMode } from "./pages/EmergencyMode";
 import { PlaybooksLibrary } from "./pages/PlaybooksLibrary";
@@ -64,7 +63,7 @@ import { useAuth } from "./components/AuthProvider";
 import { getRoleHome } from "./lib/roleNavigation";
 import { ReliabilityCopilotPage } from "./pages/ReliabilityCopilotPage";
 import { FirstCustomerPilotPage } from "./pages/FirstCustomerPilotPage";
-import { PublicProductHeader } from "./components/PublicProductHeader";
+import { DecisionCaseWorkspacePage } from "./pages/DecisionCaseWorkspacePage";
 
 type Page =
   | "demo"
@@ -82,14 +81,7 @@ function PublicCopilotExperience() {
     document.title = "SyncAI | Governed Engineering Intelligence";
   }, []);
 
-  return (
-    <main className="min-h-screen bg-[#0B0F14] text-[#E6EDF3] gradient-mesh">
-      <PublicProductHeader active="copilot" />
-      <div className="px-4 py-4 sm:px-6 sm:py-6">
-        <ReliabilityCopilotPage />
-      </div>
-    </main>
-  );
+  return <DecisionCaseWorkspacePage publicMode />;
 }
 
 function App() {
@@ -156,6 +148,10 @@ function App() {
             element={<FirstCustomerPilotPage />}
           />
           <Route path="/demo/copilot" element={<PublicCopilotExperience />} />
+          <Route
+            path="/workspace/cases/:caseId"
+            element={<DecisionCaseWorkspacePage publicMode />}
+          />
           <Route
             path="/*"
             element={
@@ -272,7 +268,14 @@ function AuthenticatedApp() {
           <Route path="/mission-control" element={<MissionControl />} />
           <Route path="/command-centers" element={<CommandCenters />} />
           <Route path="/readiness" element={<ReadinessPage />} />
-          <Route path="/cowork" element={<CoworkStudio />} />
+          <Route
+            path="/cowork"
+            element={<Navigate to="/decision-cases/demo" replace />}
+          />
+          <Route
+            path="/decision-cases/:caseId"
+            element={<DecisionCaseWorkspacePage />}
+          />
 
           {/* AI Workforce layer */}
           <Route path="/ai-workforce" element={<AIWorkforce />} />

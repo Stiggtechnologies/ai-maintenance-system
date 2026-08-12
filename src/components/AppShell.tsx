@@ -88,7 +88,11 @@ const navGroups: NavGroup[] = [
         path: "/command-centers",
       },
       { id: "readiness", label: "Readiness", path: "/readiness" },
-      { id: "cowork", label: "Cowork Studio", path: "/cowork" },
+      {
+        id: "cowork",
+        label: "Decision Workspace",
+        path: "/decision-cases/demo",
+      },
     ],
   },
   {
