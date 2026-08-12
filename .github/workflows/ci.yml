@@ -3,7 +3,9 @@ name: CI
 # Gates every PR and push to main on:
 #   1. lint (src is a zero-error zone) + typecheck
 #   2. unit tests (vitest)
-#   3. the full Supabase migration chain applying from scratch, then a live
+#   3. new migrations sorting after the deployed head, so the order CI proves
+#      from scratch is the order production applies incrementally
+#   4. the full Supabase migration chain applying from scratch, then a live
 #      smoke test: seeded demo login → RLS-scoped read → app-shell RPC.
 
 on:
@@ -51,6 +53,23 @@ jobs:
 
       - run: npm ci --no-audit --no-fund
       - run: npm run test
+
+  migration-order:
+    name: Migration order vs deployed head
+    runs-on: ubuntu-latest
+    steps:
+      # Needs real history: the check compares this branch against the merge base
+      # with main, which a shallow clone does not contain.
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: Verify new migrations sort after the deployed head
+        run: node scripts/check-migration-order.mjs
 
   migrations:
     name: Migration chain + seeded auth smoke
