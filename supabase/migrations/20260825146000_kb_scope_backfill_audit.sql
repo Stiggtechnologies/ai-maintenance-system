@@ -23,10 +23,57 @@
 -- The fixture is synthetic test content and belongs to nobody, so it is scoped
 -- to the demo organization rather than deleted: it still needs to exist for the
 -- claim-type guard to have something to refuse.
+--
+-- It is CREATED here rather than in 20260825093000, where it used to be written
+-- unscoped one migration before the trigger that forbids that. On a database
+-- which already had the trigger the old write was refused outright and the
+-- chain stopped here — production did exactly that. By this point the
+-- organization_id column and the trigger both exist, so the row can be created
+-- correct on the first attempt instead of created wrong and repaired.
+--
+-- The update still runs first, for databases that already hold the unscoped row
+-- from the original version of 20260825093000.
 update reliability_kb_chunks
 set organization_id = '11111111-1111-1111-1111-111111111111'
 where chunk_id = 'FIXTURE-BROCHURE-0001'
   and organization_id is null;
+
+-- Synthetic content belongs in the demo tenant or nowhere: the demo seed is
+-- marked EXCLUDE for customer deployments, so a customer database gets no
+-- fixture at all rather than a synthetic brochure in its knowledge base.
+insert into reliability_kb_chunks
+  (organization_id, chunk_id, source_id, title, document_type, document_class,
+   page_start, page_end, chunk_index, domain_tags, content)
+select
+  '11111111-1111-1111-1111-111111111111',
+  'FIXTURE-BROCHURE-0001',
+  'fixture-oem-brochure',
+  'SYNTHETIC FIXTURE — Example Manufacturer Track-Type Tractor Brochure',
+  'oem-brochure',
+  'oem_marketing',
+  1, 1, 0,
+  array['dozer','undercarriage','final drive'],
+  'SYNTHETIC FIXTURE, NOT A REAL DOCUMENT. Written to imitate sales-brochure '
+  || 'register for testing the claim-type guard. "The heavy-duty final drive '
+  || 'is engineered for exceptional durability and long service life in the '
+  || 'most demanding applications. Robust undercarriage components deliver '
+  || 'outstanding reliability and reduced downtime, keeping the machine '
+  || 'productive shift after shift." Rated net power 354 hp. Operating weight '
+  || '84,573 lb. Note what this paragraph does: it makes confident-sounding '
+  || 'claims about durability, reliability and downtime for a final drive and '
+  || 'an undercarriage without stating a single failure rate, sample size, '
+  || 'duty cycle or observation period. The power and weight figures ARE '
+  || 'authoritative — the manufacturer publishes and stands behind them. The '
+  || 'durability language is not a measurement. This is why oem_marketing has '
+  || 'standing on nameplate_spec and none on failure_behaviour.'
+where exists (
+  select 1 from organizations
+  where id = '11111111-1111-1111-1111-111111111111'
+)
+on conflict (chunk_id) do update set
+  organization_id = excluded.organization_id,
+  content = excluded.content,
+  document_class = excluded.document_class;
 
 -- ---------------------------------------------------------------------------
 -- Standing audit. Returns rows only when something is wrong, so an empty
