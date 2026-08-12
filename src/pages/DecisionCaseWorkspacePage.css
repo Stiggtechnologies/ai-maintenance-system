@@ -20,6 +20,7 @@
   background: var(--bg);
   color: #e8edf2;
   font-family: "Inter Variable", Inter, system-ui, sans-serif;
+  font-size: 14px;
 }
 .decision-workspace.is-public {
   height: calc(100dvh - 65px);
@@ -73,12 +74,12 @@
   flex-direction: column;
 }
 .dw-identity strong {
-  font-size: 13px;
+  font-size: 14px;
 }
 .dw-identity small {
   margin-top: 2px;
   color: var(--muted);
-  font-size: 9px;
+  font-size: 11px;
 }
 .dw-top-actions {
   gap: 10px;
@@ -88,7 +89,7 @@
   align-items: center;
   gap: 7px;
   color: #aeb9c2;
-  font-size: 10px;
+  font-size: 12px;
 }
 .dw-system i {
   width: 7px;
@@ -114,7 +115,7 @@
   appearance: none;
   color: #d9e0e5;
   background: transparent;
-  font-size: 10px;
+  font-size: 12px;
 }
 .dw-icon {
   width: 34px;
@@ -162,7 +163,7 @@
   border-radius: 6px;
   color: #dffcf7 !important;
   background: #12302e;
-  font-size: 10px !important;
+  font-size: 12px !important;
   font-weight: 650;
   cursor: pointer;
 }
@@ -210,7 +211,7 @@
 .dw-case-row strong {
   overflow: hidden;
   color: #dbe2e7;
-  font-size: 10px;
+  font-size: 12px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -219,7 +220,7 @@
   margin-top: 4px;
   overflow: hidden;
   color: var(--muted);
-  font-size: 8px;
+  font-size: 10px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -229,7 +230,7 @@
   justify-content: space-between;
   padding: 18px 8px 7px;
   color: #71808d;
-  font-size: 8px;
+  font-size: 10px;
   font-weight: 650;
   text-transform: uppercase;
 }
@@ -276,7 +277,7 @@
 .dw-case-row > em {
   color: #abb7c0;
   font-family: "JetBrains Mono Variable", monospace;
-  font-size: 8px;
+  font-size: 10px;
   font-style: normal;
 }
 .dw-rail-links {
@@ -294,7 +295,7 @@
   border-radius: 5px;
   color: #8f9ca7;
   background: transparent;
-  font-size: 9px;
+  font-size: 11px;
   text-align: left;
   cursor: pointer;
 }
@@ -311,7 +312,7 @@
   display: flex;
   justify-content: space-between;
   color: #a8b3bc;
-  font-size: 8px;
+  font-size: 10px;
 }
 .dw-usage > div:first-child strong {
   font-family: "JetBrains Mono Variable", monospace;
@@ -332,7 +333,7 @@
   display: block;
   margin-top: 6px;
   color: #687783;
-  font-size: 7px;
+  font-size: 10px;
 }
 .dw-usage button {
   display: flex;
@@ -343,7 +344,7 @@
   border: 0;
   color: #69d9c9;
   background: transparent;
-  font-size: 8px;
+  font-size: 10px;
   cursor: pointer;
 }
 .dw-main {
@@ -364,7 +365,7 @@
   gap: 8px;
   color: #768692;
   font-family: "JetBrains Mono Variable", monospace;
-  font-size: 8px;
+  font-size: 10px;
   text-transform: uppercase;
 }
 .dw-case-meta .risk-critical,
@@ -389,16 +390,17 @@
   max-width: 820px;
   margin: 9px 0 0;
   color: #f0f4f7;
-  font-size: clamp(18px, 2vw, 25px);
-  line-height: 1.22;
+  font-size: clamp(24px, 2vw, 31px);
+  line-height: 1.24;
+  font-weight: 680;
   letter-spacing: 0;
 }
 .dw-case-header > p {
   max-width: 780px;
   margin: 7px 0 0;
-  color: #8e9ba6;
-  font-size: 10px;
-  line-height: 1.55;
+  color: #9ba9b4;
+  font-size: 13px;
+  line-height: 1.5;
 }
 .dw-stages {
   display: grid;
@@ -448,7 +450,7 @@
   color: #71818d;
   background: #10161c;
   font-family: "JetBrains Mono Variable", monospace;
-  font-size: 7px;
+  font-size: 10px;
 }
 .dw-stages .complete span,
 .dw-stages .current span {
@@ -464,7 +466,7 @@
   margin-top: 5px;
   overflow: hidden;
   color: #62717d;
-  font-size: 6px;
+  font-size: 10px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -487,13 +489,13 @@
 }
 .dw-handoff strong {
   color: #dff8f3;
-  font-size: 9px;
+  font-size: 11px;
 }
 .dw-handoff small {
   margin-top: 2px;
   overflow: hidden;
   color: #82aaa5;
-  font-size: 7px;
+  font-size: 10px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -524,7 +526,7 @@
   border-radius: 6px;
   color: var(--teal);
   background: #112421;
-  font-size: 8px;
+  font-size: 10px;
   font-weight: 700;
 }
 .role-system .dw-avatar {
@@ -559,24 +561,24 @@
   gap: 8px;
 }
 .dw-message header strong {
-  font-size: 9px;
+  font-size: 12px;
 }
 .dw-message header span {
-  color: #60707d;
-  font-size: 7px;
+  color: #82919d;
+  font-size: 10px;
 }
 .dw-message p {
   margin: 6px 0 0;
-  color: #b9c4cc;
-  font-size: 10px;
-  line-height: 1.65;
+  color: #c2ccd3;
+  font-size: 14px;
+  line-height: 1.6;
   white-space: pre-wrap;
 }
 .dw-message footer {
   margin-top: 8px;
   color: #668e89;
   font-family: "JetBrains Mono Variable", monospace;
-  font-size: 6px;
+  font-size: 10px;
   text-transform: uppercase;
 }
 .dw-thinking {
@@ -584,7 +586,7 @@
   align-items: center;
   gap: 5px !important;
   color: #7e8e99 !important;
-  font-size: 8px !important;
+  font-size: 12px !important;
 }
 .dw-thinking i {
   width: 4px;
@@ -624,14 +626,14 @@
   overflow-x: auto;
 }
 .dw-quick button {
-  height: 26px;
+  min-height: 30px;
   flex: 0 0 auto;
   padding: 0 9px;
   border: 1px solid #293640;
   border-radius: 5px;
   color: #8fa0ab;
   background: #10171d;
-  font-size: 7px;
+  font-size: 11px;
   cursor: pointer;
 }
 .dw-composer {
@@ -648,7 +650,7 @@
   box-shadow: 0 0 0 2px rgb(69 219 198/8%);
 }
 .dw-composer textarea {
-  min-height: 36px;
+  min-height: 40px;
   max-height: 112px;
   flex: 1;
   resize: none;
@@ -656,8 +658,8 @@
   outline: 0;
   color: #e4eaee;
   background: transparent;
-  font-size: 10px;
-  line-height: 1.45;
+  font-size: 14px;
+  line-height: 1.5;
 }
 .dw-composer textarea::placeholder {
   color: #5f6e7a;
@@ -682,7 +684,7 @@
   justify-content: space-between;
   padding: 6px 2px 0;
   color: #60717d;
-  font-size: 6px;
+  font-size: 10px;
 }
 .dw-composer-meta span {
   display: flex;
@@ -699,7 +701,7 @@
   align-items: center;
   gap: 7px;
   color: var(--teal);
-  font-size: 8px;
+  font-size: 10px;
   font-weight: 650;
   text-transform: uppercase;
 }
@@ -713,7 +715,7 @@
   max-width: 620px;
   margin: 11px 0 0;
   color: #8e9aa4;
-  font-size: 11px;
+  font-size: 13px;
   line-height: 1.6;
 }
 .dw-summary {
@@ -735,7 +737,7 @@
 }
 .dw-summary span {
   color: #7f8d98;
-  font-size: 8px;
+  font-size: 10px;
 }
 .dw-summary strong {
   margin-top: 7px;
@@ -764,18 +766,18 @@
 .dw-ranked > button > em {
   color: #50606c;
   font-family: "JetBrains Mono Variable", monospace;
-  font-size: 10px;
+  font-size: 12px;
   font-style: normal;
 }
 .dw-ranked span strong {
   color: #dce3e8;
-  font-size: 10px;
+  font-size: 12px;
 }
 .dw-ranked span small {
   margin-top: 5px;
   overflow: hidden;
   color: #798893;
-  font-size: 8px;
+  font-size: 10px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -802,13 +804,13 @@
 }
 .dw-packet-head small {
   color: #687783;
-  font-size: 7px;
+  font-size: 10px;
   text-transform: uppercase;
 }
 .dw-packet-head strong {
   margin-top: 3px;
   font-family: "JetBrains Mono Variable", monospace;
-  font-size: 9px;
+  font-size: 11px;
 }
 .dw-tabs {
   display: grid;
@@ -817,12 +819,12 @@
 }
 .dw-tabs button {
   position: relative;
-  height: 37px;
+  height: 42px;
   padding: 0 3px;
   border: 0;
   color: #75838f;
   background: transparent;
-  font-size: 7px;
+  font-size: 11px;
   cursor: pointer;
 }
 .dw-tabs button:after {
@@ -868,19 +870,19 @@
 }
 .dw-recommendation small {
   color: #6da8a0;
-  font-size: 7px;
+  font-size: 10px;
   text-transform: uppercase;
 }
 .dw-recommendation strong {
   margin-top: 4px;
   color: #e3f5f1;
-  font-size: 10px;
-  line-height: 1.4;
+  font-size: 13px;
+  line-height: 1.45;
 }
 .dw-rationale {
   margin: 13px 1px 0;
-  color: #9eabb5;
-  font-size: 9px;
+  color: #aeb9c1;
+  font-size: 12px;
   line-height: 1.6;
 }
 .dw-metrics {
@@ -905,19 +907,19 @@
 .dw-metrics span {
   overflow: hidden;
   color: #74838e;
-  font-size: 6px;
+  font-size: 10px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .dw-metrics strong {
   margin-top: 6px;
   font-family: "JetBrains Mono Variable", monospace;
-  font-size: 14px;
+  font-size: 16px;
 }
 .dw-metrics small {
   margin-top: 3px;
   color: #667681;
-  font-size: 6px;
+  font-size: 10px;
 }
 .dw-basis {
   margin-top: 19px;
@@ -925,7 +927,7 @@
 .dw-basis > header {
   display: flex;
   justify-content: space-between;
-  font-size: 7px;
+  font-size: 10px;
 }
 .dw-basis > header span {
   color: #87949e;
@@ -997,12 +999,12 @@
   white-space: nowrap;
 }
 .dw-basis button strong {
-  font-size: 8px;
+  font-size: 12px;
 }
 .dw-basis button small {
   margin-top: 3px;
   color: #6e7e89;
-  font-size: 6px;
+  font-size: 10px;
 }
 .dw-authority-summary {
   display: flex;
@@ -1021,13 +1023,13 @@
 }
 .dw-authority-summary small {
   color: #74838e;
-  font-size: 6px;
+  font-size: 12px;
 }
 .dw-authority-summary strong {
   margin-top: 3px;
   overflow: hidden;
   color: #cbd4da;
-  font-size: 8px;
+  font-size: 10px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -1040,7 +1042,7 @@
   border: 0;
   color: #6cd9c9;
   background: transparent;
-  font-size: 7px;
+  font-size: 10px;
   cursor: pointer;
 }
 .dw-tab-intro {
@@ -1054,12 +1056,12 @@
 }
 .dw-tab-intro small {
   color: #72828e;
-  font-size: 7px;
+  font-size: 10px;
   text-transform: uppercase;
 }
 .dw-tab-intro strong {
   margin-top: 4px;
-  font-size: 10px;
+  font-size: 13px;
   line-height: 1.4;
 }
 .dw-tab-intro > button {
@@ -1114,7 +1116,7 @@
 }
 .dw-evidence-list strong {
   overflow: hidden;
-  font-size: 8px;
+  font-size: 12px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -1122,14 +1124,14 @@
   margin-top: 4px;
   overflow: hidden;
   color: #6f7e89;
-  font-size: 7px;
+  font-size: 10px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .dw-evidence-list em {
   margin-top: 5px;
   color: #77958f;
-  font-size: 6px;
+  font-size: 10px;
   font-style: normal;
 }
 .dw-approval-chain {
@@ -1153,7 +1155,7 @@
   border-radius: 50%;
   color: #b9c4cc;
   background: #19222a;
-  font-size: 7px;
+  font-size: 10px;
   font-weight: 650;
 }
 .dw-approval-chain strong,
@@ -1162,18 +1164,18 @@
   display: block;
 }
 .dw-approval-chain strong {
-  font-size: 8px;
+  font-size: 12px;
 }
 .dw-approval-chain small {
   margin-top: 2px;
   color: #87949e;
-  font-size: 6px;
+  font-size: 10px;
 }
 .dw-approval-chain em {
   margin-top: 4px;
   overflow: hidden;
   color: #657580;
-  font-size: 6px;
+  font-size: 10px;
   font-style: normal;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1183,7 +1185,7 @@
   border-radius: 3px;
   color: #87949e;
   background: #1b242c;
-  font-size: 6px;
+  font-size: 10px;
   font-style: normal;
 }
 .dw-approval-chain .status-complete i,
@@ -1206,12 +1208,12 @@
   display: block;
   margin-bottom: 9px;
   color: #887a60;
-  font-size: 7px;
+  font-size: 10px;
 }
 .dw-gate > button.primary,
 .dw-primary {
   width: 100%;
-  height: 36px;
+  height: 40px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1220,7 +1222,7 @@
   border-radius: 5px;
   color: #09201d;
   background: var(--teal);
-  font-size: 8px;
+  font-size: 12px;
   font-weight: 650;
   cursor: pointer;
 }
@@ -1237,14 +1239,14 @@
   border-radius: 4px;
   color: #9d9482;
   background: #1c1a15;
-  font-size: 6px;
+  font-size: 10px;
 }
 .dw-comments {
   margin-top: 18px;
 }
 .dw-comments > span {
   color: #7b8994;
-  font-size: 7px;
+  font-size: 10px;
   text-transform: uppercase;
 }
 .dw-comments > div:not(.dw-comment-entry) {
@@ -1254,12 +1256,12 @@
   background: #11171d;
 }
 .dw-comments strong {
-  font-size: 7px;
+  font-size: 10px;
 }
 .dw-comments p {
   margin: 4px 0 0;
   color: #85939e;
-  font-size: 7px;
+  font-size: 10px;
   line-height: 1.5;
 }
 .dw-comment-entry {
@@ -1271,14 +1273,14 @@
 }
 .dw-comment-entry input {
   min-width: 0;
-  height: 32px;
+  height: 36px;
   flex: 1;
   padding: 0 9px;
   border: 0;
   outline: 0;
   color: #d5dde2;
   background: transparent;
-  font-size: 7px;
+  font-size: 12px;
 }
 .dw-comment-entry button {
   width: 32px;
@@ -1292,7 +1294,7 @@
   border-radius: 3px;
   color: #9ca9b3 !important;
   background: #1d2730;
-  font-size: 6px !important;
+  font-size: 10px !important;
   font-style: normal;
 }
 .dw-work-state.status-released,
@@ -1317,12 +1319,12 @@
 }
 .dw-target small {
   color: #71808c;
-  font-size: 6px;
+  font-size: 12px;
 }
 .dw-target strong {
   margin-top: 3px;
   color: #c8d1d7;
-  font-size: 8px;
+  font-size: 10px;
 }
 .dw-controls {
   margin-top: 13px;
@@ -1343,7 +1345,7 @@
   border: 1px solid #3c4b56;
   border-radius: 4px;
   color: #83929d;
-  font-size: 7px;
+  font-size: 10px;
 }
 .dw-controls p {
   min-width: 0;
@@ -1354,20 +1356,20 @@
   display: block;
 }
 .dw-controls strong {
-  font-size: 7px;
+  font-size: 12px;
   line-height: 1.45;
 }
 .dw-controls small {
   margin-top: 4px;
   color: #687783;
-  font-size: 6px;
+  font-size: 10px;
 }
 .dw-controls em {
   padding: 3px 5px;
   border-radius: 3px;
   color: #7f8d98;
   background: #19222a;
-  font-size: 6px;
+  font-size: 10px;
   font-style: normal;
 }
 .dw-primary {
@@ -1389,7 +1391,7 @@
 }
 .dw-value-hero span {
   color: #73828e;
-  font-size: 7px;
+  font-size: 10px;
   text-transform: uppercase;
 }
 .dw-value-hero strong {
@@ -1400,7 +1402,7 @@
 .dw-value-hero small {
   margin-top: 4px;
   color: #6a7985;
-  font-size: 6px;
+  font-size: 10px;
 }
 .dw-value-table {
   border-block: 1px solid var(--line);
@@ -1418,14 +1420,14 @@
 .dw-value-table > div:first-child {
   min-height: 27px;
   color: #697984;
-  font-size: 6px;
+  font-size: 10px;
   text-transform: uppercase;
 }
 .dw-value-table > div > span {
   min-width: 0;
   padding: 5px 4px;
   font-family: "JetBrains Mono Variable", monospace;
-  font-size: 6px;
+  font-size: 10px;
   text-align: right;
 }
 .dw-value-table > div > span:first-child {
@@ -1440,12 +1442,12 @@
   white-space: nowrap;
 }
 .dw-value-table strong {
-  font-size: 7px;
+  font-size: 10px;
 }
 .dw-value-table small {
   margin-top: 3px;
   color: #687782;
-  font-size: 5px;
+  font-size: 9px;
 }
 .dw-value-table .verified {
   color: var(--teal);
@@ -1469,15 +1471,15 @@
 }
 .dw-finance small {
   color: #71808b;
-  font-size: 6px;
+  font-size: 12px;
 }
 .dw-finance strong {
   margin-top: 3px;
-  font-size: 8px;
+  font-size: 10px;
 }
 .dw-finance em {
   color: #83afa8;
-  font-size: 6px;
+  font-size: 10px;
   font-style: normal;
   text-transform: capitalize;
 }
@@ -1512,12 +1514,12 @@
 }
 .dw-modal > header h2 {
   margin: 3px 0 0;
-  font-size: 14px;
+  font-size: 18px;
   letter-spacing: 0;
 }
 .dw-modal > header small {
   color: #729b95;
-  font-size: 7px;
+  font-size: 10px;
   text-transform: uppercase;
 }
 .dw-modal > header .dw-icon {
@@ -1536,7 +1538,7 @@
 .dw-evidence-detail span {
   display: block;
   color: #6f7f8a;
-  font-size: 7px;
+  font-size: 10px;
   text-transform: uppercase;
 }
 .dw-evidence-detail strong,
@@ -1544,7 +1546,7 @@
   display: block;
   margin: 6px 0 0;
   color: #b8c3ca;
-  font-size: 9px;
+  font-size: 13px;
   line-height: 1.55;
 }
 .dw-modal > footer {
@@ -1555,7 +1557,7 @@
   border-top: 1px solid var(--line);
   color: #72928d;
   background: #0b1116;
-  font-size: 7px;
+  font-size: 10px;
 }
 .dw-usage-modal {
   width: min(670px, 100%);
@@ -1564,7 +1566,7 @@
   margin: 0;
   padding: 15px 17px 0;
   color: #8e9ba5;
-  font-size: 9px;
+  font-size: 13px;
   line-height: 1.6;
 }
 .dw-continuation {
@@ -1594,19 +1596,19 @@
 }
 .dw-continuation strong {
   margin-top: 12px;
-  font-size: 9px;
+  font-size: 13px;
 }
 .dw-continuation small {
   min-height: 42px;
   margin-top: 6px;
   color: #7d8b96;
-  font-size: 7px;
+  font-size: 11px;
   line-height: 1.5;
 }
 .dw-continuation em {
   margin-top: 10px;
   color: #64bcaf;
-  font-size: 6px;
+  font-size: 10px;
   font-style: normal;
   text-transform: uppercase;
 }
@@ -1625,7 +1627,7 @@
   color: #d9f4ef;
   background: #102522;
   box-shadow: 0 15px 50px rgb(0 0 0/35%);
-  font-size: 8px;
+  font-size: 10px;
 }
 @media (max-width: 1240px) {
   .dw-layout {
@@ -1701,7 +1703,7 @@
     border: 0;
     color: #6f7f8b;
     background: transparent;
-    font-size: 6px;
+    font-size: 10px;
   }
   .dw-mobile-nav button.active {
     color: var(--teal);
@@ -1726,10 +1728,10 @@
     padding: 14px 14px 10px;
   }
   .dw-case-header h1 {
-    font-size: 18px;
+    font-size: 22px;
   }
   .dw-case-header > p {
-    font-size: 8px;
+    font-size: 13px;
   }
   .dw-stages {
     margin-top: 12px;
@@ -1787,6 +1789,7 @@
     min-height: 0;
   }
 }
+
 @media (prefers-reduced-motion: reduce) {
   .dw-thinking i {
     animation: none;
