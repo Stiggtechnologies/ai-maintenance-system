@@ -1,6 +1,12 @@
 import { useState } from "react";
 import { ReliabilityAnalytics } from "../components/ReliabilityAnalytics";
+import { ModellingStudio } from "../components/ModellingStudio";
 import { CaEffectivenessPanel } from "../components/CaEffectivenessPanel";
+import { ConditionMonitoring } from "../components/ConditionMonitoring";
+import { MonitoringCoverageGaps } from "../components/MonitoringCoverageGaps";
+import { FailureCoding } from "../components/FailureCoding";
+import { LifecycleDecisions } from "../components/LifecycleDecisions";
+import { IntervalOptimization } from "../components/IntervalOptimization";
 import { useNavigate } from "react-router-dom";
 import {
   TrendingUp,
@@ -158,6 +164,17 @@ export function Reliability() {
       </div>
 
       <ReliabilityAnalytics />
+      <ModellingStudio />
+
+      <ConditionMonitoring />
+
+      <IntervalOptimization />
+
+      <LifecycleDecisions />
+
+      <FailureCoding />
+
+      <MonitoringCoverageGaps />
 
       <CaEffectivenessPanel />
 

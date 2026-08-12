@@ -26,6 +26,11 @@ import {
 import type { DecisionRow } from "../types/operating";
 import { LoadingState, ErrorState } from "../components/ui/AsyncStates";
 import { DecisionRightsMatrix } from "../components/DecisionRightsMatrix";
+import { TaxonomyGovernance } from "../components/TaxonomyGovernance";
+import { SafetyGatekeeperPanel } from "../components/SafetyGatekeeperPanel";
+import { ControlAssurance } from "../components/ControlAssurance";
+import { GovernanceStandards } from "../components/GovernanceStandards";
+import { ModelRisk } from "../components/ModelRisk";
 
 const DECISION_STATUSES: DecisionStatus[] = [
   "pending",
@@ -415,7 +420,15 @@ export function DecisionGovernance() {
         </button>
       </div>
 
+      <SafetyGatekeeperPanel />
+
       <DecisionRightsMatrix />
+
+      <TaxonomyGovernance />
+
+      <GovernanceStandards />
+
+      <ControlAssurance />
 
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -672,6 +685,7 @@ export function DecisionGovernance() {
           </div>
         </div>
       )}
+      <ModelRisk />
     </div>
   );
 }

@@ -3,7 +3,45 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+// Model tiers. These were pinned to gpt-4o / gpt-4o-mini — two generations
+// stale — on paths that produce FMEA, RCA and FRACAS deliverables a technical
+// authority signs. Anything a human puts their name to is agent-class.
+//
+// MODEL_SAFETY is the last resort beneath all three: an unavailable model
+// returns 404, classified fatal, so the chain drops to a known-good model
+// instantly rather than going dark. That is the difference between a
+// degraded answer and the month of silence this chain exists to prevent.
+const MODEL_DELIVERABLE = Deno.env.get("MODEL_DELIVERABLE") ?? "gpt-5.6-terra";
+const MODEL_CHAT = Deno.env.get("MODEL_CHAT") ?? "gpt-5.6-luna";
+const MODEL_STRUCTURED = Deno.env.get("MODEL_STRUCTURED") ?? "gpt-5.6-luna";
+const MODEL_SAFETY = "gpt-4o-mini";
+
+// Gateway tier aliases. A provider must be asked for a name IT recognises —
+// the same rule the chain already applies to models, now applied to the
+// gateway. Asking the gateway for "gpt-5.6-terra" is not merely redundant:
+// SyncAI's virtual key is scoped to `['stigg/agent','stigg/fast', ...]`, so a
+// concrete vendor name is REFUSED, fatal, and fails straight over to direct
+// OpenAI — the gateway would be configured, billed for, and never used.
+//
+// Deliverables are agent-class; chat and structured output are fast-class.
+const TIER_DELIVERABLE = Deno.env.get("TIER_DELIVERABLE") ?? "stigg/agent";
+const TIER_CHAT = Deno.env.get("TIER_CHAT") ?? "stigg/fast";
+const TIER_STRUCTURED = Deno.env.get("TIER_STRUCTURED") ?? "stigg/fast";
+
+/** The alias this gateway knows for a given direct-provider model. */
+function gatewayTierFor(directModel: string): string {
+  if (directModel === MODEL_DELIVERABLE) return TIER_DELIVERABLE;
+  if (directModel === MODEL_STRUCTURED) return TIER_STRUCTURED;
+  return TIER_CHAT;
+}
+
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY") ?? "";
+// Resilient provider chain — gateway-first when configured, direct OpenAI as
+// fallback. Deno-free and unit-tested by vitest against this exact file.
+import {
+  buildProviderChain,
+  callWithResilience,
+} from "../_shared/llm-provider.ts";
 const LLM_BASE_URL = Deno.env.get("LLM_BASE_URL") ?? "https://api.openai.com";
 const ALLOWED_ORIGIN = Deno.env.get("ALLOWED_ORIGIN") ?? "https://app.syncai.ca";
 
@@ -109,12 +147,6 @@ async function authenticate(req: Request): Promise<AuthContext | null> {
   };
 }
 
-function getProviderUrl(path: string): URL {
-  const url = new URL(path, LLM_BASE_URL);
-  const localTest = ["localhost", "127.0.0.1"].includes(url.hostname);
-  if (url.protocol !== "https:" && !localTest) throw new Error("invalid_provider_configuration");
-  return url;
-}
 
 async function callLLM(
   model: string,
@@ -122,38 +154,51 @@ async function callLLM(
   userQuery: string,
   jsonMode = false,
   maxTokens = 1200,
-): Promise<{ content: string; usage: Record<string, number> }> {
-  const providerUrl = getProviderUrl("/v1/chat/completions");
-  const payload: Record<string, unknown> = {
-    model,
-    messages: [
-      { role: "system", content: systemPrompt },
-      { role: "user", content: userQuery },
-    ],
-    temperature: 0.3,
-    max_completion_tokens: maxTokens,
-  };
-  if (jsonMode) payload.response_format = { type: "json_object" };
-
-  const llmResponse = await fetch(providerUrl, {
-    method: "POST",
-    signal: AbortSignal.timeout(60_000),
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${OPENAI_API_KEY}`,
-    },
-    body: JSON.stringify(payload),
+  // `model` is what we ASK for. The returned `model` is what answered — after
+  // a failover they differ, and the SIR log must carry the latter.
+): Promise<{ content: string; usage: Record<string, number>; model: string }> {
+  // Chain: LLM_BASE_URL (the gateway, when set and not plain OpenAI) first,
+  // then direct OpenAI. Today LLM_BASE_URL is unset, so this is OpenAI with
+  // retry; the moment the gateway secret is set, routing flips with no deploy.
+  const gatewayUrl =
+    LLM_BASE_URL && !LLM_BASE_URL.includes("api.openai.com") ? LLM_BASE_URL : undefined;
+  const providers = buildProviderChain({
+    gatewayUrl,
+    gatewayKey: gatewayUrl ? (Deno.env.get("LLM_API_KEY") ?? OPENAI_API_KEY) : undefined,
+    gatewayModel: gatewayTierFor(model),
+    openaiKey: OPENAI_API_KEY,
+    openaiModel: model,
+    openaiSafetyModel: MODEL_SAFETY,
   });
 
-  if (!llmResponse.ok) {
-    console.error("ai-agent-processor provider failure", { status: llmResponse.status });
-    throw new Error("provider_unavailable");
+  const result = await callWithResilience(fetch, providers, {
+    systemPrompt,
+    userContent: userQuery,
+    jsonMode,
+    maxTokens,
+    timeoutMs: 60_000,
+  });
+
+  // Every non-first-attempt trail is recorded, so a background failure can
+  // never again sit invisible for a month.
+  if (result.events.length > 1 || !result.ok) {
+    console.error("ai-agent-processor provider trail", JSON.stringify(result.events));
+    try {
+      const admin = serviceClient();
+      await admin.from("llm_provider_events").insert(
+        result.events.map((e) => ({
+          function_name: "ai-agent-processor",
+          provider: e.provider,
+          outcome: e.outcome,
+          status: e.status,
+          detail: e.detail,
+        })),
+      );
+    } catch { /* health logging must never take the copilot down */ }
   }
 
-  const data = await llmResponse.json();
-  const content = data?.choices?.[0]?.message?.content;
-  if (typeof content !== "string" || !content.trim()) throw new Error("invalid_provider_response");
-  return { content, usage: data.usage ?? {} };
+  if (!result.ok) throw new Error("provider_unavailable");
+  return { content: result.content, usage: result.usage, model: result.model ?? model };
 }
 
 const AGENT_PURPOSE: Record<string, string> = {
@@ -180,18 +225,88 @@ Use only supplied facts and clearly label assumptions. Distinguish symptoms, mec
   return prompt;
 }
 
-async function retrieveReliabilityContext(admin: ReturnType<typeof serviceClient>, query: string): Promise<string> {
+/**
+ * Claim types the copilot's answers actually rest on.
+ *
+ * The copilot reasons about how things fail and about the methods for analysing
+ * that, so it retrieves against those two and nothing else. It deliberately
+ * does NOT request nameplate_spec: a brochure has standing on rated power, and
+ * feeding sales copy into an FMEA prompt is exactly the contamination the
+ * document classes exist to prevent.
+ */
+const COPILOT_CLAIM_TYPES = ["analysis_method", "failure_behaviour"] as const;
+
+/**
+ * Retrieve reference passages, class-checked and tenant-scoped.
+ *
+ * This used to select from reliability_kb_chunks directly, which meant there was
+ * no enforcement point at all: any document in the corpus could be cited in
+ * support of any claim, and — once client material starts arriving — any tenant
+ * could be served another tenant's manuals.
+ *
+ * The organization id is passed explicitly because this runs under the service
+ * role, where there is no session for app_current_org() to read. Without it the
+ * copilot would silently answer from generic handbooks while the client's own
+ * documents sat unread.
+ */
+async function retrieveReliabilityContext(
+  admin: ReturnType<typeof serviceClient>,
+  query: string,
+  organizationId: string,
+): Promise<string> {
   try {
     if (query.trim().length < 12) return "";
-    const { data } = await admin
-      .from("reliability_kb_chunks")
-      .select("title, page_start, page_end, content")
-      .textSearch("content", query.slice(0, 500))
-      .limit(4);
-    if (!data?.length) return "";
-    return data.map((item: Record<string, unknown>) =>
-      `[${item.title}, p.${item.page_start}${item.page_end !== item.page_start ? `-${item.page_end}` : ""}]\n${String(item.content).slice(0, 1200)}`
-    ).join("\n\n---\n\n");
+
+    const results = await Promise.all(
+      COPILOT_CLAIM_TYPES.map((claimType) =>
+        admin.rpc("retrieve_kb_context", {
+          p_query: query.slice(0, 500),
+          p_claim_type: claimType,
+          p_limit: 3,
+          p_organization_id: organizationId,
+        }),
+      ),
+    );
+
+    type Chunk = {
+      title: string;
+      page_start: number;
+      page_end: number;
+      content: string;
+      documentClass: string;
+      isClientPrivate: boolean;
+    };
+
+    // Deduplicated across claim types: a handbook page with standing on both
+    // would otherwise be pasted into the prompt twice and read as two
+    // independent sources agreeing with each other.
+    const seen = new Set<string>();
+    const chunks: Chunk[] = [];
+    for (const r of results) {
+      for (const c of (r.data ?? []) as Chunk[]) {
+        const key = `${c.title}|${c.page_start}|${c.content.slice(0, 60)}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        chunks.push(c);
+      }
+    }
+    if (chunks.length === 0) return "";
+
+    return chunks
+      .map((c) => {
+        const pages = c.page_end !== c.page_start
+          ? `p.${c.page_start}-${c.page_end}`
+          : `p.${c.page_start}`;
+        // The class travels with the citation. A reader who sees a claim
+        // attributed to an OEM brochure can weigh it differently from one
+        // attributed to a handbook, which they cannot do if both render
+        // identically.
+        const provenance = c.isClientPrivate
+          ? `${c.documentClass}, client-supplied`
+          : c.documentClass;
+        return `[${c.title}, ${pages} — ${provenance}]\n${String(c.content).slice(0, 1200)}`;
+      })
+      .join("\n\n---\n\n");
   } catch {
     return "";
   }
@@ -264,12 +379,12 @@ async function handleLegacy(
   if (query.length > 30_000) return response({ success: false, error: "query_too_large" }, 413);
 
   const deliverable = body.depth === "deliverable" || /\b(fmea|rca|fracas|rcm|register|assessment|report|plan)\b/i.test(query);
-  const model = deliverable ? "gpt-4o" : "gpt-4o-mini";
+  const model = deliverable ? MODEL_DELIVERABLE : MODEL_CHAT;
   const maxTokens = deliverable ? 12_000 : 1_500;
-  const kb = await retrieveReliabilityContext(admin, query);
+  const kb = await retrieveReliabilityContext(admin, query, auth.organizationId);
   const systemPrompt = `${buildLegacyPrompt(agentType, body.industry, deliverable)}${kb ? `\n\nApproved reliability reference passages:\n${kb}\nUse only the exact bracket labels supplied for citations.` : ""}`;
   const started = Date.now();
-  const { content, usage } = await callLLM(model, systemPrompt, query, false, maxTokens);
+  const { content, usage, model: answeredBy } = await callLLM(model, systemPrompt, query, false, maxTokens);
   const elapsed = Date.now() - started;
 
   await admin.from("ai_agent_logs").insert({
@@ -279,7 +394,7 @@ async function handleLegacy(
     industry: body.industry ?? "general",
     processing_time_ms: elapsed,
   }).then(({ error }) => error && console.error("ai_agent_logs insert failed", error));
-  await logToSir(admin, auth, agentType, query, content, model, usage, elapsed);
+  await logToSir(admin, auth, agentType, query, content, answeredBy, usage, elapsed);
 
   return response({
     success: true,
@@ -365,7 +480,7 @@ async function handleTyped(
 
     const prompts = buildTypedPrompts(body, workOrderResult.data, assetResult.data);
     const started = Date.now();
-    const { content, usage } = await callLLM("gpt-4o-mini", prompts.system, prompts.user, true, 1800);
+    const { content, usage, model: answeredBy } = await callLLM(MODEL_STRUCTURED, prompts.system, prompts.user, true, 1800);
     const parsed = JSON.parse(content);
     const confidence = Math.max(0, Math.min(1, Number(parsed.confidence ?? 0.5)));
     const requiresHumanReview = Boolean(parsed.requires_human_review) || ["high", "critical"].includes(parsed.risk_level);
@@ -401,7 +516,7 @@ async function handleTyped(
     });
     if (!governanceResponse.ok) throw new Error("governance_handoff_failed");
     const governance = await governanceResponse.json();
-    await logToSir(admin, { ...auth, organizationId }, body.agent_code, prompts.user, parsed.summary ?? content, "gpt-4o-mini", usage, Date.now() - started, correlationId);
+    await logToSir(admin, { ...auth, organizationId }, body.agent_code, prompts.user, parsed.summary ?? content, answeredBy, usage, Date.now() - started, correlationId);
 
     return response({
       success: true,

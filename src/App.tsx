@@ -85,7 +85,11 @@ function PublicCopilotExperience() {
 }
 
 function App() {
-  const [currentPage, setCurrentPage] = useState<Page>("demo");
+  const [currentPage, setCurrentPage] = useState<Page>(() =>
+    new URLSearchParams(window.location.search).get("view") === "signin"
+      ? "signin"
+      : "demo",
+  );
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
 

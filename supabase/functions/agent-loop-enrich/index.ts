@@ -20,6 +20,16 @@ const LLM_BASE_URL =
   Deno.env.get("ENRICH_LLM_BASE_URL") ?? Deno.env.get("LLM_BASE_URL") ?? "";
 const LLM_API_KEY =
   Deno.env.get("ENRICH_LLM_API_KEY") ?? Deno.env.get("LLM_API_KEY") ?? "";
+const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY") ?? "";
+// Resilient chain: the configured gateway first, direct OpenAI as fallback.
+// This loop pointed at a gateway that stopped resolving and then failed
+// SILENTLY for a month — zero enrichments in 30 days, nothing surfaced.
+// The chain restores service through the fallback TODAY, and the health
+// events make any future silence visible.
+import {
+  buildProviderChain,
+  callWithResilience,
+} from "../_shared/llm-provider.ts";
 const LLM_MODEL =
   Deno.env.get("ENRICH_LLM_MODEL") ?? Deno.env.get("LLM_MODEL") ?? "stigg/fast";
 const ENRICH_SHARED_SECRET = Deno.env.get("ENRICH_SHARED_SECRET") ?? "";
@@ -69,17 +79,25 @@ Deno.serve(async (req) => {
   const authorized = safeEqual(auth, serviceToken) || (sharedToken !== "" && safeEqual(auth, sharedToken));
   if (!authorized) return json({ error: "unauthorized" }, 401);
 
-  if (!LLM_BASE_URL || !LLM_API_KEY) {
+  // Gateway first when configured; direct OpenAI as fallback. An empty chain
+  // is reported as configuration, not silently skipped.
+  const gatewayUrl =
+    LLM_BASE_URL && !LLM_BASE_URL.includes("api.openai.com") ? LLM_BASE_URL : undefined;
+  const providers = buildProviderChain({
+    gatewayUrl,
+    gatewayKey: gatewayUrl ? LLM_API_KEY : undefined,
+    gatewayModel: LLM_MODEL,
+    openaiKey: OPENAI_API_KEY,
+    // Enrichment output is read and signed by an engineer, so the direct
+    // fallback is an `agent`-class model, not the cheapest thing available.
+    // gpt-4o-mini stays as the safety net beneath it: if this key lacks
+    // 5.6 access the 404 is fatal and the chain drops instantly rather than
+    // going dark, and llm_provider_events records which one answered.
+    openaiModel: Deno.env.get("OPENAI_FALLBACK_MODEL") ?? "gpt-5.6-terra",
+    openaiSafetyModel: "gpt-4o-mini",
+  });
+  if (providers.length === 0) {
     return json({ enriched: 0, skipped: "llm_not_configured" });
-  }
-
-  let providerUrl: URL;
-  try {
-    providerUrl = new URL("/v1/chat/completions", LLM_BASE_URL);
-    if (providerUrl.protocol !== "https:") throw new Error("HTTPS required");
-  } catch {
-    console.error("agent-loop-enrich invalid LLM_BASE_URL");
-    return json({ enriched: 0, skipped: "invalid_llm_configuration" }, 503);
   }
 
   const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
@@ -106,43 +124,39 @@ Deno.serve(async (req) => {
 
   for (const rec of recs) {
     try {
-      const resp = await fetch(providerUrl, {
-        method: "POST",
-        signal: AbortSignal.timeout(45_000),
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${LLM_API_KEY}`,
-        },
-        body: JSON.stringify({
-          model: LLM_MODEL,
-          temperature: 0.3,
-          max_completion_tokens: 1500,
-          messages: [
-            {
-              role: "system",
-              content:
-                "You are a senior reliability engineer for asset-intensive industry. " +
-                "Given a condition-monitoring finding, return strict JSON: " +
-                '{"analysis": "2-3 sentence engineering assessment of likely failure mechanism and consequence", ' +
-                '"recommended_window_hours": <number>, "confidence": <0-100 integer>}. ' +
-                "Be specific and conservative; never advise bypassing approvals.",
-            },
-            {
-              role: "user",
-              content: `Finding: ${rec.title}\nSensor detail: ${rec.issue}\nCurrent proposed action: ${rec.action}\nUrgency: ${rec.urgency}`,
-            },
-          ],
-        }),
+      const result = await callWithResilience(fetch, providers, {
+        systemPrompt:
+          "You are a senior reliability engineer for asset-intensive industry. " +
+          "Given a condition-monitoring finding, return strict JSON: " +
+          '{"analysis": "2-3 sentence engineering assessment of likely failure mechanism and consequence", ' +
+          '"recommended_window_hours": <number>, "confidence": <0-100 integer>}. ' +
+          "Be specific and conservative; never advise bypassing approvals.",
+        userContent: `Finding: ${rec.title}\nSensor detail: ${rec.issue}\nCurrent proposed action: ${rec.action}\nUrgency: ${rec.urgency}`,
+        maxTokens: 1500,
+        timeoutMs: 45_000,
       });
 
-      if (!resp.ok) {
-        console.error("agent-loop-enrich provider request failed", { id: rec.id, status: resp.status });
+      // The month of silence happened because failures only went to
+      // console.error. Health events are queryable; the console is not.
+      if (result.events.length > 1 || !result.ok) {
+        await supabase.from("llm_provider_events").insert(
+          result.events.map((e) => ({
+            function_name: "agent-loop-enrich",
+            provider: e.provider,
+            outcome: e.outcome,
+            status: e.status,
+            detail: e.detail,
+          })),
+        );
+      }
+
+      if (!result.ok) {
+        console.error("agent-loop-enrich provider exhausted", { id: rec.id });
         failures.push(`${rec.id}: provider_error`);
         continue;
       }
 
-      const data = await resp.json();
-      const content: string = data.choices?.[0]?.message?.content ?? "";
+      const content: string = result.content;
       const match = content.match(/\{[\s\S]*\}/);
       const parsed = match ? JSON.parse(match[0]) : {};
       if (typeof parsed.analysis !== "string" || parsed.analysis.trim().length === 0) {
@@ -160,12 +174,15 @@ Deno.serve(async (req) => {
         .from("recommendations")
         .update({
           rationale:
-            `AI analysis (${LLM_MODEL}): ${parsed.analysis.trim()} ` +
+            `AI analysis (${result.model ?? LLM_MODEL}): ${parsed.analysis.trim()} ` +
             `Suggested action window: ${parsed.recommended_window_hours ?? "n/a"}h. ` +
             "Raised by the continuous condition-monitoring loop; human approval required before any action.",
           confidence,
           enriched_at: new Date().toISOString(),
-          enrichment_model: LLM_MODEL,
+          // The model that ACTUALLY answered, not the one requested. When the
+          // chain fails over these differ, and storing the request would put a
+          // false provenance claim into a record an engineer signs.
+          enrichment_model: result.model ?? LLM_MODEL,
           updated_at: new Date().toISOString(),
         })
         .eq("id", rec.id)

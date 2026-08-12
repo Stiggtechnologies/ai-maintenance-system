@@ -15,6 +15,9 @@ import {
 import { motion } from "framer-motion";
 import { useOnboardingOperatingLoop } from "../hooks/useOnboardingOperatingLoop";
 import type { DerivedAssetIntelligence } from "../services/onboardingOperatingLoop";
+import { LifecycleStages } from "../components/LifecycleStages";
+import { AssetOntology } from "../components/AssetOntology";
+import { ReliabilityByDesign } from "../components/ReliabilityByDesign";
 
 const assetData = {
   id: "C-22",
@@ -830,6 +833,11 @@ export function AssetIntelligencePage() {
           </div>
         </div>
       )}
+      <AssetOntology />
+
+      <LifecycleStages />
+
+      <ReliabilityByDesign />
     </div>
   );
 }

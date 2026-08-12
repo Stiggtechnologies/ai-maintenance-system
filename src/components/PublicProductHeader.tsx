@@ -1,4 +1,4 @@
-import { Activity, ArrowUpRight, ShieldCheck } from "lucide-react";
+import { Activity, ArrowUpRight, LogIn, ShieldCheck } from "lucide-react";
 
 type PublicProductHeaderProps = {
   active: "copilot" | "proof";
@@ -55,6 +55,15 @@ export function PublicProductHeader({ active }: PublicProductHeaderProps) {
             <span className="hidden sm:inline">48-hour value proof</span>
             <span className="sm:hidden">Value proof</span>
             <ArrowUpRight size={14} className="hidden sm:block" />
+          </a>
+          <a
+            href="/?view=signin"
+            aria-label="Sign in"
+            title="Sign in"
+            className="inline-flex h-9 items-center gap-2 rounded-lg border border-white/[0.09] px-3 text-xs font-semibold text-slate-300 transition-colors hover:bg-white/[0.05] hover:text-white sm:px-4 sm:text-sm"
+          >
+            <LogIn size={15} />
+            <span className="hidden sm:inline">Sign in</span>
           </a>
         </nav>
       </div>

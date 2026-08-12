@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { ConnectorHealth } from "../components/ConnectorHealth";
 import {
   Plug,
   CheckCircle,
@@ -10,6 +11,8 @@ import {
 } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { platformService } from "../services/platform";
+import { DataGovernance } from "../components/DataGovernance";
+import { AssetTwinCoverage } from "../components/AssetTwinCoverage";
 
 interface Connector {
   id: string;
@@ -309,6 +312,10 @@ export function IntegrationsPage() {
           )}
         </div>
       )}
+
+      <ConnectorHealth />
+      <DataGovernance />
+      <AssetTwinCoverage />
     </div>
   );
 }

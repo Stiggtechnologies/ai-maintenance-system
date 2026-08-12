@@ -10,6 +10,9 @@ import {
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { useAsyncData } from "../hooks/useAsyncData";
+import { AssetInterdependency } from "../components/AssetInterdependency";
+import { ConfigurationControl } from "../components/ConfigurationControl";
+import { ProcessSafety } from "../components/ProcessSafety";
 import {
   LoadingState,
   ErrorState,
@@ -520,6 +523,12 @@ export function RiskConsequence() {
           </div>
         </div>
       )}
+
+      <ProcessSafety />
+
+      <AssetInterdependency />
+
+      <ConfigurationControl />
 
       {/* Risk Prioritization Note */}
       <div className="bg-[#0D1520] border border-white/6 rounded-xl p-4 flex items-start gap-3">
