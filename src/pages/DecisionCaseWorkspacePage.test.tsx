@@ -54,6 +54,15 @@ describe("DecisionCaseWorkspacePage", () => {
     renderWorkspace();
     expect(screen.getByText("Decision Workspace")).toBeTruthy();
     expect(
+      screen.getAllByText("Know where the next reliability dollar should go.")
+        .length,
+    ).toBeGreaterThan(0);
+    expect(screen.getByText("Decision Thread")).toBeTruthy();
+    expect(
+      screen.getByText(/controlled work, and value trail stay together/i),
+    ).toBeTruthy();
+    expect(screen.queryByText(/analysis tokens/i)).toBeNull();
+    expect(
       screen.getByText("Do not approve the yearly inspection interval."),
     ).toBeTruthy();
     fireEvent.change(
@@ -96,6 +105,20 @@ describe("DecisionCaseWorkspacePage", () => {
     expect(
       screen.getByText("Active cases").parentElement?.textContent,
     ).toContain("3");
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /Decision portfolio/i }),
+    );
+    expect(
+      screen.getByRole("heading", {
+        name: "Know where the next reliability dollar should go.",
+      }),
+    ).toBeTruthy();
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: /Decide whether P-101 process pump's seal inspection interval/i,
+      }),
+    );
 
     fireEvent.click(
       screen.getByRole("button", {

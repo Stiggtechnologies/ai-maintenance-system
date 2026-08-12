@@ -449,6 +449,7 @@ export function DecisionCaseWorkspacePage({
     100,
     Math.round((active.tokensUsed / active.tokenAllowance) * 100),
   );
+  const complimentaryRemainingPercent = Math.max(0, 100 - usagePercent);
   const currentStage = DECISION_CASE_STAGES.findIndex(
     (item) => item.id === active.stage,
   );
@@ -465,7 +466,7 @@ export function DecisionCaseWorkspacePage({
           </span>
           <span>
             <strong>Decision Workspace</strong>
-            <small>Governed engineering intelligence</small>
+            <small>Spend · risk · action · verified value</small>
           </span>
         </div>
         <div className="dw-context" aria-label="Organization and site context">
@@ -576,19 +577,34 @@ export function DecisionCaseWorkspacePage({
           </div>
           <div className="dw-usage">
             <div>
-              <span>This case usage</span>
-              <strong>{usagePercent}%</strong>
+              <span>
+                {active.billingMode === "complimentary"
+                  ? "Complimentary analysis"
+                  : "Decision analysis"}
+              </span>
+              <strong>
+                {active.billingMode === "complimentary"
+                  ? `${complimentaryRemainingPercent}% left`
+                  : `${usagePercent}% used`}
+              </strong>
             </div>
-            <div className="dw-usage-track">
+            <div
+              className="dw-usage-track"
+              role="progressbar"
+              aria-label="Decision analysis capacity used"
+              aria-valuenow={usagePercent}
+              aria-valuemin={0}
+              aria-valuemax={100}
+            >
               <span style={{ width: `${usagePercent}%` }} />
             </div>
             <small>
-              {active.tokensUsed.toLocaleString()} of{" "}
-              {active.tokenAllowance.toLocaleString()} analysis tokens for this
-              case
+              {active.billingMode === "complimentary"
+                ? "Sized to reach a recommendation and authority gate."
+                : "Metered and retained with this Decision Case."}
             </small>
             <button type="button" onClick={() => setUsageOpen(true)}>
-              Manage continuation <ArrowUpRight size={13} />
+              Continue analysis <ArrowUpRight size={13} />
             </button>
           </div>
         </aside>
@@ -601,10 +617,10 @@ export function DecisionCaseWorkspacePage({
               <span className="dw-kicker">
                 <Target size={14} /> Ranked decision portfolio
               </span>
-              <h1>Where should the next dollar go?</h1>
+              <h1>Know where the next reliability dollar should go.</h1>
               <p>
-                Ranked by consequence, evidence readiness, authority state, and
-                value that can be verified.
+                Rank assets, sites, and failure modes by consequence, evidence
+                readiness, authority state, and value that can be verified.
               </p>
               <div className="dw-summary">
                 <div>
@@ -660,6 +676,15 @@ export function DecisionCaseWorkspacePage({
                   </span>
                   <span>{active.statusLabel}</span>
                 </div>
+                {publicMode && (
+                  <div className="dw-case-promise">
+                    <Target size={13} />
+                    <strong>
+                      Know where the next reliability dollar should go.
+                    </strong>
+                    <span>Spend · risk · action · verified value</span>
+                  </div>
+                )}
                 <h1>{active.title}</h1>
                 <p>{active.objective}</p>
                 <div className="dw-stages" aria-label="Decision lifecycle">
@@ -686,10 +711,15 @@ export function DecisionCaseWorkspacePage({
                 <div className="dw-handoff">
                   <Sparkles size={16} />
                   <span>
-                    <strong>Your value-proof intake is already working.</strong>
+                    <strong>
+                      {publicMode
+                        ? "One-click onboarding preview"
+                        : "Your value-proof intake is already working."}
+                    </strong>
                     <small>
-                      Asset scope, sponsor outcome, system of record, and first
-                      evidence requirements were carried into this case.
+                      {publicMode
+                        ? "One intake generated the workspace shell, evidence checklist, role context, approval gates, and first analysis queue shown here."
+                        : "Asset scope, sponsor outcome, system of record, and first evidence requirements were carried into this case."}
                     </small>
                   </span>
                   <CheckCircle2 size={18} />
@@ -697,15 +727,34 @@ export function DecisionCaseWorkspacePage({
               )}
               {publicMode && (
                 <div className="dw-demo-boundary">
-                  <ShieldCheck size={15} /> Interactive demonstration · case
-                  data is isolated to this browser tab · approvals and connector
-                  receipts are simulated
+                  <ShieldCheck size={15} />
+                  <span className="dw-demo-long">
+                    Interactive demonstration · use sanitized, non-sensitive
+                    context only · data is isolated to this browser tab ·
+                    approvals and connector receipts are simulated
+                  </span>
+                  <span className="dw-demo-short">
+                    Sanitized context only · approvals and connector receipts
+                    are simulated
+                  </span>
                 </div>
               )}
               <section
                 className="dw-thread"
                 aria-label="Decision case conversation"
               >
+                <div className="dw-thread-intro">
+                  <span>
+                    <MessageSquare size={15} />
+                  </span>
+                  <div>
+                    <strong>Decision Thread</strong>
+                    <small>
+                      The question, evidence, recommendation, approval gate,
+                      controlled work, and value trail stay together.
+                    </small>
+                  </div>
+                </div>
                 {active.messages.map((message) => (
                   <article
                     key={message.id}
@@ -820,7 +869,7 @@ export function DecisionCaseWorkspacePage({
         >
           <div className="dw-packet-head">
             <span>
-              <small>Live decision packet</small>
+              <small>Current decision packet</small>
               <strong>
                 {active.caseNumber} · {active.version}
               </strong>
@@ -989,7 +1038,7 @@ function DecisionPanel({
       <div className="dw-recommendation">
         <ShieldCheck size={17} />
         <span>
-          <small>Recommendation</small>
+          <small>Governed recommendation</small>
           <strong>{active.recommendation}</strong>
         </span>
       </div>
@@ -1003,9 +1052,19 @@ function DecisionPanel({
           </div>
         ))}
       </div>
+      {active.valueExposure > 0 && (
+        <div className="dw-decision-path">
+          <CheckCircle2 size={15} />
+          <p>
+            Pattern identified, first risk ranked, governed action proposed,
+            approval boundary preserved, and value ready to verify after
+            execution.
+          </p>
+        </div>
+      )}
       <section className="dw-basis">
         <header>
-          <span>Decision basis</span>
+          <span>Source grounding</span>
           <strong>{active.evidenceScore}% evidence quality</strong>
         </header>
         <div>
@@ -1067,7 +1126,7 @@ function EvidencePanel({
     <div className="dw-panel">
       <div className="dw-tab-intro">
         <span>
-          <small>Evidence packet</small>
+          <small>Source grounding · data quality</small>
           <strong>{active.evidenceScore}% decision-ready</strong>
         </span>
         <em className="dw-source-count">
@@ -1120,7 +1179,7 @@ function AuthorityPanel({
     <div className="dw-panel">
       <div className="dw-tab-intro">
         <span>
-          <small>Technical authority gate</small>
+          <small>Approval boundary</small>
           <strong>
             {authority ? `${authority.name} is reviewing` : active.statusLabel}
           </strong>
@@ -1216,13 +1275,17 @@ function WorkPanel({
     <div className="dw-panel">
       <div className="dw-tab-intro">
         <span>
-          <small>{active.workPackage.number}</small>
+          <small>Controlled work · {active.workPackage.number}</small>
           <strong>{active.workPackage.title}</strong>
         </span>
         <em className={`dw-work-state status-${active.workPackage.status}`}>
           {active.workPackage.status.replace("_", " ")}
         </em>
       </div>
+      <p className="dw-panel-description">
+        Review source work orders, operating context, SME input, and field
+        evidence before implementation.
+      </p>
       <div className="dw-target">
         <Database size={16} />
         <span>
@@ -1289,7 +1352,7 @@ function ValuePanel({
     <div className="dw-panel">
       <div className="dw-tab-intro">
         <span>
-          <small>Measured outcome</small>
+          <small>Value proof</small>
           <strong>
             {active.financeStatus === "verified"
               ? "Value verified"
@@ -1298,6 +1361,10 @@ function ValuePanel({
         </span>
         <Gauge size={19} />
       </div>
+      <p className="dw-panel-description">
+        Make the recommendation measurable before it becomes work. Track
+        estimated, authorized, and verified value through execution.
+      </p>
       <div className="dw-value-hero">
         <span>Value at stake</span>
         <strong>{formatDecisionValue(active.valueExposure)}</strong>
@@ -1561,9 +1628,9 @@ function UsageModal({
           </button>
         </header>
         <p>
-          The complimentary allowance is sized to reach a real recommendation
-          and authority gate. Your case, evidence, and audit history remain
-          intact.
+          Complimentary decision analysis is sized to reach a real
+          recommendation and authority gate. Your case, evidence, and audit
+          history remain intact.
         </p>
         <div className="dw-continuation">
           <button type="button" onClick={() => choose("pay_per_use", 52000)}>
