@@ -21,9 +21,7 @@ const C22_REC_ACTION = "Advance PM from Day 14 to Day 3 — bearing replacement"
 const C22_VALUE_LABEL = "Risk mitigated — Reschedule PM on Conveyor C-22";
 
 async function openLogin(page: Page) {
-  await page.goto("/");
-  const signIn = page.getByRole("button", { name: /^sign in$/i });
-  if (await signIn.isVisible()) await signIn.click();
+  await page.goto("/signin");
 }
 
 async function login(page: Page) {
