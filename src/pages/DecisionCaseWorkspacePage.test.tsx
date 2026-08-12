@@ -47,6 +47,7 @@ describe("DecisionCaseWorkspacePage", () => {
         clear: () => storage.clear(),
       },
     });
+    window.sessionStorage.clear();
   });
 
   it("keeps conversation central and generates a governed reply", async () => {
@@ -77,7 +78,7 @@ describe("DecisionCaseWorkspacePage", () => {
     fireEvent.click(screen.getByTitle("Close evidence"));
     fireEvent.click(screen.getByRole("button", { name: /^Authority$/i }));
     fireEvent.click(
-      screen.getByRole("button", { name: /Approve controlled plan/i }),
+      screen.getByRole("button", { name: /Simulate controlled approval/i }),
     );
     fireEvent.click(screen.getByRole("button", { name: /^Work$/i }));
     fireEvent.click(
@@ -87,5 +88,39 @@ describe("DecisionCaseWorkspacePage", () => {
       screen.getByRole("button", { name: /Verify measured value/i }),
     );
     expect(screen.getAllByText("Value verified").length).toBeGreaterThan(0);
+  });
+
+  it("keeps every production-demo case isolated and excludes drafts from exposure", () => {
+    renderWorkspace();
+    expect(screen.getByText("$808k governed exposure")).toBeTruthy();
+    expect(
+      screen.getByText("Active cases").parentElement?.textContent,
+    ).toContain("3");
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: /C-204 compressorEvidence conflict\$420k/i,
+      }),
+    );
+    expect(
+      screen.getByRole("heading", {
+        name: "Determine what is driving C-204 repeat compressor trips",
+      }),
+    ).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /^Evidence5$/i }));
+    expect(
+      screen.getByText("11 records reconciled to the C-204 hierarchy"),
+    ).toBeTruthy();
+    expect(
+      screen.queryByText("18 records reconciled to the P-101 hierarchy"),
+    ).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: /^Value$/i }));
+    expect(screen.getByText("Trip-related downtime")).toBeTruthy();
+    expect(screen.getByText("102 h")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: /New Decision Case/i }));
+    expect(screen.getByText("Define a new governed decision")).toBeTruthy();
+    expect(screen.getByText("$808k governed exposure")).toBeTruthy();
   });
 });

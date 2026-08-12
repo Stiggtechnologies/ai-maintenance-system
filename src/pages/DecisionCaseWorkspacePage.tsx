@@ -3,6 +3,7 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   ArrowUpRight,
   Bot,
+  Calculator,
   Check,
   CheckCircle2,
   ChevronDown,
@@ -30,6 +31,8 @@ import {
 import { PublicProductHeader } from "../components/PublicProductHeader";
 import {
   DECISION_CASE_STAGES,
+  PUBLIC_DECISION_CASE_STORAGE_KEY,
+  createDraftDecisionCase,
   createSeedDecisionCases,
   formatDecisionValue,
   readDecisionCases,
@@ -79,8 +82,15 @@ function getContext(params: URLSearchParams): DecisionJourneyContext {
 function initialCases(
   routeId: string | undefined,
   context: DecisionJourneyContext,
+  publicMode: boolean,
 ): DecisionCase[] {
-  const saved = readDecisionCases(window.localStorage, context);
+  const storage = publicMode ? window.sessionStorage : window.localStorage;
+  const storageKey = publicMode ? PUBLIC_DECISION_CASE_STORAGE_KEY : undefined;
+  const seededContext =
+    publicMode && !context.intakeId
+      ? { ...context, intakeId: "demo-value-proof" }
+      : context;
+  const saved = readDecisionCases(storage, seededContext, storageKey);
   if (
     !routeId ||
     routeId === "demo" ||
@@ -112,6 +122,24 @@ function approvalLabel(status: ApprovalStatus) {
   return labels[status] || "Awaiting decision";
 }
 
+function exportDecisionRecord(active: DecisionCase, publicMode: boolean) {
+  const record = {
+    exportStatus: publicMode ? "DEMO_NOT_APPROVED" : active.statusLabel,
+    exportedAt: new Date().toISOString(),
+    packetVersion: active.version,
+    decisionCase: active,
+  };
+  const blob = new Blob([JSON.stringify(record, null, 2)], {
+    type: "application/json",
+  });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `${active.caseNumber}-${active.version}-decision-record.json`;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
 export function DecisionCaseWorkspacePage({
   publicMode = false,
 }: {
@@ -121,7 +149,9 @@ export function DecisionCaseWorkspacePage({
   const [params] = useSearchParams();
   const navigate = useNavigate();
   const context = useMemo(() => getContext(params), [params]);
-  const [cases, setCases] = useState(() => initialCases(caseId, context));
+  const [cases, setCases] = useState(() =>
+    initialCases(caseId, context, publicMode),
+  );
   const [selectedId, setSelectedId] = useState(
     caseId && caseId !== "demo" ? caseId : cases[0].id,
   );
@@ -134,6 +164,7 @@ export function DecisionCaseWorkspacePage({
   const [replying, setReplying] = useState(false);
   const [evidence, setEvidence] = useState<DecisionEvidence | null>(null);
   const [usageOpen, setUsageOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [notice, setNotice] = useState("");
   const endRef = useRef<HTMLDivElement>(null);
   const active = cases.find((item) => item.id === selectedId) || cases[0];
@@ -149,7 +180,14 @@ export function DecisionCaseWorkspacePage({
     );
   };
 
-  useEffect(() => writeDecisionCases(window.localStorage, cases), [cases]);
+  useEffect(() => {
+    const storage = publicMode ? window.sessionStorage : window.localStorage;
+    writeDecisionCases(
+      storage,
+      cases,
+      publicMode ? PUBLIC_DECISION_CASE_STORAGE_KEY : undefined,
+    );
+  }, [cases, publicMode]);
   useEffect(() => {
     if (publicMode || !isPersistedDecisionCase(activeId)) return;
     let cancelled = false;
@@ -189,24 +227,21 @@ export function DecisionCaseWorkspacePage({
   const chooseCase = (id: string) => {
     setSelectedId(id);
     setPortfolio(false);
+    setTab("decision");
+    setEvidence(null);
     setMobileView("case");
-    if (publicMode) navigate(`/workspace/cases/${id}${window.location.search}`);
   };
 
   const createCase = async () => {
-    const seed = createSeedDecisionCases({ role })[0];
-    const suffix = Date.now().toString().slice(-5);
-    const next: DecisionCase = {
-      ...seed,
-      id: `dc-${suffix}`,
-      caseNumber: `DC-${suffix}`,
-      title: "Untitled governed decision",
-      objective:
-        "Define the decision, affected asset, evidence, and authority boundary.",
-      messages: [seed.messages[0]],
-      tokensUsed: 0,
-      createdFromIntake: false,
-    };
+    const existingDraft = cases.find((item) => item.id.startsWith("draft-"));
+    if (existingDraft) {
+      chooseCase(existingDraft.id);
+      setNotice(
+        "Your existing draft is open. Drafts carry no portfolio exposure.",
+      );
+      return;
+    }
+    const next = createDraftDecisionCase(role);
     setCases((current) => [next, ...current]);
     setSelectedId(next.id);
     setPortfolio(false);
@@ -285,36 +320,51 @@ export function DecisionCaseWorkspacePage({
 
   const decide = (status: ApprovalStatus) => {
     const approved = status === "approved";
+    const decidedAt = new Date().toISOString();
     updateCase((current) => ({
       ...current,
       stage: approved ? "execution" : "evidence",
       statusLabel: approved ? "Work package released" : approvalLabel(status),
       approvals: current.approvals.map((item) =>
-        item.status === "reviewing"
-          ? { ...item, status, decidedAt: new Date().toISOString() }
-          : item,
+        item.status === "reviewing" ? { ...item, status, decidedAt } : item,
       ),
       workPackage: {
         ...current.workPackage,
         status: approved ? "released" : current.workPackage.status,
+        receipt: approved
+          ? {
+              externalId: publicMode
+                ? `DEMO-${current.workPackage.number}`
+                : `${current.workPackage.targetSystem.toUpperCase().replace(/\W+/g, "-")}-${current.workPackage.number}`,
+              status: publicMode ? "simulated" : "accepted",
+              releasedAt: decidedAt,
+              lastSync: decidedAt,
+            }
+          : current.workPackage.receipt,
       },
       messages: [
         ...current.messages,
         {
           id: `gate-${Date.now()}`,
           role: "system",
-          author: role,
+          author: publicMode ? "Demo simulation" : role,
           text: approved
-            ? `Approved the controlled evidence plan. ${current.workPackage.number} is released to ${current.workPackage.targetSystem}.`
+            ? publicMode
+              ? `Simulated the controlled approval. A demo connector receipt was generated for ${current.workPackage.number}; no production system was changed.`
+              : `Approved the controlled evidence plan. ${current.workPackage.number} is released to ${current.workPackage.targetSystem}.`
             : `${approvalLabel(status)} at the technical authority gate. The disposition is retained in this case.`,
-          createdAt: new Date().toISOString(),
-          meta: "Auditable authority disposition",
+          createdAt: decidedAt,
+          meta: publicMode
+            ? "Simulated disposition · no production work released"
+            : "Auditable authority disposition",
         },
       ],
     }));
     setNotice(
       approved
-        ? `${active.workPackage.number} released with approved controls.`
+        ? publicMode
+          ? `${active.workPackage.number} simulated release completed.`
+          : `${active.workPackage.number} released with approved controls.`
         : "Authority disposition recorded.",
     );
   };
@@ -338,12 +388,6 @@ export function DecisionCaseWorkspacePage({
   };
 
   const verifyValue = () => {
-    const actuals: Record<string, string> = {
-      "value-downtime": "14 h",
-      "value-startups": "0",
-      "value-effort": "16 h",
-      "value-avoided": "$196k",
-    };
     updateCase((current) => ({
       ...current,
       stage: "learning",
@@ -351,8 +395,13 @@ export function DecisionCaseWorkspacePage({
       financeStatus: "verified",
       valueMetrics: current.valueMetrics.map((item) => ({
         ...item,
-        actual: actuals[item.id],
+        actual: item.verifiedActual,
       })),
+      learningRecord: {
+        id: `LR-${current.caseNumber.replace(/\D/g, "")}`,
+        status: "retained",
+        summary: `${current.asset} outcome, approved conditions, and recurrence definition retained for future governed decisions.`,
+      },
       messages: [
         ...current.messages,
         {
@@ -385,10 +434,17 @@ export function DecisionCaseWorkspacePage({
     setComment("");
   };
 
-  const totalExposure = cases.reduce(
+  const governedCases = cases.filter((item) => item.valueExposure > 0);
+  const totalExposure = governedCases.reduce(
     (sum, item) => sum + item.valueExposure,
     0,
   );
+  const awaitingAuthority = governedCases.filter(
+    (item) => item.stage === "authority",
+  ).length;
+  const awaitingValue = governedCases.filter(
+    (item) => item.stage === "outcomes",
+  ).length;
   const usagePercent = Math.min(
     100,
     Math.round((active.tokensUsed / active.tokenAllowance) * 100),
@@ -412,9 +468,16 @@ export function DecisionCaseWorkspacePage({
             <small>Governed engineering intelligence</small>
           </span>
         </div>
+        <div className="dw-context" aria-label="Organization and site context">
+          <strong>{active.organization}</strong>
+          <span>/</span>
+          <span>{active.site}</span>
+          <span>/</span>
+          <b>{active.caseNumber}</b>
+        </div>
         <div className="dw-top-actions">
           <span className="dw-system">
-            <i /> Systems governed
+            <i /> {publicMode ? "Isolated demo session" : "Systems governed"}
           </span>
           <label className="dw-role">
             <Users size={15} />
@@ -422,6 +485,7 @@ export function DecisionCaseWorkspacePage({
               value={role}
               onChange={(event) => setRole(event.target.value)}
               aria-label="Working perspective"
+              title="Changes the workspace perspective; it does not grant approval authority."
             >
               {roles.map((item) => (
                 <option key={item}>{item}</option>
@@ -429,7 +493,12 @@ export function DecisionCaseWorkspacePage({
             </select>
             <ChevronDown size={14} />
           </label>
-          <button className="dw-icon" type="button" title="Case history">
+          <button
+            className="dw-icon"
+            type="button"
+            title="Case history"
+            onClick={() => setHistoryOpen(true)}
+          >
             <History size={17} />
           </button>
         </div>
@@ -460,7 +529,7 @@ export function DecisionCaseWorkspacePage({
             </span>
           </button>
           <div className="dw-section-label">
-            Active cases <span>{cases.length}</span>
+            Active cases <span>{governedCases.length}</span>
           </div>
           <div className="dw-case-list">
             {cases.map((item) => (
@@ -489,16 +558,25 @@ export function DecisionCaseWorkspacePage({
             >
               <Database size={15} /> Evidence library
             </button>
-            <button type="button">
+            <button
+              type="button"
+              onClick={() => {
+                setTab("evidence");
+                setMobileView("packet");
+                setNotice(
+                  "Asset context is linked to each governed evidence record.",
+                );
+              }}
+            >
               <Layers3 size={15} /> Asset context
             </button>
-            <button type="button">
+            <button type="button" onClick={() => setHistoryOpen(true)}>
               <ClipboardCheck size={15} /> Decision history
             </button>
           </div>
           <div className="dw-usage">
             <div>
-              <span>Value proof usage</span>
+              <span>This case usage</span>
               <strong>{usagePercent}%</strong>
             </div>
             <div className="dw-usage-track">
@@ -506,7 +584,8 @@ export function DecisionCaseWorkspacePage({
             </div>
             <small>
               {active.tokensUsed.toLocaleString()} of{" "}
-              {active.tokenAllowance.toLocaleString()} analysis tokens
+              {active.tokenAllowance.toLocaleString()} analysis tokens for this
+              case
             </small>
             <button type="button" onClick={() => setUsageOpen(true)}>
               Manage continuation <ArrowUpRight size={13} />
@@ -534,15 +613,19 @@ export function DecisionCaseWorkspacePage({
                 </div>
                 <div>
                   <span>Awaiting authority</span>
-                  <strong>2 cases</strong>
+                  <strong>
+                    {awaitingAuthority} case{awaitingAuthority === 1 ? "" : "s"}
+                  </strong>
                 </div>
                 <div>
                   <span>Value verification</span>
-                  <strong>1 case</strong>
+                  <strong>
+                    {awaitingValue} case{awaitingValue === 1 ? "" : "s"}
+                  </strong>
                 </div>
               </div>
               <div className="dw-ranked">
-                {[...cases]
+                {[...governedCases]
                   .sort((a, b) => b.valueExposure - a.valueExposure)
                   .map((item, index) => (
                     <button
@@ -553,7 +636,7 @@ export function DecisionCaseWorkspacePage({
                       <em>{String(index + 1).padStart(2, "0")}</em>
                       <span>
                         <strong>{item.title}</strong>
-                        <small>{item.recommendation}</small>
+                        <small>{item.priorityReason}</small>
                       </span>
                       <span>
                         <strong>
@@ -571,6 +654,7 @@ export function DecisionCaseWorkspacePage({
               <section className="dw-case-header">
                 <div className="dw-case-meta">
                   <span>{active.caseNumber}</span>
+                  <span>{active.version}</span>
                   <span className={`risk-${active.risk}`}>
                     {active.risk} risk
                   </span>
@@ -609,6 +693,13 @@ export function DecisionCaseWorkspacePage({
                     </small>
                   </span>
                   <CheckCircle2 size={18} />
+                </div>
+              )}
+              {publicMode && (
+                <div className="dw-demo-boundary">
+                  <ShieldCheck size={15} /> Interactive demonstration · case
+                  data is isolated to this browser tab · approvals and connector
+                  receipts are simulated
                 </div>
               )}
               <section
@@ -730,12 +821,22 @@ export function DecisionCaseWorkspacePage({
           <div className="dw-packet-head">
             <span>
               <small>Live decision packet</small>
-              <strong>{active.caseNumber}</strong>
+              <strong>
+                {active.caseNumber} · {active.version}
+              </strong>
             </span>
             <button
               className="dw-icon"
               type="button"
               title="Export decision record"
+              onClick={() => {
+                exportDecisionRecord(active, publicMode);
+                setNotice(
+                  publicMode
+                    ? "Demo decision record exported with a not-approved status."
+                    : "Decision record exported.",
+                );
+              }}
             >
               <ArrowUpRight size={16} />
             </button>
@@ -775,6 +876,7 @@ export function DecisionCaseWorkspacePage({
                 setComment={setComment}
                 addComment={addComment}
                 decide={decide}
+                publicMode={publicMode}
               />
             )}
             {tab === "work" && (
@@ -849,6 +951,13 @@ export function DecisionCaseWorkspacePage({
           }}
         />
       )}
+      {historyOpen && (
+        <HistoryModal
+          active={active}
+          publicMode={publicMode}
+          close={() => setHistoryOpen(false)}
+        />
+      )}
       {notice && (
         <div className="dw-notice">
           <CheckCircle2 size={16} /> {notice}
@@ -913,6 +1022,26 @@ function DecisionPanel({
           </button>
         ))}
       </section>
+      {active.calculations.length > 0 && (
+        <section className="dw-calculations">
+          <header>
+            <Calculator size={15} />
+            <span>
+              <small>Deterministic calculations</small>
+              <strong>Inspectable and source-linked</strong>
+            </span>
+          </header>
+          {active.calculations.map((item) => (
+            <div key={item.id}>
+              <span>
+                <strong>{item.label}</strong>
+                <small>{item.formula}</small>
+              </span>
+              <em>{item.result}</em>
+            </div>
+          ))}
+        </section>
+      )}
       <section className="dw-authority-summary">
         <ShieldCheck size={18} />
         <span>
@@ -941,9 +1070,9 @@ function EvidencePanel({
           <small>Evidence packet</small>
           <strong>{active.evidenceScore}% decision-ready</strong>
         </span>
-        <button type="button" title="Search evidence">
-          <Search size={16} />
-        </button>
+        <em className="dw-source-count">
+          <Search size={14} /> {active.evidence.length} governed sources
+        </em>
       </div>
       <div className="dw-evidence-list">
         {active.evidence.map((item) => (
@@ -976,6 +1105,7 @@ function AuthorityPanel({
   setComment,
   addComment,
   decide,
+  publicMode,
 }: {
   active: DecisionCase;
   authority: DecisionCase["approvals"][number] | undefined;
@@ -984,6 +1114,7 @@ function AuthorityPanel({
   setComment: (value: string) => void;
   addComment: () => void;
   decide: (status: ApprovalStatus) => void;
+  publicMode: boolean;
 }) {
   return (
     <div className="dw-panel">
@@ -1010,27 +1141,46 @@ function AuthorityPanel({
         ))}
       </div>
       {authority && (
-        <section className="dw-gate">
-          <span>Your disposition as {role}</span>
-          <button
-            type="button"
-            className="primary"
-            onClick={() => decide("approved")}
-          >
-            <CheckCircle2 size={15} /> Approve controlled plan
-          </button>
-          <div>
-            <button type="button" onClick={() => decide("changes_requested")}>
-              Request changes
+        <>
+          <section className="dw-authority-task">
+            <ClipboardCheck size={16} />
+            <span>
+              <small>
+                TQ-{active.caseNumber.replace(/\D/g, "")}-01 · due today
+              </small>
+              <strong>{authority.name}</strong>
+              <em>Resolve the blocking evidence and record a disposition.</em>
+            </span>
+          </section>
+          <section className="dw-gate">
+            <span>
+              {publicMode
+                ? `Simulation preview from the ${role} perspective. This does not grant authority.`
+                : `Your disposition as ${role}`}
+            </span>
+            <button
+              type="button"
+              className="primary"
+              onClick={() => decide("approved")}
+            >
+              <CheckCircle2 size={15} />{" "}
+              {publicMode
+                ? "Simulate controlled approval"
+                : "Approve controlled plan"}
             </button>
-            <button type="button" onClick={() => decide("delegated")}>
-              Delegate
-            </button>
-            <button type="button" onClick={() => decide("rejected")}>
-              Reject
-            </button>
-          </div>
-        </section>
+            <div>
+              <button type="button" onClick={() => decide("changes_requested")}>
+                {publicMode ? "Simulate changes" : "Request changes"}
+              </button>
+              <button type="button" onClick={() => decide("delegated")}>
+                {publicMode ? "Simulate delegate" : "Delegate"}
+              </button>
+              <button type="button" onClick={() => decide("rejected")}>
+                {publicMode ? "Simulate reject" : "Reject"}
+              </button>
+            </div>
+          </section>
+        </>
       )}
       <section className="dw-comments">
         <span>Review comments</span>
@@ -1081,6 +1231,19 @@ function WorkPanel({
         </span>
         <ArrowUpRight size={15} />
       </div>
+      {active.workPackage.receipt && (
+        <div className="dw-receipt">
+          <CheckCircle2 size={16} />
+          <span>
+            <small>Connector receipt</small>
+            <strong>{active.workPackage.receipt.externalId}</strong>
+            <em>
+              {active.workPackage.receipt.status} · last sync{" "}
+              {timestamp(active.workPackage.receipt.lastSync)}
+            </em>
+          </span>
+        </div>
+      )}
       <div className="dw-controls">
         {active.workPackage.controls.map((item, index) => (
           <div key={item.id}>
@@ -1174,6 +1337,15 @@ function ValuePanel({
         </span>
         <em>{active.financeStatus.replace("_", " ")}</em>
       </div>
+      {active.learningRecord && (
+        <div className="dw-learning-record">
+          <CheckCircle2 size={16} />
+          <span>
+            <small>{active.learningRecord.id} · retained learning</small>
+            <strong>{active.learningRecord.summary}</strong>
+          </span>
+        </div>
+      )}
       <button
         type="button"
         className="dw-primary"
@@ -1246,6 +1418,109 @@ function EvidenceModal({
         <footer>
           <ShieldCheck size={15} /> Source, transformation, and use are retained
           in the decision audit trail.
+        </footer>
+      </section>
+    </div>
+  );
+}
+
+function HistoryModal({
+  active,
+  publicMode,
+  close,
+}: {
+  active: DecisionCase;
+  publicMode: boolean;
+  close: () => void;
+}) {
+  const events: Array<{ title: string; detail: string; at: string }> = [
+    {
+      title: "Decision Case created",
+      detail: active.createdFromIntake
+        ? "Created from the 48-hour value-proof intake."
+        : "Created in the governed workspace.",
+      at: active.messages[0]?.createdAt || active.updatedAt,
+    },
+    ...active.approvals
+      .filter((item) => item.decidedAt)
+      .map((item) => ({
+        title: `${item.name}: ${approvalLabel(item.status)}`,
+        detail: `${item.role} · ${item.responsibility}`,
+        at: item.decidedAt!,
+      })),
+    ...(active.workPackage.receipt
+      ? [
+          {
+            title: `Work package ${active.workPackage.receipt.status}`,
+            detail: `${active.workPackage.receipt.externalId} · ${active.workPackage.targetSystem}`,
+            at: active.workPackage.receipt.releasedAt,
+          },
+        ]
+      : []),
+    ...(active.learningRecord
+      ? [
+          {
+            title: "Learning retained",
+            detail: active.learningRecord.summary,
+            at: active.updatedAt,
+          },
+        ]
+      : []),
+  ];
+  return (
+    <div className="dw-backdrop" role="presentation" onMouseDown={close}>
+      <section
+        className="dw-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-label={`${active.caseNumber} version and audit history`}
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <header>
+          <span className="dw-evidence-icon">
+            <History size={17} />
+          </span>
+          <span>
+            <small>Immutable decision history</small>
+            <h2>
+              {active.caseNumber} · {active.version}
+            </h2>
+          </span>
+          <button
+            className="dw-icon"
+            type="button"
+            title="Close"
+            onClick={close}
+          >
+            <XCircle size={18} />
+          </button>
+        </header>
+        {publicMode && (
+          <p className="dw-history-boundary">
+            Demonstration audit trail. Simulated dispositions are never treated
+            as production authorization.
+          </p>
+        )}
+        <div className="dw-history-list">
+          {events.map((item, index) => (
+            <div key={`${item.title}-${item.at}-${index}`}>
+              <Clock3 size={14} />
+              <span>
+                <strong>{item.title}</strong>
+                <p>{item.detail}</p>
+                <small>
+                  {new Intl.DateTimeFormat("en-US", {
+                    dateStyle: "medium",
+                    timeStyle: "short",
+                  }).format(new Date(item.at))}
+                </small>
+              </span>
+            </div>
+          ))}
+        </div>
+        <footer>
+          <ShieldCheck size={15} /> Packet versions, authority dispositions,
+          connector receipts, and measured outcomes remain case-scoped.
         </footer>
       </section>
     </div>
