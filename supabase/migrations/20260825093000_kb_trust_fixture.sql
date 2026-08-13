@@ -18,32 +18,22 @@
 -- enforces on its own rather than inheriting protection from the other.
 -- ============================================================================
 
-insert into reliability_kb_chunks
-  (chunk_id, source_id, title, document_type, document_class,
-   page_start, page_end, chunk_index, domain_tags, content)
-values
-  ('FIXTURE-BROCHURE-0001',
-   'fixture-oem-brochure',
-   'SYNTHETIC FIXTURE — Example Manufacturer Track-Type Tractor Brochure',
-   'oem-brochure',
-   'oem_marketing',
-   1, 1, 0,
-   array['dozer','undercarriage','final drive'],
-   'SYNTHETIC FIXTURE, NOT A REAL DOCUMENT. Written to imitate sales-brochure '
-   || 'register for testing the claim-type guard. "The heavy-duty final drive '
-   || 'is engineered for exceptional durability and long service life in the '
-   || 'most demanding applications. Robust undercarriage components deliver '
-   || 'outstanding reliability and reduced downtime, keeping the machine '
-   || 'productive shift after shift." Rated net power 354 hp. Operating weight '
-   || '84,573 lb. Note what this paragraph does: it makes confident-sounding '
-   || 'claims about durability, reliability and downtime for a final drive and '
-   || 'an undercarriage without stating a single failure rate, sample size, '
-   || 'duty cycle or observation period. The power and weight figures ARE '
-   || 'authoritative — the manufacturer publishes and stands behind them. The '
-   || 'durability language is not a measurement. This is why oem_marketing has '
-   || 'standing on nameplate_spec and none on failure_behaviour.')
-on conflict (chunk_id) do update set
-  content = excluded.content,
-  document_class = excluded.document_class;
-
-notify pgrst, 'reload schema';
+-- WHERE THE ROW IS CREATED, AND WHY NO LONGER HERE.
+--
+-- This migration used to write the fixture at this point with no
+-- organization_id, and it succeeded only because the corpus-scope trigger did
+-- not exist yet. 20260825146000 then had to go back and scope it, and
+-- audit_kb_corpus_scope() still describes the row as one that "predates the
+-- trigger". Replaying the chain onto a database that already HAS that trigger
+-- fails outright here — which is exactly what production did.
+--
+-- The statement could not be fixed in place: reliability_kb_chunks has no
+-- organization_id column until 20260825140000, so a write here can be scoped
+-- or it can run on a fresh database, never both. 20260825146000 already owns
+-- making this fixture correctly scoped, and by then both the column and the
+-- trigger exist, so the write belongs there and the row is created scoped
+-- once rather than created wrong and repaired.
+--
+-- This migration is retained rather than deleted because it is already
+-- recorded as applied everywhere, and because the reasoning above is the
+-- point of it. The fixture content now lives in 20260825146000.
