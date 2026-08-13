@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { AuthShell } from "../components/AuthShell";
-import { AuthTabs } from "../components/AuthTabs";
+import { ArrowUpRight, KeyRound, LockKeyhole } from "lucide-react";
 import { signIn } from "../lib/auth";
+import { readDecisionCaseHandoff } from "../lib/decision-case";
 import { supabase } from "../lib/supabase";
 import { motion } from "framer-motion";
 
@@ -15,24 +16,33 @@ async function mfaChallengeRequired(): Promise<boolean> {
 }
 
 interface LoginProps {
-  onSuccess: () => void;
+  onSuccess: () => void | Promise<void>;
   onTabChange: (
     tab: "signin" | "signup" | "enterprise" | "privacy" | "terms" | "security",
   ) => void;
 }
 
 export function Login({ onSuccess, onTabChange }: LoginProps) {
+  const handoff = readDecisionCaseHandoff(window.sessionStorage);
+  const journey = handoff?.decisionCase ?? null;
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const [mfaStep, setMfaStep] = useState(false);
   const [mfaCode, setMfaCode] = useState("");
+  const [recoveryMode, setRecoveryMode] = useState(
+    () =>
+      new URLSearchParams(window.location.search).get("mode") === "recovery",
+  );
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError("");
+    setNotice("");
 
     const result = await signIn(email, password);
 
@@ -48,7 +58,7 @@ export function Login({ onSuccess, onTabChange }: LoginProps) {
         setLoading(false);
         return;
       }
-      onSuccess();
+      await onSuccess();
     } catch {
       // Password authentication alone is not enough when assurance state cannot
       // be established. End the partial session rather than failing open.
@@ -70,7 +80,9 @@ export function Login({ onSuccess, onTabChange }: LoginProps) {
       if (factorError) throw new Error(factorError.message);
       const factor = factors?.totp?.find((item) => item.status === "verified");
       if (!factor) {
-        throw new Error("No verified authenticator is enrolled on this account.");
+        throw new Error(
+          "No verified authenticator is enrolled on this account.",
+        );
       }
 
       const { data: challenge, error: challengeError } =
@@ -90,7 +102,7 @@ export function Login({ onSuccess, onTabChange }: LoginProps) {
         throw new Error("Two-factor assurance was not established.");
       }
 
-      onSuccess();
+      await onSuccess();
     } catch (err) {
       setError(
         err instanceof Error
@@ -101,12 +113,107 @@ export function Login({ onSuccess, onTabChange }: LoginProps) {
     }
   };
 
-  return (
-    <AuthShell>
-      <div className="bg-industrial-slate rounded-xl p-8 border border-industrial-border backdrop-blur-xs">
-        <AuthTabs activeTab="signin" onTabChange={onTabChange} />
+  const requestPasswordReset = async () => {
+    setError("");
+    setNotice("");
+    if (!email.trim()) {
+      setError("Enter your work email, then request a reset link.");
+      return;
+    }
+    setLoading(true);
+    const { error: resetError } = await supabase.auth.resetPasswordForEmail(
+      email.trim(),
+      {
+        redirectTo: `${window.location.origin}/signin?mode=recovery`,
+      },
+    );
+    if (resetError) {
+      setError(resetError.message);
+    } else {
+      setNotice(
+        "Check your email for a secure password reset link. Your Decision Case will remain staged in this tab.",
+      );
+    }
+    setLoading(false);
+  };
 
-        {mfaStep ? (
+  const handlePasswordUpdate = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setLoading(true);
+    setError("");
+    setNotice("");
+    const { error: updateError } = await supabase.auth.updateUser({
+      password: newPassword,
+    });
+    if (updateError) {
+      setError(updateError.message);
+      setLoading(false);
+      return;
+    }
+    setRecoveryMode(false);
+    await onSuccess();
+  };
+
+  return (
+    <AuthShell journey={journey}>
+      <div>
+        <div className="mb-7">
+          <span className="text-signal-cyan flex items-center gap-2 text-xs font-semibold tracking-[0.16em] uppercase">
+            <LockKeyhole size={14} /> Secure workspace
+          </span>
+          <h2 className="text-overlook-paper mt-3 text-2xl font-semibold tracking-normal">
+            {recoveryMode
+              ? "Set a new password"
+              : journey
+                ? `Continue ${journey.caseNumber}`
+                : "Welcome back"}
+          </h2>
+          <p className="text-overlook-mist mt-2 text-sm leading-relaxed">
+            {recoveryMode
+              ? "Choose a strong password to restore access to your governed workspace."
+              : journey
+                ? `${journey.asset} is staged and will be secured after authentication.`
+                : "Use your verified work identity to enter SyncAI."}
+          </p>
+        </div>
+
+        {recoveryMode ? (
+          <form onSubmit={handlePasswordUpdate} className="space-y-6">
+            <div>
+              <label
+                htmlFor="new-password"
+                className="block text-sm font-medium text-industrial-text mb-2"
+              >
+                New password
+              </label>
+              <input
+                id="new-password"
+                type="password"
+                value={newPassword}
+                onChange={(event) => setNewPassword(event.target.value)}
+                autoComplete="new-password"
+                minLength={12}
+                className="w-full px-4 py-3 bg-overlook-void/60 border border-overlook-rule rounded-lg text-overlook-paper placeholder-overlook-haze focus:outline-hidden focus:border-signal-cyan/70 focus:ring-1 focus:ring-signal-cyan/50 transition-colors"
+                placeholder="At least 12 characters"
+                required
+              />
+            </div>
+
+            {error && (
+              <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-sm text-red-400">
+                {error}
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={loading || newPassword.length < 12}
+              className="w-full py-3 px-4 bg-signal-gold hover:bg-signal-gold-soft text-overlook-void font-semibold tracking-wide rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading ? "Updating…" : "Update password and continue"}
+            </button>
+          </form>
+        ) : mfaStep ? (
           <form onSubmit={handleMfaVerify} className="space-y-6">
             <div>
               <label
@@ -119,9 +226,7 @@ export function Login({ onSuccess, onTabChange }: LoginProps) {
                 id="mfa-code"
                 value={mfaCode}
                 onChange={(event) =>
-                  setMfaCode(
-                    event.target.value.replace(/\D/g, "").slice(0, 6),
-                  )
+                  setMfaCode(event.target.value.replace(/\D/g, "").slice(0, 6))
                 }
                 inputMode="numeric"
                 autoComplete="one-time-code"
@@ -171,12 +276,22 @@ export function Login({ onSuccess, onTabChange }: LoginProps) {
             </div>
 
             <div>
-              <label
-                htmlFor="password"
-                className="block text-sm font-medium text-industrial-text mb-2"
-              >
-                Password
-              </label>
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <label
+                  htmlFor="password"
+                  className="block text-sm font-medium text-industrial-text"
+                >
+                  Password
+                </label>
+                <button
+                  type="button"
+                  onClick={() => void requestPasswordReset()}
+                  disabled={loading}
+                  className="text-overlook-mist hover:text-signal-cyan text-xs font-semibold transition-colors disabled:opacity-50"
+                >
+                  Forgot password?
+                </button>
+              </div>
               <input
                 id="password"
                 type="password"
@@ -199,6 +314,16 @@ export function Login({ onSuccess, onTabChange }: LoginProps) {
               </motion.div>
             )}
 
+            {notice && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="border-signal-cyan/25 bg-signal-cyan/10 text-overlook-paper rounded-lg border p-3 text-sm leading-relaxed"
+              >
+                {notice}
+              </motion.div>
+            )}
+
             <motion.button
               type="submit"
               disabled={loading}
@@ -209,20 +334,24 @@ export function Login({ onSuccess, onTabChange }: LoginProps) {
               {loading ? "Authenticating…" : "Access SyncAI"}
             </motion.button>
 
-            <div className="rounded-lg border border-overlook-rule bg-overlook-void/40 p-3 text-xs text-overlook-haze">
-              Only a verified Supabase session can enter the application.
-              Authenticator verification is enforced for enrolled accounts.
-              Enterprise federation remains disabled until its supported OIDC
-              session path is complete.
+            <div className="border-overlook-rule border-t pt-4 text-xs leading-relaxed text-overlook-haze">
+              Identity and approval authority are verified before governed
+              actions can be released. Enrolled accounts must complete MFA.
             </div>
           </form>
         )}
 
-        <p className="mt-4 text-center text-xs text-slate-400">
-          build {__BUILD_SHA__}
-        </p>
+        {!recoveryMode && !mfaStep && (
+          <a
+            href="/setup#value-proof-intake"
+            className="text-overlook-mist hover:text-overlook-paper mt-6 flex items-center justify-center gap-2 text-sm font-semibold transition-colors"
+          >
+            <KeyRound size={15} /> New to SyncAI? Start a 48-hour value proof
+            <ArrowUpRight size={14} />
+          </a>
+        )}
 
-        <div className="mt-8 pt-6 border-t border-industrial-border">
+        <div className="mt-7 pt-5 border-t border-industrial-border">
           <div className="flex justify-center gap-4 text-xs text-industrial-muted">
             <button
               onClick={() => onTabChange("security")}

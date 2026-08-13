@@ -2,9 +2,15 @@ import { Activity, ArrowUpRight, LogIn, ShieldCheck } from "lucide-react";
 
 type PublicProductHeaderProps = {
   active: "copilot" | "proof";
+  signInHref?: string;
+  onSignIn?: () => void;
 };
 
-export function PublicProductHeader({ active }: PublicProductHeaderProps) {
+export function PublicProductHeader({
+  active,
+  signInHref = "/signin",
+  onSignIn,
+}: PublicProductHeaderProps) {
   return (
     <header className="sticky top-0 z-50 border-b border-white/[0.06] bg-[#080C11]/92 backdrop-blur-xl">
       <div className="mx-auto flex h-[64px] max-w-[1440px] items-center justify-between gap-4 px-4 sm:px-6">
@@ -57,7 +63,8 @@ export function PublicProductHeader({ active }: PublicProductHeaderProps) {
             <ArrowUpRight size={14} className="hidden sm:block" />
           </a>
           <a
-            href="/signin"
+            href={signInHref}
+            onClick={onSignIn}
             aria-label="Sign in"
             title="Sign in"
             className="inline-flex h-9 items-center gap-2 rounded-lg border border-white/[0.09] px-3 text-xs font-semibold text-slate-300 transition-colors hover:bg-white/[0.05] hover:text-white sm:px-4 sm:text-sm"

@@ -24,6 +24,7 @@ import {
   Sparkles,
   Target,
   TriangleAlert,
+  UserRound,
   Users,
   Workflow,
   XCircle,
@@ -36,6 +37,7 @@ import {
   createSeedDecisionCases,
   formatDecisionValue,
   readDecisionCases,
+  stageDecisionCaseHandoff,
   writeDecisionCases,
   type ApprovalStatus,
   type DecisionCase,
@@ -766,7 +768,7 @@ export function DecisionCaseWorkspacePage({
                       ) : message.role === "system" ? (
                         <ShieldCheck size={16} />
                       ) : (
-                        "YO"
+                        <UserRound size={16} />
                       )}
                     </span>
                     <div>
@@ -1016,7 +1018,11 @@ export function DecisionCaseWorkspacePage({
   );
   return publicMode ? (
     <div className="dw-public">
-      <PublicProductHeader active="copilot" />
+      <PublicProductHeader
+        active="copilot"
+        signInHref="/signin?returnTo=%2F"
+        onSignIn={() => stageDecisionCaseHandoff(window.sessionStorage, active)}
+      />
       {workspace}
     </div>
   ) : (

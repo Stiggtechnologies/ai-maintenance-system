@@ -142,8 +142,15 @@ export interface DecisionJourneyContext {
 
 export const DECISION_CASE_STORAGE_KEY = "syncai.decisionCases.v2";
 export const PUBLIC_DECISION_CASE_STORAGE_KEY = "syncai.publicDecisionCases.v1";
+export const PENDING_DECISION_CASE_HANDOFF_KEY =
+  "syncai.pendingDecisionCaseHandoff.v1";
 export const DEFAULT_DECISION_CASE_ID = "dc-1048";
 const seedTime = "2026-08-12T16:00:00.000Z";
+
+export interface PendingDecisionCaseHandoff {
+  decisionCase: DecisionCase;
+  stagedAt: string;
+}
 
 function pumpCase(context: DecisionJourneyContext): DecisionCase {
   const asset = context.asset || "P-101 process pump";
@@ -974,6 +981,42 @@ export function writeDecisionCases(
   storageKey = DECISION_CASE_STORAGE_KEY,
 ) {
   storage.setItem(storageKey, JSON.stringify(cases));
+}
+
+export function stageDecisionCaseHandoff(
+  storage: Pick<Storage, "setItem">,
+  decisionCase: DecisionCase,
+) {
+  const handoff: PendingDecisionCaseHandoff = {
+    decisionCase,
+    stagedAt: new Date().toISOString(),
+  };
+  storage.setItem(PENDING_DECISION_CASE_HANDOFF_KEY, JSON.stringify(handoff));
+}
+
+export function readDecisionCaseHandoff(
+  storage: Pick<Storage, "getItem">,
+): PendingDecisionCaseHandoff | null {
+  try {
+    const raw = storage.getItem(PENDING_DECISION_CASE_HANDOFF_KEY);
+    const parsed = raw ? (JSON.parse(raw) as PendingDecisionCaseHandoff) : null;
+    if (
+      !parsed?.decisionCase ||
+      typeof parsed.decisionCase.id !== "string" ||
+      typeof parsed.decisionCase.caseNumber !== "string" ||
+      typeof parsed.decisionCase.asset !== "string" ||
+      !Array.isArray(parsed.decisionCase.messages)
+    ) {
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+export function clearDecisionCaseHandoff(storage: Pick<Storage, "removeItem">) {
+  storage.removeItem(PENDING_DECISION_CASE_HANDOFF_KEY);
 }
 
 export function formatDecisionValue(value: number): string {

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   BrowserRouter,
   Routes,
@@ -64,6 +64,11 @@ import { getRoleHome } from "./lib/roleNavigation";
 import { ReliabilityCopilotPage } from "./pages/ReliabilityCopilotPage";
 import { FirstCustomerPilotPage } from "./pages/FirstCustomerPilotPage";
 import { DecisionCaseWorkspacePage } from "./pages/DecisionCaseWorkspacePage";
+import {
+  clearDecisionCaseHandoff,
+  readDecisionCaseHandoff,
+} from "./lib/decision-case";
+import { createPersistedDecisionCase } from "./services/decisionCaseService";
 
 type Page =
   | "demo"
@@ -84,6 +89,36 @@ function PublicCopilotExperience() {
   return <DecisionCaseWorkspacePage publicMode />;
 }
 
+function safeReturnTo(value: string | null): string {
+  if (!value || !value.startsWith("/") || value.startsWith("//")) return "/";
+  try {
+    const destination = new URL(value, window.location.origin);
+    if (
+      destination.origin !== window.location.origin ||
+      destination.pathname === "/signin"
+    ) {
+      return "/";
+    }
+    return `${destination.pathname}${destination.search}${destination.hash}`;
+  } catch {
+    return "/";
+  }
+}
+
+function AuthenticatedSignInTransition({
+  complete,
+}: {
+  complete: () => void | Promise<void>;
+}) {
+  const started = useRef(false);
+  useEffect(() => {
+    if (started.current) return;
+    started.current = true;
+    void complete();
+  }, [complete]);
+  return <LoadingScreen />;
+}
+
 function App() {
   const [currentPage, setCurrentPage] = useState<Page>(() => {
     const requested = new URLSearchParams(window.location.search).get("view");
@@ -94,14 +129,22 @@ function App() {
       : "demo";
   });
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [signInApproved, setSignInApproved] = useState(false);
   const [loading, setLoading] = useState(true);
+  const signInTransition = useRef<Promise<void> | null>(null);
+  const signInParams = new URLSearchParams(window.location.search);
+  const signInReturnTo = safeReturnTo(signInParams.get("returnTo"));
+  const isPasswordRecovery = signInParams.get("mode") === "recovery";
 
   useEffect(() => {
     supabase.auth
       .getSession()
       .then(({ data: { session } }) => {
         setIsAuthenticated(!!session);
-        if (session) setCurrentPage("app");
+        if (session) {
+          setCurrentPage("app");
+          setSignInApproved(true);
+        }
         setLoading(false);
       })
       .catch(() => {
@@ -113,7 +156,10 @@ function App() {
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setIsAuthenticated(!!session);
       if (session) setCurrentPage("app");
-      else setCurrentPage("demo");
+      else {
+        setCurrentPage("demo");
+        setSignInApproved(false);
+      }
     });
 
     return () => subscription.unsubscribe();
@@ -121,8 +167,41 @@ function App() {
 
   const handleAuthSuccess = () => {
     setIsAuthenticated(true);
+    setSignInApproved(true);
     setCurrentPage("app");
   };
+
+  const handleSignInSuccess = useCallback(() => {
+    if (signInTransition.current) return signInTransition.current;
+    const transition = (async () => {
+      setIsAuthenticated(true);
+      setSignInApproved(true);
+      setCurrentPage("app");
+      const handoff = readDecisionCaseHandoff(window.sessionStorage);
+      if (handoff) {
+        try {
+          const secured = await createPersistedDecisionCase(
+            handoff.decisionCase,
+            {
+              asset: handoff.decisionCase.asset,
+              role: handoff.decisionCase.intakeRole,
+              company: handoff.decisionCase.organization,
+              intakeId: "public-decision-case-handoff",
+            },
+          );
+          clearDecisionCaseHandoff(window.sessionStorage);
+          window.location.assign(`/decision-cases/${secured.id}`);
+          return;
+        } catch {
+          // Keep the staged case in this tab so a transient sync failure can be
+          // retried without losing the public Decision Case.
+        }
+      }
+      window.location.assign(signInReturnTo);
+    })();
+    signInTransition.current = transition;
+    return transition;
+  }, [signInReturnTo]);
 
   if (loading) return <LoadingScreen />;
 
@@ -152,11 +231,11 @@ function App() {
           <Route
             path="/signin"
             element={
-              isAuthenticated ? (
-                <Navigate to="/" replace />
+              isAuthenticated && signInApproved && !isPasswordRecovery ? (
+                <AuthenticatedSignInTransition complete={handleSignInSuccess} />
               ) : (
                 <Login
-                  onSuccess={() => window.location.assign("/")}
+                  onSuccess={handleSignInSuccess}
                   onTabChange={(page) =>
                     window.location.assign(`/?view=${page}`)
                   }
