@@ -25,6 +25,9 @@ export interface PublicDecisionCaseContext {
   }>;
 }
 
+// The database allowance RPC rejects limits above 10.
+export const PUBLIC_DECISION_CASE_DAILY_LIMIT = 10;
+
 export function parsePublicDecisionCaseContext(
   input: unknown,
 ): PublicDecisionCaseContext | null {

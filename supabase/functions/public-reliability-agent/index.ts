@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import {
+  PUBLIC_DECISION_CASE_DAILY_LIMIT,
   buildDecisionCaseChatPrompts,
   buildDecisionCaseRetrievalQuery,
   parsePublicDecisionCaseContext,
@@ -352,7 +353,8 @@ Deno.serve(async (req) => {
     {
       p_fingerprint_hash: fingerprint,
       p_window_start: windowStart.toISOString(),
-      p_limit: mode === "decision_case_chat" ? 12 : 1,
+      p_limit:
+        mode === "decision_case_chat" ? PUBLIC_DECISION_CASE_DAILY_LIMIT : 1,
     },
   );
   if (allowanceError)

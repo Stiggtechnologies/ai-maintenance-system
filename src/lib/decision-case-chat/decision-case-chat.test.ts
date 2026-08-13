@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  PUBLIC_DECISION_CASE_DAILY_LIMIT,
   buildDecisionCaseChatPrompts,
   buildDecisionCaseRetrievalQuery,
   parsePublicDecisionCaseContext,
@@ -36,6 +37,11 @@ const rawContext = {
 };
 
 describe("decision-case-chat prompt contract", () => {
+  it("stays within the database allowance ceiling", () => {
+    expect(PUBLIC_DECISION_CASE_DAILY_LIMIT).toBe(10);
+    expect(PUBLIC_DECISION_CASE_DAILY_LIMIT).toBeLessThanOrEqual(10);
+  });
+
   it("sanitizes public case context and rejects incomplete input", () => {
     expect(parsePublicDecisionCaseContext({ asset: "P-101" })).toBeNull();
 
