@@ -294,7 +294,9 @@ export function DecisionCaseWorkspacePage({
     setComposer("");
     setReplying(true);
     try {
-      const response = await askDecisionCase(requestCase, text);
+      const response = await askDecisionCase(requestCase, text, {
+        publicMode,
+      });
       updateCase((current) => ({
         ...current,
         messages: [...current.messages, response.message],
