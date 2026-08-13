@@ -22,6 +22,9 @@ interface Metric {
   value: number | null;
   unit: string;
   basis: string;
+  // Present only on metrics that can fall back to a proxy. Undefined means the
+  // metric has one basis and the question does not arise.
+  measured?: boolean;
 }
 
 interface Health {
@@ -88,6 +91,14 @@ export function WorkManagementHealth() {
                 {m.unit === "%" ? "%" : ` ${m.unit}`}
               </span>
             </p>
+            {/* A proxy and a measurement render identically otherwise, and the
+                difference is the whole point: one is what the fleet did, the
+                other is what a stand-in field implies it did. */}
+            {m.measured === false && (
+              <span className="mt-1.5 inline-block rounded border border-amber-400/30 bg-amber-400/10 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wide text-amber-300">
+                proxy — not measured
+              </span>
+            )}
             <p className="mt-1.5 text-xs leading-relaxed text-slate-500">
               {m.basis}
             </p>
