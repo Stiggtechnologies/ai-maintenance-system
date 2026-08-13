@@ -1,0 +1,113 @@
+name: Migration drift sentinel
+
+# Asks production what it actually has, rather than trusting that the process
+# worked. Every other check here verifies a STEP: CI proves the chain applies
+# from empty, the order gate proves a migration sorts correctly, the deploy job
+# proves a push succeeded. None of them verify the END STATE, and the end state
+# is what went wrong twice:
+#
+#   1. deploy-migrations failed on every push for three weeks. CI stayed green
+#      because CI never talks to production.
+#   2. migrations were applied to production by hand without being recorded, so
+#      the ledger disagreed with the database. Nothing compared the two.
+#
+# Both show up here the same way: something is pending that should not be.
+# Anything this reports is real — it is read from the deployed database.
+
+on:
+  schedule:
+    - cron: "0 13 * * *" # 06:00 Alberta, before the working day
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+env:
+  SUPABASE_PROJECT_ID: pjvoswbwomesuwhygpby
+
+jobs:
+  drift:
+    name: Compare production against the repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: supabase/setup-cli@v2
+        with:
+          version: 2.84.2
+          github-token: ${{ github.token }}
+
+      - name: Link project
+        run: supabase link --project-ref "$SUPABASE_PROJECT_ID"
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+
+      - name: Read the applied ledger
+        id: check
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          set -euo pipefail
+          supabase migration list --linked > /tmp/list.txt 2>&1 || true
+          # Local column populated, remote column empty => in the repo, not on prod.
+          PENDING=$(awk -F'|' 'NF>=3 && $1 ~ /[0-9]/ {
+              gsub(/ /,"",$1); gsub(/ /,"",$2);
+              if ($2=="") print $1
+            }' /tmp/list.txt)
+          COUNT=$(printf '%s' "$PENDING" | grep -c . || true)
+          echo "count=${COUNT}" >> "$GITHUB_OUTPUT"
+          {
+            echo "pending<<EOF"
+            printf '%s\n' "${PENDING:-none}"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+          echo "Pending on production: ${COUNT}"
+          printf '%s\n' "$PENDING"
+
+      - name: Raise drift
+        if: steps.check.outputs.count != '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COUNT: ${{ steps.check.outputs.count }}
+          PENDING: ${{ steps.check.outputs.pending }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          gh label create migration-drift --color B60205 \
+            --description "Production schema is behind the repository" 2>/dev/null || true
+          BODY=$(printf '%s\n' \
+            "**${COUNT} migration(s) in the repository are not applied to production.**" \
+            "" \
+            '```' \
+            "${PENDING}" \
+            '```' \
+            "" \
+            "Either a deploy failed, or the chain is blocked. Note that a" \
+            "migration can also appear here while its objects already exist," \
+            "if it was applied by hand without being recorded — in that case" \
+            "the database is fine and the ledger is not, which is worth" \
+            "correcting because every later deploy re-attempts the same work." \
+            "" \
+            "Run: ${RUN_URL}")
+          EXISTING=$(gh issue list --state open --label migration-drift --json number --jq '.[0].number // empty')
+          if [ -n "$EXISTING" ]; then
+            gh issue comment "$EXISTING" --body "$BODY"
+          else
+            gh issue create --title "Production schema is behind the repository" \
+              --label migration-drift --body "$BODY"
+          fi
+          # Fail the run too, so the sentinel itself is visibly red rather than
+          # a green job that quietly filed a ticket.
+          exit 1
+
+      - name: Close drift issues when clean
+        if: steps.check.outputs.count == '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          for n in $(gh issue list --state open --label migration-drift --json number --jq '.[].number'); do
+            gh issue close "$n" --comment "Production is level with the repository. Closing."
+          done
+          echo "Production is level with the repository."

@@ -20,6 +20,12 @@ concurrency:
   group: deploy-migrations
   cancel-in-progress: false
 
+# Needed to raise the failure issue below. A deploy that fails silently is how
+# six merges rotted behind a green CI.
+permissions:
+  contents: read
+  issues: write
+
 env:
   SUPABASE_PROJECT_ID: pjvoswbwomesuwhygpby
 
@@ -63,3 +69,52 @@ jobs:
           supabase functions deploy public-reliability-agent
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+
+      # Nobody reads the Actions tab. This failed on every push for three weeks
+      # while CI stayed green and Vercel kept shipping frontends over a schema
+      # that was not moving. One open issue, reused rather than duplicated, so a
+      # run of failures is one notification instead of a stream nobody triages.
+      - name: Raise a failure issue
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          gh label create deploy-failure --color B60205 \
+            --description "deploy-migrations is failing; production is not advancing" 2>/dev/null || true
+          TITLE="Deploy migrations is failing"
+          EXISTING=$(gh issue list --state open --label deploy-failure \
+            --json number --jq '.[0].number // empty')
+          BODY=$(printf '%s\n' \
+            "\`deploy-migrations\` failed on \`${SHA}\`." \
+            "" \
+            "Run: ${RUN_URL}" \
+            "" \
+            "**Production schema and Edge Functions are not advancing.** The" \
+            "frontend deploys independently on Vercel, so the app will keep" \
+            "shipping against whatever schema was last applied — which looks" \
+            "healthy right up until it isn't." \
+            "" \
+            "Check what production actually has:" \
+            "" \
+            '```bash' \
+            "supabase migration list --linked" \
+            '```')
+          if [ -n "$EXISTING" ]; then
+            gh issue comment "$EXISTING" --body "$BODY"
+            echo "commented on existing issue #${EXISTING}"
+          else
+            gh issue create --title "$TITLE" --label deploy-failure --body "$BODY"
+          fi
+
+      - name: Close the failure issue on success
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          for n in $(gh issue list --state open --label deploy-failure --json number --jq '.[].number'); do
+            gh issue close "$n" --comment "Deploy succeeded on ${GITHUB_SHA}. Closing."
+          done
