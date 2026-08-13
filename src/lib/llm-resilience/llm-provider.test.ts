@@ -9,6 +9,7 @@ import {
   buildProviderChain,
   callWithResilience,
   resetParamMemo,
+  resolveExternalGatewayUrl,
   type LlmProvider,
 } from "../../../supabase/functions/_shared/llm-provider";
 
@@ -31,6 +32,23 @@ const openai: LlmProvider = {
 
 const OPTS = { systemPrompt: "s", userContent: "u", backoffMs: 1 };
 const noSleep = () => Promise.resolve();
+
+describe("resolveExternalGatewayUrl", () => {
+  it("recognizes only the exact OpenAI hostname", () => {
+    expect(resolveExternalGatewayUrl("https://api.openai.com")).toBeUndefined();
+    expect(
+      resolveExternalGatewayUrl("https://api.openai.com.attacker.example"),
+    ).toBe("https://api.openai.com.attacker.example");
+  });
+
+  it("rejects malformed and non-HTTPS gateway URLs", () => {
+    expect(resolveExternalGatewayUrl("not a URL")).toBeUndefined();
+    expect(resolveExternalGatewayUrl("http://gateway.example")).toBeUndefined();
+    expect(resolveExternalGatewayUrl("https://gateway.example/v1/")).toBe(
+      "https://gateway.example/v1",
+    );
+  });
+});
 
 function respond(status: number, content = "answer"): Response {
   return new Response(

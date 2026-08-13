@@ -71,6 +71,22 @@ export interface LlmResult {
   events: ProviderEvent[];
 }
 
+/**
+ * Accept an explicitly configured HTTPS gateway without confusing a hostname
+ * that merely contains `api.openai.com` for OpenAI itself.
+ */
+export function resolveExternalGatewayUrl(value: string): string | undefined {
+  if (!value.trim()) return undefined;
+  try {
+    const url = new URL(value);
+    if (url.protocol !== "https:") return undefined;
+    if (url.hostname.toLowerCase() === "api.openai.com") return undefined;
+    return url.toString().replace(/\/$/, "");
+  } catch {
+    return undefined;
+  }
+}
+
 type FetchLike = (url: string, init: RequestInit) => Promise<Response>;
 type SleepLike = (ms: number) => Promise<void>;
 
@@ -97,10 +113,18 @@ function unsupportedParam(body: string): string | null {
     const e = JSON.parse(body)?.error;
     const code = String(e?.code ?? "");
     const param = e?.param ? String(e.param) : "";
-    const negotiable = new Set(["temperature", "max_completion_tokens", "response_format"]);
+    const negotiable = new Set([
+      "temperature",
+      "max_completion_tokens",
+      "response_format",
+    ]);
     if (
       negotiable.has(param) &&
-      ["unsupported_value", "unknown_parameter", "unsupported_parameter"].includes(code)
+      [
+        "unsupported_value",
+        "unknown_parameter",
+        "unsupported_parameter",
+      ].includes(code)
     ) {
       return param;
     }
@@ -224,7 +248,7 @@ export async function callWithResilience(
 
     for (let attempt = 1; attempt <= attempts; attempt++) {
       let status: number | null = null;
-      let detail = "";
+      let detail: string;
       let fatal = false;
       let renegotiated = false;
 
@@ -237,7 +261,8 @@ export async function callWithResilience(
           ],
         };
         // Optional parameters, omitted once a provider has rejected them.
-        if (!dropped.has("temperature")) payload.temperature = opts.temperature ?? 0.3;
+        if (!dropped.has("temperature"))
+          payload.temperature = opts.temperature ?? 0.3;
         if (!dropped.has("max_completion_tokens")) {
           payload.max_completion_tokens = opts.maxTokens ?? 1200;
         }
@@ -283,7 +308,8 @@ export async function callWithResilience(
         const body = await resp.text().catch(() => "");
         const reason = body.slice(0, 200).replace(/\s+/g, " ").trim();
 
-        const bad = classify(resp.status) === "fatal" ? unsupportedParam(body) : null;
+        const bad =
+          classify(resp.status) === "fatal" ? unsupportedParam(body) : null;
         if (bad && !dropped.has(bad)) {
           // Not an outage — a parameter this provider will not accept. Drop it
           // and retry the SAME provider rather than failing over.
@@ -305,7 +331,12 @@ export async function callWithResilience(
       if (renegotiated) {
         // Does not consume the retry budget: the request was never actually
         // tried in a form this provider accepts.
-        events.push({ provider: provider.name, outcome: "retried", status, detail });
+        events.push({
+          provider: provider.name,
+          outcome: "retried",
+          status,
+          detail,
+        });
         attempt--;
         continue;
       }
@@ -313,7 +344,11 @@ export async function callWithResilience(
       const lastAttempt = fatal || attempt === attempts;
       events.push({
         provider: provider.name,
-        outcome: lastAttempt ? (hasNext ? "failed_over" : "exhausted") : "retried",
+        outcome: lastAttempt
+          ? hasNext
+            ? "failed_over"
+            : "exhausted"
+          : "retried",
         status,
         detail,
       });
@@ -322,5 +357,12 @@ export async function callWithResilience(
     }
   }
 
-  return { ok: false, content: "", usage: {}, provider: null, model: null, events };
+  return {
+    ok: false,
+    content: "",
+    usage: {},
+    provider: null,
+    model: null,
+    events,
+  };
 }

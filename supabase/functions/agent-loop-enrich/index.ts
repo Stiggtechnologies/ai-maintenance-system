@@ -29,6 +29,7 @@ const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY") ?? "";
 import {
   buildProviderChain,
   callWithResilience,
+  resolveExternalGatewayUrl,
 } from "../_shared/llm-provider.ts";
 const LLM_MODEL =
   Deno.env.get("ENRICH_LLM_MODEL") ?? Deno.env.get("LLM_MODEL") ?? "stigg/fast";
@@ -37,9 +38,10 @@ const ENRICH_SHARED_SECRET = Deno.env.get("ENRICH_SHARED_SECRET") ?? "";
 const BATCH_LIMIT = 5;
 const corsHeaders = {
   "Access-Control-Allow-Origin": "https://app.syncai.ca",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Vary": "Origin",
+  Vary: "Origin",
 };
 
 function json(body: unknown, status = 200): Response {
@@ -65,7 +67,8 @@ function safeEqual(a: string, b: string): boolean {
 }
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders });
+  if (req.method === "OPTIONS")
+    return new Response(null, { status: 204, headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
 
   if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
@@ -75,14 +78,17 @@ Deno.serve(async (req) => {
 
   const auth = req.headers.get("Authorization") ?? "";
   const serviceToken = `Bearer ${SERVICE_ROLE_KEY}`;
-  const sharedToken = ENRICH_SHARED_SECRET ? `Bearer ${ENRICH_SHARED_SECRET}` : "";
-  const authorized = safeEqual(auth, serviceToken) || (sharedToken !== "" && safeEqual(auth, sharedToken));
+  const sharedToken = ENRICH_SHARED_SECRET
+    ? `Bearer ${ENRICH_SHARED_SECRET}`
+    : "";
+  const authorized =
+    safeEqual(auth, serviceToken) ||
+    (sharedToken !== "" && safeEqual(auth, sharedToken));
   if (!authorized) return json({ error: "unauthorized" }, 401);
 
   // Gateway first when configured; direct OpenAI as fallback. An empty chain
   // is reported as configuration, not silently skipped.
-  const gatewayUrl =
-    LLM_BASE_URL && !LLM_BASE_URL.includes("api.openai.com") ? LLM_BASE_URL : undefined;
+  const gatewayUrl = resolveExternalGatewayUrl(LLM_BASE_URL);
   const providers = buildProviderChain({
     gatewayUrl,
     gatewayKey: gatewayUrl ? LLM_API_KEY : undefined,
@@ -106,7 +112,9 @@ Deno.serve(async (req) => {
 
   const { data: recs, error } = await supabase
     .from("recommendations")
-    .select("id, organization_id, asset_id, title, issue, action, confidence, urgency")
+    .select(
+      "id, organization_id, asset_id, title, issue, action, confidence, urgency",
+    )
     .like("rationale", "Raised by the continuous%")
     .is("enriched_at", null)
     .eq("status", "pending")
@@ -117,7 +125,8 @@ Deno.serve(async (req) => {
     console.error("agent-loop-enrich query failed", error);
     return json({ enriched: 0, skipped: "query_failed" }, 500);
   }
-  if (!recs || recs.length === 0) return json({ enriched: 0, skipped: "nothing_to_enrich" });
+  if (!recs || recs.length === 0)
+    return json({ enriched: 0, skipped: "nothing_to_enrich" });
 
   let enriched = 0;
   const failures: string[] = [];
@@ -159,7 +168,10 @@ Deno.serve(async (req) => {
       const content: string = result.content;
       const match = content.match(/\{[\s\S]*\}/);
       const parsed = match ? JSON.parse(match[0]) : {};
-      if (typeof parsed.analysis !== "string" || parsed.analysis.trim().length === 0) {
+      if (
+        typeof parsed.analysis !== "string" ||
+        parsed.analysis.trim().length === 0
+      ) {
         failures.push(`${rec.id}: invalid_response`);
         continue;
       }
@@ -167,7 +179,12 @@ Deno.serve(async (req) => {
       const requestedConfidence = Number(parsed.confidence);
       const confidence = Math.min(
         95,
-        Math.max(rec.confidence ?? 70, Number.isFinite(requestedConfidence) ? Math.round(requestedConfidence) : 0),
+        Math.max(
+          rec.confidence ?? 70,
+          Number.isFinite(requestedConfidence)
+            ? Math.round(requestedConfidence)
+            : 0,
+        ),
       );
 
       const { error: updateError } = await supabase
@@ -189,7 +206,10 @@ Deno.serve(async (req) => {
         .eq("status", "pending");
 
       if (updateError) {
-        console.error("agent-loop-enrich recommendation update failed", { id: rec.id, error: updateError });
+        console.error("agent-loop-enrich recommendation update failed", {
+          id: rec.id,
+          error: updateError,
+        });
         failures.push(`${rec.id}: update_failed`);
         continue;
       }
@@ -203,7 +223,11 @@ Deno.serve(async (req) => {
         started_at: new Date().toISOString(),
         completed_at: new Date().toISOString(),
       });
-      if (runError) console.error("agent-loop-enrich agent run insert failed", { id: rec.id, error: runError });
+      if (runError)
+        console.error("agent-loop-enrich agent run insert failed", {
+          id: rec.id,
+          error: runError,
+        });
 
       enriched += 1;
     } catch (error) {

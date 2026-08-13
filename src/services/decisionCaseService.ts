@@ -9,6 +9,7 @@ import {
   getCoworkMessages,
   sendCoworkMessage,
 } from "./operatingLoopService";
+import { runPublicDecisionCaseAgent } from "./publicReliabilityAgent";
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -98,11 +99,44 @@ interface DeterministicResponse {
 export async function askDecisionCase(
   decisionCase: DecisionCase,
   text: string,
+  options: { publicMode?: boolean } = {},
 ): Promise<DecisionCaseReply> {
   const prompt = text.trim().slice(0, 2400);
   const conversationReply = conversationalBoundaryReply(decisionCase, prompt);
   if (conversationReply) {
     return buildDeterministicReply(prompt, conversationReply);
+  }
+  if (isDeterministicCalculationRequest(prompt)) {
+    return buildDeterministicReply(
+      prompt,
+      deterministicReply(decisionCase, prompt),
+    );
+  }
+  if (options.publicMode) {
+    const result = await runPublicDecisionCaseAgent(decisionCase, prompt);
+    if (result.status === "success") {
+      const sourceLabel = result.knowledgeBaseUsed
+        ? `RAG-grounded reliability analysis · ${result.citations.length} approved source${result.citations.length === 1 ? "" : "s"}`
+        : "Governed model analysis · no public reference match";
+      return {
+        message: {
+          id: `msg-${Date.now()}`,
+          role: "assistant",
+          author: "SyncAI",
+          text: result.response,
+          createdAt: new Date().toISOString(),
+          meta: sourceLabel,
+        },
+        estimatedTokens: estimateTokens(prompt + result.response),
+        source: "live",
+      };
+    }
+    if (result.status === "rate_limited") {
+      return buildDeterministicReply(prompt, {
+        text: "Your included live RAG analysis capacity for this access window has been used. The Decision Case and deterministic packet remain available. Sign in to continue in a governed workspace.",
+        meta: "Live RAG capacity reached · case retained",
+      });
+    }
   }
   if (isPersistedDecisionCase(decisionCase.id)) {
     await sendCoworkMessage(
@@ -130,6 +164,9 @@ export async function askDecisionCase(
     }
   }
   const response = deterministicReply(decisionCase, prompt);
+  if (options.publicMode) {
+    response.meta = "Deterministic fallback · live RAG unavailable";
+  }
   return buildDeterministicReply(prompt, response);
 }
 
@@ -293,6 +330,16 @@ function deterministicReply(
     text: `I am not yet sure which outcome you want. Should I examine evidence in ${decisionCase.caseNumber}, challenge its recommendation, prepare the authority review, or look at a different asset or document? Give me the item or decision you want to focus on.`,
     meta: `Clarification needed · ${decisionCase.caseNumber} unchanged`,
   };
+}
+
+function isDeterministicCalculationRequest(prompt: string): boolean {
+  const lower = prompt.toLowerCase();
+  return (
+    lower.includes("calculation") ||
+    lower.includes("formula") ||
+    lower.includes("source record") ||
+    lower.includes("exact source")
+  );
 }
 
 function buildGroundedCaseContext(decisionCase: DecisionCase): string {

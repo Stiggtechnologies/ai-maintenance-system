@@ -41,15 +41,19 @@ const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY") ?? "";
 import {
   buildProviderChain,
   callWithResilience,
+  resolveExternalGatewayUrl,
 } from "../_shared/llm-provider.ts";
+import { retrieveReliabilityContext } from "../_shared/reliability-context.ts";
 const LLM_BASE_URL = Deno.env.get("LLM_BASE_URL") ?? "https://api.openai.com";
-const ALLOWED_ORIGIN = Deno.env.get("ALLOWED_ORIGIN") ?? "https://app.syncai.ca";
+const ALLOWED_ORIGIN =
+  Deno.env.get("ALLOWED_ORIGIN") ?? "https://app.syncai.ca";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
   "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Vary": "Origin",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
+  Vary: "Origin",
 };
 
 interface AuthContext {
@@ -129,7 +133,8 @@ async function authenticate(req: Request): Promise<AuthContext | null> {
   }
 
   const admin = serviceClient();
-  const { data: userResult, error: userError } = await admin.auth.getUser(token);
+  const { data: userResult, error: userError } =
+    await admin.auth.getUser(token);
   if (userError || !userResult.user) return null;
 
   const { data: profile, error: profileError } = await admin
@@ -147,7 +152,6 @@ async function authenticate(req: Request): Promise<AuthContext | null> {
   };
 }
 
-
 async function callLLM(
   model: string,
   systemPrompt: string,
@@ -160,11 +164,10 @@ async function callLLM(
   // Chain: LLM_BASE_URL (the gateway, when set and not plain OpenAI) first,
   // then direct OpenAI. Today LLM_BASE_URL is unset, so this is OpenAI with
   // retry; the moment the gateway secret is set, routing flips with no deploy.
-  const gatewayUrl =
-    LLM_BASE_URL && !LLM_BASE_URL.includes("api.openai.com") ? LLM_BASE_URL : undefined;
+  const gatewayUrl = resolveExternalGatewayUrl(LLM_BASE_URL);
   const providers = buildProviderChain({
     gatewayUrl,
-    gatewayKey: gatewayUrl ? (Deno.env.get("LLM_API_KEY") ?? OPENAI_API_KEY) : undefined,
+    gatewayKey: gatewayUrl ? Deno.env.get("LLM_API_KEY") : undefined,
     gatewayModel: gatewayTierFor(model),
     openaiKey: OPENAI_API_KEY,
     openaiModel: model,
@@ -182,7 +185,10 @@ async function callLLM(
   // Every non-first-attempt trail is recorded, so a background failure can
   // never again sit invisible for a month.
   if (result.events.length > 1 || !result.ok) {
-    console.error("ai-agent-processor provider trail", JSON.stringify(result.events));
+    console.error(
+      "ai-agent-processor provider trail",
+      JSON.stringify(result.events),
+    );
     try {
       const admin = serviceClient();
       await admin.from("llm_provider_events").insert(
@@ -194,28 +200,49 @@ async function callLLM(
           detail: e.detail,
         })),
       );
-    } catch { /* health logging must never take the copilot down */ }
+    } catch {
+      /* health logging must never take the copilot down */
+    }
   }
 
   if (!result.ok) throw new Error("provider_unavailable");
-  return { content: result.content, usage: result.usage, model: result.model ?? model };
+  return {
+    content: result.content,
+    usage: result.usage,
+    model: result.model ?? model,
+  };
 }
 
 const AGENT_PURPOSE: Record<string, string> = {
-  ReliabilityAgent: "reliability engineering, failure analysis, FRACAS, RCM and lifecycle risk",
-  PreventiveMaintenanceAgent: "failure-mode-driven preventive and predictive maintenance strategy",
-  AssetHealthAgent: "condition monitoring, degradation assessment and asset health",
-  RiskAssessmentAgent: "asset risk, consequence, safeguards and risk-based prioritization",
-  WorkOrderAgent: "work request quality, job planning, execution and closeout discipline",
-  PlanningSchedulingAgent: "maintenance planning, scheduling, readiness and resource deconfliction",
-  InventoryAgent: "MRO spares, criticality, stockout risk and materials readiness",
-  RootCauseAnalysisAgent: "evidence-led root cause analysis and corrective-action verification",
-  HSEComplianceAgent: "HSE critical controls, regulatory applicability and audit traceability",
-  CentralCoordinationAgent: "cross-functional maintenance, reliability, materials, HSE and production coordination",
+  ReliabilityAgent:
+    "reliability engineering, failure analysis, FRACAS, RCM and lifecycle risk",
+  PreventiveMaintenanceAgent:
+    "failure-mode-driven preventive and predictive maintenance strategy",
+  AssetHealthAgent:
+    "condition monitoring, degradation assessment and asset health",
+  RiskAssessmentAgent:
+    "asset risk, consequence, safeguards and risk-based prioritization",
+  WorkOrderAgent:
+    "work request quality, job planning, execution and closeout discipline",
+  PlanningSchedulingAgent:
+    "maintenance planning, scheduling, readiness and resource deconfliction",
+  InventoryAgent:
+    "MRO spares, criticality, stockout risk and materials readiness",
+  RootCauseAnalysisAgent:
+    "evidence-led root cause analysis and corrective-action verification",
+  HSEComplianceAgent:
+    "HSE critical controls, regulatory applicability and audit traceability",
+  CentralCoordinationAgent:
+    "cross-functional maintenance, reliability, materials, HSE and production coordination",
 };
 
-function buildLegacyPrompt(agentType: string, industry?: string, deliverable = false): string {
-  const purpose = AGENT_PURPOSE[agentType] ?? AGENT_PURPOSE.CentralCoordinationAgent;
+function buildLegacyPrompt(
+  agentType: string,
+  industry?: string,
+  deliverable = false,
+): string {
+  const purpose =
+    AGENT_PURPOSE[agentType] ?? AGENT_PURPOSE.CentralCoordinationAgent;
   let prompt = `You are SyncAI's senior industrial AI specialist for ${purpose}${industry ? ` in ${industry}` : ""}.
 Use only supplied facts and clearly label assumptions. Distinguish symptoms, mechanisms, causes and systemic causes. Quantify deviations where data permits. Recommend reversible field verification before permanent changes. Every material recommendation must name an owner role, time window, verification metric, consequence of being wrong, and whether qualified human approval is required. Never advise bypassing safety, regulatory, OEM, change-management or operational approvals. End with a concise bottom line.`;
 
@@ -223,93 +250,6 @@ Use only supplied facts and clearly label assumptions. Distinguish symptoms, mec
     prompt += `\nThe user requested a complete work product. Produce the artifact now rather than a methodology outline. For an FMEA, include at least 20 scored failure-mode rows plus scoring scales, assumptions, a prioritized action plan, regulatory applicability, method references and a bottom line. For RCA, FRACAS, RCM, risk or planning requests, provide the corresponding complete professional artifact.`;
   }
   return prompt;
-}
-
-/**
- * Claim types the copilot's answers actually rest on.
- *
- * The copilot reasons about how things fail and about the methods for analysing
- * that, so it retrieves against those two and nothing else. It deliberately
- * does NOT request nameplate_spec: a brochure has standing on rated power, and
- * feeding sales copy into an FMEA prompt is exactly the contamination the
- * document classes exist to prevent.
- */
-const COPILOT_CLAIM_TYPES = ["analysis_method", "failure_behaviour"] as const;
-
-/**
- * Retrieve reference passages, class-checked and tenant-scoped.
- *
- * This used to select from reliability_kb_chunks directly, which meant there was
- * no enforcement point at all: any document in the corpus could be cited in
- * support of any claim, and — once client material starts arriving — any tenant
- * could be served another tenant's manuals.
- *
- * The organization id is passed explicitly because this runs under the service
- * role, where there is no session for app_current_org() to read. Without it the
- * copilot would silently answer from generic handbooks while the client's own
- * documents sat unread.
- */
-async function retrieveReliabilityContext(
-  admin: ReturnType<typeof serviceClient>,
-  query: string,
-  organizationId: string,
-): Promise<string> {
-  try {
-    if (query.trim().length < 12) return "";
-
-    const results = await Promise.all(
-      COPILOT_CLAIM_TYPES.map((claimType) =>
-        admin.rpc("retrieve_kb_context", {
-          p_query: query.slice(0, 500),
-          p_claim_type: claimType,
-          p_limit: 3,
-          p_organization_id: organizationId,
-        }),
-      ),
-    );
-
-    type Chunk = {
-      title: string;
-      page_start: number;
-      page_end: number;
-      content: string;
-      documentClass: string;
-      isClientPrivate: boolean;
-    };
-
-    // Deduplicated across claim types: a handbook page with standing on both
-    // would otherwise be pasted into the prompt twice and read as two
-    // independent sources agreeing with each other.
-    const seen = new Set<string>();
-    const chunks: Chunk[] = [];
-    for (const r of results) {
-      for (const c of (r.data ?? []) as Chunk[]) {
-        const key = `${c.title}|${c.page_start}|${c.content.slice(0, 60)}`;
-        if (seen.has(key)) continue;
-        seen.add(key);
-        chunks.push(c);
-      }
-    }
-    if (chunks.length === 0) return "";
-
-    return chunks
-      .map((c) => {
-        const pages = c.page_end !== c.page_start
-          ? `p.${c.page_start}-${c.page_end}`
-          : `p.${c.page_start}`;
-        // The class travels with the citation. A reader who sees a claim
-        // attributed to an OEM brochure can weigh it differently from one
-        // attributed to a handbook, which they cannot do if both render
-        // identically.
-        const provenance = c.isClientPrivate
-          ? `${c.documentClass}, client-supplied`
-          : c.documentClass;
-        return `[${c.title}, ${pages} — ${provenance}]\n${String(c.content).slice(0, 1200)}`;
-      })
-      .join("\n\n---\n\n");
-  } catch {
-    return "";
-  }
 }
 
 async function logToSir(
@@ -341,7 +281,11 @@ async function logToSir(
         .insert({
           tenant_id: auth.organizationId,
           user_id: auth.userId,
-          context: { source: "ai-agent-processor", agent_type: agentType, correlation_id: correlationId },
+          context: {
+            source: "ai-agent-processor",
+            agent_type: agentType,
+            correlation_id: correlationId,
+          },
           status: "active",
         })
         .select("id")
@@ -351,8 +295,22 @@ async function logToSir(
     if (!sessionId) return;
 
     await admin.from("sir_messages").insert([
-      { session_id: sessionId, role: "user", content: userQuery, metadata: { agent_type: agentType, correlation_id: correlationId } },
-      { session_id: sessionId, role: "assistant", content: aiResponse, metadata: { agent_type: agentType, correlation_id: correlationId, processing_time_ms: processingTimeMs } },
+      {
+        session_id: sessionId,
+        role: "user",
+        content: userQuery,
+        metadata: { agent_type: agentType, correlation_id: correlationId },
+      },
+      {
+        session_id: sessionId,
+        role: "assistant",
+        content: aiResponse,
+        metadata: {
+          agent_type: agentType,
+          correlation_id: correlationId,
+          processing_time_ms: processingTimeMs,
+        },
+      },
     ]);
     await admin.from("sir_costs").insert({
       tenant_id: auth.organizationId,
@@ -360,7 +318,10 @@ async function logToSir(
       model,
       prompt_tokens: usage.prompt_tokens ?? 0,
       completion_tokens: usage.completion_tokens ?? 0,
-      cost_usd: (((usage.prompt_tokens ?? 0) * 0.00015) + ((usage.completion_tokens ?? 0) * 0.0006)) / 1000,
+      cost_usd:
+        ((usage.prompt_tokens ?? 0) * 0.00015 +
+          (usage.completion_tokens ?? 0) * 0.0006) /
+        1000,
     });
   } catch (error) {
     console.error("ai-agent-processor SIR logging failed", error);
@@ -373,28 +334,53 @@ async function handleLegacy(
   body: LegacyAgentRequest,
 ): Promise<Response> {
   const agentType = body.agentType;
-  if (!agentType) return response({ success: false, error: "agentType_required" }, 400);
+  if (!agentType)
+    return response({ success: false, error: "agentType_required" }, 400);
   const query = String(body.query ?? "").trim();
   if (!query) return response({ success: false, error: "query_required" }, 400);
-  if (query.length > 30_000) return response({ success: false, error: "query_too_large" }, 413);
+  if (query.length > 30_000)
+    return response({ success: false, error: "query_too_large" }, 413);
 
-  const deliverable = body.depth === "deliverable" || /\b(fmea|rca|fracas|rcm|register|assessment|report|plan)\b/i.test(query);
+  const deliverable =
+    body.depth === "deliverable" ||
+    /\b(fmea|rca|fracas|rcm|register|assessment|report|plan)\b/i.test(query);
   const model = deliverable ? MODEL_DELIVERABLE : MODEL_CHAT;
   const maxTokens = deliverable ? 12_000 : 1_500;
-  const kb = await retrieveReliabilityContext(admin, query, auth.organizationId);
-  const systemPrompt = `${buildLegacyPrompt(agentType, body.industry, deliverable)}${kb ? `\n\nApproved reliability reference passages:\n${kb}\nUse only the exact bracket labels supplied for citations.` : ""}`;
+  const kb = await retrieveReliabilityContext(admin, query, {
+    organizationId: auth.organizationId,
+  });
+  const systemPrompt = `${buildLegacyPrompt(agentType, body.industry, deliverable)}${kb.promptContext ? `\n\nApproved reliability reference passages:\n${kb.promptContext}\nUse only the exact bracket labels supplied for citations.` : ""}`;
   const started = Date.now();
-  const { content, usage, model: answeredBy } = await callLLM(model, systemPrompt, query, false, maxTokens);
+  const {
+    content,
+    usage,
+    model: answeredBy,
+  } = await callLLM(model, systemPrompt, query, false, maxTokens);
   const elapsed = Date.now() - started;
 
-  await admin.from("ai_agent_logs").insert({
-    agent_type: agentType,
+  await admin
+    .from("ai_agent_logs")
+    .insert({
+      agent_type: agentType,
+      query,
+      response: content,
+      industry: body.industry ?? "general",
+      processing_time_ms: elapsed,
+    })
+    .then(
+      ({ error }) =>
+        error && console.error("ai_agent_logs insert failed", error),
+    );
+  await logToSir(
+    admin,
+    auth,
+    agentType,
     query,
-    response: content,
-    industry: body.industry ?? "general",
-    processing_time_ms: elapsed,
-  }).then(({ error }) => error && console.error("ai_agent_logs insert failed", error));
-  await logToSir(admin, auth, agentType, query, content, answeredBy, usage, elapsed);
+    content,
+    answeredBy,
+    usage,
+    elapsed,
+  );
 
   return response({
     success: true,
@@ -404,12 +390,16 @@ async function handleLegacy(
     industry: body.industry ?? "general",
     modelUsed: model,
     depth: deliverable ? "deliverable" : "standard",
-    knowledgeBaseUsed: Boolean(kb),
+    knowledgeBaseUsed: kb.knowledgeBaseUsed,
     requiresApproval: body.requiresApproval ?? false,
   });
 }
 
-function buildTypedPrompts(body: TypedAgentRequest, workOrder: Record<string, unknown>, asset: Record<string, unknown>) {
+function buildTypedPrompts(
+  body: TypedAgentRequest,
+  workOrder: Record<string, unknown>,
+  asset: Record<string, unknown>,
+) {
   const context = `Work order: ${workOrder.title}\nDescription: ${workOrder.description ?? "not supplied"}\nPriority: ${workOrder.priority ?? "unspecified"}\nStatus: ${workOrder.status ?? "unspecified"}\nType: ${workOrder.type ?? "unspecified"}\n\nAsset: ${asset.name}\nTag: ${asset.tag ?? "not supplied"}\nCriticality: ${asset.criticality ?? "unspecified"}\nStatus: ${asset.status ?? "unspecified"}\nManufacturer/model: ${asset.manufacturer ?? "unknown"} ${asset.model ?? ""}\nTrigger: ${body.input.trigger_reason}`;
 
   if (body.task_code === "classify_failure_mode") {
@@ -432,11 +422,21 @@ async function handleTyped(
   auth: AuthContext,
   body: TypedAgentRequest,
 ): Promise<Response> {
-  const organizationId = auth.internal ? String(body.tenant_id ?? "") : auth.organizationId;
-  if (!organizationId || (!auth.internal && body.tenant_id && body.tenant_id !== organizationId)) {
+  const organizationId = auth.internal
+    ? String(body.tenant_id ?? "")
+    : auth.organizationId;
+  if (
+    !organizationId ||
+    (!auth.internal && body.tenant_id && body.tenant_id !== organizationId)
+  ) {
     return response({ success: false, error: "tenant_scope_invalid" }, 403);
   }
-  if (!body.input?.work_order_id || !body.input?.asset_id || !body.task_code || !body.idempotency_key) {
+  if (
+    !body.input?.work_order_id ||
+    !body.input?.asset_id ||
+    !body.task_code ||
+    !body.idempotency_key
+  ) {
     return response({ success: false, error: "invalid_task_envelope" }, 400);
   }
 
@@ -448,7 +448,12 @@ async function handleTyped(
     .eq("idempotency_key", body.idempotency_key)
     .maybeSingle();
   if (existingRun?.status === "completed") {
-    return response({ success: true, idempotent_replay: true, agent_run_id: existingRun.id, output: existingRun.output });
+    return response({
+      success: true,
+      idempotent_replay: true,
+      agent_run_id: existingRun.id,
+      output: existingRun.output,
+    });
   }
 
   const { data: run, error: runError } = await admin
@@ -468,55 +473,111 @@ async function handleTyped(
     .single();
   if (runError || !run) {
     console.error("typed orchestration run creation failed", runError);
-    return response({ success: false, error: "orchestration_start_failed", correlation_id: correlationId }, 500);
+    return response(
+      {
+        success: false,
+        error: "orchestration_start_failed",
+        correlation_id: correlationId,
+      },
+      500,
+    );
   }
 
   try {
     const [workOrderResult, assetResult] = await Promise.all([
-      admin.from("work_orders").select("title, description, priority, status, type").eq("id", body.input.work_order_id).eq("organization_id", organizationId).single(),
-      admin.from("assets").select("name, tag, status, criticality, manufacturer, model").eq("id", body.input.asset_id).eq("organization_id", organizationId).single(),
+      admin
+        .from("work_orders")
+        .select("title, description, priority, status, type")
+        .eq("id", body.input.work_order_id)
+        .eq("organization_id", organizationId)
+        .single(),
+      admin
+        .from("assets")
+        .select("name, tag, status, criticality, manufacturer, model")
+        .eq("id", body.input.asset_id)
+        .eq("organization_id", organizationId)
+        .single(),
     ]);
-    if (!workOrderResult.data || !assetResult.data) throw new Error("scoped_context_not_found");
+    if (!workOrderResult.data || !assetResult.data)
+      throw new Error("scoped_context_not_found");
 
-    const prompts = buildTypedPrompts(body, workOrderResult.data, assetResult.data);
+    const prompts = buildTypedPrompts(
+      body,
+      workOrderResult.data,
+      assetResult.data,
+    );
     const started = Date.now();
-    const { content, usage, model: answeredBy } = await callLLM(MODEL_STRUCTURED, prompts.system, prompts.user, true, 1800);
+    const {
+      content,
+      usage,
+      model: answeredBy,
+    } = await callLLM(
+      MODEL_STRUCTURED,
+      prompts.system,
+      prompts.user,
+      true,
+      1800,
+    );
     const parsed = JSON.parse(content);
-    const confidence = Math.max(0, Math.min(1, Number(parsed.confidence ?? 0.5)));
-    const requiresHumanReview = Boolean(parsed.requires_human_review) || ["high", "critical"].includes(parsed.risk_level);
+    const confidence = Math.max(
+      0,
+      Math.min(1, Number(parsed.confidence ?? 0.5)),
+    );
+    const requiresHumanReview =
+      Boolean(parsed.requires_human_review) ||
+      ["high", "critical"].includes(parsed.risk_level);
     const finishedAt = new Date().toISOString();
 
-    await admin.from("sir_orchestration_runs").update({
-      status: "completed",
-      output: parsed,
-      finished_at: finishedAt,
-      duration_ms: Date.now() - started,
-    }).eq("id", run.id);
+    await admin
+      .from("sir_orchestration_runs")
+      .update({
+        status: "completed",
+        output: parsed,
+        finished_at: finishedAt,
+        duration_ms: Date.now() - started,
+      })
+      .eq("id", run.id);
 
-    const governanceResponse = await fetch(`${SUPABASE_URL}/functions/v1/autonomous-orchestrator`, {
-      method: "POST",
-      signal: AbortSignal.timeout(30_000),
-      headers: { Authorization: `Bearer ${SERVICE_ROLE_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        action: "create_intelligence_decision",
-        data: {
-          tenant_id: organizationId,
-          correlation_id: correlationId,
-          asset_id: body.input.asset_id,
-          work_order_id: body.input.work_order_id,
-          autonomy_level: body.autonomy_level,
-          agent_run_id: run.id,
-          task_code: body.task_code,
-          confidence,
-          requires_human_review: requiresHumanReview,
-          raw_summary: parsed.summary ?? "Assessment complete.",
-          structured_output: parsed,
+    const governanceResponse = await fetch(
+      `${SUPABASE_URL}/functions/v1/autonomous-orchestrator`,
+      {
+        method: "POST",
+        signal: AbortSignal.timeout(30_000),
+        headers: {
+          Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
+          "Content-Type": "application/json",
         },
-      }),
-    });
+        body: JSON.stringify({
+          action: "create_intelligence_decision",
+          data: {
+            tenant_id: organizationId,
+            correlation_id: correlationId,
+            asset_id: body.input.asset_id,
+            work_order_id: body.input.work_order_id,
+            autonomy_level: body.autonomy_level,
+            agent_run_id: run.id,
+            task_code: body.task_code,
+            confidence,
+            requires_human_review: requiresHumanReview,
+            raw_summary: parsed.summary ?? "Assessment complete.",
+            structured_output: parsed,
+          },
+        }),
+      },
+    );
     if (!governanceResponse.ok) throw new Error("governance_handoff_failed");
     const governance = await governanceResponse.json();
-    await logToSir(admin, { ...auth, organizationId }, body.agent_code, prompts.user, parsed.summary ?? content, answeredBy, usage, Date.now() - started, correlationId);
+    await logToSir(
+      admin,
+      { ...auth, organizationId },
+      body.agent_code,
+      prompts.user,
+      parsed.summary ?? content,
+      answeredBy,
+      usage,
+      Date.now() - started,
+      correlationId,
+    );
 
     return response({
       success: true,
@@ -534,16 +595,22 @@ async function handleTyped(
   } catch (error) {
     const safeMessage = error instanceof Error ? error.message : "task_failed";
     console.error("typed agent invocation failed", { correlationId, error });
-    await admin.from("sir_orchestration_runs").update({
-      status: "failed",
-      output: { error: safeMessage },
-      finished_at: new Date().toISOString(),
-    }).eq("id", run.id);
+    await admin
+      .from("sir_orchestration_runs")
+      .update({
+        status: "failed",
+        output: { error: safeMessage },
+        finished_at: new Date().toISOString(),
+      })
+      .eq("id", run.id);
     try {
       await fetch(`${SUPABASE_URL}/functions/v1/autonomous-orchestrator`, {
         method: "POST",
         signal: AbortSignal.timeout(15_000),
-        headers: { Authorization: `Bearer ${SERVICE_ROLE_KEY}`, "Content-Type": "application/json" },
+        headers: {
+          Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify({
           action: "create_failed_decision",
           data: {
@@ -559,13 +626,22 @@ async function handleTyped(
     } catch {
       // Best-effort audit completion.
     }
-    return response({ success: false, error: "intelligence_task_failed", correlation_id: correlationId }, 500);
+    return response(
+      {
+        success: false,
+        error: "intelligence_task_failed",
+        correlation_id: correlationId,
+      },
+      500,
+    );
   }
 }
 
 Deno.serve(async (req: Request) => {
-  if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders });
-  if (req.method !== "POST") return response({ success: false, error: "method_not_allowed" }, 405);
+  if (req.method === "OPTIONS")
+    return new Response(null, { status: 204, headers: corsHeaders });
+  if (req.method !== "POST")
+    return response({ success: false, error: "method_not_allowed" }, 405);
   if (!SUPABASE_URL || !SERVICE_ROLE_KEY || !OPENAI_API_KEY) {
     console.error("ai-agent-processor missing required configuration");
     return response({ success: false, error: "service_unavailable" }, 503);
@@ -577,7 +653,8 @@ Deno.serve(async (req: Request) => {
   try {
     const body = await req.json();
     const admin = serviceClient();
-    if (body?.task_code) return await handleTyped(admin, auth, body as TypedAgentRequest);
+    if (body?.task_code)
+      return await handleTyped(admin, auth, body as TypedAgentRequest);
     return await handleLegacy(admin, auth, body as LegacyAgentRequest);
   } catch (error) {
     console.error("ai-agent-processor request failed", error);
