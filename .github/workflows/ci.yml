@@ -70,6 +70,12 @@ jobs:
 
       - name: Verify new migrations sort after the deployed head
         run: node scripts/check-migration-order.mjs
+        env:
+          # On a pull request, compare against main. On a push to main there is
+          # no merge base that means anything — compare against the commit the
+          # push started from, so migrations that arrive by direct push are held
+          # to the same rule as ones that arrive by PR.
+          MIGRATION_ORDER_BASE_REF: ${{ github.event_name == 'push' && github.event.before || 'origin/main' }}
 
   migrations:
     name: Migration chain + seeded auth smoke

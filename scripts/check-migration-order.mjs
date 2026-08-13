@@ -25,6 +25,17 @@ const versionOf = (file) => path.basename(file).split("_")[0];
 const isMigration = (file) =>
   file.startsWith(`${migrationDir}/`) && file.endsWith(".sql");
 
+// A push to main has no merge base to speak of — HEAD's merge base with main IS
+// HEAD, which would make this check pass trivially on exactly the path that
+// bypasses review. The workflow passes the commit the branch was pushed FROM so
+// the same comparison holds: what did this push add, versus what was already
+// deployable before it. Without that, a direct push is unguarded.
+const EMPTY_SHA = "0".repeat(40);
+if (baseRef === EMPTY_SHA) {
+  console.log("Migration order: no prior commit to compare against — skipping.");
+  process.exit(0);
+}
+
 let mergeBase;
 try {
   mergeBase = git("merge-base", "HEAD", baseRef);
