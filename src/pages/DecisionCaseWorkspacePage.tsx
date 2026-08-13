@@ -69,6 +69,18 @@ const roles = [
   "Operations Authority",
   "Executive / finance sponsor",
 ];
+const PUBLIC_VALUE_PROOF_TOKEN_ALLOWANCE = 60000;
+
+function includeCompletePublicValueProof(cases: DecisionCase[]) {
+  return cases.map((item) => ({
+    ...item,
+    billingMode: "complimentary" as const,
+    tokenAllowance: Math.max(
+      item.tokenAllowance,
+      PUBLIC_VALUE_PROOF_TOKEN_ALLOWANCE,
+    ),
+  }));
+}
 
 function getContext(params: URLSearchParams): DecisionJourneyContext {
   return {
@@ -92,7 +104,8 @@ function initialCases(
     publicMode && !context.intakeId
       ? { ...context, intakeId: "demo-value-proof" }
       : context;
-  const saved = readDecisionCases(storage, seededContext, storageKey);
+  const stored = readDecisionCases(storage, seededContext, storageKey);
+  const saved = publicMode ? includeCompletePublicValueProof(stored) : stored;
   if (
     !routeId ||
     routeId === "demo" ||
@@ -103,7 +116,8 @@ function initialCases(
   const personalized = createSeedDecisionCases(context)[0];
   personalized.id = routeId;
   personalized.caseNumber = `VP-${routeId.slice(-6).toUpperCase()}`;
-  return [personalized, ...saved];
+  const next = [personalized, ...saved];
+  return publicMode ? includeCompletePublicValueProof(next) : next;
 }
 
 function timestamp(value: string) {
@@ -268,7 +282,8 @@ export function DecisionCaseWorkspacePage({
     if (!text || replying) return;
     if (
       active.billingMode === "paused" ||
-      (active.billingMode === "complimentary" &&
+      (!publicMode &&
+        active.billingMode === "complimentary" &&
         active.tokensUsed >= active.tokenAllowance)
     ) {
       setUsageOpen(true);
@@ -419,6 +434,7 @@ export function DecisionCaseWorkspacePage({
       ],
     }));
     setNotice("Measured value verified and returned to the learning loop.");
+    if (publicMode) setUsageOpen(true);
   };
 
   const addComment = () => {
@@ -579,38 +595,66 @@ export function DecisionCaseWorkspacePage({
               <ClipboardCheck size={15} /> Decision history
             </button>
           </div>
-          <div className="dw-usage">
-            <div>
-              <span>
-                {active.billingMode === "complimentary"
-                  ? "Complimentary analysis"
-                  : "Decision analysis"}
-              </span>
-              <strong>
-                {active.billingMode === "complimentary"
-                  ? `${complimentaryRemainingPercent}% left`
-                  : `${usagePercent}% used`}
-              </strong>
+          {publicMode ? (
+            <div className="dw-value-proof-access">
+              <div>
+                <span>Full value proof included</span>
+                <strong>End-to-end access</strong>
+              </div>
+              <div
+                className="dw-value-proof-stages"
+                aria-label="Included value proof stages"
+              >
+                {["Evidence", "Decision", "Authority", "Action", "Value"].map(
+                  (item) => (
+                    <span key={item}>
+                      <Check size={10} /> {item}
+                    </span>
+                  ),
+                )}
+              </div>
+              <small>
+                Use live RAG grounding, challenge the decision, simulate the
+                controlled work, and verify value before sign-in.
+              </small>
+              <button type="button" onClick={() => setUsageOpen(true)}>
+                Secure this workspace <ArrowUpRight size={13} />
+              </button>
             </div>
-            <div
-              className="dw-usage-track"
-              role="progressbar"
-              aria-label="Decision analysis capacity used"
-              aria-valuenow={usagePercent}
-              aria-valuemin={0}
-              aria-valuemax={100}
-            >
-              <span style={{ width: `${usagePercent}%` }} />
+          ) : (
+            <div className="dw-usage">
+              <div>
+                <span>
+                  {active.billingMode === "complimentary"
+                    ? "Complimentary analysis"
+                    : "Decision analysis"}
+                </span>
+                <strong>
+                  {active.billingMode === "complimentary"
+                    ? `${complimentaryRemainingPercent}% left`
+                    : `${usagePercent}% used`}
+                </strong>
+              </div>
+              <div
+                className="dw-usage-track"
+                role="progressbar"
+                aria-label="Decision analysis capacity used"
+                aria-valuenow={usagePercent}
+                aria-valuemin={0}
+                aria-valuemax={100}
+              >
+                <span style={{ width: `${usagePercent}%` }} />
+              </div>
+              <small>
+                {active.billingMode === "complimentary"
+                  ? "Sized to reach a recommendation and authority gate."
+                  : "Metered and retained with this Decision Case."}
+              </small>
+              <button type="button" onClick={() => setUsageOpen(true)}>
+                Continue analysis <ArrowUpRight size={13} />
+              </button>
             </div>
-            <small>
-              {active.billingMode === "complimentary"
-                ? "Sized to reach a recommendation and authority gate."
-                : "Metered and retained with this Decision Case."}
-            </small>
-            <button type="button" onClick={() => setUsageOpen(true)}>
-              Continue analysis <ArrowUpRight size={13} />
-            </button>
-          </div>
+          )}
         </aside>
 
         <main
@@ -988,7 +1032,12 @@ export function DecisionCaseWorkspacePage({
       )}
       {usageOpen && (
         <UsageModal
+          publicMode={publicMode}
+          proofComplete={active.financeStatus === "verified"}
           close={() => setUsageOpen(false)}
+          onSecure={() =>
+            stageDecisionCaseHandoff(window.sessionStorage, active)
+          }
           choose={(mode, allowance) => {
             updateCase((current) => ({
               ...current,
@@ -1603,12 +1652,90 @@ function HistoryModal({
 }
 
 function UsageModal({
+  publicMode,
+  proofComplete,
   close,
+  onSecure,
   choose,
 }: {
+  publicMode: boolean;
+  proofComplete: boolean;
   close: () => void;
+  onSecure: () => void;
   choose: (mode: DecisionCase["billingMode"], allowance?: number) => void;
 }) {
+  if (publicMode) {
+    return (
+      <div className="dw-backdrop" role="presentation" onMouseDown={close}>
+        <section
+          className="dw-modal dw-usage-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Secure the value proof workspace"
+          onMouseDown={(event) => event.stopPropagation()}
+        >
+          <header>
+            <span className="dw-evidence-icon">
+              <ShieldCheck size={17} />
+            </span>
+            <span>
+              <small>
+                {proofComplete
+                  ? "Value loop complete"
+                  : "Move from proof to production"}
+              </small>
+              <h2>
+                {proofComplete
+                  ? "You proved the loop. Keep the decision working."
+                  : "Secure this Decision Case when you are ready"}
+              </h2>
+            </span>
+            <button
+              className="dw-icon"
+              type="button"
+              title="Close"
+              onClick={close}
+            >
+              <XCircle size={18} />
+            </button>
+          </header>
+          <p>
+            The complete public value proof remains available. Secure a
+            tenant-isolated workspace when you are ready to use customer data,
+            connect operating systems, invite authorities, and retain the
+            auditable record.
+          </p>
+          <div className="dw-continuation">
+            <a href="/setup#value-proof-intake" onClick={onSecure}>
+              <Sparkles size={18} />
+              <strong>Start the 48-hour proof</strong>
+              <small>Apply this workflow to sanitized customer evidence.</small>
+              <em>Recommended next step</em>
+            </a>
+            <a href="/signin?returnTo=%2F" onClick={onSecure}>
+              <LockKeyhole size={18} />
+              <strong>Sign in and retain it</strong>
+              <small>Move the case into a governed company workspace.</small>
+              <em>For existing teams</em>
+            </a>
+            <button type="button" onClick={close}>
+              <Play size={18} />
+              <strong>Keep exploring</strong>
+              <small>
+                Continue the full demo without entering payment details.
+              </small>
+              <em>No paywall yet</em>
+            </button>
+          </div>
+          <footer>
+            <ShieldCheck size={14} /> Production access adds security,
+            persistence, collaboration, and integrations, not a smarter demo.
+          </footer>
+        </section>
+      </div>
+    );
+  }
+
   return (
     <div className="dw-backdrop" role="presentation" onMouseDown={close}>
       <section

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../../lib/supabase";
+import { supabasePublicKey, supabaseUrl } from "../../lib/supabase-config";
 import { useAuth } from "../AuthProvider";
 import {
   CreditCard,
@@ -62,8 +63,7 @@ export function BillingOverview() {
 
   const handleManageSubscription = async () => {
     try {
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+      const supabaseKey = supabasePublicKey;
 
       const response = await fetch(
         `${supabaseUrl}/functions/v1/stripe-checkout/portal`,

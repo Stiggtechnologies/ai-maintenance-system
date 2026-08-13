@@ -2,6 +2,7 @@ import type {
   CopilotMode,
   ReliabilityReport,
 } from "../lib/reliability-report-engine";
+import { supabasePublicKey, supabaseUrl } from "../lib/supabase-config";
 
 export interface LiveReliabilityAgentResult {
   status: "disabled" | "success" | "error";
@@ -88,8 +89,7 @@ export function buildLiveAgentQuery({
 export async function runLiveReliabilityAgent(
   input: LiveReliabilityAgentInput,
 ): Promise<LiveReliabilityAgentResult> {
-  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "";
-  const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || "";
+  const supabaseAnonKey = supabasePublicKey;
 
   if (!supabaseUrl || !supabaseAnonKey) {
     return {

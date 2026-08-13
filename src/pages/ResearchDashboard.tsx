@@ -9,6 +9,7 @@ import {
   Eye,
 } from "lucide-react";
 import { supabase } from "../lib/supabase";
+import { supabasePublicKey, supabaseUrl } from "../lib/supabase-config";
 
 interface ResearchProgram {
   id: string;
@@ -129,8 +130,7 @@ export function ResearchDashboard() {
     benchmarkId?: string,
   ) => {
     try {
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+      const supabaseKey = supabasePublicKey;
       const response = await fetch(
         `${supabaseUrl}/functions/v1/research-orchestrator`,
         {

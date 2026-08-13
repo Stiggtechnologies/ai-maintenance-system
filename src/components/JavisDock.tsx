@@ -10,6 +10,7 @@ import {
   Maximize2,
 } from "lucide-react";
 import { supabase } from "../lib/supabase";
+import { supabasePublicKey, supabaseUrl } from "../lib/supabase-config";
 
 interface Message {
   id: string;
@@ -52,11 +53,11 @@ export function JavisDock() {
         .single();
 
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/javis-orchestrator/brief`,
+        `${supabaseUrl}/functions/v1/javis-orchestrator/brief`,
         {
           method: "POST",
           headers: {
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+            Authorization: `Bearer ${supabasePublicKey}`,
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
@@ -143,11 +144,11 @@ export function JavisDock() {
         .single();
 
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/javis-orchestrator/ask`,
+        `${supabaseUrl}/functions/v1/javis-orchestrator/ask`,
         {
           method: "POST",
           headers: {
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+            Authorization: `Bearer ${supabasePublicKey}`,
             "Content-Type": "application/json",
           },
           body: JSON.stringify({

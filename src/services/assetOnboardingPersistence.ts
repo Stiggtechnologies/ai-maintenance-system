@@ -1,4 +1,5 @@
 import { supabase } from "../lib/supabase";
+import { supabasePublicKey, supabaseUrl } from "../lib/supabase-config";
 import {
   buildAssetOnboardingExports,
   type AssetOnboardingIndustry,
@@ -57,10 +58,11 @@ function getStorage(): BrowserStorage | null {
 }
 
 function isSupabaseConfigured() {
-  const url = import.meta.env.VITE_SUPABASE_URL || "";
-  const key = import.meta.env.VITE_SUPABASE_ANON_KEY || "";
   return Boolean(
-    url && key && !url.includes("placeholder") && key !== "placeholder",
+    supabaseUrl &&
+    supabasePublicKey &&
+    !supabaseUrl.includes("placeholder") &&
+    supabasePublicKey !== "placeholder",
   );
 }
 

@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect } from "react";
 import { supabase } from "../../lib/supabase";
+import { supabasePublicKey, supabaseUrl } from "../../lib/supabase-config";
 import {
   TrendingUp,
   DollarSign,
@@ -53,8 +54,7 @@ export function GainShareConsole() {
 
   const handleCreateRun = async () => {
     try {
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+      const supabaseKey = supabasePublicKey;
 
       // Get tenant_id from user profile
       const { data: profile } = await supabase

@@ -1,11 +1,9 @@
 import { createClient } from "@supabase/supabase-js";
+import { supabasePublicKey, supabaseUrl } from "./supabase-config";
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "";
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || "";
-
-if (!supabaseUrl || !supabaseAnonKey) {
+if (!supabaseUrl || !supabasePublicKey) {
   console.error(
-    "Missing Supabase environment variables (VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY). " +
+    "Missing Supabase environment variables (VITE_SUPABASE_URL, VITE_SUPABASE_PUBLISHABLE_KEY). " +
       "The app will load but data features will not work.",
   );
 }
@@ -30,6 +28,6 @@ function fetchWithTimeout(
 
 export const supabase = createClient(
   supabaseUrl || "https://placeholder.supabase.co",
-  supabaseAnonKey || "placeholder",
+  supabasePublicKey || "placeholder",
   { global: { fetch: fetchWithTimeout } },
 );

@@ -352,7 +352,7 @@ Deno.serve(async (req) => {
     {
       p_fingerprint_hash: fingerprint,
       p_window_start: windowStart.toISOString(),
-      p_limit: mode === "decision_case_chat" ? 8 : 1,
+      p_limit: mode === "decision_case_chat" ? 12 : 1,
     },
   );
   if (allowanceError)
