@@ -237,7 +237,7 @@ function getJourneyPrompt(): string {
 const sampleDecisionPrompt =
   "Run the sample decision packet: rank the next reliability dollar, identify the first risk to address, recommend the governed action, and define how value will be verified.";
 
-const FREE_TRIAL_TOKEN_ALLOWANCE = 12000;
+const FREE_TRIAL_TOKEN_ALLOWANCE = 60000;
 const FREE_TRIAL_USAGE_STORAGE_KEY = "syncai.reliability.freeUsage.v1";
 
 type FreeTrialUsage = {
@@ -493,20 +493,10 @@ export function ReliabilityCopilotPage() {
     loadFreeTrialUsage(),
   );
 
-  const estimatedCurrentRunCost = useMemo(
-    () => estimateDecisionPacketCost({ mode, prompt, csvText }),
-    [csvText, mode, prompt],
-  );
   const freeTrialRemaining = Math.max(
     0,
     FREE_TRIAL_TOKEN_ALLOWANCE - freeTrialUsage.tokensUsed,
   );
-  const freeTrialPercentUsed = Math.min(
-    100,
-    Math.round((freeTrialUsage.tokensUsed / FREE_TRIAL_TOKEN_ALLOWANCE) * 100),
-  );
-  const freeTrialPercentRemaining = Math.max(0, 100 - freeTrialPercentUsed);
-  const freeTrialIsExhausted = freeTrialRemaining <= 0;
   const customerAgentStatus =
     liveAgent.status === "disabled" ? "ready" : liveAgent.status;
   const currentOnboardingStep = useMemo(
@@ -998,7 +988,7 @@ export function ReliabilityCopilotPage() {
                   Ask SyncAI
                 </div>
                 <span className="text-xs text-slate-500">
-                  {freeTrialPercentRemaining}% complimentary capacity
+                  Full value proof included
                 </span>
               </div>
               <textarea
@@ -1133,14 +1123,7 @@ export function ReliabilityCopilotPage() {
           ))}
         </div>
 
-        <FreeCapacityPanel
-          percentUsed={freeTrialPercentUsed}
-          percentRemaining={freeTrialPercentRemaining}
-          packetsGenerated={freeTrialUsage.decisionPackets}
-          estimatedRunCost={estimatedCurrentRunCost}
-          remainingTokens={freeTrialRemaining}
-          isExhausted={freeTrialIsExhausted}
-        />
+        <FreeCapacityPanel packetsGenerated={freeTrialUsage.decisionPackets} />
       </section>
 
       <GovernedEngineeringLoop />
@@ -1201,10 +1184,7 @@ export function ReliabilityCopilotPage() {
               label="Readiness"
               value={onboardingSession.reliabilityReadiness}
             />
-            <CompactMetric
-              label="Free capacity"
-              value={`${freeTrialPercentRemaining}% left`}
-            />
+            <CompactMetric label="Value proof" value="End-to-end" />
           </div>
         </div>
       </section>
@@ -2352,36 +2332,19 @@ export function ReliabilityCopilotPage() {
   );
 }
 
-function FreeCapacityPanel({
-  percentUsed,
-  percentRemaining,
-  packetsGenerated,
-  estimatedRunCost,
-  remainingTokens,
-  isExhausted,
-}: {
-  percentUsed: number;
-  percentRemaining: number;
-  packetsGenerated: number;
-  estimatedRunCost: number;
-  remainingTokens: number;
-  isExhausted: boolean;
-}) {
-  const estimatedRunsRemaining =
-    estimatedRunCost > 0 ? Math.floor(remainingTokens / estimatedRunCost) : 0;
-
+function FreeCapacityPanel({ packetsGenerated }: { packetsGenerated: number }) {
   return (
     <div className="mt-5 rounded-2xl border border-white/[0.08] bg-black/20 p-4">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <div className="flex items-center gap-2 text-sm font-semibold text-[#F8FAFC]">
             <Gauge size={17} className="text-teal-300" />
-            Complimentary analysis capacity
+            Full governed value proof included
           </div>
           <p className="mt-1 max-w-3xl text-sm leading-[1.6] text-slate-400">
-            Experience a governed decision packet from evidence through
-            deterministic analysis, technical authority, controlled action, and
-            outcome verification before moving into a secure value proof.
+            Experience the real product from RAG-grounded evidence and
+            deterministic analysis through technical authority, controlled
+            action, and outcome verification before sign-in.
           </p>
         </div>
         <a
@@ -2389,38 +2352,26 @@ function FreeCapacityPanel({
           onClick={() => trackTrialEvent("secure_workspace_clicked")}
           className="inline-flex items-center justify-center gap-2 rounded-xl bg-teal-400 px-4 py-2.5 text-sm font-semibold text-slate-950 transition-colors hover:bg-teal-300"
         >
-          Start 48-hour value proof
+          Secure a customer workspace
         </a>
       </div>
 
       <div className="mt-4 grid gap-3 md:grid-cols-[1fr_auto_auto] md:items-center">
-        <div>
-          <div className="h-2 overflow-hidden rounded-full bg-white/[0.06]">
-            <div
-              className={`h-full rounded-full ${
-                isExhausted ? "bg-amber-300" : "bg-teal-300"
-              }`}
-              style={{ width: `${percentUsed}%` }}
-            />
-          </div>
-          <div className="mt-2 text-xs text-slate-500">
-            {isExhausted
-              ? "Included free capacity used."
-              : `${percentRemaining}% free capacity remaining.`}
-          </div>
+        <div className="flex flex-wrap gap-2">
+          {["Evidence", "Decision", "Authority", "Action", "Value"].map(
+            (stage) => (
+              <span
+                key={stage}
+                className="inline-flex items-center gap-1.5 rounded-full border border-teal-300/15 bg-teal-300/[0.06] px-2.5 py-1 text-xs text-slate-300"
+              >
+                <CheckCircle2 size={12} className="text-teal-300" />
+                {stage}
+              </span>
+            ),
+          )}
         </div>
-        <CompactMetric
-          label="Packets run"
-          value={`${packetsGenerated} included`}
-        />
-        <CompactMetric
-          label="Next run"
-          value={
-            isExhausted || estimatedRunsRemaining < 1
-              ? "Secure workspace"
-              : "Included"
-          }
-        />
+        <CompactMetric label="Packets explored" value={`${packetsGenerated}`} />
+        <CompactMetric label="Access" value="End-to-end" />
       </div>
     </div>
   );

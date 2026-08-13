@@ -6,6 +6,7 @@
  * - Subscription activation and status management
  * - Communication with Supabase Edge Functions for server-side operations
  */
+import { supabasePublicKey, supabaseUrl } from "./supabase-config";
 
 /**
  * Azure Marketplace subscription details
@@ -78,12 +79,12 @@ export async function resolveMarketplaceToken(
 ): Promise<MarketplaceSubscription> {
   try {
     const response = await fetch(
-      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/marketplace-resolve`,
+      `${supabaseUrl}/functions/v1/marketplace-resolve`,
       {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          Authorization: `Bearer ${supabasePublicKey}`,
         },
         body: JSON.stringify({
           action: "resolve-token",
@@ -131,12 +132,12 @@ export async function activateMarketplaceSubscription(
 ): Promise<void> {
   try {
     const response = await fetch(
-      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/marketplace-resolve`,
+      `${supabaseUrl}/functions/v1/marketplace-resolve`,
       {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          Authorization: `Bearer ${supabasePublicKey}`,
         },
         body: JSON.stringify({
           action: "activate-subscription",
@@ -178,12 +179,12 @@ export async function getMarketplaceSubscriptionStatus(
 ): Promise<string> {
   try {
     const response = await fetch(
-      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/marketplace-resolve`,
+      `${supabaseUrl}/functions/v1/marketplace-resolve`,
       {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          Authorization: `Bearer ${supabasePublicKey}`,
         },
         body: JSON.stringify({
           action: "get-subscription-status",

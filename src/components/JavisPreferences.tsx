@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Volume2, Clock, Bell, Save, TestTube } from "lucide-react";
 import { supabase } from "../lib/supabase";
+import { supabasePublicKey, supabaseUrl } from "../lib/supabase-config";
 
 export function JavisPreferences() {
   const [loading, setLoading] = useState(true);
@@ -102,11 +103,11 @@ export function JavisPreferences() {
       });
 
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/javis-orchestrator/preferences`,
+        `${supabaseUrl}/functions/v1/javis-orchestrator/preferences`,
         {
           method: "POST",
           headers: {
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+            Authorization: `Bearer ${supabasePublicKey}`,
             "Content-Type": "application/json",
           },
           body: JSON.stringify({

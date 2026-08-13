@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../../lib/supabase";
+import { supabasePublicKey, supabaseUrl } from "../../lib/supabase-config";
 import {
   TrendingUp,
   Zap,
@@ -74,8 +75,7 @@ export function UsageDashboard() {
       // Get current month usage
       const currentPeriod = new Date().toISOString().substring(0, 7); // YYYY-MM
 
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+      const supabaseKey = supabasePublicKey;
 
       const response = await fetch(
         `${supabaseUrl}/functions/v1/billing-api/usage/summary?subscriptionId=${sub.id}&period=${currentPeriod}`,

@@ -62,6 +62,9 @@ describe("DecisionCaseWorkspacePage", () => {
       screen.getByText(/controlled work, and value trail stay together/i),
     ).toBeTruthy();
     expect(screen.queryByText(/analysis tokens/i)).toBeNull();
+    expect(screen.getByText("Full value proof included")).toBeTruthy();
+    expect(screen.getByText("End-to-end access")).toBeTruthy();
+    expect(screen.queryByText(/% left/i)).toBeNull();
     expect(
       screen.getByText("Do not approve the yearly inspection interval."),
     ).toBeTruthy();
@@ -97,6 +100,12 @@ describe("DecisionCaseWorkspacePage", () => {
       screen.getByRole("button", { name: /Verify measured value/i }),
     );
     expect(screen.getAllByText("Value verified").length).toBeGreaterThan(0);
+    expect(
+      screen.getByRole("heading", {
+        name: "You proved the loop. Keep the decision working.",
+      }),
+    ).toBeTruthy();
+    expect(screen.getByText("No paywall yet")).toBeTruthy();
   });
 
   it("keeps every production-demo case isolated and excludes drafts from exposure", () => {

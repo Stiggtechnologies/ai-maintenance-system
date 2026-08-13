@@ -45,7 +45,8 @@ describe("ReliabilityCopilotPage", () => {
     expect(
       screen.getByText("Know where the next reliability dollar should go."),
     ).toBeTruthy();
-    expect(screen.getByText("Complimentary analysis capacity")).toBeTruthy();
+    expect(screen.getByText("Full governed value proof included")).toBeTruthy();
+    expect(screen.getAllByText("End-to-end").length).toBeGreaterThan(0);
     expect(screen.getByLabelText("SyncAI chat input")).toBeTruthy();
     expect(
       screen.getByText("From approved intent to measured outcome."),
@@ -119,7 +120,7 @@ describe("ReliabilityCopilotPage", () => {
   it("shows the secure workspace cutoff when free capacity is exhausted", async () => {
     window.localStorage.setItem(
       FREE_TRIAL_USAGE_STORAGE_KEY,
-      JSON.stringify({ tokensUsed: 12000, decisionPackets: 3 }),
+      JSON.stringify({ tokensUsed: 60000, decisionPackets: 3 }),
     );
     render(<ReliabilityCopilotPage />);
 

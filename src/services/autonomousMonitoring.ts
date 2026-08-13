@@ -1,8 +1,8 @@
 import { supabase } from "../lib/supabase";
+import { supabasePublicKey, supabaseUrl } from "../lib/supabase-config";
 
 export async function startAutonomousMonitoring() {
-  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-  const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+  const supabaseKey = supabasePublicKey;
 
   if (!supabaseUrl || !supabaseKey) {
     console.error("Supabase configuration missing");
@@ -26,9 +26,9 @@ export async function startAutonomousMonitoring() {
 }
 
 export async function startHealthMonitoring() {
-  const gatewayUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/gateway`;
+  const gatewayUrl = `${supabaseUrl}/functions/v1/gateway`;
   const headers = {
-    Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+    Authorization: `Bearer ${supabasePublicKey}`,
     "Content-Type": "application/json",
   };
 
@@ -174,9 +174,9 @@ async function executeDecisionAutomatically(decisionId: string) {
 }
 
 export async function scheduleKPICalculation() {
-  const gatewayUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/gateway`;
+  const gatewayUrl = `${supabaseUrl}/functions/v1/gateway`;
   const headers = {
-    Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+    Authorization: `Bearer ${supabasePublicKey}`,
     "Content-Type": "application/json",
   };
 
@@ -201,9 +201,9 @@ export async function scheduleKPICalculation() {
 }
 
 export async function processDocumentUpload(documentId: string) {
-  const gatewayUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/gateway`;
+  const gatewayUrl = `${supabaseUrl}/functions/v1/gateway`;
   const headers = {
-    Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+    Authorization: `Bearer ${supabasePublicKey}`,
     "Content-Type": "application/json",
   };
 
