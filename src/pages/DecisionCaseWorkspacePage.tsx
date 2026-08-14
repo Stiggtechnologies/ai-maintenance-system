@@ -11,6 +11,7 @@ import {
   Clock3,
   Database,
   FileText,
+  Factory,
   Gauge,
   History,
   Layers3,
@@ -30,20 +31,26 @@ import {
   XCircle,
 } from "lucide-react";
 import { PublicProductHeader } from "../components/PublicProductHeader";
+import { MarkdownRenderer } from "../components/MarkdownRenderer";
 import {
   DECISION_CASE_STAGES,
-  PUBLIC_DECISION_CASE_STORAGE_KEY,
+  DECISION_INDUSTRY_PACKS,
   createDraftDecisionCase,
   createSeedDecisionCases,
   formatDecisionValue,
+  getDecisionIndustryPack,
+  getPublicDecisionCaseStorageKey,
+  normalizeDecisionIndustry,
   readDecisionCases,
   stageDecisionCaseHandoff,
   writeDecisionCases,
   type ApprovalStatus,
   type DecisionCase,
+  type DecisionIndustryId,
   type DecisionEvidence,
   type DecisionJourneyContext,
 } from "../lib/decision-case";
+import { classifyDecisionQuestionScope } from "../lib/reliability-agent-contract";
 import {
   askDecisionCase,
   createPersistedDecisionCase,
@@ -63,13 +70,26 @@ const tabs: Array<{ id: PacketTab; label: string }> = [
   { id: "work", label: "Work" },
   { id: "value", label: "Value" },
 ];
-const roles = [
-  "Reliability Engineer",
-  "Maintenance Manager",
-  "Operations Authority",
-  "Executive / finance sponsor",
-];
 const PUBLIC_VALUE_PROOF_TOKEN_ALLOWANCE = 60000;
+
+function trackDecisionWorkspaceEvent(
+  eventName: string,
+  metadata: Record<string, string | number | boolean> = {},
+) {
+  if (typeof window === "undefined") return;
+  const payload = {
+    event: eventName,
+    page: "decision_workspace_demo",
+    ...metadata,
+  };
+  const analyticsWindow = window as Window & {
+    dataLayer?: Array<Record<string, unknown>>;
+  };
+  analyticsWindow.dataLayer?.push(payload);
+  if (import.meta.env.DEV) {
+    console.info("[SyncAI workspace event]", payload);
+  }
+}
 
 function includeCompletePublicValueProof(cases: DecisionCase[]) {
   return cases.map((item) => ({
@@ -90,6 +110,7 @@ function getContext(params: URLSearchParams): DecisionJourneyContext {
     company: params.get("company") || undefined,
     system: params.get("system") || undefined,
     intakeId: params.get("intake") || undefined,
+    industry: normalizeDecisionIndustry(params.get("industry")),
   };
 }
 
@@ -98,8 +119,11 @@ function initialCases(
   context: DecisionJourneyContext,
   publicMode: boolean,
 ): DecisionCase[] {
+  const industry = normalizeDecisionIndustry(context.industry);
   const storage = publicMode ? window.sessionStorage : window.localStorage;
-  const storageKey = publicMode ? PUBLIC_DECISION_CASE_STORAGE_KEY : undefined;
+  const storageKey = publicMode
+    ? getPublicDecisionCaseStorageKey(industry)
+    : undefined;
   const seededContext =
     publicMode && !context.intakeId
       ? { ...context, intakeId: "demo-value-proof" }
@@ -162,9 +186,14 @@ export function DecisionCaseWorkspacePage({
   publicMode?: boolean;
 }) {
   const { caseId } = useParams();
-  const [params] = useSearchParams();
+  const [params, setParams] = useSearchParams();
   const navigate = useNavigate();
   const context = useMemo(() => getContext(params), [params]);
+  const [industry, setIndustry] = useState<DecisionIndustryId>(() =>
+    normalizeDecisionIndustry(params.get("industry")),
+  );
+  const industryPack = getDecisionIndustryPack(industry);
+  const roles = industryPack.roles;
   const [cases, setCases] = useState(() =>
     initialCases(caseId, context, publicMode),
   );
@@ -174,7 +203,7 @@ export function DecisionCaseWorkspacePage({
   const [portfolio, setPortfolio] = useState(false);
   const [tab, setTab] = useState<PacketTab>("decision");
   const [mobileView, setMobileView] = useState<MobileView>("case");
-  const [role, setRole] = useState(context.role || roles[0]);
+  const [role, setRole] = useState(context.role || industryPack.roles[0]);
   const [composer, setComposer] = useState("");
   const [comment, setComment] = useState("");
   const [replying, setReplying] = useState(false);
@@ -185,6 +214,7 @@ export function DecisionCaseWorkspacePage({
   const endRef = useRef<HTMLDivElement>(null);
   const active = cases.find((item) => item.id === selectedId) || cases[0];
   const activeId = active.id;
+  const composerScope = classifyDecisionQuestionScope(active, composer);
 
   const updateCase = (change: (current: DecisionCase) => DecisionCase) => {
     setCases((current) =>
@@ -201,9 +231,32 @@ export function DecisionCaseWorkspacePage({
     writeDecisionCases(
       storage,
       cases,
-      publicMode ? PUBLIC_DECISION_CASE_STORAGE_KEY : undefined,
+      publicMode ? getPublicDecisionCaseStorageKey(industry) : undefined,
     );
-  }, [cases, publicMode]);
+  }, [cases, industry, publicMode]);
+  useEffect(() => {
+    if (!publicMode) return;
+    trackDecisionWorkspaceEvent("industry_proof_viewed", { industry });
+  }, [industry, publicMode]);
+  useEffect(() => {
+    if (!publicMode) return;
+    const routedIndustry = normalizeDecisionIndustry(context.industry);
+    if (routedIndustry === industry) return;
+    const nextPack = getDecisionIndustryPack(routedIndustry);
+    const nextCases = initialCases(
+      caseId,
+      { ...context, industry: routedIndustry },
+      true,
+    );
+    setIndustry(routedIndustry);
+    setCases(nextCases);
+    setSelectedId(nextCases[0].id);
+    setRole(nextPack.roles[0]);
+    setPortfolio(false);
+    setTab("decision");
+    setEvidence(null);
+    setMobileView("case");
+  }, [caseId, context, industry, publicMode]);
   useEffect(() => {
     if (publicMode || !isPersistedDecisionCase(activeId)) return;
     let cancelled = false;
@@ -248,6 +301,31 @@ export function DecisionCaseWorkspacePage({
     setMobileView("case");
   };
 
+  const chooseIndustry = (nextIndustry: DecisionIndustryId) => {
+    if (nextIndustry === industry) return;
+    trackDecisionWorkspaceEvent("industry_proof_selected", {
+      industry: nextIndustry,
+      previousIndustry: industry,
+    });
+    const nextPack = getDecisionIndustryPack(nextIndustry);
+    const nextContext = { ...context, industry: nextIndustry };
+    const nextCases = initialCases(caseId, nextContext, true);
+    setIndustry(nextIndustry);
+    setCases(nextCases);
+    setSelectedId(nextCases[0].id);
+    setRole(nextPack.roles[0]);
+    setPortfolio(false);
+    setTab("decision");
+    setEvidence(null);
+    setMobileView("case");
+    const nextParams = new URLSearchParams(params);
+    nextParams.set("industry", nextIndustry);
+    setParams(nextParams, { replace: true });
+    setNotice(
+      `${nextPack.label} proof loaded. Its sample cases stay isolated from the other industries.`,
+    );
+  };
+
   const createCase = async () => {
     const existingDraft = cases.find((item) => item.id.startsWith("draft-"));
     if (existingDraft) {
@@ -257,7 +335,7 @@ export function DecisionCaseWorkspacePage({
       );
       return;
     }
-    const next = createDraftDecisionCase(role);
+    const next = createDraftDecisionCase(role, industry);
     setCases((current) => [next, ...current]);
     setSelectedId(next.id);
     setPortfolio(false);
@@ -407,6 +485,12 @@ export function DecisionCaseWorkspacePage({
   };
 
   const verifyValue = () => {
+    if (publicMode) {
+      trackDecisionWorkspaceEvent("industry_value_proof_completed", {
+        industry,
+        caseNumber: active.caseNumber,
+      });
+    }
     updateCase((current) => ({
       ...current,
       stage: "learning",
@@ -486,7 +570,11 @@ export function DecisionCaseWorkspacePage({
           </span>
           <span>
             <strong>Decision Workspace</strong>
-            <small>Spend · risk · action · verified value</small>
+            <small>
+              {publicMode
+                ? industryPack.proofLine
+                : "Spend · risk · action · verified value"}
+            </small>
           </span>
         </div>
         <div className="dw-context" aria-label="Organization and site context">
@@ -500,6 +588,27 @@ export function DecisionCaseWorkspacePage({
           <span className="dw-system">
             <i /> {publicMode ? "Isolated demo session" : "Systems governed"}
           </span>
+          {publicMode && (
+            <label className="dw-industry">
+              <Factory size={15} />
+              <span>Industry</span>
+              <select
+                value={industry}
+                onChange={(event) =>
+                  chooseIndustry(event.target.value as DecisionIndustryId)
+                }
+                aria-label="Industry proof"
+                title="Loads an isolated industry-specific sample workspace."
+              >
+                {DECISION_INDUSTRY_PACKS.map((pack) => (
+                  <option key={pack.id} value={pack.id}>
+                    {pack.label}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown size={14} />
+            </label>
+          )}
           <label className="dw-role">
             <Users size={15} />
             <select
@@ -761,12 +870,12 @@ export function DecisionCaseWorkspacePage({
                   <span>
                     <strong>
                       {publicMode
-                        ? "One-click onboarding preview"
+                        ? `${industryPack.label} proof workspace ready`
                         : "Your value-proof intake is already working."}
                     </strong>
                     <small>
                       {publicMode
-                        ? "One intake generated the workspace shell, evidence checklist, role context, approval gates, and first analysis queue shown here."
+                        ? `Recognizable ${industryPack.label.toLowerCase()} assets, evidence, roles, approval gates, and value measures are loaded before you share company data.`
                         : "Asset scope, sponsor outcome, system of record, and first evidence requirements were carried into this case."}
                     </small>
                   </span>
@@ -822,7 +931,14 @@ export function DecisionCaseWorkspacePage({
                         <strong>{message.author}</strong>
                         <span>{timestamp(message.createdAt)}</span>
                       </header>
-                      <p>{message.text}</p>
+                      {message.role === "assistant" ? (
+                        <MarkdownRenderer
+                          content={message.text}
+                          className="dw-message-markdown"
+                        />
+                      ) : (
+                        <p>{message.text}</p>
+                      )}
                       {message.meta && <footer>{message.meta}</footer>}
                     </div>
                   </article>
@@ -862,12 +978,14 @@ export function DecisionCaseWorkspacePage({
                   <button
                     type="button"
                     onClick={() =>
-                      void sendMessage(
-                        "Where should the next dollar go and how will we verify value?",
-                      )
+                      void sendMessage(industryPack.nextDollarPrompt)
                     }
                   >
-                    Next dollar
+                    {industry === "mining"
+                      ? "Lost tonnes"
+                      : industry === "manufacturing"
+                        ? "Production loss"
+                        : "Next dollar"}
                   </button>
                   <button
                     type="button"
@@ -889,7 +1007,7 @@ export function DecisionCaseWorkspacePage({
                         void sendMessage();
                       }
                     }}
-                    placeholder={`Ask about ${active.asset}, the evidence, risk, or approval boundary...`}
+                    placeholder="Ask any reliability question or give SyncAI an instruction..."
                     rows={2}
                   />
                   <button
@@ -903,9 +1021,13 @@ export function DecisionCaseWorkspacePage({
                 </div>
                 <div className="dw-composer-meta">
                   <span>
-                    <LockKeyhole size={12} /> Governed sources only
+                    <LockKeyhole size={12} />
+                    {composer.trim() &&
+                    composerScope === "provisional_new_subject"
+                      ? `New subject · ${active.caseNumber} unchanged`
+                      : `Using ${active.caseNumber} context`}
                   </span>
-                  <span>Human authority remains in control</span>
+                  <span>Scope switches automatically</span>
                 </div>
               </section>
             </>

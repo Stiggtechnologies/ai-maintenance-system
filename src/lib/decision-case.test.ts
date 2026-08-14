@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   clearDecisionCaseHandoff,
   createSeedDecisionCases,
+  getPublicDecisionCaseStorageKey,
+  normalizeDecisionIndustry,
   readDecisionCaseHandoff,
   stageDecisionCaseHandoff,
 } from "./decision-case";
@@ -36,5 +38,49 @@ describe("Decision Case authentication handoff", () => {
     storage.setItem("syncai.pendingDecisionCaseHandoff.v1", "{not-json");
 
     expect(readDecisionCaseHandoff(storage)).toBeNull();
+  });
+});
+
+describe("Decision Case industry proofs", () => {
+  it("builds isolated, domain-specific mining and manufacturing portfolios", () => {
+    const mining = createSeedDecisionCases({ industry: "mining" });
+    const manufacturing = createSeedDecisionCases({
+      industry: "manufacturing",
+    });
+
+    expect(mining).toHaveLength(3);
+    expect(mining.every((item) => item.industry === "mining")).toBe(true);
+    expect(mining.map((item) => item.asset)).toEqual([
+      "CR-01 primary crusher",
+      "CV-204 overland conveyor",
+      "HT-27 haul truck",
+    ]);
+    expect(mining[0].decisionMetrics).toContainEqual({
+      label: "Lost tonnes",
+      value: "14,800 t",
+      detail: "reconciled",
+    });
+
+    expect(manufacturing).toHaveLength(3);
+    expect(
+      manufacturing.every((item) => item.industry === "manufacturing"),
+    ).toBe(true);
+    expect(manufacturing.map((item) => item.asset)).toEqual([
+      "PR-07 stamping press",
+      "PKG-04 cartoner",
+      "OV-12 cure oven",
+    ]);
+    expect(manufacturing[0].evidence.map((item) => item.title)).toContain(
+      "Approved PFMEA and control plan",
+    );
+  });
+
+  it("normalizes campaign aliases and keeps public sessions separate", () => {
+    expect(normalizeDecisionIndustry("factory")).toBe("manufacturing");
+    expect(normalizeDecisionIndustry("MINING")).toBe("mining");
+    expect(normalizeDecisionIndustry("unknown")).toBe("oil-gas");
+    expect(getPublicDecisionCaseStorageKey("mining")).not.toBe(
+      getPublicDecisionCaseStorageKey("oil-gas"),
+    );
   });
 });

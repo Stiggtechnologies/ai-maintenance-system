@@ -50,6 +50,33 @@ describe("decisionCaseService", () => {
     expect(reply.message.meta).toContain("Conversation");
   });
 
+  it("answers a capability question without forcing the active case", async () => {
+    const [crusher] = createSeedDecisionCases({ industry: "mining" });
+    const reply = await askDecisionCase(
+      crusher,
+      "What are your capabilities?",
+      {
+        publicMode: true,
+      },
+    );
+
+    expect(runPublicAgentMock).not.toHaveBeenCalled();
+    expect(reply.message.text).toContain("RAM analysis");
+    expect(reply.message.text).toContain(
+      "Reliability statistics and life data",
+    );
+    expect(reply.message.text).toContain("RCA, FRACAS");
+    expect(reply.message.text).toContain("FMEA, FMECA, and RCM");
+    expect(reply.message.text).toContain("Inventory Management");
+    expect(reply.message.text).toContain("a separate specialist");
+    expect(reply.message.text).toContain("Planning and scheduling specialist");
+    expect(reply.message.text).toContain("6-week schedules");
+    expect(reply.message.text).toContain("Risk-to-value decisions");
+    expect(reply.message.text).toContain("switch scope");
+    expect(reply.message.text).not.toContain("not yet sure which outcome");
+    expect(reply.message.meta).toContain("capability map");
+  });
+
   it("asks for the new subject instead of replaying the case recommendation", async () => {
     const [pump] = createSeedDecisionCases();
     const reply = await askDecisionCase(
@@ -122,6 +149,46 @@ describe("decisionCaseService", () => {
     expect(runPublicAgentMock).not.toHaveBeenCalled();
     expect(reply.source).toBe("deterministic");
     expect(reply.message.text).toContain("5 failures in 9 months");
+  });
+
+  it("routes a calculation for a different asset to the live agent", async () => {
+    const [pump] = createSeedDecisionCases();
+    runPublicAgentMock.mockResolvedValue({
+      status: "success",
+      response:
+        "MTBF is 1,014 operating hours, subject to the stated chargeable-failure boundary.",
+      knowledgeBaseUsed: false,
+      citations: [],
+    });
+    const prompt =
+      "Calculate MTBF for compressor C-330 from 7,100 operating hours and 7 chargeable failures, and state the assumptions.";
+
+    const reply = await askDecisionCase(pump, prompt, { publicMode: true });
+
+    expect(runPublicAgentMock).toHaveBeenCalledWith(pump, prompt);
+    expect(reply.source).toBe("live");
+    expect(reply.scope).toBe("provisional_new_subject");
+    expect(reply.message.meta).toContain("DC-1048 unchanged");
+    expect(reply.message.text).not.toContain("5 failures in 9 months");
+  });
+
+  it("never substitutes the active case when new-subject live analysis fails", async () => {
+    const [pump] = createSeedDecisionCases();
+    runPublicAgentMock.mockResolvedValue({
+      status: "fallback",
+      error: "provider unavailable",
+    });
+
+    const reply = await askDecisionCase(
+      pump,
+      "Set this case aside. Review a safety-critical stamping press PM interval.",
+      { publicMode: true },
+    );
+
+    expect(reply.scope).toBe("provisional_new_subject");
+    expect(reply.message.text).toContain("will not substitute facts");
+    expect(reply.message.text).not.toContain("Seal failures: 5");
+    expect(reply.message.meta).toContain("DC-1048 unchanged");
   });
 
   it("explains the live RAG boundary when free capacity is reached", async () => {
