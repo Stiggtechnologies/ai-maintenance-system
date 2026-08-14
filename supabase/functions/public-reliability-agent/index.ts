@@ -12,13 +12,17 @@ import {
   resolveExternalGatewayUrl,
 } from "../_shared/llm-provider.ts";
 import { retrieveReliabilityContext } from "../_shared/reliability-context.ts";
+import {
+  selectReliabilitySpecialists,
+  specialistClaimTypes,
+} from "../_shared/reliability-specialists.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY") ?? "";
 const MODEL = Deno.env.get("PUBLIC_RELIABILITY_MODEL") ?? "gpt-5.6-terra";
-const MODEL_CHAT = Deno.env.get("MODEL_CHAT") ?? "gpt-5.6-luna";
 const MODEL_SAFETY = "gpt-4o-mini";
+const TIER_AGENT = Deno.env.get("TIER_DELIVERABLE") ?? "stigg/agent";
 const LLM_BASE_URL = Deno.env.get("LLM_BASE_URL") ?? "https://api.openai.com";
 const RATE_LIMIT_SECRET =
   Deno.env.get("PUBLIC_RELIABILITY_RATE_LIMIT_SECRET") ?? "";
@@ -150,11 +154,18 @@ async function runDecisionCaseChat(
 ): Promise<Response> {
   const caseContext = parsePublicDecisionCaseContext(body.caseContext);
   if (!caseContext) return json({ error: "invalid_case_context" }, 400, origin);
+  const specialists = selectReliabilitySpecialists(
+    `${question} ${caseContext.questionScope === "active_case" ? caseContext.objective : ""}`,
+  );
 
   const knowledge = await retrieveReliabilityContext(
     admin,
     buildDecisionCaseRetrievalQuery(caseContext, question),
-    { publicOnly: true, limitPerClaim: 3 },
+    {
+      publicOnly: true,
+      limitPerClaim: 4,
+      claimTypes: specialistClaimTypes(specialists),
+    },
   );
   const prompts = buildDecisionCaseChatPrompts(
     caseContext,
@@ -167,16 +178,16 @@ async function runDecisionCaseChat(
     buildProviderChain({
       gatewayUrl,
       gatewayKey: gatewayUrl ? Deno.env.get("LLM_API_KEY") : undefined,
-      gatewayModel: "stigg/fast",
+      gatewayModel: TIER_AGENT,
       openaiKey: OPENAI_API_KEY,
-      openaiModel: MODEL_CHAT,
+      openaiModel: MODEL,
       openaiSafetyModel: MODEL_SAFETY,
     }),
     {
       systemPrompt: prompts.systemPrompt,
       userContent: prompts.userContent,
-      maxTokens: 1200,
-      timeoutMs: 60_000,
+      maxTokens: 4200,
+      timeoutMs: 75_000,
     },
   );
 
@@ -203,6 +214,7 @@ async function runDecisionCaseChat(
       knowledgeBaseUsed: knowledge.knowledgeBaseUsed,
       provider: result.provider,
       modelUsed: result.model,
+      specialists: specialists.map((specialist) => specialist.id),
       resetsAt,
     },
     200,
@@ -328,7 +340,7 @@ Deno.serve(async (req) => {
   ) {
     return json({ error: "invalid_request" }, 400, origin);
   }
-  const question = body.question.trim().slice(0, 1600);
+  const question = body.question.trim().slice(0, 2400);
   if (!question || body.browserId.length < 8 || body.browserId.length > 100)
     return json({ error: "invalid_request" }, 400, origin);
 

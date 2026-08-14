@@ -51,6 +51,7 @@
 }
 .dw-identity,
 .dw-top-actions,
+.dw-industry,
 .dw-role,
 .dw-identity > span:last-child {
   display: flex;
@@ -120,6 +121,7 @@
   background: var(--teal);
   box-shadow: 0 0 0 3px rgb(69 219 198/10%);
 }
+.dw-industry,
 .dw-role {
   position: relative;
   gap: 7px;
@@ -130,6 +132,18 @@
   color: #b9c3cb;
   background: #10161c;
 }
+.dw-industry {
+  border-color: #2b5f5a;
+  color: var(--teal);
+  background: #0d1b1b;
+}
+.dw-industry > span {
+  color: #7f918f;
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.dw-industry select,
 .dw-role select {
   max-width: 190px;
   border: 0;
@@ -138,6 +152,11 @@
   color: #d9e0e5;
   background: transparent;
   font-size: 12px;
+}
+.dw-industry select {
+  max-width: 116px;
+  color: #e2f4f1;
+  font-weight: 650;
 }
 .dw-icon {
   width: 34px;
@@ -721,6 +740,114 @@
   font-size: 14px;
   line-height: 1.6;
   white-space: pre-wrap;
+}
+.dw-message-markdown {
+  margin-top: 7px;
+  color: #c2ccd3;
+  font-size: 14px;
+  line-height: 1.65;
+}
+.dw-message-markdown > :first-child {
+  margin-top: 0;
+}
+.dw-message-markdown > :last-child {
+  margin-bottom: 0;
+}
+.dw-message-markdown h1,
+.dw-message-markdown h2,
+.dw-message-markdown h3 {
+  margin: 18px 0 7px;
+  color: #edf3f6;
+  letter-spacing: 0;
+  line-height: 1.25;
+}
+.dw-message-markdown h1 {
+  font-size: 18px;
+}
+.dw-message-markdown h2 {
+  font-size: 16px;
+}
+.dw-message-markdown h3 {
+  color: #d9e6e7;
+  font-size: 14px;
+}
+.dw-message-markdown p {
+  margin: 7px 0;
+  white-space: normal;
+}
+.dw-message-markdown ul,
+.dw-message-markdown ol {
+  margin: 7px 0 10px;
+  padding-left: 20px;
+}
+.dw-message-markdown li {
+  margin: 4px 0;
+}
+.dw-message-markdown strong {
+  color: #edf3f6;
+  font-weight: 680;
+}
+.dw-message-markdown code {
+  padding: 1px 4px;
+  border: 1px solid #293640;
+  border-radius: 3px;
+  color: #bfe8e2;
+  background: #111a20;
+  font-family: "JetBrains Mono Variable", monospace;
+  font-size: 12px;
+}
+.dw-message-markdown pre {
+  margin: 10px 0;
+  padding: 11px 12px;
+  overflow-x: auto;
+  border: 1px solid #293640;
+  border-radius: 5px;
+  background: #090e13;
+}
+.dw-message-markdown pre code {
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+.dw-message-markdown blockquote {
+  margin: 10px 0;
+  padding: 8px 11px;
+  border-left: 2px solid #3e9e92;
+  color: #b9c8ce;
+  background: #0f1a1b;
+}
+.dw-message-markdown .markdown-table-wrap {
+  margin: 10px 0;
+  overflow-x: auto;
+  border: 1px solid #293640;
+  border-radius: 5px;
+}
+.dw-message-markdown table {
+  width: 100%;
+  min-width: 520px;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.dw-message-markdown th,
+.dw-message-markdown td {
+  padding: 8px 9px;
+  border-right: 1px solid #26313b;
+  border-bottom: 1px solid #26313b;
+  text-align: left;
+  vertical-align: top;
+}
+.dw-message-markdown th {
+  color: #dce9eb;
+  background: #111a20;
+  font-size: 10px;
+  text-transform: uppercase;
+}
+.dw-message-markdown tr:last-child td {
+  border-bottom: 0;
+}
+.dw-message-markdown th:last-child,
+.dw-message-markdown td:last-child {
+  border-right: 0;
 }
 .dw-message footer {
   margin-top: 8px;
@@ -1992,6 +2119,10 @@
   font-size: 10px;
 }
 @media (max-width: 1240px) {
+  .dw-industry > span,
+  .dw-system {
+    display: none;
+  }
   .dw-layout {
     grid-template-columns: 205px minmax(420px, 1fr) 350px;
   }
@@ -2033,6 +2164,15 @@
   }
   .dw-role select {
     max-width: 122px;
+  }
+  .decision-workspace.is-public .dw-role {
+    display: none;
+  }
+  .dw-industry {
+    max-width: 168px;
+  }
+  .dw-industry select {
+    max-width: 116px;
   }
   .dw-layout {
     height: calc(100% - 106px);
@@ -2084,6 +2224,13 @@
   }
 }
 @media (max-width: 640px) {
+  .dw-industry {
+    max-width: 154px;
+  }
+  .dw-industry select {
+    max-width: 102px;
+    text-overflow: ellipsis;
+  }
   .dw-role {
     max-width: 172px;
   }

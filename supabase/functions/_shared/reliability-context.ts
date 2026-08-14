@@ -5,7 +5,9 @@
  * a second boundary: only shared, explicitly redistributable passages survive.
  */
 
-export const RELIABILITY_CLAIM_TYPES = [
+import type { ReliabilityClaimType } from "./reliability-specialists.ts";
+
+export const RELIABILITY_CLAIM_TYPES: ReliabilityClaimType[] = [
   "analysis_method",
   "failure_behaviour",
 ] as const;
@@ -53,13 +55,17 @@ export async function retrieveReliabilityContext(
     organizationId?: string | null;
     publicOnly?: boolean;
     limitPerClaim?: number;
+    claimTypes?: ReliabilityClaimType[];
   } = {},
 ): Promise<ReliabilityContext> {
   if (query.trim().length < 12) return emptyContext();
 
   try {
     const results = await Promise.all(
-      RELIABILITY_CLAIM_TYPES.map((claimType) =>
+      (options.claimTypes?.length
+        ? options.claimTypes
+        : RELIABILITY_CLAIM_TYPES
+      ).map((claimType) =>
         client.rpc("retrieve_kb_context", {
           p_query: query.slice(0, 500),
           p_claim_type: claimType,

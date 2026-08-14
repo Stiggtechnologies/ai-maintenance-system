@@ -22,9 +22,9 @@ vi.mock("../services/decisionCaseService", () => ({
   savePersistedDecisionCase: vi.fn(),
 }));
 
-function renderWorkspace() {
+function renderWorkspace(entry = "/workspace/cases/demo") {
   return render(
-    <MemoryRouter initialEntries={["/workspace/cases/demo"]}>
+    <MemoryRouter initialEntries={[entry]}>
       <Routes>
         <Route
           path="/workspace/cases/:caseId"
@@ -47,6 +47,9 @@ describe("DecisionCaseWorkspacePage", () => {
         clear: () => storage.clear(),
       },
     });
+    (
+      window as Window & { dataLayer?: Array<Record<string, unknown>> }
+    ).dataLayer = [];
     window.sessionStorage.clear();
   });
 
@@ -69,7 +72,7 @@ describe("DecisionCaseWorkspacePage", () => {
       screen.getByText("Do not approve the yearly inspection interval."),
     ).toBeTruthy();
     fireEvent.change(
-      screen.getByPlaceholderText(/Ask about P-101 process pump/i),
+      screen.getByPlaceholderText(/Ask any reliability question/i),
       { target: { value: "Where should the next dollar go?" } },
     );
     fireEvent.click(screen.getByTitle("Send message"));
@@ -106,6 +109,15 @@ describe("DecisionCaseWorkspacePage", () => {
       }),
     ).toBeTruthy();
     expect(screen.getByText("No paywall yet")).toBeTruthy();
+    expect(
+      (window as Window & { dataLayer?: Array<Record<string, unknown>> })
+        .dataLayer,
+    ).toContainEqual(
+      expect.objectContaining({
+        event: "industry_value_proof_completed",
+        industry: "oil-gas",
+      }),
+    );
   });
 
   it("keeps every production-demo case isolated and excludes drafts from exposure", () => {
@@ -154,5 +166,69 @@ describe("DecisionCaseWorkspacePage", () => {
     fireEvent.click(screen.getByRole("button", { name: /New Decision Case/i }));
     expect(screen.getByText("Define a new governed decision")).toBeTruthy();
     expect(screen.getByText("$808k governed exposure")).toBeTruthy();
+  });
+
+  it("deep-links into a recognizable mining proof before data upload", () => {
+    renderWorkspace("/workspace/cases/demo?industry=mining");
+
+    expect(screen.getByLabelText("Industry proof")).toHaveValue("mining");
+    expect(screen.getByText("Copper Ridge Mining")).toBeTruthy();
+    expect(
+      screen.getByRole("heading", {
+        name: "Decide where the next CR-01 primary crusher reliability dollar should go",
+      }),
+    ).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Lost tonnes" })).toBeTruthy();
+    expect(screen.getByText("14,800 t")).toBeTruthy();
+    expect(screen.queryByText("P-101 process pump")).toBeNull();
+  });
+
+  it("preserves each industry session when the proof pack changes", async () => {
+    renderWorkspace();
+    fireEvent.change(
+      screen.getByPlaceholderText(/Ask any reliability question/i),
+      { target: { value: "Challenge the current recommendation." } },
+    );
+    fireEvent.click(screen.getByTitle("Send message"));
+    await screen.findByText(
+      "The evidence plan is the highest-value governed next action.",
+    );
+
+    fireEvent.change(screen.getByLabelText("Industry proof"), {
+      target: { value: "manufacturing" },
+    });
+    expect(
+      screen.getByRole("heading", {
+        name: "Decide the next governed action for PR-07 stamping press",
+      }),
+    ).toBeTruthy();
+    expect(
+      (window as Window & { dataLayer?: Array<Record<string, unknown>> })
+        .dataLayer,
+    ).toContainEqual(
+      expect.objectContaining({
+        event: "industry_proof_selected",
+        industry: "manufacturing",
+        previousIndustry: "oil-gas",
+      }),
+    );
+    expect(screen.queryByText("P-101 process pump")).toBeNull();
+
+    fireEvent.change(screen.getByLabelText("Industry proof"), {
+      target: { value: "oil-gas" },
+    });
+    expect(
+      screen.getByText(
+        "The evidence plan is the highest-value governed next action.",
+      ),
+    ).toBeTruthy();
+    expect(
+      window.sessionStorage.getItem(
+        "syncai.publicDecisionCases.v2.manufacturing",
+      ),
+    ).toContain("PR-07 stamping press");
+    expect(
+      window.sessionStorage.getItem("syncai.publicDecisionCases.v2.oil-gas"),
+    ).toContain("P-101 process pump");
   });
 });

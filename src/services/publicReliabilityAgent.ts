@@ -1,6 +1,7 @@
 import { supabase } from "../lib/supabase";
 import type { DecisionCase } from "../lib/decision-case";
 import type { PublicReliabilityScenarioId } from "../lib/public-reliability";
+import { classifyDecisionQuestionScope } from "../lib/reliability-agent-contract";
 
 export interface PublicExpertHypothesis {
   hypothesis: string;
@@ -55,6 +56,7 @@ export type PublicDecisionCaseAgentResult =
       citations: PublicDecisionCitation[];
       knowledgeBaseUsed: boolean;
       modelUsed?: string;
+      specialists?: string[];
     }
   | { status: "rate_limited"; error: string; resetsAt?: string }
   | { status: "fallback"; error: string };
@@ -126,28 +128,42 @@ export async function runPublicDecisionCaseAgent(
   decisionCase: DecisionCase,
   question: string,
 ): Promise<PublicDecisionCaseAgentResult> {
+  const questionScope = classifyDecisionQuestionScope(decisionCase, question);
   try {
     const { data, error } = await supabase.functions.invoke(
       "public-reliability-agent",
       {
         body: {
           mode: "decision_case_chat",
-          question: question.trim().slice(0, 1600),
+          question: question.trim().slice(0, 2400),
           browserId: getBrowserId(),
           caseContext: {
             caseNumber: decisionCase.caseNumber,
             version: decisionCase.version,
+            questionScope,
+            industry: decisionCase.industry || "oil-gas",
+            organization: decisionCase.organization,
+            site: decisionCase.site,
             asset: decisionCase.asset,
+            assetContext: decisionCase.assetContext,
             objective: decisionCase.objective,
+            risk: decisionCase.risk,
+            valueExposure: decisionCase.valueExposure,
+            evidenceScore: decisionCase.evidenceScore,
             recommendation: decisionCase.recommendation,
             recommendationDetail: decisionCase.recommendationDetail,
+            priorityReason: decisionCase.priorityReason,
             authorityRole: decisionCase.authorityRole,
             decisionMetrics: decisionCase.decisionMetrics,
             evidence: decisionCase.evidence.map((item) => ({
               title: item.title,
+              summary: item.summary,
+              quality: item.quality,
               state: item.state,
               finding: item.finding,
               record: item.record,
+              lineage: item.lineage,
+              sourceSystem: item.sourceSystem,
             })),
             calculations: decisionCase.calculations.map((item) => ({
               label: item.label,
@@ -155,7 +171,32 @@ export async function runPublicDecisionCaseAgent(
               result: item.result,
               assumption: item.assumption,
             })),
-            recentMessages: decisionCase.messages.slice(-8).map((item) => ({
+            approvals: decisionCase.approvals.map((item) => ({
+              name: item.name,
+              role: item.role,
+              responsibility: item.responsibility,
+              status: item.status,
+            })),
+            workPackage: {
+              number: decisionCase.workPackage.number,
+              title: decisionCase.workPackage.title,
+              targetSystem: decisionCase.workPackage.targetSystem,
+              status: decisionCase.workPackage.status,
+              controls: decisionCase.workPackage.controls.map((item) => ({
+                text: item.text,
+                owner: item.owner,
+                status: item.status,
+              })),
+            },
+            valueMetrics: decisionCase.valueMetrics.map((item) => ({
+              label: item.label,
+              detail: item.detail,
+              baseline: item.baseline,
+              target: item.target,
+              actual: item.actual || "",
+            })),
+            financeStatus: decisionCase.financeStatus,
+            recentMessages: decisionCase.messages.slice(-12).map((item) => ({
               role: item.role,
               text: item.text,
             })),
@@ -189,6 +230,11 @@ export async function runPublicDecisionCaseAgent(
         : [],
       knowledgeBaseUsed: data.knowledgeBaseUsed === true,
       modelUsed: data.modelUsed,
+      specialists: Array.isArray(data.specialists)
+        ? data.specialists.filter(
+            (item: unknown): item is string => typeof item === "string",
+          )
+        : [],
     };
   } catch (error) {
     return {
