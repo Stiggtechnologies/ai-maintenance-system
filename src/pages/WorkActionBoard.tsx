@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { supabase } from "../lib/supabase";
 import {
   CircleCheck as CheckCircle,
   Activity,
@@ -363,6 +364,24 @@ export function WorkActionBoard() {
   const [showNewWo, setShowNewWo] = useState(false);
   const [newWoTitle, setNewWoTitle] = useState("");
   const [newWoPriority, setNewWoPriority] = useState("medium");
+  // A work order with no equipment is invisible to asset history, to failure
+  // coding and to every per-asset reliability figure. This used to be hardcoded
+  // null, so every work order raised by a human here was orphaned on creation.
+  const [newWoAssetId, setNewWoAssetId] = useState("");
+  // Asked here for the same reason it is asked at notification conversion: the
+  // person raising it is the only one who knows, and left blank it reports as
+  // unclassified rather than being defaulted into "scheduled".
+  const [newWoResponseClass, setNewWoResponseClass] = useState("");
+  const [woAssets, setWoAssets] = useState<{ id: string; name: string }[]>([]);
+
+  useEffect(() => {
+    if (!showNewWo || woAssets.length > 0) return;
+    void supabase
+      .from("assets")
+      .select("id,name")
+      .order("name")
+      .then(({ data }) => setWoAssets((data ?? []) as { id: string; name: string }[]));
+  }, [showNewWo, woAssets.length]);
   const { workActions } = useOnboardingOperatingLoop();
   const {
     data: rows,
@@ -425,11 +444,14 @@ export function WorkActionBoard() {
     try {
       await createHumanWorkOrder({
         title: newWoTitle.trim(),
-        assetId: null,
+        assetId: newWoAssetId || null,
         priority: newWoPriority,
+        responseClass: newWoResponseClass || null,
       });
       setShowNewWo(false);
       setNewWoTitle("");
+      setNewWoAssetId("");
+      setNewWoResponseClass("");
       flash("Work order created.");
       refetch();
     } catch (e) {
@@ -493,6 +515,25 @@ export function WorkActionBoard() {
             </h3>
             <label
               className="block text-xs text-slate-400 mb-1"
+              htmlFor="new-wo-asset"
+            >
+              Equipment
+            </label>
+            <select
+              id="new-wo-asset"
+              value={newWoAssetId}
+              onChange={(e) => setNewWoAssetId(e.target.value)}
+              className="w-full px-3 py-2 mb-3 bg-white/3 border border-white/8 rounded-lg text-sm text-white focus:outline-hidden focus:border-teal-500/40"
+            >
+              <option value="">Select equipment…</option>
+              {woAssets.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.name}
+                </option>
+              ))}
+            </select>
+            <label
+              className="block text-xs text-slate-400 mb-1"
               htmlFor="new-wo-title"
             >
               Title
@@ -520,6 +561,23 @@ export function WorkActionBoard() {
               <option value="high">High</option>
               <option value="medium">Medium</option>
               <option value="low">Low</option>
+            </select>
+            <label
+              className="block text-xs text-slate-400 mb-1 mt-3"
+              htmlFor="new-wo-response"
+            >
+              Response class
+            </label>
+            <select
+              id="new-wo-response"
+              value={newWoResponseClass}
+              onChange={(e) => setNewWoResponseClass(e.target.value)}
+              className="w-full px-3 py-2 mb-4 bg-white/3 border border-white/8 rounded-lg text-sm text-white focus:outline-hidden focus:border-teal-500/40"
+            >
+              <option value="">Unclassified</option>
+              <option value="emergency">Emergency</option>
+              <option value="urgent">Urgent</option>
+              <option value="scheduled">Scheduled</option>
             </select>
             <div className="flex justify-end gap-2">
               <button

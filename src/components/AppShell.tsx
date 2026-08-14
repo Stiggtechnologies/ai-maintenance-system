@@ -132,6 +132,7 @@ const navGroups: NavGroup[] = [
     icon: Wrench,
     items: [
       { id: "work", label: "Work Action Board", path: "/work" },
+      { id: "notifications", label: "Notifications", path: "/notifications" },
       {
         id: "scenario-simulator",
         label: "Scenario Simulator",

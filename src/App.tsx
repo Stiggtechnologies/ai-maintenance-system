@@ -26,6 +26,7 @@ import { AssetManagement } from "./components/AssetManagement";
 import { MissionControl } from "./pages/MissionControl";
 import { PerformanceDashboard } from "./pages/PerformanceDashboard";
 import { WorkActionBoard } from "./pages/WorkActionBoard";
+import NotificationScreening from "./pages/NotificationScreening";
 import { DecisionGovernance } from "./pages/DecisionGovernance";
 import { RunsAuditPage } from "./pages/RunsAuditPage";
 import { ResearchDashboard } from "./pages/ResearchDashboard";
@@ -403,6 +404,7 @@ function AuthenticatedApp() {
           {/* Work & Execution */}
           <Route path="/work/:workOrderId" element={<WorkOrderDetailPage />} />
           <Route path="/work" element={<WorkActionBoard />} />
+          <Route path="/notifications" element={<NotificationScreening />} />
           <Route path="/scenarios" element={<ScenarioSimulator />} />
           <Route path="/briefing" element={<OperationalBriefing />} />
 
