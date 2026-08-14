@@ -1,7 +1,7 @@
-import { supabase } from "../lib/supabase";
 import type { DecisionCase } from "../lib/decision-case";
 import type { PublicReliabilityScenarioId } from "../lib/public-reliability";
 import { classifyDecisionQuestionScope } from "../lib/reliability-agent-contract";
+import { supabasePublicKey, supabaseUrl } from "../lib/supabase-config";
 
 export interface PublicExpertHypothesis {
   hypothesis: string;
@@ -62,6 +62,49 @@ export type PublicDecisionCaseAgentResult =
   | { status: "fallback"; error: string };
 
 const BROWSER_ID_KEY = "syncai-public-browser-id-v1";
+const PUBLIC_AGENT_TIMEOUT_MS = 85_000;
+
+async function invokePublicReliabilityAgent(body: Record<string, unknown>) {
+  if (!supabaseUrl || !supabasePublicKey) {
+    return {
+      data: null,
+      error: new Error("Public reliability agent is not configured."),
+    };
+  }
+
+  try {
+    const response = await fetch(
+      `${supabaseUrl}/functions/v1/public-reliability-agent`,
+      {
+        method: "POST",
+        headers: {
+          apikey: supabasePublicKey,
+          authorization: `Bearer ${supabasePublicKey}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(PUBLIC_AGENT_TIMEOUT_MS),
+      },
+    );
+    const data = await response.json().catch(() => null);
+    if (!response.ok) {
+      const message =
+        data && typeof data.message === "string"
+          ? data.message
+          : `Public reliability agent returned HTTP ${response.status}.`;
+      return { data, error: new Error(message) };
+    }
+    return { data, error: null };
+  } catch (error) {
+    return {
+      data: null,
+      error:
+        error instanceof Error
+          ? error
+          : new Error("Public reliability agent request failed."),
+    };
+  }
+}
 
 function getBrowserId(): string {
   try {
@@ -80,16 +123,11 @@ export async function runPublicReliabilityAgent(input: {
   question: string;
 }): Promise<PublicExpertResult> {
   try {
-    const { data, error } = await supabase.functions.invoke(
-      "public-reliability-agent",
-      {
-        body: {
-          scenarioId: input.scenarioId,
-          question: input.question.trim().slice(0, 1600),
-          browserId: getBrowserId(),
-        },
-      },
-    );
+    const { data, error } = await invokePublicReliabilityAgent({
+      scenarioId: input.scenarioId,
+      question: input.question.trim().slice(0, 1600),
+      browserId: getBrowserId(),
+    });
 
     if (data?.error === "public_reliability_limit_reached") {
       return {
@@ -130,80 +168,75 @@ export async function runPublicDecisionCaseAgent(
 ): Promise<PublicDecisionCaseAgentResult> {
   const questionScope = classifyDecisionQuestionScope(decisionCase, question);
   try {
-    const { data, error } = await supabase.functions.invoke(
-      "public-reliability-agent",
-      {
-        body: {
-          mode: "decision_case_chat",
-          question: question.trim().slice(0, 2400),
-          browserId: getBrowserId(),
-          caseContext: {
-            caseNumber: decisionCase.caseNumber,
-            version: decisionCase.version,
-            questionScope,
-            industry: decisionCase.industry || "oil-gas",
-            organization: decisionCase.organization,
-            site: decisionCase.site,
-            asset: decisionCase.asset,
-            assetContext: decisionCase.assetContext,
-            objective: decisionCase.objective,
-            risk: decisionCase.risk,
-            valueExposure: decisionCase.valueExposure,
-            evidenceScore: decisionCase.evidenceScore,
-            recommendation: decisionCase.recommendation,
-            recommendationDetail: decisionCase.recommendationDetail,
-            priorityReason: decisionCase.priorityReason,
-            authorityRole: decisionCase.authorityRole,
-            decisionMetrics: decisionCase.decisionMetrics,
-            evidence: decisionCase.evidence.map((item) => ({
-              title: item.title,
-              summary: item.summary,
-              quality: item.quality,
-              state: item.state,
-              finding: item.finding,
-              record: item.record,
-              lineage: item.lineage,
-              sourceSystem: item.sourceSystem,
-            })),
-            calculations: decisionCase.calculations.map((item) => ({
-              label: item.label,
-              formula: item.formula,
-              result: item.result,
-              assumption: item.assumption,
-            })),
-            approvals: decisionCase.approvals.map((item) => ({
-              name: item.name,
-              role: item.role,
-              responsibility: item.responsibility,
-              status: item.status,
-            })),
-            workPackage: {
-              number: decisionCase.workPackage.number,
-              title: decisionCase.workPackage.title,
-              targetSystem: decisionCase.workPackage.targetSystem,
-              status: decisionCase.workPackage.status,
-              controls: decisionCase.workPackage.controls.map((item) => ({
-                text: item.text,
-                owner: item.owner,
-                status: item.status,
-              })),
-            },
-            valueMetrics: decisionCase.valueMetrics.map((item) => ({
-              label: item.label,
-              detail: item.detail,
-              baseline: item.baseline,
-              target: item.target,
-              actual: item.actual || "",
-            })),
-            financeStatus: decisionCase.financeStatus,
-            recentMessages: decisionCase.messages.slice(-12).map((item) => ({
-              role: item.role,
-              text: item.text,
-            })),
-          },
+    const { data, error } = await invokePublicReliabilityAgent({
+      mode: "decision_case_chat",
+      question: question.trim().slice(0, 2400),
+      browserId: getBrowserId(),
+      caseContext: {
+        caseNumber: decisionCase.caseNumber,
+        version: decisionCase.version,
+        questionScope,
+        industry: decisionCase.industry || "oil-gas",
+        organization: decisionCase.organization,
+        site: decisionCase.site,
+        asset: decisionCase.asset,
+        assetContext: decisionCase.assetContext,
+        objective: decisionCase.objective,
+        risk: decisionCase.risk,
+        valueExposure: decisionCase.valueExposure,
+        evidenceScore: decisionCase.evidenceScore,
+        recommendation: decisionCase.recommendation,
+        recommendationDetail: decisionCase.recommendationDetail,
+        priorityReason: decisionCase.priorityReason,
+        authorityRole: decisionCase.authorityRole,
+        decisionMetrics: decisionCase.decisionMetrics,
+        evidence: decisionCase.evidence.map((item) => ({
+          title: item.title,
+          summary: item.summary,
+          quality: item.quality,
+          state: item.state,
+          finding: item.finding,
+          record: item.record,
+          lineage: item.lineage,
+          sourceSystem: item.sourceSystem,
+        })),
+        calculations: decisionCase.calculations.map((item) => ({
+          label: item.label,
+          formula: item.formula,
+          result: item.result,
+          assumption: item.assumption,
+        })),
+        approvals: decisionCase.approvals.map((item) => ({
+          name: item.name,
+          role: item.role,
+          responsibility: item.responsibility,
+          status: item.status,
+        })),
+        workPackage: {
+          number: decisionCase.workPackage.number,
+          title: decisionCase.workPackage.title,
+          targetSystem: decisionCase.workPackage.targetSystem,
+          status: decisionCase.workPackage.status,
+          controls: decisionCase.workPackage.controls.map((item) => ({
+            text: item.text,
+            owner: item.owner,
+            status: item.status,
+          })),
         },
+        valueMetrics: decisionCase.valueMetrics.map((item) => ({
+          label: item.label,
+          detail: item.detail,
+          baseline: item.baseline,
+          target: item.target,
+          actual: item.actual || "",
+        })),
+        financeStatus: decisionCase.financeStatus,
+        recentMessages: decisionCase.messages.slice(-12).map((item) => ({
+          role: item.role,
+          text: item.text,
+        })),
       },
-    );
+    });
 
     if (data?.error === "public_decision_case_limit_reached") {
       return {
