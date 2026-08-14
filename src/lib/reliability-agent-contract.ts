@@ -22,6 +22,8 @@ const TOPIC_CHANGE_PATTERN =
   /\b(set (?:this|the current|the active) case aside|set the [\w-]+ case aside|not (?:about|for) (?:this|the)|new (?:asset|case|subject|topic)|different (?:asset|case|subject|topic)|another (?:asset|case|subject|topic)|separate (?:asset|case|analysis)|outside (?:this|the) case)\b/i;
 const EQUIPMENT_PATTERN =
   /\b(pump|compressor|crusher|conveyor|gearbox|motor|turbine|boiler|furnace|press|stamping press|fan|blower|valve|pipeline|vessel|transformer|generator|truck|haul truck|shovel|mill|kiln|screen|feeder|robot|robotic|weld cell|packaging line|production line)\b/gi;
+const OEM_MODEL_PATTERN =
+  /\b(?:caterpillar|cat|komatsu|hitachi|liebherr|volvo|terex|sandvik|epiroc|john deere|cummins)\s+[a-z0-9][a-z0-9-]{1,20}\b/i;
 const NON_ASSET_PREFIXES = new Set([
   "API",
   "DC",
@@ -76,6 +78,10 @@ export function classifyDecisionQuestionScope(
   const activeIds = normalizedAssetIdentifiers(activeText);
   const questionIds = normalizedAssetIdentifiers(question);
   if ([...questionIds].some((identifier) => !activeIds.has(identifier))) {
+    return "provisional_new_subject";
+  }
+  const oemModel = question.match(OEM_MODEL_PATTERN)?.[0].toLowerCase();
+  if (oemModel && !activeText.toLowerCase().includes(oemModel)) {
     return "provisional_new_subject";
   }
 
@@ -228,6 +234,21 @@ export const RELIABILITY_AGENT_BENCHMARKS: ReliabilityAgentBenchmark[] = [
       "do the math",
       "state assumptions",
       "do not use crusher facts",
+    ],
+  },
+  {
+    id: "mining-mobile-equipment-onboarding",
+    industry: "mining",
+    capability: "Asset onboarding and commissioning",
+    prompt:
+      "What are the steps to onboard a Caterpillar 797A dump truck in an Alberta oil sands mine?",
+    expectedRoute: "agent_new_subject",
+    requiredBehaviors: [
+      "define requirements and verify exact serialized configuration",
+      "separate Alberta regulatory applicability from site and OEM requirements",
+      "establish condition, contamination, maintenance, spares, tooling, and competency baselines",
+      "use static, dynamic, controlled-ramp, reliability-growth, and final handover gates",
+      "name required evidence, owners, acceptance criteria, and human approval boundaries",
     ],
   },
   {

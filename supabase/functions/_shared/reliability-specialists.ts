@@ -18,6 +18,20 @@ interface SpecialistDefinition extends ReliabilitySpecialist {
 
 const SPECIALISTS: SpecialistDefinition[] = [
   {
+    id: "asset-onboarding",
+    label: "Asset onboarding / commissioning specialist",
+    signals:
+      /\b(onboard|commission|asset acceptance|operational readiness|maintenance readiness|production handover|reliability growth|ramp-up|ramp up)\b/i,
+    brief:
+      "Build a governed lifecycle from requirements and exact configuration through compliance, baseline condition, maintenance and logistics readiness, competency, controlled commissioning, reliability growth, deficiency closure, and final production handover. Define gates, owners, required evidence, acceptance and stop criteria, and human technical authority without inventing legal, OEM, or site requirements.",
+    claimTypes: [
+      "analysis_method",
+      "component_structure",
+      "maintenance_task",
+      "nameplate_spec",
+    ],
+  },
+  {
     id: "rca-fracas",
     label: "RCA / FRACAS specialist",
     signals:

@@ -66,4 +66,18 @@ describe("reliability agent behavior contract", () => {
       ),
     ).toBe("provisional_new_subject");
   });
+
+  it("recognizes an OEM model as a new subject even in a short follow-up", () => {
+    const [active] = createSeedDecisionCases({ industry: "mining" });
+
+    expect(
+      classifyDecisionQuestionScope(
+        active,
+        "What are your steps to onboard a Caterpillar 797 truck in an Alberta oil sands mine?",
+      ),
+    ).toBe("provisional_new_subject");
+    expect(
+      classifyDecisionQuestionScope(active, "Caterpillar 797 Dump truck"),
+    ).toBe("provisional_new_subject");
+  });
 });

@@ -103,6 +103,7 @@ interface DeterministicResponse {
 }
 
 const specialistLabels: Record<string, string> = {
+  "asset-onboarding": "Asset onboarding / commissioning",
   "rca-fracas": "RCA / FRACAS",
   ram: "RAM quantitative",
   "fmea-rcm-pm": "FMEA / RCM / PM strategy",
@@ -143,8 +144,8 @@ export async function askDecisionCase(
         .map((specialist) => specialistLabels[specialist] || specialist)
         .join(" + ");
       const sourceLabel = specialistLabel
-        ? `${specialistLabel} · ${groundingLabel}`
-        : groundingLabel;
+        ? `Reliability Engineer · ${specialistLabel} lens · ${groundingLabel}`
+        : `Reliability Engineer · ${groundingLabel}`;
       const scopeLabel =
         questionScope === "provisional_new_subject"
           ? `Provisional new subject · ${sourceLabel} · ${decisionCase.caseNumber} unchanged`
