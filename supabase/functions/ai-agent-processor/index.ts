@@ -14,6 +14,8 @@ const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const MODEL_DELIVERABLE = Deno.env.get("MODEL_DELIVERABLE") ?? "gpt-5.6-terra";
 const MODEL_CHAT = Deno.env.get("MODEL_CHAT") ?? "gpt-5.6-luna";
 const MODEL_STRUCTURED = Deno.env.get("MODEL_STRUCTURED") ?? "gpt-5.6-luna";
+const MODEL_PUBLIC_FRONTIER =
+  Deno.env.get("MODEL_PUBLIC_FRONTIER") ?? "gpt-5.6-terra";
 const MODEL_SAFETY = "gpt-4o-mini";
 
 // Gateway tier aliases. A provider must be asked for a name IT recognises —
@@ -69,6 +71,8 @@ interface LegacyAgentRequest {
   query?: string;
   requiresApproval?: boolean;
   depth?: "standard" | "deliverable";
+  publicOnly?: boolean;
+  maxOutputTokens?: number;
 }
 
 interface TypedAgentRequest {
@@ -213,6 +217,89 @@ async function callLLM(
   };
 }
 
+function extractResponseText(payload: Record<string, unknown>): string {
+  if (typeof payload.output_text === "string") return payload.output_text;
+  const output = Array.isArray(payload.output) ? payload.output : [];
+  for (const item of output) {
+    if (!item || typeof item !== "object") continue;
+    const content = Array.isArray((item as { content?: unknown[] }).content)
+      ? (item as { content: unknown[] }).content
+      : [];
+    for (const part of content) {
+      if (
+        part &&
+        typeof part === "object" &&
+        typeof (part as { text?: unknown }).text === "string"
+      ) {
+        return (part as { text: string }).text;
+      }
+    }
+  }
+  return "";
+}
+
+async function callPublicReliabilityEngineer(
+  model: string,
+  systemPrompt: string,
+  userQuery: string,
+  maxTokens: number,
+): Promise<{
+  content: string;
+  usage: Record<string, number>;
+  model: string;
+}> {
+  const provider = await fetch("https://api.openai.com/v1/responses", {
+    method: "POST",
+    signal: AbortSignal.timeout(78_000),
+    headers: {
+      Authorization: `Bearer ${OPENAI_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model,
+      store: false,
+      max_output_tokens: maxTokens,
+      instructions: systemPrompt,
+      input: userQuery,
+      reasoning: { effort: "low" },
+      text: { verbosity: "medium" },
+    }),
+  });
+  if (!provider.ok) {
+    const detail = (await provider.text().catch(() => ""))
+      .slice(0, 240)
+      .replace(/\s+/g, " ");
+    console.error("public Reliability Engineer frontier failure", {
+      status: provider.status,
+      detail,
+    });
+    throw new Error("frontier_provider_unavailable");
+  }
+
+  const payload = (await provider.json()) as Record<string, unknown>;
+  if (payload.status === "incomplete") {
+    console.error("public Reliability Engineer returned incomplete output", {
+      detail: payload.incomplete_details,
+    });
+    throw new Error("frontier_provider_incomplete_response");
+  }
+  const content = extractResponseText(payload).trim();
+  if (!content) throw new Error("frontier_provider_empty_response");
+  const rawUsage =
+    payload.usage && typeof payload.usage === "object"
+      ? (payload.usage as Record<string, number>)
+      : {};
+  return {
+    content,
+    usage: {
+      ...rawUsage,
+      prompt_tokens: rawUsage.input_tokens ?? 0,
+      completion_tokens: rawUsage.output_tokens ?? 0,
+    },
+    model: typeof payload.model === "string" ? payload.model : model,
+  };
+}
+
 const AGENT_PURPOSE: Record<string, string> = {
   ReliabilityAgent:
     "reliability engineering, failure analysis, FRACAS, RCM and lifecycle risk",
@@ -344,10 +431,21 @@ async function handleLegacy(
   const deliverable =
     body.depth === "deliverable" ||
     /\b(fmea|rca|fracas|rcm|register|assessment|report|plan)\b/i.test(query);
-  const model = deliverable ? MODEL_DELIVERABLE : MODEL_CHAT;
-  const maxTokens = deliverable ? 12_000 : 1_500;
+  const model = body.publicOnly
+    ? deliverable
+      ? MODEL_PUBLIC_FRONTIER
+      : MODEL_CHAT
+    : deliverable
+      ? MODEL_DELIVERABLE
+      : MODEL_CHAT;
+  const defaultMaxTokens = deliverable ? 12_000 : 1_500;
+  const requestedMaxTokens = Number(body.maxOutputTokens);
+  const maxTokens = Number.isFinite(requestedMaxTokens)
+    ? Math.max(800, Math.min(defaultMaxTokens, requestedMaxTokens))
+    : defaultMaxTokens;
   const kb = await retrieveReliabilityContext(admin, query, {
     organizationId: auth.organizationId,
+    publicOnly: body.publicOnly === true,
   });
   const systemPrompt = `${buildLegacyPrompt(agentType, body.industry, deliverable)}${kb.promptContext ? `\n\nApproved reliability reference passages:\n${kb.promptContext}\nUse only the exact bracket labels supplied for citations.` : ""}`;
   const started = Date.now();
@@ -355,7 +453,9 @@ async function handleLegacy(
     content,
     usage,
     model: answeredBy,
-  } = await callLLM(model, systemPrompt, query, false, maxTokens);
+  } = body.publicOnly
+    ? await callPublicReliabilityEngineer(model, systemPrompt, query, maxTokens)
+    : await callLLM(model, systemPrompt, query, false, maxTokens);
   const elapsed = Date.now() - started;
 
   await admin
@@ -388,9 +488,17 @@ async function handleLegacy(
     processingTime: elapsed,
     agentType,
     industry: body.industry ?? "general",
-    modelUsed: model,
+    provider: "ai-agent-processor",
+    modelUsed: answeredBy,
+    requestedModel: model,
     depth: deliverable ? "deliverable" : "standard",
     knowledgeBaseUsed: kb.knowledgeBaseUsed,
+    citations: kb.citations.map((citation) => ({
+      title: citation.title,
+      pageRange: citation.pageRange,
+      documentClass: citation.documentClass,
+      label: citation.label,
+    })),
     requiresApproval: body.requiresApproval ?? false,
   });
 }

@@ -2,28 +2,16 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import {
   PUBLIC_DECISION_CASE_DAILY_LIMIT,
-  buildDecisionCaseChatPrompts,
-  buildDecisionCaseRetrievalQuery,
   parsePublicDecisionCaseContext,
 } from "../_shared/decision-case-chat.ts";
-import {
-  buildProviderChain,
-  callWithResilience,
-  resolveExternalGatewayUrl,
-} from "../_shared/llm-provider.ts";
+import { buildReliabilityEngineerRequest } from "../_shared/reliability-engineer-request.ts";
 import { retrieveReliabilityContext } from "../_shared/reliability-context.ts";
-import {
-  selectReliabilitySpecialists,
-  specialistClaimTypes,
-} from "../_shared/reliability-specialists.ts";
+import { selectReliabilitySpecialists } from "../_shared/reliability-specialists.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY") ?? "";
 const MODEL = Deno.env.get("PUBLIC_RELIABILITY_MODEL") ?? "gpt-5.6-terra";
-const MODEL_SAFETY = "gpt-4o-mini";
-const TIER_AGENT = Deno.env.get("TIER_DELIVERABLE") ?? "stigg/agent";
-const LLM_BASE_URL = Deno.env.get("LLM_BASE_URL") ?? "https://api.openai.com";
 const RATE_LIMIT_SECRET =
   Deno.env.get("PUBLIC_RELIABILITY_RATE_LIMIT_SECRET") ?? "";
 const ALLOWED_ORIGINS = (
@@ -146,7 +134,6 @@ function extractText(payload: Record<string, unknown>): string {
 }
 
 async function runDecisionCaseChat(
-  admin: ReturnType<typeof createClient>,
   body: PublicRequest,
   question: string,
   resetsAt: string,
@@ -157,63 +144,72 @@ async function runDecisionCaseChat(
   const specialists = selectReliabilitySpecialists(
     `${question} ${caseContext.questionScope === "active_case" ? caseContext.objective : ""}`,
   );
-
-  const knowledge = await retrieveReliabilityContext(
-    admin,
-    buildDecisionCaseRetrievalQuery(caseContext, question),
-    {
-      publicOnly: true,
-      limitPerClaim: 4,
-      claimTypes: specialistClaimTypes(specialists),
-    },
-  );
-  const prompts = buildDecisionCaseChatPrompts(
-    caseContext,
-    question,
-    knowledge.promptContext,
-  );
-  const gatewayUrl = resolveExternalGatewayUrl(LLM_BASE_URL);
-  const result = await callWithResilience(
-    fetch,
-    buildProviderChain({
-      gatewayUrl,
-      gatewayKey: gatewayUrl ? Deno.env.get("LLM_API_KEY") : undefined,
-      gatewayModel: TIER_AGENT,
-      openaiKey: OPENAI_API_KEY,
-      openaiModel: MODEL,
-      openaiSafetyModel: MODEL_SAFETY,
-    }),
-    {
-      systemPrompt: prompts.systemPrompt,
-      userContent: prompts.userContent,
-      maxTokens: 4200,
-      timeoutMs: 75_000,
-    },
-  );
-
-  if (result.events.length > 1 || !result.ok) {
-    console.error(
-      "public-reliability-agent decision chat provider trail",
-      JSON.stringify(result.events),
+  const request = buildReliabilityEngineerRequest(caseContext, question);
+  let processorResponse: Response;
+  try {
+    processorResponse = await fetch(
+      `${SUPABASE_URL}/functions/v1/ai-agent-processor`,
+      {
+        method: "POST",
+        signal: AbortSignal.timeout(82_000),
+        headers: {
+          Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
+          apikey: SERVICE_ROLE_KEY,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          ...request,
+          publicOnly: true,
+        }),
+      },
     );
+  } catch (error) {
+    console.error("public Reliability Engineer invocation failed", {
+      name: error instanceof Error ? error.name : "unknown",
+    });
+    return json({ error: "decision_case_agent_unavailable" }, 502, origin);
   }
-  if (!result.ok || !result.content.trim()) {
+
+  const result = (await processorResponse.json().catch(() => null)) as null | {
+    success?: boolean;
+    response?: string;
+    citations?: Array<{
+      title?: string;
+      pageRange?: string;
+      documentClass?: string;
+      label?: string;
+    }>;
+    knowledgeBaseUsed?: boolean;
+    provider?: string;
+    modelUsed?: string;
+    agentType?: string;
+  };
+  if (
+    !processorResponse.ok ||
+    !result?.success ||
+    typeof result.response !== "string" ||
+    !result.response.trim()
+  ) {
+    console.error("public Reliability Engineer returned no usable answer", {
+      status: processorResponse.status,
+    });
     return json({ error: "decision_case_agent_unavailable" }, 502, origin);
   }
 
   return json(
     {
       success: true,
-      response: result.content.trim(),
-      citations: knowledge.citations.map((citation) => ({
-        title: citation.title,
-        pageRange: citation.pageRange,
-        documentClass: citation.documentClass,
-        label: citation.label,
+      response: result.response.trim(),
+      citations: (result.citations ?? []).map((citation) => ({
+        title: citation.title ?? "Approved reliability reference",
+        pageRange: citation.pageRange ?? "",
+        documentClass: citation.documentClass ?? "approved_reference",
+        label: citation.label ?? "",
       })),
-      knowledgeBaseUsed: knowledge.knowledgeBaseUsed,
-      provider: result.provider,
-      modelUsed: result.model,
+      knowledgeBaseUsed: result.knowledgeBaseUsed === true,
+      provider: result.provider ?? "ai-agent-processor",
+      modelUsed: result.modelUsed,
+      agentType: result.agentType ?? "ReliabilityAgent",
       specialists: specialists.map((specialist) => specialist.id),
       resetsAt,
     },
@@ -386,7 +382,7 @@ Deno.serve(async (req) => {
   }
 
   if (mode === "decision_case_chat") {
-    return runDecisionCaseChat(admin, body, question, resetsAt, origin);
+    return runDecisionCaseChat(body, question, resetsAt, origin);
   }
 
   const scenario = scenarios[body.scenarioId as ScenarioId];

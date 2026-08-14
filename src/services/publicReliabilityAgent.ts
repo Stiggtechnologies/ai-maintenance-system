@@ -56,6 +56,8 @@ export type PublicDecisionCaseAgentResult =
       citations: PublicDecisionCitation[];
       knowledgeBaseUsed: boolean;
       modelUsed?: string;
+      provider?: string;
+      agentType?: string;
       specialists?: string[];
     }
   | { status: "rate_limited"; error: string; resetsAt?: string }
@@ -263,6 +265,8 @@ export async function runPublicDecisionCaseAgent(
         : [],
       knowledgeBaseUsed: data.knowledgeBaseUsed === true,
       modelUsed: data.modelUsed,
+      provider: data.provider,
+      agentType: data.agentType,
       specialists: Array.isArray(data.specialists)
         ? data.specialists.filter(
             (item: unknown): item is string => typeof item === "string",

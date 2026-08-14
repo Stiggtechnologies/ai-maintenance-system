@@ -5,6 +5,7 @@ import {
   buildDecisionCaseRetrievalQuery,
   parsePublicDecisionCaseContext,
 } from "../../../supabase/functions/_shared/decision-case-chat";
+import { buildReliabilityEngineerRequest } from "../../../supabase/functions/_shared/reliability-engineer-request";
 
 const rawContext = {
   caseNumber: "DC-1048",
@@ -155,5 +156,46 @@ describe("decision-case-chat prompt contract", () => {
     expect(prompts.userContent).not.toContain("4 / 5 x 100");
     expect(prompts.userContent).not.toContain("WO-3812");
     expect(prompts.systemPrompt).toContain("Do not transfer evidence");
+  });
+
+  it("delegates a subject change to the existing Reliability Engineer with intent intact", () => {
+    const context = parsePublicDecisionCaseContext({
+      ...rawContext,
+      questionScope: "provisional_new_subject",
+      recentMessages: [
+        {
+          role: "user",
+          text: "What are your steps to onboard a Caterpillar 797 truck in an Alberta oil sands mine?",
+        },
+        {
+          role: "assistant",
+          text: "Should I look at the current case or something else?",
+        },
+        { role: "user", text: "Look at a different asset." },
+        {
+          role: "assistant",
+          text: "Name the asset you want me to examine.",
+        },
+      ],
+    })!;
+
+    const request = buildReliabilityEngineerRequest(
+      context,
+      "Caterpillar 797 Dump truck",
+    );
+
+    expect(request.agentType).toBe("ReliabilityAgent");
+    expect(request.publicOnly).toBe(true);
+    expect(request.depth).toBe("deliverable");
+    expect(request.maxOutputTokens).toBeGreaterThanOrEqual(5000);
+    expect(request.query).toContain("steps to onboard a Caterpillar 797");
+    expect(request.query).toContain("Current user request: Caterpillar 797");
+    expect(request.query).toContain("Do not ask the user to repeat");
+    expect(request.query).toContain("ASSET ONBOARDING WORK-PRODUCT CONTRACT");
+    expect(request.query).toContain("static, empty, partial-load");
+    expect(request.query).toContain("Complete every lifecycle gate");
+    expect(request.query).toContain("do not repeat every gate");
+    expect(request.query).not.toContain("Four failures followed startup");
+    expect(request.query).not.toContain("Keep the monthly interval");
   });
 });
