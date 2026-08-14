@@ -930,6 +930,9 @@ export async function createHumanWorkOrder(input: {
   assetId: string | null;
   priority: string;
   description?: string;
+  /** Dispatch response mode. Null means nobody was asked, which reports as
+   *  unclassified rather than being counted as planned work. */
+  responseClass?: string | null;
 }): Promise<string | null> {
   const ctx = await getOrgContext();
   const { data, error } = await supabase
@@ -942,6 +945,7 @@ export async function createHumanWorkOrder(input: {
       description: input.description ?? null,
       status: "pending",
       priority: input.priority,
+      response_class: input.responseClass ?? null,
       type: "human_created",
     })
     .select("id")
