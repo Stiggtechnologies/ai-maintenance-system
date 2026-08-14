@@ -1,4 +1,28 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+/**
+ * CSVImportWizard — bulk-load an asset register.
+ *
+ * This importer shipped writing tenant_id, type and location — three columns
+ * the assets table has never had — so every row failed at PostgREST and the
+ * success count was structurally zero: a customer-facing importer that
+ * silently imported nothing. It matters more than a broken widget normally
+ * would, because the asset register is the FIRST thing a customer loads and
+ * everything downstream refuses rows against unknown assets: the ingest
+ * contract rejects work orders, notifications and maintenance plans whose
+ * asset cannot be resolved, and fleet-history import only creates assets as a
+ * side effect of history rows. This is the one surface for "here is my
+ * equipment list".
+ *
+ * Rules it now follows:
+ *  - Real columns only: organization_id (from the org context, never the user
+ *    id), name, tag, asset_class, area, criticality, status, manufacturer,
+ *    model, serial_number. The old template's `type` and `location` headers
+ *    are still accepted as aliases so a saved copy keeps working.
+ *  - Re-import must not duplicate. Existing assets are matched by name within
+ *    the organization — the same rule commit_history_import uses — and
+ *    reported as skipped rather than silently re-created.
+ *  - Every refused row is shown with its reason. A rejection nobody sees is
+ *    the same as a dropped row.
+ */
 import { useState, useCallback } from "react";
 import {
   Upload,
@@ -10,12 +34,38 @@ import {
   X,
 } from "lucide-react";
 import { supabase } from "../lib/supabase";
-import { useAuth } from "./AuthProvider";
+import { parseCSV } from "../lib/fleet-import";
+import { getOrgContext } from "../services/operatingLoopService";
 
 interface ImportResult {
   success: number;
+  skipped: number;
   failed: number;
   errors: string[];
+}
+
+const CRITICALITIES = new Set(["critical", "high", "medium", "low"]);
+
+/** The old template shipped different names for two columns; honour both. */
+const HEADER_ALIASES: Record<string, string> = {
+  type: "asset_class",
+  location: "area",
+};
+
+/** Parse the file once, normalising headers through the alias map. */
+function parseRows(text: string): Record<string, string>[] {
+  const all = parseCSV(text);
+  if (all.length < 2) return [];
+  const [hdr, ...body] = all;
+  const headers = hdr.map((h) => {
+    const key = h.trim().toLowerCase();
+    return HEADER_ALIASES[key] ?? key;
+  });
+  return body
+    .filter((r) => r.some((v) => v.trim() !== ""))
+    .map((r) =>
+      Object.fromEntries(headers.map((h, i) => [h, (r[i] ?? "").trim()])),
+    );
 }
 
 export function CSVImportWizard({
@@ -25,13 +75,12 @@ export function CSVImportWizard({
   onClose: () => void;
   onComplete: () => void;
 }) {
-  const { user } = useAuth();
   const [dragActive, setDragActive] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [parsing, setParsing] = useState(false);
   const [importing, setImporting] = useState(false);
   const [result, setResult] = useState<ImportResult | null>(null);
-  const [preview, setPreview] = useState<any[]>([]);
+  const [preview, setPreview] = useState<Record<string, string>[]>([]);
 
   const handleDrag = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -71,22 +120,7 @@ export function CSVImportWizard({
 
     try {
       const text = await file.text();
-      const lines = text.split("\n").filter((line) => line.trim());
-      const headers = lines[0].split(",").map((h) => h.trim());
-
-      // Parse first 5 rows for preview
-      const previewData = lines.slice(1, 6).map((line) => {
-        const values = line.split(",").map((v) => v.trim());
-        return headers.reduce(
-          (obj, header, index) => ({
-            ...obj,
-            [header]: values[index] || "",
-          }),
-          {},
-        );
-      });
-
-      setPreview(previewData);
+      setPreview(parseRows(text).slice(0, 5));
     } catch (error) {
       console.error("Error parsing CSV:", error);
       alert("Error parsing CSV file");
@@ -96,66 +130,105 @@ export function CSVImportWizard({
   };
 
   const handleImport = async () => {
-    if (!file || !user) return;
+    if (!file) return;
 
     setImporting(true);
     const errors: string[] = [];
     let successCount = 0;
+    let skippedCount = 0;
     let failedCount = 0;
 
     try {
-      const text = await file.text();
-      const lines = text.split("\n").filter((line) => line.trim());
-      const headers = lines[0].split(",").map((h) => h.trim().toLowerCase());
+      const ctx = await getOrgContext();
+      const rows = parseRows(await file.text());
+      if (rows.length === 0) {
+        setResult({
+          success: 0,
+          skipped: 0,
+          failed: 0,
+          errors: ["The file needs a header row and at least one asset."],
+        });
+        return;
+      }
 
-      for (let i = 1; i < lines.length; i++) {
-        const values = lines[i].split(",").map((v) => v.trim());
-        const row = headers.reduce(
-          (obj, header, index) => ({
-            ...obj,
-            [header]: values[index] || "",
-          }),
-          {} as Record<string, string>,
-        );
+      // Existing names, fetched once. Matching by name within the organization
+      // is the same identity rule commit_history_import applies, so the two
+      // import paths cannot disagree about which assets already exist.
+      const { data: existingRows, error: existingErr } = await supabase
+        .from("assets")
+        .select("name")
+        .eq("organization_id", ctx.organizationId);
+      if (existingErr) throw new Error(existingErr.message);
+      const existing = new Set(
+        (existingRows ?? []).map((r) => (r.name as string).toLowerCase()),
+      );
+      const seenInFile = new Set<string>();
 
-        // Validate required fields
-        if (!row.name || !row.type) {
-          errors.push(`Row ${i + 1}: Missing required fields (name, type)`);
+      const toInsert: Record<string, string | null>[] = [];
+      rows.forEach((row, i) => {
+        const line = i + 2; // 1-based, after the header
+        if (!row.name) {
+          errors.push(`Row ${line}: missing name`);
           failedCount++;
-          continue;
+          return;
         }
-
-        try {
-          const { error } = await supabase.from("assets").insert({
-            tenant_id: user.id,
-            name: row.name,
-            type: row.type,
-            location: row.location || null,
-            criticality: row.criticality || "medium",
-            status: row.status || "operational",
-          });
-
-          if (error) {
-            errors.push(`Row ${i + 1}: ${error.message}`);
-            failedCount++;
-          } else {
-            successCount++;
-          }
-        } catch (error) {
+        const key = row.name.toLowerCase();
+        if (existing.has(key)) {
+          errors.push(`Row ${line}: "${row.name}" already exists — skipped, not duplicated`);
+          skippedCount++;
+          return;
+        }
+        if (seenInFile.has(key)) {
+          errors.push(`Row ${line}: "${row.name}" appears twice in this file — second occurrence skipped`);
+          skippedCount++;
+          return;
+        }
+        if (row.criticality && !CRITICALITIES.has(row.criticality.toLowerCase())) {
           errors.push(
-            `Row ${i + 1}: ${error instanceof Error ? error.message : "Unknown error"}`,
+            `Row ${line}: criticality "${row.criticality}" is not one of critical, high, medium, low`,
           );
           failedCount++;
+          return;
+        }
+        seenInFile.add(key);
+        toInsert.push({
+          organization_id: ctx.organizationId,
+          name: row.name,
+          tag: row.tag || null,
+          asset_class: row.asset_class || null,
+          area: row.area || null,
+          criticality: row.criticality?.toLowerCase() || "medium",
+          status: row.status || "operational",
+          manufacturer: row.manufacturer || null,
+          model: row.model || null,
+          serial_number: row.serial_number || null,
+        });
+      });
+
+      for (let i = 0; i < toInsert.length; i += 100) {
+        const chunk = toInsert.slice(i, i + 100);
+        const { error } = await supabase.from("assets").insert(chunk);
+        if (error) {
+          errors.push(`Rows ${i + 2}–${i + 1 + chunk.length}: ${error.message}`);
+          failedCount += chunk.length;
+        } else {
+          successCount += chunk.length;
         }
       }
 
-      setResult({ success: successCount, failed: failedCount, errors });
+      setResult({
+        success: successCount,
+        skipped: skippedCount,
+        failed: failedCount,
+        errors,
+      });
     } catch (error) {
       console.error("Import error:", error);
       setResult({
         success: 0,
+        skipped: 0,
         failed: 0,
-        errors: ["Failed to process CSV file"],
+        errors: [error instanceof Error ? error.message : "Failed to process CSV file"],
       });
     } finally {
       setImporting(false);
@@ -164,7 +237,10 @@ export function CSVImportWizard({
 
   const downloadTemplate = () => {
     const template =
-      "name,type,location,criticality,status\nPump P-101,Centrifugal Pump,Building A,high,operational\nMotor M-205,Electric Motor,Building B,medium,operational\nCompressor C-300,Air Compressor,Building A,critical,operational";
+      "name,tag,asset_class,area,criticality,status,manufacturer,model,serial_number\n" +
+      "Pump P-101,P-101,Centrifugal Pump,Process Building A,high,operational,,,\n" +
+      "Motor M-205,M-205,Electric Motor,Process Building B,medium,operational,,,\n" +
+      "Compressor C-300,C-300,Air Compressor,Utilities,critical,operational,,,";
     const blob = new Blob([template], { type: "text/csv" });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -221,37 +297,65 @@ export function CSVImportWizard({
                       <span>Download CSV Template</span>
                     </button>
                     <div className="mt-4 text-sm text-slate-400">
-                      <p className="font-medium mb-2">Required columns:</p>
+                      <p className="font-medium mb-2">Columns:</p>
                       <ul className="list-disc list-inside space-y-1 text-gray-500">
                         <li>
                           <code className="bg-white/6 px-1 py-0.5 rounded-sm">
                             name
                           </code>{" "}
-                          - Asset name
+                          - Asset name (required; re-imports match on it, so an
+                          existing name is skipped rather than duplicated)
                         </li>
                         <li>
+                          <code className="bg-white/6 px-1 py-0.5 rounded-sm">
+                            tag
+                          </code>{" "}
+                          - Your tag number (optional)
+                        </li>
+                        <li>
+                          <code className="bg-white/6 px-1 py-0.5 rounded-sm">
+                            asset_class
+                          </code>{" "}
+                          - e.g. Centrifugal Pump (optional;{" "}
                           <code className="bg-white/6 px-1 py-0.5 rounded-sm">
                             type
                           </code>{" "}
-                          - Asset type (e.g., Pump, Motor)
+                          from the old template still works)
                         </li>
                         <li>
                           <code className="bg-white/6 px-1 py-0.5 rounded-sm">
+                            area
+                          </code>{" "}
+                          - Physical location (optional;{" "}
+                          <code className="bg-white/6 px-1 py-0.5 rounded-sm">
                             location
                           </code>{" "}
-                          - Physical location (optional)
+                          still works)
                         </li>
                         <li>
                           <code className="bg-white/6 px-1 py-0.5 rounded-sm">
                             criticality
                           </code>{" "}
-                          - low, medium, high, critical (optional)
+                          - low, medium, high, critical (optional, default
+                          medium)
                         </li>
                         <li>
                           <code className="bg-white/6 px-1 py-0.5 rounded-sm">
                             status
+                          </code>
+                          ,{" "}
+                          <code className="bg-white/6 px-1 py-0.5 rounded-sm">
+                            manufacturer
+                          </code>
+                          ,{" "}
+                          <code className="bg-white/6 px-1 py-0.5 rounded-sm">
+                            model
+                          </code>
+                          ,{" "}
+                          <code className="bg-white/6 px-1 py-0.5 rounded-sm">
+                            serial_number
                           </code>{" "}
-                          - operational, maintenance, offline (optional)
+                          - optional
                         </li>
                       </ul>
                     </div>
@@ -348,7 +452,7 @@ export function CSVImportWizard({
                             <tbody className="bg-industrial-graphite divide-y divide-gray-200">
                               {preview.map((row, idx) => (
                                 <tr key={idx}>
-                                  {Object.values(row).map((val: any, i) => (
+                                  {Object.values(row).map((val, i) => (
                                     <td
                                       key={i}
                                       className="px-4 py-2 text-sm text-industrial-text"
@@ -433,7 +537,9 @@ export function CSVImportWizard({
                           : "text-yellow-700"
                       }`}
                     >
-                      {result.success} assets imported successfully
+                      {result.success} assets imported
+                      {result.skipped > 0 &&
+                        `, ${result.skipped} skipped as already existing`}
                       {result.failed > 0 && `, ${result.failed} failed`}
                     </p>
                   </div>
@@ -442,7 +548,7 @@ export function CSVImportWizard({
                 {result.errors.length > 0 && (
                   <div className="mt-4">
                     <p className="text-sm font-medium text-yellow-900 mb-2">
-                      Errors:
+                      Row details — skipped and refused rows, with reasons:
                     </p>
                     <div className="bg-industrial-graphite rounded-lg p-4 max-h-48 overflow-y-auto">
                       <ul className="space-y-1 text-sm text-yellow-800">
