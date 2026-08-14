@@ -8,6 +8,7 @@
  */
 import { useEffect, useMemo, useState } from "react";
 import { FleetHistoryImport } from "../components/FleetHistoryImport";
+import { MaintenancePlanImport } from "../components/MaintenancePlanImport";
 import { ScopingAnalysis } from "../components/ScopingAnalysis";
 import {
   Bot,
@@ -284,6 +285,7 @@ export function AssetOnboardingHub() {
         <EmptyState message="No assets in onboarding yet — add an asset to the register and it will onboard itself automatically, or import a fleet's history below." />
         <ScopingAnalysis />
         <FleetHistoryImport />
+        <MaintenancePlanImport />
       </div>
     );
 
