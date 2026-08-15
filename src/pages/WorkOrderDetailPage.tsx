@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
+import { WorkOrderPlanningPanel } from "../components/WorkOrderPlanningPanel";
 import { AgentErrorBoundary } from "../components/AgentErrorBoundary";
 import { WorkOrderCloseoutModal } from "../components/WorkOrderCloseoutModal";
 import {
@@ -890,9 +891,21 @@ export function WorkOrderDetailPage() {
               {tasks.length}
             </span>
           </div>
+          {workOrderId && (
+            <div className="mb-4">
+              <WorkOrderPlanningPanel
+                workOrderId={workOrderId}
+                assetId={workOrder?.asset_id ?? null}
+                safetyFlag={Boolean(workOrder?.safety_flag)}
+                tasks={tasks}
+                onChanged={() => loadWorkOrderData(workOrderId)}
+              />
+            </div>
+          )}
           {tasks.length === 0 ? (
             <p className="text-slate-400 text-sm">
-              No tasks for this work order.
+              No tasks for this work order. Apply an adopted job plan above to
+              bring its steps, estimates and material demand with it.
             </p>
           ) : (
             <div className="space-y-2">
