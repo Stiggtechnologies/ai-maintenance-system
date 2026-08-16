@@ -10,17 +10,26 @@
  * equipment sits in neither party's hands while each assumes the other owns
  * it. Closing that out silently is how it stays invisible.
  *
+ * Until now this panel could only READ that state, and nothing could produce
+ * it: release_equipment was wired without return_equipment or accept_equipment,
+ * so the first release made through the product stranded the asset — a second
+ * release is refused while a prior one is open. Both sides are now actionable
+ * here, and the refusals are shown in the database's own words.
+ *
  * Production loss is measured against the rate each asset actually
  * demonstrated while running, never nameplate. Nameplate overstates loss
  * systematically, and an overstated loss is a number that will not survive
  * the meeting where it matters.
  */
 import { HandCoins, ArrowLeftRight, Hourglass } from "lucide-react";
+import { useState } from "react";
 import { useAsyncData } from "../hooks/useAsyncData";
 import { supabase } from "../lib/supabase";
 import { LoadingState, ErrorState } from "./ui/AsyncStates";
 
 interface Release {
+  release_id: string;
+  asset_id: string;
   asset: string;
   status: string;
   released_at: string;
@@ -28,6 +37,10 @@ interface Release {
   isolation_confirmed: boolean;
   hours_out_of_service: number;
   awaiting_acceptance: boolean;
+  /** The person who returned it cannot accept it — segregation of duties,
+   *  enforced in accept_equipment. Surfaced so the panel can explain the
+   *  refusal before it happens rather than after. */
+  returned_by_me: boolean;
 }
 
 interface LossRow {
@@ -60,6 +73,41 @@ export function OpsCoordination() {
     return r as Payload;
   }, []);
 
+  const [flash, setFlash] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  // Both RPCs answer a refusal as {error} rather than throwing, and those
+  // sentences are the point — "segregation of duties: the person who returned
+  // the equipment cannot also accept it" tells an operator what to do next in
+  // a way a generic failure toast never could.
+  const act = async (fn: string, assetId: string, prompt: string) => {
+    const note = window.prompt(prompt);
+    if (!note) return;
+    setBusy(true);
+    try {
+      const { data: r, error: e } = await supabase.rpc(fn, {
+        p_asset_id: assetId,
+        p_note: note,
+      });
+      if (e) throw new Error(e.message);
+      const result = r as { error?: string } | null;
+      if (result?.error) {
+        setFlash(result.error);
+        return;
+      }
+      setFlash(
+        fn === "return_equipment"
+          ? "Returned to operations. It is not back in service until operations accepts it."
+          : "Accepted back into service.",
+      );
+      refetch();
+    } catch (err) {
+      setFlash(err instanceof Error ? err.message : "That did not work.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   if (loading) return <LoadingState label="Loading operations coordination" />;
   if (error) return <ErrorState message={error} onRetry={refetch} />;
 
@@ -85,6 +133,15 @@ export function OpsCoordination() {
         <p className="mt-1 max-w-3xl text-sm text-slate-300">{data?.note}</p>
       </div>
 
+      {flash && (
+        <p
+          role="status"
+          className="rounded-xl border border-white/10 bg-overlook-deep/60 px-4 py-3 text-sm text-slate-300"
+        >
+          {flash}
+        </p>
+      )}
+
       {releases.length === 0 ? (
         <p className="rounded-xl border border-white/6 bg-white/2 p-4 text-sm text-slate-400">
           No equipment is currently released to maintenance. A release is an
@@ -95,7 +152,7 @@ export function OpsCoordination() {
         <ul className="space-y-2">
           {releases.map((r) => (
             <li
-              key={`${r.asset}-${r.released_at}`}
+              key={r.release_id}
               className={`rounded-xl border p-3.5 ${
                 r.awaiting_acceptance
                   ? "border-amber-500/30 bg-amber-500/5"
@@ -123,6 +180,47 @@ export function OpsCoordination() {
                   ? "isolation confirmed"
                   : "no isolation recorded"}
               </p>
+              <div className="mt-2.5 flex flex-wrap items-center gap-2">
+                {r.awaiting_acceptance ? (
+                  <>
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() =>
+                        void act(
+                          "accept_equipment",
+                          r.asset_id,
+                          "Accepting this equipment back into service. Record what was confirmed (10 characters minimum):",
+                        )
+                      }
+                      className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-2.5 py-1.5 text-xs text-emerald-300 disabled:opacity-50"
+                    >
+                      Accept back into service
+                    </button>
+                    {r.returned_by_me && (
+                      <span className="text-xs text-slate-500">
+                        You returned this one — someone else in operations must
+                        accept it.
+                      </span>
+                    )}
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() =>
+                      void act(
+                        "return_equipment",
+                        r.asset_id,
+                        "Returning this equipment to operations. Record the condition it is being handed back in (10 characters minimum):",
+                      )
+                    }
+                    className="rounded-lg border border-white/10 px-2.5 py-1.5 text-xs text-slate-300 disabled:opacity-50"
+                  >
+                    Return to operations
+                  </button>
+                )}
+              </div>
             </li>
           ))}
         </ul>
