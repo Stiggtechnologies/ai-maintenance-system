@@ -21,6 +21,10 @@ import {
   Plus,
   Search,
   Send,
+  Paperclip,
+  Mic,
+  MicOff,
+  X as XIcon,
   ShieldCheck,
   Sparkles,
   Target,
@@ -30,6 +34,13 @@ import {
   Workflow,
   XCircle,
 } from "lucide-react";
+import {
+  profileAttachment,
+  formatAttachmentForMessage,
+  isRefusal,
+  type AttachmentProfile,
+} from "../lib/composer-attachment";
+import { useDictation } from "../hooks/useDictation";
 import { PublicProductHeader } from "../components/PublicProductHeader";
 import { MarkdownRenderer } from "../components/MarkdownRenderer";
 import {
@@ -205,6 +216,12 @@ export function DecisionCaseWorkspacePage({
   const [mobileView, setMobileView] = useState<MobileView>("case");
   const [role, setRole] = useState(context.role || industryPack.roles[0]);
   const [composer, setComposer] = useState("");
+  const [attachment, setAttachment] = useState<AttachmentProfile | null>(null);
+  const [attachmentError, setAttachmentError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const dictation = useDictation((text) =>
+    setComposer((prev) => (prev ? `${prev} ${text}` : text)),
+  );
   const [comment, setComment] = useState("");
   const [replying, setReplying] = useState(false);
   const [evidence, setEvidence] = useState<DecisionEvidence | null>(null);
@@ -355,8 +372,27 @@ export function DecisionCaseWorkspacePage({
     }
   };
 
+  const handleAttach = async (file: File | undefined) => {
+    if (!file) return;
+    setAttachmentError(null);
+    const result = await profileAttachment(file);
+    if (isRefusal(result)) {
+      setAttachment(null);
+      setAttachmentError(result.error);
+      return;
+    }
+    setAttachment(result);
+  };
+
   const sendMessage = async (suggestion?: string) => {
-    const text = (suggestion || composer).trim();
+    const typed = (suggestion || composer).trim();
+    // The attachment profile is prepended rather than hidden, so the message
+    // in the transcript is exactly what was sent — the person can audit it.
+    const text = attachment
+      ? [formatAttachmentForMessage(attachment), typed]
+          .filter(Boolean)
+          .join("\n\n")
+      : typed;
     if (!text || replying) return;
     if (
       active.billingMode === "paused" ||
@@ -385,6 +421,8 @@ export function DecisionCaseWorkspacePage({
         current.tokensUsed + Math.max(50, Math.ceil(text.length / 3.7)),
     }));
     setComposer("");
+    setAttachment(null);
+    setAttachmentError(null);
     setReplying(true);
     try {
       const response = await askDecisionCase(requestCase, text, {
@@ -997,7 +1035,82 @@ export function DecisionCaseWorkspacePage({
                     Review authority gate
                   </button>
                 </div>
+                {attachment && (
+                  <div className="dw-attach-chip">
+                    <Paperclip size={13} />
+                    <span className="dw-attach-name">{attachment.name}</span>
+                    <span className="dw-attach-meta">
+                      {attachment.rowCount.toLocaleString()} rows ×{" "}
+                      {attachment.headers.length} cols · column names and{" "}
+                      {attachment.sampleRows.length} sample rows will be
+                      included
+                    </span>
+                    <button
+                      type="button"
+                      title="Remove attachment"
+                      onClick={() => setAttachment(null)}
+                    >
+                      <XIcon size={13} />
+                    </button>
+                  </div>
+                )}
+                {(attachmentError || dictation.error) && (
+                  <div className="dw-attach-error" role="status">
+                    {attachmentError || dictation.error}
+                  </div>
+                )}
                 <div className="dw-composer">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".csv,.tsv,.txt,.log"
+                    className="dw-file-input"
+                    aria-label="Attach a data file"
+                    onChange={(event) => {
+                      void handleAttach(event.target.files?.[0]);
+                      event.target.value = "";
+                    }}
+                  />
+                  <button
+                    type="button"
+                    className="dw-composer-tool"
+                    title="Attach a CSV — parsed in your browser, not uploaded"
+                    aria-label="Attach a data file"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    <Paperclip size={16} />
+                  </button>
+                  <button
+                    type="button"
+                    className={`dw-composer-tool ${dictation.listening ? "is-live" : ""}`}
+                    title={
+                      dictation.supported
+                        ? dictation.listening
+                          ? "Stop dictation"
+                          : "Dictate — runs in your browser"
+                        : "This browser has no speech recognition"
+                    }
+                    aria-label={
+                      dictation.listening
+                        ? "Stop dictation"
+                        : "Dictate a message"
+                    }
+                    aria-pressed={dictation.listening}
+                    disabled={!dictation.supported}
+                    onClick={() =>
+                      dictation.listening ? dictation.stop() : dictation.start()
+                    }
+                  >
+                    {dictation.supported ? (
+                      dictation.listening ? (
+                        <Mic size={16} />
+                      ) : (
+                        <Mic size={16} />
+                      )
+                    ) : (
+                      <MicOff size={16} />
+                    )}
+                  </button>
                   <textarea
                     value={composer}
                     onChange={(event) => setComposer(event.target.value)}
@@ -1013,7 +1126,7 @@ export function DecisionCaseWorkspacePage({
                   <button
                     type="button"
                     title="Send message"
-                    disabled={!composer.trim() || replying}
+                    disabled={(!composer.trim() && !attachment) || replying}
                     onClick={() => void sendMessage()}
                   >
                     <Send size={17} />

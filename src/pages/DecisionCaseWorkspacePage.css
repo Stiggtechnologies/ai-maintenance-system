@@ -2326,3 +2326,107 @@
     animation: none;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   Composer tools — attach and dictate.
+   Both run in the browser: the CSV is parsed in the page and the speech engine
+   is the browser's own, which is what lets the composer footer keep promising
+   that data stays in this tab.
+   --------------------------------------------------------------------------- */
+.dw-file-input {
+  display: none;
+}
+.dw-composer-tool {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 34px;
+  min-height: 34px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: #8fa3b3;
+  cursor: pointer;
+  transition:
+    color 0.15s ease,
+    background 0.15s ease,
+    border-color 0.15s ease;
+}
+.dw-composer-tool:hover:not(:disabled) {
+  color: #d7e3ec;
+  background: rgba(255, 255, 255, 0.05);
+}
+.dw-composer-tool:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.dw-composer-tool.is-live {
+  color: #f7768e;
+  border-color: rgba(247, 118, 142, 0.4);
+  background: rgba(247, 118, 142, 0.1);
+  animation: dw-mic-pulse 1.6s ease-in-out infinite;
+}
+@keyframes dw-mic-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dw-composer-tool.is-live {
+    animation: none;
+  }
+}
+
+.dw-attach-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 7px;
+  padding: 7px 10px;
+  border: 1px solid #35434e;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  font-size: 12px;
+  color: #c6d3dd;
+}
+.dw-attach-name {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 40%;
+}
+.dw-attach-meta {
+  color: #8fa3b3;
+  flex: 1;
+  min-width: 0;
+}
+.dw-attach-chip button {
+  border: none;
+  background: transparent;
+  color: #8fa3b3;
+  cursor: pointer;
+  display: inline-flex;
+  min-width: 24px;
+  min-height: 24px;
+  align-items: center;
+  justify-content: center;
+}
+.dw-attach-chip button:hover {
+  color: #d7e3ec;
+}
+
+.dw-attach-error {
+  margin-bottom: 7px;
+  padding: 8px 10px;
+  border: 1px solid rgba(224, 175, 104, 0.35);
+  border-radius: 8px;
+  background: rgba(224, 175, 104, 0.08);
+  font-size: 12px;
+  line-height: 1.5;
+  color: #e6c48c;
+}
