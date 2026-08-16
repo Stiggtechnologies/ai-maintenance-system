@@ -33,7 +33,11 @@ export interface KpiRow {
   computable: boolean;
   source_note: string | null;
   value: number | null;
-  status: "on_target" | "watch" | "breach" | null;
+  /** "not_assessed" = computed and real, but the KPI has no threshold to be
+   *  judged against (a trend target such as "Decrease"). Never rendered green:
+   *  an unmeasured number shown as success is the failure this platform
+   *  refuses elsewhere. See migration 20260908090000. */
+  status: "on_target" | "watch" | "breach" | "not_assessed" | null;
   variance_pct: number | null;
   confidence: "high" | "medium" | "low" | null;
   computed_from: { source?: string } | null;
