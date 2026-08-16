@@ -49,6 +49,10 @@ const STATUS_STYLE: Record<string, string> = {
   on_target: "bg-green-500/10 text-green-300 border-green-500/30",
   watch: "bg-amber-500/10 text-amber-300 border-amber-500/30",
   breach: "bg-red-500/10 text-red-300 border-red-500/30",
+  // Deliberately neutral, never green: the value is real but no threshold
+  // exists to call it a pass. See 20260908090000 — an unmeasured number shown
+  // as success is the failure this platform refuses everywhere else.
+  not_assessed: "bg-white/5 text-slate-400 border-white/10",
 };
 
 const HEADLINE_KEYS = [
@@ -72,7 +76,9 @@ function KpiCard({ row }: { row: KpiRow }) {
               ? "On target"
               : row.status === "watch"
                 ? "Watch"
-                : "Breach"}
+                : row.status === "not_assessed"
+                  ? "No target — trend only"
+                  : "Breach"}
           </span>
         ) : (
           <span className="rounded-full border border-slate-600 bg-slate-800/60 px-2 py-0.5 text-xs text-slate-400 whitespace-nowrap">
