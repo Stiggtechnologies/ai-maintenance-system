@@ -101,7 +101,6 @@ const navGroups: NavGroup[] = [
     icon: Bot,
     items: [
       { id: "ai-workforce", label: "AI Agents", path: "/ai-workforce" },
-      { id: "autonomy", label: "Autonomy Control", path: "/autonomy" },
       {
         id: "autonomy-maturity",
         label: "Autonomy Maturity",
@@ -133,11 +132,6 @@ const navGroups: NavGroup[] = [
     items: [
       { id: "work", label: "Work Action Board", path: "/work" },
       { id: "notifications", label: "Notifications", path: "/notifications" },
-      {
-        id: "scenario-simulator",
-        label: "Scenario Simulator",
-        path: "/scenarios",
-      },
       { id: "briefing", label: "Operational Briefing", path: "/briefing" },
       { id: "playbooks", label: "Playbooks", path: "/playbooks" },
       { id: "emergency", label: "Emergency Mode", path: "/emergency" },
