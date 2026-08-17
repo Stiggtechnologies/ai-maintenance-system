@@ -64,13 +64,6 @@ const allResults: SearchResult[] = [
     icon: Bot,
   },
   {
-    id: "au",
-    label: "Autonomy Control",
-    path: "/autonomy",
-    category: "AI Workforce",
-    icon: Bot,
-  },
-  {
     id: "am",
     label: "Autonomy Maturity",
     path: "/autonomy-maturity",
@@ -116,13 +109,6 @@ const allResults: SearchResult[] = [
     id: "wa",
     label: "Work Action Board",
     path: "/work",
-    category: "Work & Execution",
-    icon: Wrench,
-  },
-  {
-    id: "sc",
-    label: "Scenario Simulator",
-    path: "/scenarios",
     category: "Work & Execution",
     icon: Wrench,
   },
