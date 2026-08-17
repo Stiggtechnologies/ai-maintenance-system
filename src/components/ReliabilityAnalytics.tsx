@@ -63,7 +63,14 @@ interface UnitAnalysis {
   crow: CrowAmsaaFit | null;
   weibull: WeibullFit | null;
   weibullNote: string;
-  topModes: Array<{ key: string; value: number; cumulativeShare: number }>;
+  /**
+   * Ranked raw labels from the CMMS downtime-coding vocabulary: system groups,
+   * activity types and delay reasons. They are not failure mechanisms — the
+   * coded mechanism stays null until a person puts one there (see the
+   * failure_coding migration) — so nothing derived from them may be presented
+   * as a failure-mode ranking.
+   */
+  topCodes: Array<{ key: string; value: number; cumulativeShare: number }>;
 }
 
 function analyzeUnit(rows: WoRow[]): UnitAnalysis | null {
@@ -101,19 +108,23 @@ function analyzeUnit(rows: WoRow[]): UnitAnalysis | null {
   let weibull: WeibullFit | null = null;
   let weibullNote: string;
   try {
+    // Every interval handed to the estimator ends in a failure, and the time
+    // elapsed since the last event is not supplied as a suspension, so this is
+    // an uncensored fit. weibullMLE does accept right-censored units; calling
+    // the result censored when none were passed would overstate the method.
     weibull = weibullMLE(inter);
-    weibullNote = `${inter.length} inter-arrival intervals from ${rows.length} events (same-shift events collapse at daily granularity)`;
+    weibullNote = `${inter.length} inter-arrival intervals from ${rows.length} events (same-shift events collapse at daily granularity); failures only, so the fit is uncensored`;
   } catch (e) {
     weibullNote = e instanceof Error ? e.message : "insufficient data";
   }
 
-  const byMode = new Map<string, number>();
+  const byCode = new Map<string, number>();
   for (const r of rows) {
     const k = r.actual_failure_mode ?? "Uncoded";
-    byMode.set(k, (byMode.get(k) ?? 0) + r.downtime_hours);
+    byCode.set(k, (byCode.get(k) ?? 0) + r.downtime_hours);
   }
-  const topModes = pareto(
-    [...byMode.entries()].map(([key, value]) => ({ key, value })),
+  const topCodes = pareto(
+    [...byCode.entries()].map(([key, value]) => ({ key, value })),
   ).slice(0, 5);
 
   return {
@@ -123,7 +134,7 @@ function analyzeUnit(rows: WoRow[]): UnitAnalysis | null {
     crow,
     weibull,
     weibullNote,
-    topModes,
+    topCodes,
   };
 }
 
@@ -197,9 +208,10 @@ export function ReliabilityAnalytics() {
             Reliability Analytics — validated engine
           </h2>
           <p className="mt-1 text-sm text-slate-300">
-            Weibull (censored MLE), Crow-AMSAA growth, and failure-mode Pareto
-            computed deterministically from coded work-order history —
-            unit-tested code, no generative math.
+            Weibull inter-arrival MLE (failures only, no suspensions),
+            Crow-AMSAA growth, and a downtime-code Pareto computed
+            deterministically from work-order history — unit-tested code, no
+            generative math.
           </p>
         </div>
         <select
@@ -222,6 +234,11 @@ export function ReliabilityAnalytics() {
             <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-400">
               Repairable summary
             </h3>
+            <p className="mt-1 text-xs text-slate-500">
+              Basis: first-to-last corrective completion for this unit, plus one
+              day so a same-day span is still a window. Not the full service
+              record.
+            </p>
             {analysis.summary ? (
               <dl className="mt-2 space-y-1.5 text-sm">
                 <div className="flex justify-between">
@@ -323,10 +340,15 @@ export function ReliabilityAnalytics() {
 
           <div className="rounded-xl border border-white/6 bg-overlook-deep/40 p-4 lg:col-span-3">
             <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-              Failure-mode Pareto (downtime hours)
+              Downtime-code Pareto (hours by source label)
             </h3>
+            <p className="mt-1 text-xs text-slate-500">
+              Labels from the CMMS downtime-coding vocabulary — system groups,
+              activity types and delay reasons. Not failure mechanisms: those
+              stay null until a person codes them.
+            </p>
             <ul className="mt-2 space-y-1.5">
-              {analysis.topModes.map((m) => (
+              {analysis.topCodes.map((m) => (
                 <li key={String(m.key)} className="flex items-center gap-3">
                   <span className="w-44 truncate text-sm text-slate-300">
                     {String(m.key)}
@@ -335,7 +357,7 @@ export function ReliabilityAnalytics() {
                     <div
                       className="h-full rounded-full bg-signal-gold/70"
                       style={{
-                        width: `${Math.max(2, (m.value / analysis.topModes[0].value) * 100)}%`,
+                        width: `${Math.max(2, (m.value / analysis.topCodes[0].value) * 100)}%`,
                       }}
                     />
                   </div>

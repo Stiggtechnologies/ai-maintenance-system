@@ -153,7 +153,6 @@ const navGroups: NavGroup[] = [
         label: "Executive Intelligence",
         path: "/executive",
       },
-      { id: "performance", label: "Performance", path: "/performance" },
       { id: "oee", label: "OEE Dashboard", path: "/oee" },
       { id: "learning-loop", label: "Learning Loop", path: "/learning-loop" },
       { id: "value", label: "Value Realization", path: "/value" },

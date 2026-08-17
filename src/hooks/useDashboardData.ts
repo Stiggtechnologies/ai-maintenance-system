@@ -274,31 +274,3 @@ export function useAutonomousDecisionStats() {
 
   return { data, loading, error, reload: load };
 }
-
-export function useMaintenanceMetrics() {
-  const [data, setData] =
-    useState<
-      Awaited<ReturnType<typeof dashboardServices.getMaintenanceMetrics>>
-    >(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
-
-  const load = useCallback(async () => {
-    try {
-      setLoading(true);
-      const metrics = await dashboardServices.getMaintenanceMetrics();
-      setData(metrics);
-      setError(null);
-    } catch (err) {
-      setError(err as Error);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    load();
-  }, [load]);
-
-  return { data, loading, error, reload: load };
-}
