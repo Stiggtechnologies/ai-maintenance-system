@@ -24,6 +24,7 @@ import { useAsyncData } from "../hooks/useAsyncData";
 import { useRealtimeRefetch } from "../hooks/useRealtimeRefetch";
 import { LiveBadge } from "../components/ui/LiveBadge";
 import { ValueManagement } from "../components/ValueManagement";
+import { EnvironmentalPerformance } from "../components/EnvironmentalPerformance";
 import {
   getKpiDashboard,
   formatKpiValue,
@@ -55,6 +56,36 @@ const STATUS_STYLE: Record<string, string> = {
   not_assessed: "bg-white/5 text-slate-400 border-white/10",
 };
 
+const STATUS_LABEL: Record<string, string> = {
+  on_target: "On target",
+  watch: "Watch",
+  breach: "Breach",
+  not_assessed: "No target — trend only",
+};
+
+/** No status at all — the snapshot reached no verdict on this KPI. */
+const NO_STATUS_STYLE = "bg-slate-800/60 text-slate-400 border-slate-600";
+
+/**
+ * One status vocabulary for every surface on this page.
+ *
+ * A null status is weaker than `not_assessed`: nothing was computed, so there
+ * is nothing to judge. The headline strip used to substitute `on_target` for
+ * that case, which put an unmeasured KPI in the same green tile as a genuine
+ * pass — the failure 20260908090000 took out of the database while the most
+ * prominent tiles on the page kept it. An unrecognised status resolves the
+ * same neutral way, so a status added server-side can never arrive as a pass
+ * before this file has been taught what it means.
+ */
+function statusPresentation(status: KpiRow["status"]): {
+  className: string;
+  label: string;
+} {
+  if (!status || !STATUS_STYLE[status])
+    return { className: NO_STATUS_STYLE, label: "Awaiting source" };
+  return { className: STATUS_STYLE[status], label: STATUS_LABEL[status] };
+}
+
 const HEADLINE_KEYS = [
   "asset_value_realization",
   "oee",
@@ -64,27 +95,16 @@ const HEADLINE_KEYS = [
 ];
 
 function KpiCard({ row }: { row: KpiRow }) {
+  const status = statusPresentation(row.status);
   return (
     <div className="rounded-xl border border-white/6 bg-white/2 p-4">
       <div className="flex items-start justify-between gap-2">
         <p className="text-sm font-medium text-slate-200">{row.name}</p>
-        {row.status ? (
-          <span
-            className={`rounded-full border px-2 py-0.5 text-xs whitespace-nowrap ${STATUS_STYLE[row.status]}`}
-          >
-            {row.status === "on_target"
-              ? "On target"
-              : row.status === "watch"
-                ? "Watch"
-                : row.status === "not_assessed"
-                  ? "No target — trend only"
-                  : "Breach"}
-          </span>
-        ) : (
-          <span className="rounded-full border border-slate-600 bg-slate-800/60 px-2 py-0.5 text-xs text-slate-400 whitespace-nowrap">
-            Awaiting source
-          </span>
-        )}
+        <span
+          className={`rounded-full border px-2 py-0.5 text-xs whitespace-nowrap ${status.className}`}
+        >
+          {status.label}
+        </span>
       </div>
 
       <div className="mt-2 flex items-baseline gap-2">
@@ -203,27 +223,37 @@ export function ExecutiveIntelligence() {
       {/* Headline strip: Value · OEE · Risk · Cost · AI */}
       {headline.length > 0 && (
         <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
-          {headline.map((row) => (
-            <div
-              key={row.kpi_key}
-              className={`rounded-xl border p-4 ${STATUS_STYLE[row.status ?? "on_target"] ?? "border-white/6"}`}
-            >
-              <div className="flex items-center gap-1.5 text-xs text-slate-300">
-                {row.kpi_key === "oee" ? (
-                  <Gauge className="h-3.5 w-3.5" aria-hidden />
-                ) : (
-                  <Sparkles className="h-3.5 w-3.5" aria-hidden />
-                )}
-                {row.name}
+          {headline.map((row) => {
+            const status = statusPresentation(row.status);
+            return (
+              <div
+                key={row.kpi_key}
+                data-testid={`headline-kpi-${row.kpi_key}`}
+                className={`rounded-xl border p-4 ${status.className}`}
+              >
+                <div className="flex items-center gap-1.5 text-xs text-slate-300">
+                  {row.kpi_key === "oee" ? (
+                    <Gauge className="h-3.5 w-3.5" aria-hidden />
+                  ) : (
+                    <Sparkles className="h-3.5 w-3.5" aria-hidden />
+                  )}
+                  {row.name}
+                </div>
+                <p className="mt-1 text-2xl font-bold text-white">
+                  {formatKpiValue(row)}
+                </p>
+                <p className="text-xs text-slate-400">
+                  target {row.target_label}
+                </p>
+                {/* The tile inherits its status colour from the wrapper, so
+                    without this line the strip states a verdict in colour
+                    alone — unreadable to a colour-blind reader and silent
+                    about which KPIs were never judged. The cards below say it
+                    in words; the headline says it in the same words. */}
+                <p className="mt-1 text-xs font-medium">{status.label}</p>
               </div>
-              <p className="mt-1 text-2xl font-bold text-white">
-                {formatKpiValue(row)}
-              </p>
-              <p className="text-xs text-slate-400">
-                target {row.target_label}
-              </p>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -251,6 +281,11 @@ export function ExecutiveIntelligence() {
       <SegmentedReliability />
       <AccountabilityCascade />
       <ValueManagement />
+      {/* Environmental performance moved here when the fabricated /performance
+          dashboard was deleted: it was the only sourced panel on that page, it
+          reads its own RPCs, and the Sustainability & ESG KPI section above is
+          the half of E10 this page already carried. */}
+      <EnvironmentalPerformance />
     </div>
   );
 }

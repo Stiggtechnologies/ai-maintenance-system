@@ -1,3 +1,14 @@
+/**
+ * Reliability — the department surface, assembled only from panels that can
+ * show where their numbers came from.
+ *
+ * Every figure below is either computed by the validated engines in
+ * src/lib/reliability from the customer's own work-order history, or derived
+ * from persisted asset-onboarding sessions. Nothing here is illustrative. A
+ * fleet MTBF, a bad-actor repair cost or an RCA owner that no query can
+ * produce is indistinguishable, to the person reading the screen, from one
+ * that can — and this product is sold on the difference.
+ */
 import { useState } from "react";
 import { ReliabilityAnalytics } from "../components/ReliabilityAnalytics";
 import { ModellingStudio } from "../components/ModellingStudio";
@@ -9,144 +20,16 @@ import { LifecycleDecisions } from "../components/LifecycleDecisions";
 import { IntervalOptimization } from "../components/IntervalOptimization";
 import { useNavigate } from "react-router-dom";
 import {
-  TrendingUp,
-  TrendingDown,
   TriangleAlert as AlertTriangle,
   Activity,
-  Search,
-  ChevronRight,
-  Zap,
   ChartBar as BarChart2,
-  Clock,
   Layers,
 } from "lucide-react";
-import { motion } from "framer-motion";
 import { useOnboardingOperatingLoop } from "../hooks/useOnboardingOperatingLoop";
-
-const badActors = [
-  {
-    id: "ba1",
-    asset: "Conveyor C-22",
-    failures: 4,
-    period: "12 months",
-    mtbf: "68 days",
-    cost: "$340K",
-    trend: "worsening",
-    rcaStatus: "In Progress",
-  },
-  {
-    id: "ba2",
-    asset: "Pump P-101",
-    failures: 3,
-    period: "12 months",
-    mtbf: "94 days",
-    cost: "$180K",
-    trend: "stable",
-    rcaStatus: "Completed",
-  },
-  {
-    id: "ba3",
-    asset: "Compressor K-05",
-    failures: 2,
-    period: "6 months",
-    mtbf: "74 days",
-    cost: "$290K",
-    trend: "worsening",
-    rcaStatus: "Open",
-  },
-  {
-    id: "ba4",
-    asset: "Motor M-14",
-    failures: 2,
-    period: "12 months",
-    mtbf: "142 days",
-    cost: "$95K",
-    trend: "stable",
-    rcaStatus: "Completed",
-  },
-];
-
-const openRCAs = [
-  {
-    id: "r1",
-    asset: "Conveyor C-22",
-    title: "Repeated bearing failure — root cause investigation",
-    status: "in_progress",
-    daysOpen: 8,
-    owner: "R. Smith",
-    priority: "High",
-  },
-  {
-    id: "r2",
-    asset: "Compressor K-05",
-    title: "Temperature exceedance — contributing factors",
-    status: "open",
-    daysOpen: 3,
-    owner: "K. Patel",
-    priority: "Medium",
-  },
-  {
-    id: "r3",
-    asset: "Pump P-101",
-    title: "Seal failure recurrence analysis",
-    status: "completed",
-    daysOpen: 0,
-    owner: "J. Lee",
-    priority: "High",
-  },
-];
-
-const reliabilityMetrics = [
-  {
-    label: "Fleet MTBF",
-    value: "2,847 hr",
-    trend: "+142 hr",
-    up: true,
-    note: "vs 2,705 hr last period",
-  },
-  {
-    label: "Fleet MTTR",
-    value: "4.2 hr",
-    trend: "-0.8 hr",
-    up: true,
-    note: "vs 5.0 hr last period",
-  },
-  {
-    label: "PM Effectiveness",
-    value: "83%",
-    trend: "+5%",
-    up: true,
-    note: "failures prevented by PM",
-  },
-  {
-    label: "Bad Actors",
-    value: "7 assets",
-    trend: "-1",
-    up: true,
-    note: "eliminated 1 this period",
-  },
-  {
-    label: "Repeated Failures",
-    value: "4",
-    trend: "-2",
-    up: true,
-    note: "vs 6 last period",
-  },
-  {
-    label: "Reliability Growth",
-    value: "+12%",
-    trend: "+4%",
-    up: true,
-    note: "MTBF improvement YOY",
-  },
-];
 
 export function Reliability() {
   const navigate = useNavigate();
-  const [tab, setTab] = useState<"bad-actors" | "rca" | "fmea" | "pm">(
-    "bad-actors",
-  );
-  const [search, setSearch] = useState("");
+  const [tab, setTab] = useState<"rca" | "fmea" | "pm">("rca");
   const { reliability } = useOnboardingOperatingLoop();
   const onboardingPmBlockers = reliability.filter(
     (item) => item.pmOptimizationBlockers.length > 0,
@@ -178,37 +61,10 @@ export function Reliability() {
 
       <CaEffectivenessPanel />
 
-      {/* Metrics */}
-      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
-        {reliabilityMetrics.map((m) => (
-          <div
-            key={m.label}
-            className="bg-[#0D1520] border border-white/6 rounded-xl p-4"
-          >
-            <div className="text-xs text-slate-400 mb-1 leading-tight">
-              {m.label}
-            </div>
-            <div className="text-lg font-black text-teal-400">{m.value}</div>
-            <div
-              className={`flex items-center gap-1 text-xs mt-1 ${m.up ? "text-teal-400" : "text-amber-400"}`}
-            >
-              {m.up ? (
-                <TrendingUp className="w-3 h-3" />
-              ) : (
-                <TrendingDown className="w-3 h-3" />
-              )}
-              {m.trend}
-            </div>
-            <div className="text-xs text-slate-400 mt-0.5">{m.note}</div>
-          </div>
-        ))}
-      </div>
-
       {/* Tabs */}
       <div className="flex gap-1 border-b border-white/6">
         {(
           [
-            { id: "bad-actors", label: "Bad Actors" },
             { id: "rca", label: "RCA Workflow" },
             { id: "fmea", label: "FMEA / RCM" },
             { id: "pm", label: "PM Optimization" },
@@ -227,90 +83,6 @@ export function Reliability() {
           </button>
         ))}
       </div>
-
-      {tab === "bad-actors" && (
-        <div className="space-y-3">
-          <div className="flex items-center gap-2">
-            <div className="relative flex-1 max-w-xs">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
-              <input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search assets..."
-                className="w-full pl-8 pr-3 py-2 bg-white/3 border border-white/8 rounded-lg text-xs text-slate-300 placeholder-slate-600 outline-hidden focus:border-teal-500/40"
-              />
-            </div>
-          </div>
-          {badActors
-            .filter(
-              (b) =>
-                !search || b.asset.toLowerCase().includes(search.toLowerCase()),
-            )
-            .map((ba, i) => (
-              <motion.div
-                key={ba.id}
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: i * 0.07 }}
-                className="bg-[#0D1520] border border-red-500/20 rounded-xl p-4 flex items-start gap-4"
-              >
-                <div className="shrink-0 w-6 h-6 flex items-center justify-center">
-                  <span className="text-sm font-black text-red-400">
-                    {i + 1}
-                  </span>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between gap-3">
-                    <h4 className="text-sm font-bold text-slate-200">
-                      {ba.asset}
-                    </h4>
-                    <span
-                      className={`text-xs px-1.5 py-0.5 rounded-full border font-semibold ${ba.trend === "worsening" ? "text-red-400 bg-red-500/10 border-red-500/20" : "text-amber-400 bg-amber-500/10 border-amber-500/20"}`}
-                    >
-                      {ba.trend}
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-4 gap-3 mt-2 text-xs">
-                    <div>
-                      <span className="text-slate-400">Failures: </span>
-                      <span className="text-red-400 font-bold">
-                        {ba.failures}
-                      </span>
-                      <span className="text-slate-400"> in {ba.period}</span>
-                    </div>
-                    <div>
-                      <span className="text-slate-400">MTBF: </span>
-                      <span className="text-slate-300">{ba.mtbf}</span>
-                    </div>
-                    <div>
-                      <span className="text-slate-400">Total Cost: </span>
-                      <span className="text-amber-400 font-bold">
-                        {ba.cost}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-slate-400">RCA: </span>
-                      <span
-                        className={
-                          ba.rcaStatus === "Completed"
-                            ? "text-teal-400"
-                            : ba.rcaStatus === "In Progress"
-                              ? "text-signal-cyan"
-                              : "text-amber-400"
-                        }
-                      >
-                        {ba.rcaStatus}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-                <button className="text-teal-400 hover:text-teal-300 flex items-center gap-1 text-xs shrink-0">
-                  View <ChevronRight className="w-3 h-3" />
-                </button>
-              </motion.div>
-            ))}
-        </div>
-      )}
 
       {tab === "rca" && (
         <div className="space-y-3">
@@ -345,67 +117,25 @@ export function Reliability() {
               </div>
             </div>
           ))}
-          {openRCAs.map((rca, i) => (
-            <motion.div
-              key={rca.id}
-              initial={{ opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.08 }}
-              className={`bg-[#0D1520] border rounded-xl p-4 ${rca.status === "completed" ? "border-teal-500/20" : rca.status === "in_progress" ? "border-signal-cyan/20" : "border-amber-500/20"}`}
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <div className="flex items-center gap-2 mb-1">
-                    <span
-                      className={`text-xs font-bold px-1.5 py-0.5 rounded-full ${rca.status === "completed" ? "bg-teal-500/10 text-teal-400" : rca.status === "in_progress" ? "bg-signal-cyan/10 text-signal-cyan" : "bg-amber-500/10 text-amber-400"}`}
-                    >
-                      {rca.status === "in_progress"
-                        ? "In Progress"
-                        : rca.status === "completed"
-                          ? "Completed"
-                          : "Open"}
-                    </span>
-                    <span className="text-xs text-slate-400">{rca.asset}</span>
-                  </div>
-                  <h4 className="text-sm font-semibold text-slate-200">
-                    {rca.title}
-                  </h4>
-                  <div className="flex gap-3 mt-1 text-xs text-slate-400">
-                    <span>Owner: {rca.owner}</span>
-                    <span>
-                      Priority:{" "}
-                      <span
-                        className={
-                          rca.priority === "High"
-                            ? "text-amber-400"
-                            : "text-signal-cyan"
-                        }
-                      >
-                        {rca.priority}
-                      </span>
-                    </span>
-                    {rca.daysOpen > 0 && (
-                      <span className="flex items-center gap-1">
-                        <Clock className="w-3 h-3" />
-                        {rca.daysOpen} days open
-                      </span>
-                    )}
-                  </div>
-                </div>
-                <button
-                  onClick={() => navigate("/cowork")}
-                  className="flex items-center gap-1 text-xs text-teal-400 hover:text-teal-300 shrink-0"
-                >
-                  {rca.status === "completed" ? "View" : "Continue"}{" "}
-                  <ChevronRight className="w-3 h-3" />
-                </button>
+          {reliability.length === 0 && (
+            <div className="bg-[#0D1520] border border-white/6 rounded-xl p-6 text-center">
+              <Layers className="w-10 h-10 mx-auto mb-3 text-slate-400" />
+              <div className="text-slate-400 text-sm font-medium">
+                RCA Workflow
               </div>
-            </motion.div>
-          ))}
-          <button className="w-full py-3 border border-dashed border-white/8 rounded-xl text-xs text-slate-400 hover:text-slate-400 hover:border-white/[0.14] transition-colors flex items-center justify-center gap-2">
-            <Zap className="w-3.5 h-3.5" /> AI can auto-initiate RCA from
-            failure events
-          </button>
+              <p className="text-xs text-slate-400 mt-2 max-w-sm mx-auto">
+                RCA trigger criteria and FRACAS intake readiness are derived
+                from completed asset onboarding sessions. None have been
+                recorded for this organization yet.
+              </p>
+              <button
+                onClick={() => navigate("/pilot/reliability")}
+                className="mt-4 px-4 py-2 bg-teal-500/10 border border-teal-500/20 text-teal-400 text-xs rounded-lg hover:bg-teal-500/20 transition-colors"
+              >
+                Start Asset Onboarding
+              </button>
+            </div>
+          )}
         </div>
       )}
 

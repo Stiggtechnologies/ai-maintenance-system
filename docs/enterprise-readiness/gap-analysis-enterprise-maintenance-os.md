@@ -6,8 +6,11 @@ system, not one unrestricted chatbot" specification (12 specialized agents,
 layer, and the five-engine architecture). Current state: the
 [Product Capability Audit (2026-08-03)](../product-capability-audit-2026-08-03.md)
 plus live evidence produced 2026-08-04 (real 15-month fleet ingest: 26 units,
-6,000 failure-coded work orders, history-derived health, measured onboarding
-autonomy 47.5% → 56.9% after operator-provided make/model)._
+6,000 work orders carrying the operator's own downtime codes, history-derived
+health). The onboarding-autonomy lift once quoted here — 47.5% → 56.9% after
+operator-provided make/model — has been withdrawn: it was observed on that one
+run and nothing in this repository reproduces it, so it is not a figure anyone
+may quote until it is re-measured and the measurement recorded._
 
 **Scoring:** ✅ Present (working, evidenced) · 🟡 Partial (foundation exists,
 material work remains) · ❌ Absent (not started or concept only).

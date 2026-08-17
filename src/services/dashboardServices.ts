@@ -222,18 +222,6 @@ export async function getAssetHealthMetrics() {
   return data || [];
 }
 
-export async function getMaintenanceMetrics() {
-  const { data, error } = await supabase
-    .from("maintenance_metrics")
-    .select("*")
-    .order("recorded_at", { ascending: false })
-    .limit(1)
-    .single();
-
-  if (error) throw error;
-  return data;
-}
-
 export async function getKPIMeasurements(kpiId: string, days: number = 30) {
   const startDate = new Date();
   startDate.setDate(startDate.getDate() - days);

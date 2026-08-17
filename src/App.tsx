@@ -24,7 +24,6 @@ import { AppShell } from "./components/AppShell";
 import { AssetDetailPage } from "./pages/AssetDetailPage";
 import { AssetManagement } from "./components/AssetManagement";
 import { MissionControl } from "./pages/MissionControl";
-import { PerformanceDashboard } from "./pages/PerformanceDashboard";
 import { WorkActionBoard } from "./pages/WorkActionBoard";
 import NotificationScreening from "./pages/NotificationScreening";
 import { DecisionGovernance } from "./pages/DecisionGovernance";
@@ -410,7 +409,18 @@ function AuthenticatedApp() {
 
           {/* Performance */}
           <Route path="/executive" element={<ExecutiveIntelligence />} />
-          <Route path="/performance" element={<PerformanceDashboard />} />
+          {/* /performance held a second KPI dashboard whose every figure was a
+              literal in the component — OEE, MTBF, MTTR, PM compliance and a
+              five-month trend that no query produced. Executive Intelligence
+              already renders those same KPIs from get_kpi_dashboard with
+              targets, ownership and the "Awaiting source" state, so the page
+              was removed rather than re-sourced. The path survives as a
+              redirect because anyone who bookmarked it wanted the KPI screen,
+              and the catch-all would drop them on Mission Control instead. */}
+          <Route
+            path="/performance"
+            element={<Navigate to="/executive" replace />}
+          />
           <Route path="/oee" element={<OEEDashboard />} />
           <Route path="/learning-loop" element={<LearningLoop />} />
           <Route path="/value" element={<ValueRealization />} />

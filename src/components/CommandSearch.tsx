@@ -148,9 +148,9 @@ const allResults: SearchResult[] = [
     icon: Wrench,
   },
   {
-    id: "pf",
-    label: "Performance",
-    path: "/performance",
+    id: "ei",
+    label: "Executive Intelligence",
+    path: "/executive",
     category: "Performance",
     icon: TrendingUp,
   },
