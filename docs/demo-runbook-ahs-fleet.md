@@ -167,6 +167,42 @@ Basis: 15 months × 720 h = 10,800 calendar hours; corrective events ≥ 1 h.
 - Parts/inventory and digital-twin geometry need data this dataset doesn't
   contain.
 
+## Screenshots for outreach
+
+A prospect who has not booked a call still needs to see the product, and the
+pictures that reach them have to be the same pictures every time — same fleet,
+same crop, same build stamp. Taking them by hand produces a different scroll
+position for every prospect and a full re-shoot whenever a screen changes.
+
+```bash
+node scripts/capture-role-tour.mjs
+```
+
+That signs in as each demo role in turn and walks its own command centers,
+writing `artifacts/role-tour/<date>/`:
+
+- full-page PNGs at 2x (1600×1000 CSS, cropped to real content), one per
+  role-and-screen, named `<role>--<route>.png`;
+- `manifest.json`, recording the route and the on-screen heading for each
+  shot, so a caption can be checked against what the page actually said; and
+- `video/`, a silent recording of each role's pass.
+
+The tour reads its logins from the credentials table above — there is one copy
+of the demo passwords in this repository and it is that table.
+
+Useful flags: `--roles executive,technician` to shoot one layer, `--base
+http://localhost:5173` to shoot a branch before it ships.
+
+**Stills, not video, for a first email.** The recipient usually forwards it;
+images survive a forward and a phone, a video link is a click a cold reader
+does not make, and an automated pass has no narration to carry it. Video earns
+its place on the second touch, narrated.
+
+**Two screens need a caption or they overclaim.** Operational Briefing shows
+connector cards (Maximo, SAP PM, OSIsoft PI, Bently Nevada) that are demo
+fixtures, not live customer integrations; and value figures run on stated
+assumptions per the boundaries above. Say so, or cut the shot.
+
 ## If something goes wrong
 
 - **Page looks stale:** hard-refresh once (the build stamp bottom-left should
