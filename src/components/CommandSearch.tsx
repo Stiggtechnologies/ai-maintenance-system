@@ -27,6 +27,11 @@ interface SearchResult {
   icon: React.ElementType;
 }
 
+// The palette mirrors the sidebar tree (navigation-lifecycle-ia.md §2) plus
+// the admin-only Research page it has always offered. /design and
+// /turnarounds are deliberately absent for the same reason they are not
+// sidebar items (P-7): a searchable destination is a menu entry, and both
+// front surfaces that are empty for every real tenant today.
 const allResults: SearchResult[] = [
   {
     id: "mc",
@@ -51,10 +56,192 @@ const allResults: SearchResult[] = [
   },
   {
     id: "cw",
-    label: "Cowork Studio",
-    path: "/cowork",
+    label: "Decision Workspace",
+    path: "/decision-cases/demo",
     category: "Mission",
     icon: Target,
+  },
+  {
+    id: "as",
+    label: "Asset Register",
+    path: "/assets",
+    category: "Asset Foundation",
+    icon: Factory,
+  },
+  {
+    id: "ao",
+    label: "Class Profiles & Ontology",
+    path: "/assets/ontology",
+    category: "Asset Foundation",
+    icon: Factory,
+  },
+  {
+    id: "tw",
+    label: "Twin & Naming Coverage",
+    path: "/assets/twins",
+    category: "Asset Foundation",
+    icon: Factory,
+  },
+  {
+    id: "ob",
+    label: "Asset Onboarding",
+    path: "/onboarding",
+    category: "Asset Foundation",
+    icon: Factory,
+  },
+  {
+    id: "rl",
+    label: "Failure Modes & Strategy",
+    path: "/reliability",
+    category: "Reliability Strategy",
+    icon: Factory,
+  },
+  {
+    id: "rk",
+    label: "Risk & Consequence",
+    path: "/risk",
+    category: "Reliability Strategy",
+    icon: Factory,
+  },
+  {
+    id: "iv",
+    label: "Interval Decisions",
+    path: "/reliability/intervals",
+    category: "Reliability Strategy",
+    icon: Factory,
+  },
+  {
+    id: "jp",
+    label: "Job Plans & Task Library",
+    path: "/job-plans",
+    category: "Maintenance Programme",
+    icon: Wrench,
+  },
+  {
+    id: "pp",
+    label: "PM Programme",
+    path: "/pm-programme",
+    category: "Maintenance Programme",
+    icon: Wrench,
+  },
+  {
+    id: "lc",
+    label: "Lifecycle Position",
+    path: "/lifecycle",
+    category: "Whole Life",
+    icon: Factory,
+  },
+  {
+    id: "ld",
+    label: "Repair / Replace / Retire",
+    path: "/lifecycle/decisions",
+    category: "Whole Life",
+    icon: Factory,
+  },
+  {
+    id: "nt",
+    label: "Notifications",
+    path: "/notifications",
+    category: "Work Management",
+    icon: Wrench,
+  },
+  {
+    id: "wa",
+    label: "Work Action Board",
+    path: "/work",
+    category: "Work Management",
+    icon: Wrench,
+  },
+  {
+    id: "sc",
+    label: "Weekly Schedule & Crew",
+    path: "/scheduling",
+    category: "Work Management",
+    icon: Wrench,
+  },
+  {
+    id: "ma",
+    label: "Materials & Spares",
+    path: "/materials",
+    category: "Work Management",
+    icon: Wrench,
+  },
+  {
+    id: "ho",
+    label: "Release & Return to Service",
+    path: "/handover",
+    category: "Work Management",
+    icon: Wrench,
+  },
+  {
+    id: "br",
+    label: "Operational Briefing",
+    path: "/briefing",
+    category: "Work Management",
+    icon: Wrench,
+  },
+  {
+    id: "pb",
+    label: "Playbooks Library",
+    path: "/playbooks",
+    category: "Work Management",
+    icon: Wrench,
+  },
+  {
+    id: "em",
+    label: "Emergency Mode",
+    path: "/emergency",
+    category: "Work Management",
+    icon: Wrench,
+  },
+  {
+    id: "ei",
+    label: "Executive Intelligence",
+    path: "/executive",
+    category: "Performance & Governance",
+    icon: TrendingUp,
+  },
+  {
+    id: "oe",
+    label: "OEE Dashboard",
+    path: "/oee",
+    category: "Performance & Governance",
+    icon: TrendingUp,
+  },
+  {
+    id: "vr",
+    label: "Value Realization",
+    path: "/value",
+    category: "Performance & Governance",
+    icon: TrendingUp,
+  },
+  {
+    id: "bm",
+    label: "Benchmarking",
+    path: "/benchmarking",
+    category: "Performance & Governance",
+    icon: TrendingUp,
+  },
+  {
+    id: "ll",
+    label: "Learning Loop",
+    path: "/learning-loop",
+    category: "Performance & Governance",
+    icon: TrendingUp,
+  },
+  {
+    id: "dg",
+    label: "Decision Governance",
+    path: "/governance",
+    category: "Performance & Governance",
+    icon: TrendingUp,
+  },
+  {
+    id: "te",
+    label: "Trust & Explainability",
+    path: "/trust",
+    category: "Performance & Governance",
+    icon: TrendingUp,
   },
   {
     id: "ai",
@@ -78,104 +265,6 @@ const allResults: SearchResult[] = [
     icon: Bot,
   },
   {
-    id: "dg",
-    label: "Decision Governance",
-    path: "/governance",
-    category: "AI Workforce",
-    icon: Bot,
-  },
-  {
-    id: "as",
-    label: "Assets",
-    path: "/assets",
-    category: "Asset Intelligence",
-    icon: Factory,
-  },
-  {
-    id: "rl",
-    label: "Reliability",
-    path: "/reliability",
-    category: "Asset Intelligence",
-    icon: Factory,
-  },
-  {
-    id: "rk",
-    label: "Risk & Consequence",
-    path: "/risk",
-    category: "Asset Intelligence",
-    icon: Factory,
-  },
-  {
-    id: "wa",
-    label: "Work Action Board",
-    path: "/work",
-    category: "Work & Execution",
-    icon: Wrench,
-  },
-  {
-    id: "br",
-    label: "Operational Briefing",
-    path: "/briefing",
-    category: "Work & Execution",
-    icon: Wrench,
-  },
-  {
-    id: "pb",
-    label: "Playbooks Library",
-    path: "/playbooks",
-    category: "Work & Execution",
-    icon: Wrench,
-  },
-  {
-    id: "em",
-    label: "Emergency Mode",
-    path: "/emergency",
-    category: "Work & Execution",
-    icon: Wrench,
-  },
-  {
-    id: "ei",
-    label: "Executive Intelligence",
-    path: "/executive",
-    category: "Performance",
-    icon: TrendingUp,
-  },
-  {
-    id: "oe",
-    label: "OEE Dashboard",
-    path: "/oee",
-    category: "Performance",
-    icon: TrendingUp,
-  },
-  {
-    id: "ll",
-    label: "Learning Loop",
-    path: "/learning-loop",
-    category: "Performance",
-    icon: TrendingUp,
-  },
-  {
-    id: "vr",
-    label: "Value Realization",
-    path: "/value",
-    category: "Performance",
-    icon: TrendingUp,
-  },
-  {
-    id: "bm",
-    label: "Benchmarking",
-    path: "/benchmarking",
-    category: "Performance",
-    icon: TrendingUp,
-  },
-  {
-    id: "te",
-    label: "Trust & Explainability",
-    path: "/trust",
-    category: "Performance",
-    icon: TrendingUp,
-  },
-  {
     id: "ig",
     label: "Integrations",
     path: "/integrations",
@@ -186,20 +275,6 @@ const allResults: SearchResult[] = [
     id: "ih",
     label: "Integration Health",
     path: "/integration-health",
-    category: "System",
-    icon: Settings,
-  },
-  {
-    id: "af",
-    label: "Artifacts",
-    path: "/artifacts",
-    category: "System",
-    icon: Settings,
-  },
-  {
-    id: "sw",
-    label: "Setup Wizard",
-    path: "/setup",
     category: "System",
     icon: Settings,
   },
@@ -219,12 +294,10 @@ const allResults: SearchResult[] = [
   },
 ];
 
-const recentSearches = [
-  "Conveyor C-22",
-  "Pump P-101",
-  "Work Action Board",
-  "Approvals",
-];
+// Quick links, not history: nothing records searches, so pretending these
+// are "recent" would be fiction — and the old list suggested the fabricated
+// Conveyor C-22 fixture by name.
+const recentSearches = ["Work Action Board", "Approvals", "Notifications"];
 
 export function CommandSearch({
   open,
@@ -316,7 +389,7 @@ export function CommandSearch({
             {!query.trim() && (
               <div className="px-5 py-3 border-b border-white/6">
                 <div className="text-xs text-slate-400 uppercase tracking-wider mb-2">
-                  Recent
+                  Quick Links
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {recentSearches.map((s) => (

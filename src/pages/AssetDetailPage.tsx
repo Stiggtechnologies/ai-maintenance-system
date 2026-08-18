@@ -23,7 +23,6 @@ export function AssetDetailPage() {
   const [asset, setAsset] = useState<any>(null);
   const [healthHistory, setHealthHistory] = useState<any[]>([]);
   const [workOrders, setWorkOrders] = useState<any[]>([]);
-  const [criticality, setCriticality] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<
     "overview" | "health" | "work" | "criticality"
@@ -35,7 +34,12 @@ export function AssetDetailPage() {
 
   const loadAssetData = async (id: string) => {
     try {
-      const [assetRes, healthRes, woRes, critRes] = await Promise.all([
+      // Criticality is read from the live assets.criticality column. The
+      // scored profile table this page used to query
+      // (asset_criticality_profiles) exists only in _legacy_migrations, so
+      // the read returned null for every asset in every tenant and the
+      // criticality tab apologised forever.
+      const [assetRes, healthRes, woRes] = await Promise.all([
         supabase
           .from("assets")
           .select(`*, asset_classes(name), asset_locations(name), sites(name)`)
@@ -53,17 +57,11 @@ export function AssetDetailPage() {
           .eq("asset_id", id)
           .order("created_at", { ascending: false })
           .limit(20),
-        supabase
-          .from("asset_criticality_profiles")
-          .select("*")
-          .eq("asset_id", id)
-          .maybeSingle(),
       ]);
 
       if (assetRes.data) setAsset(assetRes.data);
       if (healthRes.data) setHealthHistory(healthRes.data);
       if (woRes.data) setWorkOrders(woRes.data);
-      if (critRes.data) setCriticality(critRes.data);
     } catch (error) {
       console.error("Error loading asset:", error);
     } finally {
@@ -393,59 +391,37 @@ export function AssetDetailPage() {
       {activeTab === "criticality" && (
         <div className="bg-industrial-graphite border border-industrial-border rounded-xl p-6">
           <h2 className="text-lg font-semibold text-industrial-text mb-4">
-            Criticality Assessment
+            Criticality
           </h2>
-          {!criticality ? (
-            <p className="text-slate-400 text-center py-8">
-              No criticality assessment available
-            </p>
-          ) : (
-            <div>
-              <div className="flex items-center gap-4 mb-6">
-                <div className="text-4xl font-bold text-industrial-text">
-                  {criticality.total_criticality_score?.toFixed(1)}
-                </div>
-                <div>
-                  <div className="text-sm font-medium text-industrial-text">
-                    Total Criticality Score
-                  </div>
-                  <div
-                    className={`text-sm font-medium ${criticality.criticality_band === "A" ? "text-red-400" : criticality.criticality_band === "B" ? "text-orange-600" : criticality.criticality_band === "C" ? "text-yellow-600" : "text-green-600"}`}
-                  >
-                    Band {criticality.criticality_band}
-                  </div>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {[
-                  ["Safety", criticality.safety_score, Shield],
-                  [
-                    "Environmental",
-                    criticality.environmental_score,
-                    AlertTriangle,
-                  ],
-                  ["Production", criticality.production_score, Activity],
-                  ["Quality", criticality.quality_score, TrendingUp],
-                  ["Cost", criticality.cost_score, DollarSign],
-                  ["Regulatory", criticality.regulatory_score, Shield],
-                  ["Reputation", criticality.reputation_score, TrendingDown],
-                ]
-                  .filter(([, val]) => val != null)
-                  .map(([label, score, Icon]: any) => (
-                    <div
-                      key={label}
-                      className="bg-industrial-black rounded-lg p-4"
-                    >
-                      <Icon size={16} className="text-slate-400 mb-1" />
-                      <div className="text-sm text-slate-400">{label}</div>
-                      <div className="text-xl font-bold text-industrial-text">
-                        {score}
-                      </div>
-                    </div>
-                  ))}
-              </div>
+          {/* The live column is all the product has: free text, defaulting to
+              "medium", with no CHECK constraint, no scoring basis, no assessor
+              and no assessment date — and it still weights work-order priority
+              in the scheduler. Saying so on screen is the point: a bare badge
+              here would read as an assessment that was never performed. */}
+          <div className="flex items-center gap-4 mb-4">
+            <div
+              className={`text-4xl font-bold capitalize ${priorityColors[asset.criticality] || "text-industrial-text"}`}
+            >
+              {asset.criticality || "not set"}
             </div>
-          )}
+            <div className="text-sm font-medium text-industrial-text">
+              Criticality label
+            </div>
+          </div>
+          <div className="text-sm text-slate-400 space-y-2">
+            <p>
+              This label is a free-text field on the asset record. No scoring
+              basis, assessor or assessment date has been recorded for it, and
+              the platform applies no constraint on its value — it defaults to
+              &ldquo;medium&rdquo; when an asset is created.
+            </p>
+            <p>
+              It still carries weight: the weekly scheduler uses this label to
+              prioritise work orders. A scored criticality assessment (safety,
+              environmental, production and cost dimensions with an A/B/C band)
+              is not available in this product today.
+            </p>
+          </div>
         </div>
       )}
     </div>
