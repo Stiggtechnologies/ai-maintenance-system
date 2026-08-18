@@ -4,7 +4,7 @@
  * enabled = false must all read as disabled.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { renderHook, waitFor } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 
 const maybeSingle = vi.fn();
 
@@ -71,6 +71,25 @@ describe("useFeatureFlag", () => {
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.enabled).toBe(false);
     expect(result.current.error).not.toBeNull();
+  });
+
+  it("fails closed when a successful read is followed by a failed refetch", async () => {
+    // useAsyncData keeps the stale datum and sets error on a failed reload,
+    // so `data` is still true while `error` is set — the one path where the
+    // hook's `error === null` guard is load-bearing. A flag must not stay on
+    // over a read the server just refused.
+    maybeSingle.mockResolvedValue({ data: { enabled: true }, error: null });
+    const { result } = renderHook(() => useFeatureFlag("sync_global_shell"));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.enabled).toBe(true);
+
+    maybeSingle.mockResolvedValue({
+      data: null,
+      error: { message: "permission denied" },
+    });
+    act(() => result.current.refetch());
+    await waitFor(() => expect(result.current.error).not.toBeNull());
+    expect(result.current.enabled).toBe(false);
   });
 });
 
