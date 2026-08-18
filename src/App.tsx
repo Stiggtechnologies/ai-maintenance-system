@@ -42,7 +42,18 @@ import { LearningLoop } from "./pages/LearningLoop";
 import { Reliability } from "./pages/ReliabilityPage";
 import { ReadinessPage } from "./pages/ReadinessPage";
 import { OperationalBriefing } from "./pages/OperationalBriefing";
-import { AssetIntelligencePage } from "./pages/AssetIntelligencePage";
+import { AssetOntologyPage } from "./pages/AssetOntologyPage";
+import { AssetTwinsPage } from "./pages/AssetTwinsPage";
+import { LifecyclePositionPage } from "./pages/LifecyclePositionPage";
+import { ReliabilityByDesignPage } from "./pages/ReliabilityByDesignPage";
+import { LifecycleDecisionsPage } from "./pages/LifecycleDecisionsPage";
+import { IntervalDecisionsPage } from "./pages/IntervalDecisionsPage";
+import { JobPlansPage } from "./pages/JobPlansPage";
+import { PmProgrammePage } from "./pages/PmProgrammePage";
+import { SchedulingPage } from "./pages/SchedulingPage";
+import { MaterialsPage } from "./pages/MaterialsPage";
+import { HandoverPage } from "./pages/HandoverPage";
+import { TurnaroundsPage } from "./pages/TurnaroundsPage";
 import { AssetOnboardingHub } from "./pages/AssetOnboardingHub";
 import { SecurityAuditLog } from "./pages/SecurityAuditLog";
 import { ExecutiveIntelligence } from "./pages/ExecutiveIntelligence";
@@ -396,25 +407,44 @@ function AuthenticatedApp() {
           <Route path="/approvals" element={<ApprovalQueue />} />
           <Route path="/governance" element={<DecisionGovernance />} />
 
-          {/* Asset Intelligence */}
+          {/* Asset foundation, reliability strategy, maintenance programme */}
           <Route path="/assets/:assetId" element={<AssetDetailPage />} />
-          <Route
-            path="/assets/intelligence"
-            element={<AssetIntelligencePage />}
-          />
+          <Route path="/assets/ontology" element={<AssetOntologyPage />} />
+          <Route path="/assets/twins" element={<AssetTwinsPage />} />
           <Route path="/assets" element={<AssetManagement />} />
           <Route path="/onboarding" element={<AssetOnboardingHub />} />
           <Route path="/reliability" element={<Reliability />} />
+          <Route
+            path="/reliability/intervals"
+            element={<IntervalDecisionsPage />}
+          />
           <Route
             path="/reliability-copilot"
             element={<ReliabilityCopilotPage />}
           />
           <Route path="/risk" element={<RiskConsequence />} />
+          <Route path="/job-plans" element={<JobPlansPage />} />
+          <Route path="/pm-programme" element={<PmProgrammePage />} />
 
-          {/* Work & Execution */}
+          {/* Whole life. /design is a route without a sidebar item: its RAM
+              allocation is pinned to the demo project code, so a menu entry
+              would render permanently empty for real tenants (spec P-7). It
+              is linked from /lifecycle instead. */}
+          <Route path="/lifecycle" element={<LifecyclePositionPage />} />
+          <Route
+            path="/lifecycle/decisions"
+            element={<LifecycleDecisionsPage />}
+          />
+          <Route path="/design" element={<ReliabilityByDesignPage />} />
+
+          {/* Work management */}
           <Route path="/work/:workOrderId" element={<WorkOrderDetailPage />} />
           <Route path="/work" element={<WorkActionBoard />} />
           <Route path="/notifications" element={<NotificationScreening />} />
+          <Route path="/scheduling" element={<SchedulingPage />} />
+          <Route path="/materials" element={<MaterialsPage />} />
+          <Route path="/handover" element={<HandoverPage />} />
+          <Route path="/turnarounds" element={<TurnaroundsPage />} />
           <Route path="/briefing" element={<OperationalBriefing />} />
 
           {/* Performance */}

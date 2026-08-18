@@ -70,6 +70,13 @@ interface NavItem {
 const AUTONOMY_MODE = "Human-in-the-Loop";
 const AUTONOMY_COLOR = "text-amber-400";
 
+// The tree follows the corrected spine (docs/enterprise-readiness/
+// navigation-lifecycle-ia.md §2): what we own → what work should exist → the
+// standing programme strategy justifies → the whole-life frame → this week's
+// work → performance. 37 items in 9 groups (4/4/3/2/2/8/7/3/4) — the counts
+// roleNavigation.test.ts snapshots. Reliability Strategy sits directly above
+// Maintenance Programme so the parent edge — strategy → programme — reads
+// adjacently in the sidebar.
 const navGroups: NavGroup[] = [
   {
     id: "mission",
@@ -96,6 +103,126 @@ const navGroups: NavGroup[] = [
     ],
   },
   {
+    id: "asset-foundation",
+    label: "Asset Foundation",
+    icon: Factory,
+    items: [
+      { id: "assets", label: "Asset Register", path: "/assets" },
+      {
+        id: "asset-ontology",
+        label: "Class Profiles & Ontology",
+        path: "/assets/ontology",
+      },
+      {
+        id: "asset-twins",
+        label: "Twin & Naming Coverage",
+        path: "/assets/twins",
+      },
+      { id: "onboarding", label: "Asset Onboarding", path: "/onboarding" },
+    ],
+  },
+  {
+    // L3 — what work should exist. Risk & Consequence precedes Interval
+    // Decisions because consequence evaluation (JA1011 cl. 5.5) precedes
+    // policy and interval selection (cl. 5.6–5.7).
+    id: "reliability-strategy",
+    label: "Reliability Strategy",
+    icon: FlaskConical,
+    items: [
+      {
+        id: "reliability",
+        label: "Failure Modes & Strategy",
+        path: "/reliability",
+      },
+      { id: "risk", label: "Risk & Consequence", path: "/risk" },
+      {
+        id: "intervals",
+        label: "Interval Decisions",
+        path: "/reliability/intervals",
+      },
+    ],
+  },
+  {
+    id: "maintenance-programme",
+    label: "Maintenance Programme",
+    icon: BookOpen,
+    items: [
+      {
+        id: "job-plans",
+        label: "Job Plans & Task Library",
+        path: "/job-plans",
+      },
+      { id: "pm-programme", label: "PM Programme", path: "/pm-programme" },
+    ],
+  },
+  {
+    // Whole life (L2). Reliability by Design (/design) is a route, not an
+    // item: pinned to the demo project code, it renders empty for every real
+    // tenant, so it is linked from /lifecycle instead of any menu (P-7).
+    id: "whole-life",
+    label: "Whole Life",
+    icon: Layers,
+    items: [
+      { id: "lifecycle", label: "Lifecycle Position", path: "/lifecycle" },
+      {
+        id: "lifecycle-decisions",
+        label: "Repair / Replace / Retire",
+        path: "/lifecycle/decisions",
+      },
+    ],
+  },
+  {
+    // L4 — this week's work, correctly positioned as the innermost loop.
+    // Shutdowns & Turnarounds (/turnarounds) is route-only: nothing creates
+    // an outage_window yet (P-7).
+    id: "work",
+    label: "Work Management",
+    icon: Wrench,
+    items: [
+      { id: "notifications", label: "Notifications", path: "/notifications" },
+      { id: "work", label: "Work Action Board", path: "/work" },
+      {
+        id: "scheduling",
+        label: "Weekly Schedule & Crew",
+        path: "/scheduling",
+      },
+      { id: "materials", label: "Materials & Spares", path: "/materials" },
+      {
+        id: "handover",
+        label: "Release & Return to Service",
+        path: "/handover",
+      },
+      { id: "briefing", label: "Operational Briefing", path: "/briefing" },
+      { id: "playbooks", label: "Playbooks", path: "/playbooks" },
+      { id: "emergency", label: "Emergency Mode", path: "/emergency" },
+    ],
+  },
+  {
+    // Decision Governance moved here from AI Workforce: it holds
+    // decision_rights, the ISO 55001 cl. 4.5 decision-making framework —
+    // governance of the operation, not an AI feature.
+    id: "performance",
+    label: "Performance & Governance",
+    icon: BarChart3,
+    items: [
+      {
+        id: "executive",
+        label: "Executive Intelligence",
+        path: "/executive",
+      },
+      { id: "oee", label: "OEE Dashboard", path: "/oee" },
+      { id: "value", label: "Value Realization", path: "/value" },
+      { id: "benchmarking", label: "Benchmarking", path: "/benchmarking" },
+      { id: "learning-loop", label: "Learning Loop", path: "/learning-loop" },
+      {
+        id: "decision-governance",
+        label: "Decision Governance",
+        path: "/governance",
+      },
+      { id: "trust", label: "Trust & Explainability", path: "/trust" },
+    ],
+  },
+  {
     id: "ai",
     label: "AI Workforce",
     icon: Bot,
@@ -107,54 +234,12 @@ const navGroups: NavGroup[] = [
         path: "/autonomy-maturity",
       },
       { id: "approvals", label: "Approvals", path: "/approvals" },
-      {
-        id: "decision-governance",
-        label: "Decision Governance",
-        path: "/governance",
-      },
     ],
   },
   {
-    id: "assets",
-    label: "Asset Intelligence",
-    icon: Factory,
-    items: [
-      { id: "assets", label: "Assets", path: "/assets" },
-      { id: "onboarding", label: "Asset Onboarding", path: "/onboarding" },
-      { id: "reliability", label: "Reliability", path: "/reliability" },
-      { id: "risk", label: "Risk & Consequence", path: "/risk" },
-    ],
-  },
-  {
-    id: "work",
-    label: "Work & Execution",
-    icon: Wrench,
-    items: [
-      { id: "work", label: "Work Action Board", path: "/work" },
-      { id: "notifications", label: "Notifications", path: "/notifications" },
-      { id: "briefing", label: "Operational Briefing", path: "/briefing" },
-      { id: "playbooks", label: "Playbooks", path: "/playbooks" },
-      { id: "emergency", label: "Emergency Mode", path: "/emergency" },
-    ],
-  },
-  {
-    id: "performance",
-    label: "Performance",
-    icon: BarChart3,
-    items: [
-      {
-        id: "executive",
-        label: "Executive Intelligence",
-        path: "/executive",
-      },
-      { id: "oee", label: "OEE Dashboard", path: "/oee" },
-      { id: "learning-loop", label: "Learning Loop", path: "/learning-loop" },
-      { id: "value", label: "Value Realization", path: "/value" },
-      { id: "benchmarking", label: "Benchmarking", path: "/benchmarking" },
-      { id: "trust", label: "Trust & Explainability", path: "/trust" },
-    ],
-  },
-  {
+    // Setup Wizard and Artifacts are removed, not hidden: /setup is shadowed
+    // by the unauthenticated route, and the artifacts page hardcodes its
+    // contents (spec §2 Removals).
     id: "system",
     label: "System",
     icon: Settings,
@@ -165,8 +250,6 @@ const navGroups: NavGroup[] = [
         label: "Integration Health",
         path: "/integration-health",
       },
-      { id: "artifacts", label: "Artifacts", path: "/artifacts" },
-      { id: "setup", label: "Setup Wizard", path: "/setup" },
       { id: "settings", label: "Settings", path: "/settings" },
       {
         id: "security-log",
@@ -197,7 +280,7 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
   const [notifOpen, setNotifOpen] = useState(false);
   const [notifs, setNotifs] = useState<NotificationRow[]>([]);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(
-    new Set(["mission", "ai", "assets", "work", "performance", "system"]),
+    new Set(navGroups.map((group) => group.id)),
   );
   const [systemHealth] = useState({
     intelligence: "active",
@@ -286,11 +369,19 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
     });
   };
 
-  const isActive = (path: string) =>
+  // Nested routes (/reliability/intervals under /reliability) mean a bare
+  // prefix match would light two items at once; the longest matching path is
+  // the one the user is actually on.
+  const matchesPath = (path: string) =>
     currentPath === path ||
     (path !== "/" &&
       path !== "/mission-control" &&
       currentPath.startsWith(path));
+  const activeNavPath = navGroups
+    .flatMap((group) => group.items)
+    .filter((item) => matchesPath(item.path))
+    .sort((a, b) => b.path.length - a.path.length)[0]?.path;
+  const isActive = (path: string) => path === activeNavPath;
 
   const selectedSite = sites.find((s) => s.id === selectedSiteId);
 
@@ -301,15 +392,16 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
   };
 
   const getPageTitle = () => {
-    for (const group of navGroups) {
-      const found = group.items.find(
+    // Longest match, for the same reason as isActive above.
+    const found = navGroups
+      .flatMap((group) => group.items)
+      .filter(
         (item) =>
           currentPath === item.path ||
           (item.path !== "/" && currentPath.startsWith(item.path)),
-      );
-      if (found) return found.label;
-    }
-    return "Mission Control";
+      )
+      .sort((a, b) => b.path.length - a.path.length)[0];
+    return found ? found.label : "Mission Control";
   };
 
   return (
@@ -670,10 +762,7 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
 void Activity;
 void Wifi;
 void AlertTriangle;
-void BookOpen;
 void TrendingUp;
-void FlaskConical;
-void Layers;
 void CheckSquare;
 void Users;
 void Plug;

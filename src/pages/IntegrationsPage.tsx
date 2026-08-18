@@ -12,7 +12,6 @@ import {
 import { supabase } from "../lib/supabase";
 import { platformService } from "../services/platform";
 import { DataGovernance } from "../components/DataGovernance";
-import { AssetTwinCoverage } from "../components/AssetTwinCoverage";
 
 interface Connector {
   id: string;
@@ -315,7 +314,8 @@ export function IntegrationsPage() {
 
       <ConnectorHealth />
       <DataGovernance />
-      <AssetTwinCoverage />
+      {/* AssetTwinCoverage answers an asset-foundation question, not a
+          System one — it now lives at /assets/twins (spec §5 Step 5). */}
     </div>
   );
 }

@@ -8,7 +8,6 @@
  */
 import { useEffect, useMemo, useState } from "react";
 import { FleetHistoryImport } from "../components/FleetHistoryImport";
-import { MaintenancePlanImport } from "../components/MaintenancePlanImport";
 import { ScopingAnalysis } from "../components/ScopingAnalysis";
 import {
   Bot,
@@ -276,16 +275,17 @@ export function AssetOnboardingHub() {
     return <LoadingState label="Loading asset onboarding" />;
   if (overview.error)
     return <ErrorState message={overview.error} onRetry={overview.refetch} />;
-  // The empty state must NOT hide the importer: a tenant with no assets is
-  // exactly who needs it, and returning early here made the tool that fixes
-  // the empty state invisible to the only people in it.
+  // The empty state must NOT hide the fleet importer: a tenant with no
+  // assets is exactly who needs it. The PM-programme importer used to hide
+  // here too — mounted ONLY in this branch, so it vanished the moment a
+  // tenant had one asset. It now lives at /pm-programme for every tenant
+  // state (spec §5 Step 4).
   if (overview.isEmpty)
     return (
       <div className="space-y-6 p-6" data-testid="onboarding-hub">
         <EmptyState message="No assets in onboarding yet — add an asset to the register and it will onboard itself automatically, or import a fleet's history below." />
         <ScopingAnalysis />
         <FleetHistoryImport />
-        <MaintenancePlanImport />
       </div>
     );
 
