@@ -14,7 +14,7 @@
  * stopped must not keep consuming model tokens.
  *
  * Nothing mounts this hook: every sync_* feature flag is seeded OFF
- * (20260912110000) and Phase 0 wires no user-visible behaviour. It exists so
+ * (20260912130000) and Phase 0 wires no user-visible behaviour. It exists so
  * Phase 1 consumes a tested contract instead of inventing transport under
  * deadline.
  */

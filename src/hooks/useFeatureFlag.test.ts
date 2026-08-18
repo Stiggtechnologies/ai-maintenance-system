@@ -108,7 +108,7 @@ describe("fetchFeatureFlag", () => {
 });
 
 describe("flag catalogue", () => {
-  it("matches the seven §39 sync_* flags seeded by 20260912110000, exactly", () => {
+  it("matches the seven §39 sync_* flags seeded by 20260912130000, exactly", () => {
     expect([...SYNC_FEATURE_FLAGS].sort()).toEqual(
       [
         "sync_global_shell",
@@ -131,7 +131,7 @@ describe("flag catalogue", () => {
     const sql = fs.readFileSync(
       path.resolve(
         __dirname,
-        "../../supabase/migrations/20260912110000_sync_feature_flags.sql",
+        "../../supabase/migrations/20260912130000_sync_feature_flags.sql",
       ),
       "utf8",
     );

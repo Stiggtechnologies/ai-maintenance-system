@@ -1,6 +1,6 @@
 /**
  * useFeatureFlag — typed read of the tenant-scoped feature_flags table
- * (20260912110000_sync_feature_flags.sql).
+ * (20260912130000_sync_feature_flags.sql).
  *
  * FAIL CLOSED. A missing row, a query error, or a timeout all read as
  * DISABLED. Feature flags gate capabilities that are not ready for a tenant
