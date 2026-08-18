@@ -15,17 +15,54 @@ visitor submits /pilot/reliability
       → BEFORE INSERT  trg_pilot_intake_first_response_due
           stamps first_response_due = created_at + 1 BUSINESS hour
       → AFTER INSERT   trg_pilot_intake_notify
-          net.http_post → edge function lead-notify   {"lead_id": "<uuid>"}
-            → Resend  → acknowledgement to the lead   (from orville@syncai.ca)
-            → Resend  → alert to the owner            (every field + SLA + link)
-            → Twilio  → SMS to the owner              (inert until configured)
-            → UPDATE notification_status = notified | failed
+          dispatch_lead_notification()
+            → lead_notify_allow_dispatch()  abuse cap; suppress or proceed
+            → net.http_post → lead-notify    {"lead_id": "<uuid>"}
+                → claim_lead_notification()  atomic, one run at a time
+                → Resend  → alert to the OWNER first  (every field + SLA + link)
+                → Resend  → acknowledgement to the lead (from orville@syncai.ca)
+                → Twilio  → SMS to the owner          (inert until configured)
+                → record_lead_notification()  per-channel stamps → status
+
+every 5 min: pg_cron syncai-lead-notify-retry
+  → retry_stalled_lead_notifications()
+      re-dispatches any lead missing a channel, with backoff, for 7 days
 ```
 
-**A trigger, not a cron.** The frontend never inserts directly — it calls a
-SECURITY DEFINER RPC — so an `AFTER INSERT ... FOR EACH ROW` trigger is the only
-hook that catches every writer. It is also instant rather than up to N minutes
-late, and invisible to the E2E cron freeze in `ci.yml`.
+**A trigger, not a cron — plus a cron.** The frontend never inserts directly —
+it calls a SECURITY DEFINER RPC — so an `AFTER INSERT ... FOR EACH ROW` trigger
+is the only hook that catches every writer, and it is instant rather than up to
+N minutes late. But `pg_net` does not retry: one transient Resend 429, one
+`pg_net` timeout, or a `RESEND_API_KEY` that was not set until Monday and the
+lead is never notified at all. `retry_stalled_lead_notifications()` on a
+five-minute job is the safety net behind the fast path. It is not one of the
+four jobs `ci.yml` freezes for E2E, and it no-ops entirely without config, so
+it cannot perturb the golden path.
+
+**The owner alert goes out before the acknowledgement.** The acknowledgement
+tells the customer they have been heard and names a deadline; it must not be
+able to make that promise before anyone on this side knows the lead exists. If
+the owner alert does not land, the acknowledgement still goes — the customer is
+owed an answer either way — but it drops the sentence claiming the owner was
+alerted, and the sweeper keeps retrying the alert.
+
+## The anonymous form is not an email cannon
+
+`submit_pilot_intake_request` is `GRANT EXECUTE … TO anon` with no captcha,
+honeypot or rate limit. Before this path existed an anonymous insert was inert.
+Wiring mail to it means every insert sends two DKIM-signed messages from the
+verified `syncai.ca` domain — one of them to an address the caller chose, with
+text the caller wrote in the subject line.
+
+`lead_notify_allow_dispatch()` bounds that: **3 dispatches per recipient per 24
+hours** and **40 per hour globally**, counted in `private.lead_notify_dispatch_log`
+against a SHA-256 digest of the address (never the address itself). Over the
+cap, the mail is suppressed and a warning is logged — **the lead is not**. It
+commits, keeps its SLA clock, and shows on `/pilot-leads` in amber. The retry
+sweeper picks it up again once the burst subsides.
+
+The digest also gives the retry its backoff (`attempts`, `last_dispatch_at`),
+so "how hard have we tried" lives in one place `PostgREST` cannot see.
 
 ## The SLA clock
 
@@ -70,19 +107,19 @@ TypeScript in `src/lib/lead-notify/lead-notify.test.ts`.
 
 Set on the edge function (`supabase secrets set …`, or the dashboard).
 
-| Secret                      | Required    | Default                             | Notes                                                            |
-| --------------------------- | ----------- | ----------------------------------- | ---------------------------------------------------------------- |
-| `RESEND_API_KEY`            | **yes**     | —                                   | Without it the function marks the lead `failed` and returns 200. |
-| `OWNER_ALERT_EMAIL`         | no          | `orvilledavis95@gmail.com`          | Where the owner alert goes.                                      |
-| `APP_BASE_URL`              | no          | `https://app.syncai.ca`             | Used to build the `/pilot-leads` deep link. HTTPS or ignored.    |
-| `LEAD_ACK_FROM`             | no          | `Orville Davis <orville@syncai.ca>` | Rejected and replaced if not `@syncai.ca`.                       |
-| `LEAD_ACK_REPLY_TO`         | no          | `orville@syncai.ca`                 | Reply-to on both messages.                                       |
-| `OWNER_ALERT_FROM`          | no          | `SyncAI Leads <leads@syncai.ca>`    | Rejected and replaced if not `@syncai.ca`.                       |
-| `LEAD_NOTIFY_SHARED_SECRET` | situational | —                                   | See "Which key" below.                                           |
-| `TWILIO_ACCOUNT_SID`        | no (SMS)    | —                                   | All four or SMS is skipped silently.                             |
-| `TWILIO_AUTH_TOKEN`         | no (SMS)    | —                                   |                                                                  |
-| `TWILIO_FROM_NUMBER`        | no (SMS)    | —                                   | Must be E.164, e.g. `+15875550100`.                              |
-| `OWNER_SMS_TO`              | no (SMS)    | —                                   | Must be E.164.                                                   |
+| Secret                      | Required    | Default                             | Notes                                                                                 |
+| --------------------------- | ----------- | ----------------------------------- | ------------------------------------------------------------------------------------- |
+| `RESEND_API_KEY`            | **yes**     | —                                   | Without it the function marks the lead `failed`, still attempts SMS, and returns 200. |
+| `OWNER_ALERT_EMAIL`         | no          | `orvilledavis95@gmail.com`          | Where the owner alert goes.                                                           |
+| `APP_BASE_URL`              | no          | `https://app.syncai.ca`             | Used to build the `/pilot-leads` deep link. HTTPS or ignored.                         |
+| `LEAD_ACK_FROM`             | no          | `Orville Davis <orville@syncai.ca>` | Rejected and replaced if not `@syncai.ca`.                                            |
+| `LEAD_ACK_REPLY_TO`         | no          | `orville@syncai.ca`                 | Reply-to on both messages. Rejected and replaced if not `@syncai.ca`.                 |
+| `OWNER_ALERT_FROM`          | no          | `SyncAI Leads <leads@syncai.ca>`    | Rejected and replaced if not `@syncai.ca`.                                            |
+| `LEAD_NOTIFY_SHARED_SECRET` | situational | —                                   | See "Which key" below.                                                                |
+| `TWILIO_ACCOUNT_SID`        | no (SMS)    | —                                   | All four or SMS is skipped silently.                                                  |
+| `TWILIO_AUTH_TOKEN`         | no (SMS)    | —                                   |                                                                                       |
+| `TWILIO_FROM_NUMBER`        | no (SMS)    | —                                   | Must be E.164, e.g. `+15875550100`.                                                   |
+| `OWNER_SMS_TO`              | no (SMS)    | —                                   | Must be E.164.                                                                        |
 
 `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are injected by the platform; if
 either is absent the function answers **503** and does nothing.
@@ -94,7 +131,9 @@ like `syncai.ca.attacker.example` — is discarded in favour of the default.
 
 **Twilio is built but inert.** No Twilio account exists yet. Missing or
 malformed settings produce a structured `sms_skipped` log and are **not** a
-failure: if both emails landed, the lead is `notified`.
+failure: if both emails landed, the lead is `notified`. SMS is attempted even
+when `RESEND_API_KEY` is absent — it is an independent channel, and a broken
+Resend is exactly when the owner most needs the other one.
 
 ## Wiring the trigger to the function
 
@@ -110,7 +149,19 @@ select public.configure_lead_notify(
 );
 ```
 
-Until this runs, the trigger no-ops cleanly and leads simply stay `queued`.
+Until this runs, the trigger no-ops and leads stay `queued` — but **loudly**:
+`dispatch_lead_notification` raises a warning naming the lead and the missing
+config on every single insert, rather than returning silently.
+
+`deploy-migrations.yml` will do both wiring steps for you if the repository
+carries the secrets. They are no-ops with a `::warning::` in the Actions log
+otherwise, and both are idempotent:
+
+| Repository secret         | What the deploy does with it                                 |
+| ------------------------- | ------------------------------------------------------------ |
+| `RESEND_API_KEY`          | `supabase secrets set RESEND_API_KEY=…` on the project.      |
+| `SUPABASE_DB_URL`         | psql connection used to call `configure_lead_notify()`.      |
+| `LEAD_NOTIFY_SERVICE_KEY` | the bearer token pg_net will present. See "Which key" below. |
 
 **Which key.** JWT verification stays **on** for `lead-notify` (it is not in
 `allowedNoVerifyJwt`), so the bearer token pg_net sends must be one the
@@ -125,40 +176,95 @@ the platform already let through.
 
 The lead is the asset. Nothing in this path may cost us one.
 
-| Condition                               | Behaviour                                                     |
-| --------------------------------------- | ------------------------------------------------------------- |
-| `private.lead_notify_config` empty      | Trigger returns; lead commits `queued`.                       |
-| `pg_net` missing / URL bad / net down   | Trigger warns and returns; **lead still commits** (verified). |
-| Business-hour helper raises             | BEFORE trigger falls back to `created_at + 1 hour`.           |
-| Platform config missing on the function | 503, nothing written.                                         |
-| Bad or absent bearer token              | 401.                                                          |
-| Body has no valid `lead_id`             | 200 `{skipped:"invalid_request"}` — no retry storm.           |
-| Lead already `notified`                 | 200 `{skipped:"already_notified"}`, nothing re-sent.          |
-| `RESEND_API_KEY` absent                 | Lead marked `failed`, 200, structured error log.              |
-| One email rejected by Resend            | Lead marked `failed` — it shows red and a person picks it up. |
-| Twilio unconfigured                     | Silent skip; does **not** affect the status.                  |
-| Twilio configured but failing           | Logged; does **not** affect the status.                       |
-| Status write rejected                   | Logged; response carries `status_persisted: false`.           |
-| Anything else throws                    | 200 `{skipped:"unhandled_error"}` — never a platform 500.     |
+| Condition                               | Behaviour                                                                                     |
+| --------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `private.lead_notify_config` empty      | **Warning naming the lead**; lead commits `queued`; sweeper retries.                          |
+| `pg_net` missing / URL bad / net down   | Trigger warns and returns; **lead still commits** (verified).                                 |
+| Over the abuse cap                      | Mail suppressed with a warning; lead commits `queued`; sweeper retries once the burst passes. |
+| Business-hour helper raises             | BEFORE trigger falls back to `created_at + 1 hour`.                                           |
+| Platform config missing on the function | 503, nothing written.                                                                         |
+| Bad or absent bearer token              | 401, **and a structured `unauthorized` log** — see "Which key".                               |
+| Body has no valid `lead_id`             | 200 `{skipped:"invalid_request"}` — no retry storm.                                           |
+| Both channels already stamped           | 200 `{skipped:"already_notified"}`, nothing re-sent.                                          |
+| Another run holds the claim             | 200 `{skipped:"already_in_flight"}`, nothing sent.                                            |
+| `RESEND_API_KEY` absent                 | Error log, SMS still attempted, lead marked `failed`, sweeper retries.                        |
+| One email rejected by Resend            | The channel that landed is stamped; the other is retried by the sweeper.                      |
+| Twilio unconfigured                     | Silent skip; does **not** affect the status.                                                  |
+| Twilio configured but failing           | Logged; does **not** affect the status.                                                       |
+| Status write rejected                   | Logged; response carries `status_persisted: false`; sweeper retries.                          |
+| Anything else throws                    | 200 `{skipped:"unhandled_error"}` — never a platform 500.                                     |
 
-`notification_status` only ever becomes `notified` (both emails landed) or
-`failed`. Those are exactly the values `PilotLeads.tsx` renders.
+`notification_status` only ever becomes `notified` (both emails landed, counting
+earlier attempts) or `failed`. Those are exactly the values `PilotLeads.tsx`
+renders.
 
-## Idempotency
+## Idempotency is per channel
 
-`pg_net` can deliver more than once and a person can re-invoke the function by
-hand. The first thing `lead-notify` does after loading the row is check
-`notification_status`; if it is already `notified`, it returns without sending.
-A visitor never gets two acknowledgements.
+`notification_status` is an **aggregate**: `failed` means "the two emails did
+not both land", which is indistinguishable from "nothing was sent". Gating a
+retry on it means the retry that fixes the owner alert also sends the visitor a
+second acknowledgement — and this runbook invites a manual re-invoke.
+
+So the row carries a write-once stamp **per channel**:
+
+| Column              | Meaning                                                   |
+| ------------------- | --------------------------------------------------------- |
+| `ack_sent_at`       | the visitor acknowledgement left Resend. Never re-sent.   |
+| `owner_alerted_at`  | the owner alert left Resend. Never re-sent.               |
+| `notify_claimed_at` | a run is in flight; stale after 5 minutes, then reusable. |
+
+`claim_lead_notification()` is a single `UPDATE … WHERE` — an atomic claim, not
+a check-then-act — so two concurrent `pg_net` deliveries cannot both send.
+`record_lead_notification()` sets each stamp only if it is not already set and
+derives `notification_status` from the **cumulative** pair, so an
+acknowledgement that went out on attempt one and an owner alert that went out on
+attempt two add up to a `notified` lead.
+
+A visitor never gets two acknowledgements. That is enforced by `ack_sent_at`,
+not by the aggregate status.
+
+**The one window the stamps cannot cover** is an email that leaves Resend
+followed by a stamp write that fails — nothing can make those two atomic. The
+stamp write is retried three times, and every Resend request carries a stable
+`Idempotency-Key` of `lead-notify:<channel>:<lead id>`, so a repeat of the same
+send within Resend's dedupe window is not delivered twice. (Resend's own
+handling of that header could not be exercised here without a live API key; it
+is a second line of defence behind `ack_sent_at`, not the primary one.)
+
+**Leads that predate this migration are never mailed.** The migration stamps
+both channels on every row older than an hour at apply time: acknowledging
+somebody weeks after they wrote in is worse than staying quiet, and the sweeper
+would otherwise treat every historic row as unsent.
+
+## Closing the loop
+
+`pilot_intake_requests` has exactly one RLS policy — `SELECT`, admin/ai_admin —
+and no write policy at all, so nothing in the product could move a lead out of
+`status='new'`. Keying the overdue flag on that made it permanent: every lead
+red one business hour after arrival, forever, including ones answered in ten
+minutes, until the whole table was red and the signal was noise.
+
+`mark_pilot_lead_responded(uuid)` is the one write the admin surface has. It is
+`SECURITY DEFINER`, granted to `authenticated` and never to `anon`, and it
+repeats the same `admin`/`ai_admin` role test the read policy uses rather than
+trusting the grant. It sets `first_responded_at` (and moves `status` to
+`contacted`), which is what clears the flag and what stops the sweeper.
 
 ## Realtime
 
-`pilot_intake_requests` is now in the `supabase_realtime` publication with
-`replica identity full`, so `/pilot-leads` — which already called
-`useRealtimeRefetch` on this table — actually refreshes live and its LIVE badge
-means something. Realtime enforces RLS per subscriber and the only policy is
-`pilot_intake_requests_admin_read`, so this streams to admin / ai_admin and
-nobody else.
+`pilot_intake_requests` is in the `supabase_realtime` publication, so
+`/pilot-leads` — which already called `useRealtimeRefetch` on this table —
+actually refreshes live and its LIVE badge means something.
+
+**Replica identity stays `default`, deliberately.** Realtime applies RLS to
+insert and update events but _not_ to deletes — Postgres cannot check access to
+a row that no longer exists — so `replica identity full` would put every column
+of a deleted lead (name, work email, company, notes) into a payload any
+publishable-key subscriber receives. That is exactly the PII
+`20260913090000_pilot_leads_admin_only.sql` was written to lock down. The
+default identity puts only the primary key in a delete payload, and
+`useRealtimeRefetch` discards the payload and calls `refetch()` anyway, so
+nothing is lost.
 
 ## Testing it
 
@@ -207,5 +313,7 @@ Function logs are one JSON object per event (`email_sent`, `sms_skipped`,
 | `supabase/functions/lead-notify/index.ts`                    | Deno shell: env, auth, orchestration         |
 | `src/lib/lead-notify/lead-notify.test.ts`                    | Templates, SLA edge cases, Twilio predicate  |
 | `src/test/leadNotifyMigration.test.ts`                       | The migration asserted as text               |
+| `src/lib/leads/pilotLeadSla.ts`                              | Overdue predicate + Alberta timestamps       |
+| `src/services/pilotIntake.ts`                                | Admin read (degrading) + the responded write |
 | `config/edge-function-boundary.json`                         | `lead-notify` added to the deploy allowlist  |
 | `.github/workflows/deploy-migrations.yml`                    | Path trigger + explicit deploy line          |

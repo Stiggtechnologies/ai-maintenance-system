@@ -40,7 +40,11 @@ import {
   formatBusinessInstant,
   formatBusinessInstantShort,
   greetingName,
+  hasAcknowledged,
+  hasAlertedOwner,
+  idempotencyKeyFor,
   isAlreadyNotified,
+  isNotificationComplete,
   isSyncaiSender,
   isTwilioConfigured,
   missingTwilioSettings,
@@ -52,6 +56,7 @@ import {
   resolveFirstResponseDue,
   resolveNotificationStatus,
   resolveSender,
+  sanitizeHeaderValue,
   SMS_MAX_LENGTH,
   twilioEndpoint,
   zoneAbbreviation,
@@ -89,6 +94,10 @@ function makeLead(overrides: Partial<PilotIntakeLead> = {}): PilotIntakeLead {
     notified_at: null,
     source_path: "/pilot/reliability",
     first_response_due: null,
+    ack_sent_at: null,
+    owner_alerted_at: null,
+    notify_claimed_at: null,
+    first_responded_at: null,
     ...overrides,
   };
 }
@@ -744,5 +753,202 @@ describe("the SMS itself", () => {
     expect(form.get("To")).toBe(TWILIO_OK.toNumber);
     expect(form.get("From")).toBe(TWILIO_OK.fromNumber);
     expect(form.get("Body")).toBe("hello");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Idempotency is per channel, not per aggregate status
+// ---------------------------------------------------------------------------
+
+describe("per-channel idempotency", () => {
+  // notification_status is 'failed' whenever the two emails did not BOTH land,
+  // which makes "the acknowledgement went out and the owner alert 429'd"
+  // indistinguishable from "nothing was sent". Gating retries on it means the
+  // retry that fixes the owner alert also sends the visitor a SECOND identical
+  // acknowledgement — and the runbook explicitly invites a manual re-invoke.
+  it("knows a half-delivered lead has already been acknowledged", () => {
+    const half = makeLead({
+      notification_status: "failed",
+      ack_sent_at: "2026-09-18T22:31:00.000Z",
+      owner_alerted_at: null,
+    });
+    expect(hasAcknowledged(half)).toBe(true);
+    expect(hasAlertedOwner(half)).toBe(false);
+    expect(isNotificationComplete(half)).toBe(false);
+    // The old guard would have said "not notified, send everything again".
+    expect(isAlreadyNotified(half)).toBe(false);
+  });
+
+  it("treats a lead with both stamps as finished whatever the status says", () => {
+    const done = makeLead({
+      notification_status: "failed",
+      ack_sent_at: "2026-09-18T22:31:00.000Z",
+      owner_alerted_at: "2026-09-18T22:31:02.000Z",
+    });
+    expect(isNotificationComplete(done)).toBe(true);
+  });
+
+  it("sends everything for a lead nothing has touched", () => {
+    const fresh = makeLead();
+    expect(hasAcknowledged(fresh)).toBe(false);
+    expect(hasAlertedOwner(fresh)).toBe(false);
+    expect(isNotificationComplete(fresh)).toBe(false);
+  });
+
+  it("does not mistake an unparseable stamp for a delivery", () => {
+    expect(hasAcknowledged(makeLead({ ack_sent_at: "" }))).toBe(false);
+    expect(hasAcknowledged(makeLead({ ack_sent_at: "whenever" }))).toBe(false);
+  });
+
+  it("counts a delivery from an earlier attempt towards 'notified'", () => {
+    // The acknowledgement landed on attempt one, the owner alert on attempt
+    // two. Cumulatively that is a notified lead, and record_lead_notification
+    // derives exactly the same answer from the same two columns.
+    expect(
+      resolveNotificationStatus({
+        acknowledgementSent: true,
+        ownerEmailSent: true,
+        smsSent: null,
+      }),
+    ).toBe(NOTIFICATION_STATUS.notified);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The acknowledgement may not promise something that did not happen
+// ---------------------------------------------------------------------------
+
+describe("the acknowledgement's claim about the owner", () => {
+  const lead = makeLead();
+
+  it("says the owner was alerted only when the owner alert actually landed", () => {
+    const alerted = buildLeadAcknowledgement({
+      lead,
+      dueAt: resolveFirstResponseDue(lead),
+      ownerAlerted: true,
+    });
+    expect(alerted.text).toContain("I have been alerted");
+  });
+
+  it("does not claim it when the owner alert failed", () => {
+    // Resend accepts the acknowledgement and then 429s the owner alert. The
+    // customer would otherwise hold a written statement that Orville was
+    // alerted, plus a named deadline, while Orville knows nothing about it.
+    const notAlerted = buildLeadAcknowledgement({
+      lead,
+      dueAt: resolveFirstResponseDue(lead),
+      ownerAlerted: false,
+    });
+    expect(notAlerted.text).not.toContain("I have been alerted");
+    expect(notAlerted.text).toContain("It is in.");
+    // The SLA commitment is the owner's, and it still stands.
+    expect(notAlerted.text).toContain("within one business hour");
+  });
+
+  it("defaults to making no claim at all", () => {
+    const ack = buildLeadAcknowledgement({ lead, dueAt: null });
+    expect(ack.text).not.toContain("I have been alerted");
+  });
+
+  it("echoes the form's own label instead of relabelling the answer", () => {
+    // The field is "Decision you need to improve" and its options include
+    // "Executive reporting takes too long"; telling a CFO that their "primary
+    // reliability pain" is executive reporting rewrites their answer.
+    const cfo = makeLead({
+      primary_pain: "Executive reporting takes too long",
+    });
+    const ack = buildLeadAcknowledgement({
+      lead: cfo,
+      dueAt: null,
+      ownerAlerted: true,
+    });
+    expect(ack.text).toContain(
+      "Decision you want to improve: Executive reporting takes too long",
+    );
+    expect(ack.text).not.toContain("Primary reliability pain");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Header hygiene
+// ---------------------------------------------------------------------------
+
+describe("sanitizeHeaderValue — the subject is the one lead-derived header", () => {
+  it("strips the newlines that make header injection possible", () => {
+    expect(sanitizeHeaderValue("Acme\r\nBcc: attacker@evil.example")).toBe(
+      "Acme Bcc: attacker@evil.example",
+    );
+    expect(sanitizeHeaderValue("Acme\nX-Header: x")).toBe("Acme X-Header: x");
+    expect(sanitizeHeaderValue("Acme Co")).toBe("Acme Co");
+  });
+
+  it("caps the length so Resend does not 422 a legitimate lead into 'failed'", () => {
+    const long = sanitizeHeaderValue(`Acme ${"x".repeat(500)}`);
+    expect(long.length).toBeLessThanOrEqual(200);
+    expect(long.endsWith("…")).toBe(true);
+  });
+
+  it("leaves an ordinary subject exactly as written", () => {
+    expect(
+      sanitizeHeaderValue("We have your SyncAI pilot request — Acme"),
+    ).toBe("We have your SyncAI pilot request — Acme");
+  });
+
+  it("is applied to every payload, not just the ones remembered", () => {
+    // submit_pilot_intake_request only trims and truncates `company`; interior
+    // CRLF survives it and lands in the subject.
+    const hostile = makeLead({ company: "Acme\r\nBcc: attacker@evil.example" });
+    for (const content of [
+      buildLeadAcknowledgement({ lead: hostile, dueAt: null }),
+      buildOwnerAlert({ lead: hostile, dueAt: null }),
+    ]) {
+      const payload = buildResendPayload({
+        from: DEFAULT_ACK_FROM,
+        to: hostile.email,
+        content,
+      });
+      expect(payload.subject).not.toMatch(/[\r\n]/);
+      expect(payload.subject).toContain("Bcc: attacker@evil.example");
+    }
+  });
+});
+
+describe("idempotency keys — the one window the database stamps cannot cover", () => {
+  // The email leaves Resend and the stamp write then fails. Nothing can make
+  // those two atomic, so the same key on a repeat of the same send is the
+  // second line of defence.
+  it("is stable for a given lead and channel, whenever the retry happens", () => {
+    const lead = makeLead();
+    expect(idempotencyKeyFor(lead.id, "lead_acknowledgement")).toBe(
+      idempotencyKeyFor(lead.id, "lead_acknowledgement"),
+    );
+    expect(idempotencyKeyFor(lead.id, "lead_acknowledgement")).not.toBe(
+      idempotencyKeyFor(lead.id, "owner_alert"),
+    );
+    expect(idempotencyKeyFor("other-lead", "lead_acknowledgement")).not.toBe(
+      idempotencyKeyFor(lead.id, "lead_acknowledgement"),
+    );
+  });
+
+  it("stays inside Resend's key length limit", () => {
+    expect(idempotencyKeyFor("x".repeat(500), "owner_alert").length).toBe(256);
+  });
+
+  it("is sent as a header, and omitted rather than sent empty", () => {
+    const payload = buildResendPayload({
+      from: DEFAULT_ACK_FROM,
+      to: "dana@northpeakmining.example",
+      content: buildLeadAcknowledgement({ lead: makeLead(), dueAt: null }),
+    });
+    expect(
+      buildResendRequest("re_key", payload, "lead-notify:owner_alert:abc")
+        .headers["Idempotency-Key"],
+    ).toBe("lead-notify:owner_alert:abc");
+    expect(buildResendRequest("re_key", payload).headers).not.toHaveProperty(
+      "Idempotency-Key",
+    );
+    expect(
+      buildResendRequest("re_key", payload, "  ").headers,
+    ).not.toHaveProperty("Idempotency-Key");
   });
 });

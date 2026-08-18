@@ -39,34 +39,85 @@ export type PilotIntakeLead = {
   /**
    * One business hour after created_at (Mon-Fri 08:00-17:00 America/Edmonton),
    * written by trg_pilot_intake_first_response_due
-   * (20260914090000_lead_notify_trigger.sql). Nullable only for the window
-   * between a row landing and that migration's backfill.
+   * (20260914090000_lead_notify_trigger.sql). Null when this build is running
+   * against a project that has not applied that migration yet.
    */
   first_response_due: string | null;
+  /**
+   * When a human actually answered, set by mark_pilot_lead_responded(). The
+   * only thing that clears the overdue flag — nothing else in the product can
+   * write to this table.
+   */
+  first_responded_at: string | null;
 };
 
-const LEAD_COLUMNS =
-  "id, created_at, status, name, email, company, role, industry, asset_scope, primary_pain, notification_status, source_path, first_response_due";
+/** Columns that exist no matter which migration head the project is on. */
+const BASE_LEAD_COLUMNS =
+  "id, created_at, status, name, email, company, role, industry, asset_scope, primary_pain, notification_status, source_path";
+
+/** Everything 20260914090000 added. Requested first; dropped if it is absent. */
+const SLA_LEAD_COLUMNS = `${BASE_LEAD_COLUMNS}, first_response_due, first_responded_at`;
+
+/** PostgREST surfaces Postgres' undefined_column as-is. */
+const UNDEFINED_COLUMN = "42703";
 
 /**
  * Admin-scoped list of pilot-intake leads, newest first. The admin gate is the
  * table's RLS policy, not this function — a non-admin session simply reads zero
  * rows. Bounded so a busy pipeline never streams unbounded rows to the client.
+ *
+ * DEGRADES RATHER THAN BREAKS. Vercel ships this frontend on push to main;
+ * deploy-migrations.yml applies the schema on an entirely separate path, and
+ * that workflow's own history records it failing for three weeks while CI
+ * stayed green and frontends kept shipping. If this select names a column the
+ * deployed schema does not have yet, PostgREST rejects the whole query and
+ * /pilot-leads renders nothing but an error — the page that exists as the
+ * human fallback for a lead going cold would be the first casualty. So the SLA
+ * columns are requested, and on 42703 the query is retried without them.
  */
 export async function listPilotIntakeRequests(
   limit = 300,
 ): Promise<PilotIntakeLead[]> {
-  const { data, error } = await supabase
-    .from("pilot_intake_requests")
-    .select(LEAD_COLUMNS)
-    .order("created_at", { ascending: false })
-    .limit(limit);
+  const read = (columns: string) =>
+    supabase
+      .from("pilot_intake_requests")
+      .select(columns)
+      .order("created_at", { ascending: false })
+      .limit(limit);
+
+  let { data, error } = await read(SLA_LEAD_COLUMNS);
+
+  if (error?.code === UNDEFINED_COLUMN) {
+    ({ data, error } = await read(BASE_LEAD_COLUMNS));
+  }
 
   if (error) {
     throw new Error(error.message);
   }
 
-  return (data ?? []) as PilotIntakeLead[];
+  return ((data ?? []) as unknown as Array<Partial<PilotIntakeLead>>).map(
+    (row) => ({
+      ...row,
+      first_response_due: row.first_response_due ?? null,
+      first_responded_at: row.first_responded_at ?? null,
+    }),
+  ) as PilotIntakeLead[];
+}
+
+/**
+ * Records that a human answered this lead. This is the ONLY write the product
+ * has against pilot_intake_requests: the table has a single RLS policy
+ * (SELECT, admin/ai_admin) and no write policy at all, so it goes through a
+ * SECURITY DEFINER RPC that repeats the same admin role test. Without it the
+ * overdue flag could never clear and every lead would sit red forever.
+ */
+export async function markPilotLeadResponded(leadId: string): Promise<void> {
+  const { error } = await supabase.rpc("mark_pilot_lead_responded", {
+    p_lead_id: leadId,
+  });
+  if (error) {
+    throw new Error(error.message);
+  }
 }
 
 export async function submitPilotIntake(input: PilotIntakeSubmission) {

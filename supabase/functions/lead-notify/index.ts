@@ -23,11 +23,15 @@ import {
   buildResendRequest,
   buildTwilioRequest,
   DEFAULT_ACK_FROM,
+  idempotencyKeyFor,
   DEFAULT_ACK_REPLY_TO,
   DEFAULT_APP_BASE_URL,
   DEFAULT_OWNER_ALERT_EMAIL,
   DEFAULT_OWNER_ALERT_FROM,
+  hasAcknowledged,
+  hasAlertedOwner,
   isAlreadyNotified,
+  isNotificationComplete,
   isTwilioConfigured,
   missingTwilioSettings,
   NOTIFICATION_STATUS,
@@ -51,7 +55,13 @@ const LEAD_NOTIFY_SHARED_SECRET =
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY") ?? "";
 const ACK_FROM = resolveSender(Deno.env.get("LEAD_ACK_FROM"), DEFAULT_ACK_FROM);
-const ACK_REPLY_TO = Deno.env.get("LEAD_ACK_REPLY_TO") ?? DEFAULT_ACK_REPLY_TO;
+// Domain-guarded like the From addresses. A reply-to is where the customer's
+// answer actually goes; letting it fall to gmail through an unchecked env var
+// reaches the exact outcome the @syncai.ca rule exists to prevent.
+const ACK_REPLY_TO = resolveSender(
+  Deno.env.get("LEAD_ACK_REPLY_TO"),
+  DEFAULT_ACK_REPLY_TO,
+);
 const OWNER_ALERT_FROM = resolveSender(
   Deno.env.get("OWNER_ALERT_FROM"),
   DEFAULT_OWNER_ALERT_FROM,
@@ -67,7 +77,11 @@ const TWILIO: Partial<TwilioConfig> = {
   toNumber: Deno.env.get("OWNER_SMS_TO") ?? "",
 };
 
-const SEND_TIMEOUT_MS = 15_000;
+// Three outbound calls at worst (owner alert, acknowledgement, SMS) against
+// the 45s pg_net timeout in dispatch_lead_notification. Keeping the total
+// under that means pg_net never records a timeout for a run that is still
+// legitimately working — and never leaves a delivered email un-recorded.
+const SEND_TIMEOUT_MS = 8_000;
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "https://app.syncai.ca",
@@ -136,6 +150,7 @@ async function withTimeout(request: {
  */
 async function sendEmail(
   channel: string,
+  leadId: string,
   from: string,
   to: string,
   content: EmailContent,
@@ -143,31 +158,47 @@ async function sendEmail(
 ): Promise<boolean> {
   const payload = buildResendPayload({ from, to, content, replyTo });
   if (payload.to.length === 0) {
-    logError("email_no_recipient", { channel });
+    logError("email_no_recipient", { channel, leadId });
     return false;
   }
 
   try {
     const response = await withTimeout(
-      buildResendRequest(RESEND_API_KEY, payload),
+      buildResendRequest(
+        RESEND_API_KEY,
+        payload,
+        idempotencyKeyFor(leadId, channel),
+      ),
     );
     if (!response.ok) {
       const detail = (await response.text()).slice(0, 400);
-      logError("email_rejected", { channel, status: response.status, detail });
+      logError("email_rejected", {
+        channel,
+        leadId,
+        status: response.status,
+        detail,
+      });
       return false;
     }
-    log("email_sent", { channel, to: payload.to, subject: content.subject });
+    // leadId, never the address or the subject: the subject carries the
+    // company name and the address is the lead's work email. Platform logs are
+    // readable by anyone with dashboard access and are not the place for the
+    // PII that 20260913090000 locked behind an admin-only policy.
+    log("email_sent", { channel, leadId, recipients: payload.to.length });
     return true;
   } catch (error) {
-    logError("email_failed", { channel, error: String(error) });
+    logError("email_failed", { channel, leadId, error: String(error) });
     return false;
   }
 }
 
 /** Inert until all four Twilio settings exist. A skip is never a failure. */
-async function sendSms(ctx: TemplateContext): Promise<boolean | null> {
+async function sendSms(
+  ctx: TemplateContext,
+  leadId: string,
+): Promise<boolean | null> {
   if (!isTwilioConfigured(TWILIO)) {
-    log("sms_skipped", { missing: missingTwilioSettings(TWILIO) });
+    log("sms_skipped", { leadId, missing: missingTwilioSettings(TWILIO) });
     return null;
   }
 
@@ -176,13 +207,13 @@ async function sendSms(ctx: TemplateContext): Promise<boolean | null> {
     const response = await withTimeout(request);
     if (!response.ok) {
       const detail = (await response.text()).slice(0, 400);
-      logError("sms_rejected", { status: response.status, detail });
+      logError("sms_rejected", { leadId, status: response.status, detail });
       return false;
     }
-    log("sms_sent", {});
+    log("sms_sent", { leadId });
     return true;
   } catch (error) {
-    logError("sms_failed", { error: String(error) });
+    logError("sms_failed", { leadId, error: String(error) });
     return false;
   }
 }
@@ -202,7 +233,15 @@ async function processLead(req: Request): Promise<Response> {
   const authorized =
     safeEqual(auth, serviceToken) ||
     (sharedToken !== "" && safeEqual(auth, sharedToken));
-  if (!authorized) return json({ error: "unauthorized" }, 401);
+  if (!authorized) {
+    // Logged, not silent. Whether pg_net's configured key is the one the
+    // platform injects as SUPABASE_SERVICE_ROLE_KEY is exactly the sort of
+    // deploy-time mismatch that otherwise looks identical to "no leads
+    // arrived" — the failure mode this whole path exists to end. Never the
+    // token, and never its length.
+    logError("unauthorized", { presented: auth === "" ? "none" : "bearer" });
+    return json({ error: "unauthorized" }, 401);
+  }
 
   // Everything past this point answers 2xx. pg_net has already committed the
   // lead; a non-2xx here buys nothing and invites a redelivery that would send
@@ -240,80 +279,119 @@ async function processLead(req: Request): Promise<Response> {
 
   const lead = data as PilotIntakeLead;
 
-  // pg_net can deliver more than once and a person can re-run this by hand.
-  // Neither may send a second acknowledgement.
-  if (isAlreadyNotified(lead)) {
+  // pg_net can deliver more than once, the retry sweeper re-POSTs anything
+  // unfinished, and a person can re-run this by hand. None of them may send a
+  // channel that already landed — which is why the check is per channel and
+  // not on the aggregate status.
+  if (isNotificationComplete(lead) || isAlreadyNotified(lead)) {
     log("already_notified", { leadId });
     return json({ ok: true, skipped: "already_notified" });
   }
 
+  // Single-statement claim in SQL: two concurrent deliveries cannot both win,
+  // and a claim left behind by a torn-down isolate goes stale and is reusable.
+  const { data: claimed, error: claimError } = await supabase.rpc(
+    "claim_lead_notification",
+    { p_lead_id: leadId, p_stale_seconds: 300 },
+  );
+  if (claimError) {
+    logError("claim_failed", { leadId, error: claimError.message });
+    return json({ ok: false, skipped: "claim_failed" });
+  }
+  if (claimed !== true) {
+    log("already_in_flight", { leadId });
+    return json({ ok: true, skipped: "already_in_flight" });
+  }
+
   const dueAt = resolveFirstResponseDue(lead);
-  const ctx: TemplateContext = { lead, dueAt, appBaseUrl: APP_BASE_URL };
+  const appBaseUrl = APP_BASE_URL;
 
-  // Returns whether the stamp landed. A notification that sent but did not
-  // persist would look unsent to a redelivery, so the caller reports it.
-  async function stamp(status: string): Promise<boolean> {
-    const patch: Record<string, unknown> = { notification_status: status };
-    if (status === NOTIFICATION_STATUS.notified) {
-      patch.notified_at = new Date().toISOString();
+  // Cumulative, not per-run: a channel that landed on an earlier attempt is
+  // still landed, and re-sending it is the bug this replaced.
+  let ownerEmailSent = hasAlertedOwner(lead);
+  let acknowledgementSent = hasAcknowledged(lead);
+
+  /**
+   * Writes the per-channel stamps and lets SQL derive the aggregate status
+   * from them. Returns the status the row now carries, or null if the write
+   * did not land.
+   */
+  async function record(): Promise<string | null> {
+    // Retried, because this write is the ONLY record that an email left
+    // Resend. Lose it and the sweeper sees an unsent lead and sends again.
+    // (Resend's Idempotency-Key covers the remainder of that window; this
+    // makes it rare rather than merely survivable.)
+    let lastError = "";
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const { data: recorded, error: recordError } = await supabase.rpc(
+        "record_lead_notification",
+        {
+          p_lead_id: leadId,
+          p_ack_sent: acknowledgementSent,
+          p_owner_alerted: ownerEmailSent,
+        },
+      );
+      if (!recordError) {
+        const row = recorded as { notification_status?: unknown } | null;
+        return typeof row?.notification_status === "string"
+          ? row.notification_status
+          : null;
+      }
+      lastError = recordError.message;
+      if (attempt < 2) await new Promise((done) => setTimeout(done, 250));
     }
-    const { error: updateError } = await supabase
-      .from("pilot_intake_requests")
-      .update(patch)
-      .eq("id", leadId);
-    if (updateError) {
-      logError("status_write_failed", {
-        leadId,
-        status,
-        error: updateError.message,
-      });
-      return false;
-    }
-    return true;
+    logError("status_write_failed", { leadId, error: lastError });
+    return null;
   }
 
-  // No transport, no notification. Mark it failed so the leads page shows red
-  // and a person picks the lead up — silence is the failure mode being fixed.
+  // THE OWNER ALERT GOES FIRST, deliberately. The acknowledgement tells the
+  // customer they have been heard and names a deadline; it must not be able to
+  // make that promise before anybody on this side knows the lead exists.
+  if (RESEND_API_KEY && !ownerEmailSent) {
+    ownerEmailSent = await sendEmail(
+      "owner_alert",
+      leadId,
+      OWNER_ALERT_FROM,
+      OWNER_ALERT_EMAIL,
+      buildOwnerAlert({ lead, dueAt, appBaseUrl }),
+      ACK_REPLY_TO,
+    );
+  }
+
+  if (RESEND_API_KEY && !acknowledgementSent) {
+    acknowledgementSent = await sendEmail(
+      "lead_acknowledgement",
+      leadId,
+      ACK_FROM,
+      lead.email,
+      buildLeadAcknowledgement({ lead, dueAt, appBaseUrl, ownerAlerted: ownerEmailSent }),
+      ACK_REPLY_TO,
+    );
+  }
+
   if (!RESEND_API_KEY) {
+    // No transport, no email. The lead is still marked so the leads page shows
+    // red and a person picks it up — silence is the failure mode being fixed —
+    // and the SMS below is still attempted, because it is an independent
+    // channel and a broken Resend is exactly when it matters most.
     logError("email_not_configured", { leadId });
-    await stamp(NOTIFICATION_STATUS.failed);
-    return json({
-      ok: false,
-      skipped: "email_not_configured",
-      notification_status: NOTIFICATION_STATUS.failed,
-    });
   }
 
-  const acknowledgementSent = await sendEmail(
-    "lead_acknowledgement",
-    ACK_FROM,
-    lead.email,
-    buildLeadAcknowledgement(ctx),
-    ACK_REPLY_TO,
-  );
-
-  const ownerEmailSent = await sendEmail(
-    "owner_alert",
-    OWNER_ALERT_FROM,
-    OWNER_ALERT_EMAIL,
-    buildOwnerAlert(ctx),
-    ACK_REPLY_TO,
-  );
-
-  const smsSent = await sendSms(ctx);
+  const smsSent = await sendSms({ lead, dueAt, appBaseUrl }, leadId);
 
   const outcome: ChannelOutcome = {
     acknowledgementSent,
     ownerEmailSent,
     smsSent,
   };
-  const status = resolveNotificationStatus(outcome);
-  const statusPersisted = await stamp(status);
+  const expected = resolveNotificationStatus(outcome);
+  const persisted = await record();
+  const status = persisted ?? expected;
 
   log("completed", {
     leadId,
     status,
-    statusPersisted,
+    statusPersisted: persisted !== null,
     acknowledgementSent,
     ownerEmailSent,
     smsSent,
@@ -323,7 +401,7 @@ async function processLead(req: Request): Promise<Response> {
   return json({
     ok: status === NOTIFICATION_STATUS.notified,
     notification_status: status,
-    status_persisted: statusPersisted,
+    status_persisted: persisted !== null,
     acknowledgement_sent: acknowledgementSent,
     owner_email_sent: ownerEmailSent,
     sms_sent: smsSent,

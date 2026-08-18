@@ -14,15 +14,17 @@
  * means the notification has not completed, red means it failed and a person
  * has to step in.
  */
-import { useMemo } from "react";
-import { Users, Download, RefreshCw } from "lucide-react";
+import { useCallback, useMemo, useState } from "react";
+import { Users, Download, RefreshCw, Check } from "lucide-react";
 import { useAsyncData } from "../hooks/useAsyncData";
 import { useRealtimeRefetch } from "../hooks/useRealtimeRefetch";
 import { LiveBadge } from "../components/ui/LiveBadge";
 import {
   listPilotIntakeRequests,
+  markPilotLeadResponded,
   type PilotIntakeLead,
 } from "../services/pilotIntake";
+import { formatAlbertaStamp, isOverdue } from "../lib/leads/pilotLeadSla";
 import { downloadCsv } from "../services/operatingLoopService";
 import {
   LoadingState,
@@ -42,17 +44,6 @@ function statusStyle(status: string): string {
   );
 }
 
-/**
- * Past its one-business-hour deadline and nobody has moved it out of 'new'.
- * Deliberately keyed on the pipeline status rather than notification_status: a
- * lead that was successfully acknowledged is still cold if no human replied.
- */
-function isOverdue(lead: PilotIntakeLead, now: number = Date.now()): boolean {
-  if (lead.status !== "new" || !lead.first_response_due) return false;
-  const due = new Date(lead.first_response_due).getTime();
-  return Number.isFinite(due) && due < now;
-}
-
 export function PilotLeads() {
   const { data, loading, error, refetch } = useAsyncData<PilotIntakeLead[]>(
     () => listPilotIntakeRequests(),
@@ -60,6 +51,24 @@ export function PilotLeads() {
   );
   const { live } = useRealtimeRefetch(["pilot_intake_requests"], refetch);
   const leads = useMemo(() => data ?? [], [data]);
+  const [marking, setMarking] = useState<string | null>(null);
+  const [markError, setMarkError] = useState<string | null>(null);
+
+  const markResponded = useCallback(
+    async (leadId: string) => {
+      setMarking(leadId);
+      setMarkError(null);
+      try {
+        await markPilotLeadResponded(leadId);
+        refetch();
+      } catch (cause) {
+        setMarkError(cause instanceof Error ? cause.message : String(cause));
+      } finally {
+        setMarking(null);
+      }
+    },
+    [refetch],
+  );
 
   if (loading) return <LoadingState label="Loading pilot leads" />;
   if (error) return <ErrorState message={error} onRetry={refetch} />;
@@ -83,8 +92,14 @@ export function PilotLeads() {
             (Mon-Fri, 8:00am-5:00pm Mountain). A lead still showing{" "}
             <span className="font-medium text-amber-300">queued</span> or{" "}
             <span className="font-medium text-red-300">failed</span> did not get
-            its notification — pick it up by hand.
+            its notification — pick it up by hand. Times are Mountain
+            (America/Edmonton), the zone the SLA is defined in.
           </p>
+          {markError ? (
+            <p className="mt-2 text-sm text-red-300" role="alert">
+              Could not record the response: {markError}
+            </p>
+          ) : null}
         </div>
         <div className="flex gap-2">
           <button
@@ -108,6 +123,7 @@ export function PilotLeads() {
                   primary_pain: lead.primary_pain,
                   notification_status: lead.notification_status,
                   first_response_due: lead.first_response_due ?? "",
+                  first_responded_at: lead.first_responded_at ?? "",
                   source_path: lead.source_path,
                 })),
                 "pilot-leads.csv",
@@ -138,6 +154,7 @@ export function PilotLeads() {
                 <th className="px-4 py-3">Primary pain</th>
                 <th className="px-4 py-3">First response due</th>
                 <th className="px-4 py-3">Status</th>
+                <th className="px-4 py-3">Answered</th>
               </tr>
             </thead>
             <tbody>
@@ -147,7 +164,7 @@ export function PilotLeads() {
                   className="border-b border-white/4 hover:bg-white/2"
                 >
                   <td className="whitespace-nowrap px-4 py-2.5 text-slate-400">
-                    {new Date(lead.created_at).toLocaleString()}
+                    {formatAlbertaStamp(lead.created_at)}
                   </td>
                   <td className="px-4 py-2.5 font-medium text-slate-200">
                     {lead.name}
@@ -173,7 +190,7 @@ export function PilotLeads() {
                             : "text-slate-400"
                         }
                       >
-                        {new Date(lead.first_response_due).toLocaleString()}
+                        {formatAlbertaStamp(lead.first_response_due)}
                         {isOverdue(lead) ? " · overdue" : ""}
                       </span>
                     ) : (
@@ -188,6 +205,22 @@ export function PilotLeads() {
                     >
                       {lead.notification_status}
                     </span>
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-2.5">
+                    {lead.first_responded_at ? (
+                      <span className="text-emerald-300">
+                        {formatAlbertaStamp(lead.first_responded_at)}
+                      </span>
+                    ) : (
+                      <button
+                        onClick={() => markResponded(lead.id)}
+                        disabled={marking === lead.id}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-slate-600 px-2.5 py-1 text-xs text-slate-200 hover:bg-slate-800 disabled:opacity-40 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-teal-300"
+                      >
+                        <Check className="h-3.5 w-3.5" aria-hidden />
+                        {marking === lead.id ? "Saving…" : "Mark answered"}
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}

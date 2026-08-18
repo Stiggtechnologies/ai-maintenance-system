@@ -83,22 +83,42 @@ function isAfterInsertRowTrigger(statement: string): boolean {
   return true;
 }
 
+/**
+ * Exactly one function in this migration is reachable by a logged-in user:
+ * mark_pilot_lead_responded, the admin-gated write that lets the overdue flag
+ * clear. Everything else must be service_role only. Naming the exception here
+ * rather than loosening the predicate means adding a second one is a diff to
+ * this list, not a silent widening.
+ */
+const ADMIN_GATED_FUNCTIONS = ["mark_pilot_lead_responded"];
+
 /** True only when every EXECUTE grant in the SQL targets service_role alone. */
-function grantsAreServiceRoleOnly(source: string): boolean {
+function grantsAreServiceRoleOnly(
+  source: string,
+  exceptions: string[] = [],
+): boolean {
   const grants = [
     ...source
       .toLowerCase()
-      .matchAll(/grant\s+execute\s+on\s+function[^;]*?\bto\s+([^;]+);/g),
+      .matchAll(
+        /grant\s+execute\s+on\s+function\s+([^;(]+)[^;]*?\bto\s+([^;]+);/g,
+      ),
   ];
   if (grants.length === 0) return false;
-  return grants.every(
-    (match) =>
-      match[1]
-        .split(",")
-        .map((role) => role.trim())
-        .filter(Boolean)
-        .join(",") === "service_role",
-  );
+  return grants.every((match) => {
+    const fn = match[1].trim();
+    const roles = match[2]
+      .split(",")
+      .map((role) => role.trim())
+      .filter(Boolean)
+      .sort()
+      .join(",");
+    if (exceptions.some((name) => fn.endsWith(name))) {
+      // Still never anon, and still never PUBLIC.
+      return roles === "authenticated,service_role";
+    }
+    return roles === "service_role";
+  });
 }
 
 const SECRET_SHAPES: ReadonlyArray<[string, RegExp]> = [
@@ -129,23 +149,38 @@ describe("lead-notify migration — the dispatch cannot cost us the lead", () =>
   });
 
   it("fires the notifier through pg_net with just the lead id", () => {
-    const body = functionBody("on_pilot_intake_created");
+    // The POST itself lives in dispatch_lead_notification so the instant
+    // trigger and the retry sweeper cannot drift apart.
+    const body = functionBody("dispatch_lead_notification");
     expect(body).toContain("net.http_post");
     expect(body.toLowerCase()).toContain(
-      "jsonb_build_object('lead_id', new.id)",
+      "jsonb_build_object('lead_id', p_lead_id)",
     );
     // The key is read from config at call time, never embedded.
     expect(body).toContain("'Bearer ' || cfg.service_key");
+    // No lead field reaches the request itself — the address is used only to
+    // count the abuse allowance, never put on the wire or in the URL.
+    const post = body.slice(body.indexOf("net.http_post"));
+    expect(post.slice(0, post.indexOf(") into req_id"))).not.toMatch(/p_email/);
+    expect(functionBody("on_pilot_intake_created")).toContain(
+      "public.dispatch_lead_notification(new.id, new.email)",
+    );
   });
 
   it("swallows every dispatch error and lets the lead commit", () => {
     expect(isFailSoft(functionBody("on_pilot_intake_created"))).toBe(true);
   });
 
-  it("no-ops silently until it is configured", () => {
-    const body = functionBody("on_pilot_intake_created").toLowerCase();
+  it("no-ops — loudly — until it is configured", () => {
+    const body = functionBody("dispatch_lead_notification").toLowerCase();
     expect(body).toContain("private.lead_notify_config");
-    expect(body).toMatch(/if cfg\.function_url is null[\s\S]*?return new;/);
+    // Returns null rather than dispatching...
+    expect(body).toMatch(/if cfg\.function_url is null[\s\S]*?return null;/);
+    // ...and says so. A silent no-op here is indistinguishable from "no leads
+    // arrived", which is precisely how leads went cold before this path.
+    expect(body).toMatch(
+      /if cfg\.function_url is null[\s\S]*?raise warning[\s\S]*?return null;/,
+    );
   });
 
   it("mutation-sanity — the fail-soft guard rejects anything that can propagate", () => {
@@ -253,12 +288,19 @@ describe("lead-notify migration — nothing is exposed", () => {
   });
 
   it("locks every function it defines to service_role", () => {
-    expect(grantsAreServiceRoleOnly(executable)).toBe(true);
+    expect(grantsAreServiceRoleOnly(executable, ADMIN_GATED_FUNCTIONS)).toBe(
+      true,
+    );
     for (const fn of [
       "configure_lead_notify(text, text)",
       "business_hours_deadline(timestamptz, interval)",
       "on_pilot_intake_created()",
       "set_pilot_intake_first_response_due()",
+      "dispatch_lead_notification(uuid, text)",
+      "lead_notify_allow_dispatch(uuid, text, integer, integer)",
+      "claim_lead_notification(uuid, integer)",
+      "record_lead_notification(uuid, boolean, boolean)",
+      "retry_stalled_lead_notifications(integer)",
     ]) {
       expect(lower).toContain(
         `revoke execute on function public.${fn} from public, anon, authenticated;`,
@@ -313,6 +355,26 @@ describe("lead-notify migration — nothing is exposed", () => {
         "grant execute on function public.configure_lead_notify(text, text) to service_role;",
       ),
     ).toBe(true);
+    // The allowlisted exception is exactly one name, and even it may never
+    // reach anon or PUBLIC.
+    expect(
+      grantsAreServiceRoleOnly(
+        "grant execute on function public.mark_pilot_lead_responded(uuid) to authenticated, service_role;",
+        ADMIN_GATED_FUNCTIONS,
+      ),
+    ).toBe(true);
+    expect(
+      grantsAreServiceRoleOnly(
+        "grant execute on function public.mark_pilot_lead_responded(uuid) to anon, authenticated, service_role;",
+        ADMIN_GATED_FUNCTIONS,
+      ),
+    ).toBe(false);
+    expect(
+      grantsAreServiceRoleOnly(
+        "grant execute on function public.claim_lead_notification(uuid, integer) to authenticated, service_role;",
+        ADMIN_GATED_FUNCTIONS,
+      ),
+    ).toBe(false);
   });
 
   it("does not touch the admin-only RLS the previous migration established", () => {
@@ -328,8 +390,18 @@ describe("lead-notify migration — realtime is added safely", () => {
     expect(lower).toContain(
       "alter publication supabase_realtime add table public.pilot_intake_requests",
     );
+  });
+
+  it("never turns on replica identity full — deletes are not RLS-filtered", () => {
+    // Supabase Realtime cannot apply RLS to a DELETE (the row is gone, so
+    // access to it cannot be checked). `replica identity full` would therefore
+    // put every column of a deleted lead — name, work email, company, notes —
+    // into a payload any publishable-key subscriber receives, which is exactly
+    // the PII 20260913090000 was written to lock down. The page discards the
+    // payload and only refetches, so the default identity costs nothing.
+    expect(lower).not.toContain("replica identity full");
     expect(lower).toContain(
-      "alter table public.pilot_intake_requests replica identity full",
+      "alter table public.pilot_intake_requests replica identity default",
     );
   });
 
@@ -337,6 +409,185 @@ describe("lead-notify migration — realtime is added safely", () => {
     expect(lower).toMatch(
       /if exists \(select 1 from pg_publication where pubname = 'supabase_realtime'\)/,
     );
-    expect(lower).toContain("exception when duplicate_object then");
+    // `when others`, not `when duplicate_object`: a publication defined FOR
+    // ALL TABLES raises wrong_object_type instead, which a narrow handler
+    // would let abort the whole migration transaction.
+    expect(lower).toMatch(
+      /alter publication supabase_realtime add table[\s\S]{0,200}exception when others then/,
+    );
+  });
+});
+
+describe("lead-notify migration — the anonymous form is not an email cannon", () => {
+  // submit_pilot_intake_request is GRANT EXECUTE … TO anon with no captcha,
+  // honeypot or rate limit (20260520030000:204). Before this migration an
+  // anonymous insert was inert; wiring mail to it makes every insert send two
+  // DKIM-signed messages from the verified syncai.ca domain, one of them to an
+  // address the caller chose. Unbounded, that burns the sending domain and
+  // floods the owner's alert inbox — the very channel this path depends on.
+  it("caps dispatches per recipient and per hour before anything is sent", () => {
+    const body = functionBody("lead_notify_allow_dispatch").toLowerCase();
+    expect(body).toContain("p_per_recipient_limit");
+    expect(body).toContain("p_global_hourly_limit");
+    expect(body).toMatch(/interval '24 hours'/);
+    expect(body).toMatch(/interval '1 hour'/);
+    expect(body).toMatch(/return false;/);
+  });
+
+  it("checks the allowance before the POST, not after", () => {
+    const body = functionBody("dispatch_lead_notification");
+    const guard = body.indexOf("lead_notify_allow_dispatch");
+    const post = body.indexOf("net.http_post");
+    expect(guard).toBeGreaterThan(-1);
+    expect(post).toBeGreaterThan(-1);
+    expect(guard).toBeLessThan(post);
+  });
+
+  it("stores the recipient as a digest, never as an address", () => {
+    const body = functionBody("lead_notify_allow_dispatch").toLowerCase();
+    expect(body).toContain("sha256(");
+    expect(lower).toContain(
+      "create table if not exists private.lead_notify_dispatch_log",
+    );
+    // The log lives in private, where PostgREST cannot serve it.
+    expect(lower).not.toMatch(
+      /create table[^;]*public\.lead_notify_dispatch_log/,
+    );
+  });
+
+  it("does not consume allowance twice for the same lead, so retries are not throttled by their own first attempt", () => {
+    const body = functionBody("lead_notify_allow_dispatch").toLowerCase();
+    expect(body).toMatch(/where lead_id = p_lead_id;[\s\S]*?return true;/);
+    expect(body).toContain("on conflict (lead_id) do nothing");
+  });
+
+  it("suppresses the mail, never the lead", () => {
+    // A throttled lead still commits, still has its SLA clock, and still shows
+    // on /pilot-leads. The trigger body must not be able to reject the insert.
+    expect(isFailSoft(functionBody("on_pilot_intake_created"))).toBe(true);
+  });
+});
+
+describe("lead-notify migration — a failed notification is retried", () => {
+  // pg_net does not retry. Without a sweeper, one transient Resend 429, one
+  // pg_net timeout, or a RESEND_API_KEY that was not set until Monday means
+  // the lead is never notified and the only trace is a coloured pill on a page
+  // nobody has open at 18:05 on a Friday.
+  it("schedules a sweeper that re-dispatches unfinished leads", () => {
+    expect(lower).toContain(
+      "create or replace function public.retry_stalled_lead_notifications",
+    );
+    expect(lower).toContain("cron.schedule(");
+    expect(lower).toContain("syncai-lead-notify-retry");
+    // Not one of the four jobs ci.yml:213 freezes for E2E, and it no-ops
+    // without config, so it cannot perturb the golden path.
+    expect(lower).not.toContain("syncai-telemetry-sim");
+  });
+
+  it("retries exactly the leads that are unfinished, and stops for the rest", () => {
+    const body = functionBody("retry_stalled_lead_notifications").toLowerCase();
+    expect(body).toContain("ack_sent_at is null or l.owner_alerted_at is null");
+    // A lead a human already answered is never mailed again.
+    expect(body).toContain("first_responded_at is null");
+    // And it gives up rather than mailing someone a fortnight later.
+    expect(body).toMatch(/created_at > now\(\) - interval '7 days'/);
+  });
+
+  it("backs off instead of hammering Resend, and never re-enters an in-flight run", () => {
+    const body = functionBody("retry_stalled_lead_notifications").toLowerCase();
+    expect(body).toMatch(/make_interval\(mins =>[\s\S]*?attempts/);
+    expect(body).toContain("notify_claimed_at");
+    expect(body).toMatch(/limit greatest\(coalesce\(p_batch, 20\), 1\)/);
+  });
+
+  it("cannot let one bad lead abort the whole sweep", () => {
+    const body = functionBody("retry_stalled_lead_notifications").toLowerCase();
+    expect(body).toMatch(/exception when others then[\s\S]*?raise warning/);
+    expect(body).not.toMatch(/exception when others then\s*raise;/);
+  });
+});
+
+describe("lead-notify migration — idempotency is per channel", () => {
+  it("records what each channel actually did, write-once", () => {
+    for (const column of ["ack_sent_at", "owner_alerted_at"]) {
+      expect(lower).toContain(`add column if not exists ${column} timestamptz`);
+    }
+    const body = functionBody("record_lead_notification").toLowerCase();
+    // Once set, never reset — this is what stops a retry re-acknowledging.
+    expect(body).toMatch(/when ack_sent_at is not null then ack_sent_at/);
+    expect(body).toMatch(
+      /when owner_alerted_at is not null then owner_alerted_at/,
+    );
+  });
+
+  it("derives the aggregate status from the cumulative stamps, not from one attempt", () => {
+    const body = functionBody("record_lead_notification").toLowerCase();
+    expect(body).toMatch(
+      /v_row\.ack_sent_at is not null and v_row\.owner_alerted_at is not null[\s\S]*?'notified'/,
+    );
+    expect(body).toContain("'failed'");
+  });
+
+  it("claims a lead atomically so two deliveries cannot both send", () => {
+    const body = functionBody("claim_lead_notification").toLowerCase();
+    // One UPDATE with the guard in its WHERE clause — not check-then-act.
+    expect(body).toMatch(
+      /update public\.pilot_intake_requests[\s\S]*?where id = p_lead_id[\s\S]*?notify_claimed_at is null/,
+    );
+    expect(body).toContain("returning true into v_claimed");
+    // Reclaimable, so a torn-down isolate does not strand the lead.
+    expect(body).toContain("make_interval(secs =>");
+  });
+
+  it("does not mail leads that predate the notifier", () => {
+    // Acknowledging somebody weeks after they wrote in is worse than silence,
+    // and the sweeper would otherwise treat every historic row as unsent.
+    expect(lower).toMatch(
+      /set ack_sent_at = coalesce\(ack_sent_at, created_at\)[\s\S]*?created_at < now\(\) - interval '1 hour'/,
+    );
+  });
+});
+
+describe("lead-notify migration — the overdue flag can be cleared", () => {
+  // pilot_intake_requests has exactly one policy (SELECT, admin/ai_admin) and
+  // no write policy, so before this nothing in the product could move a lead
+  // out of 'new' — every lead went red one business hour after arrival and
+  // stayed red forever, including ones answered in ten minutes.
+  it("adds the one write the admin surface needs", () => {
+    expect(lower).toContain("add column if not exists first_responded_at");
+    expect(lower).toContain(
+      "create or replace function public.mark_pilot_lead_responded",
+    );
+  });
+
+  it("repeats the read policy's admin test rather than trusting the grant", () => {
+    const body = functionBody("mark_pilot_lead_responded").toLowerCase();
+    expect(body).toContain("auth.uid()");
+    expect(body).toContain("from user_profiles");
+    expect(body).toMatch(/not in \('admin', 'ai_admin'\)/);
+    expect(body).toMatch(/raise exception[\s\S]*?insufficient_privilege/);
+  });
+
+  it("is never reachable by anon", () => {
+    expect(lower).toContain(
+      "revoke execute on function public.mark_pilot_lead_responded(uuid) from public, anon;",
+    );
+    expect(lower).toContain(
+      "grant execute on function public.mark_pilot_lead_responded(uuid) to authenticated, service_role;",
+    );
+  });
+});
+
+describe("lead-notify migration — the SLA guard rail is honest", () => {
+  it("falls back to the whole requested duration, not the undecremented remainder", () => {
+    // v_left has already had every consumed business day subtracted from it,
+    // so returning p_from + v_left hands back a deadline EARLIER than the one
+    // asked for. Unreachable at one hour; wrong for any caller of the general
+    // two-argument function.
+    const body = functionBody("business_hours_deadline").toLowerCase();
+    expect(body).toMatch(
+      /if v_guard > 400 then\s*return p_from \+ coalesce\(p_duration, interval '0'\);/,
+    );
+    expect(body).not.toMatch(/return p_from \+ v_left;/);
   });
 });

@@ -47,6 +47,14 @@ export interface PilotIntakeLead {
   notified_at: string | null;
   source_path: string;
   first_response_due: string | null;
+  /** When the visitor acknowledgement actually left Resend. Write-once. */
+  ack_sent_at: string | null;
+  /** When the owner alert actually left Resend. Write-once. */
+  owner_alerted_at: string | null;
+  /** Concurrency claim held by an in-flight run. */
+  notify_claimed_at: string | null;
+  /** When a human answered. Set by mark_pilot_lead_responded(). */
+  first_responded_at: string | null;
 }
 
 /** The three values PilotLeads.tsx knows how to render. Nothing else is valid. */
@@ -345,8 +353,38 @@ export function resolveFirstResponseDue(
 // ---------------------------------------------------------------------------
 
 /**
- * pg_net can deliver more than once, and a human can re-run the function by
- * hand. Neither may send a second acknowledgement to the same person.
+ * IDEMPOTENCY IS PER CHANNEL, NOT PER STATUS.
+ *
+ * notification_status is an aggregate: it is 'failed' whenever the two emails
+ * did not BOTH land, which makes "the acknowledgement went out but the owner
+ * alert 429'd" indistinguishable from "nothing was sent at all". Gating on it
+ * means the retry that fixes the owner alert also sends the visitor a second
+ * acknowledgement. The row therefore carries a write-once stamp per channel,
+ * and every send decision reads its own stamp.
+ */
+export function hasAcknowledged(
+  lead: Pick<PilotIntakeLead, "ack_sent_at">,
+): boolean {
+  return toDate(lead.ack_sent_at) !== null;
+}
+
+export function hasAlertedOwner(
+  lead: Pick<PilotIntakeLead, "owner_alerted_at">,
+): boolean {
+  return toDate(lead.owner_alerted_at) !== null;
+}
+
+/** Both channels already landed — there is nothing left to do for this lead. */
+export function isNotificationComplete(
+  lead: Pick<PilotIntakeLead, "ack_sent_at" | "owner_alerted_at">,
+): boolean {
+  return hasAcknowledged(lead) && hasAlertedOwner(lead);
+}
+
+/**
+ * Kept because the aggregate is still what the admin page renders, and a row
+ * stamped 'notified' by any path must never be re-sent. It is a coarse guard
+ * layered ON TOP of the per-channel stamps, never instead of them.
  */
 export function isAlreadyNotified(
   lead: Pick<PilotIntakeLead, "notification_status">,
@@ -358,19 +396,25 @@ export function isAlreadyNotified(
 }
 
 export interface ChannelOutcome {
-  /** The acknowledgement to the lead. */
+  /** The acknowledgement to the lead has landed — ever, not just this run. */
   acknowledgementSent: boolean;
-  /** The alert to the owner's inbox. */
+  /** The alert to the owner's inbox has landed — ever, not just this run. */
   ownerEmailSent: boolean;
   /** null when Twilio is not configured — a skip, not a failure. */
   smsSent: boolean | null;
 }
 
 /**
- * 'notified' only when both emails landed. SMS never decides this: it is an
- * extra shout, and it is inert until Twilio exists. A half-delivered
- * notification stays 'failed' so it shows red on the leads page and a person
- * picks it up — which is the entire point of the exercise.
+ * 'notified' only when both emails have landed, counting deliveries from
+ * EARLIER attempts: an acknowledgement that went out on attempt one and an
+ * owner alert that went out on attempt two add up to a notified lead. SMS
+ * never decides this — it is an extra shout, inert until Twilio exists. Short
+ * of both emails the lead stays 'failed' so it shows red on the leads page and
+ * a person picks it up, which is the entire point of the exercise.
+ *
+ * public.record_lead_notification computes the same thing from the same two
+ * columns and is the authority for what is written; this mirrors it for the
+ * response body and the logs.
  */
 export function resolveNotificationStatus(
   outcome: ChannelOutcome,
@@ -403,6 +447,23 @@ export function presentValue(value: unknown): string | null {
     return null;
   }
   return trimmed;
+}
+
+/**
+ * Anything that becomes a mail HEADER — the subject is the only lead-derived
+ * one — with CR/LF and the Unicode line separators stripped. The intake RPC
+ * trims and truncates `company`, but interior newlines survive it, and a
+ * newline in a header value is the classic header-injection primitive. Also
+ * capped: Resend 422s an over-long subject, and a 422 is a lead going cold.
+ */
+export function sanitizeHeaderValue(value: string, maxLength = 200): string {
+  const collapsed = value
+    .replace(/[\r\n\u2028\u2029]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return collapsed.length > maxLength
+    ? `${collapsed.slice(0, maxLength - 1).trimEnd()}\u2026`
+    : collapsed;
 }
 
 export function escapeHtml(value: string): string {
@@ -493,6 +554,14 @@ export interface TemplateContext {
   dueAt: Date | null;
   appBaseUrl?: string | null;
   timeZone?: string;
+  /**
+   * Whether the owner alert has actually landed at the point the
+   * acknowledgement is written. The acknowledgement is composed AFTER the
+   * owner alert is attempted precisely so this can be true or false honestly —
+   * telling a customer "I have been alerted" when the alert 429'd is a written
+   * promise nobody knows they owe.
+   */
+  ownerAlerted?: boolean;
 }
 
 const HTML_SHELL_OPEN =
@@ -527,13 +596,20 @@ export function buildLeadAcknowledgement(ctx: TemplateContext): EmailContent {
 
   const greeting = first ? `Hi ${first},` : "Hi there,";
 
+  // Only claimed when it is true. See TemplateContext.ownerAlerted.
+  const received = ctx.ownerAlerted
+    ? "It is in, and I have been alerted."
+    : "It is in.";
   const opening = company
-    ? `Thanks for sending through the pilot request for ${company}. It is in, and I have been alerted.`
-    : "Thanks for sending through your pilot request. It is in, and I have been alerted.";
+    ? `Thanks for sending through the pilot request for ${company}. ${received}`
+    : `Thanks for sending through your pilot request. ${received}`;
 
   const submitted: string[] = [];
   if (assetScope) submitted.push(`Assets or systems in scope: ${assetScope}`);
-  if (primaryPain) submitted.push(`Primary reliability pain: ${primaryPain}`);
+  // The form labels this field "Decision you need to improve" and its options
+  // include "Executive reporting takes too long" — echoing it back as the
+  // customer's "primary reliability pain" relabels their own answer.
+  if (primaryPain) submitted.push(`Decision you want to improve: ${primaryPain}`);
 
   const commitment = dueText
     ? `I will come back to you personally within one business hour — by ${dueText}. Business hours here are Monday to Friday, 8:00 AM to 5:00 PM Mountain Time, so a request that arrives outside them is answered within the first hour of the next working day.`
@@ -590,7 +666,7 @@ export const OWNER_ALERT_FIELDS: ReadonlyArray<{
   { label: "Asset / system scope", key: "asset_scope" },
   { label: "System of record", key: "system_of_record" },
   { label: "History available", key: "history_available" },
-  { label: "Primary pain", key: "primary_pain" },
+  { label: "Decision to improve", key: "primary_pain" },
   { label: "Data readiness", key: "data_readiness" },
   { label: "Security need", key: "security_need" },
   { label: "Commercial model", key: "commercial_model" },
@@ -720,7 +796,7 @@ export function buildResendPayload(input: ResendPayloadInput): ResendPayload {
   const payload: ResendPayload = {
     from: input.from,
     to: addressList(input.to),
-    subject: input.content.subject,
+    subject: sanitizeHeaderValue(input.content.subject),
     html: input.content.html,
     text: input.content.text,
   };
@@ -731,22 +807,42 @@ export function buildResendPayload(input: ResendPayloadInput): ResendPayload {
   return payload;
 }
 
+/**
+ * A stable, per-lead-per-channel idempotency key.
+ *
+ * The database stamps (ack_sent_at / owner_alerted_at) are the primary defence
+ * against a second acknowledgement, but there is one window they cannot cover:
+ * the email leaves Resend and the stamp write then fails. Nothing on this side
+ * can make those two atomic, so the second line of defence is on Resend's
+ * side — the same key deduplicates a repeat of the same send.
+ *
+ * Deliberately derived only from the lead id and the channel, so a retry
+ * minutes or hours later produces the identical key.
+ */
+export function idempotencyKeyFor(leadId: string, channel: string): string {
+  return `lead-notify:${channel}:${leadId}`.slice(0, 256);
+}
+
 export function buildResendRequest(
   apiKey: string,
   payload: ResendPayload,
+  idempotencyKey?: string | null,
 ): {
   url: string;
   method: "POST";
   headers: Record<string, string>;
   body: string;
 } {
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${apiKey}`,
+    "Content-Type": "application/json",
+  };
+  const key = presentValue(idempotencyKey);
+  if (key) headers["Idempotency-Key"] = key;
   return {
     url: RESEND_ENDPOINT,
     method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
+    headers,
     body: JSON.stringify(payload),
   };
 }
