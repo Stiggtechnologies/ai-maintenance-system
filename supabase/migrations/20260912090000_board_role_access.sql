@@ -1,5 +1,5 @@
 -- ============================================================================
--- Board seat — the two server filters that excluded the 'board' role.
+-- Board seat — the two server filters the IA doc's §3 inventory named.
 --
 -- navigation-lifecycle-ia.md §3 recorded the state honestly: "A `board` role
 -- today would see fewer KPIs than an executive and an empty board pack.
@@ -16,6 +16,14 @@
 --      that is ACCOUNTABLE for them in the catalogue's own RACI.
 --   2. board_packs_read (20260808210000_accountability_cascade.sql:311-318)
 --      admits 'board', so the board can read the packs prepared FOR it.
+--
+-- CORRECTION (2026-08-17, adversarial verification): the §3 inventory was one
+-- filter short. get_accountability_cascade's packs subquery
+-- (20260808210000:512) carries its own in-function role list, so after this
+-- migration the board could read packs by POLICY while the RPC that serves
+-- /executive's board record still returned it none. 20260912120000 recreates
+-- the function with 'board' in that filter, and roleNavigation.test.ts pins
+-- the filter as text; only with both migrations does the pack path work.
 --
 -- What this deliberately does NOT do:
 --   * no approval authority — app_role_has_approval_authority (migration 22)

@@ -192,11 +192,17 @@ const DOCUMENTED_EXCEPTIONS = [
  * release_schedule_option gates to planner/mm/admin/ai_admin
  * (20260806190000:176) and SchedulerPanel's RELEASE_ROLES mirrors that set.
  *
- * board is read-only EVERYWHERE by construction — its whole allow-list is
- * executive-review surfaces with no write path for the role (migration
- * 20260912090000 grants SELECT visibility only) — so it carries no per-page
- * entry here; its guarantee is the enumerated-set pin plus the
- * approval-authority check below.
+ * board and supervisor → mission-control joined when adversarial
+ * verification showed the approve flow was ungated for both: the page showed
+ * every role the Approve/act buttons, and recommendations_org_rw
+ * (00000000000001:489) would have accepted the write. Now
+ * RECOMMENDATION_ACT_ROLES omits both roles (every pre-existing role keeps
+ * exactly what it had) and the restrictive policies in 20260912123000 refuse
+ * the write server-side — the update gate deliberately in WITH CHECK so the
+ * refusal is an error the page flashes, never a zero-row success. board's
+ * remaining surfaces stay read-only by construction (SELECT-only grants);
+ * mission-control was its one surface with a write path, and it is pinned
+ * here instead of exempted.
  */
 const DOCUMENTED_READ_ONLY = [
   {
@@ -204,6 +210,21 @@ const DOCUMENTED_READ_ONLY = [
     itemId: "scheduling",
     page: "src/components/SchedulerPanel.tsx",
     clientGate: "const RELEASE_ROLES",
+    refusal: "setMessage(r.error)",
+  },
+  {
+    role: "supervisor",
+    itemId: "mission-control",
+    page: "src/pages/MissionControl.tsx",
+    clientGate: "const RECOMMENDATION_ACT_ROLES",
+    refusal: "flash(e instanceof Error ? e.message",
+  },
+  {
+    role: "board",
+    itemId: "mission-control",
+    page: "src/pages/MissionControl.tsx",
+    clientGate: "const RECOMMENDATION_ACT_ROLES",
+    refusal: "flash(e instanceof Error ? e.message",
   },
 ];
 
@@ -313,8 +334,45 @@ describe("navigation integrity", () => {
       const gate = page.slice(gateStart, page.indexOf("]);", gateStart));
       expect(gate).not.toContain(`"${entry.role}"`);
       // …and the server's own refusal is rendered, never swallowed.
-      expect(page).toContain("setMessage(r.error)");
+      expect(page).toContain(entry.refusal);
     }
+  });
+
+  it("serves board packs through every server path — the policy AND the cascade's own filter", () => {
+    // 20260912090000 admitted the board to board_packs_read, but the RPC that
+    // actually serves the board record (get_accountability_cascade,
+    // 20260808210000:512) filters packs on its own in-function role list — a
+    // third server filter the IA doc's §3 inventory missed. 20260912120000
+    // recreates the function with the board included; this pins the filter as
+    // text so the pack path cannot silently regress to policy-only access.
+    const cascade = readFileSync(
+      "supabase/migrations/20260912120000_board_cascade_access.sql",
+      "utf8",
+    );
+    expect(cascade).toContain(
+      "create or replace function public.get_accountability_cascade()",
+    );
+    const packsFilter = /from board_packs[\s\S]*?v_role in \(([^)]*)\)/.exec(
+      cascade,
+    );
+    expect(packsFilter, "packs role filter not found").not.toBeNull();
+    // The board joins; nobody the original filter admitted is lost.
+    for (const role of ["board", "executive", "admin", "ai_admin"]) {
+      expect(packsFilter![1]).toContain(`'${role}'`);
+    }
+    // And the write gate that keeps the board (and supervisor) read-only on
+    // mission-control refuses loudly: the update gate must live in WITH
+    // CHECK, because a USING denial is a zero-row success the page would
+    // report as approval.
+    const writeGate = readFileSync(
+      "supabase/migrations/20260912123000_readonly_recommendation_write_gate.sql",
+      "utf8",
+    );
+    const updatePolicy = /for update[\s\S]*?with check \(([\s\S]*?)\);/.exec(
+      writeGate,
+    );
+    expect(updatePolicy, "restrictive update policy not found").not.toBeNull();
+    expect(updatePolicy![1]).toContain("not in ('board', 'supervisor')");
   });
 
   it("keeps the ungated-action rule's exception list at its documented entries", () => {
