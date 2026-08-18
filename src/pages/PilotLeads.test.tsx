@@ -44,7 +44,14 @@ const lead: PilotIntakeLead = {
   primary_pain: "Repeat gearbox failures",
   notification_status: "queued",
   source_path: "/pilot/reliability",
+  // created_at is Sunday 2026-09-13, outside Alberta business hours, so the
+  // one-business-hour deadline is Monday 09:00 MDT — exactly what
+  // public.business_hours_deadline writes for this row.
+  first_response_due: "2026-09-14T15:00:00Z",
 };
+
+const escapeRegExp = (value: string): string =>
+  value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 describe("PilotLeads", () => {
   beforeEach(() => {
@@ -72,6 +79,64 @@ describe("PilotLeads", () => {
     expect(
       screen.getByText("queued", { selector: "span.rounded-full" }),
     ).toBeTruthy();
+  });
+
+  it("shows the first-response deadline the migration wrote", async () => {
+    // The SLA clock is the whole point of the notification path — an admin has
+    // to be able to see when each lead's answer is owed.
+    listPilotIntakeRequests.mockResolvedValue([lead]);
+    render(<PilotLeads />);
+
+    await screen.findByText("Dana Ops");
+    const due = new Date("2026-09-14T15:00:00Z").toLocaleString();
+    expect(screen.getByText(new RegExp(escapeRegExp(due)))).toBeTruthy();
+  });
+
+  it("flags a lead nobody answered by its deadline", async () => {
+    // Deadline in the past and still sitting at pipeline status 'new'.
+    listPilotIntakeRequests.mockResolvedValue([
+      { ...lead, first_response_due: "2020-01-06T16:00:00Z" },
+    ]);
+    render(<PilotLeads />);
+
+    await screen.findByText("Dana Ops");
+    expect(screen.getByText(/overdue/i)).toBeTruthy();
+  });
+
+  it("does not flag a lead whose deadline has not passed", async () => {
+    const future = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+    listPilotIntakeRequests.mockResolvedValue([
+      { ...lead, first_response_due: future },
+    ]);
+    render(<PilotLeads />);
+
+    await screen.findByText("Dana Ops");
+    expect(screen.queryByText(/overdue/i)).toBeNull();
+  });
+
+  it("does not flag a past deadline once the lead has moved out of 'new'", async () => {
+    // A contacted lead is not cold, whatever the clock says.
+    listPilotIntakeRequests.mockResolvedValue([
+      {
+        ...lead,
+        status: "contacted",
+        first_response_due: "2020-01-06T16:00:00Z",
+      },
+    ]);
+    render(<PilotLeads />);
+
+    await screen.findByText("Dana Ops");
+    expect(screen.queryByText(/overdue/i)).toBeNull();
+  });
+
+  it("renders an em dash rather than a blank when no deadline was written", async () => {
+    listPilotIntakeRequests.mockResolvedValue([
+      { ...lead, first_response_due: null },
+    ]);
+    render(<PilotLeads />);
+
+    await screen.findByText("Dana Ops");
+    expect(screen.queryByText(/overdue/i)).toBeNull();
   });
 
   it("surfaces a load error instead of a blank surface", async () => {

@@ -6,10 +6,13 @@
  * AdminGate could never see a lead anyway. Each row shows exactly what the
  * visitor submitted plus its notification status — no derived or scored fields.
  *
- * This closes a sell-readiness gap: leads landed in the database with
- * notification_status='queued' and, before this view, no in-product surface
- * listed them. There is still no email/Slack push — that needs an owner channel
- * decision and a secret — so an admin checks this page (which refreshes live).
+ * Leads no longer wait to be noticed. An AFTER INSERT trigger fires the
+ * lead-notify edge function the instant a row lands
+ * (20260914090000_lead_notify_trigger.sql): the visitor gets an
+ * acknowledgement, the owner gets an alert, and the row's notification_status
+ * moves off 'queued'. This page is where that outcome is read back — amber
+ * means the notification has not completed, red means it failed and a person
+ * has to step in.
  */
 import { useMemo } from "react";
 import { Users, Download, RefreshCw } from "lucide-react";
@@ -39,6 +42,17 @@ function statusStyle(status: string): string {
   );
 }
 
+/**
+ * Past its one-business-hour deadline and nobody has moved it out of 'new'.
+ * Deliberately keyed on the pipeline status rather than notification_status: a
+ * lead that was successfully acknowledged is still cold if no human replied.
+ */
+function isOverdue(lead: PilotIntakeLead, now: number = Date.now()): boolean {
+  if (lead.status !== "new" || !lead.first_response_due) return false;
+  const due = new Date(lead.first_response_due).getTime();
+  return Number.isFinite(due) && due < now;
+}
+
 export function PilotLeads() {
   const { data, loading, error, refetch } = useAsyncData<PilotIntakeLead[]>(
     () => listPilotIntakeRequests(),
@@ -61,9 +75,15 @@ export function PilotLeads() {
           </div>
           <p className="mt-1 text-sm text-slate-300">
             Requests submitted through the public 48-hour value-proof intake.
-            Admin-visible only. Each lead sits at{" "}
-            <span className="font-medium text-slate-200">queued</span> until an
-            owner follows up — there is no automated email or Slack alert yet.
+            Admin-visible only. Every lead is acknowledged and alerted
+            automatically the moment it arrives; first response is due within{" "}
+            <span className="font-medium text-slate-200">
+              one business hour
+            </span>{" "}
+            (Mon-Fri, 8:00am-5:00pm Mountain). A lead still showing{" "}
+            <span className="font-medium text-amber-300">queued</span> or{" "}
+            <span className="font-medium text-red-300">failed</span> did not get
+            its notification — pick it up by hand.
           </p>
         </div>
         <div className="flex gap-2">
@@ -87,6 +107,7 @@ export function PilotLeads() {
                   asset_scope: lead.asset_scope,
                   primary_pain: lead.primary_pain,
                   notification_status: lead.notification_status,
+                  first_response_due: lead.first_response_due ?? "",
                   source_path: lead.source_path,
                 })),
                 "pilot-leads.csv",
@@ -115,6 +136,7 @@ export function PilotLeads() {
                 <th className="px-4 py-3">Role / industry</th>
                 <th className="px-4 py-3">Asset scope</th>
                 <th className="px-4 py-3">Primary pain</th>
+                <th className="px-4 py-3">First response due</th>
                 <th className="px-4 py-3">Status</th>
               </tr>
             </thead>
@@ -141,6 +163,22 @@ export function PilotLeads() {
                   </td>
                   <td className="px-4 py-2.5 text-slate-400">
                     {lead.primary_pain}
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-2.5">
+                    {lead.first_response_due ? (
+                      <span
+                        className={
+                          isOverdue(lead)
+                            ? "font-medium text-red-300"
+                            : "text-slate-400"
+                        }
+                      >
+                        {new Date(lead.first_response_due).toLocaleString()}
+                        {isOverdue(lead) ? " · overdue" : ""}
+                      </span>
+                    ) : (
+                      <span className="text-slate-500">—</span>
+                    )}
                   </td>
                   <td className="px-4 py-2.5">
                     <span

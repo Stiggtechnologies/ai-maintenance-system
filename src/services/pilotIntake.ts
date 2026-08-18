@@ -36,10 +36,17 @@ export type PilotIntakeLead = {
   primary_pain: string;
   notification_status: string;
   source_path: string;
+  /**
+   * One business hour after created_at (Mon-Fri 08:00-17:00 America/Edmonton),
+   * written by trg_pilot_intake_first_response_due
+   * (20260914090000_lead_notify_trigger.sql). Nullable only for the window
+   * between a row landing and that migration's backfill.
+   */
+  first_response_due: string | null;
 };
 
 const LEAD_COLUMNS =
-  "id, created_at, status, name, email, company, role, industry, asset_scope, primary_pain, notification_status, source_path";
+  "id, created_at, status, name, email, company, role, industry, asset_scope, primary_pain, notification_status, source_path, first_response_due";
 
 /**
  * Admin-scoped list of pilot-intake leads, newest first. The admin gate is the
