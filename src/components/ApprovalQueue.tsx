@@ -76,14 +76,26 @@ export function ApprovalQueue() {
       const { data: user } = await supabase.auth.getUser();
       if (!user.user) return;
 
-      await supabase
+      const { data: approvedRows, error: approveError } = await supabase
         .from("autonomous_decisions")
         .update({
           status: "approved",
           approved_by: user.user.id,
           executed_at: new Date().toISOString(),
         })
-        .eq("id", decisionId);
+        .eq("id", decisionId)
+        .select("id");
+
+      if (approveError) throw approveError;
+      // An RLS refusal is not an error — it is zero rows. Broadcasting
+      // "decision_approved" org-wide on a write the database refused would
+      // announce an approval that never happened, so the broadcast below is
+      // gated on the row actually coming back.
+      if (!approvedRows?.length) {
+        throw new Error(
+          "The decision was not approved — it may no longer be pending, or you may lack the authority.",
+        );
+      }
 
       if (comment) {
         await supabase
@@ -108,6 +120,7 @@ export function ApprovalQueue() {
       await loadDecisions();
     } catch (error) {
       console.error("Error approving decision:", error);
+      alert("Failed to approve: " + (error as Error).message);
     } finally {
       setProcessingId(null);
     }
@@ -124,13 +137,23 @@ export function ApprovalQueue() {
       const { data: user } = await supabase.auth.getUser();
       if (!user.user) return;
 
-      await supabase
+      const { data: rejectedRows, error: rejectError } = await supabase
         .from("autonomous_decisions")
         .update({
           status: "rejected",
           approved_by: user.user.id,
         })
-        .eq("id", decisionId);
+        .eq("id", decisionId)
+        .select("id");
+
+      if (rejectError) throw rejectError;
+      // Same gate as handleApprove: zero rows means the database refused the
+      // write, and a refused rejection must not be broadcast as a decision.
+      if (!rejectedRows?.length) {
+        throw new Error(
+          "The decision was not rejected — it may no longer be pending, or you may lack the authority.",
+        );
+      }
 
       await supabase
         .from("approval_workflows")
@@ -153,6 +176,7 @@ export function ApprovalQueue() {
       await loadDecisions();
     } catch (error) {
       console.error("Error rejecting decision:", error);
+      alert("Failed to reject: " + (error as Error).message);
     } finally {
       setProcessingId(null);
     }
@@ -205,7 +229,7 @@ export function ApprovalQueue() {
       const { data: user } = await supabase.auth.getUser();
       if (!user.user) return;
 
-      await supabase
+      const { data: editedRows, error: editError } = await supabase
         .from("autonomous_decisions")
         .update({
           decision_data: editedData,
@@ -214,7 +238,17 @@ export function ApprovalQueue() {
           executed_at: new Date().toISOString(),
           modified_before_approval: true,
         })
-        .eq("id", decisionId);
+        .eq("id", decisionId)
+        .select("id");
+
+      if (editError) throw editError;
+      // Same gate as handleApprove: a modified approval the database refused
+      // must not be announced as a modified approval.
+      if (!editedRows?.length) {
+        throw new Error(
+          "The decision was not updated — it may no longer be pending, or you may lack the authority.",
+        );
+      }
 
       await supabase
         .from("approval_workflows")
@@ -239,6 +273,7 @@ export function ApprovalQueue() {
       await loadDecisions();
     } catch (error) {
       console.error("Error editing and approving decision:", error);
+      alert("Failed to save and approve: " + (error as Error).message);
     } finally {
       setProcessingId(null);
     }
