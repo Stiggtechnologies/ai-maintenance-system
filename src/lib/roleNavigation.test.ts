@@ -81,9 +81,9 @@ const groupSizes = NAV_GROUPS.split(/icon:\s/)
   .slice(1)
   .map((chunk) => [...chunk.matchAll(/path:\s*"/g)].length);
 
-// Per-role allow-list sizes, read from the same text the ids come from.
+// Per-role allow-list membership, read from the same text the ids come from.
 // null = full navigation.
-const allowSizes = Object.fromEntries(
+const allowMembers: Record<string, string[] | null> = Object.fromEntries(
   [...NAV_ALLOW.matchAll(/^\s{2}(\w+):\s*(null|new Set\(\[)/gm)].map((m) => {
     if (m[2] === "null") return [m[1], null];
     const setStart = NAV_ALLOW.indexOf(m[0]) + m[0].length;
@@ -91,8 +91,15 @@ const allowSizes = Object.fromEntries(
     const entries = [
       ...NAV_ALLOW.slice(setStart, setEnd).matchAll(/"([a-z-]+)"/g),
     ];
-    return [m[1], entries.length];
+    return [m[1], entries.map((entry) => entry[1])];
   }),
+);
+
+const allowSizes = Object.fromEntries(
+  Object.entries(allowMembers).map(([role, ids]) => [
+    role,
+    ids === null ? null : ids.length,
+  ]),
 );
 
 // Palette entries are keyed by a two-letter search abbreviation, so they are
@@ -235,5 +242,93 @@ describe("navigation integrity", () => {
       expect(page).toContain("setFlash(result.error)");
       expect(page).toContain("throw new Error(error.message)");
     }
+  });
+});
+
+/**
+ * The role tour is a fifth copy of the navigation: it signs in as a demo
+ * account and shoots that role's own command centers. Its parts live in
+ * three files — the TOUR and ACCOUNT tables in scripts/capture-role-tour.mjs
+ * and the credentials table in docs/demo-runbook-ahs-fleet.md — and Step 7
+ * of navigation-lifecycle-ia.md exists because they drifted: the
+ * maintenance_manager surface shipped in the §3 matrix with no tour entry,
+ * no account key and no runbook credentials row. Same discipline as above:
+ * the three sources are compared, not trusted.
+ */
+const TOUR_SOURCE = readFileSync("scripts/capture-role-tour.mjs", "utf8");
+const RUNBOOK_MD = readFileSync("docs/demo-runbook-ahs-fleet.md", "utf8");
+
+const tourRoles = [
+  ...block(TOUR_SOURCE, "const TOUR = [", "\n];").matchAll(
+    /key:\s*"(\w+)"[\s\S]*?routes:\s*\[([^\]]*)\]/g,
+  ),
+].map((m) => ({
+  key: m[1],
+  stops: [...m[2].matchAll(/"([^"]+)"/g)].map((r) => r[1]),
+}));
+
+const tourAccounts: Record<string, string> = Object.fromEntries(
+  [
+    ...block(TOUR_SOURCE, "const ACCOUNT = {", "\n};").matchAll(
+      /(\w+):\s*"([^"]+)"/g,
+    ),
+  ].map((m) => [m[1], m[2]]),
+);
+
+// Parsed with the same row shape credentialsFromRunbook() matches, so an
+// email this test accepts is one the tour can actually read.
+const runbookLogins = [
+  ...RUNBOOK_MD.matchAll(/\|\s*[^|]+?\s*\|\s*(\S+@\S+)\s*\|\s*\S+\s*\|/g),
+].map((m) => m[1].toLowerCase());
+
+describe("role tour integrity", () => {
+  it("parses the tour, its accounts, and the runbook credentials", () => {
+    expect(tourRoles.length).toBeGreaterThan(3);
+    expect(Object.keys(tourAccounts).length).toBeGreaterThan(3);
+    expect(runbookLogins.length).toBeGreaterThan(3);
+  });
+
+  it("tours maintenance_manager — the role Step 7 found missing", () => {
+    expect(tourRoles.map((role) => role.key)).toContain("maintenance_manager");
+  });
+
+  it("gives every toured role a demo account with runbook credentials", () => {
+    for (const { key } of tourRoles) {
+      const email = tourAccounts[key];
+      expect(email, `no ACCOUNT entry for tour role ${key}`).toBeTruthy();
+      expect(
+        runbookLogins,
+        `no runbook credentials row for ${email} (${key})`,
+      ).toContain(email);
+    }
+  });
+
+  it("routes every tour stop to a declared route", () => {
+    const unrouted = tourRoles.flatMap(({ key, stops }) =>
+      stops
+        .filter((stop) => !matchRoutes(routes, stop))
+        .map((stop) => ({ key, stop })),
+    );
+    expect(unrouted).toEqual([]);
+  });
+
+  it("keeps every tour stop inside the toured role's own navigation", () => {
+    // A tour shot must show a surface the role's sidebar actually exposes;
+    // shooting a page the role cannot reach is the overclaim the runbook's
+    // caption rules exist to prevent. Stops that are detail pages (no nav
+    // item carries their path) are covered by the route check above.
+    const idByPath = new Map(navItems.map((item) => [item.path, item.id]));
+    const escapes = tourRoles.flatMap(({ key, stops }) => {
+      const allowed = allowMembers[key];
+      if (allowed === undefined) return [{ key, stop: "(no NAV_ALLOW entry)" }];
+      if (allowed === null) return []; // full navigation
+      return stops
+        .filter((stop) => {
+          const id = idByPath.get(stop);
+          return id !== undefined && !allowed.includes(id);
+        })
+        .map((stop) => ({ key, stop }));
+    });
+    expect(escapes).toEqual([]);
   });
 });

@@ -72,6 +72,12 @@ const TOUR = [
     ],
   },
   {
+    key: "maintenance_manager",
+    title: "Maintenance manager — the department",
+    question: "What should my crews focus on today?",
+    routes: ["/work", "/scheduling", "/approvals", "/handover", "/briefing"],
+  },
+  {
     key: "executive",
     title: "Executive — the boardroom",
     question: "Are we meeting the commitments we are accountable for?",
@@ -101,6 +107,7 @@ const ACCOUNT = {
   technician: "technician@syncai.ca",
   planner: "planner@syncai.ca",
   reliability_engineer: "demo@syncai.ca",
+  maintenance_manager: "manager@syncai.ca",
   executive: "executive@syncai.ca",
 };
 

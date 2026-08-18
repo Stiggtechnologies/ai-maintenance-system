@@ -60,6 +60,7 @@ Demo credentials (demo-tier by design — rotate nothing for these):
 | -------------------- | -------------------- | ------------- | ---------------------- |
 | Reliability engineer | demo@syncai.ca       | Demo123!@#    | Mission Control        |
 | Executive            | executive@syncai.ca  | Exec123!@#    | Executive Intelligence |
+| Maintenance manager  | manager@syncai.ca    | Manager123!@# | Work Action Board      |
 | Technician           | technician@syncai.ca | Tech123!@#    | Work Action Board      |
 | Planner              | planner@syncai.ca    | Planner123!@# | Planning Briefing      |
 
