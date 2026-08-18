@@ -16,8 +16,6 @@ import { CaEffectivenessPanel } from "../components/CaEffectivenessPanel";
 import { ConditionMonitoring } from "../components/ConditionMonitoring";
 import { MonitoringCoverageGaps } from "../components/MonitoringCoverageGaps";
 import { FailureCoding } from "../components/FailureCoding";
-import { LifecycleDecisions } from "../components/LifecycleDecisions";
-import { IntervalOptimization } from "../components/IntervalOptimization";
 import { useNavigate } from "react-router-dom";
 import {
   TriangleAlert as AlertTriangle,
@@ -51,10 +49,9 @@ export function Reliability() {
 
       <ConditionMonitoring />
 
-      <IntervalOptimization />
-
-      <LifecycleDecisions />
-
+      {/* IntervalOptimization and LifecycleDecisions were the fourth and
+          fifth of eight stacked panels here; they now answer at
+          /reliability/intervals and /lifecycle/decisions (spec §5 Step 5). */}
       <FailureCoding />
 
       <MonitoringCoverageGaps />
@@ -128,8 +125,11 @@ export function Reliability() {
                 from completed asset onboarding sessions. None have been
                 recorded for this organization yet.
               </p>
+              {/* /onboarding, not /pilot/reliability: the latter is the
+                  public pilot-intake marketing page — an exit door out of the
+                  signed-in app into fixture content. */}
               <button
-                onClick={() => navigate("/pilot/reliability")}
+                onClick={() => navigate("/onboarding")}
                 className="mt-4 px-4 py-2 bg-teal-500/10 border border-teal-500/20 text-teal-400 text-xs rounded-lg hover:bg-teal-500/20 transition-colors"
               >
                 Start Asset Onboarding
@@ -238,11 +238,14 @@ export function Reliability() {
                 Centered Maintenance. SyncAI generates and maintains FMEA tables
                 from asset failure history and maintenance data.
               </p>
+              {/* Same fix as the RCA tab, plus honesty: there is no FMEA
+                  wizard — FMEA tables are derived from completed onboarding
+                  sessions, so the button says where it actually goes. */}
               <button
-                onClick={() => navigate("/pilot/reliability")}
+                onClick={() => navigate("/onboarding")}
                 className="mt-4 px-4 py-2 bg-teal-500/10 border border-teal-500/20 text-teal-400 text-xs rounded-lg hover:bg-teal-500/20 transition-colors"
               >
-                Launch FMEA Wizard
+                Start Asset Onboarding
               </button>
             </div>
           )}

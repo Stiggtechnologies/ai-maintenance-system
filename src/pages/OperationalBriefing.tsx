@@ -13,14 +13,6 @@ import {
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { supabase } from "../lib/supabase";
-import { SchedulerPanel } from "../components/SchedulerPanel";
-import { WorkforceReadiness } from "../components/WorkforceReadiness";
-import { SupplyExposure } from "../components/SupplyExposure";
-import { MaterialsReadiness } from "../components/MaterialsReadiness";
-import { SparesOptimization } from "../components/SparesOptimization";
-import { OutagePlanning } from "../components/OutagePlanning";
-import { OpsCoordination } from "../components/OpsCoordination";
-import { JobPlans } from "../components/JobPlans";
 import { useAsyncData } from "../hooks/useAsyncData";
 import {
   getRecommendations,
@@ -719,25 +711,10 @@ export function OperationalBriefing() {
         ))}
       </div>
 
-      {/* Footer Note */}
-      {/* Slice 5 built the Scheduler and never rendered it — schedule options
-          existed in the database with no route to a human. */}
-      <SchedulerPanel />
-
-      <WorkforceReadiness />
-
-      <OpsCoordination />
-
-      <OutagePlanning />
-
-      <JobPlans />
-
-      <MaterialsReadiness />
-
-      <SparesOptimization />
-
-      <SupplyExposure />
-
+      {/* The eight execution panels that used to stack here now live at their
+          own addresses — /scheduling, /materials, /handover, /turnarounds and
+          /job-plans. The briefing is the four brief types again; burying the
+          scheduler under it was the defect the split fixes (spec §5 Step 5). */}
       <div className="bg-[#0D1520] border border-teal-500/10 rounded-xl p-4 flex items-start gap-3">
         <Zap className="w-4 h-4 text-teal-400 shrink-0 mt-0.5" />
         <div>

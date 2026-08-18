@@ -67,14 +67,16 @@ export const assetService = {
   },
 
   async getAssetById(assetId: string) {
+    // assets.* includes the live criticality column; the scored profile table
+    // this query used to embed (asset_criticality_profiles) exists only in
+    // _legacy_migrations, so the join resolved to nothing in every tenant.
     const { data } = await supabase
       .from("assets")
       .select(
         `
         *,
         asset_classes (name),
-        asset_locations (name),
-        asset_criticality_profiles (*)
+        asset_locations (name)
       `,
       )
       .eq("id", assetId)
@@ -83,16 +85,15 @@ export const assetService = {
   },
 
   async getAssetCriticalitySummary(orgId: string) {
+    // Reads the live assets.criticality column — free text, default 'medium',
+    // no scoring basis, assessor or date. The scored profiles table this
+    // query used to read exists only in _legacy_migrations, so there is no
+    // total_criticality_score to order by; name order is the honest sort.
     const { data } = await supabase
-      .from("asset_criticality_profiles")
-      .select(
-        `
-        *,
-        assets (name, asset_tag)
-      `,
-      )
+      .from("assets")
+      .select("id, name, asset_tag, criticality")
       .eq("organization_id", orgId)
-      .order("total_criticality_score", { ascending: false });
+      .order("name");
     return data || [];
   },
 };
