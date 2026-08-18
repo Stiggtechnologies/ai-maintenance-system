@@ -10,8 +10,15 @@
  * The feedback-loop table is the other half: which failure modes the plant
  * actually suffers, and whether any design requirement has ever referenced
  * one. Usually none has, and the empty column is the finding.
+ *
+ * The RAM allocation reads the org's OWN capital_projects (org-scoped RLS) —
+ * it used to hardcode get_ram_allocation({p_project_code: "DEMO-CP-01"}), a
+ * code that exists only in the demo org's seed, so every real tenant rendered
+ * a silently empty panel forever (the P-7 defect class,
+ * navigation-lifecycle-ia.md §2 Group 5). Now the projects are enumerated,
+ * one is selected, and an org with no capital projects is told so in words.
  */
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { DraftingCompass, Info, Repeat2, TriangleAlert } from "lucide-react";
 import { useAsyncData } from "../hooks/useAsyncData";
 import { supabase } from "../lib/supabase";
@@ -59,38 +66,74 @@ interface EarlyRow {
   fed_back_to_design: boolean;
 }
 
+interface ProjectRow {
+  project_code: string;
+  title: string;
+  status: string;
+}
+
 const pct = (x: number) => `${(x * 100).toFixed(2)}%`;
 
 export function ReliabilityByDesign() {
+  // The user's explicit pick; null until they make one, so the first project
+  // the org actually has is the default rather than any hardcoded code.
+  const [pickedCode, setPickedCode] = useState<string | null>(null);
+
   const { data, loading, error, refetch } = useAsyncData<{
     posture: Posture | null;
-    ram: RamTarget[];
+    projects: ProjectRow[];
     loop: LoopRow[];
     early: EarlyRow[];
   }>(async () => {
-    const [p, r, l, e] = await Promise.all([
+    const [p, c, l, e] = await Promise.all([
       supabase.rpc("get_project_posture"),
-      supabase.rpc("get_ram_allocation", { p_project_code: "DEMO-CP-01" }),
+      // The org's own projects via org-scoped RLS (capproj_read) — never a
+      // literal project code.
+      supabase
+        .from("capital_projects")
+        .select("project_code, title, status")
+        .order("created_at", { ascending: true }),
       supabase.rpc("get_design_feedback_loop"),
       supabase
         .from("early_life_failures")
         .select("months_since_handover, attributed_to, fed_back_to_design"),
     ]);
     if (p.error) throw new Error(p.error.message);
-    if (r.error) throw new Error(r.error.message);
+    if (c.error) throw new Error(c.error.message);
     if (l.error) throw new Error(l.error.message);
     if (e.error) throw new Error(e.error.message);
     return {
       posture: (p.data as Posture[])?.[0] ?? null,
-      ram: (r.data as RamTarget[]) ?? [],
+      projects: (c.data as ProjectRow[]) ?? [],
       loop: (l.data as LoopRow[]) ?? [],
       early: (e.data as EarlyRow[]) ?? [],
     };
   }, []);
 
+  const projects = useMemo(() => data?.projects ?? [], [data]);
+  const selectedCode =
+    pickedCode !== null &&
+    projects.some((project) => project.project_code === pickedCode)
+      ? pickedCode
+      : (projects[0]?.project_code ?? null);
+  const selectedProject =
+    projects.find((project) => project.project_code === selectedCode) ?? null;
+
+  // The RAM targets for the selected project only — refetched when the
+  // selection changes, empty (not demo) when the org has no projects.
+  const ram = useAsyncData<RamTarget[]>(async () => {
+    if (selectedCode === null) return [];
+    const { data: rows, error: ramError } = await supabase.rpc(
+      "get_ram_allocation",
+      { p_project_code: selectedCode },
+    );
+    if (ramError) throw new Error(ramError.message);
+    return (rows as RamTarget[]) ?? [];
+  }, [selectedCode]);
+
   const allocations = useMemo(
     () =>
-      (data?.ram ?? []).map((t) => ({
+      (ram.data ?? []).map((t) => ({
         target: t,
         result: allocateAvailability(
           Number(t.targetAvailability),
@@ -103,7 +146,7 @@ export function ReliabilityByDesign() {
           t.configuration === "parallel" ? "parallel" : "series",
         ),
       })),
-    [data],
+    [ram.data],
   );
 
   const early = useMemo(
@@ -150,80 +193,161 @@ export function ReliabilityByDesign() {
         </div>
       )}
 
-      {/* RAM allocation. */}
-      {allocations.map(({ target, result }) => (
-        <div
-          key={target.systemLabel}
-          className={`rounded-xl border p-4 ${result.feasible ? "border-white/6" : "border-amber-500/25 bg-amber-500/5"}`}
-        >
-          <h3 className="flex items-center gap-2 text-sm font-semibold text-white">
-            <TriangleAlert
-              className={`h-4 w-4 ${result.feasible ? "text-signal-cyan" : "text-amber-400"}`}
-              aria-hidden
-            />
-            {target.systemLabel} — {pct(Number(target.targetAvailability))}{" "}
-            {target.configuration}
+      {/* Which project the RAM arithmetic runs against — the org's own
+          register, never a hardcoded code. No projects is a stated fact, not
+          a blank panel. */}
+      {projects.length === 0 ? (
+        <div className="rounded-xl border border-white/6 bg-white/2 p-4 text-sm text-slate-300">
+          <h3 className="text-sm font-semibold text-white">
+            No capital projects recorded
           </h3>
           <p className="mt-1 text-xs leading-relaxed text-slate-400">
-            {result.reason}
+            The RAM allocation runs against a capital project&apos;s stated
+            availability targets, and this organization has none on record. When
+            a project and its targets are loaded, the arithmetic runs here —
+            nothing is simulated in the meantime.
           </p>
-          {target.targetBasis && (
-            <p className="mt-1 text-xs text-slate-500">{target.targetBasis}</p>
-          )}
-          <div className="mt-3 overflow-x-auto">
-            <table className="w-full min-w-[34rem] text-left text-sm">
-              <caption className="sr-only">
-                Availability allocated to each subsystem against what it
-                demonstrates
-              </caption>
-              <thead className="text-xs uppercase tracking-wide text-slate-400">
-                <tr>
-                  <th scope="col" className="py-2 pr-4 font-medium">
-                    Subsystem
-                  </th>
-                  <th scope="col" className="py-2 pr-4 font-medium">
-                    Weight
-                  </th>
-                  <th scope="col" className="py-2 pr-4 font-medium">
-                    Allocated
-                  </th>
-                  <th scope="col" className="py-2 pr-4 font-medium">
-                    Demonstrated
-                  </th>
-                  <th scope="col" className="py-2 font-medium">
-                    Shortfall
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {result.subsystems.map((s) => (
-                  <tr key={s.label} className="border-t border-white/6">
-                    <td className="py-2 pr-4 text-slate-200">{s.label}</td>
-                    <td className="py-2 pr-4 font-mono text-xs text-slate-500 tabular-nums">
-                      {s.weight}
-                    </td>
-                    <td className="py-2 pr-4 font-mono text-slate-300 tabular-nums">
-                      {pct(s.allocated)}
-                    </td>
-                    <td className="py-2 pr-4 font-mono text-slate-400 tabular-nums">
-                      {s.demonstrated !== null ? pct(s.demonstrated) : "—"}
-                    </td>
-                    <td
-                      className={`py-2 font-mono tabular-nums ${(s.shortfall ?? 0) > 0 ? "text-rose-300" : "text-slate-600"}`}
-                    >
-                      {s.shortfall === null
-                        ? "unknown"
-                        : s.shortfall > 0
-                          ? `−${(s.shortfall * 100).toFixed(2)} pt`
-                          : "—"}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
         </div>
-      ))}
+      ) : (
+        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-white/6 bg-white/2 p-4">
+          {projects.length === 1 ? (
+            <>
+              <span className="text-sm font-medium text-slate-200">
+                Capital project
+              </span>
+              <span className="text-sm text-slate-300">
+                {selectedProject?.project_code} — {selectedProject?.title}
+              </span>
+            </>
+          ) : (
+            <>
+              <label
+                htmlFor="design-project"
+                className="text-sm font-medium text-slate-200"
+              >
+                Capital project
+              </label>
+              <select
+                id="design-project"
+                value={selectedCode ?? ""}
+                onChange={(event) => setPickedCode(event.target.value)}
+                className="rounded-lg border border-white/10 bg-slate-900 px-3 py-1.5 text-sm text-slate-200"
+              >
+                {projects.map((project) => (
+                  <option
+                    key={project.project_code}
+                    value={project.project_code}
+                  >
+                    {project.project_code} — {project.title}
+                  </option>
+                ))}
+              </select>
+            </>
+          )}
+          {selectedProject && (
+            <span className="rounded bg-white/5 px-2 py-0.5 text-xs text-slate-400">
+              {selectedProject.status.replace(/_/g, " ")}
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* RAM allocation for the selected project. */}
+      {ram.loading && selectedCode !== null && (
+        <LoadingState label="Loading RAM allocation" />
+      )}
+      {ram.error && <ErrorState message={ram.error} onRetry={ram.refetch} />}
+      {selectedProject &&
+        !ram.loading &&
+        !ram.error &&
+        allocations.length === 0 && (
+          <div className="rounded-xl border border-white/6 p-4 text-sm text-slate-300">
+            <h3 className="text-sm font-semibold text-white">
+              No availability targets for {selectedProject.project_code}
+            </h3>
+            <p className="mt-1 text-xs leading-relaxed text-slate-400">
+              The project is on record but carries no RAM targets yet, so there
+              is no promise for the arithmetic to check.
+            </p>
+          </div>
+        )}
+      {!ram.loading &&
+        !ram.error &&
+        allocations.map(({ target, result }) => (
+          <div
+            key={target.systemLabel}
+            className={`rounded-xl border p-4 ${result.feasible ? "border-white/6" : "border-amber-500/25 bg-amber-500/5"}`}
+          >
+            <h3 className="flex items-center gap-2 text-sm font-semibold text-white">
+              <TriangleAlert
+                className={`h-4 w-4 ${result.feasible ? "text-signal-cyan" : "text-amber-400"}`}
+                aria-hidden
+              />
+              {target.systemLabel} — {pct(Number(target.targetAvailability))}{" "}
+              {target.configuration}
+            </h3>
+            <p className="mt-1 text-xs leading-relaxed text-slate-400">
+              {result.reason}
+            </p>
+            {target.targetBasis && (
+              <p className="mt-1 text-xs text-slate-500">
+                {target.targetBasis}
+              </p>
+            )}
+            <div className="mt-3 overflow-x-auto">
+              <table className="w-full min-w-[34rem] text-left text-sm">
+                <caption className="sr-only">
+                  Availability allocated to each subsystem against what it
+                  demonstrates
+                </caption>
+                <thead className="text-xs uppercase tracking-wide text-slate-400">
+                  <tr>
+                    <th scope="col" className="py-2 pr-4 font-medium">
+                      Subsystem
+                    </th>
+                    <th scope="col" className="py-2 pr-4 font-medium">
+                      Weight
+                    </th>
+                    <th scope="col" className="py-2 pr-4 font-medium">
+                      Allocated
+                    </th>
+                    <th scope="col" className="py-2 pr-4 font-medium">
+                      Demonstrated
+                    </th>
+                    <th scope="col" className="py-2 font-medium">
+                      Shortfall
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {result.subsystems.map((s) => (
+                    <tr key={s.label} className="border-t border-white/6">
+                      <td className="py-2 pr-4 text-slate-200">{s.label}</td>
+                      <td className="py-2 pr-4 font-mono text-xs text-slate-500 tabular-nums">
+                        {s.weight}
+                      </td>
+                      <td className="py-2 pr-4 font-mono text-slate-300 tabular-nums">
+                        {pct(s.allocated)}
+                      </td>
+                      <td className="py-2 pr-4 font-mono text-slate-400 tabular-nums">
+                        {s.demonstrated !== null ? pct(s.demonstrated) : "—"}
+                      </td>
+                      <td
+                        className={`py-2 font-mono tabular-nums ${(s.shortfall ?? 0) > 0 ? "text-rose-300" : "text-slate-600"}`}
+                      >
+                        {s.shortfall === null
+                          ? "unknown"
+                          : s.shortfall > 0
+                            ? `−${(s.shortfall * 100).toFixed(2)} pt`
+                            : "—"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ))}
 
       {/* Early life. */}
       <div className="rounded-xl border border-white/6 p-4">

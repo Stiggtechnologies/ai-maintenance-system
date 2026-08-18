@@ -28,10 +28,12 @@ interface SearchResult {
 }
 
 // The palette mirrors the sidebar tree (navigation-lifecycle-ia.md §2) plus
-// the admin-only Research page it has always offered. /design and
-// /turnarounds are deliberately absent for the same reason they are not
-// sidebar items (P-7): a searchable destination is a menu entry, and both
-// front surfaces that are empty for every real tenant today.
+// the admin-only Research page it has always offered. /turnarounds is
+// deliberately absent for the same reason it is not a sidebar item (P-7): a
+// searchable destination is a menu entry, and it fronts a surface that is
+// empty for every real tenant today (nothing creates an outage_window).
+// /design returned to both the sidebar and the palette when its RAM
+// allocation stopped being pinned to the demo project code.
 const allResults: SearchResult[] = [
   {
     id: "mc",
@@ -135,6 +137,13 @@ const allResults: SearchResult[] = [
     id: "ld",
     label: "Repair / Replace / Retire",
     path: "/lifecycle/decisions",
+    category: "Whole Life",
+    icon: Factory,
+  },
+  {
+    id: "de",
+    label: "Reliability by Design",
+    path: "/design",
     category: "Whole Life",
     icon: Factory,
   },

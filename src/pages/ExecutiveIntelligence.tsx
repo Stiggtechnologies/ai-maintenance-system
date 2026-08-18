@@ -179,6 +179,14 @@ export function ExecutiveIntelligence() {
     kpis.find((r) => r.kpi_key === k),
   ).filter(Boolean) as KpiRow[];
   const breaches = kpis.filter((r) => r.status === "breach");
+  // The board-accountable tier, stated honestly: the catalogue seeds three of
+  // its four KPIs computable=false (strategy register, ISO 55001 maturity
+  // assessment, stakeholder scoring — each row's source_note names the
+  // missing input). Granting the board seat its KPIs (migration
+  // 20260912090000) grants one live number and the named gaps; the counts
+  // are derived from the rows, never asserted.
+  const boardKpis = kpis.filter((r) => r.accountability_tier === "board");
+  const boardAwaiting = boardKpis.filter((r) => !r.computable);
 
   if (loading) return <LoadingState label="Loading ISO 55000 KPI dashboard" />;
   if (error) return <ErrorState message={error} onRetry={refetch} />;
@@ -207,6 +215,17 @@ export function ExecutiveIntelligence() {
             {data?.role.replace(/_/g, " ")} role.
           </p>
         </div>
+        {boardAwaiting.length > 0 && (
+          <p
+            data-testid="board-kpi-honesty"
+            className="w-full rounded-lg border border-white/8 bg-white/3 px-3 py-2 text-xs text-slate-300"
+          >
+            Board-accountable KPIs: {boardAwaiting.length} of {boardKpis.length}{" "}
+            are not computable yet — shown as Awaiting source, with each card
+            naming the missing input. That is the honest state of this tier, not
+            a rendering gap.
+          </p>
+        )}
         {breaches.length > 0 && (
           <button
             onClick={() => navigate("/mission-control")}
