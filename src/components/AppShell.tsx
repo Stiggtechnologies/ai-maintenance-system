@@ -73,10 +73,12 @@ const AUTONOMY_COLOR = "text-amber-400";
 // The tree follows the corrected spine (docs/enterprise-readiness/
 // navigation-lifecycle-ia.md §2): what we own → what work should exist → the
 // standing programme strategy justifies → the whole-life frame → this week's
-// work → performance. 37 items in 9 groups (4/4/3/2/2/8/7/3/4) — the counts
-// roleNavigation.test.ts snapshots. Reliability Strategy sits directly above
-// Maintenance Programme so the parent edge — strategy → programme — reads
-// adjacently in the sidebar.
+// work → performance. 38 items in 9 groups (4/4/3/2/3/8/7/3/4) — the counts
+// roleNavigation.test.ts snapshots; the 38th is Reliability by Design, which
+// joined Whole Life once its RAM allocation stopped being pinned to the demo
+// project code (the P-7 disqualifier). Reliability Strategy sits directly
+// above Maintenance Programme so the parent edge — strategy → programme —
+// reads adjacently in the sidebar.
 const navGroups: NavGroup[] = [
   {
     id: "mission",
@@ -156,9 +158,12 @@ const navGroups: NavGroup[] = [
     ],
   },
   {
-    // Whole life (L2). Reliability by Design (/design) is a route, not an
-    // item: pinned to the demo project code, it renders empty for every real
-    // tenant, so it is linked from /lifecycle instead of any menu (P-7).
+    // Whole life (L2). Reliability by Design earned its item back when the
+    // RAM allocation stopped being pinned to the demo project code: it now
+    // lists the org's own capital projects and states plainly when there are
+    // none, so the P-7 disqualifier (permanently empty for real tenants) no
+    // longer applies. Read-only for every role — all seven of its tables are
+    // SELECT-only RLS.
     id: "whole-life",
     label: "Whole Life",
     icon: Layers,
@@ -169,6 +174,7 @@ const navGroups: NavGroup[] = [
         label: "Repair / Replace / Retire",
         path: "/lifecycle/decisions",
       },
+      { id: "design", label: "Reliability by Design", path: "/design" },
     ],
   },
   {

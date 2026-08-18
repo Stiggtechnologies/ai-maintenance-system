@@ -56,12 +56,13 @@ ingest, record the query in `docs/fleets/`, and the numbers can come back.
 
 Demo credentials (demo-tier by design — rotate nothing for these):
 
-| Role                 | Login                | Password      | Lands on               |
-| -------------------- | -------------------- | ------------- | ---------------------- |
-| Reliability engineer | demo@syncai.ca       | Demo123!@#    | Mission Control        |
-| Executive            | executive@syncai.ca  | Exec123!@#    | Executive Intelligence |
-| Technician           | technician@syncai.ca | Tech123!@#    | Work Action Board      |
-| Planner              | planner@syncai.ca    | Planner123!@# | Planning Briefing      |
+| Role                   | Login                | Password      | Lands on               |
+| ---------------------- | -------------------- | ------------- | ---------------------- |
+| Reliability engineer   | demo@syncai.ca       | Demo123!@#    | Mission Control        |
+| Executive              | executive@syncai.ca  | Exec123!@#    | Executive Intelligence |
+| Maintenance supervisor | supervisor@syncai.ca | Super123!@#   | Work Action Board      |
+| Technician             | technician@syncai.ca | Tech123!@#    | Work Action Board      |
+| Planner                | planner@syncai.ca    | Planner123!@# | Planning Briefing      |
 
 ## The script — seven acts
 
