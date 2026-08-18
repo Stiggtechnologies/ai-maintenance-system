@@ -426,10 +426,10 @@ function AuthenticatedApp() {
           <Route path="/job-plans" element={<JobPlansPage />} />
           <Route path="/pm-programme" element={<PmProgrammePage />} />
 
-          {/* Whole life. /design is a route without a sidebar item: its RAM
-              allocation is pinned to the demo project code, so a menu entry
-              would render permanently empty for real tenants (spec P-7). It
-              is linked from /lifecycle instead. */}
+          {/* Whole life. /design rejoined the sidebar when its RAM
+              allocation stopped being pinned to the demo project code — it
+              now lists the org's own capital projects and says so when there
+              are none, clearing the P-7 disqualifier. */}
           <Route path="/lifecycle" element={<LifecyclePositionPage />} />
           <Route
             path="/lifecycle/decisions"

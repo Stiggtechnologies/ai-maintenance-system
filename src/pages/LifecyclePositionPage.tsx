@@ -5,10 +5,11 @@
  * mounted under the fabricated Conveyor C-22 page with no nav entry.
  * Remounted here unmodified (navigation-lifecycle-ia.md §2 Group 5).
  *
- * The link to /design is deliberate and one-way: Reliability by Design is a
- * route without a sidebar item because its RAM allocation is pinned to the
- * demo project code and renders empty for real tenants (spec §2, P-7 rule) —
- * linking it from here keeps it reachable without putting it in any menu.
+ * The link to /design remains from when Reliability by Design was route-only
+ * (its RAM allocation was pinned to the demo project code — spec §2, P-7
+ * rule). The pin is gone and /design is now a Whole Life sidebar item for
+ * the design-review roles; the in-page link stays because the design gate is
+ * part of the lifecycle story this page tells.
  */
 import { useNavigate } from "react-router-dom";
 import { DraftingCompass } from "lucide-react";

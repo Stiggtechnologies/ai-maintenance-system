@@ -165,3 +165,57 @@ describe("ExecutiveIntelligence KPI status", () => {
     expect(within(tile).getByText("Awaiting source")).toBeInTheDocument();
   });
 });
+
+/**
+ * The board seat (migration 20260912090000) receives the four
+ * Board-accountable KPIs, three of which are seeded computable=false. The
+ * screen must say that in words — granting the seat grants one live number
+ * and three named gaps, and the note derives its counts from the rows so it
+ * can never overstate or outlive the gap.
+ */
+describe("ExecutiveIntelligence board-tier honesty", () => {
+  it("states how many board-accountable KPIs still await their source", async () => {
+    renderDashboard([
+      kpiRow({
+        kpi_key: "asset_value_realization",
+        accountability_tier: "board",
+        computable: true,
+      }),
+      kpiRow({
+        kpi_key: "strategic_asset_alignment",
+        accountability_tier: "board",
+        computable: false,
+        source_note: "Strategy register — tag assets to strategic objectives",
+      }),
+      kpiRow({
+        kpi_key: "am_maturity_index",
+        accountability_tier: "board",
+        computable: false,
+        source_note: "ISO 55001 maturity assessment input",
+      }),
+      kpiRow({
+        kpi_key: "stakeholder_value_index",
+        accountability_tier: "board",
+        computable: false,
+        source_note: "Stakeholder scoring input",
+      }),
+    ]);
+
+    const note = await screen.findByTestId("board-kpi-honesty");
+    expect(note.textContent).toContain("3 of 4");
+    expect(note.textContent).toContain("Awaiting source");
+  });
+
+  it("renders no board note when every board-accountable KPI is computable", async () => {
+    renderDashboard([
+      kpiRow({
+        kpi_key: "asset_value_realization",
+        accountability_tier: "board",
+        computable: true,
+      }),
+    ]);
+
+    await screen.findByTestId("headline-kpi-asset_value_realization");
+    expect(screen.queryByTestId("board-kpi-honesty")).toBeNull();
+  });
+});
