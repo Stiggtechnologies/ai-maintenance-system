@@ -257,12 +257,13 @@ describe("navigation integrity", () => {
     expect(dangling).toEqual([]);
   });
 
-  it("keeps the §2 tree at 38 items in 9 groups — the count that drifted twice", () => {
+  it("keeps the §2 tree at 39 items in 9 groups — the count that drifted twice", () => {
     // 37 became 38 when Reliability by Design cleared the P-7 disqualifier
     // (the RAM allocation stopped being pinned to the demo project code) and
-    // joined Whole Life.
-    expect(groupSizes).toEqual([4, 4, 3, 2, 3, 8, 7, 3, 4]);
-    expect(navItems.length).toBe(38);
+    // joined Whole Life. 38 became 39 when the admin-only Pilot Leads view
+    // joined the System group so submitted leads have an in-product surface.
+    expect(groupSizes).toEqual([4, 4, 3, 2, 3, 8, 7, 3, 5]);
+    expect(navItems.length).toBe(39);
   });
 
   it("keeps the §3 role-matrix sizes — enumerated sets, not add/lose prose", () => {

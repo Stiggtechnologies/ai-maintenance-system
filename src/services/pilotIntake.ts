@@ -16,6 +16,52 @@ export type PilotIntakeSubmission = {
   notes: string;
 };
 
+/**
+ * A pilot-intake lead as read back by an admin. Only the columns the table
+ * actually stores are surfaced — no derived or invented fields. Access is
+ * gated entirely by RLS: pilot_intake_requests_admin_read
+ * (20260913090000_pilot_leads_admin_only.sql) returns rows only to admin /
+ * ai_admin, so a non-admin authed caller gets an empty list, not an error.
+ */
+export type PilotIntakeLead = {
+  id: string;
+  created_at: string;
+  status: string;
+  name: string;
+  email: string;
+  company: string;
+  role: string | null;
+  industry: string | null;
+  asset_scope: string;
+  primary_pain: string;
+  notification_status: string;
+  source_path: string;
+};
+
+const LEAD_COLUMNS =
+  "id, created_at, status, name, email, company, role, industry, asset_scope, primary_pain, notification_status, source_path";
+
+/**
+ * Admin-scoped list of pilot-intake leads, newest first. The admin gate is the
+ * table's RLS policy, not this function — a non-admin session simply reads zero
+ * rows. Bounded so a busy pipeline never streams unbounded rows to the client.
+ */
+export async function listPilotIntakeRequests(
+  limit = 300,
+): Promise<PilotIntakeLead[]> {
+  const { data, error } = await supabase
+    .from("pilot_intake_requests")
+    .select(LEAD_COLUMNS)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return (data ?? []) as PilotIntakeLead[];
+}
+
 export async function submitPilotIntake(input: PilotIntakeSubmission) {
   const { data, error } = await supabase.rpc("submit_pilot_intake_request", {
     request: {
