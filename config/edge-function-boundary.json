@@ -8,16 +8,14 @@
     "onboarding-enrich",
     "public-reliability-agent"
   ],
-  "allowedNoVerifyJwt": [
-    "agent-loop-enrich",
-    "onboarding-enrich"
-  ],
+  "allowedNoVerifyJwt": ["agent-loop-enrich", "onboarding-enrich"],
   "blockedLegacyFunctions": [
     "document-processor",
     "edge-node-manager",
     "gateway",
     "javis-event-listener",
     "javis-orchestrator",
+    "javis-websocket",
     "job-processor",
     "marketplace-resolve",
     "model-router",

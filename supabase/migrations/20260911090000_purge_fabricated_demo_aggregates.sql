@@ -1,0 +1,47 @@
+-- ============================================================================
+-- Purge the fabricated fleet aggregates still seeded in the demo data layer.
+--
+-- WHAT THIS DELETES. 00000000000004_demo_seed.sql:305 inserts one
+-- maintenance_metrics row for the demo organization carrying invented fleet
+-- aggregates: mtbf_hours 2847, mttr_hours 4.2, pm_compliance 91,
+-- schedule_compliance 86. These are the exact literals that 4499498 deleted
+-- from /reliability ("Fleet MTBF 2,847 hr") and /performance, with the
+-- finding that wiring any surface to this table would launder the
+-- fabrication through a query — the numbers trace to a hand-typed seed, not
+-- to work orders. That commit's "still open" note is this migration.
+--
+-- WHY A NEW MIGRATION RATHER THAN EDITING THE SEED. Production has already
+-- applied 00000000000004; editing history would make a fresh install diverge
+-- from every deployed database while both chains report the same versions.
+-- A forward delete converges both: fresh installs seed the row and
+-- immediately remove it, deployed databases remove the row they have held
+-- since the seed ran.
+--
+-- WHY THE WHOLE ORG'S ROWS AND NOT A LITERAL MATCH. Nothing in src/,
+-- supabase/functions/, or scripts/ writes maintenance_metrics — the seed is
+-- the only writer that has ever existed in this repository, so every demo-org
+-- row in the table is that fabrication regardless of drift in its values.
+-- The sole reader (javis-orchestrator/index.ts:361) is retired in the same
+-- commit; it queried columns this table does not even have (metric_name,
+-- metric_value, tenant_id), so it never returned a row from the live schema.
+-- The table itself stays: it is a legacy-compat shim (00000000000002:157)
+-- and dropping schema is not this migration's job.
+--
+-- KPI_VALUES WAS AUDITED AND HOLDS NOTHING TO DELETE. The other table named
+-- by 4499498's warning, kpi_values (00000000000017:45), has no seeded rows:
+-- its only writer is compute_kpi_snapshot() (insert at 00000000000017:330),
+-- which derives every value from work_orders/assets/recommendations and
+-- stamps computed_from lineage on every row — on a fresh chain its MTBF is
+-- 1703 h, computed from the seeded work orders, not the hand-typed 2847.
+-- Deleting there would destroy computed history, not fabrication.
+--
+-- KNOWN RESIDUAL, OUT OF SCOPE HERE. kpi_measurements and
+-- user_kpi_dashboard (also seeded in 00000000000004:292-303) carry the same
+-- 2847/4.2 literals as a labelled demo fixture series. They still have live
+-- readers (dashboardServices -> OEEDashboard/GovernanceDashboard,
+-- billing-gainshare), so removing those rows would empty shipped screens and
+-- needs its own reviewed change, not a rider on this one.
+-- ============================================================================
+
+delete from maintenance_metrics
+where organization_id = '11111111-1111-1111-1111-111111111111';
