@@ -38,7 +38,6 @@ import { DeploymentConfiguratorPage } from "./pages/DeploymentConfiguratorPage";
 import { AIWorkforce } from "./pages/AIWorkforcePage";
 import { CommandCenters } from "./pages/CommandCenters";
 import { RiskConsequence } from "./pages/RiskConsequence";
-import { ScenarioSimulator } from "./pages/ScenarioSimulator";
 import { LearningLoop } from "./pages/LearningLoop";
 import { Reliability } from "./pages/ReliabilityPage";
 import { ReadinessPage } from "./pages/ReadinessPage";
@@ -56,7 +55,6 @@ import { BenchmarkingPanel } from "./pages/BenchmarkingPanel";
 import { AutonomyMaturity } from "./pages/AutonomyMaturity";
 import { SetupWizard } from "./pages/SetupWizard";
 import { ArtifactWorkspace } from "./pages/ArtifactWorkspace";
-import { AutonomyControlPanel } from "./components/AutonomyControlPanel";
 import { ApprovalQueue } from "./components/ApprovalQueue";
 import { motion, AnimatePresence, MotionConfig } from "framer-motion";
 import { useAuth } from "./components/AuthProvider";
@@ -380,7 +378,20 @@ function AuthenticatedApp() {
 
           {/* AI Workforce layer */}
           <Route path="/ai-workforce" element={<AIWorkforce />} />
-          <Route path="/autonomy" element={<AutonomyControlPanel />} />
+          {/* /autonomy offered per-agent autonomy levels, safety overrides and
+              spend limits reaching $100,000, all of it component state that no
+              table backed — there is no autonomy-config schema, so pressing
+              Save changed nothing an agent would ever read. The concern it
+              mimicked is real and already modelled: decision rights, approval
+              authority and their thresholds live in the decision-rights matrix
+              and are rendered from it by Decision Governance. The path survives
+              as a redirect because anyone who bookmarked it wanted to set
+              approval authority, and the catch-all would drop them on Mission
+              Control instead. */}
+          <Route
+            path="/autonomy"
+            element={<Navigate to="/governance" replace />}
+          />
           <Route path="/autonomy-maturity" element={<AutonomyMaturity />} />
           <Route path="/approvals" element={<ApprovalQueue />} />
           <Route path="/governance" element={<DecisionGovernance />} />
@@ -404,7 +415,6 @@ function AuthenticatedApp() {
           <Route path="/work/:workOrderId" element={<WorkOrderDetailPage />} />
           <Route path="/work" element={<WorkActionBoard />} />
           <Route path="/notifications" element={<NotificationScreening />} />
-          <Route path="/scenarios" element={<ScenarioSimulator />} />
           <Route path="/briefing" element={<OperationalBriefing />} />
 
           {/* Performance */}

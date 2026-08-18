@@ -61,13 +61,21 @@ const TOUR = [
     key: "reliability_engineer",
     title: "Reliability engineer — the fleet",
     question: "Which assets are hurting us, and why?",
-    routes: ["/mission-control", "/assets", "/reliability", "/risk"],
+    routes: [
+      "/mission-control",
+      "/command-centers",
+      "/readiness",
+      "/decision-cases/demo",
+      "/assets",
+      "/reliability",
+      "/risk",
+    ],
   },
   {
     key: "executive",
     title: "Executive — the boardroom",
     question: "Are we meeting the commitments we are accountable for?",
-    routes: ["/executive", "/value", "/performance"],
+    routes: ["/executive", "/value"],
   },
 ];
 
@@ -132,36 +140,65 @@ async function settle(page) {
 const slug = (route) => route.replace(/^\//, "").replace(/\//g, "-") || "home";
 
 /**
- * Tallest a shot may be, in CSS pixels. Several screens reserve scroll room
- * far below their last row — `fullPage` on those returns a strip of empty
- * canvas eighteen thousand pixels long, which is useless in an email and
- * reads as a broken page. Roughly two and a half screens is as much as
- * anyone scrolls through in a forwarded message anyway.
+ * Tallest a shot may be, in CSS pixels. A few screens run genuinely long, and
+ * past a point an image stops being evidence and becomes something nobody
+ * scrolls through in a forwarded message.
  */
-const MAX_SHOT_HEIGHT = 2600;
+const MAX_SHOT_HEIGHT = 5200;
+
+/** The window the tour shoots in, before any per-page growth. */
+const VIEWPORT = { width: 1600, height: 1000 };
 
 /**
- * Height of the actual content, as opposed to the height of the scroll area.
- * Measured from the lowest element that renders something a reader can see,
- * so the crop lands just under the last card rather than at the bottom of
- * whatever padding the layout happens to reserve.
+ * Open the page out so a single screenshot contains all of it.
+ *
+ * The app does not scroll the window — it scrolls an inner `main`, and the
+ * document itself never grows. That has two consequences that between them
+ * make the obvious approaches quietly wrong: `window.scrollY` is always 0, so
+ * any measurement taken against it describes the first screen and no more;
+ * and `fullPage` sees a document the size of the viewport, so it returns the
+ * top of the page padded with empty canvas. Both fail silently — they produce
+ * a real-looking image of the wrong thing, which is worse than an error.
+ *
+ * So: scroll the container through its own height first, because panels below
+ * the fold mount only once they are approached, then take the scrolling away
+ * from it. With `main` at its natural height the document finally grows to fit
+ * the content and `fullPage` means what it says.
+ *
+ * Returns the content height in CSS pixels.
  */
-async function contentHeight(page) {
-  return page.evaluate(() => {
-    const root = document.querySelector("main") ?? document.body;
-    let lowest = 0;
-    for (const el of root.querySelectorAll("*")) {
-      const rect = el.getBoundingClientRect();
-      if (rect.width === 0 || rect.height === 0) continue;
-      const paints =
-        (el.textContent ?? "").trim().length > 0 ||
-        el.tagName === "IMG" ||
-        el.tagName === "SVG" ||
-        el.tagName === "CANVAS";
-      if (paints) lowest = Math.max(lowest, rect.bottom + window.scrollY);
+async function expandForCapture(page) {
+  return page.evaluate(async (maxHeight) => {
+    const findScroller = () =>
+      [...document.querySelectorAll("main, div")].find(
+        (el) =>
+          /auto|scroll/.test(getComputedStyle(el).overflowY) &&
+          el.scrollHeight - el.clientHeight > 200,
+      ) ?? null;
+
+    // The container only exceeds its own height once the first panels have
+    // data, so a page still fetching looks unscrollable. Give it a few tries
+    // before concluding it genuinely fits on one screen.
+    let scroller = findScroller();
+    for (let i = 0; i < 6 && !scroller; i += 1) {
+      await new Promise((r) => setTimeout(r, 500));
+      scroller = findScroller();
     }
-    return Math.ceil(lowest);
-  });
+    if (!scroller) return null;
+
+    for (let y = 0; y < scroller.scrollHeight; y += scroller.clientHeight / 2) {
+      scroller.scrollTop = y;
+      await new Promise((r) => setTimeout(r, 180));
+    }
+    scroller.scrollTop = 0;
+    await new Promise((r) => setTimeout(r, 400));
+
+    const height = Math.min(scroller.scrollHeight, maxHeight);
+    scroller.style.height = `${height}px`;
+    scroller.style.maxHeight = "none";
+    scroller.style.overflow = "visible";
+    return height;
+  }, MAX_SHOT_HEIGHT);
 }
 
 async function main() {
@@ -183,7 +220,7 @@ async function main() {
     }
 
     const context = await browser.newContext({
-      viewport: { width: 1600, height: 1000 },
+      viewport: VIEWPORT,
       deviceScaleFactor: 2,
       colorScheme: "dark",
       recordVideo: {
@@ -208,15 +245,22 @@ async function main() {
 
       const name = `${role.key}--${slug(route)}.png`;
       const file = path.join(outDir, name);
-      const viewport = page.viewportSize();
+      const expanded = await expandForCapture(page);
+
+      // Grow the window to the content rather than clipping to it. A clip
+      // taller than the viewport is silently clamped back to the viewport,
+      // which is how a whole tour can come back looking plausible while every
+      // shot is really just the first screen.
       const height = Math.min(
-        Math.max((await contentHeight(page)) + 24, viewport.height),
+        Math.max(expanded ?? VIEWPORT.height, VIEWPORT.height),
         MAX_SHOT_HEIGHT,
       );
-      await page.screenshot({
-        path: file,
-        clip: { x: 0, y: 0, width: viewport.width, height },
-      });
+      if (height > VIEWPORT.height) {
+        await page.setViewportSize({ width: VIEWPORT.width, height });
+        await page.waitForTimeout(900);
+      }
+      await page.screenshot({ path: file });
+      if (height > VIEWPORT.height) await page.setViewportSize(VIEWPORT);
 
       // Record what the page actually said, so a caption can never drift from
       // the screen it claims to describe.
