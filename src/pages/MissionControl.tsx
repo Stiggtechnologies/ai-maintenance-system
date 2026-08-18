@@ -233,10 +233,12 @@ function EvidenceDrawer({
 /* ---- Scenario comparison modal (real scenarios) -------------------------- */
 function ScenarioModal({
   rec,
+  canAct,
   onClose,
   onApprove,
 }: {
   rec: RecommendationRow;
+  canAct: boolean;
   onClose: () => void;
   onApprove: () => void;
 }) {
@@ -326,12 +328,14 @@ function ScenarioModal({
           >
             Close
           </button>
-          <button
-            onClick={onApprove}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-teal-500/20 border border-teal-500/30 text-teal-400 text-xs font-medium rounded-lg hover:bg-teal-500/30"
-          >
-            <ThumbsUp className="w-3 h-3" /> Approve recommended option
-          </button>
+          {canAct && (
+            <button
+              onClick={onApprove}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-teal-500/20 border border-teal-500/30 text-teal-400 text-xs font-medium rounded-lg hover:bg-teal-500/30"
+            >
+              <ThumbsUp className="w-3 h-3" /> Approve recommended option
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -342,6 +346,7 @@ function ScenarioModal({
 function RecommendationCard({
   rec,
   busy,
+  canAct,
   onApprove,
   onAction,
   onEvidence,
@@ -351,6 +356,7 @@ function RecommendationCard({
 }: {
   rec: RecommendationRow;
   busy: boolean;
+  canAct: boolean;
   onApprove: (r: RecommendationRow) => void;
   onAction: (
     r: RecommendationRow,
@@ -432,18 +438,20 @@ function RecommendationCard({
             </div>
           </div>
           <div className="flex gap-2 mt-3 flex-wrap">
-            <button
-              disabled={busy}
-              onClick={() => onApprove(rec)}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-teal-500/20 border border-teal-500/30 text-teal-400 text-xs font-medium rounded-lg hover:bg-teal-500/30 disabled:opacity-50"
-            >
-              {busy ? (
-                <Loader2 className="w-3 h-3 animate-spin" />
-              ) : (
-                <ThumbsUp className="w-3 h-3" />
-              )}{" "}
-              Approve
-            </button>
+            {canAct && (
+              <button
+                disabled={busy}
+                onClick={() => onApprove(rec)}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-teal-500/20 border border-teal-500/30 text-teal-400 text-xs font-medium rounded-lg hover:bg-teal-500/30 disabled:opacity-50"
+              >
+                {busy ? (
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                ) : (
+                  <ThumbsUp className="w-3 h-3" />
+                )}{" "}
+                Approve
+              </button>
+            )}
             <button
               onClick={() => onEvidence(rec)}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-white/4 border border-white/8 text-slate-400 text-xs rounded-lg hover:bg-white/8"
@@ -456,42 +464,75 @@ function RecommendationCard({
             >
               <FlaskConical className="w-3 h-3" /> Compare Scenarios
             </button>
-            <button
-              onClick={() => onChallenge(rec)}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-white/4 border border-white/8 text-amber-400 text-xs rounded-lg hover:bg-amber-500/10"
-            >
-              <Swords className="w-3 h-3" /> Challenge
-            </button>
-            <button
-              onClick={() => onCreateWO(rec)}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-white/4 border border-white/8 text-slate-400 text-xs rounded-lg hover:bg-white/8"
-            >
-              <Package className="w-3 h-3" /> Create Work Order
-            </button>
-            <button
-              onClick={() => onAction(rec, "modified")}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-white/4 border border-white/8 text-slate-400 text-xs rounded-lg hover:bg-white/8"
-            >
-              <Pencil className="w-3 h-3" /> Modify
-            </button>
-            <button
-              onClick={() => onAction(rec, "escalated")}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-white/4 border border-white/8 text-slate-400 text-xs rounded-lg hover:bg-white/8"
-            >
-              <ArrowUpCircle className="w-3 h-3" /> Escalate
-            </button>
-            <button
-              onClick={() => onAction(rec, "dismissed")}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-white/4 border border-white/8 text-slate-400 text-xs rounded-lg hover:bg-white/8"
-            >
-              <ThumbsDown className="w-3 h-3" /> Dismiss
-            </button>
+            {canAct && (
+              <>
+                <button
+                  onClick={() => onChallenge(rec)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-white/4 border border-white/8 text-amber-400 text-xs rounded-lg hover:bg-amber-500/10"
+                >
+                  <Swords className="w-3 h-3" /> Challenge
+                </button>
+                <button
+                  onClick={() => onCreateWO(rec)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-white/4 border border-white/8 text-slate-400 text-xs rounded-lg hover:bg-white/8"
+                >
+                  <Package className="w-3 h-3" /> Create Work Order
+                </button>
+                <button
+                  onClick={() => onAction(rec, "modified")}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-white/4 border border-white/8 text-slate-400 text-xs rounded-lg hover:bg-white/8"
+                >
+                  <Pencil className="w-3 h-3" /> Modify
+                </button>
+                <button
+                  onClick={() => onAction(rec, "escalated")}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-white/4 border border-white/8 text-slate-400 text-xs rounded-lg hover:bg-white/8"
+                >
+                  <ArrowUpCircle className="w-3 h-3" /> Escalate
+                </button>
+                <button
+                  onClick={() => onAction(rec, "dismissed")}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-white/4 border border-white/8 text-slate-400 text-xs rounded-lg hover:bg-white/8"
+                >
+                  <ThumbsDown className="w-3 h-3" /> Dismiss
+                </button>
+              </>
+            )}
+            {!canAct && (
+              <span
+                data-testid="mission-control-read-only"
+                className="text-xs text-slate-500 px-1.5 py-1.5"
+              >
+                Read-only view — approving, challenging and dispatching are acts
+                of the accountable roles.
+              </span>
+            )}
           </div>
         </div>
       )}
     </motion.div>
   );
 }
+
+/**
+ * Client half of the mission-control write gate — the SchedulerPanel
+ * RELEASE_ROLES idiom. Every role listed here predates the 2026-08 org-layer
+ * roles and keeps exactly the actions it already had. The two roles absent
+ * from this list (see the IA doc's owner decision record) are read-only on
+ * this surface, so the act buttons are never promised to them; and because a
+ * hidden button is not security, the restrictive policy in 20260912123000
+ * refuses the write server-side and the refusal is flashed verbatim below.
+ */
+const RECOMMENDATION_ACT_ROLES = new Set([
+  "admin",
+  "ai_admin",
+  "executive",
+  "maintenance_manager",
+  "reliability_engineer",
+  "planner",
+  "technician",
+  "operator",
+]);
 
 const ROLE_LABEL: Record<string, string> = {
   executive: "Executive",
@@ -505,6 +546,7 @@ const ROLE_LABEL: Record<string, string> = {
 export function MissionControl() {
   const { profile } = useAuth();
   const role = (profile?.role as string) ?? "reliability_engineer";
+  const canAct = RECOMMENDATION_ACT_ROLES.has(role);
   const { missionSignals } = useOnboardingOperatingLoop();
   const { data, loading, error, refetch } = useAsyncData(
     () => getMissionControl(),
@@ -763,6 +805,7 @@ export function MissionControl() {
                     key={rec.id}
                     rec={rec}
                     busy={busyId === rec.id}
+                    canAct={canAct}
                     onApprove={handleApprove}
                     onAction={handleAction}
                     onEvidence={setEvidenceRec}
@@ -873,6 +916,7 @@ export function MissionControl() {
       {scenarioRec && (
         <ScenarioModal
           rec={scenarioRec}
+          canAct={canAct}
           onClose={() => setScenarioRec(null)}
           onApprove={() => handleApprove(scenarioRec)}
         />

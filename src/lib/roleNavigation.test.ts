@@ -81,24 +81,27 @@ const groupSizes = NAV_GROUPS.split(/icon:\s/)
   .slice(1)
   .map((chunk) => [...chunk.matchAll(/path:\s*"/g)].length);
 
-// Per-role allow-list membership, read from the same text the ids come from.
-// null = full navigation.
-const allowMembers: Record<string, string[] | null> = Object.fromEntries(
+// Per-role allow-list entries, read from the same text the ids come from.
+// null = full navigation. Entries (not just sizes) are kept because the two
+// org-layer roles added in 2026-08 are pinned by membership below — a size
+// that stays 8 while the set swaps an item is exactly the drift a count
+// cannot catch.
+const allowEntries: Record<string, string[] | null> = Object.fromEntries(
   [...NAV_ALLOW.matchAll(/^\s{2}(\w+):\s*(null|new Set\(\[)/gm)].map((m) => {
     if (m[2] === "null") return [m[1], null];
     const setStart = NAV_ALLOW.indexOf(m[0]) + m[0].length;
     const setEnd = NAV_ALLOW.indexOf("])", setStart);
     const entries = [
       ...NAV_ALLOW.slice(setStart, setEnd).matchAll(/"([a-z-]+)"/g),
-    ];
-    return [m[1], entries.map((entry) => entry[1])];
+    ].map((entry) => entry[1]);
+    return [m[1], entries];
   }),
 );
 
 const allowSizes = Object.fromEntries(
-  Object.entries(allowMembers).map(([role, ids]) => [
+  Object.entries(allowEntries).map(([role, entries]) => [
     role,
-    ids === null ? null : ids.length,
+    entries === null ? null : entries.length,
   ]),
 );
 
@@ -147,15 +150,20 @@ const routes = declaredRoutes.map(({ path }) => ({ path }));
  * Exceptions are listed here one by one with their evidence, because an
  * absolute rule invites silent exceptions.
  *
- * technician → notifications is the sole entry: three of the four screening
- * RPCs gate to planner/RE/MM/admin (20260906090000:88,141,192), but
+ * technician → notifications: three of the four screening RPCs gate to
+ * planner/RE/MM/admin (20260906090000:88,141,192), but
  * raise_maintenance_notification (:32-50) is ungated and raising is the
  * technician's actual job. It qualifies only because the page surfaces the
  * server's refusal for the gated acts — which the test below pins.
  *
- * This is materially unlike executive → approvals (removed outright): there
+ * supervisor → notifications is the same class with the same evidence: the
+ * supervisor's crews raise notifications through the ungated RPC, the
+ * screening gates exclude the role identically, and the same page surfaces
+ * the same refusal sentence. One idiom, two frontline roles.
+ *
+ * Both are materially unlike executive → approvals (removed outright): there
  * the RLS predicate denies every write and the page used to broadcast
- * success on a zero-row rejection. The two must not be treated as one class.
+ * success on a zero-row rejection. The two classes must not be merged.
  */
 const DOCUMENTED_EXCEPTIONS = [
   {
@@ -164,6 +172,59 @@ const DOCUMENTED_EXCEPTIONS = [
     // The page whose writes the server may refuse for this role; it must
     // surface the refusal rather than swallow it.
     page: "src/pages/NotificationScreening.tsx",
+  },
+  {
+    role: "supervisor",
+    itemId: "notifications",
+    page: "src/pages/NotificationScreening.tsx",
+  },
+];
+
+/**
+ * Surfaces granted under the rule's OTHER arm — no ungated action, explicitly
+ * designated read-only. Each entry pins the two mechanisms that keep the
+ * designation true: the page's client-side gate must not name the role (no
+ * promised button the server would refuse), and the server's own refusal must
+ * be rendered if the write is ever attempted anyway.
+ *
+ * supervisor → scheduling is the entry that created the list: the supervisor
+ * reads the week's options and the crew capacity behind them, while
+ * release_schedule_option gates to planner/mm/admin/ai_admin
+ * (20260806190000:176) and SchedulerPanel's RELEASE_ROLES mirrors that set.
+ *
+ * board and supervisor → mission-control joined when adversarial
+ * verification showed the approve flow was ungated for both: the page showed
+ * every role the Approve/act buttons, and recommendations_org_rw
+ * (00000000000001:489) would have accepted the write. Now
+ * RECOMMENDATION_ACT_ROLES omits both roles (every pre-existing role keeps
+ * exactly what it had) and the restrictive policies in 20260912123000 refuse
+ * the write server-side — the update gate deliberately in WITH CHECK so the
+ * refusal is an error the page flashes, never a zero-row success. board's
+ * remaining surfaces stay read-only by construction (SELECT-only grants);
+ * mission-control was its one surface with a write path, and it is pinned
+ * here instead of exempted.
+ */
+const DOCUMENTED_READ_ONLY = [
+  {
+    role: "supervisor",
+    itemId: "scheduling",
+    page: "src/components/SchedulerPanel.tsx",
+    clientGate: "const RELEASE_ROLES",
+    refusal: "setMessage(r.error)",
+  },
+  {
+    role: "supervisor",
+    itemId: "mission-control",
+    page: "src/pages/MissionControl.tsx",
+    clientGate: "const RECOMMENDATION_ACT_ROLES",
+    refusal: "flash(e instanceof Error ? e.message",
+  },
+  {
+    role: "board",
+    itemId: "mission-control",
+    page: "src/pages/MissionControl.tsx",
+    clientGate: "const RECOMMENDATION_ACT_ROLES",
+    refusal: "flash(e instanceof Error ? e.message",
   },
 ];
 
@@ -196,9 +257,12 @@ describe("navigation integrity", () => {
     expect(dangling).toEqual([]);
   });
 
-  it("keeps the §2 tree at 37 items in 9 groups — the count that drifted twice", () => {
-    expect(groupSizes).toEqual([4, 4, 3, 2, 2, 8, 7, 3, 4]);
-    expect(navItems.length).toBe(37);
+  it("keeps the §2 tree at 38 items in 9 groups — the count that drifted twice", () => {
+    // 37 became 38 when Reliability by Design cleared the P-7 disqualifier
+    // (the RAM allocation stopped being pinned to the demo project code) and
+    // joined Whole Life.
+    expect(groupSizes).toEqual([4, 4, 3, 2, 3, 8, 7, 3, 4]);
+    expect(navItems.length).toBe(38);
   });
 
   it("keeps the §3 role-matrix sizes — enumerated sets, not add/lose prose", () => {
@@ -207,19 +271,119 @@ describe("navigation integrity", () => {
       ai_admin: null,
       operator: 6,
       technician: 8,
+      supervisor: 8,
       planner: 17,
-      reliability_engineer: 25,
+      reliability_engineer: 26, // 25 + design (unpinned, read-only)
       maintenance_manager: 25,
-      executive: 18,
+      executive: 19, // 18 + design (unpinned, read-only)
+      board: 6,
     });
   });
 
-  it("keeps the ungated-action rule's exception list at its single documented entry", () => {
+  it("pins the two org-layer roles by membership, not size alone", () => {
+    // supervisor is the frontline slice §3 named as maintenance_manager's
+    // second job — crew focus, no approval authority, no decision rights.
+    expect(allowEntries.supervisor).toEqual([
+      "mission-control",
+      "work",
+      "notifications",
+      "scheduling",
+      "handover",
+      "emergency",
+      "briefing",
+      "settings",
+    ]);
+    // board is the executive-review read surface and nothing else: no
+    // approvals, no governance, no execution or strategy surfaces.
+    expect(allowEntries.board).toEqual([
+      "mission-control",
+      "executive",
+      "value",
+      "benchmarking",
+      "trust",
+      "settings",
+    ]);
+  });
+
+  it("grants the two new roles no approval authority — the server contract is untouched", () => {
+    // The owner approved navigation and read access, not authority. The
+    // approval-authority contract (the USING and WITH CHECK predicate on
+    // every approvals table) must not have quietly grown either role, and
+    // the decision-rights seed must not have gained rows for them.
+    const authorityContract = readFileSync(
+      "supabase/migrations/00000000000022_approval_authority_contract.sql",
+      "utf8",
+    );
+    const decisionRights = readFileSync(
+      "supabase/migrations/00000000000024_decision_rights_matrix.sql",
+      "utf8",
+    );
+    for (const role of ["supervisor", "board"]) {
+      expect(authorityContract).not.toContain(`'${role}'`);
+      expect(decisionRights).not.toContain(`'${role}'`);
+    }
+  });
+
+  it("keeps every read-only designation honest — no promised button, no swallowed refusal", () => {
+    for (const entry of DOCUMENTED_READ_ONLY) {
+      expect(allowEntries[entry.role]).toContain(entry.itemId);
+      const page = readFileSync(entry.page, "utf8");
+      // The client-side gate exists and does not name the read-only role…
+      const gateStart = page.indexOf(entry.clientGate);
+      expect(gateStart, `${entry.clientGate} not found`).toBeGreaterThan(-1);
+      const gate = page.slice(gateStart, page.indexOf("]);", gateStart));
+      expect(gate).not.toContain(`"${entry.role}"`);
+      // …and the server's own refusal is rendered, never swallowed.
+      expect(page).toContain(entry.refusal);
+    }
+  });
+
+  it("serves board packs through every server path — the policy AND the cascade's own filter", () => {
+    // 20260912090000 admitted the board to board_packs_read, but the RPC that
+    // actually serves the board record (get_accountability_cascade,
+    // 20260808210000:512) filters packs on its own in-function role list — a
+    // third server filter the IA doc's §3 inventory missed. 20260912120000
+    // recreates the function with the board included; this pins the filter as
+    // text so the pack path cannot silently regress to policy-only access.
+    const cascade = readFileSync(
+      "supabase/migrations/20260912120000_board_cascade_access.sql",
+      "utf8",
+    );
+    expect(cascade).toContain(
+      "create or replace function public.get_accountability_cascade()",
+    );
+    const packsFilter = /from board_packs[\s\S]*?v_role in \(([^)]*)\)/.exec(
+      cascade,
+    );
+    expect(packsFilter, "packs role filter not found").not.toBeNull();
+    // The board joins; nobody the original filter admitted is lost.
+    for (const role of ["board", "executive", "admin", "ai_admin"]) {
+      expect(packsFilter![1]).toContain(`'${role}'`);
+    }
+    // And the write gate that keeps the board (and supervisor) read-only on
+    // mission-control refuses loudly: the update gate must live in WITH
+    // CHECK, because a USING denial is a zero-row success the page would
+    // report as approval.
+    const writeGate = readFileSync(
+      "supabase/migrations/20260912123000_readonly_recommendation_write_gate.sql",
+      "utf8",
+    );
+    const updatePolicy = /for update[\s\S]*?with check \(([\s\S]*?)\);/.exec(
+      writeGate,
+    );
+    expect(updatePolicy, "restrictive update policy not found").not.toBeNull();
+    expect(updatePolicy![1]).toContain("not in ('board', 'supervisor')");
+  });
+
+  it("keeps the ungated-action rule's exception list at its documented entries", () => {
     // Growing this list is a design decision, not a wiring change: each new
     // entry needs the same evidence trail as technician → notifications.
     expect(
       DOCUMENTED_EXCEPTIONS.map(({ role, itemId }) => ({ role, itemId })),
-    ).toEqual([{ role: "technician", itemId: "notifications" }]);
+    ).toEqual([
+      { role: "technician", itemId: "notifications" },
+      { role: "supervisor", itemId: "notifications" },
+    ]);
 
     // Every exception must point at a real allow-list entry and a real nav
     // item, or the documentation is about nothing.
@@ -319,7 +483,7 @@ describe("role tour integrity", () => {
     // item carries their path) are covered by the route check above.
     const idByPath = new Map(navItems.map((item) => [item.path, item.id]));
     const escapes = tourRoles.flatMap(({ key, stops }) => {
-      const allowed = allowMembers[key];
+      const allowed = allowEntries[key];
       if (allowed === undefined) return [{ key, stop: "(no NAV_ALLOW entry)" }];
       if (allowed === null) return []; // full navigation
       return stops

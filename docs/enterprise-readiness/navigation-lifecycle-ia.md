@@ -299,3 +299,70 @@ Recorded as an overlay of the Suncor maintenance-process map onto this design an
 - **Strategy revision should exit through MOC.** When a strategy or interval is revised (the E1 loop closing, or a future E3), the change should leave through management of change. The register's only MOC anchor today is barrier-integrity E2.11; there is no general MOC exit for strategy revisions.
 - **Absent from the 399-row register entirely:** the CFT as an approval unit; Work Selection's three-way routing; Event Planning; reverse logistics; and the Technical History vs Work History distinction. None of these appears as a row, a status, or a named gap.
 - **The register lacks a process-stage / owning-role axis — and that is the root cause of the filing-cabinet navigation.** Rows are keyed by capability, not by where in the process a capability sits or which role owns it. With no process-stage dimension in the program of record, the sidebar had nothing to follow but component boundaries; this document supplies the missing axis for navigation, and the register should eventually carry it too.
+
+---
+
+## Owner decision record — §5 Step 8 items resolved (2026-08-17, branch `agent/org-layer-roles`)
+
+Three of the customer decisions this document deliberately left open were made
+by the owner and implemented. Each entry names the section it executes or
+supersedes; nothing above this line is edited, because the sections above are
+a verified point-in-time record.
+
+1. **`supervisor` exists** (supersedes the §3 statement "until a `supervisor`
+   role exists in code, `maintenance_manager` carries both … jobs" — the gap
+   is closed as named, not argued away). The role gets the frontline set only
+   — `mission-control, work, notifications, scheduling, handover, emergency,
+briefing, settings` (8) — under this document's own rule: work orders are
+   org-scoped ungated writes; `raise_maintenance_notification` and
+   `return_equipment` are ungated; **scheduling is a documented read-only
+   grant** (`release_schedule_option` excludes the role and `SchedulerPanel`
+   both hides the release act and surfaces the server refusal). It receives
+   **no approval authority and no decision-rights rows** —
+   `app_role_has_approval_authority` (migration 22) and the decision-rights
+   seed (migration 24) are untouched, and `roleNavigation.test.ts` now pins
+   both facts. `supervisor → notifications` joins `technician →
+notifications` as the second entry in the documented-exception list with
+   identical evidence. Demo persona `supervisor@syncai.ca` seeded
+   (20260912093000) so the runbook credentials row is true.
+   `mission-control` is likewise a documented read-only grant: the approve
+   and act buttons are client-gated by `RECOMMENDATION_ACT_ROLES` (which
+   omits the role), the recommendations write path refuses the role
+   server-side via the restrictive policies in `20260912123000`, and
+   `supervisor → mission-control` is pinned under the documented-read-only
+   test.
+
+2. **`board` is a real role** (supersedes §3's "Decision: do not ship a board
+   role", which the owner overrode by approving exactly the authorization
+   change that section said shipping would require). Migration
+   `20260912090000` makes the two edits the §3 inventory named: the four
+   Board-accountable KPI `audience` arrays (00000000000017:82-89) and
+   `board_packs_read` (20260808210000:311-318) now admit `'board'`.
+   Adversarial verification then found that inventory one filter short —
+   `get_accountability_cascade`'s packs subquery (20260808210000:512)
+   carries its own in-function role list, so the policy admitted the board
+   while the RPC serving `/executive`'s board record still returned it none
+   — closed by migration `20260912120000`, with the filter pinned as text in
+   `roleNavigation.test.ts`. The nav
+   set is the read-only executive-review surface — `mission-control,
+executive, value, benchmarking, trust, settings` (6). The same verification
+   showed `/mission-control`'s approve flow was ungated for the role: the
+   act buttons are now client-gated (`RECOMMENDATION_ACT_ROLES`), the
+   recommendations write path refuses the role server-side
+   (`20260912123000`, the update gate in WITH CHECK so the refusal is loud),
+   and `board → mission-control` is pinned under the documented-read-only
+   test rather than exempted from it. The §3 warning that
+   a board role would meet mostly-empty KPIs is carried to the screen rather
+   than fixed by fiction: three of the four Board KPIs remain
+   `computable=false`, and `/executive` now states that count in words
+   (Awaiting source), derived from the rows.
+
+3. **`DEMO-CP-01` is unpinned** (executes §5 Step 8's precondition for
+   `/design`). `ReliabilityByDesign` enumerates the org's own
+   `capital_projects` (org-scoped RLS `capproj_read`), selects among them,
+   and renders a stated empty state when there are none — so the P-7
+   disqualifier no longer applies and `/design` joins the Whole Life group
+   for the roles with read access (`reliability_engineer`, `executive`,
+   admin roles). Tree count: 37 → **38** (4/4/3/2/**3**/8/7/3/4), snapshotted
+   in `roleNavigation.test.ts`. `/turnarounds` remains route-only — nothing
+   creates an `outage_window`, so its P-7 condition still holds.

@@ -60,6 +60,22 @@ const PERSONAS: Record<string, RolePersona> = {
       "Draft an RCA outline-solid for the C-22 vibration alarm",
     ],
   },
+  supervisor: {
+    title: "Supervisor Copilot",
+    intro:
+      "Ask about crew focus, today's work, notifications and equipment returns — grounded in your live work data.",
+    framing:
+      "You are advising a FRONTLINE MAINTENANCE SUPERVISOR. Focus on today's crew assignments, " +
+      "open work and its readiness, raised notifications awaiting screening, and equipment awaiting " +
+      "return or acceptance. Practical and immediate — approvals and spend decisions escalate to the " +
+      "maintenance manager, so recommend the escalation rather than the decision.",
+    suggestions: [
+      "What should each crew start with this morning?",
+      "Which open work is blocked and on what?",
+      "What notifications did my crews raise that are still unscreened?",
+      "Which equipment is returned but not yet accepted back?",
+    ],
+  },
   planner: {
     title: "Planning Copilot",
     intro:
@@ -108,5 +124,9 @@ const PERSONAS: Record<string, RolePersona> = {
 export function getRolePersona(role: string | null | undefined): RolePersona {
   if (role && PERSONAS[role]) return PERSONAS[role];
   if (role === "ai_admin") return PERSONAS.admin;
+  // The board seat is a read-only executive-review surface; the executive
+  // framing (business impact, targets, accountable owners) is the right
+  // register for it rather than the engineering fallback.
+  if (role === "board") return PERSONAS.executive;
   return PERSONAS.reliability_engineer;
 }
