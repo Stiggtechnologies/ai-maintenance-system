@@ -276,7 +276,8 @@ export function isNavItemVisible(
 ): boolean {
   // Admin-only surfaces are hidden from every non-admin role, even those
   // that otherwise get the full navigation.
-  if (itemId === "security-log") return role === "admin" || role === "ai_admin";
+  if (itemId === "security-log" || itemId === "pilot-leads")
+    return role === "admin" || role === "ai_admin";
   const allow = role ? NAV_ALLOW[role] : undefined;
   if (allow === null) return true; // full nav — admin roles only
   if (allow === undefined) return UNKNOWN_ROLE_NAV.has(itemId);

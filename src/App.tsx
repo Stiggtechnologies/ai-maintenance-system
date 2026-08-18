@@ -56,6 +56,7 @@ import { HandoverPage } from "./pages/HandoverPage";
 import { TurnaroundsPage } from "./pages/TurnaroundsPage";
 import { AssetOnboardingHub } from "./pages/AssetOnboardingHub";
 import { SecurityAuditLog } from "./pages/SecurityAuditLog";
+import { PilotLeads } from "./pages/PilotLeads";
 import { ExecutiveIntelligence } from "./pages/ExecutiveIntelligence";
 import { IntegrationHealthPanel } from "./pages/IntegrationHealthPanel";
 import { ValueRealization } from "./pages/ValueRealization";
@@ -530,6 +531,14 @@ function AuthenticatedApp() {
             element={
               <AdminGate>
                 <SecurityAuditLog />
+              </AdminGate>
+            }
+          />
+          <Route
+            path="/pilot-leads"
+            element={
+              <AdminGate>
+                <PilotLeads />
               </AdminGate>
             }
           />

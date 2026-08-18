@@ -262,6 +262,11 @@ const navGroups: NavGroup[] = [
         label: "Security Audit Log",
         path: "/security-log",
       },
+      {
+        id: "pilot-leads",
+        label: "Pilot Leads",
+        path: "/pilot-leads",
+      },
     ],
   },
 ];
