@@ -52,8 +52,12 @@
 --     asset_classes            no app reference; seeded WITH organization_id
 --                              (00000000000004_demo_seed.sql:204), so it is
 --                              tenant data despite the name. The global
---                              taxonomy is asset_ontology /
---                              oem_model_catalogue / asset_twin_templates.
+--                              taxonomy lives in asset_twin_templates and
+--                              oem_model_catalogue, which are untouched here.
+--                              (An earlier draft of this note also named
+--                              asset_ontology. No such table exists anywhere
+--                              in the chain — the claim was wrong, and the two
+--                              tables above are the real ones.)
 --     asset_locations          no app reference; seeded with org (:213)
 --     maintenance_metrics      no app reference; seeded with org (:305)
 --     production_lines         no app reference; seeded with org (:403)
@@ -86,8 +90,17 @@
 --                              drift, not a dependency of this policy.
 --
 --   SELECT + UPDATE:
---     system_alerts            acknowledge/resolve — dashboardServices.ts:383,395
---                              and AutonomousDashboard.tsx:158
+--     system_alerts            acknowledge/resolve — dashboardServices.ts:385,397
+--                              and AutonomousDashboard.tsx:158. Read at
+--                              AutonomousDashboard.tsx:87, OverviewDashboard.tsx:149,
+--                              CommandCenters.tsx:76, EmergencyMode.tsx:28,
+--                              OperationalBriefing.tsx:140, ReadinessPage.tsx:67
+--                              and dashboardServices.ts:178,287 — all plain
+--                              SELECTs, all org-scoped data the user already
+--                              sees. useRealtimeUpdates.ts:121 subscribes to
+--                              INSERTs; Realtime evaluates the SELECT policy
+--                              per subscriber, so the narrowed policy narrows
+--                              the stream to the tenant's own rows too.
 --     notifications            mark-as-read — operatingLoopService.ts:1012
 --
 --   SELECT + INSERT:
@@ -167,16 +180,19 @@
 -- platform-internal rather than cross-tenant customer data, which is why
 -- deferring is acceptable and the tenants/tenant_settings pair above is not.
 --
---   provision_deployment (00000000000015_autonomous_deployment.sql:45)
+-- ---------------------------------------------------------------------------
+-- WHAT THIS MIGRATION DOES NOT REACH
 --
--- Its authorization guard reads `inst.organization_id <> app_current_org()`.
--- When the instance's organization_id is NULL that comparison is NULL, the IF
--- is false, and the forbidden branch never fires. Removing the disjunct from
--- deployment_instances closes the route to creating such a row, so the
--- exploitable path is shut by this migration, but the guard is independently
--- wrong and should become `is distinct from`. Changing a SECURITY DEFINER
--- function body is a different review surface from a policy change and is left
--- to its own commit.
+-- Row-level security governs tables. It does not govern SECURITY DEFINER
+-- functions, which run as their owner with RLS switched off, so every one of
+-- them granted to `authenticated` is a second access-control surface that this
+-- file cannot see. Three of them were carrying the same class of defect and
+-- are fixed in 20260917001000_definer_tenancy_guards.sql: get_pm_due_count
+-- (caller-supplied organization, unchecked), retrieve_kb_context and
+-- explain_kb_exclusions (gated on having a profile rather than on having no
+-- session), and provision_deployment (`<>` against a null organization never
+-- fires the forbidden branch). They are a separate file because changing a
+-- function body is a different review surface from changing a policy.
 -- ============================================================================
 
 -- ---------------------------------------------------------------------------
@@ -200,9 +216,15 @@ do $$
 declare
   t text;
 begin
-  -- The seventeen tables carrying the defective org_rw expression: migration
-  -- 2's org_scoped array (16) plus production_lines, which migration 5 gave
-  -- the same expression by hand.
+  -- SIXTEEN names, out of the seventeen tables that carry the defective
+  -- expression. The seventeen are migration 2's org_scoped array (16) plus
+  -- production_lines, which migration 5 gave the same expression by hand.
+  -- autonomous_decisions is the one deliberately absent: it is in migration
+  -- 2's array, but 00000000000023_enforce_approval_authority.sql:68 already
+  -- drops autonomous_decisions_org_rw and re-expresses the table per-command
+  -- with no null disjunct. Dropping it here as well would be harmless, but
+  -- listing it would imply this migration owns a policy that migration 23
+  -- owns — and the bucket-D tests assert that it does not.
   foreach t in array array[
     'asset_classes','asset_locations','connectors','oee_measurements',
     'oee_loss_events','kpi_measurements','maintenance_metrics',
@@ -323,16 +345,37 @@ end $$;
 --    their PK constraint, so each check is a single index probe rather than a
 --    scan. That is why an EXISTS is acceptable here and a column comparison is
 --    used everywhere else: these six tables have no usable organization_id of
---    their own. (connector_runs and work_order_tasks did acquire an
---    organization_id column later, from the ingestion-contract work, but their
---    policies deliberately continue to ignore it — switching predicate would
---    change which rows are visible, which is not this migration's business.)
+--    their own.
+--
+--    connector_runs and work_order_tasks did later acquire an organization_id
+--    column from the ingestion-contract work. The USING clauses deliberately
+--    continue to ignore it — switching the read predicate would change which
+--    rows are visible, which is not this migration's business — but
+--    connector_runs' WITH CHECK does not, for the reason set out at that
+--    policy below.
 -- ---------------------------------------------------------------------------
+
+-- connector_runs. The WITH CHECK constrains the row's own organization_id as
+-- well as its parent, which the parent-only form did not: a tenant could
+-- insert a run under its own connector while labelling the row with another
+-- tenant's organization_id. That is not a disclosure — the victim still cannot
+-- read it, because their USING clause resolves through the connector they do
+-- not own — but seven server paths filter runs on this column
+-- (20260810160000:278,456, 20260812090000:347, 20260905090000:60), so a
+-- mislabelled row is invisible to finish_connector_run and the run never
+-- completes. Requiring equality rather than tolerating null is safe because
+-- there is no client write site at all: src/ touches connector_runs once, as a
+-- read at IntegrationsPage.tsx:64. Every writer — register_connector,
+-- begin_connector_run, finish_connector_run, the manual importer — is SECURITY
+-- DEFINER and sets the column itself, and RLS does not apply to those.
 drop policy if exists connector_runs_parent_org on public.connector_runs;
 create policy connector_runs_parent_org on public.connector_runs
   for all to authenticated
   using (exists (select 1 from connectors c where c.id = connector_id and c.organization_id = app_current_org()))
-  with check (exists (select 1 from connectors c where c.id = connector_id and c.organization_id = app_current_org()));
+  with check (
+    exists (select 1 from connectors c where c.id = connector_id and c.organization_id = app_current_org())
+    and organization_id = app_current_org()
+  );
 
 drop policy if exists work_order_tasks_parent_org on public.work_order_tasks;
 create policy work_order_tasks_parent_org on public.work_order_tasks

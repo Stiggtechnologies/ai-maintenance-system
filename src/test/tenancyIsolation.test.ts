@@ -40,6 +40,7 @@ import { describe, expect, it } from "vitest";
 import {
   grantsAuthenticated,
   migrationFiles,
+  type ResolvedPolicy,
   resolveChainPolicies,
   stripComments,
   usingOf,
@@ -51,7 +52,24 @@ const MIGRATION_PATH =
 const migration = readFileSync(MIGRATION_PATH, "utf8");
 const executable = stripComments(migration);
 
-const chain = resolveChainPolicies();
+/**
+ * The resolver refuses to guess: an `execute format(...)` argument it cannot
+ * evaluate raises rather than being skipped, because silently dropping a
+ * statement would make the chain look cleaner than it is. That is right, but
+ * raising at module scope takes the whole file down with one cryptic error —
+ * including the assertions that would have named the actual mistake. So the
+ * failure is captured and reported as its own test, and the text-only guards
+ * below ("retires legacy names literally") still run and still point at the
+ * real problem. Reintroducing the wildcard sweep this file exists to prevent
+ * now fails with that message rather than with `cannot evaluate format()`.
+ */
+let chainError: Error | null = null;
+let chain = new Map<string, ResolvedPolicy>();
+try {
+  chain = resolveChainPolicies();
+} catch (error) {
+  chainError = error as Error;
+}
 const surviving = [...chain.values()];
 
 /** Every candidate DDL text of every policy left standing by the chain. */
@@ -134,6 +152,17 @@ function commandOf(statement: string): string {
 }
 
 // ---------------------------------------------------------------------------
+
+describe("the chain resolved", () => {
+  it("every execute in every do-block was understood", () => {
+    // If this fails, nothing below it means anything: an unresolved statement
+    // is a policy the resolver could not see, and the absence assertions would
+    // pass vacuously. Reported separately so the cause is named rather than
+    // arriving as an unhandled error before any test runs.
+    expect(chainError?.message ?? null).toBeNull();
+    expect(surviving.length).toBeGreaterThan(200);
+  });
+});
 
 describe("the null-organization escape hatch is gone from the whole chain", () => {
   it("no surviving policy tolerates a null organization_id in a WITH CHECK", () => {
@@ -318,6 +347,57 @@ describe("child and user-scoped tables keep migration 5's idiom", () => {
       }
     },
   );
+
+  it("a connector run cannot be labelled with another tenant", () => {
+    // The parent-only WITH CHECK let a tenant insert a run under its own
+    // connector while stamping it with a rival's organization_id. Not a
+    // disclosure — the rival's USING resolves through a connector they do not
+    // own — but seven server paths filter runs on that column, so the run
+    // becomes invisible to finish_connector_run and never completes.
+    const runs = policiesOn("connector_runs").filter((p) =>
+      grantsAuthenticated(p.text),
+    );
+    expect(runs.length).toBeGreaterThan(0);
+    for (const p of runs) {
+      const check = withCheckOf(p.text);
+      if (check === null) continue;
+      // The column must be the ROW's own, unqualified. `c.organization_id =
+      // app_current_org()` inside the EXISTS is the parent's, and an
+      // unanchored match accepts the parent-only form this test exists to
+      // reject — which it did, until the mutation check caught it.
+      expect(check, `${p.policy} does not constrain the row's own org`).toMatch(
+        /(?<![\w.])organization_id\s*=\s*app_current_org\(\)/,
+      );
+      expect(toleratesNullOrg(check)).toBe(false);
+    }
+  });
+
+  it("mutation-sanity — that assertion rejects the parent-only form", () => {
+    const parentOnly =
+      "exists (select 1 from connectors c where c.id = connector_id " +
+      "and c.organization_id = app_current_org())";
+    const own = `${parentOnly} and organization_id = app_current_org()`;
+    const ownOnly = /(?<![\w.])organization_id\s*=\s*app_current_org\(\)/;
+    expect(ownOnly.test(parentOnly)).toBe(false);
+    expect(ownOnly.test(own)).toBe(true);
+  });
+
+  it("...but its READ predicate is unchanged, so no row disappears", () => {
+    // Narrowing USING would change which runs a tenant can see. That is a
+    // different decision from closing a write channel and is not made here.
+    const runs = policiesOn("connector_runs").filter((p) =>
+      grantsAuthenticated(p.text),
+    );
+    for (const p of runs) {
+      const using = usingOf(p.text);
+      if (using === null) continue;
+      expect(normalise(using)).toBe(
+        normalise(
+          "exists (select 1 from connectors c where c.id = connector_id and c.organization_id = app_current_org())",
+        ),
+      );
+    }
+  });
 
   it("no `_authed_rw` policy survives anywhere in the chain", () => {
     // Migration 2 re-creates these unconditionally. Before the drop guards
