@@ -121,13 +121,56 @@ describe("private.llm_prices — no invented rates", () => {
 describe("check_llm_quota — the money cap", () => {
   it("exists, and only service_role can execute it", () => {
     expect(executable).toContain(
-      "create or replace function public.check_llm_quota(p_organization_id uuid)",
+      "create or replace function public.check_llm_quota(",
     );
     expect(executable).toContain(
-      "revoke execute on function public.check_llm_quota(uuid) from public, anon, authenticated",
+      "revoke execute on function public.check_llm_quota(uuid, text, text, bigint) from public, anon, authenticated",
     );
     expect(executable).toContain(
-      "grant execute on function public.check_llm_quota(uuid) to service_role",
+      "grant execute on function public.check_llm_quota(uuid, text, text, bigint) to service_role",
+    );
+  });
+
+  it("is an atomic check-AND-RESERVE: advisory lock, then reservation insert", () => {
+    // The burst hole this closes: N concurrent requests all reading the
+    // same pre-insert totals and all passing. The per-org advisory xact
+    // lock serializes gate evaluation, and the reservation row makes each
+    // approved call visible to the next gate BEFORE any usage is recorded.
+    expect(executable).toContain("pg_advisory_xact_lock");
+    expect(executable).toMatch(
+      /pg_advisory_xact_lock\(\s*hashtextextended\('llm_quota:' \|\| p_organization_id::text/,
+    );
+    // Reservation insert happens inside the gate, before it returns allowed.
+    const gateBody = executable.slice(
+      executable.indexOf("create or replace function public.check_llm_quota("),
+      executable.indexOf("create or replace function public.record_llm_usage("),
+    );
+    expect(gateBody).toContain("insert into private.llm_usage");
+    expect(gateBody).toContain("returning id into v_reservation_id");
+    expect(gateBody).toContain("'reservation_id', v_reservation_id");
+    // The estimate participates in the token check, so the cap bounds what
+    // the approved call COULD spend.
+    expect(gateBody).toContain("v_tokens + v_estimate > v_max_tokens");
+  });
+
+  it("release_llm_reservation deletes only OPEN reservations and is service-role-only", () => {
+    expect(executable).toContain(
+      "create or replace function public.release_llm_reservation(",
+    );
+    const releaseBody = executable.slice(
+      executable.indexOf(
+        "create or replace function public.release_llm_reservation(",
+      ),
+    );
+    // Settled rows (actual spend) can never be un-counted.
+    expect(releaseBody).toMatch(
+      /delete from private\.llm_usage\s+where id = p_reservation_id\s+and reserved = true/,
+    );
+    expect(executable).toContain(
+      "revoke execute on function public.release_llm_reservation(bigint) from public, anon, authenticated",
+    );
+    expect(executable).toContain(
+      "grant execute on function public.release_llm_reservation(bigint) to service_role",
     );
   });
 
@@ -158,11 +201,21 @@ describe("record_llm_usage — service-role-only telemetry", () => {
       "create or replace function public.record_llm_usage(",
     );
     expect(executable).toContain(
-      "revoke execute on function public.record_llm_usage(uuid, text, text, integer, integer) from public, anon, authenticated",
+      "revoke execute on function public.record_llm_usage(uuid, text, text, integer, integer, bigint) from public, anon, authenticated",
     );
     expect(executable).toContain(
-      "grant execute on function public.record_llm_usage(uuid, text, text, integer, integer) to service_role",
+      "grant execute on function public.record_llm_usage(uuid, text, text, integer, integer, bigint) to service_role",
     );
+    // Settling an already-settled or released reservation still counts the
+    // call (falls through to a plain insert) — spend is never dropped.
+    const recordBody = executable.slice(
+      executable.indexOf("create or replace function public.record_llm_usage("),
+      executable.indexOf(
+        "create or replace function public.release_llm_reservation(",
+      ),
+    );
+    expect(recordBody).toContain("and reserved = true");
+    expect(recordBody).toContain("insert into private.llm_usage");
   });
 });
 
@@ -201,13 +254,34 @@ describe("ai-agent-processor — gate before spend, fail closed", () => {
     expect(processor).toContain('"quota_check_unavailable"');
     const gate = processor.slice(
       processor.indexOf("async function checkOrgQuota"),
-      processor.indexOf("async function recordLlmUsage"),
+      processor.indexOf("async function releaseQuotaReservation"),
     );
-    // The catch path must return a refusal, never null (null = proceed).
+    // The catch path must return a refusal Response, never a passable
+    // verdict (refusal: null = proceed).
     const catchArm = gate.slice(gate.indexOf("catch"));
-    expect(catchArm).toContain("return response(");
+    expect(catchArm).toContain("refusal: response(");
     expect(catchArm).toContain("503");
-    expect(catchArm).not.toContain("return null");
+    expect(catchArm).not.toContain("refusal: null");
+  });
+
+  it("settles or releases every reservation — never drops one", () => {
+    // Legacy handler: failed provider call releases before rethrowing.
+    const legacy = processor.slice(
+      processor.indexOf("async function handleLegacy"),
+      processor.indexOf("function buildTypedPrompts"),
+    );
+    expect(legacy).toContain("releaseQuotaReservation");
+    expect(legacy).toContain("quotaReservationId");
+    // Typed handler: catch releases (no-op when already settled).
+    const typed = processor.slice(
+      processor.indexOf("async function handleTyped"),
+      processor.indexOf("Deno.serve"),
+    );
+    expect(typed).toContain("releaseQuotaReservation");
+    // Both record sites pass the reservation through for settlement.
+    expect(
+      processor.match(/recordLlmUsage\([^)]*quotaReservationId/g)?.length ?? 0,
+    ).toBeGreaterThanOrEqual(2);
   });
 
   it("records usage after both model paths, fail-soft", () => {
@@ -251,14 +325,39 @@ describe("public rail — spend key is server-derived, browserId never sufficien
     ).toBe(false); // no IP at all is just a global counter, not an IP cap
   });
 
-  it("consumes the per-IP allowance BEFORE the per-browser allowance", () => {
-    const ipAt = publicAgent.indexOf("consume_public_reliability_ip_allowance");
+  it("consumes the per-browser allowance BEFORE the shared per-IP allowance", () => {
+    // Deliberate order: a browser repeating past its own allowance must be
+    // refused WITHOUT charging the shared IP counter, or one over-eager
+    // visitor walks a NATed office's IP allowance to its cap (self-DoS).
+    // The reverse leak costs nothing — both windows reset at the same UTC
+    // midnight, and behind an exhausted IP no request can be served anyway.
+    const ipAt = publicAgent.indexOf(
+      '"consume_public_reliability_ip_allowance"',
+    );
     const browserAt = publicAgent.indexOf(
       '"consume_public_reliability_allowance"',
     );
     expect(ipAt).toBeGreaterThan(-1);
     expect(browserAt).toBeGreaterThan(-1);
-    expect(ipAt).toBeLessThan(browserAt);
+    expect(browserAt).toBeLessThan(ipAt);
+  });
+
+  it("derives the client address from a platform-set header, never the client-seedable XFF head", () => {
+    // Proxies APPEND to x-forwarded-for, so entry [0] is whatever the
+    // CLIENT sent: trusting it lets `curl -H "X-Forwarded-For: <random>"`
+    // mint a fresh per-IP allowance per request — the exact unbounded-spend
+    // hole the per-IP key exists to close. cf-connecting-ip is OVERWRITTEN
+    // by the edge, and the LAST XFF hop is the one the trusted edge added.
+    expect(publicAgent).not.toMatch(/x-forwarded-for"\)\?*\.split\(","\)\[0\]/);
+    const derivation = publicAgent.slice(
+      publicAgent.indexOf("const forwardedChain"),
+      publicAgent.indexOf("const ipKey"),
+    );
+    const cfAt = derivation.indexOf("cf-connecting-ip");
+    const xffLastAt = derivation.indexOf('.split(",").pop()');
+    expect(cfAt).toBeGreaterThan(-1);
+    expect(xffLastAt).toBeGreaterThan(-1);
+    expect(cfAt).toBeLessThan(xffLastAt); // platform header preferred
   });
 
   it("fails closed (503) when either allowance RPC errors", () => {

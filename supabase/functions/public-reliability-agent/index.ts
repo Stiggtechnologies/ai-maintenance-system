@@ -342,9 +342,19 @@ Deno.serve(async (req) => {
   if (!question || body.browserId.length < 8 || body.browserId.length > 100)
     return json({ error: "invalid_request" }, 400, origin);
 
+  // The client address must come from a header the PLATFORM writes, never
+  // one the caller can seed. Cloudflare (which fronts the Supabase edge)
+  // OVERWRITES cf-connecting-ip with the true peer address, so it is trusted
+  // first. x-forwarded-for is different: proxies APPEND the connecting peer
+  // to whatever chain the CLIENT sent, so entry [0] is attacker-controlled —
+  // `curl -H "X-Forwarded-For: <random>"` would mint a fresh per-IP
+  // allowance on every request, reproducing the exact unbounded-spend hole
+  // the per-IP key exists to close. When XFF is the only signal we therefore
+  // take the LAST hop (the one the trusted edge appended), never the first.
+  const forwardedChain = req.headers.get("x-forwarded-for");
   const clientAddress =
-    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
-    req.headers.get("cf-connecting-ip") ??
+    req.headers.get("cf-connecting-ip")?.trim() ||
+    forwardedChain?.split(",").pop()?.trim() ||
     "unknown";
   // Two allowances, and BOTH must pass.
   //
@@ -379,22 +389,18 @@ Deno.serve(async (req) => {
         : "public_reliability_limit_reached",
     resetsAt,
   };
-  // IP first: an exhausted IP must not consume the visitor's per-browser
-  // allowance for a request that is refused anyway.
-  const { data: ipAllowed, error: ipError } = await admin.rpc(
-    "consume_public_reliability_ip_allowance",
-    {
-      p_fingerprint_hash: ipKey,
-      p_window_start: windowStart.toISOString(),
-      p_limit:
-        mode === "decision_case_chat"
-          ? PUBLIC_DECISION_CASE_IP_DAILY_LIMIT
-          : PUBLIC_ASSESSMENT_IP_DAILY_LIMIT,
-    },
-  );
-  if (ipError) return json({ error: "rate_limit_unavailable" }, 503, origin);
-  if (!ipAllowed) return json(limitReachedBody, 429, origin);
-
+  // Browser allowance FIRST, IP allowance second — deliberate order:
+  //   * A visitor repeating past their per-browser allowance is refused
+  //     WITHOUT charging the shared per-IP counter, so one over-eager
+  //     browser can never walk a NATed office's IP allowance to its cap
+  //     and lock out everyone behind that IP (self-DoS).
+  //   * The reverse leak — an exhausted IP burning a fresh browser's
+  //     allowance on a refused request — costs nothing: both windows reset
+  //     at the same UTC midnight, and while the IP is exhausted no request
+  //     from behind it can be served anyway, so the burned per-browser
+  //     allowance was unusable for the rest of the window regardless.
+  // The per-IP counter is still what bounds SPEND: rotating browserIds
+  // passes the browser check each time but drains the one IP allowance.
   const { data: allowed, error: allowanceError } = await admin.rpc(
     "consume_public_reliability_allowance",
     {
@@ -409,6 +415,20 @@ Deno.serve(async (req) => {
   if (!allowed) {
     return json(limitReachedBody, 429, origin);
   }
+
+  const { data: ipAllowed, error: ipError } = await admin.rpc(
+    "consume_public_reliability_ip_allowance",
+    {
+      p_fingerprint_hash: ipKey,
+      p_window_start: windowStart.toISOString(),
+      p_limit:
+        mode === "decision_case_chat"
+          ? PUBLIC_DECISION_CASE_IP_DAILY_LIMIT
+          : PUBLIC_ASSESSMENT_IP_DAILY_LIMIT,
+    },
+  );
+  if (ipError) return json({ error: "rate_limit_unavailable" }, 503, origin);
+  if (!ipAllowed) return json(limitReachedBody, 429, origin);
 
   if (mode === "decision_case_chat") {
     return runDecisionCaseChat(body, question, resetsAt, origin);

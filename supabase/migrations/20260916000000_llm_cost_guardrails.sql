@@ -61,10 +61,25 @@
 -- is the opposite: a telemetry insert failure must never fail or delay the
 -- user's request, so edge functions wrap record_llm_usage in try/catch.
 --
--- RACE NOTE. Two concurrent requests can both pass the SUM check and both
--- insert, overrunning the cap by at most (concurrent requests - 1) calls.
--- That overrun is bounded and acceptable for a daily cap; serializing every
--- model call through a lock is not.
+-- CONCURRENCY. The gate is a check-AND-RESERVE, not a bare SUM: under a
+-- per-organization advisory transaction lock it sums the day's usage
+-- (settled rows AND open reservations), refuses if over budget, and
+-- otherwise inserts a reservation row carrying a conservative-high token
+-- estimate before returning. A burst of N concurrent requests therefore
+-- serializes through the gate (the lock is held only for the SUM + one
+-- INSERT, never for the model call itself) and each request sees every
+-- earlier reservation — the daily token cap is a hard bound, not a
+-- read-then-write race. record_llm_usage settles the reservation with the
+-- actual token counts; release_llm_reservation deletes it when the provider
+-- call failed and returned no usage.
+--
+-- NOTE ON WHAT COUNTS. check_llm_quota sums ALL of llm_usage for the org,
+-- so the enrichment loops (agent-loop-enrich, batch limit 5 every 10 min =
+-- at most 720 calls/day GLOBALLY; onboarding-enrich, 1 asset every 15 min =
+-- at most 96/day) also draw down tenant budget when they record with a real
+-- organization_id. Even if one tenant absorbed every enrichment call that
+-- is ~816 calls (~16% of the call cap) and ~1.6M tokens (~7% of the token
+-- cap) — inside the x3 headroom above, by design.
 --
 -- PRIVACY. llm_usage stores counts and identifiers only — never prompt or
 -- completion text.
@@ -85,6 +100,10 @@ create table if not exists private.llm_usage (
   model text not null,
   prompt_tokens integer not null default 0 check (prompt_tokens >= 0),
   completion_tokens integer not null default 0 check (completion_tokens >= 0),
+  -- True while the row is a pre-call reservation holding an ESTIMATE;
+  -- record_llm_usage flips it to false with the actual counts, and
+  -- release_llm_reservation deletes it if the provider call failed.
+  reserved boolean not null default false,
   created_at timestamptz not null default now()
 );
 
@@ -169,10 +188,15 @@ comment on table private.llm_org_quotas is
 alter table private.llm_org_quotas enable row level security;
 
 -- ----------------------------------------------------------------------------
--- 4. The gate — SUM over the current UTC day vs override-or-default
+-- 4. The gate — atomic check-AND-RESERVE under a per-org advisory lock
 -- ----------------------------------------------------------------------------
 
-create or replace function public.check_llm_quota(p_organization_id uuid)
+create or replace function public.check_llm_quota(
+  p_organization_id uuid,
+  p_fn text default 'unknown',
+  p_model text default 'pending',
+  p_estimated_tokens bigint default 0
+)
 returns jsonb
 language plpgsql
 security definer
@@ -187,8 +211,10 @@ declare
   v_max_tokens bigint;
   v_calls  bigint;
   v_tokens bigint;
+  v_estimate integer;
   v_day_start timestamptz;
   v_resets_at timestamptz;
+  v_reservation_id bigint;
 begin
   if p_organization_id is null then
     -- No tenant scope means no per-tenant budget to charge against. Callers
@@ -196,6 +222,16 @@ begin
     -- that is what the per-IP allowance is for.
     return jsonb_build_object('allowed', false, 'limit', 'organization_required');
   end if;
+
+  -- Serialize GATE EVALUATION (never the model call) per organization.
+  -- Without this, N concurrent requests all read the same pre-insert totals
+  -- and all pass — a midnight burst could overrun the daily token cap by
+  -- its entire in-flight concurrency before the first usage row landed.
+  -- The lock covers one SUM and one INSERT (milliseconds) and releases at
+  -- transaction end.
+  perform pg_advisory_xact_lock(
+    hashtextextended('llm_quota:' || p_organization_id::text, 0)
+  );
 
   select coalesce(q.max_calls_per_day, c_default_max_calls),
          coalesce(q.max_tokens_per_day, c_default_max_tokens)
@@ -209,7 +245,10 @@ begin
 
   v_day_start := date_trunc('day', now() at time zone 'utc') at time zone 'utc';
   v_resets_at := v_day_start + interval '1 day';
+  v_estimate  := least(greatest(coalesce(p_estimated_tokens, 0), 0), 2000000000)::integer;
 
+  -- Open reservations are ordinary rows here, so a concurrent request that
+  -- already reserved (and holds nothing — the lock is released) is counted.
   select count(*), coalesce(sum(prompt_tokens + completion_tokens), 0)
     into v_calls, v_tokens
     from private.llm_usage
@@ -225,7 +264,9 @@ begin
       'resets_at', v_resets_at
     );
   end if;
-  if v_tokens >= v_max_tokens then
+  -- The estimate participates in the token check, so the cap bounds what the
+  -- approved call COULD spend, not just what earlier calls already spent.
+  if v_tokens >= v_max_tokens or v_tokens + v_estimate > v_max_tokens then
     return jsonb_build_object(
       'allowed', false,
       'limit', 'max_tokens_per_day',
@@ -235,8 +276,23 @@ begin
     );
   end if;
 
+  -- Reserve: the estimate is held against the budget until the caller
+  -- settles it (record_llm_usage) or releases it (release_llm_reservation).
+  insert into private.llm_usage
+    (organization_id, fn, model, prompt_tokens, completion_tokens, reserved)
+  values (
+    p_organization_id,
+    coalesce(nullif(trim(p_fn), ''), 'unknown'),
+    coalesce(nullif(trim(p_model), ''), 'pending'),
+    0,
+    v_estimate,
+    true
+  )
+  returning id into v_reservation_id;
+
   return jsonb_build_object(
     'allowed', true,
+    'reservation_id', v_reservation_id,
     'calls_used', v_calls, 'max_calls', v_max_calls,
     'tokens_used', v_tokens, 'max_tokens', v_max_tokens,
     'resets_at', v_resets_at
@@ -244,13 +300,17 @@ begin
 end
 $$;
 
-comment on function public.check_llm_quota(uuid) is
-  'Pre-model-call gate: current-UTC-day call and token totals for one tenant '
-  'against private.llm_org_quotas override or the sized defaults. The caller '
-  'must FAIL CLOSED both when allowed=false and when this call errors.';
+comment on function public.check_llm_quota(uuid, text, text, bigint) is
+  'Pre-model-call gate AND reservation: under a per-org advisory lock, sums '
+  'the current UTC day (settled usage plus open reservations) against '
+  'private.llm_org_quotas override or the sized defaults, and on success '
+  'inserts a reservation row holding the caller''s conservative token '
+  'estimate. The caller must FAIL CLOSED both when allowed=false and when '
+  'this call errors, settle via record_llm_usage(p_reservation_id), and '
+  'release via release_llm_reservation when the provider call failed.';
 
-revoke execute on function public.check_llm_quota(uuid) from public, anon, authenticated;
-grant execute on function public.check_llm_quota(uuid) to service_role;
+revoke execute on function public.check_llm_quota(uuid, text, text, bigint) from public, anon, authenticated;
+grant execute on function public.check_llm_quota(uuid, text, text, bigint) to service_role;
 
 -- ----------------------------------------------------------------------------
 -- 5. The telemetry insert — called fail-soft after every model call
@@ -261,7 +321,8 @@ create or replace function public.record_llm_usage(
   p_fn text,
   p_model text,
   p_prompt_tokens integer,
-  p_completion_tokens integer
+  p_completion_tokens integer,
+  p_reservation_id bigint default null
 )
 returns void
 language plpgsql
@@ -269,6 +330,24 @@ security definer
 set search_path = public
 as $$
 begin
+  if p_reservation_id is not null then
+    -- Settle the reservation opened by check_llm_quota: replace the estimate
+    -- with the actual counts. Only an OPEN reservation is settled — settling
+    -- twice, or settling a released id, falls through to a plain insert so
+    -- the call is still counted.
+    update private.llm_usage
+       set fn = coalesce(nullif(trim(p_fn), ''), fn),
+           model = coalesce(nullif(trim(p_model), ''), 'unknown'),
+           prompt_tokens = greatest(coalesce(p_prompt_tokens, 0), 0),
+           completion_tokens = greatest(coalesce(p_completion_tokens, 0), 0),
+           reserved = false
+     where id = p_reservation_id
+       and reserved = true;
+    if found then
+      return;
+    end if;
+  end if;
+
   insert into private.llm_usage
     (organization_id, fn, model, prompt_tokens, completion_tokens)
   values (
@@ -281,12 +360,41 @@ begin
 end
 $$;
 
-comment on function public.record_llm_usage(uuid, text, text, integer, integer) is
-  'One insert per model call. Edge functions call this in a try/catch: '
-  'telemetry failure must never fail or delay the user request.';
+comment on function public.record_llm_usage(uuid, text, text, integer, integer, bigint) is
+  'One row per model call. With p_reservation_id, settles the reservation '
+  'opened by check_llm_quota (estimate -> actual); without it, plain insert. '
+  'Edge functions call this in a try/catch: telemetry failure must never '
+  'fail or delay the user request.';
 
-revoke execute on function public.record_llm_usage(uuid, text, text, integer, integer) from public, anon, authenticated;
-grant execute on function public.record_llm_usage(uuid, text, text, integer, integer) to service_role;
+revoke execute on function public.record_llm_usage(uuid, text, text, integer, integer, bigint) from public, anon, authenticated;
+grant execute on function public.record_llm_usage(uuid, text, text, integer, integer, bigint) to service_role;
+
+-- Release a reservation whose provider call FAILED and returned no usage.
+-- Deliberately deletes only OPEN reservations: a settled row (actual spend)
+-- can never be released. If the edge function crashes before either settle
+-- or release, the reservation simply stands for the rest of the UTC day —
+-- an overcount in the fail-closed direction, never an undercount.
+create or replace function public.release_llm_reservation(
+  p_reservation_id bigint
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  delete from private.llm_usage
+   where id = p_reservation_id
+     and reserved = true;
+end
+$$;
+
+comment on function public.release_llm_reservation(bigint) is
+  'Deletes an OPEN quota reservation after a failed provider call (no usage '
+  'to settle). Settled rows are untouchable — spend is never un-counted.';
+
+revoke execute on function public.release_llm_reservation(bigint) from public, anon, authenticated;
+grant execute on function public.release_llm_reservation(bigint) to service_role;
 
 -- ----------------------------------------------------------------------------
 -- 6. Per-IP allowance for the anonymous public rail
@@ -294,8 +402,12 @@ grant execute on function public.record_llm_usage(uuid, text, text, integer, int
 -- Same table and same semantics as consume_public_reliability_allowance
 -- (00000000000025_public_reliability_access.sql) — extended, not duplicated:
 -- that function hard-caps p_limit at 10, which is correct for a per-browser
--- allowance but too small for a per-IP cap that must admit a NATed office.
+-- allowance but too small for a per-IP cap sized as a multiple of it.
 -- Ceiling 100 keeps even a hostile IP bounded to two-digit daily spend.
+-- Sizing honesty: the assessment cap (5/IP/day) admits five distinct
+-- browsers behind one NAT per day, not a whole office — a deliberate
+-- spend-bound tradeoff on a free anonymous rail, chosen over a ceiling
+-- large enough to make a hostile IP expensive.
 create or replace function public.consume_public_reliability_ip_allowance(
   p_fingerprint_hash text,
   p_window_start timestamptz,

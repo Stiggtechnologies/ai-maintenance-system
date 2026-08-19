@@ -138,13 +138,21 @@ function serviceClient() {
 // not a cap — it is a suggestion. The rest of this function's logging is
 // deliberately fail-soft; the quota gate is the one deliberate exception.
 //
-// RACE NOTE. Two concurrent requests can both pass the SUM check before
-// either records usage; the overrun is bounded by in-flight concurrency and
-// accepted — a daily budget does not need per-call serialization.
+// CONCURRENCY. The gate is check-AND-RESERVE (20260916000000 §4): under a
+// per-org advisory lock it counts settled usage plus open reservations and,
+// when allowed, inserts a reservation row holding our conservative token
+// estimate before returning. A concurrent burst therefore cannot all read
+// the same pre-insert totals and overrun the daily token cap — each request
+// sees every earlier reservation. recordLlmUsage settles the reservation
+// with actual counts; releaseQuotaReservation deletes it when the provider
+// call failed and returned no usage. A crash between reserve and settle
+// leaves the estimate standing for the rest of the UTC day — an overcount
+// in the fail-closed direction, never an undercount.
 
 interface QuotaVerdict {
   allowed?: boolean;
   limit?: string;
+  reservation_id?: number;
   calls_used?: number;
   max_calls?: number;
   tokens_used?: number;
@@ -152,39 +160,84 @@ interface QuotaVerdict {
   resets_at?: string;
 }
 
-/** Null when the call may proceed; otherwise the refusal to return as-is. */
+interface QuotaGateResult {
+  /** Null when the call may proceed; otherwise the refusal to return as-is. */
+  refusal: Response | null;
+  /** Set when the call may proceed: settle or release it, never drop it. */
+  reservationId: number | null;
+}
+
 async function checkOrgQuota(
   admin: ReturnType<typeof serviceClient>,
   organizationId: string,
-): Promise<Response | null> {
+  requestedModel: string,
+  estimatedTokens: number,
+): Promise<QuotaGateResult> {
   try {
     const { data, error } = await admin.rpc("check_llm_quota", {
       p_organization_id: organizationId,
+      p_fn: "ai-agent-processor",
+      p_model: requestedModel,
+      p_estimated_tokens: Math.max(0, Math.ceil(estimatedTokens)),
     });
     if (error) throw error;
     const verdict = (data ?? {}) as QuotaVerdict;
-    if (verdict.allowed === true) return null;
-    return response(
-      {
-        success: false,
-        error: "org_daily_quota_exceeded",
-        limit: verdict.limit ?? "unknown",
-        calls_used: verdict.calls_used ?? null,
-        max_calls: verdict.max_calls ?? null,
-        tokens_used: verdict.tokens_used ?? null,
-        max_tokens: verdict.max_tokens ?? null,
-        resets_at: verdict.resets_at ?? null,
-      },
-      429,
-    );
+    if (verdict.allowed === true) {
+      return {
+        refusal: null,
+        reservationId:
+          typeof verdict.reservation_id === "number"
+            ? verdict.reservation_id
+            : null,
+      };
+    }
+    return {
+      refusal: response(
+        {
+          success: false,
+          error: "org_daily_quota_exceeded",
+          limit: verdict.limit ?? "unknown",
+          calls_used: verdict.calls_used ?? null,
+          max_calls: verdict.max_calls ?? null,
+          tokens_used: verdict.tokens_used ?? null,
+          max_tokens: verdict.max_tokens ?? null,
+          resets_at: verdict.resets_at ?? null,
+        },
+        429,
+      ),
+      reservationId: null,
+    };
   } catch (error) {
     console.error("ai-agent-processor quota check unavailable", error);
     // Distinct body from the 429: the caller can tell "you are over budget"
     // apart from "the budget could not be read". Both refuse the model call.
-    return response(
-      { success: false, error: "quota_check_unavailable" },
-      503,
-    );
+    return {
+      refusal: response(
+        { success: false, error: "quota_check_unavailable" },
+        503,
+      ),
+      reservationId: null,
+    };
+  }
+}
+
+/**
+ * Delete an open reservation after a FAILED provider call (no usage to
+ * settle). FAIL-SOFT: a leaked reservation merely overcounts today's budget.
+ */
+async function releaseQuotaReservation(
+  admin: ReturnType<typeof serviceClient>,
+  reservationId: number | null,
+): Promise<void> {
+  if (reservationId === null) return;
+  try {
+    const { error } = await admin.rpc("release_llm_reservation", {
+      p_reservation_id: reservationId,
+    });
+    if (error)
+      console.error("ai-agent-processor reservation release failed", error);
+  } catch (error) {
+    console.error("ai-agent-processor reservation release failed", error);
   }
 }
 
@@ -197,6 +250,7 @@ async function recordLlmUsage(
   organizationId: string,
   model: string,
   usage: Record<string, number>,
+  reservationId: number | null = null,
 ): Promise<void> {
   try {
     const { error } = await admin.rpc("record_llm_usage", {
@@ -205,6 +259,7 @@ async function recordLlmUsage(
       p_model: model,
       p_prompt_tokens: usage.prompt_tokens ?? 0,
       p_completion_tokens: usage.completion_tokens ?? 0,
+      p_reservation_id: reservationId,
     });
     if (error) console.error("ai-agent-processor usage insert failed", error);
   } catch (error) {
@@ -538,9 +593,23 @@ async function handleLegacy(
   // only caller without one is the service-role rail from
   // public-reliability-agent, whose spend is bounded upstream by that
   // function's per-IP daily allowance.
+  let quotaReservationId: number | null = null;
   if (auth.organizationId) {
-    const quotaDenial = await checkOrgQuota(admin, auth.organizationId);
-    if (quotaDenial) return quotaDenial;
+    // Conservative-high pre-spend estimate, reserved atomically so a
+    // concurrent burst cannot overrun the daily token cap (20260916000000
+    // §4): the completion cap, plus the query at the standard ~4 chars per
+    // token, plus 3,000 for the system prompt and retrieved KB context
+    // (~2,000 tokens of KB per the migration's sizing arithmetic, rounded
+    // up). Settled to actual counts by recordLlmUsage below.
+    const estimatedTokens = maxTokens + Math.ceil(query.length / 4) + 3_000;
+    const quota = await checkOrgQuota(
+      admin,
+      auth.organizationId,
+      model,
+      estimatedTokens,
+    );
+    if (quota.refusal) return quota.refusal;
+    quotaReservationId = quota.reservationId;
   }
 
   const kb = await retrieveReliabilityContext(admin, query, {
@@ -549,15 +618,35 @@ async function handleLegacy(
   });
   const systemPrompt = `${buildLegacyPrompt(agentType, body.industry, deliverable)}${kb.promptContext ? `\n\nApproved reliability reference passages:\n${kb.promptContext}\nUse only the exact bracket labels supplied for citations.` : ""}`;
   const started = Date.now();
-  const {
-    content,
-    usage,
-    model: answeredBy,
-  } = body.publicOnly
-    ? await callPublicReliabilityEngineer(model, systemPrompt, query, maxTokens)
-    : await callLLM(model, systemPrompt, query, false, maxTokens);
+  let content: string;
+  let usage: Record<string, number>;
+  let answeredBy: string;
+  try {
+    ({
+      content,
+      usage,
+      model: answeredBy,
+    } = body.publicOnly
+      ? await callPublicReliabilityEngineer(
+          model,
+          systemPrompt,
+          query,
+          maxTokens,
+        )
+      : await callLLM(model, systemPrompt, query, false, maxTokens));
+  } catch (error) {
+    // Failed provider call: no usage to settle, so free the estimate.
+    await releaseQuotaReservation(admin, quotaReservationId);
+    throw error;
+  }
   const elapsed = Date.now() - started;
-  await recordLlmUsage(admin, auth.organizationId, answeredBy, usage);
+  await recordLlmUsage(
+    admin,
+    auth.organizationId,
+    answeredBy,
+    usage,
+    quotaReservationId,
+  );
 
   await admin
     .from("ai_agent_logs")
@@ -668,8 +757,11 @@ async function handleTyped(
   // Money cap, after the idempotent-replay fast path (a replay never touches
   // the model, so it must never be refused for budget) and before the run row
   // and provider call. Typed calls always resolve an organizationId above.
-  const quotaDenial = await checkOrgQuota(admin, organizationId);
-  if (quotaDenial) return quotaDenial;
+  // Estimate: the 1,800 completion cap plus ~1,200 prompt tokens — the same
+  // ~3,000-token typed-call figure the migration's sizing arithmetic uses.
+  const quota = await checkOrgQuota(admin, organizationId, MODEL_STRUCTURED, 3_000);
+  if (quota.refusal) return quota.refusal;
+  const quotaReservationId = quota.reservationId;
 
   const { data: run, error: runError } = await admin
     .from("sir_orchestration_runs")
@@ -733,7 +825,13 @@ async function handleTyped(
       true,
       1800,
     );
-    await recordLlmUsage(admin, organizationId, answeredBy, usage);
+    await recordLlmUsage(
+      admin,
+      organizationId,
+      answeredBy,
+      usage,
+      quotaReservationId,
+    );
     const parsed = JSON.parse(content);
     const confidence = Math.max(
       0,
@@ -811,6 +909,10 @@ async function handleTyped(
   } catch (error) {
     const safeMessage = error instanceof Error ? error.message : "task_failed";
     console.error("typed agent invocation failed", { correlationId, error });
+    // Free the quota estimate when the provider call never produced usage.
+    // Harmless after a successful recordLlmUsage: release only deletes OPEN
+    // reservations, and settling closed this one.
+    await releaseQuotaReservation(admin, quotaReservationId);
     await admin
       .from("sir_orchestration_runs")
       .update({
