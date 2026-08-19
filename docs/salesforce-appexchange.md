@@ -7,7 +7,9 @@ events from the License Management App (LMA) flow into our backend.
 
 - **Type:** Managed Package (AppExchange)
 - **Pricing model:** Per-seat, monthly recurring
-- **Plans:** Starter ($99) · Professional ($199) · Enterprise ($349)
+- **Plans:** Starter · Professional · Enterprise. Per-seat prices are
+  under commercial review and are set in the AppExchange listing at
+  publication time; no price is committed in this document.
 
 ## Activation flow
 

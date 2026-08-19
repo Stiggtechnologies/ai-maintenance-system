@@ -8,7 +8,6 @@ interface PrivacyProps {
       | "signup"
       | "enterprise"
       | "app"
-      | "pricing"
       | "security"
       | "privacy"
       | "terms",

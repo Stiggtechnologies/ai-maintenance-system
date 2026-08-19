@@ -11,7 +11,9 @@ This is the AWS counterpart of [`azure-marketplace.md`](./azure-marketplace.md)
 
 - **Listing type:** SaaS Listing (not SaaS Contract or AMI)
 - **Pricing model:** Per-seat, monthly recurring, billed via AWS invoice
-- **Plans:** Starter ($99) · Professional ($199) · Enterprise (private offer)
+- **Plans:** Starter · Professional · Enterprise (private offer). Per-seat
+  prices are under commercial review and are set in AWS Marketplace at
+  listing time; no price is committed in this document.
 - **EDP eligible:** Yes — purchase counts toward Enterprise Discount Program commits
 
 ## Activation flow

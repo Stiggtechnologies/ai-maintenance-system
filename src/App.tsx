@@ -86,7 +86,6 @@ type Page =
   | "signup"
   | "enterprise"
   | "app"
-  | "pricing"
   | "security"
   | "privacy"
   | "terms";
