@@ -165,6 +165,23 @@ Deno.serve(async (req) => {
         continue;
       }
 
+      // Cost telemetry (private.llm_usage) — FAIL-SOFT: enrichment must
+      // never be lost to a telemetry hiccup.
+      try {
+        const usage = result.usage ?? {};
+        const { error: usageError } = await supabase.rpc("record_llm_usage", {
+          p_organization_id: rec.organization_id,
+          p_fn: "agent-loop-enrich",
+          p_model: result.model ?? LLM_MODEL,
+          p_prompt_tokens: usage.prompt_tokens ?? 0,
+          p_completion_tokens: usage.completion_tokens ?? 0,
+        });
+        if (usageError)
+          console.error("agent-loop-enrich usage insert failed", usageError);
+      } catch (usageException) {
+        console.error("agent-loop-enrich usage insert failed", usageException);
+      }
+
       const content: string = result.content;
       const match = content.match(/\{[\s\S]*\}/);
       const parsed = match ? JSON.parse(match[0]) : {};

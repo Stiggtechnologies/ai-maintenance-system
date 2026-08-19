@@ -1,7 +1,9 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import {
+  PUBLIC_ASSESSMENT_IP_DAILY_LIMIT,
   PUBLIC_DECISION_CASE_DAILY_LIMIT,
+  PUBLIC_DECISION_CASE_IP_DAILY_LIMIT,
   parsePublicDecisionCaseContext,
 } from "../_shared/decision-case-chat.ts";
 import { buildReliabilityEngineerRequest } from "../_shared/reliability-engineer-request.ts";
@@ -344,6 +346,20 @@ Deno.serve(async (req) => {
     req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
     req.headers.get("cf-connecting-ip") ??
     "unknown";
+  // Two allowances, and BOTH must pass.
+  //
+  // 1. Per-IP, derived SERVER-SIDE from the client address + mode + UTC day
+  //    (the day is the window key in the rate-limit table). The browserId is
+  //    deliberately EXCLUDED here: it is client-supplied, so rotating it used
+  //    to mint a fresh daily allowance and made unauthenticated frontier
+  //    -model spend unlimited. The IP cap is what actually bounds spend.
+  // 2. Per-browser, which still mixes in browserId + user-agent so separate
+  //    people behind one IP get their own small allowance for UX — included,
+  //    but never sufficient alone.
+  //
+  // Both consumes FAIL CLOSED on infrastructure error (503): this is the
+  // unauthenticated rail to a frontier model.
+  const ipKey = await hmac(`ip|${mode}|${clientAddress}`);
   const fingerprintInput = `${clientAddress}|${req.headers.get("user-agent") ?? ""}|${body.browserId}`;
   const fingerprint = await hmac(
     mode === "assessment" ? fingerprintInput : `${mode}|${fingerprintInput}`,
@@ -356,6 +372,29 @@ Deno.serve(async (req) => {
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
     auth: { persistSession: false },
   });
+  const limitReachedBody = {
+    error:
+      mode === "decision_case_chat"
+        ? "public_decision_case_limit_reached"
+        : "public_reliability_limit_reached",
+    resetsAt,
+  };
+  // IP first: an exhausted IP must not consume the visitor's per-browser
+  // allowance for a request that is refused anyway.
+  const { data: ipAllowed, error: ipError } = await admin.rpc(
+    "consume_public_reliability_ip_allowance",
+    {
+      p_fingerprint_hash: ipKey,
+      p_window_start: windowStart.toISOString(),
+      p_limit:
+        mode === "decision_case_chat"
+          ? PUBLIC_DECISION_CASE_IP_DAILY_LIMIT
+          : PUBLIC_ASSESSMENT_IP_DAILY_LIMIT,
+    },
+  );
+  if (ipError) return json({ error: "rate_limit_unavailable" }, 503, origin);
+  if (!ipAllowed) return json(limitReachedBody, 429, origin);
+
   const { data: allowed, error: allowanceError } = await admin.rpc(
     "consume_public_reliability_allowance",
     {
@@ -368,17 +407,7 @@ Deno.serve(async (req) => {
   if (allowanceError)
     return json({ error: "rate_limit_unavailable" }, 503, origin);
   if (!allowed) {
-    return json(
-      {
-        error:
-          mode === "decision_case_chat"
-            ? "public_decision_case_limit_reached"
-            : "public_reliability_limit_reached",
-        resetsAt,
-      },
-      429,
-      origin,
-    );
+    return json(limitReachedBody, 429, origin);
   }
 
   if (mode === "decision_case_chat") {
@@ -440,6 +469,31 @@ Deno.serve(async (req) => {
     const payload = (await provider.json()) as Record<string, unknown>;
     const text = extractText(payload);
     const analysis = JSON.parse(text);
+    // Cost telemetry (private.llm_usage) — FAIL-SOFT: a telemetry failure
+    // must never fail or delay the visitor's answer. organization_id is null
+    // on this anonymous rail; the per-IP allowance above is what bounds it.
+    try {
+      const rawUsage =
+        payload.usage && typeof payload.usage === "object"
+          ? (payload.usage as Record<string, number>)
+          : {};
+      const { error: usageError } = await admin.rpc("record_llm_usage", {
+        p_organization_id: null,
+        p_fn: "public-reliability-agent",
+        p_model: typeof payload.model === "string" ? payload.model : MODEL,
+        p_prompt_tokens: rawUsage.input_tokens ?? 0,
+        p_completion_tokens: rawUsage.output_tokens ?? 0,
+      });
+      if (usageError)
+        console.error("public-reliability-agent usage insert failed", {
+          message: usageError.message,
+        });
+    } catch (usageException) {
+      console.error("public-reliability-agent usage insert failed", {
+        name:
+          usageException instanceof Error ? usageException.name : "unknown",
+      });
+    }
     return json(
       {
         success: true,
