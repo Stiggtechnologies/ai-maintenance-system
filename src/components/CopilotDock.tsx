@@ -10,6 +10,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Bot, Download, Loader2, Send, Sparkles, X } from "lucide-react";
 import { supabase } from "../lib/supabase";
+import { describeQuotaRefusal } from "../services/agentQuota";
 import { useAuth } from "./AuthProvider";
 import { getRolePersona } from "../lib/rolePersonas";
 import { getKpiDashboard } from "../services/kpiService";
@@ -142,7 +143,16 @@ export function CopilotDock() {
           },
         },
       );
-      if (error) throw new Error(error.message);
+      if (error) {
+        // A daily-budget refusal is not an outage: name the cap and its
+        // reset instead of "unavailable ... try again shortly".
+        const quota = await describeQuotaRefusal(error);
+        if (quota) {
+          setMessages((m) => [...m, { role: "agent", text: quota.message }]);
+          return;
+        }
+        throw new Error(error.message);
+      }
       const text =
         (data as { response?: string })?.response ??
         "The copilot returned no content.";
