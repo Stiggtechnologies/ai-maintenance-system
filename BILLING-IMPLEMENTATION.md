@@ -128,7 +128,12 @@ Built 5 comprehensive React dashboards:
 
 ## 💰 **Pricing Model**
 
-### **Three Tiers:**
+> **Superseded 2026-08-19.** These tiers and rates were never commercially
+> confirmed. Pricing is under commercial review and available on request
+> from your SyncAI account contact; the table stands only as a record of
+> what this implementation assumed.
+
+### **Three Tiers (historical, unconfirmed):**
 
 | Plan                        | Monthly Base | Assets | Credits | Max Sites |
 | --------------------------- | ------------ | ------ | ------- | --------- |
@@ -331,6 +336,10 @@ Total:         $10,600.00 CAD
 
 ### **4. Calculate Gain-Share**
 
+> **Dead example — `billing-gainshare` was deleted on 2026-08-19.** The
+> curl below targets an endpoint that no longer exists; kept only so the
+> historical record stays legible.
+
 ```bash
 # First, set baselines
 curl -X POST "${SUPABASE_URL}/rest/v1/kpi_baselines" \
@@ -482,7 +491,10 @@ const CREDIT_RULES = {
 
 ### **Customizing Gain-Share Metrics:**
 
-Modify `billing-gainshare/index.ts` to add new KPI calculations in the savings breakdown logic.
+~~Modify `billing-gainshare/index.ts` to add new KPI calculations in the savings breakdown logic.~~
+**Not possible — `billing-gainshare` was deleted on 2026-08-19** (see the
+banner at the top of this document). Any future gain-share billing must be
+designed from customer-sourced rates, not reimplemented from this file.
 
 ### **Adding New Plans:**
 

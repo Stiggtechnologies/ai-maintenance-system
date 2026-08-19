@@ -1,8 +1,18 @@
 # 🎉 Stripe Native Integration - Complete Implementation Guide
 
+> **2026-08-19 — HISTORICAL DOCUMENT, PRICING SUPERSEDED.** The dollar
+> figures below ($4,000 / $9,000 / $18,000 tiers and derived examples) were
+> never commercially confirmed and are retained only as a record of what was
+> built. Current pricing is **under commercial review** and available on
+> request from your SyncAI account contact. `billing-gainshare`,
+> `GainShareConsole`, `PremiumCheckout`, `UsageDashboard`, and the `Pricing`
+> page were **deleted on 2026-08-19** (fabricated rates / triple-counted
+> savings); do not reimplement from this document.
+
 ## ✅ **Fully Implemented!**
 
 Your Stigg Reliability AI platform now has **native Stripe integration** with:
+
 - ✅ Stripe Checkout for subscriptions
 - ✅ Customer Portal for self-service
 - ✅ Metered usage reporting
@@ -14,15 +24,18 @@ Your Stigg Reliability AI platform now has **native Stripe integration** with:
 ## 📦 **What Was Built**
 
 ### **1. Stripe Provisioning Script** ✅
+
 **File:** `scripts/provision-stripe.ts`
 
 Creates all Stripe objects:
+
 - 3 subscription plans (STARTER, PRO, ENTERPRISE)
 - Base recurring prices ($4K, $9K, $18K CAD/month)
 - Metered credit prices (per-credit overage billing)
 - Optional asset uplift metered price ($3/asset)
 
 **Usage:**
+
 ```bash
 # Install dependencies
 npm install stripe tsx
@@ -34,6 +47,7 @@ STRIPE_SECRET_KEY=sk_test_xxx npx tsx scripts/provision-stripe.ts
 ```
 
 **Output:**
+
 ```json
 {
   "STRIPE_ASSET_UPLIFT_PRICE": "price_xxx",
@@ -53,6 +67,7 @@ STRIPE_SECRET_KEY=sk_test_xxx npx tsx scripts/provision-stripe.ts
 #### **`stripe-checkout`** - Checkout & Portal & Usage Reporting
 
 **POST /stripe-checkout/checkout** - Create Checkout Session
+
 ```typescript
 // Request
 {
@@ -68,6 +83,7 @@ STRIPE_SECRET_KEY=sk_test_xxx npx tsx scripts/provision-stripe.ts
 ```
 
 **POST /stripe-checkout/portal** - Customer Portal
+
 ```typescript
 // Request
 {
@@ -81,6 +97,7 @@ STRIPE_SECRET_KEY=sk_test_xxx npx tsx scripts/provision-stripe.ts
 ```
 
 **POST /stripe-checkout/usage/report** - Report Metered Usage
+
 ```typescript
 // Request
 {
@@ -100,6 +117,7 @@ STRIPE_SECRET_KEY=sk_test_xxx npx tsx scripts/provision-stripe.ts
 #### **`stripe-webhook`** - Enhanced Webhook Handler
 
 Handles:
+
 - ✅ `checkout.session.completed` - Creates subscription, stores item IDs
 - ✅ `customer.subscription.updated` - Syncs status and period
 - ✅ `customer.subscription.deleted` - Marks as cancelled
@@ -107,6 +125,7 @@ Handles:
 - ✅ `invoice.payment_failed` - Handles failures
 
 **New Feature:** Automatically extracts and stores subscription item IDs:
+
 ```json
 {
   "metadata": {
@@ -134,6 +153,7 @@ ON billing_subscriptions USING GIN (metadata);
 ```
 
 **Usage:**
+
 ```sql
 -- Get credits item ID for usage reporting
 SELECT metadata->>'stripe_credits_item_id'
@@ -146,6 +166,7 @@ WHERE id = 'subscription-uuid';
 ### **4. React Components Updated** ✅
 
 #### **PlansAndPricing.tsx**
+
 - ✅ Stripe Checkout integration
 - ✅ Redirects to Stripe hosted checkout
 - ✅ Success/cancel return URLs
@@ -153,24 +174,25 @@ WHERE id = 'subscription-uuid';
 
 ```typescript
 // On plan selection
-const response = await fetch('/functions/v1/stripe-checkout/checkout', {
-  method: 'POST',
-  body: JSON.stringify({ tenant_id, plan_code: 'PRO' })
+const response = await fetch("/functions/v1/stripe-checkout/checkout", {
+  method: "POST",
+  body: JSON.stringify({ tenant_id, plan_code: "PRO" }),
 });
 const { url } = await response.json();
 window.location.href = url; // → Stripe Checkout
 ```
 
 #### **BillingOverview.tsx**
+
 - ✅ "Manage Subscription" button
 - ✅ Opens Stripe Customer Portal
 - ✅ Allows plan changes, payment updates, cancellation
 
 ```typescript
 // On "Manage Subscription" click
-const response = await fetch('/functions/v1/stripe-checkout/portal', {
-  method: 'POST',
-  body: JSON.stringify({ tenant_id })
+const response = await fetch("/functions/v1/stripe-checkout/portal", {
+  method: "POST",
+  body: JSON.stringify({ tenant_id }),
 });
 const { url } = await response.json();
 window.location.href = url; // → Customer Portal
@@ -191,6 +213,7 @@ npx tsx scripts/provision-stripe.ts
 ```
 
 **Output:**
+
 ```
 🚀 Stigg Reliability AI - Stripe Provisioning
 ============================================
@@ -284,18 +307,18 @@ const credits = Math.ceil(totalTokens / 1000); // 1,235 credits
 
 // 2. Get subscription item ID
 const { data: subscription } = await supabase
-  .from('billing_subscriptions')
-  .select('metadata')
-  .eq('tenant_id', tenantId)
+  .from("billing_subscriptions")
+  .select("metadata")
+  .eq("tenant_id", tenantId)
   .single();
 
 const creditsItemId = subscription.metadata.stripe_credits_item_id;
 
 // 3. Check if overage
 const { data: limits } = await supabase
-  .from('subscription_limits')
-  .select('remaining_credits, included_credits')
-  .eq('subscription_id', subscription.id)
+  .from("subscription_limits")
+  .select("remaining_credits, included_credits")
+  .eq("subscription_id", subscription.id)
   .single();
 
 const overage = Math.max(0, -limits.remaining_credits);
@@ -303,10 +326,10 @@ const overage = Math.max(0, -limits.remaining_credits);
 // 4. If overage, report to Stripe
 if (overage > 0) {
   await fetch(`${SUPABASE_URL}/functions/v1/stripe-checkout/usage/report`, {
-    method: 'POST',
+    method: "POST",
     headers: {
-      'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-      'Content-Type': 'application/json',
+      Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+      "Content-Type": "application/json",
     },
     body: JSON.stringify({
       subscription_item_id: creditsItemId,
@@ -330,7 +353,10 @@ async function reportMonthlyUsage() {
     const plan = await getPlan(sub.plan_id);
 
     // Calculate overage
-    const overageCredits = Math.max(0, usage.total_credits - plan.included_credits);
+    const overageCredits = Math.max(
+      0,
+      usage.total_credits - plan.included_credits,
+    );
 
     if (overageCredits > 0) {
       // Report to Stripe
@@ -357,6 +383,7 @@ async function reportMonthlyUsage() {
 ## 🔄 **Customer Journey**
 
 ### **New Customer:**
+
 1. Browse plans → Click "Choose Pro"
 2. Stripe Checkout opens
 3. Enter payment details
@@ -365,12 +392,14 @@ async function reportMonthlyUsage() {
 6. Return to app → Active subscription
 
 ### **Existing Customer:**
+
 1. Billing Overview → "Manage Subscription"
 2. Customer Portal opens
 3. Can: Change plan, update payment, cancel, view invoices
 4. Changes sync via webhooks
 
 ### **Usage Tracking:**
+
 1. Customer uses platform (LLM, vision, etc.)
 2. Credits consumed in real-time
 3. Internal counter tracks usage
@@ -402,6 +431,7 @@ Total                              $11,130.00 CAD
 ## 🎯 **Key Features**
 
 ### **What Stripe Handles:**
+
 - ✅ Secure payment processing
 - ✅ PCI compliance
 - ✅ Subscription billing
@@ -414,6 +444,7 @@ Total                              $11,130.00 CAD
 - ✅ SCA (3D Secure) compliance
 
 ### **What Your System Handles:**
+
 - ✅ Credit consumption tracking
 - ✅ Real-time usage monitoring
 - ✅ Alert system (low credits, overage)
@@ -427,18 +458,21 @@ Total                              $11,130.00 CAD
 ## 🔧 **Troubleshooting**
 
 ### **Checkout Not Working?**
+
 - Check: `STRIPE_SECRET_KEY` is set
 - Check: All price IDs are configured
 - Check: `APP_BASE_URL` matches your domain
 - Test: Use Stripe test mode (`sk_test_...`)
 
 ### **Webhook Failures?**
+
 - Check: Webhook endpoint is accessible
 - Check: `STRIPE_WEBHOOK_SECRET` matches dashboard
 - Check: Correct events are selected
 - Test: Use Stripe CLI `stripe listen --forward-to`
 
 ### **Usage Not Reporting?**
+
 - Check: Subscription item IDs are stored in metadata
 - Check: Item IDs are for metered prices (not base)
 - Check: Quantity is positive integer
@@ -451,6 +485,7 @@ Total                              $11,130.00 CAD
 ### **Before Go-Live:**
 
 **Stripe Configuration:**
+
 - [ ] Switch to live keys (`sk_live_...`)
 - [ ] Re-run provisioning script with live keys
 - [ ] Update Supabase secrets with live keys
@@ -459,6 +494,7 @@ Total                              $11,130.00 CAD
 - [ ] Set up Customer Portal branding
 
 **Testing:**
+
 - [ ] Test full checkout flow
 - [ ] Test subscription updates via Portal
 - [ ] Test cancellation flow
@@ -467,6 +503,7 @@ Total                              $11,130.00 CAD
 - [ ] Test tax calculation
 
 **Monitoring:**
+
 - [ ] Set up Stripe webhook monitoring
 - [ ] Configure failed payment alerts
 - [ ] Monitor usage reporting errors
@@ -477,6 +514,7 @@ Total                              $11,130.00 CAD
 ## 🎉 **You're Production Ready!**
 
 Your Stigg Reliability AI platform now has:
+
 - ✅ Professional Stripe checkout
 - ✅ Self-service customer portal
 - ✅ Automated usage billing
@@ -486,6 +524,7 @@ Your Stigg Reliability AI platform now has:
 - ✅ PCI-compliant payment processing
 
 **Next Steps:**
+
 1. Run the provisioning script
 2. Configure Supabase secrets
 3. Set up webhook endpoint
@@ -503,6 +542,7 @@ Your Stigg Reliability AI platform now has:
 - **Test Cards:** https://stripe.com/docs/testing
 
 **Implementation Files:**
+
 - Provisioning: `scripts/provision-stripe.ts`
 - Checkout: `supabase/functions/stripe-checkout/index.ts`
 - Webhook: `supabase/functions/stripe-webhook/index.ts`

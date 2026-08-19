@@ -9,7 +9,7 @@
  *   - no user-visible surface re-acquires a dollar price or a token
  *     denomination that has no commercial source.
  */
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 describe("deleted pricing surfaces stay deleted", () => {
@@ -53,6 +53,54 @@ describe("decision workspace shows no token denominations", () => {
     // Internal allowance numerics (choose("pay_per_use", 52000)) are allowed;
     // a rendered denomination is not.
     expect(page).not.toMatch(/\d[\d,]*\s*(?:tokens|credits)\b/i);
+  });
+});
+
+describe("root-level docs cannot assert the unconfirmed tier prices as current", () => {
+  // These historical implementation records still show the $4k/$9k/$18k
+  // tiers (and examples derived from them). They may keep the numbers ONLY
+  // under an explicit superseded/deleted banner — any root doc that names a
+  // tier price without one is a regression of the honesty campaign.
+  const rootDocs = readdirSync(".").filter((name) => name.endsWith(".md"));
+
+  it.each([
+    "BILLING-IMPLEMENTATION.md",
+    "STRIPE-INTEGRATION-GUIDE.md",
+    "PREMIUM_CUSTOMER_JOURNEY_DEPLOYED.md",
+    "FINAL-AUDIT-REPORT.md",
+    "FEATURE-ACCESS-MAP.md",
+  ])("%s carries the superseded/deleted banner", (doc) => {
+    const text = readFileSync(doc, "utf8");
+    expect(text).toMatch(
+      /under commercial review|superseded|deleted on 2026-08-19/i,
+    );
+  });
+
+  it("no root doc states a tier price as a current monthly rate without the marker", () => {
+    // Matches the tier figures only in a pricing context ("$4,000 CAD",
+    // "$4000 CAD/month", "$4,000 / month") — a "$4,000" engineering-hours
+    // line item in a roadmap is a cost estimate, not a product price.
+    const tierPrice =
+      /\$\s?(?:4,?000|9,?000|18,?000)(?:\.00)?\s*(?:CAD|\/\s?month)/i;
+    for (const doc of rootDocs) {
+      const text = readFileSync(doc, "utf8");
+      if (!tierPrice.test(text)) continue;
+      expect(
+        /under commercial review|superseded|deleted on 2026-08-19/i.test(text),
+        `${doc} states a tier price with no superseded/commercial-review marker`,
+      ).toBe(true);
+    }
+  });
+
+  it("no root doc instructs modifying the deleted billing-gainshare", () => {
+    for (const doc of rootDocs) {
+      const text = readFileSync(doc, "utf8");
+      if (!text.includes("billing-gainshare")) continue;
+      expect(
+        /deleted|removed/i.test(text),
+        `${doc} references billing-gainshare without stating it was deleted`,
+      ).toBe(true);
+    }
   });
 });
 
