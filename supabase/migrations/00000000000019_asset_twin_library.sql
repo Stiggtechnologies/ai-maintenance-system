@@ -56,10 +56,15 @@ alter table asset_twin_templates enable row level security;
 alter table asset_twin_model_overlays enable row level security;
 alter table asset_twin_instances enable row level security;
 
+-- Drop guards so the chain can be applied more than once; without them a
+-- replay aborts on the first of these three.
+drop policy if exists asset_twin_templates_read on asset_twin_templates;
 create policy asset_twin_templates_read on asset_twin_templates
   for select to authenticated using (true);
+drop policy if exists asset_twin_model_overlays_read on asset_twin_model_overlays;
 create policy asset_twin_model_overlays_read on asset_twin_model_overlays
   for select to authenticated using (true);
+drop policy if exists asset_twin_instances_org_rw on asset_twin_instances;
 create policy asset_twin_instances_org_rw on asset_twin_instances
   for all to authenticated
   using (organization_id = app_current_org())
