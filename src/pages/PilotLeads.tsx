@@ -6,20 +6,25 @@
  * AdminGate could never see a lead anyway. Each row shows exactly what the
  * visitor submitted plus its notification status — no derived or scored fields.
  *
- * This closes a sell-readiness gap: leads landed in the database with
- * notification_status='queued' and, before this view, no in-product surface
- * listed them. There is still no email/Slack push — that needs an owner channel
- * decision and a secret — so an admin checks this page (which refreshes live).
+ * Leads no longer wait to be noticed. An AFTER INSERT trigger fires the
+ * lead-notify edge function the instant a row lands
+ * (20260914090000_lead_notify_trigger.sql): the visitor gets an
+ * acknowledgement, the owner gets an alert, and the row's notification_status
+ * moves off 'queued'. This page is where that outcome is read back — amber
+ * means the notification has not completed, red means it failed and a person
+ * has to step in.
  */
-import { useMemo } from "react";
-import { Users, Download, RefreshCw } from "lucide-react";
+import { useCallback, useMemo, useState } from "react";
+import { Users, Download, RefreshCw, Check } from "lucide-react";
 import { useAsyncData } from "../hooks/useAsyncData";
 import { useRealtimeRefetch } from "../hooks/useRealtimeRefetch";
 import { LiveBadge } from "../components/ui/LiveBadge";
 import {
   listPilotIntakeRequests,
+  markPilotLeadResponded,
   type PilotIntakeLead,
 } from "../services/pilotIntake";
+import { formatAlbertaStamp, isOverdue } from "../lib/leads/pilotLeadSla";
 import { downloadCsv } from "../services/operatingLoopService";
 import {
   LoadingState,
@@ -46,6 +51,24 @@ export function PilotLeads() {
   );
   const { live } = useRealtimeRefetch(["pilot_intake_requests"], refetch);
   const leads = useMemo(() => data ?? [], [data]);
+  const [marking, setMarking] = useState<string | null>(null);
+  const [markError, setMarkError] = useState<string | null>(null);
+
+  const markResponded = useCallback(
+    async (leadId: string) => {
+      setMarking(leadId);
+      setMarkError(null);
+      try {
+        await markPilotLeadResponded(leadId);
+        refetch();
+      } catch (cause) {
+        setMarkError(cause instanceof Error ? cause.message : String(cause));
+      } finally {
+        setMarking(null);
+      }
+    },
+    [refetch],
+  );
 
   if (loading) return <LoadingState label="Loading pilot leads" />;
   if (error) return <ErrorState message={error} onRetry={refetch} />;
@@ -61,10 +84,22 @@ export function PilotLeads() {
           </div>
           <p className="mt-1 text-sm text-slate-300">
             Requests submitted through the public 48-hour value-proof intake.
-            Admin-visible only. Each lead sits at{" "}
-            <span className="font-medium text-slate-200">queued</span> until an
-            owner follows up — there is no automated email or Slack alert yet.
+            Admin-visible only. Every lead is acknowledged and alerted
+            automatically the moment it arrives; first response is due within{" "}
+            <span className="font-medium text-slate-200">
+              one business hour
+            </span>{" "}
+            (Mon-Fri, 8:00am-5:00pm Mountain). A lead still showing{" "}
+            <span className="font-medium text-amber-300">queued</span> or{" "}
+            <span className="font-medium text-red-300">failed</span> did not get
+            its notification — pick it up by hand. Times are Mountain
+            (America/Edmonton), the zone the SLA is defined in.
           </p>
+          {markError ? (
+            <p className="mt-2 text-sm text-red-300" role="alert">
+              Could not record the response: {markError}
+            </p>
+          ) : null}
         </div>
         <div className="flex gap-2">
           <button
@@ -87,6 +122,8 @@ export function PilotLeads() {
                   asset_scope: lead.asset_scope,
                   primary_pain: lead.primary_pain,
                   notification_status: lead.notification_status,
+                  first_response_due: lead.first_response_due ?? "",
+                  first_responded_at: lead.first_responded_at ?? "",
                   source_path: lead.source_path,
                 })),
                 "pilot-leads.csv",
@@ -115,7 +152,9 @@ export function PilotLeads() {
                 <th className="px-4 py-3">Role / industry</th>
                 <th className="px-4 py-3">Asset scope</th>
                 <th className="px-4 py-3">Primary pain</th>
+                <th className="px-4 py-3">First response due</th>
                 <th className="px-4 py-3">Status</th>
+                <th className="px-4 py-3">Answered</th>
               </tr>
             </thead>
             <tbody>
@@ -125,7 +164,7 @@ export function PilotLeads() {
                   className="border-b border-white/4 hover:bg-white/2"
                 >
                   <td className="whitespace-nowrap px-4 py-2.5 text-slate-400">
-                    {new Date(lead.created_at).toLocaleString()}
+                    {formatAlbertaStamp(lead.created_at)}
                   </td>
                   <td className="px-4 py-2.5 font-medium text-slate-200">
                     {lead.name}
@@ -142,6 +181,22 @@ export function PilotLeads() {
                   <td className="px-4 py-2.5 text-slate-400">
                     {lead.primary_pain}
                   </td>
+                  <td className="whitespace-nowrap px-4 py-2.5">
+                    {lead.first_response_due ? (
+                      <span
+                        className={
+                          isOverdue(lead)
+                            ? "font-medium text-red-300"
+                            : "text-slate-400"
+                        }
+                      >
+                        {formatAlbertaStamp(lead.first_response_due)}
+                        {isOverdue(lead) ? " · overdue" : ""}
+                      </span>
+                    ) : (
+                      <span className="text-slate-500">—</span>
+                    )}
+                  </td>
                   <td className="px-4 py-2.5">
                     <span
                       className={`rounded-full border px-2 py-0.5 text-xs ${statusStyle(
@@ -150,6 +205,22 @@ export function PilotLeads() {
                     >
                       {lead.notification_status}
                     </span>
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-2.5">
+                    {lead.first_responded_at ? (
+                      <span className="text-emerald-300">
+                        {formatAlbertaStamp(lead.first_responded_at)}
+                      </span>
+                    ) : (
+                      <button
+                        onClick={() => markResponded(lead.id)}
+                        disabled={marking === lead.id}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-slate-600 px-2.5 py-1 text-xs text-slate-200 hover:bg-slate-800 disabled:opacity-40 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-teal-300"
+                      >
+                        <Check className="h-3.5 w-3.5" aria-hidden />
+                        {marking === lead.id ? "Saving…" : "Mark answered"}
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}

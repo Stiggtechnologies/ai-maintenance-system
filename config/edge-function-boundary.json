@@ -5,6 +5,7 @@
     "agent-loop-enrich",
     "ai-agent-processor",
     "autonomous-orchestrator",
+    "lead-notify",
     "onboarding-enrich",
     "public-reliability-agent"
   ],

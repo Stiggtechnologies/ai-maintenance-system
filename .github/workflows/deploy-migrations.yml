@@ -12,6 +12,7 @@ on:
       - "supabase/functions/agent-loop-enrich/**"
       - "supabase/functions/ai-agent-processor/**"
       - "supabase/functions/autonomous-orchestrator/**"
+      - "supabase/functions/lead-notify/**"
       - "supabase/functions/onboarding-enrich/**"
       - "supabase/functions/public-reliability-agent/**"
   workflow_dispatch:
@@ -65,10 +66,48 @@ jobs:
           supabase functions deploy agent-loop-enrich --no-verify-jwt
           supabase functions deploy ai-agent-processor
           supabase functions deploy autonomous-orchestrator
+          supabase functions deploy lead-notify
           supabase functions deploy onboarding-enrich --no-verify-jwt
           supabase functions deploy public-reliability-agent
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+
+      # lead-notify needs two things that are not in this repository and never
+      # will be: a mail transport, and the trigger knowing where to POST.
+      # Without them a merge changes nothing — the AFTER INSERT trigger warns,
+      # leads stay 'queued', and "a lead must never go cold" is not true in
+      # production. Both steps are no-ops with a loud CI warning until the
+      # corresponding repository secret exists, and both are idempotent, so
+      # setting the secret once is the whole of the manual work.
+      - name: Give lead-notify a mail transport
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${RESEND_API_KEY:-}" ]; then
+            echo "::warning title=lead-notify has no mail transport::RESEND_API_KEY is not set as a repository secret, so lead-notify will mark every incoming lead 'failed' and neither the visitor nor the owner will be emailed. See docs/lead-response-sla.md."
+            exit 0
+          fi
+          supabase secrets set RESEND_API_KEY="$RESEND_API_KEY"
+
+      - name: Point the lead trigger at the deployed function
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          LEAD_NOTIFY_SERVICE_KEY: ${{ secrets.LEAD_NOTIFY_SERVICE_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${SUPABASE_DB_URL:-}" ] || [ -z "${LEAD_NOTIFY_SERVICE_KEY:-}" ]; then
+            echo "::warning title=lead-notify is not wired::SUPABASE_DB_URL and/or LEAD_NOTIFY_SERVICE_KEY are not set, so private.lead_notify_config stays empty and trg_pilot_intake_notify will no-op. Run configure_lead_notify() by hand — see docs/lead-response-sla.md."
+            exit 0
+          fi
+          psql "$SUPABASE_DB_URL" \
+            -v ON_ERROR_STOP=1 \
+            -v url="https://${SUPABASE_PROJECT_ID}.supabase.co/functions/v1/lead-notify" \
+            -v key="$LEAD_NOTIFY_SERVICE_KEY" \
+            --no-psqlrc --quiet <<'SQL'
+          select public.configure_lead_notify(:'url', :'key');
+          SQL
 
       # Nobody reads the Actions tab. This failed on every push for three weeks
       # while CI stayed green and Vercel kept shipping frontends over a schema
