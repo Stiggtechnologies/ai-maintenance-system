@@ -2,12 +2,16 @@ name: Deploy migrations
 
 # Pushes the deterministic migration chain and explicitly approved production
 # Edge Functions after protected changes land on main. The allowlist is enforced
-# by scripts/check-edge-function-boundary.mjs.
+# by scripts/check-edge-function-boundary.mjs. Hosted Auth configuration is also
+# applied and verified here because migrations cannot manage Supabase Auth URL,
+# redirect allow-list, SMTP, or email-template settings.
 
 on:
   push:
     branches: [main]
     paths:
+      - ".github/workflows/deploy-migrations.yml"
+      - "scripts/configure-production-auth.mjs"
       - "supabase/migrations/**"
       - "supabase/functions/agent-loop-enrich/**"
       - "supabase/functions/ai-agent-processor/**"
@@ -30,6 +34,7 @@ permissions:
 
 env:
   SUPABASE_PROJECT_ID: pjvoswbwomesuwhygpby
+  APP_URL: https://app.syncai.ca
 
 jobs:
   push-migrations:
@@ -50,6 +55,16 @@ jobs:
         run: supabase link --project-ref "$SUPABASE_PROJECT_ID"
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+
+      # Hosted Auth settings are not database state. Without this step a green
+      # migration deploy can still ship password-reset emails that point to
+      # localhost. Apply the canonical production URL/allow-list and read it
+      # back before production is allowed to advance.
+      - name: Configure and verify production Auth
+        run: node scripts/configure-production-auth.mjs
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
 
       # --include-all: branches merge in an order their timestamps do not always
       # agree with, so a migration can land sorting before the deployed head.
@@ -133,10 +148,10 @@ jobs:
             "" \
             "Run: ${RUN_URL}" \
             "" \
-            "**Production schema and Edge Functions are not advancing.** The" \
-            "frontend deploys independently on Vercel, so the app will keep" \
-            "shipping against whatever schema was last applied — which looks" \
-            "healthy right up until it isn't." \
+            "**Production schema, Auth configuration, and Edge Functions are not advancing.** The" \
+            "frontend deploys independently on Vercel, so the app can keep" \
+            "shipping against stale backend configuration — which looks" \
+            "healthy right up until an authentication or schema path is exercised." \
             "" \
             "Check what production actually has:" \
             "" \
