@@ -11,9 +11,10 @@
 -- policy, grant, approval boundary or autonomous action is widened here.
 --
 -- Tool idempotency also reuses the canonical audit_events chain rather than
--- introducing a Sync-only execution ledger. The partial unique index turns an
--- idempotency key into an organization-scoped reservation before any governed
--- RPC is called, so concurrent confirms cannot both perform the same action.
+-- introducing a Sync-only execution ledger. Partial unique indexes reserve
+-- both the caller's idempotency key and the proposal itself before any governed
+-- RPC is called, so retries or double-clicks cannot perform the same proposal
+-- twice even if a client accidentally generates a fresh retry key.
 -- ============================================================================
 
 alter table public.cowork_workspaces
@@ -52,3 +53,11 @@ create unique index if not exists idx_audit_sync_tool_idempotency
   )
   where entity_type = 'sync_tool_execution'
     and event_data ? 'idempotency_key';
+
+create unique index if not exists idx_audit_sync_tool_proposal
+  on public.audit_events (
+    organization_id,
+    ((event_data ->> 'proposal_id'))
+  )
+  where entity_type = 'sync_tool_execution'
+    and event_data ? 'proposal_id';
