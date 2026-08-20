@@ -11,15 +11,8 @@
  * Tenancy comes from RLS, not from the client: the query carries no
  * organization filter because feature_flags_org_read already scopes rows to
  * app_current_org(). The hook cannot ask about another tenant's flags.
- *
- * The key list is the §39 catalogue, typed so a misspelled flag is a compile
- * error instead of a silently-false runtime lookup. Reuses useAsyncData for
- * the loading/error lifecycle like every other Supabase-backed hook here.
- *
- * Nothing mounts this yet — every sync_* flag is seeded OFF and Phase 0
- * wires no user-visible behaviour (spec §37 Phase 0: "no production behavior
- * changed").
  */
+import { useEffect } from "react";
 import { supabase } from "../lib/supabase";
 import { useAsyncData } from "./useAsyncData";
 
@@ -45,6 +38,15 @@ export interface FeatureFlagState {
   refetch: () => void;
 }
 
+const SYNC_FLAGS_CHANGED_EVENT = "syncai:feature-flags-changed";
+
+/** Tell mounted flag readers that an audited rollout mutation just completed. */
+export function announceSyncFeatureFlagsChanged(): void {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event(SYNC_FLAGS_CHANGED_EVENT));
+  }
+}
+
 /** One-shot read, exported for non-hook callers and for tests. */
 export async function fetchFeatureFlag(
   flag: SyncFeatureFlag,
@@ -63,6 +65,14 @@ export function useFeatureFlag(flag: SyncFeatureFlag): FeatureFlagState {
     () => fetchFeatureFlag(flag),
     [flag],
   );
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const refresh = () => refetch();
+    window.addEventListener(SYNC_FLAGS_CHANGED_EVENT, refresh);
+    return () => window.removeEventListener(SYNC_FLAGS_CHANGED_EVENT, refresh);
+  }, [refetch]);
+
   return {
     // Fail closed: only an affirmative true from a successful read enables.
     enabled: data === true && error === null,

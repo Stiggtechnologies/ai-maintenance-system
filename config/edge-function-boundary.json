@@ -7,7 +7,8 @@
     "autonomous-orchestrator",
     "lead-notify",
     "onboarding-enrich",
-    "public-reliability-agent"
+    "public-reliability-agent",
+    "sync-runtime"
   ],
   "allowedNoVerifyJwt": ["agent-loop-enrich", "onboarding-enrich"],
   "blockedLegacyFunctions": [

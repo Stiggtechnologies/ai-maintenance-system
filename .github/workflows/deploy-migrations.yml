@@ -15,6 +15,7 @@ on:
       - "supabase/functions/lead-notify/**"
       - "supabase/functions/onboarding-enrich/**"
       - "supabase/functions/public-reliability-agent/**"
+      - "supabase/functions/sync-runtime/**"
   workflow_dispatch:
 
 concurrency:
@@ -69,6 +70,7 @@ jobs:
           supabase functions deploy lead-notify
           supabase functions deploy onboarding-enrich --no-verify-jwt
           supabase functions deploy public-reliability-agent
+          supabase functions deploy sync-runtime
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
 

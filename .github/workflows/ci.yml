@@ -5,8 +5,8 @@ name: CI
 #   2. unit tests (vitest)
 #   3. new migrations sorting after the deployed head, so the order CI proves
 #      from scratch is the order production applies incrementally
-#   4. the full Supabase migration chain applying from scratch, then a live
-#      smoke test: seeded demo login → RLS-scoped read → app-shell RPC.
+#   4. the full Supabase migration chain applying from scratch, then live
+#      authentication, tenant/RLS, Sync conversation-isolation, and RPC smokes.
 
 on:
   pull_request:
@@ -144,6 +144,9 @@ jobs:
             | python3 -c "import sys,json;print(json.load(sys.stdin)['role'])")
           test "$ROLE" = "reliability_engineer"
           echo "Smoke passed: login + RLS ($COUNT recs) + RPC ($ROLE)"
+
+      - name: Smoke — Sync creator-private conversation RLS
+        run: bash scripts/ci-sync-rls-smoke.sh
 
       - name: Smoke — continuous agent loop
         run: |
