@@ -9,12 +9,18 @@ import {
   buildSpecialistBrief,
   selectReliabilitySpecialists,
 } from "../_shared/reliability-specialists.ts";
+import {
+  hasCanonicalIdempotencyKey,
+  proposalIsUnexpired,
+  proposalParamsHash,
+} from "../_shared/sync-tool-proof.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
 const ALLOWED_ORIGIN =
   Deno.env.get("ALLOWED_ORIGIN") ?? "https://app.syncai.ca";
+const TOOL_PROPOSAL_TTL_MS = 30 * 60 * 1000;
 
 const JSON_HEADERS = {
   "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
@@ -80,6 +86,9 @@ interface AgentResponse {
   resets_at?: string;
   limit?: string;
 }
+
+type ToolProposalEvent = Extract<StreamableEvent, { type: "tool.proposed" }>;
+type ToolProposal = ToolProposalEvent["proposal"];
 
 function adminClient() {
   return createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
@@ -198,25 +207,29 @@ async function resolveWorkspace(
 ): Promise<string> {
   const admin = adminClient();
   if (body.conversationId) {
-    const { data } = await admin
+    const { data, error } = await admin
       .from("cowork_workspaces")
       .select("id")
       .eq("id", body.conversationId)
       .eq("organization_id", auth.organizationId)
       .eq("workspace_kind", "sync")
+      .eq("created_by", auth.userId)
       .maybeSingle();
-    if (data?.id) {
-      await admin
-        .from("cowork_workspaces")
-        .update({
-          context_snapshot: body.context ?? {},
-          mode: safeMode(body.context),
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", data.id)
-        .eq("organization_id", auth.organizationId);
-      return data.id;
-    }
+    if (error) throw error;
+    if (!data?.id) throw new Error("sync_conversation_not_found");
+
+    const { error: updateError } = await admin
+      .from("cowork_workspaces")
+      .update({
+        context_snapshot: body.context ?? {},
+        mode: safeMode(body.context),
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", data.id)
+      .eq("organization_id", auth.organizationId)
+      .eq("created_by", auth.userId);
+    if (updateError) throw updateError;
+    return data.id;
   }
 
   const title =
@@ -272,13 +285,18 @@ async function persistMessage(input: {
   if (error) console.error("sync-runtime message persistence failed", error);
 }
 
-async function touchWorkspace(organizationId: string, workspaceId: string) {
+async function touchWorkspace(
+  organizationId: string,
+  workspaceId: string,
+  userId: string,
+) {
   const now = new Date().toISOString();
   const { error } = await adminClient()
     .from("cowork_workspaces")
     .update({ updated_at: now, last_turn_at: now })
     .eq("id", workspaceId)
-    .eq("organization_id", organizationId);
+    .eq("organization_id", organizationId)
+    .eq("created_by", userId);
   if (error) console.error("sync-runtime workspace touch failed", error);
 }
 
@@ -328,7 +346,7 @@ function buildGroundedQuery(
 function proposalFor(
   question: string,
   context: SyncAppContext | undefined,
-): StreamableEvent | null {
+): ToolProposalEvent | null {
   const entity = context?.entity;
   if (!entity || entity.type !== "asset" || !entity.id) return null;
   if (
@@ -367,6 +385,80 @@ function proposalFor(
   };
 }
 
+async function persistToolProposal(
+  auth: AuthContext,
+  proposal: ToolProposal,
+): Promise<void> {
+  const params = proposal.params ?? {};
+  const paramsHash = await proposalParamsHash(
+    proposal.proposalId,
+    proposal.toolId,
+    params,
+  );
+  const expiresAt = new Date(Date.now() + TOOL_PROPOSAL_TTL_MS).toISOString();
+  const { error } = await adminClient().from("audit_events").insert({
+    organization_id: auth.organizationId,
+    entity_type: "sync_tool_proposal",
+    actor: auth.userId,
+    event_data: {
+      status: "proposed",
+      proposal_id: proposal.proposalId,
+      tool_id: proposal.toolId,
+      params_hash: paramsHash,
+      expires_at: expiresAt,
+    },
+  });
+  if (error) {
+    console.error("sync-runtime proposal persistence failed", error);
+    throw new Error("tool_proposal_persistence_failed");
+  }
+}
+
+async function requireIssuedToolProposal(
+  auth: AuthContext,
+  execution: ToolExecutionRequest,
+): Promise<void> {
+  if (
+    !execution.proposalId ||
+    execution.proposalId.length > 160 ||
+    !hasCanonicalIdempotencyKey(
+      execution.proposalId,
+      execution.idempotencyKey,
+    )
+  ) {
+    throw new Error("invalid_tool_confirmation");
+  }
+
+  const { data, error } = await adminClient()
+    .from("audit_events")
+    .select("id, event_data")
+    .eq("organization_id", auth.organizationId)
+    .eq("entity_type", "sync_tool_proposal")
+    .eq("actor", auth.userId)
+    .contains("event_data", { proposal_id: execution.proposalId })
+    .maybeSingle();
+  if (error || !data?.id) throw new Error("tool_proposal_not_issued");
+
+  const eventData = (data.event_data ?? {}) as Record<string, unknown>;
+  if (
+    eventData.status !== "proposed" ||
+    eventData.tool_id !== execution.toolId ||
+    !proposalIsUnexpired(eventData.expires_at)
+  ) {
+    throw new Error("tool_proposal_invalid_or_expired");
+  }
+
+  const expectedHash = String(eventData.params_hash ?? "");
+  const actualHash = await proposalParamsHash(
+    execution.proposalId,
+    execution.toolId,
+    execution.params,
+  );
+  if (!expectedHash || actualHash !== expectedHash) {
+    throw new Error("tool_proposal_payload_mismatch");
+  }
+}
+
 async function reserveToolExecution(
   auth: AuthContext,
   execution: ToolExecutionRequest,
@@ -398,7 +490,7 @@ async function reserveToolExecution(
       actor: auth.userId,
       event_data: {
         status: "running",
-        idempotency_key: execution.idempotencyKey,
+        idempotency_key: execution.proposalId,
         proposal_id: execution.proposalId,
         tool_id: execution.toolId,
       },
@@ -418,6 +510,9 @@ async function executeTool(
   if (execution.toolId !== "raise_maintenance_notification") {
     throw new Error("tool_not_registered");
   }
+
+  await requireIssuedToolProposal(auth, execution);
+
   const assetId = String(execution.params.assetId ?? "");
   const description = String(execution.params.description ?? "").trim();
   const notificationType = String(
@@ -466,7 +561,7 @@ async function executeTool(
     .update({
       event_data: {
         status: rpcError ? "refused" : "completed",
-        idempotency_key: execution.idempotencyKey,
+        idempotency_key: execution.proposalId,
         proposal_id: execution.proposalId,
         tool_id: execution.toolId,
         result,
@@ -697,7 +792,10 @@ Deno.serve(async (req: Request) => {
       const proposal = flags.has("sync_tools")
         ? proposalFor(question, body.context)
         : null;
-      if (proposal) send(proposal);
+      if (proposal) {
+        await persistToolProposal(auth, proposal.proposal);
+        send(proposal);
+      }
 
       await persistMessage({
         auth,
@@ -716,7 +814,7 @@ Deno.serve(async (req: Request) => {
         blocks: noticeBlock ? [noticeBlock, markdownBlock] : [markdownBlock],
         evidenceRefs: evidence,
       });
-      await touchWorkspace(auth.organizationId, workspaceId);
+      await touchWorkspace(auth.organizationId, workspaceId, auth.userId);
 
       for (const specialist of specialists) {
         send({
@@ -743,7 +841,7 @@ Deno.serve(async (req: Request) => {
       });
     } finally {
       if (workspaceId)
-        await touchWorkspace(auth.organizationId, workspaceId);
+        await touchWorkspace(auth.organizationId, workspaceId, auth.userId);
       stream.close();
     }
   })();
