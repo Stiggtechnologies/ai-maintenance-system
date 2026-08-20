@@ -12,14 +12,15 @@ const read = (relative: string) =>
 
 const runtime = read("supabase/functions/sync-runtime/index.ts");
 const migration = read(
-  "supabase/migrations/20260917002000_sync_conversation_extensions.sql",
+  "supabase/migrations/20260919090000_sync_conversation_extensions.sql",
 );
 const flagAdmin = read(
-  "supabase/migrations/20260917003000_sync_flag_admin.sql",
+  "supabase/migrations/20260919091000_sync_flag_admin.sql",
 );
 const boundary = read("config/edge-function-boundary.json");
 const deploy = read(".github/workflows/deploy-migrations.yml");
 const dock = read("src/components/CopilotDock.tsx");
+const settings = read("src/pages/SettingsPage.tsx");
 
 describe("Sync end-to-end runtime contract", () => {
   it("reuses the governed Reliability Engineer instead of creating an unmetered model rail", () => {
@@ -65,7 +66,7 @@ describe("Sync end-to-end runtime contract", () => {
     expect(migration).toContain("idx_audit_sync_tool_proposal");
   });
 
-  it("keeps rollout mutations behind an admin-only audited RPC", () => {
+  it("keeps rollout mutations behind an admin-only audited RPC and existing Settings", () => {
     expect(flagAdmin).toContain("set_sync_feature_flag");
     expect(flagAdmin).toContain("security definer");
     expect(flagAdmin).toContain("('admin', 'ai_admin')");
@@ -74,6 +75,9 @@ describe("Sync end-to-end runtime contract", () => {
     expect(flagAdmin).toContain(
       "grant execute on function public.set_sync_feature_flag(text, boolean) to authenticated",
     );
+    expect(settings).toContain("SyncRolloutTab");
+    expect(settings).toContain('supabase.rpc("set_sync_feature_flag"');
+    expect(settings).toContain("announceSyncFeatureFlagsChanged");
   });
 
   it("deploys only through the explicit edge-function boundary", () => {
