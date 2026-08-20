@@ -95,9 +95,11 @@ export type AssistantBlock =
   | { kind: "warning"; severity: string; content: string }
   | { kind: "entity_links"; entities: EntityReference[] };
 
-/** §17 — the event union, verbatim from the specification. */
+/** §17 — the event union, verbatim from the specification plus an optional
+ * conversationId on turn.started so a newly-created canonical Cowork workspace
+ * can be resumed on the next turn without a second control channel. */
 export type SyncStreamEvent =
-  | { type: "turn.started"; turnId: string }
+  | { type: "turn.started"; turnId: string; conversationId?: string }
   | { type: "transcript.partial"; text: string }
   | { type: "transcript.final"; text: string }
   | { type: "assistant.delta"; text: string }
