@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   RELIABILITY_PROMPT_VERSION,
@@ -23,9 +24,9 @@ type GoldenSuite = {
 
 const suite = JSON.parse(
   readFileSync(
-    new URL(
-      "../../benchmarks/reliability-engineer/re-2026.08/cases.json",
-      import.meta.url,
+    path.resolve(
+      process.cwd(),
+      "benchmarks/reliability-engineer/re-2026.08/cases.json",
     ),
     "utf8",
   ),
