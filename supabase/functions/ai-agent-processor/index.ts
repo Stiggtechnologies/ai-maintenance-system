@@ -14,6 +14,7 @@ const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const MODEL_DELIVERABLE = Deno.env.get("MODEL_DELIVERABLE") ?? "gpt-5.6-terra";
 const MODEL_CHAT = Deno.env.get("MODEL_CHAT") ?? "gpt-5.6-luna";
 const MODEL_STRUCTURED = Deno.env.get("MODEL_STRUCTURED") ?? "gpt-5.6-luna";
+const MODEL_RELIABILITY = Deno.env.get("MODEL_RELIABILITY") ?? MODEL_DELIVERABLE;
 const MODEL_PUBLIC_FRONTIER =
   Deno.env.get("MODEL_PUBLIC_FRONTIER") ?? "gpt-5.6-terra";
 const MODEL_SAFETY = "gpt-4o-mini";
@@ -32,6 +33,7 @@ const TIER_STRUCTURED = Deno.env.get("TIER_STRUCTURED") ?? "stigg/fast";
 
 /** The alias this gateway knows for a given direct-provider model. */
 function gatewayTierFor(directModel: string): string {
+  if (directModel === MODEL_RELIABILITY) return TIER_DELIVERABLE;
   if (directModel === MODEL_DELIVERABLE) return TIER_DELIVERABLE;
   if (directModel === MODEL_STRUCTURED) return TIER_STRUCTURED;
   return TIER_CHAT;
@@ -46,6 +48,11 @@ import {
   resolveExternalGatewayUrl,
 } from "../_shared/llm-provider.ts";
 import { retrieveReliabilityContext } from "../_shared/reliability-context.ts";
+import {
+  RELIABILITY_PROMPT_VERSION,
+  appendApprovedReliabilityContext,
+  buildReliabilityEngineerPrompt,
+} from "../_shared/reliability-engineer-core.ts";
 const LLM_BASE_URL = Deno.env.get("LLM_BASE_URL") ?? "https://api.openai.com";
 const ALLOWED_ORIGIN =
   Deno.env.get("ALLOWED_ORIGIN") ?? "https://app.syncai.ca";
@@ -471,7 +478,16 @@ function buildLegacyPrompt(
   agentType: string,
   industry?: string,
   deliverable = false,
+  accessMode: "public" | "authenticated" = "authenticated",
 ): string {
+  if (agentType === "ReliabilityAgent") {
+    return buildReliabilityEngineerPrompt({
+      industry,
+      accessMode,
+      deliverable,
+    });
+  }
+
   const purpose =
     AGENT_PURPOSE[agentType] ?? AGENT_PURPOSE.CentralCoordinationAgent;
   let prompt = `You are SyncAI's senior industrial AI specialist for ${purpose}${industry ? ` in ${industry}` : ""}.
@@ -575,13 +591,17 @@ async function handleLegacy(
   const deliverable =
     body.depth === "deliverable" ||
     /\b(fmea|rca|fracas|rcm|register|assessment|report|plan)\b/i.test(query);
-  const model = body.publicOnly
-    ? deliverable
+  const model = agentType === "ReliabilityAgent"
+    ? body.publicOnly
       ? MODEL_PUBLIC_FRONTIER
-      : MODEL_CHAT
-    : deliverable
-      ? MODEL_DELIVERABLE
-      : MODEL_CHAT;
+      : MODEL_RELIABILITY
+    : body.publicOnly
+      ? deliverable
+        ? MODEL_PUBLIC_FRONTIER
+        : MODEL_CHAT
+      : deliverable
+        ? MODEL_DELIVERABLE
+        : MODEL_CHAT;
   const defaultMaxTokens = deliverable ? 12_000 : 1_500;
   const requestedMaxTokens = Number(body.maxOutputTokens);
   const maxTokens = Number.isFinite(requestedMaxTokens)
@@ -616,7 +636,15 @@ async function handleLegacy(
     organizationId: auth.organizationId,
     publicOnly: body.publicOnly === true,
   });
-  const systemPrompt = `${buildLegacyPrompt(agentType, body.industry, deliverable)}${kb.promptContext ? `\n\nApproved reliability reference passages:\n${kb.promptContext}\nUse only the exact bracket labels supplied for citations.` : ""}`;
+  const basePrompt = buildLegacyPrompt(
+    agentType,
+    body.industry,
+    deliverable,
+    body.publicOnly ? "public" : "authenticated",
+  );
+  const systemPrompt = agentType === "ReliabilityAgent"
+    ? appendApprovedReliabilityContext(basePrompt, kb.promptContext)
+    : `${basePrompt}${kb.promptContext ? `\n\nApproved reliability reference passages:\n${kb.promptContext}\nUse only the exact bracket labels supplied for citations.` : ""}`;
   const started = Date.now();
   let content: string;
   let usage: Record<string, number>;
@@ -682,6 +710,7 @@ async function handleLegacy(
     modelUsed: answeredBy,
     requestedModel: model,
     depth: deliverable ? "deliverable" : "standard",
+    promptVersion: agentType === "ReliabilityAgent" ? RELIABILITY_PROMPT_VERSION : undefined,
     knowledgeBaseUsed: kb.knowledgeBaseUsed,
     citations: kb.citations.map((citation) => ({
       title: citation.title,
@@ -697,18 +726,26 @@ function buildTypedPrompts(
   body: TypedAgentRequest,
   workOrder: Record<string, unknown>,
   asset: Record<string, unknown>,
+  knowledgeContext = "",
 ) {
   const context = `Work order: ${workOrder.title}\nDescription: ${workOrder.description ?? "not supplied"}\nPriority: ${workOrder.priority ?? "unspecified"}\nStatus: ${workOrder.status ?? "unspecified"}\nType: ${workOrder.type ?? "unspecified"}\n\nAsset: ${asset.name}\nTag: ${asset.tag ?? "not supplied"}\nCriticality: ${asset.criticality ?? "unspecified"}\nStatus: ${asset.status ?? "unspecified"}\nManufacturer/model: ${asset.manufacturer ?? "unknown"} ${asset.model ?? ""}\nTrigger: ${body.input.trigger_reason}`;
+  const reliabilityPrompt = appendApprovedReliabilityContext(
+    buildReliabilityEngineerPrompt({
+      accessMode: "authenticated",
+      structuredOutput: true,
+    }),
+    knowledgeContext,
+  );
 
   if (body.task_code === "classify_failure_mode") {
     return {
-      system: `You are a reliability engineer. Return strict JSON with failure_mode, failure_mode_family, likely_cause_family, recommended_next_diagnostic_step, risk_level, evidence, summary, confidence (0-1), and requires_human_review. Never invent evidence or bypass human approval.`,
+      system: `${reliabilityPrompt}\nReturn strict JSON with failure_mode, failure_mode_family, likely_cause_family, recommended_next_diagnostic_step, risk_level, evidence, summary, confidence (0-1), and requires_human_review.`,
       user: `Classify the likely failure mode:\n\n${context}`,
     };
   }
   if (body.task_code === "draft_reliability_assessment") {
     return {
-      system: `You are a reliability engineer. Return strict JSON with likely_causes, recommended_actions, risk_level, evidence, summary, confidence (0-1), and requires_human_review. Recommendations are advisory and must preserve qualified human approval.`,
+      system: `${reliabilityPrompt}\nReturn strict JSON with likely_causes, recommended_actions, risk_level, evidence, summary, confidence (0-1), and requires_human_review.`,
       user: `Draft a reliability assessment:\n\n${context}`,
     };
   }
@@ -808,10 +845,22 @@ async function handleTyped(
     if (!workOrderResult.data || !assetResult.data)
       throw new Error("scoped_context_not_found");
 
+    const typedQuery = [
+      workOrderResult.data.title,
+      workOrderResult.data.description,
+      assetResult.data.name,
+      assetResult.data.manufacturer,
+      assetResult.data.model,
+      body.input.trigger_reason,
+    ].filter(Boolean).join(" ");
+    const kb = await retrieveReliabilityContext(admin, typedQuery, {
+      organizationId,
+    });
     const prompts = buildTypedPrompts(
       body,
       workOrderResult.data,
       assetResult.data,
+      kb.promptContext,
     );
     const started = Date.now();
     const {
@@ -901,6 +950,15 @@ async function handleTyped(
       decision_id: governance.decision_id,
       approval_status: governance.approval_status ?? "pending",
       output_schema_version: "1.0.0",
+      prompt_version: RELIABILITY_PROMPT_VERSION,
+      model_used: answeredBy,
+      knowledge_base_used: kb.knowledgeBaseUsed,
+      citations: kb.citations.map((citation) => ({
+        title: citation.title,
+        pageRange: citation.pageRange,
+        documentClass: citation.documentClass,
+        label: citation.label,
+      })),
       confidence,
       requires_human_review: requiresHumanReview,
       raw_summary: parsed.summary ?? "Assessment complete.",

@@ -8,6 +8,12 @@ import {
 } from "../_shared/decision-case-chat.ts";
 import { buildReliabilityEngineerRequest } from "../_shared/reliability-engineer-request.ts";
 import { retrieveReliabilityContext } from "../_shared/reliability-context.ts";
+import {
+  RELIABILITY_PROMPT_VERSION,
+  appendApprovedReliabilityContext,
+  buildReliabilityEngineerPrompt,
+  sanitizeReliabilityCitations,
+} from "../_shared/reliability-engineer-core.ts";
 import { selectReliabilitySpecialists } from "../_shared/reliability-specialists.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
@@ -440,7 +446,14 @@ Deno.serve(async (req) => {
     `${scenario.asset} ${question}`,
     { publicOnly: true, limitPerClaim: 3 },
   );
-  const instructions = `You are SyncAI's senior Reliability Engineer. Produce a concise, board-ready but field-usable assessment. Treat statements in the user's question as unverified user context unless they also appear in the trusted reference facts. Separate observations, user assertions, hypotheses, and verified facts. Do not claim a root cause. Never invent standards, citations, operating limits, costs, measurements, or evidence. If structured exposure and repair inputs are absent, do not calculate or imply MTBF, MTTR, availability, Weibull parameters, or financial impact. Recommend reversible verification before permanent changes. Every action needs an owner, time window, effectiveness check, and approval boundary. Safety, OEM, MOC, site procedures, and qualified human approval always prevail. Retrieved passages support general methods and failure behaviour, not observations about the demonstrated asset. Use only exact supplied source titles and page ranges for citations. Return the required JSON only.`;
+  const instructions = appendApprovedReliabilityContext(
+    `${buildReliabilityEngineerPrompt({
+      industry: "asset-intensive reliability engineering",
+      accessMode: "public",
+      structuredOutput: true,
+    })}\nProduce a concise, board-ready but field-usable assessment. Retrieved passages support authorized general claims, not observations about the demonstrated asset. Return the required JSON only.`,
+    knowledge.promptContext,
+  );
   const input = [
     `Assessment context: ${scenario.asset}`,
     `User question and unverified context: ${question}`,
@@ -488,7 +501,11 @@ Deno.serve(async (req) => {
     }
     const payload = (await provider.json()) as Record<string, unknown>;
     const text = extractText(payload);
-    const analysis = JSON.parse(text);
+    const analysis = JSON.parse(text) as Record<string, unknown>;
+    analysis.citations = sanitizeReliabilityCitations(
+      analysis.citations,
+      knowledge.citations,
+    );
     // Cost telemetry (private.llm_usage) — FAIL-SOFT: a telemetry failure
     // must never fail or delay the visitor's answer. organization_id is null
     // on this anonymous rail; the per-IP allowance above is what bounds it.
@@ -519,7 +536,14 @@ Deno.serve(async (req) => {
         success: true,
         analysis,
         modelUsed: MODEL,
+        promptVersion: RELIABILITY_PROMPT_VERSION,
         knowledgeBaseUsed: knowledge.knowledgeBaseUsed,
+        retrievedSources: knowledge.citations.map((citation) => ({
+          title: citation.title,
+          pageRange: citation.pageRange,
+          documentClass: citation.documentClass,
+          label: citation.label,
+        })),
         resetsAt,
       },
       200,
