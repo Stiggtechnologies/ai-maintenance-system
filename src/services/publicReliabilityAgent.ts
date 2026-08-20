@@ -23,6 +23,11 @@ export interface PublicExpertCitation {
   pageRange: string;
 }
 
+export interface PublicRetrievedSource extends PublicExpertCitation {
+  documentClass: string;
+  label: string;
+}
+
 export interface PublicExpertAnalysis {
   executiveSummary: string;
   observedPattern: string;
@@ -38,7 +43,14 @@ export interface PublicExpertAnalysis {
 }
 
 export type PublicExpertResult =
-  | { status: "success"; analysis: PublicExpertAnalysis; modelUsed?: string }
+  | {
+      status: "success";
+      analysis: PublicExpertAnalysis;
+      modelUsed?: string;
+      promptVersion?: string;
+      knowledgeBaseUsed: boolean;
+      retrievedSources: PublicRetrievedSource[];
+    }
   | { status: "rate_limited"; error: string; resetsAt?: string }
   | { status: "fallback"; error: string };
 
@@ -152,6 +164,11 @@ export async function runPublicReliabilityAgent(input: {
       status: "success",
       analysis: data.analysis as PublicExpertAnalysis,
       modelUsed: data.modelUsed,
+      promptVersion: data.promptVersion,
+      knowledgeBaseUsed: data.knowledgeBaseUsed === true,
+      retrievedSources: Array.isArray(data.retrievedSources)
+        ? data.retrievedSources as PublicRetrievedSource[]
+        : [],
     };
   } catch (error) {
     return {
