@@ -417,20 +417,21 @@ export function CopilotDock({
         return;
       }
       if (event.type === "assistant.block") {
-        if (event.block.kind === "evidence") {
+        const block = event.block;
+        if (block.kind === "evidence") {
           updateActiveAgent((message) => ({
             ...message,
-            evidence: event.block.items,
+            evidence: block.items,
           }));
-        } else if (event.block.kind === "action_proposal") {
+        } else if (block.kind === "action_proposal") {
           updateActiveAgent((message) => ({
             ...message,
-            proposal: event.block.action,
+            proposal: block.action,
           }));
-        } else if (event.block.kind !== "markdown") {
+        } else if (block.kind !== "markdown") {
           updateActiveAgent((message) => ({
             ...message,
-            blocks: [...(message.blocks ?? []), event.block],
+            blocks: [...(message.blocks ?? []), block],
           }));
         }
         return;
