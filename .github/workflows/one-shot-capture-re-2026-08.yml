@@ -6,6 +6,9 @@ on:
       - feat/reliability-golden-baseline
     paths:
       - ".github/workflows/one-shot-capture-re-2026-08.yml"
+  pull_request:
+    paths:
+      - ".github/workflows/one-shot-capture-re-2026-08.yml"
 
 permissions:
   contents: read
