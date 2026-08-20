@@ -9,6 +9,11 @@
 -- Tenancy does not move: both tables already have organization_id NOT NULL,
 -- RLS enabled, and organization_id = app_current_org() FOR ALL policies. No
 -- policy, grant, approval boundary or autonomous action is widened here.
+--
+-- Tool idempotency also reuses the canonical audit_events chain rather than
+-- introducing a Sync-only execution ledger. The partial unique index turns an
+-- idempotency key into an organization-scoped reservation before any governed
+-- RPC is called, so concurrent confirms cannot both perform the same action.
 -- ============================================================================
 
 alter table public.cowork_workspaces
@@ -39,3 +44,11 @@ create index if not exists idx_cowork_workspaces_sync_recent
   on public.cowork_workspaces (organization_id, workspace_kind, updated_at desc);
 create index if not exists idx_cowork_messages_turn
   on public.cowork_messages (workspace_id, turn_id, created_at);
+
+create unique index if not exists idx_audit_sync_tool_idempotency
+  on public.audit_events (
+    organization_id,
+    ((event_data ->> 'idempotency_key'))
+  )
+  where entity_type = 'sync_tool_execution'
+    and event_data ? 'idempotency_key';
