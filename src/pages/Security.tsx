@@ -16,7 +16,6 @@ interface SecurityProps {
       | "signup"
       | "enterprise"
       | "app"
-      | "pricing"
       | "security"
       | "privacy"
       | "terms",

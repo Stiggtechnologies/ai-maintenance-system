@@ -67,6 +67,18 @@ export interface PublicDecisionCaseContext {
 // The database allowance RPC rejects limits above 10.
 export const PUBLIC_DECISION_CASE_DAILY_LIMIT = 10;
 
+// Per-IP daily caps for the anonymous public rail. The per-browser
+// fingerprint mixes in a CLIENT-SUPPLIED browserId — rotatable at will — so
+// it can bound UX, never spend; these caps bind spend to the server-observed
+// client IP, which the client cannot rotate for free. Sizing from the
+// per-browser allowances above: assessment is 1 run/browser/day, so 5 admits
+// five distinct browsers behind one NATed office IP; decision-case chat is
+// 10/browser/day, so 30 admits three browsers' full allowance. The per-IP
+// allowance RPC (consume_public_reliability_ip_allowance) rejects limits
+// above 100, so even a misconfiguration stays two-digit per IP per day.
+export const PUBLIC_ASSESSMENT_IP_DAILY_LIMIT = 5;
+export const PUBLIC_DECISION_CASE_IP_DAILY_LIMIT = 30;
+
 export function parsePublicDecisionCaseContext(
   input: unknown,
 ): PublicDecisionCaseContext | null {

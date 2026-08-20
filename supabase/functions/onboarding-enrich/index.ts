@@ -174,6 +174,32 @@ Deno.serve(async (req) => {
         }
 
         const data = await resp.json();
+
+        // Cost telemetry (private.llm_usage) — FAIL-SOFT: a telemetry
+        // failure must never cost an onboarding deduction.
+        try {
+          const usage =
+            data.usage && typeof data.usage === "object" ? data.usage : {};
+          const { error: usageError } = await supabase.rpc(
+            "record_llm_usage",
+            {
+              p_organization_id: entry.organization_id,
+              p_fn: "onboarding-enrich",
+              p_model:
+                typeof data.model === "string" ? data.model : LLM_MODEL,
+              p_prompt_tokens: usage.prompt_tokens ?? 0,
+              p_completion_tokens: usage.completion_tokens ?? 0,
+            },
+          );
+          if (usageError)
+            console.error("onboarding-enrich usage insert failed", usageError);
+        } catch (usageException) {
+          console.error(
+            "onboarding-enrich usage insert failed",
+            usageException,
+          );
+        }
+
         const content: string = data.choices?.[0]?.message?.content ?? "";
         const match = content.match(/\{[\s\S]*\}/);
         const parsed = match ? JSON.parse(match[0]) : {};

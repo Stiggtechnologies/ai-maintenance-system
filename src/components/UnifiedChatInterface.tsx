@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
+import { quotaRefusalFromBody } from "../services/agentQuota";
 import { supabasePublicKey, supabaseUrl } from "../lib/supabase-config";
 import { useAuth } from "./AuthProvider";
 import { Send, Mic, MicOff, Loader as Loader2, Sparkles } from "lucide-react";
@@ -155,6 +156,17 @@ Ask me anything about your operations, and I'll provide insights based on your r
       );
 
       if (!response.ok) {
+        // A daily-budget refusal carries its own body (which cap, when it
+        // resets); render that instead of "API request failed: 429".
+        const errorBody: unknown = await response.json().catch(() => null);
+        const quota = quotaRefusalFromBody(errorBody);
+        if (quota) {
+          setMessages((prev) => [
+            ...prev,
+            { role: "system", content: quota.message, timestamp: new Date() },
+          ]);
+          return;
+        }
         throw new Error(`API request failed: ${response.status}`);
       }
 

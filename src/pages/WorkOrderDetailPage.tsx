@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
+import { describeQuotaRefusal } from "../services/agentQuota";
 import { WorkOrderPlanningPanel } from "../components/WorkOrderPlanningPanel";
 import { AgentErrorBoundary } from "../components/AgentErrorBoundary";
 import { WorkOrderCloseoutModal } from "../components/WorkOrderCloseoutModal";
@@ -101,7 +102,12 @@ export function WorkOrderDetailPage() {
           },
         },
       );
-      if (fnError) throw new Error(fnError.message);
+      if (fnError) {
+        // Surface a daily-budget refusal as what it is (cap + reset time),
+        // not a generic non-2xx message with wrong retry guidance.
+        const quota = await describeQuotaRefusal(fnError);
+        throw new Error(quota ? quota.message : fnError.message);
+      }
       const text: string = (data as { response?: string })?.response ?? "";
       if (!text) throw new Error("The reliability agent returned no content.");
 
@@ -209,7 +215,12 @@ export function WorkOrderDetailPage() {
           },
         },
       );
-      if (fnError) throw new Error(fnError.message);
+      if (fnError) {
+        // Surface a daily-budget refusal as what it is (cap + reset time),
+        // not a generic non-2xx message with wrong retry guidance.
+        const quota = await describeQuotaRefusal(fnError);
+        throw new Error(quota ? quota.message : fnError.message);
+      }
       const text: string = (data as { response?: string })?.response ?? "";
       if (!text) throw new Error("The reliability agent returned no content.");
 
