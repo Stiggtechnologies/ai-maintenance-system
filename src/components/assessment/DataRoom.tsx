@@ -33,6 +33,7 @@ import {
   type DatasetSlot,
   type Readiness,
   answerClarification,
+  loadCanonicalAssets,
   loadDataRoom,
   openClarification,
   rateDataset,
@@ -178,9 +179,20 @@ function SlotCard({
                   : "no date column recognised"}
               </p>
               <p>
+                {/*
+                  The column is NOT NULL with a default, so a row from a live
+                  query always carries this. Rendering it defensively anyway:
+                  a page that throws on an unexpected shape takes the whole
+                  readiness state down with it, and readiness is the thing the
+                  customer came here for.
+                */}
+                Sensitivity:{" "}
+                {(source.sensitivity ?? "unclassified").replace(/_/g, " ")}
+              </p>
+              <p>
                 {source.raw_retained
-                  ? "Raw export retained"
-                  : "Raw export not retained"}
+                  ? "Raw export retained in the bucket"
+                  : "Raw export purged — stub and fingerprint only"}
                 {source.content_sha256
                   ? ` · sha256 ${source.content_sha256.slice(0, 12)}…`
                   : ""}
@@ -440,16 +452,24 @@ function ClarificationQueue({
 
 function AliasMap({
   aliases,
+  assets,
   canEdit,
   onAdd,
 }: {
   aliases: DataRoomState["aliases"];
+  assets: Array<{ id: string; name: string; tag: string | null }>;
   canEdit: boolean;
-  onAdd: (system: string, alias: string, canonical: string) => void;
+  onAdd: (
+    system: string,
+    alias: string,
+    canonical: string,
+    canonicalAssetId: string,
+  ) => void;
 }) {
   const [system, setSystem] = useState("");
   const [alias, setAlias] = useState("");
   const [canonical, setCanonical] = useState("");
+  const [assetId, setAssetId] = useState("");
 
   return (
     <section className="mt-8" aria-labelledby="alias-heading">
@@ -494,7 +514,7 @@ function AliasMap({
       </div>
 
       {canEdit && (
-        <div className="mt-4 grid gap-2 sm:grid-cols-4">
+        <div className="mt-4 grid gap-2 sm:grid-cols-5">
           <input
             aria-label="Alias source system"
             placeholder="Source system"
@@ -509,19 +529,38 @@ function AliasMap({
             onChange={(event) => setAlias(event.target.value)}
             className="rounded-md border border-white/10 bg-[#081018] px-3 py-2 text-sm text-white"
           />
+          {/*
+            Resolving to the canonical asset is what invariant 1 asks for; the
+            free-text ref is the fallback for an asset the register does not
+            hold yet, not the primary path.
+          */}
+          <select
+            aria-label="Canonical asset"
+            value={assetId}
+            onChange={(event) => setAssetId(event.target.value)}
+            className="rounded-md border border-white/10 bg-[#081018] px-3 py-2 text-sm text-white"
+          >
+            <option value="">Canonical asset…</option>
+            {assets.map((asset) => (
+              <option key={asset.id} value={asset.id}>
+                {asset.tag ? `${asset.tag} — ${asset.name}` : asset.name}
+              </option>
+            ))}
+          </select>
           <input
             aria-label="Canonical asset reference"
-            placeholder="Canonical asset ref"
+            placeholder="Or a ref, if unregistered"
             value={canonical}
             onChange={(event) => setCanonical(event.target.value)}
             className="rounded-md border border-white/10 bg-[#081018] px-3 py-2 text-sm text-white"
           />
           <button
             onClick={() => {
-              onAdd(system, alias, canonical);
+              onAdd(system, alias, canonical, assetId);
               setSystem("");
               setAlias("");
               setCanonical("");
+              setAssetId("");
             }}
             className="rounded-md border border-white/15 px-3 py-2 text-sm font-semibold text-white"
           >
@@ -540,6 +579,9 @@ export function DataRoom({
   canRate = true,
 }: DataRoomProps) {
   const [state, setState] = useState<DataRoomState | null>(null);
+  const [assets, setAssets] = useState<
+    Array<{ id: string; name: string; tag: string | null }>
+  >([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -555,6 +597,16 @@ export function DataRoom({
       try {
         const next = await loadDataRoom(assessmentId);
         if (!cancelled) setState(next);
+        // The canonical asset list is for the alias map only. Failing to load
+        // it must not take the Data Room down with it — the free-text ref
+        // still works, so the degradation is a smaller selector, not an error
+        // page over the readiness state.
+        try {
+          const assetRows = await loadCanonicalAssets();
+          if (!cancelled) setAssets(assetRows);
+        } catch {
+          if (!cancelled) setAssets([]);
+        }
       } catch (caught) {
         if (!cancelled)
           setError(
@@ -723,12 +775,24 @@ export function DataRoom({
               void run(target.id, () => rateDataset(target.id, rating, note))
             }
             onRetire={(source) =>
-              void run(source.id, () => {
+              void run(source.id, async () => {
                 const note = globalThis.prompt?.(
                   "Why is this source being retired? The stub keeps the file name, its fingerprint and this note.",
                 );
                 if (!note) throw new Error("Retirement needs a note.");
-                return retireSource(source.id, note);
+                const result = await retireSource(
+                  source.id,
+                  note,
+                  undefined,
+                  source.object_path,
+                );
+                // Retirement always writes the stub. Whether the raw export
+                // actually left the bucket is a separate fact and is reported
+                // as one, because the card renders "Raw export retained" from
+                // a flag only a real removal clears.
+                return result.rawPurged
+                  ? "Source retired and the raw export purged. The audit stub remains."
+                  : `Source retired and the audit stub written, but the raw export was NOT purged: ${result.purgeError ?? "unknown reason"}`;
               })
             }
           />
@@ -751,10 +815,18 @@ export function DataRoom({
 
       <AliasMap
         aliases={state.aliases}
+        assets={assets}
         canEdit={canSupply}
-        onAdd={(system, alias, canonical) =>
+        onAdd={(system, alias, canonical, canonicalAssetId) =>
           void run("alias", () =>
-            upsertAlias(assessmentId, system, alias, canonical),
+            upsertAlias(
+              assessmentId,
+              system,
+              alias,
+              canonical,
+              undefined,
+              canonicalAssetId || undefined,
+            ),
           )
         }
       />

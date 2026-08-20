@@ -25,13 +25,19 @@ import { DataRoom } from "./DataRoom";
 
 const rpc = vi.fn();
 const from = vi.fn();
+const storageRemove = vi.fn();
 
 vi.mock("../../lib/supabase", () => ({
   supabase: {
     rpc: (...args: unknown[]) => rpc(...args),
     from: (...args: unknown[]) => from(...args),
     auth: { getUser: vi.fn() },
-    storage: { from: vi.fn() },
+    storage: {
+      from: () => ({
+        remove: (...args: unknown[]) => storageRemove(...args),
+        upload: vi.fn(),
+      }),
+    },
   },
 }));
 
@@ -95,6 +101,8 @@ const SOURCE = {
   ],
   missing_required_fields: ["cause_code"],
   content_sha256: "abcdef0123456789",
+  object_path: `${ORG}/${ASSESSMENT}/uuid-Northstar_WorkOrders.csv`,
+  sensitivity: "customer_confidential" as const,
   raw_retained: true,
   profiled_at: "2026-08-11T00:00:00Z",
   deleted_at: null,
@@ -142,7 +150,7 @@ const READINESS = {
 function tableRows(rows: unknown[]) {
   const result = Promise.resolve({ data: rows, error: null });
   const builder: Record<string, unknown> = {};
-  for (const method of ["select", "eq", "in", "order"]) {
+  for (const method of ["select", "eq", "in", "order", "limit"]) {
     builder[method] = () => builder;
   }
   builder.then = result.then.bind(result);
@@ -160,6 +168,11 @@ function mockLoad({
     if (table === "ria_data_sources") return tableRows(sources);
     if (table === "ria_clarifications") return tableRows(clarifications);
     if (table === "ria_asset_aliases") return tableRows(aliases);
+    if (table === "assets")
+      return tableRows([
+        { id: "asset-1", name: "Haul Truck 101", tag: "HT-101" },
+        { id: "asset-2", name: "Grader 07", tag: "GR-07" },
+      ]);
     return tableRows([]);
   });
 }
@@ -412,5 +425,133 @@ describe("the screen cannot colour a dataset by itself", () => {
         ),
       ).toBe(true),
     );
+  });
+
+  // -------------------------------------------------------------------------
+  // Retention: the card renders a claim, so the claim has to be true.
+  // -------------------------------------------------------------------------
+
+  it("states each source's sensitivity, because handling depends on it", async () => {
+    renderRoom();
+    await waitFor(() =>
+      expect(screen.getByTestId("slot-work_orders")).toBeTruthy(),
+    );
+    expect(screen.getByTestId("slot-work_orders").textContent).toContain(
+      "customer confidential",
+    );
+  });
+
+  it("retirement purges the raw export and says so when it worked", async () => {
+    // THE DEFECT. retire_ria_data_source() keeps the metadata row forever, and
+    // the first storage DELETE policy refused any object still referenced by
+    // one — so the raw customer export was permanently undeletable through the
+    // application, while the card said "Raw export retained" from a flag
+    // nothing could ever clear. Retirement now: stub first, then remove the
+    // object, then flip the flag — in that order, and only on success.
+    storageRemove.mockResolvedValue({ data: [{}], error: null });
+    vi.stubGlobal("prompt", () => "Contracted retention period elapsed.");
+    renderRoom();
+    await waitFor(() =>
+      expect(screen.getByTestId("slot-work_orders")).toBeTruthy(),
+    );
+    fireEvent.click(screen.getByLabelText(/Retire/i));
+
+    await waitFor(() =>
+      expect(
+        rpc.mock.calls.some(([name]) => name === "retire_ria_data_source"),
+      ).toBe(true),
+    );
+    await waitFor(() =>
+      expect(storageRemove).toHaveBeenCalledWith([SOURCE.object_path]),
+    );
+    await waitFor(() =>
+      expect(
+        rpc.mock.calls.some(
+          ([name]) => name === "confirm_ria_source_raw_purged",
+        ),
+      ).toBe(true),
+    );
+    await waitFor(() =>
+      expect(screen.getByRole("status").textContent).toContain(
+        "raw export purged",
+      ),
+    );
+    vi.unstubAllGlobals();
+  });
+
+  it("...and says the opposite, loudly, when the purge failed", async () => {
+    // The stub is written either way. Whether the file left the bucket is a
+    // separate fact and is reported as one — a retention claim the software
+    // cannot back up is worse than no claim.
+    storageRemove.mockResolvedValue({
+      data: null,
+      error: { message: "storage: object not owned by caller" },
+    });
+    vi.stubGlobal("prompt", () => "Contracted retention period elapsed.");
+    renderRoom();
+    await waitFor(() =>
+      expect(screen.getByTestId("slot-work_orders")).toBeTruthy(),
+    );
+    fireEvent.click(screen.getByLabelText(/Retire/i));
+
+    await waitFor(() =>
+      expect(screen.getByRole("status").textContent).toContain(
+        "was NOT purged",
+      ),
+    );
+    // The flag is never flipped on a failed removal.
+    expect(
+      rpc.mock.calls.some(([name]) => name === "confirm_ria_source_raw_purged"),
+    ).toBe(false);
+    vi.unstubAllGlobals();
+  });
+
+  // -------------------------------------------------------------------------
+  // The alias map could not reach a canonical asset at all.
+  // -------------------------------------------------------------------------
+
+  it("resolves an alias to the CANONICAL asset, not only to free text", async () => {
+    // `p_canonical_asset_id: null` was hardcoded, so canonical_asset_id was
+    // permanently NULL, `resolved` could only ever be earned by a string, and
+    // the RPC's org-checked asset lookup was unreachable. Invariant 1 is one
+    // canonical asset hierarchy; an alias map that can only point at a string
+    // is a second one.
+    renderRoom();
+    await waitFor(() =>
+      expect(screen.getByLabelText("Canonical asset")).toBeTruthy(),
+    );
+    fireEvent.change(screen.getByLabelText("Alias source system"), {
+      target: { value: "Finning" },
+    });
+    fireEvent.change(screen.getByLabelText("Source alias"), {
+      target: { value: "CAT-793-0041" },
+    });
+    fireEvent.change(screen.getByLabelText("Canonical asset"), {
+      target: { value: "asset-1" },
+    });
+    fireEvent.click(screen.getByText("Map alias"));
+
+    await waitFor(() =>
+      expect(
+        rpc.mock.calls.some(
+          ([name, args]) =>
+            name === "upsert_ria_asset_alias" &&
+            (args as { p_canonical_asset_id: string | null })
+              .p_canonical_asset_id === "asset-1",
+        ),
+      ).toBe(true),
+    );
+  });
+
+  it("offers the tenant's own assets, and only those RLS returned", async () => {
+    renderRoom();
+    await waitFor(() =>
+      expect(screen.getByLabelText("Canonical asset")).toBeTruthy(),
+    );
+    const options = [
+      ...screen.getByLabelText("Canonical asset").querySelectorAll("option"),
+    ].map((o) => o.textContent);
+    expect(options).toContain("HT-101 — Haul Truck 101");
+    expect(options).toContain("GR-07 — Grader 07");
   });
 });

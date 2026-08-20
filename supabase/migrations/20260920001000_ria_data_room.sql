@@ -95,6 +95,16 @@ end $$;
 
 -- The pack's §2 minimum-viable-data table, as data. Requirement and minimum
 -- fields are quoted from it; nothing here is invented.
+--
+-- NOT CALLABLE BY A CLIENT. It is SECURITY DEFINER, it takes an assessment id
+-- from its caller and it writes rows for whatever tenant owns that assessment.
+-- Every other RPC in these two migrations carries an explicit revoke; this one
+-- did not, so the default PUBLIC grant stood and `anon` — denied even SELECT on
+-- ria_assessments — could write seven slot rows into any tenant whose
+-- assessment uuid it held. The blast radius was small (fixed content, `on
+-- conflict do nothing`), but "you also need a uuid" is not an access control.
+-- It is invoked by the trigger below and by the backfill, both of which run as
+-- the function owner.
 create or replace function public.seed_ria_dataset_slots(p_assessment_id uuid)
 returns void
 language plpgsql
@@ -152,6 +162,9 @@ drop trigger if exists trg_ria_seed_dataset_slots on public.ria_assessments;
 create trigger trg_ria_seed_dataset_slots
   after insert on public.ria_assessments
   for each row execute function public.seed_ria_dataset_slots_on_assessment();
+
+revoke all on function public.seed_ria_dataset_slots(uuid) from public, anon, authenticated;
+revoke all on function public.seed_ria_dataset_slots_on_assessment() from public, anon, authenticated;
 
 -- Assessments that already exist get their slots too.
 do $$
@@ -313,6 +326,23 @@ end $$;
 -- moves it received -> profiled. Neither ever sets green/amber/red, and neither
 -- ever moves a slot backwards from a colour an engineer set — re-uploading a
 -- file does not silently un-rate the dataset.
+--
+-- THE SLOT IS DERIVED, NEVER ACCEPTED. This function is SECURITY DEFINER, so
+-- its UPDATE runs with RLS off. The first version took new.slot_id verbatim
+-- whenever the client supplied one and only resolved the NULL case safely —
+-- and ria_data_sources_org_insert validates organization_id and assessment_id
+-- but never looks at slot_id. Table-level grants to `authenticated` accept any
+-- column over PostgREST, so an authenticated member of org B could insert a
+-- source that was entirely legal for org B carrying org A's slot uuid, and
+-- march org A's asset_register from 'missing' to 'received'. That is the
+-- surface get_ria_readiness() reports at kickoff: the customer would have been
+-- shown "asset register received" with zero sources behind it. The intra-org
+-- form needed no leaked uuid at all — any assessment's slot would do.
+--
+-- So the slot is resolved from (assessment_id, category), which RLS has
+-- already vouched for, and a supplied slot_id that disagrees is refused rather
+-- than ignored: silently correcting a hostile input teaches nothing and hides
+-- the attempt.
 create or replace function public.advance_ria_slot_on_source()
 returns trigger
 language plpgsql
@@ -320,14 +350,25 @@ security definer
 set search_path = public
 as $$
 declare
-  v_slot uuid := new.slot_id;
+  v_slot uuid;
 begin
-  if v_slot is null then
-    select id into v_slot from ria_dataset_slots
-     where assessment_id = new.assessment_id and dataset_key = new.category;
-    if v_slot is null then return new; end if;
-    new.slot_id := v_slot;
+  select id into v_slot from ria_dataset_slots
+   where assessment_id = new.assessment_id
+     and organization_id = new.organization_id
+     and dataset_key = new.category;
+
+  if new.slot_id is not null and new.slot_id is distinct from v_slot then
+    raise exception
+      'Dataset slot % does not belong to assessment % in this organization',
+      new.slot_id, new.assessment_id using errcode = 'check_violation';
   end if;
+
+  if v_slot is null then
+    new.slot_id := null;
+    return new;
+  end if;
+
+  new.slot_id := v_slot;
 
   update ria_dataset_slots s
      set readiness = case
@@ -337,7 +378,9 @@ begin
            else s.readiness
          end,
          updated_at = now()
-   where s.id = v_slot;
+   where s.id = v_slot
+     and s.assessment_id = new.assessment_id
+     and s.organization_id = new.organization_id;
 
   return new;
 end
@@ -347,6 +390,8 @@ drop trigger if exists trg_ria_advance_slot on public.ria_data_sources;
 create trigger trg_ria_advance_slot
   before insert or update on public.ria_data_sources
   for each row execute function public.advance_ria_slot_on_source();
+
+revoke all on function public.advance_ria_slot_on_source() from public, anon, authenticated;
 
 -- ---------------------------------------------------------------------------
 -- 6. THE GOVERNED WRITES.
@@ -721,6 +766,65 @@ begin
     'slots', v_slots);
 end
 $$;
+
+-- ---------------------------------------------------------------------------
+-- 6b. THE CONTRACTED PURGE OF A RAW EXPORT.
+-- ---------------------------------------------------------------------------
+-- Lives here rather than in 20260920000000 because raw_retained and
+-- content_sha256 are this file's columns, and a function should not be
+-- defined a migration ahead of the state it writes.
+-- The raw export is gone; say so, and only once it is true. Called after the
+-- storage removal succeeds, never before — a flag set in hope is how a
+-- retention claim becomes a false one.
+create or replace function public.confirm_ria_source_raw_purged(
+  p_source_id uuid,
+  p_note text default null
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_org uuid := app_current_org();
+  v_source ria_data_sources%rowtype;
+begin
+  if v_org is null then
+    return jsonb_build_object('error', 'no organization in session');
+  end if;
+  if not app_can_supply_ria_sources() then
+    return jsonb_build_object('error', 'confirming a purge requires a data-supplying role');
+  end if;
+
+  select * into v_source from ria_data_sources
+   where id = p_source_id and organization_id = v_org;
+  if not found then
+    return jsonb_build_object('error', 'source not found in current organization');
+  end if;
+  if v_source.deleted_at is null then
+    return jsonb_build_object('error', 'source is not retired - retire it before purging the raw export');
+  end if;
+
+  update ria_data_sources set raw_retained = false where id = p_source_id;
+
+  insert into audit_events (organization_id, entity_type, event_data, actor)
+  values (v_org, 'ria_data_source',
+    jsonb_build_object(
+      'event', 'raw_export_purged',
+      'source_id', p_source_id,
+      'assessment_id', v_source.assessment_id,
+      'file_name', v_source.file_name,
+      'object_path', v_source.object_path,
+      'content_sha256', v_source.content_sha256,
+      'note', p_note),
+    coalesce(auth.uid()::text, 'unknown'));
+
+  return jsonb_build_object('source_id', p_source_id, 'raw_retained', false);
+end
+$$;
+
+revoke all on function public.confirm_ria_source_raw_purged(uuid, text) from public, anon;
+grant execute on function public.confirm_ria_source_raw_purged(uuid, text) to authenticated;
 
 revoke all on function public.get_ria_readiness(uuid) from public, anon;
 grant execute on function public.get_ria_readiness(uuid) to authenticated;

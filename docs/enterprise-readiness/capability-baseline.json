@@ -1559,6 +1559,46 @@
     "status": "❌",
     "evidence": false
   },
+  "U25.01": {
+    "status": "🟡",
+    "evidence": true
+  },
+  "U25.02": {
+    "status": "✅",
+    "evidence": true
+  },
+  "U25.03": {
+    "status": "✅",
+    "evidence": true
+  },
+  "U25.04": {
+    "status": "✅",
+    "evidence": true
+  },
+  "U25.05": {
+    "status": "✅",
+    "evidence": true
+  },
+  "U25.06": {
+    "status": "✅",
+    "evidence": true
+  },
+  "U25.07": {
+    "status": "✅",
+    "evidence": true
+  },
+  "U25.08": {
+    "status": "✅",
+    "evidence": true
+  },
+  "U25.09": {
+    "status": "🟡",
+    "evidence": true
+  },
+  "U25.10": {
+    "status": "✅",
+    "evidence": true
+  },
   "U23.01": {
     "status": "🟡",
     "evidence": false

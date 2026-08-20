@@ -17,15 +17,160 @@
 --     org-scoped table in this tenant through PostgREST, exactly as any other
 --     authenticated member can.
 --
--- Fine-grained per-record authorization is Phase 2 in the specification (§6),
--- and pretending otherwise here would be the more dangerous outcome: an
+-- Fine-grained per-record READ authorization is Phase 2 in the specification
+-- (§6), and pretending otherwise here would be the more dangerous outcome: an
 -- operator who believes the sponsor is contained will provision one against a
--- live production org. Until the entitlement layer exists, a sponsor account
--- belongs only in an org whose whole contents are the engagement.
+-- live production org. Writes are closed below and are not the open question;
+-- reads are. Until the entitlement layer exists, a sponsor account belongs
+-- only in an org whose whole contents are the engagement.
 --
 -- Role writes are service-role-only (20260910090000), so provisioning a
 -- sponsor is a migration or a service act, never a client flow.
+--
+-- WHAT THIS MIGRATION NOW ALSO DOES, AND WHY IT HAD TO. The paragraph above
+-- was written as a disclosure about READING, and it under-stated the problem
+-- by a wide margin. This repository's write model is a deny-list: the org_rw
+-- policies from 00000000000001 are `for all to authenticated` with an
+-- organization predicate and nothing else, and the only role-aware write gate
+-- (20260912123000) names 'board' and 'supervisor' explicitly. A role invented
+-- after that gate is written is, by construction, permitted everything. So the
+-- first version of this migration provisioned a CUSTOMER-SIDE account that
+-- could UPDATE recommendations.status to 'approved', INSERT an approved
+-- recommendation, and DELETE one — across assets, work_orders, approvals,
+-- decisions, sensors and the rest of the org-scoped set. The approval-authority
+-- trigger (00000000000022) does not catch it either: authority_limits holds no
+-- row for the role and the trigger reads "no delegation recorded" as "no
+-- ceiling".
+--
+-- An operator reading "a sponsor belongs only in an org whose whole contents
+-- are the engagement" would take that as advice about confidentiality. It was
+-- also, silently, the only thing standing between a customer login and the
+-- approve button. The deny-list is therefore closed below for external roles
+-- BEFORE the account is created, and the containment note is now about reads
+-- only, which is what it was ever able to promise.
 -- ============================================================================
+
+-- ---------------------------------------------------------------------------
+-- 0. EXTERNAL ROLES WRITE NOTHING THEY WERE NOT EXPLICITLY GIVEN.
+-- ---------------------------------------------------------------------------
+-- An external role is a customer identity holding a session inside an
+-- operating tenant. Today there is exactly one; the predicate is a function so
+-- the next one is a one-line change rather than a re-audit of every table.
+create or replace function public.app_role_is_external(p_role text)
+returns boolean
+language sql
+immutable
+set search_path = public
+as $$
+  select lower(coalesce(p_role, '')) in ('assessment_sponsor');
+$$;
+
+create or replace function public.app_current_role_is_external()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select public.app_role_is_external(public.app_current_role());
+$$;
+
+revoke all on function public.app_role_is_external(text) from public, anon;
+revoke all on function public.app_current_role_is_external() from public, anon;
+grant execute on function public.app_role_is_external(text) to authenticated;
+grant execute on function public.app_current_role_is_external() to authenticated;
+
+-- THE TABLE SET IS WRITTEN OUT, NOT DISCOVERED. The first version of this
+-- read pg_policy at migration time and gated whatever it found. That is worse
+-- than it sounds: the set of tables a customer identity cannot write becomes
+-- invisible in the diff, unreviewable, and dependent on what else happened to
+-- have run — and this repository has a guard (tenancyIsolation.test.ts, "every
+-- execute in every do-block was understood") whose entire purpose is to refuse
+-- policy statements a reader cannot resolve statically. It refused this one,
+-- correctly. So the list is literal, in the same `foreach ... in array` shape
+-- 00000000000001 uses, and the block below it raises if the list has gone
+-- stale — static visibility with no silent gap.
+--
+-- ria_data_sources is exempt on INSERT because supplying exports is the whole
+-- of what the sponsor is for, and that policy already carries its own role
+-- check (app_can_supply_ria_sources). Everything else the sponsor legitimately
+-- does — answering a clarification, editing the alias map — goes through a
+-- SECURITY DEFINER RPC with its own role gate, so none of it depends on a
+-- table-level write.
+--
+-- The UPDATE gates put the predicate in WITH CHECK with USING left true, for
+-- 20260912123000's reason: a restrictive USING denies by filtering to zero
+-- rows and no error, and a client that reads "0 rows updated" as success turns
+-- a refusal into a green tick. WITH CHECK raises. DELETE has no WITH CHECK in
+-- Postgres, so it necessarily denies by filtering; the test for it counts rows
+-- rather than expecting an exception.
+do $$
+declare
+  t text;
+  missing text[];
+  write_scoped text[] := array[
+    'agent_runs','ai_agents','approval_workflows','approvals','artifacts',
+    'asset_failure_mode_libraries','asset_maintenance_strategy_recommendations',
+    'asset_onboarding_evidence_items','asset_onboarding_exports',
+    'asset_onboarding_items','asset_onboarding_runs','asset_onboarding_sessions',
+    'asset_onboarding_state','asset_onboarding_steps','asset_profiles_reliability',
+    'asset_twin_instances','assets','autonomous_decisions','ca_verifications',
+    'components','connector_runs','cowork_messages','cowork_workspaces','decisions',
+    'deployment_instances','evidence_items','integrations','learning_events',
+    'notifications','raci_assignments','recommendation_approval_workflows',
+    'recommendations','roles','scenarios','sensors','sites','system_alerts',
+    'user_kpi_dashboard','user_preferences','user_profiles','user_role_assignments',
+    'value_metrics','work_order_status_history','work_order_tasks','work_orders'
+  ];
+begin
+  foreach t in array write_scoped loop
+    if to_regclass('public.' || t) is null then
+      continue;
+    end if;
+    execute format('drop policy if exists %I on public.%I', t || '_ext_no_ins', t);
+    execute format('drop policy if exists %I on public.%I', t || '_ext_no_upd', t);
+    execute format('drop policy if exists %I on public.%I', t || '_ext_no_del', t);
+    execute format('create policy %I on public.%I as restrictive for insert to authenticated with check (not public.app_current_role_is_external())', t || '_ext_no_ins', t);
+    execute format('create policy %I on public.%I as restrictive for update to authenticated using (true) with check (not public.app_current_role_is_external())', t || '_ext_no_upd', t);
+    execute format('create policy %I on public.%I as restrictive for delete to authenticated using (not public.app_current_role_is_external())', t || '_ext_no_del', t);
+  end loop;
+
+  -- Staleness alarm. If a later migration grants `authenticated` a write on a
+  -- table nobody added here, this migration says so at deploy time instead of
+  -- the omission being discovered by a customer identity writing to it.
+  -- ria_data_sources is the one deliberate exemption.
+  select array_agg(distinct c.relname order by c.relname) into missing
+    from pg_policy p
+    join pg_class c on c.oid = p.polrelid
+    join pg_namespace n on n.oid = c.relnamespace
+   where n.nspname = 'public'
+     and p.polpermissive
+     and p.polcmd in ('*', 'a', 'w', 'd')
+     and c.relname <> 'ria_data_sources'
+     and not (c.relname = any(write_scoped))
+     and exists (
+       select 1 from unnest(p.polroles) rid
+        where rid = 0 or pg_get_userbyid(rid) in ('authenticated', 'anon')
+     );
+
+  if missing is not null then
+    raise exception
+      'External-role write gate is stale: % grant a write to authenticated and are not in write_scoped. Add them (or exempt them deliberately) rather than leaving a customer identity able to write there.',
+      missing;
+  end if;
+end $$;
+
+-- ria_data_sources: INSERT is the sponsor's job, so only UPDATE and DELETE are
+-- closed. Written out rather than swept, for the same visibility reason.
+drop policy if exists ria_data_sources_ext_no_upd on public.ria_data_sources;
+create policy ria_data_sources_ext_no_upd on public.ria_data_sources
+  as restrictive for update to authenticated
+  using (true) with check (not public.app_current_role_is_external());
+
+drop policy if exists ria_data_sources_ext_no_del on public.ria_data_sources;
+create policy ria_data_sources_ext_no_del on public.ria_data_sources
+  as restrictive for delete to authenticated
+  using (not public.app_current_role_is_external());
 
 do $$
 declare

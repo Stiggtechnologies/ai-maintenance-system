@@ -65,7 +65,19 @@ export interface DataRoomSource {
   coverage_to: string | null;
   dq_exceptions: Array<{ rows?: number; reason?: string }>;
   missing_required_fields: string[];
+  object_path: string;
   content_sha256: string | null;
+  /**
+   * §3's Data Source sensitivity. Defaults to customer_confidential in the
+   * schema rather than to nothing: for a workspace holding a customer's raw
+   * CMMS exports, "unclassified" is not a safe default, it is an absent
+   * decision.
+   */
+  sensitivity:
+    | "customer_confidential"
+    | "commercially_sensitive"
+    | "personal_data"
+    | "public";
   raw_retained: boolean;
   profiled_at: string | null;
   deleted_at: string | null;
@@ -411,16 +423,53 @@ export async function rateDataset(
   });
 }
 
+/**
+ * Retire a source, then actually remove the raw export.
+ *
+ * THE ORDER IS THE POINT, AND SO IS THE HONESTY OF THE RESULT. The stub is
+ * written first, so a failure at any later step still leaves an accountable
+ * record. Storage removal only becomes permitted once `deleted_at` is set —
+ * that is what `ria_source_files_delete` keys on. `raw_retained` is flipped by
+ * confirm_ria_source_raw_purged() ONLY after the object is gone, never in
+ * anticipation: a retention claim set in hope is a false one, and the Data
+ * Room renders this flag to the customer verbatim.
+ *
+ * A failed removal is reported, not swallowed. The source is retired either
+ * way; what the caller learns is whether the file is still in the bucket.
+ */
 export async function retireSource(
   sourceId: string,
   note: string,
   retentionBasis?: string,
-): Promise<void> {
+  objectPath?: string,
+): Promise<{ retired: true; rawPurged: boolean; purgeError?: string }> {
   await callRpc("retire_ria_data_source", {
     p_source_id: sourceId,
     p_note: note,
     p_retention_basis: retentionBasis ?? null,
   });
+
+  if (!objectPath) {
+    return {
+      retired: true,
+      rawPurged: false,
+      purgeError:
+        "The audit stub is written. The raw export was not purged because its storage path was not supplied.",
+    };
+  }
+
+  const { error: removeError } = await supabase.storage
+    .from("ria-source-files")
+    .remove([objectPath]);
+  if (removeError) {
+    return { retired: true, rawPurged: false, purgeError: removeError.message };
+  }
+
+  await callRpc("confirm_ria_source_raw_purged", {
+    p_source_id: sourceId,
+    p_note: "Storage object removed by the client after retirement.",
+  });
+  return { retired: true, rawPurged: true };
 }
 
 export async function openClarification(
@@ -448,21 +497,52 @@ export async function answerClarification(
   });
 }
 
+/**
+ * An alias resolves to the CANONICAL asset when one is named.
+ *
+ * This used to hardcode `p_canonical_asset_id: null`, which made
+ * ria_asset_aliases.canonical_asset_id permanently NULL: `resolved` could only
+ * ever be earned by free text, and the RPC's org-checked asset lookup was
+ * unreachable from the application. Invariant 1 is one canonical asset
+ * hierarchy — an alias map that can only point at a string is a second one.
+ */
 export async function upsertAlias(
   assessmentId: string,
   sourceSystem: string,
   sourceAlias: string,
   canonicalAssetRef?: string,
   notes?: string,
+  canonicalAssetId?: string,
 ): Promise<void> {
   await callRpc("upsert_ria_asset_alias", {
     p_assessment_id: assessmentId,
     p_source_system: sourceSystem,
     p_source_alias: sourceAlias,
-    p_canonical_asset_id: null,
+    p_canonical_asset_id: canonicalAssetId ?? null,
     p_canonical_asset_ref: canonicalAssetRef ?? null,
     p_notes: notes ?? null,
   });
+}
+
+/**
+ * Assets in the caller's organization, for resolving an alias to one of them.
+ * RLS scopes it; this function does not filter by org and must not, because a
+ * browser-side org filter is a suggestion.
+ */
+export async function loadCanonicalAssets(): Promise<
+  Array<{ id: string; name: string; tag: string | null }>
+> {
+  const { data, error } = await supabase
+    .from("assets")
+    .select("id,name,tag")
+    .order("name")
+    .limit(500);
+  if (error) throw new Error(error.message);
+  return (data ?? []) as Array<{
+    id: string;
+    name: string;
+    tag: string | null;
+  }>;
 }
 
 /**
@@ -507,10 +587,21 @@ export async function uploadSource(
   // a refused write becomes a green tick (the failure ApprovalQueue.test.tsx
   // exists to prevent), so the absent row is the error here.
   if (insertError || !inserted) {
-    await supabase.storage.from("ria-source-files").remove([path]);
-    throw new Error(
+    // The cleanup can itself be refused — `ria_source_files_delete` matches the
+    // uploader on `owner`/`owner_id`, and storage-api does not always populate
+    // the deprecated `owner`. A silently failed remove leaves raw customer data
+    // in the bucket with no metadata row to account for it, so it is reported
+    // alongside the refusal rather than assumed.
+    const { error: removeError } = await supabase.storage
+      .from("ria-source-files")
+      .remove([path]);
+    const base =
       insertError?.message ??
-        "The assessment source could not be recorded — the upload was refused. Your role may not permit supplying assessment data.",
+      "The assessment source could not be recorded — the upload was refused. Your role may not permit supplying assessment data.";
+    throw new Error(
+      removeError
+        ? `${base} The uploaded file could NOT be removed from storage (${removeError.message}) — it is at ${path} and needs clearing.`
+        : base,
     );
   }
 

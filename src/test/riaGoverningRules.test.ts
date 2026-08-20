@@ -57,19 +57,41 @@ function triggerStatement(name: string, source = executable): string {
 }
 
 /**
- * True when a trigger body only acts on a TRANSITION into a state: it compares
- * `new` against the target AND compares `old` against `new`. A body that tests
- * only `new.x = 'published'` re-runs the whole gate on every unrelated update
- * of an already-published row, which turns a governance check into a write
- * lock on published findings.
+ * True when a trigger body guards the STATE rather than the transition into it:
+ * it early-returns on rows that are not in the gated state, and it does NOT
+ * early-return merely because the gated column did not change.
+ *
+ * THIS PREDICATE USED TO ASSERT THE OPPOSITE, AND THAT WAS THE BUG. The first
+ * version of this file required `old.x is not distinct from new.x -> return`,
+ * on the reasoning that re-running the gate on an already-published row turns
+ * governance into a write lock. Two holes came with it:
+ *
+ *   * on INSERT there is no OLD, so a row written straight at 'published' —
+ *     no reviewer, no evidence, critical severity — never reached the gate;
+ *   * a published row was then freely editable, so severity could be raised
+ *     from 'moderate' to 'critical' and the authority requirement was never
+ *     re-evaluated.
+ *
+ * A gate that inspects a transition is not an invariant, it is a speed bump on
+ * one of three roads into the state. The property asserted now is the stronger
+ * one: while a finding is published it must satisfy the gate, whoever wrote it
+ * and whichever column they touched. Drafting is still unconstrained because
+ * the early return is on the state, not on the change.
  */
-function firesOnTransitionOnly(body: string): boolean {
+function guardsTheStateNotTheTransition(body: string): boolean {
   const normalised = body.toLowerCase().replace(/\s+/g, " ");
-  return (
-    /new\.\w+\s+is\s+distinct\s+from|new\.\w+\s+not\s+in|new\.status\s+not\s+in/.test(
+  const earlyReturnsOnState =
+    /if\s+new\.\w+\s+(is\s+distinct\s+from|not\s+in|<>)[^;]*?then\s+return\s+new;/.test(
       normalised,
-    ) && /old\.\w+\s+is\s+not\s+distinct\s+from\s+new\.\w+/.test(normalised)
-  );
+    );
+  const excusesAnUnchangedColumn =
+    /old\.\w+\s+is\s+not\s+distinct\s+from\s+new\.\w+/.test(normalised);
+  return earlyReturnsOnState && !excusesAnUnchangedColumn;
+}
+
+/** True when the trigger statement fires on INSERT as well as UPDATE. */
+function firesOnInsertToo(statement: string): boolean {
+  return /before\s+insert\s+or\s+update/.test(statement);
 }
 
 describe("the migration is what it claims to be", () => {
@@ -93,10 +115,21 @@ describe("rule 1: publication requires evidence and a named reviewer", () => {
     // The whole point. #231 put the reviewer inside publish_ria_finding(); a
     // second RPC, a connector or a service-role script bypassed it entirely.
     const statement = triggerStatement("trg_ria_publication_gate");
-    expect(statement).toContain("before update of review_state");
     expect(statement).toContain("on public.ria_findings");
     expect(statement).toContain("for each row");
     expect(statement).toContain("public.enforce_ria_publication_gate");
+  });
+
+  it("fires on INSERT too — the row written straight at 'published'", () => {
+    // `before update of review_state` was the shipped shape, and RLS grants
+    // `authenticated` no INSERT on ria_findings, so no browser could exploit
+    // it. Every service-role script, seed and future RPC could: they insert.
+    // The migration header's claim is precisely that a connector cannot reach
+    // 'published' without satisfying this gate, and on the INSERT path it was
+    // not true.
+    expect(firesOnInsertToo(triggerStatement("trg_ria_publication_gate"))).toBe(
+      true,
+    );
   });
 
   it("refuses a publication with no reviewer", () => {
@@ -114,17 +147,34 @@ describe("rule 1: publication requires evidence and a named reviewer", () => {
     expect(normalised).toMatch(/v_evidence\s*=\s*0/);
   });
 
-  it("fires only on the transition into published", () => {
-    expect(firesOnTransitionOnly(body)).toBe(true);
+  it("holds for as long as the finding is published, not just as it becomes so", () => {
+    expect(guardsTheStateNotTheTransition(body)).toBe(true);
   });
 
-  it("mutation-sanity — the transition predicate rejects an always-on gate", () => {
-    const shipped =
+  it("re-evaluates a severity escalation on an already-published finding", () => {
+    // moderate -> critical on a live published row must re-ask for a governing
+    // decision. Under the transition-only trigger it never did, and the finding
+    // the customer reads as CRITICAL had no named authority behind it.
+    const statement = triggerStatement("trg_ria_publication_gate");
+    expect(statement).not.toMatch(/update\s+of\s+review_state/);
+    expect(body.toLowerCase()).toMatch(/new\.severity\s+in\s*\(/);
+  });
+
+  it("mutation-sanity — the predicate rejects the transition-only gate", () => {
+    const stateGuard =
+      "if new.review_state is distinct from 'published' then return new; end if;";
+    const transitionOnly =
       "if new.review_state is distinct from 'published' or old.review_state is not distinct from new.review_state then return new; end if;";
-    const weakened =
-      "if new.review_state <> 'published' then return new; end if;";
-    expect(firesOnTransitionOnly(shipped)).toBe(true);
-    expect(firesOnTransitionOnly(weakened)).toBe(false);
+    const noGuardAtAll = "select 1;";
+    expect(guardsTheStateNotTheTransition(stateGuard)).toBe(true);
+    expect(guardsTheStateNotTheTransition(transitionOnly)).toBe(false);
+    expect(guardsTheStateNotTheTransition(noGuardAtAll)).toBe(false);
+    expect(firesOnInsertToo("create trigger t before update of x on y")).toBe(
+      false,
+    );
+    expect(
+      firesOnInsertToo("create trigger t before insert or update on y"),
+    ).toBe(true);
   });
 
   it("raises with a check_violation errcode, as the gatekeeper does", () => {
@@ -135,8 +185,34 @@ describe("rule 1: publication requires evidence and a named reviewer", () => {
     // Two stores of the same fact drift, and the older one wins arguments it
     // should not be in (invariant 8).
     expect(lower).toContain(
-      "alter table public.ria_findings drop column if exists evidence_refs",
+      "alter table public.ria_findings drop column evidence_refs",
     );
+  });
+
+  it("the backfill that READS evidence_refs is guarded, so a replay cannot abort", () => {
+    // This was the only non-idempotent migration in a chain of 143, and it
+    // failed FAIL-OPEN: 20260918100000 re-creates ria_source_files_delete,
+    // ria_source_files_insert and ria_data_sources_org_insert in their
+    // permissive form and only THIS file re-hardens them, so an aborted re-run
+    // reverted all three. `supabase db push` applies each file once, and CI
+    // starts from a fresh database — so neither path would ever have caught
+    // it. The guard is the `drop column` being unreachable unless the column
+    // is there to read.
+    const normalised = lower.replace(/\s+/g, " ");
+    const guard = normalised.indexOf(
+      "information_schema.columns where table_schema = 'public' and table_name = 'ria_findings' and column_name = 'evidence_refs'",
+    );
+    const read = normalised.indexOf("unnest(f.evidence_refs)");
+    const drop = normalised.indexOf(
+      "alter table public.ria_findings drop column evidence_refs",
+    );
+    expect(
+      guard,
+      "no information_schema guard around the backfill",
+    ).toBeGreaterThan(-1);
+    expect(read, "the backfill read is gone entirely").toBeGreaterThan(-1);
+    expect(guard).toBeLessThan(read);
+    expect(read).toBeLessThan(drop);
   });
 
   it("existing publications that cannot satisfy the gate are walked back", () => {
@@ -233,8 +309,8 @@ describe("rule 3: severity reaches authority", () => {
 
   it("an action from a high finding cannot be worked without an approval", () => {
     const statement = triggerStatement("trg_ria_action_authority");
-    expect(statement).toContain("before update of status");
     expect(statement).toContain("on public.ria_actions");
+    expect(firesOnInsertToo(statement)).toBe(true);
 
     const body = functionBody("enforce_ria_action_authority")
       .toLowerCase()
@@ -243,8 +319,39 @@ describe("rule 3: severity reaches authority", () => {
     expect(body).toMatch(/v_severity in \('critical','high'\)/);
     expect(body).toMatch(/new\.approval_state <> 'approved'/);
     expect(
-      firesOnTransitionOnly(functionBody("enforce_ria_action_authority")),
+      guardsTheStateNotTheTransition(
+        functionBody("enforce_ria_action_authority"),
+      ),
     ).toBe(true);
+  });
+
+  it("the authority requirement does not depend on the finding link existing", () => {
+    // The unlinked escape. The shipped gate read severity through
+    // new.finding_id and no-opped when that was NULL, so an action arising
+    // from a CRITICAL finding escaped the whole rule by simply not being
+    // linked to it. The authority/boundary check now runs BEFORE the severity
+    // lookup and does not reference finding_id at all.
+    const body = functionBody("enforce_ria_action_authority")
+      .toLowerCase()
+      .replace(/\s+/g, " ");
+    const authorityCheck = body.indexOf("btrim(coalesce(new.authority_role");
+    const severityLookup = body.indexOf("select severity into v_severity");
+    expect(authorityCheck).toBeGreaterThan(-1);
+    expect(severityLookup).toBeGreaterThan(-1);
+    expect(
+      authorityCheck,
+      "the authority check is gated behind the severity lookup, so an unlinked action escapes it",
+    ).toBeLessThan(severityLookup);
+  });
+
+  it("the finding link cannot be cut to escape the gate retroactively", () => {
+    const statement = triggerStatement("trg_ria_action_no_relink");
+    expect(statement).toContain("before update of finding_id");
+    expect(statement).toContain("on public.ria_actions");
+    const body = functionBody("refuse_ria_action_relink").toLowerCase();
+    expect(body).toMatch(/old\.status in \('in_progress','complete'\)/);
+    expect(body).toMatch(/new\.finding_id is distinct from old\.finding_id/);
+    expect(body).toContain("raise exception");
   });
 
   it("an approval carries the identity that gave it", () => {
@@ -303,7 +410,7 @@ describe("rule 4: the audit stub always survives", () => {
     );
   });
 
-  it("the raw file cannot be deleted once a source row accounts for it", () => {
+  it("the raw file of a LIVE source cannot be deleted", () => {
     // #231's storage policy let any authenticated member of the org delete any
     // object in the bucket, leaving a stub that pointed at nothing. Orphans
     // (upload succeeded, metadata insert failed) stay removable by their own
@@ -311,9 +418,37 @@ describe("rule 4: the audit stub always survives", () => {
     const start = lower.indexOf("create policy ria_source_files_delete");
     expect(start).toBeGreaterThan(-1);
     const statement = lower.slice(start, lower.indexOf(";", start));
-    expect(statement).toContain("owner = auth.uid()");
     expect(statement).toMatch(
       /not exists\s*\(\s*select 1 from public\.ria_data_sources d where d\.object_path/,
+    );
+  });
+
+  it("...but a RETIRED source's raw file is deletable, or retention is a lock", () => {
+    // The first version keyed on "is there a source row at all", and
+    // retirement deliberately keeps that row forever — so the raw customer
+    // export became permanently undeletable through the application while
+    // AssessmentHomePage told the customer the file was gone. The pack's §5
+    // makes retention a contracted period, which is a thing the workspace has
+    // to be able to honour.
+    const start = lower.indexOf("create policy ria_source_files_delete");
+    const statement = lower.slice(start, lower.indexOf(";", start));
+    // Two arms: orphan cleanup (no source row at all) and contracted purge
+    // (a source row that has been retired). A LIVE source matches neither, so
+    // its raw file stays put; a retired one matches the second.
+    expect(statement).toContain("d.deleted_at is not null");
+    expect(statement).toContain("app_can_supply_ria_sources()");
+    expect(statement).toContain("d.organization_id = public.app_current_org()");
+  });
+
+  it("orphan cleanup reads owner_id as well as the deprecated owner column", () => {
+    // Current storage-api populates the text `owner_id` and may leave the uuid
+    // `owner` NULL. Matching on `owner` alone means the orphan arm never
+    // fires, uploadSource()'s cleanup silently fails, and raw customer exports
+    // accumulate in the bucket with no metadata row to account for them.
+    const start = lower.indexOf("create policy ria_source_files_delete");
+    const statement = lower.slice(start, lower.indexOf(";", start));
+    expect(statement).toMatch(
+      /coalesce\(storage\.objects\.owner::text,\s*storage\.objects\.owner_id\)/,
     );
   });
 });
@@ -464,5 +599,215 @@ describe("tenancy and role gates", () => {
 
   it("reloads the PostgREST schema cache so the RPCs are reachable", () => {
     expect(lower).toContain("notify pgrst, 'reload schema'");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// §5 rule 5 — a value estimate requires method, source, assumption, range and
+//             confidence. §3's field minimums for the objects that carry them.
+// ---------------------------------------------------------------------------
+
+describe("rule 5: a value estimate that cannot show its working is not one", () => {
+  it("the two missing columns exist at all", () => {
+    // ria_opportunities carried method (nullable), a range and a confidence.
+    // There was no `source` and no `assumptions` column ANYWHERE, so two of
+    // the rule's five parts had nowhere to live.
+    const normalised = lower.replace(/\s+/g, " ");
+    expect(normalised).toContain(
+      "alter table public.ria_opportunities add column if not exists value_source text",
+    );
+    expect(normalised).toContain(
+      "alter table public.ria_opportunities add column if not exists assumptions text",
+    );
+  });
+
+  it("a range without method, source and assumptions is refused by the schema", () => {
+    // The most quotable number in a US$35,000 deliverable. Before this, a
+    // register could assert $400,000-$900,000 with method NULL and the schema
+    // agreed it was well-formed.
+    const normalised = lower.replace(/\s+/g, " ");
+    expect(normalised).toContain("ria_opportunity_estimate_shows_working");
+    expect(normalised).toMatch(/value_low is null and value_high is null/);
+    expect(normalised).toMatch(/btrim\(coalesce\(method, ''\)\) <> ''/);
+    expect(normalised).toMatch(/btrim\(coalesce\(value_source, ''\)\) <> ''/);
+    expect(normalised).toMatch(/btrim\(coalesce\(assumptions, ''\)\) <> ''/);
+    expect(normalised).toMatch(/confidence in \('high','medium','low'\)/);
+  });
+
+  it("a half-open range is refused too, and the bounds are ordered", () => {
+    const normalised = lower.replace(/\s+/g, " ");
+    expect(normalised).toMatch(
+      /value_low is not null and value_high is not null and value_low <= value_high/,
+    );
+  });
+
+  it("estimates recorded before the rule are WITHDRAWN, not blessed", () => {
+    // Section 2's posture, applied to money: the number goes away and the
+    // reason is written where the constraint would have said it.
+    const normalised = lower.replace(/\s+/g, " ");
+    expect(normalised).toContain(
+      "update public.ria_opportunities set value_low = null",
+    );
+    expect(normalised).toContain("range withdrawn by 20260920000000");
+  });
+
+  it("an opportunity can trace back to the finding that produced it", () => {
+    // §3 lists the finding link, the effort and the recommended action. Without
+    // the first, the Opportunity Register cannot show the trace the report
+    // sells.
+    const normalised = lower.replace(/\s+/g, " ");
+    expect(normalised).toContain(
+      "alter table public.ria_opportunities add column if not exists finding_id uuid references public.ria_findings(id)",
+    );
+    expect(normalised).toContain("add column if not exists effort text");
+    expect(normalised).toContain(
+      "add column if not exists recommended_action text",
+    );
+  });
+
+  it("mutation-sanity — the constraint reader rejects a range with no working", () => {
+    const enforced =
+      "check ((value_low is null and value_high is null) or (value_low is not null and value_high is not null and value_low <= value_high and btrim(coalesce(method, '')) <> '' and btrim(coalesce(value_source, '')) <> '' and btrim(coalesce(assumptions, '')) <> '' and confidence in ('high','medium','low')))";
+    const weakened = "check (value_low is null or value_low <= value_high)";
+    const showsWorking = (sql: string) =>
+      /btrim\(coalesce\(value_source, ''\)\) <> ''/.test(sql) &&
+      /btrim\(coalesce\(assumptions, ''\)\) <> ''/.test(sql);
+    expect(showsWorking(enforced)).toBe(true);
+    expect(showsWorking(weakened)).toBe(false);
+  });
+});
+
+describe("§3 field minimums that were missing outright", () => {
+  it("a metric states its population, its source fields and its exclusions", () => {
+    // §3's Metric Definition is "name, formula, population, source fields,
+    // exclusions, status". Three of the six had no column. A metric could read
+    // as SUPPORTED while saying nothing about which assets it covered or what
+    // it left out — the precise shape of a defensible-looking wrong number.
+    const normalised = lower.replace(/\s+/g, " ");
+    expect(normalised).toContain(
+      "alter table public.ria_baseline_metrics add column if not exists population text",
+    );
+    expect(normalised).toContain(
+      "add column if not exists source_fields text[] not null default '{}'",
+    );
+    expect(normalised).toContain(
+      "alter table public.ria_baseline_metrics add column if not exists exclusions text",
+    );
+  });
+
+  it("...and claiming support requires them, not merely a method", () => {
+    const normalised = lower.replace(/\s+/g, " ");
+    const constraint = normalised.slice(
+      normalised.indexOf("add constraint ria_metric_support_is_earned"),
+    );
+    expect(constraint).toMatch(/btrim\(coalesce\(population, ''\)\) <> ''/);
+    expect(constraint).toMatch(
+      /coalesce\(array_length\(source_fields, 1\), 0\) > 0/,
+    );
+  });
+
+  it("...and the pre-existing claims are demoted before the constraint lands", () => {
+    const normalised = lower.replace(/\s+/g, " ");
+    const remediation = normalised.slice(
+      normalised.indexOf("update public.ria_baseline_metrics"),
+      normalised.indexOf("add constraint ria_metric_support_is_earned"),
+    );
+    expect(remediation).toContain("set evidence_grade = 'unsupported'");
+    expect(remediation).toMatch(/btrim\(coalesce\(population, ''\)\) = ''/);
+  });
+
+  it("a data source carries a sensitivity, and it is not free text", () => {
+    // §3's Data Source minimums are "file/source type, received, owner,
+    // coverage, readiness, sensitivity". Five were present. For a workspace
+    // whose whole premise is holding a customer's raw CMMS exports, this is
+    // the field that decides handling.
+    const normalised = lower.replace(/\s+/g, " ");
+    expect(normalised).toContain(
+      "add column if not exists sensitivity text not null default 'customer_confidential'",
+    );
+    expect(normalised).toContain("ria_data_sources_sensitivity_check");
+    expect(normalised).toMatch(
+      /sensitivity in \('customer_confidential','commercially_sensitive','personal_data','public'\)/,
+    );
+  });
+
+  it("the default is confidential, not unclassified", () => {
+    // An absent classification on customer data is an absent decision, not a
+    // safe one.
+    expect(lower.replace(/\s+/g, " ")).toContain(
+      "default 'customer_confidential'",
+    );
+  });
+
+  it("an evidence record carries asset, time, provenance and confidence", () => {
+    // §3's Evidence Record is "source, record reference, asset, time,
+    // provenance, confidence". The link table shipped with the first two.
+    const normalised = lower.replace(/\s+/g, " ");
+    expect(normalised).toContain(
+      "add column if not exists asset_id uuid references public.assets(id)",
+    );
+    expect(normalised).toContain("add column if not exists observed_from date");
+    expect(normalised).toContain("add column if not exists observed_to date");
+    expect(normalised).toContain("add column if not exists provenance text");
+    expect(normalised).toContain(
+      "add column if not exists confidence text not null default 'medium'",
+    );
+    expect(normalised).toContain("ria_finding_evidence_period_ordered");
+  });
+
+  it("the cited asset is checked against the link's organization", () => {
+    // Citing another tenant's asset by uuid is the same class of mistake as
+    // citing their file, and the straddle trigger now covers all three parents.
+    const body = functionBody("enforce_ria_evidence_tenancy")
+      .toLowerCase()
+      .replace(/\s+/g, " ");
+    expect(body).toContain(
+      "select organization_id into v_asset_org from assets",
+    );
+    expect(body).toMatch(
+      /v_asset_org is null or v_asset_org is distinct from new\.organization_id/,
+    );
+  });
+
+  it("the old four-argument evidence RPC is dropped, not left as an overload", () => {
+    // Two overloads reachable over PostgREST is an ambiguity, and the shorter
+    // one would record evidence with no asset, period or provenance while
+    // looking like it succeeded.
+    expect(lower).toContain(
+      "drop function if exists public.link_ria_finding_evidence(uuid, uuid, text, text)",
+    );
+    expect(lower).toContain(
+      "grant execute on function public.link_ria_finding_evidence(uuid, uuid, text, text, uuid, text, date, date, text, text) to authenticated",
+    );
+  });
+
+  it("the assessment tier is a vocabulary, not a sentence", () => {
+    // commercial_model is free text. A tier that is prose cannot be filtered,
+    // counted, or used to bound scope.
+    const normalised = lower.replace(/\s+/g, " ");
+    expect(normalised).toContain(
+      "alter table public.ria_assessments add column if not exists tier text",
+    );
+    expect(normalised).toContain("ria_assessments_tier_check");
+    expect(normalised).toMatch(
+      /tier in \('diagnostic_18k','standard_35k','extended_75k'\)/,
+    );
+    // Backfilled from the sentence that exists, and the sentence is KEPT —
+    // it is what the customer signed.
+    expect(normalised).toContain("update public.ria_assessments set tier =");
+    expect(normalised).not.toContain("drop column commercial_model");
+  });
+});
+
+describe("the decision-ready view exposes what a decision needs", () => {
+  it("carries the population and exclusions, not just the number", () => {
+    const start = lower.indexOf(
+      "create view public.ria_decision_ready_metrics",
+    );
+    const statement = lower.slice(start, lower.indexOf(";", start));
+    expect(statement).toContain("population");
+    expect(statement).toContain("source_fields");
+    expect(statement).toContain("exclusions");
+    expect(statement).toContain("security_invoker = true");
   });
 });

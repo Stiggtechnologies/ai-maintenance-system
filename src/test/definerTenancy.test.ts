@@ -93,6 +93,47 @@ function resolveChainFunctions(): {
   return { defs, grantedToAuthenticated };
 }
 
+/**
+ * Functions whose EXECUTE was explicitly revoked from `public`/`anon`.
+ *
+ * WHY THIS MATTERS SEPARATELY FROM THE ORG-ARGUMENT SCAN. Postgres grants
+ * EXECUTE on every new function to PUBLIC by default. A SECURITY DEFINER
+ * function that nobody revokes is therefore callable by `anon` — a caller with
+ * no session at all — and the org-argument scan above cannot see it, because
+ * that scan filters to functions granted to `authenticated` and to argument
+ * lists mentioning an organization. seed_ria_dataset_slots(p_assessment_id
+ * uuid) missed on both counts: it was granted to nobody (hence PUBLIC) and its
+ * only argument was an assessment id. An unauthenticated caller, denied even
+ * SELECT on ria_assessments, could write seven rows into any tenant whose
+ * assessment uuid it held.
+ */
+function revokedFromPublic(): Set<string> {
+  const revoked = new Set<string>();
+  for (const file of migrationFiles()) {
+    const sql = stripComments(
+      readFileSync(`supabase/migrations/${file}`, "utf8"),
+    );
+    for (const m of sql.matchAll(
+      /revoke\s+(?:all|execute)[^;]*?\bon\s+function\s+([\w.]+)\s*\(/gi,
+    )) {
+      revoked.add(m[1].replace(/^public\./i, "").toLowerCase());
+    }
+  }
+  return revoked;
+}
+
+/**
+ * The date after which the rule is enforced.
+ *
+ * There are 135 pre-existing SECURITY DEFINER functions in this chain with no
+ * explicit revoke. Asserting the property over all of them would fail on day
+ * one and be deleted by the next person, which is how a guard becomes a
+ * comment. So it is a RATCHET, in the spirit of the capability register:
+ * history is named, not silently blessed, and nothing new may join it. The
+ * pre-existing set is real debt and is counted below so it cannot grow.
+ */
+const REVOKE_RULE_FROM = "20260918";
+
 const { defs, grantedToAuthenticated } = resolveChainFunctions();
 
 /** Functions an authenticated browser can call that take an org/tenant uuid. */
@@ -232,5 +273,70 @@ describe("provision_deployment cannot be entered with a null organization", () =
 
   it("adding the constraint twice is a no-op", () => {
     expect(guards).toMatch(/from\s+pg_constraint/i);
+  });
+});
+
+// ---------------------------------------------------------------------------
+
+describe("a definer function is not callable by anon just because nobody said so", () => {
+  const revoked = revokedFromPublic();
+  const definers = [...defs.values()].filter((d) => d.definer);
+
+  const recent = definers.filter((d) => d.file.slice(0, 8) >= REVOKE_RULE_FROM);
+
+  it("the scan finds recent definer functions at all", () => {
+    // Without this, the assertion below passes vacuously the day the regex
+    // stops matching.
+    expect(recent.length).toBeGreaterThan(5);
+  });
+
+  it.each(recent.map((d) => [d.name, d.file]))(
+    "%s (%s) revokes EXECUTE from public",
+    (name) => {
+      expect(
+        revoked.has(name as string),
+        `${name} is SECURITY DEFINER and carries no \`revoke ... from public\`, so PUBLIC — including anon — can execute it`,
+      ).toBe(true);
+    },
+  );
+
+  it("the pre-existing unrevoked set is named, and may not grow", () => {
+    // A ratchet, not an amnesty. If this number goes UP, a new definer
+    // function was added without a revoke in a file predating the rule, which
+    // is the only way to sneak past the assertion above.
+    const legacy = definers.filter(
+      (d) => d.file.slice(0, 8) < REVOKE_RULE_FROM && !revoked.has(d.name),
+    );
+    expect(legacy.length).toBeLessThanOrEqual(149);
+  });
+
+  it("mutation-sanity — the revoke scan does not match a grant", () => {
+    // `grant execute on function f() to authenticated` must not be read as a
+    // revoke, or every function in the chain would look protected.
+    const onlyGrant = new Set<string>();
+    for (const m of "grant execute on function public.f(uuid) to authenticated;".matchAll(
+      /revoke\s+(?:all|execute)[^;]*?\bon\s+function\s+([\w.]+)\s*\(/gi,
+    )) {
+      onlyGrant.add(m[1]);
+    }
+    expect([...onlyGrant]).toEqual([]);
+  });
+
+  it("the RIA slot seeder in particular is revoked from public, anon AND authenticated", () => {
+    // It takes an assessment id, resolves the tenant from it, and writes with
+    // RLS off. Its only callers are a trigger and a backfill, both of which run
+    // as the function owner, so no client role needs it.
+    const dataRoom = stripComments(
+      readFileSync(
+        "supabase/migrations/20260920001000_ria_data_room.sql",
+        "utf8",
+      ),
+    ).toLowerCase();
+    expect(dataRoom).toContain(
+      "revoke all on function public.seed_ria_dataset_slots(uuid) from public, anon, authenticated",
+    );
+    expect(dataRoom).not.toMatch(
+      /grant\s+execute\s+on\s+function\s+public\.seed_ria_dataset_slots/,
+    );
   });
 });

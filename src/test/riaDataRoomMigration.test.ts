@@ -135,6 +135,75 @@ describe("a colour is a judgement, and the schema treats it as one", () => {
     expect(colours(shipped)).toBe(false);
     expect(colours(weakened)).toBe(true);
   });
+
+  // -------------------------------------------------------------------------
+  // The cross-tenant write this trigger used to perform.
+  // -------------------------------------------------------------------------
+
+  it("resolves the slot from the assessment, never from the caller's slot_id", () => {
+    // THE DEFECT. This function is SECURITY DEFINER, so its UPDATE runs with
+    // RLS off, and the shipped version took `new.slot_id` verbatim whenever the
+    // client supplied one — resolving safely ONLY in the NULL case.
+    // ria_data_sources_org_insert validates organization_id and assessment_id
+    // and never looks at slot_id, and table-level grants to `authenticated`
+    // accept any column over PostgREST. An authenticated member of org B could
+    // therefore insert a source entirely legal for org B carrying org A's slot
+    // uuid and march org A's asset_register from 'missing' to 'received' — the
+    // exact surface get_ria_readiness() shows the customer at kickoff.
+    const body = functionBody("advance_ria_slot_on_source").replace(
+      /\s+/g,
+      " ",
+    );
+    // The resolve is unconditional, and it is keyed on columns RLS vouched for.
+    expect(body).toMatch(
+      /select id into v_slot from ria_dataset_slots where assessment_id = new\.assessment_id and organization_id = new\.organization_id and dataset_key = new\.category/,
+    );
+    // The declaration no longer seeds v_slot from the caller.
+    expect(body).not.toMatch(/v_slot uuid := new\.slot_id/);
+  });
+
+  it("a supplied slot_id that disagrees is REFUSED, not silently corrected", () => {
+    // Quietly overwriting a hostile input hides the attempt and teaches the
+    // caller nothing. The raise is the record that it happened.
+    const body = functionBody("advance_ria_slot_on_source").replace(
+      /\s+/g,
+      " ",
+    );
+    expect(body).toMatch(
+      /new\.slot_id is not null and new\.slot_id is distinct from v_slot/,
+    );
+    expect(body).toContain("raise exception");
+    expect(body).toContain("errcode = 'check_violation'");
+  });
+
+  it("the UPDATE re-states the tenancy predicate, so the write cannot stray", () => {
+    // Belt and braces: even if v_slot were somehow wrong, the UPDATE touches
+    // no row belonging to another assessment or another organization.
+    const body = functionBody("advance_ria_slot_on_source").replace(
+      /\s+/g,
+      " ",
+    );
+    expect(body).toMatch(
+      /where s\.id = v_slot and s\.assessment_id = new\.assessment_id and s\.organization_id = new\.organization_id/,
+    );
+  });
+
+  it("mutation-sanity — the guard rejects the shipped trust-the-caller form", () => {
+    const shipped =
+      "declare v_slot uuid := new.slot_id; begin if v_slot is null then select id into v_slot from ria_dataset_slots where assessment_id = new.assessment_id and dataset_key = new.category; end if;";
+    const fixed =
+      "declare v_slot uuid; begin select id into v_slot from ria_dataset_slots where assessment_id = new.assessment_id and organization_id = new.organization_id and dataset_key = new.category; if new.slot_id is not null and new.slot_id is distinct from v_slot then raise exception 'x'; end if;";
+    const trustsCaller = (sql: string) =>
+      /v_slot uuid := new\.slot_id/.test(sql);
+    const refusesMismatch = (sql: string) =>
+      /new\.slot_id is not null and new\.slot_id is distinct from v_slot/.test(
+        sql,
+      );
+    expect(trustsCaller(shipped)).toBe(true);
+    expect(refusesMismatch(shipped)).toBe(false);
+    expect(trustsCaller(fixed)).toBe(false);
+    expect(refusesMismatch(fixed)).toBe(true);
+  });
 });
 
 describe("readiness is reported as the pack's four conditions, not a percentage", () => {

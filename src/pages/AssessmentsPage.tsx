@@ -1,10 +1,18 @@
 /**
  * The assessment list.
  *
- * RLS decides what appears here, not this component. A sponsor's account and
- * an engineer's account both run `select * from ria_assessments`; the tenancy
- * policy is what makes the results differ. That is deliberate — a list filtered
- * only in the browser is a list anyone can unfilter.
+ * RLS decides what appears here, not this component: the query is an unfiltered
+ * `select` and `ria_assessments_org_read` is what bounds it. That is deliberate
+ * — a list filtered only in the browser is a list anyone can unfilter.
+ *
+ * WHAT THAT POLICY DOES AND DOES NOT DO. It is `organization_id =
+ * app_current_org()` and nothing else. There is no sponsor_user_id predicate
+ * anywhere in the schema, so a sponsor and an engineer in the same tenant see
+ * the SAME list — every assessment in the organization, not only the one they
+ * sponsor. Per-record read authorization is Phase 2 (spec §6); until it exists
+ * a sponsor account belongs only in an org whose whole contents are the
+ * engagement. 20260920002000's header and roleNavigation.ts's NAV_ALLOW note
+ * say the same thing, and this comment used to contradict both.
  */
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";

@@ -1,6 +1,6 @@
 /**
  * Assessment Home — §4 of the workspace specification: status, scope, sponsor,
- * timeline, readiness rollup.
+ * timeline, readiness rollup, major findings and upcoming decisions.
  *
  * The readiness figure here is deliberately not a percentage. The shipped
  * workspace showed "readiness 75%", computed as the share of four required
@@ -38,6 +38,22 @@ interface AssessmentRecord {
   primary_management_question: string | null;
   scope_confirmed_at: string | null;
   notes: string | null;
+}
+
+interface MajorFinding {
+  id: string;
+  title: string;
+  severity: string;
+  evidence_grade: string;
+}
+
+interface UpcomingDecision {
+  id: string;
+  decision_required: string;
+  authority_role: string;
+  boundary: string;
+  due_on: string | null;
+  status: string;
 }
 
 const SUPPLY_ROLES = new Set([
@@ -82,6 +98,10 @@ export function AssessmentHomePage() {
   const [assessment, setAssessment] = useState<AssessmentRecord | null>(null);
   const [sponsorName, setSponsorName] = useState<string | null>(null);
   const [readiness, setReadiness] = useState<ReadinessRollup | null>(null);
+  const [majorFindings, setMajorFindings] = useState<MajorFinding[]>([]);
+  const [upcomingDecisions, setUpcomingDecisions] = useState<
+    UpcomingDecision[]
+  >([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -126,6 +146,24 @@ export function AssessmentHomePage() {
         }
         const rollup = await loadReadiness(assessmentId);
         if (!cancelled) setReadiness(rollup);
+
+        const { data: findings } = await supabase
+          .from("ria_findings")
+          .select("id,title,severity,evidence_grade")
+          .eq("assessment_id", assessmentId)
+          .eq("review_state", "published")
+          .in("severity", ["critical", "high"])
+          .order("severity");
+        if (!cancelled) setMajorFindings((findings ?? []) as MajorFinding[]);
+
+        const { data: decisions } = await supabase
+          .from("ria_decisions")
+          .select("id,decision_required,authority_role,boundary,due_on,status")
+          .eq("assessment_id", assessmentId)
+          .in("status", ["pending", "changes_requested"])
+          .order("due_on", { nullsFirst: false });
+        if (!cancelled)
+          setUpcomingDecisions((decisions ?? []) as UpcomingDecision[]);
       } catch (caught) {
         if (!cancelled)
           setError(
@@ -235,10 +273,100 @@ export function AssessmentHomePage() {
       {assessment.source_retention_until && (
         <p className="mt-4 text-xs text-slate-500">
           Source retention until {assessment.source_retention_until}. Retiring a
-          source keeps its audit stub — file name, fingerprint, who retired it
-          and why — after the file itself is gone.
+          source writes its audit stub — file name, fingerprint, who retired it
+          and why — and then purges the raw export. Each source card states
+          which of the two has actually happened; the stub survives either way.
         </p>
       )}
+
+      <div className="mt-8 grid gap-6 lg:grid-cols-2">
+        <section aria-labelledby="major-findings-heading">
+          <h2
+            id="major-findings-heading"
+            className="text-xl font-semibold text-white"
+          >
+            Major findings
+          </h2>
+          {/*
+            PUBLISHED ONLY, AND SAID SO. review_state='published' is the state
+            the publication gate guards — a reviewer, evidence links, and an
+            authority for anything high or critical. Rendering drafts here
+            would put ungated engineering work on the page a sponsor reads,
+            which is the whole thing §5 rule 3 exists to prevent.
+          */}
+          <p className="mt-2 text-xs text-slate-500">
+            Published findings only. A draft or reviewed finding has not passed
+            the publication gate and is not shown here.
+          </p>
+          <div className="mt-4 space-y-2">
+            {majorFindings.length === 0 ? (
+              <p className="rounded-xl border border-dashed border-white/10 p-6 text-center text-sm text-slate-500">
+                No published findings yet.
+              </p>
+            ) : (
+              majorFindings.map((finding) => (
+                <div
+                  key={finding.id}
+                  className="rounded-lg border border-white/10 p-3"
+                  data-testid={`major-finding-${finding.id}`}
+                >
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span
+                      className={`rounded-full border px-2 py-0.5 text-xs ${
+                        finding.severity === "critical"
+                          ? "border-red-300/25 bg-red-300/10 text-red-200"
+                          : "border-amber-300/25 bg-amber-300/10 text-amber-200"
+                      }`}
+                    >
+                      {finding.severity}
+                    </span>
+                    <span className="text-xs text-slate-500">
+                      {finding.evidence_grade.replaceAll("_", " ")}
+                    </span>
+                  </div>
+                  <p className="mt-2 text-sm text-white">{finding.title}</p>
+                </div>
+              ))
+            )}
+          </div>
+        </section>
+
+        <section aria-labelledby="upcoming-decisions-heading">
+          <h2
+            id="upcoming-decisions-heading"
+            className="text-xl font-semibold text-white"
+          >
+            Upcoming decisions
+          </h2>
+          <p className="mt-2 text-xs text-slate-500">
+            Every decision names the authority that may take it and the boundary
+            it may be taken within. Both are constraint-required.
+          </p>
+          <div className="mt-4 space-y-2">
+            {upcomingDecisions.length === 0 ? (
+              <p className="rounded-xl border border-dashed border-white/10 p-6 text-center text-sm text-slate-500">
+                No decisions are outstanding.
+              </p>
+            ) : (
+              upcomingDecisions.map((decision) => (
+                <div
+                  key={decision.id}
+                  className="rounded-lg border border-white/10 p-3"
+                  data-testid={`upcoming-decision-${decision.id}`}
+                >
+                  <p className="text-sm text-white">
+                    {decision.decision_required}
+                  </p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    {decision.authority_role} · within {decision.boundary}
+                    {decision.due_on ? ` · due ${decision.due_on}` : ""}
+                  </p>
+                </div>
+              ))
+            )}
+          </div>
+        </section>
+      </div>
 
       <hr className="my-10 border-white/10" />
 

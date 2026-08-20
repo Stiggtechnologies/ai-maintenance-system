@@ -25,6 +25,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   grantsAuthenticated,
+  isRestrictive,
   resolveChainPolicies,
   stripComments,
   usingOf,
@@ -68,6 +69,19 @@ const survivingStatements = surviving.flatMap((p) =>
   p.statements.map((text) => ({ ...p, text })),
 );
 
+/**
+ * The GRANT surface. Restrictive policies are excluded from every assertion
+ * that asks "is this scoped / is this open / does this exist", because a
+ * restrictive policy grants nothing: it ANDs into the permissive ones and can
+ * only ever narrow. Requiring `app_current_org()` inside a policy whose job is
+ * to DENY would be asserting the wrong property, and the way to satisfy it
+ * would be to write a tenancy scope into a denial. They get their own
+ * assertions instead.
+ */
+const permissiveStatements = survivingStatements.filter(
+  (p) => !isRestrictive(p.text),
+);
+
 const normalise = (sql: string) => sql.replace(/\s+/g, " ").toLowerCase();
 
 const GOVERNING = stripComments(
@@ -103,7 +117,7 @@ describe("the chain resolved", () => {
 
 describe("no assessment policy can be entered from another tenant", () => {
   it("every surviving policy scopes on app_current_org()", () => {
-    const unscoped = survivingStatements
+    const unscoped = permissiveStatements
       .filter((p) => !normalise(p.text).includes("app_current_org()"))
       .map((p) => `${p.table}.${p.policy} (${p.source})`);
     expect(unscoped).toEqual([]);
@@ -125,13 +139,42 @@ describe("no assessment policy can be entered from another tenant", () => {
   });
 
   it("none is using (true)", () => {
-    const open = survivingStatements
+    const open = permissiveStatements
       .filter((p) => {
         const predicate = usingOf(p.text);
         return predicate !== null && normalise(predicate) === "true";
       })
       .map((p) => `${p.table}.${p.policy} (${p.source})`);
     expect(open).toEqual([]);
+  });
+
+  it("the external-role gate is restrictive, and therefore cannot widen anything", () => {
+    // 20260920002000 introduces a customer-side identity into an operating
+    // tenant. Its write denial must be RESTRICTIVE: a permissive policy with
+    // the same predicate would be a new grant to everyone who is not external.
+    const gates = survivingStatements.filter((p) =>
+      /_ext_no_(ins|upd|del)$/.test(p.policy),
+    );
+    expect(gates.length).toBeGreaterThan(0);
+    for (const p of gates) {
+      expect(isRestrictive(p.text), `${p.table}.${p.policy}`).toBe(true);
+      const predicate = normalise(withCheckOf(p.text) ?? usingOf(p.text) ?? "");
+      expect(predicate).toContain("app_current_role_is_external()");
+    }
+  });
+
+  it("its UPDATE arm denies in WITH CHECK, never by filtering", () => {
+    // 20260912123000's reason, restated: a restrictive USING denies by
+    // filtering to zero rows with no error, and a client that reads "0 rows
+    // updated" as success turns a refusal into a green tick.
+    for (const p of survivingStatements.filter((x) =>
+      /_ext_no_upd$/.test(x.policy),
+    )) {
+      expect(normalise(usingOf(p.text) ?? "true")).toBe("true");
+      expect(normalise(withCheckOf(p.text) ?? "")).toContain(
+        "not public.app_current_role_is_external()",
+      );
+    }
   });
 
   it("mutation-sanity — the guards reject the shapes that leaked", () => {
@@ -168,7 +211,7 @@ describe("writes are governed, not granted", () => {
   it("no assessment table has a surviving DELETE policy", () => {
     // The audit stub survives because deletion has no client path at all —
     // and a BEFORE DELETE trigger refuses it even from a service-role script.
-    const deletes = survivingStatements
+    const deletes = permissiveStatements
       .filter((p) => /\bfor\s+delete\b/i.test(p.text))
       .map((p) => `${p.table}.${p.policy} (${p.source})`);
     expect(deletes).toEqual([]);
@@ -176,7 +219,7 @@ describe("writes are governed, not granted", () => {
   });
 
   it("the one direct insert is the customer's export, and it is role-gated", () => {
-    const inserts = survivingStatements.filter((p) =>
+    const inserts = permissiveStatements.filter((p) =>
       /\bfor\s+insert\b/i.test(p.text),
     );
     expect(inserts.map((p) => `${p.table}.${p.policy}`)).toEqual([
