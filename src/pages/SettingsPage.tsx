@@ -8,12 +8,23 @@ import {
   Check,
   Loader2,
   ShieldCheck,
+  Sparkles,
 } from "lucide-react";
 import { MfaManager } from "../components/MfaManager";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../components/AuthProvider";
+import {
+  announceSyncFeatureFlagsChanged,
+  SYNC_FEATURE_FLAGS,
+  type SyncFeatureFlag,
+} from "../hooks/useFeatureFlag";
 
-type Tab = "profile" | "security" | "organization" | "notifications";
+type Tab =
+  | "profile"
+  | "security"
+  | "organization"
+  | "notifications"
+  | "sync";
 
 interface Organization {
   id: string;
@@ -29,6 +40,12 @@ interface NotificationPreferences {
   governance_notifications: boolean;
 }
 
+interface SyncFlagRow {
+  flag_key: SyncFeatureFlag;
+  enabled: boolean;
+  description: string | null;
+}
+
 const DEFAULT_PREFERENCES: NotificationPreferences = {
   email_alerts: true,
   work_order_updates: true,
@@ -36,20 +53,58 @@ const DEFAULT_PREFERENCES: NotificationPreferences = {
   governance_notifications: false,
 };
 
+const SYNC_FLAG_LABELS: Record<SyncFeatureFlag, string> = {
+  sync_global_shell: "Sync global shell",
+  sync_voice_input: "Voice input",
+  sync_voice_output: "Voice output",
+  sync_agent_routing: "Specialist routing",
+  sync_tools: "Governed actions",
+  sync_meeting_mode: "Meeting mode",
+  sync_field_mode: "Field mode",
+};
+
+const SYNC_FLAG_FALLBACKS: Record<SyncFeatureFlag, string> = {
+  sync_global_shell:
+    "Master gate for the persistent Sync interaction layer across the authenticated application.",
+  sync_voice_input:
+    "Enable speech-to-text input where the browser supports it.",
+  sync_voice_output:
+    "Enable text-to-speech playback with user-controlled interruption.",
+  sync_agent_routing:
+    "Route questions through the existing governed specialist registry.",
+  sync_tools:
+    "Allow Sync to propose governed application actions that still require explicit user confirmation.",
+  sync_meeting_mode:
+    "Enable facilitation mode with explicit decisions, dissent, actions and evidence gaps.",
+  sync_field_mode:
+    "Enable controlled field-guidance mode with procedure and safety boundaries.",
+};
+
+function isSyncAdmin(role: unknown): boolean {
+  return role === "admin" || role === "ai_admin";
+}
+
 export function SettingsPage() {
   const { user, profile } = useAuth();
   const [activeTab, setActiveTab] = useState<Tab>("profile");
+  const canManageSync = isSyncAdmin(profile?.role);
 
   const tabs: { id: Tab; label: string; icon: typeof User }[] = [
     { id: "profile", label: "Profile", icon: User },
     { id: "security", label: "Security", icon: ShieldCheck },
     { id: "organization", label: "Organization", icon: Building2 },
     { id: "notifications", label: "Notifications", icon: Bell },
+    ...(canManageSync
+      ? [{ id: "sync" as const, label: "Sync", icon: Sparkles }]
+      : []),
   ];
+
+  useEffect(() => {
+    if (activeTab === "sync" && !canManageSync) setActiveTab("profile");
+  }, [activeTab, canManageSync]);
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-industrial-text">Settings</h1>
         <p className="text-sm text-slate-400 mt-1">
@@ -57,9 +112,8 @@ export function SettingsPage() {
         </p>
       </div>
 
-      {/* Tab Navigation */}
-      <div className="border-b border-industrial-border">
-        <nav className="flex gap-6">
+      <div className="border-b border-industrial-border overflow-x-auto">
+        <nav className="flex gap-6 min-w-max">
           {tabs.map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
@@ -84,7 +138,6 @@ export function SettingsPage() {
         </nav>
       </div>
 
-      {/* Tab Content */}
       {activeTab === "profile" && <ProfileTab user={user} profile={profile} />}
       {activeTab === "security" && (
         <div className="space-y-3">
@@ -103,11 +156,10 @@ export function SettingsPage() {
       {activeTab === "notifications" && (
         <NotificationsTab user={user} profile={profile} />
       )}
+      {activeTab === "sync" && canManageSync && <SyncRolloutTab />}
     </div>
   );
 }
-
-// ==================== Profile Tab ====================
 
 function ProfileTab({ user, profile }: { user: any; profile: any }) {
   const [fullName, setFullName] = useState(profile?.full_name || "");
@@ -214,8 +266,6 @@ function ProfileTab({ user, profile }: { user: any; profile: any }) {
   );
 }
 
-// ==================== Organization Tab ====================
-
 function OrganizationTab({ profile }: { profile: any }) {
   const [org, setOrg] = useState<Organization | null>(null);
   const [loading, setLoading] = useState(true);
@@ -266,7 +316,7 @@ function OrganizationTab({ profile }: { profile: any }) {
     );
   }
 
-  const isAdmin = profile?.role === "admin";
+  const isAdmin = isSyncAdmin(profile?.role);
 
   return (
     <div className="glass border border-white/6 rounded-xl p-6 max-w-2xl">
@@ -320,7 +370,173 @@ function OrganizationTab({ profile }: { profile: any }) {
   );
 }
 
-// ==================== Notifications Tab ====================
+function SyncRolloutTab() {
+  const [flags, setFlags] = useState<Record<SyncFeatureFlag, SyncFlagRow>>(
+    () =>
+      Object.fromEntries(
+        SYNC_FEATURE_FLAGS.map((key) => [
+          key,
+          { flag_key: key, enabled: false, description: null },
+        ]),
+      ) as Record<SyncFeatureFlag, SyncFlagRow>,
+  );
+  const [loading, setLoading] = useState(true);
+  const [changing, setChanging] = useState<SyncFeatureFlag | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  const loadFlags = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("feature_flags")
+        .select("flag_key, enabled, description")
+        .in("flag_key", [...SYNC_FEATURE_FLAGS]);
+      if (error) throw error;
+      setFlags((current) => {
+        const next = { ...current };
+        for (const row of data ?? []) {
+          if (
+            SYNC_FEATURE_FLAGS.includes(row.flag_key as SyncFeatureFlag)
+          ) {
+            const key = row.flag_key as SyncFeatureFlag;
+            next[key] = {
+              flag_key: key,
+              enabled: row.enabled === true,
+              description: row.description ?? null,
+            };
+          }
+        }
+        return next;
+      });
+    } catch (error) {
+      console.error("Failed to load Sync rollout flags", error);
+      setNotice("Could not load Sync rollout state.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadFlags();
+  }, []);
+
+  const setFlag = async (key: SyncFeatureFlag, enabled: boolean) => {
+    setChanging(key);
+    setNotice(null);
+    try {
+      const { data, error } = await supabase.rpc("set_sync_feature_flag", {
+        p_flag_key: key,
+        p_enabled: enabled,
+      });
+      if (error) throw error;
+      if (data && typeof data === "object" && "error" in data) {
+        throw new Error(String((data as { error: unknown }).error));
+      }
+      setFlags((current) => ({
+        ...current,
+        [key]: { ...current[key], enabled },
+      }));
+      announceSyncFeatureFlagsChanged();
+      setNotice(`${SYNC_FLAG_LABELS[key]} ${enabled ? "enabled" : "disabled"}.`);
+    } catch (error) {
+      console.error("Failed to change Sync rollout flag", error);
+      setNotice(
+        error instanceof Error
+          ? error.message
+          : "Could not change the Sync rollout flag.",
+      );
+    } finally {
+      setChanging(null);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center gap-2 text-sm text-slate-400 py-8">
+        <Loader2 className="h-4 w-4 animate-spin" />
+        Loading Sync rollout controls…
+      </div>
+    );
+  }
+
+  const globalEnabled = flags.sync_global_shell.enabled;
+
+  return (
+    <div className="max-w-3xl space-y-4">
+      <div className="glass border border-white/6 rounded-xl p-6">
+        <div className="flex items-start gap-3">
+          <div className="mt-0.5 rounded-lg bg-teal-500/10 p-2 text-teal-300">
+            <Sparkles size={18} />
+          </div>
+          <div>
+            <h2 className="text-lg font-semibold text-industrial-text">
+              Sync rollout
+            </h2>
+            <p className="mt-1 text-sm text-slate-400">
+              Enable Sync per organization in controlled stages. Every change is
+              authorized in the database and written to the audit log.
+            </p>
+          </div>
+        </div>
+
+        {!globalEnabled && (
+          <div className="mt-4 rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-xs text-amber-200">
+            The global shell is the master gate. Other enabled capabilities stay
+            inert until it is turned on.
+          </div>
+        )}
+
+        <div className="mt-4 divide-y divide-white/6">
+          {SYNC_FEATURE_FLAGS.map((key) => {
+            const row = flags[key];
+            const isChanging = changing === key;
+            return (
+              <div
+                key={key}
+                className="flex items-start justify-between gap-5 py-4"
+              >
+                <div>
+                  <div className="text-sm font-medium text-industrial-text">
+                    {SYNC_FLAG_LABELS[key]}
+                  </div>
+                  <div className="mt-1 max-w-xl text-xs leading-5 text-slate-400">
+                    {row.description || SYNC_FLAG_FALLBACKS[key]}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={row.enabled}
+                  aria-label={`${row.enabled ? "Disable" : "Enable"} ${SYNC_FLAG_LABELS[key]}`}
+                  disabled={changing !== null}
+                  onClick={() => void setFlag(key, !row.enabled)}
+                  className={`relative mt-1 inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors disabled:opacity-50 ${
+                    row.enabled ? "bg-teal-500" : "bg-slate-700"
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                      row.enabled ? "translate-x-6" : "translate-x-1"
+                    }`}
+                  />
+                  {isChanging && (
+                    <Loader2 className="absolute -left-6 h-3.5 w-3.5 animate-spin text-slate-400" />
+                  )}
+                </button>
+              </div>
+            );
+          })}
+        </div>
+
+        {notice && (
+          <div className="mt-3 text-xs text-slate-300" role="status">
+            {notice}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 function NotificationsTab({ user, profile }: { user: any; profile: any }) {
   const [preferences, setPreferences] = useState<NotificationPreferences>(
