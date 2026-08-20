@@ -1,0 +1,119 @@
+name: Reliability Engineer qualification
+
+on:
+  pull_request:
+    paths:
+      - "supabase/functions/_shared/reliability-engineer-core.ts"
+      - "supabase/functions/_shared/reliability-specialists.ts"
+      - "supabase/functions/_shared/reliability-engineer-request.ts"
+      - "supabase/functions/_shared/reliability-context.ts"
+      - "supabase/functions/ai-agent-processor/**"
+      - "supabase/functions/public-reliability-agent/**"
+      - "src/services/publicReliabilityAgent.ts"
+      - "src/test/reliabilityEngineerGoldenBaseline.test.ts"
+      - "benchmarks/reliability-engineer/**"
+      - "scripts/check-reliability-baseline.mjs"
+      - "scripts/run-reliability-qualification.ts"
+      - ".github/workflows/reliability-qualification.yml"
+  push:
+    branches: [main]
+    paths:
+      - "supabase/functions/_shared/reliability-engineer-core.ts"
+      - "supabase/functions/_shared/reliability-specialists.ts"
+      - "supabase/functions/_shared/reliability-engineer-request.ts"
+      - "supabase/functions/_shared/reliability-context.ts"
+      - "supabase/functions/ai-agent-processor/**"
+      - "supabase/functions/public-reliability-agent/**"
+      - "src/services/publicReliabilityAgent.ts"
+      - "src/test/reliabilityEngineerGoldenBaseline.test.ts"
+      - "benchmarks/reliability-engineer/**"
+      - "scripts/check-reliability-baseline.mjs"
+      - "scripts/run-reliability-qualification.ts"
+      - ".github/workflows/reliability-qualification.yml"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "capture-reference or candidate"
+        required: true
+        default: "candidate"
+        type: choice
+        options:
+          - capture-reference
+          - candidate
+      model:
+        description: "Reliability model to qualify"
+        required: false
+        type: string
+      judge_model:
+        description: "Independent comparison/judge model"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  deterministic-floor:
+    name: RE-2026.08 deterministic floor
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci --no-audit --no-fund
+
+      - name: Golden methodology and specialist routing
+        run: npx vitest run src/test/reliabilityEngineerGoldenBaseline.test.ts supabase/functions/_shared/reliability-engineer-core.test.ts
+
+      - name: Protected-surface qualification gate
+        run: node scripts/check-reliability-baseline.mjs
+        env:
+          GITHUB_BASE_REF: ${{ github.base_ref }}
+          GITHUB_EVENT_BEFORE: ${{ github.event.before }}
+
+  live-qualification:
+    name: Live 30-case qualification
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci --no-audit --no-fund
+
+      - name: Run live qualification
+        shell: bash
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          RELIABILITY_QUALIFICATION_MODEL: ${{ inputs.model }}
+          RELIABILITY_JUDGE_MODEL: ${{ inputs.judge_model }}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/reliability-qualification
+          if [ "${{ inputs.mode }}" = "capture-reference" ]; then
+            npx tsx scripts/run-reliability-qualification.ts \
+              --capture-reference \
+              --output=/tmp/reliability-qualification/reference-outputs.json
+          else
+            npx tsx scripts/run-reliability-qualification.ts \
+              --output=/tmp/reliability-qualification/candidate-report.json
+          fi
+
+      - name: Upload qualification evidence
+        uses: actions/upload-artifact@v7
+        with:
+          name: reliability-engineer-${{ inputs.mode }}-${{ github.sha }}
+          path: /tmp/reliability-qualification/
+          retention-days: 30
