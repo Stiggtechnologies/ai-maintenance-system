@@ -293,10 +293,12 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(
     new Set(navGroups.map((group) => group.id)),
   );
+  // These are deliberately evidence-neutral until a tenant-health aggregator
+  // supplies a live, reviewable status. Never imply healthy controls by default.
   const [systemHealth] = useState({
-    intelligence: "active",
-    integration: "stable",
-    governance: "enforced",
+    intelligence: "not evaluated",
+    integration: "not evaluated",
+    governance: "not evaluated",
   });
 
   useEffect(() => {
@@ -638,26 +640,29 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
           </div>
 
           <div className="flex items-center gap-3">
-            {/* System Health Pills */}
-            <div className="hidden md:flex items-center gap-2 text-xs">
+            {/* System status is evidence-neutral until live status evidence is loaded. */}
+            <div
+              className="hidden md:flex items-center gap-2 text-xs"
+              title="Live tenant-health evidence has not been evaluated in this header."
+            >
               <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-white/3 border border-white/5">
-                <div className="w-1.5 h-1.5 rounded-full bg-signal-cyan" />
+                <div className="w-1.5 h-1.5 rounded-full bg-slate-500" />
                 <span className="text-slate-400">Intelligence</span>
-                <span className="text-teal-400 font-medium capitalize">
+                <span className="text-slate-500 font-medium capitalize">
                   {systemHealth.intelligence}
                 </span>
               </div>
               <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-white/3 border border-white/5">
-                <div className="w-1.5 h-1.5 rounded-full bg-green-400" />
+                <div className="w-1.5 h-1.5 rounded-full bg-slate-500" />
                 <span className="text-slate-400">Integration</span>
-                <span className="text-green-400 font-medium capitalize">
+                <span className="text-slate-500 font-medium capitalize">
                   {systemHealth.integration}
                 </span>
               </div>
               <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-white/3 border border-white/5">
-                <Shield className="w-3 h-3 text-signal-cyan" />
+                <Shield className="w-3 h-3 text-slate-500" />
                 <span className="text-slate-400">Governance</span>
-                <span className="text-signal-cyan font-medium capitalize">
+                <span className="text-slate-500 font-medium capitalize">
                   {systemHealth.governance}
                 </span>
               </div>

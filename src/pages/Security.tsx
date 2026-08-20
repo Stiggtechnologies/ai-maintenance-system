@@ -1,166 +1,17 @@
 import { motion } from "framer-motion";
-import {
-  Shield,
-  Lock,
-  FileCheck,
-  Eye,
-  Key,
-  Server,
-  ArrowLeft,
-} from "lucide-react";
+import { ArrowLeft, FileCheck, KeyRound, Shield, UsersRound } from "lucide-react";
 
 interface SecurityProps {
-  onNavigate: (
-    page:
-      | "signin"
-      | "signup"
-      | "enterprise"
-      | "app"
-      | "security"
-      | "privacy"
-      | "terms",
-  ) => void;
+  onNavigate: (page: "signin" | "signup" | "enterprise" | "app" | "security" | "privacy" | "terms") => void;
 }
 
+const controls = [
+  [Shield, "Tenant isolation", "Organization-scoped Row Level Security and guarded server functions are used to keep customer data within its authorized tenant boundary."],
+  [UsersRound, "Human authority", "Consequential recommendations remain subject to named technical and operational approval boundaries. SyncAI does not present the model as the final approver."],
+  [FileCheck, "Traceability", "Governed workflows retain evidence references, decision state, approvals, and audit/security events where those controls are implemented."],
+  [KeyRound, "Identity controls", "Authentication is provided through the configured identity layer. Enterprise SSO or additional identity controls are represented as available only when enabled for the customer environment."],
+] as const;
+
 export function Security({ onNavigate }: SecurityProps) {
-  const features = [
-    {
-      icon: Lock,
-      title: "Role-Based Access Control",
-      description:
-        "Granular permissions ensure users only access data relevant to their role and responsibilities.",
-    },
-    {
-      icon: Server,
-      title: "Row-Level Data Isolation",
-      description:
-        "Database-level security ensures complete data separation between organizations and tenants.",
-    },
-    {
-      icon: FileCheck,
-      title: "Audit Logging",
-      description:
-        "Comprehensive activity logs track all system interactions for compliance and forensic analysis.",
-    },
-    {
-      icon: Shield,
-      title: "Encrypted at Rest and in Transit",
-      description:
-        "AES-256 encryption protects data storage; TLS 1.3 secures all network communications.",
-    },
-    {
-      icon: Key,
-      title: "Multi-Factor Authentication",
-      description:
-        "Enterprise SSO integration with Azure AD, Okta, and Google Workspace, plus hardware token support.",
-    },
-    {
-      icon: Eye,
-      title: "Zero Trust Architecture",
-      description:
-        "Every request is authenticated and authorized; no implicit trust within the network perimeter.",
-    },
-  ];
-
-  return (
-    <div className="min-h-screen bg-industrial-black py-16 px-6">
-      <div className="max-w-4xl mx-auto">
-        <button
-          onClick={() => onNavigate("signin")}
-          className="flex items-center gap-2 text-industrial-muted hover:text-industrial-text mb-8 transition-colors"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Back to Sign In
-        </button>
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="text-center mb-16"
-        >
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-[#3A8DFF]/10 rounded-2xl mb-6">
-            <Shield className="w-8 h-8 text-[#3A8DFF]" />
-          </div>
-          <h1 className="text-4xl font-semibold text-industrial-text mb-4">
-            Security by Architecture.
-            <br />
-            Not by Add-On.
-          </h1>
-          <p className="text-lg text-industrial-muted">
-            Built for regulated industries including healthcare and industrial
-            operations
-          </p>
-        </motion.div>
-
-        <div className="grid md:grid-cols-2 gap-6 mb-12">
-          {features.map((feature, index) => (
-            <motion.div
-              key={feature.title}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              whileHover={{
-                y: -4,
-                borderColor: "rgba(58, 141, 255, 0.3)",
-                transition: { duration: 0.2 },
-              }}
-              transition={{ delay: index * 0.1 }}
-              className="bg-industrial-slate border border-industrial-border rounded-xl p-6"
-            >
-              <div className="flex items-start gap-4">
-                <div className="w-10 h-10 bg-[#3A8DFF]/10 rounded-lg flex items-center justify-center shrink-0">
-                  <feature.icon className="w-5 h-5 text-[#3A8DFF]" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-semibold text-industrial-text mb-2">
-                    {feature.title}
-                  </h3>
-                  <p className="text-sm text-industrial-muted leading-relaxed">
-                    {feature.description}
-                  </p>
-                </div>
-              </div>
-            </motion.div>
-          ))}
-        </div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.6 }}
-          className="bg-industrial-slate border border-industrial-border rounded-xl p-8"
-        >
-          <h2 className="text-xl font-semibold text-industrial-text mb-4">
-            Compliance & Certifications
-          </h2>
-          <div className="grid md:grid-cols-3 gap-4 text-center">
-            {["SOC 2 Type II", "ISO 27001", "GDPR Ready"].map((cert) => (
-              <div
-                key={cert}
-                className="bg-industrial-black rounded-lg py-4 px-6 border border-industrial-border"
-              >
-                <span className="text-industrial-text font-medium">{cert}</span>
-              </div>
-            ))}
-          </div>
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.8 }}
-          className="mt-8 text-center"
-        >
-          <p className="text-sm text-industrial-muted">
-            For detailed security documentation or to request a security audit
-            report, contact{" "}
-            <a
-              href="mailto:security@syncai.com"
-              className="text-[#3A8DFF] hover:underline"
-            >
-              security@syncai.com
-            </a>
-          </p>
-        </motion.div>
-      </div>
-    </div>
-  );
+  return <div className="min-h-screen bg-industrial-black py-16 px-6"><div className="max-w-4xl mx-auto"><button onClick={() => onNavigate("signin")} className="mb-8 flex items-center gap-2 text-industrial-muted hover:text-industrial-text"><ArrowLeft className="w-4 h-4" />Back to Sign In</button><motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}><p className="text-xs font-semibold uppercase tracking-[0.18em] text-teal-300">Security posture</p><h1 className="mt-3 text-4xl font-semibold text-industrial-text">Describe the controls that exist. Do not overstate the ones still being validated.</h1><p className="mt-5 text-industrial-muted leading-7">SyncAI is designed around tenant isolation, governed decision rights, human approval, and evidence traceability. Public security statements are limited to controls we can support with current implementation evidence.</p></motion.div><div className="mt-10 grid gap-5 md:grid-cols-2">{controls.map(([Icon,title,description]) => <div key={title} className="rounded-xl border border-industrial-border bg-industrial-slate p-6"><Icon className="w-5 h-5 text-teal-300" /><h2 className="mt-4 text-lg font-semibold text-industrial-text">{title}</h2><p className="mt-2 text-sm leading-6 text-industrial-muted">{description}</p></div>)}</div><div className="mt-8 rounded-xl border border-amber-300/20 bg-amber-300/[0.04] p-6"><h2 className="font-semibold text-industrial-text">Certifications and assurance</h2><p className="mt-2 text-sm leading-6 text-industrial-muted">SyncAI does not claim SOC 2 Type II, ISO 27001, HIPAA certification/readiness, or other third-party assurance publicly unless that status is formally achieved, current, and within the represented scope. Current control evidence and deployment-specific security requirements can be reviewed during enterprise diligence.</p></div><p className="mt-8 text-sm text-industrial-muted">Security questions: <a className="text-[#3A8DFF] hover:underline" href="mailto:security@syncai.ca">security@syncai.ca</a></p></div></div>;
 }
