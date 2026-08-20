@@ -1,23 +1,26 @@
 /**
  * CopilotDock / Sync shell — one global interaction layer, two rollout modes.
  *
- * sync_global_shell OFF: preserves the existing role-aware Reliability Engineer
- * request/response path exactly as the safe fallback.
- *
- * sync_global_shell ON: uses the governed Sync SSE runtime, resumes the most
- * recent canonical Cowork workspace, exposes typed evidence/tool state, and
- * adds stop/regenerate plus feature-gated voice I/O. The model never decides
- * whether a tool executed by prose; action state comes only from Sync events.
+ * sync_global_shell OFF preserves the established role-aware Reliability
+ * Engineer path. When the tenant gate is ON, the same dock becomes the Sync
+ * surface: resumable context, typed streaming state, evidence, voice, routed
+ * specialists and human-confirmed governed actions.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Bot,
+  Calculator,
   Download,
+  FileQuestion,
+  Lightbulb,
+  Link2,
+  ListChecks,
   Loader2,
   Mic,
   MicOff,
   RotateCcw,
   Send,
+  ShieldAlert,
   ShieldCheck,
   Sparkles,
   Square,
@@ -38,6 +41,7 @@ import { useSyncStream } from "../hooks/useSyncStream";
 import { useDictation } from "../hooks/useDictation";
 import { useSpeechOutput } from "../hooks/useSpeechOutput";
 import type {
+  AssistantBlock,
   EvidenceReference,
   ProposedAction,
   SyncStreamEvent,
@@ -51,6 +55,7 @@ interface ChatMessage {
   status?: "streaming" | "complete" | "error";
   evidence?: EvidenceReference[];
   proposal?: ProposedAction;
+  blocks?: AssistantBlock[];
 }
 
 interface CopilotDockProps {
@@ -91,6 +96,7 @@ function downloadCsvText(csv: string, filename: string) {
 async function buildLiveContext(): Promise<string> {
   const adhoc = getCopilotEphemeralContext();
   if (adhoc) return adhoc;
+
   const parts: string[] = [];
   try {
     const dash = await getKpiDashboard();
@@ -118,8 +124,9 @@ async function buildLiveContext(): Promise<string> {
       );
     }
   } catch {
-    // A missing KPI source must not block an otherwise valid conversation.
+    // Live context enriches a turn; it must not become an availability gate.
   }
+
   try {
     const { data } = await supabase
       .from("recommendations")
@@ -134,7 +141,7 @@ async function buildLiveContext(): Promise<string> {
       );
     }
   } catch {
-    // Role-scoped live context is enrichment, not an availability dependency.
+    // Same fail-soft rule as KPI enrichment.
   }
   return parts.join("\n").slice(0, 1800);
 }
@@ -163,6 +170,136 @@ function actionResultText(result: unknown): string {
   return "Action completed through the governed application service.";
 }
 
+function StructuredBlock({ block }: { block: AssistantBlock }) {
+  if (block.kind === "markdown" || block.kind === "evidence") return null;
+
+  if (block.kind === "warning") {
+    const critical = ["critical", "high", "warning"].includes(
+      block.severity.toLowerCase(),
+    );
+    return (
+      <div
+        className={`mt-2 rounded-lg border px-2.5 py-2 text-[11px] leading-4 ${
+          critical
+            ? "border-amber-500/25 bg-amber-500/5 text-amber-100"
+            : "border-sky-500/20 bg-sky-500/5 text-sky-100"
+        }`}
+      >
+        <div className="mb-1 flex items-center gap-1.5 font-semibold uppercase tracking-wide">
+          <ShieldAlert className="h-3 w-3" aria-hidden />
+          {block.severity}
+        </div>
+        {block.content}
+      </div>
+    );
+  }
+
+  if (
+    block.kind === "facts" ||
+    block.kind === "hypotheses" ||
+    block.kind === "missing_evidence"
+  ) {
+    const title =
+      block.kind === "facts"
+        ? "Facts"
+        : block.kind === "hypotheses"
+          ? "Hypotheses"
+          : "Missing evidence";
+    const Icon = block.kind === "missing_evidence" ? FileQuestion : ListChecks;
+    return (
+      <div className="mt-2 rounded-lg border border-white/6 bg-black/10 p-2.5">
+        <div className="mb-1.5 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+          <Icon className="h-3 w-3" aria-hidden />
+          {title}
+        </div>
+        <ul className="space-y-1 text-xs text-slate-300">
+          {block.items.map((item, index) => (
+            <li key={`${title}-${index}`} className="flex gap-1.5">
+              <span aria-hidden>•</span>
+              <span>{item}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    );
+  }
+
+  if (block.kind === "calculation") {
+    const calculation = block.calculation;
+    return (
+      <div className="mt-2 rounded-lg border border-white/6 bg-black/10 p-2.5">
+        <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+          <Calculator className="h-3 w-3" aria-hidden />
+          Calculation
+        </div>
+        <div className="mt-1 text-xs font-medium text-slate-200">
+          {calculation.title}
+        </div>
+        {calculation.result !== undefined && (
+          <div className="mt-1 text-xs text-teal-200">
+            {String(calculation.result)}{calculation.units ? ` ${calculation.units}` : ""}
+          </div>
+        )}
+        {calculation.method && (
+          <div className="mt-1 text-[11px] text-slate-500">
+            {calculation.method}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  if (block.kind === "recommendation") {
+    return (
+      <div className="mt-2 rounded-lg border border-teal-500/20 bg-teal-500/5 p-2.5">
+        <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-teal-300">
+          <Lightbulb className="h-3 w-3" aria-hidden />
+          Recommendation
+        </div>
+        <div className="mt-1 text-xs text-slate-200">
+          {block.recommendation.summary}
+        </div>
+        {block.recommendation.rationale && (
+          <div className="mt-1 text-[11px] text-slate-400">
+            {block.recommendation.rationale}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  if (block.kind === "entity_links") {
+    return (
+      <div className="mt-2 rounded-lg border border-white/6 bg-black/10 p-2.5">
+        <div className="mb-1.5 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+          <Link2 className="h-3 w-3" aria-hidden />
+          Related records
+        </div>
+        <div className="space-y-1 text-xs text-slate-300">
+          {block.entities.map((entity) => (
+            <div key={`${entity.type}:${entity.id}`}>
+              {entity.displayName ?? entity.id}
+              <span className="ml-1 text-[10px] text-slate-500">
+                {entity.type}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (block.kind === "action_proposal") {
+    return (
+      <div className="mt-2 rounded-lg border border-amber-500/25 bg-amber-500/5 p-2.5 text-xs text-amber-100">
+        Proposed action: {block.action.title}
+      </div>
+    );
+  }
+
+  return null;
+}
+
 export function CopilotDock({
   currentPath =
     typeof window !== "undefined" ? window.location.pathname : "/",
@@ -174,7 +311,13 @@ export function CopilotDock({
   const voiceOutput = useFeatureFlag("sync_voice_output");
   const meetingModeFlag = useFeatureFlag("sync_meeting_mode");
   const fieldModeFlag = useFeatureFlag("sync_field_mode");
-  const stream = useSyncStream();
+  const {
+    events: streamEvents,
+    status: streamStatus,
+    error: streamError,
+    start: startStream,
+    cancel: cancelStream,
+  } = useSyncStream();
   const speech = useSpeechOutput();
 
   const [open, setOpen] = useState(false);
@@ -198,11 +341,25 @@ export function CopilotDock({
   });
 
   const syncEnabled = syncGlobal.enabled;
-  const sending = legacySending || startingSync || stream.status === "streaming";
+  const sending =
+    legacySending || startingSync || streamStatus === "streaming";
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
   }, [messages, sending]);
+
+  useEffect(() => {
+    if (!syncEnabled && streamStatus === "streaming") cancelStream();
+  }, [cancelStream, streamStatus, syncEnabled]);
+
+  useEffect(() => {
+    if (!voiceOutput.enabled && speech.speaking) speech.stop();
+  }, [speech, voiceOutput.enabled]);
+
+  useEffect(() => {
+    if (mode === "meeting" && !meetingModeFlag.enabled) setMode("conversation");
+    if (mode === "field" && !fieldModeFlag.enabled) setMode("conversation");
+  }, [fieldModeFlag.enabled, meetingModeFlag.enabled, mode]);
 
   useEffect(() => {
     if (!syncEnabled || !open || historyLoaded) return;
@@ -219,6 +376,7 @@ export function CopilotDock({
             text: message.text,
             status: message.status === "error" ? "error" : "complete",
             evidence: message.evidence,
+            blocks: message.blocks,
           })),
         );
       })
@@ -258,6 +416,25 @@ export function CopilotDock({
         }));
         return;
       }
+      if (event.type === "assistant.block") {
+        if (event.block.kind === "evidence") {
+          updateActiveAgent((message) => ({
+            ...message,
+            evidence: event.block.items,
+          }));
+        } else if (event.block.kind === "action_proposal") {
+          updateActiveAgent((message) => ({
+            ...message,
+            proposal: event.block.action,
+          }));
+        } else if (event.block.kind !== "markdown") {
+          updateActiveAgent((message) => ({
+            ...message,
+            blocks: [...(message.blocks ?? []), event.block],
+          }));
+        }
+        return;
+      }
       if (event.type === "retrieval.completed") {
         updateActiveAgent((message) => ({
           ...message,
@@ -275,7 +452,8 @@ export function CopilotDock({
       if (event.type === "tool.started") {
         updateActiveAgent((message) => ({
           ...message,
-          text: "Executing the action you confirmed through the governed application service…",
+          text:
+            "Executing the action you confirmed through the governed application service…",
           status: "streaming",
         }));
         return;
@@ -305,30 +483,30 @@ export function CopilotDock({
   );
 
   useEffect(() => {
-    if (stream.events.length < processedEventCountRef.current) {
+    if (streamEvents.length < processedEventCountRef.current) {
       processedEventCountRef.current = 0;
     }
-    const unprocessed = stream.events.slice(processedEventCountRef.current);
+    const unprocessed = streamEvents.slice(processedEventCountRef.current);
     for (const event of unprocessed) handleStreamEvent(event);
-    processedEventCountRef.current = stream.events.length;
-  }, [handleStreamEvent, stream.events]);
+    processedEventCountRef.current = streamEvents.length;
+  }, [handleStreamEvent, streamEvents]);
 
   useEffect(() => {
     if (!syncEnabled) return;
-    if (stream.status === "cancelled") {
+    if (streamStatus === "cancelled") {
       updateActiveAgent((message) => ({
         ...message,
         text: message.text || "Stopped before Sync returned content.",
         status: "complete",
       }));
-    } else if (stream.status === "error" && stream.error) {
+    } else if (streamStatus === "error" && streamError) {
       updateActiveAgent((message) => ({
         ...message,
-        text: message.text || stream.error || "Sync stream failed.",
+        text: message.text || streamError || "Sync stream failed.",
         status: "error",
       }));
     }
-  }, [stream.error, stream.status, syncEnabled, updateActiveAgent]);
+  }, [streamError, streamStatus, syncEnabled, updateActiveAgent]);
 
   const startSyncRequest = useCallback(
     async (body: Record<string, unknown>, agentMessageId: string) => {
@@ -340,7 +518,7 @@ export function CopilotDock({
       processedEventCountRef.current = 0;
       setStartingSync(true);
       try {
-        await stream.start(`${supabaseUrl}/functions/v1/sync-runtime`, {
+        await startStream(`${supabaseUrl}/functions/v1/sync-runtime`, {
           method: "POST",
           headers: {
             Authorization: `Bearer ${session.access_token}`,
@@ -353,7 +531,7 @@ export function CopilotDock({
         setStartingSync(false);
       }
     },
-    [stream],
+    [startStream],
   );
 
   const askLegacy = useCallback(
@@ -413,7 +591,8 @@ export function CopilotDock({
           {
             id: crypto.randomUUID(),
             role: "agent",
-            text: "The copilot is unavailable right now — your operating data and actions are unaffected. Please try again shortly.",
+            text:
+              "The copilot is unavailable right now — your operating data and actions are unaffected. Please try again shortly.",
             status: "error",
           },
         ]);
@@ -455,6 +634,7 @@ export function CopilotDock({
           role: "agent",
           text: "",
           status: "streaming",
+          blocks: [],
         },
       ]);
       const liveContext = await buildLiveContext();
@@ -675,6 +855,13 @@ export function CopilotDock({
                       </div>
                     )}
 
+                    {message.blocks?.map((block, index) => (
+                      <StructuredBlock
+                        key={`${message.id}:block:${index}`}
+                        block={block}
+                      />
+                    ))}
+
                     {message.evidence && message.evidence.length > 0 && (
                       <div className="mt-2 border-t border-white/6 pt-2">
                         <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
@@ -825,10 +1012,10 @@ export function CopilotDock({
                 </button>
               )}
 
-              {syncEnabled && stream.status === "streaming" ? (
+              {syncEnabled && streamStatus === "streaming" ? (
                 <button
                   type="button"
-                  onClick={stream.cancel}
+                  onClick={cancelStream}
                   aria-label="Stop response"
                   className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-200 text-slate-950 hover:bg-white"
                 >
@@ -857,7 +1044,7 @@ export function CopilotDock({
               </p>
               {syncEnabled &&
                 lastQuestionRef.current &&
-                stream.status !== "streaming" && (
+                streamStatus !== "streaming" && (
                   <button
                     type="button"
                     onClick={() => void ask(lastQuestionRef.current, false)}
