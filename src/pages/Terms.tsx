@@ -8,7 +8,6 @@ interface TermsProps {
       | "signup"
       | "enterprise"
       | "app"
-      | "pricing"
       | "security"
       | "privacy"
       | "terms",

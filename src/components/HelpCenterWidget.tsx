@@ -120,9 +120,8 @@ Adjust sensitivity thresholds in Settings → AI Agents`,
     content: `# Billing Overview
 
 ## Subscription Plans:
-- Starter: $4,000/month (200 assets)
-- Pro: $9,000/month (1,000 assets)
-- Enterprise: $18,000/month (3,000+ assets)
+Plan tiers and pricing are under commercial review. Current pricing is
+available on request from your SyncAI account contact.
 
 ## Usage Tracking:
 View your credit consumption in Billing → Usage Dashboard

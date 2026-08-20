@@ -1,5 +1,14 @@
 # 🎉 Premium Customer Journey - DEPLOYED
 
+> **2026-08-19 — HISTORICAL DOCUMENT, PRICING SUPERSEDED.** The dollar
+> figures below ($4,000 / $9,000 / $18,000 tiers and derived examples) were
+> never commercially confirmed and are retained only as a record of what was
+> built. Current pricing is **under commercial review** and available on
+> request from your SyncAI account contact. `billing-gainshare`,
+> `GainShareConsole`, `PremiumCheckout`, `UsageDashboard`, and the `Pricing`
+> page were **deleted on 2026-08-19** (fabricated rates / triple-counted
+> savings); do not reimplement from this document.
+
 **Deployment:** February 24, 2026, 7:48 PM MST  
 **Status:** ✅ LIVE on https://app.syncai.ca  
 **Build Time:** 33 seconds  
@@ -10,9 +19,11 @@
 ## 🚀 What Was Deployed
 
 ### 1. **Premium Onboarding Wizard** ✨
+
 **Component:** `OnboardingWizard.tsx`  
 **Location:** Automatically appears after first login  
 **Features:**
+
 - ✅ Beautiful gradient header (teal → blue → purple)
 - ✅ 4-step guided onboarding process:
   1. Complete Your Profile
@@ -25,6 +36,7 @@
 - ✅ Quick action links (tutorial, help center, support)
 
 **UX Flow:**
+
 ```
 User Signs Up
     ↓
@@ -38,6 +50,7 @@ Progress saved to database
 ```
 
 **Premium Details:**
+
 - Gradient backgrounds
 - Smooth transitions
 - Icon animations
@@ -47,9 +60,11 @@ Progress saved to database
 ---
 
 ### 2. **Premium Stripe Checkout** 💳
+
 **Component:** `PremiumCheckout.tsx`  
 **Location:** Billing → Plans  
 **Features:**
+
 - ✅ 3-tier pricing cards with gradients
 - ✅ "Most Popular" badge on Pro plan
 - ✅ Hover animations (scale + shadow)
@@ -60,6 +75,7 @@ Progress saved to database
 - ✅ Error handling
 
 **Pricing Display:**
+
 ```
 ┌──────────────────────────────────────┐
 │  [Blue Icon]    STARTER              │
@@ -78,6 +94,7 @@ Progress saved to database
 ```
 
 **Integration:**
+
 - Connected to `stripe-checkout` Edge Function
 - Redirects to Stripe hosted checkout
 - Handles webhooks for payment confirmation
@@ -86,9 +103,11 @@ Progress saved to database
 ---
 
 ### 3. **Premium CSV Import Wizard** 📊
+
 **Component:** `CSVImportWizard.tsx`  
 **Trigger:** (Future) Import button in Assets view  
 **Features:**
+
 - ✅ 3-step wizard (Download Template → Upload → Review & Import)
 - ✅ Drag-and-drop file upload
 - ✅ File validation (CSV only)
@@ -98,6 +117,7 @@ Progress saved to database
 - ✅ Success summary with retry option
 
 **Import Flow:**
+
 ```
 Step 1: Download Template
     ↓
@@ -115,6 +135,7 @@ Error details for failed rows
 ```
 
 **Premium Details:**
+
 - Smooth drag-and-drop with hover states
 - Real-time file parsing
 - Table preview with clean styling
@@ -122,6 +143,7 @@ Error details for failed rows
 - Retry/import more workflow
 
 **Template Format:**
+
 ```csv
 name,type,location,criticality,status
 Pump P-101,Centrifugal Pump,Building A,high,operational
@@ -131,9 +153,11 @@ Motor M-205,Electric Motor,Building B,medium,operational
 ---
 
 ### 4. **Premium Help Center Widget** 📚
+
 **Component:** `HelpCenterWidget.tsx`  
 **Location:** Floating button (bottom-right, always visible)  
 **Features:**
+
 - ✅ Floating action button with gradient
 - ✅ Hover tooltip ("Need Help?")
 - ✅ Full-screen modal with search
@@ -144,6 +168,7 @@ Motor M-205,Electric Motor,Building B,medium,operational
 - ✅ Quick links (email support, schedule demo)
 
 **Categories:**
+
 1. Quick Start (Getting Started guide)
 2. Assets (Adding and managing)
 3. AI Features (Understanding AI agents)
@@ -153,6 +178,7 @@ Motor M-205,Electric Motor,Building B,medium,operational
 7. Developers (API & integrations)
 
 **UX:**
+
 ```
 Floating Button (bottom-right)
     ↓
@@ -168,6 +194,7 @@ Click article → Full content view
 ```
 
 **Premium Details:**
+
 - Always accessible (floating)
 - Gradient header matching brand
 - Smooth modal animations
@@ -179,6 +206,7 @@ Click article → Full content view
 ## 🎨 Premium Design System
 
 ### **Color Palette:**
+
 - Primary: Teal-600 → Blue-600 → Purple-600 (gradients)
 - Success: Green-500/600
 - Warning: Yellow/Orange
@@ -186,23 +214,27 @@ Click article → Full content view
 - Neutral: Gray-50 → Gray-900
 
 ### **Typography:**
+
 - Headers: Bold, large (text-2xl to text-5xl)
 - Body: Regular, readable (text-sm to text-base)
 - Labels: Medium, uppercase tracking (text-xs)
 
 ### **Animations:**
+
 - Fade-in: 300ms ease
 - Zoom-in: 300ms scale(0.95 → 1)
 - Hover scale: scale(1 → 1.05)
 - Transitions: 200ms all
 
 ### **Spacing:**
+
 - Cards: p-6 to p-8
 - Sections: space-y-6 to space-y-8
 - Modals: max-w-2xl to max-w-5xl
 - Rounded corners: rounded-xl to rounded-2xl
 
 ### **Shadows:**
+
 - Cards: shadow-sm (default), shadow-lg (hover)
 - Modals: shadow-2xl
 - Floating buttons: shadow-2xl
@@ -214,17 +246,20 @@ Click article → Full content view
 ### **New Migration: `20260224_onboarding.sql`**
 
 Added to `user_profiles` table:
+
 ```sql
 onboarding_completed: BOOLEAN (default: false)
 onboarding_progress: JSONB (default: {})
 ```
 
 **Index created:**
+
 ```sql
 idx_user_profiles_onboarding ON user_profiles(onboarding_completed)
 ```
 
 **Usage:**
+
 - Tracks which onboarding steps completed
 - Remembers progress across sessions
 - Allows users to resume onboarding later
@@ -234,14 +269,17 @@ idx_user_profiles_onboarding ON user_profiles(onboarding_completed)
 ## 🔗 Integration Points
 
 ### **Onboarding ↔ Assets:**
+
 - When user completes "Add Assets" step → Updates onboarding_progress
 - CSV import completion → Marks "Add Assets" as complete
 
 ### **Help Center ↔ All Views:**
+
 - Floating button accessible from any page
 - Context-aware help (future: show relevant articles)
 
 ### **Stripe ↔ Billing:**
+
 - Plans page → Checkout → Stripe → Webhook → Subscription created
 - Billing Overview shows active plan
 - Usage Dashboard tracks credit consumption
@@ -251,6 +289,7 @@ idx_user_profiles_onboarding ON user_profiles(onboarding_completed)
 ## 🎯 Customer Journey Map
 
 ### **New User Journey:**
+
 ```
 1. SIGN UP
    ↓
@@ -277,30 +316,36 @@ idx_user_profiles_onboarding ON user_profiles(onboarding_completed)
 ## 💡 Premium Feel Achieved Through:
 
 ✅ **Smooth Animations**
+
 - Fade-ins, zoom-ins, scale on hover
 - Transition timing: 200-300ms (feels instant but polished)
 
 ✅ **Gradients Everywhere**
+
 - Headers: teal → blue → purple
 - Buttons: matching brand colors
 - Cards: subtle background gradients
 
 ✅ **Premium Typography**
+
 - Large, bold headers (text-2xl to text-5xl)
 - Clear hierarchy (size + weight)
 - Proper spacing (leading, tracking)
 
 ✅ **White Space**
+
 - Generous padding (p-6, p-8)
 - Consistent spacing (space-y-6)
 - Not cramped or cluttered
 
 ✅ **Micro-interactions**
+
 - Hover states (scale, color change)
 - Loading spinners (not just text)
 - Success/error states (icons + color)
 
 ✅ **Professional Polish**
+
 - Rounded corners (rounded-xl, rounded-2xl)
 - Shadows for depth (shadow-lg, shadow-2xl)
 - Backdrop blur on modals
@@ -311,21 +356,25 @@ idx_user_profiles_onboarding ON user_profiles(onboarding_completed)
 ## 📈 Metrics to Track
 
 ### **Onboarding Completion:**
+
 - % of users who complete all 4 steps
 - Time to complete onboarding
 - Drop-off points (which step loses users)
 
 ### **CSV Import Usage:**
+
 - # of imports per user
 - Average assets imported
 - Error rate (failed rows)
 
 ### **Help Center Engagement:**
+
 - Most viewed articles
 - Search queries (what users need help with)
 - Feedback (helpful yes/no)
 
 ### **Stripe Conversion:**
+
 - % of users who reach checkout
 - Conversion rate by plan (Starter vs Pro vs Enterprise)
 - Time from signup to first payment
@@ -335,6 +384,7 @@ idx_user_profiles_onboarding ON user_profiles(onboarding_completed)
 ## 🚀 What's Next (Future Enhancements)
 
 ### **Phase 2: Advanced Features**
+
 1. **Video Tutorials** (embedded in onboarding)
 2. **Interactive Product Tours** (highlight UI elements)
 3. **In-app Chat Support** (live chat widget)
@@ -342,6 +392,7 @@ idx_user_profiles_onboarding ON user_profiles(onboarding_completed)
 5. **Custom Branding** (white-label for Enterprise)
 
 ### **Phase 3: Personalization**
+
 1. **Industry-specific Onboarding** (Oil & Gas vs Manufacturing)
 2. **Role-based Wizards** (Manager vs Technician)
 3. **Smart Help** (suggest articles based on user behavior)
@@ -352,6 +403,7 @@ idx_user_profiles_onboarding ON user_profiles(onboarding_completed)
 ## 🎉 Summary
 
 **4 major components deployed:**
+
 1. ✅ Onboarding Wizard (9.5 KB)
 2. ✅ Premium Checkout (9.7 KB)
 3. ✅ CSV Import (16.6 KB)

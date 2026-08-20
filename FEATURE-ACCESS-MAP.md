@@ -1,5 +1,14 @@
 # 🗺️ Feature Access Map
 
+> **2026-08-19 — HISTORICAL DOCUMENT, PRICING SUPERSEDED.** The dollar
+> figures below ($4,000 / $9,000 / $18,000 tiers and derived examples) were
+> never commercially confirmed and are retained only as a record of what was
+> built. Current pricing is **under commercial review** and available on
+> request from your SyncAI account contact. `billing-gainshare`,
+> `GainShareConsole`, `PremiumCheckout`, `UsageDashboard`, and the `Pricing`
+> page were **deleted on 2026-08-19** (fabricated rates / triple-counted
+> savings); do not reimplement from this document.
+
 ## Where to Find Everything
 
 ---
@@ -9,52 +18,60 @@
 Access via: `https://supabase.com/dashboard` → Your Project → Table Editor
 
 ### **RAG & Documents**
-| Table | What It Does | Access Method |
-|-------|--------------|---------------|
-| `knowledge_base_documents` | Source documents | Insert/Select |
-| `knowledge_base_chunks` | Chunked text + embeddings | Auto-created by processor |
-| `embeddings` | Vector embeddings | Auto-created |
-| `rag_search_logs` | Search analytics | Auto-logged |
+
+| Table                      | What It Does              | Access Method             |
+| -------------------------- | ------------------------- | ------------------------- |
+| `knowledge_base_documents` | Source documents          | Insert/Select             |
+| `knowledge_base_chunks`    | Chunked text + embeddings | Auto-created by processor |
+| `embeddings`               | Vector embeddings         | Auto-created              |
+| `rag_search_logs`          | Search analytics          | Auto-logged               |
 
 ### **Conversations & Feedback**
-| Table | What It Does | Access Method |
-|-------|--------------|---------------|
-| `agent_conversations` | All AI chats | Auto-logged |
-| `agent_feedback` | User ratings | Insert ratings |
+
+| Table                 | What It Does | Access Method  |
+| --------------------- | ------------ | -------------- |
+| `agent_conversations` | All AI chats | Auto-logged    |
+| `agent_feedback`      | User ratings | Insert ratings |
 
 ### **Connectors (NEW)**
-| Table | What It Does | Access Method |
-|-------|--------------|---------------|
+
+| Table          | What It Does      | Access Method     |
+| -------------- | ----------------- | ----------------- |
 | `data_sources` | Connector configs | Insert connectors |
-| `sync_jobs` | Sync status | Trigger syncs |
+| `sync_jobs`    | Sync status       | Trigger syncs     |
 
 ### **GraphRAG (NEW)**
-| Table | What It Does | Access Method |
-|-------|--------------|---------------|
-| `graph_entities` | Entities | Insert/query entities |
-| `graph_relationships` | Entity links | Create relationships |
+
+| Table                 | What It Does | Access Method         |
+| --------------------- | ------------ | --------------------- |
+| `graph_entities`      | Entities     | Insert/query entities |
+| `graph_relationships` | Entity links | Create relationships  |
 
 ### **Tools (NEW)**
-| Table | What It Does | Access Method |
-|-------|--------------|---------------|
-| `tool_definitions` | Available tools | Define tools |
-| `tool_executions` | Tool calls | Execute with approval |
+
+| Table              | What It Does    | Access Method         |
+| ------------------ | --------------- | --------------------- |
+| `tool_definitions` | Available tools | Define tools          |
+| `tool_executions`  | Tool calls      | Execute with approval |
 
 ### **Safety (NEW)**
-| Table | What It Does | Access Method |
-|-------|--------------|---------------|
-| `safety_checks` | RAI audits | Auto-logged |
+
+| Table           | What It Does | Access Method |
+| --------------- | ------------ | ------------- |
+| `safety_checks` | RAI audits   | Auto-logged   |
 
 ### **Deployments (NEW)**
-| Table | What It Does | Access Method |
-|-------|--------------|---------------|
-| `model_deployments` | Canary deploys | Deploy models |
-| `ft_models` | Fine-tuned models | Register models |
+
+| Table               | What It Does      | Access Method   |
+| ------------------- | ----------------- | --------------- |
+| `model_deployments` | Canary deploys    | Deploy models   |
+| `ft_models`         | Fine-tuned models | Register models |
 
 ### **Governance (NEW)**
-| Table | What It Does | Access Method |
-|-------|--------------|---------------|
-| `cost_budgets` | Token limits | Set budgets |
+
+| Table          | What It Does | Access Method |
+| -------------- | ------------ | ------------- |
+| `cost_budgets` | Token limits | Set budgets   |
 
 ---
 
@@ -63,6 +80,7 @@ Access via: `https://supabase.com/dashboard` → Your Project → Table Editor
 Access via: `https://your-project.supabase.co/functions/v1/FUNCTION_NAME`
 
 ### **RAG Functions**
+
 ```bash
 # Process document
 POST /rag-document-processor/process
@@ -77,6 +95,7 @@ GET /rag-document-processor/status/:document_id
 ```
 
 ### **AI Functions**
+
 ```bash
 # Get AI response
 POST /ai-agent-processor
@@ -84,6 +103,7 @@ Body: { agentType, query, openaiKey }
 ```
 
 ### **Other Functions**
+
 ```bash
 POST /billing-api
 POST /stripe-checkout
@@ -97,6 +117,7 @@ POST /autonomous-orchestrator
 Access via: Supabase SQL Editor or `supabase.rpc()`
 
 ### **Search Functions**
+
 ```sql
 -- Hybrid search (Vector + BM25)
 SELECT * FROM hybrid_search(
@@ -117,6 +138,7 @@ SELECT * FROM search_knowledge_base(
 ```
 
 ### **Training Functions**
+
 ```sql
 -- Get fine-tuning data
 SELECT * FROM get_fine_tuning_pairs(
@@ -126,6 +148,7 @@ SELECT * FROM get_fine_tuning_pairs(
 ```
 
 ### **Governance Functions**
+
 ```sql
 -- Check budget
 SELECT check_cost_budget(
@@ -143,6 +166,7 @@ SELECT check_cost_budget(
 Located in: `src/components/`
 
 ### **Existing Dashboards**
+
 - `ExecutiveDashboard.tsx` - 29 KOIs
 - `StrategicDashboard.tsx` - Strategic KPIs
 - `TacticalDashboard.tsx` - Tactical metrics
@@ -150,6 +174,7 @@ Located in: `src/components/`
 - `AutonomousDashboard.tsx` - Autonomous monitoring
 
 ### **Billing Components**
+
 - `billing/BillingOverview.tsx`
 - `billing/PlansAndPricing.tsx`
 - `billing/UsageDashboard.tsx`
@@ -157,10 +182,12 @@ Located in: `src/components/`
 - `billing/GainShareConsole.tsx`
 
 ### **AI Components**
+
 - `UnifiedChatInterface.tsx` - AI assistant
 - `AIAnalyticsDashboard.tsx` - AI metrics
 
 ### **Core Components**
+
 - `AssetManagement.tsx` - Asset tracking
 - `WorkOrderManagement.tsx` - Work orders
 - `AuthForm.tsx` - Authentication
@@ -172,6 +199,7 @@ Located in: `src/components/`
 ### **1. Upload & Search Documents**
 
 **Step 1: Go to Supabase Studio**
+
 - Open Table Editor
 - Select `knowledge_base_documents`
 - Click "Insert row"
@@ -179,6 +207,7 @@ Located in: `src/components/`
 - Save
 
 **Step 2: Process Document**
+
 ```bash
 curl -X POST https://YOUR-PROJECT.supabase.co/functions/v1/rag-document-processor/process \
   -H "Authorization: Bearer YOUR_ANON_KEY" \
@@ -187,6 +216,7 @@ curl -X POST https://YOUR-PROJECT.supabase.co/functions/v1/rag-document-processo
 ```
 
 **Step 3: Search**
+
 ```bash
 curl -X POST https://YOUR-PROJECT.supabase.co/functions/v1/rag-semantic-search \
   -H "Authorization: Bearer YOUR_ANON_KEY" \
@@ -199,6 +229,7 @@ curl -X POST https://YOUR-PROJECT.supabase.co/functions/v1/rag-semantic-search \
 ### **2. Set Up Data Connector**
 
 **In Supabase Table Editor:**
+
 1. Go to `data_sources` table
 2. Insert row:
    - `tenant_id`: your UUID
@@ -209,6 +240,7 @@ curl -X POST https://YOUR-PROJECT.supabase.co/functions/v1/rag-semantic-search \
 3. Save
 
 **Trigger Sync:**
+
 1. Go to `sync_jobs` table
 2. Insert row:
    - `source_id`: your data source ID
@@ -222,6 +254,7 @@ curl -X POST https://YOUR-PROJECT.supabase.co/functions/v1/rag-semantic-search \
 ### **3. Query Knowledge Graph**
 
 **In Supabase SQL Editor:**
+
 ```sql
 -- View all entities
 SELECT * FROM graph_entities
@@ -244,6 +277,7 @@ WHERE r.tenant_id = 'YOUR-TENANT-ID';
 ### **4. View Cost Budgets**
 
 **In Supabase Table Editor:**
+
 1. Open `cost_budgets` table
 2. Filter by your `tenant_id`
 3. See usage:
@@ -252,6 +286,7 @@ WHERE r.tenant_id = 'YOUR-TENANT-ID';
    - `status` (active/exceeded)
 
 **Set New Budget:**
+
 1. Click "Insert row"
 2. Fill:
    - `tenant_id`: your UUID
@@ -267,6 +302,7 @@ WHERE r.tenant_id = 'YOUR-TENANT-ID';
 ### **5. Monitor Safety Checks**
 
 **In Supabase SQL Editor:**
+
 ```sql
 -- Safety metrics
 SELECT
@@ -285,6 +321,7 @@ GROUP BY check_type;
 ### **6. Deploy Canary Model**
 
 **In Supabase Table Editor:**
+
 1. Open `model_deployments` table
 2. Insert row:
    - `tenant_id`: your UUID
@@ -295,6 +332,7 @@ GROUP BY check_type;
 3. Save
 
 **Monitor Performance:**
+
 ```sql
 SELECT
   deployment_type,
@@ -312,6 +350,7 @@ ORDER BY deployed_at DESC;
 ### **7. View RAG Analytics**
 
 **In Supabase SQL Editor:**
+
 ```sql
 -- Search performance
 SELECT
@@ -341,6 +380,7 @@ LIMIT 20;
 ### **8. Export Fine-Tuning Data**
 
 **In Supabase SQL Editor:**
+
 ```sql
 -- Get training examples
 SELECT
@@ -355,6 +395,7 @@ ORDER BY quality_score DESC;
 ```
 
 **Export to JSONL:**
+
 1. Run query in SQL Editor
 2. Click "Export" → CSV
 3. Convert to JSONL format for OpenAI
@@ -364,17 +405,21 @@ ORDER BY quality_score DESC;
 ## 🔐 **Authentication Required**
 
 All features require:
+
 1. User must be logged in (`auth.users`)
 2. User profile in `user_profiles` table
 3. `tenant_id` for multi-tenancy
 
 **Get tenant_id:**
+
 ```typescript
-const { data: { user } } = await supabase.auth.getUser();
+const {
+  data: { user },
+} = await supabase.auth.getUser();
 const { data: profile } = await supabase
-  .from('user_profiles')
-  .select('tenant_id')
-  .eq('id', user.id)
+  .from("user_profiles")
+  .select("tenant_id")
+  .eq("id", user.id)
   .single();
 
 const tenant_id = profile.tenant_id;
@@ -385,6 +430,7 @@ const tenant_id = profile.tenant_id;
 ## 🎯 **Quick Access Checklist**
 
 ### **Via Supabase Studio:**
+
 - ✅ Insert documents → `knowledge_base_documents`
 - ✅ View chunks → `knowledge_base_chunks`
 - ✅ Add connectors → `data_sources`
@@ -394,16 +440,19 @@ const tenant_id = profile.tenant_id;
 - ✅ Track deployments → `model_deployments`
 
 ### **Via Edge Functions:**
+
 - ✅ Process docs → `/rag-document-processor/process`
 - ✅ Search → `/rag-semantic-search`
 - ✅ AI responses → `/ai-agent-processor`
 
 ### **Via SQL Editor:**
+
 - ✅ Hybrid search → `SELECT * FROM hybrid_search(...)`
 - ✅ Fine-tuning data → `SELECT * FROM get_fine_tuning_pairs(...)`
 - ✅ Analytics queries → Custom SQL
 
 ### **Via React App:**
+
 - ✅ View dashboards → Navigate UI
 - ✅ Chat with AI → UnifiedChatInterface
 - ✅ Manage assets → AssetManagement

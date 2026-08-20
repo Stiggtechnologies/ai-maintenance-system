@@ -1,5 +1,13 @@
 # Stigg Reliability AI - Monetization Layer Implementation
 
+> **2026-08-19 — `billing-gainshare` REMOVED.** The gain-share edge function
+> was deleted from the codebase. It triple-counted savings by algebraic
+> identity (it summed availability, MTBF and MTTR "gains" although
+> A = MTBF/(MTBF+MTTR) makes them the same improvement), and every rate it
+> used was a hardcoded fallback with no customer source. References to it
+> below are retained only as a historical record of what was built and then
+> withdrawn; do not reimplement from this document.
+
 ## 🎉 **Implementation Complete!**
 
 The hybrid SaaS + usage-based monetization layer has been successfully integrated into your autonomous Maintenance & Reliability platform.
@@ -13,20 +21,24 @@ The hybrid SaaS + usage-based monetization layer has been successfully integrate
 Created 4 comprehensive Supabase migrations:
 
 #### **Core Billing Tables:**
+
 - `billing_plans` - 3 tiers (STARTER, PRO, ENTERPRISE) with pricing
 - `billing_subscriptions` - Tenant subscriptions with Stripe integration
 - `subscription_limits` - Real-time credit tracking and limits
 - `billing_invoices` - Detailed invoices with breakdown
 
 #### **Usage Tracking:**
+
 - `usage_events` - Every credit-consuming event logged
 - `asset_snapshots` - Periodic asset counts for uplift billing
 
 #### **Gain-Share System:**
+
 - `kpi_baselines` - Baseline metrics for performance comparison
 - `gainshare_runs` - Performance-based fee calculations
 
 #### **Views:**
+
 - `v_tenant_monthly_usage` - Aggregated credit consumption
 - `v_asset_latest` - Current asset counts
 - `v_subscription_credit_summary` - Real-time credit status
@@ -38,6 +50,7 @@ Created 4 comprehensive Supabase migrations:
 Deployed 4 Supabase Edge Functions:
 
 #### **`billing-api`** - Core Operations
+
 - `GET /plans` - List available plans
 - `POST /subscriptions` - Create new subscription
 - `GET /subscriptions/:id` - Get subscription details
@@ -45,18 +58,20 @@ Deployed 4 Supabase Edge Functions:
 - `GET /usage/summary` - Monthly usage aggregation
 
 #### **`billing-invoice`** - Invoice Generation
+
 - Calculates base + asset uplift + usage overage
 - Creates Stripe invoice with line items
 - Resets monthly credits
 - Advances billing period
 
-#### **`billing-gainshare`** - Performance Fees
-- Compares KPI baselines vs actuals
-- Calculates savings from availability, MTBF, MTTR improvements
-- Applies share percentage (10-20%)
-- Generates detailed savings report
+#### **`billing-gainshare`** - Performance Fees (DELETED 2026-08-19)
+
+- Removed: it summed availability + MTBF + MTTR "savings" that are one and
+  the same improvement (A = MTBF/(MTBF+MTTR)) and priced them from invented
+  hardcoded fallback rates. See the banner at the top of this document.
 
 #### **`stripe-webhook`** - Payment Processing
+
 - `invoice.paid` - Mark invoices as paid
 - `invoice.payment_failed` - Handle failures
 - `customer.subscription.updated` - Sync subscription status
@@ -69,6 +84,7 @@ Deployed 4 Supabase Edge Functions:
 Built 5 comprehensive React dashboards:
 
 #### **`BillingOverview`** - `/app/billing`
+
 - Current plan and pricing
 - Credit usage with visual progress
 - Asset count vs included
@@ -77,6 +93,7 @@ Built 5 comprehensive React dashboards:
 - Quick action cards
 
 #### **`PlansAndPricing`** - `/app/billing/plans`
+
 - 3-tier pricing display
 - Feature comparison
 - Popular plan highlighting
@@ -84,6 +101,7 @@ Built 5 comprehensive React dashboards:
 - Upgrade/downgrade flows
 
 #### **`UsageDashboard`** - `/app/billing/usage`
+
 - Total credits used (current period)
 - Usage by event type (LLM, Vision, Optimizer, Simulator)
 - Historical 6-month trend
@@ -91,6 +109,7 @@ Built 5 comprehensive React dashboards:
 - Overage alerts
 
 #### **`InvoiceList`** - `/app/billing/invoices`
+
 - Invoice table with period, amount, status
 - Breakdown: base + assets + usage
 - Stripe hosted URL links
@@ -98,6 +117,7 @@ Built 5 comprehensive React dashboards:
 - Payment status tracking
 
 #### **`GainShareConsole`** - `/app/billing/gain-share`
+
 - Create new calculation runs
 - Period selector with share %
 - Savings breakdown by KPI
@@ -108,19 +128,26 @@ Built 5 comprehensive React dashboards:
 
 ## 💰 **Pricing Model**
 
-### **Three Tiers:**
+> **Superseded 2026-08-19.** These tiers and rates were never commercially
+> confirmed. Pricing is under commercial review and available on request
+> from your SyncAI account contact; the table stands only as a record of
+> what this implementation assumed.
 
-| Plan | Monthly Base | Assets | Credits | Max Sites |
-|------|-------------|--------|---------|-----------|
-| **STARTER (Pilot)** | $4,000 CAD | 200 | 250K | 1 |
-| **PRO (Scale)** | $9,000 CAD | 1,000 | 1M | 3 |
-| **ENTERPRISE (Autonomous)** | $18,000 CAD | 3,000 | 5M | 8 |
+### **Three Tiers (historical, unconfirmed):**
+
+| Plan                        | Monthly Base | Assets | Credits | Max Sites |
+| --------------------------- | ------------ | ------ | ------- | --------- |
+| **STARTER (Pilot)**         | $4,000 CAD   | 200    | 250K    | 1         |
+| **PRO (Scale)**             | $9,000 CAD   | 1,000  | 1M      | 3         |
+| **ENTERPRISE (Autonomous)** | $18,000 CAD  | 3,000  | 5M      | 8         |
 
 ### **Uplift Charges:**
+
 - **Asset Overage:** $2.50-$3.00 CAD per asset/month
 - **Credit Overage:** $0.0015-$0.0020 CAD per credit
 
 ### **Credit Consumption:**
+
 ```
 LLM Token Usage:    1 credit / 1,000 tokens
 Vision Frame Batch: 5 credits / 100 frames
@@ -129,6 +156,7 @@ Simulator Run:      1,000 credits / run
 ```
 
 ### **Gain-Share (Enterprise):**
+
 - 10-20% of documented operational savings
 - Based on KPIs: Availability, MTBF, MTTR, Inventory, Overtime
 - Annual calculation with audit trail
@@ -143,24 +171,27 @@ To track credits in your existing endpoints, call the billing API:
 
 ```typescript
 // Example: After LLM inference
-const response = await fetch(`${SUPABASE_URL}/functions/v1/billing-api/usage/track`, {
-  method: 'POST',
-  headers: {
-    'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-    'Content-Type': 'application/json',
+const response = await fetch(
+  `${SUPABASE_URL}/functions/v1/billing-api/usage/track`,
+  {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      tenant_id: tenantId,
+      subscription_id: subscriptionId,
+      event_type: "LLM_token_usage",
+      units: Math.ceil(totalTokens / 1000), // units in thousands
+      meta: { model: "gpt-4", tokens: totalTokens },
+    }),
   },
-  body: JSON.stringify({
-    tenant_id: tenantId,
-    subscription_id: subscriptionId,
-    event_type: 'LLM_token_usage',
-    units: Math.ceil(totalTokens / 1000), // units in thousands
-    meta: { model: 'gpt-4', tokens: totalTokens },
-  }),
-});
+);
 
 const { credits_burned, remaining_credits, alert } = await response.json();
 
-if (alert === 'OVERAGE') {
+if (alert === "OVERAGE") {
   // Handle overage scenario
 }
 ```
@@ -171,14 +202,12 @@ Run nightly to capture asset counts:
 
 ```typescript
 // Supabase cron job or scheduled function
-await supabase
-  .from('asset_snapshots')
-  .insert({
-    tenant_id: tenantId,
-    asset_count: currentAssetCount,
-    site_breakdown: { site1: 50, site2: 100 },
-    captured_at: new Date().toISOString(),
-  });
+await supabase.from("asset_snapshots").insert({
+  tenant_id: tenantId,
+  asset_count: currentAssetCount,
+  site_breakdown: { site1: 50, site2: 100 },
+  captured_at: new Date().toISOString(),
+});
 ```
 
 ### **Monthly Invoice Generation**
@@ -187,10 +216,10 @@ Trigger on subscription period end:
 
 ```typescript
 const response = await fetch(`${SUPABASE_URL}/functions/v1/billing-invoice`, {
-  method: 'POST',
+  method: "POST",
   headers: {
-    'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-    'Content-Type': 'application/json',
+    Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+    "Content-Type": "application/json",
   },
   body: JSON.stringify({
     subscription_id: subscriptionId,
@@ -205,11 +234,13 @@ const { invoice_id, total_cad, stripe_hosted_url } = await response.json();
 ## 🔐 **Environment Variables**
 
 Already configured in Supabase:
+
 - ✅ `SUPABASE_URL`
 - ✅ `SUPABASE_ANON_KEY`
 - ✅ `SUPABASE_SERVICE_ROLE_KEY`
 
 **To enable Stripe integration, set:**
+
 ```bash
 STRIPE_SECRET_KEY=sk_live_...
 STRIPE_WEBHOOK_SECRET=whsec_...
@@ -235,6 +266,7 @@ curl -X POST "${SUPABASE_URL}/functions/v1/billing-api/subscriptions" \
 ```
 
 **Expected Response:**
+
 ```json
 {
   "subscription_id": "uuid",
@@ -260,6 +292,7 @@ curl -X POST "${SUPABASE_URL}/functions/v1/billing-api/usage/track" \
 ```
 
 **Expected Response:**
+
 ```json
 {
   "ok": true,
@@ -292,6 +325,7 @@ curl -X POST "${SUPABASE_URL}/functions/v1/billing-invoice" \
 ```
 
 **Expected Calculation (PRO plan, 1200 assets, 1.5M credits):**
+
 ```
 Base:          $9,000.00
 Asset Uplift:  $  600.00  (200 extra assets × $3)
@@ -301,6 +335,10 @@ Total:         $10,600.00 CAD
 ```
 
 ### **4. Calculate Gain-Share**
+
+> **Dead example — `billing-gainshare` was deleted on 2026-08-19.** The
+> curl below targets an endpoint that no longer exists; kept only so the
+> historical record stays legible.
 
 ```bash
 # First, set baselines
@@ -329,6 +367,7 @@ curl -X POST "${SUPABASE_URL}/functions/v1/billing-gainshare" \
 ```
 
 **Expected Response:**
+
 ```json
 {
   "gainshare_run_id": "uuid",
@@ -424,6 +463,7 @@ New "**Billing**" section added to sidebar with 5 subsections:
 - ✅ Gain-share calculations
 
 **What's needed:**
+
 - ⚠️ Stripe keys configuration
 - ⚠️ Scheduled jobs for asset snapshots
 - ⚠️ Scheduled jobs for monthly invoicing
@@ -441,17 +481,20 @@ Add new event types to `billing-api/index.ts`:
 
 ```typescript
 const CREDIT_RULES = {
-  'LLM_token_usage': { credits_per_unit: 1, unit: '1k_tokens' },
-  'vision_frame_batch': { credits_per_unit: 5, unit: '100_frames' },
-  'optimizer_job': { credits_per_unit: 500, unit: 'job' },
-  'simulator_run': { credits_per_unit: 1000, unit: 'run' },
-  'YOUR_NEW_EVENT': { credits_per_unit: X, unit: 'description' }, // Add here
+  LLM_token_usage: { credits_per_unit: 1, unit: "1k_tokens" },
+  vision_frame_batch: { credits_per_unit: 5, unit: "100_frames" },
+  optimizer_job: { credits_per_unit: 500, unit: "job" },
+  simulator_run: { credits_per_unit: 1000, unit: "run" },
+  YOUR_NEW_EVENT: { credits_per_unit: X, unit: "description" }, // Add here
 };
 ```
 
 ### **Customizing Gain-Share Metrics:**
 
-Modify `billing-gainshare/index.ts` to add new KPI calculations in the savings breakdown logic.
+~~Modify `billing-gainshare/index.ts` to add new KPI calculations in the savings breakdown logic.~~
+**Not possible — `billing-gainshare` was deleted on 2026-08-19** (see the
+banner at the top of this document). Any future gain-share billing must be
+designed from customer-sourced rates, not reimplemented from this file.
 
 ### **Adding New Plans:**
 
@@ -527,6 +570,7 @@ VALUES ('CUSTOM', 'Custom Plan', 25000.00, 5000, 10000000, 2.00, 0.0010, 15);
 The complete hybrid SaaS + usage-based billing system is now integrated into your Stigg Reliability AI platform. All core functionality is operational and ready for production use.
 
 **Start by:**
+
 1. Running `npm run dev`
 2. Navigating to "Billing" in the sidebar
 3. Creating a test subscription
