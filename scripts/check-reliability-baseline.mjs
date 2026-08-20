@@ -45,9 +45,9 @@ const currentHashes = Object.fromEntries(
 );
 
 function resolveDiffBase() {
-  const eventBefore = (process.env.GITHUB_EVENT_BEFORE ?? "").trim();
-  if (eventBefore && !/^0+$/.test(eventBefore)) return eventBefore;
-
+  // PRs must always evaluate the entire proposed change against their base.
+  // Looking only at github.event.before would let an earlier protected change
+  // disappear from the gate after a later unrelated push.
   const baseRef = (process.env.GITHUB_BASE_REF ?? "").trim();
   if (baseRef) {
     for (const candidate of [`origin/${baseRef}`, baseRef]) {
@@ -57,7 +57,12 @@ function resolveDiffBase() {
         // Continue to the next candidate.
       }
     }
+    fail(`could not resolve pull-request merge base for ${baseRef}`);
   }
+
+  // On a push to main, compare the whole push range.
+  const eventBefore = (process.env.GITHUB_EVENT_BEFORE ?? "").trim();
+  if (eventBefore && !/^0+$/.test(eventBefore)) return eventBefore;
 
   try {
     return git("rev-parse", "HEAD^");
@@ -95,7 +100,7 @@ function validateReferenceOutputs() {
 
 const diffBase = resolveDiffBase();
 const changedPaths = diffBase
-  ? git("diff", "--name-only", `${diffBase}...HEAD")
+  ? git("diff", "--name-only", `${diffBase}...HEAD`)
       .split("\n")
       .map((item) => item.trim())
       .filter(Boolean)
