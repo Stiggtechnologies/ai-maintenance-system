@@ -132,10 +132,64 @@ async function enabledFlags(
   return new Set((data ?? []).map((row) => String(row.flag_key)));
 }
 
-function safeMode(context?: SyncAppContext): "conversation" | "meeting" | "field" {
+function safeMode(
+  context?: SyncAppContext,
+): "conversation" | "meeting" | "field" {
   return context?.mode === "meeting" || context?.mode === "field"
     ? context.mode
     : "conversation";
+}
+
+function normalizeContext(context?: SyncAppContext): SyncAppContext | undefined {
+  if (!context) return undefined;
+  return {
+    ...context,
+    route: context.route?.slice(0, 500),
+    pageTitle: context.pageTitle?.slice(0, 300),
+    revisionId: context.revisionId?.slice(0, 200),
+    liveContext: context.liveContext?.slice(0, 5_000),
+    entity: context.entity
+      ? {
+          type: String(context.entity.type).slice(0, 80),
+          id: String(context.entity.id).slice(0, 160),
+          displayName: context.entity.displayName?.slice(0, 300),
+        }
+      : undefined,
+  };
+}
+
+function modeDirective(context?: SyncAppContext): string {
+  switch (safeMode(context)) {
+    case "meeting":
+      return `MEETING MODE — FACILITATION CONTRACT:
+Act as a facilitator and technical participant, never as the meeting's authority. Separate confirmed facts, hypotheses, proposals, decisions explicitly made by authenticated participants, unresolved disagreement/dissent, action items, and missing evidence. Do not infer speaker identity from voice/text or treat silence/lack of objection as consensus. Preserve material disagreement rather than averaging it away. End with concise sections titled: Decisions explicitly made; Dissent / unresolved; Actions and owners; Evidence needed.`;
+    case "field":
+      return `FIELD MODE — CONTROLLED GUIDANCE CONTRACT:
+Give voice-friendly, bounded field guidance one step or checkpoint at a time. Never instruct a user to bypass isolation/LOTO, interlocks, protective functions, approved procedures, OEM/site limits, permits, or qualified technical authority. Treat user and sensor observations as evidence, not authorization. If a required procedure, limit, isolation state, or acceptance criterion is not present in approved evidence, stop that branch and identify the qualified role or source needed before proceeding. Distinguish observation, verification, recommendation, and authorization explicitly.`;
+    default:
+      return "CONVERSATION MODE — answer coherently and preserve the normal governed Reliability Engineer decision discipline.";
+  }
+}
+
+function modeNotice(context?: SyncAppContext) {
+  const mode = safeMode(context);
+  if (mode === "meeting") {
+    return {
+      kind: "warning",
+      severity: "info",
+      content:
+        "Meeting mode does not authenticate speaker identity or infer consensus; explicit participant decisions and dissent remain distinct.",
+    };
+  }
+  if (mode === "field") {
+    return {
+      kind: "warning",
+      severity: "warning",
+      content:
+        "Field mode provides guidance only. Approved procedures, isolations, protective controls and qualified human authority govern the work.",
+    };
+  }
+  return null;
 }
 
 async function resolveWorkspace(
@@ -165,10 +219,11 @@ async function resolveWorkspace(
     }
   }
 
-  const title = String(body.query ?? "New Sync conversation")
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, 90) || "New Sync conversation";
+  const title =
+    String(body.query ?? "New Sync conversation")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 90) || "New Sync conversation";
   const { data, error } = await admin
     .from("cowork_workspaces")
     .insert({
@@ -186,7 +241,8 @@ async function resolveWorkspace(
     })
     .select("id")
     .single();
-  if (error || !data?.id) throw error ?? new Error("workspace_create_failed");
+  if (error || !data?.id)
+    throw error ?? new Error("workspace_create_failed");
   return data.id;
 }
 
@@ -253,12 +309,15 @@ function buildGroundedQuery(
     context?.revisionId
       ? `CONTEXT REVISION: ${context.revisionId}`
       : "",
-    context?.liveContext ? `ROLE-SCOPED LIVE CONTEXT:\n${context.liveContext}` : "",
+    context?.liveContext
+      ? `ROLE-SCOPED LIVE CONTEXT:\n${context.liveContext}`
+      : "",
   ].filter(Boolean);
 
   return [
     "SYNC ROUTING — use the relevant specialist disciplines below while remaining one coherent assistant:",
     specialistBrief,
+    modeDirective(context),
     contextLines.join("\n"),
     `QUESTION: ${question}`,
   ]
@@ -346,13 +405,15 @@ async function reserveToolExecution(
     })
     .select("id")
     .single();
-  if (error || !data?.id) return { error: "tool_execution_reservation_failed" };
+  if (error || !data?.id)
+    return { error: "tool_execution_reservation_failed" };
   return { id: data.id, replay: null };
 }
 
 async function executeTool(
   auth: AuthContext,
   execution: ToolExecutionRequest,
+  onStarted?: (executionId: string) => void,
 ): Promise<{ executionId: string; result: unknown; replay: boolean }> {
   if (execution.toolId !== "raise_maintenance_notification") {
     throw new Error("tool_not_registered");
@@ -362,8 +423,11 @@ async function executeTool(
   const notificationType = String(
     execution.params.notificationType ?? "observation",
   );
-  if (!assetId || description.length < 5) throw new Error("invalid_tool_params");
-  if (!['fault', 'observation', 'request', 'safety'].includes(notificationType)) {
+  if (!assetId || description.length < 5)
+    throw new Error("invalid_tool_params");
+  if (
+    !["fault", "observation", "request", "safety"].includes(notificationType)
+  ) {
     throw new Error("invalid_tool_params");
   }
 
@@ -376,16 +440,20 @@ async function executeTool(
       replay: true,
     };
   }
+  onStarted?.(reservation.id);
 
   const userClient = createClient(SUPABASE_URL, ANON_KEY, {
     global: { headers: { Authorization: `Bearer ${auth.token}` } },
     auth: { persistSession: false, autoRefreshToken: false },
   });
-  const { data, error } = await userClient.rpc("raise_maintenance_notification", {
-    p_asset_id: assetId,
-    p_description: description,
-    p_notification_type: notificationType,
-  });
+  const { data, error } = await userClient.rpc(
+    "raise_maintenance_notification",
+    {
+      p_asset_id: assetId,
+      p_description: description,
+      p_notification_type: notificationType,
+    },
+  );
   const result = data ?? (error ? { error: error.message } : null);
   const rpcError =
     error ||
@@ -407,7 +475,10 @@ async function executeTool(
     .eq("id", reservation.id)
     .eq("organization_id", auth.organizationId);
 
-  if (rpcError) throw new Error(typeof rpcError === "string" ? rpcError : rpcError.message);
+  if (rpcError)
+    throw new Error(
+      typeof rpcError === "string" ? rpcError : rpcError.message,
+    );
   return { executionId: reservation.id, result, replay: false };
 }
 
@@ -428,7 +499,8 @@ Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 204, headers: JSON_HEADERS });
   }
-  if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
+  if (req.method !== "POST")
+    return json({ error: "method_not_allowed" }, 405);
   if (!SUPABASE_URL || !SERVICE_ROLE_KEY || !ANON_KEY) {
     console.error("sync-runtime missing required configuration");
     return json({ error: "service_unavailable" }, 503);
@@ -455,11 +527,21 @@ Deno.serve(async (req: Request) => {
     return json({ error: "sync_not_enabled" }, 403);
   }
 
+  body.context = normalizeContext(body.context);
+  const requestedMode = safeMode(body.context);
+  if (requestedMode === "meeting" && !flags.has("sync_meeting_mode")) {
+    return json({ error: "sync_meeting_mode_disabled" }, 403);
+  }
+  if (requestedMode === "field" && !flags.has("sync_field_mode")) {
+    return json({ error: "sync_field_mode_disabled" }, 403);
+  }
+
   const question = String(body.query ?? "").trim();
   if (!question && !body.toolExecution) {
     return json({ error: "query_required" }, 400);
   }
-  if (question.length > 30_000) return json({ error: "query_too_large" }, 413);
+  if (question.length > 30_000)
+    return json({ error: "query_too_large" }, 413);
 
   const abortController = new AbortController();
   const stream = createSyncEventStream({
@@ -481,18 +563,18 @@ Deno.serve(async (req: Request) => {
           send({
             type: "error",
             code: "sync_tools_disabled",
-            message: "Governed Sync actions are not enabled for this organization.",
+            message:
+              "Governed Sync actions are not enabled for this organization.",
             recoverable: false,
           });
           return;
         }
-        const pendingId = crypto.randomUUID();
-        send({
-          type: "tool.awaiting_approval",
-          proposalId: body.toolExecution.proposalId,
-        });
-        send({ type: "tool.started", executionId: pendingId });
-        const executed = await executeTool(auth, body.toolExecution);
+        const executed = await executeTool(
+          auth,
+          body.toolExecution,
+          (executionId) =>
+            send({ type: "tool.started", executionId }),
+        );
         send({
           type: "tool.completed",
           executionId: executed.executionId,
@@ -523,12 +605,23 @@ Deno.serve(async (req: Request) => {
         role: "user",
         message: question,
         status: "complete",
-        metadata: { route: body.context?.route, mode: safeMode(body.context) },
+        metadata: {
+          route: body.context?.route,
+          mode: safeMode(body.context),
+        },
       });
 
       const specialists = flags.has("sync_agent_routing")
         ? selectReliabilitySpecialists(question)
-        : [{ id: "reliability-engineer", label: "Reliability Engineer", brief: "Use the governed Reliability Engineer as the single specialist.", claimTypes: [] }];
+        : [
+            {
+              id: "reliability-engineer",
+              label: "Reliability Engineer",
+              brief:
+                "Use the governed Reliability Engineer as the single specialist.",
+              claimTypes: [],
+            },
+          ];
       for (const specialist of specialists) {
         send({ type: "agent.started", agentId: specialist.id });
       }
@@ -546,7 +639,8 @@ Deno.serve(async (req: Request) => {
           },
           body: JSON.stringify({
             agentType: "ReliabilityAgent",
-            depth: body.depth === "deliverable" ? "deliverable" : "standard",
+            depth:
+              body.depth === "deliverable" ? "deliverable" : "standard",
             query: buildGroundedQuery(
               question,
               body.context,
@@ -555,7 +649,9 @@ Deno.serve(async (req: Request) => {
           }),
         },
       );
-      const payload = (await upstream.json().catch(() => ({}))) as AgentResponse;
+      const payload = (await upstream
+        .json()
+        .catch(() => ({}))) as AgentResponse;
       if (!upstream.ok || payload.success === false) {
         send({
           type: "error",
@@ -578,10 +674,18 @@ Deno.serve(async (req: Request) => {
       const chunkSize = 160;
       for (let index = 0; index < answer.length; index += chunkSize) {
         if (stream.closed || abortController.signal.aborted) return;
-        send({ type: "assistant.delta", text: answer.slice(index, index + chunkSize) });
+        send({
+          type: "assistant.delta",
+          text: answer.slice(index, index + chunkSize),
+        });
         await new Promise((resolve) => setTimeout(resolve, 0));
       }
+
       const markdownBlock = { kind: "markdown", content: answer };
+      const noticeBlock = modeNotice(body.context);
+      if (noticeBlock) {
+        send({ type: "assistant.block", block: noticeBlock });
+      }
       send({ type: "assistant.block", block: markdownBlock });
       if (evidence.length > 0) {
         send({
@@ -607,20 +711,30 @@ Deno.serve(async (req: Request) => {
           model_used: payload.modelUsed ?? null,
           knowledge_base_used: payload.knowledgeBaseUsed ?? false,
           route: body.context?.route,
+          mode: safeMode(body.context),
         },
-        blocks: [markdownBlock],
+        blocks: noticeBlock ? [noticeBlock, markdownBlock] : [markdownBlock],
         evidenceRefs: evidence,
       });
       await touchWorkspace(auth.organizationId, workspaceId);
 
       for (const specialist of specialists) {
-        send({ type: "agent.completed", agentId: specialist.id, status: "completed" });
+        send({
+          type: "agent.completed",
+          agentId: specialist.id,
+          status: "completed",
+        });
       }
       send({ type: "turn.completed", turnId });
     } catch (error) {
       if (abortController.signal.aborted || stream.closed) return;
-      const message = error instanceof Error ? error.message : "sync_turn_failed";
-      console.error("sync-runtime turn failed", { turnId, workspaceId, error });
+      const message =
+        error instanceof Error ? error.message : "sync_turn_failed";
+      console.error("sync-runtime turn failed", {
+        turnId,
+        workspaceId,
+        error,
+      });
       send({
         type: "error",
         code: "sync_turn_failed",
@@ -628,7 +742,8 @@ Deno.serve(async (req: Request) => {
         recoverable: false,
       });
     } finally {
-      if (workspaceId) await touchWorkspace(auth.organizationId, workspaceId);
+      if (workspaceId)
+        await touchWorkspace(auth.organizationId, workspaceId);
       stream.close();
     }
   })();
