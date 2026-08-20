@@ -22,6 +22,9 @@ CREATE TABLE IF NOT EXISTS public.pilot_intake_requests (
 
 ALTER TABLE public.pilot_intake_requests ENABLE ROW LEVEL SECURITY;
 
+-- Drop guard so the chain can be replayed; 20260913090000 later
+-- replaces this with an admin-only read.
+DROP POLICY IF EXISTS "Authenticated users can read pilot intake requests" ON public.pilot_intake_requests;
 CREATE POLICY "Authenticated users can read pilot intake requests"
   ON public.pilot_intake_requests
   FOR SELECT
@@ -55,6 +58,9 @@ CREATE TABLE IF NOT EXISTS public.pilot_onboarding_packages (
 
 ALTER TABLE public.pilot_onboarding_packages ENABLE ROW LEVEL SECURITY;
 
+-- Drop guard so the chain can be replayed; 20260913090000 later
+-- replaces this with an admin-only read.
+DROP POLICY IF EXISTS "Authenticated users can read pilot onboarding packages" ON public.pilot_onboarding_packages;
 CREATE POLICY "Authenticated users can read pilot onboarding packages"
   ON public.pilot_onboarding_packages
   FOR SELECT
