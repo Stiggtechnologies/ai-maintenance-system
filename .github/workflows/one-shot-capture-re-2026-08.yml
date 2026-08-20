@@ -29,25 +29,24 @@ jobs:
 
       - run: npm ci --no-audit --no-fund
 
-      - name: Verify model credential exists
+      - name: Verify production management credential exists
         env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         run: |
           set -euo pipefail
-          test -n "${OPENAI_API_KEY:-}" || {
-            echo "::error::OPENAI_API_KEY repository secret is not configured; reference capture cannot be trusted or fabricated."
+          test -n "${SUPABASE_ACCESS_TOKEN:-}" || {
+            echo "::error::SUPABASE_ACCESS_TOKEN is not configured; production reference capture cannot be trusted or fabricated."
             exit 1
           }
 
-      - name: Capture unchanged RE-2026.08 behavior
+      - name: Capture unchanged RE-2026.08 through deployed processor
         env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          RELIABILITY_QUALIFICATION_MODEL: gpt-5.6-terra
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_ID: pjvoswbwomesuwhygpby
         run: |
           set -euo pipefail
           mkdir -p /tmp/re-2026-08
-          npx tsx scripts/run-reliability-qualification.ts \
-            --capture-reference \
+          node scripts/capture-reliability-production-reference.mjs \
             --output=/tmp/re-2026-08/reference-outputs.json
 
       - name: Upload immutable reference candidate
