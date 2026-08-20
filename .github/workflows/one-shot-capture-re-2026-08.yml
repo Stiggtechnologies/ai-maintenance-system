@@ -1,0 +1,55 @@
+name: One-shot capture RE-2026.08
+
+on:
+  push:
+    branches:
+      - feat/reliability-golden-baseline
+    paths:
+      - ".github/workflows/one-shot-capture-re-2026-08.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  capture:
+    name: Capture accepted Reliability Engineer outputs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci --no-audit --no-fund
+
+      - name: Verify model credential exists
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "${OPENAI_API_KEY:-}" || {
+            echo "::error::OPENAI_API_KEY repository secret is not configured; reference capture cannot be trusted or fabricated."
+            exit 1
+          }
+
+      - name: Capture unchanged RE-2026.08 behavior
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          RELIABILITY_QUALIFICATION_MODEL: gpt-5.6-terra
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/re-2026-08
+          npx tsx scripts/run-reliability-qualification.ts \
+            --capture-reference \
+            --output=/tmp/re-2026-08/reference-outputs.json
+
+      - name: Upload immutable reference candidate
+        uses: actions/upload-artifact@v7
+        with:
+          name: re-2026-08-reference-outputs
+          path: /tmp/re-2026-08/reference-outputs.json
+          retention-days: 30
