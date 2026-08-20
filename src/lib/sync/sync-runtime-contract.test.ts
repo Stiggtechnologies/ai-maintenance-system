@@ -17,6 +17,9 @@ const migration = read(
 const flagAdmin = read(
   "supabase/migrations/20260919091000_sync_flag_admin.sql",
 );
+const security = read(
+  "supabase/migrations/20260919092000_sync_security_hardening.sql",
+);
 const boundary = read("config/edge-function-boundary.json");
 const deploy = read(".github/workflows/deploy-migrations.yml");
 const dock = read("src/components/CopilotDock.tsx");
@@ -56,12 +59,33 @@ describe("Sync end-to-end runtime contract", () => {
     expect(migration).not.toMatch(/create\s+table[^;]*sync_/i);
   });
 
-  it("keeps confirmed actions human initiated, user scoped and idempotent", () => {
+  it("keeps Sync conversations creator-private while preserving non-Sync Cowork RLS", () => {
+    expect(security).toContain("cowork_workspaces_non_sync_org_rw");
+    expect(security).toContain("cowork_workspaces_sync_read_own");
+    expect(security).toContain("created_by = auth.uid()::text");
+    expect(security).toContain("cowork_messages_non_sync_org_rw");
+    expect(security).toContain("cowork_messages_sync_read_own");
+    expect(runtime).toContain('.eq("created_by", auth.userId)');
+  });
+
+  it("requires a same-user unexpired server-issued proposal before a governed action", () => {
     expect(dock).toContain("Confirm action");
+    expect(runtime).toContain("persistToolProposal");
+    expect(runtime).toContain("requireIssuedToolProposal");
+    expect(runtime).toContain('entity_type: "sync_tool_proposal"');
+    expect(runtime).toContain('.eq("actor", auth.userId)');
+    expect(runtime).toContain("proposalParamsHash");
+    expect(runtime).toContain("proposalIsUnexpired");
+    expect(runtime).toContain("hasCanonicalIdempotencyKey");
+    expect(security).toContain("idx_audit_sync_tool_proposal_issued");
+  });
+
+  it("keeps confirmed actions caller scoped and idempotent at execution", () => {
     expect(runtime).toContain("toolExecution");
     expect(runtime).toContain("raise_maintenance_notification");
     expect(runtime).toContain('Authorization: `Bearer ${auth.token}`');
     expect(runtime).toContain('.from("audit_events")');
+    expect(runtime).toContain("idempotency_key: execution.proposalId");
     expect(migration).toContain("idx_audit_sync_tool_idempotency");
     expect(migration).toContain("idx_audit_sync_tool_proposal");
   });
