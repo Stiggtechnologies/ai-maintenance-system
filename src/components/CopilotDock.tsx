@@ -151,7 +151,11 @@ function deriveEntityContext(currentPath: string) {
 
 function actionResultText(result: unknown): string {
   if (result && typeof result === "object") {
-    const row = result as { id?: unknown; status?: unknown; work_order_id?: unknown };
+    const row = result as {
+      id?: unknown;
+      status?: unknown;
+      work_order_id?: unknown;
+    };
     if (row.id) {
       return `Action completed${row.status ? ` — ${String(row.status)}` : ""}. Reference: ${String(row.id)}${row.work_order_id ? ` · Work order: ${String(row.work_order_id)}` : ""}`;
     }
@@ -159,7 +163,10 @@ function actionResultText(result: unknown): string {
   return "Action completed through the governed application service.";
 }
 
-export function CopilotDock({ currentPath = "/" }: CopilotDockProps) {
+export function CopilotDock({
+  currentPath =
+    typeof window !== "undefined" ? window.location.pathname : "/",
+}: CopilotDockProps) {
   const { profile } = useAuth();
   const persona = getRolePersona(profile?.role as string);
   const syncGlobal = useFeatureFlag("sync_global_shell");
@@ -305,6 +312,23 @@ export function CopilotDock({ currentPath = "/" }: CopilotDockProps) {
     for (const event of unprocessed) handleStreamEvent(event);
     processedEventCountRef.current = stream.events.length;
   }, [handleStreamEvent, stream.events]);
+
+  useEffect(() => {
+    if (!syncEnabled) return;
+    if (stream.status === "cancelled") {
+      updateActiveAgent((message) => ({
+        ...message,
+        text: message.text || "Stopped before Sync returned content.",
+        status: "complete",
+      }));
+    } else if (stream.status === "error" && stream.error) {
+      updateActiveAgent((message) => ({
+        ...message,
+        text: message.text || stream.error || "Sync stream failed.",
+        status: "error",
+      }));
+    }
+  }, [stream.error, stream.status, syncEnabled, updateActiveAgent]);
 
   const startSyncRequest = useCallback(
     async (body: Record<string, unknown>, agentMessageId: string) => {
@@ -500,7 +524,7 @@ export function CopilotDock({ currentPath = "/" }: CopilotDockProps) {
             toolExecution: {
               proposalId: proposal.proposalId,
               toolId: proposal.toolId,
-              idempotencyKey: crypto.randomUUID(),
+              idempotencyKey: proposal.proposalId,
               params: proposal.params ?? {},
             },
           },
@@ -537,11 +561,17 @@ export function CopilotDock({ currentPath = "/" }: CopilotDockProps) {
     <>
       <button
         onClick={() => setOpen((value) => !value)}
-        aria-label={open ? "Close Sync" : `Open ${syncEnabled ? "Sync" : persona.title}`}
+        aria-label={
+          open ? "Close Sync" : `Open ${syncEnabled ? "Sync" : persona.title}`
+        }
         data-testid="copilot-launcher"
         className="fixed bottom-5 right-5 z-40 flex h-12 w-12 items-center justify-center rounded-full bg-teal-500 text-slate-950 shadow-lg shadow-teal-500/20 hover:bg-teal-400 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-teal-300"
       >
-        {open ? <X className="h-5 w-5" aria-hidden /> : <Bot className="h-6 w-6" aria-hidden />}
+        {open ? (
+          <X className="h-5 w-5" aria-hidden />
+        ) : (
+          <Bot className="h-6 w-6" aria-hidden />
+        )}
       </button>
 
       {open && (
@@ -573,34 +603,41 @@ export function CopilotDock({ currentPath = "/" }: CopilotDockProps) {
                 ? "The interaction layer across your operating system — grounded in what your role can see."
                 : persona.intro}
             </p>
-            {syncEnabled && (meetingModeFlag.enabled || fieldModeFlag.enabled) && (
-              <div className="mt-2 flex gap-1" aria-label="Sync interaction mode">
-                {(["conversation", "meeting", "field"] as const)
-                  .filter(
-                    (candidate) =>
-                      candidate === "conversation" ||
-                      (candidate === "meeting" && meetingModeFlag.enabled) ||
-                      (candidate === "field" && fieldModeFlag.enabled),
-                  )
-                  .map((candidate) => (
-                    <button
-                      key={candidate}
-                      type="button"
-                      onClick={() => setMode(candidate)}
-                      className={`rounded-md px-2 py-1 text-[10px] capitalize ${
-                        mode === candidate
-                          ? "bg-teal-500/15 text-teal-200"
-                          : "text-slate-500 hover:text-slate-300"
-                      }`}
-                    >
-                      {candidate}
-                    </button>
-                  ))}
-              </div>
-            )}
+            {syncEnabled &&
+              (meetingModeFlag.enabled || fieldModeFlag.enabled) && (
+                <div
+                  className="mt-2 flex gap-1"
+                  aria-label="Sync interaction mode"
+                >
+                  {(["conversation", "meeting", "field"] as const)
+                    .filter(
+                      (candidate) =>
+                        candidate === "conversation" ||
+                        (candidate === "meeting" && meetingModeFlag.enabled) ||
+                        (candidate === "field" && fieldModeFlag.enabled),
+                    )
+                    .map((candidate) => (
+                      <button
+                        key={candidate}
+                        type="button"
+                        onClick={() => setMode(candidate)}
+                        className={`rounded-md px-2 py-1 text-[10px] capitalize ${
+                          mode === candidate
+                            ? "bg-teal-500/15 text-teal-200"
+                            : "text-slate-500 hover:text-slate-300"
+                        }`}
+                      >
+                        {candidate}
+                      </button>
+                    ))}
+                </div>
+              )}
           </div>
 
-          <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto p-4">
+          <div
+            ref={scrollRef}
+            className="flex-1 space-y-3 overflow-y-auto p-4"
+          >
             {messages.length === 0 && (
               <div className="space-y-2" data-testid="copilot-suggestions">
                 <p className="text-xs text-slate-400">Try asking:</p>
@@ -630,7 +667,10 @@ export function CopilotDock({ currentPath = "/" }: CopilotDockProps) {
                       <MarkdownRenderer content={message.text} />
                     ) : (
                       <div className="flex items-center gap-2 text-xs text-slate-400">
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+                        <Loader2
+                          className="h-3.5 w-3.5 animate-spin"
+                          aria-hidden
+                        />
                         Reading the relevant operating context…
                       </div>
                     )}
@@ -659,7 +699,10 @@ export function CopilotDock({ currentPath = "/" }: CopilotDockProps) {
                     {message.proposal && (
                       <div className="mt-2 rounded-lg border border-amber-500/25 bg-amber-500/5 p-2.5">
                         <div className="flex items-center gap-1.5 text-xs font-medium text-amber-200">
-                          <ShieldCheck className="h-3.5 w-3.5" aria-hidden />
+                          <ShieldCheck
+                            className="h-3.5 w-3.5"
+                            aria-hidden
+                          />
                           Proposed action
                         </div>
                         <div className="mt-1 text-xs text-slate-200">
@@ -696,23 +739,32 @@ export function CopilotDock({ currentPath = "/" }: CopilotDockProps) {
                           CSV
                         </button>
                       )}
-                      {syncEnabled && voiceOutput.enabled && speech.supported && message.text && (
-                        <button
-                          type="button"
-                          onClick={() =>
-                            speech.speaking ? speech.stop() : speech.speak(message.text)
-                          }
-                          className="inline-flex items-center gap-1 rounded-lg border border-white/8 px-2 py-1 text-[11px] text-slate-400 hover:text-slate-200"
-                          aria-label={speech.speaking ? "Stop speaking" : "Read response aloud"}
-                        >
-                          {speech.speaking ? (
-                            <VolumeX className="h-3 w-3" aria-hidden />
-                          ) : (
-                            <Volume2 className="h-3 w-3" aria-hidden />
-                          )}
-                          {speech.speaking ? "Stop" : "Listen"}
-                        </button>
-                      )}
+                      {syncEnabled &&
+                        voiceOutput.enabled &&
+                        speech.supported &&
+                        message.text && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              speech.speaking
+                                ? speech.stop()
+                                : speech.speak(message.text)
+                            }
+                            className="inline-flex items-center gap-1 rounded-lg border border-white/8 px-2 py-1 text-[11px] text-slate-400 hover:text-slate-200"
+                            aria-label={
+                              speech.speaking
+                                ? "Stop speaking"
+                                : "Read response aloud"
+                            }
+                          >
+                            {speech.speaking ? (
+                              <VolumeX className="h-3 w-3" aria-hidden />
+                            ) : (
+                              <Volume2 className="h-3 w-3" aria-hidden />
+                            )}
+                            {speech.speaking ? "Stop" : "Listen"}
+                          </button>
+                        )}
                     </div>
                   </div>
                 </div>
@@ -737,13 +789,17 @@ export function CopilotDock({ currentPath = "/" }: CopilotDockProps) {
             className="border-t border-white/6 p-3"
           >
             {dictation.error && (
-              <div className="mb-2 text-[11px] text-amber-300">{dictation.error}</div>
+              <div className="mb-2 text-[11px] text-amber-300">
+                {dictation.error}
+              </div>
             )}
             <div className="flex gap-2">
               <input
                 value={input}
                 onChange={(event) => setInput(event.target.value)}
-                placeholder={syncEnabled ? "Talk to Sync…" : "Ask about your operation…"}
+                placeholder={
+                  syncEnabled ? "Talk to Sync…" : "Ask about your operation…"
+                }
                 aria-label={`Ask ${syncEnabled ? "Sync" : persona.title}`}
                 className="min-w-0 flex-1 rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-white placeholder-slate-400 focus:border-teal-400 focus:outline-hidden focus:ring-1 focus:ring-teal-400"
               />
@@ -752,7 +808,9 @@ export function CopilotDock({ currentPath = "/" }: CopilotDockProps) {
                 <button
                   type="button"
                   onClick={dictation.listening ? dictation.stop : startDictation}
-                  aria-label={dictation.listening ? "Stop dictation" : "Start dictation"}
+                  aria-label={
+                    dictation.listening ? "Stop dictation" : "Start dictation"
+                  }
                   className={`flex h-9 w-9 items-center justify-center rounded-lg border ${
                     dictation.listening
                       ? "border-red-400/50 bg-red-500/10 text-red-300"
@@ -774,7 +832,10 @@ export function CopilotDock({ currentPath = "/" }: CopilotDockProps) {
                   aria-label="Stop response"
                   className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-200 text-slate-950 hover:bg-white"
                 >
-                  <Square className="h-3.5 w-3.5 fill-current" aria-hidden />
+                  <Square
+                    className="h-3.5 w-3.5 fill-current"
+                    aria-hidden
+                  />
                 </button>
               ) : (
                 <button
@@ -794,16 +855,18 @@ export function CopilotDock({ currentPath = "/" }: CopilotDockProps) {
                   ? "Role-scoped evidence · human-confirmed actions · tenant audit trail"
                   : "Grounded in data your role can see · advisory only — actions stay human-approved"}
               </p>
-              {syncEnabled && lastQuestionRef.current && stream.status !== "streaming" && (
-                <button
-                  type="button"
-                  onClick={() => void ask(lastQuestionRef.current, false)}
-                  className="inline-flex shrink-0 items-center gap-1 text-[10px] text-slate-500 hover:text-slate-300"
-                >
-                  <RotateCcw className="h-3 w-3" aria-hidden />
-                  Regenerate
-                </button>
-              )}
+              {syncEnabled &&
+                lastQuestionRef.current &&
+                stream.status !== "streaming" && (
+                  <button
+                    type="button"
+                    onClick={() => void ask(lastQuestionRef.current, false)}
+                    className="inline-flex shrink-0 items-center gap-1 text-[10px] text-slate-500 hover:text-slate-300"
+                  >
+                    <RotateCcw className="h-3 w-3" aria-hidden />
+                    Regenerate
+                  </button>
+                )}
             </div>
           </form>
         </div>
