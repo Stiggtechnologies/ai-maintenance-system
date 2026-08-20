@@ -257,13 +257,16 @@ describe("navigation integrity", () => {
     expect(dangling).toEqual([]);
   });
 
-  it("keeps the §2 tree at 39 items in 9 groups — the count that drifted twice", () => {
+  it("keeps the §2 tree at 40 items in 9 groups — the count that drifted twice", () => {
     // 37 became 38 when Reliability by Design cleared the P-7 disqualifier
     // (the RAM allocation stopped being pinned to the demo project code) and
     // joined Whole Life. 38 became 39 when the admin-only Pilot Leads view
     // joined the System group so submitted leads have an in-product surface.
-    expect(groupSizes).toEqual([4, 4, 3, 2, 3, 8, 7, 3, 5]);
-    expect(navItems.length).toBe(39);
+    // 39 became 40 when Assessments joined Mission: the paid Reliability
+    // Intelligence Assessment gained an in-product workspace (/assessments)
+    // rather than living only on the standalone /pilot/reliability page.
+    expect(groupSizes).toEqual([5, 4, 3, 2, 3, 8, 7, 3, 5]);
+    expect(navItems.length).toBe(40);
   });
 
   it("keeps the §3 role-matrix sizes — enumerated sets, not add/lose prose", () => {
@@ -273,11 +276,15 @@ describe("navigation integrity", () => {
       operator: 6,
       technician: 8,
       supervisor: 8,
-      planner: 17,
-      reliability_engineer: 26, // 25 + design (unpinned, read-only)
-      maintenance_manager: 25,
+      planner: 18, // 17 + assessments (supplies exports, raises clarifications)
+      reliability_engineer: 27, // 26 + assessments (rates dataset readiness)
+      maintenance_manager: 26, // 25 + assessments (rates dataset readiness)
       executive: 19, // 18 + design (unpinned, read-only)
       board: 6,
+      // The customer's sponsor: the engagement and account settings, nothing
+      // else. Deliberately the smallest set in this file — and menu visibility
+      // is not entitlement, which roleNavigation.ts states at the entry.
+      assessment_sponsor: 2,
     });
   });
 
