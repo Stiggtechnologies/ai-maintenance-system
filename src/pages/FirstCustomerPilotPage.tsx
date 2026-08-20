@@ -1,13 +1,22 @@
 import { useEffect } from "react";
 import { ArrowUpRight, ClipboardCheck, ShieldCheck } from "lucide-react";
 import { PublicProductHeader } from "../components/PublicProductHeader";
+import { RiaAssessmentWorkspacePage } from "./RiaAssessmentWorkspacePage";
 
 const ASSESSMENT_URL = "https://syncai.ca/reliability-assessment";
 
 export function FirstCustomerPilotPage() {
+  const isAssessmentWorkspace = typeof window !== "undefined" && window.location.pathname === "/pilot/reliability";
+
   useEffect(() => {
-    document.title = "Reliability Intelligence Assessment | SyncAI";
-  }, []);
+    if (!isAssessmentWorkspace) {
+      document.title = "Reliability Intelligence Assessment | SyncAI";
+    }
+  }, [isAssessmentWorkspace]);
+
+  if (isAssessmentWorkspace) {
+    return <RiaAssessmentWorkspacePage />;
+  }
 
   return (
     <main className="min-h-screen bg-[#0B0F14] text-[#E6EDF3]">
