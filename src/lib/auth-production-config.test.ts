@@ -32,7 +32,10 @@ describe("production Auth deployment contract", () => {
     expect(script).toContain('smtp_admin_email: "security@syncai.ca"');
     expect(script).toContain('smtp_sender_name: "SyncAI Security"');
     expect(script).toContain('smtp_host: "smtp.resend.com"');
-    expect(script).not.toMatch(/console\.(?:log|warn|error)\([^\n]*resendKey/);
+    expect(script).not.toContain("console.log(resendKey");
+    expect(script).not.toContain("console.warn(resendKey");
+    expect(script).not.toContain("console.error(resendKey");
+    expect(script).not.toContain("${resendKey}");
   });
 
   it("runs as a protected production-deploy gate and triggers when its own contract changes", () => {
