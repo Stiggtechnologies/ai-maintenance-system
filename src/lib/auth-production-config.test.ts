@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import fs from "node:fs";
-import path from "node:path";
+import * as fs from "node:fs";
+import * as path from "node:path";
 
 const script = fs.readFileSync(
   path.resolve(__dirname, "../../scripts/configure-production-auth.mjs"),
