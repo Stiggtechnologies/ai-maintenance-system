@@ -66,6 +66,33 @@ function resolveDiffBase() {
   }
 }
 
+function validateReferenceOutputs() {
+  const referencePath = path.join(root, manifest.referenceOutputs);
+  if (!existsSync(referencePath)) {
+    fail(
+      `baseline reference outputs are not captured at ${manifest.referenceOutputs}; run the live qualification harness against unchanged RE-2026.08 before changing protected surfaces`,
+    );
+  }
+  const reference = JSON.parse(readFileSync(referencePath, "utf8"));
+  if (reference.baselineId !== manifest.baselineId) fail("reference outputs target the wrong baseline");
+  if (reference.promptVersion !== manifest.promptVersion) fail("reference outputs use the wrong prompt version");
+  if (!reference.cases || Object.keys(reference.cases).length < manifest.minimumCaseCount) {
+    fail(`reference outputs must contain at least ${manifest.minimumCaseCount} cases`);
+  }
+  for (const item of suite.cases) {
+    const recorded = reference.cases[item.id];
+    if (!recorded || !String(recorded.text ?? "").trim()) {
+      fail(`reference outputs are missing a usable answer for ${item.id}`);
+    }
+  }
+  for (const entry of manifest.protectedPaths) {
+    if (reference.protectedPaths?.[entry.path] !== entry.gitBlobSha) {
+      fail(`reference outputs were not captured from the original protected blob for ${entry.path}`);
+    }
+  }
+  return reference;
+}
+
 const diffBase = resolveDiffBase();
 const changedPaths = diffBase
   ? git("diff", "--name-only", `${diffBase}...HEAD")
@@ -85,6 +112,8 @@ if (protectedChanged.length === 0) {
   );
   process.exit(0);
 }
+
+validateReferenceOutputs();
 
 const reportPrefix = `${manifest.qualificationReportsDirectory}/`;
 const reportPaths = changedPaths.filter(
@@ -133,18 +162,15 @@ if (!Array.isArray(report.dimensionRegressions) || report.dimensionRegressions.l
 if (report.humanReview?.status !== "approved" || !String(report.humanReview?.reviewer ?? "").trim()) {
   fail("qualified Reliability Engineer changes require named human SME approval");
 }
+if (!String(report.humanReview?.reviewedAt ?? "").trim()) {
+  fail("human SME approval requires a review timestamp");
+}
 
 for (const [key, allowed] of Object.entries(manifest.zeroTolerance)) {
   const actual = Number(report.hardFailures?.[key]);
   if (!Number.isFinite(actual) || actual > Number(allowed)) {
     fail(`zero-tolerance metric ${key} is ${actual}; allowed=${allowed}`);
   }
-}
-
-if (!existsSync(path.join(root, manifest.referenceOutputs))) {
-  fail(
-    `baseline reference outputs are not captured at ${manifest.referenceOutputs}; run the live qualification harness against the unchanged RE-2026.08 floor before changing protected surfaces`,
-  );
 }
 
 for (const entry of manifest.protectedPaths) {
