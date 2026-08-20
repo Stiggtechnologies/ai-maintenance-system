@@ -87,13 +87,15 @@ describe("Sync end-to-end runtime contract", () => {
     expect(deploy).toContain("supabase functions deploy sync-runtime");
   });
 
-  it("wires the global shell to streaming, stop/regenerate and voice adapters", () => {
+  it("wires the global shell to structured streaming, stop/regenerate and voice adapters", () => {
     expect(dock).toContain('useFeatureFlag("sync_global_shell")');
     expect(dock).toContain("useSyncStream()");
-    expect(dock).toContain("stream.cancel");
+    expect(dock).toContain("cancelStream");
     expect(dock).toContain("Regenerate");
     expect(dock).toContain("useDictation");
     expect(dock).toContain("useSpeechOutput");
     expect(dock).toContain("loadLatestSyncConversation");
+    expect(dock).toContain('event.type === "assistant.block"');
+    expect(dock).toContain("StructuredBlock");
   });
 });
