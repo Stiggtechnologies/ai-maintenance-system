@@ -6,6 +6,11 @@ const migration = readFileSync(
   "utf8",
 ).toLowerCase();
 
+const activationDirectoryFix = readFileSync(
+  "supabase/migrations/20260920004000_ria_activation_directory_control_flow.sql",
+  "utf8",
+).toLowerCase();
+
 function body(name: string): string {
   const marker = `function public.${name}`;
   const start = migration.indexOf(marker);
@@ -41,6 +46,15 @@ describe("RIA commercial activation contract", () => {
     expect(sql).toContain("v_role not in ('admin', 'ai_admin')");
     expect(sql).toContain("v_role = 'admin' and p_organization_id is distinct from v_current_org");
     expect(sql).toContain("target organization does not exist");
+  });
+
+  it("terminates authorized activation-directory branches after returning their allowed rows", () => {
+    expect(activationDirectoryFix).toContain("if v_role = 'ai_admin' then");
+    expect(activationDirectoryFix).toMatch(/order by o\.name;\s*return;\s*elsif v_role = 'admin'/);
+    expect(activationDirectoryFix).toMatch(/where o\.id = v_current_org\s*order by o\.name;\s*return;/);
+    expect(activationDirectoryFix).toContain(
+      "ria activation organization directory requires administrator authority",
+    );
   });
 
   it("requires recorded commercial acceptance and never auto-creates an organization", () => {
