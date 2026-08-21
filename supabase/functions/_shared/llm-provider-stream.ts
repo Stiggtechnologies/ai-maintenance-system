@@ -136,9 +136,10 @@ async function consumeChatCompletionStream(
 
 /**
  * Streaming sibling of callWithResilience(). It preserves the same provider
- * ordering and error classification while refusing unsafe mid-stream failover:
- * once a provider has emitted user-visible text, another provider cannot be
- * spliced behind it without risking duplicated or contradictory content.
+ * ordering and error classification. Failover is permitted only BEFORE any
+ * user-visible text. Once a delta has been emitted, the attempt is terminal:
+ * a second provider cannot be spliced behind partial prose without risking
+ * duplication or contradiction.
  */
 export async function callWithResilienceStream(
   fetchLike: FetchLike,
@@ -180,6 +181,8 @@ export async function callWithResilienceStream(
       let fatal = false;
       let renegotiated = false;
       let detail = "";
+      let emittedContent = "";
+      let firstTokenAtMs: number | null = null;
       try {
         const payload: Record<string, unknown> = {
           model: provider.model,
@@ -213,7 +216,11 @@ export async function callWithResilienceStream(
         if (response.ok) {
           const consumed = await consumeChatCompletionStream(
             response,
-            opts.onDelta,
+            async (text) => {
+              if (firstTokenAtMs === null) firstTokenAtMs = Date.now() - startedAt;
+              emittedContent += text;
+              await opts.onDelta(text);
+            },
             startedAt,
           );
           if (!consumed.content.trim()) throw new Error("empty_stream_response");
@@ -221,7 +228,10 @@ export async function callWithResilienceStream(
             provider: provider.name,
             outcome: "ok",
             status,
-            detail: attempt > 1 ? `stream succeeded on attempt ${attempt}` : "streamed on first attempt",
+            detail:
+              attempt > 1
+                ? `stream succeeded on attempt ${attempt}`
+                : "streamed on first attempt",
           });
           return {
             ok: true,
@@ -230,15 +240,16 @@ export async function callWithResilienceStream(
             provider: provider.name,
             model: consumed.model ?? provider.model,
             events,
-            firstTokenAtMs: consumed.firstTokenAtMs,
+            firstTokenAtMs: consumed.firstTokenAtMs ?? firstTokenAtMs,
           };
         }
 
         const body = await response.text().catch(() => "");
         const reason = body.slice(0, 200).replace(/\s+/g, " ").trim();
-        const bad = classify(response.status) === "fatal"
-          ? unsupportedStreamParam(body)
-          : null;
+        const bad =
+          classify(response.status) === "fatal"
+            ? unsupportedStreamParam(body)
+            : null;
         if (bad && !dropped.has(bad)) {
           dropped.add(bad);
           renegotiated = true;
@@ -251,7 +262,24 @@ export async function callWithResilienceStream(
         }
       } catch (error) {
         if (opts.signal?.aborted) throw error;
-        detail = `stream failure before completion: ${error instanceof Error ? error.name : "unknown"}`;
+        if (emittedContent.length > 0) {
+          events.push({
+            provider: provider.name,
+            outcome: "exhausted",
+            status,
+            detail: `stream interrupted after visible output; failover refused to prevent duplicate or contradictory prose — ${error instanceof Error ? error.name : "unknown"}`,
+          });
+          return {
+            ok: false,
+            content: emittedContent,
+            usage: {},
+            provider: provider.name,
+            model: provider.model,
+            events,
+            firstTokenAtMs,
+          };
+        }
+        detail = `stream failure before visible output: ${error instanceof Error ? error.name : "unknown"}`;
       }
 
       if (renegotiated) {
