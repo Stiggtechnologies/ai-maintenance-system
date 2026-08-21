@@ -308,11 +308,18 @@ const valueDecisionCards = [
   },
 ];
 
+// "Battery and energy systems" was advertised here to every signed-in user and
+// exists nowhere in this repository — no industry pack, no profile, no failure
+// context, no engine binding (verified 2026-08-20: zero matches in
+// src/lib/industry-profiles and no battery pack in industry-template-packs;
+// the only battery content is UPS batteries and grid storage inside other
+// asset classes). The other three are backed by packs in
+// src/lib/industry-template-packs.ts, though those are not yet reachable —
+// see E1.02 in docs/enterprise-readiness/capability-register.md.
 const industryProfiles = [
   "Oil sands and upstream",
   "Refining and chemicals",
   "High-volume manufacturing",
-  "Battery and energy systems",
 ];
 
 const enterpriseReadiness = [
