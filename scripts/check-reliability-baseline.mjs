@@ -317,7 +317,7 @@ async function validateReferenceOutputs({ required }) {
         "",
         "The RE-2026.08 floor is frozen until they exist, and this gate will keep refusing every core protected change. Capture them ONCE, while the protected blobs still match the manifest:",
         "",
-        "  Required repository secret: OPENAI_API_KEY  (repo currently has only SUPABASE_ACCESS_TOKEN)",
+        "  Required repository secret: XAI_API_KEY  (repo currently has only SUPABASE_ACCESS_TOKEN)",
         "  Workflow to dispatch:      .github/workflows/reliability-qualification.yml",
         "  Mode:                      capture-reference",
         "  Command:                   gh workflow run reliability-qualification.yml \\",
@@ -325,14 +325,14 @@ async function validateReferenceOutputs({ required }) {
         "                               -f model=<candidate> -f judge_model=<independent>",
         "  The workflow commits the captured file to the dispatched branch itself.",
         "",
-        "Alternative capture route (no OPENAI_API_KEY; uses SUPABASE_ACCESS_TOKEN and the deployed",
+        "Alternative capture route (no XAI_API_KEY; uses SUPABASE_ACCESS_TOKEN and the deployed",
         "production processor). READ THE CAVEATS FIRST — this route has never been executed:",
         "  Workflow: .github/workflows/one-shot-capture-re-2026-08.yml  (gh workflow run one-shot-capture-re-2026-08.yml)",
         "  - it snapshots production-as-deployed, not this checkout;",
         "  - it sends publicOnly:true, which ai-agent-processor routes to a hardcoded",
         "    https://api.openai.com/v1/responses call that ignores LLM_BASE_URL, so it does not",
-        "    reach the Stigg AI Gateway and depends on OPENAI_API_KEY being set on the deployed function;",
-        "  - it produces the REFERENCE only. Qualifying a candidate still needs OPENAI_API_KEY here.",
+        "    reach the Stigg AI Gateway and depends on the deployed function's own provider key;",
+        "  - it produces the REFERENCE only. Qualifying a candidate still needs XAI_API_KEY here.",
         "",
         "To prove the harness end to end WITHOUT any model credential:",
         "  npm run reliability:dryrun",
@@ -470,7 +470,7 @@ const report = JSON.parse(readFileSync(reportAbsolute, "utf8"));
 
 if (report.dryRun === true) {
   fail(
-    "qualification report is a `--dry-run` plumbing check, not evidence about the model; a real run needs OPENAI_API_KEY and an independent RELIABILITY_JUDGE_MODEL",
+    "qualification report is a `--dry-run` plumbing check, not evidence about the model; a real run needs XAI_API_KEY and an independent RELIABILITY_JUDGE_MODEL",
   );
 }
 if (report.baselineId !== manifest.baselineId) fail("qualification report targets the wrong baseline");

@@ -67,8 +67,8 @@ if (model === judge) {
 
 console.log(`Dispatching ${WORKFLOW} (mode=${mode}, ref=${ref})`);
 console.log(
-  "If this fails with a missing secret, the blocker is OPENAI_API_KEY, which is an owner action:\n" +
-    "  gh secret set OPENAI_API_KEY --repo Stiggtechnologies/ai-maintenance-system\n",
+  "If this fails with a missing secret, the blocker is XAI_API_KEY, which is an owner action:\n" +
+    "  gh secret set XAI_API_KEY --repo Stiggtechnologies/ai-maintenance-system\n",
 );
 
 run("gh", [

@@ -104,7 +104,8 @@ on:
           - candidate
       model:
         description: "Reliability model to qualify"
-        required: false
+        required: true
+        default: "grok-4.6"
         type: string
       judge_model:
         description: "Independent comparison/judge model — MUST differ from the candidate model"
@@ -144,6 +145,9 @@ jobs:
 
       - name: Protected-surface qualification gate
         run: node scripts/check-reliability-baseline.mjs
+
+      - name: Deployed-model gate
+        run: node scripts/check-deployed-model.mjs
         env:
           GITHUB_BASE_REF: ${{ github.base_ref }}
           GITHUB_EVENT_BEFORE: ${{ github.event.before }}

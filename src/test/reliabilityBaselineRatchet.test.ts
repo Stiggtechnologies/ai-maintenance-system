@@ -522,7 +522,9 @@ describe("the gate runs inside a required status check (H3)", () => {
     const runsGateDirectly = commands.some((command) =>
       command.includes("node scripts/check-reliability-baseline.mjs"),
     );
-    const runsGateViaNpm = commands.some((command) => command === "npm run test");
+    const runsGateViaNpm = commands.some(
+      (command) => command === "npm run test",
+    );
     expect(
       runsGateDirectly || runsGateViaNpm,
       `Unit tests job commands: ${JSON.stringify(commands)}`,
@@ -703,7 +705,7 @@ describe("the judge may not be the candidate (H4)", () => {
     // reference of itself". Behavioural assertion, not a grep: an unset judge
     // must now be a hard stop.
     const result = runHarness({
-      OPENAI_API_KEY: "test-key-not-used-the-run-must-abort-first",
+      XAI_API_KEY: "test-key-not-used-the-run-must-abort-first",
       RELIABILITY_QUALIFICATION_MODEL: "candidate-model-x",
       RELIABILITY_JUDGE_MODEL: "",
     });
@@ -713,7 +715,7 @@ describe("the judge may not be the candidate (H4)", () => {
 
   it("refuses to run when the judge IS the candidate", () => {
     const result = runHarness({
-      OPENAI_API_KEY: "test-key-not-used-the-run-must-abort-first",
+      XAI_API_KEY: "test-key-not-used-the-run-must-abort-first",
       RELIABILITY_QUALIFICATION_MODEL: "same-model",
       RELIABILITY_JUDGE_MODEL: "same-model",
     });
@@ -749,7 +751,7 @@ describe("the frozen floor names its own blocker (H5)", () => {
 
     const gate = readRepoFile("scripts/check-reliability-baseline.mjs");
     // Name the secret and the workflow, not "run the harness".
-    expect(gate).toContain("OPENAI_API_KEY");
+    expect(gate).toContain("XAI_API_KEY");
     expect(gate).toContain("reliability-qualification.yml");
     expect(gate).toContain("capture-reference");
     expect(gate).toContain("reliability:dryrun");
@@ -1230,7 +1232,7 @@ describe("the honest path is walkable (H5)", () => {
 
   it("names the blocker precisely, including what the fallback cannot do", () => {
     const gate = readRepoFile("scripts/check-reliability-baseline.mjs");
-    expect(gate).toContain("OPENAI_API_KEY");
+    expect(gate).toContain("XAI_API_KEY");
     expect(gate).toContain("reliability-qualification.yml");
     expect(gate).toContain("capture-reference");
     expect(gate).toContain("reliability:dryrun");
@@ -1266,6 +1268,47 @@ describe("the honest path is walkable (H5)", () => {
       "publicOnly",
     ]) {
       expect(doc, uncovered).toContain(uncovered);
+    }
+  });
+});
+
+describe("the model behind the floor is governed, the transport is not", () => {
+  it("keeps the deployed-model gate present and wired into CI", () => {
+    // RE-2026.08 pins FILES. The model is chosen by deployed env vars, so the
+    // reasoning model behind a safety-critical answer can change with no repo
+    // diff and every hash gate still passes. This is the only thing standing
+    // between that and a silent model swap; deleting it must not be quiet.
+    expect(existsSync("scripts/check-deployed-model.mjs")).toBe(true);
+    const ci = readFileSync(
+      ".github/workflows/reliability-qualification.yml",
+      "utf8",
+    );
+    expect(ci).toContain("node scripts/check-deployed-model.mjs");
+  });
+
+  it("declares model governance without pretending anything is qualified yet", () => {
+    const gov = JSON.parse(
+      readFileSync(
+        "benchmarks/reliability-engineer/re-2026.08/manifest.json",
+        "utf8",
+      ),
+    ).modelGovernance;
+    expect(gov).toBeTruthy();
+    expect(Array.isArray(gov.qualifiedModels)).toBe(true);
+    // Transport must stay swappable — that abstraction is correct and
+    // buildProviderChain implements it. Only model identity is allowlisted.
+    expect(gov.transport).toMatch(/unpinned by design/i);
+    // A model may only be listed as qualified once a reference exists to have
+    // qualified it against. Listing one before that is the exact species of
+    // unearned claim this whole baseline exists to prevent.
+    const captured = existsSync(
+      "benchmarks/reliability-engineer/re-2026.08/reference-outputs.json",
+    );
+    if (!captured) {
+      expect(
+        gov.qualifiedModels,
+        "no reference captured, so nothing can be qualified",
+      ).toEqual([]);
     }
   });
 });

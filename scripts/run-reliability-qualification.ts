@@ -122,7 +122,11 @@ const dryRun = process.argv.includes("--dry-run");
 // variable unset a model graded its own answer against a frozen reference of
 // its own answer and called the result an independent comparison. There is no
 // safe default here, so there is no default: an unset judge is a hard stop.
-const judgeModelRaw = (process.env.RELIABILITY_JUDGE_MODEL ?? "grok-4.5").trim();
+// NOT defaulted. An independent judge must be named DELIBERATELY — defaulting
+// it makes self-judging the accident rather than the refusal, and the H4
+// assertions below exist to keep that impossible. grok-4.5 is the
+// recommendation and it is the workflow input default, where a human sees it.
+const judgeModelRaw = (process.env.RELIABILITY_JUDGE_MODEL ?? "").trim();
 const judgeModel = dryRun ? judgeModelRaw || `${model}-stub-judge` : judgeModelRaw;
 
 const mode = process.argv.includes("--capture-reference") ? "capture" : "candidate";
