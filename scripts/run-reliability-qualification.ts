@@ -1,7 +1,7 @@
 #!/usr/bin/env npx tsx
 
 import { execFileSync } from "node:child_process";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import {
   RELIABILITY_PROMPT_VERSION,
@@ -65,12 +65,63 @@ const manifest = JSON.parse(readFileSync(path.join(baseDir, "manifest.json"), "u
 const suite = JSON.parse(readFileSync(path.join(baseDir, "cases.json"), "utf8")) as GoldenSuite;
 const apiKey = (process.env.OPENAI_API_KEY ?? "").trim();
 const model = (process.env.RELIABILITY_QUALIFICATION_MODEL ?? process.env.MODEL_RELIABILITY ?? "gpt-5.6-terra").trim();
-const judgeModel = (process.env.RELIABILITY_JUDGE_MODEL ?? model).trim();
+
+// H5 — the harness must be provable without a model credential.
+//
+// The repository has exactly one secret (SUPABASE_ACCESS_TOKEN), so neither
+// the capture nor the qualification path can actually run today. That left the
+// floor frozen solid AND unverified: the first engineer who needed to change
+// the Reliability Engineer would have found a harness nobody had ever
+// executed. `--dry-run` runs the whole pipeline — prompt construction,
+// specialist routing, blind A/B slot assignment, judge schema, metric
+// aggregation, report shape, protected-path hashing, file write — against a
+// deterministic stub, and asserts nothing about model quality. It proves the
+// plumbing, not the engineering.
+const dryRun = process.argv.includes("--dry-run");
+
+// H4 — the judge may not be the candidate.
+//
+// This previously read `RELIABILITY_JUDGE_MODEL ?? model`, so with the judge
+// variable unset a model graded its own answer against a frozen reference of
+// its own answer and called the result an independent comparison. There is no
+// safe default here, so there is no default: an unset judge is a hard stop.
+const judgeModelRaw = (process.env.RELIABILITY_JUDGE_MODEL ?? "").trim();
+const judgeModel = dryRun ? judgeModelRaw || `${model}-stub-judge` : judgeModelRaw;
+
 const mode = process.argv.includes("--capture-reference") ? "capture" : "candidate";
 const outputArg = process.argv.find((value) => value.startsWith("--output="));
 const outputPath = outputArg?.slice("--output=".length);
 
-if (!apiKey) throw new Error("OPENAI_API_KEY is required for live Reliability Engineer qualification");
+if (!dryRun && !apiKey) {
+  throw new Error(
+    [
+      "OPENAI_API_KEY is required for live Reliability Engineer qualification, and it is NOT configured on this repository.",
+      "",
+      "  Repository secrets present: SUPABASE_ACCESS_TOKEN",
+      "  Repository secrets missing: OPENAI_API_KEY",
+      "",
+      "Options:",
+      "  1. Owner adds the secret, then dispatch:",
+      "       gh workflow run reliability-qualification.yml -f mode=capture-reference \\",
+      "         -f model=<candidate-model> -f judge_model=<independent-judge-model>",
+      "  2. Capture through the already-deployed production processor instead, which needs",
+      "     only SUPABASE_ACCESS_TOKEN:",
+      "       .github/workflows/one-shot-capture-re-2026-08.yml",
+      "  3. Prove this harness end to end with no credential at all:",
+      "       npm run reliability:dryrun",
+    ].join("\n"),
+  );
+}
+if (!judgeModel) {
+  throw new Error(
+    "RELIABILITY_JUDGE_MODEL is required and judge must be independent of the candidate model: a model grading a frozen reference of its own output is not a comparison. Set RELIABILITY_JUDGE_MODEL to an approved model other than the candidate.",
+  );
+}
+if (judgeModel === model) {
+  throw new Error(
+    `RELIABILITY_JUDGE_MODEL must differ from the candidate model; both are '${model}'. judge must be independent.`,
+  );
+}
 if (suite.cases.length < manifest.minimumCaseCount) throw new Error("Golden suite is below the minimum case count");
 
 function gitHash(file: string): string {
@@ -101,6 +152,45 @@ function extractText(payload: Record<string, unknown>): string {
   return "";
 }
 
+/**
+ * Deterministic stand-in for the model, used only by --dry-run.
+ *
+ * It is intentionally BAD engineering output. Nothing here should ever look
+ * like a plausible reference answer, because the one failure mode that would
+ * matter is a stub artefact being mistaken for captured evidence. Every
+ * artefact --dry-run writes is additionally stamped `dryRun: true`, and the
+ * release gate rejects any reference or report carrying that stamp.
+ */
+function stubResponse(options: {
+  model: string;
+  instructions: string;
+  input: string;
+  schema?: Record<string, unknown>;
+}): ModelResult {
+  if (!options.schema) {
+    return {
+      text: `STUB OUTPUT — NOT AN ENGINEERING ANSWER. dry-run plumbing check. instructions=${options.instructions.length}b input=${options.input.length}b`,
+      model: options.model,
+    };
+  }
+  // Exercise the real judge schema so a malformed schema fails the dry run.
+  const dimensions = manifest.qualityDimensions;
+  const judgment: JudgeResult = {
+    winner: "tie",
+    dimensionScores: Object.fromEntries(
+      dimensions.map((dimension) => [dimension, { A: 3, B: 3 }]),
+    ),
+    requirementsPassedA: [],
+    requirementsPassedB: [],
+    forbiddenTriggeredA: [],
+    forbiddenTriggeredB: [],
+    deterministicCalculationA: "not_applicable",
+    deterministicCalculationB: "not_applicable",
+    rationale: "stub judgment — dry run",
+  };
+  return { text: JSON.stringify(judgment), model: options.model };
+}
+
 async function responseCall(options: {
   model: string;
   instructions: string;
@@ -108,6 +198,7 @@ async function responseCall(options: {
   maxTokens: number;
   schema?: Record<string, unknown>;
 }): Promise<ModelResult> {
+  if (dryRun) return stubResponse(options);
   const body: Record<string, unknown> = {
     model: options.model,
     store: false,
@@ -273,13 +364,39 @@ async function main() {
       captured.cases[item.id] = await runCase(item);
     }
     const destination = outputPath ?? path.join(root, manifest.referenceOutputs);
+    if (dryRun) {
+      // A stub must never be able to become the frozen floor.
+      if (path.resolve(destination) === path.resolve(root, manifest.referenceOutputs)) {
+        throw new Error(
+          `--dry-run refuses to write ${manifest.referenceOutputs}: stub output must never become the frozen RE-2026.08 reference. Pass --output=<scratch path>.`,
+        );
+      }
+      (captured as ReferenceFile & { dryRun: boolean }).dryRun = true;
+    }
     mkdirSync(path.dirname(destination), { recursive: true });
     writeFileSync(destination, `${JSON.stringify(captured, null, 2)}\n`);
     console.log(`Captured ${suite.cases.length} RE-2026.08 reference outputs at ${destination}`);
     return;
   }
 
-  const reference = JSON.parse(readFileSync(path.join(root, manifest.referenceOutputs), "utf8")) as ReferenceFile;
+  // In --dry-run the frozen reference legitimately does not exist yet (that is
+  // the whole of H5), so synthesise one in memory. This is never written to
+  // disk and never leaves the process.
+  const reference: ReferenceFile = dryRun && !existsSync(path.join(root, manifest.referenceOutputs))
+    ? {
+        baselineId: manifest.baselineId,
+        capturedAt: new Date().toISOString(),
+        model: `${model}-stub-reference`,
+        promptVersion: RELIABILITY_PROMPT_VERSION,
+        protectedPaths: protectedHashes(),
+        cases: Object.fromEntries(
+          suite.cases.map((item) => [
+            item.id,
+            { text: `STUB REFERENCE — NOT AN ENGINEERING ANSWER (${item.id})`, model: `${model}-stub-reference` },
+          ]),
+        ),
+      }
+    : (JSON.parse(readFileSync(path.join(root, manifest.referenceOutputs), "utf8")) as ReferenceFile);
   if (reference.baselineId !== manifest.baselineId) throw new Error("Reference outputs target the wrong baseline");
   if (Object.keys(reference.cases).length < manifest.minimumCaseCount) throw new Error("Reference output set is incomplete");
 
@@ -346,6 +463,9 @@ async function main() {
   const report = {
     baselineId: manifest.baselineId,
     generatedAt: new Date().toISOString(),
+    // A stub run is evidence about the harness, never about the model. The
+    // release gate refuses any report carrying this flag.
+    dryRun,
     verdict: "pending_human_review",
     caseCount: suite.cases.length,
     candidateModel: model,
@@ -372,6 +492,13 @@ async function main() {
   console.log(`dimension regressions: ${dimensionRegressions.join(", ") || "none"}`);
   console.log(`hard failures: ${JSON.stringify(counters)}`);
   console.log("Human SME review is intentionally still required before verdict may be changed to 'qualified'.");
+  if (dryRun) {
+    console.log(
+      "\nDRY RUN COMPLETE — harness plumbing verified end to end with a stub model.\n" +
+        "This report is stamped dryRun:true and the release gate will reject it as evidence.\n" +
+        "A real qualification still needs OPENAI_API_KEY (absent from this repository) plus an independent RELIABILITY_JUDGE_MODEL.",
+    );
+  }
 }
 
 await main();

@@ -1,21 +1,45 @@
 #!/usr/bin/env node
 
+/**
+ * RE-2026.08 release gate.
+ *
+ * Layer 2 of the floor (see scripts/reliability-baseline-floor.mjs for the
+ * full layering). This script never decides what the floor IS — it imports
+ * the hardcoded floor and refuses to evaluate a manifest that sits below it.
+ * Before this change the gate read its own rules out of `manifest.json`, so
+ * a PR could zero the thresholds and then rewrite the Reliability Engineer
+ * against the rules it had just weakened.
+ *
+ * The script is invoked from three places and all three matter:
+ *   - the required `Unit tests` CI job (branch protection requires it);
+ *   - the standalone `Reliability Engineer qualification` workflow;
+ *   - `npm run reliability:baseline` locally.
+ */
+
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
+import {
+  collectClosureFailures,
+  collectFloorFailures,
+  computeProtectedClosure,
+  loadManifest,
+  loadSuite,
+  repositoryRoot,
+} from "./reliability-baseline-floor.mjs";
 
-const root = process.cwd();
-const manifestPath = path.join(
-  root,
-  "benchmarks/reliability-engineer/re-2026.08/manifest.json",
-);
-const casesPath = path.join(
-  root,
-  "benchmarks/reliability-engineer/re-2026.08/cases.json",
-);
+// Resolved from this file, not from cwd: the gate has to behave identically
+// whether it is run by npm, by CI from the repo root, or from a worktree.
+const root = repositoryRoot;
 
 function fail(message) {
   console.error(`RELIABILITY QUALIFICATION GATE FAILED: ${message}`);
+  process.exit(1);
+}
+
+function failAll(headline, failures) {
+  console.error(`RELIABILITY QUALIFICATION GATE FAILED: ${headline}`);
+  for (const item of failures) console.error(`  - ${item}`);
   process.exit(1);
 }
 
@@ -23,18 +47,31 @@ function git(...args) {
   return execFileSync("git", args, { cwd: root, encoding: "utf8" }).trim();
 }
 
-const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
-const suite = JSON.parse(readFileSync(casesPath, "utf8"));
+const manifest = loadManifest();
+const suite = loadSuite();
 
-if (manifest.baselineId !== "RE-2026.08") fail("baseline id changed unexpectedly");
-if (manifest.promptVersion !== "syncai-reliability-engineer-v4") {
-  fail("baseline prompt version changed unexpectedly");
+// Two standing invariants, checked on EVERY run whether or not this diff
+// touches a protected path, and reported together. A gate that surfaces one
+// violation per run teaches people to weaken it one value per run.
+//
+//   1. Floor — the manifest may only be ratcheted against the hardcoded
+//      minimum in scripts/reliability-baseline-floor.mjs. Never loosened.
+//   2. Closure — a file list is not a boundary. A protected module that
+//      imports an unprotected one exports the whole hole.
+const closure = computeProtectedClosure();
+const standingFailures = [
+  ...collectFloorFailures(manifest, suite),
+  ...collectClosureFailures(manifest, closure),
+];
+if (standingFailures.length > 0) {
+  failAll(
+    "the RE-2026.08 ratchet has been weakened. The manifest may only be ratcheted (more protected paths, stricter thresholds, more cases) and must cover everything the Reliability Engineer transitively imports.",
+    standingFailures,
+  );
 }
+
 if (!Array.isArray(suite.cases) || suite.cases.length < manifest.minimumCaseCount) {
   fail(`golden suite must contain at least ${manifest.minimumCaseCount} cases`);
-}
-if (new Set(suite.cases.map((item) => item.id)).size !== suite.cases.length) {
-  fail("golden suite contains duplicate case ids");
 }
 
 const currentHashes = Object.fromEntries(
@@ -74,11 +111,36 @@ function resolveDiffBase() {
 function validateReferenceOutputs() {
   const referencePath = path.join(root, manifest.referenceOutputs);
   if (!existsSync(referencePath)) {
+    // Be specific about the blocker. The generic version of this message sent
+    // the previous reader looking for a bug; the real cause is a missing
+    // repository secret, and the fix is an owner action, not a code change.
     fail(
-      `baseline reference outputs are not captured at ${manifest.referenceOutputs}; run the live qualification harness against unchanged RE-2026.08 before changing protected surfaces`,
+      [
+        `baseline reference outputs are not captured at ${manifest.referenceOutputs}.`,
+        "",
+        "The RE-2026.08 floor is frozen until they exist, and this gate will keep refusing every protected change. Capture them ONCE, while the protected blobs still match the manifest:",
+        "",
+        "  Required repository secret: OPENAI_API_KEY  (repo currently has only SUPABASE_ACCESS_TOKEN)",
+        "  Workflow to dispatch:      .github/workflows/reliability-qualification.yml",
+        "  Mode:                      capture-reference",
+        "  Command:                   gh workflow run reliability-qualification.yml -f mode=capture-reference",
+        "",
+        "Alternative capture route (no OPENAI_API_KEY needed, uses the already-present SUPABASE_ACCESS_TOKEN and the deployed production processor):",
+        "  Workflow: .github/workflows/one-shot-capture-re-2026-08.yml",
+        "",
+        "To prove the harness end to end WITHOUT any model credential:",
+        "  npm run reliability:dryrun",
+        "",
+        "Do not work around this by weakening the manifest — scripts/reliability-baseline-floor.mjs and the required Unit tests check both refuse a weakened manifest.",
+      ].join("\n"),
     );
   }
   const reference = JSON.parse(readFileSync(referencePath, "utf8"));
+  if (reference.dryRun === true) {
+    fail(
+      "reference outputs are stub output from `--dry-run`; the frozen RE-2026.08 floor must be captured from the real Reliability Engineer, not from the plumbing test",
+    );
+  }
   if (reference.baselineId !== manifest.baselineId) fail("reference outputs target the wrong baseline");
   if (reference.promptVersion !== manifest.promptVersion) fail("reference outputs use the wrong prompt version");
   if (!reference.cases || Object.keys(reference.cases).length < manifest.minimumCaseCount) {
@@ -133,6 +195,11 @@ if (reportPaths.length === 0) {
 const reportPath = reportPaths.sort().at(-1);
 const report = JSON.parse(readFileSync(path.join(root, reportPath), "utf8"));
 
+if (report.dryRun === true) {
+  fail(
+    "qualification report is a `--dry-run` plumbing check, not evidence about the model; a real run needs OPENAI_API_KEY and an independent RELIABILITY_JUDGE_MODEL",
+  );
+}
 if (report.baselineId !== manifest.baselineId) fail("qualification report targets the wrong baseline");
 if (report.verdict !== "qualified") fail("qualification report verdict must be 'qualified'");
 if (!Number.isFinite(report.caseCount) || report.caseCount < manifest.minimumCaseCount) {
@@ -164,6 +231,20 @@ if (
 if (!Array.isArray(report.dimensionRegressions) || report.dimensionRegressions.length !== 0) {
   fail("qualification report contains a quality-dimension regression");
 }
+// H4 — a model grading a frozen reference of its own output is not an
+// independent comparison; it is the same distribution scoring itself. The
+// harness now refuses to run that way, and the gate refuses to accept a
+// report produced that way, because a report can be hand-edited.
+const candidateModel = String(report.candidateModel ?? "").trim();
+const judgeModel = String(report.judgeModel ?? "").trim();
+if (!candidateModel) fail("qualification report must record candidateModel");
+if (!judgeModel) fail("qualification report must record judgeModel");
+if (manifest.judgeIndependenceRequired === true && candidateModel === judgeModel) {
+  fail(
+    `qualification judge must differ from the candidate; both are '${candidateModel}'. Set RELIABILITY_JUDGE_MODEL to an approved independent model.`,
+  );
+}
+
 if (report.humanReview?.status !== "approved" || !String(report.humanReview?.reviewer ?? "").trim()) {
   fail("qualified Reliability Engineer changes require named human SME approval");
 }

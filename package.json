@@ -17,6 +17,7 @@
     "test:e2e:headed": "playwright test --headed",
     "reliability:baseline": "vitest run src/test/reliabilityEngineerGoldenBaseline.test.ts supabase/functions/_shared/reliability-engineer-core.test.ts && node scripts/check-reliability-baseline.mjs",
     "reliability:qualify": "tsx scripts/run-reliability-qualification.ts",
+    "reliability:dryrun": "tsx scripts/run-reliability-qualification.ts --dry-run --output=/tmp/re-2026-08-dry-run-report.json && tsx scripts/run-reliability-qualification.ts --dry-run --capture-reference --output=/tmp/re-2026-08-dry-run-reference.json",
     "prepare": "husky",
     "register:tally": "node scripts/register-tally.mjs --write",
     "register:check": "node scripts/register-tally.mjs --check && node scripts/register-baseline.mjs --check",
