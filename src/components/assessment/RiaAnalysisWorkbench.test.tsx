@@ -43,6 +43,12 @@ function renderWorkbench(role = "reliability_engineer") {
   );
 }
 
+async function waitForAuthoringReady() {
+  await waitFor(() =>
+    expect(screen.queryByText(/Loading evidence references/i)).toBeNull(),
+  );
+}
+
 beforeEach(() => {
   listRiaAuthoringSources.mockReset();
   listRiaAuthoringFindings.mockReset();
@@ -188,6 +194,7 @@ describe("RiaAnalysisWorkbench", () => {
 
   it("refuses an unsupported quantified opportunity before it reaches the server", async () => {
     renderWorkbench();
+    await waitForAuthoringReady();
     fireEvent.click(screen.getByRole("button", { name: /^Opportunity$/i }));
 
     fireEvent.change(screen.getByLabelText(/Opportunity title/i), {
@@ -215,6 +222,7 @@ describe("RiaAnalysisWorkbench", () => {
       ),
     );
     renderWorkbench();
+    await waitForAuthoringReady();
 
     fireEvent.change(screen.getByLabelText(/Metric key/i), {
       target: { value: "pm_compliance" },
@@ -242,6 +250,7 @@ describe("RiaAnalysisWorkbench", () => {
 
   it("makes phase progression a governed action rather than a local status change", async () => {
     renderWorkbench();
+    await waitForAuthoringReady();
     fireEvent.click(screen.getByRole("button", { name: /Assessment phase/i }));
     const phase = screen.getByLabelText(/Assessment phase/i);
     fireEvent.change(phase, { target: { value: "customer_review" } });
