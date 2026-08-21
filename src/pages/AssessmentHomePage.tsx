@@ -2,10 +2,7 @@
  * Assessment Home — §4 of the workspace specification: status, scope, sponsor,
  * timeline, readiness rollup, major findings and upcoming decisions.
  *
- * The readiness figure here is deliberately not a percentage. The shipped
- * workspace showed "readiness 75%", computed as the share of four required
- * categories that had a file against them; a customer reading it cannot tell
- * which quarter is missing, and neither can the engineer. The intake pack's §8
+ * The readiness figure here is deliberately not a percentage. The intake pack's
  * acceptance test has four named conditions, so those four are shown, and
  * "data-ready" means all four — no partial credit.
  */
@@ -22,6 +19,7 @@ import {
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../components/AuthProvider";
 import { DataRoom } from "../components/assessment/DataRoom";
+import { RiaAnalysisWorkbench } from "../components/assessment/RiaAnalysisWorkbench";
 import { type ReadinessRollup, loadReadiness } from "../services/riaDataRoom";
 
 interface AssessmentRecord {
@@ -120,9 +118,6 @@ export function AssessmentHomePage() {
           .eq("id", assessmentId)
           .maybeSingle();
         if (queryError) throw new Error(queryError.message);
-        // RLS refuses by returning no row, not by erroring. Saying "not found"
-        // is the honest rendering of both cases: the caller is not entitled to
-        // know which it was.
         if (!data)
           throw new Error(
             "No assessment with that identifier is visible to your account.",
@@ -287,13 +282,6 @@ export function AssessmentHomePage() {
           >
             Major findings
           </h2>
-          {/*
-            PUBLISHED ONLY, AND SAID SO. review_state='published' is the state
-            the publication gate guards — a reviewer, evidence links, and an
-            authority for anything high or critical. Rendering drafts here
-            would put ungated engineering work on the page a sponsor reads,
-            which is the whole thing §5 rule 3 exists to prevent.
-          */}
           <p className="mt-2 text-xs text-slate-500">
             Published findings only. A draft or reviewed finding has not passed
             the publication gate and is not shown here.
@@ -375,6 +363,14 @@ export function AssessmentHomePage() {
         organizationId={assessment.organization_id}
         canSupply={canSupply}
         canRate={canRate}
+      />
+
+      <hr className="my-10 border-white/10" />
+
+      <RiaAnalysisWorkbench
+        assessmentId={assessment.id}
+        currentStatus={assessment.status}
+        role={role}
       />
     </main>
   );
