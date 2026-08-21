@@ -40,14 +40,16 @@ jobs:
       - name: Governed RIA lifecycle
         run: bash scripts/ci-ria-lifecycle-smoke.sh
 
-      - name: Upload startup diagnostics
-        if: failure()
+      - name: Upload lifecycle evidence
+        if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: ria-lifecycle-supabase-diagnostics
+          name: ria-lifecycle-evidence
           path: |
+            /tmp/ria-lifecycle.log
             /tmp/ria-supabase-start.log
             /tmp/ria-supabase-diagnostics.txt
+          if-no-files-found: ignore
           retention-days: 7
 
       - name: Stop Supabase
