@@ -19,6 +19,7 @@ on:
       - "supabase/functions/lead-notify/**"
       - "supabase/functions/onboarding-enrich/**"
       - "supabase/functions/public-reliability-agent/**"
+      - "supabase/functions/sync-investigation-runtime/**"
       - "supabase/functions/sync-runtime/**"
   workflow_dispatch:
 
@@ -26,8 +27,6 @@ concurrency:
   group: deploy-migrations
   cancel-in-progress: false
 
-# Needed to raise the failure issue below. A deploy that fails silently is how
-# six merges rotted behind a green CI.
 permissions:
   contents: read
   issues: write
@@ -56,22 +55,12 @@ jobs:
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
 
-      # Hosted Auth settings are not database state. Without this step a green
-      # migration deploy can still ship password-reset emails that point to
-      # localhost. Apply the canonical production URL/allow-list and read it
-      # back before production is allowed to advance.
       - name: Configure and verify production Auth
         run: node scripts/configure-production-auth.mjs
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
 
-      # --include-all: branches merge in an order their timestamps do not always
-      # agree with, so a migration can land sorting before the deployed head.
-      # Without this flag `db push` refuses the entire batch rather than applying
-      # the one straggler, which halts deployment for every later migration too.
-      # check-migration-order.mjs keeps that case rare and reviewable at PR time;
-      # this flag keeps it from taking production's schema offline when it happens.
       - name: Push migrations
         run: supabase db push --include-all
         env:
@@ -85,17 +74,11 @@ jobs:
           supabase functions deploy lead-notify
           supabase functions deploy onboarding-enrich --no-verify-jwt
           supabase functions deploy public-reliability-agent
+          supabase functions deploy sync-investigation-runtime
           supabase functions deploy sync-runtime
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
 
-      # lead-notify needs two things that are not in this repository and never
-      # will be: a mail transport, and the trigger knowing where to POST.
-      # Without them a merge changes nothing — the AFTER INSERT trigger warns,
-      # leads stay 'queued', and "a lead must never go cold" is not true in
-      # production. Both steps are no-ops with a loud CI warning until the
-      # corresponding repository secret exists, and both are idempotent, so
-      # setting the secret once is the whole of the manual work.
       - name: Give lead-notify a mail transport
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
@@ -126,15 +109,11 @@ jobs:
           select public.configure_lead_notify(:'url', :'key');
           SQL
 
-      # Nobody reads the Actions tab. This failed on every push for three weeks
-      # while CI stayed green and Vercel kept shipping frontends over a schema
-      # that was not moving. One open issue, reused rather than duplicated, so a
-      # run of failures is one notification instead of a stream nobody triages.
       - name: Raise a failure issue
         if: failure()
         env:
           GH_TOKEN: ${{ github.token }}
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository}/actions/runs/${{ github.run_id }}
           SHA: ${{ github.sha }}
         run: |
           set -euo pipefail
