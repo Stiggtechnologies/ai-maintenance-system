@@ -1,24 +1,25 @@
 /**
- * Pilot Leads — admin-only view of pilot-intake requests submitted through the
- * public value-proof form. Access is enforced by RLS
- * (pilot_intake_requests_admin_read, 20260913090000_pilot_leads_admin_only.sql):
- * only admin / ai_admin read rows, so a non-admin who reaches this route via
- * AdminGate could never see a lead anyway. Each row shows exactly what the
- * visitor submitted plus its notification status — no derived or scored fields.
+ * Reliability Assessment Leads — admin-only commercial conversion surface.
  *
- * Leads no longer wait to be noticed. An AFTER INSERT trigger fires the
- * lead-notify edge function the instant a row lands
- * (20260914090000_lead_notify_trigger.sql): the visitor gets an
- * acknowledgement, the owner gets an alert, and the row's notification_status
- * moves off 'queued'. This page is where that outcome is read back — amber
- * means the notification has not completed, red means it failed and a person
- * has to step in.
+ * The lead itself is global sales data and remains admin/ai_admin read-only.
+ * A browser never writes the lead or creates cross-tenant RIA state directly:
+ * commercial activation goes through activate_ria_from_intake, whose invariant
+ * contract owns target-org validation, authority, idempotency and provenance.
  */
 import { useCallback, useMemo, useState } from "react";
-import { Users, Download, RefreshCw, Check } from "lucide-react";
+import { Link } from "react-router-dom";
+import {
+  Users,
+  Download,
+  RefreshCw,
+  Check,
+  FileCheck2,
+  ExternalLink,
+} from "lucide-react";
 import { useAsyncData } from "../hooks/useAsyncData";
 import { useRealtimeRefetch } from "../hooks/useRealtimeRefetch";
 import { LiveBadge } from "../components/ui/LiveBadge";
+import { RiaActivationDialog } from "../components/assessment/RiaActivationDialog";
 import {
   listPilotIntakeRequests,
   markPilotLeadResponded,
@@ -44,6 +45,10 @@ function statusStyle(status: string): string {
   );
 }
 
+function shortId(value: string): string {
+  return value.length > 12 ? `${value.slice(0, 8)}…${value.slice(-4)}` : value;
+}
+
 export function PilotLeads() {
   const { data, loading, error, refetch } = useAsyncData<PilotIntakeLead[]>(
     () => listPilotIntakeRequests(),
@@ -53,6 +58,10 @@ export function PilotLeads() {
   const leads = useMemo(() => data ?? [], [data]);
   const [marking, setMarking] = useState<string | null>(null);
   const [markError, setMarkError] = useState<string | null>(null);
+  const [activationLead, setActivationLead] = useState<PilotIntakeLead | null>(
+    null,
+  );
+  const [activationNotice, setActivationNotice] = useState<string | null>(null);
 
   const markResponded = useCallback(
     async (leadId: string) => {
@@ -70,34 +79,44 @@ export function PilotLeads() {
     [refetch],
   );
 
-  if (loading) return <LoadingState label="Loading pilot leads" />;
+  if (loading) return <LoadingState label="Loading assessment leads" />;
   if (error) return <ErrorState message={error} onRetry={refetch} />;
 
   return (
     <div className="space-y-5 p-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
+        <div className="max-w-4xl">
           <div className="flex items-center gap-2">
             <Users className="h-5 w-5 text-teal-300" aria-hidden />
-            <h1 className="text-2xl font-semibold text-white">Pilot Leads</h1>
+            <h1 className="text-2xl font-semibold text-white">
+              Reliability Assessment Leads
+            </h1>
             <LiveBadge live={live} />
           </div>
-          <p className="mt-1 text-sm text-slate-300">
-            Requests submitted through the public 48-hour value-proof intake.
-            Admin-visible only. Every lead is acknowledged and alerted
-            automatically the moment it arrives; first response is due within{" "}
-            <span className="font-medium text-slate-200">
-              one business hour
-            </span>{" "}
-            (Mon-Fri, 8:00am-5:00pm Mountain). A lead still showing{" "}
-            <span className="font-medium text-amber-300">queued</span> or{" "}
-            <span className="font-medium text-red-300">failed</span> did not get
-            its notification — pick it up by hand. Times are Mountain
-            (America/Edmonton), the zone the SLA is defined in.
+          <p className="mt-1 text-sm leading-6 text-slate-300">
+            Requests from the public Reliability Intelligence Assessment intake.
+            The standard engagement is US$35,000 fixed fee over 6–8 weeks for a
+            bounded fleet, site, or asset domain. Admin-visible only. Every lead
+            is acknowledged and alerted automatically; first response is due
+            within <span className="font-medium text-slate-200">one business hour</span>{" "}
+            (Mon–Fri, 8:00am–5:00pm Mountain).
+          </p>
+          <p className="mt-2 text-xs leading-5 text-slate-500">
+            Activation is separate from acknowledgement: record a signed SOW,
+            PO, invoice, or payment reference before creating the customer RIA.
+            SyncAI does not infer “paid” from a lead status.
           </p>
           {markError ? (
             <p className="mt-2 text-sm text-red-300" role="alert">
               Could not record the response: {markError}
+            </p>
+          ) : null}
+          {activationNotice ? (
+            <p
+              className="mt-2 rounded-lg border border-emerald-300/20 bg-emerald-300/5 px-3 py-2 text-sm text-emerald-200"
+              role="status"
+            >
+              {activationNotice}
             </p>
           ) : null}
         </div>
@@ -124,9 +143,15 @@ export function PilotLeads() {
                   notification_status: lead.notification_status,
                   first_response_due: lead.first_response_due ?? "",
                   first_responded_at: lead.first_responded_at ?? "",
+                  ria_assessment_id: lead.ria_assessment_id ?? "",
+                  activated_organization_id:
+                    lead.activated_organization_id ?? "",
+                  activated_at: lead.activated_at ?? "",
+                  commercial_acceptance_reference:
+                    lead.commercial_acceptance_reference ?? "",
                   source_path: lead.source_path,
                 })),
-                "pilot-leads.csv",
+                "reliability-assessment-leads.csv",
               )
             }
             disabled={leads.length === 0}
@@ -139,10 +164,10 @@ export function PilotLeads() {
       </div>
 
       {leads.length === 0 ? (
-        <EmptyState message="No pilot-intake leads yet — submissions from the value-proof intake form appear here as they arrive." />
+        <EmptyState message="No Reliability Intelligence Assessment leads yet — public intake submissions appear here as they arrive." />
       ) : (
         <div className="overflow-x-auto rounded-xl border border-white/6">
-          <table className="w-full text-sm">
+          <table className="w-full min-w-[1320px] text-sm">
             <thead>
               <tr className="border-b border-white/6 text-left text-xs uppercase tracking-wide text-slate-400">
                 <th className="px-4 py-3">Submitted</th>
@@ -153,8 +178,9 @@ export function PilotLeads() {
                 <th className="px-4 py-3">Asset scope</th>
                 <th className="px-4 py-3">Primary pain</th>
                 <th className="px-4 py-3">First response due</th>
-                <th className="px-4 py-3">Status</th>
+                <th className="px-4 py-3">Notify</th>
                 <th className="px-4 py-3">Answered</th>
+                <th className="px-4 py-3">RIA</th>
               </tr>
             </thead>
             <tbody>
@@ -222,12 +248,68 @@ export function PilotLeads() {
                       </button>
                     )}
                   </td>
+                  <td className="min-w-48 px-4 py-2.5">
+                    {lead.ria_assessment_id ? (
+                      <div>
+                        <div className="flex items-center gap-1.5 text-emerald-300">
+                          <FileCheck2 className="h-3.5 w-3.5" aria-hidden />
+                          <span className="text-xs font-medium">Activated</span>
+                        </div>
+                        <Link
+                          to={`/assessments/${lead.ria_assessment_id}`}
+                          title="Assessment visibility remains scoped to the activated organization"
+                          className="mt-1 inline-flex items-center gap-1 font-mono text-xs text-teal-300 hover:text-teal-200"
+                        >
+                          {shortId(lead.ria_assessment_id)}
+                          <ExternalLink className="h-3 w-3" aria-hidden />
+                        </Link>
+                        {lead.activated_at ? (
+                          <p className="mt-1 text-[11px] text-slate-500">
+                            {formatAlbertaStamp(lead.activated_at)}
+                          </p>
+                        ) : null}
+                        {lead.commercial_acceptance_reference ? (
+                          <p
+                            className="mt-1 max-w-52 truncate text-[11px] text-slate-500"
+                            title={lead.commercial_acceptance_reference}
+                          >
+                            Ref: {lead.commercial_acceptance_reference}
+                          </p>
+                        ) : null}
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => {
+                          setActivationNotice(null);
+                          setActivationLead(lead);
+                        }}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-teal-300/30 bg-teal-300/5 px-2.5 py-1 text-xs font-medium text-teal-200 hover:bg-teal-300/10 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-teal-300"
+                      >
+                        <FileCheck2 className="h-3.5 w-3.5" aria-hidden />
+                        Activate RIA
+                      </button>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       )}
+
+      {activationLead ? (
+        <RiaActivationDialog
+          lead={activationLead}
+          onClose={() => setActivationLead(null)}
+          onActivated={async ({ assessmentId }) => {
+            setActivationLead(null);
+            setActivationNotice(
+              `RIA ${shortId(assessmentId)} activated for ${activationLead.company}. The assessment remains visible only inside its activated organization.`,
+            );
+            refetch();
+          }}
+        />
+      ) : null}
     </div>
   );
 }
