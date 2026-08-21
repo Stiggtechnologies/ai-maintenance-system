@@ -8,6 +8,7 @@ const SECURITY =
 const sql = readFileSync(MIGRATION, "utf8");
 const lower = sql.toLowerCase().replace(/\s+/g, " ");
 const security = readFileSync(SECURITY, "utf8").toLowerCase();
+const approvalQueue = readFileSync("src/components/ApprovalQueue.tsx", "utf8");
 
 const RECOVERY_TABLES = [
   "restoration_events",
@@ -139,6 +140,17 @@ describe("approval and scope-growth controls", () => {
     expect(submit).toContain("insert into approval_workflows");
     expect(submit).toContain("'release_restoration_plan'");
     expect(submit).toContain("'advisory'");
+  });
+
+  it("labels Recovery approval completeness as a contract, not outcome probability", () => {
+    const submit = functionBody("submit_restoration_plan_for_approval");
+    expect(submit).toContain(
+      "deterministic contract completeness; not probability of outcome",
+    );
+    expect(approvalQueue).toContain(
+      'decision.decision_type === "release_restoration_plan"',
+    );
+    expect(approvalQueue).toContain("Deterministic contract complete");
   });
 
   it("enforces segregation of duties at release", () => {
