@@ -1,5 +1,15 @@
-const LIGHTWEIGHT_CONVERSATION_RE =
-  /^\s*(hi|hello|hey|good\s+(morning|afternoon|evening)|thanks|thank\s+you|what\s+can\s+you\s+do|help)\b/i;
+function isLightweightConversation(question: string): boolean {
+  const normalized = question.trim().toLowerCase();
+  return (
+    /^(hi|hello|hey|good morning|good afternoon|good evening)[!.?]*$/.test(
+      normalized,
+    ) ||
+    /^(thanks|thank you)[!.?]*$/.test(normalized) ||
+    /^(help|what can you do|what can you do for me|how can you help|how can you help me)[!.?]*$/.test(
+      normalized,
+    )
+  );
+}
 
 export function syncResponseGuidance(
   question: string,
@@ -10,7 +20,7 @@ export function syncResponseGuidance(
 Produce the complete requested deliverable now. Preserve the governed Reliability Engineer discipline: distinguish facts, hypotheses and missing evidence; make approval boundaries explicit; and define verification where relevant. Use headings, lists and tables only when they improve the work product.`;
   }
 
-  if (LIGHTWEIGHT_CONVERSATION_RE.test(question)) {
+  if (isLightweightConversation(question)) {
     return `RESPONSE MODE — CONVERSATIONAL:
 Respond naturally and briefly. Do not launch an unsolicited KPI review, operational assessment or formal report. Answer the user's immediate conversational intent first and offer one useful next direction only if it helps.`;
   }
