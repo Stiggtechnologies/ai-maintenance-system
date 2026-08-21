@@ -1,1638 +1,2047 @@
 {
   "C1.01": {
     "status": "🟡",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "C1.02": {
     "status": "🟡",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "C1.03": {
     "status": "🟡",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "C1.04": {
     "status": "🟡",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "C1.05": {
     "status": "🟡",
-    "evidence": true
+    "evidence": true,
+    "citations": 0
   },
   "C1.06": {
     "status": "🟡",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "C1.07": {
     "status": "🟡",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "C1.08": {
     "status": "🟡",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "C1.09": {
     "status": "🟡",
-    "evidence": true
+    "evidence": true,
+    "citations": 3
   },
   "C1.10": {
     "status": "🟡",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "C1.11": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 0
   },
   "C1.12": {
     "status": "🟡",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "C1.13": {
     "status": "✅",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "C1.14": {
     "status": "❌",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "C1.15": {
     "status": "❌",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "C1.16": {
     "status": "❌",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "C2.01": {
     "status": "✅",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "C2.02": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 1
   },
   "C2.03": {
     "status": "🟡",
-    "evidence": true
+    "evidence": true,
+    "citations": 2
   },
   "C2.04": {
     "status": "🟡",
-    "evidence": true
+    "evidence": true,
+    "citations": 3
   },
   "C2.05": {
-    "status": "✅",
-    "evidence": true
+    "status": "🟡",
+    "evidence": true,
+    "citations": 3
   },
   "C2.06": {
     "status": "🟡",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "C2.07": {
     "status": "🟡",
-    "evidence": true
+    "evidence": true,
+    "citations": 3
   },
   "C2.08": {
-    "status": "✅",
-    "evidence": true
+    "status": "🟡",
+    "evidence": true,
+    "citations": 6
   },
   "C2.09": {
     "status": "🟡",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "C2.10": {
     "status": "🟡",
-    "evidence": true
+    "evidence": true,
+    "citations": 1
   },
   "C2.11": {
     "status": "🟡",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "C2.12": {
     "status": "🟡",
-    "evidence": true
+    "evidence": true,
+    "citations": 6
   },
   "C2.13": {
     "status": "🟡",
-    "evidence": true
+    "evidence": true,
+    "citations": 4
   },
   "C2.14": {
     "status": "🟡",
-    "evidence": true
+    "evidence": true,
+    "citations": 0
   },
   "C2.15": {
     "status": "❌",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "C2.16": {
     "status": "🟡",
-    "evidence": true
+    "evidence": true,
+    "citations": 0
   },
   "C2.17": {
     "status": "🟡",
-    "evidence": true
+    "evidence": true,
+    "citations": 4
   },
   "C2.18": {
     "status": "🟡",
-    "evidence": true
+    "evidence": true,
+    "citations": 0
   },
   "C2.19": {
     "status": "🟡",
-    "evidence": true
+    "evidence": true,
+    "citations": 1
   },
   "C3.01": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 0
   },
   "C3.02": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 0
   },
   "C3.03": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 0
   },
   "C3.04": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 0
   },
   "C3.05": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 0
   },
   "C3.06": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 0
   },
   "C3.07": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 0
   },
   "C3.08": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 0
   },
   "C3.09": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 0
   },
   "C3.10": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 0
   },
   "C3.11": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 0
   },
   "C3.12": {
-    "status": "✅",
-    "evidence": true
+    "status": "🟡",
+    "evidence": true,
+    "citations": 1
   },
   "C4.01": {
     "status": "✅",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "C4.02": {
     "status": "✅",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "C4.03": {
     "status": "🟡",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "C4.04": {
     "status": "✅",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "C4.05": {
     "status": "🟡",
-    "evidence": true
+    "evidence": true,
+    "citations": 0
   },
   "C4.06": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 2
   },
   "C4.07": {
     "status": "✅",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "C4.08": {
     "status": "🟡",
-    "evidence": true
+    "evidence": true,
+    "citations": 2
   },
   "C4.09": {
     "status": "✅",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "C4.10": {
     "status": "✅",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "C4.11": {
     "status": "🟡",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "C4.12": {
     "status": "🟡",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "C4.13": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 1
   },
   "C4.14": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 0
   },
   "C4.15": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 0
   },
   "C4.16": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 1
   },
   "C4.17": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 1
   },
   "C5.01": {
     "status": "✅",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "C5.02": {
     "status": "🟡",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "C5.03": {
     "status": "🟡",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "C5.04": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 2
   },
   "C5.05": {
     "status": "✅",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "C5.06": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 3
   },
   "C5.07": {
     "status": "✅",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "C5.08": {
     "status": "✅",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "C5.09": {
     "status": "🟡",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "C5.10": {
     "status": "🟡",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "C5.11": {
     "status": "🟡",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "C5.12": {
     "status": "✅",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "C5.13": {
     "status": "🟡",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "C5.14": {
     "status": "❌",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "C5.15": {
     "status": "❌",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "C5.16": {
     "status": "❌",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "C5.17": {
     "status": "🟡",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "C5.18": {
     "status": "✅",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "C5.19": {
     "status": "✅",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "C5.20": {
     "status": "✅",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "C5.21": {
     "status": "🟡",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "C5.22": {
     "status": "✅",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "C5.23": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 1
   },
   "C5.24": {
     "status": "🟡",
-    "evidence": true
+    "evidence": true,
+    "citations": 5
   },
   "C6.01": {
     "status": "🟡",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "C6.02": {
     "status": "✅",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "C6.03": {
     "status": "🟡",
-    "evidence": true
+    "evidence": true,
+    "citations": 2
   },
   "C6.04": {
     "status": "🟡",
-    "evidence": true
+    "evidence": true,
+    "citations": 1
   },
   "C6.05": {
     "status": "🟡",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "C6.06": {
     "status": "✅",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "C6.07": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 1
   },
   "C6.08": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 0
   },
   "C6.09": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 0
   },
   "C6.10": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 1
   },
   "C6.11": {
     "status": "🟡",
-    "evidence": true
+    "evidence": true,
+    "citations": 3
   },
   "C6.12": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 0
   },
   "C6.13": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 0
   },
   "C6.14": {
     "status": "🟡",
-    "evidence": true
+    "evidence": true,
+    "citations": 4
   },
   "C6.15": {
     "status": "🟡",
-    "evidence": true
+    "evidence": true,
+    "citations": 0
   },
   "C6.16": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 0
   },
   "C6.17": {
     "status": "🟡",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "C6.18": {
     "status": "🟡",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "C6.19": {
     "status": "✅",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "C6.20": {
     "status": "🟡",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "C6.21": {
     "status": "✅",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "C6.22": {
     "status": "🟡",
-    "evidence": true
+    "evidence": true,
+    "citations": 0
   },
   "C6.23": {
     "status": "❌",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "C6.24": {
     "status": "🟡",
-    "evidence": true
+    "evidence": true,
+    "citations": 3
   },
   "C6.25": {
     "status": "🟡",
-    "evidence": true
+    "evidence": true,
+    "citations": 0
   },
   "C6.26": {
     "status": "🟡",
-    "evidence": true
+    "evidence": true,
+    "citations": 5
   },
   "C7.01": {
     "status": "🟡",
-    "evidence": true
+    "evidence": true,
+    "citations": 0
   },
   "C7.02": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 3
   },
   "C7.03": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 0
   },
   "C7.04": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 0
   },
   "C7.05": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 0
   },
   "C7.06": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 0
   },
   "C7.07": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 0
   },
   "C7.08": {
     "status": "🟡",
-    "evidence": true
+    "evidence": true,
+    "citations": 0
   },
   "C7.09": {
     "status": "🟡",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "C7.10": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 0
   },
   "C7.11": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 0
   },
   "C7.12": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 1
   },
   "C7.13": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 0
   },
   "C7.14": {
     "status": "🟡",
-    "evidence": true
+    "evidence": true,
+    "citations": 0
   },
   "C8.01": {
     "status": "🟡",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "C8.02": {
     "status": "🟡",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "C8.03": {
     "status": "🟡",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "C8.04": {
     "status": "🟡",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "C8.05": {
     "status": "🟡",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "C8.06": {
     "status": "🟡",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "C8.07": {
     "status": "🟡",
-    "evidence": true
+    "evidence": true,
+    "citations": 4
   },
   "C8.08": {
     "status": "🟡",
-    "evidence": true
+    "evidence": true,
+    "citations": 1
   },
   "C8.09": {
     "status": "🟡",
-    "evidence": true
+    "evidence": true,
+    "citations": 1
   },
   "C8.10": {
     "status": "🟡",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "C8.11": {
-    "status": "✅",
-    "evidence": false
+    "status": "🟡",
+    "evidence": true,
+    "citations": 2
   },
   "C8.12": {
     "status": "✅",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "C8.13": {
     "status": "✅",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "C8.14": {
     "status": "🟡",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "C8.15": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 1
   },
   "C8.16": {
     "status": "✅",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "C8.17": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 1
   },
   "C8.18": {
-    "status": "✅",
-    "evidence": true
+    "status": "🟡",
+    "evidence": true,
+    "citations": 1
   },
   "C8.19": {
     "status": "✅",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "C8.20": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 2
   },
   "C8.21": {
-    "status": "✅",
-    "evidence": true
+    "status": "🟡",
+    "evidence": true,
+    "citations": 3
   },
   "C8.22": {
     "status": "✅",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "C8.23": {
     "status": "✅",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "C8.24": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 1
   },
   "C8.25": {
     "status": "🟡",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "C9.01": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 0
   },
   "C9.02": {
     "status": "🟡",
-    "evidence": true
+    "evidence": true,
+    "citations": 1
   },
   "C9.03": {
     "status": "🟡",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "C9.04": {
     "status": "❌",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "C9.05": {
     "status": "❌",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "C9.06": {
     "status": "❌",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "C9.07": {
     "status": "🟡",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "E1.01": {
-    "status": "✅",
-    "evidence": true
+    "status": "🟡",
+    "evidence": true,
+    "citations": 5
   },
   "E1.02": {
     "status": "🟡",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "E1.03": {
     "status": "❌",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "E1.04": {
     "status": "❌",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "E1.05": {
     "status": "❌",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "E1.06": {
-    "status": "✅",
-    "evidence": true
+    "status": "🟡",
+    "evidence": true,
+    "citations": 4
   },
   "E2.01": {
-    "status": "✅",
-    "evidence": true
+    "status": "🟡",
+    "evidence": true,
+    "citations": 2
   },
   "E2.02": {
-    "status": "✅",
-    "evidence": true
+    "status": "🟡",
+    "evidence": true,
+    "citations": 4
   },
   "E2.03": {
-    "status": "✅",
-    "evidence": true
+    "status": "🟡",
+    "evidence": true,
+    "citations": 3
   },
   "E2.04": {
-    "status": "✅",
-    "evidence": true
+    "status": "🟡",
+    "evidence": true,
+    "citations": 2
   },
   "E2.05": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 0
   },
   "E2.06": {
-    "status": "✅",
-    "evidence": true
+    "status": "🟡",
+    "evidence": true,
+    "citations": 1
   },
   "E2.07": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 1
   },
   "E2.08": {
-    "status": "✅",
-    "evidence": true
+    "status": "🟡",
+    "evidence": true,
+    "citations": 2
   },
   "E2.09": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 1
   },
   "E2.10": {
-    "status": "✅",
-    "evidence": true
+    "status": "🟡",
+    "evidence": true,
+    "citations": 1
   },
   "E2.11": {
-    "status": "✅",
-    "evidence": true
+    "status": "🟡",
+    "evidence": true,
+    "citations": 3
   },
   "E2.12": {
-    "status": "✅",
-    "evidence": true
+    "status": "🟡",
+    "evidence": true,
+    "citations": 2
   },
   "E2.13": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 1
   },
   "E3.01": {
     "status": "❌",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "E3.02": {
     "status": "🟡",
-    "evidence": true
+    "evidence": true,
+    "citations": 1
   },
   "E3.03": {
     "status": "🟡",
-    "evidence": true
+    "evidence": true,
+    "citations": 2
   },
   "E3.04": {
     "status": "❌",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "E3.05": {
     "status": "🟡",
-    "evidence": true
+    "evidence": true,
+    "citations": 4
   },
   "E3.06": {
     "status": "🟡",
-    "evidence": true
+    "evidence": true,
+    "citations": 3
   },
   "E3.07": {
     "status": "❌",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "E3.08": {
     "status": "❌",
-    "evidence": true
+    "evidence": true,
+    "citations": 4
   },
   "E3.09": {
     "status": "❌",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "E4.01": {
     "status": "🟡",
-    "evidence": true
+    "evidence": true,
+    "citations": 4
   },
   "E4.02": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 1
   },
   "E4.03": {
     "status": "🟡",
-    "evidence": true
+    "evidence": true,
+    "citations": 2
   },
   "E4.04": {
     "status": "🟡",
-    "evidence": true
+    "evidence": true,
+    "citations": 2
   },
   "E4.05": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 1
   },
   "E4.06": {
     "status": "🟡",
-    "evidence": true
+    "evidence": true,
+    "citations": 5
   },
   "E4.07": {
     "status": "🟡",
-    "evidence": true
+    "evidence": true,
+    "citations": 1
   },
   "E4.08": {
     "status": "🟡",
-    "evidence": true
+    "evidence": true,
+    "citations": 2
   },
   "E4.09": {
     "status": "🟡",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "E4.10": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 3
   },
   "E4.11": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 1
   },
   "E4.12": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 1
   },
   "E5.01": {
     "status": "✅",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "E5.02": {
     "status": "🟡",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "E5.03": {
-    "status": "✅",
-    "evidence": true
+    "status": "🟡",
+    "evidence": true,
+    "citations": 2
   },
   "E5.04": {
     "status": "✅",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "E5.05": {
     "status": "🟡",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "E5.06": {
     "status": "🟡",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "E5.07": {
-    "status": "✅",
-    "evidence": true
+    "status": "🟡",
+    "evidence": true,
+    "citations": 1
   },
   "E5.08": {
-    "status": "✅",
-    "evidence": true
+    "status": "🟡",
+    "evidence": true,
+    "citations": 2
   },
   "E5.09": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 1
   },
   "E5.10": {
-    "status": "✅",
-    "evidence": true
+    "status": "🟡",
+    "evidence": true,
+    "citations": 1
   },
   "E5.11": {
-    "status": "✅",
-    "evidence": true
+    "status": "🟡",
+    "evidence": true,
+    "citations": 1
   },
   "E5.12": {
     "status": "✅",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "E5.13": {
     "status": "🟡",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "E5.14": {
-    "status": "✅",
-    "evidence": true
+    "status": "🟡",
+    "evidence": true,
+    "citations": 1
   },
   "E5.15": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 0
   },
   "E5.16": {
     "status": "✅",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "E6.01": {
-    "status": "✅",
-    "evidence": true
+    "status": "🟡",
+    "evidence": true,
+    "citations": 5
   },
   "E6.02": {
-    "status": "✅",
-    "evidence": true
+    "status": "🟡",
+    "evidence": true,
+    "citations": 1
   },
   "E6.03": {
-    "status": "✅",
-    "evidence": true
+    "status": "🟡",
+    "evidence": true,
+    "citations": 1
   },
   "E6.04": {
-    "status": "✅",
-    "evidence": true
+    "status": "🟡",
+    "evidence": true,
+    "citations": 3
   },
   "E6.05": {
-    "status": "✅",
-    "evidence": true
+    "status": "🟡",
+    "evidence": true,
+    "citations": 4
   },
   "E6.06": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 1
   },
   "E6.07": {
-    "status": "✅",
-    "evidence": true
+    "status": "🟡",
+    "evidence": true,
+    "citations": 2
   },
   "E6.08": {
-    "status": "✅",
-    "evidence": true
+    "status": "🟡",
+    "evidence": true,
+    "citations": 2
   },
   "E6.09": {
-    "status": "✅",
-    "evidence": true
+    "status": "🟡",
+    "evidence": true,
+    "citations": 4
   },
   "E6.10": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 1
   },
   "E6.11": {
-    "status": "✅",
-    "evidence": true
+    "status": "🟡",
+    "evidence": true,
+    "citations": 2
   },
   "E6.12": {
-    "status": "✅",
-    "evidence": true
+    "status": "🟡",
+    "evidence": true,
+    "citations": 2
   },
   "E6.13": {
     "status": "❌",
-    "evidence": true
+    "evidence": true,
+    "citations": 1
   },
   "E6.14": {
-    "status": "✅",
-    "evidence": true
+    "status": "🟡",
+    "evidence": true,
+    "citations": 4
   },
   "E7.01": {
-    "status": "✅",
-    "evidence": true
+    "status": "🟡",
+    "evidence": true,
+    "citations": 2
   },
   "E7.02": {
-    "status": "✅",
-    "evidence": true
+    "status": "🟡",
+    "evidence": true,
+    "citations": 3
   },
   "E7.03": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 1
   },
   "E7.04": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 0
   },
   "E7.05": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 0
   },
   "E7.06": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 0
   },
   "E7.07": {
-    "status": "✅",
-    "evidence": true
+    "status": "🟡",
+    "evidence": true,
+    "citations": 2
   },
   "E7.08": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 1
   },
   "E7.09": {
-    "status": "✅",
-    "evidence": true
+    "status": "🟡",
+    "evidence": true,
+    "citations": 2
   },
   "E7.10": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 0
   },
   "E7.11": {
-    "status": "✅",
-    "evidence": true
+    "status": "🟡",
+    "evidence": true,
+    "citations": 1
   },
   "E7.12": {
-    "status": "✅",
-    "evidence": true
+    "status": "🟡",
+    "evidence": true,
+    "citations": 3
   },
   "E7.13": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 1
   },
   "E7.14": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 1
   },
   "E8.01": {
-    "status": "✅",
-    "evidence": true
+    "status": "🟡",
+    "evidence": true,
+    "citations": 2
   },
   "E8.02": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 2
   },
   "E8.03": {
-    "status": "✅",
-    "evidence": true
+    "status": "🟡",
+    "evidence": true,
+    "citations": 3
   },
   "E8.04": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 2
   },
   "E8.05": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 2
   },
   "E8.06": {
-    "status": "✅",
-    "evidence": true
+    "status": "🟡",
+    "evidence": true,
+    "citations": 1
   },
   "E8.07": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 1
   },
   "E8.08": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 1
   },
   "E8.09": {
-    "status": "✅",
-    "evidence": true
+    "status": "🟡",
+    "evidence": true,
+    "citations": 3
   },
   "E8.10": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 0
   },
   "E8.11": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 1
   },
   "E8.12": {
-    "status": "✅",
-    "evidence": true
+    "status": "🟡",
+    "evidence": true,
+    "citations": 2
   },
   "E8.13": {
-    "status": "✅",
-    "evidence": true
+    "status": "🟡",
+    "evidence": true,
+    "citations": 2
   },
   "E8.14": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 2
   },
   "E9.01": {
-    "status": "✅",
-    "evidence": true
+    "status": "🟡",
+    "evidence": true,
+    "citations": 3
   },
   "E9.02": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 1
   },
   "E9.03": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 1
   },
   "E9.04": {
-    "status": "✅",
-    "evidence": true
+    "status": "🟡",
+    "evidence": true,
+    "citations": 2
   },
   "E9.05": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 1
   },
   "E9.06": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 1
   },
   "E9.07": {
-    "status": "✅",
-    "evidence": true
+    "status": "🟡",
+    "evidence": true,
+    "citations": 4
   },
   "E9.08": {
-    "status": "✅",
-    "evidence": true
+    "status": "🟡",
+    "evidence": true,
+    "citations": 1
   },
   "E9.09": {
     "status": "✅",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "E9.10": {
     "status": "✅",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "E9.11": {
-    "status": "✅",
-    "evidence": true
+    "status": "🟡",
+    "evidence": true,
+    "citations": 1
   },
   "E9.12": {
     "status": "✅",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "E10.01": {
-    "status": "✅",
-    "evidence": true
+    "status": "🟡",
+    "evidence": true,
+    "citations": 3
   },
   "E10.02": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 1
   },
   "E10.03": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 0
   },
   "E10.04": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 1
   },
   "E10.05": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 0
   },
   "E10.06": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 2
   },
   "E10.07": {
-    "status": "✅",
-    "evidence": true
+    "status": "🟡",
+    "evidence": true,
+    "citations": 1
   },
   "E10.08": {
-    "status": "✅",
-    "evidence": true
+    "status": "🟡",
+    "evidence": true,
+    "citations": 2
   },
   "E10.09": {
     "status": "🟡",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "E10.10": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 0
   },
   "E10.11": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 1
   },
   "E11.01": {
-    "status": "✅",
-    "evidence": true
+    "status": "🟡",
+    "evidence": true,
+    "citations": 4
   },
   "E11.02": {
-    "status": "✅",
-    "evidence": true
+    "status": "🟡",
+    "evidence": true,
+    "citations": 4
   },
   "E11.03": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 0
   },
   "E11.04": {
     "status": "🟡",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "E11.05": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 0
   },
   "E11.06": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 0
   },
   "E11.07": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 0
   },
   "E11.08": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 0
   },
   "E11.09": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 1
   },
   "E11.10": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 1
   },
   "E11.11": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 0
   },
   "E11.12": {
-    "status": "✅",
-    "evidence": true
+    "status": "🟡",
+    "evidence": true,
+    "citations": 3
   },
   "E12.01": {
-    "status": "✅",
-    "evidence": true
+    "status": "🟡",
+    "evidence": true,
+    "citations": 10
   },
   "E12.02": {
-    "status": "✅",
-    "evidence": true
+    "status": "🟡",
+    "evidence": true,
+    "citations": 2
   },
   "E12.03": {
-    "status": "✅",
-    "evidence": true
+    "status": "🟡",
+    "evidence": true,
+    "citations": 2
   },
   "E12.04": {
-    "status": "✅",
-    "evidence": true
+    "status": "🟡",
+    "evidence": true,
+    "citations": 2
   },
   "E12.05": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 1
   },
   "E12.06": {
-    "status": "✅",
-    "evidence": true
+    "status": "🟡",
+    "evidence": true,
+    "citations": 2
   },
   "E12.07": {
     "status": "🟡",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "E12.08": {
     "status": "🟡",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "E12.09": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 1
   },
   "E12.10": {
     "status": "🟡",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "E12.11": {
-    "status": "✅",
-    "evidence": true
+    "status": "🟡",
+    "evidence": true,
+    "citations": 2
   },
   "E12.12": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 1
   },
   "E12.13": {
-    "status": "✅",
-    "evidence": true
+    "status": "🟡",
+    "evidence": true,
+    "citations": 2
   },
   "E12.14": {
     "status": "🟡",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "U1.01": {
     "status": "❌",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "U1.02": {
     "status": "🟡",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "U2.01": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 5
   },
   "U2.02": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 2
   },
   "U2.03": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 2
   },
   "U2.04": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 1
   },
   "U2.05": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 1
   },
   "U2.06": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 1
   },
   "U2.07": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 1
   },
   "U2.08": {
-    "status": "✅",
-    "evidence": true
+    "status": "🟡",
+    "evidence": true,
+    "citations": 2
   },
   "U2.09": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 1
   },
   "U3.01": {
     "status": "✅",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "U3.02": {
     "status": "✅",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "U3.03": {
-    "status": "✅",
-    "evidence": true
+    "status": "🟡",
+    "evidence": true,
+    "citations": 4
   },
   "U3.04": {
-    "status": "✅",
-    "evidence": true
+    "status": "🟡",
+    "evidence": true,
+    "citations": 2
   },
   "U3.05": {
-    "status": "✅",
-    "evidence": true
+    "status": "🟡",
+    "evidence": true,
+    "citations": 2
   },
   "U3.06": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 1
   },
   "U3.07": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 0
   },
   "U3.08": {
     "status": "🟡",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "U3.09": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 1
   },
   "U3.10": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 1
   },
   "U3.11": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 0
   },
   "U3.12": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 0
   },
   "U3.13": {
-    "status": "✅",
-    "evidence": true
+    "status": "🟡",
+    "evidence": true,
+    "citations": 2
   },
   "U3.14": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 1
   },
   "U3.15": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 1
   },
   "U3.16": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 1
   },
   "U3.17": {
     "status": "🟡",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "U4.01": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 0
   },
   "U4.02": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 0
   },
   "U4.03": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 0
   },
   "U4.04": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 0
   },
   "U4.05": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 0
   },
   "U4.06": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 0
   },
   "U4.07": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 0
   },
   "U4.08": {
     "status": "✅",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "U4.09": {
     "status": "✅",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "U4.10": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 0
   },
   "U4.11": {
     "status": "🟡",
-    "evidence": true
+    "evidence": true,
+    "citations": 2
   },
   "U4.12": {
     "status": "🟡",
-    "evidence": true
+    "evidence": true,
+    "citations": 0
   },
   "U4.13": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 0
   },
   "U4.14": {
     "status": "🟡",
-    "evidence": true
+    "evidence": true,
+    "citations": 1
   },
   "U5.01": {
     "status": "🟡",
-    "evidence": true
+    "evidence": true,
+    "citations": 1
   },
   "U5.02": {
     "status": "🟡",
-    "evidence": true
+    "evidence": true,
+    "citations": 1
   },
   "U5.03": {
     "status": "🟡",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "U5.04": {
     "status": "🟡",
-    "evidence": true
+    "evidence": true,
+    "citations": 1
   },
   "U5.05": {
     "status": "❌",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "U5.06": {
     "status": "❌",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "U5.07": {
     "status": "❌",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "U6.01": {
     "status": "❌",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "U6.02": {
     "status": "❌",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "U6.03": {
     "status": "🟡",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "U7.01": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 1
   },
   "U7.02": {
     "status": "🟡",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "U7.03": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 2
   },
   "U7.04": {
-    "status": "✅",
-    "evidence": true
+    "status": "🟡",
+    "evidence": true,
+    "citations": 2
   },
   "U7.05": {
     "status": "🟡",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "U7.06": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 1
   },
   "U7.07": {
-    "status": "✅",
-    "evidence": true
+    "status": "🟡",
+    "evidence": true,
+    "citations": 3
   },
   "U7.08": {
-    "status": "✅",
-    "evidence": true
+    "status": "🟡",
+    "evidence": true,
+    "citations": 1
   },
   "U7.09": {
-    "status": "✅",
-    "evidence": true
+    "status": "🟡",
+    "evidence": true,
+    "citations": 1
   },
   "U7.10": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 0
   },
   "U7.11": {
-    "status": "✅",
-    "evidence": true
+    "status": "🟡",
+    "evidence": true,
+    "citations": 2
   },
   "U8.01": {
     "status": "❌",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "U9.01": {
     "status": "❌",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "U10.01": {
     "status": "❌",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "U11.01": {
     "status": "❌",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "U12.01": {
     "status": "❌",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "U12.02": {
     "status": "❌",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "U13.01": {
     "status": "❌",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "U14.01": {
     "status": "🟡",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "U15.01": {
     "status": "❌",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "U16.01": {
     "status": "❌",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "U17.01": {
     "status": "🟡",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "U17.02": {
     "status": "🟡",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "U18.01": {
     "status": "❌",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "U18.02": {
     "status": "❌",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "U19.01": {
     "status": "❌",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "U20.01": {
     "status": "❌",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "U21.01": {
     "status": "🟡",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "U21.02": {
     "status": "🟡",
-    "evidence": true
+    "evidence": true,
+    "citations": 0
   },
   "U21.03": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 0
   },
   "U22.01": {
     "status": "❌",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "U25.01": {
     "status": "🟡",
-    "evidence": true
+    "evidence": true,
+    "citations": 3
   },
   "U25.02": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 4
   },
   "U25.03": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 6
   },
   "U25.04": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 3
   },
   "U25.05": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 2
   },
   "U25.06": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 4
   },
   "U25.07": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 3
   },
   "U25.08": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 2
   },
   "U25.09": {
     "status": "🟡",
-    "evidence": true
+    "evidence": true,
+    "citations": 1
   },
   "U25.10": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 2
   },
   "U23.01": {
     "status": "🟡",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "U24.01": {
     "status": "🟡",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "A1.01": {
     "status": "🟡",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "A1.02": {
     "status": "🟡",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "A1.03": {
     "status": "🟡",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "A1.04": {
     "status": "🟡",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "A1.05": {
     "status": "🟡",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "A1.06": {
     "status": "🟡",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   },
   "A1.07": {
     "status": "🟡",
-    "evidence": false
+    "evidence": false,
+    "citations": 0
   }
 }

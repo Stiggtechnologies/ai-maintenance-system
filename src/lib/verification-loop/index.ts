@@ -99,7 +99,13 @@ export function assessLoop(p: VerificationPosture | null): LoopAssessment {
         ? `${p.notAchieved} verification(s) FAILED and fed the learning loop — which is the system working, not failing: a verification process that has never recorded a failure has never been tested by reality. `
         : executed > 0
           ? `No failure has been recorded yet. Until one is, this loop is unproven against the case it exists for. `
-          : ``) +
+          : // A rate of 0% with actioned work behind it is not a performance
+            // result and must not be read as one. `record_verification_result`
+            // is defined and granted (20260901140000) and has no callers, so
+            // nothing in the product can move this number off zero. Saying
+            // "0%" without saying that invites a reader to conclude the loop
+            // is performing badly rather than that it is not wired up.
+            `This 0% is STRUCTURAL, not a result: no surface calls record_verification_result, so an outcome cannot be recorded for any actioned recommendation however it turned out. Read it as "not wired up", not as "nothing worked". `) +
       (p.actionedWithoutObligation > 0
         ? `${p.actionedWithoutObligation} actioned recommendation(s) have NO obligation at all — they predate the trigger, nothing is watching them, and an unwatched loop renders exactly like a closed one. `
         : ``) +

@@ -25,6 +25,27 @@ const BASELINE = "docs/enterprise-readiness/capability-baseline.json";
 const ROW = /^\|\s*([A-Z]\d+\.\d+)\s*\|([^|]*)\|\s*(✅|🟡|❌)([^|]*)\|/u;
 const RANK = { "❌": 0, "🟡": 1, "✅": 2 };
 
+/**
+ * How many machine-checkable names this row's evidence carries.
+ *
+ * The reachability gate can only enforce a row that NAMES something: a
+ * backticked span, or a snake_case function name in prose. That makes
+ * de-citation the cheapest possible evasion — deleting two backticks keeps the
+ * sentence, keeps the `evidence` flag below true, satisfies every existing
+ * check, and silently removes the row from the gate's scope. Stripping the
+ * backticks off five rows dropped the gate's enforced-✅ count by 20% with the
+ * whole suite green and `register:check` reporting "no regression".
+ *
+ * So citations are counted and ratcheted like status is. The gate and the
+ * ratchet were each assuming the other was watching this.
+ */
+export function countCitations(evidence) {
+  const backticked = evidence.match(/`[^`]+`/g) ?? [];
+  const prose = evidence.replace(/`[^`]+`/g, " ");
+  const snake = prose.match(/(?<![\w.-])[a-z][a-z0-9]*(?:_[a-z0-9]+)+(?![\w-])/g) ?? [];
+  return new Set([...backticked.map((b) => b.slice(1, -1).trim()), ...snake]).size;
+}
+
 export function readRegister(source = readFileSync(REGISTER, "utf8")) {
   const items = {};
   for (const line of source.split("\n")) {
@@ -35,6 +56,7 @@ export function readRegister(source = readFileSync(REGISTER, "utf8")) {
       // "Evidence" means the status glyph is followed by a substantive claim.
       // A bare glyph asserts a capability exists without saying where.
       evidence: m[4].trim().length >= 12,
+      citations: countCitations(m[4].trim()),
     };
   }
   return items;
@@ -67,6 +89,12 @@ for (const [id, was] of Object.entries(base)) {
   }
   if (was.evidence && !now.evidence) {
     problems.push(`${id}: evidence removed — now a bare ${now.status} with nothing behind it`);
+  }
+  if ((now.citations ?? 0) < (was.citations ?? 0)) {
+    problems.push(
+      `${id}: citations dropped ${was.citations} → ${now.citations} — the prose may be intact, ` +
+        `but the reachability gate can no longer check this row`,
+    );
   }
 }
 

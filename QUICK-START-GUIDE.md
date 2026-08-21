@@ -470,10 +470,8 @@ SELECT cron.schedule(
 ## 📚 Additional Resources
 
 **Documentation Files**:
-- `ISO-55000-SYSTEM-COMPLETE.md` - Full system overview
-- `ISO-55000-IMPLEMENTATION-SUMMARY.md` - Technical details
-- `PRODUCTION-READY.md` - Deployment guide
-- `DEPLOYMENT.md` - Platform-specific deployment
+- `docs/enterprise-readiness/capability-register.md` - what exists, item by item
+- `DEPLOYMENT.md` - platform-specific deployment
 - `PRODUCTION-CHECKLIST.md` - Pre-launch checklist
 
 **Database Reference**:
@@ -504,19 +502,22 @@ SELECT cron.schedule(
 - ✅ Manages entire maintenance department
 
 **What Makes It Special**:
-- 🎯 Complete ISO 55000 alignment
-- 🤖 Truly autonomous with human oversight
-- 👥 Role-specific intelligence for everyone
-- ⚡ Production-ready (not a prototype)
-- 📊 Automatic KPI calculation
+- 🎯 ISO 55000-aligned KPI catalog with per-KPI RACI
+- 🤖 A continuous loop that RAISES recommendations; it approves nothing —
+  every action is human-approved, and autonomous execution is not enabled
+- 👥 Role-specific navigation and read scopes
+- 📊 KPI computation with lineage, and a refusal where the source is missing
 - 📱 Mobile-optimized field operations
-- 🔐 Enterprise-grade security
+
+For what is finished and what is not, read
+[`docs/enterprise-readiness/capability-register.md`](docs/enterprise-readiness/capability-register.md).
+It is generated and ratcheted; this guide is not.
 
 ---
 
 ## 🎉 You're Ready!
 
-The system is **fully operational** and ready to use. Start by:
+The demo environment is ready to explore. Start by:
 1. ✅ Logging in
 2. ✅ Exploring your dashboard
 3. ✅ Trying the AI chat
@@ -527,8 +528,7 @@ The system is **fully operational** and ready to use. Start by:
 ---
 
 **Version**: 1.0.0
-**Status**: Production Ready
-**Build**: ✅ Successful (369KB)
-**Deployment**: Ready for Vercel/Netlify/Docker
+**Status**: see the capability register — 399 tracked items, 40 absent, 190 partial
+**Deployment**: Vercel / Netlify / Docker
 
 🚀 **Let's transform maintenance operations with AI-powered excellence!**

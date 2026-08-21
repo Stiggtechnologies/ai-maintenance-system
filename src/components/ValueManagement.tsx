@@ -69,8 +69,13 @@ export function ValueManagement() {
   }>(async () => {
     const [p, c, pl] = await Promise.all([
       supabase.rpc("get_value_posture"),
-      supabase.rpc("get_business_case", { p_case_ref: "DEMO-BC-01" }),
-      supabase.rpc("get_capital_plan", { p_year: 2027 }),
+      // No arguments. These asked for the business case literally named
+      // "DEMO-BC-01" and the capital plan for the literal year 2027, so the
+      // panel rendered empty for every organisation except the demo tenant.
+      // 20260921002000 made both parameters optional: null means this
+      // organisation's most recent, which is what was always wanted.
+      supabase.rpc("get_business_case"),
+      supabase.rpc("get_capital_plan"),
     ]);
     if (p.error) throw new Error(p.error.message);
     if (c.error) throw new Error(c.error.message);

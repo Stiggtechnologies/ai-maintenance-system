@@ -1,4 +1,11 @@
 # SyncAI MVP - 100% COMPLETE
+> **2026-08-20 — HISTORICAL DOCUMENT, SUPERSEDED.** This file asserted a completed
+> or production-ready state that was not true when written and is not true now. It is
+> retained for history, moved out of the repository root so it is not read as a current
+> statement of fact. Originally `/MVP-COMPLETED.md`. The live status of any capability is
+> `docs/enterprise-readiness/capability-register.md`, which is now gated on the cited
+> code being reachable from a customer surface.
+
 
 **Date:** 2026-04-03
 **Phase:** MVP "Governed Intelligence Core"

@@ -149,56 +149,27 @@ const statusConfig: Record<
   },
 };
 
-const autonomyRules = [
-  {
-    action: "Create inspection work order",
-    mode: "Autonomous",
-    threshold: ">85% confidence",
-    limit: "—",
-  },
-  {
-    action: "Reschedule non-critical PM",
-    mode: "Autonomous",
-    threshold: ">90% confidence",
-    limit: "No critical assets",
-  },
-  {
-    action: "Order parts",
-    mode: "Autonomous",
-    threshold: ">85% confidence",
-    limit: "< $5,000",
-  },
-  {
-    action: "Increase sensor polling",
-    mode: "Autonomous",
-    threshold: ">75% confidence",
-    limit: "Monitoring only",
-  },
-  {
-    action: "Defer PM on critical asset",
-    mode: "Manager Approval",
-    threshold: "Any",
-    limit: "All cases",
-  },
-  {
-    action: "Shutdown critical system",
-    mode: "Executive Approval",
-    threshold: "Any",
-    limit: "All cases",
-  },
-  {
-    action: "Override safety control",
-    mode: "Not Allowed",
-    threshold: "—",
-    limit: "—",
-  },
-  {
-    action: "Capital expenditure",
-    mode: "Manager Approval",
-    threshold: ">$5,000",
-    limit: "Budget review",
-  },
-];
+/**
+ * DELETED: `autonomyRules`.
+ *
+ * A module-level literal on the routed /governance page publishing an autonomy
+ * contract the platform does not implement. It asserted four actions taken
+ * WITHOUT a human — create an inspection work order at >85% confidence,
+ * reschedule non-critical PM at >90%, order parts at >85% up to $5,000, and
+ * increase sensor polling at >75% — plus a $5,000 capital threshold.
+ *
+ * There is no `authority_limits` row behind any of it, no policy, and no code
+ * path that consults a confidence threshold before acting. The same `$5,000`
+ * autonomous limit was already deleted from the demo seed by 20260921002000
+ * as unimplemented; deleting the seed row left the claim standing here, on the
+ * page a buyer reads AS the autonomy contract — and one screen away from
+ * AGENTS.md invariant 6, which says the opposite: safety-critical and
+ * operational actions remain human-approved unless an explicitly approved
+ * policy says otherwise. No such policy exists.
+ *
+ * The RACI matrix below is kept: it describes who decides, which is a
+ * governance statement about people, not a claim that software acts alone.
+ */
 
 function DecisionCard({
   d,
@@ -553,22 +524,20 @@ export function DecisionGovernance() {
               Rules
             </h3>
           </div>
-          <div className="divide-y divide-white/4">
-            {autonomyRules.map((rule) => (
-              <div
-                key={rule.action}
-                className="grid grid-cols-4 gap-4 px-4 py-3 text-xs"
-              >
-                <div className="text-slate-200 font-medium">{rule.action}</div>
-                <div
-                  className={`font-semibold ${rule.mode === "Autonomous" ? "text-teal-400" : rule.mode === "Not Allowed" ? "text-red-400" : "text-amber-400"}`}
-                >
-                  {rule.mode}
-                </div>
-                <div className="text-slate-400">{rule.threshold}</div>
-                <div className="text-slate-400">{rule.limit}</div>
-              </div>
-            ))}
+          <div className="px-4 py-4">
+            <p className="text-xs text-amber-300/90">
+              No autonomy policy is in force.
+            </p>
+            <p className="text-xs text-slate-400 mt-2">
+              This table published nine rules, four of them marked
+              &ldquo;Autonomous&rdquo; with confidence thresholds and a $5,000
+              parts limit. None was implemented: there is no{" "}
+              <code>authority_limits</code> row behind them and nothing in the
+              platform consults a confidence threshold before acting. Every
+              recommendation requires a human approval, and the delegation that
+              does exist is the RACI matrix and the authority limits an
+              organisation adopts for itself.
+            </p>
           </div>
         </div>
       )}

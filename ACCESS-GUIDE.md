@@ -488,9 +488,14 @@ const tenant_id = profile.tenant_id;
 
 ## 📚 **Full Documentation**
 
-- **RAG Training Guide:** `RAG-TRAINING-GUIDE.md`
-- **Microsoft Features:** `MICROSOFT-COPILOT-FEATURES.md`
-- **Billing:** `BILLING-IMPLEMENTATION.md`
+- **Capability register (the program of record):**
+  `docs/enterprise-readiness/capability-register.md`
+- **Superseded status documents, and why:**
+  `docs/superseded-status-documents.md`
+
+`RAG-TRAINING-GUIDE.md`, `MICROSOFT-COPILOT-FEATURES.md` and
+`BILLING-IMPLEMENTATION.md` were linked here and have been deleted as
+over-claiming; see the superseded-documents note above.
 
 ---
 

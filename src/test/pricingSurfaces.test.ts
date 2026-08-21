@@ -63,17 +63,102 @@ describe("root-level docs cannot assert the unconfirmed tier prices as current",
   // tier price without one is a regression of the honesty campaign.
   const rootDocs = readdirSync(".").filter((name) => name.endsWith(".md"));
 
+  // Four of the five originally listed here were DELETED on 2026-08-20 rather
+  // than bannered, because they asserted a shipped state the register
+  // contradicts and the banner leaves the claim on the page. Absent is
+  // strictly stronger than bannered, so the assertion admits it — and the
+  // compensating assertion below makes sure "absent" cannot quietly become
+  // "back, without a banner": a deleted doc may not return at all.
   it.each([
     "BILLING-IMPLEMENTATION.md",
     "STRIPE-INTEGRATION-GUIDE.md",
     "PREMIUM_CUSTOMER_JOURNEY_DEPLOYED.md",
     "FINAL-AUDIT-REPORT.md",
     "FEATURE-ACCESS-MAP.md",
-  ])("%s carries the superseded/deleted banner", (doc) => {
+  ])("%s is deleted, or carries the superseded/deleted banner", (doc) => {
+    if (!existsSync(doc)) return;
     const text = readFileSync(doc, "utf8");
     expect(text).toMatch(
       /under commercial review|superseded|deleted on 2026-08-19/i,
     );
+  });
+
+  it("the over-claiming status documents stay out of the repository root", () => {
+    // Compensating assertion, rewritten 2026-08-20. This used to require the
+    // files be DELETED. That was wrong: it locked in a bulk deletion of 12,927
+    // lines, four of which already carried a correct HISTORICAL banner, and it
+    // made a test the enforcement mechanism for destroying content rather than
+    // for correcting a claim. AGENTS.md now says the Honesty lane corrects
+    // claims and does not delete code.
+    //
+    // The protective intent is unchanged and is what actually mattered: these
+    // asserted "100% COMPLETE" / "PRODUCTION-READY" / "FULLY OPERATIONAL"
+    // against a register carrying 40 absent and 123 partial items, and a reader
+    // in the repository root has no way to know that. Recreating one AT THE ROOT
+    // is the regression. Under docs/archive/ with a dated banner it is history.
+    const mustNotBeAtRoot = [
+      "AUTONOMOUS-MVP.md",
+      "FINAL-AUDIT-REPORT.md",
+      "ISO-55000-IMPLEMENTATION-SUMMARY.md",
+      "JAVIS-COMPLETE-SUMMARY.md",
+      "JAVIS-DEPLOYMENT-CHECKLIST.md",
+      "MICROSOFT-COPILOT-FEATURES.md",
+      "MVP-COMPLETED.md",
+      "MVP-COMPLETION-STATUS.md",
+      "OPERATIONAL-COMPLETION-REPORT.md",
+      "PHASE2-VALIDATION-REPORT.md",
+      "PREMIUM_CUSTOMER_JOURNEY_DEPLOYED.md",
+      "PRODUCT_AGENT_SUMMARY.md",
+      "PRODUCTION-READY.md",
+      "RAG-TRAINING-GUIDE.md",
+      "STATUS-REPORT.md",
+      "STRIPE-INTEGRATION-GUIDE.md",
+    ];
+    for (const name of mustNotBeAtRoot) {
+      expect(existsSync(name), `${name} must not be at the repository root`).toBe(
+        false,
+      );
+      const archived = `docs/archive/${name}`;
+      expect(existsSync(archived), `${name} must be preserved at ${archived}`).toBe(
+        true,
+      );
+      expect(
+        readFileSync(archived, "utf8").slice(0, 1200),
+        `${archived} must carry the dated HISTORICAL banner`,
+      ).toMatch(/HISTORICAL DOCUMENT/);
+    }
+  });
+
+  it("no root doc asserts a shipped state the register contradicts", () => {
+    // The vocabulary that made those files diligence-room liabilities.
+    const overclaim =
+      /100%\s*complete|production[- ]ready|fully operational|fully implemented/i;
+    // Negations that make a paragraph a DISCLOSURE rather than a claim.
+    const negated =
+      /\bnot\b[^.]{0,40}(?:100%\s*complete|production[- ]ready|fully operational|fully implemented)|(?:100%\s*complete|production[- ]ready|fully operational|fully implemented)[^.]{0,20}\bis not\b/i;
+
+    const offenders = rootDocs.flatMap((doc) => {
+      const text = readFileSync(doc, "utf8");
+      // The engineering contracts discuss the vocabulary rather than claim it.
+      if (["AGENTS.md", "CLAUDE.md"].includes(doc)) return [];
+      // SCOPED TO THE SECTION, not the document. This used to be
+      // `if (/not yet production-ready/.test(text)) return false` — one
+      // qualifying sentence anywhere in a file exempted every over-claim in
+      // the rest of it, which is a document-wide opt-out written as a nuance.
+      // A doc that says "not yet production-ready" in its intro and "fully
+      // operational" in section 9 is exactly the artifact this scan exists to
+      // catch.
+      //
+      // The section is the right unit rather than the paragraph: README's
+      // "## Not yet production-ready" heading governs a bullet list whose
+      // items ("production-ready enterprise SSO") read as claims only when cut
+      // off from the heading that negates them.
+      return text
+        .split(/\n(?=#{1,6}\s)/)
+        .filter((section) => overclaim.test(section) && !negated.test(section))
+        .map((section) => `${doc}: ${section.trim().slice(0, 90)}`);
+    });
+    expect(offenders).toEqual([]);
   });
 
   it("no root doc states a tier price as a current monthly rate without the marker", () => {

@@ -1,4 +1,12 @@
 # 🎙️ J.A.V.I.S Complete Implementation Summary
+> **2026-08-20 — HISTORICAL DOCUMENT, SUPERSEDED. Nothing here is production-ready,
+> fully operational, fully implemented or 100% complete.** Sections below assert a
+> shipped state the capability register contradicts. The content is retained because it
+> is useful; it is moved out of the repository root so it is not read as a current
+> statement of fact. Originally `/JAVIS-COMPLETE-SUMMARY.md`. Live status:
+> `docs/enterprise-readiness/capability-register.md`, now gated on the cited code being
+> reachable from a customer surface.
+
 
 ## **Just-in-time Asset & Value Intelligence System**
 

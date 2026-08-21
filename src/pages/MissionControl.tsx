@@ -20,6 +20,7 @@ import {
   FlaskConical,
   Pencil,
   ArrowUpCircle,
+  HardHat,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { ChallengeAIModal } from "../components/ChallengeAIModal";
@@ -38,6 +39,7 @@ import {
   getEvidence,
   getScenarios,
   approveRecommendation,
+  signEngineeringReview,
   setRecommendationStatus,
   createWorkOrderFromRecommendation,
   submitChallengeFeedback,
@@ -353,6 +355,7 @@ function RecommendationCard({
   onScenarios,
   onChallenge,
   onCreateWO,
+  onSign,
 }: {
   rec: RecommendationRow;
   busy: boolean;
@@ -366,8 +369,10 @@ function RecommendationCard({
   onScenarios: (r: RecommendationRow) => void;
   onChallenge: (r: RecommendationRow) => void;
   onCreateWO: (r: RecommendationRow) => void;
+  onSign: (r: RecommendationRow, note: string) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const [signNote, setSignNote] = useState("");
   const level = alertLevels[rec.urgency] ?? alertLevels.advisory;
   const autonomous = (rec.approval_required ?? "")
     .toLowerCase()
@@ -437,6 +442,57 @@ function RecommendationCard({
               <span className="text-slate-300">{rec.informed}</span>
             </div>
           </div>
+          {/*
+            E4.06. A recommendation carrying an engineering change class cannot
+            be approved until the named discipline has signed — enforced by
+            enforce_authority_limit(). Until 20260921001000 the signature was
+            three ordinary columns under a `for all to authenticated` policy,
+            so it could be written by the party it was meant to constrain, and
+            sign_engineering_review() had no callers at all. This is that
+            function's caller: the only way those columns can now be written.
+          */}
+          {rec.change_class && (
+            <div className="mt-3 rounded-lg border border-amber-500/20 bg-amber-500/5 p-3">
+              <p className="text-xs text-amber-300">
+                <HardHat className="mr-1 inline h-3 w-3" aria-hidden />
+                Engineering change class:{" "}
+                <span className="font-mono">{rec.change_class}</span>
+              </p>
+              {rec.engineering_signed_at ? (
+                <p className="mt-1 text-xs text-slate-400">
+                  Signed off{" "}
+                  {new Date(rec.engineering_signed_at).toLocaleDateString()}.
+                  {rec.engineering_note
+                    ? ` Basis: ${rec.engineering_note}`
+                    : ""}
+                </p>
+              ) : (
+                <>
+                  <p className="mt-1 text-xs text-slate-400">
+                    This cannot be approved on maintenance authority alone. The
+                    named discipline must record a basis first.
+                  </p>
+                  {canAct && (
+                    <div className="mt-2 flex gap-2">
+                      <input
+                        value={signNote}
+                        onChange={(e) => setSignNote(e.target.value)}
+                        placeholder="Engineering basis for this sign-off (20 characters minimum)"
+                        className="min-w-0 flex-1 rounded-lg border border-white/8 bg-white/4 px-2.5 py-1.5 text-xs text-slate-200 placeholder:text-slate-600"
+                      />
+                      <button
+                        disabled={busy}
+                        onClick={() => onSign(rec, signNote)}
+                        className="flex items-center gap-1.5 rounded-lg border border-amber-500/30 bg-amber-500/20 px-3 py-1.5 text-xs font-medium text-amber-300 hover:bg-amber-500/30 disabled:opacity-50"
+                      >
+                        <HardHat className="h-3 w-3" /> Record sign-off
+                      </button>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          )}
           <div className="flex gap-2 mt-3 flex-wrap">
             {canAct && (
               <button
@@ -605,6 +661,28 @@ export function MissionControl() {
         refetch();
       } catch (e) {
         flash(e instanceof Error ? e.message : "Action failed.");
+      } finally {
+        setBusyId(null);
+      }
+    },
+    [flash, refetch],
+  );
+
+  const handleSignEngineering = useCallback(
+    async (rec: RecommendationRow, note: string) => {
+      setBusyId(rec.id);
+      try {
+        const { signedBy, changeClass } = await signEngineeringReview(
+          rec.id,
+          note,
+        );
+        flash(
+          `Engineering sign-off recorded for ${changeClass} by ${signedBy}.`,
+        );
+        refetch();
+      } catch (e) {
+        // The server's own refusal sentence — wrong discipline, or no basis.
+        flash(e instanceof Error ? e.message : "Sign-off failed.");
       } finally {
         setBusyId(null);
       }
@@ -808,6 +886,7 @@ export function MissionControl() {
                     canAct={canAct}
                     onApprove={handleApprove}
                     onAction={handleAction}
+                    onSign={handleSignEngineering}
                     onEvidence={setEvidenceRec}
                     onScenarios={setScenarioRec}
                     onChallenge={setChallengeRec}
