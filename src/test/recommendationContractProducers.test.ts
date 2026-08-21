@@ -123,6 +123,48 @@ const KNOWN_INCOMPLETE: { fn: string; reason: string; since: string }[] = [
 
 const exempt = new Set(KNOWN_INCOMPLETE.map((k) => k.fn));
 
+/**
+ * Producers that raise a recommendation with NO asset, and are therefore
+ * permanently un-approvable on C8.11.
+ *
+ * This was the undisclosed half of C5.24. Fixing the five narrative fields
+ * moved the posture on a fresh chain to 7 approvable / 10 blocked — and 7 of
+ * those 10 are blocked on `asset_id`, a field that is not one of the five and
+ * was not mentioned anywhere in the fix. Every one of them is a "KPI breach:"
+ * row from `compute_kpi_snapshot`.
+ *
+ * It is NOT fixed here, and the reason is the same reason C8.18 is left blank:
+ * there is no defensible value. "Schedule Compliance" and "Data Completeness"
+ * are organisation-level measures; naming an asset for them would invent a
+ * scope the measurement does not have, which is the exact fabrication this
+ * workstream exists to delete. Loosening C8.11 so an org-level recommendation
+ * can satisfy it is a change to what the C8 contract MEANS — a governance
+ * decision, not a repair.
+ *
+ * So it is recorded, counted and pinned instead of being quietly carried. The
+ * list may shrink and may never grow.
+ */
+const KNOWN_UNASSETED: { fn: string; reason: string; since: string }[] = [
+  {
+    fn: "compute_kpi_snapshot",
+    reason:
+      "Raises 'KPI breach:' recommendations for organisation-level measures — schedule compliance, " +
+      "data completeness, emergency maintenance percentage. These have no asset and no functional " +
+      "location, so C8.11 cannot be satisfied without inventing one. The recommendations are real " +
+      "and are raised; they cannot be approved until either the C8 contract admits an org-level " +
+      "scope or the KPI service resolves a responsible asset. Both are governance decisions.",
+    since: "2026-08-20",
+  },
+  {
+    fn: "run_proactive_agent_passes",
+    reason:
+      "One of its three inserts is a crew-capacity rebalance ('Capacity: rebalance workload from X'), " +
+      "which is about a craft's workload rather than a machine. Same shape as the KPI rows: the " +
+      "recommendation is about the organisation, and C8.11 asks about an asset.",
+    since: "2026-08-20",
+  },
+];
+
 describe("recommendation producers fill the contract they are gated on", () => {
   it("finds the producers at all", () => {
     // If the parser stops finding inserts, every assertion below passes
@@ -156,6 +198,28 @@ describe("recommendation producers fill the contract they are gated on", () => {
     }
     // A ratchet: the list may only get shorter.
     expect(KNOWN_INCOMPLETE.length).toBeLessThanOrEqual(1);
+  });
+
+  /**
+   * C8.11 is a blocking field too, and leaving it out blocks approval just as
+   * hard as leaving out a narrative. Every producer that omits `asset_id` must
+   * appear on KNOWN_UNASSETED with an argued reason — so the residual is a
+   * disclosed, counted decision rather than something a reader discovers by
+   * running the posture query.
+   */
+  it("discloses every producer that raises a recommendation with no asset", () => {
+    const unasseted = [
+      ...new Set(
+        producers.filter((p) => !p.columns.includes("asset_id")).map((p) => p.fn),
+      ),
+    ].sort();
+    expect(unasseted).toEqual(KNOWN_UNASSETED.map((k) => k.fn).sort());
+    for (const k of KNOWN_UNASSETED) {
+      expect(finalFunctions.has(k.fn), `${k.fn} no longer exists`).toBe(true);
+      expect(k.reason.length, `${k.fn} needs a real reason`).toBeGreaterThan(120);
+      expect(k.since).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    }
+    expect(KNOWN_UNASSETED.length).toBeLessThanOrEqual(2);
   });
 });
 
@@ -213,6 +277,47 @@ describe("the release gate is stronger than the producers, not weaker", () => {
     expect(chain).toMatch(
       /create\s+trigger\s+trg_recommendation_contract[\s\S]{0,200}before\s+update\s+of\s+status\s+on\s+recommendations/i,
     );
+  });
+
+  /**
+   * THE FUNCTION THE TRIGGER ACTUALLY CALLS.
+   *
+   * 20260921000000 strengthened `check_recommendation_contract` and left the
+   * live chain alone. That chain is
+   *   trg_recommendation_contract → enforce_recommendation_contract()
+   *                               → recommendation_contract_gaps(NEW)
+   * and `recommendation_contract_gaps` still used plain `btrim(x) = ''`. On a
+   * real Postgres 16 the preflight reported 7 missing fields for a row reading
+   * issue='TBD', rationale='n/a', consequence='none' — and the trigger
+   * approved it.
+   *
+   * The comment on `contract_field_blank` says it exists "so the release gate
+   * and the posture report cannot drift apart". They drifted in the same
+   * migration that said so, in the fail-open direction, and this file did not
+   * notice because it only ever asked about the preflight.
+   */
+  it("puts the blank helpers in the path that ENFORCES, not only the preflight", () => {
+    const gaps = finalFunctions.get("recommendation_contract_gaps");
+    expect(gaps?.source).toBe(
+      "20260921003000_signature_and_contract_gate_repair.sql",
+    );
+    for (const column of [
+      "consequence_summary",
+      "alternatives_considered",
+      "verification_method",
+    ]) {
+      expect(gaps?.body).toContain(`contract_narrative_blank(r.${column})`);
+    }
+    for (const column of ["issue", "rationale", "action", "required_approver_role"]) {
+      expect(gaps?.body).toContain(`contract_field_blank(r.${column})`);
+    }
+    // And no survivor of the old predicate, which is what let 'TBD' through.
+    expect(gaps?.body).not.toMatch(/coalesce\s*\(\s*btrim/i);
+
+    // The trigger must still route through it, or the assertions above are
+    // about a function nothing calls.
+    const enforce = finalFunctions.get("enforce_recommendation_contract");
+    expect(enforce?.body).toContain("recommendation_contract_gaps(new)");
   });
 
   it("reports approvable vs blocked, from the same predicate the gate uses", () => {

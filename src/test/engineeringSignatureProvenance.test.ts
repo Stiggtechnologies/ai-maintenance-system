@@ -47,6 +47,8 @@ const SIGNATURE_COLUMNS = [
 ];
 
 const GUARD = "20260921001000_engineering_signature_definer_only.sql";
+/** The repair that closed four defects in GUARD; holds the live definitions. */
+const REPAIR = "20260921003000_signature_and_contract_gate_repair.sql";
 
 const chain = migrationFiles().map((file) => ({
   file,
@@ -83,7 +85,7 @@ describe("engineering signature provenance", () => {
 
   it("guards the signature with a trigger on insert AND update", () => {
     // Update alone would let a pre-signed row be inserted.
-    expect(text(GUARD)).toMatch(
+    expect(text(REPAIR)).toMatch(
       /create\s+trigger\s+trg_engineering_signature_provenance[\s\S]{0,200}before\s+insert\s+or\s+update\s+on\s+public\.recommendations/i,
     );
     expect(trigger?.body).toBeDefined();
@@ -124,7 +126,7 @@ describe("engineering signature provenance", () => {
     // set_config(..., false) would persist for the session, and PostgREST
     // pools connections: one honest signature would leave the next request on
     // that connection able to write a signature directly.
-    expect(rpc?.file).toBe(GUARD);
+    expect(rpc?.file).toBe(REPAIR);
     expect(rpc?.body).toMatch(
       /set_config\s*\(\s*'app\.engineering_signature_write'\s*,\s*'granted'\s*,\s*true\s*\)/,
     );
@@ -137,10 +139,80 @@ describe("engineering signature provenance", () => {
     // Closing the forgery is worthless if the sanctioned path stopped
     // checking anything on the way past.
     expect(rpc?.body).toMatch(
-      /v_role\s+is\s+distinct\s+from\s+e\.required_role/i,
+      /coalesce\(v_role,\s*''\)\s+is\s+distinct\s+from\s+e\.required_role/i,
     );
     expect(rpc?.body).toMatch(/length\(trim\(p_note\)\).{0,10}<\s*20/);
     expect(rpc?.body).toMatch(/security\s+definer/i);
+  });
+
+  /**
+   * The four defects an adversarial review found in GUARD, each reproduced
+   * against a real PostgreSQL 16 and each pinned here. Three of the four were
+   * reachable by any authenticated member of the organisation.
+   */
+  it("does not let a NULL role sign as an engineer", () => {
+    // `v_role not in ('admin','ai_admin')` is NULL when v_role is NULL, so
+    // `TRUE and NULL` → NULL, the branch never fired, and an account with no
+    // role at all was handed the signature. user_profiles.role is nullable
+    // with no CHECK. Same three-valued-logic class definerTenancy.test.ts
+    // already documents.
+    expect(rpc?.file).toBe(REPAIR);
+    expect(rpc?.body).toMatch(
+      /coalesce\(v_role,\s*''\)\s+not\s+in\s*\(\s*'admin'\s*,\s*'ai_admin'\s*\)/i,
+    );
+    expect(
+      rpc?.body,
+      "a bare `v_role not in (...)` is NULL-permissive",
+    ).not.toMatch(/[^)]\bv_role\s+not\s+in\s*\(/i);
+  });
+
+  it("refuses to overwrite a signature, and records the one it writes", () => {
+    // The RPC never asked whether the row was already signed. MissionControl
+    // only renders the form when it is not; PostgREST does not care, and the
+    // function is granted to `authenticated`.
+    expect(rpc?.body).toMatch(/r\.engineering_signed_at\s+is\s+not\s+null/i);
+    expect(rpc?.body).toMatch(/not overwritable/i);
+    // Signing is an act of authority; it leaves a record either way.
+    expect(rpc?.body).toContain("security_events");
+  });
+
+  it("will not let a reclassification leave an approval standing", () => {
+    // sign → approve → reclassify used to clear the signature and return
+    // before any re-validation. enforce_authority_limit is BEFORE UPDATE OF
+    // STATUS, so nothing re-fired, and the result was an approved
+    // recommendation with no engineering signature — a state the schema
+    // previously could not represent.
+    expect(trigger?.body).toMatch(
+      /old\.status\s+in\s*\(\s*'approved'\s*,\s*'released'\s*,\s*'scheduled'\s*\)/i,
+    );
+    expect(trigger?.body).toMatch(/raise\s+exception/i);
+  });
+
+  it("pins change_class, so the gate is not an off switch its subject holds", () => {
+    // enforce_authority_limit skips the engineering check entirely when
+    // change_class is null (20260809140000), and change_class sat under the
+    // same `for all to authenticated` policy the signature columns did. So
+    // E4.06 was not a gate a technician had to pass; it was a flag a
+    // technician could clear. Verified on Postgres 16: pre-repair, a
+    // technician cleared the class and approved an unsigned engineering
+    // change; post-repair the class is pinned and the approval is refused.
+    expect(trigger?.body).toMatch(/new\.change_class\s*:=\s*old\.change_class/i);
+    // Recorded, then neutralised — the 20260910090000 idiom. A `raise` here
+    // would abort the transaction and discard the audit row with it, and the
+    // insert must go through the DEFINER recorder because this trigger is
+    // INVOKER and security_events' own RLS refuses `authenticated`.
+    expect(trigger?.body).toMatch(/record_security_event\s*\(/i);
+    expect(trigger?.body).toContain("access_denied");
+  });
+
+  it("audits the service path it deliberately admits", () => {
+    // GUARD refused postgres and service_role too. That reads stricter and is
+    // not: a service-key holder can disable the trigger in the same breath, so
+    // it bought nothing and guaranteed that any restore or future migration
+    // touching these columns aborts, with no way to correct a bad signature.
+    // The exemption is this schema's established idiom, and it is logged.
+    expect(trigger?.body).toMatch(/auth\.uid\(\)\s+is\s+not\s+null/i);
+    expect(trigger?.body).toMatch(/service caller|service \(/i);
   });
 
   it("is the only thing in the chain that writes a signature column", () => {
@@ -149,7 +221,7 @@ describe("engineering signature provenance", () => {
     // sanctioned two.
     const offenders: string[] = [];
     for (const { file, sql } of chain) {
-      if (file === GUARD) continue;
+      if (file === GUARD || file === REPAIR) continue;
       for (const column of SIGNATURE_COLUMNS) {
         const writes = new RegExp(`(?:set|,)\\s*${column}\\s*=(?!=)`, "i").test(
           sql,
@@ -157,8 +229,8 @@ describe("engineering signature provenance", () => {
         if (writes) offenders.push(`${file} writes ${column}`);
       }
     }
-    // 20260809140000 defines the original RPC, which 20260921001000 replaces;
-    // its text is still in the chain and is superseded, not live.
+    // 20260809140000 defines the original RPC, which 20260921001000 and then
+    // 20260921003000 replace; its text is still in the chain, superseded.
     expect(offenders.filter((o) => !o.startsWith("20260809140000_"))).toEqual(
       [],
     );
