@@ -16,7 +16,7 @@ describe("RIA commercial activation schema contract", () => {
       "add column if not exists activation_acceptance_reference text",
     );
     expect(migration).toContain(
-      "activation_acceptance_reference = btrim(p_acceptance_reference)",
+      "activation_acceptance_reference = left(btrim(p_acceptance_reference), 500)",
     );
   });
 });
