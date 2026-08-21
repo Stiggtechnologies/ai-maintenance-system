@@ -89,8 +89,11 @@ const SLA_LEAD_COLUMNS = `${BASE_LEAD_COLUMNS}, first_response_due, first_respon
  * The commercial-activation columns are deliberately read optimistically.
  * Frontend deploys can precede database deploys, so an older project must keep
  * the lead-response surface working until the invariant migration lands.
+ * The persisted invariant column is activation_acceptance_reference; the
+ * browser model keeps its customer-facing commercial_acceptance_reference name
+ * through PostgREST's explicit alias syntax.
  */
-const ACTIVATION_LEAD_COLUMNS = `${SLA_LEAD_COLUMNS}, ria_assessment_id, activated_organization_id, activated_by, activated_at, commercial_acceptance_reference`;
+const ACTIVATION_LEAD_COLUMNS = `${SLA_LEAD_COLUMNS}, ria_assessment_id, activated_organization_id, activated_by, activated_at, commercial_acceptance_reference:activation_acceptance_reference`;
 
 /** PostgREST surfaces Postgres' undefined_column as-is. */
 const UNDEFINED_COLUMN = "42703";
