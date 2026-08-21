@@ -46,7 +46,7 @@ import type {
   ProposedAction,
   SyncStreamEvent,
 } from "../types/sync-stream";
-import { AuthProvider, useAuth } from "./AuthProvider";
+import { useAuth } from "./AuthProvider";
 import { MarkdownRenderer } from "./MarkdownRenderer";
 import { SyncActivityTimeline } from "./SyncActivityTimeline";
 
