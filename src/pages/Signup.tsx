@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { AuthShell } from "../components/AuthShell";
 import { AuthTabs } from "../components/AuthTabs";
+import { PasswordField } from "../components/PasswordField";
 import { signUp } from "../lib/auth";
 import { motion } from "framer-motion";
 
@@ -86,7 +87,21 @@ export function Signup({ onSuccess, onTabChange }: SignupProps) {
             <label className="text-sm font-medium text-industrial-text">Industry<select aria-label="Industry" className={`${inputClass} mt-2`} value={formData.industry} onChange={(e) => setFormData({ ...formData, industry: e.target.value })} required><option value="">Select industry</option><option value="oil-gas">Oil & Gas</option><option value="mining">Mining</option><option value="utilities">Utilities</option><option value="power-generation">Power Generation</option><option value="manufacturing">Manufacturing</option><option value="transportation-logistics">Transportation & Logistics</option><option value="marine-shipping">Marine & Shipping</option><option value="heavy-equipment">Heavy Equipment</option><option value="other">Other asset-intensive industry</option></select></label>
           </div>
           <label className="block text-sm font-medium text-industrial-text">Work Email<input aria-label="Work Email" type="email" autoComplete="email" className={`${inputClass} mt-2`} value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} required /></label>
-          <label className="block text-sm font-medium text-industrial-text">Password<input aria-label="Password" type="password" autoComplete="new-password" className={`${inputClass} mt-2`} value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })} minLength={8} required /><span className="mt-2 block text-xs text-industrial-muted">Minimum 8 characters.</span></label>
+          <div>
+            <label htmlFor="signup-password" className="block text-sm font-medium text-industrial-text">Password</label>
+            <PasswordField
+              id="signup-password"
+              aria-label="Password"
+              autoComplete="new-password"
+              wrapperClassName="mt-2"
+              className={inputClass}
+              value={formData.password}
+              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+              minLength={8}
+              required
+            />
+            <span className="mt-2 block text-xs text-industrial-muted">Minimum 8 characters.</span>
+          </div>
           {error && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="rounded-lg border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-400">{error}</motion.div>}
           <motion.button type="submit" disabled={loading} whileTap={{ scale: 0.99 }} className="w-full rounded-lg bg-[#3A8DFF] px-4 py-3 font-medium text-white disabled:opacity-50">{loading ? "Creating workspace…" : "Continue Reliability Engineer"}</motion.button>
           <p className="text-center text-xs leading-5 text-industrial-muted">Evaluation access is isolated from customer production tenants. Enterprise access is granted through an authorized organization invitation.</p>
