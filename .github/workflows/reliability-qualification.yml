@@ -205,11 +205,11 @@ jobs:
 
       - name: Verify the model credential exists
         env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
         run: |
           set -euo pipefail
-          test -n "${OPENAI_API_KEY:-}" || {
-            echo "::error::OPENAI_API_KEY is not configured on this repository (only SUPABASE_ACCESS_TOKEN is). Add the secret, or capture the reference through the deployed processor with .github/workflows/one-shot-capture-re-2026-08.yml."
+          test -n "${XAI_API_KEY:-}" || {
+            echo "::error::XAI_API_KEY is not configured on this repository. The platform routes through xAI/Grok, so qualification must run against the model SyncAI actually ships. Add the secret, or capture the reference through the deployed processor with .github/workflows/one-shot-capture-re-2026-08.yml."
             exit 1
           }
 
@@ -222,7 +222,7 @@ jobs:
         id: qualify
         shell: bash
         env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
           RELIABILITY_QUALIFICATION_MODEL: ${{ inputs.model }}
           RELIABILITY_JUDGE_MODEL: ${{ inputs.judge_model }}
         run: |

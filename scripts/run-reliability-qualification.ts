@@ -99,8 +99,9 @@ const root = process.cwd();
 const baseDir = path.join(root, "benchmarks/reliability-engineer/re-2026.08");
 const manifest = JSON.parse(readFileSync(path.join(baseDir, "manifest.json"), "utf8")) as Manifest;
 const suite = JSON.parse(readFileSync(path.join(baseDir, "cases.json"), "utf8")) as GoldenSuite;
-const apiKey = (process.env.OPENAI_API_KEY ?? "").trim();
-const model = (process.env.RELIABILITY_QUALIFICATION_MODEL ?? process.env.MODEL_RELIABILITY ?? "gpt-5.6-terra").trim();
+const apiKey = (process.env.XAI_API_KEY ?? "").trim();
+const XAI_BASE_URL = (process.env.XAI_BASE_URL ?? "https://api.x.ai/v1").replace(/\/+$/, "");
+const model = (process.env.RELIABILITY_QUALIFICATION_MODEL ?? process.env.MODEL_RELIABILITY ?? "grok-4.6").trim();
 
 // H5 — the harness must be provable without a model credential.
 //
@@ -121,20 +122,27 @@ const dryRun = process.argv.includes("--dry-run");
 // variable unset a model graded its own answer against a frozen reference of
 // its own answer and called the result an independent comparison. There is no
 // safe default here, so there is no default: an unset judge is a hard stop.
-const judgeModelRaw = (process.env.RELIABILITY_JUDGE_MODEL ?? "").trim();
+const judgeModelRaw = (process.env.RELIABILITY_JUDGE_MODEL ?? "grok-4.5").trim();
 const judgeModel = dryRun ? judgeModelRaw || `${model}-stub-judge` : judgeModelRaw;
 
 const mode = process.argv.includes("--capture-reference") ? "capture" : "candidate";
 const outputArg = process.argv.find((value) => value.startsWith("--output="));
+// --limit=N runs the first N cases. SMOKE TEST ONLY: a capture or a candidate
+// report produced with a limit is rejected downstream by the >= minimumCaseCount
+// checks in check-reliability-baseline.mjs, so this cannot be used to sneak a
+// cheap qualification past the gate. It exists so the live provider path can be
+// proven for a couple of dollars instead of a full 31-case run.
+const limitArg = process.argv.find((value) => value.startsWith("--limit="));
+const caseLimit = limitArg ? Number(limitArg.slice("--limit=".length)) : 0;
 const outputPath = outputArg?.slice("--output=".length);
 
 if (!dryRun && !apiKey) {
   throw new Error(
     [
-      "OPENAI_API_KEY is required for live Reliability Engineer qualification, and it is NOT configured on this repository.",
+      "XAI_API_KEY is required for live Reliability Engineer qualification.",
       "",
       "  Repository secrets present: SUPABASE_ACCESS_TOKEN",
-      "  Repository secrets missing: OPENAI_API_KEY",
+      "  Repository secrets missing: XAI_API_KEY",
       "",
       "Options:",
       "  1. Owner adds the secret, then dispatch:",
@@ -197,6 +205,12 @@ function buildProvenance(): Provenance {
 }
 
 function extractText(payload: Record<string, unknown>): string {
+  // xAI chat-completions: choices[0].message.content
+  const choices = Array.isArray(payload.choices) ? payload.choices : [];
+  for (const choice of choices) {
+    const content = (choice as { message?: { content?: unknown } })?.message?.content;
+    if (typeof content === "string" && content.trim()) return content;
+  }
   if (typeof payload.output_text === "string") return payload.output_text;
   const output = Array.isArray(payload.output) ? payload.output : [];
   for (const item of output) {
@@ -364,18 +378,21 @@ async function responseCall(options: {
   stub?: { caseId: string; candidateSlot: "A" | "B" };
 }): Promise<ModelResult> {
   if (dryRun) return stubResponse(options);
+  // xAI chat-completions shape. The platform routes through xAI/Grok, not
+  // OpenAI, so qualifying against OpenAI would have measured a model SyncAI
+  // does not ship. `instructions` becomes the system message.
   const body: Record<string, unknown> = {
     model: options.model,
-    store: false,
-    max_output_tokens: options.maxTokens,
-    instructions: options.instructions,
-    input: options.input,
-    reasoning: { effort: "low" },
+    max_tokens: options.maxTokens,
+    messages: [
+      { role: "system", content: options.instructions },
+      { role: "user", content: options.input },
+    ],
   };
   if (options.schema) {
-    body.text = {
-      format: {
-        type: "json_schema",
+    body.response_format = {
+      type: "json_schema",
+      json_schema: {
         name: "reliability_qualification_judgment",
         strict: true,
         schema: options.schema,
@@ -383,7 +400,7 @@ async function responseCall(options: {
     };
   }
 
-  const response = await fetch("https://api.openai.com/v1/responses", {
+  const response = await fetch(`${XAI_BASE_URL}/chat/completions`, {
     method: "POST",
     signal: AbortSignal.timeout(120_000),
     headers: {
@@ -392,10 +409,14 @@ async function responseCall(options: {
     },
     body: JSON.stringify(body),
   });
-  if (!response.ok) throw new Error(`OpenAI qualification call failed: HTTP ${response.status}`);
+  if (!response.ok) {
+    throw new Error(
+      `xAI qualification call failed: HTTP ${response.status} ${(await response.text()).slice(0, 300)}`,
+    );
+  }
   const payload = (await response.json()) as Record<string, unknown>;
   const text = extractText(payload).trim();
-  if (!text) throw new Error("OpenAI qualification call returned no text");
+  if (!text) throw new Error("xAI qualification call returned no text");
   return {
     text,
     model: typeof payload.model === "string" ? payload.model : options.model,
@@ -526,8 +547,14 @@ async function main() {
       provenance: buildProvenance(),
       cases: {},
     };
-    for (const [index, item] of suite.cases.entries()) {
-      console.log(`[${index + 1}/${suite.cases.length}] capture ${item.id}`);
+    const captureCases = caseLimit > 0 ? suite.cases.slice(0, caseLimit) : suite.cases;
+    if (caseLimit > 0) {
+      console.log(
+        `SMOKE TEST: --limit=${caseLimit} of ${suite.cases.length}. The result is NOT a valid reference — check-reliability-baseline.mjs rejects anything below ${manifest.minimumCaseCount} cases.`,
+      );
+    }
+    for (const [index, item] of captureCases.entries()) {
+      console.log(`[${index + 1}/${captureCases.length}] capture ${item.id}`);
       captured.cases[item.id] = await runCase(item);
     }
     const destination = outputPath ?? path.join(root, manifest.referenceOutputs);
@@ -542,7 +569,7 @@ async function main() {
     }
     mkdirSync(path.dirname(destination), { recursive: true });
     writeFileSync(destination, `${JSON.stringify(captured, null, 2)}\n`);
-    console.log(`Captured ${suite.cases.length} RE-2026.08 reference outputs at ${destination}`);
+    console.log(`Captured ${captureCases.length} RE-2026.08 reference outputs at ${destination}`);
     return;
   }
 
@@ -686,7 +713,7 @@ async function main() {
         "forbidden behaviour, a missed evidence-gap requirement, a failed deterministic\n" +
         "calculation and a detected dimension regression.\n" +
         "This report is stamped dryRun:true and the release gate will reject it as evidence.\n" +
-        "A real qualification still needs OPENAI_API_KEY (absent from this repository) plus an independent RELIABILITY_JUDGE_MODEL.",
+        "A real qualification still needs XAI_API_KEY plus an independent RELIABILITY_JUDGE_MODEL (defaults to grok-4.5, which must differ from the candidate).",
     );
   }
 }

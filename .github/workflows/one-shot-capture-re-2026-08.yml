@@ -8,7 +8,7 @@ name: One-shot capture RE-2026.08
 # route. Its `push` trigger also pointed at `feat/reliability-golden-baseline`,
 # the branch of the now-closed PR #234.
 #
-# What it still CANNOT do, and why the OPENAI_API_KEY secret remains the real
+# What it still CANNOT do, and why the XAI_API_KEY secret remains the real
 # unblock:
 #   - it captures the REFERENCE only. Qualifying a candidate change needs a
 #     model credential in CI regardless;
@@ -16,7 +16,7 @@ name: One-shot capture RE-2026.08
 #   - it sends publicOnly:true, which ai-agent-processor routes to a hardcoded
 #     https://api.openai.com/v1/responses call (index.ts:402) that ignores
 #     LLM_BASE_URL, so it does not traverse the Stigg AI Gateway and depends on
-#     OPENAI_API_KEY being configured on the deployed edge function;
+#     XAI_API_KEY being configured on the deployed edge function;
 #   - it has never been executed. The key-selection fix in
 #     scripts/capture-reliability-production-reference.mjs (prefer sb_secret_
 #     over the legacy service_role JWT, which this project's edge functions
