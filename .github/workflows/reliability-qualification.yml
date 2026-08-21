@@ -22,6 +22,8 @@ on:
       - "supabase/functions/_shared/reliability-specialists.ts"
       - "supabase/functions/_shared/reliability-engineer-request.ts"
       - "supabase/functions/_shared/reliability-context.ts"
+      - "supabase/functions/ai-agent-processor/index.ts"
+      - "supabase/functions/public-reliability-agent/index.ts"
       - "src/services/publicReliabilityAgent.ts"
       - "supabase/functions/_shared/decision-case-chat.ts"
       - "supabase/functions/_shared/llm-provider.ts"
@@ -29,14 +31,27 @@ on:
       - "src/lib/supabase-config.ts"
       - "src/lib/decision-case.ts"
       - "src/lib/public-reliability.ts"
+      - "src/services/reliabilityCopilotAgent.ts"
+      - "supabase/functions/sync-runtime/index.ts"
+      - "src/lib/rolePersonas.ts"
+      - "src/lib/reliability/index.ts"
+      - "src/lib/reliability-calculations.ts"
+      - "src/lib/reliability-report-engine.ts"
+      - "src/lib/reliability-knowledge-base.ts"
+      - "supabase/functions/_shared/sync-stream.ts"
+      - "supabase/functions/_shared/sync-tool-proof.ts"
       - "supabase/functions/ai-agent-processor/**"
       - "supabase/functions/public-reliability-agent/**"
+      - "supabase/functions/sync-runtime/**"
+      - "supabase/migrations/**"
       - "src/test/reliabilityEngineerGoldenBaseline.test.ts"
       - "src/test/reliabilityBaselineRatchet.test.ts"
+      - "src/test/reliabilityGuardPresence.ts"
       - "benchmarks/reliability-engineer/**"
       - "scripts/check-reliability-baseline.mjs"
       - "scripts/reliability-baseline-floor.mjs"
       - "scripts/run-reliability-qualification.ts"
+      - "scripts/capture-reliability-production-reference.mjs"
       - ".github/workflows/reliability-qualification.yml"
   push:
     branches: [main]
@@ -45,6 +60,8 @@ on:
       - "supabase/functions/_shared/reliability-specialists.ts"
       - "supabase/functions/_shared/reliability-engineer-request.ts"
       - "supabase/functions/_shared/reliability-context.ts"
+      - "supabase/functions/ai-agent-processor/index.ts"
+      - "supabase/functions/public-reliability-agent/index.ts"
       - "src/services/publicReliabilityAgent.ts"
       - "supabase/functions/_shared/decision-case-chat.ts"
       - "supabase/functions/_shared/llm-provider.ts"
@@ -52,14 +69,27 @@ on:
       - "src/lib/supabase-config.ts"
       - "src/lib/decision-case.ts"
       - "src/lib/public-reliability.ts"
+      - "src/services/reliabilityCopilotAgent.ts"
+      - "supabase/functions/sync-runtime/index.ts"
+      - "src/lib/rolePersonas.ts"
+      - "src/lib/reliability/index.ts"
+      - "src/lib/reliability-calculations.ts"
+      - "src/lib/reliability-report-engine.ts"
+      - "src/lib/reliability-knowledge-base.ts"
+      - "supabase/functions/_shared/sync-stream.ts"
+      - "supabase/functions/_shared/sync-tool-proof.ts"
       - "supabase/functions/ai-agent-processor/**"
       - "supabase/functions/public-reliability-agent/**"
+      - "supabase/functions/sync-runtime/**"
+      - "supabase/migrations/**"
       - "src/test/reliabilityEngineerGoldenBaseline.test.ts"
       - "src/test/reliabilityBaselineRatchet.test.ts"
+      - "src/test/reliabilityGuardPresence.ts"
       - "benchmarks/reliability-engineer/**"
       - "scripts/check-reliability-baseline.mjs"
       - "scripts/reliability-baseline-floor.mjs"
       - "scripts/run-reliability-qualification.ts"
+      - "scripts/capture-reliability-production-reference.mjs"
       - ".github/workflows/reliability-qualification.yml"
   workflow_dispatch:
     inputs:
@@ -80,6 +110,11 @@ on:
         description: "Independent comparison/judge model — MUST differ from the candidate model"
         required: false
         type: string
+      commit_evidence:
+        description: "Commit the captured reference / qualification report to the dispatched branch"
+        required: false
+        default: true
+        type: boolean
 
 permissions:
   contents: read
@@ -102,12 +137,17 @@ jobs:
 
       - name: Golden methodology and specialist routing
         run: npx vitest run src/test/reliabilityEngineerGoldenBaseline.test.ts src/test/reliabilityBaselineRatchet.test.ts supabase/functions/_shared/reliability-engineer-core.test.ts
+        # reliability-engineer-core.test.ts was named here and in package.json
+        # while sitting outside vitest's include glob, so it had never run once
+        # and vitest still exited 0 because the other filters matched.
+        # vitest.config.ts now collects supabase/functions/**.
 
       - name: Protected-surface qualification gate
         run: node scripts/check-reliability-baseline.mjs
         env:
           GITHUB_BASE_REF: ${{ github.base_ref }}
           GITHUB_EVENT_BEFORE: ${{ github.event.before }}
+          GITHUB_TOKEN: ${{ github.token }}
 
   harness-dry-run:
     # Proves the qualification harness end to end with a stub model and no
@@ -131,9 +171,11 @@ jobs:
         run: npm run reliability:dryrun
 
   live-qualification:
-    name: Live 30-case qualification
+    name: Live golden-suite qualification
     if: github.event_name == 'workflow_dispatch' && inputs.mode != 'dry-run'
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v7
         with:
@@ -171,7 +213,13 @@ jobs:
             exit 1
           }
 
+      # Evidence is written straight into the working tree and committed by
+      # the run that produced it. Downloading an artifact, unzipping it and
+      # committing it by hand was four of the twelve manual steps on the
+      # honest path, and it left the evidence looking human-authored in
+      # `git log` — exactly where a forgery would also sit.
       - name: Run live qualification
+        id: qualify
         shell: bash
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
@@ -179,19 +227,38 @@ jobs:
           RELIABILITY_JUDGE_MODEL: ${{ inputs.judge_model }}
         run: |
           set -euo pipefail
-          mkdir -p /tmp/reliability-qualification
           if [ "${{ inputs.mode }}" = "capture-reference" ]; then
+            OUT="benchmarks/reliability-engineer/re-2026.08/reference-outputs.json"
             npx tsx scripts/run-reliability-qualification.ts \
-              --capture-reference \
-              --output=/tmp/reliability-qualification/reference-outputs.json
+              --capture-reference --output="$OUT"
           else
-            npx tsx scripts/run-reliability-qualification.ts \
-              --output=/tmp/reliability-qualification/candidate-report.json
+            OUT="benchmarks/reliability-engineer/qualification-reports/$(date -u +%Y-%m-%dT%H-%M-%SZ).json"
+            npx tsx scripts/run-reliability-qualification.ts --output="$OUT"
           fi
+          echo "evidence=$OUT" >> "$GITHUB_OUTPUT"
+          echo "sha256=$(sha256sum "$OUT" | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+
+      - name: Commit evidence to the dispatched branch
+        if: inputs.commit_evidence
+        env:
+          EVIDENCE: ${{ steps.qualify.outputs.evidence }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$EVIDENCE"
+          git commit -m "evidence(reliability): ${{ inputs.mode }} from run ${{ github.run_id }}"
+          git push origin "HEAD:${{ github.ref_name }}"
+
+      - name: Say what a human must do next
+        run: |
+          echo "::notice::Evidence: ${{ steps.qualify.outputs.evidence }}"
+          echo "::notice::sha256: ${{ steps.qualify.outputs.sha256 }}"
+          echo "::notice::Do NOT edit that file. Add an approval record under benchmarks/reliability-engineer/approvals/ with kind=qualification, decision=qualified, reportFile, reportSha256 (the value above), reviewer, reviewerRole, reviewedAt, rationale."
 
       - name: Upload qualification evidence
         uses: actions/upload-artifact@v7
         with:
           name: reliability-engineer-${{ inputs.mode }}-${{ github.sha }}
-          path: /tmp/reliability-qualification/
+          path: ${{ steps.qualify.outputs.evidence }}
           retention-days: 30

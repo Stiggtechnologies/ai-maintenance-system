@@ -7,6 +7,13 @@ export default defineConfig({
     globals: true,
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
-    include: ['src/**/*.{test,spec}.{ts,tsx}'],
+    // supabase/functions/_shared/reliability-engineer-core.test.ts sat outside
+    // this glob and had NEVER run, while package.json and the qualification
+    // workflow both named it next to a filter that did match — so vitest exited
+    // 0 and the miss was silent.
+    include: [
+      'src/**/*.{test,spec}.{ts,tsx}',
+      'supabase/functions/**/*.{test,spec}.{ts,tsx}',
+    ],
   },
 });

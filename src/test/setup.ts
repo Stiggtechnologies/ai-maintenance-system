@@ -1,4 +1,8 @@
 import "@testing-library/jest-dom";
+// RE-2026.08 enforcement-chain anchor. vitest loads this file before every
+// test, so deleting the permanent Reliability Engineer quality floor fails
+// the whole suite instead of quietly shrinking it by 25 tests.
+import "./reliabilityGuardPresence";
 
 /**
  * Web Storage polyfill for the test environment.

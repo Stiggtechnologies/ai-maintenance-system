@@ -58,7 +58,16 @@ jobs:
           cache: npm
 
       - run: npm ci --no-audit --no-fund
+
+      # `npm run test` is `node scripts/check-reliability-baseline.mjs && vitest run`.
+      # The gate runs from inside the npm script AND as the explicit step below,
+      # on purpose: deleting the tests that spawn it, or deleting the step, each
+      # leaves the other running. See scripts/reliability-baseline-floor.mjs.
       - run: npm run test
+        env:
+          GITHUB_BASE_REF: ${{ github.base_ref }}
+          GITHUB_EVENT_BEFORE: ${{ github.event.before }}
+          GITHUB_TOKEN: ${{ github.token }}
 
       # RE-2026.08 release gate, run HERE on purpose.
       #
@@ -78,6 +87,12 @@ jobs:
         env:
           GITHUB_BASE_REF: ${{ github.base_ref }}
           GITHUB_EVENT_BEFORE: ${{ github.event.before }}
+          # Load-bearing. Qualification evidence must name the Actions run that
+          # produced it, and inside Actions the gate REFUSES to skip verifying
+          # that run against the API. Without a token the gate fails closed --
+          # which is correct, because unverifiable evidence is what let a
+          # hand-written report with "x" as all 31 answers pass this floor.
+          GITHUB_TOKEN: ${{ github.token }}
 
   migration-order:
     name: Migration order vs deployed head

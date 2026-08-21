@@ -7,85 +7,161 @@
   "promptVersion": "syncai-reliability-engineer-v4",
   "minimumCaseCount": 30,
   "floorModule": "scripts/reliability-baseline-floor.mjs",
-  "floorNote": "This manifest is NOT self-protecting and deliberately is not in its own protectedPaths — that would deadlock every legitimate ratchet behind a live qualification run. The irreducible minimum lives in code at scripts/reliability-baseline-floor.mjs and is re-asserted from independent literals in src/test/reliabilityBaselineRatchet.test.ts, which runs inside the required 'Unit tests' check. This manifest may only be ratcheted against that floor: more protected paths, stricter thresholds, more cases, more dimensions.",
+  "floorNote": "This manifest is NOT self-protecting and deliberately is not in its own protectedPaths - that would deadlock every legitimate ratchet behind a live qualification run. The irreducible minimum lives in code at scripts/reliability-baseline-floor.mjs and is re-asserted from independent literals in src/test/reliabilityBaselineRatchet.test.ts, which runs inside the required 'Unit tests' check. This manifest may only be ratcheted against that floor: more protected paths, stricter thresholds, more cases, more dimensions, more governed database objects. Golden cases are pinned by CONTENT fingerprint, not by id - the id is not the trap.",
   "protectedPaths": [
     {
       "path": "supabase/functions/_shared/reliability-engineer-core.ts",
       "gitBlobSha": "8afa8deeb842f940a3d361735f4d71b22f6cc8f5",
       "reachability": "entrypoint",
-      "purpose": "canonical methodology and evidence/authority contract"
+      "purpose": "canonical methodology and evidence/authority contract",
+      "tier": "core"
     },
     {
       "path": "supabase/functions/_shared/reliability-specialists.ts",
       "gitBlobSha": "99555c8225dcf040859a6577627721d23cd2a688",
       "reachability": "entrypoint",
-      "purpose": "specialist selection and domain briefs"
+      "purpose": "specialist selection and domain briefs",
+      "tier": "core"
     },
     {
       "path": "supabase/functions/_shared/reliability-engineer-request.ts",
       "gitBlobSha": "58cc069f7820918208b0e4f5adc00ceff016ac8e",
       "reachability": "entrypoint",
-      "purpose": "Decision Case context, deliverable depth and specialist orchestration"
+      "purpose": "Decision Case context, deliverable depth and specialist orchestration",
+      "tier": "core"
     },
     {
       "path": "supabase/functions/_shared/reliability-context.ts",
       "gitBlobSha": "a84d7edd88ff2df8f59fc2c6745518e04470a2ce",
       "reachability": "entrypoint",
-      "purpose": "governed tenant/public knowledge retrieval boundary"
+      "purpose": "governed tenant/public knowledge retrieval boundary",
+      "tier": "core"
     },
     {
       "path": "supabase/functions/ai-agent-processor/index.ts",
       "gitBlobSha": "60006d84b12b3902086f40fa587b5f8b09199be5",
       "reachability": "entrypoint",
-      "purpose": "authenticated model routing, quota, provenance and audit path"
+      "purpose": "authenticated model routing, quota, provenance and audit path",
+      "tier": "core"
     },
     {
       "path": "supabase/functions/public-reliability-agent/index.ts",
       "gitBlobSha": "e6c960002aa6a60b2fd0b2a4a4f356655b21f3e7",
       "reachability": "entrypoint",
-      "purpose": "public production Reliability Engineer boundary"
+      "purpose": "public production Reliability Engineer boundary",
+      "tier": "core"
     },
     {
       "path": "src/services/publicReliabilityAgent.ts",
       "gitBlobSha": "b5524ec669269999d30a49d78f43efadcf99223f",
       "reachability": "entrypoint",
-      "purpose": "client contract and public/authenticated handoff"
+      "purpose": "client contract and public/authenticated handoff",
+      "tier": "core"
     },
     {
       "path": "supabase/functions/_shared/decision-case-chat.ts",
       "gitBlobSha": "3a3f58dfbaa0be5fdb1172582916f3f1d1c2a306",
       "reachability": "value-import from reliability-engineer-request.ts and public-reliability-agent/index.ts",
-      "purpose": "Decision Case chat prompt construction — rewriting it changes Reliability Engineer answers directly"
+      "purpose": "Decision Case chat prompt construction \u2014 rewriting it changes Reliability Engineer answers directly",
+      "tier": "core"
     },
     {
       "path": "supabase/functions/_shared/llm-provider.ts",
       "gitBlobSha": "af46a71ba2511c9c7a1e06255001fd3a6eee974c",
       "reachability": "value-import from ai-agent-processor/index.ts",
-      "purpose": "gateway/OpenAI provider chain, failover and the model that actually answered"
+      "purpose": "gateway/OpenAI provider chain, failover and the model that actually answered",
+      "tier": "core"
     },
     {
       "path": "src/lib/reliability-agent-contract.ts",
       "gitBlobSha": "ca959ad921986c6d82842b9160672eeff0b769e1",
       "reachability": "value-import from src/services/publicReliabilityAgent.ts",
-      "purpose": "question-scope classification that decides what the client is allowed to ask for"
+      "purpose": "question-scope classification that decides what the client is allowed to ask for",
+      "tier": "core"
     },
     {
       "path": "src/lib/supabase-config.ts",
       "gitBlobSha": "5bc91ebae1f9405c216eaccec1a58ff37ff3a4b4",
       "reachability": "value-import from src/services/publicReliabilityAgent.ts",
-      "purpose": "the endpoint and key the public Reliability Engineer call is actually sent to"
+      "purpose": "the endpoint and key the public Reliability Engineer call is actually sent to",
+      "tier": "core"
     },
     {
       "path": "src/lib/decision-case.ts",
       "gitBlobSha": "e182275a6806174094073bbe2450c4041d899c22",
       "reachability": "type-only import from src/services/publicReliabilityAgent.ts and src/lib/reliability-agent-contract.ts",
-      "purpose": "Decision Case evidence shape — widening it widens what is serialized into an engineering answer"
+      "purpose": "Decision Case evidence shape \u2014 widening it widens what is serialized into an engineering answer",
+      "tier": "core"
     },
     {
       "path": "src/lib/public-reliability.ts",
       "gitBlobSha": "a3dcaf383ec5ed46c4b85ca0ea2ab41fa47b8cef",
       "reachability": "type-only import from src/services/publicReliabilityAgent.ts",
-      "purpose": "public scenario identity contract"
+      "purpose": "public scenario identity contract",
+      "tier": "core"
+    },
+    {
+      "path": "src/services/reliabilityCopilotAgent.ts",
+      "gitBlobSha": "67095f3d1860f0b1af34b4fb00f70f154dc88347",
+      "tier": "prompt-surface",
+      "reachability": "prompt-surface entrypoint \u2014 embeds a complete 15-point Reliability Engineer contract in the user turn and posts it as agentType ReliabilityAgent",
+      "purpose": "duplicates, in unprotected form, the MTBF denominator rule, the do-not-invent-evidence rule and the containment-action safety rule that the golden test pins in the protected system prompt"
+    },
+    {
+      "path": "supabase/functions/sync-runtime/index.ts",
+      "gitBlobSha": "5d842896313b018866e4f7ff44fb7f003fa55d2e",
+      "tier": "prompt-surface",
+      "reachability": "prompt-surface entrypoint \u2014 a third Reliability Engineer surface with its own grounded query and MEETING/FIELD mode prompt contracts",
+      "purpose": "carries the isolation/LOTO and protective-function safety text and calls the protected specialist selector"
+    },
+    {
+      "path": "src/lib/rolePersonas.ts",
+      "gitBlobSha": "870fff358259b473e55ee8ed58ab91b209963fea",
+      "tier": "prompt-surface",
+      "reachability": "prompt-surface entrypoint \u2014 persona framing prepended verbatim to the ReliabilityAgent query by CopilotDock",
+      "purpose": "rewriting a persona changes what the Reliability Engineer says to every user in that role"
+    },
+    {
+      "path": "src/lib/reliability/index.ts",
+      "gitBlobSha": "c3fe73cacfc092bc9c062451827fdc592019dae1",
+      "tier": "prompt-surface",
+      "reachability": "prompt-surface entrypoint \u2014 weibullMLE, crowAMSAA, repairableSummary, weibullMRR",
+      "purpose": "the manifest asserts deterministicCalculationPassRate 1.0; the calculators producing those numbers cannot be unprotected"
+    },
+    {
+      "path": "src/lib/reliability-calculations.ts",
+      "gitBlobSha": "498523cc3fbf8448584c5541c84469f134d0c8b9",
+      "tier": "prompt-surface",
+      "reachability": "prompt-surface entrypoint \u2014 deterministic reliability arithmetic serialised into the prompt",
+      "purpose": "same deterministic-calculation floor"
+    },
+    {
+      "path": "src/lib/reliability-report-engine.ts",
+      "gitBlobSha": "4e723ae185edabb5900cf7e77e96d31854beba23",
+      "tier": "prompt-surface",
+      "reachability": "prompt-surface entrypoint \u2014 risk level, confidence, record count, top bad actor and averageDowntime are serialised verbatim into the live agent query",
+      "purpose": "value-imported and executed by ReliabilityCopilotPage even though it is only type-only reachable from the core closure"
+    },
+    {
+      "path": "src/lib/reliability-knowledge-base.ts",
+      "gitBlobSha": "a7d8dc51830e769bf138eed4d4edd9f67e0c5459",
+      "tier": "prompt-surface",
+      "reachability": "prompt-surface entrypoint \u2014 engineering knowledge surfaced alongside the report engine",
+      "purpose": "same"
+    },
+    {
+      "path": "supabase/functions/_shared/sync-stream.ts",
+      "gitBlobSha": "5c6aeefc73b9ce8d046ec2cdb8eb1596d70ed914",
+      "tier": "prompt-surface",
+      "reachability": "value-import from supabase/functions/sync-runtime/index.ts",
+      "purpose": "streaming envelope for the sync-runtime Reliability Engineer path"
+    },
+    {
+      "path": "supabase/functions/_shared/sync-tool-proof.ts",
+      "gitBlobSha": "3c39ffa456bd8035520367b12f95011327093164",
+      "tier": "prompt-surface",
+      "reachability": "value-import from supabase/functions/sync-runtime/index.ts",
+      "purpose": "tool-proof envelope that decides what evidence the sync-runtime answer may claim"
     }
   ],
   "zeroTolerance": {
@@ -115,5 +191,28 @@
     "communication"
   ],
   "qualificationReportsDirectory": "benchmarks/reliability-engineer/qualification-reports",
-  "referenceOutputs": "benchmarks/reliability-engineer/re-2026.08/reference-outputs.json"
+  "referenceOutputs": "benchmarks/reliability-engineer/re-2026.08/reference-outputs.json",
+  "tierPolicy": {
+    "core": "Reachable from a core Reliability Engineer entrypoint. A change requires a machine-written qualification report from a verified CI run PLUS a named human SME approval sidecar carrying that report's sha256.",
+    "prompt-surface": "Carries Reliability Engineer instruction text or deterministic engineering numbers into an answer, but is NOT exercised by the qualification harness. Demanding a live A/B here would be theatre, so a change requires a named human SME approval sidecar naming the exact files and their current blob shas. Stated as a bounded guarantee in docs/reliability-engineer-baseline.md."
+  },
+  "evidenceProvenanceRequired": true,
+  "approvalsDirectory": "benchmarks/reliability-engineer/approvals",
+  "protectedDatabaseObjects": [
+    {
+      "object": "retrieve_kb_context",
+      "definitionDigest": "44f530b8ebb689b7b3e4deabc95dc100ea2a3573ddb1a1a4612bd350545c86a6",
+      "purpose": "SECURITY DEFINER retrieval whose ranking, permitted_claims join and org filter decide which knowledge text is inlined into the Reliability Engineer system prompt"
+    },
+    {
+      "object": "kb_document_classes",
+      "definitionDigest": "58581b131cfc3b1bd6a513ac1f60fa1d0772f8c34635b227df054ea6301a9855",
+      "purpose": "trust_rank, permitted_claims and redistributable \u2014 the claim-type and public-redistribution gate"
+    },
+    {
+      "object": "kb_claim_types",
+      "definitionDigest": "477242365aee0e21c11368f8188f22c7cd604965a7d65a20278550938a93a2a7",
+      "purpose": "the claim-type enumeration the retrieval gate is written against"
+    }
+  ]
 }

@@ -10,7 +10,7 @@
     "typecheck": "tsc -b",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test": "vitest run",
+    "test": "node scripts/check-reliability-baseline.mjs && vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
@@ -21,7 +21,8 @@
     "prepare": "husky",
     "register:tally": "node scripts/register-tally.mjs --write",
     "register:check": "node scripts/register-tally.mjs --check && node scripts/register-baseline.mjs --check",
-    "register:accept": "node scripts/register-tally.mjs --write && node scripts/register-baseline.mjs --write"
+    "register:accept": "node scripts/register-tally.mjs --write && node scripts/register-baseline.mjs --write",
+    "reliability:requalify": "node scripts/reliability-requalify.mjs"
   },
   "lint-staged": {
     "src/**/*.{ts,tsx}": [
