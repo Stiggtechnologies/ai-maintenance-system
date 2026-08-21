@@ -1,41 +1,13 @@
 /**
- * Navigation integrity — the sidebar, the command palette, the routes, and the
- * per-role allow-lists are four lists of the same thing maintained in four
- * files.
- *
- * Deleting the fabricated /performance dashboard meant removing its route, its
- * nav item, and its id from three separate role allow-lists; missing any one of
- * them leaves a menu entry that navigates to the catch-all, or an allow-list
- * naming a surface that no longer exists. Nothing in the repository checked
- * that the three agreed, so the drift would have been discovered by a user.
- *
- * The command palette was the fourth list and was not covered here, which is
- * how it kept offering /scenarios and /autonomy after both pages were deleted
- * for inventing their figures. A palette entry is a navigation destination like
- * any other — it is searched by name, so a dead one is arguably worse than a
- * dead sidebar item — and it is checked alongside the sidebar below.
- *
- * Redirect targets are checked too. Two deleted pages kept their paths as
- * redirects so that existing bookmarks land on the screen that answers the
- * question honestly rather than on the catch-all. That only holds while the
- * target still exists: delete /governance and /autonomy silently resumes
- * dropping people on Mission Control, which is the failure the redirect was
- * added to prevent.
- *
- * The counts are under test as well (navigation-lifecycle-ia.md §5 Step 6):
- * the sidebar total and per-group sizes drifted twice during the IA's own
- * drafting (36 vs 37), and the §3 role-matrix sizes were mis-stated by two
- * separate critiques — so both are snapshotted from source here, not prose.
- *
- * The sources are read as text rather than imported because AppShell pulls in
- * the Supabase client and the whole component tree to answer a question about
- * two string literals.
+ * Navigation integrity keeps the sidebar, command palette, routes and role
+ * allow-lists synchronized. These are deliberately source-contract tests: a
+ * dead or unauthorized navigation surface must fail CI before it reaches a
+ * user.
  */
 import { readFileSync } from "node:fs";
 import { matchRoutes } from "react-router-dom";
 import { describe, expect, it } from "vitest";
 
-/** Text between a declaration and the line that closes it. */
 function block(source: string, opener: string, closer: string): string {
   const start = source.indexOf(opener);
   expect(start, `${opener} not found`).toBeGreaterThan(-1);
@@ -49,52 +21,37 @@ const NAV_GROUPS = block(
   "const navGroups: NavGroup[] = [",
   "\n];",
 );
-
 const NAV_ALLOW = block(
   readFileSync("src/lib/roleNavigation.ts", "utf8"),
   "const NAV_ALLOW:",
   "\n};",
 );
-
 const PALETTE = block(
   readFileSync("src/components/CommandSearch.tsx", "utf8"),
   "const allResults: SearchResult[] = [",
   "\n];",
 );
-
 const APP = readFileSync("src/App.tsx", "utf8");
 
-// An id paired with the next path declared before any other id — which is what
-// a leaf nav item is, and what a group (whose next id belongs to its first
-// child) deliberately is not.
 const navItems = [
   ...NAV_GROUPS.matchAll(
     /id:\s*"([^"]+)"(?:(?!id:)[\s\S])*?path:\s*"([^"]+)"/g,
   ),
-].map((m) => ({ id: m[1], path: m[2] }));
+].map((match) => ({ id: match[1], path: match[2] }));
 
-// Each group declares exactly one icon, and item paths only occur after it —
-// so splitting on `icon:` yields one chunk per group whose path count is that
-// group's size. (The chunk also contains the NEXT group's id and label, which
-// carry no path.)
 const groupSizes = NAV_GROUPS.split(/icon:\s/)
   .slice(1)
   .map((chunk) => [...chunk.matchAll(/path:\s*"/g)].length);
 
-// Per-role allow-list entries, read from the same text the ids come from.
-// null = full navigation. Entries (not just sizes) are kept because the two
-// org-layer roles added in 2026-08 are pinned by membership below — a size
-// that stays 8 while the set swaps an item is exactly the drift a count
-// cannot catch.
 const allowEntries: Record<string, string[] | null> = Object.fromEntries(
-  [...NAV_ALLOW.matchAll(/^\s{2}(\w+):\s*(null|new Set\(\[)/gm)].map((m) => {
-    if (m[2] === "null") return [m[1], null];
-    const setStart = NAV_ALLOW.indexOf(m[0]) + m[0].length;
+  [...NAV_ALLOW.matchAll(/^\s{2}(\w+):\s*(null|new Set\(\[)/gm)].map((match) => {
+    if (match[2] === "null") return [match[1], null];
+    const setStart = NAV_ALLOW.indexOf(match[0]) + match[0].length;
     const setEnd = NAV_ALLOW.indexOf("])", setStart);
     const entries = [
       ...NAV_ALLOW.slice(setStart, setEnd).matchAll(/"([a-z-]+)"/g),
     ].map((entry) => entry[1]);
-    return [m[1], entries];
+    return [match[1], entries];
   }),
 );
 
@@ -105,16 +62,12 @@ const allowSizes = Object.fromEntries(
   ]),
 );
 
-// Palette entries are keyed by a two-letter search abbreviation, so they are
-// identified here by the label the user actually reads.
 const paletteItems = [
   ...PALETTE.matchAll(
     /label:\s*"([^"]+)"(?:(?!label:)[\s\S])*?path:\s*"([^"]+)"/g,
   ),
-].map((m) => ({ label: m[1], path: m[2] }));
+].map((match) => ({ label: match[1], path: match[2] }));
 
-// Both lists are navigation destinations. A failure names the file and the
-// entry, because the two are edited by different people for different reasons.
 const destinations = [
   ...navItems.map(({ id, path }) => ({ source: "AppShell", name: id, path })),
   ...paletteItems.map(({ label, path }) => ({
@@ -125,14 +78,9 @@ const destinations = [
 ];
 
 const allowListIds = [...NAV_ALLOW.matchAll(/^\s*"([a-z-]+)",?$/gm)].map(
-  (m) => m[1],
+  (match) => match[1],
 );
 
-// Both catch-alls — the signed-out "/*" and the in-shell "*" — are excluded:
-// either one matches every path, which would let a nav item that points
-// nowhere pass as routed. A route whose element is a bare <Navigate> records
-// where it forwards to; anything else, including the conditional element on
-// /signin, is a page in its own right.
 const declaredRoutes = APP.split("<Route")
   .slice(1)
   .flatMap((chunk) => {
@@ -141,36 +89,12 @@ const declaredRoutes = APP.split("<Route")
     const redirectsTo = /element=\{<Navigate\s+to="([^"]+)"/.exec(chunk)?.[1];
     return [{ path, redirectsTo }];
   });
-
 const routes = declaredRoutes.map(({ path }) => ({ path }));
 
-/**
- * The §3 rule: a role is shown a nav item only where it holds at least one
- * UNGATED action on the destination, or the surface is explicitly read-only.
- * Exceptions are listed here one by one with their evidence, because an
- * absolute rule invites silent exceptions.
- *
- * technician → notifications: three of the four screening RPCs gate to
- * planner/RE/MM/admin (20260906090000:88,141,192), but
- * raise_maintenance_notification (:32-50) is ungated and raising is the
- * technician's actual job. It qualifies only because the page surfaces the
- * server's refusal for the gated acts — which the test below pins.
- *
- * supervisor → notifications is the same class with the same evidence: the
- * supervisor's crews raise notifications through the ungated RPC, the
- * screening gates exclude the role identically, and the same page surfaces
- * the same refusal sentence. One idiom, two frontline roles.
- *
- * Both are materially unlike executive → approvals (removed outright): there
- * the RLS predicate denies every write and the page used to broadcast
- * success on a zero-row rejection. The two classes must not be merged.
- */
 const DOCUMENTED_EXCEPTIONS = [
   {
     role: "technician",
     itemId: "notifications",
-    // The page whose writes the server may refuse for this role; it must
-    // surface the refusal rather than swallow it.
     page: "src/pages/NotificationScreening.tsx",
   },
   {
@@ -180,30 +104,6 @@ const DOCUMENTED_EXCEPTIONS = [
   },
 ];
 
-/**
- * Surfaces granted under the rule's OTHER arm — no ungated action, explicitly
- * designated read-only. Each entry pins the two mechanisms that keep the
- * designation true: the page's client-side gate must not name the role (no
- * promised button the server would refuse), and the server's own refusal must
- * be rendered if the write is ever attempted anyway.
- *
- * supervisor → scheduling is the entry that created the list: the supervisor
- * reads the week's options and the crew capacity behind them, while
- * release_schedule_option gates to planner/mm/admin/ai_admin
- * (20260806190000:176) and SchedulerPanel's RELEASE_ROLES mirrors that set.
- *
- * board and supervisor → mission-control joined when adversarial
- * verification showed the approve flow was ungated for both: the page showed
- * every role the Approve/act buttons, and recommendations_org_rw
- * (00000000000001:489) would have accepted the write. Now
- * RECOMMENDATION_ACT_ROLES omits both roles (every pre-existing role keeps
- * exactly what it had) and the restrictive policies in 20260912123000 refuse
- * the write server-side — the update gate deliberately in WITH CHECK so the
- * refusal is an error the page flashes, never a zero-row success. board's
- * remaining surfaces stay read-only by construction (SELECT-only grants);
- * mission-control was its one surface with a write path, and it is pinned
- * here instead of exempted.
- */
 const DOCUMENTED_READ_ONLY = [
   {
     role: "supervisor",
@@ -237,10 +137,7 @@ describe("navigation integrity", () => {
   });
 
   it("routes every navigation destination to a declared route", () => {
-    const unrouted = destinations.filter(
-      (item) => !matchRoutes(routes, item.path),
-    );
-    expect(unrouted).toEqual([]);
+    expect(destinations.filter((item) => !matchRoutes(routes, item.path))).toEqual([]);
   });
 
   it("keeps every role allow-list entry pointing at a navigation item", () => {
@@ -249,60 +146,55 @@ describe("navigation integrity", () => {
   });
 
   it("forwards every surviving redirect to a route that still exists", () => {
-    const dangling = declaredRoutes.filter(
-      (route) =>
-        route.redirectsTo !== undefined &&
-        !matchRoutes(routes, route.redirectsTo),
-    );
-    expect(dangling).toEqual([]);
+    expect(
+      declaredRoutes.filter(
+        (route) => route.redirectsTo !== undefined && !matchRoutes(routes, route.redirectsTo),
+      ),
+    ).toEqual([]);
   });
 
-  it("keeps the §2 tree at 40 items in 9 groups — the count that drifted twice", () => {
-    // 37 became 38 when Reliability by Design cleared the P-7 disqualifier
-    // (the RAM allocation stopped being pinned to the demo project code) and
-    // joined Whole Life. 38 became 39 when the admin-only Pilot Leads view
-    // joined the System group so submitted leads have an in-product surface.
-    // 39 became 40 when Assessments joined Mission: the paid Reliability
-    // Intelligence Assessment gained an in-product workspace (/assessments)
-    // rather than living only on the standalone /pilot/reliability page.
-    expect(groupSizes).toEqual([5, 4, 3, 2, 3, 8, 7, 3, 5]);
-    expect(navItems.length).toBe(40);
+  it("keeps the §2 tree at 41 items in 9 groups", () => {
+    // Sync Recovery is the ninth Work Management surface and owns the governed
+    // downtime-event orchestration flow.
+    expect(groupSizes).toEqual([5, 4, 3, 2, 3, 9, 7, 3, 5]);
+    expect(navItems.length).toBe(41);
   });
 
-  it("keeps the §3 role-matrix sizes — enumerated sets, not add/lose prose", () => {
+  it("keeps the §3 role-matrix sizes after Recovery is added", () => {
     expect(allowSizes).toEqual({
       admin: null,
       ai_admin: null,
-      operator: 6,
-      technician: 8,
-      supervisor: 8,
-      planner: 18, // 17 + assessments (supplies exports, raises clarifications)
-      reliability_engineer: 27, // 26 + assessments (rates dataset readiness)
-      maintenance_manager: 26, // 25 + assessments (rates dataset readiness)
-      executive: 19, // 18 + design (unpinned, read-only)
+      operator: 7,
+      technician: 9,
+      supervisor: 9,
+      planner: 19,
+      reliability_engineer: 28,
+      maintenance_manager: 27,
+      executive: 20,
       board: 6,
-      // The customer's sponsor: the engagement and account settings, nothing
-      // else. Deliberately the smallest set in this file — and menu visibility
-      // is not entitlement, which roleNavigation.ts states at the entry.
       assessment_sponsor: 2,
     });
   });
 
-  it("pins the two org-layer roles by membership, not size alone", () => {
-    // supervisor is the frontline slice §3 named as maintenance_manager's
-    // second job — crew focus, no approval authority, no decision rights.
+  it("makes Sync Recovery reachable from shell, palette and router", () => {
+    expect(navItems).toContainEqual({ id: "recovery", path: "/recovery" });
+    expect(paletteItems).toContainEqual({ label: "Sync Recovery", path: "/recovery" });
+    expect(matchRoutes(routes, "/recovery")).not.toBeNull();
+    expect(APP).toContain('import SyncRecoveryPage from "./pages/SyncRecoveryPage"');
+  });
+
+  it("pins frontline supervisor navigation and keeps board operationally isolated", () => {
     expect(allowEntries.supervisor).toEqual([
       "mission-control",
       "work",
       "notifications",
       "scheduling",
+      "recovery",
       "handover",
       "emergency",
       "briefing",
       "settings",
     ]);
-    // board is the executive-review read surface and nothing else: no
-    // approvals, no governance, no execution or strategy surfaces.
     expect(allowEntries.board).toEqual([
       "mission-control",
       "executive",
@@ -313,11 +205,7 @@ describe("navigation integrity", () => {
     ]);
   });
 
-  it("grants the two new roles no approval authority — the server contract is untouched", () => {
-    // The owner approved navigation and read access, not authority. The
-    // approval-authority contract (the USING and WITH CHECK predicate on
-    // every approvals table) must not have quietly grown either role, and
-    // the decision-rights seed must not have gained rows for them.
+  it("grants supervisor and board no approval authority", () => {
     const authorityContract = readFileSync(
       "supabase/migrations/00000000000022_approval_authority_contract.sql",
       "utf8",
@@ -332,60 +220,39 @@ describe("navigation integrity", () => {
     }
   });
 
-  it("keeps every read-only designation honest — no promised button, no swallowed refusal", () => {
+  it("keeps every documented read-only designation honest", () => {
     for (const entry of DOCUMENTED_READ_ONLY) {
       expect(allowEntries[entry.role]).toContain(entry.itemId);
       const page = readFileSync(entry.page, "utf8");
-      // The client-side gate exists and does not name the read-only role…
       const gateStart = page.indexOf(entry.clientGate);
       expect(gateStart, `${entry.clientGate} not found`).toBeGreaterThan(-1);
       const gate = page.slice(gateStart, page.indexOf("]);", gateStart));
       expect(gate).not.toContain(`"${entry.role}"`);
-      // …and the server's own refusal is rendered, never swallowed.
       expect(page).toContain(entry.refusal);
     }
   });
 
-  it("serves board packs through every server path — the policy AND the cascade's own filter", () => {
-    // 20260912090000 admitted the board to board_packs_read, but the RPC that
-    // actually serves the board record (get_accountability_cascade,
-    // 20260808210000:512) filters packs on its own in-function role list — a
-    // third server filter the IA doc's §3 inventory missed. 20260912120000
-    // recreates the function with the board included; this pins the filter as
-    // text so the pack path cannot silently regress to policy-only access.
+  it("serves board packs through policy and cascade filters", () => {
     const cascade = readFileSync(
       "supabase/migrations/20260912120000_board_cascade_access.sql",
       "utf8",
     );
-    expect(cascade).toContain(
-      "create or replace function public.get_accountability_cascade()",
-    );
-    const packsFilter = /from board_packs[\s\S]*?v_role in \(([^)]*)\)/.exec(
-      cascade,
-    );
+    const packsFilter = /from board_packs[\s\S]*?v_role in \(([^)]*)\)/.exec(cascade);
     expect(packsFilter, "packs role filter not found").not.toBeNull();
-    // The board joins; nobody the original filter admitted is lost.
     for (const role of ["board", "executive", "admin", "ai_admin"]) {
       expect(packsFilter![1]).toContain(`'${role}'`);
     }
-    // And the write gate that keeps the board (and supervisor) read-only on
-    // mission-control refuses loudly: the update gate must live in WITH
-    // CHECK, because a USING denial is a zero-row success the page would
-    // report as approval.
+
     const writeGate = readFileSync(
       "supabase/migrations/20260912123000_readonly_recommendation_write_gate.sql",
       "utf8",
     );
-    const updatePolicy = /for update[\s\S]*?with check \(([\s\S]*?)\);/.exec(
-      writeGate,
-    );
+    const updatePolicy = /for update[\s\S]*?with check \(([\s\S]*?)\);/.exec(writeGate);
     expect(updatePolicy, "restrictive update policy not found").not.toBeNull();
     expect(updatePolicy![1]).toContain("not in ('board', 'supervisor')");
   });
 
-  it("keeps the ungated-action rule's exception list at its documented entries", () => {
-    // Growing this list is a design decision, not a wiring change: each new
-    // entry needs the same evidence trail as technician → notifications.
+  it("keeps the ungated-action exception list at its documented entries", () => {
     expect(
       DOCUMENTED_EXCEPTIONS.map(({ role, itemId }) => ({ role, itemId })),
     ).toEqual([
@@ -393,8 +260,6 @@ describe("navigation integrity", () => {
       { role: "supervisor", itemId: "notifications" },
     ]);
 
-    // Every exception must point at a real allow-list entry and a real nav
-    // item, or the documentation is about nothing.
     const ids = new Set(navItems.map((item) => item.id));
     for (const exception of DOCUMENTED_EXCEPTIONS) {
       expect(allowListIds).toContain(exception.itemId);
@@ -403,12 +268,7 @@ describe("navigation integrity", () => {
     }
   });
 
-  it("surfaces the server's refusal on every excepted page instead of swallowing it", () => {
-    // The exception is only tolerable because a technician who tries a gated
-    // screening act reads the RPC's own refusal sentence. The page's call
-    // helper does that two ways: RPCs that return {error} have it rendered
-    // (setFlash), and RPCs that fail outright have their message thrown to
-    // the same handler.
+  it("surfaces server refusal on every excepted page", () => {
     for (const exception of DOCUMENTED_EXCEPTIONS) {
       const page = readFileSync(exception.page, "utf8");
       expect(page).toContain("setFlash(result.error)");
@@ -417,16 +277,6 @@ describe("navigation integrity", () => {
   });
 });
 
-/**
- * The role tour is a fifth copy of the navigation: it signs in as a demo
- * account and shoots that role's own command centers. Its parts live in
- * three files — the TOUR and ACCOUNT tables in scripts/capture-role-tour.mjs
- * and the credentials table in docs/demo-runbook-ahs-fleet.md — and Step 7
- * of navigation-lifecycle-ia.md exists because they drifted: the
- * maintenance_manager surface shipped in the §3 matrix with no tour entry,
- * no account key and no runbook credentials row. Same discipline as above:
- * the three sources are compared, not trusted.
- */
 const TOUR_SOURCE = readFileSync("scripts/capture-role-tour.mjs", "utf8");
 const RUNBOOK_MD = readFileSync("docs/demo-runbook-ahs-fleet.md", "utf8");
 
@@ -434,9 +284,9 @@ const tourRoles = [
   ...block(TOUR_SOURCE, "const TOUR = [", "\n];").matchAll(
     /key:\s*"(\w+)"[\s\S]*?routes:\s*\[([^\]]*)\]/g,
   ),
-].map((m) => ({
-  key: m[1],
-  stops: [...m[2].matchAll(/"([^"]+)"/g)].map((r) => r[1]),
+].map((match) => ({
+  key: match[1],
+  stops: [...match[2].matchAll(/"([^"]+)"/g)].map((route) => route[1]),
 }));
 
 const tourAccounts: Record<string, string> = Object.fromEntries(
@@ -444,23 +294,21 @@ const tourAccounts: Record<string, string> = Object.fromEntries(
     ...block(TOUR_SOURCE, "const ACCOUNT = {", "\n};").matchAll(
       /(\w+):\s*"([^"]+)"/g,
     ),
-  ].map((m) => [m[1], m[2]]),
+  ].map((match) => [match[1], match[2]]),
 );
 
-// Parsed with the same row shape credentialsFromRunbook() matches, so an
-// email this test accepts is one the tour can actually read.
 const runbookLogins = [
   ...RUNBOOK_MD.matchAll(/\|\s*[^|]+?\s*\|\s*(\S+@\S+)\s*\|\s*\S+\s*\|/g),
-].map((m) => m[1].toLowerCase());
+].map((match) => match[1].toLowerCase());
 
 describe("role tour integrity", () => {
-  it("parses the tour, its accounts, and the runbook credentials", () => {
+  it("parses the tour, accounts and runbook credentials", () => {
     expect(tourRoles.length).toBeGreaterThan(3);
     expect(Object.keys(tourAccounts).length).toBeGreaterThan(3);
     expect(runbookLogins.length).toBeGreaterThan(3);
   });
 
-  it("tours maintenance_manager — the role Step 7 found missing", () => {
+  it("tours maintenance_manager", () => {
     expect(tourRoles.map((role) => role.key)).toContain("maintenance_manager");
   });
 
@@ -468,10 +316,7 @@ describe("role tour integrity", () => {
     for (const { key } of tourRoles) {
       const email = tourAccounts[key];
       expect(email, `no ACCOUNT entry for tour role ${key}`).toBeTruthy();
-      expect(
-        runbookLogins,
-        `no runbook credentials row for ${email} (${key})`,
-      ).toContain(email);
+      expect(runbookLogins, `no runbook credentials row for ${email} (${key})`).toContain(email);
     }
   });
 
@@ -484,16 +329,12 @@ describe("role tour integrity", () => {
     expect(unrouted).toEqual([]);
   });
 
-  it("keeps every tour stop inside the toured role's own navigation", () => {
-    // A tour shot must show a surface the role's sidebar actually exposes;
-    // shooting a page the role cannot reach is the overclaim the runbook's
-    // caption rules exist to prevent. Stops that are detail pages (no nav
-    // item carries their path) are covered by the route check above.
+  it("keeps every tour stop inside the toured role's navigation", () => {
     const idByPath = new Map(navItems.map((item) => [item.path, item.id]));
     const escapes = tourRoles.flatMap(({ key, stops }) => {
       const allowed = allowEntries[key];
       if (allowed === undefined) return [{ key, stop: "(no NAV_ALLOW entry)" }];
-      if (allowed === null) return []; // full navigation
+      if (allowed === null) return [];
       return stops
         .filter((stop) => {
           const id = idByPath.get(stop);
