@@ -1,7 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -v ON_ERROR_STOP=1 <<'SQL'
+# Keep the complete acceptance transcript as CI evidence. The lifecycle is an
+# integration gate, not merely a pass/fail bit: when Postgres refuses a write we
+# need the exact SQLSTATE/message to decide whether the contract or fixture is
+# wrong. Disable errexit only around the pipeline so PIPESTATUS can preserve the
+# real psql exit code after tee writes the artifact.
+set +e
+PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -v ON_ERROR_STOP=1 <<'SQL' 2>&1 | tee /tmp/ria-lifecycle.log
 begin;
 
 -- Synthetic-only acceptance fixture. Everything rolls back.
@@ -259,5 +265,11 @@ end $$;
 reset role;
 rollback;
 SQL
+psql_status=${PIPESTATUS[0]}
+set -e
+if [ "$psql_status" -ne 0 ]; then
+  echo "RIA lifecycle smoke failed with psql exit code $psql_status; transcript: /tmp/ria-lifecycle.log" >&2
+  exit "$psql_status"
+fi
 
 echo "RIA lifecycle smoke passed: lead → activation → evidence → analysis → decision → action → verification → complete"
