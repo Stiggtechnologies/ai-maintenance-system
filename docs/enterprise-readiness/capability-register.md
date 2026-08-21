@@ -687,7 +687,7 @@ Atomic items tracked: **399** — counted programmatically from the tables
 themselves (an earlier hand-stated figure of 307 under-counted, and a later one
 of 397 drifted two rows behind the enumeration; the enumeration never changed,
 only the count of it — which is why the figure is now derived by
-`scripts/register-tally.mjs` and checked in CI). Current tally: ✅ 164 · 🟡 195 · ❌ 40. _(2026-08-07: reconciled after parallel merges — C7.01/03/04/11 reliability engine, C4.13–17 + C6.22 closed-loop tail, C3.01–12 taxonomy, C5.04 scheduler all verified present on main.)_
+`scripts/register-tally.mjs` and checked in CI). Current tally: ✅ 172 · 🟡 197 · ❌ 40. _(2026-08-07: reconciled after parallel merges — C7.01/03/04/11 reliability engine, C4.13–17 + C6.22 closed-loop tail, C3.01–12 taxonomy, C5.04 scheduler all verified present on main.)_
 Every ❌ and 🟡 is an open obligation of the program. No item may be removed;
 items may only change status with linked evidence in the PR that changes them.
 

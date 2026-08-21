@@ -186,6 +186,7 @@ begin
 end;
 $$;
 
+revoke execute on function public.check_recommendation_contract(uuid) from public;
 grant execute on function public.check_recommendation_contract(uuid) to authenticated;
 
 -- ---------------------------------------------------------------------------
@@ -252,6 +253,7 @@ language sql stable security definer set search_path = public as $$
   order by 6, 1;
 $$;
 
+revoke execute on function public.get_recommendation_contract_posture() from public;
 grant execute on function public.get_recommendation_contract_posture() to authenticated;
 
 -- ==========================================================================

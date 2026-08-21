@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
-import { quotaRefusalFromBody } from "../services/agentQuota";
-import { supabasePublicKey, supabaseUrl } from "../lib/supabase-config";
+import { describeQuotaRefusal } from "../services/agentQuota";
 import { useAuth } from "./AuthProvider";
 import { Send, Mic, MicOff, Loader as Loader2, Sparkles } from "lucide-react";
 import { MarkdownRenderer } from "./MarkdownRenderer";
@@ -106,7 +105,6 @@ Ask me anything about your operations, and I'll provide insights based on your r
     setIsProcessing(true);
 
     try {
-      const supabaseKey = supabasePublicKey;
 
       const query = input.toLowerCase();
       let agentType = "CentralCoordinationAgent";
@@ -139,27 +137,29 @@ Ask me anything about your operations, and I'll provide insights based on your r
 
       const contextualQuery = `[User Role: ${orgLevel}. Focus on ${getRoleContext()}]\n\n${input}`;
 
-      const response = await fetch(
-        `${supabaseUrl}/functions/v1/ai-agent-processor`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${supabaseKey}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
+      // Was a raw fetch sending the ANON key as the Authorization bearer. The
+      // anon key is public, so that was not a credential leak — it was a caller
+      // identity bug. `ai-agent-processor` resolves the tenant from
+      // `auth.uid()`, and an anon bearer makes that null, so the call arrived
+      // unattributed and outside the caller's organization scope. Restored
+      // 2026-08-20 rather than deleted (AGENTS.md: the Honesty lane corrects
+      // claims, it does not delete code), so the defect is fixed here instead
+      // of being buried with the file. `functions.invoke` attaches the signed-in
+      // session's access token, which is what every other caller in this repo
+      // does.
+      const { data: result, error: invokeError } =
+        await supabase.functions.invoke("ai-agent-processor", {
+          body: {
             agentType,
             industry: "general",
             query: contextualQuery,
-          }),
-        },
-      );
+          },
+        });
 
-      if (!response.ok) {
+      if (invokeError) {
         // A daily-budget refusal carries its own body (which cap, when it
         // resets); render that instead of "API request failed: 429".
-        const errorBody: unknown = await response.json().catch(() => null);
-        const quota = quotaRefusalFromBody(errorBody);
+        const quota = await describeQuotaRefusal(invokeError);
         if (quota) {
           setMessages((prev) => [
             ...prev,
@@ -167,10 +167,8 @@ Ask me anything about your operations, and I'll provide insights based on your r
           ]);
           return;
         }
-        throw new Error(`API request failed: ${response.status}`);
+        throw invokeError;
       }
-
-      const result = await response.json();
 
       const assistantMessage: ChatMessage = {
         role: "assistant",

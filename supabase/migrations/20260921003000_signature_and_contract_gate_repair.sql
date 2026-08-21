@@ -290,6 +290,7 @@ begin
 end
 $$;
 
+revoke execute on function public.sign_engineering_review(uuid, text) from public;
 grant execute on function public.sign_engineering_review(uuid, text) to authenticated;
 
 -- ---------------------------------------------------------------------------

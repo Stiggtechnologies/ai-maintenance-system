@@ -273,6 +273,22 @@ describe("capability register reachability gate", () => {
    * proof of a capability. This ratchet handles the other half: a new dead
    * surface fails the build on the commit that adds it, when it is one file
    * and one author rather than an archaeology problem.
+   *
+   * 2026-08-20: raised 23 -> 25. NOT new dead surfaces — the RESTORATION of
+   * `UnifiedChatInterface.tsx` and `billing/BillingOverview.tsx`, which an
+   * earlier commit on this branch deleted under an Honesty-lane instruction
+   * that has since been withdrawn (AGENTS.md rule 1: the lane corrects claims,
+   * it does not delete code). Restoring them is the correction, so the ceiling
+   * moves with them rather than the files staying deleted to keep a number
+   * down. `UnifiedChatInterface` was not restored unchanged: it sent the anon
+   * key as its Authorization bearer, which made every call to
+   * `ai-agent-processor` arrive with a null `auth.uid()` and therefore outside
+   * the caller's organization scope. That is now `supabase.functions.invoke`,
+   * which carries the signed-in session token. Deleting the file would have
+   * buried that defect instead of fixing it.
+   *
+   * This number may only ever go DOWN from here by wiring or by a deletion
+   * that names its evidence twice, per AGENTS.md rule 1.
    */
   it("does not grow the set of surfaces no entry point imports", () => {
     const orphans = [...code.files.keys()]
@@ -283,7 +299,7 @@ describe("capability register reachability gate", () => {
     expect(
       orphans.length,
       `dead surfaces:\n  ${orphans.sort().join("\n  ")}`,
-    ).toBeLessThanOrEqual(23);
+    ).toBeLessThanOrEqual(25);
   });
 
   it("exempts nothing without a reason and a date", () => {

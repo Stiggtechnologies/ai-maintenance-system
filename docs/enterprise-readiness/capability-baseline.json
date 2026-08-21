@@ -1951,43 +1951,53 @@
   },
   "U25.01": {
     "status": "🟡",
-    "evidence": true
+    "evidence": true,
+    "citations": 3
   },
   "U25.02": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 4
   },
   "U25.03": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 6
   },
   "U25.04": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 3
   },
   "U25.05": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 2
   },
   "U25.06": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 4
   },
   "U25.07": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 3
   },
   "U25.08": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 2
   },
   "U25.09": {
     "status": "🟡",
-    "evidence": true
+    "evidence": true,
+    "citations": 1
   },
   "U25.10": {
     "status": "✅",
-    "evidence": true
+    "evidence": true,
+    "citations": 2
   },
   "U23.01": {
     "status": "🟡",

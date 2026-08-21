@@ -1,4 +1,12 @@
 # 🧠 RAG Training & Fine-Tuning System
+> **2026-08-20 — HISTORICAL DOCUMENT, SUPERSEDED. Nothing here is production-ready,
+> fully operational, fully implemented or 100% complete.** Sections below assert a
+> shipped state the capability register contradicts. The content is retained because it
+> is useful; it is moved out of the repository root so it is not read as a current
+> statement of fact. Originally `/RAG-TRAINING-GUIDE.md`. Live status:
+> `docs/enterprise-readiness/capability-register.md`, now gated on the cited code being
+> reachable from a customer surface.
+
 ## Microsoft-Style AI Agent Optimization
 
 ## ✅ **FULLY IMPLEMENTED**

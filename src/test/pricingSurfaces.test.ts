@@ -83,21 +83,25 @@ describe("root-level docs cannot assert the unconfirmed tier prices as current",
     );
   });
 
-  it("the deleted status documents stay deleted", () => {
-    // Compensating assertion for relaxing the rule above. These asserted
-    // "100% COMPLETE" / "PRODUCTION-READY" / "FULLY OPERATIONAL" against a
-    // register carrying 40 absent and 190 partial items. Recreating one is a
-    // regression whether or not it mentions a price.
-    const deleted = [
+  it("the over-claiming status documents stay out of the repository root", () => {
+    // Compensating assertion, rewritten 2026-08-20. This used to require the
+    // files be DELETED. That was wrong: it locked in a bulk deletion of 12,927
+    // lines, four of which already carried a correct HISTORICAL banner, and it
+    // made a test the enforcement mechanism for destroying content rather than
+    // for correcting a claim. AGENTS.md now says the Honesty lane corrects
+    // claims and does not delete code.
+    //
+    // The protective intent is unchanged and is what actually mattered: these
+    // asserted "100% COMPLETE" / "PRODUCTION-READY" / "FULLY OPERATIONAL"
+    // against a register carrying 40 absent and 123 partial items, and a reader
+    // in the repository root has no way to know that. Recreating one AT THE ROOT
+    // is the regression. Under docs/archive/ with a dated banner it is history.
+    const mustNotBeAtRoot = [
       "AUTONOMOUS-MVP.md",
-      "BILLING-IMPLEMENTATION.md",
-      "CUSTOMER_INFRASTRUCTURE_ROADMAP.md",
       "FINAL-AUDIT-REPORT.md",
       "ISO-55000-IMPLEMENTATION-SUMMARY.md",
       "JAVIS-COMPLETE-SUMMARY.md",
       "JAVIS-DEPLOYMENT-CHECKLIST.md",
-      "JAVIS-INTERACTIVE-GUIDE.md",
-      "JAVIS-QUICK-REFERENCE.md",
       "MICROSOFT-COPILOT-FEATURES.md",
       "MVP-COMPLETED.md",
       "MVP-COMPLETION-STATUS.md",
@@ -106,10 +110,23 @@ describe("root-level docs cannot assert the unconfirmed tier prices as current",
       "PREMIUM_CUSTOMER_JOURNEY_DEPLOYED.md",
       "PRODUCT_AGENT_SUMMARY.md",
       "PRODUCTION-READY.md",
+      "RAG-TRAINING-GUIDE.md",
       "STATUS-REPORT.md",
       "STRIPE-INTEGRATION-GUIDE.md",
     ];
-    expect(deleted.filter((doc) => existsSync(doc))).toEqual([]);
+    for (const name of mustNotBeAtRoot) {
+      expect(existsSync(name), `${name} must not be at the repository root`).toBe(
+        false,
+      );
+      const archived = `docs/archive/${name}`;
+      expect(existsSync(archived), `${name} must be preserved at ${archived}`).toBe(
+        true,
+      );
+      expect(
+        readFileSync(archived, "utf8").slice(0, 1200),
+        `${archived} must carry the dated HISTORICAL banner`,
+      ).toMatch(/HISTORICAL DOCUMENT/);
+    }
   });
 
   it("no root doc asserts a shipped state the register contradicts", () => {

@@ -1,4 +1,11 @@
 # 🎉 Stripe Native Integration - Complete Implementation Guide
+> **2026-08-20 — HISTORICAL DOCUMENT, SUPERSEDED. Nothing here is production-ready,
+> fully operational, fully implemented or 100% complete.** This file already carried a
+> 2026-08-19 pricing-superseded note; the shipped-state claims in its body were not
+> covered by it. Retained for history, moved out of the repository root. Originally
+> `/STRIPE-INTEGRATION-GUIDE.md`. Live status:
+> `docs/enterprise-readiness/capability-register.md`.
+
 
 > **2026-08-19 — HISTORICAL DOCUMENT, PRICING SUPERSEDED.** The dollar
 > figures below ($4,000 / $9,000 / $18,000 tiers and derived examples) were
