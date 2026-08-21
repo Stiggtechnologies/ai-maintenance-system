@@ -55,6 +55,7 @@ select public.activate_ria_from_intake(
   'SOW-SYNTHETIC-2026-001'
 ) as assessment_id
 \gset
+select set_config('syncai.ria_smoke_assessment_id', :'assessment_id', true);
 
 -- Repeating the same accepted conversion must return the exact same assessment.
 DO $$
@@ -67,7 +68,7 @@ begin
     current_date + 49,
     'SOW-SYNTHETIC-2026-001'
   );
-  if v_again <> :'assessment_id'::uuid then
+  if v_again <> current_setting('syncai.ria_smoke_assessment_id')::uuid then
     raise exception 'RIA lifecycle smoke: activation is not idempotent';
   end if;
 end $$;
@@ -106,6 +107,7 @@ insert into public.ria_data_sources (
   '8a000000-0000-4000-8000-000000000012'
 ) returning id as source_id
 \gset
+select set_config('syncai.ria_smoke_source_id', :'source_id', true);
 
 select public.upsert_ria_baseline_metric(
   :'assessment_id'::uuid,
@@ -140,13 +142,15 @@ select public.create_ria_finding_draft(
   ))
 ) as finding_id
 \gset
+select set_config('syncai.ria_smoke_finding_id', :'finding_id', true);
 
 -- Invalid/foreign evidence must be refused before a definer write can persist it.
 DO $$
 begin
   begin
     perform public.create_ria_finding_draft(
-      :'assessment_id'::uuid, 'Should fail', 'Should fail', 'low', 'low', 'unsupported',
+      current_setting('syncai.ria_smoke_assessment_id')::uuid,
+      'Should fail', 'Should fail', 'low', 'low', 'unsupported',
       'No action',
       jsonb_build_array(jsonb_build_object('data_source_id','ffffffff-ffff-4fff-8fff-ffffffffffff'))
     );
@@ -191,12 +195,15 @@ select public.create_ria_action_draft(
   'Execute under site procedures; no protection-setting or operating-limit changes.'
 ) as action_id
 \gset
+select set_config('syncai.ria_smoke_action_id', :'action_id', true);
 
 -- The high-severity action must stay pending approval and not masquerade as executable.
 DO $$
 declare v_state text;
 begin
-  select approval_state into v_state from public.ria_actions where id = :'action_id'::uuid;
+  select approval_state into v_state
+  from public.ria_actions
+  where id = current_setting('syncai.ria_smoke_action_id')::uuid;
   if v_state <> 'pending' then
     raise exception 'RIA lifecycle smoke: high-severity action did not remain pending approval';
   end if;
@@ -228,20 +235,22 @@ declare
   v_findings integer;
   v_links integer;
   v_verifications integer;
+  v_assessment uuid := current_setting('syncai.ria_smoke_assessment_id')::uuid;
+  v_finding uuid := current_setting('syncai.ria_smoke_finding_id')::uuid;
 begin
-  select status into v_status from public.ria_assessments where id = :'assessment_id'::uuid;
+  select status into v_status from public.ria_assessments where id = v_assessment;
   select ria_assessment_id into v_lead_assessment
     from public.pilot_intake_requests
    where id = '8a000000-0000-4000-8000-000000000020';
   select count(*) into v_findings from public.ria_findings
-    where assessment_id = :'assessment_id'::uuid and review_state = 'published';
+    where assessment_id = v_assessment and review_state = 'published';
   select count(*) into v_links from public.ria_finding_evidence
-    where finding_id = :'finding_id'::uuid;
+    where finding_id = v_finding;
   select count(*) into v_verifications from public.ria_verifications
-    where assessment_id = :'assessment_id'::uuid and status <> 'pending';
+    where assessment_id = v_assessment and status <> 'pending';
 
   if v_status <> 'complete' then raise exception 'RIA lifecycle smoke: assessment did not complete'; end if;
-  if v_lead_assessment <> :'assessment_id'::uuid then raise exception 'RIA lifecycle smoke: lead provenance lost'; end if;
+  if v_lead_assessment <> v_assessment then raise exception 'RIA lifecycle smoke: lead provenance lost'; end if;
   if v_findings <> 1 then raise exception 'RIA lifecycle smoke: published finding missing'; end if;
   if v_links <> 1 then raise exception 'RIA lifecycle smoke: evidence link missing'; end if;
   if v_verifications <> 1 then raise exception 'RIA lifecycle smoke: verification conclusion missing'; end if;
