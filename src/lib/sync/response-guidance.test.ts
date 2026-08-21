@@ -9,6 +9,22 @@ describe("syncResponseGuidance", () => {
     expect(guidance).toContain("Do not launch an unsolicited KPI review");
   });
 
+  it("keeps a standalone capability/help request conversational", () => {
+    expect(syncResponseGuidance("what can you do for me?", false)).toContain(
+      "CONVERSATIONAL",
+    );
+    expect(syncResponseGuidance("help", false)).toContain("CONVERSATIONAL");
+  });
+
+  it("does not make substantive help requests artificially brief", () => {
+    const guidance = syncResponseGuidance(
+      "help me diagnose repeated low lube pressure trips",
+      false,
+    );
+
+    expect(guidance).toContain("ENGINEERING CONVERSATION");
+  });
+
   it("makes normal engineering answers answer-first and avoids repetition", () => {
     const guidance = syncResponseGuidance(
       "what is the highest risk in my operation today?",
