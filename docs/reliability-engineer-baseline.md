@@ -29,19 +29,38 @@ So the enforcing logic runs inside a check that is already required:
 
 The standalone workflow is kept: it is the one that can be dispatched manually for reference capture and live qualification, and its path filter documents the governed surfaces. That filter is asserted against `manifest.protectedPaths` by the ratchet test, so a newly protected file cannot be added to the manifest and forgotten in the trigger.
 
-To make the dedicated job blocking as well, the repository owner (branch protection is an owner-only setting) can run:
+### If the owner also wants the dedicated job to be blocking
+
+Branch protection is an owner-only setting, so this is a recommendation, not something an agent can apply.
+
+**Read this caveat first.** `RE-2026.08 deterministic floor` lives in a workflow with a `paths:` filter. A required status check that never runs is reported as _pending_, not as _passed_ — so making the job required as it stands would block every pull request that does not touch a Reliability Engineer file. Two safe options:
+
+1. **Do nothing.** The gate already runs in `Unit tests`, which is required and unfiltered. This is why the enforcement was put there.
+2. **Make the workflow unconditional first**, by removing the `paths:` filters from the `pull_request` trigger in `.github/workflows/reliability-qualification.yml`, then add the job:
 
 ```bash
-gh api -X PATCH repos/Stiggtechnologies/ai-maintenance-system/branches/main/protection/required_status_checks \
-  -f 'checks[][context]=Lint + Typecheck' \
-  -f 'checks[][context]=Unit tests' \
-  -f 'checks[][context]=Migration chain + seeded auth smoke' \
-  -f 'checks[][context]=Golden-path E2E' \
-  -f 'checks[][context]=RE-2026.08 deterministic floor' \
-  -F strict=true
+gh api -X PATCH \
+  repos/Stiggtechnologies/ai-maintenance-system/branches/main/protection/required_status_checks \
+  --input - <<'JSON'
+{
+  "strict": true,
+  "checks": [
+    { "context": "Lint + Typecheck", "app_id": 15368 },
+    { "context": "Unit tests", "app_id": 15368 },
+    { "context": "Migration chain + seeded auth smoke", "app_id": 15368 },
+    { "context": "Golden-path E2E", "app_id": 15368 },
+    { "context": "RE-2026.08 deterministic floor", "app_id": 15368 }
+  ]
+}
+JSON
 ```
 
-Note that `enforce_admins` is currently `false`, so an admin can bypass all of the above regardless. That is a separate owner decision.
+Separately, `enforce_admins` is currently `false`, so an administrator can bypass every required check above regardless of this setting. Turning it on is a distinct owner decision:
+
+```bash
+gh api -X POST \
+  repos/Stiggtechnologies/ai-maintenance-system/branches/main/protection/enforce_admins
+```
 
 ## What is protected
 
