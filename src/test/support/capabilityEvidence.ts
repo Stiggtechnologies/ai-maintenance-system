@@ -177,7 +177,109 @@ export function loadCorpus(): CodeCorpus {
   return { files, reachable, roots };
 }
 
+/* ───────────────────── reading TypeScript as code, not text ─────────────── */
+
+/**
+ * Blanks comments — and optionally string literals — out of TypeScript.
+ *
+ * WHY. Both judges below used to ask `\bname\b` against the raw file text, so a
+ * single line of prose was indistinguishable from a call site. Appending
+ * `// TODO: wire up assessAlarms later` to any live component made the gate
+ * report `called from 1 reachable module(s)`, and the archetypal dead
+ * capability in this gate's own header — `decide_lifecycle_evaluation`, which
+ * "appears only in a comment at LifecycleDecisionsPage.tsx:6" — would have
+ * passed on the strength of that very comment. A gate defeated by a comment is
+ * a gate that certifies whatever a contributor is willing to type.
+ *
+ * Quote scanning is deliberately line-bounded for `'` and `"`. A regex literal
+ * such as `/['"]/` contains an unpaired quote; letting it open a string would
+ * blank the rest of the file and turn live callers invisible, which fails the
+ * gate CLOSED on real code — the failure mode that gets a gate deleted.
+ */
+export function stripTsSource(
+  text: string,
+  { blankStrings = false }: { blankStrings?: boolean } = {},
+): string {
+  const blank = (span: string) => span.replace(/[^\n]/g, " ");
+  let out = "";
+  let i = 0;
+  while (i < text.length) {
+    const two = text.slice(i, i + 2);
+    if (two === "//") {
+      const nl = text.indexOf("\n", i);
+      const stop = nl === -1 ? text.length : nl;
+      out += blank(text.slice(i, stop));
+      i = stop;
+      continue;
+    }
+    if (two === "/*") {
+      const end = text.indexOf("*/", i + 2);
+      const stop = end === -1 ? text.length : end + 2;
+      out += blank(text.slice(i, stop));
+      i = stop;
+      continue;
+    }
+    const ch = text[i];
+    if (ch === '"' || ch === "'" || ch === "`") {
+      const nl = text.indexOf("\n", i);
+      // Templates may span lines; ordinary quotes may not.
+      const limit = ch === "`" ? text.length : nl === -1 ? text.length : nl;
+      let j = i + 1;
+      let closed = false;
+      while (j < limit) {
+        if (text[j] === "\\") {
+          j += 2;
+          continue;
+        }
+        if (text[j] === ch) {
+          closed = true;
+          break;
+        }
+        j += 1;
+      }
+      if (!closed) {
+        // Not a string at all (regex character class, apostrophe in JSX text).
+        out += ch;
+        i += 1;
+        continue;
+      }
+      out += ch + (blankStrings ? blank(text.slice(i + 1, j)) : text.slice(i + 1, j)) + ch;
+      i = j + 1;
+      continue;
+    }
+    out += ch;
+    i += 1;
+  }
+  return out;
+}
+
+/** `import {x} from "y"` names a symbol without using it; so does a re-export. */
+const IMPORT_CLAUSE =
+  /(?:^|\n)[ \t]*(?:import|export)\b[^;\n]*?\bfrom\s*["'`][^"'`]*["'`][ \t]*;?/g;
+const BARE_REEXPORT = /(?:^|\n)[ \t]*export\s*(?:type\s*)?\{[^}]*\}[ \t]*;?/g;
+
+/**
+ * The part of a module that could actually USE a symbol: no comments, no string
+ * literals, and no import or re-export clause. A barrel that re-exports a
+ * symbol is not a caller of it, and an unused import is not a use.
+ */
+export function usageSurface(text: string): string {
+  return stripTsSource(text, { blankStrings: true })
+    .replace(IMPORT_CLAUSE, "")
+    .replace(BARE_REEXPORT, "");
+}
+
 /* ───────────────────────────── the SQL corpus ───────────────────────────── */
+
+export interface SqlFunctionDef {
+  name: string;
+  file: string;
+  /** Between the closing paren of the signature and the body opener. Carries
+   *  `security definer`, `returns`, `language`, `set search_path`. */
+  header: string;
+  /** The dollar-quoted body, or "" for a function this parser could not split. */
+  body: string;
+}
 
 export interface SqlCorpus {
   /** migration filename → comment-stripped text. */
@@ -186,7 +288,64 @@ export interface SqlCorpus {
   functions: Map<string, string[]>;
   /** table name → migration files creating it. */
   tables: Map<string, string[]>;
+  /**
+   * Every function definition in the chain, WITH ITS BODY.
+   *
+   * The write-path judge used to ask "does this FILE contain both an insert and
+   * the words security definer", then credit the first function declared in
+   * that file that had a caller. In a migration that declares a getter and a
+   * writer — the normal shape — it credited the getter. Six of the nine tables
+   * it passed were passed by a function that does not write them, including one
+   * (`mark_structural_provenance_withdrawn`) that writes a different table
+   * entirely, and one where the only insert is a hardcoded single-tenant seed
+   * sitting at file top level. Bodies make the question answerable.
+   */
+  definitions: SqlFunctionDef[];
+  /** Tables the chain ever puts under row-level security. */
+  rlsEnabled: Set<string>;
 }
+
+const FUNCTION_HEAD =
+  /create\s+(?:or\s+replace\s+)?function\s+(?:public\.)?([a-z_][a-z0-9_]*)\s*\(/gi;
+
+/**
+ * Splits a migration into function definitions and their dollar-quoted bodies.
+ *
+ * Deliberately simple: find each `create function` head, take the first
+ * dollar-quote tag that opens before the NEXT head, and read to its matching
+ * close. A function this fails to split gets `body: ""` and is then treated as
+ * proving nothing, which fails closed.
+ */
+export function parseFunctionDefs(file: string, sql: string): SqlFunctionDef[] {
+  const heads = [...sql.matchAll(FUNCTION_HEAD)];
+  const defs: SqlFunctionDef[] = [];
+  heads.forEach((head, n) => {
+    const from = (head.index ?? 0) + head[0].length;
+    const until = heads[n + 1]?.index ?? sql.length;
+    const opener = /\$([A-Za-z_]*)\$/.exec(sql.slice(from, until));
+    if (!opener) {
+      defs.push({ name: head[1].toLowerCase(), file, header: sql.slice(from, until), body: "" });
+      return;
+    }
+    const tag = opener[0];
+    const bodyStart = from + (opener.index ?? 0) + tag.length;
+    const close = sql.indexOf(tag, bodyStart);
+    defs.push({
+      name: head[1].toLowerCase(),
+      file,
+      header: sql.slice(from, from + (opener.index ?? 0)),
+      body: close === -1 ? "" : sql.slice(bodyStart, close),
+    });
+  });
+  return defs;
+}
+
+/** Does this SQL text write the named table? */
+export const writesTable = (sql: string, table: string): boolean =>
+  new RegExp(
+    `(?:insert\\s+into|update|delete\\s+from|merge\\s+into)\\s+(?:public\\.)?${table}\\b`,
+    "i",
+  ).test(sql);
 
 /** A demo/seed migration is not a customer write path; it is furniture. */
 export const isDemoMigration = (file: string): boolean =>
@@ -202,9 +361,18 @@ export function loadSql(dir = MIGRATIONS_DIR): SqlCorpus {
     map.set(key, list);
   };
 
+  const definitions: SqlFunctionDef[] = [];
+  const rlsEnabled = new Set<string>();
+
   for (const file of migrationFiles(dir)) {
     const sql = stripComments(readFileSync(join(dir, file), "utf8"));
     files.set(file, sql);
+    definitions.push(...parseFunctionDefs(file, sql));
+    for (const m of sql.matchAll(
+      /alter\s+table\s+(?:if\s+exists\s+)?(?:public\.)?([a-z_][a-z0-9_]*)\s+enable\s+row\s+level\s+security/gi,
+    )) {
+      rlsEnabled.add(m[1].toLowerCase());
+    }
     for (const m of sql.matchAll(
       /create\s+(?:or\s+replace\s+)?function\s+(?:public\.)?([a-z_][a-z0-9_]*)\s*\(/gi,
     )) {
@@ -216,7 +384,24 @@ export function loadSql(dir = MIGRATIONS_DIR): SqlCorpus {
       add(tables, m[1].toLowerCase(), file);
     }
   }
-  return { files, functions, tables };
+  return { files, functions, tables, definitions, rlsEnabled };
+}
+
+/** Every definition of a named function, latest in the chain last. */
+export const definitionsOf = (sql: SqlCorpus, name: string): SqlFunctionDef[] =>
+  sql.definitions.filter((d) => d.name === name);
+
+/** The function whose body contains `offset`, or null when at file top level. */
+export function enclosingFunction(
+  sql: SqlCorpus,
+  file: string,
+  needle: RegExp,
+): SqlFunctionDef | null {
+  for (const def of sql.definitions) {
+    if (def.file !== file || def.body === "") continue;
+    if (needle.test(def.body)) return def;
+  }
+  return null;
 }
 
 /* ──────────────────────────── citation extraction ───────────────────────── */
@@ -252,12 +437,37 @@ export interface Extraction {
 }
 
 /**
+ * snake_case tokens sitting in unmarked prose, e.g. "human attestation via
+ * attest_ca_stage (migration ..._ca_effectiveness_loop)". The register's
+ * dominant house style is to name a function WITHOUT backticks: 115 of the 169
+ * ✅ rows contain no backtick at all, and the eight rows naming
+ * `attest_ca_stage`, `evaluate_ca_effectiveness`, `screen_similar_assets`,
+ * `generate_schedule_options`, `get_work_management_health`,
+ * `enforce_segregation_of_duties`, `run_control_audit` and
+ * `trg_snapshot_recommendation_version` were all ✅ and all unenforced for want
+ * of two backticks.
+ *
+ * Worse, C3.12 is ✅ and its own evidence reads "the supersede branch is
+ * unreachable — propose_taxonomy_revision has zero callers". The register
+ * confessed and the gate passed it.
+ *
+ * So prose is mined too — but ONLY for tokens the migration chain actually
+ * declares as a function. That is the same "extract only what resolves" rule
+ * the backticked path uses, and it is what keeps this from guessing: a word
+ * that is not a function in the schema is not promoted to a citation. It also
+ * removes the cheapest evasion there was, which required deleting two
+ * characters and looked like formatting in review.
+ */
+const PROSE_TOKEN = /(?<![`\w.-])([a-z][a-z0-9]*(?:_[a-z0-9]+)+)(?![\w-])/g;
+
+/**
  * Pulls the citable identifiers out of one row's evidence.
  *
- * Only backticked spans are considered. Prose that names a concept without
- * marking it as code ("cascaded through the dependency graph") is not a
- * citation and is not treated as one — inventing an identifier out of prose is
- * exactly the false-positive class that would sink this gate.
+ * Backticked spans are considered first; prose is then mined for snake_case
+ * names the schema declares as functions. Prose that names a concept without
+ * marking it as code ("cascaded through the dependency graph") is still not a
+ * citation — inventing an identifier out of prose is exactly the false-positive
+ * class that would sink this gate.
  */
 export function extractCitations(
   row: RegisterRow,
@@ -324,6 +534,24 @@ export function extractCitations(
       reason: "not identifier-shaped (prose, enum value, CSS class or literal)",
     });
   }
+
+  // Unbackticked prose, functions only. Tables are deliberately NOT mined from
+  // prose: table names are ordinary noun phrases in this domain ("work orders",
+  // "asset populations") and the write-path judge is the expensive one to get
+  // wrong. Function names are not English.
+  const prose = row.evidence.replace(BACKTICKED, " ");
+  for (const m of prose.matchAll(PROSE_TOKEN)) {
+    const bare = m[1];
+    if (seen.has(bare)) continue;
+    seen.add(bare);
+    if (!sql.functions.has(bare)) continue;
+    enforceable.push({
+      id: row.id,
+      raw: bare,
+      name: bare,
+      kind: "sql-function",
+    });
+  }
   return { enforceable, skipped };
 }
 
@@ -362,10 +590,12 @@ export function judgeTsSymbol(
 ): Verdict {
   const definedIn = defs.get(citation.name) ?? [];
   const re = wordRe(citation.name);
+  // `usageSurface` — not the raw text. A comment naming the symbol is not a
+  // caller, and neither is an import that nothing goes on to use.
   const callers = [...code.files]
     .filter(
       ([path, text]) =>
-        !isTestFile(path) && !definedIn.includes(path) && re.test(text),
+        !isTestFile(path) && !definedIn.includes(path) && re.test(usageSurface(text)),
     )
     .map(([path]) => path);
   const liveCallers = callers.filter((c) => code.reachable.has(c));
@@ -387,33 +617,60 @@ export function judgeTsSymbol(
   const testOnly = [...code.files].filter(
     ([path, text]) => isTestFile(path) && re.test(text),
   ).length;
+  const mentionedOnlyInProse = [...code.files]
+    .filter(
+      ([path, text]) =>
+        !isTestFile(path) && !definedIn.includes(path) && re.test(text),
+    )
+    .map(([path]) => path);
   return {
     citation,
     ok: false,
-    detail: `ZERO non-test callers (defined in ${definedIn.join(", ") || "?"}; ${testOnly} test file(s) reference it) — the capability exists only in its own test`,
+    detail:
+      `ZERO non-test callers (defined in ${definedIn.join(", ") || "?"}; ${testOnly} test file(s) reference it) — the capability exists only in its own test` +
+      (mentionedOnlyInProse.length > 0
+        ? `; named only in a comment or import in ${mentionedOnlyInProse.slice(0, 2).join(", ")}`
+        : ""),
   };
 }
 
-/** A cited SQL function needs a caller: an RPC from live code, or a trigger. */
+/**
+ * A cited SQL function needs a caller: an RPC from live code, or a trigger, or
+ * another SQL function that is itself reachable.
+ *
+ * A client invokes a Postgres function by NAME IN A STRING —
+ * `supabase.rpc("sign_engineering_review", …)`. So the TypeScript test is for a
+ * quoted occurrence in code, not a bare word anywhere in the file. That is what
+ * makes it immune to a comment: `sign_engineering_review` previously "passed"
+ * on the strength of a sentence in `MissionControl.tsx` explaining that it used
+ * to have no callers.
+ *
+ * The SQL-caller branch recurses, because a dead function calling another dead
+ * function used to certify both.
+ */
 export function judgeSqlFunction(
   citation: Citation,
   code: CodeCorpus,
   sql: SqlCorpus,
+  seen: Set<string> = new Set(),
 ): Verdict {
   const name = citation.name;
   const definedIn = sql.functions.get(name) ?? [];
-  const re = wordRe(name);
+  if (seen.has(name)) {
+    return { citation, ok: false, detail: `recursive call cycle through ${name}()` };
+  }
+  seen.add(name);
 
+  const quoted = new RegExp(`["'\`]${name}["'\`]`);
   const tsCallers = [...code.files]
-    .filter(([path, text]) => !isTestFile(path) && re.test(text))
+    .filter(
+      ([path, text]) =>
+        !isTestFile(path) && quoted.test(stripTsSource(text)),
+    )
     .map(([path]) => path);
   const liveTs = tsCallers.filter((p) => code.reachable.has(p));
   if (liveTs.length > 0) {
-    return {
-      citation,
-      ok: true,
-      detail: `invoked from ${liveTs[0]}`,
-    };
+    return { citation, ok: true, detail: `invoked from ${liveTs[0]}` };
   }
 
   // A trigger attachment is a caller even with no client ever naming it.
@@ -424,32 +681,56 @@ export function judgeSqlFunction(
     ).test(text),
   );
   if (trigger.length > 0) {
-    return {
-      citation,
-      ok: true,
-      detail: `attached to a trigger in ${trigger[0][0]}`,
-    };
+    return { citation, ok: true, detail: `attached to a trigger in ${trigger[0][0]}` };
   }
 
-  // Called by another SQL function, in a migration that is not its own.
-  const sqlCallers = [...sql.files].filter(
-    ([file, text]) =>
-      !definedIn.includes(file) &&
-      !isDemoMigration(file) &&
-      new RegExp(`\\b${name}\\s*\\(`, "i").test(text),
+  // A pg_cron schedule is a caller too, and for the loop's own producers it is
+  // the ONLY caller by design — `evaluate_ca_effectiveness` is deliberately
+  // revoked from `authenticated` and driven at '15 * * * *'. Missing this would
+  // fail the gate closed on working code, which is how a gate gets deleted.
+  const scheduled = [...sql.files].filter(([, text]) =>
+    new RegExp(
+      `cron\\.schedule\\s*\\([^)]*?['"\`]\\s*select\\s+(?:public\\.)?${name}\\s*\\(`,
+      "is",
+    ).test(text),
   );
-  if (sqlCallers.length > 0) {
-    return {
-      citation,
-      ok: true,
-      detail: `called from SQL in ${sqlCallers[0][0]}`,
-    };
+  if (scheduled.length > 0) {
+    return { citation, ok: true, detail: `scheduled with pg_cron in ${scheduled[0][0]}` };
   }
 
+  // Called from the BODY of another function that is itself reachable. Scoping
+  // this to bodies (not whole files) is what stops a getter in the same
+  // migration from vouching for a writer, and vice versa.
+  const call = new RegExp(`\\b${name}\\s*\\(`, "i");
+  for (const def of sql.definitions) {
+    if (def.name === name || def.body === "" || isDemoMigration(def.file)) continue;
+    if (!call.test(def.body)) continue;
+    const upstream = judgeSqlFunction(
+      { ...citation, name: def.name, kind: "sql-function" },
+      code,
+      sql,
+      seen,
+    );
+    if (upstream.ok) {
+      return {
+        citation,
+        ok: true,
+        detail: `called from ${def.name}() in ${def.file}, which is ${upstream.detail}`,
+      };
+    }
+  }
+
+  const proseOnly = [...code.files].filter(
+    ([path, text]) => !isTestFile(path) && new RegExp(`\\b${name}\\b`).test(text),
+  ).length;
   return {
     citation,
     ok: false,
-    detail: `ZERO callers — defined and granted in ${definedIn.join(", ")}, invoked by nothing; ${tsCallers.length} non-reachable TS mention(s)`,
+    detail:
+      `ZERO callers — defined and granted in ${definedIn.join(", ")}, invoked by nothing` +
+      (proseOnly > 0
+        ? `; ${proseOnly} TypeScript file(s) name it in prose or a comment only`
+        : ""),
   };
 }
 
@@ -464,10 +745,20 @@ const WRITE_COMMANDS = new Set(["all", "insert", "update", "delete"]);
 /**
  * A cited table needs a write path a customer can actually take.
  *
- * SELECT-only policies plus a demo seed is the exact shape that produced 31
+ * SELECT-only policies plus a demo seed is the exact shape that produced the
  * false ✅s: the schema is real, the panel renders, and no user of the product
  * can create the record the row claims they create. `service_role` does not
  * count — the customer does not hold that key.
+ *
+ * Every acceptance below is FUNCTION-SCOPED or POLICY-SCOPED. The first version
+ * asked whether a migration FILE contained an insert and the words
+ * `security definer`, then credited the first function in that file with a
+ * caller. Six of the nine tables it passed were vouched for by a getter, and
+ * `asset_class_aliases` was certified as customer-writable on the strength of a
+ * top-level `do $guard$` block hardcoded to one organisation UUID — the exact
+ * "SELECT-only RLS plus a seed" shape this judge exists to catch, escaping only
+ * because the seed lived inside a feature migration rather than a file with
+ * "demo" in its name.
  */
 export function judgeSqlTable(
   citation: Citation,
@@ -478,21 +769,20 @@ export function judgeSqlTable(
   const table = citation.name;
   const onTable = [...policies.values()].filter((p) => p.table === table);
 
-  if (onTable.length === 0) {
-    // No RLS policy at all: either RLS is off (out of scope for this gate — the
-    // tenancy suite owns that) or the table is not client-facing.
+  if (onTable.length === 0 && !sql.rlsEnabled.has(table)) {
+    // RLS was never switched on, so the table's grants are the only gate and
+    // the tenancy suite owns that question, not this gate.
     return {
       citation,
       ok: true,
-      detail: "no RLS policy resolved; write-path enforcement not applicable",
+      detail: "no row-level security on this table; write-path enforcement not applicable",
     };
   }
 
   const writable = onTable.filter((p) =>
     p.statements.some(
       (s) =>
-        WRITE_COMMANDS.has(policyCommand(s)) &&
-        !/\bto\s+service_role\b/i.test(s),
+        WRITE_COMMANDS.has(policyCommand(s)) && !/\bto\s+service_role\b/i.test(s),
     ),
   );
   if (writable.length > 0) {
@@ -509,73 +799,131 @@ export function judgeSqlTable(
   // otherwise the gate goes red the moment the feature lane fixes the problem.
   for (const [path, text] of code.files) {
     if (isTestFile(path) || !code.reachable.has(path)) continue;
-    for (const m of text.matchAll(
+    const source = stripTsSource(text);
+    for (const m of source.matchAll(
       new RegExp(`from\\(\\s*["'\`]${table}["'\`]\\s*\\)`, "g"),
     )) {
-      const window = text.slice(m.index, m.index + 240);
+      const window = source.slice(m.index, m.index + 240);
       if (/\.(insert|upsert|update|delete)\s*\(/.test(window)) {
         return { citation, ok: true, detail: `written directly from ${path}` };
       }
     }
   }
 
-  // A SECURITY DEFINER function may write on the caller's behalf. It only
-  // counts if something outside a demo seed can invoke it.
-  const writers = [...sql.files].filter(
-    ([file, text]) =>
-      !isDemoMigration(file) &&
-      new RegExp(
-        `(?:insert\\s+into|update)\\s+(?:public\\.)?${table}\\b`,
-        "i",
-      ).test(text) &&
-      /security\s+definer/i.test(text),
-  );
-  for (const [file, text] of writers) {
-    for (const m of text.matchAll(
-      /create\s+(?:or\s+replace\s+)?function\s+(?:public\.)?([a-z_][a-z0-9_]*)\s*\(/gi,
-    )) {
-      const fn = m[1].toLowerCase();
-      const verdict = judgeSqlFunction(
-        { ...citation, name: fn, kind: "sql-function" },
-        code,
-        sql,
-      );
-      if (
-        verdict.ok &&
-        new RegExp(
-          `(?:insert\\s+into|update)\\s+(?:public\\.)?${table}\\b`,
-          "i",
-        ).test(text)
-      ) {
-        return {
-          citation,
-          ok: true,
-          detail: `definer write path via ${fn}() in ${file}`,
-        };
-      }
+  // A SECURITY DEFINER function may write on the caller's behalf. It counts
+  // only when ITS OWN BODY writes this table and something outside a demo seed
+  // can invoke it.
+  for (const def of sql.definitions) {
+    if (isDemoMigration(def.file) || def.body === "") continue;
+    if (!/security\s+definer/i.test(def.header)) continue;
+    if (!writesTable(def.body, table)) continue;
+    const verdict = judgeSqlFunction(
+      { ...citation, name: def.name, kind: "sql-function" },
+      code,
+      sql,
+    );
+    if (verdict.ok) {
+      return {
+        citation,
+        ok: true,
+        detail: `definer write path via ${def.name}() in ${def.file} — ${verdict.detail}`,
+      };
     }
   }
 
+  // Nothing. Say precisely WHAT was found instead, so the failure is a work
+  // item rather than a puzzle.
   const seeded = [...sql.files]
     .filter(
       ([file, text]) =>
         isDemoMigration(file) &&
-        new RegExp(`insert\\s+into\\s+(?:public\\.)?${table}\\b`, "i").test(
-          text,
+        new RegExp(`insert\\s+into\\s+(?:public\\.)?${table}\\b`, "i").test(text),
+    )
+    .map(([file]) => file);
+  const unreachableWriters = sql.definitions
+    .filter((d) => d.body !== "" && writesTable(d.body, table))
+    .map((d) => `${d.name}()`);
+  const topLevelSeed = [...sql.files]
+    .filter(
+      ([file, text]) =>
+        !isDemoMigration(file) &&
+        writesTable(text, table) &&
+        !sql.definitions.some(
+          (d) => d.file === file && d.body !== "" && writesTable(d.body, table),
         ),
     )
     .map(([file]) => file);
+
+  const because =
+    onTable.length === 0
+      ? "row-level security is on and no policy survives the chain"
+      : `${onTable.length} surviving polic(ies), all ${[
+          ...new Set(onTable.flatMap((p) => p.statements.map(policyCommand))),
+        ].join("/")}-only`;
 
   return {
     citation,
     ok: false,
     detail:
-      `NO WRITE PATH — ${onTable.length} surviving polic(ies), all ${[
-        ...new Set(onTable.flatMap((p) => p.statements.map(policyCommand))),
-      ].join("/")}-only; ` +
-      (seeded.length > 0
-        ? `the only rows come from the demo seed ${seeded[0]}`
-        : "and no reachable definer writer"),
+      `NO WRITE PATH — ${because}; ` +
+      (unreachableWriters.length > 0
+        ? `the only writer(s) ${[...new Set(unreachableWriters)].slice(0, 3).join(", ")} are themselves unreachable`
+        : topLevelSeed.length > 0
+          ? `the only rows come from top-level seed statements in ${topLevelSeed[0]}`
+          : seeded.length > 0
+            ? `the only rows come from the demo seed ${seeded[0]}`
+            : "and no reachable definer writer"),
+  };
+}
+
+/**
+ * A cited file must be REACHED, not merely exist.
+ *
+ * `existsSync` was the whole test, so a row citing a 900-line component that no
+ * entry point imports would have passed — and twenty-one such components are
+ * sitting in `src/` right now. A path outside the TypeScript corpus (a
+ * migration, a build script) cannot be import-traced, so it must instead be
+ * referenced by something that runs: package.json, a workflow, or live code.
+ */
+export function judgeFile(citation: Citation, code: CodeCorpus): Verdict {
+  const bare = citation.name.replace(/\/$/, "");
+  const candidates = [
+    bare,
+    `${bare}.ts`,
+    `${bare}.tsx`,
+    `${bare}/index.ts`,
+    `${bare}/index.tsx`,
+  ];
+  const inCorpus = candidates.find((c) => code.files.has(c));
+  if (inCorpus) {
+    return {
+      citation,
+      ok: code.reachable.has(inCorpus),
+      detail: code.reachable.has(inCorpus)
+        ? `${inCorpus} is imported from an entry point`
+        : `${inCorpus} exists but no entry point imports it — the file is dead`,
+    };
+  }
+  if (!existsSync(bare)) {
+    return { citation, ok: false, detail: "no such file in the repo" };
+  }
+  // Outside src/ and supabase/functions: prove something invokes it.
+  const invokers = ["package.json", ".github/workflows", "supabase/config.toml"]
+    .flatMap((root) =>
+      existsSync(root)
+        ? statSync(root).isDirectory()
+          ? readdirSync(root).map((f) => join(root, f))
+          : [root]
+        : [],
+    )
+    .filter((f) => statSync(f).isFile() && readFileSync(f, "utf8").includes(bare));
+  return {
+    citation,
+    ok: invokers.length > 0,
+    detail:
+      invokers.length > 0
+        ? `outside the import graph but invoked by ${invokers[0]}`
+        : "outside the import graph and invoked by no script, workflow or module",
   };
 }
 

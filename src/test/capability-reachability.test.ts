@@ -41,6 +41,7 @@ import {
   EXEMPTIONS,
   extractCitations,
   indexTsSymbols,
+  judgeFile,
   judgeSqlFunction,
   judgeSqlTable,
   judgeTsSymbol,
@@ -81,13 +82,7 @@ const judge = (c: Citation): Verdict => {
     case "sql-table":
       return judgeSqlTable(c, code, sql, policies);
     case "file":
-      return {
-        citation: c,
-        ok: !code.files.has(c.name) || code.reachable.has(c.name),
-        detail: code.reachable.has(c.name)
-          ? "imported from an entry point"
-          : "file exists but no entry point imports it",
-      };
+      return judgeFile(c, code);
   }
 };
 
@@ -124,10 +119,24 @@ describe("capability register reachability gate", () => {
     };
     console.log("[reachability gate] " + JSON.stringify(summary, null, 2));
 
-    // Floors sit just below today's numbers: honest register growth must not
-    // break the build, but a COLLAPSE in reach must.
-    expect(summary.rowsWithAnEnforceableCitation).toBeGreaterThanOrEqual(90);
-    expect(summary.citationsEnforced).toBeGreaterThanOrEqual(125);
+    // Floors sit AT today's numbers, not below them.
+    //
+    // They used to sit below, and the slack was the hole: with 95 rows
+    // enforceable against a floor of 90, five ✅ rows could be de-cited — two
+    // characters each, indistinguishable from a formatting tidy in review —
+    // and the suite stayed green while a fifth of the gate's ✅ scope
+    // disappeared. `claimedRowsEnforced` was computed, logged, and never
+    // asserted at all, so de-citing all 25 would have driven it to zero with
+    // every other assertion still passing.
+    //
+    // Lowering one of these is therefore a deliberate act that shows up in the
+    // diff, which is the same bargain `register:accept` strikes for a status
+    // downgrade. Surgical de-citation of a single row is caught earlier and
+    // more precisely, by the per-row citation ratchet in
+    // `scripts/register-baseline.mjs`.
+    expect(summary.rowsWithAnEnforceableCitation).toBeGreaterThanOrEqual(132);
+    expect(summary.citationsEnforced).toBeGreaterThanOrEqual(191);
+    expect(summary.claimedRowsEnforced).toBeGreaterThanOrEqual(33);
   });
 
   it("every ✅ row citing a symbol has a non-test caller", () => {
@@ -172,6 +181,73 @@ describe("capability register reachability gate", () => {
     expect(live.ok, live.detail).toBe(true);
   });
 
+  /**
+   * The three evasions a review actually found, pinned so they stay closed.
+   *
+   * Each was demonstrated against the first version of this gate: a one-line
+   * comment made a dead symbol pass; a getter in the same migration vouched for
+   * a table it does not write; and an existence check passed a file no entry
+   * point imports. None of the three looks like an attack in a diff — two of
+   * them look like documentation.
+   */
+  it("is not fooled by a comment, a getter, or a file that merely exists", () => {
+    // 1. A COMMENT IS NOT A CALLER. `decide_lifecycle_evaluation` appears in
+    //    the app only inside a comment at LifecycleDecisionsPage.tsx — the
+    //    archetypal dead capability named in this gate's own header. The first
+    //    version of the gate would have passed it on that comment.
+    const commentOnly = judge({
+      id: "Z9.97",
+      raw: "decide_lifecycle_evaluation",
+      name: "decide_lifecycle_evaluation",
+      kind: "sql-function",
+    });
+    expect(commentOnly.ok, commentOnly.detail).toBe(false);
+    expect(commentOnly.detail).toMatch(/prose or a comment only/);
+
+    // 2. A GETTER DOES NOT VOUCH FOR A WRITER. `get_dependency_coverage()` is a
+    //    read-only function declared in the same migration as the real writer;
+    //    the file-scoped judge credited it for `asset_dependencies`. Body
+    //    scoping must now attribute the write to the function that performs it.
+    const written = judge({
+      id: "Z9.96",
+      raw: "asset_dependencies",
+      name: "asset_dependencies",
+      kind: "sql-table",
+    });
+    expect(written.ok, written.detail).toBe(true);
+    expect(
+      written.detail,
+      "the write must be attributed to the function whose body performs it",
+    ).toMatch(/review_dependency_candidate/);
+
+    // 3. EXISTENCE IS NOT REACHABILITY. Twenty-one components under src/ are
+    //    imported by nothing; a row citing one must not pass on `existsSync`.
+    const orphan = judge({
+      id: "Z9.95",
+      raw: "src/components/CommandCenterDashboard.tsx",
+      name: "src/components/CommandCenterDashboard.tsx",
+      kind: "file",
+    });
+    expect(orphan.ok, orphan.detail).toBe(false);
+  });
+
+  /**
+   * A pg_cron schedule is the ONLY caller of several loop producers by design —
+   * `evaluate_ca_effectiveness` is explicitly revoked from `authenticated` and
+   * driven at '15 * * * *'. Tightening the symbol judges briefly failed this
+   * one closed, which is the failure mode that gets a gate deleted rather than
+   * fixed, so the case is pinned.
+   */
+  it("counts a pg_cron schedule as a caller", () => {
+    const cron = judge({
+      id: "Z9.94",
+      raw: "evaluate_ca_effectiveness",
+      name: "evaluate_ca_effectiveness",
+      kind: "sql-function",
+    });
+    expect(cron.ok, cron.detail).toBe(true);
+  });
+
   it("exempts nothing without a reason and a date", () => {
     for (const e of EXEMPTIONS) {
       expect(e.key, "exemption key must be <ID>:<citation>").toMatch(
@@ -184,6 +260,17 @@ describe("capability register reachability gate", () => {
       expect(e.granted, `${e.key} needs an ISO date`).toMatch(
         /^\d{4}-\d{2}-\d{2}$/,
       );
+      // The date was format-checked only, so `1999-01-01` passed and an
+      // exemption could outlive the reason it was granted for. An exemption is
+      // a deferral, not a decision: after a year it must be re-argued or the
+      // underlying gap fixed.
+      const ageDays =
+        (Date.now() - Date.parse(e.granted)) / (1000 * 60 * 60 * 24);
+      expect(
+        ageDays,
+        `${e.key} was exempted on ${e.granted} — re-argue it or fix the gap`,
+      ).toBeLessThan(366);
+      expect(ageDays, `${e.key} is dated in the future`).toBeGreaterThan(-1);
     }
   });
 });
