@@ -45,6 +45,7 @@ import {
   judgeSqlFunction,
   judgeSqlTable,
   judgeTsSymbol,
+  isTestFile,
   loadCorpus,
   loadSql,
   parseRegister,
@@ -246,6 +247,43 @@ describe("capability register reachability gate", () => {
       kind: "sql-function",
     });
     expect(cron.ok, cron.detail).toBe(true);
+  });
+
+  /**
+   * The unreachable surface area, ratcheted.
+   *
+   * Twenty-three components and pages under src/ are imported by no entry point.
+   * Several carry exactly the fabrications this branch deleted from the live
+   * ones — `CommandCenterDashboard` renders
+   * `<FinancialImpactWidget savings={1200000} interventions={17} />` and a
+   * hardcoded "System Health 94%"; `DecisionLogs` holds a literal decision log
+   * quoting "92% confidence" and "$25K".
+   *
+   * They are NOT deleted here, and that is a deliberate call rather than an
+   * oversight. They are unreachable, so no user sees those numbers, which puts
+   * them below every reachable fabrication in priority; one of them
+   * (`ReliabilityEngineerPage`) belongs to a feature restoration two commits
+   * behind this branch's base and deleting it would quietly undo somebody's
+   * work in progress; and a 23-file, ~7,000-line deletion is a blast radius
+   * this repair pass has no mandate for while another agent is working in the
+   * same tree.
+   *
+   * What they must not do is GROW, or become evidence. `judgeFile` above now
+   * refuses a register citation to any of them, so none can be offered as
+   * proof of a capability. This ratchet handles the other half: a new dead
+   * surface fails the build on the commit that adds it, when it is one file
+   * and one author rather than an archaeology problem.
+   */
+  it("does not grow the set of surfaces no entry point imports", () => {
+    const orphans = [...code.files.keys()]
+      .filter((f) => !isTestFile(f) && !code.reachable.has(f))
+      .filter(
+        (f) => f.startsWith("src/components/") || f.startsWith("src/pages/"),
+      );
+    expect(
+      orphans.length,
+      `dead surfaces:\n  ${orphans.sort().join("\n  ")}`,
+    ).toBeLessThanOrEqual(23);
   });
 
   it("exempts nothing without a reason and a date", () => {

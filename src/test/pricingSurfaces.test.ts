@@ -116,15 +116,30 @@ describe("root-level docs cannot assert the unconfirmed tier prices as current",
     // The vocabulary that made those files diligence-room liabilities.
     const overclaim =
       /100%\s*complete|production[- ]ready|fully operational|fully implemented/i;
-    const offenders = rootDocs.filter((doc) => {
+    // Negations that make a paragraph a DISCLOSURE rather than a claim.
+    const negated =
+      /\bnot\b[^.]{0,40}(?:100%\s*complete|production[- ]ready|fully operational|fully implemented)|(?:100%\s*complete|production[- ]ready|fully operational|fully implemented)[^.]{0,20}\bis not\b/i;
+
+    const offenders = rootDocs.flatMap((doc) => {
       const text = readFileSync(doc, "utf8");
-      // The engineering contracts discuss the vocabulary rather than claim
-      // it, and a doc whose own heading enumerates what is NOT ready has
-      // earned the phrase — README.md's "Not yet production-ready" section is
-      // the opposite of an over-claim. Both are structural, not exemptions.
-      if (["AGENTS.md", "CLAUDE.md"].includes(doc)) return false;
-      if (/not yet production[- ]ready/i.test(text)) return false;
-      return overclaim.test(text);
+      // The engineering contracts discuss the vocabulary rather than claim it.
+      if (["AGENTS.md", "CLAUDE.md"].includes(doc)) return [];
+      // SCOPED TO THE SECTION, not the document. This used to be
+      // `if (/not yet production-ready/.test(text)) return false` — one
+      // qualifying sentence anywhere in a file exempted every over-claim in
+      // the rest of it, which is a document-wide opt-out written as a nuance.
+      // A doc that says "not yet production-ready" in its intro and "fully
+      // operational" in section 9 is exactly the artifact this scan exists to
+      // catch.
+      //
+      // The section is the right unit rather than the paragraph: README's
+      // "## Not yet production-ready" heading governs a bullet list whose
+      // items ("production-ready enterprise SSO") read as claims only when cut
+      // off from the heading that negates them.
+      return text
+        .split(/\n(?=#{1,6}\s)/)
+        .filter((section) => overclaim.test(section) && !negated.test(section))
+        .map((section) => `${doc}: ${section.trim().slice(0, 90)}`);
     });
     expect(offenders).toEqual([]);
   });

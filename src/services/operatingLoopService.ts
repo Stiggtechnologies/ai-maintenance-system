@@ -394,16 +394,36 @@ export async function getMissionControl(): Promise<MissionControlData> {
           100,
       )
     : 100;
-  const operationalRisk = assets.length
+  /**
+   * `assets.risk_score` and `assets.health_score` are written by exactly one
+   * thing in the whole chain: 00000000000004_demo_seed.sql:75. No importer, no
+   * RPC and no surface sets either. So on a real customer import both columns
+   * are 0 for every asset — and `100 - 0` is 100, the best possible operational
+   * risk score, produced from no data at all. A wrong answer is bad; a
+   * REASSURING wrong answer computed from an empty column is the same failure
+   * that got `asset_risk_index` refused rather than defaulted in
+   * 20260921002000, and it was left running here.
+   *
+   * An all-zero column means UNSCORED, not risk-free. An unscored factor is
+   * dropped from the readiness average rather than scored, so it neither
+   * flatters the result nor invents a penalty.
+   */
+  const riskScored = assets.some((a) => (a.risk_score ?? 0) > 0);
+  const healthScored = assets.some((a) => (a.health_score ?? 0) > 0);
+  const operationalRisk = riskScored
     ? 100 - avg(assets.map((a) => a.risk_score))
-    : 100;
+    : null;
 
   const factors: MissionReadinessFactor[] = [
-    {
-      label: "Asset Health",
-      score: assetHealth,
-      trend: assetHealth >= 85 ? "up" : "down",
-    },
+    ...(healthScored
+      ? [
+          {
+            label: "Asset Health",
+            score: assetHealth,
+            trend: (assetHealth >= 85 ? "up" : "down") as "up" | "down",
+          },
+        ]
+      : []),
     {
       label: "Maintenance Readiness",
       score: maintenanceReadiness,
@@ -415,11 +435,15 @@ export async function getMissionControl(): Promise<MissionControlData> {
       trend: partsReady >= 85 ? "up" : "down",
     },
     { label: "Safety Controls", score: safetyControls, trend: "stable" },
-    {
-      label: "Operational Risk",
-      score: operationalRisk,
-      trend: operationalRisk >= 70 ? "up" : "down",
-    },
+    ...(operationalRisk === null
+      ? []
+      : [
+          {
+            label: "Operational Risk",
+            score: operationalRisk,
+            trend: (operationalRisk >= 70 ? "up" : "down") as "up" | "down",
+          },
+        ]),
   ];
 
   const readinessScore = avg(factors.map((f) => f.score));

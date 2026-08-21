@@ -231,11 +231,17 @@ async function loadReadiness(): Promise<ReadinessData> {
           ok: criticalStatusAssets.length === 0,
         },
         {
+          // An all-zero risk column means nobody has scored the fleet, not that
+          // the fleet is safe. `avg < 45` turned that into a green tick:
+          // nothing writes assets.risk_score outside the demo seed, so a real
+          // import scored 0 and this gate passed on no data.
           label: "Average risk score",
-          value: assets.length
+          value: assets.some((a) => (a.risk_score ?? 0) > 0)
             ? `${avg(assets.map((a) => a.risk_score))}`
-            : "—",
-          ok: assets.length > 0 && avg(assets.map((a) => a.risk_score)) < 45,
+            : "not scored",
+          ok:
+            assets.some((a) => (a.risk_score ?? 0) > 0) &&
+            avg(assets.map((a) => a.risk_score)) < 45,
         },
       ],
     },

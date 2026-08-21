@@ -24,7 +24,7 @@ import {
   EmptyState,
 } from "../components/ui/AsyncStates";
 
-type AutonomyMode = "Human-Led" | "Human-in-the-Loop" | "Autonomous";
+type AutonomyMode = "Human-Led" | "Human-in-the-Loop" | "Controlled";
 type AgentStatus = "active" | "idle" | "processing" | "waiting";
 
 interface Agent {
@@ -43,10 +43,20 @@ interface Agent {
   icon: React.ElementType;
 }
 
+/**
+ * `controlled` used to render as "Autonomous", which made this page contradict
+ * itself: three seeded agents are `autonomy_mode='controlled'`, so the header
+ * read "3 Autonomous" and a stat tile read "Autonomous: 3" — directly above a
+ * footer stating "Autonomous execution is not enabled". An agent operating
+ * under controls is by definition not operating autonomously, and the label
+ * asserted exactly the capability the `'Autonomous (< $5K)'` seed string was
+ * deleted for asserting. The schema's own vocabulary is advisory | conditional
+ * | controlled; the third is now shown as what it is.
+ */
 const AUTONOMY_MAP: Record<string, AutonomyMode> = {
   advisory: "Human-Led",
   conditional: "Human-in-the-Loop",
-  controlled: "Autonomous",
+  controlled: "Controlled",
 };
 const STATUS_MAP: Record<string, AgentStatus> = {
   active: "active",
@@ -122,7 +132,7 @@ const statusConfig: Record<
 const autonomyColors: Record<AutonomyMode, string> = {
   "Human-Led": "text-slate-400 bg-slate-500/10 border-slate-500/20",
   "Human-in-the-Loop": "text-amber-400 bg-amber-500/10 border-amber-500/20",
-  Autonomous: "text-teal-400 bg-teal-500/10 border-teal-500/20",
+  Controlled: "text-teal-400 bg-teal-500/10 border-teal-500/20",
 };
 
 function AgentCard({ agent }: { agent: Agent }) {
@@ -258,7 +268,7 @@ export function AIWorkforce() {
     processing: agents.filter((a) => a.status === "processing").length,
     idle: agents.filter((a) => a.status === "idle").length,
     total: agents.length,
-    autonomous: agents.filter((a) => a.autonomyMode === "Autonomous").length,
+    controlled: agents.filter((a) => a.autonomyMode === "Controlled").length,
     // Counted, not asserted. The header used to read "15 specialized agents"
     // and the footer "445 recommendations / 319 actions" — three literals
     // typed into JSX, true only of the demo seed and true of no customer.
@@ -289,7 +299,7 @@ export function AIWorkforce() {
             {counts.active + counts.processing} Active
           </div>
           <div className="flex items-center gap-1.5 px-3 py-1.5 bg-white/4 border border-white/8 rounded-lg text-xs text-slate-400">
-            {counts.autonomous} Autonomous
+            {counts.controlled} Controlled
           </div>
         </div>
       </div>
@@ -301,7 +311,7 @@ export function AIWorkforce() {
           { label: "Active", value: counts.active, color: "teal" },
           { label: "Processing", value: counts.processing, color: "blue" },
           { label: "Idle", value: counts.idle, color: "slate" },
-          { label: "Autonomous", value: counts.autonomous, color: "teal" },
+          { label: "Controlled", value: counts.controlled, color: "teal" },
         ].map((s) => (
           <div
             key={s.label}
@@ -334,7 +344,7 @@ export function AIWorkforce() {
           </button>
         ))}
         <span className="text-xs text-slate-400 ml-4">Autonomy:</span>
-        {(["all", "Human-Led", "Human-in-the-Loop", "Autonomous"] as const).map(
+        {(["all", "Human-Led", "Human-in-the-Loop", "Controlled"] as const).map(
           (f) => (
             <button
               key={f}

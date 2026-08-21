@@ -437,7 +437,7 @@
   "C5.24": {
     "status": "🟡",
     "evidence": true,
-    "citations": 2
+    "citations": 5
   },
   "C6.01": {
     "status": "🟡",
@@ -690,9 +690,9 @@
     "citations": 0
   },
   "C8.11": {
-    "status": "✅",
-    "evidence": false,
-    "citations": 0
+    "status": "🟡",
+    "evidence": true,
+    "citations": 2
   },
   "C8.12": {
     "status": "✅",
@@ -967,7 +967,7 @@
   "E4.06": {
     "status": "🟡",
     "evidence": true,
-    "citations": 2
+    "citations": 5
   },
   "E4.07": {
     "status": "🟡",
