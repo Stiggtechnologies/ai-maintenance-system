@@ -90,6 +90,22 @@ jobs:
             and p.proname in ('app_current_org', 'list_ria_activation_organizations')
           order by p.proname;
 
+          select pg_get_functiondef('public.list_ria_activation_organizations()'::regprocedure)
+            as deployed_list_ria_activation_organizations;
+
+          DO $$
+          declare
+            v_count integer;
+          begin
+            begin
+              select count(*) into v_count
+              from public.list_ria_activation_organizations();
+              raise warning 'RIA session diagnostic: directory RPC admitted caller and returned % organizations', v_count;
+            exception when others then
+              raise warning 'RIA session diagnostic: directory RPC refused caller (SQLSTATE %, message %)', sqlstate, sqlerrm;
+            end;
+          end $$;
+
           rollback;
           SQL
 
