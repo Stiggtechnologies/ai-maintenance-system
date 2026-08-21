@@ -215,6 +215,47 @@ describe("engineering signature provenance", () => {
     expect(trigger?.body).toMatch(/service caller|service \(/i);
   });
 
+  /**
+   * HOW MUCH "unforgeable" IS ACTUALLY WORTH — disclosed, and ratcheted.
+   *
+   * The discipline E4.06 verifies is `reliability_engineer`, which is also the
+   * SCHEMA DEFAULT for `user_profiles.role` (00000000000001:40), and all four
+   * seeded `engineering_approval_rules` require exactly that role. Two live
+   * paths hand it out without anybody deciding to:
+   *
+   *   * `20260918090000_self_signup_evaluation_workspace.sql` maps every
+   *     UNRECOGNISED `requested_role` to 'reliability_engineer', and
+   *     `raw_user_meta_data` is client-supplied at signup;
+   *   * `supabase/functions/marketplace-resolve/index.ts` inserts a profile on
+   *     the service key OMITTING `role`, so the column default applies.
+   *
+   * This is within-tenant, so it is not a cross-tenant hole, and it is not
+   * repaired here: choosing which role a self-signup evaluator receives is a
+   * product decision on a live authentication path, not a repair. But it bounds
+   * the control — most accounts satisfy the discipline check by default — so it
+   * is stated rather than left for the next reviewer to rediscover, and the
+   * count is pinned so a THIRD such path fails the build.
+   */
+  it("discloses every path that grants the signing discipline by default", () => {
+    const granters = chain
+      .filter(
+        ({ sql }) =>
+          /role\s+text\s+default\s+'reliability_engineer'/i.test(sql) ||
+          /else\s+'reliability_engineer'/i.test(sql),
+      )
+      .map(({ file }) => file);
+    expect(granters.sort()).toEqual([
+      "00000000000001_operating_loop_baseline.sql",
+      "20260918090000_self_signup_evaluation_workspace.sql",
+    ]);
+
+    // The rules all name the same discipline, which is why the default matters.
+    const rules = chain.find((c) =>
+      /insert\s+into\s+engineering_approval_rules/i.test(c.sql),
+    );
+    expect(rules?.sql).toMatch(/reliability_engineer/);
+  });
+
   it("is the only thing in the chain that writes a signature column", () => {
     // A second writer inside the schema re-opens the hole where no policy is
     // looking. The trigger's own assignments and the RPC's update are the
