@@ -147,6 +147,17 @@ function orgParameterSurface(): FunctionDef[] {
   );
 }
 
+/**
+ * Platform-level functions that intentionally accept a target organization.
+ *
+ * These are not exempt from tenancy review. They are exempt ONLY from the
+ * normal "replace the argument with app_current_org()" shape, because their
+ * product purpose is explicitly cross-tenant. Every name here must have its
+ * own stronger contract test below. Keeping the set literal means a second
+ * platform-cross-tenant function cannot appear without changing this file.
+ */
+const PLATFORM_CROSS_TENANT = new Set(["activate_ria_from_intake"]);
+
 // ---------------------------------------------------------------------------
 
 describe("the resolver sees a real chain", () => {
@@ -170,16 +181,25 @@ describe("the resolver sees a real chain", () => {
   });
 });
 
-describe("no function lets a signed-in caller name another tenant", () => {
-  it("finds the surface by scanning, and it is not empty", () => {
+describe("no function lets a signed-in caller name another tenant without explicit platform authority", () => {
+  it("finds the full surface by scanning, including the reviewed platform exception", () => {
     const names = orgParameterSurface()
       .map((d) => d.name)
       .sort();
     expect(names).toEqual([
+      "activate_ria_from_intake",
       "explain_kb_exclusions",
       "get_pm_due_count",
       "retrieve_kb_context",
     ]);
+  });
+
+  it("the platform-cross-tenant exception list is exact and cannot grow silently", () => {
+    const discovered = orgParameterSurface()
+      .filter((d) => !SESSION_GATE.test(d.body))
+      .map((d) => d.name)
+      .sort();
+    expect(discovered).toEqual([...PLATFORM_CROSS_TENANT].sort());
   });
 
   it.each(["get_pm_due_count", "retrieve_kb_context", "explain_kb_exclusions"])(
@@ -192,13 +212,28 @@ describe("no function lets a signed-in caller name another tenant", () => {
     },
   );
 
-  it("every function on the scanned surface carries the gate", () => {
-    // The property, stated once over whatever the scan finds — so a fourth
-    // function added later is caught without editing the list above.
+  it("every normal tenant-scoped function on the scanned surface carries the session gate", () => {
     const ungated = orgParameterSurface()
+      .filter((d) => !PLATFORM_CROSS_TENANT.has(d.name))
       .filter((d) => !SESSION_GATE.test(d.body))
       .map((d) => `${d.name} (${d.file})`);
     expect(ungated).toEqual([]);
+  });
+
+  it("activate_ria_from_intake has a stronger, explicit platform boundary", () => {
+    const def = defs.get("activate_ria_from_intake");
+    expect(def).toBeDefined();
+    const body = (def as FunctionDef).body.toLowerCase();
+
+    expect(body).toContain("auth.uid() is null");
+    expect(body).toContain("v_role not in ('admin', 'ai_admin')");
+    expect(body).toContain(
+      "v_role = 'admin' and p_organization_id is distinct from v_current_org",
+    );
+    expect(body).toContain("target organization does not exist");
+    expect(body).toContain("for update");
+    expect(body).toContain("p_acceptance_reference");
+    expect(body).not.toMatch(/insert\s+into\s+(public\.)?organizations\b/);
   });
 
   it("the gate is on the session, never on the profile", () => {

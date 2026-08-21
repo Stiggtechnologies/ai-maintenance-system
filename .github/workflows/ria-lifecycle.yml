@@ -1,0 +1,127 @@
+name: RIA governed lifecycle
+
+on:
+  pull_request:
+    paths:
+      - 'supabase/migrations/**ria**'
+      - 'scripts/ci-ria-lifecycle-smoke.sh'
+      - 'src/services/riaAuthoring*'
+      - 'src/components/assessment/**'
+      - 'src/pages/AssessmentHomePage.tsx'
+      - 'src/pages/PilotLeads*'
+  push:
+    branches: [main]
+    paths:
+      - 'supabase/migrations/**ria**'
+      - 'scripts/ci-ria-lifecycle-smoke.sh'
+
+concurrency:
+  group: ria-lifecycle-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lifecycle:
+    name: Commercial → verification smoke
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: supabase/setup-cli@v2
+        with:
+          version: 2.84.2
+          github-token: ${{ github.token }}
+
+      - name: Prepare clean local Supabase state
+        run: supabase stop --all --no-backup || true
+
+      - name: Start full migration chain
+        run: bash scripts/ci-start-supabase.sh /tmp/ria-supabase-start.log /tmp/ria-supabase-diagnostics.txt
+
+      - name: Governed RIA lifecycle
+        run: bash scripts/ci-ria-lifecycle-smoke.sh
+
+      - name: Diagnose lifecycle session identity
+        if: failure()
+        run: |
+          PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -v ON_ERROR_STOP=1 <<'SQL' 2>&1 | tee /tmp/ria-session-diagnostics.log
+          begin;
+
+          insert into public.user_profiles (id, organization_id, email, full_name, role)
+          values (
+            '8a000000-0000-4000-8000-000000000010',
+            '11111111-1111-1111-1111-111111111111',
+            'ria-platform-admin@example.invalid',
+            'RIA Platform Admin',
+            'ai_admin'
+          )
+          on conflict (id) do update
+          set organization_id = excluded.organization_id,
+              role = excluded.role,
+              email = excluded.email,
+              full_name = excluded.full_name;
+
+          set local role authenticated;
+          select set_config('request.jwt.claim.sub', '8a000000-0000-4000-8000-000000000010', true);
+          select set_config(
+            'request.jwt.claims',
+            json_build_object('sub','8a000000-0000-4000-8000-000000000010','role','authenticated')::text,
+            true
+          );
+
+          select
+            current_user,
+            session_user,
+            auth.uid() as auth_uid,
+            current_setting('request.jwt.claim.sub', true) as claim_sub,
+            current_setting('request.jwt.claims', true) as claims,
+            public.app_current_org() as app_current_org;
+
+          select id, organization_id, role, email
+          from public.user_profiles
+          where id = auth.uid();
+
+          select
+            p.oid::regprocedure as function_name,
+            pg_get_userbyid(p.proowner) as function_owner,
+            p.prosecdef as security_definer
+          from pg_proc p
+          join pg_namespace n on n.oid = p.pronamespace
+          where n.nspname = 'public'
+            and p.proname in ('app_current_org', 'list_ria_activation_organizations')
+          order by p.proname;
+
+          select pg_get_functiondef('public.list_ria_activation_organizations()'::regprocedure)
+            as deployed_list_ria_activation_organizations;
+
+          DO $$
+          declare
+            v_count integer;
+          begin
+            begin
+              select count(*) into v_count
+              from public.list_ria_activation_organizations();
+              raise warning 'RIA session diagnostic: directory RPC admitted caller and returned % organizations', v_count;
+            exception when others then
+              raise warning 'RIA session diagnostic: directory RPC refused caller (SQLSTATE %, message %)', sqlstate, sqlerrm;
+            end;
+          end $$;
+
+          rollback;
+          SQL
+
+      - name: Upload lifecycle evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ria-lifecycle-evidence
+          path: |
+            /tmp/ria-lifecycle.log
+            /tmp/ria-session-diagnostics.log
+            /tmp/ria-supabase-start.log
+            /tmp/ria-supabase-diagnostics.txt
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Stop Supabase
+        if: always()
+        run: supabase stop --no-backup || true
