@@ -99,6 +99,7 @@ export const REQUIRED_QUALITY_DIMENSIONS: readonly string[];
 export const REQUIRED_BASELINE_ID: string;
 export const REQUIRED_PROMPT_VERSION: string;
 export const MINIMUM_CASE_COUNT: number;
+export const MINIMUM_PROTECTED_PATH_COUNT: number;
 export const REQUIRED_CASE_IDS: readonly string[];
 export const REQUIRED_CASE_FINGERPRINTS: Readonly<Record<string, string>>;
 export const JUDGE_MUST_BE_INDEPENDENT: boolean;

@@ -50,6 +50,7 @@ import {
   MANIFEST_PATH,
   MAXIMUM_ALLOWANCES,
   MINIMUM_CASE_COUNT,
+  MINIMUM_PROTECTED_PATH_COUNT,
   MINIMUM_RELEASE_THRESHOLDS,
   PROMPT_SURFACE_ENTRYPOINTS,
   PROTECTED_DATABASE_OBJECTS,
@@ -124,6 +125,21 @@ function yamlBlock(source: string, key: string, indent: number): string {
   return out.join("\n");
 }
 
+/**
+ * Comments are prose, not enforcement.
+ *
+ * A first pass at these assertions was satisfied by the COMMENT explaining
+ * that `npm run test` runs the gate — so moving the real step into a
+ * `continue-on-error` job left every assertion green. Anything asserted about
+ * a required check has to be asserted about a command that executes.
+ */
+function withoutComments(block: string): string {
+  return block
+    .split("\n")
+    .filter((line) => !line.trimStart().startsWith("#"))
+    .join("\n");
+}
+
 function yamlList(block: string): string[] {
   return block
     .split("\n")
@@ -143,6 +159,9 @@ describe("RE-2026.08 floor is irreducible (H1)", () => {
     expect(REQUIRED_BASELINE_ID).toBe("RE-2026.08");
     expect(REQUIRED_PROMPT_VERSION).toBe("syncai-reliability-engineer-v4");
     expect(MINIMUM_CASE_COUNT).toBe(30);
+    // Independent literal, and load-bearing: dropping a single entrypoint from
+    // the hardcoded list evicts everything only that entrypoint reached.
+    expect(MINIMUM_PROTECTED_PATH_COUNT).toBe(22);
 
     expect(MINIMUM_RELEASE_THRESHOLDS.pairwiseWinOrTieRate).toBe(0.9);
     expect(MINIMUM_RELEASE_THRESHOLDS.evidenceGapRecognition).toBe(0.95);
@@ -247,6 +266,9 @@ describe("RE-2026.08 floor is irreducible (H1)", () => {
 
   it("accepts the shipped manifest", () => {
     expect(collectFloorFailures(manifest, suite)).toEqual([]);
+    expect((manifest.protectedPaths ?? []).length).toBeGreaterThanOrEqual(
+      MINIMUM_PROTECTED_PATH_COUNT,
+    );
   });
 
   it("rejects every way the manifest could be loosened", () => {
@@ -313,6 +335,13 @@ describe("RE-2026.08 floor is irreducible (H1)", () => {
         );
       }).join(" "),
     ).toContain("reliability-engineer-core.ts");
+
+    // Shrinking the protected set below the count floor.
+    expect(
+      weaken((draft) => {
+        draft.protectedPaths = (draft.protectedPaths as unknown[]).slice(0, 20);
+      }).join(" "),
+    ).toContain("the floor is 22");
 
     // Dropping the minimum case count.
     expect(
@@ -467,7 +496,7 @@ describe("the gate runs inside a required status check (H3)", () => {
   // assertions make removing it fail the check it was removed from.
   const ci = readRepoFile(".github/workflows/ci.yml");
   const ciJobs = yamlBlock(ci, "jobs", 0);
-  const unitJob = yamlBlock(ciJobs, "vitest", 2);
+  const unitJob = withoutComments(yamlBlock(ciJobs, "vitest", 2));
 
   it("parses the Unit tests job as a job, not as a text slice", () => {
     // Structural, because a `continue-on-error: true` job inserted between the
@@ -481,7 +510,26 @@ describe("the gate runs inside a required status check (H3)", () => {
   });
 
   it("the Unit tests job runs the baseline gate", () => {
-    expect(unitJob).toContain("node scripts/check-reliability-baseline.mjs");
+    // Two independent mechanisms, either of which is sufficient, and the job
+    // must have at least one of them as an EXECUTED command rather than as a
+    // comment about one. `npm run test` is proven to invoke the gate by the
+    // package.json assertion below and by src/test/reliabilityGuardPresence.ts,
+    // which throws in every test file if that wiring is removed.
+    const commands = unitJob
+      .split("\n")
+      .filter((line) => line.includes("run:"))
+      .map((line) => line.slice(line.indexOf("run:") + 4).trim());
+    const runsGateDirectly = commands.some((command) =>
+      command.includes("node scripts/check-reliability-baseline.mjs"),
+    );
+    const runsGateViaNpm = commands.some((command) => command === "npm run test");
+    expect(
+      runsGateDirectly || runsGateViaNpm,
+      `Unit tests job commands: ${JSON.stringify(commands)}`,
+    ).toBe(true);
+    // Both, today. Losing one is allowed; losing both is not.
+    expect(runsGateDirectly).toBe(true);
+    expect(runsGateViaNpm).toBe(true);
   });
 
   it("the Unit tests job checks out enough history for the gate to diff", () => {

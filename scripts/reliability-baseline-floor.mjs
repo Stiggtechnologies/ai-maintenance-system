@@ -183,6 +183,17 @@ export const REQUIRED_QUALITY_DIMENSIONS = Object.freeze([
   "communication",
 ]);
 
+/**
+ * A count floor, on top of the named entrypoints.
+ *
+ * Dropping ONE entrypoint from the hardcoded list silently evicts everything
+ * only that entrypoint reached — one deleted line de-protecting five files was
+ * measured. The named-entrypoint check catches the deleted line; this catches
+ * the eviction, so the accepted "two-file floor edit" residual costs a third
+ * visible edit whose only possible purpose is shrinking the protected set.
+ */
+export const MINIMUM_PROTECTED_PATH_COUNT = 22;
+
 export const REQUIRED_BASELINE_ID = "RE-2026.08";
 export const REQUIRED_PROMPT_VERSION = "syncai-reliability-engineer-v4";
 export const MINIMUM_CASE_COUNT = 30;
@@ -769,6 +780,11 @@ export function collectFloorFailures(manifest, suite) {
   const declaredPaths = Array.isArray(manifest?.protectedPaths)
     ? manifest.protectedPaths
     : [];
+  if (declaredPaths.length < MINIMUM_PROTECTED_PATH_COUNT) {
+    failures.push(
+      `manifest.protectedPaths holds ${declaredPaths.length} entries; the floor is ${MINIMUM_PROTECTED_PATH_COUNT}. The set may only be ratcheted wider. If a module was legitimately merged into another, lower this count in scripts/reliability-baseline-floor.mjs and in src/test/reliabilityBaselineRatchet.test.ts and say why in the PR body.`,
+    );
+  }
   const declaredPathSet = new Set(declaredPaths.map((entry) => entry?.path));
   const declaredTier = new Map(
     declaredPaths.map((entry) => [entry?.path, entry?.tier]),
