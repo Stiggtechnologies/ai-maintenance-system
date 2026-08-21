@@ -27,6 +27,7 @@ describe("MarkdownRenderer", () => {
     const li = container.querySelector("li");
     expect(li).toBeInTheDocument();
     expect(li?.textContent).toBe("item one");
+    expect(li).toHaveClass("marker:text-slate-500");
   });
 
   it("renders engineering headings and comparison tables semantically", () => {
@@ -47,5 +48,20 @@ describe("MarkdownRenderer", () => {
     ).toBeInTheDocument();
     expect(container.querySelectorAll("tbody tr")).toHaveLength(2);
     expect(screen.getByText("False indication")).toBeInTheDocument();
+
+    const tableRegion = screen.getByRole("region", { name: "Response table" });
+    expect(tableRegion).toHaveClass("overflow-x-auto");
+    expect(container.querySelector("table")).toHaveClass("min-w-full");
+    expect(container.querySelector("th")).toHaveClass("min-w-40");
+  });
+
+  it("gives long-form paragraphs a readable measure and line height", () => {
+    const { container } = render(
+      <MarkdownRenderer content="A decision-relevant engineering paragraph." />,
+    );
+    const paragraph = container.querySelector("p");
+
+    expect(paragraph).toHaveClass("max-w-[78ch]");
+    expect(paragraph).toHaveClass("leading-[1.72]");
   });
 });
