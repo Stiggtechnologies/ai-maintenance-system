@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { AuthShell } from "../components/AuthShell";
+import { PasswordField } from "../components/PasswordField";
 import { ArrowUpRight, KeyRound, LockKeyhole } from "lucide-react";
 import { signIn } from "../lib/auth";
 import { readDecisionCaseHandoff } from "../lib/decision-case";
@@ -28,6 +29,7 @@ export function Login({ onSuccess, onTabChange }: LoginProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
+  const [confirmNewPassword, setConfirmNewPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -139,9 +141,19 @@ export function Login({ onSuccess, onTabChange }: LoginProps) {
 
   const handlePasswordUpdate = async (event: React.FormEvent) => {
     event.preventDefault();
-    setLoading(true);
     setError("");
     setNotice("");
+
+    if (newPassword.length < 12) {
+      setError("Password must be at least 12 characters long.");
+      return;
+    }
+    if (newPassword !== confirmNewPassword) {
+      setError("The passwords do not match.");
+      return;
+    }
+
+    setLoading(true);
     const { error: updateError } = await supabase.auth.updateUser({
       password: newPassword,
     });
@@ -153,6 +165,9 @@ export function Login({ onSuccess, onTabChange }: LoginProps) {
     setRecoveryMode(false);
     await onSuccess();
   };
+
+  const recoveryPasswordsMatch =
+    confirmNewPassword.length > 0 && newPassword === confirmNewPassword;
 
   return (
     <AuthShell journey={journey}>
@@ -186,17 +201,51 @@ export function Login({ onSuccess, onTabChange }: LoginProps) {
               >
                 New password
               </label>
-              <input
+              <PasswordField
                 id="new-password"
-                type="password"
+                visibilityName="new password"
                 value={newPassword}
                 onChange={(event) => setNewPassword(event.target.value)}
                 autoComplete="new-password"
                 minLength={12}
                 className="w-full px-4 py-3 bg-overlook-void/60 border border-overlook-rule rounded-lg text-overlook-paper placeholder-overlook-haze focus:outline-hidden focus:border-signal-cyan/70 focus:ring-1 focus:ring-signal-cyan/50 transition-colors"
+                toggleClassName="text-overlook-haze hover:text-signal-cyan"
                 placeholder="At least 12 characters"
                 required
               />
+            </div>
+
+            <div>
+              <label
+                htmlFor="confirm-new-password"
+                className="block text-sm font-medium text-industrial-text mb-2"
+              >
+                Confirm new password
+              </label>
+              <PasswordField
+                id="confirm-new-password"
+                visibilityName="confirmed password"
+                value={confirmNewPassword}
+                onChange={(event) => setConfirmNewPassword(event.target.value)}
+                autoComplete="new-password"
+                minLength={12}
+                className="w-full px-4 py-3 bg-overlook-void/60 border border-overlook-rule rounded-lg text-overlook-paper placeholder-overlook-haze focus:outline-hidden focus:border-signal-cyan/70 focus:ring-1 focus:ring-signal-cyan/50 transition-colors"
+                toggleClassName="text-overlook-haze hover:text-signal-cyan"
+                placeholder="Re-enter your password"
+                required
+              />
+              {confirmNewPassword.length > 0 && (
+                <p
+                  aria-live="polite"
+                  className={`mt-2 text-xs ${
+                    recoveryPasswordsMatch ? "text-emerald-400" : "text-red-400"
+                  }`}
+                >
+                  {recoveryPasswordsMatch
+                    ? "Passwords match."
+                    : "Passwords do not match."}
+                </p>
+              )}
             </div>
 
             {error && (
@@ -207,7 +256,9 @@ export function Login({ onSuccess, onTabChange }: LoginProps) {
 
             <button
               type="submit"
-              disabled={loading || newPassword.length < 12}
+              disabled={
+                loading || newPassword.length < 12 || !recoveryPasswordsMatch
+              }
               className="w-full py-3 px-4 bg-signal-gold hover:bg-signal-gold-soft text-overlook-void font-semibold tracking-wide rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? "Updating…" : "Update password and continue"}
@@ -292,13 +343,13 @@ export function Login({ onSuccess, onTabChange }: LoginProps) {
                   Forgot password?
                 </button>
               </div>
-              <input
+              <PasswordField
                 id="password"
-                type="password"
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
                 autoComplete="current-password"
                 className="w-full px-4 py-3 bg-overlook-void/60 border border-overlook-rule rounded-lg text-overlook-paper placeholder-overlook-haze focus:outline-hidden focus:border-signal-cyan/70 focus:ring-1 focus:ring-signal-cyan/50 transition-colors"
+                toggleClassName="text-overlook-haze hover:text-signal-cyan"
                 placeholder="••••••••"
                 required
               />
