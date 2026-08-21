@@ -36,14 +36,8 @@ function sse(chunks: Array<Record<string, unknown>>): Response {
 }
 
 const chunks = [
-  {
-    model: "gpt-real",
-    choices: [{ delta: { content: "Hello " } }],
-  },
-  {
-    model: "gpt-real",
-    choices: [{ delta: { content: "world" } }],
-  },
+  { model: "gpt-real", choices: [{ delta: { content: "Hello " } }] },
+  { model: "gpt-real", choices: [{ delta: { content: "world" } }] },
   {
     model: "gpt-real",
     choices: [],
@@ -97,6 +91,49 @@ describe("callWithResilienceStream", () => {
     expect(result.provider).toBe("openai-direct");
     expect(hits).toEqual(["gateway.example", "api.openai.com"]);
     expect(result.events[0].outcome).toBe("failed_over");
+  });
+
+  it("refuses provider failover after any visible delta", async () => {
+    const encoder = new TextEncoder();
+    const hits: string[] = [];
+    const deltas: string[] = [];
+    const result = await callWithResilienceStream(
+      async (url) => {
+        hits.push(new URL(url).hostname);
+        if (!url.includes("gateway.example")) return sse(chunks);
+        let pulled = false;
+        return new Response(
+          new ReadableStream<Uint8Array>({
+            pull(controller) {
+              if (!pulled) {
+                pulled = true;
+                controller.enqueue(
+                  encoder.encode(
+                    `data: ${JSON.stringify({ choices: [{ delta: { content: "partial" } }] })}\n\n`,
+                  ),
+                );
+                return;
+              }
+              controller.error(new Error("socket reset"));
+            },
+          }),
+          { status: 200 },
+        );
+      },
+      [gateway, openai],
+      {
+        systemPrompt: "s",
+        userContent: "u",
+        attemptsPerProvider: 1,
+        onDelta: (text) => deltas.push(text),
+      },
+    );
+
+    expect(result.ok).toBe(false);
+    expect(result.content).toBe("partial");
+    expect(deltas).toEqual(["partial"]);
+    expect(hits).toEqual(["gateway.example"]);
+    expect(result.events.at(-1)?.detail).toMatch(/failover refused/i);
   });
 
   it("negotiates an unsupported stream_options parameter on the same provider", async () => {
