@@ -92,7 +92,7 @@
     "evidence": true
   },
   "C2.08": {
-    "status": "✅",
+    "status": "🟡",
     "evidence": true
   },
   "C2.09": {
@@ -592,7 +592,7 @@
     "evidence": true
   },
   "C8.21": {
-    "status": "✅",
+    "status": "🟡",
     "evidence": true
   },
   "C8.22": {
@@ -660,23 +660,23 @@
     "evidence": false
   },
   "E1.06": {
-    "status": "✅",
+    "status": "🟡",
     "evidence": true
   },
   "E2.01": {
-    "status": "✅",
+    "status": "🟡",
     "evidence": true
   },
   "E2.02": {
-    "status": "✅",
+    "status": "🟡",
     "evidence": true
   },
   "E2.03": {
-    "status": "✅",
+    "status": "🟡",
     "evidence": true
   },
   "E2.04": {
-    "status": "✅",
+    "status": "🟡",
     "evidence": true
   },
   "E2.05": {
@@ -684,7 +684,7 @@
     "evidence": true
   },
   "E2.06": {
-    "status": "✅",
+    "status": "🟡",
     "evidence": true
   },
   "E2.07": {
@@ -692,7 +692,7 @@
     "evidence": true
   },
   "E2.08": {
-    "status": "✅",
+    "status": "🟡",
     "evidence": true
   },
   "E2.09": {
@@ -700,15 +700,15 @@
     "evidence": true
   },
   "E2.10": {
-    "status": "✅",
+    "status": "🟡",
     "evidence": true
   },
   "E2.11": {
-    "status": "✅",
+    "status": "🟡",
     "evidence": true
   },
   "E2.12": {
-    "status": "✅",
+    "status": "🟡",
     "evidence": true
   },
   "E2.13": {
@@ -808,7 +808,7 @@
     "evidence": false
   },
   "E5.03": {
-    "status": "✅",
+    "status": "🟡",
     "evidence": true
   },
   "E5.04": {
@@ -824,11 +824,11 @@
     "evidence": false
   },
   "E5.07": {
-    "status": "✅",
+    "status": "🟡",
     "evidence": true
   },
   "E5.08": {
-    "status": "✅",
+    "status": "🟡",
     "evidence": true
   },
   "E5.09": {
@@ -836,11 +836,11 @@
     "evidence": true
   },
   "E5.10": {
-    "status": "✅",
+    "status": "🟡",
     "evidence": true
   },
   "E5.11": {
-    "status": "✅",
+    "status": "🟡",
     "evidence": true
   },
   "E5.12": {
@@ -852,7 +852,7 @@
     "evidence": false
   },
   "E5.14": {
-    "status": "✅",
+    "status": "🟡",
     "evidence": true
   },
   "E5.15": {
@@ -864,23 +864,23 @@
     "evidence": false
   },
   "E6.01": {
-    "status": "✅",
+    "status": "🟡",
     "evidence": true
   },
   "E6.02": {
-    "status": "✅",
+    "status": "🟡",
     "evidence": true
   },
   "E6.03": {
-    "status": "✅",
+    "status": "🟡",
     "evidence": true
   },
   "E6.04": {
-    "status": "✅",
+    "status": "🟡",
     "evidence": true
   },
   "E6.05": {
-    "status": "✅",
+    "status": "🟡",
     "evidence": true
   },
   "E6.06": {
@@ -888,15 +888,15 @@
     "evidence": true
   },
   "E6.07": {
-    "status": "✅",
+    "status": "🟡",
     "evidence": true
   },
   "E6.08": {
-    "status": "✅",
+    "status": "🟡",
     "evidence": true
   },
   "E6.09": {
-    "status": "✅",
+    "status": "🟡",
     "evidence": true
   },
   "E6.10": {
@@ -904,11 +904,11 @@
     "evidence": true
   },
   "E6.11": {
-    "status": "✅",
+    "status": "🟡",
     "evidence": true
   },
   "E6.12": {
-    "status": "✅",
+    "status": "🟡",
     "evidence": true
   },
   "E6.13": {
@@ -916,15 +916,15 @@
     "evidence": true
   },
   "E6.14": {
-    "status": "✅",
+    "status": "🟡",
     "evidence": true
   },
   "E7.01": {
-    "status": "✅",
+    "status": "🟡",
     "evidence": true
   },
   "E7.02": {
-    "status": "✅",
+    "status": "🟡",
     "evidence": true
   },
   "E7.03": {
@@ -944,7 +944,7 @@
     "evidence": true
   },
   "E7.07": {
-    "status": "✅",
+    "status": "🟡",
     "evidence": true
   },
   "E7.08": {
@@ -952,7 +952,7 @@
     "evidence": true
   },
   "E7.09": {
-    "status": "✅",
+    "status": "🟡",
     "evidence": true
   },
   "E7.10": {
@@ -960,11 +960,11 @@
     "evidence": true
   },
   "E7.11": {
-    "status": "✅",
+    "status": "🟡",
     "evidence": true
   },
   "E7.12": {
-    "status": "✅",
+    "status": "🟡",
     "evidence": true
   },
   "E7.13": {
@@ -976,7 +976,7 @@
     "evidence": true
   },
   "E8.01": {
-    "status": "✅",
+    "status": "🟡",
     "evidence": true
   },
   "E8.02": {
@@ -984,7 +984,7 @@
     "evidence": true
   },
   "E8.03": {
-    "status": "✅",
+    "status": "🟡",
     "evidence": true
   },
   "E8.04": {
@@ -996,7 +996,7 @@
     "evidence": true
   },
   "E8.06": {
-    "status": "✅",
+    "status": "🟡",
     "evidence": true
   },
   "E8.07": {
@@ -1008,7 +1008,7 @@
     "evidence": true
   },
   "E8.09": {
-    "status": "✅",
+    "status": "🟡",
     "evidence": true
   },
   "E8.10": {
@@ -1020,11 +1020,11 @@
     "evidence": true
   },
   "E8.12": {
-    "status": "✅",
+    "status": "🟡",
     "evidence": true
   },
   "E8.13": {
-    "status": "✅",
+    "status": "🟡",
     "evidence": true
   },
   "E8.14": {
@@ -1032,7 +1032,7 @@
     "evidence": true
   },
   "E9.01": {
-    "status": "✅",
+    "status": "🟡",
     "evidence": true
   },
   "E9.02": {
@@ -1044,7 +1044,7 @@
     "evidence": true
   },
   "E9.04": {
-    "status": "✅",
+    "status": "🟡",
     "evidence": true
   },
   "E9.05": {
@@ -1056,11 +1056,11 @@
     "evidence": true
   },
   "E9.07": {
-    "status": "✅",
+    "status": "🟡",
     "evidence": true
   },
   "E9.08": {
-    "status": "✅",
+    "status": "🟡",
     "evidence": true
   },
   "E9.09": {
@@ -1072,7 +1072,7 @@
     "evidence": false
   },
   "E9.11": {
-    "status": "✅",
+    "status": "🟡",
     "evidence": true
   },
   "E9.12": {
@@ -1080,7 +1080,7 @@
     "evidence": false
   },
   "E10.01": {
-    "status": "✅",
+    "status": "🟡",
     "evidence": true
   },
   "E10.02": {
@@ -1104,11 +1104,11 @@
     "evidence": true
   },
   "E10.07": {
-    "status": "✅",
+    "status": "🟡",
     "evidence": true
   },
   "E10.08": {
-    "status": "✅",
+    "status": "🟡",
     "evidence": true
   },
   "E10.09": {
@@ -1124,11 +1124,11 @@
     "evidence": true
   },
   "E11.01": {
-    "status": "✅",
+    "status": "🟡",
     "evidence": true
   },
   "E11.02": {
-    "status": "✅",
+    "status": "🟡",
     "evidence": true
   },
   "E11.03": {
@@ -1168,7 +1168,7 @@
     "evidence": true
   },
   "E11.12": {
-    "status": "✅",
+    "status": "🟡",
     "evidence": true
   },
   "E12.01": {
@@ -1176,15 +1176,15 @@
     "evidence": true
   },
   "E12.02": {
-    "status": "✅",
+    "status": "🟡",
     "evidence": true
   },
   "E12.03": {
-    "status": "✅",
+    "status": "🟡",
     "evidence": true
   },
   "E12.04": {
-    "status": "✅",
+    "status": "🟡",
     "evidence": true
   },
   "E12.05": {
@@ -1192,7 +1192,7 @@
     "evidence": true
   },
   "E12.06": {
-    "status": "✅",
+    "status": "🟡",
     "evidence": true
   },
   "E12.07": {
@@ -1212,7 +1212,7 @@
     "evidence": false
   },
   "E12.11": {
-    "status": "✅",
+    "status": "🟡",
     "evidence": true
   },
   "E12.12": {
@@ -1220,7 +1220,7 @@
     "evidence": true
   },
   "E12.13": {
-    "status": "✅",
+    "status": "🟡",
     "evidence": true
   },
   "E12.14": {
@@ -1264,7 +1264,7 @@
     "evidence": true
   },
   "U2.08": {
-    "status": "✅",
+    "status": "🟡",
     "evidence": true
   },
   "U2.09": {
@@ -1280,15 +1280,15 @@
     "evidence": false
   },
   "U3.03": {
-    "status": "✅",
+    "status": "🟡",
     "evidence": true
   },
   "U3.04": {
-    "status": "✅",
+    "status": "🟡",
     "evidence": true
   },
   "U3.05": {
-    "status": "✅",
+    "status": "🟡",
     "evidence": true
   },
   "U3.06": {
@@ -1320,7 +1320,7 @@
     "evidence": true
   },
   "U3.13": {
-    "status": "✅",
+    "status": "🟡",
     "evidence": true
   },
   "U3.14": {
@@ -1448,7 +1448,7 @@
     "evidence": true
   },
   "U7.04": {
-    "status": "✅",
+    "status": "🟡",
     "evidence": true
   },
   "U7.05": {
@@ -1460,15 +1460,15 @@
     "evidence": true
   },
   "U7.07": {
-    "status": "✅",
+    "status": "🟡",
     "evidence": true
   },
   "U7.08": {
-    "status": "✅",
+    "status": "🟡",
     "evidence": true
   },
   "U7.09": {
-    "status": "✅",
+    "status": "🟡",
     "evidence": true
   },
   "U7.10": {
@@ -1476,7 +1476,7 @@
     "evidence": true
   },
   "U7.11": {
-    "status": "✅",
+    "status": "🟡",
     "evidence": true
   },
   "U8.01": {
