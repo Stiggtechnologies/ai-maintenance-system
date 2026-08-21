@@ -90,7 +90,10 @@ describe("every tenant surface that calls ai-agent-processor renders the refusal
   it.each([
     ["src/components/CopilotDock.tsx", "describeQuotaRefusal"],
     ["src/pages/WorkOrderDetailPage.tsx", "describeQuotaRefusal"],
-    ["src/components/UnifiedChatInterface.tsx", "quotaRefusalFromBody"],
+    // UnifiedChatInterface.tsx was the third entry. It was deleted in the
+    // honesty pass: no module imported it, so no tenant could reach it, and
+    // it sent the anon key as its own Authorization header — a surface that
+    // authenticated as "any visitor" while appearing to be a signed-in chat.
   ])("%s consumes the quota body via %s", (path, helper) => {
     const source = readFileSync(path, "utf8");
     expect(source).toContain(helper);

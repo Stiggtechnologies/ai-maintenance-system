@@ -882,13 +882,20 @@ begin
           end if;
           conf := 'low';
           lineage := jsonb_build_object('source', 'scheduled-work completion proxy — refine with PM plan feed');
+        -- cost_of_downtime and asset_risk_index are REFUSED here, not
+        -- computed. 20260921002000 marks both non-computable and says why;
+        -- these branches are left as an explicit null so that flipping the
+        -- catalog flag back on cannot silently resurrect the fabrication.
+        --   cost_of_downtime multiplied downtime hours by a hardcoded
+        --   $10,000/h while its own lineage promised "set site rate to
+        --   refine" — a rate that could not be set anywhere.
+        --   asset_risk_index averaged assets.risk_score, which NOTHING in
+        --   this repository writes: the demo figures are hand-typed and a
+        --   real import leaves the column 0.
         when 'cost_of_downtime' then
-          v := round(m.downtime_hours_30d * 10000, 0); conf := 'low';
-          lineage := jsonb_build_object('source', 'closeout downtime hours (30d) × $10k/h assumed rate — set site rate to refine',
-            'downtime_hours', m.downtime_hours_30d);
+          v := null;
         when 'asset_risk_index' then
-          v := m.risk_index; conf := 'high';
-          lineage := jsonb_build_object('source', 'assets.risk_score (org avg)');
+          v := null;
         when 'critical_control_compliance' then
           if m.controls_total > 0 then v := round(100.0 * m.controls_ok / m.controls_total, 1);
           else v := 100; conf := 'low'; end if;

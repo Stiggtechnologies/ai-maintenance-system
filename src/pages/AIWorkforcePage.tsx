@@ -259,6 +259,14 @@ export function AIWorkforce() {
     idle: agents.filter((a) => a.status === "idle").length,
     total: agents.length,
     autonomous: agents.filter((a) => a.autonomyMode === "Autonomous").length,
+    // Counted, not asserted. The header used to read "15 specialized agents"
+    // and the footer "445 recommendations / 319 actions" — three literals
+    // typed into JSX, true only of the demo seed and true of no customer.
+    recommendations: agents.reduce(
+      (n, a) => n + (a.recommendationsGenerated ?? 0),
+      0,
+    ),
+    executed: agents.reduce((n, a) => n + (a.actionsExecuted ?? 0), 0),
   };
 
   return (
@@ -270,7 +278,9 @@ export function AIWorkforce() {
             AI Workforce
           </h1>
           <p className="text-sm text-slate-400 mt-0.5">
-            15 specialized agents · Your digital M&R department
+            {counts.total} specialized{" "}
+            {counts.total === 1 ? "agent" : "agents"} · Your digital M&R
+            department
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -377,15 +387,15 @@ export function AIWorkforce() {
             AI Workforce Active
           </div>
           <p className="text-xs text-slate-400 mt-1 leading-relaxed">
-            SyncAI's 15 specialized agents are operating as your digital
-            Maintenance & Reliability department. Together they have generated{" "}
+            SyncAI's {counts.total} specialized agents are operating as your
+            digital Maintenance & Reliability department. Together they have
+            generated{" "}
             <span className="text-slate-200 font-semibold">
-              445 recommendations
-            </span>{" "}
-            and executed{" "}
-            <span className="text-slate-200 font-semibold">319 actions</span>{" "}
-            this period. Human oversight is maintained via the Approval Queue
-            and Decision Governance module.
+              {counts.recommendations} recommendations
+            </span>
+            {"."} Autonomous execution is not enabled: every action goes
+            through the Approval Queue and Decision Governance, so the
+            executed count is {counts.executed}.
           </p>
         </div>
       </div>

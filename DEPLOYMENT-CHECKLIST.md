@@ -1,8 +1,12 @@
 # 🚀 Deployment Checklist - StiggSyncAI Pro
 
-## ✅ Build Status: READY
+## Build status
 
-Your application is **production-ready** and can be published!
+The build succeeds and the application can be published. That is a statement
+about the build, not about the product: `docs/enterprise-readiness/capability-register.md`
+is the program of record for what is and is not finished, and it currently
+carries 40 absent and 190 partial items. Use this checklist to deploy what
+exists — not as evidence that everything does.
 
 ---
 
