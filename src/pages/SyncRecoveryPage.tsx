@@ -17,8 +17,6 @@ import {
   ShieldCheck,
   TimerReset,
   Users,
-  Wrench,
-  XCircle,
 } from "lucide-react";
 import { useAuth } from "../components/AuthProvider";
 import { supabase } from "../lib/supabase";
@@ -217,7 +215,6 @@ export default function SyncRecoveryPage() {
     setOpportunities(null);
     setSelectedParallel(new Set());
     void loadDetail(selectedEventId).catch((e) => setError((e as Error).message));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedEventId]);
 
   useEffect(() => {
@@ -266,8 +263,21 @@ export default function SyncRecoveryPage() {
     }
   }
 
+  async function openCompletion(item: RecoveryScopeItem) {
+    setError(null);
+    setWorking(true);
+    try {
+      const result = await getRecoveryQualityChecks(item.event_work_id);
+      setCompletion({ eventWorkId: item.event_work_id, actualHours: "", note: "", checks: result.checks, passed: new Set() });
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setWorking(false);
+    }
+  }
+
   const selectedBoardEvent = useMemo(
-    () => board?.events.find((e) => e.id === selectedEventId) ?? null,
+    () => board?.events.find((event) => event.id === selectedEventId) ?? null,
     [board, selectedEventId],
   );
 
@@ -330,7 +340,7 @@ export default function SyncRecoveryPage() {
               {selectedBoardEvent && <span className="text-sm text-slate-400">{selectedBoardEvent.asset}</span>}
             </div>
           </div>
-          <select className={`${inputClass} max-w-md`} value={selectedEventId ?? ""} onChange={(e) => setSelectedEventId(e.target.value || null)}>
+          <select className={`${inputClass} max-w-md`} value={selectedEventId ?? ""} onChange={(event) => setSelectedEventId(event.target.value || null)}>
             <option value="">Select event</option>
             {(board?.events ?? []).map((event) => (
               <option key={event.id} value={event.id}>{event.event_code} · {event.asset}</option>
@@ -412,17 +422,17 @@ export default function SyncRecoveryPage() {
               <h2 className="font-semibold text-industrial-text">Open planned / major intervention</h2>
               <p className="mb-4 text-sm text-slate-400">Uses the canonical asset register. Unplanned events require a live down-state record.</p>
               <div className="space-y-3">
-                <select className={inputClass} value={openAssetId} onChange={(e) => setOpenAssetId(e.target.value)}>
+                <select className={inputClass} value={openAssetId} onChange={(event) => setOpenAssetId(event.target.value)}>
                   <option value="">Select asset</option>
                   {assets.map((asset) => <option key={asset.id} value={asset.id}>{asset.name}{asset.tag ? ` · ${asset.tag}` : ""}{asset.asset_class ? ` · ${asset.asset_class}` : ""}</option>)}
                 </select>
-                <select className={inputClass} value={openType} onChange={(e) => setOpenType(e.target.value)}>
+                <select className={inputClass} value={openType} onChange={(event) => setOpenType(event.target.value)}>
                   <option value="planned">Planned downtime</option>
                   <option value="major_intervention">Major intervention</option>
                   <option value="opportunity">Opportunity window</option>
                   <option value="unplanned">Unplanned downtime</option>
                 </select>
-                <textarea className={inputClass} rows={3} placeholder="Why is this asset in a restoration event?" value={openReason} onChange={(e) => setOpenReason(e.target.value)} />
+                <textarea className={inputClass} rows={3} placeholder="Why is this asset in a restoration event?" value={openReason} onChange={(event) => setOpenReason(event.target.value)} />
                 <button
                   disabled={!canOpen || degraded || working || !openAssetId || openReason.trim().length < 10}
                   onClick={() => void openEvent(openAssetId, openReason, openType)}
@@ -470,12 +480,12 @@ export default function SyncRecoveryPage() {
                 {!detail.scope.length && <Empty>No work orders are linked to this event yet.</Empty>}
               </div>
 
-              {canPlan && detail.scope.filter((x) => x.plan_state === "included" && x.execution_status !== "complete").length >= 2 && (
+              {canPlan && detail.scope.filter((item) => item.plan_state === "included" && item.execution_status !== "complete").length >= 2 && (
                 <div className="mt-5 rounded-xl border border-teal-500/20 bg-teal-500/5 p-4">
                   <div className="mb-3 flex items-center gap-2 font-medium text-teal-200"><GitBranch className="h-4 w-4" /> Verify concurrent work</div>
                   <div className="grid gap-3 md:grid-cols-2">
-                    <input className={inputClass} placeholder="Parallel group name" value={parallelGroup} onChange={(e) => setParallelGroup(e.target.value)} />
-                    <input className={inputClass} placeholder="Safety/resource basis (20+ characters)" value={parallelBasis} onChange={(e) => setParallelBasis(e.target.value)} />
+                    <input className={inputClass} placeholder="Parallel group name" value={parallelGroup} onChange={(event) => setParallelGroup(event.target.value)} />
+                    <input className={inputClass} placeholder="Safety/resource basis (20+ characters)" value={parallelBasis} onChange={(event) => setParallelBasis(event.target.value)} />
                   </div>
                   <button
                     disabled={degraded || working || selectedParallel.size < 2 || parallelBasis.trim().length < 20 || parallelGroup.trim().length < 2}
@@ -520,15 +530,15 @@ export default function SyncRecoveryPage() {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  <input className={inputClass} type="datetime-local" value={baselineAt} onChange={(e) => setBaselineAt(e.target.value)} />
-                  <select className={inputClass} value={baselineMethod} onChange={(e) => setBaselineMethod(e.target.value)}>
+                  <input className={inputClass} type="datetime-local" value={baselineAt} onChange={(event) => setBaselineAt(event.target.value)} />
+                  <select className={inputClass} value={baselineMethod} onChange={(event) => setBaselineMethod(event.target.value)}>
                     <option value="original_approved_schedule">Original approved schedule</option>
                     <option value="historical_median">Historical median</option>
                     <option value="control_estimate">Control estimate</option>
                     <option value="manual_authorized">Manual authorized baseline</option>
                   </select>
-                  <textarea className={inputClass} rows={3} placeholder="Source and basis (20+ characters)" value={baselineBasis} onChange={(e) => setBaselineBasis(e.target.value)} />
-                  <button disabled={!canPlan || degraded || working || !baselineAt || baselineBasis.trim().length < 20} onClick={() => void runAction(() => recoveryActions.setBaseline(detail.event.id, new Date(baselineAt).toISOString(), baselineMethod, baselineBasis), "Counterfactual baseline recorded." )} className="w-full rounded-lg bg-teal-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-40">Set baseline</button>
+                  <textarea className={inputClass} rows={3} placeholder="Source and basis (20+ characters)" value={baselineBasis} onChange={(event) => setBaselineBasis(event.target.value)} />
+                  <button disabled={!canPlan || degraded || working || !baselineAt || baselineBasis.trim().length < 20} onClick={() => void runAction(() => recoveryActions.setBaseline(detail.event.id, new Date(baselineAt).toISOString(), baselineMethod, baselineBasis), "Counterfactual baseline recorded.")} className="w-full rounded-lg bg-teal-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-40">Set baseline</button>
                 </div>
               )}
             </section>
@@ -537,16 +547,16 @@ export default function SyncRecoveryPage() {
               <h2 className="font-semibold text-industrial-text">Constraint register</h2>
               <div className="mt-4 space-y-3">
                 <div className="grid grid-cols-2 gap-2">
-                  <select className={inputClass} value={constraintKind} onChange={(e) => setConstraintKind(e.target.value)}>
-                    {["precedence","resource","work_zone","material","labour","tooling","bay","crane","vendor","weather","production","approval","quality_hold","other"].map((x) => <option key={x} value={x}>{x.replaceAll("_", " ")}</option>)}
+                  <select className={inputClass} value={constraintKind} onChange={(event) => setConstraintKind(event.target.value)}>
+                    {["precedence", "resource", "work_zone", "material", "labour", "tooling", "bay", "crane", "vendor", "weather", "production", "approval", "quality_hold", "other"].map((kind) => <option key={kind} value={kind}>{kind.replaceAll("_", " ")}</option>)}
                   </select>
-                  <select className={inputClass} value={constraintPhase} onChange={(e) => setConstraintPhase(e.target.value)}>
+                  <select className={inputClass} value={constraintPhase} onChange={(event) => setConstraintPhase(event.target.value)}>
                     <option value="planning">Planning</option><option value="execution">Execution</option><option value="return_to_service">Return to service</option>
                   </select>
                 </div>
-                <label className="flex items-center gap-2 text-sm text-slate-300"><input type="checkbox" checked={constraintHard} onChange={(e) => setConstraintHard(e.target.checked)} /> Hard constraint</label>
-                <textarea className={inputClass} rows={2} placeholder="Constraint description" value={constraintDescription} onChange={(e) => setConstraintDescription(e.target.value)} />
-                <textarea className={inputClass} rows={2} placeholder="Evidence / basis" value={constraintBasis} onChange={(e) => setConstraintBasis(e.target.value)} />
+                <label className="flex items-center gap-2 text-sm text-slate-300"><input type="checkbox" checked={constraintHard} onChange={(event) => setConstraintHard(event.target.checked)} /> Hard constraint</label>
+                <textarea className={inputClass} rows={2} placeholder="Constraint description" value={constraintDescription} onChange={(event) => setConstraintDescription(event.target.value)} />
+                <textarea className={inputClass} rows={2} placeholder="Evidence / basis" value={constraintBasis} onChange={(event) => setConstraintBasis(event.target.value)} />
                 <button disabled={!canOpen || degraded || working || constraintDescription.trim().length < 10 || constraintBasis.trim().length < 10} onClick={() => void runAction(() => recoveryActions.addConstraint({ eventId: detail.event.id, kind: constraintKind, phase: constraintPhase, isHard: constraintHard, description: constraintDescription, basis: constraintBasis }), "Constraint added in unknown state; it must be explicitly resolved.")} className="w-full rounded-lg border border-industrial-border px-3 py-2 text-sm text-slate-200 disabled:opacity-40">Add constraint</button>
               </div>
               <div className="mt-5 space-y-2">
@@ -587,7 +597,7 @@ export default function SyncRecoveryPage() {
                 <Metric label="P80 RTS" value={fmtDate(detail.latest_plan.forecast_p80_return_at)} icon={<TimerReset className="h-5 w-5" />} />
               </div>
               {detail.latest_plan.missing_inputs.length > 0 && <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200"><strong>Release blocked:</strong> {JSON.stringify(detail.latest_plan.missing_inputs)}</div>}
-              {detail.latest_plan.warnings.length > 0 && <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-200">{detail.latest_plan.warnings.map((w, i) => <div key={i}>{String(w.warning ?? JSON.stringify(w))}</div>)}</div>}
+              {detail.latest_plan.warnings.length > 0 && <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-200">{detail.latest_plan.warnings.map((warning, index) => <div key={index}>{String(warning.warning ?? JSON.stringify(warning))}</div>)}</div>}
               <section className={`${cardClass} overflow-hidden`}>
                 <div className="border-b border-industrial-border p-4 text-sm text-slate-400">Plan v{detail.latest_plan.version} · {detail.latest_plan.engine_version} · <Pill tone={statusTone(detail.latest_plan.status)}>{detail.latest_plan.status}</Pill></div>
                 <div className="space-y-4 p-5">
@@ -620,7 +630,7 @@ export default function SyncRecoveryPage() {
           <section className={`${cardClass} p-5`}>
             <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
               <div><h2 className="text-lg font-semibold text-industrial-text">Opportunity maintenance</h2><p className="text-sm text-slate-400">Calls the existing canonical opportunity engine. Unsized work stays unsized.</p></div>
-              <div className="flex gap-2"><input className={`${inputClass} w-32`} type="number" min="0.1" step="0.5" value={opportunityWindow} onChange={(e) => setOpportunityWindow(e.target.value)} /><button disabled={degraded || working || Number(opportunityWindow) <= 0} onClick={() => void getRecoveryOpportunities(detail.event.id, Number(opportunityWindow)).then(setOpportunities).catch((e) => setError((e as Error).message))} className="rounded-lg bg-teal-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-40">Find work that fits</button></div>
+              <div className="flex gap-2"><input className={`${inputClass} w-32`} type="number" min="0.1" step="0.5" value={opportunityWindow} onChange={(event) => setOpportunityWindow(event.target.value)} /><button disabled={degraded || working || Number(opportunityWindow) <= 0} onClick={() => void getRecoveryOpportunities(detail.event.id, Number(opportunityWindow)).then(setOpportunities).catch((e) => setError((e as Error).message))} className="rounded-lg bg-teal-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-40">Find work that fits</button></div>
             </div>
           </section>
           {opportunities ? (
@@ -638,7 +648,7 @@ export default function SyncRecoveryPage() {
           <section className={`${cardClass} p-5`}>
             <div className="mb-4"><h2 className="text-lg font-semibold text-industrial-text">Live execution</h2><p className="text-sm text-slate-400">Field start rechecks released-plan membership, materials and canonical isolation state.</p></div>
             <div className="space-y-3">
-              {detail.scope.filter((x) => x.plan_state === "included").map((item) => (
+              {detail.scope.filter((item) => item.plan_state === "included").map((item) => (
                 <div key={item.event_work_id} className="rounded-xl border border-industrial-border p-4">
                   <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                     <div>
@@ -653,13 +663,13 @@ export default function SyncRecoveryPage() {
                   {completion?.eventWorkId === item.event_work_id && (
                     <CompletionPanel draft={completion} setDraft={setCompletion} disabled={degraded || working} onCancel={() => setCompletion(null)} onComplete={() => {
                       const hours = Number(completion.actualHours);
-                      const results = completion.checks.filter((c) => completion.passed.has(c.id)).map((c) => ({ check_id: c.id, result: "pass" as const }));
+                      const results = completion.checks.filter((check) => completion.passed.has(check.id)).map((check) => ({ check_id: check.id, result: "pass" as const }));
                       void runAction(() => recoveryActions.completeWork(item.event_work_id, hours, completion.note, results), "Work completed with actual hours and quality evidence recorded.").then(() => setCompletion(null));
                     }} />
                   )}
                 </div>
               ))}
-              {!detail.scope.filter((x) => x.plan_state === "included").length && <Empty>No included execution scope.</Empty>}
+              {!detail.scope.filter((item) => item.plan_state === "included").length && <Empty>No included execution scope.</Empty>}
             </div>
           </section>
 
@@ -667,10 +677,10 @@ export default function SyncRecoveryPage() {
             <div className={`${cardClass} p-5`}>
               <h2 className="font-semibold text-industrial-text">Live blockers</h2>
               <div className="mt-3 space-y-2">
-                <select className={inputClass} value={blockerCategory} onChange={(e) => setBlockerCategory(e.target.value)}>{["parts","labour","tooling","permit","vendor","weather","scope_growth","rework","quality","operations","engineering","access","isolation","other"].map((x) => <option key={x} value={x}>{x.replaceAll("_", " ")}</option>)}</select>
-                <select className={inputClass} value={blockerSeverity} onChange={(e) => setBlockerSeverity(e.target.value)}><option>low</option><option>medium</option><option>high</option><option>critical</option></select>
-                <input className={inputClass} placeholder="Accountable owner role" value={blockerOwner} onChange={(e) => setBlockerOwner(e.target.value)} />
-                <textarea className={inputClass} rows={2} placeholder="What is blocking restoration?" value={blockerDescription} onChange={(e) => setBlockerDescription(e.target.value)} />
+                <select className={inputClass} value={blockerCategory} onChange={(event) => setBlockerCategory(event.target.value)}>{["parts", "labour", "tooling", "permit", "vendor", "weather", "scope_growth", "rework", "quality", "operations", "engineering", "access", "isolation", "other"].map((category) => <option key={category} value={category}>{category.replaceAll("_", " ")}</option>)}</select>
+                <select className={inputClass} value={blockerSeverity} onChange={(event) => setBlockerSeverity(event.target.value)}><option>low</option><option>medium</option><option>high</option><option>critical</option></select>
+                <input className={inputClass} placeholder="Accountable owner role" value={blockerOwner} onChange={(event) => setBlockerOwner(event.target.value)} />
+                <textarea className={inputClass} rows={2} placeholder="What is blocking restoration?" value={blockerDescription} onChange={(event) => setBlockerDescription(event.target.value)} />
                 <button disabled={degraded || working || blockerOwner.trim().length < 2 || blockerDescription.trim().length < 10} onClick={() => void runAction(() => recoveryActions.recordBlocker({ eventId: detail.event.id, category: blockerCategory, description: blockerDescription, ownerRole: blockerOwner, severity: blockerSeverity }), "Live blocker recorded.")} className="w-full rounded-lg border border-industrial-border px-3 py-2 text-sm text-slate-200 disabled:opacity-40">Record blocker</button>
               </div>
             </div>
@@ -707,13 +717,13 @@ export default function SyncRecoveryPage() {
               <div className="rounded-xl border border-industrial-border bg-industrial-slate/50 p-4">
                 <div className="mb-2 flex items-center gap-2 font-medium text-industrial-text"><ShieldCheck className="h-5 w-5 text-teal-400" /> Return-to-service gate</div>
                 <div className="space-y-2 text-sm text-slate-300">
-                  <div className="flex justify-between"><span>Incomplete included work</span><span>{detail.scope.filter((x) => x.plan_state === "included" && x.execution_status !== "complete").length}</span></div>
+                  <div className="flex justify-between"><span>Incomplete included work</span><span>{detail.scope.filter((item) => item.plan_state === "included" && item.execution_status !== "complete").length}</span></div>
                   <div className="flex justify-between"><span>RTS hard constraints</span><span>{detail.controls.unresolved_rts_hard}</span></div>
-                  <div className="flex justify-between"><span>Open blockers</span><span>{detail.blockers.filter((x) => x.status === "open").length}</span></div>
+                  <div className="flex justify-between"><span>Open blockers</span><span>{detail.blockers.filter((blocker) => blocker.status === "open").length}</span></div>
                 </div>
                 {detail.event.status !== "closed" && (
                   <div className="mt-4 space-y-3">
-                    <textarea className={inputClass} rows={3} placeholder="Operations return-to-service condition / acceptance note" value={closeNote} onChange={(e) => setCloseNote(e.target.value)} />
+                    <textarea className={inputClass} rows={3} placeholder="Operations return-to-service condition / acceptance note" value={closeNote} onChange={(event) => setCloseNote(event.target.value)} />
                     <button disabled={!canRts || degraded || working || closeNote.trim().length < 10} onClick={() => void runAction(() => recoveryActions.closeEvent(detail.event.id, closeNote), "Restoration event closed. Counterfactual value remains projected pending independent verification.")} className="w-full rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-40">Accept return to service & close event</button>
                   </div>
                 )}
@@ -726,19 +736,6 @@ export default function SyncRecoveryPage() {
       {view !== "board" && !detail && <Empty>Select an active event from the Fleet Down Board.</Empty>}
     </div>
   );
-
-  async function openCompletion(item: RecoveryScopeItem) {
-    setError(null);
-    setWorking(true);
-    try {
-      const result = await getRecoveryQualityChecks(item.event_work_id);
-      setCompletion({ eventWorkId: item.event_work_id, actualHours: "", note: "", checks: result.checks, passed: new Set() });
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setWorking(false);
-    }
-  }
 }
 
 function Metric({ label, value, icon }: { label: string; value: string; icon: React.ReactNode }) {
@@ -750,7 +747,7 @@ function MiniMetric({ label, value, alert }: { label: string; value: string; ale
 }
 
 function ScopeRow({ item, checked, canPlan, onChecked, onSequence, onIncludeCandidate }: {
-  item: RecoveryScopeItem; checked: boolean; canPlan: boolean; onChecked: (v: boolean) => void; onSequence: (v: number) => void; onIncludeCandidate: () => void;
+  item: RecoveryScopeItem; checked: boolean; canPlan: boolean; onChecked: (value: boolean) => void; onSequence: (value: number) => void; onIncludeCandidate: () => void;
 }) {
   const [sequence, setSequence] = useState(String(item.sequence_no));
   useEffect(() => setSequence(String(item.sequence_no)), [item.sequence_no]);
@@ -758,7 +755,7 @@ function ScopeRow({ item, checked, canPlan, onChecked, onSequence, onIncludeCand
     <div className="rounded-xl border border-industrial-border p-3">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
         <label className="flex flex-1 items-start gap-3">
-          <input type="checkbox" className="mt-1" checked={checked} disabled={!canPlan || item.plan_state !== "included" || item.execution_status === "complete"} onChange={(e) => onChecked(e.target.checked)} />
+          <input type="checkbox" className="mt-1" checked={checked} disabled={!canPlan || item.plan_state !== "included" || item.execution_status === "complete"} onChange={(event) => onChecked(event.target.checked)} />
           <div>
             <div className="flex flex-wrap items-center gap-2"><span className="font-medium text-industrial-text">{item.wo_number ?? "WO"} · {item.title}</span><Pill tone={statusTone(item.plan_state)}>{item.plan_state}</Pill><Pill tone={statusTone(item.execution_status)}>{item.execution_status}</Pill></div>
             <div className="mt-1 flex flex-wrap gap-3 text-xs text-slate-400"><span>{item.priority}</span><span>{fmtHours(item.planned_hours ?? item.estimated_hours)}</span><span>{item.materials_ready ? "materials ready" : "materials not ready"}</span><span>{item.concurrency_rule.replaceAll("_", " ")}{item.parallel_group ? ` · ${item.parallel_group}` : ""}</span></div>
@@ -767,7 +764,7 @@ function ScopeRow({ item, checked, canPlan, onChecked, onSequence, onIncludeCand
         {item.plan_state === "candidate" ? (
           <button disabled={!canPlan} onClick={onIncludeCandidate} className="rounded-lg border border-amber-500/30 px-3 py-2 text-xs text-amber-300 disabled:opacity-40">Include in revised plan</button>
         ) : (
-          <div className="flex items-center gap-2"><span className="text-xs text-slate-500">Stage</span><input className="w-20 rounded-lg border border-industrial-border bg-industrial-slate px-2 py-1 text-sm text-industrial-text" type="number" min="1" value={sequence} disabled={!canPlan || item.execution_status === "complete"} onChange={(e) => setSequence(e.target.value)} onBlur={() => { const n = Number(sequence); if (Number.isFinite(n) && n > 0 && n !== item.sequence_no) onSequence(n); }} /></div>
+          <div className="flex items-center gap-2"><span className="text-xs text-slate-500">Stage</span><input className="w-20 rounded-lg border border-industrial-border bg-industrial-slate px-2 py-1 text-sm text-industrial-text" type="number" min="1" value={sequence} disabled={!canPlan || item.execution_status === "complete"} onChange={(event) => setSequence(event.target.value)} onBlur={() => { const next = Number(sequence); if (Number.isFinite(next) && next > 0 && next !== item.sequence_no) onSequence(next); }} /></div>
         )}
       </div>
     </div>
@@ -789,7 +786,7 @@ function OpportunityColumn({ title, items, tone, canAdd, onAdd }: { title: strin
 }
 
 function CompletionPanel({ draft, setDraft, disabled, onCancel, onComplete }: { draft: CompletionDraft; setDraft: (next: CompletionDraft | null) => void; disabled: boolean; onCancel: () => void; onComplete: () => void }) {
-  const allPassed = draft.checks.every((c) => draft.passed.has(c.id));
+  const allPassed = draft.checks.every((check) => draft.passed.has(check.id));
   const hours = Number(draft.actualHours);
-  return <div className="mt-4 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4"><div className="mb-3 flex items-center gap-2 font-medium text-emerald-200"><PackageCheck className="h-4 w-4" /> Completion evidence</div><div className="grid gap-3 md:grid-cols-2"><input className={inputClass} type="number" min="0.1" step="0.1" placeholder="Actual labour hours" value={draft.actualHours} onChange={(e) => setDraft({ ...draft, actualHours: e.target.value })} /><textarea className={inputClass} rows={2} placeholder="Completion condition / evidence note" value={draft.note} onChange={(e) => setDraft({ ...draft, note: e.target.value })} /></div><div className="mt-4 space-y-2">{draft.checks.map((check) => <label key={check.id} className="flex gap-3 rounded-lg border border-industrial-border p-3"><input type="checkbox" checked={draft.passed.has(check.id)} onChange={(e) => { const passed = new Set(draft.passed); if (e.target.checked) passed.add(check.id); else passed.delete(check.id); setDraft({ ...draft, passed }); }} /><div><div className="text-sm font-medium text-industrial-text">{check.is_hold_point && <span className="mr-2 text-amber-300">HOLD POINT</span>}{check.check_description}</div><div className="text-xs text-slate-400">Acceptance: {check.acceptance_criterion}</div></div></label>)}{draft.checks.length === 0 && <div className="text-xs text-slate-400">No governed job-plan acceptance checks are attached to this work order. Actual hours and a substantive completion note are still required.</div>}</div><div className="mt-4 flex gap-2"><button onClick={onCancel} className="rounded-lg border border-industrial-border px-3 py-2 text-sm text-slate-300">Cancel</button><button disabled={disabled || !Number.isFinite(hours) || hours <= 0 || draft.note.trim().length < 10 || !allPassed} onClick={onComplete} className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-40">Complete with evidence</button></div></div>;
+  return <div className="mt-4 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4"><div className="mb-3 flex items-center gap-2 font-medium text-emerald-200"><PackageCheck className="h-4 w-4" /> Completion evidence</div><div className="grid gap-3 md:grid-cols-2"><input className={inputClass} type="number" min="0.1" step="0.1" placeholder="Actual labour hours" value={draft.actualHours} onChange={(event) => setDraft({ ...draft, actualHours: event.target.value })} /><textarea className={inputClass} rows={2} placeholder="Completion condition / evidence note" value={draft.note} onChange={(event) => setDraft({ ...draft, note: event.target.value })} /></div><div className="mt-4 space-y-2">{draft.checks.map((check) => <label key={check.id} className="flex gap-3 rounded-lg border border-industrial-border p-3"><input type="checkbox" checked={draft.passed.has(check.id)} onChange={(event) => { const passed = new Set(draft.passed); if (event.target.checked) passed.add(check.id); else passed.delete(check.id); setDraft({ ...draft, passed }); }} /><div><div className="text-sm font-medium text-industrial-text">{check.is_hold_point && <span className="mr-2 text-amber-300">HOLD POINT</span>}{check.check_description}</div><div className="text-xs text-slate-400">Acceptance: {check.acceptance_criterion}</div></div></label>)}{draft.checks.length === 0 && <div className="text-xs text-slate-400">No governed job-plan acceptance checks are attached to this work order. Actual hours and a substantive completion note are still required.</div>}</div><div className="mt-4 flex gap-2"><button onClick={onCancel} className="rounded-lg border border-industrial-border px-3 py-2 text-sm text-slate-300">Cancel</button><button disabled={disabled || !Number.isFinite(hours) || hours <= 0 || draft.note.trim().length < 10 || !allPassed} onClick={onComplete} className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-40">Complete with evidence</button></div></div>;
 }
