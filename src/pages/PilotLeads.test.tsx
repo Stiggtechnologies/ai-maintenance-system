@@ -1,11 +1,11 @@
 /**
- * PilotLeads renders the admin leads surface: the queued lead the RLS scope
- * returns, and the plain empty-state when there are none (the leads table is
- * empty today). The service is mocked — RLS admin-scoping is proven separately
- * in src/test/pilotLeadsAdminOnly.test.ts — so these assertions are only about
- * what the page does with the rows it is handed.
+ * Reliability Assessment Leads renders the admin conversion surface. The
+ * service is mocked — RLS/definer invariants are proved in their own lane — so
+ * these assertions pin customer reachability: lead -> acceptance form ->
+ * activate_ria_from_intake caller -> refresh into persisted state.
  */
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { PilotLeads } from "./PilotLeads";
 import { formatAlbertaStamp, isOverdue } from "../lib/leads/pilotLeadSla";
@@ -13,14 +13,16 @@ import type { PilotIntakeLead } from "../services/pilotIntake";
 
 const listPilotIntakeRequests = vi.fn();
 const markPilotLeadResponded = vi.fn();
+const listRiaActivationOrganizations = vi.fn();
+const activateRiaFromIntake = vi.fn();
 
 vi.mock("../services/pilotIntake", () => ({
   listPilotIntakeRequests: () => listPilotIntakeRequests(),
   markPilotLeadResponded: (id: string) => markPilotLeadResponded(id),
+  listRiaActivationOrganizations: () => listRiaActivationOrganizations(),
+  activateRiaFromIntake: (input: unknown) => activateRiaFromIntake(input),
 }));
 
-// Realtime is the page's other Supabase dependency; the rendered rows do not
-// depend on the stream, only on the data the service returns.
 vi.mock("../lib/supabase", () => {
   const channel = {
     on: vi.fn(() => channel),
@@ -33,6 +35,9 @@ vi.mock("../lib/supabase", () => {
     },
   };
 });
+
+const orgId = "11111111-1111-4111-8111-111111111111";
+const assessmentId = "44444444-4444-4444-8444-444444444444";
 
 const lead: PilotIntakeLead = {
   id: "lead-1",
@@ -47,54 +52,74 @@ const lead: PilotIntakeLead = {
   primary_pain: "Repeat gearbox failures",
   notification_status: "queued",
   source_path: "/pilot/reliability",
-  // created_at is Sunday 2026-09-13, outside Alberta business hours, so the
-  // one-business-hour deadline is Monday 09:00 MDT — exactly what
-  // public.business_hours_deadline writes for this row.
   first_response_due: "2026-09-14T15:00:00Z",
   first_responded_at: null,
+  ria_assessment_id: null,
+  activated_organization_id: null,
+  activated_by: null,
+  activated_at: null,
+  commercial_acceptance_reference: null,
 };
 
 const escapeRegExp = (value: string): string =>
   value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
+function renderPage() {
+  return render(
+    <MemoryRouter>
+      <PilotLeads />
+    </MemoryRouter>,
+  );
+}
+
 describe("PilotLeads", () => {
   beforeEach(() => {
     listPilotIntakeRequests.mockReset();
     markPilotLeadResponded.mockReset();
+    listRiaActivationOrganizations.mockReset();
+    activateRiaFromIntake.mockReset();
     markPilotLeadResponded.mockResolvedValue(undefined);
+    listRiaActivationOrganizations.mockResolvedValue({
+      available: true,
+      organizations: [{ id: orgId, name: "Acme Mining" }],
+    });
+    activateRiaFromIntake.mockResolvedValue({ assessmentId });
   });
 
   it("shows a plain empty state when there are no leads", async () => {
     listPilotIntakeRequests.mockResolvedValue([]);
-    render(<PilotLeads />);
-    expect(await screen.findByText(/No pilot-intake leads yet/i)).toBeTruthy();
+    renderPage();
+    expect(
+      await screen.findByText(/No Reliability Intelligence Assessment leads yet/i),
+    ).toBeTruthy();
+  });
+
+  it("states the current RIA offer rather than the retired 48-hour value proof", async () => {
+    listPilotIntakeRequests.mockResolvedValue([lead]);
+    renderPage();
+
+    expect(await screen.findByText(/US\$35,000 fixed fee/i)).toBeTruthy();
+    expect(screen.getByText(/6–8 weeks/i)).toBeTruthy();
+    expect(screen.queryByText(/48-hour value-proof/i)).toBeNull();
   });
 
   it("lists a submitted lead with its queued status and no invented fields", async () => {
     listPilotIntakeRequests.mockResolvedValue([lead]);
-    render(<PilotLeads />);
+    renderPage();
 
     expect(await screen.findByText("Dana Ops")).toBeTruthy();
     expect(screen.getByText("dana@acme.example")).toBeTruthy();
     expect(screen.getByText("Acme Mining")).toBeTruthy();
     expect(screen.getByText("Haul truck fleet")).toBeTruthy();
     expect(screen.getByText("Repeat gearbox failures")).toBeTruthy();
-    // The submitted status is shown verbatim in the row's status badge — the
-    // lead sits at queued. Scoped to the badge span so it is not confused with
-    // the word "queued" in the page's description copy.
     expect(
       screen.getByText("queued", { selector: "span.rounded-full" }),
     ).toBeTruthy();
   });
 
   it("shows the first-response deadline in the zone the SLA is defined in", async () => {
-    // The SLA clock is the whole point of the notification path — an admin has
-    // to be able to see when each lead's answer is owed, and in WHICH zone.
-    // 15:00Z on 2026-09-14 is 09:00 MDT, the Monday-morning deadline
-    // business_hours_deadline writes for a Sunday lead. Rendered in the
-    // browser's zone with no label, an owner on a UTC machine reads 15:00.
     listPilotIntakeRequests.mockResolvedValue([lead]);
-    render(<PilotLeads />);
+    renderPage();
 
     await screen.findByText("Dana Ops");
     const due = formatAlbertaStamp("2026-09-14T15:00:00Z");
@@ -104,7 +129,6 @@ describe("PilotLeads", () => {
   });
 
   it("labels every timestamp with its zone rather than the browser's", () => {
-    // Pure-function guard: whatever TZ the runner is in, the stamp is Alberta.
     const stamp = formatAlbertaStamp("2026-01-15T20:30:00Z");
     expect(stamp).toContain("1:30");
     expect(stamp).toMatch(/MST|GMT-7/);
@@ -113,11 +137,10 @@ describe("PilotLeads", () => {
   });
 
   it("flags a lead nobody answered by its deadline", async () => {
-    // Deadline in the past and still sitting at pipeline status 'new'.
     listPilotIntakeRequests.mockResolvedValue([
       { ...lead, first_response_due: "2020-01-06T16:00:00Z" },
     ]);
-    render(<PilotLeads />);
+    renderPage();
 
     await screen.findByText("Dana Ops");
     expect(screen.getByText(/overdue/i)).toBeTruthy();
@@ -128,14 +151,13 @@ describe("PilotLeads", () => {
     listPilotIntakeRequests.mockResolvedValue([
       { ...lead, first_response_due: future },
     ]);
-    render(<PilotLeads />);
+    renderPage();
 
     await screen.findByText("Dana Ops");
     expect(screen.queryByText(/overdue/i)).toBeNull();
   });
 
   it("does not flag a past deadline once the lead has moved out of 'new'", async () => {
-    // A contacted lead is not cold, whatever the clock says.
     listPilotIntakeRequests.mockResolvedValue([
       {
         ...lead,
@@ -143,18 +165,13 @@ describe("PilotLeads", () => {
         first_response_due: "2020-01-06T16:00:00Z",
       },
     ]);
-    render(<PilotLeads />);
+    renderPage();
 
     await screen.findByText("Dana Ops");
     expect(screen.queryByText(/overdue/i)).toBeNull();
   });
 
   it("clears the overdue flag on the field a human can actually write", () => {
-    // `status` is unwritable: pilot_intake_requests has exactly one RLS policy
-    // and it is SELECT. Keying the flag on it meant it could never clear, so
-    // within a week every lead is red and the one cold-lead signal in the
-    // product is noise. first_responded_at is what mark_pilot_lead_responded
-    // sets, and it is what clears the flag.
     const stale = { ...lead, first_response_due: "2020-01-06T16:00:00Z" };
     expect(isOverdue(stale)).toBe(true);
     expect(
@@ -166,7 +183,7 @@ describe("PilotLeads", () => {
     listPilotIntakeRequests.mockResolvedValue([
       { ...lead, first_response_due: "2020-01-06T16:00:00Z" },
     ]);
-    render(<PilotLeads />);
+    renderPage();
 
     await screen.findByText("Dana Ops");
     expect(screen.getByText(/overdue/i)).toBeTruthy();
@@ -176,7 +193,6 @@ describe("PilotLeads", () => {
     await waitFor(() =>
       expect(markPilotLeadResponded).toHaveBeenCalledWith("lead-1"),
     );
-    // A second read is what makes the row stop being red.
     await waitFor(() =>
       expect(listPilotIntakeRequests.mock.calls.length).toBeGreaterThan(1),
     );
@@ -187,7 +203,7 @@ describe("PilotLeads", () => {
     markPilotLeadResponded.mockRejectedValue(
       new Error("Pilot leads are administrator-only"),
     );
-    render(<PilotLeads />);
+    renderPage();
 
     await screen.findByText("Dana Ops");
     fireEvent.click(screen.getByRole("button", { name: /mark answered/i }));
@@ -199,7 +215,7 @@ describe("PilotLeads", () => {
     listPilotIntakeRequests.mockResolvedValue([
       { ...lead, first_responded_at: "2026-09-14T15:30:00Z" },
     ]);
-    render(<PilotLeads />);
+    renderPage();
 
     await screen.findByText("Dana Ops");
     expect(screen.queryByRole("button", { name: /mark answered/i })).toBeNull();
@@ -214,20 +230,76 @@ describe("PilotLeads", () => {
     listPilotIntakeRequests.mockResolvedValue([
       { ...lead, first_response_due: null },
     ]);
-    render(<PilotLeads />);
+    renderPage();
 
     await screen.findByText("Dana Ops");
-    // The em dash itself, not merely the absence of "overdue" — the previous
-    // version of this test also passed when the cell rendered nothing at all,
-    // or "Invalid Date".
     expect(screen.getByText("\u2014")).toBeTruthy();
     expect(screen.queryByText(/invalid date/i)).toBeNull();
     expect(screen.queryByText(/overdue/i)).toBeNull();
   });
 
+  it("requires recorded commercial acceptance and sends the bounded scope to activation", async () => {
+    listPilotIntakeRequests.mockResolvedValue([lead]);
+    renderPage();
+
+    await screen.findByText("Dana Ops");
+    fireEvent.click(screen.getByRole("button", { name: /^activate ria$/i }));
+
+    const dialog = await screen.findByRole("dialog", {
+      name: /activate reliability intelligence assessment/i,
+    });
+
+    fireEvent.change(
+      within(dialog).getByLabelText(/commercial acceptance reference/i),
+      { target: { value: "SOW-2026-081" } },
+    );
+
+    const submit = within(dialog).getByRole("button", {
+      name: /^activate ria$/i,
+    });
+    await waitFor(() => expect(submit.hasAttribute("disabled")).toBe(false));
+    fireEvent.click(submit);
+
+    await waitFor(() =>
+      expect(activateRiaFromIntake).toHaveBeenCalledWith({
+        leadId: "lead-1",
+        organizationId: orgId,
+        scopeLabel: "Haul truck fleet",
+        targetEndOn: null,
+        acceptanceReference: "SOW-2026-081",
+      }),
+    );
+    expect(
+      await screen.findByText(/RIA 44444444.*activated for Acme Mining/i),
+    ).toBeTruthy();
+    await waitFor(() =>
+      expect(listPilotIntakeRequests.mock.calls.length).toBeGreaterThan(1),
+    );
+  });
+
+  it("does not offer a second activation for an already converted lead", async () => {
+    listPilotIntakeRequests.mockResolvedValue([
+      {
+        ...lead,
+        ria_assessment_id: assessmentId,
+        activated_organization_id: orgId,
+        activated_at: "2026-09-15T16:30:00Z",
+        activated_by: "admin-user",
+        commercial_acceptance_reference: "PO-8841",
+      },
+    ]);
+    renderPage();
+
+    expect(await screen.findByText("Activated")).toBeTruthy();
+    expect(screen.getByText(/PO-8841/i)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /^activate ria$/i })).toBeNull();
+    const link = screen.getByRole("link", { name: /44444444/i });
+    expect(link.getAttribute("href")).toBe(`/assessments/${assessmentId}`);
+  });
+
   it("surfaces a load error instead of a blank surface", async () => {
     listPilotIntakeRequests.mockRejectedValue(new Error("permission denied"));
-    render(<PilotLeads />);
+    renderPage();
     expect(await screen.findByText(/permission denied/i)).toBeTruthy();
   });
 });
