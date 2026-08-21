@@ -73,9 +73,10 @@ const AUTONOMY_COLOR = "text-amber-400";
 // The tree follows the corrected spine (docs/enterprise-readiness/
 // navigation-lifecycle-ia.md §2): what we own → what work should exist → the
 // standing programme strategy justifies → the whole-life frame → this week's
-// work → performance. Sync Recovery belongs inside Work Management because it
-// coordinates a live downtime event across work, schedule, material and
-// handover contracts rather than creating another planning plane.
+// work → performance. 41 items in 9 groups (5/4/3/2/3/9/7/3/5) — the counts
+// roleNavigation.test.ts snapshots. Reliability Strategy sits directly above
+// Maintenance Programme so the parent edge — strategy → programme — reads
+// adjacently in the sidebar.
 const navGroups: NavGroup[] = [
   {
     id: "mission",
@@ -122,6 +123,9 @@ const navGroups: NavGroup[] = [
     ],
   },
   {
+    // L3 — what work should exist. Risk & Consequence precedes Interval
+    // Decisions because consequence evaluation (JA1011 cl. 5.5) precedes
+    // policy and interval selection (cl. 5.6–5.7).
     id: "reliability-strategy",
     label: "Reliability Strategy",
     icon: FlaskConical,
@@ -153,6 +157,12 @@ const navGroups: NavGroup[] = [
     ],
   },
   {
+    // Whole life (L2). Reliability by Design earned its item back when the
+    // RAM allocation stopped being pinned to the demo project code: it now
+    // lists the org's own capital projects and states plainly when there are
+    // none, so the P-7 disqualifier (permanently empty for real tenants) no
+    // longer applies. Read-only for every role — all seven of its tables are
+    // SELECT-only RLS.
     id: "whole-life",
     label: "Whole Life",
     icon: Layers,
@@ -167,9 +177,10 @@ const navGroups: NavGroup[] = [
     ],
   },
   {
-    // L4 — the operating work loop. Shutdowns & Turnarounds remains route-only
-    // while no canonical outage_window producer exists. Recovery is different:
-    // its event intake, plan, execution and evidence chain are all reachable.
+    // L4 — this week's work, correctly positioned as the innermost loop.
+    // Shutdowns & Turnarounds (/turnarounds) is route-only: nothing creates
+    // an outage_window yet (P-7). Sync Recovery is reachable and belongs here
+    // because it coordinates the live event across work, schedule and handover.
     id: "work",
     label: "Work Management",
     icon: Wrench,
@@ -194,6 +205,9 @@ const navGroups: NavGroup[] = [
     ],
   },
   {
+    // Decision Governance moved here from AI Workforce: it holds
+    // decision_rights, the ISO 55001 cl. 4.5 decision-making framework —
+    // governance of the operation, not an AI feature.
     id: "performance",
     label: "Performance & Governance",
     icon: BarChart3,
@@ -230,6 +244,9 @@ const navGroups: NavGroup[] = [
     ],
   },
   {
+    // Setup Wizard and Artifacts are removed, not hidden: /setup is shadowed
+    // by the unauthenticated route, and the artifacts page hardcodes its
+    // contents (spec §2 Removals).
     id: "system",
     label: "System",
     icon: Settings,
@@ -258,6 +275,7 @@ const navGroups: NavGroup[] = [
 export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
   const { profile } = useAuth();
   const appRole = (profile?.role as string) ?? null;
+  // Role-shaped command center: each level sees its own working surface.
   const visibleGroups = navGroups
     .map((group) => ({
       ...group,
@@ -276,6 +294,8 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(
     new Set(navGroups.map((group) => group.id)),
   );
+  // These are deliberately evidence-neutral until a tenant-health aggregator
+  // supplies a live, reviewable status. Never imply healthy controls by default.
   const [systemHealth] = useState({
     intelligence: "not evaluated",
     integration: "not evaluated",
@@ -363,6 +383,9 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
     });
   };
 
+  // Nested routes (/reliability/intervals under /reliability) mean a bare
+  // prefix match would light two items at once; the longest matching path is
+  // the one the user is actually on.
   const matchesPath = (path: string) =>
     currentPath === path ||
     (path !== "/" &&
@@ -383,6 +406,7 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
   };
 
   const getPageTitle = () => {
+    // Longest match, for the same reason as isActive above.
     const found = navGroups
       .flatMap((group) => group.items)
       .filter(
@@ -396,38 +420,58 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
 
   return (
     <div className="flex h-screen bg-overlook-void overflow-hidden">
+      {/* Sidebar */}
       <motion.aside
         animate={{ width: isCollapsed ? 64 : 240 }}
         transition={{ duration: 0.2, ease: "easeInOut" }}
         className="bg-overlook-void border-r border-white/5 shrink-0 overflow-hidden flex flex-col z-20"
       >
+        {/* Logo */}
         <div className="h-14 px-4 flex items-center gap-3 border-b border-white/5 shrink-0">
           <div className="w-8 h-8 bg-linear-to-br from-teal-500 to-cyan-400 rounded-lg flex items-center justify-center shrink-0 shadow-[0_0_20px_rgba(20,184,166,0.4)]">
             <Zap className="w-4 h-4 text-white" />
           </div>
           {!isCollapsed && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-              <div className="text-sm font-bold text-white tracking-wide">SyncAI</div>
-              <div className="text-xs text-slate-400 font-medium tracking-widest uppercase">Mission Assurance</div>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            >
+              <div className="text-sm font-bold text-white tracking-wide">
+                SyncAI
+              </div>
+              <div className="text-xs text-slate-400 font-medium tracking-widest uppercase">
+                Mission Assurance
+              </div>
             </motion.div>
           )}
         </div>
 
+        {/* Autonomy Mode Indicator */}
         {!isCollapsed && (
           <div className="px-3 py-2 border-b border-white/5">
             <div className="flex items-center gap-2 px-2 py-1.5 rounded-md bg-amber-500/10 border border-amber-500/20">
               <div className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-              <span className="text-xs font-semibold text-amber-400 tracking-wide uppercase">{AUTONOMY_MODE}</span>
+              <span className="text-xs font-semibold text-amber-400 tracking-wide uppercase">
+                {AUTONOMY_MODE}
+              </span>
             </div>
           </div>
         )}
 
+        {/* Org + Site */}
         {!isCollapsed && userContext && (
           <div className="px-3 py-2.5 border-b border-white/5">
-            <div className="text-xs text-slate-400 uppercase tracking-wider mb-1">Organization</div>
-            <div className="text-xs font-semibold text-slate-200 truncate">{userContext.organization_name}</div>
+            <div className="text-xs text-slate-400 uppercase tracking-wider mb-1">
+              Organization
+            </div>
+            <div className="text-xs font-semibold text-slate-200 truncate">
+              {userContext.organization_name}
+            </div>
             {userContext.roles && userContext.roles.length > 0 && (
-              <div className="text-xs text-signal-cyan mt-0.5">{userContext.roles[0].name}</div>
+              <div className="text-xs text-signal-cyan mt-0.5">
+                {userContext.roles[0].name}
+              </div>
             )}
             {sites.length > 0 && (
               <div className="relative mt-2">
@@ -436,15 +480,29 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
                   className="w-full flex items-center gap-1.5 px-2 py-1.5 bg-white/3 border border-white/6 rounded-md text-xs text-slate-400 hover:bg-white/6 transition-colors"
                 >
                   <MapPin className="w-3 h-3 shrink-0" />
-                  <span className="flex-1 text-left truncate">{selectedSite?.name || "All Sites"}</span>
-                  <ChevronDown className={`w-3 h-3 transition-transform ${sitePickerOpen ? "rotate-180" : ""}`} />
+                  <span className="flex-1 text-left truncate">
+                    {selectedSite?.name || "All Sites"}
+                  </span>
+                  <ChevronDown
+                    className={`w-3 h-3 transition-transform ${sitePickerOpen ? "rotate-180" : ""}`}
+                  />
                 </button>
                 {sitePickerOpen && (
                   <div className="absolute top-full left-0 right-0 mt-1 bg-overlook-deep border border-white/8 rounded-lg shadow-2xl z-50 max-h-48 overflow-y-auto">
-                    <button onClick={() => handleSiteChange(null)} className={`w-full text-left px-3 py-2 text-xs hover:bg-white/5 ${!selectedSiteId ? "text-signal-cyan" : "text-slate-300"}`}>All Sites</button>
+                    <button
+                      onClick={() => handleSiteChange(null)}
+                      className={`w-full text-left px-3 py-2 text-xs hover:bg-white/5 ${!selectedSiteId ? "text-signal-cyan" : "text-slate-300"}`}
+                    >
+                      All Sites
+                    </button>
                     {sites.map((site) => (
-                      <button key={site.id} onClick={() => handleSiteChange(site.id)} className={`w-full text-left px-3 py-2 text-xs hover:bg-white/5 ${selectedSiteId === site.id ? "text-signal-cyan" : "text-slate-300"}`}>
-                        {site.name} <span className="text-slate-400">({site.code})</span>
+                      <button
+                        key={site.id}
+                        onClick={() => handleSiteChange(site.id)}
+                        className={`w-full text-left px-3 py-2 text-xs hover:bg-white/5 ${selectedSiteId === site.id ? "text-signal-cyan" : "text-slate-300"}`}
+                      >
+                        {site.name}{" "}
+                        <span className="text-slate-400">({site.code})</span>
                       </button>
                     ))}
                   </div>
@@ -454,28 +512,77 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
           </div>
         )}
 
+        {/* Navigation */}
         <nav className="flex-1 overflow-y-auto overflow-x-hidden py-2">
           {visibleGroups.map((group) => {
             const GroupIcon = group.icon;
             const isGroupExpanded = expandedGroups.has(group.id);
             return (
               <div key={group.id} className="mb-1">
-                <button onClick={() => toggleGroup(group.id)} className={`w-full flex items-center px-4 py-2 transition-colors ${isCollapsed ? "justify-center" : "gap-2"} text-overlook-haze hover:text-overlook-mist`}>
+                <button
+                  onClick={() => toggleGroup(group.id)}
+                  className={`w-full flex items-center px-4 py-2 transition-colors ${
+                    isCollapsed ? "justify-center" : "gap-2"
+                  } text-overlook-haze hover:text-overlook-mist`}
+                >
                   <GroupIcon className="w-3.5 h-3.5 shrink-0" />
-                  {!isCollapsed && <><span className="flex-1 text-left text-[11px] font-semibold uppercase tracking-[0.18em]">{group.label}</span><ChevronDown className={`w-3 h-3 transition-transform ${isGroupExpanded ? "" : "-rotate-90"}`} /></>}
+                  {!isCollapsed && (
+                    <>
+                      <span className="flex-1 text-left text-[11px] font-semibold uppercase tracking-[0.18em]">
+                        {group.label}
+                      </span>
+                      <ChevronDown
+                        className={`w-3 h-3 transition-transform ${isGroupExpanded ? "" : "-rotate-90"}`}
+                      />
+                    </>
+                  )}
                 </button>
+
                 <AnimatePresence>
                   {(isGroupExpanded || isCollapsed) && (
-                    <motion.div initial={isCollapsed ? false : { height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.15 }} className="overflow-hidden">
+                    <motion.div
+                      initial={isCollapsed ? false : { height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.15 }}
+                      className="overflow-hidden"
+                    >
                       {group.items.map((item) => {
                         const active = isActive(item.path);
                         const badge = getBadge(item);
                         return (
-                          <button key={item.id} onClick={() => onNavigate(item.path)} title={isCollapsed ? item.label : undefined} className={`w-full flex items-center gap-3 transition-all relative group ${isCollapsed ? "justify-center px-2 py-2.5" : "px-4 py-2"} ${active ? "text-signal-gold bg-signal-gold/10" : "text-overlook-mist/75 hover:text-overlook-paper hover:bg-white/3"}`}>
-                            {active && <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-signal-gold rounded-r" />}
-                            {!isCollapsed && <span className="text-sm font-medium">{item.label}</span>}
-                            {!isCollapsed && badge ? <span className="ml-auto text-xs font-bold bg-red-500/20 text-red-400 border border-red-500/30 px-1.5 py-0.5 rounded-full">{badge}</span> : null}
-                            {isCollapsed && <div className="absolute left-full ml-2 px-2 py-1 bg-overlook-hull border border-white/8 text-white text-xs rounded-md whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none z-50 transition-opacity shadow-xl">{item.label}</div>}
+                          <button
+                            key={item.id}
+                            onClick={() => onNavigate(item.path)}
+                            title={isCollapsed ? item.label : undefined}
+                            className={`w-full flex items-center gap-3 transition-all relative group ${
+                              isCollapsed
+                                ? "justify-center px-2 py-2.5"
+                                : "px-4 py-2"
+                            } ${
+                              active
+                                ? "text-signal-gold bg-signal-gold/10"
+                                : "text-overlook-mist/75 hover:text-overlook-paper hover:bg-white/3"
+                            }`}
+                          >
+                            {active && (
+                              <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-signal-gold rounded-r" />
+                            )}
+                            {!isCollapsed && (
+                              <span className="text-sm font-medium">
+                                {item.label}
+                              </span>
+                            )}
+                            {!isCollapsed && badge ? (
+                              <span className="ml-auto text-xs font-bold bg-red-500/20 text-red-400 border border-red-500/30 px-1.5 py-0.5 rounded-full">
+                                {badge}
+                              </span>
+                            ) : null}
+                            {isCollapsed && (
+                              <div className="absolute left-full ml-2 px-2 py-1 bg-overlook-hull border border-white/8 text-white text-xs rounded-md whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none z-50 transition-opacity shadow-xl">
+                                {item.label}
+                              </div>
+                            )}
                           </button>
                         );
                       })}
@@ -487,66 +594,188 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
           })}
         </nav>
 
+        {/* Footer */}
         <div className="border-t border-white/5 p-2">
-          <button onClick={handleSignOut} aria-label="Sign out" className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-colors focus:outline-hidden focus-visible:ring-2 focus-visible:ring-teal-300 ${isCollapsed ? "justify-center" : ""}`}>
+          <button
+            onClick={handleSignOut}
+            aria-label="Sign out"
+            className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-colors focus:outline-hidden focus-visible:ring-2 focus-visible:ring-teal-300 ${
+              isCollapsed ? "justify-center" : ""
+            }`}
+          >
             <LogOut className="w-4 h-4 shrink-0" />
             {!isCollapsed && <span className="text-sm">Sign Out</span>}
           </button>
-          {!isCollapsed && <div className="mt-2 px-2 py-1"><div className="text-xs text-slate-400">SyncAI Platform v3.0 · build {__BUILD_SHA__}</div></div>}
+          {!isCollapsed && (
+            <div className="mt-2 px-2 py-1">
+              <div className="text-xs text-slate-400">
+                SyncAI Platform v3.0 · build {__BUILD_SHA__}
+              </div>
+            </div>
+          )}
         </div>
       </motion.aside>
 
+      {/* Main */}
       <div className="flex-1 flex flex-col overflow-hidden min-w-0">
+        {/* Top Bar */}
         <header className="h-14 bg-overlook-void/80 backdrop-blur-md border-b border-white/5 px-4 flex items-center justify-between shrink-0 z-10">
           <div className="flex items-center gap-4">
-            <button onClick={() => setIsCollapsed(!isCollapsed)} aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"} aria-expanded={!isCollapsed} className="p-1.5 rounded-md text-slate-400 hover:text-signal-cyan hover:bg-signal-cyan/10 transition-colors focus:outline-hidden focus-visible:ring-2 focus-visible:ring-teal-300">
-              {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+            <button
+              onClick={() => setIsCollapsed(!isCollapsed)}
+              aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+              aria-expanded={!isCollapsed}
+              className="p-1.5 rounded-md text-slate-400 hover:text-signal-cyan hover:bg-signal-cyan/10 transition-colors focus:outline-hidden focus-visible:ring-2 focus-visible:ring-teal-300"
+            >
+              {isCollapsed ? (
+                <ChevronRight className="w-4 h-4" />
+              ) : (
+                <ChevronLeft className="w-4 h-4" />
+              )}
             </button>
-            <div className="flex items-center gap-2"><span className="text-sm font-semibold text-slate-200">{getPageTitle()}</span></div>
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-semibold text-slate-200">
+                {getPageTitle()}
+              </span>
+            </div>
           </div>
 
           <div className="flex items-center gap-3">
-            <div className="hidden md:flex items-center gap-2 text-xs" title="Live tenant-health evidence has not been evaluated in this header.">
-              <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-white/3 border border-white/5"><div className="w-1.5 h-1.5 rounded-full bg-slate-500" /><span className="text-slate-400">Intelligence</span><span className="text-slate-500 font-medium capitalize">{systemHealth.intelligence}</span></div>
-              <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-white/3 border border-white/5"><div className="w-1.5 h-1.5 rounded-full bg-slate-500" /><span className="text-slate-400">Integration</span><span className="text-slate-500 font-medium capitalize">{systemHealth.integration}</span></div>
-              <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-white/3 border border-white/5"><Shield className="w-3 h-3 text-slate-500" /><span className="text-slate-400">Governance</span><span className="text-slate-500 font-medium capitalize">{systemHealth.governance}</span></div>
+            {/* System status is evidence-neutral until live status evidence is loaded. */}
+            <div
+              className="hidden md:flex items-center gap-2 text-xs"
+              title="Live tenant-health evidence has not been evaluated in this header."
+            >
+              <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-white/3 border border-white/5">
+                <div className="w-1.5 h-1.5 rounded-full bg-slate-500" />
+                <span className="text-slate-400">Intelligence</span>
+                <span className="text-slate-500 font-medium capitalize">
+                  {systemHealth.intelligence}
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-white/3 border border-white/5">
+                <div className="w-1.5 h-1.5 rounded-full bg-slate-500" />
+                <span className="text-slate-400">Integration</span>
+                <span className="text-slate-500 font-medium capitalize">
+                  {systemHealth.integration}
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-white/3 border border-white/5">
+                <Shield className="w-3 h-3 text-slate-500" />
+                <span className="text-slate-400">Governance</span>
+                <span className="text-slate-500 font-medium capitalize">
+                  {systemHealth.governance}
+                </span>
+              </div>
             </div>
+
             <div className="w-px h-5 bg-white/6" />
-            <div className={`flex items-center gap-1.5 text-xs font-semibold ${AUTONOMY_COLOR}`}><Cpu className="w-3.5 h-3.5" /><span className="hidden sm:block">{AUTONOMY_MODE}</span></div>
+
+            {/* Autonomy Badge */}
+            <div
+              className={`flex items-center gap-1.5 text-xs font-semibold ${AUTONOMY_COLOR}`}
+            >
+              <Cpu className="w-3.5 h-3.5" />
+              <span className="hidden sm:block">{AUTONOMY_MODE}</span>
+            </div>
+
             <div className="w-px h-5 bg-white/6" />
+
+            {/* Alerts */}
             <div className="relative">
-              <button aria-label="Notifications" onClick={async () => { const next = !notifOpen; setNotifOpen(next); if (next) { try { setNotifs(await getNotifications()); } catch { setNotifs([]); } } }} className="relative p-1.5 text-slate-400 hover:text-slate-200 transition-colors">
+              <button
+                aria-label="Notifications"
+                onClick={async () => {
+                  const next = !notifOpen;
+                  setNotifOpen(next);
+                  if (next) {
+                    try {
+                      setNotifs(await getNotifications());
+                    } catch {
+                      setNotifs([]);
+                    }
+                  }
+                }}
+                className="relative p-1.5 text-slate-400 hover:text-slate-200 transition-colors"
+              >
                 <Bell className="w-4 h-4" />
-                {(badges.approvals > 0 || notifs.some((n) => !n.read)) && <span className="absolute top-0.5 right-0.5 w-2 h-2 bg-red-500 rounded-full" />}
+                {(badges.approvals > 0 || notifs.some((n) => !n.read)) && (
+                  <span className="absolute top-0.5 right-0.5 w-2 h-2 bg-red-500 rounded-full" />
+                )}
               </button>
               {notifOpen && (
                 <div className="absolute right-0 top-9 z-50 w-80 bg-overlook-deep border border-white/10 rounded-xl shadow-xl shadow-black/40 p-2">
-                  <div className="px-2 py-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400">Notifications</div>
-                  {notifs.length === 0 && <div className="px-2 py-3 text-xs text-slate-400">No notifications.</div>}
+                  <div className="px-2 py-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400">
+                    Notifications
+                  </div>
+                  {notifs.length === 0 && (
+                    <div className="px-2 py-3 text-xs text-slate-400">
+                      No notifications.
+                    </div>
+                  )}
                   {notifs.map((n) => (
-                    <button key={n.id} onClick={async () => { await markNotificationRead(n.id); setNotifs((cur) => cur.map((x) => x.id === n.id ? { ...x, read: true } : x)); }} className={`w-full text-left px-2 py-2 rounded-lg hover:bg-white/4 ${n.read ? "opacity-60" : ""}`}>
-                      <div className="text-xs font-medium text-slate-200">{n.title}</div>
-                      <div className="text-xs text-slate-400 mt-0.5">{n.message}</div>
-                      <div className="text-xs text-slate-400 mt-0.5">{new Date(n.created_at).toLocaleString()}{!n.read && " · click to mark read"}</div>
+                    <button
+                      key={n.id}
+                      onClick={async () => {
+                        await markNotificationRead(n.id);
+                        setNotifs((cur) =>
+                          cur.map((x) =>
+                            x.id === n.id ? { ...x, read: true } : x,
+                          ),
+                        );
+                      }}
+                      className={`w-full text-left px-2 py-2 rounded-lg hover:bg-white/4 ${n.read ? "opacity-60" : ""}`}
+                    >
+                      <div className="text-xs font-medium text-slate-200">
+                        {n.title}
+                      </div>
+                      <div className="text-xs text-slate-400 mt-0.5">
+                        {n.message}
+                      </div>
+                      <div className="text-xs text-slate-400 mt-0.5">
+                        {new Date(n.created_at).toLocaleString()}
+                        {!n.read && " · click to mark read"}
+                      </div>
                     </button>
                   ))}
                 </div>
               )}
             </div>
-            <button onClick={() => setCommandSearchOpen(true)} className="p-1.5 text-slate-400 hover:text-teal-400 transition-colors" title="Command Search (Cmd+K)"><Command className="w-4 h-4" /></button>
-            <div className="w-7 h-7 rounded-full bg-linear-to-br from-teal-500 to-cyan-400 flex items-center justify-center text-xs font-bold text-white shrink-0">{userContext?.organization_name?.[0] || "U"}</div>
+
+            {/* Command */}
+            <button
+              onClick={() => setCommandSearchOpen(true)}
+              className="p-1.5 text-slate-400 hover:text-teal-400 transition-colors"
+              title="Command Search (Cmd+K)"
+            >
+              <Command className="w-4 h-4" />
+            </button>
+
+            {/* User */}
+            <div className="w-7 h-7 rounded-full bg-linear-to-br from-teal-500 to-cyan-400 flex items-center justify-center text-xs font-bold text-white shrink-0">
+              {userContext?.organization_name?.[0] || "U"}
+            </div>
           </div>
         </header>
 
-        <main className="flex-1 overflow-auto bg-overlook-void min-w-0">{children}</main>
+        {/* Page Content */}
+        <main className="flex-1 overflow-auto bg-overlook-void min-w-0">
+          {children}
+        </main>
       </div>
 
+      {/* Command Search */}
       <CopilotDock />
-      <CommandSearch open={commandSearchOpen} onClose={() => setCommandSearchOpen(false)} onNavigate={onNavigate} />
+      <CommandSearch
+        open={commandSearchOpen}
+        onClose={() => setCommandSearchOpen(false)}
+        onNavigate={onNavigate}
+      />
     </div>
   );
 }
 
+// Suppress unused import warnings — kept for potential future use
 void Activity;
 void Wifi;
 void AlertTriangle;
