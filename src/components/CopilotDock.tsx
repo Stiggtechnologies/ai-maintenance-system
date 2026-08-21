@@ -30,23 +30,25 @@ import {
 } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { supabasePublicKey, supabaseUrl } from "../lib/supabase-config";
-import { describeQuotaRefusal } from "../services/agentQuota";
-import { loadLatestSyncConversation } from "../services/syncConversation";
-import { useAuth } from "./AuthProvider";
-import { getRolePersona } from "../lib/rolePersonas";
-import { getKpiDashboard } from "../services/kpiService";
 import { getCopilotEphemeralContext } from "../lib/copilot-context";
-import { useFeatureFlag } from "../hooks/useFeatureFlag";
-import { useSyncStream } from "../hooks/useSyncStream";
+import { syncResponseGuidance } from "../lib/sync/response-guidance";
+import { getRolePersona } from "../lib/rolePersonas";
+import { describeQuotaRefusal } from "../services/agentQuota";
+import { getKpiDashboard } from "../services/kpiService";
+import { loadLatestSyncConversation } from "../services/syncConversation";
 import { useDictation } from "../hooks/useDictation";
+import { useFeatureFlag } from "../hooks/useFeatureFlag";
 import { useSpeechOutput } from "../hooks/useSpeechOutput";
+import { useSyncStream } from "../hooks/useSyncStream";
 import type {
   AssistantBlock,
   EvidenceReference,
   ProposedAction,
   SyncStreamEvent,
 } from "../types/sync-stream";
+import { AuthProvider, useAuth } from "./AuthProvider";
 import { MarkdownRenderer } from "./MarkdownRenderer";
+import { SyncActivityTimeline } from "./SyncActivityTimeline";
 
 interface ChatMessage {
   id: string;
@@ -179,14 +181,14 @@ function StructuredBlock({ block }: { block: AssistantBlock }) {
     );
     return (
       <div
-        className={`mt-2 rounded-lg border px-2.5 py-2 text-[11px] leading-4 ${
+        className={`mt-4 rounded-xl border px-3.5 py-3 text-[13px] leading-5 ${
           critical
             ? "border-amber-500/25 bg-amber-500/5 text-amber-100"
             : "border-sky-500/20 bg-sky-500/5 text-sky-100"
         }`}
       >
-        <div className="mb-1 flex items-center gap-1.5 font-semibold uppercase tracking-wide">
-          <ShieldAlert className="h-3 w-3" aria-hidden />
+        <div className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide">
+          <ShieldAlert className="h-3.5 w-3.5" aria-hidden />
           {block.severity}
         </div>
         {block.content}
@@ -207,15 +209,17 @@ function StructuredBlock({ block }: { block: AssistantBlock }) {
           : "Missing evidence";
     const Icon = block.kind === "missing_evidence" ? FileQuestion : ListChecks;
     return (
-      <div className="mt-2 rounded-lg border border-white/6 bg-black/10 p-2.5">
-        <div className="mb-1.5 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
-          <Icon className="h-3 w-3" aria-hidden />
+      <div className="mt-4 rounded-xl border border-white/7 bg-white/2 p-3.5">
+        <div className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+          <Icon className="h-3.5 w-3.5" aria-hidden />
           {title}
         </div>
-        <ul className="space-y-1 text-xs text-slate-300">
+        <ul className="space-y-2 text-[13px] leading-5 text-slate-300">
           {block.items.map((item, index) => (
-            <li key={`${title}-${index}`} className="flex gap-1.5">
-              <span aria-hidden>•</span>
+            <li key={`${title}-${index}`} className="flex gap-2">
+              <span className="text-slate-500" aria-hidden>
+                •
+              </span>
               <span>{item}</span>
             </li>
           ))}
@@ -227,21 +231,22 @@ function StructuredBlock({ block }: { block: AssistantBlock }) {
   if (block.kind === "calculation") {
     const calculation = block.calculation;
     return (
-      <div className="mt-2 rounded-lg border border-white/6 bg-black/10 p-2.5">
-        <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
-          <Calculator className="h-3 w-3" aria-hidden />
+      <div className="mt-4 rounded-xl border border-white/7 bg-white/2 p-3.5">
+        <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+          <Calculator className="h-3.5 w-3.5" aria-hidden />
           Calculation
         </div>
-        <div className="mt-1 text-xs font-medium text-slate-200">
+        <div className="mt-2 text-[14px] font-medium text-slate-100">
           {calculation.title}
         </div>
         {calculation.result !== undefined && (
-          <div className="mt-1 text-xs text-teal-200">
-            {String(calculation.result)}{calculation.units ? ` ${calculation.units}` : ""}
+          <div className="mt-1 text-[14px] text-teal-200">
+            {String(calculation.result)}
+            {calculation.units ? ` ${calculation.units}` : ""}
           </div>
         )}
         {calculation.method && (
-          <div className="mt-1 text-[11px] text-slate-500">
+          <div className="mt-2 text-[12px] leading-5 text-slate-500">
             {calculation.method}
           </div>
         )}
@@ -251,16 +256,16 @@ function StructuredBlock({ block }: { block: AssistantBlock }) {
 
   if (block.kind === "recommendation") {
     return (
-      <div className="mt-2 rounded-lg border border-teal-500/20 bg-teal-500/5 p-2.5">
-        <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-teal-300">
-          <Lightbulb className="h-3 w-3" aria-hidden />
+      <div className="mt-4 rounded-xl border border-teal-500/20 bg-teal-500/5 p-3.5">
+        <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-teal-300">
+          <Lightbulb className="h-3.5 w-3.5" aria-hidden />
           Recommendation
         </div>
-        <div className="mt-1 text-xs text-slate-200">
+        <div className="mt-2 text-[14px] leading-6 text-slate-100">
           {block.recommendation.summary}
         </div>
         {block.recommendation.rationale && (
-          <div className="mt-1 text-[11px] text-slate-400">
+          <div className="mt-2 text-[12px] leading-5 text-slate-400">
             {block.recommendation.rationale}
           </div>
         )}
@@ -270,16 +275,16 @@ function StructuredBlock({ block }: { block: AssistantBlock }) {
 
   if (block.kind === "entity_links") {
     return (
-      <div className="mt-2 rounded-lg border border-white/6 bg-black/10 p-2.5">
-        <div className="mb-1.5 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
-          <Link2 className="h-3 w-3" aria-hidden />
+      <div className="mt-4 rounded-xl border border-white/7 bg-white/2 p-3.5">
+        <div className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+          <Link2 className="h-3.5 w-3.5" aria-hidden />
           Related records
         </div>
-        <div className="space-y-1 text-xs text-slate-300">
+        <div className="space-y-1.5 text-[13px] text-slate-300">
           {block.entities.map((entity) => (
             <div key={`${entity.type}:${entity.id}`}>
               {entity.displayName ?? entity.id}
-              <span className="ml-1 text-[10px] text-slate-500">
+              <span className="ml-1.5 text-[11px] text-slate-500">
                 {entity.type}
               </span>
             </div>
@@ -291,7 +296,7 @@ function StructuredBlock({ block }: { block: AssistantBlock }) {
 
   if (block.kind === "action_proposal") {
     return (
-      <div className="mt-2 rounded-lg border border-amber-500/25 bg-amber-500/5 p-2.5 text-xs text-amber-100">
+      <div className="mt-4 rounded-xl border border-amber-500/25 bg-amber-500/5 p-3.5 text-[13px] text-amber-100">
         Proposed action: {block.action.title}
       </div>
     );
@@ -341,12 +346,11 @@ export function CopilotDock({
   });
 
   const syncEnabled = syncGlobal.enabled;
-  const sending =
-    legacySending || startingSync || streamStatus === "streaming";
+  const sending = legacySending || startingSync || streamStatus === "streaming";
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
-  }, [messages, sending]);
+  }, [messages, sending, streamEvents.length]);
 
   useEffect(() => {
     if (!syncEnabled && streamStatus === "streaming") cancelStream();
@@ -419,15 +423,9 @@ export function CopilotDock({
       if (event.type === "assistant.block") {
         const block = event.block;
         if (block.kind === "evidence") {
-          updateActiveAgent((message) => ({
-            ...message,
-            evidence: block.items,
-          }));
+          updateActiveAgent((message) => ({ ...message, evidence: block.items }));
         } else if (block.kind === "action_proposal") {
-          updateActiveAgent((message) => ({
-            ...message,
-            proposal: block.action,
-          }));
+          updateActiveAgent((message) => ({ ...message, proposal: block.action }));
         } else if (block.kind !== "markdown") {
           updateActiveAgent((message) => ({
             ...message,
@@ -437,24 +435,17 @@ export function CopilotDock({
         return;
       }
       if (event.type === "retrieval.completed") {
-        updateActiveAgent((message) => ({
-          ...message,
-          evidence: event.evidence,
-        }));
+        updateActiveAgent((message) => ({ ...message, evidence: event.evidence }));
         return;
       }
       if (event.type === "tool.proposed") {
-        updateActiveAgent((message) => ({
-          ...message,
-          proposal: event.proposal,
-        }));
+        updateActiveAgent((message) => ({ ...message, proposal: event.proposal }));
         return;
       }
       if (event.type === "tool.started") {
         updateActiveAgent((message) => ({
           ...message,
-          text:
-            "Executing the action you confirmed through the governed application service…",
+          text: "Executing the action you confirmed through the governed application service…",
           status: "streaming",
         }));
         return;
@@ -517,20 +508,15 @@ export function CopilotDock({
       if (!session?.access_token) throw new Error("Your session has expired.");
       activeAgentMessageRef.current = agentMessageId;
       processedEventCountRef.current = 0;
-      setStartingSync(true);
-      try {
-        await startStream(`${supabaseUrl}/functions/v1/sync-runtime`, {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${session.access_token}`,
-            apikey: supabasePublicKey,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(body),
-        });
-      } finally {
-        setStartingSync(false);
-      }
+      await startStream(`${supabaseUrl}/functions/v1/sync-runtime`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          apikey: supabasePublicKey,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
+      });
     },
     [startStream],
   );
@@ -542,22 +528,17 @@ export function CopilotDock({
         const deliverable = DELIVERABLE_RE.test(question);
         setLongRun(deliverable);
         const context = await buildLiveContext();
-        const { data, error } = await supabase.functions.invoke(
-          "ai-agent-processor",
-          {
-            body: {
-              agentType: "ReliabilityAgent",
-              depth: deliverable ? "deliverable" : "standard",
-              query:
-                `${persona.framing}\n\n` +
-                (context ? `${context}\n\n` : "") +
-                `QUESTION: ${question}\n\n` +
-                (deliverable
-                  ? "This is a work-product request: produce the COMPLETE deliverable now."
-                  : "Answer for this audience. Where the live context above is relevant, use its real numbers."),
-            },
+        const guidance = syncResponseGuidance(question, deliverable);
+        const { data, error } = await supabase.functions.invoke("ai-agent-processor", {
+          body: {
+            agentType: "ReliabilityAgent",
+            depth: deliverable ? "deliverable" : "standard",
+            query:
+              `${persona.framing}\n\n${guidance}\n\n` +
+              (context ? `${context}\n\n` : "") +
+              `QUESTION: ${question}`,
           },
-        );
+        });
         if (error) {
           const quota = await describeQuotaRefusal(error);
           if (quota) {
@@ -627,7 +608,11 @@ export function CopilotDock({
         return;
       }
 
+      const deliverable = DELIVERABLE_RE.test(question);
       const agentMessageId = crypto.randomUUID();
+      activeAgentMessageRef.current = agentMessageId;
+      processedEventCountRef.current = 0;
+      setStartingSync(true);
       setMessages((current) => [
         ...current,
         {
@@ -638,19 +623,24 @@ export function CopilotDock({
           blocks: [],
         },
       ]);
-      const liveContext = await buildLiveContext();
+
       try {
+        const liveContext = await buildLiveContext();
+        const guidance = syncResponseGuidance(question, deliverable);
         await startSyncRequest(
           {
             query: question,
             conversationId,
-            depth: DELIVERABLE_RE.test(question) ? "deliverable" : "standard",
+            depth: deliverable ? "deliverable" : "standard",
             context: {
               route: currentPath,
               pageTitle: document.title,
               mode,
               entity: deriveEntityContext(currentPath),
-              liveContext: `${persona.framing}\n${liveContext}`.slice(0, 2600),
+              liveContext: `${persona.framing}\n${guidance}\n${liveContext}`.slice(
+                0,
+                3600,
+              ),
             },
           },
           agentMessageId,
@@ -664,6 +654,8 @@ export function CopilotDock({
               : "Sync could not start this turn.",
           status: "error",
         }));
+      } finally {
+        setStartingSync(false);
       }
     },
     [
@@ -683,12 +675,15 @@ export function CopilotDock({
     async (proposal: ProposedAction) => {
       if (!syncEnabled || sending) return;
       const agentMessageId = crypto.randomUUID();
+      activeAgentMessageRef.current = agentMessageId;
+      processedEventCountRef.current = 0;
+      setStartingSync(true);
       setMessages((current) => [
         ...current,
         {
           id: agentMessageId,
           role: "agent",
-          text: "Confirming the governed action…",
+          text: "",
           status: "streaming",
         },
       ]);
@@ -720,6 +715,8 @@ export function CopilotDock({
               : "The confirmed action could not be submitted.",
           status: "error",
         }));
+      } finally {
+        setStartingSync(false);
       }
     },
     [
@@ -760,9 +757,9 @@ export function CopilotDock({
           role="dialog"
           aria-label={syncEnabled ? "Sync" : persona.title}
           data-testid="copilot-dock"
-          className="fixed bottom-20 right-5 z-40 flex h-[620px] max-h-[calc(100vh-7rem)] w-[420px] max-w-[calc(100vw-2.5rem)] flex-col overflow-hidden rounded-2xl border border-white/8 bg-[#0D1520] shadow-2xl shadow-black/50"
+          className="fixed bottom-20 right-5 z-40 flex h-[720px] max-h-[calc(100vh-7rem)] w-[760px] max-w-[calc(100vw-2.5rem)] flex-col overflow-hidden rounded-2xl border border-white/8 bg-[#0D1520] shadow-2xl shadow-black/50"
         >
-          <div className="border-b border-white/6 px-4 py-3">
+          <div className="border-b border-white/6 px-4 py-3 sm:px-5">
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">
                 <Sparkles className="h-4 w-4 text-teal-300" aria-hidden />
@@ -779,7 +776,7 @@ export function CopilotDock({
                 <span className="text-[10px] text-slate-500">resumable</span>
               )}
             </div>
-            <p className="mt-0.5 text-xs text-slate-400">
+            <p className="mt-0.5 max-w-2xl text-xs leading-5 text-slate-400">
               {syncEnabled
                 ? "The interaction layer across your operating system — grounded in what your role can see."
                 : persona.intro}
@@ -817,16 +814,19 @@ export function CopilotDock({
 
           <div
             ref={scrollRef}
-            className="flex-1 space-y-3 overflow-y-auto p-4"
+            className="flex-1 space-y-5 overflow-y-auto px-4 py-5 sm:px-6"
           >
             {messages.length === 0 && (
-              <div className="space-y-2" data-testid="copilot-suggestions">
+              <div
+                className="mx-auto max-w-2xl space-y-2"
+                data-testid="copilot-suggestions"
+              >
                 <p className="text-xs text-slate-400">Try asking:</p>
                 {persona.suggestions.map((suggestion) => (
                   <button
                     key={suggestion}
                     onClick={() => void ask(suggestion)}
-                    className="block w-full rounded-lg border border-white/6 bg-white/2 px-3 py-2 text-left text-xs text-slate-300 hover:border-teal-500/40 hover:text-white focus:outline-hidden focus-visible:ring-2 focus-visible:ring-teal-300"
+                    className="block w-full rounded-xl border border-white/6 bg-white/2 px-3.5 py-2.5 text-left text-[13px] leading-5 text-slate-300 hover:border-teal-500/40 hover:text-white focus:outline-hidden focus-visible:ring-2 focus-visible:ring-teal-300"
                   >
                     {suggestion}
                   </button>
@@ -837,16 +837,33 @@ export function CopilotDock({
             {messages.map((message) =>
               message.role === "user" ? (
                 <div key={message.id} className="flex justify-end">
-                  <div className="max-w-[85%] rounded-xl rounded-br-sm bg-teal-500/15 px-3 py-2 text-sm text-teal-100">
+                  <div className="max-w-[78%] rounded-2xl rounded-br-md bg-teal-500/15 px-4 py-2.5 text-[14px] leading-6 text-teal-50">
                     {message.text}
                   </div>
                 </div>
               ) : (
                 <div key={message.id} className="flex justify-start">
-                  <div className="max-w-[94%] rounded-xl rounded-bl-sm border border-white/6 bg-white/3 px-3 py-2 text-sm text-slate-200">
+                  <article className="w-full min-w-0 py-1 text-slate-200">
+                    <div className="mb-2 flex items-center gap-2 text-[11px] font-medium text-slate-500">
+                      <Sparkles className="h-3.5 w-3.5 text-teal-300" aria-hidden />
+                      <span>{syncEnabled ? "Sync" : persona.title}</span>
+                      {message.status === "error" && (
+                        <span className="text-amber-300">needs attention</span>
+                      )}
+                    </div>
+
+                    {syncEnabled &&
+                      message.id === activeAgentMessageRef.current &&
+                      (startingSync || streamStatus === "streaming") && (
+                        <SyncActivityTimeline
+                          events={streamStatus === "streaming" ? streamEvents : []}
+                          status="streaming"
+                        />
+                      )}
+
                     {message.text ? (
                       <MarkdownRenderer content={message.text} />
-                    ) : (
+                    ) : !syncEnabled ? (
                       <div className="flex items-center gap-2 text-xs text-slate-400">
                         <Loader2
                           className="h-3.5 w-3.5 animate-spin"
@@ -854,7 +871,7 @@ export function CopilotDock({
                         />
                         Reading the relevant operating context…
                       </div>
-                    )}
+                    ) : null}
 
                     {message.blocks?.map((block, index) => (
                       <StructuredBlock
@@ -864,15 +881,15 @@ export function CopilotDock({
                     ))}
 
                     {message.evidence && message.evidence.length > 0 && (
-                      <div className="mt-2 border-t border-white/6 pt-2">
-                        <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-                          Evidence
-                        </div>
-                        <div className="space-y-1">
+                      <details className="mt-4 border-t border-white/6 pt-3 text-[12px] text-slate-500">
+                        <summary className="cursor-pointer select-none font-medium text-slate-400 hover:text-slate-200">
+                          Evidence · {message.evidence.length}
+                        </summary>
+                        <div className="mt-2 space-y-1.5">
                           {message.evidence.map((evidence) => (
                             <div
                               key={evidence.id}
-                              className="rounded-md bg-black/15 px-2 py-1 text-[11px] text-slate-400"
+                              className="rounded-lg bg-white/2 px-3 py-2 leading-5 text-slate-400"
                             >
                               {evidence.title ?? evidence.sourceId}
                               {evidence.locator?.section
@@ -881,23 +898,20 @@ export function CopilotDock({
                             </div>
                           ))}
                         </div>
-                      </div>
+                      </details>
                     )}
 
                     {message.proposal && (
-                      <div className="mt-2 rounded-lg border border-amber-500/25 bg-amber-500/5 p-2.5">
-                        <div className="flex items-center gap-1.5 text-xs font-medium text-amber-200">
-                          <ShieldCheck
-                            className="h-3.5 w-3.5"
-                            aria-hidden
-                          />
+                      <div className="mt-4 rounded-xl border border-amber-500/25 bg-amber-500/5 p-3.5">
+                        <div className="flex items-center gap-1.5 text-[12px] font-medium text-amber-200">
+                          <ShieldCheck className="h-3.5 w-3.5" aria-hidden />
                           Proposed action
                         </div>
-                        <div className="mt-1 text-xs text-slate-200">
+                        <div className="mt-2 text-[14px] leading-5 text-slate-100">
                           {message.proposal.title}
                         </div>
                         {message.proposal.reason && (
-                          <div className="mt-1 text-[11px] text-slate-400">
+                          <div className="mt-2 text-[12px] leading-5 text-slate-400">
                             {message.proposal.reason}
                           </div>
                         )}
@@ -905,56 +919,57 @@ export function CopilotDock({
                           type="button"
                           onClick={() => void executeProposal(message.proposal!)}
                           disabled={sending}
-                          className="mt-2 rounded-md bg-amber-400 px-2.5 py-1.5 text-xs font-semibold text-slate-950 hover:bg-amber-300 disabled:opacity-40"
+                          className="mt-3 rounded-md bg-amber-400 px-3 py-1.5 text-xs font-semibold text-slate-950 hover:bg-amber-300 disabled:opacity-40"
                         >
                           Confirm action
                         </button>
                       </div>
                     )}
 
-                    <div className="mt-2 flex flex-wrap gap-1.5">
-                      {markdownTableToCsv(message.text) && (
-                        <button
-                          onClick={() =>
-                            downloadCsvText(
-                              markdownTableToCsv(message.text)!,
-                              "syncai-deliverable.csv",
-                            )
-                          }
-                          className="inline-flex items-center gap-1.5 rounded-lg border border-teal-500/30 bg-teal-500/10 px-2 py-1 text-[11px] font-medium text-teal-300 hover:bg-teal-500/20"
-                        >
-                          <Download className="h-3 w-3" aria-hidden />
-                          CSV
-                        </button>
-                      )}
-                      {syncEnabled &&
-                        voiceOutput.enabled &&
-                        speech.supported &&
-                        message.text && (
+                    {message.text && (
+                      <div className="mt-3 flex flex-wrap gap-1.5">
+                        {markdownTableToCsv(message.text) && (
                           <button
-                            type="button"
                             onClick={() =>
-                              speech.speaking
-                                ? speech.stop()
-                                : speech.speak(message.text)
+                              downloadCsvText(
+                                markdownTableToCsv(message.text)!,
+                                "syncai-deliverable.csv",
+                              )
                             }
-                            className="inline-flex items-center gap-1 rounded-lg border border-white/8 px-2 py-1 text-[11px] text-slate-400 hover:text-slate-200"
-                            aria-label={
-                              speech.speaking
-                                ? "Stop speaking"
-                                : "Read response aloud"
-                            }
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-teal-500/20 bg-teal-500/6 px-2 py-1 text-[11px] font-medium text-teal-300 hover:bg-teal-500/12"
                           >
-                            {speech.speaking ? (
-                              <VolumeX className="h-3 w-3" aria-hidden />
-                            ) : (
-                              <Volume2 className="h-3 w-3" aria-hidden />
-                            )}
-                            {speech.speaking ? "Stop" : "Listen"}
+                            <Download className="h-3 w-3" aria-hidden />
+                            CSV
                           </button>
                         )}
-                    </div>
-                  </div>
+                        {syncEnabled &&
+                          voiceOutput.enabled &&
+                          speech.supported && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                speech.speaking
+                                  ? speech.stop()
+                                  : speech.speak(message.text)
+                              }
+                              className="inline-flex items-center gap-1 rounded-lg border border-white/8 px-2 py-1 text-[11px] text-slate-500 hover:text-slate-200"
+                              aria-label={
+                                speech.speaking
+                                  ? "Stop speaking"
+                                  : "Read response aloud"
+                              }
+                            >
+                              {speech.speaking ? (
+                                <VolumeX className="h-3 w-3" aria-hidden />
+                              ) : (
+                                <Volume2 className="h-3 w-3" aria-hidden />
+                              )}
+                              {speech.speaking ? "Stop" : "Listen"}
+                            </button>
+                          )}
+                      </div>
+                    )}
+                  </article>
                 </div>
               ),
             )}
@@ -974,7 +989,7 @@ export function CopilotDock({
               event.preventDefault();
               void ask(input);
             }}
-            className="border-t border-white/6 p-3"
+            className="border-t border-white/6 p-3 sm:px-5"
           >
             {dictation.error && (
               <div className="mb-2 text-[11px] text-amber-300">
@@ -989,7 +1004,7 @@ export function CopilotDock({
                   syncEnabled ? "Talk to Sync…" : "Ask about your operation…"
                 }
                 aria-label={`Ask ${syncEnabled ? "Sync" : persona.title}`}
-                className="min-w-0 flex-1 rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-white placeholder-slate-400 focus:border-teal-400 focus:outline-hidden focus:ring-1 focus:ring-teal-400"
+                className="min-w-0 flex-1 rounded-xl border border-slate-600 bg-slate-900 px-3.5 py-2.5 text-sm text-white placeholder-slate-400 focus:border-teal-400 focus:outline-hidden focus:ring-1 focus:ring-teal-400"
               />
 
               {syncEnabled && voiceInput.enabled && dictation.supported && (
@@ -999,7 +1014,7 @@ export function CopilotDock({
                   aria-label={
                     dictation.listening ? "Stop dictation" : "Start dictation"
                   }
-                  className={`flex h-9 w-9 items-center justify-center rounded-lg border ${
+                  className={`flex h-10 w-10 items-center justify-center rounded-xl border ${
                     dictation.listening
                       ? "border-red-400/50 bg-red-500/10 text-red-300"
                       : "border-white/10 text-slate-300 hover:text-white"
@@ -1018,19 +1033,16 @@ export function CopilotDock({
                   type="button"
                   onClick={cancelStream}
                   aria-label="Stop response"
-                  className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-200 text-slate-950 hover:bg-white"
+                  className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-200 text-slate-950 hover:bg-white"
                 >
-                  <Square
-                    className="h-3.5 w-3.5 fill-current"
-                    aria-hidden
-                  />
+                  <Square className="h-3.5 w-3.5 fill-current" aria-hidden />
                 </button>
               ) : (
                 <button
                   type="submit"
                   disabled={sending || !input.trim()}
                   aria-label="Send"
-                  className="flex h-9 w-9 items-center justify-center rounded-lg bg-teal-500 text-slate-950 hover:bg-teal-400 disabled:opacity-40 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-teal-300"
+                  className="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-500 text-slate-950 hover:bg-teal-400 disabled:opacity-40 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-teal-300"
                 >
                   <Send className="h-4 w-4" aria-hidden />
                 </button>
@@ -1045,7 +1057,8 @@ export function CopilotDock({
               </p>
               {syncEnabled &&
                 lastQuestionRef.current &&
-                streamStatus !== "streaming" && (
+                streamStatus !== "streaming" &&
+                !startingSync && (
                   <button
                     type="button"
                     onClick={() => void ask(lastQuestionRef.current, false)}
