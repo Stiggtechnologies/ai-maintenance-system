@@ -1,0 +1,55 @@
+name: RIA governed lifecycle
+
+on:
+  pull_request:
+    paths:
+      - 'supabase/migrations/**ria**'
+      - 'scripts/ci-ria-lifecycle-smoke.sh'
+      - 'src/services/riaAuthoring*'
+      - 'src/components/assessment/**'
+      - 'src/pages/AssessmentHomePage.tsx'
+      - 'src/pages/PilotLeads*'
+  push:
+    branches: [main]
+    paths:
+      - 'supabase/migrations/**ria**'
+      - 'scripts/ci-ria-lifecycle-smoke.sh'
+
+concurrency:
+  group: ria-lifecycle-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lifecycle:
+    name: Commercial → verification smoke
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: supabase/setup-cli@v2
+        with:
+          version: 2.84.2
+          github-token: ${{ github.token }}
+
+      - name: Prepare clean local Supabase state
+        run: supabase stop --all --no-backup || true
+
+      - name: Start full migration chain
+        run: bash scripts/ci-start-supabase.sh /tmp/ria-supabase-start.log /tmp/ria-supabase-diagnostics.txt
+
+      - name: Governed RIA lifecycle
+        run: bash scripts/ci-ria-lifecycle-smoke.sh
+
+      - name: Upload startup diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ria-lifecycle-supabase-diagnostics
+          path: |
+            /tmp/ria-supabase-start.log
+            /tmp/ria-supabase-diagnostics.txt
+          retention-days: 7
+
+      - name: Stop Supabase
+        if: always()
+        run: supabase stop --no-backup || true
