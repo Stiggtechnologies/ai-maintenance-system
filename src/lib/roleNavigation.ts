@@ -40,6 +40,8 @@ export function getRoleHome(role: AppRoleKey | null | undefined): string {
       return "/work";
     case "planner":
       return "/briefing";
+    case "assessment_sponsor":
+      return "/assessments";
     case "admin":
     case "ai_admin":
     case "reliability_engineer":
@@ -128,6 +130,7 @@ const NAV_ALLOW: Record<string, Set<string> | null> = {
   planner: new Set([
     "mission-control",
     "cowork",
+    "assessments",
     "assets",
     "onboarding",
     "pm-programme",
@@ -157,6 +160,7 @@ const NAV_ALLOW: Record<string, Set<string> | null> = {
     "mission-control",
     "command-centers",
     "readiness",
+    "assessments",
     "cowork",
     "assets",
     "asset-ontology",
@@ -188,6 +192,7 @@ const NAV_ALLOW: Record<string, Set<string> | null> = {
   maintenance_manager: new Set([
     "mission-control",
     "cowork",
+    "assessments",
     "assets",
     "onboarding",
     "reliability",
@@ -257,6 +262,19 @@ const NAV_ALLOW: Record<string, Set<string> | null> = {
     "trust",
     "settings",
   ]),
+  // The assessment sponsor is a CUSTOMER identity holding a session inside an
+  // operations tenant, and it is the first role in this file that is not an
+  // employee of the organization it signs into. Its menu is the two surfaces
+  // the engagement needs: the assessment itself, and account settings.
+  //
+  // READ THE HEADER OF THIS FILE BEFORE TREATING THAT AS CONTAINMENT. Menu
+  // visibility is not entitlement. A sponsor session can reach every
+  // org-scoped table in the tenant through PostgREST exactly as any other
+  // authenticated member can, because that is what those tables' policies say.
+  // Per-record authorization is Phase 2 of the workspace specification; until
+  // it exists, a sponsor account belongs only in an organization whose entire
+  // contents are the engagement.
+  assessment_sponsor: new Set(["assessments", "settings"]),
 };
 
 /**

@@ -453,3 +453,19 @@ export function usingOf(statement: string): string | null {
 export function grantsAuthenticated(statement: string): boolean {
   return /\bto\s+[^()]*?\bauthenticated\b/i.test(statement);
 }
+
+/**
+ * True when the policy is RESTRICTIVE.
+ *
+ * The distinction matters to every "is this predicate scoped?" assertion in
+ * the suite. A permissive policy is a grant: its predicate is the whole of
+ * what bounds the caller, so an unscoped one is a hole. A restrictive policy
+ * ANDs into whatever permissive policies exist and can only ever narrow —
+ * `using (not app_current_role_is_external())` grants nothing to anyone and is
+ * not a tenancy predicate at all. Asserting `app_current_org()` appears in a
+ * restrictive predicate would be asserting the wrong property, and the way to
+ * satisfy it would be to write a scope into a policy whose job is to deny.
+ */
+export function isRestrictive(statement: string): boolean {
+  return /\bas\s+restrictive\b/i.test(statement);
+}

@@ -39,6 +39,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   grantsAuthenticated,
+  isRestrictive,
   migrationFiles,
   type ResolvedPolicy,
   resolveChainPolicies,
@@ -213,6 +214,12 @@ describe("the tightened tables are scoped, and scoped to app_current_org()", () 
   it.each(BUCKET_A)("%s carries no always-true policy", (table) => {
     const alwaysTrue = policiesOn(table)
       .filter((p) => grantsAuthenticated(p.text))
+      // Restrictive policies are excluded: they grant nothing, so an always-true
+      // arm in one cannot widen access. `using (true) with check (<denial>)` is
+      // the deliberate shape for a restrictive UPDATE gate — 20260912123000's
+      // header explains why a restrictive USING must not filter — and it is
+      // asserted on its own terms two tests below.
+      .filter((p) => !isRestrictive(p.text))
       .filter((p) => {
         const using = usingOf(p.text);
         const check = withCheckOf(p.text);
@@ -227,9 +234,9 @@ describe("the tightened tables are scoped, and scoped to app_current_org()", () 
   it.each(BUCKET_A)(
     "%s names app_current_org() in every predicate",
     (table) => {
-      const granted = policiesOn(table).filter((p) =>
-        grantsAuthenticated(p.text),
-      );
+      const granted = policiesOn(table)
+        .filter((p) => grantsAuthenticated(p.text))
+        .filter((p) => !isRestrictive(p.text));
       expect(granted.length).toBeGreaterThan(0);
       for (const p of granted) {
         for (const predicate of [usingOf(p.text), withCheckOf(p.text)]) {
@@ -239,6 +246,34 @@ describe("the tightened tables are scoped, and scoped to app_current_org()", () 
             `${table}.${p.policy} predicate is unscoped`,
           ).toMatch(/app_current_org\(\)/);
         }
+      }
+    },
+  );
+
+  it.each(BUCKET_A)(
+    "%s: every restrictive policy denies, and none of them filters an UPDATE",
+    (table) => {
+      // The two properties a restrictive gate must have. It must not be the
+      // only thing standing between a caller and a row (it ANDs, it does not
+      // grant), and on UPDATE its denial must live in WITH CHECK: a restrictive
+      // USING denies by filtering to zero rows with no error, and a client that
+      // reads "0 rows updated" as success turns a refusal into a green tick.
+      for (const p of policiesOn(table).filter((x) => isRestrictive(x.text))) {
+        const command = commandOf(p.text);
+        const check = withCheckOf(p.text);
+        const using = usingOf(p.text);
+        if (command === "update") {
+          expect(
+            check,
+            `${table}.${p.policy} restrictive UPDATE has no WITH CHECK`,
+          ).not.toBeNull();
+          expect((check as string).trim().toLowerCase()).not.toBe("true");
+          expect((using ?? "true").trim().toLowerCase()).toBe("true");
+        }
+        // Whatever the command, the predicate must actually deny something.
+        const predicate = (check ?? using ?? "").trim().toLowerCase();
+        expect(predicate, `${table}.${p.policy} denies nothing`).not.toBe("");
+        expect(predicate).not.toBe("true");
       }
     },
   );
@@ -274,6 +309,7 @@ describe("the tightened tables are scoped, and scoped to app_current_org()", () 
     for (const table of BUCKET_A_READ_UPDATE) {
       const commands = policiesOn(table)
         .filter((p) => grantsAuthenticated(p.text))
+        .filter((p) => !isRestrictive(p.text))
         .map((p) => commandOf(p.text))
         .sort();
       expect(commands, `${table}`).toEqual(["select", "update"]);
@@ -285,7 +321,7 @@ describe("the tightened tables are scoped, and scoped to app_current_org()", () 
     // `set organization_id = null` was a one-statement tenant export.
     for (const table of BUCKET_A_READ_UPDATE) {
       const update = policiesOn(table).find(
-        (p) => commandOf(p.text) === "update",
+        (p) => commandOf(p.text) === "update" && !isRestrictive(p.text),
       );
       expect(update, `${table} has no UPDATE policy`).toBeDefined();
       expect(withCheckOf((update as { text: string }).text)).toMatch(
@@ -295,13 +331,17 @@ describe("the tightened tables are scoped, and scoped to app_current_org()", () 
   });
 
   it("creating a deployment still works, and only into your own org", () => {
+    // The GRANT surface, so restrictive denials are excluded — they add no
+    // command a caller can reach, and counting them here would report the
+    // external-role gate as new access.
     const commands = policiesOn("deployment_instances")
       .filter((p) => grantsAuthenticated(p.text))
+      .filter((p) => !isRestrictive(p.text))
       .map((p) => commandOf(p.text))
       .sort();
     expect(commands).toEqual(["insert", "select"]);
     const insert = policiesOn("deployment_instances").find(
-      (p) => commandOf(p.text) === "insert",
+      (p) => commandOf(p.text) === "insert" && !isRestrictive(p.text),
     );
     expect(withCheckOf((insert as { text: string }).text)).toMatch(
       /organization_id = app_current_org\(\)/,
@@ -329,9 +369,9 @@ describe("child and user-scoped tables keep migration 5's idiom", () => {
   it.each(BUCKET_C)(
     "%s survives the chain, applied any number of times",
     (table) => {
-      const granted = policiesOn(table).filter((p) =>
-        grantsAuthenticated(p.text),
-      );
+      const granted = policiesOn(table)
+        .filter((p) => grantsAuthenticated(p.text))
+        .filter((p) => !isRestrictive(p.text));
       expect(granted.length).toBeGreaterThan(0);
       for (const p of granted) {
         const predicates = [usingOf(p.text), withCheckOf(p.text)].filter(
@@ -354,9 +394,9 @@ describe("child and user-scoped tables keep migration 5's idiom", () => {
     // disclosure — the rival's USING resolves through a connector they do not
     // own — but seven server paths filter runs on that column, so the run
     // becomes invisible to finish_connector_run and never completes.
-    const runs = policiesOn("connector_runs").filter((p) =>
-      grantsAuthenticated(p.text),
-    );
+    const runs = policiesOn("connector_runs")
+      .filter((p) => grantsAuthenticated(p.text))
+      .filter((p) => !isRestrictive(p.text));
     expect(runs.length).toBeGreaterThan(0);
     for (const p of runs) {
       const check = withCheckOf(p.text);
@@ -385,9 +425,9 @@ describe("child and user-scoped tables keep migration 5's idiom", () => {
   it("...but its READ predicate is unchanged, so no row disappears", () => {
     // Narrowing USING would change which runs a tenant can see. That is a
     // different decision from closing a write channel and is not made here.
-    const runs = policiesOn("connector_runs").filter((p) =>
-      grantsAuthenticated(p.text),
-    );
+    const runs = policiesOn("connector_runs")
+      .filter((p) => grantsAuthenticated(p.text))
+      .filter((p) => !isRestrictive(p.text));
     for (const p of runs) {
       const using = usingOf(p.text);
       if (using === null) continue;
@@ -421,12 +461,32 @@ describe("the approval path is left to migration 23", () => {
     );
   });
 
-  it("migration 23 still owns those policies in the resolved chain", () => {
+  it("migration 23 still owns the GRANT on those tables in the resolved chain", () => {
+    // Ownership of the grant, not of every policy on the table. A restrictive
+    // denial layered on later (the external-role write gate, 20260920002000)
+    // cannot widen anything and does not take the table over — what would be a
+    // regression is a later file re-granting access, which is what this checks.
     for (const table of BUCKET_D) {
-      const owners = policiesOn(table).map((p) => p.source);
+      const owners = policiesOn(table)
+        .filter((p) => !isRestrictive(p.text))
+        .map((p) => p.source);
       expect(owners.length).toBeGreaterThan(0);
       for (const owner of owners) {
         expect(owner).toBe("00000000000023_enforce_approval_authority.sql");
+      }
+    }
+  });
+
+  it("...and the only later policies on them are restrictive denials", () => {
+    for (const table of BUCKET_D) {
+      const later = policiesOn(table).filter(
+        (p) => p.source !== "00000000000023_enforce_approval_authority.sql",
+      );
+      for (const p of later) {
+        expect(
+          isRestrictive(p.text),
+          `${table}.${p.policy} from ${p.source} is a later PERMISSIVE policy`,
+        ).toBe(true);
       }
     }
   });

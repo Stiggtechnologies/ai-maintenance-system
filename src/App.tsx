@@ -22,6 +22,8 @@ import { Privacy } from "./pages/Privacy";
 import { Terms } from "./pages/Terms";
 import { AppShell } from "./components/AppShell";
 import { AssetDetailPage } from "./pages/AssetDetailPage";
+import { AssessmentsPage } from "./pages/AssessmentsPage";
+import { AssessmentHomePage } from "./pages/AssessmentHomePage";
 import { AssetManagement } from "./components/AssetManagement";
 import { MissionControl } from "./pages/MissionControl";
 import { WorkActionBoard } from "./pages/WorkActionBoard";
@@ -344,6 +346,32 @@ function AdminGate({ children }: { children: React.ReactElement }) {
   return children;
 }
 
+/**
+ * The assessment workspace is open to the admin roles, the engineering and
+ * planning roles that do the work, and the customer's assessment sponsor.
+ *
+ * This is a UX gate, not the boundary. RLS on ria_* is the boundary; a role
+ * that reaches this route without entitlement sees an empty list rather than
+ * another tenant's engagement.
+ */
+function AssessmentGate({ children }: { children: React.ReactElement }) {
+  const { profile, loading } = useAuth();
+  if (loading) return null;
+  const role = (profile?.role as string) ?? "";
+  const allowed = [
+    "admin",
+    "ai_admin",
+    "reliability_engineer",
+    "maintenance_manager",
+    "planner",
+    "assessment_sponsor",
+  ];
+  if (!allowed.includes(role)) {
+    return <Navigate to="/mission-control" replace />;
+  }
+  return children;
+}
+
 /** Post-login landing: every role gets its own command center. */
 function RoleLanding() {
   const { user, profile, loading } = useAuth();
@@ -378,6 +406,22 @@ function AuthenticatedApp() {
           <Route path="/mission-control" element={<MissionControl />} />
           <Route path="/command-centers" element={<CommandCenters />} />
           <Route path="/readiness" element={<ReadinessPage />} />
+          <Route
+            path="/assessments"
+            element={
+              <AssessmentGate>
+                <AssessmentsPage />
+              </AssessmentGate>
+            }
+          />
+          <Route
+            path="/assessments/:assessmentId"
+            element={
+              <AssessmentGate>
+                <AssessmentHomePage />
+              </AssessmentGate>
+            }
+          />
           <Route
             path="/cowork"
             element={<Navigate to="/decision-cases/demo" replace />}
