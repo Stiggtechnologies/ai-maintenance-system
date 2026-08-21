@@ -40,6 +40,11 @@ insert into public.pilot_intake_requests (
 
 set local role authenticated;
 select set_config('request.jwt.claim.sub', '8a000000-0000-4000-8000-000000000010', true);
+select set_config(
+  'request.jwt.claims',
+  json_build_object('sub','8a000000-0000-4000-8000-000000000010','role','authenticated')::text,
+  true
+);
 
 -- ai_admin can see the activation directory and target an existing customer org.
 DO $$
@@ -81,6 +86,11 @@ end $$;
 
 -- A tenant admin from another org must NOT inherit the platform admin's cross-org power.
 select set_config('request.jwt.claim.sub', '8a000000-0000-4000-8000-000000000011', true);
+select set_config(
+  'request.jwt.claims',
+  json_build_object('sub','8a000000-0000-4000-8000-000000000011','role','authenticated')::text,
+  true
+);
 DO $$
 begin
   begin
@@ -98,6 +108,11 @@ end $$;
 -- Switch to the customer Reliability Engineer. From here on every write is
 -- current-tenant only and uses the public Feature contracts.
 select set_config('request.jwt.claim.sub', '8a000000-0000-4000-8000-000000000012', true);
+select set_config(
+  'request.jwt.claims',
+  json_build_object('sub','8a000000-0000-4000-8000-000000000012','role','authenticated')::text,
+  true
+);
 
 -- Upload metadata through the tenant RLS path. The Data Room owns real object
 -- upload/profiling; this synthetic source only supplies a traceable evidence row.
