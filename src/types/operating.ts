@@ -66,6 +66,16 @@ export interface RecommendationRow {
   rationale: string | null;
   created_at: string;
   updated_at: string;
+  /**
+   * Engineering approval (E4.06). Written ONLY by sign_engineering_review();
+   * migration 20260921001000 refuses a direct write of these three columns,
+   * so they are read-only to every client. Optional because the columns were
+   * added after the base row and most recommendations carry no change class.
+   */
+  change_class?: string | null;
+  engineering_signed_by?: string | null;
+  engineering_signed_at?: string | null;
+  engineering_note?: string | null;
   // joined
   asset?: Pick<AssetRow, "id" | "name" | "tag" | "criticality"> | null;
   agent?: Pick<AgentRow, "id" | "name"> | null;

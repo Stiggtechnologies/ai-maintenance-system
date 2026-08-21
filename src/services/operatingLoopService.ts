@@ -521,11 +521,7 @@ export { listApprovals as getApprovals };
 /* -------------------------------------------------------------------------- */
 
 export type RecommendationAction =
-  | "approved"
-  | "rejected"
-  | "dismissed"
-  | "escalated"
-  | "modified";
+  "approved" | "rejected" | "dismissed" | "escalated" | "modified";
 
 export interface ApproveResult {
   recommendationId: string;
@@ -717,6 +713,48 @@ export async function setRecommendationStatus(
       model_confidence: rec.confidence,
     });
   }
+}
+
+/**
+ * Record an engineering sign-off on a recommendation that carries a change
+ * class (register E4.06).
+ *
+ * This is the ONLY way to write `engineering_signed_by/at/note`. Migration
+ * 20260921001000 put a provenance trigger on `recommendations` that refuses a
+ * direct write of those columns, because until then the `for all to
+ * authenticated` policy let any role satisfy the control by asserting its own
+ * signature — and `sign_engineering_review` had no callers, so the forged path
+ * was the only path.
+ *
+ * The RPC refuses in-band rather than throwing: it returns `{ error }` when the
+ * caller does not hold the discipline the change class requires, or when the
+ * basis is shorter than 20 characters. Those are answers for the user, not
+ * exceptions, so they are surfaced as a returned message.
+ */
+export async function signEngineeringReview(
+  recommendationId: string,
+  note: string,
+): Promise<{ signedBy: string; changeClass: string }> {
+  const { data, error } = await supabase.rpc("sign_engineering_review", {
+    p_recommendation_id: recommendationId,
+    p_note: note,
+  });
+  if (error) fail("Could not record the engineering sign-off", error);
+  // The RPC returns jsonb: either { error } or the signed receipt.
+  const result = data as {
+    error?: string;
+    signed?: string;
+    change_class?: string;
+    signed_by_role?: string;
+  } | null;
+  if (!result || result.error) {
+    // The server's own refusal sentence, not a paraphrase of it.
+    throw new Error(result?.error ?? "Engineering sign-off was not recorded.");
+  }
+  return {
+    signedBy: result.signed_by_role ?? "",
+    changeClass: result.change_class ?? "",
+  };
 }
 
 /** Create a draft work order directly from a recommendation (without approving it). */
