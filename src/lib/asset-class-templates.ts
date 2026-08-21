@@ -1,3 +1,34 @@
+/**
+ * 2026-08-20 — all 28 templates reset from `customer_validated` to `draft`.
+ *
+ * No customer has validated any of these. The 2026-08-11 honesty pass that reset
+ * the 15 industry packs from a false `customer_validated` never opened this file,
+ * so the attestation survived here. It is a claim about PROVENANCE, which is worse
+ * than a wrong value: a wrong failure mode is an engineering error a reviewer can
+ * catch, while "customer_validated" tells the reviewer not to look.
+ *
+ * Known defects found on review and NOT yet corrected — the reset is the honest
+ * move, the corrections are engineering work needing a named reviewer:
+ *   - `pump` names no BEP / minimum-flow / dry-running failure mode. Zero matches
+ *     for those terms in this entire file, and off-BEP operation is the dominant
+ *     cause of the seal and bearing failures it does list.
+ *   - `compressor` (:268) lists "Discharge valve seat erosion from cavitation".
+ *     Gas does not cavitate.
+ *   - `ring-3` appears 11 times ("Piston ring-3 wear") — an uncorrected
+ *     find-and-replace corruption, and proof no engineer has read this end to end.
+ *   - :1072 cites a "5-year ASME interval" for in-service internal inspection.
+ *     ASME VIII is a construction code and sets no in-service interval; API 510 does.
+ *   - Every one of the 28 has exactly 8 failure modes and exactly 5 operating-context
+ *     questions. A gas turbine and a UPS do not have the same number of significant
+ *     failure modes; the content was generated to a shape.
+ *   - CSA Z662, API 510, API 653 and ISO 14224 appear nowhere in this file, though
+ *     the platform's own failure taxonomy is built on ISO 14224 and the target
+ *     market is Canadian.
+ *
+ * Do not surface these to a customer until a named engineer signs each class.
+ * src/lib/asset-twins/ already ships coded, mechanism-separated templates for the
+ * overlapping asset classes on a reachable route.
+ */
 export interface AssetClassTemplate {
   assetClassCode: string;
   label: string;
@@ -90,7 +121,7 @@ export const ASSET_CLASS_TEMPLATES: Record<string, AssetClassTemplate> = {
       "Bearing temperature rise beyond 20C requires shutdown confirmation",
     ],
     templateVersion: "1.0.0",
-    validationStatus: "customer_validated",
+    validationStatus: "draft",
   },
 
   conveyor: {
@@ -169,7 +200,7 @@ export const ASSET_CLASS_TEMPLATES: Record<string, AssetClassTemplate> = {
       "Belt tracking deviation beyond tolerance requires manual intervention",
     ],
     templateVersion: "1.0.0",
-    validationStatus: "customer_validated",
+    validationStatus: "draft",
   },
 
   mobile_equipment: {
@@ -247,7 +278,7 @@ export const ASSET_CLASS_TEMPLATES: Record<string, AssetClassTemplate> = {
       "Work attachment load limits must be manually set by operator",
     ],
     templateVersion: "1.0.0",
-    validationStatus: "customer_validated",
+    validationStatus: "draft",
   },
 
   compressor: {
@@ -326,7 +357,7 @@ export const ASSET_CLASS_TEMPLATES: Record<string, AssetClassTemplate> = {
       "Vibration spike detection must enable operator notification",
     ],
     templateVersion: "1.0.0",
-    validationStatus: "customer_validated",
+    validationStatus: "draft",
   },
 
   motor: {
@@ -404,7 +435,7 @@ export const ASSET_CLASS_TEMPLATES: Record<string, AssetClassTemplate> = {
       "Vibration peak acceleration exceeding baseline by 50 percent triggers alarm",
     ],
     templateVersion: "1.0.0",
-    validationStatus: "customer_validated",
+    validationStatus: "draft",
   },
 
   turbine: {
@@ -482,7 +513,7 @@ export const ASSET_CLASS_TEMPLATES: Record<string, AssetClassTemplate> = {
       "Load rejection response time must be verified manually",
     ],
     templateVersion: "1.0.0",
-    validationStatus: "customer_validated",
+    validationStatus: "draft",
   },
 
   generator: {
@@ -560,7 +591,7 @@ export const ASSET_CLASS_TEMPLATES: Record<string, AssetClassTemplate> = {
       "Brush wear below critical length enables mechanical cutout",
     ],
     templateVersion: "1.0.0",
-    validationStatus: "customer_validated",
+    validationStatus: "draft",
   },
 
   boiler: {
@@ -639,7 +670,7 @@ export const ASSET_CLASS_TEMPLATES: Record<string, AssetClassTemplate> = {
       "Combustion air supply loss enables shutdown sequence",
     ],
     templateVersion: "1.0.0",
-    validationStatus: "customer_validated",
+    validationStatus: "draft",
   },
 
   transformer: {
@@ -717,7 +748,7 @@ export const ASSET_CLASS_TEMPLATES: Record<string, AssetClassTemplate> = {
       "Cooling fan motor failure enables backup cooling or load reduction",
     ],
     templateVersion: "1.0.0",
-    validationStatus: "customer_validated",
+    validationStatus: "draft",
   },
 
   valve: {
@@ -795,7 +826,7 @@ export const ASSET_CLASS_TEMPLATES: Record<string, AssetClassTemplate> = {
       "Actuator position feedback loss must enable safe mode",
     ],
     templateVersion: "1.0.0",
-    validationStatus: "customer_validated",
+    validationStatus: "draft",
   },
 
   tank: {
@@ -873,7 +904,7 @@ export const ASSET_CLASS_TEMPLATES: Record<string, AssetClassTemplate> = {
       "Tank level high-high enables automatic pump shutdown",
     ],
     templateVersion: "1.0.0",
-    validationStatus: "customer_validated",
+    validationStatus: "draft",
   },
 
   pipeline: {
@@ -951,7 +982,7 @@ export const ASSET_CLASS_TEMPLATES: Record<string, AssetClassTemplate> = {
       "Isolation valve manual intervention required for bypass",
     ],
     templateVersion: "1.0.0",
-    validationStatus: "customer_validated",
+    validationStatus: "draft",
   },
 
   heat_exchanger: {
@@ -1029,7 +1060,7 @@ export const ASSET_CLASS_TEMPLATES: Record<string, AssetClassTemplate> = {
       "Gasket leakage rate exceeding limit enables maintenance alert",
     ],
     templateVersion: "1.0.0",
-    validationStatus: "customer_validated",
+    validationStatus: "draft",
   },
 
   pressure_vessel: {
@@ -1107,7 +1138,7 @@ export const ASSET_CLASS_TEMPLATES: Record<string, AssetClassTemplate> = {
       "Weld crack detection enables immediate shutdown",
     ],
     templateVersion: "1.0.0",
-    validationStatus: "customer_validated",
+    validationStatus: "draft",
   },
 
   hvac_system: {
@@ -1185,7 +1216,7 @@ export const ASSET_CLASS_TEMPLATES: Record<string, AssetClassTemplate> = {
       "Indoor temperature deviation beyond 2C triggers investigator alert",
     ],
     templateVersion: "1.0.0",
-    validationStatus: "customer_validated",
+    validationStatus: "draft",
   },
 
   refrigeration_system: {
@@ -1263,7 +1294,7 @@ export const ASSET_CLASS_TEMPLATES: Record<string, AssetClassTemplate> = {
       "High-side pressure exceeding relief setpoint triggers unload",
     ],
     templateVersion: "1.0.0",
-    validationStatus: "customer_validated",
+    validationStatus: "draft",
   },
 
   chiller: {
@@ -1341,7 +1372,7 @@ export const ASSET_CLASS_TEMPLATES: Record<string, AssetClassTemplate> = {
       "Refrigerant charge loss beyond 5 percent blocks operation",
     ],
     templateVersion: "1.0.0",
-    validationStatus: "customer_validated",
+    validationStatus: "draft",
   },
 
   data_center_rack: {
@@ -1419,7 +1450,7 @@ export const ASSET_CLASS_TEMPLATES: Record<string, AssetClassTemplate> = {
       "Power loss detection enables UPS switchover within 4ms",
     ],
     templateVersion: "1.0.0",
-    validationStatus: "customer_validated",
+    validationStatus: "draft",
   },
 
   server: {
@@ -1499,7 +1530,7 @@ export const ASSET_CLASS_TEMPLATES: Record<string, AssetClassTemplate> = {
       "Firmware update requires manual verification and testing",
     ],
     templateVersion: "1.0.0",
-    validationStatus: "customer_validated",
+    validationStatus: "draft",
   },
 
   switchgear: {
@@ -1577,7 +1608,7 @@ export const ASSET_CLASS_TEMPLATES: Record<string, AssetClassTemplate> = {
       "Trip function loss enables manual intervention signal",
     ],
     templateVersion: "1.0.0",
-    validationStatus: "customer_validated",
+    validationStatus: "draft",
   },
 
   plc_control_system: {
@@ -1657,7 +1688,7 @@ export const ASSET_CLASS_TEMPLATES: Record<string, AssetClassTemplate> = {
       "Software update must have rollback capability enabled",
     ],
     templateVersion: "1.0.0",
-    validationStatus: "customer_validated",
+    validationStatus: "draft",
   },
 
   instrumentation: {
@@ -1734,7 +1765,7 @@ export const ASSET_CLASS_TEMPLATES: Record<string, AssetClassTemplate> = {
       "Process connection blockage detection enables diagnostic alert",
     ],
     templateVersion: "1.0.0",
-    validationStatus: "customer_validated",
+    validationStatus: "draft",
   },
 
   packaging_line: {
@@ -1813,7 +1844,7 @@ export const ASSET_CLASS_TEMPLATES: Record<string, AssetClassTemplate> = {
       "Emergency stop enables immediate drive shutdown",
     ],
     templateVersion: "1.0.0",
-    validationStatus: "customer_validated",
+    validationStatus: "draft",
   },
 
   aircraft_system: {
@@ -1893,7 +1924,7 @@ export const ASSET_CLASS_TEMPLATES: Record<string, AssetClassTemplate> = {
       "Hydraulic system pressure loss enables emergency systems activation",
     ],
     templateVersion: "1.0.0",
-    validationStatus: "customer_validated",
+    validationStatus: "draft",
   },
 
   marine_engine: {
@@ -1973,7 +2004,7 @@ export const ASSET_CLASS_TEMPLATES: Record<string, AssetClassTemplate> = {
       "Load rejection response timing enables control system testing",
     ],
     templateVersion: "1.0.0",
-    validationStatus: "customer_validated",
+    validationStatus: "draft",
   },
 
   crane: {
@@ -2053,7 +2084,7 @@ export const ASSET_CLASS_TEMPLATES: Record<string, AssetClassTemplate> = {
       "Emergency stop enables immediate load detention",
     ],
     templateVersion: "1.0.0",
-    validationStatus: "customer_validated",
+    validationStatus: "draft",
   },
 
   ups: {
@@ -2133,7 +2164,7 @@ export const ASSET_CLASS_TEMPLATES: Record<string, AssetClassTemplate> = {
       "Battery overcurrent enables fuse or contactor trip",
     ],
     templateVersion: "1.0.0",
-    validationStatus: "customer_validated",
+    validationStatus: "draft",
   },
 
   battery_system: {
@@ -2213,7 +2244,7 @@ export const ASSET_CLASS_TEMPLATES: Record<string, AssetClassTemplate> = {
       "BMS communication loss enables safe shutdown mode",
     ],
     templateVersion: "1.0.0",
-    validationStatus: "customer_validated",
+    validationStatus: "draft",
   },
 };
 
