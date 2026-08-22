@@ -44,7 +44,7 @@ const allResults: SearchResult[] = [
   { id: "tw", label: "Twin & Naming Coverage", path: "/assets/twins", category: "Asset Foundation", icon: Factory },
   { id: "ob", label: "Asset Onboarding", path: "/onboarding", category: "Asset Foundation", icon: Factory },
   { id: "rl", label: "Failure Modes & Strategy", path: "/reliability", category: "Reliability Strategy", icon: Factory },
-  { id: "rk", label: "Risk & Consequence", path: "/risk", category: "Reliability Strategy", icon: Factory },
+  { id: "rk", label: "Risk Operating System", path: "/risk", category: "Reliability Strategy", icon: Factory },
   { id: "iv", label: "Interval Decisions", path: "/reliability/intervals", category: "Reliability Strategy", icon: Factory },
   { id: "jp", label: "Job Plans & Task Library", path: "/job-plans", category: "Maintenance Programme", icon: Wrench },
   { id: "pp", label: "PM Programme", path: "/pm-programme", category: "Maintenance Programme", icon: Wrench },

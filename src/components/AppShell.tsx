@@ -135,7 +135,7 @@ const navGroups: NavGroup[] = [
         label: "Failure Modes & Strategy",
         path: "/reliability",
       },
-      { id: "risk", label: "Risk & Consequence", path: "/risk" },
+      { id: "risk", label: "Risk Operating System", path: "/risk" },
       {
         id: "intervals",
         label: "Interval Decisions",
