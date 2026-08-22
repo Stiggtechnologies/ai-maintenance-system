@@ -39,7 +39,7 @@ import { TemplateSelectorPage } from "./pages/TemplateSelectorPage";
 import { DeploymentConfiguratorPage } from "./pages/DeploymentConfiguratorPage";
 import { AIWorkforce } from "./pages/AIWorkforcePage";
 import { CommandCenters } from "./pages/CommandCenters";
-import { RiskConsequence } from "./pages/RiskConsequence";
+import { RiskOperatingSystemPage } from "./pages/RiskOperatingSystemPage";
 import { LearningLoop } from "./pages/LearningLoop";
 import { Reliability } from "./pages/ReliabilityPage";
 import { ReadinessPage } from "./pages/ReadinessPage";
@@ -374,7 +374,7 @@ function AuthenticatedApp() {
           <Route path="/reliability" element={<Reliability />} />
           <Route path="/reliability/intervals" element={<IntervalDecisionsPage />} />
           <Route path="/reliability-copilot" element={<ReliabilityCopilotPage />} />
-          <Route path="/risk" element={<RiskConsequence />} />
+          <Route path="/risk" element={<RiskOperatingSystemPage />} />
           <Route path="/job-plans" element={<JobPlansPage />} />
           <Route path="/pm-programme" element={<PmProgrammePage />} />
 

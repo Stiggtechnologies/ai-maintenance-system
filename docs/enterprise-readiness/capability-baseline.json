@@ -1532,8 +1532,8 @@
     "evidence": false
   },
   "U18.02": {
-    "status": "❌",
-    "evidence": false
+    "status": "✅",
+    "evidence": true
   },
   "U19.01": {
     "status": "❌",
@@ -1606,6 +1606,230 @@
   "U24.01": {
     "status": "🟡",
     "evidence": false
+  },
+  "R1.01": {
+    "status": "✅",
+    "evidence": true
+  },
+  "R1.02": {
+    "status": "✅",
+    "evidence": true
+  },
+  "R1.03": {
+    "status": "✅",
+    "evidence": true
+  },
+  "R1.04": {
+    "status": "✅",
+    "evidence": true
+  },
+  "R1.05": {
+    "status": "✅",
+    "evidence": true
+  },
+  "R1.06": {
+    "status": "✅",
+    "evidence": true
+  },
+  "R1.07": {
+    "status": "✅",
+    "evidence": true
+  },
+  "R1.08": {
+    "status": "✅",
+    "evidence": true
+  },
+  "R2.01": {
+    "status": "✅",
+    "evidence": true
+  },
+  "R2.02": {
+    "status": "✅",
+    "evidence": true
+  },
+  "R2.03": {
+    "status": "✅",
+    "evidence": true
+  },
+  "R2.04": {
+    "status": "✅",
+    "evidence": true
+  },
+  "R2.05": {
+    "status": "✅",
+    "evidence": true
+  },
+  "R2.06": {
+    "status": "✅",
+    "evidence": true
+  },
+  "R2.07": {
+    "status": "✅",
+    "evidence": true
+  },
+  "R2.08": {
+    "status": "✅",
+    "evidence": true
+  },
+  "R3.01": {
+    "status": "✅",
+    "evidence": true
+  },
+  "R3.02": {
+    "status": "✅",
+    "evidence": true
+  },
+  "R3.03": {
+    "status": "✅",
+    "evidence": true
+  },
+  "R3.04": {
+    "status": "✅",
+    "evidence": true
+  },
+  "R3.05": {
+    "status": "✅",
+    "evidence": true
+  },
+  "R3.06": {
+    "status": "✅",
+    "evidence": true
+  },
+  "R3.07": {
+    "status": "✅",
+    "evidence": true
+  },
+  "R4.01": {
+    "status": "✅",
+    "evidence": true
+  },
+  "R4.02": {
+    "status": "✅",
+    "evidence": true
+  },
+  "R4.03": {
+    "status": "✅",
+    "evidence": true
+  },
+  "R4.04": {
+    "status": "✅",
+    "evidence": true
+  },
+  "R4.05": {
+    "status": "✅",
+    "evidence": true
+  },
+  "R4.06": {
+    "status": "✅",
+    "evidence": true
+  },
+  "R4.07": {
+    "status": "✅",
+    "evidence": true
+  },
+  "R4.08": {
+    "status": "✅",
+    "evidence": true
+  },
+  "R5.01": {
+    "status": "✅",
+    "evidence": true
+  },
+  "R5.02": {
+    "status": "✅",
+    "evidence": true
+  },
+  "R5.03": {
+    "status": "✅",
+    "evidence": true
+  },
+  "R5.04": {
+    "status": "✅",
+    "evidence": true
+  },
+  "R5.05": {
+    "status": "✅",
+    "evidence": true
+  },
+  "R5.06": {
+    "status": "✅",
+    "evidence": true
+  },
+  "R5.07": {
+    "status": "✅",
+    "evidence": true
+  },
+  "R5.08": {
+    "status": "✅",
+    "evidence": true
+  },
+  "R5.09": {
+    "status": "✅",
+    "evidence": true
+  },
+  "R5.10": {
+    "status": "✅",
+    "evidence": true
+  },
+  "R6.01": {
+    "status": "✅",
+    "evidence": true
+  },
+  "R6.02": {
+    "status": "✅",
+    "evidence": true
+  },
+  "R6.03": {
+    "status": "✅",
+    "evidence": true
+  },
+  "R6.04": {
+    "status": "✅",
+    "evidence": true
+  },
+  "R6.05": {
+    "status": "✅",
+    "evidence": true
+  },
+  "R6.06": {
+    "status": "✅",
+    "evidence": true
+  },
+  "R6.07": {
+    "status": "✅",
+    "evidence": true
+  },
+  "R6.08": {
+    "status": "✅",
+    "evidence": true
+  },
+  "R6.09": {
+    "status": "✅",
+    "evidence": true
+  },
+  "R6.10": {
+    "status": "✅",
+    "evidence": true
+  },
+  "R6.11": {
+    "status": "✅",
+    "evidence": true
+  },
+  "R6.12": {
+    "status": "✅",
+    "evidence": true
+  },
+  "R6.13": {
+    "status": "✅",
+    "evidence": true
+  },
+  "R6.14": {
+    "status": "✅",
+    "evidence": true
+  },
+  "R6.15": {
+    "status": "✅",
+    "evidence": true
   },
   "A1.01": {
     "status": "🟡",

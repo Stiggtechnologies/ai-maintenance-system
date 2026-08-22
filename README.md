@@ -35,21 +35,22 @@ The desired completed product is defined separately in the
 
 ## Capability status
 
-| Capability | Current state |
-| --- | --- |
-| Authenticated application and role-shaped operating views | Implemented foundation with broad operational, engineering, work, approval, briefing, value, and administrative surfaces |
-| Organization-scoped Supabase data plane | Implemented for core operational records; fine-grained enterprise write authorization remains incomplete |
-| Governed operating loop | Implemented for recommendations, evidence, scenarios, approvals, bounded work actions, decisions, value, and learning |
-| Human approval boundary | Implemented in the canonical AI/orchestrator path; direct autonomous operational execution is disabled |
-| Asset onboarding and RAM governance | Pilot-capable foundation with evidence gaps, readiness gates, FMEA/FRACAS concepts, and approvals |
-| ISO 55000-aligned KPI service | Implemented; some KPIs remain unavailable until required external systems are connected |
-| Engineering DNA and asset-twin library | Implemented foundation across multiple mining and process asset classes |
-| Shared Component DNA and deterministic physics | Implemented foundation with governed calculations and approved-source-only limits |
-| Inspection intelligence | Governed foundation with evidence, verification, approval, prohibited-action boundaries, and atomic persistence |
-| Engineering knowledge ontology and factory | Implemented deterministic contracts; end-to-end governed ingestion and retrieval are not yet complete |
-| Asset-aware retrieval | Implemented on draft PR #115 and awaiting integration into the active knowledge runtime |
-| Password authentication and per-user TOTP paths | Implemented in application code; enterprise enforcement and hosted configuration require validation |
-| CI and delivery gates | Lint, type-check, build, unit, clean migration, auth/RLS/RPC smoke, agent-loop idempotency, Playwright E2E, CodeQL, and secret scanning are operational |
+| Capability                                                | Current state                                                                                                                                                                                                                              |
+| --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Authenticated application and role-shaped operating views | Implemented foundation with broad operational, engineering, work, approval, briefing, value, and administrative surfaces                                                                                                                   |
+| Organization-scoped Supabase data plane                   | Implemented for core operational records; fine-grained enterprise write authorization remains incomplete                                                                                                                                   |
+| Governed operating loop                                   | Implemented for recommendations, evidence, scenarios, approvals, bounded work actions, decisions, value, and learning                                                                                                                      |
+| Human approval boundary                                   | Implemented in the canonical AI/orchestrator path; direct autonomous operational execution is disabled                                                                                                                                     |
+| Asset onboarding and RAM governance                       | Pilot-capable foundation with evidence gaps, readiness gates, FMEA/FRACAS concepts, and approvals                                                                                                                                          |
+| ISO 55000-aligned KPI service                             | Implemented; some KPIs remain unavailable until required external systems are connected                                                                                                                                                    |
+| ISO 31000-aligned risk operating layer                    | Implemented in code and controlled schema for context, criteria, assessment, controls, decisions, treatment, work, outcomes and learning; customer adoption and external validation remain required, and this is not a certification claim |
+| Engineering DNA and asset-twin library                    | Implemented foundation across multiple mining and process asset classes                                                                                                                                                                    |
+| Shared Component DNA and deterministic physics            | Implemented foundation with governed calculations and approved-source-only limits                                                                                                                                                          |
+| Inspection intelligence                                   | Governed foundation with evidence, verification, approval, prohibited-action boundaries, and atomic persistence                                                                                                                            |
+| Engineering knowledge ontology and factory                | Implemented deterministic contracts; end-to-end governed ingestion and retrieval are not yet complete                                                                                                                                      |
+| Asset-aware retrieval                                     | Implemented on draft PR #115 and awaiting integration into the active knowledge runtime                                                                                                                                                    |
+| Password authentication and per-user TOTP paths           | Implemented in application code; enterprise enforcement and hosted configuration require validation                                                                                                                                        |
+| CI and delivery gates                                     | Lint, type-check, build, unit, clean migration, auth/RLS/RPC smoke, agent-loop idempotency, Playwright E2E, CodeQL, and secret scanning are operational                                                                                    |
 
 ## Simulation and pilot boundaries
 
@@ -110,15 +111,15 @@ deployed, governed runtime and must not be used as production evidence.
 
 ## Platform architecture
 
-| Layer | Current responsibility |
-| --- | --- |
-| Frontend | React 19, TypeScript, Vite 8, Tailwind CSS 4, React Router 7, Zustand, and Framer Motion |
-| Data plane | Supabase Postgres, Row Level Security, controlled RPCs, Realtime, scheduled jobs, and audit records |
-| Operating loop | Assets, sensors, recommendations, evidence, scenarios, approvals, work, decisions, value, and learning |
-| Engineering model | Asset templates, Engineering DNA, Shared Component DNA, physics capabilities, inspection contracts, overlays, and twin instances |
-| Knowledge foundation | Ontology, authority, provenance, Knowledge Base Factory, extraction resolution, and asset-aware retrieval contracts |
-| AI runtime | Deployed agent processor and approval orchestrator with tenant scope, idempotency, human review, and bounded side effects |
-| Quality and delivery | GitHub Actions, Vitest, Playwright, CodeQL, secret scanning, dependency review, Vercel, and selected Supabase deployment |
+| Layer                | Current responsibility                                                                                                           |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| Frontend             | React 19, TypeScript, Vite 8, Tailwind CSS 4, React Router 7, Zustand, and Framer Motion                                         |
+| Data plane           | Supabase Postgres, Row Level Security, controlled RPCs, Realtime, scheduled jobs, and audit records                              |
+| Operating loop       | Assets, sensors, recommendations, evidence, scenarios, approvals, work, decisions, value, and learning                           |
+| Engineering model    | Asset templates, Engineering DNA, Shared Component DNA, physics capabilities, inspection contracts, overlays, and twin instances |
+| Knowledge foundation | Ontology, authority, provenance, Knowledge Base Factory, extraction resolution, and asset-aware retrieval contracts              |
+| AI runtime           | Deployed agent processor and approval orchestrator with tenant scope, idempotency, human review, and bounded side effects        |
+| Quality and delivery | GitHub Actions, Vitest, Playwright, CodeQL, secret scanning, dependency review, Vercel, and selected Supabase deployment         |
 
 The active deployment workflow automatically deploys the migration chain and the
 governed `agent-loop-enrich`, `ai-agent-processor`,
@@ -152,14 +153,14 @@ Priority target capabilities include:
 
 SyncAI remains one industrial platform with sector-specific outcomes:
 
-| Sector | Typical outcome language |
-| --- | --- |
-| Energy and mining | Production assurance, asset integrity, process safety, reliability, and maintenance effectiveness |
-| Manufacturing | Equipment effectiveness, quality, throughput, and maintenance readiness |
-| Utilities and infrastructure | Service reliability, resilience, and lifecycle stewardship |
-| Aerospace | Configuration assurance, system readiness, verification, and technical risk control |
-| Defence | Equipment readiness, sustainment, technical assurance, and mission assurance only where relevant |
-| Transportation | Fleet readiness, safety, reliability, and service continuity |
+| Sector                       | Typical outcome language                                                                          |
+| ---------------------------- | ------------------------------------------------------------------------------------------------- |
+| Energy and mining            | Production assurance, asset integrity, process safety, reliability, and maintenance effectiveness |
+| Manufacturing                | Equipment effectiveness, quality, throughput, and maintenance readiness                           |
+| Utilities and infrastructure | Service reliability, resilience, and lifecycle stewardship                                        |
+| Aerospace                    | Configuration assurance, system readiness, verification, and technical risk control               |
+| Defence                      | Equipment readiness, sustainment, technical assurance, and mission assurance only where relevant  |
+| Transportation               | Fleet readiness, safety, reliability, and service continuity                                      |
 
 ## Security and compliance
 
@@ -216,17 +217,17 @@ Failure-only startup artifacts preserve Supabase and Docker diagnostics.
 
 ## Documentation
 
-| Document | Purpose |
-| --- | --- |
-| [`docs/product-capability-audit-2026-08-03.md`](docs/product-capability-audit-2026-08-03.md) | Evidence-based current capability and gap assessment |
-| [`docs/enterprise-target-state.md`](docs/enterprise-target-state.md) | Desired enterprise product and completion criteria |
-| [`docs/enterprise-readiness/claims-and-evidence-register.md`](docs/enterprise-readiness/claims-and-evidence-register.md) | Permitted commercial claims and required evidence |
-| [`docs/architecture/canonical-plane-ownership.md`](docs/architecture/canonical-plane-ownership.md) | Canonical model ownership and anti-duplication rules |
-| [`docs/operating-loop-demo.md`](docs/operating-loop-demo.md) | Governed operating-loop walkthrough |
-| [`docs/asset-onboarding.md`](docs/asset-onboarding.md) | RAM onboarding and governance gates |
-| [`docs/reliability-kb.md`](docs/reliability-kb.md) | Reliability knowledge and citation model |
-| [`docs/gtm-readiness.md`](docs/gtm-readiness.md) | Go-to-market readiness; reconcile against the current audit before use |
-| [`docs/compliance/`](docs/compliance/README.md) | SOC 2 and ISO 27001 readiness material |
+| Document                                                                                                                 | Purpose                                                                |
+| ------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------- |
+| [`docs/product-capability-audit-2026-08-03.md`](docs/product-capability-audit-2026-08-03.md)                             | Evidence-based current capability and gap assessment                   |
+| [`docs/enterprise-target-state.md`](docs/enterprise-target-state.md)                                                     | Desired enterprise product and completion criteria                     |
+| [`docs/enterprise-readiness/claims-and-evidence-register.md`](docs/enterprise-readiness/claims-and-evidence-register.md) | Permitted commercial claims and required evidence                      |
+| [`docs/architecture/canonical-plane-ownership.md`](docs/architecture/canonical-plane-ownership.md)                       | Canonical model ownership and anti-duplication rules                   |
+| [`docs/operating-loop-demo.md`](docs/operating-loop-demo.md)                                                             | Governed operating-loop walkthrough                                    |
+| [`docs/asset-onboarding.md`](docs/asset-onboarding.md)                                                                   | RAM onboarding and governance gates                                    |
+| [`docs/reliability-kb.md`](docs/reliability-kb.md)                                                                       | Reliability knowledge and citation model                               |
+| [`docs/gtm-readiness.md`](docs/gtm-readiness.md)                                                                         | Go-to-market readiness; reconcile against the current audit before use |
+| [`docs/compliance/`](docs/compliance/README.md)                                                                          | SOC 2 and ISO 27001 readiness material                                 |
 
 Historical completion and audit reports may describe earlier architectures,
 counts, tests, or readiness states. They are not current product evidence unless
