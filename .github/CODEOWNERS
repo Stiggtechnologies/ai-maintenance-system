@@ -1,0 +1,3 @@
+# Repository-wide ownership. Add a second independently trusted reviewer before
+# enabling mandatory CODEOWNERS approval; an author cannot approve their own PR.
+* @Stiggtechnologies

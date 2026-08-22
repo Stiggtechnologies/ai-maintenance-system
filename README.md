@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/Stiggtechnologies/ai-maintenance-system/actions/workflows/ci.yml/badge.svg)](.github/workflows/ci.yml)
 [![CodeQL](https://github.com/Stiggtechnologies/ai-maintenance-system/actions/workflows/codeql.yml/badge.svg)](.github/workflows/codeql.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![License: Proprietary](https://img.shields.io/badge/License-Proprietary-red.svg)](LICENSE)
 [![React](https://img.shields.io/badge/React-19-blue.svg)](https://react.dev)
 [![Supabase](https://img.shields.io/badge/Supabase-Postgres%20%2B%20Edge-green.svg)](https://supabase.com)
 
@@ -249,4 +249,9 @@ they are explicitly reconciled to the capability audit.
 
 ## License
 
-MIT — see [`LICENSE`](LICENSE).
+Proprietary and confidential — see [`LICENSE`](LICENSE) and [`NOTICE`](NOTICE).
+
+Historical repository revisions that were distributed with the MIT License
+remain subject to that license for recipients of those revisions. The canonical
+final `main` snapshot before the transition is preserved as
+`legacy-mit-final-2026-08-22`; the current license is not retroactive.

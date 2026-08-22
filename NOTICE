@@ -1,0 +1,31 @@
+SyncAI licensing notice
+=======================
+
+Copyright (c) 2026 Stigg Technologies. All rights reserved.
+
+Current repository revisions are proprietary and are governed by the root
+LICENSE file.
+
+Historical MIT boundary
+-----------------------
+
+Stigg Technologies previously distributed repository revisions under the MIT
+License. The canonical final `main` snapshot before the licensing transition is
+preserved by the Git tag `legacy-mit-final-2026-08-22`, which points to commit:
+
+    4e560153f72d80e4619d22b33a1b87706c45e5f4
+
+Feature branches and pull-request revisions that were accessible while the
+repository was public may also have been distributed under the MIT notice that
+those revisions contained. The factual exposure manifest is maintained in
+`docs/investor-diligence/mit-license-incident.md`.
+
+Nothing in the current proprietary notice attempts to revoke permissions
+validly granted for copies of previously distributed MIT-licensed revisions.
+
+Third-party notices
+-------------------
+
+Dependencies and other third-party components remain subject to their own
+licenses. See `docs/investor-diligence/open-source-inventory.md` and the
+generated CycloneDX SBOM for the maintained dependency record.
