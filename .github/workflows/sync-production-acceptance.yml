@@ -1,0 +1,101 @@
+name: Sync production acceptance
+
+# Authenticated commissioning is separate from deployment presence. The deploy
+# workflow proves schema/function/app boundaries; this workflow proves the real
+# seeded demo tenant can execute the governed Sync interaction loop end to end.
+#
+# PRs run the deterministic harness self-test only. Merging a harness/workflow
+# change to protected main triggers one real production commissioning run.
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/sync-production-acceptance.yml"
+      - "scripts/sync-production-acceptance.mjs"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/sync-production-acceptance.yml"
+      - "scripts/sync-production-acceptance.mjs"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+env:
+  SUPABASE_PROJECT_ID: pjvoswbwomesuwhygpby
+  SYNC_COMMISSIONING_EVIDENCE_PATH: /tmp/sync-production-commissioning.json
+
+jobs:
+  harness-self-test:
+    name: Commissioning harness self-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Test public-key selection, SSE parsing and completion assertions
+        run: node scripts/sync-production-acceptance.mjs --self-test
+
+  production-acceptance:
+    name: Authenticated production acceptance
+    if: github.event_name != 'pull_request'
+    needs: harness-self-test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: Run authenticated Sync commissioning
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: node scripts/sync-production-acceptance.mjs
+
+      - name: Upload commissioning evidence packet
+        if: success()
+        uses: actions/upload-artifact@v7
+        with:
+          name: sync-production-commissioning-${{ github.sha }}
+          path: /tmp/sync-production-commissioning.json
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Raise commissioning failure issue
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          gh label create commissioning-failure --color B60205 \
+            --description "authenticated Sync production commissioning is failing" 2>/dev/null || true
+          TITLE="Sync production commissioning is failing"
+          EXISTING=$(gh issue list --state open --label commissioning-failure \
+            --json number --jq '.[0].number // empty')
+          BODY=$(printf '%s\n' \
+            "Authenticated Sync production acceptance failed on \`${SHA}\`." \
+            "" \
+            "Run: ${RUN_URL}" \
+            "" \
+            "Deployment presence may still be green; this issue means at least one tenant-level commissioning gate failed (rollout flag, authentication, runtime execution, trace/evidence, latency persistence, attachment grounding, cancellation, lifecycle, or governed action).")
+          if [ -n "$EXISTING" ]; then
+            gh issue comment "$EXISTING" --body "$BODY"
+          else
+            gh issue create --title "$TITLE" --label commissioning-failure --body "$BODY"
+          fi
+
+      - name: Close commissioning failure issue on success
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          for n in $(gh issue list --state open --label commissioning-failure --json number --jq '.[].number'); do
+            gh issue close "$n" --comment "Authenticated production commissioning succeeded on ${GITHUB_SHA}. Closing."
+          done
