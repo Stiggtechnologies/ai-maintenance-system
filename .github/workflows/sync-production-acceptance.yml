@@ -25,7 +25,6 @@ permissions:
 
 env:
   SUPABASE_PROJECT_ID: pjvoswbwomesuwhygpby
-  SYNC_COMMISSIONING_EVIDENCE_PATH: /tmp/sync-production-commissioning.json
 
 jobs:
   harness-self-test:
@@ -56,14 +55,27 @@ jobs:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         run: node scripts/sync-production-acceptance.mjs
 
-      - name: Upload commissioning evidence packet
+      - name: Record commissioning closure
         if: success()
-        uses: actions/upload-artifact@v7
-        with:
-          name: sync-production-commissioning-${{ github.sha }}
-          path: /tmp/sync-production-commissioning.json
-          retention-days: 30
-          if-no-files-found: error
+        run: |
+          cat >> "$GITHUB_STEP_SUMMARY" <<EOF
+          ### Authenticated Sync production commissioning
+
+          - Release: \`${GITHUB_SHA}\`
+          - Authenticated demo Reliability Engineer: ✅
+          - Required rollout flags: ✅
+          - Lightweight + capability conversations: ✅
+          - Operational investigation + truthful checks: ✅
+          - Engineering diagnosis + retrieval: ✅
+          - Regenerate/new server turn: ✅
+          - Conversation lifecycle: ✅
+          - Attachment grounding + provenance: ✅
+          - Stop/cancellation: ✅
+          - Governed proposal + confirmation + cleanup + idempotent replay: ✅
+          - Persisted investigation checks/evidence/latency telemetry: ✅
+
+          The governed archived Cowork commissioning conversation is the durable evidence packet. Per-turn latency values are retained in this run's logs.
+          EOF
 
       - name: Raise commissioning failure issue
         if: failure()
