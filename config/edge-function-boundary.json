@@ -8,6 +8,7 @@
     "lead-notify",
     "onboarding-enrich",
     "public-reliability-agent",
+    "sync-investigation-runtime",
     "sync-runtime"
   ],
   "allowedNoVerifyJwt": ["agent-loop-enrich", "onboarding-enrich"],

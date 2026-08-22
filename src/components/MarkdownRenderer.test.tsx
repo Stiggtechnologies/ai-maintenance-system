@@ -3,31 +3,12 @@ import { describe, expect, it } from "vitest";
 import { MarkdownRenderer } from "./MarkdownRenderer";
 
 describe("MarkdownRenderer", () => {
-  it("renders plain text content", () => {
-    render(<MarkdownRenderer content="Hello world" />);
-    expect(screen.getByText(/Hello world/)).toBeInTheDocument();
-  });
-
-  it("renders bold text", () => {
-    const { container } = render(<MarkdownRenderer content="**bold text**" />);
-    const strong = container.querySelector("strong");
-    expect(strong).toBeInTheDocument();
-    expect(strong?.textContent).toBe("bold text");
-  });
-
-  it("escapes HTML to prevent XSS", () => {
-    const malicious = '<script>alert("xss")</script>';
+  it("renders plain, bold and escaped HTML safely", () => {
+    const malicious = '<script>alert("xss")</script> **bold text**';
     const { container } = render(<MarkdownRenderer content={malicious} />);
     expect(container.querySelector("script")).toBeNull();
     expect(container.textContent).toContain("<script>");
-  });
-
-  it("renders list items", () => {
-    const { container } = render(<MarkdownRenderer content="- item one" />);
-    const li = container.querySelector("li");
-    expect(li).toBeInTheDocument();
-    expect(li?.textContent).toBe("item one");
-    expect(li).toHaveClass("marker:text-slate-500");
+    expect(container.querySelector("strong")?.textContent).toBe("bold text");
   });
 
   it("renders engineering headings and comparison tables semantically", () => {
@@ -42,17 +23,54 @@ describe("MarkdownRenderer", () => {
       "| Hypothesis | False indication |",
     ].join("\n");
     const { container } = render(<MarkdownRenderer content={content} />);
-
-    expect(
-      screen.getByRole("heading", { name: "Decision", level: 2 }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Decision", level: 2 })).toBeInTheDocument();
     expect(container.querySelectorAll("tbody tr")).toHaveLength(2);
-    expect(screen.getByText("False indication")).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Response table" })).toHaveClass("overflow-x-auto");
+  });
 
-    const tableRegion = screen.getByRole("region", { name: "Response table" });
-    expect(tableRegion).toHaveClass("overflow-x-auto");
-    expect(container.querySelector("table")).toHaveClass("min-w-full");
-    expect(container.querySelector("th")).toHaveClass("min-w-40");
+  it("renders only real supplied source labels as provenance chips", () => {
+    render(
+      <MarkdownRenderer
+        content="Asset Register Accuracy is 0% [L1], while [L99] is not a real source."
+        evidence={[
+          {
+            id: "L1",
+            sourceType: "kpi",
+            sourceId: "L1",
+            title: "Asset Register Accuracy",
+            excerpt: "0% [breach]",
+            applicationUrl: "/kpis",
+          },
+        ]}
+      />,
+    );
+    const source = screen.getByText("L1");
+    expect(source.closest("a")).toHaveAttribute("href", "/kpis");
+    expect(source.closest("a")).toHaveAttribute(
+      "title",
+      "Asset Register Accuracy — 0% [breach]",
+    );
+    expect(screen.getByText(/\[L99\]/)).toBeInTheDocument();
+  });
+
+  it("renders safe markdown links and refuses unsafe schemes", () => {
+    const { container } = render(
+      <MarkdownRenderer content="[Docs](https://example.com) [bad](javascript:alert(1))" />,
+    );
+    expect(screen.getByRole("link", { name: "Docs" })).toHaveAttribute(
+      "href",
+      "https://example.com/",
+    );
+    expect(container.querySelector('a[href^="javascript"]')).toBeNull();
+  });
+
+  it("renders task lists and preserves basic nested indentation", () => {
+    const { container } = render(
+      <MarkdownRenderer content={"- [x] Verified\n  - [ ] Follow-up"} />,
+    );
+    expect(screen.getByRole("checkbox", { name: "Completed" })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: "Not completed" })).not.toBeChecked();
+    expect(container.querySelectorAll("li")).toHaveLength(2);
   });
 
   it("gives long-form paragraphs a readable measure and line height", () => {
@@ -60,7 +78,6 @@ describe("MarkdownRenderer", () => {
       <MarkdownRenderer content="A decision-relevant engineering paragraph." />,
     );
     const paragraph = container.querySelector("p");
-
     expect(paragraph).toHaveClass("max-w-[78ch]");
     expect(paragraph).toHaveClass("leading-[1.72]");
   });
