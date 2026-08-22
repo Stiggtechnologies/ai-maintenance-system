@@ -16,6 +16,11 @@
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
     "test:e2e:headed": "playwright test --headed",
+    "compliance:governance": "node scripts/compliance/check-governance.mjs",
+    "compliance:licenses": "node scripts/compliance/generate-license-inventory.mjs --check",
+    "compliance:licenses:write": "node scripts/compliance/generate-license-inventory.mjs --write",
+    "compliance:sbom": "npm sbom --sbom-format cyclonedx",
+    "compliance:check": "npm run compliance:governance && npm run compliance:licenses",
     "prepare": "husky",
     "register:tally": "node scripts/register-tally.mjs --write",
     "register:check": "node scripts/register-tally.mjs --check && node scripts/register-baseline.mjs --check",
@@ -38,7 +43,7 @@
     "lucide-react": "^1.25.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
-    "react-router-dom": "^7.18.1",
+    "react-router-dom": "7.18.2",
     "zustand": "^5.0.14"
   },
   "devDependencies": {
