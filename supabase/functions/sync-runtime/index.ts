@@ -14,6 +14,7 @@ import {
   proposalIsUnexpired,
   proposalParamsHash,
 } from "../_shared/sync-tool-proof.ts";
+import { notificationTypeFor } from "../_shared/sync-notification-classifier.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -356,13 +357,7 @@ function proposalFor(
   ) {
     return null;
   }
-  const notificationType = /\bsafety\b/i.test(question)
-    ? "safety"
-    : /\brequest\b/i.test(question)
-      ? "request"
-      : /\bfault\b/i.test(question)
-        ? "fault"
-        : "observation";
+  const notificationType = notificationTypeFor(question);
   const proposalId = crypto.randomUUID();
   return {
     type: "tool.proposed",
