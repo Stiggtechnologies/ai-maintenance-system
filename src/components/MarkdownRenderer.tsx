@@ -257,7 +257,7 @@ function renderBlocks(content: string, evidenceItems?: EvidenceReference[]): Rea
       while (index < lines.length) {
         const item = lines[index].match(/^(\s*)([-*]|\d+\.)\s+(.+)$/);
         if (!item || /\d+\./.test(item[2]) !== ordered) break;
-        let text = item[3].trim();
+        const text = item[3].trim();
         const task = text.match(/^\[([ xX])\]\s+(.+)$/);
         items.push({
           text: task ? task[2] : text,
