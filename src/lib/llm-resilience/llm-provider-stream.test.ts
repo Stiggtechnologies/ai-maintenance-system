@@ -54,7 +54,9 @@ describe("callWithResilienceStream", () => {
       {
         systemPrompt: "s",
         userContent: "u",
-        onDelta: (text) => deltas.push(text),
+        onDelta: (text) => {
+          deltas.push(text);
+        },
       },
     );
 
@@ -125,7 +127,9 @@ describe("callWithResilienceStream", () => {
         systemPrompt: "s",
         userContent: "u",
         attemptsPerProvider: 1,
-        onDelta: (text) => deltas.push(text),
+        onDelta: (text) => {
+          deltas.push(text);
+        },
       },
     );
 
