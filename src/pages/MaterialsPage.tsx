@@ -7,6 +7,7 @@
  * own address (navigation-lifecycle-ia.md §2 Group 6). Panels remounted, not
  * modified.
  */
+import { RecoveryContextPanel } from "../components/RecoveryContextPanel";
 import { MaterialsReadiness } from "../components/MaterialsReadiness";
 import { SparesOptimization } from "../components/SparesOptimization";
 import { SupplyExposure } from "../components/SupplyExposure";
@@ -23,6 +24,7 @@ export function MaterialsPage() {
           supply exposure
         </p>
       </div>
+      <RecoveryContextPanel surface="materials" />
       <MaterialsReadiness />
       <SparesOptimization />
       <SupplyExposure />
