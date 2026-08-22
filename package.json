@@ -10,15 +10,19 @@
     "typecheck": "tsc -b",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test": "vitest run",
+    "test": "node scripts/check-reliability-baseline.mjs && vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
     "test:e2e:headed": "playwright test --headed",
+    "reliability:baseline": "vitest run src/test/reliabilityEngineerGoldenBaseline.test.ts supabase/functions/_shared/reliability-engineer-core.test.ts && node scripts/check-reliability-baseline.mjs",
+    "reliability:qualify": "tsx scripts/run-reliability-qualification.ts",
+    "reliability:dryrun": "tsx scripts/run-reliability-qualification.ts --dry-run --output=/tmp/re-2026-08-dry-run-report.json && tsx scripts/run-reliability-qualification.ts --dry-run --capture-reference --output=/tmp/re-2026-08-dry-run-reference.json",
     "prepare": "husky",
     "register:tally": "node scripts/register-tally.mjs --write",
     "register:check": "node scripts/register-tally.mjs --check && node scripts/register-baseline.mjs --check",
-    "register:accept": "node scripts/register-tally.mjs --write && node scripts/register-baseline.mjs --write"
+    "register:accept": "node scripts/register-tally.mjs --write && node scripts/register-baseline.mjs --write",
+    "reliability:requalify": "node scripts/reliability-requalify.mjs"
   },
   "lint-staged": {
     "src/**/*.{ts,tsx}": [

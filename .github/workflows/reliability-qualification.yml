@@ -1,0 +1,268 @@
+name: Reliability Engineer qualification
+
+# Standalone RE-2026.08 workflow.
+#
+# NOTE ON ENFORCEMENT: neither job here is a required status check on `main`
+# (branch protection requires exactly Lint + Typecheck, Unit tests, Migration
+# chain + seeded auth smoke, Golden-path E2E), so this workflow can go red and
+# a pull request will still merge. That is why the deterministic gate ALSO runs
+# inside the `Unit tests` job in ci.yml, which is required. This workflow is
+# kept because it is the one that can be dispatched manually for reference
+# capture and live qualification, and because its path filter documents which
+# surfaces are governed.
+#
+# The path filter below is asserted against manifest.protectedPaths by
+# src/test/reliabilityBaselineRatchet.test.ts, so a newly protected file cannot
+# be added to the manifest and forgotten here.
+
+on:
+  pull_request:
+    paths:
+      - "supabase/functions/_shared/reliability-engineer-core.ts"
+      - "supabase/functions/_shared/reliability-specialists.ts"
+      - "supabase/functions/_shared/reliability-engineer-request.ts"
+      - "supabase/functions/_shared/reliability-context.ts"
+      - "supabase/functions/ai-agent-processor/index.ts"
+      - "supabase/functions/public-reliability-agent/index.ts"
+      - "src/services/publicReliabilityAgent.ts"
+      - "supabase/functions/_shared/decision-case-chat.ts"
+      - "supabase/functions/_shared/llm-provider.ts"
+      - "src/lib/reliability-agent-contract.ts"
+      - "src/lib/supabase-config.ts"
+      - "src/lib/decision-case.ts"
+      - "src/lib/public-reliability.ts"
+      - "src/services/reliabilityCopilotAgent.ts"
+      - "supabase/functions/sync-runtime/index.ts"
+      - "src/lib/rolePersonas.ts"
+      - "src/lib/reliability/index.ts"
+      - "src/lib/reliability-calculations.ts"
+      - "src/lib/reliability-report-engine.ts"
+      - "src/lib/reliability-knowledge-base.ts"
+      - "supabase/functions/_shared/sync-stream.ts"
+      - "supabase/functions/_shared/sync-tool-proof.ts"
+      - "supabase/functions/ai-agent-processor/**"
+      - "supabase/functions/public-reliability-agent/**"
+      - "supabase/functions/sync-runtime/**"
+      - "supabase/migrations/**"
+      - "src/test/reliabilityEngineerGoldenBaseline.test.ts"
+      - "src/test/reliabilityBaselineRatchet.test.ts"
+      - "src/test/reliabilityGuardPresence.ts"
+      - "benchmarks/reliability-engineer/**"
+      - "scripts/check-reliability-baseline.mjs"
+      - "scripts/reliability-baseline-floor.mjs"
+      - "scripts/run-reliability-qualification.ts"
+      - "scripts/capture-reliability-production-reference.mjs"
+      - ".github/workflows/reliability-qualification.yml"
+  push:
+    branches: [main]
+    paths:
+      - "supabase/functions/_shared/reliability-engineer-core.ts"
+      - "supabase/functions/_shared/reliability-specialists.ts"
+      - "supabase/functions/_shared/reliability-engineer-request.ts"
+      - "supabase/functions/_shared/reliability-context.ts"
+      - "supabase/functions/ai-agent-processor/index.ts"
+      - "supabase/functions/public-reliability-agent/index.ts"
+      - "src/services/publicReliabilityAgent.ts"
+      - "supabase/functions/_shared/decision-case-chat.ts"
+      - "supabase/functions/_shared/llm-provider.ts"
+      - "src/lib/reliability-agent-contract.ts"
+      - "src/lib/supabase-config.ts"
+      - "src/lib/decision-case.ts"
+      - "src/lib/public-reliability.ts"
+      - "src/services/reliabilityCopilotAgent.ts"
+      - "supabase/functions/sync-runtime/index.ts"
+      - "src/lib/rolePersonas.ts"
+      - "src/lib/reliability/index.ts"
+      - "src/lib/reliability-calculations.ts"
+      - "src/lib/reliability-report-engine.ts"
+      - "src/lib/reliability-knowledge-base.ts"
+      - "supabase/functions/_shared/sync-stream.ts"
+      - "supabase/functions/_shared/sync-tool-proof.ts"
+      - "supabase/functions/ai-agent-processor/**"
+      - "supabase/functions/public-reliability-agent/**"
+      - "supabase/functions/sync-runtime/**"
+      - "supabase/migrations/**"
+      - "src/test/reliabilityEngineerGoldenBaseline.test.ts"
+      - "src/test/reliabilityBaselineRatchet.test.ts"
+      - "src/test/reliabilityGuardPresence.ts"
+      - "benchmarks/reliability-engineer/**"
+      - "scripts/check-reliability-baseline.mjs"
+      - "scripts/reliability-baseline-floor.mjs"
+      - "scripts/run-reliability-qualification.ts"
+      - "scripts/capture-reliability-production-reference.mjs"
+      - ".github/workflows/reliability-qualification.yml"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "capture-reference, candidate, or dry-run"
+        required: true
+        default: "dry-run"
+        type: choice
+        options:
+          - dry-run
+          - capture-reference
+          - candidate
+      model:
+        description: "Reliability model to qualify"
+        required: true
+        default: "grok-4.6"
+        type: string
+      judge_model:
+        description: "Independent comparison/judge model — MUST differ from the candidate model"
+        required: false
+        type: string
+      commit_evidence:
+        description: "Commit the captured reference / qualification report to the dispatched branch"
+        required: false
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  deterministic-floor:
+    name: RE-2026.08 deterministic floor
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci --no-audit --no-fund
+
+      - name: Golden methodology and specialist routing
+        run: npx vitest run src/test/reliabilityEngineerGoldenBaseline.test.ts src/test/reliabilityBaselineRatchet.test.ts supabase/functions/_shared/reliability-engineer-core.test.ts
+        # reliability-engineer-core.test.ts was named here and in package.json
+        # while sitting outside vitest's include glob, so it had never run once
+        # and vitest still exited 0 because the other filters matched.
+        # vitest.config.ts now collects supabase/functions/**.
+
+      - name: Protected-surface qualification gate
+        run: node scripts/check-reliability-baseline.mjs
+
+      - name: Deployed-model gate
+        run: node scripts/check-deployed-model.mjs
+        env:
+          GITHUB_BASE_REF: ${{ github.base_ref }}
+          GITHUB_EVENT_BEFORE: ${{ github.event.before }}
+          GITHUB_TOKEN: ${{ github.token }}
+
+  harness-dry-run:
+    # Proves the qualification harness end to end with a stub model and no
+    # credentials at all. Runs on every triggering PR precisely because the
+    # real harness CANNOT run today (see H5 in docs/reliability-engineer-baseline.md):
+    # without this, the machinery would sit unexecuted until the day someone
+    # urgently needed it.
+    name: Qualification harness dry run
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci --no-audit --no-fund
+
+      - name: Dry-run candidate and capture paths with a stub model
+        run: npm run reliability:dryrun
+
+  live-qualification:
+    name: Live golden-suite qualification
+    if: github.event_name == 'workflow_dispatch' && inputs.mode != 'dry-run'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci --no-audit --no-fund
+
+      - name: Require an independent judge model
+        env:
+          CANDIDATE: ${{ inputs.model }}
+          JUDGE: ${{ inputs.judge_model }}
+        run: |
+          set -euo pipefail
+          if [ -z "${JUDGE:-}" ]; then
+            echo "::error::judge_model is required. A model grading a frozen reference of its own output is not an independent comparison."
+            exit 1
+          fi
+          if [ "${JUDGE}" = "${CANDIDATE:-}" ]; then
+            echo "::error::judge_model must differ from model; both are '${JUDGE}'."
+            exit 1
+          fi
+
+      - name: Verify the model credential exists
+        env:
+          XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "${XAI_API_KEY:-}" || {
+            echo "::error::XAI_API_KEY is not configured on this repository. The platform routes through xAI/Grok, so qualification must run against the model SyncAI actually ships. Add the secret, or capture the reference through the deployed processor with .github/workflows/one-shot-capture-re-2026-08.yml."
+            exit 1
+          }
+
+      # Evidence is written straight into the working tree and committed by
+      # the run that produced it. Downloading an artifact, unzipping it and
+      # committing it by hand was four of the twelve manual steps on the
+      # honest path, and it left the evidence looking human-authored in
+      # `git log` — exactly where a forgery would also sit.
+      - name: Run live qualification
+        id: qualify
+        shell: bash
+        env:
+          XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
+          RELIABILITY_QUALIFICATION_MODEL: ${{ inputs.model }}
+          RELIABILITY_JUDGE_MODEL: ${{ inputs.judge_model }}
+        run: |
+          set -euo pipefail
+          if [ "${{ inputs.mode }}" = "capture-reference" ]; then
+            OUT="benchmarks/reliability-engineer/re-2026.08/reference-outputs.json"
+            npx tsx scripts/run-reliability-qualification.ts \
+              --capture-reference --output="$OUT"
+          else
+            OUT="benchmarks/reliability-engineer/qualification-reports/$(date -u +%Y-%m-%dT%H-%M-%SZ).json"
+            npx tsx scripts/run-reliability-qualification.ts --output="$OUT"
+          fi
+          echo "evidence=$OUT" >> "$GITHUB_OUTPUT"
+          echo "sha256=$(sha256sum "$OUT" | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+
+      - name: Commit evidence to the dispatched branch
+        if: inputs.commit_evidence
+        env:
+          EVIDENCE: ${{ steps.qualify.outputs.evidence }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$EVIDENCE"
+          git commit -m "evidence(reliability): ${{ inputs.mode }} from run ${{ github.run_id }}"
+          git push origin "HEAD:${{ github.ref_name }}"
+
+      - name: Say what a human must do next
+        run: |
+          echo "::notice::Evidence: ${{ steps.qualify.outputs.evidence }}"
+          echo "::notice::sha256: ${{ steps.qualify.outputs.sha256 }}"
+          echo "::notice::Do NOT edit that file. Add an approval record under benchmarks/reliability-engineer/approvals/ with kind=qualification, decision=qualified, reportFile, reportSha256 (the value above), reviewer, reviewerRole, reviewedAt, rationale."
+
+      - name: Upload qualification evidence
+        uses: actions/upload-artifact@v7
+        with:
+          name: reliability-engineer-${{ inputs.mode }}-${{ github.sha }}
+          path: ${{ steps.qualify.outputs.evidence }}
+          retention-days: 30

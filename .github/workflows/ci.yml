@@ -45,7 +45,13 @@ jobs:
     name: Unit tests
     runs-on: ubuntu-latest
     steps:
+      # fetch-depth: 0 is load-bearing, not hygiene. The RE-2026.08 gate below
+      # resolves the merge base with the PR target to decide whether a
+      # protected Reliability Engineer surface changed; on the default shallow
+      # clone that lookup fails and the gate cannot evaluate the change.
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-node@v7
         with:
@@ -53,7 +59,41 @@ jobs:
           cache: npm
 
       - run: npm ci --no-audit --no-fund
+
+      # `npm run test` is `node scripts/check-reliability-baseline.mjs && vitest run`.
+      # The gate runs from inside the npm script AND as the explicit step below,
+      # on purpose: deleting the tests that spawn it, or deleting the step, each
+      # leaves the other running. See scripts/reliability-baseline-floor.mjs.
       - run: npm run test
+        env:
+          GITHUB_BASE_REF: ${{ github.base_ref }}
+          GITHUB_EVENT_BEFORE: ${{ github.event.before }}
+          GITHUB_TOKEN: ${{ github.token }}
+
+      # RE-2026.08 release gate, run HERE on purpose.
+      #
+      # Branch protection on main requires exactly four checks: Lint +
+      # Typecheck, Unit tests, Migration chain + seeded auth smoke, Golden-path
+      # E2E. The two jobs in reliability-qualification.yml are not among them,
+      # so that workflow could fail red and the pull request would still be
+      # mergeable. Changing branch protection is the repository owner's call,
+      # so the gate is invoked from inside a check that is already required.
+      # src/test/reliabilityBaselineRatchet.test.ts asserts this step still
+      # exists, so deleting it fails the same job it was deleted from.
+      #
+      # The standalone workflow is kept as well: it is the one that can be
+      # dispatched manually for capture and live qualification runs.
+      - name: RE-2026.08 protected-surface gate
+        run: node scripts/check-reliability-baseline.mjs
+        env:
+          GITHUB_BASE_REF: ${{ github.base_ref }}
+          GITHUB_EVENT_BEFORE: ${{ github.event.before }}
+          # Load-bearing. Qualification evidence must name the Actions run that
+          # produced it, and inside Actions the gate REFUSES to skip verifying
+          # that run against the API. Without a token the gate fails closed --
+          # which is correct, because unverifiable evidence is what let a
+          # hand-written report with "x" as all 31 answers pass this floor.
+          GITHUB_TOKEN: ${{ github.token }}
 
   migration-order:
     name: Migration order vs deployed head
