@@ -5,22 +5,24 @@ GitHub/Vercel integration metadata. This is a point-in-time control record.
 
 ## Repository state
 
-| Control                          | Observed state                                          | Disposition                                                        |
-| -------------------------------- | ------------------------------------------------------- | ------------------------------------------------------------------ |
-| Repository visibility            | Private; anonymous API access returned `404`            | Retain private                                                     |
-| Direct collaborators             | `Stiggtechnologies` only                                | Owner account retained                                             |
-| Pending invitations              | None                                                    | No action                                                          |
-| GitHub forks                     | None reported                                           | Monitor; local copies remain unknowable                            |
-| Deploy keys                      | None                                                    | No action                                                          |
-| Repository webhooks              | None found                                              | Recheck with an owner token if integrations change                 |
-| Delete head branches after merge | Enabled                                                 | Retain                                                             |
-| Web commit sign-off              | Required                                                | Retain                                                             |
-| Dependabot vulnerability alerts  | Enabled                                                 | Retain                                                             |
-| Dependabot security updates      | Enabled                                                 | Retain                                                             |
-| Workflow token default           | Read-only; cannot approve reviews                       | Retain                                                             |
-| Branch protection/rulesets       | Not available for this private repo on the current plan | Upgrade, then require reviews/status checks                        |
-| GitHub code scanning/CodeQL      | Not available for this private repo on the current plan | Upgrade to an eligible organization plan with GitHub Code Security |
-| GitHub-native secret scanning    | Not available for this private repo on the current plan | Upgrade; keep Gitleaks CI active meanwhile                         |
+| Control                          | Observed state                                          | Disposition                                                           |
+| -------------------------------- | ------------------------------------------------------- | --------------------------------------------------------------------- |
+| Repository visibility            | Private; anonymous API access returned `404`            | Retain private                                                        |
+| Direct collaborators             | `Stiggtechnologies` only                                | Owner account retained                                                |
+| Pending invitations              | None                                                    | No action                                                             |
+| GitHub forks                     | None reported                                           | Monitor; local copies remain unknowable                               |
+| Deploy keys                      | None                                                    | No action                                                             |
+| Repository webhooks              | None found                                              | Recheck with an owner token if integrations change                    |
+| Delete head branches after merge | Enabled                                                 | Retain                                                                |
+| Web commit sign-off              | Required                                                | Retain                                                                |
+| Dependabot vulnerability alerts  | Enabled                                                 | Retain                                                                |
+| Dependabot security updates      | Enabled                                                 | Retain                                                                |
+| Workflow token default           | Read-only; cannot approve reviews                       | Retain                                                                |
+| External Action SHA pinning      | Required repository-wide                                | Retain; all current workflows use reviewed full-length SHAs           |
+| Allowed Action policy            | All publishers, subject to full-length SHA enforcement  | Retain until private-plan support allows a safe third-party allowlist |
+| Branch protection/rulesets       | Not available for this private repo on the current plan | Upgrade, then require reviews/status checks                           |
+| GitHub code scanning/CodeQL      | Not available for this private repo on the current plan | Upgrade to an eligible organization plan with GitHub Code Security    |
+| GitHub-native secret scanning    | Not available for this private repo on the current plan | Upgrade; keep Gitleaks CI active meanwhile                            |
 
 `allow_forking` is an organization-private-repository setting and could not be
 set on this personal-account repository. Private forks are therefore not being
