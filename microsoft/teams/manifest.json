@@ -1,0 +1,53 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/teams/v1.27/MicrosoftTeams.schema.json",
+  "manifestVersion": "1.27",
+  "version": "0.1.0",
+  "id": "52a214dd-fb3e-4fd3-bc1a-4fd8549c612a",
+  "developer": {
+    "name": "Stigg Technologies Inc.",
+    "websiteUrl": "https://syncai.ca",
+    "privacyUrl": "https://syncai.ca/privacy",
+    "termsOfUseUrl": "https://syncai.ca/terms"
+  },
+  "name": {
+    "short": "SyncAI Reliability",
+    "full": "SyncAI Reliability Engineering Copilot"
+  },
+  "description": {
+    "short": "Reliability copilot for RCA, FRACAS, FMEA, and RAM.",
+    "full": "SyncAI Reliability Engineering Copilot helps asset-intensive organizations turn maintenance records, failure histories, reliability documents, and work-order exports into traceable reliability engineering decisions. It supports RCA, FRACAS, FMEA/FMECA, RCM, PM optimization, MTBF, MTTR, availability calculations, bad actor analysis, and executive reliability reporting with human-in-the-loop governance."
+  },
+  "icons": {
+    "outline": "outline.png",
+    "color": "color.png"
+  },
+  "accentColor": "#14B8A6",
+  "staticTabs": [
+    {
+      "entityId": "reliability-copilot",
+      "name": "Reliability Copilot",
+      "contentUrl": "https://repo-lime-nu.vercel.app/demo/copilot?source=teams",
+      "websiteUrl": "https://repo-lime-nu.vercel.app/demo/copilot",
+      "scopes": ["personal"]
+    },
+    {
+      "entityId": "reliability-reports",
+      "name": "Pilot Brief",
+      "contentUrl": "https://repo-lime-nu.vercel.app/pilot/reliability?source=teams",
+      "websiteUrl": "https://repo-lime-nu.vercel.app/pilot/reliability",
+      "scopes": ["personal"]
+    }
+  ],
+  "permissions": ["identity"],
+  "validDomains": [
+    "repo-lime-nu.vercel.app",
+    "app.syncai.ca",
+    "api.syncai.ca",
+    "syncai.ca",
+    "www.syncai.ca"
+  ],
+  "webApplicationInfo": {
+    "id": "09b1f6e1-99b3-46f7-bb23-48b2aa4a6399",
+    "resource": "api://repo-lime-nu.vercel.app/09b1f6e1-99b3-46f7-bb23-48b2aa4a6399"
+  }
+}

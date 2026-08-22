@@ -1,0 +1,41 @@
+{
+  "$schema": "https://adaptivecards.io/schemas/adaptive-card.json",
+  "type": "AdaptiveCard",
+  "version": "1.5",
+  "body": [
+    {
+      "type": "TextBlock",
+      "text": "Reliability Calculation",
+      "weight": "Bolder",
+      "size": "Medium"
+    },
+    {
+      "type": "FactSet",
+      "facts": [
+        {
+          "title": "MTBF",
+          "value": "${mtbf} hours"
+        },
+        {
+          "title": "MTTR",
+          "value": "${mttr} hours"
+        },
+        {
+          "title": "Availability",
+          "value": "${availability}"
+        },
+        {
+          "title": "Formula",
+          "value": "${formula}"
+        }
+      ]
+    }
+  ],
+  "actions": [
+    {
+      "type": "Action.OpenUrl",
+      "title": "Open Analysis",
+      "url": "${analysisUrl}"
+    }
+  ]
+}
