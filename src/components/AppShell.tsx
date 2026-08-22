@@ -73,12 +73,10 @@ const AUTONOMY_COLOR = "text-amber-400";
 // The tree follows the corrected spine (docs/enterprise-readiness/
 // navigation-lifecycle-ia.md §2): what we own → what work should exist → the
 // standing programme strategy justifies → the whole-life frame → this week's
-// work → performance. 38 items in 9 groups (4/4/3/2/3/8/7/3/4) — the counts
-// roleNavigation.test.ts snapshots; the 38th is Reliability by Design, which
-// joined Whole Life once its RAM allocation stopped being pinned to the demo
-// project code (the P-7 disqualifier). Reliability Strategy sits directly
-// above Maintenance Programme so the parent edge — strategy → programme —
-// reads adjacently in the sidebar.
+// work → performance. 41 items in 9 groups (5/4/3/2/3/9/7/3/5) — the counts
+// roleNavigation.test.ts snapshots. Reliability Strategy sits directly above
+// Maintenance Programme so the parent edge — strategy → programme — reads
+// adjacently in the sidebar.
 const navGroups: NavGroup[] = [
   {
     id: "mission",
@@ -181,7 +179,8 @@ const navGroups: NavGroup[] = [
   {
     // L4 — this week's work, correctly positioned as the innermost loop.
     // Shutdowns & Turnarounds (/turnarounds) is route-only: nothing creates
-    // an outage_window yet (P-7).
+    // an outage_window yet (P-7). Sync Recovery is reachable and belongs here
+    // because it coordinates the live event across work, schedule and handover.
     id: "work",
     label: "Work Management",
     icon: Wrench,
@@ -193,6 +192,7 @@ const navGroups: NavGroup[] = [
         label: "Weekly Schedule & Crew",
         path: "/scheduling",
       },
+      { id: "recovery", label: "Sync Recovery", path: "/recovery" },
       { id: "materials", label: "Materials & Spares", path: "/materials" },
       {
         id: "handover",

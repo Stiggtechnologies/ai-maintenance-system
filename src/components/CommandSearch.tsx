@@ -35,272 +35,45 @@ interface SearchResult {
 // /design returned to both the sidebar and the palette when its RAM
 // allocation stopped being pinned to the demo project code.
 const allResults: SearchResult[] = [
-  {
-    id: "mc",
-    label: "Mission Control",
-    path: "/mission-control",
-    category: "Mission",
-    icon: Target,
-  },
-  {
-    id: "cc",
-    label: "Command Centers",
-    path: "/command-centers",
-    category: "Mission",
-    icon: Target,
-  },
-  {
-    id: "rd",
-    label: "Readiness",
-    path: "/readiness",
-    category: "Mission",
-    icon: Target,
-  },
-  {
-    id: "cw",
-    label: "Decision Workspace",
-    path: "/decision-cases/demo",
-    category: "Mission",
-    icon: Target,
-  },
-  {
-    id: "as",
-    label: "Asset Register",
-    path: "/assets",
-    category: "Asset Foundation",
-    icon: Factory,
-  },
-  {
-    id: "ao",
-    label: "Class Profiles & Ontology",
-    path: "/assets/ontology",
-    category: "Asset Foundation",
-    icon: Factory,
-  },
-  {
-    id: "tw",
-    label: "Twin & Naming Coverage",
-    path: "/assets/twins",
-    category: "Asset Foundation",
-    icon: Factory,
-  },
-  {
-    id: "ob",
-    label: "Asset Onboarding",
-    path: "/onboarding",
-    category: "Asset Foundation",
-    icon: Factory,
-  },
-  {
-    id: "rl",
-    label: "Failure Modes & Strategy",
-    path: "/reliability",
-    category: "Reliability Strategy",
-    icon: Factory,
-  },
-  {
-    id: "rk",
-    label: "Risk & Consequence",
-    path: "/risk",
-    category: "Reliability Strategy",
-    icon: Factory,
-  },
-  {
-    id: "iv",
-    label: "Interval Decisions",
-    path: "/reliability/intervals",
-    category: "Reliability Strategy",
-    icon: Factory,
-  },
-  {
-    id: "jp",
-    label: "Job Plans & Task Library",
-    path: "/job-plans",
-    category: "Maintenance Programme",
-    icon: Wrench,
-  },
-  {
-    id: "pp",
-    label: "PM Programme",
-    path: "/pm-programme",
-    category: "Maintenance Programme",
-    icon: Wrench,
-  },
-  {
-    id: "lc",
-    label: "Lifecycle Position",
-    path: "/lifecycle",
-    category: "Whole Life",
-    icon: Factory,
-  },
-  {
-    id: "ld",
-    label: "Repair / Replace / Retire",
-    path: "/lifecycle/decisions",
-    category: "Whole Life",
-    icon: Factory,
-  },
-  {
-    id: "de",
-    label: "Reliability by Design",
-    path: "/design",
-    category: "Whole Life",
-    icon: Factory,
-  },
-  {
-    id: "nt",
-    label: "Notifications",
-    path: "/notifications",
-    category: "Work Management",
-    icon: Wrench,
-  },
-  {
-    id: "wa",
-    label: "Work Action Board",
-    path: "/work",
-    category: "Work Management",
-    icon: Wrench,
-  },
-  {
-    id: "sc",
-    label: "Weekly Schedule & Crew",
-    path: "/scheduling",
-    category: "Work Management",
-    icon: Wrench,
-  },
-  {
-    id: "ma",
-    label: "Materials & Spares",
-    path: "/materials",
-    category: "Work Management",
-    icon: Wrench,
-  },
-  {
-    id: "ho",
-    label: "Release & Return to Service",
-    path: "/handover",
-    category: "Work Management",
-    icon: Wrench,
-  },
-  {
-    id: "br",
-    label: "Operational Briefing",
-    path: "/briefing",
-    category: "Work Management",
-    icon: Wrench,
-  },
-  {
-    id: "pb",
-    label: "Playbooks Library",
-    path: "/playbooks",
-    category: "Work Management",
-    icon: Wrench,
-  },
-  {
-    id: "em",
-    label: "Emergency Mode",
-    path: "/emergency",
-    category: "Work Management",
-    icon: Wrench,
-  },
-  {
-    id: "ei",
-    label: "Executive Intelligence",
-    path: "/executive",
-    category: "Performance & Governance",
-    icon: TrendingUp,
-  },
-  {
-    id: "oe",
-    label: "OEE Dashboard",
-    path: "/oee",
-    category: "Performance & Governance",
-    icon: TrendingUp,
-  },
-  {
-    id: "vr",
-    label: "Value Realization",
-    path: "/value",
-    category: "Performance & Governance",
-    icon: TrendingUp,
-  },
-  {
-    id: "bm",
-    label: "Benchmarking",
-    path: "/benchmarking",
-    category: "Performance & Governance",
-    icon: TrendingUp,
-  },
-  {
-    id: "ll",
-    label: "Learning Loop",
-    path: "/learning-loop",
-    category: "Performance & Governance",
-    icon: TrendingUp,
-  },
-  {
-    id: "dg",
-    label: "Decision Governance",
-    path: "/governance",
-    category: "Performance & Governance",
-    icon: TrendingUp,
-  },
-  {
-    id: "te",
-    label: "Trust & Explainability",
-    path: "/trust",
-    category: "Performance & Governance",
-    icon: TrendingUp,
-  },
-  {
-    id: "ai",
-    label: "AI Agents",
-    path: "/ai-workforce",
-    category: "AI Workforce",
-    icon: Bot,
-  },
-  {
-    id: "am",
-    label: "Autonomy Maturity",
-    path: "/autonomy-maturity",
-    category: "AI Workforce",
-    icon: Bot,
-  },
-  {
-    id: "ap",
-    label: "Approvals Queue",
-    path: "/approvals",
-    category: "AI Workforce",
-    icon: Bot,
-  },
-  {
-    id: "ig",
-    label: "Integrations",
-    path: "/integrations",
-    category: "System",
-    icon: Settings,
-  },
-  {
-    id: "ih",
-    label: "Integration Health",
-    path: "/integration-health",
-    category: "System",
-    icon: Settings,
-  },
-  {
-    id: "rs",
-    label: "Research",
-    path: "/research",
-    category: "System",
-    icon: Settings,
-  },
-  {
-    id: "st",
-    label: "Settings",
-    path: "/settings",
-    category: "System",
-    icon: Settings,
-  },
+  { id: "mc", label: "Mission Control", path: "/mission-control", category: "Mission", icon: Target },
+  { id: "cc", label: "Command Centers", path: "/command-centers", category: "Mission", icon: Target },
+  { id: "rd", label: "Readiness", path: "/readiness", category: "Mission", icon: Target },
+  { id: "cw", label: "Decision Workspace", path: "/decision-cases/demo", category: "Mission", icon: Target },
+  { id: "as", label: "Asset Register", path: "/assets", category: "Asset Foundation", icon: Factory },
+  { id: "ao", label: "Class Profiles & Ontology", path: "/assets/ontology", category: "Asset Foundation", icon: Factory },
+  { id: "tw", label: "Twin & Naming Coverage", path: "/assets/twins", category: "Asset Foundation", icon: Factory },
+  { id: "ob", label: "Asset Onboarding", path: "/onboarding", category: "Asset Foundation", icon: Factory },
+  { id: "rl", label: "Failure Modes & Strategy", path: "/reliability", category: "Reliability Strategy", icon: Factory },
+  { id: "rk", label: "Risk & Consequence", path: "/risk", category: "Reliability Strategy", icon: Factory },
+  { id: "iv", label: "Interval Decisions", path: "/reliability/intervals", category: "Reliability Strategy", icon: Factory },
+  { id: "jp", label: "Job Plans & Task Library", path: "/job-plans", category: "Maintenance Programme", icon: Wrench },
+  { id: "pp", label: "PM Programme", path: "/pm-programme", category: "Maintenance Programme", icon: Wrench },
+  { id: "lc", label: "Lifecycle Position", path: "/lifecycle", category: "Whole Life", icon: Factory },
+  { id: "ld", label: "Repair / Replace / Retire", path: "/lifecycle/decisions", category: "Whole Life", icon: Factory },
+  { id: "de", label: "Reliability by Design", path: "/design", category: "Whole Life", icon: Factory },
+  { id: "nt", label: "Notifications", path: "/notifications", category: "Work Management", icon: Wrench },
+  { id: "wa", label: "Work Action Board", path: "/work", category: "Work Management", icon: Wrench },
+  { id: "sc", label: "Weekly Schedule & Crew", path: "/scheduling", category: "Work Management", icon: Wrench },
+  { id: "sr", label: "Sync Recovery", path: "/recovery", category: "Work Management", icon: Wrench },
+  { id: "ma", label: "Materials & Spares", path: "/materials", category: "Work Management", icon: Wrench },
+  { id: "ho", label: "Release & Return to Service", path: "/handover", category: "Work Management", icon: Wrench },
+  { id: "br", label: "Operational Briefing", path: "/briefing", category: "Work Management", icon: Wrench },
+  { id: "pb", label: "Playbooks Library", path: "/playbooks", category: "Work Management", icon: Wrench },
+  { id: "em", label: "Emergency Mode", path: "/emergency", category: "Work Management", icon: Wrench },
+  { id: "ei", label: "Executive Intelligence", path: "/executive", category: "Performance & Governance", icon: TrendingUp },
+  { id: "oe", label: "OEE Dashboard", path: "/oee", category: "Performance & Governance", icon: TrendingUp },
+  { id: "vr", label: "Value Realization", path: "/value", category: "Performance & Governance", icon: TrendingUp },
+  { id: "bm", label: "Benchmarking", path: "/benchmarking", category: "Performance & Governance", icon: TrendingUp },
+  { id: "ll", label: "Learning Loop", path: "/learning-loop", category: "Performance & Governance", icon: TrendingUp },
+  { id: "dg", label: "Decision Governance", path: "/governance", category: "Performance & Governance", icon: TrendingUp },
+  { id: "te", label: "Trust & Explainability", path: "/trust", category: "Performance & Governance", icon: TrendingUp },
+  { id: "ai", label: "AI Agents", path: "/ai-workforce", category: "AI Workforce", icon: Bot },
+  { id: "am", label: "Autonomy Maturity", path: "/autonomy-maturity", category: "AI Workforce", icon: Bot },
+  { id: "ap", label: "Approvals Queue", path: "/approvals", category: "AI Workforce", icon: Bot },
+  { id: "ig", label: "Integrations", path: "/integrations", category: "System", icon: Settings },
+  { id: "ih", label: "Integration Health", path: "/integration-health", category: "System", icon: Settings },
+  { id: "rs", label: "Research", path: "/research", category: "System", icon: Settings },
+  { id: "st", label: "Settings", path: "/settings", category: "System", icon: Settings },
 ];
 
 // Quick links, not history: nothing records searches, so pretending these
@@ -308,27 +81,21 @@ const allResults: SearchResult[] = [
 // Conveyor C-22 fixture by name.
 const recentSearches = ["Work Action Board", "Approvals", "Notifications"];
 
-export function CommandSearch({
-  open,
-  onClose,
-  onNavigate,
-}: CommandSearchProps) {
+export function CommandSearch({ open, onClose, onNavigate }: CommandSearchProps) {
   const [query, setQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const filtered = query.trim()
     ? allResults.filter(
-        (r) =>
-          r.label.toLowerCase().includes(query.toLowerCase()) ||
-          r.category.toLowerCase().includes(query.toLowerCase()),
+        (result) =>
+          result.label.toLowerCase().includes(query.toLowerCase()) ||
+          result.category.toLowerCase().includes(query.toLowerCase()),
       )
     : allResults;
 
   useEffect(() => {
-    if (open && inputRef.current) {
-      setTimeout(() => inputRef.current?.focus(), 100);
-    }
+    if (open && inputRef.current) setTimeout(() => inputRef.current?.focus(), 100);
     if (!open) {
       setQuery("");
       setSelectedIndex(0);
@@ -341,17 +108,17 @@ export function CommandSearch({
 
   useEffect(() => {
     if (!open) return;
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === "ArrowDown") {
-        e.preventDefault();
-        setSelectedIndex((prev) => Math.min(prev + 1, filtered.length - 1));
-      } else if (e.key === "ArrowUp") {
-        e.preventDefault();
-        setSelectedIndex((prev) => Math.max(prev - 1, 0));
-      } else if (e.key === "Enter" && filtered[selectedIndex]) {
+    const handler = (event: KeyboardEvent) => {
+      if (event.key === "ArrowDown") {
+        event.preventDefault();
+        setSelectedIndex((previous) => Math.min(previous + 1, filtered.length - 1));
+      } else if (event.key === "ArrowUp") {
+        event.preventDefault();
+        setSelectedIndex((previous) => Math.max(previous - 1, 0));
+      } else if (event.key === "Enter" && filtered[selectedIndex]) {
         onNavigate(filtered[selectedIndex].path);
         onClose();
-      } else if (e.key === "Escape") {
+      } else if (event.key === "Escape") {
         onClose();
       }
     };
@@ -376,56 +143,47 @@ export function CommandSearch({
             exit={{ opacity: 0, y: -20, scale: 0.98 }}
             transition={{ type: "spring", damping: 25, stiffness: 400 }}
             className="fixed top-[12%] inset-x-4 mx-auto max-w-xl bg-[#0E1520] border border-white/8 rounded-2xl z-50 overflow-hidden shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
+            onClick={(event) => event.stopPropagation()}
           >
-            {/* Search Input */}
             <div className="flex items-center gap-3 px-5 py-4 border-b border-white/6">
               <Search className="w-5 h-5 text-slate-400 shrink-0" />
               <input
                 ref={inputRef}
                 type="text"
                 value={query}
-                onChange={(e) => setQuery(e.target.value)}
+                onChange={(event) => setQuery(event.target.value)}
                 placeholder="Search pages, assets, commands..."
                 className="flex-1 bg-transparent text-sm text-white placeholder-slate-600 outline-hidden"
               />
-              <kbd className="hidden sm:flex items-center gap-0.5 px-2 py-1 rounded-sm bg-white/5 border border-white/8 text-xs text-slate-400 font-mono">
-                ESC
-              </kbd>
+              <kbd className="hidden sm:flex items-center gap-0.5 px-2 py-1 rounded-sm bg-white/5 border border-white/8 text-xs text-slate-400 font-mono">ESC</kbd>
             </div>
 
-            {/* Recent Searches */}
             {!query.trim() && (
               <div className="px-5 py-3 border-b border-white/6">
-                <div className="text-xs text-slate-400 uppercase tracking-wider mb-2">
-                  Quick Links
-                </div>
+                <div className="text-xs text-slate-400 uppercase tracking-wider mb-2">Quick Links</div>
                 <div className="flex flex-wrap gap-2">
-                  {recentSearches.map((s) => (
+                  {recentSearches.map((search) => (
                     <button
-                      key={s}
-                      onClick={() => setQuery(s)}
+                      key={search}
+                      onClick={() => setQuery(search)}
                       className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white/4 border border-white/6 text-xs text-slate-400 hover:bg-white/8 transition-colors"
                     >
                       <Clock className="w-3 h-3 text-slate-400" />
-                      {s}
+                      {search}
                     </button>
                   ))}
                 </div>
               </div>
             )}
 
-            {/* Results */}
             <div className="max-h-[360px] overflow-y-auto py-2">
               {filtered.length === 0 ? (
                 <div className="px-5 py-8 text-center">
                   <p className="text-sm text-slate-400">No results found</p>
-                  <p className="text-xs text-slate-400 mt-1">
-                    Try searching for a page name or category
-                  </p>
+                  <p className="text-xs text-slate-400 mt-1">Try searching for a page name or category</p>
                 </div>
               ) : (
-                filtered.map((result, i) => {
+                filtered.map((result, index) => {
                   const Icon = result.icon;
                   return (
                     <button
@@ -435,41 +193,28 @@ export function CommandSearch({
                         onClose();
                       }}
                       className={`w-full flex items-center gap-3 px-5 py-2.5 transition-colors ${
-                        i === selectedIndex
+                        index === selectedIndex
                           ? "bg-teal-500/10 text-teal-400"
                           : "text-slate-400 hover:bg-white/4"
                       }`}
                     >
                       <Icon className="w-4 h-4 shrink-0" />
-                      <div className="flex-1 text-left">
-                        <span className="text-sm">{result.label}</span>
-                      </div>
-                      <span className="text-xs text-slate-400">
-                        {result.category}
-                      </span>
-                      {i === selectedIndex && (
-                        <ArrowRight className="w-3 h-3 shrink-0" />
-                      )}
+                      <div className="flex-1 text-left"><span className="text-sm">{result.label}</span></div>
+                      <span className="text-xs text-slate-400">{result.category}</span>
+                      {index === selectedIndex && <ArrowRight className="w-3 h-3 shrink-0" />}
                     </button>
                   );
                 })
               )}
             </div>
 
-            {/* Footer */}
             <div className="px-5 py-3 border-t border-white/6 flex items-center justify-between text-xs text-slate-400">
               <div className="flex items-center gap-3">
                 <span className="flex items-center gap-1">
-                  <kbd className="px-1.5 py-0.5 rounded-sm bg-white/5 border border-white/8 font-mono">
-                    ↑↓
-                  </kbd>{" "}
-                  Navigate
+                  <kbd className="px-1.5 py-0.5 rounded-sm bg-white/5 border border-white/8 font-mono">↑↓</kbd>{" "}Navigate
                 </span>
                 <span className="flex items-center gap-1">
-                  <kbd className="px-1.5 py-0.5 rounded-sm bg-white/5 border border-white/8 font-mono">
-                    ↵
-                  </kbd>{" "}
-                  Open
+                  <kbd className="px-1.5 py-0.5 rounded-sm bg-white/5 border border-white/8 font-mono">↵</kbd>{" "}Open
                 </span>
               </div>
               <div className="flex items-center gap-1">

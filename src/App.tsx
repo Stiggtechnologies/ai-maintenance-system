@@ -53,6 +53,7 @@ import { IntervalDecisionsPage } from "./pages/IntervalDecisionsPage";
 import { JobPlansPage } from "./pages/JobPlansPage";
 import { PmProgrammePage } from "./pages/PmProgrammePage";
 import { SchedulingPage } from "./pages/SchedulingPage";
+import SyncRecoveryPage from "./pages/SyncRecoveryPage";
 import { MaterialsPage } from "./pages/MaterialsPage";
 import { HandoverPage } from "./pages/HandoverPage";
 import { TurnaroundsPage } from "./pages/TurnaroundsPage";
@@ -224,20 +225,12 @@ function App() {
   };
 
   return (
-    // reducedMotion="user" honours prefers-reduced-motion across every
-    // framer-motion animation in the app (WCAG 2.3.3 / Apple-MD guidance).
     <MotionConfig reducedMotion="user">
       <BrowserRouter>
         <Routes>
           <Route path="/marketplace/signup" element={<MarketplaceSignup />} />
-          <Route
-            path="/marketplace/aws/signup"
-            element={<AwsMarketplaceSignup />}
-          />
-          <Route
-            path="/marketplace/salesforce/signup"
-            element={<SalesforceSignup />}
-          />
+          <Route path="/marketplace/aws/signup" element={<AwsMarketplaceSignup />} />
+          <Route path="/marketplace/salesforce/signup" element={<SalesforceSignup />} />
           <Route path="/auth/callback/azure" element={<AzureADCallback />} />
           <Route
             path="/signin"
@@ -247,23 +240,15 @@ function App() {
               ) : (
                 <Login
                   onSuccess={handleSignInSuccess}
-                  onTabChange={(page) =>
-                    window.location.assign(`/?view=${page}`)
-                  }
+                  onTabChange={(page) => window.location.assign(`/?view=${page}`)}
                 />
               )
             }
           />
           <Route path="/setup" element={<FirstCustomerPilotPage />} />
-          <Route
-            path="/pilot/reliability"
-            element={<FirstCustomerPilotPage />}
-          />
+          <Route path="/pilot/reliability" element={<FirstCustomerPilotPage />} />
           <Route path="/demo/copilot" element={<PublicCopilotExperience />} />
-          <Route
-            path="/workspace/cases/:caseId"
-            element={<DecisionCaseWorkspacePage publicMode />}
-          />
+          <Route path="/workspace/cases/:caseId" element={<DecisionCaseWorkspacePage publicMode />} />
           <Route
             path="/*"
             element={
@@ -275,34 +260,21 @@ function App() {
                 )}
                 {currentPage === "signin" && (
                   <motion.div key="signin" {...pageTransition}>
-                    <Login
-                      onSuccess={handleAuthSuccess}
-                      onTabChange={setCurrentPage}
-                    />
+                    <Login onSuccess={handleAuthSuccess} onTabChange={setCurrentPage} />
                   </motion.div>
                 )}
                 {currentPage === "signup" && (
                   <motion.div key="signup" {...pageTransition}>
-                    <Signup
-                      onSuccess={handleAuthSuccess}
-                      onTabChange={setCurrentPage}
-                    />
+                    <Signup onSuccess={handleAuthSuccess} onTabChange={setCurrentPage} />
                   </motion.div>
                 )}
                 {currentPage === "enterprise" && (
                   <motion.div key="enterprise" {...pageTransition}>
-                    <EnterpriseAccess
-                      onSuccess={handleAuthSuccess}
-                      onTabChange={setCurrentPage}
-                    />
+                    <EnterpriseAccess onSuccess={handleAuthSuccess} onTabChange={setCurrentPage} />
                   </motion.div>
                 )}
                 {currentPage === "app" && isAuthenticated && (
-                  <motion.div
-                    key="app"
-                    {...pageTransition}
-                    style={{ height: "100vh" }}
-                  >
+                  <motion.div key="app" {...pageTransition} style={{ height: "100vh" }}>
                     <AuthenticatedApp />
                   </motion.div>
                 )}
@@ -330,12 +302,6 @@ function App() {
   );
 }
 
-/**
- * Internal/experimental surfaces (research orchestrator, run traces, deployment
- * configurator, setup wizard) are hidden from pilot roles — they are platform
- * admin tooling, not buyer-facing product. Everyone else lands on Mission
- * Control.
- */
 function AdminGate({ children }: { children: React.ReactElement }) {
   const { profile, loading } = useAuth();
   if (loading) return null;
@@ -346,14 +312,6 @@ function AdminGate({ children }: { children: React.ReactElement }) {
   return children;
 }
 
-/**
- * The assessment workspace is open to the admin roles, the engineering and
- * planning roles that do the work, and the customer's assessment sponsor.
- *
- * This is a UX gate, not the boundary. RLS on ria_* is the boundary; a role
- * that reaches this route without entitlement sees an empty list rather than
- * another tenant's engagement.
- */
 function AssessmentGate({ children }: { children: React.ReactElement }) {
   const { profile, loading } = useAuth();
   if (loading) return null;
@@ -372,16 +330,12 @@ function AssessmentGate({ children }: { children: React.ReactElement }) {
   return children;
 }
 
-/** Post-login landing: every role gets its own command center. */
 function RoleLanding() {
   const { user, profile, loading } = useAuth();
-  // The profile row arrives after the session on real network latency —
-  // navigating before it lands would send every role to the default home.
-  // Wait for it briefly; after the grace period, fall back to the default.
   const [graceExpired, setGraceExpired] = useState(false);
   useEffect(() => {
-    const t = window.setTimeout(() => setGraceExpired(true), 5000);
-    return () => window.clearTimeout(t);
+    const timer = window.setTimeout(() => setGraceExpired(true), 5000);
+    return () => window.clearTimeout(timer);
   }, []);
   if (loading || (user && !profile && !graceExpired)) return null;
   return <Navigate to={getRoleHome(profile?.role as string)} replace />;
@@ -392,204 +346,76 @@ function AuthenticatedApp() {
   const location = useLocation();
 
   return (
-    <AppShell
-      currentPath={location.pathname}
-      onNavigate={(path) => navigate(path)}
-    >
+    <AppShell currentPath={location.pathname} onNavigate={(path) => navigate(path)}>
       <ErrorBoundary inline resetKey={location.pathname}>
         <Routes>
-          {/* Default Ã¢ÂÂ Mission Control */}
           <Route path="/" element={<RoleLanding />} />
           <Route path="/overview" element={<RoleLanding />} />
 
-          {/* Mission layer */}
           <Route path="/mission-control" element={<MissionControl />} />
           <Route path="/command-centers" element={<CommandCenters />} />
           <Route path="/readiness" element={<ReadinessPage />} />
-          <Route
-            path="/assessments"
-            element={
-              <AssessmentGate>
-                <AssessmentsPage />
-              </AssessmentGate>
-            }
-          />
-          <Route
-            path="/assessments/:assessmentId"
-            element={
-              <AssessmentGate>
-                <AssessmentHomePage />
-              </AssessmentGate>
-            }
-          />
-          <Route
-            path="/cowork"
-            element={<Navigate to="/decision-cases/demo" replace />}
-          />
-          <Route
-            path="/decision-cases/:caseId"
-            element={<DecisionCaseWorkspacePage />}
-          />
+          <Route path="/assessments" element={<AssessmentGate><AssessmentsPage /></AssessmentGate>} />
+          <Route path="/assessments/:assessmentId" element={<AssessmentGate><AssessmentHomePage /></AssessmentGate>} />
+          <Route path="/cowork" element={<Navigate to="/decision-cases/demo" replace />} />
+          <Route path="/decision-cases/:caseId" element={<DecisionCaseWorkspacePage />} />
 
-          {/* AI Workforce layer */}
           <Route path="/ai-workforce" element={<AIWorkforce />} />
-          {/* /autonomy offered per-agent autonomy levels, safety overrides and
-              spend limits reaching $100,000, all of it component state that no
-              table backed — there is no autonomy-config schema, so pressing
-              Save changed nothing an agent would ever read. The concern it
-              mimicked is real and already modelled: decision rights, approval
-              authority and their thresholds live in the decision-rights matrix
-              and are rendered from it by Decision Governance. The path survives
-              as a redirect because anyone who bookmarked it wanted to set
-              approval authority, and the catch-all would drop them on Mission
-              Control instead. */}
-          <Route
-            path="/autonomy"
-            element={<Navigate to="/governance" replace />}
-          />
+          <Route path="/autonomy" element={<Navigate to="/governance" replace />} />
           <Route path="/autonomy-maturity" element={<AutonomyMaturity />} />
           <Route path="/approvals" element={<ApprovalQueue />} />
           <Route path="/governance" element={<DecisionGovernance />} />
 
-          {/* Asset foundation, reliability strategy, maintenance programme */}
           <Route path="/assets/:assetId" element={<AssetDetailPage />} />
           <Route path="/assets/ontology" element={<AssetOntologyPage />} />
           <Route path="/assets/twins" element={<AssetTwinsPage />} />
           <Route path="/assets" element={<AssetManagement />} />
           <Route path="/onboarding" element={<AssetOnboardingHub />} />
           <Route path="/reliability" element={<Reliability />} />
-          <Route
-            path="/reliability/intervals"
-            element={<IntervalDecisionsPage />}
-          />
-          <Route
-            path="/reliability-copilot"
-            element={<ReliabilityCopilotPage />}
-          />
+          <Route path="/reliability/intervals" element={<IntervalDecisionsPage />} />
+          <Route path="/reliability-copilot" element={<ReliabilityCopilotPage />} />
           <Route path="/risk" element={<RiskConsequence />} />
           <Route path="/job-plans" element={<JobPlansPage />} />
           <Route path="/pm-programme" element={<PmProgrammePage />} />
 
-          {/* Whole life. /design rejoined the sidebar when its RAM
-              allocation stopped being pinned to the demo project code — it
-              now lists the org's own capital projects and says so when there
-              are none, clearing the P-7 disqualifier. */}
           <Route path="/lifecycle" element={<LifecyclePositionPage />} />
-          <Route
-            path="/lifecycle/decisions"
-            element={<LifecycleDecisionsPage />}
-          />
+          <Route path="/lifecycle/decisions" element={<LifecycleDecisionsPage />} />
           <Route path="/design" element={<ReliabilityByDesignPage />} />
 
-          {/* Work management */}
           <Route path="/work/:workOrderId" element={<WorkOrderDetailPage />} />
           <Route path="/work" element={<WorkActionBoard />} />
           <Route path="/notifications" element={<NotificationScreening />} />
           <Route path="/scheduling" element={<SchedulingPage />} />
+          <Route path="/recovery" element={<SyncRecoveryPage />} />
           <Route path="/materials" element={<MaterialsPage />} />
           <Route path="/handover" element={<HandoverPage />} />
           <Route path="/turnarounds" element={<TurnaroundsPage />} />
           <Route path="/briefing" element={<OperationalBriefing />} />
 
-          {/* Performance */}
           <Route path="/executive" element={<ExecutiveIntelligence />} />
-          {/* /performance held a second KPI dashboard whose every figure was a
-              literal in the component — OEE, MTBF, MTTR, PM compliance and a
-              five-month trend that no query produced. Executive Intelligence
-              already renders those same KPIs from get_kpi_dashboard with
-              targets, ownership and the "Awaiting source" state, so the page
-              was removed rather than re-sourced. The path survives as a
-              redirect because anyone who bookmarked it wanted the KPI screen,
-              and the catch-all would drop them on Mission Control instead. */}
-          <Route
-            path="/performance"
-            element={<Navigate to="/executive" replace />}
-          />
+          <Route path="/performance" element={<Navigate to="/executive" replace />} />
           <Route path="/oee" element={<OEEDashboard />} />
           <Route path="/learning-loop" element={<LearningLoop />} />
           <Route path="/value" element={<ValueRealization />} />
           <Route path="/benchmarking" element={<BenchmarkingPanel />} />
           <Route path="/trust" element={<TrustExplainability />} />
 
-          {/* System */}
           <Route path="/integrations" element={<IntegrationsPage />} />
-          <Route
-            path="/integration-health"
-            element={<IntegrationHealthPanel />}
-          />
+          <Route path="/integration-health" element={<IntegrationHealthPanel />} />
           <Route path="/playbooks" element={<PlaybooksLibrary />} />
           <Route path="/emergency" element={<EmergencyMode />} />
           <Route path="/artifacts" element={<ArtifactWorkspace />} />
-          <Route
-            path="/setup"
-            element={
-              <AdminGate>
-                <SetupWizard />
-              </AdminGate>
-            }
-          />
-          <Route
-            path="/research"
-            element={
-              <AdminGate>
-                <ResearchDashboard />
-              </AdminGate>
-            }
-          />
-          <Route
-            path="/runs"
-            element={
-              <AdminGate>
-                <RunsAuditPage />
-              </AdminGate>
-            }
-          />
-          <Route
-            path="/deployments/new/configure"
-            element={
-              <AdminGate>
-                <DeploymentConfiguratorPage />
-              </AdminGate>
-            }
-          />
-          <Route
-            path="/deployments/new"
-            element={
-              <AdminGate>
-                <TemplateSelectorPage />
-              </AdminGate>
-            }
-          />
-          <Route
-            path="/deployments"
-            element={
-              <AdminGate>
-                <TemplateSelectorPage />
-              </AdminGate>
-            }
-          />
+          <Route path="/setup" element={<AdminGate><SetupWizard /></AdminGate>} />
+          <Route path="/research" element={<AdminGate><ResearchDashboard /></AdminGate>} />
+          <Route path="/runs" element={<AdminGate><RunsAuditPage /></AdminGate>} />
+          <Route path="/deployments/new/configure" element={<AdminGate><DeploymentConfiguratorPage /></AdminGate>} />
+          <Route path="/deployments/new" element={<AdminGate><TemplateSelectorPage /></AdminGate>} />
+          <Route path="/deployments" element={<AdminGate><TemplateSelectorPage /></AdminGate>} />
           <Route path="/settings" element={<SettingsPage />} />
-          <Route
-            path="/security-log"
-            element={
-              <AdminGate>
-                <SecurityAuditLog />
-              </AdminGate>
-            }
-          />
-          <Route
-            path="/pilot-leads"
-            element={
-              <AdminGate>
-                <PilotLeads />
-              </AdminGate>
-            }
-          />
+          <Route path="/security-log" element={<AdminGate><SecurityAuditLog /></AdminGate>} />
+          <Route path="/pilot-leads" element={<AdminGate><PilotLeads /></AdminGate>} />
 
-          <Route
-            path="*"
-            element={<Navigate to="/mission-control" replace />}
-          />
+          <Route path="*" element={<Navigate to="/mission-control" replace />} />
         </Routes>
       </ErrorBoundary>
     </AppShell>

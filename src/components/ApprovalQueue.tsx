@@ -29,6 +29,17 @@ interface Decision {
   }>;
 }
 
+function confidenceLabel(decision: Decision) {
+  if (
+    decision.decision_type === "release_restoration_plan" &&
+    decision.decision_data?.confidence_semantics ===
+      "deterministic contract completeness; not probability of outcome"
+  ) {
+    return "Deterministic contract complete";
+  }
+  return `${Math.round(decision.confidence_score)}% confidence`;
+}
+
 export function ApprovalQueue() {
   const [decisions, setDecisions] = useState<Decision[]>([]);
   const [loading, setLoading] = useState(true);
@@ -370,7 +381,7 @@ export function ApprovalQueue() {
                       {decision.decision_type.replace(/_/g, " ").toUpperCase()}
                     </h3>
                     <span className="px-2 py-1 text-xs font-medium bg-teal-500/10 text-teal-400 border border-teal-500/20 rounded-full">
-                      {Math.round(decision.confidence_score)}% confidence
+                      {confidenceLabel(decision)}
                     </span>
                   </div>
 
