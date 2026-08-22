@@ -29,6 +29,62 @@ Build one industrial engineering operating system. Extend existing contracts bef
 - Open a draft pull request early and keep its scope narrow.
 - Rebase or update from `main` before final review when shared contracts changed.
 
+### Lane split (added 2026-08-20, after two agents independently built the RIA workspace)
+
+Codex `#231` created the nine `ria_*` core tables; Claude `#235` added the governing-rule
+triggers and `ALTER`s on top of them. They composed only by luck — the same week the
+register grew 399 → 409 rows with neither agent seeing the other's additions. These lanes
+make that outcome the default rather than the accident.
+
+| Lane          | Owns                                                                                      | Typical change                |
+| ------------- | ----------------------------------------------------------------------------------------- | ----------------------------- |
+| **Feature**   | `src/pages/`, `src/components/`, new tables, new routes, new capability                   | Builds the noun               |
+| **Invariant** | triggers, RLS, `SECURITY DEFINER`, `src/test/*Tenancy*`, `*Gate*`, `migrationPolicies.ts` | Makes the noun unbypassable   |
+| **Honesty**   | fabricated values, unreachable surfaces, over-claiming docs                               | Makes the claim match reality |
+
+**Rules that matter more than the table:**
+
+1. **The Honesty lane corrects claims. It does not delete code.** The problem is never that
+   a module exists — it is that something _asserts_ the module works. Fix the assertion.
+   Work the ladder in order and stop at the first rung that makes the claim true:
+
+   1. **Reclassify.** Change the register row to 🟡 with evidence naming what is missing
+      ("schema and read path exist; no write path reachable from any surface"). This is the
+      right answer for almost everything.
+   2. **Banner.** For a document whose content is useful but whose framing over-claims, add a
+      dated header. The pattern already exists in this repo — `STRIPE-INTEGRATION-GUIDE.md`
+      opens with `**2026-08-19 — HISTORICAL DOCUMENT, PRICING SUPERSEDED.**` Copy it.
+   3. **Archive.** Move to `docs/archive/` with the header. Nothing is lost, nothing is claimed.
+   4. **Delete.** Only for content that is an actively false statement AND has nothing
+      salvageable — and never in bulk.
+
+   **Unreachable code is not deleted. It is reclassified.** Unreferenced code costs almost
+   nothing to keep; the expensive part (the domain knowledge) is already written, and the
+   cheap part (a route) is what is missing. Deleting destroys the expensive half to avoid
+   doing the cheap half.
+
+   **Reachability detection is not trustworthy enough to delete on.** A static import scan
+   cannot see a route built from a runtime string, a component named in config, or a symbol
+   reached by re-export. On 2026-08-20 two first-pass sweeps in this repo were both wrong —
+   14 branches reported as unmerged were all merged, and 73 RPCs reported as dead were 22.
+   **Any deletion requires the reachability claim verified twice, by different methods, and
+   named per file in the PR body.** No bulk deletion of code, ever.
+
+2. **`docs/enterprise-readiness/capability-register.md` is append-and-accept, never
+   rewrite.** Change an item's status and ship `npm run register:accept` in the _same_
+   commit. The ratchet blocks regressions; it cannot see two agents appending different
+   rows to the same section.
+3. **Shared security guards** (`src/test/support/migrationPolicies.ts`,
+   `tenancyIsolation.test.ts`, `definerTenancy.test.ts`) are Invariant-lane files. Loosening
+   one requires a compensating assertion in the same PR and an explicit call-out in the PR
+   body — a weakened guard is silent until something exploits it.
+4. **Before building a surface, grep for it.** Both agents built an assessment workspace in
+   the same week. `git log --oneline -20` and `gh pr list --state all --limit 15` cost
+   seconds; a duplicated slice costs days.
+5. **Migrations are serialized by timestamp, not by agreement.** Timestamp later than the
+   deployed head _and_ later than every open PR's migrations — check
+   `gh pr list --json number` then `gh pr diff <n> --name-only`.
+
 ## Required implementation sequence
 
 1. Inspect existing types, services, migrations, and tests.

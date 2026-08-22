@@ -1,0 +1,13 @@
+# Prettier pads every cell in a markdown table to the width of that table's
+# widest cell. The capability register has 399 rows and cells up to 918
+# characters, so appending ONE row with long evidence text rewrites every other
+# row in the section.
+#
+# Measured on PR #235: 208 added lines in the register, of which 166 were pure
+# whitespace reflow and only 42 were real content. Two agents appending to
+# different sections of the same file therefore conflict on nearly every line —
+# and the register is the one file AGENTS.md requires both of them to touch.
+#
+# Nothing runs `prettier --check` in CI, and scripts/register-baseline.mjs trims
+# every captured cell, so the register's formatting is load-bearing for nobody.
+docs/enterprise-readiness/capability-register.md
