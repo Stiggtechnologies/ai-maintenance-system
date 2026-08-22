@@ -1565,7 +1565,7 @@ function buildDefaultProfile(
       sourceTables: template.sourceTables,
       pathSummary: `${LIFECYCLE_LABELS[lifecycle]} using ${template.name}.`,
       commercialUse:
-        "Template-driven onboarding applies the existing SyncAI industry packs to asset context, criticality, failure modes, governance, and pilot deliverables.",
+        "Template-driven onboarding applies this module's own industry templates to asset context, criticality, failure modes, governance, and pilot deliverables. It does NOT read src/lib/industry-template-packs.ts — that library has no importer anywhere in the application (E1.02). Corrected 2026-08-20: this sentence previously claimed the packs were applied, which was the only place a customer was told they are live.",
     },
     identity: defaultIdentity(assetId, assetClass),
     hierarchy: {
