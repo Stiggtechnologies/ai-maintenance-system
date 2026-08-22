@@ -79,6 +79,48 @@ jobs:
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
 
+      - name: Prove production migrations converged
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          set -euo pipefail
+          output=$(supabase db push --dry-run --include-all 2>&1)
+          printf '%s\n' "$output"
+          if ! printf '%s\n' "$output" | grep -qi "up to date"; then
+            echo "::error title=production migrations are not converged::A post-deploy dry run did not report the linked project as up to date."
+            exit 1
+          fi
+
+      - name: Prove Sync Investigation Runtime is deployed
+        run: |
+          set -euo pipefail
+          endpoint="https://${SUPABASE_PROJECT_ID}.supabase.co/functions/v1/sync-investigation-runtime"
+          status=$(curl --silent --show-error --output /tmp/sync-runtime-probe.txt \
+            --write-out '%{http_code}' \
+            --request POST \
+            --header 'Content-Type: application/json' \
+            --data '{"query":"production commissioning boundary probe"}' \
+            "$endpoint")
+          cat /tmp/sync-runtime-probe.txt || true
+          if [ "$status" != "401" ]; then
+            echo "::error title=Sync Investigation Runtime boundary probe failed::Expected JWT-protected deployed function to return HTTP 401 without credentials; got HTTP ${status}."
+            exit 1
+          fi
+          echo "Sync Investigation Runtime is deployed and JWT-protected (HTTP 401 unauthenticated)."
+
+      - name: Prove production app boundary is reachable
+        run: |
+          set -euo pipefail
+          status=$(curl --silent --show-error --location --output /tmp/sync-app-probe.html \
+            --write-out '%{http_code}' \
+            --max-time 30 \
+            "$APP_URL")
+          if [ "$status" != "200" ]; then
+            echo "::error title=production app boundary probe failed::Expected ${APP_URL} to return HTTP 200; got HTTP ${status}."
+            exit 1
+          fi
+          echo "Production app boundary returned HTTP 200."
+
       - name: Give lead-notify a mail transport
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
@@ -127,7 +169,7 @@ jobs:
             "" \
             "Run: ${RUN_URL}" \
             "" \
-            "**Production schema, Auth configuration, and Edge Functions are not advancing.** The" \
+            "**Production schema, Auth configuration, Edge Functions, and production boundary probes are not green.** The" \
             "frontend deploys independently on Vercel, so the app can keep" \
             "shipping against stale backend configuration — which looks" \
             "healthy right up until an authentication or schema path is exercised." \
@@ -136,6 +178,7 @@ jobs:
             "" \
             '```bash' \
             "supabase migration list --linked" \
+            "supabase db push --dry-run --include-all" \
             '```')
           if [ -n "$EXISTING" ]; then
             gh issue comment "$EXISTING" --body "$BODY"
@@ -151,5 +194,5 @@ jobs:
         run: |
           set -euo pipefail
           for n in $(gh issue list --state open --label deploy-failure --json number --jq '.[].number'); do
-            gh issue close "$n" --comment "Deploy succeeded on ${GITHUB_SHA}. Closing."
+            gh issue close "$n" --comment "Deploy and production boundary probes succeeded on ${GITHUB_SHA}. Closing."
           done
