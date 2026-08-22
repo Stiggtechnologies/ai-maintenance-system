@@ -59,6 +59,34 @@ least privilege. Rotate or revoke credentials after a confirmed compromise,
 personnel change, or unexplained deployment—not merely because the repository
 was once public, because GitHub does not expose Actions secret values in source.
 
+## Secret-scan disposition
+
+The official Gitleaks 8.24.3 Darwin ARM64 release was downloaded from GitHub
+and matched its published SHA-256 checksum before use. Scans were run with
+secret values fully redacted.
+
+- The default full-history scan reported 42 findings. After adding a narrow
+  allowlist for exact documentation placeholders, deterministic test fixtures,
+  and the standard public local-Supabase demo key, 28 historical findings
+  remain. No path or commit is broadly excluded.
+- The current working-tree scan reports zero findings after removing the
+  remaining credential fragments from `FINAL-AUDIT-REPORT.md` and `SECRETS.md`.
+- The residual history includes duplicated documentation/build artifacts,
+  public/publishable or local-demo values, a Stripe-live-shaped documentation
+  example, and records that describe an OpenAI key and Stripe live key as having
+  been exposed.
+- Those historical records say the values were removed and explicitly state
+  that revocation was still required. GitHub, Git, and the current provider
+  metadata do not independently prove that revocation occurred.
+
+Do not print, commit, or circulate the raw scan reports. Verify provider-side
+revocation/rotation using the OpenAI and Stripe account audit logs, and verify
+that the historical Supabase project/key is decommissioned or protected by
+current RLS. If an old credential remains active, rotate it before any external
+diligence representation. Rewriting Git history is not a substitute for
+rotation and would not remove copies already made while the repository was
+public.
+
 ## Operating procedure
 
 1. Review collaborators, pending invitations, installed apps, deploy keys,

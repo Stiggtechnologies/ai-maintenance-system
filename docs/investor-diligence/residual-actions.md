@@ -15,6 +15,10 @@ items need authority or evidence outside the codebase.
   logos, domains, app-store/vendor accounts, and social handles.
 - Confirm privacy, customer-data, model-provider, dataset, and vendor contract
   rights in the diligence data room.
+- Independently verify revocation/rotation of the historical OpenAI and Stripe
+  credentials identified by the 2026-03-23 audit record. Confirm the old
+  Supabase project/key is decommissioned or appropriately restricted. Retain
+  provider audit-log evidence without placing credential values in Git.
 
 ## Repository and production decisions
 

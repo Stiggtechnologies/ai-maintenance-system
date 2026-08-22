@@ -58,6 +58,34 @@ requireCondition(
   "CODEOWNERS must retain repository-wide ownership",
 );
 
+const gitleaksConfig = read(".gitleaks.toml");
+requireCondition(
+  gitleaksConfig.includes('minVersion = "8.24.0"') &&
+    gitleaksConfig.includes("useDefault = true"),
+  "Gitleaks must extend the default rules at the reviewed minimum version",
+);
+requireCondition(
+  !/^\s*(?:paths|commits)\s*=/m.test(gitleaksConfig),
+  "Gitleaks must not broadly allowlist paths or commits",
+);
+for (const reviewedFixture of [
+  "YOUR_ANON_KEY",
+  "SERVICE_ROLE_KEY",
+  "4100xpc-hoist-rgb",
+]) {
+  requireCondition(
+    gitleaksConfig.includes(reviewedFixture),
+    `Gitleaks reviewed-fixture allowlist is missing ${reviewedFixture}`,
+  );
+}
+
+for (const incidentRecord of ["FINAL-AUDIT-REPORT.md", "SECRETS.md"]) {
+  requireCondition(
+    read(incidentRecord).includes("rotation must be independently verified"),
+    `${incidentRecord} must not restore historical credential fragments`,
+  );
+}
+
 const workflowDirectory = resolve(repositoryRoot, ".github/workflows");
 const mutableActionReferences = [];
 for (const fileName of readdirSync(workflowDirectory).filter((name) =>

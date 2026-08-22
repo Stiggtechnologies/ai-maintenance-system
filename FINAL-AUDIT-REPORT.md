@@ -102,8 +102,8 @@ A comprehensive audit identified and resolved all critical security issues, sche
 
 **Problem:** Live API keys committed to git
 
-- OpenAI API key: `sk-proj-7nvWSx...`
-- Stripe Live key: `pk_live_51RPclL...`
+- OpenAI API key: `[REDACTED — historical credential; rotation must be independently verified]`
+- Stripe Live key: `[REDACTED — historical credential; rotation must be independently verified]`
 
 **Resolution:**
 

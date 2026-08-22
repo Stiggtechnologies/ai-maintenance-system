@@ -18,6 +18,10 @@ tax, or investment advice.
 - Anonymous copying while the repository was public cannot be attributed or
   recalled. GitHub traffic data establishes exposure volume, not identity or
   downstream use.
+- A redacted Gitleaks 8.24.3 audit now reports zero findings in the current
+  working tree. The full history still contains reviewed findings, including
+  old credential-exposure records; provider-side rotation is not proven by a
+  clean current tree.
 - The current private-repository plan does not expose all desired GitHub
   controls. Branch protection, private-repository CodeQL/code scanning, and
   GitHub-native secret scanning remain upgrade-dependent.
@@ -27,7 +31,7 @@ tax, or investment advice.
 | File                         | Purpose                                                                       |
 | ---------------------------- | ----------------------------------------------------------------------------- |
 | `mit-license-incident.md`    | Timeline, exposure evidence, limitations, and preserved boundary              |
-| `access-control-report.md`   | Current repository, automation, and deployment access snapshot                |
+| `access-control-report.md`   | Access, deployment, and current/historical secret-scan disposition            |
 | `ip-asset-register.md`       | Technical asset inventory and ownership evidence gaps                         |
 | `source-provenance.md`       | Commit/contributor provenance and review procedure                            |
 | `open-source-policy.md`      | Dependency and outbound-licensing policy                                      |
