@@ -79,6 +79,48 @@ jobs:
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
 
+      - name: Attest production migrations and Sync Edge Functions
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          MIGRATIONS="$(supabase migration list --linked 2>&1)"
+          printf '%s\n' "$MIGRATIONS"
+
+          NORMALIZED_MIGRATIONS="$(printf '%s\n' "$MIGRATIONS" | sed 's/│/|/g')"
+          for VERSION in 20260921110000 20260921110100; do
+            printf '%s\n' "$NORMALIZED_MIGRATIONS" | awk -F'|' -v expected="$VERSION" '
+              {
+                local=$1; remote=$2;
+                gsub(/[[:space:]]/, "", local);
+                gsub(/[[:space:]]/, "", remote);
+                if (local == expected && remote == expected) found=1;
+              }
+              END { exit(found ? 0 : 1) }
+            ' || {
+              echo "::error title=Production migration missing::${VERSION} is not present in both local and linked remote migration history."
+              exit 1
+            }
+          done
+
+          FUNCTIONS="$(supabase functions list --project-ref "$SUPABASE_PROJECT_ID" 2>&1)"
+          printf '%s\n' "$FUNCTIONS"
+          for FUNCTION in sync-investigation-runtime sync-runtime; do
+            printf '%s\n' "$FUNCTIONS" | grep -F "$FUNCTION" >/dev/null || {
+              echo "::error title=Production Edge Function missing::${FUNCTION} is not listed in project ${SUPABASE_PROJECT_ID}."
+              exit 1
+            }
+          done
+
+          {
+            echo "### Production release attestation"
+            echo
+            echo "- Commit: \`${GITHUB_SHA}\`"
+            echo "- Linked migrations: \`20260921110000\`, \`20260921110100\` present remotely"
+            echo "- Edge Functions: \`sync-investigation-runtime\`, \`sync-runtime\` listed in production"
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Give lead-notify a mail transport
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
