@@ -24,6 +24,19 @@ Describe the bounded problem and the smallest coherent solution.
 - [ ] Persistence changes are transactional and idempotent where required.
 - [ ] Audit and evidence provenance remain complete.
 
+## Intellectual property and supply chain
+
+- [ ] No source, prompt, data, media, or documentation was copied without a
+      compatible license or written authorization.
+- [ ] New or changed dependencies were reviewed for license compatibility and
+      recorded in the lockfile/SBOM.
+- [ ] No repository license, copyright, trademark, or third-party notice was
+      removed or weakened.
+- [ ] Contributor ownership or assignment is documented for externally created
+      material.
+- [ ] Secrets and credentials were not added to source, history, fixtures, or
+      generated evidence.
+
 ## Validation
 
 - [ ] Positive-path tests added or updated.

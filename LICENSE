@@ -1,21 +1,27 @@
-MIT License
+SyncAI Proprietary Software License Notice
 
-Copyright (c) 2026 Stigg Technologies
+Copyright (c) 2026 Stigg Technologies. All rights reserved.
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+This repository and the software, documentation, designs, data models, prompts,
+workflows, and other materials it contains (collectively, the "Software") are
+proprietary to Stigg Technologies and its licensors.
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+No license or permission is granted to use, copy, modify, merge, publish,
+distribute, sublicense, sell, reverse engineer, or create derivative works from
+the Software except under a separate written agreement with Stigg Technologies
+or as required by applicable law.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+This notice applies to repository revisions that contain it. Revisions that
+Stigg Technologies previously distributed with an MIT License remain governed
+by that license for recipients of those revisions. The canonical final `main`
+snapshot before this transition is identified by the Git tag
+`legacy-mit-final-2026-08-22`. This notice does not attempt to revoke rights
+validly granted for previously distributed MIT-licensed revisions.
+
+Third-party software remains governed by its applicable third-party license.
+No rights in the SyncAI or Stigg Technologies names, logos, or trademarks are
+granted by this notice.
+
+THE SOFTWARE IS PROVIDED "AS IS" TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE
+LAW. ANY COMMERCIAL, EVALUATION, CUSTOMER, PARTNER, OR DISTRIBUTION RIGHTS MUST
+BE SET OUT IN A SEPARATE WRITTEN AGREEMENT.
