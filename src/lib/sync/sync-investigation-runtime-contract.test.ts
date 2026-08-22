@@ -82,6 +82,10 @@ describe("Sync Investigation Runtime v2 contract", () => {
     expect(runtime).toContain("proposalParamsHash");
   });
 
+  it("uses the shared notification classifier for governed proposals", () => {
+    expect(runtime).toContain("notificationTypeFor(question)");
+  });
+
   it("deploys v2 explicitly when its backend changes land on main", () => {
     expect(boundary.activeFunctions).toContain("sync-investigation-runtime");
     expect(deploy).toContain('"supabase/functions/sync-investigation-runtime/**"');
