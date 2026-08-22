@@ -63,11 +63,14 @@ const NAV_ALLOW: Record<string, Set<string> | null> = {
   // entry here and therefore fell through to the FULL navigation. It gets
   // handover because release_equipment/accept_equipment are gated TO it,
   // and notifications because raise_maintenance_notification is ungated.
-  // It does NOT get the Work Action Board (spec P-9).
+  // Recovery is visible because the operator may open an event and is one of
+  // the two roles permitted to accept final return-to-service; Recovery's
+  // server RPCs remain the authority for every button.
   operator: new Set([
     "mission-control",
     "assets",
     "notifications",
+    "recovery",
     "handover",
     "emergency",
     "settings",
@@ -75,11 +78,13 @@ const NAV_ALLOW: Record<string, Set<string> | null> = {
   // technician gains notifications (raising one is the technician's job —
   // the documented exception) and handover (return_equipment is ungated
   // because returning equipment is the maintenance act in the three-party
-  // loop).
+  // loop). Recovery gives the technician the controlled live-execution lane;
+  // planning/release/RTS controls remain server-denied.
   technician: new Set([
     "mission-control",
     "work",
     "notifications",
+    "recovery",
     "handover",
     "emergency",
     "cowork",
@@ -90,43 +95,29 @@ const NAV_ALLOW: Record<string, Set<string> | null> = {
   // existed, maintenance_manager carried both the department-head and the
   // crew-assignment job (§3). The set is the crew-facing slice and nothing
   // above it. Qualifying evidence, item by item:
-  //   work          — work_orders is org-scoped RLS with no role gate
-  //                   (00000000000001 org_rw policy): ungated actions.
-  //   notifications — raise_maintenance_notification is ungated
-  //                   (20260906090000:32-50); the screening RPCs exclude
-  //                   supervisor and the page surfaces the server's refusal
-  //                   (the technician→notifications idiom, second entry in
-  //                   the test's exception list).
-  //   scheduling    — READ-ONLY, documented: release_schedule_option gates
-  //                   to planner/mm/admin/ai_admin (20260806190000:176), so
-  //                   the supervisor reads the week's options and the crew
-  //                   capacity behind them; SchedulerPanel hides the release
-  //                   action client-side and surfaces the server refusal.
-  //   handover      — return_equipment is deliberately ungated
-  //                   (20260812140000:120-150): returning equipment is the
-  //                   maintenance act, and the supervisor's crew does it.
-  //                   release/accept remain operations acts the page's own
-  //                   flash surfaces as refusals.
-  //   emergency, briefing — the shift ritual and the emergency surface are
-  //                   the frontline's own screens (briefing renders briefs
-  //                   from reads; no gated write on the page).
+  //   work          — work_orders is org-scoped RLS with no role gate.
+  //   notifications — raise_maintenance_notification is ungated.
+  //   scheduling    — READ-ONLY; release remains planner/mm/admin/ai_admin.
+  //   recovery      — event scope/blockers/live execution are supervisor
+  //                   actions; plan generation/release and RTS are not.
+  //   handover      — return_equipment is the maintenance act.
+  //   emergency, briefing — the frontline shift surfaces.
   // NO approvals, NO decision-governance: the role holds no approval
-  // authority (app_role_has_approval_authority excludes it) and no
-  // decision-rights rows — granting the menu item would promise authority
-  // the server denies.
+  // authority and no decision-rights rows.
   supervisor: new Set([
     "mission-control",
     "work",
     "notifications",
     "scheduling",
+    "recovery",
     "handover",
     "emergency",
     "briefing",
     "settings",
   ]),
-  // planner loses value — a programme-benefits review surface with no
-  // planner action; planning accuracy and schedule compliance stay
-  // reachable on /oee and /briefing.
+  // planner owns the event-plan authoring lane: scope, constraints, verified
+  // concurrency, deterministic plan generation, submission and approved-plan
+  // release. Approval itself remains independent in the canonical queue.
   planner: new Set([
     "mission-control",
     "cowork",
@@ -139,6 +130,7 @@ const NAV_ALLOW: Record<string, Set<string> | null> = {
     "notifications",
     "work",
     "scheduling",
+    "recovery",
     "materials",
     "briefing",
     "playbooks",
@@ -147,15 +139,10 @@ const NAV_ALLOW: Record<string, Set<string> | null> = {
     "integrations",
     "settings",
   ]),
-  // reliability_engineer narrows from full nav to its working surface:
-  // scheduling and handover are server-denied to the role; the execution
-  // and executive-review surfaces are not its job. oee and integrations are
-  // deliberately kept (spec P-11) — availability loss is the RE's primary
-  // input, and the RE owns the condition-monitoring feeds. design joined
-  // when the RAM allocation stopped being pinned to the demo project code
-  // (the P-7 disqualifier): a read-only surface (all seven tables are
-  // SELECT-only RLS) whose operations-to-design feedback loop is the RE's
-  // own E2 edge.
+  // reliability_engineer narrows from full nav to its working surface. Recovery
+  // is included for engineering constraints, concurrency verification, plan
+  // generation and independent plan approval; field execution/RTS remain
+  // server-gated to operating roles.
   reliability_engineer: new Set([
     "mission-control",
     "command-centers",
@@ -176,6 +163,7 @@ const NAV_ALLOW: Record<string, Set<string> | null> = {
     "pm-programme",
     "notifications",
     "work",
+    "recovery",
     "briefing",
     "approvals",
     "decision-governance",
@@ -185,10 +173,9 @@ const NAV_ALLOW: Record<string, Set<string> | null> = {
     "integration-health",
     "settings",
   ]),
-  // maintenance_manager: set rebuilt (spec P-12) — loses the executive
-  // review surfaces, gains the work-management and strategy surfaces,
-  // including handover so the returning party can see the
-  // awaiting-acceptance limbo it creates.
+  // maintenance_manager owns the full maintenance-side Recovery lane and can
+  // participate in final RTS acceptance, while independent approval remains
+  // enforced by the canonical authority contract and generator!=approver rule.
   maintenance_manager: new Set([
     "mission-control",
     "cowork",
@@ -204,6 +191,7 @@ const NAV_ALLOW: Record<string, Set<string> | null> = {
     "notifications",
     "work",
     "scheduling",
+    "recovery",
     "materials",
     "handover",
     "briefing",
@@ -217,14 +205,9 @@ const NAV_ALLOW: Record<string, Set<string> | null> = {
     "integration-health",
     "settings",
   ]),
-  // executive loses approvals (app_role_has_approval_authority excludes the
-  // role — the RLS predicate on every approvals table) and the scheduling/
-  // job-plan surfaces whose writes are server-denied (spec P-3); it gains
-  // intervals, lifecycle, lifecycle-decisions and handover — every one a
-  // gate the server already opens to the role. design joined when the RAM
-  // allocation stopped being pinned to the demo project code: it is the one
-  // screen where a project's availability promise meets arithmetic, and it
-  // is read-only for every role.
+  // executive receives Recovery as an explicitly read-oriented operating/value
+  // view. The page may render controls, but every mutation is denied by the
+  // Recovery RPC role gates; menu visibility never grants authority.
   executive: new Set([
     "mission-control",
     "command-centers",
@@ -243,17 +226,13 @@ const NAV_ALLOW: Record<string, Set<string> | null> = {
     "design",
     "risk",
     "decision-governance",
+    "recovery",
     "handover",
     "settings",
   ]),
-  // board is a strict READ surface — the executive-review set and nothing
-  // else. Migration 20260912090000 is what makes these pages non-empty for
-  // the role: the four Board-accountable KPI audience arrays and
-  // board_packs_read now admit 'board'. Three of those four KPIs are seeded
-  // computable=false and the KPI screen says so in words (Awaiting source) —
-  // granting the seat grants one live number and three named gaps, which is
-  // the honest state. The role holds NO write anywhere: no approvals, no
-  // decision-rights rows, no authority_limits tier.
+  // board is a strict READ surface — executive-review surfaces only. Recovery
+  // is deliberately excluded because the event workspace exposes operational
+  // detail beyond the board governance job; aggregate value remains /value.
   board: new Set([
     "mission-control",
     "executive",
@@ -262,26 +241,14 @@ const NAV_ALLOW: Record<string, Set<string> | null> = {
     "trust",
     "settings",
   ]),
-  // The assessment sponsor is a CUSTOMER identity holding a session inside an
-  // operations tenant, and it is the first role in this file that is not an
-  // employee of the organization it signs into. Its menu is the two surfaces
-  // the engagement needs: the assessment itself, and account settings.
-  //
-  // READ THE HEADER OF THIS FILE BEFORE TREATING THAT AS CONTAINMENT. Menu
-  // visibility is not entitlement. A sponsor session can reach every
-  // org-scoped table in the tenant through PostgREST exactly as any other
-  // authenticated member can, because that is what those tables' policies say.
-  // Per-record authorization is Phase 2 of the workspace specification; until
-  // it exists, a sponsor account belongs only in an organization whose entire
-  // contents are the engagement.
+  // Assessment sponsors remain limited to the engagement workspace/settings.
   assessment_sponsor: new Set(["assessments", "settings"]),
 };
 
 /**
  * The fall-through for a role string nobody vetted. It used to be the FULL
  * navigation — an unrecognised role saw every item — so the default is now
- * the smallest read surface that keeps the app usable (spec §3,
- * unknown-role default).
+ * the smallest read surface that keeps the app usable.
  */
 const UNKNOWN_ROLE_NAV: ReadonlySet<string> = new Set([
   "mission-control",
@@ -292,12 +259,10 @@ export function isNavItemVisible(
   role: AppRoleKey | null | undefined,
   itemId: string,
 ): boolean {
-  // Admin-only surfaces are hidden from every non-admin role, even those
-  // that otherwise get the full navigation.
   if (itemId === "security-log" || itemId === "pilot-leads")
     return role === "admin" || role === "ai_admin";
   const allow = role ? NAV_ALLOW[role] : undefined;
-  if (allow === null) return true; // full nav — admin roles only
+  if (allow === null) return true;
   if (allow === undefined) return UNKNOWN_ROLE_NAV.has(itemId);
   return allow.has(itemId);
 }
