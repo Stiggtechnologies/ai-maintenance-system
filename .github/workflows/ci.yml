@@ -78,7 +78,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - uses: supabase/setup-cli@v2
+      - uses: supabase/setup-cli@v3
         with:
           version: 2.84.2
           github-token: ${{ github.token }}
@@ -177,7 +177,7 @@ jobs:
 
       - run: npm ci --no-audit --no-fund
 
-      - uses: supabase/setup-cli@v2
+      - uses: supabase/setup-cli@v3
         with:
           version: 2.84.2
           github-token: ${{ github.token }}
