@@ -28,6 +28,7 @@ import {
   type InvestigationCategory,
   type KpiSnapshot,
 } from "../_shared/sync-investigation.ts";
+import { notificationTypeFor } from "../_shared/sync-notification-classifier.ts";
 import { buildSyncResponsePolicy } from "../_shared/sync-response-policy.ts";
 import {
   createSyncEventStream,
@@ -911,13 +912,7 @@ async function maybeProposeAction(auth: AuthContext, question: string, context?:
   const entity = context?.entity;
   if (!entity || entity.type !== "asset" || !entity.id) return null;
   if (!/\b(report|raise|log|record|create)\b[\s\S]{0,80}\b(fault|observation|maintenance notification|maintenance request)\b/i.test(question)) return null;
-  const notificationType = /\bsafety\b/i.test(question)
-    ? "safety"
-    : /\brequest\b/i.test(question)
-      ? "request"
-      : /\bfault\b/i.test(question)
-        ? "fault"
-        : "observation";
+  const notificationType = notificationTypeFor(question);
   const proposal = {
     proposalId: crypto.randomUUID(),
     toolId: "raise_maintenance_notification",
