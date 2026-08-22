@@ -13,6 +13,7 @@ PLAN='9a000000-0000-0000-0000-000000000001'
 CHECK='9a000000-0000-0000-0000-000000000002'
 WO1='9b000000-0000-0000-0000-000000000001'
 WO2='9b000000-0000-0000-0000-000000000002'
+SCHED='9c000000-0000-0000-0000-000000000001'
 MANAGER_UID='00000000-0000-0000-0000-000000000003'
 
 json_field() {
@@ -158,6 +159,55 @@ PY
 REL=$(rpc "$PLANNER" release_restoration_plan "{\"p_plan_id\":\"$PLAN_ID\"}")
 assert_no_error "$REL"
 
+# The platform context must resolve the same event/work/material/schedule truth,
+# and Sync must read the same contract rather than a parallel assistant store.
+CTX=$(rpc "$PLANNER" get_recovery_platform_context "{\"p_surface\":\"materials\",\"p_work_order_id\":\"$WO1\",\"p_asset_id\":\"$ASSET\"}")
+assert_no_error "$CTX"
+BODY="$CTX" EVENT="$EVENT" WO1="$WO1" WO2="$WO2" python3 - <<'PY'
+import json, os, sys
+ctx=json.loads(os.environ['BODY'])
+event=os.environ['EVENT']; wo1=os.environ['WO1']; wo2=os.environ['WO2']
+if ctx.get('work_order_context',{}).get('event_id') != event:
+    print('work-order Recovery context did not resolve active event:', ctx); sys.exit(1)
+if not any(x.get('event_id') == event for x in ctx.get('active_events',[])):
+    print('active event absent from platform context:', ctx); sys.exit(1)
+impact=next((x for x in ctx.get('material_impacts',[]) if x.get('work_order_id') == wo1), None)
+if not impact or int(impact.get('short_lines',0)) < 1:
+    print('canonical material shortage absent from Recovery context:', ctx); sys.exit(1)
+commitments={x.get('work_order_id') for x in ctx.get('schedule_commitments',[])}
+if not {wo1,wo2}.issubset(commitments):
+    print('active Recovery schedule commitments incomplete:', ctx); sys.exit(1)
+PY
+
+SYNC_CTX=$(rpc "$PLANNER" get_sync_recovery_context "{\"p_asset_id\":\"$ASSET\",\"p_work_order_id\":\"$WO1\"}")
+assert_no_error "$SYNC_CTX"
+BODY="$SYNC_CTX" EVENT="$EVENT" python3 - <<'PY'
+import json, os, sys
+ctx=json.loads(os.environ['BODY'])
+if ctx.get('surface') != 'sync' or ctx.get('work_order_context',{}).get('event_id') != os.environ['EVENT']:
+    print('Sync did not receive canonical Recovery context:', ctx); sys.exit(1)
+PY
+
+# Weekly Scheduling owns capacity commitments, but it must explicitly warn if a
+# draft option omits active Recovery work. This direct insert is a CI-only
+# canonical schedule fixture; Recovery itself never writes schedule_options.
+PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -v ON_ERROR_STOP=1 <<SQL
+insert into schedule_options(id,organization_id,week_start,label,strategy,items,total_hours,capacity_hours,status,generated_by)
+values('$SCHED','$ORG',date_trunc('week',current_date)::date,'Recovery integration E2E','CI-only schedule feasibility fixture',
+  jsonb_build_array(jsonb_build_object('wo_id','$WO1','wo_number','REC-E2E-001','title','Engine-system restoration stream','priority','critical','hours',8,'day',1)),
+  8,24,'draft','00000000-0000-0000-0000-000000000004')
+on conflict (id) do update set items=excluded.items,total_hours=excluded.total_hours,status='draft';
+SQL
+SCHED_F=$(rpc "$PLANNER" evaluate_schedule_feasibility "{\"p_option_id\":\"$SCHED\"}")
+assert_no_error "$SCHED_F"
+BODY="$SCHED_F" python3 - <<'PY'
+import json, os, sys
+f=json.loads(os.environ['BODY'])
+check=next((x for x in f.get('checks',[]) if x.get('constraint') == 'Active Recovery commitments'), None)
+if not check or check.get('severity') != 'warning' or check.get('passed') is not False or int(check.get('count',0)) < 1:
+    print('weekly schedule did not surface omitted Recovery commitment:', f); sys.exit(1)
+PY
+
 # Operations records the physical isolation. Both WOs share this asset release.
 ER=$(rpc "$OPS" release_equipment "{\"p_asset_id\":\"$ASSET\",\"p_work_order_id\":null,\"p_isolation_confirmed\":true,\"p_isolation_note\":\"CI operations isolation confirmed before maintenance starts\"}")
 assert_no_error "$ER"
@@ -183,6 +233,16 @@ assert_no_error "$C1"; assert_no_error "$C2"
 RET=$(rpc "$TECH" return_equipment "{\"p_asset_id\":\"$ASSET\",\"p_note\":\"Maintenance complete; guards restored and equipment offered back to operations\"}")
 assert_no_error "$RET"
 
+HANDOVER_CTX=$(rpc "$MANAGER" get_recovery_platform_context "{\"p_surface\":\"handover\",\"p_work_order_id\":null,\"p_asset_id\":\"$ASSET\"}")
+assert_no_error "$HANDOVER_CTX"
+BODY="$HANDOVER_CTX" EVENT="$EVENT" python3 - <<'PY'
+import json, os, sys
+ctx=json.loads(os.environ['BODY'])
+row=next((x for x in ctx.get('handover_impacts',[]) if x.get('event_id') == os.environ['EVENT']), None)
+if not row or row.get('release_status') != 'returned' or row.get('awaiting_operations_acceptance') is not True:
+    print('Recovery handover context did not mirror canonical returned state:', ctx); sys.exit(1)
+PY
+
 # Event closure must fail while Operations has not accepted the returned asset.
 CLOSE_BLOCKED=$(rpc "$MANAGER" close_restoration_event "{\"p_event_id\":\"$EVENT\",\"p_note\":\"Attempting RTS before operations acceptance should be refused\"}")
 assert_error_contains "$CLOSE_BLOCKED" 'handover has not been accepted'
@@ -202,8 +262,19 @@ if d.get('kpis',{}).get('revenue_hours_recovered') is None:
     print('closed event did not compute recovered hours against frozen baseline:', d); sys.exit(1)
 PY
 
+CLOSED_CTX=$(rpc "$MANAGER" get_recovery_platform_context "{\"p_surface\":\"learning\",\"p_work_order_id\":null,\"p_asset_id\":\"$ASSET\"}")
+assert_no_error "$CLOSED_CTX"
+BODY="$CLOSED_CTX" EVENT="$EVENT" python3 - <<'PY'
+import json, os, sys
+ctx=json.loads(os.environ['BODY']); event=os.environ['EVENT']
+if any(x.get('event_id') == event for x in ctx.get('active_events',[])):
+    print('closed Recovery event still appears active:', ctx); sys.exit(1)
+if not any(x.get('event_id') == event for x in ctx.get('recent_closed_events',[])):
+    print('closed Recovery evidence absent from Reliability/Learning context:', ctx); sys.exit(1)
+PY
+
 VALUE_COUNT=$(PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -Atc \
   "select count(*) from value_metrics where organization_id='$ORG' and asset_id='$ASSET' and status='projected' and label like 'Recovery counterfactual hours recovered — REC-%';")
 test "$VALUE_COUNT" -ge 1
 
-echo "Recovery lifecycle smoke passed: event=$EVENT plan=$PLAN_ID decision=$DECISION projected_value_records=$VALUE_COUNT"
+echo "Recovery lifecycle + platform integration smoke passed: event=$EVENT plan=$PLAN_ID decision=$DECISION projected_value_records=$VALUE_COUNT"
