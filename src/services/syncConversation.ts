@@ -104,7 +104,7 @@ export async function listSyncConversations(options?: {
     .limit(Math.min(100, Math.max(1, options?.limit ?? 40)));
   if (!options?.includeArchived) query = query.eq("status", "active");
   const search = options?.search?.trim();
-  if (search) query = query.ilike("title", `%${search.replace(/[%_]/g, "\\$&")}%`);
+  if (search) query = query.ilike("title", `%${search.replace(/[\\%_]/g, "\\$&")}%`);
   const { data, error } = await query;
   if (error) throw error;
   return (data ?? []).map((row) => mapSummary(row as Record<string, unknown>));
