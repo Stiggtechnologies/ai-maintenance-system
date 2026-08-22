@@ -10,6 +10,7 @@
  * shift ritual, which the briefing already claims (P-4). Panel remounted, not
  * modified.
  */
+import { RecoveryContextPanel } from "../components/RecoveryContextPanel";
 import { OpsCoordination } from "../components/OpsCoordination";
 
 export function HandoverPage() {
@@ -24,6 +25,7 @@ export function HandoverPage() {
           accepted back by operations
         </p>
       </div>
+      <RecoveryContextPanel surface="handover" />
       <OpsCoordination />
     </div>
   );
