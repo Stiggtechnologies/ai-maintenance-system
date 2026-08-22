@@ -5,6 +5,7 @@ import type {
   ReviewState,
 } from "./types";
 import type { InspectionZoneContract } from "./inspection-contracts";
+import type { PhysicsCapabilityDefinition } from "./physics-capability";
 import type { SharedComponentDnaProfile } from "./shared-component-dna";
 
 export type EngineeringDnaCapability =
@@ -14,7 +15,8 @@ export type EngineeringDnaCapability =
   | "telemetry_concepts"
   | "digital_twin_instantiation"
   | "governed_recommendations"
-  | "shared_component_composition";
+  | "shared_component_composition"
+  | "physics_capability_composition";
 
 export interface EngineeringDnaGovernance {
   reviewState: ReviewState;
@@ -31,6 +33,12 @@ export interface SharedComponentBinding {
   role: string;
 }
 
+export interface PhysicsCapabilityBinding {
+  assetComponentCode: string;
+  physicsCapabilityCode: string;
+  role: string;
+}
+
 export interface EngineeringDnaProfile {
   schemaVersion: string;
   code: string;
@@ -43,6 +51,7 @@ export interface EngineeringDnaProfile {
   inspectionZoneCodes: string[];
   telemetryConcepts: string[];
   sharedComponentBindings?: SharedComponentBinding[];
+  physicsCapabilityBindings?: PhysicsCapabilityBinding[];
   standards: string[];
   evidence: EvidenceReference[];
   governance: EngineeringDnaGovernance;
@@ -58,6 +67,7 @@ export function validateEngineeringDnaProfile(
   assetClass: AssetClassTemplate,
   inspectionZones: InspectionZoneContract[],
   sharedComponents: SharedComponentDnaProfile[] = [],
+  physicsCapabilities: PhysicsCapabilityDefinition[] = [],
 ): EngineeringDnaValidationIssue[] {
   const issues: EngineeringDnaValidationIssue[] = [];
   const canonicalComponentCodes = new Set(assetClass.components.map((component) => component.code));
@@ -69,6 +79,7 @@ export function validateEngineeringDnaProfile(
   );
   const canonicalInspectionZoneCodes = new Set(inspectionZones.map((zone) => zone.code));
   const sharedComponentCodes = new Set(sharedComponents.map((component) => component.code));
+  const physicsByCode = new Map(physicsCapabilities.map((capability) => [capability.code, capability]));
 
   if (profile.assetClassCode !== assetClass.code) {
     issues.push({
@@ -114,6 +125,34 @@ export function validateEngineeringDnaProfile(
     const identity = `${binding.assetComponentCode}:${binding.sharedComponentDnaCode}:${binding.role}`;
     if (bindingIdentities.has(identity)) issues.push({ path, message: `Duplicate shared component binding ${identity}.` });
     bindingIdentities.add(identity);
+  }
+
+  const physicsBindingIdentities = new Set<string>();
+  for (const [index, binding] of (profile.physicsCapabilityBindings ?? []).entries()) {
+    const path = `physicsCapabilityBindings[${index}]`;
+    if (!canonicalComponentCodes.has(binding.assetComponentCode)) {
+      issues.push({ path: `${path}.assetComponentCode`, message: `Unknown canonical component ${binding.assetComponentCode}.` });
+    }
+    const physicsCapability = physicsByCode.get(binding.physicsCapabilityCode);
+    if (!physicsCapability) {
+      issues.push({ path: `${path}.physicsCapabilityCode`, message: `Unknown physics capability ${binding.physicsCapabilityCode}.` });
+    } else if (!physicsCapability.applicableAssetFamilies.includes(assetClass.family)) {
+      issues.push({
+        path: `${path}.physicsCapabilityCode`,
+        message: `Physics capability ${binding.physicsCapabilityCode} is not applicable to asset family ${assetClass.family}.`,
+      });
+    }
+    if (!binding.role.trim()) issues.push({ path: `${path}.role`, message: "Physics capability role is required." });
+    const identity = `${binding.assetComponentCode}:${binding.physicsCapabilityCode}:${binding.role}`;
+    if (physicsBindingIdentities.has(identity)) issues.push({ path, message: `Duplicate physics capability binding ${identity}.` });
+    physicsBindingIdentities.add(identity);
+  }
+
+  if ((profile.physicsCapabilityBindings?.length ?? 0) > 0 && !profile.capabilities.includes("physics_capability_composition")) {
+    issues.push({
+      path: "capabilities",
+      message: "Physics capability bindings require the physics_capability_composition capability.",
+    });
   }
 
   const duplicateSets: Array<[string, string[]]> = [
@@ -165,6 +204,7 @@ export function instantiateEngineeringTwin(
       engineeringDnaProfileCode: profile.code,
       engineeringDnaSchemaVersion: profile.schemaVersion,
       sharedComponentBindings: profile.sharedComponentBindings ?? [],
+      physicsCapabilityBindings: profile.physicsCapabilityBindings ?? [],
       approvalRequired: profile.governance.customerOverridesRequireApproval,
       ...(input.customerOverrides ?? {}),
     },

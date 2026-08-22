@@ -1,3 +1,7 @@
+import {
+  bearingKinematicsPhysicsCapability,
+  rotatingMachineryPhysicsCapability,
+} from "./physics-capability-library";
 import type { ComponentDependencyEdge, SharedComponentDnaProfile } from "./shared-component-dna";
 
 const governed = {
@@ -9,13 +13,17 @@ const governed = {
 };
 
 export const rollingElementBearingDna: SharedComponentDnaProfile = {
-  schemaVersion: "0.1.0",
+  schemaVersion: "0.2.0",
   code: "COMP-DNA-BEARING-ROLLING",
   name: "Rolling-element bearing component DNA",
   category: "bearing",
   description: "Reusable governed engineering profile for rolling-element bearings across rotating equipment.",
   functions: ["support rotating shafts", "transmit radial and axial loads", "maintain controlled relative motion"],
   telemetryConcepts: ["bearing_vibration", "bearing_temperature", "shaft_speed", "lubricant_condition"],
+  physicsCapabilityCodes: [
+    rotatingMachineryPhysicsCapability.code,
+    bearingKinematicsPhysicsCapability.code,
+  ],
   failureReferences: [
     { code: "BEARING-FATIGUE", mechanismCode: "fatigue", description: "Raceway or rolling-element fatigue damage.", detectionMethodCodes: ["vibration_monitoring", "thermal_imaging"], verificationMethodCodes: ["qualified_engineer_visual_verification", "non_destructive_testing"] },
     { code: "BEARING-LUBRICATION-LOSS", mechanismCode: "wear", description: "Lubrication deficiency or contamination affecting bearing condition.", detectionMethodCodes: ["vibration_monitoring", "thermal_imaging"], verificationMethodCodes: ["qualified_engineer_visual_verification"] },
@@ -25,13 +33,14 @@ export const rollingElementBearingDna: SharedComponentDnaProfile = {
 };
 
 export const flexibleCouplingDna: SharedComponentDnaProfile = {
-  schemaVersion: "0.1.0",
+  schemaVersion: "0.2.0",
   code: "COMP-DNA-COUPLING-FLEXIBLE",
   name: "Flexible coupling component DNA",
   category: "coupling",
   description: "Reusable governed profile for flexible couplings transmitting torque between rotating shafts.",
   functions: ["transmit torque", "accommodate approved misalignment", "attenuate torsional disturbance"],
   telemetryConcepts: ["coupling_vibration", "shaft_speed", "torsional_response", "coupling_temperature"],
+  physicsCapabilityCodes: [rotatingMachineryPhysicsCapability.code],
   failureReferences: [
     { code: "COUPLING-WEAR", mechanismCode: "wear", description: "Wear or deterioration of flexible elements or engagement surfaces.", detectionMethodCodes: ["rgb_visual_inspection", "vibration_monitoring"], verificationMethodCodes: ["qualified_engineer_visual_verification"] },
     { code: "COUPLING-MISALIGNMENT", mechanismCode: "fatigue", description: "Load amplification associated with alignment or installation condition.", detectionMethodCodes: ["vibration_monitoring", "thermal_imaging"], verificationMethodCodes: ["qualified_engineer_visual_verification"] },
