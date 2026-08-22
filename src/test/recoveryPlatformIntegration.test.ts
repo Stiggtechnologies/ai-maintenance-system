@@ -11,6 +11,10 @@ const service = readFileSync(
 );
 const panel = readFileSync("src/components/RecoveryContextPanel.tsx", "utf8");
 const wrapper = readFileSync("src/components/RecoveryAwarePage.tsx", "utf8");
+const app = readFileSync("src/App.tsx", "utf8");
+const materials = readFileSync("src/pages/MaterialsPage.tsx", "utf8");
+const scheduling = readFileSync("src/pages/SchedulingPage.tsx", "utf8");
+const handover = readFileSync("src/pages/HandoverPage.tsx", "utf8");
 const docs = readFileSync(
   "docs/sync-recovery/platform-integration.md",
   "utf8",
@@ -64,7 +68,9 @@ describe("Recovery platform context preserves canonical ownership", () => {
   it("never fabricates material RTS consequence", () => {
     const context = functionBody("get_recovery_platform_context");
     expect(context).toContain("forecast_rts_impact_hours is not null");
-    expect(panel).toContain('RTS impact: {impact.recorded_rts_impact_hours == null ? "not quantified"');
+    expect(panel).toContain(
+      'RTS impact: {impact.recorded_rts_impact_hours == null ? "not quantified"',
+    );
   });
 });
 
@@ -92,6 +98,27 @@ describe("cross-module UI is context, not authority", () => {
     expect(panel).toContain('navigate("/recovery")');
     expect(panel).toContain("no fallback write path is used");
     expect(wrapper).toContain("RecoveryContextPanel");
+  });
+
+  it("pins Recovery context into the operating surfaces", () => {
+    expect(app).toContain(
+      '<RecoveryAwarePage surface="mission"><MissionControl /></RecoveryAwarePage>',
+    );
+    expect(app).toContain(
+      '<RecoveryAwarePage surface="work_order"><WorkOrderDetailPage /></RecoveryAwarePage>',
+    );
+    expect(app).toContain(
+      '<RecoveryAwarePage surface="reliability"><Reliability /></RecoveryAwarePage>',
+    );
+    expect(app).toContain(
+      '<RecoveryAwarePage surface="learning"><LearningLoop /></RecoveryAwarePage>',
+    );
+    expect(app).toContain(
+      '<RecoveryAwarePage surface="value"><ValueRealization /></RecoveryAwarePage>',
+    );
+    expect(materials).toContain('<RecoveryContextPanel surface="materials" />');
+    expect(scheduling).toContain('<RecoveryContextPanel surface="scheduling" />');
+    expect(handover).toContain('<RecoveryContextPanel surface="handover" />');
   });
 
   it("states the module ownership boundary in the product surface", () => {
