@@ -26,6 +26,8 @@ export function SyncConversationSidebar({
   onDelete,
 }: SyncConversationSidebarProps) {
   const [search, setSearch] = useState("");
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameTitle, setRenameTitle] = useState("");
   const visible = useMemo(() => {
     const needle = search.trim().toLowerCase();
     return needle
@@ -64,6 +66,7 @@ export function SyncConversationSidebar({
         <div className="space-y-1">
           {visible.map((conversation) => {
             const archived = conversation.status !== "active";
+            const renaming = renamingId === conversation.id;
             return (
               <div
                 key={conversation.id}
@@ -73,38 +76,71 @@ export function SyncConversationSidebar({
                     : "border-transparent hover:bg-white/3"
                 }`}
               >
-                <button
-                  type="button"
-                  onClick={() => onSelect(conversation.id)}
-                  className="block w-full text-left"
-                >
-                  <div className="truncate text-xs font-medium text-slate-300">{conversation.title}</div>
-                  <div className="mt-1 text-[10px] capitalize text-slate-600">{archived ? "archived" : conversation.mode}</div>
-                </button>
-                <div className="mt-1.5 flex items-center gap-1 opacity-70 group-hover:opacity-100">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const title = window.prompt("Rename conversation", conversation.title);
-                      if (title?.trim() && title.trim() !== conversation.title) onRename(conversation.id, title.trim());
+                {renaming ? (
+                  <form
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      const title = renameTitle.trim();
+                      if (title && title !== conversation.title) onRename(conversation.id, title);
+                      setRenamingId(null);
                     }}
-                    className="rounded px-1.5 py-1 text-[10px] text-slate-500 hover:bg-white/5 hover:text-slate-300"
+                    onKeyDown={(event) => {
+                      if (event.key === "Escape") setRenamingId(null);
+                    }}
+                    className="space-y-1.5"
                   >
-                    Rename
-                  </button>
-                  {archived ? (
-                    <button type="button" onClick={() => onRestore(conversation.id)} className="rounded p-1 text-slate-500 hover:bg-white/5 hover:text-slate-300" aria-label="Restore conversation">
-                      <RotateCcw className="h-3 w-3" aria-hidden />
+                    <input
+                      autoFocus
+                      value={renameTitle}
+                      onChange={(event) => setRenameTitle(event.target.value)}
+                      aria-label={`Rename conversation ${conversation.title}`}
+                      className="w-full rounded border border-teal-400/30 bg-slate-950/80 px-2 py-1 text-xs text-slate-200 focus:border-teal-400 focus:outline-hidden"
+                    />
+                    <div className="flex items-center gap-1">
+                      <button type="submit" className="rounded bg-teal-500 px-2 py-1 text-[10px] font-medium text-slate-950 hover:bg-teal-400">
+                        Save
+                      </button>
+                      <button type="button" onClick={() => setRenamingId(null)} className="rounded px-2 py-1 text-[10px] text-slate-500 hover:bg-white/5 hover:text-slate-300">
+                        Cancel
+                      </button>
+                    </div>
+                  </form>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => onSelect(conversation.id)}
+                      className="block w-full text-left"
+                    >
+                      <div className="truncate text-xs font-medium text-slate-300">{conversation.title}</div>
+                      <div className="mt-1 text-[10px] capitalize text-slate-600">{archived ? "archived" : conversation.mode}</div>
                     </button>
-                  ) : (
-                    <button type="button" onClick={() => onArchive(conversation.id)} className="rounded p-1 text-slate-500 hover:bg-white/5 hover:text-slate-300" aria-label="Archive conversation">
-                      <Archive className="h-3 w-3" aria-hidden />
-                    </button>
-                  )}
-                  <button type="button" onClick={() => onDelete(conversation.id)} className="rounded p-1 text-slate-600 hover:bg-red-500/8 hover:text-red-300" aria-label="Delete conversation">
-                    <Trash2 className="h-3 w-3" aria-hidden />
-                  </button>
-                </div>
+                    <div className="mt-1.5 flex items-center gap-1 opacity-70 group-hover:opacity-100">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setRenamingId(conversation.id);
+                          setRenameTitle(conversation.title);
+                        }}
+                        className="rounded px-1.5 py-1 text-[10px] text-slate-500 hover:bg-white/5 hover:text-slate-300"
+                      >
+                        Rename
+                      </button>
+                      {archived ? (
+                        <button type="button" onClick={() => onRestore(conversation.id)} className="rounded p-1 text-slate-500 hover:bg-white/5 hover:text-slate-300" aria-label="Restore conversation">
+                          <RotateCcw className="h-3 w-3" aria-hidden />
+                        </button>
+                      ) : (
+                        <button type="button" onClick={() => onArchive(conversation.id)} className="rounded p-1 text-slate-500 hover:bg-white/5 hover:text-slate-300" aria-label="Archive conversation">
+                          <Archive className="h-3 w-3" aria-hidden />
+                        </button>
+                      )}
+                      <button type="button" onClick={() => onDelete(conversation.id)} className="rounded p-1 text-slate-600 hover:bg-red-500/8 hover:text-red-300" aria-label="Delete conversation">
+                        <Trash2 className="h-3 w-3" aria-hidden />
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
             );
           })}
