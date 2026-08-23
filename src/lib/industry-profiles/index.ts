@@ -5,7 +5,7 @@
  *
  * WHAT WAS THERE, AND WHY IT REGISTERED AS ❌.
  *
- * Sixteen industry packs already existed in industry-template-packs.ts — 2,400
+ * Fifteen industry packs already existed in industry-template-packs.ts — 2,400
  * lines of asset classes, onboarding questions, risk drivers and KPI names.
  * All of it prose. A pack that says "process safety, pressure containment,
  * turnaround management" in a string list operates nothing: no engine runs
@@ -38,6 +38,8 @@
  *
  * Pure functions and data. No database, no network.
  */
+
+import type { TemplateIndustryCode } from "../industry-catalog";
 
 /** The kernel: engines that actually exist, with where they live. */
 export type KernelEngine =
@@ -216,7 +218,7 @@ export const FAILURE_CONTEXTS: FailureContext[] = [
  * resolves to contexts, and each context resolves to engines that exist.
  */
 export interface IndustryProfile {
-  industryCode: string;
+  industryCode: TemplateIndustryCode;
   registerRef: string;
   contexts: string[];
   /** Pack claims that resolve to NO context — named, not hidden. */

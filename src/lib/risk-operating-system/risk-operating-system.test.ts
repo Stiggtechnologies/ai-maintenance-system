@@ -7,6 +7,7 @@ import {
   assessScope,
   assessTreatmentReadiness,
   buildAudienceView,
+  buildDraftCriteriaDefinitions,
   buildImplementationRoadmap,
   compareTreatments,
   detectAdaptationTriggers,
@@ -191,6 +192,35 @@ describe("ISO 31000 risk analysis", () => {
 
     expect(fast.currentScore).toBeGreaterThan(slow.currentScore);
     expect(fast.timePressure).toBeGreaterThan(slow.timePressure);
+  });
+});
+
+describe("ISO 31000 implementation discovery", () => {
+  it("turns customer labels into an executable draft criteria shape", () => {
+    expect(
+      buildDraftCriteriaDefinitions(
+        ["Safety & people", "Safety people"],
+        ["Rare", "Possible", "Almost certain"],
+      ),
+    ).toEqual({
+      consequenceDimensions: [
+        {
+          key: "safety_people",
+          label: "Safety & people",
+          scale: [1, 2, 3, 4, 5],
+        },
+        {
+          key: "safety_people_2",
+          label: "Safety people",
+          scale: [1, 2, 3, 4, 5],
+        },
+      ],
+      likelihoodScale: [
+        { score: 1, label: "Rare" },
+        { score: 2, label: "Possible" },
+        { score: 3, label: "Almost certain" },
+      ],
+    });
   });
 });
 
@@ -395,9 +425,16 @@ describe("framework adaptation and maturity", () => {
       stakeholders: ["Operations", "Maintenance", "Safety"],
       obligations: ["Mine safety regulation"],
       existingSystems: ["CMMS", "Historian"],
+      riskCaptureSystems: ["Enterprise risk register"],
+      dependencies: ["Grid supply", "Qualified workforce"],
       riskOwnerRole: "Mine manager",
       acceptanceAuthority: "Delegation of authority",
+      escalationThresholds: ["Critical safety exposure"],
+      consequenceDimensions: ["Safety", "Production"],
+      likelihoodDefinitions: ["Possible", "Likely"],
+      riskTolerances: ["No unmitigated critical safety exposure"],
       decisionPoints: ["Maintenance deferral", "Shutdown scope"],
+      treatmentTrackingSystems: ["CMMS work orders"],
     });
 
     expect(roadmap.complete).toBe(true);
@@ -412,6 +449,43 @@ describe("framework adaptation and maturity", () => {
     ]);
     expect(roadmap.configurationStatus).toBe("draft");
     expect(roadmap.humanAdoptionRequired).toBe(true);
+  });
+
+  it("does not call implementation discovery complete when criteria or execution context is missing", () => {
+    const roadmap = buildImplementationRoadmap({
+      objectives: ["Safe production"],
+      criticalServices: ["Mine haulage"],
+      stakeholders: ["Operations"],
+      obligations: [],
+      existingSystems: [],
+      riskCaptureSystems: [],
+      dependencies: [],
+      riskOwnerRole: "Mine manager",
+      acceptanceAuthority: "",
+      escalationThresholds: [],
+      consequenceDimensions: [],
+      likelihoodDefinitions: [],
+      riskTolerances: [],
+      decisionPoints: [],
+      treatmentTrackingSystems: [],
+    });
+
+    expect(roadmap.complete).toBe(false);
+    expect(roadmap.gaps).toEqual(
+      expect.arrayContaining([
+        "obligations",
+        "existingSystems",
+        "riskCaptureSystems",
+        "dependencies",
+        "acceptanceAuthority",
+        "escalationThresholds",
+        "consequenceDimensions",
+        "likelihoodDefinitions",
+        "riskTolerances",
+        "decisionPoints",
+        "treatmentTrackingSystems",
+      ]),
+    );
   });
 
   it("detects material context changes that require criteria review", () => {

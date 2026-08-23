@@ -4,6 +4,7 @@ import type { RiskCockpit } from "../types/risk";
 import { RiskOperatingSystemPage } from "./RiskOperatingSystemPage";
 
 const service = vi.hoisted(() => ({
+  getIso31000ImplementationState: vi.fn(),
   getRiskOperatingCockpit: vi.fn(),
   getRiskParticipants: vi.fn(),
   getRiskEnterpriseArchitecture: vi.fn(),
@@ -16,6 +17,7 @@ vi.mock("../services/riskOperatingService", async (importOriginal) => {
     await importOriginal<typeof import("../services/riskOperatingService")>();
   return {
     ...original,
+    getIso31000ImplementationState: service.getIso31000ImplementationState,
     getRiskOperatingCockpit: service.getRiskOperatingCockpit,
     getRiskParticipants: service.getRiskParticipants,
     getRiskEnterpriseArchitecture: service.getRiskEnterpriseArchitecture,
@@ -126,6 +128,7 @@ const cockpit: RiskCockpit = {
 
 describe("RiskOperatingSystemPage", () => {
   beforeEach(() => {
+    service.getIso31000ImplementationState.mockResolvedValue(null);
     service.getRiskOperatingCockpit.mockResolvedValue(cockpit);
     service.getRiskParticipants.mockResolvedValue([
       { id: "user-1", full_name: "Risk Owner", role: "admin" },
@@ -182,6 +185,47 @@ describe("RiskOperatingSystemPage", () => {
     ).toBeInTheDocument();
   });
 
+  it("uses the canonical industry catalog and supports organization-defined sectors", async () => {
+    render(<RiskOperatingSystemPage />);
+    await screen.findByRole("heading", { name: "Risk Operating System" });
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Implementation copilot" }),
+    );
+    const industrySelect = screen.getByLabelText(
+      "Industry pack",
+    ) as HTMLSelectElement;
+    expect(industrySelect.querySelectorAll("option")).toHaveLength(17);
+    expect(
+      screen.getByRole("option", { name: /Oil Sands — Executable kernel/ }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("option", { name: /Aviation — Template only/ }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("option", {
+        name: /Buildings & Infrastructure — Risk-focus draft/,
+      }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: /Custom \/ Other/ })).toHaveValue(
+      "custom",
+    );
+    for (const label of [
+      "Regulatory and contractual obligations",
+      "Critical internal and external dependencies",
+      "Existing systems and data",
+      "Systems that capture and report risk",
+      "How treatments and actions are tracked",
+      "Escalation thresholds",
+      "Consequence dimensions",
+      "Likelihood definitions",
+      "Unacceptable risk and tolerance statements",
+      "Where important decisions are made",
+    ]) {
+      expect(screen.getByLabelText(label, { exact: false })).toBeRequired();
+    }
+  });
+
   it("exposes governed context and criteria version actions", async () => {
     render(<RiskOperatingSystemPage />);
     await screen.findByRole("heading", { name: "Risk Operating System" });
@@ -198,6 +242,61 @@ describe("RiskOperatingSystemPage", () => {
     expect(screen.getByLabelText("Context level")).toBeInTheDocument();
     expect(
       screen.getByLabelText(/Residual-risk acceptance role/),
+    ).toBeInTheDocument();
+  });
+
+  it("keeps the implementation roadmap reviewable after setup", async () => {
+    service.getIso31000ImplementationState.mockResolvedValue({
+      context_id: "context-1",
+      context_name: "Enterprise risk context",
+      status: "draft",
+      discovery: {
+        industry_code: "aviation",
+        industry_label: "Aviation",
+        industry_pack_readiness: "template_only",
+        industry_pack_validation: "draft",
+      },
+      gap_assessment: {
+        status: "preliminary",
+        evidence_basis: "Discovery answers only; operating evidence unverified",
+        maturity_score: null,
+        gaps: [
+          {
+            area: "systems_integration",
+            status: "unverified",
+            finding: "Connector bindings remain unverified",
+          },
+        ],
+        human_review_required: true,
+      },
+      roadmap: [
+        {
+          phase: "Current-state assessment",
+          status: "ready",
+          output: "Captured organizational evidence",
+        },
+        {
+          phase: "Workflow deployment",
+          status: "blocked",
+          output: "Requires approved criteria",
+        },
+      ],
+      created_at: "2026-08-22T00:00:00Z",
+      updated_at: "2026-08-22T00:00:00Z",
+    });
+    render(<RiskOperatingSystemPage />);
+    await screen.findByRole("heading", { name: "Risk Operating System" });
+
+    fireEvent.click(screen.getByRole("button", { name: "Context & criteria" }));
+    expect(
+      await screen.findByText("ISO 31000 implementation roadmap"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Current-state assessment")).toBeInTheDocument();
+    expect(screen.getByText("Requires approved criteria")).toBeInTheDocument();
+    expect(screen.getByText("Preliminary gap assessment")).toBeInTheDocument();
+    expect(screen.getByText("maturity unscored")).toBeInTheDocument();
+    expect(
+      screen.getByText("Connector bindings remain unverified"),
     ).toBeInTheDocument();
   });
 

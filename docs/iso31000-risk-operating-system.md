@@ -52,8 +52,9 @@ RLS; mutation occurs through role-gated, tenant-checking database functions.
 
 `Objective → Context → Risk → Control → Decision → Treatment → Work → Outcome → Learning → Updated risk`
 
-1. The implementation copilot records discovery answers and creates draft
-   enterprise context and criteria.
+1. The implementation copilot records discovery answers, a reviewable roadmap,
+   and draft enterprise context and criteria. Industry guidance is retained as
+   provenance and never stored as an organization's actual dependency.
 2. Accountable leaders configure and separately adopt context and criteria.
 3. An assessment defines the decision, objective, boundaries, owners,
    stakeholders, assumptions, biases, limitations, reporting and evidence
@@ -74,6 +75,12 @@ RLS; mutation occurs through role-gated, tenant-checking database functions.
    cannot accept risk or approve work.
 9. Outcomes create learning events and update risk position. Verified outcome
    evidence feeds framework-effectiveness measures.
+
+The implementation record distinguishes three things that must not be
+collapsed: customer discovery as the current-state input, a preliminary gap
+assessment bounded to those unverified answers, and the separately governed
+evidence-based maturity assessment. The preliminary assessment always keeps
+its maturity score null; feature presence never creates a maturity claim.
 
 ## Specification traceability
 
@@ -131,10 +138,33 @@ RLS; mutation occurs through role-gated, tenant-checking database functions.
 | Management versus oversight                        | Audience views identify execution rights; board and oversight views cannot execute                                                                                       | Audience view and maturity tab                        |
 | Audience-specific reporting                        | Technician, supervisor, manager, executive, board and oversight projections from the same risk object                                                                    | Audience-view modal                                   |
 | Reporting governance                               | Required audience, frequency, method, timeliness, cost limit and sensitivity profile                                                                                     | Assessment and audience RPC                           |
-| Industry templates                                 | Mining, oil and gas, utilities, manufacturing, transport/logistics and buildings/infrastructure focus packs                                                              | Implementation copilot                                |
-| Implementation copilot                             | Current-state discovery, gap assessment, roadmap, draft configuration, deployment, monitoring and improvement stages                                                     | Implementation modal and RPC                          |
+| Industry templates                                 | Canonical catalog: 15 governed template packs, a buildings/infrastructure focus draft and an organization-defined custom option; maturity is disclosed per selection     | Signup and implementation copilot                     |
+| Implementation copilot                             | Complete discovery, durable current-state record and roadmap, draft configuration, deployment, monitoring and improvement stages                                         | Implementation modal, context tab and controlled RPCs |
 | Twelve coordinated engines                         | Context, criteria, identification, analysis, evaluation, treatment, execution, assurance, monitoring, learning, governance and evidence                                  | Context tab engine map                                |
 | Platform integration                               | Existing asset risk signals, interdependency, process safety, canonical operating loop and ingest evidence contracts remain linked                                       | Risk page and database foreign keys                   |
+
+## Industry catalog governance
+
+Signup and the risk implementation copilot derive their choices from one
+canonical industry registry. Existing exact legacy identifiers such as
+`oil-gas`, `data-centers`, `power`, `pharma`, `marine`, `military` and
+`aerospace` normalize to that registry so older organization metadata does not
+split the taxonomy.
+
+The implementation copilot exposes two separate maturity dimensions:
+
+- **Execution readiness** states whether a sector is bound to deterministic
+  kernel engines, remains template-only, has draft risk-focus guidance only,
+  or is organization-defined.
+- **Content validation** states whether the sector content is draft, reviewed,
+  customer-validated or deprecated. A kernel-bound pack with draft content is
+  not represented as customer-validated policy.
+
+Ten sectors currently bind to executable failure-context profiles. The five
+remaining governed templates are visible as template-only guidance;
+buildings/infrastructure is visible as a risk-focus draft; custom industries
+capture organization-specific discovery. All generated context and criteria
+remain draft until authorized customer adoption.
 
 ## Enterprise extension completeness
 
@@ -200,6 +230,7 @@ pipeline:
 
 1. `supabase/migrations/20260921110101_iso31000_risk_operating_system.sql`
 2. `supabase/migrations/20260921110102_iso31000_enterprise_extensions.sql`
+3. `supabase/migrations/20260921110103_iso31000_industry_catalog.sql`
 
 The UI is backward-safe: if the migration is unavailable, `/risk` reports that
 condition and preserves the existing asset-risk signals below it. Production
@@ -214,6 +245,10 @@ a separately reviewed forward migration.
 ## Validation
 
 - Pure domain behavior: `src/lib/risk-operating-system/risk-operating-system.test.ts`
+- Canonical catalog, legacy normalization and disclosed pack maturity:
+  `src/lib/industry-catalog.test.ts`
+- Durable discovery, roadmap, tenant scoping and RPC grants:
+  `src/lib/risk-operating-system/industry-catalog-migration.test.ts`
 - Persistence, RLS, canonical reuse and unsafe path contract:
   `src/lib/risk-operating-system/risk-migration.test.ts`
 - Advanced Bayesian, event-tree, stress, dependency and culture behavior:
@@ -222,6 +257,7 @@ a separately reviewed forward migration.
   `src/lib/risk-operating-system/advanced-migration.test.ts`
 - Risk workspace and dedicated enterprise/decision-operation UI:
   `src/pages/RiskOperatingSystemPage.test.tsx`
+- Signup catalog and custom-industry capture: `src/pages/Signup.test.tsx`
 - SQL compilation: PostgreSQL 16 against the repository's canonical schema
   dependencies
 - Behavioral database smoke: base loop, enterprise workflow, objective and

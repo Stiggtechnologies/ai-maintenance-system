@@ -1,3 +1,5 @@
+import type { TemplateIndustryCode } from "./industry-catalog";
+
 export interface IndustryTemplatePack {
   industryCode: string;
   industryName: string;
@@ -47,7 +49,7 @@ export interface IndustryTemplatePack {
   validationStatus: "draft" | "reviewed" | "customer_validated" | "deprecated";
 }
 
-export const INDUSTRY_TEMPLATE_PACKS: Record<string, IndustryTemplatePack> = {
+export const INDUSTRY_TEMPLATE_PACKS = {
   oil_sands: {
     industryCode: "oil_sands",
     industryName: "Oil Sands",
@@ -2476,12 +2478,17 @@ export const INDUSTRY_TEMPLATE_PACKS: Record<string, IndustryTemplatePack> = {
     templateVersion: "1.0.0",
     validationStatus: "draft",
   },
-};
+} satisfies Record<TemplateIndustryCode, IndustryTemplatePack>;
 
 export function getIndustryTemplatePack(
   industryCode: string,
 ): IndustryTemplatePack | undefined {
-  return INDUSTRY_TEMPLATE_PACKS[industryCode];
+  return Object.prototype.hasOwnProperty.call(
+    INDUSTRY_TEMPLATE_PACKS,
+    industryCode,
+  )
+    ? INDUSTRY_TEMPLATE_PACKS[industryCode as TemplateIndustryCode]
+    : undefined;
 }
 
 export function listIndustryTemplatePacks(): IndustryTemplatePack[] {
