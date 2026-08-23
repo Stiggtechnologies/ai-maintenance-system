@@ -37,11 +37,19 @@ import {
   CONSEQUENCE_DIMENSIONS,
   ISO_31000_PRINCIPLES,
   RISK_ENGINE_ARCHITECTURE,
+  buildDraftCriteriaDefinitions,
   detectStakeholderDisagreement,
   getIndustryRiskFocus,
+  getRiskIndustryOptionLabel,
+  getRiskIndustryPackCatalog,
+  RISK_INDUSTRY_READINESS_LABELS,
   type RiskDecision,
   type RiskKind,
 } from "../lib/risk-operating-system";
+import {
+  getIndustryLabel,
+  toStoredIndustryCode,
+} from "../lib/industry-catalog";
 import {
   acceptResidualRisk,
   adoptRiskContext,
@@ -54,6 +62,7 @@ import {
   createRiskCriteriaVersion,
   createRiskTreatment,
   decideRiskDecision,
+  getIso31000ImplementationState,
   getRiskAudienceView,
   getRiskOperatingCockpit,
   getRiskParticipants,
@@ -77,6 +86,7 @@ import type {
   RiskAssessmentDraft,
   RiskCockpit,
   RiskCriteriaProfile,
+  RiskImplementationState,
   RiskParticipant,
   RiskRecord,
 } from "../types/risk";
@@ -121,6 +131,7 @@ interface PageData {
   cockpit: RiskCockpit;
   participants: RiskParticipant[];
   assets: AssetRow[];
+  implementation: RiskImplementationState | null;
 }
 
 function splitList(value: string): string[] {
@@ -1073,17 +1084,26 @@ function ImplementationModal({
 }) {
   const [form, setForm] = useState({
     industry_code: "mining",
+    custom_industry: "",
     objectives: "",
     critical_services: "",
     stakeholders: "",
     obligations: "",
-    existing_systems: "CMMS, historian",
+    dependencies: "",
+    existing_systems: "",
+    risk_capture_systems: "",
     risk_owner_role: "",
     acceptance_authority: "",
-    decision_points: "Maintenance deferral, shutdown scope, capital project",
+    escalation_thresholds: "",
+    consequence_dimensions: "",
+    likelihood_scale: "",
+    risk_tolerances: "",
+    decision_points: "",
+    treatment_tracking_systems: "",
   });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const industryPacks = getRiskIndustryPackCatalog();
   const industryFocus = getIndustryRiskFocus(form.industry_code);
   const set = (key: keyof typeof form) => (value: string) =>
     setForm((current) => ({ ...current, [key]: value }));
@@ -1092,18 +1112,44 @@ function ImplementationModal({
     setBusy(true);
     setError(null);
     try {
+      const storedIndustryCode = toStoredIndustryCode(
+        form.industry_code,
+        form.custom_industry,
+      );
+      const industryLabel =
+        form.industry_code === "custom"
+          ? form.custom_industry.trim()
+          : (industryFocus?.label ?? form.industry_code);
+      const draftCriteria = buildDraftCriteriaDefinitions(
+        splitList(form.consequence_dimensions),
+        splitList(form.likelihood_scale),
+      );
       await startIso31000Implementation({
-        industry_code: form.industry_code,
+        industry_code: storedIndustryCode,
+        industry_label: industryLabel,
+        industry_pack_readiness: industryFocus?.readiness ?? "custom",
+        industry_pack_validation: industryFocus?.validationStatus ?? "draft",
+        industry_focus_source: industryFocus?.focusSource ?? "custom",
         objectives: splitList(form.objectives),
         critical_services: splitList(form.critical_services),
         stakeholders: splitList(form.stakeholders),
         obligations: splitList(form.obligations),
+        dependencies: splitList(form.dependencies),
         existing_systems: splitList(form.existing_systems),
+        risk_capture_systems: splitList(form.risk_capture_systems),
         risk_owner_role: form.risk_owner_role,
         acceptance_authority: form.acceptance_authority,
+        escalation_thresholds: {
+          statements: splitList(form.escalation_thresholds),
+        },
+        consequence_dimensions: draftCriteria.consequenceDimensions,
+        likelihood_scale: draftCriteria.likelihoodScale,
+        risk_tolerances: splitList(form.risk_tolerances),
         decision_points: splitList(form.decision_points),
-        dependencies: industryFocus?.riskObjects ?? [],
+        treatment_tracking_systems: splitList(form.treatment_tracking_systems),
         industry_risk_objects: industryFocus?.riskObjects ?? [],
+        industry_kernel_contexts: industryFocus?.kernelContexts ?? [],
+        industry_prose_only: industryFocus?.proseOnly ?? [],
       });
       onDone();
     } catch (cause) {
@@ -1128,22 +1174,52 @@ function ImplementationModal({
           <SelectField
             label="Industry pack"
             value={form.industry_code}
-            onChange={set("industry_code")}
-            options={[
-              "mining",
-              "oil_gas",
-              "utilities",
-              "manufacturing",
-              "transportation_logistics",
-              "buildings_infrastructure",
-            ].map((value) => ({ value, label: value.replaceAll("_", " ") }))}
+            onChange={(value) =>
+              setForm((current) => ({
+                ...current,
+                industry_code: value,
+                custom_industry:
+                  value === "custom" ? current.custom_industry : "",
+              }))
+            }
+            options={industryPacks.map((pack) => ({
+              value: pack.industryCode,
+              label: getRiskIndustryOptionLabel(pack),
+            }))}
           />
           <div className="rounded-xl border border-white/7 bg-white/3 p-3 text-xs text-slate-400">
-            <p className="font-semibold text-slate-200">Pack risk focus</p>
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="font-semibold text-slate-200">Pack risk focus</p>
+              {industryFocus && (
+                <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] text-slate-300">
+                  {RISK_INDUSTRY_READINESS_LABELS[industryFocus.readiness]}
+                </span>
+              )}
+            </div>
             <p className="mt-1 leading-relaxed">
               {industryFocus?.riskObjects.join(" · ") ||
-                "No governed industry focus is available."}
+                "Organization-specific focus will be captured from your discovery answers."}
             </p>
+            {industryFocus?.readiness === "template_only" && (
+              <p className="mt-2 text-[10px] text-amber-300">
+                Draft template guidance only. No executable kernel profile is
+                claimed for this sector yet.
+              </p>
+            )}
+            {industryFocus?.readiness === "focus_draft" && (
+              <p className="mt-2 text-[10px] text-amber-300">
+                Draft risk focus only. It is not yet bound to an executable
+                sector profile.
+              </p>
+            )}
+            {industryFocus?.readiness === "kernel_bound" && (
+              <p className="mt-2 text-[10px] text-teal-300">
+                {industryFocus.kernelContexts.length} failure context(s) are
+                connected to deterministic analysis engines. Pack content
+                remains {industryFocus.validationStatus} until authorized review
+                advances it.
+              </p>
+            )}
             {(industryFocus?.proseOnly.length ?? 0) > 0 && (
               <p className="mt-2 text-[10px] text-amber-300">
                 {industryFocus?.proseOnly.length} profile item(s) remain prose
@@ -1151,6 +1227,15 @@ function ImplementationModal({
               </p>
             )}
           </div>
+          {form.industry_code === "custom" && (
+            <Field
+              label="Custom industry name"
+              value={form.custom_industry}
+              onChange={set("custom_industry")}
+              placeholder="Renewable energy, healthcare, municipal services"
+              required
+            />
+          )}
           <TextArea
             label="Mission and objectives"
             value={form.objectives}
@@ -1176,12 +1261,35 @@ function ImplementationModal({
             label="Regulatory and contractual obligations"
             value={form.obligations}
             onChange={set("obligations")}
+            placeholder="Applicable laws, approvals, contracts, engineering standards"
+            required
+          />
+          <TextArea
+            label="Critical internal and external dependencies"
+            value={form.dependencies}
+            onChange={set("dependencies")}
+            placeholder="Grid supply, qualified workforce, critical supplier, shared crane"
             required
           />
           <TextArea
             label="Existing systems and data"
             value={form.existing_systems}
             onChange={set("existing_systems")}
+            placeholder="CMMS, historian, inspection system, risk register"
+            required
+          />
+          <TextArea
+            label="Systems that capture and report risk"
+            value={form.risk_capture_systems}
+            onChange={set("risk_capture_systems")}
+            placeholder="Enterprise risk register, incident system, assurance platform"
+            required
+          />
+          <TextArea
+            label="How treatments and actions are tracked"
+            value={form.treatment_tracking_systems}
+            onChange={set("treatment_tracking_systems")}
+            placeholder="SAP work orders, project controls, action register"
             required
           />
           <Field
@@ -1198,9 +1306,38 @@ function ImplementationModal({
             required
           />
           <TextArea
+            label="Escalation thresholds"
+            value={form.escalation_thresholds}
+            onChange={set("escalation_thresholds")}
+            placeholder="Conditions that require site, executive, engineering or regulatory escalation"
+            required
+          />
+          <TextArea
+            label="Consequence dimensions"
+            value={form.consequence_dimensions}
+            onChange={set("consequence_dimensions")}
+            placeholder="Safety, environment, service, financial, regulatory"
+            required
+          />
+          <TextArea
+            label="Likelihood definitions"
+            value={form.likelihood_scale}
+            onChange={set("likelihood_scale")}
+            placeholder="Your organization’s adopted or proposed likelihood descriptions"
+            required
+          />
+          <TextArea
+            label="Unacceptable risk and tolerance statements"
+            value={form.risk_tolerances}
+            onChange={set("risk_tolerances")}
+            placeholder="Conditions that cannot be accepted or require mandatory treatment"
+            required
+          />
+          <TextArea
             label="Where important decisions are made"
             value={form.decision_points}
             onChange={set("decision_points")}
+            placeholder="Maintenance deferral, shutdown scope, capital approval"
             required
           />
         </div>
@@ -3630,12 +3767,13 @@ export function RiskOperatingSystemPage() {
     useState<RiskCriteriaProfile | null>(null);
   const [filter, setFilter] = useState("all");
   const { data, loading, error, refetch } = useAsyncData<PageData>(async () => {
-    const [cockpit, participants, assets] = await Promise.all([
+    const [cockpit, participants, assets, implementation] = await Promise.all([
       getRiskOperatingCockpit(),
       getRiskParticipants(),
       getAssets(),
+      getIso31000ImplementationState(),
     ]);
-    return { cockpit, participants, assets };
+    return { cockpit, participants, assets, implementation };
   }, []);
   const selected =
     data?.cockpit.risks.find(
@@ -3673,7 +3811,7 @@ export function RiskOperatingSystemPage() {
         <AssetRiskSignals />
       </div>
     );
-  const { cockpit, participants, assets } = data;
+  const { cockpit, participants, assets, implementation } = data;
   const open = cockpit.risks.filter(
     (risk) => !["closed", "archived"].includes(risk.status),
   );
@@ -4260,6 +4398,102 @@ export function RiskOperatingSystemPage() {
       )}
       {tab === "context" && (
         <div className="space-y-5">
+          {implementation && (
+            <section className="rounded-2xl border border-teal-500/20 bg-teal-500/5 p-5">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h2 className="text-sm font-semibold text-white">
+                    ISO 31000 implementation roadmap
+                  </h2>
+                  <p className="mt-1 text-xs text-slate-400">
+                    {implementation.discovery.industry_label ??
+                      getIndustryLabel(
+                        implementation.discovery.industry_code ?? "custom",
+                      )}{" "}
+                    · {implementation.context_name}
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Pill>{implementation.status}</Pill>
+                  <Pill>
+                    {(
+                      implementation.discovery.industry_pack_readiness ??
+                      "organization-defined"
+                    ).replaceAll("_", " ")}
+                  </Pill>
+                  <Pill>
+                    {implementation.discovery.industry_pack_validation ??
+                      "draft"}{" "}
+                    content
+                  </Pill>
+                </div>
+              </div>
+              <p className="mt-3 text-[11px] leading-relaxed text-amber-100/75">
+                This is a recorded implementation plan, not certification or
+                adopted policy. Draft context and criteria still require
+                authorized review.
+              </p>
+              <div className="mt-4 rounded-xl border border-amber-500/15 bg-amber-500/5 p-4">
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div>
+                    <h3 className="text-xs font-semibold text-amber-100">
+                      Preliminary gap assessment
+                    </h3>
+                    <p className="mt-1 text-[10px] leading-relaxed text-slate-500">
+                      {implementation.gap_assessment.evidence_basis}
+                    </p>
+                  </div>
+                  <Pill>maturity unscored</Pill>
+                </div>
+                <div className="mt-3 grid gap-2 md:grid-cols-2">
+                  {implementation.gap_assessment.gaps.map((gap) => (
+                    <div
+                      key={gap.area}
+                      className="rounded-lg border border-white/6 bg-[#0D1520] p-3"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="text-[11px] font-semibold text-slate-300">
+                          {gap.area.replaceAll("_", " ")}
+                        </p>
+                        <Pill>{gap.status.replaceAll("_", " ")}</Pill>
+                      </div>
+                      <p className="mt-1.5 text-[10px] leading-relaxed text-slate-500">
+                        {gap.finding}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="mt-4 grid gap-2 md:grid-cols-2 xl:grid-cols-4">
+                {implementation.roadmap.map((step) => (
+                  <div
+                    key={step.phase}
+                    className="rounded-xl border border-white/7 bg-[#0D1520] p-3"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="text-xs font-semibold text-slate-200">
+                        {step.phase}
+                      </p>
+                      <Pill
+                        tone={
+                          step.status === "ready"
+                            ? "border-emerald-500/25 bg-emerald-500/8 text-emerald-300"
+                            : step.status === "draft"
+                              ? "border-amber-500/25 bg-amber-500/8 text-amber-300"
+                              : "border-white/8 bg-white/3 text-slate-400"
+                        }
+                      >
+                        {step.status}
+                      </Pill>
+                    </div>
+                    <p className="mt-2 text-[10px] leading-relaxed text-slate-500">
+                      {step.output}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
           <div className="grid gap-5 xl:grid-cols-2">
             <section className="rounded-2xl border border-white/7 bg-[#0D1520] p-5">
               <div className="flex items-center justify-between">
@@ -4380,8 +4614,10 @@ export function RiskOperatingSystemPage() {
                           {criteria.name}
                         </p>
                         <p className="mt-1 text-xs text-slate-500">
-                          {criteria.industry_code ?? "custom"} ·{" "}
-                          {criteria.jurisdiction ?? "jurisdiction not set"}
+                          {criteria.industry_code
+                            ? getIndustryLabel(criteria.industry_code)
+                            : "Custom / Other"}{" "}
+                          · {criteria.jurisdiction ?? "jurisdiction not set"}
                         </p>
                       </div>
                       <div className="flex gap-2">

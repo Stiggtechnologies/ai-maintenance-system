@@ -7,7 +7,16 @@
  * behaviour can be used by the UI, edge functions and database contract tests.
  */
 
+import {
+  INDUSTRY_CATALOG,
+  getIndustryCatalogEntry,
+  type IndustryCode,
+} from "../industry-catalog";
 import { INDUSTRY_PROFILES } from "../industry-profiles";
+import {
+  INDUSTRY_TEMPLATE_PACKS,
+  type IndustryTemplatePack,
+} from "../industry-template-packs";
 
 export type RiskKind = "threat" | "opportunity" | "both";
 export type AnalysisLevel =
@@ -261,7 +270,7 @@ export function runMarkovModel(input: MarkovModelInput): {
   };
 }
 
-const INDUSTRY_RISK_OBJECTS: Record<string, string[]> = {
+const INDUSTRY_RISK_OBJECTS: Partial<Record<IndustryCode, string[]>> = {
   mining: [
     "haul fleet availability",
     "slope stability",
@@ -313,23 +322,94 @@ const INDUSTRY_RISK_OBJECTS: Record<string, string[]> = {
   ],
 };
 
-export function getIndustryRiskFocus(industryCode: string): {
+export type RiskIndustryReadiness =
+  "kernel_bound" | "template_only" | "focus_draft" | "custom";
+
+export const RISK_INDUSTRY_READINESS_LABELS: Record<
+  RiskIndustryReadiness,
+  string
+> = {
+  kernel_bound: "Executable kernel",
+  template_only: "Template only",
+  focus_draft: "Risk-focus draft",
+  custom: "Organization-defined",
+};
+
+export interface RiskIndustryPack {
   industryCode: string;
+  label: string;
   riskObjects: string[];
   kernelContexts: string[];
   proseOnly: string[];
-} | null {
-  const profile = INDUSTRY_PROFILES.find(
-    (item) => item.industryCode === industryCode,
+  readiness: RiskIndustryReadiness;
+  validationStatus: IndustryTemplatePack["validationStatus"] | "not_applicable";
+  focusSource: "curated" | "template_guidance" | "custom";
+}
+
+function getIndustryTemplatePack(
+  industryCode: string,
+): IndustryTemplatePack | null {
+  return (
+    (INDUSTRY_TEMPLATE_PACKS as Partial<Record<string, IndustryTemplatePack>>)[
+      industryCode
+    ] ?? null
   );
-  const riskObjects = INDUSTRY_RISK_OBJECTS[industryCode];
-  if (!profile && !riskObjects) return null;
-  return {
-    industryCode,
-    riskObjects: riskObjects ?? [],
-    kernelContexts: profile?.contexts ?? [],
-    proseOnly: profile?.proseOnly ?? [],
-  };
+}
+
+export function getRiskIndustryPackCatalog(): RiskIndustryPack[] {
+  return INDUSTRY_CATALOG.map((entry) => {
+    const profile = INDUSTRY_PROFILES.find(
+      (item) => item.industryCode === entry.code,
+    );
+    const template = getIndustryTemplatePack(entry.code);
+    const curatedRiskObjects = INDUSTRY_RISK_OBJECTS[entry.code];
+    const readiness: RiskIndustryReadiness =
+      entry.kind === "custom"
+        ? "custom"
+        : profile
+          ? "kernel_bound"
+          : template
+            ? "template_only"
+            : "focus_draft";
+    return {
+      industryCode: entry.code,
+      label: entry.label,
+      riskObjects: [...(curatedRiskObjects ?? template?.riskDrivers ?? [])],
+      kernelContexts: [...(profile?.contexts ?? [])],
+      proseOnly: [...(profile?.proseOnly ?? [])],
+      readiness,
+      validationStatus:
+        entry.kind === "custom"
+          ? "not_applicable"
+          : (template?.validationStatus ?? "draft"),
+      focusSource:
+        entry.kind === "custom"
+          ? "custom"
+          : curatedRiskObjects
+            ? "curated"
+            : "template_guidance",
+    };
+  });
+}
+
+export function getIndustryRiskFocus(
+  industryCode: string,
+): RiskIndustryPack | null {
+  const entry = getIndustryCatalogEntry(industryCode);
+  if (!entry) return null;
+  return (
+    getRiskIndustryPackCatalog().find(
+      (item) => item.industryCode === entry.code,
+    ) ?? null
+  );
+}
+
+export function getRiskIndustryOptionLabel(pack: RiskIndustryPack): string {
+  const readiness = RISK_INDUSTRY_READINESS_LABELS[pack.readiness];
+  if (pack.validationStatus === "not_applicable") {
+    return `${pack.label} — ${readiness}`;
+  }
+  return `${pack.label} — ${readiness} · ${pack.validationStatus} content`;
 }
 
 export interface ImplementationDiscovery {
@@ -338,9 +418,52 @@ export interface ImplementationDiscovery {
   stakeholders: string[];
   obligations: string[];
   existingSystems: string[];
+  riskCaptureSystems: string[];
+  dependencies: string[];
   riskOwnerRole: string;
   acceptanceAuthority: string;
+  escalationThresholds: string[];
+  consequenceDimensions: string[];
+  likelihoodDefinitions: string[];
+  riskTolerances: string[];
   decisionPoints: string[];
+  treatmentTrackingSystems: string[];
+}
+
+export function buildDraftCriteriaDefinitions(
+  consequenceDimensions: string[],
+  likelihoodDefinitions: string[],
+): {
+  consequenceDimensions: Array<{
+    key: string;
+    label: string;
+    scale: number[];
+  }>;
+  likelihoodScale: Array<{ score: number; label: string }>;
+} {
+  const usedKeys = new Set<string>();
+  return {
+    consequenceDimensions: consequenceDimensions.map((value, index) => {
+      const label = value.trim();
+      const baseKey =
+        label
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "_")
+          .replace(/^_+|_+$/g, "") || `dimension_${index + 1}`;
+      let key = baseKey;
+      let suffix = 2;
+      while (usedKeys.has(key)) {
+        key = `${baseKey}_${suffix}`;
+        suffix += 1;
+      }
+      usedKeys.add(key);
+      return { key, label, scale: [1, 2, 3, 4, 5] };
+    }),
+    likelihoodScale: likelihoodDefinitions.map((value, index) => ({
+      score: index + 1,
+      label: value.trim(),
+    })),
+  };
 }
 
 export function buildImplementationRoadmap(input: ImplementationDiscovery): {

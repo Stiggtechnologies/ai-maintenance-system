@@ -4,6 +4,7 @@ import type {
   RiskAssessmentDraft,
   RiskCockpit,
   RiskDecisionOperations,
+  RiskImplementationState,
   RiskParticipant,
 } from "../types/risk";
 
@@ -31,6 +32,22 @@ export async function getRiskOperatingCockpit(): Promise<RiskCockpit> {
   );
   if (error) fail("Could not load the risk operating cockpit", error);
   return data as RiskCockpit;
+}
+
+export async function getIso31000ImplementationState(): Promise<RiskImplementationState | null> {
+  const { data, error } = await supabase.rpc(
+    "get_iso31000_implementation_state",
+  );
+  if (error) fail("Could not load ISO 31000 implementation state", error);
+  if (
+    data &&
+    typeof data === "object" &&
+    "error" in data &&
+    typeof data.error === "string"
+  ) {
+    fail(`Could not load ISO 31000 implementation state: ${data.error}`);
+  }
+  return (data as RiskImplementationState | null) ?? null;
 }
 
 export async function getRiskParticipants(): Promise<RiskParticipant[]> {

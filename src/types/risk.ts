@@ -182,6 +182,45 @@ export interface RiskContextNode {
   review_date: string | null;
 }
 
+export interface RiskImplementationRoadmapStep {
+  phase: string;
+  status: "ready" | "draft" | "blocked";
+  output: string;
+}
+
+export interface RiskImplementationState {
+  context_id: string;
+  context_name: string;
+  status: string;
+  discovery: {
+    industry_code?: string;
+    industry_label?: string;
+    industry_pack_readiness?: string;
+    industry_pack_validation?: string;
+    industry_focus_source?: string;
+    [key: string]: unknown;
+  };
+  gap_assessment: {
+    status: "preliminary";
+    evidence_basis: string;
+    maturity_score: null;
+    gaps: Array<{
+      area: string;
+      status:
+        | "gap"
+        | "unassessed"
+        | "unverified"
+        | "validation_required"
+        | "execution_gap";
+      finding: string;
+    }>;
+    human_review_required: true;
+  };
+  roadmap: RiskImplementationRoadmapStep[];
+  created_at: string;
+  updated_at: string;
+}
+
 export interface RiskPortfolioBreakdown {
   value_at_risk_by_currency: Array<{
     currency: string;
