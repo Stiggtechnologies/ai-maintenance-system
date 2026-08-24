@@ -325,6 +325,78 @@ export const INDUSTRY_PROFILES: IndustryProfile[] = [
     contexts: ["quality_loss", "rotating_equipment_failure", "process_trip"],
     proseOnly: ["GxP validation workflows", "batch-record integration"],
   },
+  {
+    industryCode: "food_beverage",
+    registerRef: "U5.06-adjacent",
+    contexts: [
+      "quality_loss",
+      "rotating_equipment_failure",
+      "process_trip",
+      "turnaround_execution",
+    ],
+    proseOnly: [
+      "HACCP hazard-plan verification",
+      "clean-in-place cycle validation",
+      "cold-chain excursion modelling",
+    ],
+  },
+  {
+    industryCode: "marine_shipping",
+    registerRef: "U5.03-adjacent",
+    contexts: [
+      "rotating_equipment_failure",
+      "structural_deterioration",
+      "mobile_plant_failure",
+      "turnaround_execution",
+    ],
+    proseOnly: [
+      "class-society survey scheduling (IACS — standards register, engine not built)",
+      "hull fouling and propulsion efficiency",
+      "voyage and route optimisation",
+    ],
+  },
+  {
+    industryCode: "aviation",
+    registerRef: "U5.03-adjacent",
+    contexts: [
+      "mobile_plant_failure",
+      "rotating_equipment_failure",
+      "turnaround_execution",
+    ],
+    proseOnly: [
+      "airworthiness directive and service-bulletin compliance",
+      "MSG-3 maintenance-programme development",
+      "life-limited part back-to-birth traceability",
+    ],
+  },
+  {
+    industryCode: "defense",
+    registerRef: "U5.07-adjacent",
+    contexts: [
+      "mobile_plant_failure",
+      "rotating_equipment_failure",
+      "turnaround_execution",
+    ],
+    proseOnly: [
+      "mission-readiness (Ao) modelling against force-generation cycles",
+      "MIL-SPEC configuration and obsolescence management",
+      "classified / air-gapped deployment",
+    ],
+  },
+  {
+    industryCode: "aerospace_launch",
+    registerRef: "U5.07-adjacent",
+    contexts: [
+      "quality_loss",
+      "rotating_equipment_failure",
+      "turnaround_execution",
+    ],
+    proseOnly: [
+      "single-use versus reusable life accounting",
+      "range-safety analysis",
+      "propellant-system specific degradation models",
+    ],
+  },
 ];
 
 export interface ContextBinding {

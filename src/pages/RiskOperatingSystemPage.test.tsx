@@ -199,8 +199,12 @@ describe("RiskOperatingSystemPage", () => {
     expect(
       screen.getByRole("option", { name: /Oil Sands — Executable kernel/ }),
     ).toBeInTheDocument();
+    // Aviation now carries a profile, so the picker shows it as an executable
+    // kernel rather than template guidance. The signup catalog and the risk
+    // copilot read the same derived readiness, so this label moving is the
+    // user-visible half of binding the pack.
     expect(
-      screen.getByRole("option", { name: /Aviation — Template only/ }),
+      screen.getByRole("option", { name: /Aviation — Executable kernel/ }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("option", {

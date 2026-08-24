@@ -9,6 +9,7 @@ import {
   INDUSTRY_TEMPLATE_PACKS,
   listIndustryTemplatePacks,
 } from "../industry-template-packs";
+import { INDUSTRY_CATALOG } from "../industry-catalog";
 
 describe("the kernel-profile architecture (E1.01)", () => {
   it("binds every profile context to a real failure context", () => {
@@ -30,6 +31,36 @@ describe("the kernel-profile architecture (E1.01)", () => {
         `profile ${p.industryCode} has no matching pack`,
       ).toBeDefined();
     }
+  });
+
+  it("every industry pack has a profile — a pack without one is prose", () => {
+    // The gap this closes: five packs (food_beverage, aviation, marine_shipping,
+    // defense, aerospace_launch) shipped 2,400 lines of asset classes and risk
+    // drivers with NO binding to an engine. They registered as coverage in the
+    // signup catalog and computed nothing — the same shell pattern assessProfile
+    // exists to kill, one level up. A pack is only a capability once a profile
+    // says which failure contexts it contains.
+    const profiled = new Set<string>(
+      INDUSTRY_PROFILES.map((p) => p.industryCode),
+    );
+    const unbound = listIndustryTemplatePacks()
+      .map((p) => p.industryCode as string)
+      .filter((code) => !profiled.has(code));
+    expect(unbound, "packs with no profile behind them").toEqual([]);
+  });
+
+  it("names the catalog entries that have no pack at all", () => {
+    // buildings_infrastructure is selectable at signup and is excluded from
+    // TemplateIndustryCode, so it resolves to nothing. That is a real gap, and
+    // it is asserted here rather than left to be rediscovered. If another entry
+    // joins it, this fails and the gap gets named instead of shipping quietly.
+    const packed = new Set(
+      listIndustryTemplatePacks().map((p) => p.industryCode as string),
+    );
+    const withoutPack = INDUSTRY_CATALOG.filter(
+      (e) => e.kind === "pack" && !packed.has(e.code),
+    ).map((e) => e.code);
+    expect(withoutPack).toEqual(["buildings_infrastructure"]);
   });
 
   it("every failure context binds to at least two engines and names its data", () => {
