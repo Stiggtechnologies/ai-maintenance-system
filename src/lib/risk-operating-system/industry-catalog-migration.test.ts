@@ -6,7 +6,7 @@ import { getRiskIndustryPackCatalog } from ".";
 const sql = readFileSync(
   resolve(
     process.cwd(),
-    "supabase/migrations/20260921110103_iso31000_industry_catalog.sql",
+    "supabase/migrations/20260922090000_industry_catalog_kernel_bound_readiness.sql",
   ),
   "utf8",
 ).toLowerCase();
