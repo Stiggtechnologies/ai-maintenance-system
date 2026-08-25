@@ -426,11 +426,22 @@ update research_runs set variant_id = '93000000-0000-0000-0000-000000000001' whe
 update research_runs set variant_id = '93000000-0000-0000-0000-000000000002' where program_id = '4e500000-0000-0000-0000-000000000002';
 update promotion_candidates set variant_id = '93000000-0000-0000-0000-000000000001' where variant_id is null;
 
-insert into kpi_packs (id, pack_name, kpi_count) values ('94000000-0000-0000-0000-000000000001','Oil Sands KPI Pack',24) on conflict (id) do nothing;
-insert into industry_asset_libraries (id, library_name, asset_class_count) values ('94100000-0000-0000-0000-000000000001','Oil Sands Asset Library',38) on conflict (id) do nothing;
+-- Pack contents are NOT asserted here.
+--
+-- kpi_count / asset_class_count / failure_mode_count previously carried the
+-- literals 24, 38 and 412. Nothing counted them: the active schema has no
+-- kpi_pack_items, industry_asset_library_items or failure_mode_pack_items table,
+-- so no pack has any members and no count is computable from any relation.
+-- SetupWizard and TemplateSelectorPage render these columns straight to the
+-- operator ("412 failure modes"), which made them an unearned attestation.
+-- They are left at their 0 default until pack membership actually exists; a
+-- count that is not counted must not be asserted. The packs, the deployment
+-- template bindings and the resolver contract are unchanged.
+insert into kpi_packs (id, pack_name) values ('94000000-0000-0000-0000-000000000001','Oil Sands KPI Pack') on conflict (id) do nothing;
+insert into industry_asset_libraries (id, library_name) values ('94100000-0000-0000-0000-000000000001','Oil Sands Asset Library') on conflict (id) do nothing;
 insert into industry_criticality_profiles (id, profile_name) values ('94200000-0000-0000-0000-000000000001','Oil Sands Criticality Profile') on conflict (id) do nothing;
 insert into industry_governance_profiles (id, profile_name, default_autonomy_mode) values ('94300000-0000-0000-0000-000000000001','Oil Sands Governance','conditional') on conflict (id) do nothing;
-insert into industry_failure_mode_packs (id, pack_name, failure_mode_count) values ('94400000-0000-0000-0000-000000000001','Oil Sands Failure Modes',412) on conflict (id) do nothing;
+insert into industry_failure_mode_packs (id, pack_name) values ('94400000-0000-0000-0000-000000000001','Oil Sands Failure Modes') on conflict (id) do nothing;
 insert into industry_oee_models (id, model_name) values ('94500000-0000-0000-0000-000000000001','Continuous Process OEE') on conflict (id) do nothing;
 
 update deployment_templates set
