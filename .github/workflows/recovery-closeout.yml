@@ -21,7 +21,13 @@ concurrency:
 
 jobs:
   full-closeout:
-    name: Recovery 30-requirement acceptance
+    # NOT "30-requirement acceptance". This job proves that the Recovery Control /
+    # Optimize / Learn database contracts execute end-to-end against the full
+    # migration chain. It cannot prove the 30 Clarence controls in
+    # docs/sync-recovery/control-matrix.md are closed: none of these contracts is
+    # reachable from a product surface yet, and the weather/vendor/mine-plan/OEM
+    # feeds they consume are unbound. Rename this job only when that changes.
+    name: Recovery close-out runtime acceptance
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7

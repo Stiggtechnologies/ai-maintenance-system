@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const control = readFileSync(
@@ -169,5 +169,78 @@ describe("Sync Recovery full production close-out", () => {
     ]) {
       expect(all).not.toContain(forbidden);
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Honesty ratchet.
+//
+// Every function below exists only in the database. `Recovery close-out runtime
+// acceptance` proves they execute; it cannot prove the 30 Clarence controls in
+// docs/sync-recovery/control-matrix.md are delivered, because nothing in the
+// product calls them. These tests fail if that stops being true without the
+// matrix being corrected in the same change.
+// ---------------------------------------------------------------------------
+describe("Sync Recovery close-out reachability claims", () => {
+  const migrations = [
+    "supabase/migrations/20261001090000_sync_recovery_control_closeout.sql",
+    "supabase/migrations/20261001091000_sync_recovery_optimize_closeout.sql",
+    "supabase/migrations/20261001092000_sync_recovery_closeout_hardening.sql",
+  ];
+
+  const closeoutFunctions = [
+    ...new Set(
+      migrations
+        .flatMap((f) => [
+          ...readFileSync(f, "utf8").matchAll(
+            /create or replace function public\.([a-z0-9_]+)/gi,
+          ),
+        ])
+        .map((m) => m[1].toLowerCase()),
+    ),
+  ].sort();
+
+  const appDirs = ["services", "pages", "components", "lib", "hooks"];
+  const appSource = appDirs
+    .map((d) => {
+      const dir = `src/${d}`;
+      const walk = (p: string): string[] =>
+        readdirSync(p, { withFileTypes: true }).flatMap((e) =>
+          e.isDirectory()
+            ? walk(`${p}/${e.name}`)
+            : /\.tsx?$/.test(e.name) && !e.name.endsWith(".test.ts")
+              ? [`${p}/${e.name}`]
+              : [],
+        );
+      return walk(dir).map((f) => readFileSync(f, "utf8"));
+    })
+    .flat()
+    .join("\n");
+
+  it("finds the close-out functions at all (control for the scan below)", () => {
+    expect(closeoutFunctions.length).toBeGreaterThan(30);
+    // A canonical Recovery RPC from the earlier slice IS wired to a surface.
+    // If this control ever fails, the surface scan is broken, not the claim.
+    expect(appSource).toContain("open_restoration_event");
+  });
+
+  it("keeps the control matrix honest about product reachability", () => {
+    const reachable = closeoutFunctions.filter((fn) => appSource.includes(fn));
+    expect(
+      reachable,
+      `These close-out RPCs are now called from a product surface: ${reachable.join(", ")}. ` +
+        "docs/sync-recovery/control-matrix.md still states that no surface reaches any of them. " +
+        "Update the matrix row(s) to Implemented in this same change, then relax this assertion.",
+    ).toEqual([]);
+
+    const matrix = readFileSync("docs/sync-recovery/control-matrix.md", "utf8");
+    expect(matrix).toContain("No product surface reaches any of it");
+    expect(matrix).toContain("0 rows are closed end to end in the product");
+  });
+
+  it("does not let the acceptance job re-assert 30 closed requirements", () => {
+    const workflow = readFileSync(".github/workflows/recovery-closeout.yml", "utf8");
+    expect(workflow).toContain("name: Recovery close-out runtime acceptance");
+    expect(workflow).not.toMatch(/^\s*name:\s*Recovery 30-requirement/m);
   });
 });
