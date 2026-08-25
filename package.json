@@ -11,7 +11,7 @@
     "typecheck": "tsc -b",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test": "vitest run",
+    "test": "npm run industry-packs:check && vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
@@ -24,7 +24,9 @@
     "prepare": "husky",
     "register:tally": "node scripts/register-tally.mjs --write",
     "register:check": "node scripts/register-tally.mjs --check && node scripts/register-baseline.mjs --check",
-    "register:accept": "node scripts/register-tally.mjs --write && node scripts/register-baseline.mjs --write"
+    "register:accept": "node scripts/register-tally.mjs --write && node scripts/register-baseline.mjs --write",
+    "industry-packs:generate": "tsx scripts/generate-industry-pack-membership.ts",
+    "industry-packs:check": "tsx scripts/generate-industry-pack-membership.ts --check"
   },
   "lint-staged": {
     "src/**/*.{ts,tsx}": [

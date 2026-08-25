@@ -60,7 +60,7 @@ describe("canonical industry catalog", () => {
       ),
     ).toEqual([]);
     expect(getIndustryRiskFocus("buildings_infrastructure")).toMatchObject({
-      readiness: "focus_draft",
+      readiness: "kernel_bound",
       validationStatus: "draft",
       focusSource: "curated",
     });

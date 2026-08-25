@@ -49,18 +49,14 @@ describe("the kernel-profile architecture (E1.01)", () => {
     expect(unbound, "packs with no profile behind them").toEqual([]);
   });
 
-  it("names the catalog entries that have no pack at all", () => {
-    // buildings_infrastructure is selectable at signup and is excluded from
-    // TemplateIndustryCode, so it resolves to nothing. That is a real gap, and
-    // it is asserted here rather than left to be rediscovered. If another entry
-    // joins it, this fails and the gap gets named instead of shipping quietly.
+  it("has a governed pack for every non-custom catalog entry", () => {
     const packed = new Set(
       listIndustryTemplatePacks().map((p) => p.industryCode as string),
     );
     const withoutPack = INDUSTRY_CATALOG.filter(
       (e) => e.kind === "pack" && !packed.has(e.code),
     ).map((e) => e.code);
-    expect(withoutPack).toEqual(["buildings_infrastructure"]);
+    expect(withoutPack).toEqual([]);
   });
 
   it("every failure context binds to at least two engines and names its data", () => {
@@ -159,13 +155,20 @@ describe("differentiated risk models per failure context (E1.06)", () => {
 
 describe("pack validation honesty", () => {
   it("no pack claims customer validation the customer base cannot support", () => {
-    // 15 of 16 packs claimed 'customer_validated' on a platform with roughly
-    // one customer. The status ladder means something or it means nothing.
+    // Historical packs claimed 'customer_validated' without enough signed
+    // customer evidence. The status ladder means something or it means nothing.
     for (const pack of listIndustryTemplatePacks()) {
       expect(
         pack.validationStatus,
         `${pack.industryCode} claims a validation level nobody has signed`,
       ).not.toBe("customer_validated");
     }
+  });
+
+  it("does not invent Buildings criticality thresholds before adoption", () => {
+    expect(
+      INDUSTRY_TEMPLATE_PACKS.buildings_infrastructure.criticalityModel
+        .criticalityThresholds,
+    ).toEqual({ low: null, medium: null, high: null, critical: null });
   });
 });

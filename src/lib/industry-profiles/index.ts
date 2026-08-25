@@ -5,7 +5,9 @@
  *
  * WHAT WAS THERE, AND WHY IT REGISTERED AS ❌.
  *
- * Fifteen industry packs already existed in industry-template-packs.ts — 2,400
+ * The original fifteen industry packs in industry-template-packs.ts carried
+ * extensive prose, and Buildings & Infrastructure later joined through the
+ * same governed profile architecture. The original library was roughly 2,400
  * lines of asset classes, onboarding questions, risk drivers and KPI names.
  * All of it prose. A pack that says "process safety, pressure containment,
  * turnaround management" in a string list operates nothing: no engine runs
@@ -395,6 +397,21 @@ export const INDUSTRY_PROFILES: IndustryProfile[] = [
       "single-use versus reusable life accounting",
       "range-safety analysis",
       "propellant-system specific degradation models",
+    ],
+  },
+  {
+    industryCode: "buildings_infrastructure",
+    registerRef: "U5.08-adjacent",
+    contexts: [
+      "structural_deterioration",
+      "rotating_equipment_failure",
+      "network_outage",
+      "turnaround_execution",
+    ],
+    proseOnly: [
+      "jurisdiction-specific building-code compliance",
+      "fire/life-safety engineering and evacuation modelling",
+      "occupancy and accessibility certification workflows",
     ],
   },
 ];

@@ -1,62 +1,87 @@
-import { readFileSync, readdirSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { INDUSTRY_TEMPLATE_PACKS } from "../lib/industry-template-packs";
 
-// The industry pack tables (kpi_packs, industry_asset_libraries,
-// industry_failure_mode_packs) each carry a *_count column, and SetupWizard and
-// TemplateSelectorPage render it straight to the operator. The active schema has
-// no pack-membership table, so no pack has members and no count is computable
-// from any relation. Seeding a literal there is an attestation nothing earns.
-//
-// If pack membership is ever built, compute the count from it — do not restore a
-// literal.
-const MIGRATIONS = "supabase/migrations";
-const seed = readFileSync(`${MIGRATIONS}/00000000000004_demo_seed.sql`, "utf8");
-
-// Every migration, not just the one that happens to define the parent tables.
-// Scoping this scan to `00000000000003_embed_relations.sql` would leave the
-// control passing while its premise died: a membership table added by any LATER
-// migration is exactly the change that should retire this whole test, and it
-// would have gone unnoticed.
-const migrations = readdirSync(MIGRATIONS)
-  .filter((f) => f.endsWith(".sql"))
-  .map((f) => [f, readFileSync(`${MIGRATIONS}/${f}`, "utf8")] as const);
+const seed = readFileSync(
+  "supabase/migrations/00000000000004_demo_seed.sql",
+  "utf8",
+);
+const membershipPath =
+  "supabase/migrations/20261002091000_industry_pack_membership.sql";
+const membership = readFileSync(membershipPath, "utf8");
+const coverage = readFileSync("docs/industry-pack-coverage.md", "utf8");
 
 describe("industry pack counts are counted, not asserted", () => {
-  it("has no pack-membership relation to count (control for the rule below)", () => {
-    // Control: the parent tables really are defined somewhere in the chain, so
-    // a scan that finds nothing is a real absence and not a broken glob.
-    expect(
-      migrations.filter(([, sql]) =>
-        /create table if not exists industry_failure_mode_packs/i.test(sql),
-      ).length,
-      "control failed: the parent pack tables were not found in any migration",
-    ).toBe(1);
-
-    for (const items of [
+  it("creates relational membership and derives all three displayed counts", () => {
+    for (const table of [
       "kpi_pack_items",
       "industry_asset_library_items",
       "failure_mode_pack_items",
     ]) {
-      // Match DDL, not the bare name: the seed explains in a comment why these
-      // tables do not exist, and a substring scan would trip over that.
-      const ddl = new RegExp(`create table (?:if not exists )?${items}\\b`, "i");
-      const defining = migrations.filter(([, sql]) => ddl.test(sql)).map(([f]) => f);
-      expect(
-        defining,
-        `${items} now exists (${defining.join(", ")}). Pack membership is real: ` +
-          "compute the *_count columns from it and retire this test.",
-      ).toHaveLength(0);
+      expect(membership).toContain(
+        `create table if not exists public.${table}`,
+      );
+      expect(membership).toContain(
+        `alter table public.${table} enable row level security`,
+      );
+    }
+
+    expect(membership).toContain(
+      "set kpi_count = (select count(*) from public.kpi_pack_items",
+    );
+    expect(membership).toContain(
+      "set asset_class_count = (select count(*) from public.industry_asset_library_items",
+    );
+    expect(membership).toContain(
+      "set failure_mode_count = (select count(*) from public.failure_mode_pack_items",
+    );
+    expect(membership).toContain("trg_sync_kpi_pack_count");
+    expect(membership).toContain("trg_sync_asset_library_count");
+    expect(membership).toContain("trg_sync_failure_mode_pack_count");
+  });
+
+  it("represents every canonical pack and every member in the migration", () => {
+    for (const pack of Object.values(INDUSTRY_TEMPLATE_PACKS)) {
+      const escapedName = pack.industryName.replace(
+        /[.*+?^${}()|[\]\\]/g,
+        "\\$&",
+      );
+      expect(coverage).toMatch(new RegExp(`\\|\\s*${escapedName}\\s*\\|`));
+      expect(membership).toContain(
+        `src/lib/industry-template-packs.ts#${pack.industryCode}`,
+      );
+      for (const label of [
+        ...pack.kpiModel.primaryKpis,
+        ...pack.kpiModel.secondaryKpis,
+        ...pack.commonAssetClasses,
+        ...pack.failureModeFocusAreas,
+      ]) {
+        expect(membership, `${pack.industryCode}: ${label}`).toContain(
+          label.replaceAll("'", "''"),
+        );
+      }
     }
   });
 
-  it("never seeds a hardcoded pack count", () => {
-    for (const column of ["kpi_count", "asset_class_count", "failure_mode_count"]) {
-      const seeded = new RegExp(`insert into [a-z_]+\\s*\\([^)]*\\b${column}\\b`, "i");
-      expect(
-        seed,
-        `${column} is seeded with a literal. Nothing counts it: there is no pack-membership ` +
-          "table in the active schema. Compute it from real membership or do not assert it.",
-      ).not.toMatch(seeded);
+  it("removes the old unearned literals and fixes blanket Oil Sands bindings", () => {
+    for (const column of [
+      "kpi_count",
+      "asset_class_count",
+      "failure_mode_count",
+    ]) {
+      const seeded = new RegExp(
+        `insert into [a-z_]+\\s*\\([^)]*\\b${column}\\b`,
+        "i",
+      );
+      expect(seed).not.toMatch(seeded);
     }
+
+    expect(membership).toContain(
+      "('oil-sands','oil_sands'), ('mining','mining')",
+    );
+    expect(membership).toContain(
+      "('manufacturing','manufacturing'), ('power','power_generation')",
+    );
+    expect(membership).toContain("where d.slug = b.slug");
   });
 });

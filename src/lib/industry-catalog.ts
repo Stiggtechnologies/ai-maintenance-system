@@ -33,10 +33,7 @@ export const INDUSTRY_CATALOG = [
 
 export type IndustryCatalogEntry = (typeof INDUSTRY_CATALOG)[number];
 export type IndustryCode = IndustryCatalogEntry["code"];
-export type TemplateIndustryCode = Exclude<
-  IndustryCode,
-  "buildings_infrastructure" | "custom"
->;
+export type TemplateIndustryCode = Exclude<IndustryCode, "custom">;
 
 const INDUSTRY_BY_CODE = new Map<string, IndustryCatalogEntry>(
   INDUSTRY_CATALOG.map((entry) => [entry.code, entry]),
