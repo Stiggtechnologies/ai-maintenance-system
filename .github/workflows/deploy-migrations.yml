@@ -135,21 +135,32 @@ jobs:
 
       - name: Point the lead trigger at the deployed function
         env:
-          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
           LEAD_NOTIFY_SERVICE_KEY: ${{ secrets.LEAD_NOTIFY_SERVICE_KEY }}
         run: |
           set -euo pipefail
-          if [ -z "${SUPABASE_DB_URL:-}" ] || [ -z "${LEAD_NOTIFY_SERVICE_KEY:-}" ]; then
-            echo "::warning title=lead-notify is not wired::SUPABASE_DB_URL and/or LEAD_NOTIFY_SERVICE_KEY are not set, so private.lead_notify_config stays empty and trg_pilot_intake_notify will no-op. Run configure_lead_notify() by hand — see docs/lead-response-sla.md."
+          if [ -z "${LEAD_NOTIFY_SERVICE_KEY:-}" ]; then
+            echo "::warning title=lead-notify is not wired::LEAD_NOTIFY_SERVICE_KEY is not set, so private.lead_notify_config stays empty and trg_pilot_intake_notify will no-op. See docs/lead-response-sla.md."
             exit 0
           fi
-          psql "$SUPABASE_DB_URL" \
-            -v ON_ERROR_STOP=1 \
-            -v url="https://${SUPABASE_PROJECT_ID}.supabase.co/functions/v1/lead-notify" \
-            -v key="$LEAD_NOTIFY_SERVICE_KEY" \
-            --no-psqlrc --quiet <<'SQL'
-          select public.configure_lead_notify(:'url', :'key');
-          SQL
+          LEAD_FUNCTION_URL="https://${SUPABASE_PROJECT_ID}.supabase.co/functions/v1/lead-notify"
+          LEAD_CONFIG_PAYLOAD=$(jq -cn \
+            --arg url "$LEAD_FUNCTION_URL" \
+            --arg key "$LEAD_NOTIFY_SERVICE_KEY" \
+            '{p_function_url:$url,p_service_key:$key}')
+          LEAD_CONFIG_STATUS=$(curl --silent --show-error \
+            --output /tmp/lead-notify-config-response \
+            --write-out '%{http_code}' \
+            --request POST \
+            "https://${SUPABASE_PROJECT_ID}.supabase.co/rest/v1/rpc/configure_lead_notify" \
+            --header "apikey: ${LEAD_NOTIFY_SERVICE_KEY}" \
+            --header "authorization: Bearer ${LEAD_NOTIFY_SERVICE_KEY}" \
+            --header "content-type: application/json" \
+            --data "$LEAD_CONFIG_PAYLOAD")
+          if [ "$LEAD_CONFIG_STATUS" != "200" ] && [ "$LEAD_CONFIG_STATUS" != "204" ]; then
+            echo "::error title=lead-notify configuration failed::configure_lead_notify returned HTTP ${LEAD_CONFIG_STATUS}."
+            exit 1
+          fi
+          echo "lead-notify trigger target configured through the service-role RPC."
 
       - name: Raise a failure issue
         if: failure()
