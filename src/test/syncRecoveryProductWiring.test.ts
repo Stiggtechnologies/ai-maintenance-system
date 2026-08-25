@@ -57,6 +57,7 @@ describe("Sync Recovery product wiring", () => {
     expect(migration).toContain("component-life planning evidence");
     expect(migration).toContain("material-lot readiness");
     expect(migration).toContain("do-now/defer is not inferred");
+    expect(migration).toContain("'quality_hold','component_life','other'");
     expect(migration).toContain(
       "missing component-life and material-lot evidence is never inferred",
     );

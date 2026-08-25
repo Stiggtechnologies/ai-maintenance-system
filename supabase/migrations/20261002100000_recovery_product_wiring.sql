@@ -18,6 +18,21 @@ alter table public.connectors
 comment on column public.connectors.credential_binding_ref is
   'Opaque identifier of a credential in an external secret store. Never the credential value.';
 
+-- Component-life evidence is a first-class planning constraint. Preserve every
+-- existing constraint kind while extending the governed vocabulary explicitly;
+-- using `other` here would hide the domain meaning from the product and audit
+-- trail.
+alter table public.restoration_constraints
+  drop constraint if exists restoration_constraints_constraint_kind_check;
+alter table public.restoration_constraints
+  add constraint restoration_constraints_constraint_kind_check check (
+    constraint_kind in (
+      'precedence','resource','work_zone','material','labour','tooling','bay','crane',
+      'vendor','weather','production','approval','permit','isolation','asset_state',
+      'quality_hold','component_life','other'
+    )
+  );
+
 create or replace function public.configure_recovery_signal_connector(
   p_key text,
   p_name text,
