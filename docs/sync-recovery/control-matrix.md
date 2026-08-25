@@ -1,23 +1,24 @@
 # Sync Recovery — control and maturity matrix
 
-**2026-08-24 — UPDATED FOR THE CONTROL / OPTIMIZE / LEARN CLOSE-OUT.** The
-close-out work adds governed database contracts for most of the first-order gaps
-below. It does **not** close the 30 Clarence controls end to end, and this
-document must not be read as saying it does:
+**2026-08-24 — UPDATED FOR PRODUCT WIRING.** Control, Optimize and Learn are now
+real tabs in the Recovery workspace. **25 of the 39 close-out functions are now reachable**
+through the product service/surface; an exact source-contract test prevents that
+count from drifting silently. The remaining 14 are deliberately internal
+triggers/helpers, connector-side master-data writers, or still-unexposed governed
+actions (recurrence classification, cannibalization proposal, economic-assumption
+authoring and site work-zone relationship approval).
 
-- **No product surface reaches any of it.** All 39 close-out functions are
-  database-only. Verified twice, by different methods — a name grep across
-  `src/` and a string-literal extraction across `src/services`, `src/pages`,
-  `src/components`, `src/lib` and `src/hooks` (control: `open_restoration_event`
-  is found by both). The only file in `src/` that names them is
-  `src/test/syncRecoveryFullCloseout.test.ts`, which matches them as strings.
-- **The external feeds are unbound.** Weather, vendor, mine-plan production and
-  OEM signals have an ingestion contract and a freshness gate; nothing writes to
-  them. Readiness therefore reports `unknown` in production, which is the
-  intended fail-closed behaviour, not a working feed.
-- **`Recovery close-out runtime acceptance` proves the contracts execute**, not
-  that the controls are delivered. It applies the full migration chain and runs
-  both Recovery smokes against a real Postgres.
+External weather, vendor/OEM and mine-plan production data now has a tenant-safe,
+idempotent connector ingestion path with retained rejects, freshness and explicit
+administrator activation. That closes the platform-side integration contract; it
+does **not** mean any customer feed is live. Each tenant still has to provide its
+provider endpoint/credential, store the credential outside the database, bind the
+opaque secret reference and run an authenticated adapter. Until then readiness
+correctly reports `unknown`.
+
+`Recovery close-out runtime acceptance` proves the database contracts execute.
+Product tests additionally prove the reachable service names and UI tabs; neither
+test can substitute for real tenant history or third-party connection evidence.
 
 Status legend: **Implemented** = executable and reachable in the product;
 **Reused** = canonical Sync capability invoked rather than duplicated;
@@ -30,80 +31,82 @@ This document is a non-overclaiming map from the Sync Recovery / Event Orchestra
 
 ## Architectural invariants
 
-| Requirement | Status | Evidence / boundary |
-| --- | --- | --- |
-| Downtime event is the coordination object, not a replacement work-order store | Implemented | `restoration_events` + `restoration_event_work` reference canonical `work_orders`; no duplicate WO store. |
-| One governed integrated plan per version | Implemented | `restoration_plan_versions`; released snapshots are immutable and revisions supersede rather than rewrite evidence. |
-| AI does not own schedule mathematics, critical path, constraints, economics, authority or safety | Implemented | Plan generation and control gates are deterministic SQL/RPCs. The product surface renders server results rather than scheduling in the browser. |
-| Unknown concurrency fails closed | Implemented | New event work is `unknown`; deterministic scheduling treats it as sequential until an authorized human records a named parallel group and substantive basis. |
-| No invented duration | Implemented | Comparable-history P50/P80 requires >=5 completed jobs with the same job plan; otherwise explicit planned/estimated hours are used; otherwise duration stays missing and approval is blocked. |
-| Baseline cannot be rewritten after seeing the outcome | Implemented | Counterfactual baseline freezes at first plan generation. |
-| Human approval before executable release | Reused | Recovery submits a canonical `autonomous_decisions` record plus `approval_workflows`; generator and approver must differ before release. |
-| Permit/isolation truth remains canonical | Reused | Start rechecks job-plan permit demand against canonical `equipment_releases`; generic Recovery constraints cannot self-clear permit/isolation/asset-state truth. |
-| Material readiness remains canonical | Reused | Start refuses when canonical `work_order_materials` is `requested`/`short`. |
-| Quality/acceptance evidence gates completion | Reused | Exact canonical `job_plan_checks` IDs and acceptance criteria are surfaced; all checks require explicit PASS evidence before work completion. |
-| Operations handback gates event closure | Reused | Event close refuses while a canonical equipment release is still `released` or `returned`; Operations must accept it. |
-| Claimed value is not silently promoted to verified | Implemented + Reused | Recovery writes only `projected` counterfactual hours/value; existing Value Verification remains the authority that can verify value. |
-| Degraded connectivity cannot create shadow operational truth | Implemented | Browser cache is read-only; writes are disabled and no offline operational write queue is created. |
+| Requirement                                                                                      | Status               | Evidence / boundary                                                                                                                                                                           |
+| ------------------------------------------------------------------------------------------------ | -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Downtime event is the coordination object, not a replacement work-order store                    | Implemented          | `restoration_events` + `restoration_event_work` reference canonical `work_orders`; no duplicate WO store.                                                                                     |
+| One governed integrated plan per version                                                         | Implemented          | `restoration_plan_versions`; released snapshots are immutable and revisions supersede rather than rewrite evidence.                                                                           |
+| AI does not own schedule mathematics, critical path, constraints, economics, authority or safety | Implemented          | Plan generation and control gates are deterministic SQL/RPCs. The product surface renders server results rather than scheduling in the browser.                                               |
+| Unknown concurrency fails closed                                                                 | Implemented          | New event work is `unknown`; deterministic scheduling treats it as sequential until an authorized human records a named parallel group and substantive basis.                                 |
+| No invented duration                                                                             | Implemented          | Comparable-history P50/P80 requires >=5 completed jobs with the same job plan; otherwise explicit planned/estimated hours are used; otherwise duration stays missing and approval is blocked. |
+| Baseline cannot be rewritten after seeing the outcome                                            | Implemented          | Counterfactual baseline freezes at first plan generation.                                                                                                                                     |
+| Human approval before executable release                                                         | Reused               | Recovery submits a canonical `autonomous_decisions` record plus `approval_workflows`; generator and approver must differ before release.                                                      |
+| Permit/isolation truth remains canonical                                                         | Reused               | Start rechecks job-plan permit demand against canonical `equipment_releases`; generic Recovery constraints cannot self-clear permit/isolation/asset-state truth.                              |
+| Material readiness remains canonical                                                             | Reused               | Start refuses when canonical `work_order_materials` is `requested`/`short`.                                                                                                                   |
+| Quality/acceptance evidence gates completion                                                     | Reused               | Exact canonical `job_plan_checks` IDs and acceptance criteria are surfaced; all checks require explicit PASS evidence before work completion.                                                 |
+| Operations handback gates event closure                                                          | Reused               | Event close refuses while a canonical equipment release is still `released` or `returned`; Operations must accept it.                                                                         |
+| Claimed value is not silently promoted to verified                                               | Implemented + Reused | Recovery writes only `projected` counterfactual hours/value; existing Value Verification remains the authority that can verify value.                                                         |
+| Degraded connectivity cannot create shadow operational truth                                     | Implemented          | Browser cache is read-only; writes are disabled and no offline operational write queue is created.                                                                                            |
 
 ## Product surfaces
 
-| Surface | Status | Shipped behavior |
-| --- | --- | --- |
-| Fleet Down Board | Implemented | Active restoration events plus currently-down assets without an event; planned/major/opportunity event intake uses canonical assets. |
-| Event Workspace | Implemented | Integrated event scope, candidate WOs, sequencing, human concurrency verification, counterfactual baseline and explicit constraint register. |
-| Integrated Timeline | Implemented | Server-generated immutable stages, serial scope, critical path, P80 where supported, CWR, warnings/missing inputs, canonical approval and release. |
-| Opportunity Work | Implemented / Reused | Recovery calls canonical `find_opportunity_work`; it shows fits, does-not-fit and unsized rather than hiding insufficient duration evidence. |
-| Live Execution | Implemented | Controlled start, completion evidence, governed job-plan quality checks and blocker capture/resolution. |
-| Value Report | Implemented | CWR, DCE/RHR when actual RTS exists, frozen-baseline context and projected downtime value with basis. |
+| Surface             | Status                                    | Shipped behavior                                                                                                                                        |
+| ------------------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Fleet Down Board    | Implemented                               | Active restoration events plus currently-down assets without an event; planned/major/opportunity event intake uses canonical assets.                    |
+| Event Workspace     | Implemented                               | Integrated event scope, candidate WOs, sequencing, human concurrency verification, counterfactual baseline and explicit constraint register.            |
+| Integrated Timeline | Implemented                               | Server-generated immutable stages, serial scope, critical path, P80 where supported, CWR, warnings/missing inputs, canonical approval and release.      |
+| Opportunity Work    | Implemented / Reused                      | Recovery calls canonical `find_opportunity_work`; it shows fits, does-not-fit and unsized rather than hiding insufficient duration evidence.            |
+| Live Execution      | Implemented                               | Controlled start, completion evidence, governed job-plan quality checks and blocker capture/resolution.                                                 |
+| Control             | Implemented                               | Readiness/deeper-input refresh, resource requirements, manual signal fallback, field/work-zone/energy evidence, handoff and supervisor queue.           |
+| Optimize            | Implemented within stated evidence bounds | Duration risk, what-if, fleet allocation, consequence assessment, uncertainty grouping, component-life/parts/alternate evidence.                        |
+| Learn               | Implemented within stated evidence bounds | FTR, sequence/productivity evidence, recommendation feedback, delay attribution and manual cadence snapshots; insufficient history stays visibly empty. |
+| Value Report        | Implemented                               | CWR, DCE/RHR when actual RTS exists, frozen-baseline context and projected downtime value with basis.                                                   |
 
 ## Clarence use-case controls and first-order gaps
 
-| # | Requirement from product definition | Status after the close-out | Evidence / what remains |
-| ---: | --- | --- | --- |
-| 1 | Job readiness before optimization | Contract shipped, unreachable; feeds unbound | `refresh_restoration_readiness()` scores labour from `craft_capacity`, materials from `work_order_materials`, and bay/crane/tooling/vendor/documentation/weather/production from `operational_constraint_signals`. Missing or stale evidence stays `unknown`. CI proves blocked -> green. No surface calls it; no feed writes the signals. |
-| 2 | Probability-based durations | Contract shipped, unreachable | `run_restoration_risk_simulation()` — deterministic empirical bootstrap gated at `hist_n>=5`; CI asserts p50/p80/p95 and a persisted run. `uncertainty_correlation` is a shared-rank shock weight, not a fitted correlation, and is documented as such. No surface calls it. |
-| 3 | Scope-growth detection/control | Implemented | Unchanged. Work added after release is quarantined as candidate, raises a scope-growth blocker, and cannot execute until a revised independently approved plan is released. |
-| 4 | Physical work-zone conflict modeling | Contract shipped; still human-declared | `work_zone_relationships` + a fail-closed interference constraint; CI proves parallel work is refused until a verified separation exists. Zone adjacency is **recorded by a human**, not computed — the automated spatial/interference model still does not exist. |
-| 5 | Isolation and energy-state logic | Contract shipped, unreachable | Nine energy types, `verified_zero` ranking, and the `trg_recovery_energy_state` trigger. CI proves the database refuses an unsafe start and permits it only after a technician records verified-zero. No surface calls it. |
-| 6 | Quality and reassembly gates | Implemented / Reused | Unchanged. Canonical acceptance checks and hold points must PASS before completion. |
-| 7 | Rework / first-time-right restoration | Contract shipped, partly unexercised | `get_recovery_ftr_metrics()`, `recovery_recurrence_links`, `refresh_recovery_recurrence_candidates()`, `classify_recovery_recurrence()`. CI calls the metrics reader only; the recurrence classification path has no runtime coverage and no surface. |
-| 8 | Failure consequence / criticality | In the objective; unreachable | `recovery_consequence_assessments` feeds the `run_recovery_fleet_optimization()` priority score (safety 100 / environment 40 / business 20 / production 10, plus asset criticality). The original gap — consequence absent from the objective — is genuinely closed at the database. No surface records an assessment. |
-| 9 | Component age/life/history | Data shipped; **not** wired to do-now/defer | `component_instances`, `asset_meter_readings` and `get_recovery_component_life_context()` (CI asserts a 200 h component age exactly). Verified: neither `generate_restoration_plan()` nor `find_opportunity_work()` reads component life, so the original gap — life as an optimization input — is unchanged. |
-| 10 | Cannibalization / substitution | Contract shipped, unreachable | `get_recovery_cannibalization_options()` and `propose_recovery_cannibalization()`, which writes a pending canonical approval and performs no component transfer. CI calls the options reader; the proposal path has no runtime coverage. |
-| 11 | Fleet-level optimization | Contract shipped, unreachable | `run_recovery_fleet_optimization()` — deterministic priority-first scarce-craft allocation with an immutable run record. CI asserts an allocation and run id. No surface calls it. |
-| 12 | Dynamic production priority | Contract shipped; live feed unbound | A fresh `production` signal's `priority_weight` enters the fleet priority score (proven in CI). No mine-plan integration writes that signal. |
-| 13 | Shift-handoff intelligence | Contract shipped, unreachable | `get_recovery_handoff()` server-generates event, work, constraints, blockers, plan and field evidence. CI asserts it is bound to the event and carries the work, the open blocker and captured evidence. No surface renders it. |
-| 14 | Supervisor decision queue | Contract shipped, unreachable | `get_recovery_decision_queue()`. CI asserts the overdue, escalated blocker is actually surfaced. No surface renders it. |
-| 15 | Escalation clock | Contract shipped, unreachable | `run_recovery_escalation_clock()` on pg_cron `*/5 * * * *`, writing canonical `system_alerts` only — it never approves or executes work. CI asserts at least one escalation. |
-| 16 | What-if simulation | Contract shipped, unreachable | `simulate_recovery_what_if()`. CI asserts `releasable=false` and a scenario critical path; the scenario never mutates or releases a plan. No surface calls it. |
-| 17 | Historical best-sequence mining | Contract shipped; produces nothing yet | `get_recovery_sequence_patterns()` correctly refuses to claim below the sample minimum. On the seeded corpus it returns `patterns: []`, which is what CI asserts. There is no evidence it mines anything, because no qualifying history exists. |
-| 18 | Crew productivity normalization | Contract shipped; produces nothing yet | `get_recovery_productivity_norms()` — same posture, returns `norms: []` on the seeded corpus. Evidence-gated refusal is proven; normalization output is not. |
-| 19 | Weather/environment constraints | Contract shipped; feed unbound | Weather is a hard, fail-closed readiness gate with a freshness window. No weather integration exists; in production this reports `unknown`. |
-| 20 | Vendor/OEM coordination | Contract shipped; feed unbound | Vendor readiness signal only. Vendor scheduling, warranty claims and OEM support callbacks remain unbuilt integrations. |
-| 21 | Parts risk beyond on-hand | Data + advisory reader; **not** in the readiness calculation | `material_stock_lots` (condition, certification, staging, expiry) and approved `material_substitutions` are read by `get_recovery_parts_risk()`. Verified: `refresh_restoration_readiness()` still scores materials from `work_order_materials.status` alone, so the original gap is unchanged. |
-| 22 | Richer economic decision rules | Contract shipped, unreachable | `recovery_economic_assumptions` and `get_recovery_economics()` add labour/overtime/contractor/logistics/risk/life-cycle terms. CI asserts value stays `projected_pending_canonical_human_verification`; `verify_value_metric()` remains the only authority that can verify. |
-| 23 | Baseline integrity | Implemented | Unchanged. Method and basis are recorded; the baseline freezes at first plan generation and the close-out adds no path that rewrites it. |
-| 24 | Recommendation acceptance tracking | Contract shipped, unexercised | `record_recovery_recommendation_feedback()` captures disposition and reason. No runtime coverage in CI and no surface records feedback. |
-| 25 | Counterfactual value measurement | Contract shipped, unexercised | `recovery_delay_attribution` and `get_recovery_counterfactual_attribution()` decompose delay against the frozen baseline. No runtime coverage in CI and no surface. |
-| 26 | Auditability | Implemented / Reused | Unchanged. Immutable plans, human provenance and canonical decisions/approvals/actions preserve the decision trail; the close-out adds no parallel audit store. |
-| 27 | Offline/degraded mode | Deferred — unchanged, deliberately | The browser cache remains read-only and no offline write queue exists. The close-out does not change this and does not claim to. |
-| 28 | Mobile-first field execution | Partially closed | `recovery_field_evidence` accepts photo/voice/document/measurement/note against canonical `cowork_attachments` with `client_command_id` idempotency; CI proves a note round-trips into the handoff. There is still no mobile capture surface and no offline field synchronization. |
-| 29 | Adoption design / co-pilot posture | Implemented as product posture | Unchanged. |
-| 30 | Closed-loop management cadence | Contract shipped, unreachable | `recovery_cadence_snapshots` and `publish_recovery_cadence_snapshot()` for shift/daily/weekly; CI asserts the snapshot persists. Nothing schedules the cadence and nothing renders it. |
+|   # | Requirement from product definition   | Status after the close-out                          | Evidence / what remains                                                                                                                                                                                                                                                                               |
+| --: | ------------------------------------- | --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|   1 | Job readiness before optimization     | Implemented; tenant feeds require configuration     | Control refreshes labour, material, component-life, physical-zone and external-resource constraints. Missing/stale evidence stays `unknown`; manual fallback and connector ingestion are both source-bound.                                                                                           |
+|   2 | Probability-based durations           | Implemented                                         | Optimize runs the persisted deterministic empirical bootstrap and exposes uncertainty-group configuration. It remains evidence-gated at `hist_n>=5`; shared-shock weight is not represented as a fitted correlation.                                                                                  |
+|   3 | Scope-growth detection/control        | Implemented                                         | Unchanged. Work added after release is quarantined as candidate, raises a scope-growth blocker, and cannot execute until a revised independently approved plan is released.                                                                                                                           |
+|   4 | Physical work-zone conflict modeling  | Contract shipped; still human-declared              | `work_zone_relationships` + a fail-closed interference constraint; CI proves parallel work is refused until a verified separation exists. Zone adjacency is **recorded by a human**, not computed — the automated spatial/interference model still does not exist.                                    |
+|   5 | Isolation and energy-state logic      | Implemented                                         | Control records time-bound energy state and governed job-plan requirements; the database trigger still independently refuses unsafe start.                                                                                                                                                            |
+|   6 | Quality and reassembly gates          | Implemented / Reused                                | Unchanged. Canonical acceptance checks and hold points must PASS before completion.                                                                                                                                                                                                                   |
+|   7 | Rework / first-time-right restoration | Partial                                             | Learn renders FTR metrics and refreshes recurrence candidates; final recurrence classification remains a separately governed action without a product control.                                                                                                                                        |
+|   8 | Failure consequence / criticality     | Implemented                                         | Optimize records the human 0–5 consequence assessment and uses the governed weighted objective in fleet allocation.                                                                                                                                                                                   |
+|   9 | Component age/life/history            | Partial — wired to plan gate, not candidate ranking | Product plan generation first refreshes a component-life constraint. Recorded age beyond a tenant-authored planned interval blocks approval; absent meter/interval evidence stays unknown and is never inferred. `find_opportunity_work()` still does not rank unopened candidates by component life. |
+|  10 | Cannibalization / substitution        | Partial                                             | Optimize renders approved alternates and donor candidates. The proposal action remains unexposed and, when added, must still create a pending canonical approval and perform no transfer.                                                                                                             |
+|  11 | Fleet-level optimization              | Implemented                                         | Optimize runs deterministic priority-first scarce-craft allocation and renders the immutable result.                                                                                                                                                                                                  |
+|  12 | Dynamic production priority           | Platform path complete; tenant adapter required     | Fresh production signals enter the fleet objective. Connector ingestion is validated and tenant-bound; a mine-plan endpoint/credential and authenticated adapter are still tenant deployment work.                                                                                                    |
+|  13 | Shift-handoff intelligence            | Implemented                                         | Control renders server-generated event, work, constraints, blockers, plan and field evidence.                                                                                                                                                                                                         |
+|  14 | Supervisor decision queue             | Implemented                                         | Control renders overdue blockers, pending approvals and unresolved hard constraints.                                                                                                                                                                                                                  |
+|  15 | Escalation clock                      | Implemented as an internal control                  | `run_recovery_escalation_clock()` runs on pg_cron every five minutes and writes canonical alerts; Control renders the resulting supervisor queue. It never approves or executes work.                                                                                                                 |
+|  16 | What-if simulation                    | Implemented                                         | Optimize runs a non-mutating, non-releasable scenario and renders its result.                                                                                                                                                                                                                         |
+|  17 | Historical best-sequence mining       | Reachable; evidence still insufficient              | Learn renders the evidence-gated result. Empty stays visibly empty until the tenant has the minimum qualifying history.                                                                                                                                                                               |
+|  18 | Crew productivity normalization       | Reachable; evidence still insufficient              | Learn renders site-scoped norms and preserves the minimum-sample refusal.                                                                                                                                                                                                                             |
+|  19 | Weather/environment constraints       | Platform path complete; tenant adapter required     | Weather is a hard freshness gate. Manual authorized evidence and connector ingestion work; production activation still needs a tenant provider/credential.                                                                                                                                            |
+|  20 | Vendor/OEM coordination               | Partial                                             | Vendor readiness ingestion is platform-complete and fail-closed. Vendor scheduling, warranty claims and OEM callbacks remain provider-specific integrations.                                                                                                                                          |
+|  21 | Parts risk beyond on-hand             | Implemented in product planning                     | Plan generation refreshes hard material-lot constraints for condition, certification and staging. Missing staging evidence is `unknown`; bad/not-ready evidence is `blocked`. Approved alternates and donor candidates remain advisory and require human action.                                      |
+|  22 | Richer economic decision rules        | Partial                                             | Learn renders governed labour/overtime/contractor/logistics/risk/life-cycle economics. Assumption authoring is not yet a product control; `verify_value_metric()` remains the only authority that can verify value.                                                                                   |
+|  23 | Baseline integrity                    | Implemented                                         | Unchanged. Method and basis are recorded; the baseline freezes at first plan generation and the close-out adds no path that rewrites it.                                                                                                                                                              |
+|  24 | Recommendation acceptance tracking    | Implemented                                         | Learn records accepted/rejected/modified/deferred disposition with a human reason.                                                                                                                                                                                                                    |
+|  25 | Counterfactual value measurement      | Implemented                                         | Learn records and renders delay attribution against the frozen baseline; it cannot verify value.                                                                                                                                                                                                      |
+|  26 | Auditability                          | Implemented / Reused                                | Unchanged. Immutable plans, human provenance and canonical decisions/approvals/actions preserve the decision trail; the close-out adds no parallel audit store.                                                                                                                                       |
+|  27 | Offline/degraded mode                 | Deferred — unchanged, deliberately                  | The browser cache remains read-only and no offline write queue exists. The close-out does not change this and does not claim to.                                                                                                                                                                      |
+|  28 | Mobile-first field execution          | Partially closed                                    | `recovery_field_evidence` accepts photo/voice/document/measurement/note against canonical `cowork_attachments` with `client_command_id` idempotency; CI proves a note round-trips into the handoff. There is still no mobile capture surface and no offline field synchronization.                    |
+|  29 | Adoption design / co-pilot posture    | Implemented as product posture                      | Unchanged.                                                                                                                                                                                                                                                                                            |
+|  30 | Closed-loop management cadence        | Implemented manually; scheduling remains optional   | Learn publishes shift/daily/weekly evidence snapshots. No automatic customer cadence is enabled without an explicit operating policy.                                                                                                                                                                 |
 
 ### How to read the counts
 
 - **5 rows were already Implemented/Reused and are untouched** (3, 6, 23, 26, 29).
 - **1 row remains deliberately deferred** (27).
-- **24 rows now have a governed database contract**, and the runtime acceptance
-  proves the contracts execute.
-- **0 rows are closed end to end in the product**, because no surface reaches any
-  close-out contract.
-- **8 rows still carry their original first-order gap even at the database
-  level**: 4 (no computed spatial model), 9 (life not an optimization input),
-  12 / 19 / 20 (feeds unbound), 17 / 18 (no output on any real corpus),
-  21 (not in the readiness calculation).
+- **24 rows have a governed database contract**, and runtime acceptance proves
+  those contracts execute.
+- **25 of 39 close-out functions are product-reachable**; the others are either
+  intentionally internal/connector-side or specifically named above.
+- Remaining first-order boundaries are: no computed spatial model (4), no
+  component-life candidate ranking (9), no tenant-specific provider bindings
+  (12/19/20), and insufficient real history to prove learning output (17/18).
 
 ## Advanced enterprise layer
 

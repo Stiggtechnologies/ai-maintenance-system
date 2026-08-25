@@ -71,7 +71,9 @@ describe("Sync Recovery full production close-out", () => {
 
   it("adds a multi-event scarce-resource optimizer and dynamic production weighting", () => {
     expect(optimize).toContain("run_recovery_fleet_optimization");
-    expect(optimize).toContain("deterministic_priority_first_scarce_craft_allocation_v1");
+    expect(optimize).toContain(
+      "deterministic_priority_first_scarce_craft_allocation_v1",
+    );
     expect(optimize).toContain("craft_capacity");
     expect(optimize).toContain("signal_kind='production'");
     expect(optimize).toContain("priority_weight");
@@ -115,7 +117,9 @@ describe("Sync Recovery full production close-out", () => {
     expect(control).toContain("recovery_delay_attribution");
     expect(control).toContain("get_recovery_counterfactual_attribution");
     expect(control).toContain("baseline_return_at");
-    expect(control).not.toContain("update restoration_events set baseline_return_at");
+    expect(control).not.toContain(
+      "update restoration_events set baseline_return_at",
+    );
   });
 
   it("adds a supervisor intervention queue and automated escalation clock", () => {
@@ -138,7 +142,9 @@ describe("Sync Recovery full production close-out", () => {
   it("links field photo/voice/document evidence to the canonical Sync attachment store", () => {
     expect(control).toContain("recovery_field_evidence");
     expect(control).toContain("references cowork_attachments(id)");
-    expect(control).toContain("'photo','voice','document','measurement','note'");
+    expect(control).toContain(
+      "'photo','voice','document','measurement','note'",
+    );
     expect(control).toContain("client_command_id");
     expect(control).toContain("uploaded_by=auth.uid()");
   });
@@ -146,7 +152,9 @@ describe("Sync Recovery full production close-out", () => {
   it("keeps new tables tenant-readable but direct-write closed", () => {
     expect(all).toContain("enable row level security");
     expect(all).toContain("for select to authenticated");
-    expect(all).not.toMatch(/create policy [^;]+ for (insert|update|delete|all) to authenticated/);
+    expect(all).not.toMatch(
+      /create policy [^;]+ for (insert|update|delete|all) to authenticated/,
+    );
   });
 
   it("revokes privileged RPCs from PUBLIC and anon", () => {
@@ -175,11 +183,11 @@ describe("Sync Recovery full production close-out", () => {
 // ---------------------------------------------------------------------------
 // Honesty ratchet.
 //
-// Every function below exists only in the database. `Recovery close-out runtime
-// acceptance` proves they execute; it cannot prove the 30 Clarence controls in
-// docs/sync-recovery/control-matrix.md are delivered, because nothing in the
-// product calls them. These tests fail if that stops being true without the
-// matrix being corrected in the same change.
+// The product-wiring slice deliberately exposes the operator-facing close-out
+// contracts. This ratchet names that surface exactly: adding or removing a
+// reachable contract requires the control matrix and this list to change in the
+// same review. Internal triggers, deterministic helpers and connector-only
+// master-data writers are not counted as user-facing capabilities.
 // ---------------------------------------------------------------------------
 describe("Sync Recovery close-out reachability claims", () => {
   const migrations = [
@@ -226,20 +234,47 @@ describe("Sync Recovery close-out reachability claims", () => {
 
   it("keeps the control matrix honest about product reachability", () => {
     const reachable = closeoutFunctions.filter((fn) => appSource.includes(fn));
-    expect(
-      reachable,
-      `These close-out RPCs are now called from a product surface: ${reachable.join(", ")}. ` +
-        "docs/sync-recovery/control-matrix.md still states that no surface reaches any of them. " +
-        "Update the matrix row(s) to Implemented in this same change, then relax this assertion.",
-    ).toEqual([]);
+    expect(reachable).toEqual([
+      "add_recovery_field_evidence",
+      "get_recovery_cannibalization_options",
+      "get_recovery_component_life_context",
+      "get_recovery_counterfactual_attribution",
+      "get_recovery_decision_queue",
+      "get_recovery_economics",
+      "get_recovery_ftr_metrics",
+      "get_recovery_handoff",
+      "get_recovery_parts_risk",
+      "get_recovery_productivity_norms",
+      "get_recovery_sequence_patterns",
+      "publish_recovery_cadence_snapshot",
+      "record_asset_energy_state",
+      "record_recovery_delay_attribution",
+      "record_recovery_recommendation_feedback",
+      "refresh_recovery_recurrence_candidates",
+      "register_operational_constraint_signal",
+      "run_recovery_fleet_optimization",
+      "run_restoration_risk_simulation",
+      "set_job_plan_energy_requirement",
+      "set_recovery_consequence",
+      "set_recovery_uncertainty_group",
+      "set_restoration_resource_requirement",
+      "set_restoration_work_zone",
+      "simulate_recovery_what_if",
+    ]);
 
     const matrix = readFileSync("docs/sync-recovery/control-matrix.md", "utf8");
-    expect(matrix).toContain("No product surface reaches any of it");
-    expect(matrix).toContain("0 rows are closed end to end in the product");
+    expect(matrix).toContain(
+      "25 of the 39 close-out functions are now reachable",
+    );
+    expect(matrix).not.toContain("No product surface reaches any of it");
+    expect(matrix).not.toContain("0 rows are closed end to end in the product");
   });
 
   it("does not let the acceptance job re-assert 30 closed requirements", () => {
-    const workflow = readFileSync(".github/workflows/recovery-closeout.yml", "utf8");
+    const workflow = readFileSync(
+      ".github/workflows/recovery-closeout.yml",
+      "utf8",
+    );
     expect(workflow).toContain("name: Recovery close-out runtime acceptance");
     expect(workflow).not.toMatch(/^\s*name:\s*Recovery 30-requirement/m);
   });
