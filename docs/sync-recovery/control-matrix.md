@@ -8,6 +8,16 @@ triggers/helpers, connector-side master-data writers, or still-unexposed governe
 actions (recurrence classification, cannibalization proposal, economic-assumption
 authoring and site work-zone relationship approval).
 
+**2026-08-24 — FIRST-TENANT ACTIVATION ADDED.** The Activate Tenant workspace
+now covers sites, assets, work orders, materials, stock, crew capacity,
+operating state and production through the canonical connector contract. CSV
+and an allowlisted JWT-protected JSON adapter share human-approved mappings,
+dry-run validation, retained rejects, replay/idempotency, source freshness and
+domain readiness. The guided transaction produces a canonical Recovery
+`draft` from human-selected scope and baseline; it never submits, approves or
+releases that plan. See `docs/sync-recovery/activation-kit.md` for the exact
+transport and activation boundary.
+
 External weather, vendor/OEM and mine-plan production data now has a tenant-safe,
 idempotent connector ingestion path with retained rejects, freshness and explicit
 administrator activation. That closes the platform-side integration contract; it
@@ -15,6 +25,12 @@ does **not** mean any customer feed is live. Each tenant still has to provide it
 provider endpoint/credential, store the credential outside the database, bind the
 opaque secret reference and run an authenticated adapter. Until then readiness
 correctly reports `unknown`.
+
+The Activation Kit closes the provider-neutral CMMS/EAM master/context loading
+path and an operator-triggered REST pull. A customer's hostname, endpoint,
+credential and approved mappings must still be configured; unattended service
+polling remains disabled until the tenant authorizes a cadence and reviewed
+service identity.
 
 `Recovery close-out runtime acceptance` proves the database contracts execute.
 Product tests additionally prove the reachable service names and UI tabs; neither

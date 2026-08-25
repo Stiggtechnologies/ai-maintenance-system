@@ -226,6 +226,88 @@ export interface RecoveryOpportunities {
   note: string;
 }
 
+export interface RecoveryActivationMappingState {
+  entity_type: string;
+  status: "draft" | "approved" | "retired";
+  approved_at: string | null;
+  source_array_path: string;
+}
+
+export interface RecoveryActivationSourceState {
+  connector_key: string;
+  name: string;
+  system_kind: string;
+  enabled: boolean;
+  direction: "read_only" | "read_write";
+  write_enabled: boolean;
+  endpoint_configured: boolean;
+  credential_binding_recorded: boolean;
+  expected_interval_minutes: number | null;
+  last_success_at: string | null;
+  state: "disabled" | "never_run" | "stale" | "current";
+  mappings: RecoveryActivationMappingState[];
+}
+
+export interface RecoveryActivationDomain {
+  key: string;
+  label: string;
+  records: number;
+  linked_records?: number;
+  open_records?: number;
+  stock_records?: number;
+  current_down_assets?: number;
+  latest_period_end?: string | null;
+  ready: boolean;
+}
+
+export interface RecoveryActivationCandidate {
+  asset_id: string;
+  asset: string;
+  tag: string | null;
+  site_id: string | null;
+  open_work_orders: number;
+  is_currently_down: boolean;
+  active_event_id: string | null;
+}
+
+export interface RecoveryActivationReadiness {
+  sources: RecoveryActivationSourceState[];
+  domains: RecoveryActivationDomain[];
+  minimum_ready_for_draft: boolean;
+  planning_inputs_complete: boolean;
+  rejects_30d: number;
+  candidates: RecoveryActivationCandidate[];
+  note: string;
+}
+
+export interface RecoveryActivationWorkOrder {
+  id: string;
+  wo_number: string | null;
+  title: string;
+  priority: string | null;
+  status: string | null;
+  planned_hours: number | null;
+  estimated_hours: number | null;
+}
+
+export interface RecoveryActivationBatchResult {
+  dry_run?: boolean;
+  run_id?: string;
+  status?: string;
+  read: number;
+  accepted: number;
+  duplicate: number;
+  rejected: number;
+  results?: Array<{
+    ok: boolean;
+    duplicate?: boolean;
+    external_id?: string;
+    reason?: string;
+    row_number: number;
+  }>;
+  note?: string;
+}
+
 export interface RpcResult {
   ok?: boolean;
   error?: string;
@@ -317,6 +399,20 @@ export async function getRecoveryOpportunities(
     p_event_id: eventId,
     p_window_hours: windowHours,
   });
+}
+
+export async function getRecoveryActivationReadiness(): Promise<RecoveryActivationReadiness> {
+  return call("get_recovery_activation_readiness");
+}
+
+export async function getRecoveryActivationWorkOrders(
+  assetId: string,
+): Promise<RecoveryActivationWorkOrder[]> {
+  const result = await call<{ work_orders: RecoveryActivationWorkOrder[] }>(
+    "get_recovery_activation_work_orders",
+    { p_asset_id: assetId },
+  );
+  return result.work_orders;
 }
 
 export async function getRecoveryControlSnapshot(
@@ -725,5 +821,123 @@ export const recoveryActions = {
       p_credential_binding_ref: args.credentialBindingRef,
       p_enabled: args.enabled,
       p_basis: args.basis,
+    }),
+};
+
+export const recoveryActivationActions = {
+  configureSource: (args: {
+    key: string;
+    name: string;
+    systemKind: string;
+    endpointUrl?: string | null;
+    expectedIntervalMinutes?: number | null;
+    credentialBindingRef?: string | null;
+    enabled: boolean;
+    basis: string;
+  }) =>
+    call<RpcResult>("configure_recovery_activation_source", {
+      p_key: args.key,
+      p_name: args.name,
+      p_system_kind: args.systemKind,
+      p_endpoint_url: args.endpointUrl ?? null,
+      p_expected_interval_minutes: args.expectedIntervalMinutes ?? null,
+      p_credential_binding_ref: args.credentialBindingRef ?? null,
+      p_enabled: args.enabled,
+      p_basis: args.basis,
+    }),
+  saveMapping: (args: {
+    connectorKey: string;
+    entityType: string;
+    sourceArrayPath: string;
+    columnMapping: Record<string, string>;
+    valueMappings: Record<string, Record<string, string>>;
+    constants: Record<string, unknown>;
+    approve: boolean;
+    basis: string;
+  }) =>
+    call<RpcResult>("save_recovery_activation_mapping", {
+      p_connector_key: args.connectorKey,
+      p_entity_type: args.entityType,
+      p_source_array_path: args.sourceArrayPath,
+      p_column_mapping: args.columnMapping,
+      p_value_mappings: args.valueMappings,
+      p_constants: args.constants,
+      p_approve: args.approve,
+      p_basis: args.basis,
+    }),
+  preview: (
+    connectorKey: string,
+    entityType: string,
+    rows: Array<Record<string, unknown>>,
+  ) =>
+    call<RecoveryActivationBatchResult>("preview_recovery_activation_batch", {
+      p_connector_key: connectorKey,
+      p_entity_type: entityType,
+      p_rows: rows,
+    }),
+  beginRun: (connectorKey: string, entityType: string) =>
+    call<RpcResult>("begin_recovery_activation_run", {
+      p_connector_key: connectorKey,
+      p_entity_type: entityType,
+      p_run_type: "manual",
+    }),
+  ingestBatch: (runId: string, rows: Array<Record<string, unknown>>) =>
+    call<RecoveryActivationBatchResult>("ingest_recovery_activation_batch", {
+      p_run_id: runId,
+      p_rows: rows,
+    }),
+  finishRun: (runId: string, status: "success" | "partial" | "failed") =>
+    call<RpcResult>("finish_connector_run", {
+      p_run_id: runId,
+      p_status: status,
+      p_error:
+        status === "failed" ? "Manual Recovery activation failed." : null,
+    }),
+  getRejects: (runId: string) =>
+    call<
+      Array<{
+        row_number: number;
+        external_id: string | null;
+        reject_reason: string;
+        payload: Record<string, unknown>;
+      }>
+    >("get_recovery_activation_rejects", { p_run_id: runId, p_limit: 100 }),
+  pullRest: async (
+    connectorKey: string,
+    entityType: string,
+    dryRun: boolean,
+  ): Promise<RecoveryActivationBatchResult> => {
+    const { data, error } = await supabase.functions.invoke(
+      "recovery-activation-pull",
+      {
+        body: {
+          connector_key: connectorKey,
+          entity_type: entityType,
+          dry_run: dryRun,
+        },
+      },
+    );
+    if (error) throw new Error(error.message);
+    const payload = data as RecoveryActivationBatchResult & { error?: string };
+    if (payload.error) throw new Error(payload.error);
+    return payload;
+  },
+  prepareFirstPlan: (args: {
+    assetId: string;
+    workOrderIds: string[];
+    reason: string;
+    eventType: string;
+    baselineReturnAt: string;
+    baselineMethod: string;
+    baselineBasis: string;
+  }) =>
+    call<RpcResult>("prepare_first_recovery_plan", {
+      p_asset_id: args.assetId,
+      p_work_order_ids: args.workOrderIds,
+      p_reason: args.reason,
+      p_event_type: args.eventType,
+      p_baseline_return_at: args.baselineReturnAt,
+      p_baseline_method: args.baselineMethod,
+      p_baseline_basis: args.baselineBasis,
     }),
 };
