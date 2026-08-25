@@ -12,6 +12,7 @@ import {
 import { supabase } from "../lib/supabase";
 import { platformService } from "../services/platform";
 import { DataGovernance } from "../components/DataGovernance";
+import { RecoverySignalConnectorSetup } from "../components/RecoverySignalConnectorSetup";
 
 interface Connector {
   id: string;
@@ -312,6 +313,7 @@ export function IntegrationsPage() {
         </div>
       )}
 
+      <RecoverySignalConnectorSetup onConfigured={loadData} />
       <ConnectorHealth />
       <DataGovernance />
       {/* AssetTwinCoverage answers an asset-foundation question, not a

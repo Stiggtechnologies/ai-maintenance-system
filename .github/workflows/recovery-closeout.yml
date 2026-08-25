@@ -23,10 +23,10 @@ jobs:
   full-closeout:
     # NOT "30-requirement acceptance". This job proves that the Recovery Control /
     # Optimize / Learn database contracts execute end-to-end against the full
-    # migration chain. It cannot prove the 30 Clarence controls in
-    # docs/sync-recovery/control-matrix.md are closed: none of these contracts is
-    # reachable from a product surface yet, and the weather/vendor/mine-plan/OEM
-    # feeds they consume are unbound. Rename this job only when that changes.
+    # migration chain. It cannot prove every Clarence control or a customer's
+    # provider integration: the product now reaches the operator-facing
+    # contracts, while live weather/vendor/mine-plan/OEM feeds still require
+    # tenant endpoints, secret bindings and authenticated adapters.
     name: Recovery close-out runtime acceptance
     runs-on: ubuntu-latest
     steps:
@@ -40,7 +40,7 @@ jobs:
       - run: npm ci --no-audit --no-fund
 
       - name: Static Recovery closeout contracts
-        run: npx vitest run src/test/syncRecoveryGovernance.test.ts src/test/syncRecoveryFullCloseout.test.ts
+        run: npx vitest run src/test/syncRecoveryGovernance.test.ts src/test/syncRecoveryFullCloseout.test.ts src/test/syncRecoveryProductWiring.test.ts
 
       - uses: supabase/setup-cli@3c2f5e2ae34c34e428e8e206e2c4d21fa2d20fbf # v2.1.1
         with:

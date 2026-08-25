@@ -67,6 +67,22 @@ REQ=$(rpc "$PLANNER" set_restoration_resource_requirement "{\"p_event_id\":\"$EV
 NOW=$(date -u '+%Y-%m-%dT%H:%M:%SZ'); VALID=$(date -u -d '+2 hours' '+%Y-%m-%dT%H:%M:%SZ')
 SIG=$(rpc "$PLANNER" register_operational_constraint_signal "{\"p_kind\":\"weather\",\"p_key\":\"site-field-work\",\"p_state\":\"available\",\"p_observed_at\":\"$NOW\",\"p_valid_until\":\"$VALID\",\"p_source_system\":\"ci-weather-adapter\",\"p_basis\":\"CI fresh weather evidence inside the work envelope\",\"p_site_id\":\"$SITE\",\"p_asset_id\":null,\"p_source_ref\":\"CI-WX-1\",\"p_payload\":{\"temperature_c\":10}}") ; noerr "$SIG"
 
+# Prove a real external adapter can use the canonical run/staging contract. The
+# temporary admin elevation exists only in this disposable CI database.
+PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -v ON_ERROR_STOP=1 -c "update user_profiles set role='admin' where id=(select id from auth.users where email='manager@syncai.ca');" >/dev/null
+CFG=$(rpc "$MANAGER" configure_recovery_signal_connector '{"p_key":"ci-recovery-weather","p_name":"CI Recovery weather feed","p_system_kind":"data_lake","p_endpoint_hint":"CI weather endpoint","p_expected_interval_minutes":15,"p_credential_binding_ref":"vault://ci/recovery-weather","p_enabled":true,"p_basis":"CI explicitly activates the disposable read-only Recovery signal feed"}'); noerr "$CFG"
+RUN=$(rpc "$MANAGER" begin_connector_run '{"p_connector_key":"ci-recovery-weather","p_entity_type":"operational_constraint_signal"}'); noerr "$RUN"; RUN_ID=$(printf '%s' "$RUN"|field run_id); test -n "$RUN_ID"
+ROWS="{\"p_run_id\":\"$RUN_ID\",\"p_rows\":[{\"external_id\":\"CI-WX-EXT-1\",\"kind\":\"weather\",\"key\":\"site-field-work\",\"state\":\"available\",\"observed_at\":\"$NOW\",\"valid_until\":\"$VALID\",\"site_id\":\"$SITE\",\"basis\":\"CI adapter weather evidence with stable external identity\",\"payload\":{\"temperature_c\":10}}]}"
+INGEST=$(rpc "$MANAGER" ingest_recovery_signal_batch "$ROWS"); noerr "$INGEST"
+DUP=$(rpc "$MANAGER" ingest_recovery_signal_batch "$ROWS"); noerr "$DUP"
+BODY="$INGEST" DUP="$DUP" python3 - <<'PY'
+import json,os,sys
+i=json.loads(os.environ['BODY']); d=json.loads(os.environ['DUP'])
+if i.get('accepted')!=1 or d.get('duplicate')!=1: print('Recovery connector ingestion/idempotency failed',i,d); sys.exit(1)
+PY
+FINISH=$(rpc "$MANAGER" finish_connector_run "{\"p_run_id\":\"$RUN_ID\",\"p_status\":\"success\",\"p_error\":null}"); noerr "$FINISH"
+PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -v ON_ERROR_STOP=1 -c "update user_profiles set role='maintenance_manager' where id=(select id from auth.users where email='manager@syncai.ca');" >/dev/null
+
 R1=$(rpc "$PLANNER" refresh_restoration_readiness "{\"p_event_id\":\"$EVENT\"}"); noerr "$R1"
 BODY="$R1" python3 - <<'PY'
 import json,os,sys
@@ -118,6 +134,13 @@ BODY="$LIFE" python3 - <<'PY'
 import json,os,sys
 r=json.loads(os.environ['BODY']); e=[x for x in r.get('components',[]) if str(x.get('component','')).lower()=='engine']
 if not e or float(e[0].get('current_component_age_hours',-1))!=200: print('component age failed',r); sys.exit(1)
+PY
+DEEP=$(rpc "$PLANNER" refresh_recovery_planning_inputs "{\"p_event_id\":\"$EVENT\"}"); noerr "$DEEP"
+BODY="$DEEP" python3 - <<'PY'
+import json,os,sys
+r=json.loads(os.environ['BODY'])
+if int(r.get('deeper_constraints_refreshed',0))<1: print('deeper planning inputs were not materialized',r); sys.exit(1)
+if r.get('ready_for_plan') is not True: print('evidence-complete CI plan unexpectedly blocked',r); sys.exit(1)
 PY
 
 FE=$(rpc "$TECH" add_recovery_field_evidence "{\"p_event_id\":\"$EVENT\",\"p_event_work_id\":\"$EW1\",\"p_kind\":\"note\",\"p_note\":\"CI point-of-work mobile evidence\",\"p_attachment_id\":null,\"p_metadata\":{\"client\":\"wearable-test\"},\"p_client_command_id\":\"ci-recovery-field-1\"}"); noerr "$FE"
