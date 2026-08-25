@@ -12,22 +12,40 @@
  *   - `pump` names no BEP / minimum-flow / dry-running failure mode. Zero matches
  *     for those terms in this entire file, and off-BEP operation is the dominant
  *     cause of the seal and bearing failures it does list.
- *   - `compressor` (:268) lists "Discharge valve seat erosion from cavitation".
+ *   - `compressor` lists "Discharge valve seat erosion from cavitation".
  *     Gas does not cavitate.
  *   - `ring-3` appears 11 times ("Piston ring-3 wear") — an uncorrected
  *     find-and-replace corruption, and proof no engineer has read this end to end.
- *   - :1072 cites a "5-year ASME interval" for in-service internal inspection.
- *     ASME VIII is a construction code and sets no in-service interval; API 510 does.
- *   - Every one of the 28 has exactly 8 failure modes and exactly 5 operating-context
- *     questions. A gas turbine and a UPS do not have the same number of significant
- *     failure modes; the content was generated to a shape.
+ *   - "Internal inspection and cleaning on 5-year ASME interval" cites the
+ *     wrong code. ASME VIII is a construction code and sets no in-service
+ *     interval; API 510 does.
+ *   - Every one of the 28 has exactly SEVEN failure modes and exactly five
+ *     operating-context questions. A gas turbine and a UPS do not have the same
+ *     number of significant failure modes; the content was generated to a shape.
  *   - CSA Z662, API 510, API 653 and ISO 14224 appear nowhere in this file, though
  *     the platform's own failure taxonomy is built on ISO 14224 and the target
- *     market is Canadian.
+ *     market is Canadian. The only standard cited by number is ISO 1940.
  *
  * Do not surface these to a customer until a named engineer signs each class.
  * src/lib/asset-twins/ already ships coded, mechanism-separated templates for the
- * overlapping asset classes on a reachable route.
+ * overlapping asset classes on a reachable route (AppShell, roleNavigation).
+ *
+ * 2026-08-24 — re-verified on rebase over #257/#265/#267. Nothing on main had
+ * reset these: all 28 still read `customer_validated` there. Two corrections to
+ * this header itself, both mine and both wrong before: the uniform failure-mode
+ * count is seven, not eight, and the two line citations pointed at pre-header
+ * line numbers. Defects are now quoted, not numbered — grep the string. A line
+ * number in a comment is stale the next time anyone edits the comment.
+ *
+ * Reachability of THIS file, checked two ways and agreeing: no module imports
+ * "asset-class-templates", and ASSET_CLASS_TEMPLATES / listAssetClassTemplates /
+ * ASSET_CLASS_ALIAS_MAP appear nowhere else in src. Note the trap for whoever
+ * checks next — a bare symbol grep for `getAssetClassTemplate` or
+ * `AssetClassTemplate` lights up across src/lib/asset-twins/, which defines its
+ * OWN unrelated function (asset-twins/index.ts:130) and interface
+ * (asset-twins/types.ts:56) under the same names. That duplication is a separate
+ * canonical-identity problem and is not evidence that this file is used.
+ * Unreachable is a reason to reclassify, never a reason to delete.
  */
 export interface AssetClassTemplate {
   assetClassCode: string;
