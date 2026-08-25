@@ -175,8 +175,19 @@ SEQ="$SEQ" PRD="$PRD" python3 - <<'PY'
 import json,os,sys
 s=json.loads(os.environ['SEQ']); p=json.loads(os.environ['PRD'])
 if 'patterns' not in s or 'norms' not in p: print('learning contracts changed shape',s,p); sys.exit(1)
+# This FAILS rather than printing a note. Asserting only the shape while the
+# control matrix (rows 17/18) tells the reader "which is what CI asserts" would
+# make CI the evidence for a refusal it never checked.
+#
+# If this trips, the seeded corpus started yielding learning output. That is not
+# automatically wrong — but rows 17 and 18 currently say these two produce
+# nothing, so either the corpus grew accidentally (fix the seed) or mining
+# genuinely started working (update rows 17/18, then assert the output here).
 if s['patterns'] or p['norms']:
-    print('NOTE: seeded corpus now yields learning output; tighten this assertion',s,p)
+    print('seeded corpus now yields learning output; rows 17/18 of '
+          'docs/sync-recovery/control-matrix.md say it produces nothing — '
+          'update the matrix and assert the output here',s,p)
+    sys.exit(1)
 PY
 
 for call in \
