@@ -3,13 +3,22 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { getRiskIndustryPackCatalog } from ".";
 
-const sql = readFileSync(
+const baseSql = readFileSync(
   resolve(
     process.cwd(),
     "supabase/migrations/20260922090000_industry_catalog_kernel_bound_readiness.sql",
   ),
   "utf8",
 ).toLowerCase();
+const readinessPatch = readFileSync(
+  resolve(
+    process.cwd(),
+    "supabase/migrations/20261002090000_buildings_industry_pack_readiness.sql",
+  ),
+  "utf8",
+).toLowerCase();
+const sql = `${baseSql}\n${readinessPatch}`;
+const allowlistSql = `${baseSql}\n${readinessPatch.replaceAll("''", "'")}`;
 
 describe("ISO 31000 industry-catalog correction migration", () => {
   it("durably records the controlled discovery and roadmap on the canonical context", () => {
@@ -82,12 +91,22 @@ describe("ISO 31000 industry-catalog correction migration", () => {
       const label = pack.label
         .toLowerCase()
         .replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      expect(sql).toMatch(
+      expect(allowlistSql).toMatch(
         new RegExp(
           `when '${pack.industryCode}' then v_expected_label := '${label}'; v_expected_readiness := '${pack.readiness}'`,
         ),
       );
     }
+  });
+
+  it("advances Buildings only after a real template and profile exist", () => {
+    expect(readinessPatch).toContain(
+      "v_expected_readiness := ''kernel_bound''",
+    );
+    expect(readinessPatch).toContain(
+      "expected focus_draft predecessor is absent",
+    );
+    expect(readinessPatch).toContain("pg_get_functiondef");
   });
 
   it("keeps the corrected RPC private to authenticated tenant roles", () => {

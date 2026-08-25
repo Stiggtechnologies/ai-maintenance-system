@@ -208,7 +208,7 @@ describe("RiskOperatingSystemPage", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByRole("option", {
-        name: /Buildings & Infrastructure — Risk-focus draft/,
+        name: /Buildings & Infrastructure — Executable kernel · draft content/,
       }),
     ).toBeInTheDocument();
     expect(screen.getByRole("option", { name: /Custom \/ Other/ })).toHaveValue(
