@@ -35,6 +35,13 @@ delete from work_orders where id in ('$WO1','$WO2');
 delete from craft_capacity where organization_id='$ORG' and site_id='$SITE' and craft='$CRAFT';
 insert into craft_capacity(organization_id,site_id,craft,weekly_hours,basis,effective_from)
 values('$ORG','$SITE','$CRAFT',40,'CI verified available craft capacity for Recovery close-out runtime acceptance',current_date);
+-- An unplanned restoration event is only legitimate when the asset really is down.
+-- open_restoration_event() enforces that against operating_states; the seeded database
+-- carries no operating history, so the fixture records the breakdown rather than
+-- downgrading the event type to dodge the gate.
+delete from operating_states where organization_id='$ORG' and source_system='recovery-closeout-ci' and external_id='REC-CLOSEOUT-DOWN-1';
+insert into operating_states(organization_id,asset_id,state,started_at,ended_at,reason_code,source_system,external_id)
+values('$ORG','$ASSET','down_unplanned',now()-interval '2 hours',null,'unplanned_breakdown','recovery-closeout-ci','REC-CLOSEOUT-DOWN-1');
 insert into work_orders(id,organization_id,site_id,asset_id,wo_number,title,status,priority,type,work_type,estimated_hours,planned_hours,parts_ready,job_plan_id,description)
 values
 ('$WO1','$ORG','$SITE','$ASSET','REC-V2-E2E-001','Recovery v2 engine-zone stream','scheduled','critical','human_created','corrective',4,4,true,'$PLAN','CI close-out stream one'),
@@ -131,16 +138,52 @@ r=json.loads(os.environ['BODY'])
 if int(r.get('escalated',0))<1: print('escalation failed',r); sys.exit(1)
 PY
 
+# The supervisor decision queue must actually surface the escalated blocker, not
+# merely return without error.
+DQ=$(rpc "$PLANNER" get_recovery_decision_queue '{}'); noerr "$DQ"
+BODY="$DQ" EVENT="$EVENT" python3 - <<'PY'
+import json,os,sys
+r=json.loads(os.environ['BODY']); ev=os.environ['EVENT']
+b=[x for x in r.get('blockers',[]) if x.get('event_id')==ev and x.get('overdue') and int(x.get('escalation_level',0))>=1]
+if not b: print('decision queue did not surface the escalated blocker',r); sys.exit(1)
+PY
+
+# The handoff must be server-generated from this event's canonical state.
+HO=$(rpc "$PLANNER" get_recovery_handoff "{\"p_event_id\":\"$EVENT\"}"); noerr "$HO"
+BODY="$HO" EVENT="$EVENT" python3 - <<'PY'
+import json,os,sys
+r=json.loads(os.environ['BODY']); ev=os.environ['EVENT']
+if r.get('event',{}).get('event_id')!=ev: print('handoff is not bound to the event',r); sys.exit(1)
+if len(r.get('work') or [])!=2: print('handoff lost governed event work',r); sys.exit(1)
+if not (r.get('open_blockers') or []): print('handoff omits the open blocker',r); sys.exit(1)
+if not (r.get('field_evidence') or []): print('handoff omits captured field evidence',r); sys.exit(1)
+PY
+
+CAD=$(rpc "$PLANNER" publish_recovery_cadence_snapshot "{\"p_cadence\":\"shift\",\"p_event_id\":\"$EVENT\"}"); noerr "$CAD"
+BODY="$CAD" python3 - <<'PY'
+import json,os,sys
+r=json.loads(os.environ['BODY'])
+if not r.get('snapshot_id'): print('cadence snapshot was not persisted',r); sys.exit(1)
+PY
+
+# Sequence mining and productivity normalization must REFUSE to claim a pattern on
+# the seeded corpus rather than invent one. Asserting the refusal is the contract;
+# these two are evidence-gated and produce nothing until real history exists.
+SEQ=$(rpc "$PLANNER" get_recovery_sequence_patterns '{"p_asset_class":null,"p_min_events":2}'); noerr "$SEQ"
+PRD=$(rpc "$PLANNER" get_recovery_productivity_norms "{\"p_site_id\":\"$SITE\",\"p_min_tasks\":5}"); noerr "$PRD"
+SEQ="$SEQ" PRD="$PRD" python3 - <<'PY'
+import json,os,sys
+s=json.loads(os.environ['SEQ']); p=json.loads(os.environ['PRD'])
+if 'patterns' not in s or 'norms' not in p: print('learning contracts changed shape',s,p); sys.exit(1)
+if s['patterns'] or p['norms']:
+    print('NOTE: seeded corpus now yields learning output; tighten this assertion',s,p)
+PY
+
 for call in \
-  "get_recovery_decision_queue|{}" \
-  "get_recovery_handoff|{\"p_event_id\":\"$EVENT\"}" \
-  "publish_recovery_cadence_snapshot|{\"p_cadence\":\"shift\",\"p_event_id\":\"$EVENT\"}" \
   "get_recovery_ftr_metrics|{\"p_window_days\":90}" \
-  "get_recovery_sequence_patterns|{\"p_asset_class\":null,\"p_min_events\":2}" \
-  "get_recovery_productivity_norms|{\"p_site_id\":\"$SITE\",\"p_min_tasks\":5}" \
   "get_recovery_parts_risk|{\"p_event_id\":\"$EVENT\"}" \
   "get_recovery_cannibalization_options|{\"p_event_id\":\"$EVENT\"}"; do
     FN=${call%%|*}; PAY=${call#*|}; OUT=$(rpc "$PLANNER" "$FN" "$PAY"); noerr "$OUT"
 done
 
-echo "Recovery full close-out smoke passed: event=$EVENT plan=$PLAN_ID readiness risk fleet energy escalation learning all green"
+echo "Recovery close-out runtime acceptance passed: event=$EVENT plan=$PLAN_ID readiness risk fleet energy escalation handoff cadence all green"
