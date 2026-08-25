@@ -1,0 +1,92 @@
+name: Recovery Full Closeout
+
+on:
+  pull_request:
+    paths:
+      - 'supabase/migrations/**'
+      - 'scripts/ci-recovery-*.sh'
+      - 'src/test/syncRecovery*.test.ts'
+      - '.github/workflows/recovery-closeout.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'supabase/migrations/**'
+      - 'scripts/ci-recovery-*.sh'
+      - 'src/test/syncRecovery*.test.ts'
+      - '.github/workflows/recovery-closeout.yml'
+
+concurrency:
+  group: recovery-closeout-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  full-closeout:
+    # NOT "30-requirement acceptance". This job proves that the Recovery Control /
+    # Optimize / Learn database contracts execute end-to-end against the full
+    # migration chain. It cannot prove the 30 Clarence controls in
+    # docs/sync-recovery/control-matrix.md are closed: none of these contracts is
+    # reachable from a product surface yet, and the weather/vendor/mine-plan/OEM
+    # feeds they consume are unbound. Rename this job only when that changes.
+    name: Recovery close-out runtime acceptance
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci --no-audit --no-fund
+
+      - name: Static Recovery closeout contracts
+        run: npx vitest run src/test/syncRecoveryGovernance.test.ts src/test/syncRecoveryFullCloseout.test.ts
+
+      - uses: supabase/setup-cli@3c2f5e2ae34c34e428e8e206e2c4d21fa2d20fbf # v2.1.1
+        with:
+          version: 2.84.2
+          github-token: ${{ github.token }}
+
+      - name: Prepare clean local Supabase state
+        run: |
+          supabase stop --all --no-backup || true
+          docker system df
+
+      - name: Apply complete migration chain
+        run: bash scripts/ci-start-supabase.sh /tmp/recovery-closeout-start.log /tmp/recovery-closeout-diagnostics.txt
+
+      - name: Upload migration diagnostics
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: recovery-closeout-migration-diagnostics
+          path: |
+            /tmp/recovery-closeout-start.log
+            /tmp/recovery-closeout-diagnostics.txt
+          retention-days: 7
+
+      - name: Freeze unrelated background crons
+        run: |
+          PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -v ON_ERROR_STOP=1 -c \
+            "select cron.unschedule(jobid) from cron.job where jobname in ('syncai-telemetry-sim','syncai-agent-loop','syncai-agent-enrich','syncai-onboarding-enrich','syncai-recovery-escalation-clock');"
+
+      - name: Original governed Recovery lifecycle
+        run: bash scripts/ci-recovery-lifecycle-smoke.sh
+
+      - name: Full Control + Optimize + Learn closeout
+        run: |
+          set -o pipefail
+          bash scripts/ci-recovery-closeout-smoke.sh 2>&1 | tee /tmp/recovery-closeout-smoke.log
+
+      - name: Upload Recovery closeout diagnostics
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: recovery-closeout-smoke-diagnostics
+          path: /tmp/recovery-closeout-smoke.log
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Stop Supabase
+        if: always()
+        run: supabase stop --no-backup || true
