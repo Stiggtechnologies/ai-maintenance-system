@@ -78,9 +78,29 @@ make that outcome the default rather than the accident.
    `tenancyIsolation.test.ts`, `definerTenancy.test.ts`) are Invariant-lane files. Loosening
    one requires a compensating assertion in the same PR and an explicit call-out in the PR
    body — a weakened guard is silent until something exploits it.
-4. **Before building a surface, grep for it.** Both agents built an assessment workspace in
-   the same week. `git log --oneline -20` and `gh pr list --state all --limit 15` cost
-   seconds; a duplicated slice costs days.
+4. **If another workstream owns the area, it is theirs. Stop and ask.**
+
+   Grepping is not the point — concluding is. On 2026-08-25 I ran `gh pr list`, saw
+   #249 "Make Recovery a platform-wide operating context", named its six files, and then
+   built a workflow _around_ them instead of stopping. An hour later I did it again: a
+   pure-SQL "Invariant lane" workstream that would still have collided with #271 on
+   `control-matrix.md` and on migration timestamp `20261003090000`. Both times the check
+   ran and the judgement failed.
+
+   **A file-avoidance list is not coordination.** Ownership is by AREA, not by file. If an
+   open PR — draft included — is working the same area, the answer is to hand over the
+   finding, not to route around the files.
+
+   Before launching ANY workstream that writes:
+   - `git fetch origin` first. Main moved 4 commits in the gap between my investigation and
+     my launch, and one of them wired the very functions I was writing a guard for.
+   - `gh pr list --state open` and read the TITLES for the area, not just the file lists.
+     A draft PR is an owned area.
+   - Shared artifacts are contested by default: `capability-register.md`,
+     `docs/sync-recovery/control-matrix.md`, and every migration timestamp.
+   - If in doubt, the cost of asking is one message. The cost of not asking is two stopped
+     workflows and someone's afternoon.
+
 5. **Migrations are serialized by timestamp, not by agreement.** Timestamp later than the
    deployed head _and_ later than every open PR's migrations — check
    `gh pr list --json number` then `gh pr diff <n> --name-only`.
