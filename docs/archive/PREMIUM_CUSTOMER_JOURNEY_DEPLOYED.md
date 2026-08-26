@@ -1,4 +1,9 @@
 # 🎉 Premium Customer Journey - DEPLOYED
+> **2026-08-20 — HISTORICAL DOCUMENT, ARCHIVED.** Moved out of the repository root because sections below
+> assert a shipped state the capability register contradicts. Content is unchanged from
+> the version on main, including every redaction. Live status:
+> `docs/enterprise-readiness/capability-register.md`.
+
 
 > **2026-08-19 — HISTORICAL DOCUMENT, PRICING SUPERSEDED.** The dollar
 > figures below ($4,000 / $9,000 / $18,000 tiers and derived examples) were

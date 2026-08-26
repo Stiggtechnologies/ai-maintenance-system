@@ -175,16 +175,19 @@ Located in: `src/components/`
 
 ### **Billing Components**
 
-- `billing/BillingOverview.tsx`
-- `billing/PlansAndPricing.tsx`
-- `billing/UsageDashboard.tsx`
-- `billing/InvoiceList.tsx`
-- `billing/GainShareConsole.tsx`
+None. The whole `src/components/billing/` tree — `BillingOverview`,
+`PlansAndPricing`, `UsageDashboard`, `InvoiceList`, `GainShareConsole` — has
+been deleted. Metering is not wired, so a billing surface could only have shown
+invented figures. This section listed all five as available features for some
+time after they stopped existing.
 
 ### **AI Components**
 
-- `UnifiedChatInterface.tsx` - AI assistant
-- `AIAnalyticsDashboard.tsx` - AI metrics
+- `CopilotDock.tsx` - role-aware assistant, on every page
+
+`UnifiedChatInterface.tsx` and `AIAnalyticsDashboard.tsx` were listed here and
+no longer exist. The first was imported by nothing and sent the anon key as an
+`Authorization` header.
 
 ### **Core Components**
 
@@ -454,9 +457,9 @@ const tenant_id = profile.tenant_id;
 ### **Via React App:**
 
 - ✅ View dashboards → Navigate UI
-- ✅ Chat with AI → UnifiedChatInterface
+- ✅ Chat with AI → CopilotDock
 - ✅ Manage assets → AssetManagement
-- ✅ Billing → Billing components
+- ❌ Billing → no billing surface exists; metering is not wired
 
 ---
 

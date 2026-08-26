@@ -1,10 +1,8 @@
-import { useEffect, useState } from "react";
-import { Send, Mic, MicOff, Loader as Loader2, Sparkles } from "lucide-react";
+import { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
-import { supabasePublicKey, supabaseUrl } from "../lib/supabase-config";
-import { syncResponseGuidance } from "../lib/sync/response-guidance";
-import { quotaRefusalFromBody } from "../services/agentQuota";
+import { describeQuotaRefusal } from "../services/agentQuota";
 import { useAuth } from "./AuthProvider";
+import { Send, Mic, MicOff, Loader as Loader2, Sparkles } from "lucide-react";
 import { MarkdownRenderer } from "./MarkdownRenderer";
 
 interface ChatMessage {
@@ -22,7 +20,7 @@ export function UnifiedChatInterface() {
   const [orgLevel, setOrgLevel] = useState<string>("");
 
   useEffect(() => {
-    void loadOrgLevel();
+    loadOrgLevel();
     setMessages([
       {
         role: "assistant",
@@ -80,32 +78,35 @@ Ask me anything about your operations, and I'll provide insights based on your r
 
     if (levelCode.includes("executive")) {
       return "strategic KOI performance, stakeholder value, asset management maturity, and board-level insights";
-    }
-    if (levelCode.includes("strategic")) {
+    } else if (levelCode.includes("strategic")) {
       return "departmental KPIs, resource allocation, planning support, and decision traceability";
-    }
-    if (levelCode.includes("tactical")) {
+    } else if (levelCode.includes("tactical")) {
       return "work order management, team performance, approvals, and operational KPIs";
-    }
-    if (levelCode.includes("operational") || levelCode.includes("field")) {
+    } else if (
+      levelCode.includes("operational") ||
+      levelCode.includes("field")
+    ) {
       return "assigned tasks, procedures, safety protocols, and field execution";
     }
     return "general operations and performance metrics";
   };
 
-  const handleSend = async (explicitInput?: string) => {
-    const question = (explicitInput ?? input).trim();
-    if (!question || isProcessing) return;
+  const handleSend = async () => {
+    if (!input.trim() || isProcessing) return;
 
-    setMessages((prev) => [
-      ...prev,
-      { role: "user", content: question, timestamp: new Date() },
-    ]);
+    const userMessage: ChatMessage = {
+      role: "user",
+      content: input,
+      timestamp: new Date(),
+    };
+
+    setMessages((prev) => [...prev, userMessage]);
     setInput("");
     setIsProcessing(true);
 
     try {
-      const query = question.toLowerCase();
+
+      const query = input.toLowerCase();
       let agentType = "CentralCoordinationAgent";
 
       if (
@@ -126,33 +127,39 @@ Ask me anything about your operations, and I'll provide insights based on your r
         query.includes("health")
       ) {
         agentType = "AssetHealthAgent";
+      } else if (
+        query.includes("alert") ||
+        query.includes("alarm") ||
+        query.includes("warning")
+      ) {
+        agentType = "CentralCoordinationAgent";
       }
 
-      const contextualQuery = [
-        `[User Role: ${orgLevel}. Focus on ${getRoleContext()}]`,
-        syncResponseGuidance(question, false),
-        `QUESTION: ${question}`,
-      ].join("\n\n");
+      const contextualQuery = `[User Role: ${orgLevel}. Focus on ${getRoleContext()}]\n\n${input}`;
 
-      const response = await fetch(
-        `${supabaseUrl}/functions/v1/ai-agent-processor`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${supabasePublicKey}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
+      // Was a raw fetch sending the ANON key as the Authorization bearer. The
+      // anon key is public, so that was not a credential leak — it was a caller
+      // identity bug. `ai-agent-processor` resolves the tenant from
+      // `auth.uid()`, and an anon bearer makes that null, so the call arrived
+      // unattributed and outside the caller's organization scope. Restored
+      // 2026-08-20 rather than deleted (AGENTS.md: the Honesty lane corrects
+      // claims, it does not delete code), so the defect is fixed here instead
+      // of being buried with the file. `functions.invoke` attaches the signed-in
+      // session's access token, which is what every other caller in this repo
+      // does.
+      const { data: result, error: invokeError } =
+        await supabase.functions.invoke("ai-agent-processor", {
+          body: {
             agentType,
             industry: "general",
             query: contextualQuery,
-          }),
-        },
-      );
+          },
+        });
 
-      if (!response.ok) {
-        const errorBody: unknown = await response.json().catch(() => null);
-        const quota = quotaRefusalFromBody(errorBody);
+      if (invokeError) {
+        // A daily-budget refusal carries its own body (which cap, when it
+        // resets); render that instead of "API request failed: 429".
+        const quota = await describeQuotaRefusal(invokeError);
         if (quota) {
           setMessages((prev) => [
             ...prev,
@@ -160,28 +167,26 @@ Ask me anything about your operations, and I'll provide insights based on your r
           ]);
           return;
         }
-        throw new Error(`API request failed: ${response.status}`);
+        throw invokeError;
       }
 
-      const result = await response.json();
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: "assistant",
-          content: result.response,
-          timestamp: new Date(),
-        },
-      ]);
+      const assistantMessage: ChatMessage = {
+        role: "assistant",
+        content: result.response,
+        timestamp: new Date(),
+      };
+
+      setMessages((prev) => [...prev, assistantMessage]);
     } catch (error) {
       console.error("Error sending message:", error);
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: "system",
-          content: `Error: ${error instanceof Error ? error.message : "Unknown error"}. Please try again.`,
-          timestamp: new Date(),
-        },
-      ]);
+
+      const errorMessage: ChatMessage = {
+        role: "system",
+        content: `Error: ${error instanceof Error ? error.message : "Unknown error"}. Please try again.`,
+        timestamp: new Date(),
+      };
+
+      setMessages((prev) => [...prev, errorMessage]);
     } finally {
       setIsProcessing(false);
     }
@@ -203,13 +208,18 @@ Ask me anything about your operations, and I'll provide insights based on your r
     { label: "Active alerts", query: "What alerts are currently active?" },
   ];
 
+  const handleQuickAction = (query: string) => {
+    setInput(query);
+    setTimeout(() => handleSend(), 100);
+  };
+
   return (
-    <div className="flex h-full flex-col bg-industrial-black">
-      <div className="border-b border-industrial-border bg-industrial-graphite p-6">
-        <div className="mx-auto max-w-5xl">
-          <div className="mb-2 flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-linear-to-br from-teal-500 to-teal-600">
-              <Sparkles className="h-5 w-5 text-white" />
+    <div className="h-full flex flex-col bg-industrial-black">
+      <div className="bg-industrial-graphite border-b border-industrial-border p-6">
+        <div className="max-w-4xl mx-auto">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="w-10 h-10 bg-linear-to-br from-teal-500 to-teal-600 rounded-full flex items-center justify-center">
+              <Sparkles className="w-5 h-5 text-white" />
             </div>
             <div>
               <h1 className="text-2xl font-bold text-industrial-text">
@@ -224,52 +234,58 @@ Ask me anything about your operations, and I'll provide insights based on your r
       </div>
 
       <div className="flex-1 overflow-y-auto p-6">
-        <div className="mx-auto max-w-5xl space-y-7">
+        <div className="max-w-4xl mx-auto space-y-6">
           {messages.map((msg, idx) => (
             <div
               key={idx}
-              className={msg.role === "user" ? "flex justify-end" : ""}
+              className={`${msg.role === "user" ? "flex justify-end" : ""}`}
             >
               {msg.role === "user" ? (
-                <div className="max-w-2xl rounded-2xl rounded-br-md bg-teal-600 px-5 py-3 text-[14px] leading-6 text-white">
+                <div className="bg-teal-600 text-white px-6 py-3 rounded-2xl max-w-2xl">
                   {msg.content}
                 </div>
               ) : msg.role === "system" ? (
-                <div className="rounded-xl border border-amber-400/20 bg-amber-400/5 px-4 py-3 text-sm text-amber-100">
+                <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-lg text-sm">
                   {msg.content}
                 </div>
               ) : (
-                <article className="max-w-[820px] py-1">
-                  <div className="mb-2 flex items-center gap-2 text-[11px] font-medium text-slate-500">
-                    <Sparkles className="h-3.5 w-3.5 text-teal-300" />
-                    <span>AI Assistant</span>
+                <div className="glass border border-white/6 rounded-2xl p-6 max-w-3xl shadow-xs">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-8 h-8 bg-linear-to-br from-teal-100 to-teal-200 rounded-full flex items-center justify-center">
+                      <Sparkles className="w-4 h-4 text-teal-600" />
+                    </div>
+                    <span className="text-sm font-medium text-slate-300">
+                      AI Assistant
+                    </span>
                   </div>
-                  <MarkdownRenderer content={msg.content} />
-                </article>
+                  <div className="prose prose-sm max-w-none">
+                    <MarkdownRenderer content={msg.content} />
+                  </div>
+                </div>
               )}
             </div>
           ))}
 
           {isProcessing && (
-            <div className="flex items-center gap-2 text-slate-400" aria-live="polite">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              <span className="text-sm">Working on your request…</span>
+            <div className="flex items-center gap-2 text-gray-500">
+              <Loader2 className="w-5 h-5 animate-spin" />
+              <span className="text-sm">Thinking...</span>
             </div>
           )}
         </div>
       </div>
 
-      <div className="border-t border-industrial-border bg-industrial-graphite p-6">
-        <div className="mx-auto max-w-5xl">
+      <div className="bg-industrial-graphite border-t border-industrial-border p-6">
+        <div className="max-w-4xl mx-auto">
           {messages.length === 1 && (
             <div className="mb-4">
-              <div className="mb-2 text-sm text-slate-400">Quick Actions:</div>
+              <div className="text-sm text-slate-400 mb-2">Quick Actions:</div>
               <div className="flex flex-wrap gap-2">
-                {quickActions.map((action) => (
+                {quickActions.map((action, idx) => (
                   <button
-                    key={action.label}
-                    onClick={() => void handleSend(action.query)}
-                    className="rounded-lg bg-industrial-slate px-4 py-2 text-sm text-slate-300 transition-colors hover:bg-white/6"
+                    key={idx}
+                    onClick={() => handleQuickAction(action.query)}
+                    className="px-4 py-2 bg-industrial-slate hover:bg-white/6 text-slate-300 rounded-lg text-sm transition-colors"
                   >
                     {action.label}
                   </button>
@@ -282,47 +298,43 @@ Ask me anything about your operations, and I'll provide insights based on your r
             <input
               type="text"
               value={input}
-              onChange={(event) => setInput(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") void handleSend();
-              }}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyPress={(e) => e.key === "Enter" && handleSend()}
               placeholder={`Ask anything about ${getRoleContext()}...`}
-              className="w-full rounded-2xl border border-industrial-border px-6 py-4 pr-24 focus:border-transparent focus:outline-hidden focus:ring-2 focus:ring-teal-500"
+              className="w-full px-6 py-4 pr-24 rounded-2xl border border-industrial-border focus:outline-hidden focus:ring-2 focus:ring-teal-500 focus:border-transparent"
               disabled={isProcessing}
             />
-            <div className="absolute right-3 top-1/2 flex -translate-y-1/2 items-center gap-2">
+            <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
               <button
                 onClick={() => setIsRecording(!isRecording)}
                 disabled={isProcessing}
-                className={`rounded-lg p-2 transition-colors ${
+                className={`p-2 rounded-lg transition-colors ${
                   isRecording
                     ? "bg-red-100 text-red-600"
-                    : "text-gray-400 hover:bg-industrial-slate"
+                    : "hover:bg-industrial-slate text-gray-400"
                 }`}
-                aria-label={isRecording ? "Stop recording" : "Start recording"}
               >
                 {isRecording ? (
-                  <MicOff className="h-5 w-5" />
+                  <MicOff className="w-5 h-5" />
                 ) : (
-                  <Mic className="h-5 w-5" />
+                  <Mic className="w-5 h-5" />
                 )}
               </button>
               <button
-                onClick={() => void handleSend()}
+                onClick={handleSend}
                 disabled={!input.trim() || isProcessing}
-                className="rounded-lg bg-teal-600 p-2 transition-colors hover:bg-teal-700 disabled:bg-gray-700"
-                aria-label="Send message"
+                className="p-2 bg-teal-600 hover:bg-teal-700 disabled:bg-gray-300 rounded-lg transition-colors"
               >
                 {isProcessing ? (
-                  <Loader2 className="h-5 w-5 animate-spin text-white" />
+                  <Loader2 className="w-5 h-5 text-white animate-spin" />
                 ) : (
-                  <Send className="h-5 w-5 text-white" />
+                  <Send className="w-5 h-5 text-white" />
                 )}
               </button>
             </div>
           </div>
 
-          <div className="mt-3 text-center text-xs text-gray-500">
+          <div className="mt-3 text-xs text-gray-500 text-center">
             AI responses are tailored to your organizational level and access
             permissions
           </div>
