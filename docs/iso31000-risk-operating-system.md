@@ -160,11 +160,20 @@ The implementation copilot exposes two separate maturity dimensions:
   customer-validated or deprecated. A kernel-bound pack with draft content is
   not represented as customer-validated policy.
 
-Ten sectors currently bind to executable failure-context profiles. The five
-remaining governed templates are visible as template-only guidance;
-buildings/infrastructure is visible as a risk-focus draft; custom industries
-capture organization-specific discovery. All generated context and criteria
-remain draft until authorized customer adoption.
+All fifteen governed template packs now bind to executable failure-context
+profiles. Buildings/infrastructure is visible as a risk-focus draft; custom
+industries capture organization-specific discovery. All generated context and
+criteria remain draft until authorized customer adoption.
+
+Corrected 2026-08-24. This paragraph read "Ten sectors currently bind ... the
+five remaining governed templates are visible as template-only guidance" — true
+when it was written, falsified by #267, which bound food_beverage,
+marine_shipping, aviation, defense and aerospace_launch. `template_only` is now
+unreachable by construction — `industry-catalog.test.ts` asserts no pack reports
+it, and `industry-profiles.test.ts` fails the build if a pack is ever added
+without a profile. Kernel-bound still means only that engines bind: every pack's
+content remains `draft`, and each pack's unbound claims are named in its
+`proseOnly` list rather than counted as coverage.
 
 ## Enterprise extension completeness
 
