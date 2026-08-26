@@ -57,16 +57,37 @@
 -- it here would open a door that function refuses. It stays out until Recovery
 -- decides its own upload story.
 --
--- WHO MAY IMPORT DOES NOT CHANGE. The role gate below is byte-identical to
--- 20260907090000: planner, reliability_engineer, maintenance_manager, admin,
--- ai_admin. Every newly-routed type is the same act the gate was written for —
--- a person loading master or operational data, not a technician reporting a
--- fault. condition_reading is the one worth arguing, because an ingested
--- reading routes through record_condition_reading and can raise an alert; but
--- the actor who loads historian history IS the reliability engineer, and the
--- roles the gate already excludes (technician, operator, executive, viewer) are
--- exactly the ones who should not. Widening WHAT is carried does not widen WHO
--- carries it.
+-- WHO MAY IMPORT DOES NOT CHANGE — AND NOW THE WRITE PATH AGREES. The role
+-- gate is the same five roles 20260907090000 named: planner,
+-- reliability_engineer, maintenance_manager, admin, ai_admin. Every
+-- newly-routed type is the same act the gate was written for — a person loading
+-- master or operational data, not a technician reporting a fault.
+-- condition_reading is the one worth arguing, because an ingested reading
+-- routes through record_condition_reading and can raise an alert; but the actor
+-- who loads historian history IS the reliability engineer.
+--
+-- The gate is checked TWICE, and the second check is the one that matters.
+-- 20260907090000 put it only on run creation, and connector_runs' RLS policy
+-- (20260917000000:372) is org-wide rather than actor-scoped — so every member
+-- of the tenant can read a run id the door just opened for someone else, and
+-- ingest_batch was granted to `authenticated`. Measured on a full schema: a
+-- technician refused at the door read a planner's run id and pushed two 0.2
+-- readings through it, taking `Vibration — Drive End` from 12.4/alarm to
+-- 0.2/normal. That hole predates this change; routing four more entity types
+-- through one new definer chokepoint is what makes leaving it unforgivable.
+-- ingest_rows now re-states the same gate, so a run id is an address and not a
+-- capability.
+--
+-- AND THE RUN MUST BE A MANUAL-UPLOAD RUN. ingest_rows accepted any run in the
+-- tenant, and the row's provenance is stamped from the run's connector — so a
+-- run pointed at the seeded `SAP PM/EAM` connector wrote a work order that
+-- reads as SAP history. The same run also loses idempotency outright, because
+-- the dedupe predicate is `source_system = connector_key` and four seeded
+-- connectors (SAP PM/EAM, OSIsoft PI, IBM Maximo, Bently Nevada) have a NULL
+-- key: `= NULL` is never true, so three identical uploads landed three rows.
+-- Requiring connector_type = 'manual_upload' AND a non-null key closes both,
+-- and mirrors the check ingest_recovery_signal_batch already makes
+-- (20261002100000:167).
 -- ============================================================================
 
 -- ---------------------------------------------------------------------------
@@ -212,6 +233,7 @@ set search_path = public
 as $$
 declare
   v_org uuid := app_current_org();
+  v_role text;
   v_entity text;
   v_handler text;
 begin
@@ -222,12 +244,35 @@ begin
   if v_org is null then
     return jsonb_build_object('error', 'no organization in session');
   end if;
+
+  -- The SAME gate the door applies, restated on the write. A run id is not a
+  -- capability: connector_runs' policy is org-wide, so any member of the tenant
+  -- can read the id of a run the door opened for a planner. Without this a
+  -- technician the door had just refused could push condition readings through
+  -- that run and clear a live alarm — measured, not supposed.
+  select role into v_role from user_profiles where id = auth.uid();
+  if coalesce(v_role, '') not in
+     ('planner','reliability_engineer','maintenance_manager','admin','ai_admin') then
+    return jsonb_build_object('error',
+      'importing master data requires a planning, engineering or administrator role');
+  end if;
+
   if jsonb_typeof(p_rows) <> 'array' then
     return jsonb_build_object('error', 'rows must be a JSON array');
   end if;
 
-  select entity_type into v_entity from connector_runs
-   where id = p_run_id and organization_id = v_org;
+  -- The run must be one this door opened. Rows are stamped with the run's
+  -- connector_key as source_system, so accepting any run in the tenant let a
+  -- caller write work orders that read as SAP history; and a connector with a
+  -- NULL key defeats the dedupe predicate entirely, so the same file loaded
+  -- three times landed three rows.
+  select cr.entity_type into v_entity
+    from connector_runs cr
+    join connectors c on c.id = cr.connector_id
+   where cr.id = p_run_id
+     and cr.organization_id = v_org
+     and c.connector_type = 'manual_upload'
+     and c.connector_key is not null;
   if not found then
     return jsonb_build_object('error', 'run not found');
   end if;
@@ -273,5 +318,94 @@ grant execute on function public.ingest_rows(uuid, jsonb) to authenticated;
 -- edge function references either.
 revoke all on function public.ingest_batch(uuid, jsonb) from public, anon, authenticated;
 revoke all on function public.ingest_context_batch(uuid, jsonb) from public, anon, authenticated;
+
+-- `service_role` keeps both, for the vendor adapter the contract reserves it
+-- for. Supabase's platform default (ALTER DEFAULT PRIVILEGES ... ON FUNCTIONS
+-- TO postgres, anon, authenticated, service_role) already grants it, and the
+-- revokes above deliberately do not name it — but a grant that exists only
+-- because of a platform default is a grant nobody can read in this file, and a
+-- review of this branch read it wrong. Stated explicitly so it is checkable.
+grant execute on function public.ingest_batch(uuid, jsonb) to service_role;
+grant execute on function public.ingest_context_batch(uuid, jsonb) to service_role;
+grant execute on function public.ingest_rows(uuid, jsonb) to service_role;
+
+-- ---------------------------------------------------------------------------
+-- The watermark rule stops being a property of one caller.
+-- ---------------------------------------------------------------------------
+-- Body spliced from 20260810160000 rather than retyped; the two edits below are
+-- the whole difference and each is asserted to match exactly once.
+create or replace function public.finish_connector_run(
+  p_run_id uuid,
+  p_status text default 'success',
+  p_error text default null
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_org uuid := app_current_org();
+  r connector_runs%rowtype;
+begin
+  select * into r from connector_runs where id = p_run_id and organization_id = v_org;
+  if not found then
+    return jsonb_build_object('error', 'run not found');
+  end if;
+
+  update connector_runs
+  set status = p_status, finished_at = now(), error_message = p_error,
+      records_processed = records_accepted
+  where id = p_run_id;
+
+  -- The watermark advances only on a clean run. Advancing it after a partial
+  -- failure is how rows get skipped forever.
+  --
+  -- 20260810160000 stated that as a property and enforced only `p_status =
+  -- 'success'`, leaving the rest to the caller. The browser importer does pass
+  -- 'partial' when anything was rejected — but the rule was a property of that
+  -- one call site, not of the contract: a run carrying records_rejected = 1,
+  -- finished with 'success', advanced the watermark straight past the skipped
+  -- row, and `greatest(...)` means it can never come back down. The row is
+  -- already sitting in r.records_rejected; consulting it is what makes the
+  -- sentence above true for every caller, including the vendor adapter that
+  -- does not exist yet.
+  if p_status = 'success' and r.records_rejected = 0 and r.watermark_to is not null then
+    insert into ingest_watermarks (organization_id, connector_id, entity_type,
+      last_position, last_run_id)
+    values (v_org, r.connector_id, r.entity_type, r.watermark_to, p_run_id)
+    on conflict (connector_id, entity_type) do update
+      set last_position = greatest(ingest_watermarks.last_position, excluded.last_position),
+          last_run_id = excluded.last_run_id, updated_at = now();
+  end if;
+
+  update connectors
+  set last_success_at = case when p_status = 'success' then now() else last_success_at end,
+      last_failure_at = case when p_status <> 'success' then now() else last_failure_at end
+  where id = r.connector_id;
+
+  return jsonb_build_object('run_id', p_run_id, 'status', p_status,
+    'watermark_advanced',
+      p_status = 'success' and r.records_rejected = 0 and r.watermark_to is not null,
+    'records_rejected', r.records_rejected);
+end
+$$;
+
+-- ---------------------------------------------------------------------------
+-- The two functions the manual door already used, which `anon` could call.
+-- ---------------------------------------------------------------------------
+-- 20260907090000:125 and 20260810160000:487 grant to `authenticated` without
+-- the `revoke ... from public, anon` this repository uses 241 times elsewhere,
+-- so both were executable by PUBLIC and therefore by `anon`. Harmless today
+-- (app_current_org() is null for anon, so one returns no rows and the other
+-- 'run not found'), but the convention exists so that harmlessness does not
+-- have to be re-derived every time the body changes.
+revoke all on function public.get_import_rejects(uuid, int) from public, anon;
+grant execute on function public.get_import_rejects(uuid, int) to authenticated;
+grant execute on function public.get_import_rejects(uuid, int) to service_role;
+
+revoke all on function public.finish_connector_run(uuid, text, text) from public, anon;
+grant execute on function public.finish_connector_run(uuid, text, text) to authenticated;
+grant execute on function public.finish_connector_run(uuid, text, text) to service_role;
 
 notify pgrst, 'reload schema';

@@ -10,9 +10,12 @@
  *   - the dedupe key differs — three different keys across the seven;
  *   - re-upload behaviour differs, and this is the dangerous one. The shipped
  *     importer told every user "a re-upload updates rather than duplicates".
- *     That is true of maintenance_plan and material_stock and FALSE of the
- *     other five, which count a re-upload as `duplicate` and skip it. A single
- *     copy string was a false statement on five of seven types.
+ *     That is true of maintenance_plan, maintenance_notification and
+ *     material_stock — the three whose SQL branch ends in `on conflict ... do
+ *     update` — and FALSE of the other four, which count a re-upload as
+ *     `duplicate` and skip it. A single copy string was a false statement on
+ *     four of seven types. Which is which is derived from the SQL branch by a
+ *     test rather than restated here, because restating it is how it drifted.
  *   - two of them cannot be loaded at all until something else is loaded
  *     first, and nothing in the product creates that something.
  *
@@ -23,16 +26,22 @@
  * agree. If a future entity type is added to one and not the other, that test
  * fails rather than a customer discovering it.
  *
- * THE CLIENT-SIDE CELL CHECKS ARE NOT DECORATION. Neither ingest_batch nor
- * ingest_context_batch has an exception block, so `(row->>'taken_at')::timestamptz`
- * on the text "yesterday" RAISES and aborts the whole batch — rolling back the
- * accepted rows AND the retained rejects with it. The same is true of a numeric
- * cast and of a value that violates a table CHECK (`quality`, `load_pct`). For
- * the single most common spreadsheet defect the contract's first promise —
- * "refused rows are kept with their reason" — therefore does not hold. Until
- * that is fixed in SQL, the surface refuses to send a file containing such a
- * cell and names the cell, which is a worse guarantee honestly stated rather
- * than a better one falsely implied.
+ * THE CLIENT-SIDE CELL CHECKS ARE A COURTESY, NOT THE GUARANTEE. Until
+ * 20261004090100 / 20261004090200 neither validator had an exception block, so
+ * `(row->>'taken_at')::timestamptz` on the text "yesterday" RAISED and aborted
+ * the whole batch — rolling back the accepted rows AND the retained rejects
+ * with them. The same was true of a numeric cast and of any value violating a
+ * table CHECK (`quality`, `load_pct`, `notification_type`). Both validators now
+ * wrap every per-row write in a subtransaction, so such a row comes back as a
+ * retained reject carrying the database's own words and the rest of the file
+ * lands. The checks below stay because a message naming the cell and the row is
+ * better than one naming a constraint, and because a round trip avoided is a
+ * round trip avoided — but the contract's promise no longer depends on them.
+ *
+ * The `oneOf` lists are the exception to that: each one mirrors a CHECK
+ * constraint, and a column with a CHECK and no `oneOf` here is a bug, not a
+ * choice. `src/test/ingestImportDoor.test.ts` reads the CHECK lists out of the
+ * CREATE TABLE statements and asserts the pairing, per entity.
  */
 
 export type IngestEntityKey =
@@ -202,14 +211,24 @@ export const INGEST_ENTITIES: Readonly<Record<IngestEntityKey, IngestEntity>> =
           kind: "text",
           note: "what was observed",
         },
-        { name: "notification_type", kind: "text", note: "blank means fault" },
+        {
+          name: "notification_type",
+          kind: "text",
+          oneOf: ["fault", "observation", "request", "safety"],
+          note: "fault, observation, request or safety; blank means fault",
+        },
         { name: "reported_by", kind: "text", note: "who raised it" },
         {
           name: "reported_at",
           kind: "timestamp",
           note: "when it was raised; blank means now",
         },
-        { name: "status", kind: "text", note: "blank means open" },
+        {
+          name: "status",
+          kind: "text",
+          oneOf: ["open", "in_planning", "converted", "rejected", "merged"],
+          note: "open, in_planning, converted, rejected or merged; blank means open",
+        },
       ],
       externalIdFrom: "notification_no",
       dedupe: "one notification per notification_no",
@@ -295,7 +314,7 @@ export const INGEST_ENTITIES: Readonly<Record<IngestEntityKey, IngestEntity>> =
       reuploadSentence:
         "A re-upload is counted as DUPLICATE and skipped. A work order is an event; correcting one means loading it under a new number.",
       caution:
-        "Unlike plans and notifications, a work order whose asset cannot be matched is ACCEPTED with no asset attached. It will not appear in any per-asset figure. Check the asset names first.",
+        "Name an asset only if you can match it: a work order naming an asset this product cannot resolve is REFUSED, because every per-asset reliability figure is computed from work orders and one with no asset is a downtime hour nobody can attribute. Leaving both asset columns blank is allowed.",
       outcome:
         "Work-order history drives failure-rate, MTBF and downtime analysis.",
       templateRows: [
@@ -378,7 +397,7 @@ export const INGEST_ENTITIES: Readonly<Record<IngestEntityKey, IngestEntity>> =
       prerequisite:
         "The sensors must already exist. This product has no screen that creates one, so a tenant whose sensors have not been provisioned will see every row refused with “unknown sensor”. Check the sensor list before uploading.",
       caution:
-        "A reading dated more than an hour in the future is refused as a clock or timezone fault at the source. A loaded reading that breaches a limit raises an alert, exactly as a keyed-in one would.",
+        "A reading dated more than an hour in the future is refused as a clock or timezone fault at the source. ONLY THE NEWEST READING A SENSOR HAS SPEAKS FOR THE PRESENT: loading history moves that sensor's current value, status and trend to the newest reading in your file, and a breach there raises an alert dated to that reading. Readings older than one the sensor already holds are stored as history and change neither.",
       outcome:
         "Readings build the condition history and raise alerts on a limit crossing.",
       templateRows: [
@@ -443,7 +462,7 @@ export const INGEST_ENTITIES: Readonly<Record<IngestEntityKey, IngestEntity>> =
       prerequisite:
         "The material catalogue must be loaded first. This product has no screen that creates a material, so a tenant without a provisioned catalogue will see every row refused with “the catalogue must be loaded before stock”.",
       caution:
-        "A site_name that does not match any site is NOT refused — the row is stored with no site. Check your site names, or the whole file lands as one site-less pile.",
+        "A site_name that matches no site is REFUSED, so a mistyped site cannot land the whole file as one site-less pile. Stock is ONE quantity per material per site: two lines in the same file for the same pair are not both kept — the second is refused rather than silently overwriting the first, because this table has no external_id column to tell them apart.",
       outcome:
         "On-hand quantities feed spares optimisation and work-order material readiness.",
       templateRows: [
@@ -488,8 +507,9 @@ export const INGEST_ENTITIES: Readonly<Record<IngestEntityKey, IngestEntity>> =
         },
         {
           name: "ended_at",
+          required: true,
           kind: "timestamp",
-          note: "when it ended; blank means still in this state",
+          note: "when it ended — required on an upload, because a file cannot assert that a machine is still in this state now",
         },
         {
           name: "load_pct",
@@ -511,7 +531,7 @@ export const INGEST_ENTITIES: Readonly<Record<IngestEntityKey, IngestEntity>> =
       reuploadSentence:
         "A re-upload of this file is counted as DUPLICATE and skipped. A state period is immutable — correcting one means loading it under a new external_id.",
       caution:
-        "That de-duplication only compares this upload against PREVIOUS UPLOADS. States already loaded by a fleet-history import carry that import's own source name and will NOT be matched, so re-loading a period you have already imported creates a second, overlapping copy — and every downtime, availability and utilisation figure computed from it doubles. Nothing in the database prevents two simultaneous states on one machine. Load periods you have not already loaded.",
+        "An asset is in ONE state at a time, and a period overlapping one already recorded for that asset is REFUSED — including a period loaded by an earlier fleet-history import under a different source name, which the external_id de-duplication cannot see. A period ending exactly when the next begins is contiguous, not overlapping. Periods in the future are refused as a clock fault at the source.",
       outcome:
         "State coverage, downtime and availability stop being computed from work orders alone. This is also the only path in the product that writes a running, idle or standby state — until one exists, utilisation and production-loss figures have no denominator.",
       templateRows: [
@@ -589,7 +609,7 @@ export const INGEST_ENTITIES: Readonly<Record<IngestEntityKey, IngestEntity>> =
       reupload: "skips",
       reuploadSentence: "A re-upload is counted as DUPLICATE and skipped.",
       caution:
-        "Use ONE unit of measure for the whole organisation. Cost per production unit refuses to compute at all across mixed units — a single figure over tonnes and hours would be meaningless — so a file mixing them silently disables that measure for everyone.",
+        "Use ONE unit of measure for the whole organisation. Cost per production unit refuses to compute at all across mixed units — a single figure over tonnes and hours would be meaningless — so a file mixing them silently disables that measure for everyone. A blank-looking unit is one of those units: a cell holding only spaces is refused rather than stored. A site_name or asset that matches nothing is refused too, so a mistyped name cannot land unattributed.",
       outcome:
         "Production totals feed cost per production unit and production loss attributable to equipment.",
       templateRows: [
@@ -678,11 +698,11 @@ function parsesAsTimestamp(value: string): boolean {
 /**
  * Everything that would make the upload fail, found before it is sent.
  *
- * Missing headers and blank required cells would come back as retained rejects,
- * so they are reported here only to save a round trip. The cast and range
- * checks are different in kind: those would ABORT the batch in the database and
- * take the retained rejects down with them, so refusing to send is the only way
- * the operator sees which cell was wrong.
+ * All of it would come back as retained rejects now that both validators wrap
+ * each row in a subtransaction, so none of this is load-bearing for the
+ * contract's guarantee. It is reported here because a message naming the row
+ * and the column beats one naming a constraint, and because it saves a round
+ * trip on the most common spreadsheet defects.
  */
 export function preflight(
   entity: IngestEntity,
@@ -731,7 +751,7 @@ export function preflight(
           blockers.push({
             row: n,
             column: col.name,
-            message: `${col.name} is "${raw}", which is not a number. The database would stop the whole upload on this cell, losing the record of every other refused row with it.`,
+            message: `${col.name} is "${raw}", which is not a number.`,
           });
           continue;
         }
@@ -755,7 +775,7 @@ export function preflight(
           blockers.push({
             row: n,
             column: col.name,
-            message: `${col.name} is "${raw}", which is not a date the database can read. Use 2026-08-01 or 2026-08-01T06:00:00Z. The database would stop the whole upload on this cell, losing the record of every other refused row with it.`,
+            message: `${col.name} is "${raw}", which is not a date the database can read. Use 2026-08-01 or 2026-08-01T06:00:00Z.`,
           });
         }
       } else if (col.oneOf && !col.oneOf.includes(raw)) {

@@ -1,21 +1,23 @@
 /**
- * The pre-upload checks, and why they are not politeness.
+ * The pre-upload checks, and the CHECK constraints they must not fall behind.
  *
- * Neither ingest_batch nor ingest_context_batch has an exception block. A cell
- * the database cannot cast — "yesterday" in a timestamp column, "n/a" in a
- * numeric one — RAISES inside the loop, which aborts the whole batch and rolls
- * back the accepted rows AND the retained rejects with it. The contract's first
- * promise is that a refused row is kept with its reason; for the single most
- * common spreadsheet defect that promise does not hold, and it is invisible
- * from the reject list because there is no reject list left.
+ * These used to be load-bearing. Neither validator had an exception block, so a
+ * cell the database cannot cast — "yesterday" in a timestamp column, "n/a" in a
+ * numeric one — RAISED inside the loop and aborted the whole batch, rolling
+ * back the accepted rows AND the retained rejects with them. 20261004090100 and
+ * 20261004090200 wrap every per-row write in a subtransaction, so that row now
+ * comes back as a retained reject carrying the database's own message. These
+ * checks stay because naming the row and the column beats naming a constraint,
+ * and because a round trip avoided is a round trip avoided.
  *
- * Two reject reasons in the chain are dead for their headline case because of
- * it: 20260905090000's 'missing or unparseable taken_at' and 20260812090000's
- * 'missing or unparseable started_at' can only ever fire for MISSING, since the
- * cast on the line above throws first.
- *
- * So these checks run before the file is sent, and the file is refused rather
- * than partially applied.
+ * ONE OF THEM IS STILL LOAD-BEARING, and it is the reason this file has a
+ * rediscovering test at the bottom. A column with a CHECK ... in (...) and no
+ * `oneOf` in the descriptor is a value the operator can only find out about
+ * from a database error. That is exactly what shipped for
+ * maintenance_notification's `notification_type` and `status`: the word
+ * "malfunction", or a capitalised "Fault" from a CMMS export, reached the
+ * insert and raised. The last test here reads the CHECK lists out of the
+ * migrations and fails if any exposed column has drifted from them.
  */
 import { describe, expect, it } from "vitest";
 import {
@@ -46,27 +48,59 @@ describe("a missing column is caught before anything is sent", () => {
   });
 
   it("accepts either column of a one-of group", () => {
-    const headers = ["asset_id", "external_id", "state", "started_at"];
+    const headers = [
+      "asset_id",
+      "external_id",
+      "state",
+      "started_at",
+      "ended_at",
+    ];
     const b = preflight(
       INGEST_ENTITIES.operating_state,
       headers,
-      rowsFrom(headers, [["a-1", "OS-1", "running", "2026-08-01T06:00:00Z"]]),
+      rowsFrom(headers, [
+        [
+          "a-1",
+          "OS-1",
+          "running",
+          "2026-08-01T06:00:00Z",
+          "2026-08-01T14:00:00Z",
+        ],
+      ]),
     );
     expect(b).toEqual([]);
   });
 
   it("but refuses a file that has neither", () => {
-    const headers = ["external_id", "state", "started_at"];
+    const headers = ["external_id", "state", "started_at", "ended_at"];
     const b = preflight(
       INGEST_ENTITIES.operating_state,
       headers,
-      rowsFrom(headers, [["OS-1", "running", "2026-08-01T06:00:00Z"]]),
+      rowsFrom(headers, [
+        ["OS-1", "running", "2026-08-01T06:00:00Z", "2026-08-01T14:00:00Z"],
+      ]),
     );
-    expect(b[0].message).toContain("asset_name, asset_id");
+    expect(b.map((x) => x.message).join(" ")).toContain("asset_name, asset_id");
+  });
+
+  it("an uploaded state with no ended_at is refused before it is sent", () => {
+    // A blank ended_at means "still in this state now", which a file cannot
+    // assert. One such row made get_operating_context report 100% coverage of a
+    // 90-day window whose data ended in 2010 — so the manual door requires it,
+    // and the descriptor says so before the upload rather than after.
+    const headers = ["asset_name", "external_id", "state", "started_at"];
+    const b = preflight(
+      INGEST_ENTITIES.operating_state,
+      headers,
+      rowsFrom(headers, [
+        ["Conveyor C-22", "OS-1", "running", "2026-08-01T06:00:00Z"],
+      ]),
+    );
+    expect(b.map((x) => x.column)).toContain("ended_at");
   });
 });
 
-describe("the casts that would abort the batch are caught first", () => {
+describe("the casts and ranges are caught before the round trip", () => {
   const headers = [
     "asset_name",
     "external_id",
@@ -81,16 +115,20 @@ describe("the casts that would abort the batch are caught first", () => {
       INGEST_ENTITIES.operating_state,
       headers,
       rowsFrom(headers, [
-        ["Conveyor C-22", "OS-1", "running", "yesterday", "", ""],
+        [
+          "Conveyor C-22",
+          "OS-1",
+          "running",
+          "yesterday",
+          "2026-08-01T14:00:00Z",
+          "",
+        ],
       ]),
     );
     expect(b).toHaveLength(1);
     expect(b[0].row).toBe(1);
     expect(b[0].column).toBe("started_at");
     expect(b[0].message).toContain("not a date the database can read");
-    expect(b[0].message).toContain(
-      "losing the record of every other refused row",
-    );
   });
 
   it("an unparseable number is refused", () => {
@@ -98,21 +136,36 @@ describe("the casts that would abort the batch are caught first", () => {
       INGEST_ENTITIES.operating_state,
       headers,
       rowsFrom(headers, [
-        ["Conveyor C-22", "OS-1", "running", "2026-08-01T06:00:00Z", "", "n/a"],
+        [
+          "Conveyor C-22",
+          "OS-1",
+          "running",
+          "2026-08-01T06:00:00Z",
+          "2026-08-01T14:00:00Z",
+          "n/a",
+        ],
       ]),
     );
     expect(b[0].column).toBe("load_pct");
     expect(b[0].message).toContain("not a number");
   });
 
-  it("a value outside a table CHECK is refused — it would abort the batch too", () => {
-    // operating_states carries check (load_pct >= 0 and load_pct <= 200), and a
-    // constraint violation is as fatal to the batch as a bad cast.
+  it("a value outside a table CHECK is refused before the round trip", () => {
+    // operating_states carries check (load_pct >= 0 and load_pct <= 200). The
+    // validator now checks the range itself and the subtransaction would catch
+    // it either way, so this is a better message rather than the only defence.
     const b = preflight(
       INGEST_ENTITIES.operating_state,
       headers,
       rowsFrom(headers, [
-        ["Conveyor C-22", "OS-1", "running", "2026-08-01T06:00:00Z", "", "500"],
+        [
+          "Conveyor C-22",
+          "OS-1",
+          "running",
+          "2026-08-01T06:00:00Z",
+          "2026-08-01T14:00:00Z",
+          "500",
+        ],
       ]),
     );
     expect(b[0].message).toContain("largest accepted value is 200");
@@ -137,7 +190,7 @@ describe("the casts that would abort the batch are caught first", () => {
       INGEST_ENTITIES.operating_state,
       headers,
       rowsFrom(headers, [
-        ["Conveyor C-22", "OS-1", "running", "2026-08-01", "", "72"],
+        ["Conveyor C-22", "OS-1", "running", "2026-08-01", "2026-08-02", "72"],
       ]),
     );
     expect(b).toEqual([]);
@@ -148,7 +201,7 @@ describe("the casts that would abort the batch are caught first", () => {
       INGEST_ENTITIES.operating_state,
       headers,
       rowsFrom(headers, [
-        ["Conveyor C-22", "OS-1", "spinning", "2026-08-01", "", ""],
+        ["Conveyor C-22", "OS-1", "spinning", "2026-08-01", "2026-08-02", ""],
       ]),
     );
     expect(b[0].message).toContain("running, idle, standby");
@@ -167,7 +220,14 @@ describe("the casts that would abort the batch are caught first", () => {
           "2026-08-01T14:00:00Z",
           "72",
         ],
-        ["Conveyor C-22", "OS-2", "idle", "2026-08-01T14:00:00Z", "", ""],
+        [
+          "Conveyor C-22",
+          "OS-2",
+          "idle",
+          "2026-08-01T14:00:00Z",
+          "2026-08-01T18:00:00Z",
+          "",
+        ],
       ]),
     );
     expect(b).toEqual([]);

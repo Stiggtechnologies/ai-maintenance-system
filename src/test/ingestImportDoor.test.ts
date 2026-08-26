@@ -29,7 +29,42 @@ const DIR = "supabase/migrations";
 const ROUTER = "20261004090000_route_the_import_door.sql";
 const ORIGINAL_DOOR = "20260907090000_manual_import.sql";
 
+const CONTEXT_FIX =
+  "20261004090200_operating_context_rows_survive_a_bad_cell.sql";
+
 const routerSql = stripComments(readFileSync(`${DIR}/${ROUTER}`, "utf8"));
+
+/** Every migration's SQL, comments stripped, in timestamp order. */
+const allSql = migrationFiles(DIR).map((file) => ({
+  file,
+  sql: stripComments(readFileSync(`${DIR}/${file}`, "utf8")),
+}));
+
+/**
+ * The enumerated CHECK constraints on a table, read out of its CREATE TABLE.
+ * Rediscovered rather than listed, so a constraint added later is picked up
+ * without anyone remembering to come back here.
+ */
+function enumeratedChecks(table: string): Record<string, string[]> {
+  const out: Record<string, string[]> = {};
+  const open = new RegExp(
+    "create\\s+table\\s+(?:if\\s+not\\s+exists\\s+)?(?:public\\.)?" +
+      table +
+      "\\s*\\(",
+    "i",
+  );
+  for (const { sql } of allSql) {
+    const m = open.exec(sql);
+    if (!m) continue;
+    const body = sql.slice(m.index + m[0].length);
+    const end = body.indexOf("\n);");
+    const block = end === -1 ? body : body.slice(0, end);
+    for (const c of block.matchAll(/check\s*\(\s*(\w+)\s+in\s*\(([^)]*)\)/gi)) {
+      out[c[1]] = [...c[2].matchAll(/'([^']*)'/g)].map((v) => v[1]);
+    }
+  }
+  return out;
+}
 
 /** The last definition of each function in filename order — `create or replace`. */
 function liveDefinitions(): Map<string, { file: string; body: string }> {
@@ -161,7 +196,7 @@ describe("there is one door, and the misroute is unreachable", () => {
   it("ingest_rows resolves the handler from the RUN, not from its caller", () => {
     const body = defs.get("ingest_rows")?.body ?? "";
     expect(body).toMatch(
-      /select\s+entity_type\s+into\s+v_entity\s+from\s+connector_runs/i,
+      /select\s+cr\.entity_type\s+into\s+v_entity[\s\S]{0,80}?from\s+connector_runs/i,
     );
     expect(body).toMatch(/ingest_handler_for\s*\(\s*v_entity\s*\)/i);
   });
@@ -261,11 +296,14 @@ describe("what the surface promises matches what the contract does", () => {
     "production_record",
   ];
 
-  it("the five types that SKIP a re-upload say so, and the two that UPDATE say so", () => {
+  it("the four types that SKIP a re-upload say so, and the three that UPDATE say so", () => {
     // The shipped importer told every user "a re-upload updates rather than
-    // duplicates". That is true of maintenance_plan and material_stock and
-    // false of the other five, which take the `v_dup := v_dup + 1; continue;`
-    // path. A single sentence was a false statement on five of seven types.
+    // duplicates". That is true of the three whose branch ends in `on conflict
+    // ... do update` — maintenance_plan, maintenance_notification and
+    // material_stock — and false of the other FOUR, which take the
+    // `v_dup := v_dup + 1; continue;` path. A single sentence was a false
+    // statement on four of seven types. The counts here are asserted below
+    // against the SQL branches, not against this comment.
     for (const key of dedupeByExternalId) {
       expect(INGEST_ENTITIES[key].reupload, key).toBe("skips");
       expect(INGEST_ENTITIES[key].reuploadSentence).toContain("DUPLICATE");
@@ -315,15 +353,19 @@ describe("what the surface promises matches what the contract does", () => {
     }
   });
 
-  it("operating_state warns about the overlap a re-upload cannot detect", () => {
-    // Manual uploads dedupe on (organization, source_system, external_id) with
-    // source_system = 'manual-upload-operating_state'. States loaded by a
-    // fleet-history import carry that import's own source name, so a manual
-    // reload of the same period inserts a SECOND overlapping copy and nothing
-    // in the schema prevents it.
+  it("operating_state says an overlapping period is refused, because it is", () => {
+    // The external_id de-duplication only compares an upload against previous
+    // UPLOADS: states loaded by a fleet-history import carry that import's own
+    // source name and are invisible to it. Until 20261004090200 nothing else
+    // stopped two simultaneous states on one machine, and three rows covering
+    // one 24-hour day were all accepted — 60 state-hours in a 24-hour day. The
+    // sentence and the validator have to say the same thing.
     const caution = INGEST_ENTITIES.operating_state.caution ?? "";
-    expect(caution).toContain("PREVIOUS UPLOADS");
-    expect(caution).toContain("overlapping");
+    expect(caution).toContain("ONE state at a time");
+    expect(caution).toContain("REFUSED");
+    const body = defs.get("ingest_context_batch")?.body ?? "";
+    expect(body).toContain("overlaps a state already recorded for this asset");
+    expect(body).toMatch(/tstzrange\([\s\S]{0,120}?&&\s*tstzrange/);
   });
 
   it("production_record warns that mixed units disable cost per unit entirely", () => {
@@ -341,5 +383,275 @@ describe("what the surface promises matches what the contract does", () => {
     expect(INGEST_ENTITIES.maintenance_plan.caution ?? "").toContain(
       "positional id",
     );
+  });
+});
+
+/**
+ * The write path, not just the door.
+ *
+ * 20260907090000 put the role gate on run CREATION only, and connector_runs'
+ * RLS policy (20260917000000:372) is org-wide rather than actor-scoped — so any
+ * member of the tenant can read a run id opened for someone else. Measured on a
+ * full schema before this was closed: a technician the door had just refused
+ * read a planner's run id and pushed two 0.2 readings through it, taking
+ * `Vibration — Drive End` from 12.4 / alarm to 0.2 / normal. The door said no
+ * and the write said yes.
+ */
+describe("the gate is on the write, not only on the door", () => {
+  const GATE =
+    /select\s+role\s+into\s+v_role\s+from\s+user_profiles\s+where\s+id\s*=\s*auth\.uid\(\);\s*if\s+coalesce\(v_role,\s*''\)\s+not\s+in\s*\(\s*'planner','reliability_engineer','maintenance_manager','admin','ai_admin'\s*\)\s+then/i;
+
+  it("ingest_rows applies the SAME five-role gate as begin_manual_import", () => {
+    const router = defs.get("ingest_rows")?.body ?? "";
+    const door = defs.get("begin_manual_import")?.body ?? "";
+    expect(door.replace(/\s+/g, " ")).toMatch(GATE);
+    expect(router.replace(/\s+/g, " ")).toMatch(GATE);
+    expect(router).toContain(
+      "importing master data requires a planning, engineering or administrator role",
+    );
+  });
+
+  it("mutation-sanity — the gate pattern does not match a four-role list", () => {
+    expect(
+      GATE.test(
+        "select role into v_role from user_profiles where id = auth.uid(); " +
+          "if coalesce(v_role, '') not in ('planner','reliability_engineer','admin','ai_admin') then",
+      ),
+    ).toBe(false);
+  });
+
+  it("ingest_rows only accepts a run this door opened", () => {
+    // Rows are stamped with the run's connector_key as source_system, so
+    // accepting any run in the tenant let a caller write work orders that read
+    // as SAP history — and four seeded connectors have a NULL connector_key,
+    // which defeats the `source_system = v_source` dedupe predicate outright
+    // (three identical uploads landed three rows). ingest_recovery_signal_batch
+    // makes exactly this check at 20261002100000; it is copied, not invented.
+    const body = (defs.get("ingest_rows")?.body ?? "").replace(/\s+/g, " ");
+    expect(body).toMatch(
+      /join\s+connectors\s+c\s+on\s+c\.id\s*=\s*cr\.connector_id/i,
+    );
+    expect(body).toMatch(/c\.connector_type\s*=\s*'manual_upload'/i);
+    expect(body).toMatch(/c\.connector_key\s+is\s+not\s+null/i);
+  });
+
+  it("the door only ever builds manual_upload connectors, so the two agree", () => {
+    expect(defs.get("begin_manual_import")?.body ?? "").toContain(
+      "'manual_upload'",
+    );
+  });
+});
+
+/**
+ * One bad cell must not take the file with it.
+ *
+ * Measured before this landed: a notification_type of "malfunction" left 0 rows
+ * written, 0 rejects RETAINED, counters 0/0/0 and the run stuck `running`; a
+ * load_pct of -5 — a perfectly castable number that violates a CHECK — did the
+ * same to an operating-state file. "Every refused row is kept with its reason"
+ * was false for the most common spreadsheet defect there is.
+ */
+describe("a row the database refuses is a reject, not a lost batch", () => {
+  for (const fn of ["ingest_batch", "ingest_context_batch"] as const) {
+    it(`${fn} wraps every per-row write in a subtransaction`, () => {
+      const body = defs.get(fn)?.body ?? "";
+      expect(body).toMatch(/exception\s+when\s+unique_violation\s+then/i);
+      expect(body).toContain("the database refused this row: %s");
+      // The retained-reject insert must sit OUTSIDE the handler, or the
+      // rollback that saves the batch would take the explanation with it.
+      const handler = body.indexOf("when others then");
+      const retained = body.indexOf("'rejected', v_reason)");
+      expect(handler).toBeGreaterThan(-1);
+      expect(retained).toBeGreaterThan(handler);
+    });
+  }
+
+  it("a concurrent run's duplicate is named as one, not as an index", () => {
+    // The unique index is the real idempotency guarantee; the `exists` check is
+    // an optimisation, and two overlapping runs can land between the two.
+    for (const fn of ["ingest_batch", "ingest_context_batch"] as const) {
+      expect(defs.get(fn)?.body ?? "").toContain(
+        "already loaded — another run wrote this external_id while this one was in flight",
+      );
+    }
+  });
+
+  it("mutation-sanity — the assertion is about the CURRENT bodies", () => {
+    expect(defs.get("ingest_batch")?.file).toBe(
+      "20261004090100_condition_reading_written_once.sql",
+    );
+    expect(defs.get("ingest_context_batch")?.file).toBe(CONTEXT_FIX);
+  });
+});
+
+/**
+ * A column with a CHECK and no client allowlist is a value the operator can
+ * only learn about from a Postgres error. This is the rediscovering guard:
+ * it reads the CHECK lists out of the CREATE TABLE statements rather than
+ * restating them, so a constraint added later fails here.
+ */
+describe("every enumerated CHECK the surface exposes is in the descriptor", () => {
+  const TABLE_FOR: Record<IngestEntityKey, string> = {
+    maintenance_plan: "maintenance_plans",
+    maintenance_notification: "maintenance_notifications",
+    work_order: "work_orders",
+    condition_reading: "condition_readings",
+    material_stock: "material_stock",
+    operating_state: "operating_states",
+    production_record: "production_records",
+  };
+
+  it("the entity-to-table map matches what the validator actually inserts into", () => {
+    for (const [key, table] of Object.entries(TABLE_FOR)) {
+      const entity = INGEST_ENTITIES[key as IngestEntityKey];
+      const body = defs.get(entity.handler)?.body ?? "";
+      const branch = body.slice(body.indexOf(`r.entity_type = '${key}'`));
+      const next = branch.search(
+        /elsif\s+v_reason\s+is\s+null\s+and\s+r\.entity_type/,
+      );
+      const own = next === -1 ? branch : branch.slice(0, next);
+      const writes =
+        own.includes(`insert into ${table} `) ||
+        own.includes(`insert into ${table}(`) ||
+        own.includes(`insert into ${table}\n`) ||
+        // condition_reading is written by record_condition_reading, on purpose.
+        (key === "condition_reading" &&
+          own.includes("perform record_condition_reading"));
+      expect(writes, `${key} does not write ${table}`).toBe(true);
+    }
+  });
+
+  it("mutation-sanity — the CHECK reader finds the constraints it should", () => {
+    expect(
+      enumeratedChecks("maintenance_notifications").notification_type,
+    ).toEqual(["fault", "observation", "request", "safety"]);
+    expect(enumeratedChecks("operating_states").state).toContain(
+      "down_unplanned",
+    );
+    expect(enumeratedChecks("work_orders")).toEqual({});
+  });
+
+  for (const key of INGEST_ENTITY_ORDER) {
+    it(`${key} declares oneOf for every CHECK-constrained column it exposes`, () => {
+      const entity = INGEST_ENTITIES[key];
+      const checks = enumeratedChecks(TABLE_FOR[key]);
+      for (const col of entity.columns) {
+        const allowed = checks[col.name];
+        if (!allowed) continue;
+        expect(
+          col.oneOf,
+          `${key}.${col.name} has a CHECK in the database and no oneOf here: ` +
+            `"${allowed[0]}" is enforceable but a plausible neighbour is not, ` +
+            `and the operator would see a raw constraint name instead of a row`,
+        ).toBeDefined();
+        expect([...(col.oneOf ?? [])].sort()).toEqual([...allowed].sort());
+      }
+    });
+  }
+});
+
+/**
+ * Grants, in both directions. A grant that exists only because of a Supabase
+ * platform default is a grant nobody can read in the migration — a review of
+ * this branch read exactly that wrong and reported service_role as locked out.
+ */
+describe("who may call what is stated, not inherited", () => {
+  it("service_role keeps the whole contract, explicitly", () => {
+    for (const sig of [
+      "ingest_batch\\(uuid, jsonb\\)",
+      "ingest_context_batch\\(uuid, jsonb\\)",
+      "ingest_rows\\(uuid, jsonb\\)",
+    ]) {
+      expect(routerSql).toMatch(
+        new RegExp(
+          `grant execute on function public\\.${sig} to service_role;`,
+          "i",
+        ),
+      );
+    }
+  });
+
+  it("the two functions anon could call are revoked from public and anon", () => {
+    // 20260907090000:125 and 20260810160000:487 granted to `authenticated`
+    // without the `revoke ... from public, anon` this repository uses
+    // everywhere else, so both were executable by PUBLIC.
+    for (const sig of [
+      "get_import_rejects\\(uuid, int\\)",
+      "finish_connector_run\\(uuid, text, text\\)",
+    ]) {
+      expect(routerSql).toMatch(
+        new RegExp(
+          `revoke all on function public\\.${sig} from public, anon;`,
+          "i",
+        ),
+      );
+      expect(routerSql).toMatch(
+        new RegExp(
+          `grant execute on function public\\.${sig} to authenticated;`,
+          "i",
+        ),
+      );
+    }
+  });
+
+  it("the context validator's own file revokes it too, after the replace", () => {
+    // 20261004090200 does a create-or-replace, which PRESERVES the ACL — but a
+    // future drop-and-recreate would not, so the revoke is restated there.
+    const sql = stripComments(readFileSync(`${DIR}/${CONTEXT_FIX}`, "utf8"));
+    expect(sql).toMatch(
+      /revoke all on function public\.ingest_context_batch\(uuid, jsonb\) from public, anon, authenticated;/i,
+    );
+  });
+});
+
+/**
+ * The watermark rule was stated as a property and enforced by one call site.
+ */
+describe("the watermark advances only on a genuinely clean run", () => {
+  it("finish_connector_run consults records_rejected, not just the status argument", () => {
+    const body = (defs.get("finish_connector_run")?.body ?? "").replace(
+      /\s+/g,
+      " ",
+    );
+    expect(body).toMatch(
+      /if p_status = 'success' and r\.records_rejected = 0 and r\.watermark_to is not null then/i,
+    );
+    expect(body).toMatch(
+      /'watermark_advanced', p_status = 'success' and r\.records_rejected = 0/i,
+    );
+  });
+
+  it("and the browser still sends partial, so the two agree rather than one covering for the other", () => {
+    const tsx = readFileSync("src/components/ContractImport.tsx", "utf8");
+    expect(tsx).toContain('totals.rejected > 0 ? "partial" : "success"');
+  });
+});
+
+/**
+ * History is not state. record_condition_reading was written for keyed-in
+ * readings, where every reading is by definition current.
+ */
+describe("a historian backfill does not rewrite the live condition picture", () => {
+  it("only a reading at or after the series head touches sensors or alerts", () => {
+    const body = defs.get("record_condition_reading")?.body ?? "";
+    expect(body).toMatch(
+      /select\s+value,\s*taken_at\s+into\s+v_prev,\s*v_prev_at\s+from\s+condition_readings/i,
+    );
+    expect(body).toMatch(
+      /if\s+v_prev_at\s+is\s+not\s+null\s+and\s+p_taken_at\s*<\s*v_prev_at\s+then/i,
+    );
+    // The guard must sit between the INSERT and the alert/limit evaluation:
+    // the reading is stored either way, and only the present is protected.
+    const insert = body.indexOf("insert into condition_readings");
+    const guard = body.indexOf("'historical', true");
+    const sensorUpdate = body.indexOf("update sensors");
+    expect(insert).toBeGreaterThan(-1);
+    expect(guard).toBeGreaterThan(insert);
+    expect(sensorUpdate).toBeGreaterThan(guard);
+  });
+
+  it("the surface says what loading history does, before the upload", () => {
+    const caution = INGEST_ENTITIES.condition_reading.caution ?? "";
+    expect(caution).toContain("ONLY THE NEWEST READING");
   });
 });

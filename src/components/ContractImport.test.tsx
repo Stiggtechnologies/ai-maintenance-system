@@ -46,7 +46,7 @@ async function upload(text: string) {
 const GOOD_STATES = [
   "asset_name,external_id,state,started_at,ended_at,load_pct",
   "Conveyor C-22,OS-1,running,2026-08-01T06:00:00Z,2026-08-01T14:00:00Z,72",
-  "Conveyor C-22,OS-2,idle,2026-08-01T14:00:00Z,,",
+  "Conveyor C-22,OS-2,idle,2026-08-01T14:00:00Z,2026-08-01T18:00:00Z,",
 ].join("\n");
 
 function ok(counts: Partial<Record<string, number>>) {
@@ -109,7 +109,7 @@ describe("the caller never picks the validator", () => {
       state: "running",
       load_pct: "72",
     });
-    expect(rows.p_rows[1].ended_at).toBeNull();
+    expect(rows.p_rows[1].ended_at).toBe("2026-08-01T18:00:00Z");
     expect(rows.p_rows[1].load_pct).toBeNull();
   });
 });
@@ -197,7 +197,7 @@ describe("a run is never left running", () => {
   });
 });
 
-describe("a file that would abort the batch is not sent", () => {
+describe("a cell the database cannot read is named before the file is sent", () => {
   it("blocks the upload and names the cell", async () => {
     rpc.mockResolvedValue({ data: {}, error: null });
     render(<ContractImport initialEntity="operating_state" />);
@@ -209,8 +209,8 @@ describe("a file that would abort the batch is not sent", () => {
         files: [
           csvFile(
             [
-              "asset_name,external_id,state,started_at",
-              "Conveyor C-22,OS-1,running,yesterday",
+              "asset_name,external_id,state,started_at,ended_at",
+              "Conveyor C-22,OS-1,running,yesterday,2026-08-01T14:00:00Z",
             ].join("\n"),
           ),
         ],
@@ -250,10 +250,32 @@ describe("what the operator is told before uploading is per entity type", () => 
     ).toBeNull();
   });
 
-  it("warns that a manual operating-state reload cannot see a fleet-history import", () => {
+  it("warns that an overlapping state period is refused, not silently doubled", () => {
     rpc.mockResolvedValue({ data: {}, error: null });
     render(<ContractImport initialEntity="operating_state" />);
-    expect(screen.getByText(/second, overlapping copy/)).toBeTruthy();
+    expect(screen.getByText(/ONE state at a time/)).toBeTruthy();
+  });
+
+  it("says a blank ended_at is not allowed on an upload, before a file is chosen", () => {
+    rpc.mockResolvedValue({ data: {}, error: null });
+    render(<ContractImport initialEntity="operating_state" />);
+    expect(
+      screen.getByText(/a file cannot assert that a machine is still in this/),
+    ).toBeTruthy();
+  });
+
+  it("lists the allowed notification types and statuses rather than leaving them to a CHECK", () => {
+    // Both columns carry a CHECK. Shipped without an allowlist, the ordinary
+    // word "malfunction" raised inside the insert and took the whole file with
+    // it — no rows, and no retained rejects to explain why.
+    rpc.mockResolvedValue({ data: {}, error: null });
+    render(<ContractImport initialEntity="maintenance_notification" />);
+    expect(
+      screen.getByText(/fault, observation, request or safety/),
+    ).toBeTruthy();
+    expect(
+      screen.getByText(/open, in_planning, converted, rejected or merged/),
+    ).toBeTruthy();
   });
 
   it("switching entity type clears the parsed file, so it cannot be sent to the wrong door", async () => {

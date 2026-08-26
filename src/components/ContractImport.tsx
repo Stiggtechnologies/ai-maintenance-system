@@ -22,11 +22,11 @@
  * disagreed with the other two about what a re-upload means.
  *
  * WHAT IS SAID BEFORE THE UPLOAD, NOT AFTER. The shipped screen told everybody
- * "a re-upload updates rather than duplicates" — true of plans, false of five
- * of the seven types, which skip a re-upload as a duplicate. Every sentence
- * about identity, de-duplication and prerequisites is now per entity and shown
- * before the file is sent, because none of it is guessable from a reject
- * reason.
+ * "a re-upload updates rather than duplicates" — true of three of the seven
+ * types, false of the other four, which skip a re-upload as a duplicate. Every
+ * sentence about identity, de-duplication and prerequisites is now per entity
+ * and shown before the file is sent, because none of it is guessable from a
+ * reject reason.
  */
 import { useMemo, useState } from "react";
 import {

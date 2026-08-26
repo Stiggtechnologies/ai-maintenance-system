@@ -375,3 +375,126 @@ describe("a definer function is not callable by anon just because nobody said so
     );
   });
 });
+
+/**
+ * The other half of the surface: definer functions that take no organization
+ * argument at all.
+ *
+ * orgParameterSurface() above finds functions whose ARGUMENT list names an
+ * organization. That was the shape of the three original defects, and it is a
+ * real shape — but it is not the only one. A SECURITY DEFINER function granted
+ * to `authenticated` runs with RLS off whether or not it takes an org
+ * argument; if it filters an org-scoped table by an ASSET id, a RUN id or a
+ * SENSOR id and never mentions app_current_org(), it reads and writes across
+ * tenants and this file could not see it.
+ *
+ * ingest_rows (20261004090000) is the immediate reason. It is new, SECURITY
+ * DEFINER, granted to `authenticated`, reads connector_runs and writes tenant
+ * data through two validators — and it takes a run id, not an org id, so it
+ * scored zero on the scan above. Its `and organization_id = v_org` was asserted
+ * only in a Feature-lane test, where the next definer function to land would
+ * not have inherited it. This scan is where it belongs.
+ *
+ * It found three functions that had never been looked at. One of them,
+ * get_operating_regime, is fixed in 20261004090200 — it read any tenant's duty
+ * state from an asset id, and nothing had ever called it. The other two are
+ * named below as OPEN DEFECTS, not as approved exceptions.
+ */
+describe("a definer function that touches tenant tables names the tenant", () => {
+  /** Tables whose every row belongs to exactly one organization. */
+  const ORG_SCOPED = [
+    "connector_runs",
+    "ingest_staging",
+    "ingest_watermarks",
+    "operating_states",
+    "production_records",
+    "condition_readings",
+    "condition_alerts",
+    "work_orders",
+    "maintenance_plans",
+    "maintenance_notifications",
+    "material_stock",
+    "asset_onboarding_items",
+    "assets",
+    "sensors",
+  ];
+
+  function touchesOrgScopedTable(body: string): boolean {
+    return ORG_SCOPED.some((t) =>
+      new RegExp(`(from|join|into|update)\\s+${t}\\b`, "i").test(body),
+    );
+  }
+
+  const surface = [...defs.values()].filter(
+    (d) =>
+      d.definer &&
+      grantedToAuthenticated.has(d.name) &&
+      touchesOrgScopedTable(d.body),
+  );
+
+  /**
+   * Functions that touch an org-scoped table with RLS off and never mention
+   * app_current_org(). These are DEFECTS, dated 2026-08-26, not exemptions:
+   *
+   *   derive_onboarding_value(uuid, text)   reads assets and work_orders for
+   *   run_onboarding_resolution(uuid)       any asset id the caller supplies,
+   *                                         takes the organization FROM that
+   *                                         asset, and the second one WRITES
+   *                                         asset_onboarding_items. Both are
+   *                                         20260814140000_awaiting_data.sql,
+   *                                         a different workstream from the
+   *                                         one that found them; fixing them
+   *                                         here would mix two changes in one
+   *                                         review. The fix is one predicate
+   *                                         each: `and organization_id =
+   *                                         app_current_org()` on the
+   *                                         `select * into a from assets`.
+   *
+   * The set is asserted exactly, so it can shrink when they are fixed and
+   * cannot grow quietly.
+   */
+  const KNOWN_UNSCOPED = [
+    "derive_onboarding_value",
+    "run_onboarding_resolution",
+  ];
+
+  it("the scan sees a real surface rather than passing vacuously", () => {
+    expect(surface.length).toBeGreaterThan(50);
+    expect(surface.map((d) => d.name)).toContain("ingest_rows");
+    expect(surface.map((d) => d.name)).toContain("ingest_batch");
+  });
+
+  it("mutation-sanity — a body with no org filter is detected", () => {
+    expect(
+      /app_current_org\s*\(\s*\)/i.test(
+        "select * from assets where id = p_asset_id;",
+      ),
+    ).toBe(false);
+    expect(touchesOrgScopedTable("select 1 from organizations")).toBe(false);
+    expect(touchesOrgScopedTable("select 1 from work_orders w")).toBe(true);
+  });
+
+  it("every one of them consults app_current_org(), and the exceptions are exactly the two known defects", () => {
+    const unscoped = surface
+      .filter((d) => !/app_current_org\s*\(\s*\)/i.test(d.body))
+      .map((d) => d.name)
+      .sort();
+    expect(
+      unscoped,
+      "a SECURITY DEFINER function granted to `authenticated` reads or writes " +
+        "an org-scoped table with RLS off and never names the caller's tenant",
+    ).toEqual([...KNOWN_UNSCOPED].sort());
+  });
+
+  it("ingest_rows in particular derives the tenant and filters the run by it", () => {
+    // The router is the only caller ingest_batch and ingest_context_batch have
+    // left, so a missing predicate here is a missing predicate for the whole
+    // ingest contract.
+    const body = defs.get("ingest_rows")?.body ?? "";
+    expect(body).toMatch(/v_org\s+uuid\s*:=\s*app_current_org\(\)/i);
+    expect(body.replace(/\s+/g, " ")).toMatch(
+      /cr\.organization_id\s*=\s*v_org/i,
+    );
+    expect(body).toContain("no organization in session");
+  });
+});
