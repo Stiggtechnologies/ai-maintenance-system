@@ -3,17 +3,19 @@ name: Recovery Full Closeout
 on:
   pull_request:
     paths:
-      - 'supabase/migrations/**'
-      - 'scripts/ci-recovery-*.sh'
-      - 'src/test/syncRecovery*.test.ts'
-      - '.github/workflows/recovery-closeout.yml'
+      - "supabase/migrations/**"
+      - "scripts/ci-recovery-*.sh"
+      - "src/test/recoveryActivationContract.test.ts"
+      - "src/test/syncRecovery*.test.ts"
+      - ".github/workflows/recovery-closeout.yml"
   push:
     branches: [main]
     paths:
-      - 'supabase/migrations/**'
-      - 'scripts/ci-recovery-*.sh'
-      - 'src/test/syncRecovery*.test.ts'
-      - '.github/workflows/recovery-closeout.yml'
+      - "supabase/migrations/**"
+      - "scripts/ci-recovery-*.sh"
+      - "src/test/recoveryActivationContract.test.ts"
+      - "src/test/syncRecovery*.test.ts"
+      - ".github/workflows/recovery-closeout.yml"
 
 concurrency:
   group: recovery-closeout-${{ github.ref }}
@@ -40,7 +42,7 @@ jobs:
       - run: npm ci --no-audit --no-fund
 
       - name: Static Recovery closeout contracts
-        run: npx vitest run src/test/syncRecoveryGovernance.test.ts src/test/syncRecoveryFullCloseout.test.ts src/test/syncRecoveryProductWiring.test.ts
+        run: npx vitest run src/test/syncRecoveryGovernance.test.ts src/test/syncRecoveryFullCloseout.test.ts src/test/syncRecoveryProductWiring.test.ts src/test/recoveryActivationContract.test.ts src/lib/recovery-activation/recovery-activation.test.ts
 
       - uses: supabase/setup-cli@3c2f5e2ae34c34e428e8e206e2c4d21fa2d20fbf # v2.1.1
         with:
@@ -72,6 +74,9 @@ jobs:
 
       - name: Original governed Recovery lifecycle
         run: bash scripts/ci-recovery-lifecycle-smoke.sh
+
+      - name: First-tenant Recovery activation
+        run: bash scripts/ci-recovery-activation-smoke.sh
 
       - name: Full Control + Optimize + Learn closeout
         run: |

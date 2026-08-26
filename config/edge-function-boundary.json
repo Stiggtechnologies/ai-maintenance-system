@@ -8,6 +8,7 @@
     "lead-notify",
     "onboarding-enrich",
     "public-reliability-agent",
+    "recovery-activation-pull",
     "sync-investigation-runtime",
     "sync-runtime"
   ],
