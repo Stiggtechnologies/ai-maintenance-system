@@ -329,19 +329,34 @@ async function executeAction(supabase: any, config: any, triggerData: any) {
   }
 
   if (actionType === 'ai_analysis') {
+    // This step is NOT implemented. It used to return the placeholder prose
+    // 'Root cause analysis would be performed here' together with
+    // `confidence: 0.85` — a hardcoded confidence for an analysis that was
+    // never performed, returned server-side so the number entered persisted
+    // runbook results and could be read back as though something had assessed
+    // it. An unimplemented step reports that it is unimplemented; it does not
+    // report a number.
     return {
       action: 'ai_analysis',
       model_tier: config.model_tier,
-      analysis: 'Root cause analysis would be performed here',
-      confidence: 0.85
+      executed: false,
+      reason: 'not_implemented',
+      detail: 'Runbook AI analysis is not implemented. No root-cause analysis '
+        + 'was performed and no confidence is available for this step.'
     };
   }
 
   if (actionType === 'store_evidence') {
+    // Same class as ai_analysis above: it reported `stored: true` for evidence
+    // it never wrote anywhere. A step that stores nothing does not report a
+    // successful store — evidence provenance is the one thing that must not be
+    // asserted on faith.
     return {
       action: 'store_evidence',
       evidence_types: config.include,
-      stored: true
+      executed: false,
+      reason: 'not_implemented',
+      detail: 'Runbook evidence capture is not implemented. Nothing was stored.'
     };
   }
 

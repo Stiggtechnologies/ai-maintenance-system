@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -79,11 +79,29 @@ for (const reviewedFixture of [
   );
 }
 
+// These are CREDENTIAL-INCIDENT records, and the obligation is on their content,
+// not on their location. FINAL-AUDIT-REPORT.md moved to docs/archive/ on
+// 2026-08-20 because its *shipped-state* claims did not survive review — the
+// incident record inside it is unaffected and must still hold.
+//
+// So the check follows the file instead of assuming the root. It fails if the
+// record is missing from BOTH places, which is the condition that actually
+// matters; it must never be satisfied by the file merely having been moved or
+// removed.
 for (const incidentRecord of ["FINAL-AUDIT-REPORT.md", "SECRETS.md"]) {
-  requireCondition(
-    read(incidentRecord).includes("rotation must be independently verified"),
-    `${incidentRecord} must not restore historical credential fragments`,
+  const homes = [incidentRecord, `docs/archive/${incidentRecord}`].filter((p) =>
+    existsSync(resolve(repositoryRoot, p)),
   );
+  requireCondition(
+    homes.length > 0,
+    `${incidentRecord} is at neither the repository root nor docs/archive/ — a credential-incident record may be archived, never dropped`,
+  );
+  for (const home of homes) {
+    requireCondition(
+      read(home).includes("rotation must be independently verified"),
+      `${home} must not restore historical credential fragments`,
+    );
+  }
 }
 
 const workflowDirectory = resolve(repositoryRoot, ".github/workflows");

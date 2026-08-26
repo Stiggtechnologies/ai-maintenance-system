@@ -1,4 +1,9 @@
 # SyncAI MVP - 100% COMPLETE
+> **2026-08-20 — HISTORICAL DOCUMENT, ARCHIVED.** Moved out of the repository root because sections below
+> assert a shipped state the capability register contradicts. Content is unchanged from
+> the version on main, including every redaction. Live status:
+> `docs/enterprise-readiness/capability-register.md`.
+
 
 **Date:** 2026-04-03
 **Phase:** MVP "Governed Intelligence Core"

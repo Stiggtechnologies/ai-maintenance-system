@@ -1,4 +1,9 @@
 # Product Agent Summary - Customer Infrastructure Complete
+> **2026-08-20 — HISTORICAL DOCUMENT, ARCHIVED.** Moved out of the repository root because sections below
+> assert a shipped state the capability register contradicts. Content is unchanged from
+> the version on main, including every redaction. Live status:
+> `docs/enterprise-readiness/capability-register.md`.
+
 
 **Date:** February 23, 2026  
 **Agent:** Product Agent (Subagent)  
