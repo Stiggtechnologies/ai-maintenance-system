@@ -174,27 +174,36 @@ export function AssetManagement() {
 
               <div className="space-y-1.5 text-xs text-slate-400">
                 {asset.asset_classes?.name && (
-                  <div className="flex items-center justify-between">
-                    <span>Class</span>
-                    <span className="text-slate-300">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="shrink-0">Class</span>
+                    <span
+                      className="text-slate-300 truncate"
+                      title={asset.asset_classes.name}
+                    >
                       {asset.asset_classes.name}
                     </span>
                   </div>
                 )}
                 {asset.manufacturer && (
-                  <div className="flex items-center justify-between">
-                    <span>Manufacturer</span>
-                    <span className="text-slate-300">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="shrink-0">Manufacturer</span>
+                    <span
+                      className="text-slate-300 truncate"
+                      title={`${asset.manufacturer} ${asset.model}`}
+                    >
                       {asset.manufacturer} {asset.model}
                     </span>
                   </div>
                 )}
                 {asset.asset_locations?.name && (
-                  <div className="flex items-center justify-between">
-                    <span className="flex items-center gap-1">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="flex items-center gap-1 shrink-0">
                       <MapPin size={10} /> Location
                     </span>
-                    <span className="text-slate-300">
+                    <span
+                      className="text-slate-300 truncate"
+                      title={asset.asset_locations.name}
+                    >
                       {asset.asset_locations.name}
                     </span>
                   </div>

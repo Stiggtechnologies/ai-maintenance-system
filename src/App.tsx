@@ -229,8 +229,14 @@ function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/marketplace/signup" element={<MarketplaceSignup />} />
-          <Route path="/marketplace/aws/signup" element={<AwsMarketplaceSignup />} />
-          <Route path="/marketplace/salesforce/signup" element={<SalesforceSignup />} />
+          <Route
+            path="/marketplace/aws/signup"
+            element={<AwsMarketplaceSignup />}
+          />
+          <Route
+            path="/marketplace/salesforce/signup"
+            element={<SalesforceSignup />}
+          />
           <Route path="/auth/callback/azure" element={<AzureADCallback />} />
           <Route
             path="/signin"
@@ -240,15 +246,23 @@ function App() {
               ) : (
                 <Login
                   onSuccess={handleSignInSuccess}
-                  onTabChange={(page) => window.location.assign(`/?view=${page}`)}
+                  onTabChange={(page) =>
+                    window.location.assign(`/?view=${page}`)
+                  }
                 />
               )
             }
           />
           <Route path="/setup" element={<FirstCustomerPilotPage />} />
-          <Route path="/pilot/reliability" element={<FirstCustomerPilotPage />} />
+          <Route
+            path="/pilot/reliability"
+            element={<FirstCustomerPilotPage />}
+          />
           <Route path="/demo/copilot" element={<PublicCopilotExperience />} />
-          <Route path="/workspace/cases/:caseId" element={<DecisionCaseWorkspacePage publicMode />} />
+          <Route
+            path="/workspace/cases/:caseId"
+            element={<DecisionCaseWorkspacePage publicMode />}
+          />
           <Route
             path="/*"
             element={
@@ -260,21 +274,34 @@ function App() {
                 )}
                 {currentPage === "signin" && (
                   <motion.div key="signin" {...pageTransition}>
-                    <Login onSuccess={handleAuthSuccess} onTabChange={setCurrentPage} />
+                    <Login
+                      onSuccess={handleAuthSuccess}
+                      onTabChange={setCurrentPage}
+                    />
                   </motion.div>
                 )}
                 {currentPage === "signup" && (
                   <motion.div key="signup" {...pageTransition}>
-                    <Signup onSuccess={handleAuthSuccess} onTabChange={setCurrentPage} />
+                    <Signup
+                      onSuccess={handleAuthSuccess}
+                      onTabChange={setCurrentPage}
+                    />
                   </motion.div>
                 )}
                 {currentPage === "enterprise" && (
                   <motion.div key="enterprise" {...pageTransition}>
-                    <EnterpriseAccess onSuccess={handleAuthSuccess} onTabChange={setCurrentPage} />
+                    <EnterpriseAccess
+                      onSuccess={handleAuthSuccess}
+                      onTabChange={setCurrentPage}
+                    />
                   </motion.div>
                 )}
                 {currentPage === "app" && isAuthenticated && (
-                  <motion.div key="app" {...pageTransition} style={{ height: "100vh" }}>
+                  <motion.div
+                    key="app"
+                    {...pageTransition}
+                    style={{ height: "100vh" }}
+                  >
                     <AuthenticatedApp />
                   </motion.div>
                 )}
@@ -304,7 +331,12 @@ function App() {
 
 function AdminGate({ children }: { children: React.ReactElement }) {
   const { profile, loading } = useAuth();
-  if (loading) return null;
+  if (loading)
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="text-slate-500 text-sm">Loading…</div>
+      </div>
+    );
   const role = (profile?.role as string) ?? "";
   if (role !== "admin" && role !== "ai_admin") {
     return <Navigate to="/mission-control" replace />;
@@ -314,7 +346,12 @@ function AdminGate({ children }: { children: React.ReactElement }) {
 
 function AssessmentGate({ children }: { children: React.ReactElement }) {
   const { profile, loading } = useAuth();
-  if (loading) return null;
+  if (loading)
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="text-slate-500 text-sm">Loading…</div>
+      </div>
+    );
   const role = (profile?.role as string) ?? "";
   const allowed = [
     "admin",
@@ -337,7 +374,12 @@ function RoleLanding() {
     const timer = window.setTimeout(() => setGraceExpired(true), 5000);
     return () => window.clearTimeout(timer);
   }, []);
-  if (loading || (user && !profile && !graceExpired)) return null;
+  if (loading || (user && !profile && !graceExpired))
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="text-slate-500 text-sm">Loading…</div>
+      </div>
+    );
   return <Navigate to={getRoleHome(profile?.role as string)} replace />;
 }
 
@@ -346,7 +388,10 @@ function AuthenticatedApp() {
   const location = useLocation();
 
   return (
-    <AppShell currentPath={location.pathname} onNavigate={(path) => navigate(path)}>
+    <AppShell
+      currentPath={location.pathname}
+      onNavigate={(path) => navigate(path)}
+    >
       <ErrorBoundary inline resetKey={location.pathname}>
         <Routes>
           <Route path="/" element={<RoleLanding />} />
@@ -355,13 +400,36 @@ function AuthenticatedApp() {
           <Route path="/mission-control" element={<MissionControl />} />
           <Route path="/command-centers" element={<CommandCenters />} />
           <Route path="/readiness" element={<ReadinessPage />} />
-          <Route path="/assessments" element={<AssessmentGate><AssessmentsPage /></AssessmentGate>} />
-          <Route path="/assessments/:assessmentId" element={<AssessmentGate><AssessmentHomePage /></AssessmentGate>} />
-          <Route path="/cowork" element={<Navigate to="/decision-cases/demo" replace />} />
-          <Route path="/decision-cases/:caseId" element={<DecisionCaseWorkspacePage />} />
+          <Route
+            path="/assessments"
+            element={
+              <AssessmentGate>
+                <AssessmentsPage />
+              </AssessmentGate>
+            }
+          />
+          <Route
+            path="/assessments/:assessmentId"
+            element={
+              <AssessmentGate>
+                <AssessmentHomePage />
+              </AssessmentGate>
+            }
+          />
+          <Route
+            path="/cowork"
+            element={<Navigate to="/decision-cases/demo" replace />}
+          />
+          <Route
+            path="/decision-cases/:caseId"
+            element={<DecisionCaseWorkspacePage />}
+          />
 
           <Route path="/ai-workforce" element={<AIWorkforce />} />
-          <Route path="/autonomy" element={<Navigate to="/governance" replace />} />
+          <Route
+            path="/autonomy"
+            element={<Navigate to="/governance" replace />}
+          />
           <Route path="/autonomy-maturity" element={<AutonomyMaturity />} />
           <Route path="/approvals" element={<ApprovalQueue />} />
           <Route path="/governance" element={<DecisionGovernance />} />
@@ -372,14 +440,23 @@ function AuthenticatedApp() {
           <Route path="/assets" element={<AssetManagement />} />
           <Route path="/onboarding" element={<AssetOnboardingHub />} />
           <Route path="/reliability" element={<Reliability />} />
-          <Route path="/reliability/intervals" element={<IntervalDecisionsPage />} />
-          <Route path="/reliability-copilot" element={<ReliabilityCopilotPage />} />
+          <Route
+            path="/reliability/intervals"
+            element={<IntervalDecisionsPage />}
+          />
+          <Route
+            path="/reliability-copilot"
+            element={<ReliabilityCopilotPage />}
+          />
           <Route path="/risk" element={<RiskOperatingSystemPage />} />
           <Route path="/job-plans" element={<JobPlansPage />} />
           <Route path="/pm-programme" element={<PmProgrammePage />} />
 
           <Route path="/lifecycle" element={<LifecyclePositionPage />} />
-          <Route path="/lifecycle/decisions" element={<LifecycleDecisionsPage />} />
+          <Route
+            path="/lifecycle/decisions"
+            element={<LifecycleDecisionsPage />}
+          />
           <Route path="/design" element={<ReliabilityByDesignPage />} />
 
           <Route path="/work/:workOrderId" element={<WorkOrderDetailPage />} />
@@ -393,7 +470,10 @@ function AuthenticatedApp() {
           <Route path="/briefing" element={<OperationalBriefing />} />
 
           <Route path="/executive" element={<ExecutiveIntelligence />} />
-          <Route path="/performance" element={<Navigate to="/executive" replace />} />
+          <Route
+            path="/performance"
+            element={<Navigate to="/executive" replace />}
+          />
           <Route path="/oee" element={<OEEDashboard />} />
           <Route path="/learning-loop" element={<LearningLoop />} />
           <Route path="/value" element={<ValueRealization />} />
@@ -401,21 +481,83 @@ function AuthenticatedApp() {
           <Route path="/trust" element={<TrustExplainability />} />
 
           <Route path="/integrations" element={<IntegrationsPage />} />
-          <Route path="/integration-health" element={<IntegrationHealthPanel />} />
+          <Route
+            path="/integration-health"
+            element={<IntegrationHealthPanel />}
+          />
           <Route path="/playbooks" element={<PlaybooksLibrary />} />
           <Route path="/emergency" element={<EmergencyMode />} />
           <Route path="/artifacts" element={<ArtifactWorkspace />} />
-          <Route path="/setup" element={<AdminGate><SetupWizard /></AdminGate>} />
-          <Route path="/research" element={<AdminGate><ResearchDashboard /></AdminGate>} />
-          <Route path="/runs" element={<AdminGate><RunsAuditPage /></AdminGate>} />
-          <Route path="/deployments/new/configure" element={<AdminGate><DeploymentConfiguratorPage /></AdminGate>} />
-          <Route path="/deployments/new" element={<AdminGate><TemplateSelectorPage /></AdminGate>} />
-          <Route path="/deployments" element={<AdminGate><TemplateSelectorPage /></AdminGate>} />
+          <Route
+            path="/setup"
+            element={
+              <AdminGate>
+                <SetupWizard />
+              </AdminGate>
+            }
+          />
+          <Route
+            path="/research"
+            element={
+              <AdminGate>
+                <ResearchDashboard />
+              </AdminGate>
+            }
+          />
+          <Route
+            path="/runs"
+            element={
+              <AdminGate>
+                <RunsAuditPage />
+              </AdminGate>
+            }
+          />
+          <Route
+            path="/deployments/new/configure"
+            element={
+              <AdminGate>
+                <DeploymentConfiguratorPage />
+              </AdminGate>
+            }
+          />
+          <Route
+            path="/deployments/new"
+            element={
+              <AdminGate>
+                <TemplateSelectorPage />
+              </AdminGate>
+            }
+          />
+          <Route
+            path="/deployments"
+            element={
+              <AdminGate>
+                <TemplateSelectorPage />
+              </AdminGate>
+            }
+          />
           <Route path="/settings" element={<SettingsPage />} />
-          <Route path="/security-log" element={<AdminGate><SecurityAuditLog /></AdminGate>} />
-          <Route path="/pilot-leads" element={<AdminGate><PilotLeads /></AdminGate>} />
+          <Route
+            path="/security-log"
+            element={
+              <AdminGate>
+                <SecurityAuditLog />
+              </AdminGate>
+            }
+          />
+          <Route
+            path="/pilot-leads"
+            element={
+              <AdminGate>
+                <PilotLeads />
+              </AdminGate>
+            }
+          />
 
-          <Route path="*" element={<Navigate to="/mission-control" replace />} />
+          <Route
+            path="*"
+            element={<Navigate to="/mission-control" replace />}
+          />
         </Routes>
       </ErrorBoundary>
     </AppShell>
