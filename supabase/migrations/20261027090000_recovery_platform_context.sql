@@ -567,7 +567,7 @@ begin
       select coalesce(t.craft, 'Unassigned') as craft,
              round(sum(t.estimated_hours)::numeric, 1) as req,
              coalesce((select sum(weekly_hours) from craft_capacity c
-                       where c.organization_id = v_org and c.craft = t.craft), 0) as cap
+                       where c.organization_id = v_org and c.craft = coalesce(t.craft, 'Unassigned')), 0) as cap
       from work_order_tasks t
       where t.work_order_id = any(v_ids)
       group by coalesce(t.craft, 'Unassigned')) x
