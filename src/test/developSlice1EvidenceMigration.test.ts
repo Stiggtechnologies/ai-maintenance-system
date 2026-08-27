@@ -68,6 +68,30 @@ describe("evidence (D11.17 — ruling 3: ONE evidence model)", () => {
     expect(evidence).toContain("using errcode = 'check_violation'");
   });
 
+  it("D11.18 second layer: evidence_class is frozen once verified — the relabel-after-verify laundering path is refused, in the SAME migration", () => {
+    // MEASURED -> verify -> relabel AI_INFERENCE would make an AI inference
+    // "verified evidence" no human examined as one. A separate BEFORE UPDATE
+    // trigger freezes the class once a determination is recorded.
+    expect(evidence).toContain(
+      "enforce_evidence_class_immutability",
+    );
+    expect(evidence).toContain(
+      "before update on public.evidence_items",
+    );
+    expect(evidence).toMatch(
+      /new\.evidence_class is not distinct from old\.evidence_class\s+or old\.verification_status = 'unverified'/,
+    );
+    expect(evidence).toContain(
+      "Evidence class is frozen once a determination is recorded",
+    );
+    // Refused with a check violation (a broken invariant), and the service
+    // path is admitted-and-audited like the sibling trigger.
+    expect(evidence).toMatch(
+      /Reclassifying a[\s\S]{0,400}using errcode = 'check_violation'/,
+    );
+    expect(evidence).toContain("reclassified");
+  });
+
   it("§70 idiom: marker-gated client refusal, service admitted AND audited for all three ops, BEFORE DELETE returns OLD", () => {
     expect(evidence).toContain("app.evidence_verification_write");
     expect(evidence).toContain(
@@ -93,11 +117,23 @@ describe("evidence (D11.17 — ruling 3: ONE evidence model)", () => {
     expect(evidence).toContain("not overwritable");
   });
 
-  it("case-linked evidence writes are definer-RPC-only (the ROS restrictive idiom)", () => {
+  it("case-linked evidence writes are definer-RPC-only, and a case-linked row cannot be silently UNLINKED or deleted by a client", () => {
     expect(evidence).toContain(
       "create policy evidence_items_case_scoped on public.evidence_items as restrictive",
     );
     expect(evidence).toContain("with check (development_case_id is null)");
+    // The unlink guard: `using (development_case_id is null)` on UPDATE/DELETE
+    // makes a case-linked row untargetable by a client, so `SET
+    // development_case_id = NULL` cannot silently sever it from the case.
+    expect(evidence).toContain(
+      "create policy evidence_items_case_no_upd on public.evidence_items as restrictive",
+    );
+    expect(evidence).toContain(
+      "create policy evidence_items_case_no_del on public.evidence_items as restrictive",
+    );
+    expect(evidence).toMatch(
+      /evidence_items_case_no_upd[\s\S]{0,120}using \(development_case_id is null\)/,
+    );
   });
 
   it("the document linkage rides the C2.15 KB intake rail — no second upload path", () => {
@@ -249,12 +285,27 @@ describe("decisions + options (D3.27/D3.28 — ruling 4)", () => {
     );
   });
 
-  it("case decisions and decision options are definer-RPC-only for clients (restrictive policies)", () => {
+  it("case decisions and decision options are definer-RPC-only, and cannot be silently detached/hijacked by a client", () => {
     expect(decisions).toContain(
       "create policy decisions_case_scoped on public.decisions as restrictive",
     );
     expect(decisions).toContain(
       "create policy scenarios_decision_scoped on public.scenarios as restrictive",
+    );
+    // The detach/hijack guard: a case decision (or a decision-linked option)
+    // is untargetable by a client UPDATE/DELETE, so `SET development_case_id =
+    // NULL, decision_question = '...'` (or `SET decision_id = NULL`) cannot
+    // silently pull it off the case and edit it.
+    for (const p of [
+      "create policy decisions_case_no_upd on public.decisions as restrictive",
+      "create policy decisions_case_no_del on public.decisions as restrictive",
+      "create policy scenarios_decision_no_upd on public.scenarios as restrictive",
+      "create policy scenarios_decision_no_del on public.scenarios as restrictive",
+    ]) {
+      expect(decisions).toContain(p);
+    }
+    expect(decisions).toMatch(
+      /decisions_case_no_upd[\s\S]{0,120}using \(development_case_id is null\)/,
     );
   });
 });
@@ -264,6 +315,27 @@ describe("actions (D11.37 — pure reuse by ruling)", () => {
     expect(actions).toContain("alter table public.recommendations");
     expect(actions.toLowerCase()).not.toMatch(/create table/);
     expect(lowerAll).not.toMatch(/create table[^(;]*actions?\s*\(/);
+  });
+
+  it("the case binding is guarded column-scoped: a client cannot silently unlink an action, but non-link updates pass through", () => {
+    // recommendations has a PERMISSIVE client write policy (unlike risks), so
+    // the case link needs a guard — but a blunt row lock would break the
+    // status/lifecycle writes the register keeps. The guard fires only on a
+    // development_case_id change, marker-gated to bind_recommendation_to_case.
+    expect(actions).toContain(
+      "enforce_recommendation_case_binding_provenance",
+    );
+    expect(actions).toContain(
+      "before insert or update on public.recommendations",
+    );
+    expect(actions).toContain("app.recommendation_case_binding_write");
+    // Fires only on a case-link change; everything else returns new early.
+    expect(actions).toContain(
+      "new.development_case_id is distinct from old.development_case_id",
+    );
+    expect(actions).toMatch(/if not v_changed then\s+return new/);
+    expect(actions).toContain("case binding is an audited act");
+    expect(actions).toContain("A silent unlink erases the action");
   });
 });
 
@@ -331,9 +403,11 @@ describe("definer hygiene (the ratchet)", () => {
   it("trigger functions are revoked from authenticated too — executed by the system, never called", () => {
     for (const name of [
       "enforce_evidence_verification_provenance",
+      "enforce_evidence_class_immutability",
       "enforce_deliverable_acceptance_provenance",
       "enforce_decision_selection_provenance",
       "enforce_decision_option_provenance",
+      "enforce_recommendation_case_binding_provenance",
     ]) {
       expect(lowerAll).toContain(
         `revoke all on function public.${name}() from public, anon, authenticated`,

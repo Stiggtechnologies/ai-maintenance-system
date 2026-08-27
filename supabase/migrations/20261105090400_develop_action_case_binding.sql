@@ -30,6 +30,84 @@ create index if not exists idx_recommendations_case
   on recommendations(organization_id, development_case_id)
   where development_case_id is not null;
 
+-- ---------------------------------------------------------------------------
+-- Case-binding provenance. `risks` case-binding needs no trigger because
+-- `risks` has NO permissive client write policy — its development_case_id can
+-- only move through the definer RPC. `recommendations` is different: it is the
+-- canonical action store with a permissive `recommendations_org_rw` write
+-- policy (the operating loop updates recommendation status directly), so a
+-- client can `UPDATE recommendations SET development_case_id = NULL` and
+-- silently pull an action off the case its gates were judged against, with no
+-- audit — the same defect the RLS split closes on evidence/decisions, but here
+-- the blunt "linked rows are read-only to clients" would break the legitimate
+-- status writes the register keeps ("the action's own lifecycle stays exactly
+-- where it lives today"). So the guard is COLUMN-scoped, not row-scoped: only a
+-- change to development_case_id is governed; every other recommendation update
+-- passes straight through. The one writer is bind_recommendation_to_case,
+-- which sets a transaction-local marker. SECURITY INVOKER, the #282 idiom:
+-- client (real or RLS-bypassed) refused; the true service path — including the
+-- `on delete set null` cascade when a case is removed — admitted AND audited.
+-- ---------------------------------------------------------------------------
+create or replace function public.enforce_recommendation_case_binding_provenance()
+returns trigger
+language plpgsql
+as $$
+declare
+  v_marker text := coalesce(current_setting('app.recommendation_case_binding_write', true), '');
+  v_client boolean := auth.uid() is not null;
+  v_org uuid := new.organization_id;
+  v_changed boolean;
+  v_from text;
+begin
+  if tg_op = 'INSERT' then
+    -- A pre-bound insert bypasses the audited bind exactly as an unlink does;
+    -- normal recommendation inserts carry a null link and pass through.
+    v_changed := new.development_case_id is not null;
+    v_from := 'none';
+  else
+    v_changed := new.development_case_id is distinct from old.development_case_id;
+    v_from := coalesce(old.development_case_id::text, 'none');
+  end if;
+
+  if not v_changed then
+    return new;
+  end if;
+
+  if not v_client and current_user not in ('authenticated', 'anon') then
+    if exists (select 1 from organizations where id = v_org) then
+      insert into security_events
+        (organization_id, actor_id, actor_label, event_type, severity, detail)
+      values
+        (v_org, null, 'service (' || current_user || ')',
+         'admin_action', 'warning',
+         'Recommendation ' || new.id::text || ' case binding written by a service '
+           || 'caller (' || v_from || ' -> '
+           || coalesce(new.development_case_id::text, 'none')
+           || '), bypassing bind_recommendation_to_case().');
+    end if;
+    return new;
+  end if;
+
+  if v_marker <> 'granted' or current_user in ('authenticated', 'anon') then
+    raise exception
+      'An action''s case binding is an audited act. It cannot be written directly: '
+      'call bind_recommendation_to_case(recommendation_id, case_id, reason), which '
+      'records who bound or unbound it and when. A silent unlink erases the action '
+      'from the case its gates were judged against.'
+      using errcode = 'insufficient_privilege';
+  end if;
+
+  return new;
+end
+$$;
+
+drop trigger if exists trg_recommendation_case_binding_provenance on public.recommendations;
+create trigger trg_recommendation_case_binding_provenance
+  before insert or update on public.recommendations
+  for each row execute function public.enforce_recommendation_case_binding_provenance();
+
+revoke all on function public.enforce_recommendation_case_binding_provenance() from public, anon, authenticated;
+
 create or replace function public.bind_recommendation_to_case(
   p_recommendation_id uuid,
   p_case_id uuid default null,
@@ -67,7 +145,9 @@ begin
       return jsonb_build_object('error',
         'unbinding an action from its case records why (10 characters minimum)');
     end if;
+    perform set_config('app.recommendation_case_binding_write', 'granted', true);
     update recommendations set development_case_id = null, updated_at = now() where id = r.id;
+    perform set_config('app.recommendation_case_binding_write', '', true);
     insert into audit_events (organization_id, entity_type, actor, event_data)
     values (v_org, 'case_action_binding', coalesce(v_role, 'unknown'),
       jsonb_build_object('recommendation_id', r.id, 'action', 'unbound',
@@ -86,7 +166,9 @@ begin
     return jsonb_build_object('error', 'this action is already bound to that case');
   end if;
 
+  perform set_config('app.recommendation_case_binding_write', 'granted', true);
   update recommendations set development_case_id = c.id, updated_at = now() where id = r.id;
+  perform set_config('app.recommendation_case_binding_write', '', true);
 
   insert into audit_events (organization_id, entity_type, actor, event_data)
   values (v_org, 'case_action_binding', coalesce(v_role, 'unknown'),

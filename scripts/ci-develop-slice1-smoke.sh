@@ -676,4 +676,54 @@ assert via['riskTitle'] and 'single-source' in via['riskTitle'], via
 print('workspace JSON verified: deliverables, evidence, risks, decisions, actions')
 PY
 
+echo '— 17. hardening: provenance-laundering and silent-unlink refusals —'
+# The columns and links this slice adds are governed BY value at write time —
+# but a governed value can also be defeated by moving it AFTER the fact. These
+# are the refusals that close that: reclassifying a verified item, and clearing
+# a case/decision link outside the audited RPC.
+#
+# (a) D11.18 laundering: relabel a VERIFIED MEASURED row to AI_INFERENCE. Even
+#     with RLS bypassed (simulated client), the class-immutability trigger
+#     refuses — otherwise a human verifies "MEASURED" and the row becomes a
+#     "verified AI inference" no one examined as one.
+OUT=$(sql_must_fail "begin;
+select set_config('request.jwt.claim.sub', (select id::text from auth.users where email='manager@syncai.ca'), true);
+update evidence_items set evidence_class='AI_INFERENCE' where id='$EV1';
+rollback;")
+printf '%s' "$OUT" | grep -q 'frozen once a determination'
+# (b) A real client cannot silently UNLINK case evidence (RLS: the case-bound
+#     row is untargetable for a client update — 0 rows, still linked).
+curl -sS -X PATCH "$API_URL/rest/v1/evidence_items?id=eq.$EV1" \
+  -H "apikey: $ANON_KEY" -H "Authorization: Bearer $TECH" \
+  -H 'Content-Type: application/json' -d '{"development_case_id":null}' >/dev/null
+test "$(psqlc "select development_case_id::text from evidence_items where id='$EV1'")" = "$CASE"
+test "$(psqlc "select evidence_class from evidence_items where id='$EV1'")" = "MEASURED"
+# (c) A real client cannot detach AND edit a case decision (the hijack): the
+#     link and the question both survive.
+curl -sS -X PATCH "$API_URL/rest/v1/decisions?id=eq.$DEC" \
+  -H "apikey: $ANON_KEY" -H "Authorization: Bearer $TECH" \
+  -H 'Content-Type: application/json' -d '{"development_case_id":null,"decision_question":"HIJACKED"}' >/dev/null
+test "$(psqlc "select development_case_id::text from decisions where id='$DEC'")" = "$CASE"
+test "$(psqlc "select decision_question like 'SMOKE1 %' from decisions where id='$DEC'")" = "t"
+# (d) A real client cannot pull an option off its decision (decision-linked
+#     option untargetable — the selected option stays put).
+curl -sS -X PATCH "$API_URL/rest/v1/scenarios?id=eq.$OPT1" \
+  -H "apikey: $ANON_KEY" -H "Authorization: Bearer $TECH" \
+  -H 'Content-Type: application/json' -d '{"decision_id":null}' >/dev/null
+test "$(psqlc "select decision_id::text from scenarios where id='$OPT1'")" = "$DEC"
+# (e) A case-bound action cannot be silently unbound. The column-scoped
+#     provenance trigger refuses a direct link change (RLS-bypassed too),
+#     naming the audited RPC; the binding survives.
+OUT=$(sql_must_fail "begin;
+select set_config('request.jwt.claim.sub', (select id::text from auth.users where email='planner@syncai.ca'), true);
+update recommendations set development_case_id=null where id='$REC';
+rollback;")
+printf '%s' "$OUT" | grep -q 'bind_recommendation_to_case'
+curl -sS -X PATCH "$API_URL/rest/v1/recommendations?id=eq.$REC" \
+  -H "apikey: $ANON_KEY" -H "Authorization: Bearer $TECH" \
+  -H 'Content-Type: application/json' -d '{"development_case_id":null}' >/dev/null
+test "$(psqlc "select development_case_id::text from recommendations where id='$REC'")" = "$CASE"
+# The AUTHORIZED links still stand and still round-trip through the workspace
+# read (a non-link edit and the bind RPC were never in question — steps 11–16).
+
 echo 'DEVELOP SLICE 1 SMOKE: ALL TRANSCRIPT STEPS PASSED'

@@ -104,15 +104,43 @@ create index if not exists idx_scenarios_decision
   where decision_id is not null;
 
 -- Case-bound decisions and decision-bound options are definer-RPC-only for
--- clients (the ROS restrictive idiom). Reads stay org-wide.
+-- clients (the ROS restrictive idiom, the `_ext_no_ins/upd/del` shape). Three
+-- per-command policies, not one `for all`: a `with check (<link> is null)`
+-- alone guards only the NEW row, so a client can `UPDATE ... SET
+-- development_case_id = NULL, decision_question = '...'` and silently detach
+-- AND edit a case decision (or `UPDATE scenarios SET decision_id = NULL` to
+-- pull an option out of an undecided case decision), unaudited. INSERT refuses
+-- writing a linked row; UPDATE and DELETE refuse touching a linked row at all,
+-- so detach, hijack, re-point and delete are all definer-RPC-only. SELECT is
+-- left to the permissive + risk-sensitivity policies (the workspace read is
+-- SECURITY INVOKER); the legacy operating-loop decisions and treatment
+-- scenarios carry NULL in these link columns and are unaffected.
 drop policy if exists decisions_case_scoped on public.decisions;
 create policy decisions_case_scoped on public.decisions as restrictive
-  for all to authenticated using (true)
+  for insert to authenticated
   with check (development_case_id is null);
+drop policy if exists decisions_case_no_upd on public.decisions;
+create policy decisions_case_no_upd on public.decisions as restrictive
+  for update to authenticated
+  using (development_case_id is null)
+  with check (development_case_id is null);
+drop policy if exists decisions_case_no_del on public.decisions;
+create policy decisions_case_no_del on public.decisions as restrictive
+  for delete to authenticated
+  using (development_case_id is null);
 drop policy if exists scenarios_decision_scoped on public.scenarios;
 create policy scenarios_decision_scoped on public.scenarios as restrictive
-  for all to authenticated using (true)
+  for insert to authenticated
   with check (decision_id is null);
+drop policy if exists scenarios_decision_no_upd on public.scenarios;
+create policy scenarios_decision_no_upd on public.scenarios as restrictive
+  for update to authenticated
+  using (decision_id is null)
+  with check (decision_id is null);
+drop policy if exists scenarios_decision_no_del on public.scenarios;
+create policy scenarios_decision_no_del on public.scenarios as restrictive
+  for delete to authenticated
+  using (decision_id is null);
 
 -- ---------------------------------------------------------------------------
 -- Selection provenance on decisions. SECURITY INVOKER on purpose

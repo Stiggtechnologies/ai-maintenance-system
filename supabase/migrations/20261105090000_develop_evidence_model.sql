@@ -100,11 +100,32 @@ create index if not exists idx_evidence_verification
 
 -- Case-linked evidence writes are definer-RPC-only (the ROS restrictive
 -- idiom, 20260921110102). Reads stay org-wide; the risk-sensitivity
--- restrictive policy continues to apply independently.
+-- restrictive policy continues to apply independently. Three per-command
+-- restrictive policies rather than one `for all` (the established
+-- `_ext_no_ins/upd/del` shape, 20260920002000): a `for all ... using(true)
+-- with check(<link> is null)` guards only the NEW row, so a client can still
+-- clear a non-null link — `UPDATE ... SET development_case_id = NULL` passes
+-- the check and silently severs the row from the case its gates were judged
+-- against, unaudited. Splitting the guard closes that: INSERT refuses a client
+-- writing a case-linked row; UPDATE and DELETE refuse a client TOUCHING a
+-- case-linked row at all (the `using (development_case_id is null)` makes the
+-- linked row invisible to a client mutation), so unlink, re-point and delete
+-- are all definer-RPC-only. SELECT carries no restrictive policy here, so the
+-- workspace read (SECURITY INVOKER) still sees case evidence; FK cascades
+-- bypass RLS, so `on delete set null` from a removed case is unaffected.
 drop policy if exists evidence_items_case_scoped on public.evidence_items;
 create policy evidence_items_case_scoped on public.evidence_items as restrictive
-  for all to authenticated using (true)
+  for insert to authenticated
   with check (development_case_id is null);
+drop policy if exists evidence_items_case_no_upd on public.evidence_items;
+create policy evidence_items_case_no_upd on public.evidence_items as restrictive
+  for update to authenticated
+  using (development_case_id is null)
+  with check (development_case_id is null);
+drop policy if exists evidence_items_case_no_del on public.evidence_items;
+create policy evidence_items_case_no_del on public.evidence_items as restrictive
+  for delete to authenticated
+  using (development_case_id is null);
 
 -- ---------------------------------------------------------------------------
 -- The verification provenance trigger (D11.18). SECURITY INVOKER on purpose:
@@ -211,6 +232,79 @@ create trigger trg_evidence_verification_provenance
   for each row execute function public.enforce_evidence_verification_provenance();
 
 revoke all on function public.enforce_evidence_verification_provenance() from public, anon, authenticated;
+
+-- ---------------------------------------------------------------------------
+-- Provenance-laundering guard (D11.18, the second layer). The verification
+-- trigger above refuses an AI_INFERENCE row reaching 'verified' without the
+-- recorded human — but it decides on evidence_class AT THE INSTANT a
+-- verification column moves. evidence_class itself must therefore be frozen
+-- ONCE a determination is recorded, or the guard is defeated sideways:
+--
+--     class MEASURED, unverified  ->  verify_evidence_item() records a human
+--     (who believes it MEASURED)  ->  UPDATE evidence_class = 'AI_INFERENCE'
+--
+-- leaves an AI_INFERENCE row 'verified' that no human ever examined AS an AI
+-- inference — the exact silent verification the rule exists to kill. A
+-- SEPARATE BEFORE UPDATE trigger (deliberately not folded into the
+-- verification trigger, so that trigger's AI-check-before-service ordering
+-- contract stays byte-identical): SECURITY INVOKER; a class change on a
+-- verified or rejected row is refused for clients (real or RLS-bypassed) and
+-- admitted-AND-audited for the true service path; a class correction while the
+-- row is still 'unverified', and every non-class edit, pass straight through.
+-- ---------------------------------------------------------------------------
+create or replace function public.enforce_evidence_class_immutability()
+returns trigger
+language plpgsql
+as $$
+declare
+  v_client boolean := auth.uid() is not null;
+  v_org uuid := new.organization_id;
+begin
+  -- Frozen only once a human determination exists, and only when the class
+  -- actually moves. Everything else — inserts, corrections while unverified,
+  -- verification writes, non-class edits — is none of this trigger's business.
+  if new.evidence_class is not distinct from old.evidence_class
+     or old.verification_status = 'unverified' then
+    return new;
+  end if;
+
+  -- True service path (auth.uid() null, not the authenticated/anon roles):
+  -- admitted AND audited, the same posture the sibling trigger takes — a key
+  -- holder can disable the trigger, so the honest answer is admit-and-record,
+  -- never a refusal that buys nothing.
+  if not v_client and current_user not in ('authenticated', 'anon') then
+    if exists (select 1 from organizations where id = v_org) then
+      insert into security_events
+        (organization_id, actor_id, actor_label, event_type, severity, detail)
+      values
+        (v_org, null, 'service (' || current_user || ')',
+         'admin_action', 'warning',
+         'Evidence item ' || new.id::text || ' reclassified '
+           || coalesce(old.evidence_class, 'unclassified') || ' -> '
+           || coalesce(new.evidence_class, 'unclassified')
+           || ' by a service caller after it was ' || old.verification_status
+           || ' — the provenance class the human determination was recorded '
+           || 'against has been changed.');
+    end if;
+    return new;
+  end if;
+
+  raise exception
+    'Evidence class is frozen once a determination is recorded (spec §9, D11.18): '
+    'this item is % and its provenance class cannot be changed. Reclassifying a '
+    'verified item would launder an AI inference into verified evidence no human '
+    'examined as one — record a NEW evidence item if the basis changed.',
+    old.verification_status
+    using errcode = 'check_violation';
+end
+$$;
+
+drop trigger if exists trg_evidence_class_immutability on public.evidence_items;
+create trigger trg_evidence_class_immutability
+  before update on public.evidence_items
+  for each row execute function public.enforce_evidence_class_immutability();
+
+revoke all on function public.enforce_evidence_class_immutability() from public, anon, authenticated;
 
 -- ---------------------------------------------------------------------------
 -- Case evidence intake — the ONE store gains a case-scoped write path,
