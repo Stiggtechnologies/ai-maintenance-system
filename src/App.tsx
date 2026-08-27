@@ -398,7 +398,14 @@ function AuthenticatedApp() {
           <Route path="/" element={<RoleLanding />} />
           <Route path="/overview" element={<RoleLanding />} />
 
-          <Route path="/mission-control" element={<RecoveryAwarePage surface="mission"><MissionControl /></RecoveryAwarePage>} />
+          <Route
+            path="/mission-control"
+            element={
+              <RecoveryAwarePage surface="mission">
+                <MissionControl />
+              </RecoveryAwarePage>
+            }
+          />
           <Route path="/command-centers" element={<CommandCenters />} />
           <Route path="/readiness" element={<ReadinessPage />} />
           <Route
@@ -467,7 +474,14 @@ function AuthenticatedApp() {
           />
           <Route path="/design" element={<ReliabilityByDesignPage />} />
 
-          <Route path="/work/:workOrderId" element={<RecoveryAwarePage surface="work_order"><WorkOrderDetailPage /></RecoveryAwarePage>} />
+          <Route
+            path="/work/:workOrderId"
+            element={
+              <RecoveryAwarePage surface="work_order">
+                <WorkOrderDetailPage />
+              </RecoveryAwarePage>
+            }
+          />
           <Route path="/work" element={<WorkActionBoard />} />
           <Route path="/notifications" element={<NotificationScreening />} />
           <Route path="/scheduling" element={<SchedulingPage />} />
@@ -483,8 +497,22 @@ function AuthenticatedApp() {
             element={<Navigate to="/executive" replace />}
           />
           <Route path="/oee" element={<OEEDashboard />} />
-          <Route path="/learning-loop" element={<RecoveryAwarePage surface="learning"><LearningLoop /></RecoveryAwarePage>} />
-          <Route path="/value" element={<RecoveryAwarePage surface="value"><ValueRealization /></RecoveryAwarePage>} />
+          <Route
+            path="/learning-loop"
+            element={
+              <RecoveryAwarePage surface="learning">
+                <LearningLoop />
+              </RecoveryAwarePage>
+            }
+          />
+          <Route
+            path="/value"
+            element={
+              <RecoveryAwarePage surface="value">
+                <ValueRealization />
+              </RecoveryAwarePage>
+            }
+          />
           <Route path="/benchmarking" element={<BenchmarkingPanel />} />
           <Route path="/trust" element={<TrustExplainability />} />
 
