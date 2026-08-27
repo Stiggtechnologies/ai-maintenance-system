@@ -6,6 +6,8 @@
   "reviewedAt": "2026-08-27T03:55:00-06:00",
   "rationale": "20261027090010_kb_document_intake.sql adds the C2.15 tenant KB intake path (kb_intake_documents register + kb_ingest_document SECURITY DEFINER RPC). It REFERENCES kb_document_classes (FK + existence check) but does not redefine it: trust_rank, permitted_claims, redistributable and the class vocabulary are byte-identical. The digest change is the reference-set widening, not a definition change. Approved for the Reliability Knowledge Activation offer (US$15,000, approved 2026-08-27).",
   "databaseObjects": {
-    "kb_document_classes": "6ef71d32b97dac2cd2633e171650043e01d3667eae1e6564460598e598e4dfa7"
+    "retrieve_kb_context": "44f530b8ebb689b7b3e4deabc95dc100ea2a3573ddb1a1a4612bd350545c86a6",
+    "kb_document_classes": "6ef71d32b97dac2cd2633e171650043e01d3667eae1e6564460598e598e4dfa7",
+    "kb_claim_types": "477242365aee0e21c11368f8188f22c7cd604965a7d65a20278550938a93a2a7"
   }
 }
