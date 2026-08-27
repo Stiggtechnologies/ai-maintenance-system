@@ -44,15 +44,17 @@ const groupSizes = NAV_GROUPS.split(/icon:\s/)
   .map((chunk) => [...chunk.matchAll(/path:\s*"/g)].length);
 
 const allowEntries: Record<string, string[] | null> = Object.fromEntries(
-  [...NAV_ALLOW.matchAll(/^\s{2}(\w+):\s*(null|new Set\(\[)/gm)].map((match) => {
-    if (match[2] === "null") return [match[1], null];
-    const setStart = NAV_ALLOW.indexOf(match[0]) + match[0].length;
-    const setEnd = NAV_ALLOW.indexOf("])", setStart);
-    const entries = [
-      ...NAV_ALLOW.slice(setStart, setEnd).matchAll(/"([a-z-]+)"/g),
-    ].map((entry) => entry[1]);
-    return [match[1], entries];
-  }),
+  [...NAV_ALLOW.matchAll(/^\s{2}(\w+):\s*(null|new Set\(\[)/gm)].map(
+    (match) => {
+      if (match[2] === "null") return [match[1], null];
+      const setStart = NAV_ALLOW.indexOf(match[0]) + match[0].length;
+      const setEnd = NAV_ALLOW.indexOf("])", setStart);
+      const entries = [
+        ...NAV_ALLOW.slice(setStart, setEnd).matchAll(/"([a-z-]+)"/g),
+      ].map((entry) => entry[1]);
+      return [match[1], entries];
+    },
+  ),
 );
 
 const allowSizes = Object.fromEntries(
@@ -137,7 +139,9 @@ describe("navigation integrity", () => {
   });
 
   it("routes every navigation destination to a declared route", () => {
-    expect(destinations.filter((item) => !matchRoutes(routes, item.path))).toEqual([]);
+    expect(
+      destinations.filter((item) => !matchRoutes(routes, item.path)),
+    ).toEqual([]);
   });
 
   it("keeps every role allow-list entry pointing at a navigation item", () => {
@@ -148,7 +152,9 @@ describe("navigation integrity", () => {
   it("forwards every surviving redirect to a route that still exists", () => {
     expect(
       declaredRoutes.filter(
-        (route) => route.redirectsTo !== undefined && !matchRoutes(routes, route.redirectsTo),
+        (route) =>
+          route.redirectsTo !== undefined &&
+          !matchRoutes(routes, route.redirectsTo),
       ),
     ).toEqual([]);
   });
@@ -156,8 +162,8 @@ describe("navigation integrity", () => {
   it("keeps the §2 tree at 41 items in 9 groups", () => {
     // Sync Recovery is the ninth Work Management surface and owns the governed
     // downtime-event orchestration flow.
-    expect(groupSizes).toEqual([5, 4, 3, 2, 3, 9, 7, 3, 5]);
-    expect(navItems.length).toBe(41);
+    expect(groupSizes).toEqual([5, 4, 4, 2, 3, 9, 7, 3, 5]);
+    expect(navItems.length).toBe(42);
   });
 
   it("keeps the §3 role-matrix sizes after Recovery is added", () => {
@@ -168,9 +174,9 @@ describe("navigation integrity", () => {
       technician: 9,
       supervisor: 9,
       planner: 19,
-      reliability_engineer: 28,
-      maintenance_manager: 27,
-      executive: 20,
+      reliability_engineer: 29,
+      maintenance_manager: 28,
+      executive: 21,
       board: 6,
       assessment_sponsor: 2,
     });
@@ -178,9 +184,25 @@ describe("navigation integrity", () => {
 
   it("makes Sync Recovery reachable from shell, palette and router", () => {
     expect(navItems).toContainEqual({ id: "recovery", path: "/recovery" });
-    expect(paletteItems).toContainEqual({ label: "Sync Recovery", path: "/recovery" });
+    expect(paletteItems).toContainEqual({
+      label: "Sync Recovery",
+      path: "/recovery",
+    });
     expect(matchRoutes(routes, "/recovery")).not.toBeNull();
-    expect(APP).toContain('import SyncRecoveryPage from "./pages/SyncRecoveryPage"');
+    expect(APP).toContain(
+      'import SyncRecoveryPage from "./pages/SyncRecoveryPage"',
+    );
+  });
+
+  it("makes the Knowledge Base reachable from shell and router (C2.15)", () => {
+    expect(navItems).toContainEqual({ id: "knowledge", path: "/knowledge" });
+    expect(matchRoutes(routes, "/knowledge")).not.toBeNull();
+    expect(APP).toContain(
+      'import { KnowledgeBasePage } from "./pages/KnowledgeBasePage"',
+    );
+    expect(APP).toContain(
+      '<Route path="/knowledge" element={<KnowledgeBasePage />} />',
+    );
   });
 
   it("pins frontline supervisor navigation and keeps board operationally isolated", () => {
@@ -237,7 +259,9 @@ describe("navigation integrity", () => {
       "supabase/migrations/20260912120000_board_cascade_access.sql",
       "utf8",
     );
-    const packsFilter = /from board_packs[\s\S]*?v_role in \(([^)]*)\)/.exec(cascade);
+    const packsFilter = /from board_packs[\s\S]*?v_role in \(([^)]*)\)/.exec(
+      cascade,
+    );
     expect(packsFilter, "packs role filter not found").not.toBeNull();
     for (const role of ["board", "executive", "admin", "ai_admin"]) {
       expect(packsFilter![1]).toContain(`'${role}'`);
@@ -247,7 +271,9 @@ describe("navigation integrity", () => {
       "supabase/migrations/20260912123000_readonly_recommendation_write_gate.sql",
       "utf8",
     );
-    const updatePolicy = /for update[\s\S]*?with check \(([\s\S]*?)\);/.exec(writeGate);
+    const updatePolicy = /for update[\s\S]*?with check \(([\s\S]*?)\);/.exec(
+      writeGate,
+    );
     expect(updatePolicy, "restrictive update policy not found").not.toBeNull();
     expect(updatePolicy![1]).toContain("not in ('board', 'supervisor')");
   });
@@ -316,7 +342,10 @@ describe("role tour integrity", () => {
     for (const { key } of tourRoles) {
       const email = tourAccounts[key];
       expect(email, `no ACCOUNT entry for tour role ${key}`).toBeTruthy();
-      expect(runbookLogins, `no runbook credentials row for ${email} (${key})`).toContain(email);
+      expect(
+        runbookLogins,
+        `no runbook credentials row for ${email} (${key})`,
+      ).toContain(email);
     }
   });
 
