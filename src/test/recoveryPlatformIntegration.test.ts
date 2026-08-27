@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const MIGRATION =
-  "supabase/migrations/20260921120000_recovery_platform_context.sql";
+  "supabase/migrations/20261027090000_recovery_platform_context.sql";
 const sql = readFileSync(MIGRATION, "utf8");
 const lower = sql.toLowerCase().replace(/\s+/g, " ");
 const service = readFileSync(
@@ -15,10 +15,7 @@ const app = readFileSync("src/App.tsx", "utf8");
 const materials = readFileSync("src/pages/MaterialsPage.tsx", "utf8");
 const scheduling = readFileSync("src/pages/SchedulingPage.tsx", "utf8");
 const handover = readFileSync("src/pages/HandoverPage.tsx", "utf8");
-const docs = readFileSync(
-  "docs/sync-recovery/platform-integration.md",
-  "utf8",
-);
+const docs = readFileSync("docs/sync-recovery/platform-integration.md", "utf8");
 
 function functionBody(name: string): string {
   const start = lower.indexOf(`function public.${name.toLowerCase()}(`);
@@ -117,7 +114,9 @@ describe("cross-module UI is context, not authority", () => {
       '<RecoveryAwarePage surface="value"><ValueRealization /></RecoveryAwarePage>',
     );
     expect(materials).toContain('<RecoveryContextPanel surface="materials" />');
-    expect(scheduling).toContain('<RecoveryContextPanel surface="scheduling" />');
+    expect(scheduling).toContain(
+      '<RecoveryContextPanel surface="scheduling" />',
+    );
     expect(handover).toContain('<RecoveryContextPanel surface="handover" />');
   });
 
