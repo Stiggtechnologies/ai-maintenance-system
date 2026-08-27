@@ -401,9 +401,7 @@ function AuthenticatedApp() {
           <Route
             path="/mission-control"
             element={
-              <RecoveryAwarePage surface="mission">
-                <MissionControl />
-              </RecoveryAwarePage>
+              <RecoveryAwarePage surface="mission"><MissionControl /></RecoveryAwarePage>
             }
           />
           <Route path="/command-centers" element={<CommandCenters />} />
@@ -450,9 +448,7 @@ function AuthenticatedApp() {
           <Route
             path="/reliability"
             element={
-              <RecoveryAwarePage surface="reliability">
-                <Reliability />
-              </RecoveryAwarePage>
+              <RecoveryAwarePage surface="reliability"><Reliability /></RecoveryAwarePage>
             }
           />
           <Route
@@ -477,9 +473,7 @@ function AuthenticatedApp() {
           <Route
             path="/work/:workOrderId"
             element={
-              <RecoveryAwarePage surface="work_order">
-                <WorkOrderDetailPage />
-              </RecoveryAwarePage>
+              <RecoveryAwarePage surface="work_order"><WorkOrderDetailPage /></RecoveryAwarePage>
             }
           />
           <Route path="/work" element={<WorkActionBoard />} />
@@ -500,17 +494,13 @@ function AuthenticatedApp() {
           <Route
             path="/learning-loop"
             element={
-              <RecoveryAwarePage surface="learning">
-                <LearningLoop />
-              </RecoveryAwarePage>
+              <RecoveryAwarePage surface="learning"><LearningLoop /></RecoveryAwarePage>
             }
           />
           <Route
             path="/value"
             element={
-              <RecoveryAwarePage surface="value">
-                <ValueRealization />
-              </RecoveryAwarePage>
+              <RecoveryAwarePage surface="value"><ValueRealization /></RecoveryAwarePage>
             }
           />
           <Route path="/benchmarking" element={<BenchmarkingPanel />} />
