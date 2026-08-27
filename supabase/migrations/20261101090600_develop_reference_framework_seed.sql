@@ -33,6 +33,15 @@ begin
     return;
   end if;
 
+  -- This seed writes an already-adopted framework and its members, which the
+  -- immutability backstop (enforce_framework_immutability /
+  -- enforce_framework_requirement_immutability) guards. The transaction-
+  -- local marker names this block as a governed, deliberate provisioning act
+  -- — exactly the recorded-operator-transaction idiom the backstop's header
+  -- describes — rather than leaving 28 admit-and-audit rows on every fresh
+  -- reset for writes that ARE the sanctioned demo provisioning.
+  perform set_config('app.framework_write', 'granted', true);
+
   insert into project_frameworks
     (organization_id, name, version, source, source_authority, status,
      effective_date, project_classes, basis, adopted_at)

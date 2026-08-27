@@ -391,6 +391,11 @@ begin
       'this framework is not executable: it needs at least one stage and one gate before it can govern anything');
   end if;
 
+  -- Both writes below are status transitions the immutability backstop
+  -- (enforce_framework_immutability) guards; the transaction-local marker
+  -- names this RPC as the governed path. Cannot outlive the transaction.
+  perform set_config('app.framework_write', 'granted', true);
+
   update project_frameworks set status = 'superseded', superseded_by = f.id
   where organization_id = v_org and name = f.name and status = 'adopted';
 
@@ -399,6 +404,8 @@ begin
       effective_date = coalesce(effective_date, current_date),
       basis = basis || ' | Adoption: ' || btrim(p_note)
   where id = f.id;
+
+  perform set_config('app.framework_write', '', true);
 
   insert into audit_events (organization_id, entity_type, actor, event_data)
   values (v_org, 'project_framework', coalesce(v_role, 'unknown'),
@@ -410,5 +417,122 @@ $$;
 
 revoke all on function public.adopt_project_framework(uuid, text) from public, anon;
 grant execute on function public.adopt_project_framework(uuid, text) to authenticated, service_role;
+
+-- ---------------------------------------------------------------------------
+-- The immutability BACKSTOP at the persistence boundary. The RPC guards above
+-- ("only drafts can be edited/adopted") are the front door; this trigger is
+-- the wall behind it, so "prior versions immutable" is a property of the
+-- TABLES, not a property of remembering to use the RPCs. Guarded operations:
+--
+--   * any write that lands adopted/superseded framework CONTENT — an INSERT
+--     arriving with a non-draft status (a framework is born a draft; arriving
+--     adopted would forge an adoption nobody performed), any UPDATE or DELETE
+--     of a non-draft framework row, and any INSERT/UPDATE/DELETE of a stage
+--     or gate whose framework is not a draft;
+--   * any STATUS TRANSITION on the framework row itself — draft→adopted is
+--     the act of authority adopt_project_framework performs (role check,
+--     executability check, recorded basis), so a direct write of it is a
+--     forged adoption even on a draft row.
+--
+-- Same posture as the §70 triggers (20261101090200's argument): SECURITY
+-- INVOKER; clients refused without the transaction-local marker (which only
+-- adopt_project_framework sets); the service path admitted AND audited into
+-- security_events (refusing the service key buys nothing — a holder can
+-- disable the trigger — but an unaudited rewrite of an adopted gate is the
+-- "silently" this backstop exists to kill). A parent framework row that no
+-- longer exists means the member row is mid-cascade; the cascade proceeds.
+-- Gate-scoped stage_gate_criteria get the same backstop where their columns
+-- live (20261101090400).
+-- ---------------------------------------------------------------------------
+create or replace function public.enforce_framework_immutability()
+returns trigger
+language plpgsql
+as $$
+declare
+  v_marker text := coalesce(current_setting('app.framework_write', true), '');
+  v_client boolean := auth.uid() is not null;
+  v_org uuid := case when tg_op = 'DELETE' then old.organization_id else new.organization_id end;
+  v_fw_status text;
+  v_guarded boolean := false;
+begin
+  if tg_table_name = 'project_frameworks' then
+    if tg_op = 'INSERT' then
+      v_guarded := new.status <> 'draft';
+    elsif tg_op = 'DELETE' then
+      v_guarded := old.status <> 'draft';
+    else
+      v_guarded := old.status <> 'draft'
+                or new.status is distinct from old.status;
+    end if;
+  else
+    -- project_framework_stages / stage_gates: guarded when their framework
+    -- is not a draft (on UPDATE, when EITHER side's framework is not — a
+    -- re-parent out of an adopted framework is as much a mutation of it as
+    -- an edit in place).
+    if tg_op = 'DELETE' then
+      select status into v_fw_status from project_frameworks where id = old.framework_id;
+      v_guarded := found and v_fw_status <> 'draft';
+    else
+      select status into v_fw_status from project_frameworks where id = new.framework_id;
+      v_guarded := found and v_fw_status <> 'draft';
+      if not v_guarded and tg_op = 'UPDATE'
+         and new.framework_id is distinct from old.framework_id then
+        select status into v_fw_status from project_frameworks where id = old.framework_id;
+        v_guarded := found and v_fw_status <> 'draft';
+      end if;
+    end if;
+  end if;
+
+  if not v_guarded then
+    return case when tg_op = 'DELETE' then old else new end;
+  end if;
+
+  -- Audited service path. The org-exists guard keeps organization teardown
+  -- from inserting an audit row that references the organization being
+  -- removed; the marker skips the audit for the governed adoption path.
+  if not v_client and current_user not in ('authenticated', 'anon') then
+    if v_marker <> 'granted'
+       and exists (select 1 from organizations where id = v_org) then
+      insert into security_events
+        (organization_id, actor_id, actor_label, event_type, severity, detail)
+      values
+        (v_org, null, 'service (' || current_user || ')',
+         'admin_action', 'warning',
+         'Adopted-framework content on ' || tg_table_name || ' (' || lower(tg_op)
+           || ', row ' || (case when tg_op = 'DELETE' then old.id::text else new.id::text end)
+           || ') written by a service caller outside the framework RPCs. An adopted '
+           || 'framework version is immutable to clients; a service rewrite of one is '
+           || 'recorded here because it changes what a past decision was measured against.');
+    end if;
+    return case when tg_op = 'DELETE' then old else new end;
+  end if;
+
+  if v_marker <> 'granted' or current_user in ('authenticated', 'anon') then
+    raise exception
+      'An adopted framework version is immutable — its identity, stages and gates are '
+      'the record of what past decisions were measured against. Change arrives as a new '
+      'version (create_project_framework_version) adopted through adopt_project_framework; '
+      'a direct write cannot rewrite or forge an adoption.'
+      using errcode = 'insufficient_privilege';
+  end if;
+
+  return case when tg_op = 'DELETE' then old else new end;
+end
+$$;
+
+drop trigger if exists trg_framework_immutability on public.project_frameworks;
+create trigger trg_framework_immutability
+  before insert or update or delete on public.project_frameworks
+  for each row execute function public.enforce_framework_immutability();
+
+drop trigger if exists trg_framework_stage_immutability on public.project_framework_stages;
+create trigger trg_framework_stage_immutability
+  before insert or update or delete on public.project_framework_stages
+  for each row execute function public.enforce_framework_immutability();
+
+drop trigger if exists trg_stage_gate_immutability on public.stage_gates;
+create trigger trg_stage_gate_immutability
+  before insert or update or delete on public.stage_gates
+  for each row execute function public.enforce_framework_immutability();
 
 notify pgrst, 'reload schema';

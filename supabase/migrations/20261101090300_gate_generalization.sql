@@ -33,10 +33,23 @@
 --
 -- §70, DAY ONE: a gate outcome is recordable ONLY through the definer RPC
 -- below. The provenance trigger refuses any client write to this table —
--- outcome rows cannot be inserted, edited, or re-attributed by PostgREST —
--- following the post-fix engineering-signature pattern (20261005090300):
--- SECURITY INVOKER, transaction-local marker, service path admitted and
--- audited, never silently overwritten.
+-- outcome rows cannot be inserted, edited, re-attributed, or deleted by
+-- PostgREST — following the post-fix engineering-signature pattern
+-- (20261005090300): SECURITY INVOKER, transaction-local marker, service path
+-- admitted and AUDITED FOR EVERY OPERATION (insert, update, delete — an
+-- unaudited service INSERT of one 'proceed' would mark a gate passed with no
+-- trace, which is the "silently" the §70 posture exists to kill), never
+-- silently overwritten.
+--
+-- LATEST-REVIEW SEMANTICS (the enforcement rule the blockers below share
+-- with sanction_development_case, 20261101090500): a gate is satisfied by
+-- its MOST RECENT review only. A historical proceed does not survive a later
+-- terminate/hold/recycle/pivot/redesign/pause — spec I.5's question ("if
+-- this project were proposed today using what we now know, would we still
+-- fund it?") is asked at every review, so the latest determination is the
+-- operative one, and it is also exactly what the workspace renders
+-- (get_development_case returns latestReview). Enforced truth and displayed
+-- truth are the same row.
 -- ============================================================================
 
 -- ---------------------------------------------------------------------------
@@ -144,22 +157,41 @@ as $$
 declare
   v_marker text := coalesce(current_setting('app.gate_review_write', true), '');
   v_client boolean := auth.uid() is not null;
+  r_row stage_gate_reviews%rowtype;
 begin
-  -- Audited service path: restores and backfills INSERT freely; a service
-  -- UPDATE moves a recorded outcome and is written to the security log,
-  -- because that is the act worth seeing.
+  r_row := case when tg_op = 'DELETE' then old else new end;
+
+  -- Audited service path: admitted for EVERY operation, and audited for
+  -- every operation. An INSERT creates a gate outcome, an UPDATE moves one,
+  -- a DELETE erases one — each is a §70-relevant act when it bypasses the
+  -- record RPC, so each leaves a security_events row. (A restore that runs
+  -- with triggers disabled — session_replication_role = replica — is
+  -- unaffected.) The org-exists guard keeps a cascaded delete during
+  -- organization teardown from inserting an audit row that references the
+  -- organization being removed.
   if not v_client and current_user not in ('authenticated', 'anon') then
-    if tg_op = 'UPDATE' then
+    if exists (select 1 from organizations where id = r_row.organization_id) then
       insert into security_events
         (organization_id, actor_id, actor_label, event_type, severity, detail)
       values
-        (new.organization_id, null, 'service (' || current_user || ')',
+        (r_row.organization_id, null, 'service (' || current_user || ')',
          'admin_action', 'warning',
-         'Gate review ' || new.id::text || ' modified by a service caller, bypassing '
-           || 'record_case_gate_review(). Outcome was ' || coalesce(old.outcome, 'none')
-           || ', now ' || coalesce(new.outcome, 'none') || '.');
+         case tg_op
+           when 'INSERT' then
+             'Gate review ' || r_row.id::text || ' inserted by a service caller, bypassing '
+               || 'record_case_gate_review(). Outcome recorded as '
+               || coalesce(r_row.outcome, 'none') || '.'
+           when 'DELETE' then
+             'Gate review ' || r_row.id::text || ' deleted by a service caller, bypassing '
+               || 'record_case_gate_review(). Outcome was '
+               || coalesce(r_row.outcome, 'none') || '.'
+           else
+             'Gate review ' || r_row.id::text || ' modified by a service caller, bypassing '
+               || 'record_case_gate_review(). Outcome was ' || coalesce(old.outcome, 'none')
+               || ', now ' || coalesce(new.outcome, 'none') || '.'
+         end);
     end if;
-    return new;
+    return case when tg_op = 'DELETE' then old else new end;
   end if;
 
   if v_marker <> 'granted' or current_user in ('authenticated', 'anon') then
@@ -172,13 +204,13 @@ begin
       using errcode = 'insufficient_privilege';
   end if;
 
-  return new;
+  return case when tg_op = 'DELETE' then old else new end;
 end
 $$;
 
 drop trigger if exists trg_gate_review_provenance on public.stage_gate_reviews;
 create trigger trg_gate_review_provenance
-  before insert or update on public.stage_gate_reviews
+  before insert or update or delete on public.stage_gate_reviews
   for each row execute function public.enforce_gate_review_provenance();
 
 -- Findings and conditions are children of a review; they carry the outcome's
@@ -191,9 +223,27 @@ as $$
 declare
   v_marker text := coalesce(current_setting('app.gate_review_write', true), '');
   v_client boolean := auth.uid() is not null;
+  v_org uuid := case when tg_op = 'DELETE' then old.organization_id else new.organization_id end;
+  v_id text := case when tg_op = 'DELETE' then old.id::text else new.id::text end;
 begin
+  -- Service path: admitted AND audited, one row per child row touched. A
+  -- BEFORE DELETE trigger must return OLD for the delete to proceed —
+  -- returning NEW (null on delete) silently cancels the row, which both
+  -- no-ops a deliberate service delete and breaks every cascade that
+  -- passes through these tables. The org-exists guard keeps organization
+  -- teardown from referencing the organization being removed.
   if not v_client and current_user not in ('authenticated', 'anon') then
-    return new;
+    if exists (select 1 from organizations where id = v_org) then
+      insert into security_events
+        (organization_id, actor_id, actor_label, event_type, severity, detail)
+      values
+        (v_org, null, 'service (' || current_user || ')',
+         'admin_action', 'warning',
+         'Gate review child row ' || v_id || ' on ' || tg_table_name
+           || ' written by a service caller (' || lower(tg_op)
+           || '), bypassing record_case_gate_review().');
+    end if;
+    return case when tg_op = 'DELETE' then old else new end;
   end if;
   if v_marker <> 'granted' or current_user in ('authenticated', 'anon') then
     raise exception
@@ -202,7 +252,7 @@ begin
       'evidence that can be rewritten after the decision is not evidence.'
       using errcode = 'insufficient_privilege';
   end if;
-  return new;
+  return case when tg_op = 'DELETE' then old else new end;
 end
 $$;
 
@@ -465,10 +515,12 @@ grant execute on function public.record_case_gate_review(uuid, bigint, text, tex
 --    the gate has teeth at the DB, not in the UI. Forward movement is to the
 --    NEXT framework stage only (skipping a stage would skip its gates);
 --    every 'gate'-or-'checkpoint' row of the CURRENT stage that carries
---    mandatory criteria must hold a passing review (proceed /
---    proceed_with_conditions) for THIS case. Checkpoints without mandatory
---    criteria are advisory by design (D3.37) and do not block. Backward
---    movement (recycle) is free with a reason.
+--    mandatory criteria must hold a passing LATEST review (proceed /
+--    proceed_with_conditions) for THIS case — latest, not any: a historical
+--    proceed does not survive a later terminate/hold/recycle/pivot/redesign/
+--    pause on the same gate (see the header's latest-review-semantics note).
+--    Checkpoints without mandatory criteria are advisory by design (D3.37)
+--    and do not block. Backward movement (recycle) is free with a reason.
 -- ---------------------------------------------------------------------------
 create or replace function public.advance_development_case_stage(
   p_case_id uuid,
@@ -515,9 +567,15 @@ begin
       '"' || coalesce(p_to_stage_key,'') || '" is not a stage of this case''s framework');
   end if;
   if v_from_seq is null then
-    -- The case sits outside its framework's members (e.g. framework changed
-    -- underneath it). Any member stage is reachable; say so explicitly.
-    null;
+    -- The case sits outside its framework's members (a state no Slice-1
+    -- path can produce: creation seats the case on a member stage and no
+    -- framework-reassignment RPC exists yet). FAIL CLOSED rather than
+    -- permit a jump that would bypass every gate — when framework
+    -- reassignment arrives (later slice), it re-seats the case as part of
+    -- the governed act, and this branch stays a refusal.
+    return jsonb_build_object('error',
+      format('this case''s current stage "%s" is not a member of its framework — its position must be re-established by a governed framework assignment, not by a stage move that would bypass every gate',
+             coalesce(c.current_stage_key, 'none')));
   elsif v_to_seq = v_from_seq then
     return jsonb_build_object('error', 'the case is already in that stage');
   elsif v_to_seq > v_from_seq then
@@ -525,23 +583,28 @@ begin
       return jsonb_build_object('error',
         'forward movement is one stage at a time — skipping a stage would skip its gates');
     end if;
-    -- Every blocking gate of the CURRENT stage must hold a passing review.
+    -- Every blocking gate of the CURRENT stage must hold a passing LATEST
+    -- review. Latest, not any-ever: a gate whose most recent decision is
+    -- terminate/hold/recycle/pivot/redesign/pause blocks regardless of an
+    -- earlier proceed, and the row consulted here is the same row the
+    -- workspace renders as latestReview (reviewed_at desc, id desc).
     select coalesce(array_agg(g.name), '{}') into v_blockers
     from stage_gates g
     where g.framework_id = c.framework_id
       and g.stage_key = c.current_stage_key
       and exists (select 1 from stage_gate_criteria sc
                   where sc.gate_id = g.id and sc.is_mandatory)
-      and not exists (
-        select 1 from stage_gate_reviews r
+      and coalesce((
+        select r.outcome from stage_gate_reviews r
         where r.organization_id = v_org
           and r.development_case_id = c.id
           and r.gate_id = g.id
-          and r.outcome in ('proceed','proceed_with_conditions')
-      );
+        order by r.reviewed_at desc, r.id desc
+        limit 1
+      ), 'none') not in ('proceed','proceed_with_conditions');
     if array_length(v_blockers, 1) > 0 then
       return jsonb_build_object('error',
-        format('cannot leave %s: %s gate(s) with mandatory criteria hold no passing review for this case — the gate is where someone takes responsibility for the decision',
+        format('cannot leave %s: %s gate(s) with mandatory criteria hold no passing latest review for this case — the gate is where someone takes responsibility for the decision, and its most recent decision is the operative one',
                c.current_stage_key, array_length(v_blockers, 1)),
         'blocking_gates', to_jsonb(v_blockers));
     end if;

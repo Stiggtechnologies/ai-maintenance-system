@@ -10,11 +10,26 @@
 #     bypassed (simulated-client psql), and invisible under real RLS;
 #   * conditions contract (D3.06/II.16): conditional proceed requires owner,
 #     due date, evidence requirement, consequence — each individually;
-#   * stage movement gated on passing reviews; checkpoints without mandatory
-#     criteria do not block (D3.37);
+#   * stage movement gated on passing LATEST reviews — a later terminate on
+#     a gate re-blocks advance AND sanction despite an earlier proceed, and a
+#     fresh proceed re-clears it; checkpoints without mandatory criteria do
+#     not block (D3.37);
+#   * the service path is admitted AND audited for INSERTs and DELETEs of
+#     gate outcomes, not just updates — a fabricated or erased outcome always
+#     leaves a security_events row;
+#   * adopted-framework immutability has a persistence-boundary backstop:
+#     client writes to an adopted framework's gates/criteria are refused by
+#     trigger even with RLS bypassed; a service rewrite is admitted-and-
+#     audited;
 #   * sanction (D1.05/D3.34): fail-closed without an ADOPTED sanction
-#     delegation; ceiling enforced; blocking gates enforced; no overwrite;
-#     ai_admin refused by name; §70 trigger blocks the direct write;
+#     delegation; refused outright on a case with no governing framework
+#     (zero gates is not gate discipline); ceiling enforced; blocking gates
+#     enforced; no overwrite; ai_admin refused by name; §70 trigger blocks
+#     the direct write;
+#   * intake refuses a sponsor who is not a member of the organization;
+#   * set_gate_requirement live: authoring lands on a draft clone, a tier
+#     raise through it is routed to the promotion RPC, and it refuses an
+#     adopted version;
 #   * provenance promotion invariant (D3.15): AI_SUGGESTION never silently
 #     promoted — refused for clients AND for the service role without the
 #     recorded-human path; demotion stays easy;
@@ -84,6 +99,9 @@ R=$(rpc "$PLANNER" create_development_case '{"p_title":"SMOKE1 thin","p_problem_
 expect_err "$R" 'begins with the problem'
 R=$(rpc "$TECH" create_development_case '{"p_title":"SMOKE1 tech","p_problem_statement":"Crusher availability is 82% against an 92% plan and drives lost tonnes.","p_lifecycle_type":"brownfield"}')
 expect_err "$R" 'requires a planning'
+# A sponsor outside the organization (or not a member at all) is refused.
+R=$(rpc "$PLANNER" create_development_case '{"p_title":"SMOKE1 foreign sponsor","p_problem_statement":"Sponsor references must resolve inside this organization, never dangle.","p_lifecycle_type":"brownfield","p_sponsor_id":"deadbeef-dead-4bad-8bad-deadbeefdead"}')
+expect_err "$R" 'member of this organization'
 R=$(rpc "$PLANNER" create_development_case "{\"p_title\":\"SMOKE1 crusher availability\",\"p_problem_statement\":\"Crusher availability is 82% against a 92% plan; unplanned liner failures drive an estimated 140k lost tonnes a year.\",\"p_lifecycle_type\":\"reliability_improvement\",\"p_framework_id\":\"$FW\",\"p_estimated_capex\":4500000,\"p_expected_value\":2100000}")
 noerr "$R"
 CASE=$(printf '%s' "$R"|field case_id); test -n "$CASE"
@@ -110,11 +128,59 @@ insert into stage_gate_reviews (organization_id, development_case_id, gate_id, s
 select '$ORG', '$CASE', g.id, g.stage_key, 'proceed' from stage_gates g where g.framework_id='$FW' and g.name like 'G1%';
 rollback;")
 printf '%s' "$OUT" | grep -q 'record_case_gate_review'
+# (d) the SERVICE path is admitted for insert and delete — and AUDITED for
+#     both. A fabricated outcome, and its erasure, each leave a trace.
+INS_B=$(psqlc "select count(*) from security_events where organization_id='$ORG' and detail like 'Gate review%inserted by a service caller%'")
+DEL_B=$(psqlc "select count(*) from security_events where organization_id='$ORG' and detail like 'Gate review%deleted by a service caller%'")
+SRID=$(psqlc "with r as (
+  insert into stage_gate_reviews (organization_id, development_case_id, gate_id, stage_key, outcome)
+  select '$ORG', '$CASE', g.id, g.stage_key, 'proceed' from stage_gates g where g.framework_id='$FW' and g.name like 'G1%'
+  returning id
+) select id from r")
+test -n "$SRID"
+test "$(psqlc "select count(*) from security_events where organization_id='$ORG' and detail like 'Gate review%inserted by a service caller%'")" = "$((INS_B+1))"
+psqlc "delete from stage_gate_reviews where id=$SRID" >/dev/null
+test "$(psqlc "select count(*) from security_events where organization_id='$ORG' and detail like 'Gate review%deleted by a service caller%'")" = "$((DEL_B+1))"
+test "$(psqlc "select count(*) from stage_gate_reviews where id=$SRID")" = "0"
 
-echo '— 3. gate decisions: silence blocks, conditions carry their contract —'
+echo '— 2e. adopted-framework immutability: backstopped at the persistence boundary —'
 G1=$(psqlc "select id from stage_gates where framework_id='$FW' and name like 'G1%'")
 G2=$(psqlc "select id from stage_gates where framework_id='$FW' and name like 'G2%'")
 G3=$(psqlc "select id from stage_gates where framework_id='$FW' and name like 'G3%'")
+G1NAME=$(psqlc "select name from stage_gates where id=$G1")
+# (a) real client via PostgREST: RLS has no write policy — zero rows touched.
+curl -sS -X PATCH "$API_URL/rest/v1/stage_gates?id=eq.$G1" \
+  -H "apikey: $ANON_KEY" -H "Authorization: Bearer $MANAGER" \
+  -H 'Content-Type: application/json' -d '{"name":"MUTATED AFTER ADOPTION"}' >/dev/null
+test "$(psqlc "select name from stage_gates where id=$G1")" = "$G1NAME"
+# (b) simulated client with RLS bypassed: the immutability trigger refuses.
+OUT=$(sql_must_fail "begin;
+select set_config('request.jwt.claim.sub', (select id::text from auth.users where email='manager@syncai.ca'), true);
+update stage_gates set name='MUTATED AFTER ADOPTION' where id=$G1;
+rollback;")
+printf '%s' "$OUT" | grep -q 'immutable'
+# (c) so does flipping a mandatory flag on the adopted framework's criteria —
+#     silently disarming a gate is the same mutation.
+OUT=$(sql_must_fail "begin;
+select set_config('request.jwt.claim.sub', (select id::text from auth.users where email='manager@syncai.ca'), true);
+update stage_gate_criteria set is_mandatory=false where gate_id=$G1 and is_mandatory;
+rollback;")
+printf '%s' "$OUT" | grep -q 'immutable'
+# (d) and unmaking (or forging) an adoption by writing the status column
+#     directly is refused even for an executive.
+OUT=$(sql_must_fail "begin;
+select set_config('request.jwt.claim.sub', (select id::text from auth.users where email='executive@syncai.ca'), true);
+update project_frameworks set status='superseded' where id='$FW';
+rollback;")
+printf '%s' "$OUT" | grep -q 'immutable'
+# (e) the service path is admitted AND audited (then restores, audited again).
+IMM_B=$(psqlc "select count(*) from security_events where organization_id='$ORG' and detail like 'Adopted-framework content on stage_gates%'")
+psqlc "update stage_gates set risk_threshold='smoke-immutability-probe' where id=$G1" >/dev/null
+test "$(psqlc "select risk_threshold from stage_gates where id=$G1")" = "smoke-immutability-probe"
+psqlc "update stage_gates set risk_threshold=null where id=$G1" >/dev/null
+test "$(psqlc "select count(*) from security_events where organization_id='$ORG' and detail like 'Adopted-framework content on stage_gates%'")" = "$((IMM_B+2))"
+
+echo '— 3. gate decisions: silence blocks, conditions carry their contract —'
 R=$(rpc "$TECH" record_case_gate_review "{\"p_case_id\":\"$CASE\",\"p_gate_id\":$G1,\"p_outcome\":\"proceed\",\"p_note\":\"technician should not be able to do this\"}")
 expect_err "$R" 'governance or engineering role'
 R=$(rpc "$MANAGER" record_case_gate_review "{\"p_case_id\":\"$CASE\",\"p_gate_id\":$G1,\"p_outcome\":\"pass\",\"p_note\":\"legacy vocabulary should be refused here\"}")
@@ -134,7 +200,7 @@ R=$(rpc "$MANAGER" advance_development_case_stage "{\"p_case_id\":\"$CASE\",\"p_
 noerr "$R"
 # Evaluate: checkpoint has no mandatory criteria and must NOT block; G2 must.
 R=$(rpc "$MANAGER" advance_development_case_stage "{\"p_case_id\":\"$CASE\",\"p_to_stage_key\":\"design\"}")
-expect_err "$R" 'no passing review'
+expect_err "$R" 'no passing latest review'
 BL=$(printf '%s' "$R"|field blocking_gates); case "$BL" in *"G2"*) ;; *) echo "expected G2 in blockers, got $BL"; exit 1;; esac
 case "$BL" in *"checkpoint"*|*"Checkpoint"*) echo "checkpoint wrongly blocks: $BL"; exit 1;; *) ;; esac
 # Conditional proceed on G2 — the conditions contract, piece by piece.
@@ -177,7 +243,7 @@ case "$ADOPTED_KINDS" in *sanction*) ;; *) echo "sanction limit not adopted: $AD
 R=$(rpc "$EXEC" sanction_development_case "{\"p_case_id\":\"$CASE\",\"p_note\":\"value above the executive ceiling must be refused\",\"p_sanctioned_value\":26000000}")
 expect_err "$R" 'exceeds the'
 R=$(rpc "$EXEC" sanction_development_case "{\"p_case_id\":\"$CASE\",\"p_note\":\"gates of the current stage are not passed yet\",\"p_sanctioned_value\":4500000}")
-expect_err "$R" 'no passing review'
+expect_err "$R" 'no passing latest review'
 C31=$(psqlc "select criterion from stage_gate_criteria where gate_id=$G3 and sort_order=10")
 C32=$(psqlc "select criterion from stage_gate_criteria where gate_id=$G3 and sort_order=20")
 C33=$(psqlc "select criterion from stage_gate_criteria where gate_id=$G3 and sort_order=30")
@@ -192,6 +258,34 @@ test "$(psqlc "select sanctioned_value::text from development_cases where id='$C
 test "$(psqlc "select count(*) from security_events where organization_id='$ORG' and detail like '%sanctioned at %4500000%'")" != "0"
 R=$(rpc "$EXEC" sanction_development_case "{\"p_case_id\":\"$CASE\",\"p_note\":\"second sanction must be refused - no overwrite\",\"p_sanctioned_value\":4500000}")
 expect_err "$R" 'already sanctioned'
+
+echo '— 6b. LATEST review is the operative one: a later terminate re-blocks —'
+# CASE2 sits at need_identification. A proceed on G1, then a terminate on the
+# same gate: the historical proceed must NOT keep the gate satisfied.
+F1B=$(python3 -c "import json;print(json.dumps([{'criterion_text':'$C1','status':'met','evidence':'Problem statement quantified for the transcript'},{'criterion_text':'$C2','status':'met','evidence':'Do-nothing loss stated for the transcript'}]))")
+R=$(rpc "$MANAGER" record_case_gate_review "{\"p_case_id\":\"$CASE2\",\"p_gate_id\":$G1,\"p_outcome\":\"proceed\",\"p_note\":\"First determination: both mandatory screens explicitly met.\",\"p_findings\":$F1B}")
+noerr "$R"
+R=$(rpc "$MANAGER" record_case_gate_review "{\"p_case_id\":\"$CASE2\",\"p_gate_id\":$G1,\"p_outcome\":\"terminate\",\"p_note\":\"Re-review with what we now know: the case should not proceed.\"}")
+noerr "$R"
+# advance must re-block on the terminated gate...
+R=$(rpc "$MANAGER" advance_development_case_stage "{\"p_case_id\":\"$CASE2\",\"p_to_stage_key\":\"options_analysis\"}")
+expect_err "$R" 'no passing latest review'
+BL=$(printf '%s' "$R"|field blocking_gates); case "$BL" in *"G1"*) ;; *) echo "expected G1 in blockers after terminate, got $BL"; exit 1;; esac
+# ...and so must sanction, despite the adopted authority and the old proceed.
+R=$(rpc "$EXEC" sanction_development_case "{\"p_case_id\":\"$CASE2\",\"p_note\":\"sanctioning past a terminated gate must be refused\",\"p_sanctioned_value\":1000}")
+expect_err "$R" 'no passing latest review'
+# A fresh human proceed re-clears the gate — latest wins in both directions.
+R=$(rpc "$MANAGER" record_case_gate_review "{\"p_case_id\":\"$CASE2\",\"p_gate_id\":$G1,\"p_outcome\":\"proceed\",\"p_note\":\"Third determination: concerns resolved, both mandatory screens met.\",\"p_findings\":$F1B}")
+noerr "$R"
+R=$(rpc "$MANAGER" advance_development_case_stage "{\"p_case_id\":\"$CASE2\",\"p_to_stage_key\":\"options_analysis\"}")
+noerr "$R"
+
+echo '— 6c. a case with no governing framework cannot be sanctioned —'
+R=$(rpc "$PLANNER" create_development_case '{"p_title":"SMOKE1 unframed","p_problem_statement":"A case framed without a framework must still be creatable, but never sanctionable.","p_lifecycle_type":"sustaining_capital","p_estimated_capex":1000}')
+noerr "$R"
+CASE3=$(printf '%s' "$R"|field case_id); test -n "$CASE3"
+R=$(rpc "$EXEC" sanction_development_case "{\"p_case_id\":\"$CASE3\",\"p_note\":\"sanction with zero gates configured must be refused\",\"p_sanctioned_value\":1000}")
+expect_err "$R" 'no governing framework'
 
 echo '— 7. ai_admin cannot sanction or record a gate (§70) —'
 PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -v ON_ERROR_STOP=1 -q <<'PSQL'
@@ -281,12 +375,28 @@ noerr "$R"
 FW2=$(printf '%s' "$R"|field framework_id); test -n "$FW2"
 test "$(psqlc "select count(*) from stage_gates where framework_id='$FW2'")" = "6"
 test "$(psqlc "select count(*) from stage_gate_criteria sc join stage_gates g on g.id=sc.gate_id where g.framework_id='$FW2'")" = "16"
+
+echo '— 9b. requirement authoring lives on the draft clone (set_gate_requirement) —'
+G1V2=$(psqlc "select id from stage_gates where framework_id='$FW2' and name like 'G1%'")
+G3V2=$(psqlc "select id from stage_gates where framework_id='$FW2' and name like 'G3%'")
+R=$(rpc "$EXEC" set_gate_requirement "{\"p_gate_id\":$G1V2,\"p_criterion\":\"SMOKE1 advisory: a constructability review is scheduled\",\"p_is_mandatory\":false,\"p_source_authority\":\"BEST_PRACTICE\",\"p_category\":\"technical\",\"p_evidence_type\":\"DOCUMENTED\"}")
+noerr "$R"
+test "$(psqlc "select count(*) from stage_gate_criteria sc join stage_gates g on g.id=sc.gate_id where g.framework_id='$FW2'")" = "17"
+# A tier raise through the authoring path is routed to the promotion RPC.
+AICRIT=$(psqlc "select criterion from stage_gate_criteria where gate_id=$G3V2 and source_authority='AI_SUGGESTION' limit 1")
+test -n "$AICRIT"
+R=$(rpc "$EXEC" set_gate_requirement "{\"p_gate_id\":$G3V2,\"p_criterion\":\"$AICRIT\",\"p_is_mandatory\":false,\"p_source_authority\":\"CORPORATE_STANDARD\",\"p_guidance\":\"Raising a tier through authoring must be refused and routed.\"}")
+expect_err "$R" 'promote_requirement_authority'
+
 R=$(rpc "$MANAGER" adopt_project_framework "{\"p_framework_id\":\"$FW2\",\"p_note\":\"manager adoption must be refused - executive act\"}")
 expect_err "$R" 'executive or administrator'
 R=$(rpc "$EXEC" adopt_project_framework "{\"p_framework_id\":\"$FW2\",\"p_note\":\"Adopted v2 for the CI transcript as the demo governance profile.\"}")
 noerr "$R"
 test "$(psqlc "select status from project_frameworks where id='$FW'")" = "superseded"
 test "$(psqlc "select status from project_frameworks where id='$FW2'")" = "adopted"
+# Once adopted, the authoring path refuses the version — change is a new clone.
+R=$(rpc "$EXEC" set_gate_requirement "{\"p_gate_id\":$G1V2,\"p_criterion\":\"SMOKE1 advisory: a constructability review is scheduled\",\"p_is_mandatory\":true,\"p_source_authority\":\"BEST_PRACTICE\"}")
+expect_err "$R" 'immutable'
 
 echo '— 10. the workspace read renders the whole chain —'
 WS=$(rpc "$PLANNER" get_development_case "{\"p_case_id\":\"$CASE\"}")

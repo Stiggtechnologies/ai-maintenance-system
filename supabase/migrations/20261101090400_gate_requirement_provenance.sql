@@ -16,8 +16,8 @@
 -- admit-the-service-path idiom (20261005090300 §1): tier escalation is
 -- refused for EVERY caller without the marker, service roles included,
 -- because "silently" is the word the invariant exists to kill — a restore
--- re-INSERTS rows (inserts are free), and a deliberate operator correction
--- can set the marker in its own transaction, which a drive-by UPDATE cannot.
+-- re-INSERTS rows (passing this trigger; the backstop below audits them on
+-- adopted frameworks), and a deliberate operator can set the marker himself.
 -- Demotion needs no marker: lowering a claim is the honest direction and
 -- must never be harder than raising one.
 --
@@ -120,6 +120,112 @@ drop trigger if exists trg_requirement_authority_provenance on public.stage_gate
 create trigger trg_requirement_authority_provenance
   before update on public.stage_gate_criteria
   for each row execute function public.enforce_requirement_authority_provenance();
+
+-- ---------------------------------------------------------------------------
+-- The adopted-framework immutability backstop for gate-scoped requirements —
+-- the same wall 20261101090100 builds behind frameworks/stages/gates, on the
+-- columns THIS file owns. What it guards on a criterion whose gate belongs to
+-- a non-draft framework: the CONTENT — text, the mandatory flag (flipping
+-- is_mandatory off silently disarms a gate), guidance, ordering, category,
+-- evidence_type, minimum_confidence, and its scope (stage_key/gate_id) — plus
+-- INSERT into and DELETE from such a gate. What it deliberately does NOT
+-- guard: the provenance columns (source_authority + promotion record), which
+-- belong to the promotion machinery above — raises are policed by
+-- trg_requirement_authority_provenance for every caller, demotion stays free,
+-- and both remain legitimate on adopted frameworks because provenance is a
+-- property of the organization's claim, not of the framework version.
+-- Stage-scoped rows (gate_id null, the asset-stage list) are outside this
+-- boundary. Naming note: 'f' < 'r', so this trigger fires before the
+-- promotion trigger; a provenance-only update passes through here untouched.
+-- ---------------------------------------------------------------------------
+create or replace function public.enforce_framework_requirement_immutability()
+returns trigger
+language plpgsql
+as $$
+declare
+  v_marker text := coalesce(current_setting('app.framework_write', true), '');
+  v_client boolean := auth.uid() is not null;
+  v_gate_id bigint := case when tg_op = 'DELETE' then old.gate_id else new.gate_id end;
+  v_org uuid := case when tg_op = 'DELETE' then old.organization_id else new.organization_id end;
+  v_fw_status text;
+  v_guarded boolean := false;
+begin
+  -- A re-scope between gates is judged against the stricter side.
+  if tg_op = 'UPDATE' and new.gate_id is distinct from old.gate_id then
+    if old.gate_id is not null then
+      select f.status into v_fw_status
+      from stage_gates g join project_frameworks f on f.id = g.framework_id
+      where g.id = old.gate_id;
+      if found and v_fw_status <> 'draft' then
+        v_guarded := true;
+      end if;
+    end if;
+  end if;
+
+  if not v_guarded then
+    if v_gate_id is null then
+      return case when tg_op = 'DELETE' then old else new end;
+    end if;
+    select f.status into v_fw_status
+    from stage_gates g join project_frameworks f on f.id = g.framework_id
+    where g.id = v_gate_id;
+    if not found or v_fw_status = 'draft' then
+      -- Draft framework, or gate mid-cascade-delete: not this boundary.
+      return case when tg_op = 'DELETE' then old else new end;
+    end if;
+    if tg_op = 'UPDATE' then
+      v_guarded := new.criterion is distinct from old.criterion
+                or new.is_mandatory is distinct from old.is_mandatory
+                or new.guidance is distinct from old.guidance
+                or new.sort_order is distinct from old.sort_order
+                or new.category is distinct from old.category
+                or new.evidence_type is distinct from old.evidence_type
+                or new.minimum_confidence is distinct from old.minimum_confidence
+                or new.stage_key is distinct from old.stage_key
+                or new.gate_id is distinct from old.gate_id;
+    else
+      v_guarded := true;
+    end if;
+  end if;
+
+  if not v_guarded then
+    return case when tg_op = 'DELETE' then old else new end;
+  end if;
+
+  if not v_client and current_user not in ('authenticated', 'anon') then
+    if v_marker <> 'granted'
+       and exists (select 1 from organizations where id = v_org) then
+      insert into security_events
+        (organization_id, actor_id, actor_label, event_type, severity, detail)
+      values
+        (v_org, null, 'service (' || current_user || ')',
+         'admin_action', 'warning',
+         'Adopted-framework requirement content on stage_gate_criteria (' || lower(tg_op)
+           || ', row ' || (case when tg_op = 'DELETE' then old.id::text else new.id::text end)
+           || ') written by a service caller outside the framework RPCs. An adopted '
+           || 'framework version''s requirements are immutable to clients; a service '
+           || 'rewrite is recorded because it changes what past gate decisions required.');
+    end if;
+    return case when tg_op = 'DELETE' then old else new end;
+  end if;
+
+  if v_marker <> 'granted' or current_user in ('authenticated', 'anon') then
+    raise exception
+      'An adopted framework version is immutable — its requirements (text, mandatory '
+      'flag, thresholds, scope) are the record of what its gates demanded. Change '
+      'arrives as a new version (create_project_framework_version); provenance moves '
+      'only through its own governed machinery (promote_requirement_authority).'
+      using errcode = 'insufficient_privilege';
+  end if;
+
+  return case when tg_op = 'DELETE' then old else new end;
+end
+$$;
+
+drop trigger if exists trg_framework_requirement_immutability on public.stage_gate_criteria;
+create trigger trg_framework_requirement_immutability
+  before insert or update or delete on public.stage_gate_criteria
+  for each row execute function public.enforce_framework_requirement_immutability();
 
 -- ---------------------------------------------------------------------------
 -- Requirement authoring (RPC-first this slice; a page is a later slice).

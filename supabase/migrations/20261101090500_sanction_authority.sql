@@ -24,11 +24,17 @@
 --      fail-CLOSED: no adopted sanction limit for the caller's role means no
 --      sanction, administrators included — delegation of sanction authority
 --      is an organizational act (adopt_authority_limit), not a platform
---      default. The ai_admin identity is refused by name: §70. The value is
---      checked against the adopted ceiling; blocking gates of the case's
---      current stage must hold passing reviews; the write happens under the
---      transaction-local marker that trg_development_sanction_provenance
---      (20261101090200) demands.
+--      default. The ai_admin identity is refused by name: §70. The case must
+--      be governed by a framework — a case with no framework has no gates,
+--      and sanctioning through zero gates would be governance-shaped without
+--      being governance (the same argument record_case_gate_review makes
+--      about a gate with no criteria). The value is checked against the
+--      adopted ceiling; blocking gates of the case's current stage must hold
+--      passing LATEST reviews (latest, not any-ever — a later terminate on a
+--      gate re-blocks regardless of an earlier proceed; the row consulted is
+--      the same row the workspace renders as latestReview); the write
+--      happens under the transaction-local marker that
+--      trg_development_sanction_provenance (20261101090200) demands.
 --
 --   4. Draft sanction rows are seeded for executive and board so the
 --      delegation EXISTS to be adopted — drafts enforce nothing and grant
@@ -577,6 +583,14 @@ begin
   if c.status not in ('active','on_hold') then
     return jsonb_build_object('error', 'a ' || c.status || ' case cannot be sanctioned');
   end if;
+  -- No framework, no gates; no gates, no sanction. A sanction that skipped
+  -- every gate because none were configured is not gate discipline — assign
+  -- an adopted framework (at intake this slice) so its gates can hold the
+  -- decision to account.
+  if c.framework_id is null then
+    return jsonb_build_object('error',
+      'this case has no governing framework, so no gate has ever held it to account — a sanction cannot rest on zero gates. Assign an adopted framework first.');
+  end if;
   if coalesce(length(btrim(p_note)), 0) < 20 then
     return jsonb_build_object('error', 'record the basis for the sanction decision (20 characters minimum)');
   end if;
@@ -611,27 +625,31 @@ begin
   end if;
 
   -- The sanction decision does not skip the gates: every gate of the case's
-  -- CURRENT stage that carries mandatory criteria must hold a passing review.
-  if c.framework_id is not null then
-    select coalesce(array_agg(g.name), '{}') into v_blockers
-    from stage_gates g
-    where g.framework_id = c.framework_id
-      and g.stage_key = c.current_stage_key
-      and exists (select 1 from stage_gate_criteria sc
-                  where sc.gate_id = g.id and sc.is_mandatory)
-      and not exists (
-        select 1 from stage_gate_reviews r
-        where r.organization_id = v_org
-          and r.development_case_id = c.id
-          and r.gate_id = g.id
-          and r.outcome in ('proceed','proceed_with_conditions')
-      );
-    if array_length(v_blockers, 1) > 0 then
-      return jsonb_build_object('error',
-        format('cannot sanction: %s gate(s) of the current stage with mandatory criteria hold no passing review for this case',
-               array_length(v_blockers, 1)),
-        'blocking_gates', to_jsonb(v_blockers));
-    end if;
+  -- CURRENT stage that carries mandatory criteria must hold a passing LATEST
+  -- review — latest, not any-ever (20261101090300's latest-review-semantics
+  -- note): a gate whose most recent decision is terminate/hold/recycle/
+  -- pivot/redesign/pause blocks the sanction regardless of an earlier
+  -- proceed, and the row consulted here is the same row the workspace
+  -- renders as latestReview (reviewed_at desc, id desc).
+  select coalesce(array_agg(g.name), '{}') into v_blockers
+  from stage_gates g
+  where g.framework_id = c.framework_id
+    and g.stage_key = c.current_stage_key
+    and exists (select 1 from stage_gate_criteria sc
+                where sc.gate_id = g.id and sc.is_mandatory)
+    and coalesce((
+      select r.outcome from stage_gate_reviews r
+      where r.organization_id = v_org
+        and r.development_case_id = c.id
+        and r.gate_id = g.id
+      order by r.reviewed_at desc, r.id desc
+      limit 1
+    ), 'none') not in ('proceed','proceed_with_conditions');
+  if array_length(v_blockers, 1) > 0 then
+    return jsonb_build_object('error',
+      format('cannot sanction: %s gate(s) of the current stage with mandatory criteria hold no passing latest review for this case',
+             array_length(v_blockers, 1)),
+      'blocking_gates', to_jsonb(v_blockers));
   end if;
 
   perform set_config('app.development_sanction_write', 'granted', true);
@@ -758,7 +776,9 @@ as $$
                 ), '[]'::jsonb))
               from stage_gate_reviews r
               where r.development_case_id = c.id and r.gate_id = g.id
-              order by r.reviewed_at desc limit 1))
+              -- The same ordering the gate blockers enforce against: the
+              -- row shown IS the row that decides (latest-review semantics).
+              order by r.reviewed_at desc, r.id desc limit 1))
             order by g.sequence, g.name)
           from stage_gates g
           where g.framework_id = c.framework_id and g.stage_key = s.stage_key

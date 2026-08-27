@@ -322,3 +322,94 @@ describe("demo seed honesty (register standing constraint 1)", () => {
     expect(seed).toContain("'AI_SUGGESTION'");
   });
 });
+
+describe("verification repairs (2026-08-27 adversarial review)", () => {
+  it("gate blocking is LATEST-review semantics in both blockers AND the readback — never any-ever-proceed", () => {
+    // A historical proceed must not survive a later terminate/hold/recycle/
+    // pivot/redesign/pause: the row consulted is the newest review per gate,
+    // which is also exactly the row the workspace renders as latestReview.
+    const latest = /order by r\.reviewed_at desc, r\.id desc\s+limit 1/;
+    expect(gates).toMatch(latest); // advance_development_case_stage
+    expect(sanction).toMatch(latest); // sanction_development_case
+    expect(sanction).toMatch(/order by r\.reviewed_at desc, r\.id desc limit 1\)\)/); // get_development_case
+    // The old EXISTS-any-passing predicate is gone from both blockers.
+    expect(gates).not.toMatch(
+      /not exists \(\s*select 1 from stage_gate_reviews[\s\S]*?outcome in \('proceed','proceed_with_conditions'\)/,
+    );
+    expect(sanction).not.toMatch(
+      /not exists \(\s*select 1 from stage_gate_reviews[\s\S]*?outcome in \('proceed','proceed_with_conditions'\)/,
+    );
+  });
+
+  it("a case whose stage falls outside its framework FAILS CLOSED instead of jumping gates", () => {
+    expect(gates).toContain(
+      "is not a member of its framework — its position must be re-established",
+    );
+    expect(gates).not.toMatch(/Any member stage is reachable/);
+  });
+
+  it("sanction refuses a case with no governing framework — zero gates is not gate discipline", () => {
+    expect(sanction).toContain("no governing framework");
+  });
+
+  it("intake org-validates the sponsor exactly like site and objective", () => {
+    expect(cases).toContain("the sponsor must be a member of this organization");
+  });
+
+  it("the §70 service path is admitted AND audited for INSERT, UPDATE and DELETE — on outcomes, sanctions and child rows", () => {
+    // Reviews: trigger covers all three operations and audits each.
+    expect(gates).toContain(
+      "before insert or update or delete on public.stage_gate_reviews",
+    );
+    expect(gates).toContain("inserted by a service caller");
+    expect(gates).toContain("deleted by a service caller");
+    // Sanction record: same coverage on development_cases.
+    expect(cases).toContain(
+      "before insert or update or delete on public.development_cases",
+    );
+    expect(cases).toContain("inserted already carrying a sanction record");
+    expect(cases).toContain("deleted by a service caller");
+    // Children (findings/conditions) audit the service path per row.
+    expect(gates).toContain("written by a service caller (");
+  });
+
+  it("BEFORE DELETE paths return OLD — a provenance trigger must never silently cancel a delete", () => {
+    // Returning NEW (null on delete) would no-op service deletes and break
+    // every cascade through these tables (case → review → findings).
+    const returnOld = /return case when tg_op = 'DELETE' then old else new end/;
+    expect(gates).toMatch(returnOld);
+    expect(cases).toMatch(returnOld);
+    expect(frameworks).toMatch(returnOld);
+  });
+
+  it("adopted-framework immutability has a persistence-boundary backstop on all four tables", () => {
+    expect(frameworks).toContain("enforce_framework_immutability");
+    for (const trg of [
+      "before insert or update or delete on public.project_frameworks",
+      "before insert or update or delete on public.project_framework_stages",
+      "before insert or update or delete on public.stage_gates",
+    ]) {
+      expect(frameworks).toContain(trg);
+    }
+    // Gate-scoped requirement CONTENT (incl. the mandatory flag) is guarded
+    // where its columns live; provenance movement stays with the promotion
+    // machinery.
+    expect(provenance).toContain("enforce_framework_requirement_immutability");
+    expect(provenance).toContain(
+      "before insert or update or delete on public.stage_gate_criteria",
+    );
+    expect(provenance).toMatch(
+      /new\.is_mandatory is distinct from old\.is_mandatory/,
+    );
+    // A direct status flip (forged/unmade adoption) is guarded even on drafts.
+    expect(frameworks).toMatch(
+      /new\.status is distinct from old\.status/,
+    );
+    // Only the governed paths carry the marker: the adoption RPC and the
+    // deliberate demo-provisioning seed.
+    expect(frameworks).toMatch(
+      /adopt_project_framework[\s\S]*?set_config\('app\.framework_write', 'granted', true\)/,
+    );
+    expect(seed).toContain("app.framework_write");
+  });
+});

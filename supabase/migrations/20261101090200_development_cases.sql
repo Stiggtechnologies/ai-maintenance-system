@@ -97,6 +97,9 @@ begin
               or new.sanctioned_at is not null
               or new.sanctioned_value is not null
               or nullif(btrim(coalesce(new.sanction_note, '')), '') is not null;
+  elsif tg_op = 'DELETE' then
+    -- Deleting a sanctioned case erases the record of the act.
+    v_changed := old.status = 'sanctioned' or old.sanctioned_at is not null;
   else
     v_changed := (new.status is distinct from old.status
                   and (new.status = 'sanctioned' or old.status = 'sanctioned'))
@@ -107,24 +110,42 @@ begin
   end if;
 
   if not v_changed then
-    return new;
+    return case when tg_op = 'DELETE' then old else new end;
   end if;
 
   -- The audited service path (restore, backfill, correction). Refusing the
   -- service key buys nothing — a holder can disable the trigger — so the
-  -- honest posture is admit-and-record (20261005090300 §1's argument).
+  -- honest posture is admit-and-record (20261005090300 §1's argument) for
+  -- EVERY operation: an INSERT that arrives already-sanctioned and a DELETE
+  -- that erases a sanction are as §70-relevant as an UPDATE that flips one,
+  -- so all three leave a security_events row. The org-exists guard keeps a
+  -- cascaded delete during organization teardown from inserting an audit
+  -- row that references the organization being removed.
   if not v_client and current_user not in ('authenticated', 'anon') then
-    if tg_op = 'UPDATE' then
+    if exists (select 1 from organizations
+               where id = (case when tg_op = 'DELETE' then old.organization_id else new.organization_id end)) then
       insert into security_events
         (organization_id, actor_id, actor_label, event_type, severity, detail)
       values
-        (new.organization_id, null, 'service (' || current_user || ')',
+        (case when tg_op = 'DELETE' then old.organization_id else new.organization_id end,
+         null, 'service (' || current_user || ')',
          'admin_action', 'warning',
-         'Sanction record on development case ' || new.id::text
-           || ' written by a service caller, bypassing sanction_development_case(). Was '
-           || coalesce(old.status, 'none') || ', now ' || coalesce(new.status, 'none') || '.');
+         case tg_op
+           when 'INSERT' then
+             'Development case ' || new.id::text
+               || ' inserted already carrying a sanction record by a service caller, '
+               || 'bypassing sanction_development_case(). Status ' || coalesce(new.status, 'none') || '.'
+           when 'DELETE' then
+             'Sanctioned development case ' || old.id::text
+               || ' deleted by a service caller — the sanction record it carried is erased. Was '
+               || coalesce(old.status, 'none') || '.'
+           else
+             'Sanction record on development case ' || new.id::text
+               || ' written by a service caller, bypassing sanction_development_case(). Was '
+               || coalesce(old.status, 'none') || ', now ' || coalesce(new.status, 'none') || '.'
+         end);
     end if;
-    return new;
+    return case when tg_op = 'DELETE' then old else new end;
   end if;
 
   if v_marker <> 'granted' or current_user in ('authenticated', 'anon') then
@@ -137,13 +158,13 @@ begin
       using errcode = 'insufficient_privilege';
   end if;
 
-  return new;
+  return case when tg_op = 'DELETE' then old else new end;
 end
 $$;
 
 drop trigger if exists trg_development_sanction_provenance on public.development_cases;
 create trigger trg_development_sanction_provenance
-  before insert or update on public.development_cases
+  before insert or update or delete on public.development_cases
   for each row execute function public.enforce_development_sanction_provenance();
 
 -- ---------------------------------------------------------------------------
@@ -225,6 +246,13 @@ begin
   if p_objective_id is not null and not exists
      (select 1 from risk_objectives where id = p_objective_id and organization_id = v_org) then
     return jsonb_build_object('error', 'objective not found in this organization');
+  end if;
+  -- The sponsor is accountable inside THIS organization — same org check as
+  -- site and objective, so no case ever carries a dangling or foreign-org
+  -- sponsor reference.
+  if p_sponsor_id is not null and not exists
+     (select 1 from user_profiles where id = p_sponsor_id and organization_id = v_org) then
+    return jsonb_build_object('error', 'the sponsor must be a member of this organization');
   end if;
 
   insert into development_cases
