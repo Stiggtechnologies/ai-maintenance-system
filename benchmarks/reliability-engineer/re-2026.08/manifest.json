@@ -214,7 +214,7 @@
     },
     {
       "object": "kb_document_classes",
-      "definitionDigest": "58581b131cfc3b1bd6a513ac1f60fa1d0772f8c34635b227df054ea6301a9855",
+      "definitionDigest": "6ef71d32b97dac2cd2633e171650043e01d3667eae1e6564460598e598e4dfa7",
       "purpose": "trust_rank, permitted_claims and redistributable \u2014 the claim-type and public-redistribution gate"
     },
     {

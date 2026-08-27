@@ -61,6 +61,7 @@ import { TurnaroundsPage } from "./pages/TurnaroundsPage";
 import { AssetOnboardingHub } from "./pages/AssetOnboardingHub";
 import { SecurityAuditLog } from "./pages/SecurityAuditLog";
 import { PilotLeads } from "./pages/PilotLeads";
+import { KnowledgeBasePage } from "./pages/KnowledgeBasePage";
 import { ExecutiveIntelligence } from "./pages/ExecutiveIntelligence";
 import { IntegrationHealthPanel } from "./pages/IntegrationHealthPanel";
 import { ValueRealization } from "./pages/ValueRealization";
@@ -579,6 +580,8 @@ function AuthenticatedApp() {
               </AdminGate>
             }
           />
+
+          <Route path="/knowledge" element={<KnowledgeBasePage />} />
 
           <Route
             path="*"

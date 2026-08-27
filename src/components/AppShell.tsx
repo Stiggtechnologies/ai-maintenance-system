@@ -141,6 +141,7 @@ const navGroups: NavGroup[] = [
         label: "Interval Decisions",
         path: "/reliability/intervals",
       },
+      { id: "knowledge", label: "Knowledge Base", path: "/knowledge" },
     ],
   },
   {
