@@ -13,10 +13,18 @@ jobs:
   governance:
     name: Licensing and dependency policy
     runs-on: ubuntu-latest
+    # contents: write is required only by the inventory-refresh step below, which
+    # is fenced to same-repository pull requests. Every other step is read-only.
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
+          # The default pull_request checkout is a detached merge ref, which
+          # cannot be pushed back to. Check out the head branch itself so the
+          # refresh step below has somewhere to commit.
+          ref: ${{ github.event.pull_request.head.ref || github.ref }}
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
@@ -24,6 +32,46 @@ jobs:
           cache: npm
 
       - run: npm ci --no-audit --no-fund
+
+      # The open-source inventory is DERIVED from package-lock.json. Before this
+      # step existed, every Dependabot pull request failed here with "Open-source
+      # inventory is stale", because Dependabot bumps the lockfile and has no way
+      # to regenerate the artifact. That is friction with no safety benefit: the
+      # inventory is deterministic from the lockfile, so a human retyping the
+      # command adds nothing a machine cannot do correctly every time.
+      #
+      # What is NOT relaxed: compliance:check still runs below, and still fails if
+      # the inventory cannot be generated, if a licence is disallowed, or if any
+      # governance rule breaks. This regenerates a derived file; it does not
+      # forgive a policy violation.
+      #
+      # Fork safety: this is the only step in the repository with contents: write
+      # against a pull_request trigger, so it is fenced to same-repository pull
+      # requests. A fork PR skips it and simply fails the stale check, which is
+      # the correct outcome — an untrusted branch must never be pushed to.
+      - name: Refresh the derived open-source inventory
+        if: >-
+          github.event_name == 'pull_request' &&
+          github.event.pull_request.head.repo.full_name == github.repository
+        env:
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+        run: |
+          set -euo pipefail
+          npm run compliance:licenses:write
+          if git diff --quiet -- docs/investor-diligence/; then
+            echo "Inventory already current; nothing to commit."
+            exit 0
+          fi
+          echo "Inventory was stale. Regenerated from package-lock.json:"
+          git --no-pager diff --stat -- docs/investor-diligence/
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/investor-diligence/
+          git commit \
+            -m "chore(compliance): regenerate the derived open-source inventory" \
+            -m "Generated from package-lock.json by the IP and supply chain workflow. The inventory is a derived artifact; this commit only keeps it in step with the lockfile this pull request changed."
+          git push origin "HEAD:${HEAD_REF}"
+
       - run: npm run compliance:check
 
       - name: Generate CycloneDX SBOM
