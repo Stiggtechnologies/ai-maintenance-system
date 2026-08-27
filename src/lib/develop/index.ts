@@ -50,6 +50,18 @@ export const SOURCE_AUTHORITY_TIERS = [
   "AI_SUGGESTION",
 ] as const;
 
+/** The eight §9 evidence provenance classes (D11.17 — one evidence model). */
+export const EVIDENCE_CLASSES = [
+  "MEASURED",
+  "INSPECTED",
+  "CALCULATED",
+  "TESTED",
+  "DOCUMENTED",
+  "HISTORICAL",
+  "EXPERT_JUDGEMENT",
+  "AI_INFERENCE",
+] as const;
+
 export interface WorkspaceCriterion {
   id: number;
   criterion: string;
@@ -106,6 +118,120 @@ export interface WorkspaceStage {
   gates: WorkspaceGate[];
 }
 
+export interface WorkspaceDeliverable {
+  id: string;
+  title: string;
+  type: string;
+  status: "planned" | "submitted" | "accepted" | "rejected";
+  revision: string;
+  requiredDate: string | null;
+  sourceSystem: string | null;
+  requirementId: number | null;
+  requirement: {
+    criterion: string;
+    gateId: number | null;
+    isMandatory: boolean;
+  } | null;
+  owner: string | null;
+  ownerId: string;
+  document: {
+    id: string;
+    title: string;
+    documentClass: string;
+    chunkCount: number;
+  } | null;
+  acceptance: { acceptedAt: string; by: string | null } | null;
+  reviewNote: string | null;
+}
+
+export interface WorkspaceEvidence {
+  id: string;
+  evidenceClass: string | null;
+  description: string | null;
+  sourceSystem: string | null;
+  sourceReference: string | null;
+  dataQuality: string | null;
+  revision: string | null;
+  applicability: string | null;
+  observedAt: string | null;
+  verificationStatus: "unverified" | "verified" | "rejected";
+  verification: {
+    verifiedAt: string;
+    method: string | null;
+    note: string | null;
+    by: string | null;
+  } | null;
+  document: { id: string; title: string } | null;
+}
+
+export interface WorkspaceRisk {
+  id: string;
+  title: string;
+  status: string;
+  currentRiskLevel: string | null;
+  residualRiskLevel: string | null;
+  decisionAction: string | null;
+  reviewDate: string | null;
+  owner: string | null;
+}
+
+export interface WorkspaceDecisionOption {
+  id: string;
+  key: string;
+  label: string;
+  description: string | null;
+  capex: number | null;
+  opex: number | null;
+  lifecycleCost: number | null;
+  scheduleEffect: string | null;
+  riskEffect: string | null;
+  reliabilityEffect: string | null;
+  environmentalEffect: string | null;
+  expectedValue: number | null;
+  isSelected: boolean;
+}
+
+export interface WorkspaceDecision {
+  id: string;
+  question: string | null;
+  requiredDate: string | null;
+  approvalLevel: string | null;
+  createdAt: string;
+  owner: string | null;
+  objective: string | null;
+  options: WorkspaceDecisionOption[];
+  selection: {
+    optionId: string;
+    selectedAt: string;
+    rationale: string | null;
+    by: string | null;
+  } | null;
+  evidenceItemIds: string[];
+  assumptions: {
+    id: string;
+    statement: string;
+    status: string;
+    confidence: number | null;
+  }[];
+}
+
+export interface WorkspaceAction {
+  id: string;
+  title: string;
+  action: string | null;
+  status: string;
+  urgency: string | null;
+  binding: "direct" | "via_risk";
+  riskTitle: string | null;
+  createdAt: string;
+  verification: {
+    status: string;
+    dueDate: string;
+    dueDateAssumed: boolean;
+    result: string | null;
+  } | null;
+}
+
 export interface CaseWorkspace {
   id: string;
   title: string;
@@ -134,6 +260,11 @@ export interface CaseWorkspace {
     status: string;
   } | null;
   stages: WorkspaceStage[];
+  deliverables: WorkspaceDeliverable[];
+  evidence: WorkspaceEvidence[];
+  risks: WorkspaceRisk[];
+  decisions: WorkspaceDecision[];
+  actions: WorkspaceAction[];
 }
 
 export interface GateRollup {
@@ -142,6 +273,27 @@ export interface GateRollup {
   mandatoryTotal: number;
   hasReview: boolean;
   latestOutcome: string | null;
+  /**
+   * Unresolved High/Critical case risks, as NAMED blockers (D5.22 — gate
+   * readiness consumes open case-risks; spec workflow 2). Names, not a
+   * percentage: no readiness number exists until D3.35 ships one.
+   */
+  riskBlockers: string[];
+}
+
+/**
+ * A case risk counts against gate readiness while it is UNRESOLVED: neither
+ * closed nor archived, and not accepted by a human through the ROS
+ * acceptance machinery (acceptance IS resolution — someone took it).
+ */
+export function openRiskBlockers(risks: WorkspaceRisk[]): string[] {
+  return risks
+    .filter(
+      (r) =>
+        (r.currentRiskLevel === "High" || r.currentRiskLevel === "Critical") &&
+        !["closed", "archived", "accepted"].includes(r.status),
+    )
+    .map((r) => `Unresolved ${r.currentRiskLevel} risk: ${r.title}`);
 }
 
 /**
@@ -149,8 +301,17 @@ export interface GateRollup {
  * and the LATEST review's findings. No review means no findings — and
  * assessGate treats that silence as blocking, which is the honest reading:
  * a gate nobody has assessed is not partially ready.
+ *
+ * `riskBlockers` (openRiskBlockers over the case's risks) ride the rollup so
+ * a gate with unresolved HIGH risks shows them as named blockers beside the
+ * requirement verdict — consumption, not enforcement: the DB blocks on
+ * mandatory criteria; the risk names tell the reviewer what the findings
+ * must answer for.
  */
-export function gateRollup(gate: WorkspaceGate): GateRollup {
+export function gateRollup(
+  gate: WorkspaceGate,
+  riskBlockers: string[] = [],
+): GateRollup {
   const criteria: GateCriterion[] = gate.criteria.map((c) => ({
     id: c.id,
     criterion: c.criterion,
@@ -170,6 +331,7 @@ export function gateRollup(gate: WorkspaceGate): GateRollup {
     mandatoryTotal: gate.criteria.filter((c) => c.isMandatory).length,
     hasReview: gate.latestReview != null,
     latestOutcome: gate.latestReview?.outcome ?? null,
+    riskBlockers,
   };
 }
 

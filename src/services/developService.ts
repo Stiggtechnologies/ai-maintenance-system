@@ -180,3 +180,251 @@ export async function sanctionDevelopmentCase(input: {
   });
   return unwrap(data, error);
 }
+
+// ---------------------------------------------------------------------------
+// Slice 1 rows 4–8: deliverables, evidence, risks, decisions, actions.
+// Same discipline as above — writes are definer RPCs, reads ride RLS, server
+// refusals surface verbatim.
+// ---------------------------------------------------------------------------
+
+export interface IntakeDocumentOption {
+  id: string;
+  title: string;
+  document_class: string;
+  chunk_count: number;
+  uploaded_at: string;
+}
+
+/** Documents already on the C2.15 KB intake rail — the ONE document door. */
+export async function listIntakeDocuments(): Promise<IntakeDocumentOption[]> {
+  const { data, error } = await supabase
+    .from("kb_intake_documents")
+    .select("id, title, document_class, chunk_count, uploaded_at")
+    .order("uploaded_at", { ascending: false })
+    .limit(100);
+  if (error) throw new Error(error.message);
+  return (data ?? []) as IntakeDocumentOption[];
+}
+
+export async function createCaseDeliverable(input: {
+  caseId: string;
+  title: string;
+  type: string;
+  ownerId: string;
+  requirementId?: number | null;
+  requiredDate?: string | null;
+  sourceSystem?: string | null;
+}): Promise<{ deliverable_id: string; status: string }> {
+  const { data, error } = await supabase.rpc("create_case_deliverable", {
+    p_case_id: input.caseId,
+    p_title: input.title,
+    p_type: input.type,
+    p_owner_id: input.ownerId,
+    p_requirement_id: input.requirementId ?? null,
+    p_required_date: input.requiredDate ?? null,
+    p_source_system: input.sourceSystem ?? null,
+  });
+  return unwrap(data, error);
+}
+
+export async function submitDeliverable(input: {
+  deliverableId: string;
+  documentId: string;
+  revision?: string | null;
+}): Promise<{ deliverable_id: string; status: string }> {
+  const { data, error } = await supabase.rpc("submit_deliverable", {
+    p_deliverable_id: input.deliverableId,
+    p_document_id: input.documentId,
+    p_revision: input.revision ?? null,
+    p_source_system: null,
+  });
+  return unwrap(data, error);
+}
+
+export async function acceptDeliverable(input: {
+  deliverableId: string;
+  decision: "accepted" | "rejected";
+  note?: string | null;
+}): Promise<{ deliverable_id: string; status: string }> {
+  const { data, error } = await supabase.rpc("accept_deliverable", {
+    p_deliverable_id: input.deliverableId,
+    p_decision: input.decision,
+    p_note: input.note ?? null,
+  });
+  return unwrap(data, error);
+}
+
+export async function recordCaseEvidence(input: {
+  caseId: string;
+  evidenceClass: string;
+  description: string;
+  sourceSystem: string;
+  sourceReference?: string | null;
+  documentId?: string | null;
+  revision?: string | null;
+  applicability?: string | null;
+  dataQuality?: string | null;
+}): Promise<{ evidence_id: string; verification_status: string }> {
+  const { data, error } = await supabase.rpc("record_case_evidence", {
+    p_case_id: input.caseId,
+    p_evidence: {
+      evidence_class: input.evidenceClass,
+      description: input.description,
+      source_system: input.sourceSystem,
+      source_reference: input.sourceReference ?? null,
+      document_id: input.documentId ?? null,
+      revision: input.revision ?? null,
+      applicability: input.applicability ?? null,
+      data_quality: input.dataQuality ?? null,
+    },
+  });
+  return unwrap(data, error);
+}
+
+export async function verifyEvidenceItem(input: {
+  evidenceId: string;
+  method: string;
+  outcome: "verified" | "rejected";
+  note?: string | null;
+}): Promise<{ evidence_id: string; verification_status: string }> {
+  const { data, error } = await supabase.rpc("verify_evidence_item", {
+    p_evidence_id: input.evidenceId,
+    p_method: input.method,
+    p_outcome: input.outcome,
+    p_note: input.note ?? null,
+  });
+  return unwrap(data, error);
+}
+
+export interface BindableRisk {
+  id: string;
+  title: string;
+  current_risk_level: string | null;
+  status: string;
+}
+
+/** Org risks not yet bound to any case — candidates for attachment. */
+export async function listBindableRisks(): Promise<BindableRisk[]> {
+  const { data, error } = await supabase
+    .from("risks")
+    .select("id, title, current_risk_level, status")
+    .is("development_case_id", null)
+    .not("status", "in", "(closed,archived)")
+    .order("created_at", { ascending: false })
+    .limit(100);
+  if (error) throw new Error(error.message);
+  return (data ?? []) as BindableRisk[];
+}
+
+export async function bindRiskToCase(input: {
+  riskId: string;
+  caseId: string | null;
+  reason?: string | null;
+}): Promise<{ risk_id: string }> {
+  const { data, error } = await supabase.rpc("bind_risk_to_development_case", {
+    p_risk_id: input.riskId,
+    p_case_id: input.caseId,
+    p_reason: input.reason ?? null,
+  });
+  return unwrap(data, error);
+}
+
+export async function createCaseDecision(input: {
+  caseId: string;
+  question: string;
+  requiredDate?: string | null;
+  approvalLevel?: string | null;
+}): Promise<{ decision_id: string }> {
+  const { data, error } = await supabase.rpc("create_case_decision", {
+    p_case_id: input.caseId,
+    p_question: input.question,
+    p_required_date: input.requiredDate ?? null,
+    p_objective_id: null,
+    p_owner_id: null,
+    p_approval_level: input.approvalLevel ?? null,
+  });
+  return unwrap(data, error);
+}
+
+export interface DecisionOptionInput {
+  label: string;
+  description?: string | null;
+  capex?: number | null;
+  opex?: number | null;
+  lifecycleCost?: number | null;
+  scheduleEffect?: string | null;
+  riskEffect?: string | null;
+  reliabilityEffect?: string | null;
+  environmentalEffect?: string | null;
+  expectedValue?: number | null;
+}
+
+export async function addDecisionOption(
+  decisionId: string,
+  option: DecisionOptionInput,
+): Promise<{ option_id: string }> {
+  const { data, error } = await supabase.rpc("add_decision_option", {
+    p_decision_id: decisionId,
+    p_label: option.label,
+    p_description: option.description ?? null,
+    p_capex: option.capex ?? null,
+    p_opex: option.opex ?? null,
+    p_lifecycle_cost: option.lifecycleCost ?? null,
+    p_schedule_effect: option.scheduleEffect ?? null,
+    p_risk_effect: option.riskEffect ?? null,
+    p_reliability_effect: option.reliabilityEffect ?? null,
+    p_environmental_effect: option.environmentalEffect ?? null,
+    p_expected_value: option.expectedValue ?? null,
+  });
+  return unwrap(data, error);
+}
+
+export async function selectDecisionOption(input: {
+  decisionId: string;
+  optionId: string;
+  rationale: string;
+  evidenceItemIds?: string[];
+  assumptionIds?: string[];
+}): Promise<{ decision_id: string; selected_option_id: string }> {
+  const { data, error } = await supabase.rpc("select_decision_option", {
+    p_decision_id: input.decisionId,
+    p_option_id: input.optionId,
+    p_rationale: input.rationale,
+    p_evidence_item_ids: input.evidenceItemIds ?? [],
+    p_assumption_ids: input.assumptionIds ?? [],
+    p_approval_level: null,
+  });
+  return unwrap(data, error);
+}
+
+export interface BindableAction {
+  id: string;
+  title: string;
+  status: string;
+  urgency: string | null;
+}
+
+/** Canonical recommendations not yet bound to any case. */
+export async function listBindableActions(): Promise<BindableAction[]> {
+  const { data, error } = await supabase
+    .from("recommendations")
+    .select("id, title, status, urgency")
+    .is("development_case_id", null)
+    .order("created_at", { ascending: false })
+    .limit(100);
+  if (error) throw new Error(error.message);
+  return (data ?? []) as BindableAction[];
+}
+
+export async function bindActionToCase(input: {
+  recommendationId: string;
+  caseId: string | null;
+  reason?: string | null;
+}): Promise<{ recommendation_id: string }> {
+  const { data, error } = await supabase.rpc("bind_recommendation_to_case", {
+    p_recommendation_id: input.recommendationId,
+    p_case_id: input.caseId,
+    p_reason: input.reason ?? null,
+  });
+  return unwrap(data, error);
+}
