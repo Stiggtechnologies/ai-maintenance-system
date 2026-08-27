@@ -564,13 +564,17 @@ begin
       'utilisation_pct', round(100.0 * x.req / x.cap, 1)) order by x.req desc), '[]'::jsonb)
     into v_labour
     from (
-      select coalesce(t.craft, 'Unassigned') as craft,
-             round(sum(t.estimated_hours)::numeric, 1) as req,
+      select coalesce(x.craft, 'Unassigned') as craft,
+             round(x.req::numeric, 1) as req,
              coalesce((select sum(weekly_hours) from craft_capacity c
-                       where c.organization_id = v_org and c.craft = coalesce(t.craft, 'Unassigned')), 0) as cap
-      from work_order_tasks t
-      where t.work_order_id = any(v_ids)
-      group by coalesce(t.craft, 'Unassigned')) x
+                       where c.organization_id = v_org and c.craft = x.craft), 0) as cap
+      from (
+        select t.craft as craft,
+               sum(t.estimated_hours) as req
+        from work_order_tasks t
+        where t.work_order_id = any(v_ids)
+        group by t.craft
+      ) x
     where x.cap > 0;
 
     v_checks := v_checks || jsonb_build_object(
