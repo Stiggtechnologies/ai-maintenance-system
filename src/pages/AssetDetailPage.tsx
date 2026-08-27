@@ -39,27 +39,46 @@ export function AssetDetailPage() {
       // (asset_criticality_profiles) exists only in _legacy_migrations, so
       // the read returned null for every asset in every tenant and the
       // criticality tab apologised forever.
-      const [assetRes, healthRes, woRes] = await Promise.all([
-        supabase
+      //
+      // Accept either a UUID (deep links from the register) or an asset tag
+      // (human-shared links like /assets/T301). Try id first, then fall back
+      // to a tag lookup so tag-based links no longer 404 (U14).
+      const baseSelect =
+        "*, asset_classes(name), asset_locations(name), sites(name)";
+      let assetRes = await supabase
+        .from("assets")
+        .select(baseSelect)
+        .eq("id", id)
+        .single();
+      if (!assetRes.data) {
+        assetRes = await supabase
           .from("assets")
-          .select(`*, asset_classes(name), asset_locations(name), sites(name)`)
-          .eq("id", id)
-          .single(),
+          .select(baseSelect)
+          .eq("asset_tag", id)
+          .single();
+      }
+
+      if (assetRes.data) setAsset(assetRes.data);
+      const assetId = assetRes.data?.id;
+      if (!assetId) {
+        setLoading(false);
+        return;
+      }
+      const [healthRes, woRes] = await Promise.all([
         supabase
           .from("asset_health_monitoring")
           .select("*")
-          .eq("asset_id", id)
+          .eq("asset_id", assetId)
           .order("recorded_at", { ascending: false })
           .limit(50),
         supabase
           .from("work_orders")
           .select("*")
-          .eq("asset_id", id)
+          .eq("asset_id", assetId)
           .order("created_at", { ascending: false })
           .limit(20),
       ]);
 
-      if (assetRes.data) setAsset(assetRes.data);
       if (healthRes.data) setHealthHistory(healthRes.data);
       if (woRes.data) setWorkOrders(woRes.data);
     } catch (error) {
