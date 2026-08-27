@@ -1,5 +1,5 @@
 {
-  "baselineId": "re-2026.08",
+  "baselineId": "RE-2026.08",
   "kind": "governed-sql",
   "reviewer": "Orville Davis",
   "reviewerRole": "Founder / reliability engineering SME",
