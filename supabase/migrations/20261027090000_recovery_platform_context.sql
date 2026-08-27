@@ -210,7 +210,15 @@ begin
       and ew.plan_state = 'included'
       and ew.execution_status <> 'complete'
       and (p_asset_id is null or e.asset_id = p_asset_id)
-      and (p_work_order_id is null or w.id = p_work_order_id)
+      and (
+        p_work_order_id is null
+        or exists (
+          select 1 from restoration_event_work ew2
+          where ew2.organization_id = v_org
+            and ew2.event_id = e.id
+            and ew2.work_order_id = p_work_order_id
+        )
+      )
     group by e.id, e.event_code, e.asset_id, a.name, ew.id, w.id, w.wo_number, w.title
   ) q;
 
@@ -301,7 +309,15 @@ begin
       and ew.plan_state = 'included'
       and ew.execution_status <> 'complete'
       and (p_asset_id is null or e.asset_id = p_asset_id)
-      and (p_work_order_id is null or w.id = p_work_order_id)
+      and (
+        p_work_order_id is null
+        or exists (
+          select 1 from restoration_event_work ew2
+          where ew2.organization_id = v_org
+            and ew2.event_id = e.id
+            and ew2.work_order_id = p_work_order_id
+        )
+      )
   ) q;
 
   select coalesce(jsonb_agg(row_data order by actual_return_at desc), '[]'::jsonb)
