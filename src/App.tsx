@@ -79,6 +79,9 @@ import { getRoleHome } from "./lib/roleNavigation";
 import { ReliabilityCopilotPage } from "./pages/ReliabilityCopilotPage";
 import { FirstCustomerPilotPage } from "./pages/FirstCustomerPilotPage";
 import { DecisionCaseWorkspacePage } from "./pages/DecisionCaseWorkspacePage";
+import { DevelopCasesPage } from "./pages/DevelopCasesPage";
+import { DevelopIntakePage } from "./pages/DevelopIntakePage";
+import { DevelopmentCaseWorkspacePage } from "./pages/DevelopmentCaseWorkspacePage";
 import {
   clearDecisionCaseHandoff,
   readDecisionCaseHandoff,
@@ -470,6 +473,12 @@ function AuthenticatedApp() {
             element={<LifecycleDecisionsPage />}
           />
           <Route path="/design" element={<ReliabilityByDesignPage />} />
+          <Route path="/develop" element={<DevelopCasesPage />} />
+          <Route path="/develop/new" element={<DevelopIntakePage />} />
+          <Route
+            path="/develop/cases/:caseId"
+            element={<DevelopmentCaseWorkspacePage />}
+          />
 
           <Route
             path="/work/:workOrderId"

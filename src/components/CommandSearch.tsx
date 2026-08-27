@@ -48,6 +48,7 @@ const allResults: SearchResult[] = [
   { id: "iv", label: "Interval Decisions", path: "/reliability/intervals", category: "Reliability Strategy", icon: Factory },
   { id: "jp", label: "Job Plans & Task Library", path: "/job-plans", category: "Maintenance Programme", icon: Wrench },
   { id: "pp", label: "PM Programme", path: "/pm-programme", category: "Maintenance Programme", icon: Wrench },
+  { id: "dev", label: "Sync Develop", path: "/develop", category: "Whole Life", icon: Factory },
   { id: "lc", label: "Lifecycle Position", path: "/lifecycle", category: "Whole Life", icon: Factory },
   { id: "ld", label: "Repair / Replace / Retire", path: "/lifecycle/decisions", category: "Whole Life", icon: Factory },
   { id: "de", label: "Reliability by Design", path: "/design", category: "Whole Life", icon: Factory },

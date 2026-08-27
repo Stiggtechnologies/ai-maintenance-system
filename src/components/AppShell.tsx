@@ -168,6 +168,7 @@ const navGroups: NavGroup[] = [
     label: "Whole Life",
     icon: Layers,
     items: [
+      { id: "develop", label: "Sync Develop", path: "/develop" },
       { id: "lifecycle", label: "Lifecycle Position", path: "/lifecycle" },
       {
         id: "lifecycle-decisions",

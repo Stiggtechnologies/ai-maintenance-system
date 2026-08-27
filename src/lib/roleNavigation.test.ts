@@ -159,24 +159,25 @@ describe("navigation integrity", () => {
     ).toEqual([]);
   });
 
-  it("keeps the §2 tree at 41 items in 9 groups", () => {
+  it("keeps the §2 tree at 43 items in 9 groups", () => {
     // Sync Recovery is the ninth Work Management surface and owns the governed
-    // downtime-event orchestration flow.
-    expect(groupSizes).toEqual([5, 4, 4, 2, 3, 9, 7, 3, 5]);
-    expect(navItems.length).toBe(42);
+    // downtime-event orchestration flow. Sync Develop (Slice 1) is the fourth
+    // Whole Life surface — problem-first development cases under gates.
+    expect(groupSizes).toEqual([5, 4, 4, 2, 4, 9, 7, 3, 5]);
+    expect(navItems.length).toBe(43);
   });
 
-  it("keeps the §3 role-matrix sizes after Recovery is added", () => {
+  it("keeps the §3 role-matrix sizes after Recovery and Develop are added", () => {
     expect(allowSizes).toEqual({
       admin: null,
       ai_admin: null,
       operator: 7,
       technician: 9,
       supervisor: 9,
-      planner: 19,
-      reliability_engineer: 29,
-      maintenance_manager: 28,
-      executive: 21,
+      planner: 20,
+      reliability_engineer: 30,
+      maintenance_manager: 29,
+      executive: 22,
       board: 6,
       assessment_sponsor: 2,
     });
@@ -191,6 +192,20 @@ describe("navigation integrity", () => {
     expect(matchRoutes(routes, "/recovery")).not.toBeNull();
     expect(APP).toContain(
       'import SyncRecoveryPage from "./pages/SyncRecoveryPage"',
+    );
+  });
+
+  it("makes Sync Develop reachable from shell, palette and router (D1.04)", () => {
+    expect(navItems).toContainEqual({ id: "develop", path: "/develop" });
+    expect(paletteItems).toContainEqual({
+      label: "Sync Develop",
+      path: "/develop",
+    });
+    expect(matchRoutes(routes, "/develop")).not.toBeNull();
+    expect(matchRoutes(routes, "/develop/new")).not.toBeNull();
+    expect(matchRoutes(routes, "/develop/cases/some-id")).not.toBeNull();
+    expect(APP).toContain(
+      'import { DevelopCasesPage } from "./pages/DevelopCasesPage"',
     );
   });
 

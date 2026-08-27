@@ -120,6 +120,7 @@ const NAV_ALLOW: Record<string, Set<string> | null> = {
   // release. Approval itself remains independent in the canonical queue.
   planner: new Set([
     "mission-control",
+    "develop",
     "cowork",
     "assessments",
     "assets",
@@ -145,6 +146,7 @@ const NAV_ALLOW: Record<string, Set<string> | null> = {
   // server-gated to operating roles.
   reliability_engineer: new Set([
     "mission-control",
+    "develop",
     "command-centers",
     "readiness",
     "assessments",
@@ -179,6 +181,7 @@ const NAV_ALLOW: Record<string, Set<string> | null> = {
   // enforced by the canonical authority contract and generator!=approver rule.
   maintenance_manager: new Set([
     "mission-control",
+    "develop",
     "cowork",
     "assessments",
     "assets",
@@ -212,6 +215,7 @@ const NAV_ALLOW: Record<string, Set<string> | null> = {
   // Recovery RPC role gates; menu visibility never grants authority.
   executive: new Set([
     "mission-control",
+    "develop",
     "command-centers",
     "readiness",
     "executive",
