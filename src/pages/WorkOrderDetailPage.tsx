@@ -272,21 +272,33 @@ export function WorkOrderDetailPage() {
   const loadWorkOrderData = async (id: string) => {
     try {
       setLoading(true);
-      const [woResult, historyResult, tasksResult] = await Promise.all([
-        supabase
+      // Accept either a UUID (register deep links) or a human work-order
+      // number (shared links like /work/WO-0001). Try id first, then fall
+      // back to wo_number so tag-based links no longer 404 (U14).
+      let woResult = await supabase
+        .from("work_orders")
+        .select("*, assets(name, asset_tag), sites(name)")
+        .eq("id", id)
+        .single();
+      if (!woResult.data) {
+        woResult = await supabase
           .from("work_orders")
           .select("*, assets(name, asset_tag), sites(name)")
-          .eq("id", id)
-          .single(),
+          .eq("wo_number", id)
+          .single();
+      }
+      const woId = woResult.data?.id;
+
+      const [historyResult, tasksResult] = await Promise.all([
         supabase
           .from("work_order_status_history")
           .select("*")
-          .eq("work_order_id", id)
+          .eq("work_order_id", woId)
           .order("changed_at", { ascending: false }),
         supabase
           .from("work_order_tasks")
           .select("*")
-          .eq("work_order_id", id)
+          .eq("work_order_id", woId)
           .order("task_sequence"),
       ]);
 
