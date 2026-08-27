@@ -4,7 +4,7 @@ This inventory is generated deterministically from `package-lock.json` by
 `scripts/compliance/generate-license-inventory.mjs`. It is technical
 diligence evidence, not a legal opinion.
 
-- Lockfile SHA-256: `b97bb11aa47a251edf994e23fe41f885189fc3e78a573e20692a19a0850bc88d`
+- Lockfile SHA-256: `13b06da2f8ee481464a1d5616640642e2207556f109a6730f8331a3e4a102510`
 - Package instances: **349**
 - Direct production dependencies: **9**
 - Direct development dependencies: **26**
@@ -45,29 +45,29 @@ patents, trademarks, or customer distribution obligations.
 | @fontsource-variable/inter | 5.3.0 | production | OFL-1.1 |
 | @fontsource-variable/jetbrains-mono | 5.3.0 | production | OFL-1.1 |
 | @playwright/test | 1.61.1 | development | Apache-2.0 |
-| @supabase/supabase-js | 2.110.7 | production | MIT |
+| @supabase/supabase-js | 2.112.3 | production | MIT |
 | @tailwindcss/postcss | 4.3.3 | development | MIT |
 | @tailwindcss/vite | 4.3.3 | development | MIT |
 | @testing-library/jest-dom | 6.9.1 | development | MIT |
 | @testing-library/react | 16.3.2 | development | MIT |
 | @types/node | 24.13.3 | development | MIT |
-| @types/react-dom | 19.2.3 | development | MIT |
-| @types/react | 19.2.17 | development | MIT |
+| @types/react-dom | 19.2.5 | development | MIT |
+| @types/react | 19.2.18 | development | MIT |
 | @vitejs/plugin-react | 6.0.3 | development | MIT |
 | eslint-plugin-react-hooks | 7.1.1 | development | MIT |
 | eslint-plugin-react-refresh | 0.5.3 | development | MIT |
 | eslint | 10.7.0 | development | MIT |
-| framer-motion | 12.42.2 | production | MIT |
+| framer-motion | 12.43.0 | production | MIT |
 | globals | 17.7.0 | development | MIT |
 | husky | 9.1.7 | development | MIT |
 | jsdom | 29.1.1 | development | MIT |
 | lint-staged | 17.1.0 | development | MIT |
-| lucide-react | 1.25.0 | production | ISC |
+| lucide-react | 1.33.0 | production | ISC |
 | postcss | 8.5.26 | development | MIT |
 | prettier | 3.9.5 | development | MIT |
-| react-dom | 19.2.7 | production | MIT |
+| react-dom | 19.2.8 | production | MIT |
 | react-router-dom | 7.18.2 | production | MIT |
-| react | 19.2.7 | production | MIT |
+| react | 19.2.8 | production | MIT |
 | tailwindcss | 4.3.3 | development | MIT |
 | terser | 5.49.0 | development | BSD-2-Clause |
 | tsx | 4.23.1 | development | MIT |
@@ -75,7 +75,7 @@ patents, trademarks, or customer distribution obligations.
 | typescript | 5.9.3 | development | Apache-2.0 |
 | vite | 8.1.5 | development | MIT |
 | vitest | 4.1.10 | development | MIT |
-| zustand | 5.0.14 | production | MIT |
+| zustand | 5.0.15 | production | MIT |
 
 ## Manual notice review queue
 

@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "source": "package-lock.json",
-  "lockfileSha256": "b97bb11aa47a251edf994e23fe41f885189fc3e78a573e20692a19a0850bc88d",
+  "lockfileSha256": "13b06da2f8ee481464a1d5616640642e2207556f109a6730f8331a3e4a102510",
   "packageInstances": 349,
   "directProductionDependencies": 9,
   "directDevelopmentDependencies": 26,
@@ -740,14 +740,14 @@
     },
     {
       "name": "@supabase/auth-js",
-      "version": "2.110.7",
+      "version": "2.112.3",
       "license": "MIT",
       "direct": "transitive",
       "packagePath": "node_modules/@supabase/auth-js"
     },
     {
       "name": "@supabase/functions-js",
-      "version": "2.110.7",
+      "version": "2.112.3",
       "license": "MIT",
       "direct": "transitive",
       "packagePath": "node_modules/@supabase/functions-js"
@@ -761,28 +761,28 @@
     },
     {
       "name": "@supabase/postgrest-js",
-      "version": "2.110.7",
+      "version": "2.112.3",
       "license": "MIT",
       "direct": "transitive",
       "packagePath": "node_modules/@supabase/postgrest-js"
     },
     {
       "name": "@supabase/realtime-js",
-      "version": "2.110.7",
+      "version": "2.112.3",
       "license": "MIT",
       "direct": "transitive",
       "packagePath": "node_modules/@supabase/realtime-js"
     },
     {
       "name": "@supabase/storage-js",
-      "version": "2.110.7",
+      "version": "2.112.3",
       "license": "MIT",
       "direct": "transitive",
       "packagePath": "node_modules/@supabase/storage-js"
     },
     {
       "name": "@supabase/supabase-js",
-      "version": "2.110.7",
+      "version": "2.112.3",
       "license": "MIT",
       "direct": "production",
       "packagePath": "node_modules/@supabase/supabase-js"
@@ -978,14 +978,14 @@
     },
     {
       "name": "@types/react-dom",
-      "version": "19.2.3",
+      "version": "19.2.5",
       "license": "MIT",
       "direct": "development",
       "packagePath": "node_modules/@types/react-dom"
     },
     {
       "name": "@types/react",
-      "version": "19.2.17",
+      "version": "19.2.18",
       "license": "MIT",
       "direct": "development",
       "packagePath": "node_modules/@types/react"
@@ -1524,7 +1524,7 @@
     },
     {
       "name": "framer-motion",
-      "version": "12.42.2",
+      "version": "12.43.0",
       "license": "MIT",
       "direct": "production",
       "packagePath": "node_modules/framer-motion"
@@ -1846,7 +1846,7 @@
     },
     {
       "name": "lucide-react",
-      "version": "1.25.0",
+      "version": "1.33.0",
       "license": "ISC",
       "direct": "production",
       "packagePath": "node_modules/lucide-react"
@@ -1888,7 +1888,7 @@
     },
     {
       "name": "motion-dom",
-      "version": "12.42.2",
+      "version": "12.43.0",
       "license": "MIT",
       "direct": "transitive",
       "packagePath": "node_modules/motion-dom"
@@ -2049,7 +2049,7 @@
     },
     {
       "name": "react-dom",
-      "version": "19.2.7",
+      "version": "19.2.8",
       "license": "MIT",
       "direct": "production",
       "packagePath": "node_modules/react-dom"
@@ -2077,7 +2077,7 @@
     },
     {
       "name": "react",
-      "version": "19.2.7",
+      "version": "19.2.8",
       "license": "MIT",
       "direct": "production",
       "packagePath": "node_modules/react"
@@ -2476,7 +2476,7 @@
     },
     {
       "name": "zustand",
-      "version": "5.0.14",
+      "version": "5.0.15",
       "license": "MIT",
       "direct": "production",
       "packagePath": "node_modules/zustand"
