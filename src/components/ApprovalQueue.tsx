@@ -332,7 +332,7 @@ export function ApprovalQueue() {
 
   const now = Date.now();
   const expiredCount = decisions.filter(
-    (d) => new Date(d.deadline).getTime() < now,
+    (d) => new Date(d.approval_deadline).getTime() < now,
   ).length;
   const activeCount = decisions.length - expiredCount;
 
