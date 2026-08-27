@@ -35,6 +35,32 @@
 #     recorded-human path; demotion stays easy;
 #   * framework versioning (D3.22): clone → draft → adopt supersedes.
 #
+# Slice 1 rows 4–8 (steps 11–16):
+#   * evidence (D11.17/D11.18): eight-class model on canonical evidence_items;
+#     verification human-only (role-gated, ai_admin refused by name, method
+#     mandatory, terminal states not overwritable); direct writes refused for
+#     real clients (restrictive RLS) AND simulated clients with RLS bypassed;
+#     THE negative test — an AI_INFERENCE row cannot reach verified without
+#     the recorded human, refused for every caller INCLUDING the service
+#     role; the complete-record service path is admitted and audited;
+#   * deliverables (D3.26): the KB intake rail (C2.15) is the only document
+#     door — submission refuses anything not in the tenant's intake register;
+#     acceptance is governed (role-gated, ai_admin refused by name, owner
+#     refused by segregation of duties, rejection states its reason, no
+#     overwrite, trigger-backstopped, service admitted-and-audited);
+#   * risks (D5.22): case binding on the ONE risks table — bind/double-bind/
+#     unbind-without-reason refusals; the ROS contract gate stays untouched;
+#   * decisions (D3.27/D3.28): options with the §17 vector on generalized
+#     scenarios; selection human-only with mandatory rationale, evidence
+#     links validated org-scoped, assumption links through the existing
+#     risk_assumption_dependencies family; a made decision is frozen — no
+#     re-selection, no late options, option set immutable to clients at the
+#     persistence boundary, case decisions un-POSTable past restrictive RLS;
+#   * actions (D11.37): pure reuse — binding on canonical recommendations,
+#     approval spawning the verification obligation on the same machinery,
+#     treatments of case-bound risks arriving as via_risk;
+#   * the workspace read (step 16) renders all five sections from one call.
+#
 # Run: supabase start && scripts/ci-develop-slice1-smoke.sh
 # ============================================================================
 set -euo pipefail
@@ -82,8 +108,15 @@ EXEC=$(token 'executive@syncai.ca' 'Exec123!@#')
 test -n "$PLANNER"; test -n "$MANAGER"; test -n "$TECH"; test -n "$EXEC"
 
 # Idempotent re-run: clear this smoke's artifacts (service context — the §70
-# triggers admit and audit the service path by design).
+# triggers admit and audit the service path by design; the deletes of verified
+# evidence, accepted deliverables and decided decisions each leave their
+# security_events row, which is the trigger doing its job).
 psqlc "delete from development_cases where organization_id='$ORG' and title like 'SMOKE1 %';" >/dev/null
+psqlc "delete from evidence_items where organization_id='$ORG' and description like 'SMOKE1 %';" >/dev/null
+psqlc "delete from recommendations where organization_id='$ORG' and title like 'SMOKE1 %';" >/dev/null
+psqlc "delete from risks where organization_id='$ORG' and title like 'SMOKE1 %';" >/dev/null
+psqlc "delete from reliability_kb_chunks where organization_id='$ORG' and source_id like 'smoke1-%';" >/dev/null
+psqlc "delete from kb_intake_documents where organization_id='$ORG' and source_id like 'smoke1-%';" >/dev/null
 psqlc "update project_frameworks set superseded_by=null where organization_id='$ORG' and name='Reference Heavy-Industry Stage Gate';" >/dev/null
 psqlc "delete from project_frameworks where organization_id='$ORG' and name='Reference Heavy-Industry Stage Gate' and version>1;" >/dev/null
 psqlc "update project_frameworks set status='adopted' where organization_id='$ORG' and name='Reference Heavy-Industry Stage Gate' and version=1;" >/dev/null
@@ -418,6 +451,229 @@ assert cond['consequenceIfMissed'] and cond['evidenceRequirement'] and cond['own
 cp=[g for s in stages for g in s['gates'] if g['decisionType']=='checkpoint']
 assert len(cp)==1, 'checkpoint row missing'
 print('workspace JSON verified: stages, gates, checkpoint, conditions, sanction')
+PY
+
+echo '— 11. evidence: eight-class model; AI_INFERENCE never silently verified —'
+R=$(rpc "$PLANNER" record_case_evidence "{\"p_case_id\":\"$CASE\",\"p_evidence\":{\"evidence_class\":\"GUESSED\",\"description\":\"SMOKE1 class outside the eight must be refused\",\"source_system\":\"smoke\"}}")
+expect_err "$R" 'eight'
+R=$(rpc "$PLANNER" record_case_evidence "{\"p_case_id\":\"$CASE\",\"p_evidence\":{\"evidence_class\":\"MEASURED\",\"description\":\"SMOKE1 vibration trend on crusher 2 drive end over a 12-week window\",\"source_system\":\"condition-monitoring\",\"data_quality\":\"good\"}}")
+noerr "$R"
+EV1=$(printf '%s' "$R"|field evidence_id); test -n "$EV1"
+R=$(rpc "$PLANNER" record_case_evidence "{\"p_case_id\":\"$CASE\",\"p_evidence\":{\"evidence_class\":\"AI_INFERENCE\",\"description\":\"SMOKE1 model-inferred remaining liner life of nine months\",\"source_system\":\"reliability-copilot\"}}")
+noerr "$R"
+EV2=$(printf '%s' "$R"|field evidence_id); test -n "$EV2"
+# (a) real client via PostgREST: the restrictive case policy refuses direct
+#     writes to case-bound evidence — the row is untouched.
+curl -sS -X PATCH "$API_URL/rest/v1/evidence_items?id=eq.$EV2" \
+  -H "apikey: $ANON_KEY" -H "Authorization: Bearer $PLANNER" \
+  -H 'Content-Type: application/json' -d '{"description":"MUTATED"}' >/dev/null
+test "$(psqlc "select description like 'SMOKE1 %' from evidence_items where id='$EV2'")" = "t"
+# (b) verification is role-gated, human-only, method-mandatory.
+R=$(rpc "$TECH" verify_evidence_item "{\"p_evidence_id\":\"$EV1\",\"p_method\":\"technician verification must be refused\"}")
+expect_err "$R" 'governance or engineering role'
+R=$(rpc "$AIBOT" verify_evidence_item "{\"p_evidence_id\":\"$EV1\",\"p_method\":\"the AI-operator identity must be refused by name\"}")
+expect_err "$R" 'AI-operator identity'
+R=$(rpc "$MANAGER" verify_evidence_item "{\"p_evidence_id\":\"$EV1\",\"p_method\":\"x\"}")
+expect_err "$R" 'method'
+R=$(rpc "$MANAGER" verify_evidence_item "{\"p_evidence_id\":\"$EV1\",\"p_method\":\"Cross-checked against the historian export for the same window\"}")
+noerr "$R"
+test "$(psqlc "select verification_status from evidence_items where id='$EV1'")" = "verified"
+test "$(psqlc "select verified_by is not null and verified_at is not null from evidence_items where id='$EV1'")" = "t"
+R=$(rpc "$MANAGER" verify_evidence_item "{\"p_evidence_id\":\"$EV1\",\"p_method\":\"a second determination must be refused\"}")
+expect_err "$R" 'not overwritable'
+# (c) simulated client with RLS bypassed: the provenance trigger refuses —
+#     including a rewrite of an EXISTING verification record.
+OUT=$(sql_must_fail "begin;
+select set_config('request.jwt.claim.sub', (select id::text from auth.users where email='manager@syncai.ca'), true);
+update evidence_items set verification_method='forged after the fact' where id='$EV1';
+rollback;")
+printf '%s' "$OUT" | grep -q 'verify_evidence_item'
+#     On the AI row the AI-specific rule answers first, for clients too.
+OUT=$(sql_must_fail "begin;
+select set_config('request.jwt.claim.sub', (select id::text from auth.users where email='manager@syncai.ca'), true);
+update evidence_items set verification_status='verified', verified_at=now(), verification_method='forged' where id='$EV2';
+rollback;")
+printf '%s' "$OUT" | grep -q 'AI inference never silently'
+# (d) THE negative test (D11.18): an AI_INFERENCE row cannot reach verified
+#     without the recorded human — refused for EVERY caller, service included.
+OUT=$(sql_must_fail "update evidence_items set verification_status='verified' where id='$EV2';")
+printf '%s' "$OUT" | grep -q 'AI inference never silently'
+test "$(psqlc "select verification_status from evidence_items where id='$EV2'")" = "unverified"
+# (e) the service path WITH the complete recorded human is admitted AND audited.
+VER_B=$(psqlc "select count(*) from security_events where organization_id='$ORG' and detail like 'Verification state on evidence item%service caller%'")
+psqlc "update evidence_items set verification_status='verified', verified_by=(select id from auth.users where email='manager@syncai.ca'), verified_at=now(), verification_method='service correction carrying the recorded human' where id='$EV2';" >/dev/null
+test "$(psqlc "select count(*) from security_events where organization_id='$ORG' and detail like 'Verification state on evidence item%service caller%'")" = "$((VER_B+1))"
+
+echo '— 12. deliverables: the KB rail is the only door; acceptance is governed —'
+R=$(rpc "$TECH" create_case_deliverable "{\"p_case_id\":\"$CASE\",\"p_title\":\"SMOKE1 tech deliverable\",\"p_type\":\"report\",\"p_owner_id\":\"$OWNER\"}")
+expect_err "$R" 'planning'
+C34ID=$(psqlc "select id from stage_gate_criteria where gate_id=$G3 and sort_order=40")
+R=$(rpc "$PLANNER" create_case_deliverable "{\"p_case_id\":\"$CASE\",\"p_title\":\"SMOKE1 Estimate basis memo\",\"p_type\":\"report\",\"p_owner_id\":\"$OWNER\",\"p_requirement_id\":$C34ID,\"p_required_date\":\"$DUE\"}")
+noerr "$R"
+DLV=$(printf '%s' "$R"|field deliverable_id); test -n "$DLV"
+R=$(rpc "$MANAGER" accept_deliverable "{\"p_deliverable_id\":\"$DLV\",\"p_decision\":\"accepted\",\"p_note\":\"accepting before submission must be refused\"}")
+expect_err "$R" 'submitted'
+R=$(rpc "$PLANNER" submit_deliverable "{\"p_deliverable_id\":\"$DLV\",\"p_document_id\":\"deadbeef-dead-4bad-8bad-deadbeefdead\"}")
+expect_err "$R" 'intake register'
+# The document arrives through the ONE rail: kb_ingest_document (C2.15).
+RE=$(token 'demo@syncai.ca' 'Demo123!@#'); test -n "$RE"
+R=$(rpc "$RE" kb_ingest_document "{\"p_source_id\":\"smoke1-estimate-basis\",\"p_title\":\"SMOKE1 Estimate basis memo r0\",\"p_chunks\":[{\"chunk_index\":0,\"content\":\"Estimate basis: class 3, contingency stated per line, quantities from the 60% model takeoff.\"}]}")
+noerr "$R"
+DOC=$(psqlc "select id from kb_intake_documents where organization_id='$ORG' and source_id='smoke1-estimate-basis'")
+test -n "$DOC"
+R=$(rpc "$PLANNER" submit_deliverable "{\"p_deliverable_id\":\"$DLV\",\"p_document_id\":\"$DOC\",\"p_revision\":\"B\"}")
+noerr "$R"
+# Segregation: the owner (the RE) cannot accept their own deliverable.
+test "$(psqlc "select id::text from user_profiles where organization_id='$ORG' and role='reliability_engineer' limit 1")" = "$OWNER"
+R=$(rpc "$RE" accept_deliverable "{\"p_deliverable_id\":\"$DLV\",\"p_decision\":\"accepted\",\"p_note\":\"owner self-acceptance must be refused\"}")
+expect_err "$R" 'segregation of duties'
+R=$(rpc "$AIBOT" accept_deliverable "{\"p_deliverable_id\":\"$DLV\",\"p_decision\":\"accepted\",\"p_note\":\"the AI-operator identity must be refused by name\"}")
+expect_err "$R" 'AI-operator identity'
+R=$(rpc "$MANAGER" accept_deliverable "{\"p_deliverable_id\":\"$DLV\",\"p_decision\":\"accepted\",\"p_note\":\"Estimate basis reviewed against the case file.\"}")
+noerr "$R"
+test "$(psqlc "select status from develop_deliverables where id='$DLV'")" = "accepted"
+test "$(psqlc "select accepted_by is not null and accepted_at is not null from develop_deliverables where id='$DLV'")" = "t"
+R=$(rpc "$MANAGER" accept_deliverable "{\"p_deliverable_id\":\"$DLV\",\"p_decision\":\"rejected\",\"p_note\":\"flipping an accepted record must be refused\"}")
+expect_err "$R" 'not overwritable'
+# Second deliverable: rejection requires its reason; direct writes are refused.
+R=$(rpc "$PLANNER" create_case_deliverable "{\"p_case_id\":\"$CASE\",\"p_title\":\"SMOKE1 HAZOP close-out report\",\"p_type\":\"report\",\"p_owner_id\":\"$OWNER\"}")
+noerr "$R"
+DLV2=$(printf '%s' "$R"|field deliverable_id)
+R=$(rpc "$PLANNER" submit_deliverable "{\"p_deliverable_id\":\"$DLV2\",\"p_document_id\":\"$DOC\"}")
+noerr "$R"
+OUT=$(sql_must_fail "begin;
+select set_config('request.jwt.claim.sub', (select id::text from auth.users where email='manager@syncai.ca'), true);
+update develop_deliverables set status='accepted', accepted_by=(select id from auth.users where email='manager@syncai.ca'), accepted_at=now() where id='$DLV2';
+rollback;")
+printf '%s' "$OUT" | grep -q 'accept_deliverable'
+R=$(rpc "$MANAGER" accept_deliverable "{\"p_deliverable_id\":\"$DLV2\",\"p_decision\":\"rejected\",\"p_note\":\"x\"}")
+expect_err "$R" 'rejection states'
+R=$(rpc "$MANAGER" accept_deliverable "{\"p_deliverable_id\":\"$DLV2\",\"p_decision\":\"rejected\",\"p_note\":\"Missing the sensitivity table for the liner option.\"}")
+noerr "$R"
+test "$(psqlc "select status from develop_deliverables where id='$DLV2'")" = "rejected"
+# Service review-writes are admitted AND audited (then restored, audited again).
+ACC_B=$(psqlc "select count(*) from security_events where organization_id='$ORG' and detail like 'Review state on deliverable%service caller%'")
+psqlc "update develop_deliverables set status='accepted', accepted_by=(select id from auth.users where email='manager@syncai.ca'), accepted_at=now() where id='$DLV2';" >/dev/null
+psqlc "update develop_deliverables set status='rejected', accepted_by=null, accepted_at=null where id='$DLV2';" >/dev/null
+test "$(psqlc "select count(*) from security_events where organization_id='$ORG' and detail like 'Review state on deliverable%service caller%'")" = "$((ACC_B+2))"
+
+echo '— 13. risks: one column on the one risks table; binding is a governed act —'
+# Draft status: the ROS contract gate (enforce_risk_contract) rightly refuses
+# 'identified' without the full ISO 31000 field set — risk AUTHORING is the
+# live /risk surface's transcript, not this one; a draft High risk is exactly
+# the "unresolved" state the readiness rollup must name.
+RISK=$(psqlc "with r as (insert into risks (organization_id, title, current_risk_level, status) values ('$ORG','SMOKE1 liner supply single-source exposure','High','draft') returning id) select id from r")
+test -n "$RISK"
+R=$(rpc "$TECH" bind_risk_to_development_case "{\"p_risk_id\":\"$RISK\",\"p_case_id\":\"$CASE\"}")
+expect_err "$R" 'planning'
+R=$(rpc "$PLANNER" bind_risk_to_development_case "{\"p_risk_id\":\"$RISK\",\"p_case_id\":\"$CASE\"}")
+noerr "$R"
+test "$(psqlc "select development_case_id::text from risks where id='$RISK'")" = "$CASE"
+R=$(rpc "$PLANNER" bind_risk_to_development_case "{\"p_risk_id\":\"$RISK\",\"p_case_id\":\"$CASE\"}")
+expect_err "$R" 'already bound'
+R=$(rpc "$PLANNER" bind_risk_to_development_case "{\"p_risk_id\":\"$RISK\",\"p_case_id\":null}")
+expect_err "$R" 'records why'
+
+echo '— 14. decisions: comparable options, evidence+assumption links, human-only selection, frozen record —'
+R=$(rpc "$TECH" create_case_decision "{\"p_case_id\":\"$CASE\",\"p_question\":\"technician framing must be refused\"}")
+expect_err "$R" 'planning'
+R=$(rpc "$PLANNER" create_case_decision "{\"p_case_id\":\"$CASE\",\"p_question\":\"SMOKE1 Which liner strategy carries the 20-year crusher duty?\",\"p_required_date\":\"$DUE\"}")
+noerr "$R"
+DEC=$(printf '%s' "$R"|field decision_id); test -n "$DEC"
+R=$(rpc "$PLANNER" add_decision_option "{\"p_decision_id\":\"$DEC\",\"p_label\":\"Composite liner, 2-year change-out\",\"p_capex\":1800000,\"p_lifecycle_cost\":5200000,\"p_risk_effect\":\"single-source supply exposure\",\"p_reliability_effect\":\"wear rate halved on trial data\"}")
+noerr "$R"
+OPT1=$(printf '%s' "$R"|field option_id); test -n "$OPT1"
+R=$(rpc "$PLANNER" add_decision_option "{\"p_decision_id\":\"$DEC\",\"p_label\":\"OEM steel liner, annual change-out\",\"p_capex\":900000,\"p_lifecycle_cost\":6100000}")
+noerr "$R"
+OPT2=$(printf '%s' "$R"|field option_id); test -n "$OPT2"
+# A supporting assumption on the case-bound risk (the one assumption family).
+ASM=$(psqlc "with r as (insert into risk_assumptions (organization_id, risk_id, statement, owner_id, confidence, trigger_for_review) values ('$ORG','$RISK','SMOKE1 the liner OEM continues to supply the composite variant','$OWNER',70,'OEM notifies discontinuation or lead time exceeds 26 weeks') returning id) select id from r")
+test -n "$ASM"
+R=$(rpc "$AIBOT" select_decision_option "{\"p_decision_id\":\"$DEC\",\"p_option_id\":\"$OPT1\",\"p_rationale\":\"the AI-operator identity must be refused by name\"}")
+expect_err "$R" 'AI-operator identity'
+R=$(rpc "$TECH" select_decision_option "{\"p_decision_id\":\"$DEC\",\"p_option_id\":\"$OPT1\",\"p_rationale\":\"technician selection must be refused outright\"}")
+expect_err "$R" 'governance or engineering'
+R=$(rpc "$MANAGER" select_decision_option "{\"p_decision_id\":\"$DEC\",\"p_option_id\":\"$OPT1\",\"p_rationale\":\"too thin\"}")
+expect_err "$R" '20 characters'
+R=$(rpc "$MANAGER" select_decision_option "{\"p_decision_id\":\"$DEC\",\"p_option_id\":\"$OPT1\",\"p_rationale\":\"Foreign evidence links must be refused before anything is written.\",\"p_evidence_item_ids\":[\"deadbeef-dead-4bad-8bad-deadbeefdead\"]}")
+expect_err "$R" 'does not resolve'
+R=$(rpc "$MANAGER" select_decision_option "{\"p_decision_id\":\"$DEC\",\"p_option_id\":\"$OPT1\",\"p_rationale\":\"Composite lifecycle cost is lower on the verified wear data; supply exposure carried on the case risk.\",\"p_evidence_item_ids\":[\"$EV1\"],\"p_assumption_ids\":[\"$ASM\"]}")
+noerr "$R"
+test "$(psqlc "select selected_option_id::text from decisions where id='$DEC'")" = "$OPT1"
+test "$(psqlc "select selected_by is not null and selected_at is not null from decisions where id='$DEC'")" = "t"
+test "$(psqlc "select count(*) from risk_assumption_dependencies where subject_type='decision' and subject_id='$DEC'")" = "1"
+R=$(rpc "$MANAGER" select_decision_option "{\"p_decision_id\":\"$DEC\",\"p_option_id\":\"$OPT2\",\"p_rationale\":\"a second selection must be refused - no overwrite of a made decision\"}")
+expect_err "$R" 'already been made'
+R=$(rpc "$PLANNER" add_decision_option "{\"p_decision_id\":\"$DEC\",\"p_label\":\"late option after the decision\"}")
+expect_err "$R" 'cannot be extended'
+# The decided record is frozen at the persistence boundary too.
+OUT=$(sql_must_fail "begin;
+select set_config('request.jwt.claim.sub', (select id::text from auth.users where email='manager@syncai.ca'), true);
+update scenarios set capex=1 where id='$OPT1';
+rollback;")
+printf '%s' "$OUT" | grep -q 'judged against'
+OUT=$(sql_must_fail "begin;
+select set_config('request.jwt.claim.sub', (select id::text from auth.users where email='manager@syncai.ca'), true);
+update decisions set selected_option_id='$OPT2' where id='$DEC';
+rollback;")
+printf '%s' "$OUT" | grep -q 'select_decision_option'
+# A real client cannot POST a case-bound decision row past the restrictive policy.
+DEC_B=$(psqlc "select count(*) from decisions where development_case_id='$CASE'")
+curl -sS -X POST "$API_URL/rest/v1/decisions" \
+  -H "apikey: $ANON_KEY" -H "Authorization: Bearer $PLANNER" \
+  -H 'Content-Type: application/json' \
+  -d "{\"organization_id\":\"$ORG\",\"development_case_id\":\"$CASE\",\"decision_type\":\"forged\"}" >/dev/null
+test "$(psqlc "select count(*) from decisions where development_case_id='$CASE'")" = "$DEC_B"
+
+echo '— 15. actions: pure reuse — the canonical store, bound and surfaced —'
+# Approver-grade by construction: the C8 contract gate (a live guard this
+# transcript must not weaken) demands the full field set before 'approved'.
+DEMO_ASSET=$(psqlc "select id from assets where organization_id='$ORG' order by created_at limit 1")
+test -n "$DEMO_ASSET"
+REC=$(psqlc "with r as (insert into recommendations (organization_id, asset_id, title, issue, action, rationale, consequence_summary, alternatives_considered, confidence, required_approver_role, status, urgency, verification_method, required_completion_date) values ('$ORG','$DEMO_ASSET','SMOKE1 Expedite composite liner trial','Liner wear rate exceeds plan on crusher 2','Run the 90-day wear trial on crusher 2','Verified 12-week vibration and wear evidence on the case','Production: avoids repeat unplanned liner stops; safety: no change','Do nothing (keeps current wear rate); annual OEM steel change-out',75,'maintenance_manager','pending','action','Wear rate within 10 percent of model at the 90-day inspection', current_date + 90) returning id) select id from r")
+test -n "$REC"
+R=$(rpc "$TECH" bind_recommendation_to_case "{\"p_recommendation_id\":\"$REC\",\"p_case_id\":\"$CASE\"}")
+expect_err "$R" 'planning'
+R=$(rpc "$PLANNER" bind_recommendation_to_case "{\"p_recommendation_id\":\"$REC\",\"p_case_id\":\"$CASE\"}")
+noerr "$R"
+# Approval spawns the verification obligation on the SAME canonical machinery.
+psqlc "update recommendations set status='approved' where id='$REC';" >/dev/null
+test "$(psqlc "select count(*) from verification_obligations where recommendation_id='$REC'")" = "1"
+# A treatment of the case-bound risk reaches the case as via_risk — no second binding.
+REC2=$(psqlc "with r as (insert into recommendations (organization_id, title, status, risk_id) values ('$ORG','SMOKE1 Dual-source the composite liner supply','pending','$RISK') returning id) select id from r")
+test -n "$REC2"
+
+echo '— 16. the workspace read renders all five sections —'
+WS=$(rpc "$PLANNER" get_development_case "{\"p_case_id\":\"$CASE\"}")
+BODY="$WS" EV1="$EV1" OPT1="$OPT1" python3 - <<'PY'
+import json,os
+w=json.loads(os.environ['BODY'])
+dv=w['deliverables']; assert len(dv)==2, len(dv)
+acc=[d for d in dv if d['status']=='accepted'][0]
+assert acc['acceptance']['by'] and acc['requirement']['criterion'], acc
+assert acc['document']['title'].startswith('SMOKE1'), acc['document']
+rej=[d for d in dv if d['status']=='rejected'][0]
+assert rej['reviewNote'], rej
+ev=w['evidence']; assert len(ev)==2, len(ev)
+ver=[e for e in ev if e['id']==os.environ['EV1']][0]
+assert ver['verificationStatus']=='verified' and ver['verification']['method'], ver
+ai=[e for e in ev if e['evidenceClass']=='AI_INFERENCE'][0]
+assert ai['verificationStatus']=='verified'  # service correction carried the recorded human
+risks=w['risks']; assert len(risks)==1 and risks[0]['currentRiskLevel']=='High', risks
+decs=w['decisions']; assert len(decs)==1, len(decs)
+d=decs[0]
+assert len(d['options'])==2, d['options']
+sel=[o for o in d['options'] if o['isSelected']]
+assert len(sel)==1 and sel[0]['id']==os.environ['OPT1'], sel
+assert d['selection']['rationale'] and d['selection']['by'], d['selection']
+assert os.environ['EV1'] in d['evidenceItemIds'], d['evidenceItemIds']
+assert len(d['assumptions'])==1 and d['assumptions'][0]['statement'].startswith('SMOKE1'), d['assumptions']
+acts=w['actions']; assert len(acts)==2, acts
+direct=[a for a in acts if a['binding']=='direct'][0]
+assert direct['verification'] and direct['verification']['status']=='open', direct
+via=[a for a in acts if a['binding']=='via_risk'][0]
+assert via['riskTitle'] and 'single-source' in via['riskTitle'], via
+print('workspace JSON verified: deliverables, evidence, risks, decisions, actions')
 PY
 
 echo 'DEVELOP SLICE 1 SMOKE: ALL TRANSCRIPT STEPS PASSED'
