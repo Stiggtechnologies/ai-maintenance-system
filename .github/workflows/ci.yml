@@ -132,6 +132,30 @@ jobs:
       - name: Start local Supabase (applies full migration chain)
         run: bash scripts/ci-start-supabase.sh /tmp/migrations-supabase-start.log /tmp/migrations-supabase-diagnostics.txt
 
+      # The demo stack schedules simulate_telemetry_tick() on a 1-minute pg_cron —
+      # a RANDOM-WALK that drifts sensor last_value and recomputes status
+      # (00000000000013_realtime_operating_picture.sql:271, random() at :61).
+      # Left running it mutates the seeded fixture between boot and the smokes,
+      # so "flagged >= 3" becomes a coin flip decided by how many ticks land
+      # during the earlier steps: #283 failed at flagged=2 while the identical
+      # commit replayed locally at flagged=4, and #282 passed the same race from
+      # the other side (the 5-minute agent-loop cron had pre-created 3
+      # recommendations: created=1). This step does NOT touch any assertion —
+      # thresholds stay. It removes the randomizer from the test environment so
+      # the assertions test the loop, not the dice. The syncai-agent-loop cron is
+      # left alone: the loop is idempotent by design and the smoke already
+      # tolerates pre-created rows.
+      - name: Make the seeded fixture deterministic (unschedule the telemetry randomizer)
+        run: |
+          set -euo pipefail
+          eval "$(supabase status -o env | grep -E '^DB_URL=')"
+          psql "$DB_URL" -v ON_ERROR_STOP=1 -c             "do \$\$ begin
+               if exists (select 1 from cron.job where jobname = 'syncai-telemetry-sim') then
+                 perform cron.unschedule('syncai-telemetry-sim');
+               end if;
+             exception when undefined_table then null; end \$\$;"
+          echo "telemetry randomizer unscheduled (or was never scheduled)"
+
       - name: Upload migration startup diagnostics
         if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
@@ -230,6 +254,30 @@ jobs:
 
       - name: Start local Supabase (fresh migration chain + demo data)
         run: bash scripts/ci-start-supabase.sh /tmp/e2e-supabase-start.log /tmp/e2e-supabase-diagnostics.txt
+
+      # The demo stack schedules simulate_telemetry_tick() on a 1-minute pg_cron —
+      # a RANDOM-WALK that drifts sensor last_value and recomputes status
+      # (00000000000013_realtime_operating_picture.sql:271, random() at :61).
+      # Left running it mutates the seeded fixture between boot and the smokes,
+      # so "flagged >= 3" becomes a coin flip decided by how many ticks land
+      # during the earlier steps: #283 failed at flagged=2 while the identical
+      # commit replayed locally at flagged=4, and #282 passed the same race from
+      # the other side (the 5-minute agent-loop cron had pre-created 3
+      # recommendations: created=1). This step does NOT touch any assertion —
+      # thresholds stay. It removes the randomizer from the test environment so
+      # the assertions test the loop, not the dice. The syncai-agent-loop cron is
+      # left alone: the loop is idempotent by design and the smoke already
+      # tolerates pre-created rows.
+      - name: Make the seeded fixture deterministic (unschedule the telemetry randomizer)
+        run: |
+          set -euo pipefail
+          eval "$(supabase status -o env | grep -E '^DB_URL=')"
+          psql "$DB_URL" -v ON_ERROR_STOP=1 -c             "do \$\$ begin
+               if exists (select 1 from cron.job where jobname = 'syncai-telemetry-sim') then
+                 perform cron.unschedule('syncai-telemetry-sim');
+               end if;
+             exception when undefined_table then null; end \$\$;"
+          echo "telemetry randomizer unscheduled (or was never scheduled)"
 
       - name: Upload E2E startup diagnostics
         if: failure()
