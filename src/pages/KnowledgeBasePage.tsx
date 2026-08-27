@@ -20,7 +20,7 @@ import {
 
 const INTAKE_ROLES = ["admin", "ai_admin", "reliability_engineer"];
 
-const TEXT_FILE_RE = /\.(txt|csv|md|markdown|json|log)$/i;
+const TEXT_FILE_RE = /\.(txt|csv|md|markdown|json|log|pdf)$/i;
 
 export function KnowledgeBasePage() {
   const { profile } = useAuth();
@@ -99,7 +99,7 @@ export function KnowledgeBasePage() {
     if (selectedFile) {
       if (!TEXT_FILE_RE.test(selectedFile.name)) {
         setError(
-          "Text, CSV and Markdown files are supported in this release. PDFs arrive with the OCR lane — for now paste the document text instead.",
+          "Unsupported file type. Text, CSV, Markdown and PDF (text layer) are supported — for anything else, paste the document text.",
         );
         return;
       }
@@ -271,12 +271,12 @@ export function KnowledgeBasePage() {
           <div className="mt-4 grid gap-4 md:grid-cols-2">
             <label className="block">
               <span className="mb-1 block text-sm font-medium text-industrial-text">
-                File (txt / csv / md / json / log)
+                File (txt / csv / md / json / log / pdf)
               </span>
               <input
                 ref={fileInputRef}
                 type="file"
-                accept=".txt,.csv,.md,.markdown,.json,.log,text/plain,text/csv,text/markdown,application/json"
+                accept=".txt,.csv,.md,.markdown,.json,.log,.pdf,text/plain,text/csv,text/markdown,application/json,application/pdf"
                 onChange={(e) => setSelectedFile(e.target.files?.[0] ?? null)}
                 className="block w-full text-sm text-industrial-muted file:mr-3 file:rounded-lg file:border-0 file:bg-[#3A8DFF] file:px-3 file:py-2 file:text-sm file:font-medium file:text-white hover:file:bg-[#2E7AE6]"
               />
@@ -307,7 +307,7 @@ export function KnowledgeBasePage() {
               value={pasted}
               onChange={(e) => setPasted(e.target.value)}
               rows={5}
-              placeholder="Paste runbook, procedure or manual text (min 20 characters). PDFs: paste their text until the OCR lane ships."
+              placeholder="Paste runbook, procedure or manual text (min 20 characters). PDFs are read from their text layer; scanned PDFs wait for the OCR lane."
               className="w-full rounded-lg border border-industrial-border bg-industrial-bg px-3 py-2 text-sm text-industrial-text placeholder:text-industrial-muted/60 focus:border-[#3A8DFF] focus:outline-none"
             />
           </label>

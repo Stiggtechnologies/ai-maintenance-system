@@ -2,8 +2,11 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";import {
   buildIntakeChunks,
   chunkDocument,
+  isScannedLike,
   KB_DOCUMENT_CLASSES,
   KB_INTAKE_ROLES,
+  MAX_PDF_PAGES,
+  PDF_SCANNED_MESSAGE,
   suggestDocumentClass,
   validateIntakeInput,
 } from "./kb-intake-core";
@@ -90,6 +93,27 @@ describe("buildIntakeChunks", () => {
   });
 });
 
+describe("isScannedLike (OCR-lane heuristic)", () => {
+  it("flags empty or near-empty text as scanned", () => {
+    expect(isScannedLike("", 10)).toBe(true);
+    expect(isScannedLike("   ", 10)).toBe(true);
+    expect(isScannedLike("a few words", 10)).toBe(true);
+  });
+  it("flags sparse text per page as scanned (image-only PDFs)", () => {
+    // 200 chars across 10 pages = 20 chars/page < 40 threshold.
+    expect(isScannedLike("x".repeat(200), 10)).toBe(true);
+  });
+  it("accepts dense text", () => {
+    expect(isScannedLike("x".repeat(5000), 10)).toBe(false);
+  });
+  it("bounds PDF page processing", () => {
+    expect(MAX_PDF_PAGES).toBeGreaterThanOrEqual(100);
+  });
+  it("exposes a clear scanned-document message", () => {
+    expect(PDF_SCANNED_MESSAGE).toContain("OCR lane");
+  });
+});
+
 describe("C2.15 intake contract", () => {
   const migration = readFileSync(
     "supabase/migrations/20261027090010_kb_document_intake.sql",
@@ -125,11 +149,20 @@ describe("C2.15 intake contract", () => {
     expect(edgeFunction).toContain("user_profiles");
     expect(edgeFunction).toContain('"kb_ingest_document"');
     expect(edgeFunction).toContain("buildIntakeChunks");
-    expect(edgeFunction).toContain("PDF intake is not wired yet");
+    expect(edgeFunction).toContain("decodeTextFile");
   });
 
   it("the shared core is imported by the edge function", () => {
     expect(edgeFunction).toContain("../_shared/kb-intake-core.ts");
+  });
+
+  it("the edge function extracts PDF text layers via pdfjs and rejects scans", () => {
+    expect(edgeFunction).toContain("npm:pdfjs-dist");
+    expect(edgeFunction).toContain("getDocument");
+    expect(edgeFunction).toContain("getTextContent");
+    expect(edgeFunction).toContain("isScannedLike");
+    expect(edgeFunction).toContain("PDF_SCANNED_MESSAGE");
+    expect(edgeFunction).toContain("MAX_PDF_PAGES");
   });
 
   it("exposes exactly the documented classes and roles", () => {

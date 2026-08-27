@@ -158,20 +158,55 @@ describe("KnowledgeBasePage", () => {
     );
     await screen.findByText(/Ingest a document/i);
     fireEvent.change(screen.getByLabelText(/Title/i), {
-      target: { value: "Scanned Manual" },
+      target: { value: "Word Doc" },
     });
     fireEvent.change(screen.getByLabelText(/Source ID/i), {
-      target: { value: "scanned-manual" },
+      target: { value: "word-doc" },
     });
-    const file = new File(["pdf-bytes"], "manual.pdf", {
+    const file = new File(["docx-bytes"], "manual.docx", {
+      type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    });
+    fireEvent.change(screen.getByLabelText(/File/i), {
+      target: { files: [file] },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Ingest" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      /Unsupported file type/i,
+    );
+    expect(ingestKbDocument).not.toHaveBeenCalled();
+  });
+
+  it("accepts PDF files (text layer extracted server-side)", async () => {
+    listKbIntakeDocuments.mockResolvedValue([]);
+    ingestKbDocument.mockResolvedValue({
+      source_id: "pdf-manual",
+      document_class: "unclassified",
+      chunks_created: 8,
+      status: "indexed",
+    });
+    render(
+      <MemoryRouter>
+        <KnowledgeBasePage />
+      </MemoryRouter>,
+    );
+    await screen.findByText(/Ingest a document/i);
+    fireEvent.change(screen.getByLabelText(/Title/i), {
+      target: { value: "PDF Manual" },
+    });
+    fireEvent.change(screen.getByLabelText(/Source ID/i), {
+      target: { value: "pdf-manual" },
+    });
+    const file = new File(["%PDF-1.4 fake"], "manual.pdf", {
       type: "application/pdf",
     });
     fireEvent.change(screen.getByLabelText(/File/i), {
       target: { files: [file] },
     });
     fireEvent.click(screen.getByRole("button", { name: "Ingest" }));
-    expect(await screen.findByRole("alert")).toHaveTextContent(/OCR lane/i);
-    expect(ingestKbDocument).not.toHaveBeenCalled();
+    await waitFor(() => expect(ingestKbDocument).toHaveBeenCalledTimes(1));
+    const input = ingestKbDocument.mock.calls[0][0] as Record<string, unknown>;
+    expect(input.file_base64).toBeDefined();
+    expect(input.filename).toBe("manual.pdf");
   });
 
   it("surfaces ingest errors", async () => {

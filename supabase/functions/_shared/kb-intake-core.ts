@@ -168,3 +168,22 @@ export function buildIntakeChunks(
     page_end: pageEnd ?? null,
   }));
 }
+
+/**
+ * Scanned-document heuristic (C2.15 OCR lane). A PDF with a text layer
+ * yields dense text; a scan yields almost nothing per page. Below the
+ * threshold we refuse rather than index a near-empty corpus that would
+ * retrieve as "the document says nothing".
+ */
+export function isScannedLike(extractedText: string, pageCount: number): boolean {
+  const len = (extractedText ?? "").trim().length;
+  if (len < 20) return true;
+  if (pageCount > 0 && len / pageCount < 40) return true;
+  return false;
+}
+
+/** Hard cap on pages processed per PDF — bounds extraction cost. */
+export const MAX_PDF_PAGES = 200;
+
+export const PDF_SCANNED_MESSAGE =
+  "This PDF has no usable text layer (scanned or image-only). The OCR lane is not wired yet — paste the text or provide the source document.";
