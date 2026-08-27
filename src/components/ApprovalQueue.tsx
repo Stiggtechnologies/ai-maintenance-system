@@ -330,6 +330,12 @@ export function ApprovalQueue() {
     return `${hoursRemaining}h ${minutesRemaining}m remaining`;
   }
 
+  const now = Date.now();
+  const expiredCount = decisions.filter(
+    (d) => new Date(d.deadline).getTime() < now,
+  ).length;
+  const activeCount = decisions.length - expiredCount;
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -359,7 +365,12 @@ export function ApprovalQueue() {
         <div className="flex items-center space-x-2">
           <AlertTriangle className="w-5 h-5 text-orange-500" />
           <span className="text-lg font-semibold text-slate-300">
-            {decisions.length} pending
+            {activeCount} pending
+            {expiredCount > 0 && (
+              <span className="ml-2 text-sm font-medium text-red-400">
+                · {expiredCount} expired
+              </span>
+            )}
           </span>
         </div>
       </div>
