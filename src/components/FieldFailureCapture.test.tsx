@@ -89,7 +89,7 @@ describe("FieldFailureCapture", () => {
 
   it("pins the governed migration contract", () => {
     const migration = readFileSync(
-      "supabase/migrations/20261027090030_field_failure_capture.sql",
+      "supabase/migrations/20261115090710_field_failure_capture.sql",
       "utf8",
     );
     expect(migration).toContain("bucket_id = 'failure-evidence'");
