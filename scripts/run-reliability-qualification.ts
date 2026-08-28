@@ -406,7 +406,13 @@ async function responseCall(options: {
 
   const response = await fetch(`${XAI_BASE_URL}/chat/completions`, {
     method: "POST",
-    signal: AbortSignal.timeout(120_000),
+    // 600s, not 120s. The 120s value was inherited from the OpenAI-era harness and
+    // killed the first real capture at case 3 of 31 (run 33157806174,
+    // TimeoutError on cat797-onboarding): a full-deliverable case at 5,600
+    // max tokens legitimately reasons past two minutes on grok-4.6. This is an
+    // operational ceiling against a hung connection, not a quality bar — the
+    // model still has to produce an answer the judge and the floor accept.
+    signal: AbortSignal.timeout(600_000),
     headers: {
       Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
