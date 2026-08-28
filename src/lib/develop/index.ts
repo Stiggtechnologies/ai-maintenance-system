@@ -288,6 +288,119 @@ export interface WorkspaceScheduleEvent {
   activities: WorkspaceScheduleActivity[];
 }
 
+export interface WorkspaceObjective {
+  id: string;
+  description: string;
+  level: string;
+  target: string;
+  targetValue: number | null;
+  unit: string | null;
+  targetDate: string | null;
+  tolerance: string;
+  status: string;
+  owner: string | null;
+  ancestors: { id: string; description: string; level: string }[];
+  linkedRisks: number;
+}
+
+/** The eleven spec-I.3 outcome dimensions, verbatim (D1.01). */
+export const SUCCESS_DIMENSIONS = [
+  "business",
+  "safety",
+  "operational",
+  "reliability",
+  "availability",
+  "maintainability",
+  "quality",
+  "schedule",
+  "cost",
+  "environmental",
+  "stakeholder",
+] as const;
+
+export interface WorkspaceSuccessOutcome {
+  id: string;
+  dimension: (typeof SUCCESS_DIMENSIONS)[number];
+  statement: string;
+  targetValue: number | null;
+  unit: string | null;
+  basis: string;
+  owner: string | null;
+  ramTarget: {
+    id: number;
+    systemLabel: string;
+    targetAvailability: number;
+    basis: string | null;
+  } | null;
+}
+
+export interface WorkspaceSuccessContract {
+  id: string;
+  version: number;
+  status: "draft" | "recorded" | "superseded";
+  recordedAt: string | null;
+  recordNote: string | null;
+  recordedBy: string | null;
+  dimensionsTotal: number;
+  outcomes: WorkspaceSuccessOutcome[];
+}
+
+export interface WorkspaceBusinessCase {
+  id: number;
+  caseRef: string;
+  title: string;
+  driver: string;
+  status: string;
+  currency: string;
+  discountRate: number;
+  discountRateSource: string | null;
+  hypothesis: {
+    spend: number;
+    effect: string;
+    effectQuantity: number | null;
+    effectUnit: string | null;
+    valuePerYear: number;
+    basis: string;
+  } | null;
+  viability: { floor: number; basis: string } | null;
+  optionCount: number;
+  createdAt: string;
+}
+
+export interface WorkspaceCaseAssumption {
+  id: string;
+  statement: string;
+  status: string;
+  confidence: number | null;
+  validUntil: string | null;
+  owner: string | null;
+  businessCaseId: number | null;
+  threshold: {
+    parameter: string;
+    comparator: string;
+    value: number;
+    unit: string | null;
+  } | null;
+  invalidation: { invalidatedAt: string; reason: string | null } | null;
+}
+
+export interface WorkspaceBenefit {
+  id: string;
+  label: string | null;
+  value: number | null;
+  unit: string | null;
+  status: string;
+  expectedDate: string | null;
+  basis: string | null;
+  owner: string | null;
+  objective: string | null;
+  verification: {
+    verifiedAt: string;
+    note: string | null;
+    by: string | null;
+  } | null;
+}
+
 export interface CaseWorkspace {
   id: string;
   title: string;
@@ -323,6 +436,11 @@ export interface CaseWorkspace {
   actions: WorkspaceAction[];
   baselines: WorkspaceBaseline[];
   schedule: WorkspaceScheduleEvent[];
+  objective: WorkspaceObjective | null;
+  successContract: WorkspaceSuccessContract | null;
+  businessCases: WorkspaceBusinessCase[];
+  caseAssumptions: WorkspaceCaseAssumption[];
+  benefits: WorkspaceBenefit[];
 }
 
 export interface GateRollup {
@@ -465,6 +583,12 @@ export type ReadinessBlocker =
       dueDate: string;
       overdue: boolean;
       gate: string | null;
+    }
+  | {
+      type: "success_contract";
+      id: string;
+      name: string;
+      status: "missing";
     };
 
 export interface ReadinessProjection {
@@ -494,6 +618,13 @@ export interface GateReadinessResult {
   criteria: ReadinessCriterionRow[];
   categories: ReadinessCategoryRow[];
   blockers: ReadinessBlocker[];
+  successContract: {
+    id: string;
+    version: number;
+    recordedAt: string;
+    outcomes: number;
+    dimensionsCovered: number;
+  } | null;
   evidenceSummary: {
     total: number;
     verified: number;
@@ -550,4 +681,182 @@ export interface OperationalReadinessResult {
   } | null;
   note?: string;
   scopeNote?: string;
+}
+
+// ---------------------------------------------------------------------------
+// Slice 2 value-spine RPC result shapes — get_case_finance_model,
+// get_case_value_trajectory, get_since_sanction_delta return exactly these
+// rows; the panels render them (and the kernel's refusal-first numbers)
+// without inventing anything.
+// ---------------------------------------------------------------------------
+
+export interface FinanceModelOption {
+  id: number;
+  label: string;
+  lifePeriods: number;
+  cashFlows: { period: number; amount: number }[];
+  benefitProbability: number | null;
+  isDoNothing: boolean;
+  notes: string | null;
+  contingency: number | null;
+  contingencyBasis: string | null;
+}
+
+export interface FinanceAssumptionRow {
+  key: string;
+  label: string;
+  value: number;
+  unit: string | null;
+  source: string;
+  kind: string;
+  effectiveFrom: string;
+  reviewDue: string | null;
+}
+
+export interface ViabilityThresholdRow {
+  assumptionId: string;
+  statement: string;
+  status: string;
+  parameter: string;
+  comparator: string;
+  threshold: number;
+  unit: string | null;
+  operativeValue: number | null;
+  margin: number | null;
+  operativeSource: string | null;
+}
+
+export interface CaseFinanceModel {
+  caseId: string;
+  available: boolean;
+  reason?: string;
+  businessCase?: {
+    id: number;
+    caseRef: string;
+    title: string;
+    driver: string;
+    status: string;
+    currency: string;
+    discountRate: number;
+    discountRateSource: string | null;
+    decidedAt: string | null;
+  };
+  hypothesis?: {
+    spend: number;
+    effect: string;
+    effectQuantity: number | null;
+    effectUnit: string | null;
+    valuePerYear: number;
+    basis: string;
+  } | null;
+  viability?: { floor: number; basis: string } | null;
+  options?: FinanceModelOption[];
+  npvInputsComplete?: boolean;
+  refusals?: string[];
+  economicAssumptions?: FinanceAssumptionRow[];
+  viabilityThresholds?: ViabilityThresholdRow[];
+  fundingConstraints?: {
+    capitalPlanItems: {
+      label: string;
+      planYear: number;
+      cost: number;
+      benefitPresentValue: number | null;
+      mandatory: boolean;
+      mandatoryBasis: string | null;
+    }[];
+    capitalBudgetLines: {
+      budgetYear: number;
+      category: string;
+      budgeted: number;
+      committed: number;
+      actual: number;
+      forecast: number | null;
+      forecastBasis: string | null;
+    }[];
+  };
+}
+
+export interface TrajectoryPoint {
+  evaluationId: string;
+  expectedValue: number;
+  evaluatedAt: string;
+  basis: string;
+  uncertainty: string;
+}
+
+export interface TrajectoryGate {
+  gateId: number;
+  gateName: string;
+  stageKey: string;
+  stageSequence: number;
+  gateSequence: number;
+  decisionType: string;
+  latestReview: { id: number; outcome: string; reviewedAt: string } | null;
+  evaluated: boolean;
+  point: TrajectoryPoint | null;
+  note: string | null;
+}
+
+export interface CaseValueTrajectory {
+  caseId: string;
+  sanction: { sanctionedAt: string; sanctionedValue: number | null } | null;
+  sanctionBaselineEvaluation: TrajectoryPoint | null;
+  anchorBaselines: {
+    id: string;
+    baselineType: string;
+    version: number;
+    approvedAt: string;
+    description: string;
+  }[];
+  gates: TrajectoryGate[];
+  evaluations: (TrajectoryPoint & { linkedToReview: boolean })[];
+}
+
+export interface SinceSanctionDelta {
+  caseId: string;
+  available: boolean;
+  reason?: string;
+  sanctionedAt?: string;
+  sanctionedValue?: number | null;
+  anchorBaselines?: {
+    id: string;
+    baselineType: string;
+    version: number;
+    approvedAt: string;
+    description: string;
+    content: Record<string, unknown>;
+  }[];
+  sanctionBaseline?: {
+    evaluationId: string;
+    expectedValue: number;
+    evaluatedAt: string;
+    basis?: string;
+    uncertainty?: string;
+  };
+  current?: {
+    evaluationId: string;
+    expectedValue: number;
+    evaluatedAt: string;
+    basis?: string;
+    uncertainty?: string;
+  };
+  dimensions?: {
+    dimension: string;
+    atSanction: number;
+    current: number;
+    delta: number;
+  }[];
+  notComparable?: { dimension: string; reason: string }[];
+}
+
+export interface CollapseVerdict {
+  evaluated: boolean;
+  collapsed?: boolean;
+  reason?: string;
+  recommendation_id?: string;
+  already_open?: boolean;
+  expectedValue?: number;
+  viabilityFloor?: number;
+  headroom?: number;
+  gap?: number;
 }

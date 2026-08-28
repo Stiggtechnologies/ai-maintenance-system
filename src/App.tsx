@@ -79,14 +79,12 @@ import { getRoleHome } from "./lib/roleNavigation";
 import { ReliabilityCopilotPage } from "./pages/ReliabilityCopilotPage";
 import { FirstCustomerPilotPage } from "./pages/FirstCustomerPilotPage";
 import { DecisionCaseWorkspacePage } from "./pages/DecisionCaseWorkspacePage";
+import { GovernedDecisionWorkspacePage } from "./pages/GovernedDecisionWorkspacePage";
 import { DevelopCasesPage } from "./pages/DevelopCasesPage";
 import { DevelopIntakePage } from "./pages/DevelopIntakePage";
 import { DevelopmentCaseWorkspacePage } from "./pages/DevelopmentCaseWorkspacePage";
-import {
-  clearDecisionCaseHandoff,
-  readDecisionCaseHandoff,
-} from "./lib/decision-case";
-import { createPersistedDecisionCase } from "./services/decisionCaseService";
+import { clearDecisionCaseHandoff, readDecisionCaseHandoff, writeDecisionCases } from "./lib/decision-case";
+import { readStoredDecisionDrafts } from "./lib/decision-case-drafts";
 
 type Page =
   | "demo"
@@ -196,21 +194,25 @@ function App() {
       setCurrentPage("app");
       const handoff = readDecisionCaseHandoff(window.sessionStorage);
       if (handoff) {
+        // D13.07 (ruling 15): the governed record is decisions + scenarios,
+        // so a public demo case is NOT silently promoted into a parallel
+        // jsonb record. It lands as a VISIBLE local draft; the Decision
+        // Workspace banner offers the explicit import-into-a-case path (or
+        // an explicit discard) — never silent loss, never silent
+        // continuation.
         try {
-          const secured = await createPersistedDecisionCase(
-            handoff.decisionCase,
-            {
-              asset: handoff.decisionCase.asset,
-              role: handoff.decisionCase.intakeRole,
-              company: handoff.decisionCase.organization,
-              intakeId: "public-decision-case-handoff",
-            },
-          );
+          const drafts = readStoredDecisionDrafts(window.localStorage);
+          if (!drafts.some((d) => d.id === handoff.decisionCase.id)) {
+            writeDecisionCases(window.localStorage, [
+              handoff.decisionCase,
+              ...drafts,
+            ]);
+          }
           clearDecisionCaseHandoff(window.sessionStorage);
-          window.location.assign(`/decision-cases/${secured.id}`);
+          window.location.assign("/decision-cases/demo");
           return;
         } catch {
-          // Keep the staged case in this tab so a transient sync failure can be
+          // Keep the staged case in this tab so a transient failure can be
           // retried without losing the public Decision Case.
         }
       }
@@ -430,9 +432,14 @@ function AuthenticatedApp() {
             path="/cowork"
             element={<Navigate to="/decision-cases/demo" replace />}
           />
+          {/* D13.07 (overlap-map ruling 15): the signed-in decision
+              workspace reads the canonical decisions + scenarios stores;
+              localStorage is never a system of record. Old local drafts
+              surface in an explicit import/discard banner. The public
+              value-proof demo keeps its own sessionStorage surface. */}
           <Route
             path="/decision-cases/:caseId"
-            element={<DecisionCaseWorkspacePage />}
+            element={<GovernedDecisionWorkspacePage />}
           />
 
           <Route path="/ai-workforce" element={<AIWorkforce />} />

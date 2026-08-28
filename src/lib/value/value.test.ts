@@ -15,6 +15,10 @@ import {
   prioritiseUnderBudget,
   findBreakEven,
   costOfRisk,
+  irr,
+  paybackPeriod,
+  cashFlowsDefect,
+  type CashFlow,
 } from "./index";
 
 describe("npv", () => {
@@ -240,5 +244,134 @@ describe("costOfRisk", () => {
 
   it("rejects an impossible probability", () => {
     expect(costOfRisk(1.4, 100).reason).toMatch(/between 0 and 1/);
+  });
+});
+
+describe("irr — refusal-first (D2.04)", () => {
+  it("refuses an all-cost stream with the reason named", () => {
+    const result = irr([
+      { period: 0, amount: -100 },
+      { period: 1, amount: -50 },
+    ]);
+    expect(result.rate).toBeNull();
+    expect(result.reason).toContain("never change sign");
+  });
+
+  it("refuses an empty stream", () => {
+    expect(irr([]).rate).toBeNull();
+  });
+
+  it("finds the unique rate on a single-sign-change stream", () => {
+    // -1000 today, +1100 in one period → IRR exactly 10%.
+    const result = irr([
+      { period: 0, amount: -1000 },
+      { period: 1, amount: 1100 },
+    ]);
+    expect(result.rate).not.toBeNull();
+    expect(result.rate as number).toBeCloseTo(0.1, 6);
+    expect(result.reason).toContain("unique");
+  });
+
+  it("carries the multiple-root caveat when flows change sign more than once", () => {
+    const result = irr([
+      { period: 0, amount: -100 },
+      { period: 1, amount: 60 },
+      { period: 2, amount: -10 },
+      { period: 3, amount: 80 },
+    ]);
+    expect(result.rate).not.toBeNull();
+    expect(result.reason).toContain("CAVEAT");
+  });
+
+  it("refuses when every root sits in a bracket the endpoints cannot see (paired roots), rather than inventing one", () => {
+    // -100, +250, -156: both IRR roots are negative rates (-16.7%, -23.1%)
+    // and the bracket endpoints share a sign — bisection cannot certify a
+    // root, and the honest answer is the refusal, not a guess.
+    const result = irr([
+      { period: 0, amount: -100 },
+      { period: 1, amount: 250 },
+      { period: 2, amount: -156 },
+    ]);
+    expect(result.rate).toBeNull();
+    expect(result.reason).toContain("IRR unavailable");
+  });
+});
+
+describe("paybackPeriod — refusal-first (D2.04)", () => {
+  it("refuses when the cash never comes back, as an answer not an error", () => {
+    const result = paybackPeriod([
+      { period: 0, amount: -1000 },
+      { period: 1, amount: 100 },
+      { period: 2, amount: 100 },
+    ]);
+    expect(result.periods).toBeNull();
+    expect(result.reason).toContain("does not come back");
+  });
+
+  it("finds the first period cumulative flow reaches zero", () => {
+    const result = paybackPeriod([
+      { period: 0, amount: -1000 },
+      { period: 1, amount: 400 },
+      { period: 2, amount: 400 },
+      { period: 3, amount: 400 },
+    ]);
+    expect(result.periods).toBe(3);
+    expect(result.reason).toContain("Undiscounted");
+  });
+
+  it("refuses an empty stream", () => {
+    expect(paybackPeriod([]).periods).toBeNull();
+  });
+
+  it("refuses an all-benefit stream — nothing was out, so nothing pays back", () => {
+    const result = paybackPeriod([
+      { period: 0, amount: 100 },
+      { period: 1, amount: 200 },
+    ]);
+    expect(result.periods).toBeNull();
+    expect(result.reason).toContain("no outlay");
+  });
+});
+
+describe("cashFlowsDefect — the kernel refuses malformed flows by name (repair of the NaN-USD defect)", () => {
+  it("passes well-formed flows", () => {
+    expect(
+      cashFlowsDefect([
+        { period: 0, amount: -100 },
+        { period: 1, amount: 60 },
+      ]),
+    ).toBeNull();
+  });
+
+  it("names a flow whose period or amount is missing", () => {
+    expect(
+      cashFlowsDefect([{ amount: -100 } as unknown as CashFlow]),
+    ).toContain("malformed");
+    expect(
+      cashFlowsDefect([{ period: 1 } as unknown as CashFlow]),
+    ).toContain("malformed");
+  });
+
+  it("names a non-finite amount and a fractional or negative period", () => {
+    expect(cashFlowsDefect([{ period: 0, amount: NaN }])).toContain(
+      "malformed",
+    );
+    expect(cashFlowsDefect([{ period: 0.5, amount: 10 }])).toContain(
+      "whole numbers",
+    );
+    expect(cashFlowsDefect([{ period: -1, amount: 10 }])).toContain(
+      "whole numbers",
+    );
+  });
+
+  it("irr and paybackPeriod refuse malformed flows instead of computing on them", () => {
+    const bad = [{ amount: -100 } as unknown as CashFlow];
+    const irrResult = irr(bad);
+    expect(irrResult.rate).toBeNull();
+    expect(irrResult.reason).toContain("malformed");
+    const payback = paybackPeriod(bad);
+    expect(payback.periods).toBeNull();
+    expect(payback.reason).toContain("malformed");
+    expect(payback.reason).not.toContain("NaN");
   });
 });

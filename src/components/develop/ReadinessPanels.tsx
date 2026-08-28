@@ -121,19 +121,28 @@ function blockerLine(b: ReadinessBlocker): {
       ),
     };
   }
+  if (b.type === "open_condition") {
+    return {
+      key: `gc-${b.id}`,
+      kind: "open condition",
+      body: (
+        <>
+          {b.name}{" "}
+          <span className="text-red-300/80">
+            (due {b.dueDate}
+            {b.overdue ? ", OVERDUE" : ""}
+            {b.gate ? `, from ${b.gate}` : ""})
+          </span>
+        </>
+      ),
+    };
+  }
+  // success_contract (D1.02): the same predicate record_case_gate_review
+  // refuses a proceed on, named before anyone attempts the review.
   return {
-    key: `gc-${b.id}`,
-    kind: "open condition",
-    body: (
-      <>
-        {b.name}{" "}
-        <span className="text-red-300/80">
-          (due {b.dueDate}
-          {b.overdue ? ", OVERDUE" : ""}
-          {b.gate ? `, from ${b.gate}` : ""})
-        </span>
-      </>
-    ),
+    key: `sc-${b.id}`,
+    kind: "success contract",
+    body: <>{b.name}</>,
   };
 }
 

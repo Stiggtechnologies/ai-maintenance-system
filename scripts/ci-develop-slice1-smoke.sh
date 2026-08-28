@@ -327,6 +327,21 @@ C32=$(psqlc "select criterion from stage_gate_criteria where gate_id=$G3 and sor
 C33=$(psqlc "select criterion from stage_gate_criteria where gate_id=$G3 and sort_order=30")
 C34=$(psqlc "select criterion from stage_gate_criteria where gate_id=$G3 and sort_order=40")
 F3=$(python3 -c "import json;print(json.dumps([{'criterion_text':c,'status':'met','evidence':'Recorded in the case file for CI'} for c in ['$C31','$C32','$C33','$C34']]))")
+# D1.02 (Slice 2): G3 sits on the design stage, so it cannot PASS while the
+# case has no RECORDED success contract — even with every mandatory met.
+# The refusal is proven live, then the contract is recorded the governed way
+# and the original proceed succeeds. (Slice-2 smoke owns the deep contract
+# negative paths; this keeps slice 1's transcript true under the invariant.)
+R=$(rpc "$MANAGER" record_case_gate_review "{\"p_case_id\":\"$CASE\",\"p_gate_id\":$G3,\"p_outcome\":\"proceed\",\"p_note\":\"All four sanction-readiness mandatories explicitly met.\",\"p_findings\":$F3}")
+expect_err "$R" 'success is established before design begins'
+R=$(rpc "$PLANNER" draft_success_contract "{\"p_case_id\":\"$CASE\"}")
+noerr "$R"
+SC1=$(printf '%s' "$R"|field contract_id); test -n "$SC1"
+SCOWNER=$(psqlc "select id from user_profiles where organization_id='$ORG' and role='maintenance_manager' limit 1")
+R=$(rpc "$PLANNER" set_success_outcome "{\"p_contract_id\":\"$SC1\",\"p_dimension\":\"business\",\"p_outcome_statement\":\"Recover 140k lost tonnes per year from crusher availability\",\"p_basis\":\"Loss accounting in the problem statement, FY26 production ledger\",\"p_owner_id\":\"$SCOWNER\",\"p_target_value\":140000,\"p_unit\":\"t/a\"}")
+noerr "$R"
+R=$(rpc "$MANAGER" record_success_contract "{\"p_contract_id\":\"$SC1\",\"p_note\":\"Recorded for the CI transcript from the stated loss accounting.\"}")
+noerr "$R"
 R=$(rpc "$MANAGER" record_case_gate_review "{\"p_case_id\":\"$CASE\",\"p_gate_id\":$G3,\"p_outcome\":\"proceed\",\"p_note\":\"All four sanction-readiness mandatories explicitly met.\",\"p_findings\":$F3}")
 noerr "$R"
 R=$(rpc "$EXEC" sanction_development_case "{\"p_case_id\":\"$CASE\",\"p_note\":\"Sanctioned within the adopted executive delegation for the CI transcript.\",\"p_sanctioned_value\":4500000}")

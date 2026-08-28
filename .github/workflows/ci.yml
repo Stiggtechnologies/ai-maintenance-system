@@ -225,6 +225,18 @@ jobs:
           test "$SECOND" = "0"
           echo "Agent-loop smoke passed: flagged=$FLAGGED first=$CREATED second=$SECOND (idempotent)"
 
+      # The Sync Develop transcripts run in CI against the same booted chain,
+      # so the gate/sanction discipline and the value-spine refusals cannot
+      # rot silently behind green checks. Both scripts are idempotent and
+      # self-resolve their env from `supabase status`, exactly like the
+      # smokes above. They run LAST: they create their own fixtures and must
+      # not disturb the seeded assertions earlier in this job.
+      - name: Smoke — Sync Develop slice 1 (gate discipline, sanction, baselines)
+        run: bash scripts/ci-develop-slice1-smoke.sh
+
+      - name: Smoke — Sync Develop slice 2 (value spine, refusals, collapse chain)
+        run: bash scripts/ci-develop-slice2-smoke.sh
+
       - name: Stop Supabase
         if: always()
         run: supabase stop --no-backup || true

@@ -24,6 +24,7 @@ import {
   createRiskObligationVersion,
   decideRiskDecision,
   decideRiskLearningTransfer,
+  getObjectiveTree,
   getRiskDecisionOperations,
   getRiskEnterpriseArchitecture,
   invalidateRiskAssumption,
@@ -47,6 +48,7 @@ import {
   upsertRiskObjective,
   upsertRiskStakeholder,
 } from "../../services/riskOperatingService";
+import type { ObjectiveTreeNode } from "../../services/riskOperatingService";
 import type {
   EnterpriseRiskArchitecture,
   RiskAuthorityProfile,
@@ -376,8 +378,21 @@ function fieldsFor(
           required: true,
           options: participantOptions,
         },
+        {
+          key: "parent_id",
+          label: "Parent objective (spec §2 nesting)",
+          kind: "select",
+          options: objectiveOptions,
+        },
         { key: "description", label: "Objective", required: true },
         { key: "target", label: "Target", required: true },
+        {
+          key: "target_value",
+          label: "Target value (typed — optional)",
+          kind: "number",
+        },
+        { key: "unit", label: "Unit (required with a target value)" },
+        { key: "target_date", label: "Target date", kind: "date" },
         { key: "measurement", label: "Measurement", required: true },
         { key: "timeframe", label: "Timeframe", required: true },
         {
@@ -1550,6 +1565,20 @@ function SectionCard({
 
 export function EnterpriseRiskArchitecturePanel(props: PanelProps) {
   const [action, setAction] = useState<AdvancedAction | null>(null);
+  const [tree, setTree] = useState<ObjectiveTreeNode[] | null>(null);
+  const [treeError, setTreeError] = useState<string | null>(null);
+  const [treeBusy, setTreeBusy] = useState(false);
+  const loadTree = async () => {
+    setTreeBusy(true);
+    setTreeError(null);
+    try {
+      setTree(await getObjectiveTree());
+    } catch (e) {
+      setTreeError(e instanceof Error ? e.message : "Could not load the objective hierarchy");
+    } finally {
+      setTreeBusy(false);
+    }
+  };
   const { data, loading, error, refetch } =
     useAsyncData<EnterpriseRiskArchitecture>(getRiskEnterpriseArchitecture, []);
   const totals = useMemo(
@@ -1658,6 +1687,51 @@ export function EnterpriseRiskArchitecturePanel(props: PanelProps) {
           detail="Enterprise through task objectives, with measurable target, owner, tolerance and adoption."
         >
           <div className="space-y-2">
+            <button
+              type="button"
+              onClick={() => (tree != null ? setTree(null) : void loadTree())}
+              disabled={treeBusy}
+              className="rounded-md border border-teal-500/25 px-2 py-1 text-[10px] font-bold text-teal-300 disabled:opacity-50"
+            >
+              {treeBusy
+                ? "Loading hierarchy…"
+                : tree != null
+                  ? "Hide nested hierarchy"
+                  : "Show nested hierarchy"}
+            </button>
+            {treeError && <p className="text-xs text-red-300">{treeError}</p>}
+            {tree != null &&
+              (tree.length ? (
+                <div className="space-y-1 rounded-lg bg-white/3 p-3">
+                  {tree.map((node) => (
+                    <div
+                      key={node.id}
+                      style={{ paddingLeft: `${node.depth * 14}px` }}
+                      className="text-[11px] text-slate-300"
+                    >
+                      <span className="font-semibold text-slate-200">
+                        {node.depth > 0 ? "└ " : ""}
+                        {node.description}
+                      </span>{" "}
+                      <span className="text-slate-500">
+                        {node.level.replaceAll("_", " ")} · v{node.version} ·{" "}
+                        {node.status}
+                        {node.targetValue != null
+                          ? ` · ${node.targetValue} ${node.unit ?? ""}`
+                          : ""}{" "}
+                        · {node.linkedRisks} linked risk
+                        {node.linkedRisks === 1 ? "" : "s"} · {node.linkedCases}{" "}
+                        linked case{node.linkedCases === 1 ? "" : "s"}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-slate-600">
+                  No draft or adopted objectives recorded — the hierarchy is
+                  empty, not hidden.
+                </p>
+              ))}
             {data.objectives.length ? (
               data.objectives.slice(0, 6).map((objective) => (
                 <div
@@ -1671,6 +1745,23 @@ export function EnterpriseRiskArchitecturePanel(props: PanelProps) {
                     <p className="mt-1 text-[11px] text-slate-500">
                       {objective.objective_level.replaceAll("_", " ")} ·{" "}
                       {objective.target} · v{objective.version}
+                      {objective.parent_id
+                        ? ` · nested under: ${
+                            data.objectives.find(
+                              (o) => o.id === objective.parent_id,
+                            )?.description ?? "parent objective"
+                          }`
+                        : ""}
+                    </p>
+                    <p className="mt-0.5 text-[11px] text-slate-500">
+                      Typed target:{" "}
+                      {objective.target_value != null
+                        ? `${objective.target_value} ${objective.unit ?? ""}${
+                            objective.target_date
+                              ? ` by ${objective.target_date}`
+                              : ""
+                          }`
+                        : "not stated"}
                     </p>
                   </div>
                   {objective.status === "draft" ? (

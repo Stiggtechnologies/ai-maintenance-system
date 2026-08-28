@@ -353,6 +353,8 @@ export interface RiskAssessmentDraft {
   criteria_profile_id: string;
   site_id?: string;
   asset_id?: string;
+  /** Spec §2 (D11.16): a risk always links to an ADOPTED objective. */
+  objective_id: string;
   objective_at_risk: string;
   risk_source: string;
   event_description: string;
@@ -417,6 +419,10 @@ export interface RiskObjectiveRecord {
   status: string;
   version: number;
   review_date: string | null;
+  /** Spec §2 typed target fields (D11.15) — null renders "not stated". */
+  target_value?: number | null;
+  unit?: string | null;
+  target_date?: string | null;
 }
 
 export interface RiskObligationRecord {
