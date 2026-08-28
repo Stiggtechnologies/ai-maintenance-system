@@ -486,10 +486,9 @@ export async function getGateReadiness(
 export async function getCaseOperationalReadiness(
   caseId: string,
 ): Promise<OperationalReadinessResult> {
-  const { data, error } = await supabase.rpc(
-    "get_case_operational_readiness",
-    { p_case_id: caseId },
-  );
+  const { data, error } = await supabase.rpc("get_case_operational_readiness", {
+    p_case_id: caseId,
+  });
   return unwrap<OperationalReadinessResult>(data, error);
 }
 
@@ -986,4 +985,213 @@ export async function getGovernedDecision(decisionId: string): Promise<{
     decision: { ...data, caseTitle: caseRow?.title ?? null },
     options: options ?? [],
   };
+}
+
+// ---------------------------------------------------------------------------
+// D3.03/D3.04/D3.05/D11.14 — case governance: the six-factor intensity
+// determination, the tailoring selection it persists, and the org-tree
+// inheritance read. All writes are definer RPCs; refusals surface verbatim.
+// ---------------------------------------------------------------------------
+
+export interface CaseGovernanceBinding {
+  intensityLevel: string;
+  version: number;
+  status?: string;
+  independentAssuranceRequired: boolean;
+  evidenceLinkedDeliverablesRequired: boolean;
+  assuranceLevel: string;
+  reviewCadenceDays: number | null;
+  basis?: string;
+}
+
+export interface CaseGovernanceDetermination {
+  id: string;
+  intensityLevel: string;
+  computedLevel: string;
+  factorInputs: Record<string, unknown>;
+  factorLevels: Record<string, number>;
+  drivers: string[];
+  basis: string;
+  determinedAt: string;
+  determinedBy: string | null;
+  rule: {
+    id: number;
+    priority: number;
+    description: string;
+    frameworkName: string;
+    intensityFloor: string | null;
+  };
+  ruleSet: { id: string; name: string; version: number };
+  framework: { id: string; name: string; version: number };
+  binding: CaseGovernanceBinding | null;
+}
+
+export interface CaseGovernanceOrgNode {
+  nodeId: string;
+  name: string;
+  orgLevel: string;
+  depth: number;
+  carriesProfile: boolean;
+}
+
+export interface CaseGovernanceBindingUnmet {
+  intensity_level: string;
+  binding_level: string;
+  binding_version: number;
+  unlinked_mandatory: string[];
+  non_independent_gates: string[];
+}
+
+export interface CaseGovernance {
+  caseId: string;
+  caseValueUsd: number | null;
+  caseValueSource: "sanctioned_value" | "estimated_capex" | null;
+  /** What the resolved adopted binding demands of the current stage's gates
+   *  right now (null = nothing armed or everything met) — the same predicate
+   *  the gate trigger, advance and sanction consume. */
+  bindingUnmet: CaseGovernanceBindingUnmet | null;
+  draftRuleSets: Array<{ id: string; name: string; version: number }>;
+  draftBindings: Array<{
+    id: string;
+    intensityLevel: string;
+    version: number;
+    independentAssuranceRequired: boolean;
+    evidenceLinkedDeliverablesRequired: boolean;
+    assuranceLevel: string;
+    reviewCadenceDays: number | null;
+  }>;
+  lifecycleType: string;
+  framework: {
+    id: string;
+    name: string;
+    version: number;
+    status: string;
+  } | null;
+  determination: CaseGovernanceDetermination | null;
+  orgChain: CaseGovernanceOrgNode[];
+  inheritedProfile: {
+    frameworkId: string;
+    name: string;
+    version: number;
+    sourceAuthority: string;
+    sourceNode: { nodeId: string; name: string; orgLevel: string } | null;
+    depth: number;
+    operableHere: boolean;
+  } | null;
+  adoptedRuleSet: {
+    id: string;
+    name: string;
+    version: number;
+    status: string;
+    valueThresholds: Record<string, number>;
+    rules: Array<{
+      id: number;
+      priority: number;
+      description: string;
+      lifecycleTypes: string[];
+      minValueUsd: number | null;
+      maxValueUsd: number | null;
+      minIntensity: string | null;
+      maxIntensity: string | null;
+      frameworkName: string;
+      intensityFloor: string | null;
+    }>;
+  } | null;
+  adoptedBindings: CaseGovernanceBinding[];
+}
+
+export async function getCaseGovernance(
+  caseId: string,
+): Promise<CaseGovernance> {
+  const { data, error } = await supabase.rpc("get_case_governance", {
+    p_case_id: caseId,
+  });
+  return unwrapRpc(data, error, "Could not load the case's governance");
+}
+
+export interface ApplyCaseGovernanceInput {
+  caseId: string;
+  risk: string;
+  complexity: string;
+  novelty: string;
+  regulatoryExposure: string;
+  interfaces: string;
+  basis: string;
+}
+
+export interface ApplyCaseGovernanceResult {
+  determination_id: string;
+  intensity_level: string;
+  computed_level: string;
+  drivers: string[];
+  factor_levels: Record<string, number>;
+  rule: { id: number; priority: number; description: string };
+  framework: { id: string; name: string; version: number };
+  binding: Record<string, unknown> | null;
+  binding_note: string | null;
+  binding_unmet: CaseGovernanceBindingUnmet | null;
+}
+
+export async function applyCaseGovernance(
+  input: ApplyCaseGovernanceInput,
+): Promise<ApplyCaseGovernanceResult> {
+  const { data, error } = await supabase.rpc("apply_case_governance", {
+    p_case_id: input.caseId,
+    p_risk: input.risk || null,
+    p_complexity: input.complexity || null,
+    p_novelty: input.novelty || null,
+    p_regulatory_exposure: input.regulatoryExposure || null,
+    p_interfaces: input.interfaces || null,
+    p_basis: input.basis,
+  });
+  return unwrapRpc(data, error, "Could not determine the governance regime");
+}
+
+export async function seedGovernanceLibrary(): Promise<{
+  profiles_added: number;
+  tailoring_defaults_added?: number;
+  note?: string;
+}> {
+  const { data, error } = await supabase.rpc(
+    "seed_governance_framework_library",
+  );
+  return unwrapRpc(data, error, "Could not seed the framework library");
+}
+
+export async function adoptGovernanceRuleSet(
+  ruleSetId: string,
+  note: string,
+): Promise<{ rule_set_id: string; version: number; status: string }> {
+  const { data, error } = await supabase.rpc("adopt_governance_rule_set", {
+    p_rule_set_id: ruleSetId,
+    p_note: note,
+  });
+  return unwrapRpc(data, error, "Could not adopt the tailoring rule set");
+}
+
+export async function createGovernanceRuleSetVersion(
+  ruleSetId: string,
+): Promise<{
+  rule_set_id: string;
+  name: string;
+  version: number;
+  status: string;
+  rules_cloned: number;
+}> {
+  const { data, error } = await supabase.rpc(
+    "create_governance_rule_set_version",
+    { p_rule_set_id: ruleSetId },
+  );
+  return unwrapRpc(data, error, "Could not draft a new rule-set version");
+}
+
+export async function adoptIntensityBinding(
+  bindingId: string,
+  note: string,
+): Promise<{ binding_id: string; intensity_level: string; status: string }> {
+  const { data, error } = await supabase.rpc("adopt_intensity_binding", {
+    p_binding_id: bindingId,
+    p_note: note,
+  });
+  return unwrapRpc(data, error, "Could not adopt the intensity binding");
 }
