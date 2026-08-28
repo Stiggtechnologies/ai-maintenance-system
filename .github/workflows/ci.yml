@@ -44,6 +44,14 @@ jobs:
   vitest:
     name: Unit tests
     runs-on: ubuntu-latest
+    # actions: read is load-bearing for the RE-2026.08 gate (both the dedicated
+    # step and the copy the ratchet test spawns inside `npm run test`): it
+    # verifies reference-outputs.json against the Actions runs API, and the
+    # repo-default token has no actions scope, so that lookup returns HTTP 403
+    # and the gate fails closed on evidence that is actually real.
+    permissions:
+      contents: read
+      actions: read
     steps:
       # fetch-depth: 0 is load-bearing, not hygiene. The RE-2026.08 gate below
       # resolves the merge base with the PR target to decide whether a
