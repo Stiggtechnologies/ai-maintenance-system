@@ -81,6 +81,7 @@ import {
   OperationalReadinessSection,
   ScheduleSection,
 } from "../components/develop/ReadinessPanels";
+import { GovernancePanel } from "../components/develop/GovernancePanel";
 import {
   BenefitsSection,
   BusinessCaseSection,
@@ -205,7 +206,10 @@ function GateCard({
         className="flex w-full items-center gap-2 px-3 py-2.5 text-left"
       >
         {open ? (
-          <ChevronDown className="h-4 w-4 shrink-0 text-slate-500" aria-hidden />
+          <ChevronDown
+            className="h-4 w-4 shrink-0 text-slate-500"
+            aria-hidden
+          />
         ) : (
           <ChevronRight
             className="h-4 w-4 shrink-0 text-slate-500"
@@ -250,7 +254,9 @@ function GateCard({
 
       {open && (
         <div className="space-y-3 border-t border-white/6 px-3 py-3">
-          <div className="text-xs text-slate-400">{rollup.assessment.reason}</div>
+          <div className="text-xs text-slate-400">
+            {rollup.assessment.reason}
+          </div>
 
           {/* The §80 experience (D3.35/D13.05): readiness %, BLOCKED
               override, per-category bars, NAMED blockers (mandatory
@@ -717,9 +723,8 @@ function DeliverablesSection({
         <ErrorLine error={error} />
         {workspace.deliverables.length === 0 && (
           <p className="text-xs text-slate-500">
-            No deliverables registered on this case yet. Register what each
-            gate requires, name an owner, and submit the document when it
-            exists.
+            No deliverables registered on this case yet. Register what each gate
+            requires, name an owner, and submit the document when it exists.
           </p>
         )}
         {workspace.deliverables.map((d) => (
@@ -823,8 +828,8 @@ function DeliverablesSection({
               <div className="mt-2 space-y-1.5 rounded border border-white/8 p-2">
                 <div className="text-[11px] text-slate-400">
                   Attach a document from the knowledge-base intake register.
-                  Nothing here yet? Ingest it on the Knowledge Base page first
-                  — that rail is the one document door.
+                  Nothing here yet? Ingest it on the Knowledge Base page first —
+                  that rail is the one document door.
                 </div>
                 <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-3">
                   <select
@@ -1450,9 +1455,7 @@ function DecisionCard({
                       </span>
                     )}
                   </td>
-                  <td className="py-1.5 pr-3 text-slate-300">
-                    {fmt(o.capex)}
-                  </td>
+                  <td className="py-1.5 pr-3 text-slate-300">{fmt(o.capex)}</td>
                   <td className="py-1.5 pr-3 text-slate-300">{fmt(o.opex)}</td>
                   <td className="py-1.5 pr-3 text-slate-300">
                     {fmt(o.lifecycleCost)}
@@ -1601,8 +1604,8 @@ function DecisionCard({
       {selecting && (
         <div className="mt-2 space-y-1.5 rounded border border-white/8 p-2">
           <div className="text-[11px] text-slate-400">
-            Selection is recorded — who, when and why — and is not
-            overwritable. Link the evidence it rests on.
+            Selection is recorded — who, when and why — and is not overwritable.
+            Link the evidence it rests on.
           </div>
           <select
             value={optionId}
@@ -1830,8 +1833,8 @@ function ActionsSection({
         {workspace.actions.length === 0 && (
           <p className="text-xs text-slate-500">
             No actions bound to this case yet. Treatments of the case&apos;s
-            risks arrive here automatically; other actions can be attached
-            from the canonical action store.
+            risks arrive here automatically; other actions can be attached from
+            the canonical action store.
           </p>
         )}
         {workspace.actions.map((a) => (
@@ -1925,6 +1928,8 @@ export function DevelopmentCaseWorkspacePage() {
   const canReview =
     profile?.role != null && REVIEW_ROLES.includes(profile.role);
   const canPlan = profile?.role != null && PLAN_ROLES.includes(profile.role);
+  const canAdmin =
+    profile?.role != null && ["admin", "executive"].includes(profile.role);
 
   const [workspace, setWorkspace] = useState<CaseWorkspace | null>(null);
   const [members, setMembers] = useState<OrgMember[]>([]);
@@ -1966,9 +1971,7 @@ export function DevelopmentCaseWorkspacePage() {
   const nextStage: WorkspaceStage | undefined =
     currentStage == null
       ? undefined
-      : workspace?.stages.find(
-          (s) => s.sequence === currentStage.sequence + 1,
-        );
+      : workspace?.stages.find((s) => s.sequence === currentStage.sequence + 1);
 
   const sanction = async () => {
     if (!caseId) return;
@@ -1978,8 +1981,7 @@ export function DevelopmentCaseWorkspacePage() {
       const result = await sanctionDevelopmentCase({
         caseId,
         note: sanctionNote,
-        sanctionedValue:
-          sanctionValue === "" ? null : Number(sanctionValue),
+        sanctionedValue: sanctionValue === "" ? null : Number(sanctionValue),
       });
       setFlash(
         `Sanctioned at $${Number(result.sanctioned_value).toLocaleString()}.`,
@@ -2110,8 +2112,9 @@ export function DevelopmentCaseWorkspacePage() {
             <span>
               Sanctioned {money(workspace.sanction.sanctionedValue)} on{" "}
               {new Date(workspace.sanction.sanctionedAt).toLocaleDateString()}
-              {workspace.sanction.by ? ` by ${workspace.sanction.by}` : ""}.{" "}
-              {workspace.sanction.note}
+              {workspace.sanction.by
+                ? ` by ${workspace.sanction.by}`
+                : ""}. {workspace.sanction.note}
             </span>
           </div>
         )}
@@ -2126,10 +2129,9 @@ export function DevelopmentCaseWorkspacePage() {
       {/* Stage position + gates */}
       {workspace.framework == null ? (
         <div className="rounded-xl border border-white/6 bg-[#0D1520] p-6 text-sm text-slate-400">
-          No framework governs this case yet, so there is no stage position
-          and no gates to show. Assign an adopted framework at creation, or
-          author one (RPC-first this slice) and create the next case under
-          it.
+          No framework governs this case yet, so there is no stage position and
+          no gates to show. Assign an adopted framework at creation, or author
+          one (RPC-first this slice) and create the next case under it.
         </div>
       ) : (
         <div className="space-y-4">
@@ -2194,9 +2196,7 @@ export function DevelopmentCaseWorkspacePage() {
                       canReview={canReview}
                       members={members}
                       riskBlockers={
-                        stage.isCurrent
-                          ? openRiskBlockers(workspace.risks)
-                          : []
+                        stage.isCurrent ? openRiskBlockers(workspace.risks) : []
                       }
                       onRecorded={() => void load()}
                     />
@@ -2213,6 +2213,12 @@ export function DevelopmentCaseWorkspacePage() {
           decisions, deliverables, schedule, cost, actions. Each renders
           exactly what is persisted, with an honest empty state that says
           what to do; no placeholder numbers anywhere. */}
+      <GovernancePanel
+        caseId={workspace.id}
+        canReview={canReview}
+        canAdmin={canAdmin}
+        onChanged={() => void load()}
+      />
       <ObjectiveSection workspace={workspace} />
       <SuccessContractSection
         workspace={workspace}
@@ -2280,9 +2286,9 @@ export function DevelopmentCaseWorkspacePage() {
             <h2 className="text-sm font-semibold text-slate-100">Sanction</h2>
             <p className="mt-1 text-xs text-slate-400">
               A §70 determination: recorded only through the authority-checked
-              path. It requires an ADOPTED sanction delegation for your role
-              and passing reviews on the current stage&apos;s blocking gates —
-              the server states exactly what is missing.
+              path. It requires an ADOPTED sanction delegation for your role and
+              passing reviews on the current stage&apos;s blocking gates — the
+              server states exactly what is missing.
             </p>
             <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
               <input

@@ -150,9 +150,9 @@
     "citations": 0
   },
   "C2.15": {
-    "status": "❌",
-    "evidence": false,
-    "citations": 0
+    "status": "✅",
+    "evidence": true,
+    "citations": 2
   },
   "C2.16": {
     "status": "🟡",
@@ -385,19 +385,19 @@
     "citations": 0
   },
   "C5.14": {
-    "status": "❌",
-    "evidence": false,
-    "citations": 0
+    "status": "🟡",
+    "evidence": true,
+    "citations": 3
   },
   "C5.15": {
-    "status": "❌",
-    "evidence": false,
-    "citations": 0
+    "status": "✅",
+    "evidence": true,
+    "citations": 1
   },
   "C5.16": {
     "status": "❌",
-    "evidence": false,
-    "citations": 0
+    "evidence": true,
+    "citations": 1
   },
   "C5.17": {
     "status": "🟡",
@@ -910,9 +910,9 @@
     "citations": 2
   },
   "E3.04": {
-    "status": "❌",
-    "evidence": false,
-    "citations": 0
+    "status": "🟡",
+    "evidence": true,
+    "citations": 1
   },
   "E3.05": {
     "status": "🟡",
@@ -925,12 +925,12 @@
     "citations": 3
   },
   "E3.07": {
-    "status": "❌",
-    "evidence": false,
-    "citations": 0
+    "status": "🟡",
+    "evidence": true,
+    "citations": 2
   },
   "E3.08": {
-    "status": "❌",
+    "status": "🟡",
     "evidence": true,
     "citations": 4
   },

@@ -245,6 +245,9 @@ jobs:
       - name: Smoke — Sync Develop slice 2 (value spine, refusals, collapse chain)
         run: bash scripts/ci-develop-slice2-smoke.sh
 
+      - name: Smoke — Sync Develop slice 3 (tailoring, intensity, enforced bindings)
+        run: bash scripts/ci-develop-slice3-smoke.sh
+
       - name: Stop Supabase
         if: always()
         run: supabase stop --no-backup || true
