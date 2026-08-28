@@ -646,6 +646,35 @@ describe("who may call what is stated, not inherited", () => {
       /grant execute on function public\.ingest_rows\(uuid, jsonb\) to authenticated;/i,
     );
   });
+
+  it("non-finite numerics and dates are refused twice: validator by name, table by check", () => {
+    // Postgres parses 'NaN' and '±Infinity' as VALID numeric (and 'infinity'
+    // as a valid timestamptz), and NaN sorts above every number — so a
+    // cast-inside-exception plus a sign check accepts all of them as clean
+    // data. Found live by the data-integrity pass: NaN durations and
+    // infinite windows landed as `accepted` and were watermark-eligible.
+    // The refusal must exist in BOTH layers, because the validator only
+    // binds door traffic while the check binds every writer.
+    const body = (defs.get("ingest_schedule_batch")?.body ?? "").replace(
+      /\s+/g,
+      " ",
+    );
+    expect(body).toMatch(/v_dur = 'NaN'::numeric/i);
+    expect(body).toMatch(/v_dur = 'Infinity'::numeric/i);
+    expect(body).toMatch(/v_dur = '-Infinity'::numeric/i);
+    expect(body).toMatch(/must be a finite number of hours/i);
+    expect(body).toMatch(/not isfinite\(v_start\)/i);
+    expect(body).toMatch(/not isfinite\(v_finish\)/i);
+    const sql = stripComments(readFileSync(`${DIR}/${SCHEDULE_IMPORT}`, "utf8"))
+      .replace(/\s+/g, " ");
+    // The duration check is REPLACED strictly tighter, same name — and the
+    // window check requires finite-or-null per column, not just ordering.
+    expect(sql).toMatch(
+      /add constraint shutdown_tasks_duration_hours_check\s+check \(duration_hours >= 0 and duration_hours < 'Infinity'::numeric\)/i,
+    );
+    expect(sql).toMatch(/isfinite\(planned_start\)/i);
+    expect(sql).toMatch(/isfinite\(planned_finish\)/i);
+  });
 });
 
 /**

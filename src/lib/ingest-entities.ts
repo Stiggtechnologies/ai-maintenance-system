@@ -603,7 +603,7 @@ export const INGEST_ENTITIES: Readonly<Record<IngestEntityKey, IngestEntity>> =
           required: true,
           kind: "number",
           min: 0,
-          note: "original duration IN HOURS — P6 duration units are calendar-dependent, and this import records rather than guesses the calendar",
+          note: "original duration IN HOURS, a finite non-negative number — P6 duration units are calendar-dependent, and this import records rather than guesses the calendar",
         },
         {
           name: "planned_start",

@@ -88,7 +88,11 @@
 #     re-upload deduplicates; malformed rows are retained rejects with named
 #     reasons; an unresolved predecessor rejects BY NAME and a row depending
 #     on a refused row cascades with the name; the dependency set never
-#     dangles; watermark holds on partial and advances on clean; direct
+#     dangles; NaN/±Infinity durations and infinite planned dates — which
+#     Postgres casts without raising and which satisfy sign/order checks
+#     vacuously — are named refusals at the validator AND at the table
+#     checks (no writer, service role included, can seed them);
+#     watermark holds on partial and advances on clean; direct
 #     client writes to the schedule model refused (SELECT-only RLS); the
 #     Case Workspace schedule section renders what landed. P6 stays
 #     system-of-record — nothing writes back;
@@ -1147,6 +1151,35 @@ printf '%s' "$REJ" | grep -q 'unknown predecessor \\"GHOST\\"'
 printf '%s' "$REJ" | grep -q 'predecessor \\"B3\\" was refused in this upload'
 test "$(psqlc "select count(*) from shutdown_task_dependencies d where d.event_id='$SEV' and not exists (select 1 from shutdown_tasks t where t.event_id=d.event_id and t.task_key=d.predecessor_key)")" = "0"
 echo 'malformed rows refused with named reasons; dependency set has no dangling predecessors'
+# (e2) non-finite numerics and dates: Postgres casts 'NaN'/'±Infinity' as
+#      VALID numeric and 'infinity' as a valid timestamptz, and NaN compares
+#      above every number — so a sign check alone waves them through. Each is
+#      a named refusal, and none of them lands.
+NF_BEFORE=$(psqlc "select count(*) from shutdown_tasks where event_id='$SEV'")
+R=$(rpc "$PLANNER" ingest_rows "{\"p_run_id\":\"$SRUN\",\"p_rows\":[
+ {\"activity_id\":\"N1\",\"external_id\":\"N1\",\"development_case_id\":\"$CASE\",\"description\":\"NaN duration\",\"original_duration_hours\":\"NaN\",\"planned_start\":\"2027-03-01T06:00:00Z\",\"planned_finish\":\"2027-03-01T14:00:00Z\",\"schedule_name\":\"SMOKE1 Reline\"},
+ {\"activity_id\":\"N2\",\"external_id\":\"N2\",\"development_case_id\":\"$CASE\",\"description\":\"Infinite duration\",\"original_duration_hours\":\"Infinity\",\"planned_start\":\"2027-03-01T06:00:00Z\",\"planned_finish\":\"2027-03-01T14:00:00Z\",\"schedule_name\":\"SMOKE1 Reline\"},
+ {\"activity_id\":\"N3\",\"external_id\":\"N3\",\"development_case_id\":\"$CASE\",\"description\":\"Negative infinite duration\",\"original_duration_hours\":\"-Infinity\",\"planned_start\":\"2027-03-01T06:00:00Z\",\"planned_finish\":\"2027-03-01T14:00:00Z\",\"schedule_name\":\"SMOKE1 Reline\"},
+ {\"activity_id\":\"N4\",\"external_id\":\"N4\",\"development_case_id\":\"$CASE\",\"description\":\"Infinite start\",\"original_duration_hours\":\"8\",\"planned_start\":\"-infinity\",\"planned_finish\":\"2027-03-01T14:00:00Z\",\"schedule_name\":\"SMOKE1 Reline\"},
+ {\"activity_id\":\"N5\",\"external_id\":\"N5\",\"development_case_id\":\"$CASE\",\"description\":\"Infinite finish\",\"original_duration_hours\":\"8\",\"planned_start\":\"2027-03-01T06:00:00Z\",\"planned_finish\":\"infinity\",\"schedule_name\":\"SMOKE1 Reline\"}]}")
+noerr "$R"
+test "$(printf '%s' "$R"|field accepted)" = "0"
+test "$(printf '%s' "$R"|field rejected)" = "5"
+REJ=$(rpc "$PLANNER" get_import_rejects "{\"p_run_id\":\"$SRUN\",\"p_limit\":50}")
+printf '%s' "$REJ" | grep -q 'original_duration_hours is NaN; a duration must be a finite number of hours'
+printf '%s' "$REJ" | grep -q 'original_duration_hours is Infinity'
+printf '%s' "$REJ" | grep -q 'original_duration_hours is -Infinity'
+printf '%s' "$REJ" | grep -q 'planned_start is -infinity; a planned date must be a finite calendar date'
+printf '%s' "$REJ" | grep -q 'planned_finish is infinity'
+test "$(psqlc "select count(*) from shutdown_tasks where event_id='$SEV'")" = "$NF_BEFORE"
+# ...and the TABLE refuses them too (belt-and-braces): even a raw service
+# write cannot seed a non-finite duration or an unbounded window.
+OUT=$(sql_must_fail "insert into shutdown_tasks (event_id, task_key, label, duration_hours) values ('$SEV','NFX1','nan probe','NaN');")
+printf '%s' "$OUT" | grep -q 'shutdown_tasks_duration_hours_check'
+OUT=$(sql_must_fail "insert into shutdown_tasks (event_id, task_key, label, duration_hours, planned_start, planned_finish) values ('$SEV','NFX2','infinite window probe',1,'-infinity','infinity');")
+printf '%s' "$OUT" | grep -q 'planned_window_ordered'
+test "$(psqlc "select count(*) from shutdown_tasks where event_id='$SEV' and task_key like 'NFX%'")" = "0"
+echo 'non-finite durations and dates refused by name at the validator AND by the table checks'
 # (f) the watermark does NOT advance on a run carrying rejects...
 R=$(rpc "$PLANNER" finish_connector_run "{\"p_run_id\":\"$SRUN\",\"p_status\":\"partial\"}")
 test "$(printf '%s' "$R"|field watermark_advanced)" = "False"

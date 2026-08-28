@@ -35,7 +35,15 @@
 --   * blank-but-not-null cells are nullif(btrim(...))'d; ambiguous name
 --     resolution is a refusal naming the count, never a `limit 1` guess;
 --   * the same external_id twice in one file is a copy-paste error named as
---     one, not a "duplicate" that quietly discards a different fact.
+--     one, not a "duplicate" that quietly discards a different fact;
+--   * NaN, ±Infinity durations and infinite planned dates — which Postgres
+--     casts WITHOUT raising and which satisfy sign/order checks vacuously —
+--     are refusals by name at the validator AND at the table checks, so the
+--     property holds for every writer, the service role included. (The
+--     peer validators' numeric casts — condition_reading value,
+--     material_stock quantities, maintenance_plan interval, production
+--     units — share the cast-then-compare shape and are owned by the door
+--     area; flagged for a coordinated fix, not silently absorbed here.)
 --
 -- WHY THE DEDUPE KEY IS PER-EVENT, NOT PER-ORG. work_orders deduplicate on
 -- (organization_id, source_system, external_id) because one SAP holds one
@@ -74,8 +82,10 @@
 
 -- ---------------------------------------------------------------------------
 -- The schedule model learns where a schedule comes from and which case it
--- serves. Columns only — the tables, their RLS (SELECT-only to the tenant,
--- 20260824090000) and their constraints stand.
+-- serves. Columns plus two TIGHTENED checks — the tables and their RLS
+-- (SELECT-only to the tenant, 20260824090000) stand, and no check is
+-- loosened: the duration check is re-added strictly stricter (finite), and
+-- the new window check is finite-or-null per column.
 -- ---------------------------------------------------------------------------
 alter table shutdown_events
   add column if not exists development_case_id uuid
@@ -101,11 +111,30 @@ comment on column shutdown_tasks.external_id is
   'The source activity id. Idempotency key with source_system, scoped to the event: a P6 Activity ID is unique within a project, not within an organization.';
 
 -- An activity cannot finish before it begins. Milestones (zero duration,
--- start = finish) are legal, so >= not >.
+-- start = finish) are legal, so >= not >. And the window must be FINITE:
+-- 'infinity' is a valid timestamptz whose ordering satisfies any >= check
+-- vacuously, so without isfinite() an unbounded window would pass.
 alter table shutdown_tasks drop constraint if exists planned_window_ordered;
 alter table shutdown_tasks add constraint planned_window_ordered
-  check (planned_start is null or planned_finish is null
-         or planned_finish >= planned_start);
+  check ((planned_start is null or isfinite(planned_start))
+     and (planned_finish is null or isfinite(planned_finish))
+     and (planned_start is null or planned_finish is null
+          or planned_finish >= planned_start));
+
+-- Belt-and-braces for duration, TIGHTENING the 20260824090000 check in
+-- place: PostgreSQL parses 'NaN' and '±Infinity' as valid numeric, and NaN
+-- sorts ABOVE every number, so the original `duration_hours >= 0` is
+-- vacuously satisfied by NaN and +Infinity. The import validator refuses
+-- them by name; this makes the refusal hold for EVERY writer — the service
+-- role and the shutdown module's own paths included — so no path can seed a
+-- non-finite duration into a schedule sum or the schedule-risk analyzer's
+-- critical-path arithmetic (src/lib/modelling/schedule-risk.ts consumes
+-- duration_hours org-wide via get_shutdown_schedules with no isFinite guard;
+-- the table is where the property must hold). `x < 'Infinity'` is false for
+-- both NaN and +Infinity, which is what makes one arm cover both.
+alter table shutdown_tasks drop constraint if exists shutdown_tasks_duration_hours_check;
+alter table shutdown_tasks add constraint shutdown_tasks_duration_hours_check
+  check (duration_hours >= 0 and duration_hours < 'Infinity'::numeric);
 
 create unique index if not exists idx_shutdown_tasks_external
   on shutdown_tasks(event_id, source_system, external_id)
@@ -322,12 +351,29 @@ begin
         -- 8 or 24 silently triples a shutdown estimate, so the unit is part
         -- of the contract instead: hours, explicitly.
         v_reason := 'missing original_duration_hours — durations arrive in hours explicitly, because converting P6 duration units needs the calendar this import refuses to guess';
+      elsif v_dur = 'NaN'::numeric or v_dur = 'Infinity'::numeric
+            or v_dur = '-Infinity'::numeric then
+        -- PostgreSQL parses 'NaN' and '±Infinity' as VALID numeric, and its
+        -- NaN sorts above every number — so the cast never raises and
+        -- 'v_dur < 0' is vacuously false for NaN and +Infinity. Without this
+        -- arm they land as accepted and propagate through every downstream
+        -- sum and critical-path pass as silent fiction — exactly the bad-cell
+        -- class the door exists to refuse by name. (NaN = NaN is TRUE in
+        -- Postgres numeric, which is what makes the literal comparison a
+        -- reliable detector.)
+        v_reason := format('original_duration_hours is %s; a duration must be a finite number of hours', v_dur);
       elsif v_dur < 0 then
         v_reason := format('original_duration_hours is %s; a duration cannot be negative', v_dur);
       elsif v_start is null then
         v_reason := 'missing or unparseable planned_start';
       elsif v_finish is null then
         v_reason := 'missing or unparseable planned_finish';
+      elsif not isfinite(v_start) then
+        -- 'infinity' is a valid timestamptz too, and infinity >= -infinity is
+        -- true — the window-order checks are vacuously satisfied by it.
+        v_reason := format('planned_start is %s; a planned date must be a finite calendar date', v_start);
+      elsif not isfinite(v_finish) then
+        v_reason := format('planned_finish is %s; a planned date must be a finite calendar date', v_finish);
       elsif v_finish < v_start then
         v_reason := 'planned_finish is before planned_start — an activity cannot finish before it begins';
       end if;
