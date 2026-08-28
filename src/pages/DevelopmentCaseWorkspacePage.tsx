@@ -20,7 +20,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
-  AlertTriangle,
   ArrowLeft,
   CheckCircle2,
   ChevronDown,
@@ -72,6 +71,12 @@ import {
   type WorkspaceGate,
   type WorkspaceStage,
 } from "../lib/develop";
+import {
+  BaselinesSection,
+  EvidenceAgentPanel,
+  GateReadinessPanel,
+  OperationalReadinessSection,
+} from "../components/develop/ReadinessPanels";
 
 const REVIEW_ROLES = [
   "admin",
@@ -236,22 +241,18 @@ function GateCard({
         <div className="space-y-3 border-t border-white/6 px-3 py-3">
           <div className="text-xs text-slate-400">{rollup.assessment.reason}</div>
 
-          {rollup.riskBlockers.length > 0 && (
-            <ul className="space-y-1">
-              {rollup.riskBlockers.map((b) => (
-                <li
-                  key={b}
-                  className="flex items-start gap-1.5 rounded-md border border-red-400/25 bg-red-400/5 px-2.5 py-1.5 text-[11px] text-red-300"
-                >
-                  <AlertTriangle
-                    className="mt-0.5 h-3 w-3 shrink-0"
-                    aria-hidden
-                  />
-                  <span>{b} — a named blocker this review must answer for</span>
-                </li>
-              ))}
-            </ul>
-          )}
+          {/* The §80 experience (D3.35/D13.05): readiness %, BLOCKED
+              override, per-category bars, NAMED blockers (mandatory
+              requirements, open High/Critical risks, open conditions) and
+              the closure-rate projection — all rows of get_gate_readiness,
+              rendered as returned. The client-side rollup above stays the
+              assessGate voice; the numbers come from the one query. */}
+          <GateReadinessPanel
+            caseId={caseId}
+            gateId={gate.id}
+            gateName={gate.name}
+            refreshKey={gate.latestReview?.id ?? 0}
+          />
 
           {gate.criteria.length > 0 && (
             <ul className="space-y-1.5">
@@ -323,6 +324,12 @@ function GateCard({
                         />
                       </div>
                     )}
+                    {/* D12.07 — advisory evidence/gap agent, per criterion. */}
+                    <EvidenceAgentPanel
+                      caseId={caseId}
+                      criterionId={c.id}
+                      criterion={c.criterion}
+                    />
                   </li>
                 );
               })}
@@ -2221,6 +2228,13 @@ export function DevelopmentCaseWorkspacePage() {
         canPlan={canPlan}
         onChanged={() => void load()}
       />
+      <BaselinesSection
+        workspace={workspace}
+        canPlan={canPlan}
+        canReview={canReview}
+        onChanged={() => void load()}
+      />
+      <OperationalReadinessSection caseId={workspace.id} canPlan={canPlan} />
 
       {/* Sanction */}
       {workspace.status !== "sanctioned" &&

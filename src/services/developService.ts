@@ -9,7 +9,11 @@
  * text, never a client guess.
  */
 import { supabase } from "../lib/supabase";
-import type { CaseWorkspace } from "../lib/develop";
+import type {
+  CaseWorkspace,
+  GateReadinessResult,
+  OperationalReadinessResult,
+} from "../lib/develop";
 
 export interface DevelopmentCaseSummary {
   id: string;
@@ -427,4 +431,155 @@ export async function bindActionToCase(input: {
     p_reason: input.reason ?? null,
   });
   return unwrap(data, error);
+}
+
+// ---------------------------------------------------------------------------
+// Slice 1 rows 9–12: baselines, gate readiness, operational readiness,
+// evidence agent. Same contract as everything above: definer RPCs, server
+// refusals surfaced verbatim, no client-side writes.
+// ---------------------------------------------------------------------------
+
+export async function createCaseBaseline(input: {
+  caseId: string;
+  baselineType: string;
+  description: string;
+  content?: Record<string, unknown>;
+  documentId?: string | null;
+}): Promise<{ baseline_id: string; version: number }> {
+  const { data, error } = await supabase.rpc("create_case_baseline", {
+    p_case_id: input.caseId,
+    p_type: input.baselineType,
+    p_description: input.description,
+    p_content: input.content ?? {},
+    p_document_id: input.documentId ?? null,
+  });
+  return unwrap(data, error);
+}
+
+export async function approveCaseBaseline(input: {
+  baselineId: string;
+  note: string;
+}): Promise<{ baseline_id: string; version: number; status: string }> {
+  const { data, error } = await supabase.rpc("approve_case_baseline", {
+    p_baseline_id: input.baselineId,
+    p_note: input.note,
+  });
+  return unwrap(data, error);
+}
+
+/**
+ * The §80 readiness read: the RPC returns the same rows the enforcement
+ * consults, and the panel renders them without recomputation.
+ */
+export async function getGateReadiness(
+  caseId: string,
+  gateId: number,
+): Promise<GateReadinessResult> {
+  const { data, error } = await supabase.rpc("get_gate_readiness", {
+    p_case_id: caseId,
+    p_gate_id: gateId,
+  });
+  return unwrap<GateReadinessResult>(data, error);
+}
+
+/** The §81 operations view read (get_golive_readiness family, case scope). */
+export async function getCaseOperationalReadiness(
+  caseId: string,
+): Promise<OperationalReadinessResult> {
+  const { data, error } = await supabase.rpc(
+    "get_case_operational_readiness",
+    { p_case_id: caseId },
+  );
+  return unwrap<OperationalReadinessResult>(data, error);
+}
+
+export interface BindableAsset {
+  id: string;
+  name: string;
+  tag: string | null;
+}
+
+export async function listBindableAssets(): Promise<BindableAsset[]> {
+  const { data, error } = await supabase
+    .from("assets")
+    .select("id, name, tag")
+    .order("name")
+    .limit(200);
+  if (error) throw new Error(error.message);
+  return (data ?? []) as BindableAsset[];
+}
+
+export async function bindAssetToCase(input: {
+  assetId: string;
+  caseId: string;
+  reason?: string | null;
+  unbind?: boolean;
+}): Promise<{ asset_id: string }> {
+  const { data, error } = await supabase.rpc("bind_asset_to_development_case", {
+    p_asset_id: input.assetId,
+    p_case_id: input.caseId,
+    p_reason: input.reason ?? null,
+    p_unbind: input.unbind ?? false,
+  });
+  return unwrap(data, error);
+}
+
+// The evidence/gap agent (D12.07). Advisory only — the response carries its
+// own §70 disclaimer and the panel renders refusals and provider notes
+// verbatim. `record` opts into the one permitted write: an evidence_items
+// row born AI_INFERENCE through the governed record_case_evidence RPC.
+export interface EvidenceAgentMatch {
+  evidence: {
+    id: string;
+    evidenceClass: string | null;
+    verificationStatus: string;
+    description: string | null;
+    sourceSystem: string | null;
+  };
+  matchedTerms: string[];
+  score: number;
+}
+
+export interface EvidenceAgentResult {
+  advisory: true;
+  criterionId: number;
+  criterion: string;
+  analysis: {
+    verdict: string;
+    statement: string;
+    matches: EvidenceAgentMatch[];
+    verifiedMatches: number;
+    acceptedDeliverables: number;
+    totalCaseEvidence: number;
+  };
+  kbCitations: { chunkId: string; title: string; label: string }[];
+  narrative: string | null;
+  model: string | null;
+  providerNote: string | null;
+  disclaimer: string;
+  recordedEvidenceId: string | null;
+  recordNote: string | null;
+}
+
+export async function runEvidenceAgent(input: {
+  caseId: string;
+  criterionId: number;
+  record?: boolean;
+}): Promise<EvidenceAgentResult> {
+  const { data, error } = await supabase.functions.invoke(
+    "develop-evidence-agent",
+    {
+      body: {
+        case_id: input.caseId,
+        criterion_id: input.criterionId,
+        record: input.record ?? false,
+      },
+    },
+  );
+  if (error) throw new Error(error.message);
+  const payload = data as EvidenceAgentResult | { error?: string };
+  if (payload && typeof payload === "object" && "error" in payload) {
+    throw new Error(String((payload as { error: unknown }).error));
+  }
+  return payload as EvidenceAgentResult;
 }
