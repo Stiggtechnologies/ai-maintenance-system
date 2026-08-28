@@ -5,6 +5,7 @@
     "agent-loop-enrich",
     "ai-agent-processor",
     "autonomous-orchestrator",
+    "develop-evidence-agent",
     "lead-notify",
     "onboarding-enrich",
     "public-reliability-agent",
@@ -12,7 +13,10 @@
     "sync-investigation-runtime",
     "sync-runtime"
   ],
-  "allowedNoVerifyJwt": ["agent-loop-enrich", "onboarding-enrich"],
+  "allowedNoVerifyJwt": [
+    "agent-loop-enrich",
+    "onboarding-enrich"
+  ],
   "blockedLegacyFunctions": [
     "document-processor",
     "edge-node-manager",
