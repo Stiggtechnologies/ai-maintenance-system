@@ -25,6 +25,14 @@ export interface GateCriterion {
   criterion: string;
   isMandatory: boolean;
   guidance?: string | null;
+  /**
+   * Readiness weight (D3.35, spec §45). Configurable per criterion; defaults
+   * to 1.0 when absent. Weights shape the PERCENTAGE only — a mandatory
+   * criterion blocks at any weight, because §45's rule is absolute.
+   */
+  weight?: number | null;
+  /** §44 rollup category. Null/empty rolls up as 'uncategorized' — visibly. */
+  category?: string | null;
 }
 
 export interface GateFinding {
@@ -132,6 +140,124 @@ export function assessGate(
     missingFindings: missing,
     advisoryOutstanding,
     reason: parts.join(" "),
+  };
+}
+
+/**
+ * Weighted gate readiness (D3.35, spec §45) — an EXTENSION of assessGate,
+ * never a replacement: the BLOCKED verdict is assessGate's verdict, computed
+ * by calling it. This adds the number beside the block, per §45:
+ *
+ *   GR = Σ(w_i·r_i) / Σw_i   over the gate's criteria,
+ *
+ * where r_i is 1 for a criterion explicitly met and 0 for everything else —
+ * not met, not assessed, and never assessed all score zero, because a
+ * percentage that pays out for nobody having looked is not readiness.
+ *
+ * BUT one failed mandatory requirement — or a mandatory requirement never
+ * assessed at all — forces BLOCKED at ANY percentage. 97% readiness cannot
+ * hide an unresolved mandatory safety issue. `blocked` here is exactly
+ * `!assessGate(...).ready` (plus the empty-gate refusal assessGate already
+ * carries), so this function cannot drift from the single evaluator.
+ *
+ * Per-category rollup (spec §44): grouped on each criterion's category
+ * field. A criterion with no category rolls up as 'uncategorized' — visibly,
+ * never silently dropped. The DB repeats this arithmetic in
+ * get_gate_readiness (20261110090100) exactly as record_case_gate_review
+ * repeats assessGate's mandatory-block — a documented repeat of the same
+ * discipline at the persistence boundary, not a second evaluator.
+ */
+export interface CategoryReadiness {
+  category: string;
+  criteriaTotal: number;
+  mandatoryTotal: number;
+  metCount: number;
+  unmetMandatory: number;
+  weightSum: number;
+  /** Null when the category's weight sum is zero — never an invented 0 or 100. */
+  readinessPct: number | null;
+}
+
+export interface WeightedGateReadiness {
+  /** assessGate's verdict: mandatory unmet/unassessed, or no criteria at all. */
+  blocked: boolean;
+  /** Σ(w·r)/Σw × 100, one decimal. Null for an empty gate (0/0 is not a readiness). */
+  readinessPct: number | null;
+  weightSum: number;
+  categories: CategoryReadiness[];
+  assessment: GateAssessment;
+}
+
+const CATEGORY_ORDER = [
+  "business",
+  "technical",
+  "risk",
+  "cost_schedule",
+  "operations",
+  "supply",
+  "regulatory",
+];
+
+function categoryRank(category: string): number {
+  if (category === "uncategorized") return 99;
+  const i = CATEGORY_ORDER.indexOf(category);
+  return i === -1 ? 50 : i + 1;
+}
+
+export function gateReadiness(
+  criteria: GateCriterion[],
+  findings: GateFinding[],
+): WeightedGateReadiness {
+  const assessment = assessGate(criteria, findings);
+
+  const byCriterion = new Map<string, GateFinding>();
+  for (const f of findings) byCriterion.set(f.criterion.trim(), f);
+  const met = (c: GateCriterion) =>
+    byCriterion.get(c.criterion.trim())?.status === "met";
+  const weightOf = (c: GateCriterion) =>
+    c.weight != null && c.weight > 0 ? c.weight : 1.0;
+
+  const weightSum = criteria.reduce((s, c) => s + weightOf(c), 0);
+  const weightedMet = criteria.reduce(
+    (s, c) => s + (met(c) ? weightOf(c) : 0),
+    0,
+  );
+  const readinessPct =
+    weightSum > 0 ? Math.round((weightedMet / weightSum) * 1000) / 10 : null;
+
+  const groups = new Map<string, GateCriterion[]>();
+  for (const c of criteria) {
+    const key = c.category?.trim() ? c.category.trim() : "uncategorized";
+    const list = groups.get(key);
+    if (list) list.push(c);
+    else groups.set(key, [c]);
+  }
+  const categories: CategoryReadiness[] = [...groups.entries()]
+    .map(([category, list]) => {
+      const ws = list.reduce((s, c) => s + weightOf(c), 0);
+      const wm = list.reduce((s, c) => s + (met(c) ? weightOf(c) : 0), 0);
+      return {
+        category,
+        criteriaTotal: list.length,
+        mandatoryTotal: list.filter((c) => c.isMandatory).length,
+        metCount: list.filter(met).length,
+        unmetMandatory: list.filter((c) => c.isMandatory && !met(c)).length,
+        weightSum: ws,
+        readinessPct: ws > 0 ? Math.round((wm / ws) * 1000) / 10 : null,
+      };
+    })
+    .sort(
+      (a, b) =>
+        categoryRank(a.category) - categoryRank(b.category) ||
+        a.category.localeCompare(b.category),
+    );
+
+  return {
+    blocked: !assessment.ready,
+    readinessPct,
+    weightSum,
+    categories,
+    assessment,
   };
 }
 

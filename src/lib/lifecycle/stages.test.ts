@@ -214,3 +214,124 @@ describe("wholeLifeCoverage", () => {
     expect(r.reason).toBe("No asset carries a lifecycle stage.");
   });
 });
+
+// ---------------------------------------------------------------------------
+// gateReadiness (D3.35, spec §45) — the weighted extension of assessGate.
+// ---------------------------------------------------------------------------
+import { gateReadiness } from "./stages";
+
+const WEIGHTED: GateCriterion[] = [
+  {
+    criterion: "Scope defined",
+    isMandatory: true,
+    weight: 3,
+    category: "technical",
+  },
+  {
+    criterion: "Estimate basis stated",
+    isMandatory: true,
+    weight: 2,
+    category: "cost_schedule",
+  },
+  {
+    criterion: "Operations reviewed the design",
+    isMandatory: false,
+    weight: 1,
+    category: "operations",
+  },
+  // Deliberately uncategorized and unweighted: defaults to 1.0 and rolls up
+  // visibly as 'uncategorized'.
+  { criterion: "Constructability review scheduled", isMandatory: false },
+];
+
+describe("gateReadiness", () => {
+  it("computes GR = Σ(w·r)/Σw with met=1 and everything else 0", () => {
+    const r = gateReadiness(WEIGHTED, [
+      { criterion: "Scope defined", status: "met" },
+      { criterion: "Estimate basis stated", status: "not_met" },
+      { criterion: "Operations reviewed the design", status: "met" },
+    ]);
+    // met weight = 3 + 1 of Σw = 7 → 57.1%
+    expect(r.readinessPct).toBe(57.1);
+    expect(r.weightSum).toBe(7);
+  });
+
+  it("one failed mandatory forces BLOCKED at any percentage — 97% cannot hide it", () => {
+    // 32 advisory criteria met + 1 mandatory not met → ~97% and still blocked.
+    const many: GateCriterion[] = [
+      { criterion: "The one mandatory safety issue", isMandatory: true },
+      ...Array.from({ length: 32 }, (_, i) => ({
+        criterion: `Advisory item ${i}`,
+        isMandatory: false,
+      })),
+    ];
+    const findings = [
+      { criterion: "The one mandatory safety issue", status: "not_met" as const },
+      ...Array.from({ length: 32 }, (_, i) => ({
+        criterion: `Advisory item ${i}`,
+        status: "met" as const,
+      })),
+    ];
+    const r = gateReadiness(many, findings);
+    expect(r.readinessPct).toBe(97);
+    expect(r.blocked).toBe(true);
+    expect(r.assessment.notMet).toContain("The one mandatory safety issue");
+  });
+
+  it("a mandatory criterion never assessed at all blocks — absence is not a pass", () => {
+    const r = gateReadiness(WEIGHTED, [
+      { criterion: "Estimate basis stated", status: "met" },
+      { criterion: "Operations reviewed the design", status: "met" },
+    ]);
+    expect(r.blocked).toBe(true);
+    expect(r.assessment.missingFindings).toContain("Scope defined");
+  });
+
+  it("blocked is exactly assessGate's verdict — the extension cannot drift from the evaluator", () => {
+    const findings = [{ criterion: "Scope defined", status: "met" as const }];
+    const r = gateReadiness(WEIGHTED, findings);
+    expect(r.blocked).toBe(!assessGate(WEIGHTED, findings).ready);
+  });
+
+  it("rolls up per category, spec-§44 order, uncategorized visible and last", () => {
+    const r = gateReadiness(WEIGHTED, [
+      { criterion: "Scope defined", status: "met" },
+      { criterion: "Constructability review scheduled", status: "met" },
+    ]);
+    expect(r.categories.map((c) => c.category)).toEqual([
+      "technical",
+      "cost_schedule",
+      "operations",
+      "uncategorized",
+    ]);
+    const uncategorized = r.categories.find(
+      (c) => c.category === "uncategorized",
+    );
+    expect(uncategorized?.criteriaTotal).toBe(1);
+    expect(uncategorized?.readinessPct).toBe(100);
+    const technical = r.categories.find((c) => c.category === "technical");
+    expect(technical?.readinessPct).toBe(100);
+    const cost = r.categories.find((c) => c.category === "cost_schedule");
+    expect(cost?.readinessPct).toBe(0);
+    expect(cost?.unmetMandatory).toBe(1);
+  });
+
+  it("an empty gate has NULL readiness — 0/0 is not a number — and blocks", () => {
+    const r = gateReadiness([], []);
+    expect(r.readinessPct).toBeNull();
+    expect(r.blocked).toBe(true);
+    expect(r.categories).toEqual([]);
+  });
+
+  it("weights shape the percentage only — a heavy advisory miss never unblocks a mandatory pass", () => {
+    const criteria: GateCriterion[] = [
+      { criterion: "Mandatory thing", isMandatory: true, weight: 1 },
+      { criterion: "Heavy advisory", isMandatory: false, weight: 99 },
+    ];
+    const r = gateReadiness(criteria, [
+      { criterion: "Mandatory thing", status: "met" },
+    ]);
+    expect(r.blocked).toBe(false);
+    expect(r.readinessPct).toBe(1); // 1/100
+  });
+});
