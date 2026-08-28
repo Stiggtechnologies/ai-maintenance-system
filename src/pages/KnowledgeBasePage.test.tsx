@@ -13,6 +13,15 @@ const listKbIntakeDocuments = vi.fn();
 const listKbDocumentClasses = vi.fn();
 const ingestKbDocument = vi.fn();
 
+const ocrPdfToText = vi.fn();
+
+vi.mock("../services/kbOcr", () => ({
+  needsOcr: (m: string | null | undefined) =>
+    /no usable text layer/i.test(m ?? ""),
+  ocrPdfToText: (...args: unknown[]) => ocrPdfToText(...(args as [File])),
+  MAX_OCR_PAGES: 50,
+}));
+
 vi.mock("../services/kbIntake", () => ({
   listKbIntakeDocuments: () => listKbIntakeDocuments(),
   listKbDocumentClasses: () => listKbDocumentClasses(),
@@ -174,6 +183,63 @@ describe("KnowledgeBasePage", () => {
       /Unsupported file type/i,
     );
     expect(ingestKbDocument).not.toHaveBeenCalled();
+  });
+
+  it("offers browser OCR when the server reports a scanned PDF, then submits the recognized text", async () => {
+    listKbIntakeDocuments.mockResolvedValue([]);
+    ingestKbDocument
+      .mockRejectedValueOnce(
+        new Error(
+          "This PDF has no usable text layer (scanned or image-only). The OCR lane is not wired yet.",
+        ),
+      )
+      .mockResolvedValueOnce({
+        source_id: "scanned-manual",
+        document_class: "unclassified",
+        chunks_created: 6,
+        status: "indexed",
+      });
+    ocrPdfToText.mockResolvedValue({
+      text: "[Page 1]\nRecognized service text from the scanned manual.",
+      pageCount: 3,
+    });
+
+    render(
+      <MemoryRouter>
+        <KnowledgeBasePage />
+      </MemoryRouter>,
+    );
+    await screen.findByText(/Ingest a document/i);
+    fireEvent.change(screen.getByLabelText(/Title/i), {
+      target: { value: "Scanned Manual" },
+    });
+    fireEvent.change(screen.getByLabelText(/Source ID/i), {
+      target: { value: "scanned-manual" },
+    });
+    const file = new File(["%PDF-1.4 fake"], "manual.pdf", {
+      type: "application/pdf",
+    });
+    fireEvent.change(screen.getByLabelText(/File/i), {
+      target: { files: [file] },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Ingest" }));
+
+    // The scanned-PDF error arms the browser-OCR lane.
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      /never leaves your machine/i,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /Run browser OCR/i }));
+
+    await waitFor(() => expect(ocrPdfToText).toHaveBeenCalledTimes(1));
+    expect(await screen.findByText(/Browser OCR complete/i)).toBeTruthy();
+
+    // The recognized text lands in the paste area and submits through the
+    // normal audited path.
+    fireEvent.click(screen.getByRole("button", { name: "Ingest" }));
+    await waitFor(() => expect(ingestKbDocument).toHaveBeenCalledTimes(2));
+    const input = ingestKbDocument.mock.calls[1][0] as Record<string, unknown>;
+    expect(input.content).toContain("Recognized service text");
+    expect(input.file_base64).toBeUndefined();
   });
 
   it("accepts PDF files (text layer extracted server-side)", async () => {

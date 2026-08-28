@@ -10,6 +10,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { RefreshCw, UploadCloud } from "lucide-react";
 import { useAuth } from "../components/AuthProvider";
+import { needsOcr, ocrPdfToText, type OcrProgress } from "../services/kbOcr";
 import {
   ingestKbDocument,
   listKbDocumentClasses,
@@ -33,6 +34,9 @@ export function KnowledgeBasePage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [ocrBusy, setOcrBusy] = useState(false);
+  const [ocrProgress, setOcrProgress] = useState<OcrProgress | null>(null);
+  const [ocrAvailable, setOcrAvailable] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Upload form state
@@ -75,6 +79,8 @@ export function KnowledgeBasePage() {
     setPageEnd("");
     setPasted("");
     setSelectedFile(null);
+    setOcrAvailable(false);
+    setOcrProgress(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -94,12 +100,16 @@ export function KnowledgeBasePage() {
       return;
     }
 
+    // Paste/OCR text takes precedence: after a browser-OCR run the recognized
+    // text IS the document, and re-sending the raw file would just re-trigger
+    // the server-side scanned-PDF rejection.
+    const usePaste = pasted.trim().length >= 20;
     let file_base64: string | undefined;
     let filename: string | undefined;
-    if (selectedFile) {
+    if (!usePaste && selectedFile) {
       if (!TEXT_FILE_RE.test(selectedFile.name)) {
         setError(
-          "Unsupported file type. Text, CSV, Markdown and PDF (text layer) are supported — for anything else, paste the document text.",
+          "Unsupported file type. Text, CSV, Markdown, PDF (text layer) are supported — for anything else, paste the document text.",
         );
         return;
       }
@@ -111,7 +121,7 @@ export function KnowledgeBasePage() {
       filename = selectedFile.name;
     }
 
-    if (!file_base64 && pasted.trim().length < 20) {
+    if (!usePaste && !file_base64) {
       setError(
         "Provide a text file or paste at least 20 characters of content",
       );
@@ -127,7 +137,7 @@ export function KnowledgeBasePage() {
         original_filename: filename ?? null,
         file_base64,
         filename,
-        content: file_base64 ? undefined : pasted,
+        content: usePaste ? pasted : undefined,
         page_start: pageStartNum,
         page_end: pageEndNum,
       });
@@ -137,9 +147,36 @@ export function KnowledgeBasePage() {
       resetForm();
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Ingest failed");
+      const message = err instanceof Error ? err.message : "Ingest failed";
+      if (needsOcr(message) && selectedFile) {
+        setOcrAvailable(true);
+        setError(
+          "This PDF has no text layer (it's a scan). You can read it in your browser instead — the document never leaves your machine.",
+        );
+      } else {
+        setError(message);
+      }
     } finally {
       setBusy(false);
+    }
+  };
+
+  const runOcr = async () => {
+    if (!selectedFile) return;
+    setOcrBusy(true);
+    setError(null);
+    try {
+      const result = await ocrPdfToText(selectedFile, setOcrProgress);
+      setPasted(result.text);
+      setNotice(
+        `Browser OCR complete: ${result.pageCount} page(s) read locally. Review the text below, then submit — the document itself never left your machine.`,
+      );
+      setOcrAvailable(false);
+      setOcrProgress(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "OCR failed");
+    } finally {
+      setOcrBusy(false);
     }
   };
 
@@ -298,6 +335,30 @@ export function KnowledgeBasePage() {
               </button>
             </div>
           </div>
+
+          {ocrAvailable && selectedFile && (
+            <div className="mt-4 rounded-lg border border-amber-500/40 bg-amber-500/10 p-4">
+              <p className="text-sm text-amber-200">
+                Scanned PDF detected — read it in your browser with OCR (up to
+                50 pages, English). The document stays on your machine; only the
+                recognized text is submitted.
+              </p>
+              {ocrProgress && (
+                <p className="mt-2 text-xs text-industrial-muted" role="status">
+                  {ocrProgress.stage === "render" ? "Rendering" : "Recognizing"}{" "}
+                  page {ocrProgress.page} of {ocrProgress.total}…
+                </p>
+              )}
+              <button
+                type="button"
+                onClick={() => void runOcr()}
+                disabled={ocrBusy}
+                className="mt-3 rounded-lg border border-amber-400/60 px-4 py-2 text-sm font-semibold text-amber-200 transition-colors hover:bg-amber-500/10 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {ocrBusy ? "Reading document…" : "Run browser OCR on this PDF"}
+              </button>
+            </div>
+          )}
 
           <label className="mt-4 block">
             <span className="mb-1 block text-sm font-medium text-industrial-text">
