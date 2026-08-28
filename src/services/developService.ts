@@ -147,7 +147,14 @@ export async function recordCaseGateReview(input: {
   note: string;
   findings: GateFindingInput[];
   conditions: GateConditionInput[];
-}): Promise<{ review_id: number; outcome: string }> {
+  /** D3.07: the zero-based funding answer (spec I.5) — required by the DB
+   *  for passing outcomes at sanction-type gates. */
+  fundingAnswer?: string | null;
+}): Promise<{
+  review_id: number;
+  outcome: string;
+  waived_mandatory?: string[];
+}> {
   const { data, error } = await supabase.rpc("record_case_gate_review", {
     p_case_id: input.caseId,
     p_gate_id: input.gateId,
@@ -155,6 +162,89 @@ export async function recordCaseGateReview(input: {
     p_note: input.note,
     p_findings: input.findings,
     p_conditions: input.conditions,
+    p_funding_answer: input.fundingAnswer ?? null,
+  });
+  return unwrap(data, error);
+}
+
+// ---------------------------------------------------------------------------
+// Slice 3B: condition lifecycle (D3.18) + gate-requirement waivers (D3.19).
+// Same discipline — writes are definer RPCs, refusals surface verbatim.
+// ---------------------------------------------------------------------------
+
+export async function closeGateCondition(input: {
+  conditionId: number;
+  evidenceId: string;
+  note?: string | null;
+}): Promise<{ condition_id: number; status: string; closed_late: boolean }> {
+  const { data, error } = await supabase.rpc("close_gate_condition", {
+    p_condition_id: input.conditionId,
+    p_evidence_id: input.evidenceId,
+    p_note: input.note ?? null,
+  });
+  return unwrap(data, error);
+}
+
+export async function requestGateRequirementWaiver(input: {
+  caseId: string;
+  requirementId: number;
+  justification: string;
+  compensatingControls: string;
+  riskId: string;
+  expiresAt: string;
+}): Promise<{ waiver_id: string; status: string; expires_at: string }> {
+  const { data, error } = await supabase.rpc(
+    "request_gate_requirement_waiver",
+    {
+      p_case_id: input.caseId,
+      p_requirement_id: input.requirementId,
+      p_justification: input.justification,
+      p_compensating_controls: input.compensatingControls,
+      p_risk_id: input.riskId,
+      p_expires_at: input.expiresAt,
+    },
+  );
+  return unwrap(data, error);
+}
+
+export async function decideGateRequirementWaiver(input: {
+  waiverId: string;
+  approve: boolean;
+  note: string;
+}): Promise<{ waiver_id: string; status: string; expires_at: string }> {
+  const { data, error } = await supabase.rpc("decide_gate_requirement_waiver", {
+    p_waiver_id: input.waiverId,
+    p_approve: input.approve,
+    p_note: input.note,
+  });
+  return unwrap(data, error);
+}
+
+/**
+ * D3.17/D3.34: an independent assurance review of the CASE, through the ONE
+ * assurance RPC (record_risk_assurance_review — no parallel assurance
+ * store). The DB refuses the case sponsor/creator as independent reviewer.
+ */
+export async function recordCaseAssuranceReview(input: {
+  caseId: string;
+  scope: string;
+  conclusion:
+    | "acceptable"
+    | "acceptable_with_actions"
+    | "not_acceptable"
+    | "inconclusive";
+  evidenceItemIds: string[];
+}): Promise<{ review_id: string; status: string }> {
+  const { data, error } = await supabase.rpc("record_risk_assurance_review", {
+    p_review: {
+      subject_type: "development_case",
+      subject_id: input.caseId,
+      assurance_level: "independent",
+      scope: input.scope,
+      status: "completed",
+      conclusion: input.conclusion,
+      evidence_item_ids: input.evidenceItemIds,
+    },
   });
   return unwrap(data, error);
 }
@@ -1035,11 +1125,22 @@ export interface CaseGovernanceOrgNode {
 }
 
 export interface CaseGovernanceBindingUnmet {
-  intensity_level: string;
-  binding_level: string;
-  binding_version: number;
+  intensity_level: string | null;
+  binding_level: string | null;
+  binding_version: number | null;
   unlinked_mandatory: string[];
   non_independent_gates: string[];
+  /** D3.20: mandatory requirements whose latest gate pass leaned on a waiver
+   *  that has since lapsed — the pass no longer stands. */
+  waiver_reverted?: string[];
+  /** Mandatory requirements without a met finding on the latest passing
+   *  review where NO waiver ever stood — named as what they are, so the
+   *  remedy is re-satisfy/re-record (or a governed waiver), not "renew a
+   *  waiver" the case never held. */
+  criteria_unmet?: string[];
+  /** D3.34/D11.28: composite authority rules demanding an independent
+   *  assurance review not yet recorded. */
+  composite_unmet?: string[];
 }
 
 export interface CaseGovernance {
@@ -1096,8 +1197,41 @@ export interface CaseGovernance {
       frameworkName: string;
       intensityFloor: string | null;
     }>;
+    compositeRules: Array<{
+      id: number;
+      priority: number;
+      description: string;
+      minValueLevel: number | null;
+      minRiskRating: string | null;
+      minIntensity: string | null;
+      minNovelty: string | null;
+      consequence: string;
+    }>;
   } | null;
   adoptedBindings: CaseGovernanceBinding[];
+}
+
+export async function addCompositeAuthorityRule(input: {
+  ruleSetId: string;
+  priority: number;
+  description: string;
+  consequence: "independent_assurance_required";
+  minValueLevel?: number | null;
+  minRiskRating?: string | null;
+  minIntensity?: string | null;
+  minNovelty?: string | null;
+}): Promise<{ rule_id: number; priority: number; consequence: string }> {
+  const { data, error } = await supabase.rpc("add_composite_authority_rule", {
+    p_rule_set_id: input.ruleSetId,
+    p_priority: input.priority,
+    p_description: input.description,
+    p_consequence: input.consequence,
+    p_min_value_level: input.minValueLevel ?? null,
+    p_min_risk_rating: input.minRiskRating ?? null,
+    p_min_intensity: input.minIntensity ?? null,
+    p_min_novelty: input.minNovelty ?? null,
+  });
+  return unwrap(data, error);
 }
 
 export async function getCaseGovernance(

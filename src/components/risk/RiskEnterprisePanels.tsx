@@ -1204,6 +1204,11 @@ function fieldsFor(
             label: value,
           })),
         },
+        {
+          key: "org_node_id",
+          label:
+            "Org node scope (site/BU node id — blank = whole organization)",
+        },
       ];
     case "integration":
       return [
@@ -1423,6 +1428,7 @@ async function executeAdvancedAction(
         max_decision_value: number(values.max_decision_value),
         independent_assurance_above_level:
           values.independent_assurance_above_level || undefined,
+        org_node_id: values.org_node_id || undefined,
       });
     case "integration": {
       const mapping = (value: string) =>
@@ -1574,7 +1580,11 @@ export function EnterpriseRiskArchitecturePanel(props: PanelProps) {
     try {
       setTree(await getObjectiveTree());
     } catch (e) {
-      setTreeError(e instanceof Error ? e.message : "Could not load the objective hierarchy");
+      setTreeError(
+        e instanceof Error
+          ? e.message
+          : "Could not load the objective hierarchy",
+      );
     } finally {
       setTreeBusy(false);
     }

@@ -49,8 +49,11 @@ import {
   listBindableRisks,
   listIntakeDocuments,
   listOrgMembers,
+  closeGateCondition,
+  decideGateRequirementWaiver,
   recordCaseEvidence,
   recordCaseGateReview,
+  requestGateRequirementWaiver,
   sanctionDevelopmentCase,
   selectDecisionOption,
   submitDeliverable,
@@ -70,9 +73,13 @@ import {
   isPassingOutcome,
   openRiskBlockers,
   type CaseWorkspace,
+  type WorkspaceCondition,
   type WorkspaceDecision,
+  type WorkspaceEvidence,
   type WorkspaceGate,
+  type WorkspaceRisk,
   type WorkspaceStage,
+  type WorkspaceWaiver,
 } from "../lib/develop";
 import {
   BaselinesSection,
@@ -122,6 +129,9 @@ function GateCard({
   canReview,
   members,
   riskBlockers,
+  risks,
+  evidence,
+  waivers,
   onRecorded,
 }: {
   gate: WorkspaceGate;
@@ -129,6 +139,9 @@ function GateCard({
   canReview: boolean;
   members: OrgMember[];
   riskBlockers: string[];
+  risks: WorkspaceRisk[];
+  evidence: WorkspaceEvidence[];
+  waivers: WorkspaceWaiver[];
   onRecorded: () => void;
 }) {
   const rollup = useMemo(
@@ -143,6 +156,7 @@ function GateCard({
     {},
   );
   const [conditions, setConditions] = useState<ConditionDraft[]>([]);
+  const [fundingAnswer, setFundingAnswer] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -182,12 +196,14 @@ function GateCard({
         note,
         findings: Object.values(findings),
         conditions: conditionInputs,
+        fundingAnswer: fundingAnswer.trim() || null,
       });
       setRecording(false);
       setOutcome("");
       setNote("");
       setFindings({});
       setConditions([]);
+      setFundingAnswer("");
       onRecorded();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Recording failed");
@@ -230,6 +246,11 @@ function GateCard({
               <span className="flex items-center gap-1 rounded-full bg-amber-400/10 px-1.5 py-0.5 text-[10px] font-semibold text-amber-300">
                 <ShieldCheck className="h-3 w-3" aria-hidden /> independent
                 assurance
+              </span>
+            )}
+            {rollup.fundingUnanswered && (
+              <span className="rounded-full bg-red-400/10 px-1.5 py-0.5 text-[10px] font-semibold text-red-300">
+                funding question unanswered
               </span>
             )}
           </span>
@@ -298,6 +319,17 @@ function GateCard({
                       <span className="rounded-full bg-white/5 px-1.5 py-0.5 text-[10px] text-slate-400">
                         {c.sourceAuthority}
                       </span>
+                      {c.activeWaiver && (
+                        <span
+                          className="rounded-full bg-violet-400/10 px-1.5 py-0.5 text-[10px] font-semibold text-violet-300"
+                          title={c.activeWaiver.justification}
+                        >
+                          waived until{" "}
+                          {new Date(
+                            c.activeWaiver.expiresAt,
+                          ).toLocaleDateString()}
+                        </span>
+                      )}
                       {finding && (
                         <span
                           className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${finding.status === "met" ? "bg-emerald-400/10 text-emerald-300" : finding.status === "not_met" ? "bg-red-400/10 text-red-300" : "bg-amber-400/10 text-amber-300"}`}
@@ -353,6 +385,15 @@ function GateCard({
             </ul>
           )}
 
+          {latest?.fundingContinuationAnswer && (
+            <div className="rounded-md border border-white/8 bg-white/[0.02] px-2.5 py-1.5 text-[11px] text-slate-300">
+              <span className="font-semibold text-slate-200">
+                Zero-based funding answer:
+              </span>{" "}
+              {latest.fundingContinuationAnswer}
+            </div>
+          )}
+
           {latest && latest.conditions.length > 0 && (
             <div>
               <div className="mb-1 text-xs font-semibold text-slate-300">
@@ -360,21 +401,30 @@ function GateCard({
               </div>
               <ul className="space-y-1">
                 {latest.conditions.map((cond) => (
-                  <li
+                  <ConditionRow
                     key={cond.id}
-                    className="rounded-md border border-amber-400/20 bg-amber-400/5 px-2.5 py-1.5 text-[11px] text-slate-300"
-                  >
-                    <span className="font-medium text-slate-200">
-                      {cond.description}
-                    </span>{" "}
-                    — owner {cond.owner ?? "unknown"}, due {cond.dueDate},
-                    evidence: {cond.evidenceRequirement}; if missed:{" "}
-                    {cond.consequenceIfMissed} ({cond.status})
-                  </li>
+                    condition={cond}
+                    canReview={canReview}
+                    evidence={evidence}
+                    onClosed={onRecorded}
+                  />
                 ))}
               </ul>
             </div>
           )}
+
+          {/* D3.19: waivers against this gate's requirements — request,
+              decide (authority-routed at the DB), and the standing record.
+              An expired waiver stays listed: enforcement reverted, and the
+              record of the exception survives it. */}
+          <GateWaiverBlock
+            gate={gate}
+            caseId={caseId}
+            canReview={canReview}
+            risks={risks}
+            waivers={waivers}
+            onChanged={onRecorded}
+          />
 
           {canReview && !recording && (
             <button
@@ -414,6 +464,24 @@ function GateCard({
                   className={inputClass}
                 />
               </div>
+
+              {gate.decisionType === "gate" && (
+                <div>
+                  <div className="mb-1 text-[11px] text-slate-400">
+                    Zero-based funding question (spec I.5)
+                    {gate.fundingQuestionRequired
+                      ? " — required at this sanction-type gate for a passing outcome"
+                      : " — asked at every gate; recorded when answered"}
+                  </div>
+                  <textarea
+                    value={fundingAnswer}
+                    onChange={(e) => setFundingAnswer(e.target.value)}
+                    placeholder="If this project were proposed today using what we now know, would we still fund it? (20 characters minimum when required)"
+                    rows={2}
+                    className={inputClass}
+                  />
+                </div>
+              )}
 
               {outcome === "proceed_with_conditions" && (
                 <div className="space-y-2">
@@ -545,6 +613,377 @@ function GateCard({
               </div>
             </div>
           )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * D3.18: one condition with its lifecycle. Overdue conditions arrive here
+ * already escalated by the hourly sweep (status 'missed', breach stamped,
+ * security event raised); closing any open or missed condition REQUIRES a
+ * linked evidence item of this case — the DB refuses an evidence-free
+ * closure, this form just says so earlier.
+ */
+function ConditionRow({
+  condition,
+  canReview,
+  evidence,
+  onClosed,
+}: {
+  condition: WorkspaceCondition;
+  canReview: boolean;
+  evidence: WorkspaceEvidence[];
+  onClosed: () => void;
+}) {
+  const [closing, setClosing] = useState(false);
+  const [evidenceId, setEvidenceId] = useState("");
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const closable = condition.status === "open" || condition.status === "missed";
+
+  const close = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await closeGateCondition({
+        conditionId: condition.id,
+        evidenceId,
+        note: note.trim() || null,
+      });
+      setClosing(false);
+      onClosed();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Closing failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <li
+      className={`rounded-md border px-2.5 py-1.5 text-[11px] text-slate-300 ${
+        condition.status === "missed"
+          ? "border-red-400/30 bg-red-400/5"
+          : condition.status === "satisfied"
+            ? "border-emerald-400/20 bg-emerald-400/5"
+            : "border-amber-400/20 bg-amber-400/5"
+      }`}
+    >
+      <span className="font-medium text-slate-200">
+        {condition.description}
+      </span>{" "}
+      — owner {condition.owner ?? "unknown"}, due {condition.dueDate}, evidence:{" "}
+      {condition.evidenceRequirement}; if missed:{" "}
+      {condition.consequenceIfMissed}
+      <span
+        className={`ml-1.5 rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${
+          condition.status === "missed"
+            ? "bg-red-400/10 text-red-300"
+            : condition.status === "satisfied"
+              ? "bg-emerald-400/10 text-emerald-300"
+              : "bg-amber-400/10 text-amber-300"
+        }`}
+      >
+        {condition.status === "missed"
+          ? "OVERDUE — escalated"
+          : condition.status}
+      </span>
+      {condition.status === "satisfied" && (
+        <span className="ml-1 text-slate-400">
+          closed by {condition.closedBy ?? "unknown"}
+          {condition.breachedAt ? " (late — breach on record)" : ""}
+          {condition.closureNote ? `: ${condition.closureNote}` : ""}
+        </span>
+      )}
+      {canReview && closable && !closing && (
+        <button
+          onClick={() => setClosing(true)}
+          className="ml-2 rounded border border-white/10 px-1.5 py-0.5 text-[10px] font-semibold text-slate-200 hover:bg-white/5"
+        >
+          Close with evidence
+        </button>
+      )}
+      {closing && (
+        <div className="mt-1.5 space-y-1.5">
+          <ErrorLine error={error} />
+          <div className="flex flex-wrap items-center gap-1.5">
+            <select
+              value={evidenceId}
+              onChange={(e) => setEvidenceId(e.target.value)}
+              className="min-w-52 rounded border border-white/10 bg-white/[0.03] px-2 py-1 text-[11px] text-slate-100"
+            >
+              <option value="" disabled>
+                Evidence item that closes it…
+              </option>
+              {evidence.map((ev) => (
+                <option key={ev.id} value={ev.id}>
+                  {(ev.description ?? ev.id).slice(0, 80)} ({ev.evidenceClass})
+                </option>
+              ))}
+            </select>
+            <input
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder="Closure note (optional)"
+              className="min-w-40 flex-1 rounded border border-white/10 bg-white/[0.03] px-2 py-1 text-[11px] text-slate-100"
+            />
+            <button
+              onClick={() => void close()}
+              disabled={busy || evidenceId === ""}
+              className="rounded border border-signal-cyan/30 bg-signal-cyan/15 px-2 py-1 text-[10px] font-semibold text-signal-cyan disabled:opacity-50"
+            >
+              {busy ? "Closing…" : "Close"}
+            </button>
+            <button
+              onClick={() => setClosing(false)}
+              className="rounded border border-white/10 px-2 py-1 text-[10px] text-slate-300"
+            >
+              Cancel
+            </button>
+          </div>
+          {evidence.length === 0 && (
+            <div className="text-[10px] text-slate-500">
+              No evidence is recorded on this case yet — record it in the
+              Evidence section first; a condition does not close on assertion.
+            </div>
+          )}
+        </div>
+      )}
+    </li>
+  );
+}
+
+/**
+ * D3.19: waivers against this gate's requirements. Requests bind a
+ * mandatory-or-advisory requirement of THIS gate to a case risk and an
+ * expiry; decisions route through the adopted gate_requirement_waiver
+ * authority at the DB (fail-closed). The record survives expiry — an
+ * expired waiver is listed as expired, never removed.
+ */
+function GateWaiverBlock({
+  gate,
+  caseId,
+  canReview,
+  risks,
+  waivers,
+  onChanged,
+}: {
+  gate: WorkspaceGate;
+  caseId: string;
+  canReview: boolean;
+  risks: WorkspaceRisk[];
+  waivers: WorkspaceWaiver[];
+  onChanged: () => void;
+}) {
+  const criterionIds = useMemo(
+    () => new Set(gate.criteria.map((c) => c.id)),
+    [gate.criteria],
+  );
+  const gateWaivers = waivers.filter((w) => criterionIds.has(w.requirementId));
+  const [requesting, setRequesting] = useState(false);
+  const [requirementId, setRequirementId] = useState("");
+  const [justification, setJustification] = useState("");
+  const [controls, setControls] = useState("");
+  const [riskId, setRiskId] = useState("");
+  const [expiresAt, setExpiresAt] = useState("");
+  const [decideNote, setDecideNote] = useState<Record<string, string>>({});
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const request = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await requestGateRequirementWaiver({
+        caseId,
+        requirementId: Number(requirementId),
+        justification,
+        compensatingControls: controls,
+        riskId,
+        expiresAt: expiresAt ? new Date(expiresAt).toISOString() : "",
+      });
+      setRequesting(false);
+      setRequirementId("");
+      setJustification("");
+      setControls("");
+      setRiskId("");
+      setExpiresAt("");
+      onChanged();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Request failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const decide = async (waiverId: string, approve: boolean) => {
+    setBusy(true);
+    setError(null);
+    try {
+      await decideGateRequirementWaiver({
+        waiverId,
+        approve,
+        note: decideNote[waiverId] ?? "",
+      });
+      onChanged();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Decision failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (gateWaivers.length === 0 && !canReview) return null;
+
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center gap-2">
+        <div className="text-xs font-semibold text-slate-300">
+          Requirement waivers (spec II.16)
+        </div>
+        {canReview && !requesting && (
+          <button
+            onClick={() => setRequesting(true)}
+            className="rounded border border-white/10 px-1.5 py-0.5 text-[10px] font-semibold text-slate-200 hover:bg-white/5"
+          >
+            Request waiver
+          </button>
+        )}
+      </div>
+      <ErrorLine error={error} />
+      {gateWaivers.length === 0 && !requesting && (
+        <div className="text-[11px] text-slate-500">
+          None. Every requirement of this gate binds in full.
+        </div>
+      )}
+      {gateWaivers.map((w) => (
+        <div
+          key={w.id}
+          className="rounded-md border border-white/8 bg-white/[0.02] px-2.5 py-1.5 text-[11px] text-slate-300"
+        >
+          <span className="font-medium text-slate-200">{w.criterion}</span>
+          <span
+            className={`ml-1.5 rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${
+              w.status === "approved"
+                ? "bg-violet-400/10 text-violet-300"
+                : w.status === "pending"
+                  ? "bg-amber-400/10 text-amber-300"
+                  : w.status === "expired"
+                    ? "bg-red-400/10 text-red-300"
+                    : "bg-white/5 text-slate-400"
+            }`}
+          >
+            {w.status === "expired"
+              ? "expired — enforcement reverted"
+              : w.status}
+          </span>{" "}
+          — {w.justification}; controls: {w.compensatingControls}; risk:{" "}
+          {w.riskTitle ?? w.riskId ?? "unlinked"}; expires{" "}
+          {new Date(w.expiresAt).toLocaleDateString()}
+          {w.decidedBy ? `; decided by ${w.decidedBy}` : ""}
+          {canReview && w.status === "pending" && (
+            <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+              <input
+                value={decideNote[w.id] ?? ""}
+                onChange={(e) =>
+                  setDecideNote((prev) => ({ ...prev, [w.id]: e.target.value }))
+                }
+                placeholder="Decision reasoning (10 characters minimum)"
+                className="min-w-52 flex-1 rounded border border-white/10 bg-white/[0.03] px-2 py-1 text-[11px] text-slate-100"
+              />
+              <button
+                onClick={() => void decide(w.id, true)}
+                disabled={busy}
+                className="rounded border border-emerald-400/30 bg-emerald-400/10 px-2 py-1 text-[10px] font-semibold text-emerald-300 disabled:opacity-50"
+              >
+                Approve
+              </button>
+              <button
+                onClick={() => void decide(w.id, false)}
+                disabled={busy}
+                className="rounded border border-red-400/30 bg-red-400/10 px-2 py-1 text-[10px] font-semibold text-red-300 disabled:opacity-50"
+              >
+                Reject
+              </button>
+            </div>
+          )}
+        </div>
+      ))}
+      {requesting && (
+        <div className="space-y-1.5 rounded-md border border-white/8 bg-white/[0.02] p-2">
+          <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+            <select
+              value={requirementId}
+              onChange={(e) => setRequirementId(e.target.value)}
+              className={inputClass}
+            >
+              <option value="" disabled>
+                Requirement to waive…
+              </option>
+              {gate.criteria.map((c) => (
+                <option key={c.id} value={String(c.id)}>
+                  {c.criterion.slice(0, 90)}
+                </option>
+              ))}
+            </select>
+            <select
+              value={riskId}
+              onChange={(e) => setRiskId(e.target.value)}
+              className={inputClass}
+            >
+              <option value="" disabled>
+                Risk assessment covering the waiver…
+              </option>
+              {risks.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.title} ({r.currentRiskLevel ?? "unrated"})
+                </option>
+              ))}
+            </select>
+            <input
+              value={justification}
+              onChange={(e) => setJustification(e.target.value)}
+              placeholder="Why the requirement cannot be met (20 characters minimum)"
+              className={inputClass}
+            />
+            <input
+              value={controls}
+              onChange={(e) => setControls(e.target.value)}
+              placeholder="Compensating controls (20 characters minimum)"
+              className={inputClass}
+            />
+            <input
+              type="date"
+              value={expiresAt}
+              onChange={(e) => setExpiresAt(e.target.value)}
+              className={inputClass}
+            />
+          </div>
+          {risks.length === 0 && (
+            <div className="text-[10px] text-slate-500">
+              No risks are bound to this case — bind or record the risk first
+              (spec II.16: a waiver names its risk assessment).
+            </div>
+          )}
+          <div className="flex gap-2">
+            <button
+              onClick={() => void request()}
+              disabled={busy || !requirementId || !riskId}
+              className="rounded border border-signal-cyan/30 bg-signal-cyan/15 px-2 py-1 text-[10px] font-semibold text-signal-cyan disabled:opacity-50"
+            >
+              {busy ? "Requesting…" : "Request"}
+            </button>
+            <button
+              onClick={() => setRequesting(false)}
+              className="rounded border border-white/10 px-2 py-1 text-[10px] text-slate-300"
+            >
+              Cancel
+            </button>
+          </div>
         </div>
       )}
     </div>
@@ -2198,6 +2637,9 @@ export function DevelopmentCaseWorkspacePage() {
                       riskBlockers={
                         stage.isCurrent ? openRiskBlockers(workspace.risks) : []
                       }
+                      risks={workspace.risks}
+                      evidence={workspace.evidence}
+                      waivers={workspace.waivers}
                       onRecorded={() => void load()}
                     />
                   ))}
@@ -2217,6 +2659,7 @@ export function DevelopmentCaseWorkspacePage() {
         caseId={workspace.id}
         canReview={canReview}
         canAdmin={canAdmin}
+        evidence={workspace.evidence}
         onChanged={() => void load()}
       />
       <ObjectiveSection workspace={workspace} />

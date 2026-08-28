@@ -78,6 +78,16 @@ export interface WorkspaceCriterion {
   minimumConfidence: number | null;
   weight: number;
   sourceAuthority: string;
+  /**
+   * D3.19: the APPROVED, UNEXPIRED waiver currently standing in for this
+   * requirement on this case. Null when none — absence rendered, not hidden.
+   */
+  activeWaiver: {
+    id: string;
+    status: string;
+    expiresAt: string;
+    justification: string;
+  } | null;
 }
 
 export interface WorkspaceReviewFinding {
@@ -94,6 +104,12 @@ export interface WorkspaceCondition {
   evidenceRequirement: string;
   consequenceIfMissed: string;
   owner: string | null;
+  /** D3.18 lifecycle: breach survives closure — a late closure stays late. */
+  breachedAt: string | null;
+  closedAt: string | null;
+  closedBy: string | null;
+  closureEvidenceId: string | null;
+  closureNote: string | null;
 }
 
 export interface WorkspaceReview {
@@ -101,6 +117,8 @@ export interface WorkspaceReview {
   outcome: string;
   reviewedAt: string;
   note: string | null;
+  /** D3.07: the recorded zero-based funding answer (spec I.5). */
+  fundingContinuationAnswer: string | null;
   findings: WorkspaceReviewFinding[];
   conditions: WorkspaceCondition[];
 }
@@ -112,6 +130,12 @@ export interface WorkspaceGate {
   decisionType: "gate" | "checkpoint";
   independentAssuranceRequired: boolean;
   readinessThreshold: number | null;
+  /**
+   * D3.07: true for sanction-type gates (decision_type 'gate' at-or-after
+   * the master sanction stage) — where a passing outcome without the
+   * zero-based funding answer is refused at the DB.
+   */
+  fundingQuestionRequired: boolean;
   criteria: WorkspaceCriterion[];
   latestReview: WorkspaceReview | null;
 }
@@ -257,7 +281,11 @@ export interface WorkspaceBaseline {
   description: string;
   content: Record<string, unknown>;
   document: { id: string; title: string } | null;
-  approval: { approvedAt: string; note: string | null; by: string | null } | null;
+  approval: {
+    approvedAt: string;
+    note: string | null;
+    by: string | null;
+  } | null;
   supersededAt: string | null;
   createdAt: string;
 }
@@ -401,6 +429,22 @@ export interface WorkspaceBenefit {
   } | null;
 }
 
+export interface WorkspaceWaiver {
+  id: string;
+  requirementId: number;
+  criterion: string | null;
+  status: string;
+  justification: string;
+  compensatingControls: string;
+  riskId: string | null;
+  riskTitle: string | null;
+  requestedAt: string;
+  requestedBy: string | null;
+  decidedBy: string | null;
+  decisionNote: string | null;
+  expiresAt: string;
+}
+
 export interface CaseWorkspace {
   id: string;
   title: string;
@@ -429,6 +473,7 @@ export interface CaseWorkspace {
     status: string;
   } | null;
   stages: WorkspaceStage[];
+  waivers: WorkspaceWaiver[];
   deliverables: WorkspaceDeliverable[];
   evidence: WorkspaceEvidence[];
   risks: WorkspaceRisk[];
@@ -457,6 +502,13 @@ export interface GateRollup {
    * percentage: no readiness number exists until D3.35 ships one.
    */
   riskBlockers: string[];
+  /**
+   * D3.07: the zero-based funding question is unanswered on the latest
+   * review of a sanction-type gate. Blocks the readiness verdict exactly
+   * where record_case_gate_review refuses the pass — displayed truth and
+   * enforced truth agree.
+   */
+  fundingUnanswered: boolean;
 }
 
 /**
@@ -513,6 +565,9 @@ export function gateRollup(
     hasReview: gate.latestReview != null,
     latestOutcome: gate.latestReview?.outcome ?? null,
     riskBlockers,
+    fundingUnanswered:
+      gate.fundingQuestionRequired &&
+      !(gate.latestReview?.fundingContinuationAnswer ?? "").trim(),
   };
 }
 
@@ -533,10 +588,7 @@ export function isPassingOutcome(outcome: string | null): boolean {
 // ---------------------------------------------------------------------------
 
 export type ReadinessCriterionStatus =
-  | "met"
-  | "not_met"
-  | "not_assessed"
-  | "never_assessed";
+  "met" | "not_met" | "not_assessed" | "never_assessed";
 
 export interface ReadinessCriterionRow {
   id: number;

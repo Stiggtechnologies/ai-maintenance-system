@@ -31,14 +31,17 @@ import {
   type TailoringRule,
 } from "../../lib/develop/governance";
 import {
+  addCompositeAuthorityRule,
   adoptGovernanceRuleSet,
   adoptIntensityBinding,
   applyCaseGovernance,
   createGovernanceRuleSetVersion,
   getCaseGovernance,
+  recordCaseAssuranceReview,
   seedGovernanceLibrary,
   type CaseGovernance,
 } from "../../services/developService";
+import type { WorkspaceEvidence } from "../../lib/develop";
 
 const inputClass =
   "w-full rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-signal-cyan/50 focus:outline-none";
@@ -81,11 +84,15 @@ export function GovernancePanel({
   caseId,
   canReview,
   canAdmin,
+  evidence,
   onChanged,
 }: {
   caseId: string;
   canReview: boolean;
   canAdmin: boolean;
+  /** The case's recorded evidence items — a completed assurance review
+   *  names its working papers from the ONE evidence model. */
+  evidence: WorkspaceEvidence[];
   onChanged: () => void;
 }) {
   const [gov, setGov] = useState<CaseGovernance | null>(null);
@@ -102,6 +109,27 @@ export function GovernancePanel({
   });
   const [basis, setBasis] = useState("");
   const [adoptNote, setAdoptNote] = useState("");
+  const [compositeDraft, setCompositeDraft] = useState({
+    ruleSetId: "",
+    priority: "10",
+    description: "",
+    minValueLevel: "",
+    minRiskRating: "",
+    minIntensity: "",
+    minNovelty: "",
+  });
+  // D3.17: recording the independent assurance review of the case — the act
+  // that satisfies the composite demand rendered above. The DB refuses the
+  // sponsor/creator (and the AI-operator identity) as reviewer.
+  const [assuranceDraft, setAssuranceDraft] = useState({
+    scope: "",
+    conclusion: "acceptable" as
+      | "acceptable"
+      | "acceptable_with_actions"
+      | "not_acceptable"
+      | "inconclusive",
+    evidenceId: "",
+  });
 
   const load = useCallback(async () => {
     try {
@@ -354,6 +382,34 @@ export function GovernancePanel({
                       {gov.bindingUnmet.non_independent_gates.join("; ")}).
                     </>
                   )}
+                  {(gov.bindingUnmet.waiver_reverted?.length ?? 0) > 0 && (
+                    <>
+                      {" "}
+                      {gov.bindingUnmet.waiver_reverted?.length} requirement(s)
+                      whose gate pass leaned on a LAPSED waiver — the pass no
+                      longer stands (
+                      {gov.bindingUnmet.waiver_reverted?.join("; ")}).
+                    </>
+                  )}
+                  {(gov.bindingUnmet.criteria_unmet?.length ?? 0) > 0 && (
+                    <>
+                      {" "}
+                      {gov.bindingUnmet.criteria_unmet?.length} mandatory
+                      requirement(s) without a met finding on the latest passing
+                      review and never covered by a waiver — the recorded pass
+                      does not answer them (
+                      {gov.bindingUnmet.criteria_unmet?.join("; ")}).
+                    </>
+                  )}
+                  {(gov.bindingUnmet.composite_unmet?.length ?? 0) > 0 && (
+                    <>
+                      {" "}
+                      {gov.bindingUnmet.composite_unmet?.length} composite
+                      authority rule(s) demand a completed independent assurance
+                      review of this case (
+                      {gov.bindingUnmet.composite_unmet?.join("; ")}).
+                    </>
+                  )}
                 </div>
               )}
             </div>
@@ -362,6 +418,114 @@ export function GovernancePanel({
               No governance determination is recorded for this case. Until one
               is applied, intensity-based enforcement holds nothing here — the
               gates still enforce their own mandatory criteria.
+            </div>
+          )}
+
+          {/* D3.17: the independent assurance review of the case — the act
+              that satisfies the composite demand above. Sponsor/creator and
+              the AI-operator identity are refused by the database; the
+              refusal renders verbatim. */}
+          {canReview && (
+            <div className="rounded-lg border border-white/8 bg-white/[0.02] p-3">
+              <div className="mb-1.5 flex items-center gap-2 text-xs font-semibold text-slate-200">
+                <ShieldCheck
+                  className="h-3.5 w-3.5 text-slate-500"
+                  aria-hidden
+                />
+                Record independent assurance of this case
+              </div>
+              <p className="mb-2 text-[11px] text-slate-500">
+                A COMPLETED, acceptable, independent review is what releases a
+                composite independent-assurance demand — recorded through the
+                one assurance store, with the reviewer&apos;s independence
+                enforced at the database (the case sponsor/creator cannot assure
+                their own case).
+              </p>
+              <div className="grid gap-2 sm:grid-cols-3">
+                <label className="text-[11px] text-slate-400">
+                  Scope (≥10 chars)
+                  <input
+                    value={assuranceDraft.scope}
+                    onChange={(e) =>
+                      setAssuranceDraft((p) => ({
+                        ...p,
+                        scope: e.target.value,
+                      }))
+                    }
+                    placeholder="What this review examined"
+                    className={inputClass}
+                  />
+                </label>
+                <label className="text-[11px] text-slate-400">
+                  Conclusion
+                  <select
+                    value={assuranceDraft.conclusion}
+                    onChange={(e) =>
+                      setAssuranceDraft((p) => ({
+                        ...p,
+                        conclusion: e.target
+                          .value as typeof assuranceDraft.conclusion,
+                      }))
+                    }
+                    className={inputClass}
+                  >
+                    <option value="acceptable">acceptable</option>
+                    <option value="acceptable_with_actions">
+                      acceptable_with_actions
+                    </option>
+                    <option value="not_acceptable">not_acceptable</option>
+                    <option value="inconclusive">inconclusive</option>
+                  </select>
+                </label>
+                <label className="text-[11px] text-slate-400">
+                  Working papers (case evidence)
+                  <select
+                    value={assuranceDraft.evidenceId}
+                    onChange={(e) =>
+                      setAssuranceDraft((p) => ({
+                        ...p,
+                        evidenceId: e.target.value,
+                      }))
+                    }
+                    className={inputClass}
+                  >
+                    <option value="">— select evidence —</option>
+                    {evidence.map((ev) => (
+                      <option key={ev.id} value={ev.id}>
+                        {(ev.description ?? ev.id).slice(0, 80)} (
+                        {ev.evidenceClass})
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              <div className="mt-2 flex items-center gap-2">
+                <button
+                  onClick={() =>
+                    void act(
+                      () =>
+                        recordCaseAssuranceReview({
+                          caseId,
+                          scope: assuranceDraft.scope,
+                          conclusion: assuranceDraft.conclusion,
+                          evidenceItemIds: [assuranceDraft.evidenceId],
+                        }),
+                      "Independent assurance review recorded — enforcement reads it immediately.",
+                    )
+                  }
+                  disabled={busy || assuranceDraft.evidenceId === ""}
+                  className="rounded border border-white/10 px-2 py-1 text-[11px] font-semibold text-slate-200 hover:bg-white/5 disabled:opacity-50"
+                >
+                  Record completed independent review
+                </button>
+                {evidence.length === 0 && (
+                  <span className="text-[11px] text-slate-500">
+                    No evidence is recorded on this case yet — a completed
+                    review names its working papers, so record them first in the
+                    Evidence section.
+                  </span>
+                )}
+              </div>
             </div>
           )}
 
@@ -477,6 +641,193 @@ export function GovernancePanel({
                         className="rounded border border-white/10 px-2 py-1 text-[11px] font-semibold text-slate-200 hover:bg-white/5 disabled:opacity-50"
                       >
                         Draft new version
+                      </button>
+                    </div>
+                  )}
+                  {/* D3.34/D11.28: composite authority rules — conjunctions
+                      over the determination's factors whose consequence the
+                      DB enforces (independent assurance before a gate pass).
+                      They ride the SAME versioned rule set; authoring targets
+                      a DRAFT, adoption arms them with the set. */}
+                  {gov.adoptedRuleSet != null && (
+                    <div className="rounded border border-white/8 bg-white/[0.02] px-2 py-1.5 text-[11px] text-slate-400">
+                      <span className="font-semibold text-slate-300">
+                        Composite authority rules (adopted set):
+                      </span>{" "}
+                      {gov.adoptedRuleSet.compositeRules.length === 0
+                        ? "none — no composite condition demands anything yet"
+                        : gov.adoptedRuleSet.compositeRules
+                            .map(
+                              (cr) =>
+                                `#${cr.priority} ${cr.description} [${[
+                                  cr.minValueLevel != null
+                                    ? `value band ≥ ${cr.minValueLevel}`
+                                    : null,
+                                  cr.minRiskRating
+                                    ? `risk ≥ ${cr.minRiskRating}`
+                                    : null,
+                                  cr.minIntensity
+                                    ? `intensity ≥ ${cr.minIntensity}`
+                                    : null,
+                                  cr.minNovelty
+                                    ? `novelty ≥ ${cr.minNovelty}`
+                                    : null,
+                                ]
+                                  .filter(Boolean)
+                                  .join(" AND ")} → ${cr.consequence}]`,
+                            )
+                            .join("; ")}
+                    </div>
+                  )}
+                  {gov.draftRuleSets.length > 0 && (
+                    <div className="space-y-1.5 rounded border border-white/8 bg-white/[0.02] p-2">
+                      <div className="text-[11px] font-semibold text-slate-300">
+                        Add composite rule to a draft set (IF conditions AND …
+                        THEN independent assurance required)
+                      </div>
+                      <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
+                        <select
+                          value={compositeDraft.ruleSetId}
+                          onChange={(e) =>
+                            setCompositeDraft((prev) => ({
+                              ...prev,
+                              ruleSetId: e.target.value,
+                            }))
+                          }
+                          className={inputClass}
+                        >
+                          <option value="" disabled>
+                            Draft rule set…
+                          </option>
+                          {gov.draftRuleSets.map((rs) => (
+                            <option key={rs.id} value={rs.id}>
+                              {rs.name} v{rs.version}
+                            </option>
+                          ))}
+                        </select>
+                        <input
+                          value={compositeDraft.priority}
+                          onChange={(e) =>
+                            setCompositeDraft((prev) => ({
+                              ...prev,
+                              priority: e.target.value,
+                            }))
+                          }
+                          placeholder="Priority"
+                          className={inputClass}
+                        />
+                        <select
+                          value={compositeDraft.minValueLevel}
+                          onChange={(e) =>
+                            setCompositeDraft((prev) => ({
+                              ...prev,
+                              minValueLevel: e.target.value,
+                            }))
+                          }
+                          className={inputClass}
+                        >
+                          <option value="">value band: any</option>
+                          {["1", "2", "3", "4"].map((v) => (
+                            <option key={v} value={v}>
+                              value band ≥ {v}
+                            </option>
+                          ))}
+                        </select>
+                        <select
+                          value={compositeDraft.minRiskRating}
+                          onChange={(e) =>
+                            setCompositeDraft((prev) => ({
+                              ...prev,
+                              minRiskRating: e.target.value,
+                            }))
+                          }
+                          className={inputClass}
+                        >
+                          <option value="">risk: any</option>
+                          {["low", "medium", "high", "critical"].map((v) => (
+                            <option key={v} value={v}>
+                              risk ≥ {v}
+                            </option>
+                          ))}
+                        </select>
+                        <select
+                          value={compositeDraft.minIntensity}
+                          onChange={(e) =>
+                            setCompositeDraft((prev) => ({
+                              ...prev,
+                              minIntensity: e.target.value,
+                            }))
+                          }
+                          className={inputClass}
+                        >
+                          <option value="">intensity: any</option>
+                          {["light", "standard", "elevated", "full"].map(
+                            (v) => (
+                              <option key={v} value={v}>
+                                intensity ≥ {v}
+                              </option>
+                            ),
+                          )}
+                        </select>
+                        <select
+                          value={compositeDraft.minNovelty}
+                          onChange={(e) =>
+                            setCompositeDraft((prev) => ({
+                              ...prev,
+                              minNovelty: e.target.value,
+                            }))
+                          }
+                          className={inputClass}
+                        >
+                          <option value="">novelty: any</option>
+                          {[
+                            "proven",
+                            "incremental",
+                            "adapted",
+                            "first_of_a_kind",
+                          ].map((v) => (
+                            <option key={v} value={v}>
+                              novelty ≥ {v}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <input
+                        value={compositeDraft.description}
+                        onChange={(e) =>
+                          setCompositeDraft((prev) => ({
+                            ...prev,
+                            description: e.target.value,
+                          }))
+                        }
+                        placeholder="What this rule demands and why (10 characters minimum)"
+                        className={inputClass}
+                      />
+                      <button
+                        onClick={() =>
+                          void act(
+                            () =>
+                              addCompositeAuthorityRule({
+                                ruleSetId: compositeDraft.ruleSetId,
+                                priority: Number(compositeDraft.priority),
+                                description: compositeDraft.description,
+                                consequence: "independent_assurance_required",
+                                minValueLevel: compositeDraft.minValueLevel
+                                  ? Number(compositeDraft.minValueLevel)
+                                  : null,
+                                minRiskRating:
+                                  compositeDraft.minRiskRating || null,
+                                minIntensity:
+                                  compositeDraft.minIntensity || null,
+                                minNovelty: compositeDraft.minNovelty || null,
+                              }),
+                            "Composite rule drafted — it arms when the rule set is adopted.",
+                          )
+                        }
+                        disabled={busy || !compositeDraft.ruleSetId}
+                        className="rounded border border-white/10 px-2 py-1 text-[11px] font-semibold text-slate-200 hover:bg-white/5 disabled:opacity-50"
+                      >
+                        Add composite rule
                       </button>
                     </div>
                   )}

@@ -98,3 +98,47 @@ describe("capability register ratchet", () => {
     expect(missing).toEqual([]);
   });
 });
+
+/**
+ * The sync-develop register is the program of record for the Develop build,
+ * and it carried the SAME headline sentence with none of the machinery: the
+ * tally above is derived and CI-checked, that one was hand-typed. Slice 3B
+ * moved ten rows to ✅ while the line still read the slice-3A figures
+ * (✅ 40 · 🟡 126 · ❌ 68 against a true ✅ 50 · 🟡 117 · ❌ 67) — the register
+ * telling its reader "the tally is derived, never hand-typed" while it was
+ * neither. These assertions are that mechanism, so the claim and the practice
+ * are the same thing.
+ */
+const DEVELOP_SOURCE = readFileSync("docs/sync-develop/register.md", "utf8");
+// | <ID> | <capability> | <spec ref> | <status> | <evidence> |
+const DEVELOP_ROW = /^\|\s*([A-Z]\d+\.\d+)\s*\|[^|]*\|[^|]*\|\s*(✅|🟡|❌)/u;
+
+const developRows = DEVELOP_SOURCE.split("\n")
+  .map((line) => DEVELOP_ROW.exec(line))
+  .filter((m): m is RegExpExecArray => m !== null)
+  .map((m) => ({ id: m[1], status: m[2] }));
+
+describe("sync-develop register", () => {
+  it("enumerates every Develop spec item", () => {
+    // May only grow. A drop means a merge ate an obligation.
+    expect(developRows.length).toBeGreaterThanOrEqual(234);
+  });
+
+  it("assigns each ID exactly once", () => {
+    const seen = new Map<string, number>();
+    for (const r of developRows) seen.set(r.id, (seen.get(r.id) ?? 0) + 1);
+    expect([...seen].filter(([, n]) => n > 1)).toEqual([]);
+  });
+
+  it("states a tally that matches the tables", () => {
+    const counts = { "✅": 0, "🟡": 0, "❌": 0 } as Record<string, number>;
+    for (const r of developRows) counts[r.status] += 1;
+    const expected = `Current tally: ✅ ${counts["✅"]} · 🟡 ${counts["🟡"]} · ❌ ${counts["❌"]} (${developRows.length} items).`;
+    expect(DEVELOP_SOURCE).toContain(expected);
+  });
+
+  it("keeps the tally honest — a ✅ majority would mean the Develop program is done", () => {
+    const done = developRows.filter((r) => r.status === "✅").length;
+    expect(done).toBeLessThan(developRows.length);
+  });
+});
