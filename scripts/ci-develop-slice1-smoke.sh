@@ -61,7 +61,7 @@
 #     treatments of case-bound risks arriving as via_risk;
 #   * the workspace read (step 16) renders all five sections from one call.
 #
-# Slice 1 rows 9–12 (steps 18–21):
+# Slice 1 rows 9–12 (steps 18–22):
 #   * baselines (D5.26): six §20 types verbatim; versioned per (case, type);
 #     approval is a recorded human act (ai_admin refused by name); PRIOR
 #     VERSIONS IMMUTABLE — client writes refused even with RLS bypassed,
@@ -80,7 +80,13 @@
 #   * evidence-agent boundary (D12.07/§70): the retrieval rail answers
 #     org-scoped; the agent's only write (AI_INFERENCE evidence) moves NO
 #     readiness number and NO blocker — asserted by diffing get_gate_readiness
-#     before and after the write.
+#     before and after the write;
+#   * readiness integrity (20261110090400): a review carrying two findings
+#     for one criterion is refused at the RPC (btrim-matched); a duplicate
+#     landed through the admitted-and-audited service path collapses to the
+#     latest finding instead of fanning out any count, percentage or category
+#     denominator; `weight` sits inside the adopted-framework immutability
+#     wall (client refused RLS-bypassed, service audited both directions).
 #
 # Run: supabase start && scripts/ci-develop-slice1-smoke.sh
 # ============================================================================
@@ -1023,6 +1029,62 @@ assert a['evidenceSummary']['aiInferenceUnverified']==b['evidenceSummary']['aiIn
 print('AI_INFERENCE write moved nothing: %s%% before and after; AI counter %s -> %s' %
       (a['readinessPct'], b['evidenceSummary']['aiInferenceUnverified'], a['evidenceSummary']['aiInferenceUnverified']))
 PY21B
+
+echo '— 22. readiness integrity: duplicate findings refused / never fan out; adopted weight immutable —'
+# (a) the record RPC refuses a review carrying two findings for one criterion
+#     (btrim-matched — whitespace does not smuggle a duplicate past it).
+CRIT22=$(psqlc "select criterion from stage_gate_criteria where gate_id=$G3 and is_mandatory order by sort_order limit 1")
+R=$(rpc "$MANAGER" record_case_gate_review "{\"p_case_id\":\"$CASE\",\"p_gate_id\":$G3,\"p_outcome\":\"hold\",\"p_note\":\"Duplicate-finding refusal probe, twenty characters plus.\",\"p_findings\":[{\"criterion_text\":\"$CRIT22\",\"status\":\"met\"},{\"criterion_text\":\" $CRIT22 \",\"status\":\"not_met\"}]}")
+expect_err "$R" 'duplicate finding'
+# (b) a duplicate landed through the admitted-and-audited service path cannot
+#     fan out the displayed numbers: the LATERAL collapses to the LATEST
+#     finding per criterion. Baseline 80.0%/not blocked (step 21); a service
+#     not_met duplicate on a met mandatory flips THAT criterion honestly
+#     (3 of 4 mandatory, 60%, BLOCKED, named once) — denominators never grow.
+REV22=$(psqlc "select id from stage_gate_reviews where development_case_id='$CASE' and gate_id=$G3 order by reviewed_at desc, id desc limit 1")
+psqlc "insert into stage_gate_findings (organization_id, review_id, criterion_text, status) values ('$ORG', $REV22, '$CRIT22', 'not_met')" >/dev/null
+DUP=$(rpc "$PLANNER" get_gate_readiness "{\"p_case_id\":\"$CASE\",\"p_gate_id\":$G3}")
+BODY="$DUP" CRIT22="$CRIT22" python3 - <<'PY22B'
+import json,os
+r=json.loads(os.environ['BODY']); crit=os.environ['CRIT22']
+assert r['criteriaTotal']==5 and r['mandatoryTotal']==4, (r['criteriaTotal'], r['mandatoryTotal'])
+assert len(r['criteria'])==5, len(r['criteria'])
+assert float(r['weightSum'])==5.0, r['weightSum']
+rows=[c for c in r['criteria'] if c['criterion']==crit]
+assert len(rows)==1 and rows[0]['status']=='not_met', rows  # once, latest finding wins
+assert r['mandatoryMet']==3 and r['readinessPct']==60.0, (r['mandatoryMet'], r['readinessPct'])
+assert r['blocked'] is True
+named=[b for b in r['blockers'] if b['type']=='mandatory_criterion']
+assert len(named)==1 and named[0]['name']==crit, named
+assert sum(c['criteriaTotal'] for c in r['categories'])==5, r['categories']
+print('service-path duplicate collapsed, not fanned out: 5 criteria, 3/4 mandatory, 60.0%, BLOCKED, named once')
+PY22B
+psqlc "delete from stage_gate_findings sf using stage_gate_reviews sr where sf.review_id=sr.id and sr.id=$REV22 and sf.criterion_text='$CRIT22' and sf.status='not_met'" >/dev/null
+RESTORED=$(rpc "$PLANNER" get_gate_readiness "{\"p_case_id\":\"$CASE\",\"p_gate_id\":$G3}")
+BODY="$RESTORED" python3 - <<'PY22C'
+import json,os
+r=json.loads(os.environ['BODY'])
+assert r['readinessPct']==80.0 and r['blocked'] is False and r['mandatoryMet']==4, \
+    (r['readinessPct'], r['blocked'], r['mandatoryMet'])
+print('duplicate removed: back to 80.0%, not blocked')
+PY22C
+# (c) weight is inside the adopted-framework immutability wall: a client
+#     cannot re-weight an adopted (or superseded) version even with RLS
+#     bypassed; the service path is admitted AND audited, both ways.
+SC22=$(psqlc "select id from stage_gate_criteria where gate_id=$G3 and criterion='$CRIT22'")
+W22=$(psqlc "select weight::text from stage_gate_criteria where id=$SC22")
+OUT=$(sql_must_fail "begin;
+select set_config('request.jwt.claim.sub', (select id::text from auth.users where email='manager@syncai.ca'), true);
+update stage_gate_criteria set weight=0.0001 where id=$SC22;
+rollback;")
+printf '%s' "$OUT" | grep -q 'immutable'
+test "$(psqlc "select weight::text from stage_gate_criteria where id=$SC22")" = "$W22"
+WAUD_B=$(psqlc "select count(*) from security_events where organization_id='$ORG' and detail like 'Adopted-framework requirement content%'")
+psqlc "update stage_gate_criteria set weight=2.5 where id=$SC22" >/dev/null
+psqlc "update stage_gate_criteria set weight=$W22 where id=$SC22" >/dev/null
+test "$(psqlc "select count(*) from security_events where organization_id='$ORG' and detail like 'Adopted-framework requirement content%'")" = "$((WAUD_B+2))"
+test "$(psqlc "select weight::text from stage_gate_criteria where id=$SC22")" = "$W22"
+echo 'adopted weight: client refused, service audited both ways, value restored'
 
 echo 'DEVELOP SLICE 1 SMOKE: ALL TRANSCRIPT STEPS PASSED'
 

@@ -33,6 +33,21 @@
 -- the same way — a criterion this RPC scores 'met' is one the record RPC
 -- would accept as met, never a looser or stricter set.
 --
+-- ONE FINDING PER CRITERION (the fan-out rule). Nothing in the schema makes
+-- (review_id, criterion_text) unique, and a plain join would multiply every
+-- count, weight and percentage by the number of duplicate findings — a
+-- fabricated denominator ("mandatory 1 of 2 met" on a one-mandatory gate).
+-- So every finding lookup here is a LATERAL picking exactly one row per
+-- criterion: the LATEST finding (highest id) wins, which is the same winner
+-- the client evaluator picks (assessGate/gateReadiness key a Map on trimmed
+-- criterion text, last entry wins, and the workspace read feeds findings in
+-- id order — src/lib/lifecycle/stages.ts). Duplicates cannot arrive through
+-- record_case_gate_review at all (20261110090400 refuses a review carrying
+-- two findings for one criterion); this LATERAL keeps the numbers honest for
+-- rows that predate that refusal or arrive through the admitted-and-audited
+-- service path. The closure-event subquery needs no such guard: it groups by
+-- criterion and takes min(reviewed_at), which duplicate rows cannot move.
+--
 -- PER-CATEGORY ROLLUP (spec §44): grouped on the criterion's existing
 -- category field. The spec-§44 seven (business, technical, risk,
 -- cost/schedule, operations, supply, regulatory) order first; any other
@@ -367,7 +382,9 @@ begin
   limit 1;
 
   -- Per-criterion rows: text-matched to the latest review's findings, the
-  -- record RPC's own matching rule.
+  -- record RPC's own matching rule — one finding per criterion, latest wins
+  -- (the header's fan-out rule; a plain join would multiply every count by
+  -- the number of duplicate findings).
   select
     coalesce(jsonb_agg(jsonb_build_object(
       'id', sc.id,
@@ -396,9 +413,14 @@ begin
   into v_criteria, v_criteria_total, v_mandatory_total, v_mandatory_met,
        v_remaining, v_weight_sum, v_weighted_met
   from stage_gate_criteria sc
-  left join stage_gate_findings fi
-    on fi.review_id = v_review_id
-   and btrim(fi.criterion_text) = btrim(sc.criterion)
+  left join lateral (
+    select f.status, f.evidence
+    from stage_gate_findings f
+    where f.review_id = v_review_id
+      and btrim(f.criterion_text) = btrim(sc.criterion)
+    order by f.id desc
+    limit 1
+  ) fi on true
   where sc.organization_id = v_org and sc.gate_id = g.id;
 
   -- GR = Σ(w·r)/Σw. Null — not 0, not 100 — when the gate defines nothing:
@@ -435,9 +457,14 @@ begin
                       / sum(sc.weight)) * 100, 1) end
       ) as row_obj
     from stage_gate_criteria sc
-    left join stage_gate_findings fi
-      on fi.review_id = v_review_id
-     and btrim(fi.criterion_text) = btrim(sc.criterion)
+    left join lateral (
+      select f.status
+      from stage_gate_findings f
+      where f.review_id = v_review_id
+        and btrim(f.criterion_text) = btrim(sc.criterion)
+      order by f.id desc
+      limit 1
+    ) fi on true
     where sc.organization_id = v_org and sc.gate_id = g.id
     group by coalesce(nullif(btrim(sc.category), ''), 'uncategorized')
   ) grouped;
@@ -453,9 +480,14 @@ begin
       order by sc.sort_order, sc.criterion), '[]'::jsonb)
   into v_blockers
   from stage_gate_criteria sc
-  left join stage_gate_findings fi
-    on fi.review_id = v_review_id
-   and btrim(fi.criterion_text) = btrim(sc.criterion)
+  left join lateral (
+    select f.status
+    from stage_gate_findings f
+    where f.review_id = v_review_id
+      and btrim(f.criterion_text) = btrim(sc.criterion)
+    order by f.id desc
+    limit 1
+  ) fi on true
   where sc.organization_id = v_org and sc.gate_id = g.id
     and sc.is_mandatory and coalesce(fi.status, '') <> 'met';
 

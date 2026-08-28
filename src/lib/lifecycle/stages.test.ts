@@ -334,4 +334,40 @@ describe("gateReadiness", () => {
     expect(r.blocked).toBe(false);
     expect(r.readinessPct).toBe(1); // 1/100
   });
+
+  it("duplicate findings for one criterion never fan out counts — the LAST finding wins, the congruence rule the DB repeats", () => {
+    // record_case_gate_review (20261110090400) refuses duplicates outright,
+    // so via the sanctioned path this state cannot exist; this pins how the
+    // client evaluator treats rows the admitted-and-audited service path (or
+    // pre-refusal history) could still hold. The rule: one finding per
+    // criterion, LAST entry wins — and the feed is id-ordered
+    // (get_development_case orders findings by id), so "last" is the LATEST
+    // finding, the same winner get_gate_readiness's LATERAL
+    // (order by id desc limit 1) picks. Counts must reflect the CRITERIA,
+    // never the finding multiplicity.
+    const criteria: GateCriterion[] = [
+      { criterion: "Contested criterion", isMandatory: true, weight: 1 },
+      { criterion: "Quiet advisory", isMandatory: false, weight: 1 },
+    ];
+    const contested = gateReadiness(criteria, [
+      { criterion: "Contested criterion", status: "met" },
+      { criterion: "Contested criterion", status: "not_met" },
+    ]);
+    // Last wins: not_met. Denominators stay the real criterion set.
+    expect(contested.blocked).toBe(true);
+    expect(contested.assessment.notMet).toContain("Contested criterion");
+    expect(contested.readinessPct).toBe(0);
+    expect(contested.weightSum).toBe(2);
+    expect(
+      contested.categories.reduce((n, c) => n + c.criteriaTotal, 0),
+    ).toBe(2);
+
+    const reversed = gateReadiness(criteria, [
+      { criterion: "Contested criterion", status: "not_met" },
+      { criterion: "Contested criterion", status: "met" },
+    ]);
+    expect(reversed.blocked).toBe(false);
+    expect(reversed.readinessPct).toBe(50);
+    expect(reversed.weightSum).toBe(2);
+  });
 });

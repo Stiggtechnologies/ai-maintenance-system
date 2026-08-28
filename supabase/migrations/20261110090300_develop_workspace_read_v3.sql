@@ -2,8 +2,8 @@
 -- Sync Develop Slice 1 — the Case Workspace read, v3 (rows 9–10 additions).
 --
 -- get_development_case is RE-CREATED from its 20261105090500 definition with
--- exactly two additions; every pre-existing key is byte-identical (diffed at
--- authoring time) so the existing surface renders unchanged:
+-- exactly three deltas; every other pre-existing key is byte-identical
+-- (diffed at authoring time) so the existing surface renders unchanged:
 --
 --   * each gate criterion carries its readiness `weight` (D3.35 — the same
 --     value get_gate_readiness computes with, so the workspace's inline
@@ -11,6 +11,13 @@
 --   * a `baselines` section (D5.26): every version of every type, prior
 --     versions visible and immutable, the approval record beside each — the
 --     anchor Change control will diff against in Slice 4.
+--   * latestReview.findings gains `order by fi.id`: the client evaluator
+--     (assessGate/gateReadiness) dedups findings with a last-entry-wins Map,
+--     so the feed order must be DETERMINISTIC and must crown the same winner
+--     the DB readiness picks — the latest finding, highest id
+--     (get_gate_readiness's one-finding-per-criterion LATERAL). Unordered
+--     jsonb_agg made "last" scan-order luck for the duplicate rows only the
+--     service path can now create (20261110090400 refuses them at the RPC).
 --
 -- The §80 readiness panel does NOT ride this aggregate: it renders
 -- get_gate_readiness (20261110090100) per gate, one query returning the
@@ -82,7 +89,8 @@ as $$
                 'findings', coalesce((
                   select jsonb_agg(jsonb_build_object(
                     'criterion', fi.criterion_text, 'status', fi.status,
-                    'evidence', fi.evidence))
+                    'evidence', fi.evidence)
+                    order by fi.id)
                   from stage_gate_findings fi where fi.review_id = r.id
                 ), '[]'::jsonb),
                 'conditions', coalesce((

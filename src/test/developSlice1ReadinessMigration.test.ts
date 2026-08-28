@@ -22,7 +22,9 @@ const readiness = read("20261110090100_develop_gate_readiness.sql");
 const readinessRaw = raw("20261110090100_develop_gate_readiness.sql");
 const operational = read("20261110090200_develop_operational_readiness.sql");
 const workspace = read("20261110090300_develop_workspace_read_v3.sql");
-const lowerAll = [baselines, readiness, operational, workspace]
+const integrity = read("20261110090400_develop_readiness_integrity.sql");
+const integrityRaw = raw("20261110090400_develop_readiness_integrity.sql");
+const lowerAll = [baselines, readiness, operational, workspace, integrity]
   .join("\n")
   .toLowerCase();
 
@@ -121,8 +123,24 @@ describe("gate readiness (D3.35/D13.05, spec §45)", () => {
 
   it("finding↔criterion matching mirrors the record RPC's text rule", () => {
     expect(readiness).toMatch(
-      /btrim\(fi\.criterion_text\) = btrim\(sc\.criterion\)/,
+      /btrim\(f\.criterion_text\) = btrim\(sc\.criterion\)/,
     );
+  });
+
+  it("every finding lookup collapses to ONE finding per criterion, latest wins — counts can never fan out on duplicates", () => {
+    // Three LATERALs (criteria rows, category rollup, mandatory blockers),
+    // each picking the highest-id finding. A plain join here once fabricated
+    // criteriaTotal 6 on a five-criterion gate.
+    const laterals = readiness.match(
+      /left join lateral \(\s*select f\.[\s\S]*?order by f\.id desc\s*limit 1\s*\) fi on true/g,
+    );
+    expect(laterals).toHaveLength(3);
+    expect(readiness).not.toMatch(
+      /left join stage_gate_findings fi\s*on fi\.review_id = v_review_id/,
+    );
+    // The closure-event subquery is fan-out-safe by construction instead:
+    // grouped per criterion, min(reviewed_at).
+    expect(readiness).toMatch(/group by sc\.id/);
   });
 
   it("uncategorized rolls up visibly, ranked last — never dropped", () => {
@@ -266,6 +284,47 @@ describe("workspace read v3", () => {
     expect(workspace).toMatch(/'baselines', coalesce\(\(/);
     expect(workspace).toMatch(/from development_baselines b/);
   });
+
+  it("findings feed the client in id order, so the evaluator's last-wins Map crowns the same winner as the DB LATERAL", () => {
+    expect(workspace).toMatch(
+      /'evidence', fi\.evidence\)\s*order by fi\.id\)/,
+    );
+  });
+});
+
+describe("readiness integrity repairs (20261110090400)", () => {
+  it("record_case_gate_review refuses a review carrying two findings for one criterion", () => {
+    expect(integrity).toMatch(/v_seen_criteria text\[\]/);
+    expect(integrity).toMatch(
+      /btrim\(f->>'criterion_text'\) = any\(v_seen_criteria\)/,
+    );
+    expect(integrity).toMatch(/duplicate finding for criterion/);
+  });
+
+  it("the re-created record RPC keeps every prior guard verbatim — nothing loosened by the re-creation", () => {
+    // Load-bearing strings from the 20261101090300 definition, still present.
+    expect(integrity).toMatch(/AI-operator identity cannot record one/);
+    expect(integrity).toMatch(/silence and not-assessed block/);
+    expect(integrity).toMatch(/cannot be born overdue/);
+    expect(integrity).toMatch(/segregation of duties/);
+    expect(integrity).toMatch(/app\.gate_review_write/);
+    expect(integrity).toMatch(
+      /revoke all on function public\.record_case_gate_review\([^)]*\) from public, anon/,
+    );
+  });
+
+  it("weight joins the adopted-framework immutability guard — re-weighting an adopted version is refused for clients, audited for service", () => {
+    expect(integrity).toMatch(/new\.weight is distinct from old\.weight/);
+    // The guard list around it survives intact.
+    expect(integrity).toMatch(/new\.is_mandatory is distinct from old\.is_mandatory/);
+    expect(integrity).toMatch(/insufficient_privilege/);
+    expect(integrity).toMatch(/insert into security_events/);
+  });
+
+  it("the deliberate absence of a unique index is documented, not silent", () => {
+    expect(integrityRaw).toMatch(/deliberately NOT added/);
+    expect(integrityRaw).toMatch(/merge-order deploy/);
+  });
 });
 
 describe("the evidence agent boundary (D12.07, §70 absolute)", () => {
@@ -334,6 +393,7 @@ describe("definer hygiene (the ratchet)", () => {
       "bind_asset_to_development_case",
       "get_case_operational_readiness",
       "get_development_case",
+      "record_case_gate_review",
     ]) {
       expect(lowerAll).toMatch(
         new RegExp(
@@ -344,7 +404,7 @@ describe("definer hygiene (the ratchet)", () => {
   });
 
   it("every new definer RPC resolves the tenant from the session", () => {
-    for (const sql of [baselines, readiness, operational]) {
+    for (const sql of [baselines, readiness, operational, integrity]) {
       const definers = sql.match(/create or replace function[\s\S]*?\$\$;/g) ?? [];
       for (const fn of definers) {
         if (!/security definer/i.test(fn)) continue;
