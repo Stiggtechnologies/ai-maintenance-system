@@ -76,6 +76,7 @@ import {
   EvidenceAgentPanel,
   GateReadinessPanel,
   OperationalReadinessSection,
+  ScheduleSection,
 } from "../components/develop/ReadinessPanels";
 
 const REVIEW_ROLES = [
@@ -2234,6 +2235,7 @@ export function DevelopmentCaseWorkspacePage() {
         canReview={canReview}
         onChanged={() => void load()}
       />
+      <ScheduleSection workspace={workspace} />
       <OperationalReadinessSection caseId={workspace.id} canPlan={canPlan} />
 
       {/* Sanction */}

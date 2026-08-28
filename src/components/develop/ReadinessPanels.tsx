@@ -23,6 +23,7 @@ import {
   AlertTriangle,
   Anchor,
   Factory,
+  GanttChart,
   Gauge,
   Search,
   ShieldAlert,
@@ -631,6 +632,119 @@ export function BaselinesSection({
 }
 
 /** The §81 operations view: per-category honest counts, hard blockers named. */
+/**
+ * The imported schedule, LISTED (D5.28 import half). Read-only on purpose:
+ * P6 is the system of record and Sync never writes a schedule back — there
+ * is no edit affordance to build. Analysis over these rows (critical path,
+ * schedule confidence, simulation) is later work and nothing here pretends
+ * otherwise.
+ */
+const ACTIVITY_RENDER_CAP = 50;
+
+export function ScheduleSection({ workspace }: { workspace: CaseWorkspace }) {
+  // Frontend and migrations ship on independent paths; a workspace read from
+  // a database that predates 20261112090000 simply has no key, and that must
+  // render as the empty state rather than a crash.
+  const events = workspace.schedule ?? [];
+  return (
+    <div className="rounded-xl border border-white/6 bg-[#0D1520] p-5">
+      <div className="flex items-center gap-2">
+        <GanttChart className="h-4 w-4 text-slate-500" aria-hidden />
+        <h2 className="text-sm font-semibold text-slate-100">Schedule</h2>
+      </div>
+      <p className="mt-1 text-xs text-slate-400">
+        Activities imported from Primavera P6 against this case. P6 remains
+        the system of record — Sync analyzes and never writes back. This
+        section lists what was imported; critical-path and schedule-confidence
+        analysis land in a later slice.
+      </p>
+      <div className="mt-3 space-y-3">
+        {events.length === 0 && (
+          <p className="text-xs text-slate-500">
+            No schedule imported for this case. Export the schedule from P6 as
+            CSV and load it as “Schedule activities (P6)” on the{" "}
+            <Link
+              to="/pm-programme"
+              className="text-signal-cyan hover:underline"
+            >
+              data import page
+            </Link>
+            , naming this case in the case_title column — activities and their
+            dependencies land here.
+          </p>
+        )}
+        {events.map((ev) => (
+          <div
+            key={ev.id}
+            className="rounded-md border border-white/5 bg-white/[0.02] px-2.5 py-2 text-xs"
+          >
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="font-semibold text-slate-200">{ev.title}</span>
+              <span className="rounded-full bg-white/5 px-1.5 py-0.5 text-[10px] font-semibold text-slate-400">
+                {ev.status}
+              </span>
+              <span className="text-slate-500">
+                {ev.activities.length} activit
+                {ev.activities.length === 1 ? "y" : "ies"}
+              </span>
+            </div>
+            {ev.activities.length === 0 && (
+              <p className="mt-1 text-slate-500">
+                The schedule exists but holds no activities — every row of its
+                upload was refused. The import page keeps each refusal with
+                its reason.
+              </p>
+            )}
+            {ev.activities.slice(0, ACTIVITY_RENDER_CAP).map((a) => (
+              <div
+                key={a.activityId}
+                className="mt-1.5 border-t border-white/5 pt-1.5"
+              >
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-mono text-slate-400">
+                    {a.activityId}
+                  </span>
+                  <span className="text-slate-200">{a.description}</span>
+                  {a.wbsPath && (
+                    <span className="font-mono text-[10px] text-slate-500">
+                      {a.wbsPath}
+                    </span>
+                  )}
+                </div>
+                <p className="mt-0.5 text-[11px] text-slate-500">
+                  {a.durationHours}h
+                  {a.plannedStart && a.plannedFinish && (
+                    <>
+                      {" · "}
+                      {new Date(a.plannedStart).toLocaleDateString()} →{" "}
+                      {new Date(a.plannedFinish).toLocaleDateString()}
+                    </>
+                  )}
+                  {a.calendar && <> · calendar {a.calendar}</>}
+                  {a.predecessors.length > 0 && (
+                    <>
+                      {" · after "}
+                      <span className="font-mono">
+                        {a.predecessors.join(", ")}
+                      </span>
+                    </>
+                  )}
+                </p>
+              </div>
+            ))}
+            {ev.activities.length > ACTIVITY_RENDER_CAP && (
+              <p className="mt-1.5 border-t border-white/5 pt-1.5 text-[11px] text-slate-500">
+                …and {ev.activities.length - ACTIVITY_RENDER_CAP} more
+                imported activities not shown here.
+              </p>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function OperationalReadinessSection({
   caseId,
   canPlan,
