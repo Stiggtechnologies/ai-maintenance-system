@@ -61,6 +61,27 @@
 #     treatments of case-bound risks arriving as via_risk;
 #   * the workspace read (step 16) renders all five sections from one call.
 #
+# Slice 1 rows 9–12 (steps 18–21):
+#   * baselines (D5.26): six §20 types verbatim; versioned per (case, type);
+#     approval is a recorded human act (ai_admin refused by name); PRIOR
+#     VERSIONS IMMUTABLE — client writes refused even with RLS bypassed,
+#     forged-approval inserts refused, the service path admitted-and-audited;
+#     approval supersedes the prior approved version;
+#   * gate readiness (D3.35/D13.05): GR = Σ(w·r)/Σw with the §45 override —
+#     an unmet or never-assessed mandatory BLOCKS at any percentage; per-
+#     category rollup with 'uncategorized' visible; blockers NAMED (mandatory
+#     criteria + unresolved High/Critical case risks + open conditions); the
+#     closure-rate projection refuses honestly below its thresholds (3
+#     closure events; ≥1 day span) and projects a real date above them;
+#   * operational readiness (D8.08/D8.11): the ONE onboarding catalog carries
+#     the 13 §30 categories; case-scope membership is an audited governed
+#     act; a missing item row counts as OPEN; safety/mission-critical items
+#     surface as NAMED hard blockers;
+#   * evidence-agent boundary (D12.07/§70): the retrieval rail answers
+#     org-scoped; the agent's only write (AI_INFERENCE evidence) moves NO
+#     readiness number and NO blocker — asserted by diffing get_gate_readiness
+#     before and after the write.
+#
 # Run: supabase start && scripts/ci-develop-slice1-smoke.sh
 # ============================================================================
 set -euo pipefail
@@ -117,6 +138,7 @@ psqlc "delete from recommendations where organization_id='$ORG' and title like '
 psqlc "delete from risks where organization_id='$ORG' and title like 'SMOKE1 %';" >/dev/null
 psqlc "delete from reliability_kb_chunks where organization_id='$ORG' and source_id like 'smoke1-%';" >/dev/null
 psqlc "delete from kb_intake_documents where organization_id='$ORG' and source_id like 'smoke1-%';" >/dev/null
+psqlc "delete from stage_gate_criteria where organization_id='$ORG' and criterion='SMOKE1 uncategorized advisory probe';" >/dev/null
 psqlc "update project_frameworks set superseded_by=null where organization_id='$ORG' and name='Reference Heavy-Industry Stage Gate';" >/dev/null
 psqlc "delete from project_frameworks where organization_id='$ORG' and name='Reference Heavy-Industry Stage Gate' and version>1;" >/dev/null
 psqlc "update project_frameworks set status='adopted' where organization_id='$ORG' and name='Reference Heavy-Industry Stage Gate' and version=1;" >/dev/null
@@ -726,4 +748,281 @@ test "$(psqlc "select development_case_id::text from recommendations where id='$
 # The AUTHORIZED links still stand and still round-trip through the workspace
 # read (a non-link edit and the bind RPC were never in question — steps 11–16).
 
+echo '— 18. baselines: six types, human approval, prior versions immutable —'
+R=$(rpc "$PLANNER" create_case_baseline "{\"p_case_id\":\"$CASE\",\"p_type\":\"QUALITY\",\"p_description\":\"a type outside the six must be refused\"}")
+expect_err "$R" 'SCOPE, COST, SCHEDULE'
+R=$(rpc "$TECH" create_case_baseline "{\"p_case_id\":\"$CASE\",\"p_type\":\"COST\",\"p_description\":\"technician draft must be refused\"}")
+expect_err "$R" 'planning'
+R=$(rpc "$PLANNER" create_case_baseline "{\"p_case_id\":\"$CASE\",\"p_type\":\"COST\",\"p_description\":\"thin\"}")
+expect_err "$R" '10 characters'
+R=$(rpc "$PLANNER" create_case_baseline "{\"p_case_id\":\"$CASE\",\"p_type\":\"COST\",\"p_description\":\"SMOKE1 class-3 estimate as the sanction cost reference\",\"p_content\":{\"total_cost\":4500000,\"currency\":\"CAD\"}}")
+noerr "$R"
+BL1=$(printf '%s' "$R"|field baseline_id); test -n "$BL1"
+test "$(printf '%s' "$R"|field version)" = "1"
+R=$(rpc "$PLANNER" create_case_baseline "{\"p_case_id\":\"$CASE\",\"p_type\":\"COST\",\"p_description\":\"a second concurrent draft must be refused\"}")
+expect_err "$R" 'already exists'
+R=$(rpc "$AIBOT" approve_case_baseline "{\"p_baseline_id\":\"$BL1\",\"p_note\":\"the AI-operator identity must be refused by name\"}")
+expect_err "$R" 'AI-operator identity'
+R=$(rpc "$TECH" approve_case_baseline "{\"p_baseline_id\":\"$BL1\",\"p_note\":\"technician approval must also be refused outright\"}")
+expect_err "$R" 'governance or engineering'
+R=$(rpc "$MANAGER" approve_case_baseline "{\"p_baseline_id\":\"$BL1\",\"p_note\":\"too thin\"}")
+expect_err "$R" '20 characters'
+R=$(rpc "$MANAGER" approve_case_baseline "{\"p_baseline_id\":\"$BL1\",\"p_note\":\"Approved as the sanction cost reference for the CI transcript.\"}")
+noerr "$R"
+test "$(psqlc "select status from development_baselines where id='$BL1'")" = "approved"
+test "$(psqlc "select approved_by is not null and approved_at is not null from development_baselines where id='$BL1'")" = "t"
+R=$(rpc "$MANAGER" approve_case_baseline "{\"p_baseline_id\":\"$BL1\",\"p_note\":\"a second approval of the same version must be refused\"}")
+expect_err "$R" 'only a draft'
+# (a) real client via PostgREST: no write policy — the approved row is untouched.
+curl -sS -X PATCH "$API_URL/rest/v1/development_baselines?id=eq.$BL1" \
+  -H "apikey: $ANON_KEY" -H "Authorization: Bearer $PLANNER" \
+  -H 'Content-Type: application/json' -d '{"description":"MUTATED"}' >/dev/null
+test "$(psqlc "select description like 'SMOKE1 %' from development_baselines where id='$BL1'")" = "t"
+# (b) simulated client with RLS bypassed: the immutability trigger refuses.
+OUT=$(sql_must_fail "begin;
+select set_config('request.jwt.claim.sub', (select id::text from auth.users where email='manager@syncai.ca'), true);
+update development_baselines set description='MUTATED AFTER APPROVAL' where id='$BL1';
+rollback;")
+printf '%s' "$OUT" | grep -q 'immutable'
+# (c) a client cannot forge an approval by inserting a row born approved.
+OUT=$(sql_must_fail "begin;
+select set_config('request.jwt.claim.sub', (select id::text from auth.users where email='manager@syncai.ca'), true);
+insert into development_baselines (organization_id, development_case_id, baseline_type, version, status, description, approved_by, approved_at, approval_note)
+values ('$ORG','$CASE','SCHEDULE',1,'approved','forged approval must be refused',(select id from auth.users where email='manager@syncai.ca'),now(),'forged approval note of twenty characters');
+rollback;")
+printf '%s' "$OUT" | grep -q 'immutable'
+# (d) nor delete the approved record.
+OUT=$(sql_must_fail "begin;
+select set_config('request.jwt.claim.sub', (select id::text from auth.users where email='manager@syncai.ca'), true);
+delete from development_baselines where id='$BL1';
+rollback;")
+printf '%s' "$OUT" | grep -q 'immutable'
+# (e) the service path is admitted AND audited (probe, then restore — two rows).
+BLA_B=$(psqlc "select count(*) from security_events where organization_id='$ORG' and detail like 'Approved-baseline content on development_baselines%'")
+psqlc "update development_baselines set approval_note=approval_note||' (service probe)' where id='$BL1'" >/dev/null
+psqlc "update development_baselines set approval_note=replace(approval_note,' (service probe)','') where id='$BL1'" >/dev/null
+test "$(psqlc "select count(*) from security_events where organization_id='$ORG' and detail like 'Approved-baseline content on development_baselines%'")" = "$((BLA_B+2))"
+# (f) version 2 supersedes version 1 on approval; the prior stays readable.
+R=$(rpc "$PLANNER" create_case_baseline "{\"p_case_id\":\"$CASE\",\"p_type\":\"COST\",\"p_description\":\"SMOKE1 revised estimate after the liner trial commitment\"}")
+noerr "$R"
+BL2=$(printf '%s' "$R"|field baseline_id)
+test "$(printf '%s' "$R"|field version)" = "2"
+R=$(rpc "$MANAGER" approve_case_baseline "{\"p_baseline_id\":\"$BL2\",\"p_note\":\"Approved v2 as the current cost reference for the transcript.\"}")
+noerr "$R"
+test "$(psqlc "select status from development_baselines where id='$BL1'")" = "superseded"
+test "$(psqlc "select status from development_baselines where id='$BL2'")" = "approved"
+WS=$(rpc "$PLANNER" get_development_case "{\"p_case_id\":\"$CASE\"}")
+BODY="$WS" python3 - <<'PY18'
+import json,os
+w=json.loads(os.environ['BODY'])
+bl=[b for b in w['baselines'] if b['baselineType']=='COST']
+assert len(bl)==2, bl
+assert {b['version']: b['status'] for b in bl} == {1:'superseded',2:'approved'}, bl
+assert all(b['approval'] and b['approval']['by'] for b in bl), bl
+print('baselines render: v1 superseded (immutable), v2 approved')
+PY18
+
+echo '— 19. gate readiness: §45 calculation, named blockers, honest projection —'
+G4=$(psqlc "select id from stage_gates where framework_id='$FW' and name like 'G4%'")
+# (a) G3 on the sanctioned case: 4 of 5 equal-weight criteria met → 80%, not
+#     blocked; the open HIGH risk and the open G2 condition are NAMED.
+READY=$(rpc "$PLANNER" get_gate_readiness "{\"p_case_id\":\"$CASE\",\"p_gate_id\":$G3}")
+BODY="$READY" python3 - <<'PY19A'
+import json,os
+r=json.loads(os.environ['BODY'])
+assert r.get('error') is None, r
+assert r['blocked'] is False, r['blocked']
+assert r['readinessPct']==80.0, r['readinessPct']
+assert r['mandatoryMet']==4 and r['mandatoryTotal']==4
+cats={c['category']: c for c in r['categories']}
+assert cats['supply']['readinessPct']==0.0, cats.get('supply')
+assert cats['technical']['readinessPct']==100.0
+kinds=[b['type'] for b in r['blockers']]
+assert 'mandatory_criterion' not in kinds, kinds
+risk=[b for b in r['blockers'] if b['type']=='open_risk']
+assert len(risk)==1 and 'single-source' in risk[0]['name'] and risk[0]['level']=='High', risk
+cond=[b for b in r['blockers'] if b['type']=='open_condition']
+assert len(cond)==1 and 'liner wear trial' in cond[0]['name'], cond
+dlv=[c for c in r['criteria'] if c['deliverables']['accepted']>0]
+assert len(dlv)==1, dlv  # the accepted estimate-basis memo rides its criterion
+# projection: 4 closure events landed in ONE review — sub-day span refusal.
+p=r['projection']
+assert p['available'] is False and 'sub-day' in p['reason'], p
+print('G3 readiness: 80%, not blocked, risk+condition named, sub-day refusal')
+PY19A
+# (b) G4 never assessed: BLOCKED at 0%%, both mandatories named, projection
+#     refuses with the spec sentence — and the §80 headline count is 4
+#     (2 mandatory + 1 risk + 1 condition).
+READY=$(rpc "$PLANNER" get_gate_readiness "{\"p_case_id\":\"$CASE\",\"p_gate_id\":$G4}")
+BODY="$READY" python3 - <<'PY19B'
+import json,os
+r=json.loads(os.environ['BODY'])
+assert r['blocked'] is True
+assert r['readinessPct']==0.0, r['readinessPct']
+mand=[b for b in r['blockers'] if b['type']=='mandatory_criterion']
+assert len(mand)==2 and all(b['status']=='never_assessed' for b in mand), mand
+assert len(r['blockers'])==4, [b['type'] for b in r['blockers']]
+p=r['projection']
+assert p['available'] is False and 'not yet: 0 of 3 closure events recorded' in p['reason'], p
+print('G4 readiness: BLOCKED, blockers named (4), refusal verbatim')
+PY19B
+# (c) a criterion with NO category rolls up as uncategorized — visibly.
+#     (Service write onto the adopted framework: admitted AND audited by the
+#     requirement-immutability backstop — the audit rows are the trigger
+#     working, and the probe is removed right after.)
+psqlc "insert into stage_gate_criteria (organization_id, stage_key, gate_id, criterion, is_mandatory, sort_order) select '$ORG', g.stage_key, g.id, 'SMOKE1 uncategorized advisory probe', false, 900 from stage_gates g where g.id=$G4" >/dev/null
+READY=$(rpc "$PLANNER" get_gate_readiness "{\"p_case_id\":\"$CASE\",\"p_gate_id\":$G4}")
+BODY="$READY" python3 - <<'PY19C'
+import json,os
+r=json.loads(os.environ['BODY'])
+cats=[c['category'] for c in r['categories']]
+assert 'uncategorized' in cats, cats
+assert cats[-1]=='uncategorized', cats  # ranked last, never dropped
+print('uncategorized criterion visible in the rollup:', cats)
+PY19C
+psqlc "delete from stage_gate_criteria where organization_id='$ORG' and criterion='SMOKE1 uncategorized advisory probe'" >/dev/null
+# (d) weight is configuration with an authoring path: on a DRAFT clone only.
+R=$(rpc "$EXEC" create_project_framework_version "{\"p_source_id\":\"$FW2\"}")
+noerr "$R"
+FW3=$(printf '%s' "$R"|field framework_id)
+G1V3=$(psqlc "select id from stage_gates where framework_id='$FW3' and name like 'G1%'")
+R=$(rpc "$EXEC" set_gate_requirement "{\"p_gate_id\":$G1V3,\"p_criterion\":\"SMOKE1 weighted probe criterion\",\"p_is_mandatory\":false,\"p_source_authority\":\"BEST_PRACTICE\",\"p_weight\":0}")
+expect_err "$R" 'positive'
+R=$(rpc "$EXEC" set_gate_requirement "{\"p_gate_id\":$G1V3,\"p_criterion\":\"SMOKE1 weighted probe criterion\",\"p_is_mandatory\":false,\"p_source_authority\":\"BEST_PRACTICE\",\"p_weight\":3}")
+noerr "$R"
+test "$(psqlc "select weight::text from stage_gate_criteria where gate_id=$G1V3 and criterion='SMOKE1 weighted probe criterion'")" = "3"
+# the clone carried the configured weights forward (v2 defaults were 1.0).
+test "$(psqlc "select count(distinct weight) from stage_gate_criteria sc join stage_gates g on g.id=sc.gate_id where g.framework_id='$FW3'")" = "2"
+psqlc "delete from project_frameworks where id='$FW3'" >/dev/null
+# (e) the projection with a real history: three closures across 13 days on a
+#     fresh case → 3 events, 13-day span, rate 2/13/day, 2 remaining → +13d.
+# (FW v1 is superseded by now — a case is created under the ADOPTED v2, and
+#  the reviews land on v2's G3, whose criteria texts are the cloned same.)
+R=$(rpc "$PLANNER" create_development_case "{\"p_title\":\"SMOKE1 projection case\",\"p_problem_statement\":\"A case whose gate closure history is long enough to carry a defensible rate.\",\"p_lifecycle_type\":\"sustaining_capital\",\"p_framework_id\":\"$FW2\"}")
+noerr "$R"
+CASE4=$(printf '%s' "$R"|field case_id); test -n "$CASE4"
+PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -v ON_ERROR_STOP=1 -q <<PSQL
+do \$seed\$
+declare v_r bigint;
+begin
+  insert into stage_gate_reviews (organization_id, development_case_id, gate_id, stage_key, outcome, reviewed_at, note)
+  values ('$ORG','$CASE4',$G3V2,'design','hold', now()-interval '14 days','SMOKE1 projection seed A') returning id into v_r;
+  insert into stage_gate_findings (organization_id, review_id, criterion_text, status)
+  values ('$ORG', v_r, '$C31','met');
+  insert into stage_gate_reviews (organization_id, development_case_id, gate_id, stage_key, outcome, reviewed_at, note)
+  values ('$ORG','$CASE4',$G3V2,'design','hold', now()-interval '7 days','SMOKE1 projection seed B') returning id into v_r;
+  insert into stage_gate_findings (organization_id, review_id, criterion_text, status)
+  values ('$ORG', v_r, '$C31','met'), ('$ORG', v_r, '$C32','met');
+  insert into stage_gate_reviews (organization_id, development_case_id, gate_id, stage_key, outcome, reviewed_at, note)
+  values ('$ORG','$CASE4',$G3V2,'design','hold', now()-interval '1 day','SMOKE1 projection seed C') returning id into v_r;
+  insert into stage_gate_findings (organization_id, review_id, criterion_text, status)
+  values ('$ORG', v_r, '$C31','met'), ('$ORG', v_r, '$C32','met'), ('$ORG', v_r, '$C33','met');
+end \$seed\$;
+PSQL
+# Expected from the DB's own clock (the projection is timezone-of-the-DB;
+# the host's local date can sit a calendar day behind UTC in the evening).
+EXPECTED_DATE=$(psqlc "select (now() + interval '13 days')::date")
+READY=$(rpc "$PLANNER" get_gate_readiness "{\"p_case_id\":\"$CASE4\",\"p_gate_id\":$G3V2}")
+BODY="$READY" EXPECTED_DATE="$EXPECTED_DATE" python3 - <<'PY19E'
+import json,os
+r=json.loads(os.environ['BODY'])
+p=r['projection']
+assert p['available'] is True, p
+assert p['closureEvents']==3 and p['remaining']==2, p
+assert abs(p['spanDays']-13.0) < 0.02, p
+assert p['projectedDate']==os.environ['EXPECTED_DATE'], (p['projectedDate'], os.environ['EXPECTED_DATE'])
+assert r['blocked'] is True  # two criteria still unmet — the date is a rate, not permission
+print('projection: 3 closures / 13 days -> projected', p['projectedDate'])
+PY19E
+
+echo '— 20. operational readiness: one catalog, §30 categories, named hard blockers —'
+# The 13 §30 categories are all represented in the ONE catalog.
+test "$(psqlc "select count(distinct ori_category) from onboarding_requirements where ori_category is not null")" = "13"
+# Case scope: honest empty before any asset is bound.
+OPS=$(rpc "$PLANNER" get_case_operational_readiness "{\"p_case_id\":\"$CASE\"}")
+BODY="$OPS" python3 - <<'PY20A'
+import json,os
+r=json.loads(os.environ['BODY'])
+assert r['assetCount']==0 and 'no assets are bound' in r['note'], r
+print('empty scope answered honestly')
+PY20A
+R=$(rpc "$TECH" bind_asset_to_development_case "{\"p_asset_id\":\"$DEMO_ASSET\",\"p_case_id\":\"$CASE\"}")
+expect_err "$R" 'planning'
+R=$(rpc "$PLANNER" bind_asset_to_development_case "{\"p_asset_id\":\"$DEMO_ASSET\",\"p_case_id\":\"$CASE\"}")
+noerr "$R"
+R=$(rpc "$PLANNER" bind_asset_to_development_case "{\"p_asset_id\":\"$DEMO_ASSET\",\"p_case_id\":\"$CASE\"}")
+expect_err "$R" 'already in'
+R=$(rpc "$PLANNER" bind_asset_to_development_case "{\"p_asset_id\":\"$DEMO_ASSET\",\"p_case_id\":\"$CASE\",\"p_unbind\":true}")
+expect_err "$R" 'records why'
+OPS=$(rpc "$PLANNER" get_case_operational_readiness "{\"p_case_id\":\"$CASE\"}")
+BODY="$OPS" python3 - <<'PY20B'
+import json,os
+r=json.loads(os.environ['BODY'])
+assert r['assetCount']==1, r['assetCount']
+cats={c['category']: c for c in r['categories']}
+for needed in ['asset_master','bom','spares','pm','task_list','procedure','training',
+               'inspection','condition_monitoring','vendor_support','documentation',
+               'cyber','emergency_response','uncategorized']:
+    assert needed in cats, (needed, sorted(cats))
+er=cats['emergency_response']
+assert er['satisfied']==0 and er['total']==2 and er['safetyOpen']==2, er
+assert cats['uncategorized']['total']>0  # platform sections visible, never dropped
+hard=r['hardBlockers']
+assert any(b['kind']=='safety_mission_critical' and 'Emergency response procedures' in b['item'] for b in hard), \
+    [b['item'] for b in hard][:10]
+assert r['overall']['safetyOpenCount']>=3, r['overall']
+assert len(hard)>0 and r['overall']['hardBlockerCount']>=len(hard), r['overall']
+a=r['assets'][0]
+assert a['required']>0 and 'ready' in a, a
+print('per-category counts honest: emergency_response %s/%s, %s hard blockers' %
+      (er['satisfied'], er['total'], r['overall']['hardBlockerCount']))
+PY20B
+# a missing item row counts as OPEN: drop one new-key item and the totals hold.
+psqlc "delete from asset_onboarding_items where asset_id='$DEMO_ASSET' and requirement_key='s36_emergency_drill'" >/dev/null
+OPS=$(rpc "$PLANNER" get_case_operational_readiness "{\"p_case_id\":\"$CASE\"}")
+BODY="$OPS" python3 - <<'PY20C'
+import json,os
+r=json.loads(os.environ['BODY'])
+er=[c for c in r['categories'] if c['category']=='emergency_response'][0]
+assert er['total']==2 and er['satisfied']==0, er  # absence is not a pass
+assert any(b['item']=='Emergency response walkthrough completed' and b['status']=='missing'
+           for b in r['hardBlockers'])
+print('absent item still counted OPEN and named (status: missing)')
+PY20C
+psqlc "insert into asset_onboarding_items (organization_id, asset_id, requirement_key) values ('$ORG','$DEMO_ASSET','s36_emergency_drill') on conflict do nothing" >/dev/null
+
+echo '— 21. evidence-agent boundary: retrieval rail live; AI output moves nothing —'
+# (a) the retrieval rail the agent reads: a classed tenant document answers an
+#     org-scoped claim query (the same retrieve_kb_context the agent calls).
+R=$(rpc "$RE" kb_ingest_document "{\"p_source_id\":\"smoke1-risk-register-practice\",\"p_title\":\"SMOKE1 Execution risk register practice note\",\"p_document_class\":\"engineering_standard\",\"p_chunks\":[{\"chunk_index\":0,\"content\":\"Execution risk register practice: every HIGH risk carries a treatment with an owner; registers are reviewed at each gate and treatments verified before sanction.\"}]}")
+noerr "$R"
+KB=$(rpc "$PLANNER" retrieve_kb_context "{\"p_query\":\"execution risk register treatments\",\"p_claim_type\":\"analysis_method\",\"p_limit\":4}")
+BODY="$KB" python3 - <<'PY21A'
+import json,os
+rows=json.loads(os.environ['BODY'])
+assert isinstance(rows,list) and any('SMOKE1 Execution risk register practice' in r['title'] for r in rows), \
+    [r.get('title') for r in rows][:5]
+print('retrieval rail answered with the tenant document')
+PY21A
+# (b) §70 structurally: an AI_INFERENCE evidence write (the agent'"'"'s ONLY
+#     write path, via the governed RPC) changes NO readiness number and NO
+#     blocker — only the honestly-labelled AI counter moves.
+C31ID=$(psqlc "select id from stage_gate_criteria where gate_id=$G3 and sort_order=10")
+BEFORE=$(rpc "$PLANNER" get_gate_readiness "{\"p_case_id\":\"$CASE\",\"p_gate_id\":$G3}")
+R=$(rpc "$PLANNER" record_case_evidence "{\"p_case_id\":\"$CASE\",\"p_evidence\":{\"evidence_class\":\"AI_INFERENCE\",\"description\":\"SMOKE1 agent finding: execution risk register coverage inferred from case documents\",\"source_system\":\"develop-evidence-agent\",\"source_reference\":\"criterion:$C31ID\"}}")
+noerr "$R"
+AFTER=$(rpc "$PLANNER" get_gate_readiness "{\"p_case_id\":\"$CASE\",\"p_gate_id\":$G3}")
+BEFORE="$BEFORE" AFTER="$AFTER" python3 - <<'PY21B'
+import json,os
+b=json.loads(os.environ['BEFORE']); a=json.loads(os.environ['AFTER'])
+assert a['readinessPct']==b['readinessPct']==80.0
+assert a['blocked']==b['blocked']==False
+assert [x['type'] for x in a['blockers']]==[x['type'] for x in b['blockers']]
+assert a['categories']==b['categories']
+assert a['evidenceSummary']['aiInferenceUnverified']==b['evidenceSummary']['aiInferenceUnverified']+1
+print('AI_INFERENCE write moved nothing: %s%% before and after; AI counter %s -> %s' %
+      (a['readinessPct'], b['evidenceSummary']['aiInferenceUnverified'], a['evidenceSummary']['aiInferenceUnverified']))
+PY21B
+
 echo 'DEVELOP SLICE 1 SMOKE: ALL TRANSCRIPT STEPS PASSED'
+
