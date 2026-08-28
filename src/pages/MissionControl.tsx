@@ -707,7 +707,7 @@ export function MissionControl() {
     s >= 90 ? "text-green-400" : s >= 75 ? "text-amber-400" : "text-red-400";
 
   return (
-    <div className="p-6 space-y-6 min-h-full">
+    <div className="p-4 md:p-6 space-y-5 md:space-y-6 min-h-full">
       {toast && (
         <div className="fixed top-4 right-4 z-60 max-w-sm bg-[#0D1520] border border-teal-500/30 rounded-xl px-4 py-3 text-xs text-teal-200 shadow-xl shadow-black/40">
           {toast}
