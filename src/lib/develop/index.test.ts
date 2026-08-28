@@ -22,6 +22,7 @@ function gate(overrides: Partial<WorkspaceGate> = {}): WorkspaceGate {
     decisionType: "gate",
     independentAssuranceRequired: true,
     readinessThreshold: 80,
+    fundingQuestionRequired: false,
     criteria: [
       {
         id: 11,
@@ -33,6 +34,7 @@ function gate(overrides: Partial<WorkspaceGate> = {}): WorkspaceGate {
         minimumConfidence: null,
         weight: 1.0,
         sourceAuthority: "INDUSTRY_GUIDANCE",
+        activeWaiver: null,
       },
       {
         id: 12,
@@ -44,6 +46,7 @@ function gate(overrides: Partial<WorkspaceGate> = {}): WorkspaceGate {
         minimumConfidence: null,
         weight: 1.0,
         sourceAuthority: "AI_SUGGESTION",
+        activeWaiver: null,
       },
     ],
     latestReview: null,
@@ -69,6 +72,7 @@ describe("gateRollup", () => {
           outcome: "proceed",
           reviewedAt: "2026-08-27T00:00:00Z",
           note: "basis",
+          fundingContinuationAnswer: null,
           findings: [
             {
               criterion:
@@ -94,6 +98,7 @@ describe("gateRollup", () => {
           outcome: "hold",
           reviewedAt: "2026-08-27T00:00:00Z",
           note: "basis",
+          fundingContinuationAnswer: null,
           findings: [
             {
               criterion:
@@ -173,6 +178,7 @@ describe("gateRollup carries the D3.35 readiness beside the verdict", () => {
           outcome: "hold",
           reviewedAt: "2026-08-27T00:00:00Z",
           note: "basis",
+          fundingContinuationAnswer: null,
           findings: [
             {
               criterion:
@@ -198,5 +204,59 @@ describe("gateRollup carries the D3.35 readiness beside the verdict", () => {
     const r = gateRollup(gate({ criteria: [] }));
     expect(r.readiness.readinessPct).toBeNull();
     expect(r.readiness.blocked).toBe(true);
+  });
+});
+
+describe("the zero-based funding question (D3.07)", () => {
+  it("blocks the rollup at a sanction-type gate whose latest review has no answer", () => {
+    const r = gateRollup(
+      gate({
+        fundingQuestionRequired: true,
+        latestReview: {
+          id: 9,
+          outcome: "proceed",
+          reviewedAt: "2026-08-27T00:00:00Z",
+          note: "basis",
+          fundingContinuationAnswer: null,
+          findings: [
+            {
+              criterion:
+                "Scope definition is complete enough to estimate against",
+              status: "met",
+              evidence: "IFC package",
+            },
+          ],
+          conditions: [],
+        },
+      }),
+    );
+    expect(r.fundingUnanswered).toBe(true);
+  });
+
+  it("a recorded answer clears the blocker; a non-required gate never raises it", () => {
+    const answered = gateRollup(
+      gate({
+        fundingQuestionRequired: true,
+        latestReview: {
+          id: 9,
+          outcome: "proceed",
+          reviewedAt: "2026-08-27T00:00:00Z",
+          note: "basis",
+          fundingContinuationAnswer:
+            "Yes — the value case still clears the hurdle rate on today's assumptions.",
+          findings: [],
+          conditions: [],
+        },
+      }),
+    );
+    expect(answered.fundingUnanswered).toBe(false);
+    // Unreviewed non-sanction gate: the question is asked, not enforced here.
+    expect(gateRollup(gate()).fundingUnanswered).toBe(false);
+  });
+
+  it("an unreviewed sanction-type gate is unanswered by definition", () => {
+    expect(
+      gateRollup(gate({ fundingQuestionRequired: true })).fundingUnanswered,
+    ).toBe(true);
   });
 });
