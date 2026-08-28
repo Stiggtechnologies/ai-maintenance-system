@@ -4,9 +4,9 @@ This inventory is generated deterministically from `package-lock.json` by
 `scripts/compliance/generate-license-inventory.mjs`. It is technical
 diligence evidence, not a legal opinion.
 
-- Lockfile SHA-256: `13b06da2f8ee481464a1d5616640642e2207556f109a6730f8331a3e4a102510`
-- Package instances: **349**
-- Direct production dependencies: **9**
+- Lockfile SHA-256: `ec8be4de9b4e9379fddcfc824c4cee99ae9cb3f7873ce549990ce8f39637073b`
+- Package instances: **404**
+- Direct production dependencies: **13**
 - Direct development dependencies: **26**
 - Prohibited-license matches: **0**
 - Missing license metadata: **0**
@@ -25,14 +25,14 @@ patents, trademarks, or customer distribution obligations.
 | License | Package instances | Baseline treatment |
 | --- | ---: | --- |
 | 0BSD | 1 | Permitted by automated baseline |
-| Apache-2.0 | 20 | Permitted by automated baseline |
+| Apache-2.0 | 25 | Permitted by automated baseline |
 | BlueOak-1.0.0 | 2 | Permitted by automated baseline |
-| BSD-2-Clause | 9 | Permitted by automated baseline |
+| BSD-2-Clause | 10 | Permitted by automated baseline |
 | BSD-3-Clause | 4 | Permitted by automated baseline |
 | CC-BY-4.0 | 1 | Manual notice review |
 | CC0-1.0 | 1 | Permitted by automated baseline |
-| ISC | 15 | Permitted by automated baseline |
-| MIT | 280 | Permitted by automated baseline |
+| ISC | 22 | Permitted by automated baseline |
+| MIT | 322 | Permitted by automated baseline |
 | MIT-0 | 2 | Permitted by automated baseline |
 | MPL-2.0 | 12 | Manual notice review |
 | OFL-1.1 | 2 | Manual notice review |
@@ -51,6 +51,7 @@ patents, trademarks, or customer distribution obligations.
 | @testing-library/jest-dom | 6.9.1 | development | MIT |
 | @testing-library/react | 16.3.2 | development | MIT |
 | @types/node | 24.13.3 | development | MIT |
+| @types/qrcode | 1.5.6 | production | MIT |
 | @types/react-dom | 19.2.5 | development | MIT |
 | @types/react | 19.2.18 | development | MIT |
 | @vitejs/plugin-react | 6.0.3 | development | MIT |
@@ -63,13 +64,16 @@ patents, trademarks, or customer distribution obligations.
 | jsdom | 29.1.1 | development | MIT |
 | lint-staged | 17.1.0 | development | MIT |
 | lucide-react | 1.33.0 | production | ISC |
+| pdfjs-dist | 4.10.38 | production | Apache-2.0 |
 | postcss | 8.5.26 | development | MIT |
 | prettier | 3.9.5 | development | MIT |
+| qrcode | 1.5.4 | production | MIT |
 | react-dom | 19.2.8 | production | MIT |
 | react-router-dom | 7.18.2 | production | MIT |
 | react | 19.2.8 | production | MIT |
 | tailwindcss | 4.3.3 | development | MIT |
 | terser | 5.49.0 | development | BSD-2-Clause |
+| tesseract.js | 5.1.1 | production | Apache-2.0 |
 | tsx | 4.23.1 | development | MIT |
 | typescript-eslint | 8.65.0 | development | MIT |
 | typescript | 5.9.3 | development | Apache-2.0 |

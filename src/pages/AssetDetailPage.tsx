@@ -16,6 +16,8 @@ import {
   DollarSign,
 } from "lucide-react";
 import { supabase } from "../lib/supabase";
+import { FieldFailureCapture } from "../components/FieldFailureCapture";
+import { AssetQrLabel } from "../components/AssetQrLabel";
 
 export function AssetDetailPage() {
   const { assetId } = useParams<{ assetId: string }>();
@@ -303,6 +305,13 @@ export function AssetDetailPage() {
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {activeTab === "overview" && (
+        <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <FieldFailureCapture assetId={asset.id} assetTag={asset.asset_tag} />
+          <AssetQrLabel assetId={asset.id} assetTag={asset.asset_tag} />
         </div>
       )}
 

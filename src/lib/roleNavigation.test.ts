@@ -163,17 +163,17 @@ describe("navigation integrity", () => {
     // Sync Recovery is the ninth Work Management surface and owns the governed
     // downtime-event orchestration flow. Sync Develop (Slice 1) is the fourth
     // Whole Life surface — problem-first development cases under gates.
-    expect(groupSizes).toEqual([5, 4, 4, 2, 4, 9, 7, 3, 5]);
-    expect(navItems.length).toBe(43);
+    expect(groupSizes).toEqual([5, 4, 4, 2, 4, 10, 7, 3, 5]);
+    expect(navItems.length).toBe(44);
   });
 
   it("keeps the §3 role-matrix sizes after Recovery and Develop are added", () => {
     expect(allowSizes).toEqual({
       admin: null,
       ai_admin: null,
-      operator: 7,
-      technician: 9,
-      supervisor: 9,
+      operator: 8,
+      technician: 10,
+      supervisor: 10,
       planner: 20,
       reliability_engineer: 30,
       maintenance_manager: 29,
@@ -225,6 +225,7 @@ describe("navigation integrity", () => {
       "mission-control",
       "work",
       "notifications",
+      "field",
       "scheduling",
       "recovery",
       "handover",

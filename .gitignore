@@ -532,3 +532,4 @@ datasets/
 # Local environment checks
 .env.check
 .env.production.check
+videos/
