@@ -18,6 +18,7 @@ on:
       - "supabase/functions/autonomous-orchestrator/**"
       - "supabase/functions/develop-evidence-agent/**"
       - "supabase/functions/lead-notify/**"
+      - "supabase/functions/kb-document-intake/**"
       - "supabase/functions/onboarding-enrich/**"
       - "supabase/functions/public-reliability-agent/**"
       - "supabase/functions/recovery-activation-pull/**"
@@ -75,6 +76,7 @@ jobs:
           supabase functions deploy autonomous-orchestrator
           supabase functions deploy develop-evidence-agent
           supabase functions deploy lead-notify
+          supabase functions deploy kb-document-intake
           supabase functions deploy onboarding-enrich --no-verify-jwt
           supabase functions deploy public-reliability-agent
           supabase functions deploy recovery-activation-pull
