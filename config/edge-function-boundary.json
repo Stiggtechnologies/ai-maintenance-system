@@ -7,16 +7,14 @@
     "autonomous-orchestrator",
     "develop-evidence-agent",
     "lead-notify",
+    "kb-document-intake",
     "onboarding-enrich",
     "public-reliability-agent",
     "recovery-activation-pull",
     "sync-investigation-runtime",
     "sync-runtime"
   ],
-  "allowedNoVerifyJwt": [
-    "agent-loop-enrich",
-    "onboarding-enrich"
-  ],
+  "allowedNoVerifyJwt": ["agent-loop-enrich", "onboarding-enrich"],
   "blockedLegacyFunctions": [
     "document-processor",
     "edge-node-manager",
