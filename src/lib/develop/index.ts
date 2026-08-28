@@ -4,15 +4,21 @@
  * THE RULE THAT SHAPES THIS FILE: assessGate (src/lib/lifecycle/stages.ts)
  * stays the single gate evaluator on this platform (overlap-map ruling 1).
  * This module does not re-implement readiness arithmetic; it maps the
- * get_development_case JSON onto assessGate's inputs and returns its verdict.
- * The weighted Σ(w·r)/Σw readiness percentage is D3.35 (build-plan Slice 1
- * row 10, a separate workstream) — nothing here fabricates a percentage.
+ * get_development_case JSON onto the assessGate family's inputs and returns
+ * its verdicts. The weighted Σ(w·r)/Σw readiness percentage (D3.35) lives in
+ * that family too — gateReadiness composes assessGate — and the full §80
+ * experience (named risk/condition blockers, deliverable and evidence
+ * support, the closure-rate projection with its refusal) renders the
+ * get_gate_readiness RPC's rows directly: one query, enforced truth and
+ * displayed truth the same rows.
  */
 import {
   assessGate,
+  gateReadiness,
   type GateAssessment,
   type GateCriterion,
   type GateFinding,
+  type WeightedGateReadiness,
 } from "../lifecycle/stages";
 
 export const LIFECYCLE_TYPES = [
@@ -70,6 +76,7 @@ export interface WorkspaceCriterion {
   category: string | null;
   evidenceType: string | null;
   minimumConfidence: number | null;
+  weight: number;
   sourceAuthority: string;
 }
 
@@ -232,6 +239,29 @@ export interface WorkspaceAction {
   } | null;
 }
 
+/** The six §20 baseline types, verbatim (D5.26). */
+export const BASELINE_TYPES = [
+  "SCOPE",
+  "COST",
+  "SCHEDULE",
+  "DESIGN",
+  "RISK",
+  "BENEFITS",
+] as const;
+
+export interface WorkspaceBaseline {
+  id: string;
+  baselineType: (typeof BASELINE_TYPES)[number];
+  version: number;
+  status: "draft" | "approved" | "superseded";
+  description: string;
+  content: Record<string, unknown>;
+  document: { id: string; title: string } | null;
+  approval: { approvedAt: string; note: string | null; by: string | null } | null;
+  supersededAt: string | null;
+  createdAt: string;
+}
+
 export interface CaseWorkspace {
   id: string;
   title: string;
@@ -265,10 +295,13 @@ export interface CaseWorkspace {
   risks: WorkspaceRisk[];
   decisions: WorkspaceDecision[];
   actions: WorkspaceAction[];
+  baselines: WorkspaceBaseline[];
 }
 
 export interface GateRollup {
   assessment: GateAssessment;
+  /** Weighted Σ(w·r)/Σw + per-category rollup (gateReadiness, D3.35). */
+  readiness: WeightedGateReadiness;
   criteriaTotal: number;
   mandatoryTotal: number;
   hasReview: boolean;
@@ -317,6 +350,8 @@ export function gateRollup(
     criterion: c.criterion,
     isMandatory: c.isMandatory,
     guidance: c.guidance,
+    weight: c.weight,
+    category: c.category,
   }));
   const findings: GateFinding[] = (gate.latestReview?.findings ?? []).map(
     (f) => ({
@@ -327,6 +362,7 @@ export function gateRollup(
   );
   return {
     assessment: assessGate(criteria, findings),
+    readiness: gateReadiness(criteria, findings),
     criteriaTotal: gate.criteria.length,
     mandatoryTotal: gate.criteria.filter((c) => c.isMandatory).length,
     hasReview: gate.latestReview != null,
@@ -343,4 +379,148 @@ export function isTerminalOutcome(outcome: string | null): boolean {
 /** Outcomes that clear the gate for stage advancement. */
 export function isPassingOutcome(outcome: string | null): boolean {
   return outcome === "proceed" || outcome === "proceed_with_conditions";
+}
+
+// ---------------------------------------------------------------------------
+// RPC result shapes — get_gate_readiness / get_case_operational_readiness
+// return exactly these rows, and the panels render them without recomputing
+// (enforced truth and displayed truth from one query, the #282 principle).
+// ---------------------------------------------------------------------------
+
+export type ReadinessCriterionStatus =
+  | "met"
+  | "not_met"
+  | "not_assessed"
+  | "never_assessed";
+
+export interface ReadinessCriterionRow {
+  id: number;
+  criterion: string;
+  category: string;
+  isMandatory: boolean;
+  weight: number;
+  sourceAuthority: string;
+  evidenceType: string | null;
+  status: ReadinessCriterionStatus;
+  findingEvidence: string | null;
+  deliverables: { total: number; accepted: number };
+}
+
+export interface ReadinessCategoryRow {
+  category: string;
+  criteriaTotal: number;
+  mandatoryTotal: number;
+  metCount: number;
+  unmetMandatory: number;
+  weightSum: number;
+  readinessPct: number | null;
+}
+
+export type ReadinessBlocker =
+  | {
+      type: "mandatory_criterion";
+      id: number;
+      name: string;
+      status: ReadinessCriterionStatus;
+      category: string;
+    }
+  | {
+      type: "open_risk";
+      id: string;
+      name: string;
+      level: string;
+      status: string;
+    }
+  | {
+      type: "open_condition";
+      id: number;
+      name: string;
+      dueDate: string;
+      overdue: boolean;
+      gate: string | null;
+    };
+
+export interface ReadinessProjection {
+  available: boolean;
+  closureEvents: number;
+  requiredEvents: number;
+  remaining: number;
+  spanDays?: number;
+  ratePerDay?: number;
+  projectedDate?: string;
+  reason?: string;
+}
+
+export interface GateReadinessResult {
+  caseId: string;
+  gateId: number;
+  gateName: string;
+  decisionType: "gate" | "checkpoint";
+  readinessThreshold: number | null;
+  blocked: boolean;
+  readinessPct: number | null;
+  weightSum: number;
+  criteriaTotal: number;
+  mandatoryTotal: number;
+  mandatoryMet: number;
+  latestReview: { id: number; outcome: string; reviewedAt: string } | null;
+  criteria: ReadinessCriterionRow[];
+  categories: ReadinessCategoryRow[];
+  blockers: ReadinessBlocker[];
+  evidenceSummary: {
+    total: number;
+    verified: number;
+    rejected: number;
+    unverified: number;
+    aiInferenceUnverified: number;
+  };
+  projection: ReadinessProjection;
+}
+
+export interface OperationalCategoryRow {
+  category: string;
+  total: number;
+  satisfied: number;
+  pct: number;
+  safetyOpen: number;
+  goliveRequiredOpen: number;
+}
+
+export interface OperationalHardBlocker {
+  assetId: string;
+  asset: string;
+  assetTag: string | null;
+  item: string;
+  section: string;
+  category: string;
+  status: string;
+  kind: "safety_mission_critical" | "golive_required";
+}
+
+export interface OperationalAssetRow {
+  assetId: string;
+  name: string;
+  tag: string | null;
+  required: number;
+  requiredSatisfied: number;
+  ready: boolean;
+  total: number;
+  satisfied: number;
+}
+
+export interface OperationalReadinessResult {
+  caseId: string;
+  assetCount: number;
+  assets: OperationalAssetRow[];
+  categories: OperationalCategoryRow[];
+  hardBlockers: OperationalHardBlocker[];
+  overall: {
+    total: number;
+    satisfied: number;
+    pct: number;
+    hardBlockerCount: number;
+    safetyOpenCount: number;
+  } | null;
+  note?: string;
+  scopeNote?: string;
 }

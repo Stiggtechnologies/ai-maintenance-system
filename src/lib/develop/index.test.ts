@@ -31,6 +31,7 @@ function gate(overrides: Partial<WorkspaceGate> = {}): WorkspaceGate {
         category: "technical",
         evidenceType: "DOCUMENTED",
         minimumConfidence: null,
+        weight: 1.0,
         sourceAuthority: "INDUSTRY_GUIDANCE",
       },
       {
@@ -41,6 +42,7 @@ function gate(overrides: Partial<WorkspaceGate> = {}): WorkspaceGate {
         category: "supply",
         evidenceType: "DOCUMENTED",
         minimumConfidence: null,
+        weight: 1.0,
         sourceAuthority: "AI_SUGGESTION",
       },
     ],
@@ -159,5 +161,42 @@ describe("vocabularies", () => {
     expect(isPassingOutcome("hold")).toBe(false);
     expect(isTerminalOutcome("terminate")).toBe(true);
     expect(isTerminalOutcome("pause")).toBe(false);
+  });
+});
+
+describe("gateRollup carries the D3.35 readiness beside the verdict", () => {
+  it("readiness is gateReadiness over the same criteria+findings — same block, now with the number", () => {
+    const r = gateRollup(
+      gate({
+        latestReview: {
+          id: 9,
+          outcome: "hold",
+          reviewedAt: "2026-08-27T00:00:00Z",
+          note: "basis",
+          findings: [
+            {
+              criterion:
+                "Scope definition is complete enough to estimate against",
+              status: "met",
+              evidence: "Scope book rev C",
+            },
+          ],
+          conditions: [],
+        },
+      }),
+    );
+    // Mandatory met, advisory not: 1 of 2 equal-weight criteria → 50%.
+    expect(r.readiness.readinessPct).toBe(50);
+    expect(r.readiness.blocked).toBe(!r.assessment.ready);
+    expect(r.readiness.categories.map((c) => c.category)).toEqual([
+      "technical",
+      "supply",
+    ]);
+  });
+
+  it("an empty gate rolls up with NULL readiness — no invented number", () => {
+    const r = gateRollup(gate({ criteria: [] }));
+    expect(r.readiness.readinessPct).toBeNull();
+    expect(r.readiness.blocked).toBe(true);
   });
 });
