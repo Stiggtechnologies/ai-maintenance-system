@@ -62,6 +62,7 @@ import { AssetOnboardingHub } from "./pages/AssetOnboardingHub";
 import { SecurityAuditLog } from "./pages/SecurityAuditLog";
 import { PilotLeads } from "./pages/PilotLeads";
 import { KnowledgeBasePage } from "./pages/KnowledgeBasePage";
+import { FieldPage } from "./pages/FieldPage";
 import { ExecutiveIntelligence } from "./pages/ExecutiveIntelligence";
 import { IntegrationHealthPanel } from "./pages/IntegrationHealthPanel";
 import { ValueRealization } from "./pages/ValueRealization";
@@ -598,6 +599,7 @@ function AuthenticatedApp() {
           />
 
           <Route path="/knowledge" element={<KnowledgeBasePage />} />
+          <Route path="/field" element={<FieldPage />} />
 
           <Route
             path="*"
