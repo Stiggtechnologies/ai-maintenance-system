@@ -144,6 +144,12 @@ jobs:
 
       - name: Golden methodology and specialist routing
         run: npx vitest run src/test/reliabilityEngineerGoldenBaseline.test.ts src/test/reliabilityBaselineRatchet.test.ts supabase/functions/_shared/reliability-engineer-core.test.ts
+        # GITHUB_TOKEN is load-bearing here too, not only on the dedicated gate
+        # step below: the ratchet's "passes on the current tree" test spawns
+        # check-reliability-baseline.mjs as a child that inherits THIS step's
+        # env, and the gate fails closed without the token.
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         # reliability-engineer-core.test.ts was named here and in package.json
         # while sitting outside vitest's include glob, so it had never run once
         # and vitest still exited 0 because the other filters matched.
