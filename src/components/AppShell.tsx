@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useMediaQuery } from "../lib/useMediaQuery";
 import {
   Zap,
   ChevronLeft,
@@ -26,6 +27,11 @@ import {
   Users,
   Bell,
   Command,
+  Menu,
+  Home,
+  Boxes,
+  Map as MapIcon,
+  MoreHorizontal,
 } from "lucide-react";
 import { platformService, UserContext } from "../services/platform";
 import { supabase } from "../lib/supabase";
@@ -287,6 +293,12 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
     .filter((group) => group.items.length > 0);
   const [userContext, setUserContext] = useState<UserContext | null>(null);
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const isMobile = !useMediaQuery("(min-width: 768px)");
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  useEffect(() => {
+    setDrawerOpen(false);
+  }, [currentPath]);
+
   const [sites, setSites] = useState<Site[]>([]);
   const [selectedSiteId, setSelectedSiteId] = useState<string | null>(null);
   const [sitePickerOpen, setSitePickerOpen] = useState(false);
@@ -424,10 +436,21 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
   return (
     <div className="flex h-screen bg-overlook-void overflow-hidden">
       {/* Sidebar */}
+      {/* Mobile drawer backdrop */}
+      {drawerOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/60 md:hidden"
+          onClick={() => setDrawerOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
       <motion.aside
-        animate={{ width: isCollapsed ? 64 : 240 }}
+        animate={{ width: isMobile ? 240 : isCollapsed ? 64 : 240 }}
         transition={{ duration: 0.2, ease: "easeInOut" }}
-        className="bg-overlook-void border-r border-white/5 shrink-0 overflow-hidden flex flex-col z-20"
+        className={`fixed md:relative inset-y-0 left-0 z-50 h-full bg-overlook-void border-r border-white/5 shrink-0 overflow-hidden flex flex-col transition-transform duration-200 md:transition-none ${
+          drawerOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
+        }`}
       >
         {/* Logo */}
         <div className="h-14 px-4 flex items-center gap-3 border-b border-white/5 shrink-0">
@@ -625,10 +648,18 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
         <header className="h-14 bg-overlook-void/80 backdrop-blur-md border-b border-white/5 px-4 flex items-center justify-between shrink-0 z-10">
           <div className="flex items-center gap-4 min-w-0 flex-1">
             <button
+              onClick={() => setDrawerOpen(true)}
+              aria-label="Open navigation"
+              aria-expanded={drawerOpen}
+              className="md:hidden p-2 rounded-md text-slate-300 hover:text-signal-cyan hover:bg-signal-cyan/10 transition-colors focus:outline-hidden focus-visible:ring-2 focus-visible:ring-teal-300"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+            <button
               onClick={() => setIsCollapsed(!isCollapsed)}
               aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
               aria-expanded={!isCollapsed}
-              className="p-1.5 rounded-md text-slate-400 hover:text-signal-cyan hover:bg-signal-cyan/10 transition-colors focus:outline-hidden focus-visible:ring-2 focus-visible:ring-teal-300"
+              className="hidden md:inline-flex p-1.5 rounded-md text-slate-400 hover:text-signal-cyan hover:bg-signal-cyan/10 transition-colors focus:outline-hidden focus-visible:ring-2 focus-visible:ring-teal-300"
             >
               {isCollapsed ? (
                 <ChevronRight className="w-4 h-4" />
@@ -762,10 +793,74 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
         </header>
 
         {/* Page Content */}
-        <main className="flex-1 overflow-auto bg-overlook-void min-w-0">
+        <main className="flex-1 overflow-auto bg-overlook-void min-w-0 pb-20 md:pb-0">
           {children}
         </main>
       </div>
+
+      {/* Mobile bottom tab bar — thumb-reach navigation (hidden on desktop). */}
+      <nav
+        aria-label="Primary mobile navigation"
+        className="fixed bottom-0 inset-x-0 z-40 md:hidden bg-overlook-void/95 backdrop-blur-md border-t border-white/5 pb-[env(safe-area-inset-bottom)]"
+      >
+        <div className="grid grid-cols-5">
+          {[
+            {
+              id: "mission",
+              label: "Mission",
+              path: "/mission-control",
+              icon: Home,
+            },
+            { id: "assets", label: "Assets", path: "/assets", icon: Boxes },
+            {
+              id: "work",
+              label: "Work",
+              path: "/work",
+              icon: Wrench,
+              badge: badges.work,
+            },
+            { id: "field", label: "Field", path: "/field", icon: MapIcon },
+          ].map((tab) => {
+            const active =
+              currentPath === tab.path ||
+              (tab.path !== "/" && currentPath.startsWith(tab.path));
+            const Icon = tab.icon;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => onNavigate(tab.path)}
+                aria-label={tab.label}
+                aria-current={active ? "page" : undefined}
+                className={`relative flex flex-col items-center gap-1 py-2.5 text-[11px] font-medium transition-colors ${
+                  active
+                    ? "text-signal-cyan"
+                    : "text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                <Icon className="w-5 h-5" />
+                {tab.label}
+                {!!tab.badge && tab.badge > 0 && (
+                  <span className="absolute top-1.5 right-1/2 translate-x-4 min-w-4 h-4 px-1 rounded-full bg-signal-cyan text-[10px] font-bold text-white flex items-center justify-center">
+                    {tab.badge}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+          <button
+            onClick={() => setDrawerOpen(true)}
+            aria-label="More navigation"
+            className={`flex flex-col items-center gap-1 py-2.5 text-[11px] font-medium transition-colors ${
+              drawerOpen
+                ? "text-signal-cyan"
+                : "text-slate-400 hover:text-slate-200"
+            }`}
+          >
+            <MoreHorizontal className="w-5 h-5" />
+            More
+          </button>
+        </div>
+      </nav>
 
       {/* Command Search */}
       <CopilotDock />
