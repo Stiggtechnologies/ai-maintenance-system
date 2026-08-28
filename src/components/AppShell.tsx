@@ -622,7 +622,7 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
       <div className="flex-1 flex flex-col overflow-hidden min-w-0">
         {/* Top Bar */}
         <header className="h-14 bg-overlook-void/80 backdrop-blur-md border-b border-white/5 px-4 flex items-center justify-between shrink-0 z-10">
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 min-w-0 flex-1">
             <button
               onClick={() => setIsCollapsed(!isCollapsed)}
               aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
@@ -635,14 +635,14 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
                 <ChevronLeft className="w-4 h-4" />
               )}
             </button>
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-semibold text-slate-200">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="text-sm font-semibold text-slate-200 truncate">
                 {getPageTitle()}
               </span>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 shrink-0">
             {/* System status is evidence-neutral until live status evidence is loaded. */}
             <div
               className="hidden md:flex items-center gap-2 text-xs"
@@ -671,7 +671,7 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
               </div>
             </div>
 
-            <div className="w-px h-5 bg-white/6" />
+            <div className="hidden sm:block w-px h-5 bg-white/6" />
 
             {/* Autonomy Badge */}
             <div
@@ -681,7 +681,7 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
               <span className="hidden sm:block">{AUTONOMY_MODE}</span>
             </div>
 
-            <div className="w-px h-5 bg-white/6" />
+            <div className="hidden sm:block w-px h-5 bg-white/6" />
 
             {/* Alerts */}
             <div className="relative">
