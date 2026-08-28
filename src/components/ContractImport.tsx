@@ -7,12 +7,15 @@
  * named plan fields one by one. Everything else about it — batching, the run
  * lifecycle, the summary, the rendered rejects — was already entity-agnostic.
  *
- * WHY IT CARRIES SEVEN TYPES NOW. begin_manual_import named three, and four
+ * WHY IT CARRIES EIGHT TYPES NOW. begin_manual_import named three, and four
  * more were fully validated and unreachable: condition_reading and
  * material_stock in ingest_batch, operating_state and production_record in
  * ingest_context_batch. The second function had never had a caller at all.
  * 20261004090000 gives the run a route so the RIGHT validator sees the rows,
- * and this screen is what a customer walks through to reach it.
+ * and this screen is what a customer walks through to reach it. The eighth,
+ * schedule_activity (20261112090000), is the P6 import half of D5.28: same
+ * door, same route table, a third validator — P6 stays system-of-record and
+ * Sync never writes back.
  *
  * WHY THERE IS ONE SCREEN AND NOT SEVEN. The parts that differ between entity
  * types are DATA — required columns, the dedupe key, what a re-upload does —
