@@ -583,3 +583,407 @@ export async function runEvidenceAgent(input: {
   }
   return payload as EvidenceAgentResult;
 }
+
+// ---------------------------------------------------------------------------
+// Slice 2 — the value spine. Every write is a definer RPC; refusals are the
+// SERVER's words, thrown verbatim.
+// ---------------------------------------------------------------------------
+
+import type {
+  CaseFinanceModel,
+  CaseValueTrajectory,
+  CollapseVerdict,
+  SinceSanctionDelta,
+} from "../lib/develop";
+
+function unwrapRpc<T>(
+  data: unknown,
+  error: { message: string } | null,
+  fallback: string,
+): T {
+  if (error) throw new Error(`${fallback}: ${error.message}`);
+  const record = (data ?? {}) as Record<string, unknown>;
+  if (typeof record.error === "string") throw new Error(record.error);
+  return record as T;
+}
+
+export async function draftSuccessContract(
+  caseId: string,
+): Promise<{ contract_id: string; version?: number }> {
+  const { data, error } = await supabase.rpc("draft_success_contract", {
+    p_case_id: caseId,
+  });
+  return unwrapRpc(data, error, "Could not draft the success contract");
+}
+
+export interface SuccessOutcomeInput {
+  contractId: string;
+  dimension: string;
+  statement: string;
+  basis: string;
+  ownerId: string;
+  targetValue?: number | null;
+  unit?: string | null;
+  ramTargetId?: number | null;
+}
+
+export async function setSuccessOutcome(
+  input: SuccessOutcomeInput,
+): Promise<{ outcome_id: string }> {
+  const { data, error } = await supabase.rpc("set_success_outcome", {
+    p_contract_id: input.contractId,
+    p_dimension: input.dimension,
+    p_outcome_statement: input.statement,
+    p_basis: input.basis,
+    p_owner_id: input.ownerId,
+    p_target_value: input.targetValue ?? null,
+    p_unit: input.unit ?? null,
+    p_ram_target_id: input.ramTargetId ?? null,
+  });
+  return unwrapRpc(data, error, "Could not state the outcome");
+}
+
+export async function recordSuccessContract(input: {
+  contractId: string;
+  note: string;
+}): Promise<{ contract_id: string; outcomes: number }> {
+  const { data, error } = await supabase.rpc("record_success_contract", {
+    p_contract_id: input.contractId,
+    p_note: input.note,
+  });
+  return unwrapRpc(data, error, "Could not record the success contract");
+}
+
+export interface CaseRamTargetOption {
+  id: number;
+  system_label: string;
+  target_availability: number;
+}
+
+/** RAM targets of the case's capital project — the canonical records a
+ *  reliability/availability/maintainability outcome REFERENCES. */
+export async function listCaseRamTargets(
+  caseId: string,
+): Promise<CaseRamTargetOption[]> {
+  const { data: caseRow, error: caseError } = await supabase
+    .from("development_cases")
+    .select("capital_project_id")
+    .eq("id", caseId)
+    .maybeSingle()
+    .returns<{ capital_project_id: number | null }>();
+  if (caseError || caseRow?.capital_project_id == null) return [];
+  const { data, error } = await supabase
+    .from("ram_targets")
+    .select("id, system_label, target_availability")
+    .eq("project_id", caseRow.capital_project_id)
+    .order("system_label")
+    .returns<CaseRamTargetOption[]>();
+  if (error) return [];
+  return data ?? [];
+}
+
+export async function createCaseBusinessCase(input: {
+  caseId: string;
+  caseRef: string;
+  title: string;
+  driver: string;
+  discountRate: number;
+  discountRateSource: string;
+  currency?: string;
+}): Promise<{ business_case_id: number }> {
+  const { data, error } = await supabase.rpc("create_case_business_case", {
+    p_case_id: input.caseId,
+    p_case_ref: input.caseRef,
+    p_title: input.title,
+    p_driver: input.driver,
+    p_discount_rate: input.discountRate,
+    p_discount_rate_source: input.discountRateSource,
+    p_currency: input.currency ?? "USD",
+  });
+  return unwrapRpc(data, error, "Could not record the business case");
+}
+
+export async function recordValueHypothesis(input: {
+  businessCaseId: number;
+  spend: number;
+  effect: string;
+  effectQuantity?: number | null;
+  effectUnit?: string | null;
+  valuePerYear: number;
+  basis: string;
+}): Promise<{ business_case_id: number }> {
+  const { data, error } = await supabase.rpc("record_value_hypothesis", {
+    p_business_case_id: input.businessCaseId,
+    p_spend: input.spend,
+    p_effect: input.effect,
+    p_effect_quantity: input.effectQuantity ?? null,
+    p_effect_unit: input.effectUnit ?? null,
+    p_value_per_year: input.valuePerYear,
+    p_basis: input.basis,
+  });
+  return unwrapRpc(data, error, "Could not record the value hypothesis");
+}
+
+export async function setCaseViabilityFloor(input: {
+  businessCaseId: number;
+  floor: number;
+  basis: string;
+}): Promise<{ business_case_id: number; viability_floor: number }> {
+  const { data, error } = await supabase.rpc("set_case_viability_floor", {
+    p_business_case_id: input.businessCaseId,
+    p_floor: input.floor,
+    p_basis: input.basis,
+  });
+  return unwrapRpc(data, error, "Could not set the viability floor");
+}
+
+export async function addBusinessCaseOption(input: {
+  businessCaseId: number;
+  label: string;
+  lifePeriods: number;
+  cashFlows: { period: number; amount: number }[];
+  benefitProbability?: number | null;
+  isDoNothing?: boolean;
+  notes?: string | null;
+  contingency?: number | null;
+  contingencyBasis?: string | null;
+}): Promise<{ option_id: number; flows_recorded: number }> {
+  const { data, error } = await supabase.rpc("add_business_case_option", {
+    p_business_case_id: input.businessCaseId,
+    p_label: input.label,
+    p_life_periods: input.lifePeriods,
+    p_cash_flows: input.cashFlows,
+    p_benefit_probability: input.benefitProbability ?? null,
+    p_is_do_nothing: input.isDoNothing ?? false,
+    p_notes: input.notes ?? null,
+    p_contingency: input.contingency ?? null,
+    p_contingency_basis: input.contingencyBasis ?? null,
+  });
+  return unwrapRpc(data, error, "Could not add the option");
+}
+
+export async function upsertFinancialAssumption(input: {
+  key: string;
+  label: string;
+  value: number;
+  unit?: string | null;
+  source: string;
+  kind?: string;
+  effectiveFrom?: string | null;
+  reviewDue?: string | null;
+}): Promise<{
+  version_id: number;
+  threshold_observations: number;
+  threshold_violations: unknown[];
+}> {
+  const { data, error } = await supabase.rpc("upsert_financial_assumption", {
+    p_key: input.key,
+    p_label: input.label,
+    p_value: input.value,
+    p_unit: input.unit ?? null,
+    p_source: input.source,
+    p_kind: input.kind ?? "general",
+    p_effective_from: input.effectiveFrom ?? null,
+    p_review_due: input.reviewDue ?? null,
+  });
+  return unwrapRpc(data, error, "Could not record the financial assumption");
+}
+
+export async function recordCaseAssumption(input: {
+  caseId: string;
+  statement: string;
+  triggerForReview: string;
+  ownerId: string;
+  confidence?: number;
+  businessCaseId?: number | null;
+  thresholdParameter?: string | null;
+  thresholdComparator?: string | null;
+  thresholdValue?: number | null;
+  thresholdUnit?: string | null;
+}): Promise<{ assumption_id: string; monitored: boolean }> {
+  const { data, error } = await supabase.rpc("record_case_assumption", {
+    p_case_id: input.caseId,
+    p_assumption: {
+      statement: input.statement,
+      trigger_for_review: input.triggerForReview,
+      owner_id: input.ownerId,
+      confidence: input.confidence ?? 0,
+      business_case_id: input.businessCaseId ?? null,
+      threshold_parameter: input.thresholdParameter ?? null,
+      threshold_comparator: input.thresholdComparator ?? null,
+      threshold_value: input.thresholdValue ?? null,
+      threshold_unit: input.thresholdUnit ?? null,
+    },
+  });
+  return unwrapRpc(data, error, "Could not record the assumption");
+}
+
+export async function recordCaseValueEvaluation(input: {
+  caseId: string;
+  optionId: number;
+  expectedValue: number;
+  valueBasis: string;
+  uncertaintyLevel: "low" | "moderate" | "high";
+  uncertaintyReasons?: string[];
+  computed?: Record<string, unknown>;
+  engineVersion?: string;
+}): Promise<{ evaluation_id: string; collapse?: CollapseVerdict }> {
+  const { data, error } = await supabase.rpc("record_case_value_evaluation", {
+    p_case_id: input.caseId,
+    p_option_id: input.optionId,
+    p_expected_value: input.expectedValue,
+    p_value_basis: input.valueBasis,
+    p_uncertainty_level: input.uncertaintyLevel,
+    p_uncertainty_reasons: input.uncertaintyReasons ?? [],
+    p_computed: input.computed ?? {},
+    p_engine_version: input.engineVersion ?? "develop-value/1",
+  });
+  return unwrapRpc(data, error, "Could not record the value evaluation");
+}
+
+export async function getCaseFinanceModel(
+  caseId: string,
+): Promise<CaseFinanceModel> {
+  const { data, error } = await supabase.rpc("get_case_finance_model", {
+    p_case_id: caseId,
+  });
+  return unwrapRpc(data, error, "Could not load the finance model");
+}
+
+export async function getCaseValueTrajectory(
+  caseId: string,
+): Promise<CaseValueTrajectory> {
+  const { data, error } = await supabase.rpc("get_case_value_trajectory", {
+    p_case_id: caseId,
+  });
+  return unwrapRpc(data, error, "Could not load the value trajectory");
+}
+
+export async function getSinceSanctionDelta(
+  caseId: string,
+): Promise<SinceSanctionDelta> {
+  const { data, error } = await supabase.rpc("get_since_sanction_delta", {
+    p_case_id: caseId,
+  });
+  return unwrapRpc(data, error, "Could not load the since-sanction delta");
+}
+
+export async function recordCaseBenefit(input: {
+  caseId: string;
+  label: string;
+  expectedValue: number;
+  unit: string;
+  expectedDate: string;
+  ownerId: string;
+  basis: string;
+  objectiveId?: string | null;
+}): Promise<{ benefit_id: string }> {
+  const { data, error } = await supabase.rpc("record_case_benefit", {
+    p_case_id: input.caseId,
+    p_label: input.label,
+    p_expected_value: input.expectedValue,
+    p_unit: input.unit,
+    p_expected_date: input.expectedDate,
+    p_owner_id: input.ownerId,
+    p_basis: input.basis,
+    p_objective_id: input.objectiveId ?? null,
+  });
+  return unwrapRpc(data, error, "Could not record the benefit");
+}
+
+// ---------------------------------------------------------------------------
+// D13.07 — the governed Decision Workspace reads. The record IS decisions +
+// scenarios (overlap-map ruling 15); these are plain RLS reads.
+// ---------------------------------------------------------------------------
+
+export interface GovernedDecisionRow {
+  id: string;
+  decision_question: string | null;
+  development_case_id: string;
+  decision_required_date: string | null;
+  approval_level: string | null;
+  selected_option_id: string | null;
+  selected_at: string | null;
+  selection_rationale: string | null;
+  created_at: string;
+}
+
+export interface GovernedDecisionOptionRow {
+  id: string;
+  label: string;
+  description: string | null;
+  capex: number | null;
+  opex: number | null;
+  lifecycle_cost: number | null;
+  schedule_effect: string | null;
+  risk_effect: string | null;
+  reliability_effect: string | null;
+  environmental_effect: string | null;
+  expected_value: number | null;
+  sequence_no: number | null;
+}
+
+export async function listGovernedDecisions(): Promise<
+  (GovernedDecisionRow & { caseTitle: string | null })[]
+> {
+  const { data, error } = await supabase
+    .from("decisions")
+    .select(
+      "id, decision_question, development_case_id, decision_required_date, approval_level, selected_option_id, selected_at, selection_rationale, created_at",
+    )
+    .not("development_case_id", "is", null)
+    .order("created_at", { ascending: false })
+    .returns<GovernedDecisionRow[]>();
+  if (error) throw new Error(`Could not list decisions: ${error.message}`);
+  const rows = data ?? [];
+  const caseIds = [...new Set(rows.map((r) => r.development_case_id))];
+  if (caseIds.length === 0) return [];
+  const { data: cases } = await supabase
+    .from("development_cases")
+    .select("id, title")
+    .in("id", caseIds)
+    .returns<{ id: string; title: string }[]>();
+  const titles = new Map((cases ?? []).map((c) => [c.id, c.title]));
+  return rows.map((r) => ({
+    ...r,
+    caseTitle: titles.get(r.development_case_id) ?? null,
+  }));
+}
+
+export async function getGovernedDecision(decisionId: string): Promise<{
+  decision: (GovernedDecisionRow & { caseTitle: string | null }) | null;
+  options: GovernedDecisionOptionRow[];
+}> {
+  const { data, error } = await supabase
+    .from("decisions")
+    .select(
+      "id, decision_question, development_case_id, decision_required_date, approval_level, selected_option_id, selected_at, selection_rationale, created_at",
+    )
+    .eq("id", decisionId)
+    .maybeSingle()
+    .returns<GovernedDecisionRow | null>();
+  if (error) throw new Error(`Could not load the decision: ${error.message}`);
+  if (data == null || data.development_case_id == null) {
+    return { decision: null, options: [] };
+  }
+  const [{ data: options }, { data: caseRow }] = await Promise.all([
+    supabase
+      .from("scenarios")
+      .select(
+        "id, label, description, capex, opex, lifecycle_cost, schedule_effect, risk_effect, reliability_effect, environmental_effect, expected_value, sequence_no",
+      )
+      .eq("decision_id", decisionId)
+      .order("sequence_no", { ascending: true, nullsFirst: false })
+      .returns<GovernedDecisionOptionRow[]>(),
+    supabase
+      .from("development_cases")
+      .select("id, title")
+      .eq("id", data.development_case_id)
+      .maybeSingle()
+      .returns<{ id: string; title: string } | null>(),
+  ]);
+  return {
+    decision: { ...data, caseTitle: caseRow?.title ?? null },
+    options: options ?? [],
+  };
+}

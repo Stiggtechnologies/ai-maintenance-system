@@ -38,6 +38,33 @@ export interface CashFlow {
   amount: number;
 }
 
+/**
+ * The named defect in a flow set, or null when the flows are computable.
+ *
+ * Data crossing the DB boundary is typed CashFlow[] by assertion, not by
+ * proof — a row whose json lost its period or amount key would arrive here
+ * as `undefined`, and arithmetic on undefined is NaN rendered confidently.
+ * The database refuses such rows at the schema (cash_flows_well_formed);
+ * this is the same refusal at the kernel's door, so a malformed flow is
+ * NAMED at every boundary rather than discounted into garbage anywhere.
+ */
+export function cashFlowsDefect(cashFlows: CashFlow[]): string | null {
+  for (const cf of cashFlows) {
+    if (
+      typeof cf?.period !== "number" ||
+      !Number.isFinite(cf.period) ||
+      typeof cf?.amount !== "number" ||
+      !Number.isFinite(cf.amount)
+    ) {
+      return "the recorded flows are malformed — a flow without a finite numeric period and amount cannot be discounted, and refusing beats rendering arithmetic on it";
+    }
+    if (cf.period < 0 || !Number.isInteger(cf.period)) {
+      return "the recorded flows are malformed — periods are whole numbers, 0 (today) or later";
+    }
+  }
+  return null;
+}
+
 /** Net present value at a per-period discount rate. */
 export function npv(cashFlows: CashFlow[], rate: number): number {
   return cashFlows.reduce(
@@ -359,5 +386,134 @@ export function costOfRisk(
       (consequenceCost > 0 && annualProbability < 0.01
         ? `A low-probability, high-consequence exposure like this one is exactly where an expected value misleads, because the organisation experiences the event or it does not — never the average.`
         : ""),
+  };
+}
+
+export interface IrrResult {
+  /** Per-period internal rate of return, or null when it cannot be stated. */
+  rate: number | null;
+  reason: string;
+}
+
+/**
+ * Internal rate of return — refusal-first (D2.04, spec I.11).
+ *
+ * IRR is the rate at which NPV crosses zero. It does not exist as a single
+ * honest number unless the flows actually cross sign (an all-cost or
+ * all-benefit stream has no IRR), and with multiple sign changes the
+ * polynomial can hold several roots — in that case the one found is
+ * reported WITH that caveat rather than presented as "the" IRR.
+ * Bisection on npv() — the same engine every other figure here uses.
+ */
+export function irr(cashFlows: CashFlow[]): IrrResult {
+  if (cashFlows.length === 0) {
+    return { rate: null, reason: "IRR unavailable: no cash flows were supplied." };
+  }
+  const defect = cashFlowsDefect(cashFlows);
+  if (defect != null) {
+    return { rate: null, reason: `IRR unavailable: ${defect}` };
+  }
+  const hasNegative = cashFlows.some((cf) => cf.amount < 0);
+  const hasPositive = cashFlows.some((cf) => cf.amount > 0);
+  if (!hasNegative || !hasPositive) {
+    return {
+      rate: null,
+      reason:
+        "IRR unavailable: the flows never change sign — a stream that is all cost (or all benefit) has no rate at which it breaks even, and inventing one would be exactly the confident-number failure this module refuses.",
+    };
+  }
+  const signChanges = [...cashFlows]
+    .sort((a, b) => a.period - b.period)
+    .map((cf) => cf.amount)
+    .filter((a) => a !== 0)
+    .reduce(
+      (acc, amount) => {
+        if (acc.prev !== null && Math.sign(amount) !== Math.sign(acc.prev)) {
+          acc.count += 1;
+        }
+        return { prev: amount, count: acc.count };
+      },
+      { prev: null as number | null, count: 0 },
+    ).count;
+
+  let lo = -0.99;
+  let hi = 10;
+  let fLo = npv(cashFlows, lo);
+  const fHi = npv(cashFlows, hi);
+  if (fLo * fHi > 0) {
+    return {
+      rate: null,
+      reason:
+        "IRR unavailable: NPV does not cross zero between -99% and +1000% per period — no defensible rate exists in any range a capital decision uses.",
+    };
+  }
+  for (let i = 0; i < 200; i++) {
+    const mid = (lo + hi) / 2;
+    const v = npv(cashFlows, mid);
+    if (v === 0) {
+      lo = hi = mid;
+      break;
+    }
+    if (fLo * v < 0) {
+      hi = mid;
+    } else {
+      lo = mid;
+      fLo = v;
+    }
+  }
+  const rate = (lo + hi) / 2;
+  return {
+    rate,
+    reason:
+      signChanges > 1
+        ? `IRR ${(rate * 100).toFixed(2)}% per period — CAVEAT: the flows change sign ${signChanges} times, so up to ${signChanges} rates can satisfy NPV = 0; this is one of them, found by bisection. Rank on NPV at the stated discount rate rather than on this figure.`
+        : `IRR ${(rate * 100).toFixed(2)}% per period (single sign change — the rate is unique).`,
+  };
+}
+
+export interface PaybackResult {
+  /** Whole periods until cumulative flow first reaches zero or better. */
+  periods: number | null;
+  reason: string;
+}
+
+/**
+ * Simple payback — refusal-first. Undiscounted by definition and says so:
+ * payback answers "when is the cash back", not "was it worth it".
+ */
+export function paybackPeriod(cashFlows: CashFlow[]): PaybackResult {
+  if (cashFlows.length === 0) {
+    return {
+      periods: null,
+      reason: "Payback unavailable: no cash flows were supplied.",
+    };
+  }
+  const defect = cashFlowsDefect(cashFlows);
+  if (defect != null) {
+    return { periods: null, reason: `Payback unavailable: ${defect}` };
+  }
+  if (!cashFlows.some((cf) => cf.amount < 0)) {
+    return {
+      periods: null,
+      reason:
+        "Payback unavailable: the flows record no outlay — payback answers when the cash comes back, and these flows never send any out. An all-benefit stream has nothing to pay back.",
+    };
+  }
+  const horizon = Math.max(...cashFlows.map((cf) => cf.period));
+  let cumulative = 0;
+  for (let period = 0; period <= horizon; period++) {
+    cumulative += cashFlows
+      .filter((cf) => cf.period === period)
+      .reduce((sum, cf) => sum + cf.amount, 0);
+    if (cumulative >= 0 && period > 0) {
+      return {
+        periods: period,
+        reason: `Cumulative cash flow first reaches zero in period ${period} of ${horizon}. Undiscounted by definition — payback says when the cash is back, not whether the spend was worth it; NPV answers that.`,
+      };
+    }
+  }
+  return {
+    periods: null,
+    reason: `Payback unavailable: cumulative cash flow never turns non-negative within the stated ${horizon}-period horizon. That is an answer, not an error — within this horizon the spend does not come back.`,
   };
 }

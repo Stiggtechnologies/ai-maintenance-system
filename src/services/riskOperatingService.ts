@@ -60,6 +60,30 @@ export async function getRiskParticipants(): Promise<RiskParticipant[]> {
   return data ?? [];
 }
 
+export interface AdoptedObjectiveOption {
+  id: string;
+  description: string;
+  objective_level: string;
+}
+
+/**
+ * Adopted objectives, for the risk-creation objective link (spec §2 /
+ * D11.16: a risk always links to an objective). RLS scopes the read.
+ */
+export async function listAdoptedObjectives(): Promise<
+  AdoptedObjectiveOption[]
+> {
+  const { data, error } = await supabase
+    .from("risk_objectives")
+    .select("id, description, objective_level")
+    .eq("status", "adopted")
+    .order("objective_level")
+    .order("description")
+    .returns<AdoptedObjectiveOption[]>();
+  if (error) fail("Could not load adopted objectives", error);
+  return data ?? [];
+}
+
 export async function createRiskAssessment(
   assessment: RiskAssessmentDraft,
 ): Promise<RpcResult> {
@@ -493,6 +517,35 @@ async function controlledRiskRpc(
 ): Promise<RpcResult> {
   const { data, error } = await supabase.rpc(name, args);
   return unwrap(data as RpcResult | null, error, message);
+}
+
+export interface ObjectiveTreeNode {
+  id: string;
+  parentId: string | null;
+  depth: number;
+  level: string;
+  description: string;
+  target: string;
+  targetValue: number | null;
+  unit: string | null;
+  targetDate: string | null;
+  tolerance: string | null;
+  status: string;
+  version: number;
+  owner: string | null;
+  linkedRisks: number;
+  linkedCases: number;
+}
+
+/**
+ * The recursive objective hierarchy (D11.15, spec §2): depth-ordered nodes
+ * with typed targets and per-node risk/case link counts, straight from
+ * get_objective_tree. RLS scopes the read to the caller's organization.
+ */
+export async function getObjectiveTree(): Promise<ObjectiveTreeNode[]> {
+  const { data, error } = await supabase.rpc("get_objective_tree");
+  if (error) fail("Could not load the objective hierarchy", error);
+  return (data ?? []) as ObjectiveTreeNode[];
 }
 
 export const upsertRiskObjective = (objective: Record<string, unknown>) =>

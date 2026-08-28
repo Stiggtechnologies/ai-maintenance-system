@@ -11,10 +11,13 @@
  *   * Every mutation is a definer RPC; refusals are rendered VERBATIM. The
  *     client role gates only hide forms — authority lives in the database.
  *   * §44 sections live here as they become real: deliverables (D3.26),
- *     evidence (D11.17/18), risks (D5.22), decisions + options (D3.27/28)
- *     and actions (D11.37) render persisted rows with honest empty states.
- *     Business case, requirements, schedule and cost remain later slices
- *     and are deliberately absent rather than mocked.
+ *     evidence (D11.17/18), risks (D5.22), decisions + options (D3.27/28),
+ *     actions (D11.37), schedule (D5.28 import half) and — with Slice 2 —
+ *     objective (D11.15), success contract (D1.01), business case & value
+ *     (D2.01–D2.07), benefits (D9.10) and cost (recorded anchors only)
+ *     render persisted rows with honest empty states. This is the §44
+ *     one-page Case Workspace (D13.04); earned value, forecasts and change
+ *     control remain Slice 4 and are absent, not mocked.
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
@@ -78,6 +81,13 @@ import {
   OperationalReadinessSection,
   ScheduleSection,
 } from "../components/develop/ReadinessPanels";
+import {
+  BenefitsSection,
+  BusinessCaseSection,
+  CostSection,
+  ObjectiveSection,
+  SuccessContractSection,
+} from "../components/develop/ValueSpinePanels";
 
 const REVIEW_ROLES = [
   "admin",
@@ -2198,9 +2208,32 @@ export function DevelopmentCaseWorkspacePage() {
         </div>
       )}
 
-      {/* §44 sections — deliverables, evidence, risks, decisions, actions.
-          Each renders exactly what is persisted, with an honest empty state
-          that says what to do; no placeholder numbers anywhere. */}
+      {/* §44 sections, in the spec's own order — objective, business case,
+          options (inside decisions), risks, requirements (gates above),
+          decisions, deliverables, schedule, cost, actions. Each renders
+          exactly what is persisted, with an honest empty state that says
+          what to do; no placeholder numbers anywhere. */}
+      <ObjectiveSection workspace={workspace} />
+      <SuccessContractSection
+        workspace={workspace}
+        members={members}
+        canPlan={canPlan}
+        canReview={canReview}
+        onChanged={() => void load()}
+      />
+      <BusinessCaseSection
+        workspace={workspace}
+        members={members}
+        canPlan={canPlan}
+        canReview={canReview}
+        onChanged={() => void load()}
+      />
+      <BenefitsSection
+        workspace={workspace}
+        members={members}
+        canPlan={canPlan}
+        onChanged={() => void load()}
+      />
       <DeliverablesSection
         workspace={workspace}
         members={members}
@@ -2236,6 +2269,7 @@ export function DevelopmentCaseWorkspacePage() {
         onChanged={() => void load()}
       />
       <ScheduleSection workspace={workspace} />
+      <CostSection workspace={workspace} />
       <OperationalReadinessSection caseId={workspace.id} canPlan={canPlan} />
 
       {/* Sanction */}

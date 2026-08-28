@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Activity,
   ArrowRight,
@@ -67,6 +67,7 @@ import {
   getRiskOperatingCockpit,
   getRiskParticipants,
   ingestRiskEvidence,
+  listAdoptedObjectives,
   recordRiskAnalysis,
   recordRiskControlTest,
   recordRiskDecision,
@@ -79,6 +80,7 @@ import {
   startIso31000Implementation,
   linkRisks,
   upsertRiskContext,
+  type AdoptedObjectiveOption,
 } from "../services/riskOperatingService";
 import { getAssets } from "../services/operatingLoopService";
 import type { AssetRow } from "../types/operating";
@@ -1364,12 +1366,19 @@ function AssessmentModal({
   onClose: () => void;
   onDone: () => void;
 }) {
+  const [objectives, setObjectives] = useState<AdoptedObjectiveOption[]>([]);
+  useEffect(() => {
+    listAdoptedObjectives()
+      .then(setObjectives)
+      .catch(() => setObjectives([]));
+  }, []);
   const [form, setForm] = useState<Record<string, string>>({
     title: "",
     kind: "threat",
     context_id: cockpit.contexts[0]?.id ?? "",
     criteria_profile_id: cockpit.criteria[0]?.id ?? "",
     asset_id: "",
+    objective_id: "",
     objective_at_risk: "",
     risk_source: "",
     event_description: "",
@@ -1436,6 +1445,7 @@ function AssessmentModal({
         criteria_profile_id: form.criteria_profile_id,
         asset_id: form.asset_id || undefined,
         site_id: selectedAsset?.site_id ?? undefined,
+        objective_id: form.objective_id,
         objective_at_risk: form.objective_at_risk,
         risk_source: form.risk_source,
         event_description: form.event_description,
@@ -1559,11 +1569,28 @@ function AssessmentModal({
                 })),
               ]}
             />
+            <SelectField
+              label="Objective (risk always links to an adopted objective)"
+              value={form.objective_id}
+              onChange={set("objective_id")}
+              options={[
+                {
+                  value: "",
+                  label: objectives.length
+                    ? "Select the objective this risk threatens"
+                    : "No adopted objectives — adopt one in the enterprise panels first",
+                },
+                ...objectives.map((item) => ({
+                  value: item.id,
+                  label: `${item.objective_level.replaceAll("_", " ")} · ${item.description}`,
+                })),
+              ]}
+              required
+            />
             <Field
-              label="Objective at risk"
+              label="Objective at risk (phrasing — defaults to the objective's description)"
               value={form.objective_at_risk}
               onChange={set("objective_at_risk")}
-              required
             />
             <TextArea
               label="Decision being supported"
