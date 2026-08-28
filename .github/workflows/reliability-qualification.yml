@@ -119,8 +119,12 @@ on:
         default: true
         type: boolean
 
+# actions: read is required by check-reliability-baseline.mjs, which verifies
+# that reference-outputs.json names an Actions run that actually happened; the
+# default hardened token returns HTTP 403 on the runs API without it.
 permissions:
   contents: read
+  actions: read
 
 jobs:
   deterministic-floor:
@@ -147,6 +151,8 @@ jobs:
 
       - name: Protected-surface qualification gate
         run: node scripts/check-reliability-baseline.mjs
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
 
       - name: Deployed-model gate
         run: node scripts/check-deployed-model.mjs
@@ -182,6 +188,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      actions: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
