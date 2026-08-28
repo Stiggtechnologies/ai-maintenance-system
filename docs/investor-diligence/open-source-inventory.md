@@ -4,9 +4,9 @@ This inventory is generated deterministically from `package-lock.json` by
 `scripts/compliance/generate-license-inventory.mjs`. It is technical
 diligence evidence, not a legal opinion.
 
-- Lockfile SHA-256: `ec8be4de9b4e9379fddcfc824c4cee99ae9cb3f7873ce549990ce8f39637073b`
-- Package instances: **404**
-- Direct production dependencies: **13**
+- Lockfile SHA-256: `3d2c1acd87bfbedb7696ebf7e66b4d9cc8427176098728d5958bb18b6f334a3f`
+- Package instances: **405**
+- Direct production dependencies: **14**
 - Direct development dependencies: **26**
 - Prohibited-license matches: **0**
 - Missing license metadata: **0**
@@ -32,7 +32,7 @@ patents, trademarks, or customer distribution obligations.
 | CC-BY-4.0 | 1 | Manual notice review |
 | CC0-1.0 | 1 | Permitted by automated baseline |
 | ISC | 22 | Permitted by automated baseline |
-| MIT | 322 | Permitted by automated baseline |
+| MIT | 323 | Permitted by automated baseline |
 | MIT-0 | 2 | Permitted by automated baseline |
 | MPL-2.0 | 12 | Manual notice review |
 | OFL-1.1 | 2 | Manual notice review |
@@ -58,6 +58,7 @@ patents, trademarks, or customer distribution obligations.
 | eslint-plugin-react-hooks | 7.1.1 | development | MIT |
 | eslint-plugin-react-refresh | 0.5.3 | development | MIT |
 | eslint | 10.7.0 | development | MIT |
+| fflate | 0.8.3 | production | MIT |
 | framer-motion | 12.43.0 | production | MIT |
 | globals | 17.7.0 | development | MIT |
 | husky | 9.1.7 | development | MIT |

@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
   "source": "package-lock.json",
-  "lockfileSha256": "ec8be4de9b4e9379fddcfc824c4cee99ae9cb3f7873ce549990ce8f39637073b",
-  "packageInstances": 404,
-  "directProductionDependencies": 13,
+  "lockfileSha256": "3d2c1acd87bfbedb7696ebf7e66b4d9cc8427176098728d5958bb18b6f334a3f",
+  "packageInstances": 405,
+  "directProductionDependencies": 14,
   "directDevelopmentDependencies": 26,
   "prohibitedCount": 0,
   "unknownCount": 0,
@@ -16,7 +16,7 @@
     "CC-BY-4.0": 1,
     "CC0-1.0": 1,
     "ISC": 22,
-    "MIT": 322,
+    "MIT": 323,
     "MIT-0": 2,
     "MPL-2.0": 12,
     "OFL-1.1": 2
@@ -1647,6 +1647,13 @@
       "license": "MIT",
       "direct": "transitive",
       "packagePath": "node_modules/tinyglobby/node_modules/fdir"
+    },
+    {
+      "name": "fflate",
+      "version": "0.8.3",
+      "license": "MIT",
+      "direct": "production",
+      "packagePath": "node_modules/fflate"
     },
     {
       "name": "file-entry-cache",
