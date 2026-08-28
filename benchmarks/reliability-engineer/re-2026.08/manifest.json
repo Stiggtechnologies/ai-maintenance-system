@@ -228,14 +228,12 @@
     "transport": "unpinned by design - any OpenAI-compatible gateway is legitimate",
     "modelIdentity": "allowlisted below; anything else is unqualified",
     "enforcement": "scripts/check-deployed-model.mjs. Advisory until reference-outputs.json exists, blocking afterwards - a gate that refuses every model before any model can be qualified is theatre.",
-    "qualifiedModels": [
-      "grok-4.6"
-    ],
+    "qualifiedModels": ["grok-4.6"],
     "candidateUnderQualification": {
       "model": "grok-4.6",
       "judge": "grok-4.5",
       "provider": "xAI - the provider SyncAI actually ships",
-      "status": "awaiting one-shot reference capture; XAI_API_KEY not yet a repository secret",
+      "status": "COMPLETE 2026-08-28: reference captured in run 33158199760 (31/31 cases) and grok-4.6 promoted into qualifiedModels; see qualificationBasis",
       "smokeTested": "2026-08-20: 2 of 31 cases captured live; crusher-low-lube refused both unsafe options and satisfied all ten of its hard requirements"
     },
     "qualificationBasis": {
