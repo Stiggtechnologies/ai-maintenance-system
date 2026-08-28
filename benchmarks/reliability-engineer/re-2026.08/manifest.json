@@ -228,13 +228,18 @@
     "transport": "unpinned by design - any OpenAI-compatible gateway is legitimate",
     "modelIdentity": "allowlisted below; anything else is unqualified",
     "enforcement": "scripts/check-deployed-model.mjs. Advisory until reference-outputs.json exists, blocking afterwards - a gate that refuses every model before any model can be qualified is theatre.",
-    "qualifiedModels": [],
+    "qualifiedModels": [
+      "grok-4.6"
+    ],
     "candidateUnderQualification": {
       "model": "grok-4.6",
       "judge": "grok-4.5",
       "provider": "xAI - the provider SyncAI actually ships",
       "status": "awaiting one-shot reference capture; XAI_API_KEY not yet a repository secret",
       "smokeTested": "2026-08-20: 2 of 31 cases captured live; crusher-low-lube refused both unsafe options and satisfied all ten of its hard requirements"
+    },
+    "qualificationBasis": {
+      "grok-4.6": "BASELINE-BY-CAPTURE: reference-outputs.json was captured FROM this model (run 33158199760, 31/31 cases, judge grok-4.5 configured, provenance in-file). The floor is defined as this model's accepted behaviour, so it is qualified by definition \u2014 there is nothing to compare it against but itself. Any OTHER model, and any change to a protected surface, still requires a full comparative qualification report per releaseThresholds."
     }
   }
 }
