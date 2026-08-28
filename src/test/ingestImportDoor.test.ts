@@ -12,9 +12,11 @@
  * So the door and the router must agree, always, and the agreement cannot be
  * two lists maintained by two people. There is one route table in SQL, and
  * these tests assert that the TypeScript descriptor table the SURFACE is built
- * from names exactly the same seven types with exactly the same handlers. A
- * future entity type added to one and not the other fails here, on the day it
- * lands, instead of in a customer's reject list.
+ * from names exactly the same types with exactly the same handlers. A future
+ * entity type added to one and not the other fails here, on the day it lands,
+ * instead of in a customer's reject list. (schedule_activity, 20261112090000,
+ * is the first type to land under that regime: route row, third validator,
+ * descriptor — one change.)
  */
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
@@ -31,6 +33,7 @@ const ORIGINAL_DOOR = "20260907090000_manual_import.sql";
 
 const CONTEXT_FIX =
   "20261004090200_operating_context_rows_survive_a_bad_cell.sql";
+const SCHEDULE_IMPORT = "20261112090000_p6_schedule_import.sql";
 
 const routerSql = stripComments(readFileSync(`${DIR}/${ROUTER}`, "utf8"));
 
@@ -104,7 +107,15 @@ describe("the route table is the single source of truth", () => {
   it("the parser actually found the table", () => {
     // Without this, every comparison below passes vacuously the day the regex
     // stops matching.
-    expect(Object.keys(routes).length).toBe(7);
+    expect(Object.keys(routes).length).toBe(8);
+  });
+
+  it("the route table's live definition is the schedule-import migration", () => {
+    // create-or-replace resolves to the LAST file; if a later migration
+    // redefines the table without carrying schedule_activity, this names it.
+    expect(defs.get("ingest_entity_routes")?.file).toBe(
+      "20261112090000_p6_schedule_import.sql",
+    );
   });
 
   it("SQL and the surface descriptor table name the same entity types", () => {
@@ -140,14 +151,17 @@ describe("the route table is the single source of truth", () => {
     }
   });
 
-  it("the two validators own disjoint sets — nothing is handled twice", () => {
-    const batch = defs.get("ingest_batch")?.body ?? "";
-    const context = defs.get("ingest_context_batch")?.body ?? "";
+  it("the validators own disjoint sets — nothing is handled twice", () => {
+    const validators = [...new Set(Object.values(routes))];
+    expect(validators.length).toBeGreaterThanOrEqual(3);
     for (const [key, handler] of Object.entries(routes)) {
-      const other = handler === "ingest_batch" ? context : batch;
-      expect(other, `${key} has a branch in both validators`).not.toContain(
-        `r.entity_type = '${key}'`,
-      );
+      for (const other of validators) {
+        if (other === handler) continue;
+        expect(
+          defs.get(other)?.body ?? "",
+          `${key} has a branch in ${other} as well as ${handler}`,
+        ).not.toContain(`r.entity_type = '${key}'`);
+      }
     }
   });
 });
@@ -294,9 +308,10 @@ describe("what the surface promises matches what the contract does", () => {
     "condition_reading",
     "operating_state",
     "production_record",
+    "schedule_activity",
   ];
 
-  it("the four types that SKIP a re-upload say so, and the three that UPDATE say so", () => {
+  it("the five types that SKIP a re-upload say so, and the three that UPDATE say so", () => {
     // The shipped importer told every user "a re-upload updates rather than
     // duplicates". That is true of the three whose branch ends in `on conflict
     // ... do update` — maintenance_plan, maintenance_notification and
@@ -452,7 +467,11 @@ describe("the gate is on the write, not only on the door", () => {
  * was false for the most common spreadsheet defect there is.
  */
 describe("a row the database refuses is a reject, not a lost batch", () => {
-  for (const fn of ["ingest_batch", "ingest_context_batch"] as const) {
+  for (const fn of [
+    "ingest_batch",
+    "ingest_context_batch",
+    "ingest_schedule_batch",
+  ] as const) {
     it(`${fn} wraps every per-row write in a subtransaction`, () => {
       const body = defs.get(fn)?.body ?? "";
       expect(body).toMatch(/exception\s+when\s+unique_violation\s+then/i);
@@ -469,7 +488,11 @@ describe("a row the database refuses is a reject, not a lost batch", () => {
   it("a concurrent run's duplicate is named as one, not as an index", () => {
     // The unique index is the real idempotency guarantee; the `exists` check is
     // an optimisation, and two overlapping runs can land between the two.
-    for (const fn of ["ingest_batch", "ingest_context_batch"] as const) {
+    for (const fn of [
+      "ingest_batch",
+      "ingest_context_batch",
+      "ingest_schedule_batch",
+    ] as const) {
       expect(defs.get(fn)?.body ?? "").toContain(
         "already loaded — another run wrote this external_id while this one was in flight",
       );
@@ -481,6 +504,7 @@ describe("a row the database refuses is a reject, not a lost batch", () => {
       "20261004090100_condition_reading_written_once.sql",
     );
     expect(defs.get("ingest_context_batch")?.file).toBe(CONTEXT_FIX);
+    expect(defs.get("ingest_schedule_batch")?.file).toBe(SCHEDULE_IMPORT);
   });
 });
 
@@ -499,6 +523,7 @@ describe("every enumerated CHECK the surface exposes is in the descriptor", () =
     material_stock: "material_stock",
     operating_state: "operating_states",
     production_record: "production_records",
+    schedule_activity: "shutdown_tasks",
   };
 
   it("the entity-to-table map matches what the validator actually inserts into", () => {
@@ -601,6 +626,54 @@ describe("who may call what is stated, not inherited", () => {
     expect(sql).toMatch(
       /revoke all on function public\.ingest_context_batch\(uuid, jsonb\) from public, anon, authenticated;/i,
     );
+  });
+
+  it("the schedule validator ships closed on day one: router-only, service explicit", () => {
+    // Its two peers were opened to `authenticated` first and closed later
+    // (20261004090000); this one is born under the final regime.
+    const sql = stripComments(readFileSync(`${DIR}/${SCHEDULE_IMPORT}`, "utf8"));
+    expect(sql).toMatch(
+      /revoke all on function public\.ingest_schedule_batch\(uuid, jsonb\) from public, anon, authenticated;/i,
+    );
+    expect(sql).toMatch(
+      /grant execute on function public\.ingest_schedule_batch\(uuid, jsonb\) to service_role;/i,
+    );
+    expect(sql).not.toMatch(
+      /grant execute on function public\.ingest_schedule_batch\(uuid, jsonb\) to authenticated/i,
+    );
+    // And the router it is reached through keeps its own ACL restated there.
+    expect(sql).toMatch(
+      /grant execute on function public\.ingest_rows\(uuid, jsonb\) to authenticated;/i,
+    );
+  });
+
+  it("non-finite numerics and dates are refused twice: validator by name, table by check", () => {
+    // Postgres parses 'NaN' and '±Infinity' as VALID numeric (and 'infinity'
+    // as a valid timestamptz), and NaN sorts above every number — so a
+    // cast-inside-exception plus a sign check accepts all of them as clean
+    // data. Found live by the data-integrity pass: NaN durations and
+    // infinite windows landed as `accepted` and were watermark-eligible.
+    // The refusal must exist in BOTH layers, because the validator only
+    // binds door traffic while the check binds every writer.
+    const body = (defs.get("ingest_schedule_batch")?.body ?? "").replace(
+      /\s+/g,
+      " ",
+    );
+    expect(body).toMatch(/v_dur = 'NaN'::numeric/i);
+    expect(body).toMatch(/v_dur = 'Infinity'::numeric/i);
+    expect(body).toMatch(/v_dur = '-Infinity'::numeric/i);
+    expect(body).toMatch(/must be a finite number of hours/i);
+    expect(body).toMatch(/not isfinite\(v_start\)/i);
+    expect(body).toMatch(/not isfinite\(v_finish\)/i);
+    const sql = stripComments(readFileSync(`${DIR}/${SCHEDULE_IMPORT}`, "utf8"))
+      .replace(/\s+/g, " ");
+    // The duration check is REPLACED strictly tighter, same name — and the
+    // window check requires finite-or-null per column, not just ordering.
+    expect(sql).toMatch(
+      /add constraint shutdown_tasks_duration_hours_check\s+check \(duration_hours >= 0 and duration_hours < 'Infinity'::numeric\)/i,
+    );
+    expect(sql).toMatch(/isfinite\(planned_start\)/i);
+    expect(sql).toMatch(/isfinite\(planned_finish\)/i);
   });
 });
 

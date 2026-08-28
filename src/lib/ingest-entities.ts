@@ -2,12 +2,14 @@
  * What the ingest contract carries, per entity type, in the words the person
  * uploading needs BEFORE they upload (capability register C2.04, C8.03, C2.12).
  *
- * WHY THIS TABLE EXISTS RATHER THAN SEVEN COMPONENTS. The seven entity types
- * differ in ways nobody can guess from an error message and which a single
- * shared sentence gets WRONG:
+ * WHY THIS TABLE EXISTS RATHER THAN PER-ENTITY COMPONENTS. The entity types
+ * (seven when this table was written; schedule_activity joined in
+ * 20261112090000) differ in ways nobody can guess from an error message and
+ * which a single shared sentence gets WRONG:
  *
  *   - required columns differ;
- *   - the dedupe key differs — three different keys across the seven;
+ *   - the dedupe key differs — including in SCOPE: a work order is unique per
+ *     organization, a schedule activity only per schedule;
  *   - re-upload behaviour differs, and this is the dangerous one. The shipped
  *     importer told every user "a re-upload updates rather than duplicates".
  *     That is true of maintenance_plan, maintenance_notification and
@@ -51,9 +53,13 @@ export type IngestEntityKey =
   | "condition_reading"
   | "material_stock"
   | "operating_state"
-  | "production_record";
+  | "production_record"
+  | "schedule_activity";
 
-export type IngestHandler = "ingest_batch" | "ingest_context_batch";
+export type IngestHandler =
+  | "ingest_batch"
+  | "ingest_context_batch"
+  | "ingest_schedule_batch";
 
 export interface ColumnSpec {
   name: string;
@@ -558,6 +564,115 @@ export const INGEST_ENTITIES: Readonly<Record<IngestEntityKey, IngestEntity>> =
       ],
     },
 
+    schedule_activity: {
+      key: "schedule_activity",
+      label: "Schedule activities (P6)",
+      handler: "ingest_schedule_batch",
+      purpose:
+        "A project schedule exported from Primavera P6 (CSV layout), imported against a development case. P6 remains the system of record — Sync analyzes the schedule and never writes back. This slice LISTS what was imported on the case workspace; critical-path and schedule-confidence analysis are later work and are not claimed.",
+      columns: [
+        {
+          name: "case_title",
+          kind: "text",
+          note: "the development case's title, exactly as it appears in Develop",
+        },
+        {
+          name: "development_case_id",
+          kind: "text",
+          note: "the case's id, if you have it — either column will do",
+        },
+        {
+          name: "activity_id",
+          required: true,
+          kind: "text",
+          note: "the P6 Activity ID — this row's identity within its schedule",
+        },
+        {
+          name: "wbs_path",
+          kind: "text",
+          note: "the WBS path, recorded verbatim",
+        },
+        {
+          name: "description",
+          required: true,
+          kind: "text",
+          note: "the activity name",
+        },
+        {
+          name: "original_duration_hours",
+          required: true,
+          kind: "number",
+          min: 0,
+          note: "original duration IN HOURS, a finite non-negative number — P6 duration units are calendar-dependent, and this import records rather than guesses the calendar",
+        },
+        {
+          name: "planned_start",
+          required: true,
+          kind: "timestamp",
+          note: "planned start",
+        },
+        {
+          name: "planned_finish",
+          required: true,
+          kind: "timestamp",
+          note: "planned finish; a milestone may equal its start",
+        },
+        {
+          name: "predecessors",
+          kind: "text",
+          note: "predecessor activity ids, separated by commas or semicolons — plain ids only, no relationship type or lag",
+        },
+        {
+          name: "calendar",
+          kind: "text",
+          note: "the P6 calendar name, recorded and never interpreted",
+        },
+        {
+          name: "schedule_name",
+          kind: "text",
+          note: "groups activities into one named schedule per case; blank means “P6 import”",
+        },
+      ],
+      requiredOneOf: [["case_title", "development_case_id"]],
+      externalIdFrom: "activity_id",
+      dedupe: "one activity per activity_id, per schedule",
+      reupload: "skips",
+      reuploadSentence:
+        "A re-upload is counted as DUPLICATE and skipped — a changed P6 export does not update activities in place. Schedule revisions against a baseline are change-control territory, not an import overwrite.",
+      caution:
+        "Every predecessor must resolve WITHIN THIS SCHEDULE — an activity already imported, or a valid row of the same upload. A row naming a predecessor that is missing, or that was itself refused, is REFUSED with the predecessor named, so the stored dependency set can never point at an activity that is not there. Files are sent in batches of 500 rows: if an export lists a successor more than 500 rows before its predecessor, upload the file again — the rows already loaded deduplicate and the remainder land against them.",
+      outcome:
+        "Activities appear in the case workspace's Schedule section, listed with their dependencies. Analysis — critical path, schedule confidence, simulation over imported activities — is later work and does not exist yet.",
+      templateRows: [
+        [
+          "Crusher relining programme",
+          "",
+          "A1000",
+          "MINE.CRUSH.RELINE",
+          "Mobilise reline crew",
+          "24",
+          "2027-03-01T06:00:00Z",
+          "2027-03-02T06:00:00Z",
+          "",
+          "7d-24h",
+          "Reline 2027",
+        ],
+        [
+          "Crusher relining programme",
+          "",
+          "A1010",
+          "MINE.CRUSH.RELINE",
+          "Remove worn liners",
+          "36",
+          "2027-03-02T06:00:00Z",
+          "2027-03-03T18:00:00Z",
+          "A1000",
+          "7d-24h",
+          "Reline 2027",
+        ],
+      ],
+    },
+
     production_record: {
       key: "production_record",
       label: "Production records",
@@ -645,6 +760,7 @@ export const INGEST_ENTITY_ORDER: readonly IngestEntityKey[] = [
   "production_record",
   "condition_reading",
   "material_stock",
+  "schedule_activity",
 ];
 
 /** Header row for the downloadable template, in declaration order. */

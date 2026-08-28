@@ -81,6 +81,21 @@
 #     org-scoped; the agent's only write (AI_INFERENCE evidence) moves NO
 #     readiness number and NO blocker — asserted by diffing get_gate_readiness
 #     before and after the write;
+#   * P6 schedule import (step 23, D5.28 import half / D11.33): the route
+#     table carries schedule_activity through the SAME door — roleless user
+#     refused at door and write; a clean P6-shaped CSV lands tasks +
+#     dependencies on the shutdown schedule family keyed to the case;
+#     re-upload deduplicates; malformed rows are retained rejects with named
+#     reasons; an unresolved predecessor rejects BY NAME and a row depending
+#     on a refused row cascades with the name; the dependency set never
+#     dangles; NaN/±Infinity durations and infinite planned dates — which
+#     Postgres casts without raising and which satisfy sign/order checks
+#     vacuously — are named refusals at the validator AND at the table
+#     checks (no writer, service role included, can seed them);
+#     watermark holds on partial and advances on clean; direct
+#     client writes to the schedule model refused (SELECT-only RLS); the
+#     Case Workspace schedule section renders what landed. P6 stays
+#     system-of-record — nothing writes back;
 #   * readiness integrity (20261110090400): a review carrying two findings
 #     for one criterion is refused at the RPC (btrim-matched); a duplicate
 #     landed through the admitted-and-audited service path collapses to the
@@ -149,6 +164,8 @@ psqlc "update project_frameworks set superseded_by=null where organization_id='$
 psqlc "delete from project_frameworks where organization_id='$ORG' and name='Reference Heavy-Industry Stage Gate' and version>1;" >/dev/null
 psqlc "update project_frameworks set status='adopted' where organization_id='$ORG' and name='Reference Heavy-Industry Stage Gate' and version=1;" >/dev/null
 psqlc "update authority_limits set status='draft', adopted_by=null, adopted_at=null where organization_id='$ORG' and action_type='sanction' and status='adopted';" >/dev/null
+psqlc "delete from shutdown_events where organization_id='$ORG' and title like '%SMOKE1%';" >/dev/null
+psqlc "delete from ingest_watermarks where organization_id='$ORG' and entity_type='schedule_activity' and connector_id in (select id from connectors where organization_id='$ORG' and connector_key='manual-upload-schedule_activity');" >/dev/null
 
 FW=$(psqlc "select id from project_frameworks where organization_id='$ORG' and name='Reference Heavy-Industry Stage Gate' and status='adopted' limit 1")
 test -n "$FW"
@@ -1085,6 +1102,110 @@ psqlc "update stage_gate_criteria set weight=$W22 where id=$SC22" >/dev/null
 test "$(psqlc "select count(*) from security_events where organization_id='$ORG' and detail like 'Adopted-framework requirement content%'")" = "$((WAUD_B+2))"
 test "$(psqlc "select weight::text from stage_gate_criteria where id=$SC22")" = "$W22"
 echo 'adopted weight: client refused, service audited both ways, value restored'
+
+echo '— 23. P6 schedule import: the door carries schedule_activity (D5.28 import half) —'
+# (a) roleless user refused at the door AND at the write (the gate is on both).
+R=$(rpc "$TECH" begin_manual_import '{"p_entity_type":"schedule_activity"}')
+expect_err "$R" 'requires a planning'
+# (b) the door opens for a planner and routes to the schedule validator.
+R=$(rpc "$PLANNER" begin_manual_import '{"p_entity_type":"schedule_activity"}')
+noerr "$R"
+SRUN=$(printf '%s' "$R"|field run_id); test -n "$SRUN"
+SCONN=$(printf '%s' "$R"|field connector_id); test -n "$SCONN"
+# ...and the technician cannot push rows through the planner's run id.
+R=$(rpc "$TECH" ingest_rows "{\"p_run_id\":\"$SRUN\",\"p_rows\":[{\"activity_id\":\"X1\",\"external_id\":\"X1\",\"development_case_id\":\"$CASE\",\"description\":\"tech push\",\"original_duration_hours\":\"4\",\"planned_start\":\"2027-03-01T06:00:00Z\",\"planned_finish\":\"2027-03-01T10:00:00Z\"}]}")
+expect_err "$R" 'requires a planning'
+# (c) a clean P6-shaped file lands: tasks, dependencies, case-bound event.
+R=$(rpc "$PLANNER" ingest_rows "{\"p_run_id\":\"$SRUN\",\"p_rows\":[
+ {\"activity_id\":\"A1000\",\"external_id\":\"A1000\",\"development_case_id\":\"$CASE\",\"wbs_path\":\"MINE.CRUSH\",\"description\":\"Mobilise reline crew\",\"original_duration_hours\":\"24\",\"planned_start\":\"2027-03-01T06:00:00Z\",\"planned_finish\":\"2027-03-02T06:00:00Z\",\"calendar\":\"7d-24h\",\"schedule_name\":\"SMOKE1 Reline\"},
+ {\"activity_id\":\"A1010\",\"external_id\":\"A1010\",\"development_case_id\":\"$CASE\",\"wbs_path\":\"MINE.CRUSH\",\"description\":\"Remove worn liners\",\"original_duration_hours\":\"36\",\"planned_start\":\"2027-03-02T06:00:00Z\",\"planned_finish\":\"2027-03-03T18:00:00Z\",\"predecessors\":\"A1000\",\"calendar\":\"7d-24h\",\"schedule_name\":\"SMOKE1 Reline\"},
+ {\"activity_id\":\"A1020\",\"external_id\":\"A1020\",\"development_case_id\":\"$CASE\",\"wbs_path\":\"MINE.CRUSH\",\"description\":\"Install new liners\",\"original_duration_hours\":\"40\",\"planned_start\":\"2027-03-03T18:00:00Z\",\"planned_finish\":\"2027-03-05T10:00:00Z\",\"predecessors\":\"A1010;A1000\",\"calendar\":\"7d-24h\",\"schedule_name\":\"SMOKE1 Reline\"}]}")
+noerr "$R"
+test "$(printf '%s' "$R"|field accepted)" = "3"
+test "$(printf '%s' "$R"|field rejected)" = "0"
+SEV=$(psqlc "select id from shutdown_events where organization_id='$ORG' and development_case_id='$CASE' and title like 'SMOKE1 Reline%'")
+test -n "$SEV"
+test "$(psqlc "select count(*) from shutdown_tasks where event_id='$SEV'")" = "3"
+test "$(psqlc "select count(*) from shutdown_task_dependencies where event_id='$SEV'")" = "3"
+test "$(psqlc "select string_agg(predecessor_key,',' order by predecessor_key) from shutdown_task_dependencies where event_id='$SEV' and task_key='A1020'")" = "A1000,A1010"
+echo 'clean file landed: 3 tasks, 3 dependencies, event bound to the case'
+# (d) re-upload deduplicates — same identity, skipped, not written twice.
+R=$(rpc "$PLANNER" ingest_rows "{\"p_run_id\":\"$SRUN\",\"p_rows\":[
+ {\"activity_id\":\"A1000\",\"external_id\":\"A1000\",\"development_case_id\":\"$CASE\",\"description\":\"Mobilise reline crew\",\"original_duration_hours\":\"24\",\"planned_start\":\"2027-03-01T06:00:00Z\",\"planned_finish\":\"2027-03-02T06:00:00Z\",\"schedule_name\":\"SMOKE1 Reline\"}]}")
+test "$(printf '%s' "$R"|field duplicate)" = "1"
+test "$(psqlc "select count(*) from shutdown_tasks where event_id='$SEV'")" = "3"
+echo 're-upload deduplicated: 1 duplicate, still 3 tasks'
+# (e) malformed rows are RETAINED rejects with named reasons; the good row
+#     rides along; a row depending on a refused row falls WITH ITS NAME.
+R=$(rpc "$PLANNER" ingest_rows "{\"p_run_id\":\"$SRUN\",\"p_rows\":[
+ {\"activity_id\":\"B1\",\"external_id\":\"B1\",\"development_case_id\":\"$CASE\",\"description\":\"\",\"original_duration_hours\":\"8\",\"planned_start\":\"2027-03-01T06:00:00Z\",\"planned_finish\":\"2027-03-01T14:00:00Z\",\"schedule_name\":\"SMOKE1 Reline\"},
+ {\"activity_id\":\"B3\",\"external_id\":\"B3\",\"development_case_id\":\"$CASE\",\"description\":\"Ghost predecessor\",\"original_duration_hours\":\"8\",\"planned_start\":\"2027-03-01T06:00:00Z\",\"planned_finish\":\"2027-03-01T14:00:00Z\",\"predecessors\":\"GHOST\",\"schedule_name\":\"SMOKE1 Reline\"},
+ {\"activity_id\":\"B4\",\"external_id\":\"B4\",\"development_case_id\":\"$CASE\",\"description\":\"Depends on refused row\",\"original_duration_hours\":\"8\",\"planned_start\":\"2027-03-01T06:00:00Z\",\"planned_finish\":\"2027-03-01T14:00:00Z\",\"predecessors\":\"B3\",\"schedule_name\":\"SMOKE1 Reline\"},
+ {\"activity_id\":\"B9\",\"external_id\":\"B9\",\"development_case_id\":\"$CASE\",\"description\":\"Good row rides along\",\"original_duration_hours\":\"8\",\"planned_start\":\"2027-03-05T10:00:00Z\",\"planned_finish\":\"2027-03-05T18:00:00Z\",\"predecessors\":\"A1020\",\"schedule_name\":\"SMOKE1 Reline\"}]}")
+noerr "$R"
+test "$(printf '%s' "$R"|field accepted)" = "1"
+test "$(printf '%s' "$R"|field rejected)" = "3"
+REJ=$(rpc "$PLANNER" get_import_rejects "{\"p_run_id\":\"$SRUN\",\"p_limit\":50}")
+printf '%s' "$REJ" | grep -q 'missing description'
+printf '%s' "$REJ" | grep -q 'unknown predecessor \\"GHOST\\"'
+printf '%s' "$REJ" | grep -q 'predecessor \\"B3\\" was refused in this upload'
+test "$(psqlc "select count(*) from shutdown_task_dependencies d where d.event_id='$SEV' and not exists (select 1 from shutdown_tasks t where t.event_id=d.event_id and t.task_key=d.predecessor_key)")" = "0"
+echo 'malformed rows refused with named reasons; dependency set has no dangling predecessors'
+# (e2) non-finite numerics and dates: Postgres casts 'NaN'/'±Infinity' as
+#      VALID numeric and 'infinity' as a valid timestamptz, and NaN compares
+#      above every number — so a sign check alone waves them through. Each is
+#      a named refusal, and none of them lands.
+NF_BEFORE=$(psqlc "select count(*) from shutdown_tasks where event_id='$SEV'")
+R=$(rpc "$PLANNER" ingest_rows "{\"p_run_id\":\"$SRUN\",\"p_rows\":[
+ {\"activity_id\":\"N1\",\"external_id\":\"N1\",\"development_case_id\":\"$CASE\",\"description\":\"NaN duration\",\"original_duration_hours\":\"NaN\",\"planned_start\":\"2027-03-01T06:00:00Z\",\"planned_finish\":\"2027-03-01T14:00:00Z\",\"schedule_name\":\"SMOKE1 Reline\"},
+ {\"activity_id\":\"N2\",\"external_id\":\"N2\",\"development_case_id\":\"$CASE\",\"description\":\"Infinite duration\",\"original_duration_hours\":\"Infinity\",\"planned_start\":\"2027-03-01T06:00:00Z\",\"planned_finish\":\"2027-03-01T14:00:00Z\",\"schedule_name\":\"SMOKE1 Reline\"},
+ {\"activity_id\":\"N3\",\"external_id\":\"N3\",\"development_case_id\":\"$CASE\",\"description\":\"Negative infinite duration\",\"original_duration_hours\":\"-Infinity\",\"planned_start\":\"2027-03-01T06:00:00Z\",\"planned_finish\":\"2027-03-01T14:00:00Z\",\"schedule_name\":\"SMOKE1 Reline\"},
+ {\"activity_id\":\"N4\",\"external_id\":\"N4\",\"development_case_id\":\"$CASE\",\"description\":\"Infinite start\",\"original_duration_hours\":\"8\",\"planned_start\":\"-infinity\",\"planned_finish\":\"2027-03-01T14:00:00Z\",\"schedule_name\":\"SMOKE1 Reline\"},
+ {\"activity_id\":\"N5\",\"external_id\":\"N5\",\"development_case_id\":\"$CASE\",\"description\":\"Infinite finish\",\"original_duration_hours\":\"8\",\"planned_start\":\"2027-03-01T06:00:00Z\",\"planned_finish\":\"infinity\",\"schedule_name\":\"SMOKE1 Reline\"}]}")
+noerr "$R"
+test "$(printf '%s' "$R"|field accepted)" = "0"
+test "$(printf '%s' "$R"|field rejected)" = "5"
+REJ=$(rpc "$PLANNER" get_import_rejects "{\"p_run_id\":\"$SRUN\",\"p_limit\":50}")
+printf '%s' "$REJ" | grep -q 'original_duration_hours is NaN; a duration must be a finite number of hours'
+printf '%s' "$REJ" | grep -q 'original_duration_hours is Infinity'
+printf '%s' "$REJ" | grep -q 'original_duration_hours is -Infinity'
+printf '%s' "$REJ" | grep -q 'planned_start is -infinity; a planned date must be a finite calendar date'
+printf '%s' "$REJ" | grep -q 'planned_finish is infinity'
+test "$(psqlc "select count(*) from shutdown_tasks where event_id='$SEV'")" = "$NF_BEFORE"
+# ...and the TABLE refuses them too (belt-and-braces): even a raw service
+# write cannot seed a non-finite duration or an unbounded window.
+OUT=$(sql_must_fail "insert into shutdown_tasks (event_id, task_key, label, duration_hours) values ('$SEV','NFX1','nan probe','NaN');")
+printf '%s' "$OUT" | grep -q 'shutdown_tasks_duration_hours_check'
+OUT=$(sql_must_fail "insert into shutdown_tasks (event_id, task_key, label, duration_hours, planned_start, planned_finish) values ('$SEV','NFX2','infinite window probe',1,'-infinity','infinity');")
+printf '%s' "$OUT" | grep -q 'planned_window_ordered'
+test "$(psqlc "select count(*) from shutdown_tasks where event_id='$SEV' and task_key like 'NFX%'")" = "0"
+echo 'non-finite durations and dates refused by name at the validator AND by the table checks'
+# (f) the watermark does NOT advance on a run carrying rejects...
+R=$(rpc "$PLANNER" finish_connector_run "{\"p_run_id\":\"$SRUN\",\"p_status\":\"partial\"}")
+test "$(printf '%s' "$R"|field watermark_advanced)" = "False"
+test "$(psqlc "select count(*) from ingest_watermarks where connector_id='$SCONN' and entity_type='schedule_activity'")" = "0"
+# ...and does on a clean one.
+R=$(rpc "$PLANNER" begin_manual_import '{"p_entity_type":"schedule_activity"}')
+SRUN2=$(printf '%s' "$R"|field run_id); test -n "$SRUN2"
+R=$(rpc "$PLANNER" ingest_rows "{\"p_run_id\":\"$SRUN2\",\"p_rows\":[{\"activity_id\":\"C1\",\"external_id\":\"C1\",\"development_case_id\":\"$CASE\",\"description\":\"Clean run row\",\"original_duration_hours\":\"4\",\"planned_start\":\"2027-03-06T06:00:00Z\",\"planned_finish\":\"2027-03-06T10:00:00Z\",\"schedule_name\":\"SMOKE1 Reline\"}]}")
+test "$(printf '%s' "$R"|field accepted)" = "1"
+R=$(rpc "$PLANNER" finish_connector_run "{\"p_run_id\":\"$SRUN2\",\"p_status\":\"success\"}")
+test "$(printf '%s' "$R"|field watermark_advanced)" = "True"
+test "$(psqlc "select count(*) from ingest_watermarks where connector_id='$SCONN' and entity_type='schedule_activity'")" = "1"
+echo 'watermark held on the partial run, advanced on the clean one'
+# (g) a client cannot write the schedule model directly: SELECT-only RLS.
+BEFORE=$(psqlc "select count(*) from shutdown_tasks where event_id='$SEV'")
+curl -sS -X POST "$API_URL/rest/v1/shutdown_tasks" \
+  -H "apikey: $ANON_KEY" -H "Authorization: Bearer $PLANNER" \
+  -H 'Content-Type: application/json' \
+  -d "{\"event_id\":\"$SEV\",\"task_key\":\"HAX\",\"label\":\"direct write\",\"duration_hours\":1}" >/dev/null
+test "$(psqlc "select count(*) from shutdown_tasks where event_id='$SEV'")" = "$BEFORE"
+# (h) the Case Workspace readback lists the imported schedule.
+WS=$(rpc "$PLANNER" get_development_case "{\"p_case_id\":\"$CASE\"}")
+SCH_COUNT=$(printf '%s' "$WS" | python3 -c "import json,sys; w=json.load(sys.stdin); sch=[e for e in w['schedule'] if e['title'].startswith('SMOKE1 Reline')]; print(len(sch[0]['activities']) if sch else 0)")
+test "$SCH_COUNT" = "5"
+printf '%s' "$WS" | python3 -c "import json,sys; w=json.load(sys.stdin); sch=[e for e in w['schedule'] if e['title'].startswith('SMOKE1 Reline')][0]; a={x['activityId']:x for x in sch['activities']}; assert a['A1020']['predecessors']==['A1000','A1010'], a['A1020']; assert a['B9']['predecessors']==['A1020']"
+echo 'workspace schedule section renders 5 imported activities with dependencies'
 
 echo 'DEVELOP SLICE 1 SMOKE: ALL TRANSCRIPT STEPS PASSED'
 

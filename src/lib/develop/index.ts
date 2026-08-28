@@ -262,6 +262,32 @@ export interface WorkspaceBaseline {
   createdAt: string;
 }
 
+/** One imported schedule activity (D5.28 import half — listing only). */
+export interface WorkspaceScheduleActivity {
+  activityId: string;
+  description: string;
+  wbsPath: string | null;
+  durationHours: number;
+  plannedStart: string | null;
+  plannedFinish: string | null;
+  calendar: string | null;
+  sourceSystem: string | null;
+  predecessors: string[];
+}
+
+/**
+ * One imported schedule (a shutdown_events row keyed to this case). P6 stays
+ * system-of-record: these rows are read, listed and later analyzed — never
+ * written back.
+ */
+export interface WorkspaceScheduleEvent {
+  id: string;
+  eventKey: string;
+  title: string;
+  status: string;
+  activities: WorkspaceScheduleActivity[];
+}
+
 export interface CaseWorkspace {
   id: string;
   title: string;
@@ -296,6 +322,7 @@ export interface CaseWorkspace {
   decisions: WorkspaceDecision[];
   actions: WorkspaceAction[];
   baselines: WorkspaceBaseline[];
+  schedule: WorkspaceScheduleEvent[];
 }
 
 export interface GateRollup {
