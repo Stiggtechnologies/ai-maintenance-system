@@ -17,6 +17,9 @@ on:
       - "supabase/functions/ai-agent-processor/**"
       - "supabase/functions/autonomous-orchestrator/**"
       - "supabase/functions/develop-evidence-agent/**"
+      - "supabase/functions/develop-gate-agent/**"
+      - "supabase/functions/develop-methodology-agent/**"
+      - "supabase/functions/develop-risk-agent/**"
       - "supabase/functions/lead-notify/**"
       - "supabase/functions/onboarding-enrich/**"
       - "supabase/functions/public-reliability-agent/**"
@@ -74,6 +77,9 @@ jobs:
           supabase functions deploy ai-agent-processor
           supabase functions deploy autonomous-orchestrator
           supabase functions deploy develop-evidence-agent
+          supabase functions deploy develop-gate-agent
+          supabase functions deploy develop-methodology-agent
+          supabase functions deploy develop-risk-agent
           supabase functions deploy lead-notify
           supabase functions deploy onboarding-enrich --no-verify-jwt
           supabase functions deploy public-reliability-agent

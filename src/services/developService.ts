@@ -1824,3 +1824,762 @@ export async function registerStakeholder(input: {
   });
   return unwrapRpc(data, error, "Could not register the stakeholder");
 }
+
+// ---------------------------------------------------------------------------
+// Slice 3D — the gate review workflow (D3.31), the three agents
+// (D12.06/D12.08/D12.12) and the assurance case (D13.06).
+//
+// Same discipline as every slice above: reads are RPCs, writes are definer
+// RPCs, and a refusal is thrown with the SERVER's own words. The agent calls
+// are edge-function invocations that return advisory payloads — none of them
+// can write a determination, and each says so in its own disclaimer, which
+// the surfaces render verbatim rather than paraphrasing.
+// ---------------------------------------------------------------------------
+
+export interface GateReviewSodPair {
+  pair: string;
+  label: string;
+  applies: boolean;
+  clear: boolean;
+  reason: string;
+  intensityLevel?: string | null;
+}
+
+export interface GateReviewSod {
+  actorId: string | null;
+  actorRole: string | null;
+  isSponsorOrCreator: boolean;
+  mayRecord: boolean;
+  blockedBy: string[];
+  pairs: GateReviewSodPair[];
+}
+
+export interface AssembledEvidence {
+  id: string;
+  evidenceClass: string | null;
+  verificationStatus: string;
+  description: string | null;
+  sourceSystem: string | null;
+  sourceReference: string | null;
+  observedAt: string | null;
+  verifiedAt: string | null;
+  verifiedBy: string | null;
+  link: string;
+  confidence: {
+    evidenceConfidence?: number;
+    error?: string;
+    refusal?: string;
+    missingFactors?: string[];
+  };
+}
+
+export interface AssembledRequirement {
+  id: number;
+  criterion: string;
+  category: string;
+  isMandatory: boolean;
+  weight: number;
+  sourceAuthority: string;
+  evidenceType: string | null;
+  status: string;
+  findingEvidence: string | null;
+  deliverables: { total: number; accepted: number };
+  assembled: {
+    criterionId: number;
+    deliverables: {
+      id: string;
+      title: string;
+      status: string;
+      revision: string;
+      acceptedAt: string | null;
+      acceptedBy: string | null;
+      owner: string | null;
+    }[];
+    evidence: AssembledEvidence[];
+    evidenceCount: number;
+    /** Linked items bound to a risk this reader may not read. The assembly is
+     *  SECURITY DEFINER, so the ladder is applied by hand there; the count is
+     *  returned (and named in `statement`) rather than the list being silently
+     *  short. */
+    withheldCount: number;
+    verifiedCount: number;
+    statement: string;
+  };
+  activeWaiver: {
+    id: string;
+    status: string;
+    expiresAt: string;
+    justification: string;
+  } | null;
+}
+
+export interface GateReviewPack {
+  caseId: string;
+  caseTitle: string;
+  gateId: number;
+  gateName: string;
+  decisionType: string;
+  independentAssuranceRequired: boolean;
+  readiness: GateReadinessResult;
+  requirements: AssembledRequirement[];
+  waivers: {
+    id: string;
+    requirementId: number | null;
+    status: string;
+    justification: string;
+    expiresAt: string;
+  }[];
+  assurance: GateReadinessResult["assurance"] | null;
+  evidenceConfidence: Record<string, unknown>;
+  sod: GateReviewSod;
+  openSession: {
+    id: number;
+    status: string;
+    openedAt: string;
+    openedBy: string | null;
+    openedById: string | null;
+    reviewId: number | null;
+    decidedAt: string | null;
+  } | null;
+}
+
+export async function getGateReviewPack(
+  caseId: string,
+  gateId: number,
+): Promise<GateReviewPack> {
+  const { data, error } = await supabase.rpc("get_gate_review_pack", {
+    p_case_id: caseId,
+    p_gate_id: gateId,
+  });
+  return unwrap(data, error);
+}
+
+export async function openGateReview(
+  caseId: string,
+  gateId: number,
+): Promise<{
+  session_id: number;
+  gate: string;
+  outstanding_obligations: number;
+  may_record: boolean;
+  sod: GateReviewSod;
+}> {
+  const { data, error } = await supabase.rpc("open_gate_review", {
+    p_case_id: caseId,
+    p_gate_id: gateId,
+  });
+  return unwrap(data, error);
+}
+
+export async function recordGateReviewOutcome(input: {
+  sessionId: number;
+  outcome: string;
+  note: string;
+  findings: GateFindingInput[];
+  conditions: GateConditionInput[];
+  fundingAnswer?: string | null;
+}): Promise<{
+  review_id: number;
+  outcome: string;
+  session_id: number;
+  waived_mandatory?: string[];
+}> {
+  const { data, error } = await supabase.rpc("record_gate_review_outcome", {
+    p_session_id: input.sessionId,
+    p_outcome: input.outcome,
+    p_note: input.note,
+    p_findings: input.findings,
+    p_conditions: input.conditions,
+    p_funding_answer: input.fundingAnswer ?? null,
+  });
+  return unwrap(data, error);
+}
+
+export async function abandonGateReview(
+  sessionId: number,
+  reason: string,
+): Promise<{ session_id: number; status: string }> {
+  const { data, error } = await supabase.rpc("abandon_gate_review", {
+    p_session_id: sessionId,
+    p_reason: reason,
+  });
+  return unwrap(data, error);
+}
+
+// --- D12.08 Gate Agent ------------------------------------------------------
+
+export interface GateAgentResult {
+  advisory: true;
+  caseId: string;
+  gateId: number;
+  reading: {
+    headline: string;
+    blockerLines: string[];
+    projectionLine: string;
+  };
+  narrative: string | null;
+  model: string | null;
+  providerNote: string | null;
+  recorded: { report_id: number; blocked: boolean } | null;
+  recordNote: string | null;
+  disclaimer: string;
+}
+
+export async function runGateAgent(input: {
+  caseId: string;
+  gateId: number;
+  record?: boolean;
+}): Promise<GateAgentResult> {
+  const { data, error } = await supabase.functions.invoke(
+    "develop-gate-agent",
+    {
+      body: {
+        case_id: input.caseId,
+        gate_id: input.gateId,
+        record: input.record ?? false,
+      },
+    },
+  );
+  if (error) throw new Error(error.message);
+  const payload = data as GateAgentResult | { error?: string };
+  if (payload && typeof payload === "object" && "error" in payload) {
+    throw new Error(String((payload as { error: unknown }).error));
+  }
+  return payload as GateAgentResult;
+}
+
+export interface GateAgentReportRow {
+  id: number;
+  gateId: number;
+  gate: string | null;
+  asAt: string;
+  readinessPct: number | null;
+  blocked: boolean;
+  blockerCount: number;
+  narrative: string | null;
+  model: string | null;
+  agentKey: string;
+  advisory: boolean;
+  requestedBy: string | null;
+}
+
+export async function getGateAgentReports(
+  caseId: string,
+  gateId?: number,
+): Promise<{ caseId: string; reports: GateAgentReportRow[] }> {
+  const { data, error } = await supabase.rpc("get_gate_agent_reports", {
+    p_case_id: caseId,
+    p_gate_id: gateId ?? null,
+  });
+  return unwrap(data, error);
+}
+
+// --- D12.06 Methodology Agent ----------------------------------------------
+
+export interface FrameworkProposalResult {
+  advisory: true;
+  documentId: string;
+  documentTitle: string;
+  model?: string | null;
+  proposal: {
+    name: string;
+    basis: string;
+    summary: string;
+    stages: { stage_key: string; sequence: number; display_name: string }[];
+    gates: { stage_key: string; name: string; decision_type: string }[];
+    requirements: { gate: string; criterion: string; is_mandatory: boolean }[];
+  } | null;
+  droppedElements?: string[];
+  refusal?: string;
+  recorded: {
+    proposal_id: string;
+    framework_id: string;
+    stages: number;
+    gates: number;
+    requirements: number;
+    note: string;
+  } | null;
+  recordNote?: string | null;
+  disclaimer?: string;
+}
+
+export async function runMethodologyAgent(input: {
+  documentId: string;
+  query?: string;
+  record?: boolean;
+}): Promise<FrameworkProposalResult> {
+  const { data, error } = await supabase.functions.invoke(
+    "develop-methodology-agent",
+    {
+      body: {
+        document_id: input.documentId,
+        query: input.query ?? null,
+        record: input.record ?? false,
+      },
+    },
+  );
+  if (error) throw new Error(error.message);
+  const payload = data as FrameworkProposalResult | { error?: string };
+  if (payload && typeof payload === "object" && "error" in payload) {
+    throw new Error(String((payload as { error: unknown }).error));
+  }
+  return payload as FrameworkProposalResult;
+}
+
+export interface FrameworkShelfEntry {
+  id: string;
+  name: string;
+  version: number;
+  status?: string;
+  sourceAuthority: string;
+  machineProposed?: boolean;
+  stages?: number;
+  gates: number;
+  requirements?: number;
+  /** What adoption arms: one mandatory requirement blocks its gate at any
+   *  readiness percentage (D3.35), and an independence flag changes who may
+   *  record the decision. Counts, not a promise. */
+  mandatoryRequirements?: number;
+  independentAssuranceGates?: number;
+  /** Requirement count per provenance tier, so a shelf of AI_SUGGESTION rows
+   *  cannot look like a shelf of REGULATION rows. */
+  requirementTiers?: Record<string, number>;
+  /** The adopted framework this draft would SUPERSEDE, or null. Adoption
+   *  supersedes every adopted framework of the same name and re-points every
+   *  tailoring rule naming it, so it is stated before the click. */
+  willSupersede?: {
+    id: string;
+    name: string;
+    version: number;
+    sourceAuthority: string;
+    adoptedAt: string | null;
+  } | null;
+  adoptedAt?: string | null;
+  adoptedBy?: string | null;
+}
+
+export interface FrameworkShelf {
+  proposals: {
+    id: string;
+    summary: string;
+    agentKey: string;
+    model: string | null;
+    status: string;
+    withdrawnReason: string | null;
+    createdAt: string;
+    proposedBy: string | null;
+    document: string | null;
+    documentId: string;
+    framework: FrameworkShelfEntry;
+  }[];
+  drafts: FrameworkShelfEntry[];
+  adopted: FrameworkShelfEntry[];
+}
+
+export async function getFrameworkShelf(): Promise<FrameworkShelf> {
+  const { data, error } = await supabase.rpc("get_framework_shelf");
+  return unwrap(data, error);
+}
+
+/** D3.02 / D12.06: the human act. The DB refuses the AI-operator identity. */
+export async function adoptProjectFramework(
+  frameworkId: string,
+  note: string,
+): Promise<{
+  framework_id: string;
+  status: string;
+  name: string;
+  version: number;
+}> {
+  const { data, error } = await supabase.rpc("adopt_project_framework", {
+    p_framework_id: frameworkId,
+    p_note: note,
+  });
+  return unwrap(data, error);
+}
+
+/** D3.35 / D3.01: an adopted framework is immutable — this drafts the next. */
+export async function createProjectFrameworkVersion(
+  sourceId: string,
+): Promise<{ framework_id: string; version: number; status: string }> {
+  const { data, error } = await supabase.rpc(
+    "create_project_framework_version",
+    {
+      p_source_id: sourceId,
+    },
+  );
+  return unwrap(data, error);
+}
+
+/** D3.24: a gate on a DRAFT framework. */
+export async function addFrameworkGate(input: {
+  frameworkId: string;
+  stageKey: string;
+  name: string;
+  sequence: number;
+  decisionType: string;
+  independentAssuranceRequired?: boolean;
+  readinessThreshold?: number | null;
+}): Promise<{ gate_id: number; decision_type: string }> {
+  const { data, error } = await supabase.rpc("add_framework_gate", {
+    p_framework_id: input.frameworkId,
+    p_stage_key: input.stageKey,
+    p_name: input.name,
+    p_sequence: input.sequence,
+    p_decision_type: input.decisionType,
+    p_readiness_threshold: input.readinessThreshold ?? null,
+    p_independent_assurance_required:
+      input.independentAssuranceRequired ?? false,
+  });
+  return unwrap(data, error);
+}
+
+/** D3.14 / D3.35: a requirement, its provenance tier and its weight. */
+export async function setGateRequirement(input: {
+  gateId: number;
+  criterion: string;
+  isMandatory: boolean;
+  sourceAuthority: string;
+  category?: string | null;
+  evidenceType?: string | null;
+  guidance?: string | null;
+  weight?: number;
+}): Promise<{
+  criterion_id: number;
+  source_authority: string;
+  weight: number;
+}> {
+  const { data, error } = await supabase.rpc("set_gate_requirement", {
+    p_gate_id: input.gateId,
+    p_criterion: input.criterion,
+    p_is_mandatory: input.isMandatory,
+    p_source_authority: input.sourceAuthority,
+    p_category: input.category ?? null,
+    p_evidence_type: input.evidenceType ?? null,
+    p_guidance: input.guidance ?? null,
+    p_weight: input.weight ?? 1.0,
+  });
+  return unwrap(data, error);
+}
+
+export async function withdrawFrameworkProposal(
+  proposalId: string,
+  reason: string,
+): Promise<{ proposal_id: string; status: string }> {
+  const { data, error } = await supabase.rpc("withdraw_framework_proposal", {
+    p_proposal_id: proposalId,
+    p_reason: reason,
+  });
+  return unwrap(data, error);
+}
+
+/** D3.03: authoring a tailoring rule / moving a value threshold on a DRAFT. */
+export async function addTailoringRule(input: {
+  ruleSetId: string;
+  priority: number;
+  description: string;
+  lifecycleTypes?: string[] | null;
+  minValueUsd?: number | null;
+  maxValueUsd?: number | null;
+  minIntensity?: string | null;
+  maxIntensity?: string | null;
+  frameworkName: string;
+  intensityFloor?: string | null;
+}): Promise<{ rule_id: string; priority: number }> {
+  const { data, error } = await supabase.rpc("add_tailoring_rule", {
+    p_rule_set_id: input.ruleSetId,
+    p_priority: input.priority,
+    p_description: input.description,
+    p_framework_name: input.frameworkName,
+    p_lifecycle_types: input.lifecycleTypes ?? [],
+    p_min_value_usd: input.minValueUsd ?? null,
+    p_max_value_usd: input.maxValueUsd ?? null,
+    p_min_intensity: input.minIntensity ?? null,
+    p_max_intensity: input.maxIntensity ?? null,
+    p_intensity_floor: input.intensityFloor ?? null,
+  });
+  return unwrap(data, error);
+}
+
+export async function setRuleSetThresholds(
+  ruleSetId: string,
+  thresholds: Record<string, number>,
+): Promise<{ rule_set_id: string }> {
+  const { data, error } = await supabase.rpc("set_rule_set_thresholds", {
+    p_rule_set_id: ruleSetId,
+    p_value_thresholds: thresholds,
+  });
+  return unwrap(data, error);
+}
+
+// --- D12.12 Risk Agent ------------------------------------------------------
+
+export interface TreatmentAdviceRow {
+  id: string;
+  riskId: string;
+  riskTitle: string;
+  riskLevel: string | null;
+  workflowStep: string;
+  recommendedStrategy: string;
+  label: string;
+  rationale: string;
+  limitations: string;
+  expectedResidual: number;
+  expectedIntroduced: number;
+  model: string | null;
+  agent: string | null;
+  /** Who ran the agent. The row is attributed to an advisory agent; this is
+   *  the human account the RPC was called under, so agent output and a
+   *  hand-written row are distinguishable on the screen. */
+  proposedBy: string | null;
+  adoptedBy: string | null;
+  dismissedBy: string | null;
+  status: string;
+  adoptedTreatmentId: string | null;
+  dismissedReason: string | null;
+  createdAt: string;
+  advisory: true;
+}
+
+export async function getCaseTreatmentAdvice(
+  caseId: string,
+): Promise<{ caseId: string; advice: TreatmentAdviceRow[] }> {
+  const { data, error } = await supabase.rpc("get_case_treatment_advice", {
+    p_case_id: caseId,
+  });
+  return unwrap(data, error);
+}
+
+export interface RiskAgentResult {
+  advisory: true;
+  riskId: string;
+  riskTitle: string;
+  workflowStep: string;
+  workflowReason: string;
+  candidates: { strategy: string; reason: string }[];
+  advice: {
+    recommended_strategy: string;
+    label: string;
+    rationale: string;
+    expected_residual: number;
+    expected_introduced: number;
+    limitations: string;
+  } | null;
+  refusal?: string;
+  model?: string | null;
+  recorded: { advice_id: string; status: string } | null;
+  recordNote?: string | null;
+  disclaimer: string;
+}
+
+export async function runRiskAgent(input: {
+  riskId: string;
+  record?: boolean;
+}): Promise<RiskAgentResult> {
+  const { data, error } = await supabase.functions.invoke(
+    "develop-risk-agent",
+    {
+      body: { risk_id: input.riskId, record: input.record ?? false },
+    },
+  );
+  if (error) throw new Error(error.message);
+  const payload = data as RiskAgentResult | { error?: string };
+  if (payload && typeof payload === "object" && "error" in payload) {
+    throw new Error(String((payload as { error: unknown }).error));
+  }
+  return payload as RiskAgentResult;
+}
+
+export async function dismissTreatmentAdvice(
+  adviceId: string,
+  reason: string,
+): Promise<{ advice_id: string; status: string }> {
+  const { data, error } = await supabase.rpc("dismiss_risk_treatment_advice", {
+    p_advice_id: adviceId,
+    p_reason: reason,
+  });
+  return unwrap(data, error);
+}
+
+export async function adoptTreatmentAdvice(
+  adviceId: string,
+  option: Record<string, unknown>,
+): Promise<{ advice_id: string; recommendation_id: string }> {
+  const { data, error } = await supabase.rpc("adopt_risk_treatment_advice", {
+    p_advice_id: adviceId,
+    p_option: option,
+  });
+  return unwrap(data, error);
+}
+
+// --- D13.06 Assurance Case --------------------------------------------------
+
+export interface AssuranceClaimEvidence {
+  linkId: string;
+  evidenceId: string;
+  bearing: "supports" | "contradicts" | "qualifies";
+  basis: string;
+  linkedAt: string;
+  linkedBy: string | null;
+  evidenceClass: string | null;
+  verificationStatus: string;
+  description: string | null;
+  sourceSystem: string | null;
+  observedAt: string | null;
+  confidence: {
+    evidenceConfidence?: number;
+    error?: string;
+    refusal?: string;
+    missingFactors?: string[];
+  };
+}
+
+export interface AssuranceClaim {
+  id: string;
+  claimRef: string;
+  statement: string;
+  claimType: string;
+  successOutcomeId: string | null;
+  requirementId: number | null;
+  owner: string | null;
+  position: "open" | "supported" | "refuted" | "withdrawn";
+  positionBasis: string | null;
+  positionAt: string | null;
+  positionBy: string | null;
+  evidence: AssuranceClaimEvidence[];
+  supportingCount: number;
+  contradictingCount: number;
+  /** Links this reader is not being shown, under the risk-sensitivity ladder.
+   *  The read is SECURITY INVOKER, so a reader below a linked item's position
+   *  sees the claim without it; the count says so rather than rendering a
+   *  shorter list that looks complete. */
+  withheldCount: number;
+  confidence: {
+    scoredCount: number;
+    unscoredCount: number;
+    highest: number | null;
+    lowest: number | null;
+    statement: string;
+  };
+}
+
+export interface CaseAssuranceCase {
+  caseId: string;
+  caseTitle: string;
+  claims: AssuranceClaim[];
+  claimCount: number;
+  independentReview: {
+    required: boolean;
+    demandedLevel: string;
+    satisfied: boolean;
+    reviews: {
+      id: string;
+      level: string;
+      status: string;
+      conclusion: string | null;
+      reviewer: string | null;
+      competencies: string[];
+      conflictsDeclaredAt: string | null;
+      completedAt: string | null;
+    }[];
+  };
+  assumptions: {
+    id: string;
+    statement: string;
+    status: string;
+    confidence: number;
+    validUntil: string | null;
+    triggerForReview: string;
+    invalidationReason: string | null;
+    owner: string | null;
+  }[];
+  openIssues: {
+    risks: { id: string; title: string; level: string; status: string }[];
+    conditions: {
+      id: number;
+      description: string;
+      dueDate: string;
+      overdue: boolean;
+    }[];
+    uncoveredCommitments: Record<string, unknown>[];
+  };
+  evidenceConfidenceProfile: {
+    id: string;
+    name: string;
+    version: number;
+  } | null;
+}
+
+export async function getCaseAssuranceCase(
+  caseId: string,
+): Promise<CaseAssuranceCase> {
+  const { data, error } = await supabase.rpc("get_case_assurance_case", {
+    p_case_id: caseId,
+  });
+  return unwrap(data, error);
+}
+
+export async function recordAssuranceClaim(input: {
+  caseId: string;
+  claimRef: string;
+  statement: string;
+  claimType: string;
+  ownerId: string;
+  successOutcomeId?: string | null;
+  requirementId?: number | null;
+}): Promise<{ claim_id: string; claim_ref: string; position: string }> {
+  const { data, error } = await supabase.rpc("record_assurance_claim", {
+    p_case_id: input.caseId,
+    p_claim: {
+      claim_ref: input.claimRef,
+      statement: input.statement,
+      claim_type: input.claimType,
+      owner_id: input.ownerId,
+      success_outcome_id: input.successOutcomeId ?? null,
+      requirement_id: input.requirementId ?? null,
+    },
+  });
+  return unwrap(data, error);
+}
+
+export async function linkAssuranceClaimEvidence(input: {
+  claimId: string;
+  evidenceId: string;
+  basis: string;
+  bearing: string;
+}): Promise<{ link_id: string; claim_id: string; bearing: string }> {
+  const { data, error } = await supabase.rpc("link_assurance_claim_evidence", {
+    p_claim_id: input.claimId,
+    p_evidence_id: input.evidenceId,
+    p_basis: input.basis,
+    p_bearing: input.bearing,
+  });
+  return unwrap(data, error);
+}
+
+export async function unlinkAssuranceClaimEvidence(
+  linkId: string,
+  reason: string,
+): Promise<{ link_id: string; removed: boolean }> {
+  const { data, error } = await supabase.rpc(
+    "unlink_assurance_claim_evidence",
+    {
+      p_link_id: linkId,
+      p_reason: reason,
+    },
+  );
+  return unwrap(data, error);
+}
+
+export async function setAssuranceClaimPosition(input: {
+  claimId: string;
+  position: string;
+  basis: string;
+}): Promise<{ claim_id: string; position: string }> {
+  const { data, error } = await supabase.rpc("set_assurance_claim_position", {
+    p_claim_id: input.claimId,
+    p_position: input.position,
+    p_basis: input.basis,
+  });
+  return unwrap(data, error);
+}
