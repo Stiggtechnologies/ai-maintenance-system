@@ -14,6 +14,7 @@ import type {
   GateReadinessResult,
   OperationalReadinessResult,
 } from "../lib/develop";
+import type { CaseChains } from "../lib/develop/chains";
 
 export interface DevelopmentCaseSummary {
   id: string;
@@ -1328,4 +1329,498 @@ export async function adoptIntensityBinding(
     p_note: note,
   });
   return unwrapRpc(data, error, "Could not adopt the intensity binding");
+}
+
+/* ─────────────────────────── Slice 3C — the chains ────────────────────────
+ * D3.08/D3.09 stakeholder commitments and coverage, D3.10/D3.11 the
+ * regulatory approval chain and its propagation, D3.16 case assurance,
+ * D11.22 evidence confidence. Every write is a definer RPC; the one read is
+ * get_case_chains, which composes the SAME coverage and confidence functions
+ * the gate blocker and the §46 calculation use (no second implementation).
+ */
+
+export async function getCaseChains(caseId: string): Promise<CaseChains> {
+  const { data, error } = await supabase.rpc("get_case_chains", {
+    p_case_id: caseId,
+  });
+  return unwrapRpc(data, error, "Could not load the case chains");
+}
+
+export interface CaseRequirementInput {
+  requirementRef: string;
+  category: string;
+  requirement: string;
+  source?: string;
+  verificationMethod?: string | null;
+}
+
+export async function recordCaseRequirement(
+  caseId: string,
+  input: CaseRequirementInput,
+): Promise<{ requirement_id: number; requirement_ref: string }> {
+  const { data, error } = await supabase.rpc("record_case_requirement", {
+    p_case_id: caseId,
+    p_requirement: {
+      requirement_ref: input.requirementRef,
+      category: input.category,
+      requirement: input.requirement,
+      source: input.source ?? "engineering",
+      verification_method: input.verificationMethod ?? null,
+    },
+  });
+  return unwrapRpc(data, error, "Could not record the project requirement");
+}
+
+export interface StakeholderCommitmentInput {
+  stakeholderId: string;
+  commitmentRef: string;
+  concern: string;
+  commitment: string;
+  ownerId: string;
+  dueDate: string;
+  commitmentKind?: string;
+  requirementId?: number | null;
+}
+
+export async function recordStakeholderCommitment(
+  caseId: string,
+  input: StakeholderCommitmentInput,
+): Promise<{
+  commitment_id: number;
+  commitment_ref: string;
+  covered: boolean;
+}> {
+  const { data, error } = await supabase.rpc("record_stakeholder_commitment", {
+    p_case_id: caseId,
+    p_commitment: {
+      stakeholder_id: input.stakeholderId,
+      commitment_ref: input.commitmentRef,
+      concern: input.concern,
+      commitment: input.commitment,
+      owner_id: input.ownerId,
+      due_date: input.dueDate,
+      commitment_kind: input.commitmentKind ?? "community",
+      requirement_id: input.requirementId ?? null,
+    },
+  });
+  return unwrapRpc(data, error, "Could not record the stakeholder commitment");
+}
+
+export async function linkCommitmentToRequirement(
+  commitmentId: number,
+  requirementId: number,
+): Promise<{ commitment_id: number; requirement_ref: string }> {
+  const { data, error } = await supabase.rpc("link_commitment_to_requirement", {
+    p_commitment_id: commitmentId,
+    p_requirement_id: requirementId,
+  });
+  return unwrapRpc(
+    data,
+    error,
+    "Could not link the commitment to a requirement",
+  );
+}
+
+export async function closeStakeholderCommitment(input: {
+  commitmentId: number;
+  evidenceId: string;
+  note?: string | null;
+}): Promise<{ commitment_id: number; status: string; closed_late: boolean }> {
+  const { data, error } = await supabase.rpc("close_stakeholder_commitment", {
+    p_commitment_id: input.commitmentId,
+    p_evidence_id: input.evidenceId,
+    p_note: input.note ?? null,
+  });
+  return unwrapRpc(data, error, "Could not discharge the commitment");
+}
+
+export interface RegulatoryRequirementInput {
+  requirementRef: string;
+  regulator: string;
+  jurisdiction: string;
+  instrument: string;
+  permitType: string;
+  description: string;
+  triggerCondition: string;
+  expectedLeadTimeDays: number;
+  sourceAuthority?: string;
+  requiredByDate?: string | null;
+}
+
+export async function recordRegulatoryRequirement(
+  caseId: string,
+  input: RegulatoryRequirementInput,
+): Promise<{ requirement_id: number; requirement_ref: string }> {
+  const { data, error } = await supabase.rpc("record_regulatory_requirement", {
+    p_case_id: caseId,
+    p_requirement: {
+      requirement_ref: input.requirementRef,
+      regulator: input.regulator,
+      jurisdiction: input.jurisdiction,
+      instrument: input.instrument,
+      permit_type: input.permitType,
+      description: input.description,
+      trigger_condition: input.triggerCondition,
+      expected_lead_time_days: input.expectedLeadTimeDays,
+      source_authority: input.sourceAuthority ?? "REGULATION",
+      required_by_date: input.requiredByDate ?? null,
+    },
+  });
+  return unwrapRpc(data, error, "Could not record the regulatory requirement");
+}
+
+export async function submitRegulatoryApplication(input: {
+  requirementId: number;
+  applicationRef: string;
+  scopeDescription: string;
+}): Promise<{
+  application_id: number;
+  application_ref: string;
+  expected_decision_by: string;
+}> {
+  const { data, error } = await supabase.rpc("submit_regulatory_application", {
+    p_requirement_id: input.requirementId,
+    p_application: {
+      application_ref: input.applicationRef,
+      scope_description: input.scopeDescription,
+    },
+  });
+  return unwrapRpc(data, error, "Could not submit the regulatory application");
+}
+
+export async function recordRegulatoryInformationRequest(input: {
+  applicationId: number;
+  requestRef: string;
+  requestDetail: string;
+  ownerId: string;
+  responseDue: string;
+  requestedAt?: string | null;
+}): Promise<{ request_id: number; request_ref: string }> {
+  const { data, error } = await supabase.rpc(
+    "record_regulatory_information_request",
+    {
+      p_application_id: input.applicationId,
+      p_request: {
+        request_ref: input.requestRef,
+        request_detail: input.requestDetail,
+        owner_id: input.ownerId,
+        response_due: input.responseDue,
+        requested_at: input.requestedAt ?? null,
+      },
+    },
+  );
+  return unwrapRpc(data, error, "Could not record the information request");
+}
+
+export async function respondRegulatoryInformationRequest(input: {
+  requestId: number;
+  evidenceId: string;
+}): Promise<{ request_id: number; status: string; answered_late: boolean }> {
+  const { data, error } = await supabase.rpc(
+    "respond_regulatory_information_request",
+    { p_request_id: input.requestId, p_evidence_id: input.evidenceId },
+  );
+  return unwrapRpc(data, error, "Could not record the RFI response");
+}
+
+/** D3.08: retire a promise the organization is no longer bound by, with a
+ *  stated reason and a named human behind it (§70). */
+export async function withdrawStakeholderCommitment(input: {
+  commitmentId: number;
+  reason: string;
+}): Promise<{ commitment_id: number; status: string; reason: string }> {
+  const { data, error } = await supabase.rpc(
+    "withdraw_stakeholder_commitment",
+    { p_commitment_id: input.commitmentId, p_reason: input.reason },
+  );
+  return unwrapRpc(data, error, "Could not withdraw the commitment");
+}
+
+export interface RegulatoryConditionInput {
+  condition_ref: string;
+  description: string;
+  obligation_domain: string;
+  owner_id: string;
+  due_date: string;
+  evidence_requirement: string;
+  consequence_if_missed: string;
+  recurrence?: string;
+}
+
+export async function recordRegulatoryApproval(input: {
+  applicationId: number;
+  permitNumber: string;
+  decidingAuthority: string;
+  decision: string;
+  decisionDate?: string | null;
+  effectiveFrom?: string | null;
+  expiresAt?: string | null;
+  perpetual?: boolean;
+  refusalReason?: string | null;
+  conditions?: RegulatoryConditionInput[];
+}): Promise<{
+  approval_id: number;
+  permit_number: string;
+  decision: string;
+  conditions_created: number;
+  propagation: unknown;
+}> {
+  const { data, error } = await supabase.rpc("record_regulatory_approval", {
+    p_application_id: input.applicationId,
+    p_approval: {
+      permit_number: input.permitNumber,
+      deciding_authority: input.decidingAuthority,
+      decision: input.decision,
+      decision_date: input.decisionDate ?? null,
+      effective_from: input.effectiveFrom ?? null,
+      expires_at: input.expiresAt ?? null,
+      perpetual: input.perpetual ?? false,
+      refusal_reason: input.refusalReason ?? null,
+    },
+    p_conditions: input.conditions ?? [],
+  });
+  return unwrapRpc(data, error, "Could not record the regulatory approval");
+}
+
+export async function propagateRegulatoryConditions(
+  approvalId: number,
+): Promise<{
+  approval_id: number;
+  requirements_created: number;
+  work_orders_created: number;
+}> {
+  const { data, error } = await supabase.rpc(
+    "propagate_regulatory_conditions",
+    { p_approval_id: approvalId },
+  );
+  return unwrapRpc(data, error, "Could not propagate the permit conditions");
+}
+
+export async function closeRegulatoryCondition(input: {
+  conditionId: number;
+  evidenceId: string;
+  note?: string | null;
+}): Promise<{
+  condition_id: number;
+  status: string;
+  recurring: boolean;
+  next_due: string | null;
+}> {
+  const { data, error } = await supabase.rpc("close_regulatory_condition", {
+    p_condition_id: input.conditionId,
+    p_evidence_id: input.evidenceId,
+    p_note: input.note ?? null,
+  });
+  return unwrapRpc(data, error, "Could not discharge the permit condition");
+}
+
+/**
+ * D3.16's own act site.
+ *
+ * NOT a rename of the Slice-3B `recordCaseAssuranceReview` above: that one
+ * posts a COMPLETED independent review through the risk family's RPC
+ * (record_risk_assurance_review) and is what GovernancePanel uses to release
+ * a composite-authority demand. This one posts through
+ * record_case_assurance_review, which additionally requires the II.15 record
+ * (verified reviewer competency, an explicit conflicts declaration) and can
+ * bind the review to a gate. Two doors, two contracts, one table — the older
+ * door keeps working exactly as it did, and the register names the residual
+ * that leaves.
+ */
+export interface CaseAssuranceReviewInput {
+  assuranceLevel: string;
+  scope: string;
+  status?: string;
+  gateId?: number | null;
+  reviewerCompetencyKeys?: string[];
+  reviewerCompetencyBasis?: string | null;
+  conflictsDeclared?: { conflict: string; mitigation: string }[];
+  conflictsDeclarationMade?: boolean;
+  dueDate?: string | null;
+  conclusion?: string | null;
+  evidenceItemIds?: string[];
+}
+
+export async function submitCaseAssuranceReview(
+  caseId: string,
+  input: CaseAssuranceReviewInput,
+): Promise<{ review_id: string; assurance_level: string; status: string }> {
+  const { data, error } = await supabase.rpc("record_case_assurance_review", {
+    p_case_id: caseId,
+    p_review: {
+      assurance_level: input.assuranceLevel,
+      scope: input.scope,
+      status: input.status ?? "planned",
+      gate_id: input.gateId ?? null,
+      reviewer_competency_keys: input.reviewerCompetencyKeys ?? [],
+      reviewer_competency_basis: input.reviewerCompetencyBasis ?? null,
+      conflicts_declared: input.conflictsDeclared ?? [],
+      conflicts_declaration_made: input.conflictsDeclarationMade ?? false,
+      due_date: input.dueDate ?? null,
+      conclusion: input.conclusion ?? null,
+      evidence_item_ids: input.evidenceItemIds ?? [],
+    },
+  });
+  return unwrapRpc(data, error, "Could not record the assurance review");
+}
+
+export async function completeCaseAssuranceReview(input: {
+  reviewId: string;
+  conclusion: string;
+  evidenceItemIds: string[];
+  findings?: unknown[];
+}): Promise<{ review_id: string; status: string; conclusion: string }> {
+  const { data, error } = await supabase.rpc("complete_case_assurance_review", {
+    p_review_id: input.reviewId,
+    p_conclusion: input.conclusion,
+    p_evidence_item_ids: input.evidenceItemIds,
+    p_findings: input.findings ?? [],
+  });
+  return unwrapRpc(data, error, "Could not complete the assurance review");
+}
+
+export async function gradeEvidenceItem(input: {
+  evidenceId: string;
+  qualityGrade: string;
+  applicabilityGrade: string;
+  note?: string | null;
+}): Promise<{
+  evidence_id: string;
+  quality_grade: string;
+  applicability_grade: string;
+}> {
+  const { data, error } = await supabase.rpc("grade_evidence_item", {
+    p_evidence_id: input.evidenceId,
+    p_quality_grade: input.qualityGrade,
+    p_applicability_grade: input.applicabilityGrade,
+    p_note: input.note ?? null,
+  });
+  return unwrapRpc(data, error, "Could not grade the evidence item");
+}
+
+export async function adoptEvidenceConfidenceProfile(
+  profileId: string,
+): Promise<{ profile_id: string; status: string; version: number }> {
+  const { data, error } = await supabase.rpc(
+    "adopt_evidence_confidence_profile",
+    { p_profile_id: profileId },
+  );
+  return unwrapRpc(data, error, "Could not adopt the weight set");
+}
+
+/** D11.22: author a DRAFT weight set. The refusal on an adopted profile
+ *  names `create_evidence_confidence_profile_version` as the remedy, so both
+ *  verbs are reachable from the same panel. */
+export async function setEvidenceConfidenceWeights(input: {
+  profileId: string;
+  qualityWeights?: Record<string, number>;
+  applicabilityWeights?: Record<string, number>;
+  verificationWeights?: Record<string, number>;
+  freshnessHalfLifeDays?: Record<
+    string,
+    { halfLifeDays: number; floor: number }
+  >;
+  basis?: string | null;
+}): Promise<{ profile_id: string; status: string; version: number }> {
+  const weights: Record<string, unknown> = {};
+  if (input.qualityWeights) weights.quality_weights = input.qualityWeights;
+  if (input.applicabilityWeights)
+    weights.applicability_weights = input.applicabilityWeights;
+  if (input.verificationWeights)
+    weights.verification_weights = input.verificationWeights;
+  if (input.freshnessHalfLifeDays)
+    weights.freshness_half_life_days = input.freshnessHalfLifeDays;
+  if (input.basis) weights.basis = input.basis;
+  const { data, error } = await supabase.rpc(
+    "set_evidence_confidence_weights",
+    {
+      p_profile_id: input.profileId,
+      p_weights: weights,
+    },
+  );
+  return unwrapRpc(data, error, "Could not author the weight set");
+}
+
+/** D11.22: copy an adopted weight set forward as a new DRAFT version — the
+ *  verb `set_evidence_confidence_weights`' refusal names. */
+export async function createEvidenceConfidenceProfileVersion(input: {
+  fromProfileId: string;
+  basis?: string | null;
+}): Promise<{
+  profile_id: string;
+  name: string;
+  version: number;
+  status: string;
+}> {
+  const { data, error } = await supabase.rpc(
+    "create_evidence_confidence_profile_version",
+    { p_from_profile_id: input.fromProfileId, p_basis: input.basis ?? null },
+  );
+  return unwrapRpc(data, error, "Could not open a new weight-set version");
+}
+
+export interface EvidenceConfidenceProfileRow {
+  id: string;
+  name: string;
+  version: number;
+  status: string;
+  basis: string;
+  quality_weights: Record<string, number>;
+  applicability_weights: Record<string, number>;
+  verification_weights: Record<string, number>;
+  freshness_half_life_days: Record<
+    string,
+    { halfLifeDays: number; floor: number }
+  >;
+}
+
+export async function listEvidenceConfidenceProfiles(): Promise<
+  EvidenceConfidenceProfileRow[]
+> {
+  const { data, error } = await supabase
+    .from("evidence_confidence_profiles")
+    .select(
+      "id, name, version, status, basis, quality_weights, applicability_weights, verification_weights, freshness_half_life_days",
+    )
+    .order("status")
+    .order("version", { ascending: false });
+  if (error) throw new Error(error.message);
+  return (data ?? []) as EvidenceConfidenceProfileRow[];
+}
+
+export interface CaseStakeholderOption {
+  id: string;
+  name: string;
+  stakeholder_type: string;
+  external_organization: string | null;
+  role_or_relationship: string;
+}
+
+export async function listStakeholders(): Promise<CaseStakeholderOption[]> {
+  const { data, error } = await supabase
+    .from("risk_stakeholders")
+    .select(
+      "id, name, stakeholder_type, external_organization, role_or_relationship",
+    )
+    .eq("active", true)
+    .order("name");
+  if (error) throw new Error(error.message);
+  return (data ?? []) as CaseStakeholderOption[];
+}
+
+export async function registerStakeholder(input: {
+  name: string;
+  stakeholderType: string;
+  roleOrRelationship: string;
+  externalOrganization?: string | null;
+}): Promise<{ stakeholder_id: string }> {
+  const { data, error } = await supabase.rpc("upsert_risk_stakeholder", {
+    p_stakeholder: {
+      name: input.name,
+      stakeholder_type: input.stakeholderType,
+      role_or_relationship: input.roleOrRelationship,
+      external_organization: input.externalOrganization ?? null,
+    },
+  });
+  return unwrapRpc(data, error, "Could not register the stakeholder");
 }

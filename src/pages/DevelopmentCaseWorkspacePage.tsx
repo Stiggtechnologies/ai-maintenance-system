@@ -96,6 +96,7 @@ import {
   ObjectiveSection,
   SuccessContractSection,
 } from "../components/develop/ValueSpinePanels";
+import { CaseChainsPanel } from "../components/develop/CaseChainsPanels";
 
 const REVIEW_ROLES = [
   "admin",
@@ -2372,6 +2373,13 @@ export function DevelopmentCaseWorkspacePage() {
 
   const [workspace, setWorkspace] = useState<CaseWorkspace | null>(null);
   const [members, setMembers] = useState<OrgMember[]>([]);
+  /**
+   * Slice 3C: the chains panel owns its own read (get_case_chains), the same
+   * shape GovernancePanel and OperationalReadinessSection already use. This
+   * counter re-runs it whenever the page reloads — recording evidence here
+   * changes what a commitment can be discharged against there.
+   */
+  const [chainsKey, setChainsKey] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
@@ -2392,6 +2400,7 @@ export function DevelopmentCaseWorkspacePage() {
       ]);
       setWorkspace(ws);
       setMembers(mem);
+      setChainsKey((k) => k + 1);
       if (ws == null) setError("Case not found in this organization.");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load the case");
@@ -2716,6 +2725,16 @@ export function DevelopmentCaseWorkspacePage() {
         canPlan={canPlan}
         canReview={canReview}
         onChanged={() => void load()}
+      />
+      <CaseChainsPanel
+        caseId={workspace.id}
+        members={members}
+        gates={workspace.stages.flatMap((s) =>
+          s.gates.map((g) => ({ id: g.id, name: g.name })),
+        )}
+        canPlan={canPlan}
+        canReview={canReview}
+        reloadKey={chainsKey}
       />
       <ScheduleSection workspace={workspace} />
       <CostSection workspace={workspace} />

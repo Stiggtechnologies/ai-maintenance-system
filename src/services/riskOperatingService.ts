@@ -245,6 +245,42 @@ export async function recordRiskControlTest(
   );
 }
 
+/**
+ * D5.24 (spec §14): the assessment history of a control with DESIGN and
+ * OPERATING effectiveness carried separately — "the control exists" and "the
+ * control works" as two columns, plus the last real judgement when the latest
+ * assessment declined to make one.
+ */
+export async function getControlAssessmentHistory(
+  controlId: string,
+): Promise<RpcResult> {
+  const { data, error } = await supabase.rpc("get_control_assessment_history", {
+    p_control_id: controlId,
+  });
+  return unwrap(
+    data as RpcResult | null,
+    error,
+    "Could not load the control assessment history",
+  );
+}
+
+/**
+ * D5.25 (spec §15 new_risk_created): the risks this risk's treatments
+ * created, and the risk whose treatment created this one.
+ */
+export async function getRiskSecondaryRisks(
+  riskId: string,
+): Promise<RpcResult> {
+  const { data, error } = await supabase.rpc("get_risk_secondary_risks", {
+    p_risk_id: riskId,
+  });
+  return unwrap(
+    data as RpcResult | null,
+    error,
+    "Could not load the secondary risks",
+  );
+}
+
 export async function createRiskTreatment(
   riskId: string,
   option: Record<string, unknown>,

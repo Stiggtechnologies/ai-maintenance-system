@@ -50,6 +50,10 @@ import {
   getIndustryLabel,
   toStoredIndustryCode,
 } from "../lib/industry-catalog";
+// D5.24 (spec §14): the two ControlAssessment dimensions share ONE
+// vocabulary with the database CHECK — the slice test pins them together, so
+// a select box and a constraint cannot drift apart silently.
+import { CONTROL_EFFECTIVENESS_VALUES } from "../lib/develop/chains";
 import {
   acceptResidualRisk,
   adoptRiskContext,
@@ -69,6 +73,8 @@ import {
   ingestRiskEvidence,
   listAdoptedObjectives,
   recordRiskAnalysis,
+  getControlAssessmentHistory,
+  getRiskSecondaryRisks,
   recordRiskControlTest,
   recordRiskDecision,
   recordRiskIndicatorObservation,
@@ -337,6 +343,158 @@ function Driver({
           style={{ width: `${width}%` }}
         />
       </div>
+    </div>
+  );
+}
+
+/**
+ * D5.24 (spec §14): "control exists" and "control works" are two answers, so
+ * they render as two answers. A dimension the latest assessment deliberately
+ * did not judge says NOT ASSESSED — and the last real judgement is shown
+ * beside it with its date, rather than being promoted to look current.
+ */
+function ControlAssessmentDetail({ controlId }: { controlId: string }) {
+  const [open, setOpen] = useState(false);
+  const [data, setData] = useState<Record<string, unknown> | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!open || data != null) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const result = await getControlAssessmentHistory(controlId);
+        if (!cancelled) setData(result as Record<string, unknown>);
+      } catch (cause) {
+        if (!cancelled)
+          setError(
+            cause instanceof Error
+              ? cause.message
+              : "Could not load assessments",
+          );
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, data, controlId]);
+
+  const judged = (value: unknown): string => {
+    const v = value as { value?: string; assessedAt?: string } | null;
+    if (v?.value == null) return "never judged";
+    return `${v.value.replaceAll("_", " ")} on ${new Date(String(v.assessedAt)).toLocaleDateString()}`;
+  };
+
+  return (
+    <div className="mt-2 border-t border-white/6 pt-2">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="text-[10px] font-medium text-slate-400 hover:text-slate-200"
+      >
+        {open ? "Hide" : "Design vs operating effectiveness"}
+      </button>
+      {open && error && (
+        <p className="mt-1 text-[10px] text-red-300">{error}</p>
+      )}
+      {open && data != null && (
+        <div className="mt-1.5 space-y-1 text-[10px]">
+          <p className="text-slate-300">
+            Design (could it work?):{" "}
+            <span className="font-semibold">
+              {String(
+                data.latestDesignEffectiveness ?? "not assessed",
+              ).replaceAll("_", " ")}
+            </span>{" "}
+            <span className="text-slate-500">
+              · last judged {judged(data.lastJudgedDesignEffectiveness)}
+            </span>
+          </p>
+          <p className="text-slate-300">
+            Operating (did it work?):{" "}
+            <span className="font-semibold">
+              {String(
+                data.latestOperatingEffectiveness ?? "not assessed",
+              ).replaceAll("_", " ")}
+            </span>{" "}
+            <span className="text-slate-500">
+              · last judged {judged(data.lastJudgedOperatingEffectiveness)}
+            </span>
+          </p>
+          <p className="text-slate-500">
+            {(data.assessments as unknown[] | undefined)?.length ?? 0}{" "}
+            assessment(s) recorded. Spec §14: a control whose design is
+            ineffective cannot be recorded as operating effectively.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * D5.25 (spec §15 new_risk_created): the risks these treatments CREATED, as
+ * real linked risks rather than a sentence inside the parent's record.
+ */
+function SecondaryRiskPanel({ riskId }: { riskId: string }) {
+  const [data, setData] = useState<Record<string, unknown> | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const result = await getRiskSecondaryRisks(riskId);
+        if (!cancelled) setData(result as Record<string, unknown>);
+      } catch {
+        if (!cancelled) setData(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [riskId]);
+
+  const created =
+    (data?.createdRisks as
+      | {
+          riskId: string;
+          title: string;
+          level: string;
+          status: string;
+          treatment: string;
+        }[]
+      | undefined) ?? [];
+  const from = data?.createdByTreatmentOf as
+    | { riskId: string; title: string; treatment: string; strategy: string }
+    | null
+    | undefined;
+
+  if (created.length === 0 && from == null) return null;
+
+  return (
+    <div className="mt-3 rounded-xl border border-amber-500/20 bg-amber-500/5 p-3 text-[11px]">
+      {from != null && (
+        <p className="text-amber-200">
+          This risk was CREATED by the &ldquo;{from.treatment}&rdquo; treatment
+          of &ldquo;{from.title}&rdquo; ({from.strategy?.replaceAll("_", " ")}).
+        </p>
+      )}
+      {created.length > 0 && (
+        <>
+          <p className="font-semibold text-amber-200">
+            Treatments of this risk created {created.length} new risk
+            {created.length === 1 ? "" : "s"} (spec §15):
+          </p>
+          <ul className="mt-1 space-y-0.5 text-amber-100/80">
+            {created.map((item) => (
+              <li key={item.riskId}>
+                {item.title} — {item.level}, {item.status} · via &ldquo;
+                {item.treatment}&rdquo;
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
     </div>
   );
 }
@@ -636,6 +794,7 @@ function RiskDetail({
                     Record test
                   </button>
                 </div>
+                <ControlAssessmentDetail controlId={control.id} />
               </div>
             ))}
           </div>
@@ -759,6 +918,7 @@ function RiskDetail({
           </h3>
           <Pill>{risk.treatments.length}</Pill>
         </div>
+        <SecondaryRiskPanel riskId={risk.id} />
         <div className="mt-3 overflow-x-auto">
           {risk.treatments.length === 0 ? (
             <p className="text-xs text-slate-500">
@@ -1982,6 +2142,13 @@ function ActionModal({
     available_resources: "",
     required_competencies: "",
     treatment_owner_id: participants[0]?.id ?? "",
+    // D5.25 (spec §15 new_risk_created): a treatment that creates a new risk
+    // creates a LINKED Risk, rated at birth. Left blank, nothing is created
+    // and introduced_risks remains the stated assessment it already was.
+    secondary_risk_title: "",
+    secondary_risk_event: "",
+    secondary_risk_score: "",
+    secondary_risk_level: "Medium",
     required_approver_role: "",
     verification_method: "",
     alternatives_considered: "",
@@ -1997,6 +2164,12 @@ function ActionModal({
     test_result: "passed",
     intended_effect_observed: "true",
     failures_despite_control: "0",
+    // D5.24 (spec §14): "control exists" and "control works" are two
+    // answers, so they are two fields. not_assessed is a stated position;
+    // leaving a dimension unset records no judgement at all.
+    design_effectiveness: "not_assessed",
+    operating_effectiveness: "not_assessed",
+    assessment_confidence: "",
     note: "",
     compensating_controls: "",
     expires_at: "",
@@ -2136,6 +2309,21 @@ function ActionModal({
             residual_risk: Number(form.residual_risk_score),
             introduced_risk: Number(form.introduced_risk),
             introduced_risks: splitList(form.introduced_risks),
+            new_risk_created:
+              form.secondary_risk_title.trim() === ""
+                ? []
+                : [
+                    {
+                      title: form.secondary_risk_title,
+                      event_description: form.secondary_risk_event,
+                      current_risk_score:
+                        form.secondary_risk_score === ""
+                          ? null
+                          : Number(form.secondary_risk_score),
+                      current_risk_level: form.secondary_risk_level,
+                      risk_owner_id: form.treatment_owner_id,
+                    },
+                  ],
             production_impact: form.production_impact,
             safety_risk: form.safety_impact,
             financial_exposure: form.financial_impact,
@@ -2236,6 +2424,12 @@ function ActionModal({
           intended_effect_observed: form.intended_effect_observed === "true",
           failures_despite_control: Number(form.failures_despite_control),
           note: form.note,
+          design_effectiveness: form.design_effectiveness,
+          operating_effectiveness: form.operating_effectiveness,
+          assessment_confidence:
+            form.assessment_confidence === ""
+              ? null
+              : Number(form.assessment_confidence),
         });
       onDone();
     } catch (cause) {
@@ -2600,7 +2794,7 @@ function ActionModal({
               onChange={set("residual_risk_score")}
             />
             <Field
-              label="Introduced-risk score"
+              label="Introduced-risk score (at least the secondary risk's own score)"
               type="number"
               min={0}
               max={100}
@@ -2611,6 +2805,30 @@ function ActionModal({
               label="New risks introduced (empty is an explicit assessment)"
               value={form.introduced_risks}
               onChange={set("introduced_risks")}
+            />
+            <Field
+              label="Secondary risk created — title (blank creates none)"
+              value={form.secondary_risk_title}
+              onChange={set("secondary_risk_title")}
+            />
+            <Field
+              label="Secondary risk — what happens if it occurs"
+              value={form.secondary_risk_event}
+              onChange={set("secondary_risk_event")}
+            />
+            <Field
+              label="Secondary risk — current score"
+              type="number"
+              min={0}
+              max={100}
+              value={form.secondary_risk_score}
+              onChange={set("secondary_risk_score")}
+            />
+            <SelectField
+              label="Secondary risk — current level"
+              value={form.secondary_risk_level}
+              onChange={set("secondary_risk_level")}
+              options={levelOptions}
             />
             <Field
               label="Production objective impact"
@@ -3028,6 +3246,32 @@ function ActionModal({
               min={0}
               value={form.failures_despite_control}
               onChange={set("failures_despite_control")}
+            />
+            <SelectField
+              label="Design effectiveness — could it work?"
+              value={form.design_effectiveness}
+              onChange={set("design_effectiveness")}
+              options={CONTROL_EFFECTIVENESS_VALUES.map((value) => ({
+                value,
+                label: value.replaceAll("_", " "),
+              }))}
+            />
+            <SelectField
+              label="Operating effectiveness — did it work?"
+              value={form.operating_effectiveness}
+              onChange={set("operating_effectiveness")}
+              options={CONTROL_EFFECTIVENESS_VALUES.map((value) => ({
+                value,
+                label: value.replaceAll("_", " "),
+              }))}
+            />
+            <Field
+              label="Assessment confidence (%, blank if unstated)"
+              type="number"
+              min={0}
+              max={100}
+              value={form.assessment_confidence}
+              onChange={set("assessment_confidence")}
             />
             <TextArea
               label="Evidence note"

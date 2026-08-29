@@ -137,12 +137,59 @@ function blockerLine(b: ReadinessBlocker): {
       ),
     };
   }
-  // success_contract (D1.02): the same predicate record_case_gate_review
-  // refuses a proceed on, named before anyone attempts the review.
+  if (b.type === "success_contract") {
+    // D1.02: the same predicate record_case_gate_review refuses a proceed on,
+    // named before anyone attempts the review.
+    return {
+      key: `sc-${b.id}`,
+      kind: "success contract",
+      body: <>{b.name}</>,
+    };
+  }
+  if (b.type === "regulatory_condition") {
+    return {
+      key: `rc-${b.id}`,
+      kind: `permit condition (${b.domain.replace(/_/g, " ")})`,
+      body: (
+        <>
+          {b.name}{" "}
+          <span className="text-red-300/80">
+            (due {b.dueDate}, OVERDUE, {b.regulator})
+          </span>
+        </>
+      ),
+    };
+  }
+  if (b.type === "uncovered_commitment") {
+    return {
+      key: `uc-${b.id}`,
+      kind: `uncovered ${b.kind} commitment`,
+      body: (
+        <>
+          {b.name}{" "}
+          <span className="text-red-300/80">
+            (due {b.dueDate}, OVERDUE, no project requirement carries it)
+          </span>
+        </>
+      ),
+    };
+  }
+  if (b.type === "assurance_not_satisfied") {
+    return {
+      key: `as-${b.id}`,
+      kind: `assurance demanded: ${b.demandedLevel}`,
+      body: <>{b.name}</>,
+    };
+  }
+  // Exhaustiveness: a blocker type the union does not know is rendered as
+  // itself rather than silently wearing another type's label. The first draft
+  // fell through to the success_contract shape, so every Slice 3C blocker
+  // rendered as "SUCCESS CONTRACT:" — a true row under a false heading.
+  const unknown = b as { type: string; id: string | number; name: string };
   return {
-    key: `sc-${b.id}`,
-    kind: "success contract",
-    body: <>{b.name}</>,
+    key: `${unknown.type}-${unknown.id}`,
+    kind: unknown.type.replace(/_/g, " "),
+    body: <>{unknown.name}</>,
   };
 }
 
@@ -218,8 +265,31 @@ export function GateReadinessPanel({
       {result.blocked && result.readinessPct != null && (
         <p className="text-[11px] text-slate-400">
           A failed or never-assessed mandatory requirement blocks this gate at
-          any percentage — the {result.readinessPct}% is context, not
-          permission (spec §45).
+          any percentage — the {result.readinessPct}% is context, not permission
+          (spec §45).
+        </p>
+      )}
+
+      {/* D3.16 (spec II.15): the assurance POSITION at this gate — what the
+          adopted governance intensity demands and whether a completed,
+          II.15-complete review bound to THIS gate meets it. The payload was
+          returned and read by nothing; a position nobody renders informs no
+          decision. */}
+      {result.assurance?.required && (
+        <p
+          className={`text-[11px] ${
+            result.assurance.satisfied ? "text-emerald-300" : "text-amber-300"
+          }`}
+        >
+          Assurance (II.15): this case&apos;s adopted governance intensity
+          demands <strong>{result.assurance.demandedLevel}</strong> assurance
+          {result.assurance.independentRequiredByBinding
+            ? " (the binding requires independence)"
+            : ""}
+          .{" "}
+          {result.assurance.satisfied
+            ? "A completed, acceptable review bound to this gate, with a verified competency and an explicit conflicts declaration, meets it."
+            : `Not met: ${result.assurance.reviews.length} review(s) recorded against this case, none of them a completed, acceptable, II.15-complete review bound to this gate at or above ${result.assurance.demandedLevel}.`}
         </p>
       )}
 
@@ -333,7 +403,11 @@ export function EvidenceAgentPanel({
         title={`What evidence supports: ${criterion}`}
       >
         <Search className="h-3 w-3" aria-hidden />
-        {busy ? "Scanning…" : open && result ? "Hide evidence scan" : "What evidence supports this?"}
+        {busy
+          ? "Scanning…"
+          : open && result
+            ? "Hide evidence scan"
+            : "What evidence supports this?"}
       </button>
       {open && (
         <div className="mt-1.5 space-y-1.5 rounded-md border border-white/8 bg-white/[0.02] p-2 text-[11px]">
@@ -487,9 +561,8 @@ export function BaselinesSection({
       </div>
       <p className="mt-1 text-xs text-slate-400">
         The six §20 types — SCOPE, COST, SCHEDULE, DESIGN, RISK, BENEFITS —
-        versioned per case. Approval is a recorded human act; a prior version
-        is immutable, because it is the anchor change control will diff
-        against.
+        versioned per case. Approval is a recorded human act; a prior version is
+        immutable, because it is the anchor change control will diff against.
       </p>
       <div className="mt-3 space-y-2">
         <ErrorLine error={error} />
@@ -526,8 +599,7 @@ export function BaselinesSection({
             <p className="mt-1 text-slate-300">{b.description}</p>
             {b.approval && (
               <p className="mt-1 text-[11px] text-slate-500">
-                Approved{" "}
-                {new Date(b.approval.approvedAt).toLocaleDateString()}
+                Approved {new Date(b.approval.approvedAt).toLocaleDateString()}
                 {b.approval.by ? ` by ${b.approval.by}` : ""} —{" "}
                 {b.approval.note}
               </p>
@@ -662,10 +734,10 @@ export function ScheduleSection({ workspace }: { workspace: CaseWorkspace }) {
         <h2 className="text-sm font-semibold text-slate-100">Schedule</h2>
       </div>
       <p className="mt-1 text-xs text-slate-400">
-        Activities imported from Primavera P6 against this case. P6 remains
-        the system of record — Sync analyzes and never writes back. This
-        section lists what was imported; critical-path and schedule-confidence
-        analysis land in a later slice.
+        Activities imported from Primavera P6 against this case. P6 remains the
+        system of record — Sync analyzes and never writes back. This section
+        lists what was imported; critical-path and schedule-confidence analysis
+        land in a later slice.
       </p>
       <div className="mt-3 space-y-3">
         {events.length === 0 && (
@@ -700,8 +772,8 @@ export function ScheduleSection({ workspace }: { workspace: CaseWorkspace }) {
             {ev.activities.length === 0 && (
               <p className="mt-1 text-slate-500">
                 The schedule exists but holds no activities — every row of its
-                upload was refused. The import page keeps each refusal with
-                its reason.
+                upload was refused. The import page keeps each refusal with its
+                reason.
               </p>
             )}
             {ev.activities.slice(0, ACTIVITY_RENDER_CAP).map((a) => (
@@ -743,8 +815,8 @@ export function ScheduleSection({ workspace }: { workspace: CaseWorkspace }) {
             ))}
             {ev.activities.length > ACTIVITY_RENDER_CAP && (
               <p className="mt-1.5 border-t border-white/5 pt-1.5 text-[11px] text-slate-500">
-                …and {ev.activities.length - ACTIVITY_RENDER_CAP} more
-                imported activities not shown here.
+                …and {ev.activities.length - ACTIVITY_RENDER_CAP} more imported
+                activities not shown here.
               </p>
             )}
           </div>
@@ -761,9 +833,7 @@ export function OperationalReadinessSection({
   caseId: string;
   canPlan: boolean;
 }) {
-  const [result, setResult] = useState<OperationalReadinessResult | null>(
-    null,
-  );
+  const [result, setResult] = useState<OperationalReadinessResult | null>(null);
   const [assets, setAssets] = useState<BindableAsset[]>([]);
   const [assetId, setAssetId] = useState("");
   const [busy, setBusy] = useState(false);
@@ -867,7 +937,8 @@ export function OperationalReadinessSection({
                   <span className="font-semibold">{b.asset}</span>
                   {b.assetTag ? ` (${b.assetTag})` : ""}: {b.item}{" "}
                   <span className="text-red-300/80">
-                    ({b.kind === "safety_mission_critical"
+                    (
+                    {b.kind === "safety_mission_critical"
                       ? "safety/mission-critical"
                       : "required for go-live"}
                     , {b.status})

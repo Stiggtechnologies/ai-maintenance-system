@@ -641,6 +641,39 @@ export type ReadinessBlocker =
       id: string;
       name: string;
       status: "missing";
+    }
+  // Slice 3C (D3.11): a permit condition of this case that is missed, or open
+  // and past its date. Refused at the persistence boundary
+  // (trg_outstanding_obligations_gate) as well as named here.
+  | {
+      type: "regulatory_condition";
+      id: number;
+      name: string;
+      dueDate: string;
+      overdue: boolean;
+      domain: string;
+      regulator: string;
+    }
+  // Slice 3C (D3.09): an overdue commitment to an external party that no
+  // project requirement carries. Also refused at the persistence boundary.
+  | {
+      type: "uncovered_commitment";
+      id: number;
+      name: string;
+      dueDate: string;
+      overdue: boolean;
+      stakeholder: string;
+      kind: string;
+    }
+  // Slice 3C (D3.16): the adopted intensity binding's assurance demand, unmet
+  // at this gate. NAMED here; what an assurance demand costs a gate is
+  // enforced by the intensity and composite-authority contracts this slice
+  // does not re-open, and the register row says so.
+  | {
+      type: "assurance_not_satisfied";
+      id: number;
+      name: string;
+      demandedLevel: string;
     };
 
 export interface ReadinessProjection {
@@ -683,6 +716,30 @@ export interface GateReadinessResult {
     rejected: number;
     unverified: number;
     aiInferenceUnverified: number;
+  };
+  /** Slice 3C (D3.16): what this case's adopted governance intensity demands
+   *  of THIS gate, and whether a completed, II.15-complete review bound to it
+   *  at or above that level exists. */
+  assurance: {
+    required: boolean;
+    demandedLevel: string;
+    bindingLevel: string;
+    independentRequiredByBinding: boolean;
+    gateId: number | null;
+    satisfiedByReviewId: string | null;
+    satisfied: boolean;
+    reviews: {
+      id: string;
+      level: string;
+      status: string;
+      conclusion: string | null;
+      reviewer: string | null;
+      competencies: string[];
+      conflictsDeclaredAt: string | null;
+      conflictsDeclared: { conflict: string; mitigation: string }[];
+      gateId: number | null;
+      completedAt: string | null;
+    }[];
   };
   projection: ReadinessProjection;
 }
