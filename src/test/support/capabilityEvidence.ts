@@ -41,10 +41,24 @@
  *
  * Deliberately NOT done: no transitive symbol-level call graph. Module-level
  * reachability from the entry points is cheap and exact; symbol-level would
- * need a real TS program and would fail open on re-exports. The consequence is
- * stated honestly — a symbol called only by a dead sibling in a LIVE module
- * passes this gate. That is a weaker claim than "reachable from a click", and
- * this file does not pretend otherwise.
+ * need a real TS program and would fail open on re-exports.
+ *
+ * That used to come with a stated cost — "a symbol called only by a dead
+ * sibling in a LIVE module passes this gate" — and the cost turned out to be
+ * the whole gate for the D-family register, where every enforceable citation
+ * is an RPC name and `judgeSqlFunction` is the only judge any of them meets.
+ * An adversary appended six lines to a live service module, calling an RPC
+ * from a function nobody calls, and flipped a symbol from `ZERO callers` to
+ * `invoked from src/services/developService.ts`. Seven honest demotions,
+ * reversible by writing dead code.
+ *
+ * So the call site gets ONE hop of judgement now (`modulesRunningPattern`):
+ * the top-level declaration containing it must be referenced by something
+ * other than itself — the same standard `judgeTsSymbol` already applies to a
+ * cited TypeScript symbol. What remains true, and is still not pretended
+ * otherwise, is that one hop is not a call graph: a live-looking chain of
+ * wrappers that reference each other and nothing else would still pass. This
+ * is a floor, not a proof that a human can reach it in three clicks.
  */
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { extname, join, resolve as resolvePath } from "node:path";
@@ -55,36 +69,160 @@ import {
   stripComments,
 } from "./migrationPolicies";
 
-export const REGISTER_PATH = "docs/enterprise-readiness/capability-register.md";
+/* ────────────────────────────── the registers ───────────────────────────── */
 
-/* ─────────────────────────── the register itself ────────────────────────── */
+/**
+ * A register this gate polices.
+ *
+ * There are two, and for six weeks only one of them was checked. The
+ * enterprise register got the reachability gate, the citation ratchet and the
+ * derived tally; `docs/sync-develop/register.md` got the same house rule in
+ * PROSE — "✅ requires the full chain a customer can walk" — and nothing that
+ * could tell whether a row obeyed it. Slices 1, 2, 3A and 3B promoted rows in
+ * it. A silent demotion there was invisible in a diff, and a ✅ there was worth
+ * exactly the care of whoever typed it.
+ *
+ * So the register is a PARAMETER now, not a constant. The two files have
+ * genuinely different table shapes and each states its own; a shared "lossy"
+ * pattern that half-understood both would be the widened guard this whole
+ * module exists to refuse.
+ */
+export interface RegisterSpec {
+  /** Short name — appears in suite titles and failure messages. */
+  name: string;
+  path: string;
+  /** Named groups: id, capability, status, evidence. */
+  row: RegExp;
+}
+
+export const ENTERPRISE_REGISTER: RegisterSpec = {
+  name: "enterprise-readiness",
+  path: "docs/enterprise-readiness/capability-register.md",
+  // | <ID> | <capability> | <status glyph><evidence> |
+  row: /^\|\s*(?<id>[A-Z]\d+\.\d+)\s*\|(?<capability>[^|]*)\|\s*(?<status>✅|🟡|❌)(?<evidence>[^|]*)\|/u,
+};
+
+export const DEVELOP_REGISTER: RegisterSpec = {
+  name: "sync-develop",
+  path: "docs/sync-develop/register.md",
+  // | <ID> | <capability> | <spec ref> | <status> | <evidence> |
+  //
+  // Evidence is the LAST cell and it is deliberately NOT `[^|]*`. Nine rows
+  // quote a grep alternation — `grep 'ncr\|nonconformance' → only the spec
+  // file` — so a pipe-free cell pattern truncates the evidence at the escaped
+  // pipe. Truncation silently drops every citation after it, which is the
+  // de-citation evasion `register-baseline.mjs` was written to catch, arriving
+  // by accident instead of by intent.
+  row: /^\|\s*(?<id>[A-Z]\d+\.\d+)\s*\|(?<capability>[^|]*)\|(?<specRef>[^|]*)\|\s*(?<status>✅|🟡|❌)\s*\|(?<evidence>.*?)\|?\s*$/u,
+};
+
+/** Both registers, in the order a report should present them. */
+export const REGISTERS: RegisterSpec[] = [
+  ENTERPRISE_REGISTER,
+  DEVELOP_REGISTER,
+];
+
+export const REGISTER_PATH = ENTERPRISE_REGISTER.path;
 
 export interface RegisterRow {
   id: string;
   capability: string;
   status: "✅" | "🟡" | "❌";
-  /** Everything after the status glyph in the status cell. */
+  /** The evidence cell, or everything after the glyph where they share a cell. */
   evidence: string;
   line: number;
 }
 
-const ROW = /^\|\s*([A-Z]\d+\.\d+)\s*\|([^|]*)\|\s*(✅|🟡|❌)([^|]*)\|/u;
+/**
+ * The `|---|:--:|` rule under a table's header. Structure, never a claim.
+ */
+const TABLE_RULE = /^[ \t]*\|[\s:|-]*-[\s:|-]*$/u;
 
+/**
+ * Every line of a register that ASSERTS something, and therefore must parse.
+ *
+ * This used to be "a line whose first cell is ID-shaped", and that was a hole
+ * with the same shape as the one this whole module exists to close. The throw
+ * below only ever fired for lines that already looked like rows, so a line
+ * that did not look ID-shaped was still dropped in silence:
+ *
+ *   | **D1.99** | Invisible capability | I.3 | ✅ | Shipped via `add_framework_gate`. |
+ *
+ * Two asterisks. A ✅ row citing a provably dead function, pasted into a real
+ * capability table — `npm run register:check` exit 0, both test files green,
+ * the tally still reporting the old item count. Nothing saw it, because
+ * nothing was looking at it. A gate whose scope is a function of markdown
+ * formatting is a gate with a documented bypass.
+ *
+ * So the rule is now absolute and structural: in a register, EVERY table line
+ * is a claim except the two that cannot be one — the `|---|` rule, and the
+ * header sitting directly above a rule. Everything else must parse.
+ *
+ * That is deliberately unforgiving, and it must stay unforgiving. There is no
+ * ignore list and no "tables that don't count" predicate, because either one
+ * restores the bypass in a form a reviewer would wave through. Both registers
+ * satisfy it exactly today: 260 and 571 table lines, 26 and 106 of them rules
+ * and headers, 234 and 465 rows, zero remainder. A register file is a program
+ * of record, not a document — if it ever needs a legend, an illustrative
+ * example or a fenced snippet containing a pipe, that content belongs beside
+ * the register and not inside it.
+ */
+export function registerClaimLines(
+  source: string,
+): { text: string; line: number }[] {
+  const lines = source.split("\n");
+  const claims: { text: string; line: number }[] = [];
+  lines.forEach((text, i) => {
+    if (!/^[ \t]*\|/u.test(text)) return;
+    if (TABLE_RULE.test(text)) return;
+    if (TABLE_RULE.test(lines[i + 1] ?? "")) return; // a header above a rule
+    claims.push({ text, line: i + 1 });
+  });
+  return claims;
+}
+
+/**
+ * Parses one register, and THROWS on any row it cannot read.
+ *
+ * Failing loud is the point. The alternative — skip and carry on — makes the
+ * gate's scope a function of markdown formatting: change a cell, leave the
+ * gate, keep the ✅. The throw names the file, the line and the text, so the
+ * fix is a minute's work rather than an investigation.
+ */
 export function parseRegister(
-  source = readFileSync(REGISTER_PATH, "utf8"),
+  register: RegisterSpec = ENTERPRISE_REGISTER,
+  source = readFileSync(register.path, "utf8"),
 ): RegisterRow[] {
   const rows: RegisterRow[] = [];
-  source.split("\n").forEach((line, i) => {
-    const m = ROW.exec(line);
-    if (!m) return;
+  const unparsed: string[] = [];
+  for (const { text, line } of registerClaimLines(source)) {
+    const m = register.row.exec(text);
+    if (!m?.groups) {
+      unparsed.push(`  ${register.path}:${line}  ${text.trim().slice(0, 160)}`);
+      continue;
+    }
     rows.push({
-      id: m[1],
-      capability: m[2].trim(),
-      status: m[3] as RegisterRow["status"],
-      evidence: m[4].trim(),
-      line: i + 1,
+      id: m.groups.id,
+      capability: m.groups.capability.trim(),
+      status: m.groups.status as RegisterRow["status"],
+      evidence: m.groups.evidence.trim(),
+      line,
     });
-  });
+  }
+  if (unparsed.length > 0) {
+    throw new Error(
+      `${register.name}: ${unparsed.length} table row(s) in this register do not parse. ` +
+        `An unparseable row is an UNCHECKED row — fix the row or the pattern, never drop it, ` +
+        `and never teach the parser to ignore a table:\n` +
+        unparsed.join("\n"),
+    );
+  }
+  if (rows.length === 0) {
+    throw new Error(
+      `${register.name}: parsed ZERO rows from ${register.path}. A gate with an ` +
+        `empty scope passes everything — the pattern and the file have diverged.`,
+    );
+  }
   return rows;
 }
 
@@ -196,10 +334,36 @@ export function loadCorpus(): CodeCorpus {
  * blank the rest of the file and turn live callers invisible, which fails the
  * gate CLOSED on real code — the failure mode that gets a gate deleted.
  */
+/**
+ * Both judges call `stripTsSource` over the ENTIRE corpus once per citation,
+ * and it is a character-by-character scan of every module. That was affordable
+ * at 210 citations against one register; at 434 across two it added ~23s of
+ * module-scope work to this suite, and the cost did not land here — it landed
+ * on the 175 other test files sharing the machine, three of which started
+ * timing out at their 5s limit. A gate that makes unrelated tests flaky gets
+ * the gate deleted just as surely as one that fails closed.
+ *
+ * The functions are pure in their input text, so the answers are cached by it.
+ * Nothing about the verdicts changes; only how many times the same file is
+ * re-scanned to reach them.
+ */
+const strippedCache = new Map<string, string>();
+const strippedBlankedCache = new Map<string, string>();
+const usageCache = new Map<string, string>();
+
 export function stripTsSource(
   text: string,
   { blankStrings = false }: { blankStrings?: boolean } = {},
 ): string {
+  const cache = blankStrings ? strippedBlankedCache : strippedCache;
+  const hit = cache.get(text);
+  if (hit !== undefined) return hit;
+  const computed = computeStrippedTsSource(text, blankStrings);
+  cache.set(text, computed);
+  return computed;
+}
+
+function computeStrippedTsSource(text: string, blankStrings: boolean): string {
   const blank = (span: string) => span.replace(/[^\n]/g, " ");
   let out = "";
   let i = 0;
@@ -243,7 +407,10 @@ export function stripTsSource(
         i += 1;
         continue;
       }
-      out += ch + (blankStrings ? blank(text.slice(i + 1, j)) : text.slice(i + 1, j)) + ch;
+      out +=
+        ch +
+        (blankStrings ? blank(text.slice(i + 1, j)) : text.slice(i + 1, j)) +
+        ch;
       i = j + 1;
       continue;
     }
@@ -264,9 +431,221 @@ const BARE_REEXPORT = /(?:^|\n)[ \t]*export\s*(?:type\s*)?\{[^}]*\}[ \t]*;?/g;
  * symbol is not a caller of it, and an unused import is not a use.
  */
 export function usageSurface(text: string): string {
-  return stripTsSource(text, { blankStrings: true })
+  const hit = usageCache.get(text);
+  if (hit !== undefined) return hit;
+  const computed = stripTsSource(text, { blankStrings: true })
     .replace(IMPORT_CLAUSE, "")
     .replace(BARE_REEXPORT, "");
+  usageCache.set(text, computed);
+  return computed;
+}
+
+/* ─────────────────── is a call site inside anything alive? ───────────────── */
+
+/** A top-level declaration: `export async function f`, `const X =`, `class C`. */
+const LINE_DECL =
+  /^(?:export\s+)?(?:default\s+)?(?:async\s+)?(?:function\s*\*?|class|const|let|var)\s+([A-Za-z_$][\w$]*)/u;
+/** `export default function () {}` / `export default {` — no name to judge. */
+const ANONYMOUS_DEFAULT =
+  /^export\s+default\s+(?!(?:async\s+)?(?:function\s*\*?|class)\s+[A-Za-z_$])/u;
+
+/** The `{ … }` groups that sit at module top level, in source order. */
+function topLevelBraceGroups(
+  blanked: string,
+): { open: number; close: number }[] {
+  const groups: { open: number; close: number }[] = [];
+  let depth = 0;
+  let open = -1;
+  for (let i = 0; i < blanked.length; i += 1) {
+    const ch = blanked[i];
+    if (ch === "{") {
+      if (depth === 0) open = i;
+      depth += 1;
+    } else if (ch === "}") {
+      depth -= 1;
+      if (depth === 0 && open !== -1) {
+        groups.push({ open, close: i + 1 });
+        open = -1;
+      }
+      if (depth < 0) depth = 0; // a stray brace in unparsed syntax; keep going
+    }
+  }
+  if (open !== -1) groups.push({ open, close: blanked.length });
+  return groups;
+}
+
+interface Enclosing {
+  /** Offset the declaration starts at. */
+  at: number;
+  /** null when the enclosing construct has no name to judge. */
+  name: string | null;
+  span: [number, number];
+}
+
+/**
+ * The top-level DECLARATION whose body contains `at`, if there is one.
+ *
+ * Returning null means "nothing to judge, treat as live", and that is the
+ * right answer for the two shapes that produce it. A call site outside every
+ * top-level brace group runs on import. A call site inside a top-level
+ * EXPRESSION — `Deno.serve(async (req) => { … })`, the shape of every edge
+ * function in this repo — is invoked by the runtime, and an earlier draft of
+ * this walk mistook it for the body of the last function declared above it,
+ * failed `kb_ingest_document` closed, and would have written a false gap into
+ * two registers. A gate that lies in the safe direction is still a gate that
+ * lies.
+ */
+function enclosingDeclaration(blanked: string, at: number): Enclosing | null {
+  const groups = topLevelBraceGroups(blanked);
+  const index = groups.findIndex((g) => g.open < at && at < g.close);
+  if (index === -1) return null; // module top level: runs on import
+  const group = groups[index];
+  const lower = index === 0 ? 0 : groups[index - 1].close;
+
+  // Column-0 statement starts between the previous top-level group and this
+  // one, walked backwards — a declaration's `export const f = (` line may sit
+  // several physical lines above the `{` that opens its body.
+  // Column 0, non-blank, and not a `|` — a union-type member formatted onto
+  // its own line continues the statement above it, it does not start one.
+  const starts: number[] = [];
+  for (let i = lower; i < group.open; i += 1) {
+    if (
+      (i === 0 || blanked[i - 1] === "\n") &&
+      !/[\s|]/.test(blanked[i] ?? "")
+    ) {
+      starts.push(i);
+    }
+  }
+  for (const start of starts.reverse()) {
+    const nl = blanked.indexOf("\n", start);
+    const end = nl === -1 ? blanked.length : nl;
+    const line = blanked.slice(start, end);
+    const bodyOnThisLine = group.open < end;
+    const decl = LINE_DECL.exec(line);
+    if (decl && (bodyOnThisLine || !/;\s*$/.test(line))) {
+      return { at: start, name: decl[1], span: [start, group.close] };
+    }
+    if (ANONYMOUS_DEFAULT.test(line)) {
+      return { at: start, name: null, span: [start, group.close] };
+    }
+    // A completed statement sits between this group and anything above it, so
+    // nothing above it declares this group.
+    if (!bodyOnThisLine && /;\s*$/.test(line)) return null;
+  }
+  return null;
+}
+
+/**
+ * Does anything reference `name`, other than the declaration it names?
+ *
+ * The definition file is searched OUTSIDE the declaration's own span, so a
+ * function that only calls itself does not vouch for itself; every other
+ * non-test file is searched through `usageSurface`, so an unused import and a
+ * barrel re-export do not count either.
+ */
+function symbolIsReferenced(
+  name: string,
+  definedIn: string,
+  span: [number, number],
+  code: CodeCorpus,
+): boolean {
+  const re = wordRe(name);
+  const own = stripTsSource(code.files.get(definedIn) ?? "", {
+    blankStrings: true,
+  });
+  if (re.test(own.slice(0, span[0]) + "\n" + own.slice(span[1]))) return true;
+  for (const [path, text] of code.files) {
+    if (path === definedIn || isTestFile(path)) continue;
+    if (re.test(usageSurface(text))) return true;
+  }
+  return false;
+}
+
+/** Cache: `${path}::${symbol}::${span}` → referenced. Same input, same answer. */
+const referencedCache = new Map<string, boolean>();
+
+/**
+ * The modules in which `pattern` occurs inside code something actually runs.
+ *
+ * WHY THIS IS NOT JUST "the module is reachable". Module-level reachability is
+ * what this gate can afford, and its honest cost is stated in the header: a
+ * symbol called only by a dead sibling in a LIVE module passes. For the
+ * D-family register that cost was the whole gate, because 224 of its 224
+ * enforceable citations are `sql-function` and this is the only judge they
+ * ever meet. An adversary proved the exploit end to end — appending
+ *
+ *   export async function adversaryDeadWrapper() {
+ *     await supabase.rpc("add_framework_gate", {});
+ *   }
+ *
+ * to `src/services/developService.ts`, which routed pages import, flipped
+ * `add_framework_gate` from `ZERO callers` to `invoked from
+ * src/services/developService.ts`. Every one of the seven honest demotions
+ * this branch made was reversible by writing a function nobody calls.
+ *
+ * So the call site itself is now judged, not just the file holding it: the
+ * top-level declaration containing the RPC string must be referenced by
+ * something other than itself. That is the SAME standard `judgeTsSymbol`
+ * already applies to a cited TypeScript symbol, so it is a rule being applied
+ * consistently rather than a new one being invented.
+ *
+ * It stays deliberately shallow — one hop, not a call graph. A call site at
+ * module top level runs on import and passes; an anonymous default export is
+ * invoked by whoever imports it and passes. Those are fail-OPEN cases, chosen
+ * because a gate that fails closed on working code gets deleted rather than
+ * fixed. What no longer passes is the specific, demonstrated, one-line
+ * exploit.
+ */
+export function modulesRunningPattern(
+  pattern: RegExp,
+  code: CodeCorpus,
+  {
+    reachableOnly = true,
+    accept,
+  }: {
+    reachableOnly?: boolean;
+    /** Further test on a match, given the stripped source and its offset. */
+    accept?: (source: string, at: number) => boolean;
+  } = {},
+): string[] {
+  const flags = pattern.flags.replace("g", "");
+  const global = new RegExp(pattern.source, "g" + flags);
+  // A SEPARATE, non-global regex for the cheap pre-filter. `RegExp.test` on a
+  // /g pattern advances `lastIndex`, and `String.matchAll` starts from the
+  // original's `lastIndex` — so testing and then iterating the same object
+  // silently skips the first match. Every symbol cited exactly once in the
+  // corpus then read as uncalled: 23 false failures across both registers.
+  const probe = new RegExp(pattern.source, flags);
+  const hits: string[] = [];
+  for (const [path, text] of code.files) {
+    if (isTestFile(path)) continue;
+    if (reachableOnly && !code.reachable.has(path)) continue;
+    const source = stripTsSource(text);
+    if (!probe.test(source)) continue;
+    const blanked = stripTsSource(text, { blankStrings: true });
+    for (const m of source.matchAll(global)) {
+      const at = m.index ?? 0;
+      if (accept && !accept(source, at)) continue;
+      const enclosing = enclosingDeclaration(blanked, at);
+      // Nothing named encloses it: top level, an anonymous default export, or
+      // a top-level expression the runtime invokes. All three run.
+      if (!enclosing || enclosing.name === null) {
+        hits.push(path);
+        break;
+      }
+      const key = `${path}::${enclosing.name}::${enclosing.span.join("-")}`;
+      let live = referencedCache.get(key);
+      if (live === undefined) {
+        live = symbolIsReferenced(enclosing.name, path, enclosing.span, code);
+        referencedCache.set(key, live);
+      }
+      if (live) {
+        hits.push(path);
+        break;
+      }
+    }
+  }
+  return hits;
 }
 
 /* ───────────────────────────── the SQL corpus ───────────────────────────── */
@@ -324,7 +703,12 @@ export function parseFunctionDefs(file: string, sql: string): SqlFunctionDef[] {
     const until = heads[n + 1]?.index ?? sql.length;
     const opener = /\$([A-Za-z_]*)\$/.exec(sql.slice(from, until));
     if (!opener) {
-      defs.push({ name: head[1].toLowerCase(), file, header: sql.slice(from, until), body: "" });
+      defs.push({
+        name: head[1].toLowerCase(),
+        file,
+        header: sql.slice(from, until),
+        body: "",
+      });
       return;
     }
     const tag = opener[0];
@@ -434,6 +818,12 @@ const FILE_PATH = /^[\w./-]+\.(?:ts|tsx|mjs|sql|json)$/;
 export interface Extraction {
   enforceable: Citation[];
   skipped: SkippedCitation[];
+  /**
+   * Citations naming a code file that does not exist. Distinct from `skipped`:
+   * skipping is for tokens the gate cannot classify, and is fail-open by
+   * design; a stale citation is a claim that has rotted, and fails.
+   */
+  stale: SkippedCitation[];
 }
 
 /**
@@ -477,6 +867,7 @@ export function extractCitations(
 ): Extraction {
   const enforceable: Citation[] = [];
   const skipped: SkippedCitation[] = [];
+  const stale: SkippedCitation[] = [];
   const seen = new Set<string>();
 
   for (const m of row.evidence.matchAll(BACKTICKED)) {
@@ -486,8 +877,25 @@ export function extractCitations(
     const bare = raw.replace(/\(\s*\)$/, "").trim();
 
     if (FILE_PATH.test(bare) || bare.includes("/")) {
-      if (existsSync(bare) || code.files.has(bare)) {
-        enforceable.push({ id: row.id, raw, name: bare, kind: "file" });
+      // Migrations are routinely cited by bare basename; resolve one where
+      // migrations actually live before calling the citation stale.
+      const resolved = [bare, `${MIGRATIONS_DIR}/${bare}`].find(
+        (candidate) => existsSync(candidate) || code.files.has(candidate),
+      );
+      if (resolved) {
+        enforceable.push({ id: row.id, raw, name: resolved, kind: "file" });
+      } else if (FILE_PATH.test(bare)) {
+        // A citation carrying a CODE EXTENSION that resolves nowhere is not
+        // ambiguous prose — it is a stale citation, the commonest way a ✅ row
+        // rots as code moves. Skipping it let a row cite a file that no longer
+        // exists and stay green. Routes (`/risk`, `/assessments/:id`) carry no
+        // extension and still skip, because they are not file claims.
+        stale.push({
+          id: row.id,
+          raw,
+          reason:
+            "cites a code file that does not exist — stale citation, or the path moved",
+        });
       } else {
         skipped.push({
           id: row.id,
@@ -552,7 +960,7 @@ export function extractCitations(
       kind: "sql-function",
     });
   }
-  return { enforceable, skipped };
+  return { enforceable, skipped, stale };
 }
 
 /** Where each exported/declared TypeScript symbol is defined. */
@@ -595,7 +1003,9 @@ export function judgeTsSymbol(
   const callers = [...code.files]
     .filter(
       ([path, text]) =>
-        !isTestFile(path) && !definedIn.includes(path) && re.test(usageSurface(text)),
+        !isTestFile(path) &&
+        !definedIn.includes(path) &&
+        re.test(usageSurface(text)),
     )
     .map(([path]) => path);
   const liveCallers = callers.filter((c) => code.reachable.has(c));
@@ -657,21 +1067,28 @@ export function judgeSqlFunction(
   const name = citation.name;
   const definedIn = sql.functions.get(name) ?? [];
   if (seen.has(name)) {
-    return { citation, ok: false, detail: `recursive call cycle through ${name}()` };
+    return {
+      citation,
+      ok: false,
+      detail: `recursive call cycle through ${name}()`,
+    };
   }
   seen.add(name);
 
   const quoted = new RegExp(`["'\`]${name}["'\`]`);
-  const tsCallers = [...code.files]
+  const namedIn = [...code.files]
     .filter(
-      ([path, text]) =>
-        !isTestFile(path) && quoted.test(stripTsSource(text)),
+      ([path, text]) => !isTestFile(path) && quoted.test(stripTsSource(text)),
     )
     .map(([path]) => path);
-  const liveTs = tsCallers.filter((p) => code.reachable.has(p));
+  // Not "a reachable module names it" — a reachable module RUNS it. See
+  // `modulesRunningPattern`: the exploit this closes was one dead wrapper in a
+  // live service module, and it flipped a demoted row back to green.
+  const liveTs = modulesRunningPattern(quoted, code);
   if (liveTs.length > 0) {
     return { citation, ok: true, detail: `invoked from ${liveTs[0]}` };
   }
+  const strandedIn = namedIn.filter((p) => code.reachable.has(p));
 
   // A trigger attachment is a caller even with no client ever naming it.
   const trigger = [...sql.files].filter(([, text]) =>
@@ -681,21 +1098,40 @@ export function judgeSqlFunction(
     ).test(text),
   );
   if (trigger.length > 0) {
-    return { citation, ok: true, detail: `attached to a trigger in ${trigger[0][0]}` };
+    return {
+      citation,
+      ok: true,
+      detail: `attached to a trigger in ${trigger[0][0]}`,
+    };
   }
 
   // A pg_cron schedule is a caller too, and for the loop's own producers it is
   // the ONLY caller by design — `evaluate_ca_effectiveness` is deliberately
   // revoked from `authenticated` and driven at '15 * * * *'. Missing this would
   // fail the gate closed on working code, which is how a gate gets deleted.
+  //
+  // The command argument is matched in BOTH of Postgres's quoting styles. This
+  // is not a relaxation of what counts as a caller — pg_cron already counted,
+  // with its own pinned test — it is the branch finishing the job it claimed to
+  // do. It recognised `'select public.f()'` and not `$cron$select public.f();$cron$`,
+  // which are the same call written two legal ways, so whether a function looked
+  // reachable depended on a migration author's quoting habit. That is not a
+  // standard; it is a coin flip. `expire_governance_instruments` runs hourly at
+  // '7 * * * *' (20261121090200:401) and the gate called it dead, which would
+  // have forced a FALSE demotion into the register — a lie told to make a gate
+  // green is the same defect as a ✅ told to make a slice look finished.
   const scheduled = [...sql.files].filter(([, text]) =>
     new RegExp(
-      `cron\\.schedule\\s*\\([^)]*?['"\`]\\s*select\\s+(?:public\\.)?${name}\\s*\\(`,
+      `cron\\.schedule\\s*\\([^)]*?(?:['"\`]|\\$[A-Za-z_]*\\$)\\s*select\\s+(?:public\\.)?${name}\\s*\\(`,
       "is",
     ).test(text),
   );
   if (scheduled.length > 0) {
-    return { citation, ok: true, detail: `scheduled with pg_cron in ${scheduled[0][0]}` };
+    return {
+      citation,
+      ok: true,
+      detail: `scheduled with pg_cron in ${scheduled[0][0]}`,
+    };
   }
 
   // Called from the BODY of another function that is itself reachable. Scoping
@@ -703,7 +1139,8 @@ export function judgeSqlFunction(
   // migration from vouching for a writer, and vice versa.
   const call = new RegExp(`\\b${name}\\s*\\(`, "i");
   for (const def of sql.definitions) {
-    if (def.name === name || def.body === "" || isDemoMigration(def.file)) continue;
+    if (def.name === name || def.body === "" || isDemoMigration(def.file))
+      continue;
     if (!call.test(def.body)) continue;
     const upstream = judgeSqlFunction(
       { ...citation, name: def.name, kind: "sql-function" },
@@ -721,13 +1158,18 @@ export function judgeSqlFunction(
   }
 
   const proseOnly = [...code.files].filter(
-    ([path, text]) => !isTestFile(path) && new RegExp(`\\b${name}\\b`).test(text),
+    ([path, text]) =>
+      !isTestFile(path) && new RegExp(`\\b${name}\\b`).test(text),
   ).length;
   return {
     citation,
     ok: false,
     detail:
       `ZERO callers — defined and granted in ${definedIn.join(", ")}, invoked by nothing` +
+      (strandedIn.length > 0
+        ? `; ${strandedIn[0]} does contain the RPC call, inside a top-level ` +
+          `declaration nothing else references — a wrapper nobody calls is not a caller`
+        : "") +
       (proseOnly > 0
         ? `; ${proseOnly} TypeScript file(s) name it in prose or a comment only`
         : ""),
@@ -775,14 +1217,16 @@ export function judgeSqlTable(
     return {
       citation,
       ok: true,
-      detail: "no row-level security on this table; write-path enforcement not applicable",
+      detail:
+        "no row-level security on this table; write-path enforcement not applicable",
     };
   }
 
   const writable = onTable.filter((p) =>
     p.statements.some(
       (s) =>
-        WRITE_COMMANDS.has(policyCommand(s)) && !/\bto\s+service_role\b/i.test(s),
+        WRITE_COMMANDS.has(policyCommand(s)) &&
+        !/\bto\s+service_role\b/i.test(s),
     ),
   );
   if (writable.length > 0) {
@@ -797,17 +1241,25 @@ export function judgeSqlTable(
   // SELECT-only policy set does NOT prove there is no write path. If live code
   // writes the table directly, that is a real path and the gate must see it —
   // otherwise the gate goes red the moment the feature lane fixes the problem.
-  for (const [path, text] of code.files) {
-    if (isTestFile(path) || !code.reachable.has(path)) continue;
-    const source = stripTsSource(text);
-    for (const m of source.matchAll(
-      new RegExp(`from\\(\\s*["'\`]${table}["'\`]\\s*\\)`, "g"),
-    )) {
-      const window = source.slice(m.index, m.index + 240);
-      if (/\.(insert|upsert|update|delete)\s*\(/.test(window)) {
-        return { citation, ok: true, detail: `written directly from ${path}` };
-      }
-    }
+  //
+  // `modulesRunningPattern`, not a bare scan of reachable files: this branch
+  // had the same dead-wrapper hole as the RPC branch above — a `.from(t)
+  // .insert(…)` inside a function nobody calls, in a module something imports,
+  // read as a customer write path.
+  const written = modulesRunningPattern(
+    new RegExp(`from\\(\\s*["'\`]${table}["'\`]\\s*\\)`),
+    code,
+    {
+      accept: (source, at) =>
+        /\.(insert|upsert|update|delete)\s*\(/.test(source.slice(at, at + 240)),
+    },
+  );
+  if (written.length > 0) {
+    return {
+      citation,
+      ok: true,
+      detail: `written directly from ${written[0]}`,
+    };
   }
 
   // A SECURITY DEFINER function may write on the caller's behalf. It counts
@@ -837,7 +1289,9 @@ export function judgeSqlTable(
     .filter(
       ([file, text]) =>
         isDemoMigration(file) &&
-        new RegExp(`insert\\s+into\\s+(?:public\\.)?${table}\\b`, "i").test(text),
+        new RegExp(`insert\\s+into\\s+(?:public\\.)?${table}\\b`, "i").test(
+          text,
+        ),
     )
     .map(([file]) => file);
   const unreachableWriters = sql.definitions
@@ -906,6 +1360,18 @@ export function judgeFile(citation: Citation, code: CodeCorpus): Verdict {
   }
   if (!existsSync(bare)) {
     return { citation, ok: false, detail: "no such file in the repo" };
+  }
+  // A migration has no importer and never will: the runner applies every file
+  // in this directory, in filename order, unconditionally — which is exactly
+  // what CI's fresh-install chain proves on every PR. Demanding a grep hit in
+  // package.json would fail a row for citing the migration that creates the
+  // very object it claims. There is no such thing as a dead migration here.
+  if (bare.startsWith(`${MIGRATIONS_DIR}/`)) {
+    return {
+      citation,
+      ok: true,
+      detail: "applied by the migration chain, which runs every file in order",
+    };
   }
   // Outside src/ and supabase/functions: prove something invokes it.
   // Attempt-and-handle rather than check-then-use. The previous form asked
