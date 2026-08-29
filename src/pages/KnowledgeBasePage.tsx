@@ -18,6 +18,7 @@ import {
   type KbDocumentClass,
   type KbIntakeDocument,
 } from "../services/kbIntake";
+import { trackUiEvent } from "../services/uiEvents";
 
 const INTAKE_ROLES = ["admin", "ai_admin", "reliability_engineer"];
 
@@ -141,6 +142,7 @@ export function KnowledgeBasePage() {
         page_start: pageStartNum,
         page_end: pageEndNum,
       });
+      trackUiEvent("kb_ingest_submitted", result.source_id.slice(0, 60));
       setNotice(
         `Ingested "${result.source_id}" — ${result.chunks_created} chunk(s) indexed.`,
       );

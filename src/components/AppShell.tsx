@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useMediaQuery } from "../lib/useMediaQuery";
+import { trackUiEvent } from "../services/uiEvents";
 import {
   Zap,
   ChevronLeft,
@@ -297,6 +298,7 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   useEffect(() => {
     setDrawerOpen(false);
+    trackUiEvent("page_view");
   }, [currentPath]);
 
   const [sites, setSites] = useState<Site[]>([]);
@@ -648,7 +650,10 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
         <header className="h-14 bg-overlook-void/80 backdrop-blur-md border-b border-white/5 px-4 flex items-center justify-between shrink-0 z-10">
           <div className="flex items-center gap-4 min-w-0 flex-1">
             <button
-              onClick={() => setDrawerOpen(true)}
+              onClick={() => {
+                trackUiEvent("drawer_open");
+                setDrawerOpen(true);
+              }}
               aria-label="Open navigation"
               aria-expanded={drawerOpen}
               className="md:hidden p-2 rounded-md text-slate-300 hover:text-signal-cyan hover:bg-signal-cyan/10 transition-colors focus:outline-hidden focus-visible:ring-2 focus-visible:ring-teal-300"
@@ -828,7 +833,10 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
             return (
               <button
                 key={tab.id}
-                onClick={() => onNavigate(tab.path)}
+                onClick={() => {
+                  trackUiEvent("tab_tap", tab.label);
+                  onNavigate(tab.path);
+                }}
                 aria-label={tab.label}
                 aria-current={active ? "page" : undefined}
                 className={`relative flex flex-col items-center gap-1 py-2.5 text-[11px] font-medium transition-colors ${
