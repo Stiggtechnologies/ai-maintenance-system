@@ -8,6 +8,7 @@
 import { useRef, useState } from "react";
 import { Camera, Send, CheckCircle2 } from "lucide-react";
 import { reportFailure } from "../services/fieldCapture";
+import { trackUiEvent } from "../services/uiEvents";
 
 const TYPES = [
   { id: "fault", label: "Fault" },
@@ -54,6 +55,7 @@ export function FieldFailureCapture({
         notificationType: type,
         photo: photo ?? undefined,
       });
+      trackUiEvent("field_report_filed", type);
       setDone(
         photo
           ? `Notification filed — photo attached as evidence.`

@@ -25,6 +25,7 @@ import { useSyncStream } from "../hooks/useSyncStream";
 import { getCopilotEphemeralContext } from "../lib/copilot-context";
 import { getRolePersona } from "../lib/rolePersonas";
 import { supabase } from "../lib/supabase";
+import { trackUiEvent } from "../services/uiEvents";
 import { supabasePublicKey, supabaseUrl } from "../lib/supabase-config";
 import { describeQuotaRefusal } from "../services/agentQuota";
 import { getKpiDashboard } from "../services/kpiService";
@@ -582,6 +583,7 @@ export function CopilotDock({
     async (rawQuestion: string, appendUser = true) => {
       const question = rawQuestion.trim();
       if (!question || sending || conversationStatus !== "active") return;
+      trackUiEvent("copilot_question", question.slice(0, 60));
       setInput("");
       setAttachmentError(null);
       lastQuestionRef.current = question;
