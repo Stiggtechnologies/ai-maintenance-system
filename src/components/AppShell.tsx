@@ -335,6 +335,15 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
   }, []);
 
   useEffect(() => {
+    if (!drawerOpen) return;
+    const onEscape = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setDrawerOpen(false);
+    };
+    window.addEventListener("keydown", onEscape);
+    return () => window.removeEventListener("keydown", onEscape);
+  }, [drawerOpen]);
+
+  useEffect(() => {
     if (userContext) {
       loadSites();
       loadBadges();
