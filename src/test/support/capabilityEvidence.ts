@@ -65,6 +65,7 @@ import { extname, join, resolve as resolvePath } from "node:path";
 import {
   MIGRATIONS_DIR,
   migrationFiles,
+  isRestrictive,
   resolveChainPolicies,
   stripComments,
 } from "./migrationPolicies";
@@ -1222,10 +1223,21 @@ export function judgeSqlTable(
     };
   }
 
+  // A RESTRICTIVE write policy is a DENY, never an admission. `as restrictive`
+  // ANDs into whatever permissive policies exist and can only ever narrow, so
+  // `for insert ... with check (development_case_id is null)` exists precisely
+  // to STOP clients inserting the rows the row claims they create. Counting it
+  // as a write path was the SELECT-only-RLS class this judge was written to
+  // catch, wearing an INSERT keyword: a table whose only write policy is a
+  // deny would have passed. `isRestrictive` was already exported one file over
+  // and documented for exactly this distinction; it simply was not consulted
+  // here. Tables with a genuine definer write path still pass below, on their
+  // merits.
   const writable = onTable.filter((p) =>
     p.statements.some(
       (s) =>
         WRITE_COMMANDS.has(policyCommand(s)) &&
+        !isRestrictive(s) &&
         !/\bto\s+service_role\b/i.test(s),
     ),
   );

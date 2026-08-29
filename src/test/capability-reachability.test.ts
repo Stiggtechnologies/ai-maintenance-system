@@ -181,10 +181,16 @@ const FLOORS: Record<string, Floors> = {
   // prose, and prose is mined for functions only — so the one substantive ✅
   // claim about a table in this register was outside the write-path judge
   // purely on punctuation. Backticked, both citations pass on their merits.
+  //
+  // 110/226/40 -> 116/297/48 (2026-08-28, Slice 3C): eight rows landed with
+  // real chains and the repair pass added citations to them. Floors sit AT
+  // today's numbers — leaving them at 110/226/40 would let a later change
+  // de-cite these eight rows back to where they started with the suite still
+  // green, which is exactly the slack this block's own history describes.
   [DEVELOP_REGISTER.name]: {
-    rowsWithAnEnforceableCitation: 110,
-    citationsEnforced: 226,
-    claimedRowsEnforced: 40,
+    rowsWithAnEnforceableCitation: 116,
+    citationsEnforced: 297,
+    claimedRowsEnforced: 48,
     // D11.04 (a CI-fence claim proved by a named test file), D11.10 (a
     // canonical seeded vocabulary, which the write-path judge would fail for
     // not being customer-writable — a question the row never asked) and
@@ -357,6 +363,48 @@ describe("the reachability judges", () => {
       kind: "sql-function",
     });
     expect(live.ok, live.detail).toBe(true);
+  });
+
+  /**
+   * A RESTRICTIVE POLICY IS A DENY, AND THE JUDGE NOW KNOWS IT.
+   *
+   * `design_requirements` carries three restrictive write policies whose whole
+   * job is to STOP a client inserting, updating or deleting a case-scoped
+   * requirement. The judge read `for insert to authenticated` off one of them
+   * and reported "policy design_requirements_case_no_ins admits writes" — the
+   * exact SELECT-only-RLS class it exists to catch, wearing an INSERT keyword.
+   * The conclusion happened to be right (a real definer write path exists), so
+   * nothing was damaged; the reasoning was wrong, and the next table cited with
+   * a deny and no definer writer would have passed on it.
+   *
+   * Both halves are pinned: the deny no longer vouches for anything, and the
+   * table still passes on the writer that actually exists.
+   */
+  it("does not accept a restrictive DENY policy as a write path", () => {
+    const restrictive = [...policies.values()].filter(
+      (p) =>
+        p.table === "design_requirements" &&
+        p.statements.some((st) => /\bas\s+restrictive\b/i.test(st)),
+    );
+    expect(
+      restrictive.length,
+      "design_requirements must still carry its restrictive case-scope denies",
+    ).toBeGreaterThan(0);
+
+    const verdict = judge({
+      id: "Z9.95",
+      raw: "design_requirements",
+      name: "design_requirements",
+      kind: "sql-table",
+    });
+    expect(verdict.ok, verdict.detail).toBe(true);
+    expect(
+      verdict.detail,
+      "the write path must be the definer RPC, never a policy whose job is to refuse",
+    ).not.toMatch(/admits writes/);
+    expect(verdict.detail).toMatch(
+      /definer write path via record_case_requirement/,
+    );
   });
 
   /**
