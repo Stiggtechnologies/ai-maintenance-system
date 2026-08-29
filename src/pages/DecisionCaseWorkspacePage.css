@@ -2321,6 +2321,61 @@
   }
 }
 
+/* ---------------------------------------------------------------------------
+   Mobile natural-flow fix (2026-08-29): on phones the case view was a
+   fixed-height pane with an internal scroll — the chat history got a sliver
+   and felt invisible. On mobile the case view becomes one scrolling
+   document: the thread grows with its content, the composer and the view
+   switcher stay sticky. Desktop panes are untouched.
+--------------------------------------------------------------------------- */
+@media (max-width: 768px) {
+  .decision-workspace,
+  .decision-workspace.is-public {
+    height: auto;
+    min-height: 100dvh;
+    overflow: visible;
+  }
+  .dw-layout {
+    height: auto;
+    display: block;
+  }
+  .dw-rail.mobile-active,
+  .dw-main.mobile-active,
+  .dw-packet.mobile-active {
+    display: flex;
+    height: auto;
+    overflow: visible;
+  }
+  .dw-main.mobile-active {
+    flex-direction: column;
+  }
+  .dw-thread {
+    flex: none;
+    height: auto;
+    min-height: 40vh;
+    overflow: visible;
+    padding-bottom: 16px;
+  }
+  .dw-thread-intro {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    background: #0c1117;
+    padding-top: 10px;
+  }
+  .dw-composer-wrap {
+    position: sticky;
+    bottom: 54px;
+    z-index: 20;
+    background: #0c1117;
+  }
+  .dw-mobile-nav {
+    position: sticky;
+    bottom: 0;
+    z-index: 30;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .dw-thinking i {
     animation: none;
