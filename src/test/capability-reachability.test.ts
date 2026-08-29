@@ -214,10 +214,39 @@ const FLOORS: Record<string, Floors> = {
   // with the suite still green. The other three numbers are unmoved — no row
   // changed glyph in this pass, and the ceiling holding at 3 is what proves
   // the repair did not buy its ✅s by adding uncheckable prose.
+  //
+  // 119/362/57 -> 125/417/61 (2026-08-29, Slice 4A). The Integrated Controls
+  // substrate landed — the scope architecture chain and its gap detector, the
+  // ScheduleActivity object with P6's fields walled off, CBS/WBS-coded cost
+  // lines, post-baseline scope attribution, the eleven controls structures and
+  // the calculation lineage record — and four rows (D5.01, D5.02, D5.03,
+  // D5.29) flipped to ✅ on chains this gate can walk. RATCHETED UP for the
+  // reason this block gives every time: the added reach is real, and a later
+  // change must not be able to de-cite it with the suite still green. The
+  // CEILING did not move, which is the check that proves the four new ✅s were
+  // not bought with prose the gate cannot resolve; three rows in this slice
+  // (D5.04, D5.28, D11.29) stayed honestly 🟡 with their gaps named.
+  //
+  // citationsEnforced 417 -> 423 (2026-08-29, Slice 4A REPAIR PASS). The
+  // adversarial review found the four ✅s resting on machinery that was in
+  // places unreachable, un-walled or filled in rather than refused: a
+  // structure-state function with no tenant gate at all, a reconciliation
+  // that priced un-baselined lines at zero and called it agreement, a
+  // re-baseline that silently dropped recorded scope growth from the answer,
+  // a surface rendering money figures no calculation_runs row backed, a
+  // dual-caller guard that could never fire, and TRUNCATE left granted on
+  // eight tables the row-level walls sit on. Each is now fixed in the code
+  // and the register sentences describe the fixed code, citing the new
+  // functions, triggers and helpers by resolvable path. RATCHETED UP for the
+  // reason this block gives every time: the added reach is real, and a later
+  // change must not be able to de-cite it with the suite still green. The
+  // other three numbers are unmoved — no row changed glyph in this pass, and
+  // the ceiling holding at 3 is what proves the repair did not buy anything
+  // with prose the gate cannot resolve.
   [DEVELOP_REGISTER.name]: {
-    rowsWithAnEnforceableCitation: 119,
-    citationsEnforced: 362,
-    claimedRowsEnforced: 57,
+    rowsWithAnEnforceableCitation: 125,
+    citationsEnforced: 423,
+    claimedRowsEnforced: 61,
     // D11.04 (a CI-fence claim proved by a named test file), D11.10 (a
     // canonical seeded vocabulary, which the write-path judge would fail for
     // not being customer-writable — a question the row never asked) and

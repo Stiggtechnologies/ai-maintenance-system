@@ -219,6 +219,19 @@ describe("every register parser reads the same register", () => {
   ] as const) {
     const source = readFileSync(register.path, "utf8");
 
+    /**
+     * The explicit timeout is about the DOCUMENT'S SIZE, not about any
+     * assertion here.
+     *
+     * Both registers are now ~700KB of prose in ~700 lines, and every parser
+     * in this case walks all of it: a full pass of the develop row pattern
+     * over evidence cells thousands of characters wide costs about a second
+     * on its own, and this case runs two of them. Under the parallel suite
+     * that drifted past vitest's 5s default and the case failed as a TIMEOUT
+     * — which reads exactly like the parsers disagreeing, and is the one
+     * failure mode this file must never produce spuriously. The budget is
+     * stated instead of inherited. Nothing about what is compared changed.
+     */
     it(`${register.name}: the gate, the ratchet and the tally see one row set`, () => {
       const fromGate = parseRegister(register, source).map((r) => r.id);
       const fromRatchet = Object.keys(
@@ -226,7 +239,7 @@ describe("every register parser reads the same register", () => {
       );
       expect(fromGate).toEqual([...localIds]);
       expect(fromRatchet.sort()).toEqual([...fromGate].sort());
-    });
+    }, 30_000);
 
     it(`${register.name}: no table line sits outside every parser`, () => {
       // Structural, not pattern-based: a register's table lines are claims,
@@ -240,7 +253,8 @@ describe("every register parser reads the same register", () => {
       expect(claimLines(source).map((c) => c.line)).toEqual(
         claims.map((c) => c.line),
       );
-    });
+      // Same size budget, same reason as the case above.
+    }, 30_000);
   }
 });
 
