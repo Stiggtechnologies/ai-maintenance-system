@@ -12,6 +12,11 @@ const service = readFileSync(
 const panel = readFileSync("src/components/RecoveryContextPanel.tsx", "utf8");
 const wrapper = readFileSync("src/components/RecoveryAwarePage.tsx", "utf8");
 const app = readFileSync("src/App.tsx", "utf8");
+// Prettier reflows JSX the moment App.tsx is touched, and it had grandfathered
+// these routes as single lines. Matching the exact one-line form pinned the
+// FORMATTER, not the invariant: the wrapper below survives reflow, and still
+// fails if a surface loses its RecoveryAwarePage. Collapsed, not relaxed.
+const appFlat = app.replace(/\s+/g, " ");
 const materials = readFileSync("src/pages/MaterialsPage.tsx", "utf8");
 const scheduling = readFileSync("src/pages/SchedulingPage.tsx", "utf8");
 const handover = readFileSync("src/pages/HandoverPage.tsx", "utf8");
@@ -98,20 +103,35 @@ describe("cross-module UI is context, not authority", () => {
   });
 
   it("pins Recovery context into the operating surfaces", () => {
-    expect(app).toContain(
-      '<RecoveryAwarePage surface="mission"><MissionControl /></RecoveryAwarePage>',
+    expect(appFlat).toContain(
+      '<RecoveryAwarePage surface="mission"> <MissionControl /> </RecoveryAwarePage>'.replace(
+        /\s+/g,
+        " ",
+      ),
     );
-    expect(app).toContain(
-      '<RecoveryAwarePage surface="work_order"><WorkOrderDetailPage /></RecoveryAwarePage>',
+    expect(appFlat).toContain(
+      '<RecoveryAwarePage surface="work_order"> <WorkOrderDetailPage /> </RecoveryAwarePage>'.replace(
+        /\s+/g,
+        " ",
+      ),
     );
-    expect(app).toContain(
-      '<RecoveryAwarePage surface="reliability"><Reliability /></RecoveryAwarePage>',
+    expect(appFlat).toContain(
+      '<RecoveryAwarePage surface="reliability"> <Reliability /> </RecoveryAwarePage>'.replace(
+        /\s+/g,
+        " ",
+      ),
     );
-    expect(app).toContain(
-      '<RecoveryAwarePage surface="learning"><LearningLoop /></RecoveryAwarePage>',
+    expect(appFlat).toContain(
+      '<RecoveryAwarePage surface="learning"> <LearningLoop /> </RecoveryAwarePage>'.replace(
+        /\s+/g,
+        " ",
+      ),
     );
-    expect(app).toContain(
-      '<RecoveryAwarePage surface="value"><ValueRealization /></RecoveryAwarePage>',
+    expect(appFlat).toContain(
+      '<RecoveryAwarePage surface="value"> <ValueRealization /> </RecoveryAwarePage>'.replace(
+        /\s+/g,
+        " ",
+      ),
     );
     expect(materials).toContain('<RecoveryContextPanel surface="materials" />');
     expect(scheduling).toContain(

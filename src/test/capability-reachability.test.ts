@@ -187,10 +187,37 @@ const FLOORS: Record<string, Floors> = {
   // today's numbers — leaving them at 110/226/40 would let a later change
   // de-cite these eight rows back to where they started with the suite still
   // green, which is exactly the slack this block's own history describes.
+  //
+  // 116/297/48 -> 119/350/57 (2026-08-28, Slice 3D): the gate review workflow,
+  // three agents and the assurance case landed, and — the part that matters
+  // here — five of the seven rows this gate demoted earlier the same day were
+  // honestly re-closed by wiring the callers it found missing (framework
+  // adoption, gate authoring, requirement tier and weight, framework
+  // versioning, tailoring-rule authoring). RATCHETED UP for that reason: the
+  // reach is real and a later change must not be able to give it back
+  // silently. Two rows were deliberately NOT re-closed (D2.04, D3.19) and one
+  // (D3.02) was returned to 🟡 rather than de-citing the dead symbol it still
+  // depends on — the ceiling below did not move, which is the check that
+  // would have caught doing it the other way.
+  //
+  // citationsEnforced 350 -> 362 (2026-08-28, Slice 3D REPAIR PASS). The
+  // adversarial review found two register sentences asserting more than the
+  // code delivered — D12.06's "no vendor or model id is hardcoded" (the three
+  // agents each carried `?? "gpt-4o-mini"` and `?? "stigg/fast"`) and D12.12's
+  // "develop-risk-agent from the Assurance Case screen" (`runRiskAgent` had
+  // zero callers anywhere) — plus §70 walls missing behind four RPC-only
+  // refusals. Both sentences are now true of the code rather than softened in
+  // the register, and the repair notes on D3.14/D3.31/D11.24/D12.06/D12.08/
+  // D12.12/D13.06 cite the new migration, functions and callers by resolvable
+  // path. RATCHETED UP for the reason this block already gives twice: the
+  // added reach is real, and a later change must not be able to de-cite it
+  // with the suite still green. The other three numbers are unmoved — no row
+  // changed glyph in this pass, and the ceiling holding at 3 is what proves
+  // the repair did not buy its ✅s by adding uncheckable prose.
   [DEVELOP_REGISTER.name]: {
-    rowsWithAnEnforceableCitation: 116,
-    citationsEnforced: 297,
-    claimedRowsEnforced: 48,
+    rowsWithAnEnforceableCitation: 119,
+    citationsEnforced: 362,
+    claimedRowsEnforced: 57,
     // D11.04 (a CI-fence claim proved by a named test file), D11.10 (a
     // canonical seeded vocabulary, which the write-path judge would fail for
     // not being customer-writable — a question the row never asked) and

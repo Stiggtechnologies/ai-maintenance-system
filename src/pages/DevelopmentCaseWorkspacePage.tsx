@@ -21,7 +21,7 @@
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft,
   CheckCircle2,
@@ -427,14 +427,26 @@ function GateCard({
             onChanged={onRecorded}
           />
 
-          {canReview && !recording && (
-            <button
-              onClick={() => setRecording(true)}
-              className="rounded-lg border border-white/10 px-3 py-1.5 text-xs font-semibold text-slate-200 hover:bg-white/5"
+          {/* D3.31 (spec III.§36): the prepared review — evidence assembled
+              per requirement, the blocker list, the SoD position stated
+              before the form, and the recorder that delegates to the ONE act
+              site. The inline quick-record below is unchanged. */}
+          <div className="flex flex-wrap items-center gap-2">
+            <Link
+              to={`/develop/cases/${caseId}/gates/${gate.id}/review`}
+              className="rounded-lg border border-signal-cyan/30 bg-signal-cyan/10 px-3 py-1.5 text-xs font-semibold text-signal-cyan hover:bg-signal-cyan/15"
             >
-              Record gate decision
-            </button>
-          )}
+              Open the gate review
+            </Link>
+            {canReview && !recording && (
+              <button
+                onClick={() => setRecording(true)}
+                className="rounded-lg border border-white/10 px-3 py-1.5 text-xs font-semibold text-slate-200 hover:bg-white/5"
+              >
+                Record gate decision
+              </button>
+            )}
+          </div>
 
           {recording && (
             <div className="space-y-2 rounded-lg border border-white/8 bg-white/[0.02] p-3">
@@ -2483,12 +2495,21 @@ export function DevelopmentCaseWorkspacePage() {
 
   return (
     <div className="p-6 space-y-6">
-      <button
-        onClick={() => navigate("/develop")}
-        className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-200"
-      >
-        <ArrowLeft className="h-3.5 w-3.5" aria-hidden /> All cases
-      </button>
+      <div className="flex flex-wrap items-center gap-3">
+        <button
+          onClick={() => navigate("/develop")}
+          className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-200"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" aria-hidden /> All cases
+        </button>
+        {/* D13.06 (spec §44): claim → evidence → confidence for this case. */}
+        <Link
+          to={`/develop/cases/${caseId}/assurance`}
+          className="rounded-lg border border-white/10 px-2.5 py-1 text-xs text-slate-300 hover:bg-white/5"
+        >
+          Assurance case
+        </Link>
+      </div>
 
       {/* Case header */}
       <div className="rounded-xl border border-white/6 bg-[#0D1520] p-5">
@@ -2668,6 +2689,7 @@ export function DevelopmentCaseWorkspacePage() {
         caseId={workspace.id}
         canReview={canReview}
         canAdmin={canAdmin}
+        stageKeys={workspace.stages.map((s) => s.stageKey)}
         evidence={workspace.evidence}
         onChanged={() => void load()}
       />

@@ -42,6 +42,7 @@ import {
   type CaseGovernance,
 } from "../../services/developService";
 import type { WorkspaceEvidence } from "../../lib/develop";
+import { FrameworkShelfPanel } from "./FrameworkShelfPanel";
 
 const inputClass =
   "w-full rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-signal-cyan/50 focus:outline-none";
@@ -84,12 +85,15 @@ export function GovernancePanel({
   caseId,
   canReview,
   canAdmin,
+  stageKeys,
   evidence,
   onChanged,
 }: {
   caseId: string;
   canReview: boolean;
   canAdmin: boolean;
+  /** The ONE canonical stage vocabulary (ruling 2), as this case sees it. */
+  stageKeys: string[];
   /** The case's recorded evidence items — a completed assurance review
    *  names its working papers from the ONE evidence model. */
   evidence: WorkspaceEvidence[];
@@ -995,6 +999,20 @@ export function GovernancePanel({
               </div>
             </div>
           )}
+
+          {/* Slice 3D: the framework shelf. Seeding a library was reachable;
+              ADOPTING one, adding a gate to one, or stating a requirement on
+              one was not — five register rows were demoted for exactly that.
+              The stage vocabulary offered here is the ONE canonical
+              lifecycle_stages list (ruling 2), read from the case's own stage
+              positions so the panel cannot offer a key the DB would refuse. */}
+          <FrameworkShelfPanel
+            canAdmin={canAdmin}
+            canAuthor={canReview}
+            stageKeys={stageKeys}
+            draftRuleSets={gov?.draftRuleSets ?? []}
+            onChanged={onChanged}
+          />
         </div>
       )}
     </div>

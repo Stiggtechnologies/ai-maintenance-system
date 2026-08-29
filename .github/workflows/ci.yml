@@ -273,6 +273,9 @@ jobs:
       - name: Smoke — Sync Develop slice 3C (commitments, permit chain, propagation, assurance, evidence confidence)
         run: bash scripts/ci-develop-slice3c-smoke.sh
 
+      - name: Smoke — Sync Develop slice 3D (gate review workflow, three agents, assurance case)
+        run: bash scripts/ci-develop-slice3d-smoke.sh
+
       - name: Stop Supabase
         if: always()
         run: supabase stop --no-backup || true

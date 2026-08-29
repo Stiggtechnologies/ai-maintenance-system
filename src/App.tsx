@@ -84,7 +84,13 @@ import { GovernedDecisionWorkspacePage } from "./pages/GovernedDecisionWorkspace
 import { DevelopCasesPage } from "./pages/DevelopCasesPage";
 import { DevelopIntakePage } from "./pages/DevelopIntakePage";
 import { DevelopmentCaseWorkspacePage } from "./pages/DevelopmentCaseWorkspacePage";
-import { clearDecisionCaseHandoff, readDecisionCaseHandoff, writeDecisionCases } from "./lib/decision-case";
+import { GateReviewPage } from "./pages/GateReviewPage";
+import { AssuranceCasePage } from "./pages/AssuranceCasePage";
+import {
+  clearDecisionCaseHandoff,
+  readDecisionCaseHandoff,
+  writeDecisionCases,
+} from "./lib/decision-case";
 import { readStoredDecisionDrafts } from "./lib/decision-case-drafts";
 
 type Page =
@@ -408,7 +414,9 @@ function AuthenticatedApp() {
           <Route
             path="/mission-control"
             element={
-              <RecoveryAwarePage surface="mission"><MissionControl /></RecoveryAwarePage>
+              <RecoveryAwarePage surface="mission">
+                <MissionControl />
+              </RecoveryAwarePage>
             }
           />
           <Route path="/command-centers" element={<CommandCenters />} />
@@ -460,7 +468,9 @@ function AuthenticatedApp() {
           <Route
             path="/reliability"
             element={
-              <RecoveryAwarePage surface="reliability"><Reliability /></RecoveryAwarePage>
+              <RecoveryAwarePage surface="reliability">
+                <Reliability />
+              </RecoveryAwarePage>
             }
           />
           <Route
@@ -487,11 +497,23 @@ function AuthenticatedApp() {
             path="/develop/cases/:caseId"
             element={<DevelopmentCaseWorkspacePage />}
           />
+          {/* Slice 3D: Workflow 2 (D3.31) and the Assurance Case (D13.06).
+              Both hang off a case, both reachable from the workspace. */}
+          <Route
+            path="/develop/cases/:caseId/gates/:gateId/review"
+            element={<GateReviewPage />}
+          />
+          <Route
+            path="/develop/cases/:caseId/assurance"
+            element={<AssuranceCasePage />}
+          />
 
           <Route
             path="/work/:workOrderId"
             element={
-              <RecoveryAwarePage surface="work_order"><WorkOrderDetailPage /></RecoveryAwarePage>
+              <RecoveryAwarePage surface="work_order">
+                <WorkOrderDetailPage />
+              </RecoveryAwarePage>
             }
           />
           <Route path="/work" element={<WorkActionBoard />} />
@@ -512,13 +534,17 @@ function AuthenticatedApp() {
           <Route
             path="/learning-loop"
             element={
-              <RecoveryAwarePage surface="learning"><LearningLoop /></RecoveryAwarePage>
+              <RecoveryAwarePage surface="learning">
+                <LearningLoop />
+              </RecoveryAwarePage>
             }
           />
           <Route
             path="/value"
             element={
-              <RecoveryAwarePage surface="value"><ValueRealization /></RecoveryAwarePage>
+              <RecoveryAwarePage surface="value">
+                <ValueRealization />
+              </RecoveryAwarePage>
             }
           />
           <Route path="/benchmarking" element={<BenchmarkingPanel />} />
