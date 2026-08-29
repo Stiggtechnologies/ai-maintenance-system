@@ -454,6 +454,15 @@ export function ModellingStudio() {
                   <span className="font-mono text-xs tabular-nums text-slate-400">
                     plan {result.deterministicDuration.toFixed(0)}h
                   </span>
+                  {/* P80 is the commitment percentile a sanction paper is
+                      written against (spec I.9/§51). It is shown BESIDE the
+                      deterministic figure and comes off the same simulated
+                      sample as P90 — never interpolated by a caller. */}
+                  {result.p80 !== null && (
+                    <span className="font-mono text-xs tabular-nums text-amber-300">
+                      P80 {result.p80.toFixed(0)}h
+                    </span>
+                  )}
                   {result.p90 !== null && (
                     <span className="font-mono text-xs tabular-nums text-amber-300">
                       P90 {result.p90.toFixed(0)}h

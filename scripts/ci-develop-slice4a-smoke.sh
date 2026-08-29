@@ -484,7 +484,11 @@ BODY=$(rpc "$PLANNER" get_case_controls_baseline "{\"p_case_id\":\"$CASE\"}")
 noerr "$BODY"
 test "$(printf '%s' "$BODY" | field structureCount)" = "11"
 test "$(jqp "$BODY" "[s['structure'] for s in x['structures']]")" = "['wbs', 'cbs', 'obs', 'schedule', 'cost_baseline', 'progress', 'commitments', 'actuals', 'forecast', 'changes', 'contingency']"
-# Progress has no home and says so; nothing reports a zero it did not measure.
+# Progress refuses on THIS case and says so; nothing reports a zero it did not
+# measure. Slice 4B gave the structure a home (project_rules_of_credit + the
+# planned curve), so the refusal is no longer "there is nowhere to look" — it
+# is "nothing has been recorded to look at", which is the refusal that made
+# the hole honest in the first place and must survive the hole being filled.
 test "$(jqp "$BODY" "next(s for s in x['structures'] if s['structure']=='progress')['refusal'] is not None")" = "True"
 test "$(jqp "$BODY" "next(s for s in x['structures'] if s['structure']=='actuals')['refusal'] is not None")" = "True"
 # No capture yet: 'complete' is null, not false.
@@ -496,9 +500,13 @@ expect_err "$BODY" 'human accountability act'
 # A planner may draft a baseline but not fix a controls structure against it.
 BODY=$(rpc "$PLANNER" capture_controls_baseline_structure "{\"p_baseline_id\":\"$BL\",\"p_structure\":\"wbs\"}")
 expect_err "$BODY" 'governance or engineering role'
-# A structure with no home refuses by name rather than capturing a zero.
+# A structure with nothing recorded in it refuses BY NAME rather than
+# capturing a zero: this case has no rule of credit, so a progress baseline
+# would fix no measurement convention and would read as "baselined at 0%
+# complete", which is a measurement nobody took. (Slice 4B's own transcript,
+# step 9, proves the same structure CAPTURES once a rule of credit exists.)
 BODY=$(rpc "$MANAGER" capture_controls_baseline_structure "{\"p_baseline_id\":\"$BL\",\"p_structure\":\"progress\"}")
-expect_err "$BODY" 'Slice 4B'
+expect_err "$BODY" 'baselined at 0% complete'
 BODY=$(rpc "$MANAGER" capture_controls_baseline_structure "{\"p_baseline_id\":\"$BL\",\"p_structure\":\"not_a_structure\"}")
 expect_err "$BODY" 'not one of the eleven controls structures'
 

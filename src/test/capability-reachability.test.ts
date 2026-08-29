@@ -244,10 +244,44 @@ const FLOORS: Record<string, Floors> = {
   // other three numbers are unmoved — no row changed glyph in this pass, and
   // the ceiling holding at 3 is what proves the repair did not buy anything
   // with prose the gate cannot resolve.
+  //
+  // 125/423/61 -> 132/470/67 (2026-08-29, Slice 4B). The performance family
+  // landed — rules of credit with a percent that cannot be typed, the earned
+  // value suite with every metric refusing by name, the eight-dimension
+  // estimate basis and the confidence that travels with every forecast, the
+  // progress integrity cross-check, and the §51 forecast whose P50/P80 say
+  // they are absent — and six rows (D5.04, D5.05, D5.06, D5.16, D5.17, D5.20)
+  // flipped to ✅ on chains this gate can walk. RATCHETED UP for the reason
+  // this block gives every time: the added reach is real, and a later change
+  // must not be able to de-cite it with the suite still green. The CEILING
+  // did not move, which is the check that proves the six new ✅s were not
+  // bought with prose the gate cannot resolve — two rows in this slice
+  // (D5.07, D5.32) stayed honestly 🟡 because no probability distribution
+  // exists to put a P50/P80 beside the deterministic figure, and D11.29
+  // stayed 🟡 because "ALL kernels" still means more than seven.
+  //
+  // 470 -> 484 citationsEnforced (2026-08-29, Slice 4B repair pass). The
+  // adversarial review found the performance family shipping numbers with no
+  // basis behind them — an earned value summed over one period's claim rows
+  // so an element that did not move that period dropped out and manufactured
+  // a cost overrun; CPI 0.000 printed over a claim set that carried no
+  // budget; earned schedule read off an origin nobody recorded; a staleness
+  // fingerprint made of row counts that could not see a revised amount; a
+  // §51 forecast with no staleness check at all; a work type nominated at
+  // claim time, which is a percent chosen at claim time; and a SECURITY
+  // DEFINER granted to `authenticated` that handed any tenant another
+  // tenant's estimate defence. Each is fixed in the code, and the register
+  // sentences now describe the fixed code and cite the new predicates,
+  // helpers and acts by resolvable path. RATCHETED UP for the reason this
+  // block gives every time: the added reach is real, and a later change must
+  // not be able to de-cite it with the suite still green. The other three
+  // numbers are unmoved — no row changed glyph in this pass, and the ceiling
+  // holding at 3 is what proves the repair did not buy anything with prose
+  // the gate cannot resolve.
   [DEVELOP_REGISTER.name]: {
-    rowsWithAnEnforceableCitation: 125,
-    citationsEnforced: 423,
-    claimedRowsEnforced: 61,
+    rowsWithAnEnforceableCitation: 132,
+    citationsEnforced: 484,
+    claimedRowsEnforced: 67,
     // D11.04 (a CI-fence claim proved by a named test file), D11.10 (a
     // canonical seeded vocabulary, which the write-path judge would fail for
     // not being customer-writable — a question the row never asked) and

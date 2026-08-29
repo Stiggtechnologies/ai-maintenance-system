@@ -185,6 +185,15 @@ export interface ScheduleRiskResult {
   deterministicDuration: number;
   p10: number | null;
   p50: number | null;
+  /**
+   * The commitment percentile. P80 is what a sanction paper and an executive
+   * exposure statement are written against (spec I.9, §51: "deterministic
+   * May 17, P50 May 24, P80 June 19"), and the kernel produced P10/P50/P90
+   * only — so a P80 anywhere in the product had to be interpolated by its
+   * caller, which is a percentile nobody simulated. It comes off the same
+   * sorted sample as its siblings.
+   */
+  p80: number | null;
   p90: number | null;
   /** Probability of finishing within the deterministic duration. */
   probabilityOnPlan: number | null;
@@ -209,6 +218,7 @@ export function scheduleRisk(
     deterministicDuration: deterministic.durationHours,
     p10: null,
     p50: null,
+    p80: null,
     p90: null,
     probabilityOnPlan: null,
     criticality: [],
@@ -271,6 +281,7 @@ export function scheduleRisk(
   durations.sort((a, b) => a - b);
   const p10 = percentile(durations, 0.1);
   const p50 = percentile(durations, 0.5);
+  const p80 = percentile(durations, 0.8);
   const p90 = percentile(durations, 0.9);
   const onPlan =
     durations.filter((d) => d <= deterministic.durationHours + 1e-9).length /
@@ -306,6 +317,7 @@ export function scheduleRisk(
     deterministicDuration: deterministic.durationHours,
     p10,
     p50,
+    p80,
     p90,
     probabilityOnPlan: onPlan,
     criticality,
@@ -315,7 +327,7 @@ export function scheduleRisk(
     seed,
     iterations,
     reason:
-      `Deterministic duration ${deterministic.durationHours.toFixed(1)} hours; simulated P50 ${p50.toFixed(1)}, P90 ${p90.toFixed(1)}. ` +
+      `Deterministic duration ${deterministic.durationHours.toFixed(1)} hours; simulated P50 ${p50.toFixed(1)}, P80 ${p80.toFixed(1)}, P90 ${p90.toFixed(1)}. ` +
       `The plan finishes on time in ${(onPlan * 100).toFixed(0)}% of ${iterations} runs${onPlan < 0.5 ? " — a deterministic date that is beaten less than half the time is a target, not a forecast" : ""}. ` +
       (hidden.length > 0
         ? `${hidden.length} task(s) show float on the bar chart and are critical in at least a fifth of runs: ${hidden.map((h) => h.label).join(", ")}. Those are the ones the schedule does not warn about.`

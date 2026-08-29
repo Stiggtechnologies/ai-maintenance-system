@@ -197,8 +197,20 @@ function GapList({
   );
 }
 
-/** The lineage of one displayed number, openable beside it. */
-function LineageBlock({ run }: { run: CalculationRun | undefined }) {
+/**
+ * The lineage of one displayed number, openable beside it.
+ *
+ * A `<summary>` is visible whether the block is open or closed, so printing
+ * the code version there left it on screen underneath the very warning that
+ * exists to suppress it. `stale` suppresses it in both places or in neither.
+ */
+function LineageBlock({
+  run,
+  stale = false,
+}: {
+  run: CalculationRun | undefined;
+  stale?: boolean;
+}) {
   if (run == null) {
     return (
       <p className="text-[11px] text-slate-500">
@@ -210,7 +222,7 @@ function LineageBlock({ run }: { run: CalculationRun | undefined }) {
   return (
     <details className="rounded-md border border-white/5 bg-white/[0.02] px-2.5 py-2">
       <summary className="cursor-pointer text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-        Lineage · {run.codeVersion} ·{" "}
+        Lineage · {stale ? "superseded inputs" : run.codeVersion} ·{" "}
         {new Date(run.computedAt).toLocaleString()}
       </summary>
       <div className="mt-2 space-y-1 text-xs text-slate-400">
@@ -1318,7 +1330,7 @@ function CostItemSection({
             text={`The cost lines have changed since this run was recorded ${new Date(latest!.computedAt).toLocaleString()}. The figure above is what was computed then, not what the lines say now — compute again to record a current one.`}
           />
         )}
-        <LineageBlock run={latest} />
+        <LineageBlock run={latest} stale={reconciliationStale} />
       </div>
 
       {canPlan && (
@@ -1599,7 +1611,7 @@ function ScopeGrowthSection({
         </div>
       )}
 
-      <LineageBlock run={latest} />
+      <LineageBlock run={latest} stale={growthStale} />
       {hasDisplayableOutputs(latest) && !growthStale && (
         <p className="text-[11px] text-slate-500">
           Figure produced by code version {latest.codeVersion} (this build:{" "}
