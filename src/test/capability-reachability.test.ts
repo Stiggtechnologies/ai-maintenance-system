@@ -1,13 +1,13 @@
 /**
- * The reachability gate on the capability register.
+ * The reachability gate on the capability registers.
  *
- * `capability-register.test.ts` guards the DOCUMENT: row count, unique IDs,
+ * `capability-register.test.ts` guards the DOCUMENTS: row count, unique IDs,
  * derived tally, no silent downgrade. This file guards the CLAIM. For every
  * row whose evidence cites something greppable, it asks whether the cited
  * thing is reachable from code a customer can actually run — and fails the
  * build when a row marked ✅ cites something that is not.
  *
- * The triage that motivated it found, among the 399 rows:
+ * The triage that motivated it found, among the 399 enterprise rows:
  *
  *   * dozens of capabilities across C2/E2/E5–E12/U3/U7 shipped as SELECT-only
  *     RLS + a demo seed + a read panel — no customer can create a threat
@@ -18,6 +18,23 @@
  *
  * Every one of those passed all five existing assertions, because not one of
  * them ever left the markdown file.
+ *
+ * ── Why BOTH registers ─────────────────────────────────────────────────────
+ *
+ * For six weeks this gate had a hardcoded path, and the path was the enterprise
+ * register. `docs/sync-develop/register.md` inherited the house RULE — its own
+ * preamble says "✅ requires the full chain a customer can walk (surface →
+ * caller → RPC → persisted → customer-visible), with evidence a reachability
+ * gate would accept" — and inherited none of the MACHINERY. Four slices
+ * promoted rows in it under a standard nothing measured.
+ *
+ * Running it found seven ✅ rows citing eleven dead symbols, and the shape of
+ * the finding is the argument for the gate: five of the seven rows NAMED their
+ * own gap in their own evidence and kept the ✅ anyway ("gate AUTHORING is
+ * RPC-first (add_framework_gate, no page)"), and four of them cited a function
+ * that a NEIGHBOURING 🟡 row cites as the reason it is only 🟡. The register
+ * was already internally inconsistent; nothing could see it, because seeing it
+ * required resolving prose to code.
  *
  * ── Why coverage is measured over ALL rows, not just ✅ ─────────────────────
  *
@@ -38,7 +55,10 @@
  */
 import { describe, expect, it } from "vitest";
 import {
+  DEVELOP_REGISTER,
+  ENTERPRISE_REGISTER,
   EXEMPTIONS,
+  REGISTERS,
   extractCitations,
   indexTsSymbols,
   judgeFile,
@@ -48,28 +68,19 @@ import {
   isTestFile,
   loadCorpus,
   loadSql,
+  modulesRunningPattern,
   parseRegister,
   type Citation,
+  type RegisterSpec,
   type SkippedCitation,
   type Verdict,
 } from "./support/capabilityEvidence";
 import { resolveChainPolicies } from "./support/migrationPolicies";
 
-const rows = parseRegister();
 const code = loadCorpus();
 const sql = loadSql();
 const defs = indexTsSymbols(code);
 const policies = resolveChainPolicies();
-
-const statusOf = new Map(rows.map((r) => [r.id, r.status]));
-
-const citations: Citation[] = [];
-const skipped: SkippedCitation[] = [];
-for (const row of rows) {
-  const found = extractCitations(row, code, sql, defs);
-  citations.push(...found.enforceable);
-  skipped.push(...found.skipped);
-}
 
 const exempt = new Set(EXEMPTIONS.map((e) => e.key));
 const keyOf = (c: Citation) => `${c.id}:${c.name}`;
@@ -87,67 +98,66 @@ const judge = (c: Citation): Verdict => {
   }
 };
 
-const verdicts = citations.filter((c) => !exempt.has(keyOf(c))).map(judge);
-const broken = verdicts.filter((v) => !v.ok);
-/** Only a ✅ is a promise. A 🟡 already admits the gap. */
-const failures = broken.filter((v) => statusOf.get(v.citation.id) === "✅");
+/**
+ * The three coverage floors, per register.
+ *
+ * Floors sit AT today's numbers, not below them.
+ *
+ * They used to sit below, and the slack was the hole: with 95 rows enforceable
+ * against a floor of 90, five ✅ rows could be de-cited — two characters each,
+ * indistinguishable from a formatting tidy in review — and the suite stayed
+ * green while a fifth of the gate's ✅ scope disappeared. `claimedRowsEnforced`
+ * was computed, logged, and never asserted at all, so de-citing all 25 would
+ * have driven it to zero with every other assertion still passing.
+ *
+ * Lowering one of these is therefore a deliberate act that shows up in the
+ * diff, which is the same bargain `register:accept` strikes for a status
+ * downgrade.
+ *
+ * They must also be RE-DERIVED whenever a register moves, or the rule above
+ * decays into the hole it was written to close. The enterprise floors were
+ * first written at 132/191/33 and were still at 132/191/33 after the register
+ * was rebased onto current main, by which point the live numbers were
+ * 147/215/44. Re-derived 2026-08-24 to sit AT the live numbers again.
+ *
+ * Do not delegate this to the per-row citation ratchet in
+ * `scripts/register-baseline.mjs`: it is finer-grained, but
+ * `register-baseline.mjs --write` rewrites the whole baseline, and AGENTS.md
+ * rule 2 requires `npm run register:accept` in the same commit as any status
+ * change. Every status change therefore resets that ratchet. These floors are
+ * the only backstop that survives it.
+ */
+interface Floors {
+  rowsWithAnEnforceableCitation: number;
+  citationsEnforced: number;
+  claimedRowsEnforced: number;
+  /**
+   * A CEILING, not a floor: ✅ rows this gate cannot check at all.
+   *
+   * The three numbers above are all satisfiable by a register that grows. Add
+   * a ✅ row whose evidence names nothing greppable and every floor still
+   * holds — `claimedRows` goes up, `claimedRowsEnforced` does not move, and
+   * the new claim is certified by the implication that the gate looked at it.
+   * That is the exact failure the header calls out ("a gate that silently
+   * checks four rows … certifies the other 395 by implication") measured from
+   * the other end, and nothing measured it.
+   *
+   * So the unenforced ✅ population is capped where it stands. A new ✅ must
+   * either cite something the gate can resolve, or move this number in the
+   * diff with a reason — the same bargain the floors strike.
+   */
+  claimedRowsUnenforced: number;
+}
 
-const report = (list: Verdict[]) =>
-  list
-    .map(
-      (v) =>
-        `  ${v.citation.id}  ${v.citation.kind.padEnd(12)} \`${v.citation.raw}\`\n      ${v.detail}`,
-    )
-    .join("\n");
-
-describe("capability register reachability gate", () => {
-  it("reports how much of the register it can actually enforce", () => {
-    // A gate that silently checks four rows is worse than no gate: it
-    // certifies the other 395 by implication. So the coverage is asserted and
-    // printed, and a change that shrinks it fails here rather than passing.
-    const analysedRows = new Set(citations.map((c) => c.id));
-    const claimed = rows.filter((r) => r.status === "✅");
-    const summary = {
-      registerRows: rows.length,
-      claimedRows: claimed.length,
-      rowsWithAnEnforceableCitation: analysedRows.size,
-      claimedRowsEnforced: claimed.filter((r) => analysedRows.has(r.id)).length,
-      citationsEnforced: citations.length,
-      citationsSkipped: skipped.length,
-      rowsCitingNothingCheckable: rows.filter((r) => !analysedRows.has(r.id))
-        .length,
-      knownGapsOnPartialRows: broken.length - failures.length,
-    };
-    console.log("[reachability gate] " + JSON.stringify(summary, null, 2));
-
-    // Floors sit AT today's numbers, not below them.
-    //
-    // They used to sit below, and the slack was the hole: with 95 rows
-    // enforceable against a floor of 90, five ✅ rows could be de-cited — two
-    // characters each, indistinguishable from a formatting tidy in review —
-    // and the suite stayed green while a fifth of the gate's ✅ scope
-    // disappeared. `claimedRowsEnforced` was computed, logged, and never
-    // asserted at all, so de-citing all 25 would have driven it to zero with
-    // every other assertion still passing.
-    //
-    // Lowering one of these is therefore a deliberate act that shows up in the
-    // diff, which is the same bargain `register:accept` strikes for a status
-    // downgrade.
-    //
-    // They must also be RE-DERIVED whenever the register moves, or the rule
-    // above decays into the hole it was written to close. These floors were
-    // first written at 132/191/33 and were still at 132/191/33 after the
-    // register was rebased onto current main, by which point the live numbers
-    // were 147/215/44 — 15/24/11 of slack, three times the five-row example
-    // above. Re-derived 2026-08-24 to sit AT the live numbers again.
-    //
-    // Do not delegate this to the per-row citation ratchet in
-    // `scripts/register-baseline.mjs`: it is finer-grained, but
-    // `register-baseline.mjs --write` rewrites the whole baseline, and
-    // AGENTS.md rule 2 requires `npm run register:accept` in the same commit
-    // as any status change. Every status change therefore resets that ratchet.
-    // These three floors are the only backstop that survives it.
-    expect(summary.rowsWithAnEnforceableCitation).toBeGreaterThanOrEqual(147);
+const FLOORS: Record<string, Floors> = {
+  [ENTERPRISE_REGISTER.name]: {
+    // 147/206/44 -> 151/210/46 on 2026-08-28. The floors had drifted BELOW the
+    // live numbers again — 4/4/2 of slack against a comment three lines up
+    // saying they sit AT them — which is enough room to de-cite two ✅ rows
+    // out of the gate's scope with the suite green. Re-derived to sit at the
+    // live numbers, which is a tightening: nothing about what the gate checks
+    // changed, only how much of it the gate is required to still be checking.
+    rowsWithAnEnforceableCitation: 151,
     // 215 -> 206 on 2026-08-26. This drop is NOT the gate losing reach: it is the
     // gate WINNING. 74 rows were demoted from ✅ this same commit because their
     // cited symbol or table has no customer-reachable path, and a demoted row's
@@ -157,25 +167,171 @@ describe("capability register reachability gate", () => {
     // It may only be lowered again with the same kind of reason stated here. A
     // silent decrease means the parser stopped understanding evidence it used to
     // understand, which is precisely the failure this number exists to catch.
-    expect(summary.citationsEnforced).toBeGreaterThanOrEqual(206);
-    expect(summary.claimedRowsEnforced).toBeGreaterThanOrEqual(44);
-  });
+    citationsEnforced: 210,
+    claimedRowsEnforced: 46,
+    claimedRowsUnenforced: 185,
+  },
+  // Derived 2026-08-28, the commit that first ran this gate against the
+  // D-family register, and derived AFTER the seven honest demotions it forced —
+  // so the floor records the reach the gate has over a register telling the
+  // truth, not the reach it had over one that was not.
+  //
+  // 109/224/39 -> 110/226/40 the same day: D11.31 "Append-only audit ledger"
+  // named `audit_events` and its append-only trigger function in UNBACKTICKED
+  // prose, and prose is mined for functions only — so the one substantive ✅
+  // claim about a table in this register was outside the write-path judge
+  // purely on punctuation. Backticked, both citations pass on their merits.
+  [DEVELOP_REGISTER.name]: {
+    rowsWithAnEnforceableCitation: 110,
+    citationsEnforced: 226,
+    claimedRowsEnforced: 40,
+    // D11.04 (a CI-fence claim proved by a named test file), D11.10 (a
+    // canonical seeded vocabulary, which the write-path judge would fail for
+    // not being customer-writable — a question the row never asked) and
+    // D11.35 (a documentation deliverable, and the row says so itself).
+    claimedRowsUnenforced: 3,
+  },
+};
 
-  it("every ✅ row citing a symbol has a non-test caller", () => {
-    const dead = failures.filter((v) => v.citation.kind !== "sql-table");
-    expect(dead.length === 0 ? "" : "\n" + report(dead)).toBe("");
-  });
+interface Scope {
+  register: RegisterSpec;
+  summary: Record<string, number>;
+  failures: Verdict[];
+  stale: SkippedCitation[];
+}
 
-  it("every ✅ row citing a table has a customer-reachable write path", () => {
-    const readOnly = failures.filter((v) => v.citation.kind === "sql-table");
-    expect(readOnly.length === 0 ? "" : "\n" + report(readOnly)).toBe("");
-  });
+function analyse(register: RegisterSpec): Scope {
+  const rows = parseRegister(register);
+  const statusOf = new Map(rows.map((r) => [r.id, r.status]));
 
+  const citations: Citation[] = [];
+  const skipped: SkippedCitation[] = [];
+  const stale: SkippedCitation[] = [];
+  for (const row of rows) {
+    const found = extractCitations(row, code, sql, defs);
+    citations.push(...found.enforceable);
+    skipped.push(...found.skipped);
+    // Only a ✅ is a promise; a 🟡 already admits its gap, so a rotted
+    // citation there is documentation debt, not a false claim.
+    if (row.status === "✅") stale.push(...found.stale);
+  }
+
+  const verdicts = citations.filter((c) => !exempt.has(keyOf(c))).map(judge);
+  const broken = verdicts.filter((v) => !v.ok);
+  /** Only a ✅ is a promise. A 🟡 already admits the gap. */
+  const failures = broken.filter((v) => statusOf.get(v.citation.id) === "✅");
+
+  const analysedRows = new Set(citations.map((c) => c.id));
+  const claimed = rows.filter((r) => r.status === "✅");
+  return {
+    register,
+    failures,
+    stale,
+    summary: {
+      registerRows: rows.length,
+      claimedRows: claimed.length,
+      rowsWithAnEnforceableCitation: analysedRows.size,
+      claimedRowsEnforced: claimed.filter((r) => analysedRows.has(r.id)).length,
+      claimedRowsUnenforced: claimed.filter((r) => !analysedRows.has(r.id))
+        .length,
+      citationsEnforced: citations.length,
+      citationsSkipped: skipped.length,
+      rowsCitingNothingCheckable: rows.filter((r) => !analysedRows.has(r.id))
+        .length,
+      knownGapsOnPartialRows: broken.length - failures.length,
+    },
+  };
+}
+
+const report = (list: Verdict[]) =>
+  list
+    .map(
+      (v) =>
+        `  ${v.citation.id}  ${v.citation.kind.padEnd(12)} \`${v.citation.raw}\`\n      ${v.detail}`,
+    )
+    .join("\n");
+
+/* ── the same suite, the same standard, once per register ─────────────────── */
+
+for (const register of REGISTERS) {
+  const scope = analyse(register);
+  const floors = FLOORS[register.name];
+
+  describe(`${register.name} capability register reachability gate`, () => {
+    it("has floors declared for it at all", () => {
+      // A register added to REGISTERS with no floors would run its two failure
+      // assertions and silently skip its coverage assertion — the gate quietly
+      // half-applying to the newest register is exactly the state this whole
+      // file exists to end.
+      expect(
+        floors,
+        `no coverage floors declared for ${register.name}`,
+      ).toBeDefined();
+    });
+
+    it("has no ✅ row citing a code file that no longer exists", () => {
+      // The rot the coverage floors cannot see. A row keeps its ✅ while the
+      // file it cites is renamed or deleted: the citation stops resolving, the
+      // old classifier SKIPPED it as unparseable prose, and coverage barely
+      // moved because one citation out of hundreds went quiet. A path carrying
+      // a code extension is an unambiguous claim about a file, so it fails.
+      expect(
+        scope.stale.map((s) => `${s.id}: \`${s.raw}\` — ${s.reason}`),
+      ).toEqual([]);
+    });
+
+    it("reports how much of the register it can actually enforce", () => {
+      // A gate that silently checks four rows is worse than no gate: it
+      // certifies the other 395 by implication. So the coverage is asserted and
+      // printed, and a change that shrinks it fails here rather than passing.
+      console.log(
+        `[reachability gate: ${register.name}] ` +
+          JSON.stringify(scope.summary, null, 2),
+      );
+      expect(
+        scope.summary.rowsWithAnEnforceableCitation,
+      ).toBeGreaterThanOrEqual(floors.rowsWithAnEnforceableCitation);
+      expect(scope.summary.citationsEnforced).toBeGreaterThanOrEqual(
+        floors.citationsEnforced,
+      );
+      expect(scope.summary.claimedRowsEnforced).toBeGreaterThanOrEqual(
+        floors.claimedRowsEnforced,
+      );
+      // The one that is a ceiling. Every assertion above is satisfied by a
+      // register that GROWS a ✅ row citing nothing checkable; this is the
+      // only one that isn't.
+      expect(
+        scope.summary.claimedRowsUnenforced,
+        `${register.name}: a ✅ row was added or edited into a state where this ` +
+          `gate can check nothing about it. Cite something it can resolve, or ` +
+          `raise this ceiling in the diff with a reason.`,
+      ).toBeLessThanOrEqual(floors.claimedRowsUnenforced);
+    });
+
+    it("every ✅ row citing a symbol has a non-test caller", () => {
+      const dead = scope.failures.filter(
+        (v) => v.citation.kind !== "sql-table",
+      );
+      expect(dead.length === 0 ? "" : "\n" + report(dead)).toBe("");
+    });
+
+    it("every ✅ row citing a table has a customer-reachable write path", () => {
+      const readOnly = scope.failures.filter(
+        (v) => v.citation.kind === "sql-table",
+      );
+      expect(readOnly.length === 0 ? "" : "\n" + report(readOnly)).toBe("");
+    });
+  });
+}
+
+/* ── the machinery itself, proved once ────────────────────────────────────── */
+
+describe("the reachability judges", () => {
   /**
    * Once the 68 caught rows were reclassified, every real row passed — which
    * is exactly the state in which a broken gate is indistinguishable from a
    * working one. So the machinery is exercised against known-dead code that
-   * the register does not cite: `poolEstimates` and `selectWeibullMethod` are
+   * neither register cites: `poolEstimates` and `selectWeibullMethod` are
    * both finished and unit-tested with zero non-test callers, and
    * `record_verification_result` is defined and granted with none at all. If
    * any of these three starts passing, either somebody wired it up (delete the
@@ -259,15 +415,258 @@ describe("capability register reachability gate", () => {
    * driven at '15 * * * *'. Tightening the symbol judges briefly failed this
    * one closed, which is the failure mode that gets a gate deleted rather than
    * fixed, so the case is pinned.
+   *
+   * BOTH quoting styles are pinned, because for six weeks only one was
+   * recognised. `evaluate_ca_effectiveness` passes its command as
+   * `'select public.f()'`; `expire_governance_instruments` passes the identical
+   * call as `$cron$select public.f();$cron$` (20261121090200:401) and the gate
+   * called it dead. Whether a function looked reachable therefore depended on
+   * the migration author's quoting habit, and the D-register was about to eat a
+   * FALSE demotion for it — a lie told to make a gate green is the same defect
+   * as a ✅ told to make a slice look finished.
    */
-  it("counts a pg_cron schedule as a caller", () => {
-    const cron = judge({
+  it("counts a pg_cron schedule as a caller, in either quoting style", () => {
+    const singleQuoted = judge({
       id: "Z9.94",
       raw: "evaluate_ca_effectiveness",
       name: "evaluate_ca_effectiveness",
       kind: "sql-function",
     });
-    expect(cron.ok, cron.detail).toBe(true);
+    expect(singleQuoted.ok, singleQuoted.detail).toBe(true);
+
+    const dollarQuoted = judge({
+      id: "Z9.93",
+      raw: "expire_governance_instruments",
+      name: "expire_governance_instruments",
+      kind: "sql-function",
+    });
+    expect(dollarQuoted.ok, dollarQuoted.detail).toBe(true);
+    expect(dollarQuoted.detail).toMatch(/scheduled with pg_cron/);
+  });
+
+  /**
+   * A parser that skips what it cannot read is a widened guard wearing a
+   * parser's clothes: the rows it drops are certified by implication, and the
+   * cheapest way to leave the gate becomes "write the row slightly
+   * differently". Both failure modes are proved here against synthetic input,
+   * because proving them against the real files would require breaking them.
+   */
+  it("refuses to skip a row it cannot parse", () => {
+    const good = "| D1.01 | Cap | I.3 | ✅ | evidence here |";
+    expect(parseRegister(DEVELOP_REGISTER, good)).toHaveLength(1);
+
+    // Same ID-shaped first cell, no status glyph anywhere: an UNCHECKED row.
+    const malformed = `${good}\n| D1.02 | Cap | I.4 | done | evidence here |`;
+    expect(() => parseRegister(DEVELOP_REGISTER, malformed)).toThrow(
+      /do not parse/,
+    );
+
+    // And a register whose shape has drifted out from under its pattern must
+    // not read as "nothing to check, all clear".
+    expect(() => parseRegister(DEVELOP_REGISTER, "# no rows at all\n")).toThrow(
+      /ZERO rows/,
+    );
+  });
+
+  /**
+   * The residual of the rule above, closed.
+   *
+   * "Must parse" used to be scoped to lines that already LOOKED like rows —
+   * leading pipe, ID-shaped first cell. So the throw could not fire for a line
+   * that did not look ID-shaped, and an adversary walked straight through the
+   * gap: pasting
+   *
+   *   | **D1.99** | Invisible capability | I.3 | ✅ | … `add_framework_gate`. |
+   *
+   * into a real capability table produced `register:check` exit 0, both test
+   * files green, and an unchanged item count, for a ✅ row citing a function
+   * this branch had just demoted seven rows over. Two asterisks.
+   *
+   * A register is now read structurally: every table line is a claim except a
+   * `|---|` rule and the header directly above one. The header and rule cases
+   * are asserted too, because a rule that failed on them would be reverted
+   * within a day.
+   */
+  it("sees a row that does not look like a row", () => {
+    const table = [
+      "| ID    | Capability | Spec ref | Status | Evidence |",
+      "| ----- | ---------- | -------- | ------ | -------- |",
+      "| D1.01 | Cap        | I.3      | ✅     | evidence here |",
+    ].join("\n");
+    expect(parseRegister(DEVELOP_REGISTER, table)).toHaveLength(1);
+
+    for (const disguise of [
+      "| **D1.99** | Invisible | I.3 | ✅ | via `add_framework_gate`. |",
+      "|D1.99. | Invisible | I.3 | ✅ | via `add_framework_gate`. |",
+      "| d1.99 | Invisible | I.3 | ✅ | via `add_framework_gate`. |",
+      "  | D1.99 | Invisible | I.3 | ✅ | via `add_framework_gate`. |",
+    ]) {
+      expect(
+        () => parseRegister(DEVELOP_REGISTER, `${table}\n${disguise}`),
+        `this line left the gate in silence: ${disguise}`,
+      ).toThrow(/do not parse/);
+    }
+
+    // Same rule, same throw, on the enterprise register's shape.
+    const enterprise = [
+      "| ID    | Capability | Evidence |",
+      "| ----- | ---------- | -------- |",
+      "| C4.08 | Verify     | ✅ `record_verification_result` records it |",
+    ].join("\n");
+    expect(parseRegister(ENTERPRISE_REGISTER, enterprise)).toHaveLength(1);
+    expect(() =>
+      parseRegister(
+        ENTERPRISE_REGISTER,
+        `${enterprise}\n| **C4.99** | Invisible | ✅ shipped |`,
+      ),
+    ).toThrow(/do not parse/);
+  });
+
+  /**
+   * The gate's own documented weakness, exploited and closed.
+   *
+   * The header of `capabilityEvidence.ts` states the cost of module-level
+   * reachability honestly: "a symbol called only by a dead sibling in a LIVE
+   * module passes this gate". For the D-family register that cost was the
+   * entire gate — all 226 of its enforceable citations are `sql-function`, so
+   * `judgeSqlFunction` is the only judge they ever meet — and an adversary
+   * demonstrated the exploit end to end. Appending a never-imported,
+   * never-called wrapper to `src/services/developService.ts` flipped
+   * `add_framework_gate` from `ZERO callers` to `invoked from
+   * src/services/developService.ts`, which would have reversed every one of
+   * this branch's seven honest demotions for the price of a function nobody
+   * calls.
+   *
+   * The corpus here is synthetic on purpose: proving it against the real tree
+   * means writing dead code into `src/`.
+   */
+  it("does not accept a wrapper nobody calls as a caller", () => {
+    const service = [
+      'import { supabase } from "../lib/supabase";',
+      "",
+      "export async function recordReview(id: string) {",
+      '  return supabase.rpc("record_case_gate_review", { id });',
+      "}",
+      "",
+      "export async function deadWrapper() {",
+      '  return supabase.rpc("add_framework_gate", {});',
+      "}",
+      "",
+      "Deno.serve(async () => {",
+      '  await supabase.rpc("expire_governance_instruments", {});',
+      "});",
+      "",
+    ].join("\n");
+    const page = [
+      'import { recordReview } from "../services/service";',
+      "export function Page() {",
+      "  return <button onClick={() => recordReview('x')}>go</button>;",
+      "}",
+      "",
+    ].join("\n");
+    const corpus = {
+      files: new Map([
+        ["src/services/service.ts", service],
+        ["src/pages/Page.tsx", page],
+      ]),
+      reachable: new Set(["src/services/service.ts", "src/pages/Page.tsx"]),
+      roots: ["src/pages/Page.tsx"],
+    };
+
+    const ask = (name: string) =>
+      judgeSqlFunction(
+        { id: "Z9.92", raw: name, name, kind: "sql-function" },
+        corpus,
+        sql,
+      );
+
+    // Called from an exported function a live page actually uses.
+    const live = ask("record_case_gate_review");
+    expect(live.ok, live.detail).toBe(true);
+
+    // The same module, the same `supabase.rpc(...)` shape — inside a function
+    // nothing references. This is the whole exploit.
+    const dead = ask("add_framework_gate");
+    expect(dead.ok, dead.detail).toBe(false);
+    expect(dead.detail).toMatch(/wrapper nobody calls is not a caller/);
+
+    // …and the tightening must not swallow the shape every edge function in
+    // this repo uses. `Deno.serve(async () => …)` is a top-level expression
+    // the runtime invokes, not a declaration anything references. An earlier
+    // draft read it as the body of the function declared above it and failed
+    // `kb_ingest_document` closed — a false gap written into two registers.
+    const served = ask("expire_governance_instruments");
+    expect(served.ok, served.detail).toBe(true);
+    expect(served.detail).toMatch(/invoked from src\/services\/service\.ts/);
+  });
+
+  /**
+   * `modulesRunningPattern` pre-filters with one regex and iterates with
+   * another, and that is not a style choice. `RegExp.test` on a /g pattern
+   * advances `lastIndex`, and `String.matchAll` begins from the original's
+   * `lastIndex` — so testing and then iterating the SAME object skips the
+   * first match. Every symbol cited exactly once in the corpus then read as
+   * uncalled: 23 false failures across both registers, all of them working
+   * code. Pinned because the bug is invisible in review and fails closed.
+   */
+  it("finds a call site that occurs exactly once in a module", () => {
+    const only = [
+      'import { supabase } from "../lib/supabase";',
+      "export async function loadOnce() {",
+      '  return supabase.rpc("record_case_gate_review", {});',
+      "}",
+      "",
+    ].join("\n");
+    const user = [
+      'import { loadOnce } from "../services/only";',
+      "export function Page() {",
+      "  return <button onClick={loadOnce}>go</button>;",
+      "}",
+      "",
+    ].join("\n");
+    const corpus = {
+      files: new Map([
+        ["src/services/only.ts", only],
+        ["src/pages/Page.tsx", user],
+      ]),
+      reachable: new Set(["src/services/only.ts", "src/pages/Page.tsx"]),
+      roots: ["src/pages/Page.tsx"],
+    };
+    expect(
+      modulesRunningPattern(/["'`]record_case_gate_review["'`]/, corpus),
+    ).toEqual(["src/services/only.ts"]);
+  });
+
+  /**
+   * The two registers' row shapes are genuinely different — the D-family puts
+   * status in its own cell after a spec-ref column. Each pattern must match its
+   * own register and NOTHING of the other's, so a copy-paste that points a
+   * register at the wrong pattern fails loudly instead of parsing zero rows and
+   * reporting a clean bill of health.
+   */
+  it("keeps the two row patterns from matching each other's register", () => {
+    const enterprise =
+      "| C4.08 | Verify | ✅ `record_verification_result` records it |";
+    const develop = "| D1.01 | Cap | I.3 | ✅ | evidence here |";
+    expect(ENTERPRISE_REGISTER.row.test(enterprise)).toBe(true);
+    expect(ENTERPRISE_REGISTER.row.test(develop)).toBe(false);
+    expect(DEVELOP_REGISTER.row.test(develop)).toBe(true);
+    expect(DEVELOP_REGISTER.row.test(enterprise)).toBe(false);
+  });
+
+  /**
+   * Nine D-register rows quote a grep alternation in their evidence —
+   * `grep 'ncr\|nonconformance' → only the spec file`. A pipe-free evidence
+   * pattern truncates the cell there and silently drops every citation after
+   * it, which is the de-citation evasion `register-baseline.mjs` exists to
+   * catch, arriving by accident rather than by intent.
+   */
+  it("reads a whole evidence cell that contains an escaped pipe", () => {
+    const [row] = parseRegister(
+      DEVELOP_REGISTER,
+      "| D4.03 | NCR | I.13 | ❌ | None: grep 'ncr\\|nonconformance' → only `set_gate_requirement` |",
+    );
+    expect(row.evidence).toContain("set_gate_requirement");
   });
 
   /**

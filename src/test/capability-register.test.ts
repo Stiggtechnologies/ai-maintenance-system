@@ -10,6 +10,17 @@
  */
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import {
+  claimLines,
+  readRegister,
+  regressions,
+} from "../../scripts/register-baseline.mjs";
+import {
+  DEVELOP_REGISTER,
+  ENTERPRISE_REGISTER,
+  parseRegister,
+  registerClaimLines,
+} from "./support/capabilityEvidence";
 
 const SOURCE = readFileSync(
   "docs/enterprise-readiness/capability-register.md",
@@ -140,5 +151,161 @@ describe("sync-develop register", () => {
   it("keeps the tally honest — a ✅ majority would mean the Develop program is done", () => {
     const done = developRows.filter((r) => r.status === "✅").length;
     expect(done).toBeLessThan(developRows.length);
+  });
+});
+
+/**
+ * The same ratchet, on the same terms, for the Develop register.
+ *
+ * `npm run register:check` is not a CI step in this repo — the three
+ * enterprise assertions above ARE how the baseline reaches CI, through the
+ * vitest job. So the Develop baseline had to arrive the same way or it would
+ * have been a file nothing read.
+ *
+ * Until 2026-08-28 this register was the one place a ✅ could become a ❌ with
+ * nothing in the diff to show for it: four slices moved rows in it, the tally
+ * was generalized to cover it on 2026-08-27, and the per-row ratchet was not.
+ * The first run of the generalized ratchet caught seven honest demotions
+ * (D2.04, D3.02, D3.03, D3.14, D3.19, D3.24, D3.35) that the reachability gate
+ * had just forced — which is the mechanism working on the day it was armed,
+ * not a hypothetical.
+ *
+ * The evidence cell is read with the FULL-CELL pattern, not the status-prefix
+ * pattern above: nine rows quote a grep alternation (`grep 'ncr\|nonconformance'`)
+ * and a pipe-free cell pattern truncates there, silently under-counting the
+ * citations it is supposed to be ratcheting.
+ */
+const DEVELOP_BASELINE = JSON.parse(
+  readFileSync("docs/sync-develop/register-baseline.json", "utf8"),
+) as Record<string, { status: string; evidence: boolean }>;
+
+const DEVELOP_EVIDENCED =
+  /^\|\s*(?<id>[A-Z]\d+\.\d+)\s*\|(?<capability>[^|]*)\|(?<specRef>[^|]*)\|\s*(?<status>✅|🟡|❌)\s*\|(?<evidence>.*?)\|?\s*$/u;
+
+const developDetailed = new Map<
+  string,
+  { status: string; evidence: boolean }
+>();
+for (const line of DEVELOP_SOURCE.split("\n")) {
+  const m = DEVELOP_EVIDENCED.exec(line);
+  if (m?.groups) {
+    developDetailed.set(m.groups.id, {
+      status: m.groups.status,
+      evidence: m.groups.evidence.trim().length >= 12,
+    });
+  }
+}
+
+/**
+ * Four parsers read these two files: the two simple patterns above, the
+ * TypeScript one the reachability gate uses, and the Node one the ratchet
+ * script uses. Four copies of a rule drift, and every drift has the same
+ * consequence — a row inside one mechanism's scope and outside another's, so
+ * whichever mechanism a contributor happens to run reports a clean bill of
+ * health for a row nothing checked.
+ *
+ * That is not hypothetical. `| **D1.99** | … | ✅ | via `add_framework_gate`. |`
+ * — a ✅ row citing a function this branch demoted seven rows over — was
+ * invisible to ALL FOUR at once, because all four asked "does the first cell
+ * look like an ID?" before asking "does this row parse?". Two asterisks and
+ * the row was outside the program of record while sitting inside it.
+ *
+ * So agreement is asserted, on the real files, in both directions.
+ */
+describe("every register parser reads the same register", () => {
+  for (const [register, localIds] of [
+    [ENTERPRISE_REGISTER, rows.map((r) => r.id)],
+    [DEVELOP_REGISTER, developRows.map((r) => r.id)],
+  ] as const) {
+    const source = readFileSync(register.path, "utf8");
+
+    it(`${register.name}: the gate, the ratchet and the tally see one row set`, () => {
+      const fromGate = parseRegister(register, source).map((r) => r.id);
+      const fromRatchet = Object.keys(
+        readRegister({ ...register, baseline: "" }, source),
+      );
+      expect(fromGate).toEqual([...localIds]);
+      expect(fromRatchet.sort()).toEqual([...fromGate].sort());
+    });
+
+    it(`${register.name}: no table line sits outside every parser`, () => {
+      // Structural, not pattern-based: a register's table lines are claims,
+      // save the `|---|` rule and the header above it. If the count of claim
+      // lines exceeds the count of parsed rows, the difference is rows that
+      // are in the document and in nothing else.
+      const claims = registerClaimLines(source);
+      expect(claims.length).toBe(localIds.length);
+      // And the Node copy of that rule must agree with the TypeScript one, or
+      // the CI lint job and the CI test job are policing different documents.
+      expect(claimLines(source).map((c) => c.line)).toEqual(
+        claims.map((c) => c.line),
+      );
+    });
+  }
+});
+
+/**
+ * The CITATION half of the ratchet, reaching the test job.
+ *
+ * The assertions in this file cover status, evidence and removal. They do not
+ * cover the cheapest evasion there is: deleting two backticks keeps the
+ * sentence, keeps the evidence flag true, satisfies everything above, and
+ * silently removes the row from the reachability gate's scope. That half lives
+ * in `scripts/register-baseline.mjs`, and until 2026-08-28 it reached no CI
+ * job at all — `npm run register:check` was in package.json and in nobody's
+ * workflow. It is a lint-job step now, and this is the other half of the
+ * repo's standing bargain that deleting one leaves the other running.
+ */
+describe("both registers, per-row citation ratchet", () => {
+  for (const register of [ENTERPRISE_REGISTER, DEVELOP_REGISTER] as const) {
+    const baselinePath =
+      register === ENTERPRISE_REGISTER
+        ? "docs/enterprise-readiness/capability-baseline.json"
+        : "docs/sync-develop/register-baseline.json";
+
+    it(`${register.name}: no row loses status, evidence or citations`, () => {
+      const base = JSON.parse(readFileSync(baselinePath, "utf8"));
+      const current = readRegister(
+        { ...register, baseline: baselinePath },
+        readFileSync(register.path, "utf8"),
+      );
+      expect(regressions(base, current)).toEqual([]);
+    });
+  }
+});
+
+describe("sync-develop register ratchet", () => {
+  it("reads every row the tally reads — no row escapes the ratchet by shape", () => {
+    // The two patterns must agree on scope. If the detailed one understands
+    // fewer rows than the counting one, the difference is a set of rows that
+    // are tallied but never ratcheted, and nothing else would report it.
+    expect(developDetailed.size).toBe(developRows.length);
+  });
+
+  it("never regresses an item's status without an updated baseline", () => {
+    const regressed = Object.entries(DEVELOP_BASELINE)
+      .filter(([id, was]) => {
+        const now = developDetailed.get(id);
+        return now && RANK[now.status] < RANK[was.status];
+      })
+      .map(([id]) => id);
+    expect(regressed).toEqual([]);
+  });
+
+  it("never strips the evidence from a claim that had it", () => {
+    const stripped = Object.entries(DEVELOP_BASELINE)
+      .filter(
+        ([id, was]) =>
+          was.evidence && developDetailed.get(id)?.evidence === false,
+      )
+      .map(([id]) => id);
+    expect(stripped).toEqual([]);
+  });
+
+  it("never drops an item the baseline knows about", () => {
+    const missing = Object.keys(DEVELOP_BASELINE).filter(
+      (id) => !developDetailed.has(id),
+    );
+    expect(missing).toEqual([]);
   });
 });

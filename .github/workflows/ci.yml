@@ -38,6 +38,25 @@ jobs:
       - name: TypeScript
         run: npx tsc --noEmit -p tsconfig.app.json
 
+      # Both capability registers: derived tally + per-row anti-downgrade
+      # ratchet, for docs/enterprise-readiness and docs/sync-develop alike.
+      #
+      # `npm run register:check` had never been a CI step. The enterprise
+      # ratchet reached CI only through src/test/capability-register.test.ts in
+      # the Unit tests job, and that test asserted status, evidence and
+      # non-removal — NOT the citation count. So de-citation, the cheapest
+      # evasion there is (delete two backticks, keep the sentence, leave the
+      # reachability gate's scope), was ratcheted by a script nothing ran.
+      # That test file now runs the citation ratchet too, which is the point:
+      # the same rule, reached by two independent jobs.
+      #
+      # It sits in this job rather than beside the tests on purpose, the same
+      # bargain the RE-2026.08 gate strikes below: register enforcement now
+      # runs in two of the four required checks, so deleting either one leaves
+      # the other still running.
+      - name: Capability registers (tally + ratchet, both registers)
+        run: npm run register:check
+
       - name: Build
         run: npm run build
 
