@@ -409,3 +409,12 @@ pre,
   font-display: swap;
   src: url("/fonts/inter-var-latin.woff2") format("woff2");
 }
+
+/* iOS auto-zooms focused inputs under 16px — premium mobile never triggers it. */
+@media (max-width: 767px) {
+  input,
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}
