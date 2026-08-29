@@ -15,6 +15,12 @@ import type {
   OperationalReadinessResult,
 } from "../lib/develop";
 import type { CaseChains } from "../lib/develop/chains";
+import type {
+  CalculationRun,
+  CaseControls,
+  CostReconciliation,
+  ScopeGrowth,
+} from "../lib/develop/controls";
 
 export interface DevelopmentCaseSummary {
   id: string;
@@ -2582,4 +2588,336 @@ export async function setAssuranceClaimPosition(input: {
     p_basis: input.basis,
   });
   return unwrap(data, error);
+}
+
+/* ─────────────────── Slice 4A — Integrated Controls ──────────────────── */
+/**
+ * D5.01–D5.04, D5.28, D5.29, D11.29. Every write is a definer RPC; every
+ * READ that produces a NUMBER goes through a compute_* RPC that records a
+ * calculation_runs row, so nothing on the controls surface is a figure with
+ * no lineage behind it.
+ */
+
+export async function getCaseControls(caseId: string): Promise<CaseControls> {
+  const { data, error } = await supabase.rpc("get_case_controls", {
+    p_case_id: caseId,
+  });
+  return unwrap(data, error);
+}
+
+export async function recordScopeNeed(input: {
+  caseId: string;
+  needRef: string;
+  statement: string;
+  ownerId: string;
+  sourceAuthority?: string;
+}): Promise<{ need_id: string; need_ref: string }> {
+  const { data, error } = await supabase.rpc("record_scope_need", {
+    p_case_id: input.caseId,
+    p_need: {
+      need_ref: input.needRef,
+      statement: input.statement,
+      owner_id: input.ownerId,
+      source_authority: input.sourceAuthority ?? "PROJECT_FRAMEWORK",
+    },
+  });
+  return unwrap(data, error);
+}
+
+export async function recordCbsCode(input: {
+  caseId: string;
+  cbsCode: string;
+  title: string;
+  costType: string;
+}): Promise<{ cbs_code_id: string; cbs_code: string }> {
+  const { data, error } = await supabase.rpc("record_cbs_code", {
+    p_case_id: input.caseId,
+    p_code: {
+      cbs_code: input.cbsCode,
+      title: input.title,
+      cost_type: input.costType,
+    },
+  });
+  return unwrap(data, error);
+}
+
+export async function recordWbsElement(input: {
+  caseId: string;
+  wbsCode: string;
+  title: string;
+  scopeDescription: string;
+  parentWbsCode?: string | null;
+  systemNodeId?: string | null;
+}): Promise<{ wbs_element_id: string; wbs_code: string; depth: number }> {
+  const { data, error } = await supabase.rpc("record_wbs_element", {
+    p_case_id: input.caseId,
+    p_element: {
+      wbs_code: input.wbsCode,
+      title: input.title,
+      scope_description: input.scopeDescription,
+      parent_wbs_code: input.parentWbsCode ?? null,
+      system_node_id: input.systemNodeId ?? null,
+    },
+  });
+  return unwrap(data, error);
+}
+
+export async function linkRequirementToNeed(input: {
+  requirementId: number;
+  needId: string;
+}): Promise<{ requirement_ref: string; need_ref: string }> {
+  const { data, error } = await supabase.rpc("link_requirement_to_need", {
+    p_requirement_id: input.requirementId,
+    p_need_id: input.needId,
+  });
+  return unwrap(data, error);
+}
+
+export async function linkRequirementToWbs(input: {
+  requirementId: number;
+  wbsElementId: string;
+}): Promise<{ link_id: string; requirement_ref: string; wbs_code: string }> {
+  const { data, error } = await supabase.rpc("link_requirement_to_wbs", {
+    p_requirement_id: input.requirementId,
+    p_wbs_element_id: input.wbsElementId,
+  });
+  return unwrap(data, error);
+}
+
+export async function designateControlAccount(input: {
+  caseId: string;
+  controlAccountRef: string;
+  wbsCode: string;
+  cbsCode: string;
+  accountableOwnerId: string;
+}): Promise<{ control_account_id: string; control_account_ref: string }> {
+  const { data, error } = await supabase.rpc("designate_control_account", {
+    p_case_id: input.caseId,
+    p_account: {
+      control_account_ref: input.controlAccountRef,
+      wbs_code: input.wbsCode,
+      cbs_code: input.cbsCode,
+      accountable_owner_id: input.accountableOwnerId,
+    },
+  });
+  return unwrap(data, error);
+}
+
+export async function recordLocalScheduleActivity(input: {
+  caseId: string;
+  activityId: string;
+  description: string;
+  durationHours: string;
+  plannedStart?: string | null;
+  plannedFinish?: string | null;
+  wbsCode?: string | null;
+}): Promise<{ activity_id: number; activity_key: string; origin: string }> {
+  const { data, error } = await supabase.rpc("record_local_schedule_activity", {
+    p_case_id: input.caseId,
+    p_activity: {
+      activity_id: input.activityId,
+      description: input.description,
+      duration_hours: input.durationHours,
+      planned_start: input.plannedStart || null,
+      planned_finish: input.plannedFinish || null,
+      wbs_code: input.wbsCode || null,
+    },
+  });
+  return unwrap(data, error);
+}
+
+export async function setScheduleActivityWbs(input: {
+  activityId: number;
+  wbsCode: string | null;
+}): Promise<{
+  activity_id: number;
+  activity_key: string;
+  origin: string;
+  wbs_code: string | null;
+}> {
+  const { data, error } = await supabase.rpc("set_schedule_activity_wbs", {
+    p_activity_id: input.activityId,
+    p_wbs_code: input.wbsCode,
+  });
+  return unwrap(data, error);
+}
+
+export async function recordCostItem(input: {
+  caseId: string;
+  costItemRef: string;
+  wbsCode: string;
+  cbsCode: string;
+  description: string;
+  basis: string;
+  currency?: string;
+  baselineCost?: string | null;
+  commitment?: string | null;
+  actual?: string | null;
+  forecast?: string | null;
+  contingency?: string | null;
+  contingencyBasis?: string | null;
+}): Promise<{
+  cost_item_id: string;
+  cost_item_ref: string;
+  wbs_code: string;
+  revised: boolean;
+}> {
+  const { data, error } = await supabase.rpc("record_cost_item", {
+    p_case_id: input.caseId,
+    p_item: {
+      cost_item_ref: input.costItemRef,
+      wbs_code: input.wbsCode,
+      cbs_code: input.cbsCode,
+      description: input.description,
+      basis: input.basis,
+      currency: input.currency ?? "CAD",
+      baseline_cost: input.baselineCost || null,
+      commitment: input.commitment || null,
+      actual: input.actual || null,
+      forecast: input.forecast || null,
+      contingency: input.contingency || null,
+      contingency_basis: input.contingencyBasis || null,
+    },
+  });
+  return unwrap(data, error);
+}
+
+export async function attributePostBaselineScope(input: {
+  caseId: string;
+  changeRef: string;
+  description: string;
+  origin: string;
+  wbsCode: string;
+  addedAt: string;
+  costEffect?: string | null;
+  costBasis?: string | null;
+  approvedChangeRef?: string | null;
+}): Promise<{
+  scope_change_id: string;
+  change_ref: string;
+  baseline_version: number;
+}> {
+  const { data, error } = await supabase.rpc("attribute_post_baseline_scope", {
+    p_case_id: input.caseId,
+    p_change: {
+      change_ref: input.changeRef,
+      description: input.description,
+      origin: input.origin,
+      wbs_code: input.wbsCode,
+      added_at: input.addedAt,
+      cost_effect: input.costEffect || null,
+      cost_basis: input.costBasis || null,
+      approved_change_ref: input.approvedChangeRef || null,
+    },
+  });
+  return unwrap(data, error);
+}
+
+export async function captureControlsBaselineStructure(input: {
+  baselineId: string;
+  structure: string;
+}): Promise<{
+  capture_id: string;
+  structure: string;
+  element_count: number;
+  digest: string;
+}> {
+  const { data, error } = await supabase.rpc(
+    "capture_controls_baseline_structure",
+    { p_baseline_id: input.baselineId, p_structure: input.structure },
+  );
+  return unwrap(data, error);
+}
+
+/** Computes AND records the lineage row (D11.29). */
+export async function computeCaseScopeGrowth(
+  caseId: string,
+): Promise<ScopeGrowth> {
+  const { data, error } = await supabase.rpc("compute_case_scope_growth", {
+    p_case_id: caseId,
+  });
+  return unwrap(data, error);
+}
+
+/** Computes AND records the lineage row (D11.29). */
+export async function computeCaseCostReconciliation(
+  caseId: string,
+): Promise<CostReconciliation> {
+  const { data, error } = await supabase.rpc(
+    "compute_case_cost_reconciliation",
+    { p_case_id: caseId },
+  );
+  return unwrap(data, error);
+}
+
+export async function getCaseCalculationLineage(
+  caseId: string,
+  limit = 20,
+): Promise<{ caseId: string; runs: CalculationRun[] }> {
+  const { data, error } = await supabase.rpc("get_case_calculation_lineage", {
+    p_case_id: caseId,
+    p_limit: limit,
+  });
+  return unwrap(data, error);
+}
+
+/** The case's baselines, for the controls-capture act. Rides RLS. */
+export async function listCaseBaselines(caseId: string): Promise<
+  {
+    id: string;
+    baseline_type: string;
+    version: number;
+    status: string;
+    approved_at: string | null;
+  }[]
+> {
+  const { data, error } = await supabase
+    .from("development_baselines")
+    .select("id, baseline_type, version, status, approved_at")
+    .eq("development_case_id", caseId)
+    .eq("status", "approved")
+    .order("baseline_type");
+  if (error) throw new Error(error.message);
+  return data ?? [];
+}
+
+/** Case-scoped requirements, for the scope-chain link acts. Rides RLS. */
+/**
+ * Change a business need's status (D5.01).
+ *
+ * 'met' and 'withdrawn' were a vocabulary the product could not produce: the
+ * column carried three values and no act could reach two of them, so the
+ * traceability report filtered on a state nothing could set. Withdrawing
+ * takes a need out of the chain and un-traces every requirement that rested
+ * on it, which is why the reason is mandatory server-side.
+ */
+export async function setScopeNeedStatus(input: {
+  needId: string;
+  status: "open" | "met" | "withdrawn";
+  reason?: string | null;
+}): Promise<{ need_id: string; need_ref: string; status: string }> {
+  const { data, error } = await supabase.rpc("set_scope_need_status", {
+    p_need_id: input.needId,
+    p_status: input.status,
+    p_reason: input.reason ?? null,
+  });
+  return unwrap(data, error);
+}
+
+export async function listCaseRequirements(caseId: string): Promise<
+  {
+    id: number;
+    requirement_ref: string;
+    category: string;
+    requirement: string;
+    scope_need_id: string | null;
+  }[]
+> {
+  const { data, error } = await supabase
+    .from("design_requirements")
+    .select("id, requirement_ref, category, requirement, scope_need_id")
+    .eq("development_case_id", caseId)
+    .order("requirement_ref");
+  if (error) throw new Error(error.message);
+  return data ?? [];
 }

@@ -34,6 +34,20 @@ const ORIGINAL_DOOR = "20260907090000_manual_import.sql";
 const CONTEXT_FIX =
   "20261004090200_operating_context_rows_survive_a_bad_cell.sql";
 const SCHEDULE_IMPORT = "20261112090000_p6_schedule_import.sql";
+/**
+ * Where the schedule validator's CURRENT body lives.
+ *
+ * Slice 4A re-created `ingest_schedule_batch` (20261130090100) to add one
+ * line: the door names itself to the new P6-provenance wall before inserting,
+ * so an imported activity is born through the door and not by a stray write.
+ * The body is otherwise spliced unchanged, and the assertions below run
+ * against `defs`, which resolves the LATEST definition — so they keep holding
+ * the live function to the Slice 1 contract wherever it lives. This constant
+ * is the deliberate half of that move: a body that migrates without anyone
+ * noticing is exactly what the mutation-sanity case exists to catch.
+ */
+const SCHEDULE_VALIDATOR_HOME =
+  "20261130090100_develop_schedule_activity_object.sql";
 
 const routerSql = stripComments(readFileSync(`${DIR}/${ROUTER}`, "utf8"));
 
@@ -504,7 +518,9 @@ describe("a row the database refuses is a reject, not a lost batch", () => {
       "20261004090100_condition_reading_written_once.sql",
     );
     expect(defs.get("ingest_context_batch")?.file).toBe(CONTEXT_FIX);
-    expect(defs.get("ingest_schedule_batch")?.file).toBe(SCHEDULE_IMPORT);
+    expect(defs.get("ingest_schedule_batch")?.file).toBe(
+      SCHEDULE_VALIDATOR_HOME,
+    );
   });
 });
 
@@ -631,7 +647,9 @@ describe("who may call what is stated, not inherited", () => {
   it("the schedule validator ships closed on day one: router-only, service explicit", () => {
     // Its two peers were opened to `authenticated` first and closed later
     // (20261004090000); this one is born under the final regime.
-    const sql = stripComments(readFileSync(`${DIR}/${SCHEDULE_IMPORT}`, "utf8"));
+    const sql = stripComments(
+      readFileSync(`${DIR}/${SCHEDULE_IMPORT}`, "utf8"),
+    );
     expect(sql).toMatch(
       /revoke all on function public\.ingest_schedule_batch\(uuid, jsonb\) from public, anon, authenticated;/i,
     );
@@ -644,6 +662,23 @@ describe("who may call what is stated, not inherited", () => {
     // And the router it is reached through keeps its own ACL restated there.
     expect(sql).toMatch(
       /grant execute on function public\.ingest_rows\(uuid, jsonb\) to authenticated;/i,
+    );
+
+    // The re-creation carries the same regime. `create or replace` preserves
+    // an ACL, so a file that re-created the body and stayed silent about the
+    // grants would leave the closed posture resting on a migration nobody
+    // reads any more — and a later drop-and-recreate would open it.
+    const home = stripComments(
+      readFileSync(`${DIR}/${SCHEDULE_VALIDATOR_HOME}`, "utf8"),
+    );
+    expect(home).toMatch(
+      /revoke all on function public\.ingest_schedule_batch\(uuid, jsonb\) from public, anon, authenticated;/i,
+    );
+    expect(home).toMatch(
+      /grant execute on function public\.ingest_schedule_batch\(uuid, jsonb\) to service_role;/i,
+    );
+    expect(home).not.toMatch(
+      /grant execute on function public\.ingest_schedule_batch\(uuid, jsonb\) to authenticated/i,
     );
   });
 
@@ -665,8 +700,9 @@ describe("who may call what is stated, not inherited", () => {
     expect(body).toMatch(/must be a finite number of hours/i);
     expect(body).toMatch(/not isfinite\(v_start\)/i);
     expect(body).toMatch(/not isfinite\(v_finish\)/i);
-    const sql = stripComments(readFileSync(`${DIR}/${SCHEDULE_IMPORT}`, "utf8"))
-      .replace(/\s+/g, " ");
+    const sql = stripComments(
+      readFileSync(`${DIR}/${SCHEDULE_IMPORT}`, "utf8"),
+    ).replace(/\s+/g, " ");
     // The duration check is REPLACED strictly tighter, same name — and the
     // window check requires finite-or-null per column, not just ordering.
     expect(sql).toMatch(

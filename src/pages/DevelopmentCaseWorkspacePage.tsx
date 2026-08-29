@@ -97,6 +97,7 @@ import {
   SuccessContractSection,
 } from "../components/develop/ValueSpinePanels";
 import { CaseChainsPanel } from "../components/develop/CaseChainsPanels";
+import { IntegratedControlsPanel } from "../components/develop/ControlsPanels";
 
 const REVIEW_ROLES = [
   "admin",
@@ -2760,6 +2761,17 @@ export function DevelopmentCaseWorkspacePage() {
       />
       <ScheduleSection workspace={workspace} />
       <CostSection workspace={workspace} />
+      {/* §44 Integrated Controls (Slice 4A): the scope chain and its gaps,
+          schedule activities with P6 as system of record, CBS/WBS-coded cost
+          lines, post-baseline scope growth, the eleven controls structures,
+          and the lineage behind every number above. */}
+      <IntegratedControlsPanel
+        caseId={workspace.id}
+        members={members}
+        canPlan={canPlan}
+        canReview={canReview}
+        reloadKey={chainsKey}
+      />
       <OperationalReadinessSection caseId={workspace.id} canPlan={canPlan} />
 
       {/* Sanction */}
