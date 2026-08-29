@@ -1,31 +1,5 @@
 export const SYNC_ATTACHMENT_MAX_BYTES = 25 * 1024 * 1024;
 
-const ACCEPTED_EXTENSIONS = new Set([
-  "pdf",
-  "png",
-  "jpg",
-  "jpeg",
-  "webp",
-  "gif",
-  "bmp",
-  "tif",
-  "tiff",
-  "heic",
-  "heif",
-  "txt",
-  "md",
-  "markdown",
-  "csv",
-  "json",
-  "xml",
-  "yaml",
-  "yml",
-  "log",
-  "xlsx",
-  "docx",
-  "eml",
-]);
-
 export function sanitizeSyncAttachmentName(name: string): string {
   const cleaned = name
     .normalize("NFKC")
@@ -50,9 +24,9 @@ export function validateSyncAttachment(
   if (file.size <= 0) return "The file is empty.";
   if (file.size > SYNC_ATTACHMENT_MAX_BYTES)
     return "Attachments must be 25 MB or smaller.";
-  if (!ACCEPTED_EXTENSIONS.has(syncAttachmentExtension(file.name))) {
-    return "Supported files: PDF, Word (docx), images, text/Markdown, CSV/JSON/XML/YAML/logs, spreadsheets, and email (.eml).";
-  }
+  // Every file type attaches — the picker never hides the user's documents.
+  // What the AI can READ is decided by the extraction pipeline, which
+  // reports honestly per file (extraction_status: ready/unsupported).
   return null;
 }
 

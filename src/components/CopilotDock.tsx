@@ -1273,7 +1273,6 @@ export function CopilotDock({
                         type="file"
                         multiple
                         className="hidden"
-                        accept=".pdf,.docx,.png,.jpg,.jpeg,.webp,.gif,.bmp,.tif,.tiff,.heic,.heif,.txt,.md,.markdown,.csv,.json,.xml,.yaml,.yml,.log,.xlsx,.eml"
                         onChange={(event) => {
                           void addFiles([...(event.target.files ?? [])]);
                           event.currentTarget.value = "";

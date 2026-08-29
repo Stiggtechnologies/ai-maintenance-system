@@ -574,13 +574,65 @@ async function extractAttachment(
           .eq("workspace_id", workspaceId);
         return null;
       }
-    } else if (/\.xlsx$/i.test(lower)) {
+    } else if (/\.(xls|xlsx)$/i.test(lower)) {
       const workbook = XLSX.read(new Uint8Array(await data.arrayBuffer()), { type: "array" });
       text = workbook.SheetNames.slice(0, 8)
         .map((name) => `## Sheet: ${name}\n${XLSX.utils.sheet_to_csv(workbook.Sheets[name])}`)
         .join("\n\n")
         .slice(0, MAX_ATTACHMENT_TEXT);
       method = "xlsx_to_csv";
+    } else if (/\.pptx$/i.test(lower)) {
+      // pptx = OPC zip; slide text lives in ppt/slides/slideN.xml.
+      try {
+        const files = unzipSync(new Uint8Array(await data.arrayBuffer()));
+        const slideKeys = Object.keys(files)
+          .filter((k) => /^ppt\/slides\/slide\d+\.xml$/.test(k))
+          .sort((a, b) => {
+            const n = (k: string) => parseInt(k.replace(/\D+/g, ""), 10) || 0;
+            return n(a) - n(b);
+          })
+          .slice(0, 60);
+        const slides = slideKeys.map((k) => {
+          const xml = new TextDecoder().decode(files[k]);
+          const texts = (xml.match(/<a:t>[\s\S]*?<\/a:t>/g) ?? [])
+            .map((t) => t.replace(/<[^>]+>/g, ""))
+            .filter((t) => t.trim().length > 0);
+          return `## Slide ${k.replace(/\D+/g, "")}\n${texts.join("\n")}`;
+        });
+        text = slides.join("\n\n").slice(0, MAX_ATTACHMENT_TEXT);
+        method = "pptx_text";
+      } catch {
+        text = null;
+        method = "pptx_extract_failed";
+      }
+      if (!text?.trim()) {
+        await admin
+          .from("cowork_attachments")
+          .update({
+            extraction_status: "unsupported",
+            extraction_metadata: { method, reason: "No text extracted from the pptx" },
+          })
+          .eq("id", row.id)
+          .eq("organization_id", auth.organizationId)
+          .eq("workspace_id", workspaceId);
+        return null;
+      }
+    } else if (/\.(doc|rtf|msg)$/i.test(lower)) {
+      // Legacy binary formats need a conversion pass we don't run yet. Be
+      // honest: the file is stored, the content is not readable by the AI.
+      await admin
+        .from("cowork_attachments")
+        .update({
+          extraction_status: "unsupported",
+          extraction_metadata: {
+            method: "legacy_format_unsupported",
+            reason: "Convert this file to docx or PDF and re-attach for full analysis",
+          },
+        })
+        .eq("id", row.id)
+        .eq("organization_id", auth.organizationId)
+        .eq("workspace_id", workspaceId);
+      return null;
     } else if (mime === "application/pdf" || mime.startsWith("image/")) {
       const extracted = await extractPdfOrImage(auth, row.file_name, mime, data);
       text = extracted.text;
