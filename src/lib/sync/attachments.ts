@@ -6,6 +6,12 @@ const ACCEPTED_EXTENSIONS = new Set([
   "jpg",
   "jpeg",
   "webp",
+  "gif",
+  "bmp",
+  "tif",
+  "tiff",
+  "heic",
+  "heif",
   "txt",
   "md",
   "markdown",
@@ -16,6 +22,8 @@ const ACCEPTED_EXTENSIONS = new Set([
   "yml",
   "log",
   "xlsx",
+  "docx",
+  "eml",
 ]);
 
 export function sanitizeSyncAttachmentName(name: string): string {
@@ -36,11 +44,14 @@ export function syncAttachmentExtension(name: string): string {
   return dot >= 0 ? safe.slice(dot + 1).toLowerCase() : "";
 }
 
-export function validateSyncAttachment(file: Pick<File, "name" | "size">): string | null {
+export function validateSyncAttachment(
+  file: Pick<File, "name" | "size">,
+): string | null {
   if (file.size <= 0) return "The file is empty.";
-  if (file.size > SYNC_ATTACHMENT_MAX_BYTES) return "Attachments must be 25 MB or smaller.";
+  if (file.size > SYNC_ATTACHMENT_MAX_BYTES)
+    return "Attachments must be 25 MB or smaller.";
   if (!ACCEPTED_EXTENSIONS.has(syncAttachmentExtension(file.name))) {
-    return "Supported files: PDF, images, text/Markdown, CSV/JSON/XML/YAML/logs, and XLSX.";
+    return "Supported files: PDF, Word (docx), images, text/Markdown, CSV/JSON/XML/YAML/logs, spreadsheets, and email (.eml).";
   }
   return null;
 }
@@ -64,7 +75,10 @@ export function buildSyncAttachmentObjectPath(input: {
 export async function sha256File(file: Blob): Promise<string | null> {
   if (!globalThis.crypto?.subtle) return null;
   try {
-    const digest = await globalThis.crypto.subtle.digest("SHA-256", await file.arrayBuffer());
+    const digest = await globalThis.crypto.subtle.digest(
+      "SHA-256",
+      await file.arrayBuffer(),
+    );
     return [...new Uint8Array(digest)]
       .map((byte) => byte.toString(16).padStart(2, "0"))
       .join("");

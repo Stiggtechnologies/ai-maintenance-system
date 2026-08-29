@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import * as XLSX from "npm:xlsx@0.18.5";
+import { unzipSync } from "npm:fflate@0.8.2";
 import {
   buildProviderChain,
   callWithResilience,
@@ -539,6 +540,40 @@ async function extractAttachment(
     ) {
       text = (await data.text()).slice(0, MAX_ATTACHMENT_TEXT);
       method = "direct_text";
+    } else if (/\.docx$/i.test(lower)) {
+      // docx = OPC zip; the body text lives in word/document.xml. Extract the
+      // zip locally (fflate), pull the paragraph runs, and keep paragraph
+      // boundaries so the RAG chunker sees the author's structure.
+      try {
+        const files = unzipSync(new Uint8Array(await data.arrayBuffer()));
+        const docXml = files["word/document.xml"]
+          ? new TextDecoder().decode(files["word/document.xml"])
+          : "";
+        const paragraphs = (docXml.match(/<w:p[ >][\s\S]*?<\/w:p>/g) ?? [])
+          .map((p) =>
+            (p.match(/<w:t[^>]*>([\s\S]*?)<\/w:t>/g) ?? [])
+              .map((t) => t.replace(/<[^>]+>/g, ""))
+              .join(""),
+          )
+          .filter((t) => t.trim().length > 0);
+        text = paragraphs.join("\n\n").slice(0, MAX_ATTACHMENT_TEXT);
+        method = "docx_text";
+      } catch {
+        text = null;
+        method = "docx_extract_failed";
+      }
+      if (!text?.trim()) {
+        await admin
+          .from("cowork_attachments")
+          .update({
+            extraction_status: "unsupported",
+            extraction_metadata: { method, reason: "No text extracted from the docx" },
+          })
+          .eq("id", row.id)
+          .eq("organization_id", auth.organizationId)
+          .eq("workspace_id", workspaceId);
+        return null;
+      }
     } else if (/\.xlsx$/i.test(lower)) {
       const workbook = XLSX.read(new Uint8Array(await data.arrayBuffer()), { type: "array" });
       text = workbook.SheetNames.slice(0, 8)
