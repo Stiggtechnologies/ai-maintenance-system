@@ -82,8 +82,8 @@ export function VerificationLoop() {
         </h2>
         <p className="mt-1 max-w-3xl text-sm text-slate-300">
           Every released recommendation states how we will know it worked. A
-          named human records whether anyone looked. This is a pilot
-          attestation — not a live historian or CMMS reading.
+          named human records whether anyone looked. This is a pilot attestation
+          — not a live historian or CMMS reading.
         </p>
       </div>
 
@@ -232,15 +232,17 @@ function RecordVerificationForm({
   obligationId: string;
   onRecorded: () => void;
 }) {
-  const [result, setResult] = useState<VerificationResultKind>("achieved");
+  const [result, setResult] = useState<VerificationResultKind | null>(null);
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{
     kind: "ok" | "err";
     text: string;
   } | null>(null);
+  const canSubmit = result !== null && note.trim() !== "";
 
   const submit = async () => {
+    if (result === null || note.trim() === "") return;
     setBusy(true);
     setMessage(null);
     try {
@@ -251,6 +253,7 @@ function RecordVerificationForm({
       );
       setMessage({ kind: "ok", text: recorded.detail });
       setNote("");
+      setResult(null);
       onRecorded();
     } catch (e) {
       setMessage({
@@ -310,7 +313,7 @@ function RecordVerificationForm({
       <div className="flex flex-wrap items-center gap-2">
         <button
           type="submit"
-          disabled={busy || note.trim() === ""}
+          disabled={busy || !canSubmit}
           className="rounded-lg border border-signal-cyan/30 bg-signal-cyan/10 px-3 py-1.5 text-xs font-semibold text-signal-cyan disabled:cursor-not-allowed disabled:opacity-40"
         >
           {busy ? "Recording…" : "Record verification"}

@@ -68,6 +68,9 @@ describe("VerificationLoop — named-human recorder", () => {
     expect(screen.getByLabelText("Achieved")).toBeTruthy();
     expect(screen.getByLabelText("Not achieved")).toBeTruthy();
     expect(screen.getByLabelText("Inconclusive")).toBeTruthy();
+    expect(screen.getByLabelText("Achieved")).not.toBeChecked();
+    expect(screen.getByLabelText("Not achieved")).not.toBeChecked();
+    expect(screen.getByLabelText("Inconclusive")).not.toBeChecked();
   });
 
   it("records not_achieved with the measured note through the service wrapper", async () => {
@@ -111,6 +114,7 @@ describe("VerificationLoop — named-human recorder", () => {
     render(<VerificationLoop />);
     await screen.findByText("Replace seal on P-101");
 
+    fireEvent.click(screen.getByLabelText("Achieved"));
     fireEvent.change(screen.getByPlaceholderText(/vibration at 4.1 mm\/s/i), {
       target: { value: "looked again the next shift" },
     });
@@ -121,11 +125,50 @@ describe("VerificationLoop — named-human recorder", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(/recorded once/);
   });
 
-  it("does not submit an empty measured note", async () => {
+  it("does not pre-select Achieved — every result starts unselected", async () => {
+    render(<VerificationLoop />);
+    await screen.findByText("Replace seal on P-101");
+    expect(screen.getByLabelText("Achieved")).not.toBeChecked();
+    expect(
+      screen.getByRole("button", { name: "Record verification" }),
+    ).toBeDisabled();
+  });
+
+  it("keeps submit disabled when only a measured note is present", async () => {
+    render(<VerificationLoop />);
+    await screen.findByText("Replace seal on P-101");
+    fireEvent.change(screen.getByPlaceholderText(/vibration at 4.1 mm\/s/i), {
+      target: { value: "vibration 2.1 mm/s vs 3.0 limit, 2026-08-29" },
+    });
+    expect(
+      screen.getByRole("button", { name: "Record verification" }),
+    ).toBeDisabled();
+    expect(recordVerificationResult).not.toHaveBeenCalled();
+  });
+
+  it("keeps submit disabled when only a result is selected", async () => {
+    render(<VerificationLoop />);
+    await screen.findByText("Replace seal on P-101");
+    fireEvent.click(screen.getByLabelText("Inconclusive"));
+    expect(screen.getByLabelText("Inconclusive")).toBeChecked();
+    expect(
+      screen.getByRole("button", { name: "Record verification" }),
+    ).toBeDisabled();
+    expect(recordVerificationResult).not.toHaveBeenCalled();
+  });
+
+  it("enables submit only when both a result and a measured note are set", async () => {
     render(<VerificationLoop />);
     await screen.findByText("Replace seal on P-101");
     const submit = screen.getByRole("button", { name: "Record verification" });
     expect(submit).toBeDisabled();
-    expect(recordVerificationResult).not.toHaveBeenCalled();
+
+    fireEvent.change(screen.getByPlaceholderText(/vibration at 4.1 mm\/s/i), {
+      target: { value: "vibration 2.1 mm/s vs 3.0 limit, 2026-08-29" },
+    });
+    expect(submit).toBeDisabled();
+
+    fireEvent.click(screen.getByLabelText("Achieved"));
+    expect(submit).toBeEnabled();
   });
 });
