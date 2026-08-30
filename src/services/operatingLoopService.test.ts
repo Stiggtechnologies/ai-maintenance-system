@@ -36,7 +36,9 @@ vi.mock("../lib/supabase", () => {
       state.inserts.push({ table, payload });
       return builder;
     });
-    builder.maybeSingle = vi.fn(() => Promise.resolve(resolveFor(table)));
+    // getOrgContext calls `.maybeSingle().returns<T>()` — maybeSingle must
+    // stay chainable, and the await lands on `then`.
+    builder.maybeSingle = vi.fn(() => builder);
     builder.then = (resolve: (v: unknown) => unknown) =>
       resolve(resolveFor(table));
     return builder;
@@ -161,7 +163,8 @@ describe("recordVerificationResult", () => {
         {
           outcome: "recorded",
           learningEventId: null,
-          detail: "Outcome verified as achieved, with the measurement on record. This loop is closed.",
+          detail:
+            "Outcome verified as achieved, with the measurement on record. This loop is closed.",
         },
       ],
       error: null,
@@ -258,7 +261,9 @@ describe("approveRecommendation — approval is not achievement", () => {
 
   it("does not write recommendation_accepted as if the outcome happened", async () => {
     await approveRecommendation(rec);
-    const learning = state.inserts.find((row) => row.table === "learning_events");
+    const learning = state.inserts.find(
+      (row) => row.table === "learning_events",
+    );
     expect(learning).toBeDefined();
     expect(learning?.payload.event_type).toBe("recommendation_approved");
     expect(learning?.payload.event_type).not.toBe("recommendation_accepted");
