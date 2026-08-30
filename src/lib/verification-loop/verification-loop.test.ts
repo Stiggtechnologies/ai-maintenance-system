@@ -84,4 +84,19 @@ describe("assessLoop — the three open states must never render alike", () => {
     expect(r.outcomeSuccessRate).toBeNull();
     expect(r.healthiest).toBe("collecting");
   });
+
+  it("reads a 0% closure as nobody-has-looked, not as an unwired RPC", () => {
+    const r = assessLoop(
+      posture({
+        achieved: 0,
+        notAchieved: 0,
+        inconclusive: 0,
+        openObligations: 8,
+        overdue: 0,
+      }),
+    );
+    expect(r.reason).toMatch(/nobody has looked/);
+    expect(r.reason).not.toMatch(/not wired up/);
+    expect(r.reason).not.toMatch(/no surface calls record_verification_result/);
+  });
 });

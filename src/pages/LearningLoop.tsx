@@ -9,6 +9,7 @@ import { useOnboardingOperatingLoop } from "../hooks/useOnboardingOperatingLoop"
 import { useAsyncData } from "../hooks/useAsyncData";
 import { getLearningEvents } from "../services/operatingLoopService";
 import type { LearningEventRow } from "../types/operating";
+import { VerificationLoop } from "../components/VerificationLoop";
 import {
   LoadingState,
   ErrorState,
@@ -28,9 +29,10 @@ import {
  * Nothing measured any of it. A literal array captioned as a nine-week measured
  * series is a stronger claim than a wrong number: it asserts that a measurement
  * was taken every week for nine weeks. And "Savings Verified" uses the one word
- * the platform's own verification loop cannot currently produce —
- * `record_verification_result` has no callers, so loop closure is structurally
- * zero and nothing has been verified by anybody.
+ * the platform's own verification loop used to be unable to produce —
+ * `record_verification_result` had no callers. A named human can now record
+ * achieved / not_achieved / inconclusive from this page. That is a pilot
+ * attestation, not a historian reading, and it does not make savings verified.
  *
  * The 142 hours here is the same 142 already deleted from `value_metrics` as
  * `autonomous_actions_executed`; deleting the row did not remove the claim,
@@ -97,6 +99,11 @@ const typeConfig: Record<string, { color: string; bg: string; label: string }> =
       color: "text-green-400",
       bg: "bg-green-500/10",
       label: "Recommendation Accepted",
+    },
+    verification_failed: {
+      color: "text-red-400",
+      bg: "bg-red-500/10",
+      label: "Verification Failed",
     },
     work_completed: {
       color: "text-teal-400",
@@ -165,7 +172,8 @@ export function LearningLoop() {
             Learning Loop
           </h1>
           <p className="text-sm text-slate-400 mt-0.5">
-            SyncAI improves with every recommendation, outcome, and override
+            Pilot learning surface — record whether an approved action produced
+            the intended outcome. This is not a certified or live historian.
           </p>
         </div>
         <div className="flex items-center gap-1.5 px-3 py-1.5 bg-teal-500/10 border border-teal-500/20 rounded-lg text-xs text-teal-400 font-medium">
@@ -189,13 +197,15 @@ export function LearningLoop() {
         </p>
         <p className="text-xs text-slate-400 mt-2">
           Acceptance rate, false-positive rate, model confidence and verified
-          savings need a closed verification loop to compute, and the loop does
-          not close today: <code>record_verification_result</code> has no
-          callers, so no recommendation outcome is ever recorded against its
-          prediction. Until it does, this page reports the learning events it
-          holds and claims nothing about their effect.
+          savings still need recorded outcomes to compute. A named human can
+          now record achieved / not_achieved / inconclusive against an open
+          obligation below. Until outcomes exist, this page reports the
+          learning events it holds and claims nothing about fleet effect. This
+          is still a pilot.
         </p>
       </div>
+
+      <VerificationLoop />
 
       {/* Recent Learnings */}
       <div className="bg-[#0D1520] border border-white/6 rounded-2xl p-5">
@@ -209,7 +219,11 @@ export function LearningLoop() {
         )}
         <div className="space-y-3">
           {learnings.map((item, i) => {
-            const tc = typeConfig[item.type];
+            const tc = typeConfig[item.type] ?? {
+              color: "text-slate-400",
+              bg: "bg-white/5",
+              label: item.type,
+            };
             return (
               <motion.div
                 key={item.id}
@@ -257,14 +271,11 @@ export function LearningLoop() {
             Closed-Loop Learning
           </div>
           <p className="text-xs text-slate-400 mt-1 leading-relaxed">
-            Every approved recommendation, rejected override, and verified
-            outcome feeds back into SyncAI's models. Over time, the system
-            becomes smarter about your specific assets, failure modes, and
-            operating conditions.
-            <span className="text-slate-200">
-              {" "}
-              This is what separates SyncAI from a static rule-based CMMS.
-            </span>
+            Every approved recommendation, rejected override, and recorded
+            verification feeds the learning events list. A failed verification
+            raises <code>verification_failed</code> so the strategy can be
+            re-examined. This is a governed pilot loop, not a live CMMS or
+            certified model-improvement claim.
           </p>
         </div>
       </div>

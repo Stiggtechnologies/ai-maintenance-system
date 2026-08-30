@@ -192,6 +192,82 @@ export async function verifyValueMetric(
   if (error) fail("Could not verify value metric", error);
 }
 
+/**
+ * Named-human recording of whether an approved recommendation produced the
+ * intended outcome (register C4.08). Distinct from `verifyValueMetric` (a
+ * projected dollar claim), `attest_ca_stage` (work-order CA hold), and
+ * `record_ria_verification` (RIA workspace).
+ *
+ * The RPC records once. A second call is refused in-band — that sentence is
+ * returned to the caller, not swallowed. `not_achieved` inserts
+ * `learning_events.verification_failed` inside the same transaction.
+ *
+ * This is still a pilot attestation. It is not a historian or CMMS reading.
+ */
+export type VerificationResultKind =
+  | "achieved"
+  | "not_achieved"
+  | "inconclusive";
+
+export interface RecordedVerification {
+  outcome: "recorded";
+  learningEventId: string | null;
+  detail: string;
+}
+
+function firstRpcRow<T>(data: unknown): T | null {
+  if (Array.isArray(data)) return (data[0] as T) ?? null;
+  if (data && typeof data === "object") return data as T;
+  return null;
+}
+
+export async function recordVerificationResult(
+  obligationId: string,
+  result: VerificationResultKind,
+  measuredNote: string,
+): Promise<RecordedVerification> {
+  const note = measuredNote.trim();
+  if (note === "") {
+    throw new Error(
+      "A result with no measurement is an opinion. Record what was measured, against what, and when.",
+    );
+  }
+  if (
+    result !== "achieved" &&
+    result !== "not_achieved" &&
+    result !== "inconclusive"
+  ) {
+    throw new Error("Result must be achieved, not_achieved or inconclusive.");
+  }
+
+  const { data, error } = await supabase.rpc("record_verification_result", {
+    p_obligation_id: obligationId,
+    p_result: result,
+    p_measured_note: note,
+  });
+  if (error) fail("Could not record verification result", error);
+
+  const row = firstRpcRow<{
+    outcome?: string;
+    learningEventId?: string | null;
+    detail?: string;
+  }>(data);
+
+  if (!row) {
+    throw new Error("Verification result was not recorded.");
+  }
+  if (row.outcome === "recorded") {
+    return {
+      outcome: "recorded",
+      learningEventId: row.learningEventId ?? null,
+      detail: row.detail ?? "Outcome recorded.",
+    };
+  }
+  // In-band refused / error is the product's answer (second call, empty note,
+  // unknown id). Surface the server's sentence — do not invent a paraphrase.
+  throw new Error(row.detail || `Verification ${row.outcome ?? "refused"}.`);
+}
+
 export interface PilotScorecard {
   pilot_started_at: string;
   pilot_day: number;
@@ -568,10 +644,14 @@ function moneyFromText(text: string | null): number {
 }
 
 /**
- * Approve a recommendation and propagate it through the whole loop:
- * update status → log a decision → resolve the approval → create a work action
- * → record realized value → emit a learning event. Safety-critical work is
- * created in an approval-gated state, never auto-executed.
+ * Approve a recommendation: named-human approval, a decision log, a work
+ * action, and a projected (not realized) value metric.
+ *
+ * This does not verify the outcome. Approval is not achievement. The
+ * verification obligation is created by the status trigger; a later named
+ * human records achieved / not_achieved / inconclusive via
+ * `record_verification_result`. Safety-critical work is created in an
+ * approval-gated state, never auto-executed.
  */
 export async function approveRecommendation(
   rec: RecommendationRow,
@@ -603,7 +683,7 @@ export async function approveRecommendation(
       confidence_score: rec.confidence,
       human_actor: ctx.userId,
       rationale: rec.rationale ?? rec.issue,
-      outcome_status: "executed",
+      outcome_status: "open",
     })
     .select("id")
     .maybeSingle()
@@ -678,14 +758,15 @@ export async function approveRecommendation(
     });
   }
 
-  // Learning event
+  // Approval recorded. The outcome is not known yet — do not write
+  // recommendation_accepted as if the intended result already happened.
   await supabase.from("learning_events").insert({
     organization_id: ctx.organizationId,
     recommendation_id: rec.id,
     asset_id: rec.asset_id,
-    event_type: "recommendation_accepted",
+    event_type: "recommendation_approved",
     title: `Recommendation approved — ${rec.title}`,
-    detail: `Approved by operator; work action created${safetyCritical ? " (approval-gated, safety-critical)" : ""}.`,
+    detail: `Named human approved the recommendation; work action created${safetyCritical ? " (approval-gated, safety-critical)" : ""}. Outcome is not verified — record verification when the stated method can be measured.`,
     expected_value: exposure || null,
     model_confidence: rec.confidence,
   });

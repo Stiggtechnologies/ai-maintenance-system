@@ -13,10 +13,14 @@
  * A recorded FAILURE is displayed as the system working: a verification
  * process that has never failed anything has never been tested by reality.
  */
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { CheckCircle2, Clock, Info, RefreshCcw } from "lucide-react";
 import { useAsyncData } from "../hooks/useAsyncData";
 import { supabase } from "../lib/supabase";
+import {
+  recordVerificationResult,
+  type VerificationResultKind,
+} from "../services/operatingLoopService";
 import { assessLoop, type VerificationPosture } from "../lib/verification-loop";
 import { LoadingState, ErrorState } from "./ui/AsyncStates";
 
@@ -77,8 +81,9 @@ export function VerificationLoop() {
           Verification Loop
         </h2>
         <p className="mt-1 max-w-3xl text-sm text-slate-300">
-          Every released recommendation states how we will know it worked. This
-          is whether anyone looked.
+          Every released recommendation states how we will know it worked. A
+          named human records whether anyone looked. This is a pilot attestation
+          — not a live historian or CMMS reading.
         </p>
       </div>
 
@@ -154,7 +159,10 @@ export function VerificationLoop() {
           </h3>
           <ul className="mt-2 space-y-2">
             {data.open.map((o) => (
-              <li key={o.obligationId} className="text-sm">
+              <li
+                key={o.obligationId}
+                className="rounded-lg border border-white/4 p-3 text-sm"
+              >
                 <div className="flex flex-wrap items-baseline gap-2">
                   <span className="text-slate-200">
                     {o.recommendationTitle}
@@ -179,6 +187,15 @@ export function VerificationLoop() {
                 <p className="text-xs leading-relaxed text-slate-500">
                   {o.method}
                 </p>
+                {o.intendedOutcome && (
+                  <p className="mt-1 text-xs text-slate-500">
+                    Intended: {o.intendedOutcome}
+                  </p>
+                )}
+                <RecordVerificationForm
+                  obligationId={o.obligationId}
+                  onRecorded={refetch}
+                />
               </li>
             ))}
           </ul>
@@ -196,5 +213,123 @@ export function VerificationLoop() {
         </div>
       )}
     </section>
+  );
+}
+
+const RESULT_OPTIONS: {
+  value: VerificationResultKind;
+  label: string;
+}[] = [
+  { value: "achieved", label: "Achieved" },
+  { value: "not_achieved", label: "Not achieved" },
+  { value: "inconclusive", label: "Inconclusive" },
+];
+
+function RecordVerificationForm({
+  obligationId,
+  onRecorded,
+}: {
+  obligationId: string;
+  onRecorded: () => void;
+}) {
+  const [result, setResult] = useState<VerificationResultKind | null>(null);
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<{
+    kind: "ok" | "err";
+    text: string;
+  } | null>(null);
+  const canSubmit = result !== null && note.trim() !== "";
+
+  const submit = async () => {
+    if (result === null || note.trim() === "") return;
+    setBusy(true);
+    setMessage(null);
+    try {
+      const recorded = await recordVerificationResult(
+        obligationId,
+        result,
+        note,
+      );
+      setMessage({ kind: "ok", text: recorded.detail });
+      setNote("");
+      setResult(null);
+      onRecorded();
+    } catch (e) {
+      setMessage({
+        kind: "err",
+        text: e instanceof Error ? e.message : "Verification was not recorded.",
+      });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <form
+      className="mt-3 space-y-2"
+      onSubmit={(e) => {
+        e.preventDefault();
+        void submit();
+      }}
+    >
+      <fieldset className="flex flex-wrap gap-2" disabled={busy}>
+        <legend className="sr-only">Verification result</legend>
+        {RESULT_OPTIONS.map((opt) => (
+          <label
+            key={opt.value}
+            className={`cursor-pointer rounded-lg border px-2.5 py-1 text-xs font-medium ${
+              result === opt.value
+                ? "border-signal-cyan/40 bg-signal-cyan/10 text-signal-cyan"
+                : "border-white/8 bg-white/2 text-slate-400"
+            }`}
+          >
+            <input
+              type="radio"
+              name={`verify-${obligationId}`}
+              value={opt.value}
+              checked={result === opt.value}
+              onChange={() => setResult(opt.value)}
+              className="sr-only"
+            />
+            {opt.label}
+          </label>
+        ))}
+      </fieldset>
+      <label className="block">
+        <span className="text-xs text-slate-500">
+          Measured note — what was measured, against what, and when
+        </span>
+        <textarea
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          rows={2}
+          required
+          disabled={busy}
+          placeholder="e.g. vibration at 4.1 mm/s vs 2.5 mm/s limit, 2026-08-29 after 48h run"
+          className="mt-1 w-full rounded-lg border border-white/8 bg-[#0A1018] px-3 py-2 text-xs text-slate-200 placeholder:text-slate-600 focus:border-signal-cyan/40 focus:outline-none"
+        />
+      </label>
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="submit"
+          disabled={busy || !canSubmit}
+          className="rounded-lg border border-signal-cyan/30 bg-signal-cyan/10 px-3 py-1.5 text-xs font-semibold text-signal-cyan disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          {busy ? "Recording…" : "Record verification"}
+        </button>
+        <p className="text-xs text-slate-500">
+          Recorded once. A second call is refused.
+        </p>
+      </div>
+      {message && (
+        <p
+          className={`text-xs ${message.kind === "ok" ? "text-teal-300" : "text-amber-300"}`}
+          role={message.kind === "err" ? "alert" : "status"}
+        >
+          {message.text}
+        </p>
+      )}
+    </form>
   );
 }
