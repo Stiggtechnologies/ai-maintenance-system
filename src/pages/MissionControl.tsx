@@ -636,7 +636,7 @@ export function MissionControl() {
       try {
         const result = await approveRecommendation(rec);
         flash(
-          `Approved ${rec.title} → work action ${result.workOrderId ? "created" : "queued"}, decision logged, value + learning updated.`,
+          `Approved ${rec.title}. Work action ${result.workOrderId ? "created" : "queued"}; outcome is not yet verified.`,
         );
         setScenarioRec(null);
         refetch();

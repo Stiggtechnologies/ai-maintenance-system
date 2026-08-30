@@ -12,8 +12,9 @@
  *   * dozens of capabilities across C2/E2/E5–E12/U3/U7 shipped as SELECT-only
  *     RLS + a demo seed + a read panel — no customer can create a threat
  *     scenario, record an emission, or declare an operating mode;
- *   * `record_verification_result`, defined AND granted, called by nothing, so
- *     loop closure is structurally 0% and a panel renders that zero as a KPI;
+ *   * `record_verification_result` was defined AND granted with no callers, so
+ *     loop closure was structurally 0% and a panel rendered that zero as a KPI
+ *     (wired 2026-08-30 via `recordVerificationResult` on Learning Loop);
  *   * `decide_lifecycle_evaluation`, present in the app only inside a comment.
  *
  * Every one of those passed all five existing assertions, because not one of
@@ -394,16 +395,19 @@ describe("the reachability judges", () => {
    * is exactly the state in which a broken gate is indistinguishable from a
    * working one. So the machinery is exercised against known-dead code that
    * neither register cites: `poolEstimates` and `selectWeibullMethod` are
-   * both finished and unit-tested with zero non-test callers, and
-   * `record_verification_result` is defined and granted with none at all. If
-   * any of these three starts passing, either somebody wired it up (delete the
-   * case) or the detector broke (fix it) — silence is not an option.
+   * both finished and unit-tested with zero non-test callers. If either
+   * starts passing, either somebody wired it up (delete the case) or the
+   * detector broke (fix it) — silence is not an option.
+   *
+   * `record_verification_result` used to sit on this list. It now has a
+   * production caller (`recordVerificationResult` → VerificationLoop on
+   * /learning-loop). The live pin below holds that wiring; do not put it
+   * back on the dead list.
    */
   it("still detects a dead citation — the gate proves itself", () => {
     const dead = [
       { name: "poolEstimates", kind: "ts-symbol" as const },
       { name: "selectWeibullMethod", kind: "ts-symbol" as const },
-      { name: "record_verification_result", kind: "sql-function" as const },
     ];
     for (const { name, kind } of dead) {
       const probe: Citation = { id: "Z9.99", raw: name, name, kind };
@@ -419,6 +423,17 @@ describe("the reachability judges", () => {
       kind: "sql-function",
     });
     expect(live.ok, live.detail).toBe(true);
+  });
+
+  it("treats record_verification_result as a live production caller", () => {
+    const verdict = judge({
+      id: "C4.08",
+      raw: "record_verification_result",
+      name: "record_verification_result",
+      kind: "sql-function",
+    });
+    expect(verdict.ok, verdict.detail).toBe(true);
+    expect(verdict.detail).toMatch(/operatingLoopService/);
   });
 
   /**
