@@ -6,9 +6,9 @@ import {
   isNamedAuthority,
   isRecommendationTurn,
   notProvenFromEvidence,
-  shouldShowLearnRecorder,
+  shouldShowLearnPointer,
 } from "./recommendation-turn";
-import type { DecisionApproval, DecisionEvidence, DecisionMessage } from "../decision-case";
+import type { DecisionApproval, DecisionEvidence } from "../decision-case";
 
 const evidence: DecisionEvidence[] = [
   {
@@ -85,7 +85,7 @@ describe("recommendation-turn helpers", () => {
     expect(frozenDisposition(approvals)).toBe("approved");
   });
 
-  it("shows the LEARN recorder only after Approve and before an outcome turn", () => {
+  it("shows the unpersisted LEARN pointer after Approve and does not treat Outcome recorded as closure", () => {
     const approvals: DecisionApproval[] = [
       {
         id: "1",
@@ -96,30 +96,9 @@ describe("recommendation-turn helpers", () => {
         status: "approved",
       },
     ];
-    const approved: DecisionMessage[] = [
-      {
-        id: "s",
-        role: "system",
-        author: "M. Tran",
-        text: "M. Tran approved the controlled plan · 2:10 PM",
-        createdAt: "2026-08-12T16:10:00.000Z",
-      },
-    ];
-    expect(shouldShowLearnRecorder(approved, approvals)).toBe(true);
+    expect(shouldShowLearnPointer(approvals)).toBe(true);
     expect(
-      shouldShowLearnRecorder(
-        [
-          ...approved,
-          {
-            id: "o",
-            role: "system",
-            author: "M. Tran",
-            text: "Outcome recorded: not_achieved · M. Tran",
-            createdAt: "2026-08-12T16:12:00.000Z",
-          },
-        ],
-        approvals,
-      ),
+      shouldShowLearnPointer([{ ...approvals[0], status: "reviewing" }]),
     ).toBe(false);
   });
 

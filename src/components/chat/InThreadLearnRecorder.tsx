@@ -1,3 +1,9 @@
+/**
+ * Named-human recorder UI (Feature bar from #309: no default; submit needs
+ * result AND note). Decision Workspace must not mount this. That surface has
+ * no obligation id and does not call record_verification_result. The live
+ * write path is Learning Loop → VerificationLoop → recordVerificationResult.
+ */
 import { useState } from "react";
 
 export type LearnResult = "achieved" | "not_achieved" | "inconclusive";

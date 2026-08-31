@@ -40,10 +40,7 @@ import { useOptionalAuth } from "../components/AuthProvider";
 import { PublicProductHeader } from "../components/PublicProductHeader";
 import { MarkdownRenderer } from "../components/MarkdownRenderer";
 import { RecommendationTurn } from "../components/chat/RecommendationTurn";
-import {
-  InThreadLearnRecorder,
-  type LearnResult,
-} from "../components/chat/InThreadLearnRecorder";
+import { LearnUnpersistedPointer } from "../components/chat/LearnUnpersistedPointer";
 import {
   conversationIsEmpty,
   establishedFromEvidence,
@@ -52,7 +49,7 @@ import {
   isRecommendationTurn,
   notProvenFromEvidence,
   reviewingAuthority,
-  shouldShowLearnRecorder,
+  shouldShowLearnPointer,
 } from "../lib/chat/recommendation-turn";
 import {
   createDraftDecisionCase,
@@ -514,33 +511,6 @@ export function DecisionCaseWorkspacePage({
     }
   };
 
-  const recordOutcome = (result: LearnResult, note: string) => {
-    const actor =
-      active.approvals.find((item) => item.status === "approved")?.name ||
-      viewerName ||
-      role;
-    updateCase((current) => ({
-      ...current,
-      stage: "learning",
-      statusLabel: "Outcome recorded",
-      learningRecord: {
-        id: `LR-${current.caseNumber.replace(/\D/g, "")}`,
-        status: "retained",
-        summary: note,
-      },
-      messages: [
-        ...current.messages,
-        {
-          id: `learn-${Date.now()}`,
-          role: "system",
-          author: actor,
-          text: `Outcome recorded: ${result} · ${actor}`,
-          createdAt: new Date().toISOString(),
-        },
-      ],
-    }));
-  };
-
   const completeWork = () => {
     updateCase((current) => ({
       ...current,
@@ -629,7 +599,7 @@ export function DecisionCaseWorkspacePage({
         !frozen,
       );
   const emptyConversation = conversationIsEmpty(active.messages);
-  const showLearn = shouldShowLearnRecorder(active.messages, active.approvals);
+  const showLearnPointer = shouldShowLearnPointer(active.approvals);
   const authority = reviewingAuthority(active.approvals);
 
   const workspace = (
@@ -791,7 +761,7 @@ export function DecisionCaseWorkspacePage({
                   </div>
                 </article>
               )}
-              {showLearn && <InThreadLearnRecorder onSubmit={recordOutcome} />}
+              {showLearnPointer && <LearnUnpersistedPointer />}
               <div ref={endRef} />
             </section>
             <section className="dw-composer-wrap" id="syncai-chat">

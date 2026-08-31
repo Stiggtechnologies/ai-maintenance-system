@@ -74,15 +74,9 @@ export function conversationIsEmpty(messages: DecisionMessage[]): boolean {
   );
 }
 
-export function shouldShowLearnRecorder(
-  messages: DecisionMessage[],
-  approvals: DecisionApproval[],
-): boolean {
-  const approved = approvals.some((item) => item.status === "approved");
-  const outcomeRecorded = messages.some(
-    (item) => item.role === "system" && /outcome recorded/i.test(item.text),
-  );
-  return approved && !outcomeRecorded;
+/** After Approve, show the unpersisted LEARN pointer — never a fake close. */
+export function shouldShowLearnPointer(approvals: DecisionApproval[]): boolean {
+  return approvals.some((item) => item.status === "approved");
 }
 
 export function delegateCandidates(

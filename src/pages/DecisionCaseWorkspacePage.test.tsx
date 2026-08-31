@@ -1,7 +1,21 @@
+import { readFileSync } from "node:fs";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { DecisionCaseWorkspacePage } from "./DecisionCaseWorkspacePage";
+
+const recordVerificationResult = vi.fn();
+
+vi.mock("../services/operatingLoopService", async () => {
+  const actual = await vi.importActual<
+    typeof import("../services/operatingLoopService")
+  >("../services/operatingLoopService");
+  return {
+    ...actual,
+    recordVerificationResult: (...args: unknown[]) =>
+      recordVerificationResult(...args),
+  };
+});
 
 vi.mock("../services/decisionCaseService", () => ({
   askDecisionCase: vi.fn().mockResolvedValue({
@@ -66,6 +80,7 @@ describe("DecisionCaseWorkspacePage — chat-first paint", () => {
       window as Window & { dataLayer?: Array<Record<string, unknown>> }
     ).dataLayer = [];
     window.sessionStorage.clear();
+    recordVerificationResult.mockReset();
   });
 
   it("first paint is a transcript + composer, not a packet or 4-tab nav", async () => {
@@ -102,28 +117,34 @@ describe("DecisionCaseWorkspacePage — chat-first paint", () => {
     expect(screen.getByRole("button", { name: "Reject" })).toBeTruthy();
   });
 
-  it("pins in-turn Simulate and then shows the LEARN recorder", async () => {
+  it("after Simulate, LEARN is a pointer — not a recorded verification", async () => {
     renderWorkspace();
     fireEvent.click(screen.getByRole("button", { name: "Simulate" }));
     expect(
       await screen.findByText(/M\. Tran approved the controlled plan/),
     ).toBeTruthy();
     expect(screen.getByTestId("disposition-record")).toBeTruthy();
-    expect(screen.getByTestId("learn-recorder")).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "Simulate" })).toBeNull();
-    const submit = screen.getByRole("button", { name: "Record outcome" });
-    expect(submit).toBeDisabled();
-    fireEvent.click(screen.getByLabelText("Not achieved"));
-    expect(submit).toBeDisabled();
-    fireEvent.change(screen.getByPlaceholderText(/What was measured/), {
-      target: { value: "Leak rate unchanged after 48h run" },
-    });
-    expect(submit).not.toBeDisabled();
-    fireEvent.click(submit);
-    expect(
-      await screen.findByText(/Outcome recorded: not_achieved · M\. Tran/),
-    ).toBeTruthy();
+    expect(screen.getByTestId("learn-unpersisted")).toBeTruthy();
+    expect(screen.getByText(/no verification obligation/i)).toBeTruthy();
+    expect(screen.getByText(/nothing was written/i)).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Learning Loop" })).toHaveAttribute(
+      "href",
+      "/learning-loop",
+    );
     expect(screen.queryByTestId("learn-recorder")).toBeNull();
+    expect(screen.queryByText(/Outcome recorded/i)).toBeNull();
+    expect(screen.queryByText(/retained/i)).toBeNull();
+    expect(screen.queryByText(/LR-/i)).toBeNull();
+    expect(recordVerificationResult).not.toHaveBeenCalled();
+  });
+
+  it("fails if this page claims a recorded verification without the RPC", () => {
+    const src = readFileSync("src/pages/DecisionCaseWorkspacePage.tsx", "utf8");
+    expect(src).not.toMatch(/Outcome recorded/);
+    expect(src).not.toMatch(/recordOutcome/);
+    expect(src).not.toMatch(/InThreadLearnRecorder/);
+    expect(src).not.toMatch(/recordVerificationResult/);
+    expect(src).not.toMatch(/record_verification_result/);
   });
 
   it("Request changes returns focus to the composer", () => {
