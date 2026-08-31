@@ -11,7 +11,7 @@ export function BrandWordmark({ className = "h-7" }: BrandWordmarkProps) {
     <img
       src="/brand/wordmark-ink.png"
       alt="SyncAI"
-      className={`w-auto max-w-full object-contain object-left ${className}`}
+      className={`w-auto shrink-0 object-contain ${className}`}
     />
   );
 }
