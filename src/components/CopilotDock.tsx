@@ -892,10 +892,14 @@ export function CopilotDock({
               <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
-                    <Sparkles
-                      className="h-4 w-4 shrink-0 text-teal-300"
+                    <svg
+                      viewBox="0 0 64 64"
                       aria-hidden
-                    />
+                      className="h-5 w-5 shrink-0 rounded-md"
+                    >
+                      <rect width="64" height="64" rx="14" fill="#081018" />
+                      <path d="M17 20h30v8H25v8h22v8H17z" fill="#5eead4" />
+                    </svg>
                     <h2 className="truncate text-sm font-semibold text-white">
                       {syncEnabled ? "Sync" : persona.title}
                     </h2>
@@ -1264,7 +1268,7 @@ export function CopilotDock({
                         : "Ask about your operation…"
                     }
                     aria-label={`Ask ${syncEnabled ? "Sync" : persona.title}`}
-                    className="max-h-40 min-h-11 w-full resize-none rounded-xl border border-slate-600 bg-slate-900 px-3.5 py-2.5 pr-10 text-sm leading-5 text-white placeholder-slate-500 focus:border-teal-400 focus:outline-hidden focus:ring-1 focus:ring-teal-400 disabled:opacity-60"
+                    className="max-h-40 min-h-11 w-full resize-none rounded-2xl border border-slate-600 bg-slate-900 px-3.5 py-2.5 pr-10 text-sm leading-5 text-white placeholder-slate-500 focus:border-teal-400 focus:outline-hidden focus:ring-1 focus:ring-teal-400 disabled:opacity-60 max-md:rounded-3xl max-md:border-slate-700 max-md:py-3"
                   />
                   {syncEnabled ? (
                     <>

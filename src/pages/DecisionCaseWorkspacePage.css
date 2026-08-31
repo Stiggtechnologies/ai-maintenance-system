@@ -2293,6 +2293,46 @@
   .dw-composer-meta span:last-child {
     display: none;
   }
+
+  /* Grok-modern mobile chat pass (2026-08-31): rounded bubbles, pill composer */
+  .dw-message {
+    margin-block: 10px;
+  }
+  .dw-message > div {
+    border-radius: 18px;
+    padding: 12px 14px;
+    line-height: 1.5;
+  }
+  .role-user > div {
+    border-radius: 18px 18px 6px 18px;
+    background: #12302e;
+    border-color: #27867c;
+    margin-left: auto;
+    max-width: 88%;
+  }
+  .dw-message.role-assistant > div {
+    border-radius: 18px 18px 18px 6px;
+    background: #0d1520;
+    margin-right: auto;
+    max-width: 94%;
+  }
+  .dw-avatar {
+    display: none;
+  }
+  .dw-message strong,
+  .dw-message b {
+    font-weight: 650;
+  }
+  .dw-composer-wrap textarea {
+    border-radius: 22px;
+    padding: 12px 14px;
+    background: #0d1520;
+    border-color: #3a4b58;
+  }
+  .dw-composer-actions button {
+    border-radius: 999px;
+  }
+
   .dw-panel {
     padding: 13px;
   }
