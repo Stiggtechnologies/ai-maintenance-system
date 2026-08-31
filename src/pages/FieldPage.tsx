@@ -5,7 +5,10 @@
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Camera, Paperclip, QrCode, Send, X as XIcon } from "lucide-react";
-import { listRecentFieldReports, type FieldReport } from "../services/fieldReports";
+import {
+  listRecentFieldReports,
+  type FieldReport,
+} from "../services/fieldReports";
 import { reportFailure } from "../services/fieldCapture";
 import "./DecisionCaseWorkspacePage.css";
 
@@ -66,7 +69,9 @@ export function FieldPage() {
   }, []);
 
   useEffect(() => {
-    endRef.current?.scrollIntoView({ block: "nearest" });
+    if (typeof endRef.current?.scrollIntoView === "function") {
+      endRef.current.scrollIntoView({ block: "nearest" });
+    }
   }, [turns.length]);
 
   const attachQr = () => {
@@ -121,7 +126,10 @@ export function FieldPage() {
   };
 
   return (
-    <div className="decision-workspace field-workspace" data-layout="chat-first">
+    <div
+      className="decision-workspace field-workspace"
+      data-layout="chat-first"
+    >
       <header className="dw-topbar">
         <div className="dw-identity">
           <span className="dw-mark" aria-hidden>

@@ -274,7 +274,6 @@ export function DecisionCaseWorkspacePage({
     if (!publicMode) return;
     const routedIndustry = normalizeDecisionIndustry(context.industry);
     if (routedIndustry === industry) return;
-    const nextPack = getDecisionIndustryPack(routedIndustry);
     const nextCases = initialCases(
       caseId,
       { ...context, industry: routedIndustry },
@@ -385,7 +384,11 @@ export function DecisionCaseWorkspacePage({
       : "";
     // The attachment profile is prepended rather than hidden, so the message
     // in the transcript is exactly what was sent — the person can audit it.
-    const text = [attachment ? formatAttachmentForMessage(attachment) : "", photoLine, typed]
+    const text = [
+      attachment ? formatAttachmentForMessage(attachment) : "",
+      photoLine,
+      typed,
+    ]
       .filter(Boolean)
       .join("\n\n");
     if (!text || replying) return;
@@ -622,8 +625,8 @@ export function DecisionCaseWorkspacePage({
     ? !frozen
     : Boolean(
         namedAuthority &&
-          isNamedAuthority(viewerName, namedAuthority.name) &&
-          !frozen,
+        isNamedAuthority(viewerName, namedAuthority.name) &&
+        !frozen,
       );
   const emptyConversation = conversationIsEmpty(active.messages);
   const showLearn = shouldShowLearnRecorder(active.messages, active.approvals);
@@ -674,83 +677,86 @@ export function DecisionCaseWorkspacePage({
       <div
         className={`dw-layout${railOpen ? " is-rail-open" : ""}${recordOpen ? " is-record-open" : ""}`}
       >
-        <aside className="dw-rail" aria-label="Conversations">
-          <button
-            type="button"
-            className="dw-new"
-            onClick={() => void createCase()}
-          >
-            <Plus size={16} /> New
-          </button>
-          <div className="dw-section-label">Conversations</div>
-          <div className="dw-case-list">
-            {cases.map((item) => (
-              <button
-                type="button"
-                key={item.id}
-                className={`dw-case-row ${item.id === active.id ? "active" : ""}`}
-                onClick={() => chooseCase(item.id)}
-              >
-                <span>
-                  <strong>{item.title}</strong>
-                  <small>{item.asset}</small>
-                </span>
-              </button>
-            ))}
-          </div>
-        </aside>
+        {railOpen && (
+          <aside className="dw-rail" aria-label="Conversation list">
+            <button
+              type="button"
+              className="dw-new"
+              onClick={() => void createCase()}
+            >
+              <Plus size={16} /> New
+            </button>
+            <div className="dw-section-label">Conversations</div>
+            <div className="dw-case-list">
+              {cases.map((item) => (
+                <button
+                  type="button"
+                  key={item.id}
+                  className={`dw-case-row ${item.id === active.id ? "active" : ""}`}
+                  onClick={() => chooseCase(item.id)}
+                >
+                  <span>
+                    <strong>{item.title}</strong>
+                    <small>{item.asset}</small>
+                  </span>
+                </button>
+              ))}
+            </div>
+          </aside>
+        )}
 
         <main className="dw-main">
           <>
-              <section
-                className="dw-thread"
-                aria-label="Conversation"
-              >
-                {emptyConversation ? (
-                  <div className="dw-empty">
-                    <p>What is the reliability question?</p>
-                  </div>
-                ) : (
-                  active.messages.map((message) => (
+            <section className="dw-thread" aria-label="Conversation">
+              {emptyConversation ? (
+                <div className="dw-empty">
+                  <p>What is the reliability question?</p>
+                </div>
+              ) : (
+                active.messages.map((message) => (
                   <article
                     key={message.id}
                     className={`dw-message role-${message.role}`}
                   >
                     {message.role !== "system" && (
-                    <span className="dw-avatar">
-                      {message.role === "assistant" ? (
-                        <Bot size={16} />
-                      ) : (
-                        <UserRound size={16} />
-                      )}
-                    </span>
+                      <span className="dw-avatar">
+                        {message.role === "assistant" ? (
+                          <Bot size={16} />
+                        ) : (
+                          <UserRound size={16} />
+                        )}
+                      </span>
                     )}
                     <div>
                       {message.role === "system" ? (
                         <p className="dw-system-turn">{message.text}</p>
                       ) : (
                         <>
-                      <header>
-                        <strong>
-                          {message.role === "assistant" ? "SyncAI" : message.author}
-                        </strong>
-                        <span>{timestamp(message.createdAt)}</span>
-                      </header>
-                      {message.role === "assistant" ? (
-                        <MarkdownRenderer
-                          content={message.text}
-                          className="dw-message-markdown"
-                        />
-                      ) : (
-                        <p>{message.text}</p>
-                      )}
+                          <header>
+                            <strong>
+                              {message.role === "assistant"
+                                ? "SyncAI"
+                                : message.author}
+                            </strong>
+                            <span>{timestamp(message.createdAt)}</span>
+                          </header>
+                          {message.role === "assistant" ? (
+                            <MarkdownRenderer
+                              content={message.text}
+                              className="dw-message-markdown"
+                            />
+                          ) : (
+                            <p>{message.text}</p>
+                          )}
                         </>
                       )}
                       {message.role === "assistant" &&
                         isRecommendationTurn(message) &&
                         namedAuthority && (
                           <RecommendationTurn
-                            established={establishedFromEvidence(active.evidence)}
+                            established={establishedFromEvidence(
+                              active.evidence,
+                            )}
                             notProven={notProvenFromEvidence(active.evidence)}
                             recommendation={active.recommendation}
                             recommendationDetail={active.recommendationDetail}
@@ -765,250 +771,244 @@ export function DecisionCaseWorkspacePage({
                         )}
                     </div>
                   </article>
-                  ))
-                )}
-                {replying && (
-                  <article className="dw-message role-assistant">
-                    <span className="dw-avatar">
-                      <Bot size={16} />
-                    </span>
-                    <div>
-                      <header>
-                        <strong>SyncAI</strong>
-                        <span>working</span>
-                      </header>
-                      <p className="dw-thinking" aria-label="working">
-                        <i />
-                        <i />
-                        <i />
-                      </p>
-                    </div>
-                  </article>
-                )}
-                {showLearn && (
-                  <InThreadLearnRecorder onSubmit={recordOutcome} />
-                )}
-                <div ref={endRef} />
-              </section>
-              <section className="dw-composer-wrap" id="syncai-chat">
-                {attachment && (
-                  <div className="dw-attach-chip">
-                    <Paperclip size={13} />
-                    <span className="dw-attach-name">{attachment.name}</span>
-                    <span className="dw-attach-meta">
-                      {attachment.rowCount.toLocaleString()} rows ×{" "}
-                      {attachment.headers.length} cols · column names and{" "}
-                      {attachment.sampleRows.length} sample rows will be
-                      included
-                    </span>
-                    <button
-                      type="button"
-                      title="Remove attachment"
-                      onClick={() => setAttachment(null)}
-                    >
-                      <XIcon size={13} />
-                    </button>
-                  </div>
-                )}
-                {photo && (
-                  <div className="dw-attach-chip">
-                    <Camera size={13} />
-                    <span className="dw-attach-name">{photo.name}</span>
-                    <span className="dw-attach-meta">
-                      Photo will be sent with this turn
-                    </span>
-                    <button
-                      type="button"
-                      title="Remove photo"
-                      onClick={() => setPhoto(null)}
-                    >
-                      <XIcon size={13} />
-                    </button>
-                  </div>
-                )}
-                {(attachmentError || dictation.error) && (
-                  <div className="dw-attach-error" role="status">
-                    {attachmentError || dictation.error}
-                  </div>
-                )}
-                <div className="dw-composer">
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept=".csv,.tsv,.txt,.log,image/*"
-                    className="dw-file-input"
-                    aria-label="Attach a data file"
-                    onChange={(event) => {
-                      void handleAttach(event.target.files?.[0]);
-                      event.target.value = "";
-                    }}
-                  />
-                  <input
-                    ref={photoInputRef}
-                    type="file"
-                    accept="image/*"
-                    capture="environment"
-                    className="dw-file-input"
-                    aria-label="Attach a photo"
-                    onChange={(event) => {
-                      void handleAttach(event.target.files?.[0]);
-                      event.target.value = "";
-                    }}
-                  />
-                  <button
-                    type="button"
-                    className="dw-composer-tool"
-                    title="Attach a CSV or photo"
-                    aria-label="Attach a data file"
-                    onClick={() => fileInputRef.current?.click()}
-                  >
-                    <Paperclip size={16} />
-                  </button>
-                  <button
-                    type="button"
-                    className="dw-composer-tool"
-                    title="Attach a photo"
-                    aria-label="Attach a photo"
-                    onClick={() => photoInputRef.current?.click()}
-                  >
-                    <Camera size={16} />
-                  </button>
-                  <button
-                    type="button"
-                    className={`dw-composer-tool ${dictation.listening ? "is-live" : ""}`}
-                    title={
-                      dictation.supported
-                        ? dictation.listening
-                          ? "Stop dictation"
-                          : "Dictate — runs in your browser"
-                        : "This browser has no speech recognition"
-                    }
-                    aria-label={
-                      dictation.listening
-                        ? "Stop dictation"
-                        : "Dictate a message"
-                    }
-                    aria-pressed={dictation.listening}
-                    disabled={!dictation.supported}
-                    onClick={() =>
-                      dictation.listening ? dictation.stop() : dictation.start()
-                    }
-                  >
-                    {dictation.supported ? (
-                      dictation.listening ? (
-                        <Mic size={16} />
-                      ) : (
-                        <Mic size={16} />
-                      )
-                    ) : (
-                      <MicOff size={16} />
-                    )}
-                  </button>
-                  <textarea
-                    ref={composerRef}
-                    value={composer}
-                    onChange={(event) => setComposer(event.target.value)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter" && !event.shiftKey) {
-                        event.preventDefault();
-                        void sendMessage();
-                      }
-                    }}
-                    placeholder={composerPlaceholder}
-                    rows={2}
-                  />
-                  <button
-                    type="button"
-                    title="Send message"
-                    disabled={
-                      (!composer.trim() && !attachment && !photo) || replying
-                    }
-                    onClick={() => void sendMessage()}
-                  >
-                    <Send size={17} />
-                  </button>
-                </div>
-                <div className="dw-composer-meta">
-                  <span>
-                    <LockKeyhole size={12} />
-                    {composer.trim() &&
-                    composerScope === "provisional_new_subject"
-                      ? `New subject · ${active.caseNumber} unchanged`
-                      : emptyConversation
-                        ? "New conversation"
-                        : `Using ${active.caseNumber} context`}
+                ))
+              )}
+              {replying && (
+                <article className="dw-message role-assistant">
+                  <span className="dw-avatar">
+                    <Bot size={16} />
                   </span>
+                  <div>
+                    <header>
+                      <strong>SyncAI</strong>
+                      <span>working</span>
+                    </header>
+                    <p className="dw-thinking" aria-label="working">
+                      <i />
+                      <i />
+                      <i />
+                    </p>
+                  </div>
+                </article>
+              )}
+              {showLearn && <InThreadLearnRecorder onSubmit={recordOutcome} />}
+              <div ref={endRef} />
+            </section>
+            <section className="dw-composer-wrap" id="syncai-chat">
+              {attachment && (
+                <div className="dw-attach-chip">
+                  <Paperclip size={13} />
+                  <span className="dw-attach-name">{attachment.name}</span>
+                  <span className="dw-attach-meta">
+                    {attachment.rowCount.toLocaleString()} rows ×{" "}
+                    {attachment.headers.length} cols · column names and{" "}
+                    {attachment.sampleRows.length} sample rows will be included
+                  </span>
+                  <button
+                    type="button"
+                    title="Remove attachment"
+                    onClick={() => setAttachment(null)}
+                  >
+                    <XIcon size={13} />
+                  </button>
                 </div>
-              </section>
+              )}
+              {photo && (
+                <div className="dw-attach-chip">
+                  <Camera size={13} />
+                  <span className="dw-attach-name">{photo.name}</span>
+                  <span className="dw-attach-meta">
+                    Photo will be sent with this turn
+                  </span>
+                  <button
+                    type="button"
+                    title="Remove photo"
+                    onClick={() => setPhoto(null)}
+                  >
+                    <XIcon size={13} />
+                  </button>
+                </div>
+              )}
+              {(attachmentError || dictation.error) && (
+                <div className="dw-attach-error" role="status">
+                  {attachmentError || dictation.error}
+                </div>
+              )}
+              <div className="dw-composer">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".csv,.tsv,.txt,.log,image/*"
+                  className="dw-file-input"
+                  aria-label="Attach a data file"
+                  onChange={(event) => {
+                    void handleAttach(event.target.files?.[0]);
+                    event.target.value = "";
+                  }}
+                />
+                <input
+                  ref={photoInputRef}
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  className="dw-file-input"
+                  aria-label="Attach a photo"
+                  onChange={(event) => {
+                    void handleAttach(event.target.files?.[0]);
+                    event.target.value = "";
+                  }}
+                />
+                <button
+                  type="button"
+                  className="dw-composer-tool"
+                  title="Attach a CSV or photo"
+                  aria-label="Attach a data file"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <Paperclip size={16} />
+                </button>
+                <button
+                  type="button"
+                  className="dw-composer-tool"
+                  title="Attach a photo"
+                  aria-label="Attach a photo"
+                  onClick={() => photoInputRef.current?.click()}
+                >
+                  <Camera size={16} />
+                </button>
+                <button
+                  type="button"
+                  className={`dw-composer-tool ${dictation.listening ? "is-live" : ""}`}
+                  title={
+                    dictation.supported
+                      ? dictation.listening
+                        ? "Stop dictation"
+                        : "Dictate — runs in your browser"
+                      : "This browser has no speech recognition"
+                  }
+                  aria-label={
+                    dictation.listening ? "Stop dictation" : "Dictate a message"
+                  }
+                  aria-pressed={dictation.listening}
+                  disabled={!dictation.supported}
+                  onClick={() =>
+                    dictation.listening ? dictation.stop() : dictation.start()
+                  }
+                >
+                  {dictation.supported ? (
+                    dictation.listening ? (
+                      <Mic size={16} />
+                    ) : (
+                      <Mic size={16} />
+                    )
+                  ) : (
+                    <MicOff size={16} />
+                  )}
+                </button>
+                <textarea
+                  ref={composerRef}
+                  value={composer}
+                  onChange={(event) => setComposer(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" && !event.shiftKey) {
+                      event.preventDefault();
+                      void sendMessage();
+                    }
+                  }}
+                  placeholder={composerPlaceholder}
+                  rows={2}
+                />
+                <button
+                  type="button"
+                  title="Send message"
+                  disabled={
+                    (!composer.trim() && !attachment && !photo) || replying
+                  }
+                  onClick={() => void sendMessage()}
+                >
+                  <Send size={17} />
+                </button>
+              </div>
+              <div className="dw-composer-meta">
+                <span>
+                  <LockKeyhole size={12} />
+                  {composer.trim() &&
+                  composerScope === "provisional_new_subject"
+                    ? `New subject · ${active.caseNumber} unchanged`
+                    : emptyConversation
+                      ? "New conversation"
+                      : `Using ${active.caseNumber} context`}
+                </span>
+              </div>
+            </section>
           </>
         </main>
 
-        <aside className="dw-packet" aria-label="Decision record">
-          <div className="dw-packet-head">
-            <span>
-              <small>Current decision packet</small>
-              <strong>
-                {active.caseNumber} · {active.version}
-              </strong>
-            </span>
-            <button
-              className="dw-icon"
-              type="button"
-              title="Export decision record"
-              onClick={() => {
-                exportDecisionRecord(active, publicMode);
-                setNotice(
-                  publicMode
-                    ? "Demo decision record exported with a not-approved status."
-                    : "Decision record exported.",
-                );
-              }}
-            >
-              <ArrowUpRight size={16} />
-            </button>
-          </div>
-          <div className="dw-tabs" role="tablist">
-            {tabs.map((item) => (
+        {recordOpen && (
+          <aside className="dw-packet" aria-label="Decision record">
+            <div className="dw-packet-head">
+              <span>
+                <small>Current decision packet</small>
+                <strong>
+                  {active.caseNumber} · {active.version}
+                </strong>
+              </span>
               <button
+                className="dw-icon"
                 type="button"
-                key={item.id}
-                className={tab === item.id ? "active" : ""}
-                onClick={() => setTab(item.id)}
+                title="Export decision record"
+                onClick={() => {
+                  exportDecisionRecord(active, publicMode);
+                  setNotice(
+                    publicMode
+                      ? "Demo decision record exported with a not-approved status."
+                      : "Decision record exported.",
+                  );
+                }}
               >
-                {item.label}
-                {item.id === "evidence" && (
-                  <span>{active.evidence.length}</span>
-                )}
+                <ArrowUpRight size={16} />
               </button>
-            ))}
-          </div>
-          <div className="dw-packet-body">
-            {tab === "decision" && (
-              <DecisionPanel
-                active={active}
-                setEvidence={setEvidence}
-              />
-            )}
-            {tab === "evidence" && (
-              <EvidencePanel active={active} setEvidence={setEvidence} />
-            )}
-            {tab === "authority" && (
-              <AuthorityPanel
-                active={active}
-                authority={authority}
-                comment={comment}
-                setComment={setComment}
-                addComment={addComment}
-              />
-            )}
-            {tab === "work" && (
-              <WorkPanel active={active} completeWork={completeWork} />
-            )}
-            {tab === "value" && (
-              <ValuePanel active={active} verifyValue={verifyValue} />
-            )}
-          </div>
-        </aside>
+            </div>
+            <div className="dw-tabs" role="tablist">
+              {tabs.map((item) => (
+                <button
+                  type="button"
+                  key={item.id}
+                  className={tab === item.id ? "active" : ""}
+                  onClick={() => setTab(item.id)}
+                >
+                  {item.label}
+                  {item.id === "evidence" && (
+                    <span>{active.evidence.length}</span>
+                  )}
+                </button>
+              ))}
+            </div>
+            <div className="dw-packet-body">
+              {tab === "decision" && (
+                <DecisionPanel active={active} setEvidence={setEvidence} />
+              )}
+              {tab === "evidence" && (
+                <EvidencePanel active={active} setEvidence={setEvidence} />
+              )}
+              {tab === "authority" && (
+                <AuthorityPanel
+                  active={active}
+                  authority={authority}
+                  comment={comment}
+                  setComment={setComment}
+                  addComment={addComment}
+                />
+              )}
+              {tab === "work" && (
+                <WorkPanel active={active} completeWork={completeWork} />
+              )}
+              {tab === "value" && (
+                <ValuePanel active={active} verifyValue={verifyValue} />
+              )}
+            </div>
+          </aside>
+        )}
       </div>
 
       {evidence && (

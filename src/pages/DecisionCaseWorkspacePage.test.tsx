@@ -70,7 +70,7 @@ describe("DecisionCaseWorkspacePage — chat-first paint", () => {
 
   it("first paint is a transcript + composer, not a packet or 4-tab nav", async () => {
     renderWorkspace();
-    expect(screen.getByText("SyncAI")).toBeTruthy();
+    expect(screen.getAllByText("SyncAI").length).toBeGreaterThan(0);
     expect(document.querySelector('[data-layout="chat-first"]')).toBeTruthy();
     expect(screen.getByLabelText("Conversation")).toBeTruthy();
     expect(
@@ -91,9 +91,13 @@ describe("DecisionCaseWorkspacePage — chat-first paint", () => {
     expect(screen.getByText("Established")).toBeTruthy();
     expect(screen.getByText("Not proven")).toBeTruthy();
     expect(screen.getByText("Recommendation · not authorization")).toBeTruthy();
-    expect(screen.getByText(/Authority: M\. Tran, Reliability Engineer/)).toBeTruthy();
+    expect(
+      screen.getByText(/Authority: M\. Tran, Reliability Engineer/),
+    ).toBeTruthy();
     expect(screen.getByRole("button", { name: "Simulate" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Request changes" })).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "Request changes" }),
+    ).toBeTruthy();
     expect(screen.getByRole("button", { name: "Delegate" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Reject" })).toBeTruthy();
   });
@@ -111,10 +115,9 @@ describe("DecisionCaseWorkspacePage — chat-first paint", () => {
     expect(submit).toBeDisabled();
     fireEvent.click(screen.getByLabelText("Not achieved"));
     expect(submit).toBeDisabled();
-    fireEvent.change(
-      screen.getByPlaceholderText(/What was measured/),
-      { target: { value: "Leak rate unchanged after 48h run" } },
-    );
+    fireEvent.change(screen.getByPlaceholderText(/What was measured/), {
+      target: { value: "Leak rate unchanged after 48h run" },
+    });
     expect(submit).not.toBeDisabled();
     fireEvent.click(submit);
     expect(
@@ -144,14 +147,16 @@ describe("DecisionCaseWorkspacePage — chat-first paint", () => {
         ),
       ).toBeTruthy(),
     );
-    expect(screen.queryByText("Reviewing evidence and authority boundary")).toBeNull();
+    expect(
+      screen.queryByText("Reviewing evidence and authority boundary"),
+    ).toBeNull();
   });
 
   it("deep-links a mining conversation without an industry switcher", () => {
     renderWorkspace("/workspace/cases/demo?industry=mining");
     expect(
-      screen.getByText(/CR-01 primary crusher/i),
-    ).toBeTruthy();
+      screen.getAllByText(/CR-01 primary crusher/i).length,
+    ).toBeGreaterThan(0);
     expect(screen.queryByText("P-101 process pump")).toBeNull();
     expect(screen.queryByLabelText("Industry proof")).toBeNull();
   });
@@ -169,7 +174,9 @@ describe("DecisionCaseWorkspacePage — chat-first paint", () => {
     unmount();
 
     renderWorkspace("/workspace/cases/demo?industry=manufacturing");
-    expect(screen.getByText(/PR-07 stamping press/i)).toBeTruthy();
+    expect(screen.getAllByText(/PR-07 stamping press/i).length).toBeGreaterThan(
+      0,
+    );
     expect(screen.queryByText("P-101 process pump")).toBeNull();
     expect(
       window.sessionStorage.getItem("syncai.publicDecisionCases.v2.oil-gas"),
@@ -183,7 +190,7 @@ describe("DecisionCaseWorkspacePage — chat-first paint", () => {
 
   it("New opens an empty conversation with the centered prompt", async () => {
     renderWorkspace();
-    fireEvent.click(screen.getByLabelText("Conversations"));
+    fireEvent.click(screen.getByRole("button", { name: "Conversations" }));
     fireEvent.click(screen.getByRole("button", { name: "New" }));
     expect(
       await screen.findByText("What is the reliability question?"),
