@@ -49,7 +49,12 @@ const GUARDED_PAIRS: GuardedPair[] = [
   },
 ];
 
-const GUARDED_PAGES = ["/mission-control", DEMO_ASSESSMENT, "/knowledge", "/approvals"];
+const GUARDED_PAGES = [
+  "/mission-control",
+  DEMO_ASSESSMENT,
+  "/knowledge",
+  "/approvals",
+];
 
 async function login(page: Page) {
   await page.goto("/signin");
@@ -107,7 +112,9 @@ async function assertNoHorizontalOverflow(page: Page) {
   const overflow = await page.evaluate(
     () => document.documentElement.scrollWidth - window.innerWidth,
   );
-  expect(overflow, "horizontal overflow of the document").toBeLessThanOrEqual(8);
+  expect(overflow, "horizontal overflow of the document").toBeLessThanOrEqual(
+    8,
+  );
 }
 
 for (const vp of VIEWPORTS) {
@@ -138,3 +145,69 @@ for (const vp of VIEWPORTS) {
     }
   });
 }
+
+/**
+ * Unauthenticated /setup landing — the iPhone screenshot of 2026-08-31
+ * showed the retired-offer paragraph stamped on itself because leading-8
+ * resolves to --spacing-8 (8px) in this repo's Tailwind theme.
+ * These tests do not sign in and must not depend on demo fixtures.
+ */
+test.describe("public assessment landing @ mobile (390x844)", () => {
+  test("hero lede is a single readable block above the cards and CTA", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/setup");
+    await page.waitForLoadState("networkidle");
+
+    const ledes = page.getByTestId("assessment-hero-lede");
+    await expect(ledes).toHaveCount(1);
+    await expect(ledes).toContainText(
+      /former 48-hour value-proof offer has been retired/i,
+    );
+
+    const metrics = await ledes.evaluate((el) => {
+      const style = getComputedStyle(el);
+      const rect = el.getBoundingClientRect();
+      return {
+        position: style.position,
+        fontSize: parseFloat(style.fontSize),
+        lineHeight: parseFloat(style.lineHeight),
+        height: rect.height,
+        bottom: rect.bottom,
+      };
+    });
+
+    expect(metrics.position, "lede must stay in normal flow").toBe("static");
+    expect(metrics.lineHeight).toBeGreaterThanOrEqual(metrics.fontSize);
+    expect(
+      metrics.height,
+      "lede must wrap onto separate lines instead of stacking on one line",
+    ).toBeGreaterThan(metrics.lineHeight * 2);
+
+    const constraints = page.getByTestId("assessment-hero-constraints");
+    const cta = page.getByTestId("assessment-hero-cta");
+    const ledeBox = await ledes.boundingBox();
+    const constraintBox = await constraints.boundingBox();
+    const ctaBox = await cta.boundingBox();
+    expect(ledeBox).toBeTruthy();
+    expect(constraintBox).toBeTruthy();
+    expect(ctaBox).toBeTruthy();
+    expect(constraintBox!.y).toBeGreaterThan(ledeBox!.y + ledeBox!.height - 1);
+    expect(ctaBox!.y).toBeGreaterThan(
+      constraintBox!.y + constraintBox!.height - 1,
+    );
+
+    await assertNoOverlap(
+      page,
+      "[data-testid='assessment-hero-lede']",
+      "[data-testid='assessment-hero-constraints']",
+    );
+    await assertNoOverlap(
+      page,
+      "[data-testid='assessment-hero-lede']",
+      "[data-testid='assessment-hero-cta']",
+    );
+    await assertNoHorizontalOverflow(page);
+  });
+});
