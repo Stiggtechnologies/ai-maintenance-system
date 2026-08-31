@@ -326,8 +326,8 @@
   "C4.08": {
     "status": "🟡",
     "evidence": true,
-    "citations": 2,
-    "backticked": 0
+    "citations": 5,
+    "backticked": 4
   },
   "C4.09": {
     "status": "✅",

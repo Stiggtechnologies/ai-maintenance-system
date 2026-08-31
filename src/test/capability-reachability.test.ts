@@ -158,7 +158,13 @@ const FLOORS: Record<string, Floors> = {
     // out of the gate's scope with the suite green. Re-derived to sit at the
     // live numbers, which is a tightening: nothing about what the gate checks
     // changed, only how much of it the gate is required to still be checking.
-    rowsWithAnEnforceableCitation: 151,
+    // 151/210/46/185 -> 152/213/47/184 on 2026-08-31 (Slice 4D). The enterprise
+    // register did not change in this slice; the numbers moved because the gate's
+    // resolver now walks the new develop service functions and components, which
+    // are shared symbols. Re-derived to sit AT the live numbers again, which is
+    // a tightening on three counts and — the one that matters — a LOWER ceiling
+    // on the unenforced ✅ population.
+    rowsWithAnEnforceableCitation: 152,
     // 215 -> 206 on 2026-08-26. This drop is NOT the gate losing reach: it is the
     // gate WINNING. 74 rows were demoted from ✅ this same commit because their
     // cited symbol or table has no customer-reachable path, and a demoted row's
@@ -168,9 +174,9 @@ const FLOORS: Record<string, Floors> = {
     // It may only be lowered again with the same kind of reason stated here. A
     // silent decrease means the parser stopped understanding evidence it used to
     // understand, which is precisely the failure this number exists to catch.
-    citationsEnforced: 210,
-    claimedRowsEnforced: 46,
-    claimedRowsUnenforced: 185,
+    citationsEnforced: 213,
+    claimedRowsEnforced: 47,
+    claimedRowsUnenforced: 184,
   },
   // Derived 2026-08-28, the commit that first ran this gate against the
   // D-family register, and derived AFTER the seven honest demotions it forced —
@@ -319,9 +325,45 @@ const FLOORS: Record<string, Floors> = {
   // D11.29 stayed 🟡 with their remaining gaps named, and the ceiling holding
   // at 3 is what proves the repair bought nothing with prose.
   [DEVELOP_REGISTER.name]: {
-    rowsWithAnEnforceableCitation: 138,
-    citationsEnforced: 542,
-    claimedRowsEnforced: 75,
+    //
+    // 138/542/75 -> 147/594/86 (2026-08-31, Slice 4D). The change-control family
+    // landed — contingency as an authority-gated ledger, the Change object and
+    // Workflow 3 on the existing MOC engine, §54 decision latency with its
+    // critical-path exposure, decision debt, the composed Sync Assurance engine
+    // and the two §44 screens — and eleven rows (D5.18, D5.19, D5.27, D5.30,
+    // D3.12, D3.13, D3.21, D3.36, D5.21, D13.02, D13.08) flipped to ✅ on chains
+    // this gate can walk. RATCHETED UP for the reason this block gives every
+    // time: the added reach is real, and a later change must not be able to
+    // de-cite it with the suite still green.
+    //
+    // The CEILING did not move, which is the check that proves the eleven new ✅s
+    // were not bought with prose the gate cannot resolve. It also earned its
+    // keep in this slice rather than merely holding: the gate's first pass found
+    // `linkDecisionToActivity` and `recordDecisionDelayExposure` with ZERO
+    // non-test callers (the panel computed latency and debt but never authored
+    // the inputs), and a `engineering_approval_rules` table citation on D5.27
+    // claiming a customer write path that does not exist. The first two were
+    // fixed by wiring the authoring controls; the third by stating the
+    // dependency without claiming a write path AND naming the gap in the row.
+    // D11.29 stayed honestly 🟡 with its six non-recording kernels named one by
+    // one.
+    //
+    // 594 -> 618 citationsEnforced (2026-08-31, the Slice 4D repair). The
+    // eleven rows above kept their ✅ and gained 24 more citations this gate
+    // can resolve: the ceiling-authoring surface the feature was missing
+    // (`state_authority_ceiling`, `draft_authority_ceiling`,
+    // `get_authority_delegations`, `enforce_authority_limit_wall` and their
+    // service functions), the repaired staleness path
+    // (`decisionLatencyFingerprint`, `decisionDebtFingerprint`,
+    // `dimensionFingerprint`, `DIMENSION_HEADLINE_FIELDS`,
+    // `recordedLatencyHeadline`, `recordedDebtHeadline`) and the walls the
+    // review added. RATCHETED UP so a later change cannot de-cite the repair
+    // and stay green. The other two floors and the ceiling are unchanged and
+    // sit AT the live numbers, which is the check that proves the repair
+    // added reach rather than prose.
+    rowsWithAnEnforceableCitation: 147,
+    citationsEnforced: 618,
+    claimedRowsEnforced: 86,
     // D11.04 (a CI-fence claim proved by a named test file), D11.10 (a
     // canonical seeded vocabulary, which the write-path judge would fail for
     // not being customer-writable — a question the row never asked) and

@@ -285,6 +285,9 @@ jobs:
       - name: Smoke — Sync Develop slice 4C (schedule quality, gated Monte Carlo, risk attribution, P50/P80)
         run: bash scripts/ci-develop-slice4c-smoke.sh
 
+      - name: Smoke — Sync Develop slice 4D (contingency ledger, change control, decision latency, integrated controls)
+        run: bash scripts/ci-develop-slice4d-smoke.sh
+
       - name: Stop Supabase
         if: always()
         run: supabase stop --no-backup || true
