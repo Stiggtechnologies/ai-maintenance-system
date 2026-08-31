@@ -75,6 +75,11 @@ import {
   type PerformanceCalculationRun,
 } from "../../lib/develop/performance";
 import {
+  attributionSentence,
+  criticalityPercent,
+  overrunDays,
+} from "../../lib/develop/schedule";
+import {
   closeProgressPeriod,
   computeCaseEarnedValue,
   computeCaseEstimateConfidence,
@@ -269,6 +274,29 @@ function bandOrNull(v: unknown): "high" | "medium" | "low" | "unrated" | null {
   return v === "high" || v === "medium" || v === "low" || v === "unrated"
     ? v
     : null;
+}
+
+/**
+ * A recorded timestamp, as a date, or null.
+ *
+ * Deliberately strict: anything that is not a parseable instant returns null
+ * and the caller renders the refusal. A `new Date(undefined)` printed as
+ * "Invalid Date" beside a P80 label is a percentile that looks present.
+ */
+function dateOrNull(v: unknown): string | null {
+  if (typeof v !== "string" || v === "") return null;
+  const d = new Date(v);
+  return Number.isNaN(d.getTime()) ? null : d.toLocaleDateString();
+}
+
+/** A recorded money figure, formatted, or null. Never a computed one. */
+function formatOrNull(
+  value: number | null,
+  currency: string | null,
+): string | null {
+  return value == null
+    ? null
+    : formatPerformanceValue(value, "currency", currency);
 }
 
 /**
@@ -1452,16 +1480,61 @@ function ForecastConfidenceSection({
     ? numberOrNull(run.outputs.costRecordedForecastTotal)
     : null;
 
-  const costP50 = percentileCell(null, fc.cost.percentileRefusal);
-  const costP80 = percentileCell(null, fc.cost.percentileRefusal);
-  const schedP50 = percentileCell(null, fc.schedule.percentileRefusal);
-  const schedP80 = percentileCell(null, fc.schedule.percentileRefusal);
+  /**
+   * SLICE 4C. The percentiles now EXIST, and they come from the recorded run
+   * exactly like every other figure on this surface — never from the live
+   * read, and never from arithmetic on `costDeterministic`. When the run
+   * recorded them as absent, `percentileCell` renders the absence in the same
+   * one place it always did.
+   */
+  // A STALE RUN'S PERCENTILES ARE NOT OFFERED AT ALL. Row D5.07's promise is
+  // exactly that, and dimming the text was not it: `costP80.available` was
+  // true whenever the recorded number was a number, so a superseded P80
+  // rendered in the same bright style as a current one and the only signal was
+  // a collapsed <details> summary. Colour is not a disclosure — it is invisible
+  // to a screen reader and to anyone with nothing to compare it against. A
+  // stale percentile is now ABSENT, with the staleness as its stated reason.
+  const percentileSource = stale ? undefined : run;
+  const staleRefusal =
+    "The recorded forecast run's inputs have moved since it was computed, so its percentiles are not offered as the current forecast. Recompute the forecast to state them against the schedule and the cost basis on file.";
+  const costP50 = percentileCell(
+    hasRunOutputs(percentileSource)
+      ? formatOrNull(numberOrNull(percentileSource.outputs.costP50), currency)
+      : null,
+    stale ? staleRefusal : fc.cost.percentileRefusal,
+  );
+  const costP80 = percentileCell(
+    hasRunOutputs(percentileSource)
+      ? formatOrNull(numberOrNull(percentileSource.outputs.costP80), currency)
+      : null,
+    stale ? staleRefusal : fc.cost.percentileRefusal,
+  );
+  const schedP50 = percentileCell(
+    hasRunOutputs(percentileSource)
+      ? dateOrNull(percentileSource.outputs.scheduleP50Finish)
+      : null,
+    stale ? staleRefusal : fc.schedule.percentileRefusal,
+  );
+  const schedP80 = percentileCell(
+    hasRunOutputs(percentileSource)
+      ? dateOrNull(percentileSource.outputs.scheduleP80Finish)
+      : null,
+    stale ? staleRefusal : fc.schedule.percentileRefusal,
+  );
+  const exposureP80 = hasRunOutputs(percentileSource)
+    ? numberOrNull(percentileSource.outputs.costExposureP80)
+    : null;
+  const p80Hours = hasRunOutputs(percentileSource)
+    ? numberOrNull(percentileSource.outputs.scheduleP80Hours)
+    : null;
+  const detHours = fc.schedule.deterministicHours;
+  const drivers = fc.schedule.criticalDrivers ?? [];
 
   return (
     <Section
       icon={<Activity className="h-4 w-4 text-signal-cyan" aria-hidden />}
       title="Forecast confidence — cost and schedule (D5.07, D5.32, §51)"
-      subtitle="Deterministic, P50, P80, confidence. The percentiles are shown as absent because no distribution exists — not manufactured from the deterministic figure."
+      subtitle="Deterministic, P50, P80, confidence. A percentile appears only when a recorded simulation produced it, and only while that run is still about this schedule and this cost basis; otherwise the cell says so. The SCHEDULE percentiles are the simulation's own; the TOTAL COST percentiles are the deterministic estimate at completion plus the simulated risk exposure, which the refusal line beneath states in words. No margin, multiplier or invented spread is applied to a deterministic figure anywhere."
     >
       <ErrorLine error={error} />
 
@@ -1492,11 +1565,33 @@ function ForecastConfidenceSection({
           </div>
           <div>
             <p className="text-[11px] text-slate-500">P50</p>
-            <p className="text-sm text-slate-400">{costP50.text}</p>
+            <p
+              className={
+                costP50.available
+                  ? "text-sm text-slate-100"
+                  : "text-sm text-slate-400"
+              }
+            >
+              {costP50.text}
+            </p>
           </div>
           <div>
             <p className="text-[11px] text-slate-500">P80</p>
-            <p className="text-sm text-slate-400">{costP80.text}</p>
+            <p
+              className={
+                costP80.available
+                  ? "text-sm text-slate-100"
+                  : "text-sm text-slate-400"
+              }
+            >
+              {costP80.text}
+            </p>
+            {exposureP80 != null && (
+              <p className="text-[11px] text-slate-500">
+                Risk-driven exposure at P80:{" "}
+                {formatPerformanceValue(exposureP80, "currency", currency)}.
+              </p>
+            )}
           </div>
         </div>
         <p className="mt-1 text-[11px] text-slate-500">
@@ -1536,11 +1631,33 @@ function ForecastConfidenceSection({
           </div>
           <div>
             <p className="text-[11px] text-slate-500">P50 date</p>
-            <p className="text-sm text-slate-400">{schedP50.text}</p>
+            <p
+              className={
+                schedP50.available
+                  ? "text-sm text-slate-100"
+                  : "text-sm text-slate-400"
+              }
+            >
+              {schedP50.text}
+            </p>
           </div>
           <div>
             <p className="text-[11px] text-slate-500">P80 date</p>
-            <p className="text-sm text-slate-400">{schedP80.text}</p>
+            <p
+              className={
+                schedP80.available
+                  ? "text-sm text-slate-100"
+                  : "text-sm text-slate-400"
+              }
+            >
+              {schedP80.text}
+            </p>
+            {overrunDays(p80Hours, detHours) != null && (
+              <p className="text-[11px] text-slate-500">
+                {overrunDays(p80Hours, detHours)!.toFixed(1)} day(s) of
+                simulated overrun on the plan&apos;s own duration.
+              </p>
+            )}
           </div>
         </div>
         <p className="mt-1 text-[11px] text-slate-500">
@@ -1550,9 +1667,36 @@ function ForecastConfidenceSection({
         </p>
       </div>
 
+      {drivers.length > 0 && (
+        <div className="rounded-md border border-white/5 bg-white/[0.02] px-2.5 py-2">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+            Critical drivers (§51) — ranked by the simulation, not assumed
+          </p>
+          <ul className="mt-1 space-y-1 text-xs text-slate-300">
+            {drivers.slice(0, 8).map((d, i) => (
+              <li key={i}>
+                {"riskTitle" in d
+                  ? attributionSentence(d, currency)
+                  : `${d.label}: ${
+                      criticalityPercent(d.criticalityIndex) == null
+                        ? "the recorded criticality index is not a share of the run and is not shown"
+                        : `on the critical path in ${criticalityPercent(d.criticalityIndex)} of runs, ${Number.isFinite(d.deterministicFloat) ? d.deterministicFloat.toFixed(1) : "an unstated number of"} hour(s) of deterministic float`
+                    }.`}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       <Refusal text={fc.cost.percentileRefusal} />
+      {fc.schedule.percentileRefusal !== fc.cost.percentileRefusal && (
+        <Refusal text={fc.schedule.percentileRefusal} />
+      )}
       <Refusal text={fc.schedule.criticalDriversRefusal} />
       <Refusal text={fc.againstSanctionRefusal} />
+      {(fc.simulation?.refusals ?? []).map((r, i) => (
+        <Refusal key={i} text={r} />
+      ))}
 
       <div className="flex flex-wrap items-center gap-2">
         <ConfidenceChip
@@ -1576,6 +1720,22 @@ function ForecastConfidenceSection({
             performance.progressIntegrity?.claimedElementCount,
           )}
         />
+        {/* D5.14. A percentile is worth what the schedule it came off is
+            worth, so the schedule confidence travels with it rather than
+            living on another panel. */}
+        <span className="rounded-full border border-white/10 bg-white/[0.03] px-2 py-0.5 text-[11px] text-slate-300">
+          Schedule confidence:{" "}
+          {fc.scheduleConfidence?.score == null
+            ? "NOT RATED"
+            : `${fc.scheduleConfidence.score} / 100`}
+        </span>
+        {fc.simulation?.exists && (
+          <span className="rounded-full border border-white/10 bg-white/[0.03] px-2 py-0.5 text-[11px] text-slate-400">
+            {fc.simulation.current
+              ? `Simulation seed ${fc.simulation.seed}, ${fc.simulation.iterations} iterations`
+              : "Recorded simulation is STALE"}
+          </span>
+        )}
       </div>
       <RunCaption run={run} stale={stale} />
 
@@ -1727,11 +1887,25 @@ export function PerformancePanel({
   canPlan,
   canReview,
   reloadKey,
+  renderScheduleAssurance,
 }: {
   caseId: string;
   canPlan: boolean;
   canReview: boolean;
   reloadKey: number;
+  /**
+   * Slice 4C's schedule-assurance sections, rendered from THIS panel's
+   * payload rather than fetching their own.
+   *
+   * The §50 gate verdict on screen and the gate the recorded percentiles were
+   * computed under have to be the same object. A second `get_case_performance`
+   * call would let a schedule edit land between them, and the screen would
+   * show a passing gate above a P80 that a failing one produced.
+   */
+  renderScheduleAssurance?: (
+    performance: CasePerformance,
+    onChanged: () => void,
+  ) => ReactNode;
 }) {
   const [performance, setPerformance] = useState<CasePerformance | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -1805,6 +1979,7 @@ export function PerformancePanel({
         canPlan={canPlan}
         onChanged={() => void load()}
       />
+      {renderScheduleAssurance?.(performance, () => void load())}
       <ForecastConfidenceSection
         caseId={caseId}
         performance={performance}

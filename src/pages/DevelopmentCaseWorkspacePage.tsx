@@ -99,6 +99,7 @@ import {
 import { CaseChainsPanel } from "../components/develop/CaseChainsPanels";
 import { IntegratedControlsPanel } from "../components/develop/ControlsPanels";
 import { PerformancePanel } from "../components/develop/PerformancePanels";
+import { ScheduleAssurancePanel } from "../components/develop/SchedulePanels";
 
 const REVIEW_ROLES = [
   "admin",
@@ -2784,6 +2785,21 @@ export function DevelopmentCaseWorkspacePage() {
         canPlan={canPlan}
         canReview={canReview}
         reloadKey={chainsKey}
+        renderScheduleAssurance={(performance, onChanged) => (
+          /* §44 Schedule assurance (Slice 4C): the nine II.6 defect classes,
+             the §50 quality score and the distinct schedule confidence, the
+             risk→activity→money chain, and the seeded Monte Carlo that
+             REFUSES to run on a schedule failing its diagnostics. It renders
+             inside the Performance panel because it consumes the same one
+             read — a second fetch would let the gate on screen disagree with
+             the gate the percentiles were computed under. */
+          <ScheduleAssurancePanel
+            caseId={workspace.id}
+            performance={performance}
+            canPlan={canPlan}
+            onChanged={onChanged}
+          />
+        )}
       />
       <OperationalReadinessSection caseId={workspace.id} canPlan={canPlan} />
 

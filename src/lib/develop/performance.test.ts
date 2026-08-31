@@ -447,11 +447,33 @@ describe("a run whose inputs have moved is stale", () => {
     expect(performanceRunIsStale(undefined, { claimCount: 9 })).toBe(false);
   });
 
-  it("ignores fingerprint keys the run never recorded", () => {
+  // REPAIR (Slice 4C review). This used to assert that a fingerprint key the
+  // run never recorded is IGNORED, and that is the defect: a run recorded
+  // before a key existed is not comparable, which is what stale means. Proven
+  // on the live database — a 4B-era `case_forecast_confidence` run carries no
+  // `distributionExists`/`simulationId`, so recording a simulation flipped
+  // nothing the comparison could see. The panel then printed "not available"
+  // percentiles directly above the sentence "These percentiles came off the
+  // recorded simulation named below", under a clean, non-stale caption.
+  it("is stale when the run predates a fingerprint key — an incomparable run is not a current one", () => {
     const recorded = run({ ev: 1 }, { inputs: { claimCount: 2 } });
     expect(
       performanceRunIsStale(recorded, { claimCount: 2, somethingNew: 7 }),
-    ).toBe(false);
+    ).toBe(true);
+  });
+
+  it("is not stale when every fingerprint key is recorded and matches", () => {
+    const recorded = run({ ev: 1 }, { inputs: { claimCount: 2, other: 7 } });
+    expect(performanceRunIsStale(recorded, { claimCount: 2, other: 7 })).toBe(
+      false,
+    );
+  });
+
+  it("a run carrying EXTRA keys the fingerprint no longer asks about is not stale", () => {
+    // Staleness is asked of the live fingerprint's keys. A run that recorded
+    // more than the surface now compares is still about the same inputs.
+    const recorded = run({ ev: 1 }, { inputs: { claimCount: 2, retired: 1 } });
+    expect(performanceRunIsStale(recorded, { claimCount: 2 })).toBe(false);
   });
 
   it("the integrity fingerprint moves when evidence is added", () => {
