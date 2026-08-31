@@ -90,7 +90,10 @@ const tabs: Array<{ id: PacketTab; label: string }> = [
 const PUBLIC_VALUE_PROOF_TOKEN_ALLOWANCE = 60000;
 
 function sampleChipLabel(industry: DecisionIndustryId): string {
-  return createSeedDecisionCases({ industry })[0].asset;
+  const sample = createSeedDecisionCases({ industry })[0];
+  const question = sample.messages.find((item) => item.role === "user")?.text;
+  const firstSentence = question?.split(/(?<=\?)/)[0]?.trim();
+  return firstSentence || sample.asset;
 }
 
 function trackDecisionWorkspaceEvent(

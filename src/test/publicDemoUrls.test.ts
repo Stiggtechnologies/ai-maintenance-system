@@ -3,8 +3,14 @@ import { describe, expect, it } from "vitest";
 
 const PUBLIC_SURFACES = [
   "src/components/PublicProductHeader.tsx",
+  "src/components/AuthShell.tsx",
+  "src/components/HelpCenterWidget.tsx",
   "src/pages/FirstCustomerPilotPage.tsx",
   "src/pages/RiaAssessmentWorkspacePage.tsx",
+  "src/pages/Security.tsx",
+  "src/pages/Privacy.tsx",
+  "src/pages/Terms.tsx",
+  "src/pages/ReliabilityEngineerPage.tsx",
 ];
 
 describe("public URLs do not advertise /demo", () => {

@@ -38,9 +38,14 @@ describe("FieldPage", () => {
         <FieldPage />
       </MemoryRouter>,
     );
-    expect(await screen.findByText("What did you observe?")).toBeTruthy();
-    expect(screen.getByLabelText("Camera")).toBeTruthy();
-    expect(screen.getByLabelText("QR")).toBeTruthy();
+    expect(
+      await screen.findByPlaceholderText("What did you observe?"),
+    ).toBeTruthy();
+    expect(screen.getByTestId("sample-seed-chip")).toHaveTextContent(
+      "Seal weep on the inboard gland",
+    );
+    expect(screen.queryByLabelText("Camera")).toBeNull();
+    expect(screen.queryByLabelText("QR")).toBeNull();
     expect(screen.queryByText(/Find the asset \(then scan its label\)/i)).toBeNull();
     expect(screen.queryByText(/Report a failure on the equipment/i)).toBeNull();
     expect(document.querySelector('[data-layout="chat-first"]')).toBeTruthy();
@@ -75,7 +80,7 @@ describe("FieldPage", () => {
         <FieldPage />
       </MemoryRouter>,
     );
-    await screen.findByText("What did you observe?");
+    await screen.findByPlaceholderText("What did you observe?");
     fireEvent.change(screen.getByPlaceholderText("What did you observe?"), {
       target: { value: "Seal weep on the inboard gland" },
     });
@@ -90,7 +95,8 @@ describe("FieldPage", () => {
         <FieldPage />
       </MemoryRouter>,
     );
-    await screen.findByText("What did you observe?");
+    await screen.findByPlaceholderText("What did you observe?");
+    fireEvent.click(screen.getByTestId("sample-seed-chip"));
     fireEvent.click(screen.getByLabelText("QR"));
     fireEvent.change(screen.getByLabelText("Asset tag or QR payload"), {
       target: { value: "T301" },
@@ -98,5 +104,6 @@ describe("FieldPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Attach" }));
     expect(screen.getByText("T301")).toBeTruthy();
     expect(screen.getByText(/Asset tag will be sent with this turn/)).toBeTruthy();
+    expect(screen.getByLabelText("Camera")).toBeTruthy();
   });
 });

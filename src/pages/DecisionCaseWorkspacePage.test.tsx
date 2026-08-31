@@ -100,7 +100,7 @@ describe("DecisionCaseWorkspacePage — chat-first paint", () => {
     ).toBeTruthy();
     expect(screen.getByTestId("first-paint-empty")).toBeTruthy();
     expect(screen.getByTestId("sample-seed-chip")).toHaveTextContent(
-      "P-101 process pump",
+      "Can we extend P-101 process pump's seal inspection from monthly to yearly?",
     );
     expect(screen.queryByText("What is the reliability question?")).toBeNull();
     expect(screen.queryByRole("button", { name: "Try a sample" })).toBeNull();

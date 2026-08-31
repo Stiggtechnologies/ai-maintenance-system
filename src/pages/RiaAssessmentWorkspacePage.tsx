@@ -21,6 +21,7 @@ import {
   type RiaWorkspaceData,
 } from "../services/riaAssessment";
 import { DataRoom } from "../components/assessment/DataRoom";
+import { BrandWordmark } from "../components/BrandWordmark";
 
 type Tab =
   | "home"
@@ -214,13 +215,16 @@ export function RiaAssessmentWorkspacePage() {
     <main className="min-h-screen bg-[#081018] text-slate-100">
       <header className="sticky top-0 z-40 border-b border-white/10 bg-[#081018]/95 backdrop-blur">
         <div className="mx-auto flex h-16 max-w-[1500px] items-center justify-between px-5">
-          <div>
-            <p className="text-sm font-bold text-white">
-              SyncAI · Reliability Intelligence Assessment
-            </p>
-            <p className="text-xs text-slate-500">
-              {context.organization_name} · {workspace.assessment.scope_label}
-            </p>
+          <div className="flex min-w-0 items-center gap-3">
+            <BrandWordmark />
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-slate-300">
+                Reliability Intelligence Assessment
+              </p>
+              <p className="text-xs text-slate-500">
+                {context.organization_name} · {workspace.assessment.scope_label}
+              </p>
+            </div>
           </div>
           <div className="flex items-center gap-3">
             <span className="hidden rounded-full border border-white/10 px-3 py-1 text-xs text-slate-400 sm:inline">
@@ -755,7 +759,7 @@ export function RiaAssessmentWorkspacePage() {
               </div>
               <div className="mt-7 rounded-xl border border-white/10 bg-white p-7 text-slate-900">
                 <p className="text-xs font-semibold uppercase tracking-wider text-teal-700">
-                  SyncAI Reliability Intelligence Assessment
+                  Reliability Intelligence Assessment
                 </p>
                 <h2 className="mt-2 text-2xl font-bold">
                   {workspace.assessment.scope_label}

@@ -638,8 +638,9 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
           </button>
           {!isCollapsed && (
             <div className="mt-2 px-2 py-1">
-              <div className="text-xs text-slate-400">
-                SyncAI Platform v3.0 · build {__BUILD_SHA__}
+              <BrandWordmark className="h-5" />
+              <div className="mt-1 text-[10px] text-slate-500">
+                Platform v3.0 · build {__BUILD_SHA__}
               </div>
             </div>
           )}
