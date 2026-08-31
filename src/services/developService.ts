@@ -47,6 +47,12 @@ import type {
   ContingencyCauseClass,
   MyDecisions,
 } from "../lib/develop/change";
+import type {
+  RequirementFinding,
+  RequirementFindings,
+  RequirementTraceability,
+  RequirementVerificationView,
+} from "../lib/develop/requirements";
 import { simulateIntegratedRisk } from "../lib/modelling/integrated-risk";
 
 export interface DevelopmentCaseSummary {
@@ -1385,6 +1391,12 @@ export interface CaseRequirementInput {
   requirement: string;
   source?: string;
   verificationMethod?: string | null;
+  /* Slice 5A / §10: the fields the Requirement object was missing. */
+  parentRequirementId?: number | null;
+  ownerId?: string | null;
+  acceptanceCriteria?: string | null;
+  objectiveId?: string | null;
+  operatingKpiKey?: string | null;
 }
 
 export async function recordCaseRequirement(
@@ -1399,6 +1411,11 @@ export async function recordCaseRequirement(
       requirement: input.requirement,
       source: input.source ?? "engineering",
       verification_method: input.verificationMethod ?? null,
+      parent_requirement_id: input.parentRequirementId ?? null,
+      owner_id: input.ownerId ?? null,
+      acceptance_criteria: input.acceptanceCriteria ?? null,
+      objective_id: input.objectiveId ?? null,
+      operating_kpi_key: input.operatingKpiKey ?? null,
     },
   });
   return unwrapRpc(data, error, "Could not record the project requirement");
@@ -2938,11 +2955,20 @@ export async function listCaseRequirements(caseId: string): Promise<
     category: string;
     requirement: string;
     scope_need_id: string | null;
+    parent_requirement_id: number | null;
+    owner_id: string | null;
+    acceptance_criteria: string | null;
+    objective_id: string | null;
+    operating_kpi_key: string | null;
+    verification_method: string | null;
+    verification_status: string;
   }[]
 > {
   const { data, error } = await supabase
     .from("design_requirements")
-    .select("id, requirement_ref, category, requirement, scope_need_id")
+    .select(
+      "id, requirement_ref, category, requirement, scope_need_id, parent_requirement_id, owner_id, acceptance_criteria, objective_id, operating_kpi_key, verification_method, verification_status",
+    )
     .eq("development_case_id", caseId)
     .order("requirement_ref");
   if (error) throw new Error(error.message);
@@ -3915,4 +3941,285 @@ export async function getMyDecisions(limit = 50): Promise<MyDecisions> {
     p_limit: limit,
   });
   return unwrap(data, error);
+}
+
+/* ─────────── Slice 5A — requirements, verification, the thread ────────── */
+/**
+ * D4.16 (§10 Requirement), D4.17 (§11 Verification), D12.09 (§59 Requirements
+ * Agent).
+ *
+ * Same posture as every slice before it: every write is a definer RPC and the
+ * traceability numbers come off `compute_case_requirement_traceability`, which
+ * records a calculation_runs row — including when it REFUSES, because a
+ * refusal with no lineage is a refusal nobody can later prove happened.
+ *
+ * There is no `recordRequirementVerificationResult` here on purpose.
+ * `recordVerificationResult` in operatingLoopService is the ONE caller of the
+ * ONE RPC and it now takes §11's evidence id; a develop-side twin would be a
+ * fork of the caller, and the first thing a fork does is stop passing an
+ * argument the other one passes.
+ */
+
+export async function getCaseRequirementTraceability(
+  caseId: string,
+): Promise<RequirementTraceability> {
+  const { data, error } = await supabase.rpc(
+    "get_case_requirement_traceability",
+    { p_case_id: caseId },
+  );
+  return unwrap(data, error);
+}
+
+export async function computeCaseRequirementTraceability(
+  caseId: string,
+): Promise<RequirementTraceability> {
+  const { data, error } = await supabase.rpc(
+    "compute_case_requirement_traceability",
+    { p_case_id: caseId },
+  );
+  return unwrap(data, error);
+}
+
+export interface RequirementThreadInput {
+  objectiveId?: string;
+  satisfiedByAssetId?: string;
+  commissioningTestId?: number;
+  operatingKpiKey?: string;
+  parentRequirementId?: number;
+  ownerId?: string;
+  acceptanceCriteria?: string;
+}
+
+export async function linkRequirementThread(
+  requirementId: number,
+  input: RequirementThreadInput,
+): Promise<{ requirement_id: number; linksTouched: number }> {
+  // Only the keys the caller actually set are sent. An empty string would be
+  // read by the RPC as "clear this link", which it refuses by name — sending
+  // untouched fields would turn every save into a refusal.
+  const link: Record<string, unknown> = {};
+  if (input.objectiveId) link.objective_id = input.objectiveId;
+  if (input.satisfiedByAssetId)
+    link.satisfied_by_asset_id = input.satisfiedByAssetId;
+  if (input.commissioningTestId != null)
+    link.commissioning_test_id = input.commissioningTestId;
+  if (input.operatingKpiKey) link.operating_kpi_key = input.operatingKpiKey;
+  if (input.parentRequirementId != null)
+    link.parent_requirement_id = input.parentRequirementId;
+  if (input.ownerId) link.owner_id = input.ownerId;
+  if (input.acceptanceCriteria)
+    link.acceptance_criteria = input.acceptanceCriteria;
+
+  const { data, error } = await supabase.rpc("link_requirement_thread", {
+    p_requirement_id: requirementId,
+    p_link: link,
+  });
+  return unwrapRpc(data, error, "Could not link the requirement thread");
+}
+
+export async function getCaseRequirementVerifications(
+  caseId: string,
+): Promise<RequirementVerificationView> {
+  const { data, error } = await supabase.rpc(
+    "get_case_requirement_verifications",
+    { p_case_id: caseId },
+  );
+  return unwrap(data, error);
+}
+
+export interface RequirementVerificationInput {
+  methodCode: string;
+  procedure?: string;
+  acceptanceCriteria?: string;
+  intendedOutcome?: string;
+  dueDate?: string;
+  /**
+   * The recorded FAILURE this verification re-tests (§11 / repair ruling 8).
+   * Without it, a later achieved result does not un-fail the requirement —
+   * and the RPC returns `standingFailureNote` saying so rather than letting
+   * the planner find out from a status that never moved.
+   */
+  supersedesObligationId?: string;
+}
+
+export async function createRequirementVerification(
+  requirementId: number,
+  input: RequirementVerificationInput,
+): Promise<{
+  obligation_id: string;
+  methodCode: string;
+  dueDateAssumed: boolean;
+  standingFailureNote?: string | null;
+}> {
+  const { data, error } = await supabase.rpc(
+    "create_requirement_verification",
+    {
+      p_requirement_id: requirementId,
+      p_verification: {
+        method_code: input.methodCode,
+        procedure: input.procedure ?? null,
+        acceptance_criteria: input.acceptanceCriteria ?? null,
+        intended_outcome: input.intendedOutcome ?? null,
+        due_date: input.dueDate ?? null,
+        // Only sent when the planner named one: an empty string would be read
+        // as a malformed identifier and refused.
+        ...(input.supersedesObligationId
+          ? { supersedes_obligation_id: input.supersedesObligationId }
+          : {}),
+      },
+    },
+  );
+  return unwrapRpc(data, error, "Could not plan the verification");
+}
+
+export async function getCaseRequirementFindings(
+  caseId: string,
+): Promise<RequirementFindings> {
+  const { data, error } = await supabase.rpc("get_case_requirement_findings", {
+    p_case_id: caseId,
+  });
+  return unwrap(data, error);
+}
+
+export interface RequirementsAgentResult {
+  advisory: true;
+  caseId: string;
+  refused: boolean;
+  refusal?: string;
+  reading: {
+    headline: string;
+    familyLines: string[];
+    findingLines: string[];
+    refusalLines: string[];
+  } | null;
+  findings?: RequirementFinding[];
+  byFamily?: Record<string, number>;
+  requirementCount?: number;
+  findingCount?: number;
+  refusals?: string[];
+  aiFindings?: {
+    requirement_ref: string;
+    related_requirement_ref: string | null;
+    concern: string;
+  }[];
+  aiDropped?: string[];
+  narrative: string | null;
+  model: string | null;
+  providerNote?: string | null;
+  recorded?: { report_id?: number; findingCount?: number } | null;
+  recordNote?: string | null;
+  disclaimer: string;
+}
+
+export async function runRequirementsAgent(input: {
+  caseId: string;
+  record?: boolean;
+}): Promise<RequirementsAgentResult> {
+  const { data, error } = await supabase.functions.invoke(
+    "develop-requirements-agent",
+    { body: { case_id: input.caseId, record: input.record ?? false } },
+  );
+  if (error) throw new Error(error.message);
+  const payload = data as RequirementsAgentResult | { error?: string };
+  if (payload && typeof payload === "object" && "error" in payload) {
+    throw new Error(String((payload as { error: unknown }).error));
+  }
+  return payload as RequirementsAgentResult;
+}
+
+export async function getRequirementAgentReports(caseId: string): Promise<{
+  caseId: string;
+  reports: {
+    id: number;
+    asAt: string;
+    requirementCount: number;
+    findingCount: number;
+    byFamily: Record<string, number>;
+    findings: RequirementFinding[];
+    narrative: string | null;
+    model: string | null;
+    agentKey: string;
+    advisory: boolean;
+    requestedBy: string | null;
+  }[];
+}> {
+  const { data, error } = await supabase.rpc("get_requirement_agent_reports", {
+    p_case_id: caseId,
+  });
+  return unwrap(data, error);
+}
+
+/** The KPI catalogue, for the §10 thread's terminus selector. */
+export async function listOperatingKpis(): Promise<
+  { kpi_key: string; name: string; page: string }[]
+> {
+  const { data, error } = await supabase
+    .from("kpi_catalog")
+    .select("kpi_key, name, page")
+    .order("name");
+  if (error) throw new Error(error.message);
+  return data ?? [];
+}
+
+/**
+ * This organization's commissioning/acceptance tests, for the §10 thread's
+ * commissioning-test selector.
+ *
+ * `acceptance_tests` is SELECT-only for clients (D4.05 owns its authoring gap
+ * and is 🟡 for it). This read exists so the LINK is reachable: without a
+ * selector, `design_requirements.commissioning_test_id` was write-unreachable
+ * from the product entirely, and threadCoveragePct — which requires objective
+ * AND asset AND test AND KPI — was structurally pinned at 0% for any
+ * customer-created data while rendering as a measured figure.
+ */
+export async function listCommissioningTests(): Promise<
+  { id: number; test_ref: string; test_type: string | null }[]
+> {
+  const { data, error } = await supabase
+    .from("acceptance_tests")
+    .select("id, test_ref, test_type")
+    .order("test_ref")
+    .limit(200);
+  if (error) throw new Error(error.message);
+  return (data ?? []) as {
+    id: number;
+    test_ref: string;
+    test_type: string | null;
+  }[];
+}
+
+/**
+ * This organization's evidence items, for §11's `evidence_id`.
+ *
+ * The RPC gained the parameter and both recorder forms passed three
+ * arguments, so `p_evidence_id` was null in every production call and the
+ * only non-null writer in the repository was a smoke script. A parameter with
+ * no writer is a capability the register cannot claim.
+ */
+export async function listOrgEvidenceItems(): Promise<
+  { id: string; description: string; evidence_class: string | null }[]
+> {
+  const { data, error } = await supabase
+    .from("evidence_items")
+    .select("id, description, evidence_class")
+    .order("created_at", { ascending: false })
+    .limit(200);
+  if (error) throw new Error(error.message);
+  return (data ?? []) as {
+    id: string;
+    description: string;
+    evidence_class: string | null;
+  }[];
+}
+
+/** This organization's objectives, for the §10 thread's head selector. */
+export async function listCaseObjectives(): Promise<
+  { id: string; description: string; objective_level: string }[]
+> {
+  const { data, error } = await supabase
+    .from("risk_objectives")
+    .select("id, description, objective_level")
+    .order("description");
+  if (error) throw new Error(error.message);
+  return data ?? [];
 }

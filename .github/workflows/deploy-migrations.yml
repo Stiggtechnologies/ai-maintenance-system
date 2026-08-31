@@ -19,6 +19,7 @@ on:
       - "supabase/functions/develop-evidence-agent/**"
       - "supabase/functions/develop-gate-agent/**"
       - "supabase/functions/develop-methodology-agent/**"
+      - "supabase/functions/develop-requirements-agent/**"
       - "supabase/functions/develop-risk-agent/**"
       - "supabase/functions/lead-notify/**"
       - "supabase/functions/onboarding-enrich/**"
@@ -79,6 +80,7 @@ jobs:
           supabase functions deploy develop-evidence-agent
           supabase functions deploy develop-gate-agent
           supabase functions deploy develop-methodology-agent
+          supabase functions deploy develop-requirements-agent
           supabase functions deploy develop-risk-agent
           supabase functions deploy lead-notify
           supabase functions deploy onboarding-enrich --no-verify-jwt

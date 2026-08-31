@@ -205,9 +205,7 @@ export async function verifyValueMetric(
  * This is still a pilot attestation. It is not a historian or CMMS reading.
  */
 export type VerificationResultKind =
-  | "achieved"
-  | "not_achieved"
-  | "inconclusive";
+  "achieved" | "not_achieved" | "inconclusive";
 
 export interface RecordedVerification {
   outcome: "recorded";
@@ -221,10 +219,20 @@ function firstRpcRow<T>(data: unknown): T | null {
   return null;
 }
 
+/**
+ * The ONE caller of record_verification_result, for BOTH subjects.
+ *
+ * Slice 5A generalized the obligation to carry a requirement as well as a
+ * recommendation (D4.17), and added §11's `evidence_id`. This function gained
+ * an optional evidence id rather than a develop-side twin: two service
+ * functions over one RPC is a fork of the caller, and the first thing a fork
+ * does is stop passing an argument the other one passes.
+ */
 export async function recordVerificationResult(
   obligationId: string,
   result: VerificationResultKind,
   measuredNote: string,
+  evidenceId?: string | null,
 ): Promise<RecordedVerification> {
   const note = measuredNote.trim();
   if (note === "") {
@@ -244,6 +252,7 @@ export async function recordVerificationResult(
     p_obligation_id: obligationId,
     p_result: result,
     p_measured_note: note,
+    p_evidence_id: evidenceId ?? null,
   });
   if (error) fail("Could not record verification result", error);
 

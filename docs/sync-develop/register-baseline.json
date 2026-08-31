@@ -396,16 +396,16 @@
     "backticked": 0
   },
   "D4.16": {
-    "status": "🟡",
+    "status": "✅",
     "evidence": true,
-    "citations": 3,
-    "backticked": 0
+    "citations": 31,
+    "backticked": 27
   },
   "D4.17": {
-    "status": "🟡",
+    "status": "✅",
     "evidence": true,
-    "citations": 4,
-    "backticked": 0
+    "citations": 27,
+    "backticked": 24
   },
   "D4.18": {
     "status": "🟡",
@@ -1248,10 +1248,10 @@
     "backticked": 17
   },
   "D12.09": {
-    "status": "❌",
+    "status": "✅",
     "evidence": true,
-    "citations": 2,
-    "backticked": 0
+    "citations": 19,
+    "backticked": 18
   },
   "D12.10": {
     "status": "❌",

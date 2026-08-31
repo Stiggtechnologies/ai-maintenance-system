@@ -41,7 +41,6 @@ import {
   OBLIGATION_DESTINATION,
   OBLIGATION_DOMAINS,
   QUALITY_GRADES,
-  REQUIREMENT_CATEGORIES,
   blockingCommitments,
   coverageHeadline,
   evidenceConfidence,
@@ -51,6 +50,7 @@ import {
   type ObligationDomain,
   type QualityGrade,
 } from "../../lib/develop/chains";
+import { REQUIREMENT_CATEGORY_GROUPS } from "../../lib/develop/requirements";
 import {
   adoptEvidenceConfidenceProfile,
   closeRegulatoryCondition,
@@ -183,9 +183,11 @@ function CommitmentsSection({
   });
   const [reqForm, setReqForm] = useState({
     requirementRef: "",
-    category: "operability",
+    category: "functional",
     requirement: "",
     source: "engineering",
+    ownerId: "",
+    acceptanceCriteria: "",
   });
   const [stakeholderForm, setStakeholderForm] = useState({
     name: "",
@@ -608,6 +610,11 @@ function CommitmentsSection({
             placeholder="Reference (e.g. PR-014)"
             className={inputClass}
           />
+          {/* Slice 5A / D4.16: the ELEVEN §10 categories, offered first, with
+              the five reliability-by-design categories this table predates §10
+              with kept below them. A form offering only nine left seven of the
+              spec's eleven legal in the table and unwritable through the
+              product. */}
           <select
             value={reqForm.category}
             onChange={(e) =>
@@ -615,10 +622,14 @@ function CommitmentsSection({
             }
             className={inputClass}
           >
-            {REQUIREMENT_CATEGORIES.map((c) => (
-              <option key={c} value={c}>
-                {c.replaceAll("_", " ")}
-              </option>
+            {REQUIREMENT_CATEGORY_GROUPS.map((g) => (
+              <optgroup key={g.label} label={g.label}>
+                {g.options.map((c) => (
+                  <option key={c.key} value={c.key}>
+                    {c.label}
+                  </option>
+                ))}
+              </optgroup>
             ))}
           </select>
           <textarea
@@ -630,6 +641,33 @@ function CommitmentsSection({
             className={`${inputClass} sm:col-span-2`}
             rows={2}
           />
+          {/* §10's owner_id and acceptance_criteria. Both optional at the
+              table (a requirement recorded before this slice has neither and
+              no owner may be invented for it) and both offered here, because
+              the Requirements Agent reports their absence and a finding
+              nobody can clear from the product is a complaint, not a finding. */}
+          <select
+            value={reqForm.ownerId}
+            onChange={(e) =>
+              setReqForm({ ...reqForm, ownerId: e.target.value })
+            }
+            className={inputClass}
+          >
+            <option value="">Owner — nobody accountable yet…</option>
+            {members.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.full_name ?? m.email ?? m.id}
+              </option>
+            ))}
+          </select>
+          <input
+            value={reqForm.acceptanceCriteria}
+            onChange={(e) =>
+              setReqForm({ ...reqForm, acceptanceCriteria: e.target.value })
+            }
+            placeholder="Acceptance criteria — what 'met' means, measurably"
+            className={inputClass}
+          />
           <button
             disabled={busy}
             onClick={() =>
@@ -640,14 +678,18 @@ function CommitmentsSection({
                     category: reqForm.category,
                     requirement: reqForm.requirement,
                     source: reqForm.source,
+                    ownerId: reqForm.ownerId || null,
+                    acceptanceCriteria: reqForm.acceptanceCriteria || null,
                   }),
                 () => {
                   setAddingRequirement(false);
                   setReqForm({
                     requirementRef: "",
-                    category: "operability",
+                    category: "functional",
                     requirement: "",
                     source: "engineering",
+                    ownerId: "",
+                    acceptanceCriteria: "",
                   });
                 },
               )
