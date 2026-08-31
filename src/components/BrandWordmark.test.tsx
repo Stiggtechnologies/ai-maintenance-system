@@ -24,7 +24,7 @@ describe("BrandWordmark", () => {
     const { container } = render(<BrandWordmark />);
     const img = screen.getByRole("img", { name: "SyncAI" });
     expect(img).toHaveAttribute("src", "/brand/wordmark-ink.png");
-    expect(img.className).toMatch(/\bh-7\b/);
+    expect(img.className).toMatch(/\bh-9\b/);
     expect(img.className).toMatch(/\bshrink-0\b/);
     expect(img.className).not.toMatch(/bg-|rounded-lg|shadow-/);
     expect(container.querySelector("svg")).toBeNull();

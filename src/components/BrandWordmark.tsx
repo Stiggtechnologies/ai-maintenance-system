@@ -6,7 +6,7 @@ type BrandWordmarkProps = {
  * Header wordmark — the committed transparent PNG (white SyncAI + cyan comet).
  * Sized for the nav row. No background plate; the PNG carries its own alpha.
  */
-export function BrandWordmark({ className = "h-7" }: BrandWordmarkProps) {
+export function BrandWordmark({ className = "h-9" }: BrandWordmarkProps) {
   return (
     <img
       src="/brand/wordmark-ink.png"

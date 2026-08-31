@@ -465,7 +465,7 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
       >
         {/* Logo */}
         <div className="h-14 px-3 flex flex-col justify-center border-b border-white/5 shrink-0 overflow-hidden">
-          <BrandWordmark className="h-7" />
+          <BrandWordmark />
           {!isCollapsed && (
             <motion.div
               initial={{ opacity: 0 }}

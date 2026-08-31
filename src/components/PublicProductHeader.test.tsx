@@ -7,7 +7,7 @@ describe("PublicProductHeader", () => {
     render(<PublicProductHeader active="copilot" />);
     const mark = screen.getByRole("img", { name: "SyncAI" });
     expect(mark).toHaveAttribute("src", "/brand/wordmark-ink.png");
-    expect(mark.className).toMatch(/\bh-8\b/);
+    expect(mark.className).toMatch(/\bh-9\b/);
     expect(screen.queryByText("SyncAI", { selector: "span" })).toBeNull();
     expect(
       screen.getByText(
