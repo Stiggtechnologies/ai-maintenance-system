@@ -902,16 +902,40 @@ describe("the reachability judges", () => {
    *
    * This number may only ever go DOWN from here by wiring or by a deletion
    * that names its evidence twice, per AGENTS.md rule 1.
+   *
+   * 2026-08-31: `InThreadLearnRecorder` is named in HONESTY_UNMOUNTED, not
+   * counted in the 25. Honesty unmounted it from Decision Workspace — that
+   * page has no obligation id and must not present a recorded verification.
+   * AGENTS.md rule 1: do not delete the file. Learning Loop remains the write
+   * path. If it is wired to a caller that only claims recorded after
+   * `record_verification_result` returns recorded, remove it from the set.
    */
+  const HONESTY_UNMOUNTED = [
+    "src/components/chat/InThreadLearnRecorder.tsx",
+  ] as const;
+
   it("does not grow the set of surfaces no entry point imports", () => {
     const orphans = [...code.files.keys()]
       .filter((f) => !isTestFile(f) && !code.reachable.has(f))
       .filter(
         (f) => f.startsWith("src/components/") || f.startsWith("src/pages/"),
       );
+    for (const named of HONESTY_UNMOUNTED) {
+      expect(
+        orphans,
+        `${named} must stay unmounted until a real RPC caller`,
+      ).toContain(named);
+      expect(
+        [...code.files.keys()],
+        `${named} must remain in the tree (Honesty does not delete)`,
+      ).toContain(named);
+    }
+    const unnamed = orphans.filter(
+      (f) => !(HONESTY_UNMOUNTED as readonly string[]).includes(f),
+    );
     expect(
-      orphans.length,
-      `dead surfaces:\n  ${orphans.sort().join("\n  ")}`,
+      unnamed.length,
+      `dead surfaces:\n  ${unnamed.sort().join("\n  ")}`,
     ).toBeLessThanOrEqual(25);
   });
 

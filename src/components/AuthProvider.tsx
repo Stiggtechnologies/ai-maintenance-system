@@ -129,3 +129,8 @@ export function useAuth() {
   }
   return context;
 }
+
+/** Safe on public/demo surfaces that may render outside AuthProvider. */
+export function useOptionalAuth() {
+  return useContext(AuthContext);
+}

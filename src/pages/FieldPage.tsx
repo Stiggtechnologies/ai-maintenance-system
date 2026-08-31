@@ -1,37 +1,62 @@
 /**
- * Field — the mobile-first technician surface (E6.13 first slice).
- *
- * Big-button, gloves-on-first: scan the asset QR on the equipment (any phone
- * camera) to reach the asset's failure-capture panel, or review the team's
- * filed reports here. Read-only for the report list (RLS org-scoped); the
- * capture flow lives on the asset page where the QR lands.
+ * Field — same conversation primitive as Decision Workspace.
+ * First paint is the composer. Camera and QR attach to this turn.
+ * A filed report is a user turn, not a landing list or /assets hop.
  */
-import { useCallback, useEffect, useState } from "react";
-import { Link } from "react-router-dom";
-import { Camera, QrCode, RefreshCw, ShieldCheck } from "lucide-react";
-import { listRecentFieldReports, type FieldReport } from "../services/fieldReports";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Camera, Paperclip, QrCode, Send, X as XIcon } from "lucide-react";
+import {
+  listRecentFieldReports,
+  type FieldReport,
+} from "../services/fieldReports";
+import { reportFailure } from "../services/fieldCapture";
+import "./DecisionCaseWorkspacePage.css";
 
-const TYPE_COLORS: Record<string, string> = {
-  fault: "bg-red-500/10 text-red-400 border border-red-500/20",
-  observation: "bg-amber-500/10 text-amber-400 border border-amber-500/20",
-  safety: "bg-orange-500/10 text-orange-400 border border-orange-500/20",
-  request: "bg-sky-500/10 text-sky-400 border border-sky-500/20",
-};
+interface FieldTurn {
+  id: string;
+  role: "user" | "system";
+  text: string;
+  createdAt: string;
+}
+
+function reportToTurn(report: FieldReport): FieldTurn {
+  return {
+    id: report.id,
+    role: "user",
+    text: [
+      report.description,
+      `[${report.notification_type}] ${report.asset_tag ?? "Unassigned asset"} · reported by ${report.reported_by}`,
+    ].join("\n"),
+    createdAt: report.created_at,
+  };
+}
+
+function timestamp(value: string) {
+  return new Intl.DateTimeFormat("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(new Date(value));
+}
 
 export function FieldPage() {
-  const [reports, setReports] = useState<FieldReport[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [turns, setTurns] = useState<FieldTurn[]>([]);
+  const [composer, setComposer] = useState("");
+  const [photo, setPhoto] = useState<File | null>(null);
+  const [qrOpen, setQrOpen] = useState(false);
+  const [qrValue, setQrValue] = useState("");
+  const [assetChip, setAssetChip] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [sending, setSending] = useState(false);
+  const composerRef = useRef<HTMLTextAreaElement | null>(null);
+  const photoRef = useRef<HTMLInputElement | null>(null);
+  const endRef = useRef<HTMLDivElement | null>(null);
 
   const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
     try {
-      setReports(await listRecentFieldReports());
+      const reports = await listRecentFieldReports();
+      setTurns(reports.map(reportToTurn));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load field reports");
-    } finally {
-      setLoading(false);
     }
   }, []);
 
@@ -39,91 +64,224 @@ export function FieldPage() {
     void load();
   }, [load]);
 
+  useEffect(() => {
+    composerRef.current?.focus();
+  }, []);
+
+  useEffect(() => {
+    if (typeof endRef.current?.scrollIntoView === "function") {
+      endRef.current.scrollIntoView({ block: "nearest" });
+    }
+  }, [turns.length]);
+
+  const attachQr = () => {
+    const value = qrValue.trim();
+    if (!value) return;
+    const assetMatch = value.match(/\/assets\/([^/?#]+)/);
+    setAssetChip(assetMatch?.[1] ?? value);
+    setQrValue("");
+    setQrOpen(false);
+  };
+
+  const send = async () => {
+    const text = composer.trim();
+    if ((!text && !photo && !assetChip) || sending) return;
+    setSending(true);
+    setError(null);
+    const chips = [
+      photo
+        ? `[Attached photo — ${photo.name}]\nImage will be sent with this turn.`
+        : "",
+      assetChip ? `[QR / asset — ${assetChip}]` : "",
+      text,
+    ]
+      .filter(Boolean)
+      .join("\n\n");
+    const userTurn: FieldTurn = {
+      id: `field-${Date.now()}`,
+      role: "user",
+      text: chips,
+      createdAt: new Date().toISOString(),
+    };
+    setTurns((current) => [...current, userTurn]);
+    setComposer("");
+    const sentPhoto = photo;
+    const sentAsset = assetChip;
+    setPhoto(null);
+    setAssetChip(null);
+
+    if (sentAsset && /^[0-9a-f-]{16,}$/i.test(sentAsset) && text) {
+      try {
+        await reportFailure({
+          assetId: sentAsset,
+          description: text,
+          notificationType: "observation",
+          photo: sentPhoto ?? undefined,
+        });
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Report was not filed");
+      }
+    }
+    setSending(false);
+  };
+
   return (
-    <div className="mx-auto max-w-3xl px-4 py-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-industrial-text">Field</h1>
-          <p className="text-sm text-industrial-muted">
-            Report failures from the equipment — evidence lands governed.
-          </p>
+    <div
+      className="decision-workspace field-workspace"
+      data-layout="chat-first"
+    >
+      <header className="dw-topbar">
+        <div className="dw-identity">
+          <span className="dw-mark" aria-hidden>
+            S
+          </span>
+          <span>
+            <strong>SyncAI</strong>
+            <small>Field</small>
+          </span>
         </div>
-        <button
-          onClick={() => void load()}
-          disabled={loading}
-          className="inline-flex items-center gap-2 rounded-lg border border-industrial-border px-3 py-2 text-sm font-medium text-industrial-text hover:bg-industrial-surface disabled:opacity-50"
-        >
-          <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-          Refresh
-        </button>
-      </div>
-
-      {/* The QR scan flow — big-button, first thing a glove sees. */}
-      <section className="mt-5 rounded-xl border border-[#3A8DFF]/30 bg-[#3A8DFF]/10 p-5">
-        <h2 className="flex items-center gap-2 text-lg font-semibold text-industrial-text">
-          <QrCode className="h-5 w-5 text-[#3A8DFF]" />
-          Report a failure on the equipment
-        </h2>
-        <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm text-industrial-muted">
-          <li>Scan the <strong className="text-industrial-text">asset QR label</strong> with your phone camera — it opens the asset directly.</li>
-          <li>Tap <strong className="text-industrial-text">Report failure from the field</strong>.</li>
-          <li>Capture the photo, describe the observation, file it.</li>
-        </ol>
-        <Link
-          to="/assets"
-          className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[#3A8DFF] px-4 py-4 text-base font-semibold text-white hover:bg-[#2E7AE6] sm:w-auto"
-        >
-          <Camera className="h-5 w-5" />
-          Find the asset (then scan its label)
-        </Link>
-      </section>
-
-      {error && (
-        <p role="alert" className="mt-4 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-300">
-          {error}
-        </p>
-      )}
-
-      <h2 className="mt-6 mb-3 flex items-center gap-2 text-lg font-semibold text-industrial-text">
-        <ShieldCheck className="h-5 w-5 text-teal-400" />
-        Filed reports{" "}
-        <span className="text-sm font-normal text-industrial-muted">
-          ({reports.length})
-        </span>
-      </h2>
-
-      {loading ? (
-        <div role="status" className="py-10 text-center text-sm text-industrial-muted">
-          Loading field reports…
-        </div>
-      ) : reports.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-industrial-border py-10 text-center">
-          <p className="text-sm text-industrial-muted">
-            No field reports filed yet. The first one lands here the moment a
-            photo is captured on the equipment.
-          </p>
-        </div>
-      ) : (
-        <ul className="divide-y divide-industrial-border rounded-xl border border-industrial-border bg-industrial-surface/30">
-          {reports.map((r) => (
-            <li key={r.id} className="px-4 py-3">
-              <div className="flex items-center justify-between gap-2">
-                <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${TYPE_COLORS[r.notification_type] ?? TYPE_COLORS.request}`}>
-                  {r.notification_type}
-                </span>
-                <span className="text-xs text-industrial-muted">
-                  {new Date(r.created_at).toLocaleString()}
-                </span>
+      </header>
+      <div className="dw-layout">
+        <main className="dw-main">
+          <section className="dw-thread" aria-label="Conversation">
+            {turns.length === 0 ? (
+              <div className="dw-empty">
+                <p>What did you observe?</p>
               </div>
-              <p className="mt-2 text-sm text-industrial-text">{r.description}</p>
-              <p className="mt-1 text-xs text-industrial-muted">
-                {r.asset_tag ?? "Unassigned asset"} · reported by {r.reported_by} ·{" "}
-                <span className="capitalize">{r.status}</span>
-              </p>
-            </li>
-          ))}
-        </ul>
-      )}
+            ) : (
+              turns.map((turn) => (
+                <article
+                  key={turn.id}
+                  className={`dw-message role-${turn.role}`}
+                >
+                  <div>
+                    <header>
+                      <strong>{turn.role === "user" ? "You" : "SyncAI"}</strong>
+                      <span>{timestamp(turn.createdAt)}</span>
+                    </header>
+                    <p>{turn.text}</p>
+                  </div>
+                </article>
+              ))
+            )}
+            <div ref={endRef} />
+          </section>
+          <section className="dw-composer-wrap">
+            {photo && (
+              <div className="dw-attach-chip">
+                <Camera size={13} />
+                <span className="dw-attach-name">{photo.name}</span>
+                <span className="dw-attach-meta">
+                  Photo will be sent with this turn
+                </span>
+                <button
+                  type="button"
+                  title="Remove photo"
+                  onClick={() => setPhoto(null)}
+                >
+                  <XIcon size={13} />
+                </button>
+              </div>
+            )}
+            {assetChip && (
+              <div className="dw-attach-chip">
+                <QrCode size={13} />
+                <span className="dw-attach-name">{assetChip}</span>
+                <span className="dw-attach-meta">
+                  Asset tag will be sent with this turn
+                </span>
+                <button
+                  type="button"
+                  title="Remove asset"
+                  onClick={() => setAssetChip(null)}
+                >
+                  <XIcon size={13} />
+                </button>
+              </div>
+            )}
+            {error && (
+              <div className="dw-attach-error" role="alert">
+                {error}
+              </div>
+            )}
+            {qrOpen && (
+              <div className="dw-qr-tool">
+                <input
+                  value={qrValue}
+                  onChange={(event) => setQrValue(event.target.value)}
+                  placeholder="Asset tag or QR payload"
+                  aria-label="Asset tag or QR payload"
+                />
+                <button type="button" onClick={attachQr}>
+                  Attach
+                </button>
+              </div>
+            )}
+            <div className="dw-composer">
+              <input
+                ref={photoRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                className="dw-file-input"
+                aria-label="Attach a photo"
+                onChange={(event) => {
+                  setPhoto(event.target.files?.[0] ?? null);
+                  event.target.value = "";
+                }}
+              />
+              <button
+                type="button"
+                className="dw-composer-tool"
+                aria-label="Camera"
+                title="Attach a photo to this turn"
+                onClick={() => photoRef.current?.click()}
+              >
+                <Camera size={16} />
+              </button>
+              <button
+                type="button"
+                className="dw-composer-tool"
+                aria-label="QR"
+                title="Attach a QR or asset tag to this turn"
+                onClick={() => setQrOpen((value) => !value)}
+              >
+                <QrCode size={16} />
+              </button>
+              <button
+                type="button"
+                className="dw-composer-tool"
+                aria-label="Attach a file"
+                title="Attach a file to this turn"
+                onClick={() => photoRef.current?.click()}
+              >
+                <Paperclip size={16} />
+              </button>
+              <textarea
+                ref={composerRef}
+                value={composer}
+                onChange={(event) => setComposer(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" && !event.shiftKey) {
+                    event.preventDefault();
+                    void send();
+                  }
+                }}
+                placeholder="What did you observe?"
+                rows={2}
+              />
+              <button
+                type="button"
+                title="Send message"
+                disabled={(!composer.trim() && !photo && !assetChip) || sending}
+                onClick={() => void send()}
+              >
+                <Send size={17} />
+              </button>
+            </div>
+          </section>
+        </main>
+      </div>
     </div>
   );
 }

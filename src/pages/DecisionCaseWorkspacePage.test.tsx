@@ -1,7 +1,21 @@
+import { readFileSync } from "node:fs";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { DecisionCaseWorkspacePage } from "./DecisionCaseWorkspacePage";
+
+const recordVerificationResult = vi.fn();
+
+vi.mock("../services/operatingLoopService", async () => {
+  const actual = await vi.importActual<
+    typeof import("../services/operatingLoopService")
+  >("../services/operatingLoopService");
+  return {
+    ...actual,
+    recordVerificationResult: (...args: unknown[]) =>
+      recordVerificationResult(...args),
+  };
+});
 
 vi.mock("../services/decisionCaseService", () => ({
   askDecisionCase: vi.fn().mockResolvedValue({
@@ -22,6 +36,21 @@ vi.mock("../services/decisionCaseService", () => ({
   savePersistedDecisionCase: vi.fn(),
 }));
 
+vi.mock("../components/AuthProvider", async () => {
+  const actual = await vi.importActual<
+    typeof import("../components/AuthProvider")
+  >("../components/AuthProvider");
+  return {
+    ...actual,
+    useOptionalAuth: () => ({
+      user: null,
+      profile: null,
+      session: null,
+      loading: false,
+    }),
+  };
+});
+
 function renderWorkspace(entry = "/workspace/cases/demo") {
   return render(
     <MemoryRouter initialEntries={[entry]}>
@@ -35,7 +64,11 @@ function renderWorkspace(entry = "/workspace/cases/demo") {
   );
 }
 
-describe("DecisionCaseWorkspacePage", () => {
+function loadSample() {
+  fireEvent.click(screen.getByRole("button", { name: "Try a sample" }));
+}
+
+describe("DecisionCaseWorkspacePage — chat-first paint", () => {
   beforeEach(() => {
     const storage = new Map<string, string>();
     Object.defineProperty(window, "localStorage", {
@@ -51,28 +84,97 @@ describe("DecisionCaseWorkspacePage", () => {
       window as Window & { dataLayer?: Array<Record<string, unknown>> }
     ).dataLayer = [];
     window.sessionStorage.clear();
+    recordVerificationResult.mockReset();
   });
 
-  it("keeps conversation central and generates a governed reply", async () => {
+  it("first paint is empty thread + composer + Try a sample, not a demo case", async () => {
     renderWorkspace();
-    expect(screen.getByText("Decision Workspace")).toBeTruthy();
+    expect(screen.getAllByText("SyncAI").length).toBeGreaterThan(0);
+    expect(document.querySelector('[data-layout="chat-first"]')).toBeTruthy();
+    expect(screen.getByLabelText("Conversation")).toBeTruthy();
     expect(
-      screen.getAllByText("Know where the next reliability dollar should go.")
-        .length,
-    ).toBeGreaterThan(0);
-    expect(screen.getByText("Decision Thread")).toBeTruthy();
-    expect(
-      screen.getByText(/controlled work, and value trail stay together/i),
+      screen.getByPlaceholderText("Ask a reliability question…"),
     ).toBeTruthy();
-    expect(screen.queryByText(/analysis tokens/i)).toBeNull();
-    expect(screen.getByText("Full value proof included")).toBeTruthy();
-    expect(screen.getByText("End-to-end access")).toBeTruthy();
-    expect(screen.queryByText(/% left/i)).toBeNull();
+    expect(screen.getByText("What is the reliability question?")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Try a sample" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "View record" })).toBeNull();
+    expect(screen.queryByText("Not proven")).toBeNull();
+    expect(screen.queryByTestId("recommendation-turn")).toBeNull();
+    expect(screen.queryByLabelText("Attach a data file")).toBeNull();
+    expect(screen.queryByLabelText("Attach a photo")).toBeNull();
+    expect(screen.queryByLabelText("Dictate a message")).toBeNull();
+    expect(screen.queryByLabelText("Conversations")).toBeNull();
+    expect(screen.queryByRole("tablist")).toBeNull();
+    expect(screen.queryByText("Decision Workspace")).toBeNull();
+    expect(screen.queryByText("Current decision packet")).toBeNull();
+    expect(screen.queryByText("P-101 process pump")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Simulate" })).toBeNull();
+  });
+
+  it("Try a sample loads the recommendation in the assistant turn", async () => {
+    renderWorkspace();
+    loadSample();
+    expect(screen.getByTestId("recommendation-turn")).toBeTruthy();
+    expect(screen.getByText("Established")).toBeTruthy();
+    expect(screen.getByText("Not proven")).toBeTruthy();
+    expect(screen.getByText("Recommendation · not authorization")).toBeTruthy();
     expect(
-      screen.getByText("Do not approve the yearly inspection interval."),
+      screen.getByText(/Authority: M\. Tran, Reliability Engineer/),
     ).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Simulate" })).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "Request changes" }),
+    ).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Delegate" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Reject" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "View record" })).toBeTruthy();
+    expect(screen.queryByLabelText("Sign in")).toBeNull();
+    expect(screen.queryByRole("tablist")).toBeNull();
+  });
+
+  it("after Simulate, LEARN is a pointer — not a recorded verification", async () => {
+    renderWorkspace();
+    loadSample();
+    fireEvent.click(screen.getByRole("button", { name: "Simulate" }));
+    expect(
+      await screen.findByText(/M\. Tran approved the controlled plan/),
+    ).toBeTruthy();
+    expect(screen.getByTestId("disposition-record")).toBeTruthy();
+    expect(screen.getByTestId("learn-unpersisted")).toBeTruthy();
+    expect(screen.getByText(/no verification obligation/i)).toBeTruthy();
+    expect(screen.getByText(/nothing was written/i)).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Learning Loop" })).toHaveAttribute(
+      "href",
+      "/learning-loop",
+    );
+    expect(screen.queryByTestId("learn-recorder")).toBeNull();
+    expect(screen.queryByText(/Outcome recorded/i)).toBeNull();
+    expect(screen.queryByText(/retained/i)).toBeNull();
+    expect(screen.queryByText(/LR-/i)).toBeNull();
+    expect(recordVerificationResult).not.toHaveBeenCalled();
+  });
+
+  it("fails if this page claims a recorded verification without the RPC", () => {
+    const src = readFileSync("src/pages/DecisionCaseWorkspacePage.tsx", "utf8");
+    expect(src).not.toMatch(/Outcome recorded/);
+    expect(src).not.toMatch(/recordOutcome/);
+    expect(src).not.toMatch(/InThreadLearnRecorder/);
+    expect(src).not.toMatch(/recordVerificationResult/);
+    expect(src).not.toMatch(/record_verification_result/);
+  });
+
+  it("Request changes returns focus to the composer", () => {
+    renderWorkspace();
+    loadSample();
+    fireEvent.click(screen.getByRole("button", { name: "Request changes" }));
+    const composer = screen.getByPlaceholderText("What is missing or wrong?");
+    expect(composer).toBeTruthy();
+  });
+
+  it("keeps conversation central and generates a reply", async () => {
+    renderWorkspace();
     fireEvent.change(
-      screen.getByPlaceholderText(/Ask any reliability question/i),
+      screen.getByPlaceholderText("Ask a reliability question…"),
       { target: { value: "Where should the next dollar go?" } },
     );
     fireEvent.click(screen.getByTitle("Send message"));
@@ -83,152 +185,62 @@ describe("DecisionCaseWorkspacePage", () => {
         ),
       ).toBeTruthy(),
     );
-  });
-
-  it("closes the governed loop from evidence to verified value", () => {
-    renderWorkspace();
-    fireEvent.click(screen.getByRole("button", { name: /^Evidence5$/i }));
-    fireEvent.click(screen.getByRole("button", { name: /CMMS work history/i }));
-    expect(screen.getByText("Governed record")).toBeTruthy();
-    fireEvent.click(screen.getByTitle("Close evidence"));
-    fireEvent.click(screen.getByRole("button", { name: /^Authority$/i }));
-    fireEvent.click(
-      screen.getByRole("button", { name: /Simulate controlled approval/i }),
-    );
-    fireEvent.click(screen.getByRole("button", { name: /^Work$/i }));
-    fireEvent.click(
-      screen.getByRole("button", { name: /Record work complete/i }),
-    );
-    fireEvent.click(
-      screen.getByRole("button", { name: /Verify measured value/i }),
-    );
-    expect(screen.getAllByText("Value verified").length).toBeGreaterThan(0);
     expect(
-      screen.getByRole("heading", {
-        name: "You proved the loop. Keep the decision working.",
-      }),
-    ).toBeTruthy();
-    expect(screen.getByText("No paywall yet")).toBeTruthy();
-    expect(
-      (window as Window & { dataLayer?: Array<Record<string, unknown>> })
-        .dataLayer,
-    ).toContainEqual(
-      expect.objectContaining({
-        event: "industry_value_proof_completed",
-        industry: "oil-gas",
-      }),
-    );
-  });
-
-  it("keeps every production-demo case isolated and excludes drafts from exposure", () => {
-    renderWorkspace();
-    expect(screen.getByText("$808k governed exposure")).toBeTruthy();
-    expect(
-      screen.getByText("Active cases").parentElement?.textContent,
-    ).toContain("3");
-
-    fireEvent.click(
-      screen.getByRole("button", { name: /Decision portfolio/i }),
-    );
-    expect(
-      screen.getByRole("heading", {
-        name: "Know where the next reliability dollar should go.",
-      }),
-    ).toBeTruthy();
-    fireEvent.click(
-      screen.getByRole("button", {
-        name: /Decide whether P-101 process pump's seal inspection interval/i,
-      }),
-    );
-
-    fireEvent.click(
-      screen.getByRole("button", {
-        name: /C-204 compressorEvidence conflict\$420k/i,
-      }),
-    );
-    expect(
-      screen.getByRole("heading", {
-        name: "Determine what is driving C-204 repeat compressor trips",
-      }),
-    ).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: /^Evidence5$/i }));
-    expect(
-      screen.getByText("11 records reconciled to the C-204 hierarchy"),
-    ).toBeTruthy();
-    expect(
-      screen.queryByText("18 records reconciled to the P-101 hierarchy"),
+      screen.queryByText("Reviewing evidence and authority boundary"),
     ).toBeNull();
-
-    fireEvent.click(screen.getByRole("button", { name: /^Value$/i }));
-    expect(screen.getByText("Trip-related downtime")).toBeTruthy();
-    expect(screen.getByText("102 h")).toBeTruthy();
-
-    fireEvent.click(screen.getByRole("button", { name: /New Decision Case/i }));
-    expect(screen.getByText("Define a new governed decision")).toBeTruthy();
-    expect(screen.getByText("$808k governed exposure")).toBeTruthy();
   });
 
-  it("deep-links into a recognizable mining proof before data upload", () => {
+  it("deep-links a mining conversation only after Try a sample", () => {
     renderWorkspace("/workspace/cases/demo?industry=mining");
-
-    expect(screen.getByLabelText("Industry proof")).toHaveValue("mining");
-    expect(screen.getByText("Copper Ridge Mining")).toBeTruthy();
+    expect(screen.getByText("What is the reliability question?")).toBeTruthy();
+    expect(screen.queryByText(/CR-01 primary crusher/i)).toBeNull();
+    loadSample();
     expect(
-      screen.getByRole("heading", {
-        name: "Decide where the next CR-01 primary crusher reliability dollar should go",
-      }),
-    ).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Lost tonnes" })).toBeTruthy();
-    expect(screen.getByText("14,800 t")).toBeTruthy();
+      screen.getAllByText(/CR-01 primary crusher/i).length,
+    ).toBeGreaterThan(0);
     expect(screen.queryByText("P-101 process pump")).toBeNull();
+    expect(screen.queryByLabelText("Industry proof")).toBeNull();
   });
 
-  it("preserves each industry session when the proof pack changes", async () => {
-    renderWorkspace();
+  it("keeps industry sessions isolated in storage when the URL pack changes", async () => {
+    const { unmount } = renderWorkspace();
     fireEvent.change(
-      screen.getByPlaceholderText(/Ask any reliability question/i),
+      screen.getByPlaceholderText("Ask a reliability question…"),
       { target: { value: "Challenge the current recommendation." } },
     );
     fireEvent.click(screen.getByTitle("Send message"));
     await screen.findByText(
       "The evidence plan is the highest-value governed next action.",
     );
+    unmount();
 
-    fireEvent.change(screen.getByLabelText("Industry proof"), {
-      target: { value: "manufacturing" },
-    });
-    expect(
-      screen.getByRole("heading", {
-        name: "Decide the next governed action for PR-07 stamping press",
-      }),
-    ).toBeTruthy();
-    expect(
-      (window as Window & { dataLayer?: Array<Record<string, unknown>> })
-        .dataLayer,
-    ).toContainEqual(
-      expect.objectContaining({
-        event: "industry_proof_selected",
-        industry: "manufacturing",
-        previousIndustry: "oil-gas",
-      }),
-    );
+    renderWorkspace("/workspace/cases/demo?industry=manufacturing");
+    expect(screen.getByText("What is the reliability question?")).toBeTruthy();
+    expect(screen.queryByText(/PR-07 stamping press/i)).toBeNull();
     expect(screen.queryByText("P-101 process pump")).toBeNull();
-
-    fireEvent.change(screen.getByLabelText("Industry proof"), {
-      target: { value: "oil-gas" },
-    });
+    loadSample();
+    expect(screen.getAllByText(/PR-07 stamping press/i).length).toBeGreaterThan(
+      0,
+    );
     expect(
-      screen.getByText(
-        "The evidence plan is the highest-value governed next action.",
-      ),
-    ).toBeTruthy();
+      window.sessionStorage.getItem("syncai.publicDecisionCases.v2.oil-gas"),
+    ).toContain("The evidence plan is the highest-value governed next action.");
     expect(
       window.sessionStorage.getItem(
         "syncai.publicDecisionCases.v2.manufacturing",
       ),
     ).toContain("PR-07 stamping press");
+  });
+
+  it("New opens an empty conversation with the centered prompt", async () => {
+    renderWorkspace();
+    loadSample();
+    fireEvent.click(screen.getByRole("button", { name: "Conversations" }));
+    fireEvent.click(screen.getByRole("button", { name: "New" }));
     expect(
-      window.sessionStorage.getItem("syncai.publicDecisionCases.v2.oil-gas"),
-    ).toContain("P-101 process pump");
+      await screen.findByText("What is the reliability question?"),
+    ).toBeTruthy();
+    expect(screen.queryByTestId("recommendation-turn")).toBeNull();
+    expect(screen.getByRole("button", { name: "Try a sample" })).toBeTruthy();
   });
 });

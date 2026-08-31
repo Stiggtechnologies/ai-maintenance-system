@@ -252,9 +252,6 @@ export function LearningLoop() {
                     <span className="text-slate-400">{item.agent}</span>
                     <span className="text-slate-400">·</span>
                     <span className="text-slate-400">{item.date}</span>
-                    <span className="ml-auto font-mono text-slate-400">
-                      {item.confidence}% conf
-                    </span>
                   </div>
                 </div>
               </motion.div>
