@@ -111,6 +111,12 @@ function PublicCopilotExperience() {
   return <DecisionCaseWorkspacePage publicMode />;
 }
 
+function DemoPathRedirect() {
+  const { user, loading } = useAuth();
+  if (loading) return <LoadingScreen />;
+  return <Navigate to={user ? "/decision-cases" : "/workspace"} replace />;
+}
+
 function safeReturnTo(value: string | null): string {
   if (!value || !value.startsWith("/") || value.startsWith("//")) return "/";
   try {
@@ -216,7 +222,7 @@ function App() {
             ]);
           }
           clearDecisionCaseHandoff(window.sessionStorage);
-          window.location.assign("/decision-cases/demo");
+          window.location.assign("/decision-cases");
           return;
         } catch {
           // Keep the staged case in this tab so a transient failure can be
@@ -272,7 +278,16 @@ function App() {
             path="/pilot/reliability"
             element={<FirstCustomerPilotPage />}
           />
-          <Route path="/demo/copilot" element={<PublicCopilotExperience />} />
+          <Route
+            path="/demo/copilot"
+            element={<Navigate to="/workspace" replace />}
+          />
+          <Route path="/decision-cases/demo" element={<DemoPathRedirect />} />
+          <Route path="/workspace" element={<PublicCopilotExperience />} />
+          <Route
+            path="/workspace/cases/demo"
+            element={<Navigate to="/workspace" replace />}
+          />
           <Route
             path="/workspace/cases/:caseId"
             element={<DecisionCaseWorkspacePage publicMode />}
@@ -439,7 +454,15 @@ function AuthenticatedApp() {
           />
           <Route
             path="/cowork"
-            element={<Navigate to="/decision-cases/demo" replace />}
+            element={<Navigate to="/decision-cases" replace />}
+          />
+          <Route
+            path="/decision-cases"
+            element={<GovernedDecisionWorkspacePage />}
+          />
+          <Route
+            path="/decision-cases/demo"
+            element={<Navigate to="/decision-cases" replace />}
           />
           {/* D13.07 (overlap-map ruling 15): the signed-in decision
               workspace reads the canonical decisions + scenarios stores;

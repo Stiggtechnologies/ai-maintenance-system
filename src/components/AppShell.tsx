@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { useMediaQuery } from "../lib/useMediaQuery";
 import { trackUiEvent } from "../services/uiEvents";
 import {
-  Zap,
   ChevronLeft,
   ChevronRight,
   LogOut,
@@ -10,7 +9,6 @@ import {
   ChevronDown,
   Shield,
   Wifi,
-  Activity,
   Target,
   Bot,
   Factory,
@@ -42,6 +40,7 @@ import {
   type NotificationRow,
 } from "../services/operatingLoopService";
 import { motion, AnimatePresence } from "framer-motion";
+import { BrandWordmark } from "./BrandWordmark";
 import { CommandSearch } from "./CommandSearch";
 import { CopilotDock } from "./CopilotDock";
 import { useAuth } from "./AuthProvider";
@@ -106,7 +105,7 @@ const navGroups: NavGroup[] = [
       {
         id: "cowork",
         label: "Decision Workspace",
-        path: "/decision-cases/demo",
+        path: "/decision-cases",
       },
     ],
   },
@@ -464,22 +463,16 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
         }`}
       >
         {/* Logo */}
-        <div className="h-14 px-4 flex items-center gap-3 border-b border-white/5 shrink-0">
-          <div className="w-8 h-8 bg-linear-to-br from-teal-500 to-cyan-400 rounded-lg flex items-center justify-center shrink-0 shadow-[0_0_20px_rgba(20,184,166,0.4)]">
-            <Zap className="w-4 h-4 text-white" />
-          </div>
+        <div className="h-14 px-3 flex flex-col justify-center border-b border-white/5 shrink-0 overflow-hidden">
+          <BrandWordmark />
           {!isCollapsed && (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
+              className="mt-0.5 text-[10px] font-medium uppercase tracking-widest text-slate-400 leading-none"
             >
-              <div className="text-sm font-bold text-white tracking-wide">
-                SyncAI
-              </div>
-              <div className="text-xs text-slate-400 font-medium tracking-widest uppercase">
-                Mission Assurance
-              </div>
+              Reliability Engineer
             </motion.div>
           )}
         </div>
@@ -598,12 +591,12 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
                                 : "px-4 py-2"
                             } ${
                               active
-                                ? "text-signal-gold bg-signal-gold/10"
+                                ? "text-signal-cyan bg-signal-cyan/10"
                                 : "text-overlook-mist/75 hover:text-overlook-paper hover:bg-white/3"
                             }`}
                           >
                             {active && (
-                              <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-signal-gold rounded-r" />
+                              <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-signal-cyan rounded-r" />
                             )}
                             {!isCollapsed && (
                               <span className="text-sm font-medium">
@@ -645,8 +638,9 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
           </button>
           {!isCollapsed && (
             <div className="mt-2 px-2 py-1">
-              <div className="text-xs text-slate-400">
-                SyncAI Platform v3.0 · build {__BUILD_SHA__}
+              <BrandWordmark className="h-5" />
+              <div className="mt-1 text-[10px] text-slate-500">
+                Platform v3.0 · build {__BUILD_SHA__}
               </div>
             </div>
           )}
@@ -891,7 +885,6 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
 }
 
 // Suppress unused import warnings — kept for potential future use
-void Activity;
 void Wifi;
 void AlertTriangle;
 void TrendingUp;

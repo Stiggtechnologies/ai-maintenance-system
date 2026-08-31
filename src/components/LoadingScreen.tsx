@@ -1,4 +1,5 @@
 import { motion } from "framer-motion";
+import { BrandWordmark } from "./BrandWordmark";
 
 export function LoadingScreen() {
   return (
@@ -8,14 +9,10 @@ export function LoadingScreen() {
         animate={{ opacity: 1, scale: 1 }}
         className="text-center"
       >
-        <div className="inline-flex items-center justify-center w-16 h-16 bg-[#3A8DFF]/10 rounded-2xl mb-6">
-          <motion.div
-            animate={{ rotate: 360 }}
-            transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-            className="w-8 h-8 border-2 border-[#3A8DFF] border-t-transparent rounded-full"
-          />
+        <div className="mb-6 flex justify-center">
+          <BrandWordmark />
         </div>
-        <p className="text-industrial-muted text-sm">Loading SyncAI...</p>
+        <p className="text-industrial-muted text-sm">Loading…</p>
       </motion.div>
     </div>
   );

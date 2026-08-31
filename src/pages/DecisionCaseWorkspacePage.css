@@ -44,10 +44,36 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 20px;
+  gap: 12px;
   padding: 0 18px;
   border-bottom: 1px solid var(--line);
   background: #0b1015;
+}
+.dw-topbar-side {
+  display: flex;
+  align-items: center;
+  min-width: 44px;
+  flex: 0 0 auto;
+}
+.dw-topbar-side.is-end {
+  justify-content: flex-end;
+  min-width: 96px;
+}
+.dw-topbar-center {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.dw-case-name {
+  overflow: hidden;
+  color: #e8edf2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+  font-weight: 600;
+  text-align: center;
 }
 .dw-identity,
 .dw-top-actions,
@@ -2515,31 +2541,73 @@
 }
 .dw-empty {
   flex: 1;
-  display: grid;
-  place-items: center;
-  justify-items: center;
-  gap: 16px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-start;
   min-height: 40vh;
-  color: #c8d2d9;
+  padding: 0 4px 8px;
 }
-.dw-empty p {
+.dw-seed-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 100%;
   margin: 0;
-  font-size: 18px;
-  font-weight: 550;
-}
-.dw-try-sample {
-  height: 36px;
-  padding: 0 16px;
-  border: 1px solid #2c8178;
-  border-radius: 8px;
-  background: #0d201f;
-  color: var(--teal);
-  font-size: 13px;
-  font-weight: 600;
+  padding: 8px 12px 8px 8px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: #c5d0d7;
+  font-size: 14px;
+  font-weight: 500;
   cursor: pointer;
 }
-.dw-try-sample:hover {
-  background: #12302d;
+.dw-seed-chip:hover {
+  background: rgba(255, 255, 255, 0.04);
+  color: #e8edf2;
+}
+.dw-seed-orb {
+  width: 22px;
+  height: 22px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 30% 30%, #7ee8ff 0%, #38c8f4 38%, #0d6b8a 100%);
+  box-shadow: 0 0 0 1px rgba(56, 200, 244, 0.25);
+}
+.dw-plus {
+  position: relative;
+  flex: 0 0 auto;
+}
+.dw-plus-sheet {
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 8px);
+  z-index: 30;
+  min-width: 168px;
+  padding: 6px;
+  border: 1px solid #2a3640;
+  border-radius: 12px;
+  background: #141b22;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+}
+.dw-plus-sheet button {
+  width: 100%;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #e8edf2;
+  font-size: 14px;
+  cursor: pointer;
+}
+.dw-plus-sheet button:hover {
+  background: rgba(255, 255, 255, 0.06);
 }
 .dw-system-turn {
   margin: 0 0 14px;

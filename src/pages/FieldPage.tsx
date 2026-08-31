@@ -131,22 +131,37 @@ export function FieldPage() {
       data-layout="chat-first"
     >
       <header className="dw-topbar">
-        <div className="dw-identity">
-          <span className="dw-mark" aria-hidden>
-            S
-          </span>
-          <span>
-            <strong>SyncAI</strong>
-            <small>Field</small>
-          </span>
+        <div className="dw-topbar-side" />
+        <div className="dw-topbar-center">
+          {turns.length > 0 && (
+            <span className="dw-case-name">Field observation</span>
+          )}
         </div>
+        <div className="dw-topbar-side is-end" />
       </header>
       <div className="dw-layout">
         <main className="dw-main">
           <section className="dw-thread" aria-label="Conversation">
             {turns.length === 0 ? (
-              <div className="dw-empty">
-                <p>What did you observe?</p>
+              <div className="dw-empty" data-testid="first-paint-empty">
+                <button
+                  type="button"
+                  className="dw-seed-chip"
+                  data-testid="sample-seed-chip"
+                  onClick={() => {
+                    setTurns([
+                      {
+                        id: `field-sample-${Date.now()}`,
+                        role: "user",
+                        text: "Seal weep on the inboard gland",
+                        createdAt: new Date().toISOString(),
+                      },
+                    ]);
+                  }}
+                >
+                  <span className="dw-seed-orb" aria-hidden />
+                  Seal weep on the inboard gland
+                </button>
               </div>
             ) : (
               turns.map((turn) => (
@@ -218,45 +233,49 @@ export function FieldPage() {
               </div>
             )}
             <div className="dw-composer">
-              <input
-                ref={photoRef}
-                type="file"
-                accept="image/*"
-                capture="environment"
-                className="dw-file-input"
-                aria-label="Attach a photo"
-                onChange={(event) => {
-                  setPhoto(event.target.files?.[0] ?? null);
-                  event.target.value = "";
-                }}
-              />
-              <button
-                type="button"
-                className="dw-composer-tool"
-                aria-label="Camera"
-                title="Attach a photo to this turn"
-                onClick={() => photoRef.current?.click()}
-              >
-                <Camera size={16} />
-              </button>
-              <button
-                type="button"
-                className="dw-composer-tool"
-                aria-label="QR"
-                title="Attach a QR or asset tag to this turn"
-                onClick={() => setQrOpen((value) => !value)}
-              >
-                <QrCode size={16} />
-              </button>
-              <button
-                type="button"
-                className="dw-composer-tool"
-                aria-label="Attach a file"
-                title="Attach a file to this turn"
-                onClick={() => photoRef.current?.click()}
-              >
-                <Paperclip size={16} />
-              </button>
+              {turns.length > 0 && (
+                <>
+                  <input
+                    ref={photoRef}
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    className="dw-file-input"
+                    aria-label="Attach a photo"
+                    onChange={(event) => {
+                      setPhoto(event.target.files?.[0] ?? null);
+                      event.target.value = "";
+                    }}
+                  />
+                  <button
+                    type="button"
+                    className="dw-composer-tool"
+                    aria-label="Camera"
+                    title="Attach a photo to this turn"
+                    onClick={() => photoRef.current?.click()}
+                  >
+                    <Camera size={16} />
+                  </button>
+                  <button
+                    type="button"
+                    className="dw-composer-tool"
+                    aria-label="QR"
+                    title="Attach a QR or asset tag to this turn"
+                    onClick={() => setQrOpen((value) => !value)}
+                  >
+                    <QrCode size={16} />
+                  </button>
+                  <button
+                    type="button"
+                    className="dw-composer-tool"
+                    aria-label="Attach a file"
+                    title="Attach a file to this turn"
+                    onClick={() => photoRef.current?.click()}
+                  >
+                    <Paperclip size={16} />
+                  </button>
+                </>
+              )}
               <textarea
                 ref={composerRef}
                 value={composer}

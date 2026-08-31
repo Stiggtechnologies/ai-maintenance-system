@@ -41,6 +41,13 @@ describe("ReliabilityEngineerPage", () => {
         name: "Reliability Engineer",
       }),
     ).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "SyncAI" })).toHaveAttribute(
+      "src",
+      "/brand/wordmark-ink.png",
+    );
+    expect(screen.getByTestId("sample-seed-chip")).toBeTruthy();
+    expect(screen.queryByText("Decision packet")).toBeNull();
+    expect(screen.queryByText(/welcome/i)).toBeNull();
     expect(
       screen.getByRole("textbox", { name: /ask the reliability engineer/i }),
     ).toBeInTheDocument();

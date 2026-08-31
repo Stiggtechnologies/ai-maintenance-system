@@ -69,7 +69,7 @@ export function FirstCustomerPilotPage() {
             View the assessment <ArrowUpRight size={16} />
           </a>
           <a
-            href="/demo/copilot#syncai-chat"
+            href="/workspace"
             className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg border border-white/15 px-6 py-3 text-sm font-semibold text-white"
           >
             <ShieldCheck size={16} />

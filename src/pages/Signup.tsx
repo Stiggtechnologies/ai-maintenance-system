@@ -241,7 +241,7 @@ export function Signup({ onSuccess, onTabChange }: SignupProps) {
             type="submit"
             disabled={loading}
             whileTap={{ scale: 0.99 }}
-            className="w-full rounded-lg bg-[#3A8DFF] px-4 py-3 font-medium text-white disabled:opacity-50"
+            className="w-full rounded-lg bg-teal-400 px-4 py-3 font-medium text-slate-950 hover:bg-teal-300 disabled:opacity-50"
           >
             {loading ? "Creating workspace…" : "Continue Reliability Engineer"}
           </motion.button>

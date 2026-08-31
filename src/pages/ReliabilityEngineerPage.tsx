@@ -32,6 +32,7 @@ import {
   Wrench,
   X,
 } from "lucide-react";
+import { BrandWordmark } from "../components/BrandWordmark";
 import {
   PUBLIC_RELIABILITY_FREE_RUN_LIMIT,
   PUBLIC_RELIABILITY_SCENARIOS,
@@ -336,21 +337,14 @@ export function ReliabilityEngineerPage({
     <main className="h-screen overflow-hidden bg-[#090d12] text-industrial-text">
       <header className="flex h-16 items-center justify-between border-b border-white/7 bg-[#0b0f14] px-4 sm:px-6">
         <a
-          href="/"
+          href="/workspace"
           className="flex items-center gap-3"
-          aria-label="SyncAI home"
+          aria-label="SyncAI Reliability Engineer"
         >
-          <span className="grid h-9 w-9 place-items-center rounded-lg border border-teal-400/25 bg-teal-400/8">
-            <Activity size={18} className="text-teal-300" />
-          </span>
-          <span>
-            <span className="block text-sm font-bold tracking-tight text-white">
-              SyncAI
-            </span>
-            <span className="hidden text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500 sm:block">
-              Industrial Intelligence Infrastructure
-            </span>
-          </span>
+          <BrandWordmark />
+          <h1 className="hidden text-xs font-medium text-slate-500 sm:block">
+            Reliability Engineer
+          </h1>
         </a>
 
         <div className="hidden items-center gap-2 rounded-full border border-white/7 bg-white/[0.025] px-3 py-1.5 text-xs text-slate-400 md:flex">
@@ -379,7 +373,13 @@ export function ReliabilityEngineerPage({
       </header>
 
       <div className="h-[calc(100vh-4rem)] p-2 sm:p-3">
-        <div className="mx-auto grid h-full max-w-[1680px] overflow-hidden rounded-xl border border-white/7 bg-[#0d1218] shadow-[0_18px_60px_rgba(0,0,0,0.28)] lg:grid-cols-[240px_minmax(0,1fr)] xl:grid-cols-[240px_minmax(0,1fr)_420px]">
+        <div
+          className={`mx-auto grid h-full max-w-[1680px] overflow-hidden rounded-xl border border-white/7 bg-[#0d1218] shadow-[0_18px_60px_rgba(0,0,0,0.28)] lg:grid-cols-[240px_minmax(0,1fr)] ${
+            submittedQuestion || result
+              ? "xl:grid-cols-[240px_minmax(0,1fr)_420px]"
+              : ""
+          }`}
+        >
           <aside className="hidden min-h-0 border-r border-white/7 bg-[#0a0f15] lg:block">
             {sidebar}
           </aside>
@@ -388,6 +388,7 @@ export function ReliabilityEngineerPage({
             <ChatHeader
               scenario={scenario}
               resultReady={Boolean(result)}
+              emptyConversation={!submittedQuestion}
               onOpenMenu={() => setMobileNavOpen(true)}
               onOpenArtifact={() => openArtifact()}
             />
@@ -397,21 +398,38 @@ export function ReliabilityEngineerPage({
               aria-live="polite"
             >
               <div className="mx-auto max-w-3xl space-y-7">
-                <WelcomeMessage
-                  scenarioId={scenarioId}
-                  onScenarioChange={handleScenarioChange}
-                />
-
                 {submittedQuestion ? (
                   <UserMessage
                     question={submittedQuestion}
                     scenario={scenario}
                   />
                 ) : (
-                  <PromptStarters
-                    scenario={scenario}
-                    onSelectPrompt={setPrompt}
-                  />
+                  <div
+                    className="flex min-h-[40vh] items-end justify-start"
+                    data-testid="first-paint-empty"
+                  >
+                    <button
+                      type="button"
+                      data-testid="sample-seed-chip"
+                      className="inline-flex max-w-full items-center gap-2.5 rounded-full px-3 py-2 text-left text-sm text-slate-300 hover:bg-white/[0.04] hover:text-white"
+                      onClick={() =>
+                        startGeneration({
+                          question: scenario.question,
+                          recordRun: true,
+                        })
+                      }
+                    >
+                      <span
+                        className="h-[22px] w-[22px] shrink-0 rounded-full"
+                        style={{
+                          background:
+                            "radial-gradient(circle at 30% 30%, #7ee8ff 0%, #38c8f4 38%, #0d6b8a 100%)",
+                        }}
+                        aria-hidden
+                      />
+                      {scenario.question}
+                    </button>
+                  </div>
                 )}
 
                 {agentState === "running" && (
@@ -443,6 +461,7 @@ export function ReliabilityEngineerPage({
               scenario={scenario}
               isRunning={isRunning}
               freeRunUsed={freeRunUsed}
+              emptyConversation={!submittedQuestion}
               onPromptChange={setPrompt}
               onSend={handleSend}
               onStop={handleStop}
@@ -450,18 +469,20 @@ export function ReliabilityEngineerPage({
             />
           </section>
 
-          <aside className="hidden min-h-0 border-l border-white/7 bg-[#0a0f15] xl:block">
-            <ArtifactPanel
-              result={result}
-              expertResult={expertResult}
-              isRunning={isRunning}
-              activeStage={activeStage}
-              activeTab={artifactTab}
-              onTabChange={setArtifactTab}
-              onLockedAction={setGateAction}
-              onSignup={onSignup}
-            />
-          </aside>
+          {(submittedQuestion || result) && (
+            <aside className="hidden min-h-0 border-l border-white/7 bg-[#0a0f15] xl:block">
+              <ArtifactPanel
+                result={result}
+                expertResult={expertResult}
+                isRunning={isRunning}
+                activeStage={activeStage}
+                activeTab={artifactTab}
+                onTabChange={setArtifactTab}
+                onLockedAction={setGateAction}
+                onSignup={onSignup}
+              />
+            </aside>
+          )}
         </div>
       </div>
 
@@ -517,11 +538,13 @@ export function ReliabilityEngineerPage({
 function ChatHeader({
   scenario,
   resultReady,
+  emptyConversation,
   onOpenMenu,
   onOpenArtifact,
 }: {
   scenario: PublicReliabilityScenario;
   resultReady: boolean;
+  emptyConversation: boolean;
   onOpenMenu: () => void;
   onOpenArtifact: () => void;
 }) {
@@ -536,45 +559,29 @@ function ChatHeader({
         >
           <Menu size={19} />
         </button>
-        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-teal-400/10 text-teal-300">
-          <Wrench size={18} />
-        </span>
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
+        {!emptyConversation && (
+          <div className="min-w-0">
             <h1 className="truncate text-sm font-semibold text-white">
-              Reliability Engineer
+              {scenario.asset}
             </h1>
-            <span className="rounded-md border border-teal-400/20 bg-teal-400/8 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-teal-200">
-              Advisory
-            </span>
           </div>
-          <p className="truncate text-xs text-slate-500">{scenario.asset}</p>
-        </div>
+        )}
       </div>
 
       <div className="flex items-center gap-2">
-        <div className="hidden items-center gap-1.5 text-[11px] text-slate-500 sm:flex">
-          <span className="rounded-md bg-white/[0.035] px-2 py-1">
-            Retrieve
-          </span>
-          <span>→</span>
-          <span className="rounded-md bg-white/[0.035] px-2 py-1">
-            Diagnose
-          </span>
-          <span>→</span>
-          <span className="rounded-md bg-white/[0.035] px-2 py-1">Plan</span>
-        </div>
-        <button
-          type="button"
-          onClick={onOpenArtifact}
-          className="relative inline-flex items-center gap-2 rounded-lg border border-white/8 px-3 py-2 text-xs font-semibold text-slate-300 transition-colors hover:bg-white/5 hover:text-white xl:hidden"
-        >
-          <PanelRight size={16} />
-          <span className="hidden sm:inline">Decision packet</span>
-          {resultReady && (
-            <span className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full border-2 border-[#0d1218] bg-emerald-400" />
-          )}
-        </button>
+        {!emptyConversation && (
+          <button
+            type="button"
+            onClick={onOpenArtifact}
+            className="relative inline-flex items-center gap-2 rounded-lg border border-white/8 px-3 py-2 text-xs font-semibold text-slate-300 transition-colors hover:bg-white/5 hover:text-white xl:hidden"
+          >
+            <PanelRight size={16} />
+            <span className="hidden sm:inline">Decision packet</span>
+            {resultReady && (
+              <span className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full border-2 border-[#0d1218] bg-emerald-400" />
+            )}
+          </button>
+        )}
       </div>
     </div>
   );
@@ -708,6 +715,9 @@ function ConversationSidebar({
   );
 }
 
+// Empty first paint mounts the seed chip. Keep the previous welcome canvas
+// for a later restoration path — do not delete the domain copy.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function WelcomeMessage({
   scenarioId,
   onScenarioChange,
@@ -762,6 +772,7 @@ function WelcomeMessage({
   );
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function PromptStarters({
   scenario,
   onSelectPrompt,
@@ -1106,6 +1117,7 @@ function ChatComposer({
   scenario,
   isRunning,
   freeRunUsed,
+  emptyConversation = false,
   onPromptChange,
   onSend,
   onStop,
@@ -1115,6 +1127,7 @@ function ChatComposer({
   scenario: PublicReliabilityScenario;
   isRunning: boolean;
   freeRunUsed: boolean;
+  emptyConversation?: boolean;
   onPromptChange: (prompt: string) => void;
   onSend: () => void;
   onStop: () => void;
@@ -1164,6 +1177,7 @@ function ChatComposer({
           </button>
         ) : (
           <div className="rounded-2xl border border-white/10 bg-[#121922] p-2 shadow-[0_10px_35px_rgba(0,0,0,0.22)] focus-within:border-teal-400/30">
+            {!emptyConversation && (
             <div className="flex items-center gap-2 px-2 pb-1.5 pt-1">
               <span className="inline-flex items-center gap-1.5 rounded-md bg-teal-400/7 px-2 py-1 text-[10px] font-semibold text-teal-200">
                 <Database size={11} />
@@ -1175,6 +1189,7 @@ function ChatComposer({
                   : "No files attached"}
               </span>
             </div>
+            )}
             <textarea
               ref={textareaRef}
               value={prompt}
@@ -1191,6 +1206,8 @@ function ChatComposer({
             />
             <div className="flex items-center justify-between gap-2 px-1 pb-1">
               <div className="flex items-center gap-1">
+                {!emptyConversation && (
+                  <>
                 <ComposerIconButton
                   label="Attach files (requires workspace)"
                   icon={Paperclip}
@@ -1239,6 +1256,8 @@ function ChatComposer({
                     </div>
                   )}
                 </div>
+                  </>
+                )}
               </div>
 
               <div className="flex items-center gap-2">

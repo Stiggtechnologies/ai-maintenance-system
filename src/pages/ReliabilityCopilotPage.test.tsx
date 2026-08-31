@@ -6,7 +6,7 @@ const FREE_TRIAL_USAGE_STORAGE_KEY = "syncai.reliability.freeUsage.v1";
 
 describe("ReliabilityCopilotPage", () => {
   beforeEach(() => {
-    window.history.replaceState({}, "", "/demo/copilot");
+    window.history.replaceState({}, "", "/reliability-copilot");
     const storage = new Map<string, string>();
     Object.defineProperty(window, "localStorage", {
       configurable: true,
@@ -23,7 +23,7 @@ describe("ReliabilityCopilotPage", () => {
     window.history.replaceState(
       {},
       "",
-      "/demo/copilot?asset=P-101%20pump%20train&pain=Repeat%20failures&role=Executive%20sponsor",
+      "/reliability-copilot?asset=P-101%20pump%20train&pain=Repeat%20failures&role=Executive%20sponsor",
     );
 
     render(<ReliabilityCopilotPage />);

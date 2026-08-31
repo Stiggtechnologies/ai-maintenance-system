@@ -14,9 +14,18 @@ describe("FirstCustomerPilotPage", () => {
     expect(
       screen.getByRole("link", { name: /View the assessment/i }),
     ).toHaveAttribute("href", "https://syncai.ca/reliability-assessment");
-    expect(
-      screen.getByRole("link", { name: /Try Reliability Engineer/i }),
-    ).toBeTruthy();
+    const tryEngineer = screen.getByRole("link", {
+      name: /Try Reliability Engineer/i,
+    });
+    expect(tryEngineer).toHaveAttribute("href", "/workspace");
+    expect(tryEngineer.getAttribute("href")).not.toMatch(/\/demo/);
+  });
+
+  it("does not advertise a /demo share link from the landing CTAs", () => {
+    render(<FirstCustomerPilotPage />);
+    for (const link of screen.getAllByRole("link")) {
+      expect(link.getAttribute("href") ?? "").not.toMatch(/\/demo/);
+    }
   });
 
   it("renders the retired-offer lede once, in normal flow, with a unitless line-height", () => {

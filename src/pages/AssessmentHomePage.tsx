@@ -229,7 +229,10 @@ export function AssessmentHomePage() {
       </p>
 
       {assessment.primary_management_question ? (
-        <blockquote className="mt-6 max-w-3xl border-l-2 border-teal-300/40 pl-4 text-lg leading-8 text-slate-200">
+        <blockquote
+          data-testid="assessment-management-question"
+          className="mt-6 max-w-3xl border-l-2 border-teal-300/40 pl-4 text-lg leading-[1.7] text-slate-200"
+        >
           {assessment.primary_management_question}
         </blockquote>
       ) : (
