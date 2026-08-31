@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { useMediaQuery } from "../lib/useMediaQuery";
 import { trackUiEvent } from "../services/uiEvents";
 import {
-  Zap,
   ChevronLeft,
   ChevronRight,
   LogOut,
@@ -42,6 +41,7 @@ import {
   type NotificationRow,
 } from "../services/operatingLoopService";
 import { motion, AnimatePresence } from "framer-motion";
+import { BrandWordmark } from "./BrandWordmark";
 import { CommandSearch } from "./CommandSearch";
 import { CopilotDock } from "./CopilotDock";
 import { useAuth } from "./AuthProvider";
@@ -464,22 +464,16 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
         }`}
       >
         {/* Logo */}
-        <div className="h-14 px-4 flex items-center gap-3 border-b border-white/5 shrink-0">
-          <div className="w-8 h-8 bg-linear-to-br from-teal-500 to-cyan-400 rounded-lg flex items-center justify-center shrink-0 shadow-[0_0_20px_rgba(20,184,166,0.4)]">
-            <Zap className="w-4 h-4 text-white" />
-          </div>
+        <div className="h-14 px-3 flex flex-col justify-center border-b border-white/5 shrink-0 overflow-hidden">
+          <BrandWordmark />
           {!isCollapsed && (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
+              className="mt-0.5 text-[10px] font-medium uppercase tracking-widest text-slate-400 leading-none"
             >
-              <div className="text-sm font-bold text-white tracking-wide">
-                SyncAI
-              </div>
-              <div className="text-xs text-slate-400 font-medium tracking-widest uppercase">
-                Mission Assurance
-              </div>
+              Mission Assurance
             </motion.div>
           )}
         </div>

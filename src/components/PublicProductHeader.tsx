@@ -1,4 +1,5 @@
-import { Activity, ArrowUpRight, ClipboardCheck, LogIn } from "lucide-react";
+import { ArrowUpRight, ClipboardCheck, LogIn } from "lucide-react";
+import { BrandWordmark } from "./BrandWordmark";
 
 type PublicProductHeaderProps = {
   active: "copilot" | "proof";
@@ -21,16 +22,9 @@ export function PublicProductHeader({
           className="flex min-w-0 items-center gap-3"
           aria-label="SyncAI Reliability Engineer"
         >
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-teal-300/25 bg-teal-300/10 text-teal-200">
-            <Activity size={18} />
-          </span>
-          <span className="min-w-0">
-            <span className="block text-sm font-bold text-[#F8FAFC]">
-              SyncAI
-            </span>
-            <span className="hidden text-xs text-slate-500 sm:block">
-              Reliability Engineer · governed industrial intelligence
-            </span>
+          <BrandWordmark />
+          <span className="hidden min-w-0 text-xs text-slate-500 sm:block">
+            Reliability Engineer · governed industrial intelligence
           </span>
         </a>
         <nav
