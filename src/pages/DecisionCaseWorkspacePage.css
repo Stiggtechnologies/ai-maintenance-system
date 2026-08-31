@@ -2517,6 +2517,8 @@
   flex: 1;
   display: grid;
   place-items: center;
+  justify-items: center;
+  gap: 16px;
   min-height: 40vh;
   color: #c8d2d9;
 }
@@ -2524,6 +2526,20 @@
   margin: 0;
   font-size: 18px;
   font-weight: 550;
+}
+.dw-try-sample {
+  height: 36px;
+  padding: 0 16px;
+  border: 1px solid #2c8178;
+  border-radius: 8px;
+  background: #0d201f;
+  color: var(--teal);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.dw-try-sample:hover {
+  background: #12302d;
 }
 .dw-system-turn {
   margin: 0 0 14px;

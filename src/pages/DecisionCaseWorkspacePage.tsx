@@ -130,6 +130,19 @@ function getContext(params: URLSearchParams): DecisionJourneyContext {
   };
 }
 
+function readStoredCases(
+  storage: Pick<Storage, "getItem">,
+  storageKey: string,
+): DecisionCase[] | null {
+  try {
+    const raw = storage.getItem(storageKey);
+    const parsed = raw ? (JSON.parse(raw) as DecisionCase[]) : null;
+    return Array.isArray(parsed) && parsed.length ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
 function initialCases(
   routeId: string | undefined,
   context: DecisionJourneyContext,
@@ -140,24 +153,28 @@ function initialCases(
   const storageKey = publicMode
     ? getPublicDecisionCaseStorageKey(industry)
     : undefined;
-  const seededContext =
-    publicMode && !context.intakeId
-      ? { ...context, intakeId: "demo-value-proof" }
-      : context;
-  const stored = readDecisionCases(storage, seededContext, storageKey);
-  const saved = publicMode ? includeCompletePublicValueProof(stored) : stored;
+
+  if (publicMode) {
+    const stored = storageKey ? readStoredCases(storage, storageKey) : null;
+    if (stored) return includeCompletePublicValueProof(stored);
+    const role = context.role || getDecisionIndustryPack(industry).roles[0];
+    return includeCompletePublicValueProof([
+      createDraftDecisionCase(role, industry),
+    ]);
+  }
+
+  const stored = readDecisionCases(storage, context, storageKey);
   if (
     !routeId ||
     routeId === "demo" ||
-    saved.some((item) => item.id === routeId)
+    stored.some((item) => item.id === routeId)
   ) {
-    return saved;
+    return stored;
   }
   const personalized = createSeedDecisionCases(context)[0];
   personalized.id = routeId;
   personalized.caseNumber = `VP-${routeId.slice(-6).toUpperCase()}`;
-  const next = [personalized, ...saved];
-  return publicMode ? includeCompletePublicValueProof(next) : next;
+  return [personalized, ...stored];
 }
 
 function timestamp(value: string) {
@@ -329,6 +346,25 @@ export function DecisionCaseWorkspacePage({
     setTab("decision");
     setEvidence(null);
     setRecordOpen(false);
+  };
+
+  const trySample = () => {
+    const sample = createSeedDecisionCases({
+      ...context,
+      industry,
+      role,
+    })[0];
+    setCases((current) => {
+      const keep = current.filter(
+        (item) =>
+          item.id !== sample.id &&
+          !(item.id.startsWith("draft-") && conversationIsEmpty(item.messages)),
+      );
+      return [sample, ...keep];
+    });
+    setSelectedId(sample.id);
+    setRecordOpen(false);
+    setRailOpen(false);
   };
 
   const createCase = async () => {
@@ -608,15 +644,17 @@ export function DecisionCaseWorkspacePage({
       data-layout="chat-first"
     >
       <header className="dw-topbar">
-        <button
-          type="button"
-          className="dw-icon"
-          aria-label="Conversations"
-          aria-expanded={railOpen}
-          onClick={() => setRailOpen((value) => !value)}
-        >
-          <PanelLeft size={17} />
-        </button>
+        {!emptyConversation && (
+          <button
+            type="button"
+            className="dw-icon"
+            aria-label="Conversations"
+            aria-expanded={railOpen}
+            onClick={() => setRailOpen((value) => !value)}
+          >
+            <PanelLeft size={17} />
+          </button>
+        )}
         <div className="dw-identity">
           <span className="dw-mark" aria-hidden>
             S
@@ -681,6 +719,13 @@ export function DecisionCaseWorkspacePage({
               {emptyConversation ? (
                 <div className="dw-empty">
                   <p>What is the reliability question?</p>
+                  <button
+                    type="button"
+                    className="dw-try-sample"
+                    onClick={trySample}
+                  >
+                    Try a sample
+                  </button>
                 </div>
               ) : (
                 active.messages.map((message) => (
@@ -805,76 +850,84 @@ export function DecisionCaseWorkspacePage({
                 </div>
               )}
               <div className="dw-composer">
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".csv,.tsv,.txt,.log,image/*"
-                  className="dw-file-input"
-                  aria-label="Attach a data file"
-                  onChange={(event) => {
-                    void handleAttach(event.target.files?.[0]);
-                    event.target.value = "";
-                  }}
-                />
-                <input
-                  ref={photoInputRef}
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  className="dw-file-input"
-                  aria-label="Attach a photo"
-                  onChange={(event) => {
-                    void handleAttach(event.target.files?.[0]);
-                    event.target.value = "";
-                  }}
-                />
-                <button
-                  type="button"
-                  className="dw-composer-tool"
-                  title="Attach a CSV or photo"
-                  aria-label="Attach a data file"
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  <Paperclip size={16} />
-                </button>
-                <button
-                  type="button"
-                  className="dw-composer-tool"
-                  title="Attach a photo"
-                  aria-label="Attach a photo"
-                  onClick={() => photoInputRef.current?.click()}
-                >
-                  <Camera size={16} />
-                </button>
-                <button
-                  type="button"
-                  className={`dw-composer-tool ${dictation.listening ? "is-live" : ""}`}
-                  title={
-                    dictation.supported
-                      ? dictation.listening
-                        ? "Stop dictation"
-                        : "Dictate — runs in your browser"
-                      : "This browser has no speech recognition"
-                  }
-                  aria-label={
-                    dictation.listening ? "Stop dictation" : "Dictate a message"
-                  }
-                  aria-pressed={dictation.listening}
-                  disabled={!dictation.supported}
-                  onClick={() =>
-                    dictation.listening ? dictation.stop() : dictation.start()
-                  }
-                >
-                  {dictation.supported ? (
-                    dictation.listening ? (
-                      <Mic size={16} />
-                    ) : (
-                      <Mic size={16} />
-                    )
-                  ) : (
-                    <MicOff size={16} />
-                  )}
-                </button>
+                {!emptyConversation && (
+                  <>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept=".csv,.tsv,.txt,.log,image/*"
+                      className="dw-file-input"
+                      aria-label="Attach a data file"
+                      onChange={(event) => {
+                        void handleAttach(event.target.files?.[0]);
+                        event.target.value = "";
+                      }}
+                    />
+                    <input
+                      ref={photoInputRef}
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      className="dw-file-input"
+                      aria-label="Attach a photo"
+                      onChange={(event) => {
+                        void handleAttach(event.target.files?.[0]);
+                        event.target.value = "";
+                      }}
+                    />
+                    <button
+                      type="button"
+                      className="dw-composer-tool"
+                      title="Attach a CSV or photo"
+                      aria-label="Attach a data file"
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      <Paperclip size={16} />
+                    </button>
+                    <button
+                      type="button"
+                      className="dw-composer-tool"
+                      title="Attach a photo"
+                      aria-label="Attach a photo"
+                      onClick={() => photoInputRef.current?.click()}
+                    >
+                      <Camera size={16} />
+                    </button>
+                    <button
+                      type="button"
+                      className={`dw-composer-tool ${dictation.listening ? "is-live" : ""}`}
+                      title={
+                        dictation.supported
+                          ? dictation.listening
+                            ? "Stop dictation"
+                            : "Dictate — runs in your browser"
+                          : "This browser has no speech recognition"
+                      }
+                      aria-label={
+                        dictation.listening
+                          ? "Stop dictation"
+                          : "Dictate a message"
+                      }
+                      aria-pressed={dictation.listening}
+                      disabled={!dictation.supported}
+                      onClick={() =>
+                        dictation.listening
+                          ? dictation.stop()
+                          : dictation.start()
+                      }
+                    >
+                      {dictation.supported ? (
+                        dictation.listening ? (
+                          <Mic size={16} />
+                        ) : (
+                          <Mic size={16} />
+                        )
+                      ) : (
+                        <MicOff size={16} />
+                      )}
+                    </button>
+                  </>
+                )}
                 <textarea
                   ref={composerRef}
                   value={composer}
@@ -1026,6 +1079,7 @@ export function DecisionCaseWorkspacePage({
       <PublicProductHeader
         active="copilot"
         signInHref="/signin?returnTo=%2F"
+        showSignIn={emptyConversation}
         onSignIn={() => stageDecisionCaseHandoff(window.sessionStorage, active)}
       />
       {workspace}
