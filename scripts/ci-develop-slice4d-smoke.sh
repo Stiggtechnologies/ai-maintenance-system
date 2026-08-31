@@ -60,12 +60,20 @@ eval "$(supabase status -o env | grep -E '^(ANON_KEY|API_URL|SERVICE_ROLE_KEY)='
 
 ORG='11111111-1111-1111-1111-111111111111'
 
+# Needle is a second argument, never `sql_must_fail ... | grep -q`.
+# grep -q closes the pipe on the first match; printf then gets SIGPIPE
+# and `set -o pipefail` fails the step even when the refusal was correct
+# (CI run 33381562159: "printf: write error: Broken pipe" at this helper,
+# trap blamed the grep). Capture-then-match so the sentence is actually seen.
 sql_must_fail(){ local out
   out=$( { PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -v ON_ERROR_STOP=1 2>&1 <<<"$1"; } || true )
   if PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -v ON_ERROR_STOP=1 -q >/dev/null 2>&1 <<<"$1"; then
     echo "expected SQL to be refused, it succeeded: $1"; return 1
   fi
-  printf '%s' "$out"
+  if [ -n "${2:-}" ] && ! grep -qi -- "$2" <<<"$out"; then
+    echo "expected SQL refusal containing '$2', got: $out"; return 1
+  fi
+  printf '%s\n' "$out"
 }
 field(){ python3 -c "import json,sys; d=json.load(sys.stdin); v=d.get('$1'); print('' if v is None else (json.dumps(v) if isinstance(v,(dict,list)) else v))"; }
 noerr(){ BODY="$1" python3 - <<'PY'
@@ -321,7 +329,7 @@ echo "   the fund exists only against an APPROVED COST baseline, with a stated b
 BODY=$(rpc "$MANAGER" establish_contingency_pool "{\"p_case_id\":\"$CASE\",\"p_pool\":{\"baseline_id\":\"$BL\",\"original_amount\":\"2000000\",\"currency\":\"CAD\",\"basis\":\"Ten percent of the Class 3 estimate, per the capital procedure.\"}}")
 expect_err "$BODY" 'already exists against this baseline'
 # ...and the pool row itself cannot be edited into a bigger one.
-sql_must_fail "update project_contingency_pools set original_amount = 9000000 where id = '$POOL';" >/dev/null
+sql_must_fail "update project_contingency_pools set original_amount = 9000000 where id = '$POOL';" 'cannot be rewritten by ANY caller'
 echo "   the original amount is fixed at establishment for every caller"
 
 echo "── 2. the drawdown door: money does not move on a malformed request ─────"
@@ -412,9 +420,9 @@ noerr "$BODY"
 echo "   the ceiling is stated and adopted THROUGH THE PRODUCT, not by a DBA"
 
 # 4D-R30. The adopted ceiling is walled against every caller, service included.
-sql_must_fail "update authority_limits set max_commitment_usd = 250000000 where id='$LIMIT_ID';" | grep -qi 'cannot be rewritten by ANY caller'
-sql_must_fail "update authority_limits set status='draft' where id='$LIMIT_ID';" | grep -qi 'never returned to draft'
-sql_must_fail "delete from authority_limits where id='$LIMIT_ID';" | grep -qi 'is not deleted'
+sql_must_fail "update authority_limits set max_commitment_usd = 250000000 where id='$LIMIT_ID';" 'cannot be rewritten by ANY caller'
+sql_must_fail "update authority_limits set status='draft' where id='$LIMIT_ID';" 'never returned to draft'
+sql_must_fail "delete from authority_limits where id='$LIMIT_ID';" 'is not deleted'
 test "$(psqlc "select max_commitment_usd from authority_limits where id='$LIMIT_ID'")" = "250000"
 # ...and the read the screen renders says which delegations exist, which state
 # no ceiling (and therefore refuse), and which the caller may not touch because
@@ -424,7 +432,7 @@ noerr "$BODY"
 test "$(jqp "$BODY" "x['canState']")" = "True"
 test "$(jqp "$BODY" "len([d for d in x['delegations'] if d['id']=='$LIMIT_ID' and d['status']=='adopted' and d['maxCommitment']==250000 and d['maxCommitmentCurrency']=='CAD'])")" = "1"
 test "$(jqp "$BODY" "all((d['ceilingRefusal'] is not None) == (d['maxCommitment'] is None) for d in x['delegations'])")" = "True"
-jqp "$BODY" "[d for d in x['delegations'] if d['roleKey']=='executive'][0]['selfAdoptionRefusal']" | grep -qi 'nobody delegated it'
+grep -qi 'nobody delegated it' <<<"$(jqp "$BODY" "[d for d in x['delegations'] if d['roleKey']=='executive'][0]['selfAdoptionRefusal']")"
 # §70 and self-adoption, at the adoption door.
 EX_DRAFT=$(psqlc "select id from authority_limits where organization_id='$ORG' and role_key='executive' and action_type='contingency_drawdown' and status='draft' order by version desc limit 1")
 BODY=$(rpc "$EXEC" state_authority_ceiling "{\"p_id\":\"$EX_DRAFT\",\"p_ceiling\":{\"max_commitment\":\"5000000\",\"currency\":\"CAD\",\"basis\":\"An executive stating their own spending ceiling.\"}}")
@@ -458,9 +466,9 @@ test "$(psqlc "select balance_after from contingency_ledger_entries where id='$E
 echo "   the spend records its cause, its approver, the ceiling checked and the balance left"
 
 # Immutable to a client, and the MONEY FIELDS immutable to everyone.
-sql_must_fail "update contingency_ledger_entries set amount = 1 where id = '$ENTRY1';" | grep -qi 'cannot be rewritten by ANY caller'
+sql_must_fail "update contingency_ledger_entries set amount = 1 where id = '$ENTRY1';" 'cannot be rewritten by ANY caller'
 sql_must_fail "update contingency_ledger_entries set balance_after = 999999 where id = '$ENTRY1';" >/dev/null
-sql_must_fail "truncate contingency_ledger_entries;" | grep -qi 'append-only for every caller'
+sql_must_fail "truncate contingency_ledger_entries;" 'append-only for every caller'
 sql_must_fail "truncate project_contingency_pools;" >/dev/null
 test "$(psqlc "select has_table_privilege('authenticated','contingency_ledger_entries','TRUNCATE')")" = "f"
 test "$(psqlc "select has_table_privilege('service_role','contingency_ledger_entries','TRUNCATE')")" = "f"
@@ -548,7 +556,7 @@ echo "   the impact vector is complete or refused; the propagation chain is buil
 # by the door AND by the trigger.
 BODY=$(rpc "$MANAGER" decide_project_change "{\"p_change_id\":\"$CH1\",\"p_decision\":{\"outcome\":\"approved\",\"note\":\"Approved on the basis of the revised process data sheet.\"}}")
 expect_err "$BODY" 'requires sign-off by the reliability_engineer role'
-sql_must_fail "update project_changes set status='approved', decided_at=now(), approver_id=(select id from user_profiles where email='manager@syncai.ca'), approver_role='maintenance_manager', decision_note='forced through by a service caller with no engineering sign-off' where id='$CH1';" | grep -qi 'requires sign-off by the reliability_engineer role'
+sql_must_fail "update project_changes set status='approved', decided_at=now(), approver_id=(select id from user_profiles where email='manager@syncai.ca'), approver_role='maintenance_manager', decision_note='forced through by a service caller with no engineering sign-off' where id='$CH1';" 'requires sign-off by the reliability_engineer role'
 echo "   the MOC competence gate holds for the door AND for a raw service write"
 
 # ...and only the competent role may sign.
@@ -561,7 +569,7 @@ noerr "$BODY"
 BODY=$(rpc "$PLANNER" decide_project_change "{\"p_change_id\":\"$CH1\",\"p_decision\":{\"outcome\":\"approved\",\"note\":\"Approved on the basis of the revised process data sheet.\"}}")
 expect_err "$BODY" 'you raised this change'
 # ...and the trigger says the same thing to a service caller.
-sql_must_fail "update project_changes set status='approved', decided_at=now(), approver_id=requester_id, approver_role='planner', decision_note='the requester approving their own change request' where id='$CH1';" | grep -qi 'segregation of duties'
+sql_must_fail "update project_changes set status='approved', decided_at=now(), approver_id=requester_id, approver_role='planner', decision_note='the requester approving their own change request' where id='$CH1';" 'segregation of duties'
 echo "   §42: the requester cannot approve their own change, at the door or beneath it"
 
 # R1 again, on the change ladder: no adopted delegation refuses.
@@ -940,7 +948,7 @@ test "$(psqlc "select count(*) from calculation_runs where development_case_id='
 # The recorder stays revoked from `authenticated`.
 test "$(psqlc "select has_function_privilege('authenticated','record_calculation_run(uuid,text,text,jsonb,jsonb,jsonb,jsonb)','EXECUTE')")" = "f"
 # Runs are immutable; TRUNCATE refused on all three new 4D tables.
-sql_must_fail "truncate decision_delay_exposures;" | grep -qi 'unfalsifiable in a single statement'
+sql_must_fail "truncate decision_delay_exposures;" 'unfalsifiable in a single statement'
 sql_must_fail "truncate decision_schedule_links;" >/dev/null
 # project_changes is additionally protected by the ledger's foreign key, so a
 # bare TRUNCATE is refused before the statement trigger is reached. The trigger
@@ -948,7 +956,7 @@ sql_must_fail "truncate decision_schedule_links;" >/dev/null
 # project_change_propagation, which has no inbound reference to hide behind.
 sql_must_fail "truncate project_changes;" >/dev/null
 test "$(psqlc "select count(*) from pg_trigger where tgrelid='project_changes'::regclass and tgname='trg_project_change_no_truncate'")" = "1"
-sql_must_fail "truncate project_change_propagation;" | grep -qi 'every change look fully propagated'
+sql_must_fail "truncate project_change_propagation;" 'every change look fully propagated'
 for T in contingency_ledger_entries project_contingency_pools project_changes project_change_propagation decision_delay_exposures decision_schedule_links; do
   test "$(psqlc "select has_table_privilege('authenticated','$T','TRUNCATE')")" = "f"
   test "$(psqlc "select has_table_privilege('service_role','$T','TRUNCATE')")" = "f"
@@ -958,7 +966,7 @@ for T in contingency_ledger_entries project_contingency_pools project_changes pr
   test "$(psqlc "select relrowsecurity from pg_class where relname='$T'")" = "t"
 done
 # A stated exposure is superseded, never edited.
-sql_must_fail "update decision_delay_exposures set probability_of_delay = 1 where decision_id = '$DEC1';" | grep -qi 'cannot be rewritten by ANY caller'
+sql_must_fail "update decision_delay_exposures set probability_of_delay = 1 where decision_id = '$DEC1';" 'cannot be rewritten by ANY caller'
 echo "   four new keys, each recorded; refusals in the ledger; every 4D table RLS'd and TRUNCATE-proof"
 
 echo "── 13. tenancy: a foreign tenant and an orphan JWT see and do nothing ───"
@@ -1100,25 +1108,25 @@ noerr "$BODY"
 # 4D-R8a. The pool had no INSERT wall: a fund could be minted against another
 # case's baseline, established by the AI identity, unaudited.
 AIBOT_ID=$(psqlc "select id from user_profiles where email='smoke-aibot@syncai.ca'")
-sql_must_fail "insert into project_contingency_pools (organization_id, development_case_id, baseline_id, pool_ref, original_amount, currency, basis, established_by) values ('$ORG','$CASE','$SCOPE_BL','S4D-BAD',9000000,'CAD','A fund anchored to the scope baseline rather than a cost one.','$AIBOT_ID');" | grep -qi 'is a SCOPE baseline'
-sql_must_fail "insert into project_contingency_pools (organization_id, development_case_id, baseline_id, pool_ref, original_amount, currency, basis, established_by) values ('$ORG','$CASE','$COST_BL2','S4D-AI',9000000,'CAD','A fund established by the AI-operator identity.','$AIBOT_ID');" | grep -qi 'AI-operator identity'
+sql_must_fail "insert into project_contingency_pools (organization_id, development_case_id, baseline_id, pool_ref, original_amount, currency, basis, established_by) values ('$ORG','$CASE','$SCOPE_BL','S4D-BAD',9000000,'CAD','A fund anchored to the scope baseline rather than a cost one.','$AIBOT_ID');" 'is a SCOPE baseline'
+sql_must_fail "insert into project_contingency_pools (organization_id, development_case_id, baseline_id, pool_ref, original_amount, currency, basis, established_by) values ('$ORG','$CASE','$COST_BL2','S4D-AI',9000000,'CAD','A fund established by the AI-operator identity.','$AIBOT_ID');" 'AI-operator identity'
 echo "   the pool carries the same INSERT provenance backstop the ledger has"
 
 # 4D-R10. A recorded spend cannot be deleted while its case exists.
-sql_must_fail "delete from contingency_ledger_entries where id='$ENTRY1';" | grep -qi 'hands back money that was already committed'
-sql_must_fail "delete from project_contingency_pools where id='$POOL';" | grep -qi 'is not deleted while its development case exists'
+sql_must_fail "delete from contingency_ledger_entries where id='$ENTRY1';" 'hands back money that was already committed'
+sql_must_fail "delete from project_contingency_pools where id='$POOL';" 'is not deleted while its development case exists'
 test "$(psqlc "select sync_contingency_remaining('$POOL')")" = "714000"
 echo "   deleting a spend would CREATE spendable authority — refused for every caller"
 
 # 4D-R9. The cause SUBJECT and the delegation are frozen with the amount.
-sql_must_fail "update contingency_ledger_entries set cause_change_id='$CH2' where id='$CHG_ENTRY';" | grep -qi 'cannot be rewritten by ANY caller'
-sql_must_fail "update contingency_ledger_entries set authority_limit_id=null where id='$ENTRY1';" | grep -qi 'cannot be rewritten by ANY caller'
+sql_must_fail "update contingency_ledger_entries set cause_change_id='$CH2' where id='$CHG_ENTRY';" 'cannot be rewritten by ANY caller'
+sql_must_fail "update contingency_ledger_entries set authority_limit_id=null where id='$ENTRY1';" 'cannot be rewritten by ANY caller'
 echo "   attribution and the delegation behind a spend are as immutable as the amount"
 
 # 4D-R17. An implemented change cannot be un-decided and re-approved under a
 # lower ceiling — and the attempt is audited.
-sql_must_fail "update project_changes set status='proposed', decided_at=null, approver_id=null where id='$CH1';" | grep -qi 'already been decided'
-sql_must_fail "update project_changes set cost_effect=1000 where id='$CH1';" | grep -qi 'already been decided'
+sql_must_fail "update project_changes set status='proposed', decided_at=null, approver_id=null where id='$CH1';" 'already been decided'
+sql_must_fail "update project_changes set cost_effect=1000 where id='$CH1';" 'already been decided'
 test "$(psqlc "select status from project_changes where id='$CH1'")" = "implemented"
 echo "   un-deciding a decided change, or re-assessing what it was routed on, is refused for every caller"
 
@@ -1136,20 +1144,20 @@ echo "   the refusal is the enforcement; the audit rows that land are the ADMITT
 # 4D-R18. A closed propagation obligation does not reopen, and Sync-ownership
 # does not flip.
 PID_C=$(psqlc "select id from project_change_propagation where change_id='$CH1' and target_kind='contingency'")
-sql_must_fail "update project_change_propagation set status='pending', closed_at=null where id='$PID_C';" | grep -qi 'does not reopen'
-sql_must_fail "update project_change_propagation set sync_owned=false where id='$PID_C';" | grep -qi 'not editable'
+sql_must_fail "update project_change_propagation set status='pending', closed_at=null where id='$PID_C';" 'does not reopen'
+sql_must_fail "update project_change_propagation set sync_owned=false where id='$PID_C';" 'not editable'
 echo "   an obligation that can be reopened and re-closed makes fully-propagated unfalsifiable"
 
 # 4D-R23. The exposure trigger's §70 and provenance checks cover UPDATE too.
 EXP_ID=$(psqlc "select id from decision_delay_exposures where development_case_id='$CASE' limit 1")
 # The §70 check now runs on UPDATE, so the AI identity is refused BY NAME
 # rather than walking past an INSERT-only branch.
-sql_must_fail "update decision_delay_exposures set recorded_by='$AIBOT_ID' where id='$EXP_ID';" | grep -qi 'AI-operator identity'
+sql_must_fail "update decision_delay_exposures set recorded_by='$AIBOT_ID' where id='$EXP_ID';" 'AI-operator identity'
 # ...and the two numbers stay refused for every caller.
-sql_must_fail "update decision_delay_exposures set expected_impact = expected_impact + 1 where id='$EXP_ID';" | grep -qi 'cannot be rewritten by ANY caller'
+sql_must_fail "update decision_delay_exposures set expected_impact = expected_impact + 1 where id='$EXP_ID';" 'cannot be rewritten by ANY caller'
 # ...as does re-filing it under another case, which the INSERT-only trigger
 # never checked at all.
-sql_must_fail "update decision_delay_exposures set development_case_id='$CASE' , decision_id='$DEC2' where id='$EXP_ID';" | grep -qi 'cannot be rewritten by ANY caller'
+sql_must_fail "update decision_delay_exposures set development_case_id='$CASE' , decision_id='$DEC2' where id='$EXP_ID';" 'cannot be rewritten by ANY caller'
 echo "   a §70-reserved statement cannot be re-attributed to the AI identity by an UPDATE"
 
 # 4D-R16. A change is anchored to a baseline that still governs.
@@ -1161,7 +1169,7 @@ test "$(psqlc "select status from development_baselines where id='$BL'")" = "sup
 BODY=$(rpc "$PLANNER" raise_project_change "{\"p_case_id\":\"$CASE\",\"p_change\":{\"change_ref\":\"S4D-C9\",\"change_class\":\"project_cost_change\",\"baseline_id\":\"$BL\",\"proposed_change\":\"A change raised against a baseline that no longer governs.\",\"reason\":\"Proving the anchor is re-checked rather than assumed.\"}}")
 expect_err "$BODY" 'not an APPROVED baseline of this case'
 # ...and the row refuses the same thing to a service caller.
-sql_must_fail "insert into project_changes (organization_id, development_case_id, baseline_id, change_ref, change_class, proposed_change, reason, requester_id) values ('$ORG','$CASE','$BL','S4D-C8','project_cost_change','A change written straight to the table against a superseded baseline.','Proving the row refuses what the door refuses.','$(psqlc "select id from user_profiles where email='planner@syncai.ca'")');" | grep -qi 'no longer governs'
+sql_must_fail "insert into project_changes (organization_id, development_case_id, baseline_id, change_ref, change_class, proposed_change, reason, requester_id) values ('$ORG','$CASE','$BL','S4D-C8','project_cost_change','A change written straight to the table against a superseded baseline.','Proving the row refuses what the door refuses.','$(psqlc "select id from user_profiles where email='planner@syncai.ca'")');" 'no longer governs'
 echo "   a superseded anchor is refused: a change modifies a document currently in force"
 
 # 4D-R21. A decision recorded as decided with no selection is not OPEN, is not
