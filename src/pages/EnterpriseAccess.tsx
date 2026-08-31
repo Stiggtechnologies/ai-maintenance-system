@@ -46,7 +46,7 @@ export function EnterpriseAccess({ onTabChange }: EnterpriseAccessProps) {
           <button
             type="button"
             onClick={() => onTabChange("signin")}
-            className="w-full rounded-lg bg-[#3A8DFF] px-4 py-3 font-medium text-white transition-colors hover:bg-[#2E7AE6]"
+            className="w-full rounded-lg bg-teal-400 px-4 py-3 font-medium text-slate-950 transition-colors hover:bg-teal-300"
           >
             Return to approved sign-in
           </button>

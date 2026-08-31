@@ -43,4 +43,18 @@ describe("customer chrome honesty", () => {
     }
     expect(hits).toEqual([]);
   });
+
+  it("auth chrome does not use gold primaries or a 48-hour offer", () => {
+    const auth = [
+      "src/pages/Login.tsx",
+      "src/pages/Signup.tsx",
+      "src/pages/EnterpriseAccess.tsx",
+      "src/components/AuthShell.tsx",
+    ];
+    for (const path of auth) {
+      const src = readFileSync(path, "utf8");
+      expect(src, `${path} uses gold`).not.toMatch(/signal-gold/);
+      expect(src, `${path} restores a 48-hour offer`).not.toMatch(/48-hour/);
+    }
+  });
 });

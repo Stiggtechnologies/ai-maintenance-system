@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { AuthShell } from "../components/AuthShell";
 import { PasswordField } from "../components/PasswordField";
-import { ArrowUpRight, KeyRound, LockKeyhole } from "lucide-react";
+import { ArrowUpRight, LockKeyhole } from "lucide-react";
 import { signIn } from "../lib/auth";
 import { readDecisionCaseHandoff } from "../lib/decision-case";
 import { supabase } from "../lib/supabase";
@@ -259,7 +259,7 @@ export function Login({ onSuccess, onTabChange }: LoginProps) {
               disabled={
                 loading || newPassword.length < 12 || !recoveryPasswordsMatch
               }
-              className="w-full py-3 px-4 bg-signal-gold hover:bg-signal-gold-soft text-overlook-void font-semibold tracking-wide rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full py-3 px-4 bg-teal-400 hover:bg-teal-300 text-slate-950 font-semibold tracking-wide rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? "Updating…" : "Update password and continue"}
             </button>
@@ -300,7 +300,7 @@ export function Login({ onSuccess, onTabChange }: LoginProps) {
             <button
               type="submit"
               disabled={loading || mfaCode.length < 6}
-              className="w-full py-3 px-4 bg-signal-gold hover:bg-signal-gold-soft text-overlook-void font-semibold tracking-wide rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full py-3 px-4 bg-teal-400 hover:bg-teal-300 text-slate-950 font-semibold tracking-wide rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? "Verifying…" : "Verify and continue"}
             </button>
@@ -380,7 +380,7 @@ export function Login({ onSuccess, onTabChange }: LoginProps) {
               disabled={loading}
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
-              className="w-full py-3 px-4 bg-signal-gold hover:bg-signal-gold-soft text-overlook-void font-semibold tracking-wide rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full py-3 px-4 bg-teal-400 hover:bg-teal-300 text-slate-950 font-semibold tracking-wide rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? "Authenticating…" : "Access SyncAI"}
             </motion.button>
@@ -394,10 +394,10 @@ export function Login({ onSuccess, onTabChange }: LoginProps) {
 
         {!recoveryMode && !mfaStep && (
           <a
-            href="/setup#value-proof-intake"
-            className="text-overlook-mist hover:text-overlook-paper mt-6 flex items-center justify-center gap-2 text-sm font-semibold transition-colors"
+            href="/setup"
+            className="text-overlook-mist hover:text-signal-cyan mt-6 flex items-center justify-center gap-2 text-sm font-semibold transition-colors"
           >
-            <KeyRound size={15} /> New to SyncAI? Start a 48-hour value proof
+            Reliability Intelligence Assessment
             <ArrowUpRight size={14} />
           </a>
         )}
