@@ -6,17 +6,13 @@ import {
   Calculator,
   Check,
   CheckCircle2,
-  ChevronDown,
   ClipboardCheck,
   Clock3,
   Database,
-  FileText,
-  Factory,
   Gauge,
   History,
-  Layers3,
   LockKeyhole,
-  MessageSquare,
+  PanelLeft,
   Play,
   Plus,
   Search,
@@ -24,14 +20,13 @@ import {
   Paperclip,
   Mic,
   MicOff,
+  Camera,
   X as XIcon,
   ShieldCheck,
   Sparkles,
-  Target,
   TriangleAlert,
   UserRound,
   Users,
-  Workflow,
   XCircle,
 } from "lucide-react";
 import {
@@ -41,11 +36,25 @@ import {
   type AttachmentProfile,
 } from "../lib/composer-attachment";
 import { useDictation } from "../hooks/useDictation";
+import { useOptionalAuth } from "../components/AuthProvider";
 import { PublicProductHeader } from "../components/PublicProductHeader";
 import { MarkdownRenderer } from "../components/MarkdownRenderer";
+import { RecommendationTurn } from "../components/chat/RecommendationTurn";
 import {
-  DECISION_CASE_STAGES,
-  DECISION_INDUSTRY_PACKS,
+  InThreadLearnRecorder,
+  type LearnResult,
+} from "../components/chat/InThreadLearnRecorder";
+import {
+  conversationIsEmpty,
+  establishedFromEvidence,
+  frozenDisposition,
+  isNamedAuthority,
+  isRecommendationTurn,
+  notProvenFromEvidence,
+  reviewingAuthority,
+  shouldShowLearnRecorder,
+} from "../lib/chat/recommendation-turn";
+import {
   createDraftDecisionCase,
   createSeedDecisionCases,
   formatDecisionValue,
@@ -72,7 +81,6 @@ import {
 import "./DecisionCaseWorkspacePage.css";
 
 type PacketTab = "decision" | "evidence" | "authority" | "work" | "value";
-type MobileView = "cases" | "case" | "packet" | "gate";
 
 const tabs: Array<{ id: PacketTab; label: string }> = [
   { id: "decision", label: "Decision" },
@@ -197,28 +205,35 @@ export function DecisionCaseWorkspacePage({
   publicMode?: boolean;
 }) {
   const { caseId } = useParams();
-  const [params, setParams] = useSearchParams();
+  const [params] = useSearchParams();
   const navigate = useNavigate();
   const context = useMemo(() => getContext(params), [params]);
   const [industry, setIndustry] = useState<DecisionIndustryId>(() =>
     normalizeDecisionIndustry(params.get("industry")),
   );
   const industryPack = getDecisionIndustryPack(industry);
-  const roles = industryPack.roles;
   const [cases, setCases] = useState(() =>
     initialCases(caseId, context, publicMode),
   );
   const [selectedId, setSelectedId] = useState(
     caseId && caseId !== "demo" ? caseId : cases[0].id,
   );
-  const [portfolio, setPortfolio] = useState(false);
+  const auth = useOptionalAuth();
+  const viewerName = auth?.profile?.full_name ?? null;
+  const [railOpen, setRailOpen] = useState(false);
+  const [recordOpen, setRecordOpen] = useState(false);
   const [tab, setTab] = useState<PacketTab>("decision");
-  const [mobileView, setMobileView] = useState<MobileView>("case");
-  const [role, setRole] = useState(context.role || industryPack.roles[0]);
+  const [role] = useState(context.role || industryPack.roles[0]);
   const [composer, setComposer] = useState("");
+  const [composerPlaceholder, setComposerPlaceholder] = useState(
+    "Ask a reliability question…",
+  );
   const [attachment, setAttachment] = useState<AttachmentProfile | null>(null);
+  const [photo, setPhoto] = useState<File | null>(null);
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const photoInputRef = useRef<HTMLInputElement | null>(null);
+  const composerRef = useRef<HTMLTextAreaElement | null>(null);
   const dictation = useDictation((text) =>
     setComposer((prev) => (prev ? `${prev} ${text}` : text)),
   );
@@ -268,11 +283,9 @@ export function DecisionCaseWorkspacePage({
     setIndustry(routedIndustry);
     setCases(nextCases);
     setSelectedId(nextCases[0].id);
-    setRole(nextPack.roles[0]);
-    setPortfolio(false);
     setTab("decision");
     setEvidence(null);
-    setMobileView("case");
+    setRecordOpen(false);
   }, [caseId, context, industry, publicMode]);
   useEffect(() => {
     if (publicMode || !isPersistedDecisionCase(activeId)) return;
@@ -309,54 +322,28 @@ export function DecisionCaseWorkspacePage({
     const timer = window.setTimeout(() => setNotice(""), 3600);
     return () => window.clearTimeout(timer);
   }, [notice]);
+  useEffect(() => {
+    if (conversationIsEmpty(active.messages)) {
+      composerRef.current?.focus();
+    }
+  }, [active.id, active.messages]);
 
   const chooseCase = (id: string) => {
     setSelectedId(id);
-    setPortfolio(false);
     setTab("decision");
     setEvidence(null);
-    setMobileView("case");
-  };
-
-  const chooseIndustry = (nextIndustry: DecisionIndustryId) => {
-    if (nextIndustry === industry) return;
-    trackDecisionWorkspaceEvent("industry_proof_selected", {
-      industry: nextIndustry,
-      previousIndustry: industry,
-    });
-    const nextPack = getDecisionIndustryPack(nextIndustry);
-    const nextContext = { ...context, industry: nextIndustry };
-    const nextCases = initialCases(caseId, nextContext, true);
-    setIndustry(nextIndustry);
-    setCases(nextCases);
-    setSelectedId(nextCases[0].id);
-    setRole(nextPack.roles[0]);
-    setPortfolio(false);
-    setTab("decision");
-    setEvidence(null);
-    setMobileView("case");
-    const nextParams = new URLSearchParams(params);
-    nextParams.set("industry", nextIndustry);
-    setParams(nextParams, { replace: true });
-    setNotice(
-      `${nextPack.label} proof loaded. Its sample cases stay isolated from the other industries.`,
-    );
+    setRecordOpen(false);
   };
 
   const createCase = async () => {
     const existingDraft = cases.find((item) => item.id.startsWith("draft-"));
     if (existingDraft) {
       chooseCase(existingDraft.id);
-      setNotice(
-        "Your existing draft is open. Drafts carry no portfolio exposure.",
-      );
       return;
     }
     const next = createDraftDecisionCase(role, industry);
     setCases((current) => [next, ...current]);
     setSelectedId(next.id);
-    setPortfolio(false);
-    setNotice("New Decision Case created.");
     if (!publicMode) {
       try {
         const persisted = await createPersistedDecisionCase(next, context);
@@ -375,6 +362,13 @@ export function DecisionCaseWorkspacePage({
   const handleAttach = async (file: File | undefined) => {
     if (!file) return;
     setAttachmentError(null);
+    if (
+      file.type.startsWith("image/") ||
+      /\.(png|jpe?g|gif|webp|heic|bmp|tiff?)$/i.test(file.name)
+    ) {
+      setPhoto(file);
+      return;
+    }
     const result = await profileAttachment(file);
     if (isRefusal(result)) {
       setAttachment(null);
@@ -386,13 +380,14 @@ export function DecisionCaseWorkspacePage({
 
   const sendMessage = async (suggestion?: string) => {
     const typed = (suggestion || composer).trim();
+    const photoLine = photo
+      ? `[Attached photo — ${photo.name}]\nImage will be sent with this turn. The file is not read or transcribed here.`
+      : "";
     // The attachment profile is prepended rather than hidden, so the message
     // in the transcript is exactly what was sent — the person can audit it.
-    const text = attachment
-      ? [formatAttachmentForMessage(attachment), typed]
-          .filter(Boolean)
-          .join("\n\n")
-      : typed;
+    const text = [attachment ? formatAttachmentForMessage(attachment) : "", photoLine, typed]
+      .filter(Boolean)
+      .join("\n\n");
     if (!text || replying) return;
     if (
       active.billingMode === "paused" ||
@@ -422,7 +417,9 @@ export function DecisionCaseWorkspacePage({
     }));
     setComposer("");
     setAttachment(null);
+    setPhoto(null);
     setAttachmentError(null);
+    setComposerPlaceholder("Ask a reliability question…");
     setReplying(true);
     try {
       const response = await askDecisionCase(requestCase, text, {
@@ -453,55 +450,92 @@ export function DecisionCaseWorkspacePage({
     }
   };
 
-  const decide = (status: ApprovalStatus) => {
+  const decide = (
+    status: ApprovalStatus,
+    extra?: { delegateName?: string },
+  ) => {
     const approved = status === "approved";
     const decidedAt = new Date().toISOString();
+    const time = timestamp(decidedAt);
+    updateCase((current) => {
+      const reviewer = reviewingAuthority(current.approvals);
+      const actorName = reviewer?.name || extra?.delegateName || role;
+      let text: string;
+      if (approved) {
+        text = publicMode
+          ? `Simulated: ${actorName} approved the controlled plan · ${time}. ${current.workPackage.number} recorded as released to ${current.workPackage.targetSystem}; no production system was changed.`
+          : `${actorName} approved the controlled plan · ${time}. ${current.workPackage.number} is released to ${current.workPackage.targetSystem}.`;
+      } else if (status === "changes_requested") {
+        text = `${actorName} requested changes · ${time}`;
+      } else if (status === "delegated") {
+        text = `${actorName} delegated to ${extra?.delegateName || "another named human"} · ${time}`;
+      } else {
+        text = `${actorName} rejected the controlled plan · ${time}`;
+      }
+      return {
+        ...current,
+        stage: approved ? "execution" : "evidence",
+        statusLabel: approved ? "Work package released" : approvalLabel(status),
+        approvals: current.approvals.map((item) =>
+          item.status === "reviewing" ? { ...item, status, decidedAt } : item,
+        ),
+        workPackage: {
+          ...current.workPackage,
+          status: approved ? "released" : current.workPackage.status,
+          receipt: approved
+            ? {
+                externalId: publicMode
+                  ? `DEMO-${current.workPackage.number}`
+                  : `${current.workPackage.targetSystem.toUpperCase().replace(/\W+/g, "-")}-${current.workPackage.number}`,
+                status: publicMode ? "simulated" : "accepted",
+                releasedAt: decidedAt,
+                lastSync: decidedAt,
+              }
+            : current.workPackage.receipt,
+        },
+        messages: [
+          ...current.messages,
+          {
+            id: `gate-${Date.now()}`,
+            role: "system" as const,
+            author: publicMode ? "Demo simulation" : actorName,
+            text,
+            createdAt: decidedAt,
+          },
+        ],
+      };
+    });
+    if (status === "changes_requested") {
+      setComposerPlaceholder("What is missing or wrong?");
+      window.setTimeout(() => composerRef.current?.focus(), 0);
+    }
+  };
+
+  const recordOutcome = (result: LearnResult, note: string) => {
+    const actor =
+      active.approvals.find((item) => item.status === "approved")?.name ||
+      viewerName ||
+      role;
     updateCase((current) => ({
       ...current,
-      stage: approved ? "execution" : "evidence",
-      statusLabel: approved ? "Work package released" : approvalLabel(status),
-      approvals: current.approvals.map((item) =>
-        item.status === "reviewing" ? { ...item, status, decidedAt } : item,
-      ),
-      workPackage: {
-        ...current.workPackage,
-        status: approved ? "released" : current.workPackage.status,
-        receipt: approved
-          ? {
-              externalId: publicMode
-                ? `DEMO-${current.workPackage.number}`
-                : `${current.workPackage.targetSystem.toUpperCase().replace(/\W+/g, "-")}-${current.workPackage.number}`,
-              status: publicMode ? "simulated" : "accepted",
-              releasedAt: decidedAt,
-              lastSync: decidedAt,
-            }
-          : current.workPackage.receipt,
+      stage: "learning",
+      statusLabel: "Outcome recorded",
+      learningRecord: {
+        id: `LR-${current.caseNumber.replace(/\D/g, "")}`,
+        status: "retained",
+        summary: note,
       },
       messages: [
         ...current.messages,
         {
-          id: `gate-${Date.now()}`,
+          id: `learn-${Date.now()}`,
           role: "system",
-          author: publicMode ? "Demo simulation" : role,
-          text: approved
-            ? publicMode
-              ? `Simulated the controlled approval. A demo connector receipt was generated for ${current.workPackage.number}; no production system was changed.`
-              : `Approved the controlled evidence plan. ${current.workPackage.number} is released to ${current.workPackage.targetSystem}.`
-            : `${approvalLabel(status)} at the technical authority gate. The disposition is retained in this case.`,
-          createdAt: decidedAt,
-          meta: publicMode
-            ? "Simulated disposition · no production work released"
-            : "Auditable authority disposition",
+          author: actor,
+          text: `Outcome recorded: ${result} · ${actor}`,
+          createdAt: new Date().toISOString(),
         },
       ],
     }));
-    setNotice(
-      approved
-        ? publicMode
-          ? `${active.workPackage.number} simulated release completed.`
-          : `${active.workPackage.number} released with approved controls.`
-        : "Authority disposition recorded.",
-    );
   };
 
   const completeWork = () => {
@@ -576,129 +610,79 @@ export function DecisionCaseWorkspacePage({
     setComment("");
   };
 
-  const governedCases = cases.filter((item) => item.valueExposure > 0);
-  const totalExposure = governedCases.reduce(
-    (sum, item) => sum + item.valueExposure,
-    0,
-  );
-  const awaitingAuthority = governedCases.filter(
-    (item) => item.stage === "authority",
-  ).length;
-  const awaitingValue = governedCases.filter(
-    (item) => item.stage === "outcomes",
-  ).length;
-  const usagePercent = Math.min(
-    100,
-    Math.round((active.tokensUsed / active.tokenAllowance) * 100),
-  );
-  const complimentaryRemainingPercent = Math.max(0, 100 - usagePercent);
-  const currentStage = DECISION_CASE_STAGES.findIndex(
-    (item) => item.id === active.stage,
-  );
-  const authority = active.approvals.find(
-    (item) => item.status === "reviewing",
-  );
+  const namedAuthority =
+    reviewingAuthority(active.approvals) ||
+    active.approvals.find((item) =>
+      ["approved", "changes_requested", "delegated", "rejected"].includes(
+        item.status,
+      ),
+    );
+  const frozen = frozenDisposition(active.approvals);
+  const canDispose = publicMode
+    ? !frozen
+    : Boolean(
+        namedAuthority &&
+          isNamedAuthority(viewerName, namedAuthority.name) &&
+          !frozen,
+      );
+  const emptyConversation = conversationIsEmpty(active.messages);
+  const showLearn = shouldShowLearnRecorder(active.messages, active.approvals);
+  const authority = reviewingAuthority(active.approvals);
 
   const workspace = (
-    <div className={`decision-workspace ${publicMode ? "is-public" : ""}`}>
+    <div
+      className={`decision-workspace ${publicMode ? "is-public" : ""}`}
+      data-layout="chat-first"
+    >
       <header className="dw-topbar">
+        <button
+          type="button"
+          className="dw-icon"
+          aria-label="Conversations"
+          aria-expanded={railOpen}
+          onClick={() => setRailOpen((value) => !value)}
+        >
+          <PanelLeft size={17} />
+        </button>
         <div className="dw-identity">
-          <span className="dw-mark">
-            <Workflow size={17} />
+          <span className="dw-mark" aria-hidden>
+            S
           </span>
           <span>
-            <strong>Decision Workspace</strong>
-            <small>
-              {publicMode
-                ? industryPack.proofLine
-                : "Spend · risk · action · verified value"}
-            </small>
+            <strong>SyncAI</strong>
+            {emptyConversation ? null : (
+              <>
+                <small>{active.title}</small>
+                {active.caseNumber && !active.id.startsWith("draft-") && (
+                  <em className="dw-quiet-case">{active.caseNumber}</em>
+                )}
+              </>
+            )}
           </span>
         </div>
-        <div className="dw-context" aria-label="Organization and site context">
-          <strong>{active.organization}</strong>
-          <span>/</span>
-          <span>{active.site}</span>
-          <span>/</span>
-          <b>{active.caseNumber}</b>
-        </div>
-        <div className="dw-top-actions">
-          <span className="dw-system">
-            <i /> {publicMode ? "Isolated demo session" : "Systems governed"}
-          </span>
-          {publicMode && (
-            <label className="dw-industry">
-              <Factory size={15} />
-              <span>Industry</span>
-              <select
-                value={industry}
-                onChange={(event) =>
-                  chooseIndustry(event.target.value as DecisionIndustryId)
-                }
-                aria-label="Industry proof"
-                title="Loads an isolated industry-specific sample workspace."
-              >
-                {DECISION_INDUSTRY_PACKS.map((pack) => (
-                  <option key={pack.id} value={pack.id}>
-                    {pack.label}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown size={14} />
-            </label>
-          )}
-          <label className="dw-role">
-            <Users size={15} />
-            <select
-              value={role}
-              onChange={(event) => setRole(event.target.value)}
-              aria-label="Working perspective"
-              title="Changes the workspace perspective; it does not grant approval authority."
-            >
-              {roles.map((item) => (
-                <option key={item}>{item}</option>
-              ))}
-            </select>
-            <ChevronDown size={14} />
-          </label>
+        {!emptyConversation && (
           <button
-            className="dw-icon"
             type="button"
-            title="Case history"
-            onClick={() => setHistoryOpen(true)}
+            className="dw-view-record"
+            onClick={() => setRecordOpen((value) => !value)}
           >
-            <History size={17} />
+            {recordOpen ? "Hide record" : "View record"}
           </button>
-        </div>
+        )}
       </header>
 
-      <div className="dw-layout">
-        <aside
-          className={`dw-rail ${mobileView === "cases" ? "mobile-active" : ""}`}
-        >
+      <div
+        className={`dw-layout${railOpen ? " is-rail-open" : ""}${recordOpen ? " is-record-open" : ""}`}
+      >
+        <aside className="dw-rail" aria-label="Conversations">
           <button
             type="button"
             className="dw-new"
             onClick={() => void createCase()}
           >
-            <Plus size={16} /> New Decision Case
+            <Plus size={16} /> New
           </button>
-          <button
-            type="button"
-            className={`dw-portfolio-button ${portfolio ? "active" : ""}`}
-            onClick={() => setPortfolio((value) => !value)}
-          >
-            <Target size={16} />
-            <span>
-              <strong>Decision portfolio</strong>
-              <small>
-                {formatDecisionValue(totalExposure)} governed exposure
-              </small>
-            </span>
-          </button>
-          <div className="dw-section-label">
-            Active cases <span>{governedCases.length}</span>
-          </div>
+          <div className="dw-section-label">Conversations</div>
           <div className="dw-case-list">
             {cases.map((item) => (
               <button
@@ -707,266 +691,49 @@ export function DecisionCaseWorkspacePage({
                 className={`dw-case-row ${item.id === active.id ? "active" : ""}`}
                 onClick={() => chooseCase(item.id)}
               >
-                <i className={`risk-${item.risk}`} />
                 <span>
-                  <strong>{item.asset}</strong>
-                  <small>{item.statusLabel}</small>
+                  <strong>{item.title}</strong>
+                  <small>{item.asset}</small>
                 </span>
-                <em>{formatDecisionValue(item.valueExposure)}</em>
               </button>
             ))}
           </div>
-          <div className="dw-rail-links">
-            <button
-              type="button"
-              onClick={() => {
-                setTab("evidence");
-                setMobileView("packet");
-              }}
-            >
-              <Database size={15} /> Evidence library
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setTab("evidence");
-                setMobileView("packet");
-                setNotice(
-                  "Asset context is linked to each governed evidence record.",
-                );
-              }}
-            >
-              <Layers3 size={15} /> Asset context
-            </button>
-            <button type="button" onClick={() => setHistoryOpen(true)}>
-              <ClipboardCheck size={15} /> Decision history
-            </button>
-          </div>
-          {publicMode ? (
-            <div className="dw-value-proof-access">
-              <div>
-                <span>Full value proof included</span>
-                <strong>End-to-end access</strong>
-              </div>
-              <div
-                className="dw-value-proof-stages"
-                aria-label="Included value proof stages"
-              >
-                {["Evidence", "Decision", "Authority", "Action", "Value"].map(
-                  (item) => (
-                    <span key={item}>
-                      <Check size={10} /> {item}
-                    </span>
-                  ),
-                )}
-              </div>
-              <small>
-                Use live RAG grounding, challenge the decision, simulate the
-                controlled work, and verify value before sign-in.
-              </small>
-              <button type="button" onClick={() => setUsageOpen(true)}>
-                Secure this workspace <ArrowUpRight size={13} />
-              </button>
-            </div>
-          ) : (
-            <div className="dw-usage">
-              <div>
-                <span>
-                  {active.billingMode === "complimentary"
-                    ? "Complimentary analysis"
-                    : "Decision analysis"}
-                </span>
-                <strong>
-                  {active.billingMode === "complimentary"
-                    ? `${complimentaryRemainingPercent}% left`
-                    : `${usagePercent}% used`}
-                </strong>
-              </div>
-              <div
-                className="dw-usage-track"
-                role="progressbar"
-                aria-label="Decision analysis capacity used"
-                aria-valuenow={usagePercent}
-                aria-valuemin={0}
-                aria-valuemax={100}
-              >
-                <span style={{ width: `${usagePercent}%` }} />
-              </div>
-              <small>
-                {active.billingMode === "complimentary"
-                  ? "Sized to reach a recommendation and authority gate."
-                  : "Metered and retained with this Decision Case."}
-              </small>
-              <button type="button" onClick={() => setUsageOpen(true)}>
-                Continue analysis <ArrowUpRight size={13} />
-              </button>
-            </div>
-          )}
         </aside>
 
-        <main
-          className={`dw-main ${mobileView === "case" ? "mobile-active" : ""}`}
-        >
-          {portfolio ? (
-            <section className="dw-portfolio">
-              <span className="dw-kicker">
-                <Target size={14} /> Ranked decision portfolio
-              </span>
-              <h1>Know where the next reliability dollar should go.</h1>
-              <p>
-                Rank assets, sites, and failure modes by consequence, evidence
-                readiness, authority state, and value that can be verified.
-              </p>
-              <div className="dw-summary">
-                <div>
-                  <span>Governed exposure</span>
-                  <strong>{formatDecisionValue(totalExposure)}</strong>
-                </div>
-                <div>
-                  <span>Awaiting authority</span>
-                  <strong>
-                    {awaitingAuthority} case{awaitingAuthority === 1 ? "" : "s"}
-                  </strong>
-                </div>
-                <div>
-                  <span>Value verification</span>
-                  <strong>
-                    {awaitingValue} case{awaitingValue === 1 ? "" : "s"}
-                  </strong>
-                </div>
-              </div>
-              <div className="dw-ranked">
-                {[...governedCases]
-                  .sort((a, b) => b.valueExposure - a.valueExposure)
-                  .map((item, index) => (
-                    <button
-                      type="button"
-                      key={item.id}
-                      onClick={() => chooseCase(item.id)}
-                    >
-                      <em>{String(index + 1).padStart(2, "0")}</em>
-                      <span>
-                        <strong>{item.title}</strong>
-                        <small>{item.priorityReason}</small>
-                      </span>
-                      <span>
-                        <strong>
-                          {formatDecisionValue(item.valueExposure)}
-                        </strong>
-                        <small>{item.evidenceScore}% evidence</small>
-                      </span>
-                      <ArrowUpRight size={17} />
-                    </button>
-                  ))}
-              </div>
-            </section>
-          ) : (
-            <>
-              <section className="dw-case-header">
-                <div className="dw-case-meta">
-                  <span>{active.caseNumber}</span>
-                  <span>{active.version}</span>
-                  <span className={`risk-${active.risk}`}>
-                    {active.risk} risk
-                  </span>
-                  <span>{active.statusLabel}</span>
-                </div>
-                {publicMode && (
-                  <div className="dw-case-promise">
-                    <Target size={13} />
-                    <strong>
-                      Know where the next reliability dollar should go.
-                    </strong>
-                    <span>Spend · risk · action · verified value</span>
-                  </div>
-                )}
-                <h1>{active.title}</h1>
-                <p>{active.objective}</p>
-                <div className="dw-stages" aria-label="Decision lifecycle">
-                  {DECISION_CASE_STAGES.map((stage, index) => (
-                    <div
-                      key={stage.id}
-                      className={
-                        index < currentStage
-                          ? "complete"
-                          : index === currentStage
-                            ? "current"
-                            : ""
-                      }
-                    >
-                      <span>
-                        {index < currentStage ? <Check size={11} /> : index + 1}
-                      </span>
-                      <small>{stage.label}</small>
-                    </div>
-                  ))}
-                </div>
-              </section>
-              {active.createdFromIntake && (
-                <div className="dw-handoff">
-                  <Sparkles size={16} />
-                  <span>
-                    <strong>
-                      {publicMode
-                        ? `${industryPack.label} proof workspace ready`
-                        : "Your value-proof intake is already working."}
-                    </strong>
-                    <small>
-                      {publicMode
-                        ? `Recognizable ${industryPack.label.toLowerCase()} assets, evidence, roles, approval gates, and value measures are loaded before you share company data.`
-                        : "Asset scope, sponsor outcome, system of record, and first evidence requirements were carried into this case."}
-                    </small>
-                  </span>
-                  <CheckCircle2 size={18} />
-                </div>
-              )}
-              {publicMode && (
-                <div className="dw-demo-boundary">
-                  <ShieldCheck size={15} />
-                  <span className="dw-demo-long">
-                    Interactive demonstration · use sanitized, non-sensitive
-                    context only · data is isolated to this browser tab ·
-                    approvals and connector receipts are simulated
-                  </span>
-                  <span className="dw-demo-short">
-                    Sanitized context only · approvals and connector receipts
-                    are simulated
-                  </span>
-                </div>
-              )}
+        <main className="dw-main">
+          <>
               <section
                 className="dw-thread"
-                aria-label="Decision case conversation"
+                aria-label="Conversation"
               >
-                <div className="dw-thread-intro">
-                  <span>
-                    <MessageSquare size={15} />
-                  </span>
-                  <div>
-                    <strong>Decision Thread</strong>
-                    <small>
-                      The question, evidence, recommendation, approval gate,
-                      controlled work, and value trail stay together.
-                    </small>
+                {emptyConversation ? (
+                  <div className="dw-empty">
+                    <p>What is the reliability question?</p>
                   </div>
-                </div>
-                {active.messages.map((message) => (
+                ) : (
+                  active.messages.map((message) => (
                   <article
                     key={message.id}
                     className={`dw-message role-${message.role}`}
                   >
+                    {message.role !== "system" && (
                     <span className="dw-avatar">
                       {message.role === "assistant" ? (
                         <Bot size={16} />
-                      ) : message.role === "system" ? (
-                        <ShieldCheck size={16} />
                       ) : (
                         <UserRound size={16} />
                       )}
                     </span>
+                    )}
                     <div>
+                      {message.role === "system" ? (
+                        <p className="dw-system-turn">{message.text}</p>
+                      ) : (
+                        <>
                       <header>
-                        <strong>{message.author}</strong>
+                        <strong>
+                          {message.role === "assistant" ? "SyncAI" : message.author}
+                        </strong>
                         <span>{timestamp(message.createdAt)}</span>
                       </header>
                       {message.role === "assistant" ? (
@@ -977,10 +744,29 @@ export function DecisionCaseWorkspacePage({
                       ) : (
                         <p>{message.text}</p>
                       )}
-                      {message.meta && <footer>{message.meta}</footer>}
+                        </>
+                      )}
+                      {message.role === "assistant" &&
+                        isRecommendationTurn(message) &&
+                        namedAuthority && (
+                          <RecommendationTurn
+                            established={establishedFromEvidence(active.evidence)}
+                            notProven={notProvenFromEvidence(active.evidence)}
+                            recommendation={active.recommendation}
+                            recommendationDetail={active.recommendationDetail}
+                            authorityName={namedAuthority.name}
+                            authorityRole={namedAuthority.role}
+                            publicMode={publicMode}
+                            canDispose={canDispose}
+                            frozen={frozen}
+                            approvals={active.approvals}
+                            onDecide={decide}
+                          />
+                        )}
                     </div>
                   </article>
-                ))}
+                  ))
+                )}
                 {replying && (
                   <article className="dw-message role-assistant">
                     <span className="dw-avatar">
@@ -991,50 +777,20 @@ export function DecisionCaseWorkspacePage({
                         <strong>SyncAI</strong>
                         <span>working</span>
                       </header>
-                      <p className="dw-thinking">
+                      <p className="dw-thinking" aria-label="working">
                         <i />
                         <i />
-                        <i /> Reviewing evidence and authority boundary
+                        <i />
                       </p>
                     </div>
                   </article>
                 )}
+                {showLearn && (
+                  <InThreadLearnRecorder onSubmit={recordOutcome} />
+                )}
                 <div ref={endRef} />
               </section>
               <section className="dw-composer-wrap" id="syncai-chat">
-                <div className="dw-quick">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      void sendMessage(
-                        "What evidence is still missing, and what does it block?",
-                      )
-                    }
-                  >
-                    Evidence gaps
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      void sendMessage(industryPack.nextDollarPrompt)
-                    }
-                  >
-                    {industry === "mining"
-                      ? "Lost tonnes"
-                      : industry === "manufacturing"
-                        ? "Production loss"
-                        : "Next dollar"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setTab("authority");
-                      setMobileView("gate");
-                    }}
-                  >
-                    Review authority gate
-                  </button>
-                </div>
                 {attachment && (
                   <div className="dw-attach-chip">
                     <Paperclip size={13} />
@@ -1054,6 +810,22 @@ export function DecisionCaseWorkspacePage({
                     </button>
                   </div>
                 )}
+                {photo && (
+                  <div className="dw-attach-chip">
+                    <Camera size={13} />
+                    <span className="dw-attach-name">{photo.name}</span>
+                    <span className="dw-attach-meta">
+                      Photo will be sent with this turn
+                    </span>
+                    <button
+                      type="button"
+                      title="Remove photo"
+                      onClick={() => setPhoto(null)}
+                    >
+                      <XIcon size={13} />
+                    </button>
+                  </div>
+                )}
                 {(attachmentError || dictation.error) && (
                   <div className="dw-attach-error" role="status">
                     {attachmentError || dictation.error}
@@ -1063,9 +835,21 @@ export function DecisionCaseWorkspacePage({
                   <input
                     ref={fileInputRef}
                     type="file"
-                    accept=".csv,.tsv,.txt,.log"
+                    accept=".csv,.tsv,.txt,.log,image/*"
                     className="dw-file-input"
                     aria-label="Attach a data file"
+                    onChange={(event) => {
+                      void handleAttach(event.target.files?.[0]);
+                      event.target.value = "";
+                    }}
+                  />
+                  <input
+                    ref={photoInputRef}
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    className="dw-file-input"
+                    aria-label="Attach a photo"
                     onChange={(event) => {
                       void handleAttach(event.target.files?.[0]);
                       event.target.value = "";
@@ -1074,11 +858,20 @@ export function DecisionCaseWorkspacePage({
                   <button
                     type="button"
                     className="dw-composer-tool"
-                    title="Attach a CSV — parsed in your browser, not uploaded"
+                    title="Attach a CSV or photo"
                     aria-label="Attach a data file"
                     onClick={() => fileInputRef.current?.click()}
                   >
                     <Paperclip size={16} />
+                  </button>
+                  <button
+                    type="button"
+                    className="dw-composer-tool"
+                    title="Attach a photo"
+                    aria-label="Attach a photo"
+                    onClick={() => photoInputRef.current?.click()}
+                  >
+                    <Camera size={16} />
                   </button>
                   <button
                     type="button"
@@ -1112,6 +905,7 @@ export function DecisionCaseWorkspacePage({
                     )}
                   </button>
                   <textarea
+                    ref={composerRef}
                     value={composer}
                     onChange={(event) => setComposer(event.target.value)}
                     onKeyDown={(event) => {
@@ -1120,13 +914,15 @@ export function DecisionCaseWorkspacePage({
                         void sendMessage();
                       }
                     }}
-                    placeholder="Ask any reliability question or give SyncAI an instruction..."
+                    placeholder={composerPlaceholder}
                     rows={2}
                   />
                   <button
                     type="button"
                     title="Send message"
-                    disabled={(!composer.trim() && !attachment) || replying}
+                    disabled={
+                      (!composer.trim() && !attachment && !photo) || replying
+                    }
                     onClick={() => void sendMessage()}
                   >
                     <Send size={17} />
@@ -1138,18 +934,16 @@ export function DecisionCaseWorkspacePage({
                     {composer.trim() &&
                     composerScope === "provisional_new_subject"
                       ? `New subject · ${active.caseNumber} unchanged`
-                      : `Using ${active.caseNumber} context`}
+                      : emptyConversation
+                        ? "New conversation"
+                        : `Using ${active.caseNumber} context`}
                   </span>
-                  <span>Scope switches automatically</span>
                 </div>
               </section>
-            </>
-          )}
+          </>
         </main>
 
-        <aside
-          className={`dw-packet ${mobileView === "packet" || mobileView === "gate" ? "mobile-active" : ""}`}
-        >
+        <aside className="dw-packet" aria-label="Decision record">
           <div className="dw-packet-head">
             <span>
               <small>Current decision packet</small>
@@ -1193,7 +987,6 @@ export function DecisionCaseWorkspacePage({
               <DecisionPanel
                 active={active}
                 setEvidence={setEvidence}
-                openAuthority={() => setTab("authority")}
               />
             )}
             {tab === "evidence" && (
@@ -1203,12 +996,9 @@ export function DecisionCaseWorkspacePage({
               <AuthorityPanel
                 active={active}
                 authority={authority}
-                role={role}
                 comment={comment}
                 setComment={setComment}
                 addComment={addComment}
-                decide={decide}
-                publicMode={publicMode}
               />
             )}
             {tab === "work" && (
@@ -1220,47 +1010,6 @@ export function DecisionCaseWorkspacePage({
           </div>
         </aside>
       </div>
-
-      <nav className="dw-mobile-nav" aria-label="Workspace views">
-        <button
-          type="button"
-          className={mobileView === "cases" ? "active" : ""}
-          onClick={() => setMobileView("cases")}
-        >
-          <Layers3 size={17} />
-          <span>Cases</span>
-        </button>
-        <button
-          type="button"
-          className={mobileView === "case" ? "active" : ""}
-          onClick={() => setMobileView("case")}
-        >
-          <MessageSquare size={17} />
-          <span>Case</span>
-        </button>
-        <button
-          type="button"
-          className={mobileView === "packet" ? "active" : ""}
-          onClick={() => {
-            setTab("decision");
-            setMobileView("packet");
-          }}
-        >
-          <FileText size={17} />
-          <span>Packet</span>
-        </button>
-        <button
-          type="button"
-          className={mobileView === "gate" ? "active" : ""}
-          onClick={() => {
-            setTab("authority");
-            setMobileView("gate");
-          }}
-        >
-          <ShieldCheck size={17} />
-          <span>Gate</span>
-        </button>
-      </nav>
 
       {evidence && (
         <EvidenceModal evidence={evidence} close={() => setEvidence(null)} />
@@ -1319,11 +1068,9 @@ export function DecisionCaseWorkspacePage({
 function DecisionPanel({
   active,
   setEvidence,
-  openAuthority,
 }: {
   active: DecisionCase;
   setEvidence: (value: DecisionEvidence) => void;
-  openAuthority: () => void;
 }) {
   return (
     <div className="dw-panel">
@@ -1399,9 +1146,9 @@ function DecisionPanel({
           <small>Required authority</small>
           <strong>{active.authorityRole}</strong>
         </span>
-        <button type="button" onClick={openAuthority}>
-          Open gate <ArrowUpRight size={14} />
-        </button>
+        <span className="dw-authority-note">
+          Disposition lives on the recommendation turn.
+        </span>
       </section>
     </div>
   );
@@ -1451,21 +1198,15 @@ function EvidencePanel({
 function AuthorityPanel({
   active,
   authority,
-  role,
   comment,
   setComment,
   addComment,
-  decide,
-  publicMode,
 }: {
   active: DecisionCase;
   authority: DecisionCase["approvals"][number] | undefined;
-  role: string;
   comment: string;
   setComment: (value: string) => void;
   addComment: () => void;
-  decide: (status: ApprovalStatus) => void;
-  publicMode: boolean;
 }) {
   return (
     <div className="dw-panel">
@@ -1503,34 +1244,10 @@ function AuthorityPanel({
               <em>Resolve the blocking evidence and record a disposition.</em>
             </span>
           </section>
-          <section className="dw-gate">
-            <span>
-              {publicMode
-                ? `Simulation preview from the ${role} perspective. This does not grant authority.`
-                : `Your disposition as ${role}`}
-            </span>
-            <button
-              type="button"
-              className="primary"
-              onClick={() => decide("approved")}
-            >
-              <CheckCircle2 size={15} />{" "}
-              {publicMode
-                ? "Simulate controlled approval"
-                : "Approve controlled plan"}
-            </button>
-            <div>
-              <button type="button" onClick={() => decide("changes_requested")}>
-                {publicMode ? "Simulate changes" : "Request changes"}
-              </button>
-              <button type="button" onClick={() => decide("delegated")}>
-                {publicMode ? "Simulate delegate" : "Delegate"}
-              </button>
-              <button type="button" onClick={() => decide("rejected")}>
-                {publicMode ? "Simulate reject" : "Reject"}
-              </button>
-            </div>
-          </section>
+          <p className="dw-panel-description">
+            Viewing this record is not authorization. Disposition sits on the
+            recommendation turn.
+          </p>
         </>
       )}
       <section className="dw-comments">
