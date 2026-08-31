@@ -181,11 +181,29 @@ describe("recordVerificationResult", () => {
           p_obligation_id: "obl-1",
           p_result: "achieved",
           p_measured_note: "vibration 2.1 mm/s vs 3.0 limit, 2026-08-29",
+          // Slice 5A: §11's evidence_id. Explicitly null when the caller
+          // cites none, so an omitted argument can never be mistaken for an
+          // evidence item the RPC failed to receive.
+          p_evidence_id: null,
         },
       },
     ]);
     expect(recorded.outcome).toBe("recorded");
     expect(recorded.learningEventId).toBeNull();
+  });
+
+  it("passes §11's evidence id through when one is cited", async () => {
+    state.result = {
+      data: [{ outcome: "recorded", learningEventId: null, detail: "ok" }],
+      error: null,
+    };
+    await recordVerificationResult(
+      "obl-9",
+      "achieved",
+      "measured 2.1 mm/s against the 3.0 limit on 2026-12-04",
+      "ev-1",
+    );
+    expect(state.rpcCalls[0]?.args.p_evidence_id).toBe("ev-1");
   });
 
   it("returns the learning event id when not_achieved is recorded", async () => {

@@ -361,9 +361,56 @@ const FLOORS: Record<string, Floors> = {
     // and stay green. The other two floors and the ceiling are unchanged and
     // sit AT the live numbers, which is the check that proves the repair
     // added reach rather than prose.
-    rowsWithAnEnforceableCitation: 147,
-    citationsEnforced: 618,
-    claimedRowsEnforced: 86,
+    //
+    // 147/618/86 -> 149/661/89 (2026-08-31, Slice 5A). Design integrity and the
+    // digital thread landed — the §10 Requirement object with its eleven
+    // categories, its hierarchy and its objective→…→operating-KPI thread on the
+    // ONE requirement table, the §11 Verification object generalized onto that
+    // table with the five methods and a §70 wall no writer gets past, and the
+    // Requirements Agent whose findings are SQL — and three rows (D4.16, D4.17,
+    // D12.09) flipped to ✅ on chains this gate can walk. RATCHETED UP for the
+    // reason this block gives every time: the added reach is real, and a later
+    // change must not be able to de-cite it with the suite still green.
+    //
+    // The CEILING did not move, which is the check that proves the three new ✅s
+    // were not bought with prose the gate cannot resolve. It also earned its keep
+    // in this slice rather than merely holding: D4.16's first draft cited
+    // `acceptance_tests` and `kpi_catalog` as backticked tables, and the
+    // write-path judge failed the row — both are SELECT-only stores whose rows
+    // come from a demo seed and a platform vocabulary. The fix was the D5.27
+    // precedent: state the dependency without claiming a write path, and NAME
+    // the residual in the row. Nothing was exempted and no floor was lowered.
+    //
+    // 661 -> 670 citationsEnforced (2026-08-31, the Slice 5A REPAIR PASS).
+    // Three adversarial reviews found the same shape of defect three times: a
+    // rule stated in the prose and enforced at ONE door, with the wall behind
+    // the door missing — a cross-tenant obligation an ordinary planner could
+    // use to move another organization's requirement to `verified`, a recorded
+    // FAILURE silently superseded by a later pass with nothing anywhere
+    // raising it, a requirement subtree (and its recorded failures) deletable
+    // with no trigger and no audit, and an AI-operator identity that could
+    // clear three of the five findings the Requirements Agent exists to
+    // report. The three rows KEEP their ✅ and gained nine citations this gate
+    // can resolve: the walls (`enforce_verification_subject_tenancy`,
+    // `enforce_requirement_provenance`, `audit_requirement_thread_severance`),
+    // the derived status (`derive_requirement_verification_status`,
+    // `requirement_has_unretracted_failure`), and the surface the features
+    // were missing (`requirementGapLists`, `wbsClause`, `aiFindingsAsFindings`,
+    // `agentModelNote`, `listCommissioningTests`, `listOrgEvidenceItems`).
+    // RATCHETED UP for the reason this block gives every time: the added reach
+    // is real, and a later change must not be able to de-cite it and stay
+    // green.
+    //
+    // The CEILING did not move, and the gate earned its keep again on the way:
+    // the repair's first draft of D4.16 cited design_studies,
+    // acceptance_tests and kpi_catalog as backticked tables while explaining
+    // that they are NOT writable, and the write-path judge failed the row for
+    // all three. Fixed by the D5.27 precedent — state the dependency, do not
+    // claim the write path — and the row names the residual. Nothing was
+    // exempted, no floor was lowered, and EXEMPTIONS is still empty.
+    rowsWithAnEnforceableCitation: 149,
+    citationsEnforced: 670,
+    claimedRowsEnforced: 89,
     // D11.04 (a CI-fence claim proved by a named test file), D11.10 (a
     // canonical seeded vocabulary, which the write-path judge would fail for
     // not being customer-writable — a question the row never asked) and

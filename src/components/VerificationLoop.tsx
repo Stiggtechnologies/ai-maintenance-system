@@ -33,6 +33,16 @@ interface OpenRow {
   dueDateAssumed: boolean;
   daysOverdue: number;
   intendedOutcome: string | null;
+  /**
+   * Slice 5A (D4.17): obligations now carry a REQUIREMENT as well as a
+   * recommendation. Both appear in this list, and each says which it is —
+   * otherwise the list and the posture beside it disagree for a reason nobody
+   * on the page can see: the posture counts recommendation-scoped obligations
+   * only, deliberately, so the C4.08 loop-closure figure keeps its meaning.
+   */
+  subjectKind?: "recommendation" | "requirement";
+  requirementRef?: string | null;
+  methodCode?: string | null;
 }
 
 export function VerificationLoop() {
@@ -167,6 +177,13 @@ export function VerificationLoop() {
                   <span className="text-slate-200">
                     {o.recommendationTitle}
                   </span>
+                  {o.subjectKind === "requirement" && (
+                    <span className="rounded bg-white/5 px-1.5 py-0.5 text-xs text-slate-400">
+                      requirement
+                      {o.requirementRef ? ` ${o.requirementRef}` : ""} · counted
+                      on the case, not in the posture above
+                    </span>
+                  )}
                   {o.assetName && (
                     <span className="text-xs text-slate-500">
                       {o.assetName}

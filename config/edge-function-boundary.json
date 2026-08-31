@@ -8,6 +8,7 @@
     "develop-evidence-agent",
     "develop-gate-agent",
     "develop-methodology-agent",
+    "develop-requirements-agent",
     "develop-risk-agent",
     "lead-notify",
     "onboarding-enrich",

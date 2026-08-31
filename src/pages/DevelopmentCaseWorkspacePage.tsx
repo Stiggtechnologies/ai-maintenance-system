@@ -101,6 +101,7 @@ import { IntegratedControlsPanel } from "../components/develop/ControlsPanels";
 import { PerformancePanel } from "../components/develop/PerformancePanels";
 import { ScheduleAssurancePanel } from "../components/develop/SchedulePanels";
 import { ChangeAndControlsPanel } from "../components/develop/ChangeControlPanels";
+import { RequirementsThreadPanel } from "../components/develop/RequirementsThreadPanels";
 
 const REVIEW_ROLES = [
   "admin",
@@ -2819,6 +2820,23 @@ export function DevelopmentCaseWorkspacePage() {
             id: b.id,
             label: `${b.baselineType} v${b.version} (${b.status})`,
           }))}
+      />
+      {/* Design integrity and the digital thread (Slice 5A): the §10
+          Requirement object with its hierarchy and its objective→…→operating
+          KPI thread (the two unbuilt links shown as deferred, not omitted),
+          the §11 Verification object with its five methods and a result only
+          a named human can record, and the §59 Requirements Agent — whose
+          findings are SQL and whose one model-sourced family is labelled
+          AI-generated. Every coverage figure here REFUSES over an empty
+          requirement set rather than reading as a clean bill. */}
+      <RequirementsThreadPanel
+        caseId={workspace.id}
+        members={members.map((m) => ({
+          id: m.id,
+          name: m.full_name ?? m.email ?? m.id,
+        }))}
+        canPlan={canPlan}
+        reloadKey={chainsKey}
       />
       <OperationalReadinessSection caseId={workspace.id} canPlan={canPlan} />
 

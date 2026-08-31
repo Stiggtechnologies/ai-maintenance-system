@@ -64,18 +64,18 @@ export const COMMITMENT_KINDS = [
   { value: "environmental", label: "Environmental" },
 ] as const;
 
-/** design_requirements' own categories — the ONE project requirement table. */
-export const REQUIREMENT_CATEGORIES = [
-  "reliability",
-  "maintainability",
-  "access",
-  "instrumentation",
-  "standardisation",
-  "sparing",
-  "safety",
-  "operability",
-  "data_handover",
-] as const;
+/*
+ * REQUIREMENT_CATEGORIES lived here and is REMOVED, not moved.
+ *
+ * It listed the nine categories design_requirements shipped with. Slice 5A
+ * replaced the form's source with REQUIREMENT_CATEGORY_GROUPS
+ * (src/lib/develop/requirements.ts), which offers §10's eleven and the five
+ * reliability-by-design categories in two labelled groups and is pinned
+ * against the database CHECK by the slice test. Leaving the old list exported
+ * beside it would give a future form a second, shorter vocabulary to pick up
+ * — which is how the eleven came to be legal in the table and unwritable
+ * through the product in the first place.
+ */
 
 /**
  * Spec II.15: the four conclusions an assurance review may reach. Stated as a
