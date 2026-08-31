@@ -675,7 +675,13 @@ test "$(jqp "$BODY" "x['cost']['p50'] is None and x['cost']['p80'] is None")" = 
 test "$(jqp "$BODY" "x['schedule']['p50Finish'] is None and x['schedule']['p80Finish'] is None")" = "True"
 test "$(jqp "$BODY" "x['distribution']['exists']")" = "False"
 grep -qi 'A P80 is a statement about a distribution' <<<"$(jqp "$BODY" "x['cost']['percentileRefusal']")"
-grep -qi 'Slice 4C' <<<"$(jqp "$BODY" "x['cost']['percentileRefusal']")"
+# SLICE 4C UPDATED THIS ONE SENTENCE AND NOTHING ELSE IN THIS STEP. 4B's
+# refusal ended "…the binding is Slice 4C"; 4C shipped the binding, so that
+# sentence became false and asserting it would hold the transcript to a state
+# the product has left. What replaces it is a STRONGER claim, because it is
+# derived rather than declared: with no activities at all there is nothing to
+# sample, and the refusal says so from the data.
+grep -qi 'no schedule activities, so a schedule simulation would have nothing to sample' <<<"$(jqp "$BODY" "x['cost']['percentileRefusal']")"
 grep -qi 'no schedule activity is recorded' <<<"$(jqp "$BODY" "x['schedule']['deterministicRefusal']")"
 grep -qi 'the day somebody signed' <<<"$(jqp "$BODY" "x['againstSanctionRefusal']")"
 grep -qi 'no schedule activities, so a schedule simulation would have nothing to sample' <<<"$(jqp "$BODY" "x['schedule']['percentileRefusal']")"
@@ -712,9 +718,18 @@ psqlc "update shutdown_tasks set optimistic_hours=260, pessimistic_hours=460 whe
 BODY=$(rpc "$PLANNER" compute_case_forecast_confidence "{\"p_case_id\":\"$CASE\"}")
 noerr "$BODY"
 test "$(jqp "$BODY" "x['schedule']['activitiesWithDurationRange']")" = "1"
-grep -qi 'the missing piece here is the binding, not the data' <<<"$(jqp "$BODY" "x['schedule']['percentileRefusal']")"
+# SLICE 4C AGAIN, and the reason the sentence had to change: 4B's refusal said
+# "the missing piece here is the binding, not the data", and 4C shipped the
+# binding. The refusal now reports BOTH halves — that there IS something to
+# sample, and that this one-activity schedule cannot be scored against §50's
+# floor, so a Monte Carlo over it is refused rather than run. The percentiles
+# stay ABSENT, which is the assertion this step has always been about.
+grep -qi 'there IS something to sample' <<<"$(jqp "$BODY" "x['schedule']['percentileRefusal']")"
+grep -qi 'does not pass its §50 quality diagnostics' <<<"$(jqp "$BODY" "x['schedule']['percentileRefusal']")"
+grep -qi 'Monte Carlo on poor logic is not useful' <<<"$(jqp "$BODY" "x['schedule']['percentileRefusal']")"
 test "$(jqp "$BODY" "x['schedule']['p80Finish'] is None")" = "True"
-echo "   the deterministic finish is real; the percentile refusal names whether the gap is the data or the binding"
+test "$(jqp "$BODY" "x['distribution']['exists']")" = "False"
+echo "   the deterministic finish is real; the percentile refusal names what is present AND what blocks the simulation"
 
 echo "── 8. performance trending, over recorded periods (D5.06) ───────────────"
 
@@ -910,7 +925,13 @@ noerr "$BODY"
 test "$(jqp "$BODY" "sorted(x['latestCalculations'].keys()) == ['case_earned_value','case_estimate_confidence','case_forecast_confidence','case_performance_trend','case_progress_integrity']")" = "True"
 test "$(jqp "$BODY" "x['latestCalculations']['case_earned_value']['status']")" = "computed_with_refusals"
 test "$(jqp "$BODY" "len(x['notInThisSlice']) >= 3")" = "True"
-grep -qi 'Slice 4C' <<<"$(jqp "$BODY" "x['notInThisSlice'][0]")"
+# SLICE 4C. This list named "P50/P80 … is Slice 4C" and 4C shipped it, so the
+# entry is gone and the list now names what is STILL missing — including two
+# limitations of the simulation itself, which are the honest cost of having
+# one. A list that only ever shrinks is a list nobody is maintaining.
+grep -qi 'baselined COMPLETION DATE' <<<"$(jqp "$BODY" "' '.join(x['notInThisSlice'])")"
+grep -qi 'Correlation between risks' <<<"$(jqp "$BODY" "' '.join(x['notInThisSlice'])")"
+grep -qi 'Resource-constrained simulation' <<<"$(jqp "$BODY" "' '.join(x['notInThisSlice'])")"
 # A technician can read the case but cannot compute or claim anything on it.
 BODY=$(rpc "$TECH" compute_case_earned_value "{\"p_case_id\":\"$CASE\"}")
 expect_err "$BODY" 'requires a planning, engineering or governance role'

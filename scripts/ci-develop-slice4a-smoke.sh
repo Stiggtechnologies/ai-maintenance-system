@@ -557,7 +557,19 @@ OUT=$(sql_must_fail "begin; select set_config('request.jwt.claim.sub','$PLANNER_
                      update calculation_runs set outputs='{\"costTotal\":999999}'::jsonb where id='$RUNID'; rollback;")
 grep -qi 'a recorded calculation is immutable' <<<"$OUT"
 # Nor truncate either ledger — no row-level trigger fires for TRUNCATE.
+#
+# SLICE 4C ADDED A THIRD ROUTE TO CHECK. `schedule_simulation_runs` carries an
+# FK to `calculation_runs`, so a bare `truncate calculation_runs` is now stopped
+# by the FK check BEFORE the statement trigger runs. The table is still refused,
+# but by a weaker mechanism and with a different message — and the two forms
+# that get PAST the FK check (naming both tables, and CASCADE) are the ones the
+# guard has to catch. All three are asserted, so a later change that dropped the
+# statement trigger would fail here instead of passing on the FK's coat-tails.
 OUT=$(sql_must_fail "truncate calculation_runs;")
+grep -qi 'foreign key constraint' <<<"$OUT"
+OUT=$(sql_must_fail "truncate calculation_runs, schedule_simulation_runs;")
+grep -qi 'append-only for every caller' <<<"$OUT"
+OUT=$(sql_must_fail "truncate calculation_runs cascade;")
 grep -qi 'append-only for every caller' <<<"$OUT"
 OUT=$(sql_must_fail "truncate controls_baseline_structures;")
 grep -qi 'append-only for every caller' <<<"$OUT"

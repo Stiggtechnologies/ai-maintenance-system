@@ -45,9 +45,27 @@ const SCHEDULE_IMPORT = "20261112090000_p6_schedule_import.sql";
  * the live function to the Slice 1 contract wherever it lives. This constant
  * is the deliberate half of that move: a body that migrates without anyone
  * noticing is exactly what the mutation-sanity case exists to catch.
+ *
+ * Slice 4C moved it once more (20261202090000). The nine II.6 defect classes
+ * need P6's OWN float, date constraints and relationship lags — recomputing
+ * the network here would be a second critical path beside the modelling
+ * kernel's — so the door carries three more activity fields and two more
+ * relationship fields, each with its own named refusal, and restates the same
+ * closed ACL. Every Slice 1 refusal, phase, fixpoint and counter is spliced
+ * unchanged, which is what the assertions below re-prove against the new home.
+ *
+ * Slice 4C's REPAIR moved it once more (20261202090300), and the reason is the
+ * one this constant exists to record: 4C promoted `shutdown_task_dependencies`
+ * into gate-determining status (link type and lag feed four of the nine defect
+ * classes, the §50 score and the Monte Carlo gate) and left it with no trigger
+ * of any kind and TRUNCATE granted to anon, authenticated and service_role.
+ * Giving that ledger the wall the activity ledger already had means the import
+ * door — one of its two legitimate writers — has to DECLARE ITSELF, so the
+ * body is re-issued with `app.schedule_logic_write` set around the
+ * relationship insert. Nothing else in it changes, which is what every
+ * assertion below re-proves against the new home.
  */
-const SCHEDULE_VALIDATOR_HOME =
-  "20261130090100_develop_schedule_activity_object.sql";
+const SCHEDULE_VALIDATOR_HOME = "20261202090300_develop_slice4c_repair.sql";
 
 const routerSql = stripComments(readFileSync(`${DIR}/${ROUTER}`, "utf8"));
 

@@ -278,10 +278,50 @@ const FLOORS: Record<string, Floors> = {
   // numbers are unmoved — no row changed glyph in this pass, and the ceiling
   // holding at 3 is what proves the repair did not buy anything with prose
   // the gate cannot resolve.
+  //
+  // 132/484/67 -> 138/523/75 (2026-12-02, Slice 4C). Schedule assurance landed
+  // — the nine II.6 defect classes with P6's own float and constraints riding
+  // the one import door, the §50 quality score that refuses an empty schedule
+  // rather than scoring it 100, the distinct schedule confidence, the risk →
+  // activity → money chain, and the seeded Monte Carlo that REFUSES on a
+  // failing schedule and names the classes — and eight rows (D5.07, D5.08,
+  // D5.09, D5.13, D5.14, D5.15, D5.31, D5.32) flipped to ✅ on chains this
+  // gate can walk. RATCHETED UP for the reason this block gives every time:
+  // the added reach is real, and a later change must not be able to de-cite it
+  // with the suite still green. The CEILING did not move, which is what proves
+  // the eight new ✅s were not bought with prose the gate cannot resolve — and
+  // the gate earned that in this pass rather than being taken on trust: it
+  // rejected four unresolvable path citations and a private helper symbol with
+  // no non-test caller, and each was replaced with the reachable chain rather
+  // than with a softer sentence. D11.29 stayed 🟡 because "ALL kernels" still
+  // means more than ten, with the six that do not record now named one by one.
+  //
+  // 523 -> 542 citations (2026-12-02, Slice 4C REPAIR, migration
+  // 20261202090300). Adversarial review of 4C found the same defect in eleven
+  // places: the door validated the SHAPE of what a client sent and trusted its
+  // CONTENT, and the read then vouched for the result in words the server had
+  // never checked. A planner token could POST a cost base of 999,999,999 on a
+  // case whose earned-value EAC REFUSES and §51 printed a billion-dollar cost
+  // P80 beside a null deterministic figure; a `deterministicHours` of 99999
+  // produced a "P80 completion date" eleven years before the plan's own
+  // finish; a schedule that degraded AFTER a run was recorded kept serving
+  // that P80 as current, because D5.15 gated recording and never serving; a
+  // re-dated schedule served a P80 date 78 days BEFORE the deterministic
+  // finish, because the planned dates were outside the digest; a service key
+  // could mint an AI-attributed distribution with no lineage row at all; and
+  // the two columns that ARE the distribution had no product write path in the
+  // whole platform. The fixes add resolvable citations — a new act
+  // (`set_schedule_activity_duration_range`), its surface, its ledger, the
+  // logic-support read, and the repaired doors — so this number RATCHETS UP,
+  // for the reason this block gives every time: the added reach is real and a
+  // later change must not be able to de-cite it with the suite still green.
+  // The other three are UNMOVED: no row changed glyph in this pass. D5.28 and
+  // D11.29 stayed 🟡 with their remaining gaps named, and the ceiling holding
+  // at 3 is what proves the repair bought nothing with prose.
   [DEVELOP_REGISTER.name]: {
-    rowsWithAnEnforceableCitation: 132,
-    citationsEnforced: 484,
-    claimedRowsEnforced: 67,
+    rowsWithAnEnforceableCitation: 138,
+    citationsEnforced: 542,
+    claimedRowsEnforced: 75,
     // D11.04 (a CI-fence claim proved by a named test file), D11.10 (a
     // canonical seeded vocabulary, which the write-path judge would fail for
     // not being customer-writable — a question the row never asked) and

@@ -31,6 +31,22 @@
  * belongs is how a refusal becomes an implied 1.0.
  */
 
+import type {
+  CaseRiskScheduleChain,
+  CaseScheduleQuality,
+  CaseScheduleSimulation,
+  ScheduleCalcKey,
+  SimulationAttributionRow,
+} from "./schedule";
+
+/** One row of the criticality index a simulation reports. */
+export interface ScheduleCriticalityRow {
+  id: string;
+  label: string;
+  criticalityIndex: number;
+  deterministicFloat: number;
+}
+
 /* ────────────────────────── the vocabularies ─────────────────────────── */
 
 /**
@@ -167,7 +183,16 @@ export const EAC_FORMULA = "EAC = BAC / CPI (past cost performance continues)";
  */
 export const PERFORMANCE_CALC_VERSION = "develop-performance/4B/2026-12-01";
 
-/** The five calculation keys this slice records. */
+/**
+ * The five calculation keys THIS slice records.
+ *
+ * Slice 4C adds three more (`SCHEDULE_CALC_KEYS` in ./schedule) under their
+ * own code version. They are deliberately NOT appended here: this list is
+ * what 4B records, its slice test walks it against the 4B migrations, and a
+ * list that quietly grew across slices would make "every key here is recorded
+ * by this slice" stop being a checkable statement. `latestCalculations` below
+ * is keyed by the union of the two.
+ */
 export const PERFORMANCE_CALC_KEYS = [
   "case_earned_value",
   "case_progress_integrity",
@@ -412,9 +437,26 @@ export interface ForecastConfidence {
     recordedForecastLineCount: number;
     costLineCount: number;
     recordedForecastNote: string;
-    /** Always null in this slice. The refusal below says why. */
+    /**
+     * SLICE 4C: real, or null with the refusal below saying why.
+     *
+     * These come off a RECORDED SIMULATION (schedule_simulation_runs) whose
+     * input digest still matches the live schedule, and off nothing else.
+     * There is no branch on either side of the wire that derives a percentile
+     * from `deterministic` — the slice test asserts it of the SQL and
+     * `percentileCell` is still the one place the absence is rendered.
+     */
     p50: number | null;
     p80: number | null;
+    /**
+     * The RISK-DRIVEN half on its own. Present whenever a costed simulation
+     * ran, including when `p50`/`p80` are absent because no deterministic
+     * cost base exists to add it to — an exposure is a true statement even
+     * when a total forecast is not available, but it is never shown under the
+     * total's label.
+     */
+    exposureP50: number | null;
+    exposureP80: number | null;
     percentileRefusal: string;
   };
   schedule: {
@@ -425,8 +467,19 @@ export interface ForecastConfidence {
     activitiesWithDurationRange: number;
     p50Finish: string | null;
     p80Finish: string | null;
+    /** Duration percentiles, in hours, straight off the sorted sample. */
+    deterministicHours: number | null;
+    p50Hours: number | null;
+    p80Hours: number | null;
+    probabilityOnPlan: number | null;
     percentileRefusal: string;
-    criticalDrivers: string[] | null;
+    /**
+     * §51's "critical drivers". The per-risk marginal attribution when the
+     * run had risk edges, the criticality index when it did not — either way
+     * an OUTPUT of the simulation, never an assumed ordering.
+     */
+    criticalDrivers:
+      SimulationAttributionRow[] | ScheduleCriticalityRow[] | null;
     criticalDriversRefusal: string;
   };
   againstSanction: string | null;
@@ -437,6 +490,26 @@ export interface ForecastConfidence {
     coverage: number | null;
     headline: string | null;
     refusal: string | null;
+  };
+  /** D5.14: how much the schedule these percentiles came off is worth. */
+  scheduleConfidence: {
+    score: number | null;
+    qualityScore: number | null;
+    refusal: string | null;
+  };
+  /** Which recorded run, if any, the percentiles above were read from. */
+  simulation: {
+    exists: boolean;
+    current: boolean;
+    id: string | null;
+    seed: number | null;
+    iterations: number | null;
+    kernelVersion: string | null;
+    computedAt: string | null;
+    computedBy: string | null;
+    calculationRunId: string | null;
+    refusals: string[];
+    staleReason: string | null;
   };
   distribution: { exists: boolean; reason: string };
   evaluable: boolean;
@@ -522,8 +595,14 @@ export interface CasePerformance {
   progressIntegrity: CaseProgressIntegrity;
   forecastConfidence: ForecastConfidence;
   trend: CasePerformanceTrend;
+  /** Slice 4C. The diagnosis that gates the simulation (D5.13/D5.31/D5.14). */
+  scheduleQuality: CaseScheduleQuality;
+  /** Slice 4C. Spec I.10's chain as data (D5.08). */
+  riskScheduleChain: CaseRiskScheduleChain;
+  /** Slice 4C. The recorded distribution, or the honest absence (D5.15). */
+  simulation: CaseScheduleSimulation;
   latestCalculations: Partial<
-    Record<PerformanceCalcKey, PerformanceCalculationRun>
+    Record<PerformanceCalcKey | ScheduleCalcKey, PerformanceCalculationRun>
   >;
   notInThisSlice: string[];
 }
@@ -768,7 +847,15 @@ export function performanceRunIsStale(
 ): boolean {
   if (run == null) return false;
   for (const [key, value] of Object.entries(current)) {
-    if (!(key in run.inputs)) continue;
+    // A KEY THE RUN DOES NOT CARRY IS NOT A MATCH. Skipping it meant a run
+    // recorded before a fingerprint field existed compared as CURRENT for
+    // ever: a 4B-era forecast run has no `distributionExists`/`simulationId`,
+    // so recording a simulation flipped nothing the comparison could see and
+    // the panel printed "not available" percentiles beside the sentence
+    // "these percentiles came off the recorded simulation named below", under
+    // a clean non-stale caption. A run recorded before a key existed is, by
+    // definition, not comparable — which is what stale means.
+    if (!(key in run.inputs)) return true;
     if (
       JSON.stringify(run.inputs[key] ?? null) !== JSON.stringify(value ?? null)
     ) {
@@ -842,6 +929,14 @@ export function forecastConfidenceFingerprint(
     activityCount: fc.schedule.activityCount,
     activitiesWithDurationRange: fc.schedule.activitiesWithDurationRange,
     estimateConfidenceBand: fc.estimateConfidence?.band ?? "unrated",
+    // SLICE 4C. The counts above cannot see a NEW SIMULATION: re-running the
+    // Monte Carlo changes the P50 and P80 this section renders while every
+    // count stays identical, so a recorded forecast would keep printing the
+    // previous run's percentiles under a caption saying it was current.
+    // `distributionExists` catches the appearance and disappearance of a
+    // distribution; `simulationId` catches its replacement.
+    distributionExists: fc.distribution?.exists ?? false,
+    simulationId: fc.simulation?.id ?? null,
   };
 }
 

@@ -29,6 +29,14 @@ import type {
   EstimateConfidence,
   ForecastConfidence,
 } from "../lib/develop/performance";
+import {
+  DEFAULT_SIMULATION_ITERATIONS,
+  type CaseRiskScheduleChain,
+  type CaseScheduleQuality,
+  type DurationRangeStatement,
+  type SimulationInputs,
+} from "../lib/develop/schedule";
+import { simulateIntegratedRisk } from "../lib/modelling/integrated-risk";
 
 export interface DevelopmentCaseSummary {
   id: string;
@@ -3200,5 +3208,286 @@ export async function computeCasePerformanceTrend(
   const { data, error } = await supabase.rpc("compute_case_performance_trend", {
     p_case_id: caseId,
   });
+  return unwrap(data, error);
+}
+
+/* ────────── Slice 4C — Schedule assurance, gating and simulation ───────── */
+/**
+ * D5.13/D5.31/D5.14 (diagnose and score), D5.08 (the risk→schedule→economics
+ * chain), D5.15 (the gated simulation), D5.09 (per-risk attribution),
+ * D5.07/D5.32 (the percentiles that finally exist), D11.29 (the modelling
+ * kernel records a lineage run).
+ *
+ * THE ONE THING TO UNDERSTAND ABOUT THIS SECTION. The Monte Carlo runs HERE,
+ * in the browser, in `src/lib/modelling/integrated-risk.ts` — one simulator,
+ * never two. It does not therefore get to decide what is recorded: the server
+ * hands out the inputs WITH their digest and its own gate verdict, and
+ * `record_case_schedule_simulation` re-runs the gate, re-computes the digest
+ * and refuses anything that does not match. So a modified client can compute
+ * whatever it likes and cannot get it into the ledger.
+ */
+
+/** D5.13/D5.31/D5.14. Computes AND records the lineage row (D11.29). */
+export async function computeCaseScheduleQuality(
+  caseId: string,
+): Promise<CaseScheduleQuality> {
+  const { data, error } = await supabase.rpc("compute_case_schedule_quality", {
+    p_case_id: caseId,
+  });
+  return unwrap(data, error);
+}
+
+/** D5.08. Computes AND records the lineage row (D11.29). */
+export async function computeCaseRiskScheduleEconomics(
+  caseId: string,
+): Promise<CaseRiskScheduleChain> {
+  const { data, error } = await supabase.rpc(
+    "compute_case_risk_schedule_economics",
+    { p_case_id: caseId },
+  );
+  return unwrap(data, error);
+}
+
+/** D5.08. §70: refused to the AI-operator identity at the server. */
+export async function recordRiskScheduleImpact(input: {
+  caseId: string;
+  riskId: string;
+  activityKey: string;
+  probability: string;
+  delayDaysOptimistic: string;
+  delayDaysLikely: string;
+  delayDaysPessimistic: string;
+  costOptimistic?: string;
+  costLikely?: string;
+  costPessimistic?: string;
+  currency?: string;
+  basis: string;
+}): Promise<{
+  impact_id: string;
+  risk_title: string;
+  activity_key: string;
+  probability: number;
+}> {
+  const { data, error } = await supabase.rpc("record_risk_schedule_impact", {
+    p_case_id: input.caseId,
+    p_impact: {
+      risk_id: input.riskId,
+      activity_key: input.activityKey,
+      probability: input.probability,
+      delay_days_optimistic: input.delayDaysOptimistic,
+      delay_days_likely: input.delayDaysLikely,
+      delay_days_pessimistic: input.delayDaysPessimistic,
+      cost_optimistic: input.costOptimistic ?? "",
+      cost_likely: input.costLikely ?? "",
+      cost_pessimistic: input.costPessimistic ?? "",
+      currency: input.currency ?? "",
+      basis: input.basis,
+    },
+  });
+  return unwrap(data, error);
+}
+
+/** Sync-authored schedule logic (D5.13's lag and link-type inputs). */
+export async function recordLocalScheduleRelationship(input: {
+  caseId: string;
+  activityKey: string;
+  predecessorKey: string;
+  linkType?: string;
+  lagHours?: string;
+}): Promise<{ activity_key: string; predecessor: string }> {
+  const { data, error } = await supabase.rpc(
+    "record_local_schedule_relationship",
+    {
+      p_case_id: input.caseId,
+      p_relationship: {
+        activity_id: input.activityKey,
+        predecessor: input.predecessorKey,
+        link_type: input.linkType ?? "",
+        lag_hours: input.lagHours ?? "",
+      },
+    },
+  );
+  return unwrap(data, error);
+}
+
+/** The inputs the kernel consumes, with the digest they hash to. */
+export async function getCaseSimulationInputs(
+  caseId: string,
+): Promise<SimulationInputs> {
+  const { data, error } = await supabase.rpc("get_case_simulation_inputs", {
+    p_case_id: caseId,
+  });
+  return unwrap(data, error);
+}
+
+/**
+ * D5.15 + D5.09 + D11.29 — read the inputs, run the kernel, record the result.
+ *
+ * The seed is generated here and TRAVELS WITH THE RESULT into the recorded
+ * run, which is what makes the numbers reproducible by anyone holding the
+ * ledger row. `Math.random` is fine for CHOOSING a seed — the seed is not
+ * itself a simulated quantity — and is emphatically not used inside the
+ * simulation, which draws every sample from `mulberry32(seed)`.
+ *
+ * If the caller supplies a seed, that seed is used: re-running a recorded
+ * simulation at its recorded seed is how somebody checks it.
+ */
+/**
+ * D5.28 / D5.14 / D5.07 — state the duration range that IS the distribution.
+ *
+ * `optimistic_hours` and `pessimistic_hours` decide the width of every P80
+ * this slice publishes and had no product write path at all: not the P6
+ * import, not `recordLocalScheduleActivity`, nothing. So D5.14's "uncertainty
+ * expressed" component was structurally zero for every customer and the only
+ * ranges the transcript ever proved were injected by raw SQL. This is the
+ * governed door: role-checked, §70-walled, bracketing the stated duration, and
+ * carrying a mandatory basis, exactly as the risk's three-point delay does.
+ */
+export async function setScheduleActivityDurationRange(input: {
+  caseId: string;
+  activityId: string;
+  optimisticHours: string;
+  pessimisticHours: string;
+  basis: string;
+}): Promise<DurationRangeStatement> {
+  const { data, error } = await supabase.rpc(
+    "set_schedule_activity_duration_range",
+    {
+      p_case_id: input.caseId,
+      p_range: {
+        activity_id: input.activityId,
+        optimistic_hours: input.optimisticHours,
+        pessimistic_hours: input.pessimisticHours,
+        basis: input.basis,
+      },
+    },
+  );
+  return unwrap(data, error);
+}
+
+export async function runCaseScheduleSimulation(input: {
+  caseId: string;
+  iterations?: number;
+  seed?: number;
+}): Promise<{
+  simulation_id: string;
+  calculation_run_id: string;
+  seed: number;
+  iterations: number;
+  p50Hours: number;
+  p80Hours: number;
+  p80Finish: string | null;
+  costP80: number | null;
+  refusals: string[];
+}> {
+  const inputs = await getCaseSimulationInputs(input.caseId);
+
+  const iterations = input.iterations ?? DEFAULT_SIMULATION_ITERATIONS;
+  const seed =
+    input.seed ?? Math.floor(Math.random() * 4294967296) % 4294967296;
+
+  const result = simulateIntegratedRisk({
+    activities: inputs.activities.map((a) => ({
+      id: a.id,
+      label: a.label,
+      duration: Number(a.duration),
+      optimistic: a.optimistic == null ? null : Number(a.optimistic),
+      pessimistic: a.pessimistic == null ? null : Number(a.pessimistic),
+      predecessors: a.predecessors ?? [],
+    })),
+    // The server's verdict on whether this schedule's LOGIC is logic the
+    // kernel models. `criticalPath` reads every edge as finish-to-start with
+    // zero lag, so a schedule using SS/FF/SF or lags is refused rather than
+    // simulated over a network that is not the recorded one.
+    logicSupport: inputs.logicSupport,
+    maximumAttributedRisks: inputs.policy?.maximumAttributedRisks,
+    risks: (inputs.risks ?? []).map((r) => ({
+      riskId: r.riskId,
+      riskTitle: r.riskTitle,
+      // The node id is the activity ROW id, matching get_case_simulation_inputs:
+      // task_key is unique per schedule, and a case holds two.
+      activityId: String(r.activityId),
+      probability: Number(r.probability),
+      delayDaysOptimistic: Number(r.delayDaysOptimistic),
+      delayDaysLikely: Number(r.delayDaysLikely),
+      delayDaysPessimistic: Number(r.delayDaysPessimistic),
+      costOptimistic:
+        r.costOptimistic == null ? null : Number(r.costOptimistic),
+      costLikely: r.costLikely == null ? null : Number(r.costLikely),
+      costPessimistic:
+        r.costPessimistic == null ? null : Number(r.costPessimistic),
+    })),
+    gate: inputs.gate,
+    iterations,
+    seed,
+    delayCostPerDay:
+      inputs.delayCostPerDay == null ? null : Number(inputs.delayCostPerDay),
+    costBase: inputs.costBase == null ? null : Number(inputs.costBase),
+    currency: inputs.currency,
+  });
+
+  // The kernel refuses for the same reasons the server does. Surfacing ITS
+  // sentence rather than a client paraphrase keeps one wording for one rule.
+  //
+  // D5.15's SECOND half — "a refused simulation is a fact about the schedule
+  // and belongs in the ledger beside the ones that ran" — used to be
+  // unreachable from the product: the client applied the gate first and threw,
+  // so the RPC's refusal-recording branch was reached only by the smoke. When
+  // the refusal is the SERVER'S to make (the quality gate or the logic
+  // support, both of which the server re-runs), the attempt is posted so the
+  // server records it, and only then is the kernel's sentence surfaced. A
+  // refusal the client can decide alone — nothing varies, no seed, no
+  // iterations — is not posted, because there is no server verdict to record.
+  if (!result.simulated) {
+    const serverJudged =
+      !inputs.gate?.permitted || inputs.logicSupport?.supported === false;
+    if (serverJudged) {
+      await supabase.rpc("record_case_schedule_simulation", {
+        p_case_id: input.caseId,
+        p_result: {
+          seed: String(seed),
+          iterations: String(iterations),
+          kernelVersion: result.kernelVersion,
+          activityDigest: inputs.digest.activityDigest,
+          riskDigest: inputs.digest.riskDigest,
+        },
+      });
+    }
+    throw new Error(result.reason);
+  }
+
+  const { data, error } = await supabase.rpc(
+    "record_case_schedule_simulation",
+    {
+      p_case_id: input.caseId,
+      p_result: {
+        seed: String(result.seed),
+        iterations: String(result.iterations),
+        sampleCount: String(result.sampleCount),
+        kernelVersion: result.kernelVersion,
+        activityDigest: inputs.digest.activityDigest,
+        riskDigest: inputs.digest.riskDigest,
+        deterministicHours: String(result.deterministicHours),
+        p10Hours: String(result.p10Hours),
+        p50Hours: String(result.p50Hours),
+        p80Hours: String(result.p80Hours),
+        p90Hours: String(result.p90Hours),
+        probabilityOnPlan:
+          result.probabilityOnPlan == null
+            ? ""
+            : String(result.probabilityOnPlan),
+        currency: result.currency ?? "",
+        costBase: result.costBase == null ? "" : String(result.costBase),
+        costExposureP50:
+          result.costExposureP50 == null ? "" : String(result.costExposureP50),
+        costExposureP80:
+          result.costExposureP80 == null ? "" : String(result.costExposureP80),
+        delayCostPerDay:
+          result.delayCostPerDay == null ? "" : String(result.delayCostPerDay),
+        attribution: result.attribution,
+        criticality: result.criticality,
+      },
+    },
+  );
   return unwrap(data, error);
 }
