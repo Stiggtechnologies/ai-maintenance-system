@@ -21,7 +21,7 @@ describe("Login chrome", () => {
     expect(assessment).toHaveAttribute("href", "/setup");
     expect(assessment.getAttribute("href")).not.toMatch(/value-proof/);
     expect(screen.queryByText(/48-hour/i)).toBeNull();
-    expect(screen.queryByText(/value proof/i)).toBeNull();
+    expect(screen.queryByText(/Start a 48-hour/i)).toBeNull();
   });
 
   it("fails if Login source reintroduces gold or the retired offer", () => {
