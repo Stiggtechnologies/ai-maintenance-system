@@ -115,7 +115,9 @@ describe("DecisionCaseWorkspacePage — chat-first paint", () => {
     expect(screen.queryByRole("tablist")).toBeNull();
     expect(screen.queryByText("Decision Workspace")).toBeNull();
     expect(screen.queryByText("Current decision packet")).toBeNull();
-    expect(screen.queryByText("P-101 process pump")).toBeTruthy();
+    expect(screen.getByTestId("sample-seed-chip")).toHaveTextContent(
+      /P-101 process pump/,
+    );
     expect(
       screen.queryByText(
         /Decide whether P-101 process pump's seal inspection interval/i,
@@ -229,9 +231,8 @@ describe("DecisionCaseWorkspacePage — chat-first paint", () => {
   it("deep-links a mining conversation only after the seed chip", () => {
     renderWorkspace("/workspace?industry=mining");
     expect(screen.getByTestId("sample-seed-chip")).toHaveTextContent(
-      /CR-01 primary crusher/i,
+      /replace the crusher bearings/i,
     );
-    expect(screen.queryByText(/CR-01 primary crusher/i)).toBeTruthy();
     expect(screen.queryByTestId("recommendation-turn")).toBeNull();
     loadSample();
     expect(
@@ -254,8 +255,9 @@ describe("DecisionCaseWorkspacePage — chat-first paint", () => {
     unmount();
 
     renderWorkspace("/workspace?industry=manufacturing");
-    expect(screen.getByTestId("sample-seed-chip")).toBeTruthy();
-    expect(screen.queryByText(/PR-07 stamping press/i)).toBeTruthy();
+    expect(screen.getByTestId("sample-seed-chip")).toHaveTextContent(
+      /bypass the die-protection/i,
+    );
     expect(screen.queryByText("P-101 process pump")).toBeNull();
     loadSample();
     expect(screen.getAllByText(/PR-07 stamping press/i).length).toBeGreaterThan(

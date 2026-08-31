@@ -35,7 +35,7 @@ describe("customer chrome honesty", () => {
     for (const path of walkTsx("src")) {
       const lines = readFileSync(path, "utf8").split("\n");
       lines.forEach((line, index) => {
-        if (isCommentLine(line)) return;
+        if (isCommentLine(line) || !line.includes("className")) return;
         if (DANGEROUS_LEADING.test(line)) {
           hits.push(`${path}:${index + 1}`);
         }

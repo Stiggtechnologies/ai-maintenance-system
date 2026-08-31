@@ -715,6 +715,9 @@ function ConversationSidebar({
   );
 }
 
+// Empty first paint mounts the seed chip. Keep the previous welcome canvas
+// for a later restoration path — do not delete the domain copy.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function WelcomeMessage({
   scenarioId,
   onScenarioChange,
@@ -769,6 +772,7 @@ function WelcomeMessage({
   );
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function PromptStarters({
   scenario,
   onSelectPrompt,
