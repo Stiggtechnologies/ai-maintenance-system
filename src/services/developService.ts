@@ -36,6 +36,17 @@ import {
   type DurationRangeStatement,
   type SimulationInputs,
 } from "../lib/develop/schedule";
+import type {
+  AuthorityDelegations,
+  CaseAssuranceEngine,
+  CaseChangeControl,
+  CaseContingency,
+  CaseDecisionDebt,
+  CaseDecisionLatency,
+  CaseIntegratedControls,
+  ContingencyCauseClass,
+  MyDecisions,
+} from "../lib/develop/change";
 import { simulateIntegratedRisk } from "../lib/modelling/integrated-risk";
 
 export interface DevelopmentCaseSummary {
@@ -3489,5 +3500,419 @@ export async function runCaseScheduleSimulation(input: {
       },
     },
   );
+  return unwrap(data, error);
+}
+
+/* ──────── Slice 4D — contingency, change control, decisions, screens ───── */
+/**
+ * D5.18, D5.19, D5.27, D5.30, D3.12/D3.13/D3.21/D3.36, D5.21, D13.02, D13.08.
+ *
+ * Same posture as 4A/4B/4C, with one addition that only applies here: THIS IS
+ * THE FAMILY THAT MOVES MONEY. Every write is a definer RPC; every READ that
+ * produces a NUMBER goes through a compute_* RPC that records a
+ * calculation_runs row; and the two SCREEN reads
+ * (getCaseIntegratedControls / getCaseAssuranceEngine) compute nothing at all —
+ * they compose the runs the compute_* functions already recorded, so a screen
+ * can never disagree with the ledger it is describing.
+ */
+
+export async function getCaseContingency(
+  caseId: string,
+): Promise<CaseContingency> {
+  const { data, error } = await supabase.rpc("get_case_contingency", {
+    p_case_id: caseId,
+  });
+  return unwrap(data, error);
+}
+
+/** D5.19 + D11.29: the consumption report, recorded as a run. */
+export async function computeCaseContingencyConsumption(
+  caseId: string,
+): Promise<CaseContingency> {
+  const { data, error } = await supabase.rpc(
+    "compute_case_contingency_consumption",
+    { p_case_id: caseId },
+  );
+  return unwrap(data, error);
+}
+
+/** §70: establishing the fund fixes what every later drawdown is measured against. */
+export async function establishContingencyPool(input: {
+  caseId: string;
+  baselineId: string;
+  originalAmount: string;
+  currency: string;
+  basis: string;
+  poolRef?: string;
+}): Promise<{
+  pool_id: string;
+  pool_ref: string;
+  original_amount: number;
+  currency: string;
+  remaining: number;
+}> {
+  const { data, error } = await supabase.rpc("establish_contingency_pool", {
+    p_case_id: input.caseId,
+    p_pool: {
+      baseline_id: input.baselineId,
+      original_amount: input.originalAmount,
+      currency: input.currency,
+      basis: input.basis,
+      pool_ref: input.poolRef ?? "",
+    },
+  });
+  return unwrap(data, error);
+}
+
+/**
+ * D5.18. The act that spends money: authority-gated, cause-attributed,
+ * refused below zero, §70 human-only. The amount travels as TEXT so the
+ * server's own finite-money parser is the one place a NaN is caught.
+ */
+export async function drawDownContingency(input: {
+  poolId: string;
+  amount: string;
+  causeClass: ContingencyCauseClass;
+  justification: string;
+  riskId?: string;
+  changeId?: string;
+  causeNote?: string;
+}): Promise<{
+  entry_id: string;
+  entry_no: number;
+  amount: number;
+  cause_class: string;
+  remaining: number;
+  currency: string;
+}> {
+  const { data, error } = await supabase.rpc("draw_down_contingency", {
+    p_pool_id: input.poolId,
+    p_draw: {
+      amount: input.amount,
+      cause_class: input.causeClass,
+      justification: input.justification,
+      risk_id: input.riskId ?? "",
+      change_id: input.changeId ?? "",
+      cause_note: input.causeNote ?? "",
+    },
+  });
+  return unwrap(data, error);
+}
+
+/** A spend made in error is REVERSED, never edited away. */
+export async function releaseContingency(input: {
+  entryId: string;
+  amount: string;
+  justification: string;
+}): Promise<{
+  entry_id: string;
+  amount: number;
+  reverses_entry_no: number;
+  remaining: number;
+}> {
+  const { data, error } = await supabase.rpc("release_contingency", {
+    p_entry_id: input.entryId,
+    p_release: { amount: input.amount, justification: input.justification },
+  });
+  return unwrap(data, error);
+}
+
+/* ── The delegation instrument itself (20261203090400) ────────────────── */
+
+/**
+ * The ceiling every contingency drawdown and change approval is checked
+ * against, and the doors that state it.
+ *
+ * Before these existed the seeds left `max_commitment_usd` null, R2 made a
+ * null ceiling REFUSE, and the refusal's own remediation ("record
+ * max_commitment_usd on the delegation") was impossible through the product —
+ * the feature could only be enabled by a DBA with raw SQL.
+ */
+export async function getAuthorityDelegations(
+  actionType?: string,
+): Promise<AuthorityDelegations> {
+  const { data, error } = await supabase.rpc("get_authority_delegations", {
+    p_action_type: actionType ?? null,
+  });
+  return unwrap(data, error);
+}
+
+/** States the ceiling and its CURRENCY on a DRAFT delegation. §70: human only. */
+export async function stateAuthorityCeiling(input: {
+  limitId: string;
+  maxCommitment: string;
+  currency: string;
+  basis: string;
+  maxRiskLevel?: string;
+}): Promise<{
+  limit_id: string;
+  ceiling: number;
+  currency: string;
+  status: string;
+}> {
+  const { data, error } = await supabase.rpc("state_authority_ceiling", {
+    p_id: input.limitId,
+    p_ceiling: {
+      max_commitment: input.maxCommitment,
+      currency: input.currency,
+      basis: input.basis,
+      max_risk_level: input.maxRiskLevel ?? "",
+    },
+  });
+  return unwrap(data, error);
+}
+
+/**
+ * Mints a DRAFT from an existing delegation so a live ceiling can be changed
+ * through the product. An adopted delegation is never edited: every recorded
+ * drawdown quotes the ceiling it was checked against.
+ */
+export async function draftAuthorityCeiling(input: {
+  limitId: string;
+  note: string;
+}): Promise<{ draft_id: string; role_key: string; action_type: string }> {
+  const { data, error } = await supabase.rpc("draft_authority_ceiling", {
+    p_id: input.limitId,
+    p_note: input.note,
+  });
+  return unwrap(data, error);
+}
+
+/** Adopting a delegation is itself an act of authority. §70 refuses ai_admin. */
+export async function adoptAuthorityLimit(input: {
+  limitId: string;
+  note: string;
+}): Promise<{ adopted: string; role_key: string; ceiling: number | null }> {
+  const { data, error } = await supabase.rpc("adopt_authority_limit", {
+    p_id: input.limitId,
+    p_note: input.note,
+  });
+  return unwrap(data, error);
+}
+
+/* ── D5.27 / D5.30: Workflow 3 on the existing MOC engine ─────────────── */
+
+export async function getCaseChangeControl(
+  caseId: string,
+): Promise<CaseChangeControl> {
+  const { data, error } = await supabase.rpc("get_case_change_control", {
+    p_case_id: caseId,
+  });
+  return unwrap(data, error);
+}
+
+export async function computeCaseChangeControl(
+  caseId: string,
+): Promise<CaseChangeControl> {
+  const { data, error } = await supabase.rpc("compute_case_change_control", {
+    p_case_id: caseId,
+  });
+  return unwrap(data, error);
+}
+
+export async function raiseProjectChange(input: {
+  caseId: string;
+  changeRef: string;
+  changeClass: string;
+  baselineId: string;
+  proposedChange: string;
+  reason: string;
+}): Promise<{ change_id: string; change_ref: string; status: string }> {
+  const { data, error } = await supabase.rpc("raise_project_change", {
+    p_case_id: input.caseId,
+    p_change: {
+      change_ref: input.changeRef,
+      change_class: input.changeClass,
+      baseline_id: input.baselineId,
+      proposed_change: input.proposedChange,
+      reason: input.reason,
+    },
+  });
+  return unwrap(data, error);
+}
+
+/** §70: the assessed cost effect is the number the authority routing runs on. */
+export async function assessProjectChange(input: {
+  changeId: string;
+  technicalEffect: string;
+  costEffect: string;
+  scheduleEffectDays: string;
+  riskEffect: string;
+  contingencyEffect?: string;
+  currency: string;
+  impactBasis: string;
+  targets?: { kind: string; id?: string; effect?: string }[];
+}): Promise<{ change_id: string; status: string; propagation_rows: number }> {
+  const { data, error } = await supabase.rpc("assess_project_change", {
+    p_change_id: input.changeId,
+    p_impact: {
+      technical_effect: input.technicalEffect,
+      cost_effect: input.costEffect,
+      schedule_effect_days: input.scheduleEffectDays,
+      risk_effect: input.riskEffect,
+      contingency_effect: input.contingencyEffect ?? "0",
+      currency: input.currency,
+      impact_basis: input.impactBasis,
+      targets: input.targets ?? [],
+    },
+  });
+  return unwrap(data, error);
+}
+
+/** The MOC engine's competence sign-off, on the change object. */
+export async function signProjectChangeEngineering(input: {
+  changeId: string;
+  note: string;
+}): Promise<{ change_id: string; rule: string }> {
+  const { data, error } = await supabase.rpc(
+    "sign_project_change_engineering",
+    { p_change_id: input.changeId, p_note: input.note },
+  );
+  return unwrap(data, error);
+}
+
+/** §70 + §42: a human who did not raise it, inside an adopted delegation. */
+export async function decideProjectChange(input: {
+  changeId: string;
+  outcome: "approved" | "rejected";
+  note: string;
+}): Promise<{ change_id: string; status: string }> {
+  const { data, error } = await supabase.rpc("decide_project_change", {
+    p_change_id: input.changeId,
+    p_decision: { outcome: input.outcome, note: input.note },
+  });
+  return unwrap(data, error);
+}
+
+export async function propagateProjectChange(
+  changeId: string,
+): Promise<{ change_id: string; applied: number; outstanding: number }> {
+  const { data, error } = await supabase.rpc("propagate_project_change", {
+    p_change_id: changeId,
+  });
+  return unwrap(data, error);
+}
+
+export async function closeChangePropagation(input: {
+  propagationId: string;
+  outcome: "applied" | "not_applicable" | "blocked";
+  note: string;
+}): Promise<{ propagation_id: string; status: string; outstanding: number }> {
+  const { data, error } = await supabase.rpc("close_change_propagation", {
+    p_propagation_id: input.propagationId,
+    p_close: { outcome: input.outcome, note: input.note },
+  });
+  return unwrap(data, error);
+}
+
+export async function implementProjectChange(
+  changeId: string,
+): Promise<{ change_id: string; status: string }> {
+  const { data, error } = await supabase.rpc("implement_project_change", {
+    p_change_id: changeId,
+  });
+  return unwrap(data, error);
+}
+
+/* ── D3.12/D3.13/D3.21/D3.36: latency, exposure, debt ─────────────────── */
+
+export async function getCaseDecisionLatency(
+  caseId: string,
+): Promise<CaseDecisionLatency> {
+  const { data, error } = await supabase.rpc("get_case_decision_latency", {
+    p_case_id: caseId,
+  });
+  return unwrap(data, error);
+}
+
+export async function computeCaseDecisionLatency(
+  caseId: string,
+): Promise<CaseDecisionLatency> {
+  const { data, error } = await supabase.rpc("compute_case_decision_latency", {
+    p_case_id: caseId,
+  });
+  return unwrap(data, error);
+}
+
+export async function getCaseDecisionDebt(
+  caseId: string,
+): Promise<CaseDecisionDebt> {
+  const { data, error } = await supabase.rpc("get_case_decision_debt", {
+    p_case_id: caseId,
+  });
+  return unwrap(data, error);
+}
+
+export async function computeCaseDecisionDebt(
+  caseId: string,
+): Promise<CaseDecisionDebt> {
+  const { data, error } = await supabase.rpc("compute_case_decision_debt", {
+    p_case_id: caseId,
+  });
+  return unwrap(data, error);
+}
+
+/** D3.13: which activities a decision gates. Criticality is P6's float. */
+export async function linkDecisionToActivity(input: {
+  decisionId: string;
+  activityKey?: string;
+  activityId?: string;
+  basis: string;
+}): Promise<{ link_id: string; decision_id: string }> {
+  const { data, error } = await supabase.rpc("link_decision_to_activity", {
+    p_decision_id: input.decisionId,
+    p_link: {
+      activity_key: input.activityKey ?? "",
+      activity_id: input.activityId ?? "",
+      basis: input.basis,
+    },
+  });
+  return unwrap(data, error);
+}
+
+/** D3.21: the two numbers II.17 needs, stated rather than derived. */
+export async function recordDecisionDelayExposure(input: {
+  decisionId: string;
+  expectedImpact: string;
+  probabilityOfDelay: string;
+  currency: string;
+  basis: string;
+}): Promise<{ exposure_id: string; debt: number }> {
+  const { data, error } = await supabase.rpc("record_decision_delay_exposure", {
+    p_decision_id: input.decisionId,
+    p_exposure: {
+      expected_impact: input.expectedImpact,
+      probability_of_delay: input.probabilityOfDelay,
+      currency: input.currency,
+      basis: input.basis,
+    },
+  });
+  return unwrap(data, error);
+}
+
+/* ── D5.21 / D13.08 / D13.02: the compositions. These compute nothing. ── */
+
+export async function getCaseAssuranceEngine(
+  caseId: string,
+): Promise<CaseAssuranceEngine> {
+  const { data, error } = await supabase.rpc("get_case_assurance_engine", {
+    p_case_id: caseId,
+  });
+  return unwrap(data, error);
+}
+
+export async function getCaseIntegratedControls(
+  caseId: string,
+): Promise<CaseIntegratedControls> {
+  const { data, error } = await supabase.rpc("get_case_integrated_controls", {
+    p_case_id: caseId,
+  });
+  return unwrap(data, error);
+}
+
+export async function getMyDecisions(limit = 50): Promise<MyDecisions> {
+  const { data, error } = await supabase.rpc("get_my_decisions", {
+    p_limit: limit,
+  });
   return unwrap(data, error);
 }

@@ -14,6 +14,7 @@ import {
   type DevelopmentCaseSummary,
 } from "../services/developService";
 import { LIFECYCLE_TYPES } from "../lib/develop";
+import { MyDecisionsPanel } from "../components/develop/MyDecisionsPanel";
 
 const STATUS_STYLE: Record<string, string> = {
   active: "bg-signal-cyan/10 text-signal-cyan",
@@ -90,21 +91,23 @@ export function DevelopCasesPage() {
         </div>
       )}
 
+      {/* D13.02 (spec §44): the per-user decision queue, cross-domain over the
+          ONE canonical decisions table. It sits above the case list because it
+          is the question a person opens this route to answer — "what is waiting
+          on me?" — and because it spans cases rather than belonging to one. */}
+      <MyDecisionsPanel />
+
       {loading ? (
         <div className="text-sm text-slate-400">Loading cases…</div>
       ) : cases.length === 0 ? (
         <div className="rounded-xl border border-white/6 bg-[#0D1520] p-8 text-center">
-          <Landmark
-            className="mx-auto h-8 w-8 text-slate-500"
-            aria-hidden
-          />
+          <Landmark className="mx-auto h-8 w-8 text-slate-500" aria-hidden />
           <p className="mt-3 text-sm font-semibold text-slate-200">
             No development cases yet
           </p>
           <p className="mx-auto mt-1 max-w-md text-xs text-slate-400">
             A case begins with the problem, not the project. Frame the problem
-            or opportunity, pick a framework, and the gates take it from
-            there.
+            or opportunity, pick a framework, and the gates take it from there.
           </p>
           <button
             onClick={() => navigate("/develop/new")}

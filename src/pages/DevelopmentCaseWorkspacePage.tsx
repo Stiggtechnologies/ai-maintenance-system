@@ -100,6 +100,7 @@ import { CaseChainsPanel } from "../components/develop/CaseChainsPanels";
 import { IntegratedControlsPanel } from "../components/develop/ControlsPanels";
 import { PerformancePanel } from "../components/develop/PerformancePanels";
 import { ScheduleAssurancePanel } from "../components/develop/SchedulePanels";
+import { ChangeAndControlsPanel } from "../components/develop/ChangeControlPanels";
 
 const REVIEW_ROLES = [
   "admin",
@@ -2800,6 +2801,24 @@ export function DevelopmentCaseWorkspacePage() {
             onChanged={onChanged}
           />
         )}
+      />
+      {/* §44 Integrated Controls + change control (Slice 4D): the six control
+          dimensions composed from RECORDED RUNS (nothing recomputed here), the
+          contingency ledger whose drawdowns are authority-gated and attributed
+          to a cause, Workflow 3 riding the existing MOC engine, and §54
+          decision latency with its critical-path exposure — each refusing by
+          name rather than reporting a comfortable zero. */}
+      <ChangeAndControlsPanel
+        caseId={workspace.id}
+        canPlan={canPlan}
+        canReview={canReview}
+        reloadKey={chainsKey}
+        baselines={workspace.baselines
+          .filter((b) => b.status !== "draft")
+          .map((b) => ({
+            id: b.id,
+            label: `${b.baselineType} v${b.version} (${b.status})`,
+          }))}
       />
       <OperationalReadinessSection caseId={workspace.id} canPlan={canPlan} />
 
