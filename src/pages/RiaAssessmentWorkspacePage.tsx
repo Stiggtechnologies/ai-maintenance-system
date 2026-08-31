@@ -192,7 +192,7 @@ export function RiaAssessmentWorkspacePage() {
               Review assessment offer
             </a>
             <a
-              href="/demo/copilot"
+              href="/workspace"
               className="rounded-lg border border-white/15 px-5 py-3 font-semibold"
             >
               Reliability Engineer
@@ -207,7 +207,7 @@ export function RiaAssessmentWorkspacePage() {
   };
   const signOut = async () => {
     await platformService.signOut();
-    window.location.assign("/demo/copilot");
+    window.location.assign("/workspace");
   };
 
   return (

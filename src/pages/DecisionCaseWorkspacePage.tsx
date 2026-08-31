@@ -21,6 +21,7 @@ import {
   Mic,
   MicOff,
   Camera,
+  Image as ImageIcon,
   X as XIcon,
   ShieldCheck,
   Sparkles,
@@ -87,6 +88,10 @@ const tabs: Array<{ id: PacketTab; label: string }> = [
   { id: "value", label: "Value" },
 ];
 const PUBLIC_VALUE_PROOF_TOKEN_ALLOWANCE = 60000;
+
+function sampleChipLabel(industry: DecisionIndustryId): string {
+  return createSeedDecisionCases({ industry })[0].asset;
+}
 
 function trackDecisionWorkspaceEvent(
   eventName: string,
@@ -247,6 +252,9 @@ export function DecisionCaseWorkspacePage({
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const photoInputRef = useRef<HTMLInputElement | null>(null);
+  const cameraInputRef = useRef<HTMLInputElement | null>(null);
+  const plusSheetRef = useRef<HTMLDivElement | null>(null);
+  const [plusOpen, setPlusOpen] = useState(false);
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
   const dictation = useDictation((text) =>
     setComposer((prev) => (prev ? `${prev} ${text}` : text)),
@@ -340,6 +348,26 @@ export function DecisionCaseWorkspacePage({
       composerRef.current?.focus();
     }
   }, [active.id, active.messages]);
+  useEffect(() => {
+    if (!plusOpen) return;
+    const onPointer = (event: MouseEvent) => {
+      if (
+        plusSheetRef.current &&
+        !plusSheetRef.current.contains(event.target as Node)
+      ) {
+        setPlusOpen(false);
+      }
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setPlusOpen(false);
+    };
+    window.addEventListener("mousedown", onPointer);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("mousedown", onPointer);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [plusOpen]);
 
   const chooseCase = (id: string) => {
     setSelectedId(id);
@@ -644,42 +672,35 @@ export function DecisionCaseWorkspacePage({
       data-layout="chat-first"
     >
       <header className="dw-topbar">
-        {!emptyConversation && (
-          <button
-            type="button"
-            className="dw-icon"
-            aria-label="Conversations"
-            aria-expanded={railOpen}
-            onClick={() => setRailOpen((value) => !value)}
-          >
-            <PanelLeft size={17} />
-          </button>
-        )}
-        <div className="dw-identity">
-          <span className="dw-mark" aria-hidden>
-            S
-          </span>
-          <span>
-            <strong>SyncAI</strong>
-            {emptyConversation ? null : (
-              <>
-                <small>{active.title}</small>
-                {active.caseNumber && !active.id.startsWith("draft-") && (
-                  <em className="dw-quiet-case">{active.caseNumber}</em>
-                )}
-              </>
-            )}
-          </span>
+        <div className="dw-topbar-side">
+          {!emptyConversation && (
+            <button
+              type="button"
+              className="dw-icon"
+              aria-label="Conversations"
+              aria-expanded={railOpen}
+              onClick={() => setRailOpen((value) => !value)}
+            >
+              <PanelLeft size={17} />
+            </button>
+          )}
         </div>
-        {!emptyConversation && (
-          <button
-            type="button"
-            className="dw-view-record"
-            onClick={() => setRecordOpen((value) => !value)}
-          >
-            {recordOpen ? "Hide record" : "View record"}
-          </button>
-        )}
+        <div className="dw-topbar-center">
+          {!emptyConversation && (
+            <span className="dw-case-name">{active.title}</span>
+          )}
+        </div>
+        <div className="dw-topbar-side is-end">
+          {!emptyConversation && (
+            <button
+              type="button"
+              className="dw-view-record"
+              onClick={() => setRecordOpen((value) => !value)}
+            >
+              {recordOpen ? "Hide record" : "View record"}
+            </button>
+          )}
+        </div>
       </header>
 
       <div
@@ -717,14 +738,15 @@ export function DecisionCaseWorkspacePage({
           <>
             <section className="dw-thread" aria-label="Conversation">
               {emptyConversation ? (
-                <div className="dw-empty">
-                  <p>What is the reliability question?</p>
+                <div className="dw-empty" data-testid="first-paint-empty">
                   <button
                     type="button"
-                    className="dw-try-sample"
+                    className="dw-seed-chip"
+                    data-testid="sample-seed-chip"
                     onClick={trySample}
                   >
-                    Try a sample
+                    <span className="dw-seed-orb" aria-hidden />
+                    {sampleChipLabel(industry)}
                   </button>
                 </div>
               ) : (
@@ -851,82 +873,84 @@ export function DecisionCaseWorkspacePage({
               )}
               <div className="dw-composer">
                 {!emptyConversation && (
-                  <>
+                  <div className="dw-plus" ref={plusSheetRef}>
                     <input
                       ref={fileInputRef}
                       type="file"
-                      accept=".csv,.tsv,.txt,.log,image/*"
+                      accept=".csv,.tsv,.txt,.log"
                       className="dw-file-input"
                       aria-label="Attach a data file"
                       onChange={(event) => {
                         void handleAttach(event.target.files?.[0]);
                         event.target.value = "";
+                        setPlusOpen(false);
                       }}
                     />
                     <input
                       ref={photoInputRef}
                       type="file"
                       accept="image/*"
-                      capture="environment"
                       className="dw-file-input"
                       aria-label="Attach a photo"
                       onChange={(event) => {
                         void handleAttach(event.target.files?.[0]);
                         event.target.value = "";
+                        setPlusOpen(false);
+                      }}
+                    />
+                    <input
+                      ref={cameraInputRef}
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      className="dw-file-input"
+                      aria-label="Open camera"
+                      onChange={(event) => {
+                        void handleAttach(event.target.files?.[0]);
+                        event.target.value = "";
+                        setPlusOpen(false);
                       }}
                     />
                     <button
                       type="button"
                       className="dw-composer-tool"
-                      title="Attach a CSV or photo"
-                      aria-label="Attach a data file"
-                      onClick={() => fileInputRef.current?.click()}
+                      title="Add"
+                      aria-label="Add camera, photos, or files"
+                      aria-expanded={plusOpen}
+                      aria-haspopup="menu"
+                      onClick={() => setPlusOpen((value) => !value)}
                     >
-                      <Paperclip size={16} />
+                      <Plus size={16} />
                     </button>
-                    <button
-                      type="button"
-                      className="dw-composer-tool"
-                      title="Attach a photo"
-                      aria-label="Attach a photo"
-                      onClick={() => photoInputRef.current?.click()}
-                    >
-                      <Camera size={16} />
-                    </button>
-                    <button
-                      type="button"
-                      className={`dw-composer-tool ${dictation.listening ? "is-live" : ""}`}
-                      title={
-                        dictation.supported
-                          ? dictation.listening
-                            ? "Stop dictation"
-                            : "Dictate — runs in your browser"
-                          : "This browser has no speech recognition"
-                      }
-                      aria-label={
-                        dictation.listening
-                          ? "Stop dictation"
-                          : "Dictate a message"
-                      }
-                      aria-pressed={dictation.listening}
-                      disabled={!dictation.supported}
-                      onClick={() =>
-                        dictation.listening
-                          ? dictation.stop()
-                          : dictation.start()
-                      }
-                    >
-                      {dictation.supported ? (
-                        dictation.listening ? (
-                          <Mic size={16} />
-                        ) : (
-                          <Mic size={16} />
-                        )
-                      ) : (
-                        <MicOff size={16} />
-                      )}
-                    </button>
-                  </>
+                    {plusOpen && (
+                      <div className="dw-plus-sheet" role="menu">
+                        <button
+                          type="button"
+                          role="menuitem"
+                          onClick={() => cameraInputRef.current?.click()}
+                        >
+                          <Camera size={16} />
+                          Camera
+                        </button>
+                        <button
+                          type="button"
+                          role="menuitem"
+                          onClick={() => photoInputRef.current?.click()}
+                        >
+                          <ImageIcon size={16} />
+                          Photos
+                        </button>
+                        <button
+                          type="button"
+                          role="menuitem"
+                          onClick={() => fileInputRef.current?.click()}
+                        >
+                          <Paperclip size={16} />
+                          Files
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 )}
                 <textarea
                   ref={composerRef}
@@ -941,6 +965,37 @@ export function DecisionCaseWorkspacePage({
                   placeholder={composerPlaceholder}
                   rows={2}
                 />
+                {!emptyConversation && (
+                  <button
+                    type="button"
+                    className={`dw-composer-tool ${dictation.listening ? "is-live" : ""}`}
+                    title={
+                      dictation.supported
+                        ? dictation.listening
+                          ? "Stop dictation"
+                          : "Dictate — runs in your browser"
+                        : "This browser has no speech recognition"
+                    }
+                    aria-label={
+                      dictation.listening
+                        ? "Stop dictation"
+                        : "Dictate a message"
+                    }
+                    aria-pressed={dictation.listening}
+                    disabled={!dictation.supported}
+                    onClick={() =>
+                      dictation.listening
+                        ? dictation.stop()
+                        : dictation.start()
+                    }
+                  >
+                    {dictation.supported ? (
+                      <Mic size={16} />
+                    ) : (
+                      <MicOff size={16} />
+                    )}
+                  </button>
+                )}
                 <button
                   type="button"
                   title="Send message"
@@ -952,17 +1007,17 @@ export function DecisionCaseWorkspacePage({
                   <Send size={17} />
                 </button>
               </div>
-              <div className="dw-composer-meta">
-                <span>
-                  <LockKeyhole size={12} />
-                  {composer.trim() &&
-                  composerScope === "provisional_new_subject"
-                    ? `New subject · ${active.caseNumber} unchanged`
-                    : emptyConversation
-                      ? "New conversation"
+              {!emptyConversation && (
+                <div className="dw-composer-meta">
+                  <span>
+                    <LockKeyhole size={12} />
+                    {composer.trim() &&
+                    composerScope === "provisional_new_subject"
+                      ? `New subject · ${active.caseNumber} unchanged`
                       : `Using ${active.caseNumber} context`}
-                </span>
-              </div>
+                  </span>
+                </div>
+              )}
             </section>
           </>
         </main>

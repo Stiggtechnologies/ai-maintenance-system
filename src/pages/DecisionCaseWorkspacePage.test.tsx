@@ -51,10 +51,14 @@ vi.mock("../components/AuthProvider", async () => {
   };
 });
 
-function renderWorkspace(entry = "/workspace/cases/demo") {
+function renderWorkspace(entry = "/workspace") {
   return render(
     <MemoryRouter initialEntries={[entry]}>
       <Routes>
+        <Route
+          path="/workspace"
+          element={<DecisionCaseWorkspacePage publicMode />}
+        />
         <Route
           path="/workspace/cases/:caseId"
           element={<DecisionCaseWorkspacePage publicMode />}
@@ -65,7 +69,7 @@ function renderWorkspace(entry = "/workspace/cases/demo") {
 }
 
 function loadSample() {
-  fireEvent.click(screen.getByRole("button", { name: "Try a sample" }));
+  fireEvent.click(screen.getByTestId("sample-seed-chip"));
 }
 
 describe("DecisionCaseWorkspacePage — chat-first paint", () => {
@@ -87,31 +91,42 @@ describe("DecisionCaseWorkspacePage — chat-first paint", () => {
     recordVerificationResult.mockReset();
   });
 
-  it("first paint is empty thread + composer + Try a sample, not a demo case", async () => {
+  it("first paint is empty thread + composer + one seed chip, not a demo case", async () => {
     renderWorkspace();
-    expect(screen.getAllByText("SyncAI").length).toBeGreaterThan(0);
     expect(document.querySelector('[data-layout="chat-first"]')).toBeTruthy();
     expect(screen.getByLabelText("Conversation")).toBeTruthy();
     expect(
       screen.getByPlaceholderText("Ask a reliability question…"),
     ).toBeTruthy();
-    expect(screen.getByText("What is the reliability question?")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Try a sample" })).toBeTruthy();
+    expect(screen.getByTestId("first-paint-empty")).toBeTruthy();
+    expect(screen.getByTestId("sample-seed-chip")).toHaveTextContent(
+      "P-101 process pump",
+    );
+    expect(screen.queryByText("What is the reliability question?")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Try a sample" })).toBeNull();
     expect(screen.queryByRole("button", { name: "View record" })).toBeNull();
     expect(screen.queryByText("Not proven")).toBeNull();
     expect(screen.queryByTestId("recommendation-turn")).toBeNull();
     expect(screen.queryByLabelText("Attach a data file")).toBeNull();
     expect(screen.queryByLabelText("Attach a photo")).toBeNull();
+    expect(screen.queryByLabelText("Add camera, photos, or files")).toBeNull();
     expect(screen.queryByLabelText("Dictate a message")).toBeNull();
     expect(screen.queryByLabelText("Conversations")).toBeNull();
     expect(screen.queryByRole("tablist")).toBeNull();
     expect(screen.queryByText("Decision Workspace")).toBeNull();
     expect(screen.queryByText("Current decision packet")).toBeNull();
-    expect(screen.queryByText("P-101 process pump")).toBeNull();
+    expect(screen.queryByText("P-101 process pump")).toBeTruthy();
+    expect(
+      screen.queryByText(
+        /Decide whether P-101 process pump's seal inspection interval/i,
+      ),
+    ).toBeNull();
     expect(screen.queryByRole("button", { name: "Simulate" })).toBeNull();
+    expect(screen.queryByText("Chat")).toBeNull();
+    expect(screen.queryByText("Work")).toBeNull();
   });
 
-  it("Try a sample loads the recommendation in the assistant turn", async () => {
+  it("seed chip loads the recommendation in the assistant turn", async () => {
     renderWorkspace();
     loadSample();
     expect(screen.getByTestId("recommendation-turn")).toBeTruthy();
@@ -128,8 +143,28 @@ describe("DecisionCaseWorkspacePage — chat-first paint", () => {
     expect(screen.getByRole("button", { name: "Delegate" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Reject" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "View record" })).toBeTruthy();
+    expect(
+      screen.getByText(
+        /Decide whether P-101 process pump's seal inspection interval/i,
+      ),
+    ).toBeTruthy();
     expect(screen.queryByLabelText("Sign in")).toBeNull();
     expect(screen.queryByRole("tablist")).toBeNull();
+    expect(
+      screen.getByLabelText("Add camera, photos, or files"),
+    ).toBeTruthy();
+  });
+
+  it("plus sheet offers camera, photos, and files only after a case exists", () => {
+    renderWorkspace();
+    expect(screen.queryByRole("menuitem", { name: "Camera" })).toBeNull();
+    loadSample();
+    fireEvent.click(screen.getByLabelText("Add camera, photos, or files"));
+    expect(screen.getByRole("menuitem", { name: "Camera" })).toBeTruthy();
+    expect(screen.getByRole("menuitem", { name: "Photos" })).toBeTruthy();
+    expect(screen.getByRole("menuitem", { name: "Files" })).toBeTruthy();
+    expect(screen.queryByText("Plugins")).toBeNull();
+    expect(screen.queryByText("Think harder")).toBeNull();
   });
 
   it("after Simulate, LEARN is a pointer — not a recorded verification", async () => {
@@ -161,6 +196,7 @@ describe("DecisionCaseWorkspacePage — chat-first paint", () => {
     expect(src).not.toMatch(/InThreadLearnRecorder/);
     expect(src).not.toMatch(/recordVerificationResult/);
     expect(src).not.toMatch(/record_verification_result/);
+    expect(src).not.toMatch(/Try a sample/);
   });
 
   it("Request changes returns focus to the composer", () => {
@@ -190,10 +226,13 @@ describe("DecisionCaseWorkspacePage — chat-first paint", () => {
     ).toBeNull();
   });
 
-  it("deep-links a mining conversation only after Try a sample", () => {
-    renderWorkspace("/workspace/cases/demo?industry=mining");
-    expect(screen.getByText("What is the reliability question?")).toBeTruthy();
-    expect(screen.queryByText(/CR-01 primary crusher/i)).toBeNull();
+  it("deep-links a mining conversation only after the seed chip", () => {
+    renderWorkspace("/workspace?industry=mining");
+    expect(screen.getByTestId("sample-seed-chip")).toHaveTextContent(
+      /CR-01 primary crusher/i,
+    );
+    expect(screen.queryByText(/CR-01 primary crusher/i)).toBeTruthy();
+    expect(screen.queryByTestId("recommendation-turn")).toBeNull();
     loadSample();
     expect(
       screen.getAllByText(/CR-01 primary crusher/i).length,
@@ -214,9 +253,9 @@ describe("DecisionCaseWorkspacePage — chat-first paint", () => {
     );
     unmount();
 
-    renderWorkspace("/workspace/cases/demo?industry=manufacturing");
-    expect(screen.getByText("What is the reliability question?")).toBeTruthy();
-    expect(screen.queryByText(/PR-07 stamping press/i)).toBeNull();
+    renderWorkspace("/workspace?industry=manufacturing");
+    expect(screen.getByTestId("sample-seed-chip")).toBeTruthy();
+    expect(screen.queryByText(/PR-07 stamping press/i)).toBeTruthy();
     expect(screen.queryByText("P-101 process pump")).toBeNull();
     loadSample();
     expect(screen.getAllByText(/PR-07 stamping press/i).length).toBeGreaterThan(
@@ -232,15 +271,14 @@ describe("DecisionCaseWorkspacePage — chat-first paint", () => {
     ).toContain("PR-07 stamping press");
   });
 
-  it("New opens an empty conversation with the centered prompt", async () => {
+  it("New opens an empty conversation with the seed chip", async () => {
     renderWorkspace();
     loadSample();
     fireEvent.click(screen.getByRole("button", { name: "Conversations" }));
     fireEvent.click(screen.getByRole("button", { name: "New" }));
-    expect(
-      await screen.findByText("What is the reliability question?"),
-    ).toBeTruthy();
+    expect(await screen.findByTestId("sample-seed-chip")).toBeTruthy();
     expect(screen.queryByTestId("recommendation-turn")).toBeNull();
-    expect(screen.getByRole("button", { name: "Try a sample" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Try a sample" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "View record" })).toBeNull();
   });
 });

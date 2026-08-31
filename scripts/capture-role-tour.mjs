@@ -65,7 +65,7 @@ const TOUR = [
       "/mission-control",
       "/command-centers",
       "/readiness",
-      "/decision-cases/demo",
+      "/decision-cases",
       "/assets",
       "/reliability",
       "/risk",

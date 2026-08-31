@@ -312,7 +312,7 @@ export function GovernedDecisionWorkspacePage() {
               when this browser still holds it.
             </p>
             <button
-              onClick={() => navigate("/decision-cases/demo")}
+              onClick={() => navigate("/decision-cases")}
               className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-200"
             >
               <ArrowLeft className="h-3.5 w-3.5" aria-hidden /> All decisions
@@ -321,7 +321,7 @@ export function GovernedDecisionWorkspacePage() {
         ) : (
           <div className="space-y-4 rounded-xl border border-white/6 bg-[#0D1520] p-5">
             <button
-              onClick={() => navigate("/decision-cases/demo")}
+              onClick={() => navigate("/decision-cases")}
               className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-200"
             >
               <ArrowLeft className="h-3.5 w-3.5" aria-hidden /> All decisions

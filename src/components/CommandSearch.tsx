@@ -38,7 +38,7 @@ const allResults: SearchResult[] = [
   { id: "mc", label: "Mission Control", path: "/mission-control", category: "Mission", icon: Target },
   { id: "cc", label: "Command Centers", path: "/command-centers", category: "Mission", icon: Target },
   { id: "rd", label: "Readiness", path: "/readiness", category: "Mission", icon: Target },
-  { id: "cw", label: "Decision Workspace", path: "/decision-cases/demo", category: "Mission", icon: Target },
+  { id: "cw", label: "Decision Workspace", path: "/decision-cases", category: "Mission", icon: Target },
   { id: "as", label: "Asset Register", path: "/assets", category: "Asset Foundation", icon: Factory },
   { id: "ao", label: "Class Profiles & Ontology", path: "/assets/ontology", category: "Asset Foundation", icon: Factory },
   { id: "tw", label: "Twin & Naming Coverage", path: "/assets/twins", category: "Asset Foundation", icon: Factory },
