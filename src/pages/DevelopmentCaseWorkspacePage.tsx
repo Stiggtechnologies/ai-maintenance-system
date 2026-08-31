@@ -98,6 +98,7 @@ import {
 } from "../components/develop/ValueSpinePanels";
 import { CaseChainsPanel } from "../components/develop/CaseChainsPanels";
 import { IntegratedControlsPanel } from "../components/develop/ControlsPanels";
+import { PerformancePanel } from "../components/develop/PerformancePanels";
 
 const REVIEW_ROLES = [
   "admin",
@@ -2768,6 +2769,18 @@ export function DevelopmentCaseWorkspacePage() {
       <IntegratedControlsPanel
         caseId={workspace.id}
         members={members}
+        canPlan={canPlan}
+        canReview={canReview}
+        reloadKey={chainsKey}
+      />
+      {/* §44 Performance (Slice 4B): rules of credit and claimed progress,
+          the earned value metric suite, the eight-dimension estimate basis
+          and the confidence that travels with every forecast, the progress
+          integrity cross-check, and the §51 forecast presentation whose
+          P50/P80 columns say they are absent rather than manufacturing a
+          spread. */}
+      <PerformancePanel
+        caseId={workspace.id}
         canPlan={canPlan}
         canReview={canReview}
         reloadKey={chainsKey}

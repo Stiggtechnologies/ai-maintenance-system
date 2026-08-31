@@ -627,6 +627,13 @@ describe("refusal-first — nothing defaults", () => {
   });
 
   it("a structure with no home refuses by name instead of reporting zero", () => {
+    // THIS PINS 20261130090500's OWN TEXT, which is history and must not be
+    // rewritten. The LIVE predicate is 20261201090000's replacement: Slice 4B
+    // gave progress a home (project_rules_of_credit + the planned curve) and
+    // the refusal there is now "nothing has been recorded to look at" rather
+    // than "there is nowhere to look" — asserted, including that this
+    // sentence is gone from the live body, in
+    // developSlice4bPerformanceMigration.test.ts.
     expect(baseline).toMatch(/Progress has no home in this repository yet/);
     expect(baseline).toMatch(/D5\.19\/D5\.20/);
     expect(baseline).toMatch(/Nothing is recorded in %s for this case/);

@@ -21,6 +21,14 @@ import type {
   CostReconciliation,
   ScopeGrowth,
 } from "../lib/develop/controls";
+import type {
+  CaseEarnedValue,
+  CasePerformance,
+  CasePerformanceTrend,
+  CaseProgressIntegrity,
+  EstimateConfidence,
+  ForecastConfidence,
+} from "../lib/develop/performance";
 
 export interface DevelopmentCaseSummary {
   id: string;
@@ -2920,4 +2928,277 @@ export async function listCaseRequirements(caseId: string): Promise<
     .order("requirement_ref");
   if (error) throw new Error(error.message);
   return data ?? [];
+}
+
+/* ────────────────── Slice 4B — Performance & earned value ─────────────── */
+/**
+ * D5.05, D5.06, D5.16, D5.17, D5.20, D5.07/D5.32, D11.29. Same posture as
+ * Slice 4A: every write is a definer RPC, and every READ that produces a
+ * NUMBER goes through a compute_* RPC that records a calculation_runs row —
+ * so nothing on the performance surface is a figure with no lineage behind
+ * it, and nothing on it is a percentile with no distribution behind it.
+ */
+
+export async function getCasePerformance(
+  caseId: string,
+): Promise<CasePerformance> {
+  const { data, error } = await supabase.rpc("get_case_performance", {
+    p_case_id: caseId,
+  });
+  return unwrap(data, error);
+}
+
+export async function recordRuleOfCredit(input: {
+  caseId: string;
+  ruleRef: string;
+  title: string;
+  appliesTo: string;
+  basis: string;
+  steps: { step: string; weight: number }[];
+}): Promise<{
+  rule_id: string;
+  rule_ref: string;
+  applies_to: string;
+  step_count: number;
+}> {
+  const { data, error } = await supabase.rpc("record_rule_of_credit", {
+    p_case_id: input.caseId,
+    p_rule: {
+      rule_ref: input.ruleRef,
+      title: input.title,
+      applies_to: input.appliesTo,
+      basis: input.basis,
+      steps: input.steps,
+    },
+  });
+  return unwrap(data, error);
+}
+
+export async function openProgressPeriod(input: {
+  caseId: string;
+  periodRef: string;
+  periodEnd: string;
+}): Promise<{
+  period_id: string;
+  period_ref: string;
+  period_end: string;
+  status: string;
+  note: string;
+}> {
+  const { data, error } = await supabase.rpc("open_progress_period", {
+    p_case_id: input.caseId,
+    p_period: { period_ref: input.periodRef, period_end: input.periodEnd },
+  });
+  return unwrap(data, error);
+}
+
+/** §70: setting the planned curve is setting a baseline. */
+export async function setPeriodPlannedProgress(input: {
+  periodId: string;
+  percent: string;
+  basis: string;
+}): Promise<{
+  period_id: string;
+  period_ref: string;
+  planned_percent_complete: number;
+}> {
+  const { data, error } = await supabase.rpc("set_period_planned_progress", {
+    p_period_id: input.periodId,
+    p_percent: input.percent,
+    p_basis: input.basis,
+  });
+  return unwrap(data, error);
+}
+
+export async function closeProgressPeriod(input: {
+  periodId: string;
+  note: string;
+}): Promise<{
+  period_id: string;
+  period_ref: string;
+  status: string;
+  recorded_runs_in_period: number;
+  note: string;
+}> {
+  const { data, error } = await supabase.rpc("close_progress_period", {
+    p_period_id: input.periodId,
+    p_note: input.note,
+  });
+  return unwrap(data, error);
+}
+
+/**
+ * §70: naming an element's work type decides which rule of credit governs
+ * every percent complete it will ever report.
+ */
+export async function setWbsElementWorkType(input: {
+  caseId: string;
+  wbsCode: string;
+  workType: string;
+  basis: string;
+}): Promise<{
+  wbs_code: string;
+  work_type: string;
+  rule_of_credit: string | null;
+  note: string;
+}> {
+  const { data, error } = await supabase.rpc("set_wbs_element_work_type", {
+    p_case_id: input.caseId,
+    p_element: {
+      wbs_code: input.wbsCode,
+      work_type: input.workType,
+      basis: input.basis,
+    },
+  });
+  return unwrap(data, error);
+}
+
+/**
+ * The claim NAMES A STEP; the percent comes back derived from the rule.
+ *
+ * There is no `appliesTo` parameter: the rule of credit is resolved from the
+ * work type recorded ON THE ELEMENT. A caller that could nominate the work
+ * type could nominate the rule, and a rule nominated at claim time is a
+ * percent chosen at claim time.
+ */
+export async function recordProgressClaim(input: {
+  periodId: string;
+  wbsCode: string;
+  stepIndex: number;
+  basis: string;
+}): Promise<{
+  claim_id: string;
+  wbs_code: string;
+  work_type: string;
+  rule_ref: string;
+  step_index: number;
+  claimed_percent: number;
+  previous_percent: number | null;
+  regression: boolean;
+}> {
+  const { data, error } = await supabase.rpc("record_progress_claim", {
+    p_period_id: input.periodId,
+    p_claim: {
+      wbs_code: input.wbsCode,
+      step_index: String(input.stepIndex),
+      basis: input.basis,
+    },
+  });
+  return unwrap(data, error);
+}
+
+export async function recordProgressEvidence(input: {
+  periodId: string;
+  wbsCode: string;
+  evidenceSource: string;
+  observedComplete: string;
+  observedTotal: string;
+  unit: string;
+  basis: string;
+}): Promise<{
+  evidence_id: string;
+  wbs_code: string;
+  evidence_source: string;
+  observed_percent: number;
+}> {
+  const { data, error } = await supabase.rpc("record_progress_evidence", {
+    p_period_id: input.periodId,
+    p_evidence: {
+      wbs_code: input.wbsCode,
+      evidence_source: input.evidenceSource,
+      observed_complete: input.observedComplete,
+      observed_total: input.observedTotal,
+      unit: input.unit,
+      basis: input.basis,
+    },
+  });
+  return unwrap(data, error);
+}
+
+/** All eight dimensions, or a refusal naming the one that is missing. */
+export async function recordEstimateBasis(input: {
+  caseId: string;
+  estimateClass: string;
+  scopeMaturity: string;
+  quantityBasedPercent: string;
+  quotationSupport: string;
+  supportingQuotationCount: string;
+  escalationBasis: string;
+  productivityBasis: string;
+  exclusions: string;
+  contingencyBasis: string;
+}): Promise<{
+  estimate_basis_id: string;
+  version: number;
+  estimate_class: string;
+  confidence: EstimateConfidence;
+}> {
+  const { data, error } = await supabase.rpc("record_estimate_basis", {
+    p_case_id: input.caseId,
+    p_basis: {
+      estimate_class: input.estimateClass,
+      scope_maturity: input.scopeMaturity,
+      quantity_based_percent: input.quantityBasedPercent,
+      quotation_support: input.quotationSupport,
+      supporting_quotation_count: input.supportingQuotationCount,
+      escalation_basis: input.escalationBasis,
+      productivity_basis: input.productivityBasis,
+      exclusions: input.exclusions,
+      contingency_basis: input.contingencyBasis,
+    },
+  });
+  return unwrap(data, error);
+}
+
+/** Computes AND records the lineage row (D11.29). */
+export async function computeCaseEarnedValue(
+  caseId: string,
+): Promise<CaseEarnedValue> {
+  const { data, error } = await supabase.rpc("compute_case_earned_value", {
+    p_case_id: caseId,
+  });
+  return unwrap(data, error);
+}
+
+/** Computes AND records the lineage row (D11.29). */
+export async function computeCaseProgressIntegrity(
+  caseId: string,
+): Promise<CaseProgressIntegrity> {
+  const { data, error } = await supabase.rpc(
+    "compute_case_progress_integrity",
+    { p_case_id: caseId },
+  );
+  return unwrap(data, error);
+}
+
+/** Computes AND records the lineage row (D11.29). */
+export async function computeCaseEstimateConfidence(
+  caseId: string,
+): Promise<EstimateConfidence> {
+  const { data, error } = await supabase.rpc(
+    "compute_case_estimate_confidence",
+    { p_case_id: caseId },
+  );
+  return unwrap(data, error);
+}
+
+/** Computes AND records the lineage row (D11.29). */
+export async function computeCaseForecastConfidence(
+  caseId: string,
+): Promise<ForecastConfidence> {
+  const { data, error } = await supabase.rpc(
+    "compute_case_forecast_confidence",
+    { p_case_id: caseId },
+  );
+  return unwrap(data, error);
+}
+
+/** Computes AND records the lineage row (D11.29) — a run citing runs. */
+export async function computeCasePerformanceTrend(
+  caseId: string,
+): Promise<CasePerformanceTrend> {
+  const { data, error } = await supabase.rpc("compute_case_performance_trend", {
+    p_case_id: caseId,
+  });
+  return unwrap(data, error);
 }

@@ -443,9 +443,33 @@ describe("Schedule risk", () => {
     expect(r.probabilityOnPlan!).toBeLessThan(1);
   });
 
+  it("produces a P80 off the same sample, ordered between P50 and P90", () => {
+    // The commitment percentile (spec I.9/§51: "P80 June 19"). It exists so
+    // no caller has to interpolate one — an interpolated P80 is a percentile
+    // nobody simulated, sitting on screen beside ones that were.
+    const r = scheduleRisk(tasks, 3000, 99);
+    expect(r.p80).not.toBeNull();
+    expect(r.p80!).toBeGreaterThanOrEqual(r.p50!);
+    expect(r.p80!).toBeLessThanOrEqual(r.p90!);
+    expect(r.reason).toMatch(/P80/);
+  });
+
+  it("reports no P80 when it declined to simulate — never the deterministic figure", () => {
+    const r = scheduleRisk(
+      tasks.map((t) => ({ ...t, optimistic: null, pessimistic: null })),
+      100,
+      1,
+    );
+    expect(r.p80).toBeNull();
+    expect(r.p50).toBeNull();
+  });
+
   it("is reproducible for a seed", () => {
     expect(scheduleRisk(tasks, 500, 7).p90).toBe(
       scheduleRisk(tasks, 500, 7).p90,
+    );
+    expect(scheduleRisk(tasks, 500, 7).p80).toBe(
+      scheduleRisk(tasks, 500, 7).p80,
     );
   });
 
