@@ -198,14 +198,14 @@ OUT=$(sql_must_fail "begin;
 select set_config('request.jwt.claim.sub', (select id::text from auth.users where email='planner@syncai.ca'), true);
 update development_cases set status='sanctioned', sanctioned_at=now() where id='$CASE';
 rollback;")
-printf '%s' "$OUT" | grep -q 'sanction_development_case'
+grep -q 'sanction_development_case' <<<"$OUT"
 # (c) gate review by direct insert, same simulated client: refused.
 OUT=$(sql_must_fail "begin;
 select set_config('request.jwt.claim.sub', (select id::text from auth.users where email='manager@syncai.ca'), true);
 insert into stage_gate_reviews (organization_id, development_case_id, gate_id, stage_key, outcome)
 select '$ORG', '$CASE', g.id, g.stage_key, 'proceed' from stage_gates g where g.framework_id='$FW' and g.name like 'G1%';
 rollback;")
-printf '%s' "$OUT" | grep -q 'record_case_gate_review'
+grep -q 'record_case_gate_review' <<<"$OUT"
 # (d) the SERVICE path is admitted for insert and delete — and AUDITED for
 #     both. A fabricated outcome, and its erasure, each leave a trace.
 INS_B=$(psqlc "select count(*) from security_events where organization_id='$ORG' and detail like 'Gate review%inserted by a service caller%'")
@@ -236,21 +236,21 @@ OUT=$(sql_must_fail "begin;
 select set_config('request.jwt.claim.sub', (select id::text from auth.users where email='manager@syncai.ca'), true);
 update stage_gates set name='MUTATED AFTER ADOPTION' where id=$G1;
 rollback;")
-printf '%s' "$OUT" | grep -q 'immutable'
+grep -q 'immutable' <<<"$OUT"
 # (c) so does flipping a mandatory flag on the adopted framework's criteria —
 #     silently disarming a gate is the same mutation.
 OUT=$(sql_must_fail "begin;
 select set_config('request.jwt.claim.sub', (select id::text from auth.users where email='manager@syncai.ca'), true);
 update stage_gate_criteria set is_mandatory=false where gate_id=$G1 and is_mandatory;
 rollback;")
-printf '%s' "$OUT" | grep -q 'immutable'
+grep -q 'immutable' <<<"$OUT"
 # (d) and unmaking (or forging) an adoption by writing the status column
 #     directly is refused even for an executive.
 OUT=$(sql_must_fail "begin;
 select set_config('request.jwt.claim.sub', (select id::text from auth.users where email='executive@syncai.ca'), true);
 update project_frameworks set status='superseded' where id='$FW';
 rollback;")
-printf '%s' "$OUT" | grep -q 'immutable'
+grep -q 'immutable' <<<"$OUT"
 # (e) the service path is admitted AND audited (then restores, audited again).
 IMM_B=$(psqlc "select count(*) from security_events where organization_id='$ORG' and detail like 'Adopted-framework content on stage_gates%'")
 psqlc "update stage_gates set risk_threshold='smoke-immutability-probe' where id=$G1" >/dev/null
@@ -446,7 +446,7 @@ R=$(rpc "$PLANNER" promote_requirement_authority "{\"p_criterion_id\":$AIROW,\"p
 expect_err "$R" 'executive or administrator'
 # (b) service-side raise WITHOUT the recorded-human path: refused by trigger.
 OUT=$(sql_must_fail "update stage_gate_criteria set source_authority='CORPORATE_STANDARD' where id=$AIROW;")
-printf '%s' "$OUT" | grep -q 'promote_requirement_authority'
+grep -q 'promote_requirement_authority' <<<"$OUT"
 # (c) simulated client, RLS bypassed: still refused.
 OUT=$(sql_must_fail "begin;
 select set_config('request.jwt.claim.sub', (select id::text from auth.users where email='executive@syncai.ca'), true);
@@ -547,17 +547,17 @@ OUT=$(sql_must_fail "begin;
 select set_config('request.jwt.claim.sub', (select id::text from auth.users where email='manager@syncai.ca'), true);
 update evidence_items set verification_method='forged after the fact' where id='$EV1';
 rollback;")
-printf '%s' "$OUT" | grep -q 'verify_evidence_item'
+grep -q 'verify_evidence_item' <<<"$OUT"
 #     On the AI row the AI-specific rule answers first, for clients too.
 OUT=$(sql_must_fail "begin;
 select set_config('request.jwt.claim.sub', (select id::text from auth.users where email='manager@syncai.ca'), true);
 update evidence_items set verification_status='verified', verified_at=now(), verification_method='forged' where id='$EV2';
 rollback;")
-printf '%s' "$OUT" | grep -q 'AI inference never silently'
+grep -q 'AI inference never silently' <<<"$OUT"
 # (d) THE negative test (D11.18): an AI_INFERENCE row cannot reach verified
 #     without the recorded human — refused for EVERY caller, service included.
 OUT=$(sql_must_fail "update evidence_items set verification_status='verified' where id='$EV2';")
-printf '%s' "$OUT" | grep -q 'AI inference never silently'
+grep -q 'AI inference never silently' <<<"$OUT"
 test "$(psqlc "select verification_status from evidence_items where id='$EV2'")" = "unverified"
 # (e) the service path WITH the complete recorded human is admitted AND audited.
 VER_B=$(psqlc "select count(*) from security_events where organization_id='$ORG' and detail like 'Verification state on evidence item%service caller%'")
@@ -605,7 +605,7 @@ OUT=$(sql_must_fail "begin;
 select set_config('request.jwt.claim.sub', (select id::text from auth.users where email='manager@syncai.ca'), true);
 update develop_deliverables set status='accepted', accepted_by=(select id from auth.users where email='manager@syncai.ca'), accepted_at=now() where id='$DLV2';
 rollback;")
-printf '%s' "$OUT" | grep -q 'accept_deliverable'
+grep -q 'accept_deliverable' <<<"$OUT"
 R=$(rpc "$MANAGER" accept_deliverable "{\"p_deliverable_id\":\"$DLV2\",\"p_decision\":\"rejected\",\"p_note\":\"x\"}")
 expect_err "$R" 'rejection states'
 R=$(rpc "$MANAGER" accept_deliverable "{\"p_deliverable_id\":\"$DLV2\",\"p_decision\":\"rejected\",\"p_note\":\"Missing the sensitivity table for the liner option.\"}")
@@ -671,12 +671,12 @@ OUT=$(sql_must_fail "begin;
 select set_config('request.jwt.claim.sub', (select id::text from auth.users where email='manager@syncai.ca'), true);
 update scenarios set capex=1 where id='$OPT1';
 rollback;")
-printf '%s' "$OUT" | grep -q 'judged against'
+grep -q 'judged against' <<<"$OUT"
 OUT=$(sql_must_fail "begin;
 select set_config('request.jwt.claim.sub', (select id::text from auth.users where email='manager@syncai.ca'), true);
 update decisions set selected_option_id='$OPT2' where id='$DEC';
 rollback;")
-printf '%s' "$OUT" | grep -q 'select_decision_option'
+grep -q 'select_decision_option' <<<"$OUT"
 # A real client cannot POST a case-bound decision row past the restrictive policy.
 DEC_B=$(psqlc "select count(*) from decisions where development_case_id='$CASE'")
 curl -sS -X POST "$API_URL/rest/v1/decisions" \
@@ -750,7 +750,7 @@ OUT=$(sql_must_fail "begin;
 select set_config('request.jwt.claim.sub', (select id::text from auth.users where email='manager@syncai.ca'), true);
 update evidence_items set evidence_class='AI_INFERENCE' where id='$EV1';
 rollback;")
-printf '%s' "$OUT" | grep -q 'frozen once a determination'
+grep -q 'frozen once a determination' <<<"$OUT"
 # (b) A real client cannot silently UNLINK case evidence (RLS: the case-bound
 #     row is untargetable for a client update — 0 rows, still linked).
 curl -sS -X PATCH "$API_URL/rest/v1/evidence_items?id=eq.$EV1" \
@@ -778,7 +778,7 @@ OUT=$(sql_must_fail "begin;
 select set_config('request.jwt.claim.sub', (select id::text from auth.users where email='planner@syncai.ca'), true);
 update recommendations set development_case_id=null where id='$REC';
 rollback;")
-printf '%s' "$OUT" | grep -q 'bind_recommendation_to_case'
+grep -q 'bind_recommendation_to_case' <<<"$OUT"
 curl -sS -X PATCH "$API_URL/rest/v1/recommendations?id=eq.$REC" \
   -H "apikey: $ANON_KEY" -H "Authorization: Bearer $TECH" \
   -H 'Content-Type: application/json' -d '{"development_case_id":null}' >/dev/null
@@ -821,20 +821,20 @@ OUT=$(sql_must_fail "begin;
 select set_config('request.jwt.claim.sub', (select id::text from auth.users where email='manager@syncai.ca'), true);
 update development_baselines set description='MUTATED AFTER APPROVAL' where id='$BL1';
 rollback;")
-printf '%s' "$OUT" | grep -q 'immutable'
+grep -q 'immutable' <<<"$OUT"
 # (c) a client cannot forge an approval by inserting a row born approved.
 OUT=$(sql_must_fail "begin;
 select set_config('request.jwt.claim.sub', (select id::text from auth.users where email='manager@syncai.ca'), true);
 insert into development_baselines (organization_id, development_case_id, baseline_type, version, status, description, approved_by, approved_at, approval_note)
 values ('$ORG','$CASE','SCHEDULE',1,'approved','forged approval must be refused',(select id from auth.users where email='manager@syncai.ca'),now(),'forged approval note of twenty characters');
 rollback;")
-printf '%s' "$OUT" | grep -q 'immutable'
+grep -q 'immutable' <<<"$OUT"
 # (d) nor delete the approved record.
 OUT=$(sql_must_fail "begin;
 select set_config('request.jwt.claim.sub', (select id::text from auth.users where email='manager@syncai.ca'), true);
 delete from development_baselines where id='$BL1';
 rollback;")
-printf '%s' "$OUT" | grep -q 'immutable'
+grep -q 'immutable' <<<"$OUT"
 # (e) the service path is admitted AND audited (probe, then restore — two rows).
 BLA_B=$(psqlc "select count(*) from security_events where organization_id='$ORG' and detail like 'Approved-baseline content on development_baselines%'")
 psqlc "update development_baselines set approval_note=approval_note||' (service probe)' where id='$BL1'" >/dev/null
@@ -1109,7 +1109,7 @@ OUT=$(sql_must_fail "begin;
 select set_config('request.jwt.claim.sub', (select id::text from auth.users where email='manager@syncai.ca'), true);
 update stage_gate_criteria set weight=0.0001 where id=$SC22;
 rollback;")
-printf '%s' "$OUT" | grep -q 'immutable'
+grep -q 'immutable' <<<"$OUT"
 test "$(psqlc "select weight::text from stage_gate_criteria where id=$SC22")" = "$W22"
 WAUD_B=$(psqlc "select count(*) from security_events where organization_id='$ORG' and detail like 'Adopted-framework requirement content%'")
 psqlc "update stage_gate_criteria set weight=2.5 where id=$SC22" >/dev/null
@@ -1161,9 +1161,9 @@ noerr "$R"
 test "$(printf '%s' "$R"|field accepted)" = "1"
 test "$(printf '%s' "$R"|field rejected)" = "3"
 REJ=$(rpc "$PLANNER" get_import_rejects "{\"p_run_id\":\"$SRUN\",\"p_limit\":50}")
-printf '%s' "$REJ" | grep -q 'missing description'
-printf '%s' "$REJ" | grep -q 'unknown predecessor \\"GHOST\\"'
-printf '%s' "$REJ" | grep -q 'predecessor \\"B3\\" was refused in this upload'
+grep -q 'missing description' <<<"$REJ"
+grep -q 'unknown predecessor \\"GHOST\\"' <<<"$REJ"
+grep -q 'predecessor \\"B3\\" was refused in this upload' <<<"$REJ"
 test "$(psqlc "select count(*) from shutdown_task_dependencies d where d.event_id='$SEV' and not exists (select 1 from shutdown_tasks t where t.event_id=d.event_id and t.task_key=d.predecessor_key)")" = "0"
 echo 'malformed rows refused with named reasons; dependency set has no dangling predecessors'
 # (e2) non-finite numerics and dates: Postgres casts 'NaN'/'±Infinity' as
@@ -1181,18 +1181,18 @@ noerr "$R"
 test "$(printf '%s' "$R"|field accepted)" = "0"
 test "$(printf '%s' "$R"|field rejected)" = "5"
 REJ=$(rpc "$PLANNER" get_import_rejects "{\"p_run_id\":\"$SRUN\",\"p_limit\":50}")
-printf '%s' "$REJ" | grep -q 'original_duration_hours is NaN; a duration must be a finite number of hours'
-printf '%s' "$REJ" | grep -q 'original_duration_hours is Infinity'
-printf '%s' "$REJ" | grep -q 'original_duration_hours is -Infinity'
-printf '%s' "$REJ" | grep -q 'planned_start is -infinity; a planned date must be a finite calendar date'
-printf '%s' "$REJ" | grep -q 'planned_finish is infinity'
+grep -q 'original_duration_hours is NaN; a duration must be a finite number of hours' <<<"$REJ"
+grep -q 'original_duration_hours is Infinity' <<<"$REJ"
+grep -q 'original_duration_hours is -Infinity' <<<"$REJ"
+grep -q 'planned_start is -infinity; a planned date must be a finite calendar date' <<<"$REJ"
+grep -q 'planned_finish is infinity' <<<"$REJ"
 test "$(psqlc "select count(*) from shutdown_tasks where event_id='$SEV'")" = "$NF_BEFORE"
 # ...and the TABLE refuses them too (belt-and-braces): even a raw service
 # write cannot seed a non-finite duration or an unbounded window.
 OUT=$(sql_must_fail "insert into shutdown_tasks (event_id, task_key, label, duration_hours) values ('$SEV','NFX1','nan probe','NaN');")
-printf '%s' "$OUT" | grep -q 'shutdown_tasks_duration_hours_check'
+grep -q 'shutdown_tasks_duration_hours_check' <<<"$OUT"
 OUT=$(sql_must_fail "insert into shutdown_tasks (event_id, task_key, label, duration_hours, planned_start, planned_finish) values ('$SEV','NFX2','infinite window probe',1,'-infinity','infinity');")
-printf '%s' "$OUT" | grep -q 'planned_window_ordered'
+grep -q 'planned_window_ordered' <<<"$OUT"
 test "$(psqlc "select count(*) from shutdown_tasks where event_id='$SEV' and task_key like 'NFX%'")" = "0"
 echo 'non-finite durations and dates refused by name at the validator AND by the table checks'
 # (f) the watermark does NOT advance on a run carrying rejects...

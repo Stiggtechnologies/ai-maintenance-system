@@ -120,7 +120,7 @@ noerr "$R"
 R=$(rpc "$MANAGER" upsert_risk_objective '{"p_objective":{"objective_level":"asset","description":"SMOKE2 liner life child objective","target":"liner life 8 weeks","measurement":"weeks between liner failures","timeframe":"FY2027","tolerance":"minimum 6 weeks","owner_id":"'"$OWNER"'","parent_id":"'"$OBJ"'"}}')
 noerr "$R"; CHILD=$(printf '%s' "$R"|field objective_id); test -n "$CHILD"
 OUT=$(sql_must_fail "update risk_objectives set parent_id='$CHILD' where id='$OBJ';")
-printf '%s' "$OUT" | grep -q 'close a cycle'
+grep -q 'close a cycle' <<<"$OUT"
 TREE=$(rpc "$PLANNER" get_objective_tree '{}')
 BODY="$TREE" python3 - <<'PY'
 import json,os
@@ -154,7 +154,7 @@ OUT=$(sql_must_fail "begin;
 select set_config('request.jwt.claim.sub', (select id::text from auth.users where email='manager@syncai.ca'), true);
 update risks set objective_id=null where id='$RISK';
 rollback;")
-printf '%s' "$OUT" | grep -q 'cannot be cleared'
+grep -q 'cannot be cleared' <<<"$OUT"
 # service insert without a link: admitted AND audited
 AUD_B=$(psqlc "select count(*) from security_events where organization_id='$ORG' and detail like 'Risk % inserted without an objective link%'")
 LEGACY=$(psqlc "with r as (insert into risks (organization_id, title, status) values ('$ORG','SMOKE2 service legacy risk','draft') returning id) select id from r")
@@ -214,7 +214,7 @@ OUT=$(sql_must_fail "begin;
 select set_config('request.jwt.claim.sub', (select id::text from auth.users where email='manager@syncai.ca'), true);
 update development_success_outcomes set basis='rewritten after the fact' where contract_id='$SC';
 rollback;")
-printf '%s' "$OUT" | grep -q 'immutable'
+grep -q 'immutable' <<<"$OUT"
 SCAUD_B=$(psqlc "select count(*) from security_events where organization_id='$ORG' and detail like 'Recorded success-contract content%'")
 psqlc "update development_success_outcomes set basis=basis||' (service touch)' where contract_id='$SC' and dimension='business'" >/dev/null
 test "$(psqlc "select count(*) from security_events where organization_id='$ORG' and detail like 'Recorded success-contract content%'")" = "$((SCAUD_B+1))"
@@ -259,7 +259,7 @@ expect_err "$R" 'undated or unquantified flow cannot be discounted'
 R=$(rpc "$PLANNER" add_business_case_option '{"p_business_case_id":'"$BC"',"p_label":"Unquantified flow","p_life_periods":5,"p_cash_flows":[{"period":0,"amount":-100},{"period":1}]}')
 expect_err "$R" 'undated or unquantified flow cannot be discounted'
 OUT=$(sql_must_fail "insert into business_case_options (organization_id, case_id, label, life_periods, cash_flows) values ('$ORG', $BC, 'SMOKE2 malformed direct', 5, '[{\"amount\":-100}]'::jsonb);")
-printf '%s' "$OUT" | grep -q 'business_case_options_cash_flows_shape'
+grep -q 'business_case_options_cash_flows_shape' <<<"$OUT"
 echo 'absent-key cash flows refused at the RPC and by the schema CHECK'
 R=$(rpc "$PLANNER" add_business_case_option '{"p_business_case_id":'"$BC"',"p_label":"Replace liner system","p_life_periods":5,"p_cash_flows":[{"period":0,"amount":-4500000},{"period":1,"amount":1500000},{"period":2,"amount":1500000},{"period":3,"amount":1500000},{"period":4,"amount":1500000},{"period":5,"amount":1500000}],"p_contingency":400000,"p_contingency_basis":"P50-P80 spread from the FEL2 estimate"}')
 noerr "$R"; OPT=$(printf '%s' "$R"|field option_id); test -n "$OPT"
@@ -339,7 +339,7 @@ OUT=$(sql_must_fail "begin;
 select set_config('request.jwt.claim.sub', (select id::text from auth.users where email='manager@syncai.ca'), true);
 update lifecycle_evaluations set expected_value=expected_value+1000000 where id='$EV1';
 rollback;")
-printf '%s' "$OUT" | grep -q 'A recorded value evaluation is immutable'
+grep -q 'A recorded value evaluation is immutable' <<<"$OUT"
 EVAUD_B=$(psqlc "select count(*) from security_events where organization_id='$ORG' and detail like 'Case-value evaluation on lifecycle_evaluations%'")
 psqlc "update lifecycle_evaluations set engine_version=engine_version||' (service touch)' where id='$EV1'" >/dev/null
 test "$(psqlc "select count(*) from security_events where organization_id='$ORG' and detail like 'Case-value evaluation on lifecycle_evaluations%'")" = "$((EVAUD_B+1))"
@@ -383,7 +383,7 @@ REC=$(printf '%s' "$R"|python3 -c "import json,sys; print(json.load(sys.stdin)['
 test "$(psqlc "select status from recommendations where id='$REC'")" = "pending"
 test "$(psqlc "select development_case_id from recommendations where id='$REC'")" = "$CASE"
 test "$(psqlc "select required_approver_role from recommendations where id='$REC'")" = "executive"
-psqlc "select title from recommendations where id='$REC'" | grep -q 'Reconsider sanction'
+psqlc "select title from recommendations where id='$REC'" | grep -c 'Reconsider sanction' >/dev/null
 # every C8 approver field is populated (nothing blank on the contract)
 test "$(psqlc "select count(*) from recommendations where id='$REC' and btrim(coalesce(issue,''))<>'' and btrim(coalesce(rationale,''))<>'' and btrim(coalesce(action,''))<>'' and btrim(coalesce(consequence_summary,''))<>'' and btrim(coalesce(alternatives_considered,''))<>'' and required_completion_date is not null and btrim(coalesce(verification_method,''))<>'' and confidence is not null")" = "1"
 # a second signal lands on the record, never as a duplicate
@@ -439,11 +439,11 @@ echo '— 11. benefits: owner mandatory at every boundary (D9.10) —'
 R=$(rpc "$PLANNER" record_case_benefit '{"p_case_id":"'"$CASE"'","p_label":"SMOKE2 recovered tonnes","p_expected_value":1500000,"p_unit":"usd","p_expected_date":"'"$DUE"'","p_owner_id":null,"p_basis":"Downtime ledger x margin"}')
 expect_err "$R" 'benefit owner'
 OUT=$(sql_must_fail "insert into value_metrics (organization_id, development_case_id, metric_type, label, value, unit, status) values ('$ORG','$CASE','projected_annualized_value','SMOKE2 ownerless direct',1,'usd','projected');")
-printf '%s' "$OUT" | grep -q 'value_metrics_case_benefit_owner'
+grep -q 'value_metrics_case_benefit_owner' <<<"$OUT"
 FOREIGN=$(psqlc "select id from user_profiles where organization_id<>'$ORG' limit 1")
 if [ -n "$FOREIGN" ]; then
   OUT=$(sql_must_fail "insert into value_metrics (organization_id, development_case_id, metric_type, label, value, unit, status, owner_id, expected_date, basis) values ('$ORG','$CASE','projected_annualized_value','SMOKE2 foreign owner',1,'usd','projected','$FOREIGN','$DUE','probe basis text');")
-  printf '%s' "$OUT" | grep -q 'does not cross tenants'
+  grep -q 'does not cross tenants' <<<"$OUT"
 fi
 # REPAIR PROOF (tenancy hardening 2): an own-org benefit dangling onto
 # ANOTHER tenant's case is refused by the membership trigger, direct path
@@ -451,7 +451,7 @@ fi
 PORG=$(psqlc "with r as (insert into organizations (name) values ('SMOKE2 probe org') returning id) select id from r")
 PCASE=$(psqlc "with r as (insert into development_cases (organization_id, title, lifecycle_type, problem_statement) select '$PORG', 'SMOKE2 probe case', lifecycle_type, 'Foreign-case tenancy probe fixture for the slice-2 transcript.' from development_cases where id='$CASE' returning id) select id from r")
 OUT=$(sql_must_fail "insert into value_metrics (organization_id, development_case_id, metric_type, label, value, unit, status, owner_id, expected_date, basis) values ('$ORG','$PCASE','projected_annualized_value','SMOKE2 cross-case direct',1,'usd','projected','$OWNER','$DUE','probe basis text');")
-printf '%s' "$OUT" | grep -q "another tenant's development case is refused"
+grep -q "another tenant's development case is refused" <<<"$OUT"
 psqlc "delete from organizations where id='$PORG';" >/dev/null
 R=$(rpc "$PLANNER" record_case_benefit '{"p_case_id":"'"$CASE"'","p_label":"SMOKE2 recovered tonnes value","p_expected_value":1500000,"p_unit":"usd","p_expected_date":"'"$DUE"'","p_owner_id":"'"$OWNER"'","p_basis":"Downtime ledger FY24-26 x contribution margin"}')
 noerr "$R"

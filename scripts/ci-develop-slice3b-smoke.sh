@@ -183,7 +183,7 @@ test "$(psqlc "select status from gate_conditions where id=$CND")" = "missed"
 test -n "$(psqlc "select breached_at from gate_conditions where id=$CND")"
 SEC_AFTER=$(psqlc "select count(*) from security_events where organization_id='$ORG' and detail like 'Gate condition OVERDUE and escalated%'")
 test "$SEC_AFTER" -gt "$SEC_B"
-psqlc "select 1 from security_events where organization_id='$ORG' and detail like '%Recorded consequence if missed: Gate decision reverts to hold%' limit 1" | grep -q 1
+psqlc "select 1 from security_events where organization_id='$ORG' and detail like '%Recorded consequence if missed: Gate decision reverts to hold%' limit 1" | grep -c 1 >/dev/null
 # (d) closure demands evidence of THIS case; a late closure keeps the breach
 R=$(rpc "$RE" close_gate_condition "{\"p_condition_id\":$CND,\"p_evidence_id\":null,\"p_note\":\"no evidence attached\"}")
 expect_err "$R" 'requires the evidence'
@@ -193,7 +193,7 @@ R=$(rpc "$RE" close_gate_condition "{\"p_condition_id\":$CND,\"p_evidence_id\":\
 noerr "$R"; test "$(printf '%s' "$R"|field closed_late)" = "True"
 test "$(psqlc "select status from gate_conditions where id=$CND")" = "satisfied"
 test -n "$(psqlc "select breached_at from gate_conditions where id=$CND")"
-psqlc "select 1 from audit_events where organization_id='$ORG' and entity_type='gate_condition' and event_data->>'action'='satisfied' and previous_state->>'status'='missed' and new_state->>'status'='satisfied' limit 1" | grep -q 1
+psqlc "select 1 from audit_events where organization_id='$ORG' and entity_type='gate_condition' and event_data->>'action'='satisfied' and previous_state->>'status'='missed' and new_state->>'status'='satisfied' limit 1" | grep -c 1 >/dev/null
 echo '   born with the review; client edit refused; evidence-free closure refused; escalated when overdue; closed late WITH evidence, breach preserved'
 
 echo '— 3. the zero-based funding question at a sanction-type gate (D3.07) —'
@@ -230,7 +230,7 @@ R=$(rpc "$EXEC" adopt_authority_limit "{\"p_id\":\"$SANC_DRAFT\",\"p_note\":\"Ad
 noerr "$R"
 R=$(rpc "$EXEC" sanction_development_case "{\"p_case_id\":\"$CASE_F\",\"p_note\":\"Sanctioned inside the adopted executive delegation for the transcript.\",\"p_sanctioned_value\":4500000}")
 noerr "$R"
-psqlc "select 1 from audit_events where organization_id='$ORG' and entity_type='development_case' and event_data->>'action'='sanctioned' and event_data->>'case_id'='$CASE_F' and approval_reference is not null and previous_state->>'status'='active' and new_state->>'status'='sanctioned' limit 1" | grep -q 1
+psqlc "select 1 from audit_events where organization_id='$ORG' and entity_type='development_case' and event_data->>'action'='sanctioned' and event_data->>'case_id'='$CASE_F' and approval_reference is not null and previous_state->>'status'='active' and new_state->>'status'='sanctioned' limit 1" | grep -c 1 >/dev/null
 echo '   unanswered refused; answered stored on the review; sanction ledger row carries prev/new + the exercised delegation'
 
 echo '— 4. waivers: governed, expiring, and NEVER silently permanent (D3.19/D3.20) —'
@@ -260,7 +260,7 @@ R=$(rpc "$EXEC" decide_gate_requirement_waiver "{\"p_waiver_id\":\"$WVR2\",\"p_a
 expect_err "$R" 'you requested this waiver'
 R=$(rpc "$EXEC" decide_gate_requirement_waiver "{\"p_waiver_id\":\"$WVR\",\"p_approve\":true,\"p_note\":\"Approved under the adopted delegation; expiry re-arms the rule.\"}")
 noerr "$R"
-psqlc "select 1 from audit_events where organization_id='$ORG' and entity_type='gate_requirement_waiver' and event_data->>'action'='approved' and approval_reference is not null and previous_state->>'status'='pending' and new_state->>'status'='approved' limit 1" | grep -q 1
+psqlc "select 1 from audit_events where organization_id='$ORG' and entity_type='gate_requirement_waiver' and event_data->>'action'='approved' and approval_reference is not null and previous_state->>'status'='pending' and new_state->>'status'='approved' limit 1" | grep -c 1 >/dev/null
 # the approved waiver stands in for the criterion — the SAME recording passes
 R=$(rpc "$MANAGER" record_case_gate_review "{\"p_case_id\":\"$CASE_W\",\"p_gate_id\":$G1,\"p_outcome\":\"proceed\",\"p_note\":\"Proceeding under the approved waiver; mandatory stands waived not met.\",\"p_findings\":$FIND_W}")
 noerr "$R"
@@ -270,8 +270,8 @@ psqlc "update standard_site_variances set expires_at = now() - interval '1 hour'
 R=$(psqlc "select public.expire_governance_instruments()")
 test "$(printf '%s' "$R" | python3 -c 'import json,sys; print(json.load(sys.stdin)["variances_expired"])')" -ge 1
 test "$(psqlc "select status from standard_site_variances where id='$WVR'")" = "expired"
-psqlc "select 1 from security_events where organization_id='$ORG' and detail like '%ENFORCEMENT REVERTED%' limit 1" | grep -q 1
-psqlc "select 1 from audit_events where organization_id='$ORG' and entity_type='gate_requirement_waiver' and event_data->>'action'='expired' and event_data->>'waiver_id'='$WVR' limit 1" | grep -q 1
+psqlc "select 1 from security_events where organization_id='$ORG' and detail like '%ENFORCEMENT REVERTED%' limit 1" | grep -c 1 >/dev/null
+psqlc "select 1 from audit_events where organization_id='$ORG' and entity_type='gate_requirement_waiver' and event_data->>'action'='expired' and event_data->>'waiver_id'='$WVR' limit 1" | grep -c 1 >/dev/null
 R=$(rpc "$MANAGER" record_case_gate_review "{\"p_case_id\":\"$CASE_W\",\"p_gate_id\":$G1,\"p_outcome\":\"proceed\",\"p_note\":\"Same recording after expiry must be blocked again — no silent permanence.\",\"p_findings\":$FIND_W}")
 expect_err "$R" 'not explicitly met'
 # act-time reversion: the stored waived pass no longer carries advance/sanction
@@ -298,7 +298,7 @@ noerr "$R"; WVR4=$(printf '%s' "$R"|field waiver_id)
 R=$(rpc "$EXEC" decide_gate_requirement_waiver "{\"p_waiver_id\":\"$WVR4\",\"p_approve\":true,\"p_note\":\"Renewal approved; the lapsed predecessor is expired at this act.\"}")
 noerr "$R"; test "$(printf '%s' "$R"|field status)" = "approved"
 test "$(psqlc "select status from standard_site_variances where id='$WVR3'")" = "expired"
-psqlc "select 1 from audit_events where organization_id='$ORG' and entity_type='gate_requirement_waiver' and event_data->>'action'='expired' and event_data->>'waiver_id'='$WVR3' limit 1" | grep -q 1
+psqlc "select 1 from audit_events where organization_id='$ORG' and entity_type='gate_requirement_waiver' and event_data->>'action'='expired' and event_data->>'waiver_id'='$WVR3' limit 1" | grep -c 1 >/dev/null
 # THE RISK LINK IS LOAD-BEARING: the anchoring risk is not deletable, the
 # link is not severable, and a ceiling that cannot be verified fails CLOSED.
 OUT=$(sql_must_fail "delete from risks where id='$RISK_W';")
