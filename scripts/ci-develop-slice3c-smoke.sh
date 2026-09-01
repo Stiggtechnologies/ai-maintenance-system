@@ -320,8 +320,8 @@ R=$(psqlc "select public.expire_governance_instruments()")
 test "$(jqp "$R" "x['stakeholder_commitments_breached']")" -ge 1
 test "$(psqlc "select status from stakeholder_commitments where id=$C42")" = "breached"
 test "$(psqlc "select count(*) from security_events where organization_id='$ORG' and detail like 'STAKEHOLDER COMMITMENT BREACHED%'")" -gt "$SEC_B"
-psqlc "select 1 from security_events where organization_id='$ORG' and detail like '%SMOKE3C-C42 to SMOKE3C Riverbend community council%' limit 1" | grep -q 1
-psqlc "select 1 from audit_events where organization_id='$ORG' and entity_type='stakeholder_commitment' and event_data->>'action'='escalated_overdue' and previous_state->>'status'='open' and new_state->>'status'='breached' limit 1" | grep -q 1
+psqlc "select 1 from security_events where organization_id='$ORG' and detail like '%SMOKE3C-C42 to SMOKE3C Riverbend community council%' limit 1" | grep -c 1 >/dev/null
+psqlc "select 1 from audit_events where organization_id='$ORG' and entity_type='stakeholder_commitment' and event_data->>'action'='escalated_overdue' and previous_state->>'status'='open' and new_state->>'status'='breached' limit 1" | grep -c 1 >/dev/null
 
 # A BREACHED COMMITMENT IS LATE, NOT CLOSED — remediation is still possible.
 # The first draft refused the link once the sweep had run ("not rewritten
@@ -440,7 +440,7 @@ test "$(psqlc "select count(*) from design_requirements where organization_id='$
 WO=$(psqlc "select propagated_work_order_id from regulatory_conditions where organization_id='$ORG' and condition_ref='SMOKE3C-C-MON'")
 test -n "$WO"
 test "$(psqlc "select asset_id from work_orders where id='$WO'")" = "$ASSET"
-psqlc "select 1 from work_orders where id='$WO' and description like '%Regulatory obligation propagated from permit SMOKE3C-P-1%' limit 1" | grep -q 1
+psqlc "select 1 from work_orders where id='$WO' and description like '%Regulatory obligation propagated from permit SMOKE3C-P-1%' limit 1" | grep -c 1 >/dev/null
 # Both landings are recorded ON the condition row.
 test -n "$(psqlc "select propagated_requirement_id from regulatory_conditions where organization_id='$ORG' and condition_ref='SMOKE3C-C-ENG'")"
 # Idempotent: a second run lands nothing twice.
@@ -506,15 +506,15 @@ test "$(jqp "$R" "x['information_requests_overdue']")" -ge 1
 test "$(psqlc "select status from regulatory_conditions where organization_id='$ORG' and condition_ref='SMOKE3C-C-MON'")" = "missed"
 test "$(psqlc "select status from regulatory_information_requests where id=$RFI1")" = "overdue"
 test "$(psqlc "select count(*) from security_events where organization_id='$ORG' and detail like 'REGULATORY CONDITION BREACHED%'")" -gt "$SEC_B"
-psqlc "select 1 from security_events where organization_id='$ORG' and detail like '%permit SMOKE3C-P-1%Recorded consequence if missed: Enforcement order and possible suspension%' limit 1" | grep -q 1
-psqlc "select 1 from audit_events where organization_id='$ORG' and entity_type='regulatory_condition' and event_data->>'action'='escalated_overdue' and previous_state->>'status'='open' and new_state->>'status'='missed' limit 1" | grep -q 1
+psqlc "select 1 from security_events where organization_id='$ORG' and detail like '%permit SMOKE3C-P-1%Recorded consequence if missed: Enforcement order and possible suspension%' limit 1" | grep -c 1 >/dev/null
+psqlc "select 1 from audit_events where organization_id='$ORG' and entity_type='regulatory_condition' and event_data->>'action'='escalated_overdue' and previous_state->>'status'='open' and new_state->>'status'='missed' limit 1" | grep -c 1 >/dev/null
 
 # A LAPSED permit says the activity is no longer authorized.
 psqlc "update regulatory_approvals set expires_at = current_date - 1 where id=$AP1;" >/dev/null
 R=$(psqlc "select public.expire_governance_instruments()")
 test "$(jqp "$R" "x['permits_expired']")" -ge 1
 test "$(psqlc "select status from regulatory_approvals where id=$AP1")" = "expired"
-psqlc "select 1 from security_events where organization_id='$ORG' and detail like '%PERMIT LAPSED: SMOKE3C-P-1%NO LONGER AUTHORIZED%' limit 1" | grep -q 1
+psqlc "select 1 from security_events where organization_id='$ORG' and detail like '%PERMIT LAPSED: SMOKE3C-P-1%NO LONGER AUTHORIZED%' limit 1" | grep -c 1 >/dev/null
 
 # The RFI is answered with evidence of THIS case; the overdue mark survives.
 R=$(rpc "$PLANNER" respond_regulatory_information_request "{\"p_request_id\":$RFI1,\"p_evidence_id\":\"$EV_A\"}")
@@ -829,7 +829,7 @@ test "$(psqlc "select arising_from_scenario_id from risks where id='$SEC_RISK'")
 # It inherits the parent's objective — it threatens what the parent threatens.
 test "$(psqlc "select objective_id from risks where id='$SEC_RISK'")" = "$OBJ"
 test "$(psqlc "select current_risk_level from risks where id='$SEC_RISK'")" = "High"
-psqlc "select 1 from audit_events where organization_id='$ORG' and entity_type='risk_secondary_created' and event_data->>'risk_id'='$SEC_RISK' and event_data->>'parent_risk_id'='$RISK' limit 1" | grep -q 1
+psqlc "select 1 from audit_events where organization_id='$ORG' and entity_type='risk_secondary_created' and event_data->>'risk_id'='$SEC_RISK' and event_data->>'parent_risk_id'='$RISK' limit 1" | grep -c 1 >/dev/null
 R=$(rpc "$RE" get_risk_secondary_risks "{\"p_risk_id\":\"$RISK\"}")
 noerr "$R"
 test "$(jqp "$R" "len(x['createdRisks'])")" = "1"

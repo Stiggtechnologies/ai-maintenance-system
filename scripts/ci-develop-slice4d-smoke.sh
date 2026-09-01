@@ -502,8 +502,8 @@ psqlc "insert into contingency_ledger_entries (organization_id, development_case
 BODY=$(rpc "$MANAGER" compute_case_contingency_consumption "{\"p_case_id\":\"$CASE\"}")
 noerr "$BODY"
 test "$(jqp "$BODY" "[c for c in x['byCause'] if c['causeClass']=='unattributed'][0]['net']")" = "5000"
-psqlc "select refusals::text from calculation_runs where development_case_id='$CASE' and calculation_key='case_contingency_consumption' order by computed_at desc limit 1" | grep -qi 'UNATTRIBUTED'
-psqlc "select status from calculation_runs where development_case_id='$CASE' and calculation_key='case_contingency_consumption' order by computed_at desc limit 1" | grep -q 'computed_with_refusals'
+psqlc "select refusals::text from calculation_runs where development_case_id='$CASE' and calculation_key='case_contingency_consumption' order by computed_at desc limit 1" | grep -ci 'UNATTRIBUTED' >/dev/null
+psqlc "select status from calculation_runs where development_case_id='$CASE' and calculation_key='case_contingency_consumption' order by computed_at desc limit 1" | grep -c 'computed_with_refusals' >/dev/null
 echo "   an unattributed spend is counted in the total and NAMED, never reassigned or dropped"
 
 echo "── 6. change control on the EXISTING MOC engine (D5.27/D5.30) ───────────"
@@ -729,8 +729,8 @@ test "$(psqlc "select outputs->>'unassessedCount' from calculation_runs where id
 # 180,000 drawn against S4D-C1 plus the 1,000 re-draw after the release probe.
 test "$(psqlc "select outputs->>'contingencyDrawnAgainstChange' from calculation_runs where id='$CRUN'")" = "181000"
 test "$(psqlc "select outputs->>'currency' from calculation_runs where id='$CRUN'")" = "CAD"
-psqlc "select refusals::text from calculation_runs where id='$CRUN'" | grep -qi 'carry NO impact assessment'
-psqlc "select refusals::text from calculation_runs where id='$CRUN'" | grep -qi 'no engineering competence sign-off'
+psqlc "select refusals::text from calculation_runs where id='$CRUN'" | grep -ci 'carry NO impact assessment' >/dev/null
+psqlc "select refusals::text from calculation_runs where id='$CRUN'" | grep -ci 'no engineering competence sign-off' >/dev/null
 echo "   the change position excludes unassessed changes and NAMES them, rather than counting them as zero"
 
 echo "── 8. decision latency (D3.12/D3.36): an empty register REFUSES ─────────"
@@ -755,8 +755,8 @@ noerr "$BODY"
 test "$(jqp "$BODY" "x['decisionCount']")" = "2"
 test "$(jqp "$BODY" "x['undatedCount']")" = "1"
 # The undated one is EXCLUDED and NAMED, never counted as on time.
-jqp "$BODY" "[d for d in x['decisions'] if d['decisionId']=='$DEC2'][0]['latencyKind']" | grep -q unmeasurable
-jqp "$BODY" "[d for d in x['decisions'] if d['decisionId']=='$DEC2'][0]['latencyRefusal']" | grep -qi 'nothing to measure latency FROM'
+jqp "$BODY" "[d for d in x['decisions'] if d['decisionId']=='$DEC2'][0]['latencyKind']" | grep -c unmeasurable >/dev/null
+jqp "$BODY" "[d for d in x['decisions'] if d['decisionId']=='$DEC2'][0]['latencyRefusal']" | grep -ci 'nothing to measure latency FROM' >/dev/null
 # The dated one has a RUNNING latency against its required date.
 test "$(jqp "$BODY" "[d for d in x['decisions'] if d['decisionId']=='$DEC1'][0]['latencyKind']")" = "running"
 test "$(jqp "$BODY" "float(json.loads(json.dumps([d for d in x['decisions'] if d['decisionId']=='$DEC1'][0]['latencyDays']))) > 0")" = "True"
@@ -796,7 +796,7 @@ test "$(jqp "$BODY" "float(x['criticalPathExposureDays']) > 0")" = "True"
 BODY=$(rpc "$MANAGER" compute_case_decision_latency "{\"p_case_id\":\"$CASE\"}")
 noerr "$BODY"
 test "$(psqlc "select status from calculation_runs where development_case_id='$CASE' and calculation_key='case_decision_latency' order by computed_at desc limit 1")" = "computed_with_refusals"
-psqlc "select refusals::text from calculation_runs where development_case_id='$CASE' and calculation_key='case_decision_latency' order by computed_at desc limit 1" | grep -qi 'nothing to measure latency FROM'
+psqlc "select refusals::text from calculation_runs where development_case_id='$CASE' and calculation_key='case_decision_latency' order by computed_at desc limit 1" | grep -ci 'nothing to measure latency FROM' >/dev/null
 echo "   §54's critical-path exposure comes off P6's OWN float, and the run records the exclusions"
 
 echo "── 10. decision debt (D3.21): nothing quantified is not a debt of zero ──"
@@ -835,7 +835,7 @@ test "$(jqp "$BODY" "x['quantifiedCount']")" = "1"
 test "$(jqp "$BODY" "x['unquantifiedCount']")" = "1"
 test "$(jqp "$BODY" "float(x['totalDebt'])")" = "240000.0"
 # The unquantified one is NAMED, never counted as zero.
-jqp "$BODY" "[d for d in x['decisions'] if d['decisionId']=='$DEC2'][0]['debtRefusal']" | grep -qi 'UNQUANTIFIED'
+jqp "$BODY" "[d for d in x['decisions'] if d['decisionId']=='$DEC2'][0]['debtRefusal']" | grep -ci 'UNQUANTIFIED' >/dev/null
 BODY=$(rpc "$MANAGER" compute_case_decision_debt "{\"p_case_id\":\"$CASE\"}")
 noerr "$BODY"
 test "$(psqlc "select status from calculation_runs where development_case_id='$CASE' and calculation_key='case_decision_debt' order by computed_at desc limit 1")" = "computed_with_refusals"
@@ -860,11 +860,11 @@ test "$(jqp "$BODY" "len(x['dimensions'])")" = "7"
 test "$(jqp "$BODY" "[d['key'] for d in x['dimensions']]")" = "['scope', 'schedule', 'cost', 'risk', 'change', 'contingency', 'procurement']"
 # PROCUREMENT is shown EMPTY AND NAMED. A five-tile "integrated" view would
 # quietly redefine what integrated means.
-jqp "$BODY" "[d for d in x['dimensions'] if d['key']=='procurement'][0]['refusal']" | grep -qi 'NO procurement calculation exists'
+jqp "$BODY" "[d for d in x['dimensions'] if d['key']=='procurement'][0]['refusal']" | grep -ci 'NO procurement calculation exists' >/dev/null
 # A dimension with no run says so, and does NOT fall back to the live read.
-jqp "$BODY" "[d for d in x['dimensions'] if d['key']=='cost'][0]['run'] is None" | grep -q True
-jqp "$BODY" "[d for d in x['dimensions'] if d['key']=='cost'][0]['refusal']" | grep -qi 'has been recorded for this case, so there is nothing to show'
-jqp "$BODY" "[d for d in x['dimensions'] if d['key']=='cost'][0]['refusal']" | grep -qi 'live read is deliberately not used as a fallback'
+jqp "$BODY" "[d for d in x['dimensions'] if d['key']=='cost'][0]['run'] is None" | grep -c True >/dev/null
+jqp "$BODY" "[d for d in x['dimensions'] if d['key']=='cost'][0]['refusal']" | grep -ci 'has been recorded for this case, so there is nothing to show' >/dev/null
+jqp "$BODY" "[d for d in x['dimensions'] if d['key']=='cost'][0]['refusal']" | grep -ci 'live read is deliberately not used as a fallback' >/dev/null
 # The dimensions that DO have runs carry the recorded run and its code version.
 test "$(jqp "$BODY" "[d for d in x['dimensions'] if d['key']=='contingency'][0]['run']['codeVersion']")" = "develop-change/4D/2026-12-03"
 test "$(jqp "$BODY" "[d for d in x['dimensions'] if d['key']=='change'][0]['run']['codeVersion']")" = "develop-change/4D/2026-12-03"
@@ -914,12 +914,12 @@ BODY=$(rpc "$MANAGER" get_my_decisions '{"p_limit":50}')
 noerr "$BODY"
 test "$(jqp "$BODY" "x['scope']")" = "mine"
 test "$(jqp "$BODY" "len([d for d in x['decisions'] if d['decisionId']=='$DEC1'])")" = "1"
-jqp "$BODY" "[d for d in x['decisions'] if d['decisionId']=='$DEC1'][0]['dueDate']" | grep -q 2026-06-01
+jqp "$BODY" "[d for d in x['decisions'] if d['decisionId']=='$DEC1'][0]['dueDate']" | grep -c 2026-06-01 >/dev/null
 test "$(jqp "$BODY" "[d for d in x['decisions'] if d['decisionId']=='$DEC1'][0]['overdue']")" = "True"
 test "$(jqp "$BODY" "[d for d in x['decisions'] if d['decisionId']=='$DEC1'][0]['onCriticalPath']")" = "True"
-jqp "$BODY" "[d for d in x['decisions'] if d['decisionId']=='$DEC2'][0]['dueRefusal']" | grep -qi 'no required date'
-jqp "$BODY" "[d for d in x['decisions'] if d['decisionId']=='$DEC2'][0]['recommendationRefusal']" | grep -qi 'No recommendation is attached'
-jqp "$BODY" "[d for d in x['decisions'] if d['decisionId']=='$DEC2'][0]['valueRefusal']" | grep -qi 'a decision worth nothing and a decision nobody has valued'
+jqp "$BODY" "[d for d in x['decisions'] if d['decisionId']=='$DEC2'][0]['dueRefusal']" | grep -ci 'no required date' >/dev/null
+jqp "$BODY" "[d for d in x['decisions'] if d['decisionId']=='$DEC2'][0]['recommendationRefusal']" | grep -ci 'No recommendation is attached' >/dev/null
+jqp "$BODY" "[d for d in x['decisions'] if d['decisionId']=='$DEC2'][0]['valueRefusal']" | grep -ci 'a decision worth nothing and a decision nobody has valued' >/dev/null
 # An executive sees the whole queue, and the payload SAYS which scope it is.
 BODY=$(rpc "$EXEC" get_my_decisions '{"p_limit":50}')
 noerr "$BODY"

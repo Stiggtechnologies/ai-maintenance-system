@@ -264,7 +264,7 @@ noerr "$BODY"
 test "$(printf '%s' "$BODY" | field accepted)" = "1"
 test "$(printf '%s' "$BODY" | field rejected)" = "1"
 # The reject is RETAINED with its reason — the non-finite duration by name.
-psqlc "select reject_reason from ingest_staging where run_id='$RUN' and status='rejected'" | grep -qi 'finite number of hours'
+psqlc "select reject_reason from ingest_staging where run_id='$RUN' and status='rejected'" | grep -ci 'finite number of hours' >/dev/null
 rpc "$PLANNER" finish_connector_run "{\"p_run_id\":\"$RUN\"}" >/dev/null
 
 ACT=$(psqlc "select t.id from shutdown_tasks t join shutdown_events e on e.id=t.event_id
@@ -441,7 +441,7 @@ expect_err "$BODY" 'no approved SCOPE baseline'
 
 BODY=$(rpc "$PLANNER" get_case_scope_growth "{\"p_case_id\":\"$CASE\"}")
 test "$(jqp "$BODY" "x['evaluable']")" = "False"
-printf '%s' "$BODY" | field refusal | grep -qi 'no reference is fixed'
+printf '%s' "$BODY" | field refusal | grep -ci 'no reference is fixed' >/dev/null
 
 BODY=$(rpc "$PLANNER" create_case_baseline "{\"p_case_id\":\"$CASE\",\"p_type\":\"SCOPE\",\"p_description\":\"Scope baseline at concept completion\"}")
 noerr "$BODY"; BL=$(printf '%s' "$BODY" | field baseline_id)

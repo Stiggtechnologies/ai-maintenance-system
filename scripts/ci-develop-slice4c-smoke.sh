@@ -303,7 +303,7 @@ grep -qi 'second critical path' <<<"$(cls "$BODY" negative_float notDiagnosableR
 # must be distinguishable in the ledger from one computed over six.
 BODY=$(rpc "$PLANNER" compute_case_schedule_quality "{\"p_case_id\":\"$CASE\"}")
 noerr "$BODY"
-psqlc "select refusals::text from calculation_runs where development_case_id='$CASE' and calculation_key='case_schedule_quality' order by computed_at desc limit 1" | grep -qi 'Re-export with total_float_hours'
+psqlc "select refusals::text from calculation_runs where development_case_id='$CASE' and calculation_key='case_schedule_quality' order by computed_at desc limit 1" | grep -ci 'Re-export with total_float_hours' >/dev/null
 # FIVE of §50's six: critical-path continuity is blind without P6's float.
 # Constraints ARE diagnosable here because every activity is Sync-authored —
 # Sync owns that column, so its absence is an absence rather than an unknown.
@@ -352,19 +352,19 @@ noerr "$BODY"; RUN=$(printf '%s' "$BODY" | field run_id); test -n "$RUN"
 # never be true or false.
 BODY=$(rpc "$PLANNER" ingest_rows "{\"p_run_id\":\"$RUN\",\"p_rows\":[{\"activity_id\":\"S4C-P1\",\"external_id\":\"S4C-P1\",\"development_case_id\":\"$CASE\",\"description\":\"P6 activity with a NaN float\",\"original_duration_hours\":\"100\",\"planned_start\":\"2027-01-04T06:00:00Z\",\"planned_finish\":\"2027-01-09T06:00:00Z\",\"total_float_hours\":\"NaN\",\"schedule_name\":\"SMOKE4C P6\"}]}")
 noerr "$BODY"; test "$(printf '%s' "$BODY" | field rejected)" = "1"
-psqlc "select reject_reason from ingest_staging where run_id='$RUN' and status='rejected'" | grep -qi 'float must be a finite number of hours'
+psqlc "select reject_reason from ingest_staging where run_id='$RUN' and status='rejected'" | grep -ci 'float must be a finite number of hours' >/dev/null
 
 # A date constraint with no date constrains nothing and would be counted as
 # one that does.
 BODY=$(rpc "$PLANNER" ingest_rows "{\"p_run_id\":\"$RUN\",\"p_rows\":[{\"activity_id\":\"S4C-P2\",\"external_id\":\"S4C-P2\",\"development_case_id\":\"$CASE\",\"description\":\"P6 activity constrained to nothing\",\"original_duration_hours\":\"100\",\"planned_start\":\"2027-01-04T06:00:00Z\",\"planned_finish\":\"2027-01-09T06:00:00Z\",\"constraint_type\":\"mandatory_finish\",\"schedule_name\":\"SMOKE4C P6\"}]}")
 noerr "$BODY"; test "$(printf '%s' "$BODY" | field rejected)" = "1"
-psqlc "select reject_reason from ingest_staging where run_id='$RUN' and status='rejected' and external_id='S4C-P2'" | grep -qi 'constraint with no date constrains nothing'
+psqlc "select reject_reason from ingest_staging where run_id='$RUN' and status='rejected' and external_id='S4C-P2'" | grep -ci 'constraint with no date constrains nothing' >/dev/null
 
 # A relationship annotating a predecessor the row does not declare is a lag
 # nobody applied.
 BODY=$(rpc "$PLANNER" ingest_rows "{\"p_run_id\":\"$RUN\",\"p_rows\":[{\"activity_id\":\"S4C-P3\",\"external_id\":\"S4C-P3\",\"development_case_id\":\"$CASE\",\"description\":\"P6 activity with an unmatched relationship\",\"original_duration_hours\":\"100\",\"planned_start\":\"2027-01-04T06:00:00Z\",\"planned_finish\":\"2027-01-09T06:00:00Z\",\"relationships\":[{\"predecessor\":\"SOMETHING-ELSE\",\"link_type\":\"FS\",\"lag_hours\":\"8\"}],\"schedule_name\":\"SMOKE4C P6\"}]}")
 noerr "$BODY"; test "$(printf '%s' "$BODY" | field rejected)" = "1"
-psqlc "select reject_reason from ingest_staging where run_id='$RUN' and status='rejected' and external_id='S4C-P3'" | grep -qi 'a lag nobody applied'
+psqlc "select reject_reason from ingest_staging where run_id='$RUN' and status='rejected' and external_id='S4C-P3'" | grep -ci 'a lag nobody applied' >/dev/null
 
 # The good rows, carrying P6's own float and constraints. P1000 is critical
 # (zero float), P1010 follows it and is critical too, P1020 has float, and
@@ -994,7 +994,7 @@ test -n "$RISK3"
 BODY=$(rpc "$PLANNER" compute_case_risk_schedule_economics "{\"p_case_id\":\"$CASE\"}")
 noerr "$BODY"
 grep -qi 'SMOKE4C tie-in window missed' <<<"$(jqp "$BODY" "[r['riskTitle'] for r in x['unlinkedRisks']]")"
-psqlc "select refusals::text from calculation_runs where development_case_id='$CASE' and calculation_key='case_risk_schedule_economics' order by computed_at desc limit 1" | grep -qi 'tie-in window missed'
+psqlc "select refusals::text from calculation_runs where development_case_id='$CASE' and calculation_key='case_risk_schedule_economics' order by computed_at desc limit 1" | grep -ci 'tie-in window missed' >/dev/null
 echo "   drivers ranked by the simulation; risks outside the chain named in the ledger, not counted"
 
 echo "── 11. lineage on every 4C calculation (D11.29) ─────────────────────────"
@@ -1013,7 +1013,7 @@ test "$(psqlc "select (inputs->>'activityDigest') is not null from calculation_r
 # in step 2 which named two. A score over four components and a score over six
 # are different facts and are recorded as different facts.
 test "$(psqlc "select outputs->>'diagnosableComponents' from calculation_runs where development_case_id='$CASE' and calculation_key='case_schedule_quality' order by computed_at desc limit 1")" = "6"
-psqlc "select refusals::text from calculation_runs where development_case_id='$CASE' and calculation_key='case_schedule_quality' order by computed_at desc limit 1" | grep -qiv 'Re-export with total_float_hours'
+psqlc "select refusals::text from calculation_runs where development_case_id='$CASE' and calculation_key='case_schedule_quality' order by computed_at desc limit 1" | grep -civ 'Re-export with total_float_hours' >/dev/null
 test "$(psqlc "select count(*) from calculation_runs where development_case_id='$CASE' and calculation_key='case_schedule_quality' and refusals::text like '%Re-export with total_float_hours%'")" -ge "1"
 
 # Immutability, both ledgers, both verbs, plus TRUNCATE.
