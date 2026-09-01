@@ -53,6 +53,11 @@ import type {
   RequirementTraceability,
   RequirementVerificationView,
 } from "../lib/develop/requirements";
+import type {
+  DesignScorecardPayload,
+  FrontlineReviewPayload,
+} from "../lib/design";
+import type { InterfaceGraphPayload } from "../lib/develop/interfaces";
 import { simulateIntegratedRisk } from "../lib/modelling/integrated-risk";
 
 export interface DevelopmentCaseSummary {
@@ -4222,4 +4227,278 @@ export async function listCaseObjectives(): Promise<
     .order("description");
   if (error) throw new Error(error.message);
   return data ?? [];
+}
+
+/* ══════════ Slice 5B — frontline design review, six-axis scoring, §19 ══════
+ *
+ *   D4.10  the frontline design review: who was in the room by discipline,
+ *          and the eight I.25 dimensions as itemized findings.
+ *   D4.11  the disposition record — accepted / rejected / accepted with
+ *          conditions, with a reason mandatory on every outcome.
+ *   D4.12  the six I.26 axes, scored by a human with a basis; the composite
+ *          refuses while any axis is unscored.
+ *   D4.18  the §19 Interface in seven types, on the SHARED dependency graph.
+ *
+ * Same posture as every slice before it: every write is a definer RPC, every
+ * refusal is the SERVER's text, and nothing here recomputes a number the
+ * server already computed.
+ */
+
+export async function getCaseFrontlineReview(
+  caseId: string,
+): Promise<FrontlineReviewPayload> {
+  const { data, error } = await supabase.rpc("get_case_frontline_review", {
+    p_case_id: caseId,
+  });
+  return unwrap(data, error);
+}
+
+export interface CaseDesignStudyInput {
+  studyKind: string;
+  summary: string;
+  performedOn?: string;
+}
+
+export async function recordCaseDesignStudy(
+  caseId: string,
+  input: CaseDesignStudyInput,
+): Promise<{
+  study_id: number;
+  studyKind: string;
+  frontlineKind: boolean;
+  note: string;
+}> {
+  const { data, error } = await supabase.rpc("record_case_design_study", {
+    p_case_id: caseId,
+    p_study: {
+      study_kind: input.studyKind,
+      summary: input.summary,
+      ...(input.performedOn ? { performed_on: input.performedOn } : {}),
+    },
+  });
+  return unwrapRpc(data, error, "Could not record the design study");
+}
+
+export async function addDesignStudyParticipant(
+  studyId: number,
+  input: { participantId: string; discipline: string; basis?: string },
+): Promise<{
+  participant_id: number;
+  discipline: string;
+  maintainerParticipated: boolean;
+  operatorParticipated: boolean;
+  constructorParticipated: boolean;
+}> {
+  const { data, error } = await supabase.rpc("add_design_study_participant", {
+    p_study_id: studyId,
+    p_participant: {
+      participant_id: input.participantId,
+      discipline: input.discipline,
+      ...(input.basis ? { basis: input.basis } : {}),
+    },
+  });
+  return unwrapRpc(data, error, "Could not record the participant");
+}
+
+export interface DesignFindingInput {
+  findingRef: string;
+  dimension: string;
+  recommendation: string;
+  severity?: string;
+  /** Defaults to the caller. Named when a scribe records for the room. */
+  raisedBy?: string;
+  /** Only needed when the person attended in more than one discipline. */
+  discipline?: string;
+}
+
+export async function raiseDesignReviewFinding(
+  studyId: number,
+  input: DesignFindingInput,
+): Promise<{
+  finding_id: number;
+  findingRef: string;
+  dimension: string;
+  discipline: string;
+  note: string;
+}> {
+  const { data, error } = await supabase.rpc("raise_design_review_finding", {
+    p_study_id: studyId,
+    p_finding: {
+      finding_ref: input.findingRef,
+      dimension: input.dimension,
+      recommendation: input.recommendation,
+      ...(input.severity ? { severity: input.severity } : {}),
+      ...(input.raisedBy ? { raised_by: input.raisedBy } : {}),
+      ...(input.discipline ? { discipline: input.discipline } : {}),
+    },
+  });
+  return unwrapRpc(data, error, "Could not raise the finding");
+}
+
+export interface DispositionInput {
+  outcome: string;
+  reason: string;
+  discipline: string;
+  conditions?: string;
+}
+
+export async function dispositionDesignFinding(
+  findingId: number,
+  input: DispositionInput,
+): Promise<{
+  disposition_id: number;
+  dispositionNo: number;
+  outcome: string;
+  requirementCarried: boolean;
+  note: string;
+}> {
+  const { data, error } = await supabase.rpc("disposition_design_finding", {
+    p_finding_id: findingId,
+    p_disposition: {
+      outcome: input.outcome,
+      reason: input.reason,
+      discipline: input.discipline,
+      // Sent only for the conditional outcome: the RPC refuses conditions on a
+      // flat acceptance BY NAME, so an empty string would turn every save into
+      // a refusal.
+      ...(input.conditions ? { conditions: input.conditions } : {}),
+    },
+  });
+  return unwrapRpc(data, error, "Could not record the disposition");
+}
+
+export async function carryDesignFindingToRequirement(
+  findingId: number,
+  requirementId: number,
+): Promise<{
+  finding_id: number;
+  requirement_id: number;
+  requirementRef: string;
+}> {
+  const { data, error } = await supabase.rpc(
+    "carry_design_finding_to_requirement",
+    { p_finding_id: findingId, p_requirement_id: requirementId },
+  );
+  return unwrapRpc(data, error, "Could not carry the recommendation");
+}
+
+/* ───────────────────────── D4.12 — six-axis scoring ───────────────────── */
+
+export async function getCaseDesignScorecard(
+  caseId: string,
+): Promise<DesignScorecardPayload> {
+  const { data, error } = await supabase.rpc("get_case_design_scorecard", {
+    p_case_id: caseId,
+  });
+  return unwrap(data, error);
+}
+
+/**
+ * The scorecard WITH a calculation_runs row behind it (D11.29).
+ *
+ * BEHIND AN EXPLICIT ACT, never on mount (5B-R9). `compute_` records a
+ * calculation_runs row every time it is called, so calling it from `load()`
+ * appended one lineage row per page view and per write in the panel — turning
+ * "when was this scorecard computed, and who asked for it" into a log of who
+ * opened the screen. It also carries a narrower role set than the plain read,
+ * so mounting it blanked the whole panel for a technician. The panel reads
+ * with `getCaseDesignScorecard` and computes on a button, which is what every
+ * other develop panel does.
+ */
+export async function computeCaseDesignScorecard(
+  caseId: string,
+): Promise<DesignScorecardPayload & { calculationRunId?: string }> {
+  const { data, error } = await supabase.rpc("compute_case_design_scorecard", {
+    p_case_id: caseId,
+  });
+  return unwrap(data, error);
+}
+
+export async function scoreDesignAxis(
+  caseId: string,
+  input: { axis: string; score: number; basis: string; studyId?: number },
+): Promise<{
+  score_id: number;
+  axis: string;
+  score: number;
+  missingAxes: string[];
+  note: string;
+}> {
+  const { data, error } = await supabase.rpc("score_design_axis", {
+    p_case_id: caseId,
+    p_score: {
+      axis: input.axis,
+      score: input.score,
+      basis: input.basis,
+      ...(input.studyId != null ? { study_id: input.studyId } : {}),
+    },
+  });
+  return unwrapRpc(data, error, "Could not record the score");
+}
+
+/* ────────────────────── D4.18 — the §19 Interface object ──────────────── */
+
+export async function getCaseInterfaceGraph(
+  caseId: string,
+): Promise<InterfaceGraphPayload> {
+  const { data, error } = await supabase.rpc("get_case_interface_graph", {
+    p_case_id: caseId,
+  });
+  return unwrap(data, error);
+}
+
+export interface CaseInterfaceInput {
+  interfaceRef: string;
+  sourceObject: string;
+  targetObject: string;
+  interfaceType: string;
+  ownerId: string;
+  requirement: string;
+  dueDate?: string;
+  sourceAssetId?: string;
+  targetAssetId?: string;
+  requirementId?: number;
+}
+
+export async function recordCaseInterface(
+  caseId: string,
+  input: CaseInterfaceInput,
+): Promise<{
+  interface_id: number;
+  interfaceRef: string;
+  interfaceType: string;
+  traversalKind: string;
+  note: string;
+}> {
+  const { data, error } = await supabase.rpc("record_case_interface", {
+    p_case_id: caseId,
+    p_interface: {
+      interface_ref: input.interfaceRef,
+      source_object: input.sourceObject,
+      target_object: input.targetObject,
+      interface_type: input.interfaceType,
+      owner_id: input.ownerId,
+      requirement: input.requirement,
+      ...(input.dueDate ? { due_date: input.dueDate } : {}),
+      ...(input.sourceAssetId ? { source_asset_id: input.sourceAssetId } : {}),
+      ...(input.targetAssetId ? { target_asset_id: input.targetAssetId } : {}),
+      ...(input.requirementId != null
+        ? { requirement_id: input.requirementId }
+        : {}),
+    },
+  });
+  return unwrapRpc(data, error, "Could not record the interface");
+}
+
+export async function setCaseInterfaceStatus(
+  interfaceId: number,
+  status: string,
+  note: string,
+): Promise<{ interface_id: number; status: string; previousStatus: string }> {
+  const { data, error } = await supabase.rpc("set_case_interface_status", {
+    p_interface_id: interfaceId,
+    p_status: status,
+    p_note: note,
+  });
+  return unwrapRpc(data, error, "Could not move the interface");
 }

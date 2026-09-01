@@ -216,7 +216,14 @@ psqlc "delete from project_progress_periods where development_case_id in ($CLEAN
 psqlc "delete from project_rules_of_credit where development_case_id in ($CLEAN);" >/dev/null
 psqlc "delete from project_cost_items where development_case_id in ($CLEAN);" >/dev/null
 psqlc "delete from development_cases where title like 'SMOKE4C %';" >/dev/null
-psqlc "delete from business_cases where case_ref like 'SMOKE4C%';" >/dev/null
+# The business case is written with case_ref 'S4C-BC' (step 9a) and its
+# development_case_id is `on delete set null`, so it OUTLIVES the case delete
+# above rather than cascading with it. A cleanup keyed to 'SMOKE4C%' matched
+# nothing, the row survived, and the second run of this file died at 9a on
+# "that case reference already exists in this organization". The pattern below
+# is the prefix this script actually writes, so the fixture is arranged by the
+# smoke instead of by a freshly reset database.
+psqlc "delete from business_cases where organization_id='$ORG' and (case_ref like 'SMOKE4C%' or case_ref like 'S4C-%');" >/dev/null
 psqlc "delete from financial_assumptions where organization_id='$ORG' and assumption_key like 'develop.case.%delay_cost_per_day';" >/dev/null
 psqlc "delete from connectors where organization_id='$ORG' and name='SMOKE4C P6 export';" >/dev/null
 psqlc "delete from ingest_watermarks where organization_id='$ORG' and entity_type='schedule_activity' and connector_id in (select id from connectors where organization_id='$ORG' and connector_key='manual-upload-schedule_activity');" >/dev/null
