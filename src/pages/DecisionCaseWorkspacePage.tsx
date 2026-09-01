@@ -70,6 +70,11 @@ import {
 } from "../lib/decision-case";
 import { classifyDecisionQuestionScope } from "../lib/reliability-agent-contract";
 import {
+  FIRST_PAINT_QUESTIONS,
+  createFirstPaintSeed,
+} from "../lib/first-paint-seeds";
+import { RotatingSeedChip } from "../components/RotatingSeedChip";
+import {
   askDecisionCase,
   createPersistedDecisionCase,
   isPersistedDecisionCase,
@@ -88,13 +93,6 @@ const tabs: Array<{ id: PacketTab; label: string }> = [
   { id: "value", label: "Value" },
 ];
 const PUBLIC_VALUE_PROOF_TOKEN_ALLOWANCE = 60000;
-
-function sampleChipLabel(industry: DecisionIndustryId): string {
-  const sample = createSeedDecisionCases({ industry })[0];
-  const question = sample.messages.find((item) => item.role === "user")?.text;
-  const firstSentence = question?.split(/(?<=\?)/)[0]?.trim();
-  return firstSentence || sample.asset;
-}
 
 function trackDecisionWorkspaceEvent(
   eventName: string,
@@ -379,12 +377,12 @@ export function DecisionCaseWorkspacePage({
     setRecordOpen(false);
   };
 
-  const trySample = () => {
-    const sample = createSeedDecisionCases({
+  const trySample = (index = 0) => {
+    const sample = createFirstPaintSeed(index, {
       ...context,
       industry,
       role,
-    })[0];
+    });
     setCases((current) => {
       const keep = current.filter(
         (item) =>
@@ -688,7 +686,10 @@ export function DecisionCaseWorkspacePage({
             </button>
           )}
         </div>
-        <div className="dw-topbar-center">
+        <div
+          className="dw-topbar-center"
+          data-testid="first-paint-header-center"
+        >
           {!emptyConversation && (
             <span className="dw-case-name">{active.title}</span>
           )}
@@ -742,15 +743,10 @@ export function DecisionCaseWorkspacePage({
             <section className="dw-thread" aria-label="Conversation">
               {emptyConversation ? (
                 <div className="dw-empty" data-testid="first-paint-empty">
-                  <button
-                    type="button"
-                    className="dw-seed-chip"
-                    data-testid="sample-seed-chip"
-                    onClick={trySample}
-                  >
-                    <span className="dw-seed-orb" aria-hidden />
-                    {sampleChipLabel(industry)}
-                  </button>
+                  <RotatingSeedChip
+                    questions={FIRST_PAINT_QUESTIONS}
+                    onSelect={trySample}
+                  />
                 </div>
               ) : (
                 active.messages.map((message) => (

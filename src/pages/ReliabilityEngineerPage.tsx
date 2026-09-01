@@ -338,21 +338,22 @@ export function ReliabilityEngineerPage({
       <header className="flex h-16 items-center justify-between border-b border-white/7 bg-[#0b0f14] px-4 sm:px-6">
         <a
           href="/workspace"
-          className="flex items-center gap-3"
+          className="flex min-w-0 flex-col items-start justify-center gap-0"
           aria-label="SyncAI Reliability Engineer"
         >
           <BrandWordmark />
-          <h1 className="hidden text-xs font-medium text-slate-500 sm:block">
+          <h1
+            data-testid="brand-job-title"
+            className="mt-0.5 text-[10px] font-medium uppercase tracking-widest text-slate-400 leading-none"
+          >
             Reliability Engineer
           </h1>
         </a>
 
-        <div className="hidden items-center gap-2 rounded-full border border-white/7 bg-white/[0.025] px-3 py-1.5 text-xs text-slate-400 md:flex">
-          <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-          Live Reliability Engineer
-          <span className="text-slate-700">·</span>
-          Limited free access
-        </div>
+        <div
+          className="min-w-0 flex-1"
+          data-testid="first-paint-header-center"
+        />
 
         <div className="flex items-center gap-2">
           <a

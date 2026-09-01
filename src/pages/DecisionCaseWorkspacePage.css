@@ -2561,10 +2561,33 @@
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
+  text-align: left;
 }
-.dw-seed-chip:hover {
+.dw-seed-chip:hover,
+.dw-seed-chip:focus-visible {
   background: rgba(255, 255, 255, 0.04);
   color: #e8edf2;
+}
+.dw-seed-chip-stage {
+  position: relative;
+  min-width: 0;
+}
+.dw-seed-chip-copy {
+  display: inline;
+  animation: dw-seed-crossfade 400ms ease;
+}
+@keyframes dw-seed-crossfade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dw-seed-chip-copy {
+    animation: none;
+  }
 }
 .dw-seed-orb {
   width: 22px;
