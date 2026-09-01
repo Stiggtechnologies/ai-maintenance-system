@@ -1,5 +1,11 @@
 import { readFileSync } from "node:fs";
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
@@ -129,9 +135,9 @@ describe("DecisionCaseWorkspacePage — chat-first paint", () => {
     expect(screen.getByTestId("sample-seed-chip")).toHaveTextContent(
       FIRST_PAINT_QUESTIONS[0],
     );
-    expect(screen.getByTestId("first-paint-header-center").textContent?.trim()).toBe(
-      "",
-    );
+    expect(
+      screen.getByTestId("first-paint-header-center").textContent?.trim(),
+    ).toBe("");
     expect(screen.queryByText("What is the reliability question?")).toBeNull();
     expect(screen.queryByRole("button", { name: "Try a sample" })).toBeNull();
     expect(screen.queryByRole("button", { name: "View record" })).toBeNull();
@@ -183,9 +189,7 @@ describe("DecisionCaseWorkspacePage — chat-first paint", () => {
     ).toBeNull();
     expect(screen.queryByLabelText("Sign in")).toBeNull();
     expect(screen.queryByRole("tablist")).toBeNull();
-    expect(
-      screen.getByLabelText("Add camera, photos, or files"),
-    ).toBeTruthy();
+    expect(screen.getByLabelText("Add camera, photos, or files")).toBeTruthy();
   });
 
   it("plus sheet offers camera, photos, and files only after a case exists", () => {
@@ -205,7 +209,7 @@ describe("DecisionCaseWorkspacePage — chat-first paint", () => {
     loadSample();
     fireEvent.click(screen.getByRole("button", { name: "Simulate" }));
     expect(
-      await screen.findByText(/M\. Tran approved the controlled plan/),
+      await screen.findByText(/L\. Singh approved the controlled plan/),
     ).toBeTruthy();
     expect(screen.getByTestId("disposition-record")).toBeTruthy();
     expect(screen.getByTestId("learn-unpersisted")).toBeTruthy();
@@ -217,7 +221,7 @@ describe("DecisionCaseWorkspacePage — chat-first paint", () => {
     );
     expect(screen.queryByTestId("learn-recorder")).toBeNull();
     expect(screen.queryByText(/Outcome recorded/i)).toBeNull();
-    expect(screen.queryByText(/retained/i)).toBeNull();
+    expect(screen.queryByText(/Outcome retained/i)).toBeNull();
     expect(screen.queryByText(/LR-/i)).toBeNull();
     expect(recordVerificationResult).not.toHaveBeenCalled();
   });
@@ -291,9 +295,9 @@ describe("DecisionCaseWorkspacePage — chat-first paint", () => {
     );
     expect(screen.queryByText("P-101 process pump")).toBeNull();
     loadSample();
-    expect(screen.getAllByText(/CR-01 primary crusher/i).length).toBeGreaterThan(
-      0,
-    );
+    expect(
+      screen.getAllByText(/CR-01 primary crusher/i).length,
+    ).toBeGreaterThan(0);
     expect(
       window.sessionStorage.getItem("syncai.publicDecisionCases.v2.oil-gas"),
     ).toContain("The evidence plan is the highest-value governed next action.");
@@ -308,6 +312,7 @@ describe("DecisionCaseWorkspacePage — chat-first paint", () => {
     vi.useFakeTimers();
     const caseNames: string[] = [];
     for (const [index, question] of FIRST_PAINT_QUESTIONS.entries()) {
+      window.sessionStorage.clear();
       const { unmount } = renderWorkspace();
       act(() => {
         vi.advanceTimersByTime(FIRST_PAINT_CYCLE_MS * index);

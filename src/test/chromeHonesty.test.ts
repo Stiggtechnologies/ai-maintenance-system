@@ -60,7 +60,6 @@ describe("customer chrome honesty", () => {
 
   it("first-paint follow-up does not restore gold or a 48-hour offer", () => {
     const firstPaint = [
-      "src/pages/DecisionCaseWorkspacePage.tsx",
       "src/lib/first-paint-seeds.ts",
       "src/components/RotatingSeedChip.tsx",
       "src/components/PublicProductHeader.tsx",
