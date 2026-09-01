@@ -102,6 +102,7 @@ import { PerformancePanel } from "../components/develop/PerformancePanels";
 import { ScheduleAssurancePanel } from "../components/develop/SchedulePanels";
 import { ChangeAndControlsPanel } from "../components/develop/ChangeControlPanels";
 import { RequirementsThreadPanel } from "../components/develop/RequirementsThreadPanels";
+import { FrontlineDesignPanel } from "../components/develop/FrontlineDesignPanels";
 
 const REVIEW_ROLES = [
   "admin",
@@ -112,6 +113,27 @@ const REVIEW_ROLES = [
 
 /** Roles that may register/frame (creation is preparation, not determination). */
 const PLAN_ROLES = [...REVIEW_ROLES, "ai_admin", "planner"];
+
+/**
+ * Slice 5B (D4.10/D4.11), spec I.25. The FRONTLINE acts — attending a design
+ * review, raising a recommendation, dispositioning one — are the only acts in
+ * this workspace whose RPCs admit `supervisor` and `technician` BY NAME, and
+ * they do so deliberately: "a design review whose findings only a manager may
+ * type is not a frontline design review" (20261205090000). `PLAN_ROLES` fits
+ * every other panel and mis-fits this one in both directions, so these two
+ * sets are stated separately rather than reused.
+ *
+ * `ai_admin` is excluded from BOTH: §70 refuses it by name at every one of
+ * these doors, so rendering it the forms only offers an act the server will
+ * reject.
+ */
+const FRONTLINE_ROLES = [
+  ...REVIEW_ROLES,
+  "planner",
+  "supervisor",
+  "technician",
+];
+const DESIGN_PLAN_ROLES = [...REVIEW_ROLES, "planner"];
 
 const inputClass =
   "w-full rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-signal-cyan/50 focus:outline-none";
@@ -2385,6 +2407,10 @@ export function DevelopmentCaseWorkspacePage() {
   const canReview =
     profile?.role != null && REVIEW_ROLES.includes(profile.role);
   const canPlan = profile?.role != null && PLAN_ROLES.includes(profile.role);
+  const canFrontline =
+    profile?.role != null && FRONTLINE_ROLES.includes(profile.role);
+  const canDesignPlan =
+    profile?.role != null && DESIGN_PLAN_ROLES.includes(profile.role);
   const canAdmin =
     profile?.role != null && ["admin", "executive"].includes(profile.role);
 
@@ -2836,6 +2862,23 @@ export function DevelopmentCaseWorkspacePage() {
           name: m.full_name ?? m.email ?? m.id,
         }))}
         canPlan={canPlan}
+        reloadKey={chainsKey}
+      />
+      {/* Frontline design review, six-axis scoring and the §19 interfaces
+          (Slice 5B): the people who will maintain, operate and build this
+          disposition its design BEFORE it is built, and an un-dispositioned
+          recommendation is a gate blocker on the SAME machinery a breached
+          permit condition rides. The composite score refuses while any axis is
+          unscored, and the interfaces traverse the shared dependency graph
+          rather than a second one. */}
+      <FrontlineDesignPanel
+        caseId={workspace.id}
+        members={members.map((m) => ({
+          id: m.id,
+          name: m.full_name ?? m.email ?? m.id,
+        }))}
+        canPlan={canDesignPlan}
+        canFrontline={canFrontline}
         reloadKey={chainsKey}
       />
       <OperationalReadinessSection caseId={workspace.id} canPlan={canPlan} />

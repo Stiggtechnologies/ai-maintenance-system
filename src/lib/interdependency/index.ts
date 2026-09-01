@@ -36,12 +36,38 @@ export type DependencyKind =
   | "geographic"
   | "logistical";
 
+/**
+ * The seven spec III.§19 interface types (D4.18).
+ *
+ * They are listed here, beside the six asset dependency kinds, because a §19
+ * interface is an EDGE IN THIS GRAPH and not a graph of its own: an interface
+ * between two assets and a recorded asset dependency between the same two
+ * assets meet at the same node ids and are traversed by the same
+ * `propagateLoss` / `singlePointsOfFailure`. The server maps each interface
+ * type onto one of the six kinds for traversal
+ * (`sync_interface_traversal_kind`) and carries BOTH on every edge, so the
+ * mapping is visible in the payload rather than hidden inside it — and this
+ * union exists so an edge that arrives carrying its interface type rather than
+ * its traversal kind is still a well-typed edge instead of a cast.
+ */
+export type InterfaceType =
+  | "physical"
+  | "process"
+  | "electrical"
+  | "control"
+  | "data"
+  | "organizational"
+  | "contractual";
+
+/** What an edge in this graph may say it is. */
+export type EdgeKind = DependencyKind | InterfaceType;
+
 export interface DependencyEdge {
-  /** The asset that stops working. */
+  /** The asset — or, for a §19 interface, the object — that stops working. */
   dependent: string;
-  /** The asset it needs. */
+  /** The asset or object it needs. */
   supplier: string;
-  kind: DependencyKind;
+  kind: EdgeKind;
   /** Edges into one dependent sharing a group are alternatives. */
   redundancyGroup?: string | null;
   /** How many of the group must survive. */

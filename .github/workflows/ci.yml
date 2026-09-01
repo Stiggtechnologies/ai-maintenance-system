@@ -283,6 +283,9 @@ jobs:
       - name: Smoke — Sync Develop slice 5A (requirement object, digital thread, verification, requirements agent)
         run: bash scripts/ci-develop-slice5a-smoke.sh
 
+      - name: Smoke — Sync Develop slice 5B (frontline review, dispositions, six-axis scoring, interfaces)
+        run: bash scripts/ci-develop-slice5b-smoke.sh
+
       - name: Stop Supabase
         if: always()
         run: supabase stop --no-backup || true

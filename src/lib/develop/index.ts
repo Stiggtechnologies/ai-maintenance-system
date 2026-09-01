@@ -674,6 +674,51 @@ export type ReadinessBlocker =
       id: number;
       name: string;
       demandedLevel: string;
+    }
+  // Slice 5B (D4.10/D4.11): the frontline design obligations. These ride the
+  // SAME predicate family and the same persistence wall as the two above —
+  // case_frontline_design_obligations is appended into
+  // case_gate_outstanding_obligations, and enforce_gate_review_outstanding_obligations
+  // refuses over all of them together. They are declared here because a union
+  // that stops short of the types the server actually emits makes the next
+  // exhaustive narrow silently omit the differentiator's own blockers.
+  | {
+      type: "frontline_finding_open";
+      id: number;
+      name: string;
+      dimension: string;
+      discipline: string;
+      severity: string;
+      studyId: number;
+      raisedAt: string;
+    }
+  | {
+      type: "frontline_acceptance_uncarried";
+      id: number;
+      name: string;
+      dimension: string;
+      discipline: string;
+      outcome: string;
+      studyId: number;
+    }
+  | {
+      type: "frontline_acceptance_carried_by_failed_requirement";
+      id: number;
+      name: string;
+      dimension: string;
+      discipline: string;
+      outcome: string;
+      requirementId: number;
+      requirementRef: string;
+      verificationStatus: string;
+      studyId: number;
+    }
+  | {
+      type: "frontline_review_unattended";
+      id: number;
+      name: string;
+      studyKind: string;
+      performedOn: string | null;
     };
 
 export interface ReadinessProjection {
