@@ -13,6 +13,7 @@ import {
   RefreshCw,
   Play,
   Pause,
+  Search,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { useAsyncData } from "../hooks/useAsyncData";
@@ -250,17 +251,23 @@ export function AIWorkforce() {
   const [autonomyFilter, setAutonomyFilter] = useState<"all" | AutonomyMode>(
     "all",
   );
+  const [search, setSearch] = useState("");
   const { data, loading, error, refetch } = useAsyncData<AgentRow[]>(
     () => getAgents(),
     [],
   );
   const agents = (data ?? []).map(agentRowToAgent);
 
+  const query = search.trim().toLowerCase();
   const filtered = agents.filter((a) => {
     const statusMatch = filter === "all" || a.status === filter;
     const autonomyMatch =
       autonomyFilter === "all" || a.autonomyMode === autonomyFilter;
-    return statusMatch && autonomyMatch;
+    const searchMatch =
+      !query ||
+      a.name.toLowerCase().includes(query) ||
+      a.purpose.toLowerCase().includes(query);
+    return statusMatch && autonomyMatch && searchMatch;
   });
 
   const counts = {
@@ -329,6 +336,16 @@ export function AIWorkforce() {
 
       {/* Filters */}
       <div className="flex items-center gap-2 flex-wrap">
+        <div className="relative min-w-[200px] max-w-xs">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search agents..."
+            aria-label="Search agents by name or purpose"
+            className="w-full pl-8 pr-3 py-2 bg-white/3 border border-white/8 rounded-lg text-xs text-slate-300 placeholder-slate-600 outline-hidden focus:border-teal-500/40"
+          />
+        </div>
         <span className="text-xs text-slate-400">Status:</span>
         {(["all", "active", "processing", "idle"] as const).map((f) => (
           <button
