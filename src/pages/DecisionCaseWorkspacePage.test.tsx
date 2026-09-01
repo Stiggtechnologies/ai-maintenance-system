@@ -1,7 +1,12 @@
 import { readFileSync } from "node:fs";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  FIRST_PAINT_CYCLE_MS,
+  FIRST_PAINT_QUESTIONS,
+  createFirstPaintSeed,
+} from "../lib/first-paint-seeds";
 import { DecisionCaseWorkspacePage } from "./DecisionCaseWorkspacePage";
 
 const recordVerificationResult = vi.fn();
@@ -72,6 +77,22 @@ function loadSample() {
   fireEvent.click(screen.getByTestId("sample-seed-chip"));
 }
 
+function stubMatchMedia(reduced: boolean) {
+  Object.defineProperty(window, "matchMedia", {
+    configurable: true,
+    writable: true,
+    value: (query: string) => ({
+      matches: query.includes("prefers-reduced-motion") ? reduced : false,
+      media: query,
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+      addListener: () => undefined,
+      removeListener: () => undefined,
+      dispatchEvent: () => false,
+    }),
+  });
+}
+
 describe("DecisionCaseWorkspacePage — chat-first paint", () => {
   beforeEach(() => {
     const storage = new Map<string, string>();
@@ -89,6 +110,11 @@ describe("DecisionCaseWorkspacePage — chat-first paint", () => {
     ).dataLayer = [];
     window.sessionStorage.clear();
     recordVerificationResult.mockReset();
+    stubMatchMedia(false);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("first paint is empty thread + composer + one seed chip, not a demo case", async () => {
@@ -99,8 +125,12 @@ describe("DecisionCaseWorkspacePage — chat-first paint", () => {
       screen.getByPlaceholderText("Ask a reliability question…"),
     ).toBeTruthy();
     expect(screen.getByTestId("first-paint-empty")).toBeTruthy();
+    expect(screen.getAllByTestId("sample-seed-chip")).toHaveLength(1);
     expect(screen.getByTestId("sample-seed-chip")).toHaveTextContent(
-      "Can we extend P-101 process pump's seal inspection from monthly to yearly?",
+      FIRST_PAINT_QUESTIONS[0],
+    );
+    expect(screen.getByTestId("first-paint-header-center").textContent?.trim()).toBe(
+      "",
     );
     expect(screen.queryByText("What is the reliability question?")).toBeNull();
     expect(screen.queryByRole("button", { name: "Try a sample" })).toBeNull();
@@ -115,9 +145,7 @@ describe("DecisionCaseWorkspacePage — chat-first paint", () => {
     expect(screen.queryByRole("tablist")).toBeNull();
     expect(screen.queryByText("Decision Workspace")).toBeNull();
     expect(screen.queryByText("Current decision packet")).toBeNull();
-    expect(screen.getByTestId("sample-seed-chip")).toHaveTextContent(
-      /P-101 process pump/,
-    );
+    expect(screen.queryByText(/P-101 process pump/)).toBeNull();
     expect(
       screen.queryByText(
         /Decide whether P-101 process pump's seal inspection interval/i,
@@ -126,6 +154,7 @@ describe("DecisionCaseWorkspacePage — chat-first paint", () => {
     expect(screen.queryByRole("button", { name: "Simulate" })).toBeNull();
     expect(screen.queryByText("Chat")).toBeNull();
     expect(screen.queryByText("Work")).toBeNull();
+    expect(screen.queryByText(/GPT|model picker|Claude/i)).toBeNull();
   });
 
   it("seed chip loads the recommendation in the assistant turn", async () => {
@@ -136,7 +165,7 @@ describe("DecisionCaseWorkspacePage — chat-first paint", () => {
     expect(screen.getByText("Not proven")).toBeTruthy();
     expect(screen.getByText("Recommendation · not authorization")).toBeTruthy();
     expect(
-      screen.getByText(/Authority: M\. Tran, Reliability Engineer/),
+      screen.getByText(/Authority: L\. Singh, Maintenance Superintendent/),
     ).toBeTruthy();
     expect(screen.getByRole("button", { name: "Simulate" })).toBeTruthy();
     expect(
@@ -145,11 +174,13 @@ describe("DecisionCaseWorkspacePage — chat-first paint", () => {
     expect(screen.getByRole("button", { name: "Delegate" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Reject" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "View record" })).toBeTruthy();
+    expect(screen.getByText(FIRST_PAINT_QUESTIONS[0])).toBeTruthy();
+    expect(screen.queryByText(/P-101 process pump/)).toBeNull();
     expect(
-      screen.getByText(
+      screen.queryByText(
         /Decide whether P-101 process pump's seal inspection interval/i,
       ),
-    ).toBeTruthy();
+    ).toBeNull();
     expect(screen.queryByLabelText("Sign in")).toBeNull();
     expect(screen.queryByRole("tablist")).toBeNull();
     expect(
@@ -231,7 +262,7 @@ describe("DecisionCaseWorkspacePage — chat-first paint", () => {
   it("deep-links a mining conversation only after the seed chip", () => {
     renderWorkspace("/workspace?industry=mining");
     expect(screen.getByTestId("sample-seed-chip")).toHaveTextContent(
-      /replace the crusher bearings/i,
+      FIRST_PAINT_QUESTIONS[0],
     );
     expect(screen.queryByTestId("recommendation-turn")).toBeNull();
     loadSample();
@@ -256,11 +287,11 @@ describe("DecisionCaseWorkspacePage — chat-first paint", () => {
 
     renderWorkspace("/workspace?industry=manufacturing");
     expect(screen.getByTestId("sample-seed-chip")).toHaveTextContent(
-      /bypass the die-protection/i,
+      FIRST_PAINT_QUESTIONS[0],
     );
     expect(screen.queryByText("P-101 process pump")).toBeNull();
     loadSample();
-    expect(screen.getAllByText(/PR-07 stamping press/i).length).toBeGreaterThan(
+    expect(screen.getAllByText(/CR-01 primary crusher/i).length).toBeGreaterThan(
       0,
     );
     expect(
@@ -270,7 +301,47 @@ describe("DecisionCaseWorkspacePage — chat-first paint", () => {
       window.sessionStorage.getItem(
         "syncai.publicDecisionCases.v2.manufacturing",
       ),
-    ).toContain("PR-07 stamping press");
+    ).toContain("CR-01 primary crusher");
+  });
+
+  it("tap of each rotating chip copy loads a distinct seed, never P-101", () => {
+    vi.useFakeTimers();
+    const caseNames: string[] = [];
+    for (const [index, question] of FIRST_PAINT_QUESTIONS.entries()) {
+      const { unmount } = renderWorkspace();
+      act(() => {
+        vi.advanceTimersByTime(FIRST_PAINT_CYCLE_MS * index);
+      });
+      const chip = screen.getByTestId("sample-seed-chip");
+      expect(chip).toHaveTextContent(question);
+      fireEvent.click(chip);
+      expect(screen.getByText(question)).toBeTruthy();
+      expect(screen.getByTestId("recommendation-turn")).toBeTruthy();
+      expect(
+        screen.getByText("Recommendation · not authorization"),
+      ).toBeTruthy();
+      const caseName =
+        screen.getByTestId("first-paint-header-center").textContent ?? "";
+      expect(caseName.trim()).not.toBe("");
+      expect(caseName).not.toMatch(/P-101/);
+      expect(caseName).not.toMatch(/seal inspection/i);
+      expect(createFirstPaintSeed(index).asset).not.toMatch(/P-101/);
+      caseNames.push(caseName.trim());
+      unmount();
+    }
+    expect(new Set(caseNames).size).toBe(6);
+  });
+
+  it("keeps question 1 static when the workspace prefers reduced motion", () => {
+    stubMatchMedia(true);
+    vi.useFakeTimers();
+    renderWorkspace();
+    act(() => {
+      vi.advanceTimersByTime(FIRST_PAINT_CYCLE_MS * 4);
+    });
+    expect(screen.getByTestId("sample-seed-chip")).toHaveTextContent(
+      FIRST_PAINT_QUESTIONS[0],
+    );
   });
 
   it("New opens an empty conversation with the seed chip", async () => {

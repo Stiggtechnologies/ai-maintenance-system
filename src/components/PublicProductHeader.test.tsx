@@ -13,8 +13,22 @@ describe("PublicProductHeader", () => {
       "/brand/wordmark-ink.png",
     );
     expect(screen.getByLabelText("SyncAI Reliability Engineer")).toBeTruthy();
+    expect(screen.getByTestId("brand-job-title")).toHaveTextContent(
+      "Reliability Engineer",
+    );
+    expect(SRC).toMatch(/flex-col/);
     expect(SRC).not.toMatch(/Activity/);
     expect(SRC).not.toMatch(/Zap/);
+  });
+
+  it("keeps Reliability Engineer as a job title, not a second nav logo", () => {
+    render(<PublicProductHeader active="copilot" />);
+    expect(screen.getAllByText("Reliability Engineer")).toHaveLength(1);
+    expect(
+      screen.queryByRole("link", { name: /^Reliability Engineer$/ }),
+    ).toBeNull();
+    expect(screen.queryByText("Chat")).toBeNull();
+    expect(screen.queryByText("Work")).toBeNull();
   });
 
   it("never points the brand or product CTAs at a /demo URL", () => {

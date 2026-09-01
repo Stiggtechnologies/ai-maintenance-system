@@ -19,28 +19,21 @@ export function PublicProductHeader({
       <div className="mx-auto flex h-[64px] max-w-[1440px] items-center justify-between gap-4 px-4 sm:px-6">
         <a
           href="/workspace"
-          className="flex min-w-0 items-center gap-3"
+          className="flex min-w-0 flex-col items-start justify-center gap-0"
           aria-label="SyncAI Reliability Engineer"
         >
           <BrandWordmark />
-          <span className="min-w-0">
-            <span className="hidden text-xs text-slate-500 sm:block">
-              Reliability Engineer
-            </span>
+          <span
+            data-testid="brand-job-title"
+            className="mt-0.5 text-[10px] font-medium uppercase tracking-widest text-slate-400 leading-none"
+          >
+            Reliability Engineer
           </span>
         </a>
         <nav
           className="flex items-center gap-1 sm:gap-2"
           aria-label="Public navigation"
         >
-          <a
-            href="/workspace"
-            aria-current={active === "copilot" ? "page" : undefined}
-            className={`inline-flex h-9 items-center gap-2 rounded-lg px-3 text-xs font-semibold transition-colors sm:px-4 sm:text-sm ${active === "copilot" ? "bg-white/[0.07] text-white" : "text-slate-400 hover:bg-white/[0.04] hover:text-white"}`}
-          >
-            <span className="hidden h-1.5 w-1.5 rounded-full bg-teal-300 sm:block" />
-            Reliability Engineer
-          </a>
           <a
             href="/setup"
             aria-current={active === "proof" ? "page" : undefined}

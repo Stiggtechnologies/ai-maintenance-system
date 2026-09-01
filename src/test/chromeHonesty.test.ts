@@ -57,4 +57,18 @@ describe("customer chrome honesty", () => {
       expect(src, `${path} restores a 48-hour offer`).not.toMatch(/48-hour/);
     }
   });
+
+  it("first-paint follow-up does not restore gold or a 48-hour offer", () => {
+    const firstPaint = [
+      "src/pages/DecisionCaseWorkspacePage.tsx",
+      "src/lib/first-paint-seeds.ts",
+      "src/components/RotatingSeedChip.tsx",
+      "src/components/PublicProductHeader.tsx",
+    ];
+    for (const path of firstPaint) {
+      const src = readFileSync(path, "utf8");
+      expect(src, `${path} uses gold`).not.toMatch(/signal-gold/);
+      expect(src, `${path} restores a 48-hour offer`).not.toMatch(/48-hour/);
+    }
+  });
 });
