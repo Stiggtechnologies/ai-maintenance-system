@@ -10,9 +10,22 @@
  */
 import { describe, expect, it } from "vitest";
 import {
+  DESIGN_AXES,
+  DESIGN_AXIS_SCALE,
+  DISPOSITION_DISCIPLINES,
+  DISPOSITION_OUTCOMES,
+  FRONTLINE_DIMENSIONS,
+  FRONTLINE_DISCIPLINES,
   allocateAvailability,
   analyseEarlyLife,
   assessStandardisation,
+  latestDisposition,
+  readDesignScorecard,
+  readFrontlineReview,
+  type DesignScorecardPayload,
+  type FrontlineFinding,
+  type FrontlineReviewPayload,
+  type FrontlineStudy,
   type Subsystem,
 } from "./index";
 
@@ -224,5 +237,457 @@ describe("assessStandardisation", () => {
     ]);
     expect(r.functions[0].variants).toBe(1);
     expect(r.reason).toMatch(/served by a single make\/model/i);
+  });
+});
+
+/* ═══════════ Slice 5B — the frontline review and the six axes ═══════════ */
+
+describe("readFrontlineReview — the refusals (D4.10/D4.11, spec I.25)", () => {
+  const finding = (over: Partial<FrontlineFinding> = {}): FrontlineFinding => ({
+    id: 1,
+    findingRef: "F-1",
+    dimension: "accessibility",
+    discipline: "maintenance",
+    severity: "significant",
+    recommendation: "The seal cannot be reached without removing the guard",
+    raisedBy: "A Maintainer",
+    requirementId: null,
+    requirementRef: null,
+    dispositions: [],
+    ...over,
+  });
+
+  const study = (over: Partial<FrontlineStudy> = {}): FrontlineStudy => ({
+    id: 1,
+    studyKind: "frontline_design_review",
+    frontlineKind: true,
+    performedOn: "2026-12-05",
+    summary: "Frontline review of the thickener underflow package",
+    maintainerParticipated: true,
+    operatorParticipated: false,
+    constructorParticipated: false,
+    findingsCount: 0,
+    findingsClosed: 0,
+    participants: [],
+    findings: [],
+    ...over,
+  });
+
+  const review = (
+    over: Partial<FrontlineReviewPayload> = {},
+  ): FrontlineReviewPayload => ({
+    caseId: "c1",
+    refused: false,
+    refusal: null,
+    studyCount: 0,
+    studies: [],
+    findingCount: 0,
+    openFindingCount: 0,
+    dispositionedCount: 0,
+    byDiscipline: {},
+    byDimension: {},
+    blockers: [],
+    blockerCount: 0,
+    ...over,
+  });
+
+  /* ── 5B-R7 — "carried" stopped meaning "will be built" ──────────────── */
+
+  const accepted = [
+    {
+      id: 1,
+      no: 1,
+      outcome: "accepted",
+      reason: "The platform will be extended to reach the gland",
+      conditions: null,
+      discipline: "engineering",
+      by: "An Engineer",
+      at: "2026-12-05",
+    },
+  ];
+
+  it("separates an acceptance carried by a FAILED requirement from a discharged one", () => {
+    // The gate blocker cleared the moment a requirement id was attached, so an
+    // acceptance could be discharged onto a requirement whose verification had
+    // failed — the exact failure the family exists to stop, with a link in
+    // front of it. It is not an uncarried acceptance and it is not a
+    // discharged one; it is its own thing and it is named.
+    const r = readFrontlineReview(
+      review({
+        studyCount: 1,
+        findingCount: 3,
+        openFindingCount: 0,
+        studies: [
+          study({
+            findings: [
+              finding({
+                id: 1,
+                findingRef: "F-1",
+                dispositions: accepted,
+                requirementId: 10,
+                requirementRef: "REQ-10",
+                requirementVerification: "failed",
+              }),
+              finding({
+                id: 2,
+                findingRef: "F-2",
+                dispositions: accepted,
+                requirementId: 11,
+                requirementRef: "REQ-11",
+                requirementVerification: "waived",
+              }),
+              finding({
+                id: 3,
+                findingRef: "F-3",
+                dispositions: accepted,
+                requirementId: 12,
+                requirementRef: "REQ-12",
+                requirementVerification: "open",
+              }),
+            ],
+          }),
+        ],
+      }),
+    );
+    expect(r.failedCarriers.map((f) => f.findingRef)).toEqual(["F-1", "F-2"]);
+    // ...and they are NOT counted as uncarried, which would be a second answer
+    // to the same question.
+    expect(r.uncarriedAcceptances).toHaveLength(0);
+    expect(r.headline).toContain("failed verification or been waived");
+    expect(r.headline).toContain("discharges nothing");
+  });
+
+  it("a rejected recommendation on a failed requirement is not a failed carrier", () => {
+    // A rejection carries nothing by definition, so it never enters the family
+    // — the distinction is what makes the family mean something.
+    const r = readFrontlineReview(
+      review({
+        studyCount: 1,
+        findingCount: 1,
+        openFindingCount: 0,
+        studies: [
+          study({
+            findings: [
+              finding({
+                dispositions: [{ ...accepted[0], outcome: "rejected" }],
+                requirementId: 10,
+                requirementRef: "REQ-10",
+                requirementVerification: "failed",
+              }),
+            ],
+          }),
+        ],
+      }),
+    );
+    expect(r.failedCarriers).toHaveLength(0);
+  });
+
+  it("carries the server's refusal instead of rendering a zero", () => {
+    const r = readFrontlineReview(
+      review({
+        refused: true,
+        refusal: "No design review is recorded against this case.",
+        findingCount: null,
+        openFindingCount: null,
+      }),
+    );
+    expect(r.refused).toBe(true);
+    expect(r.headline).toContain("No design review is recorded");
+  });
+
+  it("REFUSES a payload that says it computed a count and then omits it", () => {
+    // A missing count is not zero findings. The server would have to regress
+    // for this to happen, which is exactly why the backstop exists.
+    const r = readFrontlineReview(
+      review({ refused: false, findingCount: null, openFindingCount: 3 }),
+    );
+    expect(r.refused).toBe(true);
+    expect(r.headline).toContain("not zero findings");
+  });
+
+  it("refuses with a stated reason even when the server gave none", () => {
+    const r = readFrontlineReview(review({ refused: true, refusal: null }));
+    expect(r.refused).toBe(true);
+    expect(r.headline).toContain("no answer");
+  });
+
+  it("counts a finding with no disposition as open", () => {
+    const r = readFrontlineReview(
+      review({
+        studyCount: 1,
+        studies: [study({ findings: [finding()] })],
+        findingCount: 1,
+        openFindingCount: 1,
+      }),
+    );
+    expect(r.openFindings).toHaveLength(1);
+    expect(r.uncarriedAcceptances).toHaveLength(0);
+  });
+
+  it("reads the LATEST disposition, so a reversal is what counts", () => {
+    const f = finding({
+      dispositions: [
+        {
+          no: 1,
+          outcome: "rejected",
+          reason: "r1",
+          discipline: "engineering",
+          by: "E",
+          at: "t",
+          conditions: null,
+        },
+        {
+          no: 2,
+          outcome: "accepted",
+          reason: "r2",
+          discipline: "engineering",
+          by: "E",
+          at: "t",
+          conditions: null,
+        },
+      ],
+    });
+    expect(latestDisposition(f)?.outcome).toBe("accepted");
+    const r = readFrontlineReview(
+      review({
+        studyCount: 1,
+        studies: [study({ findings: [f] })],
+        findingCount: 1,
+        openFindingCount: 0,
+      }),
+    );
+    expect(r.openFindings).toHaveLength(0);
+    // Accepted and nothing carries it — the failure I.25 exists to stop.
+    expect(r.uncarriedAcceptances).toHaveLength(1);
+    expect(r.headline).toContain("never building it");
+  });
+
+  it("does not call an accepted recommendation uncarried once a requirement carries it", () => {
+    const f = finding({
+      requirementId: 7,
+      requirementRef: "R-7",
+      dispositions: [
+        {
+          no: 1,
+          outcome: "accepted_with_conditions",
+          reason: "r",
+          conditions: "c",
+          discipline: "maintenance",
+          by: "M",
+          at: "t",
+        },
+      ],
+    });
+    const r = readFrontlineReview(
+      review({
+        studyCount: 1,
+        studies: [study({ findings: [f] })],
+        findingCount: 1,
+        openFindingCount: 0,
+      }),
+    );
+    expect(r.uncarriedAcceptances).toHaveLength(0);
+  });
+
+  it("does not call a REJECTED recommendation uncarried", () => {
+    const f = finding({
+      dispositions: [
+        {
+          no: 1,
+          outcome: "rejected",
+          reason:
+            "The route is acceptable with the mobile crane already on site",
+          conditions: null,
+          discipline: "engineering",
+          by: "E",
+          at: "t",
+        },
+      ],
+    });
+    const r = readFrontlineReview(
+      review({
+        studyCount: 1,
+        studies: [study({ findings: [f] })],
+        findingCount: 1,
+        openFindingCount: 0,
+      }),
+    );
+    expect(r.uncarriedAcceptances).toHaveLength(0);
+  });
+
+  it("names an unattended frontline review, and ignores a non-frontline kind", () => {
+    const r = readFrontlineReview(
+      review({
+        studyCount: 2,
+        studies: [
+          study({ id: 1, maintainerParticipated: false }),
+          study({
+            id: 2,
+            studyKind: "ram_study",
+            frontlineKind: false,
+            maintainerParticipated: false,
+          }),
+        ],
+        findingCount: 1,
+        openFindingCount: 0,
+      }),
+    );
+    expect(r.unattendedReviews.map((s) => s.id)).toEqual([1]);
+  });
+
+  it("names the uncovered dimensions and the silent disciplines rather than counting them", () => {
+    const r = readFrontlineReview(
+      review({
+        studyCount: 1,
+        studies: [study({ findings: [finding()] })],
+        findingCount: 1,
+        openFindingCount: 1,
+      }),
+    );
+    expect(r.uncoveredDimensions).toHaveLength(7);
+    expect(r.uncoveredDimensions).toContain("Removal routes");
+    expect(r.silentDisciplines).toEqual(["Operations", "Construction"]);
+    expect(r.headline).toContain("Operations or Construction");
+  });
+
+  it("pins the eight dimensions, the three disciplines and the three outcomes", () => {
+    expect(FRONTLINE_DIMENSIONS.map((d) => d.key)).toEqual([
+      "accessibility",
+      "isolation",
+      "lifting",
+      "inspection",
+      "lubrication",
+      "ergonomics",
+      "removal_route",
+      "emergency_response",
+    ]);
+    expect(FRONTLINE_DISCIPLINES.map((d) => d.key)).toEqual([
+      "maintenance",
+      "operations",
+      "construction",
+    ]);
+    expect(DISPOSITION_DISCIPLINES.map((d) => d.key)).toContain("engineering");
+    expect(DISPOSITION_OUTCOMES.map((o) => o.key)).toEqual([
+      "accepted",
+      "rejected",
+      "accepted_with_conditions",
+    ]);
+  });
+});
+
+describe("readDesignScorecard — the composite refuses (D4.12, spec I.26)", () => {
+  const axis = (key: string, score: number | null) => ({
+    axis: key,
+    score,
+    basis: score == null ? null : "A stated basis for this score, long enough",
+    scoredBy: score == null ? null : "A Human",
+    scoredAt: score == null ? null : "2026-12-05",
+    scored: score != null,
+    history: [],
+  });
+
+  const all = (scores: number[]) =>
+    DESIGN_AXES.map((a, i) => axis(a.key, scores[i] ?? null));
+
+  const card = (
+    over: Partial<DesignScorecardPayload> = {},
+  ): DesignScorecardPayload => ({
+    caseId: "c1",
+    refused: false,
+    refusal: null,
+    axes: all([4, 4, 4, 4, 4, 4]),
+    scoredAxisCount: 6,
+    axisCount: 6,
+    missingAxes: [],
+    composite: 4,
+    weakestAxis: { axis: "constructability", score: 4 },
+    ...over,
+  });
+
+  it("names the six I.26 axes verbatim and in order", () => {
+    expect(DESIGN_AXES.map((a) => a.key)).toEqual([
+      "design_readiness",
+      "constructability",
+      "operability",
+      "maintainability",
+      "reliability",
+      "commissionability",
+    ]);
+    expect(DESIGN_AXIS_SCALE.min).toBe(1);
+    expect(DESIGN_AXIS_SCALE.max).toBe(5);
+  });
+
+  it("presents the composite when every axis is scored", () => {
+    const r = readDesignScorecard(card());
+    expect(r.refused).toBe(false);
+    expect(r.composite).toBe(4);
+    expect(r.headline).toContain("All six axes are scored");
+  });
+
+  it("REFUSES and names the axis when one is unscored", () => {
+    const r = readDesignScorecard(
+      card({
+        axes: all([4, 4, 4, 4, 4]),
+        scoredAxisCount: 5,
+        missingAxes: ["commissionability"],
+        composite: null,
+        refused: true,
+        refusal: "Five of six scored.",
+      }),
+    );
+    expect(r.refused).toBe(true);
+    expect(r.composite).toBeNull();
+    expect(r.missingAxisLabels).toEqual(["Commissionability"]);
+  });
+
+  it("REFUSES a composite that arrives beside an unscored axis — the backstop", () => {
+    // The server saying refused:false while an axis is unscored is a
+    // regression, and the average of five would read highest exactly when the
+    // missing axis is the bad one.
+    const r = readDesignScorecard(
+      card({
+        axes: all([5, 5, 5, 5, 5]),
+        scoredAxisCount: 5,
+        refused: false,
+        composite: 5,
+        missingAxes: [],
+      }),
+    );
+    expect(r.refused).toBe(true);
+    expect(r.composite).toBeNull();
+    expect(r.headline).toContain("reads highest exactly when");
+  });
+
+  it("REFUSES a fully scored card whose composite never arrived", () => {
+    const r = readDesignScorecard(card({ composite: null }));
+    expect(r.refused).toBe(true);
+    expect(r.headline).toContain("not a good composite");
+  });
+
+  it("names the weakest axis beside the composite, because the average hides it", () => {
+    const r = readDesignScorecard(
+      card({
+        axes: all([5, 2, 5, 5, 5, 5]),
+        composite: 4.5,
+        weakestAxis: { axis: "constructability", score: 2 },
+      }),
+    );
+    expect(r.headline).toContain("Constructability at 2");
+  });
+
+  it("always returns all six rows, even for an empty payload", () => {
+    const r = readDesignScorecard(
+      card({
+        axes: [],
+        scoredAxisCount: 0,
+        missingAxes: DESIGN_AXES.map((a) => a.key),
+        composite: null,
+        refused: true,
+        refusal: "Nothing scored.",
+      }),
+    );
+    expect(r.rows).toHaveLength(6);
+    expect(r.rows.every((x) => !x.scored)).toBe(true);
+    expect(r.missingAxisLabels).toHaveLength(6);
   });
 });

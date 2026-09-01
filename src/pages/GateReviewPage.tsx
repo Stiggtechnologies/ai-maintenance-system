@@ -64,6 +64,13 @@ const BLOCKER_LABEL: Record<string, string> = {
   regulatory_condition: "Permit condition",
   uncovered_commitment: "Uncovered commitment",
   assurance_not_satisfied: "Independent assurance",
+  // Slice 5B (D4.10/D4.11): the frontline design obligations refuse this gate
+  // through the same wall as the rows above, so they are labelled beside them.
+  frontline_finding_open: "Unanswered frontline recommendation",
+  frontline_acceptance_uncarried: "Accepted recommendation, uncarried",
+  frontline_acceptance_carried_by_failed_requirement:
+    "Accepted recommendation, carrier failed",
+  frontline_review_unattended: "Design review nobody attended",
 };
 
 function ErrorLine({ error }: { error: string | null }) {

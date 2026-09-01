@@ -408,9 +408,40 @@ const FLOORS: Record<string, Floors> = {
     // all three. Fixed by the D5.27 precedent — state the dependency, do not
     // claim the write path — and the row names the residual. Nothing was
     // exempted, no floor was lowered, and EXEMPTIONS is still empty.
-    rowsWithAnEnforceableCitation: 149,
-    citationsEnforced: 670,
-    claimedRowsEnforced: 89,
+    //
+    // 149/670/89 -> 152/700/93 (2026-08-31, Slice 5B). The frontline design
+    // review landed — who was in the room by name and discipline (with the
+    // participation flags DERIVED from that roster rather than typed), the
+    // eight I.25 dimensions as itemized findings, the per-recommendation
+    // disposition record with a reason mandatory on every outcome and the
+    // raiser barred from answering their own finding, the six I.26 axes whose
+    // composite REFUSES the axis nobody scored, and the §19 Interface in seven
+    // types on the SHARED dependency graph — and four rows (D4.10, D4.11,
+    // D4.12, D4.18) flipped to ✅ on chains this gate can walk. RATCHETED UP
+    // for the reason this block gives every time: the added reach is real, and
+    // a later change must not be able to de-cite it with the suite still
+    // green.
+    //
+    // The CEILING did not move, which is the check that proves the four new ✅s
+    // were not bought with prose the gate cannot resolve. It earned its keep
+    // again on the way: D4.18's first draft cited `buildInterfaceGraph`, and
+    // the gate found it has ZERO non-test callers — it is an internal helper
+    // of `readInterfaceExposure`, which is what the panel actually calls. The
+    // fix was to stop citing it rather than to add a call that exists only to
+    // satisfy the gate. Nothing was exempted, no floor was lowered, and
+    // EXEMPTIONS is still empty.
+    //
+    // 700 -> 707 citationsEnforced (the Slice 5B REPAIR PASS). The repair added
+    // `enforce_case_study_immutable`, `record_frontline_service_write`,
+    // `carry_design_finding_to_requirement` and `FRONTLINE_ROLES` to the four
+    // rows' evidence, and re-derived every citation the diff had moved — D4.18
+    // was citing `src/lib/interdependency/index.ts:225,312`, which the same
+    // commit had pushed to 251 and 338. Ratcheted UP so the added reach cannot
+    // be de-cited later with the suite still green. EXEMPTIONS is still empty,
+    // no floor was lowered, and the CEILING did not move.
+    rowsWithAnEnforceableCitation: 152,
+    citationsEnforced: 707,
+    claimedRowsEnforced: 93,
     // D11.04 (a CI-fence claim proved by a named test file), D11.10 (a
     // canonical seeded vocabulary, which the write-path judge would fail for
     // not being customer-writable — a question the row never asked) and
