@@ -148,8 +148,8 @@ for (const vp of VIEWPORTS) {
 
 /**
  * Unauthenticated /setup landing — the iPhone screenshot of 2026-08-31
- * showed the retired-offer paragraph stamped on itself because leading-8
- * resolves to --spacing-8 (8px) in this repo's Tailwind theme.
+ * showed the hero lede stamped on itself because leading-8 resolves to
+ * --spacing-8 (8px) in this repo's Tailwind theme.
  * These tests do not sign in and must not depend on demo fixtures.
  */
 test.describe("public assessment landing @ mobile (390x844)", () => {
@@ -162,9 +162,11 @@ test.describe("public assessment landing @ mobile (390x844)", () => {
 
     const ledes = page.getByTestId("assessment-hero-lede");
     await expect(ledes).toHaveCount(1);
-    await expect(ledes).toContainText(
-      /former 48-hour value-proof offer has been retired/i,
+    await expect(ledes).toHaveText(
+      "SyncAI uses one bounded entry product: a 6–8 week Reliability Intelligence Assessment, built from customer-provided exports, with evidence-graded findings and a 90-day action plan.",
     );
+    await expect(ledes).not.toContainText(/48-hour/i);
+    await expect(ledes).not.toContainText(/US\$35,000/);
 
     const metrics = await ledes.evaluate((el) => {
       const style = getComputedStyle(el);

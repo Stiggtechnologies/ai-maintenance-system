@@ -1,15 +1,28 @@
+import { readFileSync } from "node:fs";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { FirstCustomerPilotPage } from "./FirstCustomerPilotPage";
+import {
+  CANONICAL_RIA_LEDE,
+  FirstCustomerPilotPage,
+} from "./FirstCustomerPilotPage";
 
 describe("FirstCustomerPilotPage", () => {
-  it("retires the 48-hour offer in favor of the Reliability Intelligence Assessment", () => {
+  it("states the canonical Reliability Intelligence Assessment lede", () => {
     render(<FirstCustomerPilotPage />);
     expect(
       screen.getByText("Know what your maintenance data actually proves."),
     ).toBeTruthy();
+    const lede = screen.getByTestId("assessment-hero-lede");
+    expect(lede).toHaveTextContent(CANONICAL_RIA_LEDE);
+    expect(lede.textContent).not.toMatch(/48-hour/i);
+    expect(lede.textContent).not.toMatch(/US\$35,000/);
     expect(
-      screen.getByText(/former 48-hour value-proof offer has been retired/i),
+      screen.getByText(/No software installation or production credentials/i),
+    ).toBeTruthy();
+    expect(
+      screen.getByText(
+        /No unsupported ROI or engineering conclusion is presented as fact/i,
+      ),
     ).toBeTruthy();
     expect(
       screen.getByRole("link", { name: /View the assessment/i }),
@@ -28,7 +41,15 @@ describe("FirstCustomerPilotPage", () => {
     }
   });
 
-  it("renders the retired-offer lede once, in normal flow, with a unitless line-height", () => {
+  it("fails if the /setup lede restores 48-hour or a dollar figure", () => {
+    const src = readFileSync("src/pages/FirstCustomerPilotPage.tsx", "utf8");
+    expect(src).toContain(CANONICAL_RIA_LEDE);
+    expect(src).not.toMatch(/48-hour/);
+    expect(src).not.toMatch(/US\$35,000/);
+    expect(src).not.toMatch(/former 48-hour value-proof offer has been retired/);
+  });
+
+  it("renders the hero lede once, in normal flow, with a unitless line-height", () => {
     render(<FirstCustomerPilotPage />);
 
     const ledes = screen.getAllByTestId("assessment-hero-lede");

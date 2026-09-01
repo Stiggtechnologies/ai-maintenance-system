@@ -5,6 +5,9 @@ import { RiaAssessmentWorkspacePage } from "./RiaAssessmentWorkspacePage";
 
 const ASSESSMENT_URL = "https://syncai.ca/reliability-assessment";
 
+export const CANONICAL_RIA_LEDE =
+  "SyncAI uses one bounded entry product: a 6–8 week Reliability Intelligence Assessment, built from customer-provided exports, with evidence-graded findings and a 90-day action plan.";
+
 export function FirstCustomerPilotPage() {
   const isAssessmentWorkspace =
     typeof window !== "undefined" &&
@@ -41,10 +44,7 @@ export function FirstCustomerPilotPage() {
           data-testid="assessment-hero-lede"
           className="mt-6 max-w-3xl text-[0.95rem] leading-[1.7] text-slate-300 min-[420px]:text-base sm:text-lg"
         >
-          The former 48-hour value-proof offer has been retired. SyncAI now uses
-          one bounded entry product: a US$35,000, 6–8 week Reliability
-          Intelligence Assessment built from customer-provided exports with
-          evidence-graded findings and a 90-day action plan.
+          {CANONICAL_RIA_LEDE}
         </p>
         <div
           data-testid="assessment-hero-constraints"
