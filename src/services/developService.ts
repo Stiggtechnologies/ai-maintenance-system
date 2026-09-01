@@ -58,6 +58,15 @@ import type {
   FrontlineReviewPayload,
 } from "../lib/design";
 import type { InterfaceGraphPayload } from "../lib/develop/interfaces";
+import type {
+  AuthoritativeVersionPayload,
+  OrgThreadSeverancesPayload,
+  ThreadContinuityPayload,
+  ThreadGraphPayload,
+  ThreadImpactPayload,
+  ThreadReceiptsPayload,
+  ThreadSeverancesPayload,
+} from "../lib/develop/thread";
 import { simulateIntegratedRisk } from "../lib/modelling/integrated-risk";
 
 export interface DevelopmentCaseSummary {
@@ -4501,4 +4510,268 @@ export async function setCaseInterfaceStatus(
     p_note: note,
   });
   return unwrapRpc(data, error, "Could not move the interface");
+}
+
+/* ───────────── Slice 5C — the digital thread (D11.05/06/07/19/20/21) ───────── */
+
+export async function getCaseThreadGraph(
+  caseId: string,
+): Promise<ThreadGraphPayload> {
+  const { data, error } = await supabase.rpc("get_case_thread_graph", {
+    p_case_id: caseId,
+  });
+  return unwrap(data, error);
+}
+
+export async function checkThreadContinuity(
+  caseId: string,
+): Promise<ThreadContinuityPayload> {
+  const { data, error } = await supabase.rpc("check_thread_continuity", {
+    p_case_id: caseId,
+  });
+  return unwrap(data, error);
+}
+
+export async function getCaseThreadReceipts(
+  caseId: string,
+): Promise<ThreadReceiptsPayload> {
+  const { data, error } = await supabase.rpc("get_case_thread_receipts", {
+    p_case_id: caseId,
+  });
+  return unwrap(data, error);
+}
+
+export async function getCaseThreadSeverances(
+  caseId: string,
+): Promise<ThreadSeverancesPayload> {
+  const { data, error } = await supabase.rpc("get_case_thread_severances", {
+    p_case_id: caseId,
+  });
+  return unwrap(data, error);
+}
+
+/**
+ * The tenant's whole severance ledger (D11.20).
+ *
+ * Separate from the case-scoped read because it has to be: that one resolves
+ * the development case and refuses when it is gone, so it can never return a
+ * `case_cascade` row — those rows exist BECAUSE the case was deleted. This read
+ * resolves nothing and therefore loses nothing.
+ */
+export async function getOrgThreadSeverances(
+  limit = 200,
+): Promise<OrgThreadSeverancesPayload> {
+  const { data, error } = await supabase.rpc("get_org_thread_severances", {
+    p_limit: limit,
+  });
+  return unwrap(data, error);
+}
+
+/**
+ * The downstream-impact traversal (D11.07).
+ *
+ * `unwrap` rather than `unwrapRpc`, deliberately: a REFUSAL is not an error
+ * here. The server returns `refused: true` with the gap named, and the panel
+ * has to render that refusal — throwing it away as an exception would leave the
+ * screen showing nothing, which is the one outcome worse than a wrong number.
+ */
+export async function getCaseThreadImpact(
+  caseId: string,
+  objectId: number,
+): Promise<ThreadImpactPayload> {
+  const { data, error } = await supabase.rpc("get_case_thread_impact", {
+    p_case_id: caseId,
+    p_object_id: objectId,
+  });
+  return unwrap(data, error);
+}
+
+export async function resolveThreadAuthoritativeVersion(
+  objectId: number,
+): Promise<AuthoritativeVersionPayload> {
+  const { data, error } = await supabase.rpc(
+    "resolve_thread_authoritative_version",
+    { p_object_id: objectId },
+  );
+  return unwrap(data, error);
+}
+
+export interface ThreadObjectInput {
+  objectKind: string;
+  objectRef: string;
+  title: string;
+  anchorAssetId: string;
+  requirementId?: number;
+  commissioningTestId?: number;
+}
+
+export async function registerThreadObject(
+  caseId: string,
+  input: ThreadObjectInput,
+): Promise<{
+  object_id: number;
+  objectKind: string;
+  objectRef: string;
+  chainPosition: number;
+  canonicalHome: string;
+  note: string;
+}> {
+  const { data, error } = await supabase.rpc("register_thread_object", {
+    p_case_id: caseId,
+    p_object: {
+      object_kind: input.objectKind,
+      object_ref: input.objectRef,
+      title: input.title,
+      anchor_asset_id: input.anchorAssetId,
+      ...(input.requirementId != null
+        ? { requirement_id: input.requirementId }
+        : {}),
+      ...(input.commissioningTestId != null
+        ? { commissioning_test_id: input.commissioningTestId }
+        : {}),
+    },
+  });
+  return unwrapRpc(data, error, "Could not register the thread object");
+}
+
+export async function linkThreadObjects(
+  upstreamId: number,
+  downstreamId: number,
+  linkType: string,
+  basis: string,
+): Promise<{
+  link_id: number;
+  linkType: string;
+  traversalKind: string;
+  positionsSkipped: number;
+  anchorsAgree: boolean;
+  note: string;
+}> {
+  const { data, error } = await supabase.rpc("link_thread_objects", {
+    p_upstream_id: upstreamId,
+    p_downstream_id: downstreamId,
+    p_link_type: linkType,
+    p_basis: basis,
+  });
+  return unwrapRpc(data, error, "Could not link the objects");
+}
+
+export async function recordThreadVersion(
+  objectId: number,
+  input: {
+    versionLabel: string;
+    issuedOn?: string;
+    contentRef?: string;
+    changeSummary?: string;
+  },
+): Promise<{ version_id: number; versionLabel: string; note: string }> {
+  const { data, error } = await supabase.rpc("record_thread_version", {
+    p_object_id: objectId,
+    p_version: {
+      version_label: input.versionLabel,
+      ...(input.issuedOn ? { issued_on: input.issuedOn } : {}),
+      ...(input.contentRef ? { content_ref: input.contentRef } : {}),
+      ...(input.changeSummary ? { change_summary: input.changeSummary } : {}),
+    },
+  });
+  return unwrapRpc(data, error, "Could not record the revision");
+}
+
+export async function declareThreadVersionAuthoritative(
+  versionId: number,
+  basis: string,
+): Promise<{
+  version_id: number;
+  versionLabel: string;
+  supersededVersionLabel: string | null;
+  firstIssue: boolean;
+  note: string;
+}> {
+  const { data, error } = await supabase.rpc(
+    "declare_thread_version_authoritative",
+    { p_version_id: versionId, p_basis: basis },
+  );
+  return unwrapRpc(data, error, "Could not declare the revision authoritative");
+}
+
+export async function severThreadLink(
+  linkId: number,
+  reason: string,
+): Promise<{ link_id: number; severance_id: number; note: string }> {
+  const { data, error } = await supabase.rpc("sever_thread_link", {
+    p_link_id: linkId,
+    p_reason: reason,
+  });
+  return unwrapRpc(data, error, "Could not sever the hop");
+}
+
+export async function retireThreadObject(
+  objectId: number,
+  reason: string,
+): Promise<{
+  object_id: number;
+  severance_id: number;
+  linksSevered: number;
+  note: string;
+}> {
+  const { data, error } = await supabase.rpc("retire_thread_object", {
+    p_object_id: objectId,
+    p_reason: reason,
+  });
+  return unwrapRpc(data, error, "Could not retire the object");
+}
+
+export async function reanchorThreadObject(
+  objectId: number,
+  newAssetId: string,
+  reason: string,
+): Promise<{
+  object_id: number;
+  severance_id: number;
+  anchorAssetName: string;
+  previousAnchorAssetName: string;
+  note: string;
+}> {
+  const { data, error } = await supabase.rpc("reanchor_thread_object", {
+    p_object_id: objectId,
+    p_new_asset_id: newAssetId,
+    p_reason: reason,
+  });
+  return unwrapRpc(data, error, "Could not move the anchor");
+}
+
+export async function acknowledgeThreadReceipt(
+  receiptId: number,
+  disposition: string,
+  note: string,
+): Promise<{
+  receipt_id: number;
+  status: string;
+  outstandingOnCase: number;
+  note: string;
+}> {
+  const { data, error } = await supabase.rpc("acknowledge_thread_receipt", {
+    p_receipt_id: receiptId,
+    p_disposition: disposition,
+    p_note: note,
+  });
+  return unwrapRpc(data, error, "Could not answer the receipt");
+}
+
+export async function setAssetEnterpriseIdentity(
+  assetId: string,
+  enterpriseAssetId: string,
+  functionalLocation: string,
+): Promise<{
+  asset_id: string;
+  enterpriseAssetId: string | null;
+  functionalLocation: string | null;
+  note: string;
+}> {
+  const { data, error } = await supabase.rpc("set_asset_enterprise_identity", {
+    p_asset_id: assetId,
+    p_enterprise_asset_id: enterpriseAssetId || null,
+    p_functional_location: functionalLocation || null,
+  });
+  return unwrapRpc(data, error, "Could not record the enterprise identity");
 }
