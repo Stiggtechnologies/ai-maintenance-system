@@ -439,9 +439,40 @@ const FLOORS: Record<string, Floors> = {
     // commit had pushed to 251 and 338. Ratcheted UP so the added reach cannot
     // be de-cited later with the suite still green. EXEMPTIONS is still empty,
     // no floor was lowered, and the CEILING did not move.
-    rowsWithAnEnforceableCitation: 152,
-    citationsEnforced: 707,
-    claimedRowsEnforced: 93,
+    //
+    // 152/707/93 -> 156/776/98 (2026-09-01, Slice 5C). The digital thread
+    // landed — spec II.2's Common Data Environment as a real link model over
+    // ONE ordered chain, exactly one authoritative revision per object held by
+    // a partial unique index rather than a report, the §26 continuity
+    // invariant enforced at the database with every permitted severance
+    // recorded in a ledger, and change receipts produced by the change itself
+    // and answerable only by a human who did not make it — and five rows
+    // (D11.05, D11.06, D11.07, D11.19, D11.20) flipped to ✅ on chains this
+    // gate can walk. RATCHETED UP for the reason this block gives every time:
+    // the added reach is real, and a later change must not be able to de-cite
+    // it with the suite still green.
+    //
+    // The CEILING did not move, which is the check that proves the five new
+    // ✅s were not bought with prose the gate cannot resolve. D11.21 stayed
+    // 🟡 on purpose: five of §34's nineteen edges have an endpoint object that
+    // does not exist yet, and the row names all five rather than implying
+    // coverage. Nothing was exempted, no floor was lowered, and EXEMPTIONS is
+    // still empty.
+    //
+    // citationsEnforced 776 -> 785 (2026-09-01, the Slice 5C REPAIR PASS).
+    // Adversarial review found the five ✅ rows leaning on acts the product
+    // could not perform and records it could not read: the release act took a
+    // revision id no read handed out, the hop to sever took a link id the
+    // screen never rendered, and both cascade routes wrote severances into a
+    // shape the only reader refuses on. Closing those added real surface —
+    // `get_org_thread_severances`, `enforce_asset_thread_identity`,
+    // `readOrgThreadSeverances`, `getOrgThreadSeverances`, `VersionPanel` —
+    // and the floor moves up with it so none of it can be de-cited later while
+    // the suite stays green. The other two floors and the CEILING are
+    // unchanged: the repair bought no new ✅ and exempted nothing.
+    rowsWithAnEnforceableCitation: 156,
+    citationsEnforced: 785,
+    claimedRowsEnforced: 98,
     // D11.04 (a CI-fence claim proved by a named test file), D11.10 (a
     // canonical seeded vocabulary, which the write-path judge would fail for
     // not being customer-writable — a question the row never asked) and

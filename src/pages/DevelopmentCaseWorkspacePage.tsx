@@ -103,6 +103,7 @@ import { ScheduleAssurancePanel } from "../components/develop/SchedulePanels";
 import { ChangeAndControlsPanel } from "../components/develop/ChangeControlPanels";
 import { RequirementsThreadPanel } from "../components/develop/RequirementsThreadPanels";
 import { FrontlineDesignPanel } from "../components/develop/FrontlineDesignPanels";
+import { DigitalThreadPanel } from "../components/develop/DigitalThreadPanels";
 
 const REVIEW_ROLES = [
   "admin",
@@ -2879,6 +2880,19 @@ export function DevelopmentCaseWorkspacePage() {
         }))}
         canPlan={canDesignPlan}
         canFrontline={canFrontline}
+        reloadKey={chainsKey}
+      />
+      {/* The digital thread (Slice 5C): spec II.2's Common Data Environment as
+          a real link model rather than partial hops — every object anchored to
+          ONE asset in the canonical hierarchy (§26), exactly one authoritative
+          revision per object held by a database index rather than a report, a
+          continuity invariant whose severances are refused or recorded and
+          never quiet, and change receipts a person has to answer. The impact
+          traversal REFUSES over a gap rather than reporting the subgraph it
+          could reach as if it were the affected set. */}
+      <DigitalThreadPanel
+        caseId={workspace.id}
+        canPlan={canPlan}
         reloadKey={chainsKey}
       />
       <OperationalReadinessSection caseId={workspace.id} canPlan={canPlan} />
