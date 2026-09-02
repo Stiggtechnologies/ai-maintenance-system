@@ -58,6 +58,15 @@ import type {
   FrontlineReviewPayload,
 } from "../lib/design";
 import type { InterfaceGraphPayload } from "../lib/develop/interfaces";
+import type { DevelopEventsPayload } from "../lib/develop/events";
+import type { ChangeImpactReportsPayload } from "../lib/develop/changeImpact";
+import {
+  RAM_KERNEL_VERSION,
+  computeCaseRamProfile,
+  ramProfileLines,
+  type RamProfile,
+  type RamScopePayload,
+} from "../lib/develop/ram";
 import type {
   AuthoritativeVersionPayload,
   OrgThreadSeverancesPayload,
@@ -4774,4 +4783,222 @@ export async function setAssetEnterpriseIdentity(
     p_functional_location: functionalLocation || null,
   });
   return unwrapRpc(data, error, "Could not record the enterprise identity");
+}
+
+/* ─────────── Slice 5D: the event bus, the two agents, the engine ────────── */
+
+/**
+ * The five §71-78 events on one case, with what the ONE consumer did.
+ *
+ * `unwrap` rather than `unwrapRpc`: an empty list is not an error, and the
+ * server's sentence about WHICH empty it is must reach the screen.
+ */
+export async function getCaseDevelopEvents(
+  caseId: string,
+): Promise<DevelopEventsPayload> {
+  const { data, error } = await supabase.rpc("get_case_develop_events", {
+    p_case_id: caseId,
+  });
+  return unwrap(data, error);
+}
+
+/**
+ * The unanswered BLOCKING event consequences on a case — THE ROWS THE GATE
+ * WALL READS.
+ *
+ * Deliberately not derived on the client from the deliveries payload. The
+ * panel used to re-filter `consequence === "blocking"` itself, which is a
+ * second implementation of a predicate that already has one, and the two
+ * would drift the first time the rule set changed (they nearly did: a
+ * gate-level consequence blocks its own gate only, and a client filter cannot
+ * know that). Reading `case_event_consequence_obligations` means the screen
+ * and `enforce_gate_review_outstanding_obligations` speak from the same rows.
+ */
+export interface EventGateBlocker {
+  type: string;
+  id: number;
+  name: string;
+  eventName: string;
+  ruleKey: string;
+  /** The gate this consequence is ABOUT, or null when it blocks every gate. */
+  gateId: number | null;
+  gateName: string | null;
+  emittedAt: string;
+}
+
+export async function getCaseEventGateBlockers(
+  caseId: string,
+  gateId?: number,
+): Promise<EventGateBlocker[]> {
+  const { data, error } = await supabase.rpc(
+    "case_event_consequence_obligations",
+    { p_case_id: caseId, p_gate_id: gateId ?? null },
+  );
+  if (error) throw new Error(error.message);
+  return (data ?? []) as EventGateBlocker[];
+}
+
+export async function answerDevelopEventConsequence(
+  deliveryId: number,
+  note: string,
+): Promise<{
+  delivery_id: number;
+  eventName: string;
+  consequence: string;
+  openOnCase: number;
+  blockingOnCase: number;
+  note: string;
+}> {
+  const { data, error } = await supabase.rpc(
+    "answer_develop_event_consequence",
+    { p_delivery_id: deliveryId, p_note: note },
+  );
+  return unwrapRpc(data, error, "Could not answer the event consequence");
+}
+
+export interface ChangeImpactAgentResult {
+  advisory: true;
+  caseId: string;
+  objectId: number;
+  objectRef: string;
+  refused: boolean;
+  refusal: string | null;
+  reading: {
+    refused: boolean;
+    headline: string;
+    affectedLines: string[];
+    gapLines: string[];
+  };
+  downstreamCount: number | null;
+  reachedCount: number;
+  affected: ThreadImpactPayload["affected"];
+  gaps: ThreadImpactPayload["gaps"];
+  aiConsequences: { objectRef: string; consequence: string }[];
+  aiDropped: string[];
+  narrative: string | null;
+  model: string | null;
+  providerNote: string | null;
+  recorded: { report_id?: number; refused?: boolean } | null;
+  recordNote: string | null;
+  disclaimer: string;
+}
+
+export async function runChangeImpactAgent(input: {
+  caseId: string;
+  objectId: number;
+  record?: boolean;
+}): Promise<ChangeImpactAgentResult> {
+  const { data, error } = await supabase.functions.invoke(
+    "develop-change-impact-agent",
+    {
+      body: {
+        case_id: input.caseId,
+        object_id: input.objectId,
+        record: input.record ?? false,
+      },
+    },
+  );
+  if (error) throw new Error(error.message);
+  const payload = data as ChangeImpactAgentResult | { error?: string };
+  if (payload && typeof payload === "object" && "error" in payload) {
+    throw new Error(String((payload as { error: unknown }).error));
+  }
+  return payload as ChangeImpactAgentResult;
+}
+
+export async function getChangeImpactReports(
+  caseId: string,
+): Promise<ChangeImpactReportsPayload> {
+  const { data, error } = await supabase.rpc("get_change_impact_reports", {
+    p_case_id: caseId,
+  });
+  return unwrap(data, error);
+}
+
+/** The RAM kernel's INPUTS for one case. Refuses; computes nothing. */
+export async function getCaseRamScope(
+  caseId: string,
+): Promise<RamScopePayload> {
+  const { data, error } = await supabase.rpc("get_case_ram_scope", {
+    p_case_id: caseId,
+  });
+  return unwrap(data, error);
+}
+
+/**
+ * Run the shipped RAM kernel over one case's scope and record the reading.
+ *
+ * THE ARITHMETIC IS THE KERNEL'S. `computeCaseRamProfile` composes
+ * `allocateAvailability` and `selectWeibullMethod` — nothing is re-derived
+ * here — and the RPC re-reads the scope and the refusals server-side, so the
+ * lineage row cannot claim a clean profile over a scope the database says is
+ * short of inputs.
+ */
+export async function runCaseRamAgent(caseId: string): Promise<{
+  scope: RamScopePayload;
+  profile: RamProfile;
+  recorded: {
+    report_id?: number;
+    run_id?: string;
+    refused?: boolean;
+    refusalCount?: number;
+  } | null;
+}> {
+  const scope = await getCaseRamScope(caseId);
+  const profile = computeCaseRamProfile(scope);
+  const { data, error } = await supabase.rpc("record_ram_agent_report", {
+    p_case_id: caseId,
+    p_kernel_version: RAM_KERNEL_VERSION,
+    p_profile: profile.refused
+      ? {}
+      : (JSON.parse(JSON.stringify(profile)) as Record<string, unknown>),
+    p_refusals: profile.refusals,
+    p_narrative: ramProfileLines(profile).join("\n").slice(0, 6000),
+    // No model is asked for this reading: every sentence in it restates a
+    // kernel result or a refusal, and sending a reproducible fact to a
+    // language model makes it probabilistic.
+    p_model: null,
+  });
+  const recorded = unwrapRpc<{
+    report_id?: number;
+    run_id?: string;
+    refused?: boolean;
+    refusalCount?: number;
+  }>(data, error, "Could not record the RAM reading");
+  return { scope, profile, recorded };
+}
+
+export async function getRamAgentReports(caseId: string): Promise<{
+  caseId: string;
+  kernelVersion: string;
+  reports: {
+    id: number;
+    asAt: string;
+    refused: boolean;
+    refusals: string[];
+    scope: RamScopePayload;
+    profile: Record<string, unknown>;
+    kernelVersion: string;
+    narrative: string | null;
+    model: string | null;
+    runId: string | null;
+    agentKey: string;
+    advisory: boolean;
+    requestedBy: string | null;
+  }[];
+}> {
+  const { data, error } = await supabase.rpc("get_ram_agent_reports", {
+    p_case_id: caseId,
+  });
+  return unwrap(data, error);
+}
+
+/** The composed Sync Information module (D11.09) — legs, refusals, no score. */
+export async function getCaseInformationEngine(
+  caseId: string,
+): Promise<Record<string, unknown>> {
+  const { data, error } = await supabase.rpc("get_case_information_engine", {
+    p_case_id: caseId,
+  });
+  return unwrap(data, error);
 }
