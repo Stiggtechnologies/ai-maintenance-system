@@ -567,7 +567,12 @@ grep -qi 'a recorded calculation is immutable' <<<"$OUT"
 # statement trigger would fail here instead of passing on the FK's coat-tails.
 OUT=$(sql_must_fail "truncate calculation_runs;")
 grep -qi 'foreign key constraint' <<<"$OUT"
-OUT=$(sql_must_fail "truncate calculation_runs, schedule_simulation_runs;")
+# SLICE 5D ADDED A FOURTH: `ram_agent_reports.calculation_run_id`. The
+# multi-table form has to name every referencing table or the FK check
+# short-circuits again and this assertion stops testing the statement trigger.
+# Nothing about what is asserted changed — only which statement gets far
+# enough for the guard to be the thing that refuses it.
+OUT=$(sql_must_fail "truncate calculation_runs, schedule_simulation_runs, ram_agent_reports;")
 grep -qi 'append-only for every caller' <<<"$OUT"
 OUT=$(sql_must_fail "truncate calculation_runs cascade;")
 grep -qi 'append-only for every caller' <<<"$OUT"
