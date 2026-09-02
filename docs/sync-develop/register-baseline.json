@@ -1028,8 +1028,8 @@
   "D11.09": {
     "status": "🟡",
     "evidence": true,
-    "citations": 8,
-    "backticked": 7
+    "citations": 11,
+    "backticked": 10
   },
   "D11.10": {
     "status": "✅",
@@ -1130,8 +1130,8 @@
   "D11.26": {
     "status": "✅",
     "evidence": true,
-    "citations": 31,
-    "backticked": 18
+    "citations": 40,
+    "backticked": 27
   },
   "D11.27": {
     "status": "🟡",
@@ -1256,8 +1256,8 @@
   "D12.10": {
     "status": "✅",
     "evidence": true,
-    "citations": 29,
-    "backticked": 21
+    "citations": 36,
+    "backticked": 28
   },
   "D12.11": {
     "status": "❌",
@@ -1274,8 +1274,8 @@
   "D12.13": {
     "status": "🟡",
     "evidence": true,
-    "citations": 18,
-    "backticked": 15
+    "citations": 27,
+    "backticked": 24
   },
   "D12.14": {
     "status": "🟡",

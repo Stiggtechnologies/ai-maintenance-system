@@ -191,7 +191,7 @@ for (const line of DEVELOP_SOURCE.split("\n")) {
   if (m?.groups) {
     developDetailed.set(m.groups.id, {
       status: m.groups.status,
-      evidence: m.groups.evidence.trim().length >= 12,
+      evidence: m.groups.evidence.replace(/\s*\|\s*$/, "").trim().length >= 12,
     });
   }
 }

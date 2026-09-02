@@ -144,7 +144,9 @@ export function readRegister(register, source = readFileSync(register.path, "utf
       unparsed.push(`  ${register.path}:${line}  ${text.trim().slice(0, 160)}`);
       continue;
     }
-    const evidence = m.groups.evidence.trim();
+    // The develop pattern captures greedily to end of line (it was quadratic
+    // when lazy), so the row's trailing table pipe rides along and is stripped.
+    const evidence = m.groups.evidence.replace(/\s*\|\s*$/, "").trim();
     const counted = countCitations(evidence);
     items[m.groups.id] = {
       status: m.groups.status,
