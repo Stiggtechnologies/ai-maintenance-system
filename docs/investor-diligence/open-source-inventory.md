@@ -4,7 +4,7 @@ This inventory is generated deterministically from `package-lock.json` by
 `scripts/compliance/generate-license-inventory.mjs`. It is technical
 diligence evidence, not a legal opinion.
 
-- Lockfile SHA-256: `3d2c1acd87bfbedb7696ebf7e66b4d9cc8427176098728d5958bb18b6f334a3f`
+- Lockfile SHA-256: `b17a361bb06f26a0a62d748d3ed8de6fb4723f90c17e38f65406e027d0f5f70e`
 - Package instances: **405**
 - Direct production dependencies: **14**
 - Direct development dependencies: **26**
@@ -45,7 +45,7 @@ patents, trademarks, or customer distribution obligations.
 | @fontsource-variable/inter | 5.3.0 | production | OFL-1.1 |
 | @fontsource-variable/jetbrains-mono | 5.3.0 | production | OFL-1.1 |
 | @playwright/test | 1.61.1 | development | Apache-2.0 |
-| @supabase/supabase-js | 2.112.3 | production | MIT |
+| @supabase/supabase-js | 2.112.4 | production | MIT |
 | @tailwindcss/postcss | 4.3.3 | development | MIT |
 | @tailwindcss/vite | 4.3.3 | development | MIT |
 | @testing-library/jest-dom | 6.9.1 | development | MIT |
@@ -64,13 +64,13 @@ patents, trademarks, or customer distribution obligations.
 | husky | 9.1.7 | development | MIT |
 | jsdom | 29.1.1 | development | MIT |
 | lint-staged | 17.1.0 | development | MIT |
-| lucide-react | 1.33.0 | production | ISC |
+| lucide-react | 1.37.0 | production | ISC |
 | pdfjs-dist | 4.10.38 | production | Apache-2.0 |
 | postcss | 8.5.26 | development | MIT |
 | prettier | 3.9.5 | development | MIT |
 | qrcode | 1.5.4 | production | MIT |
 | react-dom | 19.2.8 | production | MIT |
-| react-router-dom | 7.18.2 | production | MIT |
+| react-router-dom | 7.18.3 | production | MIT |
 | react | 19.2.8 | production | MIT |
 | tailwindcss | 4.3.3 | development | MIT |
 | terser | 5.49.0 | development | BSD-2-Clause |
