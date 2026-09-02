@@ -5002,3 +5002,682 @@ export async function getCaseInformationEngine(
   });
   return unwrap(data, error);
 }
+
+/* ==========================================================================
+ * Slice 6A — procurement, the sealed-bid tender, the contract and its
+ * commitments (D6.03, D6.04, D6.05, D6.08, D6.09 — spec I.16, §24, §25).
+ *
+ * Every write is a definer RPC; nothing here writes a table. The reads are
+ * definer too, and that is deliberate: `get_package_tender` is what enforces
+ * the SEAL for the product surface, because a SECURITY DEFINER read is not
+ * constrained by the row-level policy that hides sealed bids from a direct
+ * table read.
+ * ======================================================================== */
+
+/** The four §25 dimensions, as the server returns them. */
+export interface ProcurementPackageStatus {
+  technical: string;
+  commercial: string;
+  manufacturing: string;
+  delivery: string;
+}
+
+export interface ProcurementPackageRow {
+  packageId: number;
+  packageCode: string;
+  title: string;
+  equipmentOrScope: string | null;
+  requiredDate: string | null;
+  leadTimeDays: number | null;
+  awardRequiredBy: string | null;
+  forecastDeliveryDate: string | null;
+  slippageDays: number | null;
+  isMandatory: boolean;
+  mandatoryBasis: string | null;
+  status: ProcurementPackageStatus;
+  statusUpdatedAt: string | null;
+  awarded: boolean;
+  awardedSupplier: string | null;
+  awardedValue: number | null;
+  contractCurrency: string | null;
+  contractType: string | null;
+  bidsCloseAt: string | null;
+  bidsOpenedAt: string | null;
+  /** True only of a package that was ISSUED for tender and not yet opened. */
+  tendered: boolean;
+  sealed: boolean;
+  bidCount: number;
+  wbsCode: string | null;
+  scheduleFloatHours: number | null;
+  schedulePositionNote: string | null;
+  assessable: boolean;
+  notAssessableReason: string | null;
+  /**
+   * Whether anything at all measures when this package will arrive. Distinct
+   * from `assessable`, which answers only "can the award-by date be computed":
+   * a mandatory awarded package with no forecast and no contract completion
+   * date is measured by nothing, and was reported clean by every counter.
+   */
+  deliveryAssessable: boolean;
+  deliveryNotAssessableReason: string | null;
+  actualDeliveryDate: string | null;
+  commitment: CommitmentPosition;
+}
+
+export type CommitmentPosition =
+  | {
+      answered: true;
+      lines: number;
+      total: number;
+      currency: string;
+      contractValue: number | null;
+      variance: number | null;
+      overCommitted: boolean;
+      approvedLines: number;
+      postedTotal: number | null;
+    }
+  | {
+      answered: false;
+      lines: number;
+      total: null;
+      unpricedLines?: number;
+      commitmentCurrency?: string | null;
+      contractCurrency?: string | null;
+      refusal: string;
+    };
+
+export interface CaseProcurement {
+  caseId: string;
+  answered: boolean;
+  packages: ProcurementPackageRow[];
+  packageCount: number;
+  mandatoryCount?: number;
+  mandatoryAssessable?: number;
+  mandatoryNotAssessable?: number;
+  assessabilityNote?: string | null;
+  mandatoryDeliveryNotAssessable?: number;
+  deliveryAssessabilityNote?: string | null;
+  refusal?: string;
+  blockers: ProcurementGateBlocker[];
+  blockerCount: number;
+  calculationRunId?: string;
+  /** null when the answering contracts are not all in one currency. */
+  committedTotal?: number | null;
+  committedCurrency?: string | null;
+  codeVersion?: string;
+}
+
+/**
+ * The §25 obligations that BLOCK a gate, in the shape
+ * `case_gate_outstanding_obligations` speaks.
+ *
+ * Read from `case_procurement_gate_obligations` — the ONE predicate the
+ * readiness screen renders and `enforce_gate_review_outstanding_obligations`
+ * refuses over — never re-derived on the client from the package list. A
+ * client filter is a second implementation of a rule that already has one, and
+ * the two drift the first time the rule changes.
+ */
+export type ProcurementGateBlocker =
+  | {
+      type: "procurement_package_unawarded";
+      id: number;
+      name: string;
+      packageCode: string;
+      requiredDate: string;
+      awardRequiredBy: string;
+      leadTimeDays: number;
+      commercialStatus: string;
+      mandatoryBasis: string;
+    }
+  | {
+      type: "procurement_package_late";
+      id: number;
+      name: string;
+      packageCode: string;
+      requiredDate: string;
+      forecastDeliveryDate: string;
+      slippageDays: number;
+      deliveryStatus: string;
+      mandatoryBasis: string;
+    }
+  | {
+      /**
+       * The leg that closes "mandatory, awarded LATE, no forecast recorded" —
+       * which the first two legs between them left silent, because leg 1 stops
+       * the moment anything is awarded and leg 2 needs a forecast nobody is
+       * required to record. §24 makes contract_completion_date mandatory on
+       * every awarded package, so this evidence is always present.
+       */
+      type: "procurement_package_contract_late";
+      id: number;
+      name: string;
+      packageCode: string;
+      requiredDate: string;
+      contractCompletionDate: string;
+      slippageDays: number;
+      awardedAt: string;
+      forecastDeliveryDate: string | null;
+      deliveryStatus: string;
+      mandatoryBasis: string;
+    };
+
+export async function getCaseProcurement(
+  caseId: string,
+): Promise<CaseProcurement> {
+  const { data, error } = await supabase.rpc("get_case_procurement", {
+    p_case_id: caseId,
+  });
+  return unwrap(data, error);
+}
+
+/** The same answer AND a calculation_runs row — recorded even on a refusal. */
+export async function computeCaseProcurementPosition(
+  caseId: string,
+): Promise<CaseProcurement> {
+  const { data, error } = await supabase.rpc(
+    "compute_case_procurement_position",
+    { p_case_id: caseId },
+  );
+  return unwrap(data, error);
+}
+
+/*
+ * There is deliberately NO `getCaseProcurementGateBlockers` wrapper here.
+ * `case_procurement_gate_obligations` is read by `get_case_procurement`, which
+ * returns its rows as `blockers` — one call, one list, one count. A second
+ * client entry point onto the same predicate is a second place the screen can
+ * read a different set of blockers from the one the gate wall refuses over,
+ * and it had no callers.
+ */
+
+export interface ProcurementPackageInput {
+  package_code: string;
+  title: string;
+  equipment_or_scope: string;
+  scope_of_work?: string;
+  exclusions?: string;
+  interfaces?: string;
+  acceptance_criteria?: string;
+  site_conditions_stated?: boolean;
+  required_date?: string;
+  lead_time_days?: string;
+  /**
+   * OMIT IT to leave the flag exactly as it is. Sending `false` on a package
+   * that IS mandatory is an ACT — it takes a gate blocker off the board — and
+   * the server refuses it without `mandatory_release_basis`.
+   */
+  is_mandatory?: boolean;
+  mandatory_basis?: string;
+  /** Required to CLEAR `is_mandatory` on a package that carries it. */
+  mandatory_release_basis?: string;
+  wbs_code?: string;
+}
+
+export async function recordProcurementPackage(
+  caseId: string,
+  input: ProcurementPackageInput,
+): Promise<{
+  package_id: number;
+  package_code: string;
+  isMandatory: boolean;
+  mandatoryReleased: boolean;
+  awardRequiredBy: string | null;
+  assessable: boolean;
+  notAssessableReason: string | null;
+  revised: boolean;
+}> {
+  const { data, error } = await supabase.rpc("record_procurement_package", {
+    p_case_id: caseId,
+    p_package: input,
+  });
+  return unwrapRpc(data, error, "Could not record the procurement package");
+}
+
+export async function setProcurementPackageStatus(
+  packageId: number,
+  dimension: string,
+  status: string,
+  basis: string,
+): Promise<{
+  package_id: number;
+  package_code: string;
+  dimension: string;
+  previousStatus: string;
+  status: string;
+}> {
+  const { data, error } = await supabase.rpc("set_procurement_package_status", {
+    p_package_id: packageId,
+    p_dimension: dimension,
+    p_status: status,
+    p_basis: basis,
+  });
+  return unwrapRpc(data, error, "Could not move the status dimension");
+}
+
+/**
+ * The delivery forecast — the one §25 field that may move on an AWARDED
+ * package, and the fact the mandatory long-lead slippage blocker measures.
+ */
+export async function recordPackageDeliveryForecast(
+  packageId: number,
+  forecastDate: string,
+  basis: string,
+): Promise<{
+  package_id: number;
+  package_code: string;
+  forecastDeliveryDate: string;
+  requiredDate: string;
+  slippageDays: number;
+  late: boolean;
+  blocksGate: boolean;
+}> {
+  const { data, error } = await supabase.rpc(
+    "record_package_delivery_forecast",
+    {
+      p_package_id: packageId,
+      p_forecast_date: forecastDate,
+      p_basis: basis,
+    },
+  );
+  return unwrapRpc(data, error, "Could not record the delivery forecast");
+}
+
+/**
+ * THE DATED RECEIPT — the only act that discharges the mandatory long-lead
+ * slippage blocker.
+ *
+ * `set_procurement_package_status` refuses `delivery =
+ * 'received_and_inspected'` BY NAME and points here: the first draft let one
+ * planner type that value with a ten-character basis while the recorded dates
+ * still said the equipment was 45 days late, and the gate review the wall had
+ * just refused was then accepted with nothing arrived. A status somebody can
+ * set is not evidence that anything arrived; a date is.
+ */
+export async function recordPackageDeliveryReceipt(
+  packageId: number,
+  receivedDate: string,
+  note: string,
+): Promise<{
+  package_id: number;
+  package_code: string;
+  actualDeliveryDate: string;
+  requiredDate: string | null;
+  deliveryStatus: string;
+  daysLate: number | null;
+  arrivedLateNote: string | null;
+}> {
+  const { data, error } = await supabase.rpc(
+    "record_package_delivery_receipt",
+    {
+      p_package_id: packageId,
+      p_received_date: receivedDate,
+      p_note: note,
+    },
+  );
+  return unwrapRpc(data, error, "Could not record the delivery receipt");
+}
+
+export interface TenderBidder {
+  bidderId: number;
+  supplier: string;
+  supplierCode: string;
+  status: string;
+  prequalificationStated: boolean;
+  prequalificationBasis: string | null;
+  safetyQualificationStatus: string;
+  approvedVendor: boolean;
+}
+
+export interface TenderBidEvaluation {
+  evaluationId: number;
+  kind: string;
+  outcome: string;
+  score: number | null;
+  rationale: string;
+  evaluator: string | null;
+  recordedAt: string;
+}
+
+/**
+ * A bid as the server is willing to describe it.
+ *
+ * Every content field is `null` while `sealed` is true — the server returns it
+ * that way and this type says so, so a component that renders `price ?? 0`
+ * fails type review rather than turning a sealed bid into a free one.
+ */
+export interface TenderBid {
+  bidId: number;
+  bidRef: string | null;
+  supplier: string;
+  submittedOn: string | null;
+  withdrawn: boolean;
+  withdrawnReason: string | null;
+  sealed: boolean;
+  price: number | null;
+  currency: string | null;
+  labourHours: number | null;
+  assumedProductivityFactor: number | null;
+  durationDays: number | null;
+  qualifications: string | null;
+  priceBasis: string | null;
+  evaluations: TenderBidEvaluation[];
+}
+
+export interface PackageTender {
+  packageId: number;
+  packageCode: string;
+  title: string;
+  equipmentOrScope: string | null;
+  bidsCloseAt: string | null;
+  bidsOpenedAt: string | null;
+  openedBy: string | null;
+  /** Issued for tender at all — a package nobody put to market has no seal. */
+  tendered: boolean;
+  sealed: boolean;
+  /** The REDACTION rule: no bid content is legible until an open act. */
+  contentSealed: boolean;
+  sealNote: string | null;
+  /**
+   * Why the bid list is empty, when it is. An empty array meant three
+   * different things — not tendered, tendered and unanswered, opened and empty
+   * — and returned the same confident `[]` for all three.
+   */
+  bidsRefusal: string | null;
+  bidders: TenderBidder[];
+  bids: TenderBid[];
+  contract: {
+    awardedAt: string;
+    awardedBy: string | null;
+    supplier: string | null;
+    value: number | null;
+    currency: string | null;
+    contractType: string | null;
+    start: string | null;
+    completion: string | null;
+    performanceRequirements: string | null;
+    awardBasis: string | null;
+    warrantyTermId: number | null;
+    authorityTier: string | null;
+    authorityCeiling: number | null;
+  } | null;
+  commitment: CommitmentPosition;
+  /**
+   * The commitment lines themselves, so the screen renders the position from
+   * the same rows the server summed rather than from a total it has to trust.
+   */
+  commitmentLines: {
+    lineRef: string;
+    description: string;
+    amount: number | null;
+    currency: string;
+    costItemRef: string | null;
+    approved: boolean;
+    posted: boolean;
+  }[];
+}
+
+export async function getPackageTender(
+  packageId: number,
+): Promise<PackageTender> {
+  const { data, error } = await supabase.rpc("get_package_tender", {
+    p_package_id: packageId,
+  });
+  return unwrap(data, error);
+}
+
+export async function invitePackageBidder(
+  packageId: number,
+  supplierId: number,
+  prequalificationBasis?: string,
+): Promise<{
+  bidder_id: number;
+  supplier: string;
+  prequalificationStated: boolean;
+  prequalificationGap: string | null;
+  safetyQualificationStatus: string;
+  safetyQualificationWarning: string | null;
+}> {
+  const { data, error } = await supabase.rpc("invite_package_bidder", {
+    p_package_id: packageId,
+    p_supplier_id: supplierId,
+    p_prequalification_basis: prequalificationBasis ?? null,
+  });
+  return unwrapRpc(data, error, "Could not invite the bidder");
+}
+
+export async function openPackageBidding(
+  packageId: number,
+  closeAt: string,
+): Promise<{
+  package_id: number;
+  package_code: string;
+  bidsCloseAt: string;
+  commercialStatus: string;
+  invitedBidders: number;
+}> {
+  const { data, error } = await supabase.rpc("open_package_bidding", {
+    p_package_id: packageId,
+    p_close_at: closeAt,
+  });
+  return unwrapRpc(data, error, "Could not issue the tender");
+}
+
+export interface SealedBidInput {
+  supplier_code: string;
+  price: string;
+  currency: string;
+  bid_ref?: string;
+  labour_hours?: string;
+  assumed_productivity_factor?: string;
+  duration_days?: string;
+  inclusions?: string;
+  qualifications?: string;
+  price_basis?: string;
+}
+
+export async function submitSealedBid(
+  packageId: number,
+  input: SealedBidInput,
+): Promise<{
+  bid_id: number;
+  supplier: string;
+  bidRef: string;
+  sealed: boolean;
+  productivityStated: boolean;
+  comparabilityWarning: string | null;
+}> {
+  const { data, error } = await supabase.rpc("submit_sealed_bid", {
+    p_package_id: packageId,
+    p_bid: input,
+  });
+  return unwrapRpc(data, error, "Could not lodge the bid");
+}
+
+export async function withdrawSealedBid(
+  bidId: number,
+  reason: string,
+): Promise<{ bid_id: number; withdrawn: boolean; reason: string }> {
+  const { data, error } = await supabase.rpc("withdraw_sealed_bid", {
+    p_bid_id: bidId,
+    p_reason: reason,
+  });
+  return unwrapRpc(data, error, "Could not withdraw the bid");
+}
+
+/** THE OPEN ACT — the single moment the seal comes off (§70: a human act). */
+export async function openPackageBids(
+  packageId: number,
+  note: string,
+): Promise<{
+  package_id: number;
+  package_code: string;
+  openedAt: string;
+  liveBids: number;
+  withdrawnBids: number;
+  commercialStatus: string;
+}> {
+  const { data, error } = await supabase.rpc("open_package_bids", {
+    p_package_id: packageId,
+    p_note: note,
+  });
+  return unwrapRpc(data, error, "Could not open the bids");
+}
+
+export interface BidEvaluationInput {
+  evaluation_kind: string;
+  outcome: string;
+  rationale: string;
+  score?: string;
+  criteria?: Record<string, unknown>;
+}
+
+export async function recordBidEvaluation(
+  bidId: number,
+  input: BidEvaluationInput,
+): Promise<{
+  evaluation_id: number;
+  evaluationKind: string;
+  outcome: string;
+  score: number | null;
+  frozen: boolean;
+  awaiting: string | null;
+}> {
+  const { data, error } = await supabase.rpc("record_bid_evaluation", {
+    p_bid_id: bidId,
+    p_evaluation: input,
+  });
+  return unwrapRpc(data, error, "Could not record the evaluation");
+}
+
+export interface ContractAwardInput {
+  bid_id: string;
+  contract_type: string;
+  performance_requirements: string;
+  award_basis: string;
+  contract_start_date: string;
+  contract_completion_date: string;
+  warranty_term_id?: string;
+}
+
+/** §41-43 + §70: routed through authority_limits.action_type='contract_award'. */
+export async function awardContract(
+  packageId: number,
+  input: ContractAwardInput,
+): Promise<{
+  package_id: number;
+  package_code: string;
+  supplier: string;
+  value: number;
+  currency: string;
+  contractType: string;
+  awardedUnder: string;
+  ceiling: number;
+  warrantyLinked: boolean;
+  warrantyGap: string | null;
+  /** What this awarder had already committed on this case (4D-R8). */
+  alreadyAwardedOnCase: number;
+  /** Live bids on the package that carry NO evaluation at all. */
+  unevaluatedLiveBids: string | null;
+  unevaluatedFieldNote: string | null;
+  commitmentNext: string;
+}> {
+  const { data, error } = await supabase.rpc("award_contract", {
+    p_package_id: packageId,
+    p_award: input,
+  });
+  return unwrapRpc(data, error, "Could not award the contract");
+}
+
+export interface CommitmentLineInput {
+  line_ref: string;
+  cost_item_ref: string;
+  description: string;
+  basis: string;
+  /** Omitted entirely when the price is not agreed — never sent as "0". */
+  amount?: string;
+}
+
+export async function recordContractCommitmentLine(
+  packageId: number,
+  input: CommitmentLineInput,
+): Promise<{
+  line_id: number;
+  line_ref: string;
+  costItemRef: string;
+  amount: number | null;
+  currency: string;
+  priced: boolean;
+  unpricedNote: string | null;
+}> {
+  const { data, error } = await supabase.rpc(
+    "record_contract_commitment_line",
+    { p_package_id: packageId, p_line: input },
+  );
+  return unwrapRpc(data, error, "Could not record the commitment line");
+}
+
+/** §70: approving a commitment moves money in Slice 4's ONE cost model. */
+export async function approveContractCommitments(
+  packageId: number,
+  note: string,
+): Promise<{
+  package_id: number;
+  package_code: string;
+  total: number;
+  currency: string;
+  costLinesPosted: number;
+  contractValue: number | null;
+  variance: number | null;
+  note: string;
+}> {
+  const { data, error } = await supabase.rpc("approve_contract_commitments", {
+    p_package_id: packageId,
+    p_note: note,
+  });
+  return unwrapRpc(data, error, "Could not approve the commitments");
+}
+
+/** The organization's suppliers, for the bidder-invitation selector. */
+export async function listOrgSuppliers(): Promise<
+  {
+    id: number;
+    name: string;
+    supplierCode: string;
+    kind: string;
+    approvedVendor: boolean;
+    safetyQualificationStatus: string;
+  }[]
+> {
+  const { data, error } = await supabase
+    .from("suppliers")
+    .select(
+      "id, name, supplier_code, supplier_kind, approved_vendor, safety_qualification_status",
+    )
+    .order("name");
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((row) => ({
+    id: row.id as number,
+    name: row.name as string,
+    supplierCode: row.supplier_code as string,
+    kind: row.supplier_kind as string,
+    approvedVendor: row.approved_vendor as boolean,
+    safetyQualificationStatus: row.safety_qualification_status as string,
+  }));
+}
+
+/** The case's coded cost lines, for the commitment-line selector (D5.29). */
+export async function listCaseCostItemRefs(
+  caseId: string,
+): Promise<{ ref: string; description: string; currency: string }[]> {
+  const { data, error } = await supabase
+    .from("project_cost_items")
+    .select("cost_item_ref, description, currency")
+    .eq("development_case_id", caseId)
+    .order("cost_item_ref");
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((row) => ({
+    ref: row.cost_item_ref as string,
+    description: row.description as string,
+    currency: row.currency as string,
+  }));
+}

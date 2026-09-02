@@ -493,9 +493,50 @@ const FLOORS: Record<string, Floors> = {
     // The CEILING did not move, which is the check that proves the two new ✅s
     // were not bought with prose the gate cannot resolve. EXEMPTIONS is still
     // empty and no floor was lowered.
-    rowsWithAnEnforceableCitation: 159,
-    citationsEnforced: 838,
-    claimedRowsEnforced: 100,
+    //
+    // 159/838/100 -> 164/914/105 (2026-09-02, Slice 6A). The procurement and
+    // commercial engine landed — the §25 ProcurementPackage with its four
+    // status dimensions and its two gate blockers on Slice 3C's ONE predicate,
+    // the sealed-bid tender with the seal enforced at the row policy AND at
+    // the definer read, evaluations frozen once recorded with separation of
+    // duties in both directions at the database, and the §24 Contract awarded
+    // through a new authority_limits action type with its commitments posted
+    // into Slice 4A's ONE cost model — and five rows (D6.03, D6.04, D6.05,
+    // D6.08, D6.09) flipped to ✅ on chains this gate can walk. RATCHETED UP
+    // for the reason this block gives every time: the added reach is real, and
+    // a later change must not be able to de-cite it with the suite still
+    // green.
+    //
+    // The CEILING did not move, which is the check that proves the five new
+    // ✅s were not bought with prose the gate cannot resolve. It also caught
+    // two things in this slice before they shipped: `withdrawSealedBid` had no
+    // non-test caller (a withdrawal act nobody could perform from the product,
+    // now wired into the tender panel), and D6.05/D6.08 cited `warranty_terms`
+    // — a table that still has no customer write path, which is D6.06's named
+    // gap and not evidence for these rows. EXEMPTIONS is still empty and no
+    // floor was lowered.
+    //
+    // 164/914/105 -> 164/927/105 (2026-09-02, Slice 6A adversarial repair).
+    // Thirteen more citations became enforceable and none was lost. The repair
+    // added acts the rows now cite and the gate can walk —
+    // `record_package_delivery_receipt` / `recordPackageDeliveryReceipt` (the
+    // DATED receipt that is now the only discharge of the §25 slippage
+    // blockers, wired into the package panel),
+    // `enforce_package_bidder_integrity`, `enforce_cost_item_contract_commitment`
+    // and `sync_sealed_bid_withheld_count` — and it REMOVED two citations that
+    // were the shape this gate exists to keep out: `packageLateness`, a client
+    // re-derivation of `case_procurement_gate_obligations` that disagreed with
+    // the server inside one rendered payload, and `getCaseProcurementGateBlockers`,
+    // a service wrapper with zero non-test callers onto a predicate
+    // `get_case_procurement` already returns. Deleting a second implementation
+    // is a reach INCREASE, not a decrease: the rule it duplicated still has
+    // exactly one enforceable home.
+    //
+    // The CEILING did not move. EXEMPTIONS is still empty and no floor was
+    // lowered.
+    rowsWithAnEnforceableCitation: 164,
+    citationsEnforced: 927,
+    claimedRowsEnforced: 105,
     // D11.04 (a CI-fence claim proved by a named test file), D11.10 (a
     // canonical seeded vocabulary, which the write-path judge would fail for
     // not being customer-writable — a question the row never asked) and

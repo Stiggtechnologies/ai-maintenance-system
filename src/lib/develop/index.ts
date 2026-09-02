@@ -719,6 +719,57 @@ export type ReadinessBlocker =
       name: string;
       studyKind: string;
       performedOn: string | null;
+    }
+  // Slice 6A (D6.09, spec III.§25): the procurement obligations. Same
+  // machinery again — case_procurement_gate_obligations is appended into
+  // case_gate_outstanding_obligations and
+  // enforce_gate_review_outstanding_obligations refuses over both types. They
+  // are declared here for the reason the 5B block gives: a union that stops
+  // short of the types the server actually emits makes the next exhaustive
+  // narrow silently omit this slice's own blockers.
+  | {
+      type: "procurement_package_unawarded";
+      id: number;
+      name: string;
+      packageCode: string;
+      requiredDate: string;
+      awardRequiredBy: string;
+      leadTimeDays: number;
+      commercialStatus: string;
+      mandatoryBasis: string;
+    }
+  | {
+      type: "procurement_package_late";
+      id: number;
+      name: string;
+      packageCode: string;
+      requiredDate: string;
+      forecastDeliveryDate: string;
+      slippageDays: number;
+      deliveryStatus: string;
+      mandatoryBasis: string;
+    }
+  | {
+      /**
+       * Leg 3: a MANDATORY package whose awarded contract completes after the
+       * date the project needs the equipment. Legs 1 and 2 between them left
+       * this silent — leg 1 stops the moment anything is awarded and never
+       * asks whether the award happened in time, and leg 2 needs a forecast
+       * nobody is required to record — so "awarded sixty days late, contract
+       * completing 170 days after the project needs it" raised nothing and the
+       * gate passed.
+       */
+      type: "procurement_package_contract_late";
+      id: number;
+      name: string;
+      packageCode: string;
+      requiredDate: string;
+      contractCompletionDate: string;
+      slippageDays: number;
+      awardedAt: string;
+      forecastDeliveryDate: string | null;
+      deliveryStatus: string;
+      mandatoryBasis: string;
     };
 
 export interface ReadinessProjection {

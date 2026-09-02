@@ -41,6 +41,16 @@ export interface PackageClarity {
   exclusionsStated: boolean;
   acceptanceStated: boolean;
   siteConditionsStated: boolean;
+  /**
+   * THE SEAL (Slice 6A). `get_package_bids` is SECURITY INVOKER, and the
+   * row-level policy now hides every bid on an issued-but-unopened package
+   * from every client — so this function was handed a SHORT list with no
+   * indication anything had been withheld, and stated the absence as a fact:
+   * "No bids are recorded for this package" over a tender holding three. An
+   * empty set that a reader cannot see is not an empty set.
+   */
+  tenderSealed?: boolean;
+  withheldBidCount?: number;
 }
 
 export interface NormalisedBid extends Bid {
@@ -79,6 +89,30 @@ export function compareBids(
     clarityGaps.push("no acceptance criteria recorded");
   if (!clarity.siteConditionsStated)
     clarityGaps.push("site conditions not stated");
+
+  // WITHHELD IS NOT ABSENT. A sealed tender is refused BY NAME before any of
+  // the sentences below, which all describe a field this caller can actually
+  // see; saying "only one bid is recorded" about a tender whose envelopes are
+  // still closed is the same lie as saying none is.
+  if (clarity.tenderSealed) {
+    return {
+      comparable: false,
+      bids: bids.map((b) => ({
+        ...b,
+        normalisedHours: null,
+        pricePerNormalisedHour: null,
+      })),
+      cheapest: null,
+      bestValue: null,
+      clarityGaps,
+      reason:
+        `The envelopes on this package have not been opened, so its bids are withheld` +
+        (typeof clarity.withheldBidCount === "number"
+          ? ` (${clarity.withheldBidCount} lodged)`
+          : "") +
+        `. There is nothing here to compare, and this is NOT a package that attracted no interest — comparing what is visible now would be comparing whatever leaked.`,
+    };
+  }
 
   if (bids.length < 2) {
     return {

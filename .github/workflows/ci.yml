@@ -292,6 +292,9 @@ jobs:
       - name: Smoke — Sync Develop slice 5D (event bus, change impact agent, case-scoped RAM, §34 edges)
         run: bash scripts/ci-develop-slice5d-smoke.sh
 
+      - name: Smoke — Sync Develop slice 6A (procurement package, sealed-bid tender, contract award, commitments)
+        run: bash scripts/ci-develop-slice6a-smoke.sh
+
       - name: Stop Supabase
         if: always()
         run: supabase stop --no-backup || true

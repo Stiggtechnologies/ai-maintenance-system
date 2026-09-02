@@ -103,6 +103,7 @@ import { ScheduleAssurancePanel } from "../components/develop/SchedulePanels";
 import { ChangeAndControlsPanel } from "../components/develop/ChangeControlPanels";
 import { RequirementsThreadPanel } from "../components/develop/RequirementsThreadPanels";
 import { FrontlineDesignPanel } from "../components/develop/FrontlineDesignPanels";
+import { ProcurementPanel } from "../components/develop/ProcurementPanels";
 import { DigitalThreadPanel } from "../components/develop/DigitalThreadPanels";
 import {
   CaseRamPanel,
@@ -141,6 +142,24 @@ const FRONTLINE_ROLES = [
   "technician",
 ];
 const DESIGN_PLAN_ROLES = [...REVIEW_ROLES, "planner"];
+
+/**
+ * Slice 6A (D6.03/D6.04/D6.05), spec I.16 + §24 + §70.
+ *
+ * PROCUREMENT_PLAN_ROLES: recording a package, moving a §25 dimension,
+ * inviting a bidder, issuing the tender, lodging a bid, opening the envelopes
+ * and evaluating. `ai_admin` is excluded — §70 refuses it BY NAME at the open
+ * and the evaluation doors, so rendering it those forms only offers acts the
+ * server will reject.
+ *
+ * PROCUREMENT_AWARD_ROLES: the two acts that commit the owner's capital —
+ * awarding the contract and approving its commitments. Narrower on purpose,
+ * and matching `award_contract` / `approve_contract_commitments` exactly: a
+ * planner or an engineer holds no contract-award delegation, and offering them
+ * the button would put the refusal after the intent instead of before it.
+ */
+const PROCUREMENT_PLAN_ROLES = [...REVIEW_ROLES, "planner"];
+const PROCUREMENT_AWARD_ROLES = ["admin", "executive", "maintenance_manager"];
 
 const inputClass =
   "w-full rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-signal-cyan/50 focus:outline-none";
@@ -2420,6 +2439,10 @@ export function DevelopmentCaseWorkspacePage() {
     profile?.role != null && DESIGN_PLAN_ROLES.includes(profile.role);
   const canAdmin =
     profile?.role != null && ["admin", "executive"].includes(profile.role);
+  const canProcure =
+    profile?.role != null && PROCUREMENT_PLAN_ROLES.includes(profile.role);
+  const canAwardContract =
+    profile?.role != null && PROCUREMENT_AWARD_ROLES.includes(profile.role);
 
   const [workspace, setWorkspace] = useState<CaseWorkspace | null>(null);
   const [members, setMembers] = useState<OrgMember[]>([]);
@@ -2923,6 +2946,21 @@ export function DevelopmentCaseWorkspacePage() {
       <CaseRamPanel
         caseId={workspace.id}
         canPlan={canPlan}
+        reloadKey={chainsKey}
+      />
+      {/* Procurement, the sealed-bid tender and the §24 contract (Slice 6A):
+          the ProcurementPackage with all four §25 status dimensions, a
+          mandatory long-lead package that cannot arrive when the project needs
+          it blocking the gate through the SAME predicate a breached permit
+          condition rides, bids sealed until one recorded open act, evaluations
+          frozen once written, an award routed through an adopted
+          contract-award delegation by somebody who did not evaluate, and its
+          commitments posted into Slice 4's ONE cost model. */}
+      <ProcurementPanel
+        caseId={workspace.id}
+        canPlan={canProcure}
+        canAward={canAwardContract}
+        currentUserEmail={profile?.email ?? null}
         reloadKey={chainsKey}
       />
       <InformationEnginePanel caseId={workspace.id} reloadKey={chainsKey} />

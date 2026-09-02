@@ -124,6 +124,10 @@ export function SupplyExposure() {
       exclusionsStated: b.exclusionsStated,
       acceptanceStated: b.acceptanceStated,
       siteConditionsStated: b.siteConditionsStated,
+      // The seal, carried through so an unopened tender REFUSES here rather
+      // than reading as a package nobody bid on.
+      tenderSealed: b.tenderSealed,
+      withheldBidCount: b.withheldBidCount,
     });
   }, [data]);
 
