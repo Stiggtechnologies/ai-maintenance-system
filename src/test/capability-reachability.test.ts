@@ -470,9 +470,32 @@ const FLOORS: Record<string, Floors> = {
     // and the floor moves up with it so none of it can be de-cited later while
     // the suite stays green. The other two floors and the CEILING are
     // unchanged: the repair bought no new ✅ and exempted nothing.
-    rowsWithAnEnforceableCitation: 156,
-    citationsEnforced: 785,
-    claimedRowsEnforced: 98,
+    //
+    // 156/785/98 -> 159/838/100 (2026-09-01, Slice 5D). The event bus, the
+    // Change Impact Agent, the case-scoped RAM kernel and the composed Sync
+    // Information module landed; D11.26 and D12.10 flipped to ✅ on chains this
+    // gate can walk, and D11.09, D11.21 and D12.13 gained real citations while
+    // staying honestly 🟡. RATCHETED UP for the reason this block gives every
+    // time: the added reach is real, and a later change must not be able to
+    // de-cite it with the suite still green.
+    //
+    // The gate EARNED ITS KEEP twice in this slice rather than merely holding.
+    // (a) D11.26's first draft cited `case_event_consequence_obligations` with
+    // ZERO non-test callers — the predicate the gate wall reads was wired only
+    // by a pg_get_functiondef transformation the gate cannot see, and the panel
+    // re-derived the same filter on the client. The fix was to give the screen
+    // the WALL'S OWN predicate (`getCaseEventGateBlockers`), which is both the
+    // caller the gate wanted and the removal of a second implementation.
+    // (b) `selectWeibullMethod` came off the dead-citation list in the suite
+    // below, because this slice wired it — the instruction that list's own
+    // comment carries. A live pin now holds that wiring.
+    //
+    // The CEILING did not move, which is the check that proves the two new ✅s
+    // were not bought with prose the gate cannot resolve. EXEMPTIONS is still
+    // empty and no floor was lowered.
+    rowsWithAnEnforceableCitation: 159,
+    citationsEnforced: 838,
+    claimedRowsEnforced: 100,
     // D11.04 (a CI-fence claim proved by a named test file), D11.10 (a
     // canonical seeded vocabulary, which the write-path judge would fail for
     // not being customer-writable — a question the row never asked) and
@@ -619,21 +642,26 @@ describe("the reachability judges", () => {
    * Once the 68 caught rows were reclassified, every real row passed — which
    * is exactly the state in which a broken gate is indistinguishable from a
    * working one. So the machinery is exercised against known-dead code that
-   * neither register cites: `poolEstimates` and `selectWeibullMethod` are
-   * both finished and unit-tested with zero non-test callers. If either
-   * starts passing, either somebody wired it up (delete the case) or the
-   * detector broke (fix it) — silence is not an option.
+   * neither register cites: `poolEstimates` is finished and unit-tested with
+   * zero non-test callers. If it starts passing, either somebody wired it up
+   * (delete the case) or the detector broke (fix it) — silence is not an
+   * option.
    *
    * `record_verification_result` used to sit on this list. It now has a
    * production caller (`recordVerificationResult` → VerificationLoop on
    * /learning-loop). The live pin below holds that wiring; do not put it
    * back on the dead list.
+   *
+   * `selectWeibullMethod` left the list on 2026-09-01 for the same reason and
+   * by the instruction this comment already carried: Slice 5D's case-scoped
+   * RAM reading calls it from `src/lib/develop/ram.ts`, which the case
+   * workspace reaches through `runCaseRamAgent` → `CaseRamPanel`. The gate
+   * caught the change itself — this suite failed on it before anything else
+   * did — and the live pin below now holds the wiring, so the symbol cannot
+   * quietly go dead again while this file still calls it live.
    */
   it("still detects a dead citation — the gate proves itself", () => {
-    const dead = [
-      { name: "poolEstimates", kind: "ts-symbol" as const },
-      { name: "selectWeibullMethod", kind: "ts-symbol" as const },
-    ];
+    const dead = [{ name: "poolEstimates", kind: "ts-symbol" as const }];
     for (const { name, kind } of dead) {
       const probe: Citation = { id: "Z9.99", raw: name, name, kind };
       const verdict = judge(probe);
@@ -648,6 +676,17 @@ describe("the reachability judges", () => {
       kind: "sql-function",
     });
     expect(live.ok, live.detail).toBe(true);
+  });
+
+  it("treats selectWeibullMethod as a live production caller (Slice 5D)", () => {
+    const verdict = judge({
+      id: "D12.13",
+      raw: "selectWeibullMethod",
+      name: "selectWeibullMethod",
+      kind: "ts-symbol",
+    });
+    expect(verdict.ok, verdict.detail).toBe(true);
+    expect(verdict.detail).toMatch(/develop\/ram/);
   });
 
   it("treats record_verification_result as a live production caller", () => {

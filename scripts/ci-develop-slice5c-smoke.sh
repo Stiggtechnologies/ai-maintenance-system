@@ -600,7 +600,13 @@ R=$(rpc "$MANAGER" get_case_thread_graph "{\"p_case_id\":\"$CASE\"}")
 noerr "$R"
 test "$(jqp "$R" "x['refused']")" = "False"
 test "$(jqp "$R" "len(x['spec34Edges'])")" = "19"
-test "$(jqp "$R" "len([e for e in x['spec34Edges'] if e['status']=='absent'])")" = "5"
+# FOUR, not five (corrected 2026-09-01 by 20261207090300). This transcript
+# asserted five because this slice's ledger said five — and one of them,
+# Benefit MEASURES Objective, was already built: `value_metrics.objective_id`
+# has existed since Slice 2 (20261115090600) and register row D9.10 is ✅ and
+# names this edge. The claim was prose that nothing checked, and it survived a
+# slice. sync_spec34_absent_edge_audit() now asks the catalogue instead.
+test "$(jqp "$R" "len([e for e in x['spec34Edges'] if e['status']=='absent'])")" = "4"
 test "$(jqp "$R" "len([e for e in x['spec34Edges'] if e['status']=='live_on_thread']) >= 2")" = "True"
 # The edges this read did NOT compute say so instead of reporting zero.
 test "$(jqp "$R" "all(e.get('caseCount') is None for e in x['spec34Edges'] if e['status']=='live_elsewhere')")" = "True"

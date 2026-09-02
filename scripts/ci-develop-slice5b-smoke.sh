@@ -539,7 +539,19 @@ test "$(jqp "$R" "x['scoredAxisCount']")" = "5"
 test "$(jqp "$R" "x['missingAxes']")" = "['commissionability']"
 test "$(jqp "$R" "'commissionability' in x['refusal']")" = "True"
 # The mean of the five that DO exist is 3.6 and is nowhere in the payload.
-test "$(jqp "$R" "'3.6' in json.dumps(x)")" = "False"
+#
+# MATCHED AS A NUMBER, NOT AS A BARE SUBSTRING (repaired 2026-09-01). The
+# substring form also matched "3.6" inside a timestamp — `...13.631419+00:00` —
+# so the assertion failed for a reason that had nothing to do with the
+# scorecard. What is asserted is what the sentence above always meant: a 3.6
+# that is a VALUE, not three characters inside a longer number.
+#
+# TRAILING ZEROS COUNT (widened 2026-09-01). The first repair excluded any
+# following digit, which also excluded `3.60` — and numeric jsonb renders
+# trailing zeros, so a real composite of 3.6 could have slipped past the
+# assertion that exists to catch it. `3\.60*` followed by a non-digit matches
+# 3.6, 3.60 and 3.600 and still refuses 3.631419.
+test "$(jqp "$R" "__import__('re').search(r'(?<![0-9.])3\\.60*(?![0-9])', json.dumps(x)) is None")" = "True"
 
 # The sixth axis produces the composite — and the weakest axis beside it.
 R=$(rpc "$MANAGER" score_design_axis "{\"p_case_id\":\"$CASE\",\"p_score\":{\"axis\":\"commissionability\",\"score\":3,\"basis\":\"Scored last for the S5B six-axis transcript with a stated basis\"}}")

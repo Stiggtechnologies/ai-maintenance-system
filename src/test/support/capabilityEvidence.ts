@@ -114,10 +114,21 @@ export const DEVELOP_REGISTER: RegisterSpec = {
   // pipe. Truncation silently drops every citation after it, which is the
   // de-citation evasion `register-baseline.mjs` was written to catch, arriving
   // by accident instead of by intent.
-  row: /^\|\s*(?<id>[A-Z]\d+\.\d+)\s*\|(?<capability>[^|]*)\|(?<specRef>[^|]*)\|\s*(?<status>✅|🟡|❌)\s*\|(?<evidence>.*?)\|?\s*$/u,
+  // GREEDY, not lazy. `(?<evidence>.*?)\|?\s*$` made the engine expand one
+  // character at a time and retry the optional pipe at every position — O(n^2)
+  // per row. The D rows average 4,200 characters and the longest is 10,294, so
+  // this one pattern cost 11.6 SECONDS across 234 rows and timed the ratchet
+  // out in CI at a 5s limit. Greedy-to-end is linear: 0 ms, and it captures
+  // byte-identical evidence on all 234 rows (verified row by row). The trailing
+  // pipe now rides along in the capture, so every consumer strips it with
+  // TRAILING_PIPE below.
+  row: /^\|\s*(?<id>[A-Z]\d+\.\d+)\s*\|(?<capability>[^|]*)\|(?<specRef>[^|]*)\|\s*(?<status>✅|🟡|❌)\s*\|(?<evidence>.*)$/u,
 };
 
 /** Both registers, in the order a report should present them. */
+/** A row's trailing table pipe, which the greedy evidence capture includes. */
+export const TRAILING_PIPE = /\s*\|\s*$/;
+
 export const REGISTERS: RegisterSpec[] = [
   ENTERPRISE_REGISTER,
   DEVELOP_REGISTER,
@@ -206,7 +217,7 @@ export function parseRegister(
       id: m.groups.id,
       capability: m.groups.capability.trim(),
       status: m.groups.status as RegisterRow["status"],
-      evidence: m.groups.evidence.trim(),
+      evidence: m.groups.evidence.replace(TRAILING_PIPE, "").trim(),
       line,
     });
   }

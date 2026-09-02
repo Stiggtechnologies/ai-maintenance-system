@@ -104,6 +104,12 @@ import { ChangeAndControlsPanel } from "../components/develop/ChangeControlPanel
 import { RequirementsThreadPanel } from "../components/develop/RequirementsThreadPanels";
 import { FrontlineDesignPanel } from "../components/develop/FrontlineDesignPanels";
 import { DigitalThreadPanel } from "../components/develop/DigitalThreadPanels";
+import {
+  CaseRamPanel,
+  ChangeImpactAgentPanel,
+  DevelopEventBusPanel,
+  InformationEnginePanel,
+} from "../components/develop/EventBusPanels";
 
 const REVIEW_ROLES = [
   "admin",
@@ -2895,6 +2901,31 @@ export function DevelopmentCaseWorkspacePage() {
         canPlan={canPlan}
         reloadKey={chainsKey}
       />
+      {/* The event bus and the two agents (Slice 5D): spec §71-78's five named
+          events, emitted by the acts that cause them and CONSUMED — an
+          unanswered blocking consequence stops a gate review at the database,
+          not on a screen. The §60 Change Impact Agent runs the digital
+          thread's ONE traversal and refuses where it is gapped; the §63 RAM
+          kernel is scoped to this case's asset set and names every leg it
+          cannot compute. Both agents propose and neither can change anything.
+          Sync Information is composed last, with the leg it does not have
+          named and no composite score over the ones it does. */}
+      <DevelopEventBusPanel
+        caseId={workspace.id}
+        viewer={{ id: profile?.id ?? null, role: profile?.role ?? null }}
+        reloadKey={chainsKey}
+      />
+      <ChangeImpactAgentPanel
+        caseId={workspace.id}
+        canPlan={canPlan}
+        reloadKey={chainsKey}
+      />
+      <CaseRamPanel
+        caseId={workspace.id}
+        canPlan={canPlan}
+        reloadKey={chainsKey}
+      />
+      <InformationEnginePanel caseId={workspace.id} reloadKey={chainsKey} />
       <OperationalReadinessSection caseId={workspace.id} canPlan={canPlan} />
 
       {/* Sanction */}
