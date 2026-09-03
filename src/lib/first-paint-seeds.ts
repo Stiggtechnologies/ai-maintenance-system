@@ -6,11 +6,12 @@ import {
 } from "./decision-case";
 
 /**
- * Empty first-paint conversion set. One chip rotates through these
- * questions in this order. P-101 seal inspection is not in the set.
+ * Locked first-paint conversion set. Public /workspace Mode A maps five
+ * Bolt pills onto five of these via public-ask-intents (see that file).
+ * P-101 seal inspection is not in the set.
  *
  * Each entry reuses an existing governed Decision Case. Overlaying the
- * chip question as the user turn does not invent ROI or thresholds.
+ * question as the user turn does not invent ROI or thresholds.
  */
 export const FIRST_PAINT_CYCLE_MS = 6000;
 

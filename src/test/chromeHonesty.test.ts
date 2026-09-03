@@ -61,8 +61,12 @@ describe("customer chrome honesty", () => {
   it("first-paint follow-up does not restore gold or a 48-hour offer", () => {
     const firstPaint = [
       "src/lib/first-paint-seeds.ts",
+      "src/lib/public-ask-intents.ts",
       "src/components/RotatingSeedChip.tsx",
       "src/components/PublicProductHeader.tsx",
+      "src/components/public-ask/PublicAskEmpty.tsx",
+      "src/components/public-ask/PublicAskBar.tsx",
+      "src/components/public-ask/PublicAskRail.tsx",
     ];
     for (const path of firstPaint) {
       const src = readFileSync(path, "utf8");

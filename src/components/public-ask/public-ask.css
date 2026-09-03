@@ -1,0 +1,572 @@
+/* Bolt Mode A / Mode B public workspace. Light canvas only — do not inherit
+   the dark Decision Workspace void. Authenticated / ops routes stay dark. */
+
+.bolt-public {
+  --bolt-ink: #2b3036;
+  --bolt-muted: #8b939c;
+  --bolt-line: #e6e8eb;
+  --bolt-soft: #f3f4f6;
+  --bolt-teal: #12b5a0;
+  --bolt-send: #17c37b;
+  --bolt-canvas: #ffffff;
+  min-height: 100dvh;
+  display: flex;
+  background: var(--bolt-canvas);
+  color: var(--bolt-ink);
+  font-family: "Inter Variable", Inter, system-ui, sans-serif;
+}
+
+.bolt-rail {
+  display: flex;
+  width: 76px;
+  flex: 0 0 76px;
+  flex-direction: column;
+  align-items: center;
+  padding: 16px 8px 18px;
+  border-right: 1px solid var(--bolt-line);
+  background: var(--bolt-canvas);
+}
+
+.bolt-rail-top,
+.bolt-rail-main,
+.bolt-rail-foot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+}
+
+.bolt-rail-main {
+  margin-top: 18px;
+  gap: 4px;
+}
+
+.bolt-rail-foot {
+  margin-top: auto;
+}
+
+.bolt-rail-item {
+  width: 60px;
+  min-height: 52px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 6px 4px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: #5d656e;
+  text-decoration: none;
+  font-size: 11px;
+  line-height: 1.15;
+  cursor: pointer;
+}
+
+.bolt-rail-item svg {
+  width: 20px;
+  height: 20px;
+}
+
+.bolt-rail-item.is-active {
+  background: var(--bolt-soft);
+  color: var(--bolt-ink);
+}
+
+.bolt-rail-item:hover,
+.bolt-rail-item:focus-visible {
+  background: var(--bolt-soft);
+  color: var(--bolt-ink);
+}
+
+.bolt-rail-item:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.bolt-stage {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--bolt-canvas);
+}
+
+.bolt-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 8vh 24px 18vh;
+}
+
+.bolt-brand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 0 0 28px;
+}
+
+.bolt-wordmark {
+  margin: 0;
+  color: #3a3f46;
+  font-size: 42px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+
+.bolt-pro {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 6px;
+  background: var(--bolt-teal);
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  line-height: 1;
+  text-transform: lowercase;
+}
+
+.bolt-ask {
+  width: min(720px, 100%);
+}
+
+.bolt-ask-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 58px;
+  padding: 6px 6px 6px 20px;
+  border: 1px solid #dfe3e8;
+  border-radius: 999px;
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgba(20, 24, 28, 0.04);
+}
+
+.bolt-ask-bar:focus-within {
+  border-color: #c9cfd6;
+  box-shadow: 0 0 0 3px rgba(18, 181, 160, 0.08);
+}
+
+.bolt-ask-bar textarea {
+  min-height: 28px;
+  max-height: 96px;
+  flex: 1;
+  resize: none;
+  border: 0;
+  outline: 0;
+  padding: 8px 0;
+  color: var(--bolt-ink);
+  background: transparent;
+  font: inherit;
+  font-size: 15px;
+  line-height: 1.4;
+}
+
+.bolt-ask-bar textarea::placeholder {
+  color: #9aa3ad;
+}
+
+.bolt-ask-tools {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: 0 0 auto;
+}
+
+.bolt-ask-tool {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  color: #6b7280;
+  background: transparent;
+  cursor: pointer;
+}
+
+.bolt-ask-tool:hover:not(:disabled),
+.bolt-ask-tool:focus-visible:not(:disabled) {
+  background: var(--bolt-soft);
+  color: var(--bolt-ink);
+}
+
+.bolt-ask-tool:disabled {
+  color: #c4c9cf;
+  cursor: not-allowed;
+}
+
+.bolt-ask-tool.is-live {
+  color: #dc4c4c;
+  background: #fdecec;
+}
+
+.bolt-ask-send {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  color: #ffffff;
+  background: var(--bolt-send);
+  cursor: pointer;
+}
+
+.bolt-ask-send:hover:not(:disabled),
+.bolt-ask-send:focus-visible:not(:disabled) {
+  filter: brightness(0.96);
+}
+
+.bolt-ask-send:disabled {
+  background: #d5dbe1;
+  color: #ffffff;
+  cursor: not-allowed;
+}
+
+.bolt-pills {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  width: min(720px, 100%);
+  margin-top: 18px;
+}
+
+.bolt-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 0 14px;
+  border: 1px solid #e1e5ea;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #3f4650;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.bolt-pill:hover,
+.bolt-pill:focus-visible {
+  border-color: #cfd5dc;
+  background: #fafbfc;
+  color: var(--bolt-ink);
+}
+
+.bolt-pill svg {
+  width: 15px;
+  height: 15px;
+  color: #6b7280;
+}
+
+.bolt-thread-bar {
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 18px;
+  border-bottom: 1px solid var(--bolt-line);
+  background: var(--bolt-canvas);
+}
+
+.bolt-thread-bar-side {
+  display: flex;
+  align-items: center;
+  min-width: 44px;
+}
+
+.bolt-thread-bar-side.is-end {
+  justify-content: flex-end;
+  min-width: 96px;
+}
+
+.bolt-thread-title {
+  overflow: hidden;
+  color: var(--bolt-ink);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.bolt-icon,
+.bolt-view-record {
+  min-height: 44px;
+  border: 1px solid var(--bolt-line);
+  border-radius: 8px;
+  background: #ffffff;
+  color: #4b5560;
+  cursor: pointer;
+}
+
+.bolt-icon {
+  width: 44px;
+  display: grid;
+  place-items: center;
+}
+
+.bolt-view-record {
+  padding: 0 12px;
+  font-size: 13px;
+  font-weight: 550;
+}
+
+.bolt-icon:hover,
+.bolt-view-record:hover,
+.bolt-icon:focus-visible,
+.bolt-view-record:focus-visible {
+  background: var(--bolt-soft);
+  color: var(--bolt-ink);
+}
+
+.bolt-layout {
+  flex: 1;
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+}
+
+.bolt-layout.is-rail-open .dw-rail {
+  display: flex;
+  border-right-color: var(--bolt-line);
+  background: #fbfbfc;
+}
+
+.bolt-public .dw-new {
+  border-color: #14b8a6;
+  color: #0f766e !important;
+  background: #ecfdf8;
+}
+
+.bolt-public .dw-case-row strong {
+  color: var(--bolt-ink);
+}
+
+.bolt-public .dw-case-row small,
+.bolt-public .dw-section-label {
+  color: var(--bolt-muted);
+}
+
+.bolt-public .dw-case-row:hover,
+.bolt-public .dw-case-row.active {
+  background: var(--bolt-soft);
+}
+
+.bolt-thread-bar-side.is-center {
+  flex: 1;
+  justify-content: center;
+  min-width: 0;
+}
+
+.bolt-main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  background: var(--bolt-canvas);
+}
+
+.bolt-public .dw-thread {
+  padding: 20px 28px 16px;
+  scrollbar-color: #c5ccd3 transparent;
+}
+
+.bolt-public .dw-message header strong {
+  color: var(--bolt-ink);
+}
+
+.bolt-public .dw-message header span,
+.bolt-public .dw-system-turn {
+  color: var(--bolt-muted);
+}
+
+.bolt-public .dw-message p,
+.bolt-public .dw-message-markdown {
+  color: #3a4048;
+}
+
+.bolt-public .dw-avatar {
+  border-color: #d7dde3;
+  color: var(--bolt-teal);
+  background: #f1fbf8;
+}
+
+.bolt-public .role-user .dw-avatar {
+  border-color: #d7dde3;
+  color: #4b5560;
+  background: var(--bolt-soft);
+}
+
+.bolt-public .dw-rec-block {
+  border-color: var(--bolt-line);
+  background: #f8fafb;
+}
+
+.bolt-public .dw-rec-block h3 {
+  color: #3a4048;
+}
+
+.bolt-public .dw-rec-block ul,
+.bolt-public .dw-rec-block li {
+  color: #3f4650;
+}
+
+.bolt-public .dw-rec-recommendation {
+  border-color: #b7e6dc;
+}
+
+.bolt-public .dw-rec-recommendation h3 {
+  color: #0f766e;
+}
+
+.bolt-public .dw-rec-recommendation > p {
+  color: #3a4048;
+}
+
+.bolt-public .dw-rec-authority {
+  color: #5d656e !important;
+}
+
+.bolt-public .dw-rec-actions button {
+  border-color: #d7dde3;
+  color: #3a4048;
+  background: #ffffff;
+}
+
+.bolt-public .dw-rec-approve {
+  border-color: #14b8a6 !important;
+  color: #0f766e !important;
+  background: #ecfdf8 !important;
+}
+
+.bolt-public .dw-composer-wrap,
+.bolt-ask-dock {
+  padding: 10px 22px 18px;
+  border-top: 1px solid var(--bolt-line);
+  background: var(--bolt-canvas);
+}
+
+.bolt-public .dw-attach-chip {
+  border-color: var(--bolt-line);
+  background: #f8fafb;
+  color: #3a4048;
+}
+
+.bolt-public .dw-attach-error {
+  border-color: #ead7a8;
+  background: #fff8e8;
+  color: #7a5b14;
+}
+
+.bolt-public .dw-plus-sheet {
+  border-color: var(--bolt-line);
+  background: #ffffff;
+  box-shadow: 0 12px 32px rgba(20, 24, 28, 0.12);
+}
+
+.bolt-public .dw-plus-sheet button {
+  color: var(--bolt-ink);
+}
+
+.bolt-public .dw-plus-sheet button:hover {
+  background: var(--bolt-soft);
+}
+
+.bolt-public .dw-composer-meta {
+  color: var(--bolt-muted);
+}
+
+.bolt-public .dw-thinking i {
+  background: #9aa3ad;
+}
+
+.bolt-file-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+
+@media (max-width: 767px) {
+  .bolt-public {
+    flex-direction: column;
+  }
+
+  .bolt-rail {
+    order: 2;
+    width: 100%;
+    flex: 0 0 auto;
+    flex-direction: row;
+    justify-content: space-around;
+    align-items: stretch;
+    gap: 4px;
+    padding: 6px 10px calc(8px + env(safe-area-inset-bottom));
+    border-right: 0;
+    border-top: 1px solid var(--bolt-line);
+  }
+
+  .bolt-rail-top {
+    display: none;
+  }
+
+  .bolt-rail-main,
+  .bolt-rail-foot {
+    flex-direction: row;
+    margin: 0;
+    width: auto;
+    flex: 1;
+  }
+
+  .bolt-rail-item {
+    width: auto;
+    flex: 1;
+    min-height: 48px;
+  }
+
+  .bolt-stage {
+    order: 1;
+    flex: 1;
+  }
+
+  .bolt-empty {
+    padding: 6vh 16px 12vh;
+  }
+
+  .bolt-wordmark {
+    font-size: 34px;
+  }
+
+  .bolt-ask-bar {
+    min-height: 54px;
+    padding-left: 16px;
+  }
+
+  .bolt-pills {
+    gap: 8px;
+  }
+
+  .bolt-public .dw-thread {
+    padding: 16px 16px 12px;
+  }
+
+  .bolt-ask-dock {
+    padding: 8px 12px 10px;
+  }
+}
