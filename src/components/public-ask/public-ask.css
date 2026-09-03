@@ -163,6 +163,8 @@
   min-width: 0;
   min-height: 48px;
   padding: 4px 4px 4px 16px;
+  container-type: inline-size;
+  container-name: bolt-ask;
   border: 1px solid #dfe3e8;
   border-radius: 999px;
   background: #ffffff;
@@ -560,6 +562,30 @@
 
 .bolt-public .dw-learn a {
   color: #0f766e;
+}
+
+/* When the stadium bar itself is phone-narrow, hide disabled extras so
+   image / attach / mic cannot clamp the reserved teal send. Viewport
+   media queries miss some 390 device-mode frames; the bar width does not. */
+@container bolt-ask (max-width: 500px) {
+  .bolt-ask-tool[aria-label="Search"],
+  .bolt-ask-tool[aria-label="Web search"],
+  .bolt-ask-tool[aria-label="Link"],
+  .bolt-ask-gap {
+    display: none;
+  }
+
+  .bolt-ask-tool {
+    flex: 0 0 30px;
+    width: 30px;
+    height: 30px;
+  }
+
+  .bolt-ask-send {
+    flex: 0 0 32px;
+    width: 32px;
+    height: 32px;
+  }
 }
 
 .bolt-file-input {
