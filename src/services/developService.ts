@@ -6402,6 +6402,14 @@ export interface WorkPackageConstraint {
   probabilityOfClearance: number | null;
   scheduleImpactDays: number | null;
   verifiedAt: string | null;
+  /** 'derived' when a machine raised it, 'manual' when a person recorded it. */
+  sourceKind?: string | null;
+  /**
+   * The server's own provenance key. A row the field-readiness assessment
+   * DERIVED from a canonical store cannot be cleared by hand
+   * (20261211090200), and the screen reads this rather than restating the rule.
+   */
+  sourceRef?: string | null;
 }
 
 export interface WorkPackageRow {
@@ -6448,6 +6456,9 @@ export interface WorkPackageRow {
     | "empty"
     | "parent_unreleased"
     | "not_ready"
+    // The seventh state (20261211090200): a RECORDED field-readiness
+    // assessment the canonical stores have moved past. It refuses.
+    | "stale"
     | "released"
     | "cancelled"
     | "not_found";
@@ -6749,4 +6760,209 @@ export async function listCaseWorkOrderOptions(): Promise<
     label: `${(row.wo_number as string | null) ?? "—"} · ${row.title as string}`,
     status: (row.status as string | null) ?? null,
   }));
+}
+
+/* ───────────────── Slice 7B — field readiness on ONE engine (D7.05, D7.06,
+   D7.11, D7.12, D7.19, D13.09). RULING 22: there is one field-readiness
+   predicate at the database and one release verdict, and this module reads
+   both rather than restating either. No function below computes whether an
+   element is ready or whether a package is. ──────────────────────────────── */
+
+export interface FieldReadyElementRow {
+  key: string;
+  label: string;
+  /** "derived" — a canonical store answered it. "declared" — none can. */
+  basisKind: string;
+  /** ready | blocked | not_applicable | unverifiable */
+  state: string;
+  detail: string;
+  source: string;
+  constraintKind?: string | null;
+  /** The constraint currently holding this element, when one is recorded. */
+  constraint?: {
+    constraintId: string;
+    state: string;
+    isHard: boolean;
+    sourceKind: string;
+    basis: string;
+    ownerRole: string | null;
+    requiredBy: string | null;
+    expectedClearDate: string | null;
+    verifiedAt: string | null;
+  } | null;
+}
+
+/**
+ * A place where the RECORDED assessment no longer describes the work — the
+ * itemization behind the ONE verdict's `stale` state (20261211090200). The
+ * server states these; nothing here derives one.
+ */
+export interface FieldReadinessGap {
+  workOrderId: string;
+  woNumber: string | null;
+  element: string;
+  label: string;
+  /** blocked_and_unheld | unanswerable_and_unheld | never_asked | unreadable */
+  reason: string;
+  detail: string;
+  sentence: string;
+}
+
+export interface FieldReadyWorkOrder {
+  workOrderId: string;
+  woNumber: string | null;
+  title: string;
+  executionStatus?: string | null;
+  elements: FieldReadyElementRow[];
+  ready?: number;
+  blocked?: number;
+  notApplicable?: number;
+  unverifiable?: number;
+}
+
+export interface PackageFieldReadiness {
+  answered: boolean;
+  refusal?: string;
+  packageId?: number;
+  packageCode?: string;
+  packageType?: string;
+  status?: string;
+  workOrders?: number;
+  items?: FieldReadyWorkOrder[];
+  /** Whether an assessment was ever RECORDED. Never defaulted to true. */
+  assessed?: boolean;
+  assessedAt?: string | null;
+  assessmentRunId?: string | null;
+  assessmentCodeVersion?: string | null;
+  assessmentNote?: string;
+  /** Verbatim from sync_work_package_release_verdict. Never restated here. */
+  readiness?: string;
+  readinessVerdict?: string;
+  canRelease?: boolean;
+  openConstraints?: {
+    constraint_id: string;
+    kind: string;
+    state: string;
+    description: string;
+    owner_role: string | null;
+    required_by: string | null;
+    expected_clear_date: string | null;
+  }[];
+  /** Empty unless the verdict is `stale`. Composed, never recomputed. */
+  fieldReadinessGaps?: FieldReadinessGap[];
+  basis?: string;
+}
+
+/** D7.11/D7.12: WHICH element is not ready, per work order in the package. */
+export async function getPackageFieldReadiness(
+  packageId: number,
+): Promise<PackageFieldReadiness> {
+  const { data, error } = await supabase.rpc("get_package_field_readiness", {
+    p_package_id: packageId,
+  });
+  return unwrap(data, error);
+}
+
+export interface FieldReadinessAssessment {
+  answered: boolean;
+  refusal?: string;
+  packageId?: number;
+  packageCode?: string;
+  workOrders?: number;
+  elementsPerWorkOrder?: number;
+  derivedBlockersRecorded?: number;
+  /** Derived elements no store could answer, recorded as questions. */
+  derivedQuestionsRaised?: number;
+  declaredQuestionsRaised?: number;
+  unverifiableElements?: number;
+  previousDerivedRowsReplaced?: number;
+  constraintsWritten?: number;
+  items?: FieldReadyWorkOrder[];
+  calculationRunId?: string;
+  codeVersion?: string;
+  verdict?: string;
+  readiness?: string;
+  canRelease?: boolean;
+  note?: string;
+}
+
+/**
+ * D7.05/D7.12: walks the ten elements for every work order in the package and
+ * records what is NOT established as constraints the ONE release verdict
+ * already refuses on.
+ *
+ * It declares nothing ready. §70 reserves that for a person, and the database
+ * enforces it — this call cannot produce a `satisfied` constraint whoever runs
+ * it.
+ */
+export async function assessPackageFieldReadiness(
+  packageId: number,
+): Promise<FieldReadinessAssessment> {
+  const { data, error } = await supabase.rpc("assess_package_field_readiness", {
+    p_package_id: packageId,
+  });
+  return unwrap(data, error);
+}
+
+export interface ExecutionReadinessPackage {
+  packageId: number;
+  packageCode: string;
+  title: string;
+  packageType: string;
+  level: number;
+  caseId: string;
+  caseTitle: string | null;
+  area: string | null;
+  requiredBy: string | null;
+  status: string;
+  /** Verbatim from the ONE predicate. The board restates no rule. */
+  readiness: string;
+  readinessVerdict: string;
+  canRelease: boolean;
+  constraintsRecorded: number;
+  openHard: number;
+  workOrders: number;
+  blockingItems: {
+    constraintId: string;
+    kind: string;
+    state: string;
+    description: string;
+    basis: string;
+    sourceKind: string;
+    ownerRole: string | null;
+    ownerEmail: string | null;
+    requiredBy: string | null;
+    expectedClearDate: string | null;
+  }[];
+  /** Empty unless the verdict is `stale`. Composed, never recomputed. */
+  fieldReadinessGaps: FieldReadinessGap[];
+  fieldReadinessAssessed: boolean;
+  fieldReadinessAssessedAt: string | null;
+  fieldReadinessRunId: string | null;
+  fieldReadinessOutputs: Record<string, unknown> | null;
+  fieldReadinessNote: string;
+}
+
+export interface ExecutionReadinessBoard {
+  answered: boolean;
+  refusal?: string;
+  caseId?: string | null;
+  packageCount?: number;
+  awaitingRelease?: number;
+  packages?: ExecutionReadinessPackage[];
+  basis?: string;
+  note?: string;
+}
+
+/**
+ * D13.09 / D7.19: the Execution Readiness board — the packages a person must
+ * act on, composed from recorded verdicts.
+ */
+export async function getExecutionReadinessBoard(
+  caseId?: string | null,
+): Promise<ExecutionReadinessBoard> {
+  const { data, error } = await supabase.rpc("get_execution_readiness_board", {
+    p_case_id: caseId ?? null,
+  });
+  return unwrap(data, error);
 }

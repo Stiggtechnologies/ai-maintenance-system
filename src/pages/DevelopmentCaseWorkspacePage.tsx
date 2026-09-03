@@ -2597,6 +2597,14 @@ export function DevelopmentCaseWorkspacePage() {
         >
           Assurance case
         </Link>
+        {/* D13.09 / D7.19 (Slice 7B): the packages awaiting a release
+            decision, across cases — the surface Workflow 4 names. */}
+        <Link
+          to="/execution-readiness"
+          className="rounded-lg border border-white/10 px-2.5 py-1 text-xs text-slate-300 hover:bg-white/5"
+        >
+          Execution readiness
+        </Link>
       </div>
 
       {/* Case header */}
