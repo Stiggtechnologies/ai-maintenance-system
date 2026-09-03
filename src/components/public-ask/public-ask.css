@@ -403,6 +403,16 @@
   color: #3a4048;
 }
 
+.bolt-public .role-user > div {
+  border-color: #d7dde3;
+  background: #f3f4f6;
+}
+
+.bolt-public .role-system > div {
+  border-left-color: #cbd5dc;
+  background: #f6f7f8;
+}
+
 .bolt-public .dw-avatar {
   border-color: #d7dde3;
   color: var(--bolt-teal);
@@ -558,6 +568,17 @@
   .bolt-ask-bar {
     min-height: 54px;
     padding-left: 16px;
+  }
+
+  .bolt-ask-tool[aria-label="Search"],
+  .bolt-ask-tool[aria-label="Web search"] {
+    display: none;
+  }
+
+  .bolt-ask-tool,
+  .bolt-ask-send {
+    width: 32px;
+    height: 32px;
   }
 
   .bolt-pills {
