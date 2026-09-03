@@ -164,7 +164,13 @@ const FLOORS: Record<string, Floors> = {
     // are shared symbols. Re-derived to sit AT the live numbers again, which is
     // a tightening on three counts and — the one that matters — a LOWER ceiling
     // on the unenforced ✅ population.
-    rowsWithAnEnforceableCitation: 152,
+    // 152/213/47/184 -> 153/217/49/184 on 2026-09-03 (Slice 7B). The
+    // enterprise register did not change in this slice either; the numbers
+    // moved because the gate's resolver now walks the new field-readiness
+    // service functions and the Execution Readiness page, which are shared
+    // symbols. Re-derived to sit AT the live numbers again — a tightening on
+    // three counts, with the ceiling unchanged.
+    rowsWithAnEnforceableCitation: 153,
     // 215 -> 206 on 2026-08-26. This drop is NOT the gate losing reach: it is the
     // gate WINNING. 74 rows were demoted from ✅ this same commit because their
     // cited symbol or table has no customer-reachable path, and a demoted row's
@@ -174,8 +180,8 @@ const FLOORS: Record<string, Floors> = {
     // It may only be lowered again with the same kind of reason stated here. A
     // silent decrease means the parser stopped understanding evidence it used to
     // understand, which is precisely the failure this number exists to catch.
-    citationsEnforced: 213,
-    claimedRowsEnforced: 47,
+    citationsEnforced: 217,
+    claimedRowsEnforced: 49,
     claimedRowsUnenforced: 184,
   },
   // Derived 2026-08-28, the commit that first ran this gate against the
@@ -573,9 +579,34 @@ const FLOORS: Record<string, Floors> = {
     // `restoration_blockers` is still restoration-event-only, so it stays 🟡
     // with both residuals named. Nothing was exempted, no floor was lowered,
     // and EXEMPTIONS is still empty.
-    rowsWithAnEnforceableCitation: 170,
-    citationsEnforced: 1027,
-    claimedRowsEnforced: 110,
+    //
+    // 170/1027/110 -> 172/1067/114 (2026-09-03, Slice 7B). ONE field-readiness
+    // engine now serves both the recovery path and the AWP packages: the ten
+    // §27 elements as a single predicate on the work identity, Recovery's own
+    // door refusing THROUGH it rather than holding a copy of the material and
+    // permit/isolation rules, the assessment recorded into the one lineage
+    // ledger, and the Execution Readiness board composing verdicts it does not
+    // recompute. D7.05, D7.11, D7.19 and D13.09 flip to ✅ on chains this gate
+    // can walk, and forty more citations become enforceable. RATCHETED UP for
+    // the reason this block gives every time: the added reach is real, and a
+    // later change must not be able to de-cite it with the suite still green.
+    //
+    // TWO ROWS WERE DELIBERATELY NOT FLIPPED, and each says why in its own
+    // evidence. D7.06 keeps a NEW residual — the release door does not require
+    // a field-readiness assessment, so a package NOBODY EVER WALKED still
+    // reads `ready_for_human` on a person's own cleared constraints, exactly
+    // as Slice 7A shipped it; requiring one would refuse every package 7A's
+    // transcript releases. The narrower half of that gap IS closed: the one
+    // verdict gained a SEVENTH refusing state (`stale`, 20261211090200) so a
+    // package cannot be released against a RECORDED assessment its canonical
+    // stores have moved past. D7.12 stays 🟡 because THREE of its ten elements (crew,
+    // access, work-order predecessors) have no canonical object at all, and
+    // inventing one to reach ✅ is the parallel store this whole programme
+    // exists to refuse. The CEILING did not move. Nothing was exempted, no
+    // floor was lowered, and EXEMPTIONS is still empty.
+    rowsWithAnEnforceableCitation: 172,
+    citationsEnforced: 1067,
+    claimedRowsEnforced: 114,
     // D11.04 (a CI-fence claim proved by a named test file), D11.10 (a
     // canonical seeded vocabulary, which the write-path judge would fail for
     // not being customer-writable — a question the row never asked) and
