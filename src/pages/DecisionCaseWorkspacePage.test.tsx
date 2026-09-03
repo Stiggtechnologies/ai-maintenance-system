@@ -175,6 +175,21 @@ describe("DecisionCaseWorkspacePage — Bolt first paint", () => {
     expect(spaces.textContent).not.toMatch(/develop/i);
   });
 
+  it("Mode B docks the composer because .bolt-public is a 100dvh viewport shell", () => {
+    renderWorkspace();
+    loadSample();
+    expect(document.querySelector(".bolt-public.is-thread")).toBeTruthy();
+    expect(document.querySelector(".bolt-ask-dock")).toBeTruthy();
+    expect(screen.getByPlaceholderText(ASK_PLACEHOLDER)).toBeTruthy();
+    const css = readFileSync(
+      "src/components/public-ask/public-ask.css",
+      "utf8",
+    );
+    const boltPublic = css.match(/^\.bolt-public\s*\{[^}]+\}/m)?.[0];
+    expect(boltPublic).toMatch(/height:\s*100dvh/);
+    expect(boltPublic).toMatch(/min-height:\s*100dvh/);
+  });
+
   it("a pill loads the recommendation in the assistant turn on a light thread", async () => {
     renderWorkspace();
     loadSample();
