@@ -174,6 +174,59 @@ function blockerLine(b: ReadinessBlocker): {
       ),
     };
   }
+  if (b.type === "procurement_package_unawarded") {
+    // D6.09: the mandatory long-lead package whose award-by date has passed.
+    // The date arithmetic is the SERVER's — this renders it, it does not
+    // recompute it, so the banner and the persistence wall cannot disagree.
+    return {
+      key: `pu-${b.id}`,
+      kind: `procurement package unawarded (${b.packageCode})`,
+      body: (
+        <>
+          {b.name}{" "}
+          <span className="text-red-300/80">
+            (award required by {b.awardRequiredBy}, commercial status{" "}
+            {b.commercialStatus.replace(/_/g, " ")})
+          </span>
+        </>
+      ),
+    };
+  }
+  if (b.type === "procurement_package_late") {
+    return {
+      key: `pl-${b.id}`,
+      kind: `procurement package late (${b.packageCode})`,
+      body: (
+        <>
+          {b.name}{" "}
+          <span className="text-red-300/80">
+            ({b.slippageDays} day(s) after the {b.requiredDate} the project
+            needs it)
+          </span>
+        </>
+      ),
+    };
+  }
+  if (b.type === "procurement_package_contract_late") {
+    // D6.09 leg 3: the mandatory package whose AWARDED CONTRACT completes
+    // after the date the project needs the equipment. The leg that closes
+    // "awarded late, no forecast recorded" — which legs 1 and 2 between them
+    // left silent, so a contract that could not deliver on time by its own
+    // terms raised nothing and the gate passed.
+    return {
+      key: `pcl-${b.id}`,
+      kind: `procurement contract cannot deliver on time (${b.packageCode})`,
+      body: (
+        <>
+          {b.name}{" "}
+          <span className="text-red-300/80">
+            (contract completes {b.contractCompletionDate}, {b.slippageDays}{" "}
+            day(s) after the {b.requiredDate} the project needs it)
+          </span>
+        </>
+      ),
+    };
+  }
   if (b.type === "assurance_not_satisfied") {
     return {
       key: `as-${b.id}`,
