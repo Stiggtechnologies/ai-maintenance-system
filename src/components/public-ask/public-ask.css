@@ -9,6 +9,7 @@
   --bolt-teal: #12b5a0;
   --bolt-send: #12b5a0;
   --bolt-canvas: #ffffff;
+  height: 100dvh;
   min-height: 100dvh;
   display: flex;
   background: var(--bolt-canvas);
