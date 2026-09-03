@@ -159,12 +159,14 @@ describe("navigation integrity", () => {
     ).toEqual([]);
   });
 
-  it("keeps the §2 tree at 43 items in 9 groups", () => {
+  it("keeps the §2 tree at 45 items in 9 groups", () => {
     // Sync Recovery is the ninth Work Management surface and owns the governed
-    // downtime-event orchestration flow. Sync Develop (Slice 1) is the fourth
-    // Whole Life surface — problem-first development cases under gates.
-    expect(groupSizes).toEqual([5, 4, 4, 2, 4, 10, 7, 3, 5]);
-    expect(navItems.length).toBe(44);
+    // downtime-event orchestration flow. Sync Develop (Slice 1) is a Whole Life
+    // surface — problem-first development cases under gates. Decision Workspace
+    // is the adjacent Develop-bound governed record; Cowork is the Mission
+    // collaboration surface and is no longer aliased onto /decision-cases.
+    expect(groupSizes).toEqual([5, 4, 4, 2, 5, 10, 7, 3, 5]);
+    expect(navItems.length).toBe(45);
   });
 
   it("keeps the §3 role-matrix sizes after Recovery and Develop are added", () => {
@@ -173,12 +175,12 @@ describe("navigation integrity", () => {
       ai_admin: null,
       operator: 8,
       technician: 10,
-      supervisor: 10,
-      planner: 20,
-      reliability_engineer: 30,
-      maintenance_manager: 29,
-      executive: 22,
-      board: 6,
+      supervisor: 11,
+      planner: 21,
+      reliability_engineer: 31,
+      maintenance_manager: 30,
+      executive: 24,
+      board: 7,
       assessment_sponsor: 2,
     });
   });
@@ -193,6 +195,49 @@ describe("navigation integrity", () => {
     expect(APP).toContain(
       'import SyncRecoveryPage from "./pages/SyncRecoveryPage"',
     );
+  });
+
+  it("splits Cowork (/cowork) from Decision Workspace (/decision-cases)", () => {
+    expect(navItems).toContainEqual({ id: "cowork", path: "/cowork" });
+    expect(navItems).toContainEqual({
+      id: "decision-workspace",
+      path: "/decision-cases",
+    });
+    expect(paletteItems).toContainEqual({
+      label: "Cowork",
+      path: "/cowork",
+    });
+    expect(paletteItems).toContainEqual({
+      label: "Decision Workspace",
+      path: "/decision-cases",
+    });
+    expect(matchRoutes(routes, "/cowork")).not.toBeNull();
+    expect(matchRoutes(routes, "/decision-cases")).not.toBeNull();
+    expect(APP).toContain('import { CoworkStudio } from "./pages/CoworkStudio"');
+    expect(APP).toContain('path="/cowork" element={<CoworkStudio />}');
+    expect(APP).not.toMatch(
+      /path="\/cowork"[\s\S]{0,80}Navigate to="\/decision-cases"/,
+    );
+    expect(APP).toContain(
+      'import { GovernedDecisionWorkspacePage } from "./pages/GovernedDecisionWorkspacePage"',
+    );
+
+    expect(allowEntries.board).toContain("cowork");
+    expect(allowEntries.board).not.toContain("decision-workspace");
+    expect(allowEntries.executive).toContain("cowork");
+    expect(allowEntries.executive).toContain("decision-workspace");
+    expect(allowEntries.supervisor).toContain("cowork");
+    expect(allowEntries.supervisor).not.toContain("decision-workspace");
+    expect(allowEntries.technician).toContain("cowork");
+    expect(allowEntries.technician).not.toContain("decision-workspace");
+    expect(allowEntries.operator).not.toContain("cowork");
+    expect(allowEntries.operator).not.toContain("decision-workspace");
+    expect(allowEntries.planner).toContain("cowork");
+    expect(allowEntries.planner).toContain("decision-workspace");
+    expect(allowEntries.reliability_engineer).toContain("cowork");
+    expect(allowEntries.reliability_engineer).toContain("decision-workspace");
+    expect(allowEntries.maintenance_manager).toContain("cowork");
+    expect(allowEntries.maintenance_manager).toContain("decision-workspace");
   });
 
   it("makes Sync Develop reachable from shell, palette and router (D1.04)", () => {
@@ -231,6 +276,7 @@ describe("navigation integrity", () => {
       "handover",
       "emergency",
       "briefing",
+      "cowork",
       "settings",
     ]);
     expect(allowEntries.board).toEqual([
@@ -239,6 +285,7 @@ describe("navigation integrity", () => {
       "value",
       "benchmarking",
       "trust",
+      "cowork",
       "settings",
     ]);
   });

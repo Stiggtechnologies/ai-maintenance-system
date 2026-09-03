@@ -81,6 +81,7 @@ import { ReliabilityCopilotPage } from "./pages/ReliabilityCopilotPage";
 import { FirstCustomerPilotPage } from "./pages/FirstCustomerPilotPage";
 import { DecisionCaseWorkspacePage } from "./pages/DecisionCaseWorkspacePage";
 import { GovernedDecisionWorkspacePage } from "./pages/GovernedDecisionWorkspacePage";
+import { CoworkStudio } from "./pages/CoworkStudio";
 import { DevelopCasesPage } from "./pages/DevelopCasesPage";
 import { DevelopIntakePage } from "./pages/DevelopIntakePage";
 import { DevelopmentCaseWorkspacePage } from "./pages/DevelopmentCaseWorkspacePage";
@@ -453,10 +454,10 @@ function AuthenticatedApp() {
               </AssessmentGate>
             }
           />
-          <Route
-            path="/cowork"
-            element={<Navigate to="/decision-cases" replace />}
-          />
+          {/* Cowork is collaboration of any intent — not Develop, not the
+              governed Decision Workspace. Persistence is cowork_workspaces
+              / cowork_messages. */}
+          <Route path="/cowork" element={<CoworkStudio />} />
           <Route
             path="/decision-cases"
             element={<GovernedDecisionWorkspacePage />}

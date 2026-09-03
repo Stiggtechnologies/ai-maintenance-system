@@ -66,6 +66,13 @@ const NAV_ALLOW: Record<string, Set<string> | null> = {
   // Recovery is visible because the operator may open an event and is one of
   // the two roles permitted to accept final return-to-service; Recovery's
   // server RPCs remain the authority for every button.
+  // cowork is omitted: operator's working surface is field execution and
+  // the three-party handover (release_equipment/accept_equipment gated TO
+  // it). Field collaboration already lives on Field and Handover. Cowork
+  // is a workspace-authoring surface; technician already has it for the
+  // maintenance-side collaboration job. Expanding this deliberately
+  // reduced set would blur operator vs technician. MENU VISIBILITY ONLY —
+  // an operator who bookmarks /cowork still hits the same RLS.
   operator: new Set([
     "mission-control",
     "assets",
@@ -81,6 +88,9 @@ const NAV_ALLOW: Record<string, Set<string> | null> = {
   // because returning equipment is the maintenance act in the three-party
   // loop). Recovery gives the technician the controlled live-execution lane;
   // planning/release/RTS controls remain server-denied.
+  // cowork is the field/handover collaboration surface (page framing).
+  // NO decision-workspace: technician has neither Develop nor
+  // decision-governance.
   technician: new Set([
     "mission-control",
     "work",
@@ -104,8 +114,12 @@ const NAV_ALLOW: Record<string, Set<string> | null> = {
   //                   actions; plan generation/release and RTS are not.
   //   handover      — return_equipment is the maintenance act.
   //   emergency, briefing — the frontline shift surfaces.
-  // NO approvals, NO decision-governance: the role holds no approval
-  // authority and no decision-rights rows.
+  //   cowork        — crew/work/recovery collaboration of any intent;
+  //                   page copy adapts; persistence is existing
+  //                   cowork_workspaces / cowork_messages RLS.
+  // NO approvals, NO decision-governance, NO decision-workspace: the
+  // role holds no approval authority, no decision-rights rows, and no
+  // Develop / decision-governance working surface.
   supervisor: new Set([
     "mission-control",
     "work",
@@ -116,14 +130,18 @@ const NAV_ALLOW: Record<string, Set<string> | null> = {
     "handover",
     "emergency",
     "briefing",
+    "cowork",
     "settings",
   ]),
   // planner owns the event-plan authoring lane: scope, constraints, verified
   // concurrency, deterministic plan generation, submission and approved-plan
   // release. Approval itself remains independent in the canonical queue.
+  // decision-workspace — planner already has Develop; the governed
+  // Decision Workspace is the Develop-bound record, not Cowork.
   planner: new Set([
     "mission-control",
     "develop",
+    "decision-workspace",
     "cowork",
     "assessments",
     "assets",
@@ -147,9 +165,11 @@ const NAV_ALLOW: Record<string, Set<string> | null> = {
   // is included for engineering constraints, concurrency verification, plan
   // generation and independent plan approval; field execution/RTS remain
   // server-gated to operating roles.
+  // decision-workspace — already has Develop + decision-governance.
   reliability_engineer: new Set([
     "mission-control",
     "develop",
+    "decision-workspace",
     "command-centers",
     "readiness",
     "assessments",
@@ -185,6 +205,7 @@ const NAV_ALLOW: Record<string, Set<string> | null> = {
   maintenance_manager: new Set([
     "mission-control",
     "develop",
+    "decision-workspace",
     "cowork",
     "assessments",
     "assets",
@@ -216,9 +237,13 @@ const NAV_ALLOW: Record<string, Set<string> | null> = {
   // executive receives Recovery as an explicitly read-oriented operating/value
   // view. The page may render controls, but every mutation is denied by the
   // Recovery RPC role gates; menu visibility never grants authority.
+  // cowork — portfolio collaboration (value/risk framing on the page).
+  // decision-workspace — executive already has develop + decision-governance.
   executive: new Set([
     "mission-control",
     "develop",
+    "decision-workspace",
+    "cowork",
     "command-centers",
     "readiness",
     "executive",
@@ -243,12 +268,16 @@ const NAV_ALLOW: Record<string, Set<string> | null> = {
   // board is a strict READ surface — executive-review surfaces only. Recovery
   // is deliberately excluded because the event workspace exposes operational
   // detail beyond the board governance job; aggregate value remains /value.
+  // cowork is included as portfolio collaboration (page framing; writes
+  // remain RLS-gated). decision-workspace is excluded: board has neither
+  // Develop nor decision-governance.
   board: new Set([
     "mission-control",
     "executive",
     "value",
     "benchmarking",
     "trust",
+    "cowork",
     "settings",
   ]),
   // Assessment sponsors remain limited to the engagement workspace/settings.

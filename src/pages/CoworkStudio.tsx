@@ -15,6 +15,9 @@ import {
   Rocket,
   TriangleAlert as AlertTriangle,
   CircleCheck as CheckCircle,
+  Users,
+  ClipboardList,
+  ArrowLeftRight,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { useOnboardingOperatingLoop } from "../hooks/useOnboardingOperatingLoop";
@@ -29,6 +32,12 @@ import {
 import type { CoworkMessageRow } from "../types/operating";
 import type { CoworkWorkspaceRow } from "../types/operating";
 import { LoadingState, ErrorState } from "../components/ui/AsyncStates";
+import { useAuth } from "../components/AuthProvider";
+import {
+  COWORK_BAND_COPY,
+  coworkRoleBand,
+  orderCoworkTemplates,
+} from "../lib/coworkRoleBand";
 
 function rowToWorkspace(row: CoworkWorkspaceRow): Workspace {
   return {
@@ -144,6 +153,24 @@ const workspaceTemplates = [
     label: "Emergency Recovery",
     icon: AlertTriangle,
     description: "Post-incident recovery and return-to-service planning",
+  },
+  {
+    id: "t-11",
+    label: "Shift Handover",
+    icon: Users,
+    description: "Capture open work, hazards, and the incoming shift notes",
+  },
+  {
+    id: "t-12",
+    label: "Field Observation",
+    icon: ClipboardList,
+    description: "Record a field observation or defect for the crew",
+  },
+  {
+    id: "t-13",
+    label: "Return-to-Service Notes",
+    icon: ArrowLeftRight,
+    description: "Handover notes for equipment returning to operations",
   },
 ];
 
@@ -273,6 +300,10 @@ function WorkspaceCard({
 }
 
 export function CoworkStudio() {
+  const { profile } = useAuth();
+  const band = coworkRoleBand(profile?.role as string | undefined);
+  const bandCopy = COWORK_BAND_COPY[band];
+  const templates = orderCoworkTemplates(workspaceTemplates, band);
   const [view, setView] = useState<"workspaces" | "new" | "thread">(
     "workspaces",
   );
@@ -362,10 +393,7 @@ export function CoworkStudio() {
           <h1 className="text-2xl font-bold text-white tracking-tight">
             Cowork Studio
           </h1>
-          <p className="text-sm text-slate-400 mt-0.5">
-            Collaborative AI workspaces for maintenance, reliability, and
-            mission assurance
-          </p>
+          <p className="text-sm text-slate-400 mt-0.5">{bandCopy.subtitle}</p>
         </div>
         <button
           onClick={() => setView(view === "new" ? "workspaces" : "new")}
@@ -400,7 +428,7 @@ export function CoworkStudio() {
                 onKeyDown={(e) => {
                   if (e.key === "Enter") handleStart(objective);
                 }}
-                placeholder="e.g., Create RCA for Pump P-101 with 5 seal failures in 9 months."
+                placeholder={bandCopy.placeholder}
                 className="flex-1 px-4 py-3 bg-white/3 border border-white/6 rounded-xl text-sm text-white placeholder-slate-600 focus:outline-hidden focus:border-teal-500/40 transition-colors"
               />
               <button
@@ -419,11 +447,12 @@ export function CoworkStudio() {
               Or choose a workspace template
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
-              {workspaceTemplates.map((t) => {
+              {templates.map((t) => {
                 const TIcon = t.icon;
                 return (
                   <button
                     key={t.id}
+                    data-testid={`cowork-template-${t.id}`}
                     onClick={() => handleStart(t.label)}
                     className="text-left p-4 bg-[#0D1520] border border-white/6 rounded-xl hover:border-teal-500/30 hover:bg-teal-500/5 transition-all group"
                   >
@@ -582,20 +611,32 @@ export function CoworkStudio() {
                   <WorkspaceCard workspace={ws} index={i} />
                 </div>
               ))}
+            {!loading && !error && filtered.length === 0 && (
+              <div
+                data-testid="cowork-empty"
+                className="bg-[#0D1520] border border-white/6 rounded-2xl p-5"
+              >
+                <p className="text-sm text-slate-300 leading-relaxed">
+                  {bandCopy.emptyHint}
+                </p>
+                <button
+                  onClick={() => setView("new")}
+                  className="mt-3 flex items-center gap-1.5 px-3 py-1.5 bg-teal-500/20 border border-teal-500/30 text-teal-400 text-xs font-medium rounded-lg hover:bg-teal-500/30 transition-colors"
+                >
+                  <Plus className="w-3.5 h-3.5" /> New Workspace
+                </button>
+              </div>
+            )}
           </div>
 
-          {/* Cowork Explanation */}
           <div className="bg-[#0D1520] border border-teal-500/10 rounded-xl p-4 flex items-start gap-3">
             <Brain className="w-4 h-4 text-teal-400 shrink-0 mt-0.5" />
             <div>
               <div className="text-sm font-bold text-teal-400">
-                AI-Powered Collaboration
+                {bandCopy.collaborationTitle}
               </div>
               <p className="text-xs text-slate-400 mt-1 leading-relaxed">
-                Cowork Studio connects you with SyncAI's 15 specialized agents.
-                Start with a plain-language objective and the right agents will
-                collaborate to produce actionable artifacts — RCA reports, PM
-                plans, executive briefings, and more.
+                {bandCopy.collaborationBlurb}
               </p>
             </div>
           </div>
