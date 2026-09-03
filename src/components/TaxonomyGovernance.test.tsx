@@ -70,7 +70,18 @@ describe("TaxonomyGovernance proposal path", () => {
     await screen.findByText("What constitutes a failure");
     expect(screen.queryByText("Propose revision")).not.toBeInTheDocument();
     expect(screen.getByTestId("taxonomy-honesty")).toHaveTextContent(
-      /does not replace adopted truth/,
+      /AI-operator identity is not offered propose or adopt/,
+    );
+  });
+
+  it("hides propose and adopt from the AI-operator identity", async () => {
+    role = "ai_admin";
+    render(<TaxonomyGovernance />);
+    await screen.findByText("What constitutes a failure");
+    expect(screen.queryByText("Propose revision")).not.toBeInTheDocument();
+    expect(screen.queryByText("Adopt")).not.toBeInTheDocument();
+    expect(screen.getByTestId("taxonomy-honesty")).toHaveTextContent(
+      /AI-operator identity is not offered propose or adopt/,
     );
   });
 

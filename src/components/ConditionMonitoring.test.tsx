@@ -87,7 +87,17 @@ describe("ConditionMonitoring adopt path", () => {
     await screen.findByText("Rolling-element bearing degradation");
     expect(screen.queryByText("Adopt")).not.toBeInTheDocument();
     expect(screen.getByTestId("pf-honesty")).toHaveTextContent(
-      /AI does not adopt/,
+      /AI-operator identity is not offered/,
+    );
+  });
+
+  it("hides adopt from the AI-operator identity", async () => {
+    role = "ai_admin";
+    render(<ConditionMonitoring />);
+    await screen.findByText("Rolling-element bearing degradation");
+    expect(screen.queryByText("Adopt")).not.toBeInTheDocument();
+    expect(screen.getByTestId("pf-honesty")).toHaveTextContent(
+      /AI-operator identity is not offered/,
     );
   });
 

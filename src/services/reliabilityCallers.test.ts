@@ -37,8 +37,11 @@ beforeEach(() => {
 describe("role gates", () => {
   it("admits the roles the RPCs name and refuses the rest", () => {
     expect(canAdoptPfInterval("reliability_engineer")).toBe(true);
+    expect(canAdoptPfInterval("admin")).toBe(true);
+    expect(canAdoptPfInterval("ai_admin")).toBe(false);
     expect(canAdoptPfInterval("technician")).toBe(false);
     expect(canGovernTaxonomy("maintenance_manager")).toBe(true);
+    expect(canGovernTaxonomy("ai_admin")).toBe(false);
     expect(canGovernTaxonomy("operator")).toBe(false);
     expect(canDecideVariance("admin")).toBe(true);
     expect(canDecideVariance("ai_admin")).toBe(false);

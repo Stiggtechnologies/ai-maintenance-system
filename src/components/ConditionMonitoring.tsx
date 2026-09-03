@@ -254,9 +254,9 @@ export function ConditionMonitoring() {
           className="mt-2 rounded-xl border border-white/8 bg-industrial-black/60 px-4 py-3 text-xs text-slate-400"
         >
           A recommended interval is not an authorized inspection frequency.
-          Adoption records the signed-in reliability engineer and requires a
-          stated engineering basis (20 characters). AI does not adopt an
-          interval here.
+          Adoption records the signed-in reliability engineer or administrator
+          and requires a stated engineering basis (20 characters). The
+          AI-operator identity is not offered this act.
         </p>
       </div>
 
@@ -342,8 +342,9 @@ export function ConditionMonitoring() {
 
       {!canAdopt && (
         <p className="text-xs text-slate-500">
-          Adopting a P-F interval requires the reliability engineer role. A
-          recommendation on this table is not authorization.
+          Adopting a P-F interval requires the reliability engineer or
+          administrator role. The AI-operator identity is not offered this act.
+          A recommendation on this table is not authorization.
         </p>
       )}
 

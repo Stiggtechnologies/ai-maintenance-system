@@ -16,19 +16,15 @@
  * Honesty bars held here:
  *   - a recommended P-F interval is not an authorized inspection frequency;
  *   - a taxonomy proposal is a draft and does not replace adopted truth;
- *   - accepting residual risk is a named-human act; AI cannot record one.
+ *   - accepting residual risk is a named-human act; the AI-operator
+ *     identity is not offered adopt, propose, decide, or accept.
  */
 import { supabase } from "../lib/supabase";
 
-export const PF_ADOPT_ROLES = [
-  "reliability_engineer",
-  "admin",
-  "ai_admin",
-] as const;
+export const PF_ADOPT_ROLES = ["reliability_engineer", "admin"] as const;
 
 export const TAXONOMY_GOVERN_ROLES = [
   "admin",
-  "ai_admin",
   "reliability_engineer",
   "maintenance_manager",
 ] as const;

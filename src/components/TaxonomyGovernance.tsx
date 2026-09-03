@@ -81,8 +81,8 @@ export function TaxonomyGovernance() {
           className="mt-2 rounded-xl border border-white/8 bg-industrial-black/60 px-4 py-3 text-xs text-slate-400"
         >
           Proposing a revision writes the next version as a draft. It does not
-          replace adopted truth. Adoption records the signed-in person. AI does
-          not authorize a definition.
+          replace adopted truth. Adoption records the signed-in person. The
+          AI-operator identity is not offered propose or adopt.
         </p>
       </div>
 
