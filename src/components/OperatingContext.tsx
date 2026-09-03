@@ -2,20 +2,26 @@
  * OperatingContext — run states, production and cost per produced unit
  * (capability register C2.04, C6.03, E3.02, E3.03).
  *
- * This is the input most other capabilities named as their blocker. Without it
- * the platform knows THAT an asset failed and never what it was doing when it
- * failed — and duty is usually the difference between a design problem and an
- * operating one.
+ * Org-level counts come from get_production_position. Per-asset duty comes
+ * from get_operating_context and get_operating_regime — the two readers
+ * that previously had no product caller, so a customer could see how many
+ * state records existed and never see one.
  *
  * Two things this panel refuses to do:
  *   * treat an asset with no state record as running — silence is not uptime;
  *   * quote a utilisation percentage without its COVERAGE, because 92%
  *     measured across 3% of the period is not 92% utilisation.
  */
+import { useState } from "react";
 import { Gauge, PackageOpen, CircleAlert } from "lucide-react";
 import { useAsyncData } from "../hooks/useAsyncData";
 import { supabase } from "../lib/supabase";
 import { LoadingState, ErrorState } from "./ui/AsyncStates";
+import { AssetOperatingDuty } from "./AssetOperatingDuty";
+import {
+  listAssetsForContext,
+  type AssetOption,
+} from "../services/reliabilityCallers";
 
 interface CostPerUnit {
   available: boolean;
@@ -47,6 +53,8 @@ export function OperatingContext() {
     if (e) throw new Error(e.message);
     return r as Payload;
   }, []);
+  const assets = useAsyncData<AssetOption[]>(listAssetsForContext, []);
+  const [assetId, setAssetId] = useState("");
 
   if (loading) return <LoadingState label="Loading operating context" />;
   if (error) return <ErrorState message={error} onRetry={refetch} />;
@@ -55,6 +63,7 @@ export function OperatingContext() {
   const covered = data?.assets_with_state_records ?? 0;
   const total = data?.assets ?? 0;
   const coveragePct = total > 0 ? Math.round((100 * covered) / total) : 0;
+  const options = assets.data ?? [];
 
   return (
     <section aria-labelledby="context-heading" className="space-y-4">
@@ -147,6 +156,45 @@ export function OperatingContext() {
             <span>{c?.basis}</span>
           </p>
         )}
+      </div>
+
+      <div
+        data-testid="operating-context-reader"
+        className="rounded-xl border border-white/8 bg-industrial-black/60 p-4"
+      >
+        <label className="block">
+          <span className="mb-1 block text-xs font-medium text-slate-400">
+            Read duty for one asset
+          </span>
+          <select
+            aria-label="Asset for operating context"
+            value={assetId}
+            onChange={(e) => setAssetId(e.target.value)}
+            className="w-full max-w-xl rounded-lg border border-white/10 bg-industrial-black px-3 py-2 text-sm text-slate-200"
+          >
+            <option value="">
+              {options.length === 0
+                ? "No asset is registered in this organization"
+                : "Select an asset — counts above are not a duty profile"}
+            </option>
+            {options.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.name}
+                {a.asset_tag ? ` · ${a.asset_tag}` : ""}
+              </option>
+            ))}
+          </select>
+        </label>
+        <p className="mt-2 text-xs text-slate-500">
+          Org-level counts are not a duty profile. Selecting an asset calls
+          get_operating_context and get_operating_regime. Silence is not uptime;
+          Unknown duty is not folded into high, moderate, or low.
+        </p>
+        {assetId ? (
+          <div className="mt-4">
+            <AssetOperatingDuty assetId={assetId} />
+          </div>
+        ) : null}
       </div>
 
       {(data?.state_records ?? 0) === 0 && (
