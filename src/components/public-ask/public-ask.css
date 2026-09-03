@@ -255,10 +255,10 @@
 
 .bolt-pills {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   justify-content: center;
-  gap: 10px;
-  width: min(540px, 100%);
+  gap: 8px;
+  width: min(560px, 100%);
   margin: 18px 0 0;
   padding: 0;
   list-style: none;
@@ -268,8 +268,9 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  min-height: 38px;
-  padding: 0 14px;
+  min-height: 36px;
+  padding: 0 10px;
+  white-space: nowrap;
   border: 1px solid #e1e5ea;
   border-radius: 10px;
   background: #ffffff;
@@ -625,6 +626,7 @@
   }
 
   .bolt-pills {
+    flex-wrap: wrap;
     gap: 8px;
   }
 
