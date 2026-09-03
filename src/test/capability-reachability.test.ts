@@ -534,9 +534,28 @@ const FLOORS: Record<string, Floors> = {
     //
     // The CEILING did not move. EXEMPTIONS is still empty and no floor was
     // lowered.
-    rowsWithAnEnforceableCitation: 164,
-    citationsEnforced: 927,
-    claimedRowsEnforced: 105,
+    //
+    // 164/927/105 -> 166/986/107 (2026-09-02, Slice 6B; citations 980 -> 986 in
+    // the repair pass, where the D6.06/D6.01/D11.33 rows gained citations
+    // naming the defects the repair closed). The commercial life of
+    // a contract after signature landed — change orders through the SAME
+    // authority the award used, invoices payable once, claims frozen when
+    // answered, warranties that expire — with D6.06 and D6.01 flipping to ✅ on
+    // chains this gate can walk, and fifty-three more citations became
+    // enforceable. RATCHETED UP for the reason this block gives every time: the
+    // added reach is real, and a later change must not be able to de-cite it
+    // with the suite still green.
+    //
+    // The CEILING did not move, and the gate earned its keep again: D6.07 was
+    // WRITTEN as a ✅ and this gate demoted it, because two middle hops of the
+    // specification→failure thread read `material_suppliers` and `bom_lines`,
+    // which have no customer write path at all — the slice's own transcript had
+    // to seed both by direct SQL. The traversal is real and refuses at that hop
+    // by name; the row says 🟡 and says why. Nothing was exempted, no floor was
+    // lowered, and EXEMPTIONS is still empty.
+    rowsWithAnEnforceableCitation: 166,
+    citationsEnforced: 986,
+    claimedRowsEnforced: 107,
     // D11.04 (a CI-fence claim proved by a named test file), D11.10 (a
     // canonical seeded vocabulary, which the write-path judge would fail for
     // not being customer-writable — a question the row never asked) and

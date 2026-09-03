@@ -5062,7 +5062,47 @@ export interface ProcurementPackageRow {
   deliveryNotAssessableReason: string | null;
   actualDeliveryDate: string | null;
   commitment: CommitmentPosition;
+  /**
+   * Slice 6B: the contract's life AFTER signature, from
+   * `contract_commercial_summary`. Refuses on an unawarded package rather than
+   * returning empty counters, because a package nobody awarded has no
+   * commercial life to be at zero.
+   */
+  commercial: CommercialSummary;
 }
+
+export type CommercialSummary =
+  | { answered: false; refusal: string }
+  | {
+      answered: true;
+      awardedValue: number | null;
+      currentValue: number | null;
+      currency: string | null;
+      changeOrdersApproved: number;
+      changeOrdersDraft: number;
+      changeOrderDelta: number;
+      /** Null when the ONE invoice position REFUSES — never a confident zero. */
+      invoices: number | null;
+      invoicesAwaitingPayment: number | null;
+      /** The position's own refusal, carried verbatim to the case screen. */
+      invoiceRefusal: string | null;
+      claimsRaised: number;
+      claimsOpen: number;
+      claimsSettledNet: number | null;
+      /**
+       * A settled claim does not move the contract by itself. The SENTENCE is
+       * carried; the arithmetic that used to accompany it is gone — nothing
+       * links a claim to the change order that carries it, so the difference
+       * was wrong in both directions.
+       */
+      settlementNote: string | null;
+      warrantyTerms: number;
+      /** Counted off warranty_cover_position, not off `ends_on < today`. */
+      warrantyExpired: number;
+      /** Terms the ONE cover predicate refuses over. Counted AND rendered. */
+      warrantyNotAssessable: number;
+      warrantyGap: string | null;
+    };
 
 export type CommitmentPosition =
   | {
@@ -5679,5 +5719,667 @@ export async function listCaseCostItemRefs(
     ref: row.cost_item_ref as string,
     description: row.description as string,
     currency: row.currency as string,
+  }));
+}
+
+/* ═════════════════════ Sync Develop Slice 6B ═══════════════════════════════
+ * The commercial life of a contract after signature (D6.06), the vendor
+ * quality record accrued from acts (D6.01) and the specification-to-failure
+ * commercial thread (D6.07).
+ *
+ * Every wrapper below is a thin call onto a definer RPC. None of them computes
+ * anything: what a contract is worth, what is committed, what is invoiced and
+ * whether a warranty covers are each answered by exactly one server predicate,
+ * and a second arithmetic here would be a second answer.
+ * ═════════════════════════════════════════════════════════════════════════ */
+
+export interface ChangeOrderInput {
+  change_order_ref: string;
+  description: string;
+  reason: string;
+  /** Signed. Positive commits more of the owner's money, negative releases it. */
+  value_delta: string;
+  time_delta_days?: string;
+}
+
+export async function recordContractChangeOrder(
+  packageId: number,
+  input: ChangeOrderInput,
+): Promise<{
+  change_order_id: number;
+  change_order_ref: string;
+  package_code: string;
+  valueDelta: number;
+  currency: string;
+  timeDeltaDays: number;
+  contractValueNow: number;
+  contractValueIfApproved: number;
+  revised: boolean;
+  note: string;
+}> {
+  const { data, error } = await supabase.rpc("record_contract_change_order", {
+    p_package_id: packageId,
+    p_change: input,
+  });
+  return unwrapRpc(data, error, "Could not record the change order");
+}
+
+/**
+ * §41-43 + §70: routed through THE SAME authority evaluator and the same
+ * `authority_limits.action_type = 'contract_award'` the award used, with the
+ * ceiling cumulative across this person's awards AND change orders on the case.
+ */
+export async function decideContractChangeOrder(
+  changeOrderId: number,
+  decision: "approved" | "rejected",
+  note: string,
+): Promise<{
+  change_order_id: number;
+  change_order_ref: string;
+  status: string;
+  contractValue: number;
+  currency: string;
+  valueDelta?: number;
+  contractValueBefore?: number;
+  approvedUnder?: string;
+  ceiling?: number;
+  commitmentNote?: string;
+}> {
+  const { data, error } = await supabase.rpc("decide_contract_change_order", {
+    p_change_order_id: changeOrderId,
+    p_decision: decision,
+    p_note: note,
+  });
+  return unwrapRpc(data, error, "Could not decide the change order");
+}
+
+export async function withdrawContractChangeOrder(
+  changeOrderId: number,
+  reason: string,
+): Promise<{ change_order_id: number; status: string; note: string }> {
+  const { data, error } = await supabase.rpc("withdraw_contract_change_order", {
+    p_change_order_id: changeOrderId,
+    p_reason: reason,
+  });
+  return unwrapRpc(data, error, "Could not withdraw the change order");
+}
+
+export interface ContractClaimInput {
+  claim_ref: string;
+  direction: "from_supplier" | "against_supplier";
+  grounds: string;
+  claimed_value: string;
+  time_claimed_days?: string;
+  raised_on?: string;
+}
+
+export async function recordContractClaim(
+  packageId: number,
+  input: ContractClaimInput,
+): Promise<{
+  claim_id: number;
+  claim_ref: string;
+  direction: string;
+  claimedValue: number;
+  currency: string;
+  status: string;
+  revised: boolean;
+  note: string;
+}> {
+  const { data, error } = await supabase.rpc("record_contract_claim", {
+    p_package_id: packageId,
+    p_claim: input,
+  });
+  return unwrapRpc(data, error, "Could not record the claim");
+}
+
+/** §70: answering a claim is a human determination, and it FREEZES the claim. */
+export async function answerContractClaim(
+  claimId: number,
+  answer: "accepted" | "partially_accepted" | "rejected",
+  note: string,
+  settledValue?: string,
+  settledTimeDays?: string,
+): Promise<{
+  claim_id: number;
+  claim_ref: string;
+  status: string;
+  claimedValue: number;
+  settledValue: number | null;
+  currency: string;
+  frozen: boolean;
+  carryNote: string | null;
+}> {
+  const { data, error } = await supabase.rpc("answer_contract_claim", {
+    p_claim_id: claimId,
+    p_answer: answer,
+    p_note: note,
+    p_settled_value: settledValue ?? null,
+    p_settled_time_days: settledTimeDays ?? null,
+  });
+  return unwrapRpc(data, error, "Could not answer the claim");
+}
+
+export async function withdrawContractClaim(
+  claimId: number,
+  reason: string,
+): Promise<{ claim_id: number; status: string; note: string }> {
+  const { data, error } = await supabase.rpc("withdraw_contract_claim", {
+    p_claim_id: claimId,
+    p_reason: reason,
+  });
+  return unwrapRpc(data, error, "Could not withdraw the claim");
+}
+
+export interface ContractInvoiceInput {
+  invoice_ref: string;
+  invoice_date: string;
+  description: string;
+  gross_amount: string;
+  period_start?: string;
+  period_end?: string;
+}
+
+export async function recordContractInvoice(
+  packageId: number,
+  input: ContractInvoiceInput,
+): Promise<{
+  invoice_id: number;
+  invoice_ref: string;
+  grossAmount: number;
+  currency: string;
+  status: string;
+  revised: boolean;
+  note: string;
+}> {
+  const { data, error } = await supabase.rpc("record_contract_invoice", {
+    p_package_id: packageId,
+    p_invoice: input,
+  });
+  return unwrapRpc(data, error, "Could not record the invoice");
+}
+
+/** §70: certification is the statement that money is due, and it freezes the row. */
+export async function certifyContractInvoice(
+  invoiceId: number,
+  decision: "certified" | "rejected",
+  note: string,
+  certifiedAmount?: string,
+): Promise<{
+  invoice_id: number;
+  invoice_ref: string;
+  status: string;
+  certifiedAmount?: number;
+  certifiedTotal?: number;
+  contractValue?: number;
+  remainingToCertify?: number;
+  withheld?: number | null;
+  frozen: boolean;
+  note: string;
+}> {
+  const { data, error } = await supabase.rpc("certify_contract_invoice", {
+    p_invoice_id: invoiceId,
+    p_decision: decision,
+    p_note: note,
+    p_certified_amount: certifiedAmount ?? null,
+  });
+  return unwrapRpc(data, error, "Could not certify the invoice");
+}
+
+/** Paid ONCE. A second payment is refused by name, and un-paying is refused at the table. */
+export async function recordInvoicePayment(
+  invoiceId: number,
+  paymentReference: string,
+  note: string,
+): Promise<{
+  invoice_id: number;
+  invoice_ref: string;
+  status: string;
+  paidAmount: number;
+  currency: string;
+  paymentReference: string;
+  note: string;
+}> {
+  const { data, error } = await supabase.rpc("record_invoice_payment", {
+    p_invoice_id: invoiceId,
+    p_payment_reference: paymentReference,
+    p_note: note,
+  });
+  return unwrapRpc(data, error, "Could not record the payment");
+}
+
+export interface WarrantyTermInput {
+  warranty_ref: string;
+  covers: string;
+  basis: string;
+  starts_on: string;
+  /** A warranty must expire: an end date, a usage limit, or both. */
+  ends_on?: string;
+  usage_limit?: string;
+  usage_unit?: string;
+  claim_window_days?: string;
+  exclusions?: string;
+  package_id?: string;
+  asset_id?: string;
+  material_id?: string;
+  supplier_id?: string;
+}
+
+export async function recordWarrantyTerm(input: WarrantyTermInput): Promise<{
+  warranty_id: number;
+  warranty_ref: string;
+  startsOn: string;
+  endsOn: string | null;
+  usageLimit: number | null;
+  claimWindowDays: number | null;
+  revised: boolean;
+  coverToday: WarrantyCoverPosition;
+  note: string | null;
+}> {
+  const { data, error } = await supabase.rpc("record_warranty_term", {
+    p_term: input,
+  });
+  return unwrapRpc(data, error, "Could not record the warranty term");
+}
+
+/** The ONE cover predicate's answer, as the server returns it. */
+export type WarrantyCoverPosition =
+  | { answered: false; covered: null; refusal: string }
+  | {
+      answered: true;
+      covered: boolean;
+      reason: string;
+      endsOn?: string | null;
+      expiredByDays?: number;
+      daysRemaining?: number | null;
+      usageAssessed?: boolean;
+    };
+
+export interface WarrantyClaimInput {
+  claim_ref: string;
+  failure_on: string;
+  claim_value: string;
+  currency?: string;
+  usage_at_failure?: string;
+  work_order_id?: string;
+}
+
+export async function raiseWarrantyClaim(
+  warrantyId: number,
+  input: WarrantyClaimInput,
+): Promise<{
+  claim_id: number;
+  claim_ref: string;
+  warrantyRef: string | null;
+  failureOn: string;
+  claimValue: number;
+  currency: string | null;
+  status: string;
+  cover: WarrantyCoverPosition;
+  claimWindowDays: number | null;
+  note: string | null;
+}> {
+  const { data, error } = await supabase.rpc("raise_warranty_claim", {
+    p_warranty_id: warrantyId,
+    p_claim: input,
+  });
+  return unwrapRpc(data, error, "Could not raise the warranty claim");
+}
+
+/** Records TIME_BARRED rather than submitting when the claim window has closed. */
+export async function submitWarrantyClaim(
+  claimId: number,
+  note: string,
+): Promise<{
+  claim_id: number;
+  claim_ref: string;
+  status: string;
+  daysLate?: number;
+  windowClosedOn?: string;
+  windowClosesOn?: string | null;
+  note?: string;
+}> {
+  const { data, error } = await supabase.rpc("submit_warranty_claim", {
+    p_claim_id: claimId,
+    p_note: note,
+  });
+  return unwrapRpc(data, error, "Could not submit the warranty claim");
+}
+
+/** §70: accepting a warranty settlement is a human act, and it freezes the claim. */
+export async function answerWarrantyClaim(
+  claimId: number,
+  outcome: "accepted" | "rejected",
+  note: string,
+  recoveredValue?: string,
+): Promise<{
+  claim_id: number;
+  claim_ref: string;
+  status: string;
+  claimValue: number | null;
+  recoveredValue: number | null;
+  shortfall: number | null;
+  frozen: boolean;
+  note: string;
+}> {
+  const { data, error } = await supabase.rpc("answer_warranty_claim", {
+    p_claim_id: claimId,
+    p_outcome: outcome,
+    p_note: note,
+    p_recovered_value: recoveredValue ?? null,
+  });
+  return unwrapRpc(data, error, "Could not answer the warranty claim");
+}
+
+export async function withdrawWarrantyClaim(
+  claimId: number,
+  reason: string,
+): Promise<{ claim_id: number; status: string; note: string }> {
+  const { data, error } = await supabase.rpc("withdraw_warranty_claim", {
+    p_claim_id: claimId,
+    p_reason: reason,
+  });
+  return unwrapRpc(data, error, "Could not withdraw the warranty claim");
+}
+
+export interface ContractPerformanceInput {
+  period_start: string;
+  period_end: string;
+  basis: string;
+  planned_hours?: string;
+  actual_hours?: string;
+  planned_cost?: string;
+  actual_cost?: string;
+  rework_events?: string;
+  safety_incidents?: string;
+  quality_escapes?: string;
+  note?: string;
+}
+
+/** D6.01: the write path contract_performance never had. */
+export async function recordContractPerformancePeriod(
+  packageId: number,
+  input: ContractPerformanceInput,
+): Promise<{
+  performance_id: number;
+  supplierId: number;
+  periodStart: string;
+  periodEnd: string;
+  reworkEvents: number;
+  safetyIncidents: number;
+  qualityEscapes: number;
+  revised: boolean;
+  note: string;
+}> {
+  const { data, error } = await supabase.rpc(
+    "record_contract_performance_period",
+    { p_package_id: packageId, p_period: input },
+  );
+  return unwrapRpc(data, error, "Could not record the performance period");
+}
+
+/** One contract's whole commercial life, every figure from its own predicate. */
+export interface ContractCommercial {
+  packageId: number;
+  packageCode: string;
+  answered: boolean;
+  refusal?: string;
+  supplier?: string | null;
+  supplierId?: number | null;
+  contractType?: string | null;
+  awardedValue?: number | null;
+  currency?: string | null;
+  currentValue?: number | null;
+  contractStartDate?: string | null;
+  contractCompletionDate?: string | null;
+  summary?: Record<string, unknown>;
+  commitment?: Record<string, unknown>;
+  invoicePosition?: Record<string, unknown>;
+  changeOrders?: {
+    changeOrderId: number;
+    changeOrderRef: string;
+    description: string;
+    reason: string;
+    valueDelta: number;
+    currency: string;
+    timeDeltaDays: number;
+    status: string;
+    decidedAt: string | null;
+    decisionNote: string | null;
+    contractValueBefore: number | null;
+    contractValueAfter: number | null;
+    frozen: boolean;
+  }[];
+  invoices?: {
+    invoiceId: number;
+    invoiceRef: string;
+    invoiceDate: string;
+    description: string;
+    grossAmount: number;
+    certifiedAmount: number | null;
+    currency: string;
+    status: string;
+    certifiedAt: string | null;
+    paidAt: string | null;
+    paymentReference: string | null;
+    payable: boolean;
+    frozen: boolean;
+    withheld: number | null;
+  }[];
+  claims?: {
+    claimId: number;
+    claimRef: string;
+    direction: string;
+    grounds: string;
+    claimedValue: number;
+    currency: string;
+    timeClaimedDays: number;
+    raisedOn: string;
+    status: string;
+    settledValue: number | null;
+    answeredAt: string | null;
+    answerNote: string | null;
+    frozen: boolean;
+  }[];
+  warranties?: {
+    warrantyId: number;
+    warrantyRef: string | null;
+    startsOn: string;
+    endsOn: string | null;
+    usageLimit: number | null;
+    usageUnit: string | null;
+    claimWindowDays: number | null;
+    covers: string | null;
+    exclusions: string | null;
+    coverToday: WarrantyCoverPosition;
+    claims: {
+      claimId: number;
+      claimRef: string | null;
+      failureOn: string | null;
+      raisedOn: string;
+      claimValue: number | null;
+      recoveredValue: number | null;
+      currency: string | null;
+      status: string;
+      coverBasis: string | null;
+      answeredAt: string | null;
+      frozen: boolean;
+    }[];
+  }[];
+  basis?: string;
+}
+
+export async function getContractCommercial(
+  packageId: number,
+): Promise<ContractCommercial> {
+  const { data, error } = await supabase.rpc("get_contract_commercial", {
+    p_package_id: packageId,
+  });
+  return unwrap(data, error);
+}
+
+/** D6.01: accrued from acts, never stored. Refuses when no period is recorded. */
+export interface VendorQualityRecord {
+  supplierId: number;
+  supplier: string;
+  supplierCode: string;
+  answered: boolean;
+  refusal?: string;
+  periods?: number;
+  firstPeriod?: string | null;
+  lastPeriod?: string | null;
+  awardedContracts?: number;
+  plannedHours?: number | null;
+  actualHours?: number | null;
+  productivityFactor?: number | null;
+  productivityNote?: string | null;
+  /** Refuses across currencies and over periods that sit on no contract. */
+  cost?: {
+    answered: boolean;
+    refusal?: string;
+    currency?: string | null;
+    plannedCost?: number | null;
+    actualCost?: number | null;
+    costPerformanceFactor?: number | null;
+    costFactorNote?: string | null;
+  };
+  reworkEvents?: number;
+  reworkPerThousandHours?: number | null;
+  reworkRateNote?: string | null;
+  safetyIncidents?: number;
+  qualityEscapes?: number;
+  deliveries?: {
+    recorded: number;
+    assessable: number;
+    onTime: number;
+    rejectedOnReceipt: number;
+    onTimeRate: number | null;
+    /** "100% on time over deliveries nobody dated" is what this prevents. */
+    refusal: string | null;
+  };
+  warranty?: {
+    terms: number;
+    claims: number;
+    accepted: number;
+    timeBarred: number;
+    claimedValue: number | null;
+    recoveredValue: number | null;
+    currency: string | null;
+    refusal: string | null;
+    /** Cover was real and the entitlement lapsed — money not recovered. */
+    timeBarredNote: string | null;
+  };
+  /** Signed by direction and single-currency, or a refusal. Never a bare sum. */
+  contractClaims?: {
+    raised: number;
+    currency?: string | null;
+    settledFromSupplier?: number | null;
+    settledAgainstSupplier?: number | null;
+    settledNet?: number | null;
+    refusal?: string | null;
+  };
+  approvedVendor?: boolean;
+  safetyQualificationStatus?: string;
+  qualificationExpired?: boolean;
+  basis?: string;
+}
+
+export async function getVendorQualityRecord(
+  supplierId: number,
+): Promise<VendorQualityRecord> {
+  const { data, error } = await supabase.rpc("get_vendor_quality_record", {
+    p_supplier_id: supplierId,
+  });
+  return unwrap(data, error);
+}
+
+/** D6.07: the Specification → ProcurementPackage hop of the commercial thread. */
+export async function linkPackageSpecification(
+  packageId: number,
+  requirementRef: string,
+  basis: string,
+): Promise<{
+  link_id: number;
+  package_code: string;
+  requirementRef: string;
+  requirement: string;
+  derivedFromFailureMode: string | null;
+  note: string;
+}> {
+  const { data, error } = await supabase.rpc("link_package_specification", {
+    p_package_id: packageId,
+    p_requirement_ref: requirementRef,
+    p_basis: basis,
+  });
+  return unwrapRpc(data, error, "Could not link the specification");
+}
+
+export interface SpecificationFailureThread {
+  requirementRef: string;
+  requirement: string;
+  category?: string;
+  derivedFromFailureMode: string | null;
+  answered: boolean;
+  refusal?: string;
+  packages?: {
+    packageId: number;
+    packageCode: string;
+    title: string;
+    linkBasis: string;
+    bids: number;
+    awarded: boolean;
+    contractValue: number | null;
+    currency: string | null;
+    supplier: string | null;
+    hopNote: string | null;
+  }[];
+  packageCount?: number;
+  awardedPackages?: number;
+  vendors?: { supplierId: number; supplier: string; approvedVendor: boolean }[];
+  materials?: number;
+  installedAssets?: number;
+  failures?: {
+    failureMode: string;
+    occurrences: number;
+    assetsAffected: number;
+    firstSeen: string | null;
+    lastSeen: string | null;
+  }[];
+  failureTotal?: number;
+  failureNote?: string | null;
+  backward?: {
+    failureMode: string;
+    occurrences: number;
+    assetsAffected: number;
+    requirementsReferencing: number;
+    loopClosed: boolean;
+  }[];
+  backwardNote?: string | null;
+  basis?: string;
+}
+
+export async function getSpecificationFailureThread(
+  requirementRef: string,
+): Promise<SpecificationFailureThread> {
+  const { data, error } = await supabase.rpc(
+    "get_specification_failure_thread",
+    { p_requirement_ref: requirementRef },
+  );
+  return unwrap(data, error);
+}
+
+/** The case's requirements, for the specification-link selector (D4.16). */
+export async function listCaseRequirementRefs(): Promise<
+  { ref: string; requirement: string; category: string }[]
+> {
+  const { data, error } = await supabase
+    .from("design_requirements")
+    .select("requirement_ref, requirement, category")
+    .order("requirement_ref");
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((row) => ({
+    ref: row.requirement_ref as string,
+    requirement: row.requirement as string,
+    category: row.category as string,
   }));
 }

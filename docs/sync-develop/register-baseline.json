@@ -606,10 +606,10 @@
     "backticked": 11
   },
   "D6.01": {
-    "status": "🟡",
+    "status": "✅",
     "evidence": true,
-    "citations": 4,
-    "backticked": 0
+    "citations": 17,
+    "backticked": 17
   },
   "D6.02": {
     "status": "🟡",
@@ -620,44 +620,44 @@
   "D6.03": {
     "status": "✅",
     "evidence": true,
-    "citations": 26,
-    "backticked": 26
+    "citations": 33,
+    "backticked": 33
   },
   "D6.04": {
     "status": "✅",
     "evidence": true,
-    "citations": 33,
-    "backticked": 33
+    "citations": 45,
+    "backticked": 45
   },
   "D6.05": {
     "status": "✅",
     "evidence": true,
-    "citations": 32,
-    "backticked": 29
+    "citations": 55,
+    "backticked": 51
   },
   "D6.06": {
-    "status": "🟡",
+    "status": "✅",
     "evidence": true,
-    "citations": 3,
-    "backticked": 0
+    "citations": 57,
+    "backticked": 57
   },
   "D6.07": {
     "status": "🟡",
     "evidence": true,
-    "citations": 1,
-    "backticked": 0
+    "citations": 22,
+    "backticked": 17
   },
   "D6.08": {
     "status": "✅",
     "evidence": true,
-    "citations": 22,
-    "backticked": 21
+    "citations": 28,
+    "backticked": 27
   },
   "D6.09": {
     "status": "✅",
     "evidence": true,
-    "citations": 27,
-    "backticked": 25
+    "citations": 40,
+    "backticked": 38
   },
   "D7.01": {
     "status": "🟡",
@@ -1172,8 +1172,8 @@
   "D11.33": {
     "status": "🟡",
     "evidence": true,
-    "citations": 5,
-    "backticked": 0
+    "citations": 22,
+    "backticked": 21
   },
   "D11.34": {
     "status": "❌",
