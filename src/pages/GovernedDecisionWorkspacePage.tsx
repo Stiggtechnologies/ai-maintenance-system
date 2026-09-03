@@ -82,6 +82,7 @@ function DraftBanner({
     <div
       className="rounded-xl border border-amber-400/30 bg-amber-400/5 p-4"
       data-testid="browser-draft-banner"
+      data-honesty="draft-banner-not-spaces"
     >
       <div className="flex items-center gap-2 text-sm font-semibold text-amber-300">
         <AlertTriangle className="h-4 w-4" aria-hidden />

@@ -88,7 +88,7 @@ describe("customer chrome honesty", () => {
     expect(governed).toContain("Browser drafts — import or discard");
     expect(governed).toContain("One-time cleanup");
     expect(governed).toContain("not how new cowork starts");
-    expect(governed).toContain("cowork threads, not Spaces");
+    expect(governed).toContain('data-honesty="draft-banner-not-spaces"');
     const askCss = readFileSync(
       "src/components/public-ask/public-ask.css",
       "utf8",
