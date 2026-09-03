@@ -24,6 +24,8 @@ import { useCallback, useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { Package } from "lucide-react";
 
+import { CommercialPanel } from "./CommercialPanels";
+
 import {
   BID_EVALUATION_KINDS,
   BID_EVALUATION_OUTCOMES,
@@ -1075,6 +1077,7 @@ export function ProcurementPanel({
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [expanded, setExpanded] = useState<number | null>(null);
+  const [commercial, setCommercial] = useState<number | null>(null);
 
   const [code, setCode] = useState("");
   const [title, setTitle] = useState("");
@@ -1242,20 +1245,74 @@ export function ProcurementPanel({
                     </div>
                   )}
                 </div>
-                <button
-                  onClick={() =>
-                    setExpanded(expanded === p.packageId ? null : p.packageId)
-                  }
-                  className={btnClass}
-                >
-                  {expanded === p.packageId ? "Hide tender" : "Tender"}
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() =>
+                      setExpanded(expanded === p.packageId ? null : p.packageId)
+                    }
+                    className={btnClass}
+                  >
+                    {expanded === p.packageId ? "Hide tender" : "Tender"}
+                  </button>
+                  {p.awarded && (
+                    <button
+                      onClick={() =>
+                        setCommercial(
+                          commercial === p.packageId ? null : p.packageId,
+                        )
+                      }
+                      className={btnClass}
+                    >
+                      {commercial === p.packageId
+                        ? "Hide commercial"
+                        : "Commercial"}
+                    </button>
+                  )}
+                </div>
               </div>
 
               <Refusal text={p.notAssessableReason} />
               <Refusal text={p.deliveryNotAssessableReason} />
               {!p.commitment.answered && p.awarded && (
                 <Refusal text={p.commitment.refusal} />
+              )}
+
+              {/* Slice 6B — what happened to the contract after signature, on
+                  the screen a planner already reads. The figures come from the
+                  server's ONE summary; nothing is computed here. */}
+              {p.awarded && p.commercial?.answered && (
+                <div className="mt-1 text-[11px] text-slate-400">
+                  Contract value{" "}
+                  {money(p.commercial.currentValue, p.commercial.currency)} ·{" "}
+                  {p.commercial.changeOrdersApproved} approved change order(s)
+                  {p.commercial.changeOrdersDraft > 0
+                    ? `, ${p.commercial.changeOrdersDraft} awaiting a decision`
+                    : ""}{" "}
+                  {p.commercial.invoices !== null
+                    ? ` · ${p.commercial.invoices} invoice(s), ${p.commercial.invoicesAwaitingPayment} certified and unpaid`
+                    : ""}{" "}
+                  ·{" "}
+                  {p.commercial.claimsRaised === 0
+                    ? "no claim raised"
+                    : `${p.commercial.claimsRaised} claim(s), ${p.commercial.claimsOpen} open`}{" "}
+                  · {p.commercial.warrantyTerms} warranty term(s)
+                  {p.commercial.warrantyExpired > 0
+                    ? `, ${p.commercial.warrantyExpired} expired`
+                    : ""}
+                  {p.commercial.warrantyNotAssessable > 0
+                    ? `, ${p.commercial.warrantyNotAssessable} whose cover cannot be answered`
+                    : ""}
+                </div>
+              )}
+              {p.awarded && p.commercial?.answered && (
+                <>
+                  {/* The ONE invoice position's refusal, not a zero. A contract
+                      nobody has billed against and a contract paid in full are
+                      the same number to a counter that starts at zero. */}
+                  <Refusal text={p.commercial.invoiceRefusal} />
+                  <Refusal text={p.commercial.settlementNote} />
+                  <Refusal text={p.commercial.warrantyGap} />
+                </>
               )}
 
               <div className="mt-2">
@@ -1274,6 +1331,19 @@ export function ProcurementPanel({
                     canAward={canAward}
                     costItems={costItems}
                     currentUserEmail={currentUserEmail ?? null}
+                    onChanged={() => void load()}
+                  />
+                </div>
+              )}
+
+              {/* Slice 6B — the contract's life after signature. Only an
+                  AWARDED package has one, and the server says so too. */}
+              {commercial === p.packageId && p.awarded && (
+                <div className="mt-3">
+                  <CommercialPanel
+                    packageId={p.packageId}
+                    canPlan={canPlan}
+                    canApprove={canAward}
                     onChanged={() => void load()}
                   />
                 </div>

@@ -54,12 +54,14 @@ export type IngestEntityKey =
   | "material_stock"
   | "operating_state"
   | "production_record"
-  | "schedule_activity";
+  | "schedule_activity"
+  | "procurement_status";
 
 export type IngestHandler =
   | "ingest_batch"
   | "ingest_context_batch"
-  | "ingest_schedule_batch";
+  | "ingest_schedule_batch"
+  | "ingest_procurement_status_batch";
 
 export interface ColumnSpec {
   name: string;
@@ -750,6 +752,100 @@ export const INGEST_ENTITIES: Readonly<Record<IngestEntityKey, IngestEntity>> =
         ],
       ],
     },
+
+    /**
+     * §78's procurement-status connector (D11.33, Slice 6B).
+     *
+     * The one entity type here that writes NOTHING of its own. Its validator
+     * resolves the package and calls the ONE §25 status writer
+     * (set_procurement_package_status) or the ONE forecast writer
+     * (record_package_delivery_forecast), so an imported status meets every
+     * refusal a typed one meets — including the two an ERP feed would
+     * otherwise walk straight through: it cannot type `commercial = awarded`
+     * (an award is an authority-bearing §70 act) and it cannot type
+     * `delivery = received_and_inspected` (the arrival DATE, not a status,
+     * discharges the mandatory long-lead gate blocker).
+     *
+     * `status` deliberately carries NO `oneOf`: the vocabulary depends on
+     * which dimension the row names, and a single flat list would be wrong on
+     * three of the four. The door answers with the right list for the
+     * dimension it was given.
+     */
+    procurement_status: {
+      key: "procurement_status",
+      label: "Procurement status (ERP / SAP MM)",
+      handler: "ingest_procurement_status_batch",
+      purpose:
+        "Purchase-order status and promised delivery dates from the system that holds them, mapped onto the four spec §25 status dimensions of procurement packages already recorded in Sync. SAP or the ERP stays the system of record for the purchase order; Sync records what that status means for the gate.",
+      columns: [
+        {
+          name: "external_id",
+          required: true,
+          kind: "text",
+          note: "your identifier for this row — the PO line, or the export row id",
+        },
+        {
+          name: "package_code",
+          required: true,
+          kind: "text",
+          note: "the Sync procurement package this row is about, exactly as it appears in the case workspace",
+        },
+        {
+          name: "dimension",
+          kind: "text",
+          oneOf: [
+            "technical",
+            "commercial",
+            "manufacturing",
+            "delivery",
+          ] as const,
+          note: "which of the four §25 status dimensions this row moves — leave blank on a forecast row",
+        },
+        {
+          name: "status",
+          kind: "text",
+          note: "the new value for that dimension. Each dimension has its own vocabulary and the door answers with the right one if this is wrong — `commercial = awarded` and `delivery = received_and_inspected` are refused by name, because both are acts and not statuses",
+        },
+        {
+          name: "forecast_delivery_date",
+          kind: "text",
+          note: "the promised delivery date, on a row that carries no dimension/status. One fact per row",
+        },
+        {
+          name: "basis",
+          kind: "text",
+          note: "why the status moved. Left blank, the import derives one naming this file and this row — the status writer requires a stated reason and will not accept a blank",
+        },
+      ],
+      externalIdFrom: "external_id",
+      dedupe:
+        "there is nothing to deduplicate against — contract_packages carries no external id — so a row is counted duplicate when the fact it states is the one already recorded: a dimension ALREADY at the stated value (the status writer's own refusal), or a forecast ALREADY at the stated date",
+      reupload: "skips",
+      reuploadSentence:
+        "A re-upload of the same file is counted as DUPLICATE and skipped, fact by fact: the status writer refuses a move to the value a dimension already holds, and a forecast row restating the date the package already carries is skipped before the forecast writer is reached — it would otherwise be re-applied and audited as a change, because re-stating today's forecast is a no-op to an import and a deliberate re-affirmation to a planner. Rows whose status or date HAS changed since the last upload land.",
+      caution:
+        "The package must already exist in Sync. A procurement package carries the scope, the mandatory long-lead judgement and the dates a gate blocker reads — none of which an ERP export knows — so an unknown package_code is REFUSED rather than created. One fact per row: a row carrying both a status move and a forecast date is refused, because two writes in one row leave the first applied when the second is refused.",
+      outcome:
+        "The four §25 dimensions and the forecast delivery date move on the case's procurement screen, with the import named as the basis on each — and the mandatory long-lead gate blockers re-evaluate against the new dates.",
+      templateRows: [
+        [
+          "PO-4501-10",
+          "PKG-MILL-MOTOR",
+          "manufacturing",
+          "in_manufacture",
+          "",
+          "SAP PO 4501 line 10, status MANF",
+        ],
+        [
+          "PO-4501-10-ETA",
+          "PKG-MILL-MOTOR",
+          "",
+          "",
+          "2027-04-18",
+          "SAP confirmed delivery date on PO 4501 line 10",
+        ],
+      ],
+    },
   };
 
 export const INGEST_ENTITY_ORDER: readonly IngestEntityKey[] = [
@@ -761,6 +857,7 @@ export const INGEST_ENTITY_ORDER: readonly IngestEntityKey[] = [
   "condition_reading",
   "material_stock",
   "schedule_activity",
+  "procurement_status",
 ];
 
 /** Header row for the downloadable template, in declaration order. */
