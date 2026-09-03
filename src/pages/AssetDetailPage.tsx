@@ -18,6 +18,7 @@ import {
 import { supabase } from "../lib/supabase";
 import { FieldFailureCapture } from "../components/FieldFailureCapture";
 import { AssetQrLabel } from "../components/AssetQrLabel";
+import { AssetOperatingDuty } from "../components/AssetOperatingDuty";
 
 export function AssetDetailPage() {
   const { assetId } = useParams<{ assetId: string }>();
@@ -309,9 +310,25 @@ export function AssetDetailPage() {
       )}
 
       {activeTab === "overview" && (
-        <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <FieldFailureCapture assetId={asset.id} assetTag={asset.asset_tag} />
-          <AssetQrLabel assetId={asset.id} assetTag={asset.asset_tag} />
+        <div className="mt-6 space-y-6">
+          <div className="bg-industrial-graphite border border-industrial-border rounded-xl p-6">
+            <h2 className="text-lg font-semibold text-industrial-text mb-3">
+              Operating context
+            </h2>
+            <p className="mb-4 text-xs text-slate-400">
+              Duty for this asset from get_operating_context and
+              get_operating_regime. Org-level counts on /executive are not a
+              substitute. Silence is not uptime.
+            </p>
+            <AssetOperatingDuty assetId={asset.id} />
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <FieldFailureCapture
+              assetId={asset.id}
+              assetTag={asset.asset_tag}
+            />
+            <AssetQrLabel assetId={asset.id} assetTag={asset.asset_tag} />
+          </div>
         </div>
       )}
 
