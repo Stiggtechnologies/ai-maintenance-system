@@ -261,6 +261,73 @@
   cursor: not-allowed;
 }
 
+.bolt-ask-overflow {
+  display: none;
+  position: relative;
+  flex: 0 0 32px;
+}
+
+.bolt-ask-overflow-label {
+  display: none;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.bolt-ask-overflow-toggle {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  color: #6b7280;
+  background: transparent;
+  cursor: pointer;
+}
+
+.bolt-ask-overflow-toggle:hover,
+.bolt-ask-overflow-toggle:focus-visible,
+.bolt-ask-overflow-toggle[aria-expanded="true"] {
+  background: var(--bolt-soft);
+  color: var(--bolt-ink);
+}
+
+.bolt-ask-overflow-menu {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 8px);
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 176px;
+  padding: 6px;
+  border: 1px solid var(--bolt-line);
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 12px 32px rgba(20, 24, 28, 0.12);
+}
+
+.bolt-ask-overflow-menu .bolt-ask-tool {
+  width: auto;
+  min-width: 100%;
+  height: 40px;
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  gap: 10px;
+  padding: 0 10px;
+  border-radius: 8px;
+}
+
+.bolt-ask-overflow-menu .bolt-ask-overflow-label {
+  display: inline;
+}
+
+.bolt-ask-overflow-menu .bolt-ask-gap {
+  display: none;
+}
+
 .bolt-pills {
   display: flex;
   flex-wrap: nowrap;
@@ -564,27 +631,31 @@
   color: #0f766e;
 }
 
-/* When the stadium bar itself is phone-narrow, hide disabled extras so
-   image / attach / mic cannot clamp the reserved teal send. Viewport
-   media queries miss some 390 device-mode frames; the bar width does not. */
-@container bolt-ask (max-width: 500px) {
-  .bolt-ask-tool[aria-label="Search"],
-  .bolt-ask-tool[aria-label="Web search"],
-  .bolt-ask-tool[aria-label="Link"],
-  .bolt-ask-gap {
+/* Phone-narrow bar: placeholder + teal send stay in the stadium.
+   Search / image / attach / globe / paperclip / mic sit behind +. */
+@container bolt-ask (max-width: 479px) {
+  .bolt-ask-tools {
     display: none;
   }
 
-  .bolt-ask-tool {
-    flex: 0 0 30px;
-    width: 30px;
-    height: 30px;
+  .bolt-ask-overflow {
+    display: block;
   }
 
   .bolt-ask-send {
     flex: 0 0 32px;
     width: 32px;
     height: 32px;
+  }
+}
+
+@media (max-width: 479px) {
+  .bolt-ask-tools {
+    display: none;
+  }
+
+  .bolt-ask-overflow {
+    display: block;
   }
 }
 
