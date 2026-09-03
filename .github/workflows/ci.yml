@@ -298,6 +298,9 @@ jobs:
       - name: Smoke — Sync Develop slice 6B (change orders, invoices, claims, warranty, vendor quality, §78 status connector)
         run: bash scripts/ci-develop-slice6b-smoke.sh
 
+      - name: Smoke — Sync Develop slice 7A (AWP chain, WorkPackage, Constraint, forward burn-down)
+        run: bash scripts/ci-develop-slice7a-smoke.sh
+
       - name: Stop Supabase
         if: always()
         run: supabase stop --no-backup || true

@@ -6383,3 +6383,370 @@ export async function listCaseRequirementRefs(): Promise<
     category: row.category as string,
   }));
 }
+
+/* ───────────────── Slice 7A — Advanced Work Packaging (D7.17, D7.10,
+   D7.18, D7.07). Every write is a definer RPC; every number rendered by the
+   panel comes from the server, because there is ONE forward projection
+   (get_package_constraint_burndown) and one readiness verdict
+   (release_work_package). ───────────────────────────────────────────────── */
+
+export interface WorkPackageConstraint {
+  constraintId: string;
+  kind: string;
+  state: string;
+  isHard: boolean;
+  description: string;
+  ownerRole: string | null;
+  requiredBy: string | null;
+  expectedClearDate: string | null;
+  probabilityOfClearance: number | null;
+  scheduleImpactDays: number | null;
+  verifiedAt: string | null;
+}
+
+export interface WorkPackageRow {
+  packageId: number;
+  packageCode: string;
+  title: string;
+  packageType: string;
+  level: number;
+  /** The parent's ACTUAL package_type (null when there is no parent). */
+  parentType: string | null;
+  /** The type the chain rule says the parent must be (null for the head). */
+  parentTypeExpected: string | null;
+  /** True when the two differ — a broken chain the surface can now report. */
+  parentTypeDiverges: boolean;
+  parentPackageId: number | null;
+  parentPackageCode: string | null;
+  area: string | null;
+  wbsCode: string | null;
+  scope: string;
+  requiredBy: string | null;
+  status: string;
+  releasedAt: string | null;
+  releaseNote: string | null;
+  releasedBy: string | null;
+  workOrders: {
+    workOrderId: string;
+    woNumber: string | null;
+    title: string;
+    executionStatus: string | null;
+    basis: string;
+  }[];
+  constraints: {
+    recorded: number;
+    openHard: number;
+    satisfied: number;
+    items: WorkPackageConstraint[];
+  };
+  /** Verbatim from sync_work_package_release_verdict — the sentence the
+   *  release door refuses with. Never restated on the client. */
+  readiness: string;
+  readinessVerdict:
+    | "ready_for_human"
+    | "unassessed"
+    | "empty"
+    | "parent_unreleased"
+    | "not_ready"
+    | "released"
+    | "cancelled"
+    | "not_found";
+  canRelease: boolean;
+}
+
+export interface CaseWorkPackages {
+  answered: boolean;
+  refusal?: string;
+  caseId?: string;
+  packageCount?: number;
+  packages?: WorkPackageRow[];
+  chain?: string[];
+  basis?: string;
+}
+
+/** D7.17/D7.10: the case's AWP chain, its work and its constraint position. */
+export async function getCaseWorkPackages(
+  caseId: string,
+): Promise<CaseWorkPackages> {
+  const { data, error } = await supabase.rpc("get_case_work_packages", {
+    p_case_id: caseId,
+  });
+  return unwrap(data, error);
+}
+
+/** D7.17 (§27): records or revises a typed work package on a case. */
+export async function recordWorkPackage(
+  caseId: string,
+  pkg: {
+    package_code: string;
+    title: string;
+    package_type: string;
+    scope: string;
+    area?: string;
+    parent_package_code?: string;
+    wbs_code?: string;
+    required_by?: string;
+  },
+): Promise<{
+  work_package_id: number;
+  package_code: string;
+  package_type: string;
+  level: number;
+  parentType: string | null;
+  note: string;
+}> {
+  const { data, error } = await supabase.rpc("record_work_package", {
+    p_case_id: caseId,
+    p_package: pkg,
+  });
+  return unwrapRpc(data, error, "Could not record the work package");
+}
+
+/** D7.17: puts an existing work order into a package. work_orders is untouched. */
+export async function assignWorkToPackage(
+  packageId: number,
+  workOrderId: string,
+  basis: string,
+): Promise<{
+  membership_id: number;
+  package_code: string;
+  work_order: string;
+}> {
+  const { data, error } = await supabase.rpc("assign_work_to_package", {
+    p_package_id: packageId,
+    p_work_order_id: workOrderId,
+    p_basis: basis,
+  });
+  return unwrapRpc(data, error, "Could not add the work order to the package");
+}
+
+/** D7.18 (§28): records one of the ten spec constraint types on a package. */
+export async function recordPackageConstraint(
+  packageId: number,
+  constraint: {
+    constraint_type: string;
+    description: string;
+    basis: string;
+    phase?: string;
+    is_hard?: boolean;
+    owner_role?: string;
+    owner_id?: string;
+    work_order_id?: string;
+    required_by?: string;
+  },
+): Promise<{
+  constraint_id: string;
+  package_code: string;
+  specType: string;
+  constraint_kind: string;
+  state: string;
+}> {
+  const { data, error } = await supabase.rpc("record_package_constraint", {
+    p_package_id: packageId,
+    p_constraint: constraint,
+  });
+  return unwrapRpc(data, error, "Could not record the constraint");
+}
+
+/** I.28 (D7.07): the forward-looking fields — required-by, expected clear,
+ *  probability with its basis, schedule impact with its basis. */
+export async function forecastPackageConstraint(
+  constraintId: string,
+  forecast: {
+    required_by?: string;
+    expected_clear_date?: string;
+    probability_of_clearance?: string;
+    probability_basis?: string;
+    schedule_impact_days?: string;
+    impact_basis?: string;
+  },
+): Promise<{
+  constraint_id: string;
+  required_by: string | null;
+  expected_clear_date: string | null;
+  probability_of_clearance: number | null;
+  schedule_impact_days: number | null;
+  note: string;
+}> {
+  const { data, error } = await supabase.rpc("forecast_package_constraint", {
+    p_constraint_id: constraintId,
+    p_forecast: forecast,
+  });
+  return unwrapRpc(data, error, "Could not record the forecast");
+}
+
+/** D7.18 × §70: sets a package constraint's state. Satisfied needs a person. */
+export async function clearPackageConstraint(
+  constraintId: string,
+  state: string,
+  basis: string,
+): Promise<{ constraint_id: string; state: string; package_code: string }> {
+  const { data, error } = await supabase.rpc("clear_package_constraint", {
+    p_constraint_id: constraintId,
+    p_state: state,
+    p_basis: basis,
+  });
+  return unwrapRpc(data, error, "Could not set the constraint state");
+}
+
+/** D7.06/D7.17 × §70: the READY / NOT READY release. */
+export async function releaseWorkPackage(
+  packageId: number,
+  note: string,
+): Promise<{
+  work_package_id: number;
+  package_code: string;
+  status: string;
+  constraintsChecked: number;
+  workOrders: number;
+  note: string;
+}> {
+  const { data, error } = await supabase.rpc("release_work_package", {
+    p_package_id: packageId,
+    p_note: note,
+  });
+  return unwrapRpc(data, error, "Could not release the work package");
+}
+
+/** D7.17: withdraws a package — the remedy the DELETE refusals all name. The
+ *  release record, if there is one, is preserved rather than erased. */
+export async function cancelWorkPackage(
+  packageId: number,
+  reason: string,
+): Promise<{
+  work_package_id: number;
+  package_code: string;
+  status: string;
+  wasReleased: boolean;
+  note: string;
+}> {
+  const { data, error } = await supabase.rpc("cancel_work_package", {
+    p_package_id: packageId,
+    p_reason: reason,
+  });
+  return unwrapRpc(data, error, "Could not cancel the work package");
+}
+
+export interface PackageBurndownConstraint {
+  constraintId: string;
+  kind: string;
+  state: string;
+  isHard: boolean;
+  description: string;
+  basis: string;
+  ownerRole: string | null;
+  ownerId: string | null;
+  workOrder: string | null;
+  requiredBy: string | null;
+  expectedClearDate: string | null;
+  probabilityOfClearance: number | null;
+  probabilityBasis: string | null;
+  scheduleImpactDays: number | null;
+  impactBasis: string | null;
+  /** lapsed | will_block | expected_clear | unforecast | not_assessable */
+  forecast: string;
+  /** Days late against required_by, or (for `lapsed`) days since the forecast passed. */
+  daysLate: number | null;
+  /** Days the expected clear date falls beyond the end of the horizon. */
+  daysBeyondHorizon: number | null;
+  inHorizon: boolean;
+}
+
+export interface PackageBurndown {
+  answered: boolean;
+  refusal?: string;
+  packageId?: number;
+  packageCode?: string;
+  packageType?: string;
+  level?: number;
+  asOf?: string;
+  horizonDays?: number;
+  horizonEnd?: string;
+  constraintsRecorded?: number;
+  hardConstraints?: number;
+  openConstraints?: number;
+  openInHorizon?: number;
+  willBlock?: number;
+  expectedClear?: number;
+  /** Open constraints whose forecast clear date has already passed. */
+  lapsed?: number;
+  unforecast?: number;
+  notAssessable?: number;
+  statedScheduleImpactDays?: number | null;
+  forecastComplete?: boolean;
+  projectedConstraintFreeDate?: string | null;
+  projectedConstraintFreeRefusal?: string | null;
+  constraints?: PackageBurndownConstraint[];
+  refusals?: { reason: string; scope: string }[];
+  basis?: string;
+  calculationRunId?: string;
+  codeVersion?: string;
+  recorded?: boolean;
+  recordNote?: string;
+}
+
+// `get_package_constraint_burndown` deliberately has NO service wrapper. It is
+// the shared predicate `compute_package_constraint_burndown` delegates to, and
+// a wrapper here would be an exported function with no caller — the register's
+// own demoted "dead RPC" pattern. The panel takes the RECORDED projection, so
+// every burn-down a person sees leaves a lineage row behind it.
+
+/** D7.07: the same projection, recorded as an immutable calculation_runs row. */
+export async function computePackageConstraintBurndown(
+  packageId: number,
+  horizonDays: number,
+): Promise<PackageBurndown> {
+  const { data, error } = await supabase.rpc(
+    "compute_package_constraint_burndown",
+    { p_package_id: packageId, p_horizon_days: horizonDays },
+  );
+  return unwrap(data, error);
+}
+
+export interface PackageBurndownHistory {
+  answered: boolean;
+  refusal?: string;
+  packageId?: number;
+  packageCode?: string;
+  runCount?: number;
+  runs?: {
+    runId: string;
+    computedAt: string;
+    codeVersion: string;
+    status: string;
+    method: string;
+    inputs: Record<string, unknown>;
+    outputs: Record<string, unknown> | null;
+    refusals: { reason: string; scope: string }[];
+  }[];
+  basis?: string;
+}
+
+/** D7.07: the recorded history, read back verbatim. Never recomputed. */
+export async function getPackageBurndownHistory(
+  packageId: number,
+  limit = 20,
+): Promise<PackageBurndownHistory> {
+  const { data, error } = await supabase.rpc("get_package_burndown_history", {
+    p_package_id: packageId,
+    p_limit: limit,
+  });
+  return unwrap(data, error);
+}
+
+/** The case's work orders, for the package-membership selector (D7.17). */
+export async function listCaseWorkOrderOptions(): Promise<
+  { id: string; label: string; status: string | null }[]
+> {
+  const { data, error } = await supabase
+    .from("work_orders")
+    .select("id, wo_number, title, status")
+    .order("wo_number", { nullsFirst: false })
+    .limit(200);
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((row) => ({
+    id: row.id as string,
+    label: `${(row.wo_number as string | null) ?? "—"} · ${row.title as string}`,
+    status: (row.status as string | null) ?? null,
+  }));
+}
