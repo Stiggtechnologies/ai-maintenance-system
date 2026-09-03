@@ -470,7 +470,7 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="mt-0.5 text-[10px] font-medium uppercase tracking-widest text-slate-400 leading-none"
+              className="mt-2 text-[10px] font-medium uppercase tracking-widest text-slate-400 leading-none"
             >
               Reliability Engineer
             </motion.div>
