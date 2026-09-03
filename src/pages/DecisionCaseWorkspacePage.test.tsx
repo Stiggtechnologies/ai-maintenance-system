@@ -42,6 +42,8 @@ vi.mock("../services/decisionCaseService", () => ({
   savePersistedDecisionCase: vi.fn(),
 }));
 
+const authState: { user: { id: string } | null } = { user: null };
+
 vi.mock("../components/AuthProvider", async () => {
   const actual = await vi.importActual<
     typeof import("../components/AuthProvider")
@@ -49,7 +51,7 @@ vi.mock("../components/AuthProvider", async () => {
   return {
     ...actual,
     useOptionalAuth: () => ({
-      user: null,
+      user: authState.user,
       profile: null,
       session: null,
       loading: false,
@@ -95,6 +97,7 @@ describe("DecisionCaseWorkspacePage — Bolt first paint", () => {
     ).dataLayer = [];
     window.sessionStorage.clear();
     recordVerificationResult.mockReset();
+    authState.user = null;
   });
 
   it("Mode A is the Bolt empty: light canvas, wordmark, stadium ask, five pills", () => {
@@ -143,6 +146,34 @@ describe("DecisionCaseWorkspacePage — Bolt first paint", () => {
     expect(screen.queryByText("Work")).toBeNull();
     expect(screen.queryByText(/GPT|model picker|Claude/i)).toBeNull();
     expect(screen.queryByRole("button", { name: /dark|theme/i })).toBeNull();
+  });
+
+  it("signed-in Mode A exposes Spaces as the existing cowork list, not a new page", () => {
+    authState.user = { id: "user-1" };
+    renderWorkspace();
+    expect(screen.queryByText("Discover")).toBeNull();
+    expect(screen.queryByLabelText("Sign in")).toBeNull();
+    fireEvent.click(screen.getByTestId("bolt-rail-spaces"));
+    expect(screen.getByLabelText("Space list")).toBeTruthy();
+    expect(
+      screen.getByRole("link", { name: "Decision Workspace" }),
+    ).toHaveAttribute("href", "/decision-cases");
+    expect(screen.queryByRole("link", { name: /spaces/i })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Home" }));
+    expect(screen.getByTestId("first-paint-empty")).toBeTruthy();
+  });
+
+  it("signed-in Mode B Spaces still opens the cowork list, not Discover", () => {
+    authState.user = { id: "user-1" };
+    renderWorkspace();
+    loadSample();
+    expect(document.querySelector(".bolt-public.is-thread")).toBeTruthy();
+    expect(screen.queryByText("Discover")).toBeNull();
+    fireEvent.click(screen.getByTestId("bolt-rail-spaces"));
+    expect(screen.getByLabelText("Space list")).toBeTruthy();
+    expect(
+      screen.getByRole("link", { name: "Decision Workspace" }),
+    ).toHaveAttribute("href", "/decision-cases");
   });
 
   it("a pill loads the recommendation in the assistant turn on a light thread", async () => {

@@ -78,6 +78,9 @@ describe("customer chrome honesty", () => {
     expect(empty).not.toMatch(/Reliability Engineer/);
     expect(rail).not.toMatch(/Reliability Engineer/);
     expect(page).toContain("caseExists={!emptyConversation}");
+    expect(page).toContain("canExposeBoltSpaces");
+    expect(page).toContain("BoltSpacesPanel");
+    expect(page).not.toMatch(/path=["']\/spaces["']/);
     const askCss = readFileSync(
       "src/components/public-ask/public-ask.css",
       "utf8",
@@ -95,6 +98,7 @@ describe("customer chrome honesty", () => {
     const firstPaint = [
       "src/lib/first-paint-seeds.ts",
       "src/lib/public-ask-intents.ts",
+      "src/lib/public-ask-tie-in.ts",
       "src/components/RotatingSeedChip.tsx",
       "src/components/PublicProductHeader.tsx",
       "src/components/public-ask/PublicAskEmpty.tsx",

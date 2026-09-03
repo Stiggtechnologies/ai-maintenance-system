@@ -455,6 +455,36 @@
   background: #fbfbfc;
 }
 
+.bolt-stage > .bolt-spaces-panel {
+  position: absolute;
+  inset: 0 auto 0 0;
+  z-index: 6;
+  display: flex;
+  width: min(280px, 88vw);
+  flex-direction: column;
+  overflow: auto;
+  border-right: 1px solid var(--bolt-line);
+  background: #fbfbfc;
+}
+
+.bolt-spaces-live {
+  display: block;
+  margin: 12px 10px 14px;
+  padding: 8px 10px;
+  border: 1px solid var(--bolt-line);
+  border-radius: 8px;
+  color: #0f766e;
+  font-size: 12px;
+  font-weight: 550;
+  text-align: center;
+  text-decoration: none;
+}
+
+.bolt-spaces-live:hover,
+.bolt-spaces-live:focus-visible {
+  background: var(--bolt-soft);
+}
+
 .bolt-public .dw-new {
   border-color: #14b8a6;
   color: #0f766e !important;

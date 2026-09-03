@@ -42,8 +42,10 @@ import {
   ASK_PLACEHOLDER,
   PublicAskBar,
 } from "../components/public-ask/PublicAskBar";
+import { BoltSpacesPanel } from "../components/public-ask/BoltSpacesPanel";
 import { PublicAskEmpty } from "../components/public-ask/PublicAskEmpty";
 import { PublicAskRail } from "../components/public-ask/PublicAskRail";
+import { canExposeBoltSpaces } from "../lib/public-ask-tie-in";
 import { MarkdownRenderer } from "../components/MarkdownRenderer";
 import { RecommendationTurn } from "../components/chat/RecommendationTurn";
 import { LearnUnpersistedPointer } from "../components/chat/LearnUnpersistedPointer";
@@ -688,6 +690,9 @@ export function DecisionCaseWorkspacePage({
         !frozen,
       );
   const emptyConversation = conversationIsEmpty(active.messages);
+  const exposeSpaces = canExposeBoltSpaces({
+    signedIn: Boolean(auth?.user),
+  });
   const showLearnPointer = shouldShowLearnPointer(active.approvals);
   const authority = reviewingAuthority(active.approvals);
   const dictationTitle = dictation.supported
@@ -1193,8 +1198,24 @@ export function DecisionCaseWorkspacePage({
         assessHref="/setup"
         signInHref="/signin?returnTo=%2F"
         onSignIn={() => stageDecisionCaseHandoff(window.sessionStorage, active)}
+        spaces={
+          exposeSpaces
+            ? {
+                active: railOpen,
+                onOpen: () => setRailOpen((value) => !value),
+              }
+            : undefined
+        }
       />
       <div className="bolt-stage">
+        {exposeSpaces && railOpen && emptyConversation ? (
+          <BoltSpacesPanel
+            cases={cases}
+            activeId={active.id}
+            onNewAsk={() => void createCase()}
+            onChoose={chooseCase}
+          />
+        ) : null}
         {emptyConversation ? (
           <PublicAskEmpty askBar={publicAskBar} onSelectIntent={trySample} />
         ) : (
@@ -1204,7 +1225,7 @@ export function DecisionCaseWorkspacePage({
                 <button
                   type="button"
                   className="bolt-icon"
-                  aria-label="Conversations"
+                  aria-label={exposeSpaces ? "Spaces" : "Conversations"}
                   aria-expanded={railOpen}
                   onClick={() => setRailOpen((value) => !value)}
                 >
@@ -1230,33 +1251,41 @@ export function DecisionCaseWorkspacePage({
             <div
               className={`bolt-layout${railOpen ? " is-rail-open" : ""}${recordOpen ? " is-record-open" : ""}`}
             >
-              {railOpen && (
-                <aside className="dw-rail" aria-label="Conversation list">
-                  <button
-                    type="button"
-                    className="dw-new"
-                    onClick={() => void createCase()}
-                  >
-                    <Plus size={16} /> New
-                  </button>
-                  <div className="dw-section-label">Conversations</div>
-                  <div className="dw-case-list">
-                    {cases.map((item) => (
-                      <button
-                        type="button"
-                        key={item.id}
-                        className={`dw-case-row ${item.id === active.id ? "active" : ""}`}
-                        onClick={() => chooseCase(item.id)}
-                      >
-                        <span>
-                          <strong>{item.title}</strong>
-                          <small>{item.asset}</small>
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                </aside>
-              )}
+              {railOpen &&
+                (exposeSpaces ? (
+                  <BoltSpacesPanel
+                    cases={cases}
+                    activeId={active.id}
+                    onNewAsk={() => void createCase()}
+                    onChoose={chooseCase}
+                  />
+                ) : (
+                  <aside className="dw-rail" aria-label="Conversation list">
+                    <button
+                      type="button"
+                      className="dw-new"
+                      onClick={() => void createCase()}
+                    >
+                      <Plus size={16} /> New
+                    </button>
+                    <div className="dw-section-label">Conversations</div>
+                    <div className="dw-case-list">
+                      {cases.map((item) => (
+                        <button
+                          type="button"
+                          key={item.id}
+                          className={`dw-case-row ${item.id === active.id ? "active" : ""}`}
+                          onClick={() => chooseCase(item.id)}
+                        >
+                          <span>
+                            <strong>{item.title}</strong>
+                            <small>{item.asset}</small>
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </aside>
+                ))}
               <main className="bolt-main">
                 <section className="dw-thread" aria-label="Conversation">
                   {active.messages.map((message) => (

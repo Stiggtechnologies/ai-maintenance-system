@@ -25,4 +25,20 @@ describe("PublicAskRail", () => {
     fireEvent.click(screen.getByLabelText("New ask"));
     expect(onHome).toHaveBeenCalledTimes(1);
   });
+
+  it("puts cowork in the Spaces rail slot when a real destination exists", () => {
+    const onOpen = vi.fn();
+    render(
+      <PublicAskRail
+        homeActive
+        onHome={vi.fn()}
+        spaces={{ active: false, onOpen }}
+      />,
+    );
+    expect(screen.getByTestId("bolt-rail-spaces")).toHaveTextContent("Spaces");
+    expect(screen.queryByLabelText("Sign in")).toBeNull();
+    expect(screen.queryByText("Discover")).toBeNull();
+    fireEvent.click(screen.getByLabelText("Spaces"));
+    expect(onOpen).toHaveBeenCalledTimes(1);
+  });
 });
