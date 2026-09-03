@@ -1,4 +1,4 @@
-import { ClipboardCheck, Home, LogIn, Plus } from "lucide-react";
+import { ClipboardCheck, Compass, Home, LogIn, Plus } from "lucide-react";
 
 type PublicAskRailProps = {
   homeActive: boolean;
@@ -9,8 +9,9 @@ type PublicAskRailProps = {
 };
 
 /**
- * Bolt icon rail. Only real destinations: Home (new ask), Assess (/setup),
- * Sign in. Discover / Spaces / Install are omitted — no product behind them.
+ * Bolt icon rail. Top compass is visual Bolt chrome only — not Discover.
+ * `+` and Home start a new Mode A ask. Assess (/setup) and Sign in are
+ * live. Discover / Spaces / Install stay hidden — no product behind them.
  * One nav: column on desktop, bottom tabs on small screens.
  */
 export function PublicAskRail({
@@ -23,6 +24,13 @@ export function PublicAskRail({
   return (
     <nav className="bolt-rail" aria-label="Workspace">
       <div className="bolt-rail-top">
+        <span
+          className="bolt-rail-mark"
+          data-testid="bolt-rail-compass"
+          aria-hidden="true"
+        >
+          <Compass size={20} />
+        </span>
         <button
           type="button"
           className="bolt-rail-item"

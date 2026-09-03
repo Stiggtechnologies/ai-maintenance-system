@@ -18,6 +18,7 @@ describe("PublicAskRail", () => {
       "href",
       "/signin?returnTo=%2F",
     );
+    expect(screen.getByTestId("bolt-rail-compass")).toBeTruthy();
     expect(screen.queryByText("Discover")).toBeNull();
     expect(screen.queryByText("Spaces")).toBeNull();
     expect(screen.queryByText("Install")).toBeNull();

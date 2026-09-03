@@ -117,6 +117,7 @@ describe("DecisionCaseWorkspacePage — Bolt first paint", () => {
       "href",
       "/signin?returnTo=%2F",
     );
+    expect(screen.getByTestId("bolt-rail-compass")).toBeTruthy();
     expect(screen.queryByText("Discover")).toBeNull();
     expect(screen.queryByText("Spaces")).toBeNull();
     expect(screen.queryByText("Install")).toBeNull();
@@ -141,6 +142,7 @@ describe("DecisionCaseWorkspacePage — Bolt first paint", () => {
     expect(screen.queryByText("Chat")).toBeNull();
     expect(screen.queryByText("Work")).toBeNull();
     expect(screen.queryByText(/GPT|model picker|Claude/i)).toBeNull();
+    expect(screen.queryByRole("button", { name: /dark|theme/i })).toBeNull();
   });
 
   it("a pill loads the recommendation in the assistant turn on a light thread", async () => {

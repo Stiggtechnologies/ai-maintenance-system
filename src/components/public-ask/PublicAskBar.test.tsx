@@ -26,7 +26,22 @@ describe("PublicAskBar", () => {
     expect(screen.getByLabelText("Attach a photo")).toBeDisabled();
     expect(screen.getByLabelText("Attach a file")).toBeDisabled();
     expect(screen.getByLabelText("Web search")).toBeDisabled();
+    expect(screen.getByLabelText("Link")).toBeDisabled();
     expect(screen.getByLabelText("Dictate a message")).toBeDisabled();
+    const tools = document.querySelector(".bolt-ask-tools");
+    expect(
+      [...(tools?.querySelectorAll("button") ?? [])].map((item) =>
+        item.getAttribute("aria-label"),
+      ),
+    ).toEqual([
+      "Search",
+      "Attach a photo",
+      "Attach a file",
+      "Web search",
+      "Link",
+      "Dictate a message",
+      "Send message",
+    ]);
     expect(screen.getByTitle("Send message")).toBeDisabled();
   });
 });

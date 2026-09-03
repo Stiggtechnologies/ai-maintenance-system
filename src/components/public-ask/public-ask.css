@@ -7,7 +7,7 @@
   --bolt-line: #e6e8eb;
   --bolt-soft: #f3f4f6;
   --bolt-teal: #12b5a0;
-  --bolt-send: #17c37b;
+  --bolt-send: #12b5a0;
   --bolt-canvas: #ffffff;
   min-height: 100dvh;
   display: flex;
@@ -86,6 +86,19 @@
   cursor: not-allowed;
 }
 
+.bolt-rail-mark {
+  width: 60px;
+  min-height: 36px;
+  display: grid;
+  place-items: center;
+  color: #5d656e;
+}
+
+.bolt-rail-mark svg {
+  width: 20px;
+  height: 20px;
+}
+
 .bolt-stage {
   position: relative;
   flex: 1;
@@ -102,7 +115,7 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 8vh 24px 18vh;
+  padding: 12vh 24px;
 }
 
 .bolt-brand {
@@ -138,15 +151,15 @@
 }
 
 .bolt-ask {
-  width: min(720px, 100%);
+  width: min(540px, 100%);
 }
 
 .bolt-ask-bar {
   display: flex;
   align-items: center;
-  gap: 6px;
-  min-height: 58px;
-  padding: 6px 6px 6px 20px;
+  gap: 4px;
+  min-height: 48px;
+  padding: 4px 4px 4px 16px;
   border: 1px solid #dfe3e8;
   border-radius: 999px;
   background: #ffffff;
@@ -184,9 +197,14 @@
   flex: 0 0 auto;
 }
 
+.bolt-ask-gap {
+  width: 8px;
+  flex: 0 0 8px;
+}
+
 .bolt-ask-tool {
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
   display: grid;
   place-items: center;
   border: 0;
@@ -213,8 +231,8 @@
 }
 
 .bolt-ask-send {
-  width: 40px;
-  height: 40px;
+  width: 34px;
+  height: 34px;
   display: grid;
   place-items: center;
   border: 0;
@@ -240,7 +258,7 @@
   flex-wrap: wrap;
   justify-content: center;
   gap: 10px;
-  width: min(720px, 100%);
+  width: min(540px, 100%);
   margin: 18px 0 0;
   padding: 0;
   list-style: none;
@@ -581,7 +599,7 @@
   }
 
   .bolt-empty {
-    padding: 6vh 16px 12vh;
+    padding: 10vh 16px;
   }
 
   .bolt-wordmark {
@@ -589,12 +607,14 @@
   }
 
   .bolt-ask-bar {
-    min-height: 54px;
-    padding-left: 16px;
+    min-height: 48px;
+    padding-left: 14px;
   }
 
   .bolt-ask-tool[aria-label="Search"],
-  .bolt-ask-tool[aria-label="Web search"] {
+  .bolt-ask-tool[aria-label="Web search"],
+  .bolt-ask-tool[aria-label="Link"],
+  .bolt-ask-gap {
     display: none;
   }
 

@@ -104,6 +104,7 @@ export function PublicAskBar({
           >
             <Paperclip size={16} />
           </button>
+          <span className="bolt-ask-gap" aria-hidden="true" />
           <button
             type="button"
             className="bolt-ask-tool"
@@ -112,6 +113,15 @@ export function PublicAskBar({
             disabled
           >
             <Globe size={16} />
+          </button>
+          <button
+            type="button"
+            className="bolt-ask-tool"
+            title="Link attach is not available"
+            aria-label="Link"
+            disabled
+          >
+            <Paperclip size={16} />
           </button>
           <button
             type="button"
