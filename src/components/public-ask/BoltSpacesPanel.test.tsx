@@ -29,5 +29,7 @@ describe("BoltSpacesPanel", () => {
     expect(onNewAsk).toHaveBeenCalledTimes(1);
     fireEvent.click(screen.getByText("Lube verification"));
     expect(onChoose).toHaveBeenCalledWith("ws-1");
+    expect(screen.queryByText(/browser draft/i)).toBeNull();
+    expect(screen.queryByText(/Import or discard/i)).toBeNull();
   });
 });

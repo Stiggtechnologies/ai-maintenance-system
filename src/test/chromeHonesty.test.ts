@@ -81,6 +81,12 @@ describe("customer chrome honesty", () => {
     expect(page).toContain("canExposeBoltSpaces");
     expect(page).toContain("BoltSpacesPanel");
     expect(page).not.toMatch(/path=["']\/spaces["']/);
+    const governed = readFileSync(
+      "src/pages/GovernedDecisionWorkspacePage.tsx",
+      "utf8",
+    );
+    expect(governed).toContain("Browser drafts — import or discard");
+    expect(governed).toContain("not cowork threads, not Spaces");
     const askCss = readFileSync(
       "src/components/public-ask/public-ask.css",
       "utf8",

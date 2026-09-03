@@ -5,6 +5,7 @@ import {
   COWORK_LEGACY_PATH,
   COWORK_NAV_ID,
   COWORK_NAV_LABEL,
+  DRAFT_BANNER_IS_NOT_SPACES,
   PUBLIC_ASK_TIE_IN,
   boltChromeTieIn,
   canExposeBoltSpaces,
@@ -14,14 +15,34 @@ describe("Step 3 public-ask tie-in map", () => {
   it("maps Bolt Spaces to the existing cowork / Decision Workspace store", () => {
     const spaces = boltChromeTieIn("Spaces");
     expect(spaces?.product).toContain("cowork_workspaces");
-    expect(spaces?.product).toContain(BOLT_SPACES_LIVE_PATH);
+    expect(spaces?.product).toContain("DecisionCaseWorkspace");
     expect(spaces?.note).toMatch(/Not a \/spaces route/);
     expect(spaces?.note).toMatch(/CoworkStudio is not live/);
     expect(boltChromeTieIn("@mention a Space")?.product).toMatch(
       /cowork_workspaces/,
     );
+    expect(boltChromeTieIn("Spaces")?.note).toMatch(/DraftBanner/);
+    expect(boltChromeTieIn("@mention a Space")?.note).toMatch(/DraftBanner/);
+    expect(DRAFT_BANNER_IS_NOT_SPACES).toMatch(/Not cowork threads/);
     expect(canExposeBoltSpaces({ signedIn: false })).toBe(false);
     expect(canExposeBoltSpaces({ signedIn: true })).toBe(true);
+  });
+
+  it("does not treat the /decision-cases import banner as Spaces", () => {
+    const page = readFileSync(
+      "src/pages/GovernedDecisionWorkspacePage.tsx",
+      "utf8",
+    );
+    expect(page).toContain("function DraftBanner");
+    expect(page).toContain("Browser drafts — import or discard");
+    expect(page).toContain('data-testid="browser-draft-row"');
+    const draftFn = page.slice(
+      page.indexOf("function DraftBanner"),
+      page.indexOf("function OptionsMatrix"),
+    );
+    expect(draftFn).not.toMatch(/<Link/);
+    expect(draftFn).not.toMatch(/<a[\s>]/);
+    expect(DRAFT_BANNER_IS_NOT_SPACES).toMatch(/Import or Discard/);
   });
 
   it("does not invent a /spaces page; /cowork already redirects", () => {

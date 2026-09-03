@@ -8,11 +8,21 @@
  * `/decision-cases`. Conversations resume from `cowork_workspaces` /
  * `cowork_messages`. `CoworkStudio.tsx` is the old 15-agent studio and is
  * not a live route.
+ *
+ * Orville 2026-09-03 (follow-up): the amber **unsaved local drafts**
+ * banner on `/decision-cases` (`DraftBanner`) is leftover localStorage
+ * `DecisionCase` drafts. Rows are Import / Discard only — not cowork
+ * threads, not Spaces, not governed `decisions` rows. The clickable
+ * governed list is below that banner (`Link` to `/decision-cases/:id`).
  */
 export const BOLT_SPACES_LIVE_PATH = "/decision-cases";
 export const COWORK_LEGACY_PATH = "/cowork";
 export const COWORK_NAV_ID = "cowork";
 export const COWORK_NAV_LABEL = "Decision Workspace";
+
+/** Leftover localStorage DecisionCase rows on /decision-cases. Not Spaces. */
+export const DRAFT_BANNER_IS_NOT_SPACES =
+  "The /decision-cases amber banner is leftover localStorage DecisionCase drafts (Import or Discard). Not cowork threads, not Spaces, not governed decisions rows.";
 
 export type BoltChromeHonesty =
   "live" | "live-intent" | "gated" | "visual-only" | "hidden";
@@ -58,9 +68,9 @@ export const PUBLIC_ASK_TIE_IN: readonly BoltChromeTieIn[] = [
   },
   {
     chrome: "@mention a Space",
-    product: "cowork_workspaces / Decision Workspace cases",
+    product: "cowork_workspaces / signed-in DecisionCaseWorkspace threads",
     honesty: "visual-only",
-    note: "Placeholder grammar. Spaces in the rail is the live list when signed in.",
+    note: "Placeholder grammar. Spaces in the rail is the live cowork list when signed in. Not the /decision-cases DraftBanner import rows.",
   },
   {
     chrome: "Compass",
@@ -80,9 +90,10 @@ export const PUBLIC_ASK_TIE_IN: readonly BoltChromeTieIn[] = [
   },
   {
     chrome: "Spaces",
-    product: "cowork_workspaces / cowork_messages + /decision-cases",
+    product:
+      "cowork_workspaces / cowork_messages + signed-in DecisionCaseWorkspace threads",
     honesty: "hidden",
-    note: "Public anonymous: hidden. Signed-in Mode A/B: existing cowork / decision-case list. Not a /spaces route. CoworkStudio is not live.",
+    note: "Public anonymous: hidden. Signed-in Mode A/B: existing cowork threads. Not a /spaces route. CoworkStudio is not live. Not the amber DraftBanner import rows on /decision-cases.",
   },
   {
     chrome: "Install",
@@ -129,9 +140,10 @@ export function boltChromeTieIn(chrome: string): BoltChromeTieIn | undefined {
 }
 
 /**
- * Bolt Spaces is the existing cowork / Decision Workspace list.
- * Public anonymous has no real destination — hide it.
- * Signed-in Mode A/B exposes the store (Home = new ask, Spaces = threads).
+ * Bolt Spaces is real cowork_workspaces / signed-in DecisionCaseWorkspace
+ * threads. Public anonymous has no real destination — hide it.
+ * Signed-in Mode A/B exposes that store (Home = new ask, Spaces = threads).
+ * Do not treat DraftBanner import rows as Spaces.
  */
 export function canExposeBoltSpaces(input: { signedIn: boolean }): boolean {
   return input.signedIn;

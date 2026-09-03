@@ -15,8 +15,9 @@ type BoltSpacesPanelProps = {
 };
 
 /**
- * Bolt Spaces list = existing cowork / Decision Workspace threads.
- * Not a /spaces page. The live signed-in destination remains /decision-cases.
+ * Bolt Spaces list = cowork_workspaces / signed-in DecisionCaseWorkspace
+ * threads. Not a /spaces page. The /decision-cases amber DraftBanner is
+ * leftover localStorage drafts (import or discard) — not this list.
  */
 export function BoltSpacesPanel({
   cases,
