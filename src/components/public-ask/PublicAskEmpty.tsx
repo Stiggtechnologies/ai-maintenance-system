@@ -35,24 +35,23 @@ export function PublicAskEmpty({
         <span className="bolt-pro">pro</span>
       </div>
       {askBar}
-      <div className="bolt-pills" role="list">
+      <ul className="bolt-pills">
         {PUBLIC_ASK_INTENTS.map((intent) => (
-          <button
-            key={intent.id}
-            type="button"
-            className="bolt-pill"
-            role="listitem"
-            data-testid="ask-intent-pill"
-            data-intent={intent.id}
-            data-seed-index={String(intent.seedIndex)}
-            aria-label={intent.label}
-            onClick={() => onSelectIntent(intent.seedIndex)}
-          >
-            {PILL_ICONS[intent.id]}
-            {intent.label}
-          </button>
+          <li key={intent.id}>
+            <button
+              type="button"
+              className="bolt-pill"
+              data-testid="ask-intent-pill"
+              data-intent={intent.id}
+              data-seed-index={String(intent.seedIndex)}
+              onClick={() => onSelectIntent(intent.seedIndex)}
+            >
+              {PILL_ICONS[intent.id]}
+              {intent.label}
+            </button>
+          </li>
         ))}
-      </div>
+      </ul>
     </main>
   );
 }

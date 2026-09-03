@@ -38,7 +38,10 @@ import {
 } from "../lib/composer-attachment";
 import { useDictation } from "../hooks/useDictation";
 import { useOptionalAuth } from "../components/AuthProvider";
-import { ASK_PLACEHOLDER, PublicAskBar } from "../components/public-ask/PublicAskBar";
+import {
+  ASK_PLACEHOLDER,
+  PublicAskBar,
+} from "../components/public-ask/PublicAskBar";
 import { PublicAskEmpty } from "../components/public-ask/PublicAskEmpty";
 import { PublicAskRail } from "../components/public-ask/PublicAskRail";
 import { MarkdownRenderer } from "../components/MarkdownRenderer";
@@ -1029,9 +1032,7 @@ export function DecisionCaseWorkspacePage({
                     aria-pressed={dictation.listening}
                     disabled={!dictation.supported}
                     onClick={() =>
-                      dictation.listening
-                        ? dictation.stop()
-                        : dictation.start()
+                      dictation.listening ? dictation.stop() : dictation.start()
                     }
                   >
                     {dictation.supported ? (
@@ -1192,10 +1193,7 @@ export function DecisionCaseWorkspacePage({
       />
       <div className="bolt-stage">
         {emptyConversation ? (
-          <PublicAskEmpty
-            askBar={publicAskBar}
-            onSelectIntent={trySample}
-          />
+          <PublicAskEmpty askBar={publicAskBar} onSelectIntent={trySample} />
         ) : (
           <>
             <header className="bolt-thread-bar">
@@ -1512,16 +1510,10 @@ export function DecisionCaseWorkspacePage({
                       />
                     )}
                     {tab === "work" && (
-                      <WorkPanel
-                        active={active}
-                        completeWork={completeWork}
-                      />
+                      <WorkPanel active={active} completeWork={completeWork} />
                     )}
                     {tab === "value" && (
-                      <ValuePanel
-                        active={active}
-                        verifyValue={verifyValue}
-                      />
+                      <ValuePanel active={active} verifyValue={verifyValue} />
                     )}
                   </div>
                 </aside>

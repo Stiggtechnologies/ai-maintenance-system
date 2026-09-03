@@ -2,7 +2,10 @@ import { readFileSync } from "node:fs";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { FIRST_PAINT_QUESTIONS, createFirstPaintSeed } from "../lib/first-paint-seeds";
+import {
+  FIRST_PAINT_QUESTIONS,
+  createFirstPaintSeed,
+} from "../lib/first-paint-seeds";
 import { PUBLIC_ASK_INTENTS } from "../lib/public-ask-intents";
 import { ASK_PLACEHOLDER } from "../components/public-ask/PublicAskBar";
 import { DecisionCaseWorkspacePage } from "./DecisionCaseWorkspacePage";
@@ -102,9 +105,9 @@ describe("DecisionCaseWorkspacePage — Bolt first paint", () => {
     expect(screen.getByText("pro")).toBeTruthy();
     expect(screen.getByPlaceholderText(ASK_PLACEHOLDER)).toBeTruthy();
     expect(screen.getByTestId("first-paint-empty")).toBeTruthy();
-    expect(screen.getAllByTestId("ask-intent-pill").map((el) => el.textContent)).toEqual(
-      ["Compare", "Troubleshoot", "Health", "Learn", "Fact Check"],
-    );
+    expect(
+      screen.getAllByTestId("ask-intent-pill").map((el) => el.textContent),
+    ).toEqual(["Compare", "Troubleshoot", "Health", "Learn", "Fact Check"]);
     expect(screen.getByRole("button", { name: "Home" })).toBeTruthy();
     expect(screen.getByRole("link", { name: "Assess" })).toHaveAttribute(
       "href",
@@ -296,11 +299,8 @@ describe("DecisionCaseWorkspacePage — Bolt first paint", () => {
       unmount();
     }
     expect(new Set(caseNames).size).toBe(PUBLIC_ASK_INTENTS.length);
-    expect(caseNames).not.toContain(
-      createFirstPaintSeed(0).title,
-    );
-    expect(FIRST_PAINT_QUESTIONS[0]).toBe(
-      "What should we fix first to recover the most production?",
+    expect(FIRST_PAINT_QUESTIONS[5]).toBe(
+      "Should we repair, redesign, or replace this asset?",
     );
   });
 

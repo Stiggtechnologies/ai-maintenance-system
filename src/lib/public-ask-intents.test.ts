@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { FIRST_PAINT_QUESTIONS, createFirstPaintSeed } from "./first-paint-seeds";
+import {
+  FIRST_PAINT_QUESTIONS,
+  createFirstPaintSeed,
+} from "./first-paint-seeds";
 import { PUBLIC_ASK_INTENTS, publicAskIntentById } from "./public-ask-intents";
 
 describe("public ask intents", () => {
@@ -12,7 +15,7 @@ describe("public ask intents", () => {
       "Fact Check",
     ]);
     expect(PUBLIC_ASK_INTENTS.map((item) => item.question)).toEqual([
-      FIRST_PAINT_QUESTIONS[5],
+      FIRST_PAINT_QUESTIONS[0],
       FIRST_PAINT_QUESTIONS[4],
       FIRST_PAINT_QUESTIONS[1],
       FIRST_PAINT_QUESTIONS[3],
@@ -35,6 +38,6 @@ describe("public ask intents", () => {
       ).toBe(item.question);
     }
     expect(publicAskIntentById("missing")).toBeUndefined();
-    expect(publicAskIntentById("compare")?.seedIndex).toBe(5);
+    expect(publicAskIntentById("compare")?.seedIndex).toBe(0);
   });
 });

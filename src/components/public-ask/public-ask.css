@@ -241,7 +241,9 @@
   justify-content: center;
   gap: 10px;
   width: min(720px, 100%);
-  margin-top: 18px;
+  margin: 18px 0 0;
+  padding: 0;
+  list-style: none;
 }
 
 .bolt-pill {

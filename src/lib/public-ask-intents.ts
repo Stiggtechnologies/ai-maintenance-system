@@ -1,22 +1,21 @@
-import { FIRST_PAINT_QUESTIONS, type FirstPaintSeedIndex } from "./first-paint-seeds";
+import {
+  FIRST_PAINT_QUESTIONS,
+  type FirstPaintSeedIndex,
+} from "./first-paint-seeds";
 
 /**
  * Bolt rest-state pills → existing first-paint seeds.
  *
  * Labels are intents, not a demo library. Each pill loads one of the six
  * locked conversion questions via createFirstPaintSeed. P-101 is still banned
- * by that catalog. Question 0 (fix-first / recover production) has no pill;
+ * by that catalog. Question 5 (repair / redesign / replace) has no pill;
  * it remains available as typed ask.
  *
  * There is no Compare/Troubleshoot/Health/Learn/Fact Check RPC or route —
  * these only choose which governed seed to open.
  */
 export type PublicAskIntentId =
-  | "compare"
-  | "troubleshoot"
-  | "health"
-  | "learn"
-  | "fact-check";
+  "compare" | "troubleshoot" | "health" | "learn" | "fact-check";
 
 export type PublicAskIntent = {
   id: PublicAskIntentId;
@@ -29,8 +28,8 @@ export const PUBLIC_ASK_INTENTS: readonly PublicAskIntent[] = [
   {
     id: "compare",
     label: "Compare",
-    seedIndex: 5,
-    question: FIRST_PAINT_QUESTIONS[5],
+    seedIndex: 0,
+    question: FIRST_PAINT_QUESTIONS[0],
   },
   {
     id: "troubleshoot",
@@ -58,8 +57,6 @@ export const PUBLIC_ASK_INTENTS: readonly PublicAskIntent[] = [
   },
 ];
 
-export function publicAskIntentById(
-  id: string,
-): PublicAskIntent | undefined {
+export function publicAskIntentById(id: string): PublicAskIntent | undefined {
   return PUBLIC_ASK_INTENTS.find((item) => item.id === id);
 }
