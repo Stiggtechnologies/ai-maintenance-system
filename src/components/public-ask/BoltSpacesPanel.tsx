@@ -1,5 +1,4 @@
 import { Plus } from "lucide-react";
-import { BOLT_SPACES_LIVE_PATH } from "../../lib/public-ask-tie-in";
 
 export type BoltSpaceRow = {
   id: string;
@@ -15,9 +14,9 @@ type BoltSpacesPanelProps = {
 };
 
 /**
- * Bolt Spaces list = cowork_workspaces / signed-in DecisionCaseWorkspace
- * threads. Not a /spaces page. The /decision-cases amber DraftBanner is
- * leftover localStorage drafts (import or discard) — not this list.
+ * Bolt Spaces = cowork threads of any intent on /workspace.
+ * Not a /spaces page, not the Develop case list, not DraftBanner.
+ * New ask stays on /workspace (Home / +).
  */
 export function BoltSpacesPanel({
   cases,
@@ -32,23 +31,24 @@ export function BoltSpacesPanel({
       </button>
       <div className="dw-section-label">Spaces</div>
       <div className="dw-case-list">
-        {cases.map((item) => (
-          <button
-            type="button"
-            key={item.id}
-            className={`dw-case-row ${item.id === activeId ? "active" : ""}`}
-            onClick={() => onChoose(item.id)}
-          >
-            <span>
-              <strong>{item.title}</strong>
-              {item.asset ? <small>{item.asset}</small> : null}
-            </span>
-          </button>
-        ))}
+        {cases.length === 0 ? (
+          <p className="bolt-spaces-empty">No cowork threads yet.</p>
+        ) : (
+          cases.map((item) => (
+            <button
+              type="button"
+              key={item.id}
+              className={`dw-case-row ${item.id === activeId ? "active" : ""}`}
+              onClick={() => onChoose(item.id)}
+            >
+              <span>
+                <strong>{item.title}</strong>
+                {item.asset ? <small>{item.asset}</small> : null}
+              </span>
+            </button>
+          ))
+        )}
       </div>
-      <a className="bolt-spaces-live" href={BOLT_SPACES_LIVE_PATH}>
-        Decision Workspace
-      </a>
     </aside>
   );
 }

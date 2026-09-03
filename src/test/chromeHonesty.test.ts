@@ -86,7 +86,9 @@ describe("customer chrome honesty", () => {
       "utf8",
     );
     expect(governed).toContain("Browser drafts — import or discard");
-    expect(governed).toContain("not cowork threads, not Spaces");
+    expect(governed).toContain("One-time cleanup");
+    expect(governed).toContain("not how new cowork starts");
+    expect(governed).toContain("cowork threads, not Spaces");
     const askCss = readFileSync(
       "src/components/public-ask/public-ask.css",
       "utf8",

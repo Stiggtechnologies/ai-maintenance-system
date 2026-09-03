@@ -41,9 +41,10 @@ describe("GovernedDecisionWorkspacePage drafts", () => {
         <GovernedDecisionWorkspacePage />
       </MemoryRouter>,
     );
-    expect(await screen.findByTestId("browser-draft-banner")).toHaveTextContent(
-      "Browser drafts — import or discard",
-    );
+    const banner = await screen.findByTestId("browser-draft-banner");
+    expect(banner).toHaveTextContent("Browser drafts — import or discard");
+    expect(banner).toHaveTextContent("One-time cleanup");
+    expect(banner).toHaveTextContent("not how new cowork starts");
     expect(screen.getByTestId("browser-draft-row")).toHaveTextContent(
       "Browser draft",
     );

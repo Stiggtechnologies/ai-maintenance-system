@@ -154,11 +154,10 @@ describe("DecisionCaseWorkspacePage — Bolt first paint", () => {
     expect(screen.queryByText("Discover")).toBeNull();
     expect(screen.queryByLabelText("Sign in")).toBeNull();
     fireEvent.click(screen.getByTestId("bolt-rail-spaces"));
-    expect(screen.getByLabelText("Space list")).toBeTruthy();
-    expect(
-      screen.getByRole("link", { name: "Decision Workspace" }),
-    ).toHaveAttribute("href", "/decision-cases");
-    expect(screen.queryByRole("link", { name: /spaces/i })).toBeNull();
+    const spaces = screen.getByLabelText("Space list");
+    expect(spaces).toBeTruthy();
+    expect(spaces.querySelector("a")).toBeNull();
+    expect(spaces.textContent).not.toMatch(/develop/i);
     fireEvent.click(screen.getByRole("button", { name: "Home" }));
     expect(screen.getByTestId("first-paint-empty")).toBeTruthy();
   });
@@ -170,10 +169,10 @@ describe("DecisionCaseWorkspacePage — Bolt first paint", () => {
     expect(document.querySelector(".bolt-public.is-thread")).toBeTruthy();
     expect(screen.queryByText("Discover")).toBeNull();
     fireEvent.click(screen.getByTestId("bolt-rail-spaces"));
-    expect(screen.getByLabelText("Space list")).toBeTruthy();
-    expect(
-      screen.getByRole("link", { name: "Decision Workspace" }),
-    ).toHaveAttribute("href", "/decision-cases");
+    const spaces = screen.getByLabelText("Space list");
+    expect(spaces).toBeTruthy();
+    expect(spaces.querySelector("a")).toBeNull();
+    expect(spaces.textContent).not.toMatch(/develop/i);
   });
 
   it("a pill loads the recommendation in the assistant turn on a light thread", async () => {

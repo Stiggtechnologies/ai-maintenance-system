@@ -467,6 +467,13 @@
   background: #fbfbfc;
 }
 
+.bolt-spaces-empty {
+  margin: 8px 10px;
+  color: var(--bolt-muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
 .bolt-spaces-live {
   display: block;
   margin: 12px 10px 14px;

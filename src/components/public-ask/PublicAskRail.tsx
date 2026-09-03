@@ -14,9 +14,8 @@ type PublicAskRailProps = {
   signInHref?: string;
   onSignIn?: () => void;
   /**
-   * Bolt Spaces = existing cowork / Decision Workspace threads.
-   * Omit on public anonymous — no real destination. Signed-in Mode A/B
-   * passes this so the rail does not hide a live store.
+   * Bolt Spaces = existing cowork threads of any intent on /workspace.
+   * Omit on public anonymous. Not the Develop case list. Not DraftBanner.
    */
   spaces?: {
     active?: boolean;
@@ -28,8 +27,8 @@ type PublicAskRailProps = {
  * Bolt icon rail. Top compass is visual Bolt chrome only — not Discover.
  * `+` and Home start a new Mode A ask. Assess (/setup) is live.
  * Discover stays hidden (Bolt clicks changed no view). Install omitted
- * on web. Spaces appears only when `spaces` is passed — that is the
- * existing cowork list at /decision-cases, not a new /spaces page.
+ * on web. Spaces appears only when `spaces` is passed — cowork threads
+ * on /workspace, not /develop and not a new /spaces page.
  * One nav: column on desktop, bottom tabs on small screens.
  */
 export function PublicAskRail({

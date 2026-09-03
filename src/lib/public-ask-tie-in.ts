@@ -2,27 +2,45 @@
  * Step 3 — Bolt chrome → existing product. Clone the layout first; then
  * map. Do not invent a Spaces page, a Discover page, or a parallel store.
  *
- * Orville 2026-09-03: Bolt "Spaces" / "@mention a Space" is the cowork
- * surface this product already has. `/cowork` redirects to `/decision-cases`.
- * AppShell nav id `cowork` is labeled "Decision Workspace" and points at
- * `/decision-cases`. Conversations resume from `cowork_workspaces` /
- * `cowork_messages`. `CoworkStudio.tsx` is the old 15-agent studio and is
- * not a live route.
+ * Orville 2026-09-03 ruling: cowork / Spaces is NOT a Develop-only
+ * feature. Not all projects are development projects. Compare,
+ * Troubleshoot, Health, Learn, Fact Check, and open ask must not require
+ * creating a development case.
  *
- * Orville 2026-09-03 (follow-up): the amber **unsaved local drafts**
- * banner on `/decision-cases` (`DraftBanner`) is leftover localStorage
- * `DecisionCase` drafts. Rows are Import / Discard only — not cowork
- * threads, not Spaces, not governed `decisions` rows. The clickable
- * governed list is below that banner (`Link` to `/decision-cases/:id`).
+ * Home / + = new ask on public and signed-in `/workspace` (Mode A → Mode
+ * B), persisted to `cowork_workspaces` / decision-case chat — NOT
+ * `/develop/new`.
+ *
+ * Spaces / @mention a Space = existing cowork threads / cases of any
+ * intent, not the Develop case list. Reuse `cowork_workspaces` /
+ * `cowork_messages`. `CoworkStudio.tsx` is not a live route.
+ *
+ * The amber `/decision-cases` DraftBanner is one-time cleanup of leftover
+ * localStorage DecisionCase drafts (Import / Discard). It is not how new
+ * cowork starts and must not become the Spaces UX.
+ *
+ * AppShell nav id `cowork` still points at `/decision-cases` (governed
+ * `decisions` + `scenarios` bound to a development case). That is a
+ * different surface from Bolt Spaces. `/cowork` redirects there.
+ * Develop remains one destination for work that actually is a development
+ * case — do not funnel Health / Compare / etc. through it.
  */
-export const BOLT_SPACES_LIVE_PATH = "/decision-cases";
+export const COWORK_ASK_PATH = "/workspace";
+export const APPSHELL_COWORK_PATH = "/decision-cases";
 export const COWORK_LEGACY_PATH = "/cowork";
 export const COWORK_NAV_ID = "cowork";
 export const COWORK_NAV_LABEL = "Decision Workspace";
+export const DEVELOP_NEW_PATH = "/develop/new";
+
+/** @deprecated Use COWORK_ASK_PATH. Spaces is /workspace threads, not this. */
+export const BOLT_SPACES_LIVE_PATH = COWORK_ASK_PATH;
 
 /** Leftover localStorage DecisionCase rows on /decision-cases. Not Spaces. */
 export const DRAFT_BANNER_IS_NOT_SPACES =
-  "The /decision-cases amber banner is leftover localStorage DecisionCase drafts (Import or Discard). Not cowork threads, not Spaces, not governed decisions rows.";
+  "The /decision-cases amber banner is one-time cleanup of leftover localStorage DecisionCase drafts (Import or Discard). Not how new cowork starts. Not cowork threads, not Spaces, not governed decisions rows.";
+
+export const COWORK_IS_NOT_DEVELOP_ONLY =
+  "Cowork / Spaces is not a Develop-only feature. Collaboration asks persist to cowork_workspaces and must not require /develop/new.";
 
 export type BoltChromeHonesty =
   "live" | "live-intent" | "gated" | "visual-only" | "hidden";
@@ -37,40 +55,45 @@ export type BoltChromeTieIn = {
 export const PUBLIC_ASK_TIE_IN: readonly BoltChromeTieIn[] = [
   {
     chrome: "Ask bar send",
-    product: "sendMessage → askDecisionCase",
+    product: "sendMessage → askDecisionCase → cowork_workspaces",
     honesty: "live",
+    note: "Not /develop/new.",
   },
   {
     chrome: "Compare",
-    product: "first-paint seed 0",
+    product: "first-paint seed 0 on /workspace",
     honesty: "live-intent",
+    note: "Not a development case. Not /develop/new.",
   },
   {
     chrome: "Troubleshoot",
-    product: "first-paint seed 4",
+    product: "first-paint seed 4 on /workspace",
     honesty: "live-intent",
+    note: "Not a development case. Not /develop/new.",
   },
   {
     chrome: "Health",
-    product: "first-paint seed 1",
+    product: "first-paint seed 1 on /workspace",
     honesty: "live-intent",
+    note: "Not a development case. Not /develop/new.",
   },
   {
     chrome: "Learn",
-    product: "first-paint seed 3",
+    product: "first-paint seed 3 on /workspace",
     honesty: "live-intent",
-    note: "Not the Learning Loop recorder",
+    note: "Not the Learning Loop recorder. Not /develop/new.",
   },
   {
     chrome: "Fact Check",
-    product: "first-paint seed 2",
+    product: "first-paint seed 2 on /workspace",
     honesty: "live-intent",
+    note: "Not a development case. Not /develop/new.",
   },
   {
     chrome: "@mention a Space",
-    product: "cowork_workspaces / signed-in DecisionCaseWorkspace threads",
+    product: "existing cowork_workspaces threads of any intent",
     honesty: "visual-only",
-    note: "Placeholder grammar. Spaces in the rail is the live cowork list when signed in. Not the /decision-cases DraftBanner import rows.",
+    note: "Placeholder grammar. Spaces in the rail lists cowork threads. Not the Develop case list. Not DraftBanner.",
   },
   {
     chrome: "Compass",
@@ -79,8 +102,9 @@ export const PUBLIC_ASK_TIE_IN: readonly BoltChromeTieIn[] = [
   },
   {
     chrome: "Rail + / Home",
-    product: "createCase() — new ask",
+    product: "createCase() on /workspace — new ask, cowork_workspaces",
     honesty: "live",
+    note: "Public and signed-in Mode A. Not /develop/new.",
   },
   {
     chrome: "Discover",
@@ -91,9 +115,9 @@ export const PUBLIC_ASK_TIE_IN: readonly BoltChromeTieIn[] = [
   {
     chrome: "Spaces",
     product:
-      "cowork_workspaces / cowork_messages + signed-in DecisionCaseWorkspace threads",
+      "existing cowork_workspaces / DecisionCaseWorkspace threads of any intent",
     honesty: "hidden",
-    note: "Public anonymous: hidden. Signed-in Mode A/B: existing cowork threads. Not a /spaces route. CoworkStudio is not live. Not the amber DraftBanner import rows on /decision-cases.",
+    note: "Public anonymous: hidden. Signed-in Mode A/B: cowork thread list on /workspace. Not a /spaces route. Not the Develop case list. Not DraftBanner. CoworkStudio is not live.",
   },
   {
     chrome: "Install",
@@ -132,6 +156,13 @@ export const PUBLIC_ASK_TIE_IN: readonly BoltChromeTieIn[] = [
     chrome: "Mode B thread",
     product: "case + recommendation + Simulate + packet + Learn pointer",
     honesty: "live",
+    note: "Decision-case chat on /workspace. Not a Develop case.",
+  },
+  {
+    chrome: "Develop",
+    product: "/develop — only when the work actually is a development case",
+    honesty: "live",
+    note: "Do not funnel Compare / Troubleshoot / Health / Learn / Fact Check / open ask through it.",
   },
 ];
 
@@ -140,11 +171,15 @@ export function boltChromeTieIn(chrome: string): BoltChromeTieIn | undefined {
 }
 
 /**
- * Bolt Spaces is real cowork_workspaces / signed-in DecisionCaseWorkspace
- * threads. Public anonymous has no real destination — hide it.
+ * Bolt Spaces is cowork_workspaces threads of any intent on /workspace.
+ * Public anonymous has no real destination — hide it.
  * Signed-in Mode A/B exposes that store (Home = new ask, Spaces = threads).
- * Do not treat DraftBanner import rows as Spaces.
+ * Do not treat DraftBanner or the Develop case list as Spaces.
  */
 export function canExposeBoltSpaces(input: { signedIn: boolean }): boolean {
   return input.signedIn;
+}
+
+export function coworkAskRequiresDevelopmentCase(): boolean {
+  return false;
 }

@@ -89,10 +89,11 @@ function DraftBanner({
         {drafts.length === 1 ? "" : ` · ${drafts.length} leftover`}
       </div>
       <p className="mt-1 text-xs text-amber-200/80">
-        Leftover localStorage DecisionCase drafts from the old workspace. They
-        are not cowork threads, not Spaces, and not governed decisions. Import
-        one into a development case, or discard it. These rows are not links and
-        will not open a case until imported.
+        One-time cleanup of leftover localStorage DecisionCase drafts from the
+        old workspace. This is not how new cowork starts. They are not cowork
+        threads, not Spaces, and not governed decisions. Import into a
+        development case only if that leftover actually belongs there, or
+        discard it. These rows are not links.
       </p>
       {error && <p className="mt-2 text-xs text-red-300">{error}</p>}
       <div className="mt-3 flex items-center gap-2">
