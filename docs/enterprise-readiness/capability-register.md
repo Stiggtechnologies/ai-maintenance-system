@@ -77,7 +77,7 @@ with the PR that changes an item's status._
 | C3.09 | Definition: failure mechanism, mode, cause, consequence                     | ✅ governed definition v1                                                                                                                                                           |
 | C3.10 | Definition: production loss attribution                                     | ✅ governed definition v1                                                                                                                                                           |
 | C3.11 | Definition: safety-, environmental-, business-critical assets               | ✅ governed definition v1                                                                                                                                                           |
-| C3.12 | Taxonomy as versioned, enterprise-governed master data (not per-asset text) | ✅ versioned master data on `/governance` (`TaxonomyGovernance`): `adopt_taxonomy_definition` remains the named-human adopt; `propose_taxonomy_revision` now writes the next version as a draft (`proposeTaxonomyRevision`) and does not replace adopted truth until a named human adopts it. The AI-operator identity is not offered propose or adopt |
+| C3.12 | Taxonomy as versioned, enterprise-governed master data (not per-asset text) | ✅ versioned master data on `/governance` (`TaxonomyGovernance`): `adopt_taxonomy_definition` remains the named-human adopt; `propose_taxonomy_revision` now writes the next version as a draft (`proposeTaxonomyRevision`) and does not replace adopted truth until a named human adopts it. The AI-operator identity may propose a draft; it is not offered Adopt |
 
 ### C4 — Closed-loop maintenance process
 

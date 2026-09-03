@@ -13,7 +13,8 @@ import { useAuth } from "./AuthProvider";
 import { LoadingState, ErrorState } from "./ui/AsyncStates";
 import { useState } from "react";
 import {
-  canGovernTaxonomy,
+  canAdoptTaxonomy,
+  canProposeTaxonomy,
   proposeTaxonomyRevision,
 } from "../services/reliabilityCallers";
 
@@ -51,7 +52,9 @@ export function TaxonomyGovernance() {
   const [definition, setDefinition] = useState("");
   const [basis, setBasis] = useState("");
   const [flash, setFlash] = useState<string | null>(null);
-  const canAdopt = canGovernTaxonomy(profile?.role as string | undefined);
+  const role = profile?.role as string | undefined;
+  const canAdopt = canAdoptTaxonomy(role);
+  const canPropose = canProposeTaxonomy(role);
 
   if (loading) return <LoadingState label="Loading failure taxonomy" />;
   if (error) return <ErrorState message={error} onRetry={refetch} />;
@@ -80,9 +83,10 @@ export function TaxonomyGovernance() {
           data-testid="taxonomy-honesty"
           className="mt-2 rounded-xl border border-white/8 bg-industrial-black/60 px-4 py-3 text-xs text-slate-400"
         >
-          Proposing a revision writes the next version as a draft. It does not
-          replace adopted truth. Adoption records the signed-in person. The
-          AI-operator identity is not offered propose or adopt.
+          Propose writes the next version as a draft. A proposal is not adopted
+          truth. Adopt is offered to administrator, reliability engineer, and
+          maintenance manager. The AI-operator identity may propose a draft; it
+          is not offered Adopt.
         </p>
       </div>
 
@@ -123,7 +127,7 @@ export function TaxonomyGovernance() {
             <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
               <span className="text-xs text-slate-600">Basis: {d.basis}</span>
               <div className="flex gap-2">
-                {canAdopt && (
+                {canPropose && (
                   <button
                     type="button"
                     onClick={() => {

@@ -16,27 +16,47 @@
  * Honesty bars held here:
  *   - a recommended P-F interval is not an authorized inspection frequency;
  *   - a taxonomy proposal is a draft and does not replace adopted truth;
- *   - accepting residual risk is a named-human act; the AI-operator
- *     identity is not offered adopt, propose, decide, or accept.
+ *   - the AI-operator identity is not offered P-F adopt, taxonomy adopt,
+ *     variance decide, or accept-risk. Propose may remain as a draft-only act.
  */
 import { supabase } from "../lib/supabase";
 
 export const PF_ADOPT_ROLES = ["reliability_engineer", "admin"] as const;
 
-export const TAXONOMY_GOVERN_ROLES = [
+export const TAXONOMY_ADOPT_ROLES = [
   "admin",
   "reliability_engineer",
   "maintenance_manager",
+] as const;
+
+export const TAXONOMY_PROPOSE_ROLES = [
+  ...TAXONOMY_ADOPT_ROLES,
+  "ai_admin",
 ] as const;
 
 export function canAdoptPfInterval(role: string | null | undefined): boolean {
   return role != null && (PF_ADOPT_ROLES as readonly string[]).includes(role);
 }
 
-export function canGovernTaxonomy(role: string | null | undefined): boolean {
+/** Named-human adopt only. The AI-operator identity is not offered this act. */
+export function canAdoptTaxonomy(role: string | null | undefined): boolean {
   return (
-    role != null && (TAXONOMY_GOVERN_ROLES as readonly string[]).includes(role)
+    role != null && (TAXONOMY_ADOPT_ROLES as readonly string[]).includes(role)
   );
+}
+
+/**
+ * A proposal writes a draft. It does not replace adopted truth.
+ * Kept for `ai_admin` because the RPC is a draft writer, not an authorizer.
+ */
+export function canProposeTaxonomy(role: string | null | undefined): boolean {
+  return (
+    role != null && (TAXONOMY_PROPOSE_ROLES as readonly string[]).includes(role)
+  );
+}
+
+export function canGovernTaxonomy(role: string | null | undefined): boolean {
+  return canAdoptTaxonomy(role);
 }
 
 export function canDecideVariance(role: string | null | undefined): boolean {

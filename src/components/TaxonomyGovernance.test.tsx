@@ -59,6 +59,17 @@ beforeEach(() => {
         version: 1,
         status: "adopted",
       },
+      {
+        id: "t-draft",
+        def_key: "repeat_failure",
+        title: "Repeat failure",
+        definition:
+          "A failure of the same maintainable item with the same mode inside a defined window.",
+        basis: "FRACAS recurrence",
+        register_ref: "C3.06",
+        version: 2,
+        status: "draft",
+      },
     ]),
   );
 });
@@ -70,18 +81,18 @@ describe("TaxonomyGovernance proposal path", () => {
     await screen.findByText("What constitutes a failure");
     expect(screen.queryByText("Propose revision")).not.toBeInTheDocument();
     expect(screen.getByTestId("taxonomy-honesty")).toHaveTextContent(
-      /AI-operator identity is not offered propose or adopt/,
+      /proposal is not adopted truth/i,
     );
   });
 
-  it("hides propose and adopt from the AI-operator identity", async () => {
+  it("lets ai_admin propose a draft and hides Adopt", async () => {
     role = "ai_admin";
     render(<TaxonomyGovernance />);
     await screen.findByText("What constitutes a failure");
-    expect(screen.queryByText("Propose revision")).not.toBeInTheDocument();
+    expect(screen.getAllByText("Propose revision").length).toBeGreaterThan(0);
     expect(screen.queryByText("Adopt")).not.toBeInTheDocument();
     expect(screen.getByTestId("taxonomy-honesty")).toHaveTextContent(
-      /AI-operator identity is not offered propose or adopt/,
+      /not offered Adopt/,
     );
   });
 
@@ -92,7 +103,8 @@ describe("TaxonomyGovernance proposal path", () => {
       version: 2,
     });
     render(<TaxonomyGovernance />);
-    fireEvent.click(await screen.findByText("Propose revision"));
+    const proposeButtons = await screen.findAllByText("Propose revision");
+    fireEvent.click(proposeButtons[0]);
     fireEvent.change(screen.getByLabelText("Proposed taxonomy definition"), {
       target: {
         value:

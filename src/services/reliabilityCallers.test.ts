@@ -9,8 +9,9 @@ import {
   adoptPfInterval,
   canAcceptRisk,
   canAdoptPfInterval,
+  canAdoptTaxonomy,
   canDecideVariance,
-  canGovernTaxonomy,
+  canProposeTaxonomy,
   decideStandardVariance,
   getOperatingContext,
   getOperatingRegime,
@@ -40,9 +41,10 @@ describe("role gates", () => {
     expect(canAdoptPfInterval("admin")).toBe(true);
     expect(canAdoptPfInterval("ai_admin")).toBe(false);
     expect(canAdoptPfInterval("technician")).toBe(false);
-    expect(canGovernTaxonomy("maintenance_manager")).toBe(true);
-    expect(canGovernTaxonomy("ai_admin")).toBe(false);
-    expect(canGovernTaxonomy("operator")).toBe(false);
+    expect(canAdoptTaxonomy("maintenance_manager")).toBe(true);
+    expect(canAdoptTaxonomy("ai_admin")).toBe(false);
+    expect(canProposeTaxonomy("ai_admin")).toBe(true);
+    expect(canProposeTaxonomy("technician")).toBe(false);
     expect(canDecideVariance("admin")).toBe(true);
     expect(canDecideVariance("ai_admin")).toBe(false);
     expect(canAcceptRisk("reliability_engineer")).toBe(true);
