@@ -80,6 +80,7 @@ describe("Step 3 public-ask tie-in map", () => {
     expect(page).toContain("Browser drafts — import or discard");
     expect(page).toContain("One-time cleanup");
     expect(page).toContain("not how new cowork starts");
+    expect(page).toContain("cowork threads, not Spaces");
     expect(page).toContain('data-honesty="draft-banner-not-spaces"');
     expect(page).toContain('data-testid="browser-draft-row"');
     const draftFn = page.slice(

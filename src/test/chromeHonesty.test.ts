@@ -84,10 +84,11 @@ describe("customer chrome honesty", () => {
     const governed = readFileSync(
       "src/pages/GovernedDecisionWorkspacePage.tsx",
       "utf8",
-    );
+    ).replace(/\s+/g, " ");
     expect(governed).toContain("Browser drafts — import or discard");
     expect(governed).toContain("One-time cleanup");
     expect(governed).toContain("not how new cowork starts");
+    expect(governed).toContain("cowork threads, not Spaces");
     expect(governed).toContain('data-honesty="draft-banner-not-spaces"');
     const askCss = readFileSync(
       "src/components/public-ask/public-ask.css",

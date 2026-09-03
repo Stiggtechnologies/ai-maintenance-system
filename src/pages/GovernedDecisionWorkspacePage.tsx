@@ -54,6 +54,10 @@ function money(value: number | null): string {
   );
 }
 
+/** Visible DraftBanner copy. Keep "cowork threads, not Spaces" contiguous — chromeHonesty reads this source. */
+const BROWSER_DRAFT_CLEANUP_COPY =
+  "One-time cleanup of leftover localStorage DecisionCase drafts from the old workspace. This is not how new cowork starts. They are not cowork threads, not Spaces, and not governed decisions. Import into a development case only if that leftover actually belongs there, or discard it. These rows are not links.";
+
 function DraftBanner({
   onImported,
 }: {
@@ -90,11 +94,7 @@ function DraftBanner({
         {drafts.length === 1 ? "" : ` · ${drafts.length} leftover`}
       </div>
       <p className="mt-1 text-xs text-amber-200/80">
-        One-time cleanup of leftover localStorage DecisionCase drafts from the
-        old workspace. This is not how new cowork starts. They are not cowork
-        threads, not Spaces, and not governed decisions. Import into a
-        development case only if that leftover actually belongs there, or
-        discard it. These rows are not links.
+        {BROWSER_DRAFT_CLEANUP_COPY}
       </p>
       {error && <p className="mt-2 text-xs text-red-300">{error}</p>}
       <div className="mt-3 flex items-center gap-2">

@@ -45,6 +45,7 @@ describe("GovernedDecisionWorkspacePage drafts", () => {
     expect(banner).toHaveTextContent("Browser drafts — import or discard");
     expect(banner).toHaveTextContent("One-time cleanup");
     expect(banner).toHaveTextContent("not how new cowork starts");
+    expect(banner).toHaveTextContent("cowork threads, not Spaces");
     expect(banner).toHaveAttribute("data-honesty", "draft-banner-not-spaces");
     expect(screen.getByTestId("browser-draft-row")).toHaveTextContent(
       "Browser draft",
