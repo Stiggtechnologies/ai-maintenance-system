@@ -328,6 +328,12 @@
   display: none;
 }
 
+.bolt-ask-overflow-menu .bolt-ask-tool[aria-label="Search"],
+.bolt-ask-overflow-menu .bolt-ask-tool[aria-label="Web search"],
+.bolt-ask-overflow-menu .bolt-ask-tool[aria-label="Link"] {
+  display: flex;
+}
+
 .bolt-pills {
   display: flex;
   flex-wrap: nowrap;
@@ -721,10 +727,10 @@
     padding-left: 14px;
   }
 
-  .bolt-ask-tool[aria-label="Search"],
-  .bolt-ask-tool[aria-label="Web search"],
-  .bolt-ask-tool[aria-label="Link"],
-  .bolt-ask-gap {
+  .bolt-ask-tools .bolt-ask-tool[aria-label="Search"],
+  .bolt-ask-tools .bolt-ask-tool[aria-label="Web search"],
+  .bolt-ask-tools .bolt-ask-tool[aria-label="Link"],
+  .bolt-ask-tools .bolt-ask-gap {
     display: none;
   }
 

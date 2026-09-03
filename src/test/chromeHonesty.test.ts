@@ -78,6 +78,17 @@ describe("customer chrome honesty", () => {
     expect(empty).not.toMatch(/Reliability Engineer/);
     expect(rail).not.toMatch(/Reliability Engineer/);
     expect(page).toContain("caseExists={!emptyConversation}");
+    const askCss = readFileSync(
+      "src/components/public-ask/public-ask.css",
+      "utf8",
+    );
+    expect(askCss).toContain(".bolt-ask-overflow");
+    expect(askCss).not.toMatch(
+      /@media[^{]+\{[^}]*\.bolt-ask-tool\[aria-label="Search"\]/,
+    );
+    expect(askCss).toContain(
+      '.bolt-ask-overflow-menu .bolt-ask-tool[aria-label="Search"]',
+    );
   });
 
   it("first-paint follow-up does not restore gold or a 48-hour offer", () => {
