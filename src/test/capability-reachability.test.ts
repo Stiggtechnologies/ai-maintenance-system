@@ -553,9 +553,29 @@ const FLOORS: Record<string, Floors> = {
     // to seed both by direct SQL. The traversal is real and refuses at that hop
     // by name; the row says 🟡 and says why. Nothing was exempted, no floor was
     // lowered, and EXEMPTIONS is still empty.
-    rowsWithAnEnforceableCitation: 166,
-    citationsEnforced: 986,
-    claimedRowsEnforced: 107,
+    //
+    // 166/986/107 -> 170/1027/110 (2026-09-03, Slice 7A). Advanced Work
+    // Packaging landed — the typed EWP→PWP→CWP→IWP chain enforced at the
+    // database, §27's WorkPackage on the canonical work identity, §28's ten
+    // Constraint types on the canonical constraint store, and I.28's forward
+    // burn-down recorded into the ONE lineage ledger — with D7.10, D7.17 and
+    // D7.18 flipping to ✅ on chains this gate can walk, and forty-one more
+    // citations becoming enforceable. RATCHETED UP for the reason this block
+    // gives every time: the added reach is real, and a later change must not
+    // be able to de-cite it with the suite still green.
+    //
+    // The CEILING did not move, and the gate earned its keep again on the
+    // first attempt: all three rows were written citing `WorkPackagingPanels.tsx`
+    // by bare filename, which resolves to nothing, and the stale-citation
+    // assertion demoted them until the repo-relative path was written instead.
+    // D7.07 was deliberately NOT flipped: its own row names three gaps, and
+    // `run_recovery_escalation_clock` still has no scheduled caller while
+    // `restoration_blockers` is still restoration-event-only, so it stays 🟡
+    // with both residuals named. Nothing was exempted, no floor was lowered,
+    // and EXEMPTIONS is still empty.
+    rowsWithAnEnforceableCitation: 170,
+    citationsEnforced: 1027,
+    claimedRowsEnforced: 110,
     // D11.04 (a CI-fence claim proved by a named test file), D11.10 (a
     // canonical seeded vocabulary, which the write-path judge would fail for
     // not being customer-writable — a question the row never asked) and

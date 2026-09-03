@@ -608,8 +608,8 @@
   "D6.01": {
     "status": "✅",
     "evidence": true,
-    "citations": 17,
-    "backticked": 17
+    "citations": 28,
+    "backticked": 28
   },
   "D6.02": {
     "status": "🟡",
@@ -638,8 +638,8 @@
   "D6.06": {
     "status": "✅",
     "evidence": true,
-    "citations": 57,
-    "backticked": 57
+    "citations": 78,
+    "backticked": 78
   },
   "D6.07": {
     "status": "🟡",
@@ -686,20 +686,20 @@
   "D7.05": {
     "status": "🟡",
     "evidence": true,
-    "citations": 3,
-    "backticked": 0
+    "citations": 4,
+    "backticked": 2
   },
   "D7.06": {
     "status": "🟡",
     "evidence": true,
-    "citations": 2,
-    "backticked": 0
+    "citations": 9,
+    "backticked": 4
   },
   "D7.07": {
     "status": "🟡",
     "evidence": true,
-    "citations": 8,
-    "backticked": 0
+    "citations": 15,
+    "backticked": 12
   },
   "D7.08": {
     "status": "❌",
@@ -714,16 +714,16 @@
     "backticked": 0
   },
   "D7.10": {
-    "status": "❌",
+    "status": "✅",
     "evidence": true,
-    "citations": 6,
-    "backticked": 0
+    "citations": 12,
+    "backticked": 10
   },
   "D7.11": {
     "status": "🟡",
     "evidence": true,
-    "citations": 0,
-    "backticked": 0
+    "citations": 2,
+    "backticked": 2
   },
   "D7.12": {
     "status": "🟡",
@@ -756,22 +756,22 @@
     "backticked": 0
   },
   "D7.17": {
-    "status": "🟡",
+    "status": "✅",
     "evidence": true,
-    "citations": 3,
-    "backticked": 0
+    "citations": 19,
+    "backticked": 15
   },
   "D7.18": {
-    "status": "🟡",
+    "status": "✅",
     "evidence": true,
-    "citations": 3,
-    "backticked": 0
+    "citations": 28,
+    "backticked": 28
   },
   "D7.19": {
     "status": "🟡",
     "evidence": true,
-    "citations": 3,
-    "backticked": 0
+    "citations": 4,
+    "backticked": 1
   },
   "D7.20": {
     "status": "❌",
@@ -1172,8 +1172,8 @@
   "D11.33": {
     "status": "🟡",
     "evidence": true,
-    "citations": 22,
-    "backticked": 21
+    "citations": 27,
+    "backticked": 26
   },
   "D11.34": {
     "status": "❌",

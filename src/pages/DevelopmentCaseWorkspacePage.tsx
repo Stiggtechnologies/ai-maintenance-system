@@ -104,6 +104,7 @@ import { ChangeAndControlsPanel } from "../components/develop/ChangeControlPanel
 import { RequirementsThreadPanel } from "../components/develop/RequirementsThreadPanels";
 import { FrontlineDesignPanel } from "../components/develop/FrontlineDesignPanels";
 import { ProcurementPanel } from "../components/develop/ProcurementPanels";
+import { WorkPackagingPanel } from "../components/develop/WorkPackagingPanels";
 import { DigitalThreadPanel } from "../components/develop/DigitalThreadPanels";
 import {
   CaseRamPanel,
@@ -160,6 +161,28 @@ const DESIGN_PLAN_ROLES = [...REVIEW_ROLES, "planner"];
  */
 const PROCUREMENT_PLAN_ROLES = [...REVIEW_ROLES, "planner"];
 const PROCUREMENT_AWARD_ROLES = ["admin", "executive", "maintenance_manager"];
+
+/**
+ * Slice 7A (D7.17/D7.10/D7.18/D7.07), spec II.4 + §27 + §28 + §70.
+ *
+ * AWP_PLAN_ROLES: recording a package, packaging work, recording a §28
+ * constraint, forecasting one and verifying one satisfied. `supervisor` is IN
+ * — an installation package's constraints are cleared by the person standing
+ * where the work is — and `ai_admin` is OUT, because §70 refuses it by name at
+ * the constraint-verification wall and offering the form only puts the refusal
+ * after the intent.
+ *
+ * AWP_RELEASE_ROLES: the one act §70 reserves here — saying this work is safe
+ * to start. Matching `release_work_package` exactly: a planner packages the
+ * work and a supervisor or a manager releases it.
+ */
+const AWP_PLAN_ROLES = [...REVIEW_ROLES, "planner", "supervisor"];
+const AWP_RELEASE_ROLES = [
+  "admin",
+  "executive",
+  "maintenance_manager",
+  "supervisor",
+];
 
 const inputClass =
   "w-full rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-signal-cyan/50 focus:outline-none";
@@ -2443,6 +2466,10 @@ export function DevelopmentCaseWorkspacePage() {
     profile?.role != null && PROCUREMENT_PLAN_ROLES.includes(profile.role);
   const canAwardContract =
     profile?.role != null && PROCUREMENT_AWARD_ROLES.includes(profile.role);
+  const canPackageWork =
+    profile?.role != null && AWP_PLAN_ROLES.includes(profile.role);
+  const canReleasePackage =
+    profile?.role != null && AWP_RELEASE_ROLES.includes(profile.role);
 
   const [workspace, setWorkspace] = useState<CaseWorkspace | null>(null);
   const [members, setMembers] = useState<OrgMember[]>([]);
@@ -2961,6 +2988,22 @@ export function DevelopmentCaseWorkspacePage() {
         canPlan={canProcure}
         canAward={canAwardContract}
         currentUserEmail={profile?.email ?? null}
+        reloadKey={chainsKey}
+      />
+      {/* Advanced Work Packaging (Slice 7A): spec II.4's typed EWP → PWP →
+          CWP → IWP chain, enforced at the database so a package cannot skip a
+          level or point at the wrong parent; §27's five package types on the
+          canonical work identity (work_orders stays the work — this packages
+          it); §28's ten constraint types on the ONE constraint store, keeping
+          its satisfied-requires-verifier rule and adding a §70 wall so the
+          verifier is a person; and I.28's FORWARD burn-down — what will block
+          this package and when — recorded as an immutable calculation run
+          rather than recomputed, and refusing over a package nobody has
+          assessed rather than reporting a comfortable zero. */}
+      <WorkPackagingPanel
+        caseId={workspace.id}
+        canPlan={canPackageWork}
+        canRelease={canReleasePackage}
         reloadKey={chainsKey}
       />
       <InformationEnginePanel caseId={workspace.id} reloadKey={chainsKey} />
