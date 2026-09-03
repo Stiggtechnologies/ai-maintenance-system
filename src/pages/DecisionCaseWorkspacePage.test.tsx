@@ -167,6 +167,29 @@ describe("DecisionCaseWorkspacePage — Bolt first paint", () => {
     expect(screen.getByLabelText("Add camera, photos, or files")).toBeTruthy();
   });
 
+  it("Mode A does not restore the Reliability Engineer header lockup", () => {
+    renderWorkspace();
+    expect(screen.queryByTestId("brand-job-title")).toBeNull();
+    expect(screen.queryByText("Reliability Engineer")).toBeNull();
+    expect(screen.queryByLabelText("SyncAI Reliability Engineer")).toBeNull();
+    expect(document.querySelector(".bolt-public.is-empty")).toBeTruthy();
+  });
+
+  it("packet and attach stay gated until a case exists", () => {
+    renderWorkspace();
+    expect(screen.queryByRole("button", { name: "View record" })).toBeNull();
+    expect(screen.queryByText("Current decision packet")).toBeNull();
+    expect(screen.queryByRole("tablist")).toBeNull();
+    expect(screen.getByLabelText("Attach a photo")).toBeDisabled();
+    expect(screen.getByLabelText("Attach a file")).toBeDisabled();
+    expect(screen.queryByRole("menuitem", { name: "Camera" })).toBeNull();
+    loadSample();
+    expect(screen.getByRole("button", { name: "View record" })).toBeTruthy();
+    expect(screen.getByLabelText("Add camera, photos, or files")).toBeEnabled();
+    fireEvent.click(screen.getByRole("button", { name: "View record" }));
+    expect(screen.getByText("Current decision packet")).toBeTruthy();
+  });
+
   it("plus sheet offers camera, photos, and files only after a case exists", () => {
     renderWorkspace();
     expect(screen.queryByRole("menuitem", { name: "Camera" })).toBeNull();

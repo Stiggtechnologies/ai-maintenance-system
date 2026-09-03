@@ -1177,8 +1177,11 @@ export function DecisionCaseWorkspacePage({
   );
   if (!publicMode) return workspace;
 
-  // Bolt public shell. Mode A is the empty canvas; Mode B is the existing
-  // case/transcript/recommendation/approve path on a light conversation.
+  // Bolt public shell. Mode A is the empty canvas — no public product
+  // header / RELIABILITY ENGINEER lockup. Mode B is the existing case /
+  // transcript / recommendation / Approve path on a light conversation.
+  // LEARN after Simulate stays LearnUnpersistedPointer — verification is
+  // not written here. Packet and attach stay gated on a started case.
   return (
     <div
       className={`bolt-public ${emptyConversation ? "is-empty" : "is-thread"}`}

@@ -58,6 +58,28 @@ describe("customer chrome honesty", () => {
     }
   });
 
+  it("public /workspace keeps the three Bolt honesty holds", () => {
+    const page = readFileSync(
+      "src/pages/DecisionCaseWorkspacePage.tsx",
+      "utf8",
+    );
+    const empty = readFileSync(
+      "src/components/public-ask/PublicAskEmpty.tsx",
+      "utf8",
+    );
+    const rail = readFileSync(
+      "src/components/public-ask/PublicAskRail.tsx",
+      "utf8",
+    );
+    expect(page).toContain("LearnUnpersistedPointer");
+    expect(page).not.toMatch(/InThreadLearnRecorder/);
+    expect(page).not.toMatch(/from ["'].*PublicProductHeader["']/);
+    expect(page).not.toMatch(/brand-job-title/);
+    expect(empty).not.toMatch(/Reliability Engineer/);
+    expect(rail).not.toMatch(/Reliability Engineer/);
+    expect(page).toContain("caseExists={!emptyConversation}");
+  });
+
   it("first-paint follow-up does not restore gold or a 48-hour offer", () => {
     const firstPaint = [
       "src/lib/first-paint-seeds.ts",

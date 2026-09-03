@@ -508,6 +508,29 @@
   background: #9aa3ad;
 }
 
+/* Mode B LEARN pointer must stay readable on the light canvas. Dark
+   .dw-learn would look dropped and invite a fake recorder. */
+.bolt-public .dw-learn {
+  border-color: var(--bolt-line);
+  background: #f8fafb;
+  color: #3a4048;
+}
+
+.bolt-public .dw-learn p {
+  margin: 0 0 8px;
+  color: #3a4048;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.bolt-public .dw-learn p:last-child {
+  margin-bottom: 0;
+}
+
+.bolt-public .dw-learn a {
+  color: #0f766e;
+}
+
 .bolt-file-input {
   position: absolute;
   width: 1px;
