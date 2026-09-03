@@ -13,7 +13,8 @@
  *     add_decision_option, select_decision_option) — one editor, linked,
  *     not duplicated;
  *   * any drafts a browser still holds from the old surface appear in an
- *     explicit "unsaved local drafts" banner with a ONE-TIME IMPORT path
+ *     explicit "browser drafts — import or discard" banner (not Spaces,
+ *     not cowork, not governed decisions) with a ONE-TIME IMPORT path
  *     (frame the draft as a canonical case decision) and an explicit
  *     discard — never silent loss, never silent continuation;
  *   * the public value-proof demo keeps its own sessionStorage surface —
