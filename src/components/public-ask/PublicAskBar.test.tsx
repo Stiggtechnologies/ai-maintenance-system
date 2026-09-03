@@ -40,8 +40,8 @@ describe("PublicAskBar", () => {
       "Web search",
       "Link",
       "Dictate a message",
-      "Send message",
     ]);
+    expect(tools?.contains(screen.getByTestId("bolt-ask-send"))).toBe(false);
     expect(screen.getByTitle("Send message")).toBeDisabled();
   });
 });

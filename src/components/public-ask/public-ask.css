@@ -115,6 +115,7 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  min-width: 0;
   padding: 12vh 24px;
 }
 
@@ -152,12 +153,14 @@
 
 .bolt-ask {
   width: min(540px, 100%);
+  min-width: 0;
 }
 
 .bolt-ask-bar {
   display: flex;
   align-items: center;
   gap: 4px;
+  min-width: 0;
   min-height: 48px;
   padding: 4px 4px 4px 16px;
   border: 1px solid #dfe3e8;
@@ -172,9 +175,10 @@
 }
 
 .bolt-ask-bar textarea {
+  min-width: 0;
   min-height: 28px;
   max-height: 96px;
-  flex: 1;
+  flex: 1 1 0;
   resize: none;
   border: 0;
   outline: 0;
@@ -194,7 +198,8 @@
   display: flex;
   align-items: center;
   gap: 2px;
-  flex: 0 0 auto;
+  flex: 0 1 auto;
+  min-width: 0;
 }
 
 .bolt-ask-gap {
@@ -233,6 +238,7 @@
 .bolt-ask-send {
   width: 34px;
   height: 34px;
+  flex: 0 0 34px;
   display: grid;
   place-items: center;
   border: 0;
@@ -259,9 +265,15 @@
   justify-content: center;
   gap: 8px;
   width: min(560px, 100%);
+  max-width: 100%;
   margin: 18px 0 0;
   padding: 0;
   list-style: none;
+}
+
+.bolt-pills > li {
+  flex: 0 0 auto;
+  width: auto;
 }
 
 .bolt-pill {
@@ -619,15 +631,28 @@
     display: none;
   }
 
-  .bolt-ask-tool,
-  .bolt-ask-send {
+  .bolt-pills {
+    flex-wrap: wrap;
+    justify-content: center;
+    width: 100%;
+    gap: 8px;
+  }
+
+  .bolt-ask,
+  .bolt-ask-dock .bolt-ask-bar {
+    width: 100%;
+  }
+
+  .bolt-ask-tool {
+    flex: 0 0 32px;
     width: 32px;
     height: 32px;
   }
 
-  .bolt-pills {
-    flex-wrap: wrap;
-    gap: 8px;
+  .bolt-ask-send {
+    flex: 0 0 32px;
+    width: 32px;
+    height: 32px;
   }
 
   .bolt-public .dw-thread {

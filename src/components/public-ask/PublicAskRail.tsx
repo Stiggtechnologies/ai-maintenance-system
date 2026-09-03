@@ -11,7 +11,8 @@ type PublicAskRailProps = {
 /**
  * Bolt icon rail. Top compass is visual Bolt chrome only — not Discover.
  * `+` and Home start a new Mode A ask. Assess (/setup) and Sign in are
- * live. Discover / Spaces / Install stay hidden — no product behind them.
+ * live. Bolt Discover / Spaces clicks changed no view — hide them here
+ * unless a real destination exists. Install stays omitted on web.
  * One nav: column on desktop, bottom tabs on small screens.
  */
 export function PublicAskRail({

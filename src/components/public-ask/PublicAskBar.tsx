@@ -136,17 +136,18 @@ export function PublicAskBar({
           >
             {dictationSupported ? <Mic size={16} /> : <MicOff size={16} />}
           </button>
-          <button
-            type="button"
-            className="bolt-ask-send"
-            title="Send message"
-            aria-label="Send message"
-            disabled={sendDisabled}
-            onClick={onSend}
-          >
-            <ArrowUp size={17} />
-          </button>
         </div>
+        <button
+          type="button"
+          className="bolt-ask-send"
+          title="Send message"
+          aria-label="Send message"
+          data-testid="bolt-ask-send"
+          disabled={sendDisabled}
+          onClick={onSend}
+        >
+          <ArrowUp size={17} />
+        </button>
       </div>
     </div>
   );
