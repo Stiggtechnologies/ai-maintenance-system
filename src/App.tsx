@@ -84,6 +84,7 @@ import { GovernedDecisionWorkspacePage } from "./pages/GovernedDecisionWorkspace
 import { DevelopCasesPage } from "./pages/DevelopCasesPage";
 import { DevelopIntakePage } from "./pages/DevelopIntakePage";
 import { DevelopmentCaseWorkspacePage } from "./pages/DevelopmentCaseWorkspacePage";
+import { ExecutionReadinessPage } from "./pages/ExecutionReadinessPage";
 import { GateReviewPage } from "./pages/GateReviewPage";
 import { AssuranceCasePage } from "./pages/AssuranceCasePage";
 import {
@@ -529,6 +530,13 @@ function AuthenticatedApp() {
           <Route
             path="/develop/cases/:caseId/assurance"
             element={<AssuranceCasePage />}
+          />
+          {/* Slice 7B: the Execution Readiness board (D13.09) — the surface
+              Workflow 4 names (D7.19). Org-wide rather than case-scoped, because
+              the person who works it down is a supervisor across cases. */}
+          <Route
+            path="/execution-readiness"
+            element={<ExecutionReadinessPage />}
           />
 
           <Route

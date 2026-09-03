@@ -15,6 +15,19 @@
  *   D7.07 (I.28) the FORWARD burn-down: what will block this package and
  *                when, and the recorded history of every projection taken.
  *
+ * Slice 7B adds the FIELD-READY half on the same one engine (RULING 22):
+ *
+ *   D7.12 (II.5) the ten field-ready elements per work order, SEVEN derived
+ *                from canonical stores and THREE reported `unverifiable`
+ *                because no store answers them. The panel renders the third
+ *                answer in its own register — an element nobody can check is
+ *                never shown the way a cleared one is.
+ *   D7.11 (II.4) WHICH element blocks, beside the constraint holding it, not
+ *                a count of how many do.
+ *   D7.05 (I.27) the assessment itself: `assess_package_field_readiness`
+ *                walks the elements and records what is missing as
+ *                constraints the ONE release verdict already refuses on.
+ *
  * EVERY NUMBER HERE COMES FROM THE SERVER. There is one forward projection
  * (`get_package_constraint_burndown`), one readiness verdict
  * (`release_work_package`) and one history (`calculation_runs`), and this file
@@ -42,6 +55,12 @@ import {
   parseScheduleImpactDays,
 } from "../../lib/develop/workPackaging";
 import {
+  fieldReadyCoverage,
+  fieldReadyTone,
+  isStoreDerivedFieldReadyRow,
+} from "../../lib/develop/fieldReadiness";
+import {
+  assessPackageFieldReadiness,
   assignWorkToPackage,
   cancelWorkPackage,
   clearPackageConstraint,
@@ -49,13 +68,17 @@ import {
   forecastPackageConstraint,
   getCaseWorkPackages,
   getPackageBurndownHistory,
+  getPackageFieldReadiness,
   listCaseWorkOrderOptions,
   recordPackageConstraint,
   recordWorkPackage,
   releaseWorkPackage,
   type CaseWorkPackages,
+  type FieldReadinessAssessment,
+  type FieldReadyElementRow,
   type PackageBurndown,
   type PackageBurndownHistory,
+  type PackageFieldReadiness,
   type WorkPackageRow,
 } from "../../services/developService";
 
@@ -114,6 +137,204 @@ function num(value: number | null | undefined): string {
 
 function dateOr(value: string | null | undefined, absent: string): string {
   return value ? value : absent;
+}
+
+/* ────────── D7.12 / D7.11 / D7.05 — the ten field-ready elements ────────── */
+
+/**
+ * The visual register for an element state.
+ *
+ * `unverifiable` gets its OWN colour, and that is the point rather than a
+ * flourish: if an element no store can answer rendered like a cleared one, a
+ * supervisor reading this panel would see "nobody has checked" as "checked and
+ * clear" — the exact reading spec §27 exists to prevent, arriving through CSS.
+ */
+const ELEMENT_TONE: Record<string, string> = {
+  positive: "border-emerald-400/25 bg-emerald-400/5 text-emerald-200",
+  negative: "border-red-400/30 bg-red-400/10 text-red-200",
+  neutral: "border-white/10 bg-white/[0.02] text-slate-400",
+  caution: "border-amber-400/25 bg-amber-400/5 text-amber-200",
+  unknown: "border-white/10 bg-white/[0.02] text-slate-400",
+};
+
+function ElementRow({ element }: { element: FieldReadyElementRow }) {
+  const tone = ELEMENT_TONE[fieldReadyTone(element.state)];
+  return (
+    <li className={`rounded border px-2 py-1.5 text-[11px] ${tone}`}>
+      <div className="flex flex-wrap items-baseline gap-2">
+        <span className="font-semibold">{element.label}</span>
+        <span className="uppercase tracking-wide">
+          {element.state.replace(/_/g, " ")}
+        </span>
+        <span className="text-slate-500">
+          {element.basisKind === "derived"
+            ? element.source
+            : "no canonical store"}
+        </span>
+      </div>
+      <p className="mt-0.5 text-slate-300">{element.detail}</p>
+      {element.constraint && (
+        <p className="mt-0.5 text-slate-400">
+          Held by a {element.constraintKind ?? "constraint"} constraint —{" "}
+          {element.constraint.state}
+          {element.constraint.verifiedAt
+            ? ` (verified ${element.constraint.verifiedAt.slice(0, 10)})`
+            : " (nobody has verified it)"}
+          {element.constraint.ownerRole
+            ? ` · owner ${element.constraint.ownerRole}`
+            : ""}
+        </p>
+      )}
+    </li>
+  );
+}
+
+function FieldReadinessPanel({
+  pkg,
+  canPlan,
+  onChanged,
+}: {
+  pkg: WorkPackageRow;
+  canPlan: boolean;
+  onChanged: () => void;
+}) {
+  const [view, setView] = useState<PackageFieldReadiness | null>(null);
+  const [assessment, setAssessment] = useState<FieldReadinessAssessment | null>(
+    null,
+  );
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const coverage = fieldReadyCoverage();
+
+  const load = useCallback(async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      setView(await getPackageFieldReadiness(pkg.packageId));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  }, [pkg.packageId]);
+
+  const assess = useCallback(async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const result = await assessPackageFieldReadiness(pkg.packageId);
+      setAssessment(result);
+      setView(await getPackageFieldReadiness(pkg.packageId));
+      // The assessment writes constraints, so the package's own verdict and
+      // constraint counts have moved. Re-read them from the server rather than
+      // adjusting the numbers on screen.
+      onChanged();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  }, [pkg.packageId, onChanged]);
+
+  return (
+    <div className="rounded-lg border border-white/6 bg-white/[0.02] p-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-xs font-semibold text-slate-200">
+          Field readiness (spec II.5) — the ten elements, per job
+        </span>
+        <span className="text-[10px] text-slate-500">
+          {/* DERIVED FROM THE VOCABULARY, not counted inline beside it. D7.12's
+              row claims "7 of 10"; `fieldReadyCoverage` IS that claim, and an
+              eleventh element or a new store moves this sentence with it. */}
+          {coverage.derived} of {coverage.total} read from a canonical store;
+          the other {coverage.declared} have none and are declared by a person
+        </span>
+      </div>
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <button
+          onClick={() => void load()}
+          disabled={busy}
+          className={btnClass}
+        >
+          {busy ? "Reading…" : "Show the elements"}
+        </button>
+        <button
+          onClick={() => void assess()}
+          disabled={busy || !canPlan || pkg.releasedAt !== null}
+          className={btnClass}
+        >
+          Assess and record what is missing
+        </button>
+      </div>
+      <ErrorLine error={error} />
+
+      {assessment && !assessment.answered && (
+        <Refusal text={assessment.refusal} />
+      )}
+      {assessment?.answered && (
+        <p className="mt-2 text-[11px] text-slate-300">
+          {num(assessment.derivedBlockersRecorded)} derived blocker(s) recorded,{" "}
+          {num(assessment.derivedQuestionsRaised)} element(s) no store could
+          answer and {num(assessment.declaredQuestionsRaised)} question(s)
+          raised that no store can answer at all, over{" "}
+          {num(assessment.workOrders)} work order(s). {assessment.note}
+        </p>
+      )}
+
+      {view && !view.answered && <Refusal text={view.refusal} />}
+      {view?.answered && (
+        <div className="mt-2 space-y-2">
+          {/* ASSESSED IS A FACT. A package nobody has walked says so, rather
+              than rendering ten live element states as though someone had. */}
+          <Refusal text={view.assessed ? null : view.assessmentNote} />
+          {view.assessed && (
+            <p className="text-[11px] text-slate-400">{view.assessmentNote}</p>
+          )}
+          {/* The readiness sentence is the SERVER'S, verbatim — the same one
+              release_work_package refuses with. Never restated here. */}
+          <p className="text-[11px] text-slate-300">{view.readiness}</p>
+          {/* WHERE THE RECORDED ASSESSMENT NO LONGER DESCRIBES THE WORK. The
+              server itemizes these behind its own `stale` verdict; this list
+              is that array, not a client-side comparison. */}
+          {(view.fieldReadinessGaps ?? []).length > 0 && (
+            <ul className="space-y-1">
+              {(view.fieldReadinessGaps ?? []).map((gap) => (
+                <li
+                  key={`${gap.workOrderId}-${gap.element}`}
+                  className="rounded border border-red-400/25 bg-red-400/5 px-2 py-1.5 text-[11px] text-red-200"
+                >
+                  <span className="font-semibold">
+                    {gap.woNumber ?? "—"} · {gap.label}
+                  </span>{" "}
+                  <span className="uppercase tracking-wide text-slate-400">
+                    {gap.reason.replace(/_/g, " ")}
+                  </span>
+                  <p className="mt-0.5 text-slate-300">{gap.detail}</p>
+                </li>
+              ))}
+            </ul>
+          )}
+          {(view.items ?? []).map((item) => (
+            <div key={item.workOrderId}>
+              <div className="text-[11px] font-semibold text-slate-200">
+                {item.woNumber ?? "—"} · {item.title}
+                <span className="ml-2 font-normal text-slate-500">
+                  {num(item.ready)} ready · {num(item.blocked)} blocked ·{" "}
+                  {num(item.notApplicable)} n/a · {num(item.unverifiable)} not
+                  verifiable
+                </span>
+              </div>
+              <ul className="mt-1 space-y-1">
+                {item.elements.map((element) => (
+                  <ElementRow key={element.key} element={element} />
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 /* ───────────────────── D7.07 — the forward burn-down ─────────────────────── */
@@ -422,21 +643,34 @@ function ConstraintsPanel({
             {dateOr(c.requiredBy, "not dated")}
             {" · expected clear "}
             {dateOr(c.expectedClearDate, "unforecast")}
-            {canPlan && c.state !== "satisfied" && canClearByHand(c.kind) && (
-              <button
-                onClick={() => void clear(c.constraintId, "satisfied")}
-                disabled={busy}
-                className="ml-2 rounded bg-emerald-400/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-300 hover:bg-emerald-400/20 disabled:opacity-40"
-              >
-                Verify satisfied
-              </button>
-            )}
+            {canPlan &&
+              c.state !== "satisfied" &&
+              canClearByHand(c.kind) &&
+              !isStoreDerivedFieldReadyRow(c.sourceRef) && (
+                <button
+                  onClick={() => void clear(c.constraintId, "satisfied")}
+                  disabled={busy}
+                  className="ml-2 rounded bg-emerald-400/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-300 hover:bg-emerald-400/20 disabled:opacity-40"
+                >
+                  Verify satisfied
+                </button>
+              )}
             {canPlan && !canClearByHand(c.kind) && (
               <span className="ml-2 text-amber-300/80">
                 permit / isolation / asset-state truth comes from the canonical
                 operating and release controls, not a toggle
               </span>
             )}
+            {/* A ROW THE ASSESSMENT DERIVED FROM A STORE has no toggle, and the
+                screen says why rather than showing a button the door refuses. */}
+            {canPlan &&
+              canClearByHand(c.kind) &&
+              isStoreDerivedFieldReadyRow(c.sourceRef) && (
+                <span className="ml-2 text-amber-300/80">
+                  raised from a canonical store — change what the store says and
+                  re-assess; there is no toggle for it
+                </span>
+              )}
           </li>
         ))}
       </ul>
@@ -691,6 +925,11 @@ function PackageCard({
 
       <div className="mt-3 space-y-3">
         <ConstraintsPanel pkg={pkg} canPlan={canPlan} onChanged={onChanged} />
+        <FieldReadinessPanel
+          pkg={pkg}
+          canPlan={canPlan}
+          onChanged={onChanged}
+        />
         <BurndownPanel pkg={pkg} canPlan={canPlan} />
       </div>
 
