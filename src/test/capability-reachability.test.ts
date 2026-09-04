@@ -604,9 +604,80 @@ const FLOORS: Record<string, Floors> = {
     // inventing one to reach ✅ is the parallel store this whole programme
     // exists to refuse. The CEILING did not move. Nothing was exempted, no
     // floor was lowered, and EXEMPTIONS is still empty.
-    rowsWithAnEnforceableCitation: 172,
-    citationsEnforced: 1067,
-    claimedRowsEnforced: 114,
+    //
+    // 172/1067/114 -> 177/1122/122 (2026-09-04, Slice 7C). Resources,
+    // competency readiness and the workface metrics landed — spec I.22's
+    // ResourceDemand and ResourceCapacity time-phased across nine categories
+    // on the EXTENDED craft_capacity family, collective feasibility across
+    // projects reaching the ONE weekly feasibility door, spec I.23's
+    // competency question asked in the FUTURE TENSE, and spec §49/I.28's
+    // index built ONCE and cited from two rows. D7.01, D7.02, D7.03, D7.04,
+    // D7.08, D7.13, D7.14 and D7.20 flip to ✅ on chains this gate can walk,
+    // and fifty-five more citations become enforceable. RATCHETED UP for the
+    // reason this block gives every time: the added reach is real, and a
+    // later change must not be able to de-cite it with the suite still green.
+    //
+    // THE GATE EARNED ITS KEEP THREE TIMES IN ONE PASS, and each finding was
+    // a real defect rather than a citation to reword.
+    // (a) `getConstraintFreeWorkIndex` and `getWorkfaceExecutionMetrics` had
+    //     ZERO non-test callers: the composed /sync-field page reads
+    //     `get_sync_field_module` and never touched them. The fix was the
+    //     capability the composition genuinely cannot offer — a planner's own
+    //     horizon and look-ahead window, which `get_sync_field_module` has to
+    //     fix to one reading — rather than a call added to satisfy the gate.
+    // (b) All three `compute_*` recorders had ZERO callers: the lineage act
+    //     existed with no way for a person to perform it. `WorkfaceMetricsPanel`
+    //     and the competency panel now carry the RECORD act, the same shape
+    //     Slice 7A's burn-down panel already had.
+    // (c) D7.04's first draft cited `labour_rules` as a backticked table and
+    //     the write-path judge failed the row: that catalogue is still
+    //     seeded, not customer-written. Fixed by the D5.27/D4.16 precedent —
+    //     state the dependency, do not claim the write path — and the row now
+    //     names the residual.
+    //
+    // D7.16 was deliberately NOT flipped. Its composed surface exists at
+    // /sync-field and the server carries the list of parts still open
+    // (D7.06, D7.07, D7.12) rather than a comment; a composition is not more
+    // complete than its pieces. The CEILING did not move, which is the check
+    // that proves the eight new ✅s were not bought with prose the gate cannot
+    // resolve. Nothing was exempted, no floor was lowered, and EXEMPTIONS is
+    // still empty.
+    //
+    // 177/1122/122 -> 177/1136/122 (2026-09-04, Slice 7C adversarial repair).
+    // Fourteen more citations became enforceable and none was lost. The repair
+    // shipped the acts three refusal sentences INSTRUCTED and the product could
+    // not perform — `close_resource_capacity` (the collision refusal told a
+    // planner to close the standing figure; `effective_to` was settable only at
+    // INSERT), `renew_member_competency` (the duplicate refusal told them to
+    // supersede a holding; the table's only runtime writer was INSERT-only and
+    // the pair is UNIQUE) and `set_workforce_member_active` (a leaver stayed
+    // qualified and rostered forever in a ✅ metric) — plus their service
+    // wrappers and component callers.
+    //
+    // THE GATE EARNED ITS KEEP AGAIN, twice.
+    // (a) `retire_competency_requirement` had ZERO non-test callers and slipped
+    //     the gate entirely because D7.03's evidence never BACKTICKED it. The
+    //     act existed, a live requirement could not be restated (unique index)
+    //     and could not be deleted (integrity trigger), so a competency
+    //     requirement was write-once and permanent from every customer surface.
+    //     Wired into CompetencyReadinessPanel and now cited in backticks, so
+    //     the gate polices it from here on.
+    // (b) Four ✅ rows (D7.08, D7.13, D7.14, D7.20) cited a chain through
+    //     `/sync-field` that does not exist — that page calls
+    //     `getSyncFieldModule` and neither of the two symbols the rows named.
+    //     The capability IS reachable, through `WorkfaceMetricsPanel`, which is
+    //     why the ✅s stand; but `judgeTsSymbol` only asks whether each cited
+    //     symbol has SOME live non-test caller and cannot check the EDGES of a
+    //     prose chain, so the fiction survived. The four chains now say what a
+    //     reviewer would actually walk.
+    //
+    // RATCHETED UP for the reason this block gives every time: the added reach
+    // is real, and a later change must not be able to de-cite it with the suite
+    // still green. The CEILING did not move, no row changed status, nothing was
+    // exempted, no floor was lowered, and EXEMPTIONS is still empty.
+    rowsWithAnEnforceableCitation: 177,
+    citationsEnforced: 1136,
+    claimedRowsEnforced: 122,
     // D11.04 (a CI-fence claim proved by a named test file), D11.10 (a
     // canonical seeded vocabulary, which the write-path judge would fail for
     // not being customer-writable — a question the row never asked) and

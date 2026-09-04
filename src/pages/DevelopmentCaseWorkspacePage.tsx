@@ -105,6 +105,7 @@ import { RequirementsThreadPanel } from "../components/develop/RequirementsThrea
 import { FrontlineDesignPanel } from "../components/develop/FrontlineDesignPanels";
 import { ProcurementPanel } from "../components/develop/ProcurementPanels";
 import { WorkPackagingPanel } from "../components/develop/WorkPackagingPanels";
+import { WorkforcePanel } from "../components/develop/WorkforcePanels";
 import { DigitalThreadPanel } from "../components/develop/DigitalThreadPanels";
 import {
   CaseRamPanel,
@@ -2605,6 +2606,16 @@ export function DevelopmentCaseWorkspacePage() {
         >
           Execution readiness
         </Link>
+        {/* D7.16 (Slice 7C): the composed Sync Field module — packaging,
+            constraint-free work, workface planning, resources and readiness
+            on one surface that recomputes none of them, and names the parts
+            of itself that are still open. */}
+        <Link
+          to={`/sync-field?case=${caseId}`}
+          className="rounded-lg border border-white/10 px-2.5 py-1 text-xs text-slate-300 hover:bg-white/5"
+        >
+          Sync Field
+        </Link>
       </div>
 
       {/* Case header */}
@@ -3012,6 +3023,23 @@ export function DevelopmentCaseWorkspacePage() {
         caseId={workspace.id}
         canPlan={canPackageWork}
         canRelease={canReleasePackage}
+        reloadKey={chainsKey}
+      />
+      {/* Resources, competency readiness and the workface (Slice 7C): spec
+          I.22's ResourceDemand and ResourceCapacity time-phased across the
+          nine categories on the EXTENDED craft_capacity family — no second
+          capacity store — with the collective position across every project
+          beside it, because six individually executable projects can be
+          collectively impossible and no per-project view can see it. Spec
+          I.23's competency question is asked in the FUTURE TENSE: a ticket
+          that lapses before the work makes its holder not qualified WHEN
+          NEEDED, and the panel says so by name. Every percentage arrives as a
+          refusal-or-number and never as a bare figure — 0 ready of 0 planned
+          is neither 0% nor 100%. */}
+      <WorkforcePanel
+        caseId={workspace.id}
+        canPlan={canPackageWork}
+        canApprove={canReleasePackage}
         reloadKey={chainsKey}
       />
       <InformationEnginePanel caseId={workspace.id} reloadKey={chainsKey} />
