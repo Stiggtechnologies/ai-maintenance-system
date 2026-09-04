@@ -212,7 +212,10 @@ describe("presence boundary", () => {
   it("stays a shell welcome and does not revive parallel orchestrators", () => {
     const files = [
       "src/lib/presence/welcome.ts",
+      "src/lib/presence/booth.ts",
+      "src/lib/presence/askBooth.ts",
       "src/components/PresenceWelcome.tsx",
+      "src/components/PresenceBoothConversation.tsx",
     ];
     for (const path of files) {
       const imports = readFileSync(path, "utf8")

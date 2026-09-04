@@ -179,6 +179,21 @@ describe("PresenceWelcome", () => {
     expect(screen.queryByText(/autonomous control of the plant/i)).toBeNull();
   });
 
+  it("opens Meet Sync from the signed-in welcome strip", async () => {
+    render(<PresenceWelcome />);
+    fireEvent.click(screen.getByRole("button", { name: "Meet Sync" }));
+    expect(await screen.findByTestId("presence-booth")).toBeInTheDocument();
+    expect(screen.getByText(/booth conversation/i)).toBeInTheDocument();
+  });
+
+  it("keeps Meet Sync available when welcome audio is muted", async () => {
+    window.localStorage.setItem(PRESENCE_MUTE_STORAGE_KEY, "1");
+    render(<PresenceWelcome />);
+    fireEvent.click(screen.getByRole("button", { name: "Meet Sync" }));
+    expect(await screen.findByTestId("presence-booth")).toBeInTheDocument();
+    expect(speak).not.toHaveBeenCalled();
+  });
+
   it("falls back to an unnamed spoken welcome without guessing Orville", async () => {
     useAuth.mockReturnValue(signedInAuth(null));
     render(<PresenceWelcome />);

@@ -8,7 +8,7 @@
  * autonomous control, and it does not authorize plant execute.
  */
 import { useEffect, useState } from "react";
-import { Volume2, VolumeX } from "lucide-react";
+import { MessageCircle, Volume2, VolumeX } from "lucide-react";
 import { useSpeechOutput } from "../hooks/useSpeechOutput";
 import {
   buildSpokenWelcome,
@@ -21,6 +21,7 @@ import {
   writeMutePreference,
 } from "../lib/presence/welcome";
 import { getKpiDashboard } from "../services/kpiService";
+import { PresenceBoothConversation } from "./PresenceBoothConversation";
 import { useAuth } from "./AuthProvider";
 
 function metadataFullName(value: unknown): string | null {
@@ -36,6 +37,7 @@ export function PresenceWelcome() {
       : readMutePreference(window.localStorage),
   );
   const [briefLines, setBriefLines] = useState<string[]>([]);
+  const [boothOpen, setBoothOpen] = useState(false);
 
   const givenName = resolveWelcomeGivenName({
     fullName: profile?.full_name,
@@ -93,6 +95,24 @@ export function PresenceWelcome() {
     setMuted(false);
   };
 
+  const toggleBooth = () => {
+    setBoothOpen((open) => {
+      if (!open) stop();
+      return !open;
+    });
+  };
+
+  const booth = boothOpen ? (
+    <PresenceBoothConversation
+      signedIn={Boolean(user)}
+      muted={muted}
+      givenName={givenName}
+      briefLines={briefLines}
+      speak={speak}
+      stopSpeech={stop}
+    />
+  ) : null;
+
   if (loading || !user) return null;
 
   if (muted) {
@@ -106,15 +126,27 @@ export function PresenceWelcome() {
           <p className="text-xs text-slate-500">
             Presence audio muted. Welcome will not speak in this browser.
           </p>
-          <button
-            type="button"
-            onClick={handleUnmute}
-            className="inline-flex items-center gap-1.5 rounded-md border border-white/10 px-2 py-1 text-xs text-slate-300 hover:border-signal-cyan/40 hover:text-signal-cyan"
-          >
-            <Volume2 className="h-3.5 w-3.5" />
-            Unmute welcome
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={toggleBooth}
+              aria-label={boothOpen ? "Close Meet Sync" : "Meet Sync"}
+              className="inline-flex items-center gap-1.5 rounded-md border border-white/10 px-2 py-1 text-xs text-slate-300 hover:border-signal-cyan/40 hover:text-signal-cyan"
+            >
+              <MessageCircle className="h-3.5 w-3.5" />
+              Meet Sync
+            </button>
+            <button
+              type="button"
+              onClick={handleUnmute}
+              className="inline-flex items-center gap-1.5 rounded-md border border-white/10 px-2 py-1 text-xs text-slate-300 hover:border-signal-cyan/40 hover:text-signal-cyan"
+            >
+              <Volume2 className="h-3.5 w-3.5" />
+              Unmute welcome
+            </button>
+          </div>
         </div>
+        {booth}
       </div>
     );
   }
@@ -152,6 +184,15 @@ export function PresenceWelcome() {
           </button>
           <button
             type="button"
+            onClick={toggleBooth}
+            aria-label={boothOpen ? "Close Meet Sync" : "Meet Sync"}
+            className="inline-flex items-center gap-1.5 rounded-md border border-white/10 px-2 py-1 text-xs text-slate-300 hover:border-signal-cyan/40 hover:text-signal-cyan"
+          >
+            <MessageCircle className="h-3.5 w-3.5" />
+            Meet Sync
+          </button>
+          <button
+            type="button"
             onClick={handleMute}
             className="inline-flex items-center gap-1.5 rounded-md border border-white/10 px-2 py-1 text-xs text-slate-300 hover:border-white/20 hover:text-slate-100"
             aria-label="Mute welcome"
@@ -161,6 +202,7 @@ export function PresenceWelcome() {
           </button>
         </div>
       </div>
+      {booth}
     </div>
   );
 }
