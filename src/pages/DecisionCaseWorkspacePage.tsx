@@ -49,6 +49,7 @@ import { canExposeBoltSpaces } from "../lib/public-ask-tie-in";
 import { MarkdownRenderer } from "../components/MarkdownRenderer";
 import { RecommendationTurn } from "../components/chat/RecommendationTurn";
 import { ConversationLearn } from "../components/chat/ConversationLearn";
+import { optionalRecommendationId } from "../lib/chat/conversation-learn";
 import {
   conversationIsEmpty,
   establishedFromEvidence,
@@ -884,7 +885,7 @@ export function DecisionCaseWorkspacePage({
               {showLearnPointer && (
                 <ConversationLearn
                   signedIn={Boolean(auth?.user)}
-                  recommendationId={active.recommendationId}
+                  recommendationId={optionalRecommendationId(active)}
                   simulatedApproval={publicMode}
                 />
               )}
@@ -1375,7 +1376,7 @@ export function DecisionCaseWorkspacePage({
                   {showLearnPointer && (
                     <ConversationLearn
                       signedIn={Boolean(auth?.user)}
-                      recommendationId={active.recommendationId}
+                      recommendationId={optionalRecommendationId(active)}
                       simulatedApproval={publicMode}
                     />
                   )}

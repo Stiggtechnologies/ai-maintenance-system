@@ -127,12 +127,6 @@ export interface DecisionCase {
     status: "candidate" | "retained";
     summary: string;
   };
-  /**
-   * When set, in-thread LEARN records against the open verification
-   * obligation for this canonical recommendation — the same row Learning
-   * Loop uses. Demo seeds leave this unset.
-   */
-  recommendationId?: string | null;
   messages: DecisionMessage[];
   tokensUsed: number;
   tokenAllowance: number;

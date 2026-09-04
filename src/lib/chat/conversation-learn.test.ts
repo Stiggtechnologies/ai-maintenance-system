@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { OpenVerification } from "../../services/operatingLoopService";
 import {
   findOpenVerification,
+  optionalRecommendationId,
   recommendationScopedOpen,
 } from "./conversation-learn";
 
@@ -27,9 +28,9 @@ const req: OpenVerification = {
 
 describe("conversation LEARN targeting", () => {
   it("keeps recommendation-scoped obligations and drops requirement ones", () => {
-    expect(recommendationScopedOpen([rec, req]).map((row) => row.obligationId)).toEqual(
-      ["obl-rec"],
-    );
+    expect(
+      recommendationScopedOpen([rec, req]).map((row) => row.obligationId),
+    ).toEqual(["obl-rec"]);
   });
 
   it("treats a missing subjectKind as recommendation-scoped (pre-5A rows)", () => {
@@ -40,5 +41,13 @@ describe("conversation LEARN targeting", () => {
   it("finds the bound obligation by id", () => {
     expect(findOpenVerification([rec, req], "obl-rec")).toBe(rec);
     expect(findOpenVerification([rec], "missing")).toBeUndefined();
+  });
+
+  it("reads a bound recommendation id without requiring DecisionCase to declare it", () => {
+    expect(optionalRecommendationId({})).toBeNull();
+    expect(optionalRecommendationId({ recommendationId: "  rec-1  " })).toBe(
+      "rec-1",
+    );
+    expect(optionalRecommendationId({ recommendationId: "   " })).toBeNull();
   });
 });
