@@ -48,7 +48,7 @@ import { PublicAskRail } from "../components/public-ask/PublicAskRail";
 import { canExposeBoltSpaces } from "../lib/public-ask-tie-in";
 import { MarkdownRenderer } from "../components/MarkdownRenderer";
 import { RecommendationTurn } from "../components/chat/RecommendationTurn";
-import { LearnUnpersistedPointer } from "../components/chat/LearnUnpersistedPointer";
+import { ConversationLearn } from "../components/chat/ConversationLearn";
 import {
   conversationIsEmpty,
   establishedFromEvidence,
@@ -881,7 +881,13 @@ export function DecisionCaseWorkspacePage({
                   </div>
                 </article>
               )}
-              {showLearnPointer && <LearnUnpersistedPointer />}
+              {showLearnPointer && (
+                <ConversationLearn
+                  signedIn={Boolean(auth?.user)}
+                  recommendationId={active.recommendationId}
+                  simulatedApproval={publicMode}
+                />
+              )}
               <div ref={endRef} />
             </section>
             <section className="dw-composer-wrap" id="syncai-chat">
@@ -1185,8 +1191,9 @@ export function DecisionCaseWorkspacePage({
   // Bolt public shell. Mode A is the empty canvas — no public product
   // header / RELIABILITY ENGINEER lockup. Mode B is the existing case /
   // transcript / recommendation / Approve path on a light conversation.
-  // LEARN after Simulate stays LearnUnpersistedPointer — verification is
-  // not written here. Packet and attach stay gated on a started case.
+  // LEARN after Simulate tries the same write path as /learning-loop.
+  // Anonymous / no obligation stays a visible fail — nothing is written.
+  // Packet and attach stay gated on a started case.
   return (
     <div
       className={`bolt-public ${emptyConversation ? "is-empty" : "is-thread"}`}
@@ -1365,7 +1372,13 @@ export function DecisionCaseWorkspacePage({
                       </div>
                     </article>
                   )}
-                  {showLearnPointer && <LearnUnpersistedPointer />}
+                  {showLearnPointer && (
+                    <ConversationLearn
+                      signedIn={Boolean(auth?.user)}
+                      recommendationId={active.recommendationId}
+                      simulatedApproval={publicMode}
+                    />
+                  )}
                   <div ref={endRef} />
                 </section>
                 <section className="dw-composer-wrap" id="syncai-chat">
