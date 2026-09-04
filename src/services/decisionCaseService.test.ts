@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createSeedDecisionCases } from "../lib/decision-case";
+import { createDraftDecisionCase, createSeedDecisionCases } from "../lib/decision-case";
+import { createHonestEmptyDecisionCase } from "../lib/decision-case-honesty";
 import { askDecisionCase } from "./decisionCaseService";
 import { runPublicDecisionCaseAgent } from "./publicReliabilityAgent";
 
@@ -207,5 +208,23 @@ describe("decisionCaseService", () => {
     expect(reply.message.text).toContain("included live RAG analysis capacity");
     expect(reply.message.text).toContain("Sign in");
     expect(reply.message.meta).toContain("capacity reached");
+  });
+
+  it("does not inject a demo case when none is selected", async () => {
+    const empty = createHonestEmptyDecisionCase("Reliability Engineer");
+    const leftoverDraft = createDraftDecisionCase("Reliability Engineer");
+
+    for (const unbound of [empty, leftoverDraft]) {
+      const reply = await askDecisionCase(
+        unbound,
+        "What should we fix first?",
+        { publicMode: true },
+      );
+      expect(runPublicAgentMock).not.toHaveBeenCalled();
+      expect(reply.message.meta).toContain("No case selected");
+      expect(reply.message.text).toMatch(/no decision case is selected/i);
+      expect(reply.message.text).not.toMatch(/P-101|DC-1048|Fort McMurray|North Ridge/i);
+      expect(reply.scope).toBe("provisional_new_subject");
+    }
   });
 });

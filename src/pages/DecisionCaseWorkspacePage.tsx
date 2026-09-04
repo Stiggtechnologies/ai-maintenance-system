@@ -60,21 +60,25 @@ import {
   shouldShowLearnPointer,
 } from "../lib/chat/recommendation-turn";
 import {
-  createDraftDecisionCase,
-  createSeedDecisionCases,
   formatDecisionValue,
   getDecisionIndustryPack,
   getPublicDecisionCaseStorageKey,
   normalizeDecisionIndustry,
-  readDecisionCases,
   stageDecisionCaseHandoff,
   writeDecisionCases,
+  DECISION_CASE_STORAGE_KEY,
   type ApprovalStatus,
   type DecisionCase,
   type DecisionIndustryId,
   type DecisionEvidence,
   type DecisionJourneyContext,
 } from "../lib/decision-case";
+import { readStoredDecisionDrafts } from "../lib/decision-case-drafts";
+import {
+  bootstrapChatCases,
+  createHonestEmptyDecisionCase,
+  isSeedDecisionCaseId,
+} from "../lib/decision-case-honesty";
 import { classifyDecisionQuestionScope } from "../lib/reliability-agent-contract";
 import {
   FIRST_PAINT_QUESTIONS,
@@ -144,51 +148,48 @@ function getContext(params: URLSearchParams): DecisionJourneyContext {
   };
 }
 
-function readStoredCases(
-  storage: Pick<Storage, "getItem">,
-  storageKey: string,
-): DecisionCase[] | null {
-  try {
-    const raw = storage.getItem(storageKey);
-    const parsed = raw ? (JSON.parse(raw) as DecisionCase[]) : null;
-    return Array.isArray(parsed) && parsed.length ? parsed : null;
-  } catch {
-    return null;
-  }
+function storageForMode(publicMode: boolean): Storage {
+  return publicMode ? window.sessionStorage : window.localStorage;
 }
 
-function initialCases(
+function storageKeyForMode(
+  publicMode: boolean,
+  industry: DecisionIndustryId,
+): string {
+  return publicMode
+    ? getPublicDecisionCaseStorageKey(industry)
+    : DECISION_CASE_STORAGE_KEY;
+}
+
+function readBootstrapStoredCases(
+  publicMode: boolean,
+  industry: DecisionIndustryId,
+): DecisionCase[] {
+  return readStoredDecisionDrafts(
+    storageForMode(publicMode),
+    storageKeyForMode(publicMode, industry),
+  );
+}
+
+function initialChatState(
   routeId: string | undefined,
   context: DecisionJourneyContext,
   publicMode: boolean,
-): DecisionCase[] {
+  orgSession: boolean,
+): { cases: DecisionCase[]; selectedId: string } {
   const industry = normalizeDecisionIndustry(context.industry);
-  const storage = publicMode ? window.sessionStorage : window.localStorage;
-  const storageKey = publicMode
-    ? getPublicDecisionCaseStorageKey(industry)
-    : undefined;
-
-  if (publicMode) {
-    const stored = storageKey ? readStoredCases(storage, storageKey) : null;
-    if (stored) return includeCompletePublicValueProof(stored);
-    const role = context.role || getDecisionIndustryPack(industry).roles[0];
-    return includeCompletePublicValueProof([
-      createDraftDecisionCase(role, industry),
-    ]);
-  }
-
-  const stored = readDecisionCases(storage, context, storageKey);
-  if (
-    !routeId ||
-    routeId === "demo" ||
-    stored.some((item) => item.id === routeId)
-  ) {
-    return stored;
-  }
-  const personalized = createSeedDecisionCases(context)[0];
-  personalized.id = routeId;
-  personalized.caseNumber = `VP-${routeId.slice(-6).toUpperCase()}`;
-  return [personalized, ...stored];
+  const role = context.role || getDecisionIndustryPack(industry).roles[0];
+  const bootstrapped = bootstrapChatCases(routeId, context, {
+    orgSession,
+    stored: readBootstrapStoredCases(publicMode, industry),
+    role,
+  });
+  return {
+    cases: publicMode
+      ? includeCompletePublicValueProof(bootstrapped.cases)
+      : bootstrapped.cases,
+    selectedId: bootstrapped.selectedId,
+  };
 }
 
 function timestamp(value: string) {
@@ -236,17 +237,22 @@ export function DecisionCaseWorkspacePage({
   const [params] = useSearchParams();
   const navigate = useNavigate();
   const context = useMemo(() => getContext(params), [params]);
+  const auth = useOptionalAuth();
+  const orgSession = Boolean(auth?.user);
   const [industry, setIndustry] = useState<DecisionIndustryId>(() =>
     normalizeDecisionIndustry(params.get("industry")),
   );
   const industryPack = getDecisionIndustryPack(industry);
-  const [cases, setCases] = useState(() =>
-    initialCases(caseId, context, publicMode),
+  const [chatBootstrap] = useState(() =>
+    initialChatState(
+      caseId,
+      context,
+      publicMode,
+      orgSession || Boolean(auth?.loading),
+    ),
   );
-  const [selectedId, setSelectedId] = useState(
-    caseId && caseId !== "demo" ? caseId : cases[0].id,
-  );
-  const auth = useOptionalAuth();
+  const [cases, setCases] = useState(chatBootstrap.cases);
+  const [selectedId, setSelectedId] = useState(chatBootstrap.selectedId);
   const viewerName = auth?.profile?.full_name ?? null;
   const [railOpen, setRailOpen] = useState(false);
   const [recordOpen, setRecordOpen] = useState(false);
@@ -275,7 +281,11 @@ export function DecisionCaseWorkspacePage({
   const [historyOpen, setHistoryOpen] = useState(false);
   const [notice, setNotice] = useState("");
   const endRef = useRef<HTMLDivElement>(null);
-  const active = cases.find((item) => item.id === selectedId) || cases[0];
+  const explicitDemoBound = useRef(false);
+  const active =
+    cases.find((item) => item.id === selectedId) ??
+    cases.find((item) => !isSeedDecisionCaseId(item.id)) ??
+    cases[0];
   const activeId = active.id;
   const composerScope = classifyDecisionQuestionScope(active, composer);
 
@@ -305,18 +315,38 @@ export function DecisionCaseWorkspacePage({
     if (!publicMode) return;
     const routedIndustry = normalizeDecisionIndustry(context.industry);
     if (routedIndustry === industry) return;
-    const nextCases = initialCases(
+    const next = initialChatState(
       caseId,
       { ...context, industry: routedIndustry },
       true,
+      orgSession,
     );
     setIndustry(routedIndustry);
-    setCases(nextCases);
-    setSelectedId(nextCases[0].id);
+    setCases(next.cases);
+    setSelectedId(next.selectedId);
     setTab("decision");
     setEvidence(null);
     setRecordOpen(false);
-  }, [caseId, context, industry, publicMode]);
+  }, [caseId, context, industry, orgSession, publicMode]);
+  useEffect(() => {
+    if (!orgSession || explicitDemoBound.current) return;
+    setCases((current) => {
+      const kept = current.filter((item) => !isSeedDecisionCaseId(item.id));
+      const next =
+        kept.length > 0
+          ? kept
+          : initialChatState(caseId, context, publicMode, true).cases;
+      const nextSelected =
+        selectedId &&
+        !isSeedDecisionCaseId(selectedId) &&
+        next.some((item) => item.id === selectedId)
+          ? selectedId
+          : (next.find((item) => !isSeedDecisionCaseId(item.id))?.id ??
+            next[0].id);
+      setSelectedId(nextSelected);
+      return next;
+    });
+  }, [caseId, context, orgSession, publicMode, selectedId]);
   useEffect(() => {
     if (publicMode || !isPersistedDecisionCase(activeId)) return;
     let cancelled = false;
@@ -379,6 +409,7 @@ export function DecisionCaseWorkspacePage({
   }, [plusOpen]);
 
   const chooseCase = (id: string) => {
+    if (isSeedDecisionCaseId(id)) explicitDemoBound.current = true;
     setSelectedId(id);
     setTab("decision");
     setEvidence(null);
@@ -386,6 +417,7 @@ export function DecisionCaseWorkspacePage({
   };
 
   const trySample = (index = 0) => {
+    explicitDemoBound.current = true;
     const sample = createFirstPaintSeed(index, {
       ...context,
       industry,
@@ -411,6 +443,7 @@ export function DecisionCaseWorkspacePage({
         (!publicMode || conversationIsEmpty(item.messages)),
     );
     if (existingDraft) {
+      explicitDemoBound.current = false;
       chooseCase(existingDraft.id);
       if (publicMode) {
         setComposer("");
@@ -420,7 +453,8 @@ export function DecisionCaseWorkspacePage({
       }
       return;
     }
-    const next = createDraftDecisionCase(role, industry);
+    const next = createHonestEmptyDecisionCase(role, industry);
+    explicitDemoBound.current = false;
     setCases((current) => [next, ...current]);
     setSelectedId(next.id);
     if (publicMode) {

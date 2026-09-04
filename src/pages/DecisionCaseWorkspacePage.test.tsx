@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { createSeedDecisionCases } from "../lib/decision-case";
 import {
   FIRST_PAINT_QUESTIONS,
   createFirstPaintSeed,
@@ -383,5 +384,72 @@ describe("DecisionCaseWorkspacePage — Bolt first paint", () => {
     expect(screen.getByPlaceholderText(ASK_PLACEHOLDER)).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Try a sample" })).toBeNull();
     expect(screen.queryByRole("button", { name: "View record" })).toBeNull();
+  });
+});
+
+function renderOrgWorkspace(entry = "/org-chat") {
+  return render(
+    <MemoryRouter initialEntries={[entry]}>
+      <Routes>
+        <Route path="/org-chat" element={<DecisionCaseWorkspacePage />} />
+        <Route
+          path="/org-chat/:caseId"
+          element={<DecisionCaseWorkspacePage />}
+        />
+      </Routes>
+    </MemoryRouter>,
+  );
+}
+
+describe("DecisionCaseWorkspacePage — org session does not default to demo", () => {
+  beforeEach(() => {
+    const storage = new Map<string, string>();
+    Object.defineProperty(window, "localStorage", {
+      configurable: true,
+      value: {
+        getItem: (key: string) => storage.get(key) ?? null,
+        setItem: (key: string, value: string) => storage.set(key, value),
+        removeItem: (key: string) => storage.delete(key),
+        clear: () => storage.clear(),
+      },
+    });
+    window.sessionStorage.clear();
+    authState.user = { id: "org-user-1" };
+  });
+
+  it("does not auto-select a seed case when a signed-in org opens chat", () => {
+    window.localStorage.setItem(
+      "syncai.decisionCases.v2",
+      JSON.stringify(createSeedDecisionCases()),
+    );
+    window.sessionStorage.setItem(
+      "syncai.publicDecisionCases.v2.oil-gas",
+      JSON.stringify([createFirstPaintSeed(0)]),
+    );
+
+    renderOrgWorkspace();
+
+    expect(screen.getByTestId("first-paint-empty")).toBeTruthy();
+    expect(screen.queryByTestId("recommendation-turn")).toBeNull();
+    expect(screen.queryByText(/P-101/)).toBeNull();
+    expect(screen.queryByText(/CR-01 primary crusher/i)).toBeNull();
+    expect(screen.queryByText(/Fort McMurray/i)).toBeNull();
+    expect(screen.queryByText(/North Ridge Energy/i)).toBeNull();
+    expect(screen.queryByText(/DC-1048/)).toBeNull();
+  });
+
+  it("signed-in /workspace does not restore a leftover public seed as the active case", () => {
+    window.sessionStorage.setItem(
+      "syncai.publicDecisionCases.v2.oil-gas",
+      JSON.stringify([createFirstPaintSeed(0)]),
+    );
+
+    renderWorkspace();
+
+    expect(screen.getByTestId("first-paint-empty")).toBeTruthy();
+    expect(screen.queryByTestId("recommendation-turn")).toBeNull();
+    expect(screen.queryByText(/CR-01 primary crusher/i)).toBeNull();
+    expect(screen.queryByText(/P-101/)).toBeNull();
+    expect(screen.queryByText(/Fort McMurray/i)).toBeNull();
   });
 });

@@ -15,6 +15,10 @@ import {
   isActiveCaseTraceRequest,
   type DecisionQuestionScope,
 } from "../lib/reliability-agent-contract";
+import {
+  buildDecisionAskContextPack,
+  resolveDecisionAskBinding,
+} from "../lib/decision-case-honesty";
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -121,6 +125,10 @@ export async function askDecisionCase(
   options: { publicMode?: boolean } = {},
 ): Promise<DecisionCaseReply> {
   const prompt = text.trim().slice(0, 2400);
+  const binding = resolveDecisionAskBinding(decisionCase);
+  if (!binding.bound) {
+    return unboundCaseReply(prompt);
+  }
   const conversationReply = conversationalBoundaryReply(decisionCase, prompt);
   if (conversationReply) {
     return buildDeterministicReply(prompt, conversationReply, "active_case");
@@ -240,6 +248,49 @@ function buildDeterministicReply(
 
 function estimateTokens(text: string): number {
   return Math.max(120, Math.ceil(text.length / 3.7));
+}
+
+function unboundCaseReply(prompt: string): DecisionCaseReply {
+  const pack = buildDecisionAskContextPack(null);
+  const lower = prompt.toLowerCase().trim();
+  if (/^(hi|hello|hey|good morning|good afternoon)[.?!\s]*$/.test(lower)) {
+    return buildDeterministicReply(
+      prompt,
+      {
+        text: "Hi. What would you like to work on? No decision case is selected — name the asset, site, or decision. I will not assume a demo or reference case.",
+        meta: "Conversation · no case selected",
+      },
+      "provisional_new_subject",
+    );
+  }
+  if (
+    /\b(what (?:are )?your capabilities|what can you do|how can you help|capability overview|show (?:me )?your capabilities)\b/.test(
+      lower,
+    )
+  ) {
+    return buildDeterministicReply(
+      prompt,
+      {
+        text: [
+          "I am a Reliability Engineering collaborator for turning asset questions and operating evidence into defensible decisions, controlled action, and measured value.",
+          "",
+          "No decision case is selected. Ask a general question, or name the asset, site, or decision. I will not substitute a demo or reference case.",
+          "",
+          pack.contextLines.join("\n"),
+        ].join("\n"),
+        meta: "Reliability Engineering capability map · no case selected",
+      },
+      "provisional_new_subject",
+    );
+  }
+  return buildDeterministicReply(
+    prompt,
+    {
+      text: "No decision case is selected. Name the asset, site, or decision you want to examine. I will stay general and will not use a demo or reference case as the subject.",
+      meta: "No case selected",
+    },
+    "provisional_new_subject",
+  );
 }
 
 function conversationalBoundaryReply(
@@ -420,6 +471,10 @@ function buildGroundedCaseContext(
   decisionCase: DecisionCase,
   questionScope: DecisionQuestionScope,
 ): string {
+  const pack = buildDecisionAskContextPack(decisionCase);
+  if (!pack.injectCase) {
+    return pack.contextLines.join("\n");
+  }
   if (questionScope === "provisional_new_subject") {
     return [
       "Question scope: provisional new subject outside the active Decision Case.",
