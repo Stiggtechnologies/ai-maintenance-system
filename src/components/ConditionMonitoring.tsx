@@ -14,7 +14,7 @@
  * underneath an inspection frequency is an invented safety margin.
  */
 import { useState } from "react";
-import { Radar, Bell, Ruler } from "lucide-react";
+import { Radar, Bell, Ruler, Radio } from "lucide-react";
 import { useAsyncData } from "../hooks/useAsyncData";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "./AuthProvider";
@@ -25,6 +25,8 @@ import {
   listPfIntervals,
   type PfIntervalRow,
 } from "../services/reliabilityCallers";
+import { plantHistorianActions } from "../services/plantHistorian";
+import type { PlantHistorianStatus } from "../lib/plant-historian";
 
 interface Alert {
   id: string;
@@ -80,6 +82,11 @@ export function ConditionMonitoring() {
     return r as Payload;
   }, []);
   const intervals = useAsyncData<PfIntervalRow[]>(listPfIntervals, []);
+  const plant = useAsyncData<PlantHistorianStatus>(
+    plantHistorianActions.status,
+    [],
+  );
+  const [citing, setCiting] = useState<string | null>(null);
   const [adopting, setAdopting] = useState<string | null>(null);
   const [days, setDays] = useState("");
   const [note, setNote] = useState("");
@@ -112,6 +119,27 @@ export function ConditionMonitoring() {
         </h2>
         <p className="mt-1 text-sm text-slate-300">{cov?.basis}</p>
       </div>
+
+      <PlantHistorianEvidence
+        status={plant.data}
+        loading={plant.loading}
+        error={plant.error}
+        onRetry={plant.refetch}
+        citing={citing}
+        onCite={async (id) => {
+          setCiting(id);
+          setFlash(null);
+          try {
+            const result = await plantHistorianActions.attachEvidence(id);
+            setFlash(String(result.note ?? "Historian evidence attached."));
+            await plant.refetch();
+          } catch (caught) {
+            setFlash((caught as Error).message);
+          } finally {
+            setCiting(null);
+          }
+        }}
+      />
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div className="rounded-xl border border-white/6 bg-overlook-deep/40 p-4">
@@ -426,5 +454,101 @@ export function ConditionMonitoring() {
         </form>
       )}
     </section>
+  );
+}
+
+function PlantHistorianEvidence({
+  status,
+  loading,
+  error,
+  onRetry,
+  citing,
+  onCite,
+}: {
+  status: PlantHistorianStatus | null;
+  loading: boolean;
+  error: string | null;
+  onRetry: () => void;
+  citing: string | null;
+  onCite: (recommendationId: string) => Promise<void>;
+}) {
+  if (loading) {
+    return (
+      <p className="text-xs text-slate-500">
+        Checking plant historian configuration…
+      </p>
+    );
+  }
+  if (error) {
+    return (
+      <p className="text-xs text-slate-500">
+        Historian status unavailable.{" "}
+        <button type="button" className="underline" onClick={onRetry}>
+          Retry
+        </button>
+      </p>
+    );
+  }
+  const configured = status?.configured ?? false;
+  const recent = status?.recent ?? [];
+  const recs = status?.citable_recommendations ?? [];
+  return (
+    <div
+      className={`rounded-xl border p-4 ${
+        configured && status?.telemetry_mode === "historian_owns"
+          ? "border-signal-cyan/30 bg-signal-cyan/5"
+          : "border-white/6 bg-white/2"
+      }`}
+    >
+      <h3 className="flex items-center gap-2 text-sm font-semibold text-white">
+        <Radio className="h-4 w-4 text-signal-cyan" aria-hidden />
+        Plant historian evidence
+        <span className="text-xs font-normal text-slate-500">
+          {configured
+            ? status?.telemetry_mode === "historian_owns"
+              ? "connector-backed when pulled"
+              : "configured, seed/sim still in force"
+            : "not configured"}
+        </span>
+      </h3>
+      <p className="mt-2 text-xs leading-relaxed text-slate-400">
+        {status?.basis ??
+          "No plant historian is configured. Seed/sim telemetry is not live plant data."}
+      </p>
+      {recent.length > 0 && (
+        <ul className="mt-3 space-y-1 text-xs text-slate-300">
+          {recent.map((row) => (
+            <li key={`${row.source_system}-${row.external_id}-${row.taken_at}`}>
+              <span className="font-mono text-signal-cyan">
+                {row.source_system}
+              </span>
+              {" · "}
+              {row.asset ?? "asset"} / {row.sensor ?? "sensor"} = {row.value} at{" "}
+              {new Date(row.taken_at).toLocaleString()}
+            </li>
+          ))}
+        </ul>
+      )}
+      {recs.length > 0 && (
+        <div className="mt-3 space-y-2">
+          <p className="text-xs text-slate-400">
+            Pending recommendations that can cite these readings:
+          </p>
+          {recs.map((rec) => (
+            <button
+              key={rec.id}
+              type="button"
+              disabled={citing === rec.id}
+              onClick={() => void onCite(rec.id)}
+              className="block rounded-lg border border-signal-cyan/30 px-3 py-1.5 text-xs text-signal-cyan disabled:opacity-40"
+            >
+              {citing === rec.id
+                ? "Attaching…"
+                : `Cite historian readings on: ${rec.title}`}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }

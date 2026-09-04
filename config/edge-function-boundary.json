@@ -13,6 +13,7 @@
     "develop-risk-agent",
     "lead-notify",
     "onboarding-enrich",
+    "plant-historian-pull",
     "public-reliability-agent",
     "recovery-activation-pull",
     "sync-investigation-runtime",
