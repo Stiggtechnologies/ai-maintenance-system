@@ -24,6 +24,7 @@ on:
       - "supabase/functions/develop-risk-agent/**"
       - "supabase/functions/lead-notify/**"
       - "supabase/functions/onboarding-enrich/**"
+      - "supabase/functions/plant-historian-pull/**"
       - "supabase/functions/public-reliability-agent/**"
       - "supabase/functions/recovery-activation-pull/**"
       - "supabase/functions/sync-investigation-runtime/**"
@@ -86,6 +87,7 @@ jobs:
           supabase functions deploy develop-risk-agent
           supabase functions deploy lead-notify
           supabase functions deploy onboarding-enrich --no-verify-jwt
+          supabase functions deploy plant-historian-pull
           supabase functions deploy public-reliability-agent
           supabase functions deploy recovery-activation-pull
           supabase functions deploy sync-investigation-runtime
@@ -138,6 +140,23 @@ jobs:
             exit 1
           fi
           echo "Recovery Activation adapter is deployed and JWT-protected (HTTP 401 unauthenticated)."
+
+      - name: Prove Plant historian adapter is deployed
+        run: |
+          set -euo pipefail
+          endpoint="https://${SUPABASE_PROJECT_ID}.supabase.co/functions/v1/plant-historian-pull"
+          status=$(curl --silent --show-error --output /tmp/plant-historian-probe.txt \
+            --write-out '%{http_code}' \
+            --request POST \
+            --header 'Content-Type: application/json' \
+            --data '{"connector_key":"boundary-probe","dry_run":true}' \
+            "$endpoint")
+          cat /tmp/plant-historian-probe.txt || true
+          if [ "$status" != "401" ]; then
+            echo "::error title=Plant historian boundary probe failed::Expected JWT-protected deployed function to return HTTP 401 without credentials; got HTTP ${status}."
+            exit 1
+          fi
+          echo "Plant historian adapter is deployed and JWT-protected (HTTP 401 unauthenticated)."
 
       - name: Prove production app boundary is reachable
         run: |

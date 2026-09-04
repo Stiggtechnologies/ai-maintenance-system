@@ -43,39 +43,61 @@ const DRAFT = {
   asset_class: null,
 };
 
+const UNCONFIGURED_HISTORIAN = {
+  configured: false,
+  enabled: false,
+  mapping_approved: false,
+  telemetry_mode: "seed_sim",
+  connector_key: null,
+  name: null,
+  system_kind: null,
+  last_success_at: null,
+  connector_backed_readings: 0,
+  other_readings: 0,
+  recent: [],
+  citable_recommendations: [],
+  basis:
+    "No plant historian is configured for this organization. Recommendations and condition views continue on seed or simulated telemetry. That is not live plant data.",
+};
+
 beforeEach(() => {
   role = "reliability_engineer";
   vi.clearAllMocks();
-  rpc.mockResolvedValue({
-    data: {
-      coverage: {
-        assets: 1,
-        monitored_assets: 0,
-        coverage_pct: 0,
-        critical_assets: 0,
-        critical_monitored: 0,
-        critical_coverage_pct: null,
-        readings: 0,
-        basis: "No sensors configured.",
+  rpc.mockImplementation(async (name: unknown) => {
+    if (name === "get_plant_historian_status") {
+      return { data: UNCONFIGURED_HISTORIAN, error: null };
+    }
+    return {
+      data: {
+        coverage: {
+          assets: 1,
+          monitored_assets: 0,
+          coverage_pct: 0,
+          critical_assets: 0,
+          critical_monitored: 0,
+          critical_coverage_pct: null,
+          readings: 0,
+          basis: "No sensors configured.",
+        },
+        active_alerts: [],
+        warning_lead_time: {
+          available: false,
+          value: null,
+          unit: "hours",
+          sample: 0,
+          basis: "No linked alerts.",
+        },
+        pm_task_effectiveness: {
+          available: false,
+          pm_completed: 0,
+          finding_rate_pct: null,
+          missed_rate_pct: null,
+          basis: "No completed PMs.",
+        },
+        pf_note: "P-F intervals are declared engineering reference data.",
       },
-      active_alerts: [],
-      warning_lead_time: {
-        available: false,
-        value: null,
-        unit: "hours",
-        sample: 0,
-        basis: "No linked alerts.",
-      },
-      pm_task_effectiveness: {
-        available: false,
-        pm_completed: 0,
-        finding_rate_pct: null,
-        missed_rate_pct: null,
-        basis: "No completed PMs.",
-      },
-      pf_note: "P-F intervals are declared engineering reference data.",
-    },
-    error: null,
+      error: null,
+    };
   });
   listPfIntervals.mockResolvedValue([DRAFT]);
 });
@@ -132,5 +154,119 @@ describe("ConditionMonitoring adopt path", () => {
       ),
     );
     expect(await screen.findByText(/named-human act/)).toBeInTheDocument();
+  });
+
+  it("states seed/sim honestly when no historian is configured", async () => {
+    render(<ConditionMonitoring />);
+    expect(await screen.findByText(/not live plant data/i)).toBeInTheDocument();
+    expect(screen.getByText(/not configured/i)).toBeInTheDocument();
+    expect(
+      screen.queryByText(/Cite historian readings/i),
+    ).not.toBeInTheDocument();
+  });
+
+  it("cites connector-backed readings on a pending recommendation", async () => {
+    rpc.mockImplementation(async (name: unknown) => {
+      if (name === "get_plant_historian_status") {
+        return {
+          data: {
+            ...UNCONFIGURED_HISTORIAN,
+            configured: true,
+            enabled: true,
+            mapping_approved: true,
+            telemetry_mode: "historian_owns",
+            connector_key: "site-a-pi",
+            name: "Site A PI",
+            system_kind: "historian",
+            connector_backed_readings: 1,
+            recent: [
+              {
+                external_id: "CR-1",
+                asset: "P-101",
+                asset_id: "a1",
+                sensor: "Vibration — Drive End",
+                value: 2.4,
+                quality: "good",
+                taken_at: "2026-08-01T06:00:00Z",
+                source_system: "site-a-pi",
+              },
+            ],
+            citable_recommendations: [
+              {
+                id: "rec-1",
+                title: "Investigate P-101 vibration",
+                asset_id: "a1",
+                asset: "P-101",
+                status: "pending",
+              },
+            ],
+            basis:
+              "1 connector-backed reading(s) from source_system=site-a-pi. Cite these on a pending recommendation; they are not seed telemetry.",
+          },
+          error: null,
+        };
+      }
+      if (name === "attach_plant_historian_evidence") {
+        return {
+          data: {
+            ok: true,
+            attached: 1,
+            note: "Attached 1 connector-backed historian reading(s) as evidence.",
+          },
+          error: null,
+        };
+      }
+      return {
+        data: {
+          coverage: {
+            assets: 1,
+            monitored_assets: 1,
+            coverage_pct: 100,
+            critical_assets: 0,
+            critical_monitored: 0,
+            critical_coverage_pct: null,
+            readings: 1,
+            basis: "Reading history present; limits are evaluated on ingest.",
+          },
+          active_alerts: [],
+          warning_lead_time: {
+            available: false,
+            value: null,
+            unit: "hours",
+            sample: 0,
+            basis: "No linked alerts.",
+          },
+          pm_task_effectiveness: {
+            available: false,
+            pm_completed: 0,
+            finding_rate_pct: null,
+            missed_rate_pct: null,
+            basis: "No completed PMs.",
+          },
+          pf_note: "P-F intervals are declared engineering reference data.",
+        },
+        error: null,
+      };
+    });
+    render(<ConditionMonitoring />);
+    expect(
+      await screen.findByText(
+        /Cite historian readings on: Investigate P-101 vibration/,
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText(/site-a-pi/).length).toBeGreaterThan(0);
+    fireEvent.click(
+      screen.getByText(
+        /Cite historian readings on: Investigate P-101 vibration/,
+      ),
+    );
+    await waitFor(() =>
+      expect(rpc).toHaveBeenCalledWith("attach_plant_historian_evidence", {
+        p_recommendation_id: "rec-1",
+      }),
+    );
+    expect(
+      await screen.findByText(/Attached 1 connector-backed historian reading/),
+    ).toBeInTheDocument();
   });
 });
