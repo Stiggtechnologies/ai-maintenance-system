@@ -97,7 +97,7 @@ export function buildDecisionAskContextPack(
       contextLines: [
         "No decision case is selected.",
         "Stay general. Do not assume a demo, reference, or seed case.",
-        "Do not cite Fort McMurray, P-101, DC-1048, or other seeded assets unless the user just named them.",
+        "Do not invent a plant, asset, or case subject the user has not named.",
       ],
     };
   }
