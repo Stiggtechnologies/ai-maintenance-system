@@ -666,6 +666,9 @@ describe("the gate runs inside a required status check (H3)", () => {
   it("passes on the current tree", () => {
     // The whole gate, executed. If this throws, `npx vitest run` fails, and
     // `npx vitest run` is the required `Unit tests` check.
+    // Feature PRs that touch a core protected blob (e.g. decision-case.ts)
+    // must either revert it or ship a live qualification report. A dry-run
+    // artefact is stamped dryRun:true and is not evidence.
     const output = execFileSync(
       "node",
       ["scripts/check-reliability-baseline.mjs"],
