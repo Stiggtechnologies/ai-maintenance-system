@@ -75,6 +75,7 @@ describe("presence welcome speech gate", () => {
       signedIn: true,
       muted: false,
       alreadyWelcomedThisSession: hasSessionWelcome(session, userId),
+      voiceOutputEnabled: true,
     });
     expect(first).toBe(true);
     markSessionWelcome(session, userId);
@@ -83,6 +84,7 @@ describe("presence welcome speech gate", () => {
       signedIn: true,
       muted: false,
       alreadyWelcomedThisSession: hasSessionWelcome(session, userId),
+      voiceOutputEnabled: true,
     });
     expect(second).toBe(false);
     expect(session.getItem(presenceSessionStorageKey(userId))).toBe("1");
@@ -94,6 +96,7 @@ describe("presence welcome speech gate", () => {
         signedIn: false,
         muted: false,
         alreadyWelcomedThisSession: false,
+        voiceOutputEnabled: true,
       }),
     ).toBe(false);
   });
@@ -104,6 +107,18 @@ describe("presence welcome speech gate", () => {
         signedIn: true,
         muted: true,
         alreadyWelcomedThisSession: false,
+        voiceOutputEnabled: true,
+      }),
+    ).toBe(false);
+  });
+
+  it("does not speak when sync_voice_output is off", () => {
+    expect(
+      shouldSpeakWelcome({
+        signedIn: true,
+        muted: false,
+        alreadyWelcomedThisSession: false,
+        voiceOutputEnabled: false,
       }),
     ).toBe(false);
   });
@@ -232,6 +247,9 @@ describe("presence boundary", () => {
     expect(readFileSync("src/lib/presence/welcome.ts", "utf8")).toContain(
       "Recommend ≠ authorize",
     );
+    expect(
+      readFileSync("src/components/PresenceWelcome.tsx", "utf8"),
+    ).toContain('useFeatureFlag("sync_voice_output")');
   });
 });
 
@@ -251,6 +269,7 @@ describe("presence session isolation", () => {
         signedIn: true,
         muted: false,
         alreadyWelcomedThisSession: hasSessionWelcome(session, "user-b"),
+        voiceOutputEnabled: true,
       }),
     ).toBe(true);
   });

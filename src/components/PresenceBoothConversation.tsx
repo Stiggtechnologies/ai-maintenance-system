@@ -24,6 +24,7 @@ export interface PresenceBoothMessage {
 interface PresenceBoothConversationProps {
   signedIn: boolean;
   muted: boolean;
+  voiceOutputEnabled: boolean;
   givenName: string | null;
   briefLines: string[];
   speak: (text: string) => void;
@@ -33,6 +34,7 @@ interface PresenceBoothConversationProps {
 export function PresenceBoothConversation({
   signedIn,
   muted,
+  voiceOutputEnabled,
   givenName,
   briefLines,
   speak,
@@ -74,7 +76,7 @@ export function PresenceBoothConversation({
         text: result.response,
       };
       setMessages((current) => [...current, reply]);
-      if (shouldSpeakBoothReply({ signedIn, muted })) {
+      if (shouldSpeakBoothReply({ signedIn, muted, voiceOutputEnabled })) {
         const spoken = stripForSpeech(result.response);
         if (spoken) speak(spoken);
       }

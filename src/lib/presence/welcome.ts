@@ -1,7 +1,8 @@
 /**
  * Thin signed-in presence welcome — capability test, not a meeting runner.
  *
- * Speaks a greeting via the browser Web Speech adapter and optionally shows
+ * Speaks a greeting via the browser Web Speech adapter when
+ * sync_voice_output is enabled (same contract as CopilotDock). Optionally shows
  * 1–3 live KPI lines from the existing get_kpi_dashboard contract. This is
  * not OpenClaw, SIR, JAVIS, a gateway, or a parallel orchestrator. It does
  * not execute plant actions. Recommend ≠ authorize.
@@ -40,8 +41,14 @@ export function shouldSpeakWelcome(input: {
   signedIn: boolean;
   muted: boolean;
   alreadyWelcomedThisSession: boolean;
+  voiceOutputEnabled: boolean;
 }): boolean {
-  return input.signedIn && !input.muted && !input.alreadyWelcomedThisSession;
+  return (
+    input.signedIn &&
+    !input.muted &&
+    !input.alreadyWelcomedThisSession &&
+    input.voiceOutputEnabled
+  );
 }
 
 export function selectPresenceBriefLines(

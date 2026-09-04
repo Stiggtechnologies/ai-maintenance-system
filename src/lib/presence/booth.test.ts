@@ -43,11 +43,34 @@ describe("booth conversation framing", () => {
 
 describe("booth speech gate", () => {
   it("does not speak replies when muted or signed out", () => {
-    expect(shouldSpeakBoothReply({ signedIn: true, muted: false })).toBe(true);
-    expect(shouldSpeakBoothReply({ signedIn: true, muted: true })).toBe(false);
-    expect(shouldSpeakBoothReply({ signedIn: false, muted: false })).toBe(
-      false,
-    );
+    expect(
+      shouldSpeakBoothReply({
+        signedIn: true,
+        muted: false,
+        voiceOutputEnabled: true,
+      }),
+    ).toBe(true);
+    expect(
+      shouldSpeakBoothReply({
+        signedIn: true,
+        muted: true,
+        voiceOutputEnabled: true,
+      }),
+    ).toBe(false);
+    expect(
+      shouldSpeakBoothReply({
+        signedIn: false,
+        muted: false,
+        voiceOutputEnabled: true,
+      }),
+    ).toBe(false);
+    expect(
+      shouldSpeakBoothReply({
+        signedIn: true,
+        muted: false,
+        voiceOutputEnabled: false,
+      }),
+    ).toBe(false);
   });
 
   it("shortens spoken replies without inventing plant claims", () => {

@@ -49,6 +49,7 @@ function renderBooth(
     <PresenceBoothConversation
       signedIn
       muted={false}
+      voiceOutputEnabled
       givenName="Orville"
       briefLines={["No sourced KPI values are available yet."]}
       speak={speak}
@@ -103,6 +104,19 @@ describe("PresenceBoothConversation", () => {
 
   it("does not speak replies when muted", async () => {
     renderBooth({ muted: true });
+    fireEvent.change(screen.getByPlaceholderText(/Ask about maintenance/i), {
+      target: { value: "Any plant claims?" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /send question/i }));
+
+    expect(
+      await screen.findByText("No sourced backlog figure is in this snapshot."),
+    ).toBeInTheDocument();
+    expect(speak).not.toHaveBeenCalled();
+  });
+
+  it("does not speak replies when sync_voice_output is off", async () => {
+    renderBooth({ voiceOutputEnabled: false });
     fireEvent.change(screen.getByPlaceholderText(/Ask about maintenance/i), {
       target: { value: "Any plant claims?" },
     });

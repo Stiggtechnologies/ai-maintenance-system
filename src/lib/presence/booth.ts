@@ -42,8 +42,9 @@ export function buildBoothAskQuery(input: {
 export function shouldSpeakBoothReply(input: {
   signedIn: boolean;
   muted: boolean;
+  voiceOutputEnabled: boolean;
 }): boolean {
-  return input.signedIn && !input.muted;
+  return input.signedIn && !input.muted && input.voiceOutputEnabled;
 }
 
 export function stripForSpeech(text: string, maxChars = 420): string {

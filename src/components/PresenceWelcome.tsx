@@ -2,13 +2,16 @@
  * Signed-in presence strip for the main AppShell.
  *
  * Audio path: browser Web Speech API via useSpeechOutput (speechSynthesis).
- * Speaks the greeting once per tab session when not muted. The optional
+ * Speaks the greeting once per tab session when not muted and
+ * sync_voice_output is enabled (same fail-closed contract as CopilotDock).
+ * The optional
  * brief is text-only and uses get_kpi_dashboard — never fabricated plant
  * readings. Mute is remembered in localStorage. This is a welcome, not
  * autonomous control, and it does not authorize plant execute.
  */
 import { useEffect, useState } from "react";
 import { MessageCircle, Volume2, VolumeX } from "lucide-react";
+import { useFeatureFlag } from "../hooks/useFeatureFlag";
 import { useSpeechOutput } from "../hooks/useSpeechOutput";
 import {
   buildSpokenWelcome,
@@ -31,6 +34,9 @@ function metadataFullName(value: unknown): string | null {
 export function PresenceWelcome() {
   const { user, profile, loading } = useAuth();
   const { speak, stop } = useSpeechOutput();
+  const voiceOutput = useFeatureFlag("sync_voice_output");
+  const voiceOutputEnabled = voiceOutput.enabled;
+  const voiceOutputReady = !voiceOutput.loading;
   const [muted, setMuted] = useState(() =>
     typeof window === "undefined"
       ? false
@@ -66,7 +72,7 @@ export function PresenceWelcome() {
   }, [loading, user]);
 
   useEffect(() => {
-    if (loading) return;
+    if (loading || voiceOutput.loading) return;
     const userId = user?.id ?? "";
     const already = userId
       ? hasSessionWelcome(window.sessionStorage, userId)
@@ -76,13 +82,26 @@ export function PresenceWelcome() {
         signedIn: Boolean(userId),
         muted,
         alreadyWelcomedThisSession: already,
+        voiceOutputEnabled,
       })
     ) {
       return;
     }
     markSessionWelcome(window.sessionStorage, userId);
     speak(spokenWelcome);
-  }, [loading, user, muted, spokenWelcome, speak]);
+  }, [
+    loading,
+    voiceOutput.loading,
+    user,
+    muted,
+    spokenWelcome,
+    speak,
+    voiceOutputEnabled,
+  ]);
+
+  useEffect(() => {
+    if (!voiceOutputEnabled) stop();
+  }, [voiceOutputEnabled, stop]);
 
   const handleMute = () => {
     writeMutePreference(window.localStorage, true);
@@ -106,6 +125,7 @@ export function PresenceWelcome() {
     <PresenceBoothConversation
       signedIn={Boolean(user)}
       muted={muted}
+      voiceOutputEnabled={voiceOutputEnabled}
       givenName={givenName}
       briefLines={briefLines}
       speak={speak}
@@ -120,6 +140,9 @@ export function PresenceWelcome() {
       <div
         data-testid="presence-welcome"
         data-presence-muted="true"
+        data-presence-voice={
+          !voiceOutputReady ? "loading" : voiceOutputEnabled ? "on" : "off"
+        }
         className="shrink-0 border-b border-white/5 bg-white/[0.02] px-4 py-2"
       >
         <div className="flex items-center justify-between gap-3">
@@ -155,14 +178,20 @@ export function PresenceWelcome() {
     <div
       data-testid="presence-welcome"
       data-presence-muted="false"
+      data-presence-voice={
+        !voiceOutputReady ? "loading" : voiceOutputEnabled ? "on" : "off"
+      }
       className="shrink-0 border-b border-white/5 bg-white/[0.02] px-4 py-2.5"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-sm font-medium text-slate-100">{spokenWelcome}</p>
           <p className="mt-0.5 text-[11px] text-slate-500">
-            Browser TTS welcome only. Not autonomous control. Recommend is not
-            authorize.
+            {!voiceOutputReady
+              ? "Not autonomous control. Recommend is not authorize."
+              : voiceOutputEnabled
+                ? "Browser TTS welcome only. Not autonomous control. Recommend is not authorize."
+                : "Voice output is off for this tenant. Text welcome and Meet Sync still work. Not autonomous control. Recommend is not authorize."}
           </p>
           <ul className="mt-1.5 space-y-0.5">
             {briefLines.map((line) => (
@@ -173,15 +202,17 @@ export function PresenceWelcome() {
           </ul>
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          <button
-            type="button"
-            onClick={() => speak(spokenWelcome)}
-            className="inline-flex items-center gap-1.5 rounded-md border border-white/10 px-2 py-1 text-xs text-slate-300 hover:border-signal-cyan/40 hover:text-signal-cyan"
-            aria-label="Play welcome"
-          >
-            <Volume2 className="h-3.5 w-3.5" />
-            Play
-          </button>
+          {voiceOutputEnabled ? (
+            <button
+              type="button"
+              onClick={() => speak(spokenWelcome)}
+              className="inline-flex items-center gap-1.5 rounded-md border border-white/10 px-2 py-1 text-xs text-slate-300 hover:border-signal-cyan/40 hover:text-signal-cyan"
+              aria-label="Play welcome"
+            >
+              <Volume2 className="h-3.5 w-3.5" />
+              Play
+            </button>
+          ) : null}
           <button
             type="button"
             onClick={toggleBooth}

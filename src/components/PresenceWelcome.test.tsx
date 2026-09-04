@@ -11,6 +11,12 @@ const speak = vi.fn();
 const stop = vi.fn();
 const loadDashboard = vi.fn();
 const useAuth = vi.fn();
+const voiceOutput = {
+  enabled: true,
+  loading: false,
+  error: null as string | null,
+  refetch: vi.fn(),
+};
 
 vi.mock("../hooks/useSpeechOutput", () => ({
   useSpeechOutput: () => ({
@@ -19,6 +25,15 @@ vi.mock("../hooks/useSpeechOutput", () => ({
     speak,
     stop,
   }),
+}));
+
+vi.mock("../hooks/useFeatureFlag", () => ({
+  useFeatureFlag: (flag: string) => {
+    if (flag !== "sync_voice_output") {
+      throw new Error(`unexpected flag ${flag}`);
+    }
+    return voiceOutput;
+  },
 }));
 
 vi.mock("./AuthProvider", () => ({
@@ -78,6 +93,9 @@ beforeEach(() => {
   speak.mockReset();
   stop.mockReset();
   loadDashboard.mockReset();
+  voiceOutput.enabled = true;
+  voiceOutput.loading = false;
+  voiceOutput.error = null;
   window.localStorage.clear();
   window.sessionStorage.clear();
   useAuth.mockReturnValue(signedInAuth());
@@ -192,6 +210,46 @@ describe("PresenceWelcome", () => {
     fireEvent.click(screen.getByRole("button", { name: "Meet Sync" }));
     expect(await screen.findByTestId("presence-booth")).toBeInTheDocument();
     expect(speak).not.toHaveBeenCalled();
+  });
+
+  it("does not speak or show Play when sync_voice_output is off", async () => {
+    voiceOutput.enabled = false;
+    render(<PresenceWelcome />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("presence-welcome")).toHaveAttribute(
+        "data-presence-voice",
+        "off",
+      );
+    });
+    expect(speak).not.toHaveBeenCalled();
+    expect(screen.queryByRole("button", { name: /play welcome/i })).toBeNull();
+    expect(
+      screen.getByText(/Voice output is off for this tenant/i),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Meet Sync" }));
+    expect(await screen.findByTestId("presence-booth")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /mute welcome/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("does not auto-speak while sync_voice_output is still loading", async () => {
+    voiceOutput.loading = true;
+    voiceOutput.enabled = false;
+    render(<PresenceWelcome />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("presence-welcome")).toHaveAttribute(
+        "data-presence-voice",
+        "loading",
+      );
+    });
+    expect(speak).not.toHaveBeenCalled();
+    expect(screen.queryByRole("button", { name: /play welcome/i })).toBeNull();
+    expect(
+      screen.queryByText(/Voice output is off for this tenant/i),
+    ).toBeNull();
   });
 
   it("falls back to an unnamed spoken welcome without guessing Orville", async () => {
