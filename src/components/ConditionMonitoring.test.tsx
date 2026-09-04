@@ -158,9 +158,7 @@ describe("ConditionMonitoring adopt path", () => {
 
   it("states seed/sim honestly when no historian is configured", async () => {
     render(<ConditionMonitoring />);
-    expect(
-      await screen.findByText(/not live plant data/i),
-    ).toBeInTheDocument();
+    expect(await screen.findByText(/not live plant data/i)).toBeInTheDocument();
     expect(screen.getByText(/not configured/i)).toBeInTheDocument();
     expect(
       screen.queryByText(/Cite historian readings/i),
@@ -251,9 +249,16 @@ describe("ConditionMonitoring adopt path", () => {
       };
     });
     render(<ConditionMonitoring />);
-    expect(await screen.findByText(/site-a-pi/)).toBeInTheDocument();
+    expect(
+      await screen.findByText(
+        /Cite historian readings on: Investigate P-101 vibration/,
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText(/site-a-pi/).length).toBeGreaterThan(0);
     fireEvent.click(
-      screen.getByText(/Cite historian readings on: Investigate P-101 vibration/),
+      screen.getByText(
+        /Cite historian readings on: Investigate P-101 vibration/,
+      ),
     );
     await waitFor(() =>
       expect(rpc).toHaveBeenCalledWith("attach_plant_historian_evidence", {

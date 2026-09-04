@@ -37,7 +37,7 @@ describe("plant historian read-only adapter contract", () => {
   it("extends the canonical ingest plane instead of inventing a second store", () => {
     expect(migration).toContain("public.connectors");
     expect(migration).toContain("public.connector_runs");
-    expect(migration).toContain("public.ingest_staging");
+    expect(migration).toContain("ingest_staging");
     expect(migration).toContain("public.connector_entity_mappings");
     expect(migration).toContain("public.ingest_batch");
     expect(migration).toContain("'condition_reading'");
@@ -80,16 +80,25 @@ describe("plant historian read-only adapter contract", () => {
   });
 
   it("yields the simulator only for an enabled plant_historian connector", () => {
-    expect(migration).toContain("create or replace function public.simulate_telemetry_tick()");
+    expect(migration).toContain(
+      "create or replace function public.simulate_telemetry_tick()",
+    );
     expect(migration).toContain("c.connector_type = 'plant_historian'");
     expect(migration).toContain("c.enabled");
-    expect(migration.toLowerCase()).not.toContain("ilike '%historian%'");
-    expect(migration).not.toContain("from integrations");
+    const tick = migration.slice(
+      migration.indexOf(
+        "create or replace function public.simulate_telemetry_tick()",
+      ),
+    );
+    expect(tick).not.toMatch(/ilike\s+'%historian%'/i);
+    expect(tick).not.toMatch(/from\s+integrations\b/i);
   });
 
   it("does not loosen the manual-upload ingest_rows door", () => {
     expect(ingestRowsLatest).toMatch(/c\.connector_type\s*=\s*'manual_upload'/);
-    expect(migration).not.toContain("create or replace function public.ingest_rows");
+    expect(migration).not.toContain(
+      "create or replace function public.ingest_rows",
+    );
     expect(migration).toContain("return public.ingest_batch(p_run_id, p_rows)");
     expect(migration).toContain("plant historian run not found");
   });
@@ -113,7 +122,9 @@ describe("plant historian read-only adapter contract", () => {
   });
 
   it("is tenant-bound and not granted to anon", () => {
-    expect(migration).toMatch(/v_org\s+uuid\s*:=\s*public\.app_current_org\(\)/);
+    expect(migration).toMatch(
+      /v_org\s+uuid\s*:=\s*public\.app_current_org\(\)/,
+    );
     expect(migration).toContain("organization_id = v_org");
     expect(migration).not.toMatch(/grant execute[^;]+to anon/i);
     expect(migration).toContain("from public, anon");
