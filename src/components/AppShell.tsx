@@ -43,6 +43,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { BrandWordmark } from "./BrandWordmark";
 import { CommandSearch } from "./CommandSearch";
 import { CopilotDock } from "./CopilotDock";
+import { PresenceWelcome } from "./PresenceWelcome";
 import { useAuth } from "./AuthProvider";
 import { isNavItemVisible } from "../lib/roleNavigation";
 
@@ -799,6 +800,8 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
             </div>
           </div>
         </header>
+
+        <PresenceWelcome />
 
         {/* Page Content */}
         <main className="flex-1 overflow-auto bg-overlook-void min-w-0 pb-20 md:pb-0">
