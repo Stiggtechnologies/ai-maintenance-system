@@ -85,6 +85,7 @@ import { DevelopCasesPage } from "./pages/DevelopCasesPage";
 import { DevelopIntakePage } from "./pages/DevelopIntakePage";
 import { DevelopmentCaseWorkspacePage } from "./pages/DevelopmentCaseWorkspacePage";
 import { ExecutionReadinessPage } from "./pages/ExecutionReadinessPage";
+import { SyncFieldPage } from "./pages/SyncFieldPage";
 import { GateReviewPage } from "./pages/GateReviewPage";
 import { AssuranceCasePage } from "./pages/AssuranceCasePage";
 import {
@@ -538,6 +539,13 @@ function AuthenticatedApp() {
             path="/execution-readiness"
             element={<ExecutionReadinessPage />}
           />
+          {/* Slice 7C: Sync Field composed (D7.16) — work packaging, the
+              constraint-free work index and its forward face, workface
+              planning, resource demand against capacity, the portfolio
+              conflict position and execution readiness, on ONE server-side
+              composition that recomputes none of them. The row stays 🟡 and
+              the page says why: three of the parts it composes are open. */}
+          <Route path="/sync-field" element={<SyncFieldPage />} />
 
           <Route
             path="/work/:workOrderId"
