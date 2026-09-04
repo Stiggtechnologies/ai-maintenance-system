@@ -7,7 +7,7 @@ import {
 } from "../lib/plant-historian";
 
 const migration = readFileSync(
-  "supabase/migrations/20261212090000_plant_historian_read_adapter.sql",
+  "supabase/migrations/20261212090400_plant_historian_read_adapter.sql",
   "utf8",
 );
 const edge = readFileSync(

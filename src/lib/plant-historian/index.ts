@@ -1,7 +1,7 @@
 /**
  * Canonical condition_reading fields the plant historian pull may map.
  * Mirrors plant_historian_allowed_fields() / required_fields() in
- * 20261212090000_plant_historian_read_adapter.sql.
+ * 20261212090400_plant_historian_read_adapter.sql.
  */
 export const PLANT_HISTORIAN_ALLOWED_FIELDS = [
   "external_id",
