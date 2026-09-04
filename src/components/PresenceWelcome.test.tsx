@@ -204,6 +204,37 @@ describe("PresenceWelcome", () => {
     expect(screen.getByText(/booth conversation/i)).toBeInTheDocument();
   });
 
+  it("hides the KPI brief while Meet Sync is open", async () => {
+    loadDashboard.mockResolvedValue({
+      role: "admin",
+      kpis: [kpiRow({ kpi_key: "oee", name: "OEE", value: 62, unit: "%" })],
+    } satisfies KpiDashboard);
+    render(<PresenceWelcome />);
+    expect(await screen.findByTestId("presence-brief")).toBeInTheDocument();
+    expect(screen.getByText("OEE: 62%")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Meet Sync" }));
+    expect(await screen.findByTestId("presence-booth")).toBeInTheDocument();
+    expect(screen.queryByTestId("presence-brief")).toBeNull();
+    expect(screen.queryByText("OEE: 62%")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Close Meet Sync" }));
+    expect(screen.getByTestId("presence-brief")).toBeInTheDocument();
+    expect(screen.getByText("OEE: 62%")).toBeInTheDocument();
+  });
+
+  it("gives Meet Sync a stronger rest state than Play and Mute", () => {
+    render(<PresenceWelcome />);
+    const meet = screen.getByRole("button", { name: "Meet Sync" });
+    const play = screen.getByRole("button", { name: /play welcome/i });
+    const mute = screen.getByRole("button", { name: /mute welcome/i });
+    expect(meet.className).toMatch(/border-signal-cyan/);
+    expect(meet.className).toMatch(/bg-signal-cyan/);
+    expect(play.className).not.toMatch(/bg-signal-cyan/);
+    expect(mute.className).not.toMatch(/bg-signal-cyan/);
+    expect(screen.getByTestId("presence-honesty").className).toMatch(
+      /\bmt-1\b/,
+    );
+  });
+
   it("keeps Meet Sync available when welcome audio is muted", async () => {
     window.localStorage.setItem(PRESENCE_MUTE_STORAGE_KEY, "1");
     render(<PresenceWelcome />);

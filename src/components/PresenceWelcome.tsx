@@ -31,6 +31,12 @@ function metadataFullName(value: unknown): string | null {
   return typeof value === "string" ? value : null;
 }
 
+const MEET_SYNC_BUTTON_CLASS =
+  "inline-flex items-center gap-1.5 rounded-md border border-signal-cyan/40 bg-signal-cyan/10 px-2 py-1 text-xs text-signal-cyan hover:border-signal-cyan/60 hover:bg-signal-cyan/15";
+
+const SECONDARY_BUTTON_CLASS =
+  "inline-flex items-center gap-1.5 rounded-md border border-white/10 px-2 py-1 text-xs text-slate-300 hover:border-white/20 hover:text-slate-100";
+
 export function PresenceWelcome() {
   const { user, profile, loading } = useAuth();
   const { speak, stop } = useSpeechOutput();
@@ -154,7 +160,7 @@ export function PresenceWelcome() {
               type="button"
               onClick={toggleBooth}
               aria-label={boothOpen ? "Close Meet Sync" : "Meet Sync"}
-              className="inline-flex items-center gap-1.5 rounded-md border border-white/10 px-2 py-1 text-xs text-slate-300 hover:border-signal-cyan/40 hover:text-signal-cyan"
+              className={MEET_SYNC_BUTTON_CLASS}
             >
               <MessageCircle className="h-3.5 w-3.5" />
               Meet Sync
@@ -162,7 +168,7 @@ export function PresenceWelcome() {
             <button
               type="button"
               onClick={handleUnmute}
-              className="inline-flex items-center gap-1.5 rounded-md border border-white/10 px-2 py-1 text-xs text-slate-300 hover:border-signal-cyan/40 hover:text-signal-cyan"
+              className={SECONDARY_BUTTON_CLASS}
             >
               <Volume2 className="h-3.5 w-3.5" />
               Unmute welcome
@@ -186,27 +192,32 @@ export function PresenceWelcome() {
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-sm font-medium text-slate-100">{spokenWelcome}</p>
-          <p className="mt-0.5 text-[11px] text-slate-500">
+          <p
+            data-testid="presence-honesty"
+            className="mt-1 text-[11px] text-slate-500"
+          >
             {!voiceOutputReady
               ? "Not autonomous control. Recommend is not authorize."
               : voiceOutputEnabled
                 ? "Browser TTS welcome only. Not autonomous control. Recommend is not authorize."
                 : "Voice output is off for this tenant. Text welcome and Meet Sync still work. Not autonomous control. Recommend is not authorize."}
           </p>
-          <ul className="mt-1.5 space-y-0.5">
-            {briefLines.map((line) => (
-              <li key={line} className="text-xs text-slate-400">
-                {line}
-              </li>
-            ))}
-          </ul>
+          {!boothOpen && briefLines.length > 0 ? (
+            <ul data-testid="presence-brief" className="mt-1.5 space-y-0.5">
+              {briefLines.map((line) => (
+                <li key={line} className="text-xs text-slate-400">
+                  {line}
+                </li>
+              ))}
+            </ul>
+          ) : null}
         </div>
         <div className="flex shrink-0 items-center gap-2">
           {voiceOutputEnabled ? (
             <button
               type="button"
               onClick={() => speak(spokenWelcome)}
-              className="inline-flex items-center gap-1.5 rounded-md border border-white/10 px-2 py-1 text-xs text-slate-300 hover:border-signal-cyan/40 hover:text-signal-cyan"
+              className={SECONDARY_BUTTON_CLASS}
               aria-label="Play welcome"
             >
               <Volume2 className="h-3.5 w-3.5" />
@@ -217,7 +228,7 @@ export function PresenceWelcome() {
             type="button"
             onClick={toggleBooth}
             aria-label={boothOpen ? "Close Meet Sync" : "Meet Sync"}
-            className="inline-flex items-center gap-1.5 rounded-md border border-white/10 px-2 py-1 text-xs text-slate-300 hover:border-signal-cyan/40 hover:text-signal-cyan"
+            className={MEET_SYNC_BUTTON_CLASS}
           >
             <MessageCircle className="h-3.5 w-3.5" />
             Meet Sync
@@ -225,7 +236,7 @@ export function PresenceWelcome() {
           <button
             type="button"
             onClick={handleMute}
-            className="inline-flex items-center gap-1.5 rounded-md border border-white/10 px-2 py-1 text-xs text-slate-300 hover:border-white/20 hover:text-slate-100"
+            className={SECONDARY_BUTTON_CLASS}
             aria-label="Mute welcome"
           >
             <VolumeX className="h-3.5 w-3.5" />
