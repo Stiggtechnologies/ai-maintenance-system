@@ -6966,3 +6966,864 @@ export async function getExecutionReadinessBoard(
   });
   return unwrap(data, error);
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+ * Sync Develop Slice 7C — resources, competency readiness, workface metrics.
+ *
+ * EVERY PERCENTAGE HERE ARRIVES AS A `MetricRatio`, NOT AS A NUMBER, and that
+ * is the whole shape of this section. `sync_metric_ratio` returns a refusal
+ * for an empty denominator, an unassessed set, a non-finite input, a negative
+ * count and a numerator larger than its denominator, and the type below makes
+ * a caller destructure `answered` before it can reach `pct`. A screen cannot
+ * accidentally render 0% over a window nobody planned work into, because
+ * there is no number there to render.
+ * ══════════════════════════════════════════════════════════════════════════ */
+
+/** The five ways `sync_metric_ratio` refuses, plus the one way it answers. */
+export type MetricRatioKind =
+  | "computed"
+  | "empty_denominator"
+  | "not_assessed"
+  | "not_finite"
+  | "negative"
+  | "numerator_exceeds"
+  | "not_projectable";
+
+/**
+ * A DISCRIMINATED UNION, not a bag with a nullable `pct`.
+ *
+ * The first draft was a plain interface whose comment claimed it made "a
+ * caller destructure `answered` before it can reach `pct`" — which a plain
+ * interface cannot do. `Ratio` checked anyway; the type did not, so the next
+ * component to render one would have compiled while printing `null%`. Now the
+ * compiler refuses: `pct` exists only on the answered branch.
+ */
+export interface MetricRatioAnswered {
+  answered: true;
+  kind: "computed";
+  pct: number;
+  numerator: number;
+  denominator: number;
+  refusal?: undefined;
+}
+
+export interface MetricRatioRefused {
+  answered: false;
+  kind: Exclude<MetricRatioKind, "computed">;
+  /** Null on every refusal. There is no number to render. */
+  pct: null;
+  numerator: number | null;
+  denominator: number | null;
+  refusal: string;
+}
+
+export type MetricRatio = MetricRatioAnswered | MetricRatioRefused;
+
+export interface CalculationRefusal {
+  reason: string;
+  scope: string;
+}
+
+/* ── D7.01 — ResourceDemand / ResourceCapacity ─────────────────────────── */
+
+export interface ResourceBalanceCell {
+  category: string;
+  categoryOrder: number;
+  pool: string;
+  periodStart: string;
+  periodEnd: string;
+  demandHours: number;
+  demandLines: number;
+  approvedLines: number;
+  /** Null when no capacity is recorded — NOT ASSESSABLE, never zero. */
+  capacityHours: number | null;
+  weeklyHours: number | null;
+  /** The craft_capacity row this cell's capacity came from, so the close act has something to name. */
+  capacityId: string | null;
+  capacityEffectiveFrom: string | null;
+  capacityBasis: string | null;
+  deductionsItemised: { kind: string; weeklyHours: number; basis: string }[];
+  state:
+    "within_capacity" | "at_capacity" | "over_committed" | "not_assessable";
+  shortfallHours: number | null;
+  detail: string;
+}
+
+export interface CaseResourceBalance {
+  answered: boolean;
+  refusal?: string;
+  caseId?: string;
+  caseTitle?: string;
+  asOf?: string;
+  horizonWeeks?: number;
+  horizonEnd?: string;
+  demandLines?: number;
+  liveDemandLines?: number;
+  linesInWindow?: number;
+  categoriesWithDemand?: number;
+  categoriesInSpec?: number;
+  cells?: ResourceBalanceCell[];
+  overCommitted?: number;
+  atCapacity?: number;
+  withinCapacity?: number;
+  notAssessable?: number;
+  refusals?: CalculationRefusal[];
+  basis?: string;
+}
+
+/**
+ * D7.01: one project's demand set beside capacity, time-phased.
+ *
+ * Refuses over a case with no demand recorded. That refusal is the row: a
+ * project nobody has resourced and a project with no resource problem look
+ * identical on a screen, and only one of them is safe.
+ */
+export async function getCaseResourceBalance(
+  caseId: string,
+  horizonWeeks = 12,
+): Promise<CaseResourceBalance> {
+  const { data, error } = await supabase.rpc("get_case_resource_balance", {
+    p_case_id: caseId,
+    p_horizon_weeks: horizonWeeks,
+  });
+  return unwrap(data, error);
+}
+
+export interface ResourceDemandLine {
+  demandId: number;
+  category: string;
+  categoryOrder: number;
+  pool: string;
+  periodStart: string;
+  periodEnd: string;
+  demandHours: number;
+  sourceKind: string;
+  basis: string;
+  workPackageId: number | null;
+  packageCode: string | null;
+  approved: boolean;
+  approvedAt: string | null;
+  approvalNote: string | null;
+  withdrawn: boolean;
+  withdrawnAt: string | null;
+  withdrawalReason: string | null;
+}
+
+export async function getCaseResourceDemand(
+  caseId: string,
+): Promise<{
+  answered: boolean;
+  refusal?: string;
+  demand?: ResourceDemandLine[];
+}> {
+  const { data, error } = await supabase.rpc("get_case_resource_demand", {
+    p_case_id: caseId,
+  });
+  return unwrap(data, error);
+}
+
+export interface ResourceWriteResult {
+  answered: boolean;
+  refusal?: string;
+  demandId?: number;
+  capacityId?: string;
+  deductionId?: number;
+  approved?: boolean;
+  withdrawn?: boolean;
+  note?: string;
+}
+
+export async function recordResourceCapacity(payload: {
+  category: string;
+  pool: string;
+  weeklyHours: string;
+  basis: string;
+  siteId?: string | null;
+  effectiveFrom?: string;
+  effectiveTo?: string;
+}): Promise<ResourceWriteResult> {
+  const { data, error } = await supabase.rpc("record_resource_capacity", {
+    p_payload: payload,
+  });
+  return unwrap(data, error);
+}
+
+export async function recordCapacityDeduction(payload: {
+  category: string;
+  pool: string;
+  deductionKind: string;
+  weeklyHours: string;
+  basis: string;
+  siteId?: string | null;
+}): Promise<ResourceWriteResult> {
+  const { data, error } = await supabase.rpc("record_capacity_deduction", {
+    p_payload: payload,
+  });
+  return unwrap(data, error);
+}
+
+export async function recordResourceDemand(
+  caseId: string,
+  payload: {
+    category: string;
+    pool: string;
+    demandHours: string;
+    periodStart: string;
+    periodEnd: string;
+    sourceKind: string;
+    basis: string;
+    workPackageId?: string | null;
+  },
+): Promise<ResourceWriteResult> {
+  const { data, error } = await supabase.rpc("record_resource_demand", {
+    p_case_id: caseId,
+    p_payload: payload,
+  });
+  return unwrap(data, error);
+}
+
+/**
+ * §70: approving a roster is a human determination, and the AI-operator
+ * identity is refused at the DATABASE rather than only here.
+ */
+export async function approveResourceDemand(
+  demandId: number,
+  note: string,
+): Promise<ResourceWriteResult> {
+  const { data, error } = await supabase.rpc("approve_resource_demand", {
+    p_demand_id: demandId,
+    p_note: note,
+  });
+  return unwrap(data, error);
+}
+
+export async function withdrawResourceDemand(
+  demandId: number,
+  reason: string,
+): Promise<ResourceWriteResult> {
+  const { data, error } = await supabase.rpc("withdraw_resource_demand", {
+    p_demand_id: demandId,
+    p_reason: reason,
+  });
+  return unwrap(data, error);
+}
+
+/* ── D7.02 — portfolio resource conflicts ──────────────────────────────── */
+
+export interface PortfolioResourcePool {
+  category: string;
+  categoryOrder: number;
+  pool: string;
+  from: string;
+  to: string;
+  committedHours: number;
+  capacityHours: number | null;
+  largestSingleCaseHours: number | null;
+  cases: number;
+  contributions: {
+    caseId: string;
+    caseTitle: string;
+    demandHours: number;
+    demandLines: number;
+  }[];
+  /** `collective_only` is spec I.22's own case, computed rather than implied. */
+  state:
+    | "within_capacity"
+    | "at_capacity"
+    | "over_committed"
+    | "collective_only"
+    | "not_assessable";
+  shortfallHours: number | null;
+  detail: string;
+}
+
+export interface PortfolioResourceConflicts {
+  answered: boolean;
+  refusal?: string;
+  asOf?: string;
+  horizonWeeks?: number;
+  from?: string;
+  to?: string;
+  approvedDemandLines?: number;
+  draftDemandLines?: number;
+  casesWithCommitments?: number;
+  pools?: PortfolioResourcePool[];
+  conflicts?: number;
+  collectiveOnlyConflicts?: number;
+  notAssessable?: number;
+  basis?: string;
+}
+
+/**
+ * D7.02: collective feasibility across every project in the organization.
+ *
+ * "All six projects are individually executable — collectively impossible
+ * because all six require the same commissioning team in Q3" is a claim no
+ * per-project view can make, and `collective_only` is where it is made.
+ */
+export async function getPortfolioResourceConflicts(
+  horizonWeeks = 12,
+): Promise<PortfolioResourceConflicts> {
+  const { data, error } = await supabase.rpc(
+    "get_portfolio_resource_conflicts",
+    { p_horizon_weeks: horizonWeeks },
+  );
+  return unwrap(data, error);
+}
+
+/* ── D7.03 / D7.04 — competency requirement, availability, readiness ───── */
+
+export interface CompetencyRequirementRow {
+  requirementId: number;
+  competencyId: number;
+  competencyKey: string;
+  competencyTitle: string;
+  isStatutory: boolean;
+  validityMonths: number | null;
+  scope: "craft" | "package";
+  craft: string | null;
+  workPackageId: number | null;
+  packageCode: string | null;
+  minHolders: number;
+  basis: string;
+  retired: boolean;
+  retiredAt: string | null;
+  retirementReason: string | null;
+}
+
+export interface CompetencyCatalogue {
+  answered: boolean;
+  refusal?: string;
+  requirements?: CompetencyRequirementRow[];
+  competencies?: {
+    competencyId: number;
+    competencyKey: string;
+    title: string;
+    kind: string;
+    isStatutory: boolean;
+    validityMonths: number | null;
+  }[];
+  members?: {
+    memberId: number;
+    displayName: string;
+    craft: string | null;
+    employeeRef: string;
+    /** Inactive members are listed and marked, so a leaver can be put back on. */
+    active: boolean;
+  }[];
+  basis?: string;
+}
+
+export async function getCompetencyRequirements(): Promise<CompetencyCatalogue> {
+  const { data, error } = await supabase.rpc("get_competency_requirements", {});
+  return unwrap(data, error);
+}
+
+export interface CompetencyWriteResult {
+  answered: boolean;
+  refusal?: string;
+  competencyId?: number;
+  memberId?: number;
+  memberCompetencyId?: number;
+  requirementId?: number;
+  shiftId?: number;
+  retired?: boolean;
+  note?: string;
+}
+
+export async function recordCompetency(payload: {
+  competencyKey: string;
+  title: string;
+  kind: string;
+  isStatutory?: string;
+  validityMonths?: string;
+  issuingBody?: string;
+  description?: string;
+}): Promise<CompetencyWriteResult> {
+  const { data, error } = await supabase.rpc("record_competency", {
+    p_payload: payload,
+  });
+  return unwrap(data, error);
+}
+
+export async function recordWorkforceMember(payload: {
+  employeeRef: string;
+  displayName: string;
+  craft?: string;
+  employmentType?: string;
+  employer?: string;
+  fte?: string;
+  siteId?: string | null;
+}): Promise<CompetencyWriteResult> {
+  const { data, error } = await supabase.rpc("record_workforce_member", {
+    p_payload: payload,
+  });
+  return unwrap(data, error);
+}
+
+/**
+ * D7.03 / §70: the customer write path onto `member_competencies`, which
+ * until Slice 7C only the demo seed could write. Declaring a person competent
+ * is refused for the AI-operator identity at the database.
+ */
+export async function recordMemberCompetency(payload: {
+  memberId: number;
+  competencyId: number;
+  grantedOn?: string;
+  expiresOn?: string;
+  evidenceReference: string;
+}): Promise<CompetencyWriteResult> {
+  const { data, error } = await supabase.rpc("record_member_competency", {
+    p_payload: payload,
+  });
+  return unwrap(data, error);
+}
+
+export async function recordShiftAssignment(payload: {
+  memberId: number;
+  startsAt: string;
+  endsAt: string;
+  shiftKind?: string;
+}): Promise<CompetencyWriteResult> {
+  const { data, error } = await supabase.rpc("record_shift_assignment", {
+    p_payload: payload,
+  });
+  return unwrap(data, error);
+}
+
+export async function recordCompetencyRequirement(payload: {
+  competencyId: number;
+  craft?: string;
+  workPackageId?: string;
+  minHolders?: string;
+  basis: string;
+}): Promise<CompetencyWriteResult> {
+  const { data, error } = await supabase.rpc("record_competency_requirement", {
+    p_payload: payload,
+  });
+  return unwrap(data, error);
+}
+
+export async function retireCompetencyRequirement(
+  requirementId: number,
+  reason: string,
+): Promise<CompetencyWriteResult> {
+  const { data, error } = await supabase.rpc("retire_competency_requirement", {
+    p_requirement_id: requirementId,
+    p_reason: reason,
+  });
+  return unwrap(data, error);
+}
+
+export interface CompetencyHolder {
+  memberId: number;
+  /** The HOLDING's id — null where the member does not hold it at all. What a renewal names. */
+  memberCompetencyId: number | null;
+  displayName: string;
+  craft: string | null;
+  expiresOn: string | null;
+  /** The FUTURE-TENSE classification. `expires_during_window` is the row. */
+  whenNeeded:
+    | "qualified_through"
+    | "expires_during_window"
+    | "already_expired"
+    | "not_held";
+  rosteredHoursInWindow: number;
+  rostered: boolean;
+  qualifiedWhenNeeded: boolean;
+}
+
+export interface CompetencyRequirementReadiness {
+  requirementId: number;
+  competencyKey: string;
+  competencyTitle: string;
+  isStatutory: boolean;
+  validityMonths: number | null;
+  scope: "craft" | "package";
+  craft: string | null;
+  minHolders: number;
+  holdersQualifiedWhenNeeded: number;
+  holdersQualifiedAndRostered: number;
+  holdersExpiringInWindow: number;
+  basis: string;
+  state:
+    | "met"
+    | "short"
+    | "qualified_but_not_rostered"
+    | "roster_not_recorded"
+    /**
+     * NOBODY OF THAT CRAFT EXISTS. Distinct from `roster_not_recorded`, which
+     * means they exist and none is rostered in this window — and both are
+     * distinct from `short`, which means we looked and not enough qualify.
+     */
+    | "craft_not_staffed";
+  /** Active members in the requirement's own craft scope, and how many are rostered. */
+  candidatesInScope?: number;
+  candidatesRostered?: number;
+  holders: CompetencyHolder[];
+  detail: string;
+}
+
+export interface CompetencyReadiness {
+  answered: boolean;
+  refusal?: string;
+  packageId?: number;
+  packageCode?: string;
+  windowStart?: string;
+  windowEnd?: string;
+  windowFrom?: string;
+  workOrders?: number;
+  craftsRequired?: string[];
+  requirementsInScope?: number;
+  requirementsMet?: number;
+  requirementsShort?: number;
+  requirementsNotAssessable?: number;
+  holdingsExpiringInWindow?: number;
+  rosteredMembersInWindow?: number;
+  labourRules?: {
+    ruleKey: string;
+    title: string;
+    source: string;
+    limitKind: string;
+    limitValue: number;
+    appliesToCraft: string | null;
+  }[];
+  requirements?: CompetencyRequirementReadiness[];
+  refusals?: CalculationRefusal[];
+  readyToCrew?: boolean;
+  calculationRunId?: string;
+  codeVersion?: string;
+  recorded?: boolean;
+  recordNote?: string;
+  basis?: string;
+}
+
+/**
+ * D7.04 (spec I.23): "14 QUALIFIED people available WHEN NEEDED".
+ *
+ * Asked about the WORK WINDOW, not about today. A ticket that lapses before
+ * the work happens makes its holder not qualified when needed, and the server
+ * says so by name rather than folding it into "not qualified".
+ */
+export async function getCompetencyReadiness(
+  packageId: number,
+  windowStart?: string | null,
+  windowEnd?: string | null,
+): Promise<CompetencyReadiness> {
+  const { data, error } = await supabase.rpc("get_competency_readiness", {
+    p_package_id: packageId,
+    p_window_start: windowStart ?? null,
+    p_window_end: windowEnd ?? null,
+  });
+  return unwrap(data, error);
+}
+
+/** The same predicate, plus an immutable lineage row (D11.29). */
+export async function computeCompetencyReadiness(
+  packageId: number,
+  windowStart?: string | null,
+  windowEnd?: string | null,
+): Promise<CompetencyReadiness> {
+  const { data, error } = await supabase.rpc("compute_competency_readiness", {
+    p_package_id: packageId,
+    p_window_start: windowStart ?? null,
+    p_window_end: windowEnd ?? null,
+  });
+  return unwrap(data, error);
+}
+
+/* ── D7.08 + D7.20 — ONE calculation, two register rows ────────────────── */
+
+export interface ConstraintFreePackage {
+  packageId: number;
+  packageCode: string;
+  packageType: string;
+  title: string;
+  area: string | null;
+  requiredBy: string;
+  verdict: string;
+  /** Verbatim from the ONE verdict. The screen writes no readiness sentence. */
+  readiness: string;
+  openHard: number;
+  constraintsRecorded: number;
+  forward:
+    | "ready_now"
+    | "forecast_clear_in_time"
+    | "forecast_clear_too_late"
+    /** LATE, which is a fact about the calendar rather than a gap in the
+     *  constraint register — the two used to read identically. */
+    | "overdue"
+    | "not_projectable"
+    | "unassessed";
+  /** False on the overdue list: that package is outside the window this index reports. */
+  inWindow: boolean;
+  daysOverdue: number | null;
+  projectedConstraintFreeDate: string | null;
+  projectionRefusal: string | null;
+}
+
+export interface ConstraintFreeWorkIndex {
+  answered: boolean;
+  refusal?: string;
+  caseId?: string;
+  caseTitle?: string;
+  asOf?: string;
+  horizonDays?: number;
+  horizonEnd?: string;
+  unreleasedPackages?: number;
+  plannedPackages?: number;
+  assessedPackages?: number;
+  unassessedPackages?: number;
+  readyPackages?: number;
+  notReadyPackages?: number;
+  stalePackages?: number;
+  forecastClearInTime?: number;
+  notProjectable?: number;
+  overduePackages?: number;
+  /** §49 (D7.20), today. */
+  constraintFreeWorkIndex?: MetricRatio;
+  /** I.28 (D7.08), forward. The SAME calculation, its other face. */
+  forwardConstraintFreeWork?: MetricRatio;
+  assessmentCoverage?: MetricRatio;
+  packages?: ConstraintFreePackage[];
+  /**
+   * Draft packages needed on a date that has already passed. They are OUTSIDE
+   * the stated window and are excluded from every denominator — a percentage
+   * labelled "the next N days" computed from work due last year is a number
+   * about a window it never looked at — but they are listed here loudly,
+   * because late unreleased work is the most actionable thing on this payload.
+   */
+  overdue?: ConstraintFreePackage[];
+  refusals?: CalculationRefusal[];
+  calculationRunId?: string;
+  codeVersion?: string;
+  recorded?: boolean;
+  recordNote?: string;
+  basis?: string;
+}
+
+/**
+ * D7.08 (spec I.28) AND D7.20 (spec III.§49) — ONE calculation.
+ *
+ * The specification names the same quantity twice and the register's own
+ * D7.20 gap statement says so: "Duplicate spec reference of the I.28 forward
+ * metric — one calc, two rows." Both faces come back in one payload, and
+ * neither recomputes readiness: the verdict is
+ * `sync_work_package_release_verdict`'s and the projection is
+ * `get_package_constraint_burndown`'s.
+ */
+export async function getConstraintFreeWorkIndex(
+  caseId: string,
+  horizonDays = 90,
+): Promise<ConstraintFreeWorkIndex> {
+  const { data, error } = await supabase.rpc("get_constraint_free_work_index", {
+    p_case_id: caseId,
+    p_horizon_days: horizonDays,
+  });
+  return unwrap(data, error);
+}
+
+export async function computeConstraintFreeWorkIndex(
+  caseId: string,
+  horizonDays = 90,
+): Promise<ConstraintFreeWorkIndex> {
+  const { data, error } = await supabase.rpc(
+    "compute_constraint_free_work_index",
+    { p_case_id: caseId, p_horizon_days: horizonDays },
+  );
+  return unwrap(data, error);
+}
+
+/* ── D7.13 + D7.14 — the workface metrics ──────────────────────────────── */
+
+export interface WorkfaceWorkOrder {
+  workOrderId: string;
+  woNumber: string | null;
+  title: string;
+  packageId: number;
+  packageCode: string;
+  packageCount: number;
+  requiredBy: string;
+  executionStatus: string | null;
+  /**
+   * `package_unassessed` is the state the first draft did not have: the ONE
+   * release verdict reports NO constraint recorded for the job's package, so
+   * nothing is known about the ten §28 package constraints and the job is
+   * excluded from both percentages rather than counted ready on its elements
+   * alone.
+   */
+  fieldReady: "ready" | "blocked" | "not_assessable" | "package_unassessed";
+  /** The ONE verdict for the job's earliest-dated package, read verbatim. */
+  packageVerdict: string;
+  /** That verdict's own sentence. This screen writes none of its own. */
+  packageReadiness: string | null;
+  blockedElements: number | null;
+  unverifiableElements: number | null;
+  executed: boolean;
+  detail: string;
+}
+
+export interface WorkfaceExecutionMetrics {
+  answered: boolean;
+  refusal?: string;
+  caseId?: string;
+  caseTitle?: string;
+  windowStart?: string;
+  windowEnd?: string;
+  plannedWorkOrders?: number;
+  assessableWorkOrders?: number;
+  notAssessableWorkOrders?: number;
+  /** Jobs whose work package has no constraint recorded against it at all. */
+  packageUnassessedWorkOrders?: number;
+  /** Jobs field-ready on every element and still held back by their package. */
+  packageBlockedWorkOrders?: number;
+  readyWorkOrders?: number;
+  blockedWorkOrders?: number;
+  executedReadyWorkOrders?: number;
+  readyNotStarted?: number;
+  unverifiableElementPositions?: number;
+  /** D7.13. */
+  plannedWorkReady?: MetricRatio;
+  /** D7.14. Its denominator is the previous numerator. */
+  readyWorkExecuted?: MetricRatio;
+  /**
+   * How much of the planned set the two percentages are actually about. The
+   * index has carried this since it was written; these two shipped without it,
+   * so "100% — 1 of 1" could sit over ten planned jobs with nine unassessable.
+   */
+  assessmentCoverage?: MetricRatio;
+  workOrders?: WorkfaceWorkOrder[];
+  refusals?: CalculationRefusal[];
+  calculationRunId?: string;
+  codeVersion?: string;
+  recorded?: boolean;
+  recordNote?: string;
+  basis?: string;
+}
+
+/**
+ * D7.13 + D7.14 (spec II.5). Measured on the WORK ORDER, which is the crew's
+ * unit — the Constraint-Free Work Index is the package-level position, and
+ * the two never divide the same set.
+ */
+export async function getWorkfaceExecutionMetrics(
+  caseId: string,
+  windowStart?: string | null,
+  windowEnd?: string | null,
+): Promise<WorkfaceExecutionMetrics> {
+  const { data, error } = await supabase.rpc("get_workface_execution_metrics", {
+    p_case_id: caseId,
+    p_window_start: windowStart ?? null,
+    p_window_end: windowEnd ?? null,
+  });
+  return unwrap(data, error);
+}
+
+export async function computeWorkfaceExecutionMetrics(
+  caseId: string,
+  windowStart?: string | null,
+  windowEnd?: string | null,
+): Promise<WorkfaceExecutionMetrics> {
+  const { data, error } = await supabase.rpc(
+    "compute_workface_execution_metrics",
+    {
+      p_case_id: caseId,
+      p_window_start: windowStart ?? null,
+      p_window_end: windowEnd ?? null,
+    },
+  );
+  return unwrap(data, error);
+}
+
+/* ── The acts the refusals promise ─────────────────────────────────────── */
+
+/**
+ * D7.01: close a standing capacity figure so the next one supersedes it
+ * instead of being summed beside it. This is the act
+ * `record_resource_capacity`'s collision refusal instructs, and which had no
+ * path in the product until now.
+ */
+export async function closeResourceCapacity(payload: {
+  capacityId: string;
+  effectiveTo: string;
+}): Promise<{ answered: boolean; refusal?: string; note?: string }> {
+  const { data, error } = await supabase.rpc("close_resource_capacity", {
+    p_payload: payload,
+  });
+  return unwrap(data, error);
+}
+
+/**
+ * D7.03/D7.04: supersede an existing competency holding in place. One member
+ * holds one competency once, so a renewal moves the dates rather than adding a
+ * second row — the act `record_member_competency`'s unique-violation refusal
+ * instructs. Declaring competency, so §70-walled at the database.
+ */
+export async function renewMemberCompetency(payload: {
+  memberCompetencyId: number;
+  evidenceReference: string;
+  grantedOn?: string;
+  expiresOn?: string;
+}): Promise<{ answered: boolean; refusal?: string; note?: string }> {
+  const { data, error } = await supabase.rpc("renew_member_competency", {
+    p_payload: payload,
+  });
+  return unwrap(data, error);
+}
+
+/**
+ * D7.03: take a leaver off the roster, or put a returner back on.
+ * `workforce_members.active` gates every readiness count and could previously
+ * only be set at INSERT, so a departed person stayed qualified forever.
+ */
+export async function setWorkforceMemberActive(payload: {
+  memberId: number;
+  active: boolean;
+  reason: string;
+}): Promise<{ answered: boolean; refusal?: string; note?: string }> {
+  const { data, error } = await supabase.rpc("set_workforce_member_active", {
+    p_payload: payload,
+  });
+  return unwrap(data, error);
+}
+
+/* ── D7.16 — the composed Sync Field module ────────────────────────────── */
+
+export interface SyncFieldModule {
+  answered: boolean;
+  refusal?: string;
+  caseId?: string;
+  caseTitle?: string;
+  asOf?: string;
+  /** The window every figure on this payload is about. */
+  horizonDays?: number;
+  horizonWeeks?: number;
+  /** The workface look-ahead, derived from the horizon rather than pinned at 14 days. */
+  workfaceWindowEnd?: string;
+  packages?: CaseWorkPackages;
+  constraintFreeWork?: ConstraintFreeWorkIndex;
+  workface?: WorkfaceExecutionMetrics;
+  resourceBalance?: CaseResourceBalance;
+  portfolioConflicts?: PortfolioResourceConflicts;
+  executionReadiness?: ExecutionReadinessBoard;
+  composition?: { part: string; row: string; source: string }[];
+  /** The parts still open. A composition is not more complete than its pieces. */
+  openParts?: { row: string; gap: string }[];
+  basis?: string;
+}
+
+/**
+ * D7.16: Sync Field, composed. Every figure is the owning function's own
+ * answer returned verbatim — this makes one round trip instead of six and
+ * recomputes nothing.
+ */
+export async function getSyncFieldModule(
+  caseId: string,
+  horizonDays = 90,
+): Promise<SyncFieldModule> {
+  const { data, error } = await supabase.rpc("get_sync_field_module", {
+    p_case_id: caseId,
+    p_horizon_days: horizonDays,
+  });
+  return unwrap(data, error);
+}

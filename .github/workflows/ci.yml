@@ -304,6 +304,9 @@ jobs:
       - name: Smoke — Sync Develop slice 7B (one field-readiness engine, ten elements, execution readiness board)
         run: bash scripts/ci-develop-slice7b-smoke.sh
 
+      - name: Smoke — Sync Develop slice 7C (resource demand/capacity, portfolio conflicts, competency when needed, workface metrics)
+        run: bash scripts/ci-develop-slice7c-smoke.sh
+
       - name: Stop Supabase
         if: always()
         run: supabase stop --no-backup || true
