@@ -61,9 +61,9 @@ export function ConversationLearn({
         setBoundId(bound);
         if (bound) {
           setSelectedId(bound);
-        } else if (scoped.length === 1) {
-          setSelectedId(scoped[0].obligationId);
         } else {
+          // Unbound after Simulate: never auto-pick, even a lone Learning Loop
+          // obligation. Explicit pick or refuse.
           setSelectedId("");
         }
       })
@@ -143,7 +143,7 @@ export function ConversationLearn({
           approval. A recommendation is not authorization.
         </p>
       )}
-      {!boundId && candidates.length > 1 && (
+      {!boundId && candidates.length > 0 && (
         <label className="dw-learn-pick">
           <span>Open verification</span>
           <select

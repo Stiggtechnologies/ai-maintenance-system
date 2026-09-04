@@ -145,6 +145,21 @@ describe("ConversationLearn", () => {
     expect(screen.queryByTestId("learn-recorded")).toBeNull();
   });
 
+  it("does not auto-pick a lone unbound Learning Loop obligation", async () => {
+    getOpenVerifications.mockResolvedValue([openRec]);
+    renderLearn();
+    expect(await screen.findByTestId("learn-select-needed")).toBeTruthy();
+    expect(screen.getByText(/simulated approval did not create/i)).toBeTruthy();
+    expect(screen.getByTestId("learn-obligation-select")).toBeTruthy();
+    expect(screen.queryByTestId("learn-recorder")).toBeNull();
+    expect(recordVerificationResult).not.toHaveBeenCalled();
+    fireEvent.change(screen.getByTestId("learn-obligation-select"), {
+      target: { value: "obl-1" },
+    });
+    expect(await screen.findByTestId("learn-recorder")).toBeTruthy();
+    expect(recordVerificationResult).not.toHaveBeenCalled();
+  });
+
   it("does not write until a named human picks among multiple open obligations", async () => {
     getOpenVerifications.mockResolvedValue([
       openRec,

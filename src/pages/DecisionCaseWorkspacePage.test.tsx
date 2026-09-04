@@ -281,7 +281,7 @@ describe("DecisionCaseWorkspacePage — Bolt first paint", () => {
     expect(recordVerificationResult).not.toHaveBeenCalled();
   });
 
-  it("signed-in LEARN after Simulate persists through recordVerificationResult", async () => {
+  it("signed-in LEARN after Simulate requires an explicit obligation pick — no obl-chat auto-mount", async () => {
     authState.user = { id: "user-1" };
     getOpenVerifications.mockResolvedValue([
       {
@@ -305,6 +305,14 @@ describe("DecisionCaseWorkspacePage — Bolt first paint", () => {
     renderWorkspace();
     loadSample();
     fireEvent.click(screen.getByRole("button", { name: "Simulate" }));
+    expect(await screen.findByTestId("learn-select-needed")).toBeTruthy();
+    expect(screen.getByText(/simulated approval did not create/i)).toBeTruthy();
+    expect(screen.getByTestId("learn-obligation-select")).toBeTruthy();
+    expect(screen.queryByTestId("learn-recorder")).toBeNull();
+    expect(recordVerificationResult).not.toHaveBeenCalled();
+    fireEvent.change(screen.getByTestId("learn-obligation-select"), {
+      target: { value: "obl-chat" },
+    });
     expect(await screen.findByTestId("learn-recorder")).toBeTruthy();
     expect(screen.queryByTestId("learn-unpersisted")).toBeNull();
     fireEvent.click(screen.getByLabelText("Not achieved"));
