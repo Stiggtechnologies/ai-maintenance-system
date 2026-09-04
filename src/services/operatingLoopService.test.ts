@@ -63,6 +63,8 @@ import {
   getAssets,
   getMissionControl,
   getPilotScorecard,
+  getOpenObligationIdForRecommendation,
+  getOpenVerifications,
   recordVerificationResult,
   verifyValueMetric,
 } from "./operatingLoopService";
@@ -258,6 +260,74 @@ describe("recordVerificationResult", () => {
     await expect(
       recordVerificationResult("obl-1", "inconclusive", "gauge unreadable"),
     ).rejects.toThrow(/not in your organization/);
+  });
+});
+
+describe("getOpenVerifications", () => {
+  beforeEach(() => {
+    state.result = { data: [], error: null };
+    state.rpcCalls = [];
+    vi.mocked(supabase.rpc).mockClear();
+  });
+
+  it("calls get_open_verifications with the same list Learning Loop reads", async () => {
+    state.result = {
+      data: [
+        {
+          obligationId: "obl-1",
+          recommendationTitle: "Replace seal",
+          subjectKind: "recommendation",
+        },
+      ],
+      error: null,
+    };
+    const rows = await getOpenVerifications(20);
+    expect(state.rpcCalls).toEqual([
+      { name: "get_open_verifications", args: { p_limit: 20 } },
+    ]);
+    expect(rows[0]?.obligationId).toBe("obl-1");
+  });
+
+  it("surfaces a load error instead of returning an empty success", async () => {
+    state.result = {
+      data: null,
+      error: { message: "not in your organization" },
+    };
+    await expect(getOpenVerifications()).rejects.toThrow(
+      /not in your organization/,
+    );
+  });
+});
+
+describe("getOpenObligationIdForRecommendation", () => {
+  beforeEach(() => {
+    state.byTable = {};
+    vi.mocked(supabase.from).mockClear();
+  });
+
+  it("returns the open obligation id for the bound recommendation", async () => {
+    state.byTable = {
+      verification_obligations: { data: { id: "obl-bound" }, error: null },
+    };
+    await expect(
+      getOpenObligationIdForRecommendation("rec-1"),
+    ).resolves.toBe("obl-bound");
+  });
+
+  it("returns null when the recommendation has no open obligation", async () => {
+    state.byTable = {
+      verification_obligations: { data: null, error: null },
+    };
+    await expect(
+      getOpenObligationIdForRecommendation("rec-missing"),
+    ).resolves.toBeNull();
+  });
+
+  it("does not query on a blank recommendation id", async () => {
+    await expect(getOpenObligationIdForRecommendation("  ")).resolves.toBeNull();
+    expect(vi.mocked(supabase.from)).not.toHaveBeenCalledWith(
+      "verification_obligations",
+    );
   });
 });
 

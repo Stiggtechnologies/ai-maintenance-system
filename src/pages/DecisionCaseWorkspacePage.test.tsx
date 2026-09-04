@@ -12,6 +12,8 @@ import { ASK_PLACEHOLDER } from "../components/public-ask/PublicAskBar";
 import { DecisionCaseWorkspacePage } from "./DecisionCaseWorkspacePage";
 
 const recordVerificationResult = vi.fn();
+const getOpenVerifications = vi.fn();
+const getOpenObligationIdForRecommendation = vi.fn();
 
 vi.mock("../services/operatingLoopService", async () => {
   const actual = await vi.importActual<
@@ -21,6 +23,9 @@ vi.mock("../services/operatingLoopService", async () => {
     ...actual,
     recordVerificationResult: (...args: unknown[]) =>
       recordVerificationResult(...args),
+    getOpenVerifications: (...args: unknown[]) => getOpenVerifications(...args),
+    getOpenObligationIdForRecommendation: (...args: unknown[]) =>
+      getOpenObligationIdForRecommendation(...args),
   };
 });
 
@@ -98,6 +103,10 @@ describe("DecisionCaseWorkspacePage — Bolt first paint", () => {
     ).dataLayer = [];
     window.sessionStorage.clear();
     recordVerificationResult.mockReset();
+    getOpenVerifications.mockReset();
+    getOpenObligationIdForRecommendation.mockReset();
+    getOpenVerifications.mockResolvedValue([]);
+    getOpenObligationIdForRecommendation.mockResolvedValue(null);
     authState.user = null;
   });
 
@@ -250,7 +259,7 @@ describe("DecisionCaseWorkspacePage — Bolt first paint", () => {
     expect(screen.queryByText("Think harder")).toBeNull();
   });
 
-  it("after Simulate, LEARN is a pointer — not a recorded verification", async () => {
+  it("after Simulate, anonymous LEARN is a pointer — not a recorded verification", async () => {
     renderWorkspace();
     loadSample();
     fireEvent.click(screen.getByRole("button", { name: "Simulate" }));
@@ -269,11 +278,66 @@ describe("DecisionCaseWorkspacePage — Bolt first paint", () => {
     expect(screen.queryByText(/Outcome recorded/i)).toBeNull();
     expect(screen.queryByText(/Outcome retained/i)).toBeNull();
     expect(screen.queryByText(/LR-/i)).toBeNull();
+    expect(getOpenVerifications).not.toHaveBeenCalled();
     expect(recordVerificationResult).not.toHaveBeenCalled();
+  });
+
+  it("signed-in LEARN after Simulate requires an explicit obligation pick — no obl-chat auto-mount", async () => {
+    authState.user = { id: "user-1" };
+    getOpenVerifications.mockResolvedValue([
+      {
+        obligationId: "obl-chat",
+        recommendationTitle: "Replace seal on P-101",
+        assetName: "P-101",
+        method: "Leak rate after 48h run",
+        dueDate: "2026-09-15",
+        dueDateAssumed: true,
+        daysOverdue: 0,
+        intendedOutcome: "Leak stopped",
+        subjectKind: "recommendation",
+      },
+    ]);
+    recordVerificationResult.mockResolvedValue({
+      outcome: "recorded",
+      learningEventId: null,
+      detail:
+        "Outcome verified as achieved, with the measurement on record. This loop is closed.",
+    });
+    renderWorkspace();
+    loadSample();
+    fireEvent.click(screen.getByRole("button", { name: "Simulate" }));
+    expect(await screen.findByTestId("learn-select-needed")).toBeTruthy();
+    expect(screen.getByText(/simulated approval did not create/i)).toBeTruthy();
+    expect(screen.getByTestId("learn-obligation-select")).toBeTruthy();
+    expect(screen.queryByTestId("learn-recorder")).toBeNull();
+    expect(recordVerificationResult).not.toHaveBeenCalled();
+    fireEvent.change(screen.getByTestId("learn-obligation-select"), {
+      target: { value: "obl-chat" },
+    });
+    expect(await screen.findByTestId("learn-recorder")).toBeTruthy();
+    expect(screen.queryByTestId("learn-unpersisted")).toBeNull();
+    fireEvent.click(screen.getByLabelText("Not achieved"));
+    fireEvent.change(screen.getByPlaceholderText(/what was measured/i), {
+      target: {
+        value: "leak rate unchanged at 4 drops/min after seal change",
+      },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Record outcome" }));
+    await waitFor(() =>
+      expect(recordVerificationResult).toHaveBeenCalledWith(
+        "obl-chat",
+        "not_achieved",
+        "leak rate unchanged at 4 drops/min after seal change",
+      ),
+    );
+    expect(await screen.findByTestId("learn-recorded")).toHaveTextContent(
+      /This loop is closed/,
+    );
   });
 
   it("fails if this page claims a recorded verification without the RPC", () => {
     const src = readFileSync("src/pages/DecisionCaseWorkspacePage.tsx", "utf8");
+    expect(src).toMatch(/ConversationLearn/);
     expect(src).not.toMatch(/Outcome recorded/);
     expect(src).not.toMatch(/recordOutcome/);
     expect(src).not.toMatch(/InThreadLearnRecorder/);

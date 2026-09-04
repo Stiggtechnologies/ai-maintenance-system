@@ -71,8 +71,9 @@ describe("customer chrome honesty", () => {
       "src/components/public-ask/PublicAskRail.tsx",
       "utf8",
     );
-    expect(page).toContain("LearnUnpersistedPointer");
+    expect(page).toContain("ConversationLearn");
     expect(page).not.toMatch(/InThreadLearnRecorder/);
+    expect(page).not.toMatch(/LearnUnpersistedPointer/);
     expect(page).not.toMatch(/from ["'].*PublicProductHeader["']/);
     expect(page).not.toMatch(/brand-job-title/);
     expect(empty).not.toMatch(/Reliability Engineer/);

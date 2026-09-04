@@ -2821,6 +2821,48 @@
   background: #1e2931;
   cursor: not-allowed;
 }
+.dw-learn-stack {
+  max-width: 790px;
+  margin: 0 0 18px;
+}
+.dw-learn-stack .dw-learn {
+  margin-bottom: 0;
+}
+.dw-learn-subject,
+.dw-learn-method,
+.dw-learn-bound,
+.dw-learn-honest {
+  margin: 0 0 10px;
+  color: #8fa0ab;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.dw-learn-error {
+  margin: 10px 0 0;
+  color: #f0b429;
+  font-size: 12px;
+}
+.dw-learn-ok {
+  margin: 10px 0 0;
+  color: #5eead4;
+  font-size: 12px;
+}
+.dw-learn-pick {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0 0 10px;
+  color: #8fa0ab;
+  font-size: 12px;
+}
+.dw-learn-pick select {
+  min-height: 44px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: #e4eaee;
+  background: #111820;
+}
 .dw-authority-note {
   color: #7d8c96;
   font-size: 11px;

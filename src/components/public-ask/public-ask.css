@@ -675,6 +675,34 @@
   color: #0f766e;
 }
 
+.bolt-public .dw-learn-stack {
+  max-width: 790px;
+  margin: 0 0 18px;
+}
+
+.bolt-public .dw-learn-honest,
+.bolt-public .dw-learn-bound,
+.bolt-public .dw-learn-subject,
+.bolt-public .dw-learn-method,
+.bolt-public .dw-learn-pick {
+  color: #3a4048;
+}
+
+.bolt-public .dw-learn-pick select,
+.bolt-public .dw-learn-note input {
+  border-color: var(--bolt-line);
+  color: var(--bolt-ink);
+  background: #fff;
+}
+
+.bolt-public .dw-learn-error {
+  color: #9a3412;
+}
+
+.bolt-public .dw-learn-ok {
+  color: #0f766e;
+}
+
 /* Phone-narrow bar: placeholder + teal send stay in the stadium.
    Search / image / attach / globe / paperclip / mic sit behind +. */
 @container bolt-ask (max-width: 479px) {
