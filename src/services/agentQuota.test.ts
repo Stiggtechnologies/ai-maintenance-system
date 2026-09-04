@@ -90,6 +90,7 @@ describe("every tenant surface that calls ai-agent-processor renders the refusal
   it.each([
     ["src/components/CopilotDock.tsx", "describeQuotaRefusal"],
     ["src/pages/WorkOrderDetailPage.tsx", "describeQuotaRefusal"],
+    ["src/lib/presence/askBooth.ts", "describeQuotaRefusal"],
     // UnifiedChatInterface.tsx was the third entry. It was deleted in the
     // honesty pass: no module imported it, so no tenant could reach it, and
     // it sent the anon key as its own Authorization header — a surface that
