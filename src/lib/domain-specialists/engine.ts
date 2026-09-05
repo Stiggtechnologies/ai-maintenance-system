@@ -1,12 +1,12 @@
 import {
   getDomainSpecialistMethod,
   getDomainSpecialistModule,
-} from "./catalog";
+} from "./catalog.ts";
 import type {
   DomainMetric,
   DomainSpecialistRequest,
   DomainSpecialistResult,
-} from "./types";
+} from "./types.ts";
 
 interface Evaluation {
   summary: string;
