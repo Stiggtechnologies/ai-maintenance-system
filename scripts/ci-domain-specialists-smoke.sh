@@ -11,6 +11,7 @@ ORG='11111111-1111-1111-1111-111111111111'
 RISK='d0400000-0000-4000-8000-000000000001'
 EVIDENCE='d0400000-0000-4000-8000-000000000002'
 AUTHOR='00000000-0000-0000-0000-000000000001'
+REVIEWER='00000000-0000-0000-0000-000000000006'
 
 token(){ local response; response=$(curl -sS "$API_URL/auth/v1/token?grant_type=password" -H "apikey: $ANON_KEY" -H 'Content-Type: application/json' -d "{\"email\":\"$1\",\"password\":\"$2\"}"); printf '%s' "$response" | python3 -c "import json,sys; print(json.load(sys.stdin).get('access_token',''))"; }
 rpc(){ curl -sS -X POST "$API_URL/rest/v1/rpc/$2" -H "apikey: $3" -H "Authorization: Bearer $1" -H 'Content-Type: application/json' -d "$4"; }
@@ -28,6 +29,9 @@ test -n "$DEMO"; test -n "$ADMIN"
 
 PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -v ON_ERROR_STOP=1 <<SQL
 delete from domain_specialist_runs where risk_id='$RISK';
+delete from user_role_assignments assignment using roles role
+where assignment.role_id=role.id and role.organization_id='$ORG'
+  and role.key='domain_rbi_reviewer' and assignment.user_id in ('$AUTHOR','$REVIEWER');
 delete from evidence_items where id='$EVIDENCE';
 delete from risks where id='$RISK';
 delete from model_register where organization_id='$ORG' and model_key='domain.petrochemical-rbi.rbi-corrosion-loop';
@@ -35,6 +39,8 @@ insert into risks(id,organization_id,title,kind,status)
 values('$RISK','$ORG','CI corrosion-loop specialist boundary','threat','draft');
 insert into evidence_items(id,organization_id,risk_id,source_system,evidence_type,description,data_quality)
 values('$EVIDENCE','$ORG','$RISK','CI inspection export','condition_monitoring','Controlled thickness and approved RBI input evidence','good');
+insert into user_role_assignments(organization_id,user_id,role_id)
+select '$ORG','$AUTHOR',id from roles where organization_id='$ORG' and key='domain_rbi_reviewer' limit 1;
 SQL
 
 RUN=$(python3 - <<'PY'
@@ -43,8 +49,21 @@ result={
   'moduleKey':'petrochemical-rbi','methodKey':'rbi-corrosion-loop',
   'modelKey':'domain.petrochemical-rbi.rbi-corrosion-loop','modelVersion':'1.0.0',
   'status':'draft','authoritative':False,'humanApprovalRequired':True,
-  'inputs':{'inspectionFraction':0.5,'riskMatrix':{'3:C':'high'},'circuits':[{'id':'CL-CI','previousThickness':9.2,'currentThickness':8.8,'elapsedYears':2,'minimumThickness':6.5,'probabilityCategory':'3','consequenceCategory':'C'}]},
-  'result':{'status':'draft','summary':'CI server-calculated contract fixture','authoritative':False,'humanApprovalRequired':True,'gaps':[]}
+  'requiredApproverRoleKey':'domain_rbi_reviewer',
+  'inputs':{
+    'parameters':{'inspectionFraction':0.5,'riskMatrix':{'3:C':'high'},'circuits':[{'id':'CL-CI','previousThickness':9.2,'currentThickness':8.8,'elapsedYears':2,'minimumThickness':6.5,'probabilityCategory':'3','consequenceCategory':'C'}]},
+    'evidenceBindings':[
+      {'key':key,'sourceReference':'CI controlled '+key,'evidenceItemId':'d0400000-0000-4000-8000-000000000002'}
+      for key in ['inspection-data','minimum-thickness-basis','damage-mechanism-review','approved-rbi-matrix']
+    ]
+  },
+  'result':{
+    'moduleKey':'petrochemical-rbi','methodKey':'rbi-corrosion-loop',
+    'modelKey':'domain.petrochemical-rbi.rbi-corrosion-loop','modelVersion':'1.0.0',
+    'requiredApproverRoleKey':'domain_rbi_reviewer','status':'draft',
+    'summary':'CI server-calculated contract fixture','authoritative':False,
+    'humanApprovalRequired':True,'gaps':[]
+  }
 }
 print(json.dumps({'p_organization_id':'11111111-1111-1111-1111-111111111111','p_actor_id':'00000000-0000-0000-0000-000000000001','p_risk_id':'d0400000-0000-4000-8000-000000000001','p_run':result,'p_evidence_item_ids':['d0400000-0000-4000-8000-000000000002']}))
 PY
@@ -73,6 +92,21 @@ x=json.loads(os.environ['BODY'])
 if 'independent review' not in x.get('error',''):
     print('self review was not refused',x); sys.exit(1)
 PY
+
+# A generic administrator cannot review a specialist method without its exact
+# canonical role assignment.
+UNASSIGNED=$(rpc "$ADMIN" review_domain_specialist_run "$ANON_KEY" "{\"p_run_id\":\"$RUN_ID\",\"p_outcome\":\"reviewed\",\"p_note\":\"CI generic administrator attempts specialist review without the assigned role.\"}")
+BODY="$UNASSIGNED" python3 - <<'PY'
+import json,os,sys
+x=json.loads(os.environ['BODY'])
+if 'assigned role domain_rbi_reviewer' not in x.get('error',''):
+    print('unassigned domain reviewer was not refused',x); sys.exit(1)
+PY
+
+PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -v ON_ERROR_STOP=1 <<SQL
+insert into user_role_assignments(organization_id,user_id,role_id)
+select '$ORG','$REVIEWER',id from roles where organization_id='$ORG' and key='domain_rbi_reviewer' limit 1;
+SQL
 
 REVIEW=$(rpc "$ADMIN" review_domain_specialist_run "$ANON_KEY" "{\"p_run_id\":\"$RUN_ID\",\"p_outcome\":\"reviewed\",\"p_note\":\"CI independent reviewer confirms the calculation envelope and evidence linkage only.\"}")
 noerr "$REVIEW"

@@ -39,6 +39,7 @@ export const DOMAIN_SPECIALIST_MODULES: DomainSpecialistModule[] = [
     industryCode: "oil_sands",
     label: "Oil Sands — Tailings Geotechnical Assessment",
     version: "1.0.0",
+    reviewerRoleKey: "domain_tailings_reviewer",
     purpose:
       "Calculate documented stability margins and instrumentation exceptions for qualified geotechnical review.",
     dataClasses: ["operational", "safety_critical", "regulatory"],
@@ -121,6 +122,7 @@ export const DOMAIN_SPECIALIST_MODULES: DomainSpecialistModule[] = [
     industryCode: "oil_gas",
     label: "Oil & Gas — Well Integrity",
     version: "1.0.0",
+    reviewerRoleKey: "domain_well_integrity_reviewer",
     purpose:
       "Evaluate barrier-envelope evidence, pressure margins, tests, anomalies, and overdue actions without declaring a well safe.",
     dataClasses: ["operational", "safety_critical", "regulatory"],
@@ -195,6 +197,7 @@ export const DOMAIN_SPECIALIST_MODULES: DomainSpecialistModule[] = [
     industryCode: "petrochemical",
     label: "Petrochemical — RBI Corrosion-Loop Modelling",
     version: "1.0.0",
+    reviewerRoleKey: "domain_rbi_reviewer",
     purpose:
       "Calculate measured corrosion rates, remaining-life screens, and risk ranking from organization-approved inputs.",
     dataClasses: ["operational", "safety_critical", "regulatory"],
@@ -265,6 +268,7 @@ export const DOMAIN_SPECIALIST_MODULES: DomainSpecialistModule[] = [
     industryCode: "utilities",
     label: "Utilities — Storm Mobilization & Crew Dispatch",
     version: "1.0.0",
+    reviewerRoleKey: "domain_storm_dispatch_reviewer",
     purpose:
       "Prioritize incidents and produce a constraint-feasible draft crew assignment for dispatcher approval.",
     dataClasses: ["operational", "safety_critical"],
@@ -345,6 +349,7 @@ export const DOMAIN_SPECIALIST_MODULES: DomainSpecialistModule[] = [
     industryCode: "manufacturing",
     label: "Manufacturing — Line Balancing & Robot Health",
     version: "1.0.0",
+    reviewerRoleKey: "domain_manufacturing_reviewer",
     purpose:
       "Quantify production-line balance and evidence-based robot health without changing PLC or robot parameters.",
     dataClasses: ["operational", "safety_critical", "quality"],
@@ -453,6 +458,7 @@ export const DOMAIN_SPECIALIST_MODULES: DomainSpecialistModule[] = [
     industryCode: "food_beverage",
     label: "Food & Beverage — HACCP, CIP & Cold Chain",
     version: "1.0.0",
+    reviewerRoleKey: "domain_food_safety_reviewer",
     purpose:
       "Verify records against approved food-safety and sanitation limits without releasing product.",
     dataClasses: ["operational", "safety_critical", "quality", "regulatory"],
@@ -599,6 +605,7 @@ export const DOMAIN_SPECIALIST_MODULES: DomainSpecialistModule[] = [
     industryCode: "pharmaceuticals",
     label: "Pharmaceuticals — GxP Validation & Batch Records",
     version: "1.0.0",
+    reviewerRoleKey: "domain_pharmaceutical_quality_reviewer",
     purpose:
       "Trace requirements, tests, deviations, approvals, and batch-record completeness while preserving qualified-person release authority.",
     dataClasses: ["operational", "quality", "regulatory"],
@@ -644,6 +651,7 @@ export const DOMAIN_SPECIALIST_MODULES: DomainSpecialistModule[] = [
               result: "passed",
               deviationStatus: null,
               approved: true,
+              changeControlState: "closed",
             },
           ],
         },
@@ -700,6 +708,7 @@ export const DOMAIN_SPECIALIST_MODULES: DomainSpecialistModule[] = [
     industryCode: "transportation_logistics",
     label: "Transportation & Logistics — Route, Depot & Inspection",
     version: "1.0.0",
+    reviewerRoleKey: "domain_transport_reviewer",
     purpose:
       "Optimize bounded routes and expose inspection-due constraints for dispatcher and regulatory review.",
     dataClasses: ["operational", "safety_critical", "regulatory"],
@@ -711,7 +720,7 @@ export const DOMAIN_SPECIALIST_MODULES: DomainSpecialistModule[] = [
           "Select a feasible depot and shortest bounded route from an explicit cost matrix.",
         kind: "optimization",
         algorithm:
-          "Enumerate all routes for at most 10 stops, reject capacity/time-window violations, and return the minimum supplied travel cost with deterministic tie-breaking.",
+          "Enumerate all routes for at most 8 stops and 10 depots, reject capacity/time-window violations, and return the minimum supplied travel cost with deterministic tie-breaking.",
         requiredInputs: [
           records(
             "stops",
@@ -726,7 +735,12 @@ export const DOMAIN_SPECIALIST_MODULES: DomainSpecialistModule[] = [
           matrix(
             "travelCosts",
             "Travel cost matrix",
-            "Directed travel time or cost for every required node pair.",
+            "Directed monetary or generalized cost for every required node pair.",
+          ),
+          matrix(
+            "travelMinutes",
+            "Travel-time matrix",
+            "Directed elapsed travel minutes for every required node pair.",
           ),
         ],
         requiredEvidence: [
@@ -743,7 +757,7 @@ export const DOMAIN_SPECIALIST_MODULES: DomainSpecialistModule[] = [
         requiredApproverRole:
           "Fleet dispatcher / transport operations authority",
         limitations: [
-          "Exact enumeration is intentionally limited to 10 stops; larger problems are blocked rather than falsely labelled optimized.",
+          "Exact enumeration is intentionally limited to 8 stops and 10 depots; larger problems are blocked rather than falsely labelled optimized.",
           "Does not dispatch vehicles or override driver/safety constraints.",
         ],
         exampleInputs: {
@@ -753,6 +767,14 @@ export const DOMAIN_SPECIALIST_MODULES: DomainSpecialistModule[] = [
           ],
           depots: [{ id: "D", capacity: 5, availableMinutes: 240 }],
           travelCosts: {
+            "D:A": 20,
+            "A:B": 10,
+            "B:D": 20,
+            "D:B": 15,
+            "B:A": 10,
+            "A:D": 25,
+          },
+          travelMinutes: {
             "D:A": 20,
             "A:B": 10,
             "B:D": 20,
@@ -824,6 +846,7 @@ export const DOMAIN_SPECIALIST_MODULES: DomainSpecialistModule[] = [
     industryCode: "aviation",
     label: "Aviation — Airworthiness, MSG-3 & Life-Limited Parts",
     version: "1.0.0",
+    reviewerRoleKey: "domain_airworthiness_reviewer",
     purpose:
       "Expose airworthiness applicability, maintenance-programme, and back-to-birth traceability gaps without signing a release.",
     dataClasses: ["operational", "safety_critical", "regulatory"],
@@ -973,6 +996,7 @@ export const DOMAIN_SPECIALIST_MODULES: DomainSpecialistModule[] = [
     industryCode: "marine_shipping",
     label: "Marine Shipping — Surveys, Propulsion & Voyage",
     version: "1.0.0",
+    reviewerRoleKey: "domain_marine_reviewer",
     purpose:
       "Track class-survey due state and quantify propulsion/voyage alternatives for authorized marine review.",
     dataClasses: ["operational", "safety_critical", "regulatory"],
@@ -1136,6 +1160,7 @@ export const DOMAIN_SPECIALIST_MODULES: DomainSpecialistModule[] = [
     industryCode: "data_centers",
     label: "Data Centers — Thermal & Airflow Modelling",
     version: "1.0.0",
+    reviewerRoleKey: "domain_data_center_thermal_reviewer",
     purpose:
       "Calculate rack heat balance, airflow demand, capacity margin, and sensor exceptions without changing controls.",
     dataClasses: ["operational", "safety_critical"],
@@ -1233,6 +1258,7 @@ export const DOMAIN_SPECIALIST_MODULES: DomainSpecialistModule[] = [
     industryCode: "defense",
     label: "Defense — Mission Readiness, Configuration & Classified Deployment",
     version: "1.0.0",
+    reviewerRoleKey: "domain_defense_readiness_reviewer",
     purpose:
       "Quantify mission-capable coverage and configuration/deployment control gaps while respecting security boundaries.",
     dataClasses: [
@@ -1406,6 +1432,7 @@ export const DOMAIN_SPECIALIST_MODULES: DomainSpecialistModule[] = [
     industryCode: "aerospace_launch",
     label: "Aerospace & Launch — Reuse Life, Range Safety & Propellant",
     version: "1.0.0",
+    reviewerRoleKey: "domain_launch_reviewer",
     purpose:
       "Track reusable-item life, range-safety evidence, and propellant condition without issuing flight or launch authorization.",
     dataClasses: [
@@ -1564,6 +1591,7 @@ export const DOMAIN_SPECIALIST_MODULES: DomainSpecialistModule[] = [
     label:
       "Buildings & Infrastructure — Code, Fire/Life Safety & Certification",
     version: "1.0.0",
+    reviewerRoleKey: "domain_building_safety_reviewer",
     purpose:
       "Trace jurisdiction-specific requirements and safety-system/certification evidence without claiming code compliance.",
     dataClasses: ["operational", "safety_critical", "regulatory"],

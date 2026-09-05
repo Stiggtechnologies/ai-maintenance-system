@@ -75,8 +75,8 @@ const ACTIONS: Array<{
           activity: "Final dimensional inspection",
           acceptanceCriterion:
             "All controlled dimensions within drawing tolerance.",
-          inspectorRole: "quality_inspector",
-          witnessRole: "quality_manager",
+          inspectorRole: "reliability_engineer",
+          witnessRole: "admin",
         },
       ],
     },

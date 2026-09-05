@@ -334,8 +334,32 @@ create or replace function public.quality_control_role(p_role text)
 returns boolean language sql immutable security invoker set search_path=public
 as $$
   select coalesce(p_role,'') in (
-    'admin','owner','org_admin','quality_manager','quality_engineer',
-    'engineering_manager','maintenance_manager','reliability_engineer','supervisor'
+    'admin','ai_admin','executive','owner','org_admin','quality_manager',
+    'quality_engineer','engineering_manager','maintenance_manager','reliability_engineer'
+  );
+$$;
+
+create or replace function public.quality_actor_has_role(
+  p_actor uuid,p_org uuid,p_role text)
+returns boolean language sql stable security definer set search_path=public
+as $$
+  select exists(
+    select 1 from public.user_profiles profile
+    where profile.id=p_actor and profile.organization_id=p_org and profile.role=p_role
+  ) or exists(
+    select 1 from public.user_role_assignments assignment
+    join public.roles role on role.id=assignment.role_id
+    where assignment.user_id=p_actor and assignment.organization_id=p_org
+      and role.organization_id=p_org and role.key=p_role
+  );
+$$;
+
+create or replace function public.quality_role_exists(p_org uuid,p_role text)
+returns boolean language sql stable security definer set search_path=public
+as $$
+  select coalesce(length(btrim(p_role)),0)>0 and (
+    exists(select 1 from public.roles role where role.organization_id=p_org and role.key=p_role)
+    or exists(select 1 from public.user_profiles profile where profile.organization_id=p_org and profile.role=p_role)
   );
 $$;
 
@@ -453,6 +477,13 @@ begin
     if not exists(select 1 from public.quality_requirements where id=v_req and organization_id=v_org) then
       raise exception 'ITP requirement is outside this organization';
     end if;
+    if not public.quality_role_exists(v_org,btrim(v_point->>'inspectorRole')) then
+      raise exception 'ITP inspector role is not configured for this organization';
+    end if;
+    if v_point->>'controlType' in ('hold','witness')
+       and not public.quality_role_exists(v_org,btrim(v_point->>'witnessRole')) then
+      raise exception 'ITP witness role is not configured for this organization';
+    end if;
     insert into public.quality_itp_points(organization_id,itp_id,sequence_no,requirement_id,
       control_type,activity,acceptance_criterion,inspector_role,witness_role)
     values(v_org,v_id,(v_point->>'sequenceNo')::integer,v_req,v_point->>'controlType',
@@ -491,15 +522,17 @@ create or replace function public.record_quality_itp_point_result(
   p_point_id bigint,p_result text,p_evidence_item_id uuid,p_note text)
 returns jsonb language plpgsql security definer set search_path=public
 as $$
-declare v_org uuid:=public.app_current_org(); v_actor uuid:=auth.uid(); v_type text; v_itp bigint; v_status text;
+declare v_org uuid:=public.app_current_org(); v_actor uuid:=auth.uid(); v_type text; v_itp bigint; v_status text; v_inspector_role text;
 begin
   if p_result not in ('pass','fail') then return jsonb_build_object('error','result must be pass or fail'); end if;
   if not public.quality_evidence_in_org(p_evidence_item_id,v_org) then return jsonb_build_object('error','same-tenant evidence is required'); end if;
   if coalesce(length(btrim(p_note)),0)<10 then return jsonb_build_object('error','inspection note must be at least 10 characters'); end if;
-  select p.control_type,p.itp_id into v_type,v_itp from public.quality_itp_points p
+  select p.control_type,p.itp_id,p.inspector_role into v_type,v_itp,v_inspector_role from public.quality_itp_points p
   join public.quality_itps i on i.id=p.itp_id and i.organization_id=v_org and i.status in ('approved','in_progress','blocked')
   where p.id=p_point_id and p.organization_id=v_org and p.status='pending' for update;
   if not found then return jsonb_build_object('error','executable ITP point not found'); end if;
+  if not public.quality_actor_has_role(v_actor,v_org,v_inspector_role) then
+    return jsonb_build_object('error','ITP inspection requires assigned role ' || v_inspector_role); end if;
   v_status:=case when p_result='fail' then 'failed' when v_type='review' then 'passed' else 'awaiting_release' end;
   update public.quality_itp_points set status=v_status,inspection_result=p_result,inspection_note=btrim(p_note),
     evidence_item_id=p_evidence_item_id,executed_by=v_actor,executed_at=now() where id=p_point_id;
@@ -517,16 +550,18 @@ create or replace function public.release_quality_itp_point(
 returns jsonb language plpgsql security definer set search_path=public
 as $$
 declare v_org uuid:=public.app_current_org(); v_actor uuid:=auth.uid(); v_role text;
-  v_type text; v_executor uuid; v_itp bigint; v_status text;
+  v_type text; v_executor uuid; v_itp bigint; v_status text; v_witness_role text;
 begin
   select role into v_role from public.user_profiles where id=v_actor and organization_id=v_org;
   if not public.quality_control_role(v_role) then return jsonb_build_object('error','quality control authority required'); end if;
   if p_decision not in ('release','reject','waive') then return jsonb_build_object('error','decision must be release, reject or waive'); end if;
   if coalesce(length(btrim(p_note)),0)<20 then return jsonb_build_object('error','release or waiver basis must be at least 20 characters'); end if;
-  select control_type,executed_by,itp_id into v_type,v_executor,v_itp
+  select control_type,executed_by,itp_id,witness_role into v_type,v_executor,v_itp,v_witness_role
   from public.quality_itp_points where id=p_point_id and organization_id=v_org and status='awaiting_release' for update;
   if not found then return jsonb_build_object('error','ITP point is not awaiting release'); end if;
   if v_type in ('hold','witness') and v_executor=v_actor then return jsonb_build_object('error','hold/witness-point release requires an independent actor'); end if;
+  if v_type in ('hold','witness') and not public.quality_actor_has_role(v_actor,v_org,v_witness_role) then
+    return jsonb_build_object('error','ITP release requires assigned role ' || v_witness_role); end if;
   if v_type='witness' and p_decision='release' and not p_witness_attested then
     return jsonb_build_object('error','witness point cannot release without witness attestation');
   end if;
@@ -761,6 +796,7 @@ begin
   select performed_by,outcome,punch_items_open into v_performer,v_outcome,v_open from public.acceptance_tests
    where id=p_id and organization_id=v_org and release_status='pending' for update;
   if not found then return jsonb_build_object('error','pending acceptance test not found'); end if;
+  if p_decision='release' and v_performer is null then return jsonb_build_object('error','acceptance performer provenance is required before independent release'); end if;
   if v_performer=v_actor then return jsonb_build_object('error','independent acceptance release is required'); end if;
   if p_decision='release' and (v_outcome<>'pass' or v_open<>0) then
     return jsonb_build_object('error','release requires a pass outcome and zero open punch items'); end if;
@@ -818,8 +854,8 @@ with bounds as (
     count(*) filter(where status='closed') closed,
     count(*) filter(where status not in ('closed','cancelled')) open,
     count(*) filter(where status not in ('closed','cancelled') and due_at<now()) overdue,
-    round(avg(extract(epoch from (now()-detected_at))/86400) filter(where status not in ('closed','cancelled')),1) average_age,
-    floor(max(extract(epoch from (now()-detected_at))/86400) filter(where status not in ('closed','cancelled'))) oldest_age
+    round(avg(greatest(0,extract(epoch from (now()-detected_at))/86400)) filter(where status not in ('closed','cancelled')),1) average_age,
+    floor(max(greatest(0,extract(epoch from (now()-detected_at))/86400)) filter(where status not in ('closed','cancelled'))) oldest_age
   from quality_ncrs,bounds where organization_id=org and detected_at>=since and detected_at<until
 ), costs as (
   select currency,
@@ -841,13 +877,13 @@ with bounds as (
   ) q group by currency
 ), metrics as (
   select jsonb_build_array(
-    jsonb_build_object('key','first_pass_yield_pct','label','First-pass yield','value',round(100*d.first_pass/nullif(d.inspected,0),2),'unit','%','numerator',d.first_pass,'denominator',d.inspected),
-    jsonb_build_object('key','defect_rate_pct','label','Defect rate','value',round(100*d.defective/nullif(d.inspected,0),2),'unit','%','numerator',d.defective,'denominator',d.inspected),
-    jsonb_build_object('key','rework_rate_pct','label','Rework rate','value',round(100*d.reworked/nullif(d.inspected,0),2),'unit','%','numerator',d.reworked,'denominator',d.inspected),
-    jsonb_build_object('key','scrap_rate_pct','label','Scrap rate','value',round(100*d.scrapped/nullif(d.inspected,0),2),'unit','%','numerator',d.scrapped,'denominator',d.inspected),
-    jsonb_build_object('key','acceptance_pass_rate_pct','label','Acceptance-test pass rate','value',round(100*(case when a.tested>0 then a.passed else a.outcome_passes end)/nullif(case when a.tested>0 then a.tested else a.outcome_tests end,0),2),'unit','%','numerator',case when a.tested>0 then a.passed else a.outcome_passes end,'denominator',case when a.tested>0 then a.tested else a.outcome_tests end),
-    jsonb_build_object('key','ncr_closure_rate_pct','label','NCR closure rate','value',round(100*n.closed/nullif(n.total,0),2),'unit','%','numerator',n.closed,'denominator',n.total),
-    jsonb_build_object('key','overdue_ncr_rate_pct','label','Overdue open-NCR rate','value',round(100*n.overdue/nullif(n.open,0),2),'unit','%','numerator',n.overdue,'denominator',n.open)
+    jsonb_build_object('key','first_pass_yield_pct','label','First-pass yield','formula','first-pass accepted quantity / inspected quantity × 100','value',round(100*d.first_pass/nullif(d.inspected,0),2),'unit','%','numerator',d.first_pass,'denominator',d.inspected),
+    jsonb_build_object('key','defect_rate_pct','label','Defect rate','formula','defective quantity / inspected quantity × 100','value',round(100*d.defective/nullif(d.inspected,0),2),'unit','%','numerator',d.defective,'denominator',d.inspected),
+    jsonb_build_object('key','rework_rate_pct','label','Rework rate','formula','reworked quantity / inspected quantity × 100','value',round(100*d.reworked/nullif(d.inspected,0),2),'unit','%','numerator',d.reworked,'denominator',d.inspected),
+    jsonb_build_object('key','scrap_rate_pct','label','Scrap rate','formula','scrapped quantity / inspected quantity × 100','value',round(100*d.scrapped/nullif(d.inspected,0),2),'unit','%','numerator',d.scrapped,'denominator',d.inspected),
+    jsonb_build_object('key','acceptance_pass_rate_pct','label','Acceptance-test pass rate','formula','passed samples / tested samples × 100; test outcomes are used only when sample counts are absent','value',round(100*(case when a.tested>0 then a.passed else a.outcome_passes end)/nullif(case when a.tested>0 then a.tested else a.outcome_tests end,0),2),'unit','%','numerator',case when a.tested>0 then a.passed else a.outcome_passes end,'denominator',case when a.tested>0 then a.tested else a.outcome_tests end),
+    jsonb_build_object('key','ncr_closure_rate_pct','label','NCR closure rate','formula','closed NCRs / NCRs detected × 100','value',round(100*n.closed/nullif(n.total,0),2),'unit','%','numerator',n.closed,'denominator',n.total),
+    jsonb_build_object('key','overdue_ncr_rate_pct','label','Overdue open-NCR rate','formula','open NCRs past due / open NCRs × 100','value',round(100*n.overdue/nullif(n.open,0),2),'unit','%','numerator',n.overdue,'denominator',n.open)
   ) value from d,a,n
 )
 select jsonb_build_object(
@@ -859,7 +895,7 @@ select jsonb_build_object(
   'requirements',coalesce((select jsonb_agg(to_jsonb(q) order by q.created_at desc) from (select r.* from quality_requirements r,bounds where r.organization_id=org order by r.created_at desc limit 100) q),'[]'::jsonb),
   'itps',coalesce((select jsonb_agg(to_jsonb(q) order by q.created_at desc) from (select i.* from quality_itps i,bounds where i.organization_id=org order by i.created_at desc limit 100) q),'[]'::jsonb),
   'itpPoints',coalesce((select jsonb_agg(to_jsonb(q) order by q.itp_id,q.sequence_no) from (select p.* from quality_itp_points p,bounds where p.organization_id=org order by p.itp_id desc,p.sequence_no limit 500) q),'[]'::jsonb),
-  'ncrs',coalesce((select jsonb_agg(to_jsonb(q) || jsonb_build_object('ageDays',floor(extract(epoch from (coalesce(q.closed_at,now())-q.detected_at))/86400),'overdue',q.status not in ('closed','cancelled') and q.due_at<now()) order by q.detected_at desc) from (select x.* from quality_ncrs x,bounds where x.organization_id=org order by x.detected_at desc limit 100) q),'[]'::jsonb),
+  'ncrs',coalesce((select jsonb_agg(to_jsonb(q) || jsonb_build_object('ageDays',floor(greatest(0,extract(epoch from (coalesce(q.closed_at,now())-q.detected_at))/86400)),'overdue',q.status not in ('closed','cancelled') and q.due_at<now()) order by q.detected_at desc) from (select x.* from quality_ncrs x,bounds where x.organization_id=org order by x.detected_at desc limit 100) q),'[]'::jsonb),
   'defects',coalesce((select jsonb_agg(to_jsonb(q) order by q.detected_at desc) from (select x.* from quality_defects x,bounds where x.organization_id=org order by x.detected_at desc limit 100) q),'[]'::jsonb),
   'rework',coalesce((select jsonb_agg(to_jsonb(q) order by q.started_at desc) from (select x.* from quality_rework_records x,bounds where x.organization_id=org order by x.started_at desc limit 100) q),'[]'::jsonb),
   'acceptanceTests',coalesce((select jsonb_agg(to_jsonb(q) order by q.created_at desc) from (select x.* from acceptance_tests x,bounds where x.organization_id=org order by x.created_at desc limit 100) q),'[]'::jsonb),
@@ -868,6 +904,8 @@ select jsonb_build_object(
 $$;
 
 revoke all on function public.quality_control_role(text) from public,anon,authenticated;
+revoke all on function public.quality_actor_has_role(uuid,uuid,text) from public,anon,authenticated;
+revoke all on function public.quality_role_exists(uuid,text) from public,anon,authenticated;
 revoke all on function public.quality_evidence_in_org(uuid,uuid) from public,anon,authenticated;
 revoke all on function public.quality_scope_in_org(jsonb,uuid) from public,anon,authenticated;
 revoke all on function public.record_quality_requirement(jsonb) from public,anon;

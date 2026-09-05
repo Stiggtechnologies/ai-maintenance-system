@@ -53,6 +53,7 @@ export interface DomainSpecialistModule {
   industryCode: TemplateIndustryCode;
   label: string;
   version: string;
+  reviewerRoleKey: string;
   purpose: string;
   dataClasses: Array<
     | "operational"
@@ -68,6 +69,7 @@ export interface DomainSpecialistModule {
 export interface DomainEvidenceReference {
   key: string;
   sourceReference: string;
+  evidenceItemId: string;
   observedAt?: string;
 }
 
@@ -99,6 +101,7 @@ export interface DomainSpecialistResult {
   formulae: string[];
   authorityBoundary: string;
   requiredApproverRole: string;
+  requiredApproverRoleKey: string;
   humanApprovalRequired: true;
   authoritative: false;
 }

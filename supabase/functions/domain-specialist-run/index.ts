@@ -73,7 +73,6 @@ Deno.serve(async (request) => {
   let body: {
     riskId?: unknown;
     request?: unknown;
-    evidenceItemIds?: unknown;
   };
   try {
     const raw = await request.text();
@@ -98,34 +97,47 @@ Deno.serve(async (request) => {
   ) {
     return json({ error: "invalid specialist request contract" }, 400);
   }
-  const evidenceItemIds = Array.isArray(body.evidenceItemIds)
-    ? body.evidenceItemIds
-    : [];
+  const candidateEvidence = candidate.evidence as unknown[];
   if (
-    evidenceItemIds.length > 100 ||
-    evidenceItemIds.some((id) => typeof id !== "string" || !UUID.test(id))
+    candidateEvidence.length > 100 ||
+    candidateEvidence.some((item) => {
+      if (!item || typeof item !== "object" || Array.isArray(item)) return true;
+      const value = item as Record<string, unknown>;
+      return (
+        typeof value.key !== "string" ||
+        !value.key.trim() ||
+        typeof value.sourceReference !== "string" ||
+        typeof value.evidenceItemId !== "string"
+      );
+    })
   ) {
     return json(
-      { error: "evidenceItemIds must contain at most 100 UUIDs" },
+      {
+        error:
+          "evidence must contain at most 100 key/sourceReference/evidenceItemId records",
+      },
       400,
     );
   }
+  const evidenceKeys = candidateEvidence.map(
+    (item) => (item as Record<string, unknown>).key as string,
+  );
+  if (new Set(evidenceKeys).size !== evidenceKeys.length)
+    return json({ error: "evidence keys must be unique" }, 400);
 
   const specialistRequest: DomainSpecialistRequest = {
     moduleKey: candidate.moduleKey as DomainSpecialistModuleKey,
     methodKey: candidate.methodKey,
     inputs: candidate.inputs as Record<string, unknown>,
-    evidence: candidate.evidence.filter(
-      (item): item is DomainSpecialistRequest["evidence"][number] =>
-        Boolean(
-          item &&
-          typeof item === "object" &&
-          typeof (item as Record<string, unknown>).key === "string" &&
-          typeof (item as Record<string, unknown>).sourceReference === "string",
-        ),
-    ),
+    evidence: candidateEvidence as DomainSpecialistRequest["evidence"],
   };
   const result = evaluateDomainSpecialist(specialistRequest);
+  const canonicalEvidence = specialistRequest.evidence.filter(
+    (item) => item.sourceReference.trim() && UUID.test(item.evidenceItemId),
+  );
+  const evidenceItemIds = [
+    ...new Set(canonicalEvidence.map((item) => item.evidenceItemId)),
+  ];
   const { data, error } = await service.rpc("record_domain_specialist_run", {
     p_organization_id: profile.organization_id,
     p_actor_id: userData.user.id,
@@ -138,7 +150,11 @@ Deno.serve(async (request) => {
       status: result.status,
       authoritative: result.authoritative,
       humanApprovalRequired: result.humanApprovalRequired,
-      inputs: specialistRequest.inputs,
+      requiredApproverRoleKey: result.requiredApproverRoleKey,
+      inputs: {
+        parameters: specialistRequest.inputs,
+        evidenceBindings: canonicalEvidence,
+      },
       result,
     },
     p_evidence_item_ids: evidenceItemIds,

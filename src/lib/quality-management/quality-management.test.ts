@@ -120,5 +120,25 @@ describe("quality management scorecard", () => {
         ],
       }),
     ).toThrow(/three-letter/);
+
+    expect(() =>
+      computeQualityScorecard({
+        defects: [
+          {
+            inspectedQuantity: 1,
+            defectiveQuantity: 0,
+            firstPassAcceptedQuantity: 1,
+            reworkedQuantity: 0,
+            scrappedQuantity: 0,
+            scrapCost: -1,
+            currency: "CAD",
+          },
+        ],
+        acceptanceTests: [],
+        ncrs: [],
+        reworkCosts: [],
+        costEntries: [],
+      }),
+    ).toThrow(/scrapCost must be a finite non-negative number/);
   });
 });

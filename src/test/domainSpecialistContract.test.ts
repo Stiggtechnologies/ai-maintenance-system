@@ -59,6 +59,19 @@ describe("domain specialist production contract", () => {
       "independent review cannot be completed by the run author",
     );
     expect(migration).toContain(
+      "domain_specialist_actor_has_role(\n    auth.uid(),v_org,v_run.required_reviewer_role_key",
+    );
+    for (const module of DOMAIN_SPECIALIST_MODULES) {
+      expect(migration).toContain(
+        `when '${module.key}' then '${module.reviewerRoleKey}'`,
+      );
+      for (const method of module.methods) {
+        expect(migration).toContain(`when '${method.key}' then array[`);
+        for (const evidenceKey of method.requiredEvidence)
+          expect(migration).toContain(`'${evidenceKey}'`);
+      }
+    }
+    expect(migration).toContain(
       "create policy domain_specialist_runs_org_read",
     );
   });
@@ -72,6 +85,10 @@ describe("domain specialist production contract", () => {
       "grant execute on function public.record_domain_specialist_run(uuid,uuid,uuid,jsonb,uuid[]) to service_role",
     );
     expect(edge).toContain("evaluateDomainSpecialist(specialistRequest)");
+    expect(edge).toContain(
+      "canonicalEvidence.map((item) => item.evidenceItemId)",
+    );
+    expect(edge).not.toContain("body.evidenceItemIds");
     expect(edge).toContain(
       'const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")',
     );

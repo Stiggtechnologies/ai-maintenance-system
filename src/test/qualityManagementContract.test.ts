@@ -39,8 +39,10 @@ describe("Slice 7D production contract", () => {
 
   it("keeps the seven TypeScript and SQL metric contracts aligned", () => {
     expect(QUALITY_METRIC_DEFINITIONS).toHaveLength(7);
-    for (const metric of QUALITY_METRIC_DEFINITIONS)
+    for (const metric of QUALITY_METRIC_DEFINITIONS) {
       expect(migration).toContain(`'key','${metric.key}'`);
+      expect(migration).toContain(`'formula','${metric.formula}'`);
+    }
     expect(migration).toContain(
       "'costOfPoorQuality',internal_failure+external_failure",
     );
@@ -53,8 +55,18 @@ describe("Slice 7D production contract", () => {
     expect(migration).toContain(
       "hold/witness-point release requires an independent actor",
     );
+    expect(migration).toContain(
+      "ITP inspection requires assigned role ' || v_inspector_role",
+    );
+    expect(migration).toContain(
+      "ITP release requires assigned role ' || v_witness_role",
+    );
+    expect(migration).not.toContain("'reliability_engineer','supervisor'");
     expect(migration).toContain("independent NCR closure is required");
     expect(migration).toContain("independent acceptance release is required");
+    expect(migration).toContain(
+      "acceptance performer provenance is required before independent release",
+    );
     expect(migration).toContain(
       "release requires a pass outcome and zero open punch items",
     );

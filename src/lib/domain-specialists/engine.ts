@@ -19,6 +19,9 @@ interface Evaluation {
 
 class InputError extends Error {}
 
+const UUID =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 function finite(value: unknown, label: string): number {
   if (typeof value !== "number" || !Number.isFinite(value)) {
     throw new InputError(`${label} must be a finite number.`);
@@ -30,6 +33,27 @@ function positive(value: unknown, label: string): number {
   const result = finite(value, label);
   if (result <= 0) throw new InputError(`${label} must be greater than zero.`);
   return result;
+}
+
+function nonNegative(value: unknown, label: string): number {
+  const result = finite(value, label);
+  if (result < 0) throw new InputError(`${label} must not be negative.`);
+  return result;
+}
+
+function positiveInteger(value: unknown, label: string): number {
+  const result = positive(value, label);
+  if (!Number.isInteger(result))
+    throw new InputError(`${label} must be a positive integer.`);
+  return result;
+}
+
+function requireUnique(values: string[], label: string): void {
+  const duplicate = values.find(
+    (value, index) => values.indexOf(value) !== index,
+  );
+  if (duplicate)
+    throw new InputError(`${label} contains duplicate ID ${duplicate}.`);
 }
 
 function text(value: unknown, label: string): string {
@@ -98,6 +122,8 @@ function coverageEvaluation(
   identify: (row: Record<string, unknown>, index: number) => string,
   failure: string,
 ): Evaluation {
+  if (rows.length === 0)
+    throw new InputError(`${label} scope must contain at least one record.`);
   const result = completeness(rows, pass);
   const gaps = rows
     .map((row, index) => ({ row, index }))
@@ -383,17 +409,20 @@ function stormDispatch(inputs: Record<string, unknown>): Evaluation {
   }));
   const travel = object(inputs.travelMinutes, "Travel-time matrix");
   const weights = object(inputs.priorityWeights, "Priority weights");
-  const severityWeight = finite(weights.severity, "Severity weight");
-  const customerWeight = finite(weights.customers, "Customer weight");
-  const travelWeight = finite(weights.travel, "Travel weight");
+  const severityWeight = nonNegative(weights.severity, "Severity weight");
+  const customerWeight = nonNegative(weights.customers, "Customer weight");
+  const travelWeight = nonNegative(weights.travel, "Travel weight");
   const ordered = incidents
     .map((incident, index) => ({
       incident,
       id: text(incident.id, `Incident ${index + 1} ID`),
       priority:
-        finite(incident.severity, `Incident ${index + 1} severity`) *
+        nonNegative(incident.severity, `Incident ${index + 1} severity`) *
           severityWeight +
-        finite(incident.customersAffected, `Incident ${index + 1} customers`) *
+        nonNegative(
+          incident.customersAffected,
+          `Incident ${index + 1} customers`,
+        ) *
           customerWeight,
       hours: positive(incident.workHours, `Incident ${index + 1} work hours`),
       skills: strings(incident.requiredSkills),
@@ -413,7 +442,7 @@ function stormDispatch(inputs: Record<string, unknown>): Evaluation {
         crew,
         minutes:
           typeof travel[`${crew.id}:${item.id}`] === "number"
-            ? finite(travel[`${crew.id}:${item.id}`], "Travel time")
+            ? nonNegative(travel[`${crew.id}:${item.id}`], "Travel time")
             : null,
       }))
       .filter(
@@ -479,6 +508,10 @@ function lineBalancing(inputs: Record<string, unknown>): Evaluation {
     minutes: positive(row.minutes, `Task ${index + 1} minutes`),
     predecessors: strings(row.predecessors),
   }));
+  requireUnique(
+    tasks.map((task) => task.id),
+    "Work elements",
+  );
   const ids = new Set(tasks.map((task) => task.id));
   const unknown = tasks.flatMap((task) =>
     task.predecessors
@@ -838,7 +871,8 @@ function gxp(inputs: Record<string, unknown>): Evaluation {
       row.testReference.trim() !== "" &&
       (row.result === "passed" || row.deviationStatus === "approved") &&
       row.approved === true &&
-      row.changeControlState !== "open",
+      (row.changeControlState === "closed" ||
+        row.changeControlState === "not_applicable"),
     (row, index) => String(row.id ?? `requirement ${index + 1}`),
     "missing approved test/result-or-deviation trace, approval, or closed change-control state",
   );
@@ -876,26 +910,52 @@ function* permutations<T>(items: T[]): Generator<T[]> {
 
 function routeOptimization(inputs: Record<string, unknown>): Evaluation {
   const stopRows = records(inputs.stops, "Stops");
-  if (stopRows.length > 10)
-    throw new InputError("Exact route optimization is limited to 10 stops.");
+  if (stopRows.length > 8)
+    throw new InputError("Exact route optimization is limited to 8 stops.");
   const stops = stopRows.map((row, index) => ({
     id: text(row.id, `Stop ${index + 1} ID`),
-    demand: finite(row.demand, `Stop ${index + 1} demand`),
-    service: finite(
+    demand: nonNegative(row.demand, `Stop ${index + 1} demand`),
+    service: nonNegative(
       row.serviceMinutes ?? 0,
       `Stop ${index + 1} service minutes`,
     ),
     windowStart:
       typeof row.windowStartMinutes === "number"
-        ? finite(row.windowStartMinutes, "Window start")
+        ? nonNegative(row.windowStartMinutes, "Window start")
         : null,
     windowEnd:
       typeof row.windowEndMinutes === "number"
-        ? finite(row.windowEndMinutes, "Window end")
+        ? nonNegative(row.windowEndMinutes, "Window end")
         : null,
   }));
+  requireUnique(
+    stops.map((stop) => stop.id),
+    "Stops",
+  );
+  for (const stop of stops) {
+    if (
+      stop.windowStart != null &&
+      stop.windowEnd != null &&
+      stop.windowEnd < stop.windowStart
+    )
+      throw new InputError(
+        `${stop.id} window end must be no earlier than window start.`,
+      );
+  }
   const depots = records(inputs.depots, "Depots");
+  if (depots.length > 10)
+    throw new InputError("Exact route optimization is limited to 10 depots.");
+  const depotIds = depots.map((depot, index) =>
+    text(depot.id, `Depot ${index + 1} ID`),
+  );
+  requireUnique(depotIds, "Depots");
+  const overlap = depotIds.find((id) => stops.some((stop) => stop.id === id));
+  if (overlap)
+    throw new InputError(
+      `Depot and stop IDs must be distinct; found ${overlap}.`,
+    );
   const costs = object(inputs.travelCosts, "Travel cost matrix");
+  const minutes = object(inputs.travelMinutes, "Travel-time matrix");
   let best: {
     depot: string;
     route: string[];
@@ -905,7 +965,7 @@ function routeOptimization(inputs: Record<string, unknown>): Evaluation {
   const totalDemand = stops.reduce((sum, stop) => sum + stop.demand, 0);
   const missingArcs = new Set<string>();
   for (const [index, depot] of depots.entries()) {
-    const depotId = text(depot.id, `Depot ${index + 1} ID`);
+    const depotId = depotIds[index];
     const capacity = positive(depot.capacity, `${depotId} capacity`);
     const available = positive(
       depot.availableMinutes,
@@ -919,14 +979,18 @@ function routeOptimization(inputs: Record<string, unknown>): Evaluation {
       let feasible = true;
       for (const stop of route) {
         const key = `${current}:${stop.id}`;
-        if (typeof costs[key] !== "number") {
+        if (
+          typeof costs[key] !== "number" ||
+          typeof minutes[key] !== "number"
+        ) {
           missingArcs.add(key);
           feasible = false;
           break;
         }
-        const leg = finite(costs[key], key);
-        travelCost += leg;
-        elapsed += leg;
+        const legCost = nonNegative(costs[key], `${key} travel cost`);
+        const legMinutes = nonNegative(minutes[key], `${key} travel minutes`);
+        travelCost += legCost;
+        elapsed += legMinutes;
         if (stop.windowStart != null && elapsed < stop.windowStart)
           elapsed = stop.windowStart;
         if (stop.windowEnd != null && elapsed > stop.windowEnd) {
@@ -937,13 +1001,28 @@ function routeOptimization(inputs: Record<string, unknown>): Evaluation {
         current = stop.id;
       }
       const returnKey = `${current}:${depotId}`;
-      if (!feasible || typeof costs[returnKey] !== "number") {
-        if (typeof costs[returnKey] !== "number") missingArcs.add(returnKey);
+      if (
+        !feasible ||
+        typeof costs[returnKey] !== "number" ||
+        typeof minutes[returnKey] !== "number"
+      ) {
+        if (
+          typeof costs[returnKey] !== "number" ||
+          typeof minutes[returnKey] !== "number"
+        )
+          missingArcs.add(returnKey);
         continue;
       }
-      const returnCost = finite(costs[returnKey], returnKey);
+      const returnCost = nonNegative(
+        costs[returnKey],
+        `${returnKey} travel cost`,
+      );
+      const returnMinutes = nonNegative(
+        minutes[returnKey],
+        `${returnKey} travel minutes`,
+      );
       travelCost += returnCost;
-      elapsed += returnCost;
+      elapsed += returnMinutes;
       if (elapsed > available) continue;
       const candidate = {
         depot: depotId,
@@ -961,7 +1040,9 @@ function routeOptimization(inputs: Record<string, unknown>): Evaluation {
         best = candidate;
     }
   }
-  const gaps = [...missingArcs].map((arc) => `Travel cost missing for ${arc}.`);
+  const gaps = [...missingArcs].map(
+    (arc) => `Travel cost or elapsed minutes missing for ${arc}.`,
+  );
   if (!best)
     gaps.unshift(
       "No depot/route combination satisfies capacity, route-time, time-window, and supplied travel-cost constraints.",
@@ -990,7 +1071,7 @@ function routeOptimization(inputs: Record<string, unknown>): Evaluation {
       : [],
     gaps,
     assumptions: [
-      "One vehicle serves all stops and returns to its depot; demand is additive; supplied directed costs and time windows are authoritative.",
+      "One vehicle serves all stops and returns to its depot; demand is additive; supplied directed costs, travel times, and time windows are authoritative.",
     ],
     formulae: [
       "Objective = minimum sum of supplied directed travel costs over all feasible stop permutations and depots.",
@@ -1147,7 +1228,7 @@ function lifeLimitedPart(inputs: Record<string, unknown>): Evaluation {
     const limit = positive(part.approvedLimit, `${id} approved limit`);
     const usage = Array.isArray(part.authenticatedUsage)
       ? part.authenticatedUsage.reduce<number>(
-          (sum, value) => sum + finite(value, `${id} usage segment`),
+          (sum, value) => sum + nonNegative(value, `${id} usage segment`),
           0,
         )
       : (() => {
@@ -1470,7 +1551,10 @@ function missionReadiness(inputs: Record<string, unknown>): Evaluation {
   const metrics: DomainMetric[] = [];
   missions.forEach((mission, index) => {
     const id = text(mission.id, `Mission ${index + 1} ID`);
-    const required = positive(mission.requiredCount, `${id} required count`);
+    const required = positiveInteger(
+      mission.requiredCount,
+      `${id} required count`,
+    );
     const capability = strings(mission.requiredCapabilities);
     const ready = assets.filter(
       (asset) =>
@@ -1559,7 +1643,7 @@ function reuseLife(inputs: Record<string, unknown>): Evaluation {
     counters.forEach((counter, counterIndex) => {
       const key = text(counter.key, `${id} counter ${counterIndex + 1}`);
       const limit = positive(counter.limit, `${id}/${key} limit`);
-      const used = finite(counter.used, `${id}/${key} used`);
+      const used = nonNegative(counter.used, `${id}/${key} used`);
       const remaining = limit - used;
       metrics.push({
         key: `${id}_${key}`,
@@ -1654,7 +1738,7 @@ function propellant(inputs: Record<string, unknown>): Evaluation {
   exposures.forEach((exposure, index) => {
     const id =
       typeof exposure.id === "string" ? exposure.id : `exposure ${index + 1}`;
-    const accumulated = finite(exposure.accumulated, `${id} accumulated`);
+    const accumulated = nonNegative(exposure.accumulated, `${id} accumulated`);
     const maximum = positive(exposure.maximum, `${id} maximum`);
     metrics.push({
       key: `remaining_${id}`,
@@ -1727,15 +1811,15 @@ function fireLifeSafety(inputs: Record<string, unknown>): Evaluation {
   zones.forEach((zone, index) => {
     const id = String(zone.id ?? `zone ${index + 1}`);
     if (
-      finite(zone.currentOccupants, `${id} current occupants`) >
-      finite(zone.designOccupants, `${id} design occupants`)
+      nonNegative(zone.currentOccupants, `${id} current occupants`) >
+      nonNegative(zone.designOccupants, `${id} design occupants`)
     )
       gaps.push(
         `${id}: supplied current occupants exceed supplied design occupants.`,
       );
     if (
-      finite(zone.availableExits, `${id} available exits`) <
-      finite(zone.requiredExits, `${id} required exits`)
+      nonNegative(zone.availableExits, `${id} available exits`) <
+      nonNegative(zone.requiredExits, `${id} required exits`)
     )
       gaps.push(
         `${id}: available exits are below the supplied approved requirement.`,
@@ -1860,6 +1944,8 @@ export function evaluateDomainSpecialist(
     modelVersion: module?.version ?? "unknown",
     requiredApproverRole:
       method?.requiredApproverRole ?? "Authorized domain technical authority",
+    requiredApproverRoleKey:
+      module?.reviewerRoleKey ?? "domain_specialist_reviewer",
     authorityBoundary:
       "This output is a non-authoritative draft. It cannot certify compliance, approve a limit, release an asset/product/facility, dispatch resources, or authorize operation. The named human authority must verify evidence, applicability, method, assumptions, and consequence before action.",
     humanApprovalRequired: true as const,
@@ -1881,13 +1967,27 @@ export function evaluateDomainSpecialist(
     .filter((input) => !present(request.inputs[input.key]))
     .map((input) => `Missing required input: ${input.label} (${input.key}).`);
   const evidenceByKey = new Map(
-    request.evidence.map((item) => [item.key, item.sourceReference?.trim()]),
+    request.evidence.map((item) => [item.key, item]),
   );
-  const missingEvidence = method.requiredEvidence
-    .filter((key) => !evidenceByKey.get(key))
-    .map((key) => `Missing required evidence reference: ${key}.`);
+  const duplicateEvidence = request.evidence
+    .map((item) => item.key)
+    .filter((key, index, keys) => keys.indexOf(key) !== index)
+    .map((key) => `Duplicate evidence binding: ${key}.`);
+  const missingEvidence = method.requiredEvidence.flatMap((key) => {
+    const reference = evidenceByKey.get(key);
+    if (!reference?.sourceReference?.trim())
+      return [`Missing required evidence reference: ${key}.`];
+    if (!UUID.test(reference.evidenceItemId))
+      return [`Missing canonical evidence binding: ${key}.`];
+    return [];
+  });
   const evaluator = evaluators[method.key];
-  if (missingInputs.length || missingEvidence.length || !evaluator) {
+  if (
+    missingInputs.length ||
+    missingEvidence.length ||
+    duplicateEvidence.length ||
+    !evaluator
+  ) {
     return {
       ...base,
       status: "blocked",
@@ -1898,6 +1998,7 @@ export function evaluateDomainSpecialist(
       gaps: [
         ...missingInputs,
         ...missingEvidence,
+        ...duplicateEvidence,
         ...(evaluator
           ? []
           : ["No executable evaluator is registered for this method."]),

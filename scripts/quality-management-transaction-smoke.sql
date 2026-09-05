@@ -15,7 +15,7 @@ declare
   v_evidence constant uuid:='7d100000-0000-4000-8000-000000000001';
   v_work constant uuid:='7d100000-0000-4000-8000-000000000002';
   v jsonb; v_req bigint; v_itp bigint; v_point bigint; v_witness bigint; v_ncr bigint;
-  v_defect bigint; v_test bigint; v_copq numeric; v_metric_count integer;
+  v_defect bigint; v_test bigint; v_legacy_test bigint; v_copq numeric; v_metric_count integer;
 begin
   perform set_config('request.jwt.claims',jsonb_build_object('sub',v_demo,'role','authenticated')::text,true);
   v:=public.record_quality_requirement(jsonb_build_object(
@@ -42,12 +42,12 @@ begin
         'sequenceNo',10,'requirementId',v_req,'controlType','hold',
         'activity','Final dimensional inspection',
         'acceptanceCriterion','All controlled dimensions are within drawing tolerance.',
-        'inspectorRole','quality_inspector','witnessRole','quality_manager'),
+        'inspectorRole','reliability_engineer','witnessRole','admin'),
       jsonb_build_object(
         'sequenceNo',20,'requirementId',v_req,'controlType','witness',
         'activity','Final functional demonstration',
         'acceptanceCriterion','Controlled functional test completes without a failed step.',
-        'inspectorRole','quality_inspector','witnessRole','customer_representative'))));
+        'inspectorRole','reliability_engineer','witnessRole','admin'))));
   if v ? 'error' then raise exception 'ITP failed: %',v; end if;
   v_itp:=(v->>'id')::bigint;
 
@@ -57,6 +57,9 @@ begin
   select id into v_point from public.quality_itp_points where itp_id=v_itp and sequence_no=10;
   select id into v_witness from public.quality_itp_points where itp_id=v_itp and sequence_no=20;
 
+  v:=public.record_quality_itp_point_result(v_point,'pass',v_evidence,
+    'Unassigned role attempts this controlled inspection.');
+  if v->>'error' not like '%requires assigned role reliability_engineer%' then raise exception 'wrong inspector role was not refused: %',v; end if;
   perform set_config('request.jwt.claims',jsonb_build_object('sub',v_demo,'role','authenticated')::text,true);
   v:=public.record_quality_itp_point_result(v_point,'pass',v_evidence,
     'Measured result checked against the controlled criterion.');
@@ -138,6 +141,18 @@ begin
   perform set_config('request.jwt.claims',jsonb_build_object('sub',v_admin,'role','authenticated')::text,true);
   v:=public.release_quality_acceptance_test(v_test,'release','Pass result, evidence and zero punch items independently verified.');
   if v->>'releaseStatus'<>'released' then raise exception 'acceptance release failed: %',v; end if;
+
+  insert into public.acceptance_tests(
+    organization_id,work_order_id,test_ref,test_stage,performed_on,outcome,
+    acceptance_criteria,test_procedure_reference,evidence_item_id,performed_by)
+  values(
+    '11111111-1111-1111-1111-111111111111',v_work,'Q7D-TXN-LEGACY',
+    'factory_acceptance','2026-09-04','pass',
+    'Every controlled test step passes with no open punch items.',
+    'Q7D-FAT-PROC legacy record',v_evidence,null)
+  returning id into v_legacy_test;
+  v:=public.release_quality_acceptance_test(v_legacy_test,'release','Legacy test without performer provenance must remain unreleased.');
+  if v->>'error' not like '%performer provenance%' then raise exception 'missing performer provenance was not refused: %',v; end if;
 
   perform set_config('request.jwt.claims',jsonb_build_object('sub',v_demo,'role','authenticated')::text,true);
   v:=public.record_quality_cost(jsonb_build_object(

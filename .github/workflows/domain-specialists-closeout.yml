@@ -62,7 +62,7 @@ jobs:
       - run: npm ci --no-audit --no-fund
 
       - name: Static specialist contracts
-        run: npx vitest run src/lib/domain-specialists/domain-specialists.test.ts src/lib/industry-profiles/industry-profiles.test.ts src/test/domainSpecialistContract.test.ts src/lib/quality-management/quality-management.test.ts src/services/qualityManagementService.test.ts src/components/QualityManagementWorkbench.test.tsx src/test/qualityManagementContract.test.ts
+        run: npx vitest run src/lib/domain-specialists/domain-specialists.test.ts src/components/DomainSpecialistWorkbench.test.tsx src/lib/industry-profiles/industry-profiles.test.ts src/test/domainSpecialistContract.test.ts src/lib/quality-management/quality-management.test.ts src/services/qualityManagementService.test.ts src/components/QualityManagementWorkbench.test.tsx src/test/qualityManagementContract.test.ts
 
       - uses: supabase/setup-cli@3c2f5e2ae34c34e428e8e206e2c4d21fa2d20fbf # v2.1.1
         with:

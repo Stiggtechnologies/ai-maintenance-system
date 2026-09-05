@@ -13,6 +13,7 @@ export interface DomainSpecialistRunRow {
   method_key: string;
   model_key: string;
   model_version: string;
+  required_reviewer_role_key: string;
   result_envelope: DomainSpecialistResult;
   evidence_item_ids: string[];
   run_status: "blocked" | "draft" | "reviewed" | "needs_changes" | "rejected";
@@ -44,12 +45,11 @@ export function previewDomainSpecialist(
 export async function recordDomainSpecialistRun(
   riskId: string,
   request: DomainSpecialistRequest,
-  evidenceItemIds: string[],
 ): Promise<RecordedRunResponse> {
   const { data, error } = await supabase.functions.invoke(
     "domain-specialist-run",
     {
-      body: { riskId, request, evidenceItemIds },
+      body: { riskId, request },
     },
   );
   if (error) throw new Error(`Could not execute specialist: ${error.message}`);
@@ -66,7 +66,7 @@ export async function getDomainSpecialistRuns(
   const { data, error } = await supabase
     .from("domain_specialist_runs")
     .select(
-      "id,risk_id,asset_id,module_key,method_key,model_key,model_version,result_envelope,evidence_item_ids,run_status,authoritative,human_approval_required,created_at,reviewed_at,review_note,review_outcome",
+      "id,risk_id,asset_id,module_key,method_key,model_key,model_version,required_reviewer_role_key,result_envelope,evidence_item_ids,run_status,authoritative,human_approval_required,created_at,reviewed_at,review_note,review_outcome",
     )
     .eq("risk_id", riskId)
     .order("created_at", { ascending: false })

@@ -9,6 +9,7 @@ function evidenceFor(required: string[]) {
   return required.map((key) => ({
     key,
     sourceReference: `evidence://${key}/controlled-record`,
+    evidenceItemId: "11111111-1111-4111-8111-111111111111",
   }));
 }
 
@@ -25,6 +26,10 @@ describe("domain-depth specialist registry", () => {
     expect(methods).toHaveLength(29);
     expect(new Set(methods).size).toBe(methods.length);
     expect(registeredDomainEvaluatorKeys()).toEqual([...methods].sort());
+    expect(
+      new Set(DOMAIN_SPECIALIST_MODULES.map((module) => module.reviewerRoleKey))
+        .size,
+    ).toBe(14);
   });
 
   it("executes every governed example without claiming authority", () => {
@@ -173,5 +178,139 @@ describe("domain-depth specialist registry", () => {
     expect(result.status).toBe("draft");
     expect(result.metrics[0].value).toBeNull();
     expect(result.gaps[0]).toMatch(/remaining life is blocked/);
+  });
+
+  it("requires an explicit canonical evidence binding for every evidence key", () => {
+    const method = DOMAIN_SPECIALIST_MODULES[0].methods[0];
+    const evidence = evidenceFor(method.requiredEvidence);
+    evidence[0] = { ...evidence[0], evidenceItemId: "" };
+    const result = evaluateDomainSpecialist({
+      moduleKey: "oil-sands-tailings",
+      methodKey: method.key,
+      inputs: method.exampleInputs,
+      evidence,
+    });
+    expect(result.status).toBe("blocked");
+    expect(result.gaps).toContain(
+      "Missing canonical evidence binding: geotechnical-model.",
+    );
+  });
+
+  it("does not treat missing GxP change-control state as closed", () => {
+    const module = DOMAIN_SPECIALIST_MODULES.find(
+      (candidate) => candidate.key === "pharmaceutical-quality",
+    )!;
+    const method = module.methods.find(
+      (candidate) => candidate.key === "gxp-validation",
+    )!;
+    const result = evaluateDomainSpecialist({
+      moduleKey: module.key,
+      methodKey: method.key,
+      inputs: {
+        requirements: [
+          {
+            id: "URS-1",
+            inScope: true,
+            testReference: "OQ-12",
+            result: "passed",
+            approved: true,
+          },
+        ],
+      },
+      evidence: evidenceFor(method.requiredEvidence),
+    });
+    expect(result.status).toBe("draft");
+    expect(
+      result.metrics.find((metric) => metric.key === "coverage")?.value,
+    ).toBe(0);
+    expect(result.gaps[0]).toMatch(/change-control state/);
+  });
+
+  it("blocks an empty applicable airworthiness scope", () => {
+    const module = DOMAIN_SPECIALIST_MODULES.find(
+      (candidate) => candidate.key === "aviation-airworthiness",
+    )!;
+    const method = module.methods.find(
+      (candidate) => candidate.key === "airworthiness-compliance",
+    )!;
+    const result = evaluateDomainSpecialist({
+      moduleKey: module.key,
+      methodKey: method.key,
+      inputs: { instructions: [{ id: "AD-1", applicable: false }] },
+      evidence: evidenceFor(method.requiredEvidence),
+    });
+    expect(result.status).toBe("blocked");
+    expect(result.gaps[0]).toMatch(/scope must contain at least one record/);
+  });
+
+  it("blocks duplicate line-balancing task identifiers", () => {
+    const module = DOMAIN_SPECIALIST_MODULES.find(
+      (candidate) => candidate.key === "manufacturing-operations",
+    )!;
+    const method = module.methods.find(
+      (candidate) => candidate.key === "line-balancing",
+    )!;
+    const result = evaluateDomainSpecialist({
+      moduleKey: module.key,
+      methodKey: method.key,
+      inputs: {
+        availableMinutes: 60,
+        requiredUnits: 10,
+        tasks: [
+          { id: "A", minutes: 2, predecessors: [] },
+          { id: "A", minutes: 3, predecessors: [] },
+        ],
+      },
+      evidence: evidenceFor(method.requiredEvidence),
+    });
+    expect(result.status).toBe("blocked");
+    expect(result.gaps[0]).toMatch(/duplicate ID A/);
+  });
+
+  it("blocks negative route values and separates travel time from cost", () => {
+    const module = DOMAIN_SPECIALIST_MODULES.find(
+      (candidate) => candidate.key === "transport-logistics",
+    )!;
+    const method = module.methods.find(
+      (candidate) => candidate.key === "route-depot-optimization",
+    )!;
+    const inputs = structuredClone(method.exampleInputs);
+    (inputs.travelCosts as Record<string, number>)["D:A"] = -10;
+    const result = evaluateDomainSpecialist({
+      moduleKey: module.key,
+      methodKey: method.key,
+      inputs,
+      evidence: evidenceFor(method.requiredEvidence),
+    });
+    expect(result.status).toBe("blocked");
+    expect(result.gaps[0]).toMatch(/travel cost must not be negative/);
+  });
+
+  it("blocks factorial route searches above the bounded limit", () => {
+    const module = DOMAIN_SPECIALIST_MODULES.find(
+      (candidate) => candidate.key === "transport-logistics",
+    )!;
+    const method = module.methods.find(
+      (candidate) => candidate.key === "route-depot-optimization",
+    )!;
+    const result = evaluateDomainSpecialist({
+      moduleKey: module.key,
+      methodKey: method.key,
+      inputs: {
+        stops: Array.from({ length: 9 }, (_, index) => ({
+          id: `S-${index}`,
+          demand: 1,
+          serviceMinutes: 1,
+        })),
+        depots: [{ id: "D", capacity: 20, availableMinutes: 500 }],
+        travelCosts: { "D:S-0": 1 },
+        travelMinutes: { "D:S-0": 1 },
+      },
+      evidence: evidenceFor(method.requiredEvidence),
+    });
+    expect(result.status).toBe("blocked");
+    expect(result.gaps).toContain(
+      "Exact route optimization is limited to 8 stops.",
+    );
   });
 });

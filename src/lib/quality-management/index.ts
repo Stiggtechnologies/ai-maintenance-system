@@ -275,12 +275,10 @@ export function computeQualityScorecard(input: {
   };
 
   for (const defect of input.defects) {
-    if ((defect.scrapCost ?? 0) > 0) {
+    const scrapCost = safeNonNegative(defect.scrapCost ?? 0, "scrapCost");
+    if (scrapCost > 0) {
       if (!defect.currency) throw new Error("Scrap cost requires a currency.");
-      bucket(defect.currency).internalFailure += safeNonNegative(
-        defect.scrapCost!,
-        "scrapCost",
-      );
+      bucket(defect.currency).internalFailure += scrapCost;
     }
   }
   for (const rework of input.reworkCosts) {

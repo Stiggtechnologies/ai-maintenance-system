@@ -70,7 +70,7 @@ APPROVED=$(rpc "$ADMIN" approve_quality_requirement "{\"p_id\":$REQ_ID,\"p_note\
 
 ITP_PAYLOAD=$(PROJECT="$PROJECT" REQ_ID="$REQ_ID" python3 - <<'PY'
 import json,os
-print(json.dumps({'p_record':{'itpRef':'Q7D-ITP-1','title':'CI fabrication ITP','revision':'A','scope':'Fabrication through final release','procedureReference':'Q7D-QP-1 revision A','projectId':int(os.environ['PROJECT']),'points':[{'sequenceNo':10,'requirementId':int(os.environ['REQ_ID']),'controlType':'hold','activity':'Final dimensional inspection','acceptanceCriterion':'All controlled dimensions are within drawing tolerance.','inspectorRole':'quality_inspector','witnessRole':'quality_manager'}]}}))
+print(json.dumps({'p_record':{'itpRef':'Q7D-ITP-1','title':'CI fabrication ITP','revision':'A','scope':'Fabrication through final release','procedureReference':'Q7D-QP-1 revision A','projectId':int(os.environ['PROJECT']),'points':[{'sequenceNo':10,'requirementId':int(os.environ['REQ_ID']),'controlType':'hold','activity':'Final dimensional inspection','acceptanceCriterion':'All controlled dimensions are within drawing tolerance.','inspectorRole':'reliability_engineer','witnessRole':'admin'}]}}))
 PY
 )
 ITP_RESULT=$(rpc "$DEMO" record_quality_itp "$ITP_PAYLOAD"); noerr "$ITP_RESULT"
@@ -78,6 +78,8 @@ ITP_ID=$(field "$ITP_RESULT" id); test -n "$ITP_ID"
 ITP_APPROVED=$(rpc "$ADMIN" approve_quality_itp "{\"p_id\":$ITP_ID,\"p_note\":\"Every point, criterion, role and requirement independently reviewed.\"}"); noerr "$ITP_APPROVED"
 POINT_ID=$(PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -Atc "select id from quality_itp_points where itp_id=$ITP_ID and sequence_no=10;")
 
+WRONG_INSPECTOR=$(rpc "$ADMIN" record_quality_itp_point_result "{\"p_point_id\":$POINT_ID,\"p_result\":\"pass\",\"p_evidence_item_id\":\"$EVIDENCE\",\"p_note\":\"Unassigned role attempts this controlled inspection.\"}")
+expect_error "$WRONG_INSPECTOR" 'requires assigned role reliability_engineer'
 INSPECTED=$(rpc "$DEMO" record_quality_itp_point_result "{\"p_point_id\":$POINT_ID,\"p_result\":\"pass\",\"p_evidence_item_id\":\"$EVIDENCE\",\"p_note\":\"Measured result checked against controlled criterion.\"}"); noerr "$INSPECTED"
 test "$(field "$INSPECTED" status)" = 'awaiting_release'
 SELF_HOLD=$(rpc "$DEMO" release_quality_itp_point "{\"p_point_id\":$POINT_ID,\"p_decision\":\"release\",\"p_witness_attested\":true,\"p_note\":\"Author attempts release of their own hold-point inspection.\"}")
