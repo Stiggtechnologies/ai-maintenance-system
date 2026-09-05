@@ -3,7 +3,7 @@ import type {
   DomainMethodDefinition,
   DomainSpecialistModule,
   DomainSpecialistModuleKey,
-} from "./types";
+} from "./types.ts";
 
 const n = (
   key: string,

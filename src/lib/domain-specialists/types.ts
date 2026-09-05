@@ -1,4 +1,4 @@
-import type { TemplateIndustryCode } from "../industry-catalog";
+import type { TemplateIndustryCode } from "../industry-catalog.ts";
 
 export type DomainSpecialistModuleKey =
   | "oil-sands-tailings"
