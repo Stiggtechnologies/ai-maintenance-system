@@ -1,0 +1,1739 @@
+import type {
+  DomainInputDefinition,
+  DomainMethodDefinition,
+  DomainSpecialistModule,
+  DomainSpecialistModuleKey,
+} from "./types";
+
+const n = (
+  key: string,
+  label: string,
+  unit: string,
+  description: string,
+): DomainInputDefinition => ({ key, label, kind: "number", unit, description });
+
+const s = (
+  key: string,
+  label: string,
+  description: string,
+): DomainInputDefinition => ({ key, label, kind: "string", description });
+
+const records = (
+  key: string,
+  label: string,
+  description: string,
+): DomainInputDefinition => ({ key, label, kind: "records", description });
+
+const matrix = (
+  key: string,
+  label: string,
+  description: string,
+): DomainInputDefinition => ({ key, label, kind: "matrix", description });
+
+const method = (definition: DomainMethodDefinition): DomainMethodDefinition =>
+  definition;
+
+export const DOMAIN_SPECIALIST_MODULES: DomainSpecialistModule[] = [
+  {
+    key: "oil-sands-tailings",
+    industryCode: "oil_sands",
+    label: "Oil Sands — Tailings Geotechnical Assessment",
+    version: "1.0.0",
+    purpose:
+      "Calculate documented stability margins and instrumentation exceptions for qualified geotechnical review.",
+    dataClasses: ["operational", "safety_critical", "regulatory"],
+    methods: [
+      method({
+        key: "tailings-geotechnical",
+        label: "Tailings geotechnical screening",
+        purpose:
+          "Compute force-based factor of safety and compare it with an approved case-specific acceptance criterion.",
+        kind: "engineering_calculation",
+        algorithm:
+          "Factor of safety = resisting force / driving force; instrument readings are checked against supplied trigger levels.",
+        requiredInputs: [
+          n(
+            "resistingForce",
+            "Resisting force",
+            "kN",
+            "Qualified model output for the assessed section and load case.",
+          ),
+          n(
+            "drivingForce",
+            "Driving force",
+            "kN",
+            "Qualified model output for the same section and load case.",
+          ),
+          n(
+            "minimumFactorOfSafety",
+            "Approved minimum factor of safety",
+            "ratio",
+            "Criterion selected by the responsible geotechnical authority.",
+          ),
+          records(
+            "instruments",
+            "Instrumentation observations",
+            "Named observations with value, approved trigger, unit, and timestamp.",
+          ),
+          s(
+            "loadCase",
+            "Load case",
+            "The assessed construction, water, seismic, or operating case.",
+          ),
+        ],
+        requiredEvidence: [
+          "geotechnical-model",
+          "survey-or-instrumentation",
+          "approved-criteria",
+        ],
+        authorityReferences: [
+          "site tailings governance",
+          "licensed geotechnical design basis",
+          "applicable jurisdictional requirements",
+        ],
+        requiredApproverRole:
+          "Engineer of record / geotechnical technical authority",
+        limitations: [
+          "This is not a slope-stability solver and does not derive soil parameters.",
+          "A passing arithmetic screen is not a declaration of dam safety or regulatory compliance.",
+        ],
+        exampleInputs: {
+          resistingForce: 18200,
+          drivingForce: 12100,
+          minimumFactorOfSafety: 1.5,
+          loadCase: "Approved operating load case",
+          instruments: [
+            {
+              id: "PZ-01",
+              value: 42,
+              trigger: 50,
+              direction: "higher_worse",
+              unit: "kPa",
+              observedAt: "2026-08-01T00:00:00Z",
+            },
+          ],
+        },
+      }),
+    ],
+  },
+  {
+    key: "oil-gas-well-integrity",
+    industryCode: "oil_gas",
+    label: "Oil & Gas — Well Integrity",
+    version: "1.0.0",
+    purpose:
+      "Evaluate barrier-envelope evidence, pressure margins, tests, anomalies, and overdue actions without declaring a well safe.",
+    dataClasses: ["operational", "safety_critical", "regulatory"],
+    methods: [
+      method({
+        key: "well-integrity",
+        label: "Well barrier and pressure-envelope review",
+        purpose:
+          "Check independent barrier coverage and measured pressure against approved operating limits.",
+        kind: "verification",
+        algorithm:
+          "For every phase, require the approved number of verified independent barriers and calculate pressure margin to the supplied limit.",
+        requiredInputs: [
+          records(
+            "barriers",
+            "Barrier elements",
+            "Barrier, phase, independence group, verification status, last test, and evidence reference.",
+          ),
+          records(
+            "pressureObservations",
+            "Pressure observations",
+            "Observed and approved maximum pressure for each monitored annulus or envelope.",
+          ),
+          n(
+            "requiredIndependentBarriers",
+            "Required independent barriers",
+            "count",
+            "Minimum from the operator-approved well integrity standard.",
+          ),
+        ],
+        requiredEvidence: [
+          "well-schematic",
+          "barrier-verification",
+          "pressure-history",
+          "approved-operating-envelope",
+        ],
+        authorityReferences: [
+          "operator well-integrity standard",
+          "approved well programme",
+          "applicable regulator requirements",
+        ],
+        requiredApproverRole: "Well integrity technical authority",
+        limitations: [
+          "Does not infer barrier independence or leak mechanism.",
+          "Does not authorize continued operation, intervention, suspension, or abandonment.",
+        ],
+        exampleInputs: {
+          requiredIndependentBarriers: 2,
+          barriers: [
+            {
+              phase: "production",
+              id: "tubing",
+              independenceGroup: "primary",
+              verified: true,
+            },
+            {
+              phase: "production",
+              id: "packer-casing",
+              independenceGroup: "secondary",
+              verified: true,
+            },
+          ],
+          pressureObservations: [
+            { id: "A-annulus", observed: 3200, limit: 5000, unit: "kPa" },
+          ],
+        },
+      }),
+    ],
+  },
+  {
+    key: "petrochemical-rbi",
+    industryCode: "petrochemical",
+    label: "Petrochemical — RBI Corrosion-Loop Modelling",
+    version: "1.0.0",
+    purpose:
+      "Calculate measured corrosion rates, remaining-life screens, and risk ranking from organization-approved inputs.",
+    dataClasses: ["operational", "safety_critical", "regulatory"],
+    methods: [
+      method({
+        key: "rbi-corrosion-loop",
+        label: "RBI corrosion-loop calculation",
+        purpose:
+          "Trend thickness, calculate remaining life, and combine supplied probability and consequence categories.",
+        kind: "engineering_calculation",
+        algorithm:
+          "Corrosion rate = (previous thickness - current thickness) / elapsed years; remaining life = (current - minimum allowable) / positive rate; risk rank uses the tenant's supplied matrix.",
+        requiredInputs: [
+          records(
+            "circuits",
+            "Corrosion circuits",
+            "Circuit thickness history, elapsed time, minimum allowable thickness, PoF category, and CoF category.",
+          ),
+          matrix(
+            "riskMatrix",
+            "Approved RBI risk matrix",
+            "Organization-approved PoF-by-CoF matrix; no default bands are supplied.",
+          ),
+          n(
+            "inspectionFraction",
+            "Approved inspection fraction",
+            "fraction",
+            "Approved fraction of remaining life used only to screen a candidate next inspection interval.",
+          ),
+        ],
+        requiredEvidence: [
+          "inspection-data",
+          "minimum-thickness-basis",
+          "damage-mechanism-review",
+          "approved-rbi-matrix",
+        ],
+        authorityReferences: [
+          "API 580",
+          "API 581",
+          "site inspection programme",
+          "jurisdictional pressure-equipment requirements",
+        ],
+        requiredApproverRole: "Pressure-equipment / RBI technical authority",
+        limitations: [
+          "This is not a full API 581 implementation.",
+          "It does not calculate minimum allowable thickness, damage factors, PoF, or CoF from first principles.",
+        ],
+        exampleInputs: {
+          inspectionFraction: 0.5,
+          riskMatrix: { "3:C": "high" },
+          circuits: [
+            {
+              id: "CL-01",
+              previousThickness: 9.2,
+              currentThickness: 8.8,
+              elapsedYears: 2,
+              minimumThickness: 6.5,
+              probabilityCategory: "3",
+              consequenceCategory: "C",
+            },
+          ],
+        },
+      }),
+    ],
+  },
+  {
+    key: "utilities-storm-response",
+    industryCode: "utilities",
+    label: "Utilities — Storm Mobilization & Crew Dispatch",
+    version: "1.0.0",
+    purpose:
+      "Prioritize incidents and produce a constraint-feasible draft crew assignment for dispatcher approval.",
+    dataClasses: ["operational", "safety_critical"],
+    methods: [
+      method({
+        key: "storm-crew-dispatch",
+        label: "Storm mobilization and crew dispatch",
+        purpose:
+          "Assign qualified, available crews to prioritized incidents while exposing every unassigned job.",
+        kind: "optimization",
+        algorithm:
+          "Deterministic priority-ordered assignment; for each incident, choose the eligible qualified crew with the lowest supplied travel cost while preserving capacity. Infeasible incidents remain unassigned.",
+        requiredInputs: [
+          records(
+            "incidents",
+            "Storm incidents",
+            "Incident ID, priority/severity, customers affected, required skills, location, and work hours.",
+          ),
+          records(
+            "crews",
+            "Available crews",
+            "Crew ID, skills, available hours, base location, and status.",
+          ),
+          matrix(
+            "travelMinutes",
+            "Travel-time matrix",
+            "Explicit crew-to-incident travel minutes from an approved routing source.",
+          ),
+          matrix(
+            "priorityWeights",
+            "Approved priority weights",
+            "Weights for severity, customers affected, and travel; no values are invented.",
+          ),
+        ],
+        requiredEvidence: [
+          "incident-feed",
+          "crew-roster",
+          "competency-records",
+          "travel-time-source",
+          "dispatch-policy",
+        ],
+        authorityReferences: [
+          "utility emergency-response plan",
+          "switching and safe-work rules",
+          "mutual-aid agreements",
+        ],
+        requiredApproverRole: "System operations / storm incident commander",
+        limitations: [
+          "Does not issue switching orders, energization commands, or crew movement instructions.",
+          "Travel estimates and field hazards must be confirmed by dispatch.",
+        ],
+        exampleInputs: {
+          priorityWeights: { severity: 10, customers: 0.01, travel: 0.1 },
+          incidents: [
+            {
+              id: "I-1",
+              severity: 5,
+              customersAffected: 900,
+              requiredSkills: ["line"],
+              workHours: 4,
+            },
+          ],
+          crews: [
+            {
+              id: "C-1",
+              skills: ["line"],
+              availableHours: 8,
+              status: "available",
+            },
+          ],
+          travelMinutes: { "C-1:I-1": 25 },
+        },
+      }),
+    ],
+  },
+  {
+    key: "manufacturing-operations",
+    industryCode: "manufacturing",
+    label: "Manufacturing — Line Balancing & Robot Health",
+    version: "1.0.0",
+    purpose:
+      "Quantify production-line balance and evidence-based robot health without changing PLC or robot parameters.",
+    dataClasses: ["operational", "safety_critical", "quality"],
+    methods: [
+      method({
+        key: "line-balancing",
+        label: "Production line balancing",
+        purpose:
+          "Calculate takt, theoretical station count, balance efficiency, bottleneck, and a precedence-feasible draft allocation.",
+        kind: "optimization",
+        algorithm:
+          "Takt = available production time / required units; deterministic longest-eligible-task assignment respects precedence and takt capacity.",
+        requiredInputs: [
+          n(
+            "availableMinutes",
+            "Available production time",
+            "min",
+            "Net planned production time for the horizon.",
+          ),
+          n(
+            "requiredUnits",
+            "Required output",
+            "units",
+            "Required good units for the same horizon.",
+          ),
+          records(
+            "tasks",
+            "Work elements",
+            "Task ID, cycle minutes, and predecessor IDs.",
+          ),
+        ],
+        requiredEvidence: [
+          "time-study",
+          "demand-plan",
+          "precedence-definition",
+        ],
+        authorityReferences: [
+          "approved standard work",
+          "site ergonomics and safety requirements",
+          "quality control plan",
+        ],
+        requiredApproverRole:
+          "Manufacturing engineering / operations authority",
+        limitations: [
+          "Does not infer fatigue, ergonomic, quality, buffer, changeover, or stochastic-loss allowances.",
+          "A draft balance does not change approved standard work.",
+        ],
+        exampleInputs: {
+          availableMinutes: 420,
+          requiredUnits: 140,
+          tasks: [
+            { id: "A", minutes: 1.2, predecessors: [] },
+            { id: "B", minutes: 1.5, predecessors: ["A"] },
+          ],
+        },
+      }),
+      method({
+        key: "robot-health",
+        label: "Robot health model",
+        purpose:
+          "Combine normalized condition indicators using approved direction, limits, and weights.",
+        kind: "engineering_calculation",
+        algorithm:
+          "Each signal is normalized between approved healthy and critical bounds; weighted degradation is reported only when all weights and bounds are supplied.",
+        requiredInputs: [
+          records(
+            "signals",
+            "Robot condition signals",
+            "Signal, observed value, healthy bound, critical bound, direction, unit, and approved weight.",
+          ),
+        ],
+        requiredEvidence: [
+          "robot-controller-history",
+          "condition-monitoring",
+          "maintenance-history",
+          "approved-signal-model",
+        ],
+        authorityReferences: [
+          "OEM maintenance instructions",
+          "validated site condition-monitoring model",
+          "machinery safety controls",
+        ],
+        requiredApproverRole: "Automation / robot reliability authority",
+        limitations: [
+          "No universal robot-health weights or alarm limits are embedded.",
+          "Does not bypass safety-rated controls or command the robot.",
+        ],
+        exampleInputs: {
+          signals: [
+            {
+              id: "axis-2-torque",
+              observed: 46,
+              healthy: 30,
+              critical: 60,
+              direction: "higher_worse",
+              weight: 1,
+              unit: "%",
+            },
+          ],
+        },
+      }),
+    ],
+  },
+  {
+    key: "food-beverage-safety",
+    industryCode: "food_beverage",
+    label: "Food & Beverage — HACCP, CIP & Cold Chain",
+    version: "1.0.0",
+    purpose:
+      "Verify records against approved food-safety and sanitation limits without releasing product.",
+    dataClasses: ["operational", "safety_critical", "quality", "regulatory"],
+    methods: [
+      method({
+        key: "haccp-verification",
+        label: "HACCP critical-control-point verification",
+        purpose:
+          "Check monitored CCP observations against the hazard plan's approved critical limits and corrective-action records.",
+        kind: "verification",
+        algorithm:
+          "Evaluate every observation using its supplied lower/upper critical limit and require disposition evidence for every excursion.",
+        requiredInputs: [
+          records(
+            "criticalControlPoints",
+            "CCP observations",
+            "CCP, value, approved lower/upper limits, monitoring time, deviation and disposition references.",
+          ),
+        ],
+        requiredEvidence: [
+          "approved-haccp-plan",
+          "monitoring-records",
+          "corrective-action-records",
+          "verification-records",
+        ],
+        authorityReferences: [
+          "organization-approved HACCP plan",
+          "applicable food-safety authority requirements",
+        ],
+        requiredApproverRole: "Food-safety / HACCP plan authority",
+        limitations: [
+          "Does not create hazards or critical limits.",
+          "Does not release, hold, destroy, or rework product.",
+        ],
+        exampleInputs: {
+          criticalControlPoints: [
+            {
+              id: "CCP-1",
+              value: 74,
+              lowerLimit: 72,
+              unit: "°C",
+              dispositionReference: null,
+            },
+          ],
+        },
+      }),
+      method({
+        key: "cip-validation",
+        label: "Clean-in-place cycle verification",
+        purpose:
+          "Verify actual time, temperature, concentration, flow, and sequence against an approved recipe envelope.",
+        kind: "verification",
+        algorithm:
+          "Each required phase and parameter must remain inside the supplied validated envelope for the required duration.",
+        requiredInputs: [
+          records(
+            "phases",
+            "CIP phase results",
+            "Phase and actual/required duration, temperature, concentration, flow, sequence, and calibrated-sensor status.",
+          ),
+        ],
+        requiredEvidence: [
+          "validated-cip-recipe",
+          "cycle-historian",
+          "instrument-calibration",
+          "deviation-records",
+        ],
+        authorityReferences: [
+          "site sanitation validation protocol",
+          "applicable food-safety requirements",
+        ],
+        requiredApproverRole: "Sanitation / quality authority",
+        limitations: [
+          "Does not establish microbiological lethality or cleaning acceptance criteria.",
+          "Does not release equipment or product.",
+        ],
+        exampleInputs: {
+          phases: [
+            {
+              id: "caustic",
+              actualDuration: 22,
+              minimumDuration: 20,
+              actualTemperature: 75,
+              minimumTemperature: 72,
+              actualConcentration: 1.8,
+              minimumConcentration: 1.5,
+              actualFlow: 120,
+              minimumFlow: 110,
+              sequence: 2,
+              expectedSequence: 2,
+              sensorsCalibrated: true,
+            },
+          ],
+        },
+      }),
+      method({
+        key: "cold-chain",
+        label: "Cold-chain excursion model",
+        purpose:
+          "Integrate excursion exposure against an approved product-specific limit and identify affected lots.",
+        kind: "engineering_calculation",
+        algorithm:
+          "Excursion dose = sum(max(0, observed temperature - approved limit) × duration); compare only with a supplied product-specific allowable dose.",
+        requiredInputs: [
+          records(
+            "segments",
+            "Time-temperature segments",
+            "Temperature, duration, product limit, lot, sensor, and timestamp.",
+          ),
+          n(
+            "allowableExcursionDose",
+            "Approved allowable excursion dose",
+            "°C·min",
+            "Product-specific limit approved by quality.",
+          ),
+        ],
+        requiredEvidence: [
+          "temperature-history",
+          "sensor-calibration",
+          "lot-traceability",
+          "approved-stability-or-shelf-life-basis",
+        ],
+        authorityReferences: [
+          "product specification",
+          "approved cold-chain procedure",
+          "applicable food-safety requirements",
+        ],
+        requiredApproverRole: "Quality / food-safety disposition authority",
+        limitations: [
+          "The dose model is a screening integral, not a microbial growth or shelf-life model.",
+          "Only an approved product-specific model may support disposition.",
+        ],
+        exampleInputs: {
+          allowableExcursionDose: 90,
+          segments: [
+            { lot: "L-1", temperature: 9, limit: 5, durationMinutes: 15 },
+          ],
+        },
+      }),
+    ],
+  },
+  {
+    key: "pharmaceutical-quality",
+    industryCode: "pharmaceuticals",
+    label: "Pharmaceuticals — GxP Validation & Batch Records",
+    version: "1.0.0",
+    purpose:
+      "Trace requirements, tests, deviations, approvals, and batch-record completeness while preserving qualified-person release authority.",
+    dataClasses: ["operational", "quality", "regulatory"],
+    methods: [
+      method({
+        key: "gxp-validation",
+        label: "GxP validation traceability",
+        purpose:
+          "Verify requirements-to-test-to-result trace coverage, approved deviations, and validated-state evidence.",
+        kind: "traceability",
+        algorithm:
+          "Every in-scope requirement must have an approved test and passing result or approved deviation; open changes and periodic reviews remain visible.",
+        requiredInputs: [
+          records(
+            "requirements",
+            "Validation requirements",
+            "Requirement ID, risk class, test reference, result, deviation, approval, and change-control state.",
+          ),
+        ],
+        requiredEvidence: [
+          "validation-plan",
+          "requirements-specification",
+          "test-protocols-and-results",
+          "deviations",
+          "change-control",
+        ],
+        authorityReferences: [
+          "organization quality system",
+          "applicable GxP requirements",
+          "validated-system lifecycle procedures",
+        ],
+        requiredApproverRole: "Quality assurance / validation authority",
+        limitations: [
+          "Does not declare a system validated or compliant.",
+          "Electronic-record controls and jurisdictional applicability require quality review.",
+        ],
+        exampleInputs: {
+          requirements: [
+            {
+              id: "URS-1",
+              inScope: true,
+              testReference: "OQ-12",
+              result: "passed",
+              deviationStatus: null,
+              approved: true,
+            },
+          ],
+        },
+      }),
+      method({
+        key: "batch-record",
+        label: "Batch-record completeness and exception review",
+        purpose:
+          "Check required batch-record fields, signatures, material genealogy, results, and deviation disposition.",
+        kind: "traceability",
+        algorithm:
+          "Evaluate an approved required-record manifest; any missing, unsigned, out-of-specification, or unresolved-deviation item blocks a clean draft result.",
+        requiredInputs: [
+          records(
+            "recordItems",
+            "Batch record items",
+            "Required item, present, attributable signature, result status, material genealogy, and deviation disposition.",
+          ),
+        ],
+        requiredEvidence: [
+          "master-batch-record",
+          "executed-batch-record",
+          "laboratory-results",
+          "deviation-and-oos-records",
+        ],
+        authorityReferences: [
+          "approved master batch record",
+          "organization quality system",
+          "applicable GxP requirements",
+        ],
+        requiredApproverRole: "Qualified batch-release / quality authority",
+        limitations: [
+          "Does not release a batch or resolve deviations/OOS results.",
+          "Completeness does not prove data integrity or product quality.",
+        ],
+        exampleInputs: {
+          recordItems: [
+            {
+              id: "weighing",
+              required: true,
+              present: true,
+              signed: true,
+              resultStatus: "accepted",
+              genealogyComplete: true,
+              deviationStatus: null,
+            },
+          ],
+        },
+      }),
+    ],
+  },
+  {
+    key: "transport-logistics",
+    industryCode: "transportation_logistics",
+    label: "Transportation & Logistics — Route, Depot & Inspection",
+    version: "1.0.0",
+    purpose:
+      "Optimize bounded routes and expose inspection-due constraints for dispatcher and regulatory review.",
+    dataClasses: ["operational", "safety_critical", "regulatory"],
+    methods: [
+      method({
+        key: "route-depot-optimization",
+        label: "Route and depot optimization",
+        purpose:
+          "Select a feasible depot and shortest bounded route from an explicit cost matrix.",
+        kind: "optimization",
+        algorithm:
+          "Enumerate all routes for at most 10 stops, reject capacity/time-window violations, and return the minimum supplied travel cost with deterministic tie-breaking.",
+        requiredInputs: [
+          records(
+            "stops",
+            "Stops",
+            "Stop ID, demand, service duration, and optional time window.",
+          ),
+          records(
+            "depots",
+            "Depots",
+            "Depot ID, vehicle capacity, available route minutes, and start/end nodes.",
+          ),
+          matrix(
+            "travelCosts",
+            "Travel cost matrix",
+            "Directed travel time or cost for every required node pair.",
+          ),
+        ],
+        requiredEvidence: [
+          "orders-or-service-demand",
+          "depot-and-fleet-capacity",
+          "approved-route-cost-source",
+          "operating-constraints",
+        ],
+        authorityReferences: [
+          "carrier operating rules",
+          "driver-hours and route restrictions",
+          "dangerous-goods or special-load requirements where applicable",
+        ],
+        requiredApproverRole:
+          "Fleet dispatcher / transport operations authority",
+        limitations: [
+          "Exact enumeration is intentionally limited to 10 stops; larger problems are blocked rather than falsely labelled optimized.",
+          "Does not dispatch vehicles or override driver/safety constraints.",
+        ],
+        exampleInputs: {
+          stops: [
+            { id: "A", demand: 2, serviceMinutes: 10 },
+            { id: "B", demand: 1, serviceMinutes: 5 },
+          ],
+          depots: [{ id: "D", capacity: 5, availableMinutes: 240 }],
+          travelCosts: {
+            "D:A": 20,
+            "A:B": 10,
+            "B:D": 20,
+            "D:B": 15,
+            "B:A": 10,
+            "A:D": 25,
+          },
+        },
+      }),
+      method({
+        key: "inspection-scheduling",
+        label: "Regulatory inspection scheduling",
+        purpose:
+          "Calculate due state and produce a priority-ordered draft inspection schedule from approved intervals and capacity.",
+        kind: "optimization",
+        algorithm:
+          "Due date = last compliant inspection + approved interval; overdue and soonest-due assets consume explicit daily inspection capacity first.",
+        requiredInputs: [
+          records(
+            "assets",
+            "Fleet inspection obligations",
+            "Asset, last compliant inspection, approved interval days, duration, priority, and out-of-service state.",
+          ),
+          n(
+            "dailyCapacityHours",
+            "Daily inspection capacity",
+            "h/day",
+            "Qualified inspection capacity available.",
+          ),
+          s(
+            "planningStart",
+            "Planning start",
+            "ISO date for the schedule horizon.",
+          ),
+        ],
+        requiredEvidence: [
+          "inspection-history",
+          "applicable-interval-register",
+          "fleet-status",
+          "qualified-inspector-capacity",
+        ],
+        authorityReferences: [
+          "applicable transport inspection rules",
+          "operator maintenance programme",
+        ],
+        requiredApproverRole: "Fleet compliance / maintenance authority",
+        limitations: [
+          "Does not derive statutory intervals or return an asset to service.",
+          "Calendar output remains subject to shop, parts, access, and defect constraints.",
+        ],
+        exampleInputs: {
+          planningStart: "2026-09-01",
+          dailyCapacityHours: 8,
+          assets: [
+            {
+              id: "TR-1",
+              lastInspection: "2026-01-01",
+              intervalDays: 180,
+              durationHours: 4,
+              priority: 2,
+            },
+          ],
+        },
+      }),
+    ],
+  },
+  {
+    key: "aviation-airworthiness",
+    industryCode: "aviation",
+    label: "Aviation — Airworthiness, MSG-3 & Life-Limited Parts",
+    version: "1.0.0",
+    purpose:
+      "Expose airworthiness applicability, maintenance-programme, and back-to-birth traceability gaps without signing a release.",
+    dataClasses: ["operational", "safety_critical", "regulatory"],
+    methods: [
+      method({
+        key: "airworthiness-compliance",
+        label: "Airworthiness directive and service-bulletin trace",
+        purpose:
+          "Check applicability, compliance method, due limits, recurring action, and release evidence.",
+        kind: "traceability",
+        algorithm:
+          "Every applicable instruction must have an approved compliance state, method, effectivity match, completion evidence, and next due value where recurring.",
+        requiredInputs: [
+          records(
+            "instructions",
+            "Airworthiness instructions",
+            "Identifier, revision, applicability, effectivity basis, compliance state/method/evidence, and recurring due values.",
+          ),
+        ],
+        requiredEvidence: [
+          "current-airworthiness-publications",
+          "aircraft-configuration",
+          "technical-records",
+          "authorized-release-records",
+        ],
+        authorityReferences: [
+          "applicable civil or military aviation authority",
+          "approved maintenance programme",
+          "type-certificate holder instructions",
+        ],
+        requiredApproverRole:
+          "Authorized airworthiness / maintenance release authority",
+        limitations: [
+          "Does not determine legal applicability or sign an airworthiness release.",
+          "Service-bulletin status must not be conflated with mandatory directive status.",
+        ],
+        exampleInputs: {
+          instructions: [
+            {
+              id: "AD-EXAMPLE",
+              applicable: true,
+              revisionCurrent: true,
+              complianceState: "complied",
+              methodApproved: true,
+              evidenceReference: "WO-1",
+              recurring: false,
+            },
+          ],
+        },
+      }),
+      method({
+        key: "msg3-trace",
+        label: "MSG-3 maintenance-programme trace",
+        purpose:
+          "Verify that systems/powerplant, structural, and zonal analyses are traceable to approved tasks and escalation evidence.",
+        kind: "traceability",
+        algorithm:
+          "Every in-scope MSI/SSI/zone decision record must preserve failure effect, consequence branch, task applicability/effectiveness, interval basis, and approval status.",
+        requiredInputs: [
+          records(
+            "decisionRecords",
+            "MSG-3 decision records",
+            "Item/zone, category, effect, consequence branch, task, applicability, effectiveness, interval basis, and approval.",
+          ),
+        ],
+        requiredEvidence: [
+          "approved-msg3-policy",
+          "configuration-baseline",
+          "decision-records",
+          "in-service-data",
+        ],
+        authorityReferences: [
+          "operator-approved MSG-3 process",
+          "maintenance review board / authority requirements",
+        ],
+        requiredApproverRole: "Maintenance-programme / airworthiness authority",
+        limitations: [
+          "Does not supply MSG-3 decision logic from copyrighted source material.",
+          "Does not approve tasks or intervals.",
+        ],
+        exampleInputs: {
+          decisionRecords: [
+            {
+              id: "MSI-1",
+              category: "systems",
+              effectDefined: true,
+              consequenceBranch: "operational",
+              taskDefined: true,
+              applicabilityJustified: true,
+              effectivenessJustified: true,
+              intervalBasis: "fleet data",
+              approved: false,
+            },
+          ],
+        },
+      }),
+      method({
+        key: "life-limited-part",
+        label: "Life-limited-part back-to-birth traceability",
+        purpose:
+          "Calculate remaining approved life only when identity, complete history, units, and current limit are traceable.",
+        kind: "engineering_calculation",
+        algorithm:
+          "Remaining life = approved current limit - accumulated authenticated usage; any genealogy or unit gap blocks a usable result.",
+        requiredInputs: [
+          records(
+            "parts",
+            "Life-limited parts",
+            "Part/serial, approved limit and unit, authenticated life segments, configuration, repairs, and back-to-birth completeness.",
+          ),
+        ],
+        requiredEvidence: [
+          "authorized-component-records",
+          "back-to-birth-history",
+          "current-approved-life-limit",
+          "installation-configuration",
+        ],
+        authorityReferences: [
+          "applicable airworthiness limitations",
+          "type-certificate holder data",
+          "approved repair data",
+        ],
+        requiredApproverRole:
+          "Authorized airworthiness records / release authority",
+        limitations: [
+          "Does not authenticate source records or reconcile incompatible life units.",
+          "A computed remainder is not installation or release authorization.",
+        ],
+        exampleInputs: {
+          parts: [
+            {
+              partNumber: "PN-1",
+              serialNumber: "SN-1",
+              approvedLimit: 20000,
+              unit: "cycles",
+              authenticatedUsage: [7000, 5000],
+              backToBirthComplete: true,
+              configurationCurrent: true,
+            },
+          ],
+        },
+      }),
+    ],
+  },
+  {
+    key: "marine-shipping",
+    industryCode: "marine_shipping",
+    label: "Marine Shipping — Surveys, Propulsion & Voyage",
+    version: "1.0.0",
+    purpose:
+      "Track class-survey due state and quantify propulsion/voyage alternatives for authorized marine review.",
+    dataClasses: ["operational", "safety_critical", "regulatory"],
+    methods: [
+      method({
+        key: "class-survey-scheduling",
+        label: "Class survey scheduling",
+        purpose:
+          "Calculate due/overdue status and docking-window fit from class-approved survey intervals.",
+        kind: "optimization",
+        algorithm:
+          "Due date = last credited survey + supplied interval; schedule against explicit docking windows and survey duration without changing class status.",
+        requiredInputs: [
+          records(
+            "surveys",
+            "Survey obligations",
+            "Survey item, last credited date, approved interval, duration, window, and prerequisites.",
+          ),
+          records(
+            "dockingWindows",
+            "Docking windows",
+            "Start/end and available survey capacity.",
+          ),
+        ],
+        requiredEvidence: [
+          "class-status-report",
+          "credited-survey-history",
+          "approved-survey-cycle",
+          "docking-plan",
+        ],
+        authorityReferences: [
+          "vessel class society rules",
+          "flag-state requirements",
+          "statutory survey programme",
+        ],
+        requiredApproverRole: "Class / marine technical authority",
+        limitations: [
+          "Does not interpret class rules or credit a survey.",
+          "The class society and flag administration remain authoritative.",
+        ],
+        exampleInputs: {
+          surveys: [
+            {
+              id: "annual",
+              lastCredited: "2025-10-01",
+              intervalDays: 365,
+              durationHours: 8,
+            },
+          ],
+          dockingWindows: [
+            {
+              id: "W-1",
+              start: "2026-09-20",
+              end: "2026-09-30",
+              capacityHours: 24,
+            },
+          ],
+        },
+      }),
+      method({
+        key: "propulsion-efficiency",
+        label: "Hull and propulsion efficiency",
+        purpose:
+          "Normalize observed propulsion performance against an approved comparable baseline.",
+        kind: "engineering_calculation",
+        algorithm:
+          "Compute energy/fuel per distance and percent deviation from a supplied speed, draft, weather, and load-matched baseline.",
+        requiredInputs: [
+          records(
+            "observations",
+            "Voyage observations",
+            "Fuel/energy, distance, speed, draft/load, weather bin, and matching baseline intensity.",
+          ),
+        ],
+        requiredEvidence: [
+          "fuel-or-energy-metering",
+          "distance-and-speed",
+          "draft-and-load",
+          "weather-current",
+          "approved-baseline-model",
+        ],
+        authorityReferences: [
+          "vessel energy-management plan",
+          "OEM propulsion limits",
+          "applicable emissions requirements",
+        ],
+        requiredApproverRole:
+          "Marine engineering / vessel performance authority",
+        limitations: [
+          "Does not attribute degradation to hull, propeller, engine, weather, or measurement error without discriminating evidence.",
+          "Does not change engine settings or voyage plan.",
+        ],
+        exampleInputs: {
+          observations: [
+            {
+              id: "leg-1",
+              energy: 1200,
+              distanceNm: 100,
+              baselineEnergyPerNm: 10,
+              speedKnots: 14,
+              draftM: 9,
+            },
+          ],
+        },
+      }),
+      method({
+        key: "voyage-optimization",
+        label: "Voyage option optimization",
+        purpose:
+          "Rank feasible route/speed options using explicit safety, schedule, fuel, emissions, and weather constraints.",
+        kind: "optimization",
+        algorithm:
+          "Reject options that violate supplied hard constraints, min-max normalize the feasible option set, then minimize an approved weighted objective over cost, duration, energy, and emissions.",
+        requiredInputs: [
+          records(
+            "options",
+            "Voyage options",
+            "Option, duration, cost, energy, emissions, weather margin, under-keel margin, and constraint flags.",
+          ),
+          matrix(
+            "weights",
+            "Approved objective weights",
+            "Non-negative weights for cost, duration, energy, and emissions.",
+          ),
+        ],
+        requiredEvidence: [
+          "approved-route-options",
+          "weather-and-current-forecast",
+          "vessel-limitations",
+          "port-and-channel-constraints",
+          "charter-or-schedule-obligations",
+        ],
+        authorityReferences: [
+          "master's overriding authority",
+          "company voyage planning procedure",
+          "applicable navigation and emissions requirements",
+        ],
+        requiredApproverRole: "Vessel master / marine operations authority",
+        limitations: [
+          "Does not navigate, command speed, or override the master.",
+          "Forecast and chart validity remain external controls.",
+        ],
+        exampleInputs: {
+          weights: { cost: 1, duration: 2, energy: 1, emissions: 1 },
+          options: [
+            {
+              id: "north",
+              durationHours: 30,
+              cost: 50000,
+              energy: 300,
+              emissions: 80,
+              constraintsSatisfied: true,
+            },
+          ],
+        },
+      }),
+    ],
+  },
+  {
+    key: "data-center-thermal",
+    industryCode: "data_centers",
+    label: "Data Centers — Thermal & Airflow Modelling",
+    version: "1.0.0",
+    purpose:
+      "Calculate rack heat balance, airflow demand, capacity margin, and sensor exceptions without changing controls.",
+    dataClasses: ["operational", "safety_critical"],
+    methods: [
+      method({
+        key: "thermal-airflow",
+        label: "Thermal and airflow balance",
+        purpose:
+          "Compute required mass/volumetric airflow and compare observed rack/cooling capacity with approved thermal envelopes.",
+        kind: "engineering_calculation",
+        algorithm:
+          "Required mass flow = heat load / (air specific heat × approved temperature rise); compare with measured airflow and N+X available cooling capacity.",
+        requiredInputs: [
+          n(
+            "heatLoadKw",
+            "IT heat load",
+            "kW",
+            "Measured or approved design heat load.",
+          ),
+          n(
+            "airSpecificHeat",
+            "Air specific heat",
+            "kJ/kg·K",
+            "Approved property for the model conditions.",
+          ),
+          n(
+            "airDensity",
+            "Air density",
+            "kg/m³",
+            "Approved property for altitude and conditions.",
+          ),
+          n(
+            "allowedTemperatureRise",
+            "Allowed temperature rise",
+            "K",
+            "Approved supply-to-return design envelope.",
+          ),
+          n(
+            "measuredAirflow",
+            "Measured airflow",
+            "m³/s",
+            "Measured delivered airflow.",
+          ),
+          n(
+            "availableCoolingKw",
+            "Available cooling capacity",
+            "kW",
+            "Capacity available in the assessed redundancy state.",
+          ),
+          records(
+            "sensors",
+            "Thermal observations",
+            "Sensor/rack, observed value, approved lower/upper envelope, timestamp, and calibration state.",
+          ),
+        ],
+        requiredEvidence: [
+          "power-and-heat-load",
+          "airflow-measurement",
+          "thermal-sensors",
+          "cooling-topology",
+          "approved-envelopes",
+        ],
+        authorityReferences: [
+          "facility thermal design basis",
+          "equipment environmental specifications",
+          "applicable data-center thermal guidance",
+        ],
+        requiredApproverRole: "Data-center facilities / thermal authority",
+        limitations: [
+          "This is a lumped heat-balance model, not CFD.",
+          "Does not change setpoints, fan speed, containment, or redundancy state.",
+        ],
+        exampleInputs: {
+          heatLoadKw: 500,
+          airSpecificHeat: 1.006,
+          airDensity: 1.18,
+          allowedTemperatureRise: 12,
+          measuredAirflow: 38,
+          availableCoolingKw: 650,
+          sensors: [
+            {
+              id: "rack-1-inlet",
+              value: 24,
+              lowerLimit: 18,
+              upperLimit: 27,
+              calibrated: true,
+            },
+          ],
+        },
+      }),
+    ],
+  },
+  {
+    key: "defense-readiness",
+    industryCode: "defense",
+    label: "Defense — Mission Readiness, Configuration & Classified Deployment",
+    version: "1.0.0",
+    purpose:
+      "Quantify mission-capable coverage and configuration/deployment control gaps while respecting security boundaries.",
+    dataClasses: [
+      "operational",
+      "safety_critical",
+      "security_sensitive",
+      "classified",
+    ],
+    methods: [
+      method({
+        key: "mission-readiness",
+        label: "Mission readiness model",
+        purpose:
+          "Compute mission-capable asset coverage against an approved force-generation requirement and mission profile.",
+        kind: "readiness",
+        algorithm:
+          "For each mission, count assets that are available, configured, qualified, supplied, and within maintenance limits; compare with the supplied required count.",
+        requiredInputs: [
+          records(
+            "missions",
+            "Mission requirements",
+            "Mission ID, required capability tags, required asset count, and time window.",
+          ),
+          records(
+            "assets",
+            "Force elements",
+            "Asset ID, capability tags, availability, configuration, crew qualification, supply, and maintenance-limit state.",
+          ),
+        ],
+        requiredEvidence: [
+          "approved-mission-requirements",
+          "configuration-status",
+          "maintenance-status",
+          "crew-qualification",
+          "supply-readiness",
+        ],
+        authorityReferences: [
+          "command-approved readiness definition",
+          "applicable materiel and operational policy",
+        ],
+        requiredApproverRole:
+          "Designated operational / materiel readiness authority",
+        limitations: [
+          "Does not determine operational suitability, threat outcome, or mission authorization.",
+          "No classified data should enter a deployment not accredited for its classification.",
+        ],
+        exampleInputs: {
+          missions: [
+            { id: "M-1", requiredCapabilities: ["lift"], requiredCount: 2 },
+          ],
+          assets: [
+            {
+              id: "A-1",
+              capabilities: ["lift"],
+              available: true,
+              configurationReady: true,
+              crewQualified: true,
+              supplyReady: true,
+              maintenanceWithinLimit: true,
+            },
+          ],
+        },
+      }),
+      method({
+        key: "milspec-configuration",
+        label: "MIL-SPEC configuration and obsolescence trace",
+        purpose:
+          "Check configuration-item identity, approved baseline, deviation/waiver, part status, and replacement qualification.",
+        kind: "traceability",
+        algorithm:
+          "Every in-scope configuration item must match an approved baseline or carry an authorized deviation; obsolete items require an approved resolution path.",
+        requiredInputs: [
+          records(
+            "configurationItems",
+            "Configuration items",
+            "CI, installed/current baseline, deviation or waiver, obsolescence state, replacement qualification, and evidence.",
+          ),
+        ],
+        requiredEvidence: [
+          "approved-configuration-baseline",
+          "as-maintained-configuration",
+          "deviations-and-waivers",
+          "obsolescence-and-substitution-records",
+        ],
+        authorityReferences: [
+          "contractually applicable MIL specifications and standards",
+          "configuration-management plan",
+          "authorized technical data",
+        ],
+        requiredApproverRole:
+          "Configuration control / designated engineering authority",
+        limitations: [
+          "MIL-SPEC is not a single requirement set; applicability must come from the contract and approved baseline.",
+          "Does not approve deviations, waivers, substitutions, or concessions.",
+        ],
+        exampleInputs: {
+          configurationItems: [
+            {
+              id: "CI-1",
+              installedRevision: "B",
+              approvedRevision: "B",
+              deviationApproved: false,
+              obsolete: false,
+              replacementQualified: null,
+            },
+          ],
+        },
+      }),
+      method({
+        key: "classified-deployment",
+        label: "Classified / air-gapped deployment readiness",
+        purpose:
+          "Verify that the intended deployment has an approved classification boundary, accreditation evidence, controlled interfaces, and offline continuity.",
+        kind: "readiness",
+        algorithm:
+          "All organization-defined accreditation and boundary controls must be evidenced; any egress, unapproved interface, or missing control blocks readiness.",
+        requiredInputs: [
+          records(
+            "controls",
+            "Deployment controls",
+            "Control ID, required, implemented, tested, approved, evidence, and finding.",
+          ),
+          s(
+            "classification",
+            "Data classification",
+            "Organization-assigned classification for the deployment.",
+          ),
+          s(
+            "deploymentZone",
+            "Deployment zone",
+            "Approved network/security zone identifier.",
+          ),
+        ],
+        requiredEvidence: [
+          "authorization-or-accreditation",
+          "system-security-plan",
+          "boundary-and-data-flow",
+          "offline-continuity-test",
+          "supply-chain-approval",
+        ],
+        authorityReferences: [
+          "organization security authority",
+          "applicable national security policy",
+          "system accreditation boundary",
+        ],
+        requiredApproverRole:
+          "Authorizing official / security accreditation authority",
+        limitations: [
+          "Does not grant an authority to operate or handle classified information.",
+          "The public SaaS deployment must never be assumed suitable for classified data.",
+        ],
+        exampleInputs: {
+          classification: "organization-controlled",
+          deploymentZone: "air-gapped-zone",
+          controls: [
+            {
+              id: "egress-disabled",
+              required: true,
+              implemented: true,
+              tested: true,
+              approved: true,
+              evidenceReference: "TEST-1",
+            },
+          ],
+        },
+      }),
+    ],
+  },
+  {
+    key: "aerospace-launch",
+    industryCode: "aerospace_launch",
+    label: "Aerospace & Launch — Reuse Life, Range Safety & Propellant",
+    version: "1.0.0",
+    purpose:
+      "Track reusable-item life, range-safety evidence, and propellant condition without issuing flight or launch authorization.",
+    dataClasses: [
+      "operational",
+      "safety_critical",
+      "regulatory",
+      "security_sensitive",
+    ],
+    methods: [
+      method({
+        key: "reuse-life",
+        label: "Reusable hardware life accounting",
+        purpose:
+          "Calculate remaining approved life across cycles, hours, starts, thermal events, and component-specific counters.",
+        kind: "engineering_calculation",
+        algorithm:
+          "For every controlled life counter, remaining = current approved limit - authenticated accumulated usage; minimum normalized remaining fraction governs the screen.",
+        requiredInputs: [
+          records(
+            "items",
+            "Reusable items",
+            "Part/serial/configuration and counters with approved limit, accumulated usage, unit, and authenticated history state.",
+          ),
+        ],
+        requiredEvidence: [
+          "as-flown-configuration",
+          "authenticated-mission-history",
+          "current-life-limits",
+          "inspection-and-refurbishment-records",
+        ],
+        authorityReferences: [
+          "approved vehicle life-management plan",
+          "design authority limits",
+          "applicable launch licence conditions",
+        ],
+        requiredApproverRole: "Vehicle design / flightworthiness authority",
+        limitations: [
+          "Does not derive fatigue, fracture, thermal, or probabilistic life limits.",
+          "Does not approve reuse, flight, or launch.",
+        ],
+        exampleInputs: {
+          items: [
+            {
+              id: "engine-1",
+              counters: [{ key: "starts", limit: 20, used: 7, unit: "starts" }],
+              historyAuthenticated: true,
+              configurationCurrent: true,
+            },
+          ],
+        },
+      }),
+      method({
+        key: "range-safety",
+        label: "Range-safety evidence readiness",
+        purpose:
+          "Trace required hazards, constraints, analyses, approvals, and real-time prerequisites for a launch campaign.",
+        kind: "readiness",
+        algorithm:
+          "Every range-defined requirement and hold point must have current evidence and explicit approval; unresolved or expired items block readiness.",
+        requiredInputs: [
+          records(
+            "requirements",
+            "Range-safety requirements",
+            "Requirement, applicability, evidence, status, approval, validity, and hold-point state.",
+          ),
+        ],
+        requiredEvidence: [
+          "range-approved-requirements",
+          "trajectory-and-debris-analyses",
+          "flight-termination-system-status",
+          "weather-and-public-safety-constraints",
+          "launch-authorization-records",
+        ],
+        authorityReferences: [
+          "applicable range authority",
+          "launch licence",
+          "approved mission rules",
+        ],
+        requiredApproverRole: "Range safety / launch authority",
+        limitations: [
+          "Does not perform debris, toxic, casualty-expectation, trajectory, or flight-termination analysis.",
+          "Does not authorize launch or clear a range.",
+        ],
+        exampleInputs: {
+          requirements: [
+            {
+              id: "RS-1",
+              applicable: true,
+              evidenceReference: "AN-1",
+              status: "satisfied",
+              approved: true,
+              current: true,
+            },
+          ],
+        },
+      }),
+      method({
+        key: "propellant-degradation",
+        label: "Propellant degradation screening",
+        purpose:
+          "Trend measured propellant properties and storage exposure against approved material-specific limits.",
+        kind: "engineering_calculation",
+        algorithm:
+          "Calculate property margin and exposure consumption for each supplied limit; no chemistry or degradation rate is inferred without an approved model.",
+        requiredInputs: [
+          records(
+            "properties",
+            "Propellant condition properties",
+            "Property, observed value, approved lower/upper limit, unit, method, sample time, and calibration.",
+          ),
+          records(
+            "exposures",
+            "Storage/handling exposures",
+            "Exposure type, accumulated value, approved maximum, unit, and provenance.",
+          ),
+        ],
+        requiredEvidence: [
+          "material-specification",
+          "sample-and-test-results",
+          "storage-history",
+          "handling-history",
+          "approved-degradation-model-or-limits",
+        ],
+        authorityReferences: [
+          "propellant material authority",
+          "approved storage and handling specification",
+          "mission-specific flight rules",
+        ],
+        requiredApproverRole: "Propellant / materials technical authority",
+        limitations: [
+          "Does not infer reaction kinetics, compatibility, stability, or safe life.",
+          "Does not authorize loading, use, disposal, or flight.",
+        ],
+        exampleInputs: {
+          properties: [
+            {
+              id: "density",
+              observed: 1.01,
+              lowerLimit: 0.99,
+              upperLimit: 1.03,
+              unit: "g/mL",
+              methodApproved: true,
+              calibrated: true,
+            },
+          ],
+          exposures: [
+            { id: "warm-storage", accumulated: 10, maximum: 30, unit: "h" },
+          ],
+        },
+      }),
+    ],
+  },
+  {
+    key: "buildings-infrastructure",
+    industryCode: "buildings_infrastructure",
+    label:
+      "Buildings & Infrastructure — Code, Fire/Life Safety & Certification",
+    version: "1.0.0",
+    purpose:
+      "Trace jurisdiction-specific requirements and safety-system/certification evidence without claiming code compliance.",
+    dataClasses: ["operational", "safety_critical", "regulatory"],
+    methods: [
+      method({
+        key: "code-compliance",
+        label: "Jurisdictional code-compliance trace",
+        purpose:
+          "Map adopted-code requirements to design/as-built evidence, inspections, deficiencies, and authority disposition.",
+        kind: "traceability",
+        algorithm:
+          "Every in-scope requirement from the supplied adopted-code register must have current evidence and an authority disposition; gaps remain open.",
+        requiredInputs: [
+          records(
+            "requirements",
+            "Code requirements",
+            "Citation/requirement, applicability, evidence, inspection, deficiency, disposition, and authority status.",
+          ),
+        ],
+        requiredEvidence: [
+          "jurisdiction-and-adopted-code-register",
+          "approved-design-documents",
+          "as-built-records",
+          "inspection-and-permit-records",
+        ],
+        authorityReferences: [
+          "authority having jurisdiction",
+          "adopted building and infrastructure codes",
+          "approved alternative solutions",
+        ],
+        requiredApproverRole:
+          "Authority having jurisdiction / designated code professional",
+        limitations: [
+          "Does not select the applicable code, interpret legal requirements, or certify compliance.",
+          "Code editions and local amendments must be supplied by the project.",
+        ],
+        exampleInputs: {
+          requirements: [
+            {
+              id: "REQ-1",
+              applicable: true,
+              evidenceReference: "DWG-A1",
+              inspected: true,
+              deficiencyStatus: null,
+              authorityDisposition: "accepted",
+            },
+          ],
+        },
+      }),
+      method({
+        key: "fire-life-safety",
+        label: "Fire and life-safety impairment/readiness model",
+        purpose:
+          "Check required systems, inspection/test status, impairments, compensating measures, and evacuation assumptions.",
+        kind: "readiness",
+        algorithm:
+          "Every required fire/life-safety function must be available and current or have an approved impairment permit and compensating measures.",
+        requiredInputs: [
+          records(
+            "systems",
+            "Fire/life-safety systems",
+            "Function, required, available, test due/current, impairment, compensating measure, and approval.",
+          ),
+          records(
+            "egressZones",
+            "Egress/occupant zones",
+            "Zone, design occupants, current occupants, available exits, approved required exits, and accessibility provisions.",
+          ),
+        ],
+        requiredEvidence: [
+          "fire-safety-plan",
+          "inspection-test-maintenance-records",
+          "impairment-permits",
+          "egress-and-occupant-basis",
+          "emergency-drill-or-validation",
+        ],
+        authorityReferences: [
+          "authority having jurisdiction",
+          "approved fire-safety plan",
+          "adopted fire and life-safety requirements",
+        ],
+        requiredApproverRole: "Fire protection / life-safety authority",
+        limitations: [
+          "Does not perform hydraulic, smoke-control, evacuation-time, tenability, or fire-dynamics modelling.",
+          "Does not authorize occupancy during an impairment.",
+        ],
+        exampleInputs: {
+          systems: [
+            {
+              id: "sprinkler",
+              required: true,
+              available: true,
+              testCurrent: true,
+              impairmentApproved: false,
+            },
+          ],
+          egressZones: [
+            {
+              id: "L1",
+              designOccupants: 200,
+              currentOccupants: 150,
+              availableExits: 3,
+              requiredExits: 2,
+              accessibilityProvisionCurrent: true,
+            },
+          ],
+        },
+      }),
+      method({
+        key: "occupancy-accessibility",
+        label: "Occupancy and accessibility certification workflow",
+        purpose:
+          "Trace permit, inspection, deficiency, accessibility, life-safety, and authority sign-off prerequisites.",
+        kind: "traceability",
+        algorithm:
+          "All organization/jurisdiction-required certificate prerequisites must be present, current, accepted, and free of unresolved blocking deficiencies.",
+        requiredInputs: [
+          records(
+            "prerequisites",
+            "Certification prerequisites",
+            "Requirement, required, evidence, inspection result, deficiency state, authority acceptance, and expiry.",
+          ),
+        ],
+        requiredEvidence: [
+          "permit-register",
+          "final-inspection-records",
+          "accessibility-review",
+          "fire-and-life-safety-clearance",
+          "authority-certificate",
+        ],
+        authorityReferences: [
+          "authority having jurisdiction",
+          "adopted occupancy and accessibility requirements",
+        ],
+        requiredApproverRole:
+          "Authority having jurisdiction / designated accessibility professional",
+        limitations: [
+          "Does not issue an occupancy permit or accessibility certification.",
+          "Accessibility is not reduced to a checklist; professional and user review remain required.",
+        ],
+        exampleInputs: {
+          prerequisites: [
+            {
+              id: "final-inspection",
+              required: true,
+              evidenceReference: "INSP-1",
+              result: "accepted",
+              blockingDeficiency: false,
+              authorityAccepted: true,
+            },
+          ],
+        },
+      }),
+    ],
+  },
+];
+
+export function getDomainSpecialistModule(
+  key: DomainSpecialistModuleKey | string,
+): DomainSpecialistModule | null {
+  return DOMAIN_SPECIALIST_MODULES.find((module) => module.key === key) ?? null;
+}
+
+export function getDomainSpecialistMethod(
+  moduleKey: DomainSpecialistModuleKey | string,
+  methodKey: string,
+): DomainMethodDefinition | null {
+  return (
+    getDomainSpecialistModule(moduleKey)?.methods.find(
+      (candidate) => candidate.key === methodKey,
+    ) ?? null
+  );
+}
