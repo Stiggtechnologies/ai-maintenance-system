@@ -41,14 +41,18 @@ describe("canonical industry catalog", () => {
       validationStatus: "draft",
       focusSource: "template_guidance",
     });
-    // Aviation was the template_only exemplar: a pack with prose and no engine.
-    // It now carries a profile (mobile plant, rotating equipment, turnaround),
-    // so it reports kernel_bound — engines bind, and the airworthiness and MSG-3
-    // claims that do NOT bind are named in proseOnly rather than counted.
+    // Aviation was the template_only exemplar. It now carries both reusable
+    // failure-context bindings and the governed airworthiness/MSG-3/LLP module,
+    // while content remains draft until authorized review.
     expect(getIndustryRiskFocus("aviation")).toMatchObject({
       readiness: "kernel_bound",
       validationStatus: "draft",
     });
+    expect(getIndustryRiskFocus("aviation")?.domainModules[0].methods).toEqual([
+      "airworthiness-compliance",
+      "msg3-trace",
+      "life-limited-part",
+    ]);
     // template_only is now unreachable by construction: every pack has a profile
     // and industry-profiles.test.ts fails if one is added without. The state stays
     // in the union deliberately — it is what a newly added pack would report for

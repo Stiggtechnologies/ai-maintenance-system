@@ -16,6 +16,8 @@ on:
       - "supabase/functions/agent-loop-enrich/**"
       - "supabase/functions/ai-agent-processor/**"
       - "supabase/functions/autonomous-orchestrator/**"
+      - "supabase/functions/domain-specialist-run/**"
+      - "src/lib/domain-specialists/**"
       - "supabase/functions/develop-evidence-agent/**"
       - "supabase/functions/develop-gate-agent/**"
       - "supabase/functions/develop-methodology-agent/**"
@@ -79,6 +81,7 @@ jobs:
           supabase functions deploy agent-loop-enrich --no-verify-jwt
           supabase functions deploy ai-agent-processor
           supabase functions deploy autonomous-orchestrator
+          supabase functions deploy domain-specialist-run
           supabase functions deploy develop-evidence-agent
           supabase functions deploy develop-gate-agent
           supabase functions deploy develop-methodology-agent
@@ -140,6 +143,23 @@ jobs:
             exit 1
           fi
           echo "Recovery Activation adapter is deployed and JWT-protected (HTTP 401 unauthenticated)."
+
+      - name: Prove Domain Specialist executor is deployed
+        run: |
+          set -euo pipefail
+          endpoint="https://${SUPABASE_PROJECT_ID}.supabase.co/functions/v1/domain-specialist-run"
+          status=$(curl --silent --show-error --output /tmp/domain-specialist-probe.txt \
+            --write-out '%{http_code}' \
+            --request POST \
+            --header 'Content-Type: application/json' \
+            --data '{}' \
+            "$endpoint")
+          cat /tmp/domain-specialist-probe.txt || true
+          if [ "$status" != "401" ]; then
+            echo "::error title=Domain Specialist boundary probe failed::Expected JWT-protected deployed function to return HTTP 401 without credentials; got HTTP ${status}."
+            exit 1
+          fi
+          echo "Domain Specialist executor is deployed and JWT-protected (HTTP 401 unauthenticated)."
 
       - name: Prove Plant historian adapter is deployed
         run: |
