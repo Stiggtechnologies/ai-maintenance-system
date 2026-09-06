@@ -3,7 +3,7 @@
  *
  * Meet Sync speaks as Sync, the Reliability Engineer. Answers go through
  * the existing ai-agent-processor ReliabilityAgent path. Decision Case
- * context and this-tab session memory are appended when present.
+ * context and Meet Sync session memory are appended when present.
  * This is not OpenClaw, SIR, JAVIS, a gateway, or a meeting runner.
  * Recommend ≠ authorize. No plant execute.
  */
@@ -44,7 +44,7 @@ export function buildBoothAskQuery(input: {
   const sessionBlock =
     input.sessionLines && input.sessionLines.length > 0
       ? input.sessionLines.join("\n")
-      : "No prior Meet Sync turns in this tab.";
+      : "No prior Meet Sync turns in this session.";
   return [
     BOOTH_FRAMING,
     visitor,
@@ -52,7 +52,7 @@ export function buildBoothAskQuery(input: {
     context,
     "DECISION CASE:",
     caseBlock,
-    "SESSION MEMORY (this tab only, not a system of record):",
+    "SESSION MEMORY (signed-in Meet Sync notes when available; tab cache otherwise. Not authorization.):",
     sessionBlock,
     `QUESTION: ${question}`,
   ].join("\n");

@@ -22,6 +22,8 @@ const askBooth = vi.fn();
 const startDictation = vi.fn();
 const stopDictation = vi.fn();
 const retryPermission = vi.fn();
+const persistVault = vi.fn();
+const loadVault = vi.fn();
 const onPresenceSignals = vi.fn();
 let onTranscript: ((text: string) => void) | null = null;
 let onSpeech: (() => void) | undefined;
@@ -40,6 +42,11 @@ const dictation = {
 
 vi.mock("../lib/presence/askBooth", () => ({
   askBoothConversation: (...args: unknown[]) => askBooth(...args),
+}));
+
+vi.mock("../lib/presence/vaultClient", () => ({
+  persistPresenceVault: (...args: unknown[]) => persistVault(...args),
+  loadPresenceVaultSession: (...args: unknown[]) => loadVault(...args),
 }));
 
 vi.mock("../hooks/useDictation", () => ({
@@ -61,6 +68,8 @@ beforeEach(() => {
   startDictation.mockReset();
   stopDictation.mockReset();
   retryPermission.mockReset();
+  persistVault.mockReset();
+  loadVault.mockReset();
   onPresenceSignals.mockReset();
   onTranscript = null;
   onSpeech = undefined;
@@ -69,6 +78,8 @@ beforeEach(() => {
   dictation.listening = false;
   dictation.error = null;
   dictation.permission = "unknown";
+  persistVault.mockResolvedValue(true);
+  loadVault.mockResolvedValue(null);
   window.sessionStorage.clear();
   window.localStorage.clear();
   askBooth.mockResolvedValue({
@@ -384,5 +395,63 @@ describe("PresenceBoothConversation", () => {
     expect(query).not.toContain("New subject.");
     expect(query).toContain("Decision Case DC-2201 v1");
     expect(query).not.toMatch(/P-101|Fort McMurray/i);
+  });
+
+  it("does not write the durable vault when no organization session exists", async () => {
+    renderBooth();
+    fireEvent.change(screen.getByPlaceholderText(/Ask about maintenance/i), {
+      target: { value: "What should I look at first?" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /send question/i }));
+    await waitFor(() => {
+      expect(askBooth).toHaveBeenCalled();
+    });
+    expect(persistVault).not.toHaveBeenCalled();
+    expect(
+      screen.getByText(/Notes stay in this tab until you sign in/i),
+    ).toBeInTheDocument();
+  });
+
+  it("persists signed-in notes to the Sync vault and hydrates a new tab", async () => {
+    loadVault.mockResolvedValue({
+      lastSubject: "HMER haul truck availability optimization",
+      messages: [
+        {
+          id: "prior",
+          role: "user",
+          text: "HMER haul truck availability optimization",
+        },
+      ],
+    });
+    renderBooth({
+      organizationId: "org-1",
+      caseId: "case-1",
+      caseNumber: "DC-2201",
+      asset: "Crusher 2201",
+    });
+    expect(
+      await screen.findByText("HMER haul truck availability optimization"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Signed-in notes persist beyond this tab/i),
+    ).toBeInTheDocument();
+
+    fireEvent.change(screen.getByPlaceholderText(/Ask about maintenance/i), {
+      target: { value: "What next?" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /send question/i }));
+    await waitFor(() => {
+      expect(persistVault).toHaveBeenCalled();
+    });
+    const payload = persistVault.mock.calls.at(-1)?.[0] as {
+      organizationId: string;
+      userId: string;
+      caseNumber: string;
+      memory: { lastSubject: string | null };
+    };
+    expect(payload.organizationId).toBe("org-1");
+    expect(payload.userId).toBe("user-orville");
+    expect(payload.caseNumber).toBe("DC-2201");
+    expect(payload.memory.lastSubject).toMatch(/HMER haul truck/i);
   });
 });

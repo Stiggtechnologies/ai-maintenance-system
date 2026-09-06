@@ -2,8 +2,9 @@
  * Meet Sync session + Decision Case continuity.
  *
  * Uses the existing Decision Case draft store and honesty helpers.
- * sessionStorage holds this-tab transcript only — not a system of record,
- * not an Obsidian vault, not a parallel case store.
+ * sessionStorage is the tab cache. Signed-in durable notes live in the
+ * Sync-native presence_meeting_vault (markdown/JSON). Not a parallel
+ * case store and not authorization.
  * Seed / demo cases are not auto-bound for a signed-in org session.
  */
 
