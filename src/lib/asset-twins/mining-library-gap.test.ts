@@ -10,6 +10,9 @@ import {
 } from "./index";
 import { electricRopeShovelTemplate } from "./mining-library";
 import { primaryCrusherTemplate } from "./primary-crusher";
+import { miningDozerTemplate } from "./mining-dozer";
+import { miningGraderTemplate } from "./mining-grader";
+import { mobileCrusherTemplate } from "./mobile-crusher";
 import { stackerReclaimerTemplate } from "./stacker-reclaimer";
 import { ultraClassHaulTruckTemplate } from "./ultra-class-haul-truck";
 import type { AssetClassTemplate } from "./types";
@@ -60,6 +63,28 @@ const requiredIssue67Classes: Array<{
   },
 ];
 
+const p1ResidualClasses: Array<{
+  issueName: string;
+  code: string;
+  template: AssetClassTemplate;
+}> = [
+  {
+    issueName: "large mining dozer",
+    code: "MIN-DOZER",
+    template: miningDozerTemplate,
+  },
+  {
+    issueName: "motor grader",
+    code: "MIN-GRADER",
+    template: miningGraderTemplate,
+  },
+  {
+    issueName: "mobile crusher",
+    code: "MIN-MOBILE-CRUSH",
+    template: mobileCrusherTemplate,
+  },
+];
+
 const retiredParallelStarterCodes = [
   "MIN-LOAD-HMS",
   "MIN-LOAD-WL",
@@ -97,18 +122,22 @@ describe("issue #67 mining library gap matrix", () => {
     );
   });
 
-  it("keeps remaining catalogue shells honest and distinct from the required seven", () => {
+  it("populates the three P1 residual shells as draft templates, not empty starters", () => {
     const shells = miningAssetClassLibrary.filter(
       (template) => template.components.length === 0,
     );
-    expect(shells.map((template) => template.code).sort()).toEqual([
-      "MIN-DOZER",
-      "MIN-GRADER",
-      "MIN-MOBILE-CRUSH",
-    ]);
-    for (const shell of shells) {
-      expect(shell.reviewState).toBe("draft");
-      expect(shell.description).toMatch(/requires evidence/i);
+    expect(shells).toEqual([]);
+    for (const residual of p1ResidualClasses) {
+      expect(residual.template.code).toBe(residual.code);
+      expect(residual.template.reviewState).toBe("draft");
+      expect(residual.template.components.length).toBeGreaterThan(0);
+      expect(
+        residual.template.components.some(
+          (component) => (component.sharedComponentDnaCodes ?? []).length > 0,
+        ),
+      ).toBe(true);
+      expect(validateAssetClassTemplate(residual.template)).toEqual([]);
+      expect(getAssetClassTemplate(residual.code)).toBe(residual.template);
     }
   });
 
@@ -148,5 +177,43 @@ describe("issue #67 mining library gap matrix", () => {
     });
 
     expect(new Set(compiledCodes).size).toBe(requiredIssue67Classes.length);
+  });
+
+  it("compiles each P1 residual class deterministically without inventing a second schema", () => {
+    const compiledCodes = p1ResidualClasses.map((required) => {
+      const first = compileAssetTwin(
+        required.template,
+        {
+          assetId: `${required.code}-A`,
+          assetClassCode: required.code,
+          siteId: "MINE-1",
+          operatingContext: {},
+          telemetryMap: {},
+          customerOverrides: {},
+          baselineStatus: "not_started",
+        },
+        undefined,
+        new Date("2026-09-06T12:00:00.000Z"),
+      );
+      const second = compileAssetTwin(
+        required.template,
+        {
+          assetId: `${required.code}-A`,
+          assetClassCode: required.code,
+          siteId: "MINE-1",
+          operatingContext: {},
+          telemetryMap: {},
+          customerOverrides: {},
+          baselineStatus: "not_started",
+        },
+        undefined,
+        new Date("2026-09-06T12:00:00.000Z"),
+      );
+      expect(first).toEqual(second);
+      expect(first.schemaVersion).toBe(required.template.schemaVersion);
+      return first.provenance.assetClassCode;
+    });
+
+    expect(new Set(compiledCodes).size).toBe(p1ResidualClasses.length);
   });
 });

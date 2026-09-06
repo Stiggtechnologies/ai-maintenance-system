@@ -1,9 +1,10 @@
 # SyncAI Asset Twin Library
 
 **2026-09-06 — CATALOGUE STATUS.** Issue #67 populated the required mining
-classes as draft TypeScript templates. This is not production-approved
-engineering truth. Dozer, grader, and mobile-crusher rows remain empty
-starter shells. OEM overlays exist only for the public-information
+classes as draft TypeScript templates. The three remaining catalogue shells
+(`MIN-DOZER`, `MIN-GRADER`, `MIN-MOBILE-CRUSH`) are now also draft templates
+with shared-component DNA references. This is not production-approved
+engineering truth. OEM overlays exist only for the public-information
 P&H 4100XPC identity. No numeric intervals or safety limits are authorized.
 
 ## Decision
@@ -73,18 +74,24 @@ The code library starts with twelve surface-mining asset classes:
 - mobile crusher;
 - stacker-reclaimer.
 
-Draft, manufacturer-neutral templates now exist for electric rope shovel,
-hydraulic mining shovel (`MIN-HYD-SHOVEL`), ultra-class haul truck, large
-wheel loader, blasthole drill, primary crusher, belt conveyor
-(`FP-CONVEYOR-BELT`), dragline, and stacker-reclaimer (`MIN-STACK-RECLAIM`).
-Those templates reference Shared Component DNA (`sharedComponentDnaCodes`);
-they do not copy component intelligence.
+Draft, manufacturer-neutral templates now exist for all twelve catalogue
+classes: electric rope shovel, hydraulic mining shovel (`MIN-HYD-SHOVEL`),
+ultra-class haul truck, large wheel loader, blasthole drill, primary crusher,
+belt conveyor (`FP-CONVEYOR-BELT`), dragline, large mining dozer (`MIN-DOZER`),
+motor grader (`MIN-GRADER`), mobile crusher (`MIN-MOBILE-CRUSH`), and
+stacker-reclaimer (`MIN-STACK-RECLAIM`). Those templates reference Shared
+Component DNA (`sharedComponentDnaCodes`); they do not copy component
+intelligence.
 
 Retired parallel starter identities — do not reintroduce as a second
-hierarchy: `MIN-LOAD-HMS`, `MIN-LOAD-WL`, `MIN-CONV`.
+hierarchy: `MIN-LOAD-HMS`, `MIN-LOAD-WL`, `MIN-CONV`. Empty
+`MIN-DOZER` / `MIN-GRADER` / `MIN-MOBILE-CRUSH` starter shells are also
+retired; the populated draft templates are the only catalogue rows for
+those codes.
 
-Empty starter shells remain only for large mining dozer, motor grader, and
-mobile crusher. Those are scaffolding, not models.
+Draft templates are still not engineer-reviewed, field-validated, or
+production-approved models. No OEM overlays exist for dozer, grader, or
+mobile crusher.
 
 ## Implementation roadmap
 
