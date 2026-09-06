@@ -1333,14 +1333,18 @@ begin
   else
     -- Match the live body whether pg_get_functiondef kept the 5D `$$` quoting
     -- (`§33''s`) or doubled it. Same tuple either way; do not edit blind.
+    -- The leading comma comes with the last tuple so VALUES does not keep a
+    -- trailing comma — this Postgres rejects `values (...), )`.
     v_new := replace(v_def,
-$old$      ('Lesson APPLIES_TO AssetClass',
+$old$,
+      ('Lesson APPLIES_TO AssetClass',
        'learning_events', 'applicability',
        'The asset-class END exists (assets.asset_class_id); the LESSON end does not. The canonical Lesson is `learning_events` (overlap ruling 9) and it carries no applicability field. This closes when §33''s applicability lands there (D9.11).')
 $old$, '');
     if v_new = v_def then
       v_new := replace(v_def,
-$old$      ('Lesson APPLIES_TO AssetClass',
+$old$,
+      ('Lesson APPLIES_TO AssetClass',
        'learning_events', 'applicability',
        'The asset-class END exists (assets.asset_class_id); the LESSON end does not. The canonical Lesson is `learning_events` (overlap ruling 9) and it carries no applicability field. This closes when §33''''s applicability lands there (D9.11).')
 $old$, '');
