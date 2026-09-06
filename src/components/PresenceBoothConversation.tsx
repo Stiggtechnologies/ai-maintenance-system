@@ -1,12 +1,13 @@
 /**
- * Thin Meet Sync booth conversation on the signed-in presence strip.
+ * Meet Sync room conversation on the signed-in presence strip.
  *
  * Voice: browser SpeechRecognition (useDictation) + useSpeechOutput
  * (cloud sync-tts when configured, speechSynthesis fallback). Default
  * listen is continuous with end-of-utterance; hold-to-talk is optional.
  * Recognition is paused while TTS plays (plus a short settle) so Sync
  * does not treat its own spoken words as a user turn.
- * Answers: askBoothConversation → ai-agent-processor ReliabilityAgent.
+ * Answers: meetingRunner turn-taking, then askBoothConversation →
+ * ai-agent-processor ReliabilityAgent when Sync should speak.
  * Tab transcript in sessionStorage; signed-in notes in the Sync-native
  * meeting vault. Decision Case continuity from the existing draft store
  * + honesty helpers. Recommend ≠ authorize.
@@ -42,6 +43,14 @@ import {
   writePresenceMemory,
   type PresenceBoothMessage,
 } from "../lib/presence/memory";
+import {
+  decideRoomTurn,
+  ROOM_HOLD_COPY,
+  roomSessionLineLimit,
+  shouldSpeakRoomTurn,
+  type RoomChannel,
+  type RoomAction,
+} from "../lib/presence/meetingRunner";
 import { shouldHydrateFromVault } from "../lib/presence/vault";
 import {
   loadPresenceVaultSession,
@@ -102,6 +111,9 @@ export function PresenceBoothConversation({
       : readHoldToTalkPreference(window.localStorage),
   );
   const [listenPaused, setListenPaused] = useState(false);
+  const [lastRoomAction, setLastRoomAction] = useState<RoomAction | null>(
+    null,
+  );
   const [messages, setMessages] = useState<PresenceBoothMessage[]>(() =>
     userId && typeof window !== "undefined"
       ? readPresenceMemory(window.sessionStorage, userId).messages
@@ -125,7 +137,9 @@ export function PresenceBoothConversation({
   const speakingRef = useRef(speaking);
   const busyRef = useRef(busy);
   const ttsSettlingRef = useRef(ttsSettling);
-  const sendRef = useRef<(raw: string) => Promise<void>>(async () => undefined);
+  const sendRef = useRef<(raw: string, channel?: RoomChannel) => Promise<void>>(
+    async () => undefined,
+  );
   const signalsRef = useRef(onPresenceSignals);
   holdToTalkRef.current = holdToTalk;
   speakingRef.current = speaking;
@@ -169,7 +183,7 @@ export function PresenceBoothConversation({
       }
       utteranceRef.current = "";
       setInput("");
-      void sendRef.current(transcript);
+      void sendRef.current(transcript, "continuous");
     }, BOOTH_UTTERANCE_SILENCE_MS);
   };
 
@@ -374,9 +388,37 @@ export function PresenceBoothConversation({
     }
   };
 
-  const send = async (raw: string) => {
+  const send = async (raw: string, channel: RoomChannel = "typed") => {
     const question = raw.trim();
     if (!signedIn || !question || busyRef.current) return;
+    const decision = decideRoomTurn({
+      text: question,
+      channel,
+      speaking: speakingRef.current,
+      settling: ttsSettlingRef.current,
+      outputGating: ttsGateRef.current,
+      lastSpokenText: lastSpokenRef.current,
+    });
+    setLastRoomAction(decision.action);
+    if (!shouldSpeakRoomTurn(decision)) {
+      setInput("");
+      heldTranscript.current = "";
+      utteranceRef.current = "";
+      const held: PresenceBoothMessage = {
+        id: `user-${Date.now()}`,
+        role: "user",
+        text: question,
+      };
+      const nextSubject = rememberNamedSubject(
+        question,
+        lastSubjectRef.current,
+      );
+      lastSubjectRef.current = nextSubject;
+      const withUser = [...messages, held];
+      setMessages(withUser);
+      persist(withUser, nextSubject);
+      return;
+    }
     setInput("");
     heldTranscript.current = "";
     utteranceRef.current = "";
@@ -397,16 +439,22 @@ export function PresenceBoothConversation({
         !caseBound && promptNamesConcreteSubject(question)
           ? formatUnboundLiveQuestion(question)
           : question;
+      const roomIntent =
+        decision.intent === "hold" ? "asked" : decision.intent;
       const result = await askBoothConversation(
         buildBoothAskQuery({
           question: askQuestion,
           briefLines,
           givenName,
           caseContextLines,
-          sessionLines: sessionMemoryLines({
-            messages: withUser,
-            lastSubject: nextSubject,
-          }),
+          sessionLines: sessionMemoryLines(
+            {
+              messages: withUser,
+              lastSubject: nextSubject,
+            },
+            roomSessionLineLimit(),
+          ),
+          roomIntent,
         }),
       );
       appendSyncReply(withUser, nextSubject, result.response);
@@ -431,7 +479,7 @@ export function PresenceBoothConversation({
     holdingTalk.current = false;
     stopDictation();
     const text = heldTranscript.current.trim() || input.trim();
-    if (text) void send(text);
+    if (text) void send(text, "hold-to-talk");
   };
 
   const toggleHoldToTalk = (next: boolean) => {
@@ -458,11 +506,13 @@ export function PresenceBoothConversation({
     <div
       data-testid="presence-booth"
       data-booth-voice-mode={voiceMode}
+      data-room-action={lastRoomAction ?? ""}
       className="mt-2 border-t border-white/5 pt-2"
     >
       <p className="text-[11px] text-slate-500">
-        Meet Sync — Reliability Engineer booth. Grounded ask only. Recommend is
-        not authorize. No plant execute.
+        Meet Sync — Reliability Engineer room. Sync listens and contributes when
+        asked or when a short clarification helps. Recommend is not authorize.
+        No plant execute. No speaker identity is inferred.
         {organizationId
           ? " Signed-in notes persist beyond this tab."
           : " Notes stay in this tab until you sign in."}
@@ -487,7 +537,7 @@ export function PresenceBoothConversation({
             : muted
               ? "Muted — continuous listen is paused. Type a question or unmute."
               : dictationListening
-                ? "Listening — speak when you want Sync."
+                ? "Listening to the room — Sync will jump in when asked or when a short clarification helps."
                 : listenPaused
                   ? "Listening paused."
                   : "Continuous listen when the microphone is allowed."}
@@ -495,7 +545,7 @@ export function PresenceBoothConversation({
       </div>
       {messages.length > 0 && (
         <ul className="mt-2 max-h-40 space-y-1.5 overflow-auto">
-          {messages.map((message) => (
+              {messages.map((message) => (
             <li key={message.id} className="text-xs">
               <span className="font-medium text-slate-300">
                 {message.role === "user" ? "You" : "Sync"}
@@ -505,6 +555,11 @@ export function PresenceBoothConversation({
           ))}
         </ul>
       )}
+      {lastRoomAction === "hold" ? (
+        <p data-testid="room-hold-note" className="mt-1 text-[11px] text-slate-500">
+          {ROOM_HOLD_COPY}
+        </p>
+      ) : null}
       {micBlocked ? (
         <div className="mt-2 rounded-md border border-amber-400/30 bg-amber-400/5 px-2 py-1.5">
           <p className="text-[11px] text-amber-400/90">{MIC_BLOCKED_COPY}</p>

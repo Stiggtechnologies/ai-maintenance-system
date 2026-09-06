@@ -4,7 +4,7 @@
  * Speaks a Reliability Engineer greeting via useSpeechOutput (cloud
  * `sync-tts` when configured, browser speechSynthesis otherwise) when the
  * user is not muted. Tenant `sync_voice_output` still gates CopilotDock;
- * Meet Sync does not wait on that flag so the booth can be used. Mute is
+ * Meet Sync does not wait on that flag so the room can be used. Mute is
  * the presence off-switch. KPI lines stay text-only and never invent plant
  * readings. Recommend ≠ authorize. No plant execute.
  */
