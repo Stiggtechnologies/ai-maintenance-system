@@ -8,6 +8,7 @@ import { hydraulicMiningShovelTemplate } from "./hydraulic-mining-shovel";
 import { industrialGearboxTemplate } from "./industrial-gearbox";
 import { electricRopeShovelTemplate } from "./mining-library";
 import { primaryCrusherTemplate } from "./primary-crusher";
+import { stackerReclaimerTemplate } from "./stacker-reclaimer";
 import { physicsCapabilityLibrary } from "./physics-capability-library";
 import {
   inheritSharedIntelligence,
@@ -50,6 +51,7 @@ const referencedTemplates: AssetClassTemplate[] = [
   centrifugalPumpTemplate,
   conveyorSystemTemplate,
   primaryCrusherTemplate,
+  stackerReclaimerTemplate,
 ];
 
 const remainingEmbeddedTemplates: AssetClassTemplate[] = [

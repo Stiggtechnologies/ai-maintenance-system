@@ -64,6 +64,26 @@ export const draglineEngineeringDna: EngineeringDnaProfile = {
       role: "machinery bearings",
     },
     {
+      assetComponentCode: "DL-SWING",
+      sharedComponentDnaCode: industrialAcMotorDna.code,
+      role: "swing motors",
+    },
+    {
+      assetComponentCode: "DL-SWING",
+      sharedComponentDnaCode: industrialGearboxComponentDna.code,
+      role: "swing gearboxes",
+    },
+    {
+      assetComponentCode: "DL-SWING",
+      sharedComponentDnaCode: frictionBrakeDna.code,
+      role: "swing brakes",
+    },
+    {
+      assetComponentCode: "DL-SWING",
+      sharedComponentDnaCode: rollingElementBearingDna.code,
+      role: "swing rollers and rotating-interface bearings",
+    },
+    {
       assetComponentCode: "DL-ROPE-SHEAVE",
       sharedComponentDnaCode: wireRopeDna.code,
       role: "hoist drag and dump ropes",

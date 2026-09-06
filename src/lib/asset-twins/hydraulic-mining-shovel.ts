@@ -1,6 +1,7 @@
 import {
   centrifugalPumpComponentDna,
   coolingSystemDna,
+  frictionBrakeDna,
   hydraulicCylinderDna,
   industrialAcMotorDna,
   industrialGearboxComponentDna,
@@ -204,6 +205,7 @@ export const hydraulicMiningShovelTemplate: AssetClassTemplate = {
       sharedComponentDnaCodes: [
         industrialAcMotorDna.code,
         industrialGearboxComponentDna.code,
+        frictionBrakeDna.code,
       ],
       functions: [
         "rotate upper structure",

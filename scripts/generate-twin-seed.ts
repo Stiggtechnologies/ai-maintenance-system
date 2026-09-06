@@ -28,6 +28,7 @@ import { industrialGearboxTemplate } from "../src/lib/asset-twins/industrial-gea
 import { largeWheelLoaderTemplate } from "../src/lib/asset-twins/large-wheel-loader";
 import { primaryCrusherTemplate } from "../src/lib/asset-twins/primary-crusher";
 import { sagMillTemplate } from "../src/lib/asset-twins/sag-mill";
+import { stackerReclaimerTemplate } from "../src/lib/asset-twins/stacker-reclaimer";
 import { thickenerTemplate } from "../src/lib/asset-twins/thickener";
 import { ultraClassHaulTruckTemplate } from "../src/lib/asset-twins/ultra-class-haul-truck";
 import {
@@ -47,14 +48,14 @@ const detailed: AssetClassTemplate[] = [
   largeWheelLoaderTemplate,
   primaryCrusherTemplate,
   sagMillTemplate,
+  stackerReclaimerTemplate,
   thickenerTemplate,
   ultraClassHaulTruckTemplate,
 ];
 
-// Codes collide between the detailed templates and the mining-library starters
-// (MIN-DRILL-BH, MIN-CRUSH-PRI, MIN-HAUL-TRUCK, MIN-DRAGLINE). The detailed one
-// wins — a starter carries no components and would silently replace a populated
-// template with an empty one if it were loaded second.
+// The mining catalogue now holds the populated templates for classes that have
+// them. The merge still prefers the more complete row if a starter and a
+// detailed template ever share a code again.
 const byCode = new Map<string, AssetClassTemplate>();
 for (const t of [...miningAssetClassLibrary, ...detailed]) {
   const existing = byCode.get(t.code);
