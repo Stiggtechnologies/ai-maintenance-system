@@ -27,6 +27,7 @@ describe("booth conversation framing", () => {
     expect(query).toContain("Visitor given name: Orville");
     expect(query).toContain("Decision Case DC-2201 v1");
     expect(query).toContain("Last subject: Crusher 2201 vibration");
+    expect(query).toMatch(/Not authorization/i);
     expect(query).not.toMatch(/openclaw|javis|jarvis/i);
   });
 

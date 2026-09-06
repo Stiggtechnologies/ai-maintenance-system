@@ -282,6 +282,8 @@ describe("presence boundary", () => {
       "src/lib/presence/askBooth.ts",
       "src/lib/presence/state.ts",
       "src/lib/presence/memory.ts",
+      "src/lib/presence/vault.ts",
+      "src/lib/presence/vaultClient.ts",
       "src/components/PresenceWelcome.tsx",
       "src/components/PresenceBoothConversation.tsx",
       "src/components/PresenceFace.tsx",
