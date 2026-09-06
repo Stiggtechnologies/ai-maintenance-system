@@ -159,12 +159,12 @@ describe("navigation integrity", () => {
     ).toEqual([]);
   });
 
-  it("keeps the §2 tree at 43 items in 9 groups", () => {
+  it("keeps the §2 tree at 45 items in 9 groups", () => {
     // Sync Recovery is the ninth Work Management surface and owns the governed
     // downtime-event orchestration flow. Sync Develop (Slice 1) is the fourth
     // Whole Life surface — problem-first development cases under gates.
-    expect(groupSizes).toEqual([5, 4, 4, 2, 4, 10, 7, 3, 5]);
-    expect(navItems.length).toBe(44);
+    expect(groupSizes).toEqual([5, 4, 5, 2, 4, 10, 7, 3, 5]);
+    expect(navItems.length).toBe(45);
   });
 
   it("keeps the §3 role-matrix sizes after Recovery and Develop are added", () => {
@@ -175,10 +175,10 @@ describe("navigation integrity", () => {
       technician: 10,
       supervisor: 10,
       planner: 20,
-      reliability_engineer: 30,
-      maintenance_manager: 29,
-      executive: 22,
-      board: 6,
+      reliability_engineer: 31,
+      maintenance_manager: 30,
+      executive: 23,
+      board: 7,
       assessment_sponsor: 2,
     });
   });
@@ -220,6 +220,21 @@ describe("navigation integrity", () => {
     );
   });
 
+  it("makes the governed engineering-model registry reachable", () => {
+    expect(navItems).toContainEqual({
+      id: "engineering-models",
+      path: "/engineering-models",
+    });
+    expect(paletteItems).toContainEqual({
+      label: "Engineering Models",
+      path: "/engineering-models",
+    });
+    expect(matchRoutes(routes, "/engineering-models")).not.toBeNull();
+    expect(APP).toContain(
+      'import { EngineeringModelRegistryPage } from "./pages/EngineeringModelRegistryPage"',
+    );
+  });
+
   it("pins frontline supervisor navigation and keeps board operationally isolated", () => {
     expect(allowEntries.supervisor).toEqual([
       "mission-control",
@@ -239,6 +254,7 @@ describe("navigation integrity", () => {
       "value",
       "benchmarking",
       "trust",
+      "engineering-models",
       "settings",
     ]);
   });

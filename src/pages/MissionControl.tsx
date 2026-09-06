@@ -34,6 +34,7 @@ import { useRealtimeRefetch } from "../hooks/useRealtimeRefetch";
 import { LiveBadge } from "../components/ui/LiveBadge";
 import { useAuth } from "../components/AuthProvider";
 import { useOnboardingOperatingLoop } from "../hooks/useOnboardingOperatingLoop";
+import { EngineeringModelTracePanel } from "../components/EngineeringModelTracePanel";
 import {
   getMissionControl,
   getEvidence,
@@ -442,6 +443,7 @@ function RecommendationCard({
               <span className="text-slate-300">{rec.informed}</span>
             </div>
           </div>
+          <EngineeringModelTracePanel recommendationId={rec.id} />
           {/*
             E4.06. A recommendation carrying an engineering change class cannot
             be approved until the named discipline has signed — enforced by

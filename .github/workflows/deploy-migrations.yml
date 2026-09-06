@@ -18,6 +18,9 @@ on:
       - "supabase/functions/autonomous-orchestrator/**"
       - "supabase/functions/domain-specialist-run/**"
       - "src/lib/domain-specialists/**"
+      - "supabase/functions/engineering-model-supply-chain/**"
+      - "src/lib/engineering-models/**"
+      - "engineering-model-packs/**"
       - "supabase/functions/develop-evidence-agent/**"
       - "supabase/functions/develop-gate-agent/**"
       - "supabase/functions/develop-methodology-agent/**"
@@ -83,6 +86,7 @@ jobs:
           supabase functions deploy ai-agent-processor
           supabase functions deploy autonomous-orchestrator
           supabase functions deploy domain-specialist-run
+          supabase functions deploy engineering-model-supply-chain
           supabase functions deploy develop-evidence-agent
           supabase functions deploy develop-gate-agent
           supabase functions deploy develop-methodology-agent
