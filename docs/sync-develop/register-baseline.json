@@ -308,44 +308,44 @@
   "D4.01": {
     "status": "🟡",
     "evidence": true,
-    "citations": 2,
-    "backticked": 0
+    "citations": 12,
+    "backticked": 12
   },
   "D4.02": {
-    "status": "🟡",
+    "status": "✅",
     "evidence": true,
-    "citations": 3,
-    "backticked": 0
+    "citations": 14,
+    "backticked": 14
   },
   "D4.03": {
-    "status": "❌",
+    "status": "✅",
     "evidence": true,
-    "citations": 2,
-    "backticked": 0
+    "citations": 14,
+    "backticked": 13
   },
   "D4.04": {
-    "status": "🟡",
+    "status": "✅",
     "evidence": true,
-    "citations": 3,
-    "backticked": 0
+    "citations": 12,
+    "backticked": 12
   },
   "D4.05": {
-    "status": "🟡",
+    "status": "✅",
     "evidence": true,
-    "citations": 2,
-    "backticked": 0
+    "citations": 9,
+    "backticked": 9
   },
   "D4.06": {
-    "status": "❌",
+    "status": "✅",
     "evidence": true,
-    "citations": 1,
-    "backticked": 0
+    "citations": 8,
+    "backticked": 8
   },
   "D4.07": {
     "status": "🟡",
     "evidence": true,
-    "citations": 1,
-    "backticked": 0
+    "citations": 10,
+    "backticked": 8
   },
   "D4.08": {
     "status": "🟡",
