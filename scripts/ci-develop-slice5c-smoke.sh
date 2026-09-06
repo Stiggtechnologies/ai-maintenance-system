@@ -603,22 +603,23 @@ R=$(rpc "$MANAGER" get_case_thread_graph "{\"p_case_id\":\"$CASE\"}")
 noerr "$R"
 test "$(jqp "$R" "x['refused']")" = "False"
 test "$(jqp "$R" "len(x['spec34Edges'])")" = "19"
-# THREE, not five (corrected 2026-09-01 by 20261207090300, and again
-# 2026-09-03 by 20261210090100). This transcript asserted five because this
-# slice's ledger said five — and one of them, Benefit MEASURES Objective, was
-# already built: `value_metrics.objective_id` has existed since Slice 2
-# (20261115090600) and register row D9.10 is ✅ and names this edge. The claim
-# was prose that nothing checked, and it survived a slice.
-# sync_spec34_absent_edge_audit() now asks the catalogue instead, and Slice 7A
-# built the second one: §27's WorkPackage and §28's Constraint both exist and
-# the constraint store names the canonical work identity directly, which is the
-# exact condition that audit stated. This assertion goes DOWN when an endpoint
-# is built, which is what its own note said it was for.
-test "$(jqp "$R" "len([e for e in x['spec34Edges'] if e['status']=='absent'])")" = "3"
-# …and the count is not trusted on its own: the three that remain are NAMED, so
+# TWO, not five (corrected 2026-09-01 by 20261207090300, 2026-09-03 by
+# 20261210090100, and 2026-09-06 by 20261218090001). This transcript asserted
+# five because this slice's ledger said five — and one of them, Benefit
+# MEASURES Objective, was already built: `value_metrics.objective_id` has
+# existed since Slice 2 (20261115090600) and register row D9.10 is ✅ and names
+# this edge. The claim was prose that nothing checked, and it survived a slice.
+# sync_spec34_absent_edge_audit() now asks the catalogue instead; Slice 7A
+# built WorkPackage DEPENDS_ON Constraint; D9 realize built the applicability
+# field on learning_events, which is the column that audit named as closing
+# Lesson APPLIES_TO AssetClass. This assertion goes DOWN when an endpoint is
+# built, which is what its own note said it was for.
+test "$(jqp "$R" "len([e for e in x['spec34Edges'] if e['status']=='absent'])")" = "2"
+# …and the count is not trusted on its own: the two that remain are NAMED, so
 # a different edge going quiet cannot be absorbed by the same number.
-test "$(jqp "$R" "sorted(e['edge'] for e in x['spec34Edges'] if e['status']=='absent')")" = "['Asset SUPPORTS Objective', 'Contract PROVIDES Asset', 'Lesson APPLIES_TO AssetClass']"
+test "$(jqp "$R" "sorted(e['edge'] for e in x['spec34Edges'] if e['status']=='absent')")" = "['Asset SUPPORTS Objective', 'Contract PROVIDES Asset']"
 test "$(jqp "$R" "[e['status'] for e in x['spec34Edges'] if e['edge']=='WorkPackage DEPENDS_ON Constraint'][0]")" = "live_elsewhere"
+test "$(jqp "$R" "[e['status'] for e in x['spec34Edges'] if e['edge']=='Lesson APPLIES_TO AssetClass'][0]")" = "live_elsewhere"
 test "$(jqp "$R" "len([e for e in x['spec34Edges'] if e['status']=='live_on_thread']) >= 2")" = "True"
 # The edges this read did NOT compute say so instead of reporting zero.
 test "$(jqp "$R" "all(e.get('caseCount') is None for e in x['spec34Edges'] if e['status']=='live_elsewhere')")" = "True"
