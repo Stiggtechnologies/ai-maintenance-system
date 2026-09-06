@@ -209,17 +209,17 @@
   "protectedDatabaseObjects": [
     {
       "object": "retrieve_kb_context",
-      "definitionDigest": "44f530b8ebb689b7b3e4deabc95dc100ea2a3573ddb1a1a4612bd350545c86a6",
+      "definitionDigest": "84e21dc2b22a5350f17d3892d881f1c1c362965545ee492961d0cba37a7993f9",
       "purpose": "SECURITY DEFINER retrieval whose ranking, permitted_claims join and org filter decide which knowledge text is inlined into the Reliability Engineer system prompt"
     },
     {
       "object": "kb_document_classes",
-      "definitionDigest": "6ef71d32b97dac2cd2633e171650043e01d3667eae1e6564460598e598e4dfa7",
+      "definitionDigest": "d16ae5db93b494d22a1fefd7bf44b8160a22614732b9fd1edaf011dcd910081f",
       "purpose": "trust_rank, permitted_claims and redistributable \u2014 the claim-type and public-redistribution gate"
     },
     {
       "object": "kb_claim_types",
-      "definitionDigest": "477242365aee0e21c11368f8188f22c7cd604965a7d65a20278550938a93a2a7",
+      "definitionDigest": "f6d39bd61f1afb5d349cabac4029b69a86b606062e3085dac071efdb42e8cca5",
       "purpose": "the claim-type enumeration the retrieval gate is written against"
     }
   ],
