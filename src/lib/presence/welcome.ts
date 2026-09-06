@@ -8,10 +8,7 @@
  * readings. Recommend ≠ authorize. No plant execute.
  */
 import { formatKpiValue, type KpiRow } from "../../services/kpiService";
-import {
-  describePresenceWork,
-  type PresenceWorkingSubject,
-} from "./memory";
+import { describePresenceWork, type PresenceWorkingSubject } from "./memory";
 
 export const PRESENCE_MUTE_STORAGE_KEY = "syncai.presence.muted";
 export const PRESENCE_SESSION_KEY_PREFIX = "syncai.presence.welcomed:";

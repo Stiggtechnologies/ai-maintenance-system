@@ -92,7 +92,10 @@ export function PresenceBoothConversation({
     return () => signalsRef.current?.({ listening: false, thinking: false });
   }, []);
 
-  const persist = (nextMessages: PresenceBoothMessage[], lastSubject: string | null) => {
+  const persist = (
+    nextMessages: PresenceBoothMessage[],
+    lastSubject: string | null,
+  ) => {
     if (!userId) return;
     writePresenceMemory(window.sessionStorage, userId, {
       messages: nextMessages,

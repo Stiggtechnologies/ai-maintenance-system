@@ -42,7 +42,8 @@ beforeEach(() => {
   window.sessionStorage.clear();
   askBooth.mockResolvedValue({
     status: "ok",
-    response: "No sourced backlog figure is in this snapshot. I recommend, I do not authorize.",
+    response:
+      "No sourced backlog figure is in this snapshot. I recommend, I do not authorize.",
   });
 });
 
@@ -201,10 +202,7 @@ describe("PresenceBoothConversation", () => {
   it("keeps a bound Decision Case in the ask without transferring seed facts", async () => {
     renderBooth({
       caseBound: true,
-      caseContextLines: [
-        "Decision Case DC-2201 v1",
-        "Asset: Crusher 2201",
-      ],
+      caseContextLines: ["Decision Case DC-2201 v1", "Asset: Crusher 2201"],
     });
     fireEvent.change(screen.getByPlaceholderText(/Ask about maintenance/i), {
       target: { value: "What should I look at first?" },

@@ -7,7 +7,7 @@
  * in the honesty line. KPI brief is text-only from get_kpi_dashboard.
  * Mute is remembered in localStorage. Recommend is not authorize.
  */
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { MessageCircle, Volume2, VolumeX } from "lucide-react";
 import { useFeatureFlag } from "../hooks/useFeatureFlag";
 import { useSpeechOutput } from "../hooks/useSpeechOutput";
@@ -57,23 +57,33 @@ export function PresenceWelcome() {
   const [boothOpen, setBoothOpen] = useState(false);
   const [boothListening, setBoothListening] = useState(false);
   const [boothThinking, setBoothThinking] = useState(false);
-  const [memoryTick, setMemoryTick] = useState(0);
+  const [workingSubject, setWorkingSubject] = useState(() =>
+    resolvePresenceWorkingSubject([]),
+  );
 
   const givenName = resolveWelcomeGivenName({
     fullName: profile?.full_name,
     metadataName: metadataFullName(user?.user_metadata?.full_name),
   });
 
-  const workingSubject = useMemo(() => {
-    if (typeof window === "undefined" || !user?.id) {
-      return resolvePresenceWorkingSubject([]);
+  const userId = user?.id ?? "";
+  const refreshWorkingSubject = useCallback(() => {
+    if (typeof window === "undefined" || !userId) {
+      setWorkingSubject(resolvePresenceWorkingSubject([]));
+      return;
     }
-    const memory = readPresenceMemory(window.sessionStorage, user.id);
-    return resolvePresenceWorkingSubject(
-      loadStoredPresenceCases(window.localStorage),
-      memory.lastSubject,
+    const memory = readPresenceMemory(window.sessionStorage, userId);
+    setWorkingSubject(
+      resolvePresenceWorkingSubject(
+        loadStoredPresenceCases(window.localStorage),
+        memory.lastSubject,
+      ),
     );
-  }, [user?.id, memoryTick]);
+  }, [userId]);
+
+  useEffect(() => {
+    refreshWorkingSubject();
+  }, [refreshWorkingSubject]);
 
   const spokenWelcome = buildSpokenWelcome(givenName, workingSubject);
   const presencePhase = derivePresencePhase({
@@ -159,7 +169,7 @@ export function PresenceWelcome() {
         setBoothListening(listening);
         setBoothThinking(thinking);
       }}
-      onMemoryChange={() => setMemoryTick((value) => value + 1)}
+      onMemoryChange={refreshWorkingSubject}
     />
   ) : null;
 

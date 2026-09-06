@@ -145,7 +145,9 @@ export function resolvePresenceWorkingSubject(
   };
 }
 
-export function describePresenceWork(subject: PresenceWorkingSubject | null): string {
+export function describePresenceWork(
+  subject: PresenceWorkingSubject | null,
+): string {
   if (subject?.bound && subject.caseNumber && subject.asset) {
     return `We're on Decision Case ${subject.caseNumber} for ${subject.asset}.`;
   }

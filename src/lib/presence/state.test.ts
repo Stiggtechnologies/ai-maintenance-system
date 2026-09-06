@@ -73,7 +73,9 @@ describe("presence state machine", () => {
       "thinking",
       "speaking",
     ]);
-    expect(PRESENCE_PHASES.join(" ")).not.toMatch(/execute|authorize|autonomous/i);
+    expect(PRESENCE_PHASES.join(" ")).not.toMatch(
+      /execute|authorize|autonomous/i,
+    );
     expect(presencePhaseLabel("idle")).toBe("Idle");
     expect(presencePhaseLabel("listening")).toBe("Listening");
     expect(presencePhaseLabel("thinking")).toBe("Thinking");

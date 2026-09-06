@@ -14,10 +14,7 @@ describe("booth conversation framing", () => {
       question: "How is the mill running?",
       briefLines: ["OEE: 62%"],
       givenName: "Orville",
-      caseContextLines: [
-        "Decision Case DC-2201 v1",
-        "Asset: Crusher 2201",
-      ],
+      caseContextLines: ["Decision Case DC-2201 v1", "Asset: Crusher 2201"],
       sessionLines: ["Last subject: Crusher 2201 vibration"],
     });
     expect(query).toContain(BOOTH_FRAMING);

@@ -188,7 +188,9 @@ describe("PresenceWelcome", () => {
     }
     expect(screen.queryByText(/plant is healthy/i)).toBeNull();
     expect(screen.queryByText(/87%/)).toBeNull();
-    expect(screen.getByText(/Recommend is not authorize/i)).toBeInTheDocument();
+    expect(screen.getByTestId("presence-honesty")).toHaveTextContent(
+      /Recommend is not authorize/i,
+    );
   });
 
   it("renders live KPI lines without fabricating extra plant claims", async () => {
@@ -263,9 +265,7 @@ describe("PresenceWelcome", () => {
     expect(
       screen.getByRole("button", { name: /play welcome/i }),
     ).toBeInTheDocument();
-    expect(
-      screen.getByText(/still gates CopilotDock/i),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/still gates CopilotDock/i)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Meet Sync" }));
     expect(await screen.findByTestId("presence-booth")).toBeInTheDocument();
   });

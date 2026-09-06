@@ -45,7 +45,9 @@ describe("presence session memory", () => {
   it("isolates transcript by user and restores last subject", () => {
     const session = memoryStorage();
     writePresenceMemory(session, "user-a", {
-      messages: [{ id: "1", role: "user", text: "How is emergency work trending?" }],
+      messages: [
+        { id: "1", role: "user", text: "How is emergency work trending?" },
+      ],
       lastSubject: "How is emergency work trending?",
     });
 
@@ -72,7 +74,11 @@ describe("presence session memory", () => {
     const lines = sessionMemoryLines({
       lastSubject: "compressor C-330 MTBF",
       messages: [
-        { id: "u1", role: "user", text: "Calculate MTBF for compressor C-330." },
+        {
+          id: "u1",
+          role: "user",
+          text: "Calculate MTBF for compressor C-330.",
+        },
         {
           id: "s1",
           role: "sync",
@@ -81,7 +87,7 @@ describe("presence session memory", () => {
       ],
     });
     expect(lines[0]).toBe("Last subject: compressor C-330 MTBF");
-    expect(lines.join("\n")).toMatch(/Recommend is not authorize/i);
+    expect(lines.join("\n")).toMatch(/recommend, I do not authorize/i);
     expect(lines.join("\n")).not.toMatch(/plant is healthy|87%/i);
   });
 });
@@ -99,7 +105,9 @@ describe("presence Decision Case continuity", () => {
     const fromEmpty = resolvePresenceWorkingSubject([empty, leftover]);
     expect(fromEmpty.bound).toBe(false);
     expect(fromEmpty.asset).toBeNull();
-    expect(describePresenceWork(fromEmpty)).toMatch(/No Decision Case is bound/i);
+    expect(describePresenceWork(fromEmpty)).toMatch(
+      /No Decision Case is bound/i,
+    );
     expect(describePresenceWork(fromEmpty)).not.toMatch(/P-101|Fort McMurray/i);
   });
 
