@@ -9,6 +9,7 @@ import type { ComponentProps } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { BOOTH_UNAVAILABLE_REPLY } from "../lib/presence/booth";
 import {
+  BOOTH_TTS_SETTLE_MS,
   BOOTH_UTTERANCE_SILENCE_MS,
   MIC_BLOCKED_COPY,
   PRESENCE_HOLD_TO_TALK_KEY,
@@ -28,6 +29,7 @@ const onPresenceSignals = vi.fn();
 let onTranscript: ((text: string) => void) | null = null;
 let onSpeech: (() => void) | undefined;
 let onInterim: ((text: string) => void) | undefined;
+let dictationIgnoreResults = false;
 
 const dictation = {
   supported: true,
@@ -52,11 +54,16 @@ vi.mock("../lib/presence/vaultClient", () => ({
 vi.mock("../hooks/useDictation", () => ({
   useDictation: (
     callback: (text: string) => void,
-    options?: { onSpeech?: () => void; onInterim?: (text: string) => void },
+    options?: {
+      onSpeech?: () => void;
+      onInterim?: (text: string) => void;
+      ignoreResults?: boolean;
+    },
   ) => {
     onTranscript = callback;
     onSpeech = options?.onSpeech;
     onInterim = options?.onInterim;
+    dictationIgnoreResults = Boolean(options?.ignoreResults);
     return dictation;
   },
 }));
@@ -74,6 +81,7 @@ beforeEach(() => {
   onTranscript = null;
   onSpeech = undefined;
   onInterim = undefined;
+  dictationIgnoreResults = false;
   dictation.supported = true;
   dictation.listening = false;
   dictation.error = null;
@@ -89,28 +97,32 @@ beforeEach(() => {
   });
 });
 
+function boothProps(
+  overrides: Partial<ComponentProps<typeof PresenceBoothConversation>> = {},
+): ComponentProps<typeof PresenceBoothConversation> {
+  return {
+    signedIn: true,
+    userId: "user-orville",
+    muted: false,
+    voiceOutputEnabled: true,
+    givenName: "Orville",
+    briefLines: ["No sourced KPI values are available yet."],
+    caseContextLines: [
+      "No decision case is selected.",
+      "Stay general. Do not assume a demo, reference, or seed case.",
+    ],
+    caseBound: false,
+    speak,
+    stopSpeech,
+    onPresenceSignals,
+    ...overrides,
+  };
+}
+
 function renderBooth(
   overrides: Partial<ComponentProps<typeof PresenceBoothConversation>> = {},
 ) {
-  return render(
-    <PresenceBoothConversation
-      signedIn
-      userId="user-orville"
-      muted={false}
-      voiceOutputEnabled
-      givenName="Orville"
-      briefLines={["No sourced KPI values are available yet."]}
-      caseContextLines={[
-        "No decision case is selected.",
-        "Stay general. Do not assume a demo, reference, or seed case.",
-      ]}
-      caseBound={false}
-      speak={speak}
-      stopSpeech={stopSpeech}
-      onPresenceSignals={onPresenceSignals}
-      {...overrides}
-    />,
-  );
+  return render(<PresenceBoothConversation {...boothProps(overrides)} />);
 }
 
 describe("PresenceBoothConversation", () => {
@@ -166,16 +178,98 @@ describe("PresenceBoothConversation", () => {
     );
   });
 
-  it("stops TTS when the user speaks in continuous mode", () => {
+  it("does not treat recognition as a user turn while Sync is speaking", async () => {
+    const spoken =
+      "No sourced backlog figure is in this snapshot. I recommend, I do not authorize.";
     renderBooth({ speaking: true });
+    expect(dictationIgnoreResults).toBe(true);
+    expect(stopDictation).toHaveBeenCalled();
     act(() => {
       onSpeech?.();
+      onInterim?.(spoken);
+      onTranscript?.(spoken);
     });
-    expect(stopSpeech).toHaveBeenCalled();
+    expect(stopSpeech).not.toHaveBeenCalled();
+    expect(askBooth).not.toHaveBeenCalled();
+    await act(async () => {
+      await new Promise((resolve) =>
+        setTimeout(resolve, BOOTH_UTTERANCE_SILENCE_MS + 80),
+      );
+    });
+    expect(askBooth).not.toHaveBeenCalled();
+  });
+
+  it("does not loop when recognition hears the spoken reply after TTS ends", async () => {
+    const view = renderBooth();
+    fireEvent.change(screen.getByPlaceholderText(/Ask about maintenance/i), {
+      target: { value: "What should I look at first?" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /send question/i }));
+
+    const spoken =
+      "No sourced backlog figure is in this snapshot. I recommend, I do not authorize.";
+    await waitFor(() => {
+      expect(speak).toHaveBeenCalledWith(spoken);
+    });
+    expect(askBooth).toHaveBeenCalledTimes(1);
+    stopSpeech.mockClear();
+
+    view.rerender(<PresenceBoothConversation {...boothProps({ speaking: true })} />);
     act(() => {
-      onInterim?.("how is");
+      onSpeech?.();
+      onTranscript?.(spoken);
     });
-    expect(stopSpeech).toHaveBeenCalled();
+    expect(stopSpeech).not.toHaveBeenCalled();
+
+    view.rerender(
+      <PresenceBoothConversation {...boothProps({ speaking: false })} />,
+    );
+    await act(async () => {
+      await new Promise((resolve) =>
+        setTimeout(resolve, BOOTH_TTS_SETTLE_MS + 40),
+      );
+    });
+    act(() => {
+      onTranscript?.(spoken);
+    });
+    await act(async () => {
+      await new Promise((resolve) =>
+        setTimeout(resolve, BOOTH_UTTERANCE_SILENCE_MS + 80),
+      );
+    });
+    expect(askBooth).toHaveBeenCalledTimes(1);
+  });
+
+  it("resumes continuous listen after TTS plus settle, and accepts a new user turn", async () => {
+    const view = renderBooth({ speaking: true });
+    startDictation.mockClear();
+    stopDictation.mockClear();
+    expect(dictationIgnoreResults).toBe(true);
+
+    view.rerender(
+      <PresenceBoothConversation {...boothProps({ speaking: false })} />,
+    );
+    expect(startDictation).not.toHaveBeenCalled();
+    await act(async () => {
+      await new Promise((resolve) =>
+        setTimeout(resolve, BOOTH_TTS_SETTLE_MS + 40),
+      );
+    });
+    expect(startDictation).toHaveBeenCalled();
+    expect(dictationIgnoreResults).toBe(false);
+
+    act(() => {
+      onTranscript?.("How is emergency work trending?");
+    });
+    await waitFor(
+      () => {
+        expect(askBooth).toHaveBeenCalledTimes(1);
+      },
+      { timeout: BOOTH_UTTERANCE_SILENCE_MS + 400 },
+    );
+    expect(askBooth.mock.calls[0][0]).toContain(
+      "QUESTION: How is emergency work trending?",
+    );
   });
 
   it("toggles optional hold-to-talk and keeps press-and-hold there", async () => {

@@ -1,14 +1,18 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
+  BOOTH_ECHO_MEMORY_MS,
+  BOOTH_TTS_SETTLE_MS,
   BOOTH_UTTERANCE_SILENCE_MS,
   MIC_BLOCKED_COPY,
   boothVoiceMode,
   defaultBoothVoiceMode,
   isMicBlockedError,
+  isSelfEchoTranscript,
   readHoldToTalkPreference,
   shouldAutoListen,
   shouldCommitContinuousUtterance,
+  shouldTreatHeardSpeechAsUserTurn,
   writeHoldToTalkPreference,
 } from "./boothListen";
 
@@ -66,6 +70,57 @@ describe("booth listen mode", () => {
     expect(shouldAutoListen({ ...ready, busy: true })).toBe(false);
     expect(shouldAutoListen({ ...ready, supported: false })).toBe(false);
     expect(shouldAutoListen({ ...ready, micPermission: "denied" })).toBe(false);
+    expect(shouldAutoListen({ ...ready, speaking: true })).toBe(false);
+    expect(shouldAutoListen({ ...ready, settling: true })).toBe(false);
+    expect(shouldAutoListen({ ...ready, outputGating: true })).toBe(false);
+  });
+
+  it("does not treat Sync TTS or a matching echo as a user turn", () => {
+    const spoken =
+      "No sourced backlog figure is in this snapshot. I recommend, I do not authorize.";
+    expect(
+      shouldTreatHeardSpeechAsUserTurn({
+        speaking: true,
+        transcript: "how is emergency work trending",
+      }),
+    ).toBe(false);
+    expect(
+      shouldTreatHeardSpeechAsUserTurn({
+        settling: true,
+        transcript: "how is emergency work trending",
+      }),
+    ).toBe(false);
+    expect(
+      shouldTreatHeardSpeechAsUserTurn({
+        outputGating: true,
+        transcript: "how is emergency work trending",
+      }),
+    ).toBe(false);
+    expect(isSelfEchoTranscript(spoken, spoken)).toBe(true);
+    expect(
+      isSelfEchoTranscript(
+        "I recommend I do not authorize",
+        spoken,
+      ),
+    ).toBe(true);
+    expect(
+      isSelfEchoTranscript("How is emergency work trending?", spoken),
+    ).toBe(false);
+    expect(
+      shouldTreatHeardSpeechAsUserTurn({
+        transcript: spoken,
+        lastSpokenText: spoken,
+      }),
+    ).toBe(false);
+    expect(
+      shouldTreatHeardSpeechAsUserTurn({
+        transcript: "How is emergency work trending?",
+        lastSpokenText: spoken,
+      }),
+    ).toBe(true);
+    expect(BOOTH_TTS_SETTLE_MS).toBeGreaterThan(0);
+    expect(BOOTH_TTS_SETTLE_MS).toBeLessThan(BOOTH_UTTERANCE_SILENCE_MS);
+    expect(BOOTH_ECHO_MEMORY_MS).toBeGreaterThan(BOOTH_TTS_SETTLE_MS);
   });
 
   it("commits a continuous utterance after silence, not while Sync is speaking", () => {
@@ -86,6 +141,15 @@ describe("booth listen mode", () => {
     expect(shouldCommitContinuousUtterance({ ...ready, speaking: true })).toBe(
       false,
     );
+    expect(shouldCommitContinuousUtterance({ ...ready, settling: true })).toBe(
+      false,
+    );
+    expect(
+      shouldCommitContinuousUtterance({
+        ...ready,
+        lastSpokenText: ready.transcript,
+      }),
+    ).toBe(false);
     expect(shouldCommitContinuousUtterance({ ...ready, busy: true })).toBe(
       false,
     );

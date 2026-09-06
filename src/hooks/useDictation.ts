@@ -43,8 +43,16 @@ export interface UseDictationOptions {
   /** Emit non-final results through onInterim. Default false. */
   interimResults?: boolean;
   onInterim?: (text: string) => void;
-  /** Fires on any speech result so the booth can barge in on TTS. */
+  /**
+   * Fires on any accepted speech result. Meet Sync does not barge in on
+   * TTS from this callback — playback echo is gated separately.
+   */
   onSpeech?: () => void;
+  /**
+   * Drop interim/final results without emitting callbacks. Used while
+   * Sync TTS is playing and during the post-TTS settle.
+   */
+  ignoreResults?: boolean;
 }
 
 const MIC_BLOCKED_ERROR =
@@ -114,6 +122,7 @@ export function useDictation(
     recognition.lang = navigator.language || "en-CA";
 
     recognition.onresult = (event) => {
+      if (optionsRef.current.ignoreResults) return;
       let finalText = "";
       let interimText = "";
       let heard = false;

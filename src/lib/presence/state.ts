@@ -21,9 +21,10 @@ export interface PresenceSignals {
 }
 
 /**
- * Listening wins so continuous listen or hold-to-talk can barge in on TTS.
- * Thinking wins over speaking so the face does not stay on a finished line
- * while the Reliability Engineer ask is still in flight.
+ * Listening wins when both flags are true. Meet Sync pauses recognition
+ * while TTS plays so the face can show Speaking; it does not barge in on
+ * its own voice. Thinking wins over speaking so the face does not stay on
+ * a finished line while the Reliability Engineer ask is still in flight.
  */
 export function derivePresencePhase(signals: PresenceSignals): PresencePhase {
   if (signals.listening) return "listening";

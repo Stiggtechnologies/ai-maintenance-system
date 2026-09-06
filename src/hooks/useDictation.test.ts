@@ -111,4 +111,34 @@ describe("useDictation", () => {
     expect(onSpeech).toHaveBeenCalled();
     expect(onInterim).toHaveBeenCalledWith("how is");
   });
+
+  it("drops interim and final results while ignoreResults is set", () => {
+    const onTranscript = vi.fn();
+    const onSpeech = vi.fn();
+    const onInterim = vi.fn();
+    const { result, rerender } = renderHook(
+      ({ ignoreResults }) =>
+        useDictation(onTranscript, {
+          interimResults: true,
+          ignoreResults,
+          onSpeech,
+          onInterim,
+        }),
+      { initialProps: { ignoreResults: true } },
+    );
+    act(() => result.current.start());
+    act(() => lastRecognition?.emitInterim("I recommend"));
+    act(() => lastRecognition?.emitFinal("I recommend, I do not authorize."));
+    expect(onSpeech).not.toHaveBeenCalled();
+    expect(onInterim).not.toHaveBeenCalled();
+    expect(onTranscript).not.toHaveBeenCalled();
+
+    rerender({ ignoreResults: false });
+    act(() => {
+      lastRecognition?.emitFinal("How is emergency work trending?");
+    });
+    expect(onTranscript).toHaveBeenCalledWith(
+      "How is emergency work trending?",
+    );
+  });
 });
