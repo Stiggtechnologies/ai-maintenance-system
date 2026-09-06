@@ -28,6 +28,9 @@ import { industrialGearboxTemplate } from "../src/lib/asset-twins/industrial-gea
 import { largeWheelLoaderTemplate } from "../src/lib/asset-twins/large-wheel-loader";
 import { primaryCrusherTemplate } from "../src/lib/asset-twins/primary-crusher";
 import { sagMillTemplate } from "../src/lib/asset-twins/sag-mill";
+import { miningDozerTemplate } from "../src/lib/asset-twins/mining-dozer";
+import { miningGraderTemplate } from "../src/lib/asset-twins/mining-grader";
+import { mobileCrusherTemplate } from "../src/lib/asset-twins/mobile-crusher";
 import { stackerReclaimerTemplate } from "../src/lib/asset-twins/stacker-reclaimer";
 import { thickenerTemplate } from "../src/lib/asset-twins/thickener";
 import { ultraClassHaulTruckTemplate } from "../src/lib/asset-twins/ultra-class-haul-truck";
@@ -49,6 +52,9 @@ const detailed: AssetClassTemplate[] = [
   primaryCrusherTemplate,
   sagMillTemplate,
   stackerReclaimerTemplate,
+  miningDozerTemplate,
+  miningGraderTemplate,
+  mobileCrusherTemplate,
   thickenerTemplate,
   ultraClassHaulTruckTemplate,
 ];
