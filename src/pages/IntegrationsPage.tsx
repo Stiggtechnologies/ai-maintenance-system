@@ -14,6 +14,7 @@ import { platformService } from "../services/platform";
 import { DataGovernance } from "../components/DataGovernance";
 import { RecoverySignalConnectorSetup } from "../components/RecoverySignalConnectorSetup";
 import { PlantHistorianConnectorSetup } from "../components/PlantHistorianConnectorSetup";
+import { CmmsReadConnectorSetup } from "../components/CmmsReadConnectorSetup";
 
 interface Connector {
   id: string;
@@ -315,6 +316,7 @@ export function IntegrationsPage() {
       )}
 
       <PlantHistorianConnectorSetup onConfigured={loadData} />
+      <CmmsReadConnectorSetup onConfigured={loadData} />
       <RecoverySignalConnectorSetup onConfigured={loadData} />
       <ConnectorHealth />
       <DataGovernance />
