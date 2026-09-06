@@ -44,6 +44,14 @@ vi.mock("./AuthProvider", () => ({
   useAuth: () => useAuth(),
 }));
 
+const loadVault = vi.fn();
+const persistVault = vi.fn();
+
+vi.mock("../lib/presence/vaultClient", () => ({
+  loadPresenceVaultSession: (...args: unknown[]) => loadVault(...args),
+  persistPresenceVault: (...args: unknown[]) => persistVault(...args),
+}));
+
 vi.mock("../services/kpiService", async () => {
   const actual = await vi.importActual<typeof import("../services/kpiService")>(
     "../services/kpiService",
@@ -51,7 +59,10 @@ vi.mock("../services/kpiService", async () => {
   return { ...actual, getKpiDashboard: () => loadDashboard() };
 });
 
-function signedInAuth(fullName: string | null = "Orville Davis") {
+function signedInAuth(
+  fullName: string | null = "Orville Davis",
+  organizationId?: string,
+) {
   return {
     user: { id: "user-orville", user_metadata: {} },
     profile: {
@@ -60,6 +71,7 @@ function signedInAuth(fullName: string | null = "Orville Davis") {
       full_name: fullName,
       role: "admin",
       preferences: {},
+      ...(organizationId ? { organization_id: organizationId } : {}),
     },
     session: {},
     loading: false,
@@ -103,6 +115,10 @@ beforeEach(() => {
   voiceOutput.error = null;
   window.localStorage.clear();
   window.sessionStorage.clear();
+  loadVault.mockReset();
+  persistVault.mockReset();
+  loadVault.mockResolvedValue(null);
+  persistVault.mockResolvedValue(true);
   useAuth.mockReturnValue(signedInAuth());
   loadDashboard.mockResolvedValue({
     role: "admin",
@@ -326,5 +342,33 @@ describe("PresenceWelcome", () => {
     expect(speak.mock.calls[0][0]).not.toMatch(/Orville/);
     expect(speak.mock.calls[0][0]).toMatch(/Reliability Engineer/);
     expect(screen.getByText(buildSpokenWelcome(null))).toBeInTheDocument();
+  });
+
+  it("restores last subject from signed-in vault notes before speaking", async () => {
+    loadVault.mockResolvedValue({
+      lastSubject: "HMER haul truck availability optimization",
+      messages: [
+        {
+          id: "prior",
+          role: "user",
+          text: "HMER haul truck availability optimization",
+        },
+      ],
+    });
+    useAuth.mockReturnValue(signedInAuth("Orville Davis", "org-1"));
+    render(<PresenceWelcome />);
+
+    await waitFor(() => {
+      expect(loadVault).toHaveBeenCalledWith({
+        userId: "user-orville",
+        organizationId: "org-1",
+      });
+    });
+    await waitFor(() => {
+      expect(speak).toHaveBeenCalled();
+    });
+    expect(speak.mock.calls[0][0]).toMatch(/HMER haul truck/i);
+    expect(speak.mock.calls[0][0]).toMatch(/provisional/i);
+    expect(speak.mock.calls[0][0]).toMatch(/I recommend, I do not authorize/i);
   });
 });
