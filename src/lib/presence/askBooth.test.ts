@@ -81,6 +81,17 @@ describe("askBoothConversation", () => {
     expect(result.response).toBe(BOOTH_UNAVAILABLE_REPLY);
     expect(result.response).not.toMatch(/\b87%\b/);
   });
+
+  it("returns the honest unavailable reply when invoke throws", async () => {
+    invoke.mockRejectedValue(new Error("Failed to send a request to the Edge Function"));
+
+    const result = await askBoothConversation("QUESTION: status");
+    expect(result).toEqual({
+      status: "unavailable",
+      response: BOOTH_UNAVAILABLE_REPLY,
+    });
+    expect(result.response).not.toMatch(/plant is healthy/i);
+  });
 });
 
 describe("askBooth boundary", () => {

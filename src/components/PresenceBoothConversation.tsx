@@ -12,6 +12,7 @@ import { Loader2, Mic, MicOff, Send } from "lucide-react";
 import { useDictation } from "../hooks/useDictation";
 import { askBoothConversation } from "../lib/presence/askBooth";
 import {
+  BOOTH_UNAVAILABLE_REPLY,
   buildBoothAskQuery,
   shouldSpeakBoothReply,
   stripForSpeech,
@@ -97,11 +98,44 @@ export function PresenceBoothConversation({
     lastSubject: string | null,
   ) => {
     if (!userId) return;
-    writePresenceMemory(window.sessionStorage, userId, {
-      messages: nextMessages,
-      lastSubject,
-    });
-    onMemoryChange?.();
+    try {
+      writePresenceMemory(window.sessionStorage, userId, {
+        messages: nextMessages,
+        lastSubject,
+      });
+    } catch {
+      // Tab memory is best-effort. A blocked or full sessionStorage must not
+      // abort a booth turn.
+    }
+    try {
+      onMemoryChange?.();
+    } catch {
+      // Parent subject refresh is best-effort.
+    }
+  };
+
+  const appendSyncReply = (
+    withUser: PresenceBoothMessage[],
+    lastSubject: string | null,
+    text: string,
+  ) => {
+    const reply: PresenceBoothMessage = {
+      id: `sync-${Date.now()}`,
+      role: "sync",
+      text,
+    };
+    const withReply = [...withUser, reply];
+    setMessages(withReply);
+    persist(withReply, lastSubject);
+    if (!shouldSpeakBoothReply({ signedIn, muted, voiceOutputEnabled })) {
+      return;
+    }
+    try {
+      const spoken = stripForSpeech(text);
+      if (spoken) speak(spoken);
+    } catch {
+      // Browser TTS failure must not hide the on-screen Sync reply.
+    }
   };
 
   const send = async (raw: string) => {
@@ -118,10 +152,10 @@ export function PresenceBoothConversation({
     lastSubjectRef.current = nextSubject;
     const withUser = [...messages, userMessage];
     setMessages(withUser);
-    persist(withUser, nextSubject);
     setBusy(true);
-    stopSpeech();
     try {
+      persist(withUser, nextSubject);
+      stopSpeech();
       const askQuestion =
         !caseBound && promptNamesConcreteSubject(question)
           ? formatUnboundLiveQuestion(question)
@@ -138,18 +172,9 @@ export function PresenceBoothConversation({
           }),
         }),
       );
-      const reply: PresenceBoothMessage = {
-        id: `sync-${Date.now()}`,
-        role: "sync",
-        text: result.response,
-      };
-      const withReply = [...withUser, reply];
-      setMessages(withReply);
-      persist(withReply, nextSubject);
-      if (shouldSpeakBoothReply({ signedIn, muted, voiceOutputEnabled })) {
-        const spoken = stripForSpeech(result.response);
-        if (spoken) speak(spoken);
-      }
+      appendSyncReply(withUser, nextSubject, result.response);
+    } catch {
+      appendSyncReply(withUser, nextSubject, BOOTH_UNAVAILABLE_REPLY);
     } finally {
       setBusy(false);
     }

@@ -165,6 +165,40 @@ describe("PresenceBoothConversation", () => {
     expect(screen.queryByText(/plant is healthy/i)).toBeNull();
   });
 
+  it("shows a Sync unavailable reply when the ask invoke throws", async () => {
+    askBooth.mockRejectedValue(
+      new Error("Failed to send a request to the Edge Function"),
+    );
+    renderBooth();
+    fireEvent.change(screen.getByPlaceholderText(/Ask about maintenance/i), {
+      target: { value: "What should I look at first?" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /send question/i }));
+
+    expect(await screen.findByText("What should I look at first?")).toBeInTheDocument();
+    expect(
+      await screen.findByText(BOOTH_UNAVAILABLE_REPLY),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Sync")).toBeInTheDocument();
+    expect(screen.queryByText(/plant is healthy/i)).toBeNull();
+    expect(speak).toHaveBeenCalledWith(BOOTH_UNAVAILABLE_REPLY);
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /send question/i })).not.toBeDisabled();
+    });
+  });
+
+  it("still shows the unavailable Sync reply when muted after an invoke throw", async () => {
+    askBooth.mockRejectedValue(new Error("FunctionsFetchError"));
+    renderBooth({ muted: true });
+    fireEvent.change(screen.getByPlaceholderText(/Ask about maintenance/i), {
+      target: { value: "How is backlog?" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /send question/i }));
+
+    expect(await screen.findByText(BOOTH_UNAVAILABLE_REPLY)).toBeInTheDocument();
+    expect(speak).not.toHaveBeenCalled();
+  });
+
   it("does not ask when signed out", async () => {
     renderBooth({ signedIn: false });
     fireEvent.change(screen.getByPlaceholderText(/Ask about maintenance/i), {
