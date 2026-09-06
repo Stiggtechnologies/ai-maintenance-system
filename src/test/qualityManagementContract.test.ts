@@ -15,6 +15,7 @@ const workflow = readFileSync(
   ".github/workflows/domain-specialists-closeout.yml",
   "utf8",
 );
+const developRegister = readFileSync("docs/sync-develop/register.md", "utf8");
 
 describe("Slice 7D production contract", () => {
   it("owns every requested aggregate without cloning canonical work or acceptance records", () => {
@@ -78,5 +79,29 @@ describe("Slice 7D production contract", () => {
     expect(service).toContain('supabase.rpc("get_quality_cockpit"');
     expect(page).toContain("<QualityManagementWorkbench />");
     expect(workflow).toContain("ci-quality-management-smoke.sh");
+  });
+
+  it("flips the Slice 7D D-family rows only where the 7D chain is cited", () => {
+    const row = (id: string) => {
+      const line = developRegister
+        .split("\n")
+        .find((candidate) => candidate.startsWith(`| ${id} `));
+      expect(line, id).toBeTruthy();
+      return line!;
+    };
+    expect(row("D4.03")).toMatch(/^\| D4\.03 \|[^|]*\|[^|]*\| ✅/);
+    expect(row("D4.03")).toContain("`quality_ncrs`");
+    expect(row("D4.03")).toContain("`record_quality_ncr`");
+    expect(row("D4.03")).toContain("`QualityManagementWorkbench`");
+    expect(row("D4.06")).toMatch(/^\| D4\.06 \|[^|]*\|[^|]*\| ✅/);
+    expect(row("D4.06")).toContain("`QUALITY_METRIC_DEFINITIONS`");
+    expect(row("D4.06")).toContain("`get_quality_cockpit`");
+    expect(row("D4.02")).toMatch(/^\| D4\.02 \|[^|]*\|[^|]*\| ✅/);
+    expect(row("D4.04")).toMatch(/^\| D4\.04 \|[^|]*\|[^|]*\| ✅/);
+    expect(row("D4.05")).toMatch(/^\| D4\.05 \|[^|]*\|[^|]*\| ✅/);
+    expect(row("D4.01")).toMatch(/^\| D4\.01 \|[^|]*\|[^|]*\| 🟡/);
+    expect(row("D4.01")).toContain("ONE project requirement table");
+    expect(row("D4.07")).toMatch(/^\| D4\.07 \|[^|]*\|[^|]*\| 🟡/);
+    expect(row("D4.07")).toContain("six terms");
   });
 });
