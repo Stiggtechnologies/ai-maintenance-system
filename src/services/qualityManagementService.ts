@@ -22,6 +22,9 @@ export interface QualityRequirementRow {
   title: string;
   status: "draft" | "approved" | "superseded";
   severity: "minor" | "major" | "critical";
+  design_requirement_id?: number | null;
+  designRequirementId?: number | null;
+  designRequirementRef?: string | null;
 }
 
 export interface QualityItpRow {
@@ -56,6 +59,12 @@ export interface QualityCockpit {
   };
   costByCurrency: QualityCostOfQuality[];
   requirements: QualityRequirementRow[];
+  unboundQualityRequirements?: Array<{
+    id: number;
+    requirementRef: string;
+    title: string;
+    status: string;
+  }>;
   itps: QualityItpRow[];
   itpPoints: QualityItpPointRow[];
   ncrs: QualityNcrRow[];
