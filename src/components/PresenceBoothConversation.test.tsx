@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ComponentProps } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { BOOTH_UNAVAILABLE_REPLY } from "../lib/presence/booth";
+import { PRESENCE_MEMORY_KEY_PREFIX } from "../lib/presence/memory";
 import { PresenceBoothConversation } from "./PresenceBoothConversation";
 
 const speak = vi.fn();
@@ -9,6 +10,7 @@ const stopSpeech = vi.fn();
 const askBooth = vi.fn();
 const startDictation = vi.fn();
 const stopDictation = vi.fn();
+const onPresenceSignals = vi.fn();
 let onTranscript: ((text: string) => void) | null = null;
 
 vi.mock("../lib/presence/askBooth", () => ({
@@ -35,10 +37,13 @@ beforeEach(() => {
   askBooth.mockReset();
   startDictation.mockReset();
   stopDictation.mockReset();
+  onPresenceSignals.mockReset();
   onTranscript = null;
+  window.sessionStorage.clear();
   askBooth.mockResolvedValue({
     status: "ok",
-    response: "No sourced backlog figure is in this snapshot.",
+    response:
+      "No sourced backlog figure is in this snapshot. I recommend, I do not authorize.",
   });
 });
 
@@ -48,12 +53,19 @@ function renderBooth(
   return render(
     <PresenceBoothConversation
       signedIn
+      userId="user-orville"
       muted={false}
       voiceOutputEnabled
       givenName="Orville"
       briefLines={["No sourced KPI values are available yet."]}
+      caseContextLines={[
+        "No decision case is selected.",
+        "Stay general. Do not assume a demo, reference, or seed case.",
+      ]}
+      caseBound={false}
       speak={speak}
       stopSpeech={stopSpeech}
+      onPresenceSignals={onPresenceSignals}
       {...overrides}
     />,
   );
@@ -74,13 +86,16 @@ describe("PresenceBoothConversation", () => {
     expect(query).toContain("QUESTION: What should I look at first?");
     expect(query).toMatch(/Recommend is not authorize/i);
     expect(query).toContain("No sourced KPI values are available yet.");
+    expect(query).toContain("No decision case is selected.");
     expect(query).not.toMatch(/plant is healthy/i);
 
     expect(
-      await screen.findByText("No sourced backlog figure is in this snapshot."),
+      await screen.findByText(
+        "No sourced backlog figure is in this snapshot. I recommend, I do not authorize.",
+      ),
     ).toBeInTheDocument();
     expect(speak).toHaveBeenCalledWith(
-      "No sourced backlog figure is in this snapshot.",
+      "No sourced backlog figure is in this snapshot. I recommend, I do not authorize.",
     );
   });
 
@@ -110,12 +125,14 @@ describe("PresenceBoothConversation", () => {
     fireEvent.click(screen.getByRole("button", { name: /send question/i }));
 
     expect(
-      await screen.findByText("No sourced backlog figure is in this snapshot."),
+      await screen.findByText(
+        "No sourced backlog figure is in this snapshot. I recommend, I do not authorize.",
+      ),
     ).toBeInTheDocument();
     expect(speak).not.toHaveBeenCalled();
   });
 
-  it("does not speak replies when sync_voice_output is off", async () => {
+  it("still speaks Meet Sync replies when tenant voice output is off", async () => {
     renderBooth({ voiceOutputEnabled: false });
     fireEvent.change(screen.getByPlaceholderText(/Ask about maintenance/i), {
       target: { value: "Any plant claims?" },
@@ -123,9 +140,11 @@ describe("PresenceBoothConversation", () => {
     fireEvent.click(screen.getByRole("button", { name: /send question/i }));
 
     expect(
-      await screen.findByText("No sourced backlog figure is in this snapshot."),
+      await screen.findByText(
+        "No sourced backlog figure is in this snapshot. I recommend, I do not authorize.",
+      ),
     ).toBeInTheDocument();
-    expect(speak).not.toHaveBeenCalled();
+    expect(speak).toHaveBeenCalled();
   });
 
   it("shows the honest unavailable reply and does not invent plant state", async () => {
@@ -154,5 +173,49 @@ describe("PresenceBoothConversation", () => {
     fireEvent.click(screen.getByRole("button", { name: /send question/i }));
     expect(askBooth).not.toHaveBeenCalled();
     expect(speak).not.toHaveBeenCalled();
+  });
+
+  it("continues a named subject in this-tab memory and keeps it provisional", async () => {
+    renderBooth();
+    fireEvent.change(screen.getByPlaceholderText(/Ask about maintenance/i), {
+      target: { value: "HMER haul truck availability optimization" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /send question/i }));
+
+    await waitFor(() => {
+      expect(askBooth).toHaveBeenCalledTimes(1);
+    });
+    expect(askBooth.mock.calls[0][0]).toContain(
+      "QUESTION: New subject. HMER haul truck availability optimization",
+    );
+    expect(askBooth.mock.calls[0][0]).toMatch(/provisional/i);
+
+    const stored = window.sessionStorage.getItem(
+      `${PRESENCE_MEMORY_KEY_PREFIX}user-orville`,
+    );
+    expect(stored).toContain("HMER haul truck availability optimization");
+    expect(onPresenceSignals).toHaveBeenCalledWith(
+      expect.objectContaining({ thinking: true }),
+    );
+  });
+
+  it("keeps a bound Decision Case in the ask without transferring seed facts", async () => {
+    renderBooth({
+      caseBound: true,
+      caseContextLines: ["Decision Case DC-2201 v1", "Asset: Crusher 2201"],
+    });
+    fireEvent.change(screen.getByPlaceholderText(/Ask about maintenance/i), {
+      target: { value: "What should I look at first?" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /send question/i }));
+
+    await waitFor(() => {
+      expect(askBooth).toHaveBeenCalledTimes(1);
+    });
+    const query = askBooth.mock.calls[0][0] as string;
+    expect(query).toContain("QUESTION: What should I look at first?");
+    expect(query).not.toContain("New subject.");
+    expect(query).toContain("Decision Case DC-2201 v1");
+    expect(query).not.toMatch(/P-101|Fort McMurray/i);
   });
 });

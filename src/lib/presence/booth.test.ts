@@ -14,13 +14,18 @@ describe("booth conversation framing", () => {
       question: "How is the mill running?",
       briefLines: ["OEE: 62%"],
       givenName: "Orville",
+      caseContextLines: ["Decision Case DC-2201 v1", "Asset: Crusher 2201"],
+      sessionLines: ["Last subject: Crusher 2201 vibration"],
     });
     expect(query).toContain(BOOTH_FRAMING);
+    expect(query).toMatch(/Reliability Engineer/i);
     expect(query).toMatch(/Recommend is not authorize/i);
     expect(query).toMatch(/Do not execute plant actions/i);
     expect(query).toContain("OEE: 62%");
     expect(query).toContain("QUESTION: How is the mill running?");
     expect(query).toContain("Visitor given name: Orville");
+    expect(query).toContain("Decision Case DC-2201 v1");
+    expect(query).toContain("Last subject: Crusher 2201 vibration");
     expect(query).not.toMatch(/openclaw|javis|jarvis/i);
   });
 
@@ -36,18 +41,19 @@ describe("booth conversation framing", () => {
     expect(query).toContain("No sourced KPI values are available yet.");
     expect(query).toMatch(/do not invent readings/i);
     expect(query).toContain("Visitor given name is not known");
+    expect(query).toContain("No decision case is selected.");
     expect(query).not.toMatch(/\b87%\b/);
     expect(query).not.toMatch(/plant is healthy/i);
   });
 });
 
 describe("booth speech gate", () => {
-  it("does not speak replies when muted or signed out", () => {
+  it("speaks Meet Sync replies when signed in and unmuted", () => {
     expect(
       shouldSpeakBoothReply({
         signedIn: true,
         muted: false,
-        voiceOutputEnabled: true,
+        voiceOutputEnabled: false,
       }),
     ).toBe(true);
     expect(
@@ -62,13 +68,6 @@ describe("booth speech gate", () => {
         signedIn: false,
         muted: false,
         voiceOutputEnabled: true,
-      }),
-    ).toBe(false);
-    expect(
-      shouldSpeakBoothReply({
-        signedIn: true,
-        muted: false,
-        voiceOutputEnabled: false,
       }),
     ).toBe(false);
   });

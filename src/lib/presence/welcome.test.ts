@@ -1,6 +1,9 @@
 import { readFileSync } from "node:fs";
 import { beforeEach, describe, expect, it } from "vitest";
 import type { KpiRow } from "../../services/kpiService";
+import { createSeedDecisionCases } from "../decision-case";
+import { createHonestEmptyDecisionCase } from "../decision-case-honesty";
+import { resolvePresenceWorkingSubject } from "./memory";
 import {
   HONEST_EMPTY_BRIEF,
   UNNAMED_SPOKEN_WELCOME,
@@ -67,7 +70,7 @@ function kpiRow(
 }
 
 describe("presence welcome speech gate", () => {
-  it("speaks once per session when enabled and signed in", () => {
+  it("speaks once per session when signed in and unmuted", () => {
     const session = memoryStorage();
     const userId = "user-orville";
 
@@ -75,7 +78,6 @@ describe("presence welcome speech gate", () => {
       signedIn: true,
       muted: false,
       alreadyWelcomedThisSession: hasSessionWelcome(session, userId),
-      voiceOutputEnabled: true,
     });
     expect(first).toBe(true);
     markSessionWelcome(session, userId);
@@ -84,7 +86,6 @@ describe("presence welcome speech gate", () => {
       signedIn: true,
       muted: false,
       alreadyWelcomedThisSession: hasSessionWelcome(session, userId),
-      voiceOutputEnabled: true,
     });
     expect(second).toBe(false);
     expect(session.getItem(presenceSessionStorageKey(userId))).toBe("1");
@@ -96,7 +97,6 @@ describe("presence welcome speech gate", () => {
         signedIn: false,
         muted: false,
         alreadyWelcomedThisSession: false,
-        voiceOutputEnabled: true,
       }),
     ).toBe(false);
   });
@@ -107,12 +107,11 @@ describe("presence welcome speech gate", () => {
         signedIn: true,
         muted: true,
         alreadyWelcomedThisSession: false,
-        voiceOutputEnabled: true,
       }),
     ).toBe(false);
   });
 
-  it("does not speak when sync_voice_output is off", () => {
+  it("still speaks Meet Sync when tenant sync_voice_output is off", () => {
     expect(
       shouldSpeakWelcome({
         signedIn: true,
@@ -120,7 +119,7 @@ describe("presence welcome speech gate", () => {
         alreadyWelcomedThisSession: false,
         voiceOutputEnabled: false,
       }),
-    ).toBe(false);
+    ).toBe(true);
   });
 });
 
@@ -132,7 +131,6 @@ describe("presence mute preference", () => {
     writeMutePreference(persistent, true);
     expect(readMutePreference(persistent)).toBe(true);
 
-    // Simulate a later visit: same storage, new reader.
     expect(readMutePreference(persistent)).toBe(true);
 
     writeMutePreference(persistent, false);
@@ -140,14 +138,16 @@ describe("presence mute preference", () => {
   });
 });
 
-describe("presence welcome name", () => {
-  it("uses the given name from the profile when available", () => {
+describe("presence welcome name and work", () => {
+  it("uses the given name and Reliability Engineer framing", () => {
     expect(resolveWelcomeGivenName({ fullName: "Orville Davis" })).toBe(
       "Orville",
     );
-    expect(buildSpokenWelcome("Orville")).toBe(
-      "Welcome Orville, how are you doing today?",
-    );
+    const spoken = buildSpokenWelcome("Orville");
+    expect(spoken).toMatch(/^Welcome Orville\./);
+    expect(spoken).toMatch(/Reliability Engineer/);
+    expect(spoken).toMatch(/I recommend, I do not authorize/);
+    expect(spoken).toMatch(/No Decision Case is bound yet/);
   });
 
   it("falls back without inventing a name from email or a default", () => {
@@ -161,6 +161,32 @@ describe("presence welcome name", () => {
     expect(resolveWelcomeGivenName({})).toBeNull();
     expect(buildSpokenWelcome(null)).toBe(UNNAMED_SPOKEN_WELCOME);
     expect(buildSpokenWelcome(null)).not.toMatch(/Orville/);
+    expect(UNNAMED_SPOKEN_WELCOME).toMatch(/Reliability Engineer/);
+  });
+
+  it("names a bound Decision Case without inventing plant readings", () => {
+    const seed = createSeedDecisionCases()[0];
+    const stored = { ...seed, id: "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee" };
+    const spoken = buildSpokenWelcome(
+      "Orville",
+      resolvePresenceWorkingSubject([stored]),
+    );
+    expect(spoken).toContain(seed.caseNumber);
+    expect(spoken).toContain(seed.asset);
+    expect(spoken).not.toMatch(/\b(healthy|87%|OEE)\b/i);
+  });
+
+  it("keeps an unbound named session subject provisional", () => {
+    const spoken = buildSpokenWelcome(
+      "Orville",
+      resolvePresenceWorkingSubject(
+        [createHonestEmptyDecisionCase("Reliability Engineer")],
+        "HMER haul truck availability optimization",
+      ),
+    );
+    expect(spoken).toMatch(/HMER haul truck/);
+    expect(spoken).toMatch(/provisional/i);
+    expect(spoken).not.toMatch(/P-101|Fort McMurray/i);
   });
 });
 
@@ -214,12 +240,10 @@ describe("presence brief honesty", () => {
     expect(empty).not.toMatch(/autonomous control/i);
   });
 
-  it("never puts plant claims into the spoken welcome", () => {
-    expect(buildSpokenWelcome("Orville")).toBe(
-      "Welcome Orville, how are you doing today?",
-    );
-    expect(buildSpokenWelcome("Orville")).not.toMatch(/OEE|plant|healthy/i);
-    expect(UNNAMED_SPOKEN_WELCOME).not.toMatch(/OEE|plant|healthy/i);
+  it("never puts fabricated plant claims into the spoken welcome", () => {
+    const spoken = buildSpokenWelcome("Orville");
+    expect(spoken).not.toMatch(/\b(OEE|87%|healthy|online)\b/i);
+    expect(UNNAMED_SPOKEN_WELCOME).not.toMatch(/\b(OEE|87%|healthy)\b/i);
   });
 });
 
@@ -229,8 +253,11 @@ describe("presence boundary", () => {
       "src/lib/presence/welcome.ts",
       "src/lib/presence/booth.ts",
       "src/lib/presence/askBooth.ts",
+      "src/lib/presence/state.ts",
+      "src/lib/presence/memory.ts",
       "src/components/PresenceWelcome.tsx",
       "src/components/PresenceBoothConversation.tsx",
+      "src/components/PresenceFace.tsx",
     ];
     for (const path of files) {
       const imports = readFileSync(path, "utf8")
@@ -274,7 +301,6 @@ describe("presence session isolation", () => {
         signedIn: true,
         muted: false,
         alreadyWelcomedThisSession: hasSessionWelcome(session, "user-b"),
-        voiceOutputEnabled: true,
       }),
     ).toBe(true);
   });

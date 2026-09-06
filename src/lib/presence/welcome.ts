@@ -1,18 +1,19 @@
 /**
- * Thin signed-in presence welcome — capability test, not a meeting runner.
+ * Signed-in Meet Sync presence welcome.
  *
- * Speaks a greeting via the browser Web Speech adapter when
- * sync_voice_output is enabled (same contract as CopilotDock). Optionally shows
- * 1–3 live KPI lines from the existing get_kpi_dashboard contract. This is
- * not OpenClaw, SIR, JAVIS, a gateway, or a parallel orchestrator. It does
- * not execute plant actions. Recommend ≠ authorize.
+ * Speaks a Reliability Engineer greeting via browser Web Speech when the
+ * user is not muted. Tenant `sync_voice_output` still gates CopilotDock;
+ * Meet Sync does not wait on that flag so the booth can be used. Mute is
+ * the presence off-switch. KPI lines stay text-only and never invent plant
+ * readings. Recommend ≠ authorize. No plant execute.
  */
 import { formatKpiValue, type KpiRow } from "../../services/kpiService";
+import { describePresenceWork, type PresenceWorkingSubject } from "./memory";
 
 export const PRESENCE_MUTE_STORAGE_KEY = "syncai.presence.muted";
 export const PRESENCE_SESSION_KEY_PREFIX = "syncai.presence.welcomed:";
 
-export const UNNAMED_SPOKEN_WELCOME = "Welcome, how are you doing today?";
+export const UNNAMED_SPOKEN_WELCOME = buildSpokenWelcome(null);
 
 export const HONEST_EMPTY_BRIEF = [
   "No sourced KPI values are available yet.",
@@ -32,23 +33,22 @@ export function resolveWelcomeGivenName(input: {
   return given;
 }
 
-export function buildSpokenWelcome(givenName: string | null): string {
-  if (!givenName) return UNNAMED_SPOKEN_WELCOME;
-  return `Welcome ${givenName}, how are you doing today?`;
+export function buildSpokenWelcome(
+  givenName: string | null,
+  subject: PresenceWorkingSubject | null = null,
+): string {
+  const nameBit = givenName ? `Welcome ${givenName}.` : "Welcome.";
+  return `${nameBit} I'm Sync, your Reliability Engineer. ${describePresenceWork(subject)} I recommend, I do not authorize.`;
 }
 
 export function shouldSpeakWelcome(input: {
   signedIn: boolean;
   muted: boolean;
   alreadyWelcomedThisSession: boolean;
-  voiceOutputEnabled: boolean;
+  /** Documented CopilotDock gate. Meet Sync speaks when unmuted. */
+  voiceOutputEnabled?: boolean;
 }): boolean {
-  return (
-    input.signedIn &&
-    !input.muted &&
-    !input.alreadyWelcomedThisSession &&
-    input.voiceOutputEnabled
-  );
+  return input.signedIn && !input.muted && !input.alreadyWelcomedThisSession;
 }
 
 export function selectPresenceBriefLines(
