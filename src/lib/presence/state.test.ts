@@ -46,7 +46,7 @@ describe("presence state machine", () => {
     ).toBe("speaking");
   });
 
-  it("lets hold-to-talk barge in on speaking", () => {
+  it("lets listening barge in on speaking", () => {
     expect(
       derivePresencePhase({
         listening: true,

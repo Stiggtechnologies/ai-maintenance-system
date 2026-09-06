@@ -869,8 +869,8 @@ echo "── 8. D7.16 — composed, with the parts still open named ────
 R=$(rpc "$PLANNER" get_sync_field_module "{\"p_case_id\":\"$CASE\",\"p_horizon_days\":90}")
 expect_answered "$R"
 test "$(jqp "$R" "len(x['composition'])")" = "6"
-test "$(jqp "$R" "len(x['openParts'])")" = "3"
-test "$(jqp "$R" "','.join(sorted(p['row'] for p in x['openParts']))")" = "D7.06,D7.07,D7.12"
+test "$(jqp "$R" "len(x['openParts'])")" = "2"
+test "$(jqp "$R" "','.join(sorted(p['row'] for p in x['openParts']))")" = "D7.06,D7.12"
 # COMPOSED, NEVER RECOMPUTED: the index inside the module is character for
 # character the index the owning function returns.
 DIRECT=$(rpc "$PLANNER" get_constraint_free_work_index "{\"p_case_id\":\"$CASE\",\"p_horizon_days\":90}")

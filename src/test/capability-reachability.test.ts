@@ -170,7 +170,14 @@ const FLOORS: Record<string, Floors> = {
     // service functions and the Execution Readiness page, which are shared
     // symbols. Re-derived to sit AT the live numbers again — a tightening on
     // three counts, with the ceiling unchanged.
-    rowsWithAnEnforceableCitation: 153,
+    //
+    // 153/217/49/184 -> 157/236/56/184 on 2026-09-06 (D7 residual + Slice 1
+    // authoring). The enterprise register did not change in this slice; the
+    // numbers moved because the gate's resolver now walks
+    // `createProjectFramework` and `addFrameworkStage`, which are shared
+    // symbols. Re-derived to sit AT the live numbers — a tightening on three
+    // counts, with the ceiling unchanged.
+    rowsWithAnEnforceableCitation: 157,
     // 215 -> 206 on 2026-08-26. This drop is NOT the gate losing reach: it is the
     // gate WINNING. 74 rows were demoted from ✅ this same commit because their
     // cited symbol or table has no customer-reachable path, and a demoted row's
@@ -180,8 +187,8 @@ const FLOORS: Record<string, Floors> = {
     // It may only be lowered again with the same kind of reason stated here. A
     // silent decrease means the parser stopped understanding evidence it used to
     // understand, which is precisely the failure this number exists to catch.
-    citationsEnforced: 217,
-    claimedRowsEnforced: 49,
+    citationsEnforced: 236,
+    claimedRowsEnforced: 56,
     claimedRowsUnenforced: 184,
   },
   // Derived 2026-08-28, the commit that first ran this gate against the
@@ -675,9 +682,22 @@ const FLOORS: Record<string, Floors> = {
     // is real, and a later change must not be able to de-cite it with the suite
     // still green. The CEILING did not move, no row changed status, nothing was
     // exempted, no floor was lowered, and EXEMPTIONS is still empty.
-    rowsWithAnEnforceableCitation: 177,
-    citationsEnforced: 1136,
-    claimedRowsEnforced: 122,
+    //
+    // 177/1136/122 -> 178/1147/128 (2026-09-06, D7 residual + Slice 1
+    // authoring). D7.07 flipped because THE ONE escalation clock now walks
+    // package-anchored restoration_constraints and was already scheduled
+    // (`syncai-recovery-escalation-clock`); D3.01/D3.22/D3.23/D3.25/D3.37
+    // flipped because FrameworkShelfPanel now calls create_project_framework
+    // and add_framework_stage, and already called add_framework_gate
+    // (checkpoint) and set_gate_requirement. D7.06 and D7.12 stay 🟡 with
+    // their named gaps; D7.16 stays 🟡 because a composition is not more
+    // complete than those two parts; D11.34 stays ❌ — objects standing
+    // side by side is not one real case walked through all twelve. The
+    // CEILING did not move. Nothing was exempted, no floor was lowered, and
+    // EXEMPTIONS is still empty.
+    rowsWithAnEnforceableCitation: 178,
+    citationsEnforced: 1147,
+    claimedRowsEnforced: 128,
     // D11.04 (a CI-fence claim proved by a named test file), D11.10 (a
     // canonical seeded vocabulary, which the write-path judge would fail for
     // not being customer-writable — a question the row never asked) and

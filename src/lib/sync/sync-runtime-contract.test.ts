@@ -80,10 +80,20 @@ describe("Sync end-to-end runtime contract", () => {
     expect(security).toContain("idx_audit_sync_tool_proposal_issued");
   });
 
+  it("uses the shared notification classifier for governed proposals", () => {
+    expect(runtime).toContain(
+      'import { notificationTypeFor } from "../_shared/sync-notification-classifier.ts"',
+    );
+    expect(runtime).toContain("notificationTypeFor(question)");
+    expect(runtime).not.toMatch(
+      /\? "safety"[\s\S]*\? "request"[\s\S]*\? "fault"[\s\S]*: "observation"/,
+    );
+  });
+
   it("keeps confirmed actions caller scoped and idempotent at execution", () => {
     expect(runtime).toContain("toolExecution");
     expect(runtime).toContain("raise_maintenance_notification");
-    expect(runtime).toContain('Authorization: `Bearer ${auth.token}`');
+    expect(runtime).toContain("Authorization: `Bearer ${auth.token}`");
     expect(runtime).toContain('.from("audit_events")');
     expect(runtime).toContain("idempotency_key: execution.proposalId");
     expect(migration).toContain("idx_audit_sync_tool_idempotency");
