@@ -2,6 +2,7 @@ import type { EngineeringDnaProfile } from "./engineering-dna";
 import { primaryCrusherTemplate } from "./primary-crusher";
 import {
   flexibleCouplingDna,
+  industrialAcMotorDna,
   lubricationSystemDna,
   rollingElementBearingDna,
 } from "./shared-component-dna-library";
@@ -22,12 +23,18 @@ export const primaryCrusherEngineeringDna: EngineeringDnaProfile = {
     "governed_recommendations",
     "shared_component_composition",
   ],
-  componentCodes: primaryCrusherTemplate.components.map((component) => component.code),
+  componentCodes: primaryCrusherTemplate.components.map(
+    (component) => component.code,
+  ),
   failureModeCodes: primaryCrusherTemplate.components.flatMap((component) =>
     component.failureModes.map((failure) => failure.code),
   ),
   inspectionZoneCodes: [],
-  telemetryConcepts: unique(primaryCrusherTemplate.components.flatMap((component) => component.telemetryConcepts)),
+  telemetryConcepts: unique(
+    primaryCrusherTemplate.components.flatMap(
+      (component) => component.telemetryConcepts,
+    ),
+  ),
   sharedComponentBindings: [
     {
       assetComponentCode: "PCR-DRIVE",
@@ -43,6 +50,11 @@ export const primaryCrusherEngineeringDna: EngineeringDnaProfile = {
       assetComponentCode: "PCR-LUBE-HYD",
       sharedComponentDnaCode: lubricationSystemDna.code,
       role: "delivers and conditions lubricant for crusher bearings and drive components",
+    },
+    {
+      assetComponentCode: "PCR-DRIVE",
+      sharedComponentDnaCode: industrialAcMotorDna.code,
+      role: "crusher drive motor",
     },
   ],
   standards: primaryCrusherTemplate.standards,

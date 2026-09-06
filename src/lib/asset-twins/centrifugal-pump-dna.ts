@@ -1,6 +1,7 @@
 import type { EngineeringDnaProfile } from "./engineering-dna";
 import { centrifugalPumpTemplate } from "./centrifugal-pump";
 import {
+  centrifugalPumpComponentDna,
   flexibleCouplingDna,
   lubricationSystemDna,
   mechanicalSealDna,
@@ -13,7 +14,8 @@ export const centrifugalPumpEngineeringDna: EngineeringDnaProfile = {
   schemaVersion: "0.2.0",
   code: "DEDNA-ROT-CENT-PUMP",
   name: "Centrifugal pump Digital Engineering DNA",
-  description: "Governed reusable blueprint for centrifugal pump twins across process, utility, slurry and water services.",
+  description:
+    "Governed reusable blueprint for centrifugal pump twins across process, utility, slurry and water services.",
   assetClassCode: centrifugalPumpTemplate.code,
   capabilities: [
     "canonical_hierarchy",
@@ -23,15 +25,44 @@ export const centrifugalPumpEngineeringDna: EngineeringDnaProfile = {
     "governed_recommendations",
     "shared_component_composition",
   ],
-  componentCodes: centrifugalPumpTemplate.components.map((component) => component.code),
-  failureModeCodes: centrifugalPumpTemplate.components.flatMap((component) => component.failureModes.map((failure) => failure.code)),
+  componentCodes: centrifugalPumpTemplate.components.map(
+    (component) => component.code,
+  ),
+  failureModeCodes: centrifugalPumpTemplate.components.flatMap((component) =>
+    component.failureModes.map((failure) => failure.code),
+  ),
   inspectionZoneCodes: [],
-  telemetryConcepts: unique(centrifugalPumpTemplate.components.flatMap((component) => component.telemetryConcepts)),
+  telemetryConcepts: unique(
+    centrifugalPumpTemplate.components.flatMap(
+      (component) => component.telemetryConcepts,
+    ),
+  ),
   sharedComponentBindings: [
-    { assetComponentCode: "PUMP-ROTOR-BEARING", sharedComponentDnaCode: rollingElementBearingDna.code, role: "pump shaft support bearings" },
-    { assetComponentCode: "PUMP-ROTOR-BEARING", sharedComponentDnaCode: flexibleCouplingDna.code, role: "driver-to-pump torque coupling" },
-    { assetComponentCode: "PUMP-SEAL", sharedComponentDnaCode: mechanicalSealDna.code, role: "rotating process-fluid containment" },
-    { assetComponentCode: "PUMP-LUBE-SUPPORT", sharedComponentDnaCode: lubricationSystemDna.code, role: "bearing lubrication delivery and condition control" },
+    {
+      assetComponentCode: "PUMP-WET-END",
+      sharedComponentDnaCode: centrifugalPumpComponentDna.code,
+      role: "hydraulic wet-end intelligence",
+    },
+    {
+      assetComponentCode: "PUMP-ROTOR-BEARING",
+      sharedComponentDnaCode: rollingElementBearingDna.code,
+      role: "pump shaft support bearings",
+    },
+    {
+      assetComponentCode: "PUMP-ROTOR-BEARING",
+      sharedComponentDnaCode: flexibleCouplingDna.code,
+      role: "driver-to-pump torque coupling",
+    },
+    {
+      assetComponentCode: "PUMP-SEAL",
+      sharedComponentDnaCode: mechanicalSealDna.code,
+      role: "rotating process-fluid containment",
+    },
+    {
+      assetComponentCode: "PUMP-LUBE-SUPPORT",
+      sharedComponentDnaCode: lubricationSystemDna.code,
+      role: "bearing lubrication delivery and condition control",
+    },
   ],
   standards: centrifugalPumpTemplate.standards,
   evidence: [],

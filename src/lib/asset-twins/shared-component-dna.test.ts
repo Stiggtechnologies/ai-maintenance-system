@@ -8,23 +8,41 @@ import {
   sharedComponentDependencyGraph,
   sharedComponentDnaLibrary,
 } from "./shared-component-dna-library";
-import { validateComponentDependencyGraph, validateSharedComponentDna } from "./shared-component-dna";
+import {
+  validateComponentDependencyGraph,
+  validateSharedComponentDna,
+} from "./shared-component-dna";
 
 describe("shared component DNA", () => {
   it("keeps the shared component library valid and unique", () => {
     expect(validateSharedComponentDna(sharedComponentDnaLibrary)).toEqual([]);
-    expect(new Set(sharedComponentDnaLibrary.map((profile) => profile.code)).size).toBe(sharedComponentDnaLibrary.length);
+    expect(
+      new Set(sharedComponentDnaLibrary.map((profile) => profile.code)).size,
+    ).toBe(sharedComponentDnaLibrary.length);
   });
 
   it("keeps dependency edges canonical and non-duplicated", () => {
-    expect(validateComponentDependencyGraph(sharedComponentDnaLibrary, sharedComponentDependencyGraph)).toEqual([]);
+    expect(
+      validateComponentDependencyGraph(
+        sharedComponentDnaLibrary,
+        sharedComponentDependencyGraph,
+      ),
+    ).toEqual([]);
   });
 
   it("supports canonical lookup for initial shared components", () => {
-    expect(getSharedComponentDna(rollingElementBearingDna.code)).toBe(rollingElementBearingDna);
-    expect(getSharedComponentDna(flexibleCouplingDna.code)).toBe(flexibleCouplingDna);
-    expect(getSharedComponentDna(mechanicalSealDna.code)).toBe(mechanicalSealDna);
-    expect(getSharedComponentDna(lubricationSystemDna.code)).toBe(lubricationSystemDna);
+    expect(getSharedComponentDna(rollingElementBearingDna.code)).toBe(
+      rollingElementBearingDna,
+    );
+    expect(getSharedComponentDna(flexibleCouplingDna.code)).toBe(
+      flexibleCouplingDna,
+    );
+    expect(getSharedComponentDna(mechanicalSealDna.code)).toBe(
+      mechanicalSealDna,
+    );
+    expect(getSharedComponentDna(lubricationSystemDna.code)).toBe(
+      lubricationSystemDna,
+    );
   });
 
   it("keeps every shared component approval-gated", () => {
@@ -33,6 +51,9 @@ describe("shared component DNA", () => {
       expect(profile.governance.customerOverridesRequireApproval).toBe(true);
       expect(profile.governance.autonomousOperationalActionAllowed).toBe(false);
       expect(profile.governance.thresholdsPolicy).toBe("approved_source_only");
+      expect(profile.governance.recommendDoesNotAuthorize).toBe(true);
+      expect(profile.detectableIndicators.length).toBeGreaterThan(0);
+      expect(profile.maintenanceStrategyCodes.length).toBeGreaterThan(0);
     }
   });
 
@@ -46,8 +67,14 @@ describe("shared component DNA", () => {
         rationale: "Invalid test dependency.",
       },
     ];
-    expect(validateComponentDependencyGraph(sharedComponentDnaLibrary, invalid)).toEqual(
-      expect.arrayContaining([expect.objectContaining({ path: expect.stringContaining("fromComponentCode") })]),
+    expect(
+      validateComponentDependencyGraph(sharedComponentDnaLibrary, invalid),
+    ).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          path: expect.stringContaining("fromComponentCode"),
+        }),
+      ]),
     );
   });
 });

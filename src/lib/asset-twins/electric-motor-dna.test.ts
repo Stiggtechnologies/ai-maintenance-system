@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { electricMotorEngineeringDna } from "./electric-motor-dna";
 import { electricMotorTemplate } from "./electric-motor";
-import { instantiateEngineeringTwin, validateEngineeringDnaProfile } from "./engineering-dna";
+import {
+  instantiateEngineeringTwin,
+  validateEngineeringDnaProfile,
+} from "./engineering-dna";
 import { getEngineeringDnaForAssetClass } from "./electric-rope-shovel-dna";
 import { getAssetClassTemplate, validateAssetClassTemplate } from "./index";
 import { sharedComponentDnaLibrary } from "./shared-component-dna-library";
@@ -20,19 +23,36 @@ describe("industrial electric motor Digital Engineering DNA", () => {
         sharedComponentDnaLibrary,
       ),
     ).toEqual([]);
-    expect(electricMotorEngineeringDna.capabilities).toContain("shared_component_composition");
-    expect(electricMotorEngineeringDna.sharedComponentBindings).toHaveLength(2);
-    expect(electricMotorEngineeringDna.governance.thresholdsPolicy).toBe("approved_source_only");
-    expect(electricMotorEngineeringDna.governance.autonomousOperationalActionAllowed).toBe(false);
+    expect(electricMotorEngineeringDna.capabilities).toContain(
+      "shared_component_composition",
+    );
+    expect(
+      electricMotorEngineeringDna.sharedComponentBindings?.length,
+    ).toBeGreaterThanOrEqual(5);
+    expect(electricMotorEngineeringDna.governance.thresholdsPolicy).toBe(
+      "approved_source_only",
+    );
+    expect(
+      electricMotorEngineeringDna.governance.autonomousOperationalActionAllowed,
+    ).toBe(false);
   });
 
   it("supports registry lookup and governed twin creation", () => {
-    expect(getAssetClassTemplate(electricMotorTemplate.code)).toBe(electricMotorTemplate);
-    expect(getEngineeringDnaForAssetClass(electricMotorTemplate.code)).toBe(electricMotorEngineeringDna);
-    const twin = instantiateEngineeringTwin(electricMotorEngineeringDna, { assetId: "MTR-101", siteId: "SITE-1" });
+    expect(getAssetClassTemplate(electricMotorTemplate.code)).toBe(
+      electricMotorTemplate,
+    );
+    expect(getEngineeringDnaForAssetClass(electricMotorTemplate.code)).toBe(
+      electricMotorEngineeringDna,
+    );
+    const twin = instantiateEngineeringTwin(electricMotorEngineeringDna, {
+      assetId: "MTR-101",
+      siteId: "SITE-1",
+    });
     expect(twin.assetClassCode).toBe(electricMotorTemplate.code);
     expect(twin.customerOverrides.approvalRequired).toBe(true);
-    expect(twin.customerOverrides.sharedComponentBindings).toEqual(electricMotorEngineeringDna.sharedComponentBindings);
+    expect(twin.customerOverrides.sharedComponentBindings).toEqual(
+      electricMotorEngineeringDna.sharedComponentBindings,
+    );
   });
 
   it("rejects unknown shared-component endpoints", () => {
@@ -40,11 +60,28 @@ describe("industrial electric motor Digital Engineering DNA", () => {
       ...electricMotorEngineeringDna,
       sharedComponentBindings: [
         ...(electricMotorEngineeringDna.sharedComponentBindings ?? []),
-        { assetComponentCode: "EM-BEARING", sharedComponentDnaCode: "UNKNOWN", role: "invalid" },
+        {
+          assetComponentCode: "EM-BEARING",
+          sharedComponentDnaCode: "UNKNOWN",
+          role: "invalid",
+        },
       ],
     };
     expect(
-      validateEngineeringDnaProfile(invalid, electricMotorTemplate, [], sharedComponentDnaLibrary),
-    ).toEqual(expect.arrayContaining([expect.objectContaining({ path: "sharedComponentBindings[2].sharedComponentDnaCode" })]));
+      validateEngineeringDnaProfile(
+        invalid,
+        electricMotorTemplate,
+        [],
+        sharedComponentDnaLibrary,
+      ),
+    ).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          path: expect.stringMatching(
+            /sharedComponentBindings\[\d+\]\.sharedComponentDnaCode/,
+          ),
+        }),
+      ]),
+    );
   });
 });
