@@ -79,6 +79,7 @@ describe("Slice 7D production contract", () => {
     expect(service).toContain('supabase.rpc("get_quality_cockpit"');
     expect(page).toContain("<QualityManagementWorkbench />");
     expect(workflow).toContain("ci-quality-management-smoke.sh");
+    expect(workflow).toContain("quality-management-transaction-smoke.sql");
   });
 
   it("flips the Slice 7D D-family rows only where the 7D chain is cited", () => {

@@ -107,6 +107,17 @@ describe("D4.01 — quality requirements bind to design_requirements", () => {
     );
   });
 
+  it("the rollback-only quality smoke binds and refuses an unbound create", () => {
+    const smoke = readFileSync(
+      "scripts/quality-management-transaction-smoke.sql",
+      "utf8",
+    );
+    expect(smoke).toContain("insert into public.design_requirements(");
+    expect(smoke).toContain("'Q7D-TXN-DR'");
+    expect(smoke).toContain("'designRequirementId',v_design");
+    expect(smoke).toContain("ONE project requirement table");
+  });
+
   it("the cockpit names unbound historical rows instead of hiding them", () => {
     expect(cockpit).toContain("'unboundQualityRequirements'");
     expect(cockpit).toContain("r.design_requirement_id is null");
