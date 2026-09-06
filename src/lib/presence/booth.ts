@@ -66,11 +66,7 @@ export function shouldSpeakBoothReply(input: {
   return input.signedIn && !input.muted;
 }
 
-export function stripForSpeech(text: string, maxChars = 420): string {
-  const trimmed = text.replace(/\s+/g, " ").trim();
-  if (!trimmed) return "";
-  if (trimmed.length <= maxChars) return trimmed;
-  const cut = trimmed.slice(0, maxChars);
-  const lastStop = Math.max(cut.lastIndexOf(". "), cut.lastIndexOf("? "));
-  return lastStop > 80 ? cut.slice(0, lastStop + 1) : `${cut.trim()}…`;
-}
+export {
+  SYNC_TTS_MAX_CHARS,
+  stripForSpeech,
+} from "../../../supabase/functions/_shared/sync-tts-core";

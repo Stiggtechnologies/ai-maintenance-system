@@ -31,6 +31,7 @@ on:
       - "supabase/functions/recovery-activation-pull/**"
       - "supabase/functions/sync-investigation-runtime/**"
       - "supabase/functions/sync-runtime/**"
+      - "supabase/functions/sync-tts/**"
   workflow_dispatch:
 
 concurrency:
@@ -95,6 +96,7 @@ jobs:
           supabase functions deploy recovery-activation-pull
           supabase functions deploy sync-investigation-runtime
           supabase functions deploy sync-runtime
+          supabase functions deploy sync-tts
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
 
