@@ -230,3 +230,27 @@ describe("honest empty / unstated", () => {
     expect(sql).toContain("D9.04");
   });
 });
+
+describe("§34 Lesson APPLIES_TO AssetClass — audit acted on, not left alarming", () => {
+  it("closes the edge at the column the 5D audit named, and moves the ledger", () => {
+    expect(sql).toContain("add column if not exists applicability");
+    expect(sql).toContain("sync_spec34_edges");
+    expect(sql).toContain("CORRECTED 20261217091000");
+    expect(sql).toContain("learning_events.applicability");
+    expect(sql).toContain("information_schema.columns");
+    expect(sql).toContain(
+      "would be the false claim it exists to remove",
+    );
+  });
+
+  it("removes the Lesson tuple from the absent-edge audit and restates TWO remaining", () => {
+    expect(sql).toContain("sync_spec34_absent_edge_audit");
+    expect(sql).toContain("the Lesson entry of sync_spec34_absent_edge_audit");
+    expect(sql).toContain("states TWO of");
+    expect(sql).toContain(
+      "20261217091000 closed Lesson APPLIES_TO AssetClass",
+    );
+    // D9.12 is a different residual — closing the column is not screening.
+    expect(sql).toContain("D9.12 auto-screening");
+  });
+});

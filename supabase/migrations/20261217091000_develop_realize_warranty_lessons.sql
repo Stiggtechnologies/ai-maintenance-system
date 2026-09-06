@@ -1244,4 +1244,134 @@ $$;
 revoke all on function public.get_case_project_lessons(uuid) from public, anon;
 grant execute on function public.get_case_project_lessons(uuid) to authenticated, service_role;
 
+-- ---------------------------------------------------------------------------
+-- THE §34 EDGE LEDGER, TRANSFORMED (not re-typed).
+--
+-- Slice 5D's audit named `learning_events.applicability` as the column whose
+-- existence closes `Lesson APPLIES_TO AssetClass`, and said so in live SQL:
+-- "This closes when §33's applicability lands there (D9.11)." This file is
+-- that landing. Leaving the ledger on `absent` and the audit to report a
+-- newly-closable edge forever would be the unchecked-prose defect those
+-- files exist to catch, committed by the file that closed the gap.
+--
+-- Same shape as Slice 7A (20261210090100): ask the catalogue, RAISE if the
+-- live body is not the shape 5C/5D/7A left it in, never re-type nineteen
+-- entries. D9.12 (auto-screening at case creation) is a different residual
+-- and stays yellow — a stored applicability field is the edge, not the
+-- screen-at-create hop.
+-- ---------------------------------------------------------------------------
+do $spec34lesson$
+declare
+  v_def text;
+  v_new text;
+begin
+  select pg_get_functiondef(p.oid) into v_def
+    from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+   where n.nspname = 'public' and p.proname = 'sync_spec34_edges';
+  if v_def is null then
+    raise exception
+      'sync_spec34_edges does not exist — the Slice 5C ledger this file corrects is missing, and writing a second ledger instead is forbidden.'
+      using errcode = 'check_violation';
+  end if;
+  if not exists (select 1 from information_schema.columns
+                  where table_schema = 'public' and table_name = 'learning_events'
+                    and column_name = 'applicability') then
+    raise exception
+      'learning_events.applicability does not exist, so Lesson APPLIES_TO AssetClass is genuinely absent and this correction would be the false claim it exists to remove.'
+      using errcode = 'check_violation';
+  end if;
+  if position('CORRECTED 20261217091000' in v_def) > 0 then
+    null;  -- already corrected by a previous run of this migration
+  else
+    v_new := replace(v_def,
+      $old$'home','none — spec §33 Lesson/FRACAS object is not built','status','absent',$old$,
+      $new$'home','learning_events.applicability (20261217091000, register row D9.11)','status','live_elsewhere',$new$);
+    if v_new = v_def then
+      raise exception
+        'the Lesson APPLIES_TO AssetClass entry of sync_spec34_edges was not found in the shape Slice 5C left it — do not edit a ledger blind; re-derive this correction against the current body.'
+        using errcode = 'check_violation';
+    end if;
+    v_new := replace(v_new,
+      $old$'note','screen_similar_assets is the nearest live machinery and it screens ASSETS, not a lesson register. Named as absent rather than counted as covered.'$old$,
+      $new$'note','CORRECTED 20261217091000: the LESSON end is built. RULING 9 — learning_events IS §33 and now carries applicability, which is the column sync_spec34_absent_edge_audit() itself named as the closing condition (D9.11). Not on the CDE thread: the edge lives on the learning store, which has its own reads, and this ledger does not re-implement them. D9.12 auto-screening at case creation is a different residual and is not this column.'$new$);
+    if position('CORRECTED 20261217091000' in v_new) = 0 then
+      raise exception
+        'the Lesson APPLIES_TO AssetClass note of sync_spec34_edges was not found — a ledger whose status and whose note disagree is worse than one that is simply wrong, so this fails rather than moving the status alone.'
+        using errcode = 'check_violation';
+    end if;
+    execute v_new;
+  end if;
+end
+$spec34lesson$;
+
+-- ---------------------------------------------------------------------------
+-- THE ABSENT-EDGE AUDIT, ACTED ON RATHER THAN LEFT TO ALARM.
+--
+-- `sync_spec34_absent_edge_audit()` exists so that a ledger's absence claim
+-- is CHECKED rather than asserted, and its own note says what a caller
+-- should do when it fires: "`newlyClosableCount` above zero means the
+-- endpoint got built and the ledger's prose is stale". This slice is that
+-- happening for Lesson APPLIES_TO AssetClass. The Lesson tuple is REMOVED
+-- from the absent list and the note is corrected, by TRANSFORMATION of the
+-- live body — the two remaining entries are never re-typed.
+-- ---------------------------------------------------------------------------
+do $spec34auditle$
+declare
+  v_def text;
+  v_new text;
+begin
+  select pg_get_functiondef(p.oid) into v_def
+    from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+   where n.nspname = 'public' and p.proname = 'sync_spec34_absent_edge_audit';
+  if v_def is null then
+    raise exception
+      'sync_spec34_absent_edge_audit does not exist — the Slice 5D audit this file acts on is missing, and writing a second one instead is forbidden.'
+      using errcode = 'check_violation';
+  end if;
+  if position('TWO of' in v_def) > 0 then
+    null;  -- already corrected by a previous run of this migration
+  else
+    -- Match the live body whether pg_get_functiondef kept the 5D `$$` quoting
+    -- (`§33''s`) or doubled it. Same tuple either way; do not edit blind.
+    v_new := replace(v_def,
+$old$      ('Lesson APPLIES_TO AssetClass',
+       'learning_events', 'applicability',
+       'The asset-class END exists (assets.asset_class_id); the LESSON end does not. The canonical Lesson is `learning_events` (overlap ruling 9) and it carries no applicability field. This closes when §33''s applicability lands there (D9.11).')
+$old$, '');
+    if v_new = v_def then
+      v_new := replace(v_def,
+$old$      ('Lesson APPLIES_TO AssetClass',
+       'learning_events', 'applicability',
+       'The asset-class END exists (assets.asset_class_id); the LESSON end does not. The canonical Lesson is `learning_events` (overlap ruling 9) and it carries no applicability field. This closes when §33''''s applicability lands there (D9.11).')
+$old$, '');
+    end if;
+    if v_new = v_def then
+      raise exception
+        'the Lesson entry of sync_spec34_absent_edge_audit was not found in the shape Slice 5D left it — do not edit an audit blind; re-derive this correction against the current body.'
+        using errcode = 'check_violation';
+    end if;
+    v_new := replace(v_new,
+      'states THREE of',
+      'states TWO of');
+    if position('states TWO of' in v_new) = 0 then
+      raise exception
+        'the note of sync_spec34_absent_edge_audit was not found — an audit whose list and whose note disagree is worse than one that is simply wrong, so this fails rather than moving the list alone.'
+        using errcode = 'check_violation';
+    end if;
+    v_new := replace(v_new,
+      '20261210090100 closed WorkPackage DEPENDS_ON Constraint at restoration_constraints.work_order_id — the column this audit itself named as the closing condition',
+      '20261210090100 closed WorkPackage DEPENDS_ON Constraint at restoration_constraints.work_order_id, and three until 20261217091000 closed Lesson APPLIES_TO AssetClass at learning_events.applicability — the column this audit itself named as the closing condition');
+    if position('20261217091000 closed Lesson APPLIES_TO AssetClass' in v_new) = 0 then
+      raise exception
+        'the Slice 7A close-clause of sync_spec34_absent_edge_audit was not found — do not edit an audit blind; re-derive this correction against the current body.'
+        using errcode = 'check_violation';
+    end if;
+    execute v_new;
+  end if;
+end
+$spec34auditle$;
+
+comment on function public.sync_spec34_absent_edge_audit() is
+  'D11.21 / spec III.§34 ruling 5D-R16, updated by Slice 7A and D9 realize: makes the remaining TWO absent edges falsifiable. Benefit MEASURES Objective was closed by 20261207090300; WorkPackage DEPENDS_ON Constraint was closed by 20261210090100 at restoration_constraints.work_order_id; Lesson APPLIES_TO AssetClass was closed by 20261217091000 at learning_events.applicability — the exact column this audit named as its closing condition, which is what an audit is FOR. For each remaining edge it names the table and column whose existence would close it and asks information_schema.';
+
 notify pgrst, 'reload schema';
