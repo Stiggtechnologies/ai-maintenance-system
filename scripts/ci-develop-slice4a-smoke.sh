@@ -570,9 +570,11 @@ grep -qi 'foreign key constraint' <<<"$OUT"
 # SLICE 5D ADDED A FOURTH: `ram_agent_reports.calculation_run_id`. The
 # multi-table form has to name every referencing table or the FK check
 # short-circuits again and this assertion stops testing the statement trigger.
-# Nothing about what is asserted changed — only which statement gets far
-# enough for the guard to be the thing that refuses it.
-OUT=$(sql_must_fail "truncate calculation_runs, schedule_simulation_runs, ram_agent_reports;")
+# The engineering-model supply chain adds two more canonical lineage readers:
+# model_predictions and engineering_model_impacts. Name every referencing table
+# so the statement reaches the calculation_runs immutability trigger instead of
+# stopping earlier at an FK check. Nothing about the invariant changes.
+OUT=$(sql_must_fail "truncate calculation_runs, schedule_simulation_runs, ram_agent_reports, model_predictions, engineering_model_impacts;")
 grep -qi 'append-only for every caller' <<<"$OUT"
 OUT=$(sql_must_fail "truncate calculation_runs cascade;")
 grep -qi 'append-only for every caller' <<<"$OUT"

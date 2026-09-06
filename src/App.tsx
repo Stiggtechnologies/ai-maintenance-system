@@ -69,6 +69,7 @@ import { ValueRealization } from "./pages/ValueRealization";
 import { EmergencyMode } from "./pages/EmergencyMode";
 import { PlaybooksLibrary } from "./pages/PlaybooksLibrary";
 import { TrustExplainability } from "./pages/TrustExplainability";
+import { EngineeringModelRegistryPage } from "./pages/EngineeringModelRegistryPage";
 import { BenchmarkingPanel } from "./pages/BenchmarkingPanel";
 import { AutonomyMaturity } from "./pages/AutonomyMaturity";
 import { SetupWizard } from "./pages/SetupWizard";
@@ -588,6 +589,10 @@ function AuthenticatedApp() {
           />
           <Route path="/benchmarking" element={<BenchmarkingPanel />} />
           <Route path="/trust" element={<TrustExplainability />} />
+          <Route
+            path="/engineering-models"
+            element={<EngineeringModelRegistryPage />}
+          />
 
           <Route path="/integrations" element={<IntegrationsPage />} />
           <Route

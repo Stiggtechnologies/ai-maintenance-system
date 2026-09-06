@@ -80,7 +80,7 @@ const AUTONOMY_COLOR = "text-amber-400";
 // The tree follows the corrected spine (docs/enterprise-readiness/
 // navigation-lifecycle-ia.md §2): what we own → what work should exist → the
 // standing programme strategy justifies → the whole-life frame → this week's
-// work → performance. 41 items in 9 groups (5/4/3/2/3/9/7/3/5) — the counts
+// work → performance. 45 items in 9 groups (5/4/5/2/4/10/7/3/5) — the counts
 // roleNavigation.test.ts snapshots. Reliability Strategy sits directly above
 // Maintenance Programme so the parent edge — strategy → programme — reads
 // adjacently in the sidebar.
@@ -149,6 +149,11 @@ const navGroups: NavGroup[] = [
         path: "/reliability/intervals",
       },
       { id: "knowledge", label: "Knowledge Base", path: "/knowledge" },
+      {
+        id: "engineering-models",
+        label: "Engineering Models",
+        path: "/engineering-models",
+      },
     ],
   },
   {

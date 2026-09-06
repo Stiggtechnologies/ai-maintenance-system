@@ -1,0 +1,17 @@
+{
+  "schemaVersion": "1.0.0",
+  "independentRerunRequired": true,
+  "required": [
+    "res-dim-001",
+    "res-limit-001",
+    "res-bench-001",
+    "res-stability-001",
+    "res-regression-001",
+    "res-adversarial-001"
+  ],
+  "notApplicable": {
+    "res-conservation-na": "The screen does not integrate a conserved balance.",
+    "res-symmetry-na": "Direction-sensitive mode shapes are outside this scalar model."
+  },
+  "implementation": "src/lib/engineering-models/resonance.test.ts"
+}

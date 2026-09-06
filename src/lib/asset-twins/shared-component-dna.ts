@@ -1,3 +1,4 @@
+import type { PhysicsCapabilityDefinition } from "./physics-capability";
 import type { EvidenceReference, ReviewState } from "./types";
 
 export type SharedComponentCategory =
@@ -39,6 +40,7 @@ export interface SharedComponentDnaProfile {
   description: string;
   functions: string[];
   telemetryConcepts: string[];
+  physicsCapabilityCodes?: string[];
   failureReferences: SharedComponentFailureReference[];
   evidence: EvidenceReference[];
   governance: {
@@ -64,9 +66,11 @@ export interface SharedComponentValidationIssue {
 
 export function validateSharedComponentDna(
   profiles: SharedComponentDnaProfile[],
+  physicsCapabilities: PhysicsCapabilityDefinition[] = [],
 ): SharedComponentValidationIssue[] {
   const issues: SharedComponentValidationIssue[] = [];
   const profileCodes = new Set<string>();
+  const physicsByCode = new Map(physicsCapabilities.map((capability) => [capability.code, capability]));
 
   for (const [profileIndex, profile] of profiles.entries()) {
     const path = `profiles[${profileIndex}]`;
@@ -77,6 +81,24 @@ export function validateSharedComponentDna(
     if (!profile.governance.engineeringApprovalRequired) issues.push({ path: `${path}.governance.engineeringApprovalRequired`, message: "Engineering approval must remain required." });
     if (profile.governance.autonomousOperationalActionAllowed !== false) issues.push({ path: `${path}.governance.autonomousOperationalActionAllowed`, message: "Autonomous operational action must remain prohibited." });
     if (profile.governance.thresholdsPolicy !== "approved_source_only") issues.push({ path: `${path}.governance.thresholdsPolicy`, message: "Thresholds must remain approved-source-only." });
+
+    const physicsCodes = new Set<string>();
+    for (const [physicsIndex, physicsCode] of (profile.physicsCapabilityCodes ?? []).entries()) {
+      const physicsPath = `${path}.physicsCapabilityCodes[${physicsIndex}]`;
+      if (physicsCodes.has(physicsCode)) {
+        issues.push({ path: physicsPath, message: `Duplicate physics capability ${physicsCode}.` });
+      }
+      physicsCodes.add(physicsCode);
+      const capability = physicsByCode.get(physicsCode);
+      if (!capability) {
+        issues.push({ path: physicsPath, message: `Unknown physics capability ${physicsCode}.` });
+      } else if (!capability.applicableSharedComponentCategories.includes(profile.category)) {
+        issues.push({
+          path: physicsPath,
+          message: `Physics capability ${physicsCode} is not applicable to shared component category ${profile.category}.`,
+        });
+      }
+    }
 
     const failureCodes = new Set<string>();
     for (const [failureIndex, failure] of profile.failureReferences.entries()) {
