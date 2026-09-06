@@ -79,6 +79,7 @@ import {
   bootstrapChatCases,
   createHonestEmptyDecisionCase,
   isSeedDecisionCaseId,
+  resolveDecisionAskBinding,
 } from "../lib/decision-case-honesty";
 import { classifyDecisionQuestionScope } from "../lib/reliability-agent-contract";
 import {
@@ -288,7 +289,10 @@ export function DecisionCaseWorkspacePage({
     cases.find((item) => !isSeedDecisionCaseId(item.id)) ??
     cases[0];
   const activeId = active.id;
-  const composerScope = classifyDecisionQuestionScope(active, composer);
+  const askBinding = resolveDecisionAskBinding(active);
+  const composerScope = askBinding.bound
+    ? classifyDecisionQuestionScope(active, composer)
+    : "provisional_new_subject";
 
   const updateCase = (change: (current: DecisionCase) => DecisionCase) => {
     setCases((current) =>
@@ -1103,10 +1107,12 @@ export function DecisionCaseWorkspacePage({
                 <div className="dw-composer-meta">
                   <span>
                     <LockKeyhole size={12} />
-                    {composer.trim() &&
-                    composerScope === "provisional_new_subject"
-                      ? `New subject · ${active.caseNumber} unchanged`
-                      : `Using ${active.caseNumber} context`}
+                    {!askBinding.bound
+                      ? "No case selected · provisional"
+                      : composer.trim() &&
+                          composerScope === "provisional_new_subject"
+                        ? `New subject · ${active.caseNumber} unchanged`
+                        : `Using ${active.caseNumber} context`}
                   </span>
                 </div>
               )}

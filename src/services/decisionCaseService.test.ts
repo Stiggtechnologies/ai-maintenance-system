@@ -1,5 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createDraftDecisionCase, createSeedDecisionCases } from "../lib/decision-case";
+import {
+  createDraftDecisionCase,
+  createSeedDecisionCases,
+} from "../lib/decision-case";
 import { createHonestEmptyDecisionCase } from "../lib/decision-case-honesty";
 import { askDecisionCase } from "./decisionCaseService";
 import { runPublicDecisionCaseAgent } from "./publicReliabilityAgent";
@@ -221,10 +224,124 @@ describe("decisionCaseService", () => {
         { publicMode: true },
       );
       expect(runPublicAgentMock).not.toHaveBeenCalled();
-      expect(reply.message.meta).toContain("No case selected");
-      expect(reply.message.text).toMatch(/no decision case is selected/i);
-      expect(reply.message.text).not.toMatch(/P-101|DC-1048|Fort McMurray|North Ridge/i);
+      expect(reply.message.meta).toMatch(/no case selected/i);
+      expect(reply.message.text).toMatch(/what asset, site, or decision/i);
+      expect(reply.message.text).not.toMatch(
+        /P-101|DC-1048|Fort McMurray|North Ridge/i,
+      );
       expect(reply.scope).toBe("provisional_new_subject");
     }
+  });
+
+  it("greets on unbound chat without assuming a case", async () => {
+    const empty = createHonestEmptyDecisionCase("Reliability Engineer");
+    const reply = await askDecisionCase(empty, "hi", { publicMode: true });
+
+    expect(runPublicAgentMock).not.toHaveBeenCalled();
+    expect(reply.source).toBe("deterministic");
+    expect(reply.message.text).toContain("What would you like to work on?");
+    expect(reply.message.text).toMatch(/no decision case is selected/i);
+    expect(reply.message.meta).toContain("Conversation");
+    expect(reply.message.text).not.toMatch(/P-101|DC-1048|Fort McMurray/i);
+    expect(reply.scope).toBe("provisional_new_subject");
+  });
+
+  it("answers unbound capability questions without binding a case", async () => {
+    const empty = createHonestEmptyDecisionCase("Reliability Engineer");
+    const reply = await askDecisionCase(empty, "What are your capabilities?", {
+      publicMode: true,
+    });
+
+    expect(runPublicAgentMock).not.toHaveBeenCalled();
+    expect(reply.source).toBe("deterministic");
+    expect(reply.message.meta).toContain("capability map");
+    expect(reply.message.text).toMatch(/no decision case is selected/i);
+    expect(reply.message.text).not.toMatch(/P-101|DC-1048|Fort McMurray/i);
+  });
+
+  it("asks one clarifying question for a vague unbound topic change", async () => {
+    const empty = createHonestEmptyDecisionCase("Reliability Engineer");
+
+    for (const prompt of [
+      "I want to talk without a decision case",
+      "something else",
+    ]) {
+      runPublicAgentMock.mockClear();
+      const reply = await askDecisionCase(empty, prompt, { publicMode: true });
+      expect(runPublicAgentMock).not.toHaveBeenCalled();
+      expect(reply.source).toBe("deterministic");
+      expect(reply.message.text).toMatch(/what asset, site, or decision/i);
+      expect(reply.message.meta).toContain("Clarification needed");
+      expect(reply.message.text).not.toMatch(
+        /P-101|DC-1048|Fort McMurray|Name the asset, site, or decision you want to examine/i,
+      );
+      expect(reply.scope).toBe("provisional_new_subject");
+    }
+  });
+
+  it("routes an unbound concrete subject to the live RE path without binding a demo", async () => {
+    const empty = createHonestEmptyDecisionCase("Reliability Engineer");
+    const leftoverDraft = createDraftDecisionCase("Reliability Engineer");
+    runPublicAgentMock.mockResolvedValue({
+      status: "success",
+      response:
+        "Provisional analysis of haul-truck availability from the named subject only.",
+      knowledgeBaseUsed: false,
+      citations: [],
+    });
+    const prompt = "HMER haul truck availability optimization";
+
+    for (const unbound of [empty, leftoverDraft]) {
+      runPublicAgentMock.mockClear();
+      const reply = await askDecisionCase(unbound, prompt, {
+        publicMode: true,
+      });
+      expect(runPublicAgentMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: unbound.id,
+          asset: "Decision scope not yet defined",
+          organization: "",
+          site: "",
+        }),
+        `New subject. ${prompt}`,
+      );
+      const sentCase = runPublicAgentMock.mock.calls[0]?.[0] as {
+        recommendation?: string;
+        organization?: string;
+        site?: string;
+      };
+      expect(JSON.stringify(sentCase)).not.toMatch(
+        /P-101|Fort McMurray|North Ridge/i,
+      );
+      expect(reply.source).toBe("live");
+      expect(reply.scope).toBe("provisional_new_subject");
+      expect(reply.message.meta).toMatch(/provisional/i);
+      expect(reply.message.meta).toMatch(/no case selected/i);
+      expect(reply.message.text).toContain("haul-truck availability");
+      expect(reply.message.text).not.toMatch(
+        /P-101|DC-1048|Fort McMurray|North Ridge/i,
+      );
+    }
+  });
+
+  it("does not substitute a demo when unbound live analysis fails", async () => {
+    const empty = createHonestEmptyDecisionCase("Reliability Engineer");
+    runPublicAgentMock.mockResolvedValue({
+      status: "fallback",
+      error: "provider unavailable",
+    });
+
+    const reply = await askDecisionCase(
+      empty,
+      "HMER haul truck availability optimization",
+      { publicMode: true },
+    );
+
+    expect(reply.source).toBe("deterministic");
+    expect(reply.scope).toBe("provisional_new_subject");
+    expect(reply.message.text).toContain("temporarily unavailable");
+    expect(reply.message.text).toContain("did not bind a demo");
+    expect(reply.message.meta).toContain("no case selected");
+    expect(reply.message.text).not.toMatch(/P-101|DC-1048|Fort McMurray/i);
   });
 });
