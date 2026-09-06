@@ -4,6 +4,7 @@ import type { KpiDashboard, KpiRow } from "../services/kpiService";
 import {
   HONEST_EMPTY_BRIEF,
   PRESENCE_MUTE_STORAGE_KEY,
+  buildSpokenWelcome,
 } from "../lib/presence/welcome";
 import { PresenceWelcome } from "./PresenceWelcome";
 
@@ -106,14 +107,19 @@ beforeEach(() => {
 });
 
 describe("PresenceWelcome", () => {
-  it("speaks the named welcome once per session when enabled", async () => {
+  it("speaks the named Reliability Engineer welcome once per session", async () => {
+    const expected = buildSpokenWelcome("Orville");
     const { unmount } = render(<PresenceWelcome />);
 
     await waitFor(() => {
       expect(speak).toHaveBeenCalledTimes(1);
     });
-    expect(speak).toHaveBeenCalledWith(
-      "Welcome Orville, how are you doing today?",
+    expect(speak).toHaveBeenCalledWith(expected);
+    expect(expected).toMatch(/Reliability Engineer/);
+    expect(expected).toMatch(/I recommend, I do not authorize/);
+    expect(screen.getByTestId("presence-face")).toHaveAttribute(
+      "data-presence-phase",
+      "idle",
     );
 
     unmount();
@@ -182,7 +188,7 @@ describe("PresenceWelcome", () => {
     }
     expect(screen.queryByText(/plant is healthy/i)).toBeNull();
     expect(screen.queryByText(/87%/)).toBeNull();
-    expect(screen.getByText(/Not autonomous control/i)).toBeInTheDocument();
+    expect(screen.getByText(/Recommend is not authorize/i)).toBeInTheDocument();
   });
 
   it("renders live KPI lines without fabricating extra plant claims", async () => {
@@ -201,7 +207,7 @@ describe("PresenceWelcome", () => {
     render(<PresenceWelcome />);
     fireEvent.click(screen.getByRole("button", { name: "Meet Sync" }));
     expect(await screen.findByTestId("presence-booth")).toBeInTheDocument();
-    expect(screen.getByText(/booth conversation/i)).toBeInTheDocument();
+    expect(screen.getByText(/booth/i)).toBeInTheDocument();
   });
 
   it("hides the KPI brief while Meet Sync is open", async () => {
@@ -243,44 +249,42 @@ describe("PresenceWelcome", () => {
     expect(speak).not.toHaveBeenCalled();
   });
 
-  it("does not speak or show Play when sync_voice_output is off", async () => {
+  it("still speaks Meet Sync when tenant sync_voice_output is off", async () => {
     voiceOutput.enabled = false;
     render(<PresenceWelcome />);
 
     await waitFor(() => {
-      expect(screen.getByTestId("presence-welcome")).toHaveAttribute(
-        "data-presence-voice",
-        "off",
-      );
+      expect(speak).toHaveBeenCalledTimes(1);
     });
-    expect(speak).not.toHaveBeenCalled();
-    expect(screen.queryByRole("button", { name: /play welcome/i })).toBeNull();
+    expect(screen.getByTestId("presence-welcome")).toHaveAttribute(
+      "data-presence-voice",
+      "off",
+    );
     expect(
-      screen.getByText(/Voice output is off for this tenant/i),
+      screen.getByRole("button", { name: /play welcome/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/still gates CopilotDock/i),
     ).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Meet Sync" }));
     expect(await screen.findByTestId("presence-booth")).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: /mute welcome/i }),
-    ).toBeInTheDocument();
   });
 
-  it("does not auto-speak while sync_voice_output is still loading", async () => {
+  it("does not wait on the tenant flag before the first greeting", async () => {
     voiceOutput.loading = true;
     voiceOutput.enabled = false;
     render(<PresenceWelcome />);
 
     await waitFor(() => {
-      expect(screen.getByTestId("presence-welcome")).toHaveAttribute(
-        "data-presence-voice",
-        "loading",
-      );
+      expect(speak).toHaveBeenCalledTimes(1);
     });
-    expect(speak).not.toHaveBeenCalled();
-    expect(screen.queryByRole("button", { name: /play welcome/i })).toBeNull();
+    expect(screen.getByTestId("presence-welcome")).toHaveAttribute(
+      "data-presence-voice",
+      "loading",
+    );
     expect(
-      screen.queryByText(/Voice output is off for this tenant/i),
-    ).toBeNull();
+      screen.getByRole("button", { name: /play welcome/i }),
+    ).toBeInTheDocument();
   });
 
   it("falls back to an unnamed spoken welcome without guessing Orville", async () => {
@@ -288,11 +292,10 @@ describe("PresenceWelcome", () => {
     render(<PresenceWelcome />);
 
     await waitFor(() => {
-      expect(speak).toHaveBeenCalledWith("Welcome, how are you doing today?");
+      expect(speak).toHaveBeenCalledWith(buildSpokenWelcome(null));
     });
     expect(speak.mock.calls[0][0]).not.toMatch(/Orville/);
-    expect(
-      screen.getByText("Welcome, how are you doing today?"),
-    ).toBeInTheDocument();
+    expect(speak.mock.calls[0][0]).toMatch(/Reliability Engineer/);
+    expect(screen.getByText(buildSpokenWelcome(null))).toBeInTheDocument();
   });
 });

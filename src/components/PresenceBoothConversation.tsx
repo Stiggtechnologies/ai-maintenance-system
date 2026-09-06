@@ -3,9 +3,11 @@
  *
  * Voice: browser SpeechRecognition (useDictation) + speechSynthesis
  * (useSpeechOutput). Answers: askBoothConversation → ai-agent-processor
- * ReliabilityAgent. Session-only transcript. Recommend ≠ authorize.
+ * ReliabilityAgent. Session transcript in sessionStorage. Decision Case
+ * continuity from the existing draft store + honesty helpers.
+ * Recommend ≠ authorize.
  */
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Loader2, Mic, MicOff, Send } from "lucide-react";
 import { useDictation } from "../hooks/useDictation";
 import { askBoothConversation } from "../lib/presence/askBooth";
@@ -14,37 +16,66 @@ import {
   shouldSpeakBoothReply,
   stripForSpeech,
 } from "../lib/presence/booth";
-
-export interface PresenceBoothMessage {
-  id: string;
-  role: "user" | "sync";
-  text: string;
-}
+import {
+  readPresenceMemory,
+  rememberNamedSubject,
+  sessionMemoryLines,
+  writePresenceMemory,
+  type PresenceBoothMessage,
+} from "../lib/presence/memory";
+import {
+  formatUnboundLiveQuestion,
+  promptNamesConcreteSubject,
+} from "../lib/decision-case-honesty";
 
 interface PresenceBoothConversationProps {
   signedIn: boolean;
+  userId: string;
   muted: boolean;
   voiceOutputEnabled: boolean;
   givenName: string | null;
   briefLines: string[];
+  caseContextLines: string[];
+  caseBound: boolean;
   speak: (text: string) => void;
   stopSpeech: () => void;
+  onPresenceSignals?: (signals: {
+    listening: boolean;
+    thinking: boolean;
+  }) => void;
+  onMemoryChange?: () => void;
 }
 
 export function PresenceBoothConversation({
   signedIn,
+  userId,
   muted,
   voiceOutputEnabled,
   givenName,
   briefLines,
+  caseContextLines,
+  caseBound,
   speak,
   stopSpeech,
+  onPresenceSignals,
+  onMemoryChange,
 }: PresenceBoothConversationProps) {
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
-  const [messages, setMessages] = useState<PresenceBoothMessage[]>([]);
+  const [messages, setMessages] = useState<PresenceBoothMessage[]>(() =>
+    userId && typeof window !== "undefined"
+      ? readPresenceMemory(window.sessionStorage, userId).messages
+      : [],
+  );
+  const lastSubjectRef = useRef(
+    userId && typeof window !== "undefined"
+      ? readPresenceMemory(window.sessionStorage, userId).lastSubject
+      : null,
+  );
   const heldTranscript = useRef("");
   const holdingTalk = useRef(false);
+  const signalsRef = useRef(onPresenceSignals);
+  signalsRef.current = onPresenceSignals;
 
   const dictation = useDictation((text) => {
     heldTranscript.current = heldTranscript.current
@@ -52,6 +83,23 @@ export function PresenceBoothConversation({
       : text;
     setInput(heldTranscript.current);
   });
+
+  useEffect(() => {
+    signalsRef.current?.({ listening: dictation.listening, thinking: busy });
+  }, [busy, dictation.listening]);
+
+  useEffect(() => {
+    return () => signalsRef.current?.({ listening: false, thinking: false });
+  }, []);
+
+  const persist = (nextMessages: PresenceBoothMessage[], lastSubject: string | null) => {
+    if (!userId) return;
+    writePresenceMemory(window.sessionStorage, userId, {
+      messages: nextMessages,
+      lastSubject,
+    });
+    onMemoryChange?.();
+  };
 
   const send = async (raw: string) => {
     const question = raw.trim();
@@ -63,19 +111,38 @@ export function PresenceBoothConversation({
       role: "user",
       text: question,
     };
-    setMessages((current) => [...current, userMessage]);
+    const nextSubject = rememberNamedSubject(question, lastSubjectRef.current);
+    lastSubjectRef.current = nextSubject;
+    const withUser = [...messages, userMessage];
+    setMessages(withUser);
+    persist(withUser, nextSubject);
     setBusy(true);
     stopSpeech();
     try {
+      const askQuestion =
+        !caseBound && promptNamesConcreteSubject(question)
+          ? formatUnboundLiveQuestion(question)
+          : question;
       const result = await askBoothConversation(
-        buildBoothAskQuery({ question, briefLines, givenName }),
+        buildBoothAskQuery({
+          question: askQuestion,
+          briefLines,
+          givenName,
+          caseContextLines,
+          sessionLines: sessionMemoryLines({
+            messages: withUser,
+            lastSubject: nextSubject,
+          }),
+        }),
       );
       const reply: PresenceBoothMessage = {
         id: `sync-${Date.now()}`,
         role: "sync",
         text: result.response,
       };
-      setMessages((current) => [...current, reply]);
+      const withReply = [...withUser, reply];
+      setMessages(withReply);
+      persist(withReply, nextSubject);
       if (shouldSpeakBoothReply({ signedIn, muted, voiceOutputEnabled })) {
         const spoken = stripForSpeech(result.response);
         if (spoken) speak(spoken);
@@ -107,8 +174,11 @@ export function PresenceBoothConversation({
       className="mt-2 border-t border-white/5 pt-2"
     >
       <p className="text-[11px] text-slate-500">
-        Meet Sync — booth conversation. Grounded ask only. Recommend is not
-        authorize. No plant execute.
+        Meet Sync — Reliability Engineer booth. Grounded ask only. Recommend is
+        not authorize. No plant execute.
+        {caseBound
+          ? " Active Decision Case is in context."
+          : " No Decision Case is bound — named subjects stay provisional."}
       </p>
       {messages.length > 0 && (
         <ul className="mt-2 max-h-40 space-y-1.5 overflow-auto">
@@ -138,9 +208,7 @@ export function PresenceBoothConversation({
           disabled={!dictation.supported || busy}
           onPointerDown={startTalk}
           onPointerUp={endTalk}
-          onPointerLeave={() => {
-            if (dictation.listening) dictation.stop();
-          }}
+          onPointerLeave={endTalk}
           className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-white/10 text-slate-300 hover:border-signal-cyan/40 hover:text-signal-cyan disabled:opacity-40"
         >
           {dictation.listening ? (
