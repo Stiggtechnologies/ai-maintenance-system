@@ -22,6 +22,9 @@ describe("booth conversation framing", () => {
     expect(query).toMatch(/Recommend is not authorize/i);
     expect(query).toMatch(/Do not execute plant actions/i);
     expect(query).toMatch(/professional meeting moderator/i);
+    expect(query).toMatch(/multi-turn Meet Sync room/i);
+    expect(query).toMatch(/Do not infer speaker identity/i);
+    expect(query).toMatch(/silence or lack of objection as consensus/i);
     expect(query).toContain("OEE: 62%");
     expect(query).toContain("QUESTION: How is the mill running?");
     expect(query).toContain("Visitor given name: Orville");
@@ -29,6 +32,18 @@ describe("booth conversation framing", () => {
     expect(query).toContain("Last subject: Crusher 2201 vibration");
     expect(query).toMatch(/Not authorization/i);
     expect(query).not.toMatch(/openclaw|javis|jarvis/i);
+  });
+
+  it("asks for a spoken recap without inventing consensus", () => {
+    const query = buildBoothAskQuery({
+      question: "Recap the action items.",
+      briefLines: ["No sourced KPI values are available yet."],
+      givenName: null,
+      roomIntent: "wrap",
+    });
+    expect(query).toMatch(/This turn requested a spoken recap/i);
+    expect(query).toMatch(/never as the meeting's authority/i);
+    expect(query).not.toMatch(/treat silence as consensus/i);
   });
 
   it("does not invent plant data when the welcome brief is empty", () => {

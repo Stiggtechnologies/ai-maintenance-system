@@ -164,6 +164,7 @@ describe("booth listen mode", () => {
   it("stays Sync-native and does not vendor AGPL conversation stacks", () => {
     const files = [
       "src/lib/presence/boothListen.ts",
+      "src/lib/presence/meetingRunner.ts",
       "src/hooks/useDictation.ts",
       "src/components/PresenceBoothConversation.tsx",
     ];
@@ -173,7 +174,9 @@ describe("booth listen mode", () => {
         .split("\n")
         .filter((line) => /^\s*import\s/.test(line))
         .join("\n");
-      expect(imports, path).not.toMatch(/backtalk|barehands|kokoro/i);
+      expect(imports, path).not.toMatch(
+        /backtalk|barehands|kokoro|openclaw|javis|jarvis/i,
+      );
     }
   });
 
