@@ -1,5 +1,5 @@
 -- ============================================================================
--- Engineering Model Supply Chain: build-time GPD-style physics artifacts land
+-- Engineering Model Supply Chain: offline build-time physics artifacts land
 -- in SyncAI's ONE model_register, then move through deterministic verification,
 -- evidence, competent human approval, bounded execution and outcome learning.
 --
