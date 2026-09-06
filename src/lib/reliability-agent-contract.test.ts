@@ -5,6 +5,10 @@ import {
   RELIABILITY_AGENT_REQUIRED_DIMENSIONS,
   classifyDecisionQuestionScope,
   isActiveCaseTraceRequest,
+  isCapabilityPrompt,
+  isGreetingPrompt,
+  promptNamesConcreteSubject,
+  signalsTopicChange,
 } from "./reliability-agent-contract";
 
 describe("reliability agent behavior contract", () => {
@@ -79,5 +83,39 @@ describe("reliability agent behavior contract", () => {
     expect(
       classifyDecisionQuestionScope(active, "Caterpillar 797 Dump truck"),
     ).toBe("provisional_new_subject");
+  });
+
+  it("treats greetings and vague topic changes as not naming a subject", () => {
+    expect(isGreetingPrompt("hi")).toBe(true);
+    expect(isCapabilityPrompt("What are your capabilities?")).toBe(true);
+    expect(signalsTopicChange("I want to talk without a decision case")).toBe(
+      true,
+    );
+    expect(signalsTopicChange("something else")).toBe(true);
+    expect(promptNamesConcreteSubject("hi")).toBe(false);
+    expect(promptNamesConcreteSubject("What are your capabilities?")).toBe(
+      false,
+    );
+    expect(
+      promptNamesConcreteSubject("I want to talk without a decision case"),
+    ).toBe(false);
+    expect(promptNamesConcreteSubject("something else")).toBe(false);
+    expect(promptNamesConcreteSubject("What should we fix first?")).toBe(false);
+  });
+
+  it("treats a named asset, site, or problem as a concrete subject", () => {
+    expect(
+      promptNamesConcreteSubject("HMER haul truck availability optimization"),
+    ).toBe(true);
+    expect(
+      promptNamesConcreteSubject(
+        "Calculate MTBF for compressor C-330 from 7,100 operating hours and 7 failures.",
+      ),
+    ).toBe(true);
+    expect(
+      promptNamesConcreteSubject(
+        "What are your steps to onboard a Caterpillar 797 truck in an Alberta oil sands mine?",
+      ),
+    ).toBe(true);
   });
 });

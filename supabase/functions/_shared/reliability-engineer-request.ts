@@ -1,5 +1,8 @@
 import type { PublicDecisionCaseContext } from "./decision-case-chat.ts";
-import { buildDecisionCaseChatPrompts } from "./decision-case-chat.ts";
+import {
+  buildDecisionCaseChatPrompts,
+  isUnboundPublicDecisionContext,
+} from "./decision-case-chat.ts";
 import {
   buildSpecialistBrief,
   selectReliabilitySpecialists,
@@ -68,10 +71,14 @@ export function buildReliabilityEngineerRequest(
 ): ReliabilityEngineerRequest {
   const normalizedQuestion = question.trim();
 
-  if (context.questionScope === "provisional_new_subject") {
+  if (
+    context.questionScope === "provisional_new_subject" ||
+    isUnboundPublicDecisionContext(context)
+  ) {
     const conversation = recentSubjectConversation(context.recentMessages);
     const combinedRequest = `${conversation}\n${normalizedQuestion}`;
     const specialists = selectReliabilitySpecialists(combinedRequest);
+    const unbound = isUnboundPublicDecisionContext(context);
     return {
       agentType: "ReliabilityAgent",
       industry: context.industry || "asset-intensive reliability engineering",
@@ -82,7 +89,9 @@ export function buildReliabilityEngineerRequest(
       query: [
         "COWORK RELIABILITY ENGINEER REQUEST",
         "Question scope: PROVISIONAL NEW SUBJECT",
-        `The active Decision Case ${context.caseNumber} for ${context.asset} remains unchanged and its technical facts are excluded from this analysis.`,
+        unbound
+          ? "No decision case is selected. Do not bind a demo, seed, or reference case. Do not invent plant, site, or asset facts the user has not named. Recommendation is not authorization."
+          : `The active Decision Case ${context.caseNumber} for ${context.asset} remains unchanged and its technical facts are excluded from this analysis.`,
         "Use the recent thread only to resolve conversational intent and references. Do not treat earlier assistant statements or active-case facts as evidence for the new subject.",
         conversation
           ? `Recent subject-changing conversation:\n${conversation}`

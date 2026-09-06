@@ -198,4 +198,32 @@ describe("decision-case-chat prompt contract", () => {
     expect(request.query).not.toContain("Four failures followed startup");
     expect(request.query).not.toContain("Keep the monthly interval");
   });
+
+  it("analyzes an unbound placeholder case from the user request only", () => {
+    const context = parsePublicDecisionCaseContext({
+      ...rawContext,
+      caseNumber: "DRAFT-12345",
+      questionScope: "provisional_new_subject",
+      organization: "North Ridge Energy",
+      site: "Fort McMurray",
+      asset: "Decision scope not yet defined",
+      recommendation: "Do not approve the yearly inspection interval",
+    })!;
+    const question = "HMER haul truck availability optimization";
+    const retrievalQuery = buildDecisionCaseRetrievalQuery(context, question);
+    const prompts = buildDecisionCaseChatPrompts(context, question, "");
+    const request = buildReliabilityEngineerRequest(context, question);
+
+    expect(retrievalQuery).toContain("HMER");
+    expect(retrievalQuery).not.toContain("P-101 process pump");
+    expect(retrievalQuery).not.toContain("Fort McMurray");
+    expect(prompts.userContent).toContain("No decision case is selected");
+    expect(prompts.userContent).toContain("Recommendation is not authorization");
+    expect(prompts.userContent).not.toContain("North Ridge Energy");
+    expect(prompts.userContent).not.toContain("DC-1048 for");
+    expect(prompts.systemPrompt).toContain("No Decision Case is selected");
+    expect(request.query).toContain("No decision case is selected");
+    expect(request.query).not.toContain("North Ridge Energy");
+    expect(request.query).not.toContain("Keep the monthly interval");
+  });
 });

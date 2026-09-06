@@ -13,6 +13,10 @@ import { runPublicDecisionCaseAgent } from "./publicReliabilityAgent";
 import {
   classifyDecisionQuestionScope,
   isActiveCaseTraceRequest,
+  isCapabilityPrompt,
+  isGreetingPrompt,
+  promptNamesConcreteSubject,
+  signalsTopicChange,
   type DecisionQuestionScope,
 } from "../lib/reliability-agent-contract";
 import {
@@ -127,14 +131,34 @@ export async function askDecisionCase(
   const prompt = text.trim().slice(0, 2400);
   const binding = resolveDecisionAskBinding(decisionCase);
   if (!binding.bound) {
-    return unboundCaseReply(prompt);
+    const local = unboundCaseReply(prompt);
+    if (local) return local;
+    return respondToDecisionQuestion(
+      decisionCase,
+      prompt,
+      options,
+      "provisional_new_subject",
+      { bound: false },
+    );
   }
   const conversationReply = conversationalBoundaryReply(decisionCase, prompt);
   if (conversationReply) {
     return buildDeterministicReply(prompt, conversationReply, "active_case");
   }
   const questionScope = classifyDecisionQuestionScope(decisionCase, prompt);
-  if (isActiveCaseTraceRequest(decisionCase, prompt)) {
+  return respondToDecisionQuestion(decisionCase, prompt, options, questionScope, {
+    bound: true,
+  });
+}
+
+async function respondToDecisionQuestion(
+  decisionCase: DecisionCase,
+  prompt: string,
+  options: { publicMode?: boolean },
+  questionScope: DecisionQuestionScope,
+  binding: { bound: boolean },
+): Promise<DecisionCaseReply> {
+  if (binding.bound && isActiveCaseTraceRequest(decisionCase, prompt)) {
     return buildDeterministicReply(
       prompt,
       deterministicReply(decisionCase, prompt),
@@ -142,7 +166,10 @@ export async function askDecisionCase(
     );
   }
   if (options.publicMode) {
-    const result = await runPublicDecisionCaseAgent(decisionCase, prompt);
+    const result = await runPublicDecisionCaseAgent(decisionCase, prompt, {
+      questionScope,
+      bound: binding.bound,
+    });
     if (result.status === "success") {
       const groundingLabel = result.knowledgeBaseUsed
         ? `RAG-grounded reliability analysis · ${result.citations.length} approved source${result.citations.length === 1 ? "" : "s"}`
@@ -154,8 +181,9 @@ export async function askDecisionCase(
       const sourceLabel = specialistLabel
         ? `Reliability Engineer · ${specialistLabel} lens · ${groundingLabel}`
         : `Reliability Engineer · ${groundingLabel}`;
-      const scopeLabel =
-        questionScope === "provisional_new_subject"
+      const scopeLabel = !binding.bound
+        ? `Provisional new subject · no case selected · ${sourceLabel}`
+        : questionScope === "provisional_new_subject"
           ? `Provisional new subject · ${sourceLabel} · ${decisionCase.caseNumber} unchanged`
           : sourceLabel;
       return {
@@ -176,14 +204,18 @@ export async function askDecisionCase(
       return buildDeterministicReply(
         prompt,
         {
-          text: "Your included live RAG analysis capacity for this access window has been used. The Decision Case and deterministic packet remain available. Sign in to continue in a governed workspace.",
-          meta: "Live RAG capacity reached · case retained",
+          text: binding.bound
+            ? "Your included live RAG analysis capacity for this access window has been used. The Decision Case and deterministic packet remain available. Sign in to continue in a governed workspace."
+            : "Your included live RAG analysis capacity for this access window has been used. No demo or reference case was substituted. Sign in to continue in a governed workspace.",
+          meta: binding.bound
+            ? "Live RAG capacity reached · case retained"
+            : "Live RAG capacity reached · no case selected",
         },
         questionScope,
       );
     }
   }
-  if (isPersistedDecisionCase(decisionCase.id)) {
+  if (binding.bound && isPersistedDecisionCase(decisionCase.id)) {
     await sendCoworkMessage(
       decisionCase.id,
       buildGroundedCaseContext(decisionCase, questionScope),
@@ -212,10 +244,15 @@ export async function askDecisionCase(
   if (questionScope === "provisional_new_subject") {
     return buildDeterministicReply(
       prompt,
-      {
-        text: `I kept ${decisionCase.caseNumber} unchanged, but live expert analysis is temporarily unavailable, so I will not substitute facts from ${decisionCase.asset} into this new subject. Your question is preserved for retry.`,
-        meta: `Provisional new subject · ${decisionCase.caseNumber} unchanged`,
-      },
+      binding.bound
+        ? {
+            text: `I kept ${decisionCase.caseNumber} unchanged, but live expert analysis is temporarily unavailable, so I will not substitute facts from ${decisionCase.asset} into this new subject. Your question is preserved for retry.`,
+            meta: `Provisional new subject · ${decisionCase.caseNumber} unchanged`,
+          }
+        : {
+            text: "Live expert analysis is temporarily unavailable. Your question is preserved for retry. I did not bind a demo or reference case, and I will not invent plant facts.",
+            meta: "Provisional new subject · no case selected",
+          },
       questionScope,
     );
   }
@@ -250,10 +287,9 @@ function estimateTokens(text: string): number {
   return Math.max(120, Math.ceil(text.length / 3.7));
 }
 
-function unboundCaseReply(prompt: string): DecisionCaseReply {
+function unboundCaseReply(prompt: string): DecisionCaseReply | null {
   const pack = buildDecisionAskContextPack(null);
-  const lower = prompt.toLowerCase().trim();
-  if (/^(hi|hello|hey|good morning|good afternoon)[.?!\s]*$/.test(lower)) {
+  if (isGreetingPrompt(prompt)) {
     return buildDeterministicReply(
       prompt,
       {
@@ -263,11 +299,7 @@ function unboundCaseReply(prompt: string): DecisionCaseReply {
       "provisional_new_subject",
     );
   }
-  if (
-    /\b(what (?:are )?your capabilities|what can you do|how can you help|capability overview|show (?:me )?your capabilities)\b/.test(
-      lower,
-    )
-  ) {
+  if (isCapabilityPrompt(prompt)) {
     return buildDeterministicReply(
       prompt,
       {
@@ -283,11 +315,14 @@ function unboundCaseReply(prompt: string): DecisionCaseReply {
       "provisional_new_subject",
     );
   }
+  if (promptNamesConcreteSubject(prompt)) {
+    return null;
+  }
   return buildDeterministicReply(
     prompt,
     {
-      text: "No decision case is selected. Name the asset, site, or decision you want to examine. I will stay general and will not use a demo or reference case as the subject.",
-      meta: "No case selected",
+      text: "What asset, site, or decision should I examine? Name the subject or paste the data. I will work from what you provide, label the result provisional, and will not bind a demo or reference case.",
+      meta: "Clarification needed · no case selected",
     },
     "provisional_new_subject",
   );
@@ -297,19 +332,14 @@ function conversationalBoundaryReply(
   decisionCase: DecisionCase,
   prompt: string,
 ): DeterministicResponse | null {
-  const lower = prompt.toLowerCase().trim();
-  if (/^(hi|hello|hey|good morning|good afternoon)[.?!\s]*$/.test(lower)) {
+  if (isGreetingPrompt(prompt)) {
     return {
       text: `Hi. What would you like to work on? We can continue ${decisionCase.caseNumber} for ${decisionCase.asset}, or you can give me something else to examine.`,
       meta: `Conversation · ${decisionCase.caseNumber} retained`,
     };
   }
 
-  if (
-    /\b(what (?:are )?your capabilities|what can you do|how can you help|capability overview|show (?:me )?your capabilities)\b/.test(
-      lower,
-    )
-  ) {
+  if (isCapabilityPrompt(prompt)) {
     return {
       text: [
         "I am a Reliability Engineering collaborator for turning asset questions and operating evidence into defensible decisions, controlled action, and measured value.",
@@ -339,19 +369,7 @@ function conversationalBoundaryReply(
     };
   }
 
-  const words = lower.split(/\s+/).filter(Boolean);
-  const signalsTopicChange =
-    /\b(someth\w* else|something different|another thing|different topic|new topic)\b/.test(
-      lower,
-    ) ||
-    (/\b(look|review|check|examine|analy[sz]e)\b/.test(lower) &&
-      /\b(other|else|different|another)\b/.test(lower));
-  const includesConcreteSubject =
-    /\b[A-Z]{1,5}-?\d{2,}\b/.test(prompt) ||
-    /[:\n]/.test(prompt) ||
-    words.length > 14;
-
-  if (signalsTopicChange && !includesConcreteSubject) {
+  if (signalsTopicChange(prompt) && !promptNamesConcreteSubject(prompt)) {
     return {
       text: `Absolutely. What would you like me to examine? Paste the text or data, or name the asset, document, case, or decision. I will keep ${decisionCase.caseNumber} unchanged unless you explicitly add the new material to it.`,
       meta: `Conversation · ${decisionCase.caseNumber} preserved`,
