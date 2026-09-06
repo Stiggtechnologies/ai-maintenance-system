@@ -15,7 +15,8 @@ describe("CMMS read-only adapter contract", () => {
     expect(migration).toContain("return public.ingest_batch(p_run_id,p_rows)");
     expect(migration).toContain("'work_order'");
     expect(migration).toContain("'read_only'");
-    expect(migration).toContain("write_enabled,false");
+    expect(migration).toContain("write_enabled=false");
+    expect(migration).not.toMatch(/write_enabled\s*=\s*true/);
   });
 
   it("fails closed for tenancy, authority, unapproved mappings, and source writes", () => {
