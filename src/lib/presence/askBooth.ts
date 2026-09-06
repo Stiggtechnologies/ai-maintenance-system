@@ -19,27 +19,33 @@ export interface BoothAskResult {
 export async function askBoothConversation(
   query: string,
 ): Promise<BoothAskResult> {
-  const { data, error } = await supabase.functions.invoke(
-    "ai-agent-processor",
-    {
-      body: {
-        agentType: "ReliabilityAgent",
-        query,
-        requiresApproval: true,
+  try {
+    const { data, error } = await supabase.functions.invoke(
+      "ai-agent-processor",
+      {
+        body: {
+          agentType: "ReliabilityAgent",
+          query,
+          requiresApproval: true,
+        },
       },
-    },
-  );
-  if (error) {
-    const quota = await describeQuotaRefusal(error);
-    if (quota) return { status: "quota", response: quota.message };
+    );
+    if (error) {
+      const quota = await describeQuotaRefusal(error);
+      if (quota) return { status: "quota", response: quota.message };
+      return { status: "unavailable", response: BOOTH_UNAVAILABLE_REPLY };
+    }
+    const response =
+      typeof (data as { response?: unknown } | null)?.response === "string"
+        ? (data as { response: string }).response.trim()
+        : "";
+    if (!response) {
+      return { status: "unavailable", response: BOOTH_UNAVAILABLE_REPLY };
+    }
+    return { status: "ok", response };
+  } catch {
+    // supabase-js usually returns { error } for non-2xx, but invoke can still
+    // throw (network, abort, unexpected FunctionsFetchError). Never reject.
     return { status: "unavailable", response: BOOTH_UNAVAILABLE_REPLY };
   }
-  const response =
-    typeof (data as { response?: unknown } | null)?.response === "string"
-      ? (data as { response: string }).response.trim()
-      : "";
-  if (!response) {
-    return { status: "unavailable", response: BOOTH_UNAVAILABLE_REPLY };
-  }
-  return { status: "ok", response };
 }
