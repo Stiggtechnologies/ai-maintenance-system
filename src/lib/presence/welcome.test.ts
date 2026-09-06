@@ -146,7 +146,7 @@ describe("presence welcome name", () => {
       "Orville",
     );
     expect(buildSpokenWelcome("Orville")).toBe(
-      "Welcome Orville, how are you doing today?",
+      "Welcome Orville. I'm Sync, Reliability Engineer. What Decision Case or plant subject should we work on? I recommend; I do not authorize.",
     );
   });
 
@@ -215,11 +215,14 @@ describe("presence brief honesty", () => {
   });
 
   it("never puts plant claims into the spoken welcome", () => {
-    expect(buildSpokenWelcome("Orville")).toBe(
-      "Welcome Orville, how are you doing today?",
-    );
-    expect(buildSpokenWelcome("Orville")).not.toMatch(/OEE|plant|healthy/i);
-    expect(UNNAMED_SPOKEN_WELCOME).not.toMatch(/OEE|plant|healthy/i);
+    const spoken = buildSpokenWelcome("Orville");
+    expect(spoken).toMatch(/Reliability Engineer/);
+    expect(spoken).toMatch(/Decision Case/);
+    expect(spoken).toMatch(/I recommend; I do not authorize/);
+    expect(spoken).not.toMatch(/OEE|healthy|87%/i);
+    expect(UNNAMED_SPOKEN_WELCOME).toMatch(/Reliability Engineer/);
+    expect(UNNAMED_SPOKEN_WELCOME).not.toMatch(/OEE|healthy|87%/i);
+    expect(spoken).not.toMatch(/Claude Code|fullstack-agent|Obsidian/i);
   });
 });
 
@@ -229,8 +232,11 @@ describe("presence boundary", () => {
       "src/lib/presence/welcome.ts",
       "src/lib/presence/booth.ts",
       "src/lib/presence/askBooth.ts",
+      "src/lib/presence/state.ts",
+      "src/lib/presence/memory.ts",
       "src/components/PresenceWelcome.tsx",
       "src/components/PresenceBoothConversation.tsx",
+      "src/components/PresenceFace.tsx",
     ];
     for (const path of files) {
       const imports = readFileSync(path, "utf8")

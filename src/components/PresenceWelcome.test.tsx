@@ -18,13 +18,15 @@ const voiceOutput = {
   refetch: vi.fn(),
 };
 
+const speech = {
+  supported: true,
+  speaking: false,
+  speak,
+  stop,
+};
+
 vi.mock("../hooks/useSpeechOutput", () => ({
-  useSpeechOutput: () => ({
-    supported: true,
-    speaking: false,
-    speak,
-    stop,
-  }),
+  useSpeechOutput: () => speech,
 }));
 
 vi.mock("../hooks/useFeatureFlag", () => ({
@@ -92,6 +94,7 @@ function kpiRow(
 beforeEach(() => {
   speak.mockReset();
   stop.mockReset();
+  speech.speaking = false;
   loadDashboard.mockReset();
   voiceOutput.enabled = true;
   voiceOutput.loading = false;
@@ -113,7 +116,7 @@ describe("PresenceWelcome", () => {
       expect(speak).toHaveBeenCalledTimes(1);
     });
     expect(speak).toHaveBeenCalledWith(
-      "Welcome Orville, how are you doing today?",
+      "Welcome Orville. I'm Sync, Reliability Engineer. What Decision Case or plant subject should we work on? I recommend; I do not authorize.",
     );
 
     unmount();
@@ -201,7 +204,12 @@ describe("PresenceWelcome", () => {
     render(<PresenceWelcome />);
     fireEvent.click(screen.getByRole("button", { name: "Meet Sync" }));
     expect(await screen.findByTestId("presence-booth")).toBeInTheDocument();
-    expect(screen.getByText(/booth conversation/i)).toBeInTheDocument();
+    expect(screen.getByText(/Reliability Engineer booth/i)).toBeInTheDocument();
+    expect(screen.getByTestId("presence-face")).toBeInTheDocument();
+    expect(screen.getByTestId("presence-welcome")).toHaveAttribute(
+      "data-presence-phase",
+      "idle",
+    );
   });
 
   it("hides the KPI brief while Meet Sync is open", async () => {
@@ -232,6 +240,19 @@ describe("PresenceWelcome", () => {
     expect(mute.className).not.toMatch(/bg-signal-cyan/);
     expect(screen.getByTestId("presence-honesty").className).toMatch(
       /\bmt-1\b/,
+    );
+  });
+
+  it("drives the Sync face from spoken welcome state", () => {
+    speech.speaking = true;
+    render(<PresenceWelcome />);
+    expect(screen.getByTestId("presence-face")).toHaveAttribute(
+      "data-presence-phase",
+      "speaking",
+    );
+    expect(screen.getByTestId("presence-welcome")).toHaveAttribute(
+      "data-presence-phase",
+      "speaking",
     );
   });
 
@@ -288,11 +309,15 @@ describe("PresenceWelcome", () => {
     render(<PresenceWelcome />);
 
     await waitFor(() => {
-      expect(speak).toHaveBeenCalledWith("Welcome, how are you doing today?");
+      expect(speak).toHaveBeenCalledWith(
+        "Welcome. I'm Sync, Reliability Engineer. What Decision Case or plant subject should we work on? I recommend; I do not authorize.",
+      );
     });
     expect(speak.mock.calls[0][0]).not.toMatch(/Orville/);
     expect(
-      screen.getByText("Welcome, how are you doing today?"),
+      screen.getByText(
+        "Welcome. I'm Sync, Reliability Engineer. What Decision Case or plant subject should we work on? I recommend; I do not authorize.",
+      ),
     ).toBeInTheDocument();
   });
 });

@@ -3,9 +3,12 @@ import { readFileSync } from "node:fs";
 import {
   BOOTH_FRAMING,
   BOOTH_UNAVAILABLE_REPLY,
+  RECOMMEND_AUTHORIZE_SPOKEN,
   buildBoothAskQuery,
   shouldSpeakBoothReply,
+  spokenBoothReply,
   stripForSpeech,
+  withRecommendAuthorize,
 } from "./booth";
 
 describe("booth conversation framing", () => {
@@ -38,6 +41,32 @@ describe("booth conversation framing", () => {
     expect(query).toContain("Visitor given name is not known");
     expect(query).not.toMatch(/\b87%\b/);
     expect(query).not.toMatch(/plant is healthy/i);
+  });
+
+  it("continues a named subject and Decision Case without inventing plant state", () => {
+    const query = buildBoothAskQuery({
+      question: "What evidence is still missing?",
+      briefLines: ["No sourced KPI values are available yet."],
+      givenName: "Orville",
+      namedSubject: "HMER haul truck availability",
+      decisionLines: [
+        "Decision Case DRAFT-12345 v0.1",
+        "Asset: HMER haul truck",
+      ],
+      sessionTurns: [
+        { role: "user", text: "HMER haul truck availability" },
+        { role: "sync", text: "Provisional. Recommend is not authorize." },
+      ],
+    });
+    expect(query).toMatch(/Reliability Engineer/);
+    expect(query).toContain(
+      "Named subject (session): HMER haul truck availability",
+    );
+    expect(query).toContain("Decision Case DRAFT-12345");
+    expect(query).toContain("SESSION TURNS:");
+    expect(query).toContain("Visitor: HMER haul truck availability");
+    expect(query).not.toMatch(/P-101|Fort McMurray|87%/i);
+    expect(query).not.toMatch(/Claude Code|Obsidian|fullstack-agent/i);
   });
 });
 
@@ -79,6 +108,19 @@ describe("booth speech gate", () => {
     const spoken = stripForSpeech(long, 80);
     expect(spoken.length).toBeLessThanOrEqual(81);
     expect(spoken).not.toMatch(/autonomous control/i);
+  });
+
+  it("puts recommend≠authorize on spoken replies without inventing plant claims", () => {
+    expect(withRecommendAuthorize("No sourced backlog figure.")).toBe(
+      `No sourced backlog figure. ${RECOMMEND_AUTHORIZE_SPOKEN}`,
+    );
+    expect(
+      spokenBoothReply(
+        "No sourced backlog figure. Recommend is not authorize.",
+      ),
+    ).toBe("No sourced backlog figure. Recommend is not authorize.");
+    expect(spokenBoothReply("Short.")).toMatch(/Recommend is not authorize/);
+    expect(spokenBoothReply("Short.")).not.toMatch(/87%|healthy/i);
   });
 });
 

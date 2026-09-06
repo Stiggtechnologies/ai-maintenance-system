@@ -6,13 +6,18 @@
  * sync_voice_output is enabled (same fail-closed contract as CopilotDock).
  * The optional
  * brief is text-only and uses get_kpi_dashboard — never fabricated plant
- * readings. Mute is remembered in localStorage. This is a welcome, not
- * autonomous control, and it does not authorize plant execute.
+ * readings. The Sync-branded face follows real idle/listening/thinking/
+ * speaking state. Mute is remembered in localStorage. This is a welcome,
+ * not autonomous control, and it does not authorize plant execute.
  */
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { MessageCircle, Volume2, VolumeX } from "lucide-react";
 import { useFeatureFlag } from "../hooks/useFeatureFlag";
 import { useSpeechOutput } from "../hooks/useSpeechOutput";
+import {
+  resolvePresencePhase,
+  type PresenceFlags,
+} from "../lib/presence/state";
 import {
   buildSpokenWelcome,
   hasSessionWelcome,
@@ -25,6 +30,7 @@ import {
 } from "../lib/presence/welcome";
 import { getKpiDashboard } from "../services/kpiService";
 import { PresenceBoothConversation } from "./PresenceBoothConversation";
+import { PresenceFace } from "./PresenceFace";
 import { useAuth } from "./AuthProvider";
 
 function metadataFullName(value: unknown): string | null {
@@ -39,7 +45,7 @@ const SECONDARY_BUTTON_CLASS =
 
 export function PresenceWelcome() {
   const { user, profile, loading } = useAuth();
-  const { speak, stop } = useSpeechOutput();
+  const { speak, stop, speaking } = useSpeechOutput();
   const voiceOutput = useFeatureFlag("sync_voice_output");
   const voiceOutputEnabled = voiceOutput.enabled;
   const voiceOutputReady = !voiceOutput.loading;
@@ -50,6 +56,25 @@ export function PresenceWelcome() {
   );
   const [briefLines, setBriefLines] = useState<string[]>([]);
   const [boothOpen, setBoothOpen] = useState(false);
+  const [boothFlags, setBoothFlags] = useState<PresenceFlags>({
+    listening: false,
+    thinking: false,
+    speaking: false,
+  });
+  const onPresenceFlags = useCallback((flags: PresenceFlags) => {
+    setBoothFlags((current) =>
+      current.listening === flags.listening &&
+      current.thinking === flags.thinking &&
+      current.speaking === flags.speaking
+        ? current
+        : flags,
+    );
+  }, []);
+  const phase = resolvePresencePhase({
+    listening: boothOpen && boothFlags.listening,
+    thinking: boothOpen && boothFlags.thinking,
+    speaking,
+  });
 
   const givenName = resolveWelcomeGivenName({
     fullName: profile?.full_name,
@@ -123,21 +148,33 @@ export function PresenceWelcome() {
   const toggleBooth = () => {
     setBoothOpen((open) => {
       if (!open) stop();
+      else {
+        setBoothFlags({
+          listening: false,
+          thinking: false,
+          speaking: false,
+        });
+      }
       return !open;
     });
   };
 
   const booth = boothOpen ? (
     <PresenceBoothConversation
+      userId={user?.id ?? ""}
       signedIn={Boolean(user)}
       muted={muted}
       voiceOutputEnabled={voiceOutputEnabled}
+      speaking={speaking}
       givenName={givenName}
       briefLines={briefLines}
       speak={speak}
       stopSpeech={stop}
+      onPresenceFlags={onPresenceFlags}
     />
   ) : null;
+
+  const face = <PresenceFace phase={phase} />;
 
   if (loading || !user) return null;
 
@@ -146,13 +183,15 @@ export function PresenceWelcome() {
       <div
         data-testid="presence-welcome"
         data-presence-muted="true"
+        data-presence-phase={phase}
         data-presence-voice={
           !voiceOutputReady ? "loading" : voiceOutputEnabled ? "on" : "off"
         }
         className="shrink-0 border-b border-white/5 bg-white/[0.02] px-4 py-2"
       >
         <div className="flex items-center justify-between gap-3">
-          <p className="text-xs text-slate-500">
+          {face}
+          <p className="min-w-0 flex-1 text-xs text-slate-500">
             Presence audio muted. Welcome will not speak in this browser.
           </p>
           <div className="flex items-center gap-2">
@@ -184,13 +223,15 @@ export function PresenceWelcome() {
     <div
       data-testid="presence-welcome"
       data-presence-muted="false"
+      data-presence-phase={phase}
       data-presence-voice={
         !voiceOutputReady ? "loading" : voiceOutputEnabled ? "on" : "off"
       }
       className="shrink-0 border-b border-white/5 bg-white/[0.02] px-4 py-2.5"
     >
       <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
+        {face}
+        <div className="min-w-0 flex-1">
           <p className="text-sm font-medium text-slate-100">{spokenWelcome}</p>
           <p
             data-testid="presence-honesty"

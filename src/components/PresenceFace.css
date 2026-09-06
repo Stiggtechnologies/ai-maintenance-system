@@ -1,0 +1,118 @@
+.presence-face {
+  --face-core: #38c8f4;
+  --face-ring: rgba(56, 200, 244, 0.35);
+  --face-gold: #d6a84f;
+  position: relative;
+  width: 2.75rem;
+  height: 2.75rem;
+  flex-shrink: 0;
+}
+
+.presence-face__core,
+.presence-face__ring,
+.presence-face__orbit {
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+}
+
+.presence-face__core {
+  inset: 28%;
+  background: radial-gradient(
+    circle at 35% 30%,
+    #86e9ff,
+    var(--face-core) 55%,
+    #0b2035
+  );
+  box-shadow: 0 0 10px rgba(56, 200, 244, 0.45);
+}
+
+.presence-face__ring {
+  border: 1.5px solid var(--face-ring);
+}
+
+.presence-face__orbit {
+  inset: 8%;
+  border: 1.5px dashed rgba(214, 168, 79, 0.35);
+  border-top-color: var(--face-gold);
+}
+
+.presence-face[data-presence-phase="idle"] .presence-face__core {
+  animation: presence-breathe 2.8s ease-in-out infinite;
+}
+
+.presence-face[data-presence-phase="listening"] .presence-face__ring {
+  animation: presence-listen 1.1s ease-out infinite;
+  border-color: #86e9ff;
+}
+
+.presence-face[data-presence-phase="listening"] .presence-face__core {
+  box-shadow: 0 0 16px rgba(56, 200, 244, 0.8);
+}
+
+.presence-face[data-presence-phase="thinking"] .presence-face__orbit {
+  animation: presence-think 1.4s linear infinite;
+  border-color: rgba(214, 168, 79, 0.2);
+  border-top-color: var(--face-gold);
+}
+
+.presence-face[data-presence-phase="speaking"] .presence-face__core {
+  background: radial-gradient(
+    circle at 35% 30%,
+    #f2d183,
+    var(--face-gold) 50%,
+    #0b2035
+  );
+  animation: presence-speak 0.45s ease-in-out infinite;
+}
+
+.presence-face[data-presence-phase="speaking"] .presence-face__ring {
+  border-color: rgba(214, 168, 79, 0.65);
+}
+
+@keyframes presence-breathe {
+  0%,
+  100% {
+    transform: scale(0.92);
+    opacity: 0.75;
+  }
+  50% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes presence-listen {
+  0% {
+    transform: scale(0.85);
+    opacity: 0.9;
+  }
+  100% {
+    transform: scale(1.15);
+    opacity: 0.15;
+  }
+}
+
+@keyframes presence-think {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes presence-speak {
+  0%,
+  100% {
+    transform: scale(0.9);
+  }
+  50% {
+    transform: scale(1.08);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .presence-face__core,
+  .presence-face__ring,
+  .presence-face__orbit {
+    animation: none !important;
+  }
+}

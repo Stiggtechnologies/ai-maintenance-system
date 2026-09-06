@@ -1,18 +1,20 @@
 /**
  * Thin signed-in presence welcome — capability test, not a meeting runner.
  *
- * Speaks a greeting via the browser Web Speech adapter when
- * sync_voice_output is enabled (same contract as CopilotDock). Optionally shows
- * 1–3 live KPI lines from the existing get_kpi_dashboard contract. This is
- * not OpenClaw, SIR, JAVIS, a gateway, or a parallel orchestrator. It does
- * not execute plant actions. Recommend ≠ authorize.
+ * Speaks a Reliability Engineer / Decision Case greeting via the browser
+ * Web Speech adapter when sync_voice_output is enabled (same contract as
+ * CopilotDock). Optionally shows 1–3 live KPI lines from the existing
+ * get_kpi_dashboard contract. This is not OpenClaw, SIR, JAVIS, a gateway,
+ * or a parallel orchestrator. It does not execute plant actions.
+ * Recommend ≠ authorize.
  */
 import { formatKpiValue, type KpiRow } from "../../services/kpiService";
 
 export const PRESENCE_MUTE_STORAGE_KEY = "syncai.presence.muted";
 export const PRESENCE_SESSION_KEY_PREFIX = "syncai.presence.welcomed:";
 
-export const UNNAMED_SPOKEN_WELCOME = "Welcome, how are you doing today?";
+export const UNNAMED_SPOKEN_WELCOME =
+  "Welcome. I'm Sync, Reliability Engineer. What Decision Case or plant subject should we work on? I recommend; I do not authorize.";
 
 export const HONEST_EMPTY_BRIEF = [
   "No sourced KPI values are available yet.",
@@ -34,7 +36,7 @@ export function resolveWelcomeGivenName(input: {
 
 export function buildSpokenWelcome(givenName: string | null): string {
   if (!givenName) return UNNAMED_SPOKEN_WELCOME;
-  return `Welcome ${givenName}, how are you doing today?`;
+  return `Welcome ${givenName}. I'm Sync, Reliability Engineer. What Decision Case or plant subject should we work on? I recommend; I do not authorize.`;
 }
 
 export function shouldSpeakWelcome(input: {
