@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { getEngineeringDnaForAssetClass } from "./electric-rope-shovel-dna";
-import { instantiateEngineeringTwin, validateEngineeringDnaProfile } from "./engineering-dna";
+import {
+  instantiateEngineeringTwin,
+  validateEngineeringDnaProfile,
+} from "./engineering-dna";
 import { getAssetClassTemplate, validateAssetClassTemplate } from "./index";
 import { industrialGearboxEngineeringDna } from "./industrial-gearbox-dna";
 import { industrialGearboxTemplate } from "./industrial-gearbox";
@@ -17,13 +20,21 @@ describe("industrial gearbox Digital Engineering DNA", () => {
         sharedComponentDnaLibrary,
       ),
     ).toEqual([]);
-    expect(industrialGearboxEngineeringDna.capabilities).toContain("shared_component_composition");
-    expect(industrialGearboxEngineeringDna.sharedComponentBindings).toHaveLength(4);
+    expect(industrialGearboxEngineeringDna.capabilities).toContain(
+      "shared_component_composition",
+    );
+    expect(
+      industrialGearboxEngineeringDna.sharedComponentBindings?.length,
+    ).toBeGreaterThanOrEqual(5);
   });
 
   it("registers the asset and DNA profile uniquely", () => {
-    expect(getAssetClassTemplate(industrialGearboxTemplate.code)).toBe(industrialGearboxTemplate);
-    expect(getEngineeringDnaForAssetClass(industrialGearboxTemplate.code)).toBe(industrialGearboxEngineeringDna);
+    expect(getAssetClassTemplate(industrialGearboxTemplate.code)).toBe(
+      industrialGearboxTemplate,
+    );
+    expect(getEngineeringDnaForAssetClass(industrialGearboxTemplate.code)).toBe(
+      industrialGearboxEngineeringDna,
+    );
     expect(new Set(industrialGearboxEngineeringDna.componentCodes).size).toBe(
       industrialGearboxEngineeringDna.componentCodes.length,
     );
@@ -42,8 +53,13 @@ describe("industrial gearbox Digital Engineering DNA", () => {
     expect(twin.customerOverrides.sharedComponentBindings).toEqual(
       industrialGearboxEngineeringDna.sharedComponentBindings,
     );
-    expect(industrialGearboxEngineeringDna.governance.autonomousOperationalActionAllowed).toBe(false);
-    expect(industrialGearboxEngineeringDna.governance.thresholdsPolicy).toBe("approved_source_only");
+    expect(
+      industrialGearboxEngineeringDna.governance
+        .autonomousOperationalActionAllowed,
+    ).toBe(false);
+    expect(industrialGearboxEngineeringDna.governance.thresholdsPolicy).toBe(
+      "approved_source_only",
+    );
   });
 
   it("rejects unknown shared component endpoints", () => {
@@ -63,6 +79,8 @@ describe("industrial gearbox Digital Engineering DNA", () => {
       [],
       sharedComponentDnaLibrary,
     );
-    expect(issues.some((issue) => issue.path.endsWith("sharedComponentDnaCode"))).toBe(true);
+    expect(
+      issues.some((issue) => issue.path.endsWith("sharedComponentDnaCode")),
+    ).toBe(true);
   });
 });

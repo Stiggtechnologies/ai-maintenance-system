@@ -1,3 +1,10 @@
+import type { EngineeringDnaProfile } from "./engineering-dna";
+import {
+  collectSharedComponentReferences,
+  mergeDnaBindingsIntoReferences,
+  type SharedIntelligenceReference,
+} from "./shared-component-dna";
+import { sharedComponentDnaLibrary } from "./shared-component-dna-library";
 import type {
   AssetClassTemplate,
   ComponentTemplate,
@@ -14,6 +21,7 @@ export interface CompiledAssetTwin {
     assetClassCode: string;
     overlay?: { manufacturer: string; model: string; schemaVersion: string };
     customerOverrideKeys: string[];
+    sharedComponentReferences: SharedIntelligenceReference[];
   };
 }
 
@@ -29,6 +37,8 @@ function mergeComponent(
     telemetryConcepts: overlay.telemetryConcepts ?? component.telemetryConcepts,
     inspectionZones: overlay.inspectionZones ?? component.inspectionZones,
     failureModes: overlay.failureModes ?? component.failureModes,
+    sharedComponentDnaCodes:
+      overlay.sharedComponentDnaCodes ?? component.sharedComponentDnaCodes,
   };
 }
 
@@ -37,18 +47,36 @@ export function compileAssetTwin(
   asset: CustomerAssetTwinInstance,
   overlay?: OemModelOverlay,
   now = new Date(),
+  engineeringDna?: EngineeringDnaProfile,
 ): CompiledAssetTwin {
   if (asset.assetClassCode !== template.code) {
-    throw new Error(`Asset class ${asset.assetClassCode} does not match template ${template.code}`);
+    throw new Error(
+      `Asset class ${asset.assetClassCode} does not match template ${template.code}`,
+    );
   }
   if (overlay && overlay.assetClassCode !== template.code) {
-    throw new Error(`Overlay ${overlay.model} does not apply to ${template.code}`);
+    throw new Error(
+      `Overlay ${overlay.model} does not apply to ${template.code}`,
+    );
   }
-  if (overlay && asset.manufacturer && overlay.manufacturer !== asset.manufacturer) {
-    throw new Error(`Overlay manufacturer ${overlay.manufacturer} does not match ${asset.manufacturer}`);
+  if (
+    overlay &&
+    asset.manufacturer &&
+    overlay.manufacturer !== asset.manufacturer
+  ) {
+    throw new Error(
+      `Overlay manufacturer ${overlay.manufacturer} does not match ${asset.manufacturer}`,
+    );
   }
-  if (overlay && asset.model && overlay.model !== asset.model && !overlay.aliases?.includes(asset.model)) {
-    throw new Error(`Overlay model ${overlay.model} does not match ${asset.model}`);
+  if (
+    overlay &&
+    asset.model &&
+    overlay.model !== asset.model &&
+    !overlay.aliases?.includes(asset.model)
+  ) {
+    throw new Error(
+      `Overlay model ${overlay.model} does not match ${asset.model}`,
+    );
   }
 
   const components = template.components.map((component) =>
@@ -56,9 +84,29 @@ export function compileAssetTwin(
   );
 
   const telemetryMap = { ...asset.telemetryMap };
-  for (const [canonical, aliases] of Object.entries(overlay?.telemetryAliases ?? {})) {
-    if (!telemetryMap[canonical] && aliases.length === 1) telemetryMap[canonical] = aliases[0];
+  for (const [canonical, aliases] of Object.entries(
+    overlay?.telemetryAliases ?? {},
+  )) {
+    if (!telemetryMap[canonical] && aliases.length === 1)
+      telemetryMap[canonical] = aliases[0];
   }
+
+  const collected = collectSharedComponentReferences(
+    template.components,
+    sharedComponentDnaLibrary,
+  );
+  if (collected.issues.length > 0) {
+    throw new Error(
+      collected.issues
+        .map((issue) => `${issue.path}: ${issue.message}`)
+        .join(" "),
+    );
+  }
+  const sharedComponentReferences = mergeDnaBindingsIntoReferences(
+    collected.references,
+    engineeringDna?.sharedComponentBindings ?? [],
+    sharedComponentDnaLibrary,
+  );
 
   return {
     schemaVersion: template.schemaVersion,
@@ -82,6 +130,7 @@ export function compileAssetTwin(
           }
         : undefined,
       customerOverrideKeys: Object.keys(asset.customerOverrides).sort(),
+      sharedComponentReferences,
     },
   };
 }
