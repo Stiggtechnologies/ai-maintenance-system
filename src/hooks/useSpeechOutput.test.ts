@@ -14,9 +14,27 @@ import { useSpeechOutput } from "./useSpeechOutput";
 function installSpeechSynthesis() {
   const speak = vi.fn();
   const cancel = vi.fn();
+  class FakeUtterance {
+    text: string;
+    lang = "";
+    onstart: (() => void) | null = null;
+    onend: (() => void) | null = null;
+    onerror: (() => void) | null = null;
+    constructor(text: string) {
+      this.text = text;
+    }
+  }
   Object.defineProperty(window, "speechSynthesis", {
     configurable: true,
     value: { speak, cancel, pending: false, speaking: false, paused: false },
+  });
+  Object.defineProperty(window, "SpeechSynthesisUtterance", {
+    configurable: true,
+    value: FakeUtterance,
+  });
+  Object.defineProperty(globalThis, "SpeechSynthesisUtterance", {
+    configurable: true,
+    value: FakeUtterance,
   });
   return { speak, cancel };
 }

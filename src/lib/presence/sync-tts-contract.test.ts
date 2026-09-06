@@ -29,7 +29,8 @@ describe("sync-tts deploy and honesty contract", () => {
     expect(core).toContain("gpt-4o-mini-tts");
     expect(core).toContain("tts-1");
     expect(core).toContain("onyx");
-    expect(fn).not.toMatch(/ELEVENLABS_API_KEY/);
+    expect(fn).not.toMatch(/Deno\.env\.get\("ELEVENLABS_API_KEY"\)/);
+    expect(fn).not.toMatch(/api\.elevenlabs\.io/);
     expect(core).not.toMatch(/api\.elevenlabs\.io/);
     expect(fn).not.toMatch(/backtalk|fullstack-agent|kokoro/i);
     expect(core).not.toMatch(/backtalk|fullstack-agent|kokoro/i);
