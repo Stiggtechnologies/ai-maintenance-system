@@ -21,7 +21,7 @@ export interface PresenceSignals {
 }
 
 /**
- * Listening wins so hold-to-talk can barge in on TTS.
+ * Listening wins so continuous listen or hold-to-talk can barge in on TTS.
  * Thinking wins over speaking so the face does not stay on a finished line
  * while the Reliability Engineer ask is still in flight.
  */

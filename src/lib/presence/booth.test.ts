@@ -21,6 +21,7 @@ describe("booth conversation framing", () => {
     expect(query).toMatch(/Reliability Engineer/i);
     expect(query).toMatch(/Recommend is not authorize/i);
     expect(query).toMatch(/Do not execute plant actions/i);
+    expect(query).toMatch(/professional meeting moderator/i);
     expect(query).toContain("OEE: 62%");
     expect(query).toContain("QUESTION: How is the mill running?");
     expect(query).toContain("Visitor given name: Orville");
