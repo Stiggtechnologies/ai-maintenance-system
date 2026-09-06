@@ -1,11 +1,12 @@
 /**
  * Signed-in presence strip for the main AppShell.
  *
- * Audio path: browser Web Speech API via useSpeechOutput (speechSynthesis).
- * Meet Sync speaks a Reliability Engineer greeting once per tab session when
- * not muted. Tenant sync_voice_output still gates CopilotDock and is named
- * in the honesty line. KPI brief is text-only from get_kpi_dashboard.
- * Mute is remembered in localStorage. Recommend is not authorize.
+ * Audio path: useSpeechOutput (cloud sync-tts when configured, browser
+ * speechSynthesis fallback). Meet Sync speaks a Reliability Engineer
+ * greeting once per tab session when not muted. Tenant sync_voice_output
+ * still gates CopilotDock and is named in the honesty line. KPI brief is
+ * text-only from get_kpi_dashboard. Mute is remembered in localStorage.
+ * Recommend is not authorize.
  */
 import { useCallback, useEffect, useState } from "react";
 import { MessageCircle, Volume2, VolumeX } from "lucide-react";
@@ -19,6 +20,7 @@ import {
 import { derivePresencePhase } from "../lib/presence/state";
 import {
   buildSpokenWelcome,
+  describePresenceVoiceHonesty,
   hasSessionWelcome,
   markSessionWelcome,
   readMutePreference,
@@ -44,7 +46,7 @@ const SECONDARY_BUTTON_CLASS =
 
 export function PresenceWelcome() {
   const { user, profile, loading } = useAuth();
-  const { speak, stop, speaking } = useSpeechOutput();
+  const { speak, stop, speaking, engine } = useSpeechOutput();
   const voiceOutput = useFeatureFlag("sync_voice_output");
   const voiceOutputEnabled = voiceOutput.enabled;
   const voiceOutputReady = !voiceOutput.loading;
@@ -165,6 +167,7 @@ export function PresenceWelcome() {
       caseBound={workingSubject.bound}
       speak={speak}
       stopSpeech={stop}
+      speaking={speaking}
       onPresenceSignals={({ listening, thinking }) => {
         setBoothListening(listening);
         setBoothThinking(thinking);
@@ -175,16 +178,16 @@ export function PresenceWelcome() {
 
   if (loading || !user) return null;
 
-  const honesty = !voiceOutputReady
-    ? "Meet Sync uses browser speech when unmuted. Not autonomous control. Recommend is not authorize."
-    : voiceOutputEnabled
-      ? "Meet Sync browser TTS. Tenant Voice output (`sync_voice_output`) is also on for CopilotDock. Recommend is not authorize."
-      : "Meet Sync uses browser speech when unmuted. Tenant Voice output (`sync_voice_output`) still gates CopilotDock — enable it in Settings → Sync. Recommend is not authorize.";
+  const honesty = describePresenceVoiceHonesty({
+    voiceOutputReady,
+    voiceOutputEnabled,
+    speechEngine: engine,
+  });
 
   const strip = (
     <div className="flex items-start justify-between gap-3">
       <div className="flex min-w-0 items-start gap-3">
-        <PresenceFace phase={presencePhase} />
+        <PresenceFace phase={presencePhase} size={boothOpen ? "md" : "sm"} />
         <div className="min-w-0">
           <p className="text-sm font-medium text-slate-100">{spokenWelcome}</p>
           <p
@@ -256,6 +259,7 @@ export function PresenceWelcome() {
       data-presence-voice={
         !voiceOutputReady ? "loading" : voiceOutputEnabled ? "on" : "off"
       }
+      data-presence-engine={engine}
       data-presence-phase={presencePhase}
       className={
         muted

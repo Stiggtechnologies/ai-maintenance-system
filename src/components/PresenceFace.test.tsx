@@ -18,10 +18,14 @@ describe("PresenceFace", () => {
     },
   );
 
-  it("does not claim plant execute or copy a circuit-board clone", () => {
+  it("does not claim plant execute or the Jarvis personality", () => {
     const { container } = render(<PresenceFace phase="idle" />);
     expect(container.innerHTML).not.toMatch(
-      /circuit|jarvis|openclaw|authorize plant/i,
+      /jarvis|openclaw|authorize plant|curse freely/i,
+    );
+    expect(screen.getByTestId("presence-face")).toHaveAttribute(
+      "data-visualizer-name",
+      "SYNC",
     );
   });
 });

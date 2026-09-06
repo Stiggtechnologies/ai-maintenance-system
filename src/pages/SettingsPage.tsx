@@ -19,12 +19,7 @@ import {
   type SyncFeatureFlag,
 } from "../hooks/useFeatureFlag";
 
-type Tab =
-  | "profile"
-  | "security"
-  | "organization"
-  | "notifications"
-  | "sync";
+type Tab = "profile" | "security" | "organization" | "notifications" | "sync";
 
 interface Organization {
   id: string;
@@ -67,9 +62,9 @@ const SYNC_FLAG_FALLBACKS: Record<SyncFeatureFlag, string> = {
   sync_global_shell:
     "Master gate for the persistent Sync interaction layer across the authenticated application.",
   sync_voice_input:
-    "Gates CopilotDock speech-to-text. Meet Sync hold-to-talk uses browser speech when the browser supports it; mute still silences presence.",
+    "Gates CopilotDock speech-to-text. Meet Sync defaults to continuous listen when the browser supports it; hold-to-talk is optional. Mute still silences presence.",
   sync_voice_output:
-    "Gates CopilotDock text-to-speech. Meet Sync / Presence welcome uses browser TTS when unmuted — sync_voice_output is not required for the booth.",
+    "Gates CopilotDock text-to-speech. Meet Sync / Presence welcome uses cloud sync-tts when configured (browser TTS fallback) when unmuted — sync_voice_output is not required for the booth.",
   sync_agent_routing:
     "Route questions through the existing governed specialist registry.",
   sync_tools:
@@ -395,9 +390,7 @@ function SyncRolloutTab() {
       setFlags((current) => {
         const next = { ...current };
         for (const row of data ?? []) {
-          if (
-            SYNC_FEATURE_FLAGS.includes(row.flag_key as SyncFeatureFlag)
-          ) {
+          if (SYNC_FEATURE_FLAGS.includes(row.flag_key as SyncFeatureFlag)) {
             const key = row.flag_key as SyncFeatureFlag;
             next[key] = {
               flag_key: key,
@@ -437,7 +430,9 @@ function SyncRolloutTab() {
         [key]: { ...current[key], enabled },
       }));
       announceSyncFeatureFlagsChanged();
-      setNotice(`${SYNC_FLAG_LABELS[key]} ${enabled ? "enabled" : "disabled"}.`);
+      setNotice(
+        `${SYNC_FLAG_LABELS[key]} ${enabled ? "enabled" : "disabled"}.`,
+      );
     } catch (error) {
       console.error("Failed to change Sync rollout flag", error);
       setNotice(

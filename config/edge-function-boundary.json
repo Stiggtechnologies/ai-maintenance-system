@@ -18,7 +18,8 @@
     "public-reliability-agent",
     "recovery-activation-pull",
     "sync-investigation-runtime",
-    "sync-runtime"
+    "sync-runtime",
+    "sync-tts"
   ],
   "allowedNoVerifyJwt": ["agent-loop-enrich", "onboarding-enrich"],
   "blockedLegacyFunctions": [

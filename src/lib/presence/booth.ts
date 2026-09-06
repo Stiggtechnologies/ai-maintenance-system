@@ -3,9 +3,9 @@
  *
  * Meet Sync speaks as Sync, the Reliability Engineer. Answers go through
  * the existing ai-agent-processor ReliabilityAgent path. Decision Case
- * context and this-tab session memory are appended when present.
- * This is not OpenClaw, SIR, JAVIS, a gateway, or a meeting runner.
- * Recommend ≠ authorize. No plant execute.
+ * context, this-tab session memory, and the durable vault are appended
+ * when present. This is not OpenClaw, SIR, JAVIS, a gateway, or a plant
+ * runner. Recommend ≠ authorize. No plant execute.
  */
 
 export const BOOTH_UNAVAILABLE_REPLY =
@@ -15,7 +15,9 @@ export const BOOTH_FRAMING = [
   "You are Sync, the Reliability Engineer, in a short Meet Sync booth conversation.",
   "Speak as decision support only. Recommend is not authorize. Do not execute plant actions.",
   "Stay in maintenance, reliability, and industrial Decision Case work. Do not become a generic desktop assistant.",
-  "Use only the LIVE CONTEXT, DECISION CASE, and SESSION MEMORY below plus the visitor's question.",
+  "Speak as a professional meeting moderator: contribute when asked or when a short clarification helps. Do not be cheeky or performative.",
+  "Do not use butler banter, cursing, or 'sir/boss' address.",
+  "Use only the LIVE CONTEXT, DECISION CASE, SESSION MEMORY, and VAULT MEMORY below plus the visitor's question.",
   "If no Decision Case is bound, treat named subjects as provisional and do not invent a demo or reference case.",
   "If the context says no sourced KPI values are available, say that plainly and do not invent readings, OEE, downtime, or asset health.",
   "Keep the answer short enough to speak aloud (a few sentences). Name uncertainty. Do not claim autonomous control.",
@@ -27,6 +29,7 @@ export function buildBoothAskQuery(input: {
   givenName: string | null;
   caseContextLines?: string[];
   sessionLines?: string[];
+  vaultLines?: string[];
 }): string {
   const question = input.question.trim().slice(0, 2400);
   const context =
@@ -44,6 +47,10 @@ export function buildBoothAskQuery(input: {
     input.sessionLines && input.sessionLines.length > 0
       ? input.sessionLines.join("\n")
       : "No prior Meet Sync turns in this tab.";
+  const vaultBlock =
+    input.vaultLines && input.vaultLines.length > 0
+      ? input.vaultLines.join("\n")
+      : "Durable vault has no prior Meet Sync notes yet.";
   return [
     BOOTH_FRAMING,
     visitor,
@@ -51,8 +58,10 @@ export function buildBoothAskQuery(input: {
     context,
     "DECISION CASE:",
     caseBlock,
-    "SESSION MEMORY (this tab only, not a system of record):",
+    "SESSION MEMORY (this tab, plus durable vault restore):",
     sessionBlock,
+    "VAULT MEMORY (Obsidian-style notes in this browser, not a system of record):",
+    vaultBlock,
     `QUESTION: ${question}`,
   ].join("\n");
 }
@@ -66,11 +75,7 @@ export function shouldSpeakBoothReply(input: {
   return input.signedIn && !input.muted;
 }
 
-export function stripForSpeech(text: string, maxChars = 420): string {
-  const trimmed = text.replace(/\s+/g, " ").trim();
-  if (!trimmed) return "";
-  if (trimmed.length <= maxChars) return trimmed;
-  const cut = trimmed.slice(0, maxChars);
-  const lastStop = Math.max(cut.lastIndexOf(". "), cut.lastIndexOf("? "));
-  return lastStop > 80 ? cut.slice(0, lastStop + 1) : `${cut.trim()}…`;
-}
+export {
+  SYNC_TTS_MAX_CHARS,
+  stripForSpeech,
+} from "../../../supabase/functions/_shared/sync-tts-core";

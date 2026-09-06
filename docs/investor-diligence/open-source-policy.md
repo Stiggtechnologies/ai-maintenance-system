@@ -51,3 +51,12 @@ existing repository is a substantive legal change, not a formatting task.
 Exceptions need a named business owner, package/version scope, counsel decision,
 mitigation, expiry/review date, and removal plan. They must not be encoded by
 weakening the automated prohibited list without the same written approval.
+
+**2026-09-06 — Meet Sync vendor trees (Orville Davis, founder unlock).**
+Attributed source under `third_party/jaredrhod/` (AGPL-3.0-or-later and
+CC BY-SA 4.0) is an explicit exception to the “no AGPL in the product”
+engineering lock. The npm lockfile prohibited-license check is unchanged.
+Mitigation: LICENSE notices preserved, corresponding source is this public
+tree, personality remains Sync / recommend≠authorize. Counsel review of the
+SaaS source-offer obligation is still required. Review: keep until counsel
+records a different instruction.

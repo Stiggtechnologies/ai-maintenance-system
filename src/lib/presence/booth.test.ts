@@ -16,6 +16,7 @@ describe("booth conversation framing", () => {
       givenName: "Orville",
       caseContextLines: ["Decision Case DC-2201 v1", "Asset: Crusher 2201"],
       sessionLines: ["Last subject: Crusher 2201 vibration"],
+      vaultLines: ["- You: Crusher 2201 vibration"],
     });
     expect(query).toContain(BOOTH_FRAMING);
     expect(query).toMatch(/Reliability Engineer/i);
@@ -26,7 +27,11 @@ describe("booth conversation framing", () => {
     expect(query).toContain("Visitor given name: Orville");
     expect(query).toContain("Decision Case DC-2201 v1");
     expect(query).toContain("Last subject: Crusher 2201 vibration");
-    expect(query).not.toMatch(/openclaw|javis|jarvis/i);
+    expect(query).toContain("- You: Crusher 2201 vibration");
+    expect(query).toMatch(/VAULT MEMORY/i);
+    expect(query).toMatch(/professional meeting moderator/i);
+    expect(query).toMatch(/VAULT MEMORY/i);
+    expect(query).not.toMatch(/openclaw|javis|jarvis|curse freely/i);
   });
 
   it("does not invent plant data when the welcome brief is empty", () => {

@@ -23,6 +23,7 @@ vi.mock("../hooks/useSpeechOutput", () => ({
   useSpeechOutput: () => ({
     supported: true,
     speaking: false,
+    engine: "browser",
     speak,
     stop,
   }),
@@ -210,6 +211,14 @@ describe("PresenceWelcome", () => {
     fireEvent.click(screen.getByRole("button", { name: "Meet Sync" }));
     expect(await screen.findByTestId("presence-booth")).toBeInTheDocument();
     expect(screen.getByText(/booth/i)).toBeInTheDocument();
+    expect(screen.getByTestId("presence-booth")).toHaveAttribute(
+      "data-booth-voice-mode",
+      "continuous",
+    );
+    expect(screen.getByTestId("presence-welcome")).toHaveAttribute(
+      "data-presence-engine",
+      "browser",
+    );
   });
 
   it("hides the KPI brief while Meet Sync is open", async () => {

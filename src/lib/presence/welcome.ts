@@ -1,7 +1,8 @@
 /**
  * Signed-in Meet Sync presence welcome.
  *
- * Speaks a Reliability Engineer greeting via browser Web Speech when the
+ * Speaks a Reliability Engineer greeting via useSpeechOutput (cloud
+ * `sync-tts` when configured, browser speechSynthesis otherwise) when the
  * user is not muted. Tenant `sync_voice_output` still gates CopilotDock;
  * Meet Sync does not wait on that flag so the booth can be used. Mute is
  * the presence off-switch. KPI lines stay text-only and never invent plant
@@ -49,6 +50,31 @@ export function shouldSpeakWelcome(input: {
   voiceOutputEnabled?: boolean;
 }): boolean {
   return input.signedIn && !input.muted && !input.alreadyWelcomedThisSession;
+}
+
+/**
+ * Honesty for the presence strip. Cloud voice is named only when the
+ * signed-in `sync-tts` probe reported a configured key. Otherwise the
+ * copy stays on browser speech and never claims premium quality.
+ */
+export function describePresenceVoiceHonesty(input: {
+  voiceOutputReady: boolean;
+  voiceOutputEnabled: boolean;
+  speechEngine: "unknown" | "cloud" | "browser";
+}): string {
+  const cloud = input.speechEngine === "cloud";
+  const voice = cloud
+    ? "Meet Sync uses a configured cloud voice when unmuted."
+    : "Meet Sync uses browser speech when unmuted.";
+  if (!input.voiceOutputReady) {
+    return `${voice} Not autonomous control. Recommend is not authorize.`;
+  }
+  if (input.voiceOutputEnabled) {
+    return cloud
+      ? `${voice} Tenant Voice output (\`sync_voice_output\`) is also on for CopilotDock. Recommend is not authorize.`
+      : "Meet Sync browser TTS. Tenant Voice output (`sync_voice_output`) is also on for CopilotDock. Recommend is not authorize.";
+  }
+  return `${voice} Tenant Voice output (\`sync_voice_output\`) still gates CopilotDock — enable it in Settings → Sync. Recommend is not authorize.`;
 }
 
 export function selectPresenceBriefLines(

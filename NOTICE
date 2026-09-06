@@ -29,3 +29,9 @@ Third-party notices
 Dependencies and other third-party components remain subject to their own
 licenses. See `docs/investor-diligence/open-source-inventory.md` and the
 generated CycloneDX SBOM for the maintained dependency record.
+
+Founder-authorized Meet Sync source trees (2026-09-06, Orville Davis) live
+under `third_party/jaredrhod/` with their LICENSE files preserved. Four of
+those trees are AGPL-3.0-or-later; `ai-memory-vault` is CC BY-SA 4.0. See
+`third_party/jaredrhod/NOTICE.md` for SHAs, omitted binaries, and the
+network source-offer record. These trees are not npm lockfile packages.
