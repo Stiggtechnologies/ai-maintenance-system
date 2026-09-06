@@ -59,4 +59,15 @@ describe("engineering model production boundary", () => {
     expect(edge).not.toContain("get-physics-done");
     expect(edge).not.toContain("github.com/psi-oss");
   });
+
+  it("keeps runtime-shared model imports resolvable by strict Deno deployment", () => {
+    for (const relativePath of [
+      "src/lib/engineering-models/resonance.ts",
+      "src/lib/engineering-models/validation.ts",
+    ]) {
+      const source = readFileSync(relativePath, "utf8");
+      expect(source).toContain('from "./types.ts";');
+      expect(source).not.toContain('from "./types";');
+    }
+  });
 });

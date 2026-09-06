@@ -1,4 +1,4 @@
-import type { ModelRefusal, PhysicsModelPackManifest } from "./types";
+import type { ModelRefusal, PhysicsModelPackManifest } from "./types.ts";
 
 export const shaftResonanceModelPack: PhysicsModelPackManifest = {
   schemaVersion: "1.0.0",
@@ -618,6 +618,15 @@ export function evaluateShaftResonance(
   const forcingFrequencyHz = shaftFrequencyHz * input.forcingOrder;
   const naturalFrequencyHz =
     Math.sqrt(input.modalStiffnessNPerM / input.modalMassKg) / (2 * Math.PI);
+  if (
+    ![shaftFrequencyHz, forcingFrequencyHz, naturalFrequencyHz].every(
+      Number.isFinite,
+    )
+  ) {
+    throw new Error(
+      "Derived frequencies exceed the deterministic evaluator's numerically stable range.",
+    );
+  }
   const peakToForcingDifferencePct = percentDifference(
     input.dominantPeakHz,
     forcingFrequencyHz,
@@ -626,6 +635,15 @@ export function evaluateShaftResonance(
     input.dominantPeakHz,
     naturalFrequencyHz,
   );
+  if (
+    ![peakToForcingDifferencePct, peakToNaturalDifferencePct].every(
+      Number.isFinite,
+    )
+  ) {
+    throw new Error(
+      "Frequency comparison exceeds the deterministic evaluator's numerically stable range.",
+    );
+  }
   const refusals: ModelRefusal[] = [];
   if (
     input.approvedMatchTolerancePct === undefined ||

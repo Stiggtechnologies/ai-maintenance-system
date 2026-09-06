@@ -225,6 +225,22 @@ describe("engineering model supply-chain validation", () => {
     );
   });
 
+  it("refuses an unbounded producer when the consumer requires a bounded port", () => {
+    const output = clonePack().ports.find(
+      (port) =>
+        port.code === "shaft_frequency_hz" && port.direction === "output",
+    )!;
+    const producer = { ...output, validRange: undefined };
+    const consumer = {
+      ...output,
+      direction: "input" as const,
+      validRange: { min: 0, max: 100, minInclusive: false },
+    };
+    expect(checkModelPortCompatibility(producer, consumer).compatible).toBe(
+      false,
+    );
+  });
+
   it("requires every promotion rung and blocks production without validation, competency, evidence, or cleared debt", () => {
     const evidence: ModelPromotionEvidence = {
       verificationResults: [],

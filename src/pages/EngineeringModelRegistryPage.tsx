@@ -27,6 +27,8 @@ interface EvidenceOption {
   description: string | null;
   source_system: string | null;
   data_quality: string;
+  verification_status: "verified";
+  quality_grade: "high" | "moderate" | "low" | null;
 }
 
 const NEXT_STATE: Record<string, string | undefined> = {
@@ -41,6 +43,15 @@ const NEXT_STATE: Record<string, string | undefined> = {
 
 function words(value: string): string {
   return value.replaceAll("_", " ");
+}
+
+function canonicalEngineeringGrade(
+  quality: EvidenceOption["quality_grade"],
+): "A" | "B" | "C" | "D" {
+  if (quality === "high") return "A";
+  if (quality === "moderate") return "B";
+  if (quality === "low") return "C";
+  return "D";
 }
 
 function ModelCard({
@@ -239,14 +250,23 @@ function ModelCard({
             <select
               aria-label={`Evidence item for ${model.name}`}
               value={evidenceItemId}
-              onChange={(event) => setEvidenceItemId(event.target.value)}
+              onChange={(event) => {
+                const nextEvidenceId = event.target.value;
+                setEvidenceItemId(nextEvidenceId);
+                const selected = evidence.find(
+                  (item) => item.id === nextEvidenceId,
+                );
+                if (selected)
+                  setGrade(canonicalEngineeringGrade(selected.quality_grade));
+              }}
               className="w-full rounded-lg border border-white/8 bg-[#111b28] p-2 text-xs text-white"
             >
-              <option value="">Select canonical evidence…</option>
+              <option value="">Select verified canonical evidence…</option>
               {evidence.map((item) => (
                 <option key={item.id} value={item.id}>
                   {item.description ?? item.id} ·{" "}
-                  {item.source_system ?? "unknown source"}
+                  {item.source_system ?? "unknown source"} · grade{" "}
+                  {canonicalEngineeringGrade(item.quality_grade)}
                 </option>
               ))}
             </select>
@@ -396,7 +416,10 @@ export function EngineeringModelRegistryPage() {
   const evidence = useAsyncData(async () => {
     const { data, error } = await supabase
       .from("evidence_items")
-      .select("id,description,source_system,data_quality")
+      .select(
+        "id,description,source_system,data_quality,verification_status,quality_grade",
+      )
+      .eq("verification_status", "verified")
       .order("created_at", { ascending: false })
       .limit(100)
       .returns<EvidenceOption[]>();

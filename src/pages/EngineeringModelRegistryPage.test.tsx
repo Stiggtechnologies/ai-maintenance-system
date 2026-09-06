@@ -23,8 +23,12 @@ vi.mock("../lib/supabase", () => ({
   supabase: {
     from: () => ({
       select: () => ({
-        order: () => ({
-          limit: () => ({ returns: async () => ({ data: [], error: null }) }),
+        eq: () => ({
+          order: () => ({
+            limit: () => ({
+              returns: async () => ({ data: [], error: null }),
+            }),
+          }),
         }),
       }),
     }),

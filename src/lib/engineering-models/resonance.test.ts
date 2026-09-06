@@ -70,5 +70,14 @@ describe("shaft resonance reference pack", () => {
         modalStiffnessNPerM: 3_553_057.584,
       }),
     ).toThrow(/forcingOrder/);
+    expect(() =>
+      evaluateShaftResonance({
+        rpm: Number.MAX_VALUE,
+        forcingOrder: Number.MAX_VALUE,
+        dominantPeakHz: 30,
+        modalMassKg: Number.MIN_VALUE,
+        modalStiffnessNPerM: Number.MAX_VALUE,
+      }),
+    ).toThrow(/numerically stable range/);
   });
 });

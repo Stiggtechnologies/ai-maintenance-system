@@ -7,7 +7,7 @@ import type {
   ModelRefusal,
   PhysicsModelPackManifest,
   VerificationCheckKind,
-} from "./types";
+} from "./types.ts";
 
 const REQUIRED_ARTIFACT_ROLES = [
   "project",
@@ -773,25 +773,20 @@ export function checkModelPortCompatibility(
   const p = producer.validRange;
   const c = consumer.validRange;
   const lowerBoundaryMismatch =
-    p?.min !== undefined &&
     c?.min !== undefined &&
-    p.min === c.min &&
-    p.minInclusive !== false &&
-    c.minInclusive === false;
+    (p?.min === undefined ||
+      p.min < c.min ||
+      (p.min === c.min &&
+        p.minInclusive !== false &&
+        c.minInclusive === false));
   const upperBoundaryMismatch =
-    p?.max !== undefined &&
     c?.max !== undefined &&
-    p.max === c.max &&
-    p.maxInclusive !== false &&
-    c.maxInclusive === false;
-  if (
-    p &&
-    c &&
-    ((p.min ?? -Infinity) < (c.min ?? -Infinity) ||
-      (p.max ?? Infinity) > (c.max ?? Infinity) ||
-      lowerBoundaryMismatch ||
-      upperBoundaryMismatch)
-  ) {
+    (p?.max === undefined ||
+      p.max > c.max ||
+      (p.max === c.max &&
+        p.maxInclusive !== false &&
+        c.maxInclusive === false));
+  if (lowerBoundaryMismatch || upperBoundaryMismatch) {
     refusals.push({
       code: "port_range_mismatch",
       message:

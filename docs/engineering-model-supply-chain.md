@@ -23,9 +23,9 @@ A model version moves only through:
 
 `draft → derived → verified → bench_validated → field_validated → engineering_approved → production_eligible`
 
-The author cannot complete engineering approval. Approval requires the exact domain competency role assigned in the canonical role system. Production eligibility additionally requires all production evidence bindings, a passing independent verification run, machine-readable applicability, compatible production dependencies and no blocking or expired verification debt. Revalidation or retirement immediately removes eligibility and opens impact records for affected recommendations and decisions.
+The author cannot complete engineering approval. Approval requires the exact domain competency role assigned in the canonical role system. Production eligibility additionally requires human-verified canonical evidence at or above the recorded quality grade, a passing independent verification run, machine-readable applicability, compatible production dependencies and no blocking or expired verification debt. Revalidation or retirement immediately removes eligibility and opens impact records for affected recommendations and decisions; re-entry requires a new verification run recorded after revalidation began.
 
-At execution, the server reapplies tenant, asset, recommendation, model version, lifecycle, as-maintained configuration, asset-family mapping, component, operating state, exclusions, required inputs, units, valid ranges, evidence identity and measurement-quality checks. Refusal is a persisted outcome, not an exception hidden from the user.
+At execution, the server reapplies tenant, asset, recommendation, model version, lifecycle, as-maintained configuration, asset-family mapping, component, operating state, exclusions, required inputs, units, valid ranges, evidence identity, human-verification state, canonical source and quality grade, and measurement-quality checks. Refusal is a persisted outcome, not an exception hidden from the user.
 
 ## Physics of Failure coverage
 

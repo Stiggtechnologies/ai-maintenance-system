@@ -62,6 +62,10 @@ describe("engineering model supply-chain migration", () => {
     expect(sql).toContain(
       "a dependency is incompatible or not production-eligible",
     );
+    expect(sql).toContain("revalidation_started_at");
+    expect(sql).toContain(
+      "m.revalidation_started_at is null or computed_at>=m.revalidation_started_at",
+    );
   });
 
   it("reuses canonical mechanisms, evidence, configuration, work and outcome records", () => {
@@ -79,6 +83,12 @@ describe("engineering model supply-chain migration", () => {
     expect(sql).toContain("record_engineering_model_intervention");
     expect(sql).toContain("review_engineering_model_impact");
     expect(sql).toContain("record_fmmea_model_binding");
+    expect(sql).toContain(
+      "canonical evidence must be human-verified before model binding",
+    );
+    expect(sql).toContain(
+      "declared engineering evidence grade exceeds the canonical evidence quality grade",
+    );
   });
 
   it("keeps child records tenant-readable and function-write-only", () => {
@@ -101,6 +111,7 @@ describe("engineering model supply-chain migration", () => {
       "input_value_not_allowed",
       "measurement_quality_insufficient",
       "evidence_outside_asset_or_tenant",
+      "model_evidence_not_current",
     ]) {
       expect(sql).toContain(`'${refusal}'`);
     }
@@ -125,6 +136,10 @@ describe("engineering model supply-chain migration", () => {
       "current as-maintained configuration is required for an intervention effect",
     );
     expect(sql).toContain("canonical intervention evidence is required");
+    expect(sql).toContain(
+      "production-eligible engineering model not found",
+    );
+    expect(sql).toContain("evidence is not human-verified");
     expect(sql).toContain(
       "the selected canonical mechanism is not declared by this model version",
     );

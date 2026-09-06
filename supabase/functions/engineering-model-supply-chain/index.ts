@@ -129,6 +129,15 @@ function verifyResonance(
     approvedMatchTolerancePct: 0.1,
     toleranceSourceReference: "pinned-independent-reference",
   });
+  const limiting = evaluateShaftResonance({
+    rpm: 1e-12,
+    forcingOrder: 1,
+    dominantPeakHz: 1e-12 / 60,
+    modalMassKg: 1,
+    modalStiffnessNPerM: 4 * Math.PI * Math.PI,
+    approvedMatchTolerancePct: 0.1,
+    toleranceSourceReference: "pinned-independent-limiting-reference",
+  });
   let adversarialRefused = false;
   try {
     evaluateShaftResonance({
@@ -145,7 +154,8 @@ function verifyResonance(
     dimensional: checks.every(
       (check) => check.kind !== "dimensional" || check.expectedResult === "Hz",
     ),
-    limiting_case: 1e-12 / 60 < 1e-12,
+    limiting_case:
+      limiting.shaftFrequencyHz > 0 && limiting.shaftFrequencyHz < 1e-12,
     benchmark: Math.abs(reference.shaftFrequencyHz - 1) <= 1e-12,
     numerical_stability: Object.values(reference)
       .filter((value) => typeof value === "number")

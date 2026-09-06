@@ -53,6 +53,7 @@ alter table public.model_register
   add column if not exists author_id uuid references auth.users(id) on delete set null,
   add column if not exists supersedes_model_id bigint references public.model_register(id) on delete set null,
   add column if not exists revalidation_reason text,
+  add column if not exists revalidation_started_at timestamptz,
   add column if not exists retired_at timestamptz;
 
 alter table public.model_register
@@ -549,14 +550,23 @@ create or replace function public.bind_engineering_model_evidence(
 ) returns jsonb language plpgsql security definer set search_path=public as $$
 declare
   v_org uuid:=public.app_current_org(); v_role text; m public.model_register%rowtype;
-  v_req jsonb; v_id uuid;
+  e public.evidence_items%rowtype; v_req jsonb; v_id uuid; v_max_grade text;
 begin
   select role into v_role from public.user_profiles where id=auth.uid() and organization_id=v_org;
   if coalesce(v_role,'') not in ('admin','reliability_engineer') then return jsonb_build_object('error','engineering evidence binding requires admin or reliability engineer'); end if;
   select * into m from public.model_register where id=p_model_register_id and organization_id=v_org and is_engineering_model;
   if not found or m.lifecycle_state='retired' then return jsonb_build_object('error','active engineering model not found in this organization'); end if;
-  if not exists(select 1 from public.evidence_items e where e.id=p_evidence_item_id and e.organization_id=v_org) then
+  select * into e from public.evidence_items where id=p_evidence_item_id and organization_id=v_org;
+  if not found then
     return jsonb_build_object('error','canonical evidence item not found in this organization');
+  end if;
+  if e.verification_status<>'verified' or e.verified_by is null or e.verified_at is null
+     or btrim(coalesce(e.verification_method,''))='' then
+    return jsonb_build_object('error','canonical evidence must be human-verified before model binding');
+  end if;
+  v_max_grade:=case e.quality_grade when 'high' then 'A' when 'moderate' then 'B' when 'low' then 'C' else 'D' end;
+  if public.engineering_model_grade_rank(p_evidence_grade)>public.engineering_model_grade_rank(v_max_grade) then
+    return jsonb_build_object('error','declared engineering evidence grade exceeds the canonical evidence quality grade');
   end if;
   select value into v_req from jsonb_array_elements(m.evidence_requirements) where value->>'key'=p_requirement_key;
   if v_req is null or v_req->>'purpose'<>p_purpose then return jsonb_build_object('error','evidence requirement key and purpose do not match the manifest'); end if;
@@ -668,15 +678,25 @@ begin
   if p_target_state in ('verified','bench_validated','field_validated','engineering_approved','production_eligible') then
     select id into v_run from public.calculation_runs
     where organization_id=v_org and model_register_id=m.id and calculation_key='engineering_model_verification'
-      and status='computed' and outputs->>'passed'='true' order by computed_at desc limit 1;
+      and status='computed' and outputs->>'passed'='true'
+      and (m.revalidation_started_at is null or computed_at>=m.revalidation_started_at)
+      order by computed_at desc limit 1;
     if v_run is null then return jsonb_build_object('error','the independent verification contract has not passed'); end if;
   end if;
   if p_target_state in ('bench_validated','field_validated','engineering_approved','production_eligible')
-     and not exists(select 1 from public.engineering_model_evidence_bindings where model_register_id=m.id and purpose='bench_validation') then
+     and not exists(select 1 from public.engineering_model_evidence_bindings b
+       join public.evidence_items e on e.id=b.evidence_item_id and e.organization_id=v_org
+       where b.model_register_id=m.id and b.purpose='bench_validation' and e.verification_status='verified'
+         and public.engineering_model_grade_rank(b.evidence_grade)<=public.engineering_model_grade_rank(
+           case e.quality_grade when 'high' then 'A' when 'moderate' then 'B' when 'low' then 'C' else 'D' end)) then
     return jsonb_build_object('error','bench-validation evidence is required');
   end if;
   if p_target_state in ('field_validated','engineering_approved','production_eligible')
-     and not exists(select 1 from public.engineering_model_evidence_bindings where model_register_id=m.id and purpose='field_validation') then
+     and not exists(select 1 from public.engineering_model_evidence_bindings b
+       join public.evidence_items e on e.id=b.evidence_item_id and e.organization_id=v_org
+       where b.model_register_id=m.id and b.purpose='field_validation' and e.verification_status='verified'
+         and public.engineering_model_grade_rank(b.evidence_grade)<=public.engineering_model_grade_rank(
+           case e.quality_grade when 'high' then 'A' when 'moderate' then 'B' when 'low' then 'C' else 'D' end)) then
     return jsonb_build_object('error','field-validation evidence is required');
   end if;
   if p_target_state in ('engineering_approved','production_eligible') then
@@ -692,9 +712,15 @@ begin
     end if;
     select count(*) into v_missing from jsonb_array_elements(m.evidence_requirements) req
     where coalesce((req->>'requiredForProduction')::boolean,false) and not exists(
-      select 1 from public.engineering_model_evidence_bindings b where b.model_register_id=m.id and b.requirement_key=req->>'key'
+      select 1 from public.engineering_model_evidence_bindings b
+      join public.evidence_items e on e.id=b.evidence_item_id and e.organization_id=v_org
+      where b.model_register_id=m.id and b.requirement_key=req->>'key'
+        and e.verification_status='verified'
+        and public.engineering_model_grade_rank(b.evidence_grade)>=public.engineering_model_grade_rank(req->>'minimumGrade')
+        and public.engineering_model_grade_rank(b.evidence_grade)<=public.engineering_model_grade_rank(
+          case e.quality_grade when 'high' then 'A' when 'moderate' then 'B' when 'low' then 'C' else 'D' end)
     );
-    if v_missing>0 then return jsonb_build_object('error',v_missing||' required production evidence binding(s) are missing'); end if;
+    if v_missing>0 then return jsonb_build_object('error',v_missing||' required production evidence binding(s) are missing, unverified, or below grade'); end if;
     if jsonb_array_length(coalesce(m.applicability_envelope->'rules','[]'::jsonb))=0 then return jsonb_build_object('error','machine-readable applicability rules are missing'); end if;
     if exists(select 1 from public.engineering_model_dependencies d
       join public.model_register producer on producer.id=d.producer_model_id
@@ -708,6 +734,8 @@ begin
     approved_on=case when p_target_state in ('engineering_approved','production_eligible') then current_date when p_target_state in ('revalidation_required','retired') then null else approved_on end,
     approved_by=case when p_target_state in ('engineering_approved','production_eligible') then auth.uid() when p_target_state in ('revalidation_required','retired') then null else approved_by end,
     revalidation_reason=case when p_target_state='revalidation_required' then btrim(p_review_note) else null end,
+    revalidation_started_at=case when p_target_state='revalidation_required' then now()
+      when p_target_state='production_eligible' then null else revalidation_started_at end,
     retired_at=case when p_target_state='retired' then now() else null end
   where id=m.id;
 
@@ -756,7 +784,7 @@ declare
   v_refusals jsonb:=coalesce(p_refusals,'[]'::jsonb); v_outputs jsonb:=p_outputs;
   v_status text; v_context jsonb:=p_input_envelope->'context'; v_bindings jsonb:=p_input_envelope->'evidenceBindings';
   v_rule jsonb; v_input jsonb; v_min numeric; v_max numeric; v_value numeric; v_key text;
-  v_port record; v_declared_family text; v_canonical_family text;
+  v_port record; v_declared_family text; v_canonical_family text; v_missing int;
 begin
   if auth.role()<>'service_role' then return jsonb_build_object('error','engineering model execution recording is service-only'); end if;
   select * into m from public.model_register where id=p_model_register_id and organization_id=p_organization_id and is_engineering_model;
@@ -782,6 +810,19 @@ begin
   end if;
   if coalesce(m.manifest->'execution'->>'arbitraryCodeAllowed','true')<>'false' then
     v_refusals:=v_refusals||jsonb_build_array(jsonb_build_object('code','arbitrary_code_prohibited','message','Imported arbitrary code cannot execute in SyncAI production.'));
+  end if;
+  select count(*) into v_missing from jsonb_array_elements(m.evidence_requirements) req
+  where coalesce((req->>'requiredForProduction')::boolean,false) and not exists(
+    select 1 from public.engineering_model_evidence_bindings b
+    join public.evidence_items e on e.id=b.evidence_item_id and e.organization_id=p_organization_id
+    where b.model_register_id=m.id and b.requirement_key=req->>'key'
+      and e.verification_status='verified'
+      and public.engineering_model_grade_rank(b.evidence_grade)>=public.engineering_model_grade_rank(req->>'minimumGrade')
+      and public.engineering_model_grade_rank(b.evidence_grade)<=public.engineering_model_grade_rank(
+        case e.quality_grade when 'high' then 'A' when 'moderate' then 'B' when 'low' then 'C' else 'D' end)
+  );
+  if v_missing>0 then
+    v_refusals:=v_refusals||jsonb_build_array(jsonb_build_object('code','model_evidence_not_current','message',v_missing||' required model evidence binding(s) are missing, unverified, or below grade.'));
   end if;
   if coalesce((m.applicability_envelope->>'configurationBaselineRequired')::boolean,false) then
     if p_configuration_baseline_id is null or not exists(
@@ -868,8 +909,12 @@ begin
       then (b->>'evidenceItemId')::uuid else null end and e.organization_id=p_organization_id
       and (e.asset_id is null or e.asset_id=p_asset_id)
     where coalesce(b->>'evidenceItemId','') !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
-      or e.id is null or length(btrim(coalesce(b->>'sourceReference','')))<3
+      or e.id is null or e.verification_status<>'verified'
+      or length(btrim(coalesce(b->>'sourceReference','')))<3
+      or coalesce(b->>'sourceReference','')<>coalesce(e.source_reference,'')
       or coalesce(b->>'evidenceGrade','') not in ('A','B','C','D')
+      or public.engineering_model_grade_rank(b->>'evidenceGrade')>
+        public.engineering_model_grade_rank(case e.quality_grade when 'high' then 'A' when 'moderate' then 'B' when 'low' then 'C' else 'D' end)
   ) then v_refusals:=v_refusals||jsonb_build_array(jsonb_build_object('code','evidence_outside_asset_or_tenant','message','One or more evidence bindings are outside the asset or organization.')); end if;
 
   if jsonb_array_length(v_refusals)>0 then v_outputs:=null; v_status:='refused';
@@ -935,11 +980,17 @@ declare v_org uuid:=public.app_current_org(); v_role text; v_id uuid;
 begin
   select role into v_role from public.user_profiles where id=auth.uid() and organization_id=v_org;
   if coalesce(v_role,'') not in ('admin','maintenance_manager','reliability_engineer') then return jsonb_build_object('error','intervention-effect authority denied'); end if;
-  if not exists(select 1 from public.model_register where id=p_model_register_id and organization_id=v_org and is_engineering_model) then return jsonb_build_object('error','engineering model not found'); end if;
+  if not exists(select 1 from public.model_register where id=p_model_register_id and organization_id=v_org
+    and is_engineering_model and lifecycle_state='production_eligible' and production_eligible) then
+    return jsonb_build_object('error','production-eligible engineering model not found');
+  end if;
   if not exists(select 1 from public.assets where id=p_asset_id and organization_id=v_org) or not exists(select 1 from public.work_orders where id=p_work_order_id and organization_id=v_org and asset_id=p_asset_id) then return jsonb_build_object('error','asset/work-order boundary mismatch'); end if;
   if jsonb_typeof(coalesce(p_pre_damage_state,'null'::jsonb))<>'object' or jsonb_typeof(coalesce(p_post_damage_state,'null'::jsonb))<>'object' then return jsonb_build_object('error','pre- and post-maintenance damage states are required'); end if;
   if p_configuration_baseline_id is null or not exists(select 1 from public.configuration_baselines where id=p_configuration_baseline_id and organization_id=v_org and asset_id=p_asset_id and baseline_kind='as_maintained' and is_current) then return jsonb_build_object('error','current as-maintained configuration is required for an intervention effect'); end if;
-  if p_evidence_item_id is null or not exists(select 1 from public.evidence_items where id=p_evidence_item_id and organization_id=v_org and (asset_id is null or asset_id=p_asset_id)) then return jsonb_build_object('error','canonical intervention evidence is required'); end if;
+  if p_evidence_item_id is null or not exists(select 1 from public.evidence_items where id=p_evidence_item_id
+    and organization_id=v_org and (asset_id is null or asset_id=p_asset_id) and verification_status='verified') then
+    return jsonb_build_object('error','human-verified canonical intervention evidence is required');
+  end if;
   insert into public.engineering_model_interventions(
     organization_id,model_register_id,asset_id,work_order_id,pre_damage_state,effect_kind,effect_model_reference,
     post_damage_state,configuration_baseline_id,evidence_item_id,recorded_by
@@ -979,7 +1030,9 @@ begin
   if p_canonical_asset_id is not null and not exists(select 1 from public.assets where id=p_canonical_asset_id and organization_id=v_org) then return jsonb_build_object('error','asset boundary mismatch'); end if;
   if p_mechanism_id is not null and not exists(select 1 from public.damage_mechanisms where id=p_mechanism_id and organization_id=v_org) then return jsonb_build_object('error','canonical mechanism boundary mismatch'); end if;
   if p_model_register_id is not null and not exists(select 1 from public.model_register where id=p_model_register_id and organization_id=v_org and is_engineering_model and lifecycle_state<>'retired') then return jsonb_build_object('error','active engineering model boundary mismatch'); end if;
-  if exists(select 1 from unnest(coalesce(p_evidence_item_ids,'{}'::uuid[])) evidence_id where not exists(select 1 from public.evidence_items where id=evidence_id and organization_id=v_org)) then return jsonb_build_object('error','evidence boundary mismatch'); end if;
+  if exists(select 1 from unnest(coalesce(p_evidence_item_ids,'{}'::uuid[])) evidence_id where not exists(
+    select 1 from public.evidence_items where id=evidence_id and organization_id=v_org and verification_status='verified'
+  )) then return jsonb_build_object('error','evidence boundary mismatch or evidence is not human-verified'); end if;
   if coalesce(p_non_physics_branch,false)=false and (
       p_mechanism_id is null or p_model_register_id is null
       or jsonb_typeof(coalesce(p_stressors,'null'::jsonb))<>'array' or jsonb_array_length(p_stressors)=0
@@ -1020,10 +1073,10 @@ begin
       'escalationClass',m.escalation_class,'sourceTool',m.source_tool,'sourceLicense',m.source_license,
       'airGapCompatible',m.air_gap_compatible,'manifestChecksum',m.manifest_checksum,
       'evidenceRequirements',m.evidence_requirements,'applicabilityEnvelope',m.applicability_envelope,
-      'verificationState',case when exists(select 1 from public.calculation_runs r where r.model_register_id=m.id and r.calculation_key='engineering_model_verification' and r.status='computed' and r.outputs->>'passed'='true') then 'passed' else 'not_passed' end,
+      'verificationState',case when exists(select 1 from public.calculation_runs r where r.model_register_id=m.id and r.calculation_key='engineering_model_verification' and r.status='computed' and r.outputs->>'passed'='true' and (m.revalidation_started_at is null or r.computed_at>=m.revalidation_started_at)) then 'passed' else 'not_passed' end,
       'openDebt',(select count(*) from public.engineering_model_verification_debts d where d.model_register_id=m.id and d.resolved_at is null),
       'openDebtRecords',coalesce((select jsonb_agg(jsonb_build_object('id',d.id,'debtKey',d.debt_key,'description',d.description,'blocking',d.blocking,'temporaryApprovalExpiresAt',d.temporary_approval_expires_at,'raisedAt',d.raised_at) order by d.raised_at) from public.engineering_model_verification_debts d where d.model_register_id=m.id and d.resolved_at is null),'[]'::jsonb),
-      'evidenceBound',(select count(*) from public.engineering_model_evidence_bindings b where b.model_register_id=m.id),
+      'evidenceBound',(select count(*) from public.engineering_model_evidence_bindings b join public.evidence_items e on e.id=b.evidence_item_id where b.model_register_id=m.id and e.organization_id=v_org and e.verification_status='verified' and public.engineering_model_grade_rank(b.evidence_grade)<=public.engineering_model_grade_rank(case e.quality_grade when 'high' then 'A' when 'moderate' then 'B' when 'low' then 'C' else 'D' end)),
       'recentRuns',(select count(*) from public.calculation_runs r where r.model_register_id=m.id),
       'openImpacts',(select count(*) from public.engineering_model_impacts i where i.model_register_id=m.id and i.status='open')
     ) order by m.model_key,m.version) from public.model_register m where m.organization_id=v_org and m.is_engineering_model),'[]'::jsonb),
@@ -1044,8 +1097,8 @@ begin
   if not exists(select 1 from public.recommendations where id=p_recommendation_id and organization_id=v_org) then return jsonb_build_object('error','recommendation not found'); end if;
   return coalesce((select jsonb_agg(jsonb_build_object(
     'calculationRunId',r.id,'modelKey',m.model_key,'modelVersion',m.version,'calculationStatus',r.status,
-    'verification',case when exists(select 1 from public.calculation_runs v where v.model_register_id=m.id and v.calculation_key='engineering_model_verification' and v.status='computed' and v.outputs->>'passed'='true') then 'pass' else 'not_passed' end,
-    'fieldValidation',case when exists(select 1 from public.engineering_model_evidence_bindings b where b.model_register_id=m.id and b.purpose='field_validation') then 'present' else 'missing' end,
+    'verification',case when exists(select 1 from public.calculation_runs v where v.model_register_id=m.id and v.calculation_key='engineering_model_verification' and v.status='computed' and v.outputs->>'passed'='true' and (m.revalidation_started_at is null or v.computed_at>=m.revalidation_started_at)) then 'pass' else 'not_passed' end,
+    'fieldValidation',case when exists(select 1 from public.engineering_model_evidence_bindings b join public.evidence_items e on e.id=b.evidence_item_id where b.model_register_id=m.id and b.purpose='field_validation' and e.organization_id=v_org and e.verification_status='verified' and public.engineering_model_grade_rank(b.evidence_grade)<=public.engineering_model_grade_rank(case e.quality_grade when 'high' then 'A' when 'moderate' then 'B' when 'low' then 'C' else 'D' end)) then 'present' else 'missing' end,
     'applicability',case when r.status='computed' then 'within_range' else 'refused' end,
     'engineeringApproval',case when m.approved_on is not null then 'approved' else 'not_approved' end,
     'productionEligibleAtRead',m.production_eligible,'humanApprovalRequired',true,'operationalAuthorization',false,
