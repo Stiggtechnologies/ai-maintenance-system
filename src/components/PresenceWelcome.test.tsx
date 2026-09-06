@@ -229,7 +229,7 @@ describe("PresenceWelcome", () => {
     render(<PresenceWelcome />);
     fireEvent.click(screen.getByRole("button", { name: "Meet Sync" }));
     expect(await screen.findByTestId("presence-booth")).toBeInTheDocument();
-    expect(screen.getByText(/booth/i)).toBeInTheDocument();
+    expect(screen.getByText(/Reliability Engineer room/i)).toBeInTheDocument();
     expect(screen.getByTestId("presence-booth")).toHaveAttribute(
       "data-booth-voice-mode",
       "continuous",

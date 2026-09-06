@@ -8,6 +8,7 @@ import {
 import type { ComponentProps } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { BOOTH_UNAVAILABLE_REPLY } from "../lib/presence/booth";
+import { ROOM_HOLD_COPY } from "../lib/presence/meetingRunner";
 import {
   BOOTH_TTS_SETTLE_MS,
   BOOTH_UTTERANCE_SILENCE_MS,
@@ -148,7 +149,7 @@ describe("PresenceBoothConversation", () => {
     expect(startDictation).toHaveBeenCalled();
     expect(
       screen.getByText(
-        /Listening — speak when you want Sync|Continuous listen/i,
+        /Listening to the room|Continuous listen/i,
       ),
     ).toBeInTheDocument();
   });
@@ -159,6 +160,87 @@ describe("PresenceBoothConversation", () => {
     expect(
       screen.getByText(/continuous listen is paused/i),
     ).toBeInTheDocument();
+  });
+
+  it("holds continuous room chatter and does not answer it", async () => {
+    renderBooth();
+    act(() => {
+      onTranscript?.("Yeah I agree");
+    });
+    await act(async () => {
+      await new Promise((resolve) =>
+        setTimeout(resolve, BOOTH_UTTERANCE_SILENCE_MS + 80),
+      );
+    });
+    expect(askBooth).not.toHaveBeenCalled();
+    expect(speak).not.toHaveBeenCalled();
+    expect(await screen.findByText("Yeah I agree")).toBeInTheDocument();
+    expect(screen.getByTestId("room-hold-note")).toHaveTextContent(
+      ROOM_HOLD_COPY,
+    );
+    expect(screen.getByTestId("presence-booth")).toHaveAttribute(
+      "data-room-action",
+      "hold",
+    );
+    expect(screen.queryByText(/cheeky|jarvis/i)).toBeNull();
+  });
+
+  it("speaks when the room addresses Sync on continuous listen", async () => {
+    renderBooth();
+    act(() => {
+      onTranscript?.("Sync, what should we look at first?");
+    });
+    await waitFor(
+      () => {
+        expect(askBooth).toHaveBeenCalledTimes(1);
+      },
+      { timeout: BOOTH_UTTERANCE_SILENCE_MS + 400 },
+    );
+    const query = askBooth.mock.calls[0][0] as string;
+    expect(query).toContain("QUESTION: Sync, what should we look at first?");
+    expect(query).toMatch(/multi-turn Meet Sync room/i);
+    expect(query).toMatch(/Do not infer speaker identity/i);
+    expect(query).toMatch(/professional meeting moderator/i);
+    expect(screen.getByTestId("presence-booth")).toHaveAttribute(
+      "data-room-action",
+      "speak",
+    );
+  });
+
+  it("keeps held room turns in session memory for the next spoken ask", async () => {
+    renderBooth();
+    act(() => {
+      onTranscript?.("The vibration started after the shutdown.");
+    });
+    await act(async () => {
+      await new Promise((resolve) =>
+        setTimeout(resolve, BOOTH_UTTERANCE_SILENCE_MS + 80),
+      );
+    });
+    expect(askBooth).not.toHaveBeenCalled();
+
+    fireEvent.change(screen.getByPlaceholderText(/Ask about maintenance/i), {
+      target: { value: "What should we look at first?" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /send question/i }));
+    await waitFor(() => {
+      expect(askBooth).toHaveBeenCalledTimes(1);
+    });
+    expect(askBooth.mock.calls[0][0]).toContain(
+      "The vibration started after the shutdown.",
+    );
+  });
+
+  it("still speaks a typed acknowledgement because typed send is an explicit ask", async () => {
+    renderBooth();
+    fireEvent.change(screen.getByPlaceholderText(/Ask about maintenance/i), {
+      target: { value: "Yeah I agree" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /send question/i }));
+    await waitFor(() => {
+      expect(askBooth).toHaveBeenCalledTimes(1);
+    });
+    expect(askBooth.mock.calls[0][0]).toContain("QUESTION: Yeah I agree");
   });
 
   it("sends a continuous utterance after silence", async () => {
