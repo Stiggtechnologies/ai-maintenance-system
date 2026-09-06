@@ -13,15 +13,17 @@ import { runPublicDecisionCaseAgent } from "./publicReliabilityAgent";
 import {
   classifyDecisionQuestionScope,
   isActiveCaseTraceRequest,
-  isCapabilityPrompt,
-  isGreetingPrompt,
-  promptNamesConcreteSubject,
-  signalsTopicChange,
   type DecisionQuestionScope,
 } from "../lib/reliability-agent-contract";
 import {
   buildDecisionAskContextPack,
+  formatUnboundLiveQuestion,
+  isCapabilityPrompt,
+  isGreetingPrompt,
+  promptNamesConcreteSubject,
   resolveDecisionAskBinding,
+  sanitizeUnboundAskCase,
+  signalsTopicChange,
 } from "../lib/decision-case-honesty";
 
 const UUID_PATTERN =
@@ -146,9 +148,15 @@ export async function askDecisionCase(
     return buildDeterministicReply(prompt, conversationReply, "active_case");
   }
   const questionScope = classifyDecisionQuestionScope(decisionCase, prompt);
-  return respondToDecisionQuestion(decisionCase, prompt, options, questionScope, {
-    bound: true,
-  });
+  return respondToDecisionQuestion(
+    decisionCase,
+    prompt,
+    options,
+    questionScope,
+    {
+      bound: true,
+    },
+  );
 }
 
 async function respondToDecisionQuestion(
@@ -166,10 +174,10 @@ async function respondToDecisionQuestion(
     );
   }
   if (options.publicMode) {
-    const result = await runPublicDecisionCaseAgent(decisionCase, prompt, {
-      questionScope,
-      bound: binding.bound,
-    });
+    const result = await runPublicDecisionCaseAgent(
+      binding.bound ? decisionCase : sanitizeUnboundAskCase(decisionCase),
+      binding.bound ? prompt : formatUnboundLiveQuestion(prompt),
+    );
     if (result.status === "success") {
       const groundingLabel = result.knowledgeBaseUsed
         ? `RAG-grounded reliability analysis · ${result.citations.length} approved source${result.citations.length === 1 ? "" : "s"}`

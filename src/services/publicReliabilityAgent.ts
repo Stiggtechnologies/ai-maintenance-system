@@ -1,12 +1,7 @@
 import type { DecisionCase } from "../lib/decision-case";
 import type { PublicReliabilityScenarioId } from "../lib/public-reliability";
-import {
-  classifyDecisionQuestionScope,
-  type DecisionQuestionScope,
-} from "../lib/reliability-agent-contract";
+import { classifyDecisionQuestionScope } from "../lib/reliability-agent-contract";
 import { supabasePublicKey, supabaseUrl } from "../lib/supabase-config";
-
-const UNBOUND_PLACEHOLDER_ASSET = "Decision scope not yet defined";
 
 export interface PublicExpertHypothesis {
   hypothesis: string;
@@ -172,7 +167,7 @@ export async function runPublicReliabilityAgent(input: {
       promptVersion: data.promptVersion,
       knowledgeBaseUsed: data.knowledgeBaseUsed === true,
       retrievedSources: Array.isArray(data.retrievedSources)
-        ? data.retrievedSources as PublicRetrievedSource[]
+        ? (data.retrievedSources as PublicRetrievedSource[])
         : [],
     };
   } catch (error) {
@@ -189,27 +184,77 @@ export async function runPublicReliabilityAgent(input: {
 export async function runPublicDecisionCaseAgent(
   decisionCase: DecisionCase,
   question: string,
-  options: {
-    questionScope?: DecisionQuestionScope;
-    bound?: boolean;
-  } = {},
 ): Promise<PublicDecisionCaseAgentResult> {
-  const bound = options.bound ?? true;
-  const questionScope =
-    options.questionScope ??
-    (bound
-      ? classifyDecisionQuestionScope(decisionCase, question)
-      : "provisional_new_subject");
+  const questionScope = classifyDecisionQuestionScope(decisionCase, question);
   try {
     const { data, error } = await invokePublicReliabilityAgent({
       mode: "decision_case_chat",
       question: question.trim().slice(0, 2400),
       browserId: getBrowserId(),
-      caseContext: buildPublicDecisionCaseContext(
-        decisionCase,
+      caseContext: {
+        caseNumber: decisionCase.caseNumber,
+        version: decisionCase.version,
         questionScope,
-        bound,
-      ),
+        industry: decisionCase.industry || "oil-gas",
+        organization: decisionCase.organization,
+        site: decisionCase.site,
+        asset: decisionCase.asset,
+        assetContext: decisionCase.assetContext,
+        objective: decisionCase.objective,
+        risk: decisionCase.risk,
+        valueExposure: decisionCase.valueExposure,
+        evidenceScore: decisionCase.evidenceScore,
+        recommendation: decisionCase.recommendation,
+        recommendationDetail: decisionCase.recommendationDetail,
+        priorityReason: decisionCase.priorityReason,
+        authorityRole: decisionCase.authorityRole,
+        decisionMetrics: decisionCase.decisionMetrics,
+        evidence: decisionCase.evidence.map((item) => ({
+          title: item.title,
+          summary: item.summary,
+          quality: item.quality,
+          state: item.state,
+          finding: item.finding,
+          record: item.record,
+          lineage: item.lineage,
+          sourceSystem: item.sourceSystem,
+        })),
+        calculations: decisionCase.calculations.map((item) => ({
+          label: item.label,
+          formula: item.formula,
+          result: item.result,
+          assumption: item.assumption,
+        })),
+        approvals: decisionCase.approvals.map((item) => ({
+          name: item.name,
+          role: item.role,
+          responsibility: item.responsibility,
+          status: item.status,
+        })),
+        workPackage: {
+          number: decisionCase.workPackage.number,
+          title: decisionCase.workPackage.title,
+          targetSystem: decisionCase.workPackage.targetSystem,
+          status: decisionCase.workPackage.status,
+          controls: decisionCase.workPackage.controls.map((item) => ({
+            text: item.text,
+            owner: item.owner,
+            status: item.status,
+          })),
+        },
+        valueMetrics: decisionCase.valueMetrics.map((item) => ({
+          label: item.label,
+          detail: item.detail,
+          baseline: item.baseline,
+          target: item.target,
+          actual: item.actual || "",
+        })),
+        financeStatus: decisionCase.financeStatus,
+        recentMessages: decisionCase.messages.slice(-12).map((item) => ({
+          role: item.role,
+          text: item.text,
+        })),
+      },
     });
 
     if (data?.error === "public_decision_case_limit_reached") {
@@ -254,110 +299,4 @@ export async function runPublicDecisionCaseAgent(
           : "Live RAG analysis was unavailable.",
     };
   }
-}
-
-function buildPublicDecisionCaseContext(
-  decisionCase: DecisionCase,
-  questionScope: DecisionQuestionScope,
-  bound: boolean,
-) {
-  const recentMessages = decisionCase.messages.slice(-12).map((item) => ({
-    role: item.role,
-    text: item.text,
-  }));
-  if (!bound) {
-    return {
-      caseNumber: decisionCase.caseNumber,
-      version: decisionCase.version,
-      questionScope,
-      industry: decisionCase.industry || "",
-      organization: "",
-      site: "",
-      asset: UNBOUND_PLACEHOLDER_ASSET,
-      assetContext: "",
-      objective: "",
-      risk: "",
-      valueExposure: 0,
-      evidenceScore: 0,
-      recommendation: "",
-      recommendationDetail: "",
-      priorityReason: "",
-      authorityRole: "",
-      decisionMetrics: [],
-      evidence: [],
-      calculations: [],
-      approvals: [],
-      workPackage: {
-        number: "",
-        title: "",
-        targetSystem: "",
-        status: "",
-        controls: [],
-      },
-      valueMetrics: [],
-      financeStatus: "",
-      recentMessages,
-    };
-  }
-  return {
-    caseNumber: decisionCase.caseNumber,
-    version: decisionCase.version,
-    questionScope,
-    industry: decisionCase.industry || "oil-gas",
-    organization: decisionCase.organization,
-    site: decisionCase.site,
-    asset: decisionCase.asset,
-    assetContext: decisionCase.assetContext,
-    objective: decisionCase.objective,
-    risk: decisionCase.risk,
-    valueExposure: decisionCase.valueExposure,
-    evidenceScore: decisionCase.evidenceScore,
-    recommendation: decisionCase.recommendation,
-    recommendationDetail: decisionCase.recommendationDetail,
-    priorityReason: decisionCase.priorityReason,
-    authorityRole: decisionCase.authorityRole,
-    decisionMetrics: decisionCase.decisionMetrics,
-    evidence: decisionCase.evidence.map((item) => ({
-      title: item.title,
-      summary: item.summary,
-      quality: item.quality,
-      state: item.state,
-      finding: item.finding,
-      record: item.record,
-      lineage: item.lineage,
-      sourceSystem: item.sourceSystem,
-    })),
-    calculations: decisionCase.calculations.map((item) => ({
-      label: item.label,
-      formula: item.formula,
-      result: item.result,
-      assumption: item.assumption,
-    })),
-    approvals: decisionCase.approvals.map((item) => ({
-      name: item.name,
-      role: item.role,
-      responsibility: item.responsibility,
-      status: item.status,
-    })),
-    workPackage: {
-      number: decisionCase.workPackage.number,
-      title: decisionCase.workPackage.title,
-      targetSystem: decisionCase.workPackage.targetSystem,
-      status: decisionCase.workPackage.status,
-      controls: decisionCase.workPackage.controls.map((item) => ({
-        text: item.text,
-        owner: item.owner,
-        status: item.status,
-      })),
-    },
-    valueMetrics: decisionCase.valueMetrics.map((item) => ({
-      label: item.label,
-      detail: item.detail,
-      baseline: item.baseline,
-      target: item.target,
-      actual: item.actual || "",
-    })),
-    financeStatus: decisionCase.financeStatus,
-    recentMessages,
-  };
 }

@@ -135,7 +135,6 @@ describe("decisionCaseService", () => {
     expect(runPublicAgentMock).toHaveBeenCalledWith(
       pump,
       "Which failure mechanisms should we test first, and why?",
-      { questionScope: "active_case", bound: true },
     );
     expect(reply.source).toBe("live");
     expect(reply.message.text).toContain("startup contamination");
@@ -170,10 +169,7 @@ describe("decisionCaseService", () => {
 
     const reply = await askDecisionCase(pump, prompt, { publicMode: true });
 
-    expect(runPublicAgentMock).toHaveBeenCalledWith(pump, prompt, {
-      questionScope: "provisional_new_subject",
-      bound: true,
-    });
+    expect(runPublicAgentMock).toHaveBeenCalledWith(pump, prompt);
     expect(reply.source).toBe("live");
     expect(reply.scope).toBe("provisional_new_subject");
     expect(reply.message.meta).toContain("DC-1048 unchanged");
@@ -300,10 +296,23 @@ describe("decisionCaseService", () => {
       const reply = await askDecisionCase(unbound, prompt, {
         publicMode: true,
       });
-      expect(runPublicAgentMock).toHaveBeenCalledWith(unbound, prompt, {
-        questionScope: "provisional_new_subject",
-        bound: false,
-      });
+      expect(runPublicAgentMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: unbound.id,
+          asset: "Decision scope not yet defined",
+          organization: "",
+          site: "",
+        }),
+        `New subject. ${prompt}`,
+      );
+      const sentCase = runPublicAgentMock.mock.calls[0]?.[0] as {
+        recommendation?: string;
+        organization?: string;
+        site?: string;
+      };
+      expect(JSON.stringify(sentCase)).not.toMatch(
+        /P-101|Fort McMurray|North Ridge/i,
+      );
       expect(reply.source).toBe("live");
       expect(reply.scope).toBe("provisional_new_subject");
       expect(reply.message.meta).toMatch(/provisional/i);

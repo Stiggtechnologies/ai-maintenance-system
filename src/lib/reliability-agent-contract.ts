@@ -19,16 +19,11 @@ export interface ReliabilityAgentBenchmark {
 }
 
 const TOPIC_CHANGE_PATTERN =
-  /\b(set (?:this|the current|the active) case aside|set the [\w-]+ case aside|not (?:about|for) (?:this|the)|new (?:asset|case|subject|topic)|different (?:asset|case|subject|topic)|another (?:asset|case|subject|topic)|separate (?:asset|case|analysis)|outside (?:this|the) case|someth\w* else|something different|another thing|different topic|new topic|talk without(?: a)? decision case|without (?:a |the )?decision case|no decision case)\b/i;
-const GREETING_PATTERN = /^(hi|hello|hey|good morning|good afternoon)[.?!\s]*$/i;
-const CAPABILITY_PATTERN =
-  /\b(what (?:are )?your capabilities|what can you do|how can you help|capability overview|show (?:me )?your capabilities)\b/i;
+  /\b(set (?:this|the current|the active) case aside|set the [\w-]+ case aside|not (?:about|for) (?:this|the)|new (?:asset|case|subject|topic)|different (?:asset|case|subject|topic)|another (?:asset|case|subject|topic)|separate (?:asset|case|analysis)|outside (?:this|the) case)\b/i;
 const EQUIPMENT_PATTERN =
   /\b(pump|compressor|crusher|conveyor|gearbox|motor|turbine|boiler|furnace|press|stamping press|fan|blower|valve|pipeline|vessel|transformer|generator|truck|haul truck|shovel|mill|kiln|screen|feeder|robot|robotic|weld cell|packaging line|production line)\b/gi;
 const OEM_MODEL_PATTERN =
   /\b(?:caterpillar|cat|komatsu|hitachi|liebherr|volvo|terex|sandvik|epiroc|john deere|cummins)\s+[a-z0-9][a-z0-9-]{1,20}\b/i;
-const RELIABILITY_PROBLEM_PATTERN =
-  /\b(availability|mtbf|mttr|mttf|fmea|fmeca|rcm|rca|fracas|pm interval|inspection interval|condition monitoring|vibration|downtime|bad actor|onboard|commission|optimization|optimise|optimize|stocking|lookahead|backlog)\b/i;
 const NON_ASSET_PREFIXES = new Set([
   "API",
   "DC",
@@ -48,25 +43,6 @@ const NON_ASSET_PREFIXES = new Set([
   "RAM",
   "WO",
   "WP",
-]);
-const COMMON_CAPS_WORDS = new Set([
-  "AND",
-  "ARE",
-  "CAN",
-  "FOR",
-  "HOW",
-  "NOT",
-  "THE",
-  "YOU",
-  "WANT",
-  "TALK",
-  "THIS",
-  "THAT",
-  "WHAT",
-  "WITH",
-  "FROM",
-  "HAVE",
-  "WILL",
 ]);
 
 function normalizedAssetIdentifiers(value: string): Set<string> {
@@ -88,56 +64,6 @@ function equipmentKinds(value: string): Set<string> {
       match[0].replace(/\s+/g, " "),
     ),
   );
-}
-
-function namedSiteOrFleetCode(value: string): boolean {
-  const trimmed = value.trim();
-  if (!trimmed || trimmed === trimmed.toUpperCase()) return false;
-  const tokens = trimmed.match(/\b[A-Z]{3,8}\b/g) || [];
-  return tokens.some(
-    (token) =>
-      !NON_ASSET_PREFIXES.has(token) && !COMMON_CAPS_WORDS.has(token),
-  );
-}
-
-export function isGreetingPrompt(prompt: string): boolean {
-  return GREETING_PATTERN.test(prompt.trim());
-}
-
-export function isCapabilityPrompt(prompt: string): boolean {
-  return CAPABILITY_PATTERN.test(prompt.toLowerCase());
-}
-
-export function signalsTopicChange(prompt: string): boolean {
-  const lower = prompt.toLowerCase();
-  return (
-    TOPIC_CHANGE_PATTERN.test(prompt) ||
-    (/\b(look|review|check|examine|analy[sz]e)\b/.test(lower) &&
-      /\b(other|else|different|another)\b/.test(lower))
-  );
-}
-
-/**
- * True when the user named an asset, site, equipment kind, OEM model,
- * structured packet, or a reliability problem with enough substance to
- * analyze provisionally. Greetings and "talk without a case" stay false.
- */
-export function promptNamesConcreteSubject(prompt: string): boolean {
-  const text = prompt.trim();
-  if (!text || isGreetingPrompt(text) || isCapabilityPrompt(text)) {
-    return false;
-  }
-  const words = text.split(/\s+/).filter(Boolean);
-  if (normalizedAssetIdentifiers(text).size > 0) return true;
-  if (OEM_MODEL_PATTERN.test(text)) return true;
-  if (equipmentKinds(text).size > 0) return true;
-  if (namedSiteOrFleetCode(text)) return true;
-  if (/[:\n]/.test(text) && words.length >= 4) return true;
-  if (words.length > 14) return true;
-  if (RELIABILITY_PROBLEM_PATTERN.test(text) && words.length >= 6) {
-    return !signalsTopicChange(text) || words.length > 10;
-  }
-  return false;
 }
 
 export function classifyDecisionQuestionScope(

@@ -159,23 +159,11 @@ export function parsePublicDecisionCaseContext(
   };
 }
 
-export function isUnboundPublicDecisionContext(
-  context: Pick<PublicDecisionCaseContext, "asset">,
-): boolean {
-  return (
-    !context.asset.trim() ||
-    /^decision scope not yet defined$/i.test(context.asset)
-  );
-}
-
 export function buildDecisionCaseRetrievalQuery(
   context: PublicDecisionCaseContext,
   question: string,
 ): string {
-  if (
-    context.questionScope === "provisional_new_subject" ||
-    isUnboundPublicDecisionContext(context)
-  ) {
+  if (context.questionScope === "provisional_new_subject") {
     return [context.industry, question]
       .filter(Boolean)
       .join(" ")
@@ -203,17 +191,14 @@ export function buildDecisionCaseChatPrompts(
   question: string,
   referenceContext: string,
 ): { systemPrompt: string; userContent: string } {
-  const unbound = isUnboundPublicDecisionContext(context);
   const specialists = selectReliabilitySpecialists(
-    `${question} ${context.questionScope === "active_case" && !unbound ? context.objective : ""}`,
+    `${question} ${context.questionScope === "active_case" ? context.objective : ""}`,
   );
   const systemPrompt = [
     "You are SyncAI's senior Reliability Engineering collaborator inside a governed Decision Case. Work at the level expected in a failure review board, maintenance strategy review, or technical authority decision.",
     "Respond to the user's actual request. Be conversational for ordinary conversation, and analytical only when analysis is requested. If the user signals a topic change without providing the new subject, ask one focused clarifying question. Never replay the full recommendation merely because the request is ambiguous.",
     "The supplied question scope is authoritative. For a provisional new subject, use only facts in the current user request and general approved references. Do not transfer evidence, calculations, metrics, failure modes, hypotheses, recommendation, or approval assignments from the active Decision Case. Say that the analysis is provisional and that a separate Decision Case is required to govern and retain it.",
-    unbound
-      ? "No Decision Case is selected. Do not treat a placeholder, draft, demo, or seed case as the subject. Analyze only facts the user named in this request."
-      : "The Decision Case below is the canonical record for this asset. Preserve its deterministic calculations, evidence states, approval boundary, and named uncertainty. Do not replace case facts with general reference knowledge.",
+    "The Decision Case below is the canonical record for this asset. Preserve its deterministic calculations, evidence states, approval boundary, and named uncertainty. Do not replace case facts with general reference knowledge.",
     "Retrieved passages may support reliability methods and general failure behaviour only. They are not observations about this customer's asset. Cite a retrieved passage only with its exact supplied bracket label. Never invent a citation, standard, OEM limit, asset fact, failure mechanism, cost, or measurement.",
     "Separate known case evidence, user-provided assertions, hypotheses, engineering judgement, missing evidence, and approval requirements. Never call a hypothesis a root cause. Recommend reversible verification before permanent change. Qualified human authority remains responsible for material decisions.",
     "For a substantive engineering decision across RCA, FRACAS, FMEA, RCM, RAM, PM optimization, condition monitoring, spares, lifecycle, or value analysis, lead with the decision and explain why competing actions are or are not supportable. Then cover, when relevant: known facts; ranked hypotheses with support, contradiction, confidence and verification; missing evidence and exactly what each gap blocks; the lowest-regret action plan with owner, time window, stop condition and effectiveness check; approval boundaries and decision gates; and how value will be verified without creating hidden or transferred risk.",
@@ -228,13 +213,9 @@ export function buildDecisionCaseChatPrompts(
 
   const provisionalUserContent = [
     "Question scope: PROVISIONAL NEW SUBJECT",
-    unbound
-      ? "No decision case is selected. Analyze only from the current user request and general approved references. Label the result provisional. Do not invent a plant, site, asset, or case the user has not named. Recommendation is not authorization."
-      : `Active Decision Case retained but excluded from this analysis: ${context.caseNumber} for ${context.asset}`,
+    `Active Decision Case retained but excluded from this analysis: ${context.caseNumber} for ${context.asset}`,
     `Selected industry context: ${context.industry || "Not defined"}`,
-    unbound
-      ? "Do not bind a demo, seed, or reference case. Treat only the current request as user-supplied assertions until evidence is governed."
-      : "Use no facts from the excluded case. Treat only the current request as user-supplied assertions until evidence is governed.",
+    "Use no facts from the excluded case. Treat only the current request as user-supplied assertions until evidence is governed.",
     "",
     "Approved public reliability reference passages:",
     referenceContext ||
@@ -323,7 +304,7 @@ export function buildDecisionCaseChatPrompts(
   return {
     systemPrompt,
     userContent:
-      context.questionScope === "provisional_new_subject" || unbound
+      context.questionScope === "provisional_new_subject"
         ? provisionalUserContent
         : activeCaseUserContent,
   };

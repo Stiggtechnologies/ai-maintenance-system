@@ -5,6 +5,7 @@ import {
   DEFAULT_DECISION_CASE_ID,
 } from "./decision-case";
 import { createFirstPaintSeed } from "./first-paint-seeds";
+import { classifyDecisionQuestionScope } from "./reliability-agent-contract";
 import {
   DEMO_CASE_SUBJECT_PATTERN,
   SEED_DECISION_CASE_IDS,
@@ -12,10 +13,16 @@ import {
   buildDecisionAskContextPack,
   createHonestEmptyDecisionCase,
   filterSeedCasesForOrgSession,
+  formatUnboundLiveQuestion,
   hasBoundDecisionSubject,
+  isCapabilityPrompt,
+  isGreetingPrompt,
   isSeedDecisionCaseId,
   pickInitialSelectedCaseId,
+  promptNamesConcreteSubject,
   resolveDecisionAskBinding,
+  sanitizeUnboundAskCase,
+  signalsTopicChange,
 } from "./decision-case-honesty";
 
 describe("decision-case-honesty", () => {
@@ -51,11 +58,15 @@ describe("decision-case-honesty", () => {
 
   it("bootstraps a normal org chat without binding the demo case", () => {
     const seeds = createSeedDecisionCases();
-    const opened = bootstrapChatCases(undefined, {}, {
-      orgSession: true,
-      stored: seeds,
-      role: "Reliability Engineer",
-    });
+    const opened = bootstrapChatCases(
+      undefined,
+      {},
+      {
+        orgSession: true,
+        stored: seeds,
+        role: "Reliability Engineer",
+      },
+    );
 
     expect(opened.cases.every((item) => !isSeedDecisionCaseId(item.id))).toBe(
       true,
@@ -89,7 +100,9 @@ describe("decision-case-honesty", () => {
     for (const pack of [none, unbound, leftoverDraft]) {
       expect(pack.injectCase).toBe(false);
       expect(pack.caseId).toBeNull();
-      expect(pack.contextLines.join("\n")).not.toMatch(DEMO_CASE_SUBJECT_PATTERN);
+      expect(pack.contextLines.join("\n")).not.toMatch(
+        DEMO_CASE_SUBJECT_PATTERN,
+      );
       expect(pack.contextLines.join("\n")).not.toContain("dc-1048");
     }
 
@@ -99,5 +112,57 @@ describe("decision-case-honesty", () => {
     expect(bound.caseId).toBe(DEFAULT_DECISION_CASE_ID);
     expect(resolveDecisionAskBinding(seed).bound).toBe(true);
     expect(resolveDecisionAskBinding(empty).bound).toBe(false);
+  });
+
+  it("classifies greetings and vague topic changes as not naming a subject", () => {
+    expect(isGreetingPrompt("hi")).toBe(true);
+    expect(isCapabilityPrompt("What are your capabilities?")).toBe(true);
+    expect(signalsTopicChange("I want to talk without a decision case")).toBe(
+      true,
+    );
+    expect(signalsTopicChange("something else")).toBe(true);
+    expect(promptNamesConcreteSubject("hi")).toBe(false);
+    expect(promptNamesConcreteSubject("What are your capabilities?")).toBe(
+      false,
+    );
+    expect(
+      promptNamesConcreteSubject("I want to talk without a decision case"),
+    ).toBe(false);
+    expect(promptNamesConcreteSubject("something else")).toBe(false);
+    expect(promptNamesConcreteSubject("What should we fix first?")).toBe(false);
+  });
+
+  it("treats a named asset, site, or problem as a concrete unbound subject", () => {
+    expect(
+      promptNamesConcreteSubject("HMER haul truck availability optimization"),
+    ).toBe(true);
+    expect(
+      promptNamesConcreteSubject(
+        "Calculate MTBF for compressor C-330 from 7,100 operating hours and 7 failures.",
+      ),
+    ).toBe(true);
+    const liveQuestion = formatUnboundLiveQuestion(
+      "HMER haul truck availability optimization",
+    );
+    expect(liveQuestion).toBe(
+      "New subject. HMER haul truck availability optimization",
+    );
+    const empty = createHonestEmptyDecisionCase("Reliability Engineer");
+    expect(classifyDecisionQuestionScope(empty, liveQuestion)).toBe(
+      "provisional_new_subject",
+    );
+  });
+
+  it("strips leftover seed plant facts from an unbound live carrier", () => {
+    const leftover = createDraftDecisionCase("Reliability Engineer");
+    leftover.organization = "North Ridge Energy";
+    leftover.site = "Fort McMurray";
+    leftover.recommendation = "Do not approve the yearly inspection interval";
+    const sanitized = sanitizeUnboundAskCase(leftover);
+    expect(sanitized.asset).toMatch(/not yet defined/i);
+    expect(sanitized.organization).toBe("");
+    expect(sanitized.site).toBe("");
+    expect(sanitized.recommendation).not.toMatch(DEMO_CASE_SUBJECT_PATTERN);
+    expect(JSON.stringify(sanitized)).not.toMatch(DEMO_CASE_SUBJECT_PATTERN);
   });
 });
