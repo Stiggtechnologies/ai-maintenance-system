@@ -167,7 +167,7 @@ export async function runPublicReliabilityAgent(input: {
       promptVersion: data.promptVersion,
       knowledgeBaseUsed: data.knowledgeBaseUsed === true,
       retrievedSources: Array.isArray(data.retrievedSources)
-        ? (data.retrievedSources as PublicRetrievedSource[])
+        ? data.retrievedSources as PublicRetrievedSource[]
         : [],
     };
   } catch (error) {
