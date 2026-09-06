@@ -4,6 +4,8 @@
  * Voice: browser SpeechRecognition (useDictation) + useSpeechOutput
  * (cloud sync-tts when configured, speechSynthesis fallback). Default
  * listen is continuous with end-of-utterance; hold-to-talk is optional.
+ * Recognition is paused while TTS plays (plus a short settle) so Sync
+ * does not treat its own spoken words as a user turn.
  * Answers: askBoothConversation → ai-agent-processor ReliabilityAgent.
  * Tab transcript in sessionStorage; signed-in notes in the Sync-native
  * meeting vault. Decision Case continuity from the existing draft store
@@ -20,6 +22,8 @@ import {
   stripForSpeech,
 } from "../lib/presence/booth";
 import {
+  BOOTH_ECHO_MEMORY_MS,
+  BOOTH_TTS_SETTLE_MS,
   BOOTH_UTTERANCE_SILENCE_MS,
   MIC_BLOCKED_COPY,
   MIC_UNSUPPORTED_COPY,
@@ -28,6 +32,7 @@ import {
   readHoldToTalkPreference,
   shouldAutoListen,
   shouldCommitContinuousUtterance,
+  shouldTreatHeardSpeechAsUserTurn,
   writeHoldToTalkPreference,
 } from "../lib/presence/boothListen";
 import {
@@ -111,16 +116,31 @@ export function PresenceBoothConversation({
   const holdingTalk = useRef(false);
   const utteranceRef = useRef("");
   const silenceTimerRef = useRef<number | null>(null);
-  const bargedInRef = useRef(false);
+  const lastSpokenRef = useRef<string | null>(null);
+  const ttsGateRef = useRef(false);
+  const wasSpeakingRef = useRef(speaking);
+  const [ttsGating, setTtsGating] = useState(false);
+  const [ttsSettling, setTtsSettling] = useState(false);
   const holdToTalkRef = useRef(holdToTalk);
   const speakingRef = useRef(speaking);
   const busyRef = useRef(busy);
+  const ttsSettlingRef = useRef(ttsSettling);
   const sendRef = useRef<(raw: string) => Promise<void>>(async () => undefined);
   const signalsRef = useRef(onPresenceSignals);
   holdToTalkRef.current = holdToTalk;
   speakingRef.current = speaking;
   busyRef.current = busy;
+  ttsSettlingRef.current = ttsSettling;
   signalsRef.current = onPresenceSignals;
+
+  const heardIsUserTurn = (transcript?: string) =>
+    shouldTreatHeardSpeechAsUserTurn({
+      speaking: speakingRef.current,
+      settling: ttsSettlingRef.current,
+      outputGating: ttsGateRef.current,
+      transcript,
+      lastSpokenText: lastSpokenRef.current,
+    });
 
   const clearSilenceTimer = () => {
     if (silenceTimerRef.current != null) {
@@ -140,6 +160,9 @@ export function PresenceBoothConversation({
           speaking: speakingRef.current,
           busy: busyRef.current,
           holdToTalk: holdToTalkRef.current,
+          settling: ttsSettlingRef.current,
+          outputGating: ttsGateRef.current,
+          lastSpokenText: lastSpokenRef.current,
         })
       ) {
         return;
@@ -159,7 +182,7 @@ export function PresenceBoothConversation({
         setInput(heldTranscript.current);
         return;
       }
-      if (speakingRef.current && !bargedInRef.current) return;
+      if (!heardIsUserTurn(text)) return;
       utteranceRef.current = utteranceRef.current
         ? `${utteranceRef.current} ${text}`
         : text;
@@ -169,9 +192,11 @@ export function PresenceBoothConversation({
     {
       restartOnEnd: !holdToTalk,
       interimResults: !holdToTalk,
+      ignoreResults:
+        speaking || ttsSettling || ttsGating || ttsGateRef.current,
       onInterim: (text) => {
         if (holdToTalkRef.current) return;
-        if (speakingRef.current && !bargedInRef.current) return;
+        if (!heardIsUserTurn(text)) return;
         setInput(
           utteranceRef.current ? `${utteranceRef.current} ${text}` : text,
         );
@@ -179,11 +204,7 @@ export function PresenceBoothConversation({
       },
       onSpeech: () => {
         if (holdToTalkRef.current) return;
-        if (speakingRef.current) {
-          bargedInRef.current = true;
-          utteranceRef.current = "";
-          setInput("");
-        }
+        if (!heardIsUserTurn()) return;
         stopSpeech();
       },
     },
@@ -210,7 +231,30 @@ export function PresenceBoothConversation({
   }, []);
 
   useEffect(() => {
-    if (!speaking) bargedInRef.current = false;
+    if (speaking) {
+      ttsGateRef.current = true;
+      wasSpeakingRef.current = true;
+      utteranceRef.current = "";
+      clearSilenceTimer();
+      setTtsGating(true);
+      setTtsSettling(false);
+      return;
+    }
+    if (!wasSpeakingRef.current) return;
+    wasSpeakingRef.current = false;
+    setTtsSettling(true);
+    const settleId = window.setTimeout(() => {
+      ttsGateRef.current = false;
+      setTtsGating(false);
+      setTtsSettling(false);
+    }, BOOTH_TTS_SETTLE_MS);
+    const echoId = window.setTimeout(() => {
+      lastSpokenRef.current = null;
+    }, BOOTH_TTS_SETTLE_MS + BOOTH_ECHO_MEMORY_MS);
+    return () => {
+      window.clearTimeout(settleId);
+      window.clearTimeout(echoId);
+    };
   }, [speaking]);
 
   useEffect(() => {
@@ -220,6 +264,9 @@ export function PresenceBoothConversation({
       supported: dictationSupported,
       busy,
       micPermission: dictationPermission,
+      speaking,
+      settling: ttsSettling,
+      outputGating: ttsGating,
     });
     if (auto && !listenPaused) {
       startDictation();
@@ -232,6 +279,9 @@ export function PresenceBoothConversation({
     holdToTalk,
     listenPaused,
     busy,
+    speaking,
+    ttsSettling,
+    ttsGating,
     dictationSupported,
     dictationPermission,
     startDictation,
@@ -310,7 +360,15 @@ export function PresenceBoothConversation({
     }
     try {
       const spoken = stripForSpeech(text);
-      if (spoken) speak(spoken);
+      if (!spoken) return;
+      lastSpokenRef.current = spoken;
+      ttsGateRef.current = true;
+      utteranceRef.current = "";
+      clearSilenceTimer();
+      setTtsGating(true);
+      setTtsSettling(false);
+      stopDictation();
+      speak(spoken);
     } catch {
       // Browser TTS failure must not hide the on-screen Sync reply.
     }
