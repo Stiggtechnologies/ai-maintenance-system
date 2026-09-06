@@ -400,3 +400,18 @@ s3_secret_key = "env(S3_SECRET_KEY)"
 # declarative_schema_path = "./database"
 # JSON string passed through to pg-delta SQL formatting.
 # format_options = "{\"keywordCase\":\"upper\",\"indent\":2,\"maxWidth\":80,\"commaStyle\":\"trailing\"}"
+
+# Signed-in functions stay JWT-verified locally. Explicit so a new function
+# cannot inherit a missing/false default and answer unauthenticated callers
+# with 200/500 instead of 401. allowedNoVerifyJwt stays the only exception.
+[functions.develop-methodology-agent]
+verify_jwt = true
+
+[functions.develop-gate-agent]
+verify_jwt = true
+
+[functions.develop-risk-agent]
+verify_jwt = true
+
+[functions.sync-tts]
+verify_jwt = true

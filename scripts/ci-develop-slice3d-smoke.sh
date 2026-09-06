@@ -38,8 +38,8 @@
 #      AI_SUGGESTION tier; a planner-opened review is decidable by a manager;
 #      the risk ladder survives every definer hop; a technician cannot author
 #      agent output; caller JSON never raises a raw 22P02; TRUNCATE is refused;
-#      a case with 3D artifacts can still be deleted; and the three edge
-#      functions refuse every unauthenticated shape.
+#      a case with 3D artifacts can still be deleted; and the JWT-verified
+#      edge functions refuse every unauthenticated shape.
 #
 #   7  the demoted-row sweep (D3.02/D3.03/D3.14/D3.24/D3.35): adopt a
 #      framework, version an adopted one, add a gate to a draft, state a
@@ -51,8 +51,8 @@
 #      AI_SUGGESTION tier; a planner-opened review is decidable by a manager;
 #      the risk ladder survives every definer hop; a technician cannot author
 #      agent output; caller JSON never raises a raw 22P02; TRUNCATE is refused;
-#      a case with 3D artifacts can still be deleted; and the three edge
-#      functions refuse every unauthenticated shape.
+#      a case with 3D artifacts can still be deleted; and the JWT-verified
+#      edge functions refuse every unauthenticated shape.
 #
 # Run: supabase start && scripts/ci-develop-slice3d-smoke.sh
 # ============================================================================
@@ -781,14 +781,36 @@ psqlc "delete from development_cases where id='$CASE2'" >/dev/null
 test "$(psqlc "select count(*) from development_cases where id='$CASE2'")" = "0"
 test "$(psqlc "select count(*) from gate_review_sessions where development_case_id='$CASE2'")" = "0"
 
-echo '  8k. the three edge functions refuse every unauthenticated shape'
+echo '  8k. JWT-verified edge functions refuse every unauthenticated shape'
 efn(){ curl -sS -o /dev/null -w '%{http_code}' -X POST "$API_URL/functions/v1/$1" ${2:+-H "Authorization: Bearer $2"} -H 'Content-Type: application/json' -d "${3:-{\}}"; }
-for FN in develop-methodology-agent develop-gate-agent develop-risk-agent; do
-  test "$(efn "$FN")" = "401"
-  test "$(efn "$FN" "$ANON_KEY")" = "401"
+# 401 is the only success. 200 (served) and 500 (crashed-through) still fail.
+# 000/502/503/546/547 are local edge-runtime worker states on a cold first
+# hit after supabase start indexes a new function; retry those only.
+expect_unauth(){
+  local fn="$1" token="${2:-}" label="$3" code="" attempt
+  for attempt in 1 2 3 4 5; do
+    code=$(efn "$fn" "$token")
+    case "$code" in
+      401) return 0 ;;
+      000|502|503|546|547)
+        echo "  $fn $label transient HTTP $code (attempt $attempt); retrying"
+        sleep 2
+        ;;
+      *)
+        echo "  $fn $label expected 401, got HTTP $code"
+        return 1
+        ;;
+    esac
+  done
+  echo "  $fn $label expected 401, got HTTP $code after retries"
+  return 1
+}
+for FN in develop-methodology-agent develop-gate-agent develop-risk-agent sync-tts; do
+  expect_unauth "$FN" "" "no bearer"
+  expect_unauth "$FN" "$ANON_KEY" "anon key"
   # The service key is not an identity: the org is derived from the token's
   # user, never from the request body.
-  test "$(efn "$FN" "$SERVICE_ROLE_KEY")" = "401"
+  expect_unauth "$FN" "$SERVICE_ROLE_KEY" "service role"
 done
 # And the methodology agent's retrieval REACHES the named document. With no
 # model provider configured the function refuses at the provider — which it can

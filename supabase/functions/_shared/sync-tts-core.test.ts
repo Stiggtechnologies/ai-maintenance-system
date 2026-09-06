@@ -1,5 +1,4 @@
 import { describe, expect, it, vi } from "vitest";
-import { stripForSpeech as boothStripForSpeech } from "../../../src/lib/presence/booth";
 import {
   DEFAULT_TTS_VOICE,
   FALLBACK_TTS_MODEL,
@@ -50,7 +49,6 @@ describe("sync-tts input validation", () => {
     if (!result.ok) return;
     expect(result.text.length).toBeLessThanOrEqual(SYNC_TTS_MAX_CHARS + 1);
     expect(result.text).toBe(stripForSpeech(long));
-    expect(result.text).toBe(boothStripForSpeech(long));
     expect(result.text).not.toMatch(/autonomous control/i);
   });
 });

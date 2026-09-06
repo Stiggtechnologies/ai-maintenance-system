@@ -56,11 +56,15 @@ async function requireSignedInUser(request: Request) {
     global: { headers: { Authorization: authorization } },
     auth: { persistSession: false },
   });
-  const { data, error } = await client.auth.getUser();
-  if (error || !data.user) {
+  try {
+    const { data, error } = await client.auth.getUser();
+    if (error || !data.user) {
+      return { user: null, error: json({ error: "unauthorized" }, 401) };
+    }
+    return { user: data.user, error: null };
+  } catch {
     return { user: null, error: json({ error: "unauthorized" }, 401) };
   }
-  return { user: data.user, error: null };
 }
 
 Deno.serve(async (request) => {
