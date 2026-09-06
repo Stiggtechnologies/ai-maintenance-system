@@ -307,6 +307,12 @@ jobs:
       - name: Smoke — Sync Develop slice 7C (resource demand/capacity, portfolio conflicts, competency when needed, workface metrics)
         run: bash scripts/ci-develop-slice7c-smoke.sh
 
+      - name: Smoke — governed engineering knowledge on the canonical Reliability KB
+        run: bash scripts/ci-governed-knowledge-smoke.sh
+
+      - name: Smoke — governed knowledge re-review invalidation
+        run: bash scripts/ci-governed-knowledge-review-invalidation-smoke.sh
+
       - name: Stop Supabase
         if: always()
         run: supabase stop --no-backup || true

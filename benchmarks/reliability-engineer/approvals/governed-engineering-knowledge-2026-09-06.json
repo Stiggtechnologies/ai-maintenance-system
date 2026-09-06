@@ -1,0 +1,13 @@
+{
+  "baselineId": "RE-2026.08",
+  "kind": "governed-sql",
+  "reviewer": "Orville Davis",
+  "reviewerRole": "Founder / reliability engineering SME",
+  "reviewedAt": "2026-09-06T09:45:00Z",
+  "rationale": "20261216090000_governed_engineering_knowledge.sql redefines retrieve_kb_context (and mentions kb_document_classes / kb_claim_types) to add an opt-in governed-source overlay on the canonical Reliability KB. permitted_claims, redistributable and the session gate (auth.uid() then app_current_org(), else the service-role org argument) are preserved. Tenant chunks without a governed source remain retrievable so C2.15 kb_ingest_document stays live. Tenant chunks attached to a governed source are returned only when that source is approved and not superseded. Shared/public corpus visibility is unchanged. Knowledge approval writes only engineering_knowledge_sources.review_state — it does not authorize operational work. The digest move is the retrieval/governance overlay, not a loosening of claim-type standing.",
+  "databaseObjects": {
+    "retrieve_kb_context": "25a3084e15671158cd2929768ecd248bd3fbef0fc4fdbd11d3fd0cfa92229532",
+    "kb_document_classes": "c28c7f52cd1bc12f18f857a47df626a4351ecdfebce52b5bc40ec2aef44fcb26",
+    "kb_claim_types": "ad6b9d93c69a3d88c72b4e0c20eb344dbd4d5448ac042bc554531367417b5793"
+  }
+}
