@@ -3,6 +3,12 @@ import { compileAssetTwin } from "./compiler";
 import { electricRopeShovelEngineeringDna } from "./electric-rope-shovel-dna";
 import { electricRopeShovelTemplate } from "./mining-library";
 import { komatsuPh4100XpcOverlay } from "./oem-overlays";
+import { miningDozerEngineeringDna } from "./mining-dozer-dna";
+import { miningDozerTemplate } from "./mining-dozer";
+import { miningGraderEngineeringDna } from "./mining-grader-dna";
+import { miningGraderTemplate } from "./mining-grader";
+import { mobileCrusherEngineeringDna } from "./mobile-crusher-dna";
+import { mobileCrusherTemplate } from "./mobile-crusher";
 import { stackerReclaimerEngineeringDna } from "./stacker-reclaimer-dna";
 import { stackerReclaimerTemplate } from "./stacker-reclaimer";
 import { inheritSharedIntelligence } from "./shared-component-dna";
@@ -179,5 +185,49 @@ describe("compileAssetTwin", () => {
     expect(compiled.provenance.sharedComponentReferences.length).toBeGreaterThan(
       0,
     );
+  });
+
+  it("compiles the three P1 residual mining classes without OEM overlays", () => {
+    const residuals = [
+      {
+        template: miningDozerTemplate,
+        dna: miningDozerEngineeringDna,
+        assetId: "dz-01",
+      },
+      {
+        template: miningGraderTemplate,
+        dna: miningGraderEngineeringDna,
+        assetId: "gr-01",
+      },
+      {
+        template: mobileCrusherTemplate,
+        dna: mobileCrusherEngineeringDna,
+        assetId: "mc-01",
+      },
+    ];
+
+    for (const residual of residuals) {
+      const compiled = compileAssetTwin(
+        residual.template,
+        {
+          assetId: residual.assetId,
+          assetClassCode: residual.template.code,
+          siteId: "mine-a",
+          operatingContext: {},
+          telemetryMap: {},
+          customerOverrides: {},
+          baselineStatus: "not_started",
+        },
+        undefined,
+        new Date("2026-09-06T00:00:00.000Z"),
+        residual.dna,
+      );
+
+      expect(compiled.compiledAt).toBe("2026-09-06T00:00:00.000Z");
+      expect(compiled.provenance.overlay).toBeUndefined();
+      expect(
+        compiled.provenance.sharedComponentReferences.length,
+      ).toBeGreaterThan(0);
+    }
   });
 });

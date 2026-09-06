@@ -8,6 +8,9 @@ import { hydraulicMiningShovelTemplate } from "./hydraulic-mining-shovel";
 import { industrialGearboxTemplate } from "./industrial-gearbox";
 import { electricRopeShovelTemplate } from "./mining-library";
 import { primaryCrusherTemplate } from "./primary-crusher";
+import { miningDozerTemplate } from "./mining-dozer";
+import { miningGraderTemplate } from "./mining-grader";
+import { mobileCrusherTemplate } from "./mobile-crusher";
 import { stackerReclaimerTemplate } from "./stacker-reclaimer";
 import { physicsCapabilityLibrary } from "./physics-capability-library";
 import {
@@ -52,6 +55,9 @@ const referencedTemplates: AssetClassTemplate[] = [
   conveyorSystemTemplate,
   primaryCrusherTemplate,
   stackerReclaimerTemplate,
+  miningDozerTemplate,
+  miningGraderTemplate,
+  mobileCrusherTemplate,
 ];
 
 const remainingEmbeddedTemplates: AssetClassTemplate[] = [
