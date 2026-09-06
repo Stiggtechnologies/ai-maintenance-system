@@ -411,6 +411,13 @@ function BurndownPanel({
             <span className="text-red-300">
               {result.lapsed} lapsed forecast
             </span>
+            {(result.lapsed ?? 0) > 0 && (
+              <span className="text-[11px] text-slate-500">
+                Lapsed and overdue package constraints are raised by the
+                scheduled escalation clock into system alerts. The clock does
+                not clear them.
+              </span>
+            )}
             <span className="text-emerald-300">
               {result.expectedClear} expected clear
             </span>

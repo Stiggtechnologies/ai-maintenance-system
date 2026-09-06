@@ -1158,6 +1158,21 @@ describe("the methodology agent's retrieval can actually match a document", () =
   });
 });
 
+describe("D3.01 / D3.23 — framework and stage authoring are product callers", () => {
+  it("createProjectFramework and addFrameworkStage are invoked from the shelf", () => {
+    const panel = readFileSync(
+      "src/components/develop/FrameworkShelfPanel.tsx",
+      "utf8",
+    );
+    expect(panel).toContain("createProjectFramework");
+    expect(panel).toContain("addFrameworkStage");
+    expect(panel).toContain("Create a draft framework (D3.01)");
+    expect(panel).toContain("Add stage");
+    expect(panel).toContain('value="checkpoint"');
+    expect(panel).toContain("setGateRequirement");
+  });
+});
+
 describe("D12.12's UI claim is a caller, not a sentence", () => {
   it("runRiskAgent is invoked from the Assurance Case screen", () => {
     // The service function existed, the edge function existed, the adopt and
