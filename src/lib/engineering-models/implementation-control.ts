@@ -19,7 +19,7 @@ const RESONANCE = "src/lib/engineering-models/resonance.ts";
 const CAPABILITY_ADAPTER =
   "src/lib/engineering-models/physics-capability-adapter.ts";
 const MIGRATION =
-  "supabase/migrations/20261214090001_engineering_model_supply_chain.sql";
+  "supabase/migrations/20261216090101_engineering_model_supply_chain.sql";
 const EDGE = "supabase/functions/engineering-model-supply-chain/index.ts";
 const REGISTRY = "src/pages/EngineeringModelRegistryPage.tsx";
 const TRACE = "src/components/EngineeringModelTracePanel.tsx";
