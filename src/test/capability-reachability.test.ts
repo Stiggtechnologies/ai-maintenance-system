@@ -701,19 +701,23 @@ const FLOORS: Record<string, Floors> = {
     // on `/risk`). The CEILING stayed at 3 — the new ✅s are checkable. No
     // exemption, no floor lowered.
     //
-    // 183/1202/133 -> 186/1228/138 (2026-09-06, residual cluster). Five
-    // rows flipped: D3.19 and D11.32 were status-lag (both waiver halves
-    // already reachable on `/governance`; first Develop connector already
-    // ships under analyze-not-author); D3.29 gained estimate/schedule legs
-    // on the ONE assumption family; D4.01 binds quality_requirements to
+    // 183/1202/133 -> 186/1228/138 (2026-09-06, residual cluster #364).
+    // Five rows flipped: D3.19 and D11.32 were status-lag; D3.29 gained
+    // estimate/schedule legs; D4.01 binds quality_requirements to
     // design_requirements; D4.14 publishes cyber on the live gate-requirement
-    // authoring path. The CEILING stayed at 3. No exemption, no floor
-    // lowered. D4.14 does not cite `sync_gate_readiness_categories` — that
-    // SQL vocabulary pin has no product caller; the shelf and
-    // `setGateRequirement` are the chain.
-    rowsWithAnEnforceableCitation: 186,
-    citationsEnforced: 1228,
-    claimedRowsEnforced: 138,
+    // authoring path.
+    //
+    // 186/1228/138 -> 188/1259/143 (2026-09-06, D9 Realize rebased onto
+    // #364). Five more rows (D9.02, D9.03, D9.04, D9.11, D9.13) flipped on
+    // chains this gate can walk: `record_operational_warranty`,
+    // `open_realization_window`, `record_checkpoint_observation`,
+    // `record_project_lesson` and the Case Workspace `RealizeCluster`.
+    // Floors are the SUM of the two deltas off 183/1202/133. The CEILING
+    // stayed at 3 — the new ✅s are checkable. No exemption, no floor
+    // lowered.
+    rowsWithAnEnforceableCitation: 188,
+    citationsEnforced: 1259,
+    claimedRowsEnforced: 143,
     // D11.04 (a CI-fence claim proved by a named test file), D11.10 (a
     // canonical seeded vocabulary, which the write-path judge would fail for
     // not being customer-writable — a question the row never asked) and
