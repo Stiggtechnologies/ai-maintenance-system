@@ -10,6 +10,7 @@ import { largeWheelLoaderTemplate } from "./large-wheel-loader";
 import { miningAssetClassLibrary } from "./mining-library";
 import { primaryCrusherTemplate } from "./primary-crusher";
 import { sagMillTemplate } from "./sag-mill";
+import { getSharedComponentDna } from "./shared-component-dna-library";
 import { thickenerTemplate } from "./thickener";
 import { ultraClassHaulTruckTemplate } from "./ultra-class-haul-truck";
 import type { AssetClassTemplate } from "./types";
@@ -99,6 +100,25 @@ export function validateAssetClassTemplate(
         path: `${componentPath}.parentCode`,
         message: `Unknown parent component ${component.parentCode}.`,
       });
+    const sharedCodes = new Set<string>();
+    for (const [refIndex, sharedCode] of (
+      component.sharedComponentDnaCodes ?? []
+    ).entries()) {
+      const refPath = `${componentPath}.sharedComponentDnaCodes[${refIndex}]`;
+      if (sharedCodes.has(sharedCode)) {
+        issues.push({
+          path: refPath,
+          message: `Duplicate shared component DNA ${sharedCode}.`,
+        });
+      }
+      sharedCodes.add(sharedCode);
+      if (!getSharedComponentDna(sharedCode)) {
+        issues.push({
+          path: refPath,
+          message: `Unknown shared component DNA ${sharedCode}.`,
+        });
+      }
+    }
     for (const [failureIndex, failure] of component.failureModes.entries()) {
       const failurePath = `${componentPath}.failureModes[${failureIndex}]`;
       if (failure.componentCode !== component.code)
