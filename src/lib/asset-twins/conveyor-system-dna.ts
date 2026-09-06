@@ -3,10 +3,13 @@ import { conveyorSystemInspectionZones } from "./conveyor-system-inspections";
 import { conveyorSystemTemplate } from "./conveyor-system";
 import {
   flexibleCouplingDna,
+  hydraulicCylinderDna,
   industrialAcMotorDna,
   industrialGearboxComponentDna,
   lubricationSystemDna,
   rollingElementBearingDna,
+  sheaveDna,
+  wireRopeDna,
 } from "./shared-component-dna-library";
 
 const unique = (values: string[]): string[] => [...new Set(values)];
@@ -74,6 +77,21 @@ export const conveyorSystemEngineeringDna: EngineeringDnaProfile = {
       assetComponentCode: "CV-DRIVE",
       sharedComponentDnaCode: industrialGearboxComponentDna.code,
       role: "drive gearbox",
+    },
+    {
+      assetComponentCode: "CV-TAKEUP",
+      sharedComponentDnaCode: wireRopeDna.code,
+      role: "take-up ropes",
+    },
+    {
+      assetComponentCode: "CV-TAKEUP",
+      sharedComponentDnaCode: sheaveDna.code,
+      role: "take-up sheaves",
+    },
+    {
+      assetComponentCode: "CV-TAKEUP",
+      sharedComponentDnaCode: hydraulicCylinderDna.code,
+      role: "take-up cylinders",
     },
   ],
   standards: conveyorSystemTemplate.standards,

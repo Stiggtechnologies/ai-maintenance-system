@@ -5,6 +5,7 @@ import {
   industrialAcMotorDna,
   lubricationSystemDna,
   rollingElementBearingDna,
+  switchgearDna,
 } from "./shared-component-dna-library";
 
 const unique = (values: string[]): string[] => [...new Set(values)];
@@ -55,6 +56,11 @@ export const primaryCrusherEngineeringDna: EngineeringDnaProfile = {
       assetComponentCode: "PCR-DRIVE",
       sharedComponentDnaCode: industrialAcMotorDna.code,
       role: "crusher drive motor",
+    },
+    {
+      assetComponentCode: "PCR-ELEC-CTRL",
+      sharedComponentDnaCode: switchgearDna.code,
+      role: "electrical distribution and protection",
     },
   ],
   standards: primaryCrusherTemplate.standards,
