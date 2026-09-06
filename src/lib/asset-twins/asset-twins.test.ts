@@ -45,6 +45,11 @@ describe("mining asset twin library", () => {
     expect(getAssetClassTemplate("MIN-STACK-RECLAIM")?.name).toBe(
       "Stacker-reclaimer",
     );
+    expect(getAssetClassTemplate("MIN-DOZER")?.name).toBe("Large mining dozer");
+    expect(getAssetClassTemplate("MIN-GRADER")?.name).toBe("Motor grader");
+    expect(getAssetClassTemplate("MIN-MOBILE-CRUSH")?.name).toBe(
+      "Mobile crusher",
+    );
     expect(getAssetClassTemplate("UNKNOWN")).toBeUndefined();
   });
 });

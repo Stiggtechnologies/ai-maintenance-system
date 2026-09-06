@@ -16,6 +16,9 @@ import {
   variableFrequencyDriveDna,
   wireRopeDna,
 } from "./shared-component-dna-library";
+import { miningDozerTemplate } from "./mining-dozer";
+import { miningGraderTemplate } from "./mining-grader";
+import { mobileCrusherTemplate } from "./mobile-crusher";
 import { stackerReclaimerTemplate } from "./stacker-reclaimer";
 import type { AssetClassTemplate, FailureModeTemplate } from "./types";
 import { ultraClassHaulTruckTemplate } from "./ultra-class-haul-truck";
@@ -317,30 +320,6 @@ export const electricRopeShovelTemplate: AssetClassTemplate = {
   ],
 };
 
-const starter = (
-  code: string,
-  name: string,
-  family: string,
-  functions: string[],
-): AssetClassTemplate => ({
-  schemaVersion: "0.1.0",
-  code,
-  name,
-  family,
-  description: `Starter asset-class shell for ${name}. Engineering content requires evidence ingestion and review.`,
-  functions,
-  operatingStates: [
-    "offline",
-    "idle",
-    "operating",
-    "degraded",
-    "maintenance_test",
-  ],
-  components: [],
-  standards: ["ISO 55000", "ISO 13374", "ISO 23247"],
-  reviewState: "draft",
-});
-
 /**
  * Twelve-class mining catalogue. Populated templates replace the empty
  * starter shells that previously shared (or paralleled) their codes.
@@ -349,6 +328,10 @@ const starter = (
  * - MIN-LOAD-HMS (canonical hydraulic shovel is MIN-HYD-SHOVEL)
  * - MIN-LOAD-WL (canonical wheel loader is MIN-WHEEL-LOADER)
  * - MIN-CONV (canonical belt conveyor is FP-CONVEYOR-BELT)
+ *
+ * Empty MIN-DOZER / MIN-GRADER / MIN-MOBILE-CRUSH starter shells are retired
+ * in favour of the populated draft templates below. Do not reintroduce a
+ * second empty hierarchy for those codes.
  */
 export const miningAssetClassLibrary: AssetClassTemplate[] = [
   electricRopeShovelTemplate,
@@ -359,23 +342,8 @@ export const miningAssetClassLibrary: AssetClassTemplate[] = [
   primaryCrusherTemplate,
   conveyorSystemTemplate,
   draglineTemplate,
-  starter("MIN-DOZER", "Large mining dozer", "mobile_mining_support", [
-    "push",
-    "rip",
-    "grade",
-    "steer",
-  ]),
-  starter("MIN-GRADER", "Motor grader", "mobile_mining_support", [
-    "grade",
-    "scarify",
-    "steer",
-    "travel",
-  ]),
-  starter("MIN-MOBILE-CRUSH", "Mobile crusher", "mobile_material_processing", [
-    "receive",
-    "size_reduce",
-    "convey",
-    "propel",
-  ]),
+  miningDozerTemplate,
+  miningGraderTemplate,
+  mobileCrusherTemplate,
   stackerReclaimerTemplate,
 ];
