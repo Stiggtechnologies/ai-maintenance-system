@@ -179,7 +179,7 @@ describe("the resolver sees a real chain", () => {
       // Last definition moved with the governed-source overlay. The session
       // gate and permitted_claims join must still hold on THIS file, not on
       // the earlier tenancy-hardening copy.
-      "20261215090000_governed_engineering_knowledge.sql",
+      "20261216090000_governed_engineering_knowledge.sql",
     );
   });
 });

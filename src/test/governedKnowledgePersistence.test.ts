@@ -3,9 +3,9 @@ import fs from "node:fs";
 import path from "node:path";
 
 const MIGRATION =
-  "supabase/migrations/20261215090000_governed_engineering_knowledge.sql";
+  "supabase/migrations/20261216090000_governed_engineering_knowledge.sql";
 const HARDENING =
-  "supabase/migrations/20261215090100_governed_engineering_knowledge_review_invalidation.sql";
+  "supabase/migrations/20261216090100_governed_engineering_knowledge_review_invalidation.sql";
 
 const migration = fs.readFileSync(path.resolve(MIGRATION), "utf8");
 const hardening = fs.readFileSync(path.resolve(HARDENING), "utf8");
