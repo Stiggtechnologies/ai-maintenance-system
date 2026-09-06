@@ -1,5 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createDraftDecisionCase, createSeedDecisionCases } from "../lib/decision-case";
+import {
+  createDraftDecisionCase,
+  createSeedDecisionCases,
+} from "../lib/decision-case";
 import { createHonestEmptyDecisionCase } from "../lib/decision-case-honesty";
 import { askDecisionCase } from "./decisionCaseService";
 import { runPublicDecisionCaseAgent } from "./publicReliabilityAgent";
@@ -132,6 +135,7 @@ describe("decisionCaseService", () => {
     expect(runPublicAgentMock).toHaveBeenCalledWith(
       pump,
       "Which failure mechanisms should we test first, and why?",
+      { questionScope: "active_case", bound: true },
     );
     expect(reply.source).toBe("live");
     expect(reply.message.text).toContain("startup contamination");
@@ -166,7 +170,10 @@ describe("decisionCaseService", () => {
 
     const reply = await askDecisionCase(pump, prompt, { publicMode: true });
 
-    expect(runPublicAgentMock).toHaveBeenCalledWith(pump, prompt);
+    expect(runPublicAgentMock).toHaveBeenCalledWith(pump, prompt, {
+      questionScope: "provisional_new_subject",
+      bound: true,
+    });
     expect(reply.source).toBe("live");
     expect(reply.scope).toBe("provisional_new_subject");
     expect(reply.message.meta).toContain("DC-1048 unchanged");
@@ -221,9 +228,11 @@ describe("decisionCaseService", () => {
         { publicMode: true },
       );
       expect(runPublicAgentMock).not.toHaveBeenCalled();
-      expect(reply.message.meta).toContain("No case selected");
+      expect(reply.message.meta).toMatch(/no case selected/i);
       expect(reply.message.text).toMatch(/what asset, site, or decision/i);
-      expect(reply.message.text).not.toMatch(/P-101|DC-1048|Fort McMurray|North Ridge/i);
+      expect(reply.message.text).not.toMatch(
+        /P-101|DC-1048|Fort McMurray|North Ridge/i,
+      );
       expect(reply.scope).toBe("provisional_new_subject");
     }
   });
@@ -288,7 +297,9 @@ describe("decisionCaseService", () => {
 
     for (const unbound of [empty, leftoverDraft]) {
       runPublicAgentMock.mockClear();
-      const reply = await askDecisionCase(unbound, prompt, { publicMode: true });
+      const reply = await askDecisionCase(unbound, prompt, {
+        publicMode: true,
+      });
       expect(runPublicAgentMock).toHaveBeenCalledWith(unbound, prompt, {
         questionScope: "provisional_new_subject",
         bound: false,
