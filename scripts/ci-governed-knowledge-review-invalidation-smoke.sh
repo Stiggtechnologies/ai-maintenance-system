@@ -4,6 +4,13 @@ trap 'echo "Governed knowledge review-invalidation smoke failed at line $LINENO:
 
 eval "$(supabase status -o env | grep -E '^(ANON_KEY|API_URL|SERVICE_ROLE_KEY)=')"
 
+psql_uuid() {
+  PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres \
+    -v ON_ERROR_STOP=1 -Atc "$1" \
+    | grep -E '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' \
+    | head -n 1
+}
+
 RESP=$(curl -s "$API_URL/auth/v1/token?grant_type=password" \
   -H "apikey: $ANON_KEY" -H "Content-Type: application/json" \
   -d '{"email":"demo@syncai.ca","password":"Demo123!@#"}')

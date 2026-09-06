@@ -4,14 +4,22 @@ trap 'echo "Governed knowledge smoke failed at line $LINENO: $BASH_COMMAND"' ERR
 
 eval "$(supabase status -o env | grep -E '^(ANON_KEY|API_URL|SERVICE_ROLE_KEY)=')"
 
+# Org INSERT now fires AFTER INSERT seeders (roles, evidence profile). Those
+# extra command tags leak into `psql -Atc` output, so take the UUID line only.
+psql_uuid() {
+  PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres \
+    -v ON_ERROR_STOP=1 -Atc "$1" \
+    | grep -E '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' \
+    | head -n 1
+}
+
 RESP=$(curl -s "$API_URL/auth/v1/token?grant_type=password" \
   -H "apikey: $ANON_KEY" -H "Content-Type: application/json" \
   -d '{"email":"demo@syncai.ca","password":"Demo123!@#"}')
 TOKEN=$(echo "$RESP" | python3 -c "import sys,json;print(json.load(sys.stdin).get('access_token',''))")
 test -n "$TOKEN"
 
-ORG=$(PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -Atc \
-  "select organization_id from public.user_profiles where lower(email)='demo@syncai.ca' limit 1")
+ORG=$(psql_uuid "select organization_id from public.user_profiles where lower(email)='demo@syncai.ca' limit 1")
 test -n "$ORG"
 
 SOURCE_ID=$(curl -fsS -X POST "$API_URL/rest/v1/rpc/register_engineering_knowledge_source" \
@@ -56,10 +64,10 @@ AFTER=$(curl -fsS -X POST "$API_URL/rest/v1/rpc/retrieve_kb_context" \
   -d "{\"p_query\":\"alphaqz cavitation\",\"p_claim_type\":\"failure_behaviour\",\"p_limit\":10,\"p_organization_id\":\"$ORG\"}")
 test "$(echo "$AFTER" | python3 -c "import sys,json; d=json.load(sys.stdin); print(sum(1 for x in d if x.get('chunk_id')=='SYNTH-PUMP-MANUAL-R1-001'))")" = "1"
 
-OTHER_ORG=$(PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -Atc \
-  "insert into public.organizations(name,industry) values ('Synthetic Other Tenant','synthetic') returning id")
-OTHER_SOURCE=$(PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -Atc \
-  "insert into public.engineering_knowledge_sources(organization_id,source_key,title,document_class,authority_level,review_state,confidentiality,approved_at) values ('$OTHER_ORG','OTHER-SOURCE','Other Tenant Synthetic Source','client_supplied','customer_approved','approved','customer_confidential',now()) returning id")
+OTHER_ORG=$(psql_uuid "insert into public.organizations(name,industry) values ('Synthetic Other Tenant','synthetic') returning id")
+test -n "$OTHER_ORG"
+OTHER_SOURCE=$(psql_uuid "insert into public.engineering_knowledge_sources(organization_id,source_key,title,document_class,authority_level,review_state,confidentiality,approved_at) values ('$OTHER_ORG','OTHER-SOURCE','Other Tenant Synthetic Source','client_supplied','customer_approved','approved','customer_confidential',now()) returning id")
+test -n "$OTHER_SOURCE"
 PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -v ON_ERROR_STOP=1 -c \
   "insert into public.reliability_kb_chunks(chunk_id,source_id,title,document_type,document_class,page_start,page_end,chunk_index,content,organization_id,governed_source_id,content_checksum,provenance) values ('OTHER-TENANT-001','OTHER-SOURCE','Other Tenant Synthetic Source','manual','client_supplied',1,1,1,'uniquebetaqz other tenant restricted reliability datum','$OTHER_ORG','$OTHER_SOURCE','sha256:other-tenant','{\"synthetic\":true}'::jsonb)" >/dev/null
 CROSS=$(curl -fsS -X POST "$API_URL/rest/v1/rpc/retrieve_kb_context" \
