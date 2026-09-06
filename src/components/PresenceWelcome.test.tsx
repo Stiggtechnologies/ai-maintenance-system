@@ -214,6 +214,13 @@ describe("PresenceWelcome", () => {
     fireEvent.click(screen.getByRole("button", { name: "Meet Sync" }));
     expect(await screen.findByTestId("presence-booth")).toBeInTheDocument();
     expect(screen.getByText(/booth/i)).toBeInTheDocument();
+    expect(screen.getByTestId("presence-booth")).toHaveAttribute(
+      "data-booth-voice-mode",
+      "continuous",
+    );
+    expect(
+      screen.getByRole("checkbox", { name: /hold to talk/i }),
+    ).not.toBeChecked();
   });
 
   it("hides the KPI brief while Meet Sync is open", async () => {

@@ -167,6 +167,7 @@ export function PresenceWelcome() {
       caseBound={workingSubject.bound}
       speak={speak}
       stopSpeech={stop}
+      speaking={speaking}
       onPresenceSignals={({ listening, thinking }) => {
         setBoothListening(listening);
         setBoothThinking(thinking);
