@@ -79,6 +79,7 @@ describe("Slice 7D production contract", () => {
     expect(service).toContain('supabase.rpc("get_quality_cockpit"');
     expect(page).toContain("<QualityManagementWorkbench />");
     expect(workflow).toContain("ci-quality-management-smoke.sh");
+    expect(workflow).toContain("quality-management-transaction-smoke.sql");
   });
 
   it("flips the Slice 7D D-family rows only where the 7D chain is cited", () => {
@@ -99,8 +100,10 @@ describe("Slice 7D production contract", () => {
     expect(row("D4.02")).toMatch(/^\| D4\.02 \|[^|]*\|[^|]*\| ✅/);
     expect(row("D4.04")).toMatch(/^\| D4\.04 \|[^|]*\|[^|]*\| ✅/);
     expect(row("D4.05")).toMatch(/^\| D4\.05 \|[^|]*\|[^|]*\| ✅/);
-    expect(row("D4.01")).toMatch(/^\| D4\.01 \|[^|]*\|[^|]*\| 🟡/);
-    expect(row("D4.01")).toContain("ONE project requirement table");
+    expect(row("D4.01")).toMatch(/^\| D4\.01 \|[^|]*\|[^|]*\| ✅/);
+    expect(row("D4.01")).toContain("`design_requirements`");
+    expect(row("D4.01")).toContain("`record_quality_requirement`");
+    expect(row("D4.01")).toContain("`QualityManagementWorkbench`");
     expect(row("D4.07")).toMatch(/^\| D4\.07 \|[^|]*\|[^|]*\| 🟡/);
     expect(row("D4.07")).toContain("six terms");
   });

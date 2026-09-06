@@ -1,17 +1,26 @@
 import { describe, expect, it } from "vitest";
-import { getEngineeringDnaForAssetClass, getEngineeringDnaProfile } from "./electric-rope-shovel-dna";
-import { instantiateEngineeringTwin, validateEngineeringDnaProfile } from "./engineering-dna";
+import {
+  getEngineeringDnaForAssetClass,
+  getEngineeringDnaProfile,
+} from "./electric-rope-shovel-dna";
+import {
+  instantiateEngineeringTwin,
+  validateEngineeringDnaProfile,
+} from "./engineering-dna";
 import { validateInspectionZoneContract } from "./inspection-contracts";
 import { ultraClassHaulTruckEngineeringDna } from "./ultra-class-haul-truck-dna";
 import { ultraClassHaulTruckInspectionZones } from "./ultra-class-haul-truck-inspections";
 import { ultraClassHaulTruckTemplate } from "./ultra-class-haul-truck";
 import { validateAssetClassTemplate } from "./index";
+import { sharedComponentDnaLibrary } from "./shared-component-dna-library";
 
 describe("ultra-class haul truck Digital Engineering DNA", () => {
   it("provides a non-empty canonical hierarchy and governed failure library", () => {
     expect(ultraClassHaulTruckTemplate.components.length).toBeGreaterThan(0);
     expect(
-      ultraClassHaulTruckTemplate.components.flatMap((component) => component.failureModes).length,
+      ultraClassHaulTruckTemplate.components.flatMap(
+        (component) => component.failureModes,
+      ).length,
     ).toBeGreaterThan(0);
     expect(validateAssetClassTemplate(ultraClassHaulTruckTemplate)).toEqual([]);
   });
@@ -42,6 +51,7 @@ describe("ultra-class haul truck Digital Engineering DNA", () => {
         ultraClassHaulTruckEngineeringDna,
         ultraClassHaulTruckTemplate,
         ultraClassHaulTruckInspectionZones,
+        sharedComponentDnaLibrary,
       ),
     ).toEqual([]);
   });
@@ -86,6 +96,9 @@ describe("ultra-class haul truck Digital Engineering DNA", () => {
     expect(ultraClassHaulTruckEngineeringDna.governance.thresholdsPolicy).toBe(
       "approved_source_only",
     );
-    expect(ultraClassHaulTruckEngineeringDna.governance.autonomousOperationalActionAllowed).toBe(false);
+    expect(
+      ultraClassHaulTruckEngineeringDna.governance
+        .autonomousOperationalActionAllowed,
+    ).toBe(false);
   });
 });

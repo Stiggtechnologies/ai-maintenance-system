@@ -2,6 +2,7 @@ import type { EngineeringDnaProfile } from "./engineering-dna";
 import { industrialGearboxTemplate } from "./industrial-gearbox";
 import {
   flexibleCouplingDna,
+  industrialGearboxComponentDna,
   lubricationSystemDna,
   mechanicalSealDna,
   rollingElementBearingDna,
@@ -23,15 +24,24 @@ export const industrialGearboxEngineeringDna: EngineeringDnaProfile = {
     "digital_twin_instantiation",
     "governed_recommendations",
   ],
-  componentCodes: industrialGearboxTemplate.components.map((component) => component.code),
+  componentCodes: industrialGearboxTemplate.components.map(
+    (component) => component.code,
+  ),
   failureModeCodes: industrialGearboxTemplate.components.flatMap((component) =>
     component.failureModes.map((failure) => failure.code),
   ),
   inspectionZoneCodes: [],
   telemetryConcepts: unique(
-    industrialGearboxTemplate.components.flatMap((component) => component.telemetryConcepts),
+    industrialGearboxTemplate.components.flatMap(
+      (component) => component.telemetryConcepts,
+    ),
   ),
   sharedComponentBindings: [
+    {
+      assetComponentCode: "GB-GEARS",
+      sharedComponentDnaCode: industrialGearboxComponentDna.code,
+      role: "gear_mesh_and_ratio_intelligence",
+    },
     {
       assetComponentCode: "GB-BEARINGS",
       sharedComponentDnaCode: rollingElementBearingDna.code,

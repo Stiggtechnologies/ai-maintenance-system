@@ -47,6 +47,7 @@ import {
   type IntakeDocumentOption,
 } from "../../services/developService";
 import { LIFECYCLE_TYPES } from "../../lib/develop";
+import { GATE_READINESS_CATEGORIES } from "../../lib/develop/governance";
 
 const inputClass =
   "w-full rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-signal-cyan/50 focus:outline-none";
@@ -63,15 +64,7 @@ const SOURCE_AUTHORITIES = [
   "AI_SUGGESTION",
 ];
 
-const CATEGORIES = [
-  "business",
-  "technical",
-  "risk",
-  "cost_schedule",
-  "operations",
-  "supply",
-  "regulatory",
-];
+const CATEGORIES = GATE_READINESS_CATEGORIES;
 
 function ErrorLine({ error }: { error: string | null }) {
   if (!error) return null;
