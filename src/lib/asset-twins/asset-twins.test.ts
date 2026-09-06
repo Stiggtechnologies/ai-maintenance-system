@@ -42,6 +42,9 @@ describe("mining asset twin library", () => {
 
   it("resolves templates by canonical code", () => {
     expect(getAssetClassTemplate("MIN-LOAD-ERS")?.name).toBe("Electric rope shovel");
+    expect(getAssetClassTemplate("MIN-STACK-RECLAIM")?.name).toBe(
+      "Stacker-reclaimer",
+    );
     expect(getAssetClassTemplate("UNKNOWN")).toBeUndefined();
   });
 });

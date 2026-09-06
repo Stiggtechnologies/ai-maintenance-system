@@ -1,4 +1,10 @@
+import { blastholeDrillTemplate } from "./blasthole-drill";
+import { conveyorSystemTemplate } from "./conveyor-system";
+import { draglineTemplate } from "./dragline";
 import { extendedElectricRopeShovelComponents } from "./electric-rope-shovel-components";
+import { hydraulicMiningShovelTemplate } from "./hydraulic-mining-shovel";
+import { largeWheelLoaderTemplate } from "./large-wheel-loader";
+import { primaryCrusherTemplate } from "./primary-crusher";
 import {
   frictionBrakeDna,
   industrialAcMotorDna,
@@ -10,7 +16,9 @@ import {
   variableFrequencyDriveDna,
   wireRopeDna,
 } from "./shared-component-dna-library";
+import { stackerReclaimerTemplate } from "./stacker-reclaimer";
 import type { AssetClassTemplate, FailureModeTemplate } from "./types";
+import { ultraClassHaulTruckTemplate } from "./ultra-class-haul-truck";
 
 const draftFailure = (
   code: string,
@@ -155,6 +163,10 @@ export const electricRopeShovelTemplate: AssetClassTemplate = {
     {
       code: "ERS-CROWD",
       name: "Crowd system",
+      sharedComponentDnaCodes: [
+        industrialAcMotorDna.code,
+        industrialGearboxComponentDna.code,
+      ],
       functions: [
         "position dipper in bank",
         "control penetration and retraction",
@@ -329,54 +341,24 @@ const starter = (
   reviewState: "draft",
 });
 
+/**
+ * Twelve-class mining catalogue. Populated templates replace the empty
+ * starter shells that previously shared (or paralleled) their codes.
+ *
+ * Retired parallel starter identities — do not reintroduce:
+ * - MIN-LOAD-HMS (canonical hydraulic shovel is MIN-HYD-SHOVEL)
+ * - MIN-LOAD-WL (canonical wheel loader is MIN-WHEEL-LOADER)
+ * - MIN-CONV (canonical belt conveyor is FP-CONVEYOR-BELT)
+ */
 export const miningAssetClassLibrary: AssetClassTemplate[] = [
   electricRopeShovelTemplate,
-  starter("MIN-LOAD-HMS", "Hydraulic mining shovel", "mobile_mining_loading", [
-    "dig",
-    "swing",
-    "dump",
-    "propel",
-  ]),
-  starter("MIN-HAUL-TRUCK", "Ultra-class haul truck", "mobile_mining_haulage", [
-    "load",
-    "haul",
-    "dump",
-    "retard",
-    "steer",
-  ]),
-  starter("MIN-LOAD-WL", "Large wheel loader", "mobile_mining_loading", [
-    "dig",
-    "lift",
-    "carry",
-    "dump",
-    "steer",
-  ]),
-  starter("MIN-DRILL-BH", "Blasthole drill", "mobile_mining_drilling", [
-    "position",
-    "level",
-    "drill",
-    "flush",
-    "change_pipe",
-  ]),
-  starter("MIN-CRUSH-PRI", "Primary crusher", "fixed_material_processing", [
-    "receive",
-    "size_reduce",
-    "discharge",
-    "protect",
-  ]),
-  starter("MIN-CONV", "Mine conveyor system", "fixed_material_handling", [
-    "transport",
-    "track",
-    "tension",
-    "protect",
-  ]),
-  starter("MIN-DRAGLINE", "Dragline", "mobile_mining_loading", [
-    "drag",
-    "hoist",
-    "swing",
-    "dump",
-    "walk",
-  ]),
+  hydraulicMiningShovelTemplate,
+  ultraClassHaulTruckTemplate,
+  largeWheelLoaderTemplate,
+  blastholeDrillTemplate,
+  primaryCrusherTemplate,
+  conveyorSystemTemplate,
+  draglineTemplate,
   starter("MIN-DOZER", "Large mining dozer", "mobile_mining_support", [
     "push",
     "rip",
@@ -395,11 +377,5 @@ export const miningAssetClassLibrary: AssetClassTemplate[] = [
     "convey",
     "propel",
   ]),
-  starter("MIN-STACK-RECLAIM", "Stacker-reclaimer", "fixed_material_handling", [
-    "stack",
-    "reclaim",
-    "slew",
-    "luff",
-    "travel",
-  ]),
+  stackerReclaimerTemplate,
 ];

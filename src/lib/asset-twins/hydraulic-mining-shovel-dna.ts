@@ -4,6 +4,7 @@ import { hydraulicMiningShovelTemplate } from "./hydraulic-mining-shovel";
 import {
   centrifugalPumpComponentDna,
   coolingSystemDna,
+  frictionBrakeDna,
   hydraulicCylinderDna,
   industrialAcMotorDna,
   industrialGearboxComponentDna,
@@ -72,6 +73,11 @@ export const hydraulicMiningShovelEngineeringDna: EngineeringDnaProfile = {
       assetComponentCode: "HMS-SWING-PROPEL",
       sharedComponentDnaCode: industrialGearboxComponentDna.code,
       role: "final drives",
+    },
+    {
+      assetComponentCode: "HMS-SWING-PROPEL",
+      sharedComponentDnaCode: frictionBrakeDna.code,
+      role: "swing and propel holding brakes",
     },
     {
       assetComponentCode: "HMS-ELEC-CTRL",

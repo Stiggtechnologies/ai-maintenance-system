@@ -3,6 +3,8 @@ import { compileAssetTwin } from "./compiler";
 import { electricRopeShovelEngineeringDna } from "./electric-rope-shovel-dna";
 import { electricRopeShovelTemplate } from "./mining-library";
 import { komatsuPh4100XpcOverlay } from "./oem-overlays";
+import { stackerReclaimerEngineeringDna } from "./stacker-reclaimer-dna";
+import { stackerReclaimerTemplate } from "./stacker-reclaimer";
 import { inheritSharedIntelligence } from "./shared-component-dna";
 import {
   frictionBrakeDna,
@@ -130,5 +132,52 @@ describe("compileAssetTwin", () => {
         manufacturer: "Other",
       }),
     ).toThrow("does not match");
+  });
+
+  it("keeps electric-rope-shovel compilation backward compatible after catalogue expansion", () => {
+    const compiled = compileAssetTwin(
+      electricRopeShovelTemplate,
+      asset,
+      komatsuPh4100XpcOverlay,
+      new Date("2026-07-26T00:00:00.000Z"),
+    );
+
+    expect(compiled.provenance.assetClassCode).toBe("MIN-LOAD-ERS");
+    expect(compiled.template.components.map((item) => item.code)).toEqual(
+      expect.arrayContaining(["ERS-CROWD", "ERS-HOIST", "ERS-BRAKE"]),
+    );
+    expect(
+      compiled.template.components.find((item) => item.code === "ERS-CROWD")
+        ?.sharedComponentDnaCodes,
+    ).toEqual(
+      expect.arrayContaining([
+        "COMP-DNA-MOTOR-AC",
+        "COMP-DNA-GEARBOX-INDUSTRIAL",
+      ]),
+    );
+  });
+
+  it("compiles the stacker-reclaimer without an OEM overlay", () => {
+    const compiled = compileAssetTwin(
+      stackerReclaimerTemplate,
+      {
+        assetId: "sr-01",
+        assetClassCode: stackerReclaimerTemplate.code,
+        siteId: "yard-a",
+        operatingContext: {},
+        telemetryMap: {},
+        customerOverrides: {},
+        baselineStatus: "not_started",
+      },
+      undefined,
+      new Date("2026-09-06T00:00:00.000Z"),
+      stackerReclaimerEngineeringDna,
+    );
+
+    expect(compiled.compiledAt).toBe("2026-09-06T00:00:00.000Z");
+    expect(compiled.provenance.overlay).toBeUndefined();
+    expect(compiled.provenance.sharedComponentReferences.length).toBeGreaterThan(
+      0,
+    );
   });
 });

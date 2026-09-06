@@ -260,6 +260,12 @@ export const draglineTemplate: AssetClassTemplate = {
     {
       code: "DL-SWING",
       name: "Swing drives, rollers, and rotating interface",
+      sharedComponentDnaCodes: [
+        industrialAcMotorDna.code,
+        industrialGearboxComponentDna.code,
+        frictionBrakeDna.code,
+        rollingElementBearingDna.code,
+      ],
       functions: [
         "rotate upper structure",
         "support rotating mass",
