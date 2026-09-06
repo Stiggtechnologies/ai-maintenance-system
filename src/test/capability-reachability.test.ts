@@ -684,20 +684,25 @@ const FLOORS: Record<string, Floors> = {
     // exempted, no floor was lowered, and EXEMPTIONS is still empty.
     //
     // 177/1136/122 -> 178/1147/128 (2026-09-06, D7 residual + Slice 1
-    // authoring). D7.07 flipped because THE ONE escalation clock now walks
-    // package-anchored restoration_constraints and was already scheduled
-    // (`syncai-recovery-escalation-clock`); D3.01/D3.22/D3.23/D3.25/D3.37
-    // flipped because FrameworkShelfPanel now calls create_project_framework
-    // and add_framework_stage, and already called add_framework_gate
-    // (checkpoint) and set_gate_requirement. D7.06 and D7.12 stay 🟡 with
-    // their named gaps; D7.16 stays 🟡 because a composition is not more
-    // complete than those two parts; D11.34 stays ❌ — objects standing
-    // side by side is not one real case walked through all twelve. The
-    // CEILING did not move. Nothing was exempted, no floor was lowered, and
-    // EXEMPTIONS is still empty.
-    rowsWithAnEnforceableCitation: 178,
-    citationsEnforced: 1147,
-    claimedRowsEnforced: 128,
+    // authoring, #361). D7.07 flipped because THE ONE escalation clock now
+    // walks package-anchored restoration_constraints and was already
+    // scheduled (`syncai-recovery-escalation-clock`); D3.01/D3.22/D3.23/
+    // D3.25/D3.37 flipped because FrameworkShelfPanel now calls
+    // create_project_framework and add_framework_stage, and already called
+    // add_framework_gate (checkpoint) and set_gate_requirement. D7.06 and
+    // D7.12 stay 🟡 with their named gaps; D7.16 stays 🟡 because a
+    // composition is not more complete than those two parts; D11.34 stays
+    // ❌ — objects standing side by side is not one real case walked
+    // through all twelve.
+    //
+    // 178/1147/128 -> 183/1202/133 (2026-09-06, Slice 7D register honesty,
+    // #360 rebased onto #361). Five quality rows flipped with backticked 7D
+    // symbols that already had live callers (`QualityManagementWorkbench`
+    // on `/risk`). The CEILING stayed at 3 — the new ✅s are checkable. No
+    // exemption, no floor lowered.
+    rowsWithAnEnforceableCitation: 183,
+    citationsEnforced: 1202,
+    claimedRowsEnforced: 133,
     // D11.04 (a CI-fence claim proved by a named test file), D11.10 (a
     // canonical seeded vocabulary, which the write-path judge would fail for
     // not being customer-writable — a question the row never asked) and
