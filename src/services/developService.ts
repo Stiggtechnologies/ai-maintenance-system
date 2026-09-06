@@ -7915,3 +7915,166 @@ export async function getSyncFieldModule(
   });
   return unwrap(data, error);
 }
+
+// ---------------------------------------------------------------------------
+// D9.02 / D9.03 / D9.04 / D9.11 / D9.13 — Realize / Learn.
+// Warranty is ram_targets. Checkpoints are value_metrics. Lessons are
+// learning_events. Every write is a definer RPC; verification stays
+// verify_value_metric (imported by the panel from operatingLoopService).
+// ---------------------------------------------------------------------------
+
+export interface WarrantyMetricPayload {
+  key: string;
+  target: number | null;
+  unit: string | null;
+}
+
+export interface OperationalWarrantyRow {
+  id: number;
+  systemLabel: string;
+  survivesHandover: boolean;
+  startupAt: string | null;
+  basis: string | null;
+  assetId: string | null;
+  metrics: WarrantyMetricPayload[];
+}
+
+export interface CaseOperationalWarranty {
+  caseId: string;
+  available: boolean;
+  reason?: string;
+  capitalProjectId?: number;
+  warranties: OperationalWarrantyRow[];
+}
+
+export interface RealizationCheckpointRow {
+  id: string;
+  label: string;
+  horizonDays: number;
+  dueOn: string | null;
+  warrantedMetric: string | null;
+  kind: "warranty" | "benefit";
+  designValue: number | null;
+  observedValue: number | null;
+  observedAt: string | null;
+  observationMethod: string | null;
+  status: string;
+  unit: string | null;
+  verifiedAt: string | null;
+}
+
+export interface CaseRealizationCheckpoints {
+  caseId: string;
+  checkpoints: RealizationCheckpointRow[];
+}
+
+export interface ProjectLessonRow {
+  id: string;
+  title: string;
+  failureModeKey: string;
+  cause: string;
+  correctiveAction: string;
+  applicability: string;
+  detail: string | null;
+  createdAt: string;
+  capitalProjectId: number | null;
+}
+
+export interface CaseProjectLessons {
+  caseId: string;
+  lessons: ProjectLessonRow[];
+}
+
+export async function getCaseOperationalWarranty(
+  caseId: string,
+): Promise<CaseOperationalWarranty> {
+  const { data, error } = await supabase.rpc("get_case_operational_warranty", {
+    p_case_id: caseId,
+  });
+  return unwrapRpc(data, error, "Could not load the operational warranty");
+}
+
+export async function getCaseRealizationCheckpoints(
+  caseId: string,
+): Promise<CaseRealizationCheckpoints> {
+  const { data, error } = await supabase.rpc(
+    "get_case_realization_checkpoints",
+    { p_case_id: caseId },
+  );
+  return unwrapRpc(data, error, "Could not load realization checkpoints");
+}
+
+export async function getCaseProjectLessons(
+  caseId: string,
+): Promise<CaseProjectLessons> {
+  const { data, error } = await supabase.rpc("get_case_project_lessons", {
+    p_case_id: caseId,
+  });
+  return unwrapRpc(data, error, "Could not load project lessons");
+}
+
+export async function recordOperationalWarranty(input: {
+  caseId: string;
+  systemLabel: string;
+  targetAvailability: number;
+  warrantyBasis: string;
+  assetId?: string | null;
+  metrics?: Record<string, { target: number; unit: string }>;
+}): Promise<{ ram_target_id: number }> {
+  const { data, error } = await supabase.rpc("record_operational_warranty", {
+    p_case_id: input.caseId,
+    p_system_label: input.systemLabel,
+    p_target_availability: input.targetAvailability,
+    p_warranty_basis: input.warrantyBasis,
+    p_asset_id: input.assetId ?? null,
+    p_metrics: input.metrics ?? {},
+  });
+  return unwrapRpc(data, error, "Could not record the operational warranty");
+}
+
+export async function openRealizationWindow(input: {
+  caseId: string;
+  startupOn: string;
+}): Promise<{ case_id: string; startup_at: string }> {
+  const { data, error } = await supabase.rpc("open_realization_window", {
+    p_case_id: input.caseId,
+    p_startup: input.startupOn,
+  });
+  return unwrapRpc(data, error, "Could not open the realization window");
+}
+
+export async function recordCheckpointObservation(input: {
+  metricId: string;
+  observedValue: number;
+  method: string;
+  evidence: string;
+}): Promise<{ metric_id: string; status: string }> {
+  const { data, error } = await supabase.rpc("record_checkpoint_observation", {
+    p_metric_id: input.metricId,
+    p_observed_value: input.observedValue,
+    p_method: input.method,
+    p_evidence: input.evidence,
+  });
+  return unwrapRpc(data, error, "Could not record the observation");
+}
+
+export async function recordProjectLesson(input: {
+  caseId: string;
+  failureModeKey: string;
+  title: string;
+  cause: string;
+  correctiveAction: string;
+  applicability: string;
+  detail?: string | null;
+}): Promise<{ lesson_id: string }> {
+  const { data, error } = await supabase.rpc("record_project_lesson", {
+    p_case_id: input.caseId,
+    p_failure_mode_key: input.failureModeKey,
+    p_title: input.title,
+    p_cause: input.cause,
+    p_corrective_action: input.correctiveAction,
+    p_applicability: input.applicability,
+    p_detail: input.detail ?? null,
+  });
+  return unwrapRpc(data, error, "Could not record the project lesson");
+}

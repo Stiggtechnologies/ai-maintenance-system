@@ -800,29 +800,32 @@ grep -qi 'not truncatable' <<<"$OUT"
 echo "── 10. §34's nineteen edges, and the absence claim CHECKED (D11.21) ─────"
 
 test "$(psqlc "select jsonb_array_length(sync_spec34_edges())")" = "19"
-# THREE since 2026-09-03. This file's own audit said what to do when an
+# TWO since 2026-09-06. This file's own audit said what to do when an
 # endpoint gets built — "`newlyClosableCount` above zero means the endpoint got
-# built and the ledger's prose is stale" — and Slice 7A (20261210090100) is
-# that happening: §27's WorkPackage and §28's Constraint both exist and
-# `restoration_constraints.work_order_id`, the column THIS audit named as the
-# closing condition, is there. The edge moved out of `absent` and out of the
-# audit's list, so the count goes down and `newlyClosableCount` returns to zero
-# rather than alarming forever.
-test "$(psqlc "select count(*) from jsonb_array_elements(sync_spec34_edges()) x where x->>'status'='absent'")" = "3"
-test "$(psqlc "select (sync_spec34_absent_edge_audit()->>'absentEdgeCount')")" = "3"
+# built and the ledger's prose is stale" — and Slice 7A (20261210090100) then
+# D9 realize (20261218090001) are that happening: first
+# `restoration_constraints.work_order_id`, then `learning_events.applicability`,
+# the columns THIS audit named as the closing conditions. Each edge moved out
+# of `absent` and out of the audit's list, so the count goes down and
+# `newlyClosableCount` returns to zero rather than alarming forever.
+test "$(psqlc "select count(*) from jsonb_array_elements(sync_spec34_edges()) x where x->>'status'='absent'")" = "2"
+test "$(psqlc "select (sync_spec34_absent_edge_audit()->>'absentEdgeCount')")" = "2"
 # ZERO newly closable: every REMAINING absence claim still holds against the
 # catalogue.
 test "$(psqlc "select (sync_spec34_absent_edge_audit()->>'newlyClosableCount')")" = "0"
-# THE TWO THAT CLOSED. 5C recorded both as absent from prose nothing checked.
+# THE THREE THAT CLOSED. 5C recorded them as absent from prose nothing checked.
 test "$(psqlc "select x->>'status' from jsonb_array_elements(sync_spec34_edges()) x where x->>'edge'='Benefit MEASURES Objective'")" = "live_elsewhere"
 test "$(psqlc "select x->>'home' from jsonb_array_elements(sync_spec34_edges()) x where x->>'edge'='Benefit MEASURES Objective'" | grep -c 'value_metrics.objective_id')" = "1"
 test "$(psqlc "select x->>'status' from jsonb_array_elements(sync_spec34_edges()) x where x->>'edge'='WorkPackage DEPENDS_ON Constraint'")" = "live_elsewhere"
 test "$(psqlc "select x->>'home' from jsonb_array_elements(sync_spec34_edges()) x where x->>'edge'='WorkPackage DEPENDS_ON Constraint'" | grep -c 'restoration_constraints.work_package_id')" = "1"
+test "$(psqlc "select x->>'status' from jsonb_array_elements(sync_spec34_edges()) x where x->>'edge'='Lesson APPLIES_TO AssetClass'")" = "live_elsewhere"
+test "$(psqlc "select x->>'home' from jsonb_array_elements(sync_spec34_edges()) x where x->>'edge'='Lesson APPLIES_TO AssetClass'" | grep -c 'learning_events.applicability')" = "1"
 # ...and the columns they name really are there, which is what made them closable.
 test "$(psqlc "select count(*) from information_schema.columns where table_schema='public' and table_name='value_metrics' and column_name='objective_id'")" = "1"
 test "$(psqlc "select count(*) from information_schema.columns where table_schema='public' and table_name='restoration_constraints' and column_name='work_order_id'")" = "1"
-# The three that did not close each name the column that would close them.
-test "$(psqlc "select count(*) from jsonb_array_elements(sync_spec34_absent_edge_audit()->'edges') x where x->>'closesWhen' is not null")" = "3"
+test "$(psqlc "select count(*) from information_schema.columns where table_schema='public' and table_name='learning_events' and column_name='applicability'")" = "1"
+# The two that did not close each name the column that would close them.
+test "$(psqlc "select count(*) from jsonb_array_elements(sync_spec34_absent_edge_audit()->'edges') x where x->>'closesWhen' is not null")" = "2"
 
 echo "── 11. the Sync Information module, composed (D11.09) ───────────────────"
 
@@ -836,7 +839,7 @@ test "$(jqp "$R" "x['legs']['documentation']['built']")" = "True"
 test "$(jqp "$R" "x['legs']['assetDataReadiness']['built']")" = "False"
 grep -q 'D11.08' <<<"$(jqp "$R" "' '.join(x['legs']['assetDataReadiness']['registerRows'])")"
 grep -qi 'ASSET-DATA READINESS IS NOT COMPUTED' <<<"$(jqp "$R" "' '.join(x['refusals'])")"
-test "$(jqp "$R" "x['graph']['absentEdgeCount']")" = "3"
+test "$(jqp "$R" "x['graph']['absentEdgeCount']")" = "2"
 if grep -qi '"score"' <<<"$R"; then echo "the composed module produced a score"; exit 1; fi
 # THE SENTENCE COUNTS WITH A VARIABLE, NOT A SPELLED NUMBER. The first draft
 # of this refusal was parameterised on the count and then hard-coded "The five
@@ -845,7 +848,7 @@ if grep -qi '"score"' <<<"$R"; then echo "the composed module produced a score";
 # that unchecked prose survives a slice. The absent count is asserted above;
 # this asserts the sentence cannot drift from it again.
 ENG_REF=$(jqp "$R" "' '.join(x['refusals'])")
-grep -q '3 of spec' <<<"$ENG_REF"
+grep -q '2 of spec' <<<"$ENG_REF"
 if grep -qi 'the five are named' <<<"$ENG_REF"; then
   echo "the engine refusal states a count in prose that its own variable contradicts"; exit 1
 fi
