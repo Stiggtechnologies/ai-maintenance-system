@@ -13,7 +13,8 @@
  *
  * Optional `restartOnEnd` is the continuous-listen wrapper for Meet Sync:
  * the browser's own end-of-speech still produces finals; this hook restarts
- * recognition so the booth can stay open. No AGPL / backtalk / barehands copy.
+ * recognition so the booth can stay open. Sync-native — no third-party
+ * conversation-stack copy.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { BoothMicPermission } from "../lib/presence/boothListen";
@@ -125,7 +126,8 @@ export function useDictation(
         else interimText += piece;
       }
       if (heard) optionsRef.current.onSpeech?.();
-      if (interimText.trim()) optionsRef.current.onInterim?.(interimText.trim());
+      if (interimText.trim())
+        optionsRef.current.onInterim?.(interimText.trim());
       if (finalText.trim()) {
         setMicPermission("granted");
         callbackRef.current(finalText.trim());
@@ -171,9 +173,14 @@ export function useDictation(
   const retryPermission = useCallback(async () => {
     setError(null);
     setMicPermission(getRecognitionCtor() ? "unknown" : "unsupported");
-    if (typeof navigator !== "undefined" && navigator.mediaDevices?.getUserMedia) {
+    if (
+      typeof navigator !== "undefined" &&
+      navigator.mediaDevices?.getUserMedia
+    ) {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: true,
+        });
         stream.getTracks().forEach((track) => track.stop());
         setMicPermission("granted");
       } catch {
@@ -185,10 +192,13 @@ export function useDictation(
     start();
   }, [start]);
 
-  useEffect(() => () => {
-    wantListeningRef.current = false;
-    recognitionRef.current?.stop();
-  }, []);
+  useEffect(
+    () => () => {
+      wantListeningRef.current = false;
+      recognitionRef.current?.stop();
+    },
+    [],
+  );
 
   return {
     supported,

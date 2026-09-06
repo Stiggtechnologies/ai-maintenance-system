@@ -174,10 +174,19 @@ export function PresenceBoothConversation({
       },
     },
   );
+  const {
+    supported: dictationSupported,
+    listening: dictationListening,
+    error: dictationError,
+    permission: dictationPermission,
+    start: startDictation,
+    stop: stopDictation,
+    retryPermission,
+  } = dictation;
 
   useEffect(() => {
-    signalsRef.current?.({ listening: dictation.listening, thinking: busy });
-  }, [busy, dictation.listening]);
+    signalsRef.current?.({ listening: dictationListening, thinking: busy });
+  }, [busy, dictationListening]);
 
   useEffect(() => {
     return () => {
@@ -194,25 +203,25 @@ export function PresenceBoothConversation({
     const auto = shouldAutoListen({
       muted,
       holdToTalk,
-      supported: dictation.supported,
+      supported: dictationSupported,
       busy,
-      micPermission: dictation.permission,
+      micPermission: dictationPermission,
     });
     if (auto && !listenPaused) {
-      dictation.start();
+      startDictation();
       return;
     }
     if (holdToTalk && holdingTalk.current) return;
-    dictation.stop();
+    stopDictation();
   }, [
     muted,
     holdToTalk,
     listenPaused,
     busy,
-    dictation.supported,
-    dictation.permission,
-    dictation.start,
-    dictation.stop,
+    dictationSupported,
+    dictationPermission,
+    startDictation,
+    stopDictation,
   ]);
 
   const persist = (
@@ -305,17 +314,17 @@ export function PresenceBoothConversation({
   sendRef.current = send;
 
   const startTalk = () => {
-    if (!holdToTalk || busy || !dictation.supported) return;
+    if (!holdToTalk || busy || !dictationSupported) return;
     holdingTalk.current = true;
     stopSpeech();
     heldTranscript.current = input.trim();
-    dictation.start();
+    startDictation();
   };
 
   const endTalk = () => {
     if (!holdToTalk || !holdingTalk.current) return;
     holdingTalk.current = false;
-    dictation.stop();
+    stopDictation();
     const text = heldTranscript.current.trim() || input.trim();
     if (text) void send(text);
   };
@@ -330,13 +339,13 @@ export function PresenceBoothConversation({
   };
 
   const micBlocked =
-    dictation.permission === "denied" || isMicBlockedError(dictation.error);
+    dictationPermission === "denied" || isMicBlockedError(dictationError);
   const voiceMode = boothVoiceMode(holdToTalk);
   const micLabel = holdToTalk
-    ? dictation.listening
+    ? dictationListening
       ? "Release to send"
       : "Hold to talk"
-    : dictation.listening
+    : dictationListening
       ? "Pause listening"
       : "Start listening";
 
@@ -369,7 +378,7 @@ export function PresenceBoothConversation({
             ? "Optional press-and-hold. Default is continuous listen."
             : muted
               ? "Muted — continuous listen is paused. Type a question or unmute."
-              : dictation.listening
+              : dictationListening
                 ? "Listening — speak when you want Sync."
                 : listenPaused
                   ? "Listening paused."
@@ -394,17 +403,19 @@ export function PresenceBoothConversation({
           <button
             type="button"
             onClick={() => {
-              void dictation.retryPermission();
+              void retryPermission();
             }}
             className="mt-1 text-[11px] text-signal-cyan hover:underline"
           >
             Enable microphone
           </button>
         </div>
-      ) : dictation.error ? (
-        <p className="mt-1 text-[11px] text-amber-400/90">{dictation.error}</p>
-      ) : !dictation.supported ? (
-        <p className="mt-1 text-[11px] text-slate-500">{MIC_UNSUPPORTED_COPY}</p>
+      ) : dictationError ? (
+        <p className="mt-1 text-[11px] text-amber-400/90">{dictationError}</p>
+      ) : !dictationSupported ? (
+        <p className="mt-1 text-[11px] text-slate-500">
+          {MIC_UNSUPPORTED_COPY}
+        </p>
       ) : null}
       <form
         className="mt-2 flex items-center gap-2"
@@ -416,7 +427,7 @@ export function PresenceBoothConversation({
         <button
           type="button"
           aria-label={micLabel}
-          disabled={!dictation.supported || busy || micBlocked}
+          disabled={!dictationSupported || busy || micBlocked}
           onPointerDown={holdToTalk ? startTalk : undefined}
           onPointerUp={holdToTalk ? endTalk : undefined}
           onPointerLeave={holdToTalk ? endTalk : undefined}
@@ -424,18 +435,18 @@ export function PresenceBoothConversation({
             holdToTalk
               ? undefined
               : () => {
-                  if (dictation.listening) {
+                  if (dictationListening) {
                     setListenPaused(true);
-                    dictation.stop();
+                    stopDictation();
                     return;
                   }
                   setListenPaused(false);
-                  dictation.start();
+                  startDictation();
                 }
           }
           className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-white/10 text-slate-300 hover:border-signal-cyan/40 hover:text-signal-cyan disabled:opacity-40"
         >
-          {dictation.listening ? (
+          {dictationListening ? (
             <Mic className="h-3.5 w-3.5 text-signal-cyan" />
           ) : (
             <MicOff className="h-3.5 w-3.5" />
@@ -445,7 +456,7 @@ export function PresenceBoothConversation({
           value={input}
           onChange={(event) => setInput(event.target.value)}
           placeholder={
-            dictation.supported
+            dictationSupported
               ? holdToTalk
                 ? "Ask about maintenance or hold to talk"
                 : "Ask about maintenance or just speak"

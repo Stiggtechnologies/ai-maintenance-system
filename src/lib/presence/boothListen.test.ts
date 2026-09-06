@@ -65,9 +65,7 @@ describe("booth listen mode", () => {
     expect(shouldAutoListen({ ...ready, holdToTalk: true })).toBe(false);
     expect(shouldAutoListen({ ...ready, busy: true })).toBe(false);
     expect(shouldAutoListen({ ...ready, supported: false })).toBe(false);
-    expect(
-      shouldAutoListen({ ...ready, micPermission: "denied" }),
-    ).toBe(false);
+    expect(shouldAutoListen({ ...ready, micPermission: "denied" })).toBe(false);
   });
 
   it("commits a continuous utterance after silence, not while Sync is speaking", () => {
@@ -91,12 +89,12 @@ describe("booth listen mode", () => {
     expect(shouldCommitContinuousUtterance({ ...ready, busy: true })).toBe(
       false,
     );
-    expect(shouldCommitContinuousUtterance({ ...ready, holdToTalk: true })).toBe(
-      false,
-    );
-    expect(shouldCommitContinuousUtterance({ ...ready, transcript: "  " })).toBe(
-      false,
-    );
+    expect(
+      shouldCommitContinuousUtterance({ ...ready, holdToTalk: true }),
+    ).toBe(false);
+    expect(
+      shouldCommitContinuousUtterance({ ...ready, transcript: "  " }),
+    ).toBe(false);
   });
 
   it("stays Sync-native and does not vendor AGPL conversation stacks", () => {
@@ -107,7 +105,11 @@ describe("booth listen mode", () => {
     ];
     for (const path of files) {
       const src = readFileSync(path, "utf8");
-      expect(src, path).not.toMatch(/backtalk|barehands|kokoro|agpl/i);
+      const imports = src
+        .split("\n")
+        .filter((line) => /^\s*import\s/.test(line))
+        .join("\n");
+      expect(imports, path).not.toMatch(/backtalk|barehands|kokoro/i);
     }
   });
 

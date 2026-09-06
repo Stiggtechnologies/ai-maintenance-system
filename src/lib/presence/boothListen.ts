@@ -19,7 +19,8 @@ export const MIC_UNSUPPORTED_COPY =
 
 export type BoothVoiceMode = "continuous" | "hold-to-talk";
 
-export type BoothMicPermission = "unknown" | "granted" | "denied" | "unsupported";
+export type BoothMicPermission =
+  "unknown" | "granted" | "denied" | "unsupported";
 
 export function defaultBoothVoiceMode(): BoothVoiceMode {
   return "continuous";

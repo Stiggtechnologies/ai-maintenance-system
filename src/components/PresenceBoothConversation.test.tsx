@@ -1,6 +1,12 @@
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import type { ComponentProps } from "react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { BOOTH_UNAVAILABLE_REPLY } from "../lib/presence/booth";
 import {
   BOOTH_UTTERANCE_SILENCE_MS,
@@ -72,10 +78,6 @@ beforeEach(() => {
   });
 });
 
-afterEach(() => {
-  vi.useRealTimers();
-});
-
 function renderBooth(
   overrides: Partial<ComponentProps<typeof PresenceBoothConversation>> = {},
 ) {
@@ -107,7 +109,9 @@ describe("PresenceBoothConversation", () => {
       "data-booth-voice-mode",
       "continuous",
     );
-    expect(screen.getByRole("checkbox", { name: /hold to talk/i })).not.toBeChecked();
+    expect(
+      screen.getByRole("checkbox", { name: /hold to talk/i }),
+    ).not.toBeChecked();
     expect(screen.queryByRole("button", { name: /hold to talk/i })).toBeNull();
     expect(
       screen.getByRole("button", { name: /start listening|pause listening/i }),
@@ -119,28 +123,33 @@ describe("PresenceBoothConversation", () => {
   it("starts continuous listen when the booth is open, unmuted, and permitted", () => {
     renderBooth();
     expect(startDictation).toHaveBeenCalled();
-    expect(screen.getByText(/Listening — speak when you want Sync|Continuous listen/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /Listening — speak when you want Sync|Continuous listen/i,
+      ),
+    ).toBeInTheDocument();
   });
 
   it("does not auto-listen when muted", () => {
     renderBooth({ muted: true });
     expect(startDictation).not.toHaveBeenCalled();
-    expect(screen.getByText(/continuous listen is paused/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/continuous listen is paused/i),
+    ).toBeInTheDocument();
   });
 
   it("sends a continuous utterance after silence", async () => {
-    vi.useFakeTimers();
     renderBooth();
     act(() => {
       onTranscript?.("How is emergency work trending?");
     });
     expect(askBooth).not.toHaveBeenCalled();
-    await act(async () => {
-      vi.advanceTimersByTime(BOOTH_UTTERANCE_SILENCE_MS);
-    });
-    await waitFor(() => {
-      expect(askBooth).toHaveBeenCalledTimes(1);
-    });
+    await waitFor(
+      () => {
+        expect(askBooth).toHaveBeenCalledTimes(1);
+      },
+      { timeout: BOOTH_UTTERANCE_SILENCE_MS + 400 },
+    );
     expect(askBooth.mock.calls[0][0]).toContain(
       "QUESTION: How is emergency work trending?",
     );
@@ -166,9 +175,13 @@ describe("PresenceBoothConversation", () => {
       "hold-to-talk",
     );
     expect(window.localStorage.getItem(PRESENCE_HOLD_TO_TALK_KEY)).toBe("1");
-    expect(screen.getByRole("button", { name: /hold to talk/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /hold to talk/i }),
+    ).toBeInTheDocument();
 
-    fireEvent.pointerDown(screen.getByRole("button", { name: /hold to talk/i }));
+    fireEvent.pointerDown(
+      screen.getByRole("button", { name: /hold to talk/i }),
+    );
     expect(startDictation).toHaveBeenCalled();
     act(() => {
       onTranscript?.("How is emergency work trending?");
