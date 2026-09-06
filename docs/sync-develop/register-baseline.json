@@ -852,22 +852,22 @@
     "backticked": 0
   },
   "D9.02": {
-    "status": "🟡",
+    "status": "✅",
     "evidence": true,
-    "citations": 4,
-    "backticked": 0
+    "citations": 17,
+    "backticked": 11
   },
   "D9.03": {
-    "status": "🟡",
+    "status": "✅",
     "evidence": true,
-    "citations": 5,
-    "backticked": 0
+    "citations": 14,
+    "backticked": 12
   },
   "D9.04": {
-    "status": "🟡",
+    "status": "✅",
     "evidence": true,
-    "citations": 3,
-    "backticked": 0
+    "citations": 9,
+    "backticked": 8
   },
   "D9.05": {
     "status": "🟡",
@@ -906,10 +906,10 @@
     "backticked": 0
   },
   "D9.11": {
-    "status": "🟡",
+    "status": "✅",
     "evidence": true,
-    "citations": 5,
-    "backticked": 0
+    "citations": 14,
+    "backticked": 14
   },
   "D9.12": {
     "status": "🟡",
@@ -918,10 +918,10 @@
     "backticked": 0
   },
   "D9.13": {
-    "status": "🟡",
+    "status": "✅",
     "evidence": true,
-    "citations": 3,
-    "backticked": 0
+    "citations": 10,
+    "backticked": 10
   },
   "D9.14": {
     "status": "🟡",

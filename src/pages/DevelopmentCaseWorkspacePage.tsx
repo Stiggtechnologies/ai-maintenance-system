@@ -96,6 +96,7 @@ import {
   ObjectiveSection,
   SuccessContractSection,
 } from "../components/develop/ValueSpinePanels";
+import { RealizeCluster } from "../components/develop/RealizePanels";
 import { CaseChainsPanel } from "../components/develop/CaseChainsPanels";
 import { IntegratedControlsPanel } from "../components/develop/ControlsPanels";
 import { PerformancePanel } from "../components/develop/PerformancePanels";
@@ -2461,6 +2462,9 @@ export function DevelopmentCaseWorkspacePage() {
     profile?.role != null && FRONTLINE_ROLES.includes(profile.role);
   const canDesignPlan =
     profile?.role != null && DESIGN_PLAN_ROLES.includes(profile.role);
+  /** D9 realize writes refuse ai_admin at the DB. Hide the forms rather than offer a refused act. */
+  const canRealize =
+    profile?.role != null && DESIGN_PLAN_ROLES.includes(profile.role);
   const canAdmin =
     profile?.role != null && ["admin", "executive"].includes(profile.role);
   const canProcure =
@@ -2821,6 +2825,7 @@ export function DevelopmentCaseWorkspacePage() {
         canPlan={canPlan}
         onChanged={() => void load()}
       />
+      <RealizeCluster caseId={workspace.id} canRealize={canRealize} />
       <DeliverablesSection
         workspace={workspace}
         members={members}
