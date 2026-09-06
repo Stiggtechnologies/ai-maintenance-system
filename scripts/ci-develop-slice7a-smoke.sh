@@ -701,7 +701,7 @@ done
 
 # §34: the edge sync_spec34_absent_edge_audit() said would close at
 # restoration_constraints.work_order_id is closed, and the ledger agrees.
-# TWO remaining after D9 realize (20261217091000) also closed Lesson
+# TWO remaining after D9 realize (20261218090001) also closed Lesson
 # APPLIES_TO AssetClass at learning_events.applicability — the other column
 # this audit named. The count goes DOWN when an endpoint is built.
 test "$(psqlc "select sync_spec34_absent_edge_audit()->>'absentEdgeCount'")" = "2"
@@ -712,13 +712,13 @@ test "$(psqlc "select jsonb_array_length(sync_spec34_absent_edge_audit()->'edges
 AUDIT=$(psqlc "select sync_spec34_absent_edge_audit()->>'note'")
 expect_text "$AUDIT" "states TWO of"
 expect_text "$AUDIT" "20261210090100 closed WorkPackage DEPENDS_ON Constraint"
-expect_text "$AUDIT" "20261217091000 closed Lesson APPLIES_TO AssetClass"
+expect_text "$AUDIT" "20261218090001 closed Lesson APPLIES_TO AssetClass"
 EDGES=$(psqlc "select count(*) from jsonb_array_elements(sync_spec34_edges()) x where x->>'status'='absent'")
 test "$EDGES" = "2"
 LEDGER=$(psqlc "select x->>'note' from jsonb_array_elements(sync_spec34_edges()) x where x->>'edge'='WorkPackage DEPENDS_ON Constraint'")
 expect_text "$LEDGER" "CORRECTED 20261210090100"
 LESSON=$(psqlc "select x->>'note' from jsonb_array_elements(sync_spec34_edges()) x where x->>'edge'='Lesson APPLIES_TO AssetClass'")
-expect_text "$LESSON" "CORRECTED 20261217091000"
+expect_text "$LESSON" "CORRECTED 20261218090001"
 
 # The case read: the chain, the work it references, the constraint position.
 R=$(rpc "$PLANNER" get_case_work_packages "{\"p_case_id\":\"$CASE\"}")

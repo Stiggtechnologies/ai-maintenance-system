@@ -803,7 +803,7 @@ test "$(psqlc "select jsonb_array_length(sync_spec34_edges())")" = "19"
 # TWO since 2026-09-06. This file's own audit said what to do when an
 # endpoint gets built — "`newlyClosableCount` above zero means the endpoint got
 # built and the ledger's prose is stale" — and Slice 7A (20261210090100) then
-# D9 realize (20261217091000) are that happening: first
+# D9 realize (20261218090001) are that happening: first
 # `restoration_constraints.work_order_id`, then `learning_events.applicability`,
 # the columns THIS audit named as the closing conditions. Each edge moved out
 # of `absent` and out of the audit's list, so the count goes down and

@@ -1280,12 +1280,12 @@ begin
       'learning_events.applicability does not exist, so Lesson APPLIES_TO AssetClass is genuinely absent and this correction would be the false claim it exists to remove.'
       using errcode = 'check_violation';
   end if;
-  if position('CORRECTED 20261217091000' in v_def) > 0 then
+  if position('CORRECTED 20261218090001' in v_def) > 0 then
     null;  -- already corrected by a previous run of this migration
   else
     v_new := replace(v_def,
       $old$'home','none — spec §33 Lesson/FRACAS object is not built','status','absent',$old$,
-      $new$'home','learning_events.applicability (20261217091000, register row D9.11)','status','live_elsewhere',$new$);
+      $new$'home','learning_events.applicability (20261218090001, register row D9.11)','status','live_elsewhere',$new$);
     if v_new = v_def then
       raise exception
         'the Lesson APPLIES_TO AssetClass entry of sync_spec34_edges was not found in the shape Slice 5C left it — do not edit a ledger blind; re-derive this correction against the current body.'
@@ -1293,8 +1293,8 @@ begin
     end if;
     v_new := replace(v_new,
       $old$'note','screen_similar_assets is the nearest live machinery and it screens ASSETS, not a lesson register. Named as absent rather than counted as covered.'$old$,
-      $new$'note','CORRECTED 20261217091000: the LESSON end is built. RULING 9 — learning_events IS §33 and now carries applicability, which is the column sync_spec34_absent_edge_audit() itself named as the closing condition (D9.11). Not on the CDE thread: the edge lives on the learning store, which has its own reads, and this ledger does not re-implement them. D9.12 auto-screening at case creation is a different residual and is not this column.'$new$);
-    if position('CORRECTED 20261217091000' in v_new) = 0 then
+      $new$'note','CORRECTED 20261218090001: the LESSON end is built. RULING 9 — learning_events IS §33 and now carries applicability, which is the column sync_spec34_absent_edge_audit() itself named as the closing condition (D9.11). Not on the CDE thread: the edge lives on the learning store, which has its own reads, and this ledger does not re-implement them. D9.12 auto-screening at case creation is a different residual and is not this column.'$new$);
+    if position('CORRECTED 20261218090001' in v_new) = 0 then
       raise exception
         'the Lesson APPLIES_TO AssetClass note of sync_spec34_edges was not found — a ledger whose status and whose note disagree is worse than one that is simply wrong, so this fails rather than moving the status alone.'
         using errcode = 'check_violation';
@@ -1364,8 +1364,8 @@ $old$, '');
     end if;
     v_new := replace(v_new,
       '20261210090100 closed WorkPackage DEPENDS_ON Constraint at restoration_constraints.work_order_id — the column this audit itself named as the closing condition',
-      '20261210090100 closed WorkPackage DEPENDS_ON Constraint at restoration_constraints.work_order_id, and three until 20261217091000 closed Lesson APPLIES_TO AssetClass at learning_events.applicability — the column this audit itself named as the closing condition');
-    if position('20261217091000 closed Lesson APPLIES_TO AssetClass' in v_new) = 0 then
+      '20261210090100 closed WorkPackage DEPENDS_ON Constraint at restoration_constraints.work_order_id, and three until 20261218090001 closed Lesson APPLIES_TO AssetClass at learning_events.applicability — the column this audit itself named as the closing condition');
+    if position('20261218090001 closed Lesson APPLIES_TO AssetClass' in v_new) = 0 then
       raise exception
         'the Slice 7A close-clause of sync_spec34_absent_edge_audit was not found — do not edit an audit blind; re-derive this correction against the current body.'
         using errcode = 'check_violation';
@@ -1376,6 +1376,6 @@ end
 $spec34auditle$;
 
 comment on function public.sync_spec34_absent_edge_audit() is
-  'D11.21 / spec III.§34 ruling 5D-R16, updated by Slice 7A and D9 realize: makes the remaining TWO absent edges falsifiable. Benefit MEASURES Objective was closed by 20261207090300; WorkPackage DEPENDS_ON Constraint was closed by 20261210090100 at restoration_constraints.work_order_id; Lesson APPLIES_TO AssetClass was closed by 20261217091000 at learning_events.applicability — the exact column this audit named as its closing condition, which is what an audit is FOR. For each remaining edge it names the table and column whose existence would close it and asks information_schema.';
+  'D11.21 / spec III.§34 ruling 5D-R16, updated by Slice 7A and D9 realize: makes the remaining TWO absent edges falsifiable. Benefit MEASURES Objective was closed by 20261207090300; WorkPackage DEPENDS_ON Constraint was closed by 20261210090100 at restoration_constraints.work_order_id; Lesson APPLIES_TO AssetClass was closed by 20261218090001 at learning_events.applicability — the exact column this audit named as its closing condition, which is what an audit is FOR. For each remaining edge it names the table and column whose existence would close it and asks information_schema.';
 
 notify pgrst, 'reload schema';

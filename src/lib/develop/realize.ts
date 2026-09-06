@@ -3,7 +3,7 @@
  *
  * PURE: no database, no network. Vocabularies MIRROR the SQL helpers
  * `sync_warranty_metric_keys()`, `sync_checkpoint_horizons()` and
- * `sync_delivery_failure_types()` (20261217091000). The slice test pins each
+ * `sync_delivery_failure_types()` (20261218090001). The slice test pins each
  * pair so a value added on one side only fails before it reaches a database.
  *
  * Canonical homes (overlap-map rulings 11–13, 9):
@@ -128,7 +128,7 @@ export function isDeliveryFailureType(
   return (DELIVERY_FAILURE_TYPES as readonly string[]).includes(value);
 }
 
-/** Same arithmetic as `startup_at + horizon days` in 20261217091000. */
+/** Same arithmetic as `startup_at + horizon days` in 20261218090001. */
 export function checkpointDueOn(
   startupOn: string,
   horizonDays: number,

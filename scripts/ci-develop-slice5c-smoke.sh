@@ -604,7 +604,7 @@ noerr "$R"
 test "$(jqp "$R" "x['refused']")" = "False"
 test "$(jqp "$R" "len(x['spec34Edges'])")" = "19"
 # TWO, not five (corrected 2026-09-01 by 20261207090300, 2026-09-03 by
-# 20261210090100, and 2026-09-06 by 20261217091000). This transcript asserted
+# 20261210090100, and 2026-09-06 by 20261218090001). This transcript asserted
 # five because this slice's ledger said five — and one of them, Benefit
 # MEASURES Objective, was already built: `value_metrics.objective_id` has
 # existed since Slice 2 (20261115090600) and register row D9.10 is ✅ and names

@@ -17,7 +17,7 @@ import { stripComments } from "./support/migrationPolicies";
 
 const sql = stripComments(
   readFileSync(
-    "supabase/migrations/20261217091000_develop_realize_warranty_lessons.sql",
+    "supabase/migrations/20261218090001_develop_realize_warranty_lessons.sql",
     "utf8",
   ),
 );
@@ -235,7 +235,7 @@ describe("§34 Lesson APPLIES_TO AssetClass — audit acted on, not left alarmin
   it("closes the edge at the column the 5D audit named, and moves the ledger", () => {
     expect(sql).toContain("add column if not exists applicability");
     expect(sql).toContain("sync_spec34_edges");
-    expect(sql).toContain("CORRECTED 20261217091000");
+    expect(sql).toContain("CORRECTED 20261218090001");
     expect(sql).toContain("learning_events.applicability");
     expect(sql).toContain("information_schema.columns");
     expect(sql).toContain(
@@ -248,7 +248,7 @@ describe("§34 Lesson APPLIES_TO AssetClass — audit acted on, not left alarmin
     expect(sql).toContain("the Lesson entry of sync_spec34_absent_edge_audit");
     expect(sql).toContain("states TWO of");
     expect(sql).toContain(
-      "20261217091000 closed Lesson APPLIES_TO AssetClass",
+      "20261218090001 closed Lesson APPLIES_TO AssetClass",
     );
     // D9.12 is a different residual — closing the column is not screening.
     expect(sql).toContain("D9.12 auto-screening");
