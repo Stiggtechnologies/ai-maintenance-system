@@ -700,9 +700,20 @@ const FLOORS: Record<string, Floors> = {
     // symbols that already had live callers (`QualityManagementWorkbench`
     // on `/risk`). The CEILING stayed at 3 — the new ✅s are checkable. No
     // exemption, no floor lowered.
-    rowsWithAnEnforceableCitation: 183,
-    citationsEnforced: 1202,
-    claimedRowsEnforced: 133,
+    //
+    // 183/1202/133 -> 186/1228/138 (2026-09-06, residual cluster). Five
+    // rows flipped: D3.19 and D11.32 were status-lag (both waiver halves
+    // already reachable on `/governance`; first Develop connector already
+    // ships under analyze-not-author); D3.29 gained estimate/schedule legs
+    // on the ONE assumption family; D4.01 binds quality_requirements to
+    // design_requirements; D4.14 publishes cyber on the live gate-requirement
+    // authoring path. The CEILING stayed at 3. No exemption, no floor
+    // lowered. D4.14 does not cite `sync_gate_readiness_categories` — that
+    // SQL vocabulary pin has no product caller; the shelf and
+    // `setGateRequirement` are the chain.
+    rowsWithAnEnforceableCitation: 186,
+    citationsEnforced: 1228,
+    claimedRowsEnforced: 138,
     // D11.04 (a CI-fence claim proved by a named test file), D11.10 (a
     // canonical seeded vocabulary, which the write-path judge would fail for
     // not being customer-writable — a question the row never asked) and

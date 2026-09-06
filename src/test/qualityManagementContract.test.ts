@@ -99,8 +99,10 @@ describe("Slice 7D production contract", () => {
     expect(row("D4.02")).toMatch(/^\| D4\.02 \|[^|]*\|[^|]*\| ✅/);
     expect(row("D4.04")).toMatch(/^\| D4\.04 \|[^|]*\|[^|]*\| ✅/);
     expect(row("D4.05")).toMatch(/^\| D4\.05 \|[^|]*\|[^|]*\| ✅/);
-    expect(row("D4.01")).toMatch(/^\| D4\.01 \|[^|]*\|[^|]*\| 🟡/);
-    expect(row("D4.01")).toContain("ONE project requirement table");
+    expect(row("D4.01")).toMatch(/^\| D4\.01 \|[^|]*\|[^|]*\| ✅/);
+    expect(row("D4.01")).toContain("`design_requirements`");
+    expect(row("D4.01")).toContain("`record_quality_requirement`");
+    expect(row("D4.01")).toContain("`QualityManagementWorkbench`");
     expect(row("D4.07")).toMatch(/^\| D4\.07 \|[^|]*\|[^|]*\| 🟡/);
     expect(row("D4.07")).toContain("six terms");
   });

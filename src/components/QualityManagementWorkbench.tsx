@@ -25,7 +25,8 @@ const ACTIONS: Array<{
   {
     key: "record_requirement",
     label: "Create quality requirement",
-    purpose: "Create a sourced, measurable requirement as a draft.",
+    purpose:
+      "Create a sourced, measurable requirement bound to a design_requirements row.",
     example: {
       requirementRef: "QR-001",
       title: "Final dimensional acceptance",
@@ -37,6 +38,7 @@ const ACTIONS: Array<{
         "All controlled dimensions within drawing tolerance.",
       verificationMethod: "measurement",
       severity: "major",
+      designRequirementId: 1,
       assetId: null,
       projectId: null,
       supplierId: null,
@@ -328,8 +330,10 @@ export function QualityManagementWorkbench() {
             <p className="mt-1 max-w-4xl text-sm leading-relaxed text-slate-400">
               Sourced requirements flow through approved ITP review, witness and
               hold points into NCR containment, costed defect/rework, evidenced
-              acceptance and independent release. This records quality
-              decisions; it does not certify compliance or authorize operation.
+              acceptance and independent release. Every new quality requirement
+              must bind to a <code>design_requirements</code> row — that is the
+              ONE project requirement table. This records quality decisions; it
+              does not certify compliance or authorize operation.
             </p>
           </div>
         </div>
@@ -483,6 +487,11 @@ export function QualityManagementWorkbench() {
                     </span>
                     <span className="text-slate-500">{item.status}</span>
                   </div>
+                  <p className="mt-1 text-[10px] text-slate-500">
+                    {item.designRequirementRef || item.designRequirementId
+                      ? `§10 ${item.designRequirementRef ?? `requirement ${item.designRequirementId}`}`
+                      : "unbound — the §10 trace cannot see this row"}
+                  </p>
                 </div>
               ))}
               {data.itpPoints
@@ -507,6 +516,16 @@ export function QualityManagementWorkbench() {
                     No requirement or ITP control has been recorded.
                   </p>
                 )}
+              {(data.unboundQualityRequirements ?? []).length > 0 && (
+                <p className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-3 text-[11px] text-amber-200">
+                  {(data.unboundQualityRequirements ?? []).length} historical
+                  quality requirement
+                  {(data.unboundQualityRequirements ?? []).length === 1
+                    ? ""
+                    : "s"}{" "}
+                  still unbound from design_requirements — named, not hidden.
+                </p>
+              )}
             </div>
           </section>
 

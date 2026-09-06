@@ -45,6 +45,15 @@ values('$ORG','Q7D-CI','Slice 7D quality acceptance','active') returning id;
 SQL
 )
 test -n "$PROJECT"
+DESIGN=$(PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -qAt -v ON_ERROR_STOP=1 <<SQL
+insert into design_requirements(organization_id, project_id, requirement_ref, category, requirement, source)
+values('$ORG', $PROJECT, 'Q7D-DR-1', 'quality', 'Dimensional acceptance shall be controlled against the approved drawing.', 'engineering')
+on conflict (organization_id, requirement_ref)
+do update set project_id = excluded.project_id
+returning id;
+SQL
+)
+test -n "$DESIGN"
 
 PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -q -v ON_ERROR_STOP=1 <<SQL
 insert into organizations(id,name,industry)
@@ -56,9 +65,12 @@ SQL
 CROSS=$(rpc "$DEMO" record_quality_requirement '{"p_record":{"requirementRef":"Q7D-CROSS","title":"Cross tenant attempt","requirementText":"This requirement must never cross the tenant boundary.","sourceKind":"design","sourceReference":"Q7D-CROSS-SOURCE","acceptanceCriterion":"Controlled value remains within the approved limit.","verificationMethod":"measurement","severity":"major","assetId":"7d000000-0000-4000-8000-000000000004"}}')
 expect_error "$CROSS" 'outside this organization'
 
-REQ_PAYLOAD=$(PROJECT="$PROJECT" python3 - <<'PY'
+UNBOUND=$(rpc "$DEMO" record_quality_requirement '{"p_record":{"requirementRef":"Q7D-UNBOUND","title":"Unbound quality row","requirementText":"A quality requirement with no design_requirements parent is a parallel store.","sourceKind":"design","sourceReference":"Q7D-UNBOUND-SOURCE","acceptanceCriterion":"Must never persist without a §10 binding.","verificationMethod":"measurement","severity":"major"}}')
+expect_error "$UNBOUND" 'ONE project requirement table'
+
+REQ_PAYLOAD=$(PROJECT="$PROJECT" DESIGN="$DESIGN" python3 - <<'PY'
 import json,os
-print(json.dumps({'p_record':{'requirementRef':'Q7D-QR-1','title':'Controlled dimensional acceptance','requirementText':'Completed item shall meet every controlled drawing dimension.','sourceKind':'design','sourceReference':'Q7D-DWG-1 revision C','acceptanceCriterion':'All controlled dimensions are within drawing tolerance.','verificationMethod':'measurement','severity':'major','projectId':int(os.environ['PROJECT'])}}))
+print(json.dumps({'p_record':{'requirementRef':'Q7D-QR-1','title':'Controlled dimensional acceptance','requirementText':'Completed item shall meet every controlled drawing dimension.','sourceKind':'design','sourceReference':'Q7D-DWG-1 revision C','acceptanceCriterion':'All controlled dimensions are within drawing tolerance.','verificationMethod':'measurement','severity':'major','projectId':int(os.environ['PROJECT']),'designRequirementId':int(os.environ['DESIGN'])}}))
 PY
 )
 REQ_RESULT=$(rpc "$DEMO" record_quality_requirement "$REQ_PAYLOAD"); noerr "$REQ_RESULT"

@@ -64,6 +64,9 @@ describe("QualityManagementWorkbench", () => {
     expect(
       screen.getByLabelText("Quality action").querySelectorAll("option"),
     ).toHaveLength(13);
+    expect(
+      screen.getByText(/ONE project requirement table/),
+    ).toBeInTheDocument();
   });
 
   it("refuses malformed action JSON before execution", async () => {
