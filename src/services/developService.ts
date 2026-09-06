@@ -948,6 +948,8 @@ export async function recordCaseAssumption(input: {
   ownerId: string;
   confidence?: number;
   businessCaseId?: number | null;
+  scheduleActivityId?: number | null;
+  dependencies?: Array<{ subjectType: string; subjectId: string }>;
   thresholdParameter?: string | null;
   thresholdComparator?: string | null;
   thresholdValue?: number | null;
@@ -961,6 +963,11 @@ export async function recordCaseAssumption(input: {
       owner_id: input.ownerId,
       confidence: input.confidence ?? 0,
       business_case_id: input.businessCaseId ?? null,
+      schedule_activity_id: input.scheduleActivityId ?? null,
+      dependencies: (input.dependencies ?? []).map((d) => ({
+        subject_type: d.subjectType,
+        subject_id: d.subjectId,
+      })),
       threshold_parameter: input.thresholdParameter ?? null,
       threshold_comparator: input.thresholdComparator ?? null,
       threshold_value: input.thresholdValue ?? null,
@@ -968,6 +975,43 @@ export async function recordCaseAssumption(input: {
     },
   });
   return unwrapRpc(data, error, "Could not record the assumption");
+}
+
+export interface CaseAssumptionLinks {
+  caseId: string;
+  assumptions: Array<{
+    assumptionId: string;
+    statement: string;
+    status: string;
+    businessCaseId: number | null;
+    scheduleActivityId: number | null;
+    scheduleActivityLabel: string | null;
+    dependencies: Array<{
+      subjectType: string;
+      subjectId: string;
+      estimateRef: string | null;
+    }>;
+  }>;
+  estimateSubjects: Array<{
+    id: string;
+    costItemRef: string;
+    description: string;
+  }>;
+  scheduleSubjects: Array<{
+    id: number;
+    taskKey: string;
+    label: string;
+    eventTitle: string;
+  }>;
+}
+
+export async function getCaseAssumptionLinks(
+  caseId: string,
+): Promise<CaseAssumptionLinks> {
+  const { data, error } = await supabase.rpc("get_case_assumption_links", {
+    p_case_id: caseId,
+  });
+  return unwrapRpc(data, error, "Could not load assumption links");
 }
 
 export async function recordCaseValueEvaluation(input: {

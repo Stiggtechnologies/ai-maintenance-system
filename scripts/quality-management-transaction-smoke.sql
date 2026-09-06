@@ -7,6 +7,14 @@ values('7d100000-0000-4000-8000-000000000001','11111111-1111-1111-1111-111111111
 insert into public.work_orders(id,organization_id,wo_number,title,status,type)
 values('7d100000-0000-4000-8000-000000000002','11111111-1111-1111-1111-111111111111',
   'Q7D-TXN-WO','Rollback-only rework order','in_progress','human_created');
+insert into public.design_requirements(
+  organization_id, requirement_ref, category, requirement, source)
+values(
+  '11111111-1111-1111-1111-111111111111',
+  'Q7D-TXN-DR',
+  'quality',
+  'Dimensional acceptance shall be controlled against the approved drawing.',
+  'engineering');
 
 do $$
 declare
@@ -14,16 +22,35 @@ declare
   v_admin constant uuid:='00000000-0000-0000-0000-000000000006';
   v_evidence constant uuid:='7d100000-0000-4000-8000-000000000001';
   v_work constant uuid:='7d100000-0000-4000-8000-000000000002';
+  v_design bigint;
   v jsonb; v_req bigint; v_itp bigint; v_point bigint; v_witness bigint; v_ncr bigint;
   v_defect bigint; v_test bigint; v_legacy_test bigint; v_copq numeric; v_metric_count integer;
 begin
+  select id into v_design from public.design_requirements
+   where organization_id='11111111-1111-1111-1111-111111111111'
+     and requirement_ref='Q7D-TXN-DR';
+  if v_design is null then
+    raise exception 'expected Q7D-TXN-DR on design_requirements';
+  end if;
+
   perform set_config('request.jwt.claims',jsonb_build_object('sub',v_demo,'role','authenticated')::text,true);
+  v:=public.record_quality_requirement(jsonb_build_object(
+    'requirementRef','Q7D-TXN-UNBOUND','title','Unbound quality row',
+    'requirementText','A quality requirement with no design_requirements parent is a parallel store.',
+    'sourceKind','design','sourceReference','Q7D-UNBOUND-SOURCE',
+    'acceptanceCriterion','Must never persist without a §10 binding.',
+    'verificationMethod','measurement','severity','major','workOrderId',v_work));
+  if v->>'error' not like '%ONE project requirement table%' then
+    raise exception 'unbound quality requirement was not refused: %',v;
+  end if;
+
   v:=public.record_quality_requirement(jsonb_build_object(
     'requirementRef','Q7D-TXN-QR','title','Controlled dimensional acceptance',
     'requirementText','Completed item shall meet every controlled drawing dimension.',
     'sourceKind','design','sourceReference','Q7D-DWG revision C',
     'acceptanceCriterion','All controlled dimensions are within drawing tolerance.',
-    'verificationMethod','measurement','severity','major','workOrderId',v_work));
+    'verificationMethod','measurement','severity','major','workOrderId',v_work,
+    'designRequirementId',v_design));
   if v ? 'error' then raise exception 'requirement failed: %',v; end if;
   v_req:=(v->>'id')::bigint;
   v:=public.approve_quality_requirement(v_req,'Author cannot independently approve this requirement.');
