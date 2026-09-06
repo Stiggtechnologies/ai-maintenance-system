@@ -1,8 +1,9 @@
 /**
  * Thin Meet Sync booth conversation on the signed-in presence strip.
  *
- * Voice: browser SpeechRecognition (useDictation) + speechSynthesis
- * (useSpeechOutput). Answers: askBoothConversation → ai-agent-processor
+ * Voice: browser SpeechRecognition (useDictation) + useSpeechOutput
+ * (cloud sync-tts when configured, speechSynthesis fallback). Answers:
+ * askBoothConversation → ai-agent-processor
  * ReliabilityAgent. Session transcript in sessionStorage. Decision Case
  * continuity from the existing draft store + honesty helpers.
  * Recommend ≠ authorize.

@@ -19,13 +19,16 @@ const voiceOutput = {
   refetch: vi.fn(),
 };
 
+const speech = {
+  supported: true,
+  speaking: false,
+  engine: "browser" as "unknown" | "cloud" | "browser",
+  speak,
+  stop,
+};
+
 vi.mock("../hooks/useSpeechOutput", () => ({
-  useSpeechOutput: () => ({
-    supported: true,
-    speaking: false,
-    speak,
-    stop,
-  }),
+  useSpeechOutput: () => speech,
 }));
 
 vi.mock("../hooks/useFeatureFlag", () => ({
@@ -94,6 +97,7 @@ beforeEach(() => {
   speak.mockReset();
   stop.mockReset();
   loadDashboard.mockReset();
+  speech.engine = "browser";
   voiceOutput.enabled = true;
   voiceOutput.loading = false;
   voiceOutput.error = null;
@@ -285,6 +289,24 @@ describe("PresenceWelcome", () => {
     expect(
       screen.getByRole("button", { name: /play welcome/i }),
     ).toBeInTheDocument();
+  });
+
+  it("does not claim premium quality when the speech engine is browser fallback", async () => {
+    speech.engine = "browser";
+    render(<PresenceWelcome />);
+    const honesty = await screen.findByTestId("presence-honesty");
+    expect(honesty).toHaveTextContent(/browser TTS/i);
+    expect(honesty).not.toHaveTextContent(/premium/i);
+    expect(honesty).not.toHaveTextContent(/cloud voice/i);
+  });
+
+  it("names a configured cloud voice without calling it premium", async () => {
+    speech.engine = "cloud";
+    render(<PresenceWelcome />);
+    const honesty = await screen.findByTestId("presence-honesty");
+    expect(honesty).toHaveTextContent(/configured cloud voice/i);
+    expect(honesty).not.toHaveTextContent(/premium/i);
+    expect(honesty).not.toHaveTextContent(/browser TTS/i);
   });
 
   it("falls back to an unnamed spoken welcome without guessing Orville", async () => {

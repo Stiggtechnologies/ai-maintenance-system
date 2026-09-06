@@ -8,6 +8,7 @@ import {
   HONEST_EMPTY_BRIEF,
   UNNAMED_SPOKEN_WELCOME,
   buildSpokenWelcome,
+  describePresenceVoiceHonesty,
   hasSessionWelcome,
   markSessionWelcome,
   presenceSessionStorageKey,
@@ -120,6 +121,32 @@ describe("presence welcome speech gate", () => {
         voiceOutputEnabled: false,
       }),
     ).toBe(true);
+  });
+});
+
+describe("presence voice honesty", () => {
+  it("does not claim premium or cloud quality when the engine is browser", () => {
+    const copy = describePresenceVoiceHonesty({
+      voiceOutputReady: true,
+      voiceOutputEnabled: false,
+      speechEngine: "browser",
+    });
+    expect(copy).toMatch(/browser speech/i);
+    expect(copy).toMatch(/still gates CopilotDock/i);
+    expect(copy).not.toMatch(/premium/i);
+    expect(copy).not.toMatch(/cloud voice/i);
+    expect(copy).not.toMatch(/ElevenLabs/i);
+  });
+
+  it("names a configured cloud voice only after sync-tts reports configured", () => {
+    const copy = describePresenceVoiceHonesty({
+      voiceOutputReady: true,
+      voiceOutputEnabled: true,
+      speechEngine: "cloud",
+    });
+    expect(copy).toMatch(/configured cloud voice/i);
+    expect(copy).not.toMatch(/premium/i);
+    expect(copy).not.toMatch(/browser TTS/i);
   });
 });
 

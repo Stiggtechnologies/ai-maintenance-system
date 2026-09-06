@@ -57,6 +57,13 @@ OPENAI_API_KEY=sk-proj-XXXXXXXXXXXXX
 - `model-router` - Model selection and routing
 - `ai-agent-processor` - Agent coordination
 - `rag-semantic-search` - Semantic embeddings
+- `sync-tts` - Meet Sync / Sync short-utterance speech (OpenAI Speech)
+
+Optional voice override for `sync-tts` (default `onyx`):
+
+```bash
+SYNC_TTS_VOICE=onyx
+```
 
 **How to get:**
 

@@ -1,10 +1,11 @@
 /**
  * Signed-in presence strip for the main AppShell.
  *
- * Audio path: browser Web Speech API via useSpeechOutput (speechSynthesis).
- * Meet Sync speaks a Reliability Engineer greeting once per tab session when
- * not muted. Tenant sync_voice_output still gates CopilotDock and is named
- * in the honesty line. KPI brief is text-only from get_kpi_dashboard.
+ * Audio path: useSpeechOutput — signed-in `sync-tts` (OpenAI Speech) when
+ * configured, browser speechSynthesis only as fallback. Meet Sync speaks a
+ * Reliability Engineer greeting once per tab session when not muted. Tenant
+ * sync_voice_output still gates CopilotDock and is named in the honesty
+ * line. KPI brief is text-only from get_kpi_dashboard.
  * Mute is remembered in localStorage. Recommend is not authorize.
  */
 import { useCallback, useEffect, useState } from "react";
@@ -19,6 +20,7 @@ import {
 import { derivePresencePhase } from "../lib/presence/state";
 import {
   buildSpokenWelcome,
+  describePresenceVoiceHonesty,
   hasSessionWelcome,
   markSessionWelcome,
   readMutePreference,
@@ -44,7 +46,7 @@ const SECONDARY_BUTTON_CLASS =
 
 export function PresenceWelcome() {
   const { user, profile, loading } = useAuth();
-  const { speak, stop, speaking } = useSpeechOutput();
+  const { speak, stop, speaking, engine } = useSpeechOutput();
   const voiceOutput = useFeatureFlag("sync_voice_output");
   const voiceOutputEnabled = voiceOutput.enabled;
   const voiceOutputReady = !voiceOutput.loading;
@@ -175,11 +177,11 @@ export function PresenceWelcome() {
 
   if (loading || !user) return null;
 
-  const honesty = !voiceOutputReady
-    ? "Meet Sync uses browser speech when unmuted. Not autonomous control. Recommend is not authorize."
-    : voiceOutputEnabled
-      ? "Meet Sync browser TTS. Tenant Voice output (`sync_voice_output`) is also on for CopilotDock. Recommend is not authorize."
-      : "Meet Sync uses browser speech when unmuted. Tenant Voice output (`sync_voice_output`) still gates CopilotDock — enable it in Settings → Sync. Recommend is not authorize.";
+  const honesty = describePresenceVoiceHonesty({
+    voiceOutputReady,
+    voiceOutputEnabled,
+    speechEngine: engine,
+  });
 
   const strip = (
     <div className="flex items-start justify-between gap-3">
