@@ -1,12 +1,29 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-const MIGRATION =
-  "supabase/migrations/20260921090000_sync_recovery.sql";
+const MIGRATION = "supabase/migrations/20260921090000_sync_recovery.sql";
 const SECURITY =
   "supabase/migrations/20260921090100_sync_recovery_security.sql";
+/**
+ * Migrations that REDEFINE a function this suite asserts about, in apply
+ * order. `functionBody` resolves the LAST definition, so the assertions follow
+ * the LIVE door rather than the text of the file that first created it.
+ *
+ * Slice 7B moved `start_restoration_work`'s material and permit/isolation
+ * rules into the shared field-readiness predicate. This suite kept reading
+ * 20260921090000 and stayed green over a definition the database no longer
+ * has: deleting the live gate, or dropping its pinned search_path, would have
+ * left every assertion here passing. A test that guards a corpse is worse than
+ * no test, because it reports coverage it does not have.
+ */
+const REDEFINITIONS = [
+  "supabase/migrations/20261211090000_develop_field_readiness_engine.sql",
+];
 const sql = readFileSync(MIGRATION, "utf8");
 const lower = sql.toLowerCase().replace(/\s+/g, " ");
+const later = REDEFINITIONS.map((path) =>
+  readFileSync(path, "utf8").toLowerCase().replace(/\s+/g, " "),
+);
 const security = readFileSync(SECURITY, "utf8").toLowerCase();
 const approvalQueue = readFileSync("src/components/ApprovalQueue.tsx", "utf8");
 
@@ -41,11 +58,21 @@ const DEFINER_FUNCTIONS = [
   "get_recovery_opportunities(uuid,numeric)",
 ];
 
+function bodyIn(haystack: string, name: string): string | null {
+  const start = haystack.indexOf(`function public.${name.toLowerCase()}(`);
+  if (start === -1) return null;
+  const next = haystack.indexOf("create or replace function", start + 20);
+  return haystack.slice(start, next === -1 ? haystack.length : next);
+}
+
+/** The LIVE definition: the last one any applied migration wrote. */
 function functionBody(name: string): string {
-  const start = lower.indexOf(`function public.${name.toLowerCase()}(`);
-  expect(start, `${name} function not found`).toBeGreaterThan(-1);
-  const next = lower.indexOf("create or replace function", start + 20);
-  return lower.slice(start, next === -1 ? lower.length : next);
+  let found = bodyIn(lower, name);
+  for (const source of later) {
+    found = bodyIn(source, name) ?? found;
+  }
+  expect(found, `${name} function not found`).not.toBeNull();
+  return found as string;
 }
 
 describe("Sync Recovery extends the canonical operating system", () => {
@@ -113,7 +140,9 @@ describe("fail-closed planning contracts", () => {
     const generate = functionBody("generate_restoration_plan");
     expect(generate).toContain("case when h.n>=5 then h.p80");
     expect(generate).toContain("when w.planned_hours>0 then w.planned_hours");
-    expect(generate).toContain("when w.estimated_hours>0 then w.estimated_hours");
+    expect(generate).toContain(
+      "when w.estimated_hours>0 then w.estimated_hours",
+    );
     expect(generate).toContain("else 'missing' end duration_basis");
     expect(generate).toContain("case when bool_and(hist_n>=5) then");
   });
@@ -183,12 +212,34 @@ describe("approval and scope-growth controls", () => {
 
 describe("execution and return-to-service gates", () => {
   it("rechecks materials and canonical release/isolation before field start", () => {
+    // THE RULES MOVED; THE GATE DID NOT. Slice 7B (RULING 22) took the
+    // material and permit/isolation readings out of this door and into ONE
+    // predicate both doors consume, so the five strings below are asserted
+    // where they now live — and the DOOR is asserted to refuse through them.
     const start = functionBody("start_restoration_work");
-    expect(start).toContain("from work_order_materials");
-    expect(start).toContain("status in ('requested','short')");
-    expect(start).toContain("from equipment_releases r");
-    expect(start).toContain("r.isolation_confirmed");
-    expect(start).toContain("from job_plan_permits");
+    expect(start).toContain(
+      "sync_field_readiness_blockers(v_ready, array['materials','isolation'])",
+    );
+    // A payload the predicate could not answer is a refusal here, never an
+    // empty blocker list read as "nothing blocks".
+    expect(start).toContain("(v_ready->>'answered')::boolean");
+    expect(start).toContain("'error', v_ready->>'refusal'");
+
+    const predicate = functionBody("sync_field_readiness_elements");
+    expect(predicate).toContain("from work_order_materials");
+    expect(predicate).toContain("status in ('requested', 'short')");
+    expect(predicate).toContain("from equipment_releases r");
+    expect(predicate).toContain("r.isolation_confirmed");
+    expect(predicate).toContain("from job_plan_permits");
+  });
+
+  it("keeps the shared field-readiness predicate a pinned-search_path definer", () => {
+    // It reads canonical stores across four schemas' worth of tables on behalf
+    // of two doors. An unpinned search_path on a definer is the escalation
+    // this repository has a baseline gate for.
+    const predicate = functionBody("sync_field_readiness_elements");
+    expect(predicate).toContain("security definer");
+    expect(predicate).toContain("set search_path = public");
   });
 
   it("requires every job-plan quality check to pass before work completion", () => {

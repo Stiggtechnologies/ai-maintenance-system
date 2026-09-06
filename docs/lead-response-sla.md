@@ -157,11 +157,14 @@ config on every single insert, rather than returning silently.
 carries the secrets. They are no-ops with a `::warning::` in the Actions log
 otherwise, and both are idempotent:
 
-| Repository secret         | What the deploy does with it                                 |
-| ------------------------- | ------------------------------------------------------------ |
-| `RESEND_API_KEY`          | `supabase secrets set RESEND_API_KEY=…` on the project.      |
-| `SUPABASE_DB_URL`         | psql connection used to call `configure_lead_notify()`.      |
-| `LEAD_NOTIFY_SERVICE_KEY` | the bearer token pg_net will present. See "Which key" below. |
+| Repository secret         | What the deploy does with it                                                                |
+| ------------------------- | ------------------------------------------------------------------------------------------- |
+| `RESEND_API_KEY`          | `supabase secrets set RESEND_API_KEY=…` on the project.                                     |
+| `LEAD_NOTIFY_SERVICE_KEY` | Calls the service-role-only configuration RPC and becomes the bearer token pg_net presents. |
+
+The workflow calls `configure_lead_notify()` through PostgREST with the secret
+API key. A database password/`SUPABASE_DB_URL` is intentionally not copied into
+GitHub for this one configuration call.
 
 **Which key.** JWT verification stays **on** for `lead-notify` (it is not in
 `allowedNoVerifyJwt`), so the bearer token pg_net sends must be one the

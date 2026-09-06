@@ -43,18 +43,21 @@ for (const name of active) {
 }
 for (const name of allowedNoVerify) {
   if (!active.includes(name)) {
-    failures.push(`${name} cannot bypass platform JWT outside the active boundary`);
+    failures.push(
+      `${name} cannot bypass platform JWT outside the active boundary`,
+    );
   }
 }
 
 if (/supabase\s+functions\s+deploy\s+--all\b/.test(workflow)) {
-  failures.push("deploy --all is prohibited; functions must be explicitly allowlisted");
+  failures.push(
+    "deploy --all is prohibited; functions must be explicitly allowlisted",
+  );
 }
 
 const deploys = [];
 const noVerifyDeploys = [];
-const deployPattern =
-  /supabase\s+functions\s+deploy\s+([a-z0-9-]+)([^\n]*)/g;
+const deployPattern = /supabase\s+functions\s+deploy\s+([a-z0-9-]+)([^\n]*)/g;
 for (const match of workflow.matchAll(deployPattern)) {
   deploys.push(match[1]);
   if (/--no-verify-jwt\b/.test(match[2])) noVerifyDeploys.push(match[1]);
@@ -78,14 +81,21 @@ for (const name of active) {
   }
 }
 for (const name of blocked) {
-  if (deploys.includes(name)) failures.push(`blocked legacy function ${name} is deployed`);
+  if (deploys.includes(name))
+    failures.push(`blocked legacy function ${name} is deployed`);
   if (workflow.includes(`supabase/functions/${name}/**`)) {
     failures.push(`blocked legacy function ${name} is in deployment triggers`);
   }
 }
 
-if (!workflow.includes("uses: supabase/setup-cli@v2")) {
-  failures.push("deployment workflow must use supported supabase/setup-cli@v2");
+if (
+  !/uses:\s*supabase\/setup-cli@[0-9a-f]{40}\s+#\s+v2(?:\.|\s|$)/i.test(
+    workflow,
+  )
+) {
+  failures.push(
+    "deployment workflow must use a full-length immutable SHA for supported supabase/setup-cli v2",
+  );
 }
 if (!workflow.includes(`version: ${boundary.supabaseCliVersion}`)) {
   failures.push(

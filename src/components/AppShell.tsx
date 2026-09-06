@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
+import { useMediaQuery } from "../lib/useMediaQuery";
+import { trackUiEvent } from "../services/uiEvents";
 import {
-  Zap,
   ChevronLeft,
   ChevronRight,
   LogOut,
@@ -8,7 +9,6 @@ import {
   ChevronDown,
   Shield,
   Wifi,
-  Activity,
   Target,
   Bot,
   Factory,
@@ -26,6 +26,11 @@ import {
   Users,
   Bell,
   Command,
+  Menu,
+  Home,
+  Boxes,
+  Map as MapIcon,
+  MoreHorizontal,
 } from "lucide-react";
 import { platformService, UserContext } from "../services/platform";
 import { supabase } from "../lib/supabase";
@@ -35,8 +40,10 @@ import {
   type NotificationRow,
 } from "../services/operatingLoopService";
 import { motion, AnimatePresence } from "framer-motion";
+import { BrandWordmark } from "./BrandWordmark";
 import { CommandSearch } from "./CommandSearch";
 import { CopilotDock } from "./CopilotDock";
+import { PresenceWelcome } from "./PresenceWelcome";
 import { useAuth } from "./AuthProvider";
 import { isNavItemVisible } from "../lib/roleNavigation";
 
@@ -99,7 +106,7 @@ const navGroups: NavGroup[] = [
       {
         id: "cowork",
         label: "Decision Workspace",
-        path: "/decision-cases/demo",
+        path: "/decision-cases",
       },
     ],
   },
@@ -135,12 +142,13 @@ const navGroups: NavGroup[] = [
         label: "Failure Modes & Strategy",
         path: "/reliability",
       },
-      { id: "risk", label: "Risk & Consequence", path: "/risk" },
+      { id: "risk", label: "Risk Operating System", path: "/risk" },
       {
         id: "intervals",
         label: "Interval Decisions",
         path: "/reliability/intervals",
       },
+      { id: "knowledge", label: "Knowledge Base", path: "/knowledge" },
     ],
   },
   {
@@ -167,6 +175,7 @@ const navGroups: NavGroup[] = [
     label: "Whole Life",
     icon: Layers,
     items: [
+      { id: "develop", label: "Sync Develop", path: "/develop" },
       { id: "lifecycle", label: "Lifecycle Position", path: "/lifecycle" },
       {
         id: "lifecycle-decisions",
@@ -186,6 +195,7 @@ const navGroups: NavGroup[] = [
     icon: Wrench,
     items: [
       { id: "notifications", label: "Notifications", path: "/notifications" },
+      { id: "field", label: "Field", path: "/field" },
       { id: "work", label: "Work Action Board", path: "/work" },
       {
         id: "scheduling",
@@ -284,6 +294,13 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
     .filter((group) => group.items.length > 0);
   const [userContext, setUserContext] = useState<UserContext | null>(null);
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const isMobile = !useMediaQuery("(min-width: 768px)");
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  useEffect(() => {
+    setDrawerOpen(false);
+    trackUiEvent("page_view");
+  }, [currentPath]);
+
   const [sites, setSites] = useState<Site[]>([]);
   const [selectedSiteId, setSelectedSiteId] = useState<string | null>(null);
   const [sitePickerOpen, setSitePickerOpen] = useState(false);
@@ -316,6 +333,15 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
+
+  useEffect(() => {
+    if (!drawerOpen) return;
+    const onEscape = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setDrawerOpen(false);
+    };
+    window.addEventListener("keydown", onEscape);
+    return () => window.removeEventListener("keydown", onEscape);
+  }, [drawerOpen]);
 
   useEffect(() => {
     if (userContext) {
@@ -421,28 +447,33 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
   return (
     <div className="flex h-screen bg-overlook-void overflow-hidden">
       {/* Sidebar */}
+      {/* Mobile drawer backdrop */}
+      {drawerOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/60 md:hidden"
+          onClick={() => setDrawerOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
       <motion.aside
-        animate={{ width: isCollapsed ? 64 : 240 }}
+        animate={{ width: isMobile ? 240 : isCollapsed ? 64 : 240 }}
         transition={{ duration: 0.2, ease: "easeInOut" }}
-        className="bg-overlook-void border-r border-white/5 shrink-0 overflow-hidden flex flex-col z-20"
+        className={`fixed md:relative inset-y-0 left-0 z-50 h-full bg-overlook-void border-r border-white/5 shrink-0 overflow-hidden flex flex-col transition-transform duration-200 md:transition-none ${
+          drawerOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
+        }`}
       >
         {/* Logo */}
-        <div className="h-14 px-4 flex items-center gap-3 border-b border-white/5 shrink-0">
-          <div className="w-8 h-8 bg-linear-to-br from-teal-500 to-cyan-400 rounded-lg flex items-center justify-center shrink-0 shadow-[0_0_20px_rgba(20,184,166,0.4)]">
-            <Zap className="w-4 h-4 text-white" />
-          </div>
+        <div className="h-14 px-3 flex flex-col justify-center border-b border-white/5 shrink-0 overflow-hidden">
+          <BrandWordmark />
           {!isCollapsed && (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
+              className="mt-2 text-[10px] font-medium uppercase tracking-widest text-slate-400 leading-none"
             >
-              <div className="text-sm font-bold text-white tracking-wide">
-                SyncAI
-              </div>
-              <div className="text-xs text-slate-400 font-medium tracking-widest uppercase">
-                Mission Assurance
-              </div>
+              Reliability Engineer
             </motion.div>
           )}
         </div>
@@ -561,12 +592,12 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
                                 : "px-4 py-2"
                             } ${
                               active
-                                ? "text-signal-gold bg-signal-gold/10"
+                                ? "text-signal-cyan bg-signal-cyan/10"
                                 : "text-overlook-mist/75 hover:text-overlook-paper hover:bg-white/3"
                             }`}
                           >
                             {active && (
-                              <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-signal-gold rounded-r" />
+                              <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-signal-cyan rounded-r" />
                             )}
                             {!isCollapsed && (
                               <span className="text-sm font-medium">
@@ -608,8 +639,9 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
           </button>
           {!isCollapsed && (
             <div className="mt-2 px-2 py-1">
-              <div className="text-xs text-slate-400">
-                SyncAI Platform v3.0 · build {__BUILD_SHA__}
+              <BrandWordmark className="h-5" />
+              <div className="mt-1 text-[10px] text-slate-500">
+                Platform v3.0 · build {__BUILD_SHA__}
               </div>
             </div>
           )}
@@ -620,12 +652,23 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
       <div className="flex-1 flex flex-col overflow-hidden min-w-0">
         {/* Top Bar */}
         <header className="h-14 bg-overlook-void/80 backdrop-blur-md border-b border-white/5 px-4 flex items-center justify-between shrink-0 z-10">
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 min-w-0 flex-1">
+            <button
+              onClick={() => {
+                trackUiEvent("drawer_open");
+                setDrawerOpen(true);
+              }}
+              aria-label="Open navigation"
+              aria-expanded={drawerOpen}
+              className="md:hidden p-2 rounded-md text-slate-300 hover:text-signal-cyan hover:bg-signal-cyan/10 transition-colors focus:outline-hidden focus-visible:ring-2 focus-visible:ring-teal-300"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
             <button
               onClick={() => setIsCollapsed(!isCollapsed)}
               aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
               aria-expanded={!isCollapsed}
-              className="p-1.5 rounded-md text-slate-400 hover:text-signal-cyan hover:bg-signal-cyan/10 transition-colors focus:outline-hidden focus-visible:ring-2 focus-visible:ring-teal-300"
+              className="hidden md:inline-flex p-1.5 rounded-md text-slate-400 hover:text-signal-cyan hover:bg-signal-cyan/10 transition-colors focus:outline-hidden focus-visible:ring-2 focus-visible:ring-teal-300"
             >
               {isCollapsed ? (
                 <ChevronRight className="w-4 h-4" />
@@ -633,14 +676,14 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
                 <ChevronLeft className="w-4 h-4" />
               )}
             </button>
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-semibold text-slate-200">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="text-sm font-semibold text-slate-200 truncate">
                 {getPageTitle()}
               </span>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 shrink-0">
             {/* System status is evidence-neutral until live status evidence is loaded. */}
             <div
               className="hidden md:flex items-center gap-2 text-xs"
@@ -669,7 +712,7 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
               </div>
             </div>
 
-            <div className="w-px h-5 bg-white/6" />
+            <div className="hidden sm:block w-px h-5 bg-white/6" />
 
             {/* Autonomy Badge */}
             <div
@@ -679,7 +722,7 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
               <span className="hidden sm:block">{AUTONOMY_MODE}</span>
             </div>
 
-            <div className="w-px h-5 bg-white/6" />
+            <div className="hidden sm:block w-px h-5 bg-white/6" />
 
             {/* Alerts */}
             <div className="relative">
@@ -758,11 +801,80 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
           </div>
         </header>
 
+        <PresenceWelcome />
+
         {/* Page Content */}
-        <main className="flex-1 overflow-auto bg-overlook-void min-w-0">
+        <main className="flex-1 overflow-auto bg-overlook-void min-w-0 pb-20 md:pb-0">
           {children}
         </main>
       </div>
+
+      {/* Mobile bottom tab bar — thumb-reach navigation (hidden on desktop). */}
+      <nav
+        aria-label="Primary mobile navigation"
+        className="fixed bottom-0 inset-x-0 z-40 md:hidden bg-overlook-void/95 backdrop-blur-md border-t border-white/5 pb-[env(safe-area-inset-bottom)]"
+      >
+        <div className="grid grid-cols-5">
+          {[
+            {
+              id: "mission",
+              label: "Mission",
+              path: "/mission-control",
+              icon: Home,
+            },
+            { id: "assets", label: "Assets", path: "/assets", icon: Boxes },
+            {
+              id: "work",
+              label: "Work",
+              path: "/work",
+              icon: Wrench,
+              badge: badges.work,
+            },
+            { id: "field", label: "Field", path: "/field", icon: MapIcon },
+          ].map((tab) => {
+            const active =
+              currentPath === tab.path ||
+              (tab.path !== "/" && currentPath.startsWith(tab.path));
+            const Icon = tab.icon;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => {
+                  trackUiEvent("tab_tap", tab.label);
+                  onNavigate(tab.path);
+                }}
+                aria-label={tab.label}
+                aria-current={active ? "page" : undefined}
+                className={`relative flex flex-col items-center gap-1 py-2.5 text-[11px] font-medium transition-colors ${
+                  active
+                    ? "text-signal-cyan"
+                    : "text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                <Icon className="w-5 h-5" />
+                {tab.label}
+                {!!tab.badge && tab.badge > 0 && (
+                  <span className="absolute top-1.5 right-1/2 translate-x-4 min-w-4 h-4 px-1 rounded-full bg-signal-cyan text-[10px] font-bold text-white flex items-center justify-center">
+                    {tab.badge}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+          <button
+            onClick={() => setDrawerOpen(true)}
+            aria-label="More navigation"
+            className={`flex flex-col items-center gap-1 py-2.5 text-[11px] font-medium transition-colors ${
+              drawerOpen
+                ? "text-signal-cyan"
+                : "text-slate-400 hover:text-slate-200"
+            }`}
+          >
+            <MoreHorizontal className="w-5 h-5" />
+            More
+          </button>
+        </div>
+      </nav>
 
       {/* Command Search */}
       <CopilotDock />
@@ -776,7 +888,6 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
 }
 
 // Suppress unused import warnings — kept for potential future use
-void Activity;
 void Wifi;
 void AlertTriangle;
 void TrendingUp;

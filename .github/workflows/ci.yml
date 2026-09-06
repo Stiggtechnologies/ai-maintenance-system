@@ -23,9 +23,9 @@ jobs:
     name: Lint + Typecheck
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: 22
           cache: npm
@@ -38,32 +38,100 @@ jobs:
       - name: TypeScript
         run: npx tsc --noEmit -p tsconfig.app.json
 
+      # Both capability registers: derived tally + per-row anti-downgrade
+      # ratchet, for docs/enterprise-readiness and docs/sync-develop alike.
+      #
+      # `npm run register:check` had never been a CI step. The enterprise
+      # ratchet reached CI only through src/test/capability-register.test.ts in
+      # the Unit tests job, and that test asserted status, evidence and
+      # non-removal — NOT the citation count. So de-citation, the cheapest
+      # evasion there is (delete two backticks, keep the sentence, leave the
+      # reachability gate's scope), was ratcheted by a script nothing ran.
+      # That test file now runs the citation ratchet too, which is the point:
+      # the same rule, reached by two independent jobs.
+      #
+      # It sits in this job rather than beside the tests on purpose, the same
+      # bargain the RE-2026.08 gate strikes below: register enforcement now
+      # runs in two of the four required checks, so deleting either one leaves
+      # the other still running.
+      - name: Capability registers (tally + ratchet, both registers)
+        run: npm run register:check
+
       - name: Build
         run: npm run build
 
   vitest:
     name: Unit tests
     runs-on: ubuntu-latest
+    # actions: read is load-bearing for the RE-2026.08 gate (both the dedicated
+    # step and the copy the ratchet test spawns inside `npm run test`): it
+    # verifies reference-outputs.json against the Actions runs API, and the
+    # repo-default token has no actions scope, so that lookup returns HTTP 403
+    # and the gate fails closed on evidence that is actually real.
+    permissions:
+      contents: read
+      actions: read
     steps:
-      - uses: actions/checkout@v7
+      # fetch-depth: 0 is load-bearing, not hygiene. The RE-2026.08 gate below
+      # resolves the merge base with the PR target to decide whether a
+      # protected Reliability Engineer surface changed; on the default shallow
+      # clone that lookup fails and the gate cannot evaluate the change.
+      # SHA pin kept from main (supply-chain hardening) — both are required.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
 
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: 22
           cache: npm
 
       - run: npm ci --no-audit --no-fund
+
+      # `npm run test` is `node scripts/check-reliability-baseline.mjs && vitest run`.
+      # The gate runs from inside the npm script AND as the explicit step below,
+      # on purpose: deleting the tests that spawn it, or deleting the step, each
+      # leaves the other running. See scripts/reliability-baseline-floor.mjs.
       - run: npm run test
+        env:
+          GITHUB_BASE_REF: ${{ github.base_ref }}
+          GITHUB_EVENT_BEFORE: ${{ github.event.before }}
+          GITHUB_TOKEN: ${{ github.token }}
+
+      # RE-2026.08 release gate, run HERE on purpose.
+      #
+      # Branch protection on main requires exactly four checks: Lint +
+      # Typecheck, Unit tests, Migration chain + seeded auth smoke, Golden-path
+      # E2E. The two jobs in reliability-qualification.yml are not among them,
+      # so that workflow could fail red and the pull request would still be
+      # mergeable. Changing branch protection is the repository owner's call,
+      # so the gate is invoked from inside a check that is already required.
+      # src/test/reliabilityBaselineRatchet.test.ts asserts this step still
+      # exists, so deleting it fails the same job it was deleted from.
+      #
+      # The standalone workflow is kept as well: it is the one that can be
+      # dispatched manually for capture and live qualification runs.
+      - name: RE-2026.08 protected-surface gate
+        run: node scripts/check-reliability-baseline.mjs
+        env:
+          GITHUB_BASE_REF: ${{ github.base_ref }}
+          GITHUB_EVENT_BEFORE: ${{ github.event.before }}
+          # Load-bearing. Qualification evidence must name the Actions run that
+          # produced it, and inside Actions the gate REFUSES to skip verifying
+          # that run against the API. Without a token the gate fails closed --
+          # which is correct, because unverifiable evidence is what let a
+          # hand-written report with "x" as all 31 answers pass this floor.
+          GITHUB_TOKEN: ${{ github.token }}
 
   migration-order:
     name: Migration order vs deployed head
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: 22
 
@@ -76,9 +144,9 @@ jobs:
     name: Migration chain + seeded auth smoke
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - uses: supabase/setup-cli@v2
+      - uses: supabase/setup-cli@3c2f5e2ae34c34e428e8e206e2c4d21fa2d20fbf # v2.1.1
         with:
           version: 2.84.2
           github-token: ${{ github.token }}
@@ -91,9 +159,25 @@ jobs:
       - name: Start local Supabase (applies full migration chain)
         run: bash scripts/ci-start-supabase.sh /tmp/migrations-supabase-start.log /tmp/migrations-supabase-diagnostics.txt
 
+      # The demo stack schedules simulate_telemetry_tick() on a 1-minute pg_cron —
+      # a RANDOM-WALK that drifts sensor last_value and recomputes status
+      # (00000000000013_realtime_operating_picture.sql:271, random() at :61).
+      # Left running it mutates the seeded fixture between boot and the smokes,
+      # so "flagged >= 3" becomes a coin flip decided by how many ticks land
+      # during the earlier steps: #283 failed at flagged=2 while the identical
+      # commit replayed locally at flagged=4, and #317 failed the same way
+      # after unscheduling-without-restore (flagged=2 created=0). Unscheduling
+      # alone does not undo ticks that already landed during supabase start.
+      # The restore script puts the three seeded breaches back, unschedules
+      # both crons, and clears boot-time Investigate recs so the smoke's
+      # run_agent_loop actually inserts. Thresholds stay: flagged >= 3 and
+      # created >= 3.
+      - name: Make the seeded fixture deterministic (restore agent-loop sensors)
+        run: bash scripts/ci-restore-agent-loop-fixture.sh
+
       - name: Upload migration startup diagnostics
         if: failure()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: migration-supabase-startup-diagnostics
           path: |
@@ -152,13 +236,76 @@ jobs:
           FLAGGED=$(echo "$LOOP" | python3 -c "import sys,json;print(json.load(sys.stdin).get('sensors_flagged',-1))" 2>/dev/null || echo -1)
           echo "loop: flagged=$FLAGGED created=$CREATED"
           test "$FLAGGED" -ge 3
-          test "$CREATED" -ge 0
+          test "$CREATED" -ge 3
           AGAIN=$(curl -s -X POST "$API_URL/rest/v1/rpc/run_agent_loop" \
             -H "apikey: $SERVICE_ROLE_KEY" -H "Authorization: Bearer $SERVICE_ROLE_KEY" \
             -H "Content-Type: application/json" -d '{}' || true)
           SECOND=$(echo "$AGAIN" | python3 -c "import sys,json;print(json.load(sys.stdin).get('recommendations_created',-1))" 2>/dev/null || echo -1)
           test "$SECOND" = "0"
           echo "Agent-loop smoke passed: flagged=$FLAGGED first=$CREATED second=$SECOND (idempotent)"
+
+      # The Sync Develop transcripts run in CI against the same booted chain,
+      # so the gate/sanction discipline and the value-spine refusals cannot
+      # rot silently behind green checks. Both scripts are idempotent and
+      # self-resolve their env from `supabase status`, exactly like the
+      # smokes above. They run LAST: they create their own fixtures and must
+      # not disturb the seeded assertions earlier in this job.
+      - name: Smoke — Sync Develop slice 1 (gate discipline, sanction, baselines)
+        run: bash scripts/ci-develop-slice1-smoke.sh
+
+      - name: Smoke — Sync Develop slice 2 (value spine, refusals, collapse chain)
+        run: bash scripts/ci-develop-slice2-smoke.sh
+
+      - name: Smoke — Sync Develop slice 3 (tailoring, intensity, enforced bindings)
+        run: bash scripts/ci-develop-slice3-smoke.sh
+
+      - name: Smoke — Sync Develop slice 3B (conditions, waivers, SoD, composite authority, ledger)
+        run: bash scripts/ci-develop-slice3b-smoke.sh
+
+      - name: Smoke — Sync Develop slice 3C (commitments, permit chain, propagation, assurance, evidence confidence)
+        run: bash scripts/ci-develop-slice3c-smoke.sh
+
+      - name: Smoke — Sync Develop slice 3D (gate review workflow, three agents, assurance case)
+        run: bash scripts/ci-develop-slice3d-smoke.sh
+
+      - name: Smoke — Sync Develop slice 4A (scope chain, P6 boundary, cost lines, controls baseline, lineage)
+        run: bash scripts/ci-develop-slice4a-smoke.sh
+
+      - name: Smoke — Sync Develop slice 4B (rules of credit, earned value, estimate basis, progress integrity, forecast confidence)
+        run: bash scripts/ci-develop-slice4b-smoke.sh
+
+      - name: Smoke — Sync Develop slice 4C (schedule quality, gated Monte Carlo, risk attribution, P50/P80)
+        run: bash scripts/ci-develop-slice4c-smoke.sh
+
+      - name: Smoke — Sync Develop slice 4D (contingency ledger, change control, decision latency, integrated controls)
+        run: bash scripts/ci-develop-slice4d-smoke.sh
+
+      - name: Smoke — Sync Develop slice 5A (requirement object, digital thread, verification, requirements agent)
+        run: bash scripts/ci-develop-slice5a-smoke.sh
+
+      - name: Smoke — Sync Develop slice 5B (frontline review, dispositions, six-axis scoring, interfaces)
+        run: bash scripts/ci-develop-slice5b-smoke.sh
+
+      - name: Smoke — Sync Develop slice 5C (CDE link model, authoritative version, continuity invariant, change receipts)
+        run: bash scripts/ci-develop-slice5c-smoke.sh
+
+      - name: Smoke — Sync Develop slice 5D (event bus, change impact agent, case-scoped RAM, §34 edges)
+        run: bash scripts/ci-develop-slice5d-smoke.sh
+
+      - name: Smoke — Sync Develop slice 6A (procurement package, sealed-bid tender, contract award, commitments)
+        run: bash scripts/ci-develop-slice6a-smoke.sh
+
+      - name: Smoke — Sync Develop slice 6B (change orders, invoices, claims, warranty, vendor quality, §78 status connector)
+        run: bash scripts/ci-develop-slice6b-smoke.sh
+
+      - name: Smoke — Sync Develop slice 7A (AWP chain, WorkPackage, Constraint, forward burn-down)
+        run: bash scripts/ci-develop-slice7a-smoke.sh
+
+      - name: Smoke — Sync Develop slice 7B (one field-readiness engine, ten elements, execution readiness board)
+        run: bash scripts/ci-develop-slice7b-smoke.sh
+
+      - name: Smoke — Sync Develop slice 7C (resource demand/capacity, portfolio conflicts, competency when needed, workface metrics)
+        run: bash scripts/ci-develop-slice7c-smoke.sh
 
       - name: Stop Supabase
         if: always()
@@ -168,16 +315,16 @@ jobs:
     name: Golden-path E2E
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: 22
           cache: npm
 
       - run: npm ci --no-audit --no-fund
 
-      - uses: supabase/setup-cli@v2
+      - uses: supabase/setup-cli@3c2f5e2ae34c34e428e8e206e2c4d21fa2d20fbf # v2.1.1
         with:
           version: 2.84.2
           github-token: ${{ github.token }}
@@ -190,9 +337,33 @@ jobs:
       - name: Start local Supabase (fresh migration chain + demo data)
         run: bash scripts/ci-start-supabase.sh /tmp/e2e-supabase-start.log /tmp/e2e-supabase-diagnostics.txt
 
+      # The demo stack schedules simulate_telemetry_tick() on a 1-minute pg_cron —
+      # a RANDOM-WALK that drifts sensor last_value and recomputes status
+      # (00000000000013_realtime_operating_picture.sql:271, random() at :61).
+      # Left running it mutates the seeded fixture between boot and the smokes,
+      # so "flagged >= 3" becomes a coin flip decided by how many ticks land
+      # during the earlier steps: #283 failed at flagged=2 while the identical
+      # commit replayed locally at flagged=4, and #282 passed the same race from
+      # the other side (the 5-minute agent-loop cron had pre-created 3
+      # recommendations: created=1). This step does NOT touch any assertion —
+      # thresholds stay. It removes the randomizer from the test environment so
+      # the assertions test the loop, not the dice. The syncai-agent-loop cron is
+      # left alone: the loop is idempotent by design and the smoke already
+      # tolerates pre-created rows.
+      - name: Make the seeded fixture deterministic (unschedule the telemetry randomizer)
+        run: |
+          set -euo pipefail
+          eval "$(supabase status -o env | grep -E '^DB_URL=')"
+          psql "$DB_URL" -v ON_ERROR_STOP=1 -c             "do \$\$ begin
+               if exists (select 1 from cron.job where jobname = 'syncai-telemetry-sim') then
+                 perform cron.unschedule('syncai-telemetry-sim');
+               end if;
+             exception when undefined_table then null; end \$\$;"
+          echo "telemetry randomizer unscheduled (or was never scheduled)"
+
       - name: Upload E2E startup diagnostics
         if: failure()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: e2e-supabase-startup-diagnostics
           path: |
@@ -216,7 +387,7 @@ jobs:
 
       - name: Upload Playwright artifacts
         if: failure()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: playwright-artifacts
           path: test-results/

@@ -1,15 +1,18 @@
-title = "SyncAI gitleaks config"
+title = "SyncAI secret scanning configuration"
+minVersion = "8.24.0"
+
 [extend]
 useDefault = true
 
 [allowlist]
-description = "Public/dev artifacts that are not secrets"
-paths = [
-  '''docs/compliance/.*''',
-  '''SECRETS\.md''',            # secrets *reference template* — placeholders + local demo keys only
-  '''supabase/migrations/.*''', # seeded demo auth uses bcrypt hashes, not live secrets
-]
+description = "Exact documentation placeholders and deterministic test fixtures"
+regexTarget = "secret"
 regexes = [
-  # Universal Supabase local-development demo JWT (public, shipped with the CLI).
-  '''eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\.eyJpc3MiOiJzdXBhYmFzZS1kZW1v''',
+  '''^YOUR_ANON_KEY$''',
+  '''^SERVICE_ROLE_KEY$''',
+  '''^4100xpc-hoist-rgb$''',
+  '''^eyJ0b2tlbiI6Im1hcmtldHBsYWNlLXRva2VuLTEyMyJ9$''',
+  '''^eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\.\.\.$''',
+  '''^sk_live_X+$''',
+  '''^eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9\.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0$''',
 ]

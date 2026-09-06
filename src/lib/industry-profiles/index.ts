@@ -5,7 +5,9 @@
  *
  * WHAT WAS THERE, AND WHY IT REGISTERED AS ❌.
  *
- * Sixteen industry packs already existed in industry-template-packs.ts — 2,400
+ * The original fifteen industry packs in industry-template-packs.ts carried
+ * extensive prose, and Buildings & Infrastructure later joined through the
+ * same governed profile architecture. The original library was roughly 2,400
  * lines of asset classes, onboarding questions, risk drivers and KPI names.
  * All of it prose. A pack that says "process safety, pressure containment,
  * turnaround management" in a string list operates nothing: no engine runs
@@ -38,6 +40,12 @@
  *
  * Pure functions and data. No database, no network.
  */
+
+import type { TemplateIndustryCode } from "../industry-catalog";
+import {
+  getDomainSpecialistModule,
+  type DomainSpecialistModuleKey,
+} from "../domain-specialists";
 
 /** The kernel: engines that actually exist, with where they live. */
 export type KernelEngine =
@@ -216,9 +224,11 @@ export const FAILURE_CONTEXTS: FailureContext[] = [
  * resolves to contexts, and each context resolves to engines that exist.
  */
 export interface IndustryProfile {
-  industryCode: string;
+  industryCode: TemplateIndustryCode;
   registerRef: string;
   contexts: string[];
+  /** Governed domain-depth methods outside the reusable failure kernel. */
+  domainModules: DomainSpecialistModuleKey[];
   /** Pack claims that resolve to NO context — named, not hidden. */
   proseOnly: string[];
 }
@@ -234,7 +244,8 @@ export const INDUSTRY_PROFILES: IndustryProfile[] = [
       "rotating_equipment_failure",
       "turnaround_execution",
     ],
-    proseOnly: ["tailings geotechnical assessment"],
+    domainModules: ["oil-sands-tailings"],
+    proseOnly: [],
   },
   {
     industryCode: "petrochemical",
@@ -245,9 +256,8 @@ export const INDUSTRY_PROFILES: IndustryProfile[] = [
       "rotating_equipment_failure",
       "turnaround_execution",
     ],
-    proseOnly: [
-      "RBI corrosion-loop modelling (API 580/581 — in the standards register, engine not built)",
-    ],
+    domainModules: ["petrochemical-rbi"],
+    proseOnly: [],
   },
   {
     industryCode: "oil_gas",
@@ -258,7 +268,8 @@ export const INDUSTRY_PROFILES: IndustryProfile[] = [
       "rotating_equipment_failure",
       "turnaround_execution",
     ],
-    proseOnly: ["well integrity"],
+    domainModules: ["oil-gas-well-integrity"],
+    proseOnly: [],
   },
   {
     industryCode: "manufacturing",
@@ -268,10 +279,8 @@ export const INDUSTRY_PROFILES: IndustryProfile[] = [
       "quality_loss",
       "turnaround_execution",
     ],
-    proseOnly: [
-      "takt/line-balancing optimisation",
-      "robot-specific health models",
-    ],
+    domainModules: ["manufacturing-operations"],
+    proseOnly: [],
   },
   {
     industryCode: "mining",
@@ -282,13 +291,15 @@ export const INDUSTRY_PROFILES: IndustryProfile[] = [
       "network_outage",
       "turnaround_execution",
     ],
+    domainModules: [],
     proseOnly: [],
   },
   {
     industryCode: "transportation_logistics",
     registerRef: "U5.03",
     contexts: ["mobile_plant_failure", "turnaround_execution"],
-    proseOnly: ["route/depot optimisation", "regulatory inspection scheduling"],
+    domainModules: ["transport-logistics"],
+    proseOnly: [],
   },
   {
     industryCode: "utilities",
@@ -298,7 +309,8 @@ export const INDUSTRY_PROFILES: IndustryProfile[] = [
       "rotating_equipment_failure",
       "structural_deterioration",
     ],
-    proseOnly: ["storm response mobilisation", "crew dispatch"],
+    domainModules: ["utilities-storm-response"],
+    proseOnly: [],
   },
   {
     industryCode: "power_generation",
@@ -309,19 +321,91 @@ export const INDUSTRY_PROFILES: IndustryProfile[] = [
       "turnaround_execution",
       "static_equipment_degradation",
     ],
+    domainModules: [],
     proseOnly: [],
   },
   {
     industryCode: "data_centers",
     registerRef: "U5.05-adjacent",
     contexts: ["rotating_equipment_failure", "network_outage"],
-    proseOnly: ["thermal/airflow modelling"],
+    domainModules: ["data-center-thermal"],
+    proseOnly: [],
   },
   {
     industryCode: "pharmaceuticals",
     registerRef: "U5.06-adjacent",
     contexts: ["quality_loss", "rotating_equipment_failure", "process_trip"],
-    proseOnly: ["GxP validation workflows", "batch-record integration"],
+    domainModules: ["pharmaceutical-quality"],
+    proseOnly: [],
+  },
+  {
+    industryCode: "food_beverage",
+    registerRef: "U5.06-adjacent",
+    contexts: [
+      "quality_loss",
+      "rotating_equipment_failure",
+      "process_trip",
+      "turnaround_execution",
+    ],
+    domainModules: ["food-beverage-safety"],
+    proseOnly: [],
+  },
+  {
+    industryCode: "marine_shipping",
+    registerRef: "U5.03-adjacent",
+    contexts: [
+      "rotating_equipment_failure",
+      "structural_deterioration",
+      "mobile_plant_failure",
+      "turnaround_execution",
+    ],
+    domainModules: ["marine-shipping"],
+    proseOnly: [],
+  },
+  {
+    industryCode: "aviation",
+    registerRef: "U5.03-adjacent",
+    contexts: [
+      "mobile_plant_failure",
+      "rotating_equipment_failure",
+      "turnaround_execution",
+    ],
+    domainModules: ["aviation-airworthiness"],
+    proseOnly: [],
+  },
+  {
+    industryCode: "defense",
+    registerRef: "U5.07-adjacent",
+    contexts: [
+      "mobile_plant_failure",
+      "rotating_equipment_failure",
+      "turnaround_execution",
+    ],
+    domainModules: ["defense-readiness"],
+    proseOnly: [],
+  },
+  {
+    industryCode: "aerospace_launch",
+    registerRef: "U5.07-adjacent",
+    contexts: [
+      "quality_loss",
+      "rotating_equipment_failure",
+      "turnaround_execution",
+    ],
+    domainModules: ["aerospace-launch"],
+    proseOnly: [],
+  },
+  {
+    industryCode: "buildings_infrastructure",
+    registerRef: "U5.08-adjacent",
+    contexts: [
+      "structural_deterioration",
+      "rotating_equipment_failure",
+      "network_outage",
+      "turnaround_execution",
+    ],
+    domainModules: ["buildings-infrastructure"],
+    proseOnly: [],
   },
 ];
 
@@ -343,6 +427,12 @@ export interface ProfileAssessment {
   unknownContexts: string[];
   /** Pack claims with no engine behind them. */
   proseOnly: string[];
+  /** Executable governed methods outside the reusable reliability kernel. */
+  domainModules: Array<{
+    key: DomainSpecialistModuleKey;
+    label: string;
+    methods: string[];
+  }>;
   /** Distinct engines this profile exercises. */
   enginesUsed: KernelEngine[];
   operationalShare: number;
@@ -353,6 +443,20 @@ export function assessProfile(profile: IndustryProfile): ProfileAssessment {
   const byKey = new Map(FAILURE_CONTEXTS.map((c) => [c.key, c]));
   const operational: ContextBinding[] = [];
   const unknown: string[] = [];
+  const domainModules = profile.domainModules.flatMap((key) => {
+    const module = getDomainSpecialistModule(key);
+    if (!module || module.industryCode !== profile.industryCode) {
+      unknown.push(`domain:${key}`);
+      return [];
+    }
+    return [
+      {
+        key,
+        label: module.label,
+        methods: module.methods.map((method) => method.key),
+      },
+    ];
+  });
 
   for (const key of profile.contexts) {
     const ctx = byKey.get(key);
@@ -371,8 +475,12 @@ export function assessProfile(profile: IndustryProfile): ProfileAssessment {
 
   const engines = [...new Set(operational.flatMap((c) => c.engines))];
   const claimed =
-    operational.length + profile.proseOnly.length + unknown.length;
-  const share = claimed > 0 ? operational.length / claimed : 0;
+    operational.length +
+    domainModules.length +
+    profile.proseOnly.length +
+    unknown.length;
+  const share =
+    claimed > 0 ? (operational.length + domainModules.length) / claimed : 0;
 
   return {
     industryCode: profile.industryCode,
@@ -380,10 +488,11 @@ export function assessProfile(profile: IndustryProfile): ProfileAssessment {
     operational,
     unknownContexts: unknown,
     proseOnly: profile.proseOnly,
+    domainModules,
     enginesUsed: engines,
     operationalShare: share,
     reason:
-      `${operational.length} of ${claimed} claimed capability area(s) are operational — bound to ${engines.length} real kernel engine(s) with the workflow and required data named per context. ` +
+      `${operational.length + domainModules.length} of ${claimed} claimed capability area(s) are operational — ${operational.length} bound to ${engines.length} real kernel engine(s) and ${domainModules.length} governed domain-depth module(s). ` +
       (profile.proseOnly.length > 0
         ? `${profile.proseOnly.length} remain prose: ${profile.proseOnly.join("; ")}. Named rather than hidden, because a claim with no engine behind it must not read as coverage. `
         : `Nothing in this pack is prose-only. `) +

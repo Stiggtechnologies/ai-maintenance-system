@@ -8,7 +8,17 @@ on:
   schedule:
     - cron: "27 3 * * 1" # weekly baseline
 jobs:
+  entitlement:
+    name: CodeQL plan entitlement
+    if: ${{ vars.CODEQL_ENABLED != 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Record plan dependency
+        run: |
+          echo "::warning title=CodeQL unavailable on current private-repository plan::Upgrade to GitHub Team or Enterprise with GitHub Code Security, then set repository variable CODEQL_ENABLED=true."
+
   analyze:
+    if: ${{ vars.CODEQL_ENABLED == 'true' }}
     name: CodeQL analysis
     runs-on: ubuntu-latest
     permissions:
@@ -16,9 +26,9 @@ jobs:
       actions: read
       contents: read
     steps:
-      - uses: actions/checkout@v7
-      - uses: github/codeql-action/init@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: github/codeql-action/init@cdf488f595d80d6e07e03d4674febd5ab45fa938 # v4
         with:
           languages: javascript-typescript
           queries: security-and-quality
-      - uses: github/codeql-action/analyze@v4
+      - uses: github/codeql-action/analyze@cdf488f595d80d6e07e03d4674febd5ab45fa938 # v4

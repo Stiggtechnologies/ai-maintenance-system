@@ -70,6 +70,7 @@ const NAV_ALLOW: Record<string, Set<string> | null> = {
     "mission-control",
     "assets",
     "notifications",
+    "field",
     "recovery",
     "handover",
     "emergency",
@@ -84,6 +85,7 @@ const NAV_ALLOW: Record<string, Set<string> | null> = {
     "mission-control",
     "work",
     "notifications",
+    "field",
     "recovery",
     "handover",
     "emergency",
@@ -108,6 +110,7 @@ const NAV_ALLOW: Record<string, Set<string> | null> = {
     "mission-control",
     "work",
     "notifications",
+    "field",
     "scheduling",
     "recovery",
     "handover",
@@ -120,6 +123,7 @@ const NAV_ALLOW: Record<string, Set<string> | null> = {
   // release. Approval itself remains independent in the canonical queue.
   planner: new Set([
     "mission-control",
+    "develop",
     "cowork",
     "assessments",
     "assets",
@@ -145,6 +149,7 @@ const NAV_ALLOW: Record<string, Set<string> | null> = {
   // server-gated to operating roles.
   reliability_engineer: new Set([
     "mission-control",
+    "develop",
     "command-centers",
     "readiness",
     "assessments",
@@ -156,6 +161,7 @@ const NAV_ALLOW: Record<string, Set<string> | null> = {
     "reliability",
     "intervals",
     "risk",
+    "knowledge",
     "lifecycle",
     "lifecycle-decisions",
     "design",
@@ -178,6 +184,7 @@ const NAV_ALLOW: Record<string, Set<string> | null> = {
   // enforced by the canonical authority contract and generator!=approver rule.
   maintenance_manager: new Set([
     "mission-control",
+    "develop",
     "cowork",
     "assessments",
     "assets",
@@ -185,6 +192,7 @@ const NAV_ALLOW: Record<string, Set<string> | null> = {
     "reliability",
     "intervals",
     "risk",
+    "knowledge",
     "lifecycle-decisions",
     "job-plans",
     "pm-programme",
@@ -210,6 +218,7 @@ const NAV_ALLOW: Record<string, Set<string> | null> = {
   // Recovery RPC role gates; menu visibility never grants authority.
   executive: new Set([
     "mission-control",
+    "develop",
     "command-centers",
     "readiness",
     "executive",
@@ -225,6 +234,7 @@ const NAV_ALLOW: Record<string, Set<string> | null> = {
     "lifecycle-decisions",
     "design",
     "risk",
+    "knowledge",
     "decision-governance",
     "recovery",
     "handover",

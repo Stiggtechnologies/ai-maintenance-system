@@ -41,15 +41,25 @@ describe("ReliabilityEngineerPage", () => {
         name: "Reliability Engineer",
       }),
     ).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "SyncAI" })).toHaveAttribute(
+      "src",
+      "/brand/wordmark-ink.png",
+    );
+    expect(screen.getByTestId("sample-seed-chip")).toBeTruthy();
+    expect(screen.queryByText("Decision packet")).toBeNull();
+    expect(screen.queryByText(/welcome/i)).toBeNull();
     expect(
       screen.getByRole("textbox", { name: /ask the reliability engineer/i }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: /send message/i }),
     ).toBeInTheDocument();
-    expect(screen.getAllByText(/limited free access/i).length).toBeGreaterThan(
-      0,
+    expect(screen.getByTestId("brand-job-title")).toHaveTextContent(
+      "Reliability Engineer",
     );
+    expect(screen.getByTestId("first-paint-header-center").textContent).toBe("");
+    expect(screen.queryByText("Chat")).toBeNull();
+    expect(screen.queryByText("Work")).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: /sign in/i }));
     expect(onSignIn).toHaveBeenCalledOnce();

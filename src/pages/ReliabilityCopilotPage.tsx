@@ -308,11 +308,26 @@ const valueDecisionCards = [
   },
 ];
 
+// "Battery and energy systems" was advertised here to every signed-in user as an
+// INDUSTRY this copilot serves. No such industry exists: INDUSTRY_CATALOG has no
+// battery or energy-storage code, INDUSTRY_PROFILES has no entry for one, no
+// FAILURE_CONTEXT names one, and register E1.05 still reads ❌. Re-verified
+// 2026-08-24 against #265 (governed the complete catalog) and #267 (bound the
+// last five packs to the kernel) — neither added a battery industry.
+//
+// There IS a `battery_system` ASSET CLASS in src/lib/asset-class-templates.ts,
+// plus UPS battery content inside other classes. An asset class is not an
+// industry profile, and that file has no importer in src.
+//
+// The remaining three chips name real packs, and since #267 those packs ARE
+// reachable — industry-template-packs.ts and industry-profiles are read by
+// src/lib/risk-operating-system/index.ts, surfaced by RiskOperatingSystemPage
+// and routed at App.tsx `/risk`. They are not reachable from THIS page, which
+// uses the inline templates in src/lib/asset-onboarding.ts instead.
 const industryProfiles = [
   "Oil sands and upstream",
   "Refining and chemicals",
   "High-volume manufacturing",
-  "Battery and energy systems",
 ];
 
 const enterpriseReadiness = [

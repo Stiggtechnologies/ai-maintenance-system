@@ -20,7 +20,7 @@ Sync is the interaction/orchestration layer around the existing governed industr
 ### Phase 2 — voice
 
 - Voice input reuses the browser speech-recognition adapter already present in the repository.
-- Voice output is a browser `speechSynthesis` adapter behind `sync_voice_output`.
+- Voice output prefers the signed-in `sync-tts` edge function (OpenAI Speech via existing `OPENAI_API_KEY`) and falls back to browser `speechSynthesis`. CopilotDock still gates playback with `sync_voice_output`; Meet Sync speaks when unmuted.
 - Starting dictation stops active TTS first, providing a browser-level barge-in path.
 - Unsupported browsers fail honestly by hiding the unavailable control.
 

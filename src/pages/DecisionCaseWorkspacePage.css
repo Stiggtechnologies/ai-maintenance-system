@@ -44,10 +44,36 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 20px;
+  gap: 12px;
   padding: 0 18px;
   border-bottom: 1px solid var(--line);
   background: #0b1015;
+}
+.dw-topbar-side {
+  display: flex;
+  align-items: center;
+  min-width: 44px;
+  flex: 0 0 auto;
+}
+.dw-topbar-side.is-end {
+  justify-content: flex-end;
+  min-width: 96px;
+}
+.dw-topbar-center {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.dw-case-name {
+  overflow: hidden;
+  color: #e8edf2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+  font-weight: 600;
+  text-align: center;
 }
 .dw-identity,
 .dw-top-actions,
@@ -175,8 +201,7 @@
 }
 .dw-layout {
   height: calc(100% - 58px);
-  display: grid;
-  grid-template-columns: 232px minmax(480px, 1fr) minmax(360px, 410px);
+  display: flex;
   min-width: 0;
 }
 .dw-rail,
@@ -186,12 +211,17 @@
   min-height: 0;
 }
 .dw-rail {
-  display: flex;
+  display: none;
   flex-direction: column;
+  width: 232px;
+  flex: 0 0 232px;
   padding: 14px 10px 10px;
   overflow: hidden;
   border-right: 1px solid var(--line);
   background: #0a0f14;
+}
+.dw-layout.is-rail-open .dw-rail {
+  display: flex;
 }
 .dw-new {
   height: 38px;
@@ -444,7 +474,10 @@
 .dw-main {
   position: relative;
   display: flex;
+  flex: 1;
   flex-direction: column;
+  min-width: 0;
+  min-height: 0;
   overflow: hidden;
   background: #0c1117;
 }
@@ -1060,11 +1093,16 @@
   align-items: flex-end;
 }
 .dw-packet {
-  display: flex;
+  display: none;
   flex-direction: column;
+  width: min(410px, 100%);
+  flex: 0 0 min(410px, 100%);
   overflow: hidden;
   border-left: 1px solid var(--line);
   background: #0b1015;
+}
+.dw-layout.is-record-open .dw-packet {
+  display: flex;
 }
 .dw-packet-head {
   min-height: 53px;
@@ -1923,7 +1961,7 @@
   text-transform: capitalize;
 }
 .dw-mobile-nav {
-  display: none;
+  display: none !important;
 }
 .dw-backdrop {
   position: fixed;
@@ -2124,7 +2162,7 @@
     display: none;
   }
   .dw-layout {
-    grid-template-columns: 205px minmax(420px, 1fr) 350px;
+    display: flex;
   }
   .dw-case-header,
   .dw-thread {
@@ -2175,46 +2213,41 @@
     max-width: 116px;
   }
   .dw-layout {
-    height: calc(100% - 106px);
-    display: block;
+    height: calc(100% - 52px);
+    display: flex;
   }
-  .dw-rail,
-  .dw-main,
-  .dw-packet {
+  .dw-rail {
     display: none;
+    position: absolute;
+    z-index: 15;
+    top: 52px;
+    bottom: 0;
+    left: 0;
+    height: auto;
+    border-right: 1px solid var(--line);
+    background: #0a0f14;
+  }
+  .dw-layout.is-rail-open .dw-rail {
+    display: flex;
+  }
+  .dw-main {
+    display: flex;
     height: 100%;
     border: 0;
   }
-  .dw-rail.mobile-active {
-    display: flex;
+  .dw-packet {
+    display: none;
   }
-  .dw-main.mobile-active {
+  .dw-layout.is-record-open .dw-packet {
     display: flex;
-  }
-  .dw-packet.mobile-active {
-    display: flex;
+    position: absolute;
+    inset: 52px 0 0;
+    z-index: 16;
+    width: 100%;
+    flex-basis: 100%;
   }
   .dw-mobile-nav {
-    height: 54px;
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    border-top: 1px solid var(--line);
-    background: #0b1015;
-  }
-  .dw-mobile-nav button {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-direction: column;
-    gap: 3px;
-    border: 0;
-    color: #6f7f8b;
-    background: transparent;
-    font-size: 10px;
-  }
-  .dw-mobile-nav button.active {
-    color: var(--teal);
-    background: #0f1d1c;
+    display: none !important;
   }
   .dw-notice {
     right: 12px;
@@ -2318,6 +2351,47 @@
   }
   .dw-continuation small {
     min-height: 0;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Mobile natural-flow fix (2026-08-29): on phones the case view was a
+   fixed-height pane with an internal scroll — the chat history got a sliver
+   and felt invisible. On mobile the case view becomes one scrolling
+   document: the thread grows with its content, the composer and the view
+   switcher stay sticky. Desktop panes are untouched.
+--------------------------------------------------------------------------- */
+@media (max-width: 768px) {
+  .decision-workspace,
+  .decision-workspace.is-public {
+    height: 100dvh;
+    min-height: 100dvh;
+    overflow: hidden;
+  }
+  .dw-layout {
+    height: calc(100% - 52px);
+    display: flex;
+  }
+  .dw-main {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+  }
+  .dw-thread {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding-bottom: 16px;
+  }
+  .dw-composer-wrap {
+    position: static;
+    flex: 0 0 auto;
+    z-index: 20;
+    background: #0c1117;
+  }
+  .dw-mobile-nav {
+    display: none !important;
   }
 }
 
@@ -2429,4 +2503,402 @@
   font-size: 12px;
   line-height: 1.5;
   color: #e6c48c;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.dw-view-record {
+  margin-left: auto;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: #9db0ba;
+  background: #10161c;
+  cursor: pointer;
+}
+.dw-view-record:hover {
+  color: #e8edf2;
+  border-color: #3a4b58;
+}
+.dw-quiet-case {
+  display: block;
+  margin-top: 2px;
+  color: #667681;
+  font-size: 10px;
+  font-style: normal;
+  font-family: "JetBrains Mono Variable", monospace;
+}
+.dw-empty {
+  flex: 1;
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-start;
+  max-width: 790px;
+  min-height: 20vh;
+  padding: 0 4px 8px;
+}
+.dw-seed-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 100%;
+  margin: 0;
+  padding: 8px 12px 8px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  background: transparent;
+  color: #c5d0d7;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: left;
+}
+.dw-seed-chip:hover,
+.dw-seed-chip:focus-visible {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.18);
+  color: #e8edf2;
+}
+.dw-seed-chip-stage {
+  position: relative;
+  min-width: 0;
+}
+.dw-seed-chip-copy {
+  display: inline;
+  animation: dw-seed-crossfade 400ms ease;
+}
+@keyframes dw-seed-crossfade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dw-seed-chip-copy {
+    animation: none;
+  }
+}
+.dw-seed-orb {
+  width: 22px;
+  height: 22px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 30% 30%, #7ee8ff 0%, #38c8f4 38%, #0d6b8a 100%);
+  box-shadow: 0 0 0 1px rgba(56, 200, 244, 0.25);
+}
+.dw-plus {
+  position: relative;
+  flex: 0 0 auto;
+}
+.dw-plus-sheet {
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 8px);
+  z-index: 30;
+  min-width: 168px;
+  padding: 6px;
+  border: 1px solid #2a3640;
+  border-radius: 12px;
+  background: #141b22;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+}
+.dw-plus-sheet button {
+  width: 100%;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #e8edf2;
+  font-size: 14px;
+  cursor: pointer;
+}
+.dw-plus-sheet button:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+.dw-system-turn {
+  margin: 0 0 14px;
+  color: #8b9aa4;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.dw-rec {
+  margin-top: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.dw-rec-block {
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #0d1319;
+}
+.dw-rec-block h3 {
+  margin: 0 0 8px;
+  color: #dce6ea;
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  text-transform: none;
+}
+.dw-rec-block ul {
+  margin: 0;
+  padding-left: 18px;
+  color: #c2ccd3;
+}
+.dw-rec-block li {
+  margin: 6px 0;
+  line-height: 1.5;
+}
+.dw-rec-source {
+  display: inline;
+  margin-left: 8px;
+  padding: 0;
+  border: 0;
+  color: var(--teal);
+  background: transparent;
+  font-size: 12px;
+  cursor: pointer;
+  text-decoration: underline;
+}
+.dw-rec-source-body {
+  margin-top: 6px;
+  padding: 8px;
+  border-left: 2px solid #2b5d58;
+  color: #8fa0ab;
+  font-size: 12px;
+}
+.dw-rec-source-body p {
+  margin: 0 0 4px;
+}
+.dw-rec-recommendation {
+  border-color: #2b5e58;
+}
+.dw-rec-recommendation h3 {
+  color: var(--teal);
+}
+.dw-rec-recommendation > p {
+  margin: 0 0 8px;
+  color: #d7e3ec;
+  line-height: 1.55;
+}
+.dw-rec-authority {
+  color: #9db0ba !important;
+  font-size: 13px !important;
+}
+.dw-rec-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+.dw-rec-actions button {
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 12px;
+  border: 1px solid #3b4b57;
+  border-radius: 6px;
+  color: #d5dde2;
+  background: #151e26;
+  cursor: pointer;
+}
+.dw-rec-actions button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.dw-rec-approve {
+  border-color: #31968a !important;
+  color: #09201d !important;
+  background: var(--teal) !important;
+  font-weight: 650;
+}
+.dw-rec-approve:disabled {
+  border-color: #36434d !important;
+  color: #76848e !important;
+  background: #1e2931 !important;
+}
+.dw-rec-waiting,
+.dw-rec-frozen {
+  margin: 8px 0 0;
+  color: #8fa0ab;
+  font-size: 12px;
+}
+.dw-rec-delegate {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+}
+.dw-rec-delegate button {
+  min-height: 44px;
+  text-align: left;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: #d5dde2;
+  background: #111820;
+  cursor: pointer;
+}
+.dw-learn {
+  max-width: 790px;
+  margin: 0 0 18px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #0d1319;
+}
+.dw-learn h3 {
+  margin: 0 0 10px;
+  color: #dce6ea;
+  font-size: 13px;
+}
+.dw-learn fieldset {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 10px;
+  padding: 0;
+  border: 0;
+}
+.dw-learn label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  cursor: pointer;
+}
+.dw-learn-note {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 10px;
+  color: #8fa0ab;
+  font-size: 12px;
+}
+.dw-learn-note input {
+  min-height: 44px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: #e4eaee;
+  background: #111820;
+}
+.dw-learn button[type="submit"] {
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid #31968a;
+  border-radius: 6px;
+  color: #09201d;
+  background: var(--teal);
+  font-weight: 650;
+  cursor: pointer;
+}
+.dw-learn button[type="submit"]:disabled {
+  border-color: #36434d;
+  color: #76848e;
+  background: #1e2931;
+  cursor: not-allowed;
+}
+.dw-learn-stack {
+  max-width: 790px;
+  margin: 0 0 18px;
+}
+.dw-learn-stack .dw-learn {
+  margin-bottom: 0;
+}
+.dw-learn-subject,
+.dw-learn-method,
+.dw-learn-bound,
+.dw-learn-honest {
+  margin: 0 0 10px;
+  color: #8fa0ab;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.dw-learn-error {
+  margin: 10px 0 0;
+  color: #f0b429;
+  font-size: 12px;
+}
+.dw-learn-ok {
+  margin: 10px 0 0;
+  color: #5eead4;
+  font-size: 12px;
+}
+.dw-learn-pick {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0 0 10px;
+  color: #8fa0ab;
+  font-size: 12px;
+}
+.dw-learn-pick select {
+  min-height: 44px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: #e4eaee;
+  background: #111820;
+}
+.dw-authority-note {
+  color: #7d8c96;
+  font-size: 11px;
+}
+.dw-composer-tool,
+.dw-new,
+.dw-icon {
+  min-width: 44px;
+  min-height: 44px;
+}
+.dw-composer button[title="Send message"] {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+.field-workspace .dw-qr-tool {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.field-workspace .dw-qr-tool input {
+  flex: 1;
+  min-height: 44px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: #e4eaee;
+  background: #111820;
+}
+.field-workspace .dw-qr-tool button {
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: #d5dde2;
+  background: #151e26;
+  cursor: pointer;
 }

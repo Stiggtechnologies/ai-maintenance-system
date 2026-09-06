@@ -26,7 +26,9 @@ matrices and readiness assessment. Key controls in place:
 
 - Org-scoped row-level security on all data; role-based access enforced in the
   database.
-- Enforced review + CI gating on every change; deploy only from `main`.
+- Pull-request review and CI are repository policy; deploy only from `main`.
+  Server-side branch protection is not available for this private repository on
+  the current GitHub plan, so plan upgrade is a recorded control dependency.
 - Secret scanning, dependency vulnerability management, and SAST in CI.
 - Audit trails for decisions, actions, and KPI computation.
 - Leaked-password protection (HIBP) enabled.

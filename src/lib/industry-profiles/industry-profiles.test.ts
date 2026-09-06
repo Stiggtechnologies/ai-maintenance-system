@@ -9,6 +9,7 @@ import {
   INDUSTRY_TEMPLATE_PACKS,
   listIndustryTemplatePacks,
 } from "../industry-template-packs";
+import { INDUSTRY_CATALOG } from "../industry-catalog";
 
 describe("the kernel-profile architecture (E1.01)", () => {
   it("binds every profile context to a real failure context", () => {
@@ -32,6 +33,32 @@ describe("the kernel-profile architecture (E1.01)", () => {
     }
   });
 
+  it("every industry pack has a profile — a pack without one is prose", () => {
+    // The gap this closes: five packs (food_beverage, aviation, marine_shipping,
+    // defense, aerospace_launch) shipped 2,400 lines of asset classes and risk
+    // drivers with NO binding to an engine. They registered as coverage in the
+    // signup catalog and computed nothing — the same shell pattern assessProfile
+    // exists to kill, one level up. A pack is only a capability once a profile
+    // says which failure contexts it contains.
+    const profiled = new Set<string>(
+      INDUSTRY_PROFILES.map((p) => p.industryCode),
+    );
+    const unbound = listIndustryTemplatePacks()
+      .map((p) => p.industryCode as string)
+      .filter((code) => !profiled.has(code));
+    expect(unbound, "packs with no profile behind them").toEqual([]);
+  });
+
+  it("has a governed pack for every non-custom catalog entry", () => {
+    const packed = new Set(
+      listIndustryTemplatePacks().map((p) => p.industryCode as string),
+    );
+    const withoutPack = INDUSTRY_CATALOG.filter(
+      (e) => e.kind === "pack" && !packed.has(e.code),
+    ).map((e) => e.code);
+    expect(withoutPack).toEqual([]);
+  });
+
   it("every failure context binds to at least two engines and names its data", () => {
     for (const c of FAILURE_CONTEXTS) {
       expect(c.engines.length, c.key).toBeGreaterThanOrEqual(2);
@@ -39,24 +66,27 @@ describe("the kernel-profile architecture (E1.01)", () => {
     }
   });
 
-  it("reports prose-only claims instead of hiding them", () => {
+  it("reports the RBI domain module as executable without claiming full API 581", () => {
     const petro = assessProfile(
       INDUSTRY_PROFILES.find((p) => p.industryCode === "petrochemical")!,
     );
-    // RBI is in the standards register (API 580/581) and the engine is not
-    // built. The assessment must say so, not count the claim as coverage.
-    expect(petro.proseOnly.join(" ")).toMatch(/API 580/);
-    expect(petro.reason).toMatch(/must not read as coverage/);
-    expect(petro.operationalShare).toBeLessThan(1);
+    expect(petro.domainModules.map((module) => module.key)).toEqual([
+      "petrochemical-rbi",
+    ]);
+    expect(petro.domainModules[0].methods).toContain("rbi-corrosion-loop");
+    expect(petro.proseOnly).toEqual([]);
+    expect(petro.operationalShare).toBe(1);
   });
 
-  it("computes operational share over ALL claims, not just the bound ones", () => {
+  it("counts governed domain modules in operational share", () => {
     const mfg = assessProfile(
       INDUSTRY_PROFILES.find((p) => p.industryCode === "manufacturing")!,
     );
-    // 3 operational, 2 prose → 3/5. Dividing by bound contexts only would
-    // always yield 100%, which is the shell pattern this exists to kill.
-    expect(mfg.operationalShare).toBeCloseTo(3 / 5, 6);
+    expect(mfg.domainModules[0].methods).toEqual([
+      "line-balancing",
+      "robot-health",
+    ]);
+    expect(mfg.operationalShare).toBe(1);
   });
 
   it("surfaces a wiring error rather than dropping it", () => {
@@ -64,6 +94,7 @@ describe("the kernel-profile architecture (E1.01)", () => {
       industryCode: "oil_sands",
       registerRef: "test",
       contexts: ["process_trip", "context_that_does_not_exist"],
+      domainModules: [],
       proseOnly: [],
     });
     expect(broken.unknownContexts).toEqual(["context_that_does_not_exist"]);
@@ -128,13 +159,20 @@ describe("differentiated risk models per failure context (E1.06)", () => {
 
 describe("pack validation honesty", () => {
   it("no pack claims customer validation the customer base cannot support", () => {
-    // 15 of 16 packs claimed 'customer_validated' on a platform with roughly
-    // one customer. The status ladder means something or it means nothing.
+    // Historical packs claimed 'customer_validated' without enough signed
+    // customer evidence. The status ladder means something or it means nothing.
     for (const pack of listIndustryTemplatePacks()) {
       expect(
         pack.validationStatus,
         `${pack.industryCode} claims a validation level nobody has signed`,
       ).not.toBe("customer_validated");
     }
+  });
+
+  it("does not invent Buildings criticality thresholds before adoption", () => {
+    expect(
+      INDUSTRY_TEMPLATE_PACKS.buildings_infrastructure.criticalityModel
+        .criticalityThresholds,
+    ).toEqual({ low: null, medium: null, high: null, critical: null });
   });
 });

@@ -10,6 +10,7 @@
  * single-point-of-knowledge column, kept per the spec's A-P6 decision because
  * it is a scheduling input.
  */
+import { RecoveryContextPanel } from "../components/RecoveryContextPanel";
 import { SchedulerPanel } from "../components/SchedulerPanel";
 import { WorkforceReadiness } from "../components/WorkforceReadiness";
 
@@ -24,6 +25,7 @@ export function SchedulingPage() {
           Schedule options levelled against the crew capacity they commit
         </p>
       </div>
+      <RecoveryContextPanel surface="scheduling" />
       <SchedulerPanel />
       <WorkforceReadiness />
     </div>

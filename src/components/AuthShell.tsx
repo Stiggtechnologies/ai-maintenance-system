@@ -1,6 +1,7 @@
 import { ReactNode } from "react";
-import { Activity, BadgeCheck, FileCheck2, ShieldCheck } from "lucide-react";
+import { BadgeCheck, FileCheck2, ShieldCheck } from "lucide-react";
 import { OperationsLattice } from "./visual/OperationsLattice";
+import { BrandWordmark } from "./BrandWordmark";
 
 interface AuthShellProps {
   children: ReactNode;
@@ -21,7 +22,7 @@ const PROOF = [
     value: "context retained",
   },
   { icon: BadgeCheck, label: "Human authority", value: "identity verified" },
-  { icon: Activity, label: "Value proof", value: "outcomes traced" },
+  { icon: ShieldCheck, label: "Value proof", value: "outcomes traced" },
 ];
 
 export function AuthShell({ children, journey }: AuthShellProps) {
@@ -42,20 +43,14 @@ export function AuthShell({ children, journey }: AuthShellProps) {
       <div className="relative mx-auto flex min-h-dvh w-full max-w-[1500px] flex-col lg:flex-row">
         <section className="hidden flex-1 flex-col justify-between p-10 lg:flex xl:p-14">
           <div className="reveal-rise flex items-center gap-3">
-            <span className="relative flex h-2.5 w-2.5">
-              <span className="bg-signal-cyan/60 absolute inline-flex h-full w-full animate-ping rounded-full" />
-              <span className="bg-signal-cyan relative inline-flex h-2.5 w-2.5 rounded-full" />
-            </span>
-            <span className="text-overlook-paper/90 text-sm font-semibold tracking-[0.24em] uppercase">
-              SyncAI
-            </span>
+            <BrandWordmark />
             <span className="text-overlook-mist/70 text-xs tracking-[0.18em] uppercase">
-              Secure Decision Workspace
+              Reliability Engineer
             </span>
           </div>
 
           <div className="reveal-rise reveal-d1 max-w-[42rem]">
-            <p className="text-signal-gold text-xs font-medium tracking-[0.3em] uppercase">
+            <p className="text-signal-cyan text-xs font-medium tracking-[0.3em] uppercase">
               Governed engineering intelligence
             </p>
             <h1 className="mt-5 max-w-2xl text-4xl leading-[1.08] font-semibold tracking-normal text-balance xl:text-5xl">
@@ -112,12 +107,9 @@ export function AuthShell({ children, journey }: AuthShellProps) {
           <div className="reveal-settle w-full max-w-md">
             <div className="mb-6 lg:hidden">
               <div className="flex items-center gap-3">
-                <span className="relative flex h-2.5 w-2.5">
-                  <span className="bg-signal-cyan/60 absolute inline-flex h-full w-full animate-ping rounded-full" />
-                  <span className="bg-signal-cyan relative inline-flex h-2.5 w-2.5 rounded-full" />
-                </span>
-                <span className="text-sm font-semibold tracking-[0.24em] uppercase">
-                  SyncAI
+                <BrandWordmark />
+                <span className="text-xs text-slate-500">
+                  Reliability Engineer
                 </span>
               </div>
               {journey && (

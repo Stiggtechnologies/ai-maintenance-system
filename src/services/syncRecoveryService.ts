@@ -226,10 +226,107 @@ export interface RecoveryOpportunities {
   note: string;
 }
 
+export interface RecoveryActivationMappingState {
+  entity_type: string;
+  status: "draft" | "approved" | "retired";
+  approved_at: string | null;
+  source_array_path: string;
+}
+
+export interface RecoveryActivationSourceState {
+  connector_key: string;
+  name: string;
+  system_kind: string;
+  enabled: boolean;
+  direction: "read_only" | "read_write";
+  write_enabled: boolean;
+  endpoint_configured: boolean;
+  credential_binding_recorded: boolean;
+  expected_interval_minutes: number | null;
+  last_success_at: string | null;
+  state: "disabled" | "never_run" | "stale" | "current";
+  mappings: RecoveryActivationMappingState[];
+}
+
+export interface RecoveryActivationDomain {
+  key: string;
+  label: string;
+  records: number;
+  linked_records?: number;
+  open_records?: number;
+  stock_records?: number;
+  current_down_assets?: number;
+  latest_period_end?: string | null;
+  ready: boolean;
+}
+
+export interface RecoveryActivationCandidate {
+  asset_id: string;
+  asset: string;
+  tag: string | null;
+  site_id: string | null;
+  open_work_orders: number;
+  is_currently_down: boolean;
+  active_event_id: string | null;
+}
+
+export interface RecoveryActivationReadiness {
+  sources: RecoveryActivationSourceState[];
+  domains: RecoveryActivationDomain[];
+  minimum_ready_for_draft: boolean;
+  planning_inputs_complete: boolean;
+  rejects_30d: number;
+  candidates: RecoveryActivationCandidate[];
+  note: string;
+}
+
+export interface RecoveryActivationWorkOrder {
+  id: string;
+  wo_number: string | null;
+  title: string;
+  priority: string | null;
+  status: string | null;
+  planned_hours: number | null;
+  estimated_hours: number | null;
+}
+
+export interface RecoveryActivationBatchResult {
+  dry_run?: boolean;
+  run_id?: string;
+  status?: string;
+  read: number;
+  accepted: number;
+  duplicate: number;
+  rejected: number;
+  results?: Array<{
+    ok: boolean;
+    duplicate?: boolean;
+    external_id?: string;
+    reason?: string;
+    row_number: number;
+  }>;
+  note?: string;
+}
+
 export interface RpcResult {
   ok?: boolean;
   error?: string;
   [key: string]: unknown;
+}
+
+export type RecoveryCapabilityPayload = Record<string, unknown>;
+
+export interface RecoveryControlSnapshot {
+  handoff: RecoveryCapabilityPayload;
+  decisionQueue: RecoveryCapabilityPayload;
+  componentLife: RecoveryCapabilityPayload;
+  partsRisk: RecoveryCapabilityPayload;
+  cannibalization: RecoveryCapabilityPayload;
+  economics: RecoveryCapabilityPayload;
+  delayAttribution: RecoveryCapabilityPayload;
+  firstTimeRight: RecoveryCapabilityPayload;
+  sequencePatterns: RecoveryCapabilityPayload;
+  productivityNorms: RecoveryCapabilityPayload;
 }
 
 function rpcPayload<T>(data: unknown, error: { message: string } | null): T {
@@ -241,7 +338,10 @@ function rpcPayload<T>(data: unknown, error: { message: string } | null): T {
   return data as T;
 }
 
-async function call<T>(name: string, args?: Record<string, unknown>): Promise<T> {
+async function call<T>(
+  name: string,
+  args?: Record<string, unknown>,
+): Promise<T> {
   const { data, error } = await supabase.rpc(name, args);
   return rpcPayload<T>(data, error);
 }
@@ -273,7 +373,9 @@ export async function getRecoveryBoard(): Promise<RecoveryBoard> {
   return data;
 }
 
-export async function getRecoveryEvent(eventId: string): Promise<RecoveryEventDetail> {
+export async function getRecoveryEvent(
+  eventId: string,
+): Promise<RecoveryEventDetail> {
   const data = await call<RecoveryEventDetail>("get_recovery_event", {
     p_event_id: eventId,
   });
@@ -297,6 +399,76 @@ export async function getRecoveryOpportunities(
     p_event_id: eventId,
     p_window_hours: windowHours,
   });
+}
+
+export async function getRecoveryActivationReadiness(): Promise<RecoveryActivationReadiness> {
+  return call("get_recovery_activation_readiness");
+}
+
+export async function getRecoveryActivationWorkOrders(
+  assetId: string,
+): Promise<RecoveryActivationWorkOrder[]> {
+  const result = await call<{ work_orders: RecoveryActivationWorkOrder[] }>(
+    "get_recovery_activation_work_orders",
+    { p_asset_id: assetId },
+  );
+  return result.work_orders;
+}
+
+export async function getRecoveryControlSnapshot(
+  eventId: string,
+  siteId?: string | null,
+): Promise<RecoveryControlSnapshot> {
+  const [
+    handoff,
+    decisionQueue,
+    componentLife,
+    partsRisk,
+    cannibalization,
+    economics,
+    delayAttribution,
+    firstTimeRight,
+    sequencePatterns,
+    productivityNorms,
+  ] = await Promise.all([
+    call<RecoveryCapabilityPayload>("get_recovery_handoff", {
+      p_event_id: eventId,
+    }),
+    call<RecoveryCapabilityPayload>("get_recovery_decision_queue"),
+    call<RecoveryCapabilityPayload>("get_recovery_component_life_context", {
+      p_event_id: eventId,
+    }),
+    call<RecoveryCapabilityPayload>("get_recovery_parts_risk", {
+      p_event_id: eventId,
+    }),
+    call<RecoveryCapabilityPayload>("get_recovery_cannibalization_options", {
+      p_event_id: eventId,
+    }),
+    call<RecoveryCapabilityPayload>("get_recovery_economics", {
+      p_event_id: eventId,
+    }),
+    call<RecoveryCapabilityPayload>("get_recovery_counterfactual_attribution", {
+      p_event_id: eventId,
+    }),
+    call<RecoveryCapabilityPayload>("get_recovery_ftr_metrics"),
+    call<RecoveryCapabilityPayload>("get_recovery_sequence_patterns"),
+    call<RecoveryCapabilityPayload>("get_recovery_productivity_norms", {
+      p_site_id: siteId ?? null,
+    }),
+  ]);
+
+  return {
+    handoff,
+    decisionQueue,
+    componentLife,
+    partsRisk,
+    cannibalization,
+    economics,
+    delayAttribution,
+    firstTimeRight,
+    sequencePatterns,
+    productivityNorms,
+  };
 }
 
 export const recoveryActions = {
@@ -401,8 +573,14 @@ export const recoveryActions = {
       p_blocker_id: blockerId,
       p_note: note,
     }),
-  generatePlan: (eventId: string) =>
-    call<RpcResult>("generate_restoration_plan", { p_event_id: eventId }),
+  generatePlan: async (eventId: string) => {
+    await call<RpcResult>("refresh_recovery_planning_inputs", {
+      p_event_id: eventId,
+    });
+    return call<RpcResult>("generate_restoration_plan", {
+      p_event_id: eventId,
+    });
+  },
   submitPlan: (planId: string) =>
     call<RpcResult>("submit_restoration_plan_for_approval", {
       p_plan_id: planId,
@@ -429,5 +607,337 @@ export const recoveryActions = {
     call<RpcResult>("close_restoration_event", {
       p_event_id: eventId,
       p_note: note,
+    }),
+  refreshPlanningInputs: (eventId: string) =>
+    call<RpcResult>("refresh_recovery_planning_inputs", {
+      p_event_id: eventId,
+    }),
+  runRiskSimulation: (planId: string, iterations = 2000) =>
+    call<RecoveryCapabilityPayload>("run_restoration_risk_simulation", {
+      p_plan_id: planId,
+      p_iterations: iterations,
+    }),
+  simulateWhatIf: (
+    planId: string,
+    changes: Record<string, unknown>,
+    basis: string,
+  ) =>
+    call<RecoveryCapabilityPayload>("simulate_recovery_what_if", {
+      p_plan_id: planId,
+      p_changes: changes,
+      p_basis: basis,
+    }),
+  runFleetOptimization: (siteId?: string | null) =>
+    call<RecoveryCapabilityPayload>("run_recovery_fleet_optimization", {
+      p_site_id: siteId ?? null,
+    }),
+  publishCadence: (cadence: "shift" | "daily" | "weekly", eventId: string) =>
+    call<RpcResult>("publish_recovery_cadence_snapshot", {
+      p_cadence: cadence,
+      p_event_id: eventId,
+    }),
+  refreshRecurrenceCandidates: (eventId: string, windowDays = 30) =>
+    call<RpcResult>("refresh_recovery_recurrence_candidates", {
+      p_event_id: eventId,
+      p_window_days: windowDays,
+    }),
+  recordFeedback: (args: {
+    eventId: string;
+    kind: string;
+    key: string;
+    disposition: string;
+    reasonCode: string;
+    reasonText: string;
+  }) =>
+    call<RpcResult>("record_recovery_recommendation_feedback", {
+      p_event_id: args.eventId,
+      p_kind: args.kind,
+      p_key: args.key,
+      p_disposition: args.disposition,
+      p_reason_code: args.reasonCode,
+      p_reason_text: args.reasonText,
+    }),
+  recordDelayAttribution: (args: {
+    eventId: string;
+    category: string;
+    hours: number;
+    attribution: string;
+    basis: string;
+  }) =>
+    call<RpcResult>("record_recovery_delay_attribution", {
+      p_event_id: args.eventId,
+      p_category: args.category,
+      p_hours: args.hours,
+      p_attribution: args.attribution,
+      p_basis: args.basis,
+    }),
+  setConsequence: (args: {
+    eventId: string;
+    safety: number;
+    environment: number;
+    business: number;
+    production: number;
+    basis: string;
+  }) =>
+    call<RpcResult>("set_recovery_consequence", {
+      p_event_id: args.eventId,
+      p_safety: args.safety,
+      p_environment: args.environment,
+      p_business: args.business,
+      p_production: args.production,
+      p_basis: args.basis,
+    }),
+  registerOperationalSignal: (args: {
+    kind: string;
+    key: string;
+    state: "available" | "unavailable" | "unknown";
+    observedAt: string;
+    validUntil: string;
+    sourceSystem: string;
+    basis: string;
+    siteId?: string | null;
+    assetId?: string | null;
+    sourceRef?: string | null;
+    payload?: Record<string, unknown>;
+  }) =>
+    call<RpcResult>("register_operational_constraint_signal", {
+      p_kind: args.kind,
+      p_key: args.key,
+      p_state: args.state,
+      p_observed_at: args.observedAt,
+      p_valid_until: args.validUntil,
+      p_source_system: args.sourceSystem,
+      p_basis: args.basis,
+      p_site_id: args.siteId ?? null,
+      p_asset_id: args.assetId ?? null,
+      p_source_ref: args.sourceRef ?? null,
+      p_payload: args.payload ?? {},
+    }),
+  setResourceRequirement: (args: {
+    eventId: string;
+    eventWorkId?: string | null;
+    kind: string;
+    key: string;
+    phase: string;
+    isHard: boolean;
+    basis: string;
+  }) =>
+    call<RpcResult>("set_restoration_resource_requirement", {
+      p_event_id: args.eventId,
+      p_event_work_id: args.eventWorkId ?? null,
+      p_kind: args.kind,
+      p_key: args.key,
+      p_phase: args.phase,
+      p_is_hard: args.isHard,
+      p_basis: args.basis,
+    }),
+  setWorkZone: (args: {
+    eventWorkId: string;
+    zone: string;
+    componentScope?: string | null;
+    basis: string;
+  }) =>
+    call<RpcResult>("set_restoration_work_zone", {
+      p_event_work_id: args.eventWorkId,
+      p_zone: args.zone,
+      p_component_scope: args.componentScope ?? null,
+      p_basis: args.basis,
+    }),
+  recordEnergyState: (args: {
+    assetId: string;
+    energyType: string;
+    state: string;
+    basis: string;
+    isolationRef?: string | null;
+    validUntil?: string | null;
+  }) =>
+    call<RpcResult>("record_asset_energy_state", {
+      p_asset_id: args.assetId,
+      p_energy_type: args.energyType,
+      p_state: args.state,
+      p_basis: args.basis,
+      p_isolation_ref: args.isolationRef ?? null,
+      p_valid_until: args.validUntil ?? null,
+      p_source_system: "manual",
+    }),
+  setEnergyRequirement: (args: {
+    jobPlanId: string;
+    energyType: string;
+    requiredState: string;
+    basis: string;
+  }) =>
+    call<RpcResult>("set_job_plan_energy_requirement", {
+      p_job_plan_id: args.jobPlanId,
+      p_energy_type: args.energyType,
+      p_required_state: args.requiredState,
+      p_basis: args.basis,
+    }),
+  setUncertaintyGroup: (args: {
+    eventWorkId: string;
+    group: string;
+    sharedShockWeight: number;
+    basis: string;
+  }) =>
+    call<RpcResult>("set_recovery_uncertainty_group", {
+      p_event_work_id: args.eventWorkId,
+      p_group: args.group,
+      p_shared_shock_weight: args.sharedShockWeight,
+      p_basis: args.basis,
+    }),
+  addFieldEvidence: (args: {
+    eventId: string;
+    eventWorkId: string;
+    kind: string;
+    note: string;
+    attachmentId?: string | null;
+    metadata?: Record<string, unknown>;
+    clientCommandId?: string | null;
+  }) =>
+    call<RpcResult>("add_recovery_field_evidence", {
+      p_event_id: args.eventId,
+      p_event_work_id: args.eventWorkId,
+      p_kind: args.kind,
+      p_note: args.note,
+      p_attachment_id: args.attachmentId ?? null,
+      p_metadata: args.metadata ?? {},
+      p_client_command_id: args.clientCommandId ?? null,
+    }),
+  configureSignalConnector: (args: {
+    key: string;
+    name: string;
+    systemKind: string;
+    endpointHint: string;
+    expectedIntervalMinutes: number;
+    credentialBindingRef: string;
+    enabled: boolean;
+    basis: string;
+  }) =>
+    call<RpcResult>("configure_recovery_signal_connector", {
+      p_key: args.key,
+      p_name: args.name,
+      p_system_kind: args.systemKind,
+      p_endpoint_hint: args.endpointHint,
+      p_expected_interval_minutes: args.expectedIntervalMinutes,
+      p_credential_binding_ref: args.credentialBindingRef,
+      p_enabled: args.enabled,
+      p_basis: args.basis,
+    }),
+};
+
+export const recoveryActivationActions = {
+  configureSource: (args: {
+    key: string;
+    name: string;
+    systemKind: string;
+    endpointUrl?: string | null;
+    expectedIntervalMinutes?: number | null;
+    credentialBindingRef?: string | null;
+    enabled: boolean;
+    basis: string;
+  }) =>
+    call<RpcResult>("configure_recovery_activation_source", {
+      p_key: args.key,
+      p_name: args.name,
+      p_system_kind: args.systemKind,
+      p_endpoint_url: args.endpointUrl ?? null,
+      p_expected_interval_minutes: args.expectedIntervalMinutes ?? null,
+      p_credential_binding_ref: args.credentialBindingRef ?? null,
+      p_enabled: args.enabled,
+      p_basis: args.basis,
+    }),
+  saveMapping: (args: {
+    connectorKey: string;
+    entityType: string;
+    sourceArrayPath: string;
+    columnMapping: Record<string, string>;
+    valueMappings: Record<string, Record<string, string>>;
+    constants: Record<string, unknown>;
+    approve: boolean;
+    basis: string;
+  }) =>
+    call<RpcResult>("save_recovery_activation_mapping", {
+      p_connector_key: args.connectorKey,
+      p_entity_type: args.entityType,
+      p_source_array_path: args.sourceArrayPath,
+      p_column_mapping: args.columnMapping,
+      p_value_mappings: args.valueMappings,
+      p_constants: args.constants,
+      p_approve: args.approve,
+      p_basis: args.basis,
+    }),
+  preview: (
+    connectorKey: string,
+    entityType: string,
+    rows: Array<Record<string, unknown>>,
+  ) =>
+    call<RecoveryActivationBatchResult>("preview_recovery_activation_batch", {
+      p_connector_key: connectorKey,
+      p_entity_type: entityType,
+      p_rows: rows,
+    }),
+  beginRun: (connectorKey: string, entityType: string) =>
+    call<RpcResult>("begin_recovery_activation_run", {
+      p_connector_key: connectorKey,
+      p_entity_type: entityType,
+      p_run_type: "manual",
+    }),
+  ingestBatch: (runId: string, rows: Array<Record<string, unknown>>) =>
+    call<RecoveryActivationBatchResult>("ingest_recovery_activation_batch", {
+      p_run_id: runId,
+      p_rows: rows,
+    }),
+  finishRun: (runId: string, status: "success" | "partial" | "failed") =>
+    call<RpcResult>("finish_connector_run", {
+      p_run_id: runId,
+      p_status: status,
+      p_error:
+        status === "failed" ? "Manual Recovery activation failed." : null,
+    }),
+  getRejects: (runId: string) =>
+    call<
+      Array<{
+        row_number: number;
+        external_id: string | null;
+        reject_reason: string;
+        payload: Record<string, unknown>;
+      }>
+    >("get_recovery_activation_rejects", { p_run_id: runId, p_limit: 100 }),
+  pullRest: async (
+    connectorKey: string,
+    entityType: string,
+    dryRun: boolean,
+  ): Promise<RecoveryActivationBatchResult> => {
+    const { data, error } = await supabase.functions.invoke(
+      "recovery-activation-pull",
+      {
+        body: {
+          connector_key: connectorKey,
+          entity_type: entityType,
+          dry_run: dryRun,
+        },
+      },
+    );
+    if (error) throw new Error(error.message);
+    const payload = data as RecoveryActivationBatchResult & { error?: string };
+    if (payload.error) throw new Error(payload.error);
+    return payload;
+  },
+  prepareFirstPlan: (args: {
+    assetId: string;
+    workOrderIds: string[];
+    reason: string;
+    eventType: string;
+    baselineReturnAt: string;
+    baselineMethod: string;
+    baselineBasis: string;
+  }) =>
+    call<RpcResult>("prepare_first_recovery_plan", {
+      p_asset_id: args.assetId,
+      p_work_order_ids: args.workOrderIds,
+      p_reason: args.reason,
+      p_event_type: args.eventType,
+      p_baseline_return_at: args.baselineReturnAt,
+      p_baseline_method: args.baselineMethod,
+      p_baseline_basis: args.baselineBasis,
     }),
 };

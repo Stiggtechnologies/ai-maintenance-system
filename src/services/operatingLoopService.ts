@@ -192,6 +192,144 @@ export async function verifyValueMetric(
   if (error) fail("Could not verify value metric", error);
 }
 
+/**
+ * Named-human recording of whether an approved recommendation produced the
+ * intended outcome (register C4.08). Distinct from `verifyValueMetric` (a
+ * projected dollar claim), `attest_ca_stage` (work-order CA hold), and
+ * `record_ria_verification` (RIA workspace).
+ *
+ * The RPC records once. A second call is refused in-band — that sentence is
+ * returned to the caller, not swallowed. `not_achieved` inserts
+ * `learning_events.verification_failed` inside the same transaction.
+ *
+ * This is still a pilot attestation. It is not a historian or CMMS reading.
+ */
+export type VerificationResultKind =
+  "achieved" | "not_achieved" | "inconclusive";
+
+export interface RecordedVerification {
+  outcome: "recorded";
+  learningEventId: string | null;
+  detail: string;
+}
+
+export type VerificationSubjectKind = "recommendation" | "requirement";
+
+/** Open row from `get_open_verifications` — the same list Learning Loop reads. */
+export interface OpenVerification {
+  obligationId: string;
+  recommendationTitle: string;
+  assetName: string | null;
+  method: string;
+  dueDate: string;
+  dueDateAssumed: boolean;
+  daysOverdue: number;
+  intendedOutcome: string | null;
+  subjectKind?: VerificationSubjectKind;
+  requirementRef?: string | null;
+  methodCode?: string | null;
+}
+
+function firstRpcRow<T>(data: unknown): T | null {
+  if (Array.isArray(data)) return (data[0] as T) ?? null;
+  if (data && typeof data === "object") return data as T;
+  return null;
+}
+
+/**
+ * The ONE caller of record_verification_result, for BOTH subjects.
+ *
+ * Slice 5A generalized the obligation to carry a requirement as well as a
+ * recommendation (D4.17), and added §11's `evidence_id`. This function gained
+ * an optional evidence id rather than a develop-side twin: two service
+ * functions over one RPC is a fork of the caller, and the first thing a fork
+ * does is stop passing an argument the other one passes.
+ */
+export async function recordVerificationResult(
+  obligationId: string,
+  result: VerificationResultKind,
+  measuredNote: string,
+  evidenceId?: string | null,
+): Promise<RecordedVerification> {
+  const note = measuredNote.trim();
+  if (note === "") {
+    throw new Error(
+      "A result with no measurement is an opinion. Record what was measured, against what, and when.",
+    );
+  }
+  if (
+    result !== "achieved" &&
+    result !== "not_achieved" &&
+    result !== "inconclusive"
+  ) {
+    throw new Error("Result must be achieved, not_achieved or inconclusive.");
+  }
+
+  const { data, error } = await supabase.rpc("record_verification_result", {
+    p_obligation_id: obligationId,
+    p_result: result,
+    p_measured_note: note,
+    p_evidence_id: evidenceId ?? null,
+  });
+  if (error) fail("Could not record verification result", error);
+
+  const row = firstRpcRow<{
+    outcome?: string;
+    learningEventId?: string | null;
+    detail?: string;
+  }>(data);
+
+  if (!row) {
+    throw new Error("Verification result was not recorded.");
+  }
+  if (row.outcome === "recorded") {
+    return {
+      outcome: "recorded",
+      learningEventId: row.learningEventId ?? null,
+      detail: row.detail ?? "Outcome recorded.",
+    };
+  }
+  // In-band refused / error is the product's answer (second call, empty note,
+  // unknown id). Surface the server's sentence — do not invent a paraphrase.
+  throw new Error(row.detail || `Verification ${row.outcome ?? "refused"}.`);
+}
+
+/**
+ * The same open-obligation list VerificationLoop reads on /learning-loop.
+ * Conversation LEARN must resolve an id from this list (or the bound
+ * recommendation row) before it may call `recordVerificationResult`.
+ */
+export async function getOpenVerifications(
+  limit = 20,
+): Promise<OpenVerification[]> {
+  const { data, error } = await supabase.rpc("get_open_verifications", {
+    p_limit: limit,
+  });
+  if (error) fail("Could not load open verifications", error);
+  return (data as OpenVerification[]) ?? [];
+}
+
+/**
+ * Resolve the open obligation created when this recommendation was approved.
+ * RLS keeps the read in the caller's organization. Null means nothing to
+ * persist — the conversation must fail visibly, not invent a close.
+ */
+export async function getOpenObligationIdForRecommendation(
+  recommendationId: string,
+): Promise<string | null> {
+  const id = recommendationId.trim();
+  if (id === "") return null;
+  const { data, error } = await supabase
+    .from("verification_obligations")
+    .select("id")
+    .eq("recommendation_id", id)
+    .eq("status", "open")
+    .maybeSingle()
+    .returns<{ id: string }>();
+  if (error) fail("Could not load verification obligation", error);
+  return data?.id ?? null;
+}
+
 export interface PilotScorecard {
   pilot_started_at: string;
   pilot_day: number;
@@ -394,16 +532,36 @@ export async function getMissionControl(): Promise<MissionControlData> {
           100,
       )
     : 100;
-  const operationalRisk = assets.length
+  /**
+   * `assets.risk_score` and `assets.health_score` are written by exactly one
+   * thing in the whole chain: 00000000000004_demo_seed.sql:75. No importer, no
+   * RPC and no surface sets either. So on a real customer import both columns
+   * are 0 for every asset — and `100 - 0` is 100, the best possible operational
+   * risk score, produced from no data at all. A wrong answer is bad; a
+   * REASSURING wrong answer computed from an empty column is the same failure
+   * that got `asset_risk_index` refused rather than defaulted in
+   * 20261005090200, and it was left running here.
+   *
+   * An all-zero column means UNSCORED, not risk-free. An unscored factor is
+   * dropped from the readiness average rather than scored, so it neither
+   * flatters the result nor invents a penalty.
+   */
+  const riskScored = assets.some((a) => (a.risk_score ?? 0) > 0);
+  const healthScored = assets.some((a) => (a.health_score ?? 0) > 0);
+  const operationalRisk = riskScored
     ? 100 - avg(assets.map((a) => a.risk_score))
-    : 100;
+    : null;
 
   const factors: MissionReadinessFactor[] = [
-    {
-      label: "Asset Health",
-      score: assetHealth,
-      trend: assetHealth >= 85 ? "up" : "down",
-    },
+    ...(healthScored
+      ? [
+          {
+            label: "Asset Health",
+            score: assetHealth,
+            trend: (assetHealth >= 85 ? "up" : "down") as "up" | "down",
+          },
+        ]
+      : []),
     {
       label: "Maintenance Readiness",
       score: maintenanceReadiness,
@@ -415,11 +573,15 @@ export async function getMissionControl(): Promise<MissionControlData> {
       trend: partsReady >= 85 ? "up" : "down",
     },
     { label: "Safety Controls", score: safetyControls, trend: "stable" },
-    {
-      label: "Operational Risk",
-      score: operationalRisk,
-      trend: operationalRisk >= 70 ? "up" : "down",
-    },
+    ...(operationalRisk === null
+      ? []
+      : [
+          {
+            label: "Operational Risk",
+            score: operationalRisk,
+            trend: (operationalRisk >= 70 ? "up" : "down") as "up" | "down",
+          },
+        ]),
   ];
 
   const readinessScore = avg(factors.map((f) => f.score));
@@ -521,11 +683,7 @@ export { listApprovals as getApprovals };
 /* -------------------------------------------------------------------------- */
 
 export type RecommendationAction =
-  | "approved"
-  | "rejected"
-  | "dismissed"
-  | "escalated"
-  | "modified";
+  "approved" | "rejected" | "dismissed" | "escalated" | "modified";
 
 export interface ApproveResult {
   recommendationId: string;
@@ -548,10 +706,14 @@ function moneyFromText(text: string | null): number {
 }
 
 /**
- * Approve a recommendation and propagate it through the whole loop:
- * update status → log a decision → resolve the approval → create a work action
- * → record realized value → emit a learning event. Safety-critical work is
- * created in an approval-gated state, never auto-executed.
+ * Approve a recommendation: named-human approval, a decision log, a work
+ * action, and a projected (not realized) value metric.
+ *
+ * This does not verify the outcome. Approval is not achievement. The
+ * verification obligation is created by the status trigger; a later named
+ * human records achieved / not_achieved / inconclusive via
+ * `record_verification_result`. Safety-critical work is created in an
+ * approval-gated state, never auto-executed.
  */
 export async function approveRecommendation(
   rec: RecommendationRow,
@@ -583,7 +745,7 @@ export async function approveRecommendation(
       confidence_score: rec.confidence,
       human_actor: ctx.userId,
       rationale: rec.rationale ?? rec.issue,
-      outcome_status: "executed",
+      outcome_status: "open",
     })
     .select("id")
     .maybeSingle()
@@ -658,14 +820,15 @@ export async function approveRecommendation(
     });
   }
 
-  // Learning event
+  // Approval recorded. The outcome is not known yet — do not write
+  // recommendation_accepted as if the intended result already happened.
   await supabase.from("learning_events").insert({
     organization_id: ctx.organizationId,
     recommendation_id: rec.id,
     asset_id: rec.asset_id,
-    event_type: "recommendation_accepted",
+    event_type: "recommendation_approved",
     title: `Recommendation approved — ${rec.title}`,
-    detail: `Approved by operator; work action created${safetyCritical ? " (approval-gated, safety-critical)" : ""}.`,
+    detail: `Named human approved the recommendation; work action created${safetyCritical ? " (approval-gated, safety-critical)" : ""}. Outcome is not verified — record verification when the stated method can be measured.`,
     expected_value: exposure || null,
     model_confidence: rec.confidence,
   });
@@ -717,6 +880,48 @@ export async function setRecommendationStatus(
       model_confidence: rec.confidence,
     });
   }
+}
+
+/**
+ * Record an engineering sign-off on a recommendation that carries a change
+ * class (register E4.06).
+ *
+ * This is the ONLY way to write `engineering_signed_by/at/note`. Migration
+ * 20261005090100 put a provenance trigger on `recommendations` that refuses a
+ * direct write of those columns, because until then the `for all to
+ * authenticated` policy let any role satisfy the control by asserting its own
+ * signature — and `sign_engineering_review` had no callers, so the forged path
+ * was the only path.
+ *
+ * The RPC refuses in-band rather than throwing: it returns `{ error }` when the
+ * caller does not hold the discipline the change class requires, or when the
+ * basis is shorter than 20 characters. Those are answers for the user, not
+ * exceptions, so they are surfaced as a returned message.
+ */
+export async function signEngineeringReview(
+  recommendationId: string,
+  note: string,
+): Promise<{ signedBy: string; changeClass: string }> {
+  const { data, error } = await supabase.rpc("sign_engineering_review", {
+    p_recommendation_id: recommendationId,
+    p_note: note,
+  });
+  if (error) fail("Could not record the engineering sign-off", error);
+  // The RPC returns jsonb: either { error } or the signed receipt.
+  const result = data as {
+    error?: string;
+    signed?: string;
+    change_class?: string;
+    signed_by_role?: string;
+  } | null;
+  if (!result || result.error) {
+    // The server's own refusal sentence, not a paraphrase of it.
+    throw new Error(result?.error ?? "Engineering sign-off was not recorded.");
+  }
+  return {
+    signedBy: result.signed_by_role ?? "",
+    changeClass: result.change_class ?? "",
+  };
 }
 
 /** Create a draft work order directly from a recommendation (without approving it). */

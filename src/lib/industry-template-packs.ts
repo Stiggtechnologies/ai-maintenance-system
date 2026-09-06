@@ -1,3 +1,5 @@
+import type { TemplateIndustryCode } from "./industry-catalog";
+
 export interface IndustryTemplatePack {
   industryCode: string;
   industryName: string;
@@ -10,10 +12,10 @@ export interface IndustryTemplatePack {
     consequenceCategories: string[];
     likelihoodScale: string;
     criticalityThresholds: {
-      low: number;
-      medium: number;
-      high: number;
-      critical: number;
+      low: number | null;
+      medium: number | null;
+      high: number | null;
+      critical: number | null;
     };
   };
   riskDrivers: string[];
@@ -47,7 +49,7 @@ export interface IndustryTemplatePack {
   validationStatus: "draft" | "reviewed" | "customer_validated" | "deprecated";
 }
 
-export const INDUSTRY_TEMPLATE_PACKS: Record<string, IndustryTemplatePack> = {
+export const INDUSTRY_TEMPLATE_PACKS = {
   oil_sands: {
     industryCode: "oil_sands",
     industryName: "Oil Sands",
@@ -2315,6 +2317,178 @@ export const INDUSTRY_TEMPLATE_PACKS: Record<string, IndustryTemplatePack> = {
     validationStatus: "draft",
   },
 
+  buildings_infrastructure: {
+    industryCode: "buildings_infrastructure",
+    industryName: "Buildings & Infrastructure",
+    description:
+      "Commercial, institutional and public buildings together with their structural, mechanical, electrical, water, fire/life-safety and site infrastructure systems. The pack coordinates reliability evidence without replacing the authority of the applicable jurisdiction, engineer of record or facility owner.",
+    primaryMissionObjective:
+      "Sustain safe, compliant and serviceable facilities while making condition, maintenance, renewal and outage decisions traceable to approved evidence.",
+    commonAssetClasses: [
+      "Structural Frames and Building Envelopes",
+      "Heating, Ventilation and Air-Conditioning Systems",
+      "Electrical Distribution and Standby Power",
+      "Water, Drainage and Pumping Systems",
+      "Fire Detection and Suppression Systems",
+      "Elevators and Vertical Transportation",
+      "Roads, Bridges and Civil Structures",
+      "Building Automation and Security Systems",
+    ],
+    onboardingQuestions: [
+      "Which facilities, structures, services and occupancies are in scope?",
+      "Which jurisdiction, owner standards and engineer-of-record requirements apply?",
+      "Which systems are life-safety, mission-critical or required for continued occupancy?",
+      "What asset hierarchy, drawings, inspection records and maintenance history are available?",
+      "Which condition assessments carry qualified professional sign-off?",
+      "What service interruptions, access limits and seasonal constraints affect work?",
+      "Which deferred-renewal risks and active deficiencies require governed decisions?",
+      "Which building automation, utility, CMMS and inspection systems can supply evidence?",
+    ],
+    criticalityModel: {
+      riskMatrix: "Organization-adopted Safety-Service-Compliance-Asset Matrix",
+      consequenceCategories: [
+        "Life Safety and Public Safety",
+        "Regulatory or Occupancy Restriction",
+        "Critical Service Interruption",
+        "Environmental or Property Damage",
+        "Asset Integrity and Renewal Exposure",
+      ],
+      likelihoodScale:
+        "Organization-defined likelihood scale requiring authorized adoption",
+      criticalityThresholds: {
+        low: null,
+        medium: null,
+        high: null,
+        critical: null,
+      },
+    },
+    riskDrivers: [
+      "Structural and envelope deterioration",
+      "HVAC and indoor-environment service failure",
+      "Electrical distribution or standby-power outage",
+      "Water ingress, drainage failure and freeze damage",
+      "Fire/life-safety system impairment",
+      "Deferred renewal and hidden-condition exposure",
+    ],
+    safeguards: [
+      "Approved inspection and impairment-management processes",
+      "Current drawings, asset register and controlled deficiency records",
+      "Qualified review for structural and life-safety findings",
+      "Planned shutdown, isolation and occupant-communication controls",
+      "Condition monitoring where its method and acceptance criteria are approved",
+      "Verified corrective-action and return-to-service evidence",
+    ],
+    approvalGates: [
+      "Facility Scope and Critical-Service Review",
+      "Applicable Requirement and Authority Review",
+      "Inspection Method and Evidence Acceptance",
+      "Shutdown, Isolation and Occupant-Impact Approval",
+      "Qualified Engineering Disposition where required",
+      "Operations or Facility-Owner Return-to-Service Acceptance",
+    ],
+    failureModeFocusAreas: [
+      "Structural deterioration, cracking, corrosion and connection distress",
+      "Roofing, façade and below-grade water ingress",
+      "HVAC rotating-equipment and control failure",
+      "Electrical protection, distribution and standby-power failure",
+      "Pumping, drainage, piping and freeze-protection failure",
+      "Fire detection, suppression or smoke-control impairment",
+      "Elevator, access-control and building-automation service interruption",
+    ],
+    kpiModel: {
+      primaryKpis: [
+        "Critical Service Availability",
+        "Life-Safety Impairments Open",
+        "Overdue Qualified Inspections",
+        "High-Criticality Deficiency Backlog",
+        "Planned Maintenance Compliance",
+        "Repeat Defect Rate",
+        "Condition-Assessment Coverage",
+      ],
+      secondaryKpis: [
+        "Emergency Work Share",
+        "Mean Time to Restore Critical Services",
+        "Deferred Renewal Exposure with Approved Basis",
+        "Energy and Water Performance against an Approved Baseline",
+        "Inspection Finding Closure Time",
+        "Evidence Completeness for Return to Service",
+      ],
+      kpiTargets: {
+        "Critical Service Availability":
+          "Organization-approved target required",
+        "Life-Safety Impairments Open":
+          "Authority-approved tolerance and response rule required",
+        "Overdue Qualified Inspections":
+          "Applicable requirement and owner policy required",
+        "Planned Maintenance Compliance":
+          "Organization-approved target required",
+      },
+    },
+    readinessModel: {
+      readinessLevels: [
+        "Evidence gap - scope or governing requirements are not established",
+        "Controlled - hierarchy, responsibilities and required inspections are governed",
+        "Integrated - work, condition and service evidence share canonical identities",
+        "Optimized - verified history supports governed risk and renewal decisions",
+      ],
+      minimumForOperation:
+        "Controlled - authorized requirements, critical services and impairment responsibilities are recorded",
+      minimumForOptimization:
+        "Integrated - sufficient quality-assured condition, work and service history exists",
+    },
+    regulatoryConsiderations: [
+      "Applicable building, fire, electrical, accessibility and occupational-safety requirements",
+      "Jurisdictional inspection and occupancy requirements",
+      "Environmental permits and hazardous-material obligations where applicable",
+      "Professional engineering authentication and engineer-of-record authority",
+      "Owner standards, insurer requirements and contractual service obligations",
+      "No jurisdiction or threshold is presumed without customer evidence",
+    ],
+    dataSourcesRequired: [
+      "Asset register, location hierarchy and controlled drawings",
+      "CMMS work, inspection and deficiency history",
+      "Condition assessments with method, author and acceptance basis",
+      "Building automation and utility trend data where governed",
+      "Life-safety inspection, impairment and test records",
+      "Approved renewal plans, budgets and service-criticality records",
+    ],
+    integrationTargets: [
+      "CMMS or facilities management system",
+      "Building automation and energy management systems",
+      "Inspection and compliance record systems",
+      "Document and drawing management systems",
+      "Utility metering and outage records",
+      "Capital planning and project portfolio systems",
+    ],
+    outputArtifacts: [
+      "Critical Service and Asset Hierarchy",
+      "Governed Inspection and Deficiency Register",
+      "Facility Reliability and Service-Availability Dashboard",
+      "Condition and Renewal Risk Assessment",
+      "Shutdown and Return-to-Service Evidence Pack",
+      "Deferred Renewal Decision Case",
+      "Corrective-Action and Verification Report",
+    ],
+    confidenceRules: [
+      "Structural and life-safety conclusions require qualified source evidence",
+      "Condition ratings must retain method, date, author and scope",
+      "Service impact requires a named dependency and approved criticality basis",
+      "Cost and renewal exposure require a dated source and currency basis",
+      "Automation trends do not replace required physical inspection",
+      "Missing or stale evidence remains unknown rather than satisfactory",
+    ],
+    blockedAutomationRules: [
+      "Do not declare a structure, life-safety system or occupied facility safe",
+      "Do not modify protection, alarm or fire/life-safety settings",
+      "Do not infer jurisdictional compliance from maintenance completion",
+      "Do not approve occupancy, shutdown bypasses or return to service",
+      "Do not invent inspection intervals, limits or renewal thresholds",
+      "Do not convert draft pack guidance into adopted owner policy",
+    ],
+    templateVersion: "1.0.0",
+    validationStatus: "draft",
+  },
+
   aerospace_launch: {
     industryCode: "aerospace_launch",
     industryName: "Aerospace & Launch",
@@ -2476,12 +2650,17 @@ export const INDUSTRY_TEMPLATE_PACKS: Record<string, IndustryTemplatePack> = {
     templateVersion: "1.0.0",
     validationStatus: "draft",
   },
-};
+} satisfies Record<TemplateIndustryCode, IndustryTemplatePack>;
 
 export function getIndustryTemplatePack(
   industryCode: string,
 ): IndustryTemplatePack | undefined {
-  return INDUSTRY_TEMPLATE_PACKS[industryCode];
+  return Object.prototype.hasOwnProperty.call(
+    INDUSTRY_TEMPLATE_PACKS,
+    industryCode,
+  )
+    ? INDUSTRY_TEMPLATE_PACKS[industryCode as TemplateIndustryCode]
+    : undefined;
 }
 
 export function listIndustryTemplatePacks(): IndustryTemplatePack[] {

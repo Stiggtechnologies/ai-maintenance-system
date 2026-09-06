@@ -325,12 +325,16 @@ export function MarketplaceSignup() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.3 }}
-              onClick={handleRetry}
+              onClick={
+                error.type === "invalid-token"
+                  ? () => navigate("/")
+                  : handleRetry
+              }
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               className="w-full py-3 px-4 bg-[#3A8DFF] hover:bg-[#2E7AE6] text-white font-medium rounded-lg transition-colors"
             >
-              Try Again
+              {error.type === "invalid-token" ? "Back to Home" : "Try Again"}
             </motion.button>
 
             <p className="text-xs text-industrial-muted text-center">

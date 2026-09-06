@@ -1565,7 +1565,7 @@ function buildDefaultProfile(
       sourceTables: template.sourceTables,
       pathSummary: `${LIFECYCLE_LABELS[lifecycle]} using ${template.name}.`,
       commercialUse:
-        "Template-driven onboarding applies the existing SyncAI industry packs to asset context, criticality, failure modes, governance, and pilot deliverables.",
+        "Template-driven onboarding applies this module's own inline industry templates to asset context, criticality, failure modes, governance, and pilot deliverables. It does not read src/lib/industry-template-packs.ts. Corrected 2026-08-20, re-verified 2026-08-24: this sentence previously said the existing SyncAI industry packs were applied here, and this file imports nothing at all. The packs are consumed elsewhere — src/lib/risk-operating-system/index.ts reads them for the /risk surface since #265/#267 — but not on this path.",
     },
     identity: defaultIdentity(assetId, assetClass),
     hierarchy: {

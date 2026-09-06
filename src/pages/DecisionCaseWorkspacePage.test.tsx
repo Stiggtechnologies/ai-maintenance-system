@@ -1,7 +1,33 @@
+import { readFileSync } from "node:fs";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { createSeedDecisionCases } from "../lib/decision-case";
+import {
+  FIRST_PAINT_QUESTIONS,
+  createFirstPaintSeed,
+} from "../lib/first-paint-seeds";
+import { PUBLIC_ASK_INTENTS } from "../lib/public-ask-intents";
+import { ASK_PLACEHOLDER } from "../components/public-ask/PublicAskBar";
 import { DecisionCaseWorkspacePage } from "./DecisionCaseWorkspacePage";
+
+const recordVerificationResult = vi.fn();
+const getOpenVerifications = vi.fn();
+const getOpenObligationIdForRecommendation = vi.fn();
+
+vi.mock("../services/operatingLoopService", async () => {
+  const actual = await vi.importActual<
+    typeof import("../services/operatingLoopService")
+  >("../services/operatingLoopService");
+  return {
+    ...actual,
+    recordVerificationResult: (...args: unknown[]) =>
+      recordVerificationResult(...args),
+    getOpenVerifications: (...args: unknown[]) => getOpenVerifications(...args),
+    getOpenObligationIdForRecommendation: (...args: unknown[]) =>
+      getOpenObligationIdForRecommendation(...args),
+  };
+});
 
 vi.mock("../services/decisionCaseService", () => ({
   askDecisionCase: vi.fn().mockResolvedValue({
@@ -22,10 +48,31 @@ vi.mock("../services/decisionCaseService", () => ({
   savePersistedDecisionCase: vi.fn(),
 }));
 
-function renderWorkspace(entry = "/workspace/cases/demo") {
+const authState: { user: { id: string } | null } = { user: null };
+
+vi.mock("../components/AuthProvider", async () => {
+  const actual = await vi.importActual<
+    typeof import("../components/AuthProvider")
+  >("../components/AuthProvider");
+  return {
+    ...actual,
+    useOptionalAuth: () => ({
+      user: authState.user,
+      profile: null,
+      session: null,
+      loading: false,
+    }),
+  };
+});
+
+function renderWorkspace(entry = "/workspace") {
   return render(
     <MemoryRouter initialEntries={[entry]}>
       <Routes>
+        <Route
+          path="/workspace"
+          element={<DecisionCaseWorkspacePage publicMode />}
+        />
         <Route
           path="/workspace/cases/:caseId"
           element={<DecisionCaseWorkspacePage publicMode />}
@@ -35,7 +82,11 @@ function renderWorkspace(entry = "/workspace/cases/demo") {
   );
 }
 
-describe("DecisionCaseWorkspacePage", () => {
+function loadSample() {
+  fireEvent.click(screen.getByRole("button", { name: "Compare" }));
+}
+
+describe("DecisionCaseWorkspacePage — Bolt first paint", () => {
   beforeEach(() => {
     const storage = new Map<string, string>();
     Object.defineProperty(window, "localStorage", {
@@ -51,30 +102,263 @@ describe("DecisionCaseWorkspacePage", () => {
       window as Window & { dataLayer?: Array<Record<string, unknown>> }
     ).dataLayer = [];
     window.sessionStorage.clear();
+    recordVerificationResult.mockReset();
+    getOpenVerifications.mockReset();
+    getOpenObligationIdForRecommendation.mockReset();
+    getOpenVerifications.mockResolvedValue([]);
+    getOpenObligationIdForRecommendation.mockResolvedValue(null);
+    authState.user = null;
   });
 
-  it("keeps conversation central and generates a governed reply", async () => {
+  it("Mode A is the Bolt empty: light canvas, wordmark, stadium ask, five pills", () => {
     renderWorkspace();
-    expect(screen.getByText("Decision Workspace")).toBeTruthy();
+    expect(document.querySelector(".bolt-public.is-empty")).toBeTruthy();
+    expect(document.querySelector('[data-layout="chat-first"]')).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "SyncAI" })).toBeTruthy();
+    expect(screen.getByText("pro")).toBeTruthy();
+    expect(screen.getByPlaceholderText(ASK_PLACEHOLDER)).toBeTruthy();
+    expect(screen.getByTestId("first-paint-empty")).toBeTruthy();
     expect(
-      screen.getAllByText("Know where the next reliability dollar should go.")
-        .length,
-    ).toBeGreaterThan(0);
-    expect(screen.getByText("Decision Thread")).toBeTruthy();
-    expect(
-      screen.getByText(/controlled work, and value trail stay together/i),
-    ).toBeTruthy();
-    expect(screen.queryByText(/analysis tokens/i)).toBeNull();
-    expect(screen.getByText("Full value proof included")).toBeTruthy();
-    expect(screen.getByText("End-to-end access")).toBeTruthy();
-    expect(screen.queryByText(/% left/i)).toBeNull();
-    expect(
-      screen.getByText("Do not approve the yearly inspection interval."),
-    ).toBeTruthy();
-    fireEvent.change(
-      screen.getByPlaceholderText(/Ask any reliability question/i),
-      { target: { value: "Where should the next dollar go?" } },
+      screen.getAllByTestId("ask-intent-pill").map((el) => el.textContent),
+    ).toEqual(["Compare", "Troubleshoot", "Health", "Learn", "Fact Check"]);
+    expect(screen.getByRole("button", { name: "Home" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Assess" })).toHaveAttribute(
+      "href",
+      "/setup",
     );
+    expect(screen.getByLabelText("Sign in")).toHaveAttribute(
+      "href",
+      "/signin?returnTo=%2F",
+    );
+    expect(screen.getByTestId("bolt-rail-compass")).toBeTruthy();
+    expect(screen.queryByText("Discover")).toBeNull();
+    expect(screen.queryByText("Spaces")).toBeNull();
+    expect(screen.queryByText("Install")).toBeNull();
+    expect(screen.queryByTestId("sample-seed-chip")).toBeNull();
+    expect(screen.queryByTestId("brand-job-title")).toBeNull();
+    expect(screen.queryByText("Reliability Engineer")).toBeNull();
+    expect(screen.queryByLabelText("Conversation")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Try a sample" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "View record" })).toBeNull();
+    expect(screen.queryByText("Not proven")).toBeNull();
+    expect(screen.queryByTestId("recommendation-turn")).toBeNull();
+    expect(screen.getByLabelText("Search")).toBeDisabled();
+    expect(screen.getByLabelText("Attach a photo")).toBeDisabled();
+    expect(screen.getByLabelText("Attach a file")).toBeDisabled();
+    expect(screen.getByLabelText("Web search")).toBeDisabled();
+    expect(screen.queryByLabelText("Conversations")).toBeNull();
+    expect(screen.queryByRole("tablist")).toBeNull();
+    expect(screen.queryByText("Decision Workspace")).toBeNull();
+    expect(screen.queryByText("Current decision packet")).toBeNull();
+    expect(screen.queryByText(/P-101 process pump/)).toBeNull();
+    expect(screen.queryByRole("button", { name: "Simulate" })).toBeNull();
+    expect(screen.queryByText("Chat")).toBeNull();
+    expect(screen.queryByText("Work")).toBeNull();
+    expect(screen.queryByText(/GPT|model picker|Claude/i)).toBeNull();
+    expect(screen.queryByRole("button", { name: /dark|theme/i })).toBeNull();
+  });
+
+  it("signed-in Mode A exposes Spaces as the existing cowork list, not a new page", () => {
+    authState.user = { id: "user-1" };
+    renderWorkspace();
+    expect(screen.queryByText("Discover")).toBeNull();
+    expect(screen.queryByLabelText("Sign in")).toBeNull();
+    fireEvent.click(screen.getByTestId("bolt-rail-spaces"));
+    const spaces = screen.getByLabelText("Space list");
+    expect(spaces).toBeTruthy();
+    expect(spaces.querySelector("a")).toBeNull();
+    expect(spaces.textContent).not.toMatch(/develop/i);
+    fireEvent.click(screen.getByRole("button", { name: "Home" }));
+    expect(screen.getByTestId("first-paint-empty")).toBeTruthy();
+  });
+
+  it("signed-in Mode B Spaces still opens the cowork list, not Discover", () => {
+    authState.user = { id: "user-1" };
+    renderWorkspace();
+    loadSample();
+    expect(document.querySelector(".bolt-public.is-thread")).toBeTruthy();
+    expect(screen.queryByText("Discover")).toBeNull();
+    fireEvent.click(screen.getByTestId("bolt-rail-spaces"));
+    const spaces = screen.getByLabelText("Space list");
+    expect(spaces).toBeTruthy();
+    expect(spaces.querySelector("a")).toBeNull();
+    expect(spaces.textContent).not.toMatch(/develop/i);
+  });
+
+  it("Mode B docks the composer because .bolt-public is a 100dvh viewport shell", () => {
+    renderWorkspace();
+    loadSample();
+    expect(document.querySelector(".bolt-public.is-thread")).toBeTruthy();
+    expect(document.querySelector(".bolt-ask-dock")).toBeTruthy();
+    expect(screen.getByPlaceholderText(ASK_PLACEHOLDER)).toBeTruthy();
+    const css = readFileSync(
+      "src/components/public-ask/public-ask.css",
+      "utf8",
+    );
+    const boltPublic = css.match(/^\.bolt-public\s*\{[^}]+\}/m)?.[0];
+    expect(boltPublic).toMatch(/height:\s*100dvh/);
+    expect(boltPublic).toMatch(/min-height:\s*100dvh/);
+  });
+
+  it("a pill loads the recommendation in the assistant turn on a light thread", async () => {
+    renderWorkspace();
+    loadSample();
+    expect(document.querySelector(".bolt-public.is-thread")).toBeTruthy();
+    expect(screen.getByLabelText("Conversation")).toBeTruthy();
+    expect(screen.getByTestId("recommendation-turn")).toBeTruthy();
+    expect(screen.getByText("Established")).toBeTruthy();
+    expect(screen.getByText("Not proven")).toBeTruthy();
+    expect(screen.getByText("Recommendation · not authorization")).toBeTruthy();
+    expect(
+      screen.getByText(/Authority: L\. Singh, Maintenance Superintendent/),
+    ).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Simulate" })).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "Request changes" }),
+    ).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Delegate" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Reject" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "View record" })).toBeTruthy();
+    expect(screen.getByText(PUBLIC_ASK_INTENTS[0].question)).toBeTruthy();
+    expect(screen.queryByText(/P-101 process pump/)).toBeNull();
+    expect(screen.getByLabelText("Add camera, photos, or files")).toBeTruthy();
+  });
+
+  it("Mode A does not restore the Reliability Engineer header lockup", () => {
+    renderWorkspace();
+    expect(screen.queryByTestId("brand-job-title")).toBeNull();
+    expect(screen.queryByText("Reliability Engineer")).toBeNull();
+    expect(screen.queryByLabelText("SyncAI Reliability Engineer")).toBeNull();
+    expect(document.querySelector(".bolt-public.is-empty")).toBeTruthy();
+  });
+
+  it("packet and attach stay gated until a case exists", () => {
+    renderWorkspace();
+    expect(screen.queryByRole("button", { name: "View record" })).toBeNull();
+    expect(screen.queryByText("Current decision packet")).toBeNull();
+    expect(screen.queryByRole("tablist")).toBeNull();
+    expect(screen.getByLabelText("Attach a photo")).toBeDisabled();
+    expect(screen.getByLabelText("Attach a file")).toBeDisabled();
+    expect(screen.queryByRole("menuitem", { name: "Camera" })).toBeNull();
+    loadSample();
+    expect(screen.getByRole("button", { name: "View record" })).toBeTruthy();
+    expect(screen.getByLabelText("Add camera, photos, or files")).toBeEnabled();
+    fireEvent.click(screen.getByRole("button", { name: "View record" }));
+    expect(screen.getByText("Current decision packet")).toBeTruthy();
+  });
+
+  it("plus sheet offers camera, photos, and files only after a case exists", () => {
+    renderWorkspace();
+    expect(screen.queryByRole("menuitem", { name: "Camera" })).toBeNull();
+    loadSample();
+    fireEvent.click(screen.getByLabelText("Add camera, photos, or files"));
+    expect(screen.getByRole("menuitem", { name: "Camera" })).toBeTruthy();
+    expect(screen.getByRole("menuitem", { name: "Photos" })).toBeTruthy();
+    expect(screen.getByRole("menuitem", { name: "Files" })).toBeTruthy();
+    expect(screen.queryByText("Plugins")).toBeNull();
+    expect(screen.queryByText("Think harder")).toBeNull();
+  });
+
+  it("after Simulate, anonymous LEARN is a pointer — not a recorded verification", async () => {
+    renderWorkspace();
+    loadSample();
+    fireEvent.click(screen.getByRole("button", { name: "Simulate" }));
+    expect(
+      await screen.findByText(/L\. Singh approved the controlled plan/),
+    ).toBeTruthy();
+    expect(screen.getByTestId("disposition-record")).toBeTruthy();
+    expect(screen.getByTestId("learn-unpersisted")).toBeTruthy();
+    expect(screen.getByText(/no verification obligation/i)).toBeTruthy();
+    expect(screen.getByText(/nothing was written/i)).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Learning Loop" })).toHaveAttribute(
+      "href",
+      "/learning-loop",
+    );
+    expect(screen.queryByTestId("learn-recorder")).toBeNull();
+    expect(screen.queryByText(/Outcome recorded/i)).toBeNull();
+    expect(screen.queryByText(/Outcome retained/i)).toBeNull();
+    expect(screen.queryByText(/LR-/i)).toBeNull();
+    expect(getOpenVerifications).not.toHaveBeenCalled();
+    expect(recordVerificationResult).not.toHaveBeenCalled();
+  });
+
+  it("signed-in LEARN after Simulate requires an explicit obligation pick — no obl-chat auto-mount", async () => {
+    authState.user = { id: "user-1" };
+    getOpenVerifications.mockResolvedValue([
+      {
+        obligationId: "obl-chat",
+        recommendationTitle: "Replace seal on P-101",
+        assetName: "P-101",
+        method: "Leak rate after 48h run",
+        dueDate: "2026-09-15",
+        dueDateAssumed: true,
+        daysOverdue: 0,
+        intendedOutcome: "Leak stopped",
+        subjectKind: "recommendation",
+      },
+    ]);
+    recordVerificationResult.mockResolvedValue({
+      outcome: "recorded",
+      learningEventId: null,
+      detail:
+        "Outcome verified as achieved, with the measurement on record. This loop is closed.",
+    });
+    renderWorkspace();
+    loadSample();
+    fireEvent.click(screen.getByRole("button", { name: "Simulate" }));
+    expect(await screen.findByTestId("learn-select-needed")).toBeTruthy();
+    expect(screen.getByText(/simulated approval did not create/i)).toBeTruthy();
+    expect(screen.getByTestId("learn-obligation-select")).toBeTruthy();
+    expect(screen.queryByTestId("learn-recorder")).toBeNull();
+    expect(recordVerificationResult).not.toHaveBeenCalled();
+    fireEvent.change(screen.getByTestId("learn-obligation-select"), {
+      target: { value: "obl-chat" },
+    });
+    expect(await screen.findByTestId("learn-recorder")).toBeTruthy();
+    expect(screen.queryByTestId("learn-unpersisted")).toBeNull();
+    fireEvent.click(screen.getByLabelText("Not achieved"));
+    fireEvent.change(screen.getByPlaceholderText(/what was measured/i), {
+      target: {
+        value: "leak rate unchanged at 4 drops/min after seal change",
+      },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Record outcome" }));
+    await waitFor(() =>
+      expect(recordVerificationResult).toHaveBeenCalledWith(
+        "obl-chat",
+        "not_achieved",
+        "leak rate unchanged at 4 drops/min after seal change",
+      ),
+    );
+    expect(await screen.findByTestId("learn-recorded")).toHaveTextContent(
+      /This loop is closed/,
+    );
+  });
+
+  it("fails if this page claims a recorded verification without the RPC", () => {
+    const src = readFileSync("src/pages/DecisionCaseWorkspacePage.tsx", "utf8");
+    expect(src).toMatch(/ConversationLearn/);
+    expect(src).not.toMatch(/Outcome recorded/);
+    expect(src).not.toMatch(/recordOutcome/);
+    expect(src).not.toMatch(/InThreadLearnRecorder/);
+    expect(src).not.toMatch(/recordVerificationResult/);
+    expect(src).not.toMatch(/record_verification_result/);
+    expect(src).not.toMatch(/Try a sample/);
+  });
+
+  it("Request changes returns focus to the composer", () => {
+    renderWorkspace();
+    loadSample();
+    fireEvent.click(screen.getByRole("button", { name: "Request changes" }));
+    const composer = screen.getByPlaceholderText("What is missing or wrong?");
+    expect(composer).toBeTruthy();
+  });
+
+  it("keeps conversation central and generates a reply", async () => {
+    renderWorkspace();
+    fireEvent.change(screen.getByPlaceholderText(ASK_PLACEHOLDER), {
+      target: { value: "Where should the next dollar go?" },
+    });
     fireEvent.click(screen.getByTitle("Send message"));
     await waitFor(() =>
       expect(
@@ -83,152 +367,153 @@ describe("DecisionCaseWorkspacePage", () => {
         ),
       ).toBeTruthy(),
     );
-  });
-
-  it("closes the governed loop from evidence to verified value", () => {
-    renderWorkspace();
-    fireEvent.click(screen.getByRole("button", { name: /^Evidence5$/i }));
-    fireEvent.click(screen.getByRole("button", { name: /CMMS work history/i }));
-    expect(screen.getByText("Governed record")).toBeTruthy();
-    fireEvent.click(screen.getByTitle("Close evidence"));
-    fireEvent.click(screen.getByRole("button", { name: /^Authority$/i }));
-    fireEvent.click(
-      screen.getByRole("button", { name: /Simulate controlled approval/i }),
-    );
-    fireEvent.click(screen.getByRole("button", { name: /^Work$/i }));
-    fireEvent.click(
-      screen.getByRole("button", { name: /Record work complete/i }),
-    );
-    fireEvent.click(
-      screen.getByRole("button", { name: /Verify measured value/i }),
-    );
-    expect(screen.getAllByText("Value verified").length).toBeGreaterThan(0);
+    expect(document.querySelector(".bolt-public.is-thread")).toBeTruthy();
     expect(
-      screen.getByRole("heading", {
-        name: "You proved the loop. Keep the decision working.",
-      }),
-    ).toBeTruthy();
-    expect(screen.getByText("No paywall yet")).toBeTruthy();
-    expect(
-      (window as Window & { dataLayer?: Array<Record<string, unknown>> })
-        .dataLayer,
-    ).toContainEqual(
-      expect.objectContaining({
-        event: "industry_value_proof_completed",
-        industry: "oil-gas",
-      }),
-    );
-  });
-
-  it("keeps every production-demo case isolated and excludes drafts from exposure", () => {
-    renderWorkspace();
-    expect(screen.getByText("$808k governed exposure")).toBeTruthy();
-    expect(
-      screen.getByText("Active cases").parentElement?.textContent,
-    ).toContain("3");
-
-    fireEvent.click(
-      screen.getByRole("button", { name: /Decision portfolio/i }),
-    );
-    expect(
-      screen.getByRole("heading", {
-        name: "Know where the next reliability dollar should go.",
-      }),
-    ).toBeTruthy();
-    fireEvent.click(
-      screen.getByRole("button", {
-        name: /Decide whether P-101 process pump's seal inspection interval/i,
-      }),
-    );
-
-    fireEvent.click(
-      screen.getByRole("button", {
-        name: /C-204 compressorEvidence conflict\$420k/i,
-      }),
-    );
-    expect(
-      screen.getByRole("heading", {
-        name: "Determine what is driving C-204 repeat compressor trips",
-      }),
-    ).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: /^Evidence5$/i }));
-    expect(
-      screen.getByText("11 records reconciled to the C-204 hierarchy"),
-    ).toBeTruthy();
-    expect(
-      screen.queryByText("18 records reconciled to the P-101 hierarchy"),
+      screen.queryByText("Reviewing evidence and authority boundary"),
     ).toBeNull();
-
-    fireEvent.click(screen.getByRole("button", { name: /^Value$/i }));
-    expect(screen.getByText("Trip-related downtime")).toBeTruthy();
-    expect(screen.getByText("102 h")).toBeTruthy();
-
-    fireEvent.click(screen.getByRole("button", { name: /New Decision Case/i }));
-    expect(screen.getByText("Define a new governed decision")).toBeTruthy();
-    expect(screen.getByText("$808k governed exposure")).toBeTruthy();
   });
 
-  it("deep-links into a recognizable mining proof before data upload", () => {
-    renderWorkspace("/workspace/cases/demo?industry=mining");
-
-    expect(screen.getByLabelText("Industry proof")).toHaveValue("mining");
-    expect(screen.getByText("Copper Ridge Mining")).toBeTruthy();
+  it("deep-links a mining conversation only after a pill", () => {
+    renderWorkspace("/workspace?industry=mining");
+    expect(screen.getByTestId("first-paint-empty")).toBeTruthy();
+    expect(screen.queryByTestId("recommendation-turn")).toBeNull();
+    loadSample();
     expect(
-      screen.getByRole("heading", {
-        name: "Decide where the next CR-01 primary crusher reliability dollar should go",
-      }),
-    ).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Lost tonnes" })).toBeTruthy();
-    expect(screen.getByText("14,800 t")).toBeTruthy();
+      screen.getAllByText(/CR-01 primary crusher/i).length,
+    ).toBeGreaterThan(0);
     expect(screen.queryByText("P-101 process pump")).toBeNull();
+    expect(screen.queryByLabelText("Industry proof")).toBeNull();
   });
 
-  it("preserves each industry session when the proof pack changes", async () => {
-    renderWorkspace();
-    fireEvent.change(
-      screen.getByPlaceholderText(/Ask any reliability question/i),
-      { target: { value: "Challenge the current recommendation." } },
-    );
+  it("keeps industry sessions isolated in storage when the URL pack changes", async () => {
+    const { unmount } = renderWorkspace();
+    fireEvent.change(screen.getByPlaceholderText(ASK_PLACEHOLDER), {
+      target: { value: "Challenge the current recommendation." },
+    });
     fireEvent.click(screen.getByTitle("Send message"));
     await screen.findByText(
       "The evidence plan is the highest-value governed next action.",
     );
+    unmount();
 
-    fireEvent.change(screen.getByLabelText("Industry proof"), {
-      target: { value: "manufacturing" },
-    });
-    expect(
-      screen.getByRole("heading", {
-        name: "Decide the next governed action for PR-07 stamping press",
-      }),
-    ).toBeTruthy();
-    expect(
-      (window as Window & { dataLayer?: Array<Record<string, unknown>> })
-        .dataLayer,
-    ).toContainEqual(
-      expect.objectContaining({
-        event: "industry_proof_selected",
-        industry: "manufacturing",
-        previousIndustry: "oil-gas",
-      }),
-    );
+    renderWorkspace("/workspace?industry=manufacturing");
+    expect(screen.getByTestId("first-paint-empty")).toBeTruthy();
     expect(screen.queryByText("P-101 process pump")).toBeNull();
-
-    fireEvent.change(screen.getByLabelText("Industry proof"), {
-      target: { value: "oil-gas" },
-    });
+    loadSample();
     expect(
-      screen.getByText(
-        "The evidence plan is the highest-value governed next action.",
-      ),
-    ).toBeTruthy();
+      screen.getAllByText(/CR-01 primary crusher/i).length,
+    ).toBeGreaterThan(0);
+    expect(
+      window.sessionStorage.getItem("syncai.publicDecisionCases.v2.oil-gas"),
+    ).toContain("The evidence plan is the highest-value governed next action.");
     expect(
       window.sessionStorage.getItem(
         "syncai.publicDecisionCases.v2.manufacturing",
       ),
-    ).toContain("PR-07 stamping press");
-    expect(
-      window.sessionStorage.getItem("syncai.publicDecisionCases.v2.oil-gas"),
-    ).toContain("P-101 process pump");
+    ).toContain("CR-01 primary crusher");
+  });
+
+  it("each intent pill loads its mapped seed, never P-101", () => {
+    const caseNames: string[] = [];
+    for (const intent of PUBLIC_ASK_INTENTS) {
+      window.sessionStorage.clear();
+      const { unmount } = renderWorkspace();
+      fireEvent.click(screen.getByRole("button", { name: intent.label }));
+      expect(screen.getByText(intent.question)).toBeTruthy();
+      expect(screen.getByTestId("recommendation-turn")).toBeTruthy();
+      expect(
+        screen.getByText("Recommendation · not authorization"),
+      ).toBeTruthy();
+      const caseName =
+        screen.getByTestId("first-paint-header-center").textContent ?? "";
+      expect(caseName.trim()).not.toBe("");
+      expect(caseName).not.toMatch(/P-101/);
+      expect(caseName).not.toMatch(/seal inspection/i);
+      expect(createFirstPaintSeed(intent.seedIndex).asset).not.toMatch(/P-101/);
+      caseNames.push(caseName.trim());
+      unmount();
+    }
+    expect(new Set(caseNames).size).toBe(PUBLIC_ASK_INTENTS.length);
+    expect(FIRST_PAINT_QUESTIONS[5]).toBe(
+      "Should we repair, redesign, or replace this asset?",
+    );
+  });
+
+  it("Home opens a new empty Bolt ask", async () => {
+    renderWorkspace();
+    loadSample();
+    fireEvent.click(screen.getByRole("button", { name: "Home" }));
+    expect(await screen.findByTestId("first-paint-empty")).toBeTruthy();
+    expect(screen.queryByTestId("recommendation-turn")).toBeNull();
+    expect(screen.getByPlaceholderText(ASK_PLACEHOLDER)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Try a sample" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "View record" })).toBeNull();
+  });
+});
+
+function renderOrgWorkspace(entry = "/org-chat") {
+  return render(
+    <MemoryRouter initialEntries={[entry]}>
+      <Routes>
+        <Route path="/org-chat" element={<DecisionCaseWorkspacePage />} />
+        <Route
+          path="/org-chat/:caseId"
+          element={<DecisionCaseWorkspacePage />}
+        />
+      </Routes>
+    </MemoryRouter>,
+  );
+}
+
+describe("DecisionCaseWorkspacePage — org session does not default to demo", () => {
+  beforeEach(() => {
+    const storage = new Map<string, string>();
+    Object.defineProperty(window, "localStorage", {
+      configurable: true,
+      value: {
+        getItem: (key: string) => storage.get(key) ?? null,
+        setItem: (key: string, value: string) => storage.set(key, value),
+        removeItem: (key: string) => storage.delete(key),
+        clear: () => storage.clear(),
+      },
+    });
+    window.sessionStorage.clear();
+    authState.user = { id: "org-user-1" };
+  });
+
+  it("does not auto-select a seed case when a signed-in org opens chat", () => {
+    window.localStorage.setItem(
+      "syncai.decisionCases.v2",
+      JSON.stringify(createSeedDecisionCases()),
+    );
+    window.sessionStorage.setItem(
+      "syncai.publicDecisionCases.v2.oil-gas",
+      JSON.stringify([createFirstPaintSeed(0)]),
+    );
+
+    renderOrgWorkspace();
+
+    expect(screen.getByTestId("first-paint-empty")).toBeTruthy();
+    expect(screen.queryByTestId("recommendation-turn")).toBeNull();
+    expect(screen.queryByText(/P-101/)).toBeNull();
+    expect(screen.queryByText(/CR-01 primary crusher/i)).toBeNull();
+    expect(screen.queryByText(/Fort McMurray/i)).toBeNull();
+    expect(screen.queryByText(/North Ridge Energy/i)).toBeNull();
+    expect(screen.queryByText(/DC-1048/)).toBeNull();
+  });
+
+  it("signed-in /workspace does not restore a leftover public seed as the active case", () => {
+    window.sessionStorage.setItem(
+      "syncai.publicDecisionCases.v2.oil-gas",
+      JSON.stringify([createFirstPaintSeed(0)]),
+    );
+
+    renderWorkspace();
+
+    expect(screen.getByTestId("first-paint-empty")).toBeTruthy();
+    expect(screen.queryByTestId("recommendation-turn")).toBeNull();
+    expect(screen.queryByText(/CR-01 primary crusher/i)).toBeNull();
+    expect(screen.queryByText(/P-101/)).toBeNull();
+    expect(screen.queryByText(/Fort McMurray/i)).toBeNull();
   });
 });

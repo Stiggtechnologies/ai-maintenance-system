@@ -1,7 +1,4 @@
 import {
-  TrendingUp,
-  TrendingDown,
-  CircleCheck as CheckCircle,
   Brain,
   Zap,
   RefreshCw,
@@ -12,65 +9,39 @@ import { useOnboardingOperatingLoop } from "../hooks/useOnboardingOperatingLoop"
 import { useAsyncData } from "../hooks/useAsyncData";
 import { getLearningEvents } from "../services/operatingLoopService";
 import type { LearningEventRow } from "../types/operating";
+import { VerificationLoop } from "../components/VerificationLoop";
 import {
   LoadingState,
   ErrorState,
   EmptyState,
 } from "../components/ui/AsyncStates";
 
-const learningStats = [
-  {
-    label: "Recommendations Accepted",
-    value: 84,
-    suffix: "%",
-    trend: "+4%",
-    up: true,
-    color: "teal",
-  },
-  {
-    label: "False Positive Rate",
-    value: 3,
-    suffix: "%",
-    trend: "-1%",
-    up: true,
-    color: "teal",
-  },
-  {
-    label: "Savings Verified (MTD)",
-    value: "$1.8M",
-    suffix: "",
-    trend: "+$0.3M",
-    up: true,
-    color: "blue",
-  },
-  {
-    label: "Downtime Avoided (MTD)",
-    value: "142 hr",
-    suffix: "",
-    trend: "+18 hr",
-    up: true,
-    color: "teal",
-  },
-  {
-    label: "Model Confidence (Avg)",
-    value: 88,
-    suffix: "%",
-    trend: "+2%",
-    up: true,
-    color: "teal",
-  },
-  {
-    label: "Human Overrides",
-    value: 4,
-    suffix: "",
-    trend: "-2",
-    up: true,
-    color: "amber",
-  },
-];
-
-const confidenceTrend = [78, 80, 81, 83, 84, 85, 86, 87, 88];
-const acceptanceTrend = [74, 75, 77, 79, 80, 81, 83, 84, 84];
+/**
+ * DELETED: `learningStats`, `confidenceTrend`, `acceptanceTrend`.
+ *
+ * Six hand-typed tiles with hand-typed month-over-month deltas — "Recommendations
+ * Accepted 84% (+4%)", "False Positive Rate 3% (-1%)", "Savings Verified (MTD)
+ * $1.8M (+$0.3M)", "Downtime Avoided (MTD) 142 hr (+18 hr)", "Model Confidence
+ * (Avg) 88% (+2%)", "Human Overrides 4 (-2)" — plus two nine-element arrays
+ * rendered as line charts under the captions "Last 9 weeks · Fleet average
+ * confidence" and "Last 9 weeks · Approved / total recommendations".
+ *
+ * Nothing measured any of it. A literal array captioned as a nine-week measured
+ * series is a stronger claim than a wrong number: it asserts that a measurement
+ * was taken every week for nine weeks. And "Savings Verified" uses the one word
+ * the platform's own verification loop used to be unable to produce —
+ * `record_verification_result` had no callers. A named human can now record
+ * achieved / not_achieved / inconclusive from this page. That is a pilot
+ * attestation, not a historian reading, and it does not make savings verified.
+ *
+ * The 142 hours here is the same 142 already deleted from `value_metrics` as
+ * `autonomous_actions_executed`; deleting the row did not remove the claim,
+ * because the claim had also been typed into this page.
+ *
+ * The Recent Learning Events list below is real — it reads `learning_events`,
+ * which `operatingLoopService` genuinely writes — so the page keeps it and
+ * loses the headline it could not support.
+ */
 
 const typeConfig: Record<string, { color: string; bg: string; label: string }> =
   {
@@ -129,6 +100,11 @@ const typeConfig: Record<string, { color: string; bg: string; label: string }> =
       bg: "bg-green-500/10",
       label: "Recommendation Accepted",
     },
+    verification_failed: {
+      color: "text-red-400",
+      bg: "bg-red-500/10",
+      label: "Verification Failed",
+    },
     work_completed: {
       color: "text-teal-400",
       bg: "bg-teal-500/10",
@@ -156,43 +132,6 @@ const typeConfig: Record<string, { color: string; bg: string; label: string }> =
     },
   };
 
-function TrendLine({ data, color }: { data: number[]; color: string }) {
-  const min = Math.min(...data);
-  const max = Math.max(...data);
-  const range = max - min || 1;
-  const h = 50;
-  const w = 200;
-  const step = w / (data.length - 1);
-  const points = data
-    .map((v, i) => `${i * step},${h - ((v - min) / range) * h}`)
-    .join(" ");
-  const areaPoints = `0,${h} ${points} ${(data.length - 1) * step},${h}`;
-  return (
-    <svg width={w} height={h} className="overflow-visible">
-      <defs>
-        <linearGradient id={`grad-${color}`} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={color} stopOpacity="0.3" />
-          <stop offset="100%" stopColor={color} stopOpacity="0" />
-        </linearGradient>
-      </defs>
-      <polygon points={areaPoints} fill={`url(#grad-${color})`} />
-      <polyline
-        points={points}
-        fill="none"
-        stroke={color}
-        strokeWidth={2}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <circle
-        cx={(data.length - 1) * step}
-        cy={h - ((data[data.length - 1] - min) / range) * h}
-        r={4}
-        fill={color}
-      />
-    </svg>
-  );
-}
 
 export function LearningLoop() {
   const { learningEvents } = useOnboardingOperatingLoop();
@@ -233,7 +172,8 @@ export function LearningLoop() {
             Learning Loop
           </h1>
           <p className="text-sm text-slate-400 mt-0.5">
-            SyncAI improves with every recommendation, outcome, and override
+            Pilot learning surface — record whether an approved action produced
+            the intended outcome. This is not a certified or live historian.
           </p>
         </div>
         <div className="flex items-center gap-1.5 px-3 py-1.5 bg-teal-500/10 border border-teal-500/20 rounded-lg text-xs text-teal-400 font-medium">
@@ -242,71 +182,30 @@ export function LearningLoop() {
         </div>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
-        {learningStats.map((s) => {
-          const c: Record<string, string> = {
-            teal: "text-teal-400 bg-teal-500/10",
-            blue: "text-signal-cyan bg-signal-cyan/10",
-            amber: "text-amber-400 bg-amber-500/10",
-          };
-          const [textColor] = c[s.color].split(" ");
-          return (
-            <div
-              key={s.label}
-              className="bg-[#0D1520] border border-white/6 rounded-xl p-4"
-            >
-              <div className="text-xs text-slate-400 mb-1 leading-tight">
-                {s.label}
-              </div>
-              <div className={`text-xl font-black ${textColor}`}>
-                {s.value}
-                {s.suffix}
-              </div>
-              <div
-                className={`flex items-center gap-1 text-xs mt-1 ${s.up ? "text-teal-400" : "text-amber-400"}`}
-              >
-                {s.up ? (
-                  <TrendingUp className="w-3 h-3" />
-                ) : (
-                  <TrendingDown className="w-3 h-3" />
-                )}
-                {s.trend}
-              </div>
-            </div>
-          );
-        })}
+      {/*
+        The two trend charts and the six stat tiles above them stood here. They
+        were literals, and they are gone rather than zeroed: a chart captioned
+        "Last 9 weeks" showing a flat line is still claiming nine weeks of
+        measurement happened.
+      */}
+      <div className="bg-[#0D1520] border border-white/6 rounded-2xl p-5">
+        <h3 className="text-sm font-semibold text-slate-200 mb-2 flex items-center gap-2">
+          <Target className="w-4 h-4 text-slate-500" /> Loop performance
+        </h3>
+        <p className="text-xs text-amber-300/90">
+          Not measured yet.
+        </p>
+        <p className="text-xs text-slate-400 mt-2">
+          Acceptance rate, false-positive rate, model confidence and verified
+          savings still need recorded outcomes to compute. A named human can
+          now record achieved / not_achieved / inconclusive against an open
+          obligation below. Until outcomes exist, this page reports the
+          learning events it holds and claims nothing about fleet effect. This
+          is still a pilot.
+        </p>
       </div>
 
-      {/* Trend Charts */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="bg-[#0D1520] border border-white/6 rounded-2xl p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-semibold text-slate-200 flex items-center gap-2">
-              <Target className="w-4 h-4 text-teal-400" /> Model Confidence
-              Trend
-            </h3>
-            <span className="text-xl font-black text-teal-400">88%</span>
-          </div>
-          <TrendLine data={confidenceTrend} color="#14b8a6" />
-          <div className="mt-2 text-xs text-slate-400">
-            Last 9 weeks · Fleet average confidence
-          </div>
-        </div>
-        <div className="bg-[#0D1520] border border-white/6 rounded-2xl p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-semibold text-slate-200 flex items-center gap-2">
-              <CheckCircle className="w-4 h-4 text-signal-cyan" />{" "}
-              Recommendation Acceptance Rate
-            </h3>
-            <span className="text-xl font-black text-signal-cyan">84%</span>
-          </div>
-          <TrendLine data={acceptanceTrend} color="#3b82f6" />
-          <div className="mt-2 text-xs text-slate-400">
-            Last 9 weeks · Approved / total recommendations
-          </div>
-        </div>
-      </div>
+      <VerificationLoop />
 
       {/* Recent Learnings */}
       <div className="bg-[#0D1520] border border-white/6 rounded-2xl p-5">
@@ -320,7 +219,11 @@ export function LearningLoop() {
         )}
         <div className="space-y-3">
           {learnings.map((item, i) => {
-            const tc = typeConfig[item.type];
+            const tc = typeConfig[item.type] ?? {
+              color: "text-slate-400",
+              bg: "bg-white/5",
+              label: item.type,
+            };
             return (
               <motion.div
                 key={item.id}
@@ -349,9 +252,6 @@ export function LearningLoop() {
                     <span className="text-slate-400">{item.agent}</span>
                     <span className="text-slate-400">·</span>
                     <span className="text-slate-400">{item.date}</span>
-                    <span className="ml-auto font-mono text-slate-400">
-                      {item.confidence}% conf
-                    </span>
                   </div>
                 </div>
               </motion.div>
@@ -368,14 +268,11 @@ export function LearningLoop() {
             Closed-Loop Learning
           </div>
           <p className="text-xs text-slate-400 mt-1 leading-relaxed">
-            Every approved recommendation, rejected override, and verified
-            outcome feeds back into SyncAI's models. Over time, the system
-            becomes smarter about your specific assets, failure modes, and
-            operating conditions.
-            <span className="text-slate-200">
-              {" "}
-              This is what separates SyncAI from a static rule-based CMMS.
-            </span>
+            Every approved recommendation, rejected override, and recorded
+            verification feeds the learning events list. A failed verification
+            raises <code>verification_failed</code> so the strategy can be
+            re-examined. This is a governed pilot loop, not a live CMMS or
+            certified model-improvement claim.
           </p>
         </div>
       </div>

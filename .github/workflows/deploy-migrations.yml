@@ -16,11 +16,22 @@ on:
       - "supabase/functions/agent-loop-enrich/**"
       - "supabase/functions/ai-agent-processor/**"
       - "supabase/functions/autonomous-orchestrator/**"
+      - "supabase/functions/domain-specialist-run/**"
+      - "src/lib/domain-specialists/**"
+      - "supabase/functions/develop-evidence-agent/**"
+      - "supabase/functions/develop-gate-agent/**"
+      - "supabase/functions/develop-methodology-agent/**"
+      - "supabase/functions/develop-change-impact-agent/**"
+      - "supabase/functions/develop-requirements-agent/**"
+      - "supabase/functions/develop-risk-agent/**"
       - "supabase/functions/lead-notify/**"
       - "supabase/functions/onboarding-enrich/**"
+      - "supabase/functions/plant-historian-pull/**"
       - "supabase/functions/public-reliability-agent/**"
+      - "supabase/functions/recovery-activation-pull/**"
       - "supabase/functions/sync-investigation-runtime/**"
       - "supabase/functions/sync-runtime/**"
+      - "supabase/functions/sync-tts/**"
   workflow_dispatch:
 
 concurrency:
@@ -40,9 +51,9 @@ jobs:
     name: supabase db push and edge deploy
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - uses: supabase/setup-cli@v2
+      - uses: supabase/setup-cli@3c2f5e2ae34c34e428e8e206e2c4d21fa2d20fbf # v2.1.1
         with:
           version: 2.84.2
           github-token: ${{ github.token }}
@@ -71,11 +82,21 @@ jobs:
           supabase functions deploy agent-loop-enrich --no-verify-jwt
           supabase functions deploy ai-agent-processor
           supabase functions deploy autonomous-orchestrator
+          supabase functions deploy domain-specialist-run
+          supabase functions deploy develop-evidence-agent
+          supabase functions deploy develop-gate-agent
+          supabase functions deploy develop-methodology-agent
+          supabase functions deploy develop-change-impact-agent
+          supabase functions deploy develop-requirements-agent
+          supabase functions deploy develop-risk-agent
           supabase functions deploy lead-notify
           supabase functions deploy onboarding-enrich --no-verify-jwt
+          supabase functions deploy plant-historian-pull
           supabase functions deploy public-reliability-agent
+          supabase functions deploy recovery-activation-pull
           supabase functions deploy sync-investigation-runtime
           supabase functions deploy sync-runtime
+          supabase functions deploy sync-tts
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
 
@@ -108,6 +129,57 @@ jobs:
           fi
           echo "Sync Investigation Runtime is deployed and JWT-protected (HTTP 401 unauthenticated)."
 
+      - name: Prove Recovery Activation adapter is deployed
+        run: |
+          set -euo pipefail
+          endpoint="https://${SUPABASE_PROJECT_ID}.supabase.co/functions/v1/recovery-activation-pull"
+          status=$(curl --silent --show-error --output /tmp/recovery-activation-probe.txt \
+            --write-out '%{http_code}' \
+            --request POST \
+            --header 'Content-Type: application/json' \
+            --data '{"connector_key":"boundary-probe","entity_type":"site","dry_run":true}' \
+            "$endpoint")
+          cat /tmp/recovery-activation-probe.txt || true
+          if [ "$status" != "401" ]; then
+            echo "::error title=Recovery Activation boundary probe failed::Expected JWT-protected deployed function to return HTTP 401 without credentials; got HTTP ${status}."
+            exit 1
+          fi
+          echo "Recovery Activation adapter is deployed and JWT-protected (HTTP 401 unauthenticated)."
+
+      - name: Prove Domain Specialist executor is deployed
+        run: |
+          set -euo pipefail
+          endpoint="https://${SUPABASE_PROJECT_ID}.supabase.co/functions/v1/domain-specialist-run"
+          status=$(curl --silent --show-error --output /tmp/domain-specialist-probe.txt \
+            --write-out '%{http_code}' \
+            --request POST \
+            --header 'Content-Type: application/json' \
+            --data '{}' \
+            "$endpoint")
+          cat /tmp/domain-specialist-probe.txt || true
+          if [ "$status" != "401" ]; then
+            echo "::error title=Domain Specialist boundary probe failed::Expected JWT-protected deployed function to return HTTP 401 without credentials; got HTTP ${status}."
+            exit 1
+          fi
+          echo "Domain Specialist executor is deployed and JWT-protected (HTTP 401 unauthenticated)."
+
+      - name: Prove Plant historian adapter is deployed
+        run: |
+          set -euo pipefail
+          endpoint="https://${SUPABASE_PROJECT_ID}.supabase.co/functions/v1/plant-historian-pull"
+          status=$(curl --silent --show-error --output /tmp/plant-historian-probe.txt \
+            --write-out '%{http_code}' \
+            --request POST \
+            --header 'Content-Type: application/json' \
+            --data '{"connector_key":"boundary-probe","dry_run":true}' \
+            "$endpoint")
+          cat /tmp/plant-historian-probe.txt || true
+          if [ "$status" != "401" ]; then
+            echo "::error title=Plant historian boundary probe failed::Expected JWT-protected deployed function to return HTTP 401 without credentials; got HTTP ${status}."
+            exit 1
+          fi
+          echo "Plant historian adapter is deployed and JWT-protected (HTTP 401 unauthenticated)."
+
       - name: Prove production app boundary is reachable
         run: |
           set -euo pipefail
@@ -135,21 +207,32 @@ jobs:
 
       - name: Point the lead trigger at the deployed function
         env:
-          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
           LEAD_NOTIFY_SERVICE_KEY: ${{ secrets.LEAD_NOTIFY_SERVICE_KEY }}
         run: |
           set -euo pipefail
-          if [ -z "${SUPABASE_DB_URL:-}" ] || [ -z "${LEAD_NOTIFY_SERVICE_KEY:-}" ]; then
-            echo "::warning title=lead-notify is not wired::SUPABASE_DB_URL and/or LEAD_NOTIFY_SERVICE_KEY are not set, so private.lead_notify_config stays empty and trg_pilot_intake_notify will no-op. Run configure_lead_notify() by hand — see docs/lead-response-sla.md."
+          if [ -z "${LEAD_NOTIFY_SERVICE_KEY:-}" ]; then
+            echo "::warning title=lead-notify is not wired::LEAD_NOTIFY_SERVICE_KEY is not set, so private.lead_notify_config stays empty and trg_pilot_intake_notify will no-op. See docs/lead-response-sla.md."
             exit 0
           fi
-          psql "$SUPABASE_DB_URL" \
-            -v ON_ERROR_STOP=1 \
-            -v url="https://${SUPABASE_PROJECT_ID}.supabase.co/functions/v1/lead-notify" \
-            -v key="$LEAD_NOTIFY_SERVICE_KEY" \
-            --no-psqlrc --quiet <<'SQL'
-          select public.configure_lead_notify(:'url', :'key');
-          SQL
+          LEAD_FUNCTION_URL="https://${SUPABASE_PROJECT_ID}.supabase.co/functions/v1/lead-notify"
+          LEAD_CONFIG_PAYLOAD=$(jq -cn \
+            --arg url "$LEAD_FUNCTION_URL" \
+            --arg key "$LEAD_NOTIFY_SERVICE_KEY" \
+            '{p_function_url:$url,p_service_key:$key}')
+          LEAD_CONFIG_STATUS=$(curl --silent --show-error \
+            --output /tmp/lead-notify-config-response \
+            --write-out '%{http_code}' \
+            --request POST \
+            "https://${SUPABASE_PROJECT_ID}.supabase.co/rest/v1/rpc/configure_lead_notify" \
+            --header "apikey: ${LEAD_NOTIFY_SERVICE_KEY}" \
+            --header "authorization: Bearer ${LEAD_NOTIFY_SERVICE_KEY}" \
+            --header "content-type: application/json" \
+            --data "$LEAD_CONFIG_PAYLOAD")
+          if [ "$LEAD_CONFIG_STATUS" != "200" ] && [ "$LEAD_CONFIG_STATUS" != "204" ]; then
+            echo "::error title=lead-notify configuration failed::configure_lead_notify returned HTTP ${LEAD_CONFIG_STATUS}."
+            exit 1
+          fi
+          echo "lead-notify trigger target configured through the service-role RPC."
 
       - name: Raise a failure issue
         if: failure()

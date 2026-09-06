@@ -99,7 +99,11 @@ export function assessLoop(p: VerificationPosture | null): LoopAssessment {
         ? `${p.notAchieved} verification(s) FAILED and fed the learning loop — which is the system working, not failing: a verification process that has never recorded a failure has never been tested by reality. `
         : executed > 0
           ? `No failure has been recorded yet. Until one is, this loop is unproven against the case it exists for. `
-          : ``) +
+          : // A rate of 0% with actioned work behind it is not a performance
+            // result. The write path is now reachable from Learning Loop; 0%
+            // here means no named human has recorded an outcome yet, not that
+            // the RPC is missing.
+            `This 0% means no named human has recorded an outcome yet. The write path is open on Learning Loop — record achieved, not_achieved, or inconclusive against an open obligation. Read it as "nobody has looked", not as "nothing worked". `) +
       (p.actionedWithoutObligation > 0
         ? `${p.actionedWithoutObligation} actioned recommendation(s) have NO obligation at all — they predate the trigger, nothing is watching them, and an unwatched loop renders exactly like a closed one. `
         : ``) +

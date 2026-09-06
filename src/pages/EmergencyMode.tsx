@@ -1,13 +1,9 @@
-import { useState } from "react";
 import {
   TriangleAlert as AlertTriangle,
   Radio,
   Shield,
   Clock,
-  Users,
   Activity,
-  Phone,
-  CircleCheck as CheckCircle,
   Target,
 } from "lucide-react";
 import { motion } from "framer-motion";
@@ -36,114 +32,46 @@ async function getActiveCriticalAlerts(): Promise<CriticalAlert[]> {
 
 type IncidentSeverity = "critical" | "major" | "moderate";
 
+/**
+ * WHAT THIS PAGE NO LONGER CLAIMS.
+ *
+ * It rendered a fixed incident record — "INC-2026-0847", elapsed "2h 18min",
+ * "$180K/hr exposure", escalation level 2, three affected assets — and then
+ * overwrote only the TITLE with a real critical alert from `system_alerts`.
+ * Everything a responder would read after the headline was a literal, shown
+ * under a live alert as though it described that alert.
+ *
+ * Three of those literals are why this was the most serious fabrication in the
+ * repository rather than another wrong number:
+ *
+ *  * `criticalControls` asserted "LOTO verified ✓ / Isolation confirmed ✓ /
+ *    JSA completed ✓ / Spotter assigned ✓ / Rescue plan current ✓" with
+ *    `status: true` hand-typed. Nothing writes them and nothing can: the value
+ *    could never be false. That is a fabricated SAFETY ATTESTATION, displayed
+ *    at exactly the moment somebody might rely on it, for isolation that
+ *    nobody performed.
+ *
+ *  * `timeline` was captioned "Live Event Timeline" and was a minute-by-minute
+ *    script — "04:13 AI confirmed failure signature — 97% confidence",
+ *    "04:14 Emergency work order created automatically" — attributed to named
+ *    agents. AGENTS.md prohibits making a demo appear autonomous; this is the
+ *    clearest instance of it, and it is stronger than the seeded
+ *    'Autonomous (< $5K)' row already deleted from the demo seed.
+ *
+ *  * `recoverySteps` gave a return-to-service time of 08:45 UTC for a repair
+ *    nobody had scheduled.
+ *
+ * None of the three has a data source anywhere in the schema. Following the
+ * precedent already set on this branch for `cost_of_downtime` — refuse rather
+ * than compute from an invented constant — each panel now states what is not
+ * recorded instead of showing a reassuring answer.
+ */
 interface ActiveIncident {
   id: string;
   title: string;
   severity: IncidentSeverity;
   startTime: string;
-  elapsed: string;
-  affectedAssets: string[];
-  missionImpact: string;
-  status: string;
-  owner: string;
-  escalationLevel: number;
 }
-
-const activeIncident: ActiveIncident = {
-  id: "INC-2026-0847",
-  title: "Critical Bearing Failure — Conveyor C-22 Drive Assembly",
-  severity: "major",
-  startTime: "2026-05-30 04:12 UTC",
-  elapsed: "2h 18min",
-  affectedAssets: [
-    "Conveyor C-22",
-    "Crusher Feed System",
-    "Processing Plant Line 2",
-  ],
-  missionImpact: "Line 2 production halted — $180K/hr exposure",
-  status: "Active — Recovery in progress",
-  owner: "Maintenance Manager",
-  escalationLevel: 2,
-};
-
-const timeline = [
-  {
-    time: "04:12",
-    event: "Vibration alarm triggered — Drive End bearing",
-    type: "detection",
-    agent: "Condition Monitoring",
-  },
-  {
-    time: "04:13",
-    event: "AI confirmed failure signature — 97% confidence",
-    type: "analysis",
-    agent: "Reliability Engineering",
-  },
-  {
-    time: "04:14",
-    event: "Emergency work order created automatically",
-    type: "action",
-    agent: "Work Order Management",
-  },
-  {
-    time: "04:15",
-    event: "Maintenance Manager notified (escalation level 1)",
-    type: "escalation",
-    agent: "System",
-  },
-  {
-    time: "04:18",
-    event: "Conveyor shut down — safety interlock activated",
-    type: "safety",
-    agent: "Operations",
-  },
-  {
-    time: "04:22",
-    event: "Parts availability confirmed — bearing kit in warehouse",
-    type: "logistics",
-    agent: "Inventory Management",
-  },
-  {
-    time: "04:25",
-    event: "Technician dispatched — ETA 35 min",
-    type: "action",
-    agent: "Maintenance Operations",
-  },
-  {
-    time: "04:45",
-    event: "Operations Manager notified (escalation level 2)",
-    type: "escalation",
-    agent: "System",
-  },
-  {
-    time: "05:00",
-    event: "Technician on-site — assessment in progress",
-    type: "action",
-    agent: "Technician",
-  },
-  {
-    time: "05:30",
-    event: "Bearing replacement initiated — est. completion 07:30",
-    type: "action",
-    agent: "Technician",
-  },
-];
-
-const recoverySteps = [
-  { step: "Bearing replacement", status: "in_progress", eta: "07:30" },
-  { step: "Alignment verification", status: "pending", eta: "07:45" },
-  { step: "Run-in test (30 min)", status: "pending", eta: "08:15" },
-  { step: "Vibration baseline check", status: "pending", eta: "08:30" },
-  { step: "Return to service authorization", status: "pending", eta: "08:45" },
-];
-
-const criticalControls = [
-  { control: "LOTO verified", status: true },
-  { control: "Isolation confirmed", status: true },
-  { control: "JSA completed", status: true },
-  { control: "Spotter assigned", status: true },
-  { control: "Rescue plan current", status: true },
-];
 
 const severityConfig: Record<
   IncidentSeverity,
@@ -169,17 +97,8 @@ const severityConfig: Record<
   },
 };
 
-const typeColors: Record<string, string> = {
-  detection: "bg-red-500",
-  analysis: "bg-signal-cyan",
-  action: "bg-teal-500",
-  escalation: "bg-amber-500",
-  safety: "bg-red-500",
-  logistics: "bg-cyan-500",
-};
 
 export function EmergencyMode() {
-  const [showAllTimeline, setShowAllTimeline] = useState(false);
   const { data: alerts, loading } = useAsyncData<CriticalAlert[]>(
     () => getActiveCriticalAlerts(),
     [],
@@ -211,13 +130,14 @@ export function EmergencyMode() {
     );
   }
 
-  // Bind headline to the real alert; the recovery template below structures the response.
-  activeIncident.title = alerts[0].title ?? activeIncident.title;
-  activeIncident.id = `ALERT-${alerts[0].id.slice(0, 8)}`;
-  activeIncident.startTime = new Date(alerts[0].created_at).toLocaleString();
-
+  // Every field comes from the alert. Nothing is templated in behind it.
+  const activeIncident: ActiveIncident = {
+    id: `ALERT-${alerts[0].id.slice(0, 8)}`,
+    title: alerts[0].title ?? "Untitled critical alert",
+    severity: "critical",
+    startTime: new Date(alerts[0].created_at).toLocaleString(),
+  };
   const sc = severityConfig[activeIncident.severity];
-  const visibleTimeline = showAllTimeline ? timeline : timeline.slice(-6);
 
   return (
     <div className="p-6 space-y-6">
@@ -242,163 +162,113 @@ export function EmergencyMode() {
               <h1 className="text-xl font-bold text-white">
                 {activeIncident.title}
               </h1>
-              <p className="text-sm text-red-300 mt-1">
-                {activeIncident.missionImpact}
+              <p className="text-sm text-slate-300 mt-1">
+                {alerts[0].description ?? "No description recorded on this alert."}
               </p>
               <div className="flex items-center gap-4 mt-3 text-xs text-slate-400">
                 <span className="flex items-center gap-1">
-                  <Clock className="w-3 h-3" /> Started:{" "}
+                  <Clock className="w-3 h-3" /> Raised:{" "}
                   {activeIncident.startTime}
                 </span>
                 <span className="flex items-center gap-1">
-                  <Activity className="w-3 h-3 text-amber-400" /> Elapsed:{" "}
-                  {activeIncident.elapsed}
-                </span>
-                <span className="flex items-center gap-1">
-                  <Users className="w-3 h-3" /> Owner: {activeIncident.owner}
+                  <Activity className="w-3 h-3 text-amber-400" />
+                  {alerts.length} unresolved critical alert
+                  {alerts.length === 1 ? "" : "s"}
                 </span>
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <div
-              className={`px-3 py-1.5 rounded-lg ${sc.bg} ${sc.border} border`}
-            >
-              <span className={`text-xs font-bold ${sc.color}`}>
-                Escalation Level {activeIncident.escalationLevel}
-              </span>
-            </div>
-            <button className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500/20 border border-red-500/30 text-red-400 text-xs font-bold rounded-lg">
-              <Phone className="w-3 h-3" /> Escalate
-            </button>
+          <div
+            className={`px-3 py-1.5 rounded-lg ${sc.bg} ${sc.border} border`}
+          >
+            <span className={`text-xs font-bold ${sc.color}`}>
+              {/* No escalation ladder is modelled, so no level is claimed. */}
+              Unresolved
+            </span>
           </div>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Timeline */}
+        {/* Every alert the query returned — the real ones, and only those. */}
         <div className="lg:col-span-2 bg-[#0D1520] border border-white/6 rounded-2xl p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-semibold text-slate-200 flex items-center gap-2">
-              <Radio className="w-4 h-4 text-teal-400 animate-pulse" /> Live
-              Event Timeline
-            </h3>
-            <button
-              onClick={() => setShowAllTimeline(!showAllTimeline)}
-              className="text-xs text-teal-400 hover:text-teal-300"
-            >
-              {showAllTimeline ? "Show Recent" : "Show All"}
-            </button>
-          </div>
+          <h3 className="text-sm font-semibold text-slate-200 flex items-center gap-2 mb-4">
+            <Radio className="w-4 h-4 text-teal-400" /> Unresolved critical
+            alerts
+          </h3>
           <div className="space-y-3">
-            {visibleTimeline.map((event, i) => (
+            {alerts.map((alert, i) => (
               <motion.div
-                key={i}
+                key={alert.id}
                 initial={{ opacity: 0, x: -8 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: i * 0.04 }}
                 className="flex items-start gap-3"
               >
                 <div className="flex flex-col items-center shrink-0">
-                  <div
-                    className={`w-2.5 h-2.5 rounded-full ${typeColors[event.type] || "bg-slate-500"}`}
-                  />
-                  {i < visibleTimeline.length - 1 && (
+                  <div className="w-2.5 h-2.5 rounded-full bg-red-500" />
+                  {i < alerts.length - 1 && (
                     <div className="w-px h-8 bg-white/6 mt-1" />
                   )}
                 </div>
                 <div className="flex-1 min-w-0 pb-2">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-mono text-slate-400">
-                      {event.time}
-                    </span>
-                    <span className="text-xs px-1.5 py-0.5 rounded-full bg-white/4 text-slate-400">
-                      {event.agent}
-                    </span>
-                  </div>
-                  <p className="text-sm text-slate-200 mt-0.5">{event.event}</p>
+                  <span className="text-xs font-mono text-slate-400">
+                    {new Date(alert.created_at).toLocaleString()}
+                  </span>
+                  <p className="text-sm text-slate-200 mt-0.5">
+                    {alert.title ?? "Untitled critical alert"}
+                  </p>
+                  {alert.description && (
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      {alert.description}
+                    </p>
+                  )}
                 </div>
               </motion.div>
             ))}
           </div>
+          <p className="mt-4 pt-3 border-t border-white/6 text-xs text-slate-500">
+            This panel was a scripted &ldquo;Live Event Timeline&rdquo; —
+            ten hand-written entries including an AI failure confirmation at
+            97% confidence and a work order created automatically, neither of
+            which happened. It now shows the alerts the platform actually
+            holds.
+          </p>
         </div>
 
-        {/* Right Panel */}
         <div className="space-y-4">
-          {/* Affected Assets */}
+          {/*
+            REFUSALS, not blanks. Each of these panels asserted something the
+            schema has no column for. Saying so is more use to a responder than
+            a green tick that cannot go red.
+          */}
           <div className="bg-[#0D1520] border border-white/6 rounded-2xl p-5">
-            <h3 className="text-sm font-semibold text-slate-200 mb-3">
-              Affected Assets
+            <h3 className="text-sm font-semibold text-slate-200 mb-2 flex items-center gap-2">
+              <Shield className="w-4 h-4 text-slate-500" /> Critical controls
             </h3>
-            <div className="space-y-2">
-              {activeIncident.affectedAssets.map((asset, i) => (
-                <div
-                  key={asset}
-                  className="flex items-center gap-2 px-3 py-2 rounded-lg bg-red-500/5 border border-red-500/10"
-                >
-                  <div className="w-1.5 h-1.5 rounded-full bg-red-400" />
-                  <span className="text-xs text-slate-200">{asset}</span>
-                  {i === 0 && (
-                    <span className="ml-auto text-xs text-red-400 font-bold">
-                      Primary
-                    </span>
-                  )}
-                </div>
-              ))}
-            </div>
+            <p className="text-xs text-amber-300/90">
+              Not recorded by this platform.
+            </p>
+            <p className="text-xs text-slate-400 mt-2">
+              This panel used to show LOTO, isolation, JSA, spotter and rescue
+              plan as verified. All five were hard-coded to true and no code
+              path could ever set them false, so it reported a completed
+              isolation for work nobody had done. Confirm permit and isolation
+              status in the permit-to-work system of record.
+            </p>
           </div>
 
-          {/* Critical Controls */}
           <div className="bg-[#0D1520] border border-white/6 rounded-2xl p-5">
-            <h3 className="text-sm font-semibold text-slate-200 mb-3 flex items-center gap-2">
-              <Shield className="w-4 h-4 text-green-400" /> Critical Controls
+            <h3 className="text-sm font-semibold text-slate-200 mb-2 flex items-center gap-2">
+              <Target className="w-4 h-4 text-slate-500" /> Recovery plan
             </h3>
-            <div className="space-y-2">
-              {criticalControls.map((ctrl) => (
-                <div key={ctrl.control} className="flex items-center gap-2">
-                  <CheckCircle
-                    className={`w-3.5 h-3.5 ${ctrl.status ? "text-green-400" : "text-red-400"}`}
-                  />
-                  <span className="text-xs text-slate-300">{ctrl.control}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Recovery Plan */}
-          <div className="bg-[#0D1520] border border-white/6 rounded-2xl p-5">
-            <h3 className="text-sm font-semibold text-slate-200 mb-3 flex items-center gap-2">
-              <Target className="w-4 h-4 text-teal-400" /> Recovery Plan
-            </h3>
-            <div className="space-y-2">
-              {recoverySteps.map((step, i) => (
-                <div
-                  key={step.step}
-                  className="flex items-center gap-3 text-xs"
-                >
-                  <div
-                    className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold ${
-                      step.status === "in_progress"
-                        ? "bg-teal-500/20 text-teal-400 ring-1 ring-teal-500/40"
-                        : step.status === "completed"
-                          ? "bg-green-500/20 text-green-400"
-                          : "bg-white/5 text-slate-400"
-                    }`}
-                  >
-                    {i + 1}
-                  </div>
-                  <span
-                    className={`flex-1 ${step.status === "in_progress" ? "text-teal-400 font-medium" : "text-slate-400"}`}
-                  >
-                    {step.step}
-                  </span>
-                  <span className="text-slate-400 font-mono">{step.eta}</span>
-                </div>
-              ))}
-            </div>
-            <div className="mt-3 pt-3 border-t border-white/6 text-xs text-slate-400">
-              Estimated return to service: 08:45 UTC
-            </div>
+            <p className="text-xs text-amber-300/90">
+              No recovery plan is modelled.
+            </p>
+            <p className="text-xs text-slate-400 mt-2">
+              The five steps and the 08:45 UTC return-to-service shown here
+              were fixed text, not a schedule anyone had committed to.
+            </p>
           </div>
         </div>
       </div>
