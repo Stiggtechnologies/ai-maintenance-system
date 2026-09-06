@@ -2,11 +2,11 @@
  * Thin Meet Sync booth conversation on the signed-in presence strip.
  *
  * Voice: browser SpeechRecognition (useDictation) + useSpeechOutput
- * (cloud sync-tts when configured, speechSynthesis fallback). Answers:
- * askBoothConversation → ai-agent-processor
- * ReliabilityAgent. Session transcript in sessionStorage. Decision Case
- * continuity from the existing draft store + honesty helpers.
- * Recommend ≠ authorize.
+ * (cloud sync-tts when configured, speechSynthesis fallback). Default
+ * listen is continuous with end-of-utterance; hold-to-talk is optional.
+ * Answers: askBoothConversation → ai-agent-processor ReliabilityAgent.
+ * Session transcript in sessionStorage. Decision Case continuity from
+ * the existing draft store + honesty helpers. Recommend ≠ authorize.
  */
 import { useEffect, useRef, useState } from "react";
 import { Loader2, Mic, MicOff, Send } from "lucide-react";
@@ -18,6 +18,17 @@ import {
   shouldSpeakBoothReply,
   stripForSpeech,
 } from "../lib/presence/booth";
+import {
+  BOOTH_UTTERANCE_SILENCE_MS,
+  MIC_BLOCKED_COPY,
+  MIC_UNSUPPORTED_COPY,
+  boothVoiceMode,
+  isMicBlockedError,
+  readHoldToTalkPreference,
+  shouldAutoListen,
+  shouldCommitContinuousUtterance,
+  writeHoldToTalkPreference,
+} from "../lib/presence/boothListen";
 import {
   readPresenceMemory,
   rememberNamedSubject,
@@ -41,6 +52,7 @@ interface PresenceBoothConversationProps {
   caseBound: boolean;
   speak: (text: string) => void;
   stopSpeech: () => void;
+  speaking?: boolean;
   onPresenceSignals?: (signals: {
     listening: boolean;
     thinking: boolean;
@@ -59,11 +71,18 @@ export function PresenceBoothConversation({
   caseBound,
   speak,
   stopSpeech,
+  speaking = false,
   onPresenceSignals,
   onMemoryChange,
 }: PresenceBoothConversationProps) {
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
+  const [holdToTalk, setHoldToTalk] = useState(() =>
+    typeof window === "undefined"
+      ? false
+      : readHoldToTalkPreference(window.localStorage),
+  );
+  const [listenPaused, setListenPaused] = useState(false);
   const [messages, setMessages] = useState<PresenceBoothMessage[]>(() =>
     userId && typeof window !== "undefined"
       ? readPresenceMemory(window.sessionStorage, userId).messages
@@ -76,23 +95,134 @@ export function PresenceBoothConversation({
   );
   const heldTranscript = useRef("");
   const holdingTalk = useRef(false);
+  const utteranceRef = useRef("");
+  const silenceTimerRef = useRef<number | null>(null);
+  const bargedInRef = useRef(false);
+  const holdToTalkRef = useRef(holdToTalk);
+  const speakingRef = useRef(speaking);
+  const busyRef = useRef(busy);
+  const sendRef = useRef<(raw: string) => Promise<void>>(async () => undefined);
   const signalsRef = useRef(onPresenceSignals);
+  holdToTalkRef.current = holdToTalk;
+  speakingRef.current = speaking;
+  busyRef.current = busy;
   signalsRef.current = onPresenceSignals;
 
-  const dictation = useDictation((text) => {
-    heldTranscript.current = heldTranscript.current
-      ? `${heldTranscript.current} ${text}`
-      : text;
-    setInput(heldTranscript.current);
-  });
+  const clearSilenceTimer = () => {
+    if (silenceTimerRef.current != null) {
+      window.clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = null;
+    }
+  };
+
+  const scheduleContinuousCommit = () => {
+    clearSilenceTimer();
+    silenceTimerRef.current = window.setTimeout(() => {
+      const transcript = utteranceRef.current.trim();
+      if (
+        !shouldCommitContinuousUtterance({
+          transcript,
+          silenceMs: BOOTH_UTTERANCE_SILENCE_MS,
+          speaking: speakingRef.current,
+          busy: busyRef.current,
+          holdToTalk: holdToTalkRef.current,
+        })
+      ) {
+        return;
+      }
+      utteranceRef.current = "";
+      setInput("");
+      void sendRef.current(transcript);
+    }, BOOTH_UTTERANCE_SILENCE_MS);
+  };
+
+  const dictation = useDictation(
+    (text) => {
+      if (holdToTalkRef.current) {
+        heldTranscript.current = heldTranscript.current
+          ? `${heldTranscript.current} ${text}`
+          : text;
+        setInput(heldTranscript.current);
+        return;
+      }
+      if (speakingRef.current && !bargedInRef.current) return;
+      utteranceRef.current = utteranceRef.current
+        ? `${utteranceRef.current} ${text}`
+        : text;
+      setInput(utteranceRef.current);
+      scheduleContinuousCommit();
+    },
+    {
+      restartOnEnd: !holdToTalk,
+      interimResults: !holdToTalk,
+      onInterim: (text) => {
+        if (holdToTalkRef.current) return;
+        if (speakingRef.current && !bargedInRef.current) return;
+        setInput(
+          utteranceRef.current ? `${utteranceRef.current} ${text}` : text,
+        );
+        scheduleContinuousCommit();
+      },
+      onSpeech: () => {
+        if (holdToTalkRef.current) return;
+        if (speakingRef.current) {
+          bargedInRef.current = true;
+          utteranceRef.current = "";
+          setInput("");
+        }
+        stopSpeech();
+      },
+    },
+  );
+  const {
+    supported: dictationSupported,
+    listening: dictationListening,
+    error: dictationError,
+    permission: dictationPermission,
+    start: startDictation,
+    stop: stopDictation,
+    retryPermission,
+  } = dictation;
 
   useEffect(() => {
-    signalsRef.current?.({ listening: dictation.listening, thinking: busy });
-  }, [busy, dictation.listening]);
+    signalsRef.current?.({ listening: dictationListening, thinking: busy });
+  }, [busy, dictationListening]);
 
   useEffect(() => {
-    return () => signalsRef.current?.({ listening: false, thinking: false });
+    return () => {
+      clearSilenceTimer();
+      signalsRef.current?.({ listening: false, thinking: false });
+    };
   }, []);
+
+  useEffect(() => {
+    if (!speaking) bargedInRef.current = false;
+  }, [speaking]);
+
+  useEffect(() => {
+    const auto = shouldAutoListen({
+      muted,
+      holdToTalk,
+      supported: dictationSupported,
+      busy,
+      micPermission: dictationPermission,
+    });
+    if (auto && !listenPaused) {
+      startDictation();
+      return;
+    }
+    if (holdToTalk && holdingTalk.current) return;
+    stopDictation();
+  }, [
+    muted,
+    holdToTalk,
+    listenPaused,
+    busy,
+    dictationSupported,
+    dictationPermission,
+    startDictation,
+    stopDictation,
+  ]);
 
   const persist = (
     nextMessages: PresenceBoothMessage[],
@@ -141,9 +271,10 @@ export function PresenceBoothConversation({
 
   const send = async (raw: string) => {
     const question = raw.trim();
-    if (!signedIn || !question || busy) return;
+    if (!signedIn || !question || busyRef.current) return;
     setInput("");
     heldTranscript.current = "";
+    utteranceRef.current = "";
     const userMessage: PresenceBoothMessage = {
       id: `user-${Date.now()}`,
       role: "user",
@@ -180,26 +311,48 @@ export function PresenceBoothConversation({
       setBusy(false);
     }
   };
+  sendRef.current = send;
 
   const startTalk = () => {
-    if (busy || !dictation.supported) return;
+    if (!holdToTalk || busy || !dictationSupported) return;
     holdingTalk.current = true;
     stopSpeech();
     heldTranscript.current = input.trim();
-    dictation.start();
+    startDictation();
   };
 
   const endTalk = () => {
-    if (!holdingTalk.current) return;
+    if (!holdToTalk || !holdingTalk.current) return;
     holdingTalk.current = false;
-    dictation.stop();
+    stopDictation();
     const text = heldTranscript.current.trim() || input.trim();
     if (text) void send(text);
   };
 
+  const toggleHoldToTalk = (next: boolean) => {
+    setHoldToTalk(next);
+    writeHoldToTalkPreference(window.localStorage, next);
+    holdingTalk.current = false;
+    clearSilenceTimer();
+    utteranceRef.current = "";
+    if (next) setListenPaused(false);
+  };
+
+  const micBlocked =
+    dictationPermission === "denied" || isMicBlockedError(dictationError);
+  const voiceMode = boothVoiceMode(holdToTalk);
+  const micLabel = holdToTalk
+    ? dictationListening
+      ? "Release to send"
+      : "Hold to talk"
+    : dictationListening
+      ? "Pause listening"
+      : "Start listening";
+
   return (
     <div
       data-testid="presence-booth"
+      data-booth-voice-mode={voiceMode}
       className="mt-2 border-t border-white/5 pt-2"
     >
       <p className="text-[11px] text-slate-500">
@@ -209,6 +362,29 @@ export function PresenceBoothConversation({
           ? " Active Decision Case is in context."
           : " No Decision Case is bound — named subjects stay provisional."}
       </p>
+      <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+        <label className="inline-flex items-center gap-1.5 text-[11px] text-slate-400">
+          <input
+            type="checkbox"
+            checked={holdToTalk}
+            onChange={(event) => toggleHoldToTalk(event.target.checked)}
+            aria-label="Hold to talk"
+            className="rounded border-white/20 bg-transparent"
+          />
+          Hold to talk
+        </label>
+        <span className="text-[11px] text-slate-500">
+          {holdToTalk
+            ? "Optional press-and-hold. Default is continuous listen."
+            : muted
+              ? "Muted — continuous listen is paused. Type a question or unmute."
+              : dictationListening
+                ? "Listening — speak when you want Sync."
+                : listenPaused
+                  ? "Listening paused."
+                  : "Continuous listen when the microphone is allowed."}
+        </span>
+      </div>
       {messages.length > 0 && (
         <ul className="mt-2 max-h-40 space-y-1.5 overflow-auto">
           {messages.map((message) => (
@@ -221,9 +397,26 @@ export function PresenceBoothConversation({
           ))}
         </ul>
       )}
-      {dictation.error && (
-        <p className="mt-1 text-[11px] text-amber-400/90">{dictation.error}</p>
-      )}
+      {micBlocked ? (
+        <div className="mt-2 rounded-md border border-amber-400/30 bg-amber-400/5 px-2 py-1.5">
+          <p className="text-[11px] text-amber-400/90">{MIC_BLOCKED_COPY}</p>
+          <button
+            type="button"
+            onClick={() => {
+              void retryPermission();
+            }}
+            className="mt-1 text-[11px] text-signal-cyan hover:underline"
+          >
+            Enable microphone
+          </button>
+        </div>
+      ) : dictationError ? (
+        <p className="mt-1 text-[11px] text-amber-400/90">{dictationError}</p>
+      ) : !dictationSupported ? (
+        <p className="mt-1 text-[11px] text-slate-500">
+          {MIC_UNSUPPORTED_COPY}
+        </p>
+      ) : null}
       <form
         className="mt-2 flex items-center gap-2"
         onSubmit={(event) => {
@@ -233,25 +426,40 @@ export function PresenceBoothConversation({
       >
         <button
           type="button"
-          aria-label={dictation.listening ? "Release to send" : "Hold to talk"}
-          disabled={!dictation.supported || busy}
-          onPointerDown={startTalk}
-          onPointerUp={endTalk}
-          onPointerLeave={endTalk}
+          aria-label={micLabel}
+          disabled={!dictationSupported || busy || micBlocked}
+          onPointerDown={holdToTalk ? startTalk : undefined}
+          onPointerUp={holdToTalk ? endTalk : undefined}
+          onPointerLeave={holdToTalk ? endTalk : undefined}
+          onClick={
+            holdToTalk
+              ? undefined
+              : () => {
+                  if (dictationListening) {
+                    setListenPaused(true);
+                    stopDictation();
+                    return;
+                  }
+                  setListenPaused(false);
+                  startDictation();
+                }
+          }
           className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-white/10 text-slate-300 hover:border-signal-cyan/40 hover:text-signal-cyan disabled:opacity-40"
         >
-          {dictation.listening ? (
-            <MicOff className="h-3.5 w-3.5" />
+          {dictationListening ? (
+            <Mic className="h-3.5 w-3.5 text-signal-cyan" />
           ) : (
-            <Mic className="h-3.5 w-3.5" />
+            <MicOff className="h-3.5 w-3.5" />
           )}
         </button>
         <input
           value={input}
           onChange={(event) => setInput(event.target.value)}
           placeholder={
-            dictation.supported
-              ? "Ask about maintenance or hold to talk"
+            dictationSupported
+              ? holdToTalk
+                ? "Ask about maintenance or hold to talk"
+                : "Ask about maintenance or just speak"
               : "Ask about maintenance or operations"
           }
           disabled={busy}

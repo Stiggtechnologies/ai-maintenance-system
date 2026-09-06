@@ -19,6 +19,7 @@ export const BOOTH_FRAMING = [
   "If no Decision Case is bound, treat named subjects as provisional and do not invent a demo or reference case.",
   "If the context says no sourced KPI values are available, say that plainly and do not invent readings, OEE, downtime, or asset health.",
   "Keep the answer short enough to speak aloud (a few sentences). Name uncertainty. Do not claim autonomous control.",
+  "Speak as a professional meeting moderator: contribute when asked or when a short clarification helps. Do not be cheeky or performative.",
 ].join(" ");
 
 export function buildBoothAskQuery(input: {
