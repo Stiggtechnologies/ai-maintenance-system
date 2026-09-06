@@ -175,7 +175,9 @@ describe("PresenceBoothConversation", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: /send question/i }));
 
-    expect(await screen.findByText("What should I look at first?")).toBeInTheDocument();
+    expect(
+      await screen.findByText("What should I look at first?"),
+    ).toBeInTheDocument();
     expect(
       await screen.findByText(BOOTH_UNAVAILABLE_REPLY),
     ).toBeInTheDocument();
@@ -183,7 +185,9 @@ describe("PresenceBoothConversation", () => {
     expect(screen.queryByText(/plant is healthy/i)).toBeNull();
     expect(speak).toHaveBeenCalledWith(BOOTH_UNAVAILABLE_REPLY);
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: /send question/i })).not.toBeDisabled();
+      expect(
+        screen.getByPlaceholderText(/Ask about maintenance/i),
+      ).not.toBeDisabled();
     });
   });
 
@@ -195,7 +199,9 @@ describe("PresenceBoothConversation", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: /send question/i }));
 
-    expect(await screen.findByText(BOOTH_UNAVAILABLE_REPLY)).toBeInTheDocument();
+    expect(
+      await screen.findByText(BOOTH_UNAVAILABLE_REPLY),
+    ).toBeInTheDocument();
     expect(speak).not.toHaveBeenCalled();
   });
 
