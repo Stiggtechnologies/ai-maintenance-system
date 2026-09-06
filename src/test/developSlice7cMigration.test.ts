@@ -1394,9 +1394,14 @@ describe("D7.16 — the composition names what it composes and what is open", ()
   it("stays 🟡 in the register, and the row says which parts are open", () => {
     expect(registerStatus("D7.16")).toBe("🟡");
     const [label, row] = registerRow("D7.16");
-    for (const open of ["D7.06", "D7.07", "D7.12"]) {
+    // D7.07 closed 2026-09-06 (the one clock now walks package constraints).
+    // The 7C file still names it as an open part — that is what 7C shipped.
+    // The register row names the two residuals that remain, and says the
+    // third closed rather than quietly dropping the id.
+    for (const open of ["D7.06", "D7.12"]) {
       expect(row, label).toContain(open);
     }
+    expect(row, label).toContain("D7.07 closed");
   });
 });
 

@@ -2271,6 +2271,50 @@ export async function adoptProjectFramework(
   return unwrap(data, error);
 }
 
+/** D3.01 / D3.22: a hand-authored DRAFT framework. Nothing governs until adopt. */
+export async function createProjectFramework(input: {
+  name: string;
+  source: string;
+  sourceAuthority?: string;
+  basis: string;
+  projectClasses?: string[];
+}): Promise<{
+  framework_id: string;
+  status: string;
+  adoption_required: boolean;
+}> {
+  const { data, error } = await supabase.rpc("create_project_framework", {
+    p_name: input.name,
+    p_source: input.source,
+    p_source_authority: input.sourceAuthority ?? "INDUSTRY_GUIDANCE",
+    p_basis: input.basis,
+    p_project_classes: input.projectClasses ?? [],
+  });
+  return unwrap(data, error);
+}
+
+/** D3.23: a named/ordered stage on a DRAFT framework, mapped onto lifecycle_stages. */
+export async function addFrameworkStage(input: {
+  frameworkId: string;
+  stageKey: string;
+  sequence: number;
+  displayName: string;
+  purpose?: string | null;
+  entryCriteria?: string | null;
+  exitCriteria?: string | null;
+}): Promise<{ framework_stage_id: number; stage_key: string }> {
+  const { data, error } = await supabase.rpc("add_framework_stage", {
+    p_framework_id: input.frameworkId,
+    p_stage_key: input.stageKey,
+    p_sequence: input.sequence,
+    p_display_name: input.displayName,
+    p_purpose: input.purpose ?? null,
+    p_entry_criteria: input.entryCriteria ?? null,
+    p_exit_criteria: input.exitCriteria ?? null,
+  });
+  return unwrap(data, error);
+}
+
 /** D3.35 / D3.01: an adopted framework is immutable — this drafts the next. */
 export async function createProjectFrameworkVersion(
   sourceId: string,

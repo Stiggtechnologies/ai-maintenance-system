@@ -9,13 +9,14 @@
  * five rows for exactly that. This is the surface those rows were missing.
  *
  * WHAT IT DOES, in the order a tenant does it:
- *   1. run the METHODOLOGY AGENT over a document in the governed intake
- *      register — it proposes a DRAFT framework, every requirement stamped
+ *   1. CREATE a blank draft framework by hand (D3.01/D3.22) — or run the
+ *      METHODOLOGY AGENT over a document in the governed intake register,
+ *      which proposes a DRAFT whose every requirement is stamped
  *      AI_SUGGESTION (D12.06);
- *   2. read the shelf: machine proposals, hand-authored drafts, adopted
- *      frameworks;
- *   3. author on a draft — add a gate (D3.24), state a requirement with its
- *      provenance tier and weight (D3.14/D3.35);
+ *   2. add a STAGE mapped onto the canonical lifecycle_stages vocabulary
+ *      (D3.23) and a GATE or CHECKPOINT on that stage (D3.24/D3.37);
+ *   3. state a requirement with its provenance tier and weight (D3.14/D3.25/
+ *      D3.35);
  *   4. ADOPT (D3.02) — the executive act. The database refuses the
  *      AI-operator identity by name (§70), so the machine that drafted it
  *      cannot put it in force;
@@ -30,8 +31,10 @@ import { useCallback, useEffect, useState } from "react";
 import { Bot, FileStack, GitBranch, Landmark } from "lucide-react";
 import {
   addFrameworkGate,
+  addFrameworkStage,
   addTailoringRule,
   adoptProjectFramework,
+  createProjectFramework,
   createProjectFrameworkVersion,
   getFrameworkShelf,
   listIntakeDocuments,
@@ -113,6 +116,20 @@ export function FrameworkShelfPanel({
    *  a framework in force is confirmed once, by id, after the consequence has
    *  been read — not adopted by the same click that first shows it. */
   const [confirmSupersede, setConfirmSupersede] = useState<string | null>(null);
+  const [frameworkDraft, setFrameworkDraft] = useState({
+    name: "",
+    source: "",
+    sourceAuthority: "INDUSTRY_GUIDANCE",
+    basis: "",
+    projectClasses: "",
+  });
+  const [stageDraft, setStageDraft] = useState({
+    frameworkId: "",
+    stageKey: "",
+    sequence: "1",
+    displayName: "",
+    purpose: "",
+  });
   const [gateDraft, setGateDraft] = useState({
     frameworkId: "",
     stageKey: "",
@@ -540,12 +557,179 @@ export function FrameworkShelfPanel({
             </div>
           )}
 
-          {/* 3 — D3.24 / D3.14 / D3.35: authoring on a DRAFT. */}
+          {/* 3 — D3.01 / D3.22: a hand-authored draft, not only a seed or a
+              machine proposal. A tenant that never seeded the library and
+              never ran the agent could not previously start a framework. */}
+          {canAuthor && (
+            <div className="space-y-2 rounded-lg border border-white/8 p-2.5">
+              <div className="text-xs font-semibold text-slate-200">
+                Create a draft framework (D3.01) — nothing governs until a
+                human adopts it
+              </div>
+              <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-3">
+                <input
+                  value={frameworkDraft.name}
+                  onChange={(e) =>
+                    setFrameworkDraft((d) => ({ ...d, name: e.target.value }))
+                  }
+                  placeholder="Framework name"
+                  className={inputClass}
+                />
+                <select
+                  value={frameworkDraft.sourceAuthority}
+                  onChange={(e) =>
+                    setFrameworkDraft((d) => ({
+                      ...d,
+                      sourceAuthority: e.target.value,
+                    }))
+                  }
+                  className={inputClass}
+                >
+                  {SOURCE_AUTHORITIES.map((a) => (
+                    <option key={a} value={a}>
+                      {a}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  value={frameworkDraft.projectClasses}
+                  onChange={(e) =>
+                    setFrameworkDraft((d) => ({
+                      ...d,
+                      projectClasses: e.target.value,
+                    }))
+                  }
+                  placeholder="Project classes (comma-separated)"
+                  className={inputClass}
+                />
+                <input
+                  value={frameworkDraft.source}
+                  onChange={(e) =>
+                    setFrameworkDraft((d) => ({ ...d, source: e.target.value }))
+                  }
+                  placeholder="Where this content comes from (10 characters minimum)"
+                  className={`${inputClass} sm:col-span-3`}
+                />
+                <input
+                  value={frameworkDraft.basis}
+                  onChange={(e) =>
+                    setFrameworkDraft((d) => ({ ...d, basis: e.target.value }))
+                  }
+                  placeholder="Basis — at LAW/REGULATION/CORPORATE_STANDARD/CONTRACT this must name the instrument (30 characters)"
+                  className={`${inputClass} sm:col-span-2`}
+                />
+                <button
+                  onClick={() =>
+                    void act(
+                      () =>
+                        createProjectFramework({
+                          name: frameworkDraft.name,
+                          source: frameworkDraft.source,
+                          sourceAuthority: frameworkDraft.sourceAuthority,
+                          basis: frameworkDraft.basis,
+                          projectClasses: frameworkDraft.projectClasses
+                            .split(",")
+                            .map((s) => s.trim())
+                            .filter(Boolean),
+                        }),
+                      "Draft framework created. Add stages and gates, then adopt it. It governs nothing yet.",
+                    )
+                  }
+                  disabled={busy}
+                  className="rounded-lg border border-white/10 px-2.5 py-1.5 text-xs text-slate-200 hover:bg-white/5 disabled:opacity-50"
+                >
+                  Create draft
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* 4 — D3.23 / D3.24 / D3.37 / D3.14 / D3.25 / D3.35: authoring on a DRAFT. */}
           {canAuthor && shelf && shelf.drafts.length > 0 && (
             <div className="space-y-2 rounded-lg border border-white/8 p-2.5">
               <div className="text-xs font-semibold text-slate-200">
                 Author on a draft (an adopted version is immutable — the server
                 refuses it by name)
+              </div>
+
+              <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-3">
+                <select
+                  value={stageDraft.frameworkId}
+                  onChange={(e) =>
+                    setStageDraft((d) => ({
+                      ...d,
+                      frameworkId: e.target.value,
+                    }))
+                  }
+                  className={inputClass}
+                >
+                  <option value="">Draft framework…</option>
+                  {shelf.drafts.map((f) => (
+                    <option key={f.id} value={f.id}>
+                      {f.name} v{f.version}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  value={stageDraft.stageKey}
+                  onChange={(e) =>
+                    setStageDraft((d) => ({ ...d, stageKey: e.target.value }))
+                  }
+                  className={inputClass}
+                >
+                  <option value="">Canonical stage…</option>
+                  {stageKeys.map((k) => (
+                    <option key={k} value={k}>
+                      {k}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  value={stageDraft.displayName}
+                  onChange={(e) =>
+                    setStageDraft((d) => ({
+                      ...d,
+                      displayName: e.target.value,
+                    }))
+                  }
+                  placeholder="Display name for this stage"
+                  className={inputClass}
+                />
+                <input
+                  value={stageDraft.sequence}
+                  onChange={(e) =>
+                    setStageDraft((d) => ({ ...d, sequence: e.target.value }))
+                  }
+                  placeholder="Sequence"
+                  className={inputClass}
+                />
+                <input
+                  value={stageDraft.purpose}
+                  onChange={(e) =>
+                    setStageDraft((d) => ({ ...d, purpose: e.target.value }))
+                  }
+                  placeholder="Purpose (optional)"
+                  className={inputClass}
+                />
+                <button
+                  onClick={() =>
+                    void act(
+                      () =>
+                        addFrameworkStage({
+                          frameworkId: stageDraft.frameworkId,
+                          stageKey: stageDraft.stageKey,
+                          sequence: Number(stageDraft.sequence) || 1,
+                          displayName: stageDraft.displayName,
+                          purpose: stageDraft.purpose || null,
+                        }),
+                      "Stage added to the draft — mapped onto the canonical lifecycle vocabulary, not a second one.",
+                    )
+                  }
+                  disabled={busy}
+                  className="rounded-lg border border-white/10 px-2.5 py-1.5 text-xs text-slate-200 hover:bg-white/5 disabled:opacity-50"
+                >
+                  Add stage
+                </button>
               </div>
 
               <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-3">
@@ -733,7 +917,7 @@ export function FrameworkShelfPanel({
             </div>
           )}
 
-          {/* 4 — D3.03: rule and threshold authoring on a DRAFT rule set. */}
+          {/* 5 — D3.03: rule and threshold authoring on a DRAFT rule set. */}
           {canAuthor && draftRuleSets.length > 0 && (
             <div className="space-y-2 rounded-lg border border-white/8 p-2.5">
               <div className="text-xs font-semibold text-slate-200">
