@@ -17,6 +17,12 @@ describe("sync-tts deploy and honesty contract", () => {
     expect(deploy).not.toMatch(
       /supabase functions deploy sync-tts[^\n]*--no-verify-jwt/,
     );
+    const config = read("supabase/config.toml");
+    const syncTtsBlock = config.slice(config.indexOf("[functions.sync-tts]"));
+    expect(syncTtsBlock).toMatch(/verify_jwt\s*=\s*true/);
+    expect(config).not.toMatch(
+      /\[functions\.sync-tts\][\s\S]*?verify_jwt\s*=\s*false/,
+    );
   });
 
   it("uses the existing OPENAI_API_KEY and does not require ElevenLabs", () => {
@@ -24,6 +30,7 @@ describe("sync-tts deploy and honesty contract", () => {
     const core = read("supabase/functions/_shared/sync-tts-core.ts");
     expect(fn).toContain('Deno.env.get("OPENAI_API_KEY")');
     expect(fn).toContain("auth.getUser()");
+    expect(fn).toContain('json({ error: "unauthorized" }, 401)');
     expect(fn).toContain("audio/mpeg");
     expect(fn).toContain("validateSyncTtsInput");
     expect(core).toContain("gpt-4o-mini-tts");
@@ -48,5 +55,14 @@ describe("sync-tts deploy and honesty contract", () => {
     expect(hook).toContain("speechSynthesis");
     expect(welcome).not.toMatch(/premium quality/i);
     expect(welcome).not.toMatch(/ElevenLabs/i);
+  });
+
+  it("does not pull src/ into the functions tree and still shares stripForSpeech", () => {
+    const coreTest = read("supabase/functions/_shared/sync-tts-core.test.ts");
+    const booth = read("src/lib/presence/booth.ts");
+    expect(coreTest).not.toMatch(/from ["']\.\.\/\.\.\/\.\.\/src\//);
+    expect(booth).toContain(
+      'from "../../../supabase/functions/_shared/sync-tts-core"',
+    );
   });
 });
