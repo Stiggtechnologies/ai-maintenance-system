@@ -5,8 +5,9 @@
  * configured, browser speechSynthesis only as fallback. Meet Sync speaks a
  * Reliability Engineer greeting once per tab session when not muted. Tenant
  * sync_voice_output still gates CopilotDock and is named in the honesty
- * line. KPI brief is text-only from get_kpi_dashboard.
- * Mute is remembered in localStorage. Recommend is not authorize.
+ * line. KPI brief is text-only from get_kpi_dashboard. Mute is remembered
+ * in localStorage. Signed-in meeting notes persist in the Sync-native
+ * vault. Recommend is not authorize.
  */
 import { useCallback, useEffect, useState } from "react";
 import { MessageCircle, Volume2, VolumeX } from "lucide-react";
@@ -16,7 +17,13 @@ import {
   loadStoredPresenceCases,
   readPresenceMemory,
   resolvePresenceWorkingSubject,
+  writePresenceMemory,
 } from "../lib/presence/memory";
+import {
+  profileOrganizationId,
+  shouldHydrateFromVault,
+} from "../lib/presence/vault";
+import { loadPresenceVaultSession } from "../lib/presence/vaultClient";
 import { derivePresencePhase } from "../lib/presence/state";
 import {
   buildSpokenWelcome,
@@ -69,6 +76,8 @@ export function PresenceWelcome() {
   });
 
   const userId = user?.id ?? "";
+  const organizationId = profileOrganizationId(profile) ?? "";
+  const [vaultReady, setVaultReady] = useState(false);
   const refreshWorkingSubject = useCallback(() => {
     if (typeof window === "undefined" || !userId) {
       setWorkingSubject(resolvePresenceWorkingSubject([]));
@@ -86,6 +95,36 @@ export function PresenceWelcome() {
   useEffect(() => {
     refreshWorkingSubject();
   }, [refreshWorkingSubject]);
+
+  useEffect(() => {
+    if (!userId || !organizationId) {
+      setVaultReady(true);
+      return;
+    }
+    let cancelled = false;
+    void loadPresenceVaultSession({ userId, organizationId })
+      .then((vault) => {
+        if (cancelled) return;
+        if (vault) {
+          const tab = readPresenceMemory(window.sessionStorage, userId);
+          if (shouldHydrateFromVault(tab, vault)) {
+            try {
+              writePresenceMemory(window.sessionStorage, userId, vault);
+            } catch {
+              // Tab cache is best-effort.
+            }
+            refreshWorkingSubject();
+          }
+        }
+        setVaultReady(true);
+      })
+      .catch(() => {
+        if (!cancelled) setVaultReady(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [userId, organizationId, refreshWorkingSubject]);
 
   const spokenWelcome = buildSpokenWelcome(givenName, workingSubject);
   const presencePhase = derivePresencePhase({
@@ -115,7 +154,7 @@ export function PresenceWelcome() {
   }, [loading, user]);
 
   useEffect(() => {
-    if (loading) return;
+    if (loading || !vaultReady) return;
     const userId = user?.id ?? "";
     const already = userId
       ? hasSessionWelcome(window.sessionStorage, userId)
@@ -131,7 +170,7 @@ export function PresenceWelcome() {
     }
     markSessionWelcome(window.sessionStorage, userId);
     speak(spokenWelcome);
-  }, [loading, user, muted, spokenWelcome, speak]);
+  }, [loading, user, muted, spokenWelcome, speak, vaultReady]);
 
   const handleMute = () => {
     writeMutePreference(window.localStorage, true);
@@ -165,6 +204,10 @@ export function PresenceWelcome() {
       briefLines={briefLines}
       caseContextLines={workingSubject.contextLines}
       caseBound={workingSubject.bound}
+      organizationId={organizationId}
+      caseId={workingSubject.caseId}
+      caseNumber={workingSubject.caseNumber}
+      asset={workingSubject.asset}
       speak={speak}
       stopSpeech={stop}
       speaking={speaking}

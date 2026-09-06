@@ -5,8 +5,9 @@
  * (cloud sync-tts when configured, speechSynthesis fallback). Default
  * listen is continuous with end-of-utterance; hold-to-talk is optional.
  * Answers: askBoothConversation → ai-agent-processor ReliabilityAgent.
- * Session transcript in sessionStorage. Decision Case continuity from
- * the existing draft store + honesty helpers. Recommend ≠ authorize.
+ * Tab transcript in sessionStorage; signed-in notes in the Sync-native
+ * meeting vault. Decision Case continuity from the existing draft store
+ * + honesty helpers. Recommend ≠ authorize.
  */
 import { useEffect, useRef, useState } from "react";
 import { Loader2, Mic, MicOff, Send } from "lucide-react";
@@ -36,6 +37,11 @@ import {
   writePresenceMemory,
   type PresenceBoothMessage,
 } from "../lib/presence/memory";
+import { shouldHydrateFromVault } from "../lib/presence/vault";
+import {
+  loadPresenceVaultSession,
+  persistPresenceVault,
+} from "../lib/presence/vaultClient";
 import {
   formatUnboundLiveQuestion,
   promptNamesConcreteSubject,
@@ -50,6 +56,10 @@ interface PresenceBoothConversationProps {
   briefLines: string[];
   caseContextLines: string[];
   caseBound: boolean;
+  organizationId?: string;
+  caseId?: string | null;
+  caseNumber?: string | null;
+  asset?: string | null;
   speak: (text: string) => void;
   stopSpeech: () => void;
   speaking?: boolean;
@@ -69,6 +79,10 @@ export function PresenceBoothConversation({
   briefLines,
   caseContextLines,
   caseBound,
+  organizationId = "",
+  caseId = null,
+  caseNumber = null,
+  asset = null,
   speak,
   stopSpeech,
   speaking = false,
@@ -224,19 +238,52 @@ export function PresenceBoothConversation({
     stopDictation,
   ]);
 
+  useEffect(() => {
+    if (!signedIn || !userId || !organizationId) return;
+    let cancelled = false;
+    void loadPresenceVaultSession({ userId, organizationId }).then((vault) => {
+      if (cancelled || !vault) return;
+      const tab = readPresenceMemory(window.sessionStorage, userId);
+      if (!shouldHydrateFromVault(tab, vault)) return;
+      setMessages(vault.messages);
+      lastSubjectRef.current = vault.lastSubject;
+      try {
+        writePresenceMemory(window.sessionStorage, userId, vault);
+      } catch {
+        // Tab cache is best-effort.
+      }
+      try {
+        onMemoryChange?.();
+      } catch {
+        // Parent subject refresh is best-effort.
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [signedIn, userId, organizationId, onMemoryChange]);
+
   const persist = (
     nextMessages: PresenceBoothMessage[],
     lastSubject: string | null,
   ) => {
     if (!userId) return;
+    const nextMemory = { messages: nextMessages, lastSubject };
     try {
-      writePresenceMemory(window.sessionStorage, userId, {
-        messages: nextMessages,
-        lastSubject,
-      });
+      writePresenceMemory(window.sessionStorage, userId, nextMemory);
     } catch {
       // Tab memory is best-effort. A blocked or full sessionStorage must not
       // abort a booth turn.
+    }
+    if (signedIn && organizationId) {
+      void persistPresenceVault({
+        userId,
+        organizationId,
+        memory: nextMemory,
+        caseId,
+        caseNumber,
+        asset,
+      });
     }
     try {
       onMemoryChange?.();
@@ -358,6 +405,9 @@ export function PresenceBoothConversation({
       <p className="text-[11px] text-slate-500">
         Meet Sync — Reliability Engineer booth. Grounded ask only. Recommend is
         not authorize. No plant execute.
+        {organizationId
+          ? " Signed-in notes persist beyond this tab."
+          : " Notes stay in this tab until you sign in."}
         {caseBound
           ? " Active Decision Case is in context."
           : " No Decision Case is bound — named subjects stay provisional."}
