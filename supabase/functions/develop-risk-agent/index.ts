@@ -88,20 +88,24 @@ async function authenticate(
   const header = req.headers.get("Authorization") ?? "";
   const token = header.startsWith("Bearer ") ? header.slice(7) : "";
   if (!token) return null;
-  const admin = serviceClient();
-  const { data: userResult, error } = await admin.auth.getUser(token);
-  if (error || !userResult.user) return null;
-  const { data: profile } = await admin
-    .from("user_profiles")
-    .select("organization_id, role")
-    .eq("id", userResult.user.id)
-    .maybeSingle();
-  if (!profile?.organization_id) return null;
-  return {
-    token,
-    organizationId: profile.organization_id,
-    role: profile.role ?? "user",
-  };
+  try {
+    const admin = serviceClient();
+    const { data: userResult, error } = await admin.auth.getUser(token);
+    if (error || !userResult.user) return null;
+    const { data: profile } = await admin
+      .from("user_profiles")
+      .select("organization_id, role")
+      .eq("id", userResult.user.id)
+      .maybeSingle();
+    if (!profile?.organization_id) return null;
+    return {
+      token,
+      organizationId: profile.organization_id,
+      role: profile.role ?? "user",
+    };
+  } catch {
+    return null;
+  }
 }
 
 Deno.serve(async (req: Request) => {
@@ -109,12 +113,11 @@ Deno.serve(async (req: Request) => {
     return new Response(null, { status: 204, headers: corsHeaders });
   }
   if (req.method !== "POST") return json({ error: "POST only" }, 405);
+  const auth = await authenticate(req);
+  if (!auth) return json({ error: "authentication required" }, 401);
   if (!SUPABASE_URL || !SERVICE_ROLE_KEY || !ANON_KEY) {
     return json({ error: "function is not configured" }, 500);
   }
-
-  const auth = await authenticate(req);
-  if (!auth) return json({ error: "authentication required" }, 401);
 
   let body: { risk_id?: string; record?: boolean };
   try {
