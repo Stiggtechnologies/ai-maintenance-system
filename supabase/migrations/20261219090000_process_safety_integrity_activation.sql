@@ -221,7 +221,20 @@ begin
  return jsonb_build_object('id',p_modification_id,'status','removed');
 end $$;
 
-revoke all on function public.assert_process_safety_actor(text), public.record_inspection_plan(jsonb), public.record_inspection_completion(bigint,date,date,text), public.register_relief_device(jsonb), public.record_relief_device_test(bigint,date,text,text), public.record_containment_loss(jsonb), public.declare_barrier_impairment(jsonb), public.approve_barrier_deviation(bigint,date,text), public.restore_barrier_impairment(bigint,text), public.record_safety_temporary_modification(jsonb), public.remove_safety_temporary_modification(bigint,text) from public, anon;
+-- Each privileged door is explicitly closed to PUBLIC. Apart from being safer
+-- to review, this prevents a later function-list edit from leaving one new
+-- SECURITY DEFINER entrypoint with PostgreSQL's default PUBLIC execution.
+revoke all on function public.assert_process_safety_actor(text) from public, anon;
+revoke all on function public.record_inspection_plan(jsonb) from public, anon;
+revoke all on function public.record_inspection_completion(bigint,date,date,text) from public, anon;
+revoke all on function public.register_relief_device(jsonb) from public, anon;
+revoke all on function public.record_relief_device_test(bigint,date,text,text) from public, anon;
+revoke all on function public.record_containment_loss(jsonb) from public, anon;
+revoke all on function public.declare_barrier_impairment(jsonb) from public, anon;
+revoke all on function public.approve_barrier_deviation(bigint,date,text) from public, anon;
+revoke all on function public.restore_barrier_impairment(bigint,text) from public, anon;
+revoke all on function public.record_safety_temporary_modification(jsonb) from public, anon;
+revoke all on function public.remove_safety_temporary_modification(bigint,text) from public, anon;
 grant execute on function public.record_inspection_plan(jsonb), public.record_inspection_completion(bigint,date,date,text), public.register_relief_device(jsonb), public.record_relief_device_test(bigint,date,text,text), public.record_containment_loss(jsonb), public.declare_barrier_impairment(jsonb), public.approve_barrier_deviation(bigint,date,text), public.restore_barrier_impairment(bigint,text), public.record_safety_temporary_modification(jsonb), public.remove_safety_temporary_modification(bigint,text) to authenticated;
 
 notify pgrst, 'reload schema';
