@@ -129,9 +129,10 @@ Built 5 comprehensive React dashboards:
 ## 💰 **Pricing Model**
 
 > **Superseded 2026-08-19.** These tiers and rates were never commercially
-> confirmed. Pricing is under commercial review and available on request
-> from your SyncAI account contact; the table stands only as a record of
-> what this implementation assumed.
+> confirmed. Current public offer is the US$35,000 fixed-fee Reliability Intelligence
+> Assessment (SOW for final terms). Historical tier prices below remain
+> under commercial review and available on request from your SyncAI account
+> contact; the table stands only as a record of what this implementation assumed.
 
 ### **Three Tiers (historical, unconfirmed):**
 

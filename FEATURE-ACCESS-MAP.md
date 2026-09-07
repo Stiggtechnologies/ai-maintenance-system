@@ -3,11 +3,12 @@
 > **2026-08-19 — HISTORICAL DOCUMENT, PRICING SUPERSEDED.** The dollar
 > figures below ($4,000 / $9,000 / $18,000 tiers and derived examples) were
 > never commercially confirmed and are retained only as a record of what was
-> built. Current pricing is **under commercial review** and available on
-> request from your SyncAI account contact. `billing-gainshare`,
-> `GainShareConsole`, `PremiumCheckout`, `UsageDashboard`, and the `Pricing`
-> page were **deleted on 2026-08-19** (fabricated rates / triple-counted
-> savings); do not reimplement from this document.
+> built. **Current public offer:** US$35,000 fixed-fee Reliability Intelligence
+> Assessment (6–8 weeks); final scope/terms by proposal/SOW. Historical SaaS
+> tiers remain under commercial review and must not be sold from this document.
+> `billing-gainshare`, `GainShareConsole`, `PremiumCheckout`, `UsageDashboard`,
+> and the `Pricing` page were **deleted on 2026-08-19** (fabricated rates /
+> triple-counted savings); do not reimplement from this document.
 
 ## Where to Find Everything
 

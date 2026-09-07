@@ -167,6 +167,9 @@ test.describe("public assessment landing @ mobile (390x844)", () => {
     );
     await expect(ledes).not.toContainText(/48-hour/i);
     await expect(ledes).not.toContainText(/US\$35,000/);
+    const price = page.getByTestId("assessment-hero-price");
+    await expect(price).toHaveCount(1);
+    await expect(price).toContainText(/US\$35,000/);
 
     const metrics = await ledes.evaluate((el) => {
       const style = getComputedStyle(el);

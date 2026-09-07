@@ -46,6 +46,12 @@ export function FirstCustomerPilotPage() {
         >
           {CANONICAL_RIA_LEDE}
         </p>
+        <p
+          data-testid="assessment-hero-price"
+          className="mt-4 max-w-3xl text-sm font-semibold text-teal-200/90"
+        >
+          Standard fee: US$35,000 fixed · normally 6–8 weeks · final terms in the proposal/SOW.
+        </p>
         <div
           data-testid="assessment-hero-constraints"
           className="mt-6 grid gap-3 text-sm leading-[1.55] text-slate-300 sm:grid-cols-2"
