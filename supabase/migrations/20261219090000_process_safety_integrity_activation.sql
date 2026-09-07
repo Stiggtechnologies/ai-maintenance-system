@@ -10,7 +10,7 @@
 -- declaration or approve a deviation.
 -- ============================================================================
 
-create table if not exists process_safety_control_events (
+/* create table if not exists process_safety_control_events (
   id bigserial primary key,
   organization_id uuid not null references organizations(id) on delete cascade,
   event_type text not null check (event_type in
@@ -33,12 +33,37 @@ create index if not exists idx_ps_control_events_org_subject
 alter table process_safety_control_events enable row level security;
 drop policy if exists ps_control_event_read on process_safety_control_events;
 create policy ps_control_event_read on process_safety_control_events
-  for select to authenticated using (organization_id = app_current_org());
+  for select to authenticated using (organization_id = app_current_org()); */
+
+-- Compatibility projection, not a second audit store. The safety code below
+-- writes through this view; the trigger persists only to canonical audit_events.
+create view process_safety_control_events as
+select a.id::text as id, a.organization_id,
+       a.event_data->>'event_type' as event_type,
+       a.event_data->>'subject_table' as subject_table,
+       (a.event_data->>'subject_id')::bigint as subject_id,
+       (a.event_data->>'actor_id')::uuid as actor_id,
+       a.event_data->>'evidence_basis' as evidence_basis,
+       coalesce(a.event_data->'detail','{}'::jsonb) as detail, a.created_at
+from audit_events a where a.entity_type='process_safety_control';
+
+create or replace function public.write_process_safety_audit()
+returns trigger language plpgsql security definer set search_path=public as $$
+begin
+ insert into audit_events(organization_id,entity_type,actor,event_data)
+ values(new.organization_id,'process_safety_control',new.actor_id::text,
+   jsonb_build_object('event_type',new.event_type,'subject_table',new.subject_table,
+     'subject_id',new.subject_id,'actor_id',new.actor_id,'evidence_basis',new.evidence_basis,
+     'detail',coalesce(new.detail,'{}'::jsonb)));
+ return new;
+end $$;
+create trigger process_safety_audit_view_insert instead of insert on process_safety_control_events
+for each row execute function public.write_process_safety_audit();
 
 -- The records named below are safety assertions. Browser writes remain closed;
 -- SECURITY DEFINER doors make all authority and evidence checks unavoidable.
 revoke insert, update, delete on inspection_plans, relief_devices, containment_losses,
-  barrier_impairments, temporary_modifications, process_safety_control_events from authenticated;
+  barrier_impairments, temporary_modifications from authenticated;
 
 create or replace function public.assert_process_safety_actor(p_action text)
 returns uuid language plpgsql security definer set search_path = public as $$
