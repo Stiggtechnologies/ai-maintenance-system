@@ -8,6 +8,7 @@ describe("InvertedOpeningPage", () => {
     expect(app).toMatch(/path="\/get-started"/);
     expect(page).toMatch(/Save this assessment and continue/);
     expect(page).toMatch(/Never seed|never seed|Examples only|Example/i);
+    expect(page).toMatch(/DecisionCaseSpine/);
     expect(page).not.toMatch(/CAD\s*\$?\s*7\.?5/i);
     expect(page).not.toMatch(/seamless self-guided onboarding is live/i);
   });
