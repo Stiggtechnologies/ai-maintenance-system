@@ -249,6 +249,9 @@ end $$;
 -- Each privileged door is explicitly closed to PUBLIC. Apart from being safer
 -- to review, this prevents a later function-list edit from leaving one new
 -- SECURITY DEFINER entrypoint with PostgreSQL's default PUBLIC execution.
+-- The view trigger is owner-only: clients write through the controlled doors,
+-- never by calling the audit projector directly.
+revoke all on function public.write_process_safety_audit() from public, anon, authenticated;
 revoke all on function public.assert_process_safety_actor(text) from public, anon;
 revoke all on function public.record_inspection_plan(jsonb) from public, anon;
 revoke all on function public.record_inspection_completion(bigint,date,date,text) from public, anon;
