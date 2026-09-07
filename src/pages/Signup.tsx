@@ -63,7 +63,7 @@ export function Signup({ onSuccess, onTabChange }: SignupProps) {
     // Route through the canonical sign-in transition. That transition persists
     // any staged public Reliability Engineer Decision Case before entering the app.
     onSuccess();
-    window.location.assign("/signin?returnTo=/mission-control");
+    window.location.assign("/signin?returnTo=/start");
   };
 
   if (confirmationEmail) {
