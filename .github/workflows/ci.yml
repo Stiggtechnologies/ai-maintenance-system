@@ -292,6 +292,27 @@ jobs:
       - name: Smoke — Sync Develop slice 5D (event bus, change impact agent, case-scoped RAM, §34 edges)
         run: bash scripts/ci-develop-slice5d-smoke.sh
 
+      - name: Smoke — Sync Develop slice 6A (procurement package, sealed-bid tender, contract award, commitments)
+        run: bash scripts/ci-develop-slice6a-smoke.sh
+
+      - name: Smoke — Sync Develop slice 6B (change orders, invoices, claims, warranty, vendor quality, §78 status connector)
+        run: bash scripts/ci-develop-slice6b-smoke.sh
+
+      - name: Smoke — Sync Develop slice 7A (AWP chain, WorkPackage, Constraint, forward burn-down)
+        run: bash scripts/ci-develop-slice7a-smoke.sh
+
+      - name: Smoke — Sync Develop slice 7B (one field-readiness engine, ten elements, execution readiness board)
+        run: bash scripts/ci-develop-slice7b-smoke.sh
+
+      - name: Smoke — Sync Develop slice 7C (resource demand/capacity, portfolio conflicts, competency when needed, workface metrics)
+        run: bash scripts/ci-develop-slice7c-smoke.sh
+
+      - name: Smoke — governed engineering knowledge on the canonical Reliability KB
+        run: bash scripts/ci-governed-knowledge-smoke.sh
+
+      - name: Smoke — governed knowledge re-review invalidation
+        run: bash scripts/ci-governed-knowledge-review-invalidation-smoke.sh
+
       - name: Stop Supabase
         if: always()
         run: supabase stop --no-backup || true

@@ -27,6 +27,7 @@ import { AssessmentsPage } from "./pages/AssessmentsPage";
 import { AssessmentHomePage } from "./pages/AssessmentHomePage";
 import { AssetManagement } from "./components/AssetManagement";
 import { MissionControl } from "./pages/MissionControl";
+import { InvertedOpeningPage } from "./pages/InvertedOpeningPage";
 import { WorkActionBoard } from "./pages/WorkActionBoard";
 import NotificationScreening from "./pages/NotificationScreening";
 import { DecisionGovernance } from "./pages/DecisionGovernance";
@@ -69,6 +70,7 @@ import { ValueRealization } from "./pages/ValueRealization";
 import { EmergencyMode } from "./pages/EmergencyMode";
 import { PlaybooksLibrary } from "./pages/PlaybooksLibrary";
 import { TrustExplainability } from "./pages/TrustExplainability";
+import { EngineeringModelRegistryPage } from "./pages/EngineeringModelRegistryPage";
 import { BenchmarkingPanel } from "./pages/BenchmarkingPanel";
 import { AutonomyMaturity } from "./pages/AutonomyMaturity";
 import { SetupWizard } from "./pages/SetupWizard";
@@ -80,10 +82,13 @@ import { getRoleHome } from "./lib/roleNavigation";
 import { ReliabilityCopilotPage } from "./pages/ReliabilityCopilotPage";
 import { FirstCustomerPilotPage } from "./pages/FirstCustomerPilotPage";
 import { DecisionCaseWorkspacePage } from "./pages/DecisionCaseWorkspacePage";
+import { HelpCenterWidget } from "./components/HelpCenterWidget";
 import { GovernedDecisionWorkspacePage } from "./pages/GovernedDecisionWorkspacePage";
 import { DevelopCasesPage } from "./pages/DevelopCasesPage";
 import { DevelopIntakePage } from "./pages/DevelopIntakePage";
 import { DevelopmentCaseWorkspacePage } from "./pages/DevelopmentCaseWorkspacePage";
+import { ExecutionReadinessPage } from "./pages/ExecutionReadinessPage";
+import { SyncFieldPage } from "./pages/SyncFieldPage";
 import { GateReviewPage } from "./pages/GateReviewPage";
 import { AssuranceCasePage } from "./pages/AssuranceCasePage";
 import {
@@ -108,7 +113,12 @@ function PublicCopilotExperience() {
     document.title = "SyncAI | Governed Engineering Intelligence";
   }, []);
 
-  return <DecisionCaseWorkspacePage publicMode />;
+  return (
+    <>
+      <DecisionCaseWorkspacePage publicMode />
+      <HelpCenterWidget />
+    </>
+  );
 }
 
 function DemoPathRedirect() {
@@ -273,6 +283,7 @@ function App() {
               )
             }
           />
+          <Route path="/get-started" element={<InvertedOpeningPage />} />
           <Route path="/setup" element={<FirstCustomerPilotPage />} />
           <Route
             path="/pilot/reliability"
@@ -290,7 +301,12 @@ function App() {
           />
           <Route
             path="/workspace/cases/:caseId"
-            element={<DecisionCaseWorkspacePage publicMode />}
+            element={
+              <>
+                <DecisionCaseWorkspacePage publicMode />
+                <HelpCenterWidget />
+              </>
+            }
           />
           <Route
             path="/*"
@@ -530,6 +546,20 @@ function AuthenticatedApp() {
             path="/develop/cases/:caseId/assurance"
             element={<AssuranceCasePage />}
           />
+          {/* Slice 7B: the Execution Readiness board (D13.09) — the surface
+              Workflow 4 names (D7.19). Org-wide rather than case-scoped, because
+              the person who works it down is a supervisor across cases. */}
+          <Route
+            path="/execution-readiness"
+            element={<ExecutionReadinessPage />}
+          />
+          {/* Slice 7C: Sync Field composed (D7.16) — work packaging, the
+              constraint-free work index and its forward face, workface
+              planning, resource demand against capacity, the portfolio
+              conflict position and execution readiness, on ONE server-side
+              composition that recomputes none of them. The row stays 🟡 and
+              the page says why: three of the parts it composes are open. */}
+          <Route path="/sync-field" element={<SyncFieldPage />} />
 
           <Route
             path="/work/:workOrderId"
@@ -572,6 +602,10 @@ function AuthenticatedApp() {
           />
           <Route path="/benchmarking" element={<BenchmarkingPanel />} />
           <Route path="/trust" element={<TrustExplainability />} />
+          <Route
+            path="/engineering-models"
+            element={<EngineeringModelRegistryPage />}
+          />
 
           <Route path="/integrations" element={<IntegrationsPage />} />
           <Route

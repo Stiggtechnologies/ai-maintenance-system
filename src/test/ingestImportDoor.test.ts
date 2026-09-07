@@ -139,15 +139,22 @@ describe("the route table is the single source of truth", () => {
   it("the parser actually found the table", () => {
     // Without this, every comparison below passes vacuously the day the regex
     // stops matching.
-    expect(Object.keys(routes).length).toBe(8);
+    // 8 -> 9 with Slice 6B's procurement_status (D11.33 / spec §78). The
+    // count is pinned so a route silently disappearing fails here.
+    expect(Object.keys(routes).length).toBe(9);
   });
 
-  it("the route table's live definition is the schedule-import migration", () => {
+  it("the route table's live definition is the procurement-status migration", () => {
     // create-or-replace resolves to the LAST file; if a later migration
-    // redefines the table without carrying schedule_activity, this names it.
+    // redefines the table without carrying every route, this names it. Slice
+    // 6B re-issued the table in full to add procurement_status, so the home
+    // moved from 20261112090000 — and `schedule_activity` is asserted to have
+    // survived that move by the descriptor-pairing case below, which compares
+    // the SQL routes against INGEST_ENTITIES key for key.
     expect(defs.get("ingest_entity_routes")?.file).toBe(
-      "20261112090000_p6_schedule_import.sql",
+      "20261209090500_develop_procurement_status_connector.sql",
     );
+    expect(sqlRoutes().schedule_activity).toBe("ingest_schedule_batch");
   });
 
   it("SQL and the surface descriptor table name the same entity types", () => {
@@ -383,6 +390,44 @@ describe("what the surface promises matches what the contract does", () => {
     }
   });
 
+  it("EVERY write path in a skipping branch deduplicates, not just one of them", () => {
+    // The assertion above asks only whether `v_dup := v_dup + 1` appears
+    // ANYWHERE in the branch, so one dedupeing path certified the whole entity.
+    // PROVEN LIVE on procurement_status: the status half deduplicated, the
+    // FORECAST half did not — the same forecast row uploaded twice reported
+    // {"read":1,"accepted":1,"duplicate":0} both times and filed an audit row
+    // whose previous_state and new_state were the same day, on a connector
+    // whose surface promise is that a re-upload is skipped. Each writer the
+    // branch calls must be preceded by a duplicate arm.
+    for (const [key, entity] of Object.entries(INGEST_ENTITIES)) {
+      if (entity.reupload !== "skips") continue;
+      const body = defs.get(entity.handler)?.body ?? "";
+      const branch = body.slice(body.indexOf(`r.entity_type = '${key}'`));
+      const next = branch.search(
+        /elsif\s+v_reason\s+is\s+null\s+and\s+r\.entity_type/,
+      );
+      const own = next === -1 ? branch : branch.slice(0, next);
+      // Every `v_result := <writer>(...)` and every direct insert of a payload
+      // row must have a `v_dup` increment somewhere before it in the branch.
+      const writes = [...own.matchAll(/v_result\s*:=\s*(\w+)\s*\(/g)];
+      for (const w of writes) {
+        const before = own.slice(0, w.index ?? 0);
+        expect(
+          /v_dup\s*:=\s*v_dup\s*\+\s*1/.test(before),
+          `${key}: the call to ${w[1]} is reachable with no duplicate arm ahead of it, but the surface promises a re-upload is skipped`,
+        ).toBe(true);
+      }
+      // ...and one arm cannot cover two writers. A single increment ahead of
+      // both is exactly the shape that let the forecast half through.
+      const dups = [...own.matchAll(/v_dup\s*:=\s*v_dup\s*\+\s*1/g)].length;
+      const writers = new Set(writes.map((w) => w[1]));
+      expect(
+        dups,
+        `${key}: ${writers.size} distinct writer(s) but only ${dups} duplicate arm(s)`,
+      ).toBeGreaterThanOrEqual(writers.size);
+    }
+  });
+
   it("the two types with no customer-reachable prerequisite loader say so before upload", () => {
     // Nothing in src/ inserts a sensor or a material — they arrive by seed or
     // by service-role provisioning only. Widening the door for these two
@@ -558,6 +603,7 @@ describe("every enumerated CHECK the surface exposes is in the descriptor", () =
     operating_state: "operating_states",
     production_record: "production_records",
     schedule_activity: "shutdown_tasks",
+    procurement_status: "contract_packages",
   };
 
   it("the entity-to-table map matches what the validator actually inserts into", () => {
@@ -575,7 +621,17 @@ describe("every enumerated CHECK the surface exposes is in the descriptor", () =
         own.includes(`insert into ${table}\n`) ||
         // condition_reading is written by record_condition_reading, on purpose.
         (key === "condition_reading" &&
-          own.includes("perform record_condition_reading"));
+          own.includes("perform record_condition_reading")) ||
+        // procurement_status writes contract_packages through the ONE §25
+        // status writer and the ONE forecast writer, on purpose and by
+        // necessity: contract_packages' own wall (20261208090000) REFUSES a
+        // direct status update for every caller, so a validator that inserted
+        // or updated the table itself would be refused by the product. The
+        // assertion is unchanged in substance — this branch still has to name
+        // a writer of that table, and both of these are one.
+        (key === "procurement_status" &&
+          own.includes("set_procurement_package_status(") &&
+          own.includes("record_package_delivery_forecast("));
       expect(writes, `${key} does not write ${table}`).toBe(true);
     }
   });

@@ -1,0 +1,27 @@
+{
+  "assetFamilies": [
+    "rotating_equipment_power_transmission",
+    "rotating_fluid_equipment",
+    "rotating_electrical_equipment"
+  ],
+  "componentCategories": ["shaft", "coupling", "bearing", "support_structure"],
+  "operatingStates": ["running_steady", "maintenance_test"],
+  "configurationBaselineRequired": true,
+  "measurementQualityRequired": true,
+  "maximumMissingFraction": 0.05,
+  "requiredInputs": [
+    { "code": "rpm", "unit": "r/min", "minimumExclusive": 0, "evidenceRequired": true },
+    { "code": "forcing_order", "unit": "1", "minimumExclusive": 0, "evidenceRequired": true },
+    { "code": "dominant_peak_hz", "unit": "Hz", "minimumExclusive": 0, "evidenceRequired": true },
+    { "code": "modal_mass_kg", "unit": "kg", "minimumExclusive": 0, "evidenceRequired": true },
+    { "code": "modal_stiffness_n_m", "unit": "N/m", "minimumExclusive": 0, "evidenceRequired": true },
+    { "code": "match_tolerance_pct", "unit": "%", "minimumExclusive": 0, "maximumInclusive": 100, "evidenceRequired": true }
+  ],
+  "excludedConditionCodes": [
+    "rapid_speed_transient",
+    "impact_event",
+    "known_rub",
+    "sensor_saturation",
+    "unknown_as_maintained_configuration"
+  ]
+}

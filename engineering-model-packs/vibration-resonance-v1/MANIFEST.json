@@ -1,0 +1,78 @@
+{
+  "schemaVersion": "1.0.0",
+  "modelKey": "pof.shaft-resonance.screening",
+  "version": "1.0.0",
+  "manifestImplementation": "src/lib/engineering-models/resonance.ts",
+  "authoring": {
+    "tool": "syncai",
+    "toolVersion": "engineering-model-supply-chain/1.0.0",
+    "sourceLicense": "Proprietary-SyncAI"
+  },
+  "runtime": {
+    "mode": "allowlisted_deterministic",
+    "calculationKey": "pof_shaft_resonance_screening",
+    "operationalNetworkRequired": false,
+    "arbitraryCodeAllowed": false
+  },
+  "governance": {
+    "lifecycleState": "draft",
+    "productionEligible": false,
+    "humanApprovalRequired": true,
+    "autonomousOperationalActionAllowed": false,
+    "requiredReviewerCompetency": "model_reviewer_vibration_and_rotordynamics"
+  },
+  "canonicalStore": "model_register",
+  "artifacts": [
+    {
+      "path": "PROJECT.md",
+      "role": "project",
+      "sha256": "866d44d79ba93e02687e41fcd139418f13d950ab6dec7df2f29ea087584a7953"
+    },
+    {
+      "path": "REQUIREMENTS.md",
+      "role": "requirements",
+      "sha256": "0ebb8f655408a27c0d373e1f7ac2dd5b33f30496838ff9bf702d57eeb48792c0"
+    },
+    {
+      "path": "ROADMAP.md",
+      "role": "roadmap",
+      "sha256": "ba3ac69384830da2cf60720cf18bdeac95aa670cf7f67909db925d43fc54ec79"
+    },
+    {
+      "path": "STATE.md",
+      "role": "state",
+      "sha256": "4b2b82b9bfa68011ee98545655256e69fa10b0f7591d47879313ba515e82465c"
+    },
+    {
+      "path": "MODEL.md",
+      "role": "model",
+      "sha256": "2fc5fd42079f62b60fe63a6d00afdf0be4e6943c8cb345881cc7b3accb44b5b1"
+    },
+    {
+      "path": "ASSUMPTIONS.md",
+      "role": "assumptions",
+      "sha256": "9f95d73c44d99cccfe308948c9dcd119ebe60374bd76eca5e84b52cf64737fa9"
+    },
+    {
+      "path": "CONVENTIONS.md",
+      "role": "conventions",
+      "sha256": "d710d183d44a8d5e69266535a63b7f380a8ec6dcdf36b0c4362673f2e69569a3"
+    },
+    {
+      "path": "DERIVATION.md",
+      "role": "derivation",
+      "sha256": "5bd378cd9d2d1a12dd1b3588d652c2d46dbc06d6de1b3738ec3d1afd206ccb8d"
+    },
+    {
+      "path": "verification/contract.json",
+      "role": "verification",
+      "sha256": "9f0806f64ae424f75987555ed69447194afcb58a916fc1fe5f8293011d82878f"
+    },
+    {
+      "path": "APPLICABILITY.json",
+      "role": "applicability",
+      "sha256": "64830207a18f393c879920e010363bfcadff74d17332c6df74405c6e04390442"
+    }
+  ],
+  "selfDigest": "Pinned by the typed manifest and verified in CI to avoid recursive self-hashing."
+}

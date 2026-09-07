@@ -1,10 +1,9 @@
 /**
  * Job Plans & Task Library — /job-plans.
  *
- * JobPlans is the standing task library — the maintenance programme's
- * building blocks — and it was mounted as one of eight panels bolted under
- * the Operational Briefing. It is remounted here unmodified
- * (navigation-lifecycle-ia.md §2 Group 4).
+ * The standing task library is no longer a read-only remount. A planning or
+ * engineering role authors a draft, a named human adopts it, and an adopted
+ * plan is applied to a work order (C8.07, C4.05).
  */
 import { JobPlans } from "../components/JobPlans";
 
@@ -16,7 +15,8 @@ export function JobPlansPage() {
           Job Plans &amp; Task Library
         </h1>
         <p className="text-sm text-slate-400 mt-0.5">
-          Reusable task procedures linked to the damage mechanisms they manage
+          Author, adopt, and apply reusable job plans. A draft is a proposal —
+          adoption is the named-human act that makes a plan executable.
         </p>
       </div>
       <JobPlans />

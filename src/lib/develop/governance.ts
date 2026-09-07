@@ -30,6 +30,26 @@ export const GOVERNANCE_INTENSITY_LEVELS = [
 export type GovernanceIntensityLevel =
   (typeof GOVERNANCE_INTENSITY_LEVELS)[number];
 
+/**
+ * First-class gate-readiness categories (D4.14 / spec §44 seven + cyber).
+ * Mirrors `sync_gate_readiness_categories()`. An unmet mandatory criterion
+ * in any of these blocks at any readiness percentage — cyber included.
+ * There is no "every design gate must carry a cyber criterion" rule.
+ */
+export const GATE_READINESS_CATEGORIES = [
+  "business",
+  "technical",
+  "risk",
+  "cost_schedule",
+  "operations",
+  "supply",
+  "regulatory",
+  "cyber",
+] as const;
+
+export type GateReadinessCategory =
+  (typeof GATE_READINESS_CATEGORIES)[number];
+
 /** Spec I.2's six factors, in its own order and naming. */
 export const GOVERNANCE_FACTORS = [
   "value",

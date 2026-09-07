@@ -3,6 +3,7 @@ import {
   Activity,
   ArrowRight,
   BadgeCheck,
+  Beaker,
   BookOpenCheck,
   BrainCircuit,
   ChartNoAxesCombined,
@@ -101,6 +102,8 @@ import type {
 import { ErrorState, LoadingState } from "../components/ui/AsyncStates";
 import { RiskConsequence as AssetRiskSignals } from "./RiskConsequence";
 import { AssetInterdependency } from "../components/AssetInterdependency";
+import { DomainSpecialistWorkbench } from "../components/DomainSpecialistWorkbench";
+import { QualityManagementWorkbench } from "../components/QualityManagementWorkbench";
 import { ConfigurationControl } from "../components/ConfigurationControl";
 import { ProcessSafety } from "../components/ProcessSafety";
 import {
@@ -116,6 +119,8 @@ type Tab =
   | "decision-ops"
   | "enterprise"
   | "maturity"
+  | "specialists"
+  | "quality"
   | "asset-signals";
 type ActionKind =
   | "evidence"
@@ -1311,6 +1316,7 @@ function ImplementationModal({
         treatment_tracking_systems: splitList(form.treatment_tracking_systems),
         industry_risk_objects: industryFocus?.riskObjects ?? [],
         industry_kernel_contexts: industryFocus?.kernelContexts ?? [],
+        industry_domain_modules: industryFocus?.domainModules ?? [],
         industry_prose_only: industryFocus?.proseOnly ?? [],
       });
       onDone();
@@ -1377,9 +1383,12 @@ function ImplementationModal({
             {industryFocus?.readiness === "kernel_bound" && (
               <p className="mt-2 text-[10px] text-teal-300">
                 {industryFocus.kernelContexts.length} failure context(s) are
-                connected to deterministic analysis engines. Pack content
-                remains {industryFocus.validationStatus} until authorized review
-                advances it.
+                connected to deterministic analysis engines
+                {industryFocus.domainModules.length > 0
+                  ? `, with ${industryFocus.domainModules.length} governed domain-depth module(s)`
+                  : ""}
+                . Pack content remains {industryFocus.validationStatus} until
+                authorized review advances it.
               </p>
             )}
             {(industryFocus?.proseOnly.length ?? 0) > 0 && (
@@ -4194,6 +4203,16 @@ export function RiskOperatingSystemPage() {
               label: "Maturity & oversight",
               icon: BookOpenCheck,
             },
+            {
+              id: "specialists",
+              label: "Domain specialists",
+              icon: Beaker,
+            },
+            {
+              id: "quality",
+              label: "Quality assurance",
+              icon: BadgeCheck,
+            },
             { id: "asset-signals", label: "Asset risk signals", icon: Factory },
           ] as { id: Tab; label: string; icon: React.ElementType }[]
         ).map((item) => (
@@ -5191,6 +5210,10 @@ export function RiskOperatingSystemPage() {
           </section>
         </div>
       )}
+      {tab === "specialists" && (
+        <DomainSpecialistWorkbench risks={cockpit.risks} />
+      )}
+      {tab === "quality" && <QualityManagementWorkbench />}
       {tab === "asset-signals" && <AssetRiskSignals />}
       {setupOpen && (
         <ImplementationModal

@@ -1,5 +1,12 @@
 # SyncAI Asset Twin Library
 
+**2026-09-06 — CATALOGUE STATUS.** Issue #67 populated the required mining
+classes as draft TypeScript templates. The three remaining catalogue shells
+(`MIN-DOZER`, `MIN-GRADER`, `MIN-MOBILE-CRUSH`) are now also draft templates
+with shared-component DNA references. This is not production-approved
+engineering truth. OEM overlays exist only for the public-information
+P&H 4100XPC identity. No numeric intervals or safety limits are authorized.
+
 ## Decision
 
 SyncAI can use AI to create most of the reusable asset intelligence library from legally available standards, public technical information, customer-authorized records and field evidence. AI-generated content remains draft until it passes evidence, engineering and field-validation gates.
@@ -67,7 +74,24 @@ The code library starts with twelve surface-mining asset classes:
 - mobile crusher;
 - stacker-reclaimer.
 
-The electric rope shovel is the first detailed class. The remaining classes are typed starter shells so engineering content can be added without changing application architecture.
+Draft, manufacturer-neutral templates now exist for all twelve catalogue
+classes: electric rope shovel, hydraulic mining shovel (`MIN-HYD-SHOVEL`),
+ultra-class haul truck, large wheel loader, blasthole drill, primary crusher,
+belt conveyor (`FP-CONVEYOR-BELT`), dragline, large mining dozer (`MIN-DOZER`),
+motor grader (`MIN-GRADER`), mobile crusher (`MIN-MOBILE-CRUSH`), and
+stacker-reclaimer (`MIN-STACK-RECLAIM`). Those templates reference Shared
+Component DNA (`sharedComponentDnaCodes`); they do not copy component
+intelligence.
+
+Retired parallel starter identities — do not reintroduce as a second
+hierarchy: `MIN-LOAD-HMS`, `MIN-LOAD-WL`, `MIN-CONV`. Empty
+`MIN-DOZER` / `MIN-GRADER` / `MIN-MOBILE-CRUSH` starter shells are also
+retired; the populated draft templates are the only catalogue rows for
+those codes.
+
+Draft templates are still not engineer-reviewed, field-validated, or
+production-approved models. No OEM overlays exist for dozer, grader, or
+mobile crusher.
 
 ## Implementation roadmap
 

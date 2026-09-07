@@ -13,6 +13,7 @@ import {
   type IndustryCode,
 } from "../industry-catalog";
 import { INDUSTRY_PROFILES } from "../industry-profiles";
+import { getDomainSpecialistModule } from "../domain-specialists";
 import {
   INDUSTRY_TEMPLATE_PACKS,
   type IndustryTemplatePack,
@@ -340,6 +341,11 @@ export interface RiskIndustryPack {
   label: string;
   riskObjects: string[];
   kernelContexts: string[];
+  domainModules: Array<{
+    key: string;
+    label: string;
+    methods: string[];
+  }>;
   proseOnly: string[];
   readiness: RiskIndustryReadiness;
   validationStatus: IndustryTemplatePack["validationStatus"] | "not_applicable";
@@ -376,6 +382,18 @@ export function getRiskIndustryPackCatalog(): RiskIndustryPack[] {
       label: entry.label,
       riskObjects: [...(curatedRiskObjects ?? template?.riskDrivers ?? [])],
       kernelContexts: [...(profile?.contexts ?? [])],
+      domainModules: (profile?.domainModules ?? []).flatMap((key) => {
+        const module = getDomainSpecialistModule(key);
+        return module
+          ? [
+              {
+                key: module.key,
+                label: module.label,
+                methods: module.methods.map((method) => method.key),
+              },
+            ]
+          : [];
+      }),
       proseOnly: [...(profile?.proseOnly ?? [])],
       readiness,
       validationStatus:

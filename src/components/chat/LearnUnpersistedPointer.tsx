@@ -1,10 +1,11 @@
 import { Link } from "react-router-dom";
 
 /**
- * After Approve, Design wants LEARN in the thread. Honesty: this conversation
- * has no verification obligation and never calls record_verification_result.
- * Do not render a recorder that can look like it persisted. Point at Learning
- * Loop — that is the write path.
+ * Visible fail when conversation LEARN cannot persist — anonymous session,
+ * no open recommendation-scoped obligation, or a bound recommendation with
+ * nothing to record against. Do not render a recorder that can look like it
+ * persisted. Learning Loop remains available; ConversationLearn is the
+ * in-thread write path when an obligation can be resolved.
  */
 export function LearnUnpersistedPointer() {
   return (

@@ -2544,7 +2544,8 @@
   display: flex;
   align-items: flex-end;
   justify-content: flex-start;
-  min-height: 40vh;
+  max-width: 790px;
+  min-height: 20vh;
   padding: 0 4px 8px;
 }
 .dw-seed-chip {
@@ -2554,7 +2555,7 @@
   max-width: 100%;
   margin: 0;
   padding: 8px 12px 8px 8px;
-  border: 0;
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 999px;
   background: transparent;
   color: #c5d0d7;
@@ -2566,6 +2567,7 @@
 .dw-seed-chip:hover,
 .dw-seed-chip:focus-visible {
   background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.18);
   color: #e8edf2;
 }
 .dw-seed-chip-stage {
@@ -2818,6 +2820,48 @@
   color: #76848e;
   background: #1e2931;
   cursor: not-allowed;
+}
+.dw-learn-stack {
+  max-width: 790px;
+  margin: 0 0 18px;
+}
+.dw-learn-stack .dw-learn {
+  margin-bottom: 0;
+}
+.dw-learn-subject,
+.dw-learn-method,
+.dw-learn-bound,
+.dw-learn-honest {
+  margin: 0 0 10px;
+  color: #8fa0ab;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.dw-learn-error {
+  margin: 10px 0 0;
+  color: #f0b429;
+  font-size: 12px;
+}
+.dw-learn-ok {
+  margin: 10px 0 0;
+  color: #5eead4;
+  font-size: 12px;
+}
+.dw-learn-pick {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0 0 10px;
+  color: #8fa0ab;
+  font-size: 12px;
+}
+.dw-learn-pick select {
+  min-height: 44px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: #e4eaee;
+  background: #111820;
 }
 .dw-authority-note {
   color: #7d8c96;

@@ -85,7 +85,7 @@ describe("recommendation-turn helpers", () => {
     expect(frozenDisposition(approvals)).toBe("approved");
   });
 
-  it("shows the unpersisted LEARN pointer after Approve and does not treat Outcome recorded as closure", () => {
+  it("shows LEARN after Approve so ConversationLearn can persist or fail visibly", () => {
     const approvals: DecisionApproval[] = [
       {
         id: "1",

@@ -8,8 +8,13 @@ import { hydraulicMiningShovelTemplate } from "./hydraulic-mining-shovel";
 import { industrialGearboxTemplate } from "./industrial-gearbox";
 import { largeWheelLoaderTemplate } from "./large-wheel-loader";
 import { miningAssetClassLibrary } from "./mining-library";
+import { miningDozerTemplate } from "./mining-dozer";
+import { miningGraderTemplate } from "./mining-grader";
+import { mobileCrusherTemplate } from "./mobile-crusher";
 import { primaryCrusherTemplate } from "./primary-crusher";
 import { sagMillTemplate } from "./sag-mill";
+import { getSharedComponentDna } from "./shared-component-dna-library";
+import { stackerReclaimerTemplate } from "./stacker-reclaimer";
 import { thickenerTemplate } from "./thickener";
 import { ultraClassHaulTruckTemplate } from "./ultra-class-haul-truck";
 import type { AssetClassTemplate } from "./types";
@@ -52,6 +57,18 @@ export * from "./dragline";
 export * from "./dragline-dna";
 export * from "./sag-mill";
 export * from "./sag-mill-dna";
+export * from "./stacker-reclaimer";
+export * from "./stacker-reclaimer-inspections";
+export * from "./stacker-reclaimer-dna";
+export * from "./mining-dozer";
+export * from "./mining-dozer-inspections";
+export * from "./mining-dozer-dna";
+export * from "./mining-grader";
+export * from "./mining-grader-inspections";
+export * from "./mining-grader-dna";
+export * from "./mobile-crusher";
+export * from "./mobile-crusher-inspections";
+export * from "./mobile-crusher-dna";
 export * from "./thickener";
 export * from "./thickener-dna";
 export * from "./shared-component-dna";
@@ -99,6 +116,25 @@ export function validateAssetClassTemplate(
         path: `${componentPath}.parentCode`,
         message: `Unknown parent component ${component.parentCode}.`,
       });
+    const sharedCodes = new Set<string>();
+    for (const [refIndex, sharedCode] of (
+      component.sharedComponentDnaCodes ?? []
+    ).entries()) {
+      const refPath = `${componentPath}.sharedComponentDnaCodes[${refIndex}]`;
+      if (sharedCodes.has(sharedCode)) {
+        issues.push({
+          path: refPath,
+          message: `Duplicate shared component DNA ${sharedCode}.`,
+        });
+      }
+      sharedCodes.add(sharedCode);
+      if (!getSharedComponentDna(sharedCode)) {
+        issues.push({
+          path: refPath,
+          message: `Unknown shared component DNA ${sharedCode}.`,
+        });
+      }
+    }
     for (const [failureIndex, failure] of component.failureModes.entries()) {
       const failurePath = `${componentPath}.failureModes[${failureIndex}]`;
       if (failure.componentCode !== component.code)
@@ -145,5 +181,9 @@ export function getAssetClassTemplate(
   if (code === draglineTemplate.code) return draglineTemplate;
   if (code === sagMillTemplate.code) return sagMillTemplate;
   if (code === thickenerTemplate.code) return thickenerTemplate;
+  if (code === stackerReclaimerTemplate.code) return stackerReclaimerTemplate;
+  if (code === miningDozerTemplate.code) return miningDozerTemplate;
+  if (code === miningGraderTemplate.code) return miningGraderTemplate;
+  if (code === mobileCrusherTemplate.code) return mobileCrusherTemplate;
   return miningAssetClassLibrary.find((template) => template.code === code);
 }

@@ -164,7 +164,20 @@ const FLOORS: Record<string, Floors> = {
     // are shared symbols. Re-derived to sit AT the live numbers again, which is
     // a tightening on three counts and — the one that matters — a LOWER ceiling
     // on the unenforced ✅ population.
-    rowsWithAnEnforceableCitation: 152,
+    // 152/213/47/184 -> 153/217/49/184 on 2026-09-03 (Slice 7B). The
+    // enterprise register did not change in this slice either; the numbers
+    // moved because the gate's resolver now walks the new field-readiness
+    // service functions and the Execution Readiness page, which are shared
+    // symbols. Re-derived to sit AT the live numbers again — a tightening on
+    // three counts, with the ceiling unchanged.
+    //
+    // 153/217/49/184 -> 157/236/56/184 on 2026-09-06 (D7 residual + Slice 1
+    // authoring). The enterprise register did not change in this slice; the
+    // numbers moved because the gate's resolver now walks
+    // `createProjectFramework` and `addFrameworkStage`, which are shared
+    // symbols. Re-derived to sit AT the live numbers — a tightening on three
+    // counts, with the ceiling unchanged.
+    rowsWithAnEnforceableCitation: 157,
     // 215 -> 206 on 2026-08-26. This drop is NOT the gate losing reach: it is the
     // gate WINNING. 74 rows were demoted from ✅ this same commit because their
     // cited symbol or table has no customer-reachable path, and a demoted row's
@@ -174,8 +187,8 @@ const FLOORS: Record<string, Floors> = {
     // It may only be lowered again with the same kind of reason stated here. A
     // silent decrease means the parser stopped understanding evidence it used to
     // understand, which is precisely the failure this number exists to catch.
-    citationsEnforced: 213,
-    claimedRowsEnforced: 47,
+    citationsEnforced: 236,
+    claimedRowsEnforced: 56,
     claimedRowsUnenforced: 184,
   },
   // Derived 2026-08-28, the commit that first ran this gate against the
@@ -493,9 +506,227 @@ const FLOORS: Record<string, Floors> = {
     // The CEILING did not move, which is the check that proves the two new ✅s
     // were not bought with prose the gate cannot resolve. EXEMPTIONS is still
     // empty and no floor was lowered.
-    rowsWithAnEnforceableCitation: 159,
-    citationsEnforced: 838,
-    claimedRowsEnforced: 100,
+    //
+    // 159/838/100 -> 164/914/105 (2026-09-02, Slice 6A). The procurement and
+    // commercial engine landed — the §25 ProcurementPackage with its four
+    // status dimensions and its two gate blockers on Slice 3C's ONE predicate,
+    // the sealed-bid tender with the seal enforced at the row policy AND at
+    // the definer read, evaluations frozen once recorded with separation of
+    // duties in both directions at the database, and the §24 Contract awarded
+    // through a new authority_limits action type with its commitments posted
+    // into Slice 4A's ONE cost model — and five rows (D6.03, D6.04, D6.05,
+    // D6.08, D6.09) flipped to ✅ on chains this gate can walk. RATCHETED UP
+    // for the reason this block gives every time: the added reach is real, and
+    // a later change must not be able to de-cite it with the suite still
+    // green.
+    //
+    // The CEILING did not move, which is the check that proves the five new
+    // ✅s were not bought with prose the gate cannot resolve. It also caught
+    // two things in this slice before they shipped: `withdrawSealedBid` had no
+    // non-test caller (a withdrawal act nobody could perform from the product,
+    // now wired into the tender panel), and D6.05/D6.08 cited `warranty_terms`
+    // — a table that still has no customer write path, which is D6.06's named
+    // gap and not evidence for these rows. EXEMPTIONS is still empty and no
+    // floor was lowered.
+    //
+    // 164/914/105 -> 164/927/105 (2026-09-02, Slice 6A adversarial repair).
+    // Thirteen more citations became enforceable and none was lost. The repair
+    // added acts the rows now cite and the gate can walk —
+    // `record_package_delivery_receipt` / `recordPackageDeliveryReceipt` (the
+    // DATED receipt that is now the only discharge of the §25 slippage
+    // blockers, wired into the package panel),
+    // `enforce_package_bidder_integrity`, `enforce_cost_item_contract_commitment`
+    // and `sync_sealed_bid_withheld_count` — and it REMOVED two citations that
+    // were the shape this gate exists to keep out: `packageLateness`, a client
+    // re-derivation of `case_procurement_gate_obligations` that disagreed with
+    // the server inside one rendered payload, and `getCaseProcurementGateBlockers`,
+    // a service wrapper with zero non-test callers onto a predicate
+    // `get_case_procurement` already returns. Deleting a second implementation
+    // is a reach INCREASE, not a decrease: the rule it duplicated still has
+    // exactly one enforceable home.
+    //
+    // The CEILING did not move. EXEMPTIONS is still empty and no floor was
+    // lowered.
+    //
+    // 164/927/105 -> 166/986/107 (2026-09-02, Slice 6B; citations 980 -> 986 in
+    // the repair pass, where the D6.06/D6.01/D11.33 rows gained citations
+    // naming the defects the repair closed). The commercial life of
+    // a contract after signature landed — change orders through the SAME
+    // authority the award used, invoices payable once, claims frozen when
+    // answered, warranties that expire — with D6.06 and D6.01 flipping to ✅ on
+    // chains this gate can walk, and fifty-three more citations became
+    // enforceable. RATCHETED UP for the reason this block gives every time: the
+    // added reach is real, and a later change must not be able to de-cite it
+    // with the suite still green.
+    //
+    // The CEILING did not move, and the gate earned its keep again: D6.07 was
+    // WRITTEN as a ✅ and this gate demoted it, because two middle hops of the
+    // specification→failure thread read `material_suppliers` and `bom_lines`,
+    // which have no customer write path at all — the slice's own transcript had
+    // to seed both by direct SQL. The traversal is real and refuses at that hop
+    // by name; the row says 🟡 and says why. Nothing was exempted, no floor was
+    // lowered, and EXEMPTIONS is still empty.
+    //
+    // 166/986/107 -> 170/1027/110 (2026-09-03, Slice 7A). Advanced Work
+    // Packaging landed — the typed EWP→PWP→CWP→IWP chain enforced at the
+    // database, §27's WorkPackage on the canonical work identity, §28's ten
+    // Constraint types on the canonical constraint store, and I.28's forward
+    // burn-down recorded into the ONE lineage ledger — with D7.10, D7.17 and
+    // D7.18 flipping to ✅ on chains this gate can walk, and forty-one more
+    // citations becoming enforceable. RATCHETED UP for the reason this block
+    // gives every time: the added reach is real, and a later change must not
+    // be able to de-cite it with the suite still green.
+    //
+    // The CEILING did not move, and the gate earned its keep again on the
+    // first attempt: all three rows were written citing `WorkPackagingPanels.tsx`
+    // by bare filename, which resolves to nothing, and the stale-citation
+    // assertion demoted them until the repo-relative path was written instead.
+    // D7.07 was deliberately NOT flipped: its own row names three gaps, and
+    // `run_recovery_escalation_clock` still has no scheduled caller while
+    // `restoration_blockers` is still restoration-event-only, so it stays 🟡
+    // with both residuals named. Nothing was exempted, no floor was lowered,
+    // and EXEMPTIONS is still empty.
+    //
+    // 170/1027/110 -> 172/1067/114 (2026-09-03, Slice 7B). ONE field-readiness
+    // engine now serves both the recovery path and the AWP packages: the ten
+    // §27 elements as a single predicate on the work identity, Recovery's own
+    // door refusing THROUGH it rather than holding a copy of the material and
+    // permit/isolation rules, the assessment recorded into the one lineage
+    // ledger, and the Execution Readiness board composing verdicts it does not
+    // recompute. D7.05, D7.11, D7.19 and D13.09 flip to ✅ on chains this gate
+    // can walk, and forty more citations become enforceable. RATCHETED UP for
+    // the reason this block gives every time: the added reach is real, and a
+    // later change must not be able to de-cite it with the suite still green.
+    //
+    // TWO ROWS WERE DELIBERATELY NOT FLIPPED, and each says why in its own
+    // evidence. D7.06 keeps a NEW residual — the release door does not require
+    // a field-readiness assessment, so a package NOBODY EVER WALKED still
+    // reads `ready_for_human` on a person's own cleared constraints, exactly
+    // as Slice 7A shipped it; requiring one would refuse every package 7A's
+    // transcript releases. The narrower half of that gap IS closed: the one
+    // verdict gained a SEVENTH refusing state (`stale`, 20261211090200) so a
+    // package cannot be released against a RECORDED assessment its canonical
+    // stores have moved past. D7.12 stays 🟡 because THREE of its ten elements (crew,
+    // access, work-order predecessors) have no canonical object at all, and
+    // inventing one to reach ✅ is the parallel store this whole programme
+    // exists to refuse. The CEILING did not move. Nothing was exempted, no
+    // floor was lowered, and EXEMPTIONS is still empty.
+    //
+    // 172/1067/114 -> 177/1122/122 (2026-09-04, Slice 7C). Resources,
+    // competency readiness and the workface metrics landed — spec I.22's
+    // ResourceDemand and ResourceCapacity time-phased across nine categories
+    // on the EXTENDED craft_capacity family, collective feasibility across
+    // projects reaching the ONE weekly feasibility door, spec I.23's
+    // competency question asked in the FUTURE TENSE, and spec §49/I.28's
+    // index built ONCE and cited from two rows. D7.01, D7.02, D7.03, D7.04,
+    // D7.08, D7.13, D7.14 and D7.20 flip to ✅ on chains this gate can walk,
+    // and fifty-five more citations become enforceable. RATCHETED UP for the
+    // reason this block gives every time: the added reach is real, and a
+    // later change must not be able to de-cite it with the suite still green.
+    //
+    // THE GATE EARNED ITS KEEP THREE TIMES IN ONE PASS, and each finding was
+    // a real defect rather than a citation to reword.
+    // (a) `getConstraintFreeWorkIndex` and `getWorkfaceExecutionMetrics` had
+    //     ZERO non-test callers: the composed /sync-field page reads
+    //     `get_sync_field_module` and never touched them. The fix was the
+    //     capability the composition genuinely cannot offer — a planner's own
+    //     horizon and look-ahead window, which `get_sync_field_module` has to
+    //     fix to one reading — rather than a call added to satisfy the gate.
+    // (b) All three `compute_*` recorders had ZERO callers: the lineage act
+    //     existed with no way for a person to perform it. `WorkfaceMetricsPanel`
+    //     and the competency panel now carry the RECORD act, the same shape
+    //     Slice 7A's burn-down panel already had.
+    // (c) D7.04's first draft cited `labour_rules` as a backticked table and
+    //     the write-path judge failed the row: that catalogue is still
+    //     seeded, not customer-written. Fixed by the D5.27/D4.16 precedent —
+    //     state the dependency, do not claim the write path — and the row now
+    //     names the residual.
+    //
+    // D7.16 was deliberately NOT flipped. Its composed surface exists at
+    // /sync-field and the server carries the list of parts still open
+    // (D7.06, D7.07, D7.12) rather than a comment; a composition is not more
+    // complete than its pieces. The CEILING did not move, which is the check
+    // that proves the eight new ✅s were not bought with prose the gate cannot
+    // resolve. Nothing was exempted, no floor was lowered, and EXEMPTIONS is
+    // still empty.
+    //
+    // 177/1122/122 -> 177/1136/122 (2026-09-04, Slice 7C adversarial repair).
+    // Fourteen more citations became enforceable and none was lost. The repair
+    // shipped the acts three refusal sentences INSTRUCTED and the product could
+    // not perform — `close_resource_capacity` (the collision refusal told a
+    // planner to close the standing figure; `effective_to` was settable only at
+    // INSERT), `renew_member_competency` (the duplicate refusal told them to
+    // supersede a holding; the table's only runtime writer was INSERT-only and
+    // the pair is UNIQUE) and `set_workforce_member_active` (a leaver stayed
+    // qualified and rostered forever in a ✅ metric) — plus their service
+    // wrappers and component callers.
+    //
+    // THE GATE EARNED ITS KEEP AGAIN, twice.
+    // (a) `retire_competency_requirement` had ZERO non-test callers and slipped
+    //     the gate entirely because D7.03's evidence never BACKTICKED it. The
+    //     act existed, a live requirement could not be restated (unique index)
+    //     and could not be deleted (integrity trigger), so a competency
+    //     requirement was write-once and permanent from every customer surface.
+    //     Wired into CompetencyReadinessPanel and now cited in backticks, so
+    //     the gate polices it from here on.
+    // (b) Four ✅ rows (D7.08, D7.13, D7.14, D7.20) cited a chain through
+    //     `/sync-field` that does not exist — that page calls
+    //     `getSyncFieldModule` and neither of the two symbols the rows named.
+    //     The capability IS reachable, through `WorkfaceMetricsPanel`, which is
+    //     why the ✅s stand; but `judgeTsSymbol` only asks whether each cited
+    //     symbol has SOME live non-test caller and cannot check the EDGES of a
+    //     prose chain, so the fiction survived. The four chains now say what a
+    //     reviewer would actually walk.
+    //
+    // RATCHETED UP for the reason this block gives every time: the added reach
+    // is real, and a later change must not be able to de-cite it with the suite
+    // still green. The CEILING did not move, no row changed status, nothing was
+    // exempted, no floor was lowered, and EXEMPTIONS is still empty.
+    //
+    // 177/1136/122 -> 178/1147/128 (2026-09-06, D7 residual + Slice 1
+    // authoring, #361). D7.07 flipped because THE ONE escalation clock now
+    // walks package-anchored restoration_constraints and was already
+    // scheduled (`syncai-recovery-escalation-clock`); D3.01/D3.22/D3.23/
+    // D3.25/D3.37 flipped because FrameworkShelfPanel now calls
+    // create_project_framework and add_framework_stage, and already called
+    // add_framework_gate (checkpoint) and set_gate_requirement. D7.06 and
+    // D7.12 stay 🟡 with their named gaps; D7.16 stays 🟡 because a
+    // composition is not more complete than those two parts; D11.34 stays
+    // ❌ — objects standing side by side is not one real case walked
+    // through all twelve.
+    //
+    // 178/1147/128 -> 183/1202/133 (2026-09-06, Slice 7D register honesty,
+    // #360 rebased onto #361). Five quality rows flipped with backticked 7D
+    // symbols that already had live callers (`QualityManagementWorkbench`
+    // on `/risk`). The CEILING stayed at 3 — the new ✅s are checkable. No
+    // exemption, no floor lowered.
+    //
+    // 183/1202/133 -> 186/1228/138 (2026-09-06, residual cluster #364).
+    // Five rows flipped: D3.19 and D11.32 were status-lag; D3.29 gained
+    // estimate/schedule legs; D4.01 binds quality_requirements to
+    // design_requirements; D4.14 publishes cyber on the live gate-requirement
+    // authoring path.
+    //
+    // 186/1228/138 -> 188/1259/143 (2026-09-06, D9 Realize rebased onto
+    // #364). Five more rows (D9.02, D9.03, D9.04, D9.11, D9.13) flipped on
+    // chains this gate can walk: `record_operational_warranty`,
+    // `open_realization_window`, `record_checkpoint_observation`,
+    // `record_project_lesson` and the Case Workspace `RealizeCluster`.
+    // Floors are the SUM of the two deltas off 183/1202/133. The CEILING
+    // stayed at 3 — the new ✅s are checkable. No exemption, no floor
+    // lowered.
+    //
+    // 188/1259/143 -> 188/1282/147 (2026-09-06, residual cluster after
+    // #363). Four leftover Realize rows flipped (D9.12, D9.14, D9.16,
+    // D9.01) on chains this gate can walk: `screenApplicableProjectLessons`
+    // from intake + `ApplicableLessonsBanner`, `getCaseValueRealization` /
+    // `approveCaseBaseline`, `getCaseProjectSuccess`,
+    // `getCaseLifecycleSuccess`. The row-with-citation floor did not move
+    // — these were already cited yellows. The CEILING stayed at 3 — the
+    // new ✅s are checkable. No exemption, no floor lowered.
+    rowsWithAnEnforceableCitation: 188,
+    citationsEnforced: 1282,
+    claimedRowsEnforced: 147,
     // D11.04 (a CI-fence claim proved by a named test file), D11.10 (a
     // canonical seeded vocabulary, which the write-path judge would fail for
     // not being customer-writable — a question the row never asked) and
@@ -1093,16 +1324,13 @@ describe("the reachability judges", () => {
    * This number may only ever go DOWN from here by wiring or by a deletion
    * that names its evidence twice, per AGENTS.md rule 1.
    *
-   * 2026-08-31: `InThreadLearnRecorder` is named in HONESTY_UNMOUNTED, not
-   * counted in the 25. Honesty unmounted it from Decision Workspace — that
-   * page has no obligation id and must not present a recorded verification.
-   * AGENTS.md rule 1: do not delete the file. Learning Loop remains the write
-   * path. If it is wired to a caller that only claims recorded after
-   * `record_verification_result` returns recorded, remove it from the set.
+   * 2026-08-31: `InThreadLearnRecorder` sat here while Honesty kept it
+   * unmounted. 2026-09-04: ConversationLearn mounts it only after an
+   * obligation id is resolved, and only claims recorded from
+   * `recordVerificationResult`'s return. Learning Loop remains the other
+   * write surface. The set may only shrink.
    */
-  const HONESTY_UNMOUNTED = [
-    "src/components/chat/InThreadLearnRecorder.tsx",
-  ] as const;
+  const HONESTY_UNMOUNTED = [] as const;
 
   it("does not grow the set of surfaces no entry point imports", () => {
     const orphans = [...code.files.keys()]

@@ -25,7 +25,7 @@ export function PublicProductHeader({
           <BrandWordmark />
           <span
             data-testid="brand-job-title"
-            className="mt-0.5 text-[10px] font-medium uppercase tracking-widest text-slate-400 leading-none"
+            className="mt-2 text-[10px] font-medium uppercase tracking-widest text-slate-400 leading-none"
           >
             Reliability Engineer
           </span>
