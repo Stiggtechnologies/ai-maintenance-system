@@ -178,13 +178,16 @@ export function shouldCommitContinuousUtterance(input: {
   settling?: boolean;
   outputGating?: boolean;
   lastSpokenText?: string | null;
+  /** Override when a complete short presence turn may commit sooner. */
+  minSilenceMs?: number;
 }): boolean {
+  const needed = input.minSilenceMs ?? BOOTH_UTTERANCE_SILENCE_MS;
   return (
     !input.holdToTalk &&
     !input.busy &&
     shouldTreatHeardSpeechAsUserTurn(input) &&
     input.transcript.trim().length > 0 &&
-    input.silenceMs >= BOOTH_UTTERANCE_SILENCE_MS
+    input.silenceMs >= needed
   );
 }
 

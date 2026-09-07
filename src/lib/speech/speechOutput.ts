@@ -26,6 +26,19 @@ export interface SpeechOutputDependencies {
   onEngineChange?: (engine: Exclude<SpeechEngine, "unknown">) => void;
 }
 
+/**
+ * Speak the first sentence as soon as its audio is ready. The rest is
+ * synthesized in parallel and played after, while `speaking` stays true
+ * so Meet Sync does not reopen the mic between clauses (#365).
+ */
+export function splitSpeakableLead(text: string): { first: string; rest: string } {
+  const spoken = text.replace(/\s+/g, " ").trim();
+  if (!spoken) return { first: "", rest: "" };
+  const match = spoken.match(/^(.+?[.!?])(?:\s+)(.+)$/);
+  if (!match?.[2]) return { first: spoken, rest: "" };
+  return { first: match[1], rest: match[2] };
+}
+
 export function createSpeechOutputController(
   deps: SpeechOutputDependencies,
 ): SpeechOutputController {
@@ -50,11 +63,23 @@ export function createSpeechOutputController(
     deps.onSpeakingChange?.(true);
 
     void (async () => {
+      const lead = splitSpeakableLead(spoken);
+      let firstPlayed = false;
       try {
-        const blob = await deps.requestCloud(spoken, controller.signal);
+        const firstBlob = await deps.requestCloud(lead.first, controller.signal);
         if (mine !== generation) return;
-        await deps.playCloud(blob, controller.signal);
+        const restRequest = lead.rest
+          ? deps.requestCloud(lead.rest, controller.signal)
+          : null;
+        await deps.playCloud(firstBlob, controller.signal);
+        firstPlayed = true;
         if (mine !== generation) return;
+        if (restRequest) {
+          const restBlob = await restRequest;
+          if (mine !== generation) return;
+          await deps.playCloud(restBlob, controller.signal);
+          if (mine !== generation) return;
+        }
         deps.onEngineChange?.("cloud");
         deps.onSpeakingChange?.(false);
       } catch {
@@ -63,7 +88,7 @@ export function createSpeechOutputController(
           return;
         }
         deps.onEngineChange?.("browser");
-        deps.speakBrowser(spoken);
+        deps.speakBrowser(firstPlayed && lead.rest ? lead.rest : spoken);
       }
     })();
   };

@@ -190,11 +190,27 @@ describe("booth listen mode", () => {
     expect(
       shouldCommitContinuousUtterance({ ...ready, transcript: "  " }),
     ).toBe(false);
+    expect(
+      shouldCommitContinuousUtterance({
+        ...ready,
+        transcript: "Can you hear me",
+        silenceMs: 400,
+        minSilenceMs: 400,
+      }),
+    ).toBe(true);
+    expect(
+      shouldCommitContinuousUtterance({
+        ...ready,
+        transcript: "How is emergency work trending?",
+        silenceMs: 400,
+      }),
+    ).toBe(false);
   });
 
   it("stays Sync-native and does not vendor AGPL conversation stacks", () => {
     const files = [
       "src/lib/presence/boothListen.ts",
+      "src/lib/presence/boothFastPath.ts",
       "src/lib/presence/meetingRunner.ts",
       "src/hooks/useDictation.ts",
       "src/components/PresenceBoothConversation.tsx",
