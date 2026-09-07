@@ -4,7 +4,6 @@
  * Examples are labeled Examples only — never seed a customer workspace.
  */
 import { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { ArrowRight, Shield } from "lucide-react";
 import {
   INVERTED_EXAMPLE_PROMPTS,
@@ -13,12 +12,13 @@ import {
   INVERTED_OPENING_HEADLINE,
   type InvertedIntentId,
 } from "../lib/onboarding/inverted-opening";
+import { DecisionCaseSpine } from "./DecisionCaseSpine";
 
 export function InvertedOpeningPage() {
-  const navigate = useNavigate();
   const [ask, setAsk] = useState("");
   const [intent, setIntent] = useState<InvertedIntentId>("solve");
   const [savePrompt, setSavePrompt] = useState(false);
+  const [spineQuestion, setSpineQuestion] = useState("");
 
   const canSave = useMemo(() => ask.trim().length >= 12, [ask]);
 
@@ -41,6 +41,8 @@ export function InvertedOpeningPage() {
           </div>
         </header>
 
+        {!spineQuestion ? (
+        <>
         <section className="space-y-3">
           <label className="block text-sm font-semibold text-slate-200">
             Ask
@@ -127,12 +129,9 @@ export function InvertedOpeningPage() {
             <div className="flex flex-wrap gap-2">
               <button
                 type="button"
+                data-testid="inverted-save-continue"
                 className="rounded-lg bg-teal-400 px-3 py-2 text-xs font-bold text-slate-950"
-                onClick={() => {
-                  const q = encodeURIComponent(ask.trim());
-                  const i = encodeURIComponent(intent);
-                  navigate(`/?view=signup&invertedAsk=${q}&intent=${i}`);
-                }}
+                onClick={() => setSpineQuestion(ask.trim())}
               >
                 Save and continue
               </button>
@@ -146,12 +145,17 @@ export function InvertedOpeningPage() {
             </div>
           </div>
         )}
+        </>
+        ) : null}
 
-        <p className="text-center text-[11px] text-slate-600">
-          P0.1 opening only — Decision Case auto-build, evidence, disposition,
-          and verification ship in follow-on PRs. Not marketed as seamless
-          self-guided until the acceptance test passes.
-        </p>
+        {spineQuestion ? (
+          <DecisionCaseSpine question={spineQuestion} intent={intent} />
+        ) : (
+          <p className="text-center text-[11px] text-slate-600">
+            Decision Case spine opens after save. Not marketed as seamless
+            self-guided until the acceptance test passes.
+          </p>
+        )}
       </div>
     </main>
   );
