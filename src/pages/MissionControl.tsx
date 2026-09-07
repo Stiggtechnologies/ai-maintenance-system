@@ -36,6 +36,7 @@ import { useAuth } from "../components/AuthProvider";
 import { useOnboardingOperatingLoop } from "../hooks/useOnboardingOperatingLoop";
 import { EngineeringModelTracePanel } from "../components/EngineeringModelTracePanel";
 import { FirstRunNextStepStrip } from "../components/help/FirstRunNextStepStrip";
+import { Stage1OperatorRunbook } from "../components/help/Stage1OperatorRunbook";
 import {
   getMissionControl,
   getEvidence,
@@ -734,6 +735,7 @@ export function MissionControl() {
       </div>
 
       <FirstRunNextStepStrip />
+      <Stage1OperatorRunbook />
 
       {loading && <LoadingState label="Loading mission readiness…" />}
       {error && <ErrorState message={error} onRetry={refetch} />}
