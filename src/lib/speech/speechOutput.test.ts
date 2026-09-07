@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
-import { createSpeechOutputController, playAudioBlob } from "./speechOutput";
+import {
+  createSpeechOutputController,
+  playAudioBlob,
+  splitSpeakableLead,
+} from "./speechOutput";
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -10,6 +14,27 @@ function deferred<T>() {
   });
   return { promise, resolve, reject };
 }
+
+describe("splitSpeakableLead", () => {
+  it("isolates the first sentence so TTS can start before the rest is ready", () => {
+    expect(
+      splitSpeakableLead(
+        "No sourced backlog figure is in this snapshot. I recommend, I do not authorize.",
+      ),
+    ).toEqual({
+      first: "No sourced backlog figure is in this snapshot.",
+      rest: "I recommend, I do not authorize.",
+    });
+    expect(splitSpeakableLead("Yes. I can hear you.")).toEqual({
+      first: "Yes.",
+      rest: "I can hear you.",
+    });
+    expect(splitSpeakableLead("I'm here and listening.")).toEqual({
+      first: "I'm here and listening.",
+      rest: "",
+    });
+  });
+});
 
 describe("speech output adapter", () => {
   it("plays cloud audio when sync-tts succeeds", async () => {
@@ -46,6 +71,63 @@ describe("speech output adapter", () => {
     expect(speakBrowser).not.toHaveBeenCalled();
     expect(onEngineChange).toHaveBeenCalledWith("cloud");
     expect(onSpeakingChange).toHaveBeenLastCalledWith(false);
+  });
+
+  it("requests first-sentence audio before the remainder and keeps speaking true between them", async () => {
+    const firstBlob = new Blob([new Uint8Array([1])], { type: "audio/mpeg" });
+    const restBlob = new Blob([new Uint8Array([2, 3])], { type: "audio/mpeg" });
+    const firstReady = deferred<Blob>();
+    const restReady = deferred<Blob>();
+    const firstPlay = deferred<void>();
+    const restPlay = deferred<void>();
+    const requestCloud = vi
+      .fn()
+      .mockImplementationOnce(() => firstReady.promise)
+      .mockImplementationOnce(() => restReady.promise);
+    const playCloud = vi
+      .fn()
+      .mockImplementationOnce(async () => firstPlay.promise)
+      .mockImplementationOnce(async () => restPlay.promise);
+    const onSpeakingChange = vi.fn();
+
+    const controller = createSpeechOutputController({
+      requestCloud,
+      playCloud,
+      speakBrowser: vi.fn(),
+      stopBrowser: vi.fn(),
+      onSpeakingChange,
+    });
+
+    controller.speak(
+      "No sourced backlog figure is in this snapshot. I recommend, I do not authorize.",
+    );
+    expect(onSpeakingChange).toHaveBeenCalledWith(true);
+    await Promise.resolve();
+    expect(requestCloud).toHaveBeenCalledWith(
+      "No sourced backlog figure is in this snapshot.",
+      expect.any(AbortSignal),
+    );
+    expect(requestCloud).toHaveBeenCalledTimes(1);
+
+    firstReady.resolve(firstBlob);
+    await vi.waitFor(() => {
+      expect(playCloud).toHaveBeenCalledWith(firstBlob, expect.any(AbortSignal));
+    });
+    expect(requestCloud).toHaveBeenCalledWith(
+      "I recommend, I do not authorize.",
+      expect.any(AbortSignal),
+    );
+    expect(onSpeakingChange).toHaveBeenLastCalledWith(true);
+
+    restReady.resolve(restBlob);
+    firstPlay.resolve();
+    await vi.waitFor(() => {
+      expect(playCloud).toHaveBeenCalledWith(restBlob, expect.any(AbortSignal));
+    });
+    restPlay.resolve();
+    await vi.waitFor(() => {
+      expect(onSpeakingChange).toHaveBeenLastCalledWith(false);
+    });
   });
 
   it("falls back to speechSynthesis when cloud TTS fails or is unconfigured", async () => {

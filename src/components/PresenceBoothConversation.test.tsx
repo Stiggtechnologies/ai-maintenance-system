@@ -8,6 +8,12 @@ import {
 import type { ComponentProps } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { BOOTH_UNAVAILABLE_REPLY } from "../lib/presence/booth";
+import {
+  BOOTH_SHORT_UTTERANCE_SILENCE_MS,
+  FAST_PRESENCE_CANT_HEAR_REPLY,
+  FAST_PRESENCE_HEAR_REPLY,
+  FAST_SOCIAL_REPLY,
+} from "../lib/presence/boothFastPath";
 import { ROOM_HOLD_COPY } from "../lib/presence/meetingRunner";
 import {
   BOOTH_TTS_SETTLE_MS,
@@ -185,6 +191,23 @@ describe("PresenceBoothConversation", () => {
     expect(screen.queryByText(/cheeky|jarvis/i)).toBeNull();
   });
 
+  it("commits a 3-word presence check before the long silence window", async () => {
+    renderBooth();
+    act(() => {
+      onTranscript?.("Can you hear me");
+    });
+    await act(async () => {
+      await new Promise((resolve) =>
+        setTimeout(resolve, BOOTH_SHORT_UTTERANCE_SILENCE_MS + 80),
+      );
+    });
+    expect(speak).toHaveBeenCalledWith(FAST_PRESENCE_HEAR_REPLY);
+    expect(askBooth).not.toHaveBeenCalled();
+    expect(BOOTH_SHORT_UTTERANCE_SILENCE_MS + 80).toBeLessThan(
+      BOOTH_UTTERANCE_SILENCE_MS,
+    );
+  });
+
   it("replies to 1:1 audio checks on continuous listen", async () => {
     renderBooth();
     act(() => {
@@ -192,17 +215,16 @@ describe("PresenceBoothConversation", () => {
     });
     await waitFor(
       () => {
-        expect(askBooth).toHaveBeenCalledTimes(1);
+        expect(speak).toHaveBeenCalledWith(FAST_PRESENCE_HEAR_REPLY);
       },
-      { timeout: BOOTH_UTTERANCE_SILENCE_MS + 400 },
+      { timeout: BOOTH_SHORT_UTTERANCE_SILENCE_MS + 400 },
     );
-    expect(askBooth.mock.calls[0][0]).toContain("QUESTION: Can you hear me");
-    expect(
-      await screen.findByText(
-        "No sourced backlog figure is in this snapshot. I recommend, I do not authorize.",
-      ),
-    ).toBeInTheDocument();
-    expect(speak).toHaveBeenCalled();
+    expect(askBooth).not.toHaveBeenCalled();
+    expect(await screen.findByText(FAST_PRESENCE_HEAR_REPLY)).toBeInTheDocument();
+    expect(screen.getByTestId("presence-booth")).toHaveAttribute(
+      "data-booth-turn-path",
+      "fast",
+    );
   });
 
   it("commits a visible interim line when no final transcript arrives", async () => {
@@ -213,12 +235,11 @@ describe("PresenceBoothConversation", () => {
     expect(askBooth).not.toHaveBeenCalled();
     await waitFor(
       () => {
-        expect(askBooth).toHaveBeenCalledTimes(1);
+        expect(speak).toHaveBeenCalledWith(FAST_PRESENCE_CANT_HEAR_REPLY);
       },
-      { timeout: BOOTH_UTTERANCE_SILENCE_MS + 400 },
+      { timeout: BOOTH_SHORT_UTTERANCE_SILENCE_MS + 400 },
     );
-    expect(askBooth.mock.calls[0][0]).toContain("QUESTION: I can't hear you");
-    expect(speak).toHaveBeenCalled();
+    expect(askBooth).not.toHaveBeenCalled();
   });
 
   it("speaks when the room addresses Sync on continuous listen", async () => {
@@ -274,9 +295,28 @@ describe("PresenceBoothConversation", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: /send question/i }));
     await waitFor(() => {
-      expect(askBooth).toHaveBeenCalledTimes(1);
+      expect(speak).toHaveBeenCalledWith(FAST_SOCIAL_REPLY);
     });
-    expect(askBooth.mock.calls[0][0]).toContain("QUESTION: Yeah I agree");
+    expect(askBooth).not.toHaveBeenCalled();
+    expect(screen.getByTestId("presence-booth")).toHaveAttribute(
+      "data-booth-turn-path",
+      "fast",
+    );
+  });
+
+  it("does not write the vault on a trivial presence turn", async () => {
+    renderBooth({ organizationId: "org-1" });
+    act(() => {
+      onTranscript?.("Can you hear me");
+    });
+    await waitFor(
+      () => {
+        expect(speak).toHaveBeenCalledWith(FAST_PRESENCE_HEAR_REPLY);
+      },
+      { timeout: BOOTH_SHORT_UTTERANCE_SILENCE_MS + 400 },
+    );
+    expect(persistVault).not.toHaveBeenCalled();
+    expect(askBooth).not.toHaveBeenCalled();
   });
 
   it("sends a continuous utterance after silence", async () => {
@@ -294,6 +334,10 @@ describe("PresenceBoothConversation", () => {
     expect(askBooth.mock.calls[0][0]).toContain(
       "QUESTION: How is emergency work trending?",
     );
+    expect(screen.getByTestId("presence-booth")).toHaveAttribute(
+      "data-booth-turn-path",
+      "ask",
+    );
   });
 
   it("does not treat recognition as a user turn while Sync is speaking", async () => {
@@ -309,6 +353,49 @@ describe("PresenceBoothConversation", () => {
     });
     expect(stopSpeech).not.toHaveBeenCalled();
     expect(askBooth).not.toHaveBeenCalled();
+    await act(async () => {
+      await new Promise((resolve) =>
+        setTimeout(resolve, BOOTH_UTTERANCE_SILENCE_MS + 80),
+      );
+    });
+    expect(askBooth).not.toHaveBeenCalled();
+  });
+
+  it("does not loop when recognition hears a fast-path spoken reply", async () => {
+    const view = renderBooth();
+    act(() => {
+      onTranscript?.("Can you hear me");
+    });
+    await waitFor(
+      () => {
+        expect(speak).toHaveBeenCalledWith(FAST_PRESENCE_HEAR_REPLY);
+      },
+      { timeout: BOOTH_SHORT_UTTERANCE_SILENCE_MS + 400 },
+    );
+    expect(askBooth).not.toHaveBeenCalled();
+    stopSpeech.mockClear();
+
+    view.rerender(
+      <PresenceBoothConversation {...boothProps({ speaking: true })} />,
+    );
+    act(() => {
+      onSpeech?.();
+      onTranscript?.(FAST_PRESENCE_HEAR_REPLY);
+    });
+    expect(stopSpeech).not.toHaveBeenCalled();
+    expect(askBooth).not.toHaveBeenCalled();
+
+    view.rerender(
+      <PresenceBoothConversation {...boothProps({ speaking: false })} />,
+    );
+    await act(async () => {
+      await new Promise((resolve) =>
+        setTimeout(resolve, BOOTH_TTS_SETTLE_MS + 40),
+      );
+    });
+    act(() => {
+      onTranscript?.(FAST_PRESENCE_HEAR_REPLY);
+    });
     await act(async () => {
       await new Promise((resolve) =>
         setTimeout(resolve, BOOTH_UTTERANCE_SILENCE_MS + 80),

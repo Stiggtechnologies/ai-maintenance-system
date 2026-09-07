@@ -6,8 +6,9 @@
  * listen is continuous with end-of-utterance; hold-to-talk is optional.
  * Recognition is paused while TTS plays (plus a short settle) so Sync
  * does not treat its own spoken words as a user turn.
- * Answers: meetingRunner turn-taking, then askBoothConversation →
- * ai-agent-processor ReliabilityAgent when Sync should speak.
+ * Answers: meetingRunner turn-taking, then a local fast path for
+ * presence/greetings, else askBoothConversation → ai-agent-processor
+ * ReliabilityAgent when Sync should speak.
  * Tab transcript in sessionStorage; signed-in notes in the Sync-native
  * meeting vault. Decision Case continuity from the existing draft store
  * + honesty helpers. Recommend ≠ authorize.
@@ -22,6 +23,10 @@ import {
   shouldSpeakBoothReply,
   stripForSpeech,
 } from "../lib/presence/booth";
+import {
+  boothCommitSilenceMs,
+  resolveBoothFastPath,
+} from "../lib/presence/boothFastPath";
 import {
   BOOTH_ECHO_MEMORY_MS,
   BOOTH_TTS_SETTLE_MS,
@@ -116,6 +121,7 @@ export function PresenceBoothConversation({
   const [lastRoomAction, setLastRoomAction] = useState<RoomAction | null>(
     null,
   );
+  const [lastTurnPath, setLastTurnPath] = useState<"fast" | "ask" | "">("");
   const [messages, setMessages] = useState<PresenceBoothMessage[]>(() =>
     userId && typeof window !== "undefined"
       ? readPresenceMemory(window.sessionStorage, userId).messages
@@ -168,10 +174,19 @@ export function PresenceBoothConversation({
 
   const scheduleContinuousCommit = () => {
     clearSilenceTimer();
+    const pending = resolveContinuousHeardTranscript(
+      utteranceRef.current,
+      heardDisplayRef.current,
+    );
+    const silenceMs = boothCommitSilenceMs(pending, BOOTH_UTTERANCE_SILENCE_MS);
     silenceTimerRef.current = window.setTimeout(() => {
       const transcript = resolveContinuousHeardTranscript(
         utteranceRef.current,
         heardDisplayRef.current,
+      );
+      const minSilenceMs = boothCommitSilenceMs(
+        transcript,
+        BOOTH_UTTERANCE_SILENCE_MS,
       );
       const gate = {
         speaking: speakingRef.current,
@@ -181,7 +196,8 @@ export function PresenceBoothConversation({
       if (
         !shouldCommitContinuousUtterance({
           transcript,
-          silenceMs: BOOTH_UTTERANCE_SILENCE_MS,
+          silenceMs,
+          minSilenceMs,
           busy: busyRef.current,
           holdToTalk: holdToTalkRef.current,
           lastSpokenText: lastSpokenRef.current,
@@ -204,7 +220,7 @@ export function PresenceBoothConversation({
       heardDisplayRef.current = "";
       setInput("");
       void sendRef.current(transcript, "continuous");
-    }, BOOTH_UTTERANCE_SILENCE_MS);
+    }, silenceMs);
   };
 
   const dictation = useDictation(
@@ -354,6 +370,7 @@ export function PresenceBoothConversation({
   const persist = (
     nextMessages: PresenceBoothMessage[],
     lastSubject: string | null,
+    options: { durable?: boolean } = {},
   ) => {
     if (!userId) return;
     const nextMemory = { messages: nextMessages, lastSubject };
@@ -363,7 +380,7 @@ export function PresenceBoothConversation({
       // Tab memory is best-effort. A blocked or full sessionStorage must not
       // abort a booth turn.
     }
-    if (signedIn && organizationId) {
+    if (options.durable !== false && signedIn && organizationId) {
       void persistPresenceVault({
         userId,
         organizationId,
@@ -384,6 +401,7 @@ export function PresenceBoothConversation({
     withUser: PresenceBoothMessage[],
     lastSubject: string | null,
     text: string,
+    options: { durable?: boolean } = {},
   ) => {
     const reply: PresenceBoothMessage = {
       id: `sync-${Date.now()}`,
@@ -392,7 +410,7 @@ export function PresenceBoothConversation({
     };
     const withReply = [...withUser, reply];
     setMessages(withReply);
-    persist(withReply, lastSubject);
+    persist(withReply, lastSubject, options);
     if (!shouldSpeakBoothReply({ signedIn, muted, voiceOutputEnabled })) {
       return;
     }
@@ -426,6 +444,7 @@ export function PresenceBoothConversation({
     });
     setLastRoomAction(decision.action);
     if (!shouldSpeakRoomTurn(decision)) {
+      setLastTurnPath("");
       setInput("");
       heldTranscript.current = "";
       utteranceRef.current = "";
@@ -445,6 +464,7 @@ export function PresenceBoothConversation({
       persist(withUser, nextSubject);
       return;
     }
+    const fast = resolveBoothFastPath(question, givenName);
     setInput("");
     heldTranscript.current = "";
     utteranceRef.current = "";
@@ -458,6 +478,13 @@ export function PresenceBoothConversation({
     lastSubjectRef.current = nextSubject;
     const withUser = [...messages, userMessage];
     setMessages(withUser);
+    if (fast) {
+      setLastTurnPath("fast");
+      persist(withUser, nextSubject, { durable: false });
+      appendSyncReply(withUser, nextSubject, fast.reply, { durable: false });
+      return;
+    }
+    setLastTurnPath("ask");
     setBusy(true);
     try {
       persist(withUser, nextSubject);
@@ -535,6 +562,7 @@ export function PresenceBoothConversation({
       data-testid="presence-booth"
       data-booth-voice-mode={voiceMode}
       data-room-action={lastRoomAction ?? ""}
+      data-booth-turn-path={lastTurnPath}
       className="mt-2 border-t border-white/5 pt-2"
     >
       <p className="text-[11px] text-slate-500">
