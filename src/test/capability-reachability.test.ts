@@ -715,9 +715,18 @@ const FLOORS: Record<string, Floors> = {
     // Floors are the SUM of the two deltas off 183/1202/133. The CEILING
     // stayed at 3 — the new ✅s are checkable. No exemption, no floor
     // lowered.
+    //
+    // 188/1259/143 -> 188/1282/147 (2026-09-06, residual cluster after
+    // #363). Four leftover Realize rows flipped (D9.12, D9.14, D9.16,
+    // D9.01) on chains this gate can walk: `screenApplicableProjectLessons`
+    // from intake + `ApplicableLessonsBanner`, `getCaseValueRealization` /
+    // `approveCaseBaseline`, `getCaseProjectSuccess`,
+    // `getCaseLifecycleSuccess`. The row-with-citation floor did not move
+    // — these were already cited yellows. The CEILING stayed at 3 — the
+    // new ✅s are checkable. No exemption, no floor lowered.
     rowsWithAnEnforceableCitation: 188,
-    citationsEnforced: 1259,
-    claimedRowsEnforced: 143,
+    citationsEnforced: 1282,
+    claimedRowsEnforced: 147,
     // D11.04 (a CI-fence claim proved by a named test file), D11.10 (a
     // canonical seeded vocabulary, which the write-path judge would fail for
     // not being customer-writable — a question the row never asked) and
