@@ -32,9 +32,24 @@ declare v_org uuid:=app_current_org(); v_uid uuid; v_id bigint; v_basis text:=nu
 begin
  v_uid:=assert_safety_foundation_actor('record a major hazard');
  if length(btrim(coalesce(p_record->>'hazard_ref','')))<2 or length(btrim(coalesce(p_record->>'title','')))<5 or length(btrim(coalesce(p_record->>'top_event','')))<5 or v_basis is null or length(v_basis)<20 then raise exception 'hazard reference, title, top event and evidence basis are required'; end if;
+ if nullif(p_record->>'site_id','') is not null and not exists(select 1 from sites where id=(p_record->>'site_id')::uuid and organization_id=v_org) then raise exception 'site is not in this organization'; end if;
  insert into major_hazards(organization_id,site_id,hazard_ref,title,top_event,worst_credible_consequence,consequence_class) values(v_org,nullif(p_record->>'site_id','')::uuid,btrim(p_record->>'hazard_ref'),btrim(p_record->>'title'),btrim(p_record->>'top_event'),nullif(btrim(p_record->>'worst_credible_consequence'),''),nullif(p_record->>'consequence_class','')) returning id into v_id;
  insert into audit_events(organization_id,entity_type,actor,event_data) values(v_org,'process_safety_hazard',v_uid::text,jsonb_build_object('id',v_id,'action','recorded','evidenceBasis',v_basis));
  return jsonb_build_object('id',v_id,'status','recorded');
+end $$;
+
+create or replace function public.assess_integrity_exceedance(p_exceedance_id bigint,p_note text)
+returns jsonb language plpgsql security definer set search_path=public as $$
+declare v_org uuid:=app_current_org(); v_uid uuid; v_recorder uuid;
+begin
+ v_uid:=assert_safety_foundation_actor('assess an integrity-window exceedance');
+ if length(btrim(coalesce(p_note,'')))<20 then raise exception 'engineering assessment must be at least 20 characters'; end if;
+ select acknowledged_by into v_recorder from integrity_exceedances where id=p_exceedance_id and organization_id=v_org and not engineering_assessed for update;
+ if not found then raise exception 'unassessed integrity-window exceedance not found'; end if;
+ if v_recorder=v_uid then raise exception 'the person who recorded an exceedance cannot independently assess it'; end if;
+ update integrity_exceedances set engineering_assessed=true,assessment_note=btrim(p_note) where id=p_exceedance_id;
+ insert into audit_events(organization_id,entity_type,actor,event_data) values(v_org,'process_safety_integrity_exceedance',v_uid::text,jsonb_build_object('id',p_exceedance_id,'action','engineering_assessed','assessment',btrim(p_note)));
+ return jsonb_build_object('id',p_exceedance_id,'status','engineering_assessed');
 end $$;
 
 create or replace function public.link_hazard_barrier(p_hazard_id bigint,p_sce_id bigint,p_relation text,p_basis text)
@@ -81,5 +96,6 @@ revoke all on function public.record_major_hazard(jsonb) from public,anon;
 revoke all on function public.link_hazard_barrier(bigint,bigint,text,text) from public,anon;
 revoke all on function public.record_integrity_window(jsonb) from public,anon;
 revoke all on function public.record_integrity_exceedance(jsonb) from public,anon;
-grant execute on function public.record_safety_critical_element(jsonb),public.record_major_hazard(jsonb),public.link_hazard_barrier(bigint,bigint,text,text),public.record_integrity_window(jsonb),public.record_integrity_exceedance(jsonb) to authenticated;
+revoke all on function public.assess_integrity_exceedance(bigint,text) from public,anon;
+grant execute on function public.record_safety_critical_element(jsonb),public.record_major_hazard(jsonb),public.link_hazard_barrier(bigint,bigint,text,text),public.record_integrity_window(jsonb),public.record_integrity_exceedance(jsonb),public.assess_integrity_exceedance(bigint,text) to authenticated;
 notify pgrst,'reload schema';
