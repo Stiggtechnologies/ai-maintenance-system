@@ -35,6 +35,7 @@ import { LiveBadge } from "../components/ui/LiveBadge";
 import { useAuth } from "../components/AuthProvider";
 import { useOnboardingOperatingLoop } from "../hooks/useOnboardingOperatingLoop";
 import { EngineeringModelTracePanel } from "../components/EngineeringModelTracePanel";
+import { FirstRunNextStepStrip } from "../components/help/FirstRunNextStepStrip";
 import {
   getMissionControl,
   getEvidence,
@@ -731,6 +732,8 @@ export function MissionControl() {
           </p>
         </div>
       </div>
+
+      <FirstRunNextStepStrip />
 
       {loading && <LoadingState label="Loading mission readiness…" />}
       {error && <ErrorState message={error} onRetry={refetch} />}
