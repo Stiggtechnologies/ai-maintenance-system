@@ -67,9 +67,9 @@ const SYNC_FLAG_FALLBACKS: Record<SyncFeatureFlag, string> = {
   sync_global_shell:
     "Master gate for the persistent Sync interaction layer across the authenticated application.",
   sync_voice_input:
-    "Enable speech-to-text input where the browser supports it.",
+    "Gates CopilotDock speech-to-text. Meet Sync listens continuously in the booth by default (optional hold-to-talk); mute still silences presence.",
   sync_voice_output:
-    "Enable text-to-speech playback with user-controlled interruption.",
+    "Gates CopilotDock text-to-speech. Meet Sync / Presence welcome uses browser TTS when unmuted — sync_voice_output is not required for the booth.",
   sync_agent_routing:
     "Route questions through the existing governed specialist registry.",
   sync_tools:

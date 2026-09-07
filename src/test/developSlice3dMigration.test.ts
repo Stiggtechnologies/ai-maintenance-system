@@ -678,6 +678,37 @@ describe("the deployed surface", () => {
     );
   });
 
+  it("unauthenticated edge calls must 401 before any 500, including sync-tts", () => {
+    const smoke = readFileSync("scripts/ci-develop-slice3d-smoke.sh", "utf8");
+    expect(smoke).toContain("expect_unauth");
+    expect(smoke).toContain("401) return 0");
+    expect(smoke).not.toMatch(/test "\$code" = "200"/);
+    expect(smoke).not.toMatch(/401\|500/);
+    for (const fn of [
+      "develop-methodology-agent",
+      "develop-gate-agent",
+      "develop-risk-agent",
+      "sync-tts",
+    ]) {
+      expect(smoke).toContain(fn);
+      const config = readFileSync("supabase/config.toml", "utf8");
+      expect(config).toContain(`[functions.${fn}]`);
+      const block = config.slice(config.indexOf(`[functions.${fn}]`));
+      expect(block).toMatch(/verify_jwt\s*=\s*true/);
+    }
+    for (const fn of [
+      "develop-methodology-agent",
+      "develop-gate-agent",
+      "develop-risk-agent",
+    ]) {
+      const source = readCode(`supabase/functions/${fn}/index.ts`);
+      const serve = source.slice(source.indexOf("Deno.serve"));
+      expect(serve.indexOf("authentication required")).toBeLessThan(
+        serve.indexOf("function is not configured"),
+      );
+    }
+  });
+
   it("the migrations do not touch the RE-2026.08 protected database objects", () => {
     // scripts/reliability-baseline-floor.mjs digests every migration naming
     // one of these; a mention here would move the floor's evidence without
@@ -1155,6 +1186,21 @@ describe("the methodology agent's retrieval can actually match a document", () =
     );
     expect(panel).toContain("retrievalQuery");
     expect(panel).toContain("query: retrievalQuery.trim() || undefined");
+  });
+});
+
+describe("D3.01 / D3.23 — framework and stage authoring are product callers", () => {
+  it("createProjectFramework and addFrameworkStage are invoked from the shelf", () => {
+    const panel = readFileSync(
+      "src/components/develop/FrameworkShelfPanel.tsx",
+      "utf8",
+    );
+    expect(panel).toContain("createProjectFramework");
+    expect(panel).toContain("addFrameworkStage");
+    expect(panel).toContain("Create a draft framework (D3.01)");
+    expect(panel).toContain("Add stage");
+    expect(panel).toContain('value="checkpoint"');
+    expect(panel).toContain("setGateRequirement");
   });
 });
 

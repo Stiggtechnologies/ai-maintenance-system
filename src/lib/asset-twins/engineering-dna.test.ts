@@ -10,6 +10,7 @@ import {
   getEngineeringDnaForAssetClass,
   getEngineeringDnaProfile,
 } from "./electric-rope-shovel-dna";
+import { sharedComponentDnaLibrary } from "./shared-component-dna-library";
 
 describe("Digital Engineering DNA", () => {
   it("references only canonical engineering and inspection identities", () => {
@@ -18,18 +19,25 @@ describe("Digital Engineering DNA", () => {
         electricRopeShovelEngineeringDna,
         electricRopeShovelTemplate,
         komatsu4100XpcInspectionZones,
+        sharedComponentDnaLibrary,
       ),
     ).toEqual([]);
   });
 
   it("covers the complete current canonical component and failure libraries", () => {
-    const canonicalComponents = electricRopeShovelTemplate.components.map((component) => component.code);
-    const canonicalFailures = electricRopeShovelTemplate.components.flatMap((component) =>
-      component.failureModes.map((failure) => failure.code),
+    const canonicalComponents = electricRopeShovelTemplate.components.map(
+      (component) => component.code,
+    );
+    const canonicalFailures = electricRopeShovelTemplate.components.flatMap(
+      (component) => component.failureModes.map((failure) => failure.code),
     );
 
-    expect(electricRopeShovelEngineeringDna.componentCodes).toEqual(canonicalComponents);
-    expect(electricRopeShovelEngineeringDna.failureModeCodes).toEqual(canonicalFailures);
+    expect(electricRopeShovelEngineeringDna.componentCodes).toEqual(
+      canonicalComponents,
+    );
+    expect(electricRopeShovelEngineeringDna.failureModeCodes).toEqual(
+      canonicalFailures,
+    );
   });
 
   it("keeps operational action and threshold governance explicit", () => {
@@ -68,19 +76,31 @@ describe("Digital Engineering DNA", () => {
   });
 
   it("resolves profiles by DNA or canonical asset-class code", () => {
-    expect(getEngineeringDnaProfile("DEDNA-MIN-LOAD-ERS")).toBe(electricRopeShovelEngineeringDna);
-    expect(getEngineeringDnaForAssetClass("MIN-LOAD-ERS")).toBe(electricRopeShovelEngineeringDna);
+    expect(getEngineeringDnaProfile("DEDNA-MIN-LOAD-ERS")).toBe(
+      electricRopeShovelEngineeringDna,
+    );
+    expect(getEngineeringDnaForAssetClass("MIN-LOAD-ERS")).toBe(
+      electricRopeShovelEngineeringDna,
+    );
     expect(getEngineeringDnaProfile("UNKNOWN")).toBeUndefined();
   });
 
   it("rejects unknown canonical references", () => {
     const invalid = {
       ...electricRopeShovelEngineeringDna,
-      componentCodes: [...electricRopeShovelEngineeringDna.componentCodes, "UNKNOWN-COMPONENT"],
+      componentCodes: [
+        ...electricRopeShovelEngineeringDna.componentCodes,
+        "UNKNOWN-COMPONENT",
+      ],
     };
 
     expect(
-      validateEngineeringDnaProfile(invalid, electricRopeShovelTemplate, komatsu4100XpcInspectionZones),
+      validateEngineeringDnaProfile(
+        invalid,
+        electricRopeShovelTemplate,
+        komatsu4100XpcInspectionZones,
+        sharedComponentDnaLibrary,
+      ),
     ).toContainEqual({
       path: `componentCodes[${invalid.componentCodes.length - 1}]`,
       message: "Unknown canonical component UNKNOWN-COMPONENT.",

@@ -74,7 +74,7 @@ export function conversationIsEmpty(messages: DecisionMessage[]): boolean {
   );
 }
 
-/** After Approve, show the unpersisted LEARN pointer — never a fake close. */
+/** After Approve, show in-thread LEARN. Persist is ConversationLearn's job. */
 export function shouldShowLearnPointer(approvals: DecisionApproval[]): boolean {
   return approvals.some((item) => item.status === "approved");
 }

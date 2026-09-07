@@ -213,6 +213,23 @@ export interface RecordedVerification {
   detail: string;
 }
 
+export type VerificationSubjectKind = "recommendation" | "requirement";
+
+/** Open row from `get_open_verifications` — the same list Learning Loop reads. */
+export interface OpenVerification {
+  obligationId: string;
+  recommendationTitle: string;
+  assetName: string | null;
+  method: string;
+  dueDate: string;
+  dueDateAssumed: boolean;
+  daysOverdue: number;
+  intendedOutcome: string | null;
+  subjectKind?: VerificationSubjectKind;
+  requirementRef?: string | null;
+  methodCode?: string | null;
+}
+
 function firstRpcRow<T>(data: unknown): T | null {
   if (Array.isArray(data)) return (data[0] as T) ?? null;
   if (data && typeof data === "object") return data as T;
@@ -275,6 +292,42 @@ export async function recordVerificationResult(
   // In-band refused / error is the product's answer (second call, empty note,
   // unknown id). Surface the server's sentence — do not invent a paraphrase.
   throw new Error(row.detail || `Verification ${row.outcome ?? "refused"}.`);
+}
+
+/**
+ * The same open-obligation list VerificationLoop reads on /learning-loop.
+ * Conversation LEARN must resolve an id from this list (or the bound
+ * recommendation row) before it may call `recordVerificationResult`.
+ */
+export async function getOpenVerifications(
+  limit = 20,
+): Promise<OpenVerification[]> {
+  const { data, error } = await supabase.rpc("get_open_verifications", {
+    p_limit: limit,
+  });
+  if (error) fail("Could not load open verifications", error);
+  return (data as OpenVerification[]) ?? [];
+}
+
+/**
+ * Resolve the open obligation created when this recommendation was approved.
+ * RLS keeps the read in the caller's organization. Null means nothing to
+ * persist — the conversation must fail visibly, not invent a close.
+ */
+export async function getOpenObligationIdForRecommendation(
+  recommendationId: string,
+): Promise<string | null> {
+  const id = recommendationId.trim();
+  if (id === "") return null;
+  const { data, error } = await supabase
+    .from("verification_obligations")
+    .select("id")
+    .eq("recommendation_id", id)
+    .eq("status", "open")
+    .maybeSingle()
+    .returns<{ id: string }>();
+  if (error) fail("Could not load verification obligation", error);
+  return data?.id ?? null;
 }
 
 export interface PilotScorecard {

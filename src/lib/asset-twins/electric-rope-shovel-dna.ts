@@ -11,8 +11,24 @@ import { komatsu4100XpcInspectionZones } from "./komatsu-4100xpc-inspections";
 import { largeWheelLoaderEngineeringDna } from "./large-wheel-loader-dna";
 import { primaryCrusherEngineeringDna } from "./primary-crusher-dna";
 import { sagMillEngineeringDna } from "./sag-mill-dna";
+import { miningDozerEngineeringDna } from "./mining-dozer-dna";
+import { miningGraderEngineeringDna } from "./mining-grader-dna";
+import { mobileCrusherEngineeringDna } from "./mobile-crusher-dna";
+import { stackerReclaimerEngineeringDna } from "./stacker-reclaimer-dna";
 import { thickenerEngineeringDna } from "./thickener-dna";
 import type { EngineeringDnaProfile } from "./engineering-dna";
+import {
+  coolingSystemDna,
+  frictionBrakeDna,
+  industrialAcMotorDna,
+  industrialGearboxComponentDna,
+  lubricationSystemDna,
+  sheaveDna,
+  switchgearDna,
+  transformerDna,
+  variableFrequencyDriveDna,
+  wireRopeDna,
+} from "./shared-component-dna-library";
 import { ultraClassHaulTruckEngineeringDna } from "./ultra-class-haul-truck-dna";
 
 const unique = (values: string[]): string[] => [...new Set(values)];
@@ -31,6 +47,7 @@ export const electricRopeShovelEngineeringDna: EngineeringDnaProfile = {
     "telemetry_concepts",
     "digital_twin_instantiation",
     "governed_recommendations",
+    "shared_component_composition",
   ],
   componentCodes: electricRopeShovelTemplate.components.map(
     (component) => component.code,
@@ -44,6 +61,93 @@ export const electricRopeShovelEngineeringDna: EngineeringDnaProfile = {
       (component) => component.telemetryConcepts,
     ),
   ),
+  sharedComponentBindings: [
+    {
+      assetComponentCode: "ERS-HOIST",
+      sharedComponentDnaCode: industrialAcMotorDna.code,
+      role: "hoist motors",
+    },
+    {
+      assetComponentCode: "ERS-HOIST",
+      sharedComponentDnaCode: frictionBrakeDna.code,
+      role: "hoist brakes",
+    },
+    {
+      assetComponentCode: "ERS-HOIST",
+      sharedComponentDnaCode: wireRopeDna.code,
+      role: "hoist ropes",
+    },
+    {
+      assetComponentCode: "ERS-HOIST",
+      sharedComponentDnaCode: sheaveDna.code,
+      role: "hoist sheaves",
+    },
+    {
+      assetComponentCode: "ERS-CROWD",
+      sharedComponentDnaCode: industrialAcMotorDna.code,
+      role: "crowd motors",
+    },
+    {
+      assetComponentCode: "ERS-CROWD",
+      sharedComponentDnaCode: industrialGearboxComponentDna.code,
+      role: "crowd transmissions",
+    },
+    {
+      assetComponentCode: "ERS-SWING",
+      sharedComponentDnaCode: industrialAcMotorDna.code,
+      role: "swing motors",
+    },
+    {
+      assetComponentCode: "ERS-SWING",
+      sharedComponentDnaCode: industrialGearboxComponentDna.code,
+      role: "swing gearcases",
+    },
+    {
+      assetComponentCode: "ERS-SWING",
+      sharedComponentDnaCode: frictionBrakeDna.code,
+      role: "swing brakes",
+    },
+    {
+      assetComponentCode: "ERS-ELEC",
+      sharedComponentDnaCode: switchgearDna.code,
+      role: "power distribution",
+    },
+    {
+      assetComponentCode: "ERS-ELEC",
+      sharedComponentDnaCode: variableFrequencyDriveDna.code,
+      role: "motion drives",
+    },
+    {
+      assetComponentCode: "ERS-ELEC",
+      sharedComponentDnaCode: transformerDna.code,
+      role: "site power transformation",
+    },
+    {
+      assetComponentCode: "ERS-LUBE",
+      sharedComponentDnaCode: lubricationSystemDna.code,
+      role: "machine lubrication",
+    },
+    {
+      assetComponentCode: "ERS-PROPEL",
+      sharedComponentDnaCode: industrialAcMotorDna.code,
+      role: "propel motors",
+    },
+    {
+      assetComponentCode: "ERS-PROPEL",
+      sharedComponentDnaCode: industrialGearboxComponentDna.code,
+      role: "propel transmissions",
+    },
+    {
+      assetComponentCode: "ERS-BRAKE",
+      sharedComponentDnaCode: frictionBrakeDna.code,
+      role: "machine braking",
+    },
+    {
+      assetComponentCode: "ERS-COOL",
+      sharedComponentDnaCode: coolingSystemDna.code,
+      role: "equipment cooling",
+    },
+  ],
   standards: electricRopeShovelTemplate.standards,
   evidence: [],
   governance: {
@@ -71,6 +175,10 @@ export const engineeringDnaLibrary: EngineeringDnaProfile[] = [
   draglineEngineeringDna,
   sagMillEngineeringDna,
   thickenerEngineeringDna,
+  stackerReclaimerEngineeringDna,
+  miningDozerEngineeringDna,
+  miningGraderEngineeringDna,
+  mobileCrusherEngineeringDna,
 ];
 
 export function getEngineeringDnaProfile(

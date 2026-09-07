@@ -13,10 +13,20 @@
  * basis, not as something the platform inferred. An invented interval sitting
  * underneath an inspection frequency is an invented safety margin.
  */
-import { Radar, Bell, Ruler } from "lucide-react";
+import { useState } from "react";
+import { Radar, Bell, Ruler, Radio } from "lucide-react";
 import { useAsyncData } from "../hooks/useAsyncData";
 import { supabase } from "../lib/supabase";
+import { useAuth } from "./AuthProvider";
 import { LoadingState, ErrorState } from "./ui/AsyncStates";
+import {
+  adoptPfInterval,
+  canAdoptPfInterval,
+  listPfIntervals,
+  type PfIntervalRow,
+} from "../services/reliabilityCallers";
+import { plantHistorianActions } from "../services/plantHistorian";
+import type { PlantHistorianStatus } from "../lib/plant-historian";
 
 interface Alert {
   id: string;
@@ -29,15 +39,6 @@ interface Alert {
   hours_open: number;
   acknowledged: boolean;
   linked_work_order: boolean;
-}
-
-interface Pf {
-  failure_mode: string;
-  technique: string;
-  pf_interval_days: number;
-  recommended_inspection_days: number;
-  status: string;
-  basis: string;
 }
 
 interface Payload {
@@ -66,11 +67,12 @@ interface Payload {
     missed_rate_pct: number | null;
     basis: string;
   };
-  pf_intervals: Pf[];
   pf_note: string;
 }
 
 export function ConditionMonitoring() {
+  const { profile } = useAuth();
+  const canAdopt = canAdoptPfInterval(profile?.role as string | undefined);
   const { data, loading, error, refetch } = useAsyncData<Payload>(async () => {
     const { data: r, error: e } = await supabase.rpc(
       "get_condition_monitoring",
@@ -79,6 +81,17 @@ export function ConditionMonitoring() {
     if (e) throw new Error(e.message);
     return r as Payload;
   }, []);
+  const intervals = useAsyncData<PfIntervalRow[]>(listPfIntervals, []);
+  const plant = useAsyncData<PlantHistorianStatus>(
+    plantHistorianActions.status,
+    [],
+  );
+  const [citing, setCiting] = useState<string | null>(null);
+  const [adopting, setAdopting] = useState<string | null>(null);
+  const [days, setDays] = useState("");
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [flash, setFlash] = useState<string | null>(null);
 
   if (loading) return <LoadingState label="Loading condition monitoring" />;
   if (error) return <ErrorState message={error} onRetry={refetch} />;
@@ -87,7 +100,7 @@ export function ConditionMonitoring() {
   const alerts = data?.active_alerts ?? [];
   const lead = data?.warning_lead_time;
   const pm = data?.pm_task_effectiveness;
-  const pf = data?.pf_intervals ?? [];
+  const pf = intervals.data ?? [];
   const alarms = alerts.filter((a) => a.severity === "alarm").length;
 
   return (
@@ -106,6 +119,27 @@ export function ConditionMonitoring() {
         </h2>
         <p className="mt-1 text-sm text-slate-300">{cov?.basis}</p>
       </div>
+
+      <PlantHistorianEvidence
+        status={plant.data}
+        loading={plant.loading}
+        error={plant.error}
+        onRetry={plant.refetch}
+        citing={citing}
+        onCite={async (id) => {
+          setCiting(id);
+          setFlash(null);
+          try {
+            const result = await plantHistorianActions.attachEvidence(id);
+            setFlash(String(result.note ?? "Historian evidence attached."));
+            await plant.refetch();
+          } catch (caught) {
+            setFlash((caught as Error).message);
+          } finally {
+            setCiting(null);
+          }
+        }}
+      />
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div className="rounded-xl border border-white/6 bg-overlook-deep/40 p-4">
@@ -243,7 +277,22 @@ export function ConditionMonitoring() {
         <p className="mt-1 text-xs leading-relaxed text-slate-400">
           {data?.pf_note}
         </p>
+        <p
+          data-testid="pf-honesty"
+          className="mt-2 rounded-xl border border-white/8 bg-industrial-black/60 px-4 py-3 text-xs text-slate-400"
+        >
+          A recommended interval is not an authorized inspection frequency.
+          Adopt is offered to reliability engineer and administrator, and
+          requires a stated engineering basis (20 characters). The AI-operator
+          identity is not offered Adopt.
+        </p>
       </div>
+
+      {flash && (
+        <p className="rounded-lg border border-white/10 bg-white/4 px-3 py-2 text-sm text-slate-200">
+          {flash}
+        </p>
+      )}
 
       <div className="overflow-x-auto rounded-xl border border-white/6">
         <table className="w-full min-w-[44rem] text-left text-sm">
@@ -268,16 +317,18 @@ export function ConditionMonitoring() {
               <th scope="col" className="px-4 py-2 font-medium">
                 State
               </th>
+              <th scope="col" className="px-4 py-2 font-medium">
+                Act
+              </th>
             </tr>
           </thead>
           <tbody>
             {pf.map((p) => (
-              <tr
-                key={`${p.failure_mode}-${p.technique}`}
-                className="border-t border-white/6 align-top"
-              >
+              <tr key={p.id} className="border-t border-white/6 align-top">
                 <td className="px-4 py-2.5 text-slate-200">{p.failure_mode}</td>
-                <td className="px-4 py-2.5 text-slate-400">{p.technique}</td>
+                <td className="px-4 py-2.5 text-slate-400">
+                  {p.detection_technique}
+                </td>
                 <td className="px-4 py-2.5 font-mono text-slate-300 tabular-nums">
                   {p.pf_interval_days} d
                 </td>
@@ -295,11 +346,209 @@ export function ConditionMonitoring() {
                     {p.status}
                   </span>
                 </td>
+                <td className="px-4 py-2.5">
+                  {p.status === "draft" && canAdopt && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAdopting(p.id);
+                        setDays(String(p.pf_interval_days));
+                        setNote("");
+                        setFlash(null);
+                      }}
+                      className="rounded-lg border border-signal-gold/40 bg-signal-gold/10 px-2.5 py-1 text-xs font-medium text-signal-gold hover:bg-signal-gold/20 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-signal-gold"
+                    >
+                      Adopt
+                    </button>
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+
+      {!canAdopt && (
+        <p className="text-xs text-slate-500">
+          Adopting a P-F interval requires the reliability engineer or
+          administrator role. The AI-operator identity is not offered Adopt. A
+          recommendation on this table is not authorization.
+        </p>
+      )}
+
+      {adopting && (
+        <form
+          aria-label="Adopt P-F interval"
+          className="space-y-3 rounded-xl border border-white/8 bg-overlook-deep/40 p-4"
+          onSubmit={async (e) => {
+            e.preventDefault();
+            setBusy(true);
+            setFlash(null);
+            try {
+              const result = await adoptPfInterval(
+                adopting,
+                Number(days),
+                note,
+              );
+              setFlash(
+                `Adopted at ${result.pf_interval_days} days. Recommended inspection ${result.recommended_inspection_days} days. This is a named-human act, not an AI authorization.`,
+              );
+              setAdopting(null);
+              setNote("");
+              intervals.refetch();
+            } catch (err) {
+              setFlash(
+                err instanceof Error ? err.message : "That did not work.",
+              );
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          <p className="text-sm text-slate-300">
+            Adoption records you. It does not invent a site-specific interval —
+            you must state the engineering basis.
+          </p>
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-slate-400">
+              P-F interval (days)
+            </span>
+            <input
+              aria-label="P-F interval days"
+              type="number"
+              min={0.1}
+              step="any"
+              value={days}
+              onChange={(e) => setDays(e.target.value)}
+              className="w-32 rounded-lg border border-white/10 bg-industrial-black px-3 py-2 font-mono text-sm text-slate-200"
+            />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-slate-400">
+              Engineering basis
+            </span>
+            <textarea
+              aria-label="P-F adoption basis"
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              rows={3}
+              className="w-full rounded-lg border border-white/10 bg-industrial-black px-3 py-2 text-sm text-slate-200"
+            />
+          </label>
+          <div className="flex gap-2">
+            <button
+              type="submit"
+              disabled={busy || note.trim().length < 20 || !(Number(days) > 0)}
+              className="rounded-lg border border-signal-gold/40 bg-signal-gold/10 px-3 py-1.5 text-sm font-medium text-signal-gold hover:bg-signal-gold/20 disabled:opacity-40"
+            >
+              Adopt interval
+            </button>
+            <button
+              type="button"
+              onClick={() => setAdopting(null)}
+              className="rounded-lg border border-white/10 px-3 py-1.5 text-sm text-slate-400"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      )}
     </section>
+  );
+}
+
+function PlantHistorianEvidence({
+  status,
+  loading,
+  error,
+  onRetry,
+  citing,
+  onCite,
+}: {
+  status: PlantHistorianStatus | null;
+  loading: boolean;
+  error: string | null;
+  onRetry: () => void;
+  citing: string | null;
+  onCite: (recommendationId: string) => Promise<void>;
+}) {
+  if (loading) {
+    return (
+      <p className="text-xs text-slate-500">
+        Checking plant historian configuration…
+      </p>
+    );
+  }
+  if (error) {
+    return (
+      <p className="text-xs text-slate-500">
+        Historian status unavailable.{" "}
+        <button type="button" className="underline" onClick={onRetry}>
+          Retry
+        </button>
+      </p>
+    );
+  }
+  const configured = status?.configured ?? false;
+  const recent = status?.recent ?? [];
+  const recs = status?.citable_recommendations ?? [];
+  return (
+    <div
+      className={`rounded-xl border p-4 ${
+        configured && status?.telemetry_mode === "historian_owns"
+          ? "border-signal-cyan/30 bg-signal-cyan/5"
+          : "border-white/6 bg-white/2"
+      }`}
+    >
+      <h3 className="flex items-center gap-2 text-sm font-semibold text-white">
+        <Radio className="h-4 w-4 text-signal-cyan" aria-hidden />
+        Plant historian evidence
+        <span className="text-xs font-normal text-slate-500">
+          {configured
+            ? status?.telemetry_mode === "historian_owns"
+              ? "connector-backed when pulled"
+              : "configured, seed/sim still in force"
+            : "not configured"}
+        </span>
+      </h3>
+      <p className="mt-2 text-xs leading-relaxed text-slate-400">
+        {status?.basis ??
+          "No plant historian is configured. Seed/sim telemetry is not live plant data."}
+      </p>
+      {recent.length > 0 && (
+        <ul className="mt-3 space-y-1 text-xs text-slate-300">
+          {recent.map((row) => (
+            <li key={`${row.source_system}-${row.external_id}-${row.taken_at}`}>
+              <span className="font-mono text-signal-cyan">
+                {row.source_system}
+              </span>
+              {" · "}
+              {row.asset ?? "asset"} / {row.sensor ?? "sensor"} = {row.value} at{" "}
+              {new Date(row.taken_at).toLocaleString()}
+            </li>
+          ))}
+        </ul>
+      )}
+      {recs.length > 0 && (
+        <div className="mt-3 space-y-2">
+          <p className="text-xs text-slate-400">
+            Pending recommendations that can cite these readings:
+          </p>
+          {recs.map((rec) => (
+            <button
+              key={rec.id}
+              type="button"
+              disabled={citing === rec.id}
+              onClick={() => void onCite(rec.id)}
+              className="block rounded-lg border border-signal-cyan/30 px-3 py-1.5 text-xs text-signal-cyan disabled:opacity-40"
+            >
+              {citing === rec.id
+                ? "Attaching…"
+                : `Cite historian readings on: ${rec.title}`}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }

@@ -43,6 +43,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { BrandWordmark } from "./BrandWordmark";
 import { CommandSearch } from "./CommandSearch";
 import { CopilotDock } from "./CopilotDock";
+import { PresenceWelcome } from "./PresenceWelcome";
+import { HelpCenterWidget } from "./HelpCenterWidget";
 import { useAuth } from "./AuthProvider";
 import { isNavItemVisible } from "../lib/roleNavigation";
 
@@ -79,7 +81,7 @@ const AUTONOMY_COLOR = "text-amber-400";
 // The tree follows the corrected spine (docs/enterprise-readiness/
 // navigation-lifecycle-ia.md §2): what we own → what work should exist → the
 // standing programme strategy justifies → the whole-life frame → this week's
-// work → performance. 41 items in 9 groups (5/4/3/2/3/9/7/3/5) — the counts
+// work → performance. 45 items in 9 groups (5/4/5/2/4/10/7/3/5) — the counts
 // roleNavigation.test.ts snapshots. Reliability Strategy sits directly above
 // Maintenance Programme so the parent edge — strategy → programme — reads
 // adjacently in the sidebar.
@@ -148,6 +150,11 @@ const navGroups: NavGroup[] = [
         path: "/reliability/intervals",
       },
       { id: "knowledge", label: "Knowledge Base", path: "/knowledge" },
+      {
+        id: "engineering-models",
+        label: "Engineering Models",
+        path: "/engineering-models",
+      },
     ],
   },
   {
@@ -470,7 +477,7 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="mt-0.5 text-[10px] font-medium uppercase tracking-widest text-slate-400 leading-none"
+              className="mt-2 text-[10px] font-medium uppercase tracking-widest text-slate-400 leading-none"
             >
               Reliability Engineer
             </motion.div>
@@ -800,6 +807,8 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
           </div>
         </header>
 
+        <PresenceWelcome />
+
         {/* Page Content */}
         <main className="flex-1 overflow-auto bg-overlook-void min-w-0 pb-20 md:pb-0">
           {children}
@@ -875,6 +884,7 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
 
       {/* Command Search */}
       <CopilotDock />
+      <HelpCenterWidget />
       <CommandSearch
         open={commandSearchOpen}
         onClose={() => setCommandSearchOpen(false)}

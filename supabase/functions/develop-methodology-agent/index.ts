@@ -105,21 +105,28 @@ async function authenticate(req: Request): Promise<AuthContext | null> {
   const header = req.headers.get("Authorization") ?? "";
   const token = header.startsWith("Bearer ") ? header.slice(7) : "";
   if (!token) return null;
-  const admin = serviceClient();
-  const { data: userResult, error: userError } = await admin.auth.getUser(token);
-  if (userError || !userResult.user) return null;
-  const { data: profile } = await admin
-    .from("user_profiles")
-    .select("organization_id, role")
-    .eq("id", userResult.user.id)
-    .maybeSingle();
-  if (!profile?.organization_id) return null;
-  return {
-    token,
-    userId: userResult.user.id,
-    organizationId: profile.organization_id,
-    role: profile.role ?? "user",
-  };
+  try {
+    const admin = serviceClient();
+    const { data: userResult, error: userError } = await admin.auth.getUser(
+      token,
+    );
+    if (userError || !userResult.user) return null;
+    const { data: profile } = await admin
+      .from("user_profiles")
+      .select("organization_id, role")
+      .eq("id", userResult.user.id)
+      .maybeSingle();
+    if (!profile?.organization_id) return null;
+    return {
+      token,
+      userId: userResult.user.id,
+      organizationId: profile.organization_id,
+      role: profile.role ?? "user",
+    };
+  } catch {
+    // Anon / service JWTs and a thrown getUser must deny, not 500.
+    return null;
+  }
 }
 
 interface KbChunkRow {
@@ -137,12 +144,14 @@ Deno.serve(async (req: Request) => {
     return new Response(null, { status: 204, headers: corsHeaders });
   }
   if (req.method !== "POST") return json({ error: "POST only" }, 405);
+  // Unauthenticated shapes (no bearer, anon key, service role) must 401
+  // before a missing-env 500. Otherwise the first worker hit in CI looks
+  // like an open door when it is only unconfigured.
+  const auth = await authenticate(req);
+  if (!auth) return json({ error: "authentication required" }, 401);
   if (!SUPABASE_URL || !SERVICE_ROLE_KEY || !ANON_KEY) {
     return json({ error: "function is not configured" }, 500);
   }
-
-  const auth = await authenticate(req);
-  if (!auth) return json({ error: "authentication required" }, 401);
 
   let body: { document_id?: string; record?: boolean; query?: string };
   try {

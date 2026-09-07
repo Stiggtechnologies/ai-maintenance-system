@@ -96,6 +96,10 @@ import {
   ObjectiveSection,
   SuccessContractSection,
 } from "../components/develop/ValueSpinePanels";
+import {
+  ApplicableLessonsBanner,
+  RealizeCluster,
+} from "../components/develop/RealizePanels";
 import { CaseChainsPanel } from "../components/develop/CaseChainsPanels";
 import { IntegratedControlsPanel } from "../components/develop/ControlsPanels";
 import { PerformancePanel } from "../components/develop/PerformancePanels";
@@ -103,6 +107,9 @@ import { ScheduleAssurancePanel } from "../components/develop/SchedulePanels";
 import { ChangeAndControlsPanel } from "../components/develop/ChangeControlPanels";
 import { RequirementsThreadPanel } from "../components/develop/RequirementsThreadPanels";
 import { FrontlineDesignPanel } from "../components/develop/FrontlineDesignPanels";
+import { ProcurementPanel } from "../components/develop/ProcurementPanels";
+import { WorkPackagingPanel } from "../components/develop/WorkPackagingPanels";
+import { WorkforcePanel } from "../components/develop/WorkforcePanels";
 import { DigitalThreadPanel } from "../components/develop/DigitalThreadPanels";
 import {
   CaseRamPanel,
@@ -141,6 +148,46 @@ const FRONTLINE_ROLES = [
   "technician",
 ];
 const DESIGN_PLAN_ROLES = [...REVIEW_ROLES, "planner"];
+
+/**
+ * Slice 6A (D6.03/D6.04/D6.05), spec I.16 + §24 + §70.
+ *
+ * PROCUREMENT_PLAN_ROLES: recording a package, moving a §25 dimension,
+ * inviting a bidder, issuing the tender, lodging a bid, opening the envelopes
+ * and evaluating. `ai_admin` is excluded — §70 refuses it BY NAME at the open
+ * and the evaluation doors, so rendering it those forms only offers acts the
+ * server will reject.
+ *
+ * PROCUREMENT_AWARD_ROLES: the two acts that commit the owner's capital —
+ * awarding the contract and approving its commitments. Narrower on purpose,
+ * and matching `award_contract` / `approve_contract_commitments` exactly: a
+ * planner or an engineer holds no contract-award delegation, and offering them
+ * the button would put the refusal after the intent instead of before it.
+ */
+const PROCUREMENT_PLAN_ROLES = [...REVIEW_ROLES, "planner"];
+const PROCUREMENT_AWARD_ROLES = ["admin", "executive", "maintenance_manager"];
+
+/**
+ * Slice 7A (D7.17/D7.10/D7.18/D7.07), spec II.4 + §27 + §28 + §70.
+ *
+ * AWP_PLAN_ROLES: recording a package, packaging work, recording a §28
+ * constraint, forecasting one and verifying one satisfied. `supervisor` is IN
+ * — an installation package's constraints are cleared by the person standing
+ * where the work is — and `ai_admin` is OUT, because §70 refuses it by name at
+ * the constraint-verification wall and offering the form only puts the refusal
+ * after the intent.
+ *
+ * AWP_RELEASE_ROLES: the one act §70 reserves here — saying this work is safe
+ * to start. Matching `release_work_package` exactly: a planner packages the
+ * work and a supervisor or a manager releases it.
+ */
+const AWP_PLAN_ROLES = [...REVIEW_ROLES, "planner", "supervisor"];
+const AWP_RELEASE_ROLES = [
+  "admin",
+  "executive",
+  "maintenance_manager",
+  "supervisor",
+];
 
 const inputClass =
   "w-full rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-signal-cyan/50 focus:outline-none";
@@ -2418,8 +2465,19 @@ export function DevelopmentCaseWorkspacePage() {
     profile?.role != null && FRONTLINE_ROLES.includes(profile.role);
   const canDesignPlan =
     profile?.role != null && DESIGN_PLAN_ROLES.includes(profile.role);
+  /** D9 realize writes refuse ai_admin at the DB. Hide the forms rather than offer a refused act. */
+  const canRealize =
+    profile?.role != null && DESIGN_PLAN_ROLES.includes(profile.role);
   const canAdmin =
     profile?.role != null && ["admin", "executive"].includes(profile.role);
+  const canProcure =
+    profile?.role != null && PROCUREMENT_PLAN_ROLES.includes(profile.role);
+  const canAwardContract =
+    profile?.role != null && PROCUREMENT_AWARD_ROLES.includes(profile.role);
+  const canPackageWork =
+    profile?.role != null && AWP_PLAN_ROLES.includes(profile.role);
+  const canReleasePackage =
+    profile?.role != null && AWP_RELEASE_ROLES.includes(profile.role);
 
   const [workspace, setWorkspace] = useState<CaseWorkspace | null>(null);
   const [members, setMembers] = useState<OrgMember[]>([]);
@@ -2547,6 +2605,24 @@ export function DevelopmentCaseWorkspacePage() {
         >
           Assurance case
         </Link>
+        {/* D13.09 / D7.19 (Slice 7B): the packages awaiting a release
+            decision, across cases — the surface Workflow 4 names. */}
+        <Link
+          to="/execution-readiness"
+          className="rounded-lg border border-white/10 px-2.5 py-1 text-xs text-slate-300 hover:bg-white/5"
+        >
+          Execution readiness
+        </Link>
+        {/* D7.16 (Slice 7C): the composed Sync Field module — packaging,
+            constraint-free work, workface planning, resources and readiness
+            on one surface that recomputes none of them, and names the parts
+            of itself that are still open. */}
+        <Link
+          to={`/sync-field?case=${caseId}`}
+          className="rounded-lg border border-white/10 px-2.5 py-1 text-xs text-slate-300 hover:bg-white/5"
+        >
+          Sync Field
+        </Link>
       </div>
 
       {/* Case header */}
@@ -2568,6 +2644,8 @@ export function DevelopmentCaseWorkspacePage() {
             {workspace.status.replace(/_/g, " ")}
           </span>
         </div>
+
+        <ApplicableLessonsBanner caseId={workspace.id} />
 
         <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
           <div>
@@ -2752,6 +2830,7 @@ export function DevelopmentCaseWorkspacePage() {
         canPlan={canPlan}
         onChanged={() => void load()}
       />
+      <RealizeCluster caseId={workspace.id} canRealize={canRealize} />
       <DeliverablesSection
         workspace={workspace}
         members={members}
@@ -2923,6 +3002,54 @@ export function DevelopmentCaseWorkspacePage() {
       <CaseRamPanel
         caseId={workspace.id}
         canPlan={canPlan}
+        reloadKey={chainsKey}
+      />
+      {/* Procurement, the sealed-bid tender and the §24 contract (Slice 6A):
+          the ProcurementPackage with all four §25 status dimensions, a
+          mandatory long-lead package that cannot arrive when the project needs
+          it blocking the gate through the SAME predicate a breached permit
+          condition rides, bids sealed until one recorded open act, evaluations
+          frozen once written, an award routed through an adopted
+          contract-award delegation by somebody who did not evaluate, and its
+          commitments posted into Slice 4's ONE cost model. */}
+      <ProcurementPanel
+        caseId={workspace.id}
+        canPlan={canProcure}
+        canAward={canAwardContract}
+        currentUserEmail={profile?.email ?? null}
+        reloadKey={chainsKey}
+      />
+      {/* Advanced Work Packaging (Slice 7A): spec II.4's typed EWP → PWP →
+          CWP → IWP chain, enforced at the database so a package cannot skip a
+          level or point at the wrong parent; §27's five package types on the
+          canonical work identity (work_orders stays the work — this packages
+          it); §28's ten constraint types on the ONE constraint store, keeping
+          its satisfied-requires-verifier rule and adding a §70 wall so the
+          verifier is a person; and I.28's FORWARD burn-down — what will block
+          this package and when — recorded as an immutable calculation run
+          rather than recomputed, and refusing over a package nobody has
+          assessed rather than reporting a comfortable zero. */}
+      <WorkPackagingPanel
+        caseId={workspace.id}
+        canPlan={canPackageWork}
+        canRelease={canReleasePackage}
+        reloadKey={chainsKey}
+      />
+      {/* Resources, competency readiness and the workface (Slice 7C): spec
+          I.22's ResourceDemand and ResourceCapacity time-phased across the
+          nine categories on the EXTENDED craft_capacity family — no second
+          capacity store — with the collective position across every project
+          beside it, because six individually executable projects can be
+          collectively impossible and no per-project view can see it. Spec
+          I.23's competency question is asked in the FUTURE TENSE: a ticket
+          that lapses before the work makes its holder not qualified WHEN
+          NEEDED, and the panel says so by name. Every percentage arrives as a
+          refusal-or-number and never as a bare figure — 0 ready of 0 planned
+          is neither 0% nor 100%. */}
+      <WorkforcePanel
+        caseId={workspace.id}
+        canPlan={canPackageWork}
+        canApprove={canReleasePackage}
         reloadKey={chainsKey}
       />
       <InformationEnginePanel caseId={workspace.id} reloadKey={chainsKey} />

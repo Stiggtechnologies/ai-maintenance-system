@@ -7,6 +7,7 @@
 import { describe, expect, it } from "vitest";
 import {
   FACTOR_RATING_SCALES,
+  GATE_READINESS_CATEGORIES,
   GOVERNANCE_FACTORS,
   GOVERNANCE_INTENSITY_LEVELS,
   compileGovernanceRegime,
@@ -62,6 +63,21 @@ describe("the six factors are the spec's, and the levels are four", () => {
     expect(intensityRank("full")).toBe(4);
     expect(intensityRank("nonsense")).toBe(0);
     expect(intensityRank(null)).toBe(0);
+  });
+});
+
+describe("D4.14 cyber is a first-class gate-readiness category", () => {
+  it("publishes the §44 seven plus cyber, in the SQL vocabulary's order", () => {
+    expect([...GATE_READINESS_CATEGORIES]).toEqual([
+      "business",
+      "technical",
+      "risk",
+      "cost_schedule",
+      "operations",
+      "supply",
+      "regulatory",
+      "cyber",
+    ]);
   });
 });
 

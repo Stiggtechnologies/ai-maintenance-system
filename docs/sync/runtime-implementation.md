@@ -20,7 +20,7 @@ Sync is the interaction/orchestration layer around the existing governed industr
 ### Phase 2 — voice
 
 - Voice input reuses the browser speech-recognition adapter already present in the repository.
-- Voice output is a browser `speechSynthesis` adapter behind `sync_voice_output`.
+- Voice output prefers the signed-in `sync-tts` edge function (OpenAI Speech via existing `OPENAI_API_KEY`) and falls back to browser `speechSynthesis`. CopilotDock still gates playback with `sync_voice_output`; Meet Sync speaks when unmuted.
 - Starting dictation stops active TTS first, providing a browser-level barge-in path.
 - Unsupported browsers fail honestly by hiding the unavailable control.
 
@@ -120,7 +120,7 @@ The global shell is the master gate; all other capabilities are inert while it i
 1. **Model-token streaming:** the network transport is real SSE and retrieval/tool/turn state is typed, but the existing `ai-agent-processor` provider call is request/response. `sync-runtime` frames the completed governed answer into bounded `assistant.delta` events after the provider returns. True provider-token streaming should be added inside the existing provider/quota abstraction, not by bypassing it.
 2. **Cancellation at the provider:** cancelling Sync aborts the edge-to-edge call and closes the stream. The current `ai-agent-processor` does not explicitly compose the inbound request abort signal into its model-provider fetch. Do not claim guaranteed token savings until that shared provider path is extended and regression-tested.
 3. **Voice transport:** Phase 2 currently uses browser STT/TTS adapters. It is not yet a server speech platform, telephony layer, wake-word service, or wearable audio transport.
-4. **Meeting capture:** meeting mode provides governed facilitation semantics; it does not yet provide authenticated multi-speaker capture/diarization, calendar joining, or a dedicated meeting-outcome persistence model.
+4. **Meeting capture:** meeting mode provides governed facilitation semantics; it does not yet provide authenticated multi-speaker capture/diarization, calendar joining, or a dedicated meeting-outcome persistence model. Meet Sync booth notes (`presence_meeting_vault`) are signed-in owner-scoped markdown/JSON continuity for Decision Case work — not meeting-mode facilitation, not a Decision Case record, and not authorization.
 5. **Field execution:** field mode is controlled conversational guidance; it is not an offline wearable procedure engine and does not create a control-system write path.
 6. **Tool breadth:** one low-risk reporting tool is wired end-to-end. Additional tools must be registered only by wrapping existing governed RPCs and preserving their role/approval boundaries.
 

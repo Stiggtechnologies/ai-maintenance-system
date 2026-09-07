@@ -58,11 +58,62 @@ describe("customer chrome honesty", () => {
     }
   });
 
+  it("public /workspace keeps the three Bolt honesty holds", () => {
+    const page = readFileSync(
+      "src/pages/DecisionCaseWorkspacePage.tsx",
+      "utf8",
+    );
+    const empty = readFileSync(
+      "src/components/public-ask/PublicAskEmpty.tsx",
+      "utf8",
+    );
+    const rail = readFileSync(
+      "src/components/public-ask/PublicAskRail.tsx",
+      "utf8",
+    );
+    expect(page).toContain("ConversationLearn");
+    expect(page).not.toMatch(/InThreadLearnRecorder/);
+    expect(page).not.toMatch(/LearnUnpersistedPointer/);
+    expect(page).not.toMatch(/from ["'].*PublicProductHeader["']/);
+    expect(page).not.toMatch(/brand-job-title/);
+    expect(empty).not.toMatch(/Reliability Engineer/);
+    expect(rail).not.toMatch(/Reliability Engineer/);
+    expect(page).toContain("caseExists={!emptyConversation}");
+    expect(page).toContain("canExposeBoltSpaces");
+    expect(page).toContain("BoltSpacesPanel");
+    expect(page).not.toMatch(/path=["']\/spaces["']/);
+    const governed = readFileSync(
+      "src/pages/GovernedDecisionWorkspacePage.tsx",
+      "utf8",
+    ).replace(/\s+/g, " ");
+    expect(governed).toContain("Browser drafts — import or discard");
+    expect(governed).toContain("One-time cleanup");
+    expect(governed).toContain("not how new cowork starts");
+    expect(governed).toContain("cowork threads, not Spaces");
+    expect(governed).toContain('data-honesty="draft-banner-not-spaces"');
+    const askCss = readFileSync(
+      "src/components/public-ask/public-ask.css",
+      "utf8",
+    );
+    expect(askCss).toContain(".bolt-ask-overflow");
+    expect(askCss).not.toMatch(
+      /@media[^{]+\{[^}]*\.bolt-ask-tool\[aria-label="Search"\]/,
+    );
+    expect(askCss).toContain(
+      '.bolt-ask-overflow-menu .bolt-ask-tool[aria-label="Search"]',
+    );
+  });
+
   it("first-paint follow-up does not restore gold or a 48-hour offer", () => {
     const firstPaint = [
       "src/lib/first-paint-seeds.ts",
+      "src/lib/public-ask-intents.ts",
+      "src/lib/public-ask-tie-in.ts",
       "src/components/RotatingSeedChip.tsx",
       "src/components/PublicProductHeader.tsx",
+      "src/components/public-ask/PublicAskEmpty.tsx",
+      "src/components/public-ask/PublicAskBar.tsx",
+      "src/components/public-ask/PublicAskRail.tsx",
     ];
     for (const path of firstPaint) {
       const src = readFileSync(path, "utf8");

@@ -5,6 +5,9 @@
     "agent-loop-enrich",
     "ai-agent-processor",
     "autonomous-orchestrator",
+    "cmms-read-pull",
+    "domain-specialist-run",
+    "engineering-model-supply-chain",
     "develop-change-impact-agent",
     "develop-evidence-agent",
     "develop-gate-agent",
@@ -13,10 +16,12 @@
     "develop-risk-agent",
     "lead-notify",
     "onboarding-enrich",
+    "plant-historian-pull",
     "public-reliability-agent",
     "recovery-activation-pull",
     "sync-investigation-runtime",
-    "sync-runtime"
+    "sync-runtime",
+    "sync-tts"
   ],
   "allowedNoVerifyJwt": ["agent-loop-enrich", "onboarding-enrich"],
   "blockedLegacyFunctions": [

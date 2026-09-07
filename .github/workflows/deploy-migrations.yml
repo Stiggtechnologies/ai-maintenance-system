@@ -14,8 +14,14 @@ on:
       - "scripts/configure-production-auth.mjs"
       - "supabase/migrations/**"
       - "supabase/functions/agent-loop-enrich/**"
+      - "supabase/functions/cmms-read-pull/**"
       - "supabase/functions/ai-agent-processor/**"
       - "supabase/functions/autonomous-orchestrator/**"
+      - "supabase/functions/domain-specialist-run/**"
+      - "src/lib/domain-specialists/**"
+      - "supabase/functions/engineering-model-supply-chain/**"
+      - "src/lib/engineering-models/**"
+      - "engineering-model-packs/**"
       - "supabase/functions/develop-evidence-agent/**"
       - "supabase/functions/develop-gate-agent/**"
       - "supabase/functions/develop-methodology-agent/**"
@@ -24,10 +30,12 @@ on:
       - "supabase/functions/develop-risk-agent/**"
       - "supabase/functions/lead-notify/**"
       - "supabase/functions/onboarding-enrich/**"
+      - "supabase/functions/plant-historian-pull/**"
       - "supabase/functions/public-reliability-agent/**"
       - "supabase/functions/recovery-activation-pull/**"
       - "supabase/functions/sync-investigation-runtime/**"
       - "supabase/functions/sync-runtime/**"
+      - "supabase/functions/sync-tts/**"
   workflow_dispatch:
 
 concurrency:
@@ -78,6 +86,9 @@ jobs:
           supabase functions deploy agent-loop-enrich --no-verify-jwt
           supabase functions deploy ai-agent-processor
           supabase functions deploy autonomous-orchestrator
+          supabase functions deploy cmms-read-pull
+          supabase functions deploy domain-specialist-run
+          supabase functions deploy engineering-model-supply-chain
           supabase functions deploy develop-evidence-agent
           supabase functions deploy develop-gate-agent
           supabase functions deploy develop-methodology-agent
@@ -86,10 +97,12 @@ jobs:
           supabase functions deploy develop-risk-agent
           supabase functions deploy lead-notify
           supabase functions deploy onboarding-enrich --no-verify-jwt
+          supabase functions deploy plant-historian-pull
           supabase functions deploy public-reliability-agent
           supabase functions deploy recovery-activation-pull
           supabase functions deploy sync-investigation-runtime
           supabase functions deploy sync-runtime
+          supabase functions deploy sync-tts
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
 
@@ -138,6 +151,57 @@ jobs:
             exit 1
           fi
           echo "Recovery Activation adapter is deployed and JWT-protected (HTTP 401 unauthenticated)."
+
+      - name: Prove Domain Specialist executor is deployed
+        run: |
+          set -euo pipefail
+          endpoint="https://${SUPABASE_PROJECT_ID}.supabase.co/functions/v1/domain-specialist-run"
+          status=$(curl --silent --show-error --output /tmp/domain-specialist-probe.txt \
+            --write-out '%{http_code}' \
+            --request POST \
+            --header 'Content-Type: application/json' \
+            --data '{}' \
+            "$endpoint")
+          cat /tmp/domain-specialist-probe.txt || true
+          if [ "$status" != "401" ]; then
+            echo "::error title=Domain Specialist boundary probe failed::Expected JWT-protected deployed function to return HTTP 401 without credentials; got HTTP ${status}."
+            exit 1
+          fi
+          echo "Domain Specialist executor is deployed and JWT-protected (HTTP 401 unauthenticated)."
+
+      - name: Prove Plant historian adapter is deployed
+        run: |
+          set -euo pipefail
+          endpoint="https://${SUPABASE_PROJECT_ID}.supabase.co/functions/v1/plant-historian-pull"
+          status=$(curl --silent --show-error --output /tmp/plant-historian-probe.txt \
+            --write-out '%{http_code}' \
+            --request POST \
+            --header 'Content-Type: application/json' \
+            --data '{"connector_key":"boundary-probe","dry_run":true}' \
+            "$endpoint")
+          cat /tmp/plant-historian-probe.txt || true
+          if [ "$status" != "401" ]; then
+            echo "::error title=Plant historian boundary probe failed::Expected JWT-protected deployed function to return HTTP 401 without credentials; got HTTP ${status}."
+            exit 1
+          fi
+          echo "Plant historian adapter is deployed and JWT-protected (HTTP 401 unauthenticated)."
+
+      - name: Prove CMMS read adapter is deployed
+        run: |
+          set -euo pipefail
+          endpoint="https://${SUPABASE_PROJECT_ID}.supabase.co/functions/v1/cmms-read-pull"
+          status=$(curl --silent --show-error --output /tmp/cmms-read-probe.txt \
+            --write-out '%{http_code}' \
+            --request POST \
+            --header 'Content-Type: application/json' \
+            --data '{"connector_key":"boundary-probe","dry_run":true}' \
+            "$endpoint")
+          cat /tmp/cmms-read-probe.txt || true
+          if [ "$status" != "401" ]; then
+            echo "::error title=CMMS read adapter boundary probe failed::Expected JWT-protected deployed function to return HTTP 401 without credentials; got HTTP ${status}."
+            exit 1
+          fi
+          echo "CMMS read adapter is deployed and JWT-protected (HTTP 401 unauthenticated)."
 
       - name: Prove production app boundary is reachable
         run: |

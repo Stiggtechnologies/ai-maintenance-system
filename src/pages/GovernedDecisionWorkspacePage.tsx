@@ -13,7 +13,8 @@
  *     add_decision_option, select_decision_option) — one editor, linked,
  *     not duplicated;
  *   * any drafts a browser still holds from the old surface appear in an
- *     explicit "unsaved local drafts" banner with a ONE-TIME IMPORT path
+ *     explicit "browser drafts — import or discard" banner (not Spaces,
+ *     not cowork, not governed decisions) with a ONE-TIME IMPORT path
  *     (frame the draft as a canonical case decision) and an explicit
  *     discard — never silent loss, never silent continuation;
  *   * the public value-proof demo keeps its own sessionStorage surface —
@@ -29,7 +30,10 @@ import {
   Trash2,
 } from "lucide-react";
 import { type DecisionCase } from "../lib/decision-case";
-import { readStoredDecisionDrafts, removeStoredDecisionDraft } from "../lib/decision-case-drafts";
+import {
+  readStoredDecisionDrafts,
+  removeStoredDecisionDraft,
+} from "../lib/decision-case-drafts";
 import {
   createCaseDecision,
   getGovernedDecision,
@@ -49,6 +53,10 @@ function money(value: number | null): string {
     value,
   );
 }
+
+/** Visible DraftBanner copy. Keep "cowork threads, not Spaces" contiguous — chromeHonesty reads this source. */
+const BROWSER_DRAFT_CLEANUP_COPY =
+  "One-time cleanup of leftover localStorage DecisionCase drafts from the old workspace. This is not how new cowork starts. They are not cowork threads, not Spaces, and not governed decisions. Import into a development case only if that leftover actually belongs there, or discard it. These rows are not links.";
 
 function DraftBanner({
   onImported,
@@ -75,18 +83,18 @@ function DraftBanner({
   if (drafts.length === 0) return null;
 
   return (
-    <div className="rounded-xl border border-amber-400/30 bg-amber-400/5 p-4">
+    <div
+      className="rounded-xl border border-amber-400/30 bg-amber-400/5 p-4"
+      data-testid="browser-draft-banner"
+      data-honesty="draft-banner-not-spaces"
+    >
       <div className="flex items-center gap-2 text-sm font-semibold text-amber-300">
         <AlertTriangle className="h-4 w-4" aria-hidden />
-        {drafts.length} unsaved local decision draft
-        {drafts.length === 1 ? "" : "s"}
+        Browser drafts — import or discard
+        {drafts.length === 1 ? "" : ` · ${drafts.length} leftover`}
       </div>
       <p className="mt-1 text-xs text-amber-200/80">
-        These exist only in this browser&apos;s localStorage — they are NOT
-        part of the governed record and nothing else can see them. Import
-        each into a development case (it becomes a canonical decision the
-        gates and audits see), or discard it explicitly. This banner will not
-        act on your behalf.
+        {BROWSER_DRAFT_CLEANUP_COPY}
       </p>
       {error && <p className="mt-2 text-xs text-red-300">{error}</p>}
       <div className="mt-3 flex items-center gap-2">
@@ -94,6 +102,7 @@ function DraftBanner({
           value={targetCase}
           onChange={(e) => setTargetCase(e.target.value)}
           className={inputClass}
+          aria-label="Import target development case"
         >
           <option value="">Import target: select a development case</option>
           {cases.map((c) => (
@@ -104,21 +113,25 @@ function DraftBanner({
         </select>
         {cases.length === 0 && (
           <span className="text-xs text-amber-200/70">
-            No development cases exist yet — create one at /develop/new first.
+            Import stays disabled until a development case is selected.
           </span>
         )}
       </div>
-      <div className="mt-2 space-y-2">
+      <ul className="mt-2 space-y-2" aria-label="Browser drafts">
         {drafts.map((draft) => (
-          <div
+          <li
             key={draft.id}
-            className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-white/[0.03] px-3 py-2 text-xs"
+            data-testid="browser-draft-row"
+            className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-400/15 bg-amber-400/[0.04] px-3 py-2 text-xs"
           >
             <div>
-              <span className="font-semibold text-slate-200">
+              <span className="mr-2 inline-block rounded bg-amber-400/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-200">
+                Browser draft
+              </span>
+              <span className="text-amber-100/90">
                 {draft.caseNumber} · {draft.title}
               </span>
-              <span className="text-slate-500">
+              <span className="text-amber-200/50">
                 {" "}
                 — {draft.objective} (last touched{" "}
                 {new Date(draft.updatedAt).toLocaleDateString()})
@@ -126,6 +139,7 @@ function DraftBanner({
             </div>
             <div className="flex items-center gap-2">
               <button
+                type="button"
                 disabled={busyId != null || targetCase === ""}
                 onClick={() => {
                   setBusyId(draft.id);
@@ -150,16 +164,17 @@ function DraftBanner({
                     )
                     .finally(() => setBusyId(null));
                 }}
-                className="rounded-lg border border-emerald-400/30 bg-emerald-400/10 px-2.5 py-1 font-semibold text-emerald-300 disabled:opacity-50"
+                className="rounded-lg border border-emerald-400/30 bg-emerald-400/10 px-2.5 py-1 font-semibold text-emerald-300 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {busyId === draft.id ? "Importing…" : "Import into case"}
+                {busyId === draft.id ? "Importing…" : "Import"}
               </button>
               <button
+                type="button"
                 disabled={busyId != null}
                 onClick={() => {
                   if (
                     window.confirm(
-                      `Discard local draft "${draft.title}"? It exists nowhere else and this cannot be undone.`,
+                      `Discard browser draft "${draft.title}"? It exists nowhere else and this cannot be undone.`,
                     )
                   ) {
                     removeStoredDecisionDraft(window.localStorage, draft.id);
@@ -171,9 +186,9 @@ function DraftBanner({
                 <Trash2 className="h-3 w-3" aria-hidden /> Discard
               </button>
             </div>
-          </div>
+          </li>
         ))}
-      </div>
+      </ul>
     </div>
   );
 }
@@ -286,10 +301,10 @@ export function GovernedDecisionWorkspacePage() {
         <h1 className="text-lg font-bold text-white">Decision Workspace</h1>
       </div>
       <p className="max-w-3xl text-xs text-slate-400">
-        The governed record: every decision here is a `decisions` row bound
-        to a development case, its options are `scenarios` rows, and a
-        selection is the audited human act recorded through the case
-        workspace — localStorage is never a system of record.
+        The governed record: every decision here is a `decisions` row bound to a
+        development case, its options are `scenarios` rows, and a selection is
+        the audited human act recorded through the case workspace — localStorage
+        is never a system of record.
       </p>
 
       <DraftBanner
@@ -307,9 +322,9 @@ export function GovernedDecisionWorkspacePage() {
         detail?.decision == null ? (
           <div className="space-y-3">
             <p className="text-sm text-slate-400">
-              No governed decision with this id exists in your organization.
-              If this was an old local draft, it appears in the banner above
-              when this browser still holds it.
+              No governed decision with this id exists in your organization. If
+              this was an old local draft, it appears in the banner above when
+              this browser still holds it.
             </p>
             <button
               onClick={() => navigate("/decision-cases")}
@@ -368,8 +383,8 @@ export function GovernedDecisionWorkspacePage() {
       ) : decisions.length === 0 ? (
         <div className="rounded-xl border border-white/6 bg-[#0D1520] p-6 text-sm text-slate-400">
           No governed decisions exist yet. Frame one in a Case Workspace
-          (Decisions section) — it will appear here with its options matrix
-          and approval routing.{" "}
+          (Decisions section) — it will appear here with its options matrix and
+          approval routing.{" "}
           <Link to="/develop" className="text-signal-cyan underline">
             Open Develop
           </Link>

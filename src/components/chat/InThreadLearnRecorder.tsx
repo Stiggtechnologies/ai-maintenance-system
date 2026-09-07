@@ -1,8 +1,9 @@
 /**
  * Named-human recorder UI (Feature bar from #309: no default; submit needs
- * result AND note). Decision Workspace must not mount this. That surface has
- * no obligation id and does not call record_verification_result. The live
- * write path is Learning Loop → VerificationLoop → recordVerificationResult.
+ * result AND note). Mount only when an obligation id is already resolved.
+ * Persist is the caller's job: `recordVerificationResult` →
+ * `record_verification_result`. Success copy comes from that return, never
+ * from a local "Outcome recorded" string.
  */
 import { useState } from "react";
 
@@ -16,12 +17,19 @@ const OPTIONS: Array<{ value: LearnResult; label: string }> = [
 
 export function InThreadLearnRecorder({
   onSubmit,
+  obligationLabel,
+  method,
 }: {
-  onSubmit: (result: LearnResult, note: string) => void;
+  onSubmit: (result: LearnResult, note: string) => Promise<string> | string;
+  obligationLabel?: string;
+  method?: string;
 }) {
   const [result, setResult] = useState<LearnResult | null>(null);
   const [note, setNote] = useState("");
-  const canSubmit = result !== null && note.trim() !== "";
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  const canSubmit = result !== null && note.trim() !== "" && !busy && !success;
 
   return (
     <form
@@ -30,11 +38,39 @@ export function InThreadLearnRecorder({
       onSubmit={(event) => {
         event.preventDefault();
         if (!canSubmit || result === null) return;
-        onSubmit(result, note.trim());
+        setBusy(true);
+        setError(null);
+        void Promise.resolve(onSubmit(result, note.trim()))
+          .then((detail) => {
+            const text = detail.trim();
+            if (text === "") {
+              throw new Error("Verification result was not recorded.");
+            }
+            setNote("");
+            setResult(null);
+            setSuccess(text);
+          })
+          .catch((caught: unknown) => {
+            setSuccess(null);
+            setError(
+              caught instanceof Error
+                ? caught.message
+                : "Verification was not recorded.",
+            );
+          })
+          .finally(() => {
+            setBusy(false);
+          });
       }}
     >
       <h3>Record the outcome</h3>
-      <fieldset>
+      {obligationLabel && (
+        <p className="dw-learn-subject" data-testid="learn-obligation-label">
+          {obligationLabel}
+        </p>
+      )}
+      {method && <p className="dw-learn-method">{method}</p>}
+      <fieldset disabled={busy || Boolean(success)}>
         <legend className="sr-only">Outcome</legend>
         {OPTIONS.map((option) => (
           <label key={option.value}>
@@ -55,11 +91,26 @@ export function InThreadLearnRecorder({
           value={note}
           onChange={(event) => setNote(event.target.value)}
           placeholder="What was measured, against what, and when"
+          disabled={busy || Boolean(success)}
         />
       </label>
       <button type="submit" disabled={!canSubmit}>
-        Record outcome
+        {busy ? "Recording…" : "Record outcome"}
       </button>
+      <p className="dw-learn-bound">
+        Named human attestation. A recommendation is not authorization. This
+        does not execute plant action.
+      </p>
+      {error && (
+        <p className="dw-learn-error" role="alert">
+          {error}
+        </p>
+      )}
+      {success && (
+        <p className="dw-learn-ok" role="status" data-testid="learn-recorded">
+          {success}
+        </p>
+      )}
     </form>
   );
 }

@@ -1,0 +1,834 @@
+/* Bolt Mode A / Mode B public workspace. Light canvas only — do not inherit
+   the dark Decision Workspace void. Authenticated / ops routes stay dark. */
+
+.bolt-public {
+  --bolt-ink: #2b3036;
+  --bolt-muted: #8b939c;
+  --bolt-line: #e6e8eb;
+  --bolt-soft: #f3f4f6;
+  --bolt-teal: #12b5a0;
+  --bolt-send: #12b5a0;
+  --bolt-canvas: #ffffff;
+  height: 100dvh;
+  min-height: 100dvh;
+  display: flex;
+  background: var(--bolt-canvas);
+  color: var(--bolt-ink);
+  font-family: "Inter Variable", Inter, system-ui, sans-serif;
+}
+
+.bolt-rail {
+  display: flex;
+  width: 76px;
+  flex: 0 0 76px;
+  flex-direction: column;
+  align-items: center;
+  padding: 16px 8px 18px;
+  border-right: 1px solid var(--bolt-line);
+  background: var(--bolt-canvas);
+}
+
+.bolt-rail-top,
+.bolt-rail-main,
+.bolt-rail-foot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+}
+
+.bolt-rail-main {
+  margin-top: 18px;
+  gap: 4px;
+}
+
+.bolt-rail-foot {
+  margin-top: auto;
+}
+
+.bolt-rail-item {
+  width: 60px;
+  min-height: 52px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 6px 4px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: #5d656e;
+  text-decoration: none;
+  font-size: 11px;
+  line-height: 1.15;
+  cursor: pointer;
+}
+
+.bolt-rail-item svg {
+  width: 20px;
+  height: 20px;
+}
+
+.bolt-rail-item.is-active {
+  background: var(--bolt-soft);
+  color: var(--bolt-ink);
+}
+
+.bolt-rail-item:hover,
+.bolt-rail-item:focus-visible {
+  background: var(--bolt-soft);
+  color: var(--bolt-ink);
+}
+
+.bolt-rail-item:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.bolt-rail-mark {
+  width: 60px;
+  min-height: 36px;
+  display: grid;
+  place-items: center;
+  color: #5d656e;
+}
+
+.bolt-rail-mark svg {
+  width: 20px;
+  height: 20px;
+}
+
+.bolt-stage {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--bolt-canvas);
+}
+
+.bolt-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  padding: 12vh 24px;
+}
+
+.bolt-brand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 0 0 28px;
+}
+
+.bolt-wordmark {
+  margin: 0;
+  color: #3a3f46;
+  font-size: 42px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+
+.bolt-pro {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 6px;
+  background: var(--bolt-teal);
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  line-height: 1;
+  text-transform: lowercase;
+}
+
+.bolt-ask {
+  width: min(540px, 100%);
+  min-width: 0;
+}
+
+.bolt-ask-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  min-height: 48px;
+  padding: 4px 4px 4px 16px;
+  container-type: inline-size;
+  container-name: bolt-ask;
+  border: 1px solid #dfe3e8;
+  border-radius: 999px;
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgba(20, 24, 28, 0.04);
+}
+
+.bolt-ask-bar:focus-within {
+  border-color: #c9cfd6;
+  box-shadow: 0 0 0 3px rgba(18, 181, 160, 0.08);
+}
+
+.bolt-ask-bar textarea {
+  min-width: 0;
+  min-height: 28px;
+  max-height: 96px;
+  flex: 1 1 0;
+  resize: none;
+  border: 0;
+  outline: 0;
+  padding: 8px 0;
+  color: var(--bolt-ink);
+  background: transparent;
+  font: inherit;
+  font-size: 15px;
+  line-height: 1.4;
+}
+
+.bolt-ask-bar textarea::placeholder {
+  color: #9aa3ad;
+}
+
+.bolt-ask-tools {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.bolt-ask-gap {
+  width: 8px;
+  flex: 0 0 8px;
+}
+
+.bolt-ask-tool {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  color: #6b7280;
+  background: transparent;
+  cursor: pointer;
+}
+
+.bolt-ask-tool:hover:not(:disabled),
+.bolt-ask-tool:focus-visible:not(:disabled) {
+  background: var(--bolt-soft);
+  color: var(--bolt-ink);
+}
+
+.bolt-ask-tool:disabled {
+  color: #c4c9cf;
+  cursor: not-allowed;
+}
+
+.bolt-ask-tool.is-live {
+  color: #dc4c4c;
+  background: #fdecec;
+}
+
+.bolt-ask-send {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  color: #ffffff;
+  background: var(--bolt-send);
+  cursor: pointer;
+}
+
+.bolt-ask-send:hover:not(:disabled),
+.bolt-ask-send:focus-visible:not(:disabled) {
+  filter: brightness(0.96);
+}
+
+.bolt-ask-send:disabled {
+  background: #d5dbe1;
+  color: #ffffff;
+  cursor: not-allowed;
+}
+
+.bolt-ask-overflow {
+  display: none;
+  position: relative;
+  flex: 0 0 32px;
+}
+
+.bolt-ask-overflow-label {
+  display: none;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.bolt-ask-overflow-toggle {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  color: #6b7280;
+  background: transparent;
+  cursor: pointer;
+}
+
+.bolt-ask-overflow-toggle:hover,
+.bolt-ask-overflow-toggle:focus-visible,
+.bolt-ask-overflow-toggle[aria-expanded="true"] {
+  background: var(--bolt-soft);
+  color: var(--bolt-ink);
+}
+
+.bolt-ask-overflow-menu {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 8px);
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 176px;
+  padding: 6px;
+  border: 1px solid var(--bolt-line);
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 12px 32px rgba(20, 24, 28, 0.12);
+}
+
+.bolt-ask-overflow-menu .bolt-ask-tool {
+  width: auto;
+  min-width: 100%;
+  height: 40px;
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  gap: 10px;
+  padding: 0 10px;
+  border-radius: 8px;
+}
+
+.bolt-ask-overflow-menu .bolt-ask-overflow-label {
+  display: inline;
+}
+
+.bolt-ask-overflow-menu .bolt-ask-gap {
+  display: none;
+}
+
+.bolt-ask-overflow-menu .bolt-ask-tool[aria-label="Search"],
+.bolt-ask-overflow-menu .bolt-ask-tool[aria-label="Web search"],
+.bolt-ask-overflow-menu .bolt-ask-tool[aria-label="Link"] {
+  display: flex;
+}
+
+.bolt-pills {
+  display: flex;
+  flex-wrap: nowrap;
+  justify-content: center;
+  gap: 8px;
+  width: min(560px, 100%);
+  max-width: 100%;
+  margin: 18px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.bolt-pills > li {
+  flex: 0 0 auto;
+  width: auto;
+}
+
+.bolt-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 0 10px;
+  white-space: nowrap;
+  border: 1px solid #e1e5ea;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #3f4650;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.bolt-pill:hover,
+.bolt-pill:focus-visible {
+  border-color: #cfd5dc;
+  background: #fafbfc;
+  color: var(--bolt-ink);
+}
+
+.bolt-pill svg {
+  width: 15px;
+  height: 15px;
+  color: #6b7280;
+}
+
+.bolt-thread-bar {
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 18px;
+  border-bottom: 1px solid var(--bolt-line);
+  background: var(--bolt-canvas);
+}
+
+.bolt-thread-bar-side {
+  display: flex;
+  align-items: center;
+  min-width: 44px;
+}
+
+.bolt-thread-bar-side.is-end {
+  justify-content: flex-end;
+  min-width: 96px;
+}
+
+.bolt-thread-title {
+  overflow: hidden;
+  color: var(--bolt-ink);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.bolt-icon,
+.bolt-view-record {
+  min-height: 44px;
+  border: 1px solid var(--bolt-line);
+  border-radius: 8px;
+  background: #ffffff;
+  color: #4b5560;
+  cursor: pointer;
+}
+
+.bolt-icon {
+  width: 44px;
+  display: grid;
+  place-items: center;
+}
+
+.bolt-view-record {
+  padding: 0 12px;
+  font-size: 13px;
+  font-weight: 550;
+}
+
+.bolt-icon:hover,
+.bolt-view-record:hover,
+.bolt-icon:focus-visible,
+.bolt-view-record:focus-visible {
+  background: var(--bolt-soft);
+  color: var(--bolt-ink);
+}
+
+.bolt-layout {
+  flex: 1;
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+}
+
+.bolt-layout.is-rail-open .dw-rail {
+  display: flex;
+  border-right-color: var(--bolt-line);
+  background: #fbfbfc;
+}
+
+.bolt-stage > .bolt-spaces-panel {
+  position: absolute;
+  inset: 0 auto 0 0;
+  z-index: 6;
+  display: flex;
+  width: min(280px, 88vw);
+  flex-direction: column;
+  overflow: auto;
+  border-right: 1px solid var(--bolt-line);
+  background: #fbfbfc;
+}
+
+.bolt-spaces-empty {
+  margin: 8px 10px;
+  color: var(--bolt-muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.bolt-spaces-live {
+  display: block;
+  margin: 12px 10px 14px;
+  padding: 8px 10px;
+  border: 1px solid var(--bolt-line);
+  border-radius: 8px;
+  color: #0f766e;
+  font-size: 12px;
+  font-weight: 550;
+  text-align: center;
+  text-decoration: none;
+}
+
+.bolt-spaces-live:hover,
+.bolt-spaces-live:focus-visible {
+  background: var(--bolt-soft);
+}
+
+.bolt-public .dw-new {
+  border-color: #14b8a6;
+  color: #0f766e !important;
+  background: #ecfdf8;
+}
+
+.bolt-public .dw-case-row strong {
+  color: var(--bolt-ink);
+}
+
+.bolt-public .dw-case-row small,
+.bolt-public .dw-section-label {
+  color: var(--bolt-muted);
+}
+
+.bolt-public .dw-case-row:hover,
+.bolt-public .dw-case-row.active {
+  background: var(--bolt-soft);
+}
+
+.bolt-thread-bar-side.is-center {
+  flex: 1;
+  justify-content: center;
+  min-width: 0;
+}
+
+.bolt-main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  background: var(--bolt-canvas);
+}
+
+.bolt-public .dw-thread {
+  padding: 20px 28px 16px;
+  scrollbar-color: #c5ccd3 transparent;
+}
+
+.bolt-public .dw-message header strong {
+  color: var(--bolt-ink);
+}
+
+.bolt-public .dw-message header span,
+.bolt-public .dw-system-turn {
+  color: var(--bolt-muted);
+}
+
+.bolt-public .dw-message p,
+.bolt-public .dw-message-markdown {
+  color: #3a4048;
+}
+
+.bolt-public .role-user > div {
+  border-color: #d7dde3;
+  background: #f3f4f6;
+}
+
+.bolt-public .role-system > div {
+  border-left-color: #cbd5dc;
+  background: #f6f7f8;
+}
+
+.bolt-public .dw-avatar {
+  border-color: #d7dde3;
+  color: var(--bolt-teal);
+  background: #f1fbf8;
+}
+
+.bolt-public .role-user .dw-avatar {
+  border-color: #d7dde3;
+  color: #4b5560;
+  background: var(--bolt-soft);
+}
+
+.bolt-public .dw-rec-block {
+  border-color: var(--bolt-line);
+  background: #f8fafb;
+}
+
+.bolt-public .dw-rec-block h3 {
+  color: #3a4048;
+}
+
+.bolt-public .dw-rec-block ul,
+.bolt-public .dw-rec-block li {
+  color: #3f4650;
+}
+
+.bolt-public .dw-rec-recommendation {
+  border-color: #b7e6dc;
+}
+
+.bolt-public .dw-rec-recommendation h3 {
+  color: #0f766e;
+}
+
+.bolt-public .dw-rec-recommendation > p {
+  color: #3a4048;
+}
+
+.bolt-public .dw-rec-authority {
+  color: #5d656e !important;
+}
+
+.bolt-public .dw-rec-actions button {
+  border-color: #d7dde3;
+  color: #3a4048;
+  background: #ffffff;
+}
+
+.bolt-public .dw-rec-approve {
+  border-color: #14b8a6 !important;
+  color: #0f766e !important;
+  background: #ecfdf8 !important;
+}
+
+.bolt-public .dw-composer-wrap,
+.bolt-ask-dock {
+  padding: 10px 22px 18px;
+  border-top: 1px solid var(--bolt-line);
+  background: var(--bolt-canvas);
+}
+
+.bolt-public .dw-attach-chip {
+  border-color: var(--bolt-line);
+  background: #f8fafb;
+  color: #3a4048;
+}
+
+.bolt-public .dw-attach-error {
+  border-color: #ead7a8;
+  background: #fff8e8;
+  color: #7a5b14;
+}
+
+.bolt-public .dw-plus-sheet {
+  border-color: var(--bolt-line);
+  background: #ffffff;
+  box-shadow: 0 12px 32px rgba(20, 24, 28, 0.12);
+}
+
+.bolt-public .dw-plus-sheet button {
+  color: var(--bolt-ink);
+}
+
+.bolt-public .dw-plus-sheet button:hover {
+  background: var(--bolt-soft);
+}
+
+.bolt-public .dw-composer-meta {
+  color: var(--bolt-muted);
+}
+
+.bolt-public .dw-thinking i {
+  background: #9aa3ad;
+}
+
+/* Mode B LEARN pointer must stay readable on the light canvas. Dark
+   .dw-learn would look dropped and invite a fake recorder. */
+.bolt-public .dw-learn {
+  border-color: var(--bolt-line);
+  background: #f8fafb;
+  color: #3a4048;
+}
+
+.bolt-public .dw-learn p {
+  margin: 0 0 8px;
+  color: #3a4048;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.bolt-public .dw-learn p:last-child {
+  margin-bottom: 0;
+}
+
+.bolt-public .dw-learn a {
+  color: #0f766e;
+}
+
+.bolt-public .dw-learn-stack {
+  max-width: 790px;
+  margin: 0 0 18px;
+}
+
+.bolt-public .dw-learn-honest,
+.bolt-public .dw-learn-bound,
+.bolt-public .dw-learn-subject,
+.bolt-public .dw-learn-method,
+.bolt-public .dw-learn-pick {
+  color: #3a4048;
+}
+
+.bolt-public .dw-learn-pick select,
+.bolt-public .dw-learn-note input {
+  border-color: var(--bolt-line);
+  color: var(--bolt-ink);
+  background: #fff;
+}
+
+.bolt-public .dw-learn-error {
+  color: #9a3412;
+}
+
+.bolt-public .dw-learn-ok {
+  color: #0f766e;
+}
+
+/* Phone-narrow bar: placeholder + teal send stay in the stadium.
+   Search / image / attach / globe / paperclip / mic sit behind +. */
+@container bolt-ask (max-width: 479px) {
+  .bolt-ask-tools {
+    display: none;
+  }
+
+  .bolt-ask-overflow {
+    display: block;
+  }
+
+  .bolt-ask-send {
+    flex: 0 0 32px;
+    width: 32px;
+    height: 32px;
+  }
+}
+
+@media (max-width: 479px) {
+  .bolt-ask-tools {
+    display: none;
+  }
+
+  .bolt-ask-overflow {
+    display: block;
+  }
+}
+
+.bolt-file-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+
+@media (max-width: 767px) {
+  .bolt-public {
+    flex-direction: column;
+  }
+
+  .bolt-rail {
+    order: 2;
+    width: 100%;
+    flex: 0 0 auto;
+    flex-direction: row;
+    justify-content: space-around;
+    align-items: stretch;
+    gap: 4px;
+    padding: 6px 10px calc(8px + env(safe-area-inset-bottom));
+    border-right: 0;
+    border-top: 1px solid var(--bolt-line);
+  }
+
+  .bolt-rail-top {
+    display: none;
+  }
+
+  .bolt-rail-main,
+  .bolt-rail-foot {
+    flex-direction: row;
+    margin: 0;
+    width: auto;
+    flex: 1;
+  }
+
+  .bolt-rail-item {
+    width: auto;
+    flex: 1;
+    min-height: 48px;
+  }
+
+  .bolt-stage {
+    order: 1;
+    flex: 1;
+  }
+
+  .bolt-empty {
+    padding: 10vh 12px;
+  }
+
+  .bolt-wordmark {
+    font-size: 34px;
+  }
+
+  .bolt-ask-bar {
+    min-height: 48px;
+    padding-left: 14px;
+  }
+
+  .bolt-ask-tools .bolt-ask-tool[aria-label="Search"],
+  .bolt-ask-tools .bolt-ask-tool[aria-label="Web search"],
+  .bolt-ask-tools .bolt-ask-tool[aria-label="Link"],
+  .bolt-ask-tools .bolt-ask-gap {
+    display: none;
+  }
+
+  .bolt-pills {
+    flex-wrap: wrap;
+    justify-content: center;
+    width: 100%;
+    gap: 8px;
+  }
+
+  .bolt-ask,
+  .bolt-ask-dock .bolt-ask-bar {
+    width: 100%;
+  }
+
+  .bolt-ask-tool {
+    flex: 0 0 32px;
+    width: 32px;
+    height: 32px;
+  }
+
+  .bolt-ask-send {
+    flex: 0 0 32px;
+    width: 32px;
+    height: 32px;
+  }
+
+  .bolt-public .dw-thread {
+    padding: 16px 16px 12px;
+  }
+
+  .bolt-ask-dock {
+    padding: 8px 12px 10px;
+  }
+}

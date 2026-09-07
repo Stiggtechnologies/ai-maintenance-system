@@ -1,4 +1,6 @@
 import type { PhysicsCapabilityDefinition } from "./physics-capability";
+import { toPhysicsCapabilityDefinition } from "../engineering-models/physics-capability-adapter";
+import { shaftResonanceModelPack } from "../engineering-models/resonance";
 
 const governed = {
   reviewState: "draft" as const,
@@ -248,6 +250,7 @@ export const bearingKinematicsPhysicsCapability: PhysicsCapabilityDefinition = {
 export const physicsCapabilityLibrary: PhysicsCapabilityDefinition[] = [
   rotatingMachineryPhysicsCapability,
   bearingKinematicsPhysicsCapability,
+  toPhysicsCapabilityDefinition(shaftResonanceModelPack),
 ];
 
 export function getPhysicsCapability(code: string): PhysicsCapabilityDefinition | undefined {

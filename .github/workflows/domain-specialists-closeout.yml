@@ -1,0 +1,106 @@
+name: Domain Specialists and Quality Closeout
+
+on:
+  pull_request:
+    paths:
+      - "src/lib/domain-specialists/**"
+      - "src/lib/quality-management/**"
+      - "src/lib/industry-profiles/**"
+      - "src/lib/risk-operating-system/**"
+      - "src/components/DomainSpecialistWorkbench.tsx"
+      - "src/components/QualityManagementWorkbench.tsx"
+      - "src/services/domainSpecialistService.ts"
+      - "src/services/qualityManagementService.ts"
+      - "src/pages/RiskOperatingSystemPage.tsx"
+      - "src/test/domainSpecialistContract.test.ts"
+      - "src/test/qualityManagementContract.test.ts"
+      - "supabase/functions/domain-specialist-run/**"
+      - "supabase/migrations/**"
+      - "scripts/ci-domain-specialists-smoke.sh"
+      - "scripts/ci-quality-management-smoke.sh"
+      - "scripts/quality-management-transaction-smoke.sql"
+      - "config/edge-function-boundary.json"
+      - ".github/workflows/domain-specialists-closeout.yml"
+  push:
+    branches: [main]
+    paths:
+      - "src/lib/domain-specialists/**"
+      - "src/lib/quality-management/**"
+      - "src/lib/industry-profiles/**"
+      - "src/lib/risk-operating-system/**"
+      - "src/components/DomainSpecialistWorkbench.tsx"
+      - "src/components/QualityManagementWorkbench.tsx"
+      - "src/services/domainSpecialistService.ts"
+      - "src/services/qualityManagementService.ts"
+      - "src/pages/RiskOperatingSystemPage.tsx"
+      - "src/test/domainSpecialistContract.test.ts"
+      - "src/test/qualityManagementContract.test.ts"
+      - "supabase/functions/domain-specialist-run/**"
+      - "supabase/migrations/**"
+      - "scripts/ci-domain-specialists-smoke.sh"
+      - "scripts/ci-quality-management-smoke.sh"
+      - "scripts/quality-management-transaction-smoke.sql"
+      - "config/edge-function-boundary.json"
+      - ".github/workflows/domain-specialists-closeout.yml"
+
+concurrency:
+  group: domain-specialists-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  runtime-acceptance:
+    name: Domain specialist runtime acceptance
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci --no-audit --no-fund
+
+      - name: Static specialist contracts
+        run: npx vitest run src/lib/domain-specialists/domain-specialists.test.ts src/components/DomainSpecialistWorkbench.test.tsx src/lib/industry-profiles/industry-profiles.test.ts src/test/domainSpecialistContract.test.ts src/lib/quality-management/quality-management.test.ts src/services/qualityManagementService.test.ts src/components/QualityManagementWorkbench.test.tsx src/test/qualityManagementContract.test.ts
+
+      - uses: supabase/setup-cli@3c2f5e2ae34c34e428e8e206e2c4d21fa2d20fbf # v2.1.1
+        with:
+          version: 2.84.2
+          github-token: ${{ github.token }}
+
+      - name: Prepare clean local Supabase state
+        run: |
+          supabase stop --all --no-backup || true
+          docker system df
+
+      - name: Apply complete migration chain
+        run: bash scripts/ci-start-supabase.sh /tmp/domain-specialists-start.log /tmp/domain-specialists-diagnostics.txt
+
+      - name: Upload migration diagnostics
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: domain-specialists-migration-diagnostics
+          path: |
+            /tmp/domain-specialists-start.log
+            /tmp/domain-specialists-diagnostics.txt
+          retention-days: 7
+
+      - name: Freeze unrelated background crons
+        run: |
+          PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -v ON_ERROR_STOP=1 -c \
+            "select cron.unschedule(jobid) from cron.job where jobname in ('syncai-telemetry-sim','syncai-agent-loop','syncai-agent-enrich','syncai-onboarding-enrich','syncai-recovery-escalation-clock');"
+
+      - name: Governed specialist persistence and tenancy
+        run: bash scripts/ci-domain-specialists-smoke.sh
+
+      - name: Rollback-only database quality contract
+        run: PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -v ON_ERROR_STOP=1 -c BEGIN -f scripts/quality-management-transaction-smoke.sql -c ROLLBACK
+
+      - name: Governed quality lifecycle, metrics and COPQ
+        run: bash scripts/ci-quality-management-smoke.sh
+
+      - name: Stop Supabase
+        if: always()
+        run: supabase stop --no-backup || true

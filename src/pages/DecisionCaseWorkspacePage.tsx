@@ -38,10 +38,18 @@ import {
 } from "../lib/composer-attachment";
 import { useDictation } from "../hooks/useDictation";
 import { useOptionalAuth } from "../components/AuthProvider";
-import { PublicProductHeader } from "../components/PublicProductHeader";
+import {
+  ASK_PLACEHOLDER,
+  PublicAskBar,
+} from "../components/public-ask/PublicAskBar";
+import { BoltSpacesPanel } from "../components/public-ask/BoltSpacesPanel";
+import { PublicAskEmpty } from "../components/public-ask/PublicAskEmpty";
+import { PublicAskRail } from "../components/public-ask/PublicAskRail";
+import { canExposeBoltSpaces } from "../lib/public-ask-tie-in";
 import { MarkdownRenderer } from "../components/MarkdownRenderer";
 import { RecommendationTurn } from "../components/chat/RecommendationTurn";
-import { LearnUnpersistedPointer } from "../components/chat/LearnUnpersistedPointer";
+import { ConversationLearn } from "../components/chat/ConversationLearn";
+import { optionalRecommendationId } from "../lib/chat/conversation-learn";
 import {
   conversationIsEmpty,
   establishedFromEvidence,
@@ -53,21 +61,26 @@ import {
   shouldShowLearnPointer,
 } from "../lib/chat/recommendation-turn";
 import {
-  createDraftDecisionCase,
-  createSeedDecisionCases,
   formatDecisionValue,
   getDecisionIndustryPack,
   getPublicDecisionCaseStorageKey,
   normalizeDecisionIndustry,
-  readDecisionCases,
   stageDecisionCaseHandoff,
   writeDecisionCases,
+  DECISION_CASE_STORAGE_KEY,
   type ApprovalStatus,
   type DecisionCase,
   type DecisionIndustryId,
   type DecisionEvidence,
   type DecisionJourneyContext,
 } from "../lib/decision-case";
+import { readStoredDecisionDrafts } from "../lib/decision-case-drafts";
+import {
+  bootstrapChatCases,
+  createHonestEmptyDecisionCase,
+  isSeedDecisionCaseId,
+  resolveDecisionAskBinding,
+} from "../lib/decision-case-honesty";
 import { classifyDecisionQuestionScope } from "../lib/reliability-agent-contract";
 import {
   FIRST_PAINT_QUESTIONS,
@@ -82,6 +95,7 @@ import {
   savePersistedDecisionCase,
 } from "../services/decisionCaseService";
 import "./DecisionCaseWorkspacePage.css";
+import "../components/public-ask/public-ask.css";
 
 type PacketTab = "decision" | "evidence" | "authority" | "work" | "value";
 
@@ -136,51 +150,48 @@ function getContext(params: URLSearchParams): DecisionJourneyContext {
   };
 }
 
-function readStoredCases(
-  storage: Pick<Storage, "getItem">,
-  storageKey: string,
-): DecisionCase[] | null {
-  try {
-    const raw = storage.getItem(storageKey);
-    const parsed = raw ? (JSON.parse(raw) as DecisionCase[]) : null;
-    return Array.isArray(parsed) && parsed.length ? parsed : null;
-  } catch {
-    return null;
-  }
+function storageForMode(publicMode: boolean): Storage {
+  return publicMode ? window.sessionStorage : window.localStorage;
 }
 
-function initialCases(
+function storageKeyForMode(
+  publicMode: boolean,
+  industry: DecisionIndustryId,
+): string {
+  return publicMode
+    ? getPublicDecisionCaseStorageKey(industry)
+    : DECISION_CASE_STORAGE_KEY;
+}
+
+function readBootstrapStoredCases(
+  publicMode: boolean,
+  industry: DecisionIndustryId,
+): DecisionCase[] {
+  return readStoredDecisionDrafts(
+    storageForMode(publicMode),
+    storageKeyForMode(publicMode, industry),
+  );
+}
+
+function initialChatState(
   routeId: string | undefined,
   context: DecisionJourneyContext,
   publicMode: boolean,
-): DecisionCase[] {
+  orgSession: boolean,
+): { cases: DecisionCase[]; selectedId: string } {
   const industry = normalizeDecisionIndustry(context.industry);
-  const storage = publicMode ? window.sessionStorage : window.localStorage;
-  const storageKey = publicMode
-    ? getPublicDecisionCaseStorageKey(industry)
-    : undefined;
-
-  if (publicMode) {
-    const stored = storageKey ? readStoredCases(storage, storageKey) : null;
-    if (stored) return includeCompletePublicValueProof(stored);
-    const role = context.role || getDecisionIndustryPack(industry).roles[0];
-    return includeCompletePublicValueProof([
-      createDraftDecisionCase(role, industry),
-    ]);
-  }
-
-  const stored = readDecisionCases(storage, context, storageKey);
-  if (
-    !routeId ||
-    routeId === "demo" ||
-    stored.some((item) => item.id === routeId)
-  ) {
-    return stored;
-  }
-  const personalized = createSeedDecisionCases(context)[0];
-  personalized.id = routeId;
-  personalized.caseNumber = `VP-${routeId.slice(-6).toUpperCase()}`;
-  return [personalized, ...stored];
+  const role = context.role || getDecisionIndustryPack(industry).roles[0];
+  const bootstrapped = bootstrapChatCases(routeId, context, {
+    orgSession,
+    stored: readBootstrapStoredCases(publicMode, industry),
+    role,
+  });
+  return {
+    cases: publicMode
+      ? includeCompletePublicValueProof(bootstrapped.cases)
+      : bootstrapped.cases,
+    selectedId: bootstrapped.selectedId,
+  };
 }
 
 function timestamp(value: string) {
@@ -228,17 +239,22 @@ export function DecisionCaseWorkspacePage({
   const [params] = useSearchParams();
   const navigate = useNavigate();
   const context = useMemo(() => getContext(params), [params]);
+  const auth = useOptionalAuth();
+  const orgSession = Boolean(auth?.user);
   const [industry, setIndustry] = useState<DecisionIndustryId>(() =>
     normalizeDecisionIndustry(params.get("industry")),
   );
   const industryPack = getDecisionIndustryPack(industry);
-  const [cases, setCases] = useState(() =>
-    initialCases(caseId, context, publicMode),
+  const [chatBootstrap] = useState(() =>
+    initialChatState(
+      caseId,
+      context,
+      publicMode,
+      orgSession || Boolean(auth?.loading),
+    ),
   );
-  const [selectedId, setSelectedId] = useState(
-    caseId && caseId !== "demo" ? caseId : cases[0].id,
-  );
-  const auth = useOptionalAuth();
+  const [cases, setCases] = useState(chatBootstrap.cases);
+  const [selectedId, setSelectedId] = useState(chatBootstrap.selectedId);
   const viewerName = auth?.profile?.full_name ?? null;
   const [railOpen, setRailOpen] = useState(false);
   const [recordOpen, setRecordOpen] = useState(false);
@@ -246,7 +262,7 @@ export function DecisionCaseWorkspacePage({
   const [role] = useState(context.role || industryPack.roles[0]);
   const [composer, setComposer] = useState("");
   const [composerPlaceholder, setComposerPlaceholder] = useState(
-    "Ask a reliability question…",
+    publicMode ? ASK_PLACEHOLDER : "Ask a reliability question…",
   );
   const [attachment, setAttachment] = useState<AttachmentProfile | null>(null);
   const [photo, setPhoto] = useState<File | null>(null);
@@ -267,9 +283,16 @@ export function DecisionCaseWorkspacePage({
   const [historyOpen, setHistoryOpen] = useState(false);
   const [notice, setNotice] = useState("");
   const endRef = useRef<HTMLDivElement>(null);
-  const active = cases.find((item) => item.id === selectedId) || cases[0];
+  const explicitDemoBound = useRef(false);
+  const active =
+    cases.find((item) => item.id === selectedId) ??
+    cases.find((item) => !isSeedDecisionCaseId(item.id)) ??
+    cases[0];
   const activeId = active.id;
-  const composerScope = classifyDecisionQuestionScope(active, composer);
+  const askBinding = resolveDecisionAskBinding(active);
+  const composerScope = askBinding.bound
+    ? classifyDecisionQuestionScope(active, composer)
+    : "provisional_new_subject";
 
   const updateCase = (change: (current: DecisionCase) => DecisionCase) => {
     setCases((current) =>
@@ -297,18 +320,38 @@ export function DecisionCaseWorkspacePage({
     if (!publicMode) return;
     const routedIndustry = normalizeDecisionIndustry(context.industry);
     if (routedIndustry === industry) return;
-    const nextCases = initialCases(
+    const next = initialChatState(
       caseId,
       { ...context, industry: routedIndustry },
       true,
+      orgSession,
     );
     setIndustry(routedIndustry);
-    setCases(nextCases);
-    setSelectedId(nextCases[0].id);
+    setCases(next.cases);
+    setSelectedId(next.selectedId);
     setTab("decision");
     setEvidence(null);
     setRecordOpen(false);
-  }, [caseId, context, industry, publicMode]);
+  }, [caseId, context, industry, orgSession, publicMode]);
+  useEffect(() => {
+    if (!orgSession || explicitDemoBound.current) return;
+    setCases((current) => {
+      const kept = current.filter((item) => !isSeedDecisionCaseId(item.id));
+      const next =
+        kept.length > 0
+          ? kept
+          : initialChatState(caseId, context, publicMode, true).cases;
+      const nextSelected =
+        selectedId &&
+        !isSeedDecisionCaseId(selectedId) &&
+        next.some((item) => item.id === selectedId)
+          ? selectedId
+          : (next.find((item) => !isSeedDecisionCaseId(item.id))?.id ??
+            next[0].id);
+      setSelectedId(nextSelected);
+      return next;
+    });
+  }, [caseId, context, orgSession, publicMode, selectedId]);
   useEffect(() => {
     if (publicMode || !isPersistedDecisionCase(activeId)) return;
     let cancelled = false;
@@ -371,6 +414,7 @@ export function DecisionCaseWorkspacePage({
   }, [plusOpen]);
 
   const chooseCase = (id: string) => {
+    if (isSeedDecisionCaseId(id)) explicitDemoBound.current = true;
     setSelectedId(id);
     setTab("decision");
     setEvidence(null);
@@ -378,6 +422,7 @@ export function DecisionCaseWorkspacePage({
   };
 
   const trySample = (index = 0) => {
+    explicitDemoBound.current = true;
     const sample = createFirstPaintSeed(index, {
       ...context,
       industry,
@@ -397,14 +442,32 @@ export function DecisionCaseWorkspacePage({
   };
 
   const createCase = async () => {
-    const existingDraft = cases.find((item) => item.id.startsWith("draft-"));
+    const existingDraft = cases.find(
+      (item) =>
+        item.id.startsWith("draft-") &&
+        (!publicMode || conversationIsEmpty(item.messages)),
+    );
     if (existingDraft) {
+      explicitDemoBound.current = false;
       chooseCase(existingDraft.id);
+      if (publicMode) {
+        setComposer("");
+        setComposerPlaceholder(ASK_PLACEHOLDER);
+        setRailOpen(false);
+        setRecordOpen(false);
+      }
       return;
     }
-    const next = createDraftDecisionCase(role, industry);
+    const next = createHonestEmptyDecisionCase(role, industry);
+    explicitDemoBound.current = false;
     setCases((current) => [next, ...current]);
     setSelectedId(next.id);
+    if (publicMode) {
+      setComposer("");
+      setComposerPlaceholder(ASK_PLACEHOLDER);
+      setRailOpen(false);
+      setRecordOpen(false);
+    }
     if (!publicMode) {
       try {
         const persisted = await createPersistedDecisionCase(next, context);
@@ -484,7 +547,9 @@ export function DecisionCaseWorkspacePage({
     setAttachment(null);
     setPhoto(null);
     setAttachmentError(null);
-    setComposerPlaceholder("Ask a reliability question…");
+    setComposerPlaceholder(
+      publicMode ? ASK_PLACEHOLDER : "Ask a reliability question…",
+    );
     setReplying(true);
     try {
       const response = await askDecisionCase(requestCase, text, {
@@ -664,8 +729,36 @@ export function DecisionCaseWorkspacePage({
         !frozen,
       );
   const emptyConversation = conversationIsEmpty(active.messages);
+  const exposeSpaces = canExposeBoltSpaces({
+    signedIn: Boolean(auth?.user),
+  });
   const showLearnPointer = shouldShowLearnPointer(active.approvals);
   const authority = reviewingAuthority(active.approvals);
+  const dictationTitle = dictation.supported
+    ? dictation.listening
+      ? "Stop dictation"
+      : "Dictate — runs in your browser"
+    : "This browser has no speech recognition";
+  const publicAskBar = (
+    <PublicAskBar
+      docked={!emptyConversation}
+      value={composer}
+      placeholder={composerPlaceholder}
+      textareaRef={composerRef}
+      onChange={setComposer}
+      onSend={() => void sendMessage()}
+      sendDisabled={(!composer.trim() && !attachment && !photo) || replying}
+      caseExists={!emptyConversation}
+      dictationSupported={dictation.supported}
+      dictationListening={dictation.listening}
+      dictationTitle={dictationTitle}
+      onToggleDictation={() =>
+        dictation.listening ? dictation.stop() : dictation.start()
+      }
+      photoInputRef={photoInputRef}
+      onOpenAttachMenu={() => setPlusOpen((value) => !value)}
+    />
+  );
 
   const workspace = (
     <div
@@ -827,7 +920,13 @@ export function DecisionCaseWorkspacePage({
                   </div>
                 </article>
               )}
-              {showLearnPointer && <LearnUnpersistedPointer />}
+              {showLearnPointer && (
+                <ConversationLearn
+                  signedIn={Boolean(auth?.user)}
+                  recommendationId={optionalRecommendationId(active)}
+                  simulatedApproval={publicMode}
+                />
+              )}
               <div ref={endRef} />
             </section>
             <section className="dw-composer-wrap" id="syncai-chat">
@@ -983,9 +1082,7 @@ export function DecisionCaseWorkspacePage({
                     aria-pressed={dictation.listening}
                     disabled={!dictation.supported}
                     onClick={() =>
-                      dictation.listening
-                        ? dictation.stop()
-                        : dictation.start()
+                      dictation.listening ? dictation.stop() : dictation.start()
                     }
                   >
                     {dictation.supported ? (
@@ -1010,10 +1107,12 @@ export function DecisionCaseWorkspacePage({
                 <div className="dw-composer-meta">
                   <span>
                     <LockKeyhole size={12} />
-                    {composer.trim() &&
-                    composerScope === "provisional_new_subject"
-                      ? `New subject · ${active.caseNumber} unchanged`
-                      : `Using ${active.caseNumber} context`}
+                    {!askBinding.bound
+                      ? "No case selected · provisional"
+                      : composer.trim() &&
+                          composerScope === "provisional_new_subject"
+                        ? `New subject · ${active.caseNumber} unchanged`
+                        : `Using ${active.caseNumber} context`}
                   </span>
                 </div>
               )}
@@ -1128,18 +1227,426 @@ export function DecisionCaseWorkspacePage({
       )}
     </div>
   );
-  return publicMode ? (
-    <div className="dw-public">
-      <PublicProductHeader
-        active="copilot"
+  if (!publicMode) return workspace;
+
+  // Bolt public shell. Mode A is the empty canvas — no public product
+  // header / RELIABILITY ENGINEER lockup. Mode B is the existing case /
+  // transcript / recommendation / Approve path on a light conversation.
+  // LEARN after Simulate tries the same write path as /learning-loop.
+  // Anonymous / no obligation stays a visible fail — nothing is written.
+  // Packet and attach stay gated on a started case.
+  return (
+    <div
+      className={`bolt-public ${emptyConversation ? "is-empty" : "is-thread"}`}
+      data-layout="chat-first"
+    >
+      <PublicAskRail
+        homeActive={emptyConversation}
+        onHome={() => void createCase()}
+        assessHref="/setup"
         signInHref="/signin?returnTo=%2F"
-        showSignIn={emptyConversation}
         onSignIn={() => stageDecisionCaseHandoff(window.sessionStorage, active)}
+        spaces={
+          exposeSpaces
+            ? {
+                active: railOpen,
+                onOpen: () => setRailOpen((value) => !value),
+              }
+            : undefined
+        }
       />
-      {workspace}
+      <div className="bolt-stage">
+        {exposeSpaces && railOpen && emptyConversation ? (
+          <BoltSpacesPanel
+            cases={cases}
+            activeId={active.id}
+            onNewAsk={() => void createCase()}
+            onChoose={chooseCase}
+          />
+        ) : null}
+        {emptyConversation ? (
+          <PublicAskEmpty askBar={publicAskBar} onSelectIntent={trySample} />
+        ) : (
+          <>
+            <header className="bolt-thread-bar">
+              <div className="bolt-thread-bar-side">
+                <button
+                  type="button"
+                  className="bolt-icon"
+                  aria-label={exposeSpaces ? "Spaces" : "Conversations"}
+                  aria-expanded={railOpen}
+                  onClick={() => setRailOpen((value) => !value)}
+                >
+                  <PanelLeft size={17} />
+                </button>
+              </div>
+              <div
+                className="bolt-thread-bar-side is-center"
+                data-testid="first-paint-header-center"
+              >
+                <span className="bolt-thread-title">{active.title}</span>
+              </div>
+              <div className="bolt-thread-bar-side is-end">
+                <button
+                  type="button"
+                  className="bolt-view-record"
+                  onClick={() => setRecordOpen((value) => !value)}
+                >
+                  {recordOpen ? "Hide record" : "View record"}
+                </button>
+              </div>
+            </header>
+            <div
+              className={`bolt-layout${railOpen ? " is-rail-open" : ""}${recordOpen ? " is-record-open" : ""}`}
+            >
+              {railOpen &&
+                (exposeSpaces ? (
+                  <BoltSpacesPanel
+                    cases={cases}
+                    activeId={active.id}
+                    onNewAsk={() => void createCase()}
+                    onChoose={chooseCase}
+                  />
+                ) : (
+                  <aside className="dw-rail" aria-label="Conversation list">
+                    <button
+                      type="button"
+                      className="dw-new"
+                      onClick={() => void createCase()}
+                    >
+                      <Plus size={16} /> New
+                    </button>
+                    <div className="dw-section-label">Conversations</div>
+                    <div className="dw-case-list">
+                      {cases.map((item) => (
+                        <button
+                          type="button"
+                          key={item.id}
+                          className={`dw-case-row ${item.id === active.id ? "active" : ""}`}
+                          onClick={() => chooseCase(item.id)}
+                        >
+                          <span>
+                            <strong>{item.title}</strong>
+                            <small>{item.asset}</small>
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </aside>
+                ))}
+              <main className="bolt-main">
+                <section className="dw-thread" aria-label="Conversation">
+                  {active.messages.map((message) => (
+                    <article
+                      key={message.id}
+                      className={`dw-message role-${message.role}`}
+                    >
+                      {message.role !== "system" && (
+                        <span className="dw-avatar">
+                          {message.role === "assistant" ? (
+                            <Bot size={16} />
+                          ) : (
+                            <UserRound size={16} />
+                          )}
+                        </span>
+                      )}
+                      <div>
+                        {message.role === "system" ? (
+                          <p className="dw-system-turn">{message.text}</p>
+                        ) : (
+                          <>
+                            <header>
+                              <strong>
+                                {message.role === "assistant"
+                                  ? "SyncAI"
+                                  : message.author}
+                              </strong>
+                              <span>{timestamp(message.createdAt)}</span>
+                            </header>
+                            {message.role === "assistant" ? (
+                              <MarkdownRenderer
+                                content={message.text}
+                                className="dw-message-markdown"
+                              />
+                            ) : (
+                              <p>{message.text}</p>
+                            )}
+                          </>
+                        )}
+                        {message.role === "assistant" &&
+                          isRecommendationTurn(message) &&
+                          namedAuthority && (
+                            <RecommendationTurn
+                              established={establishedFromEvidence(
+                                active.evidence,
+                              )}
+                              notProven={notProvenFromEvidence(active.evidence)}
+                              recommendation={active.recommendation}
+                              recommendationDetail={active.recommendationDetail}
+                              authorityName={namedAuthority.name}
+                              authorityRole={namedAuthority.role}
+                              publicMode={publicMode}
+                              canDispose={canDispose}
+                              frozen={frozen}
+                              approvals={active.approvals}
+                              onDecide={decide}
+                            />
+                          )}
+                      </div>
+                    </article>
+                  ))}
+                  {replying && (
+                    <article className="dw-message role-assistant">
+                      <span className="dw-avatar">
+                        <Bot size={16} />
+                      </span>
+                      <div>
+                        <header>
+                          <strong>SyncAI</strong>
+                          <span>working</span>
+                        </header>
+                        <p className="dw-thinking" aria-label="working">
+                          <i />
+                          <i />
+                          <i />
+                        </p>
+                      </div>
+                    </article>
+                  )}
+                  {showLearnPointer && (
+                    <ConversationLearn
+                      signedIn={Boolean(auth?.user)}
+                      recommendationId={optionalRecommendationId(active)}
+                      simulatedApproval={publicMode}
+                    />
+                  )}
+                  <div ref={endRef} />
+                </section>
+                <section className="dw-composer-wrap" id="syncai-chat">
+                  {attachment && (
+                    <div className="dw-attach-chip">
+                      <Paperclip size={13} />
+                      <span className="dw-attach-name">{attachment.name}</span>
+                      <span className="dw-attach-meta">
+                        {attachment.rowCount.toLocaleString()} rows ×{" "}
+                        {attachment.headers.length} cols · column names and{" "}
+                        {attachment.sampleRows.length} sample rows will be
+                        included
+                      </span>
+                      <button
+                        type="button"
+                        title="Remove attachment"
+                        onClick={() => setAttachment(null)}
+                      >
+                        <XIcon size={13} />
+                      </button>
+                    </div>
+                  )}
+                  {photo && (
+                    <div className="dw-attach-chip">
+                      <Camera size={13} />
+                      <span className="dw-attach-name">{photo.name}</span>
+                      <span className="dw-attach-meta">
+                        Photo will be sent with this turn
+                      </span>
+                      <button
+                        type="button"
+                        title="Remove photo"
+                        onClick={() => setPhoto(null)}
+                      >
+                        <XIcon size={13} />
+                      </button>
+                    </div>
+                  )}
+                  {(attachmentError || dictation.error) && (
+                    <div className="dw-attach-error" role="status">
+                      {attachmentError || dictation.error}
+                    </div>
+                  )}
+                  <div className="dw-plus" ref={plusSheetRef}>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept=".csv,.tsv,.txt,.log"
+                      className="dw-file-input"
+                      aria-label="Attach a data file"
+                      onChange={(event) => {
+                        void handleAttach(event.target.files?.[0]);
+                        event.target.value = "";
+                        setPlusOpen(false);
+                      }}
+                    />
+                    <input
+                      ref={photoInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="dw-file-input"
+                      aria-label="Attach a photo"
+                      onChange={(event) => {
+                        void handleAttach(event.target.files?.[0]);
+                        event.target.value = "";
+                        setPlusOpen(false);
+                      }}
+                    />
+                    <input
+                      ref={cameraInputRef}
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      className="dw-file-input"
+                      aria-label="Open camera"
+                      onChange={(event) => {
+                        void handleAttach(event.target.files?.[0]);
+                        event.target.value = "";
+                        setPlusOpen(false);
+                      }}
+                    />
+                    {plusOpen && (
+                      <div className="dw-plus-sheet" role="menu">
+                        <button
+                          type="button"
+                          role="menuitem"
+                          onClick={() => cameraInputRef.current?.click()}
+                        >
+                          <Camera size={16} />
+                          Camera
+                        </button>
+                        <button
+                          type="button"
+                          role="menuitem"
+                          onClick={() => photoInputRef.current?.click()}
+                        >
+                          <ImageIcon size={16} />
+                          Photos
+                        </button>
+                        <button
+                          type="button"
+                          role="menuitem"
+                          onClick={() => fileInputRef.current?.click()}
+                        >
+                          <Paperclip size={16} />
+                          Files
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  {publicAskBar}
+                </section>
+              </main>
+              {recordOpen && (
+                <aside className="dw-packet" aria-label="Decision record">
+                  <div className="dw-packet-head">
+                    <span>
+                      <small>Current decision packet</small>
+                      <strong>
+                        {active.caseNumber} · {active.version}
+                      </strong>
+                    </span>
+                    <button
+                      className="dw-icon"
+                      type="button"
+                      title="Export decision record"
+                      onClick={() => {
+                        exportDecisionRecord(active, publicMode);
+                        setNotice(
+                          publicMode
+                            ? "Demo decision record exported with a not-approved status."
+                            : "Decision record exported.",
+                        );
+                      }}
+                    >
+                      <ArrowUpRight size={16} />
+                    </button>
+                  </div>
+                  <div className="dw-tabs" role="tablist">
+                    {tabs.map((item) => (
+                      <button
+                        type="button"
+                        key={item.id}
+                        className={tab === item.id ? "active" : ""}
+                        onClick={() => setTab(item.id)}
+                      >
+                        {item.label}
+                        {item.id === "evidence" && (
+                          <span>{active.evidence.length}</span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="dw-packet-body">
+                    {tab === "decision" && (
+                      <DecisionPanel
+                        active={active}
+                        setEvidence={setEvidence}
+                      />
+                    )}
+                    {tab === "evidence" && (
+                      <EvidencePanel
+                        active={active}
+                        setEvidence={setEvidence}
+                      />
+                    )}
+                    {tab === "authority" && (
+                      <AuthorityPanel
+                        active={active}
+                        authority={authority}
+                        comment={comment}
+                        setComment={setComment}
+                        addComment={addComment}
+                      />
+                    )}
+                    {tab === "work" && (
+                      <WorkPanel active={active} completeWork={completeWork} />
+                    )}
+                    {tab === "value" && (
+                      <ValuePanel active={active} verifyValue={verifyValue} />
+                    )}
+                  </div>
+                </aside>
+              )}
+            </div>
+          </>
+        )}
+      </div>
+      {evidence && (
+        <EvidenceModal evidence={evidence} close={() => setEvidence(null)} />
+      )}
+      {usageOpen && (
+        <UsageModal
+          publicMode={publicMode}
+          proofComplete={active.financeStatus === "verified"}
+          close={() => setUsageOpen(false)}
+          onSecure={() =>
+            stageDecisionCaseHandoff(window.sessionStorage, active)
+          }
+          choose={(mode, allowance) => {
+            updateCase((current) => ({
+              ...current,
+              billingMode: mode,
+              tokenAllowance: allowance || current.tokenAllowance,
+            }));
+            setUsageOpen(false);
+            setNotice(
+              mode === "paused"
+                ? "Case paused safely."
+                : "Continuation selected for this case.",
+            );
+          }}
+        />
+      )}
+      {historyOpen && (
+        <HistoryModal
+          active={active}
+          publicMode={publicMode}
+          close={() => setHistoryOpen(false)}
+        />
+      )}
+      {notice && (
+        <div className="dw-notice">
+          <CheckCircle2 size={16} /> {notice}
+        </div>
+      )}
     </div>
-  ) : (
-    workspace
   );
 }
 

@@ -3,8 +3,13 @@ import { conveyorSystemInspectionZones } from "./conveyor-system-inspections";
 import { conveyorSystemTemplate } from "./conveyor-system";
 import {
   flexibleCouplingDna,
+  hydraulicCylinderDna,
+  industrialAcMotorDna,
+  industrialGearboxComponentDna,
   lubricationSystemDna,
   rollingElementBearingDna,
+  sheaveDna,
+  wireRopeDna,
 } from "./shared-component-dna-library";
 
 const unique = (values: string[]): string[] => [...new Set(values)];
@@ -13,7 +18,8 @@ export const conveyorSystemEngineeringDna: EngineeringDnaProfile = {
   schemaVersion: "0.2.0",
   code: "DEDNA-FP-CONVEYOR-BELT",
   name: "Bulk material belt conveyor Digital Engineering DNA",
-  description: "Governed reusable blueprint for bulk material belt conveyor twins.",
+  description:
+    "Governed reusable blueprint for bulk material belt conveyor twins.",
   assetClassCode: conveyorSystemTemplate.code,
   capabilities: [
     "canonical_hierarchy",
@@ -24,10 +30,18 @@ export const conveyorSystemEngineeringDna: EngineeringDnaProfile = {
     "governed_recommendations",
     "shared_component_composition",
   ],
-  componentCodes: conveyorSystemTemplate.components.map((component) => component.code),
-  failureModeCodes: conveyorSystemTemplate.components.flatMap((component) => component.failureModes.map((failure) => failure.code)),
+  componentCodes: conveyorSystemTemplate.components.map(
+    (component) => component.code,
+  ),
+  failureModeCodes: conveyorSystemTemplate.components.flatMap((component) =>
+    component.failureModes.map((failure) => failure.code),
+  ),
   inspectionZoneCodes: conveyorSystemInspectionZones.map((zone) => zone.code),
-  telemetryConcepts: unique(conveyorSystemTemplate.components.flatMap((component) => component.telemetryConcepts)),
+  telemetryConcepts: unique(
+    conveyorSystemTemplate.components.flatMap(
+      (component) => component.telemetryConcepts,
+    ),
+  ),
   sharedComponentBindings: [
     {
       assetComponentCode: "CV-PULLEY",
@@ -53,6 +67,31 @@ export const conveyorSystemEngineeringDna: EngineeringDnaProfile = {
       assetComponentCode: "CV-DRIVE",
       sharedComponentDnaCode: lubricationSystemDna.code,
       role: "drive train lubrication support",
+    },
+    {
+      assetComponentCode: "CV-DRIVE",
+      sharedComponentDnaCode: industrialAcMotorDna.code,
+      role: "drive motor",
+    },
+    {
+      assetComponentCode: "CV-DRIVE",
+      sharedComponentDnaCode: industrialGearboxComponentDna.code,
+      role: "drive gearbox",
+    },
+    {
+      assetComponentCode: "CV-TAKEUP",
+      sharedComponentDnaCode: wireRopeDna.code,
+      role: "take-up ropes",
+    },
+    {
+      assetComponentCode: "CV-TAKEUP",
+      sharedComponentDnaCode: sheaveDna.code,
+      role: "take-up sheaves",
+    },
+    {
+      assetComponentCode: "CV-TAKEUP",
+      sharedComponentDnaCode: hydraulicCylinderDna.code,
+      role: "take-up cylinders",
     },
   ],
   standards: conveyorSystemTemplate.standards,

@@ -1,5 +1,27 @@
+import { blastholeDrillTemplate } from "./blasthole-drill";
+import { conveyorSystemTemplate } from "./conveyor-system";
+import { draglineTemplate } from "./dragline";
 import { extendedElectricRopeShovelComponents } from "./electric-rope-shovel-components";
+import { hydraulicMiningShovelTemplate } from "./hydraulic-mining-shovel";
+import { largeWheelLoaderTemplate } from "./large-wheel-loader";
+import { primaryCrusherTemplate } from "./primary-crusher";
+import {
+  frictionBrakeDna,
+  industrialAcMotorDna,
+  industrialGearboxComponentDna,
+  lubricationSystemDna,
+  sheaveDna,
+  switchgearDna,
+  transformerDna,
+  variableFrequencyDriveDna,
+  wireRopeDna,
+} from "./shared-component-dna-library";
+import { miningDozerTemplate } from "./mining-dozer";
+import { miningGraderTemplate } from "./mining-grader";
+import { mobileCrusherTemplate } from "./mobile-crusher";
+import { stackerReclaimerTemplate } from "./stacker-reclaimer";
 import type { AssetClassTemplate, FailureModeTemplate } from "./types";
+import { ultraClassHaulTruckTemplate } from "./ultra-class-haul-truck";
 
 const draftFailure = (
   code: string,
@@ -30,7 +52,17 @@ export const electricRopeShovelTemplate: AssetClassTemplate = {
   family: "mobile_mining_loading",
   description:
     "Reusable functional, component, failure and observation template for large electric rope shovels.",
-  functions: ["dig", "crowd", "hoist", "swing", "dump", "propel", "brake", "lubricate", "cool"],
+  functions: [
+    "dig",
+    "crowd",
+    "hoist",
+    "swing",
+    "dump",
+    "propel",
+    "brake",
+    "lubricate",
+    "cool",
+  ],
   operatingStates: [
     "offline",
     "idle",
@@ -48,16 +80,37 @@ export const electricRopeShovelTemplate: AssetClassTemplate = {
     {
       code: "ERS-STRUCT",
       name: "Structural system",
-      functions: ["support operating loads", "maintain geometry", "protect machinery"],
-      telemetryConcepts: ["structural_vibration", "boom_deflection", "cycle_count", "payload"],
-      inspectionZones: ["boom chords", "boom foot", "gantry", "machinery house", "carbody"],
+      functions: [
+        "support operating loads",
+        "maintain geometry",
+        "protect machinery",
+      ],
+      telemetryConcepts: [
+        "structural_vibration",
+        "boom_deflection",
+        "cycle_count",
+        "payload",
+      ],
+      inspectionZones: [
+        "boom chords",
+        "boom foot",
+        "gantry",
+        "machinery house",
+        "carbody",
+      ],
       failureModes: [
         draftFailure(
           "ERS-STRUCT-CRACK",
           "ERS-STRUCT",
           "Structural crack",
           "fatigue crack initiation and propagation",
-          ["drone_rgb", "drone_thermal", "drone_lidar", "optical_vibration", "inspection"],
+          [
+            "drone_rgb",
+            "drone_thermal",
+            "drone_lidar",
+            "optical_vibration",
+            "inspection",
+          ],
           ["magnetic_particle", "phased_array_ultrasonic", "engineer_visual"],
         ),
         draftFailure(
@@ -73,8 +126,23 @@ export const electricRopeShovelTemplate: AssetClassTemplate = {
     {
       code: "ERS-HOIST",
       name: "Hoist system",
-      functions: ["raise and lower dipper", "control suspended load", "hold commanded position"],
-      telemetryConcepts: ["hoist_current", "hoist_speed", "brake_temperature", "bearing_temperature"],
+      sharedComponentDnaCodes: [
+        industrialAcMotorDna.code,
+        frictionBrakeDna.code,
+        wireRopeDna.code,
+        sheaveDna.code,
+      ],
+      functions: [
+        "raise and lower dipper",
+        "control suspended load",
+        "hold commanded position",
+      ],
+      telemetryConcepts: [
+        "hoist_current",
+        "hoist_speed",
+        "brake_temperature",
+        "bearing_temperature",
+      ],
       inspectionZones: ["hoist motors", "drums", "brakes", "ropes", "sheaves"],
       failureModes: [
         draftFailure(
@@ -98,16 +166,38 @@ export const electricRopeShovelTemplate: AssetClassTemplate = {
     {
       code: "ERS-CROWD",
       name: "Crowd system",
-      functions: ["position dipper in bank", "control penetration and retraction"],
-      telemetryConcepts: ["crowd_current", "crowd_speed", "crowd_position", "bearing_temperature"],
-      inspectionZones: ["crowd machinery", "handle", "rack and pinion", "saddles"],
+      sharedComponentDnaCodes: [
+        industrialAcMotorDna.code,
+        industrialGearboxComponentDna.code,
+      ],
+      functions: [
+        "position dipper in bank",
+        "control penetration and retraction",
+      ],
+      telemetryConcepts: [
+        "crowd_current",
+        "crowd_speed",
+        "crowd_position",
+        "bearing_temperature",
+      ],
+      inspectionZones: [
+        "crowd machinery",
+        "handle",
+        "rack and pinion",
+        "saddles",
+      ],
       failureModes: [
         draftFailure(
           "ERS-CROWD-MISALIGN",
           "ERS-CROWD",
           "Crowd alignment deterioration",
           "wear, looseness or structural displacement",
-          ["drone_rgb", "drone_lidar", "motion_trajectory", "temperature_asymmetry"],
+          [
+            "drone_rgb",
+            "drone_lidar",
+            "motion_trajectory",
+            "temperature_asymmetry",
+          ],
           ["alignment_survey", "wear_measurement"],
         ),
       ],
@@ -115,9 +205,25 @@ export const electricRopeShovelTemplate: AssetClassTemplate = {
     {
       code: "ERS-SWING",
       name: "Swing system",
+      sharedComponentDnaCodes: [
+        industrialAcMotorDna.code,
+        industrialGearboxComponentDna.code,
+        frictionBrakeDna.code,
+      ],
       functions: ["rotate upper works", "stop and hold rotation"],
-      telemetryConcepts: ["swing_current", "swing_speed", "swing_acceleration", "gearcase_temperature"],
-      inspectionZones: ["swing motors", "gearcases", "swing rack", "pinions", "brakes"],
+      telemetryConcepts: [
+        "swing_current",
+        "swing_speed",
+        "swing_acceleration",
+        "gearcase_temperature",
+      ],
+      inspectionZones: [
+        "swing motors",
+        "gearcases",
+        "swing rack",
+        "pinions",
+        "brakes",
+      ],
       failureModes: [
         draftFailure(
           "ERS-SWING-ABNORMAL-HEAT",
@@ -132,9 +238,30 @@ export const electricRopeShovelTemplate: AssetClassTemplate = {
     {
       code: "ERS-ELEC",
       name: "Electrical power and controls",
-      functions: ["distribute power", "control motion", "protect personnel and equipment"],
-      telemetryConcepts: ["voltage", "current", "power_factor", "cabinet_temperature", "fault_code"],
-      inspectionZones: ["trailing cable", "terminations", "motors", "electrical cabinets", "ventilation"],
+      sharedComponentDnaCodes: [
+        switchgearDna.code,
+        variableFrequencyDriveDna.code,
+        transformerDna.code,
+      ],
+      functions: [
+        "distribute power",
+        "control motion",
+        "protect personnel and equipment",
+      ],
+      telemetryConcepts: [
+        "voltage",
+        "current",
+        "power_factor",
+        "cabinet_temperature",
+        "fault_code",
+      ],
+      inspectionZones: [
+        "trailing cable",
+        "terminations",
+        "motors",
+        "electrical cabinets",
+        "ventilation",
+      ],
       failureModes: [
         draftFailure(
           "ERS-ELEC-HOT-CONNECTION",
@@ -142,23 +269,49 @@ export const electricRopeShovelTemplate: AssetClassTemplate = {
           "High-resistance electrical connection",
           "loose, contaminated, corroded or damaged connection",
           ["drone_thermal", "uv_corona", "current_imbalance"],
-          ["deenergized_torque_check", "insulation_test", "electrical_inspection"],
+          [
+            "deenergized_torque_check",
+            "insulation_test",
+            "electrical_inspection",
+          ],
         ),
       ],
     },
     {
       code: "ERS-LUBE",
       name: "Lubrication system",
-      functions: ["deliver lubricant", "remove frictional heat", "exclude contamination"],
-      telemetryConcepts: ["lubricant_pressure", "lubricant_flow", "reservoir_level", "component_temperature"],
-      inspectionZones: ["reservoir", "pumps", "distribution blocks", "lines", "lubrication points"],
+      sharedComponentDnaCodes: [lubricationSystemDna.code],
+      functions: [
+        "deliver lubricant",
+        "remove frictional heat",
+        "exclude contamination",
+      ],
+      telemetryConcepts: [
+        "lubricant_pressure",
+        "lubricant_flow",
+        "reservoir_level",
+        "component_temperature",
+      ],
+      inspectionZones: [
+        "reservoir",
+        "pumps",
+        "distribution blocks",
+        "lines",
+        "lubrication points",
+      ],
       failureModes: [
         draftFailure(
           "ERS-LUBE-STARVATION",
           "ERS-LUBE",
           "Lubrication starvation",
           "blocked line, failed pump, empty reservoir or incorrect delivery",
-          ["drone_rgb", "drone_thermal", "pressure", "flow", "grease_purge_presence"],
+          [
+            "drone_rgb",
+            "drone_thermal",
+            "pressure",
+            "flow",
+            "grease_purge_presence",
+          ],
           ["manual_lubrication_test", "line_inspection", "sample_analysis"],
         ),
       ],
@@ -167,35 +320,30 @@ export const electricRopeShovelTemplate: AssetClassTemplate = {
   ],
 };
 
-const starter = (
-  code: string,
-  name: string,
-  family: string,
-  functions: string[],
-): AssetClassTemplate => ({
-  schemaVersion: "0.1.0",
-  code,
-  name,
-  family,
-  description: `Starter asset-class shell for ${name}. Engineering content requires evidence ingestion and review.`,
-  functions,
-  operatingStates: ["offline", "idle", "operating", "degraded", "maintenance_test"],
-  components: [],
-  standards: ["ISO 55000", "ISO 13374", "ISO 23247"],
-  reviewState: "draft",
-});
-
+/**
+ * Twelve-class mining catalogue. Populated templates replace the empty
+ * starter shells that previously shared (or paralleled) their codes.
+ *
+ * Retired parallel starter identities — do not reintroduce:
+ * - MIN-LOAD-HMS (canonical hydraulic shovel is MIN-HYD-SHOVEL)
+ * - MIN-LOAD-WL (canonical wheel loader is MIN-WHEEL-LOADER)
+ * - MIN-CONV (canonical belt conveyor is FP-CONVEYOR-BELT)
+ *
+ * Empty MIN-DOZER / MIN-GRADER / MIN-MOBILE-CRUSH starter shells are retired
+ * in favour of the populated draft templates below. Do not reintroduce a
+ * second empty hierarchy for those codes.
+ */
 export const miningAssetClassLibrary: AssetClassTemplate[] = [
   electricRopeShovelTemplate,
-  starter("MIN-LOAD-HMS", "Hydraulic mining shovel", "mobile_mining_loading", ["dig", "swing", "dump", "propel"]),
-  starter("MIN-HAUL-TRUCK", "Ultra-class haul truck", "mobile_mining_haulage", ["load", "haul", "dump", "retard", "steer"]),
-  starter("MIN-LOAD-WL", "Large wheel loader", "mobile_mining_loading", ["dig", "lift", "carry", "dump", "steer"]),
-  starter("MIN-DRILL-BH", "Blasthole drill", "mobile_mining_drilling", ["position", "level", "drill", "flush", "change_pipe"]),
-  starter("MIN-CRUSH-PRI", "Primary crusher", "fixed_material_processing", ["receive", "size_reduce", "discharge", "protect"]),
-  starter("MIN-CONV", "Mine conveyor system", "fixed_material_handling", ["transport", "track", "tension", "protect"]),
-  starter("MIN-DRAGLINE", "Dragline", "mobile_mining_loading", ["drag", "hoist", "swing", "dump", "walk"]),
-  starter("MIN-DOZER", "Large mining dozer", "mobile_mining_support", ["push", "rip", "grade", "steer"]),
-  starter("MIN-GRADER", "Motor grader", "mobile_mining_support", ["grade", "scarify", "steer", "travel"]),
-  starter("MIN-MOBILE-CRUSH", "Mobile crusher", "mobile_material_processing", ["receive", "size_reduce", "convey", "propel"]),
-  starter("MIN-STACK-RECLAIM", "Stacker-reclaimer", "fixed_material_handling", ["stack", "reclaim", "slew", "luff", "travel"]),
+  hydraulicMiningShovelTemplate,
+  ultraClassHaulTruckTemplate,
+  largeWheelLoaderTemplate,
+  blastholeDrillTemplate,
+  primaryCrusherTemplate,
+  conveyorSystemTemplate,
+  draglineTemplate,
+  miningDozerTemplate,
+  miningGraderTemplate,
+  mobileCrusherTemplate,
+  stackerReclaimerTemplate,
 ];

@@ -214,3 +214,26 @@ describe("marketplace docs carry no per-seat price claims", () => {
     },
   );
 });
+
+describe("canonical public offer is the US$35,000 RIA", () => {
+  it("ReliabilityEngineerPage does not advertise CAD $7.5K or design-partner pilot", () => {
+    const page = readFileSync("src/pages/ReliabilityEngineerPage.tsx", "utf8");
+    expect(page).not.toMatch(/CAD\s*\$?\s*7\.?5/i);
+    expect(page).not.toMatch(/design-partner/i);
+  });
+
+  it("named commercial surfaces state US$35,000", () => {
+    const surfaces = [
+      "src/pages/FirstCustomerPilotPage.tsx",
+      "src/components/HelpCenterWidget.tsx",
+      "src/components/assessment/RiaActivationDialog.tsx",
+      "src/pages/PilotLeads.tsx",
+    ];
+    for (const path of surfaces) {
+      expect(
+        readFileSync(path, "utf8"),
+        `${path} must name the US$35,000 RIA`,
+      ).toMatch(/US\$35,000/);
+    }
+  });
+});

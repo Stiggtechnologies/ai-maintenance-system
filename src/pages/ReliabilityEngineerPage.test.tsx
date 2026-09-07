@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
@@ -144,3 +145,13 @@ describe("ReliabilityEngineerPage", () => {
     expect(screen.getByText(/reference data summary/i)).toBeInTheDocument();
   });
 });
+
+describe("price truth — no CAD $7.5K pilot CTA", () => {
+  it("source does not advertise CAD $7.5K or design-partner pilot", () => {
+    const src = readFileSync("src/pages/ReliabilityEngineerPage.tsx", "utf8");
+    expect(src).not.toMatch(/CAD\s*\$?\s*7\.?5/i);
+    expect(src).not.toMatch(/design-partner/i);
+    expect(src).toMatch(/US\$35K Reliability Intelligence Assessment|US\$35,000 Reliability Intelligence Assessment/);
+  });
+});
+

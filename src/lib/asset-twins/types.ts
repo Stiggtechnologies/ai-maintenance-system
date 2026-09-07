@@ -51,6 +51,11 @@ export interface ComponentTemplate {
   telemetryConcepts: string[];
   inspectionZones: string[];
   failureModes: FailureModeTemplate[];
+  /**
+   * Canonical Shared Component DNA codes this asset-class component inherits.
+   * Templates reference shared intelligence; they must not copy it.
+   */
+  sharedComponentDnaCodes?: string[];
 }
 
 export interface AssetClassTemplate {

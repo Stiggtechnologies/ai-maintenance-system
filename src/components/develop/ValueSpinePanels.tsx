@@ -47,6 +47,7 @@ import {
   getCaseValueTrajectory,
   getSinceSanctionDelta,
   listCaseRamTargets,
+  getCaseAssumptionLinks,
   recordCaseAssumption,
   recordCaseBenefit,
   recordCaseValueEvaluation,
@@ -55,6 +56,7 @@ import {
   setCaseViabilityFloor,
   setSuccessOutcome,
   upsertFinancialAssumption,
+  type CaseAssumptionLinks,
   type CaseRamTargetOption,
   type OrgMember,
 } from "../../services/developService";
@@ -1099,6 +1101,14 @@ function AssumptionsBlock({
   const [faUnit, setFaUnit] = useState("");
   const [faSource, setFaSource] = useState("");
   const [faKind, setFaKind] = useState("general");
+  const [estimateId, setEstimateId] = useState("");
+  const [scheduleId, setScheduleId] = useState("");
+  const [links, setLinks] = useState<CaseAssumptionLinks | null>(null);
+  useEffect(() => {
+    void getCaseAssumptionLinks(workspace.id)
+      .then(setLinks)
+      .catch(() => setLinks(null));
+  }, [workspace.id, workspace.caseAssumptions.length]);
   const thresholds = model.viabilityThresholds ?? [];
   return (
     <div className="space-y-2">
@@ -1155,6 +1165,33 @@ function AssumptionsBlock({
                 )}
                 <div className="mt-0.5 text-[11px] text-slate-500">
                   Owner: {a.owner ?? "not stated"}
+                  {(() => {
+                    const link = links?.assumptions.find(
+                      (row) => row.assumptionId === a.id,
+                    );
+                    if (!link) return null;
+                    const estimate = link.dependencies.find(
+                      (d) => d.subjectType === "estimate",
+                    );
+                    return (
+                      <>
+                        {estimate && (
+                          <>
+                            {" "}
+                            · estimate {estimate.estimateRef ?? estimate.subjectId}
+                          </>
+                        )}
+                        {link.scheduleActivityId != null && (
+                          <>
+                            {" "}
+                            · schedule{" "}
+                            {link.scheduleActivityLabel ??
+                              String(link.scheduleActivityId)}
+                          </>
+                        )}
+                      </>
+                    );
+                  })()}
                 </div>
               </div>
             );
@@ -1190,6 +1227,30 @@ function AssumptionsBlock({
                 <input type="number" step="any" value={threshold} onChange={(e) => setThreshold(e.target.value)} placeholder="Threshold" className={inputClass} />
               </div>
               <input value={unit} onChange={(e) => setUnit(e.target.value)} placeholder="Threshold unit (optional)" className={inputClass} />
+              <select
+                value={estimateId}
+                onChange={(e) => setEstimateId(e.target.value)}
+                className={inputClass}
+              >
+                <option value="">Estimate cost line (optional)</option>
+                {(links?.estimateSubjects ?? []).map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.costItemRef} — {item.description}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={scheduleId}
+                onChange={(e) => setScheduleId(e.target.value)}
+                className={inputClass}
+              >
+                <option value="">Schedule activity (optional)</option>
+                {(links?.scheduleSubjects ?? []).map((item) => (
+                  <option key={item.id} value={String(item.id)}>
+                    {item.eventTitle}: {item.taskKey} — {item.label}
+                  </option>
+                ))}
+              </select>
               <button
                 onClick={() =>
                   void run(async () => {
@@ -1199,6 +1260,11 @@ function AssumptionsBlock({
                       triggerForReview: trigger,
                       ownerId,
                       businessCaseId: model.businessCase?.id ?? null,
+                      scheduleActivityId:
+                        scheduleId !== "" ? Number(scheduleId) : null,
+                      dependencies: estimateId
+                        ? [{ subjectType: "estimate", subjectId: estimateId }]
+                        : [],
                       thresholdParameter: parameter || null,
                       thresholdComparator: parameter ? comparator : null,
                       thresholdValue:
@@ -1212,6 +1278,8 @@ function AssumptionsBlock({
                     setTrigger("");
                     setParameter("");
                     setThreshold("");
+                    setEstimateId("");
+                    setScheduleId("");
                   })
                 }
                 disabled={busy}

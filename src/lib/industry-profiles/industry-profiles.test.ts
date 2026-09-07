@@ -66,24 +66,27 @@ describe("the kernel-profile architecture (E1.01)", () => {
     }
   });
 
-  it("reports prose-only claims instead of hiding them", () => {
+  it("reports the RBI domain module as executable without claiming full API 581", () => {
     const petro = assessProfile(
       INDUSTRY_PROFILES.find((p) => p.industryCode === "petrochemical")!,
     );
-    // RBI is in the standards register (API 580/581) and the engine is not
-    // built. The assessment must say so, not count the claim as coverage.
-    expect(petro.proseOnly.join(" ")).toMatch(/API 580/);
-    expect(petro.reason).toMatch(/must not read as coverage/);
-    expect(petro.operationalShare).toBeLessThan(1);
+    expect(petro.domainModules.map((module) => module.key)).toEqual([
+      "petrochemical-rbi",
+    ]);
+    expect(petro.domainModules[0].methods).toContain("rbi-corrosion-loop");
+    expect(petro.proseOnly).toEqual([]);
+    expect(petro.operationalShare).toBe(1);
   });
 
-  it("computes operational share over ALL claims, not just the bound ones", () => {
+  it("counts governed domain modules in operational share", () => {
     const mfg = assessProfile(
       INDUSTRY_PROFILES.find((p) => p.industryCode === "manufacturing")!,
     );
-    // 3 operational, 2 prose → 3/5. Dividing by bound contexts only would
-    // always yield 100%, which is the shell pattern this exists to kill.
-    expect(mfg.operationalShare).toBeCloseTo(3 / 5, 6);
+    expect(mfg.domainModules[0].methods).toEqual([
+      "line-balancing",
+      "robot-health",
+    ]);
+    expect(mfg.operationalShare).toBe(1);
   });
 
   it("surfaces a wiring error rather than dropping it", () => {
@@ -91,6 +94,7 @@ describe("the kernel-profile architecture (E1.01)", () => {
       industryCode: "oil_sands",
       registerRef: "test",
       contexts: ["process_trip", "context_that_does_not_exist"],
+      domainModules: [],
       proseOnly: [],
     });
     expect(broken.unknownContexts).toEqual(["context_that_does_not_exist"]);

@@ -206,7 +206,7 @@ export function WorkOrderPlanningPanel({
             <p className="mt-2 text-xs text-slate-500">Loading plans…</p>
           ) : (plans.data ?? []).length === 0 ? (
             <p className="mt-2 text-xs text-slate-500">
-              No adopted plans yet. Adopt one in the planning library first.
+              No adopted plans yet. Author and adopt one on /job-plans first.
             </p>
           ) : (
             <div className="mt-3 flex flex-wrap items-center gap-2">
