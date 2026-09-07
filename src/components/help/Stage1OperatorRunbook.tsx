@@ -141,7 +141,7 @@ export function Stage1OperatorRunbook() {
             return (
               <li
                 key={gate.id}
-                data-testid={\`stage1-gate-\${gate.id}\`}
+                data-testid={`stage1-gate-${gate.id}`}
                 className="rounded-xl border border-white/8 bg-black/20 p-3"
               >
                 <div className="flex items-start gap-3">
@@ -150,8 +150,8 @@ export function Stage1OperatorRunbook() {
                     aria-pressed={checked}
                     aria-label={
                       checked
-                        ? \`Unmark \${gate.title}\`
-                        : \`Mark \${gate.title} locally\`
+                        ? `Unmark ${gate.title}`
+                        : `Mark ${gate.title} locally`
                     }
                     className="mt-0.5 text-teal-300"
                     onClick={() => toggle(gate.id)}

@@ -17,6 +17,6 @@ describe("Stage1OperatorRunbook (M2)", () => {
   it("Mission Control mounts the runbook", () => {
     const src = readFileSync("src/pages/MissionControl.tsx", "utf8");
     expect(src).toMatch(/Stage1OperatorRunbook/);
-    expect(src).toMatch(/<Stage1OperatorRunbook\\s*\\/>/);
+    expect(src).toMatch(/<Stage1OperatorRunbook\s*\/>/);
   });
 });
