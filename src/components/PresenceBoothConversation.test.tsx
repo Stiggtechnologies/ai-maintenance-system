@@ -185,6 +185,42 @@ describe("PresenceBoothConversation", () => {
     expect(screen.queryByText(/cheeky|jarvis/i)).toBeNull();
   });
 
+  it("replies to 1:1 audio checks on continuous listen", async () => {
+    renderBooth();
+    act(() => {
+      onTranscript?.("Can you hear me");
+    });
+    await waitFor(
+      () => {
+        expect(askBooth).toHaveBeenCalledTimes(1);
+      },
+      { timeout: BOOTH_UTTERANCE_SILENCE_MS + 400 },
+    );
+    expect(askBooth.mock.calls[0][0]).toContain("QUESTION: Can you hear me");
+    expect(
+      await screen.findByText(
+        "No sourced backlog figure is in this snapshot. I recommend, I do not authorize.",
+      ),
+    ).toBeInTheDocument();
+    expect(speak).toHaveBeenCalled();
+  });
+
+  it("commits a visible interim line when no final transcript arrives", async () => {
+    renderBooth();
+    act(() => {
+      onInterim?.("I can't hear you");
+    });
+    expect(askBooth).not.toHaveBeenCalled();
+    await waitFor(
+      () => {
+        expect(askBooth).toHaveBeenCalledTimes(1);
+      },
+      { timeout: BOOTH_UTTERANCE_SILENCE_MS + 400 },
+    );
+    expect(askBooth.mock.calls[0][0]).toContain("QUESTION: I can't hear you");
+    expect(speak).toHaveBeenCalled();
+  });
+
   it("speaks when the room addresses Sync on continuous listen", async () => {
     renderBooth();
     act(() => {

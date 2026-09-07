@@ -39,10 +39,25 @@ export function useSpeechOutput() {
       window.speechSynthesis.cancel();
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.lang = navigator.language || "en-CA";
-      utterance.onstart = () => setSpeaking(true);
+      let started = false;
+      utterance.onstart = () => {
+        started = true;
+        setSpeaking(true);
+      };
       utterance.onend = () => setSpeaking(false);
       utterance.onerror = () => setSpeaking(false);
       window.speechSynthesis.speak(utterance);
+      // Autoplay / empty-voice browsers may never fire onstart or onend.
+      // Release the Meet Sync echo gate so recognition can commit again.
+      window.setTimeout(() => {
+        if (
+          !started &&
+          !window.speechSynthesis.speaking &&
+          !window.speechSynthesis.pending
+        ) {
+          setSpeaking(false);
+        }
+      }, 750);
     },
     [browserSupported],
   );

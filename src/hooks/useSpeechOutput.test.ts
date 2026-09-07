@@ -68,6 +68,20 @@ describe("useSpeechOutput", () => {
     speakSpy.mockRestore();
   });
 
+  it("releases speaking when browser TTS never starts so the echo gate cannot stick", async () => {
+    const { result } = renderHook(() => useSpeechOutput());
+    act(() => {
+      result.current.speak("Welcome.");
+    });
+    expect(result.current.speaking).toBe(true);
+    await waitFor(
+      () => {
+        expect(result.current.speaking).toBe(false);
+      },
+      { timeout: 2000 },
+    );
+  });
+
   it("stop() cancels browser speech so dictation can barge in", async () => {
     const cancel = vi.spyOn(window.speechSynthesis, "cancel");
     const { result } = renderHook(() => useSpeechOutput());

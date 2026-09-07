@@ -4,8 +4,10 @@
  * Default is continuous listen (browser speech + end-of-utterance), not
  * hold-to-talk. Hold-to-talk is an optional booth toggle. Recognition is
  * paused while Sync is speaking (cloud or browser TTS) plus a short settle
- * so the booth does not treat its own voice as a user turn. Mic blocked is
- * honest: typed Ask remains. Recommend ≠ authorize. No plant execute.
+ * so the booth does not treat its own voice as a user turn. A visible
+ * interim line still commits after silence if the browser never emits a
+ * final. Mic blocked is honest: typed Ask remains. Recommend ≠ authorize.
+ * No plant execute.
  */
 
 export const PRESENCE_HOLD_TO_TALK_KEY = "syncai.presence.holdToTalk";
@@ -136,6 +138,34 @@ export function shouldAutoListen(input: {
     !isBoothTtsActive(input) &&
     input.micPermission !== "denied" &&
     input.micPermission !== "unsupported"
+  );
+}
+
+/** Prefer a final transcript; fall back to the visible interim line. */
+export function resolveContinuousHeardTranscript(
+  finalText: string,
+  interimText: string,
+): string {
+  return finalText.trim() || interimText.trim();
+}
+
+/**
+ * Keep a heard turn across the TTS settle instead of dropping it when the
+ * silence timer fires while the echo gate is still down.
+ */
+export function shouldRetryContinuousCommit(input: {
+  transcript: string;
+  holdToTalk: boolean;
+  busy: boolean;
+  speaking?: boolean;
+  settling?: boolean;
+  outputGating?: boolean;
+}): boolean {
+  return (
+    Boolean(input.transcript.trim()) &&
+    !input.holdToTalk &&
+    !input.busy &&
+    isBoothTtsActive(input)
   );
 }
 

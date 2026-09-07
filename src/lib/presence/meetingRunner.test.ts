@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   classifyRoomUtterance,
   decideRoomTurn,
+  isSyncDirectedUtterance,
   ROOM_FACILITATION,
   ROOM_HOLD_COPY,
   roomSessionLineLimit,
@@ -43,6 +44,31 @@ describe("classifyRoomUtterance", () => {
     );
     expect(classifyRoomUtterance("I'll take that action.")).toBe("hold");
     expect(classifyRoomUtterance("huh?")).toBe("hold");
+  });
+
+  it("treats 1:1 audio and presence checks as asked, not room chatter", () => {
+    expect(isSyncDirectedUtterance("Can you hear me")).toBe(true);
+    expect(isSyncDirectedUtterance("I can't hear you")).toBe(true);
+    expect(isSyncDirectedUtterance("I cannot hear you")).toBe(true);
+    expect(isSyncDirectedUtterance("Are you there")).toBe(true);
+    expect(classifyRoomUtterance("Can you hear me")).toBe("asked");
+    expect(classifyRoomUtterance("I can't hear you")).toBe("asked");
+    expect(classifyRoomUtterance("Are you listening?")).toBe("asked");
+    expect(
+      decideRoomTurn({
+        text: "Can you hear me",
+        channel: "continuous",
+      }).action,
+    ).toBe("speak");
+    expect(
+      decideRoomTurn({
+        text: "I can't hear you",
+        channel: "continuous",
+      }).action,
+    ).toBe("speak");
+    expect(isSyncDirectedUtterance("The vibration started after the shutdown.")).toBe(
+      false,
+    );
   });
 
   it("treats a real reliability question as asked", () => {
