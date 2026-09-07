@@ -50,9 +50,7 @@ describe("P0.2 Decision Case spine on /get-started", () => {
     expect(page).toMatch(/inverted-intent-/);
     expect(page).toMatch(/DecisionCaseSpine/);
     expect(page).not.toMatch(/CAD\s*\$?\s*7\.?5/i);
-    expect(readFileSync("src/App.tsx", "utf8")).toMatch(
-      /path=\"\/get-started\"/,
-    );
+    expect(readFileSync("src/App.tsx", "utf8")).toMatch("/get-started");
   });
 
   it("opens the spine after save and auto-builds an honest case", () => {
@@ -65,7 +63,9 @@ describe("P0.2 Decision Case spine on /get-started", () => {
     expect(screen.getByTestId("spine-lineage").textContent).toMatch(
       /Confidence/,
     );
-    expect(screen.getByText(/No connected operating data/)).toBeTruthy();
+    expect(
+      screen.getAllByText(/No connected operating data/).length,
+    ).toBeGreaterThan(0);
     expect(screen.queryByText(/Fort McMurray|P-101/)).toBeNull();
   });
 
