@@ -44,8 +44,8 @@ export function FirstRunNextStepStrip() {
           <p className="mt-1 text-xs leading-relaxed text-amber-100/80">
             For Stage-1 proof: open Decision Workspace and ask on a live subject
             (or honest empty). Field captures observations. Admin configures one
-            thin connector under Integrations. Recommend is not authorize — no
-            plant execute.
+            thin connector under Integrations. Recommend is not authorize —
+            no plant execute.
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
             <button
