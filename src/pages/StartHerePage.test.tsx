@@ -10,11 +10,15 @@ describe("StartHerePage (self-guided moat floor)", () => {
     expect(signup).toMatch(/returnTo=\/start/);
   });
 
-  it("states recommend is not authorize and no plant execute", () => {
+  it("states ~20 min setup, sequential checklist, and honesty bars", () => {
     const src = readFileSync("src/pages/StartHerePage.tsx", "utf8");
-    expect(src).toMatch(/recommends; humans authorize|Recommend/i);
-    expect(src).toMatch(/no plant execute/i);
+    expect(src).toMatch(/~20 min/);
+    expect(src).toMatch(/Recommend is not authorize/);
+    expect(src).toMatch(/No plant execute/);
+    expect(src).toMatch(/id: \"ask\"/);
+    expect(src).toMatch(/id: \"learn\"/);
+    expect(src).toMatch(/id: \"connector\"/);
     expect(src).not.toMatch(/CAD\s*\$?\s*7\.?5/i);
-    expect(src).not.toMatch(/seamless self-guided onboarding is live/i);
+    expect(src).not.toMatch(/seamless onboarding is live/i);
   });
 });
