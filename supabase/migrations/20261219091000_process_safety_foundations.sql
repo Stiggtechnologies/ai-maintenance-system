@@ -97,5 +97,10 @@ revoke all on function public.link_hazard_barrier(bigint,bigint,text,text) from 
 revoke all on function public.record_integrity_window(jsonb) from public,anon;
 revoke all on function public.record_integrity_exceedance(jsonb) from public,anon;
 revoke all on function public.assess_integrity_exceedance(bigint,text) from public,anon;
-grant execute on function public.record_safety_critical_element(jsonb),public.record_major_hazard(jsonb),public.link_hazard_barrier(bigint,bigint,text,text),public.record_integrity_window(jsonb),public.record_integrity_exceedance(jsonb),public.assess_integrity_exceedance(bigint,text) to authenticated;
+grant execute on function public.record_safety_critical_element(jsonb) to authenticated;
+grant execute on function public.record_major_hazard(jsonb) to authenticated;
+grant execute on function public.link_hazard_barrier(bigint,bigint,text,text) to authenticated;
+grant execute on function public.record_integrity_window(jsonb) to authenticated;
+grant execute on function public.record_integrity_exceedance(jsonb) to authenticated;
+grant execute on function public.assess_integrity_exceedance(bigint,text) to authenticated;
 notify pgrst,'reload schema';
