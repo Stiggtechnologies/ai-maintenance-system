@@ -1,6 +1,6 @@
 /**
  * Sync Develop — Realize / Learn on the Case Workspace
- * (D9.02, D9.03, D9.04, D9.11, D9.13).
+ * (D9.02, D9.03, D9.04, D9.11, D9.13, D9.01, D9.12, D9.14, D9.16).
  *
  * Surfaces the server rows. Nothing here recomputes a due date, a completeness
  * percentage, or a verification. Completeness uses `warrantyCompleteness` so
@@ -11,7 +11,7 @@
  * is `verifyValueMetric` — the one existing loop.
  */
 import { useEffect, useState, type ReactNode } from "react";
-import { BookOpen, Gauge, Milestone } from "lucide-react";
+import { BookOpen, Gauge, Milestone, Scale, Target } from "lucide-react";
 import {
   CHECKPOINT_HORIZONS,
   DELIVERY_FAILURE_LABELS,
@@ -23,16 +23,24 @@ import {
   type WarrantyMetric,
 } from "../../lib/develop/realize";
 import {
+  getCaseLifecycleSuccess,
   getCaseOperationalWarranty,
   getCaseProjectLessons,
+  getCaseProjectSuccess,
   getCaseRealizationCheckpoints,
+  getCaseValueRealization,
   openRealizationWindow,
   recordCheckpointObservation,
   recordOperationalWarranty,
   recordProjectLesson,
+  screenApplicableProjectLessons,
+  type ApplicableProjectLessons,
+  type CaseLifecycleSuccess,
   type CaseOperationalWarranty,
   type CaseProjectLessons,
+  type CaseProjectSuccess,
   type CaseRealizationCheckpoints,
+  type CaseValueRealization,
   type RealizationCheckpointRow,
 } from "../../services/developService";
 import { verifyValueMetric } from "../../services/operatingLoopService";
@@ -670,6 +678,213 @@ export function ProjectLessonsSection({
   );
 }
 
+function verdictTone(verdict: string): string {
+  if (verdict === "met" || verdict === "success") return "text-emerald-300";
+  if (verdict === "not_met" || verdict === "not_success") return "text-red-300";
+  return "text-amber-300";
+}
+
+export function ApplicableLessonsBanner({ caseId }: { caseId: string }) {
+  const [payload, setPayload] = useState<ApplicableProjectLessons | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    screenApplicableProjectLessons(caseId)
+      .then(setPayload)
+      .catch((e) =>
+        setError(e instanceof Error ? e.message : "Could not screen lessons"),
+      );
+  }, [caseId]);
+
+  if (error) {
+    return (
+      <div className="rounded-xl border border-red-400/30 bg-red-400/10 px-4 py-3 text-xs text-red-300">
+        {error}
+      </div>
+    );
+  }
+  if (payload == null) return null;
+  if (payload.count === 0) {
+    return (
+      <div className="rounded-xl border border-white/6 bg-[#0D1520] px-4 py-3 text-xs text-slate-400">
+        {payload.emptyReason ?? "0 applicable lessons."}
+      </div>
+    );
+  }
+  return (
+    <div className="rounded-xl border border-signal-cyan/30 bg-signal-cyan/5 px-4 py-3">
+      <div className="text-sm font-semibold text-slate-100">
+        {payload.count} applicable lesson
+        {payload.count === 1 ? "" : "s"} before the first engineering dollar
+      </div>
+      <p className="mt-1 text-[11px] text-slate-500">{payload.basis}</p>
+      <ul className="mt-2 space-y-1.5">
+        {payload.lessons.map((lesson) => (
+          <li key={lesson.id} className="text-xs text-slate-300">
+            <span className="font-semibold">{lesson.title}</span>
+            <span className="text-slate-500"> — {lesson.matchReason}</span>
+            <div className="text-[11px] text-slate-500">
+              {lesson.applicability}
+            </div>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+export function ValueRealizationSection({ caseId }: { caseId: string }) {
+  const [payload, setPayload] = useState<CaseValueRealization | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    getCaseValueRealization(caseId)
+      .then(setPayload)
+      .catch((e) =>
+        setError(e instanceof Error ? e.message : "Could not load VR"),
+      );
+  }, [caseId]);
+
+  return (
+    <Section
+      icon={<Scale className="h-4 w-4 text-slate-500" aria-hidden />}
+      title="Value Realization"
+      subtitle="VR = RealizedBenefit / ApprovedExpectedBenefit (spec §52). No approved BENEFITS baseline → no percentage. Unverified benefits are omitted, not zeroed."
+    >
+      <ErrorLine error={error} />
+      {payload == null ? (
+        <p className="text-xs text-slate-500">Loading value realization…</p>
+      ) : !payload.evaluable ? (
+        <p className="text-xs text-amber-300">{payload.reason}</p>
+      ) : (
+        <div className="text-xs text-slate-300">
+          <div className="text-lg font-semibold text-slate-100">
+            {(payload.ratio ?? 0).toFixed(3)}
+            <span className="ml-2 text-xs font-normal text-slate-500">
+              {payload.unit}
+            </span>
+          </div>
+          <div className="mt-1 text-slate-500">
+            Realized {payload.realizedBenefit} / approved{" "}
+            {payload.approvedExpectedBenefit}.{" "}
+            {payload.unverifiedBenefitCount ?? 0} unverified benefit
+            {(payload.unverifiedBenefitCount ?? 0) === 1 ? "" : "s"} omitted.
+          </div>
+          <div className="mt-1 text-[11px] text-slate-500">{payload.note}</div>
+        </div>
+      )}
+    </Section>
+  );
+}
+
+export function ProjectSuccessSection({ caseId }: { caseId: string }) {
+  const [payload, setPayload] = useState<CaseProjectSuccess | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    getCaseProjectSuccess(caseId)
+      .then(setPayload)
+      .catch((e) =>
+        setError(e instanceof Error ? e.message : "Could not load success"),
+      );
+  }, [caseId]);
+
+  return (
+    <Section
+      icon={<Target className="h-4 w-4 text-slate-500" aria-hidden />}
+      title="Project success (eight dimensions)"
+      subtitle="Spec §55: Safety, Value, Quality, Schedule, Cost, RAM, Operations, Stakeholders. Missing slots are named, never zeroed. Never merely on-time + on-budget."
+    >
+      <ErrorLine error={error} />
+      {payload == null ? (
+        <p className="text-xs text-slate-500">Loading project success…</p>
+      ) : (
+        <>
+          <p className="text-xs text-slate-300">{payload.headline}</p>
+          <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+            {(payload.dimensions ?? []).map((slot) => (
+              <div
+                key={slot.key}
+                className="rounded-lg bg-white/[0.03] px-3 py-2 text-xs"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-semibold text-slate-200">
+                    {slot.label}
+                  </span>
+                  <span className={verdictTone(slot.verdict)}>
+                    {slot.verdict.replace(/_/g, " ")}
+                  </span>
+                </div>
+                <div className="mt-0.5 text-[11px] text-slate-500">
+                  {slot.missingReason ?? slot.value ?? slot.source}
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </Section>
+  );
+}
+
+export function LifecycleSuccessSection({ caseId }: { caseId: string }) {
+  const [payload, setPayload] = useState<CaseLifecycleSuccess | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    getCaseLifecycleSuccess(caseId)
+      .then(setPayload)
+      .catch((e) =>
+        setError(e instanceof Error ? e.message : "Could not load phases"),
+      );
+  }, [caseId]);
+
+  return (
+    <Section
+      icon={<Milestone className="h-4 w-4 text-slate-500" aria-hidden />}
+      title="Lifecycle success (per phase)"
+      subtitle="Phases are the adopted framework's stages. On-budget-but-unreliable is failure. Cost and RAM stay case-level and are labelled so."
+    >
+      <ErrorLine error={error} />
+      {payload == null ? (
+        <p className="text-xs text-slate-500">Loading lifecycle success…</p>
+      ) : !payload.available ? (
+        <p className="text-xs text-slate-500">{payload.reason}</p>
+      ) : (
+        <>
+          <p className="text-[11px] text-slate-500">{payload.rule}</p>
+          <div className="space-y-2">
+            {(payload.phases ?? []).map((phase) => (
+              <div
+                key={phase.stageKey}
+                className="rounded-lg bg-white/[0.03] px-3 py-2 text-xs"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-semibold text-slate-200">
+                    {phase.displayName}
+                    {phase.isCurrent ? " · current" : ""}
+                  </span>
+                  <span className={verdictTone(phase.verdict)}>
+                    {phase.verdict.replace(/_/g, " ")}
+                  </span>
+                </div>
+                <div className="mt-0.5 text-[11px] text-slate-500">
+                  Gates {phase.reviewedCount}/{phase.gateCount} · cost{" "}
+                  {phase.costVerdict.replace(/_/g, " ")} ({phase.costScope}) ·
+                  RAM {phase.ramVerdict.replace(/_/g, " ")} ({phase.ramScope})
+                  {phase.onBudgetUnreliable
+                    ? " · on-budget-but-unreliable"
+                    : ""}
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </Section>
+  );
+}
+
 export function RealizeCluster({
   caseId,
   canRealize,
@@ -693,6 +908,9 @@ export function RealizeCluster({
 
   return (
     <>
+      <ValueRealizationSection caseId={caseId} />
+      <ProjectSuccessSection caseId={caseId} />
+      <LifecycleSuccessSection caseId={caseId} />
       <OperationalWarrantySection
         caseId={caseId}
         canRealize={canRealize}
