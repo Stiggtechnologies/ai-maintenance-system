@@ -58,7 +58,10 @@ export function createSpeechOutputController(
         deps.onEngineChange?.("cloud");
         deps.onSpeakingChange?.(false);
       } catch {
-        if (mine !== generation || controller.signal.aborted) return;
+        if (mine !== generation || controller.signal.aborted) {
+          if (mine === generation) deps.onSpeakingChange?.(false);
+          return;
+        }
         deps.onEngineChange?.("browser");
         deps.speakBrowser(spoken);
       }

@@ -10,8 +10,10 @@ import {
   isMicBlockedError,
   isSelfEchoTranscript,
   readHoldToTalkPreference,
+  resolveContinuousHeardTranscript,
   shouldAutoListen,
   shouldCommitContinuousUtterance,
+  shouldRetryContinuousCommit,
   shouldTreatHeardSpeechAsUserTurn,
   writeHoldToTalkPreference,
 } from "./boothListen";
@@ -121,6 +123,35 @@ describe("booth listen mode", () => {
     expect(BOOTH_TTS_SETTLE_MS).toBeGreaterThan(0);
     expect(BOOTH_TTS_SETTLE_MS).toBeLessThan(BOOTH_UTTERANCE_SILENCE_MS);
     expect(BOOTH_ECHO_MEMORY_MS).toBeGreaterThan(BOOTH_TTS_SETTLE_MS);
+  });
+
+  it("commits the visible interim line when no final transcript arrived", () => {
+    expect(
+      resolveContinuousHeardTranscript("", "Can you hear me"),
+    ).toBe("Can you hear me");
+    expect(
+      resolveContinuousHeardTranscript("How is emergency work trending?", "how is"),
+    ).toBe("How is emergency work trending?");
+    expect(resolveContinuousHeardTranscript("  ", "  ")).toBe("");
+  });
+
+  it("retries a heard turn after the echo gate instead of dropping it", () => {
+    const blocked = {
+      transcript: "Can you hear me",
+      holdToTalk: false,
+      busy: false,
+      settling: true,
+    };
+    expect(shouldRetryContinuousCommit(blocked)).toBe(true);
+    expect(shouldRetryContinuousCommit({ ...blocked, settling: false })).toBe(
+      false,
+    );
+    expect(shouldRetryContinuousCommit({ ...blocked, transcript: "  " })).toBe(
+      false,
+    );
+    expect(shouldRetryContinuousCommit({ ...blocked, holdToTalk: true })).toBe(
+      false,
+    );
   });
 
   it("commits a continuous utterance after silence, not while Sync is speaking", () => {

@@ -52,8 +52,20 @@ const ACK =
   /^(?:yeah|yep|yes|ok|okay|right|thanks|thank you|got it|agreed|agree|mm-?hmm|uh-huh|cool|sure|alright|all right)(?:[.!]|\s+(?:yeah|ok|okay|thanks|got it|right))*\s*$/i;
 const QUESTION =
   /\?|^\s*(?:what|why|how|when|where|should|can|could|would|is|are|do|does|did|who)\b/i;
+const SHORT_ASK =
+  /^\s*(?:what|why|how|when|where|should|can|could|would|is|are|do|does|did|who)\b/i;
 const DOMAIN =
   /\b(?:backlog|oee|mtbf|mttr|downtime|vibration|bearing|crusher|mill|asset|work order|emergency work|failure|reliability|maintenance|inspection|shutdown|outage|spare|wear|temperature|alarm|fault|kpi|decision case|evidence|root cause|rca|availability|trending)\b/i;
+/**
+ * 1:1 Meet Sync audio / presence checks. SpeechRecognition almost never
+ * includes a `?`, so "Can you hear me" must not fall through as chatter.
+ */
+const SYNC_DIRECTED =
+  /\b(?:can you hear|could you hear|are you (?:there|listening)|(?:i|we) can(?:no)?['’]?t hear(?: you)?|(?:i|we) cannot hear(?: you)?|hello(?: there)?|hi sync|you there)\b/i;
+
+export function isSyncDirectedUtterance(text: string): boolean {
+  return SYNC_DIRECTED.test(text.trim());
+}
 
 export function classifyRoomUtterance(text: string): RoomIntent {
   const trimmed = text.trim();
@@ -62,6 +74,7 @@ export function classifyRoomUtterance(text: string): RoomIntent {
   if (INVITED.test(trimmed)) return "invited";
   if (WRAP.test(trimmed)) return "wrap";
   if (STUCK.test(trimmed)) return "asked";
+  if (isSyncDirectedUtterance(trimmed)) return "asked";
   if (ACK.test(trimmed) && trimmed.length < 40) return "hold";
   if (isRoomQuestion(trimmed)) return "asked";
   return "hold";
@@ -118,7 +131,10 @@ export function roomSessionLineLimit(): number {
 function isRoomQuestion(text: string): boolean {
   if (!QUESTION.test(text)) return false;
   if (DOMAIN.test(text)) return true;
+  if (isSyncDirectedUtterance(text)) return true;
   if (text.includes("?") && text.length >= 18) return true;
   if (text.length >= 28) return true;
-  return false;
+  // 1:1 booth: a short interrogative is for Sync. STT rarely adds `?`.
+  const normalized = text.replace(/\s+/g, " ").trim();
+  return SHORT_ASK.test(normalized) && normalized.length >= 12;
 }

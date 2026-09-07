@@ -31,8 +31,10 @@ import {
   boothVoiceMode,
   isMicBlockedError,
   readHoldToTalkPreference,
+  resolveContinuousHeardTranscript,
   shouldAutoListen,
   shouldCommitContinuousUtterance,
+  shouldRetryContinuousCommit,
   shouldTreatHeardSpeechAsUserTurn,
   writeHoldToTalkPreference,
 } from "../lib/presence/boothListen";
@@ -127,6 +129,7 @@ export function PresenceBoothConversation({
   const heldTranscript = useRef("");
   const holdingTalk = useRef(false);
   const utteranceRef = useRef("");
+  const heardDisplayRef = useRef("");
   const silenceTimerRef = useRef<number | null>(null);
   const lastSpokenRef = useRef<string | null>(null);
   const ttsGateRef = useRef(false);
@@ -166,22 +169,39 @@ export function PresenceBoothConversation({
   const scheduleContinuousCommit = () => {
     clearSilenceTimer();
     silenceTimerRef.current = window.setTimeout(() => {
-      const transcript = utteranceRef.current.trim();
+      const transcript = resolveContinuousHeardTranscript(
+        utteranceRef.current,
+        heardDisplayRef.current,
+      );
+      const gate = {
+        speaking: speakingRef.current,
+        settling: ttsSettlingRef.current,
+        outputGating: ttsGateRef.current,
+      };
       if (
         !shouldCommitContinuousUtterance({
           transcript,
           silenceMs: BOOTH_UTTERANCE_SILENCE_MS,
-          speaking: speakingRef.current,
           busy: busyRef.current,
           holdToTalk: holdToTalkRef.current,
-          settling: ttsSettlingRef.current,
-          outputGating: ttsGateRef.current,
           lastSpokenText: lastSpokenRef.current,
+          ...gate,
         })
       ) {
+        if (
+          shouldRetryContinuousCommit({
+            transcript,
+            holdToTalk: holdToTalkRef.current,
+            busy: busyRef.current,
+            ...gate,
+          })
+        ) {
+          scheduleContinuousCommit();
+        }
         return;
       }
       utteranceRef.current = "";
+      heardDisplayRef.current = "";
       setInput("");
       void sendRef.current(transcript, "continuous");
     }, BOOTH_UTTERANCE_SILENCE_MS);
@@ -200,6 +220,7 @@ export function PresenceBoothConversation({
       utteranceRef.current = utteranceRef.current
         ? `${utteranceRef.current} ${text}`
         : text;
+      heardDisplayRef.current = utteranceRef.current;
       setInput(utteranceRef.current);
       scheduleContinuousCommit();
     },
@@ -211,9 +232,11 @@ export function PresenceBoothConversation({
       onInterim: (text) => {
         if (holdToTalkRef.current) return;
         if (!heardIsUserTurn(text)) return;
-        setInput(
-          utteranceRef.current ? `${utteranceRef.current} ${text}` : text,
-        );
+        const display = utteranceRef.current
+          ? `${utteranceRef.current} ${text}`
+          : text;
+        heardDisplayRef.current = display;
+        setInput(display);
         scheduleContinuousCommit();
       },
       onSpeech: () => {
@@ -249,6 +272,7 @@ export function PresenceBoothConversation({
       ttsGateRef.current = true;
       wasSpeakingRef.current = true;
       utteranceRef.current = "";
+      heardDisplayRef.current = "";
       clearSilenceTimer();
       setTtsGating(true);
       setTtsSettling(false);
@@ -378,6 +402,7 @@ export function PresenceBoothConversation({
       lastSpokenRef.current = spoken;
       ttsGateRef.current = true;
       utteranceRef.current = "";
+      heardDisplayRef.current = "";
       clearSilenceTimer();
       setTtsGating(true);
       setTtsSettling(false);
@@ -404,6 +429,7 @@ export function PresenceBoothConversation({
       setInput("");
       heldTranscript.current = "";
       utteranceRef.current = "";
+      heardDisplayRef.current = "";
       const held: PresenceBoothMessage = {
         id: `user-${Date.now()}`,
         role: "user",
@@ -422,6 +448,7 @@ export function PresenceBoothConversation({
     setInput("");
     heldTranscript.current = "";
     utteranceRef.current = "";
+    heardDisplayRef.current = "";
     const userMessage: PresenceBoothMessage = {
       id: `user-${Date.now()}`,
       role: "user",
@@ -488,6 +515,7 @@ export function PresenceBoothConversation({
     holdingTalk.current = false;
     clearSilenceTimer();
     utteranceRef.current = "";
+    heardDisplayRef.current = "";
     if (next) setListenPaused(false);
   };
 
