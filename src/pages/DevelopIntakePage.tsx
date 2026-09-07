@@ -14,6 +14,7 @@ import { useAuth } from "../components/AuthProvider";
 import {
   createDevelopmentCase,
   listAdoptedFrameworks,
+  screenApplicableProjectLessons,
   type FrameworkOption,
 } from "../services/developService";
 import { LIFECYCLE_TYPES } from "../lib/develop";
@@ -80,7 +81,14 @@ export function DevelopIntakePage() {
         estimatedCapex: capex === "" ? null : Number(capex),
         expectedValue: expectedValue === "" ? null : Number(expectedValue),
       });
-      navigate(`/develop/cases/${result.case_id}`);
+      // D9.12: screen at creation, before the first workspace dollar.
+      // Failures do not block intake — the workspace banner re-reads.
+      const screened = await screenApplicableProjectLessons(
+        result.case_id,
+      ).catch(() => null);
+      navigate(`/develop/cases/${result.case_id}`, {
+        state: { applicableLessonCount: screened?.count ?? 0 },
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Create failed");
       setBusy(false);

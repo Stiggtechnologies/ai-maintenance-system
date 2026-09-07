@@ -8078,3 +8078,127 @@ export async function recordProjectLesson(input: {
   });
   return unwrapRpc(data, error, "Could not record the project lesson");
 }
+
+// ---------------------------------------------------------------------------
+// D9.12 / D9.14 / D9.16 / D9.01 — screening, VR ratio, success score,
+// per-phase success. Reads plus the existing approveCaseBaseline write
+// (the BENEFITS snapshot rides that human act). No new authorization door.
+// ---------------------------------------------------------------------------
+
+export interface ApplicableProjectLesson {
+  id: string;
+  title: string;
+  failureModeKey: string;
+  cause: string;
+  correctiveAction: string;
+  applicability: string;
+  sourceCaseId: string;
+  sourceLifecycleType: string | null;
+  matchReason: string;
+  createdAt: string;
+}
+
+export interface ApplicableProjectLessons {
+  caseId: string;
+  lifecycleType: string;
+  count: number;
+  lessons: ApplicableProjectLesson[];
+  emptyReason?: string | null;
+  basis?: string;
+}
+
+export interface CaseValueRealization {
+  caseId: string;
+  evaluable: boolean;
+  refusal?: string;
+  reason?: string;
+  ratio?: number;
+  unit?: string;
+  approvedExpectedBenefit?: number;
+  realizedBenefit?: number;
+  unverifiedBenefitCount?: number;
+  baselineId?: string;
+  baselineVersion?: number;
+  formula?: string;
+  note?: string;
+}
+
+export interface ProjectSuccessSlot {
+  key: string;
+  label: string;
+  verdict: "met" | "not_met" | "incomplete" | "missing";
+  source: string;
+  value: string | null;
+  missingReason: string | null;
+}
+
+export interface CaseProjectSuccess {
+  caseId: string;
+  dimensions: ProjectSuccessSlot[];
+  missingCount: number;
+  notMetCount: number;
+  headline: string;
+  basis?: string;
+}
+
+export interface LifecycleSuccessPhase {
+  stageKey: string;
+  displayName: string;
+  sequence: number;
+  isCurrent: boolean;
+  gateCount: number;
+  reviewedCount: number;
+  gateVerdict: string;
+  costVerdict: string;
+  ramVerdict: string;
+  costScope: string;
+  ramScope: string;
+  verdict: "success" | "not_success" | "incomplete";
+  onBudgetUnreliable: boolean;
+}
+
+export interface CaseLifecycleSuccess {
+  caseId: string;
+  available: boolean;
+  reason?: string;
+  frameworkId?: string;
+  phases?: LifecycleSuccessPhase[];
+  rule?: string;
+}
+
+export async function screenApplicableProjectLessons(
+  caseId: string,
+): Promise<ApplicableProjectLessons> {
+  const { data, error } = await supabase.rpc(
+    "screen_applicable_project_lessons",
+    { p_case_id: caseId },
+  );
+  return unwrapRpc(data, error, "Could not screen applicable project lessons");
+}
+
+export async function getCaseValueRealization(
+  caseId: string,
+): Promise<CaseValueRealization> {
+  const { data, error } = await supabase.rpc("get_case_value_realization", {
+    p_case_id: caseId,
+  });
+  return unwrapRpc(data, error, "Could not load value realization");
+}
+
+export async function getCaseProjectSuccess(
+  caseId: string,
+): Promise<CaseProjectSuccess> {
+  const { data, error } = await supabase.rpc("get_case_project_success", {
+    p_case_id: caseId,
+  });
+  return unwrapRpc(data, error, "Could not load the project success score");
+}
+
+export async function getCaseLifecycleSuccess(
+  caseId: string,
+): Promise<CaseLifecycleSuccess> {
+  const { data, error } = await supabase.rpc("get_case_lifecycle_success", {
+    p_case_id: caseId,
+  });
+  return unwrapRpc(data, error, "Could not load lifecycle success");
+}

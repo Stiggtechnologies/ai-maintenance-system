@@ -1,5 +1,6 @@
 /**
- * Sync Develop — Realize / Learn contracts (D9.02 / D9.03 / D9.04 / D9.11 / D9.13).
+ * Sync Develop — Realize / Learn contracts (D9.02 / D9.03 / D9.04 / D9.11 /
+ * D9.13 / D9.01 / D9.12 / D9.14 / D9.16).
  *
  * PURE: no database, no network. Vocabularies MIRROR the SQL helpers
  * `sync_warranty_metric_keys()`, `sync_checkpoint_horizons()` and
@@ -202,4 +203,216 @@ export function lessonRecordRefusal(input: {
     return "A lesson without applicability cannot screen a future case — state where it applies (10 characters minimum)";
   }
   return null;
+}
+
+/**
+ * D9.12 — tokens too common to count as applicability. Mirrored in
+ * `sync_lesson_screen_stopwords()` (20261219090000). A match on "project"
+ * or "applies" would screen every lesson against every case.
+ */
+export const LESSON_SCREEN_STOPWORDS = [
+  "about",
+  "after",
+  "applies",
+  "apply",
+  "before",
+  "case",
+  "from",
+  "into",
+  "lesson",
+  "project",
+  "that",
+  "this",
+  "where",
+  "with",
+] as const;
+
+/** Spec §55 — eight dimensions, never merely on-time + on-budget. */
+export const PROJECT_SUCCESS_DIMENSIONS = [
+  "safety",
+  "value",
+  "quality",
+  "schedule",
+  "cost",
+  "ram",
+  "operations",
+  "stakeholders",
+] as const;
+
+export type ProjectSuccessDimension =
+  (typeof PROJECT_SUCCESS_DIMENSIONS)[number];
+
+export const PROJECT_SUCCESS_LABELS: Record<ProjectSuccessDimension, string> = {
+  safety: "Safety",
+  value: "Value",
+  quality: "Quality",
+  schedule: "Schedule",
+  cost: "Cost",
+  ram: "RAM",
+  operations: "Operations",
+  stakeholders: "Stakeholders",
+};
+
+export function isProjectSuccessDimension(
+  value: string,
+): value is ProjectSuccessDimension {
+  return (PROJECT_SUCCESS_DIMENSIONS as readonly string[]).includes(value);
+}
+
+/** Same tokenizer as `sync_significant_tokens` in 20261219090000. */
+export function significantTokens(text: string): string[] {
+  const stop = new Set<string>(LESSON_SCREEN_STOPWORDS);
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const raw of text.toLowerCase().split(/[^a-z0-9]+/)) {
+    if (raw.length < 4) continue;
+    if (stop.has(raw)) continue;
+    if (seen.has(raw)) continue;
+    seen.add(raw);
+    out.push(raw);
+  }
+  return out;
+}
+
+/**
+ * Deterministic D9.12 match. No score, no LLM. A lesson applies when the
+ * source case shares this case's lifecycle type, or the applicability text
+ * names that type, or a significant token overlaps the new case's title or
+ * problem statement. A case never matches its own lessons.
+ */
+export function lessonAppliesToCase(input: {
+  lessonCaseId: string | null;
+  sourceLifecycleType: string | null;
+  applicability: string;
+  caseId: string;
+  lifecycleType: string;
+  title: string;
+  problemStatement: string;
+}): boolean {
+  if (!input.lessonCaseId) return false;
+  if (input.lessonCaseId === input.caseId) return false;
+  const applicability = input.applicability.trim().toLowerCase();
+  if (applicability.length < 10) return false;
+  const lifecycle = input.lifecycleType.trim().toLowerCase();
+  if (!lifecycle) return false;
+  if (input.sourceLifecycleType?.toLowerCase() === lifecycle) return true;
+  const lifecycleWords = lifecycle.replace(/_/g, " ");
+  if (
+    applicability.includes(lifecycle) ||
+    applicability.includes(lifecycleWords)
+  ) {
+    return true;
+  }
+  const lessonTokens = new Set(significantTokens(input.applicability));
+  const caseTokens = new Set(
+    significantTokens(`${input.title} ${input.problemStatement}`),
+  );
+  for (const token of lessonTokens) {
+    if (caseTokens.has(token)) return true;
+  }
+  return false;
+}
+
+export type ValueRealizationRefusal =
+  | "no_approved_benefits_baseline"
+  | "baseline_has_no_denominator_snapshot"
+  | "mixed_units"
+  | "zero_denominator"
+  | "forbidden"
+  | "case_not_found";
+
+/**
+ * Spec §52: VR = RealizedBenefit / ApprovedExpectedBenefit.
+ * Standing constraint 3: no approved benefit baseline → no percentage.
+ * Mixed units and a zero snapshot are named refusals, never 0% or 100%.
+ */
+export function valueRealizationRatio(input: {
+  approvedExpectedBenefit: number | null;
+  approvedExpectedUnit: string | null;
+  realizedBenefit: number | null;
+  mixedUnits: boolean;
+  hasApprovedBenefitsBaseline: boolean;
+  snapshotPresent: boolean;
+}):
+  | { evaluable: true; ratio: number; unit: string }
+  | { evaluable: false; refusal: ValueRealizationRefusal; reason: string } {
+  if (!input.hasApprovedBenefitsBaseline) {
+    return {
+      evaluable: false,
+      refusal: "no_approved_benefits_baseline",
+      reason:
+        "No approved BENEFITS baseline — no Value Realization percentage (register standing constraint 3)",
+    };
+  }
+  if (!input.snapshotPresent) {
+    return {
+      evaluable: false,
+      refusal: "baseline_has_no_denominator_snapshot",
+      reason:
+        "This approved BENEFITS baseline was recorded before the denominator was snapshotted — approve a new BENEFITS baseline to freeze the expected total",
+    };
+  }
+  if (input.mixedUnits) {
+    return {
+      evaluable: false,
+      refusal: "mixed_units",
+      reason:
+        "Case benefits are in mixed units and cannot be combined into one Value Realization ratio — borrowing a unit would invent the number",
+    };
+  }
+  if (
+    input.approvedExpectedBenefit == null ||
+    !Number.isFinite(input.approvedExpectedBenefit) ||
+    input.approvedExpectedBenefit === 0
+  ) {
+    return {
+      evaluable: false,
+      refusal: "zero_denominator",
+      reason:
+        "The approved expected benefit is zero or absent, so a Value Realization ratio would be 0 or infinite — neither is a measurement",
+    };
+  }
+  if (
+    input.realizedBenefit == null ||
+    !Number.isFinite(input.realizedBenefit) ||
+    input.approvedExpectedUnit == null ||
+    input.approvedExpectedUnit.trim() === ""
+  ) {
+    return {
+      evaluable: false,
+      refusal: "zero_denominator",
+      reason:
+        "Realized benefit or its unit is absent — unverified benefits are not counted as zero",
+    };
+  }
+  return {
+    evaluable: true,
+    ratio: input.realizedBenefit / input.approvedExpectedBenefit,
+    unit: input.approvedExpectedUnit.trim(),
+  };
+}
+
+/**
+ * On-budget-but-unreliable is failure. Cost met + RAM not met is not
+ * success — spec I.35 / §55. Missing dimensions do not become success.
+ */
+export function phaseSuccessVerdict(input: {
+  gateVerdict: "met" | "not_met" | "incomplete" | "missing";
+  costVerdict: "met" | "not_met" | "incomplete" | "missing";
+  ramVerdict: "met" | "not_met" | "incomplete" | "missing";
+}): "success" | "not_success" | "incomplete" {
+  if (input.gateVerdict === "not_met" || input.ramVerdict === "not_met") {
+    return "not_success";
+  }
+  if (
+    input.gateVerdict === "missing" ||
+    input.gateVerdict === "incomplete" ||
+    input.costVerdict === "incomplete" ||
+    input.ramVerdict === "incomplete"
+  ) {
+    return "incomplete";
+  }
+  if (input.costVerdict === "not_met") return "not_success";
+  if (input.gateVerdict === "met") return "success";
+  return "incomplete";
 }
