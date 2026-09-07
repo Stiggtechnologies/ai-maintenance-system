@@ -44,6 +44,7 @@ import { BrandWordmark } from "./BrandWordmark";
 import { CommandSearch } from "./CommandSearch";
 import { CopilotDock } from "./CopilotDock";
 import { PresenceWelcome } from "./PresenceWelcome";
+import { HelpCenterWidget } from "./HelpCenterWidget";
 import { useAuth } from "./AuthProvider";
 import { isNavItemVisible } from "../lib/roleNavigation";
 
@@ -883,6 +884,7 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
 
       {/* Command Search */}
       <CopilotDock />
+      <HelpCenterWidget />
       <CommandSearch
         open={commandSearchOpen}
         onClose={() => setCommandSearchOpen(false)}
