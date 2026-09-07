@@ -81,6 +81,7 @@ import { getRoleHome } from "./lib/roleNavigation";
 import { ReliabilityCopilotPage } from "./pages/ReliabilityCopilotPage";
 import { FirstCustomerPilotPage } from "./pages/FirstCustomerPilotPage";
 import { DecisionCaseWorkspacePage } from "./pages/DecisionCaseWorkspacePage";
+import { HelpCenterWidget } from "./components/HelpCenterWidget";
 import { GovernedDecisionWorkspacePage } from "./pages/GovernedDecisionWorkspacePage";
 import { DevelopCasesPage } from "./pages/DevelopCasesPage";
 import { DevelopIntakePage } from "./pages/DevelopIntakePage";
@@ -111,7 +112,12 @@ function PublicCopilotExperience() {
     document.title = "SyncAI | Governed Engineering Intelligence";
   }, []);
 
-  return <DecisionCaseWorkspacePage publicMode />;
+  return (
+    <>
+      <DecisionCaseWorkspacePage publicMode />
+      <HelpCenterWidget />
+    </>
+  );
 }
 
 function DemoPathRedirect() {
@@ -293,7 +299,12 @@ function App() {
           />
           <Route
             path="/workspace/cases/:caseId"
-            element={<DecisionCaseWorkspacePage publicMode />}
+            element={
+              <>
+                <DecisionCaseWorkspacePage publicMode />
+                <HelpCenterWidget />
+              </>
+            }
           />
           <Route
             path="/*"
