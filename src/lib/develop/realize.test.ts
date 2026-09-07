@@ -178,6 +178,161 @@ describe("lessonRecordRefusal", () => {
   });
 });
 
+describe("lessonAppliesToCase — deterministic D9.12, no score", () => {
+  const caseRow = {
+    caseId: "new-case",
+    lifecycleType: "brownfield",
+    title: "Primary crusher upgrade",
+    problemStatement: "The existing crusher cannot hold the required throughput",
+  };
+
+  it("matches the same lifecycle type from the source case", () => {
+    expect(
+      realize.lessonAppliesToCase({
+        ...caseRow,
+        lessonCaseId: "old-case",
+        sourceLifecycleType: "brownfield",
+        applicability: "Applies to brownfield crusher upgrades on this site",
+      }),
+    ).toBe(true);
+  });
+
+  it("matches when applicability names the lifecycle type", () => {
+    expect(
+      realize.lessonAppliesToCase({
+        ...caseRow,
+        lessonCaseId: "old-case",
+        sourceLifecycleType: "greenfield",
+        applicability: "Use on any brownfield modification of comminution plant",
+      }),
+    ).toBe(true);
+  });
+
+  it("matches a significant token shared with the new problem statement", () => {
+    expect(
+      realize.lessonAppliesToCase({
+        ...caseRow,
+        lessonCaseId: "old-case",
+        sourceLifecycleType: "greenfield",
+        applicability: "Crusher liner changes that starved downstream throughput",
+      }),
+    ).toBe(true);
+  });
+
+  it("does not match a case against its own lessons", () => {
+    expect(
+      realize.lessonAppliesToCase({
+        ...caseRow,
+        caseId: "same",
+        lessonCaseId: "same",
+        sourceLifecycleType: "brownfield",
+        applicability: "Applies to brownfield crusher upgrades on this site",
+      }),
+    ).toBe(false);
+  });
+
+  it("does not match on stopwords alone", () => {
+    expect(
+      realize.lessonAppliesToCase({
+        caseId: "new-case",
+        lifecycleType: "regulatory",
+        title: "The project case",
+        problemStatement: "This project will apply after the lesson",
+        lessonCaseId: "old-case",
+        sourceLifecycleType: "greenfield",
+        applicability: "This project applies after the lesson from that case",
+      }),
+    ).toBe(false);
+  });
+});
+
+describe("valueRealizationRatio — never fabricates 0% or 100%", () => {
+  it("refuses without an approved BENEFITS baseline", () => {
+    const r = realize.valueRealizationRatio({
+      approvedExpectedBenefit: 100,
+      approvedExpectedUnit: "usd",
+      realizedBenefit: 80,
+      mixedUnits: false,
+      hasApprovedBenefitsBaseline: false,
+      snapshotPresent: true,
+    });
+    expect(r.evaluable).toBe(false);
+    if (!r.evaluable) {
+      expect(r.refusal).toBe("no_approved_benefits_baseline");
+    }
+  });
+
+  it("refuses mixed units rather than adding them", () => {
+    const r = realize.valueRealizationRatio({
+      approvedExpectedBenefit: 100,
+      approvedExpectedUnit: "usd",
+      realizedBenefit: 80,
+      mixedUnits: true,
+      hasApprovedBenefitsBaseline: true,
+      snapshotPresent: true,
+    });
+    expect(r.evaluable).toBe(false);
+    if (!r.evaluable) expect(r.refusal).toBe("mixed_units");
+  });
+
+  it("refuses a zero denominator", () => {
+    const r = realize.valueRealizationRatio({
+      approvedExpectedBenefit: 0,
+      approvedExpectedUnit: "usd",
+      realizedBenefit: 0,
+      mixedUnits: false,
+      hasApprovedBenefitsBaseline: true,
+      snapshotPresent: true,
+    });
+    expect(r.evaluable).toBe(false);
+    if (!r.evaluable) expect(r.refusal).toBe("zero_denominator");
+  });
+
+  it("returns Realized / Approved when both sides exist", () => {
+    const r = realize.valueRealizationRatio({
+      approvedExpectedBenefit: 200,
+      approvedExpectedUnit: "usd",
+      realizedBenefit: 50,
+      mixedUnits: false,
+      hasApprovedBenefitsBaseline: true,
+      snapshotPresent: true,
+    });
+    expect(r).toEqual({ evaluable: true, ratio: 0.25, unit: "usd" });
+  });
+});
+
+describe("phaseSuccessVerdict — on-budget-but-unreliable is failure", () => {
+  it("a passing gate with failing RAM is not success", () => {
+    expect(
+      realize.phaseSuccessVerdict({
+        gateVerdict: "met",
+        costVerdict: "met",
+        ramVerdict: "not_met",
+      }),
+    ).toBe("not_success");
+  });
+
+  it("missing RAM does not become success", () => {
+    expect(
+      realize.phaseSuccessVerdict({
+        gateVerdict: "met",
+        costVerdict: "met",
+        ramVerdict: "missing",
+      }),
+    ).toBe("success");
+  });
+
+  it("an unreviewed gate is incomplete, not a pass", () => {
+    expect(
+      realize.phaseSuccessVerdict({
+        gateVerdict: "incomplete",
+        costVerdict: "met",
+        ramVerdict: "met",
+      }),
+    ).toBe("incomplete");
+  });
+});
+
 describe("this module does not authorize", () => {
   it("exports no verify / adopt / authorize helper — those doors stay on the server", () => {
     const names = Object.keys(realize);

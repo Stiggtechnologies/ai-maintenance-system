@@ -96,7 +96,10 @@ import {
   ObjectiveSection,
   SuccessContractSection,
 } from "../components/develop/ValueSpinePanels";
-import { RealizeCluster } from "../components/develop/RealizePanels";
+import {
+  ApplicableLessonsBanner,
+  RealizeCluster,
+} from "../components/develop/RealizePanels";
 import { CaseChainsPanel } from "../components/develop/CaseChainsPanels";
 import { IntegratedControlsPanel } from "../components/develop/ControlsPanels";
 import { PerformancePanel } from "../components/develop/PerformancePanels";
@@ -2641,6 +2644,8 @@ export function DevelopmentCaseWorkspacePage() {
             {workspace.status.replace(/_/g, " ")}
           </span>
         </div>
+
+        <ApplicableLessonsBanner caseId={workspace.id} />
 
         <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
           <div>
