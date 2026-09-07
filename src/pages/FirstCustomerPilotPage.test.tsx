@@ -16,6 +16,8 @@ describe("FirstCustomerPilotPage", () => {
     expect(lede).toHaveTextContent(CANONICAL_RIA_LEDE);
     expect(lede.textContent).not.toMatch(/48-hour/i);
     expect(lede.textContent).not.toMatch(/US\$35,000/);
+    const price = screen.getByTestId("assessment-hero-price");
+    expect(price).toHaveTextContent(/US\$35,000/);
     expect(
       screen.getByText(/No software installation or production credentials/i),
     ).toBeTruthy();
@@ -41,12 +43,15 @@ describe("FirstCustomerPilotPage", () => {
     }
   });
 
-  it("fails if the /setup lede restores 48-hour or a dollar figure", () => {
+  it("keeps the lede price-free and shows the canonical US$35,000 fee line", () => {
     const src = readFileSync("src/pages/FirstCustomerPilotPage.tsx", "utf8");
     expect(src).toContain(CANONICAL_RIA_LEDE);
+    expect(CANONICAL_RIA_LEDE).not.toMatch(/48-hour/);
+    expect(CANONICAL_RIA_LEDE).not.toMatch(/US\$35,000/);
     expect(src).not.toMatch(/48-hour/);
-    expect(src).not.toMatch(/US\$35,000/);
     expect(src).not.toMatch(/former 48-hour value-proof offer has been retired/);
+    expect(src).toMatch(/data-testid="assessment-hero-price"/);
+    expect(src).toMatch(/US\$35,000/);
   });
 
   it("renders the hero lede once, in normal flow, with a unitless line-height", () => {
