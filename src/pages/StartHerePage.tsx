@@ -79,6 +79,22 @@ function readDone(): Partial<Record<StepId, boolean>> {
 export function StartHerePage() {
   const navigate = useNavigate();
   const [done, setDone] = useState(readDone);
+  const [role, setRole] = useState<string>(() => {
+    try {
+      return localStorage.getItem("syncai.start-here-role.v1") ?? "";
+    } catch {
+      return "";
+    }
+  });
+
+  const pickRole = useCallback((next: string) => {
+    setRole(next);
+    try {
+      localStorage.setItem("syncai.start-here-role.v1", next);
+    } catch {
+      /* ignore */
+    }
+  }, []);
 
   const requiredDone = useMemo(
     () => STEPS.filter((s) => !s.optional).every((s) => done[s.id]),
@@ -124,6 +140,37 @@ export function StartHerePage() {
           </div>
         </header>
 
+        <section
+          data-testid="start-here-role-pick"
+          className="rounded-2xl border border-white/10 bg-[#0D1520] p-4"
+        >
+          <p className="text-sm font-semibold text-white">1. Role pick</p>
+          <p className="mt-1 text-xs text-slate-400">
+            Choose how you will work this evaluation (local only — does not change
+            server role until an admin assigns it).
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {[
+              { id: "reliability_engineer", label: "RE" },
+              { id: "ops", label: "Ops" },
+              { id: "admin", label: "Admin" },
+            ].map((r) => (
+              <button
+                key={r.id}
+                type="button"
+                onClick={() => pickRole(r.id)}
+                className={`rounded-lg px-3 py-1.5 text-xs font-bold ${
+                  role === r.id
+                    ? "bg-teal-500 text-slate-950"
+                    : "border border-white/15 text-slate-100"
+                }`}
+              >
+                {r.label}
+              </button>
+            ))}
+          </div>
+        </section>
+
         <ol className="space-y-3">
           {STEPS.map((step, index) => {
             const checked = Boolean(done[step.id]);
@@ -148,7 +195,7 @@ export function StartHerePage() {
                   </button>
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-semibold text-white">
-                      {index + 1}. {step.title}
+                      {index + 2}. {step.title}
                       {step.optional ? (
                         <span className="ml-2 text-[10px] font-medium uppercase tracking-wide text-slate-500">
                           Optional

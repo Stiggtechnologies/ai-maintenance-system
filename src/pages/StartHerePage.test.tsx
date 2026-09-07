@@ -15,6 +15,7 @@ describe("StartHerePage (self-guided moat floor)", () => {
     expect(src).toMatch(/~20 min/);
     expect(src).toMatch(/Recommend is not authorize/);
     expect(src).toMatch(/No plant execute/);
+    expect(src).toMatch(/start-here-role-pick/);
     expect(src).toMatch(/id: \"ask\"/);
     expect(src).toMatch(/id: \"learn\"/);
     expect(src).toMatch(/id: \"connector\"/);
