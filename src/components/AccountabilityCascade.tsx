@@ -274,8 +274,7 @@ export function AccountabilityCascade() {
         <p className="mt-1 text-xs leading-relaxed text-slate-400">
           Adopting a ceiling is itself an act of authority. AI cannot adopt.
           Seeded amounts are placeholders until a named human states the
-          customer&apos;s instrument and adopts. Adopt does not invent a
-          figure.
+          customer&apos;s instrument and adopts. Adopt does not invent a figure.
         </p>
         {!canAdopt ? (
           <p className="mt-3 text-xs text-amber-200/90">

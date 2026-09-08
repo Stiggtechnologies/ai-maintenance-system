@@ -13,7 +13,10 @@ import { LoadingState, ErrorState } from "./ui/AsyncStates";
 
 export function Stage1ImportLivePath() {
   const navigate = useNavigate();
-  const { data, loading, error, refetch } = useAsyncData(getStage1ImportStatus, []);
+  const { data, loading, error, refetch } = useAsyncData(
+    getStage1ImportStatus,
+    [],
+  );
 
   return (
     <section
@@ -36,7 +39,9 @@ export function Stage1ImportLivePath() {
         </div>
       </div>
 
-      {loading && <LoadingState label="Counting live plan and work-order rows" />}
+      {loading && (
+        <LoadingState label="Counting live plan and work-order rows" />
+      )}
       {error && <ErrorState message={error} onRetry={refetch} />}
 
       {data && (

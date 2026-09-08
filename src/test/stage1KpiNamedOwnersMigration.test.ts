@@ -42,5 +42,8 @@ describe("Stage-1 KPI named owners (Item 5)", () => {
     expect(sql).toMatch(
       /revoke all on function public\.get_kpi_named_owners\(\)\s+from public, anon, service_role/,
     );
+    expect(sql).toMatch(
+      /revoke all on function public\.enforce_kpi_named_owner_wall\(\)\s+from public, anon, authenticated, service_role/,
+    );
   });
 });

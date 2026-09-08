@@ -21,7 +21,10 @@ describe("Stage1OperatorRunbook (M2)", () => {
   });
 
   it("deep-links the live Stage-1 ops pack without claiming certification", () => {
-    const src = readFileSync("src/components/help/Stage1OperatorRunbook.tsx", "utf8");
+    const src = readFileSync(
+      "src/components/help/Stage1OperatorRunbook.tsx",
+      "utf8",
+    );
     expect(src).toContain('navigate("/stage-1")');
     expect(src).toMatch(/does not certify the site/);
     expect(src).toMatch(/Not plant execute/);
