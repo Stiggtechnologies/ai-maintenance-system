@@ -955,9 +955,15 @@
   },
   "C9.07": {
     "status": "🟡",
-    "evidence": false,
-    "citations": 0,
-    "backticked": 0
+    "evidence": true,
+    "citations": 2,
+    "backticked": 2
+  },
+  "C9.08": {
+    "status": "🟡",
+    "evidence": true,
+    "citations": 11,
+    "backticked": 11
   },
   "E1.01": {
     "status": "✅",
@@ -1142,8 +1148,8 @@
   "E4.03": {
     "status": "🟡",
     "evidence": true,
-    "citations": 2,
-    "backticked": 0
+    "citations": 7,
+    "backticked": 5
   },
   "E4.04": {
     "status": "🟡",
