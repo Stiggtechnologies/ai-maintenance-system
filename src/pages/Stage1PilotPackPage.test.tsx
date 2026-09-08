@@ -8,7 +8,8 @@ describe("Stage1PilotPackPage", () => {
     expect(src).toContain("AccountabilityCascade");
     expect(src).toContain("Stage1KpiOwners");
     expect(src).toContain("Stage1OperatorRunbook");
-    expect(src).toMatch(/historical fleet studies are not this site/);
+    expect(src).toContain("historical fleet studies");
+    expect(src).toContain("not this site");
   });
 
   it("is routed from App without a parallel CMMS or historian", () => {

@@ -117,7 +117,10 @@ describe("stage1PilotPack service", () => {
 
 describe("stage1PilotPack callers are mounted", () => {
   it("AccountabilityCascade calls adopt and state", () => {
-    const src = readFileSync("src/components/AccountabilityCascade.tsx", "utf8");
+    const src = readFileSync(
+      "src/components/AccountabilityCascade.tsx",
+      "utf8",
+    );
     expect(src).toContain("adoptAuthorityLimit");
     expect(src).toContain("stateAuthorityCeiling");
     expect(src).toContain("stage1-doa-adopt");

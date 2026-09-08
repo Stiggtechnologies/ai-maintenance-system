@@ -63,6 +63,9 @@ create trigger trg_kpi_named_owner_wall
   before insert or update or delete on public.raci_assignments
   for each row execute function public.enforce_kpi_named_owner_wall();
 
+revoke all on function public.enforce_kpi_named_owner_wall()
+  from public, anon, authenticated, service_role;
+
 -- ---------------------------------------------------------------------------
 -- Write door.
 -- ---------------------------------------------------------------------------

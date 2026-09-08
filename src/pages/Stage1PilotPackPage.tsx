@@ -21,11 +21,11 @@ export function Stage1PilotPackPage() {
           Stage-1 pilot pack
         </h1>
         <p className="mt-1 max-w-3xl text-sm text-slate-400">
-          Operable close for one lighthouse site. Sync governs dirty reality;
-          AI recommends; a named human owns the call. The runbook is local
-          progress only. The three panels below are live write paths. Empty
-          states stay empty until this tenant has real rows — historical fleet
-          studies are not this site.
+          Operable close for one lighthouse site. Sync governs dirty reality; AI
+          recommends; a named human owns the call. The runbook is local progress
+          only. The three panels below are live write paths. Empty states stay
+          empty until this tenant has real rows — historical fleet studies are
+          not this site.
         </p>
       </div>
       <Stage1OperatorRunbook />

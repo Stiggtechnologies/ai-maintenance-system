@@ -14,7 +14,12 @@ type RpcPayload = { error?: string } | null;
 function unwrap<T>(data: unknown, error: { message: string } | null): T {
   if (error) throw new Error(error.message);
   const payload = data as RpcPayload;
-  if (payload && typeof payload === "object" && "error" in payload && payload.error) {
+  if (
+    payload &&
+    typeof payload === "object" &&
+    "error" in payload &&
+    payload.error
+  ) {
     throw new Error(payload.error);
   }
   return data as T;
@@ -36,7 +41,9 @@ export interface Stage1ImportStatus extends Stage1ImportCounts {
 
 export async function getStage1ImportStatus(): Promise<Stage1ImportStatus> {
   const [plans, work, completed, jobs, adopted] = await Promise.all([
-    supabase.from("maintenance_plans").select("id", { count: "exact", head: true }),
+    supabase
+      .from("maintenance_plans")
+      .select("id", { count: "exact", head: true }),
     supabase.from("work_orders").select("id", { count: "exact", head: true }),
     supabase
       .from("work_orders")

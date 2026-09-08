@@ -25,7 +25,7 @@ export function Stage1KpiOwners() {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
-  const owners = data?.owners ?? [];
+  const owners = useMemo(() => data?.owners ?? [], [data]);
   const namedCount = useMemo(
     () =>
       owners.filter((o) => o.named_accountable || o.named_responsible).length,
@@ -53,7 +53,8 @@ export function Stage1KpiOwners() {
     }
   }
 
-  if (loading) return <LoadingState label="Loading ISO 55000 KPI catalog RACI" />;
+  if (loading)
+    return <LoadingState label="Loading ISO 55000 KPI catalog RACI" />;
   if (error) return <ErrorState message={error} onRetry={refetch} />;
   if (owners.length === 0) {
     return (
@@ -79,9 +80,8 @@ export function Stage1KpiOwners() {
           </h2>
           <p className="mt-1 text-xs leading-relaxed text-slate-400">
             Catalog RACI stays the role names (E4.02). This records a named
-            human in Accountable or Responsible. AI cannot name an owner.
-            Empty stays empty until a human records a name and a 20-character
-            basis.
+            human in Accountable or Responsible. AI cannot name an owner. Empty
+            stays empty until a human records a name and a 20-character basis.
           </p>
         </div>
       </div>
@@ -138,10 +138,15 @@ export function Stage1KpiOwners() {
       </div>
 
       {selected && (
-        <p className="text-xs text-slate-400" data-testid="stage1-kpi-catalog-raci">
+        <p
+          className="text-xs text-slate-400"
+          data-testid="stage1-kpi-catalog-raci"
+        >
           Catalog roles — A {selected.catalog_accountable} · R{" "}
           {selected.catalog_responsible}
-          {selected.catalog_consulted ? ` · C ${selected.catalog_consulted}` : ""}
+          {selected.catalog_consulted
+            ? ` · C ${selected.catalog_consulted}`
+            : ""}
           {selected.catalog_informed ? ` · I ${selected.catalog_informed}` : ""}
           . Named humans: A {selected.named_accountable ?? "—"} · R{" "}
           {selected.named_responsible ?? "—"}.
@@ -163,7 +168,10 @@ export function Stage1KpiOwners() {
         {busy ? "Recording…" : "Record named owner"}
       </button>
       {msg && (
-        <p className="text-xs text-slate-300" data-testid="stage1-kpi-owner-msg">
+        <p
+          className="text-xs text-slate-300"
+          data-testid="stage1-kpi-owner-msg"
+        >
           {msg}
         </p>
       )}
@@ -204,8 +212,7 @@ function OwnerRow({ row }: { row: KpiNamedOwnerRow }) {
       </td>
       <td className="px-3 py-2 text-xs text-slate-400">
         A {row.catalog_accountable}
-        <br />
-        R {row.catalog_responsible}
+        <br />R {row.catalog_responsible}
       </td>
       <td className="px-3 py-2 text-xs">
         {named ? (
