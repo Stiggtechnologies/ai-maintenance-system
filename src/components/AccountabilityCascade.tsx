@@ -19,6 +19,10 @@ import { Scale, FileCheck2, Lock, TriangleAlert } from "lucide-react";
 import { useAsyncData } from "../hooks/useAsyncData";
 import { supabase } from "../lib/supabase";
 import { LoadingState, ErrorState } from "./ui/AsyncStates";
+import {
+  adoptAuthorityLimit,
+  stateAuthorityCeiling,
+} from "../services/stage1PilotPack";
 
 interface Limit {
   id: string;
@@ -71,6 +75,10 @@ const GOV_LABEL: Record<string, string> = {
 export function AccountabilityCascade() {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  const [limitId, setLimitId] = useState("");
+  const [instrument, setInstrument] = useState("");
+  const [ceiling, setCeiling] = useState("");
+  const [currency, setCurrency] = useState("USD");
   const { data, loading, error, refetch } = useAsyncData<Cascade>(async () => {
     const { data: r, error: e } = await supabase.rpc(
       "get_accountability_cascade",
@@ -106,6 +114,49 @@ export function AccountabilityCascade() {
       `Prepared ${q}: ${res?.measured} of ${res?.kpis} board-tier KPIs measured.`,
     );
     refetch();
+  }
+
+  const drafts = (data?.limits ?? []).filter((l) => l.status === "draft");
+  const selected = drafts.find((l) => l.id === limitId) ?? null;
+  const canAdopt = ["executive", "admin"].includes(data?.role ?? "");
+
+  async function stateCeiling() {
+    if (!selected) return;
+    setBusy(true);
+    setMsg(null);
+    try {
+      await stateAuthorityCeiling({
+        limitId: selected.id,
+        maxCommitment: ceiling,
+        currency,
+        basis: instrument,
+      });
+      setMsg(`Stated ceiling on ${selected.tier_label}. Adopt to enforce it.`);
+      refetch();
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : "Could not state the ceiling");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function adoptLimit() {
+    if (!selected) return;
+    setBusy(true);
+    setMsg(null);
+    try {
+      const r = await adoptAuthorityLimit({
+        limitId: selected.id,
+        note: instrument,
+      });
+      setMsg(`Adopted ${r.role_key}. Only adopted limits are enforced.`);
+      setInstrument("");
+      refetch();
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : "Could not adopt the limit");
+    } finally {
+      setBusy(false);
+    }
   }
 
   if (loading)
@@ -212,6 +263,109 @@ export function AccountabilityCascade() {
           them with the figures from your delegation instrument and adopts them.
         </p>
       )}
+
+      <div
+        data-testid="stage1-doa-adopt"
+        className="rounded-xl border border-white/8 bg-black/20 p-4"
+      >
+        <h3 className="text-sm font-semibold text-white">
+          Adopt a delegation limit
+        </h3>
+        <p className="mt-1 text-xs leading-relaxed text-slate-400">
+          Adopting a ceiling is itself an act of authority. AI cannot adopt.
+          Seeded amounts are placeholders until a named human states the
+          customer&apos;s instrument and adopts. Adopt does not invent a figure.
+        </p>
+        {!canAdopt ? (
+          <p className="mt-3 text-xs text-amber-200/90">
+            An executive or administrator must adopt. Your role (
+            {data?.role ?? "unknown"}) can read the ladder, not install it.
+          </p>
+        ) : drafts.length === 0 ? (
+          <p className="mt-3 text-xs text-slate-400">
+            No draft limits remain. Adopted rows are immutable — draft a
+            replacement through the existing ceiling door if the instrument
+            changes.
+          </p>
+        ) : (
+          <div className="mt-3 grid gap-3 md:grid-cols-2">
+            <label className="block text-xs text-slate-400">
+              Draft layer
+              <select
+                data-testid="stage1-doa-limit"
+                className="mt-1 w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-sm text-slate-100"
+                value={limitId}
+                onChange={(e) => setLimitId(e.target.value)}
+              >
+                <option value="">Select a draft layer…</option>
+                {drafts.map((l) => (
+                  <option key={l.id} value={l.id}>
+                    {l.tier_label} ({l.role_key})
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="block text-xs text-slate-400">
+              Instrument note (10+ characters to adopt)
+              <input
+                data-testid="stage1-doa-note"
+                className="mt-1 w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-sm text-slate-100"
+                value={instrument}
+                onChange={(e) => setInstrument(e.target.value)}
+                placeholder="Delegation instrument this limit comes from"
+              />
+            </label>
+            <label className="block text-xs text-slate-400">
+              Optional restated ceiling
+              <input
+                data-testid="stage1-doa-ceiling"
+                className="mt-1 w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-sm text-slate-100"
+                value={ceiling}
+                onChange={(e) => setCeiling(e.target.value)}
+                placeholder="Amount from the instrument — leave blank to keep draft"
+              />
+            </label>
+            <label className="block text-xs text-slate-400">
+              Currency
+              <input
+                data-testid="stage1-doa-currency"
+                className="mt-1 w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-sm text-slate-100"
+                value={currency}
+                onChange={(e) => setCurrency(e.target.value.toUpperCase())}
+                maxLength={3}
+              />
+            </label>
+          </div>
+        )}
+        {canAdopt && drafts.length > 0 && (
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button
+              type="button"
+              data-testid="stage1-doa-state"
+              disabled={
+                busy ||
+                !selected ||
+                ceiling.trim() === "" ||
+                currency.length !== 3 ||
+                instrument.trim().length < 20
+              }
+              className="rounded-lg border border-white/15 px-3 py-1.5 text-sm text-slate-200 disabled:opacity-40"
+              onClick={() => void stateCeiling()}
+            >
+              State ceiling
+            </button>
+            <button
+              type="button"
+              data-testid="stage1-doa-adopt-btn"
+              disabled={busy || !selected || instrument.trim().length < 10}
+              className="rounded-lg bg-teal-500/90 px-3 py-1.5 text-sm font-semibold text-slate-950 disabled:opacity-40"
+              onClick={() => void adoptLimit()}
+            >
+              Adopt limit
+            </button>
+          </div>
+        )}
+      </div>
 
       <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
         <h3 className="flex items-center gap-2 text-base font-semibold text-white">

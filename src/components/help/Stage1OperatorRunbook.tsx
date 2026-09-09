@@ -123,6 +123,15 @@ export function Stage1OperatorRunbook() {
             <p className="mt-1 text-[11px] text-slate-500">
               {checkedCount} / {STAGE1_GATES.length} gates marked locally
             </p>
+            <button
+              type="button"
+              data-testid="stage1-runbook-live-ops"
+              className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-teal-300 hover:text-teal-200"
+              onClick={() => navigate("/stage-1")}
+            >
+              Open Stage-1 live ops (import, DoA, KPI owners)
+              <ExternalLink className="h-3 w-3" />
+            </button>
           </div>
         </div>
         <button

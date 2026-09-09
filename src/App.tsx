@@ -54,6 +54,7 @@ import { LifecycleDecisionsPage } from "./pages/LifecycleDecisionsPage";
 import { IntervalDecisionsPage } from "./pages/IntervalDecisionsPage";
 import { JobPlansPage } from "./pages/JobPlansPage";
 import { PmProgrammePage } from "./pages/PmProgrammePage";
+import { Stage1PilotPackPage } from "./pages/Stage1PilotPackPage";
 import { SchedulingPage } from "./pages/SchedulingPage";
 import SyncRecoveryPage from "./pages/SyncRecoveryPage";
 import { MaterialsPage } from "./pages/MaterialsPage";
@@ -523,6 +524,7 @@ function AuthenticatedApp() {
           <Route path="/risk" element={<RiskOperatingSystemPage />} />
           <Route path="/job-plans" element={<JobPlansPage />} />
           <Route path="/pm-programme" element={<PmProgrammePage />} />
+          <Route path="/stage-1" element={<Stage1PilotPackPage />} />
 
           <Route path="/lifecycle" element={<LifecyclePositionPage />} />
           <Route
