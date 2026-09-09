@@ -25,6 +25,7 @@ import {
 } from "../lib/process-safety";
 import { LoadingState, ErrorState } from "./ui/AsyncStates";
 import { ProcessSafetyActivation } from "./ProcessSafetyActivation";
+import { ProcessSafetyFoundations } from "./ProcessSafetyFoundations";
 
 interface Posture {
   barriers_total: number;
@@ -153,6 +154,8 @@ export function ProcessSafety() {
       )}
 
       <ProcessSafetyActivation />
+
+      <ProcessSafetyFoundations />
 
       {/* SIL verification. */}
       {sifVerdicts.length > 0 && (
