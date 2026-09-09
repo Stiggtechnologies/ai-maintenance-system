@@ -22,7 +22,12 @@ import { LoadingState, ErrorState } from "./ui/AsyncStates";
 import {
   adoptPfInterval,
   canAdoptPfInterval,
+  deriveObservedPf,
+  linkAlertToWork,
+  listOpenWorkOrders,
   listPfIntervals,
+  type ObservedPfResult,
+  type OpenWorkOrderOption,
   type PfIntervalRow,
 } from "../services/reliabilityCallers";
 import { plantHistorianActions } from "../services/plantHistorian";
@@ -82,12 +87,15 @@ export function ConditionMonitoring() {
     return r as Payload;
   }, []);
   const intervals = useAsyncData<PfIntervalRow[]>(listPfIntervals, []);
+  const openWork = useAsyncData<OpenWorkOrderOption[]>(listOpenWorkOrders, []);
+  const observedPf = useAsyncData<ObservedPfResult>(deriveObservedPf, []);
   const plant = useAsyncData<PlantHistorianStatus>(
     plantHistorianActions.status,
     [],
   );
   const [citing, setCiting] = useState<string | null>(null);
   const [adopting, setAdopting] = useState<string | null>(null);
+  const [linkDraft, setLinkDraft] = useState<Record<string, string>>({});
   const [days, setDays] = useState("");
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
@@ -169,7 +177,7 @@ export function ConditionMonitoring() {
           <p className="mt-1 text-xs leading-relaxed text-slate-500">
             {lead?.available
               ? `Over ${lead.sample} alerts linked to work`
-              : "Not measurable yet"}
+              : "Not measurable yet — no linked alerts"}
           </p>
         </div>
 
@@ -256,10 +264,73 @@ export function ConditionMonitoring() {
               <p className="mt-1 font-mono text-xs text-slate-400 tabular-nums">
                 {a.value} vs limit {a.limit} · open {a.hours_open} h
               </p>
-              {!a.linked_work_order && (
+              {a.linked_work_order ? (
                 <p className="mt-1 text-xs text-slate-500">
-                  Not yet linked to work — lead time counts only linked alerts.
+                  Linked to work — this alert is in the lead-time sample.
                 </p>
+              ) : (
+                <div className="mt-2 space-y-1.5">
+                  <p className="text-xs text-slate-500">
+                    Not yet linked to work — lead time counts only linked
+                    alerts. Linking records the reason; it does not authorize
+                    the work.
+                  </p>
+                  {(openWork.data ?? []).length === 0 ? (
+                    <p className="text-xs text-slate-500">
+                      No open work order to link. Create or import work first
+                      (CMMS read activation is not a substitute for this link).
+                    </p>
+                  ) : (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <select
+                        aria-label={`Work order for ${a.sensor}`}
+                        value={linkDraft[a.id] ?? ""}
+                        onChange={(e) =>
+                          setLinkDraft((d) => ({
+                            ...d,
+                            [a.id]: e.target.value,
+                          }))
+                        }
+                        className="min-w-52 rounded-lg border border-white/10 bg-industrial-black px-2 py-1.5 text-xs text-slate-200"
+                      >
+                        <option value="">Select open work order…</option>
+                        {(openWork.data ?? []).map((wo) => (
+                          <option key={wo.id} value={wo.id}>
+                            {wo.wo_number ?? wo.id} — {wo.title}
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        type="button"
+                        disabled={busy || !linkDraft[a.id]}
+                        onClick={async () => {
+                          const woId = linkDraft[a.id];
+                          if (!woId) return;
+                          setBusy(true);
+                          setFlash(null);
+                          try {
+                            await linkAlertToWork(a.id, woId);
+                            setFlash(
+                              "Alert linked to work. Lead time now includes this pair. This is not work authorization.",
+                            );
+                            await refetch();
+                          } catch (err) {
+                            setFlash(
+                              err instanceof Error
+                                ? err.message
+                                : "That did not work.",
+                            );
+                          } finally {
+                            setBusy(false);
+                          }
+                        }}
+                        className="rounded-lg border border-signal-cyan/40 px-2.5 py-1 text-xs text-signal-cyan disabled:opacity-40"
+                      >
+                        Link to work
+                      </button>
+                    </div>
+                  )}
+                </div>
               )}
             </li>
           ))}
@@ -277,6 +348,25 @@ export function ConditionMonitoring() {
         <p className="mt-1 text-xs leading-relaxed text-slate-400">
           {data?.pf_note}
         </p>
+        <p
+          data-testid="observed-pf"
+          className="mt-2 rounded-xl border border-white/8 bg-industrial-black/60 px-4 py-3 text-xs text-slate-400"
+        >
+          {observedPf.data?.available
+            ? `Observed P-F from this organization's linked alert-to-work history (${observedPf.data.observed.length} technique(s)). The minimum observed interval is the safe basis — the mean would leave half the population undetected.`
+            : (observedPf.data?.basis ??
+              "Observed P-F is derived from linked alerts only. Until that history exists, intervals stay declared engineering values, never inferred from a thin sample.")}
+        </p>
+        {observedPf.data?.available && (
+          <ul className="mt-2 space-y-1 text-xs text-slate-400">
+            {observedPf.data.observed.map((row) => (
+              <li key={row.technique}>
+                {row.technique}: min {row.observed_pf_days_min} d · mean{" "}
+                {row.observed_pf_days_mean} d · {row.samples} samples
+              </li>
+            ))}
+          </ul>
+        )}
         <p
           data-testid="pf-honesty"
           className="mt-2 rounded-xl border border-white/8 bg-industrial-black/60 px-4 py-3 text-xs text-slate-400"

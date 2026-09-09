@@ -3,12 +3,12 @@
  * (capability register C9.02 planning assist + materials checks, C6.14).
  *
  * The functions behind this panel shipped in the job-plans and MRO-materials
- * slices and sat uncalled: apply_job_plan, record_task_actual and
- * request_wo_material had zero callers, so a planner could SEE job plans and
- * the planning-accuracy metric while nobody could apply a plan, record an
- * actual hour, or request a part. Planning accuracy in particular could never
- * accumulate real data — it is computed from applied plans and recorded
- * actuals, and neither had a write path in the product.
+ * slices and sat uncalled: apply_job_plan, record_task_actual,
+ * request_wo_material, reserve_wo_materials and record_material_event had
+ * zero callers, so a planner could SEE job plans and the planning-accuracy
+ * metric while nobody could apply a plan, record an actual hour, request a
+ * part, reserve stock, or kit/issue. Planning accuracy and ready-backlog /
+ * wait-on-parts in particular could never accumulate real data.
  *
  * Three deliberate constraints, all enforced in the database and merely
  * surfaced here:
@@ -24,6 +24,16 @@ import { useState } from "react";
 import { ClipboardList, PackagePlus, ShieldCheck, Timer } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { useAsyncData } from "../hooks/useAsyncData";
+import {
+  canIssue,
+  canKit,
+  canReserve,
+  describeReserveResult,
+  listMaterialDemand,
+  recordMaterialEvent,
+  reserveWoMaterials,
+  type MaterialDemandLine,
+} from "../services/materialsCallers";
 
 interface PlanOption {
   plan_key: string;
@@ -91,6 +101,11 @@ export function WorkOrderPlanningPanel({
     if (error) throw new Error(error.message);
     return (data ?? []) as MaterialOption[];
   }, []);
+
+  const demand = useAsyncData<MaterialDemandLine[]>(
+    () => listMaterialDemand(workOrderId),
+    [workOrderId],
+  );
 
   const call = async (fn: string, args: Record<string, unknown>) => {
     setBusy(true);
@@ -161,6 +176,40 @@ export function WorkOrderPlanningPanel({
     if (r) {
       setFlash("Material demand recorded against this work order.");
       setQty("");
+      demand.refetch();
+    }
+  };
+
+  const reserveMaterials = async () => {
+    setBusy(true);
+    try {
+      const result = await reserveWoMaterials(workOrderId);
+      setFlash(describeReserveResult(result));
+      demand.refetch();
+      onChanged();
+    } catch (e) {
+      setFlash(e instanceof Error ? e.message : "That did not work.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const recordLineEvent = async (
+    line: MaterialDemandLine,
+    eventType: "kitted" | "issued" | "cancelled",
+  ) => {
+    setBusy(true);
+    try {
+      await recordMaterialEvent(line.id, eventType);
+      setFlash(
+        `Recorded ${eventType}. Waiting-on-material measures request to this satisfaction.`,
+      );
+      demand.refetch();
+      onChanged();
+    } catch (e) {
+      setFlash(e instanceof Error ? e.message : "That did not work.");
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -264,7 +313,9 @@ export function WorkOrderPlanningPanel({
                   min="0"
                   step="0.5"
                   placeholder={
-                    t.estimated_hours != null ? `est ${t.estimated_hours}h` : "hours"
+                    t.estimated_hours != null
+                      ? `est ${t.estimated_hours}h`
+                      : "hours"
                   }
                   value={drafts[t.id] ?? ""}
                   onChange={(e) =>
@@ -323,6 +374,63 @@ export function WorkOrderPlanningPanel({
           >
             Request
           </button>
+        </div>
+        <div className="mt-4 border-t border-white/6 pt-3">
+          <p className="text-xs text-slate-500">
+            Ready backlog and wait-on-parts measure reserved, kitted or issued
+            events — not the request. A reservation is not authorization to
+            start work.
+          </p>
+          {(demand.data ?? []).length === 0 ? (
+            <p className="mt-2 text-xs text-slate-500">
+              No material demand on this work order yet. Request a part or apply
+              a plan first. Those metrics stay unmeasurable until demand exists.
+            </p>
+          ) : (
+            <div className="mt-2 space-y-2">
+              {(demand.data ?? []).some((line) => canReserve(line.status)) && (
+                <button
+                  onClick={reserveMaterials}
+                  disabled={busy}
+                  className="rounded-lg border border-teal-500/40 bg-teal-500/10 px-3 py-1.5 text-xs text-teal-300 disabled:opacity-50"
+                >
+                  Reserve available stock
+                </button>
+              )}
+              {(demand.data ?? []).map((line) => (
+                <div
+                  key={line.id}
+                  className="flex flex-wrap items-center gap-2 text-xs text-slate-300"
+                >
+                  <span className="min-w-0 flex-1 truncate">
+                    {line.description ?? line.material_code ?? line.material_id}{" "}
+                    ×{line.qty_required}
+                    <span className="ml-2 font-mono text-slate-500">
+                      {line.status}
+                    </span>
+                  </span>
+                  {canKit(line.status) && (
+                    <button
+                      onClick={() => recordLineEvent(line, "kitted")}
+                      disabled={busy}
+                      className="rounded-lg border border-white/10 px-2 py-1 text-slate-300 disabled:opacity-50"
+                    >
+                      Kit
+                    </button>
+                  )}
+                  {canIssue(line.status) && (
+                    <button
+                      onClick={() => recordLineEvent(line, "issued")}
+                      disabled={busy}
+                      className="rounded-lg border border-white/10 px-2 py-1 text-slate-300 disabled:opacity-50"
+                    >
+                      Issue
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
