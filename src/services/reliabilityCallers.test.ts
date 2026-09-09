@@ -13,8 +13,11 @@ import {
   canDecideVariance,
   canProposeTaxonomy,
   decideStandardVariance,
+  deriveObservedPf,
   getOperatingContext,
   getOperatingRegime,
+  linkAlertToWork,
+  listOpenWorkOrders,
   proposeTaxonomyRevision,
   requestStandardVariance,
   suggestedWindowDays,
@@ -262,6 +265,61 @@ describe("variance and accept-risk writers", () => {
         "Weekly visual plus vibration route on this class.",
       p_expires_at: "2027-03-01T00:00:00Z",
     });
+  });
+
+  it("calls link_alert_to_work with the alert and work order", async () => {
+    rpc.mockResolvedValue({
+      data: { linked: "al1", work_order_id: "wo1" },
+      error: null,
+    });
+    await linkAlertToWork("al1", "wo1");
+    expect(rpc).toHaveBeenCalledWith("link_alert_to_work", {
+      p_alert_id: "al1",
+      p_work_order_id: "wo1",
+    });
+  });
+
+  it("calls derive_observed_pf and does not invent a sample", async () => {
+    rpc.mockResolvedValue({
+      data: {
+        observed: [],
+        available: false,
+        min_samples: 3,
+        basis: "Not enough linked alert-to-failure history yet.",
+      },
+      error: null,
+    });
+    const result = await deriveObservedPf(3);
+    expect(rpc).toHaveBeenCalledWith("derive_observed_pf", {
+      p_min_samples: 3,
+    });
+    expect(result.available).toBe(false);
+  });
+
+  it("lists open work orders for the link picker", async () => {
+    const is = vi.fn().mockReturnValue({
+      order: () => ({
+        limit: () =>
+          Promise.resolve({
+            data: [
+              {
+                id: "wo1",
+                wo_number: "WO-1",
+                title: "Inspect",
+                status: "open",
+                asset_id: "a1",
+              },
+            ],
+            error: null,
+          }),
+      }),
+    });
+    from.mockReturnValue({
+      select: () => ({ is }),
+    });
+    const rows = await listOpenWorkOrders();
+    expect(from).toHaveBeenCalledWith("work_orders");
+    expect(rows[0].wo_number).toBe("WO-1");
   });
 
   it("surfaces a database SoD refusal in the database's words", async () => {

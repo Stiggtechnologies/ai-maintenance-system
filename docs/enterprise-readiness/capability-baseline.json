@@ -590,8 +590,8 @@
   "C6.11": {
     "status": "🟡",
     "evidence": true,
-    "citations": 3,
-    "backticked": 0
+    "citations": 7,
+    "backticked": 7
   },
   "C6.12": {
     "status": "✅",
@@ -614,8 +614,8 @@
   "C6.15": {
     "status": "🟡",
     "evidence": true,
-    "citations": 0,
-    "backticked": 0
+    "citations": 5,
+    "backticked": 5
   },
   "C6.16": {
     "status": "✅",
@@ -668,8 +668,8 @@
   "C6.24": {
     "status": "🟡",
     "evidence": true,
-    "citations": 3,
-    "backticked": 0
+    "citations": 5,
+    "backticked": 4
   },
   "C6.25": {
     "status": "🟡",
