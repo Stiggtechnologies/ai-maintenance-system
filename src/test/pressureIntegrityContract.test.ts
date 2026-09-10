@@ -20,7 +20,7 @@ describe("pressure integrity activation contract", () => {
   });
   it("requires owner evidence and refuses invented limits", () => {
     expect(migration).toContain(
-      "owner-approved minimum thickness is required; SyncAI does not invent it",
+      "positive owner-approved minimum thickness is required; SyncAI does not invent it",
     );
     expect(migration).toContain("evidence basis are required");
     expect(surface).toMatch(/owner-approved\s+limits/);
@@ -38,6 +38,8 @@ describe("pressure integrity activation contract", () => {
     expect(migration).toContain("two readings on different dates are required");
     expect(migration).toContain("no_positive_metal_loss");
     expect(migration).toContain("at_or_below_minimum");
+    expect(migration).toContain("v_min is null or v_min<=0");
+    expect(migration).toContain("v_design is not null and v_design<=0");
   });
   it("closes privileged doors and mounts every workflow", () => {
     for (const fn of [
