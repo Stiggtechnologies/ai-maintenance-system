@@ -1074,10 +1074,10 @@
     "backticked": 1
   },
   "E3.01": {
-    "status": "❌",
-    "evidence": false,
-    "citations": 0,
-    "backticked": 0
+    "status": "✅",
+    "evidence": true,
+    "citations": 4,
+    "backticked": 4
   },
   "E3.02": {
     "status": "✅",
