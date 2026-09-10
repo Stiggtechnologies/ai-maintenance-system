@@ -1014,10 +1014,10 @@
     "backticked": 4
   },
   "E2.04": {
-    "status": "🟡",
+    "status": "✅",
     "evidence": true,
-    "citations": 2,
-    "backticked": 2
+    "citations": 3,
+    "backticked": 3
   },
   "E2.05": {
     "status": "✅",
