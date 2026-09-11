@@ -197,6 +197,10 @@ describe("register flips only the rows this cluster closed", () => {
     expect(row("D9.15")).toMatch(/^\| D9\.15 \|[^|]*\|[^|]*\| ❌/);
     expect(row("D3.02")).toMatch(/^\| D3\.02 \|[^|]*\|[^|]*\| 🟡/);
     expect(row("D11.27")).toMatch(/^\| D11\.27 \|[^|]*\|[^|]*\| 🟡/);
-    expect(row("D1.03")).toMatch(/^\| D1\.03 \|[^|]*\|[^|]*\| ❌/);
+    // D1.03 was subsequently closed by the reachable Hybrid Development
+    // workstream slice; this older cluster must not pin a shipped row red.
+    expect(row("D1.03")).toMatch(
+      /^\| D1\.03 \|[^|]*\|[^|]*\| ✅[^\n]+HybridDevelopmentPanel/,
+    );
   });
 });
