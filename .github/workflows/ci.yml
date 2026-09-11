@@ -313,6 +313,9 @@ jobs:
       - name: Smoke — Sync Develop Project Flow Efficiency (active vs waiting)
         run: bash scripts/ci-develop-project-flow-smoke.sh
 
+      - name: Smoke — Sync Develop Site Change Load (capacity absorption)
+        run: bash scripts/ci-develop-site-change-load-smoke.sh
+
       - name: Smoke — governed engineering knowledge on the canonical Reliability KB
         run: bash scripts/ci-governed-knowledge-smoke.sh
 
