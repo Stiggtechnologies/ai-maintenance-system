@@ -19,6 +19,25 @@ export interface OperationalDebtItem {
   acknowledgedBy: string | null;
   acknowledgedAt: string | null;
   acknowledgementBasis: string | null;
+  approvedValuation: OperationalDebtValuation | null;
+  pendingValuation: Pick<OperationalDebtValuation, "version" | "lifecycleExposure" | "currency"> | null;
+}
+export interface OperationalDebtValuation {
+  version: number;
+  lifecycleExposure: number;
+  currency: string;
+  basis: string;
+  sourceReference: string;
+  approvedAt: string;
+}
+export interface OperationalDebtRegister {
+  items: OperationalDebtItem[];
+  gapClasses: number;
+  itemCount: number;
+  unvaluedCount: number;
+  valuationStatus: string;
+  totalsByCurrency: Array<{ currency: string; lifecycleExposure: number; valuedItems: number }>;
+  note: string;
 }
 
 export async function getOperationalDebtCandidates(caseId: string) {
@@ -35,7 +54,7 @@ export async function getCaseOperationalDebt(caseId: string) {
     p_case_id: caseId,
   });
   if (error) throw new Error(error.message);
-  return data as { items: OperationalDebtItem[]; gapClasses: number; note: string };
+  return data as OperationalDebtRegister;
 }
 
 export async function recordOperationalDebtReference(
@@ -66,4 +85,44 @@ export async function acknowledgeOperationalDebt(id: string, basis: string) {
   });
   if (error) throw new Error(error.message);
   return data as { id: string; status: string };
+}
+
+export async function recordOperationalDebtValuation(
+  itemId: string,
+  input: {
+    resolutionCost: number;
+    annualOperatingCost: number;
+    annualRiskExposure: number;
+    exposureYears: number;
+    discountRate: number;
+    currency: string;
+    basis: string;
+    sourceReference: string;
+  },
+) {
+  const { data, error } = await supabase.rpc(
+    "record_operational_debt_valuation",
+    {
+      p_item_id: itemId,
+      p_resolution_cost: input.resolutionCost,
+      p_annual_operating_cost: input.annualOperatingCost,
+      p_annual_risk_exposure: input.annualRiskExposure,
+      p_exposure_years: input.exposureYears,
+      p_discount_rate: input.discountRate,
+      p_currency: input.currency,
+      p_basis: input.basis,
+      p_source_reference: input.sourceReference,
+    },
+  );
+  if (error) throw new Error(error.message);
+  return data as { itemId: string; version: number; lifecycleExposure: number; currency: string; status: string };
+}
+
+export async function approveOperationalDebtValuation(itemId: string, version: number, basis: string) {
+  const { data, error } = await supabase.rpc(
+    "approve_operational_debt_valuation",
+    { p_item_id: itemId, p_version: version, p_basis: basis },
+  );
+  if (error) throw new Error(error.message);
+  return data as { itemId: string; version: number; lifecycleExposure: number; currency: string; status: string };
 }
