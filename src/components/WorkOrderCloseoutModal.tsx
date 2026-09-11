@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { ClipboardCheck, Loader2, X } from "lucide-react";
 import {
   closeWorkOrder,
-  listPmMechanisms,
+  getPmTargetMechanism,
   type CloseoutInput,
   type PmMechanismOption,
 } from "../services/workOrderCloseout";
@@ -37,8 +37,7 @@ export function WorkOrderCloseoutModal({
     technicianComments: "",
   });
   const [aiUseful, setAiUseful] = useState<boolean | null>(null);
-  const [pmMechanisms, setPmMechanisms] = useState<PmMechanismOption[]>([]);
-  const [targetMechanismKey, setTargetMechanismKey] = useState("");
+  const [pmTarget, setPmTarget] = useState<PmMechanismOption | null>(null);
   const [findingOutcome, setFindingOutcome] = useState<"no_finding" | "degradation_found" | "defect_found" | "">("");
   const [findingDetail, setFindingDetail] = useState("");
   const [saving, setSaving] = useState(false);
@@ -52,12 +51,15 @@ export function WorkOrderCloseoutModal({
 
   useEffect(() => {
     if (!isPreventive) return;
-    listPmMechanisms().then(setPmMechanisms).catch((caught) => setError((caught as Error).message));
-  }, [isPreventive]);
+    getPmTargetMechanism(workOrderId).then((target) => {
+      setPmTarget(target);
+      if (!target) setError("This PM has no prospective target mechanism on its adopted job plan. Configure the plan before closeout.");
+    }).catch((caught) => setError((caught as Error).message));
+  }, [isPreventive, workOrderId]);
 
   const requiredComplete =
     (!isCorrective || (form.actualFailureMode.trim() && form.actualCause.trim() && form.correctiveAction.trim())) &&
-    (!isPreventive || (targetMechanismKey && findingOutcome && findingDetail.trim().length >= 10)) &&
+    (!isPreventive || (pmTarget && findingOutcome && findingDetail.trim().length >= 10)) &&
     ((isCorrective || isPreventive) || form.technicianComments.trim().length >= 10) &&
     form.laborHours !== "" &&
     form.downtimeHours !== "" &&
@@ -77,7 +79,6 @@ export function WorkOrderCloseoutModal({
         partsUsed: form.partsUsed.trim() || undefined,
         technicianComments: form.technicianComments.trim() || undefined,
         aiAlertUseful: isAiGenerated ? aiUseful : null,
-        targetMechanismKey: targetMechanismKey || undefined,
         findingOutcome: findingOutcome || undefined,
         findingDetail: findingDetail.trim() || undefined,
       };
@@ -143,12 +144,12 @@ export function WorkOrderCloseoutModal({
             {textField("Corrective action", "correctiveAction", "e.g. Replaced seal, verified flush plan")}
           </>}
           {isPreventive && <div className="space-y-3 rounded-lg border border-teal-500/20 bg-teal-500/5 p-3">
-            <label className="block text-xs font-medium text-slate-300">Target failure mechanism<span className="ml-1 text-amber-300">*</span>
-              <select value={targetMechanismKey} onChange={(event)=>setTargetMechanismKey(event.target.value)} className="mt-1 w-full rounded-md border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-white">
-                <option value="">Select the mechanism this task addresses</option>
-                {pmMechanisms.map((mechanism)=><option key={mechanism.mechanismKey} value={mechanism.mechanismKey}>{mechanism.name}</option>)}
-              </select>
-            </label>
+            <div className="text-xs text-slate-300">Prospective target mechanism<span className="ml-1 text-amber-300">*</span>
+              <div className="mt-1 rounded-md border border-slate-600 bg-slate-950 px-3 py-2 text-sm text-white">
+                {pmTarget?.name ?? "Not configured on an adopted job plan"}
+              </div>
+              <p className="mt-1 text-[11px] text-slate-500">Fixed by the adopted job plan before execution; it cannot be changed at closeout.</p>
+            </div>
             <label className="block text-xs font-medium text-slate-300">PM finding<span className="ml-1 text-amber-300">*</span>
               <select value={findingOutcome} onChange={(event)=>setFindingOutcome(event.target.value as typeof findingOutcome)} className="mt-1 w-full rounded-md border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-white">
                 <option value="">Select the observed outcome</option><option value="no_finding">No degradation or defect found</option><option value="degradation_found">Degradation found</option><option value="defect_found">Defect found</option>

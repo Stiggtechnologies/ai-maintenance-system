@@ -16,19 +16,18 @@ export interface CloseoutInput {
   partsUsed?: string;
   technicianComments?: string;
   aiAlertUseful?: boolean | null;
-  targetMechanismKey?: string;
   findingOutcome?: "no_finding" | "degradation_found" | "defect_found";
   findingDetail?: string;
 }
 
 export interface PmMechanismOption { mechanismKey: string; name: string }
 
-export async function listPmMechanisms(): Promise<PmMechanismOption[]> {
-  const {data,error}=await supabase.rpc("get_pm_closeout_options");
+export async function getPmTargetMechanism(workOrderId:string): Promise<PmMechanismOption | null> {
+  const {data,error}=await supabase.rpc("get_pm_closeout_options",{p_work_order_id:workOrderId});
   if(error) throw new Error(error.message);
-  const result=data as {mechanisms?:PmMechanismOption[];error?:string};
+  const result=data as {targetMechanism?:PmMechanismOption|null;error?:string};
   if(result.error) throw new Error(result.error);
-  return result.mechanisms ?? [];
+  return result.targetMechanism ?? null;
 }
 
 export async function closeWorkOrder(
@@ -54,7 +53,7 @@ export async function closeWorkOrder(
       invalid_hours: "Labour and downtime must be valid non-negative hours.",
       pm_finding_outcome_required: "Record whether the PM found degradation, a defect, or no finding.",
       pm_finding_detail_required: "Provide at least 10 characters of PM inspection evidence.",
-      pm_target_mechanism_required: "Select the failure mechanism this PM task was intended to detect or prevent.",
+      pm_prospective_target_not_configured: "This PM cannot be closed until its adopted job plan defines the failure mechanism it was intended to detect or prevent.",
       completion_note_required: "Provide at least 10 characters of completion evidence.",
     };
     throw new Error(

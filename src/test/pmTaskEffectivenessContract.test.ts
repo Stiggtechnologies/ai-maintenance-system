@@ -6,7 +6,7 @@ const service=readFileSync("src/services/workOrderCloseout.ts","utf8");
 const monitoring=readFileSync("src/components/ConditionMonitoring.tsx","utf8");
 describe("direct PM effectiveness contract",()=>{
   it("terminates every PL/pgSQL function body",()=>{
-    expect(migration.match(/end;\n\$\$;/g)).toHaveLength(2);
+    expect(migration.match(/end;\n\$\$;/g)).toHaveLength(3);
   });
   it("makes closeout type-aware and removes direct client access to the failure-only legacy path",()=>{
     expect(migration).toContain("w.work_type='corrective'");
@@ -14,7 +14,7 @@ describe("direct PM effectiveness contract",()=>{
     expect(migration).toContain("revoke all on function public.close_work_order(");
     expect(service).toContain('supabase.rpc("close_work_order_v2"');
     expect(modal).toContain("isPreventive");
-    expect(modal).toContain("Target failure mechanism");
+    expect(modal).toContain("Prospective target mechanism");
   });
   it("records a named-human direct finding against a governed mechanism",()=>{
     expect(migration).toContain("public.pm_task_outcomes");
@@ -23,6 +23,10 @@ describe("direct PM effectiveness contract",()=>{
     expect(migration).toContain("finding_detail");
     expect(migration).toContain("recorded_by");
     expect(migration).toContain("auth.uid()");
+    expect(migration).toContain("jp.applies_to_mechanism_id");
+    expect(migration).toContain("jp.status='adopted'");
+    expect(migration).not.toContain("p_closeout->>'targetMechanismKey'");
+    expect(modal).toContain("it cannot be changed at closeout");
   });
   it("matches numerator and observation window to the same coded mechanism",()=>{
     expect(migration).toContain("f.failure_mechanism_id=o.target_mechanism_id");

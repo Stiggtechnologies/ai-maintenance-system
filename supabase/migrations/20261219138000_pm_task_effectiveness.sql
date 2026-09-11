@@ -29,7 +29,7 @@ create or replace function public.close_work_order_v2(p_work_order_id uuid,p_clo
 returns jsonb language plpgsql security definer set search_path=public as $$
 declare
   v_org uuid:=public.app_current_org(); v_role text; w public.work_orders%rowtype;
-  v_labour numeric; v_downtime numeric; v_note text; v_mechanism uuid; v_result jsonb;
+  v_labour numeric; v_downtime numeric; v_note text; v_mechanism uuid; v_mechanism_key text; v_result jsonb;
 begin
   if v_org is null or auth.uid() is null then return jsonb_build_object('error','forbidden'); end if;
   select role into v_role from public.user_profiles where id=auth.uid() and organization_id=v_org;
@@ -63,9 +63,13 @@ begin
     if coalesce(length(btrim(p_closeout->>'findingDetail')),0)<10 then
       return jsonb_build_object('error','pm_finding_detail_required');
     end if;
-    select id into v_mechanism from public.damage_mechanisms
-    where organization_id=v_org and mechanism_key=p_closeout->>'targetMechanismKey';
-    if v_mechanism is null then return jsonb_build_object('error','pm_target_mechanism_required'); end if;
+    select dm.id,dm.mechanism_key into v_mechanism,v_mechanism_key
+    from public.job_plans jp join public.damage_mechanisms dm
+      on dm.id=jp.applies_to_mechanism_id and dm.organization_id=jp.organization_id
+    where jp.id=w.job_plan_id and jp.organization_id=v_org and jp.status='adopted';
+    if v_mechanism is null then
+      return jsonb_build_object('error','pm_prospective_target_not_configured');
+    end if;
     update public.work_orders set status='completed',actual_hours=v_labour,labor_hours=v_labour,
       downtime_hours=v_downtime,parts_used=nullif(btrim(p_closeout->>'partsUsed'),''),
       technician_comments=nullif(v_note,''),ai_alert_useful=nullif(p_closeout->>'aiAlertUseful','')::boolean,
@@ -76,7 +80,7 @@ begin
     insert into public.learning_events(organization_id,asset_id,recommendation_id,event_type,title,detail)
     values(v_org,w.asset_id,w.recommendation_id,'work_completed','PM outcome — '||w.title,
       format('Target mechanism %s; outcome %s; evidence: %s. Labour %s h; downtime %s h. Recorded by %s.',
-        p_closeout->>'targetMechanismKey',p_closeout->>'findingOutcome',btrim(p_closeout->>'findingDetail'),
+        v_mechanism_key,p_closeout->>'findingOutcome',btrim(p_closeout->>'findingDetail'),
         v_labour,v_downtime,auth.uid()));
     return jsonb_build_object('closed',true,'workOrder',w.title,'closeoutType','preventive');
   else
@@ -94,15 +98,25 @@ $$;
 revoke all on function public.close_work_order_v2(uuid,jsonb) from public,anon;
 grant execute on function public.close_work_order_v2(uuid,jsonb) to authenticated;
 
-create or replace function public.get_pm_closeout_options()
-returns jsonb language sql stable security definer set search_path=public as $$
-  select case when public.app_current_org() is null then jsonb_build_object('error','forbidden')
-  else jsonb_build_object('mechanisms',coalesce((select jsonb_agg(jsonb_build_object(
-    'mechanismKey',mechanism_key,'name',name) order by name)
-    from public.damage_mechanisms where organization_id=public.app_current_org()),'[]'::jsonb)) end
+create or replace function public.get_pm_closeout_options(p_work_order_id uuid)
+returns jsonb language plpgsql stable security definer set search_path=public as $$
+declare v_org uuid:=public.app_current_org(); v_target jsonb;
+begin
+  if v_org is null then return jsonb_build_object('error','forbidden'); end if;
+  select jsonb_build_object('mechanismKey',dm.mechanism_key,'name',dm.name,'jobPlanId',jp.id,
+    'jobPlanKey',jp.plan_key,'jobPlanVersion',jp.version)
+  into v_target
+  from public.work_orders w join public.job_plans jp
+    on jp.id=w.job_plan_id and jp.organization_id=w.organization_id and jp.status='adopted'
+  join public.damage_mechanisms dm
+    on dm.id=jp.applies_to_mechanism_id and dm.organization_id=jp.organization_id
+  where w.id=p_work_order_id and w.organization_id=v_org and w.work_type='preventive';
+  return jsonb_build_object('targetMechanism',v_target,
+    'basis','The PM target is fixed prospectively by the adopted job plan linked to this work order; it cannot be selected or changed at closeout.');
+end;
 $$;
-revoke all on function public.get_pm_closeout_options() from public,anon;
-grant execute on function public.get_pm_closeout_options() to authenticated;
+revoke all on function public.get_pm_closeout_options(uuid) from public,anon;
+grant execute on function public.get_pm_closeout_options(uuid) to authenticated;
 
 create or replace function public.get_pm_task_effectiveness(p_observation_days int default 30)
 returns jsonb language plpgsql stable security definer set search_path=public as $$
