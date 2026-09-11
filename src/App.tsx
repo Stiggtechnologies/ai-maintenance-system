@@ -89,6 +89,7 @@ import { DevelopIntakePage } from "./pages/DevelopIntakePage";
 import { DevelopmentCaseWorkspacePage } from "./pages/DevelopmentCaseWorkspacePage";
 import { ExecutionReadinessPage } from "./pages/ExecutionReadinessPage";
 import { SyncFieldPage } from "./pages/SyncFieldPage";
+import { SyncTransitionPage } from "./pages/SyncTransitionPage";
 import { GateReviewPage } from "./pages/GateReviewPage";
 import { AssuranceCasePage } from "./pages/AssuranceCasePage";
 import {
@@ -560,6 +561,10 @@ function AuthenticatedApp() {
               composition that recomputes none of them. The row stays 🟡 and
               the page says why: three of the parts it composes are open. */}
           <Route path="/sync-field" element={<SyncFieldPage />} />
+          <Route
+            path="/develop/cases/:caseId/transition"
+            element={<SyncTransitionPage />}
+          />
 
           <Route
             path="/work/:workOrderId"

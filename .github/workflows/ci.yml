@@ -328,6 +328,9 @@ jobs:
       - name: Smoke — Sync Develop Operating Model Readiness (thirteen evidence-backed dimensions)
         run: bash scripts/ci-develop-operating-model-readiness-smoke.sh
 
+      - name: Smoke — Sync Transition composition (readiness, debt, stabilization)
+        run: bash scripts/ci-develop-sync-transition-smoke.sh
+
       - name: Smoke — governed engineering knowledge on the canonical Reliability KB
         run: bash scripts/ci-governed-knowledge-smoke.sh
 
