@@ -114,6 +114,7 @@ import { HybridDevelopmentPanel } from "../components/develop/HybridDevelopmentP
 import { ProjectFlowEfficiencyPanel } from "../components/develop/ProjectFlowEfficiencyPanel";
 import { TechnicalDebtPanel } from "../components/develop/TechnicalDebtPanel";
 import { OperationalDebtPanel } from "../components/develop/OperationalDebtPanel";
+import { OperatingModelReadinessPanel } from "../components/develop/OperatingModelReadinessPanel";
 import { DigitalThreadPanel } from "../components/develop/DigitalThreadPanels";
 import {
   CaseRamPanel,
@@ -2855,6 +2856,11 @@ export function DevelopmentCaseWorkspacePage() {
         caseId={workspace.id}
         canPlan={canDesignPlan}
         canApprove={canReview}
+      />
+      <OperatingModelReadinessPanel
+        caseId={workspace.id}
+        members={members}
+        canAssess={canDesignPlan}
       />
       <OperationalDebtPanel
         caseId={workspace.id}
