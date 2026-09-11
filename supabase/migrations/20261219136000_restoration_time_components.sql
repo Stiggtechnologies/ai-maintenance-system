@@ -50,7 +50,7 @@ begin
     new.execution_completed_at := coalesce(old.execution_completed_at, now());
   end if;
   return new;
-end
+end;
 $$;
 
 drop trigger if exists trg_stamp_restoration_execution_boundaries
@@ -164,7 +164,7 @@ begin
     ) m),'[]'::jsonb)
   ) into v_result from summary s;
   return v_result;
-end
+end;
 $$;
 
 revoke all on function public.get_restoration_time_components(int) from public, anon;

@@ -4,6 +4,10 @@ const migration=readFileSync("supabase/migrations/20261219136000_restoration_tim
 const panel=readFileSync("src/components/RestorationTimeComponents.tsx","utf8");
 const page=readFileSync("src/pages/ReliabilityPage.tsx","utf8");
 describe("restoration time component contract",()=>{
+  it("terminates every PL/pgSQL function body",()=>{
+    expect(migration.match(/end;\n\$\$;/g)).toHaveLength(2);
+    expect(migration).not.toMatch(/end\n\$\$;/);
+  });
   it("extends the canonical work membership with immutable boundaries",()=>{
     expect(migration).toContain("alter table public.restoration_event_work");
     expect(migration).toContain("execution_started_at is server-controlled and immutable");
