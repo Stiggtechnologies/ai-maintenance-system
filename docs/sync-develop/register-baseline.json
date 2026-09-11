@@ -804,10 +804,10 @@
     "backticked": 5
   },
   "D8.05": {
-    "status": "🟡",
+    "status": "✅",
     "evidence": true,
-    "citations": 4,
-    "backticked": 0
+    "citations": 6,
+    "backticked": 6
   },
   "D8.06": {
     "status": "🟡",
