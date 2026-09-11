@@ -708,10 +708,10 @@
     "backticked": 19
   },
   "D7.09": {
-    "status": "❌",
+    "status": "✅",
     "evidence": true,
-    "citations": 3,
-    "backticked": 0
+    "citations": 10,
+    "backticked": 10
   },
   "D7.10": {
     "status": "✅",

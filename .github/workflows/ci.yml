@@ -310,6 +310,9 @@ jobs:
       - name: Smoke — Sync Develop Hybrid Development (per-workstream methods)
         run: bash scripts/ci-develop-hybrid-workstreams-smoke.sh
 
+      - name: Smoke — Sync Develop Project Flow Efficiency (active vs waiting)
+        run: bash scripts/ci-develop-project-flow-smoke.sh
+
       - name: Smoke — governed engineering knowledge on the canonical Reliability KB
         run: bash scripts/ci-governed-knowledge-smoke.sh
 
