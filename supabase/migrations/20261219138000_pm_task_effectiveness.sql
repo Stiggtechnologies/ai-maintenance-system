@@ -77,7 +77,10 @@ begin
   end if;
   v_note:=btrim(coalesce(p_closeout->>'technicianComments',''));
 
-  if w.work_type='corrective' then
+  -- The canonical ingestion contract treats an absent legacy work_type as
+  -- corrective. Keep that compatibility at the server boundary as well as
+  -- in the modal so callers cannot bypass FRACAS-quality closeout.
+  if coalesce(nullif(btrim(w.work_type),''),'corrective')='corrective' then
     v_result:=public.close_work_order(w.id,p_closeout->>'actualFailureMode',
       p_closeout->>'actualCause',p_closeout->>'correctiveAction',v_labour,v_downtime,
       nullif(btrim(p_closeout->>'partsUsed'),''),nullif(v_note,''),

@@ -46,7 +46,10 @@ export function WorkOrderCloseoutModal({
   const set = (key: keyof typeof form) => (value: string) =>
     setForm((f) => ({ ...f, [key]: value }));
 
-  const isCorrective = workOrderType === "corrective";
+  // Legacy and human-created work orders may not yet carry work_type. The
+  // canonical ingestion contract defines blank as corrective, so preserve
+  // FRACAS closeout rather than silently downgrading them to a general note.
+  const isCorrective = !workOrderType || workOrderType === "corrective";
   const isPreventive = workOrderType === "preventive";
 
   useEffect(() => {

@@ -9,11 +9,12 @@ describe("direct PM effectiveness contract",()=>{
     expect(migration.match(/end;\n\$\$;/g)).toHaveLength(4);
   });
   it("makes closeout type-aware and removes direct client access to the failure-only legacy path",()=>{
-    expect(migration).toContain("w.work_type='corrective'");
+    expect(migration).toContain("coalesce(nullif(btrim(w.work_type),''),'corrective')='corrective'");
     expect(migration).toContain("w.work_type='preventive'");
     expect(migration).toContain("revoke all on function public.close_work_order(");
     expect(service).toContain('supabase.rpc("close_work_order_v2"');
     expect(modal).toContain("isPreventive");
+    expect(modal).toContain('const isCorrective = !workOrderType || workOrderType === "corrective"');
     expect(modal).toContain("Prospective target mechanism");
   });
   it("records a named-human direct finding against a governed mechanism",()=>{
