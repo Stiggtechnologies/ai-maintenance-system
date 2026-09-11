@@ -118,7 +118,7 @@ begin
     end if;
   end if;
   return new;
-end $$;
+end; $$;
 revoke all on function public.enforce_agent_control_tenancy() from public,anon,authenticated;
 drop trigger if exists trg_agent_control_profile_tenancy on agent_control_profiles;
 create trigger trg_agent_control_profile_tenancy before insert or update on agent_control_profiles
@@ -146,7 +146,7 @@ begin
     raise exception 'adopted agent control bindings are immutable';
   end if;
   return case when tg_op='DELETE' then old else new end;
-end $$;
+end; $$;
 revoke all on function public.enforce_agent_binding_history() from public,anon,authenticated;
 drop trigger if exists trg_agent_decision_binding_history on agent_decision_right_bindings;
 create trigger trg_agent_decision_binding_history before insert or update or delete on agent_decision_right_bindings
@@ -194,7 +194,7 @@ begin
     raise exception 'only the exact non-authoritative platform advisory baseline may omit a human adopter';
   end if;
   return new;
-end $$;
+end; $$;
 revoke all on function public.enforce_agent_control_history() from public,anon,authenticated;
 drop trigger if exists trg_agent_control_history on agent_control_profiles;
 create trigger trg_agent_control_history before insert or update or delete on agent_control_profiles
@@ -321,7 +321,7 @@ begin
       '. This limits proposals and tools; accountable human approval remains mandatory.');
   return jsonb_build_object('profile_id',v_profile,'version',v_version,'may_approve',false,
     'required_human_approver_role',btrim(p_required_human_approver_role));
-end $$;
+end; $$;
 revoke all on function public.configure_agent_controls(uuid,text,text,numeric,numeric,text[],text[],text)
   from public,anon;
 grant execute on function public.configure_agent_controls(uuid,text,text,numeric,numeric,text[],text[],text)
@@ -364,7 +364,7 @@ begin
     'decision_tier',d.tier,'human_approval_required',true,
     'required_human_approver_role',p.required_human_approver_role,
     'reason','proposal admitted; accountable human approval remains mandatory');
-end $$;
+end; $$;
 revoke all on function public.evaluate_agent_control_internal(uuid,uuid,text,text,text,numeric,numeric)
   from public,anon,authenticated;
 
@@ -410,7 +410,7 @@ begin
   -- canonical approval workflow remains the only path forward.
   if new.status <> 'pending' then raise exception 'agent recommendations must enter as pending'; end if;
   return new;
-end $$;
+end; $$;
 revoke all on function public.enforce_agent_recommendation_control() from public,anon,authenticated;
 drop trigger if exists trg_agent_recommendation_control on recommendations;
 create trigger trg_agent_recommendation_control before insert on recommendations

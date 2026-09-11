@@ -20,6 +20,7 @@ describe("per-agent authority controls", () => {
     expect(migration).toContain("create table if not exists agent_tool_bindings");
     expect(migration).toContain("references ai_agents(id)");
     expect(migration).toContain("references decision_rights(id)");
+    expect(migration).not.toMatch(/^end \$\$;/m);
   });
 
   it("keeps agents advisory and named humans authoritative", () => {
