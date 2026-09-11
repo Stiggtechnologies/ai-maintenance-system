@@ -8,7 +8,6 @@ export interface HandoverReadinessDimension {
   source: string;
   categories?: string[];
   openPunchCount?: number;
-  openRedlineCount?: number;
   gaps: Array<{
     itemId?: string;
     testId?: number;

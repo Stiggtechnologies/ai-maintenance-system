@@ -240,8 +240,12 @@ export function SystemHandoverPanel({
                         {system.readiness.physicalReadiness.openPunchCount ?? 0} open
                       </td>
                       <td className="p-2">
-                        {system.readiness.informationReadiness.openRedlineCount ?? 0}{" "}
-                        open red lines
+                        {
+                          system.readiness.informationReadiness.gaps.filter(
+                            (gap) => gap.category === "documentation",
+                          ).length
+                        }{" "}
+                        documentation gap(s)
                       </td>
                       <td className="p-2">
                         {system.readiness.informationReadiness.status === "READY"

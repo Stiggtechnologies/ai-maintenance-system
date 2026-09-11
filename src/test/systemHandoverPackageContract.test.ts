@@ -61,8 +61,6 @@ describe("D8.09 system HandoverPackage contract", () => {
       expect(migration).toContain(`'${category}'`);
     expect(migration).toContain("'not_assessed'");
     expect(migration).toContain("i.evidence_item_id is not null");
-    expect(migration).toContain("public.red_line_markups");
-    expect(migration).toContain("open or in-review red-line markup(s) block");
   });
 
   it("assembles references to all current case/system risks and refuses stale drafts", () => {

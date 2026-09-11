@@ -157,7 +157,7 @@ create or replace function public.get_system_handover_readiness(p_system_id bigi
 returns jsonb language plpgsql security definer stable set search_path=public as $$
 declare v_org uuid:=public.app_current_org(); s public.commissioning_systems%rowtype; p public.system_handover_packages%rowtype;
   v_physical_total int; v_physical_done int; v_info_total int; v_info_done int; v_ops_total int; v_ops_done int;
-  v_open_punch int:=0; v_open_redlines int:=0; v_risk_count int:=0; v_risk_accepted int:=0;
+  v_open_punch int:=0; v_risk_count int:=0; v_risk_accepted int:=0;
   v_blockers jsonb:='[]'::jsonb; v_risks jsonb:='[]'::jsonb; v_physical_gaps jsonb:='[]'::jsonb; v_info_gaps jsonb:='[]'::jsonb; v_ops_gaps jsonb:='[]'::jsonb;
 begin
   select * into s from public.commissioning_systems where id=p_system_id and organization_id=v_org;
@@ -184,14 +184,11 @@ begin
   select coalesce(jsonb_agg(jsonb_build_object('itemId',i.id,'assetId',i.asset_id,'asset',a.name,'category',r.ori_category,'item',r.item_label,'status',i.status,'evidenceReady',i.evidence_item_id is not null) order by r.sort_order,a.name),'[]'::jsonb) into v_ops_gaps
     from public.commissioning_system_readiness_scope q join public.asset_onboarding_items i on i.id=q.onboarding_item_id join public.onboarding_requirements r on r.key=i.requirement_key join public.assets a on a.id=i.asset_id
    where q.organization_id=v_org and q.commissioning_system_id=s.id and r.ori_category in ('spares','pm','training','inspection','condition_monitoring','vendor_support','emergency_response') and not(i.status in ('auto_filled','deduced','human_provided','not_applicable') and i.evidence_item_id is not null);
-  select count(*) into v_open_redlines from public.red_line_markups r where r.organization_id=v_org and r.status in ('open','in_review') and exists(select 1 from public.commissioning_system_assets a where a.organization_id=v_org and a.commissioning_system_id=s.id and a.asset_id=r.asset_id);
-  if v_open_redlines>0 then v_info_gaps:=v_info_gaps||jsonb_build_array(jsonb_build_object('category','documentation','item',format('%s open or in-review red-line markup(s) require as-built disposition.',v_open_redlines),'status','open','evidenceReady',false)); end if;
   if coalesce(s.commissioning_state,'') not in ('PERFORMANCE_VERIFIED','ACCEPTED') then v_blockers:=v_blockers||jsonb_build_array('Physical readiness requires the commissioning system to reach PERFORMANCE_VERIFIED.'); end if;
   if v_physical_total=0 then v_blockers:=v_blockers||jsonb_build_array('Physical readiness has no canonical commissioning results.');
   elsif v_physical_done<v_physical_total then v_blockers:=v_blockers||jsonb_build_array(format('%s commissioning result(s) are not independently released, passing, and punch-clear.',v_physical_total-v_physical_done)); end if;
   if v_info_total=0 then v_blockers:=v_blockers||jsonb_build_array('Information readiness has no scoped canonical items.');
   elsif v_info_done<v_info_total then v_blockers:=v_blockers||jsonb_build_array(format('%s information-readiness item(s) lack a satisfied status with evidence.',v_info_total-v_info_done)); end if;
-  if v_open_redlines>0 then v_blockers:=v_blockers||jsonb_build_array(format('%s open or in-review red-line markup(s) block as-built information readiness.',v_open_redlines)); end if;
   if v_ops_total=0 then v_blockers:=v_blockers||jsonb_build_array('Operational readiness has no scoped canonical items.');
   elsif v_ops_done<v_ops_total then v_blockers:=v_blockers||jsonb_build_array(format('%s operational-readiness item(s) lack a satisfied status with evidence.',v_ops_total-v_ops_done)); end if;
   if p_package_id is not null then
@@ -209,7 +206,7 @@ begin
   end if;
   return jsonb_build_object('systemId',s.id,'currentState',s.commissioning_state,
     'physicalReadiness',jsonb_build_object('status',case when s.commissioning_state in ('PERFORMANCE_VERIFIED','ACCEPTED') and v_physical_total>0 and v_physical_done=v_physical_total then 'READY' when v_physical_total=0 then 'NOT_ASSESSED' else 'NOT_READY' end,'satisfied',v_physical_done,'total',v_physical_total,'percent',case when v_physical_total=0 then null else round(100.0*v_physical_done/v_physical_total,1) end,'openPunchCount',v_open_punch,'gaps',v_physical_gaps,'source','acceptance_tests + commissioning_systems'),
-    'informationReadiness',jsonb_build_object('status',case when v_info_total>0 and v_info_done=v_info_total and v_open_redlines=0 then 'READY' when v_info_total=0 then 'NOT_ASSESSED' else 'NOT_READY' end,'satisfied',v_info_done,'total',v_info_total,'percent',case when v_info_total=0 then null else round(100.0*v_info_done/v_info_total,1) end,'openRedlineCount',v_open_redlines,'gaps',v_info_gaps,'categories',jsonb_build_array('asset_master','bom','task_list','procedure','documentation','cyber'),'source','asset_onboarding_items + red_line_markups'),
+    'informationReadiness',jsonb_build_object('status',case when v_info_total>0 and v_info_done=v_info_total then 'READY' when v_info_total=0 then 'NOT_ASSESSED' else 'NOT_READY' end,'satisfied',v_info_done,'total',v_info_total,'percent',case when v_info_total=0 then null else round(100.0*v_info_done/v_info_total,1) end,'gaps',v_info_gaps,'categories',jsonb_build_array('asset_master','bom','task_list','procedure','documentation','cyber'),'source','asset_onboarding_items'),
     'operationalReadiness',jsonb_build_object('status',case when v_ops_total>0 and v_ops_done=v_ops_total then 'READY' when v_ops_total=0 then 'NOT_ASSESSED' else 'NOT_READY' end,'satisfied',v_ops_done,'total',v_ops_total,'percent',case when v_ops_total=0 then null else round(100.0*v_ops_done/v_ops_total,1) end,'gaps',v_ops_gaps,'categories',jsonb_build_array('spares','pm','training','inspection','condition_monitoring','vendor_support','emergency_response'),'source','asset_onboarding_items'),
     'residualRisks',v_risks,'residualRiskCount',v_risk_count,'acceptedResidualRiskCount',v_risk_accepted,
     'canAccept',jsonb_array_length(v_blockers)=0,'blockers',v_blockers,
