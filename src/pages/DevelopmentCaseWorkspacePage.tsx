@@ -110,6 +110,7 @@ import { FrontlineDesignPanel } from "../components/develop/FrontlineDesignPanel
 import { ProcurementPanel } from "../components/develop/ProcurementPanels";
 import { WorkPackagingPanel } from "../components/develop/WorkPackagingPanels";
 import { WorkforcePanel } from "../components/develop/WorkforcePanels";
+import { HybridDevelopmentPanel } from "../components/develop/HybridDevelopmentPanel";
 import { DigitalThreadPanel } from "../components/develop/DigitalThreadPanels";
 import {
   CaseRamPanel,
@@ -2829,6 +2830,17 @@ export function DevelopmentCaseWorkspacePage() {
         members={members}
         canPlan={canPlan}
         onChanged={() => void load()}
+      />
+      {/* D1.03 / spec section 40: one Development Case may deliberately use
+          different delivery methods for different workstreams. The panel owns
+          its tenant-scoped read and every write is a human-only definer RPC. */}
+      <HybridDevelopmentPanel
+        caseId={workspace.id}
+        members={members.map((member) => ({
+          id: member.id,
+          name: member.full_name ?? member.email ?? member.id,
+        }))}
+        canPlan={canPlan}
       />
       <RealizeCluster caseId={workspace.id} canRealize={canRealize} />
       <DeliverablesSection
