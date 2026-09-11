@@ -35,6 +35,7 @@ import {
   type OperationalReadinessResult,
   type ReadinessBlocker,
   type SystemOperationalReadinessResult,
+  type SystemReadinessDesignOriginsResult,
 } from "../../lib/develop";
 import {
   approveCaseBaseline,
@@ -42,13 +43,17 @@ import {
   createCaseBaseline,
   getCaseOperationalReadiness,
   getCaseSystemOperationalReadiness,
+  getCaseSystemReadinessDesignOrigins,
   getGateReadiness,
   initializeCommissioningSystemReadiness,
   listBindableAssets,
   listOrgEvidenceItems,
   listOrgMembers,
+  listOperationalReadinessCatalog,
+  listCaseRequirements,
   listIntakeDocuments,
   recordSystemOperationalReadinessItem,
+  recordSystemReadinessDesignOrigin,
   runEvidenceAgent,
   type BindableAsset,
   type EvidenceAgentResult,
@@ -1072,6 +1077,14 @@ function SystemOperationalReadinessSection({
   const [model, setModel] = useState<SystemOperationalReadinessResult | null>(
     null,
   );
+  const [designOrigins, setDesignOrigins] =
+    useState<SystemReadinessDesignOriginsResult | null>(null);
+  const [requirements, setRequirements] = useState<
+    Awaited<ReturnType<typeof listCaseRequirements>>
+  >([]);
+  const [catalog, setCatalog] = useState<
+    Awaited<ReturnType<typeof listOperationalReadinessCatalog>>
+  >([]);
   const [members, setMembers] = useState<OrgMember[]>([]);
   const [evidence, setEvidence] = useState<
     Array<{ id: string; description: string }>
@@ -1080,14 +1093,20 @@ function SystemOperationalReadinessSection({
   const [error, setError] = useState<string | null>(null);
   const load = useCallback(async () => {
     try {
-      const [next, people, sources] = await Promise.all([
+      const [next, origins, people, sources, caseRequirements, readinessCatalog] = await Promise.all([
         getCaseSystemOperationalReadiness(caseId),
+        getCaseSystemReadinessDesignOrigins(caseId),
         listOrgMembers(),
         listOrgEvidenceItems(),
+        listCaseRequirements(caseId),
+        listOperationalReadinessCatalog(),
       ]);
       setModel(next);
+      setDesignOrigins(origins);
       setMembers(people);
       setEvidence(sources);
+      setRequirements(caseRequirements);
+      setCatalog(readinessCatalog);
       setError(null);
     } catch (caught) {
       setError(
@@ -1149,6 +1168,39 @@ function SystemOperationalReadinessSection({
     }
   }
 
+  async function connectDesignRequirement(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const data = new FormData(form);
+    setBusy(true);
+    setError(null);
+    try {
+      await recordSystemReadinessDesignOrigin({
+        systemId: Number(data.get("systemId")),
+        designRequirementId: Number(data.get("designRequirementId")),
+        onboardingRequirementKey: String(
+          data.get("onboardingRequirementKey") ?? "",
+        ),
+        ownerId: String(data.get("ownerId") ?? ""),
+        requiredBefore: String(data.get("requiredBefore") ?? ""),
+        mappingBasis: String(data.get("mappingBasis") ?? ""),
+        mappingEvidenceItemId: String(
+          data.get("mappingEvidenceItemId") ?? "",
+        ),
+      });
+      form.reset();
+      await load();
+    } catch (caught) {
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "Design-to-readiness connection refused",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const scopedItems =
     model?.systems.flatMap((system) =>
       system.items.map((item) => ({ system, item })),
@@ -1200,8 +1252,64 @@ function SystemOperationalReadinessSection({
               ))}
             </ul>
           )}
+          {designOrigins?.systems
+            .find((candidate) => candidate.systemId === system.systemId)
+            ?.origins.map((origin) => (
+              <div
+                key={origin.originId}
+                className="mt-2 rounded border border-signal-cyan/15 bg-signal-cyan/5 px-2 py-1.5 text-[11px] text-slate-300"
+              >
+                <span className="font-semibold text-signal-cyan">
+                  {origin.requirementRef}
+                </span>{" "}
+                → {origin.readinessCategory.replaceAll("_", " ")} ·{" "}
+                {origin.readinessItem} · {origin.materializedItemCount}/
+                {system.assetCount} asset item(s)
+                {!origin.fullyMaterialized && " · awaiting bound assets"}
+              </div>
+            ))}
         </div>
       ))}
+      {canPlan && model && model.systems.length > 0 && requirements.length > 0 && (
+        <form
+          onSubmit={connectDesignRequirement}
+          className="grid gap-2 rounded-lg border border-signal-cyan/15 bg-signal-cyan/5 p-3 md:grid-cols-2"
+        >
+          <div className="md:col-span-2">
+            <p className="text-xs font-semibold text-slate-200">
+              Start readiness from a design requirement
+            </p>
+            <p className="mt-1 text-[11px] text-slate-500">
+              A named human selects the exact existing catalog obligation. SyncAI
+              creates open canonical items for every bound asset now and for assets
+              bound later; it never guesses a mapping or marks an item complete.
+            </p>
+          </div>
+          <select name="systemId" required className={inputClass} defaultValue="">
+            <option value="" disabled>Commissioning system…</option>
+            {model.systems.map((system) => <option key={system.systemId} value={system.systemId}>{system.systemRef} — {system.title}</option>)}
+          </select>
+          <select name="designRequirementId" required className={inputClass} defaultValue="">
+            <option value="" disabled>Design requirement…</option>
+            {requirements.map((requirement) => <option key={requirement.id} value={requirement.id}>{requirement.requirement_ref} · {requirement.category} · {requirement.requirement}</option>)}
+          </select>
+          <select name="onboardingRequirementKey" required className={`${inputClass} md:col-span-2`} defaultValue="">
+            <option value="" disabled>Exact operational-readiness catalog item…</option>
+            {catalog.map((item) => <option key={item.key} value={item.key}>{item.ori_category.replaceAll("_", " ")} · {item.item_label}</option>)}
+          </select>
+          <select name="ownerId" required className={inputClass} defaultValue="">
+            <option value="" disabled>Named readiness owner…</option>
+            {members.filter((member) => member.role !== "ai_admin").map((member) => <option key={member.id} value={member.id}>{member.full_name ?? member.email ?? member.id}</option>)}
+          </select>
+          <input name="requiredBefore" required type="date" className={inputClass} />
+          <select name="mappingEvidenceItemId" required className={`${inputClass} md:col-span-2`} defaultValue="">
+            <option value="" disabled>Mapping evidence…</option>
+            {evidence.map((item) => <option key={item.id} value={item.id}>{item.description}</option>)}
+          </select>
+          <textarea name="mappingBasis" required minLength={20} className={`${inputClass} md:col-span-2`} placeholder="Why this design requirement creates this exact readiness obligation (20+ characters)" />
+          <button disabled={busy} className="rounded border border-signal-cyan/20 px-3 py-2 text-xs font-semibold text-signal-cyan disabled:opacity-50">Create canonical readiness items</button>
+        </form>
+      )}
       {canPlan && model && model.systems.length > 0 && (
         <form onSubmit={initialize} className="grid gap-2 md:grid-cols-2">
           <select name="systemId" required className={inputClass} defaultValue="">
@@ -1238,7 +1346,7 @@ function SystemOperationalReadinessSection({
           <button disabled={busy} className="rounded border border-white/10 px-3 py-2 text-xs font-semibold text-slate-200 disabled:opacity-50">Record evidenced outcome</button>
         </form>
       )}
-      {model && <p className="text-[10px] text-slate-600">Canonical store: {model.readinessStore}. {model.decisionBoundary}</p>}
+      {model && <p className="text-[10px] text-slate-600">Canonical store: {model.readinessStore}. {designOrigins?.decisionBoundary ?? model.decisionBoundary}</p>}
     </div>
   );
 }
