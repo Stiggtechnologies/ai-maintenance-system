@@ -27,7 +27,7 @@ for ITEM in "${ITEM_IDS[@]}"; do
   BODY="$DONE" python3 -c 'import json,os; assert json.loads(os.environ["BODY"])["status"]=="human_provided"'
 done
 
-RISK=$(psqlc "with r as (insert into risks(organization_id,development_case_id,asset_id,title,kind,current_risk_level,residual_risk_level,status,source_kind,created_by) values('$ORG','$CASE','$ASSET','D8.09 residual startup risk','threat','Medium','Medium','monitoring','human','$PLANNER_ID') returning id) select id from r")
+RISK=$(psqlc "with r as (insert into risks(organization_id,development_case_id,asset_id,title,kind,current_risk_level,residual_risk_level,status,source_kind,created_by) values('$ORG','$CASE','$ASSET','D8.09 residual startup risk','threat','Medium','Medium','draft','human','$PLANNER_ID') returning id) select id from r")
 CROSS=$(rpc "$PLANNER" assemble_system_handover_package "{\"p_system_id\":$SID,\"p_owner_from\":\"$PLANNER_ID\",\"p_owner_to\":\"00000000-0000-0000-0000-000000000099\",\"p_required_acceptance_date\":\"2026-12-31\",\"p_basis\":\"A foreign or absent operations owner must fail at the tenant boundary.\",\"p_evidence_item_id\":\"$EVIDENCE\"}")
 BODY="$CROSS" python3 -c 'import json,os; assert "same-tenant human operations owner-to" in json.loads(os.environ["BODY"])["error"]'
 PACKAGE=$(rpc "$PLANNER" assemble_system_handover_package "{\"p_system_id\":$SID,\"p_owner_from\":\"$PLANNER_ID\",\"p_owner_to\":\"$EXEC_ID\",\"p_required_acceptance_date\":\"2026-12-31\",\"p_basis\":\"Signed package transfers this verified system and all current residual risks to operations.\",\"p_evidence_item_id\":\"$EVIDENCE\"}")
