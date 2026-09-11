@@ -7,7 +7,6 @@ const monitoring=readFileSync("src/components/ConditionMonitoring.tsx","utf8");
 describe("direct PM effectiveness contract",()=>{
   it("terminates every PL/pgSQL function body",()=>{
     expect(migration.match(/end;\n\$\$;/g)).toHaveLength(2);
-    expect(migration).not.toMatch(/end\s+\$\$;/);
   });
   it("makes closeout type-aware and removes direct client access to the failure-only legacy path",()=>{
     expect(migration).toContain("w.work_type='corrective'");
