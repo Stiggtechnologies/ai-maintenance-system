@@ -334,6 +334,9 @@ jobs:
       - name: Smoke — Sync Develop commissioning object family (system rollup and canonical results)
         run: bash scripts/ci-develop-commissioning-object-family-smoke.sh
 
+      - name: Smoke — Sync Develop commissioning seven-state machine (canonical energy and release gates)
+        run: bash scripts/ci-develop-commissioning-state-machine-smoke.sh
+
       - name: Smoke — governed engineering knowledge on the canonical Reliability KB
         run: bash scripts/ci-governed-knowledge-smoke.sh
 

@@ -1,5 +1,42 @@
 import { supabase } from "../lib/supabase";
 
+export const COMMISSIONING_STATES = [
+  "CONSTRUCTION_COMPLETE",
+  "MECHANICAL_COMPLETE",
+  "READY_FOR_ENERGIZATION",
+  "PRECOMMISSIONED",
+  "COMMISSIONED",
+  "PERFORMANCE_VERIFIED",
+  "ACCEPTED",
+] as const;
+export type CommissioningState = (typeof COMMISSIONING_STATES)[number];
+
+export interface CommissioningAssetBinding {
+  id: number;
+  assetId: string;
+  tag: string | null;
+  name: string;
+  requiredEnergyTypes: string[];
+  basis: string;
+  evidenceItemId: string;
+}
+export interface CommissioningTransitionReadiness {
+  systemId: number;
+  currentState: CommissioningState | null;
+  nextState: CommissioningState | null;
+  canTransition: boolean;
+  blockers: string[];
+  assets: Array<{
+    assetId: string;
+    tag: string | null;
+    name: string;
+    requiredEnergyTypes: string[];
+    equipmentReleased: boolean;
+    ready: boolean;
+  }>;
+  decisionBoundary?: string;
+}
+
 export interface CommissioningProcedure {
   id: number;
   ref: string;
@@ -31,6 +68,19 @@ export interface CommissioningSystem {
   title: string;
   description: string;
   ownerId: string;
+  currentState: CommissioningState | null;
+  nextState: CommissioningState | null;
+  transitionReadiness: CommissioningTransitionReadiness;
+  assetBindings: CommissioningAssetBinding[];
+  stateHistory: Array<{
+    id: number;
+    fromState: CommissioningState | null;
+    toState: CommissioningState;
+    rationale: string;
+    evidenceItemId: string;
+    transitionedBy: string;
+    transitionedAt: string;
+  }>;
   subsystems: CommissioningSubsystem[];
   testPackages: CommissioningTestPackage[];
   rollup: {
@@ -116,4 +166,52 @@ export async function recordCommissioningResult(
     error,
     "Commissioning result refused",
   );
+}
+
+export async function bindCommissioningSystemAsset(input: {
+  systemId: number;
+  assetId: string;
+  requiredEnergyTypes: string[];
+  basis: string;
+  evidenceItemId: string;
+}) {
+  const { data, error } = await supabase.rpc(
+    "bind_commissioning_system_asset",
+    {
+      p_system_id: input.systemId,
+      p_asset_id: input.assetId,
+      p_required_energy_types: input.requiredEnergyTypes,
+      p_basis: input.basis,
+      p_evidence_item_id: input.evidenceItemId,
+    },
+  );
+  return payload<{ id: number; status: string }>(
+    data,
+    error,
+    "Commissioning asset binding refused",
+  );
+}
+
+export async function transitionCommissioningSystem(input: {
+  systemId: number;
+  toState: CommissioningState;
+  rationale: string;
+  evidenceItemId: string;
+}) {
+  const { data, error } = await supabase.rpc(
+    "transition_commissioning_system",
+    {
+      p_system_id: input.systemId,
+      p_to_state: input.toState,
+      p_rationale: input.rationale,
+      p_evidence_item_id: input.evidenceItemId,
+    },
+  );
+  return payload<{
+    id: number;
+    systemId: number;
+    fromState: CommissioningState | null;
+    toState: CommissioningState;
+    status: string;
+  }>(data, error, "Commissioning transition refused");
 }

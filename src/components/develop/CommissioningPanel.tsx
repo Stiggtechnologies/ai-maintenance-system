@@ -4,12 +4,16 @@ import { EVIDENCE_CLASSES } from "../../services/operatingModelReadinessService"
 import {
   listOrgEvidenceItems,
   listOrgMembers,
+  listBindableAssets,
+  type BindableAsset,
   type OrgMember,
 } from "../../services/developService";
 import {
+  bindCommissioningSystemAsset,
   getCaseCommissioning,
   recordCommissioningObject,
   recordCommissioningResult,
+  transitionCommissioningSystem,
   type CaseCommissioning,
 } from "../../services/commissioningService";
 
@@ -17,6 +21,17 @@ const input =
   "rounded border border-white/10 bg-overlook-deep p-2 text-xs text-slate-200";
 const label = (value: string) => value.replaceAll("_", " ");
 const val = (data: FormData, key: string) => String(data.get(key) ?? "").trim();
+const ENERGY_TYPES = [
+  "electrical",
+  "hydraulic",
+  "pneumatic",
+  "mechanical",
+  "thermal",
+  "gravity",
+  "chemical",
+  "process",
+  "other",
+];
 
 export function CommissioningPanel({
   caseId,
@@ -27,6 +42,7 @@ export function CommissioningPanel({
 }) {
   const [model, setModel] = useState<CaseCommissioning | null>(null);
   const [members, setMembers] = useState<OrgMember[]>([]);
+  const [assets, setAssets] = useState<BindableAsset[]>([]);
   const [evidence, setEvidence] = useState<
     Array<{ id: string; description: string }>
   >([]);
@@ -40,16 +56,20 @@ export function CommissioningPanel({
     "planner",
     "supervisor",
   ].includes(String(role ?? "").toLowerCase());
+  const canTransition =
+    canWrite || String(role ?? "").toLowerCase() === "operator";
   const load = useCallback(async () => {
     try {
-      const [next, people, sources] = await Promise.all([
+      const [next, people, sources, bindableAssets] = await Promise.all([
         getCaseCommissioning(caseId),
         listOrgMembers(),
         listOrgEvidenceItems(),
+        listBindableAssets(),
       ]);
       setModel(next);
       setMembers(people);
       setEvidence(sources);
+      setAssets(bindableAssets);
     } catch (caught) {
       setError(
         caught instanceof Error
@@ -127,6 +147,53 @@ export function CommissioningPanel({
       setBusy(false);
     }
   }
+  async function submitAssetBinding(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const d = new FormData(form);
+    setBusy(true);
+    setError(null);
+    try {
+      await bindCommissioningSystemAsset({
+        systemId: Number(val(d, "systemId")),
+        assetId: val(d, "assetId"),
+        requiredEnergyTypes: d.getAll("energyType").map(String),
+        basis: val(d, "basis"),
+        evidenceItemId: val(d, "evidenceItemId"),
+      });
+      form.reset();
+      await load();
+    } catch (caught) {
+      setError(
+        caught instanceof Error ? caught.message : "Asset binding refused",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function submitTransition(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const d = new FormData(form);
+    setBusy(true);
+    setError(null);
+    try {
+      await transitionCommissioningSystem({
+        systemId: Number(val(d, "systemId")),
+        toState: val(d, "toState") as NonNullable<
+          CaseCommissioning["systems"][number]["nextState"]
+        >,
+        rationale: val(d, "rationale"),
+        evidenceItemId: val(d, "evidenceItemId"),
+      });
+      form.reset();
+      await load();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Transition refused");
+    } finally {
+      setBusy(false);
+    }
+  }
   const packages =
     model?.systems.flatMap((s) =>
       s.testPackages.map((p) => ({ ...p, system: s })),
@@ -188,6 +255,82 @@ export function CommissioningPanel({
                     {system.subsystems.length} subsystem(s) ·{" "}
                     {system.testPackages.length} package(s)
                   </p>
+                  <div className="mt-3 rounded border border-white/8 bg-black/10 p-3">
+                    <p className="font-medium text-slate-200">
+                      State:{" "}
+                      {system.currentState
+                        ? label(system.currentState)
+                        : "not yet evidenced"}
+                    </p>
+                    <p className="mt-1 text-slate-400">
+                      Next:{" "}
+                      {system.nextState
+                        ? label(system.nextState)
+                        : "none — accepted"}
+                    </p>
+                    {system.transitionReadiness.blockers.length > 0 && (
+                      <ul className="mt-2 list-disc space-y-1 pl-4 text-amber-300">
+                        {system.transitionReadiness.blockers.map((blocker) => (
+                          <li key={blocker}>{blocker}</li>
+                        ))}
+                      </ul>
+                    )}
+                    {system.assetBindings.length > 0 && (
+                      <p className="mt-2 text-slate-500">
+                        Bound assets:{" "}
+                        {system.assetBindings
+                          .map(
+                            (binding) =>
+                              `${binding.tag || binding.name} (${binding.requiredEnergyTypes.join(", ")})`,
+                          )
+                          .join(" · ")}
+                      </p>
+                    )}
+                    {canTransition && system.nextState && (
+                      <form
+                        onSubmit={submitTransition}
+                        className="mt-3 grid gap-2 md:grid-cols-3"
+                      >
+                        <input
+                          type="hidden"
+                          name="systemId"
+                          value={system.id}
+                        />
+                        <input
+                          type="hidden"
+                          name="toState"
+                          value={system.nextState}
+                        />
+                        <textarea
+                          name="rationale"
+                          required
+                          minLength={20}
+                          placeholder={`Human basis for ${label(system.nextState)} (20+ characters)`}
+                          className={input}
+                        />
+                        <select
+                          name="evidenceItemId"
+                          required
+                          className={input}
+                        >
+                          <option value="">Transition evidence…</option>
+                          {evidence.map((item) => (
+                            <option key={item.id} value={item.id}>
+                              {item.description}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          disabled={
+                            busy || !system.transitionReadiness.canTransition
+                          }
+                          className="rounded bg-signal-cyan p-2 text-xs font-semibold text-slate-950"
+                        >
+                          Record {label(system.nextState)}
+                        </button>
+                      </form>
+                    )}
+                  </div>
                 </article>
               ))
             ) : (
@@ -213,6 +356,69 @@ export function CommissioningPanel({
           </p>
           {canWrite && (
             <div className="mt-5 grid gap-4 xl:grid-cols-2">
+              <form
+                onSubmit={submitAssetBinding}
+                className="grid gap-2 xl:col-span-2"
+              >
+                <h3 className="text-xs font-semibold text-slate-200">
+                  Bind system assets and required energy types
+                </h3>
+                <div className="grid gap-2 md:grid-cols-3">
+                  <select name="systemId" required className={input}>
+                    <option value="">Commissioning system…</option>
+                    {model.systems.map((system) => (
+                      <option key={system.id} value={system.id}>
+                        {system.ref} · {system.title}
+                      </option>
+                    ))}
+                  </select>
+                  <select name="assetId" required className={input}>
+                    <option value="">Same-tenant asset…</option>
+                    {assets.map((asset) => (
+                      <option key={asset.id} value={asset.id}>
+                        {asset.tag || asset.name} · {asset.name}
+                      </option>
+                    ))}
+                  </select>
+                  <select name="evidenceItemId" required className={input}>
+                    <option value="">Binding evidence…</option>
+                    {evidence.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.description}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex flex-wrap gap-3">
+                  {ENERGY_TYPES.map((type) => (
+                    <label
+                      key={type}
+                      className="flex items-center gap-1 text-xs text-slate-300"
+                    >
+                      <input type="checkbox" name="energyType" value={type} />{" "}
+                      {label(type)}
+                    </label>
+                  ))}
+                </div>
+                <textarea
+                  name="basis"
+                  required
+                  minLength={20}
+                  placeholder="Why these assets and energy types define the commissioning boundary (20+ characters)"
+                  className={input}
+                />
+                <button
+                  disabled={
+                    busy ||
+                    model.systems.length === 0 ||
+                    assets.length === 0 ||
+                    evidence.length === 0
+                  }
+                  className="rounded bg-signal-cyan p-2 text-xs font-semibold text-slate-950"
+                >
+                  Bind asset scope
+                </button>
+              </form>
               <form
                 onSubmit={(e) => void submit("system", e)}
                 className="grid gap-2"
