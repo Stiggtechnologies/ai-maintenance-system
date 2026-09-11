@@ -792,10 +792,10 @@
     "backticked": 11
   },
   "D8.03": {
-    "status": "🟡",
+    "status": "✅",
     "evidence": true,
-    "citations": 6,
-    "backticked": 0
+    "citations": 10,
+    "backticked": 10
   },
   "D8.04": {
     "status": "❌",

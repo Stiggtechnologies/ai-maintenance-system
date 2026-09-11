@@ -113,6 +113,7 @@ import { WorkforcePanel } from "../components/develop/WorkforcePanels";
 import { HybridDevelopmentPanel } from "../components/develop/HybridDevelopmentPanel";
 import { ProjectFlowEfficiencyPanel } from "../components/develop/ProjectFlowEfficiencyPanel";
 import { TechnicalDebtPanel } from "../components/develop/TechnicalDebtPanel";
+import { OperationalDebtPanel } from "../components/develop/OperationalDebtPanel";
 import { DigitalThreadPanel } from "../components/develop/DigitalThreadPanels";
 import {
   CaseRamPanel,
@@ -2473,6 +2474,9 @@ export function DevelopmentCaseWorkspacePage() {
     profile?.role != null && DESIGN_PLAN_ROLES.includes(profile.role);
   const canAdmin =
     profile?.role != null && ["admin", "executive"].includes(profile.role);
+  const canAcknowledgeOperationalDebt =
+    profile?.role != null &&
+    ["admin", "executive", "maintenance_manager"].includes(profile.role);
   const canProcure =
     profile?.role != null && PROCUREMENT_PLAN_ROLES.includes(profile.role);
   const canAwardContract =
@@ -2851,6 +2855,12 @@ export function DevelopmentCaseWorkspacePage() {
         caseId={workspace.id}
         canPlan={canDesignPlan}
         canApprove={canReview}
+      />
+      <OperationalDebtPanel
+        caseId={workspace.id}
+        members={members}
+        canPlan={canDesignPlan}
+        canAcknowledge={canAcknowledgeOperationalDebt}
       />
       <RealizeCluster caseId={workspace.id} canRealize={canRealize} />
       <DeliverablesSection
