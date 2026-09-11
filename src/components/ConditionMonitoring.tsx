@@ -67,9 +67,11 @@ interface Payload {
   };
   pm_task_effectiveness: {
     available: boolean;
-    pm_completed: number;
-    finding_rate_pct: number | null;
-    missed_rate_pct: number | null;
+    recordedOutcomes: number;
+    matureOutcomes: number;
+    findingRatePct: number | null;
+    postPmFailureRatePct: number | null;
+    falseReassuranceRatePct: number | null;
     basis: string;
   };
   pf_note: string;
@@ -79,12 +81,15 @@ export function ConditionMonitoring() {
   const { profile } = useAuth();
   const canAdopt = canAdoptPfInterval(profile?.role as string | undefined);
   const { data, loading, error, refetch } = useAsyncData<Payload>(async () => {
-    const { data: r, error: e } = await supabase.rpc(
-      "get_condition_monitoring",
-      {},
-    );
-    if (e) throw new Error(e.message);
-    return r as Payload;
+    const [monitoring, effectiveness] = await Promise.all([
+      supabase.rpc("get_condition_monitoring", {}),
+      supabase.rpc("get_pm_task_effectiveness", { p_observation_days: 30 }),
+    ]);
+    if (monitoring.error) throw new Error(monitoring.error.message);
+    if (effectiveness.error) throw new Error(effectiveness.error.message);
+    const pm = effectiveness.data as Payload["pm_task_effectiveness"] & { error?: string };
+    if (pm.error) throw new Error(pm.error);
+    return { ...(monitoring.data as Payload), pm_task_effectiveness: pm };
   }, []);
   const intervals = useAsyncData<PfIntervalRow[]>(listPfIntervals, []);
   const openWork = useAsyncData<OpenWorkOrderOption[]>(listOpenWorkOrders, []);
@@ -186,31 +191,34 @@ export function ConditionMonitoring() {
             PM finding rate
           </p>
           <p className="mt-1 font-mono text-2xl text-slate-100">
-            {pm?.finding_rate_pct ?? "—"}
+            {pm?.findingRatePct ?? "—"}
             <span className="ml-0.5 text-sm text-slate-500">%</span>
           </p>
           <p className="mt-1 text-xs text-slate-500">
-            PMs that found something, of {pm?.pm_completed?.toLocaleString()}
+            Direct findings from {pm?.recordedOutcomes?.toLocaleString()} PM outcomes
           </p>
         </div>
 
         <div className="rounded-xl border border-white/6 bg-overlook-deep/40 p-4">
           <p className="text-xs uppercase tracking-wide text-slate-400">
-            PM missed rate
+            Post-PM corrective recurrence
           </p>
           <p
-            className={`mt-1 font-mono text-2xl ${(pm?.missed_rate_pct ?? 0) > 25 ? "text-amber-300" : "text-slate-100"}`}
+            className={`mt-1 font-mono text-2xl ${(pm?.postPmFailureRatePct ?? 0) > 25 ? "text-amber-300" : "text-slate-100"}`}
           >
-            {pm?.missed_rate_pct ?? "—"}
+            {pm?.postPmFailureRatePct ?? "—"}
             <span className="ml-0.5 text-sm text-slate-500">%</span>
           </p>
           <p className="mt-1 text-xs text-slate-500">
-            High/critical failure 7–30 days after a PM
+            Same coded mechanism raised within 30 days · {pm?.matureOutcomes ?? 0} mature PM(s)
           </p>
         </div>
       </div>
 
-      <p className="text-xs leading-relaxed text-slate-500">{pm?.basis}</p>
+      <p className="text-xs leading-relaxed text-slate-500">
+        {pm?.basis}
+        {pm?.falseReassuranceRatePct != null && ` Corrective-recurrence rate among mature no-finding PMs: ${pm.falseReassuranceRatePct}%.`}
+      </p>
       {!lead?.available && (
         <p className="rounded-xl border border-white/6 bg-white/2 p-3 text-xs leading-relaxed text-slate-400">
           {lead?.basis}

@@ -1,21 +1,20 @@
-/**
- * Closeout modal — enforces FRACAS-quality completion data before a work
- * order can be marked completed (Section 26 of the onboarding governance
- * layer). Mandatory: failure mode, cause, corrective action, labour hours,
- * downtime hours. AI-generated work also asks whether the SyncAI alert was
- * useful, which feeds the model-governance learning loop.
- */
-import { useState } from "react";
+/** Type-aware closeout: corrective work captures FRACAS evidence, preventive
+ * work captures a direct PM finding against its governed target mechanism,
+ * and other work captures general completion evidence. */
+import { useEffect, useState } from "react";
 import { ClipboardCheck, Loader2, X } from "lucide-react";
 import {
   closeWorkOrder,
+  listPmMechanisms,
   type CloseoutInput,
+  type PmMechanismOption,
 } from "../services/workOrderCloseout";
 
 interface Props {
   workOrderId: string;
   workOrderTitle: string;
   isAiGenerated: boolean;
+  workOrderType?: string;
   onClose: () => void;
   onClosedOut: () => void;
 }
@@ -24,6 +23,7 @@ export function WorkOrderCloseoutModal({
   workOrderId,
   workOrderTitle,
   isAiGenerated,
+  workOrderType,
   onClose,
   onClosedOut,
 }: Props) {
@@ -37,16 +37,28 @@ export function WorkOrderCloseoutModal({
     technicianComments: "",
   });
   const [aiUseful, setAiUseful] = useState<boolean | null>(null);
+  const [pmMechanisms, setPmMechanisms] = useState<PmMechanismOption[]>([]);
+  const [targetMechanismKey, setTargetMechanismKey] = useState("");
+  const [findingOutcome, setFindingOutcome] = useState<"no_finding" | "degradation_found" | "defect_found" | "">("");
+  const [findingDetail, setFindingDetail] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const set = (key: keyof typeof form) => (value: string) =>
     setForm((f) => ({ ...f, [key]: value }));
 
+  const isCorrective = workOrderType === "corrective";
+  const isPreventive = workOrderType === "preventive";
+
+  useEffect(() => {
+    if (!isPreventive) return;
+    listPmMechanisms().then(setPmMechanisms).catch((caught) => setError((caught as Error).message));
+  }, [isPreventive]);
+
   const requiredComplete =
-    form.actualFailureMode.trim() &&
-    form.actualCause.trim() &&
-    form.correctiveAction.trim() &&
+    (!isCorrective || (form.actualFailureMode.trim() && form.actualCause.trim() && form.correctiveAction.trim())) &&
+    (!isPreventive || (targetMechanismKey && findingOutcome && findingDetail.trim().length >= 10)) &&
+    ((isCorrective || isPreventive) || form.technicianComments.trim().length >= 10) &&
     form.laborHours !== "" &&
     form.downtimeHours !== "" &&
     (!isAiGenerated || aiUseful !== null);
@@ -65,6 +77,9 @@ export function WorkOrderCloseoutModal({
         partsUsed: form.partsUsed.trim() || undefined,
         technicianComments: form.technicianComments.trim() || undefined,
         aiAlertUseful: isAiGenerated ? aiUseful : null,
+        targetMechanismKey: targetMechanismKey || undefined,
+        findingOutcome: findingOutcome || undefined,
+        findingDetail: findingDetail.trim() || undefined,
       };
       await closeWorkOrder(workOrderId, input);
       onClosedOut();
@@ -122,21 +137,27 @@ export function WorkOrderCloseoutModal({
         </p>
 
         <div className="mt-4 space-y-3">
-          {textField(
-            "Actual failure mode",
-            "actualFailureMode",
-            "e.g. Mechanical seal leakage",
-          )}
-          {textField(
-            "Actual cause",
-            "actualCause",
-            "e.g. Dry running after suction upset",
-          )}
-          {textField(
-            "Corrective action",
-            "correctiveAction",
-            "e.g. Replaced seal, verified flush plan",
-          )}
+          {isCorrective && <>
+            {textField("Actual failure mode", "actualFailureMode", "e.g. Mechanical seal leakage")}
+            {textField("Actual cause", "actualCause", "e.g. Dry running after suction upset")}
+            {textField("Corrective action", "correctiveAction", "e.g. Replaced seal, verified flush plan")}
+          </>}
+          {isPreventive && <div className="space-y-3 rounded-lg border border-teal-500/20 bg-teal-500/5 p-3">
+            <label className="block text-xs font-medium text-slate-300">Target failure mechanism<span className="ml-1 text-amber-300">*</span>
+              <select value={targetMechanismKey} onChange={(event)=>setTargetMechanismKey(event.target.value)} className="mt-1 w-full rounded-md border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-white">
+                <option value="">Select the mechanism this task addresses</option>
+                {pmMechanisms.map((mechanism)=><option key={mechanism.mechanismKey} value={mechanism.mechanismKey}>{mechanism.name}</option>)}
+              </select>
+            </label>
+            <label className="block text-xs font-medium text-slate-300">PM finding<span className="ml-1 text-amber-300">*</span>
+              <select value={findingOutcome} onChange={(event)=>setFindingOutcome(event.target.value as typeof findingOutcome)} className="mt-1 w-full rounded-md border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-white">
+                <option value="">Select the observed outcome</option><option value="no_finding">No degradation or defect found</option><option value="degradation_found">Degradation found</option><option value="defect_found">Defect found</option>
+              </select>
+            </label>
+            <label className="block text-xs font-medium text-slate-300">Inspection evidence<span className="ml-1 text-amber-300">*</span>
+              <textarea value={findingDetail} onChange={(event)=>setFindingDetail(event.target.value)} rows={3} placeholder="Record the measurement, condition, or observation supporting this outcome." className="mt-1 w-full rounded-md border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-white" />
+            </label>
+          </div>}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium text-slate-300">
