@@ -1772,6 +1772,275 @@ function propellant(inputs: Record<string, unknown>): Evaluation {
   };
 }
 
+function batteryThermal(inputs: Record<string, unknown>): Evaluation {
+  const observations = records(inputs.observations, "Thermal observations");
+  const controls = records(
+    inputs.thermalControls,
+    "Thermal-management controls",
+  ).filter((row) => row.required !== false);
+  const gaps: string[] = [];
+  const metrics: DomainMetric[] = [];
+  observations.forEach((observation, index) => {
+    const id = String(observation.id ?? `observation ${index + 1}`);
+    const observed = finite(observation.observed, `${id} observed temperature`);
+    const lower =
+      typeof observation.lowerLimit === "number"
+        ? finite(observation.lowerLimit, `${id} lower limit`)
+        : null;
+    const upper =
+      typeof observation.upperLimit === "number"
+        ? finite(observation.upperLimit, `${id} upper limit`)
+        : null;
+    if (lower == null && upper == null)
+      gaps.push(`${id}: no supplied approved thermal limit.`);
+    if (lower != null && observed < lower)
+      gaps.push(`${id}: observed value is below the supplied lower limit.`);
+    if (upper != null && observed > upper)
+      gaps.push(`${id}: observed value is above the supplied upper limit.`);
+    if (!bool(observation.calibrated))
+      gaps.push(`${id}: calibrated measurement is not confirmed.`);
+    if (!observation.observedAt)
+      gaps.push(`${id}: observation timestamp is missing.`);
+    const margin = Math.min(
+      lower == null ? Number.POSITIVE_INFINITY : observed - lower,
+      upper == null ? Number.POSITIVE_INFINITY : upper - observed,
+    );
+    metrics.push({
+      key: `thermal_margin_${id}`,
+      label: `${id} nearest thermal-limit margin`,
+      value: Number.isFinite(margin) ? round(margin) : null,
+      unit: String(observation.unit ?? "supplied unit"),
+    });
+  });
+  controls.forEach((control, index) => {
+    const id = String(control.id ?? `control ${index + 1}`);
+    const normal = control.available === true && control.testCurrent === true;
+    const compensated =
+      control.impairmentApproved === true &&
+      typeof control.compensatingMeasure === "string" &&
+      control.compensatingMeasure.trim() !== "";
+    if (!normal && !compensated)
+      gaps.push(
+        `${id}: required thermal control is unavailable or unverified without an approved impairment and compensating measure.`,
+      );
+  });
+  return {
+    summary: `${observations.length} thermal observation(s) and ${controls.length} required thermal-control function(s) were screened against supplied criteria.`,
+    metrics: [
+      ...metrics,
+      {
+        key: "thermal_gaps",
+        label: "Thermal evidence/control gaps",
+        value: gaps.length,
+        unit: "count",
+      },
+    ],
+    findings: gaps.length
+      ? [
+          "At least one thermal envelope, measurement, or control condition requires authority disposition.",
+        ]
+      : [
+          "No exception was found against the supplied thermal limits and control requirements.",
+        ],
+    gaps,
+    assumptions: [
+      "Limits, locations, units, calibration, timestamps, and controlled battery configuration are approved and mutually applicable.",
+    ],
+    formulae: [
+      "Thermal margin = distance to the nearest supplied approved lower or upper limit.",
+    ],
+  };
+}
+
+function batteryHvSafety(inputs: Record<string, unknown>): Evaluation {
+  const rows = records(inputs.controls, "High-voltage controls").filter(
+    (row) => row.required !== false,
+  );
+  return coverageEvaluation(
+    "required high-voltage control",
+    rows,
+    (row) => {
+      const normal =
+        row.implemented === true && row.tested === true && row.current === true;
+      const impaired =
+        row.impairmentApproved === true &&
+        typeof row.compensatingMeasure === "string" &&
+        row.compensatingMeasure.trim() !== "";
+      return (
+        (normal || impaired) &&
+        typeof row.evidenceReference === "string" &&
+        row.evidenceReference.trim() !== "" &&
+        row.approved === true
+      );
+    },
+    (row, index) => String(row.id ?? `control ${index + 1}`),
+    "implementation, current test, evidence, approval, or governed impairment disposition is incomplete",
+  );
+}
+
+function batteryDegradation(inputs: Record<string, unknown>): Evaluation {
+  const units = records(inputs.units, "Battery unit observations");
+  const metrics: DomainMetric[] = [];
+  const gaps: string[] = [];
+  units.forEach((unit, index) => {
+    const id = String(unit.id ?? `unit ${index + 1}`);
+    if (!bool(unit.compatibleMethod)) {
+      gaps.push(
+        `${id}: baseline and current observations are not confirmed comparable.`,
+      );
+      return;
+    }
+    const baselineCapacity = positive(
+      unit.baselineCapacity,
+      `${id} baseline capacity`,
+    );
+    const measuredCapacity = nonNegative(
+      unit.measuredCapacity,
+      `${id} measured capacity`,
+    );
+    const baselineResistance = positive(
+      unit.baselineResistance,
+      `${id} baseline resistance/impedance`,
+    );
+    const measuredResistance = nonNegative(
+      unit.measuredResistance,
+      `${id} measured resistance/impedance`,
+    );
+    const minimumRetention = finite(
+      unit.minimumCapacityRetention,
+      `${id} minimum capacity retention`,
+    );
+    const maximumResistanceChange = finite(
+      unit.maximumResistanceChange,
+      `${id} maximum resistance change`,
+    );
+    if (!(minimumRetention > 0 && minimumRetention <= 1))
+      throw new InputError(
+        `${id} minimum capacity retention must be greater than zero and no greater than one.`,
+      );
+    if (maximumResistanceChange < 0)
+      throw new InputError(
+        `${id} maximum resistance change must not be negative.`,
+      );
+    const retention = measuredCapacity / baselineCapacity;
+    const resistanceChange =
+      (measuredResistance - baselineResistance) / baselineResistance;
+    metrics.push(
+      {
+        key: `capacity_retention_${id}`,
+        label: `${id} measured capacity retention`,
+        value: round(100 * retention, 1),
+        unit: "%",
+      },
+      {
+        key: `resistance_change_${id}`,
+        label: `${id} measured resistance/impedance change`,
+        value: round(100 * resistanceChange, 1),
+        unit: "%",
+      },
+    );
+    if (retention < minimumRetention)
+      gaps.push(
+        `${id}: capacity retention is below the supplied approved criterion.`,
+      );
+    if (resistanceChange > maximumResistanceChange)
+      gaps.push(
+        `${id}: resistance/impedance change exceeds the supplied approved criterion.`,
+      );
+  });
+  return {
+    summary: `${units.length} battery unit(s) were compared with compatible supplied baselines and asset-specific approved criteria.`,
+    metrics,
+    findings: gaps.length
+      ? [
+          "At least one comparability, capacity, or resistance/impedance condition requires authority disposition.",
+        ]
+      : [
+          "No exception was found against the supplied compatible baselines and approved criteria.",
+        ],
+    gaps,
+    assumptions: [
+      "Temperature, SOC, duty, method, units, calibration, and controlled configuration are compatible as asserted by the evidence owner.",
+    ],
+    formulae: [
+      "Capacity retention = measured capacity / compatible baseline capacity.",
+      "Resistance/impedance change = (measured value - compatible baseline value) / compatible baseline value.",
+    ],
+  };
+}
+
+function batteryFireReadiness(inputs: Record<string, unknown>): Evaluation {
+  const barriers = records(
+    inputs.barriers,
+    "Fire and propagation barriers",
+  ).filter((row) => row.required !== false);
+  const prerequisites = records(
+    inputs.emergencyPrerequisites,
+    "Emergency prerequisites",
+  ).filter((row) => row.required !== false);
+  const gaps: string[] = [];
+  barriers.forEach((barrier, index) => {
+    const id = String(barrier.id ?? `barrier ${index + 1}`);
+    const normal = barrier.available === true && barrier.testCurrent === true;
+    const impaired =
+      barrier.impairmentApproved === true &&
+      typeof barrier.compensatingMeasure === "string" &&
+      barrier.compensatingMeasure.trim() !== "";
+    if (
+      (!normal && !impaired) ||
+      typeof barrier.evidenceReference !== "string" ||
+      !barrier.evidenceReference.trim()
+    )
+      gaps.push(
+        `${id}: current evidenced barrier availability or governed impairment disposition is incomplete.`,
+      );
+  });
+  prerequisites.forEach((item, index) => {
+    const id = String(item.id ?? `prerequisite ${index + 1}`);
+    if (
+      item.current !== true ||
+      item.exercised !== true ||
+      item.approved !== true ||
+      typeof item.evidenceReference !== "string" ||
+      !item.evidenceReference.trim()
+    )
+      gaps.push(
+        `${id}: current, exercised, evidenced, and approved emergency readiness is incomplete.`,
+      );
+  });
+  return {
+    summary: `${barriers.length} required fire/propagation barrier(s) and ${prerequisites.length} emergency prerequisite(s) were checked.`,
+    metrics: [
+      {
+        key: "fire_readiness_gaps",
+        label: "Fire/emergency readiness gaps",
+        value: gaps.length,
+        unit: "count",
+      },
+      {
+        key: "requirements_checked",
+        label: "Requirements checked",
+        value: barriers.length + prerequisites.length,
+        unit: "count",
+      },
+    ],
+    findings: gaps.length
+      ? [
+          "At least one fire barrier, impairment, or emergency-readiness condition requires authority disposition.",
+        ]
+      : [
+          "No trace-contract gap was found in the supplied fire and emergency-readiness records.",
+        ],
+    gaps,
+    assumptions: [
+      "The authority-defined barrier and emergency prerequisite scopes are complete for this chemistry, configuration, installation, and jurisdiction.",
+    ],
+    formulae: [
+      "Readiness requires every in-scope barrier and emergency prerequisite to satisfy its governed trace contract.",
+    ],
+  };
+}
+
 function codeCompliance(inputs: Record<string, unknown>): Evaluation {
   const rows = records(inputs.requirements, "Code requirements").filter(
     (row) => row.applicable !== false,
@@ -1915,6 +2184,10 @@ const evaluators: Partial<
   "reuse-life": reuseLife,
   "range-safety": rangeSafety,
   "propellant-degradation": propellant,
+  "battery-thermal-envelope": batteryThermal,
+  "battery-hv-safety": batteryHvSafety,
+  "battery-degradation": batteryDegradation,
+  "battery-fire-readiness": batteryFireReadiness,
   "code-compliance": codeCompliance,
   "fire-life-safety": fireLifeSafety,
   "occupancy-accessibility": occupancy,

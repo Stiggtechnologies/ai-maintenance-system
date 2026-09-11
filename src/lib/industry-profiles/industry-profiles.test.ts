@@ -89,6 +89,28 @@ describe("the kernel-profile architecture (E1.01)", () => {
     expect(mfg.operationalShare).toBe(1);
   });
 
+  it("binds the battery profile to safety/degradation contexts and four governed methods", () => {
+    const battery = assessProfile(
+      INDUSTRY_PROFILES.find(
+        (profile) => profile.industryCode === "battery_energy_storage",
+      )!,
+    );
+    expect(battery.operational.map((context) => context.key)).toEqual(
+      expect.arrayContaining([
+        "electrochemical_degradation",
+        "battery_safety_event",
+      ]),
+    );
+    expect(battery.domainModules[0].methods).toEqual([
+      "battery-thermal-envelope",
+      "battery-hv-safety",
+      "battery-degradation",
+      "battery-fire-readiness",
+    ]);
+    expect(battery.proseOnly).toEqual([]);
+    expect(battery.operationalShare).toBe(1);
+  });
+
   it("surfaces a wiring error rather than dropping it", () => {
     const broken = assessProfile({
       industryCode: "oil_sands",

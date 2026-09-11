@@ -216,6 +216,42 @@ export const FAILURE_CONTEXTS: FailureContext[] = [
       "intervention cost model",
     ],
   },
+  {
+    key: "electrochemical_degradation",
+    label: "Electrochemical capacity and resistance degradation",
+    description:
+      "Measured capacity, resistance, imbalance, and exposure change over cycles. The question is evidence-backed margin to an approved service criterion, not an inferred universal end-of-life threshold.",
+    engines: [
+      "efficiency_degradation",
+      "censored_weibull",
+      "interval_optimization",
+      "verification_loop",
+    ],
+    workflow: "reliability_analysis",
+    requiredData: [
+      "chemistry and controlled configuration",
+      "cycle/capacity/impedance observations with provenance",
+      "manufacturer- or authority-approved service criteria",
+    ],
+  },
+  {
+    key: "battery_safety_event",
+    label: "Battery thermal or high-voltage safety event",
+    description:
+      "A thermal excursion, isolation failure, arc/ground fault, gas release, or fire challenge occurred or was demanded. The question is barrier integrity and governed emergency disposition.",
+    engines: [
+      "fault_event_trees",
+      "monte_carlo",
+      "verification_loop",
+      "symptom_coding",
+    ],
+    workflow: "safety_investigation",
+    requiredData: [
+      "cell/module temperatures and alarm/event history",
+      "high-voltage protection and isolation test records",
+      "fire detection, suppression, ventilation, and emergency-response evidence",
+    ],
+  },
 ];
 
 /**
@@ -322,6 +358,18 @@ export const INDUSTRY_PROFILES: IndustryProfile[] = [
       "static_equipment_degradation",
     ],
     domainModules: [],
+    proseOnly: [],
+  },
+  {
+    industryCode: "battery_energy_storage",
+    registerRef: "E1.05",
+    contexts: [
+      "electrochemical_degradation",
+      "battery_safety_event",
+      "network_outage",
+      "turnaround_execution",
+    ],
+    domainModules: ["battery-energy-storage"],
     proseOnly: [],
   },
   {

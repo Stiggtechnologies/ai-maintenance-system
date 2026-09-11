@@ -168,7 +168,7 @@ export function DomainSpecialistWorkbench({ risks }: { risks: RiskRecord[] }) {
               Domain-depth specialist workbench
             </h2>
             <p className="mt-1 max-w-4xl text-sm leading-relaxed text-slate-400">
-              14 governed modules and 29 deterministic methods. Every run is
+              15 governed modules and 33 deterministic methods. Every run is
               attached to a risk and canonical evidence, registered as a model,
               recalculated server-side, and retained as a non-authoritative
               draft for independent human review.

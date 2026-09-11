@@ -13,6 +13,12 @@ import { INDUSTRY_TEMPLATE_PACKS } from "../src/lib/industry-template-packs";
 const target =
   "supabase/migrations/20261002091000_industry_pack_membership.sql";
 
+// This generator protects the already-deployed base snapshot. New packs are
+// appended in later immutable migrations; they must not rewrite this file.
+const BASE_MIGRATION_PACKS = Object.values(INDUSTRY_TEMPLATE_PACKS).filter(
+  (pack) => pack.industryCode !== "battery_energy_storage",
+);
+
 const lit = (value: string) => `'${value.replace(/'/g, "''")}'`;
 const key = (value: string) =>
   value
@@ -23,7 +29,7 @@ const key = (value: string) =>
     .slice(0, 120);
 
 export function renderIndustryPackMembershipMigration(): string {
-  for (const pack of Object.values(INDUSTRY_TEMPLATE_PACKS)) {
+  for (const pack of BASE_MIGRATION_PACKS) {
     for (const [kind, labels] of [
       ["KPI", [...pack.kpiModel.primaryKpis, ...pack.kpiModel.secondaryKpis]],
       ["asset class", pack.commonAssetClasses],
@@ -135,7 +141,7 @@ export function renderIndustryPackMembershipMigration(): string {
     "",
   ];
 
-  for (const pack of Object.values(INDUSTRY_TEMPLATE_PACKS)) {
+  for (const pack of BASE_MIGRATION_PACKS) {
     const code = lit(pack.industryCode);
     const name = lit(pack.industryName);
     const source = lit(
@@ -189,7 +195,7 @@ export function renderIndustryPackMembershipMigration(): string {
     "-- Remove membership deleted from the canonical pack on regeneration.",
     "delete from public.kpi_pack_items i using public.kpi_packs p where i.pack_id = p.id and i.source_ref like 'src/lib/industry-template-packs.ts#%' and not exists (select 1 from (values",
   );
-  const kpiValues = Object.values(INDUSTRY_TEMPLATE_PACKS).flatMap((pack) =>
+  const kpiValues = BASE_MIGRATION_PACKS.flatMap((pack) =>
     [...pack.kpiModel.primaryKpis, ...pack.kpiModel.secondaryKpis].map(
       (label) => `    (${lit(pack.industryCode)}, ${lit(key(label))})`,
     ),
@@ -203,7 +209,7 @@ export function renderIndustryPackMembershipMigration(): string {
   out.push(
     "delete from public.industry_asset_library_items i using public.industry_asset_libraries p where i.library_id = p.id and i.source_ref like 'src/lib/industry-template-packs.ts#%' and not exists (select 1 from (values",
   );
-  const assetValues = Object.values(INDUSTRY_TEMPLATE_PACKS).flatMap((pack) =>
+  const assetValues = BASE_MIGRATION_PACKS.flatMap((pack) =>
     pack.commonAssetClasses.map(
       (label) => `    (${lit(pack.industryCode)}, ${lit(key(label))})`,
     ),
@@ -217,7 +223,7 @@ export function renderIndustryPackMembershipMigration(): string {
   out.push(
     "delete from public.failure_mode_pack_items i using public.industry_failure_mode_packs p where i.pack_id = p.id and i.source_ref like 'src/lib/industry-template-packs.ts#%' and not exists (select 1 from (values",
   );
-  const failureValues = Object.values(INDUSTRY_TEMPLATE_PACKS).flatMap((pack) =>
+  const failureValues = BASE_MIGRATION_PACKS.flatMap((pack) =>
     pack.failureModeFocusAreas.map(
       (label) => `    (${lit(pack.industryCode)}, ${lit(key(label))})`,
     ),

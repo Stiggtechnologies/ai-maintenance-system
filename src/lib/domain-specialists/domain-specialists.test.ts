@@ -14,22 +14,62 @@ function evidenceFor(required: string[]) {
 }
 
 describe("domain-depth specialist registry", () => {
-  it("covers the requested 14 industries and 29 executable methods", () => {
-    expect(DOMAIN_SPECIALIST_MODULES).toHaveLength(14);
+  it("covers the requested specialist industries and executable methods", () => {
+    expect(DOMAIN_SPECIALIST_MODULES).toHaveLength(15);
     expect(
       new Set(DOMAIN_SPECIALIST_MODULES.map((module) => module.industryCode))
         .size,
-    ).toBe(14);
+    ).toBe(15);
     const methods = DOMAIN_SPECIALIST_MODULES.flatMap((module) =>
       module.methods.map((method) => method.key),
     );
-    expect(methods).toHaveLength(29);
+    expect(methods).toHaveLength(33);
     expect(new Set(methods).size).toBe(methods.length);
     expect(registeredDomainEvaluatorKeys()).toEqual([...methods].sort());
     expect(
       new Set(DOMAIN_SPECIALIST_MODULES.map((module) => module.reviewerRoleKey))
         .size,
-    ).toBe(14);
+    ).toBe(15);
+  });
+
+  it("keeps battery thermal, HV, degradation, and fire decisions evidence-bound and non-authoritative", () => {
+    const module = DOMAIN_SPECIALIST_MODULES.find(
+      (candidate) => candidate.key === "battery-energy-storage",
+    )!;
+    expect(module.methods.map((method) => method.key)).toEqual([
+      "battery-thermal-envelope",
+      "battery-hv-safety",
+      "battery-degradation",
+      "battery-fire-readiness",
+    ]);
+    for (const method of module.methods) {
+      const result = evaluateDomainSpecialist({
+        moduleKey: module.key,
+        methodKey: method.key,
+        inputs: method.exampleInputs,
+        evidence: evidenceFor(method.requiredEvidence),
+      });
+      expect(result.status, `${method.key}: ${result.gaps}`).toBe("draft");
+      expect(result.authoritative).toBe(false);
+      expect(result.humanApprovalRequired).toBe(true);
+    }
+  });
+
+  it("refuses to invent a battery degradation threshold", () => {
+    const method = DOMAIN_SPECIALIST_MODULES.find(
+      (candidate) => candidate.key === "battery-energy-storage",
+    )!.methods.find((candidate) => candidate.key === "battery-degradation")!;
+    const inputs = structuredClone(method.exampleInputs);
+    delete (inputs.units as Array<Record<string, unknown>>)[0]
+      .minimumCapacityRetention;
+    const result = evaluateDomainSpecialist({
+      moduleKey: "battery-energy-storage",
+      methodKey: method.key,
+      inputs,
+      evidence: evidenceFor(method.requiredEvidence),
+    });
+    expect(result.status).toBe("blocked");
+    expect(result.gaps.join(" ")).toMatch(/minimum capacity retention/i);
   });
 
   it("executes every governed example without claiming authority", () => {

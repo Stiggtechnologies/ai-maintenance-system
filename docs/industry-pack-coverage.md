@@ -2,10 +2,10 @@
 
 **Program-of-record date:** 2026-08-26
 
-SyncAI has **16 governed industry template packs** and a separate custom-sector
+SyncAI has **17 governed industry template packs** and a separate custom-sector
 path. Every governed pack is bound to one or more executable kernel failure
-contexts. Fourteen packs also bind to governed domain-depth modules containing
-29 deterministic calculations, optimizers, traceability checks, verification
+contexts. Fifteen packs also bind to governed domain-depth modules containing
+33 deterministic calculations, optimizers, traceability checks, verification
 methods and readiness screens. `kernel_bound` means executable code exists; it
 is not a claim that a customer has adopted the pack, that any legal requirement
 applies, that a standard is licensed, or that an authority has certified the
@@ -19,6 +19,7 @@ review advances it.
 | Oil & Gas                  |               4 | Well barrier and pressure-envelope review (1)                 |
 | Petrochemical              |               4 | RBI corrosion-loop calculation (1)                            |
 | Power Generation           |               4 | None requested                                                |
+| Battery & Energy Storage   |               4 | Thermal; HV safety; degradation; fire readiness (4)           |
 | Utilities                  |               3 | Storm mobilization and crew dispatch (1)                      |
 | Manufacturing              |               3 | Line balancing; robot health (2)                              |
 | Food & Beverage            |               4 | HACCP; CIP; cold-chain excursion (3)                          |
@@ -52,8 +53,8 @@ certify compliance, release equipment/product/facilities, dispatch crews, or
 authorize operation. Those decisions remain with the named customer, OEM,
 professional, regulator, class, command, airworthiness, range or security
 authority.
-The custom-sector path remains organization-defined and is not counted as a
-17th governed pack.
+The custom-sector path remains organization-defined and is not counted as an
+18th governed pack.
 
 Implementation and method boundaries are documented in
 [`domain-specialist-modules.md`](domain-specialist-modules.md).

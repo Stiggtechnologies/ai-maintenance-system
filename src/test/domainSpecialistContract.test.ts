@@ -4,9 +4,10 @@ import { DOMAIN_SPECIALIST_MODULES } from "../lib/domain-specialists";
 import { INDUSTRY_PROFILES } from "../lib/industry-profiles";
 
 const read = (path: string) => readFileSync(path, "utf8");
-const migration = read(
-  "supabase/migrations/20261213090000_domain_depth_specialists.sql",
-);
+const migration = [
+  read("supabase/migrations/20261213090000_domain_depth_specialists.sql"),
+  read("supabase/migrations/20261219139000_battery_energy_storage_pack.sql"),
+].join("\n");
 const edge = read("supabase/functions/domain-specialist-run/index.ts");
 const workflow = read(".github/workflows/deploy-migrations.yml");
 const closeout = read(".github/workflows/domain-specialists-closeout.yml");
@@ -16,10 +17,13 @@ describe("domain specialist production contract", () => {
     const expected = DOMAIN_SPECIALIST_MODULES.flatMap((module) =>
       module.methods.map((method) => `${module.key}/${method.key}`),
     ).sort();
-    const actual = [...migration.matchAll(/\('([^']+)','([^']+)'\)/g)]
-      .map((match) => `${match[1]}/${match[2]}`)
-      .filter((pair) => expected.includes(pair))
-      .sort();
+    const actual = [
+      ...new Set(
+        [...migration.matchAll(/\('([^']+)','([^']+)'\)/g)]
+          .map((match) => `${match[1]}/${match[2]}`)
+          .filter((pair) => expected.includes(pair)),
+      ),
+    ].sort();
     expect(actual).toEqual(expected);
   });
 
