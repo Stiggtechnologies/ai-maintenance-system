@@ -45,6 +45,9 @@ describe("D8.07 commissioning state machine", () => {
     expect(sql).toContain("x.status='released' and x.isolation_confirmed");
     expect(sql).toContain("('isolated','dissipated','verified_zero')");
     expect(sql).not.toMatch(/create table[^;]*(isolation|energy_state)/i);
+    expect(sql).toContain(
+      "neither this read nor its writers authorize energization, operation, acceptance or handover",
+    );
   });
 
   it("keeps every transition human, evidenced, append-only and final acceptance segregated", () => {

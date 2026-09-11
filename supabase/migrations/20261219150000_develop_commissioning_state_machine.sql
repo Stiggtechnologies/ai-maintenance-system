@@ -249,7 +249,7 @@ begin
     ) order by s.system_ref),'[]'::jsonb),
     'results',coalesce((select jsonb_agg(jsonb_build_object('id',a.id,'systemId',a.commissioning_system_id,'subsystemId',a.commissioning_subsystem_id,'testPackageId',a.commissioning_test_package_id,'procedureId',a.commissioning_procedure_id,'testRef',a.test_ref,'testStage',a.test_stage,'performedOn',a.performed_on,'outcome',a.outcome,'punchItemsOpen',a.punch_items_open,'witnessedByOwner',a.witnessed_by_owner,'releaseStatus',a.release_status) order by a.created_at desc) from acceptance_tests a join commissioning_systems sx on sx.id=a.commissioning_system_id where sx.development_case_id=p_case_id and a.organization_id=v_org),'[]'::jsonb),
     'resultStore','acceptance_tests',
-    'decisionBoundary','Commissioning state is human-recorded evidence. READY_FOR_ENERGIZATION reads canonical equipment release and energy state; no transition energizes equipment or accepts handover.'
+    'decisionBoundary','Commissioning results, rollups and state are human-recorded evidence. Independent quality release remains separate and neither this read nor its writers authorize energization, operation, acceptance or handover. READY_FOR_ENERGIZATION reads canonical equipment release and energy state; no transition energizes equipment.'
   ) into v_result from commissioning_systems s where s.organization_id=v_org and s.development_case_id=p_case_id;
   return v_result;
 end $$;
