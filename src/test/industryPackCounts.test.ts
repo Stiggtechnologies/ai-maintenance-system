@@ -8,7 +8,13 @@ const seed = readFileSync(
 );
 const membershipPath =
   "supabase/migrations/20261002091000_industry_pack_membership.sql";
-const membership = readFileSync(membershipPath, "utf8");
+const membership = [
+  readFileSync(membershipPath, "utf8"),
+  readFileSync(
+    "supabase/migrations/20261219139000_battery_energy_storage_pack.sql",
+    "utf8",
+  ),
+].join("\n");
 const coverage = readFileSync("docs/industry-pack-coverage.md", "utf8");
 
 describe("industry pack counts are counted, not asserted", () => {

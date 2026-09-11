@@ -195,7 +195,7 @@ describe("RiskOperatingSystemPage", () => {
     const industrySelect = screen.getByLabelText(
       "Industry pack",
     ) as HTMLSelectElement;
-    expect(industrySelect.querySelectorAll("option")).toHaveLength(17);
+    expect(industrySelect.querySelectorAll("option")).toHaveLength(18);
     expect(
       screen.getByRole("option", { name: /Oil Sands — Executable kernel/ }),
     ).toBeInTheDocument();

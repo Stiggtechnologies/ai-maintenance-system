@@ -11,7 +11,7 @@ describe("Signup industry selection", () => {
     render(<Signup onSuccess={vi.fn()} onTabChange={vi.fn()} />);
 
     const industry = screen.getByLabelText("Industry") as HTMLSelectElement;
-    expect(industry.querySelectorAll("option")).toHaveLength(18);
+    expect(industry.querySelectorAll("option")).toHaveLength(19);
     expect(
       screen.getByRole("option", { name: "Oil Sands" }),
     ).toBeInTheDocument();

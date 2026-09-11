@@ -33,13 +33,13 @@ describe("DomainSpecialistWorkbench", () => {
     vi.mocked(reviewDomainSpecialistRun).mockClear();
   });
 
-  it("exposes all 14 modules and refuses a preview without evidence", async () => {
+  it("exposes all 15 modules and refuses a preview without evidence", async () => {
     render(<DomainSpecialistWorkbench risks={[risk]} />);
 
     const moduleSelect = screen.getByLabelText("Specialist module");
-    expect(moduleSelect.querySelectorAll("option")).toHaveLength(14);
+    expect(moduleSelect.querySelectorAll("option")).toHaveLength(15);
     expect(
-      screen.getByText(/14 governed modules and 29 deterministic methods/i),
+      screen.getByText(/15 governed modules and 33 deterministic methods/i),
     ).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Preview locally" }));

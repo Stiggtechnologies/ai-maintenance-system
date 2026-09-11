@@ -1586,6 +1586,229 @@ export const DOMAIN_SPECIALIST_MODULES: DomainSpecialistModule[] = [
     ],
   },
   {
+    key: "battery-energy-storage",
+    industryCode: "battery_energy_storage",
+    label: "Battery & Energy Storage — Safety and Degradation",
+    version: "1.0.0",
+    reviewerRoleKey: "domain_battery_safety_reviewer",
+    purpose:
+      "Screen measured thermal, high-voltage, electrochemical, and fire-barrier evidence against supplied approved criteria without declaring a battery safe or fit for service.",
+    dataClasses: ["operational", "safety_critical", "regulatory"],
+    methods: [
+      method({
+        key: "battery-thermal-envelope",
+        label: "Thermal-management envelope screen",
+        purpose:
+          "Check traceable cell/module and coolant/air observations against asset-specific approved limits and thermal-control availability.",
+        kind: "engineering_calculation",
+        algorithm:
+          "For every supplied observation, calculate margin to supplied lower/upper limits; flag missing calibration, stale evidence, unavailable cooling, and out-of-envelope values.",
+        requiredInputs: [
+          records(
+            "observations",
+            "Thermal observations",
+            "Location, observed value, approved lower/upper limit, unit, timestamp, calibration state, and controlled configuration.",
+          ),
+          records(
+            "thermalControls",
+            "Thermal-management controls",
+            "Required control, availability, current test, impairment approval, and compensating measure.",
+          ),
+        ],
+        requiredEvidence: [
+          "approved-thermal-envelope",
+          "temperature-and-flow-history",
+          "instrument-calibration",
+          "thermal-control-test-records",
+        ],
+        authorityReferences: [
+          "manufacturer-approved operating envelope",
+          "site battery safety basis",
+          "applicable electrical and fire requirements",
+        ],
+        requiredApproverRole: "Battery thermal / safety technical authority",
+        limitations: [
+          "Does not model heat generation, propagation, CFD, reaction kinetics, or safe separation.",
+          "Does not infer a temperature limit or authorize continued operation.",
+        ],
+        exampleInputs: {
+          observations: [
+            {
+              id: "module-01",
+              observed: 31,
+              lowerLimit: 10,
+              upperLimit: 40,
+              unit: "degC",
+              observedAt: "2026-09-01T00:00:00Z",
+              calibrated: true,
+            },
+          ],
+          thermalControls: [
+            {
+              id: "cooling-loop-a",
+              required: true,
+              available: true,
+              testCurrent: true,
+            },
+          ],
+        },
+      }),
+      method({
+        key: "battery-hv-safety",
+        label: "High-voltage safety and protection trace",
+        purpose:
+          "Trace required isolation, grounding, overcurrent, interlock, emergency-stop, lockout, and arc-flash controls to current evidence and approval.",
+        kind: "verification",
+        algorithm:
+          "Every in-scope required control must be implemented, tested, current, evidenced, and approved; impaired controls require an approved disposition and compensating measures.",
+        requiredInputs: [
+          records(
+            "controls",
+            "High-voltage controls",
+            "Control, applicability, implementation, test/current state, evidence, impairment, compensating measure, and authority approval.",
+          ),
+        ],
+        requiredEvidence: [
+          "single-line-and-protection-design",
+          "isolation-and-protection-test-records",
+          "lockout-and-energized-work-procedures",
+          "approved-arc-flash-and-electrical-safety-basis",
+        ],
+        authorityReferences: [
+          "site electrical safety programme",
+          "approved protection and coordination study",
+          "applicable electrical and workplace-safety requirements",
+        ],
+        requiredApproverRole: "Electrical safety / protection authority",
+        limitations: [
+          "Does not perform arc-flash, protection-coordination, touch-potential, insulation, or short-circuit studies.",
+          "Does not issue an energized-work permit or authorize energization.",
+        ],
+        exampleInputs: {
+          controls: [
+            {
+              id: "main-dc-isolator",
+              required: true,
+              implemented: true,
+              tested: true,
+              current: true,
+              evidenceReference: "TEST-HV-01",
+              approved: true,
+            },
+          ],
+        },
+      }),
+      method({
+        key: "battery-degradation",
+        label: "Electrochemical degradation screen",
+        purpose:
+          "Calculate measured capacity retention and resistance/impedance change against compatible baselines and supplied approved service criteria.",
+        kind: "engineering_calculation",
+        algorithm:
+          "Capacity retention = measured capacity / compatible baseline capacity; resistance change = (measured - baseline) / baseline. Compare only to supplied asset-specific criteria and identify incompatible or missing bases.",
+        requiredInputs: [
+          records(
+            "units",
+            "Battery unit observations",
+            "Unit/configuration, baseline and measured capacity, baseline and measured resistance/impedance, compatible-method flag, units, and approved criteria.",
+          ),
+        ],
+        requiredEvidence: [
+          "controlled-battery-configuration",
+          "capacity-test-records",
+          "resistance-or-impedance-test-records",
+          "approved-service-criteria",
+          "duty-cycle-and-exposure-history",
+        ],
+        authorityReferences: [
+          "manufacturer-approved test method and limits",
+          "site asset management and battery safety basis",
+          "applicable product/listing requirements",
+        ],
+        requiredApproverRole:
+          "Battery reliability / electrochemistry authority",
+        limitations: [
+          "Does not infer remaining useful life, reaction mechanism, state of health, or a universal end-of-life threshold.",
+          "Results from incompatible temperature, SOC, duty, method, or configuration bases must not be compared.",
+        ],
+        exampleInputs: {
+          units: [
+            {
+              id: "string-a",
+              baselineCapacity: 100,
+              measuredCapacity: 91,
+              capacityUnit: "kWh",
+              minimumCapacityRetention: 0.85,
+              baselineResistance: 1.2,
+              measuredResistance: 1.35,
+              resistanceUnit: "mOhm",
+              maximumResistanceChange: 0.25,
+              compatibleMethod: true,
+            },
+          ],
+        },
+      }),
+      method({
+        key: "battery-fire-readiness",
+        label: "Fire-barrier and emergency-readiness trace",
+        purpose:
+          "Check required detection, off-gas, ventilation, propagation, suppression, isolation, responder, and emergency-plan barriers for current evidence and governed impairment disposition.",
+        kind: "readiness",
+        algorithm:
+          "Every required barrier must be available and current or carry an approved impairment with a named compensating measure; emergency prerequisites must be current and exercised where required.",
+        requiredInputs: [
+          records(
+            "barriers",
+            "Fire and propagation barriers",
+            "Barrier, applicability, availability, test/current state, evidence, impairment approval, and compensating measure.",
+          ),
+          records(
+            "emergencyPrerequisites",
+            "Emergency prerequisites",
+            "Plan, responder information, access/isolation, drill or validation, current state, evidence, and approval.",
+          ),
+        ],
+        requiredEvidence: [
+          "battery-fire-hazard-and-code-basis",
+          "detection-ventilation-suppression-test-records",
+          "barrier-and-impairment-register",
+          "emergency-response-plan-and-drill-evidence",
+        ],
+        authorityReferences: [
+          "authority having jurisdiction",
+          "approved fire-protection and emergency-response basis",
+          "manufacturer and chemistry-specific emergency information",
+        ],
+        requiredApproverRole: "Fire protection / battery emergency authority",
+        limitations: [
+          "Does not model fire growth, gas generation, explosion, tenability, propagation, suppression performance, or responder tactics.",
+          "Does not certify code compliance or authorize occupancy, entry, firefighting, reset, or re-energization.",
+        ],
+        exampleInputs: {
+          barriers: [
+            {
+              id: "off-gas-detection",
+              required: true,
+              available: true,
+              testCurrent: true,
+              evidenceReference: "TEST-FIRE-01",
+            },
+          ],
+          emergencyPrerequisites: [
+            {
+              id: "site-response-plan",
+              required: true,
+              current: true,
+              exercised: true,
+              evidenceReference: "DRILL-01",
+              approved: true,
+            },
+          ],
+        },
+      }),
+    ],
+  },
+  {
     key: "buildings-infrastructure",
     industryCode: "buildings_infrastructure",
     label:

@@ -12,6 +12,7 @@ export type DomainSpecialistModuleKey =
   | "aviation-airworthiness"
   | "marine-shipping"
   | "data-center-thermal"
+  | "battery-energy-storage"
   | "defense-readiness"
   | "aerospace-launch"
   | "buildings-infrastructure";

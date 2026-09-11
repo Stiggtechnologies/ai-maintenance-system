@@ -28,7 +28,7 @@ describe("canonical industry catalog", () => {
 
   it("exposes all packs plus a custom organization-defined option", () => {
     const riskCatalog = getRiskIndustryPackCatalog();
-    expect(riskCatalog).toHaveLength(17);
+    expect(riskCatalog).toHaveLength(18);
     expect(riskCatalog.at(-1)).toMatchObject({
       industryCode: "custom",
       readiness: "custom",
@@ -88,6 +88,7 @@ describe("canonical industry catalog", () => {
     expect(getIndustryCatalogEntry("data-centers")?.code).toBe("data_centers");
     expect(getIndustryLabel("military")).toBe("Defense");
     expect(toStoredIndustryCode("power", "")).toBe("power_generation");
+    expect(toStoredIndustryCode("bess", "")).toBe("battery_energy_storage");
     expect(toStoredIndustryCode("other", "District energy")).toBe(
       "custom:District energy",
     );
