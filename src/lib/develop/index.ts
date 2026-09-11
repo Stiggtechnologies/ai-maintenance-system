@@ -888,6 +888,41 @@ export interface OperationalReadinessResult {
   scopeNote?: string;
 }
 
+export interface SystemOperationalReadinessItem {
+  scopeId: number;
+  itemId: string;
+  assetId: string;
+  asset: string;
+  assetTag: string | null;
+  requirementKey: string;
+  item: string;
+  category: string;
+  ownerId: string;
+  owner: string | null;
+  requiredBefore: string;
+  status: string;
+  evidenceItemId: string | null;
+  evidenceReady: boolean;
+  overdue: boolean;
+}
+
+export interface SystemOperationalReadinessResult {
+  caseId: string;
+  systems: Array<{
+    systemId: number;
+    systemRef: string;
+    title: string;
+    currentState: string | null;
+    assetCount: number;
+    itemCount: number;
+    satisfiedCount: number;
+    overdueOpenCount: number;
+    items: SystemOperationalReadinessItem[];
+  }>;
+  readinessStore: "asset_onboarding_items";
+  decisionBoundary: string;
+}
+
 // ---------------------------------------------------------------------------
 // Slice 2 value-spine RPC result shapes — get_case_finance_model,
 // get_case_value_trajectory, get_since_sanction_delta return exactly these

@@ -13,6 +13,7 @@ import type {
   CaseWorkspace,
   GateReadinessResult,
   OperationalReadinessResult,
+  SystemOperationalReadinessResult,
 } from "../lib/develop";
 import type { CaseChains } from "../lib/develop/chains";
 import type {
@@ -673,6 +674,58 @@ export async function bindAssetToCase(input: {
     p_reason: input.reason ?? null,
     p_unbind: input.unbind ?? false,
   });
+  return unwrap(data, error);
+}
+
+export async function getCaseSystemOperationalReadiness(
+  caseId: string,
+): Promise<SystemOperationalReadinessResult> {
+  const { data, error } = await supabase.rpc(
+    "get_case_system_operational_readiness",
+    { p_case_id: caseId },
+  );
+  return unwrap<SystemOperationalReadinessResult>(data, error);
+}
+
+export async function initializeCommissioningSystemReadiness(input: {
+  systemId: number;
+  ownerId: string;
+  requiredBefore: string;
+  basis: string;
+  basisEvidenceItemId: string;
+}): Promise<{ systemId: number; itemsAssigned: number; status: string }> {
+  const { data, error } = await supabase.rpc(
+    "initialize_commissioning_system_readiness",
+    {
+      p_system_id: input.systemId,
+      p_owner_id: input.ownerId,
+      p_required_before: input.requiredBefore,
+      p_basis: input.basis,
+      p_basis_evidence_item_id: input.basisEvidenceItemId,
+    },
+  );
+  return unwrap(data, error);
+}
+
+export async function recordSystemOperationalReadinessItem(input: {
+  systemId: number;
+  itemId: string;
+  status: "human_provided" | "not_applicable";
+  evidenceItemId: string;
+  note: string;
+  value?: Record<string, unknown>;
+}): Promise<{ systemId: number; itemId: string; status: string }> {
+  const { data, error } = await supabase.rpc(
+    "record_system_operational_readiness_item",
+    {
+      p_system_id: input.systemId,
+      p_item_id: input.itemId,
+      p_status: input.status,
+      p_evidence_item_id: input.evidenceItemId,
+      p_note: input.note,
+      p_value: input.value ?? {},
+    },
+  );
   return unwrap(data, error);
 }
 
