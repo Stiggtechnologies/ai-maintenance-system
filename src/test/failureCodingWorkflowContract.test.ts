@@ -4,12 +4,12 @@ const migration=readFileSync("supabase/migrations/20261219137000_failure_coding_
 const panel=readFileSync("src/components/FailureCoding.tsx","utf8");
 describe("failure coding workflow contract",()=>{
   it("terminates every PL/pgSQL function body",()=>{
-    expect(migration.match(/end;\n\$\$;/g)).toHaveLength(3);
+    expect(migration.match(/end;\n\$\$;/g)).toHaveLength(4);
     expect(migration).not.toMatch(/end\s+\$\$;/);
   });
   it("protects mechanism provenance from broad work-order updates",()=>{
     expect(migration).toContain("trg_protect_failure_mechanism_provenance");
-    expect(migration).toContain("current_user in ('postgres','service_role')");
+    expect(migration).toContain("current_user = 'postgres'");
     expect(migration).toContain("before insert or update or delete");
     expect(migration).toContain("governed coded failure history cannot be deleted directly");
     expect(migration).toContain("new.asset_id,new.work_type,new.completed_at");
@@ -22,6 +22,11 @@ describe("failure coding workflow contract",()=>{
     expect(migration).toContain("length(btrim(p_note)),0)<10");
     expect(migration).toContain("auth.uid()");
     expect(migration).toContain("v_role is null or v_role not in");
+    expect(migration).not.toContain("'admin','ai_admin'");
+    expect(migration).toContain("enforce_failure_coding_event_tenant");
+    expect(migration).toContain("w.organization_id=new.organization_id");
+    expect(migration).toContain("dm.organization_id=new.organization_id");
+    expect(migration).toContain("up.organization_id=new.organization_id");
   });
   it("provides a tenant-scoped bounded queue and candidate shortlist",()=>{
     expect(migration).toContain("get_failure_coding_queue");

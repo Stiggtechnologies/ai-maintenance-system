@@ -22,12 +22,41 @@ revoke insert,update,delete,truncate on public.failure_mechanism_coding_events
   from anon,authenticated;
 grant select on public.failure_mechanism_coding_events to authenticated;
 
+create or replace function public.enforce_failure_coding_event_tenant()
+returns trigger language plpgsql security invoker set search_path=public as $$
+begin
+  if not exists(select 1 from public.work_orders w
+    where w.id=new.work_order_id and w.organization_id=new.organization_id) then
+    raise exception 'failure coding work order must belong to the receipt organization';
+  end if;
+  if not exists(select 1 from public.damage_mechanisms dm
+    where dm.id=new.mechanism_id and dm.organization_id=new.organization_id) then
+    raise exception 'failure coding mechanism must belong to the receipt organization';
+  end if;
+  if new.prior_mechanism_id is not null and not exists(select 1 from public.damage_mechanisms dm
+    where dm.id=new.prior_mechanism_id and dm.organization_id=new.organization_id) then
+    raise exception 'prior failure mechanism must belong to the receipt organization';
+  end if;
+  if not exists(select 1 from public.user_profiles up
+    where up.id=new.coded_by and up.organization_id=new.organization_id) then
+    raise exception 'failure coding actor must belong to the receipt organization';
+  end if;
+  return new;
+end;
+$$;
+drop trigger if exists trg_enforce_failure_coding_event_tenant
+  on public.failure_mechanism_coding_events;
+create trigger trg_enforce_failure_coding_event_tenant
+before insert or update on public.failure_mechanism_coding_events
+for each row execute function public.enforce_failure_coding_event_tenant();
+revoke all on function public.enforce_failure_coding_event_tenant() from public,anon,authenticated;
+
 -- The broad work-order policy remains available for ordinary work management,
 -- but these four governed columns can change only under a definer-owned RPC.
 create or replace function public.protect_failure_mechanism_provenance()
 returns trigger language plpgsql security invoker set search_path=public as $$
 begin
-  if current_user in ('postgres','service_role') then
+  if current_user = 'postgres' then
     if tg_op='DELETE' then return old; end if;
     return new;
   end if;
@@ -75,7 +104,7 @@ begin
   if v_org is null or auth.uid() is null then return jsonb_build_object('error','forbidden'); end if;
   select role into v_role from public.user_profiles
   where id=auth.uid() and organization_id=v_org;
-  if v_role is null or v_role not in ('reliability_engineer','maintenance_manager','technician','admin','ai_admin') then
+  if v_role is null or v_role not in ('reliability_engineer','maintenance_manager','technician','admin') then
     return jsonb_build_object('error','coding a failure mechanism requires a maintenance or engineering role');
   end if;
   if coalesce(length(btrim(p_note)),0)<10 then
@@ -94,7 +123,7 @@ begin
     return jsonb_build_object('error','this mechanism is already the governed coding');
   end if;
   if w.failure_mechanism_id is not null
-     and v_role not in ('reliability_engineer','maintenance_manager','admin','ai_admin') then
+     and v_role not in ('reliability_engineer','maintenance_manager','admin') then
     return jsonb_build_object('error','correcting an existing coding requires engineering or manager authority');
   end if;
 
