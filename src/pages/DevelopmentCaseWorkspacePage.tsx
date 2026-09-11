@@ -112,6 +112,7 @@ import { WorkPackagingPanel } from "../components/develop/WorkPackagingPanels";
 import { WorkforcePanel } from "../components/develop/WorkforcePanels";
 import { HybridDevelopmentPanel } from "../components/develop/HybridDevelopmentPanel";
 import { ProjectFlowEfficiencyPanel } from "../components/develop/ProjectFlowEfficiencyPanel";
+import { TechnicalDebtPanel } from "../components/develop/TechnicalDebtPanel";
 import { DigitalThreadPanel } from "../components/develop/DigitalThreadPanels";
 import {
   CaseRamPanel,
@@ -2846,6 +2847,11 @@ export function DevelopmentCaseWorkspacePage() {
       {/* D7.09 / spec section 29: a read-only metric over canonical work-order
           transitions linked through the case's existing asset scope. */}
       <ProjectFlowEfficiencyPanel caseId={workspace.id} />
+      <TechnicalDebtPanel
+        caseId={workspace.id}
+        canPlan={canDesignPlan}
+        canApprove={canReview}
+      />
       <RealizeCluster caseId={workspace.id} canRealize={canRealize} />
       <DeliverablesSection
         workspace={workspace}

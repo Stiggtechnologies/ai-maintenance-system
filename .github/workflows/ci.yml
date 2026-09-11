@@ -316,6 +316,9 @@ jobs:
       - name: Smoke — Sync Develop Site Change Load (capacity absorption)
         run: bash scripts/ci-develop-site-change-load-smoke.sh
 
+      - name: Smoke — Sync Develop Technical Debt (case origin, valuation, independent approval)
+        run: bash scripts/ci-develop-technical-debt-smoke.sh
+
       - name: Smoke — governed engineering knowledge on the canonical Reliability KB
         run: bash scripts/ci-governed-knowledge-smoke.sh
 
