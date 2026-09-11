@@ -56,14 +56,10 @@ for SPEC in 'pre_commissioning:PRECOMMISSIONED' 'commissioning:COMMISSIONED' 'pe
   TRANSITION=$(rpc "$TRANSITION_ACTOR" transition_commissioning_system "{\"p_system_id\":$SID,\"p_to_state\":\"$TARGET\",\"p_rationale\":\"Human review confirms the independently released $STAGE result satisfies this stage.\",\"p_evidence_item_id\":\"$EVIDENCE\"}")
   field "$TRANSITION" id >/dev/null
 done
-SOD=$(rpc "$MANAGER" transition_commissioning_system "{\"p_system_id\":$SID,\"p_to_state\":\"ACCEPTED\",\"p_rationale\":\"The performance verifier deliberately attempts self-acceptance and must be refused.\",\"p_evidence_item_id\":\"$EVIDENCE\"}")
-BODY="$SOD" python3 -c 'import json,os; assert "segregation of duties" in json.loads(os.environ["BODY"])["error"]'
-FINAL=$(rpc "$EXEC" transition_commissioning_system "{\"p_system_id\":$SID,\"p_to_state\":\"ACCEPTED\",\"p_rationale\":\"Accountable management independently accepts the complete released commissioning record.\",\"p_evidence_item_id\":\"$EVIDENCE\"}")
-field "$FINAL" id >/dev/null
-AFTER_ACCEPTANCE=$(rpc "$PLANNER" record_commissioning_result "{\"p_case_id\":\"$CASE\",\"p_procedure_id\":$PRID,\"p_record\":{\"testRef\":\"D807-AFTER-ACCEPTANCE\",\"testStage\":\"commissioning\",\"performedOn\":\"2026-09-11\",\"outcome\":\"pass\",\"punchItemsRaised\":0,\"punchItemsOpen\":0,\"witnessedByOwner\":true,\"evidenceItemId\":\"$EVIDENCE\"}}")
-BODY="$AFTER_ACCEPTANCE" python3 -c 'import json,os; assert "commissioning result is incomplete" in json.loads(os.environ["BODY"])["error"]'
+HANDOVER_GATE=$(rpc "$EXEC" transition_commissioning_system "{\"p_system_id\":$SID,\"p_to_state\":\"ACCEPTED\",\"p_rationale\":\"Direct final acceptance must now enter through the governed per-system HandoverPackage.\",\"p_evidence_item_id\":\"$EVIDENCE\"}")
+BODY="$HANDOVER_GATE" python3 -c 'import json,os; x=json.loads(os.environ["BODY"]); assert "prerequisites" in x["error"] and any("HandoverPackage" in b for b in x["blockers"])'
 READ=$(rpc "$PLANNER" get_case_commissioning "{\"p_case_id\":\"$CASE\"}")
-BODY="$READ" SID="$SID" python3 -c 'import json,os; s=next(x for x in json.loads(os.environ["BODY"])["systems"] if str(x["id"])==os.environ["SID"]); assert s["currentState"]=="ACCEPTED" and s["nextState"] is None and len(s["stateHistory"])==7 and len(s["assetBindings"])==1'
+BODY="$READ" SID="$SID" python3 -c 'import json,os; s=next(x for x in json.loads(os.environ["BODY"])["systems"] if str(x["id"])==os.environ["SID"]); assert s["currentState"]=="PERFORMANCE_VERIFIED" and s["nextState"]=="ACCEPTED" and s["transitionReadiness"]["canTransition"] is False and len(s["stateHistory"])==6 and len(s["assetBindings"])==1'
 if psqlc "update commissioning_systems set commissioning_state='CONSTRUCTION_COMPLETE' where id=$SID" >/dev/null 2>&1; then echo 'direct state regression unexpectedly succeeded'; exit 1; fi
 if psqlc "update commissioning_state_transitions set rationale='rewritten history is forbidden' where commissioning_system_id=$SID" >/dev/null 2>&1; then echo 'transition ledger rewrite unexpectedly succeeded'; exit 1; fi
-echo 'D8.07 commissioning state-machine smoke passed: seven ordered human transitions, canonical release/energy gate, staged results, SoD acceptance, tenant refusal, immutable state and ledger'
+echo 'D8.07 commissioning state-machine smoke passed: six prerequisite transitions, canonical release/energy gate, staged results, tenant refusal, immutable state and governed HandoverPackage final-acceptance door'

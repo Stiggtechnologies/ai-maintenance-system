@@ -16,6 +16,14 @@ const smoke = readFileSync(
   "scripts/ci-develop-commissioning-state-machine-smoke.sh",
   "utf8",
 );
+const handoverSql = readFileSync(
+  "supabase/migrations/20261219152000_develop_system_handover_package.sql",
+  "utf8",
+);
+const handoverSmoke = readFileSync(
+  "scripts/ci-develop-system-handover-package-smoke.sh",
+  "utf8",
+);
 
 describe("D8.07 commissioning state machine", () => {
   it("pins exactly the seven ordered §29 states", () => {
@@ -84,10 +92,14 @@ describe("D8.07 commissioning state machine", () => {
     expect(panel).toContain("Bind system assets and required energy types");
     expect(panel).toContain("Record {label(system.nextState)}");
     expect(ci).toContain("ci-develop-commissioning-state-machine-smoke.sh");
-    expect(smoke).toContain('len(s["stateHistory"])==7');
+    expect(smoke).toContain('len(s["stateHistory"])==6');
     expect(smoke).toContain('TRANSITION_ACTOR="$MANAGER"');
-    expect(smoke).toContain('SOD=$(rpc "$MANAGER"');
-    expect(smoke).toContain('FINAL=$(rpc "$EXEC"');
+    expect(smoke).toContain('HANDOVER_GATE=$(rpc "$EXEC"');
+    expect(handoverSql).toContain(
+      "v_transition:=public.transition_commissioning_system",
+    );
+    expect(handoverSmoke).toContain('ACCEPTED=$(rpc "$EXEC"');
+    expect(handoverSmoke).toContain('s["currentState"]=="ACCEPTED"');
     expect(smoke).toContain("direct state regression unexpectedly succeeded");
   });
 });
