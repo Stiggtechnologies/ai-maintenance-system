@@ -174,6 +174,9 @@ describe("status-lag flips are backed by live callers the gate can walk", () => 
     expect(row("D4.07")).toMatch(/^\| D4\.07 \|[^|]*\|[^|]*\| 🟡/);
     expect(row("D3.02")).toMatch(/^\| D3\.02 \|[^|]*\|[^|]*\| 🟡/);
     expect(row("D7.06")).toMatch(/^\| D7\.06 \|[^|]*\|[^|]*\| 🟡/);
-    expect(row("D8.06")).toMatch(/^\| D8\.06 \|[^|]*\|[^|]*\| 🟡/);
+    // D8.06 was subsequently closed by the dedicated commissioning-family
+    // slice; retain the status assertion here so this older residual sweep
+    // cannot silently regress it to its former partial state.
+    expect(row("D8.06")).toMatch(/^\| D8\.06 \|[^|]*\|[^|]*\| ✅/);
   });
 });
