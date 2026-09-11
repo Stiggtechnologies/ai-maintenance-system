@@ -267,7 +267,7 @@ with the PR that changes an item's status._
 | E3.06 | Permit, isolation, lockout dependencies              | 🟡 `release_equipment` + `enforce_release_before_completion` are wired and count permits via wo.job_plan_id, which `apply_job_plan` now populates from an adopted plan authored on `/job-plans` (C8.07). The isolation refusal and closure gate arm when a plan with permits is applied; they remain vacuous on work that never received a plan                                           |
 | E3.07 | Production-loss forecasting                          | 🟡 event-level loss projection live in Sync Recovery: projected_hours_recovered, projected_downtime_value_usd, P50/P80 (>=5 comparable jobs), counterfactual-until-verified discipline (20260921090000_sync_recovery.sql; ci-recovery-lifecycle-smoke assertions). Production-plan-level forecasting not modelled |
 | E3.08 | Opportunity maintenance during interruptions         | 🟡 opportunity-disposition restoration work is live in Sync Recovery: add_restoration_work disposition='opportunity', scheduled with mandatory streams via verified-parallel groups (ci-recovery-lifecycle-smoke WO2 stream). Standalone find_opportunity_work remains callerless; sized by planned_hours which `apply_job_plan` now writes when an adopted plan is applied (C8.07) |
-| E3.09 | Joint operations–maintenance daily meetings          | ❌                                                                                                                                                                                                                                                                                                                                                                                         |
+| E3.09 | Joint operations–maintenance daily meetings          | ✅ `DailyCoordinationControl` on `/handover` opens an immutable agenda from canonical process events, priority work, equipment handovers, recovery blockers, and operator rounds. Separate humans attest Operations and Maintenance attendance. Critical items cannot close on acknowledgement alone: they require a named owner, due date, and linked canonical `work_order` or `decision`; all persistence is tenant-scoped and appended to `audit_events`. |
 
 ### E4 — Enterprise governance
 
@@ -775,6 +775,6 @@ record-scoped._
 
 Atomic items tracked: **397** — counted programmatically from the tables
 themselves (an earlier hand-stated figure of 307 under-counted; the enumeration
-never changed, only the count of it). Current tally: ✅ 250 · 🟡 186 · ❌ 29. _(2026-08-07: reconciled after parallel merges — C7.01/03/04/11 reliability engine, C4.13–17 + C6.22 closed-loop tail, C3.01–12 taxonomy, C5.04 scheduler all verified present on main.)_
+never changed, only the count of it). Current tally: ✅ 251 · 🟡 186 · ❌ 28. _(2026-08-07: reconciled after parallel merges — C7.01/03/04/11 reliability engine, C4.13–17 + C6.22 closed-loop tail, C3.01–12 taxonomy, C5.04 scheduler all verified present on main.)_
 Every ❌ and 🟡 is an open obligation of the program. No item may be removed;
 items may only change status with linked evidence in the PR that changes them.

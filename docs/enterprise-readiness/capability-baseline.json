@@ -1122,10 +1122,10 @@
     "backticked": 1
   },
   "E3.09": {
-    "status": "❌",
-    "evidence": false,
-    "citations": 0,
-    "backticked": 0
+    "status": "✅",
+    "evidence": true,
+    "citations": 5,
+    "backticked": 5
   },
   "E4.01": {
     "status": "✅",
