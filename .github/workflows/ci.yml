@@ -340,6 +340,9 @@ jobs:
       - name: Smoke — Sync Develop system operational readiness (canonical items, owner, date, evidence)
         run: bash scripts/ci-develop-system-operational-readiness-smoke.sh
 
+      - name: Smoke — Sync Develop per-system HandoverPackage (three dimensions, residual risk, human acceptance)
+        run: bash scripts/ci-develop-system-handover-package-smoke.sh
+
       - name: Smoke — governed engineering knowledge on the canonical Reliability KB
         run: bash scripts/ci-governed-knowledge-smoke.sh
 

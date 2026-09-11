@@ -104,6 +104,7 @@ export interface OrgMember {
   id: string;
   full_name: string | null;
   email: string | null;
+  role?: string | null;
 }
 
 export interface CreateDevelopmentCaseInput {
@@ -169,7 +170,7 @@ export async function listAdoptedFrameworks(): Promise<FrameworkOption[]> {
 export async function listOrgMembers(): Promise<OrgMember[]> {
   const { data, error } = await supabase
     .from("user_profiles")
-    .select("id, full_name, email")
+    .select("id, full_name, email, role")
     .order("full_name");
   if (error) throw new Error(error.message);
   return (data ?? []) as OrgMember[];
