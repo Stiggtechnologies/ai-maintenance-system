@@ -61,7 +61,7 @@ describe("D8.10 operational readiness begins during design", () => {
       /insert into public\.asset_onboarding_items\([^)]*status/i,
     );
     expect(smoke).toContain('x["status"]=="awaiting_assets"');
-    expect(smoke).toContain("status='pending'");
+    expect(smoke).toContain("i.status in ('auto_filled','deduced','human_provided','not_applicable') and i.evidence_item_id is not null");
   });
 
   it("enforces tenant/case/project scope and immutable provenance", () => {

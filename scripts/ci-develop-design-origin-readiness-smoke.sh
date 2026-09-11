@@ -39,7 +39,11 @@ BODY="$CROSS" python3 -c 'import json,os; assert "same-case, same-project" in js
 # selected open item into the canonical store and system scope.
 BIND=$(rpc "$PLANNER" bind_commissioning_system_asset "{\"p_system_id\":$SID,\"p_asset_id\":\"$ASSET\",\"p_required_energy_types\":[\"electrical\"],\"p_basis\":\"Electrical energy defines the signed commissioning boundary for the design-origin asset.\",\"p_evidence_item_id\":\"$EVIDENCE\"}")
 field "$BIND" id >/dev/null
-test "$(psqlc "select count(*) from asset_onboarding_items where organization_id='$ORG' and asset_id='$ASSET' and requirement_key='s14_critical_spares' and status='pending'")" = "1"
+# Asset onboarding may already have classified the canonical row before the
+# system binding. Preserve that canonical state; what design-origin readiness
+# must prove is that the selected obligation is scoped and remains unsatisfied
+# until governed evidence completion.
+test "$(psqlc "select count(*) from asset_onboarding_items i join commissioning_system_readiness_scope q on q.onboarding_item_id=i.id where i.organization_id='$ORG' and q.organization_id='$ORG' and q.commissioning_system_id=$SID and i.asset_id='$ASSET' and i.requirement_key='s14_critical_spares' and not (i.status in ('auto_filled','deduced','human_provided','not_applicable') and i.evidence_item_id is not null)")" = "1"
 test "$(psqlc "select count(*) from asset_onboarding_items where organization_id='$ORG' and asset_id='$ASSET' and requirement_key='s14_reorder_points'")" = "0"
 test "$(psqlc "select count(*) from commissioning_system_readiness_origin_items where organization_id='$ORG' and design_origin_id=$OID")" = "1"
 
