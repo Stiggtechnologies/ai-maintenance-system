@@ -822,10 +822,10 @@
     "backticked": 16
   },
   "D8.08": {
-    "status": "🟡",
+    "status": "✅",
     "evidence": true,
-    "citations": 10,
-    "backticked": 0
+    "citations": 11,
+    "backticked": 11
   },
   "D8.09": {
     "status": "🟡",

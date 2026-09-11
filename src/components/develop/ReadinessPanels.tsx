@@ -17,7 +17,7 @@
  *     own disclaimer and its only write path is the opt-in AI_INFERENCE
  *     record through the governed RPC.
  */
-import { useCallback, useEffect, useState } from "react";
+import { type FormEvent, useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   AlertTriangle,
@@ -34,19 +34,26 @@ import {
   type GateReadinessResult,
   type OperationalReadinessResult,
   type ReadinessBlocker,
+  type SystemOperationalReadinessResult,
 } from "../../lib/develop";
 import {
   approveCaseBaseline,
   bindAssetToCase,
   createCaseBaseline,
   getCaseOperationalReadiness,
+  getCaseSystemOperationalReadiness,
   getGateReadiness,
+  initializeCommissioningSystemReadiness,
   listBindableAssets,
+  listOrgEvidenceItems,
+  listOrgMembers,
   listIntakeDocuments,
+  recordSystemOperationalReadinessItem,
   runEvidenceAgent,
   type BindableAsset,
   type EvidenceAgentResult,
   type IntakeDocumentOption,
+  type OrgMember,
 } from "../../services/developService";
 
 const inputClass =
@@ -1046,7 +1053,192 @@ export function OperationalReadinessSection({
             </button>
           </div>
         )}
+        <SystemOperationalReadinessSection
+          caseId={caseId}
+          canPlan={canPlan}
+        />
       </div>
+    </div>
+  );
+}
+
+function SystemOperationalReadinessSection({
+  caseId,
+  canPlan,
+}: {
+  caseId: string;
+  canPlan: boolean;
+}) {
+  const [model, setModel] = useState<SystemOperationalReadinessResult | null>(
+    null,
+  );
+  const [members, setMembers] = useState<OrgMember[]>([]);
+  const [evidence, setEvidence] = useState<
+    Array<{ id: string; description: string }>
+  >([]);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const load = useCallback(async () => {
+    try {
+      const [next, people, sources] = await Promise.all([
+        getCaseSystemOperationalReadiness(caseId),
+        listOrgMembers(),
+        listOrgEvidenceItems(),
+      ]);
+      setModel(next);
+      setMembers(people);
+      setEvidence(sources);
+      setError(null);
+    } catch (caught) {
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "System readiness read failed",
+      );
+    }
+  }, [caseId]);
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  async function initialize(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const data = new FormData(form);
+    setBusy(true);
+    setError(null);
+    try {
+      await initializeCommissioningSystemReadiness({
+        systemId: Number(data.get("systemId")),
+        ownerId: String(data.get("ownerId") ?? ""),
+        requiredBefore: String(data.get("requiredBefore") ?? ""),
+        basis: String(data.get("basis") ?? ""),
+        basisEvidenceItemId: String(data.get("basisEvidenceItemId") ?? ""),
+      });
+      form.reset();
+      await load();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Assignment refused");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function complete(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const data = new FormData(form);
+    setBusy(true);
+    setError(null);
+    try {
+      await recordSystemOperationalReadinessItem({
+        systemId: Number(data.get("systemId")),
+        itemId: String(data.get("itemId") ?? ""),
+        status: String(data.get("status")) as
+          | "human_provided"
+          | "not_applicable",
+        evidenceItemId: String(data.get("evidenceItemId") ?? ""),
+        note: String(data.get("note") ?? ""),
+      });
+      form.reset();
+      await load();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Outcome refused");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const scopedItems =
+    model?.systems.flatMap((system) =>
+      system.items.map((item) => ({ system, item })),
+    ) ?? [];
+  return (
+    <div className="mt-4 space-y-3 border-t border-white/8 pt-4">
+      <div>
+        <h3 className="text-xs font-semibold text-slate-200">
+          Commissioning-system readiness
+        </h3>
+        <p className="mt-1 text-[11px] text-slate-500">
+          The same asset-onboarding items, scoped to each commissioning system
+          with a named owner, required-before date, and completion evidence.
+          This records readiness only; it does not accept handover or authorize
+          energization.
+        </p>
+      </div>
+      <ErrorLine error={error} />
+      {model?.systems.map((system) => (
+        <div
+          key={system.systemId}
+          className="rounded-lg border border-white/8 bg-white/[0.02] p-3"
+        >
+          <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+            <span className="font-semibold text-slate-200">
+              {system.systemRef} — {system.title}
+            </span>
+            <span className="text-slate-400">
+              {system.satisfiedCount}/{system.itemCount} evidenced ·{" "}
+              {system.overdueOpenCount} overdue
+            </span>
+          </div>
+          {system.assetCount === 0 && (
+            <p className="mt-1 text-[11px] text-amber-300">
+              Bind at least one asset in the Commissioning section before
+              assigning readiness items.
+            </p>
+          )}
+          {system.items.length > 0 && (
+            <ul className="mt-2 max-h-44 space-y-1 overflow-y-auto">
+              {system.items.map((item) => (
+                <li
+                  key={item.scopeId}
+                  className={`rounded border px-2 py-1 text-[11px] ${item.overdue ? "border-red-400/25 text-red-200" : "border-white/5 text-slate-400"}`}
+                >
+                  {item.assetTag ?? item.asset}: {item.item} · {item.owner ?? "owner unavailable"} · due {item.requiredBefore} · {item.status.replaceAll("_", " ")}
+                  {!item.evidenceReady && " · evidence missing"}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      ))}
+      {canPlan && model && model.systems.length > 0 && (
+        <form onSubmit={initialize} className="grid gap-2 md:grid-cols-2">
+          <select name="systemId" required className={inputClass} defaultValue="">
+            <option value="" disabled>Commissioning system…</option>
+            {model.systems.map((system) => <option key={system.systemId} value={system.systemId}>{system.systemRef} — {system.title}</option>)}
+          </select>
+          <select name="ownerId" required className={inputClass} defaultValue="">
+            <option value="" disabled>Named readiness owner…</option>
+            {members.map((member) => <option key={member.id} value={member.id}>{member.full_name ?? member.email ?? member.id}</option>)}
+          </select>
+          <input name="requiredBefore" required type="date" className={inputClass} />
+          <select name="basisEvidenceItemId" required className={inputClass} defaultValue="">
+            <option value="" disabled>Assignment evidence…</option>
+            {evidence.map((item) => <option key={item.id} value={item.id}>{item.description}</option>)}
+          </select>
+          <input name="basis" required minLength={20} className={`${inputClass} md:col-span-2`} placeholder="Assignment basis (20+ characters)" />
+          <button disabled={busy} className="rounded border border-white/10 px-3 py-2 text-xs font-semibold text-slate-200 disabled:opacity-50">Assign canonical readiness items</button>
+        </form>
+      )}
+      {canPlan && scopedItems.length > 0 && (
+        <form onSubmit={complete} className="grid gap-2 md:grid-cols-2">
+          <select name="itemRef" required className={`${inputClass} md:col-span-2`} defaultValue="" onChange={(event) => {
+            const [systemId, itemId] = event.target.value.split(":");
+            const form = event.currentTarget.form;
+            if (form) { (form.elements.namedItem("systemId") as HTMLInputElement).value = systemId; (form.elements.namedItem("itemId") as HTMLInputElement).value = itemId; }
+          }}>
+            <option value="" disabled>Readiness item to evidence…</option>
+            {scopedItems.filter(({ item }) => !item.evidenceReady).map(({ system, item }) => <option key={item.scopeId} value={`${system.systemId}:${item.itemId}`}>{system.systemRef} · {item.assetTag ?? item.asset} · {item.item}</option>)}
+          </select>
+          <input type="hidden" name="systemId" /><input type="hidden" name="itemId" />
+          <select name="status" required className={inputClass} defaultValue="human_provided"><option value="human_provided">Evidence provided</option><option value="not_applicable">Not applicable, evidenced</option></select>
+          <select name="evidenceItemId" required className={inputClass} defaultValue=""><option value="" disabled>Completion evidence…</option>{evidence.map((item) => <option key={item.id} value={item.id}>{item.description}</option>)}</select>
+          <textarea name="note" required minLength={20} className={`${inputClass} md:col-span-2`} placeholder="Human readiness determination (20+ characters)" />
+          <button disabled={busy} className="rounded border border-white/10 px-3 py-2 text-xs font-semibold text-slate-200 disabled:opacity-50">Record evidenced outcome</button>
+        </form>
+      )}
+      {model && <p className="text-[10px] text-slate-600">Canonical store: {model.readinessStore}. {model.decisionBoundary}</p>}
     </div>
   );
 }
