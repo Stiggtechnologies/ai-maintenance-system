@@ -26,6 +26,8 @@ import {
 } from "../services/operatingLoopService";
 import type { WorkOrderRow } from "../types/operating";
 import { LoadingState, ErrorState } from "../components/ui/AsyncStates";
+import { SiteChangeLoadPanel } from "../components/develop/SiteChangeLoadPanel";
+import { platformService } from "../services/platform";
 
 const WORK_STATUSES: WorkStatus[] = [
   "pending",
@@ -373,6 +375,21 @@ export function WorkActionBoard() {
   // unclassified rather than being defaulted into "scheduled".
   const [newWoResponseClass, setNewWoResponseClass] = useState("");
   const [woAssets, setWoAssets] = useState<{ id: string; name: string }[]>([]);
+  const [siteId, setSiteId] = useState<string | null>(null);
+  const [canPlanSiteChange, setCanPlanSiteChange] = useState(false);
+
+  useEffect(() => {
+    void platformService.getCurrentUserContext().then((context) => {
+      setSiteId(context?.default_site_id ?? null);
+      setCanPlanSiteChange(
+        context?.roles.some((role) =>
+          ["admin", "executive", "maintenance_manager", "planner", "supervisor"].includes(
+            role.code,
+          ),
+        ) ?? false,
+      );
+    });
+  }, []);
 
   useEffect(() => {
     if (!showNewWo || woAssets.length > 0) return;
@@ -615,6 +632,8 @@ export function WorkActionBoard() {
           <Plus className="w-3.5 h-3.5" /> New Work Order
         </button>
       </div>
+
+      <SiteChangeLoadPanel siteId={siteId} canPlan={canPlanSiteChange} />
 
       {/* Summary */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">

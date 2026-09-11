@@ -744,10 +744,10 @@
     "backticked": 10
   },
   "D7.15": {
-    "status": "❌",
+    "status": "✅",
     "evidence": true,
-    "citations": 7,
-    "backticked": 0
+    "citations": 12,
+    "backticked": 12
   },
   "D7.16": {
     "status": "🟡",
