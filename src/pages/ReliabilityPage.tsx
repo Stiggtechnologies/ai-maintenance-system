@@ -14,6 +14,7 @@ import { ReliabilityAnalytics } from "../components/ReliabilityAnalytics";
 import { ModellingStudio } from "../components/ModellingStudio";
 import { CaEffectivenessPanel } from "../components/CaEffectivenessPanel";
 import { FailureModeElimination } from "../components/FailureModeElimination";
+import { FailureModeReliability } from "../components/FailureModeReliability";
 import { RepeatFailureMetrics } from "../components/RepeatFailureMetrics";
 import { ConditionMonitoring } from "../components/ConditionMonitoring";
 import { MonitoringCoverageGaps } from "../components/MonitoringCoverageGaps";
@@ -61,6 +62,7 @@ export function Reliability() {
       <CaEffectivenessPanel />
 
       <FailureModeElimination />
+      <FailureModeReliability />
 
       <RepeatFailureMetrics />
 
