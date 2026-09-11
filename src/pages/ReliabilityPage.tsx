@@ -13,6 +13,7 @@ import { useState } from "react";
 import { ReliabilityAnalytics } from "../components/ReliabilityAnalytics";
 import { ModellingStudio } from "../components/ModellingStudio";
 import { CaEffectivenessPanel } from "../components/CaEffectivenessPanel";
+import { FailureModeElimination } from "../components/FailureModeElimination";
 import { ConditionMonitoring } from "../components/ConditionMonitoring";
 import { MonitoringCoverageGaps } from "../components/MonitoringCoverageGaps";
 import { FailureCoding } from "../components/FailureCoding";
@@ -57,6 +58,8 @@ export function Reliability() {
       <MonitoringCoverageGaps />
 
       <CaEffectivenessPanel />
+
+      <FailureModeElimination />
 
       {/* Tabs */}
       <div className="flex gap-1 border-b border-white/6">
