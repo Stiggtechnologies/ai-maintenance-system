@@ -888,6 +888,75 @@ export interface OperationalReadinessResult {
   scopeNote?: string;
 }
 
+export type OperationalReadinessFactorKey =
+  | "people"
+  | "procedures"
+  | "asset_data"
+  | "maintenance"
+  | "spares"
+  | "training"
+  | "operations"
+  | "safety"
+  | "cyber";
+
+export interface OperationalReadinessIndexFactor {
+  key: OperationalReadinessFactorKey;
+  weight: number;
+  categories: string[];
+  satisfied?: number;
+  total?: number;
+  percent?: number | null;
+}
+
+export interface OperationalReadinessIndexProfile {
+  profileId: string;
+  version: number;
+  status: "draft" | "adopted" | "superseded";
+  factors: OperationalReadinessIndexFactor[];
+  hardRequirementKeys: string[];
+  basis: string;
+  evidenceItemId: string;
+  createdBy: string;
+  createdAt: string;
+  adoptedBy: string | null;
+  adoptedAt: string | null;
+}
+
+export interface OperationalReadinessIndexResult {
+  caseId: string;
+  profiles: OperationalReadinessIndexProfile[];
+  calculation: {
+    refusal?: "no_adopted_profile" | "missing_factor_inputs";
+    error?: string;
+    missingFactors?: string[];
+    index?: number;
+    status?: "BLOCKED" | "READY" | "NOT_READY";
+    hardConditionOverride?: boolean;
+    hardBlockerCount?: number;
+    hardBlockers?: Array<{
+      systemId: number;
+      systemRef: string;
+      itemId: string;
+      assetId: string;
+      asset: string;
+      assetTag: string | null;
+      requirementKey: string;
+      item: string;
+      category: string;
+      status: string;
+      kind: "safety_mission_critical" | "profile_hard_condition";
+    }>;
+    factors?: OperationalReadinessIndexFactor[];
+    profileId?: string;
+    profileVersion?: number;
+    basis?: string;
+    evidenceItemId?: string;
+    formula?: string;
+  };
+  readinessStore: "asset_onboarding_items";
+  decisionBoundary?: string;
+}
+
 export interface SystemOperationalReadinessItem {
   scopeId: number;
   itemId: string;
