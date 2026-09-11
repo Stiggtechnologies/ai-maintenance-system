@@ -923,6 +923,43 @@ export interface SystemOperationalReadinessResult {
   decisionBoundary: string;
 }
 
+export interface SystemReadinessDesignOrigin {
+  originId: number;
+  designRequirementId: number;
+  requirementRef: string;
+  requirementCategory: string;
+  requirement: string;
+  onboardingRequirementKey: string;
+  readinessCategory: string;
+  readinessItem: string;
+  ownerId: string;
+  owner: string | null;
+  requiredBefore: string;
+  mappingBasis: string;
+  mappingEvidenceItemId: string;
+  recordedBy: string;
+  recordedAt: string;
+  materializedItemCount: number;
+  fullyMaterialized: boolean;
+}
+
+export interface SystemReadinessDesignOriginsResult {
+  caseId: string;
+  systems: Array<{
+    systemId: number;
+    systemRef: string;
+    title: string;
+    assetCount: number;
+    originCount: number;
+    pendingOriginCount: number;
+    origins: SystemReadinessDesignOrigin[];
+  }>;
+  requirementStore: "design_requirements";
+  readinessStore: "asset_onboarding_items";
+  acceptanceStore: "system_handover_packages";
+  decisionBoundary: string;
+}
+
 // ---------------------------------------------------------------------------
 // Slice 2 value-spine RPC result shapes — get_case_finance_model,
 // get_case_value_trajectory, get_since_sanction_delta return exactly these

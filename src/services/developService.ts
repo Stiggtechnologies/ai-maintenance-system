@@ -14,6 +14,7 @@ import type {
   GateReadinessResult,
   OperationalReadinessResult,
   SystemOperationalReadinessResult,
+  SystemReadinessDesignOriginsResult,
 } from "../lib/develop";
 import type { CaseChains } from "../lib/develop/chains";
 import type {
@@ -725,6 +726,68 @@ export async function recordSystemOperationalReadinessItem(input: {
       p_evidence_item_id: input.evidenceItemId,
       p_note: input.note,
       p_value: input.value ?? {},
+    },
+  );
+  return unwrap(data, error);
+}
+
+export async function getCaseSystemReadinessDesignOrigins(
+  caseId: string,
+): Promise<SystemReadinessDesignOriginsResult> {
+  const { data, error } = await supabase.rpc(
+    "get_case_system_readiness_design_origins",
+    { p_case_id: caseId },
+  );
+  return unwrap<SystemReadinessDesignOriginsResult>(data, error);
+}
+
+export async function listOperationalReadinessCatalog(): Promise<
+  Array<{
+    key: string;
+    item_label: string;
+    ori_category: string;
+    section_title: string;
+  }>
+> {
+  const { data, error } = await supabase
+    .from("onboarding_requirements")
+    .select("key, item_label, ori_category, section_title")
+    .not("ori_category", "is", null)
+    .order("ori_category")
+    .order("sort_order");
+  if (error) throw new Error(error.message);
+  return (data ?? []) as Array<{
+    key: string;
+    item_label: string;
+    ori_category: string;
+    section_title: string;
+  }>;
+}
+
+export async function recordSystemReadinessDesignOrigin(input: {
+  systemId: number;
+  designRequirementId: number;
+  onboardingRequirementKey: string;
+  ownerId: string;
+  requiredBefore: string;
+  mappingBasis: string;
+  mappingEvidenceItemId: string;
+}): Promise<{
+  originId: number;
+  systemId: number;
+  itemsGenerated: number;
+  status: "awaiting_assets" | "materialized";
+}> {
+  const { data, error } = await supabase.rpc(
+    "record_system_readiness_design_origin",
+    {
+      p_system_id: input.systemId,
+      p_design_requirement_id: input.designRequirementId,
+      p_onboarding_requirement_key: input.onboardingRequirementKey,
+      p_owner_id: input.ownerId,
+      p_required_before: input.requiredBefore,
+      p_mapping_basis: input.mappingBasis,
+      p_mapping_evidence_item_id: input.mappingEvidenceItemId,
     },
   );
   return unwrap(data, error);
