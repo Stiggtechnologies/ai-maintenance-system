@@ -41,6 +41,11 @@ describe("per-agent authority controls", () => {
     expect(migration).toContain("proposal exceeds this agent''s risk ceiling");
     expect(migration).toContain("proposal exceeds this agent''s cost ceiling");
     expect(migration).toContain("proposal exceeds this agent''s downtime ceiling");
+    expect(migration).toContain("proposal cost must be a finite non-negative value");
+    expect(migration).toContain("proposal downtime must be a finite non-negative value");
+    expect(migration.match(/'nan'::numeric/g)?.length).toBeGreaterThanOrEqual(4);
+    expect(migration.match(/'infinity'::numeric/g)?.length).toBeGreaterThanOrEqual(4);
+    expect(migration.match(/'-infinity'::numeric/g)?.length).toBeGreaterThanOrEqual(2);
   });
 
   it("tenant-scopes every mutable table and exposes only governed RPC writes", () => {

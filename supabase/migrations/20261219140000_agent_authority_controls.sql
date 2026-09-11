@@ -278,8 +278,12 @@ begin
   if p_proposal_risk_ceiling not in ('Low','Medium','High','Critical') then
     return jsonb_build_object('error','invalid risk ceiling');
   end if;
-  if p_proposal_cost_ceiling_usd is null or p_proposal_cost_ceiling_usd < 0
-     or p_proposal_downtime_ceiling_hours is null or p_proposal_downtime_ceiling_hours < 0 then
+  if p_proposal_cost_ceiling_usd is null
+     or p_proposal_cost_ceiling_usd in ('NaN'::numeric,'Infinity'::numeric,'-Infinity'::numeric)
+     or p_proposal_cost_ceiling_usd < 0
+     or p_proposal_downtime_ceiling_hours is null
+     or p_proposal_downtime_ceiling_hours in ('NaN'::numeric,'Infinity'::numeric,'-Infinity'::numeric)
+     or p_proposal_downtime_ceiling_hours < 0 then
     return jsonb_build_object('error','proposal ceilings must be finite non-negative values');
   end if;
   if coalesce(length(btrim(p_basis)),0)<20 then
@@ -356,10 +360,24 @@ begin
     if v_rank > case p.proposal_risk_ceiling when 'Low' then 1 when 'Medium' then 2 when 'High' then 3 else 4 end then
       return jsonb_build_object('allowed',false,'reason','proposal exceeds this agent''s risk ceiling'); end if;
   end if;
-  if p_estimated_cost_usd is not null and p_estimated_cost_usd>p.proposal_cost_ceiling_usd then
-    return jsonb_build_object('allowed',false,'reason','proposal exceeds this agent''s cost ceiling'); end if;
-  if p_downtime_hours is not null and p_downtime_hours>p.proposal_downtime_ceiling_hours then
-    return jsonb_build_object('allowed',false,'reason','proposal exceeds this agent''s downtime ceiling'); end if;
+  if p_estimated_cost_usd is not null then
+    if p_estimated_cost_usd in ('NaN'::numeric,'Infinity'::numeric,'-Infinity'::numeric)
+       or p_estimated_cost_usd < 0 then
+      return jsonb_build_object('allowed',false,'reason','proposal cost must be a finite non-negative value');
+    end if;
+    if p_estimated_cost_usd>p.proposal_cost_ceiling_usd then
+      return jsonb_build_object('allowed',false,'reason','proposal exceeds this agent''s cost ceiling');
+    end if;
+  end if;
+  if p_downtime_hours is not null then
+    if p_downtime_hours in ('NaN'::numeric,'Infinity'::numeric,'-Infinity'::numeric)
+       or p_downtime_hours < 0 then
+      return jsonb_build_object('allowed',false,'reason','proposal downtime must be a finite non-negative value');
+    end if;
+    if p_downtime_hours>p.proposal_downtime_ceiling_hours then
+      return jsonb_build_object('allowed',false,'reason','proposal exceeds this agent''s downtime ceiling');
+    end if;
+  end if;
   return jsonb_build_object('allowed',true,'profile_id',p.id,'authority_mode',p.authority_mode,
     'decision_tier',d.tier,'human_approval_required',true,
     'required_human_approver_role',p.required_human_approver_role,
