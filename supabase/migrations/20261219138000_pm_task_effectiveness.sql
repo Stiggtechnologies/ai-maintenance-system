@@ -89,7 +89,8 @@ begin
       format('%s Labour %s h; downtime %s h. Recorded by %s.',v_note,v_labour,v_downtime,auth.uid()));
     return jsonb_build_object('closed',true,'workOrder',w.title,'closeoutType','general');
   end if;
-end $$;
+end;
+$$;
 revoke all on function public.close_work_order_v2(uuid,jsonb) from public,anon;
 grant execute on function public.close_work_order_v2(uuid,jsonb) to authenticated;
 
@@ -139,7 +140,8 @@ begin
     'basis',format('Finding rate uses direct human PM outcomes. The recurrence signal is corrective work raised for the same human-coded mechanism on the same asset within %s days; work-order created_at is a detection/recording timestamp, not a claimed failure-occurrence timestamp. Open observation windows stay out of recurrence-rate denominators.',v_days)
   ) into v from totals;
   return v;
-end $$;
+end;
+$$;
 revoke all on function public.get_pm_task_effectiveness(int) from public,anon;
 grant execute on function public.get_pm_task_effectiveness(int) to authenticated;
 notify pgrst,'reload schema';
