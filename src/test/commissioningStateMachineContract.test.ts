@@ -85,6 +85,9 @@ describe("D8.07 commissioning state machine", () => {
     expect(panel).toContain("Record {label(system.nextState)}");
     expect(ci).toContain("ci-develop-commissioning-state-machine-smoke.sh");
     expect(smoke).toContain('len(s["stateHistory"])==7');
+    expect(smoke).toContain('TRANSITION_ACTOR="$MANAGER"');
+    expect(smoke).toContain('SOD=$(rpc "$MANAGER"');
+    expect(smoke).toContain('FINAL=$(rpc "$EXEC"');
     expect(smoke).toContain("direct state regression unexpectedly succeeded");
   });
 });

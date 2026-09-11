@@ -51,12 +51,14 @@ for SPEC in 'pre_commissioning:PRECOMMISSIONED' 'commissioning:COMMISSIONED' 'pe
   RID=$(field "$RESULT" id)
   RELEASE=$(rpc "$MANAGER" release_quality_acceptance_test "{\"p_id\":$RID,\"p_decision\":\"release\",\"p_note\":\"Independent review confirms the passing result and zero open punch items.\"}")
   BODY="$RELEASE" python3 -c 'import json,os; assert json.loads(os.environ["BODY"])["releaseStatus"]=="released"'
-  TRANSITION=$(rpc "$PLANNER" transition_commissioning_system "{\"p_system_id\":$SID,\"p_to_state\":\"$TARGET\",\"p_rationale\":\"Human review confirms the independently released $STAGE result satisfies this stage.\",\"p_evidence_item_id\":\"$EVIDENCE\"}")
+  TRANSITION_ACTOR="$PLANNER"
+  if [ "$TARGET" = 'PERFORMANCE_VERIFIED' ]; then TRANSITION_ACTOR="$MANAGER"; fi
+  TRANSITION=$(rpc "$TRANSITION_ACTOR" transition_commissioning_system "{\"p_system_id\":$SID,\"p_to_state\":\"$TARGET\",\"p_rationale\":\"Human review confirms the independently released $STAGE result satisfies this stage.\",\"p_evidence_item_id\":\"$EVIDENCE\"}")
   field "$TRANSITION" id >/dev/null
 done
-SOD=$(rpc "$PLANNER" transition_commissioning_system "{\"p_system_id\":$SID,\"p_to_state\":\"ACCEPTED\",\"p_rationale\":\"The performance verifier deliberately attempts self-acceptance and must be refused.\",\"p_evidence_item_id\":\"$EVIDENCE\"}")
+SOD=$(rpc "$MANAGER" transition_commissioning_system "{\"p_system_id\":$SID,\"p_to_state\":\"ACCEPTED\",\"p_rationale\":\"The performance verifier deliberately attempts self-acceptance and must be refused.\",\"p_evidence_item_id\":\"$EVIDENCE\"}")
 BODY="$SOD" python3 -c 'import json,os; assert "segregation of duties" in json.loads(os.environ["BODY"])["error"]'
-FINAL=$(rpc "$MANAGER" transition_commissioning_system "{\"p_system_id\":$SID,\"p_to_state\":\"ACCEPTED\",\"p_rationale\":\"Accountable management independently accepts the complete released commissioning record.\",\"p_evidence_item_id\":\"$EVIDENCE\"}")
+FINAL=$(rpc "$EXEC" transition_commissioning_system "{\"p_system_id\":$SID,\"p_to_state\":\"ACCEPTED\",\"p_rationale\":\"Accountable management independently accepts the complete released commissioning record.\",\"p_evidence_item_id\":\"$EVIDENCE\"}")
 field "$FINAL" id >/dev/null
 AFTER_ACCEPTANCE=$(rpc "$PLANNER" record_commissioning_result "{\"p_case_id\":\"$CASE\",\"p_procedure_id\":$PRID,\"p_record\":{\"testRef\":\"D807-AFTER-ACCEPTANCE\",\"testStage\":\"commissioning\",\"performedOn\":\"2026-09-11\",\"outcome\":\"pass\",\"punchItemsRaised\":0,\"punchItemsOpen\":0,\"witnessedByOwner\":true,\"evidenceItemId\":\"$EVIDENCE\"}}")
 BODY="$AFTER_ACCEPTANCE" python3 -c 'import json,os; assert "commissioning result is incomplete" in json.loads(os.environ["BODY"])["error"]'
