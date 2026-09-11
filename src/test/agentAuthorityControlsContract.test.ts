@@ -39,6 +39,7 @@ describe("per-agent authority controls", () => {
     expect(migration).toContain("tool is not enabled for this agent");
     expect(migration).toContain("decision right is not enabled for this agent");
     expect(migration).toContain("proposal exceeds this agent''s risk ceiling");
+    expect(migration).toContain("v_rank > (case p.proposal_risk_ceiling");
     expect(migration).toContain("proposal exceeds this agent''s cost ceiling");
     expect(migration).toContain("proposal exceeds this agent''s downtime ceiling");
     expect(migration).toContain("proposal cost must be a finite non-negative value");

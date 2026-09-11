@@ -357,7 +357,7 @@ begin
   end if;
   if p_risk_level is not null then
     v_rank:=case p_risk_level when 'Low' then 1 when 'Medium' then 2 when 'High' then 3 when 'Critical' then 4 else 99 end;
-    if v_rank > case p.proposal_risk_ceiling when 'Low' then 1 when 'Medium' then 2 when 'High' then 3 else 4 end then
+    if v_rank > (case p.proposal_risk_ceiling when 'Low' then 1 when 'Medium' then 2 when 'High' then 3 else 4 end) then
       return jsonb_build_object('allowed',false,'reason','proposal exceeds this agent''s risk ceiling'); end if;
   end if;
   if p_estimated_cost_usd is not null then
