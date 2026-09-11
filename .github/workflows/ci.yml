@@ -322,6 +322,9 @@ jobs:
       - name: Smoke — Sync Develop Operational Debt (nine-class reference register)
         run: bash scripts/ci-develop-operational-debt-smoke.sh
 
+      - name: Smoke — Sync Develop Operational Debt lifecycle exposure (stated basis, independent approval)
+        run: bash scripts/ci-develop-operational-debt-valuation-smoke.sh
+
       - name: Smoke — governed engineering knowledge on the canonical Reliability KB
         run: bash scripts/ci-governed-knowledge-smoke.sh
 
