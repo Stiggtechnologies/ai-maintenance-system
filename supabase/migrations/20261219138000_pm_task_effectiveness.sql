@@ -67,7 +67,12 @@ begin
     v_labour:=(p_closeout->>'laborHours')::numeric;
     v_downtime:=(p_closeout->>'downtimeHours')::numeric;
   exception when others then return jsonb_build_object('error','invalid_hours'); end;
-  if v_labour is null or v_labour<0 or v_downtime is null or v_downtime<0 then
+  if v_labour is null
+     or v_labour in ('NaN'::numeric,'Infinity'::numeric,'-Infinity'::numeric)
+     or v_labour<0
+     or v_downtime is null
+     or v_downtime in ('NaN'::numeric,'Infinity'::numeric,'-Infinity'::numeric)
+     or v_downtime<0 then
     return jsonb_build_object('error','invalid_hours');
   end if;
   v_note:=btrim(coalesce(p_closeout->>'technicianComments',''));

@@ -53,6 +53,9 @@ describe("direct PM effectiveness contract",()=>{
   });
   it("fails closed for an absent role and states the recurrence clock honestly",()=>{
     expect(migration).toContain("if v_role is null or v_role not in");
+    expect(migration.match(/'NaN'::numeric/g)).toHaveLength(2);
+    expect(migration.match(/'Infinity'::numeric/g)).toHaveLength(2);
+    expect(migration.match(/'-Infinity'::numeric/g)).toHaveLength(2);
     expect(migration).toContain("work-order created_at is a detection/recording timestamp, not a claimed failure-occurrence timestamp");
     expect(monitoring).toContain("Post-PM corrective recurrence");
   });
