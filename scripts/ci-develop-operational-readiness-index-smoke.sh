@@ -21,18 +21,18 @@ BODY="$EMPTY" python3 -c 'import json,os; x=json.loads(os.environ["BODY"]); asse
 # Ensure all canonical categories are in system scope; this does not complete any item.
 rpc "$PLANNER" initialize_commissioning_system_readiness "{\"p_system_id\":$SID,\"p_owner_id\":\"$PLANNER_ID\",\"p_required_before\":\"2026-12-31\",\"p_basis\":\"The approved D8.11 index policy requires all canonical readiness categories in system scope.\",\"p_basis_evidence_item_id\":\"$EVIDENCE\"}" >/dev/null
 INCOMPLETE='[{"key":"people","weight":1,"categories":["training"]}]'
-BAD=$(rpc "$PLANNER" save_case_operational_readiness_index_profile "{\"p_case_id\":\"$CASE\",\"p_profile_id\":null,\"p_factors\":$INCOMPLETE,\"p_hard_requirement_keys\":[\"s16_safety_critical\"],\"p_basis\":\"An intentionally incomplete draft proves adoption refuses missing factors and category assignments.\",\"p_evidence_item_id\":\"$EVIDENCE\"}")
+BAD=$(rpc "$PLANNER" save_case_operational_readiness_index_profile "{\"p_case_id\":\"$CASE\",\"p_profile_id\":null,\"p_factors\":$INCOMPLETE,\"p_hard_requirement_keys\":[\"s36_emergency_procedures\"],\"p_basis\":\"An intentionally incomplete draft proves adoption refuses missing factors and category assignments.\",\"p_evidence_item_id\":\"$EVIDENCE\"}")
 PID=$(field "$BAD" profileId)
 REFUSED=$(rpc "$EXEC" adopt_case_operational_readiness_index_profile "{\"p_profile_id\":\"$PID\"}")
 BODY="$REFUSED" python3 -c 'import json,os; assert "cannot be adopted" in json.loads(os.environ["BODY"])["error"]'
 
 FACTORS='[{"key":"people","weight":1.2,"categories":["vendor_support"]},{"key":"procedures","weight":1.1,"categories":["procedure"]},{"key":"asset_data","weight":1.4,"categories":["asset_master","bom","documentation"]},{"key":"maintenance","weight":1.5,"categories":["pm","task_list","condition_monitoring"]},{"key":"spares","weight":1.0,"categories":["spares"]},{"key":"training","weight":1.3,"categories":["training"]},{"key":"operations","weight":1.0,"categories":["inspection"]},{"key":"safety","weight":2.0,"categories":["emergency_response"]},{"key":"cyber","weight":0.8,"categories":["cyber"]}]'
-SAVED=$(rpc "$PLANNER" save_case_operational_readiness_index_profile "{\"p_case_id\":\"$CASE\",\"p_profile_id\":\"$PID\",\"p_factors\":$FACTORS,\"p_hard_requirement_keys\":[\"s16_safety_critical\",\"s36_emergency_procedures\"],\"p_basis\":\"The project team assigned all thirteen categories once and weighted safety highest for this specific case.\",\"p_evidence_item_id\":\"$EVIDENCE\"}")
+SAVED=$(rpc "$PLANNER" save_case_operational_readiness_index_profile "{\"p_case_id\":\"$CASE\",\"p_profile_id\":\"$PID\",\"p_factors\":$FACTORS,\"p_hard_requirement_keys\":[\"s36_emergency_procedures\",\"s36_emergency_drill\"],\"p_basis\":\"The project team assigned all thirteen categories once and weighted safety highest for this specific case.\",\"p_evidence_item_id\":\"$EVIDENCE\"}")
 BODY="$SAVED" python3 -c 'import json,os; assert json.loads(os.environ["BODY"])["status"]=="draft"'
 AI=$(rpc "$AIBOT" save_case_operational_readiness_index_profile "{\"p_case_id\":\"$CASE\",\"p_profile_id\":\"$PID\",\"p_factors\":$FACTORS,\"p_hard_requirement_keys\":[\"s16_safety_critical\"],\"p_basis\":\"An AI identity attempts to rewrite a human-governed readiness-index policy and must be refused.\",\"p_evidence_item_id\":\"$EVIDENCE\"}")
 BODY="$AI" python3 -c 'import json,os; assert "named-human" in json.loads(os.environ["BODY"])["error"]'
 ADOPTED=$(rpc "$EXEC" adopt_case_operational_readiness_index_profile "{\"p_profile_id\":\"$PID\"}")
-BODY="$ADOPTED" python3 -c 'import json,os; assert json.loads(os.environ["BODY"])["status"]=="adopted"'
+BODY="$ADOPTED" python3 -c 'import json,os; x=json.loads(os.environ["BODY"]); assert x.get("status")=="adopted", x'
 
 RESULT=$(rpc "$PLANNER" get_case_operational_readiness_index "{\"p_case_id\":\"$CASE\"}")
 BODY="$RESULT" PID="$PID" python3 -c 'import json,os; x=json.loads(os.environ["BODY"]); c=x["calculation"]; assert c["profileId"]==os.environ["PID"] and len(c["factors"])==9 and c["index"] is not None; assert c["status"]=="BLOCKED" and c["hardConditionOverride"] is True and c["hardBlockerCount"]>0; assert any(b["kind"]=="safety_mission_critical" for b in c["hardBlockers"]); assert "cannot accept handover" in x["decisionBoundary"]'
