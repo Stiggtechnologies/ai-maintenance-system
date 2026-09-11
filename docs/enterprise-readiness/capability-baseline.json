@@ -630,10 +630,10 @@
     "backticked": 2
   },
   "C6.18": {
-    "status": "🟡",
-    "evidence": false,
-    "citations": 0,
-    "backticked": 0
+    "status": "✅",
+    "evidence": true,
+    "citations": 2,
+    "backticked": 2
   },
   "C6.19": {
     "status": "✅",
