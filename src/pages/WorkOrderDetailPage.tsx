@@ -1058,6 +1058,7 @@ export function WorkOrderDetailPage() {
           workOrderId={workOrderId}
           workOrderTitle={workOrder.title}
           isAiGenerated={workOrder.type === "ai_generated"}
+          workOrderType={workOrder.work_type}
           onClose={() => setCloseoutOpen(false)}
           onClosedOut={() => {
             setCloseoutOpen(false);
