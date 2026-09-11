@@ -44,7 +44,7 @@ field "$BIND" id >/dev/null
 # must prove is that the selected obligation is scoped and remains unsatisfied
 # until governed evidence completion.
 test "$(psqlc "select count(*) from asset_onboarding_items i join commissioning_system_readiness_scope q on q.onboarding_item_id=i.id where i.organization_id='$ORG' and q.organization_id='$ORG' and q.commissioning_system_id=$SID and i.asset_id='$ASSET' and i.requirement_key='s14_critical_spares' and not (i.status in ('auto_filled','deduced','human_provided','not_applicable') and i.evidence_item_id is not null)")" = "1"
-test "$(psqlc "select count(*) from asset_onboarding_items where organization_id='$ORG' and asset_id='$ASSET' and requirement_key='s14_reorder_points'")" = "0"
+test "$(psqlc "select count(*) from commissioning_system_readiness_scope q join asset_onboarding_items i on i.id=q.onboarding_item_id where q.organization_id='$ORG' and q.commissioning_system_id=$SID and i.organization_id='$ORG' and i.asset_id='$ASSET' and i.requirement_key='s14_reorder_points'")" = "0"
 test "$(psqlc "select count(*) from commissioning_system_readiness_origin_items where organization_id='$ORG' and design_origin_id=$OID")" = "1"
 
 FINAL=$(rpc "$PLANNER" get_case_system_readiness_design_origins "{\"p_case_id\":\"$CASE\"}")
