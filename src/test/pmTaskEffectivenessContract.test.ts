@@ -6,7 +6,7 @@ const service=readFileSync("src/services/workOrderCloseout.ts","utf8");
 const monitoring=readFileSync("src/components/ConditionMonitoring.tsx","utf8");
 describe("direct PM effectiveness contract",()=>{
   it("terminates every PL/pgSQL function body",()=>{
-    expect(migration.match(/end;\n\$\$;/g)).toHaveLength(3);
+    expect(migration.match(/end;\n\$\$;/g)).toHaveLength(4);
   });
   it("makes closeout type-aware and removes direct client access to the failure-only legacy path",()=>{
     expect(migration).toContain("w.work_type='corrective'");
@@ -23,6 +23,11 @@ describe("direct PM effectiveness contract",()=>{
     expect(migration).toContain("finding_detail");
     expect(migration).toContain("recorded_by");
     expect(migration).toContain("auth.uid()");
+    expect(migration).not.toContain("'admin','ai_admin'");
+    expect(migration).toContain("enforce_pm_task_outcome_tenant");
+    expect(migration).toContain("w.organization_id=new.organization_id");
+    expect(migration).toContain("dm.organization_id=new.organization_id");
+    expect(migration).toContain("up.organization_id=new.organization_id");
     expect(migration).toContain("jp.applies_to_mechanism_id");
     expect(migration).toContain("jp.status='adopted'");
     expect(migration).not.toContain("p_closeout->>'targetMechanismKey'");

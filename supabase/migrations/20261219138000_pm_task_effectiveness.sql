@@ -19,6 +19,30 @@ create policy pm_task_outcomes_read on public.pm_task_outcomes
 revoke insert,update,delete,truncate on public.pm_task_outcomes from anon,authenticated;
 grant select on public.pm_task_outcomes to authenticated;
 
+create or replace function public.enforce_pm_task_outcome_tenant()
+returns trigger language plpgsql security invoker set search_path=public as $$
+begin
+  if not exists(select 1 from public.work_orders w
+    where w.id=new.work_order_id and w.organization_id=new.organization_id) then
+    raise exception 'PM outcome work order must belong to the outcome organization';
+  end if;
+  if not exists(select 1 from public.damage_mechanisms dm
+    where dm.id=new.target_mechanism_id and dm.organization_id=new.organization_id) then
+    raise exception 'PM target mechanism must belong to the outcome organization';
+  end if;
+  if not exists(select 1 from public.user_profiles up
+    where up.id=new.recorded_by and up.organization_id=new.organization_id) then
+    raise exception 'PM outcome recorder must belong to the outcome organization';
+  end if;
+  return new;
+end;
+$$;
+drop trigger if exists trg_enforce_pm_task_outcome_tenant on public.pm_task_outcomes;
+create trigger trg_enforce_pm_task_outcome_tenant
+before insert or update on public.pm_task_outcomes
+for each row execute function public.enforce_pm_task_outcome_tenant();
+revoke all on function public.enforce_pm_task_outcome_tenant() from public,anon,authenticated;
+
 -- The original closeout assumes every work order is a failure and can force a
 -- technician to invent failure/cause/action data for preventive work. Keep it
 -- as the internal corrective implementation but remove it from client access.
@@ -33,7 +57,7 @@ declare
 begin
   if v_org is null or auth.uid() is null then return jsonb_build_object('error','forbidden'); end if;
   select role into v_role from public.user_profiles where id=auth.uid() and organization_id=v_org;
-  if v_role is null or v_role not in ('technician','reliability_engineer','maintenance_manager','admin','ai_admin') then
+  if v_role is null or v_role not in ('technician','reliability_engineer','maintenance_manager','admin') then
     return jsonb_build_object('error','work-order closeout requires a maintenance or engineering role');
   end if;
   select * into w from public.work_orders where id=p_work_order_id and organization_id=v_org for update;
