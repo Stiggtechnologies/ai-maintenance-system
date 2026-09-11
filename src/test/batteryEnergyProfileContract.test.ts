@@ -29,6 +29,11 @@ const evidenceFor = (required: string[]) =>
   }));
 
 describe("E1.05 battery and energy-storage profile", () => {
+  it("terminates its PL/pgSQL blocks", () => {
+    expect(migration).toContain("end;\n$$;");
+    expect(migration).toContain("end;\n$migration$;");
+  });
+
   it("is one canonical catalog identity with a template and executable profile", () => {
     expect(
       INDUSTRY_CATALOG.filter(

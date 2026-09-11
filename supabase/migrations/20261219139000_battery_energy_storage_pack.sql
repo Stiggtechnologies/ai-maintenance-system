@@ -203,7 +203,7 @@ begin
   ) d(key,name)
   where not exists(select 1 from public.roles r where r.organization_id=new.id and r.key=d.key);
   return new;
-end
+end;
 $$;
 
 insert into public.roles(organization_id,key,code,name,description,level)
@@ -238,7 +238,7 @@ begin
     raise exception 'refusing battery catalog patch: expected kernel-bound Buildings predecessor is absent';
   end if;
   execute replace(v_definition,v_before,v_after);
-end
+end;
 $migration$;
 
 revoke execute on function public.start_iso31000_implementation(jsonb) from public,anon;
