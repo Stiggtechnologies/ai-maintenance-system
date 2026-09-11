@@ -53,7 +53,8 @@ begin
     raise exception 'governed failure history changes require the approved closeout or coding function';
   end if;
   return new;
-end $$;
+end;
+$$;
 drop trigger if exists trg_protect_failure_mechanism_provenance on public.work_orders;
 create trigger trg_protect_failure_mechanism_provenance
 before insert or update or delete
@@ -105,7 +106,8 @@ begin
   values(v_org,w.id,w.failure_mechanism_id,v_mech,btrim(p_note),auth.uid());
   return jsonb_build_object('coded',w.id,'mechanism',p_mechanism_key,
     'corrected',w.failure_mechanism_id is not null);
-end $$;
+end;
+$$;
 revoke all on function public.code_failure_mechanism(uuid,text,text) from public,anon;
 grant execute on function public.code_failure_mechanism(uuid,text,text) to authenticated;
 
@@ -148,7 +150,8 @@ begin
     'limit',v_limit,
     'basis','Priority-ordered uncoded corrective work. Candidate mechanisms are a bounded shortlist only; a named human selects from the governed mechanism library result and supplies an evidence note. The returned total and limit disclose if that library result is truncated.'
   );
-end $$;
+end;
+$$;
 revoke all on function public.get_failure_coding_queue(int) from public,anon;
 grant execute on function public.get_failure_coding_queue(int) to authenticated;
 notify pgrst,'reload schema';

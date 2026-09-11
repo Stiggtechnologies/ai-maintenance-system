@@ -3,6 +3,10 @@ import {readFileSync} from "node:fs";
 const migration=readFileSync("supabase/migrations/20261219137000_failure_coding_workflow.sql","utf8");
 const panel=readFileSync("src/components/FailureCoding.tsx","utf8");
 describe("failure coding workflow contract",()=>{
+  it("terminates every PL/pgSQL function body",()=>{
+    expect(migration.match(/end;\n\$\$;/g)).toHaveLength(3);
+    expect(migration).not.toMatch(/end\s+\$\$;/);
+  });
   it("protects mechanism provenance from broad work-order updates",()=>{
     expect(migration).toContain("trg_protect_failure_mechanism_provenance");
     expect(migration).toContain("current_user in ('postgres','service_role')");
