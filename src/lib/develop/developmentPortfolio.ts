@@ -54,11 +54,13 @@ export interface DevelopmentPortfolioRow {
     openHighCritical: number;
     leading: Array<{ id: string; title: string; level: string }>;
     absenceNote: string | null;
+    sourceRefs: string[];
   };
   operationalReadiness: {
     percent: number | null;
     hardBlockers: number;
     refusal: string | null;
+    sourceRefs: string[];
   };
   benefits: PortfolioBenefitInput[];
   forecastCurrent: boolean;
@@ -81,8 +83,10 @@ export function findNextPortfolioGate(
   // "next" would imply that work may advance past a human termination.
   if (
     ["completed", "cancelled", "terminated"].includes(workspace.status) ||
-    candidates.some((candidate) =>
-      isTerminalOutcome(candidate.latestReview?.outcome ?? null),
+    stages.some((stage) =>
+      stage.gates.some((gate) =>
+        isTerminalOutcome(gate.latestReview?.outcome ?? null),
+      ),
     )
   ) {
     return null;
@@ -146,8 +150,10 @@ export function buildDevelopmentPortfolioRow(input: {
     project: workspace.title,
     status: workspace.status,
     stage:
-      workspace.stages.find((stage) => stage.isCurrent)?.displayName ??
-      workspace.currentStageKey,
+      workspace.stages.find(
+        (stage) =>
+          stage.isCurrent || stage.stageKey === workspace.currentStageKey,
+      )?.displayName ?? workspace.currentStageKey,
     nextGate: input.nextGate,
     gateReadiness: input.gateReadiness
       ? {
@@ -192,6 +198,7 @@ export function buildDevelopmentPortfolioRow(input: {
         leading.length === 0
           ? "No open High/Critical case risk was returned. This is not proof that project risk is absent."
           : null,
+      sourceRefs: leading.map((risk) => `risk_register:${risk.id}`),
     },
     operationalReadiness: {
       percent: input.operationalReadiness.overall?.pct ?? null,
@@ -202,6 +209,12 @@ export function buildDevelopmentPortfolioRow(input: {
         ? null
         : (input.operationalReadiness.note ??
           "Operational readiness has not been assessed."),
+      sourceRefs: [
+        `development_cases:${workspace.id}`,
+        ...input.operationalReadiness.assets.map(
+          (asset) => `assets:${asset.assetId}`,
+        ),
+      ],
     },
     benefits: input.benefits,
     forecastCurrent,

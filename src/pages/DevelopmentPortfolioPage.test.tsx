@@ -39,8 +39,18 @@ describe("D13.03 Development Portfolio page", () => {
             refusal: null,
             sourceRefs: ["calculation_runs:run-1"],
           },
-          risk: { openHighCritical: 0, leading: [], absenceNote: "Not proof." },
-          operationalReadiness: { percent: 75, hardBlockers: 1, refusal: null },
+          risk: {
+            openHighCritical: 0,
+            leading: [],
+            absenceNote: "Not proof.",
+            sourceRefs: [],
+          },
+          operationalReadiness: {
+            percent: 75,
+            hardBlockers: 1,
+            refusal: null,
+            sourceRefs: ["development_cases:case-1"],
+          },
           benefits: [],
           forecastCurrent: true,
         },
@@ -73,6 +83,8 @@ describe("D13.03 Development Portfolio page", () => {
       expect(screen.getByRole("columnheader", { name: heading })).toBeTruthy();
     }
     expect(screen.getByText(/BLOCKED.*1 blocker/)).toBeInTheDocument();
+    expect(screen.getByText(/Det\. Jan 1, 2027/)).toBeInTheDocument();
+    expect(screen.queryByText(/Dec 31, 2026/)).not.toBeInTheDocument();
     expect(screen.getByText("Units are not normalized.")).toBeInTheDocument();
     expect(
       screen.getByText("Gate passage remains a named human decision."),

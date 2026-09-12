@@ -90,6 +90,11 @@ function performance(): CasePerformance {
 
 const operations = {
   caseId: "case-1",
+  assets: [
+    {
+      assetId: "asset-1",
+    },
+  ],
   hardBlockers: [],
   overall: { pct: 75, hardBlockerCount: 1 },
 } as unknown as OperationalReadinessResult;
@@ -151,9 +156,11 @@ describe("D13.03 development portfolio composition", () => {
       sourceRefs: ["stage_gates:12", "criterion:5"],
     });
     expect(row.risk.openHighCritical).toBe(1);
+    expect(row.risk.sourceRefs).toEqual(["risk_register:risk-1"]);
     expect(row.operationalReadiness).toMatchObject({
       percent: 75,
       hardBlockers: 1,
+      sourceRefs: ["development_cases:case-1", "assets:asset-1"],
     });
   });
 

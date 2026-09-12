@@ -21,9 +21,10 @@ function money(value: number | null, currency: string | null): string {
 
 function date(value: string | null): string {
   return value
-    ? new Intl.DateTimeFormat("en-CA", { dateStyle: "medium" }).format(
-        new Date(value),
-      )
+    ? new Intl.DateTimeFormat("en-CA", {
+        dateStyle: "medium",
+        timeZone: "UTC",
+      }).format(new Date(value))
     : "Not available";
 }
 
@@ -186,6 +187,7 @@ export function DevelopmentPortfolioPage() {
                       {row.risk.absenceNote}
                     </p>
                   )}
+                  <Trail refs={row.risk.sourceRefs} />
                 </td>
                 <td className="px-3 py-3 text-slate-200">
                   <p>{number(row.operationalReadiness.percent, "%")}</p>
@@ -197,6 +199,7 @@ export function DevelopmentPortfolioPage() {
                       {row.operationalReadiness.refusal}
                     </p>
                   )}
+                  <Trail refs={row.operationalReadiness.sourceRefs} />
                 </td>
                 <td className="px-3 py-3 text-slate-200">
                   {row.benefits.length === 0 ? (
