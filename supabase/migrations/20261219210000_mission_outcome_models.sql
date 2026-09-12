@@ -131,9 +131,12 @@ alter table public.mission_outcome_model_templates enable row level security;
 alter table public.organization_mission_outcome_models enable row level security;
 revoke all on table public.mission_outcome_model_templates,public.organization_mission_outcome_models from public,anon,authenticated;
 grant select on table public.mission_outcome_model_templates,public.organization_mission_outcome_models to authenticated;
+drop policy if exists mission_outcome_templates_read on public.mission_outcome_model_templates;
 create policy mission_outcome_templates_read on public.mission_outcome_model_templates for select to authenticated using (active);
+drop policy if exists organization_mission_outcomes_read on public.organization_mission_outcome_models;
 create policy organization_mission_outcomes_read on public.organization_mission_outcome_models
   for select to authenticated using (organization_id=public.app_current_org());
+drop policy if exists approvals_mission_outcome_sensitive on public.approvals;
 create policy approvals_mission_outcome_sensitive on public.approvals as restrictive
   for all to authenticated using (true) with check (mission_outcome_model_id is null);
 
