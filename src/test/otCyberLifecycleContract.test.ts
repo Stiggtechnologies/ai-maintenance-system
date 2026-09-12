@@ -32,6 +32,7 @@ describe("D4.13 OT cybersecurity by design", () => {
     expect(sql).toContain("the ai-operator identity may identify an ot-cyber gap");
     expect(sql).toContain("achieved evidence-backed verification");
     expect(sql).toContain("cannot accept a test");
+    expect(sql.match(/coalesce\(current_setting\('app\.ot_cyber_write',true\),''\)<>\s*'granted'/g)).toHaveLength(2);
     expect(smoke).toContain("unexpectedly succeeded");
   });
 

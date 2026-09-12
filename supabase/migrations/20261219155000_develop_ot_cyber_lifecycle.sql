@@ -72,7 +72,7 @@ begin
     if (new.ot_cyber_applicability,new.ot_cyber_applicability_basis,new.ot_cyber_assessed_by,new.ot_cyber_assessed_at)
        is distinct from
        (old.ot_cyber_applicability,old.ot_cyber_applicability_basis,old.ot_cyber_assessed_by,old.ot_cyber_assessed_at)
-       and current_setting('app.ot_cyber_write',true)<>'granted' then
+       and coalesce(current_setting('app.ot_cyber_write',true),'')<>'granted' then
       raise exception 'OT-cyber applicability is a governed human assessment; use set_case_ot_cyber_applicability';
     end if;
     return new;
@@ -81,7 +81,7 @@ begin
     if tg_op='UPDATE' and
        (new.ot_cyber_artifact_type,new.ot_cyber_basis) is distinct from
        (old.ot_cyber_artifact_type,old.ot_cyber_basis)
-       and current_setting('app.ot_cyber_write',true)<>'granted' then
+       and coalesce(current_setting('app.ot_cyber_write',true),'')<>'granted' then
       raise exception 'an OT-cyber artifact classification and basis are immutable; record a new requirement rather than rewriting provenance';
     end if;
     select role into v_role from user_profiles
