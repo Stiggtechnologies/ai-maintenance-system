@@ -1326,10 +1326,10 @@
     "backticked": 11
   },
   "D13.03": {
-    "status": "❌",
+    "status": "✅",
     "evidence": true,
-    "citations": 0,
-    "backticked": 0
+    "citations": 6,
+    "backticked": 6
   },
   "D13.04": {
     "status": "✅",
