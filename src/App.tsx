@@ -65,6 +65,7 @@ import { PilotLeads } from "./pages/PilotLeads";
 import { KnowledgeBasePage } from "./pages/KnowledgeBasePage";
 import { FieldPage } from "./pages/FieldPage";
 import { ExecutiveIntelligence } from "./pages/ExecutiveIntelligence";
+import { ExecutiveCapitalBriefingPage } from "./pages/ExecutiveCapitalBriefingPage";
 import { IntegrationHealthPanel } from "./pages/IntegrationHealthPanel";
 import { ValueRealization } from "./pages/ValueRealization";
 import { EmergencyMode } from "./pages/EmergencyMode";
@@ -584,6 +585,10 @@ function AuthenticatedApp() {
           <Route path="/briefing" element={<OperationalBriefing />} />
 
           <Route path="/executive" element={<ExecutiveIntelligence />} />
+          <Route
+            path="/executive/capital"
+            element={<ExecutiveCapitalBriefingPage />}
+          />
           <Route
             path="/performance"
             element={<Navigate to="/executive" replace />}
