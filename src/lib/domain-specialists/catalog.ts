@@ -1811,12 +1811,11 @@ export const DOMAIN_SPECIALIST_MODULES: DomainSpecialistModule[] = [
   {
     key: "buildings-infrastructure",
     industryCode: "buildings_infrastructure",
-    label:
-      "Buildings & Infrastructure — Code, Fire/Life Safety & Certification",
-    version: "1.0.0",
+    label: "Buildings & Facilities — Safety, Controls, Performance & Renewal",
+    version: "2.0.0",
     reviewerRoleKey: "domain_building_safety_reviewer",
     purpose:
-      "Trace jurisdiction-specific requirements and safety-system/certification evidence without claiming code compliance.",
+      "Govern code and life-safety traceability, occupied-environment and BAS evidence, normalized energy/water performance, and facility-renewal priorities without claiming compliance or taking operational or spending authority.",
     dataClasses: ["operational", "safety_critical", "regulatory"],
     methods: [
       method({
@@ -1964,6 +1963,235 @@ export const DOMAIN_SPECIALIST_MODULES: DomainSpecialistModule[] = [
               result: "accepted",
               blockingDeficiency: false,
               authorityAccepted: true,
+            },
+          ],
+        },
+      }),
+      method({
+        key: "occupant-environment",
+        label: "Occupied-zone comfort and indoor-environment screen",
+        purpose:
+          "Compare occupied-zone observations with supplied, approved comfort and indoor-environment envelopes while retaining calibration and occupancy context.",
+        kind: "verification",
+        algorithm:
+          "Each occupied observation is checked against its supplied temperature, humidity, and CO₂ limits; compliance is reported by occupied hours only.",
+        requiredInputs: [
+          records(
+            "observations",
+            "Occupied-zone observations",
+            "Zone, occupied hours, measured temperature/humidity/CO₂, approved limits, calibration, timestamp, and criteria approval.",
+          ),
+        ],
+        requiredEvidence: [
+          "approved-indoor-environment-criteria",
+          "occupancy-schedule",
+          "bas-or-independent-trend-data",
+          "sensor-calibration",
+        ],
+        authorityReferences: [
+          "facility-owner indoor-environment criteria",
+          "applicable occupational health and building requirements",
+          "qualified indoor-environment professional",
+        ],
+        requiredApproverRole:
+          "Facility operations / indoor-environment authority",
+        limitations: [
+          "Does not diagnose indoor-air-quality hazards or certify occupant safety or comfort.",
+          "No universal comfort, humidity, or CO₂ threshold is inferred.",
+        ],
+        exampleInputs: {
+          observations: [
+            {
+              id: "ZONE-2-2026-08-01",
+              zone: "Level 2 occupied office",
+              occupiedHours: 8,
+              temperatureC: 23,
+              temperatureMinC: 20,
+              temperatureMaxC: 25,
+              relativeHumidityPct: 42,
+              humidityMinPct: 30,
+              humidityMaxPct: 60,
+              co2Ppm: 760,
+              co2MaxPpm: 1000,
+              criteriaApproved: true,
+              calibrated: true,
+              observedAt: "2026-08-01T20:00:00Z",
+            },
+          ],
+        },
+      }),
+      method({
+        key: "bas-control-integrity",
+        label: "Building-automation control integrity",
+        purpose:
+          "Screen command/feedback agreement, alarm and fail-safe tests, trend completeness, and manual overrides for critical BAS points.",
+        kind: "verification",
+        algorithm:
+          "A required control point is complete only when command/feedback deviation is within its supplied tolerance, tests are current, trends are complete, and any override is approved.",
+        requiredInputs: [
+          records(
+            "controlPoints",
+            "BAS control points",
+            "Point identity, command, feedback, tolerance, alarm/fail-safe tests, trend completeness, override state, and approval.",
+          ),
+        ],
+        requiredEvidence: [
+          "approved-control-sequences",
+          "bas-point-and-trend-export",
+          "alarm-and-fail-safe-test-records",
+          "override-and-bypass-register",
+        ],
+        authorityReferences: [
+          "approved sequence of operations",
+          "facility controls standard",
+          "life-safety interface requirements",
+        ],
+        requiredApproverRole: "Facility controls / BAS authority",
+        limitations: [
+          "Read-only analysis; it cannot command, tune, bypass, or acknowledge a BAS point.",
+          "A matching command and feedback does not prove physical-system performance.",
+        ],
+        exampleInputs: {
+          controlPoints: [
+            {
+              id: "AHU-2-SAT",
+              required: true,
+              commandValue: 13,
+              feedbackValue: 13.2,
+              tolerance: 0.5,
+              alarmTestCurrent: true,
+              failSafeTestCurrent: true,
+              trendComplete: true,
+              manualOverrideActive: false,
+              overrideApproved: false,
+            },
+          ],
+        },
+      }),
+      method({
+        key: "energy-water-performance",
+        label: "Normalized energy and water performance",
+        purpose:
+          "Compare metered energy and water with a supplied, approved, like-for-like normalized baseline without inventing savings.",
+        kind: "engineering_calculation",
+        algorithm:
+          "For comparable periods, variance = actual - approved normalized baseline and variance percent = variance / baseline; incomparable periods remain gaps.",
+        requiredInputs: [
+          records(
+            "periods",
+            "Normalized performance periods",
+            "Period, actual and baseline energy/water, normalization approval, boundary equivalence, and accepted data quality.",
+          ),
+        ],
+        requiredEvidence: [
+          "metered-energy-and-water-data",
+          "approved-normalized-baseline",
+          "weather-occupancy-and-service-drivers",
+          "meter-and-boundary-quality-review",
+        ],
+        authorityReferences: [
+          "facility-owner energy and water objectives",
+          "approved measurement and verification plan",
+          "applicable reporting requirements",
+        ],
+        requiredApproverRole: "Energy manager / facility performance authority",
+        limitations: [
+          "Does not attribute causality, certify savings, or create a financial benefit claim.",
+          "Weather, occupancy, service, tariff, meter, and boundary normalization must be supplied and approved.",
+        ],
+        exampleInputs: {
+          periods: [
+            {
+              id: "2026-07",
+              actualEnergyKwh: 92000,
+              baselineEnergyKwh: 100000,
+              actualWaterM3: 1210,
+              baselineWaterM3: 1250,
+              normalizationApproved: true,
+              boundaryEquivalent: true,
+              dataQualityAccepted: true,
+            },
+          ],
+        },
+      }),
+      method({
+        key: "facility-renewal-priority",
+        label: "Facility renewal and capital priority",
+        purpose:
+          "Rank evidence-ready facility renewal candidates using organization-approved weights while keeping life-safety and mandatory compliance work outside economic trade-off.",
+        kind: "optimization",
+        algorithm:
+          "Mandatory candidates rank first by due date; other candidates rank by approved weighted benefit score divided by cost. The budget line is indicative and never an authorization.",
+        requiredInputs: [
+          n(
+            "availableBudget",
+            "Indicative available budget",
+            "currency",
+            "Planning envelope only; not expenditure authorization.",
+          ),
+          matrix(
+            "weights",
+            "Approved priority weights",
+            "Non-negative weights for safety, compliance, service, condition, and energy opportunity, with approval reference.",
+          ),
+          records(
+            "candidates",
+            "Renewal candidates",
+            "Candidate identity, cost, evidence readiness, mandatory status/due date, and 0–5 factor scores.",
+          ),
+        ],
+        requiredEvidence: [
+          "approved-capital-priority-model",
+          "condition-and-deficiency-register",
+          "cost-estimate-basis",
+          "service-and-occupant-consequence-basis",
+          "energy-opportunity-basis",
+        ],
+        authorityReferences: [
+          "facility-owner capital governance",
+          "approved life-safety and compliance obligations",
+          "organization-approved investment criteria",
+        ],
+        requiredApproverRole:
+          "Facility portfolio owner / capital approval authority",
+        limitations: [
+          "Does not approve expenditure, defer mandatory work, or represent a full portfolio optimization.",
+          "Scores, weights, costs, dependencies, and the planning envelope require human validation.",
+        ],
+        exampleInputs: {
+          availableBudget: 750000,
+          weights: {
+            approved: true,
+            approvalReference: "CAP-PRIORITY-2026",
+            safety: 5,
+            compliance: 5,
+            service: 3,
+            condition: 2,
+            energy: 1,
+          },
+          candidates: [
+            {
+              id: "FIRE-PUMP-1",
+              cost: 300000,
+              mandatory: true,
+              dueDate: "2026-10-01",
+              evidenceReady: true,
+              safety: 5,
+              compliance: 5,
+              service: 4,
+              condition: 4,
+              energy: 0,
+            },
+            {
+              id: "AHU-2-RENEWAL",
+              cost: 420000,
+              mandatory: false,
+              evidenceReady: true,
+              safety: 1,
+              compliance: 1,
+              service: 4,
+              condition: 5,
+              energy: 4,
             },
           ],
         },

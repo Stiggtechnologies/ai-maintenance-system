@@ -39,7 +39,7 @@ describe("DomainSpecialistWorkbench", () => {
     const moduleSelect = screen.getByLabelText("Specialist module");
     expect(moduleSelect.querySelectorAll("option")).toHaveLength(15);
     expect(
-      screen.getByText(/15 governed modules and 33 deterministic methods/i),
+      screen.getByText(/15 governed modules and 37 deterministic methods/i),
     ).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Preview locally" }));
