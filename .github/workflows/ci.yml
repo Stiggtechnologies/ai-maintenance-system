@@ -351,6 +351,9 @@ jobs:
       - name: Smoke — Sync Develop OT cybersecurity by design (ten evidence-backed artifacts)
         run: bash scripts/ci-develop-ot-cyber-lifecycle-smoke.sh
 
+      - name: Smoke — Sync Develop digital asset maintainability (nine fields at handover)
+        run: bash scripts/ci-develop-digital-asset-maintainability-smoke.sh
+
       - name: Smoke — governed engineering knowledge on the canonical Reliability KB
         run: bash scripts/ci-governed-knowledge-smoke.sh
 
