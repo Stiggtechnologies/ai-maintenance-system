@@ -1,4 +1,5 @@
 import type { GateReviewPack } from "../../services/developService";
+import type { ReadinessBlocker } from "./index";
 
 export interface BriefingMeasure {
   label: string;
@@ -26,7 +27,7 @@ export interface PmGateBriefing {
   decisionBoundary: string;
 }
 
-const BLOCKER_LABEL: Record<string, string> = {
+const BLOCKER_LABEL = {
   mandatory_criterion: "Mandatory requirement",
   open_risk: "Unresolved risk",
   open_condition: "Open gate condition",
@@ -42,9 +43,9 @@ const BLOCKER_LABEL: Record<string, string> = {
   procurement_package_unawarded: "Unawarded procurement package",
   procurement_package_late: "Late procurement package",
   procurement_package_contract_late: "Late awarded contract",
-};
+} satisfies Record<ReadinessBlocker["type"], string>;
 
-const BLOCKER_SOURCE: Record<string, string> = {
+const BLOCKER_SOURCE = {
   mandatory_criterion: "stage_gate_criteria",
   open_risk: "risks",
   open_condition: "gate_conditions",
@@ -59,7 +60,7 @@ const BLOCKER_SOURCE: Record<string, string> = {
   procurement_package_unawarded: "contract_packages",
   procurement_package_late: "contract_packages",
   procurement_package_contract_late: "contract_packages",
-};
+} satisfies Record<ReadinessBlocker["type"], string>;
 
 function unique(values: string[]): string[] {
   return [...new Set(values)];
@@ -106,9 +107,9 @@ export function buildPmGateBriefing(pack: GateReviewPack): PmGateBriefing {
         : `${pack.gateName}: no deterministic blocker is recorded at ${readinessValue}.`;
 
   const blockers = readiness.blockers.map((blocker) => {
-    const source = BLOCKER_SOURCE[blocker.type] ?? "gate_blockers";
+    const source = BLOCKER_SOURCE[blocker.type];
     return {
-      label: BLOCKER_LABEL[blocker.type] ?? blocker.type.replace(/_/g, " "),
+      label: BLOCKER_LABEL[blocker.type],
       name: blocker.name,
       recordRef: `${source}:${blocker.id}`,
     };
