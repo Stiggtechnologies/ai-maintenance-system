@@ -33,6 +33,7 @@ on:
       - "supabase/functions/develop-benefits-agent/**"
       - "supabase/functions/develop-lessons-agent/**"
       - "supabase/functions/develop-governance-agent/**"
+      - "supabase/functions/develop-hop-agent/**"
       - "supabase/functions/lead-notify/**"
       - "supabase/functions/onboarding-enrich/**"
       - "supabase/functions/plant-historian-pull/**"
@@ -105,6 +106,7 @@ jobs:
           supabase functions deploy develop-benefits-agent
           supabase functions deploy develop-lessons-agent
           supabase functions deploy develop-governance-agent
+          supabase functions deploy develop-hop-agent
           supabase functions deploy lead-notify
           supabase functions deploy onboarding-enrich --no-verify-jwt
           supabase functions deploy plant-historian-pull
@@ -178,6 +180,23 @@ jobs:
             exit 1
           fi
           echo "Domain Specialist executor is deployed and JWT-protected (HTTP 401 unauthenticated)."
+
+      - name: Prove HOP Agent is deployed
+        run: |
+          set -euo pipefail
+          endpoint="https://${SUPABASE_PROJECT_ID}.supabase.co/functions/v1/develop-hop-agent"
+          status=$(curl --silent --show-error --output /tmp/develop-hop-agent-probe.txt \
+            --write-out '%{http_code}' \
+            --request POST \
+            --header 'Content-Type: application/json' \
+            --data '{"lookback_days":30}' \
+            "$endpoint")
+          cat /tmp/develop-hop-agent-probe.txt || true
+          if [ "$status" != "401" ]; then
+            echo "::error title=HOP Agent boundary probe failed::Expected JWT-protected deployed function to return HTTP 401 without credentials; got HTTP ${status}."
+            exit 1
+          fi
+          echo "HOP Agent is deployed and JWT-protected (HTTP 401 unauthenticated)."
 
       - name: Prove Plant historian adapter is deployed
         run: |
