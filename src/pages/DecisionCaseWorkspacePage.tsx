@@ -46,6 +46,7 @@ import { BoltSpacesPanel } from "../components/public-ask/BoltSpacesPanel";
 import { PublicAskEmpty } from "../components/public-ask/PublicAskEmpty";
 import { PublicAskRail } from "../components/public-ask/PublicAskRail";
 import { canExposeBoltSpaces } from "../lib/public-ask-tie-in";
+import type { PublicAskIntent } from "../lib/public-ask-intents";
 import { MarkdownRenderer } from "../components/MarkdownRenderer";
 import { RecommendationTurn } from "../components/chat/RecommendationTurn";
 import { ConversationLearn } from "../components/chat/ConversationLearn";
@@ -259,6 +260,7 @@ export function DecisionCaseWorkspacePage({
   const [railOpen, setRailOpen] = useState(false);
   const [recordOpen, setRecordOpen] = useState(false);
   const [tab, setTab] = useState<PacketTab>("decision");
+  const [publicIntent, setPublicIntent] = useState<PublicAskIntent | null>(null);
   const [role] = useState(context.role || industryPack.roles[0]);
   const [composer, setComposer] = useState("");
   const [composerPlaceholder, setComposerPlaceholder] = useState(
@@ -422,6 +424,7 @@ export function DecisionCaseWorkspacePage({
     setTab("decision");
     setEvidence(null);
     setRecordOpen(false);
+    setPublicIntent(null);
   };
 
   const trySample = (index = 0) => {
@@ -441,7 +444,34 @@ export function DecisionCaseWorkspacePage({
     });
     setSelectedId(sample.id);
     setRecordOpen(false);
+    setPublicIntent(null);
     setRailOpen(false);
+  };
+
+  const tryPublicIntent = (intent: PublicAskIntent) => {
+    explicitDemoBound.current = true;
+    const sample = createFirstPaintSeed(intent.seedIndex, {
+      ...context,
+      industry,
+      role,
+    });
+    setCases((current) => {
+      const keep = current.filter(
+        (item) =>
+          item.id !== sample.id &&
+          !(item.id.startsWith("draft-") && conversationIsEmpty(item.messages)),
+      );
+      return [sample, ...keep];
+    });
+    setSelectedId(sample.id);
+    setPublicIntent(intent);
+    setTab(intent.recordTab);
+    setRecordOpen(true);
+    setRailOpen(false);
+    trackDecisionWorkspaceEvent("public_capability_opened", {
+      intent: intent.id,
+      module: intent.module,
+    });
   };
 
   const createCase = async () => {
@@ -458,6 +488,7 @@ export function DecisionCaseWorkspacePage({
         setComposerPlaceholder(ASK_PLACEHOLDER);
         setRailOpen(false);
         setRecordOpen(false);
+        setPublicIntent(null);
       }
       return;
     }
@@ -470,6 +501,7 @@ export function DecisionCaseWorkspacePage({
       setComposerPlaceholder(ASK_PLACEHOLDER);
       setRailOpen(false);
       setRecordOpen(false);
+      setPublicIntent(null);
     }
     if (!publicMode) {
       try {
@@ -1269,7 +1301,7 @@ export function DecisionCaseWorkspacePage({
         {emptyConversation ? (
           <PublicAskEmpty
             askBar={publicAskBar}
-            onSelectIntent={trySample}
+            onSelectIntent={tryPublicIntent}
             attachmentInputs={
               <>
                 <input
@@ -1353,7 +1385,14 @@ export function DecisionCaseWorkspacePage({
                 className="bolt-thread-bar-side is-center"
                 data-testid="first-paint-header-center"
               >
-                <span className="bolt-thread-title">{active.title}</span>
+                <span>
+                  {publicIntent ? (
+                    <small className="bolt-capability-lens">
+                      {publicIntent.label} · {publicIntent.module}
+                    </small>
+                  ) : null}
+                  <span className="bolt-thread-title">{active.title}</span>
+                </span>
               </div>
               <div className="bolt-thread-bar-side is-end">
                 <button

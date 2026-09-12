@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import {
   PUBLIC_ASK_INTENTS,
+  type PublicAskIntent,
   type PublicAskIntentId,
 } from "../../lib/public-ask-intents";
 import { submitPilotIntake } from "../../services/pilotIntake";
@@ -38,7 +39,7 @@ type PublicAskEmptyProps = {
   askBar: ReactNode;
   attachmentInputs?: ReactNode;
   attachmentState?: ReactNode;
-  onSelectIntent: (seedIndex: number) => void;
+  onSelectIntent: (intent: PublicAskIntent) => void;
 };
 
 export function PublicAskEmpty({
@@ -181,13 +182,13 @@ export function PublicAskEmpty({
                 data-testid="ask-intent-pill"
                 data-intent={intent.id}
                 data-seed-index={String(intent.seedIndex)}
-                title={intent.question}
-                onClick={() => onSelectIntent(intent.seedIndex)}
+                title={`${intent.module}: ${intent.explanation}`}
+                onClick={() => onSelectIntent(intent)}
               >
                 {PILL_ICONS[intent.id]}
                 <span className="bolt-pill-copy">
                   <strong>{intent.label}</strong>
-                  <small>{intent.showcase}</small>
+                  <small>{intent.module}</small>
                 </span>
               </button>
             </li>
