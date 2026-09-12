@@ -21,6 +21,16 @@ describe("public ask intents", () => {
       "PM effectiveness",
       "Downtime evidence",
     ]);
+    expect(PUBLIC_ASK_INTENTS.map((item) => item.recordTab)).toEqual([
+      "decision",
+      "evidence",
+      "decision",
+      "value",
+      "evidence",
+    ]);
+    expect(PUBLIC_ASK_INTENTS.every((item) => item.explanation.length > 30)).toBe(
+      true,
+    );
     expect(PUBLIC_ASK_INTENTS.map((item) => item.question)).toEqual([
       FIRST_PAINT_QUESTIONS[0],
       FIRST_PAINT_QUESTIONS[4],

@@ -28,7 +28,14 @@ describe("PublicAskEmpty", () => {
         .map((item) => item.querySelector("strong")?.textContent),
     ).toEqual(["Compare", "Troubleshoot", "Health", "Learn", "Fact Check"]);
     fireEvent.click(screen.getByRole("button", { name: "Health" }));
-    expect(onSelectIntent).toHaveBeenCalledWith(1);
+    expect(onSelectIntent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: "health",
+        module: "Run-or-intervene decision",
+        recordTab: "decision",
+        seedIndex: 1,
+      }),
+    );
   });
 
   it("opens the governed assessment request form from the primary CTA", () => {

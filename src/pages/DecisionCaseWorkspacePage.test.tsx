@@ -225,7 +225,9 @@ describe("DecisionCaseWorkspacePage — Bolt first paint", () => {
     ).toBeTruthy();
     expect(screen.getByRole("button", { name: "Delegate" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Reject" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "View record" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Hide record" })).toBeTruthy();
+    expect(screen.getByLabelText("Decision record")).toBeTruthy();
+    expect(screen.getByText("Compare · Decision comparison")).toBeTruthy();
     expect(screen.getByText(PUBLIC_ASK_INTENTS[0].question)).toBeTruthy();
     expect(screen.queryByText(/P-101 process pump/)).toBeNull();
     expect(screen.getByLabelText("Attach a photo")).toBeEnabled();
@@ -251,10 +253,27 @@ describe("DecisionCaseWorkspacePage — Bolt first paint", () => {
     expect(screen.getByLabelText("Attach a data file")).toBeEnabled();
     expect(screen.queryByRole("menuitem", { name: "Camera" })).toBeNull();
     loadSample();
-    expect(screen.getByRole("button", { name: "View record" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Hide record" })).toBeTruthy();
     expect(screen.getByLabelText("Attach a data file")).toBeEnabled();
-    fireEvent.click(screen.getByRole("button", { name: "View record" }));
     expect(screen.getByText("Current decision packet")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Hide record" }));
+    expect(screen.queryByText("Current decision packet")).toBeNull();
+    const css = readFileSync(
+      "src/components/public-ask/public-ask.css",
+      "utf8",
+    );
+    expect(css).toMatch(
+      /\.bolt-layout\.is-record-open\s+\.dw-packet\s*\{[^}]*display:\s*flex/,
+    );
+  });
+
+  it("opens each showcase in the record section that makes its capability legible", () => {
+    renderWorkspace();
+    fireEvent.click(screen.getByRole("button", { name: "Troubleshoot" }));
+    expect(screen.getByText("Troubleshoot · Failure elimination")).toBeTruthy();
+    expect(screen.getByRole("button", { name: /^Evidence/ })).toHaveClass(
+      "active",
+    );
   });
 
   it("keeps direct photo and governed data-file actions in the thread", () => {
