@@ -2,10 +2,10 @@
 
 **Program-of-record date:** 2026-08-26
 
-SyncAI has **17 governed industry template packs** and a separate custom-sector
+SyncAI has **18 governed industry template packs** and a separate custom-sector
 path. Every governed pack is bound to one or more executable kernel failure
-contexts. Fifteen packs also bind to governed domain-depth modules containing
-33 deterministic calculations, optimizers, traceability checks, verification
+contexts. Sixteen packs also bind to governed domain-depth modules containing
+43 deterministic calculations, optimizers, traceability checks, verification
 methods and readiness screens. `kernel_bound` means executable code exists; it
 is not a claim that a customer has adopted the pack, that any legal requirement
 applies, that a standard is licensed, or that an authority has certified the
@@ -24,13 +24,14 @@ review advances it.
 | Manufacturing              |               3 | Line balancing; robot health (2)                              |
 | Food & Beverage            |               4 | HACCP; CIP; cold-chain excursion (3)                          |
 | Pharmaceuticals            |               3 | GxP validation; batch-record trace (2)                        |
+| Healthcare                 |               3 | Criticality; availability; calibration; infection control; patient risk; traceability (6) |
 | Transportation & Logistics |               2 | Route/depot optimization; inspection scheduling (2)           |
 | Aviation                   |               3 | Airworthiness; MSG-3; life-limited parts (3)                  |
 | Marine Shipping            |               4 | Class surveys; propulsion efficiency; voyage optimization (3) |
 | Data Centers               |               2 | Lumped thermal and airflow balance (1)                        |
 | Defense                    |               3 | Mission readiness; configuration; deployment controls (3)     |
 | Aerospace & Launch         |               3 | Reuse life; range safety; propellant condition (3)            |
-| Buildings & Infrastructure |               4 | Code; fire/life safety; occupancy/accessibility (3)           |
+| Buildings & Infrastructure |               4 | Code; life safety; occupancy; environment; BAS; resources; renewal (7) |
 
 ## Count integrity
 
@@ -53,8 +54,8 @@ certify compliance, release equipment/product/facilities, dispatch crews, or
 authorize operation. Those decisions remain with the named customer, OEM,
 professional, regulator, class, command, airworthiness, range or security
 authority.
-The custom-sector path remains organization-defined and is not counted as an
-18th governed pack.
+The custom-sector path remains organization-defined and is not counted as a
+19th governed catalog option.
 
 Implementation and method boundaries are documented in
 [`domain-specialist-modules.md`](domain-specialist-modules.md).

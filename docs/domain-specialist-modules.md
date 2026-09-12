@@ -19,15 +19,16 @@ similar domain decisions.
 | Manufacturing              | Precedence-feasible line balance and approved weighted robot-health model                                          |
 | Food & Beverage            | HACCP CCP verification, CIP recipe-envelope verification and cold-chain excursion dose                             |
 | Pharmaceuticals            | GxP requirements/test/deviation trace and batch-record completeness/exception trace                                |
+| Healthcare                 | Clinical criticality, device availability, calibration, infection-control readiness, patient-risk and lifecycle trace |
 | Transportation & Logistics | Exact bounded route/depot search and capacity-feasible inspection scheduling                                       |
 | Aviation                   | AD/SB applicability/compliance trace, MSG-3 decision trace and life-limited-part remainder with back-to-birth gate |
 | Marine Shipping            | Class-survey window scheduling, matched-baseline propulsion efficiency and constrained voyage-option ranking       |
 | Data Centers               | Lumped heat/airflow balance, cooling margin and sensor-envelope exceptions                                         |
 | Defense                    | Mission-capable coverage, configuration/obsolescence trace and classified-deployment control readiness             |
 | Aerospace & Launch         | Reuse counters, range-safety evidence readiness and propellant property/exposure margins                           |
-| Buildings & Infrastructure | Adopted-code trace, fire/life-safety impairment readiness and occupancy/accessibility prerequisites                |
+| Buildings & Infrastructure | Code, fire/life safety, occupancy, environment, BAS, resource performance and renewal priority                     |
 
-The 14 modules expose 29 methods. The canonical registry, input examples,
+The 16 modules expose 43 methods. The canonical registry, input examples,
 required evidence, authority references, limitations and reviewer roles live in
 `src/lib/domain-specialists/catalog.ts`. The deterministic evaluators live in
 `src/lib/domain-specialists/engine.ts`; every registry method must resolve to an

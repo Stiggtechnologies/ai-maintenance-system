@@ -2466,6 +2466,127 @@ function facilityRenewalPriority(inputs: Record<string, unknown>): Evaluation {
   };
 }
 
+const PATIENT_IDENTIFIER_KEYS = new Set([
+  "patientid",
+  "patientname",
+  "patientidentifier",
+  "mrn",
+  "medicalrecordnumber",
+  "healthcardnumber",
+  "dateofbirth",
+  "dob",
+]);
+
+function rejectPatientIdentifiers(value: unknown, path = "inputs"): void {
+  if (Array.isArray(value)) {
+    value.forEach((item, index) => rejectPatientIdentifiers(item, `${path}[${index}]`));
+    return;
+  }
+  if (!value || typeof value !== "object") return;
+  for (const [key, nested] of Object.entries(value as Record<string, unknown>)) {
+    const normalized = key.toLowerCase().replace(/[^a-z0-9]/g, "");
+    if (PATIENT_IDENTIFIER_KEYS.has(normalized)) {
+      throw new InputError(`${path}.${key} is prohibited: healthcare specialist inputs must not contain patient identifiers.`);
+    }
+    rejectPatientIdentifiers(nested, `${path}.${key}`);
+  }
+}
+
+function healthcareClinicalCriticality(inputs: Record<string, unknown>): Evaluation {
+  rejectPatientIdentifiers(inputs);
+  const devices = records(inputs.devices, "Clinical device scope");
+  requireUnique(devices.map((row, i) => text(row.id, `Device ${i + 1} ID`)), "Clinical device scope");
+  return coverageEvaluation(
+    "clinical-criticality",
+    devices,
+    (row) => Boolean(row.id && row.clinicalFunction && row.consequenceCategory && row.approvedCriticality && bool(row.authorityApproved)),
+    (row, i) => String(row.id ?? `device ${i + 1}`),
+    "clinical function, consequence, approved criticality, or authority approval is missing.",
+  );
+}
+
+function healthcareAvailability(inputs: Record<string, unknown>): Evaluation {
+  rejectPatientIdentifiers(inputs);
+  const devices = records(inputs.devices, "Device availability records");
+  const ids = devices.map((row, i) => text(row.id, `Device ${i + 1} ID`));
+  requireUnique(ids, "Device availability records");
+  let available = 0;
+  let required = 0;
+  const gaps: string[] = [];
+  devices.forEach((row, index) => {
+    const id = ids[index];
+    const a = nonNegative(row.availableTime, `${id} available time`);
+    const r = positive(row.requiredTime, `${id} required time`);
+    if (a > r) throw new InputError(`${id} available time must not exceed required time.`);
+    available += a;
+    required += r;
+    if (!row.serviceState) gaps.push(`${id}: controlled service state is missing.`);
+    if (!bool(row.impairmentApproved)) gaps.push(`${id}: impairment disposition is not approved.`);
+    if (!bool(row.alternativeCoverageApproved)) gaps.push(`${id}: alternative coverage is not approved.`);
+  });
+  return {
+    summary: `The supplied device population has ${round((available / required) * 100, 1)}% observed availability. This does not establish required clinical capacity or authorize substitution.`,
+    metrics: [
+      { key: "availability", label: "Observed availability", value: round((available / required) * 100, 1), unit: "%" },
+      { key: "devices", label: "In-scope devices", value: devices.length, unit: "count" },
+      { key: "control_gaps", label: "Disposition or coverage gaps", value: gaps.length, unit: "count" },
+    ],
+    findings: gaps.length ? ["Clinical authority review is required for unresolved coverage or impairment evidence."] : ["No coverage or impairment gap was found in the supplied records."],
+    gaps,
+    assumptions: ["The supplied population, observation window, time basis and clinical service-state definition are approved and comparable."],
+    formulae: ["Observed availability = Σ supplied available time / Σ supplied required time."],
+  };
+}
+
+function healthcareCalibration(inputs: Record<string, unknown>): Evaluation {
+  rejectPatientIdentifiers(inputs);
+  const instruments = records(inputs.instruments, "Calibration records");
+  return coverageEvaluation(
+    "calibration-assurance",
+    instruments,
+    (row) => Boolean(row.id && bool(row.calibrationCurrent) && row.traceableStandard && bool(row.toleranceApproved) && row.result && bool(row.dispositionApproved)),
+    (row, i) => String(row.id ?? `instrument ${i + 1}`),
+    "current calibration, traceable standard, approved tolerance, result, or disposition is missing.",
+  );
+}
+
+function healthcareInfectionControl(inputs: Record<string, unknown>): Evaluation {
+  rejectPatientIdentifiers(inputs);
+  const devices = records(inputs.devices, "Reprocessing readiness records");
+  return coverageEvaluation(
+    "infection-control readiness",
+    devices,
+    (row) => Boolean(row.id && bool(row.classificationApproved) && bool(row.methodApproved) && bool(row.processEvidenceCurrent) && bool(row.exceptionsResolved) && bool(row.releaseApproved)),
+    (row, i) => String(row.id ?? `device ${i + 1}`),
+    "approved classification/method, current process evidence, exception disposition, or release approval is missing.",
+  );
+}
+
+function healthcarePatientRisk(inputs: Record<string, unknown>): Evaluation {
+  rejectPatientIdentifiers(inputs);
+  const hazards = records(inputs.hazards, "Device-related hazard records");
+  return coverageEvaluation(
+    "patient-risk control",
+    hazards,
+    (row) => Boolean(row.id && bool(row.consequenceApproved) && bool(row.controlsImplemented) && bool(row.controlsTestCurrent) && bool(row.evidenceBound) && row.residualRisk && bool(row.riskAccepted)),
+    (row, i) => String(row.id ?? `hazard ${i + 1}`),
+    "approved consequence, implemented/current control, evidence, residual risk, or human acceptance is missing.",
+  );
+}
+
+function healthcareTraceability(inputs: Record<string, unknown>): Evaluation {
+  rejectPatientIdentifiers(inputs);
+  const devices = records(inputs.devices, "Device trace records");
+  requireUnique(devices.map((row, i) => text(row.id, `Device ${i + 1} ID`)), "Device trace records");
+  return coverageEvaluation(
+    "device lifecycle trace",
+    devices,
+    (row) => Boolean(row.id && row.model && row.serialOrUdi && row.location && row.owner && bool(row.configurationControlled) && bool(row.maintenanceLinked) && row.calibrationStatus && bool(row.safetyActionsResolved)),
+    (row, i) => String(row.id ?? `device ${i + 1}`),
+    "identity, model/serial, location, owner, controlled configuration, service/calibration link, or safety-action status is missing.",
+  );
+}
+
 const evaluators: Partial<
   Record<string, (inputs: Record<string, unknown>) => Evaluation>
 > = {
@@ -2499,6 +2620,12 @@ const evaluators: Partial<
   "battery-hv-safety": batteryHvSafety,
   "battery-degradation": batteryDegradation,
   "battery-fire-readiness": batteryFireReadiness,
+  "clinical-criticality": healthcareClinicalCriticality,
+  "device-availability": healthcareAvailability,
+  "calibration-assurance": healthcareCalibration,
+  "infection-control-readiness": healthcareInfectionControl,
+  "patient-risk": healthcarePatientRisk,
+  "device-traceability": healthcareTraceability,
   "code-compliance": codeCompliance,
   "fire-life-safety": fireLifeSafety,
   "occupancy-accessibility": occupancy,

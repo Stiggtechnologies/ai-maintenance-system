@@ -14,6 +14,10 @@ const membership = [
     "supabase/migrations/20261219139000_battery_energy_storage_pack.sql",
     "utf8",
   ),
+  readFileSync(
+    "supabase/migrations/20261219230000_healthcare_pack.sql",
+    "utf8",
+  ),
 ].join("\n");
 const coverage = readFileSync("docs/industry-pack-coverage.md", "utf8");
 

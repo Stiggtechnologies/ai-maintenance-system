@@ -40,6 +40,22 @@ select bool_and(
   domain_specialist_method_is_registered('buildings-infrastructure',method_key)
   and cardinality(domain_specialist_required_evidence(method_key)) > 0
 ) from methods;")
+
+# U5.06: every Healthcare method is registered and carries a non-empty,
+# server-owned evidence contract before any run can persist.
+HEALTHCARE_REGISTRY=$(PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -Atc "
+with methods(method_key) as (values
+ ('clinical-criticality'),('device-availability'),('calibration-assurance'),
+ ('infection-control-readiness'),('patient-risk'),('device-traceability')
+)
+select bool_and(
+ domain_specialist_method_is_registered('healthcare-clinical-engineering',method_key)
+ and cardinality(domain_specialist_required_evidence(method_key)) > 0
+) from methods;")
+if [ "$HEALTHCARE_REGISTRY" != "t" ]; then
+  echo "Healthcare specialist registry/evidence contract is incomplete" >&2
+  exit 1
+fi
 test "$BUILDINGS_REGISTRY" = 't'
 
 PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -v ON_ERROR_STOP=1 <<SQL

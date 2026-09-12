@@ -18,6 +18,7 @@ export const INDUSTRY_CATALOG = [
   { code: "manufacturing", label: "Manufacturing", kind: "pack" },
   { code: "food_beverage", label: "Food & Beverage", kind: "pack" },
   { code: "pharmaceuticals", label: "Pharmaceuticals", kind: "pack" },
+  { code: "healthcare", label: "Healthcare", kind: "pack" },
   {
     code: "transportation_logistics",
     label: "Transportation & Logistics",
@@ -57,6 +58,9 @@ export const INDUSTRY_CODE_ALIASES: Readonly<Record<string, IndustryCode>> = {
   "energy-storage": "battery_energy_storage",
   bess: "battery_energy_storage",
   pharma: "pharmaceuticals",
+  hospital: "healthcare",
+  hospitals: "healthcare",
+  "clinical-engineering": "healthcare",
   "food-beverage": "food_beverage",
   "transportation-logistics": "transportation_logistics",
   marine: "marine_shipping",

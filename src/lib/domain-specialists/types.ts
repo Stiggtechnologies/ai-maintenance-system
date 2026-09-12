@@ -8,6 +8,7 @@ export type DomainSpecialistModuleKey =
   | "manufacturing-operations"
   | "food-beverage-safety"
   | "pharmaceutical-quality"
+  | "healthcare-clinical-engineering"
   | "transport-logistics"
   | "aviation-airworthiness"
   | "marine-shipping"

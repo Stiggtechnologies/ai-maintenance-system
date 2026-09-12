@@ -16,7 +16,8 @@ const target =
 // This generator protects the already-deployed base snapshot. New packs are
 // appended in later immutable migrations; they must not rewrite this file.
 const BASE_MIGRATION_PACKS = Object.values(INDUSTRY_TEMPLATE_PACKS).filter(
-  (pack) => pack.industryCode !== "battery_energy_storage",
+  (pack) =>
+    !["battery_energy_storage", "healthcare"].includes(pack.industryCode),
 );
 
 const lit = (value: string) => `'${value.replace(/'/g, "''")}'`;
@@ -143,7 +144,6 @@ export function renderIndustryPackMembershipMigration(): string {
 
   for (const pack of BASE_MIGRATION_PACKS) {
     const code = lit(pack.industryCode);
-    const name = lit(pack.industryName);
     const source = lit(
       `src/lib/industry-template-packs.ts#${pack.industryCode}`,
     );

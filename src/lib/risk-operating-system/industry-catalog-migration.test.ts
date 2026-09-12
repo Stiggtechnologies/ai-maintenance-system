@@ -24,8 +24,15 @@ const batteryPatch = readFileSync(
   ),
   "utf8",
 ).toLowerCase();
-const sql = `${baseSql}\n${readinessPatch}\n${batteryPatch}`;
-const allowlistSql = `${baseSql}\n${readinessPatch.replaceAll("''", "'")}\n${batteryPatch.replaceAll("''", "'")}`;
+const healthcarePatch = readFileSync(
+  resolve(
+    process.cwd(),
+    "supabase/migrations/20261219230000_healthcare_pack.sql",
+  ),
+  "utf8",
+).toLowerCase();
+const sql = `${baseSql}\n${readinessPatch}\n${batteryPatch}\n${healthcarePatch}`;
+const allowlistSql = `${baseSql}\n${readinessPatch.replaceAll("''", "'")}\n${batteryPatch.replaceAll("''", "'")}\n${healthcarePatch.replaceAll("''", "'")}`;
 
 describe("ISO 31000 industry-catalog correction migration", () => {
   it("durably records the controlled discovery and roadmap on the canonical context", () => {
@@ -124,6 +131,16 @@ describe("ISO 31000 industry-catalog correction migration", () => {
       "expected kernel-bound buildings predecessor is absent",
     );
     expect(batteryPatch).toContain("pg_get_functiondef");
+  });
+
+  it("adds Healthcare only after its executable template/profile/module exist", () => {
+    expect(healthcarePatch).toContain(
+      "when ''healthcare'' then v_expected_label := ''healthcare''; v_expected_readiness := ''kernel_bound''",
+    );
+    expect(healthcarePatch).toContain(
+      "expected battery & energy storage predecessor is absent",
+    );
+    expect(healthcarePatch).toContain("pg_get_functiondef");
   });
 
   it("keeps the corrected RPC private to authenticated tenant roles", () => {

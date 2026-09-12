@@ -2124,10 +2124,10 @@
     "backticked": 3
   },
   "U5.06": {
-    "status": "❌",
-    "evidence": false,
-    "citations": 0,
-    "backticked": 0
+    "status": "✅",
+    "evidence": true,
+    "citations": 3,
+    "backticked": 5
   },
   "U5.07": {
     "status": "❌",
