@@ -25,6 +25,7 @@ on:
       - "supabase/functions/develop-evidence-agent/**"
       - "supabase/functions/develop-gate-agent/**"
       - "supabase/functions/develop-handover-agent/**"
+      - "supabase/functions/develop-operational-readiness-agent/**"
       - "supabase/functions/develop-methodology-agent/**"
       - "supabase/functions/develop-change-impact-agent/**"
       - "supabase/functions/develop-requirements-agent/**"
@@ -94,6 +95,7 @@ jobs:
           supabase functions deploy develop-evidence-agent
           supabase functions deploy develop-gate-agent
           supabase functions deploy develop-handover-agent
+          supabase functions deploy develop-operational-readiness-agent
           supabase functions deploy develop-methodology-agent
           supabase functions deploy develop-change-impact-agent
           supabase functions deploy develop-requirements-agent
