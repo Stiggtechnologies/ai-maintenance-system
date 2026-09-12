@@ -27,6 +27,13 @@ for ITEM in "${ITEM_IDS[@]}"; do
   BODY="$DONE" python3 -c 'import json,os; assert json.loads(os.environ["BODY"])["status"]=="human_provided"'
 done
 
+# D4.15 composes digital maintainability into the canonical handover wall.
+# This legacy mechanical-system fixture has no maintainable digital component,
+# so a named human records that evidenced applicability decision explicitly;
+# unknown must never be silently treated as not applicable.
+DIGITAL=$(rpc "$PLANNER" assess_asset_digital_maintainability "{\"p_asset_id\":\"$ASSET\",\"p_baseline_kind\":\"as_built\",\"p_applicability\":\"not_applicable\",\"p_basis\":\"The witnessed mechanical-system handover boundary contains no maintainable digital component.\",\"p_source_reference\":\"D8.09 system handover fixture\",\"p_evidence_item_id\":\"$EVIDENCE\"}")
+BODY="$DIGITAL" python3 -c 'import json,os; assert json.loads(os.environ["BODY"])["status"]=="NOT_APPLICABLE"'
+
 RISK=$(psqlc "with r as (insert into risks(organization_id,development_case_id,asset_id,title,kind,current_risk_level,residual_risk_level,status,source_kind,created_by) values('$ORG','$CASE','$ASSET','D8.09 residual startup risk','threat','Medium','Medium','draft','human','$PLANNER_ID') returning id) select id from r")
 CROSS=$(rpc "$PLANNER" assemble_system_handover_package "{\"p_system_id\":$SID,\"p_owner_from\":\"$PLANNER_ID\",\"p_owner_to\":\"00000000-0000-0000-0000-000000000099\",\"p_required_acceptance_date\":\"2026-12-31\",\"p_basis\":\"A foreign or absent operations owner must fail at the tenant boundary.\",\"p_evidence_item_id\":\"$EVIDENCE\"}")
 BODY="$CROSS" python3 -c 'import json,os; assert "same-tenant human operations owner-to" in json.loads(os.environ["BODY"])["error"]'
@@ -35,7 +42,7 @@ PID=$(field "$PACKAGE" packageId)
 BODY="$PACKAGE" python3 -c 'import json,os; x=json.loads(os.environ["BODY"]); assert x["status"]=="draft" and x["residualRiskCount"]>=1'
 
 READ=$(rpc "$PLANNER" get_case_system_handover_packages "{\"p_case_id\":\"$CASE\"}")
-BODY="$READ" SID="$SID" PID="$PID" python3 -c 'import json,os; x=json.loads(os.environ["BODY"]); s=next(v for v in x["systems"] if str(v["systemId"])==os.environ["SID"]); assert str(s["package"]["id"])==os.environ["PID"]; r=s["readiness"]; assert r["physicalReadiness"]["status"]=="READY" and r["informationReadiness"]["status"]=="READY" and r["operationalReadiness"]["status"]=="READY"; assert r["residualRiskCount"]>=1 and r["acceptedResidualRiskCount"]==0 and r["canAccept"] is False; assert x["readinessStores"]["information"]=="asset_onboarding_items" and "does not replace" in x["equipmentReleaseBoundary"]'
+BODY="$READ" SID="$SID" PID="$PID" python3 -c 'import json,os; x=json.loads(os.environ["BODY"]); s=next(v for v in x["systems"] if str(v["systemId"])==os.environ["SID"]); assert str(s["package"]["id"])==os.environ["PID"]; r=s["readiness"]; assert r["physicalReadiness"]["status"]=="READY" and r["informationReadiness"]["status"]=="READY" and r["operationalReadiness"]["status"]=="READY" and r["digitalMaintainability"]["status"]=="NOT_APPLICABLE"; assert r["residualRiskCount"]>=1 and r["acceptedResidualRiskCount"]==0 and r["canAccept"] is False; assert x["readinessStores"]["information"]=="asset_onboarding_items" and "does not replace" in x["equipmentReleaseBoundary"]'
 
 WRONG_OWNER=$(rpc "$MANAGER" accept_system_handover_package "{\"p_package_id\":$PID,\"p_basis\":\"The non-designated manager attempts to take ownership and must be refused.\",\"p_evidence_item_id\":\"$EVIDENCE\"}")
 BODY="$WRONG_OWNER" python3 -c 'import json,os; assert "named owner-to" in json.loads(os.environ["BODY"])["error"]'
@@ -66,4 +73,4 @@ if psqlc "update system_handover_packages set acceptance_basis='rewritten accept
 if psqlc "update system_handover_residual_risks set risk_id='$RISK' where handover_package_id=$PID" >/dev/null 2>&1; then echo 'handover risk reference rewrite unexpectedly succeeded'; exit 1; fi
 CROSS_CASE=$(rpc "$PLANNER" get_case_system_handover_packages '{"p_case_id":"00000000-0000-4000-8000-000000000099"}')
 BODY="$CROSS_CASE" python3 -c 'import json,os; assert "not found" in json.loads(os.environ["BODY"])["error"]'
-echo 'D8.09 system HandoverPackage smoke passed: canonical three-dimension readiness, complete risk references, owner transfer, human evidence, SoD, tenant refusal, immutable acceptance and canonical ACCEPTED transition'
+echo 'D8.09 system HandoverPackage smoke passed: canonical physical, information, operational and digital readiness, complete risk references, owner transfer, human evidence, SoD, tenant refusal, immutable acceptance and canonical ACCEPTED transition'
