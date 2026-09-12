@@ -978,10 +978,10 @@
     "backticked": 0
   },
   "D11.01": {
-    "status": "🟡",
+    "status": "✅",
     "evidence": true,
-    "citations": 1,
-    "backticked": 0
+    "citations": 3,
+    "backticked": 3
   },
   "D11.02": {
     "status": "🟡",
@@ -1212,10 +1212,10 @@
     "backticked": 0
   },
   "D12.03": {
-    "status": "🟡",
+    "status": "✅",
     "evidence": true,
-    "citations": 1,
-    "backticked": 0
+    "citations": 3,
+    "backticked": 3
   },
   "D12.04": {
     "status": "❌",
@@ -1308,10 +1308,10 @@
     "backticked": 9
   },
   "D12.19": {
-    "status": "🟡",
+    "status": "✅",
     "evidence": true,
     "citations": 2,
-    "backticked": 0
+    "backticked": 2
   },
   "D13.01": {
     "status": "❌",
