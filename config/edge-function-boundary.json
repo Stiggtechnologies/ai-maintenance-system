@@ -12,6 +12,7 @@
     "develop-change-impact-agent",
     "develop-evidence-agent",
     "develop-gate-agent",
+    "develop-handover-agent",
     "develop-methodology-agent",
     "develop-requirements-agent",
     "develop-risk-agent",
