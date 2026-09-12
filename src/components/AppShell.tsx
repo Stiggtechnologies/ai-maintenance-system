@@ -193,9 +193,9 @@ const navGroups: NavGroup[] = [
   },
   {
     // L4 — this week's work, correctly positioned as the innermost loop.
-    // Shutdowns & Turnarounds (/turnarounds) is route-only: nothing creates
-    // an outage_window yet (P-7). Sync Recovery is reachable and belongs here
-    // because it coordinates the live event across work, schedule and handover.
+    // Sync Recovery coordinates live events across work, schedule and handover.
+    // Shutdowns & Turnarounds is now discoverable because C9.05 gives it a
+    // governed human planning-window write and persisted optimization runs.
     id: "work",
     label: "Work Management",
     icon: Wrench,
@@ -209,6 +209,11 @@ const navGroups: NavGroup[] = [
         path: "/scheduling",
       },
       { id: "recovery", label: "Sync Recovery", path: "/recovery" },
+      {
+        id: "turnarounds",
+        label: "Shutdowns & Turnarounds",
+        path: "/turnarounds",
+      },
       { id: "materials", label: "Materials & Spares", path: "/materials" },
       {
         id: "handover",

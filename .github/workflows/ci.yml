@@ -328,6 +328,9 @@ jobs:
       - name: Smoke — contextual condition monitoring (historian + exact-time duty)
         run: bash scripts/ci-contextual-condition-monitoring-smoke.sh
 
+      - name: Smoke — loss forecast, risk backlog and outage options
+        run: bash scripts/ci-loss-forecast-backlog-outage-smoke.sh
+
       - name: Smoke — Sync Develop Hybrid Development (per-workstream methods)
         run: bash scripts/ci-develop-hybrid-workstreams-smoke.sh
 
