@@ -309,7 +309,10 @@ describe("presence boundary", () => {
     );
     expect(welcomeUi).toContain('useFeatureFlag("sync_voice_output")');
     expect(welcomeUi).toContain("border-signal-cyan/40 bg-signal-cyan/10");
-    expect(welcomeUi).toContain('className="mt-1 text-[11px] text-slate-500"');
+    expect(welcomeUi).toContain('data-testid="presence-honesty"');
+    expect(welcomeUi).toContain(
+      'className="mt-1 hidden text-[11px] text-slate-500 sm:block"',
+    );
     expect(welcomeUi).toContain("!boothOpen && briefLines.length > 0");
   });
 });

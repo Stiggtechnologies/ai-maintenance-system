@@ -1368,10 +1368,10 @@
     "backticked": 1
   },
   "E6.13": {
-    "status": "❌",
+    "status": "✅",
     "evidence": true,
-    "citations": 2,
-    "backticked": 1
+    "citations": 4,
+    "backticked": 4
   },
   "E6.14": {
     "status": "🟡",

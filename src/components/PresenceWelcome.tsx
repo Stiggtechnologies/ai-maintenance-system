@@ -46,10 +46,10 @@ function metadataFullName(value: unknown): string | null {
 }
 
 const MEET_SYNC_BUTTON_CLASS =
-  "inline-flex items-center gap-1.5 rounded-md border border-signal-cyan/40 bg-signal-cyan/10 px-2 py-1 text-xs text-signal-cyan hover:border-signal-cyan/60 hover:bg-signal-cyan/15";
+  "inline-flex items-center gap-1.5 whitespace-nowrap rounded-md border border-signal-cyan/40 bg-signal-cyan/10 px-2 py-1 text-xs text-signal-cyan hover:border-signal-cyan/60 hover:bg-signal-cyan/15";
 
 const SECONDARY_BUTTON_CLASS =
-  "inline-flex items-center gap-1.5 rounded-md border border-white/10 px-2 py-1 text-xs text-slate-300 hover:border-white/20 hover:text-slate-100";
+  "inline-flex items-center gap-1.5 whitespace-nowrap rounded-md border border-white/10 px-2 py-1 text-xs text-slate-300 hover:border-white/20 hover:text-slate-100";
 
 export function PresenceWelcome() {
   const { user, profile, loading } = useAuth();
@@ -228,19 +228,24 @@ export function PresenceWelcome() {
   });
 
   const strip = (
-    <div className="flex items-start justify-between gap-3">
+    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
       <div className="flex min-w-0 items-start gap-3">
         <PresenceFace phase={presencePhase} />
         <div className="min-w-0">
-          <p className="text-sm font-medium text-slate-100">{spokenWelcome}</p>
+          <p className="max-h-10 overflow-hidden text-sm font-medium leading-5 text-slate-100 sm:max-h-none sm:overflow-visible">
+            {spokenWelcome}
+          </p>
           <p
             data-testid="presence-honesty"
-            className="mt-1 text-[11px] text-slate-500"
+            className="mt-1 hidden text-[11px] text-slate-500 sm:block"
           >
             {honesty}
           </p>
           {!boothOpen && briefLines.length > 0 ? (
-            <ul data-testid="presence-brief" className="mt-1.5 space-y-0.5">
+            <ul
+              data-testid="presence-brief"
+              className="mt-1.5 hidden space-y-0.5 sm:block"
+            >
               {briefLines.map((line) => (
                 <li key={line} className="text-xs text-slate-400">
                   {line}
@@ -250,7 +255,7 @@ export function PresenceWelcome() {
           ) : null}
         </div>
       </div>
-      <div className="flex shrink-0 items-center gap-2">
+      <div className="flex w-full shrink-0 flex-wrap items-center justify-end gap-2 sm:w-auto sm:flex-nowrap">
         {!muted ? (
           <button
             type="button"
@@ -310,15 +315,15 @@ export function PresenceWelcome() {
       }
     >
       {muted ? (
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
           <div className="flex min-w-0 items-center gap-3">
             <PresenceFace phase={presencePhase} />
-            <p className="text-xs text-slate-500">
+            <p className="max-h-8 overflow-hidden text-xs leading-4 text-slate-500 sm:max-h-none sm:overflow-visible">
               Presence audio muted. Welcome will not speak in this browser.
               Tenant Voice output (`sync_voice_output`) still gates CopilotDock.
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex w-full flex-wrap items-center justify-end gap-2 sm:w-auto sm:flex-nowrap">
             <button
               type="button"
               onClick={toggleBooth}
