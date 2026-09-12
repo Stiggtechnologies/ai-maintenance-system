@@ -2875,7 +2875,11 @@ export function DevelopmentCaseWorkspacePage() {
         canPlan={canDesignPlan}
         canAcknowledge={canAcknowledgeOperationalDebt}
       />
-      <RealizeCluster caseId={workspace.id} canRealize={canRealize} />
+      <RealizeCluster
+        caseId={workspace.id}
+        canRealize={canRealize}
+        evidence={workspace.evidence}
+      />
       <DeliverablesSection
         workspace={workspace}
         members={members}

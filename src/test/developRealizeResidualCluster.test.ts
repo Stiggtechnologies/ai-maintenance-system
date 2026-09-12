@@ -192,9 +192,9 @@ describe("register flips only the rows this cluster closed", () => {
   it("does not paper-close leftovers this slice did not ship", () => {
     expect(row("D9.05")).toMatch(/^\| D9\.05 \|[^|]*\|[^|]*\| 🟡/);
     expect(row("D9.06")).toMatch(/^\| D9\.06 \|[^|]*\|[^|]*\| 🟡/);
-    expect(row("D9.07")).toMatch(/^\| D9\.07 \|[^|]*\|[^|]*\| ❌/);
+    // D9.07 and D9.15 were subsequently closed by the governed value-leakage
+    // slice. This older residual test must not pin later delivered work red.
     expect(row("D9.09")).toMatch(/^\| D9\.09 \|[^|]*\|[^|]*\| ❌/);
-    expect(row("D9.15")).toMatch(/^\| D9\.15 \|[^|]*\|[^|]*\| ❌/);
     expect(row("D3.02")).toMatch(/^\| D3\.02 \|[^|]*\|[^|]*\| 🟡/);
     expect(row("D11.27")).toMatch(/^\| D11\.27 \|[^|]*\|[^|]*\| 🟡/);
     // D1.03 was subsequently closed by the reachable Hybrid Development
