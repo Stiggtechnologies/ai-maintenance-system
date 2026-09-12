@@ -39,7 +39,7 @@ describe("DomainSpecialistWorkbench", () => {
     const moduleSelect = screen.getByLabelText("Specialist module");
     expect(moduleSelect.querySelectorAll("option")).toHaveLength(15);
     expect(
-      screen.getByText(/15 governed modules and 33 deterministic methods/i),
+      screen.getByText(/15 governed modules and 37 deterministic methods/i),
     ).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Preview locally" }));
@@ -69,6 +69,24 @@ describe("DomainSpecialistWorkbench", () => {
     expect(
       screen.getByRole("option", { name: /Airworthiness directive/i }),
     ).toBeInTheDocument();
+  });
+
+  it("makes every buildings and facilities method reachable from the governed workbench", () => {
+    render(<DomainSpecialistWorkbench risks={[risk]} />);
+    fireEvent.change(screen.getByLabelText("Specialist module"), {
+      target: { value: "buildings-infrastructure" },
+    });
+    const methods = screen.getByLabelText("Method").querySelectorAll("option");
+    expect(methods).toHaveLength(7);
+    expect([...methods].map((option) => option.getAttribute("value"))).toEqual([
+      "code-compliance",
+      "fire-life-safety",
+      "occupancy-accessibility",
+      "occupant-environment",
+      "bas-control-integrity",
+      "energy-water-performance",
+      "facility-renewal-priority",
+    ]);
   });
 
   it("exposes the persisted specialist-role gate and records a review", async () => {

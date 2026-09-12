@@ -23,13 +23,146 @@ describe("domain-depth specialist registry", () => {
     const methods = DOMAIN_SPECIALIST_MODULES.flatMap((module) =>
       module.methods.map((method) => method.key),
     );
-    expect(methods).toHaveLength(33);
+    expect(methods).toHaveLength(37);
     expect(new Set(methods).size).toBe(methods.length);
     expect(registeredDomainEvaluatorKeys()).toEqual([...methods].sort());
     expect(
       new Set(DOMAIN_SPECIALIST_MODULES.map((module) => module.reviewerRoleKey))
         .size,
     ).toBe(15);
+  });
+
+  it("makes the full buildings and facilities family executable and non-authoritative", () => {
+    const module = DOMAIN_SPECIALIST_MODULES.find(
+      (candidate) => candidate.key === "buildings-infrastructure",
+    )!;
+    expect(module.methods.map((method) => method.key)).toEqual([
+      "code-compliance",
+      "fire-life-safety",
+      "occupancy-accessibility",
+      "occupant-environment",
+      "bas-control-integrity",
+      "energy-water-performance",
+      "facility-renewal-priority",
+    ]);
+    for (const method of module.methods) {
+      const result = evaluateDomainSpecialist({
+        moduleKey: module.key,
+        methodKey: method.key,
+        inputs: method.exampleInputs,
+        evidence: evidenceFor(method.requiredEvidence),
+      });
+      expect(result.status, `${method.key}: ${result.gaps}`).toBe("draft");
+      expect(result.authoritative).toBe(false);
+      expect(result.humanApprovalRequired).toBe(true);
+    }
+  });
+
+  it("does not treat unapproved occupied-environment criteria as compliance", () => {
+    const method = DOMAIN_SPECIALIST_MODULES.find(
+      (candidate) => candidate.key === "buildings-infrastructure",
+    )!.methods.find((candidate) => candidate.key === "occupant-environment")!;
+    const inputs = structuredClone(method.exampleInputs);
+    (
+      inputs.observations as Array<Record<string, unknown>>
+    )[0].criteriaApproved = false;
+    const result = evaluateDomainSpecialist({
+      moduleKey: "buildings-infrastructure",
+      methodKey: method.key,
+      inputs,
+      evidence: evidenceFor(method.requiredEvidence),
+    });
+    expect(result.status).toBe("draft");
+    expect(
+      result.metrics.find((metric) => metric.key === "occupied_compliance")
+        ?.value,
+    ).toBe(0);
+    expect(result.gaps.join(" ")).toMatch(/not authority-approved/i);
+  });
+
+  it("surfaces BAS overrides instead of implying control integrity", () => {
+    const method = DOMAIN_SPECIALIST_MODULES.find(
+      (candidate) => candidate.key === "buildings-infrastructure",
+    )!.methods.find((candidate) => candidate.key === "bas-control-integrity")!;
+    const inputs = structuredClone(method.exampleInputs);
+    const point = (inputs.controlPoints as Array<Record<string, unknown>>)[0];
+    point.manualOverrideActive = true;
+    point.overrideApproved = false;
+    const result = evaluateDomainSpecialist({
+      moduleKey: "buildings-infrastructure",
+      methodKey: method.key,
+      inputs,
+      evidence: evidenceFor(method.requiredEvidence),
+    });
+    expect(result.status).toBe("draft");
+    expect(
+      result.metrics.find((metric) => metric.key === "coverage")?.value,
+    ).toBe(0);
+    expect(result.gaps.join(" ")).toMatch(/override control is incomplete/i);
+  });
+
+  it("calculates only approved like-for-like energy and water variance", () => {
+    const method = DOMAIN_SPECIALIST_MODULES.find(
+      (candidate) => candidate.key === "buildings-infrastructure",
+    )!.methods.find(
+      (candidate) => candidate.key === "energy-water-performance",
+    )!;
+    const result = evaluateDomainSpecialist({
+      moduleKey: "buildings-infrastructure",
+      methodKey: method.key,
+      inputs: method.exampleInputs,
+      evidence: evidenceFor(method.requiredEvidence),
+    });
+    expect(result.status).toBe("draft");
+    expect(
+      result.metrics.find((metric) => metric.key === "energy_variance_pct")
+        ?.value,
+    ).toBe(-8);
+    expect(
+      result.metrics.find((metric) => metric.key === "water_variance_pct")
+        ?.value,
+    ).toBe(-3.2);
+
+    const inputs = structuredClone(method.exampleInputs);
+    (
+      inputs.periods as Array<Record<string, unknown>>
+    )[0].normalizationApproved = false;
+    const blocked = evaluateDomainSpecialist({
+      moduleKey: "buildings-infrastructure",
+      methodKey: method.key,
+      inputs,
+      evidence: evidenceFor(method.requiredEvidence),
+    });
+    expect(blocked.status).toBe("blocked");
+    expect(blocked.gaps.join(" ")).toMatch(/no supplied period/i);
+  });
+
+  it("keeps mandatory renewal work ahead of economics and blocks an empty evidence-ready scope", () => {
+    const method = DOMAIN_SPECIALIST_MODULES.find(
+      (candidate) => candidate.key === "buildings-infrastructure",
+    )!.methods.find(
+      (candidate) => candidate.key === "facility-renewal-priority",
+    )!;
+    const result = evaluateDomainSpecialist({
+      moduleKey: "buildings-infrastructure",
+      methodKey: method.key,
+      inputs: method.exampleInputs,
+      evidence: evidenceFor(method.requiredEvidence),
+    });
+    expect(result.status).toBe("draft");
+    expect(result.findings[0]).toMatch(/FIRE-PUMP-1.*MANDATORY/i);
+
+    const inputs = structuredClone(method.exampleInputs);
+    for (const candidate of inputs.candidates as Array<Record<string, unknown>>)
+      candidate.evidenceReady = false;
+    const blocked = evaluateDomainSpecialist({
+      moduleKey: "buildings-infrastructure",
+      methodKey: method.key,
+      inputs,
+      evidence: evidenceFor(method.requiredEvidence),
+    });
+    expect(blocked.status).toBe("blocked");
+    expect(blocked.gaps.join(" ")).toMatch(/no supplied renewal candidate/i);
   });
 
   it("keeps battery thermal, HV, degradation, and fire decisions evidence-bound and non-authoritative", () => {

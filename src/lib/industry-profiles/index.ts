@@ -445,7 +445,7 @@ export const INDUSTRY_PROFILES: IndustryProfile[] = [
   },
   {
     industryCode: "buildings_infrastructure",
-    registerRef: "U5.08-adjacent",
+    registerRef: "U5.05",
     contexts: [
       "structural_deterioration",
       "rotating_equipment_failure",

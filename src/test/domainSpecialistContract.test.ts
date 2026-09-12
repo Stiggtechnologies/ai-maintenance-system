@@ -7,6 +7,7 @@ const read = (path: string) => readFileSync(path, "utf8");
 const migration = [
   read("supabase/migrations/20261213090000_domain_depth_specialists.sql"),
   read("supabase/migrations/20261219139000_battery_energy_storage_pack.sql"),
+  read("supabase/migrations/20261219220000_buildings_facilities_pack.sql"),
 ].join("\n");
 const edge = read("supabase/functions/domain-specialist-run/index.ts");
 const workflow = read(".github/workflows/deploy-migrations.yml");

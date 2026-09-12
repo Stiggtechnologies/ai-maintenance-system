@@ -2155,6 +2155,317 @@ function occupancy(inputs: Record<string, unknown>): Evaluation {
   );
 }
 
+function occupantEnvironment(inputs: Record<string, unknown>): Evaluation {
+  const observations = records(
+    inputs.observations,
+    "Occupied-zone observations",
+  );
+  let occupiedHours = 0;
+  let hoursWithinEnvelope = 0;
+  const gaps: string[] = [];
+  observations.forEach((row, index) => {
+    const id = text(row.id, `Observation ${index + 1} ID`);
+    const hours = positive(row.occupiedHours, `${id} occupied hours`);
+    occupiedHours += hours;
+    const temperature = finite(row.temperatureC, `${id} temperature`);
+    const temperatureMin = finite(
+      row.temperatureMinC,
+      `${id} minimum temperature`,
+    );
+    const temperatureMax = finite(
+      row.temperatureMaxC,
+      `${id} maximum temperature`,
+    );
+    const humidity = finite(row.relativeHumidityPct, `${id} relative humidity`);
+    const humidityMin = finite(row.humidityMinPct, `${id} minimum humidity`);
+    const humidityMax = finite(row.humidityMaxPct, `${id} maximum humidity`);
+    const co2 = nonNegative(row.co2Ppm, `${id} CO₂`);
+    const co2Max = positive(row.co2MaxPpm, `${id} maximum CO₂`);
+    isoDate(row.observedAt, `${id} observation timestamp`);
+    if (
+      temperatureMin > temperatureMax ||
+      humidityMin > humidityMax ||
+      humidityMin < 0 ||
+      humidityMax > 100
+    ) {
+      throw new InputError(`${id} contains an invalid supplied envelope.`);
+    }
+    const reasons: string[] = [];
+    if (!bool(row.criteriaApproved))
+      reasons.push("the supplied envelope is not authority-approved");
+    if (!bool(row.calibrated))
+      reasons.push("sensor calibration is not confirmed");
+    if (temperature < temperatureMin || temperature > temperatureMax)
+      reasons.push(
+        `temperature ${temperature} °C is outside ${temperatureMin}–${temperatureMax} °C`,
+      );
+    if (humidity < humidityMin || humidity > humidityMax)
+      reasons.push(
+        `relative humidity ${humidity}% is outside ${humidityMin}–${humidityMax}%`,
+      );
+    if (co2 > co2Max)
+      reasons.push(`CO₂ ${co2} ppm exceeds supplied maximum ${co2Max} ppm`);
+    if (reasons.length) gaps.push(`${id}: ${reasons.join("; ")}.`);
+    else hoursWithinEnvelope += hours;
+  });
+  return {
+    summary: `${round(hoursWithinEnvelope, 1)} of ${round(occupiedHours, 1)} supplied occupied hours are within approved temperature, humidity, and CO₂ envelopes with confirmed calibration.`,
+    metrics: [
+      {
+        key: "occupied_hours",
+        label: "Occupied hours assessed",
+        value: round(occupiedHours, 1),
+        unit: "hours",
+      },
+      {
+        key: "occupied_hours_within_envelope",
+        label: "Occupied hours within envelope",
+        value: round(hoursWithinEnvelope, 1),
+        unit: "hours",
+      },
+      {
+        key: "occupied_compliance",
+        label: "Occupied-hour envelope coverage",
+        value: round((100 * hoursWithinEnvelope) / occupiedHours, 1),
+        unit: "%",
+      },
+    ],
+    findings: gaps.length
+      ? ["At least one occupied-zone observation requires investigation."]
+      : ["No exception was found against the supplied approved envelopes."],
+    gaps,
+    assumptions: [
+      "The supplied occupancy hours, zone mapping, criteria, units, calibration state, and measurement boundary are current and applicable.",
+    ],
+    formulae: [
+      "Occupied-hour envelope coverage = compliant occupied hours / assessed occupied hours.",
+    ],
+  };
+}
+
+function basControlIntegrity(inputs: Record<string, unknown>): Evaluation {
+  const points = records(inputs.controlPoints, "BAS control points").filter(
+    (row) => row.required !== false,
+  );
+  return coverageEvaluation(
+    "required BAS control point",
+    points,
+    (row) => {
+      const command = finite(row.commandValue, "Command value");
+      const feedback = finite(row.feedbackValue, "Feedback value");
+      const tolerance = nonNegative(row.tolerance, "Supplied tolerance");
+      return (
+        Math.abs(command - feedback) <= tolerance &&
+        row.alarmTestCurrent === true &&
+        row.failSafeTestCurrent === true &&
+        row.trendComplete === true &&
+        (row.manualOverrideActive !== true || row.overrideApproved === true)
+      );
+    },
+    (row, index) => String(row.id ?? `control point ${index + 1}`),
+    "command/feedback agreement, alarm/fail-safe test, trend, or override control is incomplete",
+  );
+}
+
+function energyWaterPerformance(inputs: Record<string, unknown>): Evaluation {
+  const periods = records(inputs.periods, "Normalized performance periods");
+  const gaps: string[] = [];
+  let actualEnergy = 0;
+  let baselineEnergy = 0;
+  let actualWater = 0;
+  let baselineWater = 0;
+  let comparable = 0;
+  periods.forEach((row, index) => {
+    const id = text(row.id, `Period ${index + 1} ID`);
+    const values = {
+      actualEnergy: nonNegative(row.actualEnergyKwh, `${id} actual energy`),
+      baselineEnergy: positive(row.baselineEnergyKwh, `${id} baseline energy`),
+      actualWater: nonNegative(row.actualWaterM3, `${id} actual water`),
+      baselineWater: positive(row.baselineWaterM3, `${id} baseline water`),
+    };
+    if (
+      !bool(row.normalizationApproved) ||
+      !bool(row.boundaryEquivalent) ||
+      !bool(row.dataQualityAccepted)
+    ) {
+      gaps.push(
+        `${id}: approved normalization, equivalent boundary, or accepted data quality is missing.`,
+      );
+      return;
+    }
+    comparable += 1;
+    actualEnergy += values.actualEnergy;
+    baselineEnergy += values.baselineEnergy;
+    actualWater += values.actualWater;
+    baselineWater += values.baselineWater;
+  });
+  if (!comparable)
+    throw new InputError(
+      "No supplied period has approved normalization, an equivalent boundary, and accepted data quality.",
+    );
+  const energyVariance = actualEnergy - baselineEnergy;
+  const waterVariance = actualWater - baselineWater;
+  return {
+    summary: `${comparable} of ${periods.length} supplied period(s) are comparable with the approved normalized baseline. Variances are observations, not certified savings.`,
+    metrics: [
+      {
+        key: "energy_variance",
+        label: "Energy variance",
+        value: round(energyVariance, 1),
+        unit: "kWh",
+      },
+      {
+        key: "energy_variance_pct",
+        label: "Energy variance",
+        value: round((100 * energyVariance) / baselineEnergy, 1),
+        unit: "%",
+      },
+      {
+        key: "water_variance",
+        label: "Water variance",
+        value: round(waterVariance, 1),
+        unit: "m³",
+      },
+      {
+        key: "water_variance_pct",
+        label: "Water variance",
+        value: round((100 * waterVariance) / baselineWater, 1),
+        unit: "%",
+      },
+    ],
+    findings: [
+      energyVariance <= 0
+        ? "Metered energy is not above the supplied normalized baseline."
+        : "Metered energy is above the supplied normalized baseline.",
+      waterVariance <= 0
+        ? "Metered water is not above the supplied normalized baseline."
+        : "Metered water is above the supplied normalized baseline.",
+    ],
+    gaps,
+    assumptions: [
+      "The approved baseline already accounts for relevant weather, occupancy, service level, schedule, meter, and boundary effects.",
+    ],
+    formulae: [
+      "Variance = metered actual - approved normalized baseline.",
+      "Variance percent = 100 × variance / approved normalized baseline.",
+    ],
+  };
+}
+
+function facilityRenewalPriority(inputs: Record<string, unknown>): Evaluation {
+  const budget = positive(
+    inputs.availableBudget,
+    "Indicative available budget",
+  );
+  const weights = object(inputs.weights, "Approved priority weights");
+  if (!bool(weights.approved))
+    throw new InputError("Priority weights must be explicitly approved.");
+  text(weights.approvalReference, "Priority weight approval reference");
+  const factors = ["safety", "compliance", "service", "condition", "energy"];
+  const factorWeights = Object.fromEntries(
+    factors.map((factor) => [
+      factor,
+      nonNegative(weights[factor], `${factor} weight`),
+    ]),
+  );
+  if (Object.values(factorWeights).every((value) => value === 0))
+    throw new InputError(
+      "At least one approved priority weight must be positive.",
+    );
+  const candidates = records(inputs.candidates, "Renewal candidates");
+  requireUnique(
+    candidates.map((row, index) => text(row.id, `Candidate ${index + 1} ID`)),
+    "Renewal candidates",
+  );
+  const gaps: string[] = [];
+  const rankable = candidates.flatMap((row, index) => {
+    const id = text(row.id, `Candidate ${index + 1} ID`);
+    const cost = positive(row.cost, `${id} cost`);
+    if (!bool(row.evidenceReady)) {
+      gaps.push(`${id}: evidence is not ready for portfolio comparison.`);
+      return [];
+    }
+    const scores = Object.fromEntries(
+      factors.map((factor) => {
+        const score = finite(row[factor], `${id} ${factor} score`);
+        if (score < 0 || score > 5)
+          throw new InputError(
+            `${id} ${factor} score must be between 0 and 5.`,
+          );
+        return [factor, score];
+      }),
+    );
+    const benefit = factors.reduce(
+      (sum, factor) => sum + scores[factor] * factorWeights[factor],
+      0,
+    );
+    const mandatory = bool(row.mandatory);
+    let due = Number.POSITIVE_INFINITY;
+    if (mandatory) {
+      if (!row.dueDate)
+        gaps.push(`${id}: mandatory candidate has no supplied due date.`);
+      else due = isoDate(row.dueDate, `${id} due date`).getTime();
+    }
+    return [{ id, cost, mandatory, due, benefit, priority: benefit / cost }];
+  });
+  if (!rankable.length)
+    throw new InputError(
+      "No supplied renewal candidate is evidence-ready for governed priority review.",
+    );
+  rankable.sort(
+    (left, right) =>
+      Number(right.mandatory) - Number(left.mandatory) ||
+      (left.mandatory && right.mandatory ? left.due - right.due : 0) ||
+      right.priority - left.priority ||
+      left.id.localeCompare(right.id),
+  );
+  const mandatoryCost = rankable
+    .filter((item) => item.mandatory)
+    .reduce((sum, item) => sum + item.cost, 0);
+  let planned = 0;
+  const findings = rankable.map((item, index) => {
+    const withinEnvelope = planned + item.cost <= budget;
+    planned += item.cost;
+    return `${index + 1}. ${item.id} · ${item.mandatory ? "MANDATORY — not economically deferrable" : `weighted benefit/cost ${round(item.priority, 6)}`} · ${withinEnvelope ? "inside" : "outside"} the indicative cumulative budget line.`;
+  });
+  if (mandatoryCost > budget)
+    gaps.push(
+      `Mandatory candidate cost exceeds the indicative budget by ${round(mandatoryCost - budget, 2)}; authority resolution is required and mandatory work is not deferred by this model.`,
+    );
+  return {
+    summary: `${rankable.length} of ${candidates.length} renewal candidate(s) are evidence-ready for governed priority review; the planning envelope is not expenditure authorization.`,
+    metrics: [
+      {
+        key: "indicative_budget",
+        label: "Indicative planning envelope",
+        value: round(budget, 2),
+        unit: "supplied currency",
+      },
+      {
+        key: "mandatory_cost",
+        label: "Mandatory candidate cost",
+        value: round(mandatoryCost, 2),
+        unit: "supplied currency",
+      },
+      {
+        key: "evidence_ready_candidates",
+        label: "Evidence-ready candidates",
+        value: rankable.length,
+        unit: "count",
+      },
+    ],
+    findings,
+    gaps,
+    assumptions: [
+      "Mandatory classifications, due dates, factor scores, costs, dependencies, weights, and budget are current and approved for this comparison.",
+    ],
+    formulae: [
+      "Weighted benefit = Σ(supplied 0–5 factor score × approved factor weight).",
+      "Non-mandatory priority = weighted benefit / supplied cost; mandatory work remains outside economic trade-off.",
+    ],
+  };
+}
+
 const evaluators: Partial<
   Record<string, (inputs: Record<string, unknown>) => Evaluation>
 > = {
@@ -2191,6 +2502,10 @@ const evaluators: Partial<
   "code-compliance": codeCompliance,
   "fire-life-safety": fireLifeSafety,
   "occupancy-accessibility": occupancy,
+  "occupant-environment": occupantEnvironment,
+  "bas-control-integrity": basControlIntegrity,
+  "energy-water-performance": energyWaterPerformance,
+  "facility-renewal-priority": facilityRenewalPriority,
 };
 
 function present(value: unknown): boolean {

@@ -8,6 +8,7 @@ import {
   type DomainSpecialistModuleKey,
   type DomainSpecialistResult,
 } from "../lib/domain-specialists";
+
 import {
   getDomainSpecialistRuns,
   previewDomainSpecialist,
@@ -16,6 +17,11 @@ import {
   type DomainSpecialistRunRow,
 } from "../services/domainSpecialistService";
 import type { RiskRecord } from "../types/risk";
+
+const DOMAIN_SPECIALIST_METHOD_COUNT = DOMAIN_SPECIALIST_MODULES.reduce(
+  (count, module) => count + module.methods.length,
+  0,
+);
 
 function resultTone(result: DomainSpecialistResult | null): string {
   if (!result) return "border-white/7 bg-[#0D1520]";
@@ -168,10 +174,11 @@ export function DomainSpecialistWorkbench({ risks }: { risks: RiskRecord[] }) {
               Domain-depth specialist workbench
             </h2>
             <p className="mt-1 max-w-4xl text-sm leading-relaxed text-slate-400">
-              15 governed modules and 33 deterministic methods. Every run is
-              attached to a risk and canonical evidence, registered as a model,
-              recalculated server-side, and retained as a non-authoritative
-              draft for independent human review.
+              {DOMAIN_SPECIALIST_MODULES.length} governed modules and{" "}
+              {DOMAIN_SPECIALIST_METHOD_COUNT} deterministic methods. Every run
+              is attached to a risk and canonical evidence, registered as a
+              model, recalculated server-side, and retained as a
+              non-authoritative draft for independent human review.
             </p>
           </div>
         </div>
