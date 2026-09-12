@@ -30,6 +30,7 @@ import { TaxonomyGovernance } from "../components/TaxonomyGovernance";
 import { SafetyGatekeeperPanel } from "../components/SafetyGatekeeperPanel";
 import { ControlAssurance } from "../components/ControlAssurance";
 import { GovernanceStandards } from "../components/GovernanceStandards";
+import { EnterpriseMethodFederation } from "../components/EnterpriseMethodFederation";
 import { ModelRisk } from "../components/ModelRisk";
 import { GovernanceAgentPanel } from "../components/GovernanceAgentPanel";
 import { HopSystemConditionsPanel } from "../components/HopSystemConditionsPanel";
@@ -402,6 +403,8 @@ export function DecisionGovernance() {
       <DecisionRightsMatrix />
 
       <TaxonomyGovernance />
+
+      <EnterpriseMethodFederation />
 
       <GovernanceStandards />
 

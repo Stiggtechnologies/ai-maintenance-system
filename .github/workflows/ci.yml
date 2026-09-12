@@ -331,6 +331,9 @@ jobs:
       - name: Smoke — loss forecast, risk backlog and outage options
         run: bash scripts/ci-loss-forecast-backlog-outage-smoke.sh
 
+      - name: Smoke — enterprise methods and governed site strategies
+        run: bash scripts/ci-enterprise-method-federation-smoke.sh
+
       - name: Smoke — Sync Develop Hybrid Development (per-workstream methods)
         run: bash scripts/ci-develop-hybrid-workstreams-smoke.sh
 

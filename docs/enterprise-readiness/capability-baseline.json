@@ -948,10 +948,10 @@
     "backticked": 5
   },
   "C9.06": {
-    "status": "❌",
-    "evidence": false,
-    "citations": 0,
-    "backticked": 0
+    "status": "✅",
+    "evidence": true,
+    "citations": 9,
+    "backticked": 9
   },
   "C9.07": {
     "status": "🟡",
