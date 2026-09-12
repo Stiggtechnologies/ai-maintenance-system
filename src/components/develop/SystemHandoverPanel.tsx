@@ -2,8 +2,10 @@ import { FormEvent, useCallback, useEffect, useState } from "react";
 import {
   listOrgEvidenceItems,
   listOrgMembers,
+  getCaseSystemOperationalReadiness,
   type OrgMember,
 } from "../../services/developService";
+import type { SystemOperationalReadinessResult } from "../../lib/develop";
 import {
   acceptSystemHandoverPackage,
   assembleSystemHandoverPackage,
@@ -11,6 +13,7 @@ import {
   type CaseSystemHandoverPackages,
   type HandoverReadinessDimension,
 } from "../../services/handoverPackageService";
+import { OperationsReadinessBriefing } from "./OperationsReadinessBriefing";
 
 const input =
   "rounded border border-white/10 bg-overlook-deep p-2 text-xs text-slate-200";
@@ -42,7 +45,8 @@ function Dimension({
         {dimension.percent === null ? "—" : `${dimension.percent}%`}
       </p>
       <p className="text-[11px] text-slate-500">
-        {dimension.satisfied}/{dimension.total} evidence-complete · {dimension.source}
+        {dimension.satisfied}/{dimension.total} evidence-complete ·{" "}
+        {dimension.source}
       </p>
       {dimension.categories && (
         <p className="mt-1 text-[10px] text-slate-600">
@@ -75,6 +79,8 @@ export function SystemHandoverPanel({
   role: string | null | undefined;
 }) {
   const [model, setModel] = useState<CaseSystemHandoverPackages | null>(null);
+  const [systemReadiness, setSystemReadiness] =
+    useState<SystemOperationalReadinessResult | null>(null);
   const [members, setMembers] = useState<OrgMember[]>([]);
   const [evidence, setEvidence] = useState<
     Array<{ id: string; description: string }>
@@ -105,12 +111,14 @@ export function SystemHandoverPanel({
   const load = useCallback(async () => {
     setError(null);
     try {
-      const [next, people, sources] = await Promise.all([
+      const [next, readiness, people, sources] = await Promise.all([
         getCaseSystemHandoverPackages(caseId),
+        getCaseSystemOperationalReadiness(caseId),
         listOrgMembers(),
         listOrgEvidenceItems(),
       ]);
       setModel(next);
+      setSystemReadiness(readiness);
       setMembers(people);
       setEvidence(sources);
     } catch (caught) {
@@ -155,10 +163,7 @@ export function SystemHandoverPanel({
     }
   }
 
-  async function accept(
-    packageId: number,
-    event: FormEvent<HTMLFormElement>,
-  ) {
+  async function accept(packageId: number, event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = event.currentTarget;
     const data = new FormData(form);
@@ -174,7 +179,9 @@ export function SystemHandoverPanel({
       await load();
     } catch (caught) {
       setError(
-        caught instanceof Error ? caught.message : "Handover acceptance refused",
+        caught instanceof Error
+          ? caught.message
+          : "Handover acceptance refused",
       );
     } finally {
       setBusy(false);
@@ -206,14 +213,14 @@ export function SystemHandoverPanel({
           Loading canonical handover evidence…
         </p>
       )}
-      {model && (
+      {model && systemReadiness && (
         <>
-          <p className="mt-3 text-[11px] text-slate-500">
-            {model.decisionBoundary}
-          </p>
-          <p className="mt-1 text-[11px] text-slate-600">
-            {model.equipmentReleaseBoundary}
-          </p>
+          <div className="mt-4">
+            <OperationsReadinessBriefing
+              model={model}
+              systemReadiness={systemReadiness}
+            />
+          </div>
           {model.systems.length > 0 && (
             <div className="mt-4 overflow-x-auto rounded border border-white/8">
               <table className="min-w-full text-left text-[11px] text-slate-400">
@@ -230,14 +237,18 @@ export function SystemHandoverPanel({
                 </thead>
                 <tbody>
                   {model.systems.map((system) => (
-                    <tr key={system.systemId} className="border-t border-white/6">
+                    <tr
+                      key={system.systemId}
+                      className="border-t border-white/6"
+                    >
                       <td className="p-2 text-slate-200">{system.systemRef}</td>
                       <td className="p-2">
                         {system.readiness.physicalReadiness.satisfied}/
                         {system.readiness.physicalReadiness.total} released
                       </td>
                       <td className="p-2">
-                        {system.readiness.physicalReadiness.openPunchCount ?? 0} open
+                        {system.readiness.physicalReadiness.openPunchCount ?? 0}{" "}
+                        open
                       </td>
                       <td className="p-2">
                         {
@@ -248,7 +259,8 @@ export function SystemHandoverPanel({
                         documentation gap(s)
                       </td>
                       <td className="p-2">
-                        {system.readiness.informationReadiness.status === "READY"
+                        {system.readiness.informationReadiness.status ===
+                        "READY"
                           ? "Evidence complete"
                           : "Gaps remain"}
                       </td>
@@ -321,19 +333,23 @@ export function SystemHandoverPanel({
                   </h4>
                   <p className="mt-1 text-[11px] text-slate-500">
                     {system.readiness.acceptedResidualRiskCount}/
-                    {system.readiness.residualRiskCount} have a current canonical
-                    human risk acceptance.
+                    {system.readiness.residualRiskCount} have a current
+                    canonical human risk acceptance.
                   </p>
                   <div className="mt-2 space-y-1">
                     {system.readiness.residualRisks.length === 0 ? (
                       <p className="text-[11px] text-slate-600">
-                        No current case or bound-asset risks were found when this
-                        package was assembled.
+                        No current case or bound-asset risks were found when
+                        this package was assembled.
                       </p>
                     ) : (
                       system.readiness.residualRisks.map((risk) => (
-                        <p key={risk.riskId} className="text-[11px] text-slate-400">
-                          {risk.accepted ? "Accepted" : "Not accepted"} · {risk.title}
+                        <p
+                          key={risk.riskId}
+                          className="text-[11px] text-slate-400"
+                        >
+                          {risk.accepted ? "Accepted" : "Not accepted"} ·{" "}
+                          {risk.title}
                           {risk.riskLevel ? ` · ${risk.riskLevel}` : ""}
                         </p>
                       ))
@@ -360,18 +376,25 @@ export function SystemHandoverPanel({
                 {canPrepare && system.package?.status !== "accepted" && (
                   <form
                     onSubmit={(event) =>
-                      void assemble(system.systemId, system.systemOwnerId, event)
+                      void assemble(
+                        system.systemId,
+                        system.systemOwnerId,
+                        event,
+                      )
                     }
                     className="mt-4 grid gap-2 md:grid-cols-3"
                   >
                     <h4 className="text-xs font-semibold text-slate-200 md:col-span-3">
-                      {system.package ? "Reassemble current draft" : "Assemble draft"}
+                      {system.package
+                        ? "Reassemble current draft"
+                        : "Assemble draft"}
                     </h4>
                     <select name="ownerTo" required className={input}>
                       <option value="">Operations owner-to…</option>
                       {operationsOwners.map((member) => (
                         <option key={member.id} value={member.id}>
-                          {person(member)} · {label(member.role ?? "role not recorded")}
+                          {person(member)} ·{" "}
+                          {label(member.role ?? "role not recorded")}
                         </option>
                       ))}
                     </select>
@@ -406,9 +429,7 @@ export function SystemHandoverPanel({
                 )}
                 {canAccept && system.package?.status === "draft" && (
                   <form
-                    onSubmit={(event) =>
-                      void accept(system.package!.id, event)
-                    }
+                    onSubmit={(event) => void accept(system.package!.id, event)}
                     className="mt-4 grid gap-2 md:grid-cols-2"
                   >
                     <h4 className="text-xs font-semibold text-slate-200 md:col-span-2">
@@ -433,7 +454,9 @@ export function SystemHandoverPanel({
                       disabled={busy || !system.readiness.canAccept}
                       className="rounded bg-emerald-400 px-3 py-2 text-xs font-semibold text-slate-950 disabled:opacity-50 md:col-span-2"
                     >
-                      {busy ? "Working…" : "Accept package and system ownership"}
+                      {busy
+                        ? "Working…"
+                        : "Accept package and system ownership"}
                     </button>
                   </form>
                 )}
