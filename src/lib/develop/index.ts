@@ -1122,6 +1122,54 @@ export interface CaseFinanceModel {
   };
 }
 
+export interface OptionComparisonDimensionRow {
+  dimension: string;
+  status: "recorded" | "missing";
+  observation: string | null;
+  value: number | null;
+  unit: string | null;
+  basis: string | null;
+  evidenceItemId: string | null;
+}
+
+export interface ClimateHazardAssessmentRow {
+  hazard: string;
+  futureCondition: string;
+  designResponse: string;
+  residualGap: string;
+  evidenceItemId: string;
+}
+
+export interface ClimateResilienceAssessmentView {
+  id: string;
+  assessmentRef: string;
+  revision: number;
+  status: "draft" | "reviewed" | "superseded";
+  futureConditionsBasis: string;
+  reviewedAt: string | null;
+  reviewNote: string | null;
+  hazards: ClimateHazardAssessmentRow[];
+  missingHazards: string[];
+}
+
+export interface CaseOptionComparison {
+  caseId: string;
+  available: boolean;
+  options: Array<{
+    id: number;
+    label: string;
+    isDoNothing: boolean;
+    dimensions: OptionComparisonDimensionRow[];
+    missingDimensions: string[];
+    comparisonComplete: boolean;
+    climateAssessment: ClimateResilienceAssessmentView | null;
+  }>;
+  comparisonComplete: boolean;
+  requiredDimensions: 11;
+  requiredClimateHazards: 8;
+  decisionBoundary: string;
+}
+
 export interface TrajectoryPoint {
   evaluationId: string;
   expectedValue: number;

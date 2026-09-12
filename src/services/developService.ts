@@ -11,6 +11,7 @@
 import { supabase } from "../lib/supabase";
 import type {
   CaseWorkspace,
+  CaseOptionComparison,
   GateReadinessResult,
   OperationalReadinessResult,
   OperationalReadinessIndexFactor,
@@ -1205,6 +1206,93 @@ export async function getCaseFinanceModel(
     p_case_id: caseId,
   });
   return unwrapRpc(data, error, "Could not load the finance model");
+}
+
+export async function getCaseOptionComparison(
+  caseId: string,
+): Promise<CaseOptionComparison> {
+  const { data, error } = await supabase.rpc("get_case_option_comparison", {
+    p_case_id: caseId,
+  });
+  return unwrapRpc(data, error, "Could not load the option comparison");
+}
+
+export async function recordOptionSustainabilityObservation(input: {
+  optionId: number;
+  dimension: string;
+  observation: string;
+  value?: number | null;
+  unit?: string | null;
+  basis: string;
+  evidenceItemId: string;
+}): Promise<{ id: number; optionId: number; dimension: string }> {
+  const { data, error } = await supabase.rpc(
+    "record_option_sustainability_observation",
+    {
+      p_option_id: input.optionId,
+      p_dimension: input.dimension,
+      p_observation: input.observation,
+      p_value: input.value ?? null,
+      p_unit: input.unit ?? null,
+      p_basis: input.basis,
+      p_evidence_item_id: input.evidenceItemId,
+    },
+  );
+  return unwrapRpc(data, error, "Could not record the option observation");
+}
+
+export async function createClimateResilienceAssessment(input: {
+  optionId: number;
+  assessmentRef: string;
+  futureConditionsBasis: string;
+}): Promise<{ assessmentId: string; revision: number; status: string }> {
+  const { data, error } = await supabase.rpc(
+    "create_climate_resilience_assessment",
+    {
+      p_option_id: input.optionId,
+      p_assessment_ref: input.assessmentRef,
+      p_future_conditions_basis: input.futureConditionsBasis,
+    },
+  );
+  return unwrapRpc(data, error, "Could not create the climate assessment");
+}
+
+export async function recordClimateResilienceHazard(input: {
+  assessmentId: string;
+  hazard: string;
+  futureCondition: string;
+  designResponse: string;
+  residualGap: string;
+  evidenceItemId: string;
+}): Promise<{ id: number; assessmentId: string; hazard: string }> {
+  const { data, error } = await supabase.rpc(
+    "record_climate_resilience_hazard",
+    {
+      p_assessment_id: input.assessmentId,
+      p_hazard: input.hazard,
+      p_future_condition: input.futureCondition,
+      p_design_response: input.designResponse,
+      p_residual_gap: input.residualGap,
+      p_evidence_item_id: input.evidenceItemId,
+    },
+  );
+  return unwrapRpc(data, error, "Could not record the climate hazard");
+}
+
+export async function reviewClimateResilienceAssessment(input: {
+  assessmentId: string;
+  note: string;
+}): Promise<{
+  assessmentId: string;
+  status: string;
+  hazards: number;
+  decisionBoundary: string;
+}> {
+  const { data, error } = await supabase.rpc(
+    "review_climate_resilience_assessment",
+    { p_assessment_id: input.assessmentId, p_note: input.note },
+  );
+  return unwrapRpc(data, error, "Could not review the climate assessment");
 }
 
 export async function getCaseValueTrajectory(
