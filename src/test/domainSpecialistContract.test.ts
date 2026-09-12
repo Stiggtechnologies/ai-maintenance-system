@@ -10,7 +10,13 @@ const migration = [
   read("supabase/migrations/20261219220000_buildings_facilities_pack.sql"),
   read("supabase/migrations/20261219230000_healthcare_pack.sql"),
   read("supabase/migrations/20261219240000_civil_infrastructure_pack.sql"),
-].join("\n");
+  read("supabase/migrations/20261219250000_process_industry_pack.sql"),
+]
+  .join("\n")
+  // Additive migrations patch deployed function definitions through SQL
+  // string literals, where embedded quotes are doubled. Normalize that
+  // representation before comparing the effective registry contract.
+  .replaceAll("''", "'");
 const edge = read("supabase/functions/domain-specialist-run/index.ts");
 const workflow = read(".github/workflows/deploy-migrations.yml");
 const closeout = read(".github/workflows/domain-specialists-closeout.yml");

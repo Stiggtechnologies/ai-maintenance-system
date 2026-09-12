@@ -2094,10 +2094,10 @@
     "backticked": 0
   },
   "U5.01": {
-    "status": "🟡",
+    "status": "✅",
     "evidence": true,
-    "citations": 1,
-    "backticked": 0
+    "citations": 4,
+    "backticked": 4
   },
   "U5.02": {
     "status": "🟡",
@@ -2126,13 +2126,13 @@
   "U5.06": {
     "status": "✅",
     "evidence": true,
-    "citations": 3,
+    "citations": 5,
     "backticked": 5
   },
   "U5.07": {
     "status": "✅",
     "evidence": true,
-    "citations": 3,
+    "citations": 5,
     "backticked": 5
   },
   "U6.01": {

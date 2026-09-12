@@ -23,13 +23,73 @@ describe("domain-depth specialist registry", () => {
     const methods = DOMAIN_SPECIALIST_MODULES.flatMap((module) =>
       module.methods.map((method) => method.key),
     );
-    expect(methods).toHaveLength(49);
+    expect(methods).toHaveLength(54);
     expect(new Set(methods).size).toBe(methods.length);
     expect(registeredDomainEvaluatorKeys()).toEqual([...methods].sort());
     expect(
       new Set(DOMAIN_SPECIALIST_MODULES.map((module) => module.reviewerRoleKey))
       .size,
     ).toBe(17);
+  });
+
+  it("makes the complete process-industry family executable and non-authoritative", () => {
+    const module = DOMAIN_SPECIALIST_MODULES.find(
+      (candidate) => candidate.key === "petrochemical-rbi",
+    )!;
+    expect(module.methods.map((method) => method.key)).toEqual([
+      "rbi-corrosion-loop",
+      "process-safety-barriers",
+      "pressure-containment-assurance",
+      "sis-proof-test-assurance",
+      "turnaround-readiness",
+      "loss-of-containment-risk",
+    ]);
+    for (const method of module.methods) {
+      const result = evaluateDomainSpecialist({
+        moduleKey: module.key,
+        methodKey: method.key,
+        inputs: method.exampleInputs,
+        evidence: evidenceFor(method.requiredEvidence),
+      });
+      expect(result.status, `${method.key}: ${result.gaps}`).toBe("draft");
+      expect(result.authoritative).toBe(false);
+      expect(result.humanApprovalRequired).toBe(true);
+      expect(result.requiredApproverRoleKey).toBe("domain_rbi_reviewer");
+    }
+  });
+
+  it("blocks every process-industry method without canonical evidence", () => {
+    const module = DOMAIN_SPECIALIST_MODULES.find(
+      (candidate) => candidate.key === "petrochemical-rbi",
+    )!;
+    for (const method of module.methods) {
+      const result = evaluateDomainSpecialist({
+        moduleKey: module.key,
+        methodKey: method.key,
+        inputs: method.exampleInputs,
+        evidence: [],
+      });
+      expect(result.status).toBe("blocked");
+    }
+  });
+
+  it("never credits an unverified loss-of-containment barrier", () => {
+    const method = DOMAIN_SPECIALIST_MODULES.find(
+      (candidate) => candidate.key === "petrochemical-rbi",
+    )!.methods.find(
+      (candidate) => candidate.key === "loss-of-containment-risk",
+    )!;
+    const inputs = structuredClone(method.exampleInputs);
+    (inputs.scenarios as Array<Record<string, unknown>>)[0].barriersVerified =
+      false;
+    const result = evaluateDomainSpecialist({
+      moduleKey: "petrochemical-rbi",
+      methodKey: method.key,
+      inputs,
+      evidence: evidenceFor(method.requiredEvidence),
+    });
+    expect(result.status).toBe("draft");
+    expect(result.gaps.join(" ")).toMatch(/not evidenced as verified/i);
   });
 
   it("makes the complete civil-infrastructure family executable and non-authoritative", () => {

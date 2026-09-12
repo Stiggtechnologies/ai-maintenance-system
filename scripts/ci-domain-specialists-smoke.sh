@@ -27,6 +27,23 @@ DEMO=$(token 'demo@syncai.ca' 'Demo123!@#')
 ADMIN=$(token 'admin@syncai.ca' 'Admin123!@#')
 test -n "$DEMO"; test -n "$ADMIN"
 
+# U5.01: the process-industry workbench must expose every claimed integrity,
+# process-safety and turnaround method with a server-owned evidence contract.
+PROCESS_REGISTRY=$(PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -Atc "
+with methods(method_key) as (values
+ ('rbi-corrosion-loop'),('process-safety-barriers'),
+ ('pressure-containment-assurance'),('sis-proof-test-assurance'),
+ ('turnaround-readiness'),('loss-of-containment-risk')
+)
+select bool_and(
+ domain_specialist_method_is_registered('petrochemical-rbi',method_key)
+ and cardinality(domain_specialist_required_evidence(method_key)) > 0
+) from methods;")
+if [ "$PROCESS_REGISTRY" != "t" ]; then
+  echo "Process Industry specialist registry/evidence contract is incomplete" >&2
+  exit 1
+fi
+
 # U5.05: prove the deployed SQL registry accepts every operational Buildings
 # and Facilities method and exposes a non-empty server-owned evidence contract.
 BUILDINGS_REGISTRY=$(PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -Atc "
@@ -94,7 +111,7 @@ RUN=$(python3 - <<'PY'
 import json
 result={
   'moduleKey':'petrochemical-rbi','methodKey':'rbi-corrosion-loop',
-  'modelKey':'domain.petrochemical-rbi.rbi-corrosion-loop','modelVersion':'1.0.0',
+  'modelKey':'domain.petrochemical-rbi.rbi-corrosion-loop','modelVersion':'1.1.0',
   'status':'draft','authoritative':False,'humanApprovalRequired':True,
   'requiredApproverRoleKey':'domain_rbi_reviewer',
   'inputs':{
@@ -106,7 +123,7 @@ result={
   },
   'result':{
     'moduleKey':'petrochemical-rbi','methodKey':'rbi-corrosion-loop',
-    'modelKey':'domain.petrochemical-rbi.rbi-corrosion-loop','modelVersion':'1.0.0',
+    'modelKey':'domain.petrochemical-rbi.rbi-corrosion-loop','modelVersion':'1.1.0',
     'requiredApproverRoleKey':'domain_rbi_reviewer','status':'draft',
     'summary':'CI server-calculated contract fixture','authoritative':False,
     'humanApprovalRequired':True,'gaps':[]
@@ -128,7 +145,7 @@ test -n "$RUN_ID"
 
 STATE=$(PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -Atc "select run_status||':'||authoritative::text||':'||human_approval_required::text||':'||(created_by='$AUTHOR')::text||':'||cardinality(evidence_item_ids) from domain_specialist_runs where id='$RUN_ID';")
 test "$STATE" = 'draft:false:true:true:1'
-MODEL=$(PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -Atc "select approved_on is null and human_in_loop from model_register where organization_id='$ORG' and model_key='domain.petrochemical-rbi.rbi-corrosion-loop' and version='1.0.0';")
+MODEL=$(PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -Atc "select approved_on is null and human_in_loop from model_register where organization_id='$ORG' and model_key='domain.petrochemical-rbi.rbi-corrosion-loop' and version='1.1.0';")
 test "$MODEL" = 't'
 
 # The run author cannot independently review their own calculation.

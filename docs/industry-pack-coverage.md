@@ -17,7 +17,7 @@ review advances it.
 | Oil Sands                  |               5 | Tailings geotechnical screening (1)                           |
 | Mining                     |               4 | None requested                                                |
 | Oil & Gas                  |               4 | Well barrier and pressure-envelope review (1)                 |
-| Petrochemical              |               4 | RBI corrosion-loop calculation (1)                            |
+| Petrochemical              |               4 | Process integrity, process safety and RBI (6)                  |
 | Power Generation           |               4 | None requested                                                |
 | Battery & Energy Storage   |               4 | Thermal; HV safety; degradation; fire readiness (4)           |
 | Utilities                  |               3 | Storm mobilization and crew dispatch (1)                      |
