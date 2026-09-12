@@ -216,3 +216,66 @@ test.describe("public assessment landing @ mobile (390x844)", () => {
     await assertNoHorizontalOverflow(page);
   });
 });
+
+/**
+ * E6.13 — the authenticated shell must give the page the whole phone viewport.
+ * A document-overflow check alone cannot catch the historical failure: the
+ * fixed-width sidebar consumed 240px without overflowing the document, leaving
+ * only 135px for the actual application at 375px. These assertions measure the
+ * content viewport and prove navigation is an overlay, not a competing column.
+ */
+test.describe("authenticated application shell @ phone (375x812)", () => {
+  test("keeps full-width content and exposes reachable thumb navigation", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 375, height: 812 });
+    await login(page);
+
+    const content = page.locator("main").first();
+    const sidebar = page.locator("aside").first();
+    const bottomNav = page.getByRole("navigation", {
+      name: "Primary mobile navigation",
+    });
+
+    await expect(bottomNav).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Open navigation" }),
+    ).toBeVisible();
+
+    const closedContentBox = await content.boundingBox();
+    const closedSidebarBox = await sidebar.boundingBox();
+    expect(closedContentBox).toBeTruthy();
+    expect(closedSidebarBox).toBeTruthy();
+    expect(closedContentBox!.width).toBeGreaterThanOrEqual(374);
+    expect(closedContentBox!.y).toBeLessThan(220);
+    expect(closedContentBox!.height).toBeGreaterThan(500);
+    expect(closedSidebarBox!.x + closedSidebarBox!.width).toBeLessThanOrEqual(
+      1,
+    );
+
+    await page.getByRole("button", { name: "Open navigation" }).click();
+    await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible();
+
+    const openContentBox = await content.boundingBox();
+    const openSidebarBox = await sidebar.boundingBox();
+    expect(openContentBox).toBeTruthy();
+    expect(openSidebarBox).toBeTruthy();
+    expect(openContentBox!.width).toBeGreaterThanOrEqual(374);
+    expect(openContentBox!.y).toBeLessThan(220);
+    expect(openContentBox!.height).toBeGreaterThan(500);
+    expect(openSidebarBox!.x).toBeGreaterThanOrEqual(-1);
+    expect(openSidebarBox!.width).toBeGreaterThanOrEqual(239);
+
+    // Close the overlay from the unobscured side, then prove a thumb tab
+    // reaches the mobile-first field workflow without narrowing the page.
+    await page.mouse.click(330, 100);
+    await expect(
+      page.getByRole("button", { name: "Sign out" }),
+    ).not.toBeVisible();
+    await bottomNav.getByRole("button", { name: "Field", exact: true }).click();
+    await expect(page).toHaveURL(/\/field$/);
+    await expect(content).toBeVisible();
+    expect((await content.boundingBox())!.width).toBeGreaterThanOrEqual(374);
+    await assertNoHorizontalOverflow(page);
+  });
+});
