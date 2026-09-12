@@ -8,7 +8,7 @@
  */
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { BriefcaseBusiness, Grid3X3, Landmark, Plus, RefreshCw } from "lucide-react";
+import { BriefcaseBusiness, Grid3X3, Landmark, PackageCheck, Plus, RefreshCw } from "lucide-react";
 import {
   listDevelopmentCases,
   type DevelopmentCaseSummary,
@@ -68,6 +68,13 @@ export function DevelopCasesPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => navigate("/develop/handover")}
+            className="flex items-center gap-2 rounded-lg border border-white/8 px-3 py-2 text-sm font-semibold text-slate-200 hover:bg-white/5"
+          >
+            <PackageCheck className="h-4 w-4" aria-hidden />
+            System handover
+          </button>
           <button
             onClick={() => navigate("/develop/operational-readiness")}
             className="flex items-center gap-2 rounded-lg border border-white/8 px-3 py-2 text-sm font-semibold text-slate-200 hover:bg-white/5"
