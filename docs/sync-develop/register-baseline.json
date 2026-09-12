@@ -1398,9 +1398,9 @@
     "backticked": 13
   },
   "D13.15": {
-    "status": "❌",
+    "status": "✅",
     "evidence": true,
-    "citations": 0,
-    "backticked": 0
+    "citations": 7,
+    "backticked": 7
   }
 }

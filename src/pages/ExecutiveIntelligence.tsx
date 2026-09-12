@@ -215,6 +215,15 @@ export function ExecutiveIntelligence() {
             {data?.role.replace(/_/g, " ")} role.
           </p>
         </div>
+        <button
+          type="button"
+          onClick={() => navigate("/executive/capital")}
+          className="inline-flex items-center gap-2 rounded-lg border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-sm font-medium text-cyan-100 hover:bg-cyan-400/15 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-cyan-300"
+        >
+          <Landmark className="h-4 w-4" aria-hidden />
+          Next-dollar capital briefing
+          <ArrowRight className="h-4 w-4" aria-hidden />
+        </button>
         {boardAwaiting.length > 0 && (
           <p
             data-testid="board-kpi-honesty"
