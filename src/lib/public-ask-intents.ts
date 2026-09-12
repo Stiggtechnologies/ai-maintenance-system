@@ -20,6 +20,7 @@ export type PublicAskIntentId =
 export type PublicAskIntent = {
   id: PublicAskIntentId;
   label: string;
+  showcase: string;
   seedIndex: FirstPaintSeedIndex;
   question: (typeof FIRST_PAINT_QUESTIONS)[number];
 };
@@ -28,30 +29,35 @@ export const PUBLIC_ASK_INTENTS: readonly PublicAskIntent[] = [
   {
     id: "compare",
     label: "Compare",
+    showcase: "Production opportunity",
     seedIndex: 0,
     question: FIRST_PAINT_QUESTIONS[0],
   },
   {
     id: "troubleshoot",
     label: "Troubleshoot",
+    showcase: "Repeat failure",
     seedIndex: 4,
     question: FIRST_PAINT_QUESTIONS[4],
   },
   {
     id: "health",
     label: "Health",
+    showcase: "Operating risk",
     seedIndex: 1,
     question: FIRST_PAINT_QUESTIONS[1],
   },
   {
     id: "learn",
     label: "Learn",
+    showcase: "PM effectiveness",
     seedIndex: 3,
     question: FIRST_PAINT_QUESTIONS[3],
   },
   {
     id: "fact-check",
     label: "Fact Check",
+    showcase: "Downtime evidence",
     seedIndex: 2,
     question: FIRST_PAINT_QUESTIONS[2],
   },

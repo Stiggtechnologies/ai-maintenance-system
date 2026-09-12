@@ -14,6 +14,13 @@ describe("public ask intents", () => {
       "Learn",
       "Fact Check",
     ]);
+    expect(PUBLIC_ASK_INTENTS.map((item) => item.showcase)).toEqual([
+      "Production opportunity",
+      "Repeat failure",
+      "Operating risk",
+      "PM effectiveness",
+      "Downtime evidence",
+    ]);
     expect(PUBLIC_ASK_INTENTS.map((item) => item.question)).toEqual([
       FIRST_PAINT_QUESTIONS[0],
       FIRST_PAINT_QUESTIONS[4],

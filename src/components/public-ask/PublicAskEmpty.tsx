@@ -36,11 +36,15 @@ const PILL_ICONS: Record<PublicAskIntentId, ReactNode> = {
 
 type PublicAskEmptyProps = {
   askBar: ReactNode;
+  attachmentInputs?: ReactNode;
+  attachmentState?: ReactNode;
   onSelectIntent: (seedIndex: number) => void;
 };
 
 export function PublicAskEmpty({
   askBar,
+  attachmentInputs,
+  attachmentState,
   onSelectIntent,
 }: PublicAskEmptyProps) {
   const [intakeOpen, setIntakeOpen] = useState(false);
@@ -164,6 +168,8 @@ export function PublicAskEmpty({
             choose a path.
           </p>
         </div>
+        {attachmentInputs}
+        {attachmentState}
         {askBar}
         <ul className="bolt-pills">
           {PUBLIC_ASK_INTENTS.map((intent) => (
@@ -171,13 +177,18 @@ export function PublicAskEmpty({
               <button
                 type="button"
                 className="bolt-pill"
+                aria-label={intent.label}
                 data-testid="ask-intent-pill"
                 data-intent={intent.id}
                 data-seed-index={String(intent.seedIndex)}
+                title={intent.question}
                 onClick={() => onSelectIntent(intent.seedIndex)}
               >
                 {PILL_ICONS[intent.id]}
-                {intent.label}
+                <span className="bolt-pill-copy">
+                  <strong>{intent.label}</strong>
+                  <small>{intent.showcase}</small>
+                </span>
               </button>
             </li>
           ))}

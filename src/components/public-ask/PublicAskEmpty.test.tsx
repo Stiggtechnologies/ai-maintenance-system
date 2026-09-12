@@ -23,7 +23,9 @@ describe("PublicAskEmpty", () => {
     expect(screen.getByText("6–8 weeks")).toBeTruthy();
     expect(screen.getByText("ask-slot")).toBeTruthy();
     expect(
-      screen.getAllByTestId("ask-intent-pill").map((item) => item.textContent),
+      screen
+        .getAllByTestId("ask-intent-pill")
+        .map((item) => item.querySelector("strong")?.textContent),
     ).toEqual(["Compare", "Troubleshoot", "Health", "Learn", "Fact Check"]);
     fireEvent.click(screen.getByRole("button", { name: "Health" }));
     expect(onSelectIntent).toHaveBeenCalledWith(1);

@@ -76,9 +76,9 @@ describe("customer chrome honesty", () => {
     expect(page).not.toMatch(/LearnUnpersistedPointer/);
     expect(page).not.toMatch(/from ["'].*PublicProductHeader["']/);
     expect(page).not.toMatch(/brand-job-title/);
-    expect(empty).not.toMatch(/Reliability Engineer/);
+    expect(empty).toContain("Try the Reliability Engineer");
     expect(rail).not.toMatch(/Reliability Engineer/);
-    expect(page).toContain("caseExists={!emptyConversation}");
+    expect(page).toContain("fileInputRef={fileInputRef}");
     expect(page).toContain("canExposeBoltSpaces");
     expect(page).toContain("BoltSpacesPanel");
     expect(page).not.toMatch(/path=["']\/spaces["']/);
@@ -99,9 +99,7 @@ describe("customer chrome honesty", () => {
     expect(askCss).not.toMatch(
       /@media[^{]+\{[^}]*\.bolt-ask-tool\[aria-label="Search"\]/,
     );
-    expect(askCss).toContain(
-      '.bolt-ask-overflow-menu .bolt-ask-tool[aria-label="Search"]',
-    );
+    expect(askCss).not.toContain('aria-label="Search"');
   });
 
   it("first-paint follow-up does not restore gold or a 48-hour offer", () => {
