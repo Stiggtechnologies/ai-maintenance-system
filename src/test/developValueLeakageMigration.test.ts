@@ -9,6 +9,11 @@ import {
 
 const FILE = "20261219159000_develop_value_leakage_benefits.sql";
 const sql = stripComments(readFileSync(`supabase/migrations/${FILE}`, "utf8"));
+const register = readFileSync("docs/sync-develop/register.md", "utf8");
+
+function registerRow(id: string) {
+  return register.split("\n").find((line) => line.startsWith(`| ${id} |`)) ?? "";
+}
 
 describe("value leakage and benefits migration contract", () => {
   it("extends the canonical value store instead of adding a parallel one", () => {
@@ -59,5 +64,12 @@ describe("value leakage and benefits migration contract", () => {
     expect(sql).toContain("'actual'");
     expect(sql).toContain("'variance'");
     expect(sql).toContain("get_case_value_leakage(p_case_id)");
+  });
+
+  it("promotes only the three capabilities proven by this slice", () => {
+    expect(registerRow("D9.07")).toMatch(/^\| D9\.07 \|[^|]*\|[^|]*\| ✅/);
+    expect(registerRow("D9.15")).toMatch(/^\| D9\.15 \|[^|]*\|[^|]*\| ✅/);
+    expect(registerRow("D13.12")).toMatch(/^\| D13\.12 \|[^|]*\|[^|]*\| ✅/);
+    expect(registerRow("D12.16")).not.toMatch(/\| ✅/);
   });
 });
