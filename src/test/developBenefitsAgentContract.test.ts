@@ -20,6 +20,13 @@ const deployment = readFileSync(
   "utf8",
 );
 const config = readFileSync("supabase/config.toml", "utf8");
+const register = readFileSync("docs/sync-develop/register.md", "utf8");
+
+function registerRow(id: string) {
+  return (
+    register.split("\n").find((line) => line.startsWith(`| ${id} |`)) ?? ""
+  );
+}
 
 describe("D12.16 Benefits Agent contract", () => {
   it("consumes the canonical governed benefits screen as the caller", () => {
@@ -56,5 +63,9 @@ describe("D12.16 Benefits Agent contract", () => {
     expect(config).toContain(
       "[functions.develop-benefits-agent]\nverify_jwt = true",
     );
+  });
+
+  it("promotes the capability only after the live governed smoke passed", () => {
+    expect(registerRow("D12.16")).toMatch(/^\| D12\.16 \|[^|]*\|[^|]*\| ✅/);
   });
 });

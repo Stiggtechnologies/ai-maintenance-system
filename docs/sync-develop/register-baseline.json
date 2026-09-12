@@ -1290,10 +1290,10 @@
     "backticked": 0
   },
   "D12.16": {
-    "status": "🟡",
+    "status": "✅",
     "evidence": true,
-    "citations": 3,
-    "backticked": 0
+    "citations": 8,
+    "backticked": 8
   },
   "D12.17": {
     "status": "🟡",
