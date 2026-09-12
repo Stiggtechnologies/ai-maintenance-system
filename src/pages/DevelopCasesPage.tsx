@@ -8,7 +8,7 @@
  */
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Landmark, Plus, RefreshCw } from "lucide-react";
+import { BriefcaseBusiness, Landmark, Plus, RefreshCw } from "lucide-react";
 import {
   listDevelopmentCases,
   type DevelopmentCaseSummary,
@@ -68,6 +68,13 @@ export function DevelopCasesPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => navigate("/develop/portfolio")}
+            className="flex items-center gap-2 rounded-lg border border-white/8 px-3 py-2 text-sm font-semibold text-slate-200 hover:bg-white/5"
+          >
+            <BriefcaseBusiness className="h-4 w-4" aria-hidden />
+            Portfolio
+          </button>
           <button
             onClick={() => void load()}
             className="rounded-lg border border-white/8 p-2 text-slate-300 hover:bg-white/5"
