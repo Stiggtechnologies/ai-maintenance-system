@@ -171,7 +171,10 @@ describe("status-lag flips are backed by live callers the gate can walk", () => 
     expect(row("D4.14")).toContain("`src/components/develop/FrameworkShelfPanel.tsx`");
     expect(row("D4.14")).toContain("`setGateRequirement`");
     expect(row("D4.14")).not.toContain("sync_gate_readiness_categories");
-    expect(row("D4.07")).toMatch(/^\| D4\.07 \|[^|]*\|[^|]*\| 🟡/);
+    // D4.07 was subsequently closed by the dedicated COPQ-attribution
+    // slice. Preserve the completed state here so this older residual sweep
+    // cannot silently reinstate the missing six-term/forecast-split gap.
+    expect(row("D4.07")).toMatch(/^\| D4\.07 \|[^|]*\|[^|]*\| ✅/);
     expect(row("D3.02")).toMatch(/^\| D3\.02 \|[^|]*\|[^|]*\| 🟡/);
     expect(row("D7.06")).toMatch(/^\| D7\.06 \|[^|]*\|[^|]*\| 🟡/);
     // D8.06 was subsequently closed by the dedicated commissioning-family
