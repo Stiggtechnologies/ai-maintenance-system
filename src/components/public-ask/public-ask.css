@@ -1133,6 +1133,54 @@
   background: var(--bolt-canvas);
 }
 
+.bolt-capability-switcher {
+  display: flex;
+  gap: 6px;
+  padding: 8px 18px;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--bolt-line);
+  background: #f8fafb;
+  scrollbar-width: thin;
+}
+
+.bolt-capability-switcher button {
+  min-width: max-content;
+  padding: 7px 11px;
+  display: grid;
+  gap: 1px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: #65707a;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+}
+
+.bolt-capability-switcher button:hover,
+.bolt-capability-switcher button:focus-visible {
+  border-color: #cfd8dc;
+  color: var(--bolt-ink);
+  background: #ffffff;
+}
+
+.bolt-capability-switcher button.is-active {
+  border-color: #9bddd2;
+  color: #086c60;
+  background: #edf9f6;
+  box-shadow: inset 0 0 0 1px rgba(20, 184, 166, 0.08);
+}
+
+.bolt-capability-switcher strong {
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.bolt-capability-switcher span {
+  font-size: 10px;
+  line-height: 1.25;
+}
+
 .bolt-thread-bar-side {
   display: flex;
   align-items: center;
