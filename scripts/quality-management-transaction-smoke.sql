@@ -184,15 +184,27 @@ begin
   perform set_config('request.jwt.claims',jsonb_build_object('sub',v_demo,'role','authenticated')::text,true);
   v:=public.record_quality_cost(jsonb_build_object(
     'ncrId',v_ncr,'incurredAt','2026-09-04T12:00:00Z','category','external_failure',
-    'amount',500,'currency','CAD','costType','Customer field correction',
+    'copqTerm','claims','amount',500,'currency','CAD','costType','Customer field correction',
     'sourceReference','Approved invoice Q7D-INV','evidenceItemId',v_evidence));
   if v ? 'error' then raise exception 'quality cost failed: %',v; end if;
+  v:=public.record_quality_cost(jsonb_build_object(
+    'incurredAt','2026-09-04T12:00:00Z','category','internal_failure',
+    'amount',10,'currency','CAD','costType','Unclassified failure',
+    'sourceReference','Controlled refusal fixture'));
+  if v->>'error' not like '%requires one COPQ term%' then
+    raise exception 'unclassified failure cost was not refused: %',v;
+  end if;
   v:=public.get_quality_cockpit('2026-09-01T00:00:00Z','2026-10-01T00:00:00Z');
   select jsonb_array_length(v->'metrics') into v_metric_count;
   select (item->>'costOfPoorQuality')::numeric into v_copq
   from jsonb_array_elements(v->'costByCurrency') item where item->>'currency'='CAD';
   if v_metric_count<>7 then raise exception 'expected seven metrics: %',v; end if;
   if v_copq<>1875 then raise exception 'expected CAD COPQ 1875, got %',v_copq; end if;
+  if (select (item->'copqByTerm'->>'claims')::numeric
+      from jsonb_array_elements(v->'costByCurrency') item
+      where item->>'currency'='CAD')<>500 then
+    raise exception 'expected claims attribution in six-term COPQ: %',v;
+  end if;
   if (select count(*) from public.approvals where quality_requirement_id=v_req or quality_itp_id=v_itp
       or quality_itp_point_id in (v_point,v_witness) or quality_ncr_id=v_ncr or acceptance_test_id=v_test)<>6 then
     raise exception 'expected six canonical approval records';
