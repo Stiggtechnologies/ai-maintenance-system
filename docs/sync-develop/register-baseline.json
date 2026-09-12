@@ -390,10 +390,10 @@
     "backticked": 7
   },
   "D4.15": {
-    "status": "🟡",
+    "status": "✅",
     "evidence": true,
-    "citations": 1,
-    "backticked": 0
+    "citations": 15,
+    "backticked": 15
   },
   "D4.16": {
     "status": "✅",
