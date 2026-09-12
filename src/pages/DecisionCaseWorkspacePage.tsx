@@ -46,7 +46,10 @@ import { BoltSpacesPanel } from "../components/public-ask/BoltSpacesPanel";
 import { PublicAskEmpty } from "../components/public-ask/PublicAskEmpty";
 import { PublicAskRail } from "../components/public-ask/PublicAskRail";
 import { canExposeBoltSpaces } from "../lib/public-ask-tie-in";
-import type { PublicAskIntent } from "../lib/public-ask-intents";
+import {
+  PUBLIC_ASK_INTENTS,
+  type PublicAskIntent,
+} from "../lib/public-ask-intents";
 import { MarkdownRenderer } from "../components/MarkdownRenderer";
 import { RecommendationTurn } from "../components/chat/RecommendationTurn";
 import { ConversationLearn } from "../components/chat/ConversationLearn";
@@ -1404,6 +1407,26 @@ export function DecisionCaseWorkspacePage({
                 </button>
               </div>
             </header>
+            <nav
+              className="bolt-capability-switcher"
+              aria-label="Live capabilities"
+            >
+              {PUBLIC_ASK_INTENTS.map((intent) => (
+                <button
+                  key={intent.id}
+                  type="button"
+                  className={publicIntent?.id === intent.id ? "is-active" : ""}
+                  aria-current={
+                    publicIntent?.id === intent.id ? "page" : undefined
+                  }
+                  title={`${intent.module}: ${intent.explanation}`}
+                  onClick={() => tryPublicIntent(intent)}
+                >
+                  <strong>{intent.label}</strong>
+                  <span>{intent.module}</span>
+                </button>
+              ))}
+            </nav>
             <div
               className={`bolt-layout${railOpen ? " is-rail-open" : ""}${recordOpen ? " is-record-open" : ""}`}
             >

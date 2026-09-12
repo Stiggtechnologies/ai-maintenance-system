@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createSeedDecisionCases } from "../lib/decision-case";
@@ -274,6 +274,26 @@ describe("DecisionCaseWorkspacePage — Bolt first paint", () => {
     expect(screen.getByRole("button", { name: /^Evidence/ })).toHaveClass(
       "active",
     );
+  });
+
+  it("keeps every showcase capability discoverable after a path is opened", () => {
+    renderWorkspace();
+    fireEvent.click(screen.getByRole("button", { name: "Compare" }));
+
+    const switcher = screen.getByRole("navigation", {
+      name: "Live capabilities",
+    });
+    expect(switcher).toBeTruthy();
+    for (const intent of PUBLIC_ASK_INTENTS) {
+      expect(
+        within(switcher).getByRole("button", { name: new RegExp(intent.label) }),
+      ).toBeTruthy();
+    }
+
+    fireEvent.click(
+      within(switcher).getByRole("button", { name: /Troubleshoot/ }),
+    );
+    expect(screen.getByText("Troubleshoot · Failure elimination")).toBeTruthy();
   });
 
   it("keeps direct photo and governed data-file actions in the thread", () => {
