@@ -15,21 +15,85 @@ function evidenceFor(required: string[]) {
 
 describe("domain-depth specialist registry", () => {
   it("covers the requested specialist industries and executable methods", () => {
-    expect(DOMAIN_SPECIALIST_MODULES).toHaveLength(15);
+    expect(DOMAIN_SPECIALIST_MODULES).toHaveLength(16);
     expect(
       new Set(DOMAIN_SPECIALIST_MODULES.map((module) => module.industryCode))
-        .size,
-    ).toBe(15);
+      .size,
+    ).toBe(16);
     const methods = DOMAIN_SPECIALIST_MODULES.flatMap((module) =>
       module.methods.map((method) => method.key),
     );
-    expect(methods).toHaveLength(37);
+    expect(methods).toHaveLength(43);
     expect(new Set(methods).size).toBe(methods.length);
     expect(registeredDomainEvaluatorKeys()).toEqual([...methods].sort());
     expect(
       new Set(DOMAIN_SPECIALIST_MODULES.map((module) => module.reviewerRoleKey))
-        .size,
-    ).toBe(15);
+      .size,
+    ).toBe(16);
+  });
+
+  it("makes the healthcare family executable, evidence-bound and non-authoritative", () => {
+    const module = DOMAIN_SPECIALIST_MODULES.find(
+      (candidate) => candidate.key === "healthcare-clinical-engineering",
+    )!;
+    expect(module.methods.map((method) => method.key)).toEqual([
+      "clinical-criticality",
+      "device-availability",
+      "calibration-assurance",
+      "infection-control-readiness",
+      "patient-risk",
+      "device-traceability",
+    ]);
+    for (const method of module.methods) {
+      const result = evaluateDomainSpecialist({
+        moduleKey: module.key,
+        methodKey: method.key,
+        inputs: method.exampleInputs,
+        evidence: evidenceFor(method.requiredEvidence),
+      });
+      expect(result.status, `${method.key}: ${result.gaps}`).toBe("draft");
+      expect(result.authoritative).toBe(false);
+      expect(result.humanApprovalRequired).toBe(true);
+      expect(result.requiredApproverRoleKey).toBe(
+        "domain_healthcare_clinical_engineering_reviewer",
+      );
+    }
+  });
+
+  it("blocks healthcare calculations without canonical evidence", () => {
+    const module = DOMAIN_SPECIALIST_MODULES.find(
+      (candidate) => candidate.key === "healthcare-clinical-engineering",
+    )!;
+    for (const method of module.methods) {
+      const result = evaluateDomainSpecialist({
+        moduleKey: module.key,
+        methodKey: method.key,
+        inputs: method.exampleInputs,
+        evidence: [],
+      });
+      expect(result.status).toBe("blocked");
+      expect(result.gaps).not.toHaveLength(0);
+    }
+  });
+
+  it("refuses patient identifiers at the healthcare specialist boundary", () => {
+    const module = DOMAIN_SPECIALIST_MODULES.find(
+      (candidate) => candidate.key === "healthcare-clinical-engineering",
+    )!;
+    const method = module.methods.find(
+      (candidate) => candidate.key === "patient-risk",
+    )!;
+    const inputs = structuredClone(method.exampleInputs);
+    (inputs.hazards as Array<Record<string, unknown>>)[0].patientId = "MRN-12345";
+    const result = evaluateDomainSpecialist({
+      moduleKey: module.key,
+      methodKey: method.key,
+      inputs,
+      evidence: evidenceFor(method.requiredEvidence),
+    });
+    expect(result.status).toBe("blocked");
+    expect(result.gaps.join(" ")).toMatch(/patient identifiers/i);
+    expect(JSON.stringify(result)).not.toContain("MRN-12345");
   });
 
   it("makes the full buildings and facilities family executable and non-authoritative", () => {

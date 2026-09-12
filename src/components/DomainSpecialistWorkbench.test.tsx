@@ -33,13 +33,13 @@ describe("DomainSpecialistWorkbench", () => {
     vi.mocked(reviewDomainSpecialistRun).mockClear();
   });
 
-  it("exposes all 15 modules and refuses a preview without evidence", async () => {
+  it("exposes all 16 modules and refuses a preview without evidence", async () => {
     render(<DomainSpecialistWorkbench risks={[risk]} />);
 
     const moduleSelect = screen.getByLabelText("Specialist module");
-    expect(moduleSelect.querySelectorAll("option")).toHaveLength(15);
+    expect(moduleSelect.querySelectorAll("option")).toHaveLength(16);
     expect(
-      screen.getByText(/15 governed modules and 37 deterministic methods/i),
+      screen.getByText(/16 governed modules and 43 deterministic methods/i),
     ).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Preview locally" }));
@@ -55,6 +55,22 @@ describe("DomainSpecialistWorkbench", () => {
       ),
     ).toBeInTheDocument();
     expect(screen.getByText(/cannot certify compliance/i)).toBeInTheDocument();
+  });
+
+  it("makes all six healthcare assurance methods reachable", () => {
+    render(<DomainSpecialistWorkbench risks={[risk]} />);
+    fireEvent.change(screen.getByLabelText("Specialist module"), {
+      target: { value: "healthcare-clinical-engineering" },
+    });
+    const methods = screen.getByLabelText("Method").querySelectorAll("option");
+    expect([...methods].map((option) => option.getAttribute("value"))).toEqual([
+      "clinical-criticality",
+      "device-availability",
+      "calibration-assurance",
+      "infection-control-readiness",
+      "patient-risk",
+      "device-traceability",
+    ]);
   });
 
   it("switches to the three-method aviation module without losing the governed risk", () => {

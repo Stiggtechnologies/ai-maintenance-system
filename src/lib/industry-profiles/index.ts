@@ -387,6 +387,17 @@ export const INDUSTRY_PROFILES: IndustryProfile[] = [
     proseOnly: [],
   },
   {
+    industryCode: "healthcare",
+    registerRef: "U5.06",
+    contexts: [
+      "quality_loss",
+      "rotating_equipment_failure",
+      "network_outage",
+    ],
+    domainModules: ["healthcare-clinical-engineering"],
+    proseOnly: [],
+  },
+  {
     industryCode: "food_beverage",
     registerRef: "U5.06-adjacent",
     contexts: [
