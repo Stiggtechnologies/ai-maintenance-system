@@ -183,6 +183,101 @@ describe("ConditionMonitoring adopt path", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("shows exact-time operating context and keeps missing context unknown", async () => {
+    rpc.mockImplementation(async (name: unknown) => {
+      if (name === "get_plant_historian_status") {
+        return { data: UNCONFIGURED_HISTORIAN, error: null };
+      }
+      if (name === "get_contextual_condition_monitoring") {
+        return {
+          data: {
+            window_days: 30,
+            summary: {
+              readings: 2,
+              contextualized: 1,
+              context_unknown: 1,
+              context_coverage_pct: 50,
+              connector_backed: 1,
+              other_source: 1,
+            },
+            source: {
+              connector_key: "site-a-pi",
+              connector_enabled: true,
+              basis:
+                "site-a-pi is the enabled read-only plant source. Only matching readings are connector-backed.",
+            },
+            basis:
+              "1 of 2 readings has a same-asset operating-state interval covering the exact reading time.",
+            readings: [
+              {
+                id: 1,
+                asset_id: "a1",
+                asset: "P-101",
+                sensor: "Drive-end vibration",
+                signal_type: "vibration",
+                unit: "mm/s",
+                value: 4.2,
+                quality: "good",
+                taken_at: "2026-09-12T12:00:00Z",
+                source_system: "site-a-pi",
+                source_posture: "connector_backed",
+                context_known: true,
+                operating_state: "running",
+                load_pct: 83,
+                operating_reason: null,
+                operating_source: "dispatch",
+              },
+              {
+                id: 2,
+                asset_id: "a1",
+                asset: "P-101",
+                sensor: "Bearing temperature",
+                signal_type: "temperature",
+                unit: "°C",
+                value: 78,
+                quality: "suspect",
+                taken_at: "2026-09-12T11:00:00Z",
+                source_system: "manual-import",
+                source_posture: "seed_sim_or_import",
+                context_known: false,
+                operating_state: null,
+                load_pct: null,
+                operating_reason: null,
+                operating_source: null,
+              },
+            ],
+          },
+          error: null,
+        };
+      }
+      return {
+        data: {
+          coverage: {
+            assets: 1,
+            monitored_assets: 1,
+            readings: 2,
+            basis: "Reading history present.",
+          },
+          active_alerts: [],
+          warning_lead_time: { available: false, sample: 0 },
+          pm_task_effectiveness: { available: false },
+          pf_note: "Declared intervals.",
+        },
+        error: null,
+      };
+    });
+
+    render(<ConditionMonitoring />);
+    expect(
+      await screen.findByText("Condition evidence in operating context"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("50%")).toBeInTheDocument();
+    expect(screen.getByText("running · 83% load")).toBeInTheDocument();
+    expect(screen.getByText("connector-backed")).toBeInTheDocument();
+    expect(screen.getByText("Unknown")).toBeInTheDocument();
+    expect(screen.getByText("seed / sim / import")).toBeInTheDocument();
+  });
+
   it("cites connector-backed readings on a pending recommendation", async () => {
     rpc.mockImplementation(async (name: unknown) => {
       if (name === "get_plant_historian_status") {

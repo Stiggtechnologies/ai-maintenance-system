@@ -325,6 +325,9 @@ jobs:
       - name: Smoke — HOP Agent system conditions without person surveillance
         run: bash scripts/ci-develop-hop-agent-smoke.sh
 
+      - name: Smoke — contextual condition monitoring (historian + exact-time duty)
+        run: bash scripts/ci-contextual-condition-monitoring-smoke.sh
+
       - name: Smoke — Sync Develop Hybrid Development (per-workstream methods)
         run: bash scripts/ci-develop-hybrid-workstreams-smoke.sh
 
