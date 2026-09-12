@@ -106,6 +106,7 @@ import { PerformancePanel } from "../components/develop/PerformancePanels";
 import { ScheduleAssurancePanel } from "../components/develop/SchedulePanels";
 import { ChangeAndControlsPanel } from "../components/develop/ChangeControlPanels";
 import { RequirementsThreadPanel } from "../components/develop/RequirementsThreadPanels";
+import { OtCyberLifecyclePanel } from "../components/develop/OtCyberLifecyclePanel";
 import { FrontlineDesignPanel } from "../components/develop/FrontlineDesignPanels";
 import { ProcurementPanel } from "../components/develop/ProcurementPanels";
 import { WorkPackagingPanel } from "../components/develop/WorkPackagingPanels";
@@ -2976,6 +2977,19 @@ export function DevelopmentCaseWorkspacePage() {
             id: b.id,
             label: `${b.baselineType} v${b.version} (${b.status})`,
           }))}
+      />
+      {/* II.13 OT cybersecurity begins at design. These ten checks classify
+          the ONE requirement table and use its existing verification,
+          evidence and acceptance-test thread. Applicable gaps enter the ONE
+          gate-obligation predicate and its persistence wall. */}
+      <OtCyberLifecyclePanel
+        caseId={workspace.id}
+        members={members.map((m) => ({
+          id: m.id,
+          name: m.full_name ?? m.email ?? m.id,
+        }))}
+        canPlan={canDesignPlan}
+        reloadKey={chainsKey}
       />
       {/* Design integrity and the digital thread (Slice 5A): the §10
           Requirement object with its hierarchy and its objective→…→operating
