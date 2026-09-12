@@ -419,6 +419,9 @@ verify_jwt = true
 [functions.develop-lessons-agent]
 verify_jwt = true
 
+[functions.develop-governance-agent]
+verify_jwt = true
+
 [functions.develop-handover-agent]
 verify_jwt = true
 

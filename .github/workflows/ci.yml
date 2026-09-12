@@ -319,6 +319,9 @@ jobs:
       - name: Smoke — Lessons Agent governed project-history comparison
         run: bash scripts/ci-develop-lessons-agent-smoke.sh
 
+      - name: Smoke — Governance Agent detection-only controls screen
+        run: bash scripts/ci-develop-governance-agent-smoke.sh
+
       - name: Smoke — Sync Develop Hybrid Development (per-workstream methods)
         run: bash scripts/ci-develop-hybrid-workstreams-smoke.sh
 

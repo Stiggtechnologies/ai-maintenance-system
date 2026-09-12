@@ -32,6 +32,7 @@ on:
       - "supabase/functions/develop-risk-agent/**"
       - "supabase/functions/develop-benefits-agent/**"
       - "supabase/functions/develop-lessons-agent/**"
+      - "supabase/functions/develop-governance-agent/**"
       - "supabase/functions/lead-notify/**"
       - "supabase/functions/onboarding-enrich/**"
       - "supabase/functions/plant-historian-pull/**"
@@ -103,6 +104,7 @@ jobs:
           supabase functions deploy develop-risk-agent
           supabase functions deploy develop-benefits-agent
           supabase functions deploy develop-lessons-agent
+          supabase functions deploy develop-governance-agent
           supabase functions deploy lead-notify
           supabase functions deploy onboarding-enrich --no-verify-jwt
           supabase functions deploy plant-historian-pull

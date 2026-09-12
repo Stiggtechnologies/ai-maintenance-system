@@ -31,6 +31,7 @@ import { SafetyGatekeeperPanel } from "../components/SafetyGatekeeperPanel";
 import { ControlAssurance } from "../components/ControlAssurance";
 import { GovernanceStandards } from "../components/GovernanceStandards";
 import { ModelRisk } from "../components/ModelRisk";
+import { GovernanceAgentPanel } from "../components/GovernanceAgentPanel";
 
 const DECISION_STATUSES: DecisionStatus[] = [
   "pending",
@@ -392,6 +393,8 @@ export function DecisionGovernance() {
       </div>
 
       <SafetyGatekeeperPanel />
+
+      <GovernanceAgentPanel />
 
       <DecisionRightsMatrix />
 
