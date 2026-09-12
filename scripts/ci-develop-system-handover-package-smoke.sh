@@ -32,7 +32,7 @@ done
 # so a named human records that evidenced applicability decision explicitly;
 # unknown must never be silently treated as not applicable.
 DIGITAL=$(rpc "$PLANNER" assess_asset_digital_maintainability "{\"p_asset_id\":\"$ASSET\",\"p_baseline_kind\":\"as_built\",\"p_applicability\":\"not_applicable\",\"p_basis\":\"The witnessed mechanical-system handover boundary contains no maintainable digital component.\",\"p_source_reference\":\"D8.09 system handover fixture\",\"p_evidence_item_id\":\"$EVIDENCE\"}")
-BODY="$DIGITAL" python3 -c 'import json,os; assert json.loads(os.environ["BODY"])["status"]=="NOT_APPLICABLE"'
+BODY="$DIGITAL" python3 -c 'import json,os; x=json.loads(os.environ["BODY"]); assert x["applicability"]=="not_applicable", x'
 
 RISK=$(psqlc "with r as (insert into risks(organization_id,development_case_id,asset_id,title,kind,current_risk_level,residual_risk_level,status,source_kind,created_by) values('$ORG','$CASE','$ASSET','D8.09 residual startup risk','threat','Medium','Medium','draft','human','$PLANNER_ID') returning id) select id from r")
 CROSS=$(rpc "$PLANNER" assemble_system_handover_package "{\"p_system_id\":$SID,\"p_owner_from\":\"$PLANNER_ID\",\"p_owner_to\":\"00000000-0000-0000-0000-000000000099\",\"p_required_acceptance_date\":\"2026-12-31\",\"p_basis\":\"A foreign or absent operations owner must fail at the tenant boundary.\",\"p_evidence_item_id\":\"$EVIDENCE\"}")
