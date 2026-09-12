@@ -1308,10 +1308,10 @@
     "backticked": 1
   },
   "E6.03": {
-    "status": "🟡",
-    "evidence": true,
-    "citations": 1,
-    "backticked": 1
+    "status": "✅",
+    "evidence": false,
+    "citations": 0,
+    "backticked": 0
   },
   "E6.04": {
     "status": "🟡",
