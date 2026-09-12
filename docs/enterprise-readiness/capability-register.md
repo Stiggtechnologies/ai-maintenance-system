@@ -614,7 +614,7 @@ with the PR that changes an item's status._
 
 | ID     | Capability                                                                                                                           | Status |
 | ------ | ------------------------------------------------------------------------------------------------------------------------------------ | ------ |
-| U20.01 | Layered packs: universal core → sector → jurisdiction → enterprise → business unit → site → asset, with controlled override approval | ❌     |
+| U20.01 | Layered packs: universal core → sector → jurisdiction → enterprise → business unit → site → asset, with controlled override approval | ✅ `20261219190000_layered_capability_packs.sql` adds one tenant-bound configuration resolver over the canonical industry, organization-tree, physical-site and asset identities. Precedence is deterministic and customer-visible on `/governance`; every effective value names its supplying layer and absent layers remain explicit. A lower layer may add a value freely, but changing an inherited value captures the exact old/new diff in the canonical `approvals` family, blocks adoption until a different executive/admin human decides it, and audits authoring, disposition and adoption. AI identities are refused, cross-tenant references fail closed, one adopted version exists per scope, and the stack explicitly grants no work, operating-limit or regulatory authority. Component/contract tests plus `ci-layered-capability-packs-smoke.sh` prove the complete seven-layer chain, independent override approval, tenant isolation and deterministic asset resolution. |
 
 ### U21 — Interoperability and vendor neutrality
 
@@ -775,6 +775,6 @@ record-scoped._
 
 Atomic items tracked: **397** — counted programmatically from the tables
 themselves (an earlier hand-stated figure of 307 under-counted; the enumeration
-never changed, only the count of it). Current tally: ✅ 267 · 🟡 179 · ❌ 19. _(2026-08-07: reconciled after parallel merges — C7.01/03/04/11 reliability engine, C4.13–17 + C6.22 closed-loop tail, C3.01–12 taxonomy, C5.04 scheduler all verified present on main.)_
+never changed, only the count of it). Current tally: ✅ 268 · 🟡 179 · ❌ 18. _(2026-08-07: reconciled after parallel merges — C7.01/03/04/11 reliability engine, C4.13–17 + C6.22 closed-loop tail, C3.01–12 taxonomy, C5.04 scheduler all verified present on main.)_
 Every ❌ and 🟡 is an open obligation of the program. No item may be removed;
 items may only change status with linked evidence in the PR that changes them.

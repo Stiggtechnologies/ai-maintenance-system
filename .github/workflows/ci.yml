@@ -334,6 +334,9 @@ jobs:
       - name: Smoke — enterprise methods and governed site strategies
         run: bash scripts/ci-enterprise-method-federation-smoke.sh
 
+      - name: Smoke — seven-layer capability packs and controlled overrides
+        run: bash scripts/ci-layered-capability-packs-smoke.sh
+
       - name: Smoke — Sync Develop Hybrid Development (per-workstream methods)
         run: bash scripts/ci-develop-hybrid-workstreams-smoke.sh
 
