@@ -1,6 +1,7 @@
 /**
  * Sync Develop — Realize / Learn on the Case Workspace
- * (D9.02, D9.03, D9.04, D9.11, D9.13, D9.01, D9.12, D9.14, D9.16).
+ * (D9.02, D9.03, D9.04, D9.11, D9.13, D9.01, D9.12, D9.14, D9.16,
+ * D12.16).
  *
  * Surfaces the server rows. Nothing here recomputes a due date, a completeness
  * percentage, or a verification. Completeness uses `warrantyCompleteness` so
@@ -11,7 +12,14 @@
  * is `verifyValueMetric` — the one existing loop.
  */
 import { useEffect, useState, type ReactNode } from "react";
-import { BookOpen, Gauge, Milestone, Scale, Target } from "lucide-react";
+import {
+  BookOpen,
+  Gauge,
+  Milestone,
+  Scale,
+  Sparkles,
+  Target,
+} from "lucide-react";
 import {
   CHECKPOINT_HORIZONS,
   DELIVERY_FAILURE_LABELS,
@@ -39,6 +47,7 @@ import {
   recordCheckpointObservation,
   recordOperationalWarranty,
   recordProjectLesson,
+  runBenefitsAgent,
   screenApplicableProjectLessons,
   type ApplicableProjectLessons,
   type CaseBenefitsScreen,
@@ -48,6 +57,7 @@ import {
   type CaseProjectSuccess,
   type CaseRealizationCheckpoints,
   type CaseValueRealization,
+  type BenefitsAgentResult,
   type RealizationCheckpointRow,
 } from "../../services/developService";
 import { verifyValueMetric } from "../../services/operatingLoopService";
@@ -800,6 +810,104 @@ function humanize(value: string) {
   return value.replaceAll("_", " ");
 }
 
+function BenefitsAgentPanel({
+  caseId,
+  onError,
+}: {
+  caseId: string;
+  onError: (message: string | null) => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState<BenefitsAgentResult | null>(null);
+
+  return (
+    <div className="rounded-lg border border-signal-cyan/15 bg-signal-cyan/[0.03] p-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-200">
+            <Sparkles className="h-3.5 w-3.5 text-signal-cyan" aria-hidden />
+            Benefits Agent · did we get what we paid for?
+          </div>
+          <p className="mt-1 text-[11px] text-slate-500">
+            Reads the governed benefit, checkpoint and leakage records. It
+            cannot verify a value, prove cause, approve investment or change an
+            operating record.
+          </p>
+        </div>
+        <button
+          type="button"
+          disabled={busy}
+          className="rounded-lg border border-signal-cyan/30 px-3 py-1.5 text-xs font-semibold text-signal-cyan disabled:opacity-40"
+          onClick={() => {
+            setBusy(true);
+            onError(null);
+            runBenefitsAgent(caseId)
+              .then(setResult)
+              .catch((e) =>
+                onError(
+                  e instanceof Error ? e.message : "Benefits Agent failed",
+                ),
+              )
+              .finally(() => setBusy(false));
+          }}
+        >
+          {busy ? "Reading records…" : "Run Benefits Agent"}
+        </button>
+      </div>
+      {result && (
+        <div className="mt-3 space-y-2 border-t border-white/6 pt-3 text-xs">
+          <p
+            className={
+              result.analysis.verdict === "shortfall"
+                ? "font-semibold text-amber-200"
+                : result.analysis.verdict === "incomplete"
+                  ? "font-semibold text-slate-300"
+                  : "font-semibold text-emerald-300"
+            }
+          >
+            {result.analysis.headline}
+          </p>
+          <div className="grid gap-1 sm:grid-cols-2">
+            {result.analysis.findings.map((finding) => (
+              <div key={finding.benefitId} className="text-slate-300">
+                {finding.label} · {humanize(finding.status)} · owner{" "}
+                {finding.owner}
+              </div>
+            ))}
+          </div>
+          {result.analysis.leakage.recordedAttributions.length > 0 && (
+            <div>
+              <div className="text-[10px] uppercase tracking-wide text-slate-500">
+                Independently verified attribution statements
+              </div>
+              {result.analysis.leakage.recordedAttributions.map((item) => (
+                <p
+                  key={`${item.bucket}-${item.value}`}
+                  className="mt-1 text-slate-300"
+                >
+                  {humanize(item.bucket)} · {item.value}{" "}
+                  {result.analysis.leakage.unit} · {item.kind} — {item.basis}
+                </p>
+              ))}
+            </div>
+          )}
+          {result.analysis.limitations.length > 0 && (
+            <ul className="list-disc space-y-1 pl-4 text-amber-200">
+              {result.analysis.limitations.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
+          )}
+          <p className="break-all text-[10px] text-slate-500">
+            Records: {result.analysis.evidenceRefs.join(" · ") || "none"}
+          </p>
+          <p className="text-[10px] text-slate-500">{result.disclaimer}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function BenefitsAndLeakageSection({
   caseId,
   evidence,
@@ -849,6 +957,7 @@ export function BenefitsAndLeakageSection({
       subtitle="Expected → forecast → human-verified actual, plus the six lifecycle value points and all seven §53 leakage buckets. Missing and unattributed value stay visible; nothing is auto-allocated."
     >
       <ErrorLine error={error} />
+      <BenefitsAgentPanel caseId={caseId} onError={setError} />
       {payload == null ? (
         <p className="text-xs text-slate-500">Loading the benefits screen…</p>
       ) : payload.benefits.length === 0 ? (

@@ -8433,8 +8433,10 @@ export interface BenefitScreenRow {
   basis: string;
   currentForecast: number | null;
   forecastStatus: string;
+  forecastMetricId: string | null;
   actual: number | null;
   actualHorizonDays: number | null;
+  actualMetricId: string | null;
   variance: number | null;
 }
 
@@ -8443,6 +8445,51 @@ export interface CaseBenefitsScreen {
   benefits: BenefitScreenRow[];
   valueLeakage: CaseValueLeakage;
   basis: string;
+}
+
+export interface BenefitsAgentResult {
+  advisory: true;
+  caseId: string;
+  analysis: {
+    verdict: "on_plan" | "shortfall" | "value_gain" | "incomplete";
+    headline: string;
+    benefitCount: number;
+    verifiedActualCount: number;
+    shortfallCount: number;
+    findings: Array<{
+      benefitId: string;
+      label: string;
+      owner: string;
+      unit: string;
+      expected: number;
+      forecast: number | null;
+      actual: number | null;
+      variance: number | null;
+      status: "met_or_exceeded" | "shortfall" | "actual_missing";
+      sourceRefs: string[];
+    }>;
+    leakage: {
+      evaluable: boolean;
+      approved: number | null;
+      realized: number | null;
+      shortfall: number | null;
+      unit: string | null;
+      recordedAttributions: Array<{
+        bucket: string;
+        kind: string;
+        value: number;
+        basis: string;
+        sourceRefs: string[];
+      }>;
+      unattributedResidual: number | null;
+      valid: boolean | null;
+      reason: string | null;
+    };
+    evidenceRefs: string[];
+    limitations: string[];
+  };
+  narrativeSource: "deterministic_governed_records";
+  disclaimer: string;
 }
 
 export interface ProjectSuccessSlot {
@@ -8523,6 +8570,21 @@ export async function getCaseBenefitsScreen(
     p_case_id: caseId,
   });
   return unwrapRpc(data, error, "Could not load the benefits screen");
+}
+
+export async function runBenefitsAgent(
+  caseId: string,
+): Promise<BenefitsAgentResult> {
+  const { data, error } = await supabase.functions.invoke(
+    "develop-benefits-agent",
+    { body: { case_id: caseId } },
+  );
+  if (error) throw new Error(error.message);
+  const payload = data as BenefitsAgentResult | { error?: string };
+  if (payload && typeof payload === "object" && "error" in payload) {
+    throw new Error(String(payload.error));
+  }
+  return payload as BenefitsAgentResult;
 }
 
 export async function recordCaseValueTrajectoryPoint(input: {

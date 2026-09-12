@@ -5,6 +5,7 @@ import {
   getCaseBenefitsScreen,
   recordCaseValueLeakageAttribution,
   recordCaseValueTrajectoryPoint,
+  runBenefitsAgent,
   type CaseBenefitsScreen,
 } from "../../services/developService";
 import { verifyValueMetric } from "../../services/operatingLoopService";
@@ -18,6 +19,7 @@ vi.mock("../../services/developService", () => ({
   recordCaseValueTrajectoryPoint: vi
     .fn()
     .mockResolvedValue({ metricId: "m-1" }),
+  runBenefitsAgent: vi.fn(),
 }));
 vi.mock("../../services/operatingLoopService", () => ({
   verifyValueMetric: vi.fn().mockResolvedValue({ status: "verified" }),
@@ -46,8 +48,10 @@ const payload: CaseBenefitsScreen = {
       basis: "Approved economic model",
       currentForecast: 71,
       forecastStatus: "projected",
+      forecastMetricId: "checkpoint-1",
       actual: 64,
       actualHorizonDays: 365,
+      actualMetricId: "checkpoint-2",
       variance: -26,
     },
   ],
@@ -210,5 +214,87 @@ describe("BenefitsAndLeakageSection", () => {
         expect.stringContaining("not causal proof"),
       ),
     );
+  });
+
+  it("runs the advisory Benefits Agent and shows record-level traceability", async () => {
+    vi.mocked(getCaseBenefitsScreen).mockResolvedValue(payload);
+    vi.mocked(runBenefitsAgent).mockResolvedValue({
+      advisory: true,
+      caseId: "case-1",
+      narrativeSource: "deterministic_governed_records",
+      disclaimer:
+        "Advisory comparison only. Attribution is not proof of causation.",
+      analysis: {
+        verdict: "shortfall",
+        headline:
+          "Human-verified realized value is 64 CADm against 90 CADm approved; the recorded shortfall is 26 CADm.",
+        benefitCount: 1,
+        verifiedActualCount: 1,
+        shortfallCount: 1,
+        findings: [
+          {
+            benefitId: "benefit-1",
+            label: "Annual throughput value",
+            owner: "Benefit Owner",
+            unit: "CADm",
+            expected: 90,
+            forecast: 71,
+            actual: 64,
+            variance: -26,
+            status: "shortfall",
+            sourceRefs: [
+              "value_metrics:benefit-1",
+              "value_metrics:checkpoint-2",
+            ],
+          },
+        ],
+        leakage: {
+          evaluable: true,
+          approved: 90,
+          realized: 64,
+          shortfall: 26,
+          unit: "CADm",
+          recordedAttributions: [
+            {
+              bucket: "scope",
+              kind: "causal",
+              value: 8,
+              basis: "Scope compromise supported by change records",
+              sourceRefs: [
+                "value_metrics:a-1",
+                `evidence_items:${evidence[0].id}`,
+              ],
+            },
+          ],
+          unattributedResidual: 18,
+          valid: true,
+          reason: null,
+        },
+        evidenceRefs: [
+          "value_metrics:benefit-1",
+          "value_metrics:checkpoint-2",
+          "value_metrics:a-1",
+          `evidence_items:${evidence[0].id}`,
+        ],
+        limitations: ["18 CADm remains explicitly unattributed."],
+      },
+    });
+    render(
+      <BenefitsAndLeakageSection
+        caseId="case-1"
+        evidence={evidence}
+        canRealize={false}
+      />,
+    );
+    await screen.findByText("Annual throughput value");
+    fireEvent.click(screen.getByRole("button", { name: "Run Benefits Agent" }));
+    expect(
+      await screen.findByText(/recorded shortfall is 26 CADm/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/18 CADm remains explicitly unattributed/i),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/value_metrics:checkpoint-2/i)).toBeInTheDocument();
+    expect(runBenefitsAgent).toHaveBeenCalledWith("case-1");
   });
 });

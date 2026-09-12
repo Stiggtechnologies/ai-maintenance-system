@@ -413,5 +413,8 @@ verify_jwt = true
 [functions.develop-risk-agent]
 verify_jwt = true
 
+[functions.develop-benefits-agent]
+verify_jwt = true
+
 [functions.sync-tts]
 verify_jwt = true

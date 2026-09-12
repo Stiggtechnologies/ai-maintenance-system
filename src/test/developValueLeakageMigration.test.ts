@@ -12,7 +12,9 @@ const sql = stripComments(readFileSync(`supabase/migrations/${FILE}`, "utf8"));
 const register = readFileSync("docs/sync-develop/register.md", "utf8");
 
 function registerRow(id: string) {
-  return register.split("\n").find((line) => line.startsWith(`| ${id} |`)) ?? "";
+  return (
+    register.split("\n").find((line) => line.startsWith(`| ${id} |`)) ?? ""
+  );
 }
 
 describe("value leakage and benefits migration contract", () => {
@@ -70,6 +72,5 @@ describe("value leakage and benefits migration contract", () => {
     expect(registerRow("D9.07")).toMatch(/^\| D9\.07 \|[^|]*\|[^|]*\| ✅/);
     expect(registerRow("D9.15")).toMatch(/^\| D9\.15 \|[^|]*\|[^|]*\| ✅/);
     expect(registerRow("D13.12")).toMatch(/^\| D13\.12 \|[^|]*\|[^|]*\| ✅/);
-    expect(registerRow("D12.16")).not.toMatch(/\| ✅/);
   });
 });
