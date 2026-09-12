@@ -50,4 +50,3 @@ assert 'not proof of causation' in x['disclaimer'] and 'named human' in x['discl
 PY
 
 echo 'Benefits Agent smoke passed: deterministic=true benefit=1 shortfall=26 buckets=7 traceable=true tenant_wall=true advisory_only=true'
-

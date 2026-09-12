@@ -45,4 +45,3 @@ grant execute on function public.get_case_benefits_screen(uuid) to authenticated
 
 comment on function public.get_case_benefits_screen(uuid) is
   'D13.12 + D12.16: per-benefit expected, observed forecast, human-verified actual and variance with exact value_metrics identifiers; composed with governed value leakage for advisory agent consumption.';
-
