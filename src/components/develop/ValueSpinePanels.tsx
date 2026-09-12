@@ -33,6 +33,7 @@ import type { ReactNode } from "react";
 import {
   SUCCESS_DIMENSIONS,
   type CaseFinanceModel,
+  type CaseOptionComparison,
   type CaseValueTrajectory,
   type CaseWorkspace,
   type CollapseVerdict,
@@ -44,6 +45,7 @@ import {
   createCaseBusinessCase,
   draftSuccessContract,
   getCaseFinanceModel,
+  getCaseOptionComparison,
   getCaseValueTrajectory,
   getSinceSanctionDelta,
   listCaseRamTargets,
@@ -60,6 +62,7 @@ import {
   type CaseRamTargetOption,
   type OrgMember,
 } from "../../services/developService";
+import { ConceptSelectionPanel } from "./ConceptSelectionPanel";
 
 const inputClass =
   "w-full rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-signal-cyan/50 focus:outline-none";
@@ -464,6 +467,7 @@ export function BusinessCaseSection({
   onChanged: () => void;
 }) {
   const [model, setModel] = useState<CaseFinanceModel | null>(null);
+  const [comparison, setComparison] = useState<CaseOptionComparison | null>(null);
   const [trajectory, setTrajectory] = useState<CaseValueTrajectory | null>(
     null,
   );
@@ -474,12 +478,14 @@ export function BusinessCaseSection({
 
   const load = useCallback(async () => {
     try {
-      const [m, t, d] = await Promise.all([
+      const [m, optionComparison, t, d] = await Promise.all([
         getCaseFinanceModel(workspace.id),
+        getCaseOptionComparison(workspace.id),
         getCaseValueTrajectory(workspace.id),
         getSinceSanctionDelta(workspace.id),
       ]);
       setModel(m);
+      setComparison(optionComparison);
       setTrajectory(t);
       setDelta(d);
     } catch (e) {
@@ -580,6 +586,14 @@ export function BusinessCaseSection({
           <HypothesisBlock model={model} run={run} busy={busy} canPlan={canPlan} />
           <ViabilityBlock model={model} run={run} busy={busy} canReview={canReview} />
           <OptionsBlock model={model} kernelRows={kernelRows} run={run} busy={busy} canPlan={canPlan} />
+          <ConceptSelectionPanel
+            comparison={comparison}
+            evidence={workspace.evidence}
+            canPlan={canPlan}
+            canReview={canReview}
+            busy={busy}
+            run={run}
+          />
           <AssumptionsBlock
             workspace={workspace}
             model={model}
