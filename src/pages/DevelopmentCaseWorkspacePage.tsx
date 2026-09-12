@@ -2622,6 +2622,12 @@ export function DevelopmentCaseWorkspacePage() {
         >
           Execution readiness
         </Link>
+        <Link
+          to={`/develop/operational-readiness?case=${caseId}`}
+          className="rounded-lg border border-white/10 px-2.5 py-1 text-xs text-slate-300 hover:bg-white/5"
+        >
+          Operational readiness matrix
+        </Link>
         {/* D7.16 (Slice 7C): the composed Sync Field module — packaging,
             constraint-free work, workface planning, resources and readiness
             on one surface that recomputes none of them, and names the parts
