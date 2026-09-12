@@ -2587,6 +2587,95 @@ function healthcareTraceability(inputs: Record<string, unknown>): Evaluation {
   );
 }
 
+function civilStructuralCondition(inputs: Record<string, unknown>): Evaluation {
+  const rows = records(inputs.components, "Structural condition records");
+  return coverageEvaluation("structural-condition", rows,
+    (row) => Boolean(row.id && row.observation && row.observedAt && row.qualifiedInspector && bool(row.severityApproved) && bool(row.configurationCurrent) && bool(row.dispositionApproved)),
+    (row, i) => String(row.id ?? `component ${i + 1}`),
+    "qualified current observation, approved severity/configuration, or disposition is missing.");
+}
+
+function civilInspectionRating(inputs: Record<string, unknown>): Evaluation {
+  const rows = records(inputs.inspections, "Inspection rating records");
+  return coverageEvaluation("inspection-rating", rows,
+    (row) => Boolean(row.id && row.assetId && row.rating != null && bool(row.scaleApproved) && bool(row.methodApproved) && bool(row.inspectorQualified) && bool(row.reviewed) && bool(row.criticalFollowUpControlled)),
+    (row, i) => String(row.id ?? `inspection ${i + 1}`),
+    "rating basis, qualified inspection/review, or critical-finding follow-up is missing.");
+}
+
+function civilDeterioration(inputs: Record<string, unknown>): Evaluation {
+  const rows = records(inputs.series, "Deterioration series");
+  const findings: string[] = [];
+  const gaps: string[] = [];
+  for (const [index, row] of rows.entries()) {
+    const id = text(row.id, `Series ${index + 1} ID`);
+    const current = finite(row.currentValue, `${id} current value`);
+    const rate = finite(row.ratePerYear, `${id} approved rate`);
+    const horizon = positive(row.horizonYears, `${id} horizon`);
+    text(row.unit, `${id} unit`);
+    if (!bool(row.modelApproved) || !bool(row.calibrationCurrent) || !bool(row.applicable)) {
+      gaps.push(`${id}: model approval, calibration, or applicability is incomplete.`);
+      continue;
+    }
+    findings.push(`${id}: supplied linear model projects ${round(current + rate * horizon)} ${row.unit} at ${horizon} year(s).`);
+  }
+  if (!findings.length) throw new InputError("No deterioration series has an approved, current and applicable model.");
+  return { summary: `${findings.length} of ${rows.length} supplied deterioration series were projected within their approved model boundary.`, metrics: [{ key: "projected_series", label: "Projected series", value: findings.length, unit: "count" }, { key: "blocked_series", label: "Model-boundary gaps", value: gaps.length, unit: "count" }], findings, gaps, assumptions: ["The supplied linear rates, observation basis, calibration and horizon remain valid for the stated assets and exposures."], formulae: ["Projected value = supplied current value + supplied approved annual rate × supplied horizon."] };
+}
+
+function civilLoadRestriction(inputs: Record<string, unknown>): Evaluation {
+  const rows = records(inputs.ratings, "Load rating records");
+  const findings: string[] = [];
+  const gaps: string[] = [];
+  let below = 0;
+  for (const [index, row] of rows.entries()) {
+    const id = text(row.id, `Rating ${index + 1} ID`);
+    const factor = finite(row.ratingFactor, `${id} rating factor`);
+    const criterion = positive(row.approvedCriterion, `${id} approved criterion`);
+    if (!bool(row.analysisCurrent) || !bool(row.authorityApproved)) gaps.push(`${id}: current qualified analysis or authority approval is missing.`);
+    if (factor < criterion) { below += 1; findings.push(`${id}: supplied rating factor is ${round(factor - criterion)} below the supplied criterion.`); }
+    else findings.push(`${id}: supplied rating factor is ${round(factor - criterion)} above the supplied criterion.`);
+    if (bool(row.restrictionRequired) && !bool(row.restrictionImplemented)) gaps.push(`${id}: authority-required restriction is not evidenced as implemented.`);
+  }
+  return { summary: `${rows.length} qualified load-rating record(s) were screened against supplied criteria; no load rating was performed by SyncAI.`, metrics: [{ key: "ratings", label: "Rating records", value: rows.length, unit: "count" }, { key: "below_criterion", label: "Below supplied criterion", value: below, unit: "count" }, { key: "control_gaps", label: "Authority/control gaps", value: gaps.length, unit: "count" }], findings, gaps, assumptions: ["Rating factors and criteria come from the same current, qualified load case and approved analysis."], formulae: ["Criterion margin = supplied rating factor - supplied approved criterion."] };
+}
+
+function civilGeographicRisk(inputs: Record<string, unknown>): Evaluation {
+  const rows = records(inputs.overlays, "Asset hazard overlays");
+  return coverageEvaluation("geographic-hazard overlay", rows,
+    (row) => Boolean(row.id && bool(row.assetGeometryControlled) && bool(row.crsMatched) && bool(row.layerApproved) && bool(row.metadataCurrent) && bool(row.resolutionAccepted) && bool(row.overlapMethodApproved) && bool(row.reviewed)),
+    (row, i) => String(row.id ?? `overlay ${i + 1}`),
+    "controlled geometry/CRS, approved current layer metadata/resolution/method, or review is missing.");
+}
+
+function civilRenewalPlanning(inputs: Record<string, unknown>): Evaluation {
+  const budget = positive(inputs.budget, "Indicative planning envelope");
+  const weights = records(inputs.weights, "Approved renewal weights");
+  const factorWeights = new Map<string, number>();
+  for (const [index, row] of weights.entries()) factorWeights.set(text(row.factor, `Weight ${index + 1} factor`), nonNegative(row.weight, `Weight ${index + 1}`));
+  if (![...factorWeights.values()].some((value) => value > 0)) throw new InputError("At least one approved renewal weight must be positive.");
+  const candidates = records(inputs.candidates, "Renewal candidates");
+  const gaps: string[] = [];
+  const ranked = candidates.flatMap((row, index) => {
+    const id = text(row.id, `Candidate ${index + 1} ID`);
+    const cost = positive(row.cost, `${id} cost`);
+    if (!bool(row.evidenceReady)) { gaps.push(`${id}: evidence is not ready for comparison.`); return []; }
+    const benefit = [...factorWeights].reduce((sum, [factor, weight]) => {
+      const score = finite(row[factor], `${id} ${factor} score`);
+      if (score < 0 || score > 5) throw new InputError(`${id} ${factor} score must be between 0 and 5.`);
+      return sum + score * weight;
+    }, 0);
+    const mandatory = bool(row.mandatory);
+    const due = mandatory ? isoDate(row.dueDate, `${id} due date`).getTime() : Number.POSITIVE_INFINITY;
+    return [{ id, cost, mandatory, due, priority: benefit / cost }];
+  });
+  if (!ranked.length) throw new InputError("No renewal candidate is evidence-ready.");
+  ranked.sort((a, b) => Number(b.mandatory) - Number(a.mandatory) || (a.mandatory && b.mandatory ? a.due - b.due : 0) || b.priority - a.priority || a.id.localeCompare(b.id));
+  let cumulative = 0;
+  const findings = ranked.map((row, index) => { cumulative += row.cost; return `${index + 1}. ${row.id} · ${row.mandatory ? "MANDATORY — not economically deferrable" : `weighted benefit/cost ${round(row.priority, 6)}`} · ${cumulative <= budget ? "inside" : "outside"} indicative envelope.`; });
+  return { summary: `${ranked.length} evidence-ready renewal candidate(s) were ordered; the result is not expenditure or deferral authority.`, metrics: [{ key: "candidates", label: "Evidence-ready candidates", value: ranked.length, unit: "count" }, { key: "mandatory", label: "Mandatory candidates", value: ranked.filter((row) => row.mandatory).length, unit: "count" }, { key: "budget", label: "Indicative envelope", value: budget, unit: "supplied currency" }], findings, gaps, assumptions: ["Mandatory status, due dates, factor scores, weights, costs and dependencies are current and approved."], formulae: ["Non-mandatory priority = Σ(supplied factor score × approved weight) / supplied cost; mandatory candidates remain first."] };
+}
+
 const evaluators: Partial<
   Record<string, (inputs: Record<string, unknown>) => Evaluation>
 > = {
@@ -2626,6 +2715,12 @@ const evaluators: Partial<
   "infection-control-readiness": healthcareInfectionControl,
   "patient-risk": healthcarePatientRisk,
   "device-traceability": healthcareTraceability,
+  "structural-condition": civilStructuralCondition,
+  "inspection-rating": civilInspectionRating,
+  "deterioration-forecast": civilDeterioration,
+  "load-restriction": civilLoadRestriction,
+  "geographic-risk": civilGeographicRisk,
+  "renewal-planning": civilRenewalPlanning,
   "code-compliance": codeCompliance,
   "fire-life-safety": fireLifeSafety,
   "occupancy-accessibility": occupancy,

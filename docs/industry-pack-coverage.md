@@ -2,10 +2,10 @@
 
 **Program-of-record date:** 2026-08-26
 
-SyncAI has **18 governed industry template packs** and a separate custom-sector
+SyncAI has **19 governed industry template packs** and a separate custom-sector
 path. Every governed pack is bound to one or more executable kernel failure
-contexts. Sixteen packs also bind to governed domain-depth modules containing
-43 deterministic calculations, optimizers, traceability checks, verification
+contexts. Seventeen packs also bind to governed domain-depth modules containing
+49 deterministic calculations, optimizers, traceability checks, verification
 methods and readiness screens. `kernel_bound` means executable code exists; it
 is not a claim that a customer has adopted the pack, that any legal requirement
 applies, that a standard is licensed, or that an authority has certified the
@@ -32,6 +32,7 @@ review advances it.
 | Defense                    |               3 | Mission readiness; configuration; deployment controls (3)     |
 | Aerospace & Launch         |               3 | Reuse life; range safety; propellant condition (3)            |
 | Buildings & Infrastructure |               4 | Code; life safety; occupancy; environment; BAS; resources; renewal (7) |
+| Civil Infrastructure       |               3 | Condition; inspection; deterioration; loads; geographic risk; renewal (6) |
 
 ## Count integrity
 
@@ -55,7 +56,7 @@ authorize operation. Those decisions remain with the named customer, OEM,
 professional, regulator, class, command, airworthiness, range or security
 authority.
 The custom-sector path remains organization-defined and is not counted as a
-19th governed catalog option.
+20th governed catalog option.
 
 Implementation and method boundaries are documented in
 [`domain-specialist-modules.md`](domain-specialist-modules.md).

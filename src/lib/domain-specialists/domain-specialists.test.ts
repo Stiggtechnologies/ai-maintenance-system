@@ -15,21 +15,64 @@ function evidenceFor(required: string[]) {
 
 describe("domain-depth specialist registry", () => {
   it("covers the requested specialist industries and executable methods", () => {
-    expect(DOMAIN_SPECIALIST_MODULES).toHaveLength(16);
+    expect(DOMAIN_SPECIALIST_MODULES).toHaveLength(17);
     expect(
       new Set(DOMAIN_SPECIALIST_MODULES.map((module) => module.industryCode))
       .size,
-    ).toBe(16);
+    ).toBe(17);
     const methods = DOMAIN_SPECIALIST_MODULES.flatMap((module) =>
       module.methods.map((method) => method.key),
     );
-    expect(methods).toHaveLength(43);
+    expect(methods).toHaveLength(49);
     expect(new Set(methods).size).toBe(methods.length);
     expect(registeredDomainEvaluatorKeys()).toEqual([...methods].sort());
     expect(
       new Set(DOMAIN_SPECIALIST_MODULES.map((module) => module.reviewerRoleKey))
       .size,
-    ).toBe(16);
+    ).toBe(17);
+  });
+
+  it("makes the complete civil-infrastructure family executable and non-authoritative", () => {
+    const module = DOMAIN_SPECIALIST_MODULES.find(
+      (candidate) => candidate.key === "civil-infrastructure",
+    )!;
+    expect(module.methods.map((method) => method.key)).toEqual([
+      "structural-condition",
+      "inspection-rating",
+      "deterioration-forecast",
+      "load-restriction",
+      "geographic-risk",
+      "renewal-planning",
+    ]);
+    for (const method of module.methods) {
+      const result = evaluateDomainSpecialist({
+        moduleKey: module.key,
+        methodKey: method.key,
+        inputs: method.exampleInputs,
+        evidence: evidenceFor(method.requiredEvidence),
+      });
+      expect(result.status, `${method.key}: ${result.gaps}`).toBe("draft");
+      expect(result.authoritative).toBe(false);
+      expect(result.humanApprovalRequired).toBe(true);
+      expect(result.requiredApproverRoleKey).toBe(
+        "domain_civil_infrastructure_reviewer",
+      );
+    }
+  });
+
+  it("blocks every civil-infrastructure method without canonical evidence", () => {
+    const module = DOMAIN_SPECIALIST_MODULES.find(
+      (candidate) => candidate.key === "civil-infrastructure",
+    )!;
+    for (const method of module.methods) {
+      const result = evaluateDomainSpecialist({
+        moduleKey: module.key,
+        methodKey: method.key,
+        inputs: method.exampleInputs,
+        evidence: [],
+      });
+      expect(result.status).toBe("blocked");
+    }
   });
 
   it("makes the healthcare family executable, evidence-bound and non-authoritative", () => {
