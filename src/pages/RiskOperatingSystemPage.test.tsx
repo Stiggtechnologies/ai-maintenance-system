@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { RiskCockpit } from "../types/risk";
+import { getRiskIndustryPackCatalog } from "../lib/risk-operating-system";
 import { RiskOperatingSystemPage } from "./RiskOperatingSystemPage";
 
 const service = vi.hoisted(() => ({
@@ -195,7 +196,9 @@ describe("RiskOperatingSystemPage", () => {
     const industrySelect = screen.getByLabelText(
       "Industry pack",
     ) as HTMLSelectElement;
-    expect(industrySelect.querySelectorAll("option")).toHaveLength(18);
+    expect(industrySelect.querySelectorAll("option")).toHaveLength(
+      getRiskIndustryPackCatalog().length,
+    );
     expect(
       screen.getByRole("option", { name: /Oil Sands — Executable kernel/ }),
     ).toBeInTheDocument();
