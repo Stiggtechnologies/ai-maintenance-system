@@ -419,5 +419,8 @@ verify_jwt = true
 [functions.develop-handover-agent]
 verify_jwt = true
 
+[functions.develop-operational-readiness-agent]
+verify_jwt = true
+
 [functions.sync-tts]
 verify_jwt = true

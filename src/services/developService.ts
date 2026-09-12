@@ -661,6 +661,56 @@ export async function getCaseOperationalReadinessIndex(
   return unwrap<OperationalReadinessIndexResult>(data, error);
 }
 
+export interface OperationalReadinessAgentResult {
+  advisory: true;
+  caseId: string;
+  question: "Could operations take ownership tomorrow?";
+  analysis: {
+    answer: "yes" | "no" | "not_assessable";
+    headline: string;
+    index: number | null;
+    status: "BLOCKED" | "READY" | "NOT_READY" | "NOT_ASSESSABLE";
+    profileVersion: number | null;
+    factorFindings: Array<{
+      key: string;
+      percent: number | null;
+      satisfied: number;
+      total: number;
+      weight: number;
+      sourceRefs: string[];
+    }>;
+    blockers: Array<{
+      systemRef: string;
+      asset: string;
+      assetTag: string | null;
+      item: string;
+      category: string;
+      kind: string;
+      sourceRefs: string[];
+    }>;
+    evidenceRefs: string[];
+    limitations: string[];
+  };
+  narrativeSource: "deterministic_governed_records";
+  decisionBoundary: string | null;
+  disclaimer: string;
+}
+
+export async function runOperationalReadinessAgent(
+  caseId: string,
+): Promise<OperationalReadinessAgentResult> {
+  const { data, error } = await supabase.functions.invoke(
+    "develop-operational-readiness-agent",
+    { body: { case_id: caseId } },
+  );
+  if (error) throw new Error(error.message);
+  const payload = data as OperationalReadinessAgentResult | { error?: string };
+  if (payload && typeof payload === "object" && "error" in payload) {
+    throw new Error(String(payload.error));
+  }
+  return payload as OperationalReadinessAgentResult;
+}
+
 export async function saveCaseOperationalReadinessIndexProfile(input: {
   caseId: string;
   profileId?: string | null;

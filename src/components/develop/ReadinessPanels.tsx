@@ -27,6 +27,7 @@ import {
   Gauge,
   Search,
   ShieldAlert,
+  Sparkles,
 } from "lucide-react";
 import {
   BASELINE_TYPES,
@@ -59,10 +60,12 @@ import {
   recordSystemOperationalReadinessItem,
   recordSystemReadinessDesignOrigin,
   runEvidenceAgent,
+  runOperationalReadinessAgent,
   saveCaseOperationalReadinessIndexProfile,
   type BindableAsset,
   type EvidenceAgentResult,
   type IntakeDocumentOption,
+  type OperationalReadinessAgentResult,
   type OrgMember,
 } from "../../services/developService";
 
@@ -1100,6 +1103,8 @@ function OperationalReadinessIndexSection({
     Array<{ id: string; description: string }>
   >([]);
   const [busy, setBusy] = useState(false);
+  const [agentBusy, setAgentBusy] = useState(false);
+  const [agentResult, setAgentResult] = useState<OperationalReadinessAgentResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -1181,6 +1186,33 @@ function OperationalReadinessIndexSection({
         )}
       </div>
       <ErrorLine error={error} />
+      <div className="rounded-lg border border-signal-cyan/15 bg-signal-cyan/[0.03] p-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-200">
+              <Sparkles className="h-3.5 w-3.5 text-signal-cyan" aria-hidden />
+              Operational Readiness Agent · could operations take ownership tomorrow?
+            </div>
+            <p className="mt-1 text-[11px] text-slate-500">
+              Explains the adopted nine-factor index and names its canonical hard blockers. It cannot complete readiness, accept handover, approve go-live or authorize energization.
+            </p>
+          </div>
+          <button type="button" disabled={agentBusy} className="rounded-lg border border-signal-cyan/30 px-3 py-1.5 text-xs font-semibold text-signal-cyan disabled:opacity-40" onClick={() => {
+            setAgentBusy(true); setError(null);
+            runOperationalReadinessAgent(caseId).then(setAgentResult).catch((caught) => setError(caught instanceof Error ? caught.message : "Operational Readiness Agent failed")).finally(() => setAgentBusy(false));
+          }}>
+            {agentBusy ? "Reading governed records…" : "Run Operational Readiness Agent"}
+          </button>
+        </div>
+        {agentResult && <div className="mt-3 space-y-2 border-t border-white/6 pt-3 text-xs">
+          <p className={agentResult.analysis.answer === "yes" ? "font-semibold text-emerald-300" : agentResult.analysis.answer === "no" ? "font-semibold text-rose-300" : "font-semibold text-amber-200"}>{agentResult.analysis.headline}</p>
+          {agentResult.analysis.factorFindings.length > 0 && <div className="grid gap-1 sm:grid-cols-3">{agentResult.analysis.factorFindings.map((factor) => <div key={factor.key} className="rounded border border-white/6 px-2 py-1.5 text-[11px] text-slate-300"><span className="font-semibold capitalize">{factor.key.replaceAll("_", " ")}</span> · {factor.percent == null ? "not assessed" : `${factor.percent}%`} · {factor.satisfied}/{factor.total}</div>)}</div>}
+          {agentResult.analysis.blockers.length > 0 && <div><p className="text-[10px] font-semibold uppercase tracking-wide text-rose-300">Named hard blockers</p><ul className="mt-1 list-disc space-y-1 pl-4 text-[11px] text-rose-200">{agentResult.analysis.blockers.map((blocker) => <li key={`${blocker.systemRef}-${blocker.sourceRefs[1]}`}>{blocker.systemRef} · {blocker.assetTag ?? blocker.asset} · {blocker.item} · {blocker.kind.replaceAll("_", " ")}</li>)}</ul></div>}
+          {agentResult.analysis.limitations.length > 0 && <ul className="list-disc space-y-1 pl-4 text-[11px] text-amber-200">{agentResult.analysis.limitations.map((item) => <li key={item}>{item}</li>)}</ul>}
+          <p className="break-all text-[10px] text-slate-500">Records: {agentResult.analysis.evidenceRefs.join(" · ") || "none"}</p>
+          <p className="text-[10px] text-slate-500">{agentResult.disclaimer}</p>
+        </div>}
+      </div>
       {calculation?.error && (
         <p className="rounded border border-amber-400/20 bg-amber-400/5 px-2.5 py-2 text-[11px] text-amber-200">{calculation.error}</p>
       )}
