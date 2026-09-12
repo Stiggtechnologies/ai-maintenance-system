@@ -72,10 +72,10 @@
     "backticked": 0
   },
   "D2.08": {
-    "status": "🟡",
+    "status": "✅",
     "evidence": true,
-    "citations": 1,
-    "backticked": 0
+    "citations": 8,
+    "backticked": 8
   },
   "D2.09": {
     "status": "🟡",
@@ -348,16 +348,16 @@
     "backticked": 12
   },
   "D4.08": {
-    "status": "🟡",
+    "status": "✅",
     "evidence": true,
-    "citations": 0,
-    "backticked": 0
+    "citations": 10,
+    "backticked": 10
   },
   "D4.09": {
-    "status": "❌",
+    "status": "✅",
     "evidence": true,
-    "citations": 0,
-    "backticked": 0
+    "citations": 4,
+    "backticked": 4
   },
   "D4.10": {
     "status": "✅",
