@@ -7,6 +7,13 @@ const component = readFileSync(
   "utf8",
 );
 const briefing = readFileSync("src/lib/develop/pmGateBriefing.ts", "utf8");
+const register = readFileSync("docs/sync-develop/register.md", "utf8");
+
+function registerRow(id: string) {
+  return (
+    register.split("\n").find((line) => line.startsWith(`| ${id} |`)) ?? ""
+  );
+}
 
 describe("D13.13 PM gate briefing contract", () => {
   it("is mounted on the live human gate-review route", () => {
@@ -28,5 +35,9 @@ describe("D13.13 PM gate briefing contract", () => {
     expect(briefing).toContain("evidence_items:");
     expect(briefing).toContain("A named eligible human");
     expect(briefing).toContain("‘Not blocked’ is not approval");
+  });
+
+  it("promotes the capability only after the complete exact-head gates passed", () => {
+    expect(registerRow("D13.13")).toMatch(/^\| D13\.13 \|[^|]*\|[^|]*\| ✅/);
   });
 });
