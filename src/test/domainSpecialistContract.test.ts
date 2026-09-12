@@ -11,6 +11,7 @@ const migration = [
   read("supabase/migrations/20261219230000_healthcare_pack.sql"),
   read("supabase/migrations/20261219240000_civil_infrastructure_pack.sql"),
   read("supabase/migrations/20261219250000_process_industry_pack.sql"),
+  read("supabase/migrations/20261219260000_manufacturing_pack.sql"),
 ]
   .join("\n")
   // Additive migrations patch deployed function definitions through SQL
