@@ -441,7 +441,7 @@ with the PR that changes an item's status._
 
 | ID    | Capability                                                                                                                                                           | Status |
 | ----- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
-| U1.01 | Mission-outcome models per organization type (utility, water, rail, airline, hospital, municipality, data centre, mining, manufacturing, defence, property, telecom) | ❌     |
+| U1.01 | Mission-outcome models per organization type (utility, water, rail, airline, hospital, municipality, data centre, mining, manufacturing, defence, property, telecom) | ✅ twelve governed reference models plus tenant-owned versioning, evidence/applicability basis, canonical independent approval, supersession, guarded writes, audit provenance and downstream resolver (`20261219210000_mission_outcome_models.sql`); Decision Governance UI and runtime smoke prove human/AI/tenant boundaries |
 | U1.02 | Universal objective: protect/improve mission delivery through safe, reliable, resilient, economic assets                                                             | 🟡     |
 
 ### U2 — Systems-of-systems modeling
@@ -775,6 +775,6 @@ record-scoped._
 
 Atomic items tracked: **397** — counted programmatically from the tables
 themselves (an earlier hand-stated figure of 307 under-counted; the enumeration
-never changed, only the count of it). Current tally: ✅ 269 · 🟡 179 · ❌ 17. _(2026-08-07: reconciled after parallel merges — C7.01/03/04/11 reliability engine, C4.13–17 + C6.22 closed-loop tail, C3.01–12 taxonomy, C5.04 scheduler all verified present on main.)_
+never changed, only the count of it). Current tally: ✅ 270 · 🟡 179 · ❌ 16. _(2026-08-07: reconciled after parallel merges — C7.01/03/04/11 reliability engine, C4.13–17 + C6.22 closed-loop tail, C3.01–12 taxonomy, C5.04 scheduler all verified present on main.)_
 Every ❌ and 🟡 is an open obligation of the program. No item may be removed;
 items may only change status with linked evidence in the PR that changes them.
