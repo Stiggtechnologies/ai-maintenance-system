@@ -12,7 +12,7 @@ EVIDENCE='8e000000-0000-4000-8000-000000000002'
 token(){ curl -sS "$API_URL/auth/v1/token?grant_type=password" -H "apikey: $ANON_KEY" -H 'Content-Type: application/json' -d "{\"email\":\"$1\",\"password\":\"$2\"}" | python3 -c "import json,sys; print(json.load(sys.stdin).get('access_token',''))"; }
 rpc(){ curl -sS -X POST "$API_URL/rest/v1/rpc/$2" -H "apikey: $ANON_KEY" -H "Authorization: Bearer $1" -H 'Content-Type: application/json' -d "$3"; }
 psqlc(){ PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -v ON_ERROR_STOP=1 -tAc "$1"; }
-noerr(){ BODY="$1" python3 -c "import json,os,sys; x=json.loads(os.environ['BODY']); sys.exit(1) if isinstance(x,dict) and x.get('error') else None"; }
+noerr(){ BODY="$1" python3 -c "import json,os,sys; x=json.loads(os.environ['BODY']); bad=isinstance(x,dict) and any(x.get(k) for k in ('error','code','message')); print(json.dumps(x,sort_keys=True)) if bad else None; sys.exit(1 if bad else 0)"; }
 contains(){ BODY="$1" WANT="$2" python3 -c "import os,sys; sys.exit(0) if os.environ['WANT'].lower() in os.environ['BODY'].lower() else (print('expected',os.environ['WANT'],'got',os.environ['BODY']) or sys.exit(1))"; }
 
 AUTHOR=$(token 'demo@syncai.ca' 'Demo123!@#')
@@ -67,14 +67,14 @@ noerr "$READ"
 BODY="$READ" python3 - <<'PY'
 import json,os
 x=json.loads(os.environ['BODY'])
-assert x['leakageEvaluable'] and x['trajectoryComplete']
-assert [r['point'] for r in x['trajectory']]==['original','design','sanction','execution_forecast','startup','realized']
-assert float(x['approvedValue'])==90 and float(x['realizedValue'])==64
-assert float(x['approvedToRealizedLeakage'])==26 and float(x['originalToRealizedChange'])==36
-assert len(x['attributions'])==7 and float(x['attributedValue'])==26
-assert float(x['unattributedResidual'])==0 and x['attributionValid']
-assert x['pendingVerificationCount']==0 and x['missingPoints']==[]
-assert 'not proof of causation' in x['decisionBoundary']
+assert x['leakageEvaluable'] and x['trajectoryComplete'], x
+assert [r['point'] for r in x['trajectory']]==['original','design','sanction','execution_forecast','startup','realized'], x
+assert float(x['approvedValue'])==90 and float(x['realizedValue'])==64, x
+assert float(x['approvedToRealizedLeakage'])==26 and float(x['originalToRealizedChange'])==36, x
+assert len(x['attributions'])==7 and float(x['attributedValue'])==26, x
+assert float(x['unattributedResidual'])==0 and x['attributionValid'], x
+assert x['pendingVerificationCount']==0 and x['missingPoints']==[], x
+assert 'not proof of causation' in x['decisionBoundary'], x
 PY
 
 SCREEN=$(rpc "$AUTHOR" get_case_benefits_screen "{\"p_case_id\":\"$CASE\"}")
@@ -82,9 +82,9 @@ noerr "$SCREEN"
 BODY="$SCREEN" python3 - <<'PY'
 import json,os
 x=json.loads(os.environ['BODY']); b=x['benefits'][0]
-assert float(b['expected'])==90 and float(b['currentForecast'])==64 and float(b['actual'])==64
-assert float(b['variance'])==-26 and b['owner']
-assert x['valueLeakage']['trajectoryComplete']
+assert float(b['expected'])==90 and float(b['currentForecast'])==64 and float(b['actual'])==64, x
+assert float(b['variance'])==-26 and b['owner'], x
+assert x['valueLeakage']['trajectoryComplete'], x
 PY
 
 OVER=$(rpc "$AUTHOR" record_case_value_leakage_attribution "{\"p_case_id\":\"$CASE\",\"p_bucket\":\"scope\",\"p_value\":30,\"p_attribution_kind\":\"causal\",\"p_basis\":\"Deliberate over-attribution must be refused during independent verification\",\"p_evidence_item_id\":\"$EVIDENCE\"}")
