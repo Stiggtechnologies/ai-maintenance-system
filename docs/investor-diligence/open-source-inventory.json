@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "source": "package-lock.json",
-  "lockfileSha256": "3d2c1acd87bfbedb7696ebf7e66b4d9cc8427176098728d5958bb18b6f334a3f",
+  "lockfileSha256": "b17a361bb06f26a0a62d748d3ed8de6fb4723f90c17e38f65406e027d0f5f70e",
   "packageInstances": 405,
   "directProductionDependencies": 14,
   "directDevelopmentDependencies": 26,
@@ -824,14 +824,14 @@
     },
     {
       "name": "@supabase/auth-js",
-      "version": "2.112.3",
+      "version": "2.112.4",
       "license": "MIT",
       "direct": "transitive",
       "packagePath": "node_modules/@supabase/auth-js"
     },
     {
       "name": "@supabase/functions-js",
-      "version": "2.112.3",
+      "version": "2.112.4",
       "license": "MIT",
       "direct": "transitive",
       "packagePath": "node_modules/@supabase/functions-js"
@@ -845,28 +845,28 @@
     },
     {
       "name": "@supabase/postgrest-js",
-      "version": "2.112.3",
+      "version": "2.112.4",
       "license": "MIT",
       "direct": "transitive",
       "packagePath": "node_modules/@supabase/postgrest-js"
     },
     {
       "name": "@supabase/realtime-js",
-      "version": "2.112.3",
+      "version": "2.112.4",
       "license": "MIT",
       "direct": "transitive",
       "packagePath": "node_modules/@supabase/realtime-js"
     },
     {
       "name": "@supabase/storage-js",
-      "version": "2.112.3",
+      "version": "2.112.4",
       "license": "MIT",
       "direct": "transitive",
       "packagePath": "node_modules/@supabase/storage-js"
     },
     {
       "name": "@supabase/supabase-js",
-      "version": "2.112.3",
+      "version": "2.112.4",
       "license": "MIT",
       "direct": "production",
       "packagePath": "node_modules/@supabase/supabase-js"
@@ -2056,7 +2056,7 @@
     },
     {
       "name": "lucide-react",
-      "version": "1.33.0",
+      "version": "1.37.0",
       "license": "ISC",
       "direct": "production",
       "packagePath": "node_modules/lucide-react"
@@ -2329,14 +2329,14 @@
     },
     {
       "name": "react-router-dom",
-      "version": "7.18.2",
+      "version": "7.18.3",
       "license": "MIT",
       "direct": "production",
       "packagePath": "node_modules/react-router-dom"
     },
     {
       "name": "react-router",
-      "version": "7.18.2",
+      "version": "7.18.3",
       "license": "MIT",
       "direct": "transitive",
       "packagePath": "node_modules/react-router"
