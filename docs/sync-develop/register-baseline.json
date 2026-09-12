@@ -1284,10 +1284,10 @@
     "backticked": 0
   },
   "D12.15": {
-    "status": "🟡",
+    "status": "✅",
     "evidence": true,
-    "citations": 4,
-    "backticked": 0
+    "citations": 6,
+    "backticked": 6
   },
   "D12.16": {
     "status": "✅",

@@ -8,9 +8,10 @@ import {
 import type { SystemOperationalReadinessResult } from "../../lib/develop";
 import {
   acceptSystemHandoverPackage,
-  assembleSystemHandoverPackage,
   getCaseSystemHandoverPackages,
+  runHandoverAgent,
   type CaseSystemHandoverPackages,
+  type HandoverAgentResult,
   type HandoverReadinessDimension,
 } from "../../services/handoverPackageService";
 import { OperationsReadinessBriefing } from "./OperationsReadinessBriefing";
@@ -87,6 +88,9 @@ export function SystemHandoverPanel({
   >([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [agentReport, setAgentReport] = useState<HandoverAgentResult | null>(
+    null,
+  );
   const normalizedRole = String(role ?? "").toLowerCase();
   const canPrepare = [
     "admin",
@@ -144,7 +148,8 @@ export function SystemHandoverPanel({
     setBusy(true);
     setError(null);
     try {
-      await assembleSystemHandoverPackage({
+      const report = await runHandoverAgent({
+        caseId,
         systemId,
         ownerFrom,
         ownerTo: value(data, "ownerTo"),
@@ -152,6 +157,7 @@ export function SystemHandoverPanel({
         basis: value(data, "basis"),
         evidenceItemId: value(data, "evidenceItemId"),
       });
+      setAgentReport(report);
       form.reset();
       await load();
     } catch (caught) {
@@ -207,6 +213,34 @@ export function SystemHandoverPanel({
         >
           {error}
         </p>
+      )}
+      {agentReport && (
+        <aside className="mt-3 rounded border border-signal-cyan/20 bg-signal-cyan/[0.05] p-3 text-xs text-slate-300">
+          <p className="font-semibold text-signal-cyan">
+            Handover Agent · draft v{agentReport.draft.version} assembled
+          </p>
+          <p className="mt-1">
+            {agentReport.readiness.canAccept
+              ? "Canonical evidence is complete; named-owner acceptance is still required."
+              : `${agentReport.readiness.blockers.length} canonical blocker(s) remain.`}
+          </p>
+          {agentReport.readiness.blockers.length > 0 && (
+            <ul className="mt-2 list-disc space-y-1 pl-5 text-amber-300">
+              {agentReport.readiness.blockers.map((blocker) => (
+                <li key={blocker}>{blocker}</li>
+              ))}
+            </ul>
+          )}
+          <p className="mt-2 text-slate-400">{agentReport.disclaimer}</p>
+          <details className="mt-2 text-[10px] text-slate-500">
+            <summary className="cursor-pointer">Record trail</summary>
+            <ul className="mt-1 font-mono">
+              {agentReport.evidenceRefs.map((reference) => (
+                <li key={reference}>{reference}</li>
+              ))}
+            </ul>
+          </details>
+        </aside>
       )}
       {!model && !error && (
         <p className="mt-3 text-xs text-slate-500">
@@ -387,7 +421,7 @@ export function SystemHandoverPanel({
                     <h4 className="text-xs font-semibold text-slate-200 md:col-span-3">
                       {system.package
                         ? "Reassemble current draft"
-                        : "Assemble draft"}
+                        : "Assemble draft with Handover Agent"}
                     </h4>
                     <select name="ownerTo" required className={input}>
                       <option value="">Operations owner-to…</option>
@@ -423,7 +457,9 @@ export function SystemHandoverPanel({
                       disabled={busy}
                       className="rounded bg-signal-cyan px-3 py-2 text-xs font-semibold text-slate-950 disabled:opacity-50 md:col-span-3"
                     >
-                      {busy ? "Working…" : "Assemble evidence-linked draft"}
+                      {busy
+                        ? "Working…"
+                        : "Run Handover Agent · assemble draft"}
                     </button>
                   </form>
                 )}

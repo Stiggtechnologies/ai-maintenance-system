@@ -6,6 +6,7 @@ eval "$(supabase status -o env | grep -E '^(ANON_KEY|API_URL)=')"
 ORG='11111111-1111-1111-1111-111111111111'; CASE='80300000-0000-4000-8000-000000000001'
 token(){ curl -sS "$API_URL/auth/v1/token?grant_type=password" -H "apikey: $ANON_KEY" -H 'Content-Type: application/json' -d "{\"email\":\"$1\",\"password\":\"$2\"}" | python3 -c "import json,sys; print(json.load(sys.stdin).get('access_token',''))"; }
 rpc(){ curl -sS -X POST "$API_URL/rest/v1/rpc/$2" -H "apikey: $ANON_KEY" -H "Authorization: Bearer $1" -H 'Content-Type: application/json' -d "$3"; }
+agent(){ curl -sS -w '\n%{http_code}' -X POST "$API_URL/functions/v1/develop-handover-agent" -H "Authorization: Bearer $1" -H 'Content-Type: application/json' -d "$2"; }
 psqlc(){ PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -v ON_ERROR_STOP=1 -tAc "$1"; }
 field(){ BODY="$1" KEY="$2" python3 -c 'import json,os,sys; body=json.loads(os.environ["BODY"]); key=os.environ["KEY"]; key in body or sys.exit(f"missing {key!r}: {json.dumps(body,sort_keys=True)}"); print(body[key])'; }
 PLANNER=$(token 'planner@syncai.ca' 'Planner123!@#'); MANAGER=$(token 'manager@syncai.ca' 'Manager123!@#'); EXEC=$(token 'executive@syncai.ca' 'Exec123!@#')
@@ -35,6 +36,15 @@ DIGITAL=$(rpc "$PLANNER" assess_asset_digital_maintainability "{\"p_asset_id\":\
 BODY="$DIGITAL" python3 -c 'import json,os; x=json.loads(os.environ["BODY"]); assert x["applicability"]=="not_applicable", x'
 
 RISK=$(psqlc "with r as (insert into risks(organization_id,development_case_id,asset_id,title,kind,current_risk_level,residual_risk_level,status,source_kind,created_by) values('$ORG','$CASE','$ASSET','D8.09 residual startup risk','threat','Medium','Medium','draft','human','$PLANNER_ID') returning id) select id from r")
+NOAUTH=$(curl -sS -o /dev/null -w '%{http_code}' -X POST "$API_URL/functions/v1/develop-handover-agent" -H 'Content-Type: application/json' -d "{\"case_id\":\"$CASE\",\"system_id\":$SID}")
+test "$NOAUTH" = '401'
+FOREIGN=$(agent "$PLANNER" "{\"case_id\":\"00000000-0000-4000-8000-000000000099\",\"system_id\":$SID}")
+test "${FOREIGN##*$'\n'}" = '404'
+AGENT=$(agent "$PLANNER" "{\"case_id\":\"$CASE\",\"system_id\":$SID,\"owner_from\":\"$PLANNER_ID\",\"owner_to\":\"$EXEC_ID\",\"required_acceptance_date\":\"2026-12-31\",\"basis\":\"Handover Agent assembles the evidence-linked draft while preserving human acceptance authority.\",\"evidence_item_id\":\"$EVIDENCE\"}")
+test "${AGENT##*$'\n'}" = '200'
+AGENT_BODY=${AGENT%$'\n'*}
+BODY="$AGENT_BODY" SID="$SID" python3 -c 'import json,os; x=json.loads(os.environ["BODY"]); assert x["advisory"] and x["draft"]["status"]=="draft" and str(x["draft"]["systemId"])==os.environ["SID"]; assert "acceptedAt" not in x["draft"] and "commissioningState" not in x["draft"]; assert len(x["evidenceRefs"])==3 and "named receiving owner" in x["disclaimer"]'
+test "$(psqlc "select commissioning_state from commissioning_systems where id=$SID")" != 'ACCEPTED'
 CROSS=$(rpc "$PLANNER" assemble_system_handover_package "{\"p_system_id\":$SID,\"p_owner_from\":\"$PLANNER_ID\",\"p_owner_to\":\"00000000-0000-0000-0000-000000000099\",\"p_required_acceptance_date\":\"2026-12-31\",\"p_basis\":\"A foreign or absent operations owner must fail at the tenant boundary.\",\"p_evidence_item_id\":\"$EVIDENCE\"}")
 BODY="$CROSS" python3 -c 'import json,os; assert "same-tenant human operations owner-to" in json.loads(os.environ["BODY"])["error"]'
 PACKAGE=$(rpc "$PLANNER" assemble_system_handover_package "{\"p_system_id\":$SID,\"p_owner_from\":\"$PLANNER_ID\",\"p_owner_to\":\"$EXEC_ID\",\"p_required_acceptance_date\":\"2026-12-31\",\"p_basis\":\"Signed package transfers this verified system and all current residual risks to operations.\",\"p_evidence_item_id\":\"$EVIDENCE\"}")
@@ -73,4 +83,4 @@ if psqlc "update system_handover_packages set acceptance_basis='rewritten accept
 if psqlc "update system_handover_residual_risks set risk_id='$RISK' where handover_package_id=$PID" >/dev/null 2>&1; then echo 'handover risk reference rewrite unexpectedly succeeded'; exit 1; fi
 CROSS_CASE=$(rpc "$PLANNER" get_case_system_handover_packages '{"p_case_id":"00000000-0000-4000-8000-000000000099"}')
 BODY="$CROSS_CASE" python3 -c 'import json,os; assert "not found" in json.loads(os.environ["BODY"])["error"]'
-echo 'D8.09 system HandoverPackage smoke passed: canonical physical, information, operational and digital readiness, complete risk references, owner transfer, human evidence, SoD, tenant refusal, immutable acceptance and canonical ACCEPTED transition'
+echo 'D8.09/D12.15 system HandoverPackage smoke passed: agent draft-only assembly, canonical physical, information, operational and digital readiness, complete risk references, owner transfer, human evidence, SoD, tenant refusal, immutable acceptance and canonical ACCEPTED transition'

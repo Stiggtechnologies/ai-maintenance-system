@@ -123,6 +123,48 @@ export async function assembleSystemHandoverPackage(input: {
   }>(data, error);
 }
 
+export interface HandoverAgentResult {
+  advisory: true;
+  caseId: string;
+  draft: {
+    packageId: number;
+    systemId: number;
+    version: number;
+    status: "draft";
+    residualRiskCount: number;
+    decisionBoundary: string;
+  };
+  readiness: SystemHandoverReadiness;
+  evidenceRefs: string[];
+  disclaimer: string;
+}
+
+export async function runHandoverAgent(input: {
+  caseId: string;
+  systemId: number;
+  ownerFrom: string;
+  ownerTo: string;
+  requiredAcceptanceDate: string;
+  basis: string;
+  evidenceItemId: string;
+}): Promise<HandoverAgentResult> {
+  const { data, error } = await supabase.functions.invoke(
+    "develop-handover-agent",
+    {
+      body: {
+        case_id: input.caseId,
+        system_id: input.systemId,
+        owner_from: input.ownerFrom,
+        owner_to: input.ownerTo,
+        required_acceptance_date: input.requiredAcceptanceDate,
+        basis: input.basis,
+        evidence_item_id: input.evidenceItemId,
+      },
+    },
+  );
+  return unwrap<HandoverAgentResult>(data, error);
+}
+
 export async function acceptSystemHandoverPackage(input: {
   packageId: number;
   basis: string;
