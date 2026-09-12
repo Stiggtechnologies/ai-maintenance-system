@@ -35,6 +35,7 @@ import { LayeredCapabilityPacks } from "../components/LayeredCapabilityPacks";
 import { ModelRisk } from "../components/ModelRisk";
 import { GovernanceAgentPanel } from "../components/GovernanceAgentPanel";
 import { HopSystemConditionsPanel } from "../components/HopSystemConditionsPanel";
+import { ExpenditureApprovalPanel } from "../components/ExpenditureApprovalPanel";
 
 const DECISION_STATUSES: DecisionStatus[] = [
   "pending",
@@ -396,6 +397,8 @@ export function DecisionGovernance() {
       </div>
 
       <SafetyGatekeeperPanel />
+
+      <ExpenditureApprovalPanel />
 
       <GovernanceAgentPanel />
 
