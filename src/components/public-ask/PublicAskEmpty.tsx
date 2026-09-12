@@ -93,6 +93,24 @@ export function PublicAskEmpty({
             and what your team should do next—without surrendering engineering
             authority to AI.
           </p>
+          <div className="bolt-hero-capabilities" aria-label="Live capability paths">
+            <span>Explore live capabilities</span>
+            <ul>
+              {PUBLIC_ASK_INTENTS.map((intent) => (
+                <li key={intent.id}>
+                  <button
+                    type="button"
+                    data-testid="hero-intent-pill"
+                    title={`${intent.module}: ${intent.explanation}`}
+                    onClick={() => onSelectIntent(intent)}
+                  >
+                    {PILL_ICONS[intent.id]}
+                    {intent.label}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
           <div className="bolt-hero-actions">
             <button
               type="button"
