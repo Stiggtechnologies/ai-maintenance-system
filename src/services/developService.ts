@@ -13,6 +13,8 @@ import type {
   CaseWorkspace,
   GateReadinessResult,
   OperationalReadinessResult,
+  OperationalReadinessIndexFactor,
+  OperationalReadinessIndexResult,
   SystemOperationalReadinessResult,
   SystemReadinessDesignOriginsResult,
 } from "../lib/develop";
@@ -646,6 +648,48 @@ export async function getCaseOperationalReadiness(
     p_case_id: caseId,
   });
   return unwrap<OperationalReadinessResult>(data, error);
+}
+
+export async function getCaseOperationalReadinessIndex(
+  caseId: string,
+): Promise<OperationalReadinessIndexResult> {
+  const { data, error } = await supabase.rpc(
+    "get_case_operational_readiness_index",
+    { p_case_id: caseId },
+  );
+  return unwrap<OperationalReadinessIndexResult>(data, error);
+}
+
+export async function saveCaseOperationalReadinessIndexProfile(input: {
+  caseId: string;
+  profileId?: string | null;
+  factors: OperationalReadinessIndexFactor[];
+  hardRequirementKeys: string[];
+  basis: string;
+  evidenceItemId: string;
+}): Promise<{ profileId: string; version: number; status: "draft" }> {
+  const { data, error } = await supabase.rpc(
+    "save_case_operational_readiness_index_profile",
+    {
+      p_case_id: input.caseId,
+      p_profile_id: input.profileId ?? null,
+      p_factors: input.factors,
+      p_hard_requirement_keys: input.hardRequirementKeys,
+      p_basis: input.basis,
+      p_evidence_item_id: input.evidenceItemId,
+    },
+  );
+  return unwrap(data, error);
+}
+
+export async function adoptCaseOperationalReadinessIndexProfile(
+  profileId: string,
+): Promise<{ profileId: string; version: number; status: "adopted" }> {
+  const { data, error } = await supabase.rpc(
+    "adopt_case_operational_readiness_index_profile",
+    { p_profile_id: profileId },
+  );
+  return unwrap(data, error);
 }
 
 export interface BindableAsset {

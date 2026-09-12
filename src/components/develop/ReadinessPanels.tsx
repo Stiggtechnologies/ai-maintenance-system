@@ -33,15 +33,19 @@ import {
   type CaseWorkspace,
   type GateReadinessResult,
   type OperationalReadinessResult,
+  type OperationalReadinessFactorKey,
+  type OperationalReadinessIndexResult,
   type ReadinessBlocker,
   type SystemOperationalReadinessResult,
   type SystemReadinessDesignOriginsResult,
 } from "../../lib/develop";
 import {
   approveCaseBaseline,
+  adoptCaseOperationalReadinessIndexProfile,
   bindAssetToCase,
   createCaseBaseline,
   getCaseOperationalReadiness,
+  getCaseOperationalReadinessIndex,
   getCaseSystemOperationalReadiness,
   getCaseSystemReadinessDesignOrigins,
   getGateReadiness,
@@ -55,6 +59,7 @@ import {
   recordSystemOperationalReadinessItem,
   recordSystemReadinessDesignOrigin,
   runEvidenceAgent,
+  saveCaseOperationalReadinessIndexProfile,
   type BindableAsset,
   type EvidenceAgentResult,
   type IntakeDocumentOption,
@@ -63,6 +68,18 @@ import {
 
 const inputClass =
   "w-full rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-signal-cyan/50 focus:outline-none";
+
+const ORI_FACTORS: Array<{ key: OperationalReadinessFactorKey; label: string }> = [
+  { key: "people", label: "People" },
+  { key: "procedures", label: "Procedures" },
+  { key: "asset_data", label: "Asset data" },
+  { key: "maintenance", label: "Maintenance" },
+  { key: "spares", label: "Spares" },
+  { key: "training", label: "Training" },
+  { key: "operations", label: "Operations" },
+  { key: "safety", label: "Safety" },
+  { key: "cyber", label: "Cyber" },
+];
 
 function ErrorLine({ error }: { error: string | null }) {
   if (!error) return null;
@@ -1058,11 +1075,174 @@ export function OperationalReadinessSection({
             </button>
           </div>
         )}
+        <OperationalReadinessIndexSection caseId={caseId} canPlan={canPlan} />
         <SystemOperationalReadinessSection
           caseId={caseId}
           canPlan={canPlan}
         />
       </div>
+    </div>
+  );
+}
+
+function OperationalReadinessIndexSection({
+  caseId,
+  canPlan,
+}: {
+  caseId: string;
+  canPlan: boolean;
+}) {
+  const [model, setModel] = useState<OperationalReadinessIndexResult | null>(null);
+  const [catalog, setCatalog] = useState<
+    Awaited<ReturnType<typeof listOperationalReadinessCatalog>>
+  >([]);
+  const [evidence, setEvidence] = useState<
+    Array<{ id: string; description: string }>
+  >([]);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    try {
+      const [next, items, sources] = await Promise.all([
+        getCaseOperationalReadinessIndex(caseId),
+        listOperationalReadinessCatalog(),
+        listOrgEvidenceItems(),
+      ]);
+      setModel(next);
+      setCatalog(items);
+      setEvidence(sources);
+      setError(null);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Readiness index read failed");
+    }
+  }, [caseId]);
+  useEffect(() => void load(), [load]);
+
+  const draft = model?.profiles.find((profile) => profile.status === "draft");
+  const adopted = model?.profiles.find((profile) => profile.status === "adopted");
+  const editing = draft ?? adopted;
+
+  async function save(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const data = new FormData(form);
+    setBusy(true);
+    setError(null);
+    try {
+      await saveCaseOperationalReadinessIndexProfile({
+        caseId,
+        profileId: draft?.profileId,
+        factors: ORI_FACTORS.map(({ key }) => ({
+          key,
+          weight: Number(data.get(`weight_${key}`)),
+          categories: data.getAll(`categories_${key}`).map(String),
+        })),
+        hardRequirementKeys: data.getAll("hardRequirementKeys").map(String),
+        basis: String(data.get("basis") ?? ""),
+        evidenceItemId: String(data.get("evidenceItemId") ?? ""),
+      });
+      await load();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Index policy save refused");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function adopt() {
+    if (!draft) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await adoptCaseOperationalReadinessIndexProfile(draft.profileId);
+      await load();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Index policy adoption refused");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const calculation = model?.calculation;
+  return (
+    <div className="mt-4 space-y-3 border-t border-white/8 pt-4">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <h3 className="text-xs font-semibold text-slate-200">Operational Readiness Index</h3>
+          <p className="mt-1 max-w-3xl text-[11px] text-slate-500">
+            Nine explicitly weighted factors over the system-scoped readiness record. Open safety or selected hard conditions force BLOCKED regardless of the weighted percentage. This is decision support only and cannot accept handover.
+          </p>
+        </div>
+        {calculation?.index != null && (
+          <span className={`rounded-full border px-2 py-1 text-xs font-semibold ${calculation.status === "BLOCKED" ? "border-red-400/30 text-red-300" : "border-signal-cyan/30 text-signal-cyan"}`}>
+            {calculation.index}% · {calculation.status}
+          </span>
+        )}
+      </div>
+      <ErrorLine error={error} />
+      {calculation?.error && (
+        <p className="rounded border border-amber-400/20 bg-amber-400/5 px-2.5 py-2 text-[11px] text-amber-200">{calculation.error}</p>
+      )}
+      {calculation?.factors && (
+        <div className="grid gap-2 md:grid-cols-3">
+          {calculation.factors.map((factor) => (
+            <div key={factor.key} className="rounded border border-white/6 bg-white/[0.02] p-2 text-[11px] text-slate-400">
+              <div className="flex justify-between"><span className="font-semibold text-slate-200">{factor.key.replaceAll("_", " ")}</span><span>weight {factor.weight}</span></div>
+              <div className="mt-1">{factor.percent == null ? "No scoped inputs" : `${factor.percent}% · ${factor.satisfied}/${factor.total}`}</div>
+            </div>
+          ))}
+        </div>
+      )}
+      {(calculation?.hardBlockers?.length ?? 0) > 0 && (
+        <div>
+          <p className="text-xs font-semibold text-red-300">{calculation?.hardBlockerCount} hard condition(s) open — weighted score overridden</p>
+          <ul className="mt-1 max-h-40 space-y-1 overflow-y-auto">
+            {calculation?.hardBlockers?.map((blocker) => (
+              <li key={`${blocker.systemId}-${blocker.itemId}`} className="rounded border border-red-400/20 bg-red-400/5 px-2 py-1 text-[11px] text-red-200">
+                {blocker.systemRef} · {blocker.assetTag ?? blocker.asset} · {blocker.item} · {blocker.kind.replaceAll("_", " ")}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {adopted && <p className="text-[11px] text-slate-500">Adopted policy v{adopted.version}: {adopted.basis}</p>}
+      {canPlan && (
+        <form key={draft?.profileId ?? `new-${adopted?.profileId ?? "none"}`} onSubmit={save} className="space-y-3 rounded-lg border border-white/8 bg-white/[0.02] p-3">
+          <div>
+            <p className="text-xs font-semibold text-slate-200">{draft ? `Edit draft policy v${draft.version}` : adopted ? `Create policy v${adopted.version + 1} from the adopted position` : "Author the first index policy"}</p>
+            <p className="mt-1 text-[11px] text-slate-500">Assign every readiness category to exactly one factor and state each weight. No defaults are supplied or silently inferred.</p>
+          </div>
+          <div className="grid gap-2 md:grid-cols-3">
+            {ORI_FACTORS.map(({ key, label }) => {
+              const current = editing?.factors.find((factor) => factor.key === key);
+              return <div key={key} className="rounded border border-white/6 p-2">
+                <label className="text-[11px] font-semibold text-slate-200">{label} weight
+                  <input name={`weight_${key}`} type="number" min="0.01" step="0.01" required defaultValue={current?.weight ?? ""} className={`${inputClass} mt-1`} />
+                </label>
+                <label className="mt-2 block text-[11px] text-slate-400">Assigned categories
+                  <select name={`categories_${key}`} multiple required defaultValue={current?.categories ?? []} className={`${inputClass} mt-1 h-28`}>
+                    {[...new Set(catalog.map((item) => item.ori_category))].map((category) => <option key={category} value={category}>{category.replaceAll("_", " ")}</option>)}
+                  </select>
+                </label>
+              </div>;
+            })}
+          </div>
+          <label className="block text-[11px] text-slate-400">Hard-condition catalog items
+            <select name="hardRequirementKeys" multiple required defaultValue={editing?.hardRequirementKeys ?? []} className={`${inputClass} mt-1 h-36`}>
+              {catalog.map((item) => <option key={item.key} value={item.key}>{item.ori_category.replaceAll("_", " ")} · {item.item_label}</option>)}
+            </select>
+          </label>
+          <div className="grid gap-2 md:grid-cols-2">
+            <select name="evidenceItemId" required defaultValue={editing?.evidenceItemId ?? ""} className={inputClass}><option value="" disabled>Policy evidence…</option>{evidence.map((item) => <option key={item.id} value={item.id}>{item.description}</option>)}</select>
+            <textarea name="basis" required minLength={20} defaultValue={editing?.basis ?? ""} className={inputClass} placeholder="Why these weights, assignments, and hard conditions are appropriate (20+ characters)" />
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button disabled={busy} className="rounded border border-signal-cyan/20 px-3 py-2 text-xs font-semibold text-signal-cyan disabled:opacity-50">{busy ? "Saving…" : draft ? "Save draft" : "Create draft"}</button>
+            {draft && <button type="button" onClick={() => void adopt()} disabled={busy} className="rounded border border-emerald-400/20 px-3 py-2 text-xs font-semibold text-emerald-300 disabled:opacity-50">Adopt this policy</button>}
+          </div>
+        </form>
+      )}
     </div>
   );
 }

@@ -345,6 +345,8 @@ jobs:
 
       - name: Smoke — Sync Develop design-origin operational readiness (requirement to canonical item to handover)
         run: bash scripts/ci-develop-design-origin-readiness-smoke.sh
+      - name: Smoke — Sync Develop Operational Readiness Index (governed weights and hard conditions)
+        run: bash scripts/ci-develop-operational-readiness-index-smoke.sh
 
       - name: Smoke — governed engineering knowledge on the canonical Reliability KB
         run: bash scripts/ci-governed-knowledge-smoke.sh
