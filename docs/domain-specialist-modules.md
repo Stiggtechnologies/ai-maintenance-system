@@ -14,7 +14,7 @@ similar domain decisions.
 | -------------------------- | ------------------------------------------------------------------------------------------------------------------ |
 | Oil Sands — tailings       | Force-based factor-of-safety screen and supplied instrumentation triggers                                          |
 | Oil & Gas — well integrity | Independent barrier coverage and pressure-envelope margins                                                         |
-| Petrochemical — RBI        | Measured corrosion rate, remaining-life screen, supplied risk-matrix lookup and candidate interval                 |
+| Process Industry           | Process-safety barriers, pressure containment, RBI/corrosion, SIS proof tests, turnaround readiness and LOC risk   |
 | Utilities — storm response | Priority-ordered, skill/capacity/travel-feasible draft crew assignment                                             |
 | Manufacturing              | Precedence-feasible line balance and approved weighted robot-health model                                          |
 | Food & Beverage            | HACCP CCP verification, CIP recipe-envelope verification and cold-chain excursion dose                             |
@@ -29,7 +29,7 @@ similar domain decisions.
 | Buildings & Infrastructure | Code, fire/life safety, occupancy, environment, BAS, resource performance and renewal priority                     |
 | Civil Infrastructure       | Structural condition, inspection ratings, deterioration, load restrictions, geographic risk and renewal planning |
 
-The 17 modules expose 49 methods. The canonical registry, input examples,
+The 17 modules expose 54 methods. The canonical registry, input examples,
 required evidence, authority references, limitations and reviewer roles live in
 `src/lib/domain-specialists/catalog.ts`. The deterministic evaluators live in
 `src/lib/domain-specialists/engine.ts`; every registry method must resolve to an
@@ -58,7 +58,8 @@ evaluator or the contract test fails.
 - Limits, matrices, weights, intervals, degradation models and applicability
   come from the tenant, OEM or competent authority. SyncAI supplies no generic
   legal or engineering threshold.
-- Full API 581 damage-factor/PoF/CoF calculation, geotechnical slope solving,
+- HAZOP/LOPA/QRA, pressure/relief/fitness-for-service design, SIL determination,
+  full API 581 damage-factor/PoF/CoF calculation, geotechnical slope solving,
   CFD, fire dynamics, evacuation/tenability, microbial growth, reaction
   kinetics, trajectory/debris/casualty analysis and other specialist solvers
   outside the named algorithms are explicitly not claimed.

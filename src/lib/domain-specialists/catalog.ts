@@ -195,11 +195,11 @@ export const DOMAIN_SPECIALIST_MODULES: DomainSpecialistModule[] = [
   {
     key: "petrochemical-rbi",
     industryCode: "petrochemical",
-    label: "Petrochemical — RBI Corrosion-Loop Modelling",
-    version: "1.0.0",
+    label: "Process Industry — Integrity, Process Safety & RBI",
+    version: "1.1.0",
     reviewerRoleKey: "domain_rbi_reviewer",
     purpose:
-      "Calculate measured corrosion rates, remaining-life screens, and risk ranking from organization-approved inputs.",
+      "Screen process-safety barriers, pressure containment, SIS proof tests, corrosion/RBI, turnaround readiness, and loss-of-containment risk from organization-approved inputs.",
     dataClasses: ["operational", "safety_critical", "regulatory"],
     methods: [
       method({
@@ -260,6 +260,101 @@ export const DOMAIN_SPECIALIST_MODULES: DomainSpecialistModule[] = [
             },
           ],
         },
+      }),
+      method({
+        key: "process-safety-barriers",
+        label: "Process-safety barrier assurance",
+        purpose:
+          "Verify that each in-scope major-accident scenario retains approved prevention and mitigation barrier evidence.",
+        kind: "verification",
+        algorithm:
+          "Count scenarios whose hazard basis, approved performance standard, accountable owner, current verification, impairment disposition, and independent review are all evidenced.",
+        requiredInputs: [
+          records(
+            "scenarios",
+            "Major-accident scenarios",
+            "Scenario ID and the approval, ownership, verification, impairment, and review state of its credited barriers.",
+          ),
+        ],
+        requiredEvidence: [
+          "approved-hazard-study",
+          "barrier-register",
+          "barrier-performance-standards",
+          "verification-and-impairment-records",
+        ],
+        authorityReferences: [
+          "site process-safety management system",
+          "approved hazard studies",
+          "applicable major-hazard requirements",
+        ],
+        requiredApproverRole: "Process safety technical authority",
+        limitations: [
+          "Does not perform HAZOP, LOPA, QRA, or declare a barrier effective.",
+          "Does not authorize operation with an impaired or missing barrier.",
+        ],
+        exampleInputs: {
+          scenarios: [{ id: "MAH-01", hazardStudyApproved: true, performanceStandardApproved: true, ownerAssigned: true, verificationCurrent: true, impairmentDispositionApproved: true, independentlyReviewed: true }],
+        },
+      }),
+      method({
+        key: "pressure-containment-assurance",
+        label: "Pressure-containment assurance",
+        purpose:
+          "Screen pressure-boundary records for approved design basis, inspection currency, active anomalies, relief protection, and authorized disposition.",
+        kind: "verification",
+        algorithm:
+          "Calculate complete containment-boundary coverage; any absent current inspection, design basis, anomaly disposition, relief evidence, or technical review remains an explicit gap.",
+        requiredInputs: [records("boundaries", "Pressure boundaries", "Boundary ID and controlled design, inspection, anomaly, relief, and review evidence state.")],
+        requiredEvidence: ["pressure-equipment-register", "approved-design-basis", "inspection-and-anomaly-records", "relief-protection-records"],
+        authorityReferences: ["jurisdictional pressure-equipment requirements", "site mechanical-integrity programme", "approved relief-system basis"],
+        requiredApproverRole: "Pressure equipment technical authority",
+        limitations: ["Does not calculate MAWP, relief capacity, fitness for service, or remaining strength.", "Does not authorize continued operation, repair, rerating, or deferral."],
+        exampleInputs: { boundaries: [{ id: "V-101", designBasisApproved: true, inspectionCurrent: true, anomalyDispositionApproved: true, reliefProtectionVerified: true, configurationCurrent: true, independentlyReviewed: true }] },
+      }),
+      method({
+        key: "sis-proof-test-assurance",
+        label: "SIS proof-test and demand assurance",
+        purpose:
+          "Verify proof-test currency, demand/failure review, bypass control, approved SIL basis, and independent functional-safety review.",
+        kind: "verification",
+        algorithm:
+          "Calculate complete safety-instrumented-function coverage using only supplied approved SIL, proof-test, demand, bypass, impairment, and review evidence.",
+        requiredInputs: [records("functions", "Safety instrumented functions", "SIF ID and approved SIL basis, current proof test, demand review, bypass/impairment control, configuration, and independent review state.")],
+        requiredEvidence: ["approved-sil-determination", "sif-register-and-srs", "proof-test-and-demand-history", "bypass-and-impairment-register"],
+        authorityReferences: ["IEC 61511", "approved safety requirements specification", "site functional-safety lifecycle"],
+        requiredApproverRole: "Functional safety authority",
+        limitations: ["Does not determine SIL, calculate PFDavg, design a SIF, or validate proof-test coverage.", "Does not remove bypasses, reset trips, or authorize operation."],
+        exampleInputs: { functions: [{ id: "SIF-001", silBasisApproved: true, proofTestCurrent: true, demandsReviewed: true, bypassesControlled: true, impairmentsDispositioned: true, configurationCurrent: true, independentlyReviewed: true }] },
+      }),
+      method({
+        key: "turnaround-readiness",
+        label: "Turnaround readiness",
+        purpose:
+          "Screen approved turnaround work for scope freeze, work-pack readiness, materials, isolations, resources, schedule logic, and accountable release.",
+        kind: "readiness",
+        algorithm:
+          "Calculate ready-work-package coverage; no package is ready unless every supplied readiness control is true and its release authority is named.",
+        requiredInputs: [records("workPackages", "Turnaround work packages", "Package ID and approved scope, work pack, material, isolation, resource, schedule, risk, and release states.")],
+        requiredEvidence: ["approved-turnaround-scope", "work-package-and-constraint-register", "isolation-and-permit-plan", "resource-and-schedule-basis"],
+        authorityReferences: ["approved turnaround governance", "site safe-work and isolation rules", "authorized integrated schedule baseline"],
+        requiredApproverRole: "Turnaround manager / operations authority",
+        limitations: ["Does not release work, approve isolations or permits, or change the schedule baseline.", "Does not infer readiness from planned dates or percent complete."],
+        exampleInputs: { workPackages: [{ id: "TA-WP-01", scopeApproved: true, workPackReady: true, materialsReady: true, isolationPlanApproved: true, resourcesConfirmed: true, scheduleLogicApproved: true, risksDispositioned: true, releaseAuthorityNamed: true }] },
+      }),
+      method({
+        key: "loss-of-containment-risk",
+        label: "Loss-of-containment risk screen",
+        purpose:
+          "Map supplied likelihood and consequence categories through the organization's approved risk matrix while exposing barrier and response gaps.",
+        kind: "engineering_calculation",
+        algorithm:
+          "Risk rank is the exact approved matrix lookup for each scenario's supplied likelihood and consequence categories; unverified barrier credit is never used.",
+        requiredInputs: [records("scenarios", "Loss-of-containment scenarios", "Scenario ID, approved likelihood and consequence categories, verified barrier state, response readiness, and review state."), matrix("riskMatrix", "Approved process-risk matrix", "Exact likelihood-by-consequence category map supplied by the organization.")],
+        requiredEvidence: ["approved-loss-of-containment-scenarios", "approved-risk-criteria", "barrier-verification-records", "emergency-response-basis"],
+        authorityReferences: ["approved process-risk criteria", "site emergency-response plan", "applicable environmental and major-hazard requirements"],
+        requiredApproverRole: "Process safety risk owner",
+        limitations: ["Does not estimate release frequency, dispersion, fire/explosion, toxic effect, environmental damage, or financial consequence.", "Does not accept risk, waive controls, or authorize operation."],
+        exampleInputs: { riskMatrix: { "possible:major": "high" }, scenarios: [{ id: "LOC-01", likelihoodCategory: "possible", consequenceCategory: "major", barriersVerified: true, emergencyResponseReady: true, independentlyReviewed: true }] },
       }),
     ],
   },

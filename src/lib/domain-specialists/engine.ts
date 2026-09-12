@@ -2595,6 +2595,147 @@ function civilStructuralCondition(inputs: Record<string, unknown>): Evaluation {
     "qualified current observation, approved severity/configuration, or disposition is missing.");
 }
 
+function processSafetyBarriers(inputs: Record<string, unknown>): Evaluation {
+  const rows = records(inputs.scenarios, "Major-accident scenarios");
+  return coverageEvaluation(
+    "major-accident scenario barrier",
+    rows,
+    (row) =>
+      Boolean(
+        row.id &&
+          bool(row.hazardStudyApproved) &&
+          bool(row.performanceStandardApproved) &&
+          bool(row.ownerAssigned) &&
+          bool(row.verificationCurrent) &&
+          bool(row.impairmentDispositionApproved) &&
+          bool(row.independentlyReviewed),
+      ),
+    (row, i) => String(row.id ?? `scenario ${i + 1}`),
+    "approved hazard/performance basis, owner, current verification, impairment disposition, or independent review is missing.",
+  );
+}
+
+function pressureContainmentAssurance(
+  inputs: Record<string, unknown>,
+): Evaluation {
+  const rows = records(inputs.boundaries, "Pressure boundaries");
+  return coverageEvaluation(
+    "pressure-containment boundary",
+    rows,
+    (row) =>
+      Boolean(
+        row.id &&
+          bool(row.designBasisApproved) &&
+          bool(row.inspectionCurrent) &&
+          bool(row.anomalyDispositionApproved) &&
+          bool(row.reliefProtectionVerified) &&
+          bool(row.configurationCurrent) &&
+          bool(row.independentlyReviewed),
+      ),
+    (row, i) => String(row.id ?? `boundary ${i + 1}`),
+    "approved design basis, current inspection/configuration, anomaly disposition, relief verification, or independent review is missing.",
+  );
+}
+
+function sisProofTestAssurance(inputs: Record<string, unknown>): Evaluation {
+  const rows = records(inputs.functions, "Safety instrumented functions");
+  return coverageEvaluation(
+    "safety-instrumented-function",
+    rows,
+    (row) =>
+      Boolean(
+        row.id &&
+          bool(row.silBasisApproved) &&
+          bool(row.proofTestCurrent) &&
+          bool(row.demandsReviewed) &&
+          bool(row.bypassesControlled) &&
+          bool(row.impairmentsDispositioned) &&
+          bool(row.configurationCurrent) &&
+          bool(row.independentlyReviewed),
+      ),
+    (row, i) => String(row.id ?? `SIF ${i + 1}`),
+    "approved SIL/SRS basis, current proof test, demand review, bypass/impairment control, configuration, or independent review is missing.",
+  );
+}
+
+function turnaroundReadiness(inputs: Record<string, unknown>): Evaluation {
+  const rows = records(inputs.workPackages, "Turnaround work packages");
+  return coverageEvaluation(
+    "turnaround work-package readiness",
+    rows,
+    (row) =>
+      Boolean(
+        row.id &&
+          bool(row.scopeApproved) &&
+          bool(row.workPackReady) &&
+          bool(row.materialsReady) &&
+          bool(row.isolationPlanApproved) &&
+          bool(row.resourcesConfirmed) &&
+          bool(row.scheduleLogicApproved) &&
+          bool(row.risksDispositioned) &&
+          bool(row.releaseAuthorityNamed),
+      ),
+    (row, i) => String(row.id ?? `work package ${i + 1}`),
+    "approved scope/work pack, materials, isolation plan, resources, schedule logic, risk disposition, or named release authority is missing.",
+  );
+}
+
+function lossOfContainmentRisk(inputs: Record<string, unknown>): Evaluation {
+  const rows = records(inputs.scenarios, "Loss-of-containment scenarios");
+  const riskMatrix = object(inputs.riskMatrix, "Approved process-risk matrix");
+  const findings: string[] = [];
+  const gaps: string[] = [];
+  for (const [index, row] of rows.entries()) {
+    const id = text(row.id, `Scenario ${index + 1} ID`);
+    const likelihood = text(
+      row.likelihoodCategory,
+      `${id} likelihood category`,
+    );
+    const consequence = text(
+      row.consequenceCategory,
+      `${id} consequence category`,
+    );
+    const matrixKey = `${likelihood}:${consequence}`;
+    const rank = riskMatrix[matrixKey];
+    if (typeof rank !== "string" || !rank.trim()) {
+      gaps.push(`${id}: approved risk matrix has no ${matrixKey} cell.`);
+      continue;
+    }
+    findings.push(`${id}: supplied categories map to ${rank.trim()}.`);
+    if (!bool(row.barriersVerified))
+      gaps.push(`${id}: credited barriers are not evidenced as verified.`);
+    if (!bool(row.emergencyResponseReady))
+      gaps.push(`${id}: emergency-response readiness is not evidenced.`);
+    if (!bool(row.independentlyReviewed))
+      gaps.push(`${id}: independent scenario review is missing.`);
+  }
+  return {
+    summary: `${findings.length} of ${rows.length} loss-of-containment scenario(s) mapped through the supplied approved matrix; no consequence or frequency model was run.`,
+    metrics: [
+      {
+        key: "mapped",
+        label: "Matrix-mapped scenarios",
+        value: findings.length,
+        unit: "count",
+      },
+      {
+        key: "control_gaps",
+        label: "Barrier/response/review gaps",
+        value: gaps.length,
+        unit: "count",
+      },
+    ],
+    findings,
+    gaps,
+    assumptions: [
+      "Likelihood and consequence categories were assigned under the organization's approved method and remain applicable.",
+    ],
+    formulae: [
+      "Risk rank = exact supplied matrix[likelihood category:consequence category] lookup.",
+    ],
+  };
+}
+
 function civilInspectionRating(inputs: Record<string, unknown>): Evaluation {
   const rows = records(inputs.inspections, "Inspection rating records");
   return coverageEvaluation("inspection-rating", rows,
@@ -2682,6 +2823,11 @@ const evaluators: Partial<
   "tailings-geotechnical": tailings,
   "well-integrity": wellIntegrity,
   "rbi-corrosion-loop": rbi,
+  "process-safety-barriers": processSafetyBarriers,
+  "pressure-containment-assurance": pressureContainmentAssurance,
+  "sis-proof-test-assurance": sisProofTestAssurance,
+  "turnaround-readiness": turnaroundReadiness,
+  "loss-of-containment-risk": lossOfContainmentRisk,
   "storm-crew-dispatch": stormDispatch,
   "line-balancing": lineBalancing,
   "robot-health": robotHealth,
