@@ -313,6 +313,9 @@ jobs:
       - name: Smoke — value trajectory, leakage attribution and benefits screen
         run: bash scripts/ci-develop-value-leakage-smoke.sh
 
+      - name: Smoke — Benefits Agent governed comparison and traceability
+        run: bash scripts/ci-develop-benefits-agent-smoke.sh
+
       - name: Smoke — Sync Develop Hybrid Development (per-workstream methods)
         run: bash scripts/ci-develop-hybrid-workstreams-smoke.sh
 
