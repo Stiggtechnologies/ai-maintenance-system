@@ -88,6 +88,7 @@ import { GovernedDecisionWorkspacePage } from "./pages/GovernedDecisionWorkspace
 import { DevelopCasesPage } from "./pages/DevelopCasesPage";
 import { DevelopmentPortfolioPage } from "./pages/DevelopmentPortfolioPage";
 import { OperationalReadinessMatrixPage } from "./pages/OperationalReadinessMatrixPage";
+import { SystemHandoverPage } from "./pages/SystemHandoverPage";
 import { DevelopIntakePage } from "./pages/DevelopIntakePage";
 import { DevelopmentCaseWorkspacePage } from "./pages/DevelopmentCaseWorkspacePage";
 import { ExecutionReadinessPage } from "./pages/ExecutionReadinessPage";
@@ -543,6 +544,7 @@ function AuthenticatedApp() {
             path="/develop/operational-readiness"
             element={<OperationalReadinessMatrixPage />}
           />
+          <Route path="/develop/handover" element={<SystemHandoverPage />} />
           <Route path="/develop/new" element={<DevelopIntakePage />} />
           <Route
             path="/develop/cases/:caseId"
