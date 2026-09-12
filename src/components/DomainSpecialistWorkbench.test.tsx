@@ -71,6 +71,24 @@ describe("DomainSpecialistWorkbench", () => {
     ).toBeInTheDocument();
   });
 
+  it("makes every buildings and facilities method reachable from the governed workbench", () => {
+    render(<DomainSpecialistWorkbench risks={[risk]} />);
+    fireEvent.change(screen.getByLabelText("Specialist module"), {
+      target: { value: "buildings-infrastructure" },
+    });
+    const methods = screen.getByLabelText("Method").querySelectorAll("option");
+    expect(methods).toHaveLength(7);
+    expect([...methods].map((option) => option.getAttribute("value"))).toEqual([
+      "code-compliance",
+      "fire-life-safety",
+      "occupancy-accessibility",
+      "occupant-environment",
+      "bas-control-integrity",
+      "energy-water-performance",
+      "facility-renewal-priority",
+    ]);
+  });
+
   it("exposes the persisted specialist-role gate and records a review", async () => {
     const run = {
       id: "22222222-2222-4222-8222-222222222222",

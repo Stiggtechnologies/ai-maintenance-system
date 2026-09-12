@@ -27,6 +27,21 @@ DEMO=$(token 'demo@syncai.ca' 'Demo123!@#')
 ADMIN=$(token 'admin@syncai.ca' 'Admin123!@#')
 test -n "$DEMO"; test -n "$ADMIN"
 
+# U5.05: prove the deployed SQL registry accepts every operational Buildings
+# and Facilities method and exposes a non-empty server-owned evidence contract.
+BUILDINGS_REGISTRY=$(PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -Atc "
+with methods(method_key) as (values
+  ('occupant-environment'),
+  ('bas-control-integrity'),
+  ('energy-water-performance'),
+  ('facility-renewal-priority')
+)
+select bool_and(
+  domain_specialist_method_is_registered('buildings-infrastructure',method_key)
+  and cardinality(domain_specialist_required_evidence(method_key)) > 0
+) from methods;")
+test "$BUILDINGS_REGISTRY" = 't'
+
 PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -v ON_ERROR_STOP=1 <<SQL
 delete from domain_specialist_runs where risk_id='$RISK';
 delete from user_role_assignments assignment using roles role
