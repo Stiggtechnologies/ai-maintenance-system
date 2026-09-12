@@ -388,10 +388,13 @@ export function DecisionCaseWorkspacePage({
     return () => window.clearTimeout(timer);
   }, [notice]);
   useEffect(() => {
-    if (conversationIsEmpty(active.messages)) {
+    // The public empty state is also the commercial landing experience. Do
+    // not steal focus and scroll a new visitor past its hero and offer. Once a
+    // case exists the composer remains the primary interaction surface.
+    if (!publicMode && conversationIsEmpty(active.messages)) {
       composerRef.current?.focus();
     }
-  }, [active.id, active.messages]);
+  }, [active.id, active.messages, publicMode]);
   useEffect(() => {
     if (!plusOpen) return;
     const onPointer = (event: MouseEvent) => {

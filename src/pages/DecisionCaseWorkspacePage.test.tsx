@@ -155,7 +155,7 @@ describe("DecisionCaseWorkspacePage — Bolt first paint", () => {
     expect(screen.queryByText("Chat")).toBeNull();
     expect(screen.queryByText("Work")).toBeNull();
     expect(screen.queryByText(/GPT|model picker|Claude/i)).toBeNull();
-    expect(screen.queryByRole("button", { name: /dark|theme/i })).toBeNull();
+    expect(screen.getByRole("button", { name: "Use dark mode" })).toBeTruthy();
   });
 
   it("signed-in Mode A exposes Spaces as the existing cowork list, not a new page", () => {
