@@ -212,12 +212,6 @@ export function SystemHandoverPanel({
           <div className="mt-4">
             <OperationsReadinessBriefing model={model} />
           </div>
-          <p className="mt-3 text-[11px] text-slate-500">
-            {model.decisionBoundary}
-          </p>
-          <p className="mt-1 text-[11px] text-slate-600">
-            {model.equipmentReleaseBoundary}
-          </p>
           {model.systems.length > 0 && (
             <div className="mt-4 overflow-x-auto rounded border border-white/8">
               <table className="min-w-full text-left text-[11px] text-slate-400">

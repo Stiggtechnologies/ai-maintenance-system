@@ -61,9 +61,11 @@ export function OperationsReadinessBriefing({
                   className={`rounded-full px-2.5 py-1 text-[10px] font-semibold ${
                     system.position === "accepted"
                       ? "bg-emerald-400/15 text-emerald-300"
-                      : system.position === "ready_for_human_acceptance"
-                        ? "bg-signal-cyan/15 text-signal-cyan"
-                        : "bg-rose-400/15 text-rose-300"
+                      : system.position === "accepted_with_current_gaps"
+                        ? "bg-amber-400/15 text-amber-300"
+                        : system.position === "ready_for_human_acceptance"
+                          ? "bg-signal-cyan/15 text-signal-cyan"
+                          : "bg-rose-400/15 text-rose-300"
                   }`}
                 >
                   {system.positionLabel}

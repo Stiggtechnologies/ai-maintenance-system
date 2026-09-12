@@ -146,6 +146,18 @@ describe("operations readiness briefing", () => {
     expect(system.positionLabel).not.toBe("Accepted");
   });
 
+  it("does not let historical acceptance hide current readiness gaps", () => {
+    const source = model();
+    source.systems[0].package!.status = "accepted";
+    const system = buildOperationsReadinessBriefing(source).systems[0];
+
+    expect(system.position).toBe("accepted_with_current_gaps");
+    expect(system.positionLabel).toBe("Accepted · current gaps require review");
+    expect(system.blockers).toContain(
+      "Information readiness has one open gap.",
+    );
+  });
+
   it("reports no systems as unassessable rather than ready", () => {
     const briefing = buildOperationsReadinessBriefing(model({ systems: [] }));
 

@@ -14,7 +14,11 @@ export interface OperationsBriefingSystem {
   systemId: number;
   systemRef: string;
   title: string;
-  position: "accepted" | "ready_for_human_acceptance" | "blocked";
+  position:
+    | "accepted"
+    | "accepted_with_current_gaps"
+    | "ready_for_human_acceptance"
+    | "blocked";
   positionLabel: string;
   measures: OperationsBriefingMeasure[];
   blockers: string[];
@@ -88,16 +92,20 @@ export function buildOperationsReadinessBriefing(
     systems: model.systems.map((system) => {
       const position =
         system.package?.status === "accepted"
-          ? "accepted"
+          ? system.readiness.canAccept
+            ? "accepted"
+            : "accepted_with_current_gaps"
           : system.readiness.canAccept
             ? "ready_for_human_acceptance"
             : "blocked";
       const positionLabel =
         position === "accepted"
           ? "Operations ownership accepted"
-          : position === "ready_for_human_acceptance"
-            ? "Evidence complete — human acceptance required"
-            : "Blocked before handover";
+          : position === "accepted_with_current_gaps"
+            ? "Accepted · current gaps require review"
+            : position === "ready_for_human_acceptance"
+              ? "Evidence complete — human acceptance required"
+              : "Blocked before handover";
       const measures = [
         measure(
           "Physical readiness",
