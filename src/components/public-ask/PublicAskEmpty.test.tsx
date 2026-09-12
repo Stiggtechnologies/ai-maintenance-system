@@ -24,10 +24,15 @@ describe("PublicAskEmpty", () => {
     expect(screen.getByText("ask-slot")).toBeTruthy();
     expect(
       screen
+        .getAllByTestId("hero-intent-pill")
+        .map((item) => item.textContent),
+    ).toEqual(["Compare", "Troubleshoot", "Health", "Learn", "Fact Check"]);
+    expect(
+      screen
         .getAllByTestId("ask-intent-pill")
         .map((item) => item.querySelector("strong")?.textContent),
     ).toEqual(["Compare", "Troubleshoot", "Health", "Learn", "Fact Check"]);
-    fireEvent.click(screen.getByRole("button", { name: "Health" }));
+    fireEvent.click(screen.getByRole("button", { name: "Explore Health" }));
     expect(onSelectIntent).toHaveBeenCalledWith(
       expect.objectContaining({
         id: "health",
