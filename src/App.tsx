@@ -86,6 +86,7 @@ import { DecisionCaseWorkspacePage } from "./pages/DecisionCaseWorkspacePage";
 import { HelpCenterWidget } from "./components/HelpCenterWidget";
 import { GovernedDecisionWorkspacePage } from "./pages/GovernedDecisionWorkspacePage";
 import { DevelopCasesPage } from "./pages/DevelopCasesPage";
+import { DevelopmentPortfolioPage } from "./pages/DevelopmentPortfolioPage";
 import { DevelopIntakePage } from "./pages/DevelopIntakePage";
 import { DevelopmentCaseWorkspacePage } from "./pages/DevelopmentCaseWorkspacePage";
 import { ExecutionReadinessPage } from "./pages/ExecutionReadinessPage";
@@ -533,6 +534,10 @@ function AuthenticatedApp() {
           />
           <Route path="/design" element={<ReliabilityByDesignPage />} />
           <Route path="/develop" element={<DevelopCasesPage />} />
+          <Route
+            path="/develop/portfolio"
+            element={<DevelopmentPortfolioPage />}
+          />
           <Route path="/develop/new" element={<DevelopIntakePage />} />
           <Route
             path="/develop/cases/:caseId"
