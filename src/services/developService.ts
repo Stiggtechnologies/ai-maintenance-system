@@ -8404,6 +8404,33 @@ export interface ApplicableProjectLessons {
   basis?: string;
 }
 
+export interface LessonsAgentResult {
+  advisory: true;
+  caseId: string;
+  question: string;
+  analysis: {
+    verdict: "applicable_lessons_identified" | "none_identified";
+    headline: string;
+    lessonCount: number;
+    findings: Array<{
+      lessonId: string;
+      title: string;
+      failureModeKey: string;
+      cause: string;
+      correctiveAction: string;
+      applicability: string;
+      matchReason: string;
+      sourceLifecycleType: string | null;
+      sourceRefs: string[];
+    }>;
+    evidenceRefs: string[];
+    basis: string;
+    limitations: string[];
+  };
+  narrativeSource: "deterministic_governed_records";
+  disclaimer: string;
+}
+
 export interface CaseValueRealization {
   caseId: string;
   evaluable: boolean;
@@ -8593,6 +8620,21 @@ export async function screenApplicableProjectLessons(
     { p_case_id: caseId },
   );
   return unwrapRpc(data, error, "Could not screen applicable project lessons");
+}
+
+export async function runLessonsAgent(
+  caseId: string,
+): Promise<LessonsAgentResult> {
+  const { data, error } = await supabase.functions.invoke(
+    "develop-lessons-agent",
+    { body: { case_id: caseId } },
+  );
+  if (error) throw new Error(error.message);
+  const payload = data as LessonsAgentResult | { error?: string };
+  if (payload && typeof payload === "object" && "error" in payload) {
+    throw new Error(String(payload.error));
+  }
+  return payload as LessonsAgentResult;
 }
 
 export async function getCaseValueRealization(

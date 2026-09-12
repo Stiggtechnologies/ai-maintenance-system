@@ -316,6 +316,9 @@ jobs:
       - name: Smoke — Benefits Agent governed comparison and traceability
         run: bash scripts/ci-develop-benefits-agent-smoke.sh
 
+      - name: Smoke — Lessons Agent governed project-history comparison
+        run: bash scripts/ci-develop-lessons-agent-smoke.sh
+
       - name: Smoke — Sync Develop Hybrid Development (per-workstream methods)
         run: bash scripts/ci-develop-hybrid-workstreams-smoke.sh
 

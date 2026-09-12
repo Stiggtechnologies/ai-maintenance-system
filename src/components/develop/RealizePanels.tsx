@@ -1,7 +1,7 @@
 /**
  * Sync Develop — Realize / Learn on the Case Workspace
  * (D9.02, D9.03, D9.04, D9.11, D9.13, D9.01, D9.12, D9.14, D9.16,
- * D12.16).
+ * D12.16, D12.17).
  *
  * Surfaces the server rows. Nothing here recomputes a due date, a completeness
  * percentage, or a verification. Completeness uses `warrantyCompleteness` so
@@ -48,6 +48,7 @@ import {
   recordOperationalWarranty,
   recordProjectLesson,
   runBenefitsAgent,
+  runLessonsAgent,
   screenApplicableProjectLessons,
   type ApplicableProjectLessons,
   type CaseBenefitsScreen,
@@ -58,6 +59,7 @@ import {
   type CaseRealizationCheckpoints,
   type CaseValueRealization,
   type BenefitsAgentResult,
+  type LessonsAgentResult,
   type RealizationCheckpointRow,
 } from "../../services/developService";
 import { verifyValueMetric } from "../../services/operatingLoopService";
@@ -715,6 +717,8 @@ function verdictTone(verdict: string): string {
 
 export function ApplicableLessonsBanner({ caseId }: { caseId: string }) {
   const [payload, setPayload] = useState<ApplicableProjectLessons | null>(null);
+  const [agentResult, setAgentResult] = useState<LessonsAgentResult | null>(null);
+  const [agentBusy, setAgentBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -733,31 +737,93 @@ export function ApplicableLessonsBanner({ caseId }: { caseId: string }) {
     );
   }
   if (payload == null) return null;
-  if (payload.count === 0) {
-    return (
-      <div className="rounded-xl border border-white/6 bg-[#0D1520] px-4 py-3 text-xs text-slate-400">
-        {payload.emptyReason ?? "0 applicable lessons."}
-      </div>
-    );
-  }
   return (
-    <div className="rounded-xl border border-signal-cyan/30 bg-signal-cyan/5 px-4 py-3">
-      <div className="text-sm font-semibold text-slate-100">
-        {payload.count} applicable lesson
-        {payload.count === 1 ? "" : "s"} before the first engineering dollar
-      </div>
-      <p className="mt-1 text-[11px] text-slate-500">{payload.basis}</p>
-      <ul className="mt-2 space-y-1.5">
-        {payload.lessons.map((lesson) => (
-          <li key={lesson.id} className="text-xs text-slate-300">
-            <span className="font-semibold">{lesson.title}</span>
-            <span className="text-slate-500"> — {lesson.matchReason}</span>
-            <div className="text-[11px] text-slate-500">
-              {lesson.applicability}
+    <div className="mt-4 space-y-2">
+      <div
+        className={`rounded-xl border px-4 py-3 ${payload.count === 0 ? "border-white/6 bg-[#0D1520]" : "border-signal-cyan/30 bg-signal-cyan/5"}`}
+      >
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <div className="text-sm font-semibold text-slate-100">
+              {payload.count === 0
+                ? (payload.emptyReason ?? "0 applicable lessons.")
+                : `${payload.count} applicable lesson${payload.count === 1 ? "" : "s"} before the first engineering dollar`}
             </div>
-          </li>
-        ))}
-      </ul>
+            <p className="mt-1 text-[11px] text-slate-500">{payload.basis}</p>
+          </div>
+          <button
+            type="button"
+            disabled={agentBusy}
+            className="rounded-lg border border-signal-cyan/30 px-3 py-1.5 text-xs font-semibold text-signal-cyan disabled:opacity-40"
+            onClick={() => {
+              setAgentBusy(true);
+              setError(null);
+              runLessonsAgent(caseId)
+                .then(setAgentResult)
+                .catch((caught) =>
+                  setError(
+                    caught instanceof Error
+                      ? caught.message
+                      : "Lessons Agent failed",
+                  ),
+                )
+                .finally(() => setAgentBusy(false));
+            }}
+          >
+            {agentBusy ? "Comparing history…" : "Run Lessons Agent"}
+          </button>
+        </div>
+        {payload.count > 0 && (
+          <ul className="mt-2 space-y-1.5">
+            {payload.lessons.map((lesson) => (
+              <li key={lesson.id} className="text-xs text-slate-300">
+                <span className="font-semibold">{lesson.title}</span>
+                <span className="text-slate-500"> — {lesson.matchReason}</span>
+                <div className="text-[11px] text-slate-500">
+                  {lesson.applicability}
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+      {agentResult && (
+        <div className="rounded-xl border border-signal-cyan/20 bg-[#0D1520] px-4 py-3 text-xs">
+          <div className="flex items-center gap-1.5 font-semibold text-slate-100">
+            <Sparkles className="h-3.5 w-3.5 text-signal-cyan" aria-hidden />
+            Lessons Agent · project-history comparison
+          </div>
+          <p className="mt-2 font-semibold text-signal-cyan">
+            {agentResult.analysis.headline}
+          </p>
+          {agentResult.analysis.findings.map((finding) => (
+            <div
+              key={finding.lessonId}
+              className="mt-2 rounded-lg border border-white/6 bg-white/[0.02] p-2.5 text-slate-300"
+            >
+              <div className="font-semibold">{finding.title}</div>
+              <div className="mt-1 text-slate-400">
+                Why it matched: {finding.matchReason}
+              </div>
+              <div className="mt-1">Cause: {finding.cause}</div>
+              <div className="mt-1">
+                Recorded corrective action: {finding.correctiveAction}
+              </div>
+              <div className="mt-1 break-all text-[10px] text-slate-500">
+                Records: {finding.sourceRefs.join(" · ")}
+              </div>
+            </div>
+          ))}
+          <ul className="mt-2 list-disc space-y-1 pl-4 text-amber-200">
+            {agentResult.analysis.limitations.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+          <p className="mt-2 text-[10px] text-slate-500">
+            {agentResult.disclaimer}
+          </p>
+        </div>
+      )}
     </div>
   );
 }
