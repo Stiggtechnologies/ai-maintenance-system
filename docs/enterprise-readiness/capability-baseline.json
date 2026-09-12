@@ -2100,10 +2100,10 @@
     "backticked": 4
   },
   "U5.02": {
-    "status": "✅",
+    "status": "🟡",
     "evidence": true,
-    "citations": 4,
-    "backticked": 4
+    "citations": 1,
+    "backticked": 0
   },
   "U5.03": {
     "status": "🟡",

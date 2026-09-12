@@ -18,17 +18,17 @@ describe("domain-depth specialist registry", () => {
     expect(DOMAIN_SPECIALIST_MODULES).toHaveLength(17);
     expect(
       new Set(DOMAIN_SPECIALIST_MODULES.map((module) => module.industryCode))
-        .size,
+      .size,
     ).toBe(17);
     const methods = DOMAIN_SPECIALIST_MODULES.flatMap((module) =>
       module.methods.map((method) => method.key),
     );
-    expect(methods).toHaveLength(58);
+    expect(methods).toHaveLength(54);
     expect(new Set(methods).size).toBe(methods.length);
     expect(registeredDomainEvaluatorKeys()).toEqual([...methods].sort());
     expect(
       new Set(DOMAIN_SPECIALIST_MODULES.map((module) => module.reviewerRoleKey))
-        .size,
+      .size,
     ).toBe(17);
   });
 
@@ -187,8 +187,7 @@ describe("domain-depth specialist registry", () => {
       (candidate) => candidate.key === "patient-risk",
     )!;
     const inputs = structuredClone(method.exampleInputs);
-    (inputs.hazards as Array<Record<string, unknown>>)[0].patientId =
-      "MRN-12345";
+    (inputs.hazards as Array<Record<string, unknown>>)[0].patientId = "MRN-12345";
     const result = evaluateDomainSpecialist({
       moduleKey: module.key,
       methodKey: method.key,
@@ -472,133 +471,6 @@ describe("domain-depth specialist registry", () => {
     );
     expect(result.findings[0]).toContain("A");
     expect(result.authoritative).toBe(false);
-  });
-
-  it("decomposes OEE only from approved and reconciled production inputs", () => {
-    const module = DOMAIN_SPECIALIST_MODULES.find(
-      (candidate) => candidate.key === "manufacturing-operations",
-    )!;
-    const method = module.methods.find(
-      (candidate) => candidate.key === "oee-loss-decomposition",
-    )!;
-    const result = evaluateDomainSpecialist({
-      moduleKey: module.key,
-      methodKey: method.key,
-      inputs: method.exampleInputs,
-      evidence: evidenceFor(method.requiredEvidence),
-    });
-    expect(result.status).toBe("draft");
-    expect(
-      result.metrics.find((metric) => metric.key === "LINE-1/SHIFT-A_oee")
-        ?.value,
-    ).toBe(76.6);
-    expect(result.gaps).toEqual([]);
-    expect(result.authorityBoundary).toMatch(/non-authoritative draft/i);
-    expect(method.limitations.join(" ")).toMatch(/change line speed/i);
-  });
-
-  it("blocks OEE arithmetic when its governed time and count controls are incomplete", () => {
-    const module = DOMAIN_SPECIALIST_MODULES.find(
-      (candidate) => candidate.key === "manufacturing-operations",
-    )!;
-    const method = module.methods.find(
-      (candidate) => candidate.key === "oee-loss-decomposition",
-    )!;
-    const inputs = structuredClone(method.exampleInputs);
-    (inputs.periods as Record<string, unknown>[])[0].downtimeReconciled = false;
-    const result = evaluateDomainSpecialist({
-      moduleKey: module.key,
-      methodKey: method.key,
-      inputs,
-      evidence: evidenceFor(method.requiredEvidence),
-    });
-    expect(result.metrics).toEqual([]);
-    expect(result.gaps[0]).toMatch(/reconciled downtime history/);
-  });
-
-  it("reconciles manufacturing quality loss without releasing product", () => {
-    const module = DOMAIN_SPECIALIST_MODULES.find(
-      (candidate) => candidate.key === "manufacturing-operations",
-    )!;
-    const method = module.methods.find(
-      (candidate) => candidate.key === "quality-loss-reconciliation",
-    )!;
-    const result = evaluateDomainSpecialist({
-      moduleKey: module.key,
-      methodKey: method.key,
-      inputs: method.exampleInputs,
-      evidence: evidenceFor(method.requiredEvidence),
-    });
-    expect(
-      result.metrics.find(
-        (metric) => metric.key === "LOT-2401_first_pass_yield",
-      )?.value,
-    ).toBe(94);
-    expect(result.authorityBoundary).toMatch(
-      /release an asset\/product\/facility/i,
-    );
-    expect(method.limitations.join(" ")).toMatch(/release product/i);
-  });
-
-  it("refuses to manufacture a quality-loss result from unreconciled counts", () => {
-    const module = DOMAIN_SPECIALIST_MODULES.find(
-      (candidate) => candidate.key === "manufacturing-operations",
-    )!;
-    const method = module.methods.find(
-      (candidate) => candidate.key === "quality-loss-reconciliation",
-    )!;
-    const inputs = structuredClone(method.exampleInputs);
-    (inputs.lots as Record<string, unknown>[])[0].scrapUnits = 10;
-    const result = evaluateDomainSpecialist({
-      moduleKey: module.key,
-      methodKey: method.key,
-      inputs,
-      evidence: evidenceFor(method.requiredEvidence),
-    });
-    expect(result.metrics).toEqual([]);
-    expect(result.gaps[0]).toMatch(/does not equal total produced/);
-  });
-
-  it("blocks tooling remaining-life arithmetic when trace controls are incomplete", () => {
-    const module = DOMAIN_SPECIALIST_MODULES.find(
-      (candidate) => candidate.key === "manufacturing-operations",
-    )!;
-    const method = module.methods.find(
-      (candidate) => candidate.key === "tooling-life-assurance",
-    )!;
-    const inputs = structuredClone(method.exampleInputs);
-    (inputs.tools as Record<string, unknown>[])[0].qualityTraceCurrent = false;
-    const result = evaluateDomainSpecialist({
-      moduleKey: module.key,
-      methodKey: method.key,
-      inputs,
-      evidence: evidenceFor(method.requiredEvidence),
-    });
-    expect(result.metrics[0].value).toBeNull();
-    expect(result.gaps[0]).toMatch(/quality trace/);
-    expect(result.authorityBoundary).toMatch(/approve a limit/i);
-    expect(method.limitations.join(" ")).toMatch(/extend tool life/i);
-  });
-
-  it("separates changeover duration from governed production release readiness", () => {
-    const module = DOMAIN_SPECIALIST_MODULES.find(
-      (candidate) => candidate.key === "manufacturing-operations",
-    )!;
-    const method = module.methods.find(
-      (candidate) => candidate.key === "changeover-readiness",
-    )!;
-    const inputs = structuredClone(method.exampleInputs);
-    (inputs.changeovers as Record<string, unknown>[])[0].firstOffApproved =
-      false;
-    const result = evaluateDomainSpecialist({
-      moduleKey: module.key,
-      methodKey: method.key,
-      inputs,
-      evidence: evidenceFor(method.requiredEvidence),
-    });
-    expect(result.metrics[0].value).toBe(7);
-    expect(result.gaps[0]).toMatch(/first-off quality result/);
-    expect(result.summary).toMatch(/duration alone never establishes/i);
   });
 
   it("finds the exact shortest bounded route and preserves dispatch authority", () => {

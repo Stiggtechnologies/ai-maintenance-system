@@ -293,17 +293,7 @@ export const DOMAIN_SPECIALIST_MODULES: DomainSpecialistModule[] = [
           "Does not authorize operation with an impaired or missing barrier.",
         ],
         exampleInputs: {
-          scenarios: [
-            {
-              id: "MAH-01",
-              hazardStudyApproved: true,
-              performanceStandardApproved: true,
-              ownerAssigned: true,
-              verificationCurrent: true,
-              impairmentDispositionApproved: true,
-              independentlyReviewed: true,
-            },
-          ],
+          scenarios: [{ id: "MAH-01", hazardStudyApproved: true, performanceStandardApproved: true, ownerAssigned: true, verificationCurrent: true, impairmentDispositionApproved: true, independentlyReviewed: true }],
         },
       }),
       method({
@@ -314,42 +304,12 @@ export const DOMAIN_SPECIALIST_MODULES: DomainSpecialistModule[] = [
         kind: "verification",
         algorithm:
           "Calculate complete containment-boundary coverage; any absent current inspection, design basis, anomaly disposition, relief evidence, or technical review remains an explicit gap.",
-        requiredInputs: [
-          records(
-            "boundaries",
-            "Pressure boundaries",
-            "Boundary ID and controlled design, inspection, anomaly, relief, and review evidence state.",
-          ),
-        ],
-        requiredEvidence: [
-          "pressure-equipment-register",
-          "approved-design-basis",
-          "inspection-and-anomaly-records",
-          "relief-protection-records",
-        ],
-        authorityReferences: [
-          "jurisdictional pressure-equipment requirements",
-          "site mechanical-integrity programme",
-          "approved relief-system basis",
-        ],
+        requiredInputs: [records("boundaries", "Pressure boundaries", "Boundary ID and controlled design, inspection, anomaly, relief, and review evidence state.")],
+        requiredEvidence: ["pressure-equipment-register", "approved-design-basis", "inspection-and-anomaly-records", "relief-protection-records"],
+        authorityReferences: ["jurisdictional pressure-equipment requirements", "site mechanical-integrity programme", "approved relief-system basis"],
         requiredApproverRole: "Pressure equipment technical authority",
-        limitations: [
-          "Does not calculate MAWP, relief capacity, fitness for service, or remaining strength.",
-          "Does not authorize continued operation, repair, rerating, or deferral.",
-        ],
-        exampleInputs: {
-          boundaries: [
-            {
-              id: "V-101",
-              designBasisApproved: true,
-              inspectionCurrent: true,
-              anomalyDispositionApproved: true,
-              reliefProtectionVerified: true,
-              configurationCurrent: true,
-              independentlyReviewed: true,
-            },
-          ],
-        },
+        limitations: ["Does not calculate MAWP, relief capacity, fitness for service, or remaining strength.", "Does not authorize continued operation, repair, rerating, or deferral."],
+        exampleInputs: { boundaries: [{ id: "V-101", designBasisApproved: true, inspectionCurrent: true, anomalyDispositionApproved: true, reliefProtectionVerified: true, configurationCurrent: true, independentlyReviewed: true }] },
       }),
       method({
         key: "sis-proof-test-assurance",
@@ -359,43 +319,12 @@ export const DOMAIN_SPECIALIST_MODULES: DomainSpecialistModule[] = [
         kind: "verification",
         algorithm:
           "Calculate complete safety-instrumented-function coverage using only supplied approved SIL, proof-test, demand, bypass, impairment, and review evidence.",
-        requiredInputs: [
-          records(
-            "functions",
-            "Safety instrumented functions",
-            "SIF ID and approved SIL basis, current proof test, demand review, bypass/impairment control, configuration, and independent review state.",
-          ),
-        ],
-        requiredEvidence: [
-          "approved-sil-determination",
-          "sif-register-and-srs",
-          "proof-test-and-demand-history",
-          "bypass-and-impairment-register",
-        ],
-        authorityReferences: [
-          "IEC 61511",
-          "approved safety requirements specification",
-          "site functional-safety lifecycle",
-        ],
+        requiredInputs: [records("functions", "Safety instrumented functions", "SIF ID and approved SIL basis, current proof test, demand review, bypass/impairment control, configuration, and independent review state.")],
+        requiredEvidence: ["approved-sil-determination", "sif-register-and-srs", "proof-test-and-demand-history", "bypass-and-impairment-register"],
+        authorityReferences: ["IEC 61511", "approved safety requirements specification", "site functional-safety lifecycle"],
         requiredApproverRole: "Functional safety authority",
-        limitations: [
-          "Does not determine SIL, calculate PFDavg, design a SIF, or validate proof-test coverage.",
-          "Does not remove bypasses, reset trips, or authorize operation.",
-        ],
-        exampleInputs: {
-          functions: [
-            {
-              id: "SIF-001",
-              silBasisApproved: true,
-              proofTestCurrent: true,
-              demandsReviewed: true,
-              bypassesControlled: true,
-              impairmentsDispositioned: true,
-              configurationCurrent: true,
-              independentlyReviewed: true,
-            },
-          ],
-        },
+        limitations: ["Does not determine SIL, calculate PFDavg, design a SIF, or validate proof-test coverage.", "Does not remove bypasses, reset trips, or authorize operation."],
+        exampleInputs: { functions: [{ id: "SIF-001", silBasisApproved: true, proofTestCurrent: true, demandsReviewed: true, bypassesControlled: true, impairmentsDispositioned: true, configurationCurrent: true, independentlyReviewed: true }] },
       }),
       method({
         key: "turnaround-readiness",
@@ -405,44 +334,12 @@ export const DOMAIN_SPECIALIST_MODULES: DomainSpecialistModule[] = [
         kind: "readiness",
         algorithm:
           "Calculate ready-work-package coverage; no package is ready unless every supplied readiness control is true and its release authority is named.",
-        requiredInputs: [
-          records(
-            "workPackages",
-            "Turnaround work packages",
-            "Package ID and approved scope, work pack, material, isolation, resource, schedule, risk, and release states.",
-          ),
-        ],
-        requiredEvidence: [
-          "approved-turnaround-scope",
-          "work-package-and-constraint-register",
-          "isolation-and-permit-plan",
-          "resource-and-schedule-basis",
-        ],
-        authorityReferences: [
-          "approved turnaround governance",
-          "site safe-work and isolation rules",
-          "authorized integrated schedule baseline",
-        ],
+        requiredInputs: [records("workPackages", "Turnaround work packages", "Package ID and approved scope, work pack, material, isolation, resource, schedule, risk, and release states.")],
+        requiredEvidence: ["approved-turnaround-scope", "work-package-and-constraint-register", "isolation-and-permit-plan", "resource-and-schedule-basis"],
+        authorityReferences: ["approved turnaround governance", "site safe-work and isolation rules", "authorized integrated schedule baseline"],
         requiredApproverRole: "Turnaround manager / operations authority",
-        limitations: [
-          "Does not release work, approve isolations or permits, or change the schedule baseline.",
-          "Does not infer readiness from planned dates or percent complete.",
-        ],
-        exampleInputs: {
-          workPackages: [
-            {
-              id: "TA-WP-01",
-              scopeApproved: true,
-              workPackReady: true,
-              materialsReady: true,
-              isolationPlanApproved: true,
-              resourcesConfirmed: true,
-              scheduleLogicApproved: true,
-              risksDispositioned: true,
-              releaseAuthorityNamed: true,
-            },
-          ],
-        },
+        limitations: ["Does not release work, approve isolations or permits, or change the schedule baseline.", "Does not infer readiness from planned dates or percent complete."],
+        exampleInputs: { workPackages: [{ id: "TA-WP-01", scopeApproved: true, workPackReady: true, materialsReady: true, isolationPlanApproved: true, resourcesConfirmed: true, scheduleLogicApproved: true, risksDispositioned: true, releaseAuthorityNamed: true }] },
       }),
       method({
         key: "loss-of-containment-risk",
@@ -452,47 +349,12 @@ export const DOMAIN_SPECIALIST_MODULES: DomainSpecialistModule[] = [
         kind: "engineering_calculation",
         algorithm:
           "Risk rank is the exact approved matrix lookup for each scenario's supplied likelihood and consequence categories; unverified barrier credit is never used.",
-        requiredInputs: [
-          records(
-            "scenarios",
-            "Loss-of-containment scenarios",
-            "Scenario ID, approved likelihood and consequence categories, verified barrier state, response readiness, and review state.",
-          ),
-          matrix(
-            "riskMatrix",
-            "Approved process-risk matrix",
-            "Exact likelihood-by-consequence category map supplied by the organization.",
-          ),
-        ],
-        requiredEvidence: [
-          "approved-loss-of-containment-scenarios",
-          "approved-risk-criteria",
-          "barrier-verification-records",
-          "emergency-response-basis",
-        ],
-        authorityReferences: [
-          "approved process-risk criteria",
-          "site emergency-response plan",
-          "applicable environmental and major-hazard requirements",
-        ],
+        requiredInputs: [records("scenarios", "Loss-of-containment scenarios", "Scenario ID, approved likelihood and consequence categories, verified barrier state, response readiness, and review state."), matrix("riskMatrix", "Approved process-risk matrix", "Exact likelihood-by-consequence category map supplied by the organization.")],
+        requiredEvidence: ["approved-loss-of-containment-scenarios", "approved-risk-criteria", "barrier-verification-records", "emergency-response-basis"],
+        authorityReferences: ["approved process-risk criteria", "site emergency-response plan", "applicable environmental and major-hazard requirements"],
         requiredApproverRole: "Process safety risk owner",
-        limitations: [
-          "Does not estimate release frequency, dispersion, fire/explosion, toxic effect, environmental damage, or financial consequence.",
-          "Does not accept risk, waive controls, or authorize operation.",
-        ],
-        exampleInputs: {
-          riskMatrix: { "possible:major": "high" },
-          scenarios: [
-            {
-              id: "LOC-01",
-              likelihoodCategory: "possible",
-              consequenceCategory: "major",
-              barriersVerified: true,
-              emergencyResponseReady: true,
-              independentlyReviewed: true,
-            },
-          ],
-        },
+        limitations: ["Does not estimate release frequency, dispersion, fire/explosion, toxic effect, environmental damage, or financial consequence.", "Does not accept risk, waive controls, or authorize operation."],
+        exampleInputs: { riskMatrix: { "possible:major": "high" }, scenarios: [{ id: "LOC-01", likelihoodCategory: "possible", consequenceCategory: "major", barriersVerified: true, emergencyResponseReady: true, independentlyReviewed: true }] },
       }),
     ],
   },
@@ -580,11 +442,11 @@ export const DOMAIN_SPECIALIST_MODULES: DomainSpecialistModule[] = [
   {
     key: "manufacturing-operations",
     industryCode: "manufacturing",
-    label: "Manufacturing — Production & Equipment Assurance",
-    version: "1.1.0",
+    label: "Manufacturing — Line Balancing & Robot Health",
+    version: "1.0.0",
     reviewerRoleKey: "domain_manufacturing_reviewer",
     purpose:
-      "Quantify governed OEE and quality losses, production-line balance, robot and tooling condition, and changeover readiness without changing production or control parameters.",
+      "Quantify production-line balance and evidence-based robot health without changing PLC or robot parameters.",
     dataClasses: ["operational", "safety_critical", "quality"],
     methods: [
       method({
@@ -680,196 +542,6 @@ export const DOMAIN_SPECIALIST_MODULES: DomainSpecialistModule[] = [
               direction: "higher_worse",
               weight: 1,
               unit: "%",
-            },
-          ],
-        },
-      }),
-      method({
-        key: "oee-loss-decomposition",
-        label: "OEE loss decomposition",
-        purpose:
-          "Calculate availability, performance, quality and OEE from reconciled production records using the organization's approved loss definition.",
-        kind: "engineering_calculation",
-        algorithm:
-          "For each supplied production period, calculate availability from scheduled time and downtime, performance from ideal cycle and total count, quality from good and total count, and OEE as their product.",
-        requiredInputs: [
-          records(
-            "periods",
-            "Production periods",
-            "Line/period ID, scheduled production minutes, downtime minutes, ideal cycle minutes, total count, good count, and reconciliation controls.",
-          ),
-        ],
-        requiredEvidence: [
-          "approved-oee-definition",
-          "production-calendar",
-          "downtime-event-history",
-          "production-and-quality-counts",
-        ],
-        authorityReferences: [
-          "approved site OEE and loss-accounting standard",
-          "controlled production calendar and ideal-cycle master",
-          "quality acceptance and count-reconciliation rules",
-        ],
-        requiredApproverRole: "Manufacturing performance authority",
-        limitations: [
-          "Does not infer scheduled time, ideal cycle, loss codes, good count, or exclusions.",
-          "An OEE result is not authority to change line speed, staffing, maintenance strategy, or quality controls.",
-        ],
-        exampleInputs: {
-          periods: [
-            {
-              id: "LINE-1/SHIFT-A",
-              scheduledMinutes: 480,
-              downtimeMinutes: 60,
-              idealCycleMinutes: 0.5,
-              totalCount: 760,
-              goodCount: 735,
-              definitionApproved: true,
-              calendarReconciled: true,
-              downtimeReconciled: true,
-              countsReconciled: true,
-            },
-          ],
-        },
-      }),
-      method({
-        key: "quality-loss-reconciliation",
-        label: "Quality loss reconciliation",
-        purpose:
-          "Reconcile first-pass good, rework and scrap counts and expose quality losses without releasing product or closing defects.",
-        kind: "verification",
-        algorithm:
-          "For each production lot, require exact count reconciliation and calculate first-pass yield, rework share and scrap share from supplied governed counts.",
-        requiredInputs: [
-          records(
-            "lots",
-            "Production lot quality records",
-            "Lot ID, total produced, first-pass good, rework, scrap, genealogy, disposition and approved counting-rule status.",
-          ),
-        ],
-        requiredEvidence: [
-          "quality-inspection-records",
-          "production-genealogy",
-          "defect-ncr-and-rework-records",
-          "approved-quality-counting-rules",
-        ],
-        authorityReferences: [
-          "approved control plan and acceptance criteria",
-          "canonical NCR, defect and rework records",
-          "site lot and serial genealogy rules",
-        ],
-        requiredApproverRole: "Manufacturing quality authority",
-        limitations: [
-          "Does not determine product conformity, disposition an NCR, approve rework, or release product.",
-          "Cost of poor quality is not calculated unless governed cost evidence is handled through the canonical quality model.",
-        ],
-        exampleInputs: {
-          lots: [
-            {
-              id: "LOT-2401",
-              totalProduced: 1000,
-              firstPassGood: 940,
-              reworkUnits: 40,
-              scrapUnits: 20,
-              genealogyComplete: true,
-              dispositionComplete: true,
-              countingRulesApproved: true,
-            },
-          ],
-        },
-      }),
-      method({
-        key: "tooling-life-assurance",
-        label: "Tooling life and condition assurance",
-        purpose:
-          "Calculate remaining use against supplied approved tooling limits only where identity, usage, inspection and quality trace are complete.",
-        kind: "engineering_calculation",
-        algorithm:
-          "Remaining use equals the supplied approved use limit minus authenticated use; incomplete trace blocks life arithmetic for that tool.",
-        requiredInputs: [
-          records(
-            "tools",
-            "Tooling records",
-            "Tool ID, authenticated use, approved use limit, unit, and identity/inspection/calibration/quality/disposition controls.",
-          ),
-        ],
-        requiredEvidence: [
-          "tool-identity-and-configuration",
-          "authenticated-tool-usage",
-          "approved-tool-life-basis",
-          "inspection-calibration-and-quality-history",
-        ],
-        authorityReferences: [
-          "approved tool-life basis",
-          "controlled tool configuration and calibration system",
-          "quality control plan and maintenance disposition",
-        ],
-        requiredApproverRole: "Tooling / manufacturing engineering authority",
-        limitations: [
-          "No universal tool-life limit or degradation curve is embedded.",
-          "Does not change offsets, extend tool life, return tooling to service, or release affected product.",
-        ],
-        exampleInputs: {
-          tools: [
-            {
-              id: "DIE-07",
-              authenticatedUse: 82000,
-              approvedUseLimit: 100000,
-              unit: "cycles",
-              identityTraceable: true,
-              lifeBasisApproved: true,
-              inspectionCurrent: true,
-              calibrationCurrent: true,
-              qualityTraceCurrent: true,
-              dispositionComplete: true,
-            },
-          ],
-        },
-      }),
-      method({
-        key: "changeover-readiness",
-        label: "Changeover readiness and performance",
-        purpose:
-          "Compare actual changeover duration with a supplied approved target while verifying configuration, tooling, safety, quality and release controls.",
-        kind: "readiness",
-        algorithm:
-          "For each supplied changeover, calculate actual-minus-target duration and require all governed readiness and first-off release controls.",
-        requiredInputs: [
-          records(
-            "changeovers",
-            "Changeover records",
-            "Changeover ID, actual and approved target minutes, and standard-work/configuration/tooling/safety/first-off/release controls.",
-          ),
-        ],
-        requiredEvidence: [
-          "approved-changeover-standard",
-          "configuration-and-recipe-history",
-          "tooling-and-safety-verification",
-          "first-off-quality-and-release-records",
-        ],
-        authorityReferences: [
-          "approved standard work and centerline/recipe master",
-          "machine safety and energy-control requirements",
-          "first-off inspection and production release procedure",
-        ],
-        requiredApproverRole:
-          "Manufacturing engineering / production release authority",
-        limitations: [
-          "A faster duration does not prove a safe, conforming or sustainable changeover.",
-          "Does not change recipes, centerlines, tooling, safeguards, standard work, or production release status.",
-        ],
-        exampleInputs: {
-          changeovers: [
-            {
-              id: "CO-2401",
-              actualMinutes: 42,
-              approvedTargetMinutes: 35,
-              standardWorkCurrent: true,
-              configurationControlled: true,
-              toolingVerified: true,
-              safetyControlsValidated: true,
-              firstOffApproved: true,
-              releaseAuthorityNamed: true,
             },
           ],
         },
@@ -2021,273 +1693,80 @@ export const DOMAIN_SPECIALIST_MODULES: DomainSpecialistModule[] = [
       method({
         key: "clinical-criticality",
         label: "Clinical criticality trace",
-        purpose:
-          "Verify that every in-scope device has an authority-approved clinical function, consequence and criticality classification.",
+        purpose: "Verify that every in-scope device has an authority-approved clinical function, consequence and criticality classification.",
         kind: "verification",
-        algorithm:
-          "Measure coverage of device records with canonical identity, clinical function, consequence, approved criticality and named authority approval.",
-        requiredInputs: [
-          records(
-            "devices",
-            "Clinical device scope",
-            "Device identity, clinical function, consequence category, approved criticality and authority approval.",
-          ),
-        ],
-        requiredEvidence: [
-          "device-inventory",
-          "clinical-service-definition",
-          "approved-criticality-method",
-          "criticality-approval-record",
-        ],
-        authorityReferences: [
-          "organization-approved clinical criticality method",
-          "manufacturer intended use",
-          "applicable medical-device requirements",
-        ],
+        algorithm: "Measure coverage of device records with canonical identity, clinical function, consequence, approved criticality and named authority approval.",
+        requiredInputs: [records("devices", "Clinical device scope", "Device identity, clinical function, consequence category, approved criticality and authority approval.")],
+        requiredEvidence: ["device-inventory", "clinical-service-definition", "approved-criticality-method", "criticality-approval-record"],
+        authorityReferences: ["organization-approved clinical criticality method", "manufacturer intended use", "applicable medical-device requirements"],
         requiredApproverRole: "Clinical and biomedical engineering authority",
-        limitations: [
-          "Does not infer patient consequence or clinical criticality.",
-          "Does not prioritize patients, prescribe care or authorize device use.",
-        ],
-        exampleInputs: {
-          devices: [
-            {
-              id: "device-001",
-              clinicalFunction: "approved function",
-              consequenceCategory: "approved category",
-              approvedCriticality: "customer-defined",
-              authorityApproved: true,
-            },
-          ],
-        },
+        limitations: ["Does not infer patient consequence or clinical criticality.", "Does not prioritize patients, prescribe care or authorize device use."],
+        exampleInputs: { devices: [{ id: "device-001", clinicalFunction: "approved function", consequenceCategory: "approved category", approvedCriticality: "customer-defined", authorityApproved: true }] },
       }),
       method({
         key: "device-availability",
         label: "Device availability and alternative coverage",
-        purpose:
-          "Calculate availability only for an explicit device population and observation window, while exposing missing alternative-care and impairment evidence.",
+        purpose: "Calculate availability only for an explicit device population and observation window, while exposing missing alternative-care and impairment evidence.",
         kind: "engineering_calculation",
-        algorithm:
-          "For each device, divide supplied available time by required time and verify service state, impairment disposition and approved alternative coverage.",
-        requiredInputs: [
-          records(
-            "devices",
-            "Device availability records",
-            "Device identity, available time, required time, unit, service state, impairment approval and alternative coverage.",
-          ),
-        ],
-        requiredEvidence: [
-          "device-population",
-          "availability-history",
-          "clinical-service-requirements",
-          "impairment-and-alternative-plan",
-        ],
-        authorityReferences: [
-          "approved clinical service requirement",
-          "organization availability definition",
-          "contingency and alternative-care plan",
-        ],
-        requiredApproverRole:
-          "Clinical operations and biomedical engineering authority",
-        limitations: [
-          "Does not infer required capacity or acceptable availability.",
-          "Does not authorize substitution, deferral or continued clinical use.",
-        ],
-        exampleInputs: {
-          devices: [
-            {
-              id: "device-001",
-              availableTime: 710,
-              requiredTime: 720,
-              unit: "h",
-              serviceState: "controlled",
-              impairmentApproved: true,
-              alternativeCoverageApproved: true,
-            },
-          ],
-        },
+        algorithm: "For each device, divide supplied available time by required time and verify service state, impairment disposition and approved alternative coverage.",
+        requiredInputs: [records("devices", "Device availability records", "Device identity, available time, required time, unit, service state, impairment approval and alternative coverage.")],
+        requiredEvidence: ["device-population", "availability-history", "clinical-service-requirements", "impairment-and-alternative-plan"],
+        authorityReferences: ["approved clinical service requirement", "organization availability definition", "contingency and alternative-care plan"],
+        requiredApproverRole: "Clinical operations and biomedical engineering authority",
+        limitations: ["Does not infer required capacity or acceptable availability.", "Does not authorize substitution, deferral or continued clinical use."],
+        exampleInputs: { devices: [{ id: "device-001", availableTime: 710, requiredTime: 720, unit: "h", serviceState: "controlled", impairmentApproved: true, alternativeCoverageApproved: true }] },
       }),
       method({
         key: "calibration-assurance",
         label: "Calibration assurance trace",
-        purpose:
-          "Verify calibration currency, traceability, approved tolerance and disposition for in-scope measuring functions.",
+        purpose: "Verify calibration currency, traceability, approved tolerance and disposition for in-scope measuring functions.",
         kind: "traceability",
-        algorithm:
-          "Measure coverage where identity, current calibration, traceable standard, approved tolerance, result and disposition are all evidenced.",
-        requiredInputs: [
-          records(
-            "instruments",
-            "Calibration records",
-            "Device/function identity, calibration date/due date, traceable standard, approved tolerance, result and disposition.",
-          ),
-        ],
-        requiredEvidence: [
-          "calibration-program",
-          "calibration-certificates",
-          "traceable-standards",
-          "approved-tolerances-and-dispositions",
-        ],
-        authorityReferences: [
-          "manufacturer service information",
-          "approved calibration program",
-          "applicable metrology requirements",
-        ],
+        algorithm: "Measure coverage where identity, current calibration, traceable standard, approved tolerance, result and disposition are all evidenced.",
+        requiredInputs: [records("instruments", "Calibration records", "Device/function identity, calibration date/due date, traceable standard, approved tolerance, result and disposition.")],
+        requiredEvidence: ["calibration-program", "calibration-certificates", "traceable-standards", "approved-tolerances-and-dispositions"],
+        authorityReferences: ["manufacturer service information", "approved calibration program", "applicable metrology requirements"],
         requiredApproverRole: "Biomedical engineering / metrology authority",
-        limitations: [
-          "Does not invent tolerance, uncertainty or calibration interval.",
-          "Does not declare a device calibrated or fit for clinical use.",
-        ],
-        exampleInputs: {
-          instruments: [
-            {
-              id: "device-001-pressure",
-              calibrationCurrent: true,
-              traceableStandard: "certificate reference",
-              toleranceApproved: true,
-              result: "within",
-              dispositionApproved: true,
-            },
-          ],
-        },
+        limitations: ["Does not invent tolerance, uncertainty or calibration interval.", "Does not declare a device calibrated or fit for clinical use."],
+        exampleInputs: { instruments: [{ id: "device-001-pressure", calibrationCurrent: true, traceableStandard: "certificate reference", toleranceApproved: true, result: "within", dispositionApproved: true }] },
       }),
       method({
         key: "infection-control-readiness",
         label: "Infection-control readiness trace",
-        purpose:
-          "Verify approved cleaning, disinfection or sterilization method and current release evidence without declaring an item sterile.",
+        purpose: "Verify approved cleaning, disinfection or sterilization method and current release evidence without declaring an item sterile.",
         kind: "readiness",
-        algorithm:
-          "Measure record coverage for device identity, approved classification/method, current cycle or process evidence, exception disposition and infection-prevention release.",
-        requiredInputs: [
-          records(
-            "devices",
-            "Reprocessing readiness records",
-            "Device identity, approved classification and method, current process evidence, exception disposition and release approval.",
-          ),
-        ],
-        requiredEvidence: [
-          "manufacturer-reprocessing-instructions",
-          "infection-prevention-approved-method",
-          "cycle-or-process-records",
-          "release-and-exception-records",
-        ],
-        authorityReferences: [
-          "manufacturer instructions for use",
-          "infection prevention and control policy",
-          "applicable reprocessing requirements",
-        ],
-        requiredApproverRole:
-          "Infection prevention and clinical operations authority",
-        limitations: [
-          "Does not invent a cleaning, disinfection or sterilization method.",
-          "Does not declare sterility, release a device or authorize clinical use.",
-        ],
-        exampleInputs: {
-          devices: [
-            {
-              id: "device-001",
-              classificationApproved: true,
-              methodApproved: true,
-              processEvidenceCurrent: true,
-              exceptionsResolved: true,
-              releaseApproved: true,
-            },
-          ],
-        },
+        algorithm: "Measure record coverage for device identity, approved classification/method, current cycle or process evidence, exception disposition and infection-prevention release.",
+        requiredInputs: [records("devices", "Reprocessing readiness records", "Device identity, approved classification and method, current process evidence, exception disposition and release approval.")],
+        requiredEvidence: ["manufacturer-reprocessing-instructions", "infection-prevention-approved-method", "cycle-or-process-records", "release-and-exception-records"],
+        authorityReferences: ["manufacturer instructions for use", "infection prevention and control policy", "applicable reprocessing requirements"],
+        requiredApproverRole: "Infection prevention and clinical operations authority",
+        limitations: ["Does not invent a cleaning, disinfection or sterilization method.", "Does not declare sterility, release a device or authorize clinical use."],
+        exampleInputs: { devices: [{ id: "device-001", classificationApproved: true, methodApproved: true, processEvidenceCurrent: true, exceptionsResolved: true, releaseApproved: true }] },
       }),
       method({
         key: "patient-risk",
         label: "Patient-risk control trace",
-        purpose:
-          "Trace device-related hazards to approved controls, current tests, residual-risk decisions and human acceptance.",
+        purpose: "Trace device-related hazards to approved controls, current tests, residual-risk decisions and human acceptance.",
         kind: "verification",
-        algorithm:
-          "Measure coverage for hazard identity, consequence, implemented/tested controls, evidence binding, residual-risk classification and named acceptance.",
-        requiredInputs: [
-          records(
-            "hazards",
-            "Device-related hazard records",
-            "Hazard identity, approved consequence, implemented and tested controls, evidence binding, residual risk and acceptance.",
-          ),
-        ],
-        requiredEvidence: [
-          "device-risk-file",
-          "incident-and-hazard-history",
-          "control-test-records",
-          "residual-risk-acceptance",
-        ],
-        authorityReferences: [
-          "organization patient-safety risk process",
-          "manufacturer risk information",
-          "applicable medical-device vigilance requirements",
-        ],
-        requiredApproverRole:
-          "Patient safety, clinical and biomedical engineering authority",
-        limitations: [
-          "Does not calculate clinical risk without an approved method.",
-          "Does not diagnose, recommend treatment or accept residual patient risk.",
-        ],
-        exampleInputs: {
-          hazards: [
-            {
-              id: "hazard-001",
-              consequenceApproved: true,
-              controlsImplemented: true,
-              controlsTestCurrent: true,
-              evidenceBound: true,
-              residualRisk: "customer-defined",
-              riskAccepted: true,
-            },
-          ],
-        },
+        algorithm: "Measure coverage for hazard identity, consequence, implemented/tested controls, evidence binding, residual-risk classification and named acceptance.",
+        requiredInputs: [records("hazards", "Device-related hazard records", "Hazard identity, approved consequence, implemented and tested controls, evidence binding, residual risk and acceptance.")],
+        requiredEvidence: ["device-risk-file", "incident-and-hazard-history", "control-test-records", "residual-risk-acceptance"],
+        authorityReferences: ["organization patient-safety risk process", "manufacturer risk information", "applicable medical-device vigilance requirements"],
+        requiredApproverRole: "Patient safety, clinical and biomedical engineering authority",
+        limitations: ["Does not calculate clinical risk without an approved method.", "Does not diagnose, recommend treatment or accept residual patient risk."],
+        exampleInputs: { hazards: [{ id: "hazard-001", consequenceApproved: true, controlsImplemented: true, controlsTestCurrent: true, evidenceBound: true, residualRisk: "customer-defined", riskAccepted: true }] },
       }),
       method({
         key: "device-traceability",
         label: "Device identity and lifecycle trace",
-        purpose:
-          "Verify unique device identity, controlled configuration, location, ownership and complete maintenance, calibration and safety-action links.",
+        purpose: "Verify unique device identity, controlled configuration, location, ownership and complete maintenance, calibration and safety-action links.",
         kind: "traceability",
-        algorithm:
-          "Measure lifecycle trace coverage across canonical device identity, serial/model, location, configuration, service history, calibration state and safety-action status.",
-        requiredInputs: [
-          records(
-            "devices",
-            "Device trace records",
-            "Canonical identity, model/serial or UDI, location, owner, configuration, maintenance, calibration and safety-action status.",
-          ),
-        ],
-        requiredEvidence: [
-          "device-inventory",
-          "configuration-baseline",
-          "maintenance-and-calibration-history",
-          "recall-and-safety-action-register",
-        ],
-        authorityReferences: [
-          "organization device inventory policy",
-          "manufacturer identification and configuration records",
-          "applicable traceability requirements",
-        ],
+        algorithm: "Measure lifecycle trace coverage across canonical device identity, serial/model, location, configuration, service history, calibration state and safety-action status.",
+        requiredInputs: [records("devices", "Device trace records", "Canonical identity, model/serial or UDI, location, owner, configuration, maintenance, calibration and safety-action status.")],
+        requiredEvidence: ["device-inventory", "configuration-baseline", "maintenance-and-calibration-history", "recall-and-safety-action-register"],
+        authorityReferences: ["organization device inventory policy", "manufacturer identification and configuration records", "applicable traceability requirements"],
         requiredApproverRole: "Healthcare technology management authority",
-        limitations: [
-          "Does not infer missing device identity, configuration or history.",
-          "Patient identifiers must not be supplied or emitted.",
-        ],
-        exampleInputs: {
-          devices: [
-            {
-              id: "device-001",
-              model: "controlled",
-              serialOrUdi: "canonical-reference",
-              location: "approved location",
-              owner: "clinical engineering",
-              configurationControlled: true,
-              maintenanceLinked: true,
-              calibrationStatus: "current",
-              safetyActionsResolved: true,
-            },
-          ],
-        },
+        limitations: ["Does not infer missing device identity, configuration or history.", "Patient identifiers must not be supplied or emitted."],
+        exampleInputs: { devices: [{ id: "device-001", model: "controlled", serialOrUdi: "canonical-reference", location: "approved location", owner: "clinical engineering", configurationControlled: true, maintenanceLinked: true, calibrationStatus: "current", safetyActionsResolved: true }] },
       }),
     ],
   },
@@ -2297,304 +1776,86 @@ export const DOMAIN_SPECIALIST_MODULES: DomainSpecialistModule[] = [
     label: "Civil Infrastructure — Condition, Restrictions and Renewal",
     version: "1.0.0",
     reviewerRoleKey: "domain_civil_infrastructure_reviewer",
-    purpose:
-      "Screen qualified inspection, condition, deterioration, load, geographic-hazard and renewal evidence without certifying safety or exercising owner authority.",
+    purpose: "Screen qualified inspection, condition, deterioration, load, geographic-hazard and renewal evidence without certifying safety or exercising owner authority.",
     dataClasses: ["operational", "safety_critical", "regulatory"],
     methods: [
       method({
         key: "structural-condition",
         label: "Structural condition evidence trace",
-        purpose:
-          "Trace component condition and defects to qualified observations, controlled configuration, severity and disposition.",
+        purpose: "Trace component condition and defects to qualified observations, controlled configuration, severity and disposition.",
         kind: "verification",
-        algorithm:
-          "Measure coverage where every component/defect record has canonical identity, current qualified observation, approved severity scale and disposition.",
-        requiredInputs: [
-          records(
-            "components",
-            "Structural condition records",
-            "Asset/component identity, observation, date, qualified inspector, approved severity, configuration and disposition.",
-          ),
-        ],
-        requiredEvidence: [
-          "asset-and-component-register",
-          "qualified-inspection-records",
-          "approved-condition-scale",
-          "defect-disposition-register",
-        ],
-        authorityReferences: [
-          "owner-approved inspection manual",
-          "applicable infrastructure inspection requirements",
-          "engineer-of-record criteria",
-        ],
-        requiredApproverRole:
-          "Qualified civil/structural engineering authority",
-        limitations: [
-          "Does not infer material capacity or certify structural safety.",
-          "Does not replace inspection, analysis, closure or repair authority.",
-        ],
-        exampleInputs: {
-          components: [
-            {
-              id: "bridge-01/girder-01",
-              observation: "controlled finding",
-              observedAt: "2026-09-01",
-              qualifiedInspector: "credential reference",
-              severityApproved: true,
-              configurationCurrent: true,
-              dispositionApproved: true,
-            },
-          ],
-        },
+        algorithm: "Measure coverage where every component/defect record has canonical identity, current qualified observation, approved severity scale and disposition.",
+        requiredInputs: [records("components", "Structural condition records", "Asset/component identity, observation, date, qualified inspector, approved severity, configuration and disposition.")],
+        requiredEvidence: ["asset-and-component-register", "qualified-inspection-records", "approved-condition-scale", "defect-disposition-register"],
+        authorityReferences: ["owner-approved inspection manual", "applicable infrastructure inspection requirements", "engineer-of-record criteria"],
+        requiredApproverRole: "Qualified civil/structural engineering authority",
+        limitations: ["Does not infer material capacity or certify structural safety.", "Does not replace inspection, analysis, closure or repair authority."],
+        exampleInputs: { components: [{ id: "bridge-01/girder-01", observation: "controlled finding", observedAt: "2026-09-01", qualifiedInspector: "credential reference", severityApproved: true, configurationCurrent: true, dispositionApproved: true }] },
       }),
       method({
         key: "inspection-rating",
         label: "Inspection rating and critical-finding trace",
-        purpose:
-          "Verify ratings against an approved scale and trace critical findings to required follow-up.",
+        purpose: "Verify ratings against an approved scale and trace critical findings to required follow-up.",
         kind: "traceability",
-        algorithm:
-          "Measure records with approved rating method/scale, qualified inspection, review, critical-finding classification and controlled follow-up.",
-        requiredInputs: [
-          records(
-            "inspections",
-            "Inspection rating records",
-            "Asset/component, rating, approved scale/method, qualified inspector, review and critical-finding follow-up.",
-          ),
-        ],
-        requiredEvidence: [
-          "inspection-program",
-          "approved-rating-scale",
-          "inspection-reports",
-          "critical-finding-follow-up",
-        ],
-        authorityReferences: [
-          "owner inspection program",
-          "applicable inspection and reporting requirements",
-          "qualified inspection authority",
-        ],
+        algorithm: "Measure records with approved rating method/scale, qualified inspection, review, critical-finding classification and controlled follow-up.",
+        requiredInputs: [records("inspections", "Inspection rating records", "Asset/component, rating, approved scale/method, qualified inspector, review and critical-finding follow-up.")],
+        requiredEvidence: ["inspection-program", "approved-rating-scale", "inspection-reports", "critical-finding-follow-up"],
+        authorityReferences: ["owner inspection program", "applicable inspection and reporting requirements", "qualified inspection authority"],
         requiredApproverRole: "Infrastructure inspection program authority",
-        limitations: [
-          "Does not translate between rating systems or invent a rating.",
-          "Does not close a critical finding or certify compliance.",
-        ],
-        exampleInputs: {
-          inspections: [
-            {
-              id: "inspection-001",
-              assetId: "bridge-01",
-              rating: "owner-scale-value",
-              scaleApproved: true,
-              methodApproved: true,
-              inspectorQualified: true,
-              reviewed: true,
-              criticalFollowUpControlled: true,
-            },
-          ],
-        },
+        limitations: ["Does not translate between rating systems or invent a rating.", "Does not close a critical finding or certify compliance."],
+        exampleInputs: { inspections: [{ id: "inspection-001", assetId: "bridge-01", rating: "owner-scale-value", scaleApproved: true, methodApproved: true, inspectorQualified: true, reviewed: true, criticalFollowUpControlled: true }] },
       }),
       method({
         key: "deterioration-forecast",
         label: "Evidence-bounded deterioration forecast",
-        purpose:
-          "Apply only supplied, approved deterioration models within their calibrated applicability boundary.",
+        purpose: "Apply only supplied, approved deterioration models within their calibrated applicability boundary.",
         kind: "engineering_calculation",
-        algorithm:
-          "For each series, apply supplied current value plus approved rate times horizon; block missing calibration, applicability or approved bounds and expose forecast uncertainty.",
-        requiredInputs: [
-          records(
-            "series",
-            "Deterioration series",
-            "Identity, current value, approved rate, horizon, unit, model approval, calibration and applicability.",
-          ),
-        ],
-        requiredEvidence: [
-          "condition-observation-history",
-          "approved-deterioration-model",
-          "model-calibration-record",
-          "applicability-and-uncertainty-basis",
-        ],
-        authorityReferences: [
-          "owner-approved deterioration model",
-          "qualified materials/structural review",
-          "asset-specific exposure history",
-        ],
-        requiredApproverRole:
-          "Qualified infrastructure deterioration-model authority",
-        limitations: [
-          "Does not invent deterioration rates, thresholds or remaining life.",
-          "A projection is not a safety, intervention or service-life determination.",
-        ],
-        exampleInputs: {
-          series: [
-            {
-              id: "deck-01",
-              currentValue: 8,
-              ratePerYear: -0.2,
-              horizonYears: 5,
-              unit: "owner rating",
-              modelApproved: true,
-              calibrationCurrent: true,
-              applicable: true,
-            },
-          ],
-        },
+        algorithm: "For each series, apply supplied current value plus approved rate times horizon; block missing calibration, applicability or approved bounds and expose forecast uncertainty.",
+        requiredInputs: [records("series", "Deterioration series", "Identity, current value, approved rate, horizon, unit, model approval, calibration and applicability.")],
+        requiredEvidence: ["condition-observation-history", "approved-deterioration-model", "model-calibration-record", "applicability-and-uncertainty-basis"],
+        authorityReferences: ["owner-approved deterioration model", "qualified materials/structural review", "asset-specific exposure history"],
+        requiredApproverRole: "Qualified infrastructure deterioration-model authority",
+        limitations: ["Does not invent deterioration rates, thresholds or remaining life.", "A projection is not a safety, intervention or service-life determination."],
+        exampleInputs: { series: [{ id: "deck-01", currentValue: 8, ratePerYear: -0.2, horizonYears: 5, unit: "owner rating", modelApproved: true, calibrationCurrent: true, applicable: true }] },
       }),
       method({
         key: "load-restriction",
         label: "Load rating and restriction evidence screen",
-        purpose:
-          "Compare a supplied qualified rating factor with supplied approved criteria and verify posting/restriction implementation evidence.",
+        purpose: "Compare a supplied qualified rating factor with supplied approved criteria and verify posting/restriction implementation evidence.",
         kind: "engineering_calculation",
-        algorithm:
-          "Calculate margin between supplied rating factor and supplied criterion, while blocking stale/invalid analysis and surfacing unimplemented authority decisions.",
-        requiredInputs: [
-          records(
-            "ratings",
-            "Load rating records",
-            "Asset/load case, rating factor, approved criterion, analysis currency, qualified approval and restriction implementation.",
-          ),
-        ],
-        requiredEvidence: [
-          "current-load-rating-analysis",
-          "controlled-asset-condition-and-configuration",
-          "applicable-legal-and-permit-load-basis",
-          "posting-and-restriction-records",
-        ],
-        authorityReferences: [
-          "qualified load-rating analysis",
-          "applicable owner and legal load requirements",
-          "posting/restriction authority decision",
-        ],
-        requiredApproverRole:
-          "Qualified load-rating and infrastructure owner authority",
-        limitations: [
-          "Does not perform structural load rating or establish a legal load.",
-          "Does not post, restrict, close, reopen or route traffic.",
-        ],
-        exampleInputs: {
-          ratings: [
-            {
-              id: "bridge-01/legal-load",
-              ratingFactor: 1.08,
-              approvedCriterion: 1,
-              analysisCurrent: true,
-              authorityApproved: true,
-              restrictionRequired: false,
-              restrictionImplemented: true,
-            },
-          ],
-        },
+        algorithm: "Calculate margin between supplied rating factor and supplied criterion, while blocking stale/invalid analysis and surfacing unimplemented authority decisions.",
+        requiredInputs: [records("ratings", "Load rating records", "Asset/load case, rating factor, approved criterion, analysis currency, qualified approval and restriction implementation.")],
+        requiredEvidence: ["current-load-rating-analysis", "controlled-asset-condition-and-configuration", "applicable-legal-and-permit-load-basis", "posting-and-restriction-records"],
+        authorityReferences: ["qualified load-rating analysis", "applicable owner and legal load requirements", "posting/restriction authority decision"],
+        requiredApproverRole: "Qualified load-rating and infrastructure owner authority",
+        limitations: ["Does not perform structural load rating or establish a legal load.", "Does not post, restrict, close, reopen or route traffic."],
+        exampleInputs: { ratings: [{ id: "bridge-01/legal-load", ratingFactor: 1.08, approvedCriterion: 1, analysisCurrent: true, authorityApproved: true, restrictionRequired: false, restrictionImplemented: true }] },
       }),
       method({
         key: "geographic-risk",
         label: "Geographic hazard evidence overlay",
-        purpose:
-          "Trace assets to authority-approved hazard layers with explicit coordinate, resolution, vintage and overlap quality.",
+        purpose: "Trace assets to authority-approved hazard layers with explicit coordinate, resolution, vintage and overlap quality.",
         kind: "verification",
-        algorithm:
-          "Measure asset/layer overlay coverage only where geometry, coordinate reference, layer authority/vintage/resolution and approved overlap method are supplied.",
-        requiredInputs: [
-          records(
-            "overlays",
-            "Asset hazard overlays",
-            "Asset/layer identity, geometry and CRS control, approved layer, vintage, resolution, overlap method and review.",
-          ),
-        ],
-        requiredEvidence: [
-          "canonical-asset-geometries",
-          "approved-hazard-layers",
-          "layer-metadata-and-vintage",
-          "approved-overlay-method",
-        ],
-        authorityReferences: [
-          "owner-approved GIS governance",
-          "applicable emergency/hazard authority",
-          "qualified geospatial review",
-        ],
-        requiredApproverRole:
-          "Qualified geospatial and infrastructure risk authority",
-        limitations: [
-          "Does not invent hazard probability, threshold or consequence.",
-          "Does not replace site investigation, emergency action or engineering analysis.",
-        ],
-        exampleInputs: {
-          overlays: [
-            {
-              id: "bridge-01/flood-layer",
-              assetGeometryControlled: true,
-              crsMatched: true,
-              layerApproved: true,
-              metadataCurrent: true,
-              resolutionAccepted: true,
-              overlapMethodApproved: true,
-              reviewed: true,
-            },
-          ],
-        },
+        algorithm: "Measure asset/layer overlay coverage only where geometry, coordinate reference, layer authority/vintage/resolution and approved overlap method are supplied.",
+        requiredInputs: [records("overlays", "Asset hazard overlays", "Asset/layer identity, geometry and CRS control, approved layer, vintage, resolution, overlap method and review.")],
+        requiredEvidence: ["canonical-asset-geometries", "approved-hazard-layers", "layer-metadata-and-vintage", "approved-overlay-method"],
+        authorityReferences: ["owner-approved GIS governance", "applicable emergency/hazard authority", "qualified geospatial review"],
+        requiredApproverRole: "Qualified geospatial and infrastructure risk authority",
+        limitations: ["Does not invent hazard probability, threshold or consequence.", "Does not replace site investigation, emergency action or engineering analysis."],
+        exampleInputs: { overlays: [{ id: "bridge-01/flood-layer", assetGeometryControlled: true, crsMatched: true, layerApproved: true, metadataCurrent: true, resolutionAccepted: true, overlapMethodApproved: true, reviewed: true }] },
       }),
       method({
         key: "renewal-planning",
         label: "Mandatory-first civil renewal planning",
-        purpose:
-          "Rank evidence-ready non-mandatory renewal candidates while preserving safety and regulatory obligations ahead of economics.",
+        purpose: "Rank evidence-ready non-mandatory renewal candidates while preserving safety and regulatory obligations ahead of economics.",
         kind: "optimization",
-        algorithm:
-          "Sort mandatory candidates first by supplied due date, then rank evidence-ready non-mandatory candidates by approved weighted benefit divided by supplied cost.",
-        requiredInputs: [
-          records(
-            "candidates",
-            "Renewal candidates",
-            "Identity, mandatory status/due date, evidence readiness, cost and approved 0-5 factor scores.",
-          ),
-          records(
-            "weights",
-            "Approved renewal weights",
-            "Factor and non-negative approved weight.",
-          ),
-          n(
-            "budget",
-            "Indicative planning envelope",
-            "supplied currency",
-            "Non-authorizing comparison envelope.",
-          ),
-        ],
-        requiredEvidence: [
-          "condition-and-critical-finding-register",
-          "approved-renewal-priority-model",
-          "cost-estimate-basis",
-          "network-service-and-community-consequence-basis",
-          "mandatory-obligation-register",
-        ],
-        authorityReferences: [
-          "owner capital governance",
-          "qualified engineering dispositions",
-          "applicable mandatory obligations",
-        ],
-        requiredApproverRole:
-          "Infrastructure owner and qualified engineering authority",
-        limitations: [
-          "Does not defer mandatory work or authorize expenditure.",
-          "Does not invent scores, weights, costs, benefits or due dates.",
-        ],
-        exampleInputs: {
-          candidates: [
-            {
-              id: "bridge-01-renewal",
-              mandatory: true,
-              dueDate: "2027-06-01",
-              evidenceReady: true,
-              cost: 1000000,
-              safety: 5,
-              service: 4,
-            },
-          ],
-          weights: [
-            { factor: "safety", weight: 0.7 },
-            { factor: "service", weight: 0.3 },
-          ],
-          budget: 1500000,
-        },
+        algorithm: "Sort mandatory candidates first by supplied due date, then rank evidence-ready non-mandatory candidates by approved weighted benefit divided by supplied cost.",
+        requiredInputs: [records("candidates", "Renewal candidates", "Identity, mandatory status/due date, evidence readiness, cost and approved 0-5 factor scores."), records("weights", "Approved renewal weights", "Factor and non-negative approved weight."), n("budget", "Indicative planning envelope", "supplied currency", "Non-authorizing comparison envelope.")],
+        requiredEvidence: ["condition-and-critical-finding-register", "approved-renewal-priority-model", "cost-estimate-basis", "network-service-and-community-consequence-basis", "mandatory-obligation-register"],
+        authorityReferences: ["owner capital governance", "qualified engineering dispositions", "applicable mandatory obligations"],
+        requiredApproverRole: "Infrastructure owner and qualified engineering authority",
+        limitations: ["Does not defer mandatory work or authorize expenditure.", "Does not invent scores, weights, costs, benefits or due dates."],
+        exampleInputs: { candidates: [{ id: "bridge-01-renewal", mandatory: true, dueDate: "2027-06-01", evidenceReady: true, cost: 1000000, safety: 5, service: 4 }], weights: [{ factor: "safety", weight: 0.7 }, { factor: "service", weight: 0.3 }], budget: 1500000 },
       }),
     ],
   },

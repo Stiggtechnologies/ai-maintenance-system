@@ -39,7 +39,7 @@ describe("DomainSpecialistWorkbench", () => {
     const moduleSelect = screen.getByLabelText("Specialist module");
     expect(moduleSelect.querySelectorAll("option")).toHaveLength(17);
     expect(
-      screen.getByText(/17 governed modules and 58 deterministic methods/i),
+      screen.getByText(/17 governed modules and 54 deterministic methods/i),
     ).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Preview locally" }));
@@ -55,22 +55,6 @@ describe("DomainSpecialistWorkbench", () => {
       ),
     ).toBeInTheDocument();
     expect(screen.getByText(/cannot certify compliance/i)).toBeInTheDocument();
-  });
-
-  it("makes all six manufacturing assurance methods reachable", () => {
-    render(<DomainSpecialistWorkbench risks={[risk]} />);
-    fireEvent.change(screen.getByLabelText("Specialist module"), {
-      target: { value: "manufacturing-operations" },
-    });
-    const methods = screen.getByLabelText("Method").querySelectorAll("option");
-    expect([...methods].map((option) => option.getAttribute("value"))).toEqual([
-      "line-balancing",
-      "robot-health",
-      "oee-loss-decomposition",
-      "quality-loss-reconciliation",
-      "tooling-life-assurance",
-      "changeover-readiness",
-    ]);
   });
 
   it("makes all six civil-infrastructure methods reachable", () => {

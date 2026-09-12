@@ -85,10 +85,6 @@ describe("the kernel-profile architecture (E1.01)", () => {
     expect(mfg.domainModules[0].methods).toEqual([
       "line-balancing",
       "robot-health",
-      "oee-loss-decomposition",
-      "quality-loss-reconciliation",
-      "tooling-life-assurance",
-      "changeover-readiness",
     ]);
     expect(mfg.operationalShare).toBe(1);
   });
