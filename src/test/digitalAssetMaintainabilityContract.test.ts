@@ -43,10 +43,14 @@ describe("D4.15 digital asset maintainability", () => {
   });
 
   it("distinguishes unknown from an evidenced human not-applicable decision", () => {
-    expect(migration).toContain("digital_maintainability_applicability is null");
+    expect(migration).toContain(
+      "digital_maintainability_applicability is null",
+    );
     expect(migration).toContain("'NOT_ASSESSED'");
     expect(migration).toContain("'NOT_APPLICABLE'");
-    expect(migration).toContain("same-tenant applicability evidence is required");
+    expect(migration).toContain(
+      "same-tenant applicability evidence is required",
+    );
     expect(migration).toContain("lower(coalesce(v_role,'')) not in");
     expect(migration).toContain("'ai_admin'");
   });
@@ -57,19 +61,37 @@ describe("D4.15 digital asset maintainability", () => {
         /coalesce\(current_setting\('app\.digital_maintainability_write',true\),''\)<>'allowed'/g,
       ),
     ).toHaveLength(2);
-    expect(migration).toContain("configuration item must remain in its baseline tenant");
-    expect(migration).toContain("digital configuration evidence must remain in the item tenant");
-    expect(smoke).toContain("direct digital baseline rewrite unexpectedly succeeded");
-    expect(smoke).toContain("cross-tenant digital evidence unexpectedly succeeded");
+    expect(migration).toContain(
+      "configuration item must remain in its baseline tenant",
+    );
+    expect(migration).toContain(
+      "digital configuration evidence must remain in the item tenant",
+    );
+    expect(smoke).toContain(
+      "direct digital baseline rewrite unexpectedly succeeded",
+    );
+    expect(smoke).toContain(
+      "cross-tenant digital evidence unexpectedly succeeded",
+    );
   });
 
   it("feeds one computed readiness result into the canonical handover wall", () => {
     expect(migration).toContain("get_system_digital_maintainability");
     expect(migration).toContain("get_system_handover_readiness_pre_digital");
-    expect(migration).toContain("Digital asset maintainability is not complete for every system asset.");
+    expect(migration).toContain(
+      "Digital asset maintainability is not complete for every system asset.",
+    );
     expect(migration).toContain("'{canAccept}'");
-    expect(smoke).toContain("handover unexpectedly remained acceptable before digital completion");
-    expect(smoke).toContain("handover did not become acceptable after digital completion");
+    expect(migration).toContain(
+      "v_not_applicable=v_total then 'NOT_APPLICABLE'",
+    );
+    expect(migration).toContain("not in ('READY','NOT_APPLICABLE')");
+    expect(smoke).toContain(
+      "handover unexpectedly remained acceptable before digital completion",
+    );
+    expect(smoke).toContain(
+      "handover did not become acceptable after digital completion",
+    );
   });
 
   it("has a customer-reachable human write and read path", () => {

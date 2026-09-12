@@ -282,16 +282,19 @@ grant execute on function public.get_asset_digital_maintainability(uuid,text) to
 
 create or replace function public.get_system_digital_maintainability(p_system_id bigint)
 returns jsonb language plpgsql security definer stable set search_path=public as $$
-declare v_org uuid:=public.app_current_org(); r record; v_result jsonb; v_assets jsonb:='[]'::jsonb; v_gaps jsonb:='[]'::jsonb; v_total int:=0; v_ready int:=0;
+declare v_org uuid:=public.app_current_org(); r record; v_result jsonb; v_assets jsonb:='[]'::jsonb; v_gaps jsonb:='[]'::jsonb; v_total int:=0; v_ready int:=0; v_not_applicable int:=0;
 begin
   if not exists(select 1 from public.commissioning_systems s where s.id=p_system_id and s.organization_id=v_org) then return jsonb_build_object('error','commissioning system not found'); end if;
   for r in select a.asset_id,x.name from public.commissioning_system_assets a join public.assets x on x.id=a.asset_id where a.organization_id=v_org and a.commissioning_system_id=p_system_id order by x.name loop
     v_total:=v_total+1; v_result:=public.get_asset_digital_maintainability(r.asset_id,'as_built');
-    if v_result->>'status' in ('READY','NOT_APPLICABLE') then v_ready:=v_ready+1; else v_gaps:=v_gaps||jsonb_build_array(jsonb_build_object('assetId',r.asset_id,'asset',r.name,'status',v_result->>'status','gaps',v_result->'gaps')); end if;
+    if v_result->>'status' in ('READY','NOT_APPLICABLE') then
+      v_ready:=v_ready+1;
+      if v_result->>'status'='NOT_APPLICABLE' then v_not_applicable:=v_not_applicable+1; end if;
+    else v_gaps:=v_gaps||jsonb_build_array(jsonb_build_object('assetId',r.asset_id,'asset',r.name,'status',v_result->>'status','gaps',v_result->'gaps')); end if;
     v_assets:=v_assets||jsonb_build_array(jsonb_build_object('assetId',r.asset_id,'asset',r.name,'readiness',v_result));
   end loop;
   if v_total=0 then v_gaps:=v_gaps||jsonb_build_array('No assets are bound to the commissioning system, so digital maintainability cannot be assessed.'); end if;
-  return jsonb_build_object('systemId',p_system_id,'status',case when v_total>0 and v_ready=v_total then 'READY' when v_total=0 then 'NOT_ASSESSED' else 'NOT_READY' end,'readyAssets',v_ready,'totalAssets',v_total,'assets',v_assets,'gaps',v_gaps,'source','configuration_baselines + configuration_items + evidence_items','decisionBoundary','This readiness result cannot accept handover.');
+  return jsonb_build_object('systemId',p_system_id,'status',case when v_total>0 and v_not_applicable=v_total then 'NOT_APPLICABLE' when v_total>0 and v_ready=v_total then 'READY' when v_total=0 then 'NOT_ASSESSED' else 'NOT_READY' end,'readyAssets',v_ready,'notApplicableAssets',v_not_applicable,'totalAssets',v_total,'assets',v_assets,'gaps',v_gaps,'source','configuration_baselines + configuration_items + evidence_items','decisionBoundary','This readiness result cannot accept handover.');
 end $$;
 revoke all on function public.get_system_digital_maintainability(bigint) from public,anon;
 grant execute on function public.get_system_digital_maintainability(bigint) to authenticated;
@@ -310,7 +313,7 @@ begin
   if v_base ? 'error' then return v_base; end if;
   v_digital:=public.get_system_digital_maintainability(p_system_id);
   v_blockers:=coalesce(v_base->'blockers','[]'::jsonb);
-  if coalesce(v_digital->>'status','')<>'READY' then
+  if coalesce(v_digital->>'status','') not in ('READY','NOT_APPLICABLE') then
     v_blockers:=v_blockers||jsonb_build_array('Digital asset maintainability is not complete for every system asset.');
   end if;
   return jsonb_set(jsonb_set(jsonb_set(v_base,'{digitalMaintainability}',v_digital,true),'{blockers}',v_blockers,true),'{canAccept}',to_jsonb(jsonb_array_length(v_blockers)=0),true);
