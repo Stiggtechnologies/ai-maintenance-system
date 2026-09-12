@@ -7446,9 +7446,7 @@ export interface ResourceDemandLine {
   withdrawalReason: string | null;
 }
 
-export async function getCaseResourceDemand(
-  caseId: string,
-): Promise<{
+export async function getCaseResourceDemand(caseId: string): Promise<{
   answered: boolean;
   refusal?: string;
   demand?: ResourceDemandLine[];
@@ -8372,6 +8370,81 @@ export interface CaseValueRealization {
   note?: string;
 }
 
+export interface ValueTrajectoryRow {
+  point: string;
+  value: number | null;
+  unit: string | null;
+  status: "verified" | "derived" | "missing" | "unit_mismatch";
+}
+
+export interface ValueLeakageAttributionRow {
+  id: string;
+  bucket: string;
+  kind: "causal" | "contributing";
+  value: number;
+  basis: string;
+  evidenceItemId: string;
+}
+
+export interface CaseValueLeakage {
+  caseId: string;
+  leakageEvaluable: boolean;
+  reason?: string;
+  unit?: string;
+  approvedValue?: number;
+  realizedValue?: number;
+  approvedToRealizedLeakage?: number;
+  originalToRealizedChange?: number | null;
+  trajectory?: ValueTrajectoryRow[];
+  trajectoryComplete?: boolean;
+  missingPoints?: string[];
+  attributions?: ValueLeakageAttributionRow[];
+  attributedValue?: number;
+  unattributedResidual?: number;
+  attributionValid?: boolean;
+  missingActualBenefits?: number;
+  pendingVerificationCount?: number;
+  pendingVerification?: Array<{
+    id: string;
+    metricType: string;
+    label: string;
+    value: number;
+    unit: string;
+    basis: string;
+    point: string | null;
+    bucket: string | null;
+    kind: string | null;
+    evidenceItemId: string;
+    recordedBy: string;
+    createdAt: string;
+  }>;
+  formula?: string;
+  decisionBoundary?: string;
+}
+
+export interface BenefitScreenRow {
+  id: string;
+  label: string;
+  expected: number;
+  unit: string;
+  expectedDate: string;
+  ownerId: string;
+  owner: string;
+  basis: string;
+  currentForecast: number | null;
+  forecastStatus: string;
+  actual: number | null;
+  actualHorizonDays: number | null;
+  variance: number | null;
+}
+
+export interface CaseBenefitsScreen {
+  caseId: string;
+  benefits: BenefitScreenRow[];
+  valueLeakage: CaseValueLeakage;
+  basis: string;
+}
+
 export interface ProjectSuccessSlot {
   key: string;
   label: string;
@@ -8432,6 +8505,68 @@ export async function getCaseValueRealization(
     p_case_id: caseId,
   });
   return unwrapRpc(data, error, "Could not load value realization");
+}
+
+export async function getCaseValueLeakage(
+  caseId: string,
+): Promise<CaseValueLeakage> {
+  const { data, error } = await supabase.rpc("get_case_value_leakage", {
+    p_case_id: caseId,
+  });
+  return unwrapRpc(data, error, "Could not load value leakage");
+}
+
+export async function getCaseBenefitsScreen(
+  caseId: string,
+): Promise<CaseBenefitsScreen> {
+  const { data, error } = await supabase.rpc("get_case_benefits_screen", {
+    p_case_id: caseId,
+  });
+  return unwrapRpc(data, error, "Could not load the benefits screen");
+}
+
+export async function recordCaseValueTrajectoryPoint(input: {
+  caseId: string;
+  point: string;
+  value: number;
+  unit: string;
+  basis: string;
+  evidenceItemId: string;
+}): Promise<{ metricId: string; point: string; status: string }> {
+  const { data, error } = await supabase.rpc(
+    "record_case_value_trajectory_point",
+    {
+      p_case_id: input.caseId,
+      p_point: input.point,
+      p_value: input.value,
+      p_unit: input.unit,
+      p_basis: input.basis,
+      p_evidence_item_id: input.evidenceItemId,
+    },
+  );
+  return unwrapRpc(data, error, "Could not record the trajectory point");
+}
+
+export async function recordCaseValueLeakageAttribution(input: {
+  caseId: string;
+  bucket: string;
+  value: number;
+  attributionKind: "causal" | "contributing";
+  basis: string;
+  evidenceItemId: string;
+}): Promise<{ metricId: string; bucket: string; status: string }> {
+  const { data, error } = await supabase.rpc(
+    "record_case_value_leakage_attribution",
+    {
+      p_case_id: input.caseId,
+      p_bucket: input.bucket,
+      p_value: input.value,
+      p_attribution_kind: input.attributionKind,
+      p_basis: input.basis,
+      p_evidence_item_id: input.evidenceItemId,
+    },
+  );
+  return unwrapRpc(data, error, "Could not record leakage attribution");
 }
 
 export async function getCaseProjectSuccess(
