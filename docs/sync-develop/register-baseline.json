@@ -378,10 +378,10 @@
     "backticked": 10
   },
   "D4.13": {
-    "status": "🟡",
+    "status": "✅",
     "evidence": true,
-    "citations": 5,
-    "backticked": 0
+    "citations": 12,
+    "backticked": 12
   },
   "D4.14": {
     "status": "✅",
