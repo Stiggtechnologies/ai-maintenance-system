@@ -398,6 +398,17 @@ export const INDUSTRY_PROFILES: IndustryProfile[] = [
     proseOnly: [],
   },
   {
+    industryCode: "civil_infrastructure",
+    registerRef: "U5.07",
+    contexts: [
+      "structural_deterioration",
+      "network_outage",
+      "turnaround_execution",
+    ],
+    domainModules: ["civil-infrastructure"],
+    proseOnly: [],
+  },
+  {
     industryCode: "food_beverage",
     registerRef: "U5.06-adjacent",
     contexts: [

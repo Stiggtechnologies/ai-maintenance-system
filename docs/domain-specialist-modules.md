@@ -27,8 +27,9 @@ similar domain decisions.
 | Defense                    | Mission-capable coverage, configuration/obsolescence trace and classified-deployment control readiness             |
 | Aerospace & Launch         | Reuse counters, range-safety evidence readiness and propellant property/exposure margins                           |
 | Buildings & Infrastructure | Code, fire/life safety, occupancy, environment, BAS, resource performance and renewal priority                     |
+| Civil Infrastructure       | Structural condition, inspection ratings, deterioration, load restrictions, geographic risk and renewal planning |
 
-The 16 modules expose 43 methods. The canonical registry, input examples,
+The 17 modules expose 49 methods. The canonical registry, input examples,
 required evidence, authority references, limitations and reviewer roles live in
 `src/lib/domain-specialists/catalog.ts`. The deterministic evaluators live in
 `src/lib/domain-specialists/engine.ts`; every registry method must resolve to an

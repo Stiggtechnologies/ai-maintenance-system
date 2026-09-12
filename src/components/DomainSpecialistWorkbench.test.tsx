@@ -33,13 +33,13 @@ describe("DomainSpecialistWorkbench", () => {
     vi.mocked(reviewDomainSpecialistRun).mockClear();
   });
 
-  it("exposes all 16 modules and refuses a preview without evidence", async () => {
+  it("exposes all 17 modules and refuses a preview without evidence", async () => {
     render(<DomainSpecialistWorkbench risks={[risk]} />);
 
     const moduleSelect = screen.getByLabelText("Specialist module");
-    expect(moduleSelect.querySelectorAll("option")).toHaveLength(16);
+    expect(moduleSelect.querySelectorAll("option")).toHaveLength(17);
     expect(
-      screen.getByText(/16 governed modules and 43 deterministic methods/i),
+      screen.getByText(/17 governed modules and 49 deterministic methods/i),
     ).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Preview locally" }));
@@ -55,6 +55,22 @@ describe("DomainSpecialistWorkbench", () => {
       ),
     ).toBeInTheDocument();
     expect(screen.getByText(/cannot certify compliance/i)).toBeInTheDocument();
+  });
+
+  it("makes all six civil-infrastructure methods reachable", () => {
+    render(<DomainSpecialistWorkbench risks={[risk]} />);
+    fireEvent.change(screen.getByLabelText("Specialist module"), {
+      target: { value: "civil-infrastructure" },
+    });
+    const methods = screen.getByLabelText("Method").querySelectorAll("option");
+    expect([...methods].map((option) => option.getAttribute("value"))).toEqual([
+      "structural-condition",
+      "inspection-rating",
+      "deterioration-forecast",
+      "load-restriction",
+      "geographic-risk",
+      "renewal-planning",
+    ]);
   });
 
   it("makes all six healthcare assurance methods reachable", () => {

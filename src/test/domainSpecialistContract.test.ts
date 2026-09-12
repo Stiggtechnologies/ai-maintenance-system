@@ -9,6 +9,7 @@ const migration = [
   read("supabase/migrations/20261219139000_battery_energy_storage_pack.sql"),
   read("supabase/migrations/20261219220000_buildings_facilities_pack.sql"),
   read("supabase/migrations/20261219230000_healthcare_pack.sql"),
+  read("supabase/migrations/20261219240000_civil_infrastructure_pack.sql"),
 ].join("\n");
 const edge = read("supabase/functions/domain-specialist-run/index.ts");
 const workflow = read(".github/workflows/deploy-migrations.yml");

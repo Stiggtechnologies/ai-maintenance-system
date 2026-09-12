@@ -17,7 +17,9 @@ const target =
 // appended in later immutable migrations; they must not rewrite this file.
 const BASE_MIGRATION_PACKS = Object.values(INDUSTRY_TEMPLATE_PACKS).filter(
   (pack) =>
-    !["battery_energy_storage", "healthcare"].includes(pack.industryCode),
+    !["battery_energy_storage", "healthcare", "civil_infrastructure"].includes(
+      pack.industryCode,
+    ),
 );
 
 const lit = (value: string) => `'${value.replace(/'/g, "''")}'`;

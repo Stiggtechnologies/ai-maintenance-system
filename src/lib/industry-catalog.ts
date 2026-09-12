@@ -34,6 +34,7 @@ export const INDUSTRY_CATALOG = [
     label: "Buildings & Infrastructure",
     kind: "pack",
   },
+  { code: "civil_infrastructure", label: "Civil Infrastructure", kind: "pack" },
   { code: "custom", label: "Custom / Other", kind: "custom" },
 ] as const;
 
@@ -70,6 +71,9 @@ export const INDUSTRY_CODE_ALIASES: Readonly<Record<string, IndustryCode>> = {
   aerospace: "aerospace_launch",
   "aerospace-launch": "aerospace_launch",
   "buildings-infrastructure": "buildings_infrastructure",
+  civil: "civil_infrastructure",
+  infrastructure: "civil_infrastructure",
+  "civil-infrastructure": "civil_infrastructure",
   other: "custom",
 };
 

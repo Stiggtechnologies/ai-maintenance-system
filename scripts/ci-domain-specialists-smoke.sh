@@ -56,6 +56,22 @@ if [ "$HEALTHCARE_REGISTRY" != "t" ]; then
   echo "Healthcare specialist registry/evidence contract is incomplete" >&2
   exit 1
 fi
+
+# U5.07: every Civil Infrastructure method is registered and carries a
+# non-empty server-owned evidence contract.
+CIVIL_REGISTRY=$(PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -Atc "
+with methods(method_key) as (values
+ ('structural-condition'),('inspection-rating'),('deterioration-forecast'),
+ ('load-restriction'),('geographic-risk'),('renewal-planning')
+)
+select bool_and(
+ domain_specialist_method_is_registered('civil-infrastructure',method_key)
+ and cardinality(domain_specialist_required_evidence(method_key)) > 0
+) from methods;")
+if [ "$CIVIL_REGISTRY" != "t" ]; then
+  echo "Civil Infrastructure specialist registry/evidence contract is incomplete" >&2
+  exit 1
+fi
 test "$BUILDINGS_REGISTRY" = 't'
 
 PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -v ON_ERROR_STOP=1 <<SQL

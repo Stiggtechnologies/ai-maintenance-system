@@ -16,7 +16,8 @@ export type DomainSpecialistModuleKey =
   | "battery-energy-storage"
   | "defense-readiness"
   | "aerospace-launch"
-  | "buildings-infrastructure";
+  | "buildings-infrastructure"
+  | "civil-infrastructure";
 
 export type DomainMethodKind =
   | "engineering_calculation"

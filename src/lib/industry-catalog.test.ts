@@ -28,7 +28,7 @@ describe("canonical industry catalog", () => {
 
   it("exposes all packs plus a custom organization-defined option", () => {
     const riskCatalog = getRiskIndustryPackCatalog();
-    expect(riskCatalog).toHaveLength(19);
+    expect(riskCatalog).toHaveLength(20);
     expect(riskCatalog.at(-1)).toMatchObject({
       industryCode: "custom",
       readiness: "custom",
