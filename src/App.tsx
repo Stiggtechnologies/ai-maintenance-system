@@ -87,6 +87,7 @@ import { HelpCenterWidget } from "./components/HelpCenterWidget";
 import { GovernedDecisionWorkspacePage } from "./pages/GovernedDecisionWorkspacePage";
 import { DevelopCasesPage } from "./pages/DevelopCasesPage";
 import { DevelopmentPortfolioPage } from "./pages/DevelopmentPortfolioPage";
+import { OperationalReadinessMatrixPage } from "./pages/OperationalReadinessMatrixPage";
 import { DevelopIntakePage } from "./pages/DevelopIntakePage";
 import { DevelopmentCaseWorkspacePage } from "./pages/DevelopmentCaseWorkspacePage";
 import { ExecutionReadinessPage } from "./pages/ExecutionReadinessPage";
@@ -537,6 +538,10 @@ function AuthenticatedApp() {
           <Route
             path="/develop/portfolio"
             element={<DevelopmentPortfolioPage />}
+          />
+          <Route
+            path="/develop/operational-readiness"
+            element={<OperationalReadinessMatrixPage />}
           />
           <Route path="/develop/new" element={<DevelopIntakePage />} />
           <Route

@@ -1368,10 +1368,10 @@
     "backticked": 7
   },
   "D13.10": {
-    "status": "🟡",
+    "status": "✅",
     "evidence": true,
-    "citations": 1,
-    "backticked": 0
+    "citations": 15,
+    "backticked": 15
   },
   "D13.11": {
     "status": "🟡",
