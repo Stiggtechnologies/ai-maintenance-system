@@ -422,6 +422,9 @@ verify_jwt = true
 [functions.develop-governance-agent]
 verify_jwt = true
 
+[functions.develop-hop-agent]
+verify_jwt = true
+
 [functions.develop-handover-agent]
 verify_jwt = true
 
