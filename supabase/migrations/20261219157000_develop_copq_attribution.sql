@@ -12,7 +12,7 @@
 
 alter table public.quality_cost_entries
   add column if not exists development_case_id uuid
-    references public.development_cases(id) on delete set null,
+    references public.development_cases(id) on delete restrict,
   add column if not exists copq_term text,
   add column if not exists forecast_growth_amount numeric,
   add column if not exists forecast_growth_basis text;
@@ -47,7 +47,7 @@ create index if not exists idx_quality_cost_case_forecast
 create or replace function public.enforce_quality_cost_attribution_scope()
 returns trigger language plpgsql set search_path=public
 as $$
-declare v_case_project bigint; v_linked_project bigint;
+declare v_case_project bigint; v_ncr_project bigint; v_defect_project bigint;
 begin
   if new.development_case_id is null then return new; end if;
   select capital_project_id into v_case_project
@@ -58,14 +58,15 @@ begin
   end if;
 
   if new.ncr_id is not null then
-    select project_id into v_linked_project from public.quality_ncrs
+    select project_id into v_ncr_project from public.quality_ncrs
     where id=new.ncr_id and organization_id=new.organization_id;
-  elsif new.defect_id is not null then
-    select project_id into v_linked_project from public.quality_defects
+  end if;
+  if new.defect_id is not null then
+    select project_id into v_defect_project from public.quality_defects
     where id=new.defect_id and organization_id=new.organization_id;
   end if;
-  if v_linked_project is not null
-     and v_case_project is distinct from v_linked_project then
+  if (v_ncr_project is not null and v_case_project is distinct from v_ncr_project)
+     or (v_defect_project is not null and v_case_project is distinct from v_defect_project) then
     raise exception 'quality cost case and linked quality record name different capital projects';
   end if;
   return new;
