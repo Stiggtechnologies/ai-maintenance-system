@@ -153,10 +153,13 @@ alter table public.option_sustainability_observations enable row level security;
 alter table public.climate_resilience_assessments enable row level security;
 alter table public.climate_resilience_hazard_assessments enable row level security;
 
+drop policy if exists option_sustainability_read on public.option_sustainability_observations;
 create policy option_sustainability_read on public.option_sustainability_observations
   for select to authenticated using (organization_id=public.app_current_org());
+drop policy if exists climate_resilience_assessment_read on public.climate_resilience_assessments;
 create policy climate_resilience_assessment_read on public.climate_resilience_assessments
   for select to authenticated using (organization_id=public.app_current_org());
+drop policy if exists climate_resilience_hazard_read on public.climate_resilience_hazard_assessments;
 create policy climate_resilience_hazard_read on public.climate_resilience_hazard_assessments
   for select to authenticated using (organization_id=public.app_current_org());
 -- No client write policy: every mutation is a tenant- and role-scoped RPC.
