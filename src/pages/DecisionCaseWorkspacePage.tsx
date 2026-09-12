@@ -388,10 +388,13 @@ export function DecisionCaseWorkspacePage({
     return () => window.clearTimeout(timer);
   }, [notice]);
   useEffect(() => {
-    if (conversationIsEmpty(active.messages)) {
+    // The public empty state is also the commercial landing experience. Do
+    // not steal focus and scroll a new visitor past its hero and offer. Once a
+    // case exists the composer remains the primary interaction surface.
+    if (!publicMode && conversationIsEmpty(active.messages)) {
       composerRef.current?.focus();
     }
-  }, [active.id, active.messages]);
+  }, [active.id, active.messages, publicMode]);
   useEffect(() => {
     if (!plusOpen) return;
     const onPointer = (event: MouseEvent) => {
@@ -748,7 +751,6 @@ export function DecisionCaseWorkspacePage({
       onChange={setComposer}
       onSend={() => void sendMessage()}
       sendDisabled={(!composer.trim() && !attachment && !photo) || replying}
-      caseExists={!emptyConversation}
       dictationSupported={dictation.supported}
       dictationListening={dictation.listening}
       dictationTitle={dictationTitle}
@@ -756,7 +758,7 @@ export function DecisionCaseWorkspacePage({
         dictation.listening ? dictation.stop() : dictation.start()
       }
       photoInputRef={photoInputRef}
-      onOpenAttachMenu={() => setPlusOpen((value) => !value)}
+      fileInputRef={fileInputRef}
     />
   );
 
@@ -977,7 +979,7 @@ export function DecisionCaseWorkspacePage({
                       type="file"
                       accept=".csv,.tsv,.txt,.log"
                       className="dw-file-input"
-                      aria-label="Attach a data file"
+                      aria-label="Choose a data file"
                       onChange={(event) => {
                         void handleAttach(event.target.files?.[0]);
                         event.target.value = "";
@@ -989,7 +991,7 @@ export function DecisionCaseWorkspacePage({
                       type="file"
                       accept="image/*"
                       className="dw-file-input"
-                      aria-label="Attach a photo"
+                      aria-label="Choose a photo"
                       onChange={(event) => {
                         void handleAttach(event.target.files?.[0]);
                         event.target.value = "";
@@ -1242,7 +1244,7 @@ export function DecisionCaseWorkspacePage({
     >
       <PublicAskRail
         homeActive={emptyConversation}
-        onHome={() => void createCase()}
+        onNewAsk={() => void createCase()}
         assessHref="/setup"
         signInHref="/signin?returnTo=%2F"
         onSignIn={() => stageDecisionCaseHandoff(window.sessionStorage, active)}
@@ -1265,7 +1267,74 @@ export function DecisionCaseWorkspacePage({
           />
         ) : null}
         {emptyConversation ? (
-          <PublicAskEmpty askBar={publicAskBar} onSelectIntent={trySample} />
+          <PublicAskEmpty
+            askBar={publicAskBar}
+            onSelectIntent={trySample}
+            attachmentInputs={
+              <>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".csv,.tsv,.txt,.log"
+                  className="bolt-file-input"
+                  aria-label="Choose a data file"
+                  onChange={(event) => {
+                    void handleAttach(event.target.files?.[0]);
+                    event.target.value = "";
+                  }}
+                />
+                <input
+                  ref={photoInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="bolt-file-input"
+                  aria-label="Choose a photo"
+                  onChange={(event) => {
+                    void handleAttach(event.target.files?.[0]);
+                    event.target.value = "";
+                  }}
+                />
+              </>
+            }
+            attachmentState={
+              attachment || photo || attachmentError ? (
+                <div className="bolt-attachment-state" role="status">
+                  {attachment ? (
+                    <span>
+                      <Paperclip size={14} />
+                      <strong>{attachment.name}</strong>
+                      {attachment.rowCount.toLocaleString()} rows · sampled for
+                      this question
+                      <button
+                        type="button"
+                        onClick={() => setAttachment(null)}
+                        aria-label="Remove data file"
+                      >
+                        <XIcon size={14} />
+                      </button>
+                    </span>
+                  ) : null}
+                  {photo ? (
+                    <span>
+                      <Camera size={14} />
+                      <strong>{photo.name}</strong>
+                      attached to this question
+                      <button
+                        type="button"
+                        onClick={() => setPhoto(null)}
+                        aria-label="Remove photo"
+                      >
+                        <XIcon size={14} />
+                      </button>
+                    </span>
+                  ) : null}
+                  {attachmentError ? (
+                    <span className="is-error">{attachmentError}</span>
+                  ) : null}
+                </div>
+              ) : null
+            }
+          />
         ) : (
           <>
             <header className="bolt-thread-bar">
@@ -1469,7 +1538,7 @@ export function DecisionCaseWorkspacePage({
                       type="file"
                       accept=".csv,.tsv,.txt,.log"
                       className="dw-file-input"
-                      aria-label="Attach a data file"
+                      aria-label="Choose a data file"
                       onChange={(event) => {
                         void handleAttach(event.target.files?.[0]);
                         event.target.value = "";
@@ -1481,7 +1550,7 @@ export function DecisionCaseWorkspacePage({
                       type="file"
                       accept="image/*"
                       className="dw-file-input"
-                      aria-label="Attach a photo"
+                      aria-label="Choose a photo"
                       onChange={(event) => {
                         void handleAttach(event.target.files?.[0]);
                         event.target.value = "";
