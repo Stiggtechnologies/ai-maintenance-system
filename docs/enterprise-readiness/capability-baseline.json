@@ -942,10 +942,10 @@
     "backticked": 7
   },
   "C9.05": {
-    "status": "❌",
-    "evidence": false,
-    "citations": 0,
-    "backticked": 0
+    "status": "✅",
+    "evidence": true,
+    "citations": 5,
+    "backticked": 5
   },
   "C9.06": {
     "status": "❌",
