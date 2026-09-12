@@ -20,6 +20,7 @@ import {
   type TempMod,
 } from "../lib/configuration";
 import { LoadingState, ErrorState } from "./ui/AsyncStates";
+import { DigitalAssetMaintainabilityPanel } from "./DigitalAssetMaintainabilityPanel";
 
 interface Posture {
   assets_total: number;
@@ -361,6 +362,7 @@ export function ConfigurationControl() {
           </>
         )}
       </div>
+      <DigitalAssetMaintainabilityPanel />
     </section>
   );
 }
