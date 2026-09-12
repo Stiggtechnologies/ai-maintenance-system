@@ -340,6 +340,9 @@ jobs:
       - name: Smoke — significant expenditure amount and currency approval
         run: bash scripts/ci-significant-expenditure-approval-smoke.sh
 
+      - name: Smoke — governed mission and service outcomes by organization type
+        run: bash scripts/ci-mission-outcome-models-smoke.sh
+
       - name: Smoke — Sync Develop Hybrid Development (per-workstream methods)
         run: bash scripts/ci-develop-hybrid-workstreams-smoke.sh
 
