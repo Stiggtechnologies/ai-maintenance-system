@@ -32,6 +32,7 @@ import { ControlAssurance } from "../components/ControlAssurance";
 import { GovernanceStandards } from "../components/GovernanceStandards";
 import { EnterpriseMethodFederation } from "../components/EnterpriseMethodFederation";
 import { LayeredCapabilityPacks } from "../components/LayeredCapabilityPacks";
+import { MissionOutcomeModels } from "../components/MissionOutcomeModels";
 import { ModelRisk } from "../components/ModelRisk";
 import { GovernanceAgentPanel } from "../components/GovernanceAgentPanel";
 import { HopSystemConditionsPanel } from "../components/HopSystemConditionsPanel";
@@ -411,6 +412,8 @@ export function DecisionGovernance() {
       <EnterpriseMethodFederation />
 
       <LayeredCapabilityPacks />
+
+      <MissionOutcomeModels />
 
       <GovernanceStandards />
 
