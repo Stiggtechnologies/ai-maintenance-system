@@ -101,6 +101,7 @@ export function PublicAskEmpty({
                   <button
                     type="button"
                     data-testid="hero-intent-pill"
+                    aria-label={`Explore ${intent.label}`}
                     title={`${intent.module}: ${intent.explanation}`}
                     onClick={() => onSelectIntent(intent)}
                   >

@@ -32,7 +32,7 @@ describe("PublicAskEmpty", () => {
         .getAllByTestId("ask-intent-pill")
         .map((item) => item.querySelector("strong")?.textContent),
     ).toEqual(["Compare", "Troubleshoot", "Health", "Learn", "Fact Check"]);
-    fireEvent.click(screen.getAllByRole("button", { name: "Health" })[0]);
+    fireEvent.click(screen.getByRole("button", { name: "Explore Health" }));
     expect(onSelectIntent).toHaveBeenCalledWith(
       expect.objectContaining({
         id: "health",
