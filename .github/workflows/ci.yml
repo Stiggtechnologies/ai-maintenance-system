@@ -337,6 +337,9 @@ jobs:
       - name: Smoke — seven-layer capability packs and controlled overrides
         run: bash scripts/ci-layered-capability-packs-smoke.sh
 
+      - name: Smoke — significant expenditure amount and currency approval
+        run: bash scripts/ci-significant-expenditure-approval-smoke.sh
+
       - name: Smoke — Sync Develop Hybrid Development (per-workstream methods)
         run: bash scripts/ci-develop-hybrid-workstreams-smoke.sh
 
