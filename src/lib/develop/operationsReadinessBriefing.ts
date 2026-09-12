@@ -2,6 +2,7 @@ import type {
   CaseSystemHandoverPackages,
   HandoverReadinessDimension,
 } from "../../services/handoverPackageService";
+import type { SystemOperationalReadinessResult } from "./index";
 
 export interface OperationsBriefingMeasure {
   label: string;
@@ -21,6 +22,7 @@ export interface OperationsBriefingSystem {
     | "blocked";
   positionLabel: string;
   measures: OperationsBriefingMeasure[];
+  categoryCoverage: OperationsBriefingMeasure[];
   blockers: string[];
   operationsOwner: string;
   requiredAcceptanceDate: string;
@@ -75,12 +77,14 @@ function measure(
 }
 
 /**
- * Presentation-only composition over get_case_system_handover_packages.
- * It copies the governed readiness dimensions and their refusals/statuses; it
- * does not calculate a readiness score or determine acceptance eligibility.
+ * Presentation-only composition over get_case_system_handover_packages and
+ * get_case_system_operational_readiness. It copies the governed readiness
+ * dimensions and their refusals/statuses; category percentages group only the
+ * latter read's evidenceReady flags. It does not determine acceptance.
  */
 export function buildOperationsReadinessBriefing(
   model: CaseSystemHandoverPackages,
+  systemReadiness: SystemOperationalReadinessResult,
 ): OperationsReadinessBriefing {
   return {
     decisionBoundary: model.decisionBoundary,
@@ -90,6 +94,36 @@ export function buildOperationsReadinessBriefing(
         ? "No commissioning systems are recorded for this case. Pre-handover readiness cannot be assessed."
         : null,
     systems: model.systems.map((system) => {
+      const detail = systemReadiness.systems.find(
+        (candidate) => candidate.systemId === system.systemId,
+      );
+      const categoryCoverage = detail
+        ? [...new Set(detail.items.map((item) => item.category))]
+            .sort()
+            .map((category) => {
+              const items = detail.items.filter(
+                (item) => item.category === category,
+              );
+              const satisfied = items.filter(
+                (item) => item.evidenceReady,
+              ).length;
+              return {
+                label: category.replaceAll("_", " "),
+                value: `${Math.round((1000 * satisfied) / items.length) / 10}%`,
+                explanation: `${satisfied} of ${items.length} scoped items carry evidence. This is presentation coverage, not a handover verdict.`,
+                recordRefs: unique([
+                  `commissioning_systems:${system.systemId}`,
+                  ...items.flatMap((item) => [
+                    `asset_onboarding_items:${item.itemId}`,
+                    `assets:${item.assetId}`,
+                    item.evidenceItemId
+                      ? `evidence_items:${item.evidenceItemId}`
+                      : null,
+                  ]),
+                ]),
+              };
+            })
+        : [];
       const position =
         system.package?.status === "accepted"
           ? system.readiness.canAccept
@@ -144,6 +178,7 @@ export function buildOperationsReadinessBriefing(
         position,
         positionLabel,
         measures,
+        categoryCoverage,
         blockers: system.readiness.blockers,
         operationsOwner: system.package?.ownerTo ?? "No operations owner named",
         requiredAcceptanceDate:

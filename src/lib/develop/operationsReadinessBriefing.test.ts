@@ -1,6 +1,65 @@
 import { describe, expect, it } from "vitest";
 import type { CaseSystemHandoverPackages } from "../../services/handoverPackageService";
 import { buildOperationsReadinessBriefing } from "./operationsReadinessBriefing";
+import type { SystemOperationalReadinessResult } from "./index";
+
+function readinessDetails(
+  systems: SystemOperationalReadinessResult["systems"] = [
+    {
+      systemId: 41,
+      systemRef: "SYS-041",
+      title: "Cooling water",
+      currentState: "READY_FOR_ACCEPTANCE",
+      assetCount: 1,
+      itemCount: 2,
+      satisfiedCount: 1,
+      overdueOpenCount: 0,
+      items: [
+        {
+          scopeId: 1,
+          itemId: "item-7",
+          assetId: "asset-3",
+          asset: "Pump 3",
+          assetTag: "P-003",
+          requirementKey: "training-record",
+          item: "Operator training record",
+          category: "training",
+          ownerId: "owner-to",
+          owner: "Operations Manager",
+          requiredBefore: "2026-10-01",
+          status: "human_provided",
+          evidenceItemId: "evidence-7",
+          evidenceReady: true,
+          overdue: false,
+        },
+        {
+          scopeId: 2,
+          itemId: "item-8",
+          assetId: "asset-3",
+          asset: "Pump 3",
+          assetTag: "P-003",
+          requirementKey: "training-competency",
+          item: "Competency verification",
+          category: "training",
+          ownerId: "owner-to",
+          owner: "Operations Manager",
+          requiredBefore: "2026-10-01",
+          status: "missing",
+          evidenceItemId: null,
+          evidenceReady: false,
+          overdue: false,
+        },
+      ],
+    },
+  ],
+): SystemOperationalReadinessResult {
+  return {
+    caseId: "case-1",
+    systems,
+    readinessStore: "asset_onboarding_items",
+    decisionBoundary: "This read cannot accept handover.",
+  };
+}
 
 function model(
   overrides: Partial<CaseSystemHandoverPackages> = {},
@@ -97,7 +156,10 @@ function model(
 
 describe("operations readiness briefing", () => {
   it("copies each governed dimension and traces its underlying records", () => {
-    const briefing = buildOperationsReadinessBriefing(model());
+    const briefing = buildOperationsReadinessBriefing(
+      model(),
+      readinessDetails(),
+    );
     const system = briefing.systems[0];
 
     expect(system.position).toBe("blocked");
@@ -123,10 +185,23 @@ describe("operations readiness briefing", () => {
         "evidence_items:evidence-prep",
       ]),
     );
+    expect(
+      system.categoryCoverage.map((item) => [item.label, item.value]),
+    ).toEqual([["training", "50%"]]);
+    expect(system.categoryCoverage[0].recordRefs).toEqual(
+      expect.arrayContaining([
+        "asset_onboarding_items:item-7",
+        "asset_onboarding_items:item-8",
+        "evidence_items:evidence-7",
+      ]),
+    );
   });
 
   it("does not turn an empty denominator or absent risk rows into reassurance", () => {
-    const briefing = buildOperationsReadinessBriefing(model());
+    const briefing = buildOperationsReadinessBriefing(
+      model(),
+      readinessDetails(),
+    );
     const operational = briefing.systems[0].measures[2];
     const residualRisk = briefing.systems[0].measures[3];
 
@@ -139,7 +214,8 @@ describe("operations readiness briefing", () => {
     const source = model();
     source.systems[0].readiness.canAccept = true;
     source.systems[0].readiness.blockers = [];
-    const system = buildOperationsReadinessBriefing(source).systems[0];
+    const system = buildOperationsReadinessBriefing(source, readinessDetails())
+      .systems[0];
 
     expect(system.position).toBe("ready_for_human_acceptance");
     expect(system.positionLabel).toContain("human acceptance required");
@@ -149,7 +225,8 @@ describe("operations readiness briefing", () => {
   it("does not let historical acceptance hide current readiness gaps", () => {
     const source = model();
     source.systems[0].package!.status = "accepted";
-    const system = buildOperationsReadinessBriefing(source).systems[0];
+    const system = buildOperationsReadinessBriefing(source, readinessDetails())
+      .systems[0];
 
     expect(system.position).toBe("accepted_with_current_gaps");
     expect(system.positionLabel).toBe("Accepted · current gaps require review");
@@ -159,7 +236,10 @@ describe("operations readiness briefing", () => {
   });
 
   it("reports no systems as unassessable rather than ready", () => {
-    const briefing = buildOperationsReadinessBriefing(model({ systems: [] }));
+    const briefing = buildOperationsReadinessBriefing(
+      model({ systems: [] }),
+      readinessDetails([]),
+    );
 
     expect(briefing.systems).toEqual([]);
     expect(briefing.emptyState).toContain("cannot be assessed");

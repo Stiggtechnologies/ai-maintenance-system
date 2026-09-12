@@ -1,16 +1,19 @@
 import { ClipboardCheck, ShieldAlert } from "lucide-react";
 import { useMemo } from "react";
 import type { CaseSystemHandoverPackages } from "../../services/handoverPackageService";
+import type { SystemOperationalReadinessResult } from "../../lib/develop";
 import { buildOperationsReadinessBriefing } from "../../lib/develop/operationsReadinessBriefing";
 
 export function OperationsReadinessBriefing({
   model,
+  systemReadiness,
 }: {
   model: CaseSystemHandoverPackages;
+  systemReadiness: SystemOperationalReadinessResult;
 }) {
   const briefing = useMemo(
-    () => buildOperationsReadinessBriefing(model),
-    [model],
+    () => buildOperationsReadinessBriefing(model, systemReadiness),
+    [model, systemReadiness],
   );
 
   return (
@@ -71,6 +74,44 @@ export function OperationsReadinessBriefing({
                   {system.positionLabel}
                 </span>
               </div>
+
+              {system.categoryCoverage.length > 0 && (
+                <div className="mt-3">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+                    Readiness-category evidence coverage
+                  </p>
+                  <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                    {system.categoryCoverage.map((category) => (
+                      <div
+                        key={category.label}
+                        className="rounded-lg border border-white/8 bg-white/[0.02] p-3"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-xs font-semibold capitalize text-slate-200">
+                            {category.label}
+                          </span>
+                          <span className="text-sm font-bold text-white">
+                            {category.value}
+                          </span>
+                        </div>
+                        <p className="mt-1 text-[10px] leading-4 text-slate-500">
+                          {category.explanation}
+                        </p>
+                        <details className="mt-2 text-[10px] text-slate-500">
+                          <summary className="cursor-pointer text-slate-400">
+                            Item record trail
+                          </summary>
+                          <ul className="mt-1 space-y-0.5 font-mono">
+                            {category.recordRefs.map((ref) => (
+                              <li key={ref}>{ref}</li>
+                            ))}
+                          </ul>
+                        </details>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
                 {system.measures.map((item) => (

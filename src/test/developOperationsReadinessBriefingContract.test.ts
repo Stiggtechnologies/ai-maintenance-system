@@ -9,7 +9,8 @@ describe("D13.14 operations readiness briefing reachability", () => {
     const handover = read("src/components/develop/SystemHandoverPanel.tsx");
 
     expect(transition).toContain("<SystemHandoverPanel");
-    expect(handover).toContain("<OperationsReadinessBriefing model={model}");
+    expect(handover).toContain("<OperationsReadinessBriefing");
+    expect(handover).toContain("systemReadiness={systemReadiness}");
   });
 
   it("reuses the one tenant-scoped handover read and creates no write path", () => {
@@ -17,6 +18,7 @@ describe("D13.14 operations readiness briefing reachability", () => {
     const briefing = read("src/lib/develop/operationsReadinessBriefing.ts");
 
     expect(handover).toContain("getCaseSystemHandoverPackages(caseId)");
+    expect(handover).toContain("getCaseSystemOperationalReadiness(caseId)");
     expect(briefing).toContain("Presentation-only composition");
     expect(briefing).not.toMatch(/supabase|\.rpc\(|\.from\(/);
     expect(briefing).not.toMatch(/acceptSystemHandover|assembleSystemHandover/);

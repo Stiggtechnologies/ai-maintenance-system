@@ -2,8 +2,10 @@ import { FormEvent, useCallback, useEffect, useState } from "react";
 import {
   listOrgEvidenceItems,
   listOrgMembers,
+  getCaseSystemOperationalReadiness,
   type OrgMember,
 } from "../../services/developService";
+import type { SystemOperationalReadinessResult } from "../../lib/develop";
 import {
   acceptSystemHandoverPackage,
   assembleSystemHandoverPackage,
@@ -77,6 +79,8 @@ export function SystemHandoverPanel({
   role: string | null | undefined;
 }) {
   const [model, setModel] = useState<CaseSystemHandoverPackages | null>(null);
+  const [systemReadiness, setSystemReadiness] =
+    useState<SystemOperationalReadinessResult | null>(null);
   const [members, setMembers] = useState<OrgMember[]>([]);
   const [evidence, setEvidence] = useState<
     Array<{ id: string; description: string }>
@@ -107,12 +111,14 @@ export function SystemHandoverPanel({
   const load = useCallback(async () => {
     setError(null);
     try {
-      const [next, people, sources] = await Promise.all([
+      const [next, readiness, people, sources] = await Promise.all([
         getCaseSystemHandoverPackages(caseId),
+        getCaseSystemOperationalReadiness(caseId),
         listOrgMembers(),
         listOrgEvidenceItems(),
       ]);
       setModel(next);
+      setSystemReadiness(readiness);
       setMembers(people);
       setEvidence(sources);
     } catch (caught) {
@@ -207,10 +213,13 @@ export function SystemHandoverPanel({
           Loading canonical handover evidence…
         </p>
       )}
-      {model && (
+      {model && systemReadiness && (
         <>
           <div className="mt-4">
-            <OperationsReadinessBriefing model={model} />
+            <OperationsReadinessBriefing
+              model={model}
+              systemReadiness={systemReadiness}
+            />
           </div>
           {model.systems.length > 0 && (
             <div className="mt-4 overflow-x-auto rounded border border-white/8">
