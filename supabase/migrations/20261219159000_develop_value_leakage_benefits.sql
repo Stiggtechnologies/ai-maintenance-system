@@ -292,6 +292,10 @@ begin
   if v_special then perform set_config('app.value_leakage_verify_write','granted',true); end if;
   update value_metrics set status=v_new_status,verified_by=auth.uid(),verified_at=now(),verification_note=p_note
   where id=m.id;
+  -- A generic value verification is learning, but it is not a project FRACAS
+  -- lesson. Keep development_case_id null: case-bound learning_events are
+  -- reserved for the complete failure-mode/cause/corrective-action/applicability
+  -- shape enforced by learning_events_case_lesson_complete.
   insert into learning_events(organization_id,recommendation_id,asset_id,event_type,title,detail,
     expected_value,verified_value,model_confidence,development_case_id)
   values(m.organization_id,m.recommendation_id,m.asset_id,
@@ -301,7 +305,7 @@ begin
     coalesce(p_note,case when p_verified then 'Projected value confirmed by operator review.'
       else 'Projected value rejected by operator review — model feedback captured.' end),
     m.value,case when not p_verified then 0 when m.checkpoint_horizon_days is not null
-      then m.observed_value else m.value end,null,m.development_case_id);
+      then m.observed_value else m.value end,null,null);
   insert into audit_events(organization_id,entity_type,actor,event_data)
   select m.organization_id,'value_metric_verification',coalesce(v_role,'member'),jsonb_build_object(
     'metric_id',m.id,'metric_type',m.metric_type,'status',v_new_status,
