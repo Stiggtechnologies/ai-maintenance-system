@@ -10,9 +10,14 @@ import {
   selectReliabilitySpecialists,
 } from "../_shared/reliability-specialists.ts";
 import {
+  decideToolReservation,
   hasCanonicalIdempotencyKey,
   proposalIsUnexpired,
   proposalParamsHash,
+  SYNC_TOOL_EXECUTION_ENTITY,
+  SYNC_TOOL_EXECUTION_RESULT_ENTITY,
+  toolExecutionResultEventData,
+  toolReservationEventData,
 } from "../_shared/sync-tool-proof.ts";
 import { notificationTypeFor } from "../_shared/sync-notification-classifier.ts";
 
@@ -454,6 +459,62 @@ async function requireIssuedToolProposal(
   }
 }
 
+async function loadToolExecutionAudit(
+  organizationId: string,
+  entityType: string,
+  idempotencyKey: string,
+): Promise<{ id: string; eventData: Record<string, unknown> } | null | { error: string }> {
+  const { data, error } = await adminClient()
+    .from("audit_events")
+    .select("id, event_data")
+    .eq("organization_id", organizationId)
+    .eq("entity_type", entityType)
+    .contains("event_data", { idempotency_key: idempotencyKey })
+    .maybeSingle();
+  if (error) return { error: "tool_execution_reservation_failed" };
+  if (!data?.id) return null;
+  return {
+    id: data.id,
+    eventData: (data.event_data ?? {}) as Record<string, unknown>,
+  };
+}
+
+async function decideExistingToolReservation(
+  organizationId: string,
+  idempotencyKey: string,
+): Promise<
+  | { id: string; replay: unknown }
+  | { error: string }
+  | { proceed: true }
+> {
+  const [result, reservation] = await Promise.all([
+    loadToolExecutionAudit(
+      organizationId,
+      SYNC_TOOL_EXECUTION_RESULT_ENTITY,
+      idempotencyKey,
+    ),
+    loadToolExecutionAudit(
+      organizationId,
+      SYNC_TOOL_EXECUTION_ENTITY,
+      idempotencyKey,
+    ),
+  ]);
+  if (result && "error" in result) return result;
+  if (reservation && "error" in reservation) return reservation;
+
+  const decision = decideToolReservation({
+    reservation,
+    result,
+  });
+  if (decision.action === "replay") {
+    return { id: decision.reservationId, replay: decision.result };
+  }
+  if (decision.action === "in_progress") {
+    return { error: "tool_execution_already_reserved" };
+  }
+  return { proceed: true };
+}
+
 async function reserveToolExecution(
   auth: AuthContext,
   execution: ToolExecutionRequest,
@@ -461,40 +522,71 @@ async function reserveToolExecution(
   if (!execution.idempotencyKey || execution.idempotencyKey.length > 160) {
     return { error: "invalid_idempotency_key" };
   }
-  const admin = adminClient();
-  const { data: existing } = await admin
-    .from("audit_events")
-    .select("id, event_data")
-    .eq("organization_id", auth.organizationId)
-    .eq("entity_type", "sync_tool_execution")
-    .contains("event_data", { idempotency_key: execution.idempotencyKey })
-    .maybeSingle();
-  if (existing?.id) {
-    const eventData = (existing.event_data ?? {}) as Record<string, unknown>;
-    if (eventData.status === "completed") {
-      return { id: existing.id, replay: eventData.result ?? null };
-    }
-    return { error: "tool_execution_already_reserved" };
-  }
 
-  const { data, error } = await admin
+  const existing = await decideExistingToolReservation(
+    auth.organizationId,
+    execution.idempotencyKey,
+  );
+  if ("error" in existing) return existing;
+  if ("replay" in existing) return { id: existing.id, replay: existing.replay };
+
+  const { data, error } = await adminClient()
     .from("audit_events")
     .insert({
       organization_id: auth.organizationId,
-      entity_type: "sync_tool_execution",
+      entity_type: SYNC_TOOL_EXECUTION_ENTITY,
       actor: auth.userId,
-      event_data: {
-        status: "running",
-        idempotency_key: execution.proposalId,
-        proposal_id: execution.proposalId,
-        tool_id: execution.toolId,
-      },
+      event_data: toolReservationEventData({
+        idempotencyKey: execution.idempotencyKey,
+        proposalId: execution.proposalId,
+        toolId: execution.toolId,
+      }),
     })
     .select("id")
     .single();
-  if (error || !data?.id)
-    return { error: "tool_execution_reservation_failed" };
-  return { id: data.id, replay: null };
+  if (!error && data?.id) return { id: data.id, replay: null };
+
+  // Unique index lost the insert race; re-read so a finished sibling is
+  // replayed instead of being reported as a hard reservation failure.
+  const raced = await decideExistingToolReservation(
+    auth.organizationId,
+    execution.idempotencyKey,
+  );
+  if ("replay" in raced) return { id: raced.id, replay: raced.replay };
+  if ("error" in raced) return raced;
+  return { error: "tool_execution_reservation_failed" };
+}
+
+async function persistToolExecutionResult(
+  auth: AuthContext,
+  execution: ToolExecutionRequest,
+  reservationId: string,
+  result: unknown,
+  refused: boolean,
+): Promise<{ ok: true } | { error: string }> {
+  const { error } = await adminClient().from("audit_events").insert({
+    organization_id: auth.organizationId,
+    entity_type: SYNC_TOOL_EXECUTION_RESULT_ENTITY,
+    actor: auth.userId,
+    event_data: toolExecutionResultEventData({
+      status: refused ? "refused" : "completed",
+      idempotencyKey: execution.idempotencyKey,
+      proposalId: execution.proposalId,
+      toolId: execution.toolId,
+      reservationId,
+      result,
+    }),
+  });
+  if (!error) return { ok: true };
+
+  const existing = await loadToolExecutionAudit(
+    auth.organizationId,
+    SYNC_TOOL_EXECUTION_RESULT_ENTITY,
+    execution.idempotencyKey,
+  );
+  if (existing && !("error" in existing)) return { ok: true };
+  console.error("sync-runtime tool result persistence failed", error);
+  return { error: "tool_execution_result_persistence_failed" };
 }
 
 async function executeTool(
@@ -551,19 +643,14 @@ async function executeTool(
       ? String((result as { error?: unknown }).error ?? "tool_refused")
       : null);
 
-  await adminClient()
-    .from("audit_events")
-    .update({
-      event_data: {
-        status: rpcError ? "refused" : "completed",
-        idempotency_key: execution.proposalId,
-        proposal_id: execution.proposalId,
-        tool_id: execution.toolId,
-        result,
-      },
-    })
-    .eq("id", reservation.id)
-    .eq("organization_id", auth.organizationId);
+  const persisted = await persistToolExecutionResult(
+    auth,
+    execution,
+    reservation.id,
+    result,
+    Boolean(rpcError),
+  );
+  if ("error" in persisted) throw new Error(persisted.error);
 
   if (rpcError)
     throw new Error(
