@@ -65,6 +65,13 @@ describe("Sync authenticated production acceptance contract", () => {
     );
     expect(runtime).toContain('flags.has("sync_global_shell")');
     expect(runtime).toContain('flags.has("sync_tools")');
+    expect(runtime).toContain("proxyGovernedTool");
+    expect(read("supabase/functions/sync-runtime/index.ts")).toContain(
+      "persistToolExecutionResult",
+    );
+    expect(read("supabase/functions/sync-runtime/index.ts")).not.toMatch(
+      /from\("audit_events"\)[\s\S]{0,120}\.update\(/,
+    );
     for (const checkId of [
       "operational-kpis",
       "asset-data-integrity",
