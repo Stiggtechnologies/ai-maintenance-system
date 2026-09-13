@@ -4,8 +4,24 @@ name: Sync production acceptance
 # workflow proves schema/function/app boundaries; this workflow proves the real
 # seeded demo tenant can execute the governed Sync interaction loop end to end.
 #
-# PRs run the deterministic harness self-test only. Merging a harness/workflow
-# change to protected main triggers one real production commissioning run.
+# PRs run the deterministic harness self-test only. The live job stays SKIPPED
+# on pull_request and whenever the founder secret is absent. Do not invent
+# credentials. Merging a harness/workflow change to protected main triggers one
+# real production commissioning run only when SUPABASE_ACCESS_TOKEN is set.
+#
+# Required for the live job (names only; values are founder-held):
+#   - GitHub Actions secret SUPABASE_ACCESS_TOKEN
+#     (Management API token; used only to discover a publishable/legacy-anon key)
+# Optional live overrides (otherwise the seeded demo identity is used):
+#   - SYNC_COMMISSIONING_EMAIL (default demo@syncai.ca)
+#   - SYNC_COMMISSIONING_PASSWORD (default the seeded demo password)
+# Founder/tenant gates the live job asserts; it does not flip them:
+#   - demo org feature_flags.sync_global_shell = true
+#   - demo org feature_flags.sync_tools = true
+#   - seeded demo Reliability Engineer and Conveyor C-22 still present
+#   - sync-investigation-runtime deployed and JWT-protected
+# Stage-1 live ops (#384) and the manufacturing pack (#448) did not change this
+# surface. The harness still uses /assets/:assetId and sync-investigation-runtime.
 
 on:
   pull_request:
@@ -31,8 +47,8 @@ jobs:
     name: Commissioning harness self-test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: 22
       - name: Test public-key selection, SSE parsing and completion assertions
@@ -40,13 +56,16 @@ jobs:
 
   production-acceptance:
     name: Authenticated production acceptance
-    if: github.event_name != 'pull_request'
+    # SKIPPED on PRs and when the founder Management API token is not configured.
+    # Missing secrets must not fail-closed into a paper-green SUCCESS, and must
+    # not invent credentials. A later workflow_dispatch can remount the live run.
+    if: ${{ github.event_name != 'pull_request' && secrets.SUPABASE_ACCESS_TOKEN != '' }}
     needs: harness-self-test
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: 22
 

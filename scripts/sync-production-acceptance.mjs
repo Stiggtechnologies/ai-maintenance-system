@@ -15,11 +15,16 @@
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
 
-const PROJECT_ID = process.env.SUPABASE_PROJECT_ID ?? "pjvoswbwomesuwhygpby";
+function envOr(name, fallback) {
+  const value = process.env[name];
+  return value && value.trim() ? value : fallback;
+}
+
+const PROJECT_ID = envOr("SUPABASE_PROJECT_ID", "pjvoswbwomesuwhygpby");
 const API_URL = `https://${PROJECT_ID}.supabase.co`;
 const MANAGEMENT_URL = `https://api.supabase.com/v1/projects/${PROJECT_ID}`;
-const EMAIL = process.env.SYNC_COMMISSIONING_EMAIL ?? "demo@syncai.ca";
-const PASSWORD = process.env.SYNC_COMMISSIONING_PASSWORD ?? "Demo123!@#";
+const EMAIL = envOr("SYNC_COMMISSIONING_EMAIL", "demo@syncai.ca");
+const PASSWORD = envOr("SYNC_COMMISSIONING_PASSWORD", "Demo123!@#");
 const DEMO_ORG = "11111111-1111-1111-1111-111111111111";
 const DEMO_ASSET_ID = "aaaaaaaa-0000-0000-0000-000000000001";
 const DEMO_ASSET_NAME = "Conveyor C-22";
@@ -33,7 +38,7 @@ const EXPECTED_RISK_CHECKS = [
 
 function requiredEnv(name) {
   const value = process.env[name];
-  if (!value) throw new Error(`missing_required_environment:${name}`);
+  if (!value || !value.trim()) throw new Error(`missing_required_environment:${name}`);
   return value;
 }
 
@@ -386,16 +391,41 @@ async function selfTest() {
     { type: "secret", api_key: "do-not-use" },
     { type: "publishable", api_key: "sb_publishable_test", name: "default" },
   ]).value, "sb_publishable_test");
+  assert.equal(
+    selectPublicKey([
+      { type: "secret", api_key: "do-not-use" },
+      { name: "anon", api_key: "legacy-anon-test", secret_jwt_template: { role: "anon" } },
+    ]).kind,
+    "legacy-anon",
+  );
+  assert.throws(
+    () => selectPublicKey([{ type: "secret", api_key: "do-not-use" }]),
+    /production_publishable_or_anon_key_not_found/,
+  );
   assert.deepEqual(
     parseSseFrame('event: assistant.delta\ndata: {"type":"assistant.delta","text":"hello"}'),
     { type: "assistant.delta", text: "hello" },
   );
+  assert.equal(parseSseFrame("event: ping\n"), null);
   completed({
     events: [{ type: "assistant.delta", text: "ok" }],
     content: "ok",
     started: { turnId: "t", conversationId: "c" },
     completed: { turnId: "t" },
   }, "self-test");
+  assert.throws(() => completed({
+    events: [],
+    content: "",
+    started: null,
+    completed: null,
+  }, "empty"), /missing turn.started/);
+  const previous = process.env.SYNC_COMMISSIONING_SELF_TEST_TOKEN;
+  delete process.env.SYNC_COMMISSIONING_SELF_TEST_TOKEN;
+  assert.throws(() => requiredEnv("SYNC_COMMISSIONING_SELF_TEST_TOKEN"), /missing_required_environment:SYNC_COMMISSIONING_SELF_TEST_TOKEN/);
+  process.env.SYNC_COMMISSIONING_SELF_TEST_TOKEN = "   ";
+  assert.throws(() => requiredEnv("SYNC_COMMISSIONING_SELF_TEST_TOKEN"), /missing_required_environment:SYNC_COMMISSIONING_SELF_TEST_TOKEN/);
+  if (previous === undefined) delete process.env.SYNC_COMMISSIONING_SELF_TEST_TOKEN;
+  else process.env.SYNC_COMMISSIONING_SELF_TEST_TOKEN = previous;
   console.log("Sync production acceptance self-test passed");
 }
 
