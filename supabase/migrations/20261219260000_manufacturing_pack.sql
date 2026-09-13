@@ -36,25 +36,45 @@ declare
   v_signature regprocedure :=
     'public.domain_specialist_required_evidence(text)'::regprocedure;
   v_definition text;
-  v_before text :=
-    'when ''robot-health'' then array[''robot-controller-history'',''condition-monitoring'',''maintenance-history'',''approved-signal-model''] when ''haccp-verification'' then';
-  v_after text :=
-    'when ''robot-health'' then array[''robot-controller-history'',''condition-monitoring'',''maintenance-history'',''approved-signal-model''] '
-    || 'when ''oee-loss-decomposition'' then array[''approved-oee-definition'',''production-calendar'',''downtime-event-history'',''production-and-quality-counts''] '
+  -- Civil U5.07 stores robot-health and HACCP on adjacent lines
+  -- (`]\n when 'haccp-verification'`). Process-industry U5.01 recreates
+  -- this function via pg_get_functiondef without changing that pair, so
+  -- the same-line `] when` predecessor is absent on the live chain.
+  v_robot text :=
+    'when ''robot-health'' then array[''robot-controller-history'',''condition-monitoring'',''maintenance-history'',''approved-signal-model'']';
+  v_haccp text := 'when ''haccp-verification'' then';
+  v_insert text :=
+    ' when ''oee-loss-decomposition'' then array[''approved-oee-definition'',''production-calendar'',''downtime-event-history'',''production-and-quality-counts''] '
     || 'when ''quality-loss-reconciliation'' then array[''quality-inspection-records'',''production-genealogy'',''defect-ncr-and-rework-records'',''approved-quality-counting-rules''] '
     || 'when ''tooling-life-assurance'' then array[''tool-identity-and-configuration'',''authenticated-tool-usage'',''approved-tool-life-basis'',''inspection-calibration-and-quality-history''] '
-    || 'when ''changeover-readiness'' then array[''approved-changeover-standard'',''configuration-and-recipe-history'',''tooling-and-safety-verification'',''first-off-quality-and-release-records''] '
-    || 'when ''haccp-verification'' then';
+    || 'when ''changeover-readiness'' then array[''approved-changeover-standard'',''configuration-and-recipe-history'',''tooling-and-safety-verification'',''first-off-quality-and-release-records''] ';
+  v_robot_pos integer;
+  v_after_robot text;
+  v_ws_len integer;
 begin
   select pg_get_functiondef(v_signature) into v_definition;
   if position('when ''oee-loss-decomposition'' then array[' in v_definition) > 0 then
     return;
   end if;
-  if position(v_before in v_definition) = 0 then
+  v_robot_pos := position(v_robot in v_definition);
+  if v_robot_pos = 0 then
+    raise exception
+      'refusing manufacturing evidence patch: expected robot-health evidence predecessor is absent';
+  end if;
+  v_after_robot := substr(v_definition, v_robot_pos + char_length(v_robot));
+  v_ws_len := char_length(v_after_robot)
+    - char_length(ltrim(v_after_robot, E' \t\n\r'));
+  if left(ltrim(v_after_robot, E' \t\n\r'), char_length(v_haccp))
+     is distinct from v_haccp then
     raise exception
       'refusing manufacturing evidence patch: expected robot-to-HACCP predecessor is absent';
   end if;
-  execute replace(v_definition, v_before, v_after);
+  execute overlay(
+    v_definition
+    placing v_insert
+    from v_robot_pos + char_length(v_robot)
+    for v_ws_len
+  );
 end
 $migration$;
 
