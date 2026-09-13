@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-const FILE = "supabase/migrations/20261219120000_stage1_kpi_named_owners.sql";
+const FILE = "supabase/migrations/20261219270000_stage1_kpi_named_owners.sql";
 const sql = readFileSync(FILE, "utf8");
 
 describe("Stage-1 KPI named owners (Item 5)", () => {
