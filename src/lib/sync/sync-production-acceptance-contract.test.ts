@@ -31,8 +31,12 @@ describe("Sync authenticated production acceptance contract", () => {
   });
 
   it("keeps the live job skipped when founder secrets are absent", () => {
-    expect(workflow).toContain("secrets.SUPABASE_ACCESS_TOKEN != ''");
+    expect(workflow).toContain("founder-secret-gate");
+    expect(workflow).toContain(
+      "needs.founder-secret-gate.outputs.has_token == 'true'",
+    );
     expect(workflow).toContain("github.event_name != 'pull_request'");
+    expect(workflow).not.toMatch(/if:.*secrets\.SUPABASE_ACCESS_TOKEN/);
     expect(workflow).toContain(
       "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
     );
