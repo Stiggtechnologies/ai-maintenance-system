@@ -5,10 +5,11 @@ const migration = readFileSync(
   "supabase/migrations/20261219190000_layered_capability_packs.sql",
   "utf8",
 ).toLowerCase();
-const page = readFileSync(
-  "src/pages/DecisionGovernance.tsx",
+const jurisdictionMigration = readFileSync(
+  "supabase/migrations/20261219300000_jurisdiction_requirement_packs.sql",
   "utf8",
-);
+).toLowerCase();
+const page = readFileSync("src/pages/DecisionGovernance.tsx", "utf8");
 
 describe("U20.01 layered capability pack contract", () => {
   it("implements the exact seven-layer precedence in one resolver", () => {
@@ -34,23 +35,37 @@ describe("U20.01 layered capability pack contract", () => {
     );
     expect(migration).toContain("insert into public.approvals");
     expect(migration).toContain("insert into public.audit_events");
-    expect(migration).not.toContain("create table if not exists public.capability_pack_approvals");
-    expect(migration).not.toContain("create table if not exists public.pack_sites");
-    expect(migration).not.toContain("create table if not exists public.pack_assets");
+    expect(migration).not.toContain(
+      "create table if not exists public.capability_pack_approvals",
+    );
+    expect(migration).not.toContain(
+      "create table if not exists public.pack_sites",
+    );
+    expect(migration).not.toContain(
+      "create table if not exists public.pack_assets",
+    );
   });
 
   it("holds changed inherited values for an exact-diff independent human approval", () => {
     expect(migration).toContain("override_diff");
     expect(migration).toContain("'inherited'");
     expect(migration).toContain("'proposed'");
-    expect(migration).toContain("the override author cannot approve their own change");
-    expect(migration).toContain("the ai-operator identity cannot approve overrides");
-    expect(migration).toContain("the exact override diff requires completed human approval");
+    expect(migration).toContain(
+      "the override author cannot approve their own change",
+    );
+    expect(migration).toContain(
+      "the ai-operator identity cannot approve overrides",
+    );
+    expect(migration).toContain(
+      "the exact override diff requires completed human approval",
+    );
     expect(migration).toContain("p.status<>'approved'");
     expect(migration).toContain("decided_at is null");
     expect(migration).toContain("capability_pack_layer_id=l.id");
     expect(migration).toContain("approvals_capability_pack_sensitive");
-    expect(migration).toContain("with check (capability_pack_layer_id is null)");
+    expect(migration).toContain(
+      "with check (capability_pack_layer_id is null)",
+    );
   });
 
   it("enforces tenant walls at references, reads and RPC grants", () => {
@@ -71,5 +86,60 @@ describe("U20.01 layered capability pack contract", () => {
     expect(migration).toContain("change an operating limit");
     expect(migration).toContain("establish regulatory compliance");
     expect(page).toContain("<LayeredCapabilityPacks />");
+  });
+});
+
+describe("U6.01-U6.03 jurisdiction requirement contract", () => {
+  it("extends the canonical layered pack store with every required domain", () => {
+    expect(jurisdictionMigration).toContain("on public.capability_pack_layers");
+    for (const domain of [
+      "inspection_interval",
+      "certification",
+      "environmental_reporting",
+      "electrical_code",
+      "pressure_regulation",
+      "rail",
+      "aviation",
+      "maritime",
+      "medical_device",
+      "building_code",
+      "worker_qualification",
+      "privacy_residency",
+      "retention",
+      "indigenous_land_use",
+    ])
+      expect(jurisdictionMigration).toContain(`'${domain}'`);
+    expect(jurisdictionMigration).not.toContain(
+      "create table if not exists public.jurisdiction_requirements",
+    );
+  });
+
+  it("distinguishes all six requirement classes and records applicability", () => {
+    for (const requirementClass of [
+      "company_standard",
+      "industry_guidance",
+      "contractual",
+      "regulatory",
+      "statutory",
+      "site_rule",
+    ])
+      expect(jurisdictionMigration).toContain(`'${requirementClass}'`);
+    expect(jurisdictionMigration).toContain(
+      "'applicable', 'not_applicable', 'undetermined'",
+    );
+    expect(jurisdictionMigration).toContain(
+      "not-applicable status and obligation must be recorded together",
+    );
+  });
+
+  it("never turns guidance into a silent mandatory requirement", () => {
+    expect(jurisdictionMigration).toContain(
+      "v_class = 'industry_guidance' and v_obligation = 'mandatory'",
+    );
+    expect(jurisdictionMigration).toContain("item->>'mandatory_basis'");
+    expect(jurisdictionMigration).toContain("item->>'adopted_by_reference'");
+    expect(jurisdictionMigration).toContain(
+      "industry guidance can become mandatory only through an explicit adoption reference",
+    );
   });
 });
