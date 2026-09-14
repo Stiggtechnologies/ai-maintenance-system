@@ -19,6 +19,7 @@ import {
   type LinearDefect,
 } from "../lib/asset-ontology";
 import { LoadingState, ErrorState } from "./ui/AsyncStates";
+import { AssetRelationshipPanel } from "./AssetRelationshipPanel";
 
 interface Coverage {
   assets_total: number;
@@ -161,6 +162,8 @@ export function AssetOntology() {
           </div>
         </div>
       )}
+
+      <AssetRelationshipPanel />
 
       {/* Where the defects actually are — the analysis a point model cannot do. */}
       {density && data?.route && (
