@@ -2112,16 +2112,16 @@
     "backticked": 4
   },
   "U5.03": {
-    "status": "🟡",
-    "evidence": false,
-    "citations": 0,
-    "backticked": 0
+    "status": "✅",
+    "evidence": true,
+    "citations": 4,
+    "backticked": 4
   },
   "U5.04": {
-    "status": "🟡",
+    "status": "✅",
     "evidence": true,
-    "citations": 1,
-    "backticked": 0
+    "citations": 5,
+    "backticked": 5
   },
   "U5.05": {
     "status": "✅",

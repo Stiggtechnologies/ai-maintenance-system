@@ -499,13 +499,235 @@ export const DOMAIN_SPECIALIST_MODULES: DomainSpecialistModule[] = [
   {
     key: "utilities-storm-response",
     industryCode: "utilities",
-    label: "Utilities — Storm Mobilization & Crew Dispatch",
-    version: "1.0.0",
+    label: "Utilities — Network, Outage & Storm Response",
+    version: "1.1.0",
     reviewerRoleKey: "domain_storm_dispatch_reviewer",
     purpose:
-      "Prioritize incidents and produce a constraint-feasible draft crew assignment for dispatcher approval.",
+      "Trace network consequences, govern outage readiness, reconcile capacity, mobilize for storms, and prioritize restoration without issuing operating commands.",
     dataClasses: ["operational", "safety_critical"],
     methods: [
+      method({
+        key: "network-reliability-impact",
+        label: "Network reliability and cascade impact",
+        purpose:
+          "Reuse the canonical dependency engine to expose structural service loss, degraded capacity, and single-point exposure from a supplied outage set.",
+        kind: "engineering_calculation",
+        algorithm:
+          "Validate the supplied dependency graph, then apply canonical baseline-settled loss propagation and single-point analysis; no failure probability or duration is inferred.",
+        requiredInputs: [
+          records(
+            "nodes",
+            "Network nodes",
+            "Controlled node identity, service, consequence, criticality, and restoration rank.",
+          ),
+          records(
+            "edges",
+            "Network dependencies",
+            "Supplier/dependent identity, dependency kind, redundancy group, minimum required and supplied capacity share.",
+          ),
+          records(
+            "failedAssets",
+            "Outage origins",
+            "Controlled IDs of assets explicitly confirmed unavailable.",
+          ),
+        ],
+        requiredEvidence: [
+          "controlled-network-model",
+          "network-dependency-evidence",
+          "confirmed-outage-state",
+          "service-and-consequence-register",
+        ],
+        authorityReferences: [
+          "approved utility network model",
+          "system operating and contingency plan",
+          "customer service consequence criteria",
+        ],
+        requiredApproverRole: "Utility network planning / operations authority",
+        limitations: [
+          "Structural propagation is not a power-flow, hydraulic, gas-flow, protection, probability, duration, SAIDI, SAIFI, or regulatory reliability calculation.",
+          "Does not isolate, switch, valve, dispatch, shed load, energize, or authorize continued operation.",
+        ],
+        exampleInputs: {
+          nodes: [
+            { id: "SUB-1", name: "Substation 1", criticality: "high" },
+            {
+              id: "FDR-1",
+              name: "Feeder 1",
+              serviceName: "District A",
+              consequenceClass: "customer",
+              restorationRank: 1,
+            },
+          ],
+          edges: [
+            {
+              supplier: "SUB-1",
+              dependent: "FDR-1",
+              kind: "electrical",
+              evidence: "SLD-14",
+            },
+          ],
+          failedAssets: [{ id: "SUB-1" }],
+        },
+      }),
+      method({
+        key: "outage-control-readiness",
+        label: "Outage management readiness",
+        purpose:
+          "Expose whether each declared outage has the controlled identity, safety, operating, field-status, communication, and approval evidence needed for human coordination.",
+        kind: "readiness",
+        algorithm:
+          "An outage is coordination-ready only when its controlled state, affected boundary, isolation/protection disposition, hazards, operating plan, field status, customer communication, and accountable review are explicit.",
+        requiredInputs: [
+          records(
+            "outages",
+            "Outage records",
+            "Outage ID and explicit evidence-state flags for each readiness element.",
+          ),
+        ],
+        requiredEvidence: [
+          "controlled-outage-register",
+          "isolation-and-protection-status",
+          "approved-operating-plan",
+          "field-and-customer-communication-log",
+        ],
+        authorityReferences: [
+          "utility outage-management procedure",
+          "switching/valving and safe-work rules",
+          "customer and regulator notification requirements",
+        ],
+        requiredApproverRole: "System operations / outage authority",
+        limitations: [
+          "Readiness is not an outage release, switching/valving order, clearance, energization, return-to-service, or regulatory declaration.",
+          "No missing isolation, protection, hazard, communication, or approval state is inferred as complete.",
+        ],
+        exampleInputs: {
+          outages: [
+            {
+              id: "OUT-1",
+              stateControlled: true,
+              boundaryConfirmed: true,
+              isolationProtectionControlled: true,
+              hazardsControlled: true,
+              operatingPlanApproved: true,
+              fieldStatusCurrent: true,
+              customerCommunicationsControlled: true,
+              independentlyReviewed: true,
+            },
+          ],
+        },
+      }),
+      method({
+        key: "network-load-capacity",
+        label: "Network load and capacity margin",
+        purpose:
+          "Reconcile exact-unit available capacity, supplied demand, and approved reserve requirements by bounded network area.",
+        kind: "engineering_calculation",
+        algorithm:
+          "For each area and unit, evidence-ready available source capacity minus supplied demand minus supplied approved reserve requirement equals planning margin; unit conversion and network feasibility are not inferred.",
+        requiredInputs: [
+          records(
+            "areas",
+            "Network areas",
+            "Area ID, demand, reserve requirement, exact unit, and current boundary/evidence state.",
+          ),
+          records(
+            "sources",
+            "Capacity sources",
+            "Area ID, available capacity, exact unit, and availability/protection/configuration evidence state.",
+          ),
+        ],
+        requiredEvidence: [
+          "certified-load-or-demand-snapshot",
+          "available-capacity-register",
+          "protection-and-configuration-status",
+          "approved-reserve-policy",
+        ],
+        authorityReferences: [
+          "approved network planning model",
+          "system operating limits",
+          "adopted reserve and contingency policy",
+        ],
+        requiredApproverRole: "Utility system planning / control authority",
+        limitations: [
+          "Arithmetic capacity margin is not a power-flow, hydraulic, gas-flow, voltage, pressure, transient, stability, protection, or deliverability result.",
+          "Does not connect or disconnect supply, transfer load, change setpoints, shed service, or authorize operation.",
+        ],
+        exampleInputs: {
+          areas: [
+            {
+              id: "AREA-1",
+              demand: 70,
+              reserveRequired: 10,
+              unit: "MW",
+              boundaryCurrent: true,
+              demandCertified: true,
+              reservePolicyApproved: true,
+            },
+          ],
+          sources: [
+            {
+              id: "GEN-1",
+              areaId: "AREA-1",
+              availableCapacity: 95,
+              unit: "MW",
+              available: true,
+              protectionCurrent: true,
+              configurationCurrent: true,
+            },
+          ],
+        },
+      }),
+      method({
+        key: "storm-mobilization-readiness",
+        label: "Storm mobilization readiness",
+        purpose:
+          "Assess the evidence posture for incident command, hazards, mutual aid, materials, communications, logistics, and controlled operating procedures before mobilization.",
+        kind: "readiness",
+        algorithm:
+          "A storm response area is ready only when every applicable mobilization control is explicitly evidenced, including an approved not-applicable disposition where mutual aid is not required.",
+        requiredInputs: [
+          records(
+            "areas",
+            "Storm response areas",
+            "Area ID and explicit readiness flags for incident command, hazard basis, mutual aid disposition, materials, communications, logistics, procedures, and review.",
+          ),
+        ],
+        requiredEvidence: [
+          "approved-storm-response-plan",
+          "current-hazard-forecast",
+          "mutual-aid-and-resource-status",
+          "emergency-logistics-and-communications-test",
+        ],
+        authorityReferences: [
+          "utility emergency-response plan",
+          "incident command system",
+          "mutual-aid agreements",
+          "switching/valving and safe-work rules",
+        ],
+        requiredApproverRole:
+          "Storm incident commander / emergency management authority",
+        limitations: [
+          "Does not activate incident command, request mutual aid, mobilize crews, issue public warnings, or direct field work.",
+          "Forecasts and resource states are supplied evidence and must be re-confirmed by the accountable authority.",
+        ],
+        exampleInputs: {
+          areas: [
+            {
+              id: "NORTH",
+              incidentCommandActivated: true,
+              hazardBasisApproved: true,
+              mutualAidRequired: true,
+              mutualAidDispositionApproved: true,
+              mutualAidConfirmed: true,
+              materialsReady: true,
+              communicationsTested: true,
+              logisticsReady: true,
+              operatingProceduresCurrent: true,
+              independentlyReviewed: true,
+            },
+          ],
+        },
+      }),
       method({
         key: "storm-crew-dispatch",
         label: "Storm mobilization and crew dispatch",
@@ -573,6 +795,100 @@ export const DOMAIN_SPECIALIST_MODULES: DomainSpecialistModule[] = [
             },
           ],
           travelMinutes: { "C-1:I-1": 25 },
+        },
+      }),
+      method({
+        key: "network-restoration-prioritization",
+        label: "Network restoration prioritization",
+        purpose:
+          "Reuse the canonical dependency-order engine and expose field-readiness blockers without issuing a restoration or energization sequence.",
+        kind: "optimization",
+        algorithm:
+          "Canonical topological restoration order preserves supplier precedence and supplied consequence rank; each step is separately screened for isolation, hazard, material, crew, field verification, and operating-approval readiness.",
+        requiredInputs: [
+          records(
+            "nodes",
+            "Network nodes",
+            "Controlled node identity, service, consequence, criticality, and restoration rank.",
+          ),
+          records(
+            "edges",
+            "Network dependencies",
+            "Supplier/dependent identity and controlled dependency evidence.",
+          ),
+          records(
+            "failedAssets",
+            "Confirmed unavailable assets",
+            "Controlled IDs in the failed restoration set.",
+          ),
+          records(
+            "readiness",
+            "Restoration readiness",
+            "Per-asset isolation, hazard, material, crew, field verification, and operating-approval state.",
+          ),
+        ],
+        requiredEvidence: [
+          "controlled-network-model",
+          "confirmed-damage-and-outage-state",
+          "restoration-resource-and-material-status",
+          "isolation-protection-and-field-verification",
+          "approved-restoration-policy",
+        ],
+        authorityReferences: [
+          "approved system restoration plan",
+          "switching/valving and safe-work rules",
+          "incident command and operating authority matrix",
+        ],
+        requiredApproverRole: "System restoration / incident command authority",
+        limitations: [
+          "The result is dependency-safe decision support, not a switching/valving order, field instruction, dispatch, energization, pressure restoration, or return-to-service authorization.",
+          "Dependency cycles are refused and require an authority-approved blackstart, temporary supply, bypass, or other engineered resolution.",
+        ],
+        exampleInputs: {
+          nodes: [
+            {
+              id: "SUB-1",
+              name: "Substation 1",
+              consequenceClass: "regulatory",
+              restorationRank: 1,
+            },
+            {
+              id: "FDR-1",
+              name: "Feeder 1",
+              serviceName: "District A",
+              consequenceClass: "customer",
+              restorationRank: 2,
+            },
+          ],
+          edges: [
+            {
+              supplier: "SUB-1",
+              dependent: "FDR-1",
+              kind: "electrical",
+              evidence: "SLD-14",
+            },
+          ],
+          failedAssets: [{ id: "SUB-1" }, { id: "FDR-1" }],
+          readiness: [
+            {
+              id: "SUB-1",
+              isolationProtectionControlled: true,
+              hazardsControlled: true,
+              materialsReady: true,
+              qualifiedCrewReady: true,
+              fieldVerificationComplete: true,
+              operatingApprovalRecorded: true,
+            },
+            {
+              id: "FDR-1",
+              isolationProtectionControlled: true,
+              hazardsControlled: true,
+              materialsReady: true,
+              qualifiedCrewReady: true,
+              fieldVerificationComplete: true,
+              operatingApprovalRecorded: true,
+            },
+          ],
         },
       }),
     ],
@@ -1129,13 +1445,126 @@ export const DOMAIN_SPECIALIST_MODULES: DomainSpecialistModule[] = [
   {
     key: "transport-logistics",
     industryCode: "transportation_logistics",
-    label: "Transportation & Logistics — Route, Depot & Inspection",
-    version: "1.0.0",
+    label: "Transportation & Logistics — Fleet, Route & Lifecycle",
+    version: "1.1.0",
     reviewerRoleKey: "domain_transport_reviewer",
     purpose:
-      "Optimize bounded routes and expose inspection-due constraints for dispatcher and regulatory review.",
+      "Reconcile fleet duty, dispatch capacity, configuration, bounded routes, regulatory inspections, and replacement priorities for controlled human decisions.",
     dataClasses: ["operational", "safety_critical", "regulatory"],
     methods: [
+      method({
+        key: "fleet-duty-exposure",
+        label: "Mileage and duty-cycle exposure",
+        purpose:
+          "Reconcile authenticated counter movement and classified duty segments without inventing severity thresholds.",
+        kind: "engineering_calculation",
+        algorithm:
+          "For each asset, counter delta = authenticated end reading - start reading; duty shares = classified segment exposure / reconciled counter delta, with incomplete or overlapping reconciliation blocked.",
+        requiredInputs: [
+          records(
+            "assets",
+            "Fleet duty records",
+            "Asset ID, counter unit/readings, authenticated state, and non-overlapping classified duty segments in the same unit.",
+          ),
+        ],
+        requiredEvidence: [
+          "authenticated-fleet-counters",
+          "duty-cycle-segment-history",
+          "fleet-identity-and-configuration",
+          "approved-duty-classification",
+        ],
+        authorityReferences: [
+          "approved fleet counter hierarchy",
+          "operator duty-cycle classification standard",
+        ],
+        requiredApproverRole: "Fleet maintenance engineering authority",
+        limitations: [
+          "Does not infer severity, remaining life, maintenance interval, or suitability from mileage or duty share.",
+          "Counter resets, unit conflicts, unauthenticated readings, overlap, and unreconciled segment totals block the affected asset.",
+        ],
+        exampleInputs: {
+          assets: [
+            {
+              id: "TR-1",
+              counterUnit: "km",
+              startReading: 120000,
+              endReading: 121000,
+              readingsAuthenticated: true,
+              configurationCurrent: true,
+              classificationApproved: true,
+              segmentsNonOverlapping: true,
+              segments: [
+                { dutyClass: "urban", exposure: 700 },
+                { dutyClass: "highway", exposure: 300 },
+              ],
+            },
+          ],
+        },
+      }),
+      method({
+        key: "dispatch-availability",
+        label: "Dispatch availability and capacity",
+        purpose:
+          "Compare evidence-ready fleet capability with supplied demand while preserving dispatch and safety authority.",
+        kind: "readiness",
+        algorithm:
+          "Eligible capacity is the sum of supplied capacity for assets that are available, defect-controlled, inspection-current, configuration-current, and capability-matched; margin = eligible capacity - supplied required capacity.",
+        requiredInputs: [
+          records(
+            "assets",
+            "Dispatch candidates",
+            "Asset identity, capability, supplied capacity, availability and readiness controls.",
+          ),
+          records(
+            "requirements",
+            "Dispatch requirements",
+            "Required capability and capacity for each explicit operating requirement.",
+          ),
+        ],
+        requiredEvidence: [
+          "live-fleet-status",
+          "open-defect-and-restriction-register",
+          "inspection-and-configuration-status",
+          "operator-and-hours-of-service-status",
+          "approved-dispatch-capability-requirements",
+        ],
+        authorityReferences: [
+          "carrier dispatch rules",
+          "operator defect and out-of-service controls",
+          "applicable hours-of-service and safety restrictions",
+        ],
+        requiredApproverRole:
+          "Fleet dispatcher / transport operations authority",
+        limitations: [
+          "Does not dispatch, assign a driver, release a vehicle, or override a defect, inspection, configuration, route, weather, fatigue, or legal constraint.",
+          "Capacity is counted only from exact supplied capability matches; substitution rules are not inferred.",
+        ],
+        exampleInputs: {
+          requirements: [
+            {
+              id: "R-1",
+              capability: "refrigerated",
+              requiredCapacity: 20,
+              unit: "t",
+            },
+          ],
+          assets: [
+            {
+              id: "TR-1",
+              capability: "refrigerated",
+              capacity: 24,
+              unit: "t",
+              available: true,
+              defectsControlled: true,
+              inspectionCurrent: true,
+              configurationCurrent: true,
+              operatingConstraintsCleared: true,
+              qualifiedOperatorAvailable: true,
+              hoursOfServiceCompliant: true,
+            },
+          ],
+        },
+      }),
       method({
         key: "route-depot-optimization",
         label: "Route and depot optimization",
@@ -1208,6 +1637,52 @@ export const DOMAIN_SPECIALIST_MODULES: DomainSpecialistModule[] = [
         },
       }),
       method({
+        key: "fleet-configuration-trace",
+        label: "Fleet configuration traceability",
+        purpose:
+          "Expose identity, as-maintained configuration, approved-deviation, and safety-critical trace gaps by asset.",
+        kind: "traceability",
+        algorithm:
+          "An asset is trace-complete only when controlled identity, current as-maintained baseline, installed components/options, approved substitutions/deviations, applicable software/firmware, safety-critical configuration, and reconciliation review are evidenced.",
+        requiredInputs: [
+          records(
+            "assets",
+            "Fleet configuration records",
+            "Asset ID and explicit evidence-state flags for every configuration trace element.",
+          ),
+        ],
+        requiredEvidence: [
+          "controlled-fleet-identity",
+          "as-maintained-configuration-baseline",
+          "approved-substitution-and-deviation-records",
+          "configuration-reconciliation-review",
+        ],
+        authorityReferences: [
+          "approved configuration-management plan",
+          "OEM applicability and operator modification controls",
+        ],
+        requiredApproverRole: "Fleet configuration / maintenance authority",
+        limitations: [
+          "Trace completeness is not a declaration of roadworthiness, regulatory compliance, or fitness for service.",
+          "Does not approve a substitution, modification, software load, deviation, or return to service.",
+        ],
+        exampleInputs: {
+          assets: [
+            {
+              id: "TR-1",
+              identityControlled: true,
+              baselineCurrent: true,
+              installedConfigurationRecorded: true,
+              deviationsApproved: true,
+              softwareFirmwareControlled: true,
+              safetyCriticalConfigurationVerified: true,
+              reconciled: true,
+              independentlyReviewed: true,
+            },
+          ],
+        },
+      }),
+      method({
         key: "inspection-scheduling",
         label: "Regulatory inspection scheduling",
         purpose:
@@ -1258,6 +1733,71 @@ export const DOMAIN_SPECIALIST_MODULES: DomainSpecialistModule[] = [
               intervalDays: 180,
               durationHours: 4,
               priority: 2,
+              outOfServiceRequired: false,
+              outOfServiceControlled: true,
+            },
+          ],
+        },
+      }),
+      method({
+        key: "fleet-replacement-prioritization",
+        label: "Fleet replacement prioritization",
+        purpose:
+          "Order evidence-ready replacement candidates within an indicative envelope while keeping mandatory obligations and capital authority explicit.",
+        kind: "optimization",
+        algorithm:
+          "Mandatory candidates rank first by supplied due date; other candidates rank by sum of supplied factor score times approved weight divided by supplied lifecycle cost, with deterministic tie-breaking and cumulative envelope visibility.",
+        requiredInputs: [
+          n(
+            "budget",
+            "Indicative planning envelope",
+            "supplied currency",
+            "Non-authorizing envelope used only to show which ranked candidates fit.",
+          ),
+          records(
+            "weights",
+            "Approved replacement weights",
+            "Factor name and approved non-negative weight.",
+          ),
+          records(
+            "candidates",
+            "Replacement candidates",
+            "Asset, lifecycle cost, evidence readiness, mandatory state/due date, and supplied 0-5 factor scores.",
+          ),
+        ],
+        requiredEvidence: [
+          "fleet-condition-and-duty-history",
+          "approved-lifecycle-cost-basis",
+          "mandatory-obligation-register",
+          "approved-replacement-criteria-and-envelope",
+        ],
+        authorityReferences: [
+          "approved fleet lifecycle strategy",
+          "capital delegation of authority",
+          "applicable safety and regulatory obligations",
+        ],
+        requiredApproverRole: "Fleet asset owner / capital authority",
+        limitations: [
+          "Does not authorize purchase, retirement, disposal, lease, budget commitment, or deferral of mandatory work.",
+          "SyncAI supplies no condition score, economic life, cost, weight, obligation, or budget value.",
+        ],
+        exampleInputs: {
+          budget: 500000,
+          weights: [
+            { factor: "serviceRisk", weight: 3 },
+            { factor: "maintenanceBurden", weight: 2 },
+          ],
+          candidates: [
+            {
+              id: "TR-1",
+              lifecycleCost: 420000,
+              evidenceReady: true,
+              configurationTraceComplete: true,
+              costBasisApproved: true,
+              obligationStateApproved: true,
+              mandatory: false,
+              serviceRisk: 4,
+              maintenanceBurden: 3,
             },
           ],
         },
