@@ -702,6 +702,21 @@ export const recordRiskAnalysisElement = (
     "Could not record analysis element",
   );
 
+export const verifyRiskConsequence = (
+  consequenceId: string,
+  decision: "verified" | "superseded",
+  note: string,
+) =>
+  controlledRiskRpc(
+    "verify_risk_consequence",
+    {
+      p_consequence_id: consequenceId,
+      p_decision: decision,
+      p_note: note,
+    },
+    "Could not review consequence assessment",
+  );
+
 export const recordRiskLikelihoodEstimate = (
   riskId: string,
   estimate: Record<string, unknown>,

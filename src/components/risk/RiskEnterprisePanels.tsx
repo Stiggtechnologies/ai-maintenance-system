@@ -47,6 +47,7 @@ import {
   transitionRiskLifecycle,
   upsertRiskObjective,
   upsertRiskStakeholder,
+  verifyRiskConsequence,
 } from "../../services/riskOperatingService";
 import type { ObjectiveTreeNode } from "../../services/riskOperatingService";
 import type {
@@ -78,6 +79,7 @@ type AdvancedAction =
   | "assumption"
   | "source"
   | "consequence"
+  | "consequence_review"
   | "likelihood"
   | "scenario"
   | "stress"
@@ -101,6 +103,20 @@ interface FieldDefinition {
   options?: Array<{ value: string; label: string }>;
   placeholder?: string;
 }
+
+const CONSEQUENCE_DIMENSIONS = [
+  "fatality",
+  "injury",
+  "environmental_damage",
+  "customer_interruption",
+  "vulnerable_populations",
+  "public_health",
+  "transportation_disruption",
+  "community_trust",
+  "infrastructure_impact",
+  "reputation",
+  "political_regulatory",
+] as const;
 
 const ACTIONS: Array<{
   id: AdvancedAction;
@@ -140,6 +156,11 @@ const ACTIONS: Array<{
     id: "consequence",
     label: "Consequence",
     category: "Identification & analysis",
+  },
+  {
+    id: "consequence_review",
+    label: "Consequence review",
+    category: "Assurance & communication",
   },
   {
     id: "likelihood",
@@ -703,17 +724,10 @@ function fieldsFor(
           label: "Dimension",
           kind: "select",
           required: true,
-          options: [
-            "safety",
-            "environment",
-            "production",
-            "financial",
-            "regulatory",
-            "asset_integrity",
-            "reputation",
-            "customer",
-            "cybersecurity",
-          ].map((value) => ({ value, label: value.replaceAll("_", " ") })),
+          options: CONSEQUENCE_DIMENSIONS.map((value) => ({
+            value,
+            label: value.replaceAll("_", " "),
+          })),
         },
         {
           key: "description",
@@ -721,7 +735,24 @@ function fieldsFor(
           kind: "textarea",
           required: true,
         },
-        { key: "magnitude", label: "Magnitude", kind: "number" },
+        {
+          key: "assessment_state",
+          label: "Knowledge state",
+          kind: "select",
+          required: true,
+          options: [
+            "known",
+            "estimated",
+            "predicted",
+            "unknown",
+            "conflicting",
+          ].map((value) => ({ value, label: value })),
+        },
+        { key: "magnitude", label: "Magnitude (optional)", kind: "number" },
+        {
+          key: "magnitude_unit",
+          label: "Magnitude unit (required with magnitude)",
+        },
         { key: "time_horizon", label: "Time horizon" },
         {
           key: "effect_type",
@@ -732,6 +763,43 @@ function fieldsFor(
             value,
             label: value,
           })),
+        },
+        {
+          key: "evidence_basis",
+          label: "Evidence and uncertainty basis",
+          kind: "textarea",
+          required: true,
+        },
+      ];
+    case "consequence_review":
+      return [
+        {
+          key: "consequence_id",
+          label: "Draft consequence",
+          kind: "select",
+          required: true,
+          options: data.consequences
+            .filter((item) => item.status === "draft")
+            .map((item) => ({
+              value: item.id,
+              label: `${item.dimension.replaceAll("_", " ")} · ${item.description}`,
+            })),
+        },
+        {
+          key: "decision",
+          label: "Independent decision",
+          kind: "select",
+          required: true,
+          options: ["verified", "superseded"].map((value) => ({
+            value,
+            label: value,
+          })),
+        },
+        {
+          key: "note",
+          label: "Independent review basis",
+          kind: "textarea",
+          required: true,
         },
       ];
     case "likelihood":
@@ -1357,6 +1425,12 @@ async function executeAdvancedAction(
         ...values,
         magnitude: number(values.magnitude),
       });
+    case "consequence_review":
+      return verifyRiskConsequence(
+        values.consequence_id,
+        values.decision as "verified" | "superseded",
+        values.note,
+      );
     case "likelihood":
       return recordRiskLikelihoodEstimate(values.risk_id, {
         ...values,
@@ -1613,6 +1687,30 @@ export function EnterpriseRiskArchitecturePanel(props: PanelProps) {
         : null,
     [data],
   );
+  const consequenceCoverage = useMemo(
+    () =>
+      data
+        ? props.risks.map((risk) => {
+            const active = data.consequences.filter(
+              (item) =>
+                item.risk_id === risk.id &&
+                item.status !== "superseded" &&
+                CONSEQUENCE_DIMENSIONS.includes(
+                  item.dimension as (typeof CONSEQUENCE_DIMENSIONS)[number],
+                ),
+            );
+            const present = new Set(active.map((item) => item.dimension));
+            return {
+              risk,
+              active,
+              missing: CONSEQUENCE_DIMENSIONS.filter(
+                (dimension) => !present.has(dimension),
+              ),
+            };
+          })
+        : [],
+    [data, props.risks],
+  );
   if (loading)
     return <LoadingState label="Loading enterprise risk architecture…" />;
   if (error || !data)
@@ -1691,6 +1789,63 @@ export function EnterpriseRiskArchitecturePanel(props: PanelProps) {
           );
         })}
       </div>
+      <SectionCard
+        title="Consequence coverage"
+        detail="All eleven decision dimensions stay separate. No aggregate score is calculated; missing, unknown and conflicting evidence remains visible and cannot become risk acceptance."
+      >
+        <div className="space-y-3">
+          {consequenceCoverage.length ? (
+            consequenceCoverage.map(({ risk, active, missing }) => (
+              <div key={risk.id} className="rounded-lg bg-white/3 p-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-xs font-semibold text-slate-200">
+                    {risk.title}
+                  </p>
+                  <span
+                    className={`rounded-full px-2 py-1 text-[10px] font-bold ${
+                      missing.length === 0
+                        ? "bg-emerald-500/10 text-emerald-300"
+                        : "bg-amber-500/10 text-amber-300"
+                    }`}
+                  >
+                    {active.length}/{CONSEQUENCE_DIMENSIONS.length} recorded
+                  </span>
+                </div>
+                {missing.length ? (
+                  <p className="mt-2 text-[11px] text-slate-500">
+                    Missing:{" "}
+                    {missing
+                      .map((item) => item.replaceAll("_", " "))
+                      .join(" · ")}
+                  </p>
+                ) : (
+                  <p className="mt-2 text-[11px] text-emerald-300">
+                    Dimension coverage complete; independent verification and
+                    evidence states still govern each entry.
+                  </p>
+                )}
+                <div className="mt-2 flex flex-wrap gap-1">
+                  {active.map((item) => (
+                    <span
+                      key={item.id}
+                      title={item.description}
+                      className="rounded border border-white/7 px-2 py-1 text-[10px] text-slate-400"
+                    >
+                      {item.dimension.replaceAll("_", " ")} ·{" "}
+                      {item.assessment_state ?? "unknown"} ·{" "}
+                      {item.status ?? "draft"}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ))
+          ) : (
+            <p className="text-xs text-slate-600">
+              No readable risks are available for consequence coverage.
+            </p>
+          )}
+        </div>
+      </SectionCard>
       <div className="grid gap-4 xl:grid-cols-2">
         <SectionCard
           title="Objective hierarchy"
