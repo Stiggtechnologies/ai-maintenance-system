@@ -93,8 +93,18 @@ SECTOR_ADOPT=$(rpc "$EXEC" adopt_capability_pack_layer \
 test "$(status "$SECTOR_ADOPT")" = '200'
 BODY="$(body "$SECTOR_ADOPT")" python3 -c "import json,os; x=json.loads(os.environ['BODY']); assert x['status']=='adopted',x"
 
+UNTYPED_JURISDICTION=$(rpc "$AUTHOR" author_capability_pack_layer \
+  '{"p_layer":{"layer_kind":"jurisdiction","title":"Untyped jurisdiction pack","jurisdiction":"Alberta","configuration":{"inspection_record_retention_years":10},"evidence_basis":"This intentionally incomplete jurisdiction record must be rejected by the typed contract."}}')
+test "$(status "$UNTYPED_JURISDICTION")" = '200'
+BODY="$(body "$UNTYPED_JURISDICTION")" python3 -c "import json,os; x=json.loads(os.environ['BODY']); assert 'requires a non-empty jurisdiction_requirements array' in x.get('error',''),x"
+
+UNADOPTED_GUIDANCE=$(rpc "$AUTHOR" author_capability_pack_layer \
+  '{"p_layer":{"layer_kind":"jurisdiction","title":"Unadopted guidance pack","jurisdiction":"Alberta","configuration":{"jurisdiction_requirements":[{"key":"pressure_vessel_inspection","title":"Pressure vessel inspection interval","domain":"pressure_regulation","requirement_class":"industry_guidance","applicability":"applicable","obligation":"mandatory","authority_reference":"Guidance document GD-12","applicability_basis":"The controlled equipment register identifies an in-scope pressure vessel.","mandatory_basis":"The proposed interval is intended to be treated as a mandatory control."}]},"evidence_basis":"This intentionally omits the authority that adopted guidance as mandatory."}}')
+test "$(status "$UNADOPTED_GUIDANCE")" = '200'
+BODY="$(body "$UNADOPTED_GUIDANCE")" python3 -c "import json,os; x=json.loads(os.environ['BODY']); assert 'only through an explicit adoption reference' in x.get('error',''),x"
+
 JURISDICTION=$(author_and_adopt "$AUTHOR" \
-  '{"layer_kind":"jurisdiction","title":"Alberta jurisdiction pack","jurisdiction":"Alberta","configuration":{"inspection_record_retention_years":10},"evidence_basis":"Applicable jurisdiction register and retention basis await customer legal confirmation."}' \
+  '{"layer_kind":"jurisdiction","title":"Alberta jurisdiction pack","jurisdiction":"Alberta","configuration":{"inspection_record_retention_years":10,"jurisdiction_requirements":[{"key":"pressure_vessel_inspection","title":"Pressure vessel inspection interval","domain":"pressure_regulation","requirement_class":"industry_guidance","applicability":"applicable","obligation":"mandatory","authority_reference":"Guidance document GD-12","applicability_basis":"The controlled equipment register identifies an in-scope pressure vessel.","mandatory_basis":"Company engineering standard ENG-104 adopts this interval as a mandatory control.","adopted_by_reference":"Company engineering standard ENG-104"},{"key":"inspection_record_retention","title":"Inspection record retention","domain":"retention","requirement_class":"regulatory","applicability":"undetermined","obligation":"advisory","authority_reference":"Alberta jurisdiction register","applicability_basis":"Legal applicability remains subject to named human confirmation for this tenant."}]},"evidence_basis":"Applicable jurisdiction register, guidance and controlled adoption authority were reviewed."}' \
   'Human review confirms jurisdiction applicability while preserving legal validation limits.')
 ENTERPRISE=$(author_and_adopt "$AUTHOR" \
   '{"layer_kind":"enterprise","title":"Enterprise reliability policy","configuration":{"failure_coding_taxonomy":"enterprise_v1"},"evidence_basis":"Enterprise reliability policy and approved taxonomy governance record reviewed."}' \
@@ -141,4 +151,4 @@ select
 from capability_pack_layers where organization_id='$ORG' and id in ('$CORE','$SECTOR_ID','$JURISDICTION','$ENTERPRISE','$BUSINESS_UNIT','$SITE_LAYER','$ASSET_LAYER');
 SQL
 
-echo 'U20.01 layered capability packs smoke passed: seven_layers=true canonical_scope=true exact_override=true independent_approval=true tenant_wall=true deterministic_resolution=true no_auto_execution=true'
+echo 'U20.01/U6 layered capability packs smoke passed: seven_layers=true canonical_scope=true exact_override=true independent_approval=true tenant_wall=true deterministic_resolution=true typed_jurisdiction=true guidance_adoption=true no_auto_execution=true'
