@@ -50,6 +50,13 @@ export function FirstRunNextStepStrip() {
           <div className="mt-3 flex flex-wrap gap-2">
             <button
               type="button"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 px-3 py-1.5 text-xs font-semibold text-slate-100"
+              onClick={() => navigate("/start")}
+            >
+              Start here
+            </button>
+            <button
+              type="button"
               className="inline-flex items-center gap-1.5 rounded-lg bg-teal-500/90 px-3 py-1.5 text-xs font-bold text-slate-950"
               onClick={() => navigate("/decision-cases")}
             >

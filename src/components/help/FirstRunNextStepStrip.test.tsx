@@ -15,6 +15,7 @@ describe("FirstRunNextStepStrip (M3)", () => {
     );
     expect(src).toMatch(/Recommend is not authorize/);
     expect(src).toMatch(/no plant execute/);
+    expect(src).toMatch(/navigate\("\/start"\)/);
     expect(src).not.toMatch(/CAD\s*\$?\s*7\.?5/i);
     expect(src).not.toMatch(/certified/i);
   });

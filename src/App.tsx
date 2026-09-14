@@ -27,6 +27,7 @@ import { AssessmentsPage } from "./pages/AssessmentsPage";
 import { AssessmentHomePage } from "./pages/AssessmentHomePage";
 import { AssetManagement } from "./components/AssetManagement";
 import { MissionControl } from "./pages/MissionControl";
+import { StartHerePage } from "./pages/StartHerePage";
 import { InvertedOpeningPage } from "./pages/InvertedOpeningPage";
 import { WorkActionBoard } from "./pages/WorkActionBoard";
 import NotificationScreening from "./pages/NotificationScreening";
@@ -452,6 +453,7 @@ function AuthenticatedApp() {
           <Route path="/" element={<RoleLanding />} />
           <Route path="/overview" element={<RoleLanding />} />
 
+          <Route path="/start" element={<StartHerePage />} />
           <Route
             path="/mission-control"
             element={

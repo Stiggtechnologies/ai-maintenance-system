@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react";
+import { readFileSync } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
 import { SIGNUP_INDUSTRY_OPTIONS } from "../lib/industry-catalog";
 import { Signup } from "./Signup";
@@ -27,5 +28,12 @@ describe("Signup industry selection", () => {
 
     fireEvent.change(industry, { target: { value: "custom" } });
     expect(screen.getByLabelText("Industry name")).toBeRequired();
+  });
+
+  it("sends eval signup through /start, not Mission Control", () => {
+    const src = readFileSync("src/pages/Signup.tsx", "utf8");
+    expect(src).toMatch(/returnTo=\/start/);
+    expect(src).not.toMatch(/returnTo=\/mission-control/);
+    expect(src).toMatch(/window\.location\.assign\("\/signin\?returnTo=\/start"\)/);
   });
 });
