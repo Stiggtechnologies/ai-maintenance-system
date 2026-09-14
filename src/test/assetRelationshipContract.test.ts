@@ -5,6 +5,12 @@ const sql = readFileSync(
   "supabase/migrations/20261219340000_asset_relationship_accountability.sql",
   "utf8",
 ).toLowerCase();
+const panel = readFileSync("src/components/AssetRelationshipPanel.tsx", "utf8");
+const ontology = readFileSync("src/components/AssetOntology.tsx", "utf8");
+const service = readFileSync(
+  "src/services/assetRelationshipService.ts",
+  "utf8",
+);
 
 describe("U12 asset relationship and party accountability contract", () => {
   it("extends the canonical tenure and stakeholder models with the complete vocabularies", () => {
@@ -64,5 +70,16 @@ describe("U12 asset relationship and party accountability contract", () => {
     expect(sql).not.toContain("insert into public.approvals");
     expect(sql).not.toContain("insert into public.work_orders");
     expect(sql).not.toContain("insert into public.recommendations");
+  });
+
+  it("is reachable through Asset Ontology with governed write and review doors", () => {
+    expect(ontology).toContain("<AssetRelationshipPanel />");
+    expect(panel).toContain("Asset relationships &amp; accountability");
+    expect(panel).toContain("No asset relationship is recorded");
+    expect(panel).toContain("Independently review");
+    expect(service).toContain('"record_asset_relationship"');
+    expect(service).toContain('"record_asset_party_role"');
+    expect(service).toContain('"verify_asset_relationship"');
+    expect(service).toContain('"verify_asset_party_role"');
   });
 });
