@@ -402,6 +402,9 @@ jobs:
       - name: Smoke — asset relationships and accountable party roles
         run: bash scripts/ci-asset-relationship-smoke.sh
 
+      - name: Smoke — service and contractual obligations in recommendation risk
+        run: bash scripts/ci-service-contract-risk-smoke.sh
+
       - name: Smoke — governed engineering knowledge on the canonical Reliability KB
         run: bash scripts/ci-governed-knowledge-smoke.sh
 
