@@ -7,6 +7,14 @@ import type {
   DomainSpecialistRequest,
   DomainSpecialistResult,
 } from "./types.ts";
+import {
+  capacityGaps,
+  propagateLoss,
+  restorationOrder,
+  singlePointsOfFailure,
+  type DependencyGraph,
+  type EdgeKind,
+} from "../interdependency/index.ts";
 
 interface Evaluation {
   summary: string;
@@ -396,22 +404,371 @@ function rbi(inputs: Record<string, unknown>): Evaluation {
   };
 }
 
+const NETWORK_EDGE_KINDS = new Set<EdgeKind>([
+  "functional",
+  "utility",
+  "topological",
+  "control",
+  "geographic",
+  "logistical",
+  "physical",
+  "process",
+  "electrical",
+  "data",
+  "organizational",
+  "contractual",
+]);
+
+function utilityNetworkGraph(inputs: Record<string, unknown>): DependencyGraph {
+  const nodes = records(inputs.nodes, "Network nodes").map((row, index) => ({
+    id: text(row.id, `Node ${index + 1} ID`),
+    name: text(row.name, `Node ${index + 1} name`),
+    criticality:
+      typeof row.criticality === "string" ? row.criticality.trim() : null,
+    serviceName:
+      typeof row.serviceName === "string" ? row.serviceName.trim() : null,
+    consequenceClass:
+      typeof row.consequenceClass === "string"
+        ? row.consequenceClass.trim()
+        : null,
+    restorationRank:
+      row.restorationRank == null
+        ? null
+        : positiveInteger(
+            row.restorationRank,
+            `Node ${index + 1} restoration rank`,
+          ),
+  }));
+  requireUnique(
+    nodes.map((node) => node.id),
+    "Network nodes",
+  );
+  const ids = new Set(nodes.map((node) => node.id));
+  const edges = records(inputs.edges, "Network dependencies").map(
+    (row, index) => {
+      const supplier = text(row.supplier, `Dependency ${index + 1} supplier`);
+      const dependent = text(
+        row.dependent,
+        `Dependency ${index + 1} dependent`,
+      );
+      const kind = text(row.kind, `Dependency ${index + 1} kind`) as EdgeKind;
+      if (!ids.has(supplier) || !ids.has(dependent))
+        throw new InputError(
+          `Dependency ${index + 1} references a node outside the controlled network scope.`,
+        );
+      if (supplier === dependent)
+        throw new InputError(
+          `Dependency ${index + 1} cannot be self-referential.`,
+        );
+      if (!NETWORK_EDGE_KINDS.has(kind))
+        throw new InputError(`Dependency ${index + 1} kind is not supported.`);
+      const share =
+        row.capacitySharePct == null
+          ? null
+          : nonNegative(
+              row.capacitySharePct,
+              `Dependency ${index + 1} capacity share`,
+            );
+      if (share != null && share > 100)
+        throw new InputError(
+          `Dependency ${index + 1} capacity share must not exceed 100%.`,
+        );
+      return {
+        supplier,
+        dependent,
+        kind,
+        redundancyGroup:
+          typeof row.redundancyGroup === "string"
+            ? row.redundancyGroup.trim()
+            : null,
+        minRequired:
+          row.minRequired == null
+            ? null
+            : positiveInteger(
+                row.minRequired,
+                `Dependency ${index + 1} minimum required`,
+              ),
+        capacitySharePct: share,
+        evidence: text(row.evidence, `Dependency ${index + 1} evidence`),
+        source: typeof row.source === "string" ? row.source.trim() : null,
+      };
+    },
+  );
+  requireUnique(
+    edges.map(
+      (edge) =>
+        `${edge.supplier}:${edge.dependent}:${edge.kind}:${edge.redundancyGroup ?? ""}`,
+    ),
+    "Network dependencies",
+  );
+  return { nodes, edges, commonCauseGroups: [] };
+}
+
+function failedNetworkIds(
+  inputs: Record<string, unknown>,
+  graph: DependencyGraph,
+): string[] {
+  const failed = records(inputs.failedAssets, "Outage origins").map(
+    (row, index) => text(row.id, `Failed asset ${index + 1} ID`),
+  );
+  requireUnique(failed, "Failed assets");
+  const ids = new Set(graph.nodes.map((node) => node.id));
+  const unknown = failed.filter((id) => !ids.has(id));
+  if (unknown.length)
+    throw new InputError(
+      `Failed assets are outside the controlled network scope: ${unknown.join(", ")}.`,
+    );
+  return failed;
+}
+
+function networkReliabilityImpact(inputs: Record<string, unknown>): Evaluation {
+  const graph = utilityNetworkGraph(inputs);
+  const failed = failedNetworkIds(inputs, graph);
+  const cascade = propagateLoss(graph, failed);
+  const spof = singlePointsOfFailure(graph);
+  const gaps = capacityGaps(graph).map((gap) => `${gap.name}: ${gap.reason}`);
+  const findings = cascade.impacted.map(
+    (item) =>
+      `${item.name}: ${item.state}, ${item.capacityPct}% supplied structural capacity versus ${item.baselinePct}% baseline; ${item.cause}.`,
+  );
+  findings.push(
+    ...spof.points.map(
+      (point) =>
+        `${point.name}: single-point exposure affects ${point.assetsLost} additional asset(s) and ${point.servicesLost.length} declared service(s)${point.underrated ? "; recorded criticality may understate consequence" : ""}.`,
+    ),
+  );
+  return {
+    summary: `${failed.length} confirmed outage origin(s) structurally affect ${cascade.lostCount} lost and ${cascade.degradedCount} degraded network node(s); this is not a probabilistic or regulatory reliability result.`,
+    metrics: [
+      {
+        key: "lost_nodes",
+        label: "Structurally lost nodes",
+        value: cascade.lostCount,
+        unit: "count",
+      },
+      {
+        key: "degraded_nodes",
+        label: "Structurally degraded nodes",
+        value: cascade.degradedCount,
+        unit: "count",
+      },
+      {
+        key: "services_lost",
+        label: "Declared services lost",
+        value: cascade.servicesLost.length,
+        unit: "count",
+      },
+      {
+        key: "single_points",
+        label: "Single-point exposures",
+        value: spof.points.length,
+        unit: "count",
+      },
+    ],
+    findings,
+    gaps,
+    assumptions: [
+      "The controlled graph is complete for the decision boundary; structural propagation does not establish failure probability, duration, flow feasibility, protection performance, or regulatory reliability indices.",
+    ],
+    formulae: [
+      "Canonical baseline-settled dependency propagation from src/lib/interdependency; capacity-share groups degrade proportionally and binary dependencies fail when required suppliers are unavailable.",
+    ],
+  };
+}
+
+function outageControlReadiness(inputs: Record<string, unknown>): Evaluation {
+  const outages = records(inputs.outages, "Outage records");
+  requireUnique(
+    outages.map((row, index) => text(row.id, `Outage ${index + 1} ID`)),
+    "Outage records",
+  );
+  return coverageEvaluation(
+    "outage management",
+    outages,
+    (row) =>
+      Boolean(
+        row.id &&
+        bool(row.stateControlled) &&
+        bool(row.boundaryConfirmed) &&
+        bool(row.isolationProtectionControlled) &&
+        bool(row.hazardsControlled) &&
+        bool(row.operatingPlanApproved) &&
+        bool(row.fieldStatusCurrent) &&
+        bool(row.customerCommunicationsControlled) &&
+        bool(row.independentlyReviewed),
+      ),
+    (row, index) => String(row.id ?? `outage ${index + 1}`),
+    "controlled state, affected boundary, isolation/protection, hazards, approved operating plan, current field status, customer communication, or independent review is missing.",
+  );
+}
+
+function networkLoadCapacity(inputs: Record<string, unknown>): Evaluation {
+  const areas = records(inputs.areas, "Network areas").map((row, index) => ({
+    id: text(row.id, `Area ${index + 1} ID`),
+    demand: nonNegative(row.demand, `Area ${index + 1} demand`),
+    reserve: nonNegative(
+      row.reserveRequired,
+      `Area ${index + 1} reserve requirement`,
+    ),
+    unit: text(row.unit, `Area ${index + 1} unit`),
+    basisReady:
+      bool(row.boundaryCurrent) &&
+      bool(row.demandCertified) &&
+      bool(row.reservePolicyApproved),
+  }));
+  requireUnique(
+    areas.map((area) => area.id),
+    "Network areas",
+  );
+  const areaIds = new Set(areas.map((area) => area.id));
+  const sources = records(inputs.sources, "Capacity sources").map(
+    (row, index) => {
+      const areaId = text(row.areaId, `Source ${index + 1} area ID`);
+      if (!areaIds.has(areaId))
+        throw new InputError(
+          `Source ${index + 1} references unknown area ${areaId}.`,
+        );
+      return {
+        id: text(row.id, `Source ${index + 1} ID`),
+        areaId,
+        capacity: nonNegative(
+          row.availableCapacity,
+          `Source ${index + 1} available capacity`,
+        ),
+        unit: text(row.unit, `Source ${index + 1} unit`),
+        ready:
+          bool(row.available) &&
+          bool(row.protectionCurrent) &&
+          bool(row.configurationCurrent),
+      };
+    },
+  );
+  requireUnique(
+    sources.map((source) => source.id),
+    "Capacity sources",
+  );
+  const metrics: DomainMetric[] = [];
+  const findings: string[] = [];
+  const gaps: string[] = [];
+  for (const [index, area] of areas.entries()) {
+    const matching = sources.filter(
+      (source) => source.areaId === area.id && source.unit === area.unit,
+    );
+    const capacity = matching
+      .filter((source) => source.ready)
+      .reduce((sum, source) => sum + source.capacity, 0);
+    const margin = area.basisReady
+      ? capacity - area.demand - area.reserve
+      : null;
+    metrics.push(
+      {
+        key: `available_capacity_${index}`,
+        label: `${area.id} evidence-ready available capacity`,
+        value: area.basisReady ? round(capacity) : null,
+        unit: area.unit,
+      },
+      {
+        key: `planning_margin_${index}`,
+        label: `${area.id} planning capacity margin`,
+        value: margin == null ? null : round(margin),
+        unit: area.unit,
+      },
+    );
+    if (!area.basisReady)
+      gaps.push(
+        `${area.id}: current boundary, certified demand, or approved reserve policy is missing.`,
+      );
+    for (const source of sources.filter(
+      (item) => item.areaId === area.id && item.unit !== area.unit,
+    ))
+      gaps.push(
+        `${source.id}: ${source.unit} does not match ${area.id} unit ${area.unit}; no conversion was inferred.`,
+      );
+    for (const source of matching.filter((item) => !item.ready))
+      gaps.push(
+        `${source.id}: excluded because availability, protection, or configuration state is incomplete.`,
+      );
+    if (margin != null) {
+      findings.push(
+        `${area.id}: ${round(capacity)} ${area.unit} available minus ${round(area.demand)} demand and ${round(area.reserve)} approved reserve = ${round(margin)} ${area.unit} planning margin.`,
+      );
+      if (margin < 0)
+        gaps.push(
+          `${area.id}: planning capacity is ${round(-margin)} ${area.unit} below demand plus supplied reserve requirement.`,
+        );
+    }
+  }
+  return {
+    summary: `${areas.length} bounded network area(s) were reconciled using exact supplied units; arithmetic margins do not establish network deliverability.`,
+    metrics,
+    findings,
+    gaps,
+    assumptions: [
+      "Demand, available capacity, reserve requirements, boundaries, protection state, and configuration state share the same approved time basis.",
+    ],
+    formulae: [
+      "Planning capacity margin = Σ evidence-ready supplied available capacity - supplied demand - supplied approved reserve requirement.",
+    ],
+  };
+}
+
+function stormMobilizationReadiness(
+  inputs: Record<string, unknown>,
+): Evaluation {
+  const areas = records(inputs.areas, "Storm response areas");
+  requireUnique(
+    areas.map((row, index) => text(row.id, `Response area ${index + 1} ID`)),
+    "Storm response areas",
+  );
+  return coverageEvaluation(
+    "storm mobilization",
+    areas,
+    (row) =>
+      Boolean(
+        row.id &&
+        bool(row.incidentCommandActivated) &&
+        bool(row.hazardBasisApproved) &&
+        bool(row.mutualAidDispositionApproved) &&
+        (!bool(row.mutualAidRequired) || bool(row.mutualAidConfirmed)) &&
+        bool(row.materialsReady) &&
+        bool(row.communicationsTested) &&
+        bool(row.logisticsReady) &&
+        bool(row.operatingProceduresCurrent) &&
+        bool(row.independentlyReviewed),
+      ),
+    (row, index) => String(row.id ?? `response area ${index + 1}`),
+    "incident command, approved hazard basis, applicable mutual aid, materials, tested communications, logistics, current operating procedures, or independent review is missing.",
+  );
+}
+
 function stormDispatch(inputs: Record<string, unknown>): Evaluation {
   const incidents = records(inputs.incidents, "Storm incidents");
   const crews = records(inputs.crews, "Available crews").map((crew, index) => ({
     id: text(crew.id, `Crew ${index + 1} ID`),
     status: text(crew.status, `Crew ${index + 1} status`),
     skills: strings(crew.skills),
-    remaining: positive(
+    remaining: nonNegative(
       crew.availableHours,
       `Crew ${index + 1} available hours`,
     ),
   }));
+  requireUnique(
+    crews.map((crew) => crew.id),
+    "Available crews",
+  );
+  if (crews.some((crew) => crew.skills.length === 0))
+    throw new InputError(
+      "Every available crew requires at least one supplied skill.",
+    );
   const travel = object(inputs.travelMinutes, "Travel-time matrix");
   const weights = object(inputs.priorityWeights, "Priority weights");
   const severityWeight = nonNegative(weights.severity, "Severity weight");
   const customerWeight = nonNegative(weights.customers, "Customer weight");
-  const travelWeight = nonNegative(weights.travel, "Travel weight");
+  const travelWeight = positive(weights.travel, "Travel weight");
+  if (severityWeight + customerWeight <= 0)
+    throw new InputError(
+      "At least one approved incident-priority weight must be positive.",
+    );
   const ordered = incidents
     .map((incident, index) => ({
       incident,
@@ -428,6 +785,14 @@ function stormDispatch(inputs: Record<string, unknown>): Evaluation {
       skills: strings(incident.requiredSkills),
     }))
     .sort((a, b) => b.priority - a.priority || a.id.localeCompare(b.id));
+  requireUnique(
+    ordered.map((item) => item.id),
+    "Storm incidents",
+  );
+  if (ordered.some((item) => item.skills.length === 0))
+    throw new InputError(
+      "Every storm incident requires at least one supplied skill.",
+    );
   const assignments: string[] = [];
   const gaps: string[] = [];
   for (const item of ordered) {
@@ -492,6 +857,83 @@ function stormDispatch(inputs: Record<string, unknown>): Evaluation {
     formulae: [
       "Priority score = severity × approved severity weight + customers affected × approved customer weight.",
       "Within each priority-ordered incident, choose the eligible crew with minimum supplied travel time × approved travel weight.",
+    ],
+  };
+}
+
+function networkRestorationPrioritization(
+  inputs: Record<string, unknown>,
+): Evaluation {
+  const graph = utilityNetworkGraph(inputs);
+  const failed = failedNetworkIds(inputs, graph);
+  const readinessRows = records(inputs.readiness, "Restoration readiness");
+  const readiness = new Map<string, boolean>();
+  for (const [index, row] of readinessRows.entries()) {
+    const id = text(row.id, `Readiness ${index + 1} asset ID`);
+    if (readiness.has(id))
+      throw new InputError(
+        `Restoration readiness contains duplicate ID ${id}.`,
+      );
+    if (!failed.includes(id))
+      throw new InputError(
+        `${id} readiness is outside the confirmed failed set.`,
+      );
+    readiness.set(
+      id,
+      bool(row.isolationProtectionControlled) &&
+        bool(row.hazardsControlled) &&
+        bool(row.materialsReady) &&
+        bool(row.qualifiedCrewReady) &&
+        bool(row.fieldVerificationComplete) &&
+        bool(row.operatingApprovalRecorded),
+    );
+  }
+  const result = restorationOrder(graph, failed);
+  const gaps: string[] = [];
+  for (const id of failed) {
+    if (!readiness.has(id))
+      gaps.push(`${id}: no restoration-readiness record was supplied.`);
+    else if (!readiness.get(id))
+      gaps.push(
+        `${id}: isolation/protection, hazards, materials, qualified crew, field verification, or operating approval is incomplete.`,
+      );
+  }
+  if (result.cycles.length)
+    gaps.push(
+      `Dependency cycle refused: ${result.cycles[0].join(" → ")}. An approved blackstart, temporary supply, bypass, or engineered resolution is required.`,
+    );
+  return {
+    summary: `${result.steps.length} of ${failed.length} failed asset(s) received a canonical dependency-safe draft order; no switching, field, energization, pressure-restoration, or return-to-service instruction was issued.`,
+    metrics: [
+      {
+        key: "ordered",
+        label: "Dependency-ordered assets",
+        value: result.steps.length,
+        unit: "count",
+      },
+      {
+        key: "field_ready",
+        label: "Field-readiness evidenced",
+        value: failed.filter((id) => readiness.get(id) === true).length,
+        unit: "count",
+      },
+      {
+        key: "cycles",
+        label: "Unresolved dependency cycles",
+        value: result.cycles.length,
+        unit: "count",
+      },
+    ],
+    findings: result.steps.map(
+      (step) =>
+        `${step.order}. ${step.name} · ${readiness.get(step.id) === true ? "field-readiness evidenced" : "BLOCKED pending field readiness"} · ${step.reason}`,
+    ),
+    gaps,
+    assumptions: [
+      "The failed set, dependency graph, supplied consequence rank, isolation/protection state, hazards, materials, crew status, field verification, and operating approvals are current for the same restoration boundary.",
+    ],
+    formulae: [
+      "Canonical topological restoration order from src/lib/interdependency preserves supplier precedence, then applies supplied restoration rank/consequence/criticality with deterministic ID tie-breaking.",
     ],
   };
 }
@@ -3766,7 +4208,12 @@ const evaluators: Partial<
   "sis-proof-test-assurance": sisProofTestAssurance,
   "turnaround-readiness": turnaroundReadiness,
   "loss-of-containment-risk": lossOfContainmentRisk,
+  "network-reliability-impact": networkReliabilityImpact,
+  "outage-control-readiness": outageControlReadiness,
+  "network-load-capacity": networkLoadCapacity,
+  "storm-mobilization-readiness": stormMobilizationReadiness,
   "storm-crew-dispatch": stormDispatch,
+  "network-restoration-prioritization": networkRestorationPrioritization,
   "line-balancing": lineBalancing,
   "robot-health": robotHealth,
   "oee-loss-decomposition": oeeLossDecomposition,

@@ -499,13 +499,235 @@ export const DOMAIN_SPECIALIST_MODULES: DomainSpecialistModule[] = [
   {
     key: "utilities-storm-response",
     industryCode: "utilities",
-    label: "Utilities — Storm Mobilization & Crew Dispatch",
-    version: "1.0.0",
+    label: "Utilities — Network, Outage & Storm Response",
+    version: "1.1.0",
     reviewerRoleKey: "domain_storm_dispatch_reviewer",
     purpose:
-      "Prioritize incidents and produce a constraint-feasible draft crew assignment for dispatcher approval.",
+      "Trace network consequences, govern outage readiness, reconcile capacity, mobilize for storms, and prioritize restoration without issuing operating commands.",
     dataClasses: ["operational", "safety_critical"],
     methods: [
+      method({
+        key: "network-reliability-impact",
+        label: "Network reliability and cascade impact",
+        purpose:
+          "Reuse the canonical dependency engine to expose structural service loss, degraded capacity, and single-point exposure from a supplied outage set.",
+        kind: "engineering_calculation",
+        algorithm:
+          "Validate the supplied dependency graph, then apply canonical baseline-settled loss propagation and single-point analysis; no failure probability or duration is inferred.",
+        requiredInputs: [
+          records(
+            "nodes",
+            "Network nodes",
+            "Controlled node identity, service, consequence, criticality, and restoration rank.",
+          ),
+          records(
+            "edges",
+            "Network dependencies",
+            "Supplier/dependent identity, dependency kind, redundancy group, minimum required and supplied capacity share.",
+          ),
+          records(
+            "failedAssets",
+            "Outage origins",
+            "Controlled IDs of assets explicitly confirmed unavailable.",
+          ),
+        ],
+        requiredEvidence: [
+          "controlled-network-model",
+          "network-dependency-evidence",
+          "confirmed-outage-state",
+          "service-and-consequence-register",
+        ],
+        authorityReferences: [
+          "approved utility network model",
+          "system operating and contingency plan",
+          "customer service consequence criteria",
+        ],
+        requiredApproverRole: "Utility network planning / operations authority",
+        limitations: [
+          "Structural propagation is not a power-flow, hydraulic, gas-flow, protection, probability, duration, SAIDI, SAIFI, or regulatory reliability calculation.",
+          "Does not isolate, switch, valve, dispatch, shed load, energize, or authorize continued operation.",
+        ],
+        exampleInputs: {
+          nodes: [
+            { id: "SUB-1", name: "Substation 1", criticality: "high" },
+            {
+              id: "FDR-1",
+              name: "Feeder 1",
+              serviceName: "District A",
+              consequenceClass: "customer",
+              restorationRank: 1,
+            },
+          ],
+          edges: [
+            {
+              supplier: "SUB-1",
+              dependent: "FDR-1",
+              kind: "electrical",
+              evidence: "SLD-14",
+            },
+          ],
+          failedAssets: [{ id: "SUB-1" }],
+        },
+      }),
+      method({
+        key: "outage-control-readiness",
+        label: "Outage management readiness",
+        purpose:
+          "Expose whether each declared outage has the controlled identity, safety, operating, field-status, communication, and approval evidence needed for human coordination.",
+        kind: "readiness",
+        algorithm:
+          "An outage is coordination-ready only when its controlled state, affected boundary, isolation/protection disposition, hazards, operating plan, field status, customer communication, and accountable review are explicit.",
+        requiredInputs: [
+          records(
+            "outages",
+            "Outage records",
+            "Outage ID and explicit evidence-state flags for each readiness element.",
+          ),
+        ],
+        requiredEvidence: [
+          "controlled-outage-register",
+          "isolation-and-protection-status",
+          "approved-operating-plan",
+          "field-and-customer-communication-log",
+        ],
+        authorityReferences: [
+          "utility outage-management procedure",
+          "switching/valving and safe-work rules",
+          "customer and regulator notification requirements",
+        ],
+        requiredApproverRole: "System operations / outage authority",
+        limitations: [
+          "Readiness is not an outage release, switching/valving order, clearance, energization, return-to-service, or regulatory declaration.",
+          "No missing isolation, protection, hazard, communication, or approval state is inferred as complete.",
+        ],
+        exampleInputs: {
+          outages: [
+            {
+              id: "OUT-1",
+              stateControlled: true,
+              boundaryConfirmed: true,
+              isolationProtectionControlled: true,
+              hazardsControlled: true,
+              operatingPlanApproved: true,
+              fieldStatusCurrent: true,
+              customerCommunicationsControlled: true,
+              independentlyReviewed: true,
+            },
+          ],
+        },
+      }),
+      method({
+        key: "network-load-capacity",
+        label: "Network load and capacity margin",
+        purpose:
+          "Reconcile exact-unit available capacity, supplied demand, and approved reserve requirements by bounded network area.",
+        kind: "engineering_calculation",
+        algorithm:
+          "For each area and unit, evidence-ready available source capacity minus supplied demand minus supplied approved reserve requirement equals planning margin; unit conversion and network feasibility are not inferred.",
+        requiredInputs: [
+          records(
+            "areas",
+            "Network areas",
+            "Area ID, demand, reserve requirement, exact unit, and current boundary/evidence state.",
+          ),
+          records(
+            "sources",
+            "Capacity sources",
+            "Area ID, available capacity, exact unit, and availability/protection/configuration evidence state.",
+          ),
+        ],
+        requiredEvidence: [
+          "certified-load-or-demand-snapshot",
+          "available-capacity-register",
+          "protection-and-configuration-status",
+          "approved-reserve-policy",
+        ],
+        authorityReferences: [
+          "approved network planning model",
+          "system operating limits",
+          "adopted reserve and contingency policy",
+        ],
+        requiredApproverRole: "Utility system planning / control authority",
+        limitations: [
+          "Arithmetic capacity margin is not a power-flow, hydraulic, gas-flow, voltage, pressure, transient, stability, protection, or deliverability result.",
+          "Does not connect or disconnect supply, transfer load, change setpoints, shed service, or authorize operation.",
+        ],
+        exampleInputs: {
+          areas: [
+            {
+              id: "AREA-1",
+              demand: 70,
+              reserveRequired: 10,
+              unit: "MW",
+              boundaryCurrent: true,
+              demandCertified: true,
+              reservePolicyApproved: true,
+            },
+          ],
+          sources: [
+            {
+              id: "GEN-1",
+              areaId: "AREA-1",
+              availableCapacity: 95,
+              unit: "MW",
+              available: true,
+              protectionCurrent: true,
+              configurationCurrent: true,
+            },
+          ],
+        },
+      }),
+      method({
+        key: "storm-mobilization-readiness",
+        label: "Storm mobilization readiness",
+        purpose:
+          "Assess the evidence posture for incident command, hazards, mutual aid, materials, communications, logistics, and controlled operating procedures before mobilization.",
+        kind: "readiness",
+        algorithm:
+          "A storm response area is ready only when every applicable mobilization control is explicitly evidenced, including an approved not-applicable disposition where mutual aid is not required.",
+        requiredInputs: [
+          records(
+            "areas",
+            "Storm response areas",
+            "Area ID and explicit readiness flags for incident command, hazard basis, mutual aid disposition, materials, communications, logistics, procedures, and review.",
+          ),
+        ],
+        requiredEvidence: [
+          "approved-storm-response-plan",
+          "current-hazard-forecast",
+          "mutual-aid-and-resource-status",
+          "emergency-logistics-and-communications-test",
+        ],
+        authorityReferences: [
+          "utility emergency-response plan",
+          "incident command system",
+          "mutual-aid agreements",
+          "switching/valving and safe-work rules",
+        ],
+        requiredApproverRole:
+          "Storm incident commander / emergency management authority",
+        limitations: [
+          "Does not activate incident command, request mutual aid, mobilize crews, issue public warnings, or direct field work.",
+          "Forecasts and resource states are supplied evidence and must be re-confirmed by the accountable authority.",
+        ],
+        exampleInputs: {
+          areas: [
+            {
+              id: "NORTH",
+              incidentCommandActivated: true,
+              hazardBasisApproved: true,
+              mutualAidRequired: true,
+              mutualAidDispositionApproved: true,
+              mutualAidConfirmed: true,
+              materialsReady: true,
+              communicationsTested: true,
+              logisticsReady: true,
+              operatingProceduresCurrent: true,
+              independentlyReviewed: true,
+            },
+          ],
+        },
+      }),
       method({
         key: "storm-crew-dispatch",
         label: "Storm mobilization and crew dispatch",
@@ -573,6 +795,100 @@ export const DOMAIN_SPECIALIST_MODULES: DomainSpecialistModule[] = [
             },
           ],
           travelMinutes: { "C-1:I-1": 25 },
+        },
+      }),
+      method({
+        key: "network-restoration-prioritization",
+        label: "Network restoration prioritization",
+        purpose:
+          "Reuse the canonical dependency-order engine and expose field-readiness blockers without issuing a restoration or energization sequence.",
+        kind: "optimization",
+        algorithm:
+          "Canonical topological restoration order preserves supplier precedence and supplied consequence rank; each step is separately screened for isolation, hazard, material, crew, field verification, and operating-approval readiness.",
+        requiredInputs: [
+          records(
+            "nodes",
+            "Network nodes",
+            "Controlled node identity, service, consequence, criticality, and restoration rank.",
+          ),
+          records(
+            "edges",
+            "Network dependencies",
+            "Supplier/dependent identity and controlled dependency evidence.",
+          ),
+          records(
+            "failedAssets",
+            "Confirmed unavailable assets",
+            "Controlled IDs in the failed restoration set.",
+          ),
+          records(
+            "readiness",
+            "Restoration readiness",
+            "Per-asset isolation, hazard, material, crew, field verification, and operating-approval state.",
+          ),
+        ],
+        requiredEvidence: [
+          "controlled-network-model",
+          "confirmed-damage-and-outage-state",
+          "restoration-resource-and-material-status",
+          "isolation-protection-and-field-verification",
+          "approved-restoration-policy",
+        ],
+        authorityReferences: [
+          "approved system restoration plan",
+          "switching/valving and safe-work rules",
+          "incident command and operating authority matrix",
+        ],
+        requiredApproverRole: "System restoration / incident command authority",
+        limitations: [
+          "The result is dependency-safe decision support, not a switching/valving order, field instruction, dispatch, energization, pressure restoration, or return-to-service authorization.",
+          "Dependency cycles are refused and require an authority-approved blackstart, temporary supply, bypass, or other engineered resolution.",
+        ],
+        exampleInputs: {
+          nodes: [
+            {
+              id: "SUB-1",
+              name: "Substation 1",
+              consequenceClass: "regulatory",
+              restorationRank: 1,
+            },
+            {
+              id: "FDR-1",
+              name: "Feeder 1",
+              serviceName: "District A",
+              consequenceClass: "customer",
+              restorationRank: 2,
+            },
+          ],
+          edges: [
+            {
+              supplier: "SUB-1",
+              dependent: "FDR-1",
+              kind: "electrical",
+              evidence: "SLD-14",
+            },
+          ],
+          failedAssets: [{ id: "SUB-1" }, { id: "FDR-1" }],
+          readiness: [
+            {
+              id: "SUB-1",
+              isolationProtectionControlled: true,
+              hazardsControlled: true,
+              materialsReady: true,
+              qualifiedCrewReady: true,
+              fieldVerificationComplete: true,
+              operatingApprovalRecorded: true,
+            },
+            {
+              id: "FDR-1",
+              isolationProtectionControlled: true,
+              hazardsControlled: true,
+              materialsReady: true,
+              qualifiedCrewReady: true,
+              fieldVerificationComplete: true,
+              operatingApprovalRecorded: true,
+            },
+          ],
         },
       }),
     ],
