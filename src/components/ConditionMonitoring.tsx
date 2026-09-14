@@ -180,7 +180,11 @@ export function ConditionMonitoring() {
   const [busy, setBusy] = useState(false);
   const [flash, setFlash] = useState<string | null>(null);
 
-  if (loading) return <LoadingState label="Loading condition monitoring" />;
+  // Keep the last verified payload visible during a background refetch. Apart
+  // from avoiding a disruptive full-panel flash, this preserves the human-
+  // readable receipt for the action that initiated the refresh.
+  if (loading && !data)
+    return <LoadingState label="Loading condition monitoring" />;
   if (error) return <ErrorState message={error} onRetry={refetch} />;
 
   const cov = data?.coverage;
