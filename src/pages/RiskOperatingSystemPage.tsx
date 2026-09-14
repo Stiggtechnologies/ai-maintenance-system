@@ -110,6 +110,7 @@ import {
   EnterpriseRiskArchitecturePanel,
   RiskDecisionOperationsPanel,
 } from "../components/risk/RiskEnterprisePanels";
+import { ServiceContractRiskPanel } from "../components/risk/ServiceContractRiskPanel";
 
 type Tab =
   | "cockpit"
@@ -117,6 +118,7 @@ type Tab =
   | "controls"
   | "context"
   | "decision-ops"
+  | "contractual"
   | "enterprise"
   | "maturity"
   | "specialists"
@@ -4188,6 +4190,11 @@ export function RiskOperatingSystemPage() {
               icon: ClipboardCheck,
             },
             {
+              id: "contractual",
+              label: "Service & contract risk",
+              icon: Scale,
+            },
+            {
               id: "controls",
               label: "Controls & assurance",
               icon: ShieldCheck,
@@ -5048,6 +5055,7 @@ export function RiskOperatingSystemPage() {
           onChanged={refetch}
         />
       )}
+      {tab === "contractual" && <ServiceContractRiskPanel />}
       {tab === "maturity" && (
         <div className="space-y-5">
           <div className="grid gap-5 xl:grid-cols-[.7fr_1.3fr]">
