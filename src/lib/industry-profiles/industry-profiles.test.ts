@@ -111,6 +111,24 @@ describe("the kernel-profile architecture (E1.01)", () => {
     expect(transport.operationalShare).toBe(1);
   });
 
+  it("binds the utilities profile to the complete governed network response family", () => {
+    const utilities = assessProfile(
+      INDUSTRY_PROFILES.find(
+        (profile) => profile.industryCode === "utilities",
+      )!,
+    );
+    expect(utilities.domainModules[0].methods).toEqual([
+      "network-reliability-impact",
+      "outage-control-readiness",
+      "network-load-capacity",
+      "storm-mobilization-readiness",
+      "storm-crew-dispatch",
+      "network-restoration-prioritization",
+    ]);
+    expect(utilities.proseOnly).toEqual([]);
+    expect(utilities.operationalShare).toBe(1);
+  });
+
   it("binds the battery profile to safety/degradation contexts and four governed methods", () => {
     const battery = assessProfile(
       INDUSTRY_PROFILES.find(

@@ -13,6 +13,7 @@ const migration = [
   read("supabase/migrations/20261219250000_process_industry_pack.sql"),
   read("supabase/migrations/20261219260000_manufacturing_pack.sql"),
   read("supabase/migrations/20261219280000_transportation_pack.sql"),
+  read("supabase/migrations/20261219290000_utilities_network_pack.sql"),
 ]
   .join("\n")
   // Additive migrations patch deployed function definitions through SQL
@@ -56,6 +57,31 @@ describe("domain specialist production contract", () => {
       "when ''fleet-replacement-prioritization'' then array[",
     );
     expect(transport).toContain(
+      "revoke all on function public.domain_specialist_required_evidence",
+    );
+  });
+
+  it("patches the five missing utilities methods after the live storm-dispatch anchor", () => {
+    const utilities = read(
+      "supabase/migrations/20261219290000_utilities_network_pack.sql",
+    );
+    expect(utilities).toContain(
+      "expected utilities-to-manufacturing successor is absent",
+    );
+    expect(utilities).toContain(
+      "(''utilities-storm-response'',''network-reliability-impact'')",
+    );
+    expect(utilities).toContain(
+      "when ''outage-control-readiness'' then array[",
+    );
+    expect(utilities).toContain("when ''network-load-capacity'' then array[");
+    expect(utilities).toContain(
+      "when ''storm-mobilization-readiness'' then array[",
+    );
+    expect(utilities).toContain(
+      "when ''network-restoration-prioritization'' then array[",
+    );
+    expect(utilities).toContain(
       "revoke all on function public.domain_specialist_required_evidence",
     );
   });

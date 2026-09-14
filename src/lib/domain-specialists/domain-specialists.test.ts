@@ -23,13 +23,161 @@ describe("domain-depth specialist registry", () => {
     const methods = DOMAIN_SPECIALIST_MODULES.flatMap((module) =>
       module.methods.map((method) => method.key),
     );
-    expect(methods).toHaveLength(62);
+    expect(methods).toHaveLength(67);
     expect(new Set(methods).size).toBe(methods.length);
     expect(registeredDomainEvaluatorKeys()).toEqual([...methods].sort());
     expect(
       new Set(DOMAIN_SPECIALIST_MODULES.map((module) => module.reviewerRoleKey))
         .size,
     ).toBe(17);
+  });
+
+  it("makes the complete utilities/network family executable and non-authoritative", () => {
+    const module = DOMAIN_SPECIALIST_MODULES.find(
+      (candidate) => candidate.key === "utilities-storm-response",
+    )!;
+    expect(module.methods.map((method) => method.key)).toEqual([
+      "network-reliability-impact",
+      "outage-control-readiness",
+      "network-load-capacity",
+      "storm-mobilization-readiness",
+      "storm-crew-dispatch",
+      "network-restoration-prioritization",
+    ]);
+    for (const method of module.methods) {
+      const result = evaluateDomainSpecialist({
+        moduleKey: module.key,
+        methodKey: method.key,
+        inputs: method.exampleInputs,
+        evidence: evidenceFor(method.requiredEvidence),
+      });
+      expect(result.status, `${method.key}: ${result.gaps}`).toBe("draft");
+      expect(result.authoritative).toBe(false);
+      expect(result.humanApprovalRequired).toBe(true);
+      expect(result.requiredApproverRoleKey).toBe(
+        "domain_storm_dispatch_reviewer",
+      );
+    }
+  });
+
+  it("uses canonical network propagation without presenting a reliability probability", () => {
+    const method = DOMAIN_SPECIALIST_MODULES.find(
+      (module) => module.key === "utilities-storm-response",
+    )!.methods.find(
+      (candidate) => candidate.key === "network-reliability-impact",
+    )!;
+    const result = evaluateDomainSpecialist({
+      moduleKey: "utilities-storm-response",
+      methodKey: method.key,
+      inputs: method.exampleInputs,
+      evidence: evidenceFor(method.requiredEvidence),
+    });
+    expect(
+      result.metrics.find((metric) => metric.key === "lost_nodes")?.value,
+    ).toBe(2);
+    expect(result.summary).toMatch(/not a probabilistic or regulatory/i);
+    expect(method.limitations.join(" ")).toMatch(/not a power-flow/i);
+  });
+
+  it("blocks an outage readiness claim when isolation and protection are incomplete", () => {
+    const method = DOMAIN_SPECIALIST_MODULES.find(
+      (module) => module.key === "utilities-storm-response",
+    )!.methods.find(
+      (candidate) => candidate.key === "outage-control-readiness",
+    )!;
+    const inputs = structuredClone(method.exampleInputs);
+    (
+      inputs.outages as Record<string, unknown>[]
+    )[0].isolationProtectionControlled = false;
+    const result = evaluateDomainSpecialist({
+      moduleKey: "utilities-storm-response",
+      methodKey: method.key,
+      inputs,
+      evidence: evidenceFor(method.requiredEvidence),
+    });
+    expect(
+      result.metrics.find((metric) => metric.key === "coverage")?.value,
+    ).toBe(0);
+    expect(result.gaps.join(" ")).toMatch(/isolation\/protection/);
+  });
+
+  it("does not infer a network capacity unit conversion", () => {
+    const method = DOMAIN_SPECIALIST_MODULES.find(
+      (module) => module.key === "utilities-storm-response",
+    )!.methods.find((candidate) => candidate.key === "network-load-capacity")!;
+    const inputs = structuredClone(method.exampleInputs);
+    (inputs.sources as Record<string, unknown>[])[0].unit = "kW";
+    const result = evaluateDomainSpecialist({
+      moduleKey: "utilities-storm-response",
+      methodKey: method.key,
+      inputs,
+      evidence: evidenceFor(method.requiredEvidence),
+    });
+    expect(
+      result.metrics.find((metric) => metric.key === "planning_margin_0")
+        ?.value,
+    ).toBe(-80);
+    expect(result.gaps.join(" ")).toMatch(/no conversion was inferred/);
+  });
+
+  it("requires confirmed mutual aid where the storm plan marks it applicable", () => {
+    const method = DOMAIN_SPECIALIST_MODULES.find(
+      (module) => module.key === "utilities-storm-response",
+    )!.methods.find(
+      (candidate) => candidate.key === "storm-mobilization-readiness",
+    )!;
+    const inputs = structuredClone(method.exampleInputs);
+    (inputs.areas as Record<string, unknown>[])[0].mutualAidConfirmed = false;
+    const result = evaluateDomainSpecialist({
+      moduleKey: "utilities-storm-response",
+      methodKey: method.key,
+      inputs,
+      evidence: evidenceFor(method.requiredEvidence),
+    });
+    expect(result.gaps.join(" ")).toMatch(/mutual aid/);
+  });
+
+  it("refuses a crew-dispatch request with an empty required skill set", () => {
+    const method = DOMAIN_SPECIALIST_MODULES.find(
+      (module) => module.key === "utilities-storm-response",
+    )!.methods.find((candidate) => candidate.key === "storm-crew-dispatch")!;
+    const inputs = structuredClone(method.exampleInputs);
+    (inputs.incidents as Record<string, unknown>[])[0].requiredSkills = [];
+    const result = evaluateDomainSpecialist({
+      moduleKey: "utilities-storm-response",
+      methodKey: method.key,
+      inputs,
+      evidence: evidenceFor(method.requiredEvidence),
+    });
+    expect(result.status).toBe("blocked");
+    expect(result.gaps.join(" ")).toMatch(
+      /requires at least one supplied skill/,
+    );
+  });
+
+  it("refuses a restoration dependency cycle instead of inventing a sequence", () => {
+    const method = DOMAIN_SPECIALIST_MODULES.find(
+      (module) => module.key === "utilities-storm-response",
+    )!.methods.find(
+      (candidate) => candidate.key === "network-restoration-prioritization",
+    )!;
+    const inputs = structuredClone(method.exampleInputs);
+    (inputs.edges as Record<string, unknown>[]).push({
+      supplier: "FDR-1",
+      dependent: "SUB-1",
+      kind: "electrical",
+      evidence: "SLD-14",
+    });
+    const result = evaluateDomainSpecialist({
+      moduleKey: "utilities-storm-response",
+      methodKey: method.key,
+      inputs,
+      evidence: evidenceFor(method.requiredEvidence),
+    });
+    expect(
+      result.metrics.find((metric) => metric.key === "cycles")?.value,
+    ).toBe(1);
+    expect(result.gaps.join(" ")).toMatch(/Dependency cycle refused/);
   });
 
   it("makes the complete fleet/transportation family executable and non-authoritative", () => {
