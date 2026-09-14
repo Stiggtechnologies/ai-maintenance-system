@@ -4,6 +4,15 @@ import { useAsyncData } from "../hooks/useAsyncData";
 import { useAuth } from "./AuthProvider";
 import { ErrorState, LoadingState } from "./ui/AsyncStates";
 import {
+  buildJurisdictionRequirement,
+  EMPTY_JURISDICTION_REQUIREMENT,
+  JURISDICTION_APPLICABILITY,
+  JURISDICTION_OBLIGATIONS,
+  JURISDICTION_REQUIREMENT_CLASSES,
+  JURISDICTION_REQUIREMENT_DOMAINS,
+  type JurisdictionRequirementDraft,
+} from "../lib/jurisdiction-requirements";
+import {
   adoptCapabilityPackLayer,
   authorCapabilityPackLayer,
   canApprovePackOverride,
@@ -35,7 +44,8 @@ function parseValue(value: string): unknown {
   const trimmed = value.trim();
   if (trimmed === "true") return true;
   if (trimmed === "false") return false;
-  if (trimmed !== "" && Number.isFinite(Number(trimmed))) return Number(trimmed);
+  if (trimmed !== "" && Number.isFinite(Number(trimmed)))
+    return Number(trimmed);
   return trimmed;
 }
 
@@ -53,6 +63,9 @@ const EMPTY_DRAFT = {
   assetId: "",
   evidenceBasis: "",
   values: [{ key: "", value: "" }],
+  jurisdictionRequirements: [
+    { ...EMPTY_JURISDICTION_REQUIREMENT },
+  ] as JurisdictionRequirementDraft[],
 };
 
 export function LayeredCapabilityPacks() {
@@ -65,8 +78,9 @@ export function LayeredCapabilityPacks() {
   );
   const [draft, setDraft] = useState(EMPTY_DRAFT);
   const [selectedAsset, setSelectedAsset] = useState("");
-  const [resolved, setResolved] =
-    useState<ResolvedCapabilityPackStack | null>(null);
+  const [resolved, setResolved] = useState<ResolvedCapabilityPackStack | null>(
+    null,
+  );
   const [reviewing, setReviewing] = useState<string | null>(null);
   const [reviewNote, setReviewNote] = useState("");
   const [busy, setBusy] = useState(false);
@@ -106,11 +120,24 @@ export function LayeredCapabilityPacks() {
   };
 
   const submitDraft = async () => {
-    const configuration = Object.fromEntries(
-      draft.values
-        .filter((item) => item.key.trim() && item.value.trim())
-        .map((item) => [item.key.trim(), parseValue(item.value)]),
-    );
+    let configuration: Record<string, unknown>;
+    try {
+      configuration = Object.fromEntries(
+        draft.values
+          .filter((item) => item.key.trim() && item.value.trim())
+          .map((item) => [item.key.trim(), parseValue(item.value)]),
+      );
+      if (draft.layerKind === "jurisdiction")
+        configuration.jurisdiction_requirements =
+          draft.jurisdictionRequirements.map(buildJurisdictionRequirement);
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Jurisdiction requirements are invalid.",
+      );
+      return;
+    }
     const created = await run(
       () =>
         authorCapabilityPackLayer({
@@ -147,7 +174,7 @@ export function LayeredCapabilityPacks() {
           data-testid="pack-stack-authority"
           className="mt-2 rounded-xl border border-white/8 bg-industrial-black/60 px-4 py-3 text-xs text-slate-400"
         >
-          {data?.controls.precedence}. {data?.controls.override} {" "}
+          {data?.controls.precedence}. {data?.controls.override}{" "}
           {data?.controls.execution}
         </p>
       </div>
@@ -207,7 +234,9 @@ export function LayeredCapabilityPacks() {
                 );
               } catch (error) {
                 setMessage(
-                  error instanceof Error ? error.message : "Unable to resolve stack.",
+                  error instanceof Error
+                    ? error.message
+                    : "Unable to resolve stack.",
                 );
               } finally {
                 setBusy(false);
@@ -248,7 +277,8 @@ export function LayeredCapabilityPacks() {
                     {formatValue(source.value)}
                   </p>
                   <p className="mt-1 text-[10px] text-slate-500">
-                    Supplied by {source.layer.replace("_", " ")} · {source.title}
+                    Supplied by {source.layer.replace("_", " ")} ·{" "}
+                    {source.title}
                   </p>
                 </div>
               ))}
@@ -296,8 +326,12 @@ export function LayeredCapabilityPacks() {
                     Exact override review · {layer.approval_status}
                   </p>
                   {layer.override_diff.map((diff) => (
-                    <p key={diff.key} className="mt-1 text-[11px] text-slate-400">
-                      {diff.key}: {formatValue(diff.inherited)} → {formatValue(diff.proposed)}
+                    <p
+                      key={diff.key}
+                      className="mt-1 text-[11px] text-slate-400"
+                    >
+                      {diff.key}: {formatValue(diff.inherited)} →{" "}
+                      {formatValue(diff.proposed)}
                     </p>
                   ))}
                   {layer.status === "draft" && canReview && (
@@ -348,7 +382,10 @@ export function LayeredCapabilityPacks() {
             {(() => {
               const layer = data?.layers.find((item) => item.id === reviewing);
               if (!layer) return null;
-              if (layer.override_diff.length > 0 && layer.approval_status !== "approved") {
+              if (
+                layer.override_diff.length > 0 &&
+                layer.approval_status !== "approved"
+              ) {
                 return (
                   <>
                     <button
@@ -416,10 +453,12 @@ export function LayeredCapabilityPacks() {
       {canAuthorPack(role) && (
         <div className="rounded-xl border border-white/8 bg-overlook-deep/40 p-4">
           <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-200">
-            <ShieldCheck className="h-4 w-4 text-signal-cyan" /> Author a pack layer
+            <ShieldCheck className="h-4 w-4 text-signal-cyan" /> Author a pack
+            layer
           </h3>
           <p className="mt-1 text-xs text-slate-500">
-            New values inherit freely. Changed inherited values automatically create an exact-diff approval hold.
+            New values inherit freely. Changed inherited values automatically
+            create an exact-diff approval hold.
           </p>
           <div className="mt-3 grid gap-3 md:grid-cols-2">
             <select
@@ -443,7 +482,9 @@ export function LayeredCapabilityPacks() {
               aria-label="Layer title"
               className={inputClass}
               value={draft.title}
-              onChange={(event) => setDraft({ ...draft, title: event.target.value })}
+              onChange={(event) =>
+                setDraft({ ...draft, title: event.target.value })
+              }
               placeholder="Layer title"
             />
             {draft.layerKind === "sector" && (
@@ -492,7 +533,9 @@ export function LayeredCapabilityPacks() {
                 aria-label="Pack site"
                 className={inputClass}
                 value={draft.siteId}
-                onChange={(event) => setDraft({ ...draft, siteId: event.target.value })}
+                onChange={(event) =>
+                  setDraft({ ...draft, siteId: event.target.value })
+                }
               >
                 <option value="">Select a site</option>
                 {(data?.sites ?? []).map((site) => (
@@ -507,7 +550,9 @@ export function LayeredCapabilityPacks() {
                 aria-label="Pack asset"
                 className={inputClass}
                 value={draft.assetId}
-                onChange={(event) => setDraft({ ...draft, assetId: event.target.value })}
+                onChange={(event) =>
+                  setDraft({ ...draft, assetId: event.target.value })
+                }
               >
                 <option value="">Select an asset</option>
                 {(data?.assets ?? []).map((asset) => (
@@ -518,9 +563,236 @@ export function LayeredCapabilityPacks() {
               </select>
             )}
           </div>
+          {draft.layerKind === "jurisdiction" && (
+            <div className="mt-4 space-y-3 rounded-xl border border-signal-cyan/15 bg-industrial-black/35 p-4">
+              <div>
+                <h4 className="text-sm font-semibold text-slate-200">
+                  Jurisdiction requirements
+                </h4>
+                <p className="mt-1 text-xs text-slate-500">
+                  Class, applicability and obligation are explicit. Industry
+                  guidance remains advisory unless an accountable authority has
+                  adopted it and the adoption reference is recorded.
+                </p>
+              </div>
+              {draft.jurisdictionRequirements.map((requirement, index) => (
+                <fieldset
+                  key={index}
+                  className="grid gap-2 rounded-lg border border-white/8 p-3 md:grid-cols-2"
+                >
+                  <legend className="px-1 text-xs text-slate-400">
+                    Requirement {index + 1}
+                  </legend>
+                  <input
+                    aria-label={`Requirement key ${index + 1}`}
+                    className={inputClass}
+                    value={requirement.key}
+                    onChange={(event) => {
+                      const next = [...draft.jurisdictionRequirements];
+                      next[index] = { ...requirement, key: event.target.value };
+                      setDraft({ ...draft, jurisdictionRequirements: next });
+                    }}
+                    placeholder="pressure_vessel_inspection"
+                  />
+                  <input
+                    aria-label={`Requirement title ${index + 1}`}
+                    className={inputClass}
+                    value={requirement.title}
+                    onChange={(event) => {
+                      const next = [...draft.jurisdictionRequirements];
+                      next[index] = {
+                        ...requirement,
+                        title: event.target.value,
+                      };
+                      setDraft({ ...draft, jurisdictionRequirements: next });
+                    }}
+                    placeholder="Requirement title"
+                  />
+                  <select
+                    aria-label={`Requirement domain ${index + 1}`}
+                    className={inputClass}
+                    value={requirement.domain}
+                    onChange={(event) => {
+                      const next = [...draft.jurisdictionRequirements];
+                      next[index] = {
+                        ...requirement,
+                        domain: event.target
+                          .value as JurisdictionRequirementDraft["domain"],
+                      };
+                      setDraft({ ...draft, jurisdictionRequirements: next });
+                    }}
+                  >
+                    {JURISDICTION_REQUIREMENT_DOMAINS.map((domain) => (
+                      <option key={domain} value={domain}>
+                        {domain.replaceAll("_", " ")}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    aria-label={`Requirement class ${index + 1}`}
+                    className={inputClass}
+                    value={requirement.requirementClass}
+                    onChange={(event) => {
+                      const next = [...draft.jurisdictionRequirements];
+                      next[index] = {
+                        ...requirement,
+                        requirementClass: event.target
+                          .value as JurisdictionRequirementDraft["requirementClass"],
+                      };
+                      setDraft({ ...draft, jurisdictionRequirements: next });
+                    }}
+                  >
+                    {JURISDICTION_REQUIREMENT_CLASSES.map((item) => (
+                      <option key={item} value={item}>
+                        {item.replaceAll("_", " ")}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    aria-label={`Requirement applicability ${index + 1}`}
+                    className={inputClass}
+                    value={requirement.applicability}
+                    onChange={(event) => {
+                      const next = [...draft.jurisdictionRequirements];
+                      next[index] = {
+                        ...requirement,
+                        applicability: event.target
+                          .value as JurisdictionRequirementDraft["applicability"],
+                      };
+                      setDraft({ ...draft, jurisdictionRequirements: next });
+                    }}
+                  >
+                    {JURISDICTION_APPLICABILITY.map((item) => (
+                      <option key={item} value={item}>
+                        {item.replaceAll("_", " ")}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    aria-label={`Requirement obligation ${index + 1}`}
+                    className={inputClass}
+                    value={requirement.obligation}
+                    onChange={(event) => {
+                      const next = [...draft.jurisdictionRequirements];
+                      next[index] = {
+                        ...requirement,
+                        obligation: event.target
+                          .value as JurisdictionRequirementDraft["obligation"],
+                      };
+                      setDraft({ ...draft, jurisdictionRequirements: next });
+                    }}
+                  >
+                    {JURISDICTION_OBLIGATIONS.map((item) => (
+                      <option key={item} value={item}>
+                        {item.replaceAll("_", " ")}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    aria-label={`Requirement authority reference ${index + 1}`}
+                    className={inputClass}
+                    value={requirement.authorityReference}
+                    onChange={(event) => {
+                      const next = [...draft.jurisdictionRequirements];
+                      next[index] = {
+                        ...requirement,
+                        authorityReference: event.target.value,
+                      };
+                      setDraft({ ...draft, jurisdictionRequirements: next });
+                    }}
+                    placeholder="Instrument, clause or controlled standard"
+                  />
+                  <input
+                    aria-label={`Requirement applicability basis ${index + 1}`}
+                    className={inputClass}
+                    value={requirement.applicabilityBasis}
+                    onChange={(event) => {
+                      const next = [...draft.jurisdictionRequirements];
+                      next[index] = {
+                        ...requirement,
+                        applicabilityBasis: event.target.value,
+                      };
+                      setDraft({ ...draft, jurisdictionRequirements: next });
+                    }}
+                    placeholder="Why this requirement applies to this scope"
+                  />
+                  {requirement.obligation === "mandatory" && (
+                    <input
+                      aria-label={`Requirement mandatory basis ${index + 1}`}
+                      className={inputClass}
+                      value={requirement.mandatoryBasis}
+                      onChange={(event) => {
+                        const next = [...draft.jurisdictionRequirements];
+                        next[index] = {
+                          ...requirement,
+                          mandatoryBasis: event.target.value,
+                        };
+                        setDraft({ ...draft, jurisdictionRequirements: next });
+                      }}
+                      placeholder="Why this requirement is mandatory"
+                    />
+                  )}
+                  {requirement.requirementClass === "industry_guidance" &&
+                    requirement.obligation === "mandatory" && (
+                      <input
+                        aria-label={`Requirement adoption reference ${index + 1}`}
+                        className={inputClass}
+                        value={requirement.adoptedByReference}
+                        onChange={(event) => {
+                          const next = [...draft.jurisdictionRequirements];
+                          next[index] = {
+                            ...requirement,
+                            adoptedByReference: event.target.value,
+                          };
+                          setDraft({
+                            ...draft,
+                            jurisdictionRequirements: next,
+                          });
+                        }}
+                        placeholder="Policy, contract or authority adoption reference"
+                      />
+                    )}
+                  <button
+                    type="button"
+                    className="rounded-lg border border-white/10 px-3 py-2 text-xs text-slate-400 disabled:opacity-30 md:col-span-2"
+                    disabled={draft.jurisdictionRequirements.length === 1}
+                    onClick={() =>
+                      setDraft({
+                        ...draft,
+                        jurisdictionRequirements:
+                          draft.jurisdictionRequirements.filter(
+                            (_, requirementIndex) => requirementIndex !== index,
+                          ),
+                      })
+                    }
+                  >
+                    Remove requirement
+                  </button>
+                </fieldset>
+              ))}
+              <button
+                type="button"
+                className="rounded-lg border border-white/10 px-3 py-2 text-xs text-slate-300"
+                onClick={() =>
+                  setDraft({
+                    ...draft,
+                    jurisdictionRequirements: [
+                      ...draft.jurisdictionRequirements,
+                      { ...EMPTY_JURISDICTION_REQUIREMENT },
+                    ],
+                  })
+                }
+              >
+                Add jurisdiction requirement
+              </button>
+            </div>
+          )}
           <div className="mt-3 space-y-2">
             {draft.values.map((item, index) => (
-              <div key={index} className="grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
+              <div
+                key={index}
+                className="grid gap-2 sm:grid-cols-[1fr_1fr_auto]"
+              >
                 <input
                   aria-label={`Configuration key ${index + 1}`}
                   className={inputClass}
@@ -549,7 +821,9 @@ export function LayeredCapabilityPacks() {
                   onClick={() =>
                     setDraft({
                       ...draft,
-                      values: draft.values.filter((_, itemIndex) => itemIndex !== index),
+                      values: draft.values.filter(
+                        (_, itemIndex) => itemIndex !== index,
+                      ),
                     })
                   }
                 >
@@ -583,7 +857,8 @@ export function LayeredCapabilityPacks() {
             disabled={busy}
             onClick={submitDraft}
           >
-            <CheckCircle2 className="mr-1 inline h-3.5 w-3.5" /> Save controlled draft
+            <CheckCircle2 className="mr-1 inline h-3.5 w-3.5" /> Save controlled
+            draft
           </button>
         </div>
       )}
