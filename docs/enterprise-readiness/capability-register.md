@@ -546,7 +546,7 @@ with the PR that changes an item's status._
 
 | ID    | Capability                                                                                                                                                                                                                         | Status |
 | ----- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
-| U9.01 | Consequence model incl. fatality/injury, environmental damage, customer interruption, vulnerable populations, public health, transportation disruption, community trust, infrastructure impact, reputational, political/regulatory | ❌     |
+| U9.01 | Consequence model incl. fatality/injury, environmental damage, customer interruption, vulnerable populations, public health, transportation disruption, community trust, infrastructure impact, reputational, political/regulatory | ✅ The customer-reachable Risk OS consequence workflow in `src/components/risk/RiskEnterprisePanels.tsx` and `src/services/riskOperatingService.ts` records all eleven atomic dimensions separately on canonical `risk_consequences`. `supabase/migrations/20261219320000_multidimensional_consequence_model.sql` requires an explicit known/estimated/predicted/unknown/conflicting state, substantive evidence basis, paired magnitude/unit, tenant ownership, named-human authorship and independent verification; self-review and foreign-tenant access are refused. `scripts/ci-consequence-model-smoke.sh` proves authenticated full coverage, audit lineage and the no-aggregate/no-risk-acceptance boundary. |
 
 ### U10 — Geospatial intelligence
 
@@ -776,6 +776,6 @@ record-scoped._
 
 Atomic items tracked: **397** — counted programmatically from the tables
 themselves (an earlier hand-stated figure of 307 under-counted; the enumeration
-never changed, only the count of it). Current tally: ✅ 287 · 🟡 168 · ❌ 11. _(2026-08-07: reconciled after parallel merges — C7.01/03/04/11 reliability engine, C4.13–17 + C6.22 closed-loop tail, C3.01–12 taxonomy, C5.04 scheduler all verified present on main.)_
+never changed, only the count of it). Current tally: ✅ 288 · 🟡 168 · ❌ 10. _(2026-08-07: reconciled after parallel merges — C7.01/03/04/11 reliability engine, C4.13–17 + C6.22 closed-loop tail, C3.01–12 taxonomy, C5.04 scheduler all verified present on main.)_
 Every ❌ and 🟡 is an open obligation of the program. No item may be removed;
 items may only change status with linked evidence in the PR that changes them.
