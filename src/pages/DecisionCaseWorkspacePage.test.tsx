@@ -69,12 +69,17 @@ function renderWorkspace(entry = "/workspace") {
   return render(
     <MemoryRouter initialEntries={[entry]}>
       <Routes>
+        <Route path="/" element={<DecisionCaseWorkspacePage publicMode />} />
         <Route
           path="/workspace"
           element={<DecisionCaseWorkspacePage publicMode />}
         />
         <Route
           path="/workspace/cases/:caseId"
+          element={<DecisionCaseWorkspacePage publicMode />}
+        />
+        <Route
+          path="/capabilities/:capabilityId"
           element={<DecisionCaseWorkspacePage publicMode />}
         />
       </Routes>
@@ -271,6 +276,19 @@ describe("DecisionCaseWorkspacePage — Bolt first paint", () => {
     renderWorkspace();
     fireEvent.click(screen.getByRole("button", { name: "Troubleshoot" }));
     expect(screen.getByText("Troubleshoot · Failure elimination")).toBeTruthy();
+    expect(screen.getByRole("button", { name: /^Evidence/ })).toHaveClass(
+      "active",
+    );
+  });
+
+  it("opens a shared capability URL directly in its governed record section", async () => {
+    renderWorkspace("/capabilities/troubleshoot");
+
+    await waitFor(() =>
+      expect(
+        screen.getByText("Troubleshoot · Failure elimination"),
+      ).toBeTruthy(),
+    );
     expect(screen.getByRole("button", { name: /^Evidence/ })).toHaveClass(
       "active",
     );
