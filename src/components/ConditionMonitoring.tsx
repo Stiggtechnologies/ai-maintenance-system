@@ -32,6 +32,7 @@ import {
 } from "../services/reliabilityCallers";
 import { plantHistorianActions } from "../services/plantHistorian";
 import type { PlantHistorianStatus } from "../lib/plant-historian";
+import { ConditionStatePanel } from "./ConditionStatePanel";
 
 interface Alert {
   id: string;
@@ -230,6 +231,8 @@ export function ConditionMonitoring() {
       <ContextualConditionEvidence
         payload={data?.contextual ?? EMPTY_CONTEXTUAL}
       />
+
+      <ConditionStatePanel />
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div className="rounded-xl border border-white/6 bg-overlook-deep/40 p-4">

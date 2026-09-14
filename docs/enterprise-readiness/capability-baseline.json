@@ -2298,10 +2298,10 @@
     "backticked": 0
   },
   "U18.01": {
-    "status": "❌",
-    "evidence": false,
-    "citations": 0,
-    "backticked": 0
+    "status": "✅",
+    "evidence": true,
+    "citations": 9,
+    "backticked": 9
   },
   "U18.02": {
     "status": "🟡",
