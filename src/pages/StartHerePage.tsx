@@ -1,7 +1,7 @@
 /**
  * Post-eval-signup "Start here" — moat floor toward Orville acceptance bar.
  * Sequential checklist: Ask → Recommend → Approve → LEARN → optional connector → Stage-1.
- * Does NOT claim seamless self-guided onboarding is complete or live.
+ * Honesty floor only — not a finished onboarding rehearsal.
  */
 import { useCallback, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -11,12 +11,7 @@ const STORAGE_KEY = "syncai.start-here-checklist.v1";
 const ROLE_KEY = "syncai.start-here-role.v1";
 
 type StepId =
-  | "ask"
-  | "recommend"
-  | "approve"
-  | "learn"
-  | "connector"
-  | "stage1";
+  "ask" | "recommend" | "approve" | "learn" | "connector" | "stage1";
 
 type Step = {
   id: StepId;
@@ -147,12 +142,12 @@ export function StartHerePage() {
           <div className="mt-4 flex items-start gap-2 rounded-lg border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-xs text-amber-100/90">
             <Shield className="mt-0.5 h-3.5 w-3.5 shrink-0" />
             <span>
-              Recommend is not authorize. No plant execute. No silent demo
-              case. Self-guided onboarding is not complete or live as a
-              seamless path — this page is the floor we are shipping, not a
-              finished rehearsal claim. Stage-1 gates here are a local
-              checklist, not certification. The optional connector is
-              read-only and is not a certified PI/CMMS adapter.
+              Recommend is not authorize. No plant execute. No silent demo case.
+              Self-guided onboarding is not complete or live as a seamless path
+              — this page is the floor we are shipping, not a finished rehearsal
+              claim. Stage-1 gates here are a local checklist, not
+              certification. The optional connector is read-only and is not a
+              certified PI/CMMS adapter.
             </span>
           </div>
         </header>
@@ -163,8 +158,8 @@ export function StartHerePage() {
         >
           <p className="text-sm font-semibold text-white">1. Role pick</p>
           <p className="mt-1 text-xs text-slate-400">
-            Choose how you will work this evaluation (local only — does not change
-            server role until an admin assigns it).
+            Choose how you will work this evaluation (local only — does not
+            change server role until an admin assigns it).
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
             {[
@@ -249,8 +244,7 @@ export function StartHerePage() {
         >
           <p className="text-sm font-semibold text-white">Secondary doors</p>
           <p className="mt-1 text-xs text-slate-400">
-            Optional surfaces after the checklist. Not a second onboarding
-            path.
+            Optional surfaces after the checklist. Not a second onboarding path.
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
             {SECONDARY_DOORS.map((door) => (

@@ -20,7 +20,7 @@ describe("StartHerePage (self-guided moat floor)", () => {
   it("is routed and used as signup returnTo", () => {
     const app = readFileSync("src/App.tsx", "utf8");
     const signup = readFileSync("src/pages/Signup.tsx", "utf8");
-    expect(app).toMatch(/path=\"\/start\"/);
+    expect(app).toMatch(/path="\/start"/);
     expect(app).toMatch(/StartHerePage/);
     expect(signup).toMatch(/returnTo=\/start/);
     expect(signup).not.toMatch(/returnTo=\/mission-control/);
@@ -36,16 +36,16 @@ describe("StartHerePage (self-guided moat floor)", () => {
     expect(src).toMatch(/Recommend is not authorize/);
     expect(src).toMatch(/No plant execute/);
     expect(src).toMatch(/start-here-role-pick/);
-    expect(src).toMatch(/id: \"ask\"/);
-    expect(src).toMatch(/id: \"learn\"/);
-    expect(src).toMatch(/id: \"connector\"/);
+    expect(src).toMatch(/id: "ask"/);
+    expect(src).toMatch(/id: "learn"/);
+    expect(src).toMatch(/id: "connector"/);
     expect(src).toMatch(/href: "\/decision-cases"/);
     expect(src).toMatch(/href: "\/integrations"/);
     expect(src).toMatch(/href: "\/mission-control"/);
     expect(src).toMatch(/href: "\/field"/);
     expect(src).not.toMatch(/CAD\s*\$?\s*7\.?5/i);
     expect(src).not.toMatch(/seamless onboarding is live/i);
-    expect(src).not.toMatch(/seamless self-guided onboarding is complete/i);
+    expect(src).toMatch(/not complete or live as a[\s\S]+seamless path/);
   });
 
   it("renders the authenticated Start here surface with role pick and doors", () => {
@@ -63,8 +63,10 @@ describe("StartHerePage (self-guided moat floor)", () => {
     expect(screen.getByRole("button", { name: "Ops" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Admin" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Field" })).toBeTruthy();
-    expect(screen.getByText(/Recommend is not authorize/)).toBeTruthy();
-    expect(screen.getByText(/No plant execute/)).toBeTruthy();
+    expect(
+      screen.getAllByText(/Recommend is not authorize/).length,
+    ).toBeGreaterThan(0);
+    expect(screen.getAllByText(/No plant execute/).length).toBeGreaterThan(0);
   });
 
   it("persists the local role pick without claiming a server role change", () => {
