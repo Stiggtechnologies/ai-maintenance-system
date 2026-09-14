@@ -62,8 +62,8 @@ create or replace function public.prevent_service_obligation_semantic_strip()
 returns trigger language plpgsql set search_path=public as $$
 begin
   if new.supersedes_id is not null and new.service_commitment_type is null
-    and exists(select 1 from public.risk_obligations old
-      where old.id=new.supersedes_id and old.service_commitment_type is not null) then
+    and exists(select 1 from public.risk_obligations prior
+      where prior.id=new.supersedes_id and prior.service_commitment_type is not null) then
     raise exception 'service obligations must use create_service_contract_obligation_version';
   end if;
   return new;

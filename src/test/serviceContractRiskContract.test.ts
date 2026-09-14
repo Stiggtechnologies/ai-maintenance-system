@@ -64,6 +64,8 @@ describe("U13.01 service and contractual recommendation-risk contract", () => {
     expect(sql).toContain("author cannot independently");
     expect(sql).toContain("recorded_by<>verified_by");
     expect(sql).toContain("prevent_service_obligation_semantic_strip");
+    expect(sql).not.toContain("from public.risk_obligations old");
+    expect(sql).toContain("from public.risk_obligations prior");
     expect(sql).toContain("create_service_contract_obligation_version");
     expect(sql).toContain("enable row level security");
     expect(sql).toContain("revoke insert,update,delete,truncate");
