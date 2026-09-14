@@ -32,6 +32,7 @@ import {
 } from "../services/reliabilityCallers";
 import { plantHistorianActions } from "../services/plantHistorian";
 import type { PlantHistorianStatus } from "../lib/plant-historian";
+import { ConditionStatePanel } from "./ConditionStatePanel";
 
 interface Alert {
   id: string;
@@ -179,7 +180,11 @@ export function ConditionMonitoring() {
   const [busy, setBusy] = useState(false);
   const [flash, setFlash] = useState<string | null>(null);
 
-  if (loading) return <LoadingState label="Loading condition monitoring" />;
+  // Keep the last verified payload visible during a background refetch. Apart
+  // from avoiding a disruptive full-panel flash, this preserves the human-
+  // readable receipt for the action that initiated the refresh.
+  if (loading && !data)
+    return <LoadingState label="Loading condition monitoring" />;
   if (error) return <ErrorState message={error} onRetry={refetch} />;
 
   const cov = data?.coverage;
@@ -230,6 +235,8 @@ export function ConditionMonitoring() {
       <ContextualConditionEvidence
         payload={data?.contextual ?? EMPTY_CONTEXTUAL}
       />
+
+      <ConditionStatePanel />
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div className="rounded-xl border border-white/6 bg-overlook-deep/40 p-4">

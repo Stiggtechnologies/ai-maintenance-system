@@ -396,6 +396,7 @@ describe("ConditionMonitoring adopt path", () => {
   });
 
   it("links an open alert through link_alert_to_work", async () => {
+    let monitoringReads = 0;
     listOpenWorkOrders.mockResolvedValue([
       {
         id: "wo1",
@@ -408,6 +409,11 @@ describe("ConditionMonitoring adopt path", () => {
     rpc.mockImplementation(async (name: unknown) => {
       if (name === "get_plant_historian_status") {
         return { data: UNCONFIGURED_HISTORIAN, error: null };
+      }
+      if (name === "get_condition_monitoring" && monitoringReads++ > 0) {
+        // A slow background refresh must not hide the action receipt or the
+        // previously verified workspace payload.
+        return new Promise(() => undefined);
       }
       return {
         data: {
