@@ -23,13 +23,167 @@ describe("domain-depth specialist registry", () => {
     const methods = DOMAIN_SPECIALIST_MODULES.flatMap((module) =>
       module.methods.map((method) => method.key),
     );
-    expect(methods).toHaveLength(58);
+    expect(methods).toHaveLength(62);
     expect(new Set(methods).size).toBe(methods.length);
     expect(registeredDomainEvaluatorKeys()).toEqual([...methods].sort());
     expect(
       new Set(DOMAIN_SPECIALIST_MODULES.map((module) => module.reviewerRoleKey))
         .size,
     ).toBe(17);
+  });
+
+  it("makes the complete fleet/transportation family executable and non-authoritative", () => {
+    const module = DOMAIN_SPECIALIST_MODULES.find(
+      (candidate) => candidate.key === "transport-logistics",
+    )!;
+    expect(module.methods.map((method) => method.key)).toEqual([
+      "fleet-duty-exposure",
+      "dispatch-availability",
+      "route-depot-optimization",
+      "fleet-configuration-trace",
+      "inspection-scheduling",
+      "fleet-replacement-prioritization",
+    ]);
+    for (const method of module.methods) {
+      const result = evaluateDomainSpecialist({
+        moduleKey: module.key,
+        methodKey: method.key,
+        inputs: method.exampleInputs,
+        evidence: evidenceFor(method.requiredEvidence),
+      });
+      expect(result.status, `${method.key}: ${result.gaps}`).toBe("draft");
+      expect(result.authoritative).toBe(false);
+      expect(result.humanApprovalRequired).toBe(true);
+      expect(result.requiredApproverRoleKey).toBe("domain_transport_reviewer");
+    }
+  });
+
+  it("blocks fleet duty shares when counters and classified segments do not reconcile", () => {
+    const method = DOMAIN_SPECIALIST_MODULES.find(
+      (module) => module.key === "transport-logistics",
+    )!.methods.find((candidate) => candidate.key === "fleet-duty-exposure")!;
+    const inputs = structuredClone(method.exampleInputs);
+    (inputs.assets as Record<string, unknown>[])[0].endReading = 120900;
+    const result = evaluateDomainSpecialist({
+      moduleKey: "transport-logistics",
+      methodKey: method.key,
+      inputs,
+      evidence: evidenceFor(method.requiredEvidence),
+    });
+    expect(
+      result.metrics.find((metric) => metric.key === "reconciled_assets")
+        ?.value,
+    ).toBe(0);
+    expect(result.gaps[0]).toMatch(/does not reconcile/);
+  });
+
+  it("excludes a dispatch candidate with an uncontrolled defect and reports the capacity deficit", () => {
+    const method = DOMAIN_SPECIALIST_MODULES.find(
+      (module) => module.key === "transport-logistics",
+    )!.methods.find((candidate) => candidate.key === "dispatch-availability")!;
+    const inputs = structuredClone(method.exampleInputs);
+    (inputs.assets as Record<string, unknown>[])[0].defectsControlled = false;
+    const result = evaluateDomainSpecialist({
+      moduleKey: "transport-logistics",
+      methodKey: method.key,
+      inputs,
+      evidence: evidenceFor(method.requiredEvidence),
+    });
+    expect(
+      result.metrics.find((metric) => metric.key === "eligible_capacity_0")
+        ?.value,
+    ).toBe(0);
+    expect(result.gaps.join(" ")).toMatch(
+      /defect\/restriction control incomplete/,
+    );
+    expect(result.gaps.join(" ")).toMatch(/below the supplied requirement/);
+  });
+
+  it("does not infer a dispatch capacity unit conversion", () => {
+    const method = DOMAIN_SPECIALIST_MODULES.find(
+      (module) => module.key === "transport-logistics",
+    )!.methods.find((candidate) => candidate.key === "dispatch-availability")!;
+    const inputs = structuredClone(method.exampleInputs);
+    (inputs.assets as Record<string, unknown>[])[0].unit = "kg";
+    const result = evaluateDomainSpecialist({
+      moduleKey: "transport-logistics",
+      methodKey: method.key,
+      inputs,
+      evidence: evidenceFor(method.requiredEvidence),
+    });
+    expect(
+      result.metrics.find((metric) => metric.key === "eligible_capacity_0")
+        ?.value,
+    ).toBe(0);
+    expect(result.gaps.join(" ")).toMatch(/no conversion was inferred/);
+  });
+
+  it("blocks fractional regulatory inspection intervals instead of truncating a due date", () => {
+    const method = DOMAIN_SPECIALIST_MODULES.find(
+      (module) => module.key === "transport-logistics",
+    )!.methods.find((candidate) => candidate.key === "inspection-scheduling")!;
+    const inputs = structuredClone(method.exampleInputs);
+    (inputs.assets as Record<string, unknown>[])[0].intervalDays = 180.5;
+    const result = evaluateDomainSpecialist({
+      moduleKey: "transport-logistics",
+      methodKey: method.key,
+      inputs,
+      evidence: evidenceFor(method.requiredEvidence),
+    });
+    expect(result.status).toBe("blocked");
+    expect(result.gaps[0]).toMatch(/positive integer/);
+  });
+
+  it("does not credit an incomplete fleet configuration trace", () => {
+    const method = DOMAIN_SPECIALIST_MODULES.find(
+      (module) => module.key === "transport-logistics",
+    )!.methods.find(
+      (candidate) => candidate.key === "fleet-configuration-trace",
+    )!;
+    const inputs = structuredClone(method.exampleInputs);
+    (inputs.assets as Record<string, unknown>[])[0].deviationsApproved = false;
+    const result = evaluateDomainSpecialist({
+      moduleKey: "transport-logistics",
+      methodKey: method.key,
+      inputs,
+      evidence: evidenceFor(method.requiredEvidence),
+    });
+    expect(
+      result.metrics.find((metric) => metric.key === "coverage")?.value,
+    ).toBe(0);
+    expect(result.gaps[0]).toMatch(/approved deviations/);
+  });
+
+  it("keeps mandatory fleet replacement obligations first without authorizing deferral or spend", () => {
+    const method = DOMAIN_SPECIALIST_MODULES.find(
+      (module) => module.key === "transport-logistics",
+    )!.methods.find(
+      (candidate) => candidate.key === "fleet-replacement-prioritization",
+    )!;
+    const inputs = structuredClone(method.exampleInputs);
+    (inputs.candidates as Record<string, unknown>[]).push({
+      id: "TR-MANDATORY",
+      lifecycleCost: 600000,
+      evidenceReady: true,
+      configurationTraceComplete: true,
+      costBasisApproved: true,
+      obligationStateApproved: true,
+      mandatory: true,
+      dueDate: "2026-12-01",
+      serviceRisk: 1,
+      maintenanceBurden: 1,
+    });
+    const result = evaluateDomainSpecialist({
+      moduleKey: "transport-logistics",
+      methodKey: method.key,
+      inputs,
+      evidence: evidenceFor(method.requiredEvidence),
+    });
+    expect(result.findings[0]).toMatch(/TR-MANDATORY.*MANDATORY/);
+    expect(result.summary).toMatch(
+      /not purchase.*deferral.*expenditure authority/i,
+    );
+    expect(method.limitations.join(" ")).toMatch(/does not authorize/i);
   });
 
   it("makes the complete process-industry family executable and non-authoritative", () => {

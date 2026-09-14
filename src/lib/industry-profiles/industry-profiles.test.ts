@@ -93,6 +93,24 @@ describe("the kernel-profile architecture (E1.01)", () => {
     expect(mfg.operationalShare).toBe(1);
   });
 
+  it("binds the transportation profile to the complete governed fleet decision family", () => {
+    const transport = assessProfile(
+      INDUSTRY_PROFILES.find(
+        (profile) => profile.industryCode === "transportation_logistics",
+      )!,
+    );
+    expect(transport.domainModules[0].methods).toEqual([
+      "fleet-duty-exposure",
+      "dispatch-availability",
+      "route-depot-optimization",
+      "fleet-configuration-trace",
+      "inspection-scheduling",
+      "fleet-replacement-prioritization",
+    ]);
+    expect(transport.proseOnly).toEqual([]);
+    expect(transport.operationalShare).toBe(1);
+  });
+
   it("binds the battery profile to safety/degradation contexts and four governed methods", () => {
     const battery = assessProfile(
       INDUSTRY_PROFILES.find(

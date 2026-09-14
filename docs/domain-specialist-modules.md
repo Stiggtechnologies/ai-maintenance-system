@@ -10,26 +10,26 @@ similar domain decisions.
 
 ## Executable scope
 
-| Module                     | Executable methods                                                                                                    |
-| -------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| Oil Sands — tailings       | Force-based factor-of-safety screen and supplied instrumentation triggers                                             |
-| Oil & Gas — well integrity | Independent barrier coverage and pressure-envelope margins                                                            |
-| Process Industry           | Process-safety barriers, pressure containment, RBI/corrosion, SIS proof tests, turnaround readiness and LOC risk      |
-| Utilities — storm response | Priority-ordered, skill/capacity/travel-feasible draft crew assignment                                                |
-| Manufacturing              | OEE and quality-loss reconciliation, line balance, robot health, tooling life and changeover readiness                |
-| Food & Beverage            | HACCP CCP verification, CIP recipe-envelope verification and cold-chain excursion dose                                |
-| Pharmaceuticals            | GxP requirements/test/deviation trace and batch-record completeness/exception trace                                   |
-| Healthcare                 | Clinical criticality, device availability, calibration, infection-control readiness, patient-risk and lifecycle trace |
-| Transportation & Logistics | Exact bounded route/depot search and capacity-feasible inspection scheduling                                          |
-| Aviation                   | AD/SB applicability/compliance trace, MSG-3 decision trace and life-limited-part remainder with back-to-birth gate    |
-| Marine Shipping            | Class-survey window scheduling, matched-baseline propulsion efficiency and constrained voyage-option ranking          |
-| Data Centers               | Lumped heat/airflow balance, cooling margin and sensor-envelope exceptions                                            |
-| Defense                    | Mission-capable coverage, configuration/obsolescence trace and classified-deployment control readiness                |
-| Aerospace & Launch         | Reuse counters, range-safety evidence readiness and propellant property/exposure margins                              |
-| Buildings & Infrastructure | Code, fire/life safety, occupancy, environment, BAS, resource performance and renewal priority                        |
-| Civil Infrastructure       | Structural condition, inspection ratings, deterioration, load restrictions, geographic risk and renewal planning      |
+| Module                     | Executable methods                                                                                                                    |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| Oil Sands — tailings       | Force-based factor-of-safety screen and supplied instrumentation triggers                                                             |
+| Oil & Gas — well integrity | Independent barrier coverage and pressure-envelope margins                                                                            |
+| Process Industry           | Process-safety barriers, pressure containment, RBI/corrosion, SIS proof tests, turnaround readiness and LOC risk                      |
+| Utilities — storm response | Priority-ordered, skill/capacity/travel-feasible draft crew assignment                                                                |
+| Manufacturing              | OEE and quality-loss reconciliation, line balance, robot health, tooling life and changeover readiness                                |
+| Food & Beverage            | HACCP CCP verification, CIP recipe-envelope verification and cold-chain excursion dose                                                |
+| Pharmaceuticals            | GxP requirements/test/deviation trace and batch-record completeness/exception trace                                                   |
+| Healthcare                 | Clinical criticality, device availability, calibration, infection-control readiness, patient-risk and lifecycle trace                 |
+| Transportation & Logistics | Duty reconciliation, dispatch capacity, exact route/depot search, configuration trace, inspection scheduling and replacement priority |
+| Aviation                   | AD/SB applicability/compliance trace, MSG-3 decision trace and life-limited-part remainder with back-to-birth gate                    |
+| Marine Shipping            | Class-survey window scheduling, matched-baseline propulsion efficiency and constrained voyage-option ranking                          |
+| Data Centers               | Lumped heat/airflow balance, cooling margin and sensor-envelope exceptions                                                            |
+| Defense                    | Mission-capable coverage, configuration/obsolescence trace and classified-deployment control readiness                                |
+| Aerospace & Launch         | Reuse counters, range-safety evidence readiness and propellant property/exposure margins                                              |
+| Buildings & Infrastructure | Code, fire/life safety, occupancy, environment, BAS, resource performance and renewal priority                                        |
+| Civil Infrastructure       | Structural condition, inspection ratings, deterioration, load restrictions, geographic risk and renewal planning                      |
 
-The 17 modules expose 58 methods. The canonical registry, input examples,
+The 17 modules expose 62 methods. The canonical registry, input examples,
 required evidence, authority references, limitations and reviewer roles live in
 `src/lib/domain-specialists/catalog.ts`. The deterministic evaluators live in
 `src/lib/domain-specialists/engine.ts`; every registry method must resolve to an
@@ -68,6 +68,9 @@ evaluator or the contract test fails.
 - No module can certify compliance, sign an airworthiness/class/range/security
   release, release a batch or facility, dispatch a crew or vehicle, change a
   setpoint/limit, or authorize operation.
+- Fleet methods do not infer duty severity, dispatch or release a vehicle,
+  waive a defect/inspection/restriction, approve a configuration change,
+  defer a mandatory obligation, dispose of an asset, or authorize expenditure.
 
 ## Acceptance evidence
 

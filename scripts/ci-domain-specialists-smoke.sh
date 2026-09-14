@@ -61,6 +61,24 @@ if [ "$MANUFACTURING_REGISTRY" != "t" ]; then
   exit 1
 fi
 
+# U5.03: every Fleet / Transportation method must be registered with a
+# non-empty server-owned evidence contract. Runtime outputs remain governed by
+# the same tenant/risk/evidence persistence and independent-review boundary.
+TRANSPORT_REGISTRY=$(PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -Atc "
+with methods(method_key) as (values
+ ('fleet-duty-exposure'),('dispatch-availability'),
+ ('route-depot-optimization'),('fleet-configuration-trace'),
+ ('inspection-scheduling'),('fleet-replacement-prioritization')
+)
+select bool_and(
+ domain_specialist_method_is_registered('transport-logistics',method_key)
+ and cardinality(domain_specialist_required_evidence(method_key)) > 0
+) from methods;")
+if [ "$TRANSPORT_REGISTRY" != "t" ]; then
+  echo "Fleet / Transportation specialist registry/evidence contract is incomplete" >&2
+  exit 1
+fi
+
 # U5.05: prove the deployed SQL registry accepts every operational Buildings
 # and Facilities method and exposes a non-empty server-owned evidence contract.
 BUILDINGS_REGISTRY=$(PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -Atc "

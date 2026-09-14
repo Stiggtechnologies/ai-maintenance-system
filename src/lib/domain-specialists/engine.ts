@@ -1411,7 +1411,7 @@ function inspectionSchedule(inputs: Record<string, unknown>): Evaluation {
         row.lastInspection,
         `Asset ${index + 1} last inspection`,
       );
-      const interval = positive(
+      const interval = positiveInteger(
         row.intervalDays,
         `Asset ${index + 1} interval days`,
       );
@@ -1422,6 +1422,8 @@ function inspectionSchedule(inputs: Record<string, unknown>): Evaluation {
         due,
         duration: positive(row.durationHours, `Asset ${index + 1} duration`),
         priority: finite(row.priority ?? 0, `Asset ${index + 1} priority`),
+        outOfServiceRequired: bool(row.outOfServiceRequired),
+        outOfServiceControlled: bool(row.outOfServiceControlled),
       };
     },
   );
@@ -1441,6 +1443,10 @@ function inspectionSchedule(inputs: Record<string, unknown>): Evaluation {
       a.id.localeCompare(b.id),
   );
   for (const asset of assets) {
+    if (asset.outOfServiceRequired && !asset.outOfServiceControlled)
+      gaps.push(
+        `${asset.id}: the supplied out-of-service requirement is not evidenced as controlled.`,
+      );
     if (asset.duration > daily) {
       gaps.push(
         `${asset.id}: ${asset.duration} h duration exceeds ${daily} h daily capacity.`,
@@ -1488,6 +1494,353 @@ function inspectionSchedule(inputs: Record<string, unknown>): Evaluation {
     formulae: [
       "Due date = last compliant inspection + approved interval days.",
       "Draft slots consume explicit daily qualified-inspector hours in due-date then priority order.",
+    ],
+  };
+}
+
+function fleetDutyExposure(inputs: Record<string, unknown>): Evaluation {
+  const assets = records(inputs.assets, "Fleet duty records");
+  requireUnique(
+    assets.map((row, index) => text(row.id, `Asset ${index + 1} ID`)),
+    "Fleet duty records",
+  );
+  const metrics: DomainMetric[] = [];
+  const findings: string[] = [];
+  const gaps: string[] = [];
+  let reconciled = 0;
+
+  for (const [index, row] of assets.entries()) {
+    const id = text(row.id, `Asset ${index + 1} ID`);
+    const unit = text(row.counterUnit, `${id} counter unit`);
+    const start = nonNegative(row.startReading, `${id} start reading`);
+    const end = nonNegative(row.endReading, `${id} end reading`);
+    const delta = end - start;
+    const segments = records(row.segments, `${id} duty segments`);
+    const classes = segments.map((segment, segmentIndex) =>
+      text(segment.dutyClass, `${id} segment ${segmentIndex + 1} duty class`),
+    );
+    requireUnique(classes, `${id} duty classes`);
+    const exposures = segments.map((segment, segmentIndex) =>
+      nonNegative(
+        segment.exposure,
+        `${id} ${classes[segmentIndex]} segment exposure`,
+      ),
+    );
+    const segmentTotal = exposures.reduce((sum, value) => sum + value, 0);
+    const traceReady =
+      bool(row.readingsAuthenticated) &&
+      bool(row.configurationCurrent) &&
+      bool(row.classificationApproved) &&
+      bool(row.segmentsNonOverlapping);
+    const tolerance = Math.max(1, Math.abs(delta)) * 1e-6;
+    const totalMatches =
+      delta > 0 && Math.abs(segmentTotal - delta) <= tolerance;
+
+    metrics.push({
+      key: `counter_delta_${index}`,
+      label: `${id} authenticated counter delta`,
+      value: traceReady && delta > 0 ? round(delta) : null,
+      unit,
+    });
+
+    if (!traceReady || !totalMatches) {
+      const reasons: string[] = [];
+      if (delta <= 0)
+        reasons.push(
+          "counter movement is zero/negative or a reset is unresolved",
+        );
+      if (!bool(row.readingsAuthenticated))
+        reasons.push("readings are not authenticated");
+      if (!bool(row.configurationCurrent))
+        reasons.push("asset configuration is not current");
+      if (!bool(row.classificationApproved))
+        reasons.push("duty classification is not approved");
+      if (!bool(row.segmentsNonOverlapping))
+        reasons.push("segment non-overlap is not evidenced");
+      if (delta > 0 && !totalMatches)
+        reasons.push(
+          `classified exposure ${round(segmentTotal)} ${unit} does not reconcile to counter delta ${round(delta)} ${unit}`,
+        );
+      gaps.push(`${id}: ${reasons.join("; ")}.`);
+      continue;
+    }
+
+    reconciled += 1;
+    for (const [segmentIndex, exposure] of exposures.entries()) {
+      metrics.push({
+        key: `duty_share_${index}_${segmentIndex}`,
+        label: `${id} ${classes[segmentIndex]} duty share`,
+        value: round((100 * exposure) / delta, 1),
+        unit: "%",
+      });
+    }
+    findings.push(
+      `${id}: ${round(delta)} ${unit} reconciled across ${segments.length} supplied duty class(es).`,
+    );
+  }
+
+  metrics.unshift(
+    {
+      key: "reconciled_assets",
+      label: "Duty records reconciled",
+      value: reconciled,
+      unit: "count",
+    },
+    {
+      key: "blocked_assets",
+      label: "Duty records blocked",
+      value: gaps.length,
+      unit: "count",
+    },
+  );
+  return {
+    summary: `${reconciled} of ${assets.length} fleet duty record(s) reconcile authenticated counter movement to supplied classified exposure.`,
+    metrics,
+    findings,
+    gaps,
+    assumptions: [
+      "Counter readings and duty segments use the same supplied unit and boundary; no severity or maintenance implication is inferred from a duty share.",
+    ],
+    formulae: [
+      "Counter delta = supplied authenticated end reading - supplied authenticated start reading.",
+      "Duty share = supplied reconciled class exposure / counter delta × 100.",
+    ],
+  };
+}
+
+function dispatchAvailability(inputs: Record<string, unknown>): Evaluation {
+  const assets = records(inputs.assets, "Dispatch candidates").map(
+    (row, index) => ({
+      id: text(row.id, `Asset ${index + 1} ID`),
+      capability: text(row.capability, `Asset ${index + 1} capability`),
+      capacity: positive(row.capacity, `Asset ${index + 1} capacity`),
+      unit: text(row.unit, `Asset ${index + 1} capacity unit`),
+      ready:
+        bool(row.available) &&
+        bool(row.defectsControlled) &&
+        bool(row.inspectionCurrent) &&
+        bool(row.configurationCurrent) &&
+        bool(row.operatingConstraintsCleared) &&
+        bool(row.qualifiedOperatorAvailable) &&
+        bool(row.hoursOfServiceCompliant),
+      row,
+    }),
+  );
+  requireUnique(
+    assets.map((asset) => asset.id),
+    "Dispatch candidates",
+  );
+  const requirements = records(
+    inputs.requirements,
+    "Dispatch requirements",
+  ).map((row, index) => ({
+    id: text(row.id, `Requirement ${index + 1} ID`),
+    capability: text(row.capability, `Requirement ${index + 1} capability`),
+    required: positive(
+      row.requiredCapacity,
+      `Requirement ${index + 1} required capacity`,
+    ),
+    unit: text(row.unit, `Requirement ${index + 1} capacity unit`),
+  }));
+  requireUnique(
+    requirements.map((item) => item.id),
+    "Dispatch requirements",
+  );
+  requireUnique(
+    requirements.map((item) => `${item.capability}:${item.unit}`),
+    "Dispatch capability/unit requirements",
+  );
+
+  const metrics: DomainMetric[] = [];
+  const findings: string[] = [];
+  const gaps: string[] = [];
+  for (const [index, requirement] of requirements.entries()) {
+    const matching = assets.filter(
+      (asset) =>
+        asset.capability === requirement.capability &&
+        asset.unit === requirement.unit,
+    );
+    const eligible = matching.filter((asset) => asset.ready);
+    const capacity = eligible.reduce((sum, asset) => sum + asset.capacity, 0);
+    const margin = capacity - requirement.required;
+    metrics.push(
+      {
+        key: `eligible_capacity_${index}`,
+        label: `${requirement.id} eligible capacity`,
+        value: round(capacity),
+        unit: requirement.unit,
+      },
+      {
+        key: `capacity_margin_${index}`,
+        label: `${requirement.id} capacity margin`,
+        value: round(margin),
+        unit: requirement.unit,
+      },
+    );
+    findings.push(
+      `${requirement.id}: ${eligible.length} evidence-ready asset(s) supply ${round(capacity)} ${requirement.unit} against ${round(requirement.required)} ${requirement.unit} required.`,
+    );
+    for (const asset of matching.filter((candidate) => !candidate.ready)) {
+      const reasons: string[] = [];
+      if (!bool(asset.row.available)) reasons.push("not available");
+      if (!bool(asset.row.defectsControlled))
+        reasons.push("defect/restriction control incomplete");
+      if (!bool(asset.row.inspectionCurrent))
+        reasons.push("inspection not current");
+      if (!bool(asset.row.configurationCurrent))
+        reasons.push("configuration not current");
+      if (!bool(asset.row.operatingConstraintsCleared))
+        reasons.push("route/weather/operating constraints not cleared");
+      if (!bool(asset.row.qualifiedOperatorAvailable))
+        reasons.push("qualified operator not available");
+      if (!bool(asset.row.hoursOfServiceCompliant))
+        reasons.push("hours-of-service compliance not evidenced");
+      gaps.push(`${asset.id}: excluded — ${reasons.join("; ")}.`);
+    }
+    for (const asset of assets.filter(
+      (candidate) =>
+        candidate.capability === requirement.capability &&
+        candidate.unit !== requirement.unit,
+    ))
+      gaps.push(
+        `${asset.id}: excluded — capacity unit ${asset.unit} does not match requirement unit ${requirement.unit}; no conversion was inferred.`,
+      );
+    if (margin < 0)
+      gaps.push(
+        `${requirement.id}: eligible capacity is ${round(-margin)} ${requirement.unit} below the supplied requirement.`,
+      );
+  }
+  return {
+    summary: `${requirements.length} supplied dispatch requirement(s) were compared with exact capability- and unit-matched evidence-ready fleet capacity; no dispatch was made.`,
+    metrics,
+    findings,
+    gaps,
+    assumptions: [
+      "Each asset can contribute only to its one exact supplied capability/unit requirement and capacity values share the same approved boundary.",
+    ],
+    formulae: [
+      "Eligible capacity = Σ supplied capacity where available ∧ defects controlled ∧ inspection current ∧ configuration current ∧ operating constraints cleared ∧ qualified operator available ∧ hours-of-service compliant ∧ exact capability/unit match.",
+      "Capacity margin = eligible capacity - supplied required capacity.",
+    ],
+  };
+}
+
+function fleetConfigurationTrace(inputs: Record<string, unknown>): Evaluation {
+  const rows = records(inputs.assets, "Fleet configuration records");
+  return coverageEvaluation(
+    "fleet configuration",
+    rows,
+    (row) =>
+      Boolean(
+        row.id &&
+        bool(row.identityControlled) &&
+        bool(row.baselineCurrent) &&
+        bool(row.installedConfigurationRecorded) &&
+        bool(row.deviationsApproved) &&
+        bool(row.softwareFirmwareControlled) &&
+        bool(row.safetyCriticalConfigurationVerified) &&
+        bool(row.reconciled) &&
+        bool(row.independentlyReviewed),
+      ),
+    (row, index) => String(row.id ?? `asset ${index + 1}`),
+    "controlled identity, current as-maintained baseline, installed configuration, approved deviations, applicable software/firmware disposition, safety-critical verification, reconciliation, or independent review is missing.",
+  );
+}
+
+function fleetReplacementPrioritization(
+  inputs: Record<string, unknown>,
+): Evaluation {
+  const budget = positive(inputs.budget, "Indicative planning envelope");
+  const weights = records(inputs.weights, "Approved replacement weights");
+  const factorWeights = new Map<string, number>();
+  for (const [index, row] of weights.entries()) {
+    const factor = text(row.factor, `Weight ${index + 1} factor`);
+    if (factorWeights.has(factor))
+      throw new InputError(
+        `Approved replacement weights contains duplicate factor ${factor}.`,
+      );
+    factorWeights.set(factor, nonNegative(row.weight, `Weight ${index + 1}`));
+  }
+  if (![...factorWeights.values()].some((value) => value > 0))
+    throw new InputError(
+      "At least one approved replacement weight must be positive.",
+    );
+
+  const candidates = records(inputs.candidates, "Replacement candidates");
+  requireUnique(
+    candidates.map((row, index) => text(row.id, `Candidate ${index + 1} ID`)),
+    "Replacement candidates",
+  );
+  const gaps: string[] = [];
+  const ranked = candidates.flatMap((row, index) => {
+    const id = text(row.id, `Candidate ${index + 1} ID`);
+    const cost = positive(row.lifecycleCost, `${id} lifecycle cost`);
+    if (
+      !bool(row.evidenceReady) ||
+      !bool(row.configurationTraceComplete) ||
+      !bool(row.costBasisApproved) ||
+      !bool(row.obligationStateApproved)
+    ) {
+      gaps.push(
+        `${id}: condition/duty evidence, configuration trace, approved lifecycle-cost basis, or approved mandatory-obligation state is incomplete.`,
+      );
+      return [];
+    }
+    const benefit = [...factorWeights].reduce((sum, [factor, weight]) => {
+      const score = finite(row[factor], `${id} ${factor} score`);
+      if (score < 0 || score > 5)
+        throw new InputError(`${id} ${factor} score must be between 0 and 5.`);
+      return sum + score * weight;
+    }, 0);
+    const mandatory = bool(row.mandatory);
+    const due = mandatory
+      ? isoDate(row.dueDate, `${id} mandatory due date`).getTime()
+      : Number.POSITIVE_INFINITY;
+    return [{ id, cost, mandatory, due, priority: benefit / cost }];
+  });
+  if (!ranked.length)
+    throw new InputError("No replacement candidate is evidence-ready.");
+  ranked.sort(
+    (a, b) =>
+      Number(b.mandatory) - Number(a.mandatory) ||
+      (a.mandatory && b.mandatory ? a.due - b.due : 0) ||
+      b.priority - a.priority ||
+      a.id.localeCompare(b.id),
+  );
+  let cumulative = 0;
+  const findings = ranked.map((row, index) => {
+    cumulative += row.cost;
+    return `${index + 1}. ${row.id} · ${row.mandatory ? "MANDATORY — not economically deferrable" : `weighted benefit/lifecycle-cost ${round(row.priority, 6)}`} · ${cumulative <= budget ? "inside" : "outside"} indicative envelope.`;
+  });
+  return {
+    summary: `${ranked.length} evidence-ready fleet replacement candidate(s) were ordered; the result is not purchase, retirement, deferral, disposal, or expenditure authority.`,
+    metrics: [
+      {
+        key: "candidates",
+        label: "Evidence-ready candidates",
+        value: ranked.length,
+        unit: "count",
+      },
+      {
+        key: "mandatory",
+        label: "Mandatory candidates",
+        value: ranked.filter((row) => row.mandatory).length,
+        unit: "count",
+      },
+      {
+        key: "budget",
+        label: "Indicative envelope",
+        value: budget,
+        unit: "supplied currency",
+      },
+    ],
+    findings,
+    gaps,
+    assumptions: [
+      "Mandatory state/due dates, factor scores, approved weights, lifecycle costs, configuration and dependencies are current and comparable.",
+    ],
+    formulae: [
+      "Non-mandatory priority = Σ(supplied factor score × approved weight) / supplied lifecycle cost; mandatory candidates remain first.",
     ],
   };
 }
@@ -3425,8 +3778,12 @@ const evaluators: Partial<
   "cold-chain": coldChain,
   "gxp-validation": gxp,
   "batch-record": batchRecord,
+  "fleet-duty-exposure": fleetDutyExposure,
+  "dispatch-availability": dispatchAvailability,
   "route-depot-optimization": routeOptimization,
+  "fleet-configuration-trace": fleetConfigurationTrace,
   "inspection-scheduling": inspectionSchedule,
+  "fleet-replacement-prioritization": fleetReplacementPrioritization,
   "airworthiness-compliance": airworthiness,
   "msg3-trace": msg3,
   "life-limited-part": lifeLimitedPart,
