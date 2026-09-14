@@ -2232,10 +2232,10 @@
     "backticked": 3
   },
   "U9.01": {
-    "status": "❌",
-    "evidence": false,
-    "citations": 0,
-    "backticked": 0
+    "status": "✅",
+    "evidence": true,
+    "citations": 5,
+    "backticked": 5
   },
   "U10.01": {
     "status": "❌",

@@ -393,6 +393,9 @@ jobs:
       - name: Smoke — governed configuration and baseline management
         run: bash scripts/ci-configuration-management-smoke.sh
 
+      - name: Smoke — multi-dimensional consequence model
+        run: bash scripts/ci-consequence-model-smoke.sh
+
       - name: Smoke — governed engineering knowledge on the canonical Reliability KB
         run: bash scripts/ci-governed-knowledge-smoke.sh
 
