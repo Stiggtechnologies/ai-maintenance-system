@@ -7,6 +7,7 @@ eval "$(supabase status -o env | grep -E '^(ANON_KEY|API_URL)=')"
 ORG='11111111-1111-1111-1111-111111111111'
 OTHER_ORG='99999999-9999-9999-9999-999999999916'
 FOREIGN_ASSET='98120000-0000-0000-0000-000000000002'
+TEMP_ASSET='98120000-0000-0000-0000-000000000003'
 STAKEHOLDER='98120000-0000-0000-0000-000000000011'
 FOREIGN_STAKEHOLDER='98120000-0000-0000-0000-000000000012'
 EVIDENCE='98120000-0000-0000-0000-000000000021'
@@ -27,6 +28,7 @@ AUDIT_BEFORE=$(PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d pos
 PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -qAt -v ON_ERROR_STOP=1 <<SQL
 insert into organizations(id,name,industry) values('$OTHER_ORG','U12 foreign','utilities') on conflict(id) do nothing;
 insert into assets(id,organization_id,name) values('$FOREIGN_ASSET','$OTHER_ORG','Foreign relationship asset') on conflict(id) do nothing;
+insert into assets(id,organization_id,name) values('$TEMP_ASSET','$ORG','Bounded rental asset') on conflict(id) do nothing;
 insert into risk_stakeholders(id,organization_id,stakeholder_type,name,external_organization,role_or_relationship)
 values('$STAKEHOLDER','$ORG','external','Equipment partner','Equipment Partner Ltd','Lease counterparty and maintenance provider'),
 ('$FOREIGN_STAKEHOLDER','$OTHER_ORG','external','Foreign counterparty','Foreign Ltd','Foreign owner') on conflict(id) do nothing;
@@ -45,6 +47,10 @@ NO_PARTY=$(rpc "$AUTHOR" record_asset_relationship "{\"p_asset_id\":\"$ASSET\",\
 err "$NO_PARTY" 'requires a canonical stakeholder'
 NO_RENT_END=$(rpc "$AUTHOR" record_asset_relationship "{\"p_asset_id\":\"$ASSET\",\"p_tenure\":\"rented\",\"p_relationship_basis\":\"A rental must carry a bounded effective period.\",\"p_counterparty_stakeholder_id\":\"$STAKEHOLDER\"}")
 err "$NO_RENT_END" 'requires an end date'
+RENTED=$(rpc "$AUTHOR" record_asset_relationship "{\"p_asset_id\":\"$TEMP_ASSET\",\"p_tenure\":\"rented\",\"p_relationship_basis\":\"Temporary rental is bounded by the executed equipment-hire period.\",\"p_counterparty_stakeholder_id\":\"$STAKEHOLDER\",\"p_agreement_reference\":\"RENT-2026-12\",\"p_maintenance_responsibility\":\"counterparty\",\"p_starts_on\":\"2026-12-01\",\"p_ends_on\":\"2027-03-31\"}")
+ok "$RENTED"
+VERIFY_RENTED=$(rpc "$ADMIN" verify_asset_relationship "{\"p_asset_id\":\"$TEMP_ASSET\",\"p_decision\":\"verified\",\"p_note\":\"Independent review confirms the bounded rental term and counterparty.\"}")
+ok "$VERIFY_RENTED"
 
 RELATIONSHIP=$(rpc "$AUTHOR" record_asset_relationship "{\"p_asset_id\":\"$ASSET\",\"p_tenure\":\"leased\",\"p_relationship_basis\":\"Executed agreement makes the counterparty responsible for major maintenance while the site operates the asset.\",\"p_counterparty_stakeholder_id\":\"$STAKEHOLDER\",\"p_agreement_reference\":\"LEASE-2026-12\",\"p_maintenance_responsibility\":\"counterparty\",\"p_history_visible_to_site\":false,\"p_strategy_constraint\":\"Major maintenance requires counterparty coordination.\",\"p_starts_on\":\"2026-01-01\",\"p_ends_on\":\"2028-12-31\",\"p_evidence_item_ids\":[\"$EVIDENCE\"]}")
 ok "$RELATIONSHIP"
@@ -63,9 +69,9 @@ ok "$VERIFY_PARTY"
 
 MODEL=$(rpc "$AUTHOR" get_asset_relationship_workspace '{}')
 ok "$MODEL"
-BODY="$(body "$MODEL")" ASSET="$ASSET" python3 -c "import json,os;x=json.loads(os.environ['BODY']);r=next(i for i in x['relationships'] if i['asset_id']==os.environ['ASSET']);a=next(i for i in x['assignments'] if i['asset_id']==os.environ['ASSET']);assert len(x['relationship_types'])==10;assert len(x['party_roles'])==9;assert r['status']=='verified';assert a['status']=='verified';assert 'do not grant' in x['basis']"
+BODY="$(body "$MODEL")" ASSET="$ASSET" TEMP_ASSET="$TEMP_ASSET" python3 -c "import json,os;x=json.loads(os.environ['BODY']);r=next(i for i in x['relationships'] if i['asset_id']==os.environ['ASSET']);t=next(i for i in x['relationships'] if i['asset_id']==os.environ['TEMP_ASSET']);a=next(i for i in x['assignments'] if i['asset_id']==os.environ['ASSET']);assert len(x['relationship_types'])==10;assert len(x['party_roles'])==9;assert r['status']=='verified';assert t['tenure']=='rented' and t['status']=='verified' and t['ends_on']=='2027-03-31';assert a['status']=='verified';assert 'do not grant' in x['basis']"
 AUTHORITY_AFTER=$(PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -qAt -v ON_ERROR_STOP=1 -c "select (select count(*) from approvals where organization_id='$ORG')||'|'||(select count(*) from work_orders where organization_id='$ORG')")
 test "$AUTHORITY_AFTER" = "$AUTHORITY_BEFORE"
 AUDIT_AFTER=$(PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -qAt -v ON_ERROR_STOP=1 -c "select count(*) from audit_events where organization_id='$ORG' and entity_type in ('asset_tenure','asset_party_role_assignment')")
-test "$AUDIT_AFTER" -eq "$((AUDIT_BEFORE + 4))"
-echo 'U12 asset-relationship smoke passed: tenant_wall=true relationships=10 roles=9 evidence=true independent_review=true authority_unchanged=true'
+test "$AUDIT_AFTER" -eq "$((AUDIT_BEFORE + 6))"
+echo 'U12 asset-relationship smoke passed: tenant_wall=true relationships=10 roles=9 bounded_rental=true evidence=true independent_review=true authority_unchanged=true'
