@@ -1,5 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import {
+  useLocation,
+  useNavigate,
+  useParams,
+  useSearchParams,
+} from "react-router-dom";
 import {
   ArrowUpRight,
   Bot,
@@ -48,7 +53,10 @@ import { PublicAskRail } from "../components/public-ask/PublicAskRail";
 import { canExposeBoltSpaces } from "../lib/public-ask-tie-in";
 import {
   PUBLIC_ASK_INTENTS,
+  publicAskIntentById,
+  publicAskIntentPath,
   type PublicAskIntent,
+  type PublicAskIntentId,
 } from "../lib/public-ask-intents";
 import { MarkdownRenderer } from "../components/MarkdownRenderer";
 import { RecommendationTurn } from "../components/chat/RecommendationTurn";
@@ -239,32 +247,57 @@ export function DecisionCaseWorkspacePage({
 }: {
   publicMode?: boolean;
 }) {
-  const { caseId } = useParams();
+  const { caseId, capabilityId } = useParams<{
+    caseId?: string;
+    capabilityId?: PublicAskIntentId;
+  }>();
   const [params] = useSearchParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const context = useMemo(() => getContext(params), [params]);
   const auth = useOptionalAuth();
   const orgSession = Boolean(auth?.user);
+  const routedPublicIntent = capabilityId
+    ? publicAskIntentById(capabilityId)
+    : undefined;
   const [industry, setIndustry] = useState<DecisionIndustryId>(() =>
     normalizeDecisionIndustry(params.get("industry")),
   );
   const industryPack = getDecisionIndustryPack(industry);
-  const [chatBootstrap] = useState(() =>
-    initialChatState(
+  const initialRole = context.role || industryPack.roles[0];
+  const [chatBootstrap] = useState(() => {
+    const base = initialChatState(
       caseId,
       context,
       publicMode,
       orgSession || Boolean(auth?.loading),
-    ),
-  );
+    );
+    if (!publicMode || !routedPublicIntent) return base;
+    const sample = createFirstPaintSeed(routedPublicIntent.seedIndex, {
+      ...context,
+      industry,
+      role: initialRole,
+    });
+    return {
+      cases: includeCompletePublicValueProof([
+        sample,
+        ...base.cases.filter((item) => item.id !== sample.id),
+      ]),
+      selectedId: sample.id,
+    };
+  });
   const [cases, setCases] = useState(chatBootstrap.cases);
   const [selectedId, setSelectedId] = useState(chatBootstrap.selectedId);
   const viewerName = auth?.profile?.full_name ?? null;
   const [railOpen, setRailOpen] = useState(false);
-  const [recordOpen, setRecordOpen] = useState(false);
-  const [tab, setTab] = useState<PacketTab>("decision");
-  const [publicIntent, setPublicIntent] = useState<PublicAskIntent | null>(null);
-  const [role] = useState(context.role || industryPack.roles[0]);
+  const [recordOpen, setRecordOpen] = useState(Boolean(routedPublicIntent));
+  const [tab, setTab] = useState<PacketTab>(
+    routedPublicIntent?.recordTab ?? "decision",
+  );
+  const [publicIntent, setPublicIntent] = useState<PublicAskIntent | null>(
+    routedPublicIntent ?? null,
+  );
+  const [role] = useState(initialRole);
   const [composer, setComposer] = useState("");
   const [composerPlaceholder, setComposerPlaceholder] = useState(
     publicMode ? ASK_PLACEHOLDER : "Ask a reliability question…",
@@ -289,6 +322,7 @@ export function DecisionCaseWorkspacePage({
   const [notice, setNotice] = useState("");
   const endRef = useRef<HTMLDivElement>(null);
   const explicitDemoBound = useRef(false);
+  const suppressRoutedIntent = useRef(false);
   const active =
     cases.find((item) => item.id === selectedId) ??
     cases.find((item) => !isSeedDecisionCaseId(item.id)) ??
@@ -401,6 +435,12 @@ export function DecisionCaseWorkspacePage({
     }
   }, [active.id, active.messages, publicMode]);
   useEffect(() => {
+    if (publicMode && capabilityId && !routedPublicIntent) {
+      navigate({ pathname: "/", search: location.search }, { replace: true });
+    }
+  }, [capabilityId, location.search, navigate, publicMode, routedPublicIntent]);
+
+  useEffect(() => {
     if (!plusOpen) return;
     const onPointer = (event: MouseEvent) => {
       if (
@@ -420,6 +460,39 @@ export function DecisionCaseWorkspacePage({
       window.removeEventListener("keydown", onKey);
     };
   }, [plusOpen]);
+
+  useEffect(() => {
+    if (!routedPublicIntent) {
+      suppressRoutedIntent.current = false;
+      return;
+    }
+    if (
+      !publicMode ||
+      suppressRoutedIntent.current ||
+      publicIntent?.id === routedPublicIntent.id
+    ) {
+      return;
+    }
+    const sample = createFirstPaintSeed(routedPublicIntent.seedIndex, {
+      ...context,
+      industry,
+      role,
+    });
+    explicitDemoBound.current = true;
+    setCases((current) => [
+      sample,
+      ...current.filter(
+        (item) =>
+          item.id !== sample.id &&
+          !(item.id.startsWith("draft-") && conversationIsEmpty(item.messages)),
+      ),
+    ]);
+    setSelectedId(sample.id);
+    setPublicIntent(routedPublicIntent);
+    setTab(routedPublicIntent.recordTab);
+    setRecordOpen(true);
+    setRailOpen(false);
+  }, [context, industry, publicIntent?.id, publicMode, role, routedPublicIntent]);
 
   const chooseCase = (id: string) => {
     if (isSeedDecisionCaseId(id)) explicitDemoBound.current = true;
@@ -471,6 +544,12 @@ export function DecisionCaseWorkspacePage({
     setTab(intent.recordTab);
     setRecordOpen(true);
     setRailOpen(false);
+    if (publicMode) {
+      const nextPath = publicAskIntentPath(intent);
+      if (location.pathname !== nextPath) {
+        navigate({ pathname: nextPath, search: location.search });
+      }
+    }
     trackDecisionWorkspaceEvent("public_capability_opened", {
       intent: intent.id,
       module: intent.module,
@@ -487,11 +566,13 @@ export function DecisionCaseWorkspacePage({
       explicitDemoBound.current = false;
       chooseCase(existingDraft.id);
       if (publicMode) {
+        suppressRoutedIntent.current = true;
         setComposer("");
         setComposerPlaceholder(ASK_PLACEHOLDER);
         setRailOpen(false);
         setRecordOpen(false);
         setPublicIntent(null);
+        navigate({ pathname: "/", search: location.search });
       }
       return;
     }
@@ -500,11 +581,13 @@ export function DecisionCaseWorkspacePage({
     setCases((current) => [next, ...current]);
     setSelectedId(next.id);
     if (publicMode) {
+      suppressRoutedIntent.current = true;
       setComposer("");
       setComposerPlaceholder(ASK_PLACEHOLDER);
       setRailOpen(false);
       setRecordOpen(false);
       setPublicIntent(null);
+      navigate({ pathname: "/", search: location.search });
     }
     if (!publicMode) {
       try {

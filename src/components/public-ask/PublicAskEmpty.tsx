@@ -9,9 +9,11 @@ import {
   ArrowRight,
   BarChart3,
   Check,
+  ClipboardCheck,
   FileCheck,
   GraduationCap,
   Heart,
+  LogIn,
   Moon,
   ShieldCheck,
   Sparkles,
@@ -21,6 +23,7 @@ import {
 } from "lucide-react";
 import {
   PUBLIC_ASK_INTENTS,
+  publicAskIntentPath,
   type PublicAskIntent,
   type PublicAskIntentId,
 } from "../../lib/public-ask-intents";
@@ -93,7 +96,10 @@ export function PublicAskEmpty({
             and what your team should do next—without surrendering engineering
             authority to AI.
           </p>
-          <div className="bolt-hero-capabilities" aria-label="Live capability paths">
+          <div
+            className="bolt-hero-capabilities"
+            aria-label="Live capability paths"
+          >
             <span>Explore live capabilities</span>
             <ul>
               {PUBLIC_ASK_INTENTS.map((intent) => (
@@ -171,6 +177,75 @@ export function PublicAskEmpty({
             </button>
           </div>
         </aside>
+      </section>
+
+      <section
+        className="bolt-capability-gallery"
+        aria-labelledby="capability-gallery-title"
+      >
+        <div className="bolt-capability-gallery-heading">
+          <div>
+            <span>Finished and live</span>
+            <h2 id="capability-gallery-title">
+              See SyncAI make the decision legible.
+            </h2>
+          </div>
+          <p>
+            Open a governed example, inspect the evidence and authority
+            boundary, then share the exact capability with your team.
+          </p>
+        </div>
+        <div className="bolt-capability-grid">
+          {PUBLIC_ASK_INTENTS.map((intent) => (
+            <a
+              key={intent.id}
+              className="bolt-capability-card"
+              href={publicAskIntentPath(intent)}
+              data-testid="capability-showcase-link"
+            >
+              <span className="bolt-capability-icon">
+                {PILL_ICONS[intent.id]}
+              </span>
+              <span className="bolt-capability-card-copy">
+                <small>{intent.showcase}</small>
+                <strong>{intent.label}</strong>
+                <span>{intent.explanation}</span>
+              </span>
+              <ArrowRight size={17} />
+            </a>
+          ))}
+          <a className="bolt-capability-card is-action" href="/setup">
+            <span className="bolt-capability-icon">
+              <ClipboardCheck size={15} />
+            </span>
+            <span className="bolt-capability-card-copy">
+              <small>Entry engagement</small>
+              <strong>Assess</strong>
+              <span>
+                Scope a Reliability Intelligence Assessment and a governed
+                90-day action plan.
+              </span>
+            </span>
+            <ArrowRight size={17} />
+          </a>
+          <a
+            className="bolt-capability-card is-action"
+            href="/signin?returnTo=%2Foverview"
+          >
+            <span className="bolt-capability-icon">
+              <LogIn size={15} />
+            </span>
+            <span className="bolt-capability-card-copy">
+              <small>Customer workspace</small>
+              <strong>Sign in</strong>
+              <span>
+                Continue in the tenant-scoped workspace with governed records,
+                approvals, and operating modules.
+              </span>
+            </span>
+            <ArrowRight size={17} />
+          </a>
+        </div>
       </section>
 
       <section

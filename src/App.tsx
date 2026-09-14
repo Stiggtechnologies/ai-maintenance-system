@@ -302,6 +302,10 @@ function App() {
           <Route path="/decision-cases/demo" element={<DemoPathRedirect />} />
           <Route path="/workspace" element={<PublicCopilotExperience />} />
           <Route
+            path="/capabilities/:capabilityId"
+            element={<PublicCopilotExperience />}
+          />
+          <Route
             path="/workspace/cases/demo"
             element={<Navigate to="/workspace" replace />}
           />
