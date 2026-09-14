@@ -5,7 +5,7 @@ set -euo pipefail
 trap 'echo "U13 service-contract risk smoke FAILED at line $LINENO"' ERR
 
 psqlc() {
-  PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -At -v ON_ERROR_STOP=1 -c "$1"
+  PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -qAt -v ON_ERROR_STOP=1 -c "$1"
 }
 
 eval "$(supabase status -o env | grep -E '^(ANON_KEY|API_URL)=')"
@@ -58,7 +58,10 @@ CONTRACT=$(psqlc "insert into contract_packages(organization_id,package_code,tit
 WARRANTY=$(psqlc "insert into warranty_terms(organization_id,asset_id,supplier_id,starts_on,ends_on,covers,exclusions,claim_window_days) values('$ORG','$ASSET',$SUPPLIER,'2026-01-01','2028-12-31','Covered failures under service agreement.','Unauthorized modifications.',30) returning id")
 psqlc "insert into recommendations(id,organization_id,asset_id,title,issue,action,impact,status,risk_impact,rationale) values('$RECOMMENDATION','$ORG','$ASSET','Adjust process-water maintenance interval','Current interval may conflict with availability commitment.','Evaluate a governed interval change.','Potential contractual exposure if service is interrupted.','pending','Medium','Human decision remains required.') on conflict(id) do nothing"
 psqlc "insert into evidence_items(id,organization_id,asset_id,recommendation_id,source_system,evidence_type,description,evidence_class) values('$EVIDENCE','$ORG','$ASSET','$RECOMMENDATION','ci','contract','Executed U13 service agreement with monthly availability schedule.','DOCUMENTED') on conflict(id) do nothing"
-test -n "$SUPPLIER" && test -n "$CONTRACT" && test -n "$WARRANTY"
+[[ "$SUPPLIER" =~ ^[0-9]+$ && "$CONTRACT" =~ ^[0-9]+$ && "$WARRANTY" =~ ^[0-9]+$ ]] || {
+  echo "U13 smoke: expected numeric fixture ids, got supplier=[${SUPPLIER}] contract=[${CONTRACT}] warranty=[${WARRANTY}]"
+  exit 1
+}
 echo "U13 smoke: fixtures ready asset=${ASSET} supplier=${SUPPLIER} contract=${CONTRACT} warranty=${WARRANTY}"
 
 AUTHORITY_BEFORE=$(psqlc "select (select count(*) from approvals where organization_id='$ORG')||'|'||(select count(*) from work_orders where organization_id='$ORG')||'|'||(select status from recommendations where id='$RECOMMENDATION')")
