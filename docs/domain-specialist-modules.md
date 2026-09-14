@@ -15,7 +15,7 @@ similar domain decisions.
 | Oil Sands — tailings       | Force-based factor-of-safety screen and supplied instrumentation triggers                                                             |
 | Oil & Gas — well integrity | Independent barrier coverage and pressure-envelope margins                                                                            |
 | Process Industry           | Process-safety barriers, pressure containment, RBI/corrosion, SIS proof tests, turnaround readiness and LOC risk                      |
-| Utilities — storm response | Priority-ordered, skill/capacity/travel-feasible draft crew assignment                                                                |
+| Utilities / networks       | Network impact, outage readiness, load/capacity, storm mobilization/dispatch and restoration priority                                 |
 | Manufacturing              | OEE and quality-loss reconciliation, line balance, robot health, tooling life and changeover readiness                                |
 | Food & Beverage            | HACCP CCP verification, CIP recipe-envelope verification and cold-chain excursion dose                                                |
 | Pharmaceuticals            | GxP requirements/test/deviation trace and batch-record completeness/exception trace                                                   |
@@ -29,7 +29,7 @@ similar domain decisions.
 | Buildings & Infrastructure | Code, fire/life safety, occupancy, environment, BAS, resource performance and renewal priority                                        |
 | Civil Infrastructure       | Structural condition, inspection ratings, deterioration, load restrictions, geographic risk and renewal planning                      |
 
-The 17 modules expose 62 methods. The canonical registry, input examples,
+The 17 modules expose 67 methods. The canonical registry, input examples,
 required evidence, authority references, limitations and reviewer roles live in
 `src/lib/domain-specialists/catalog.ts`. The deterministic evaluators live in
 `src/lib/domain-specialists/engine.ts`; every registry method must resolve to an

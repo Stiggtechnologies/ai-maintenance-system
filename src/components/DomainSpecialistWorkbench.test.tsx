@@ -39,7 +39,7 @@ describe("DomainSpecialistWorkbench", () => {
     const moduleSelect = screen.getByLabelText("Specialist module");
     expect(moduleSelect.querySelectorAll("option")).toHaveLength(17);
     expect(
-      screen.getByText(/17 governed modules and 62 deterministic methods/i),
+      screen.getByText(/17 governed modules and 67 deterministic methods/i),
     ).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Preview locally" }));
@@ -55,6 +55,22 @@ describe("DomainSpecialistWorkbench", () => {
       ),
     ).toBeInTheDocument();
     expect(screen.getByText(/cannot certify compliance/i)).toBeInTheDocument();
+  });
+
+  it("makes all six utilities and network methods reachable", () => {
+    render(<DomainSpecialistWorkbench risks={[risk]} />);
+    fireEvent.change(screen.getByLabelText("Specialist module"), {
+      target: { value: "utilities-storm-response" },
+    });
+    const methods = screen.getByLabelText("Method").querySelectorAll("option");
+    expect([...methods].map((option) => option.getAttribute("value"))).toEqual([
+      "network-reliability-impact",
+      "outage-control-readiness",
+      "network-load-capacity",
+      "storm-mobilization-readiness",
+      "storm-crew-dispatch",
+      "network-restoration-prioritization",
+    ]);
   });
 
   it("makes all six fleet and transportation methods reachable", () => {

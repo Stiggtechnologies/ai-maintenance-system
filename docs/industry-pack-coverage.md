@@ -5,7 +5,7 @@
 SyncAI has **19 governed industry template packs** and a separate custom-sector
 path. Every governed pack is bound to one or more executable kernel failure
 contexts. Seventeen packs also bind to governed domain-depth modules containing
-62 deterministic calculations, optimizers, traceability checks, verification
+67 deterministic calculations, optimizers, traceability checks, verification
 methods and readiness screens. `kernel_bound` means executable code exists; it
 is not a claim that a customer has adopted the pack, that any legal requirement
 applies, that a standard is licensed, or that an authority has certified the
@@ -20,7 +20,7 @@ review advances it.
 | Petrochemical              |               4 | Process integrity, process safety and RBI (6)                                              |
 | Power Generation           |               4 | None requested                                                                             |
 | Battery & Energy Storage   |               4 | Thermal; HV safety; degradation; fire readiness (4)                                        |
-| Utilities                  |               3 | Storm mobilization and crew dispatch (1)                                                   |
+| Utilities                  |               3 | Network impact; outage; capacity; storm readiness/dispatch; restoration (6)                |
 | Manufacturing              |               3 | OEE; quality loss; line balance; robot/tooling health; changeover (6)                      |
 | Food & Beverage            |               4 | HACCP; CIP; cold-chain excursion (3)                                                       |
 | Pharmaceuticals            |               3 | GxP validation; batch-record trace (2)                                                     |
