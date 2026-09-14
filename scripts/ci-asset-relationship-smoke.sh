@@ -31,7 +31,7 @@ insert into risk_stakeholders(id,organization_id,stakeholder_type,name,external_
 values('$STAKEHOLDER','$ORG','external','Equipment partner','Equipment Partner Ltd','Lease counterparty and maintenance provider'),
 ('$FOREIGN_STAKEHOLDER','$OTHER_ORG','external','Foreign counterparty','Foreign Ltd','Foreign owner') on conflict(id) do nothing;
 insert into evidence_items(id,organization_id,asset_id,source_system,evidence_type,description,evidence_class)
-values('$EVIDENCE','$ORG','$ASSET','ci','contract','Executed lease and maintenance responsibility schedule','DOCUMENTARY') on conflict(id) do nothing;
+values('$EVIDENCE','$ORG','$ASSET','ci','contract','Executed lease and maintenance responsibility schedule','DOCUMENTED') on conflict(id) do nothing;
 SQL
 VERIFY_EVIDENCE=$(rpc "$ADMIN" verify_evidence_item "{\"p_evidence_id\":\"$EVIDENCE\",\"p_method\":\"Independent CI review of executed agreement\",\"p_outcome\":\"verified\",\"p_note\":\"Agreement evidence verified for U12 accountability acceptance.\"}")
 ok "$VERIFY_EVIDENCE"
