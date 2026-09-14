@@ -172,12 +172,24 @@ begin
     return jsonb_build_object('error','asset not found in this organization'); end if;
   if v_service_asset is not null and not exists(select 1 from public.asset_service_levels where asset_id=v_service_asset and organization_id=v_org) then
     return jsonb_build_object('error','service level not found in this organization'); end if;
+  if v_asset is not null and v_service_asset is not null and v_asset<>v_service_asset then
+    return jsonb_build_object('error','service level must belong to the obligation asset'); end if;
   if v_contract is not null and not exists(select 1 from public.contract_packages where id=v_contract and organization_id=v_org) then
     return jsonb_build_object('error','contract package not found in this organization'); end if;
   if v_supplier is not null and not exists(select 1 from public.suppliers where id=v_supplier and organization_id=v_org) then
     return jsonb_build_object('error','supplier not found in this organization'); end if;
   if v_warranty is not null and not exists(select 1 from public.warranty_terms where id=v_warranty and organization_id=v_org) then
     return jsonb_build_object('error','warranty term not found in this organization'); end if;
+  if v_contract is not null and v_supplier is not null and exists(select 1 from public.contract_packages
+    where id=v_contract and organization_id=v_org and awarded_supplier_id is not null
+      and awarded_supplier_id<>v_supplier) then
+    return jsonb_build_object('error','supplier does not match the awarded contract supplier'); end if;
+  if v_warranty is not null and v_asset is not null and exists(select 1 from public.warranty_terms
+    where id=v_warranty and organization_id=v_org and asset_id is not null and asset_id<>v_asset) then
+    return jsonb_build_object('error','warranty does not apply to the obligation asset'); end if;
+  if v_warranty is not null and v_supplier is not null and exists(select 1 from public.warranty_terms
+    where id=v_warranty and organization_id=v_org and supplier_id is not null and supplier_id<>v_supplier) then
+    return jsonb_build_object('error','warranty provider does not match the obligation supplier'); end if;
   if cardinality(v_evidence)<>cardinality(array(select distinct unnest(v_evidence))) then
     return jsonb_build_object('error','evidence item ids must be unique'); end if;
   if exists(select 1 from unnest(v_evidence) x(id) left join public.evidence_items e
@@ -285,17 +297,23 @@ declare
   v_org uuid:=public.app_current_org(); v_role text:=public.app_current_role(); v_id uuid;
   v_rec uuid:=nullif(p_assessment->>'recommendation_id','')::uuid;
   v_obligation uuid:=nullif(p_assessment->>'obligation_id','')::uuid;
+  v_rec_asset uuid; v_obligation_asset uuid;
   v_evidence uuid[]:=coalesce(array(select jsonb_array_elements_text(coalesce(p_assessment->'evidence_item_ids','[]'))::uuid),'{}');
   v_missing text[]:=coalesce(array(select jsonb_array_elements_text(coalesce(p_assessment->'missing_evidence','[]'))),'{}');
 begin
   if v_org is null or coalesce(v_role,'') not in
     ('reliability_engineer','maintenance_manager','executive','admin') then
     return jsonb_build_object('error','a named same-tenant engineering or accountable management role must assess contractual risk; AI identity is not accepted'); end if;
-  if not exists(select 1 from public.recommendations where id=v_rec and organization_id=v_org) then
+  select asset_id into v_rec_asset from public.recommendations where id=v_rec and organization_id=v_org
+    and (risk_id is null or public.can_read_risk(risk_id));
+  if not found then
     return jsonb_build_object('error','recommendation not found in this organization'); end if;
-  if not exists(select 1 from public.risk_obligations where id=v_obligation and organization_id=v_org
-    and service_commitment_type is not null and status='adopted') then
+  select asset_id into v_obligation_asset from public.risk_obligations where id=v_obligation
+    and organization_id=v_org and service_commitment_type is not null and status='adopted';
+  if not found then
     return jsonb_build_object('error','adopted service obligation not found in this organization'); end if;
+  if v_rec_asset is not null and v_obligation_asset is not null and v_rec_asset<>v_obligation_asset then
+    return jsonb_build_object('error','obligation and recommendation refer to different assets'); end if;
   if p_assessment->>'breach_state' not in ('compliant','at_risk','breached','unknown')
     or p_assessment->>'risk_rating' not in ('low','medium','high','critical','unknown') then
     return jsonb_build_object('error','valid breach state and contractual risk rating are required'); end if;
@@ -306,8 +324,9 @@ begin
   if cardinality(v_evidence)<>cardinality(array(select distinct unnest(v_evidence))) then
     return jsonb_build_object('error','evidence item ids must be unique'); end if;
   if exists(select 1 from unnest(v_evidence) x(id) left join public.evidence_items e
-    on e.id=x.id and e.organization_id=v_org where e.id is null) then
-    return jsonb_build_object('error','every evidence item must belong to this organization'); end if;
+    on e.id=x.id and e.organization_id=v_org where e.id is null
+      or (v_rec_asset is not null and e.asset_id is not null and e.asset_id<>v_rec_asset)) then
+    return jsonb_build_object('error','every evidence item must belong to this organization and recommendation asset when asset-scoped'); end if;
   update public.recommendation_obligation_risks set status='superseded'
     where organization_id=v_org and recommendation_id=v_rec and obligation_id=v_obligation
       and status in ('draft','verified');

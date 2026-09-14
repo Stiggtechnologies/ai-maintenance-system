@@ -48,6 +48,7 @@ export function ServiceContractRiskPanel() {
   const [responsibleRole, setResponsibleRole] = useState("");
   const [basis, setBasis] = useState("");
   const [assetId, setAssetId] = useState("");
+  const [serviceLevelAssetId, setServiceLevelAssetId] = useState("");
   const [contractId, setContractId] = useState("");
   const [supplierId, setSupplierId] = useState("");
   const [warrantyId, setWarrantyId] = useState("");
@@ -126,7 +127,7 @@ export function ServiceContractRiskPanel() {
           responsible_role: responsibleRole,
           measurement_basis: basis,
           asset_id: assetId || null,
-          service_level_asset_id: assetId || null,
+          service_level_asset_id: serviceLevelAssetId || null,
           contract_package_id: contractId || null,
           supplier_id: supplierId || null,
           warranty_term_id: warrantyId || null,
@@ -359,6 +360,18 @@ export function ServiceContractRiskPanel() {
               {refs.data?.contracts.map((x) => (
                 <option key={x.id} value={x.id}>
                   {x.package_code} — {x.title}
+                </option>
+              ))}
+            </select>
+            <select
+              value={serviceLevelAssetId}
+              onChange={(e) => setServiceLevelAssetId(e.target.value)}
+              className="rounded-lg border border-white/10 bg-[#101B27] p-2 text-xs text-white"
+            >
+              <option value="">No service-level link</option>
+              {refs.data?.serviceLevels.map((x) => (
+                <option key={x.asset_id} value={x.asset_id}>
+                  {x.service_name}
                 </option>
               ))}
             </select>
