@@ -88,3 +88,7 @@ export const PUBLIC_ASK_INTENTS: readonly PublicAskIntent[] = [
 export function publicAskIntentById(id: string): PublicAskIntent | undefined {
   return PUBLIC_ASK_INTENTS.find((item) => item.id === id);
 }
+
+export function publicAskIntentPath(intent: Pick<PublicAskIntent, "id">): string {
+  return `/capabilities/${intent.id}`;
+}

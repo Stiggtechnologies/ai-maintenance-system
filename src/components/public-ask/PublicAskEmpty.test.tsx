@@ -23,10 +23,27 @@ describe("PublicAskEmpty", () => {
     expect(screen.getByText("6–8 weeks")).toBeTruthy();
     expect(screen.getByText("ask-slot")).toBeTruthy();
     expect(
-      screen
-        .getAllByTestId("hero-intent-pill")
-        .map((item) => item.textContent),
+      screen.getAllByTestId("hero-intent-pill").map((item) => item.textContent),
     ).toEqual(["Compare", "Troubleshoot", "Health", "Learn", "Fact Check"]);
+    expect(
+      screen
+        .getAllByTestId("capability-showcase-link")
+        .map((item) => item.getAttribute("href")),
+    ).toEqual([
+      "/capabilities/compare",
+      "/capabilities/troubleshoot",
+      "/capabilities/health",
+      "/capabilities/learn",
+      "/capabilities/fact-check",
+    ]);
+    expect(screen.getByRole("link", { name: /Assess/ })).toHaveAttribute(
+      "href",
+      "/setup",
+    );
+    expect(screen.getByRole("link", { name: /Sign in/ })).toHaveAttribute(
+      "href",
+      "/signin?returnTo=%2Foverview",
+    );
     expect(
       screen
         .getAllByTestId("ask-intent-pill")
