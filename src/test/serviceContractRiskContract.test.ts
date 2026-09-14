@@ -49,6 +49,7 @@ describe("U13.01 service and contractual recommendation-risk contract", () => {
   it("refuses invented targets and preserves evidence provenance", () => {
     expect(sql).toContain("syncai will not invent one");
     expect(sql).toContain("syncai will not infer compliance");
+    expect(sql).toContain("must be finite stated values");
     expect(sql).toContain("e.verification_status<>'verified'");
     expect(sql).toContain("e.organization_id=v_org");
     expect(sql).toContain("evidence_item_ids");
@@ -62,6 +63,8 @@ describe("U13.01 service and contractual recommendation-risk contract", () => {
     expect(sql).toContain("recorded_by=auth.uid()");
     expect(sql).toContain("author cannot independently");
     expect(sql).toContain("recorded_by<>verified_by");
+    expect(sql).toContain("prevent_service_obligation_semantic_strip");
+    expect(sql).toContain("create_service_contract_obligation_version");
     expect(sql).toContain("enable row level security");
     expect(sql).toContain("revoke insert,update,delete,truncate");
   });
@@ -83,9 +86,12 @@ describe("U13.01 service and contractual recommendation-risk contract", () => {
     expect(page).toContain("<ServiceContractRiskPanel />");
     expect(panel).toContain("Service &amp; contractual risk");
     expect(panel).toContain("Put obligation in recommendation risk");
-    expect(panel).toContain("SyncAI will not infer a guarantee");
+    expect(panel.replace(/\s+/g, " ")).toContain(
+      "SyncAI will not infer a guarantee, remedy, penalty or incentive",
+    );
     expect(service).toContain('"record_service_contract_obligation"');
     expect(service).toContain('"adopt_service_contract_obligation"');
+    expect(service).toContain('"create_service_contract_obligation_version"');
     expect(service).toContain('"record_recommendation_contract_risk"');
     expect(service).toContain('"verify_recommendation_contract_risk"');
   });

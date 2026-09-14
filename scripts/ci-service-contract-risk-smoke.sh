@@ -24,7 +24,6 @@ ADMIN=$(token 'admin@syncai.ca' 'Admin123!@#')
 test -n "$AUTHOR" && test -n "$ADMIN"
 ASSET=$(PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -qAt -v ON_ERROR_STOP=1 -c "select id from assets where organization_id='$ORG' order by created_at limit 1")
 test -n "$ASSET"
-AUTHORITY_BEFORE=$(PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -qAt -v ON_ERROR_STOP=1 -c "select (select count(*) from approvals where organization_id='$ORG')||'|'||(select count(*) from work_orders where organization_id='$ORG')||'|'||(select status from recommendations where id='$RECOMMENDATION')")
 AUDIT_BEFORE=$(PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -qAt -v ON_ERROR_STOP=1 -c "select count(*) from audit_events where organization_id='$ORG' and entity_type in ('service_contract_obligation','service_contract_obligation_adoption','recommendation_contract_risk','recommendation_contract_risk_verification')")
 PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -qAt -v ON_ERROR_STOP=1 <<SQL
 insert into organizations(id,name,industry) values('$OTHER_ORG','U13 foreign','transportation') on conflict(id) do nothing;
@@ -59,6 +58,9 @@ SELF_ADOPT=$(rpc "$AUTHOR" adopt_service_contract_obligation "{\"p_obligation_id
 err "$SELF_ADOPT" 'author cannot independently adopt'
 ADOPT=$(rpc "$ADMIN" adopt_service_contract_obligation "{\"p_obligation_id\":\"$OBLIGATION\",\"p_note\":\"Independent review confirms the executed source, target, calculation basis and commercial consequences.\"}")
 ok "$ADOPT"
+VERSION_RESULT=$(rpc "$AUTHOR" create_service_contract_obligation_version "{\"p_obligation_id\":\"$OBLIGATION\",\"p_changes\":{\"source_reference\":\"U13-SLA-DRAFT-V2\",\"target_value\":99.6},\"p_reason\":\"Supplier proposed a revised target; preserve the adopted obligation until independent adoption.\"}")
+ok "$VERSION_RESULT"
+BODY="$(body "$VERSION_RESULT")" OBLIGATION="$OBLIGATION" python3 -c "import json,os;x=json.loads(os.environ['BODY']);assert x['status']=='draft' and x['version']==2 and x['supersedes_id']==os.environ['OBLIGATION']"
 
 NO_BASIS=$(rpc "$AUTHOR" record_recommendation_contract_risk "{\"p_assessment\":{\"recommendation_id\":\"$RECOMMENDATION\",\"obligation_id\":\"$OBLIGATION\",\"breach_state\":\"unknown\",\"risk_rating\":\"unknown\",\"exposure_basis\":\"Too short\"}}")
 err "$NO_BASIS" 'exposure basis'
@@ -76,5 +78,5 @@ BODY="$(body "$MODEL")" OBLIGATION="$OBLIGATION" ASSESSMENT="$ASSESSMENT" python
 AUTHORITY_AFTER=$(PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -qAt -v ON_ERROR_STOP=1 -c "select (select count(*) from approvals where organization_id='$ORG')||'|'||(select count(*) from work_orders where organization_id='$ORG')||'|'||(select status from recommendations where id='$RECOMMENDATION')")
 test "$AUTHORITY_AFTER" = "$AUTHORITY_BEFORE"
 AUDIT_AFTER=$(PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -qAt -v ON_ERROR_STOP=1 -c "select count(*) from audit_events where organization_id='$ORG' and entity_type in ('service_contract_obligation','service_contract_obligation_adoption','recommendation_contract_risk','recommendation_contract_risk_verification')")
-test "$AUDIT_AFTER" -eq "$((AUDIT_BEFORE + 4))"
-echo 'U13 service-contract risk smoke passed: tenant_wall=true types=9 target_not_invented=true verified_evidence=true independent_review=true recommendation_authority_unchanged=true'
+test "$AUDIT_AFTER" -eq "$((AUDIT_BEFORE + 5))"
+echo 'U13 service-contract risk smoke passed: tenant_wall=true types=9 target_not_invented=true verified_evidence=true independent_review=true versioned=true recommendation_authority_unchanged=true'

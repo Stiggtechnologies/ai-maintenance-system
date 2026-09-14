@@ -174,6 +174,23 @@ export async function adoptServiceContractObligation(id: string, note: string) {
   return rpcResult(data);
 }
 
+export async function createServiceContractObligationVersion(
+  id: string,
+  changes: Record<string, unknown>,
+  reason: string,
+) {
+  const { data, error } = await supabase.rpc(
+    "create_service_contract_obligation_version",
+    {
+      p_obligation_id: id,
+      p_changes: changes,
+      p_reason: reason,
+    },
+  );
+  if (error) throw new Error(error.message);
+  return rpcResult(data);
+}
+
 export async function recordRecommendationContractRisk(
   input: Record<string, unknown>,
 ) {

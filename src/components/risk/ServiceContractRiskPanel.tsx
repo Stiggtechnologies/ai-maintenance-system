@@ -105,8 +105,10 @@ export function ServiceContractRiskPanel() {
       await action();
       setMessage(success);
       workspace.refetch();
+      return true;
     } catch (error) {
       setMessage((error as Error).message);
+      return false;
     } finally {
       setBusy(false);
     }
@@ -172,9 +174,11 @@ export function ServiceContractRiskPanel() {
     void run(
       action,
       "Independent review recorded; approval and work authority remain unchanged.",
-    ).then(() => {
-      setReview(null);
-      setReviewNote("");
+    ).then((succeeded) => {
+      if (succeeded) {
+        setReview(null);
+        setReviewNote("");
+      }
     });
   }
 

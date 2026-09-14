@@ -37,8 +37,11 @@ alter table public.risk_obligations add constraint risk_obligations_service_revi
     and length(trim(coalesce(measurement_basis,'')))>=20
     and ((target_value is null and target_unit is null)
       or (target_value is not null and length(trim(coalesce(target_unit,'')))>=1))
+    and (target_value is null or target_value not in ('NaN'::numeric,'Infinity'::numeric,'-Infinity'::numeric))
     and (penalty_value is null or penalty_value>=0)
     and (incentive_value is null or incentive_value>=0)
+    and (penalty_value is null or penalty_value not in ('NaN'::numeric,'Infinity'::numeric,'-Infinity'::numeric))
+    and (incentive_value is null or incentive_value not in ('NaN'::numeric,'Infinity'::numeric,'-Infinity'::numeric))
     and ((penalty_value is null and incentive_value is null)
       or commercial_currency ~ '^[A-Z]{3}$')
     and (status<>'adopted' or (
@@ -51,6 +54,24 @@ alter table public.risk_obligations add constraint risk_obligations_service_revi
 create index if not exists idx_risk_obligations_service
   on public.risk_obligations(organization_id,service_commitment_type,status)
   where service_commitment_type is not null;
+
+-- The general obligation versioner predates service semantics and copies only
+-- its original columns. Refuse semantic stripping; the dedicated versioner
+-- below carries every contractual field and evidence reference forward.
+create or replace function public.prevent_service_obligation_semantic_strip()
+returns trigger language plpgsql set search_path=public as $$
+begin
+  if new.supersedes_id is not null and new.service_commitment_type is null
+    and exists(select 1 from public.risk_obligations old
+      where old.id=new.supersedes_id and old.service_commitment_type is not null) then
+    raise exception 'service obligations must use create_service_contract_obligation_version';
+  end if;
+  return new;
+end $$;
+drop trigger if exists trg_prevent_service_obligation_semantic_strip on public.risk_obligations;
+create trigger trg_prevent_service_obligation_semantic_strip
+  before insert on public.risk_obligations for each row
+  execute function public.prevent_service_obligation_semantic_strip();
 
 create table if not exists public.recommendation_obligation_risks (
   id uuid primary key default gen_random_uuid(),
@@ -75,7 +96,9 @@ create table if not exists public.recommendation_obligation_risks (
   check (length(trim(exposure_basis))>=20),
   check ((actual_value is null and actual_unit is null)
     or (actual_value is not null and length(trim(coalesce(actual_unit,'')))>=1)),
+  check (actual_value is null or actual_value not in ('NaN'::numeric,'Infinity'::numeric,'-Infinity'::numeric)),
   check (estimated_penalty_exposure is null or currency ~ '^[A-Z]{3}$'),
+  check (estimated_penalty_exposure is null or estimated_penalty_exposure not in ('NaN'::numeric,'Infinity'::numeric,'-Infinity'::numeric)),
   check ((status='draft' and verified_by is null and verified_at is null)
     or (status='verified' and verified_by is not null and verified_at is not null
       and recorded_by<>verified_by and length(trim(coalesce(verification_note,'')))>=20)
@@ -135,6 +158,11 @@ begin
   if v_type in ('availability_guarantee','response_time_guarantee','reliability_guarantee','punctuality_target')
     and (v_target is null or coalesce(length(trim(p_obligation->>'target_unit')),0)<1) then
     return jsonb_build_object('error','a quantified guarantee requires a stated target value and unit; SyncAI will not invent one');
+  end if;
+  if v_target in ('NaN'::numeric,'Infinity'::numeric,'-Infinity'::numeric)
+    or v_penalty in ('NaN'::numeric,'Infinity'::numeric,'-Infinity'::numeric)
+    or v_incentive in ('NaN'::numeric,'Infinity'::numeric,'-Infinity'::numeric) then
+    return jsonb_build_object('error','targets, penalties and incentives must be finite stated values');
   end if;
   if (v_penalty is not null or v_incentive is not null)
     and coalesce(p_obligation->>'commercial_currency','') !~ '^[A-Z]{3}$' then
@@ -196,10 +224,59 @@ begin
     return jsonb_build_object('error','all obligation evidence must be independently verified before adoption'); end if;
   update public.risk_obligations set status='adopted',reviewed_by=auth.uid(),reviewed_at=now(),
     review_note=trim(p_note),updated_at=now() where id=o.id;
+  if o.supersedes_id is not null then
+    insert into public.risk_obligation_links(organization_id,risk_id,obligation_id,applicability)
+      select organization_id,risk_id,o.id,applicability from public.risk_obligation_links
+      where organization_id=v_org and obligation_id=o.supersedes_id on conflict do nothing;
+    update public.risk_obligations set status='superseded',updated_at=now()
+      where id=o.supersedes_id and organization_id=v_org and status='adopted';
+  end if;
   insert into public.audit_events(organization_id,entity_type,actor,event_data)
   values(v_org,'service_contract_obligation_adoption',v_role,jsonb_build_object('obligation_id',o.id,
     'independent',true,'boundary','adoption governs the obligation; it does not approve recommendations or release work'));
   return jsonb_build_object('obligation_id',o.id,'status','adopted');
+end $$;
+
+create or replace function public.create_service_contract_obligation_version(
+  p_obligation_id uuid,p_changes jsonb,p_reason text
+)
+returns jsonb language plpgsql security definer set search_path=public as $$
+declare
+  v_org uuid:=public.app_current_org(); v_role text:=public.app_current_role();
+  o public.risk_obligations%rowtype; v_payload jsonb; v_result jsonb; v_id uuid;
+begin
+  if v_org is null or coalesce(v_role,'') not in
+    ('reliability_engineer','maintenance_manager','executive','admin') then
+    return jsonb_build_object('error','a named same-tenant human role must author a service-obligation version'); end if;
+  if coalesce(length(trim(p_reason)),0)<20 then
+    return jsonb_build_object('error','record a substantive reason for the contractual obligation version'); end if;
+  select * into o from public.risk_obligations where id=p_obligation_id
+    and organization_id=v_org and service_commitment_type is not null and status='adopted';
+  if not found then return jsonb_build_object('error','adopted service obligation not found'); end if;
+  if exists(select 1 from public.risk_obligations where supersedes_id=o.id and status='draft') then
+    return jsonb_build_object('error','a draft successor already exists'); end if;
+  v_payload:=jsonb_strip_nulls(jsonb_build_object(
+    'service_commitment_type',o.service_commitment_type,'source_type',o.source_type,
+    'source_reference',o.source_reference,'jurisdiction',o.jurisdiction,
+    'requirement',o.requirement,'applicable_scope',o.applicable_scope,
+    'responsible_role',o.responsible_role,'effective_date',o.effective_date,
+    'expiry_date',o.expiry_date,'asset_id',o.asset_id,
+    'service_level_asset_id',o.service_level_asset_id,'contract_package_id',o.contract_package_id,
+    'supplier_id',o.supplier_id,'warranty_term_id',o.warranty_term_id,
+    'metric_name',o.metric_name,'target_value',o.target_value,'target_unit',o.target_unit,
+    'measurement_window',o.measurement_window,'measurement_basis',o.measurement_basis,
+    'remedy',o.remedy,'penalty_value',o.penalty_value,'incentive_value',o.incentive_value,
+    'commercial_currency',o.commercial_currency,'evidence_item_ids',to_jsonb(o.evidence_item_ids)
+  )) || coalesce(p_changes,'{}'::jsonb);
+  v_result:=public.record_service_contract_obligation(v_payload);
+  if v_result ? 'error' then return v_result; end if;
+  v_id:=(v_result->>'obligation_id')::uuid;
+  update public.risk_obligations set supersedes_id=o.id,version=o.version+1 where id=v_id and organization_id=v_org;
+  insert into public.audit_events(organization_id,entity_type,actor,event_data)
+  values(v_org,'service_contract_obligation_version',v_role,jsonb_build_object(
+    'obligation_id',v_id,'supersedes_id',o.id,'version',o.version+1,'reason',trim(p_reason)));
+  return jsonb_build_object('obligation_id',v_id,'status','draft','version',o.version+1,
+    'supersedes_id',o.id,'note','Successor recorded for independent adoption; current obligation remains adopted until then.');
 end $$;
 
 create or replace function public.record_recommendation_contract_risk(p_assessment jsonb)
@@ -303,11 +380,13 @@ $$;
 
 revoke all on function public.record_service_contract_obligation(jsonb) from public,anon;
 revoke all on function public.adopt_service_contract_obligation(uuid,text) from public,anon;
+revoke all on function public.create_service_contract_obligation_version(uuid,jsonb,text) from public,anon;
 revoke all on function public.record_recommendation_contract_risk(jsonb) from public,anon;
 revoke all on function public.verify_recommendation_contract_risk(uuid,text) from public,anon;
 revoke all on function public.get_service_contract_risk_workspace() from public,anon;
 grant execute on function public.record_service_contract_obligation(jsonb) to authenticated,service_role;
 grant execute on function public.adopt_service_contract_obligation(uuid,text) to authenticated,service_role;
+grant execute on function public.create_service_contract_obligation_version(uuid,jsonb,text) to authenticated,service_role;
 grant execute on function public.record_recommendation_contract_risk(jsonb) to authenticated,service_role;
 grant execute on function public.verify_recommendation_contract_risk(uuid,text) to authenticated,service_role;
 grant execute on function public.get_service_contract_risk_workspace() to authenticated,service_role;
