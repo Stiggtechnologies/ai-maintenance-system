@@ -21,7 +21,8 @@ vi.mock("../services/layeredCapabilityPacks", async () => {
     getCapabilityPackWorkspace: () => getWorkspace(),
     resolveCapabilityPackStack: (...args: unknown[]) => resolveStack(...args),
     authorCapabilityPackLayer: (...args: unknown[]) => authorLayer(...args),
-    decideCapabilityPackOverride: (...args: unknown[]) => decideOverride(...args),
+    decideCapabilityPackOverride: (...args: unknown[]) =>
+      decideOverride(...args),
     adoptCapabilityPackLayer: (...args: unknown[]) => adoptLayer(...args),
   };
 });
@@ -192,7 +193,8 @@ describe("LayeredCapabilityPacks", () => {
     });
     fireEvent.change(screen.getByLabelText("Layer evidence basis"), {
       target: {
-        value: "Reviewed mining maintenance standard and customer duty evidence.",
+        value:
+          "Reviewed mining maintenance standard and customer duty evidence.",
       },
     });
     fireEvent.click(screen.getByText("Save controlled draft"));
@@ -207,6 +209,90 @@ describe("LayeredCapabilityPacks", () => {
     );
   });
 
+  it("authors a typed jurisdiction requirement and records guidance adoption explicitly", async () => {
+    render(<LayeredCapabilityPacks />);
+    await screen.findByText("SyncAI governed core");
+    fireEvent.change(screen.getByLabelText("Pack layer"), {
+      target: { value: "jurisdiction" },
+    });
+    fireEvent.change(screen.getByLabelText("Layer title"), {
+      target: { value: "Alberta pressure requirements" },
+    });
+    fireEvent.change(screen.getByLabelText("Jurisdiction"), {
+      target: { value: "Alberta" },
+    });
+    fireEvent.change(screen.getByLabelText("Requirement key 1"), {
+      target: { value: "pressure_vessel_inspection" },
+    });
+    fireEvent.change(screen.getByLabelText("Requirement title 1"), {
+      target: { value: "Pressure vessel inspection interval" },
+    });
+    fireEvent.change(screen.getByLabelText("Requirement domain 1"), {
+      target: { value: "pressure_regulation" },
+    });
+    fireEvent.change(screen.getByLabelText("Requirement class 1"), {
+      target: { value: "industry_guidance" },
+    });
+    fireEvent.change(screen.getByLabelText("Requirement applicability 1"), {
+      target: { value: "applicable" },
+    });
+    fireEvent.change(screen.getByLabelText("Requirement obligation 1"), {
+      target: { value: "mandatory" },
+    });
+    fireEvent.change(
+      screen.getByLabelText("Requirement authority reference 1"),
+      {
+        target: { value: "Guidance document GD-12" },
+      },
+    );
+    fireEvent.change(
+      screen.getByLabelText("Requirement applicability basis 1"),
+      {
+        target: {
+          value:
+            "The controlled equipment register identifies an in-scope vessel.",
+        },
+      },
+    );
+    fireEvent.change(screen.getByLabelText("Requirement mandatory basis 1"), {
+      target: {
+        value:
+          "The company engineering standard adopts this interval as mandatory.",
+      },
+    });
+    fireEvent.change(
+      screen.getByLabelText("Requirement adoption reference 1"),
+      {
+        target: { value: "Company engineering standard ENG-104" },
+      },
+    );
+    fireEvent.change(screen.getByLabelText("Layer evidence basis"), {
+      target: {
+        value:
+          "Reviewed controlled jurisdiction register and adoption authority.",
+      },
+    });
+    fireEvent.click(screen.getByText("Save controlled draft"));
+    await waitFor(() =>
+      expect(authorLayer).toHaveBeenCalledWith(
+        expect.objectContaining({
+          layerKind: "jurisdiction",
+          jurisdiction: "Alberta",
+          configuration: expect.objectContaining({
+            jurisdiction_requirements: [
+              expect.objectContaining({
+                domain: "pressure_regulation",
+                requirement_class: "industry_guidance",
+                obligation: "mandatory",
+                adopted_by_reference: "Company engineering standard ENG-104",
+              }),
+            ],
+          }),
+        }),
+      ),
+    );
+  });
+
   it("shows the exact changed value and requires review before adoption", async () => {
     render(<LayeredCapabilityPacks />);
     await screen.findByText("North Plant local pack");
@@ -215,7 +301,8 @@ describe("LayeredCapabilityPacks", () => {
     fireEvent.click(screen.getByText("Review exact override"));
     fireEvent.change(screen.getByLabelText("Human review note"), {
       target: {
-        value: "Independent executive review found the local change acceptable.",
+        value:
+          "Independent executive review found the local change acceptable.",
       },
     });
     fireEvent.click(screen.getByText("Approve exact override"));
