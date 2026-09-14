@@ -6,8 +6,9 @@
  * raise work, or invent OEM limits. Recommend ≠ authorize.
  *
  * Provider: OpenAI Speech with the existing OPENAI_API_KEY edge secret.
- * Optional SYNC_TTS_VOICE (default onyx). ELEVENLABS_API_KEY is a later
- * overlay and is not required.
+ * Optional SYNC_TTS_VOICE (default marin). The preferred model also receives
+ * a bounded delivery instruction for warm, expressive speech.
+ * ELEVENLABS_API_KEY is a later overlay and is not required.
  */
 
 import { createClient } from "npm:@supabase/supabase-js@2";
@@ -80,6 +81,8 @@ Deno.serve(async (request) => {
     return json({
       configured,
       engine: configured ? "openai" : "unconfigured",
+      model: configured ? PREFERRED_TTS_MODEL : null,
+      voice: configured ? TTS_VOICE : null,
     });
   }
 
@@ -112,11 +115,12 @@ Deno.serve(async (request) => {
       fallbackModel: FALLBACK_TTS_MODEL,
     });
     if (!result.ok) {
-      const status = result.status === 401 || result.status === 403
-        ? 502
-        : result.status >= 400 && result.status < 600
-          ? result.status
-          : 502;
+      const status =
+        result.status === 401 || result.status === 403
+          ? 502
+          : result.status >= 400 && result.status < 600
+            ? result.status
+            : 502;
       return json({ error: "cloud_tts_failed" }, status);
     }
     return new Response(result.bytes, {
