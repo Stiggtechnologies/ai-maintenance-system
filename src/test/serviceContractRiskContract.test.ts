@@ -94,5 +94,6 @@ describe("U13.01 service and contractual recommendation-risk contract", () => {
     expect(service).toContain('"create_service_contract_obligation_version"');
     expect(service).toContain('"record_recommendation_contract_risk"');
     expect(service).toContain('"verify_recommendation_contract_risk"');
+    expect(sql).toContain("notify pgrst");
   });
 });

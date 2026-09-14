@@ -410,5 +410,7 @@ grant execute on function public.record_recommendation_contract_risk(jsonb) to a
 grant execute on function public.verify_recommendation_contract_risk(uuid,text) to authenticated,service_role;
 grant execute on function public.get_service_contract_risk_workspace() to authenticated,service_role;
 
+notify pgrst, 'reload schema';
+
 comment on table public.recommendation_obligation_risks is
   'U13.01 evidence-backed service/contract exposure linked to canonical recommendations; never an approval or work authority.';

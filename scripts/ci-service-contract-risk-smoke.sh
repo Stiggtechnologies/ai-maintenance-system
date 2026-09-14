@@ -1,51 +1,74 @@
 #!/usr/bin/env bash
 set -euo pipefail
-trap 'echo "U13 service-contract risk smoke FAILED at line $LINENO: $BASH_COMMAND"' ERR
+# Do not interpolate BASH_COMMAND: quoted curl/psql lines make the trap itself fail
+# and swallow the real error (that is why CI showed only supabase status stderr).
+trap 'echo "U13 service-contract risk smoke FAILED at line $LINENO"' ERR
+
+psqlc() {
+  PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -At -v ON_ERROR_STOP=1 -c "$1"
+}
 
 eval "$(supabase status -o env | grep -E '^(ANON_KEY|API_URL)=')"
 : "${API_URL:?}" "${ANON_KEY:?}"
+echo "U13 smoke: supabase env loaded api=${API_URL}"
+
 ORG='11111111-1111-1111-1111-111111111111'
-OTHER_ORG='99999999-9999-9999-9999-999999999917'
+OTHER_ORG='99999999-9999-9999-9999-999999999913'
 FOREIGN_ASSET='98130000-0000-0000-0000-000000000002'
 EVIDENCE='98130000-0000-0000-0000-000000000021'
 RECOMMENDATION='98130000-0000-0000-0000-000000000031'
-SUPPLIER=98130001
-CONTRACT=98130002
-WARRANTY=98130003
+
 token(){ curl -sS "$API_URL/auth/v1/token?grant_type=password" -H "apikey: $ANON_KEY" -H 'content-type: application/json' -d "{\"email\":\"$1\",\"password\":\"$2\"}" | python3 -c "import json,sys;print(json.load(sys.stdin).get('access_token',''))"; }
 rpc(){ curl -sS -w '\n%{http_code}' -X POST "$API_URL/rest/v1/rpc/$2" -H "apikey: $ANON_KEY" -H "authorization: Bearer $1" -H 'content-type: application/json' -d "$3"; }
 body(){ printf '%s' "${1%$'\n'*}"; }
 status(){ printf '%s' "${1##*$'\n'}"; }
-ok(){ test "$(status "$1")" = 200; BODY="$(body "$1")" python3 -c "import json,os;x=json.loads(os.environ['BODY']);assert 'error' not in x,x"; }
-err(){ test "$(status "$1")" = 200; BODY="$(body "$1")" NEEDLE="$2" python3 -c "import json,os;x=json.loads(os.environ['BODY']);assert os.environ['NEEDLE'] in x.get('error',''),x"; }
+ok(){
+  local code
+  code="$(status "$1")"
+  test "$code" = 200 || { echo "expected HTTP 200, got ${code}: $(body "$1")"; return 1; }
+  BODY="$(body "$1")" python3 -c "import json,os;x=json.loads(os.environ['BODY']);assert 'error' not in x,x"
+}
+err(){
+  local code
+  code="$(status "$1")"
+  test "$code" = 200 || { echo "expected controlled HTTP 200 refusal, got ${code}: $(body "$1")"; return 1; }
+  BODY="$(body "$1")" NEEDLE="$2" python3 -c "import json,os;x=json.loads(os.environ['BODY']);assert os.environ['NEEDLE'] in x.get('error',''),x"
+}
+
+RPCS=$(psqlc "select string_agg(p.proname, ',' order by p.proname) from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname in ('record_service_contract_obligation','adopt_service_contract_obligation','create_service_contract_obligation_version','record_recommendation_contract_risk','verify_recommendation_contract_risk','get_service_contract_risk_workspace')")
+echo "U13 smoke: catalog RPCs=${RPCS}"
+test "$RPCS" = 'adopt_service_contract_obligation,create_service_contract_obligation_version,get_service_contract_risk_workspace,record_recommendation_contract_risk,record_service_contract_obligation,verify_recommendation_contract_risk'
+psqlc "notify pgrst, 'reload schema'" >/dev/null
 
 AUTHOR=$(token 'demo@syncai.ca' 'Demo123!@#')
 ADMIN=$(token 'admin@syncai.ca' 'Admin123!@#')
-test -n "$AUTHOR" && test -n "$ADMIN"
-ASSET=$(PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -qAt -v ON_ERROR_STOP=1 -c "select id from assets where organization_id='$ORG' order by created_at limit 1")
-test -n "$ASSET"
-AUDIT_BEFORE=$(PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -qAt -v ON_ERROR_STOP=1 -c "select count(*) from audit_events where organization_id='$ORG' and entity_type in ('service_contract_obligation','service_contract_obligation_adoption','recommendation_contract_risk','recommendation_contract_risk_verification')")
-PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -qAt -v ON_ERROR_STOP=1 <<SQL
-insert into organizations(id,name,industry) values('$OTHER_ORG','U13 foreign','transportation') on conflict(id) do nothing;
-insert into assets(id,organization_id,name) values('$FOREIGN_ASSET','$OTHER_ORG','Foreign service asset') on conflict(id) do nothing;
-insert into asset_service_levels(asset_id,organization_id,service_name,beneficiary,tolerable_downtime_hours,consequence_class,restoration_rank,notes)
-values('$ASSET','$ORG','Process water availability','Operating plant',4,'production',1,'Contracted availability basis for U13 acceptance.') on conflict(asset_id) do update set service_name=excluded.service_name;
-insert into suppliers(id,organization_id,supplier_code,name,supplier_kind,approved_vendor)
-values($SUPPLIER,'$ORG','U13-OEM','U13 Service OEM','service_contractor',true) on conflict(id) do nothing;
-insert into contract_packages(id,organization_id,package_code,title,scope_of_work,acceptance_criteria,site_conditions_stated,awarded_supplier_id,awarded_value)
-values($CONTRACT,'$ORG','U13-SLA','Availability service agreement','Maintain process-water service.','Monthly measured availability.',true,$SUPPLIER,250000) on conflict(id) do nothing;
-insert into warranty_terms(id,organization_id,asset_id,supplier_id,starts_on,ends_on,covers,exclusions,claim_window_days)
-values($WARRANTY,'$ORG','$ASSET',$SUPPLIER,'2026-01-01','2028-12-31','Covered failures under service agreement.','Unauthorized modifications.',30) on conflict(id) do nothing;
-insert into recommendations(id,organization_id,asset_id,title,issue,action,impact,status,risk_impact,rationale)
-values('$RECOMMENDATION','$ORG','$ASSET','Adjust process-water maintenance interval','Current interval may conflict with availability commitment.','Evaluate a governed interval change.','Potential contractual exposure if service is interrupted.','pending','Medium','Human decision remains required.') on conflict(id) do nothing;
-insert into evidence_items(id,organization_id,asset_id,recommendation_id,source_system,evidence_type,description,evidence_class)
-values('$EVIDENCE','$ORG','$ASSET','$RECOMMENDATION','ci','contract','Executed U13 service agreement with monthly availability schedule.','DOCUMENTED') on conflict(id) do nothing;
-SQL
-AUTHORITY_BEFORE=$(PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -qAt -v ON_ERROR_STOP=1 -c "select (select count(*) from approvals where organization_id='$ORG')||'|'||(select count(*) from work_orders where organization_id='$ORG')||'|'||(select status from recommendations where id='$RECOMMENDATION')")
+test -n "$AUTHOR" || { echo 'demo author authentication failed'; exit 1; }
+test -n "$ADMIN" || { echo 'administrator authentication failed'; exit 1; }
+echo 'U13 smoke: authentication passed'
+
+ASSET=$(psqlc "select id from assets where organization_id='$ORG' order by created_at limit 1")
+test -n "$ASSET" || { echo 'demo organization has no asset'; exit 1; }
+AUDIT_BEFORE=$(psqlc "select count(*) from audit_events where organization_id='$ORG' and entity_type in ('service_contract_obligation','service_contract_obligation_adoption','recommendation_contract_risk','recommendation_contract_risk_verification')")
+
+psqlc "insert into organizations(id,name,industry,org_level) values('$OTHER_ORG','U13 foreign','transportation','enterprise') on conflict(id) do nothing"
+psqlc "insert into assets(id,organization_id,name) values('$FOREIGN_ASSET','$OTHER_ORG','Foreign service asset') on conflict(id) do nothing"
+psqlc "insert into asset_service_levels(asset_id,organization_id,service_name,beneficiary,tolerable_downtime_hours,consequence_class,restoration_rank,notes) values('$ASSET','$ORG','Process water availability','Operating plant',4,'production',1,'Contracted availability basis for U13 acceptance.') on conflict(asset_id) do update set service_name=excluded.service_name"
+SUPPLIER=$(psqlc "insert into suppliers(organization_id,supplier_code,name,supplier_kind,approved_vendor) values('$ORG','U13-OEM','U13 Service OEM','service_contractor',true) on conflict (organization_id,supplier_code) do update set name=excluded.name returning id")
+CONTRACT=$(psqlc "insert into contract_packages(organization_id,package_code,title,scope_of_work,acceptance_criteria,site_conditions_stated,awarded_supplier_id,awarded_value) values('$ORG','U13-SLA','Availability service agreement','Maintain process-water service.','Monthly measured availability.',true,$SUPPLIER,250000) on conflict (organization_id,package_code) do update set awarded_supplier_id=excluded.awarded_supplier_id,awarded_value=excluded.awarded_value returning id")
+WARRANTY=$(psqlc "insert into warranty_terms(organization_id,asset_id,supplier_id,starts_on,ends_on,covers,exclusions,claim_window_days) values('$ORG','$ASSET',$SUPPLIER,'2026-01-01','2028-12-31','Covered failures under service agreement.','Unauthorized modifications.',30) returning id")
+psqlc "insert into recommendations(id,organization_id,asset_id,title,issue,action,impact,status,risk_impact,rationale) values('$RECOMMENDATION','$ORG','$ASSET','Adjust process-water maintenance interval','Current interval may conflict with availability commitment.','Evaluate a governed interval change.','Potential contractual exposure if service is interrupted.','pending','Medium','Human decision remains required.') on conflict(id) do nothing"
+psqlc "insert into evidence_items(id,organization_id,asset_id,recommendation_id,source_system,evidence_type,description,evidence_class) values('$EVIDENCE','$ORG','$ASSET','$RECOMMENDATION','ci','contract','Executed U13 service agreement with monthly availability schedule.','DOCUMENTED') on conflict(id) do nothing"
+test -n "$SUPPLIER" && test -n "$CONTRACT" && test -n "$WARRANTY"
+echo "U13 smoke: fixtures ready asset=${ASSET} supplier=${SUPPLIER} contract=${CONTRACT} warranty=${WARRANTY}"
+
+AUTHORITY_BEFORE=$(psqlc "select (select count(*) from approvals where organization_id='$ORG')||'|'||(select count(*) from work_orders where organization_id='$ORG')||'|'||(select status from recommendations where id='$RECOMMENDATION')")
 
 VERIFY_EVIDENCE=$(rpc "$ADMIN" verify_evidence_item "{\"p_evidence_id\":\"$EVIDENCE\",\"p_method\":\"Independent CI review of executed service agreement\",\"p_outcome\":\"verified\",\"p_note\":\"Source and monthly availability schedule confirmed.\"}")
 ok "$VERIFY_EVIDENCE"
-test "$(curl -sS -o /dev/null -w '%{http_code}' -X POST "$API_URL/rest/v1/rpc/get_service_contract_risk_workspace" -H "apikey: $ANON_KEY" -H 'content-type: application/json' -d '{}')" = 401
+NOAUTH=$(curl -sS -o /dev/null -w '%{http_code}' -X POST "$API_URL/rest/v1/rpc/get_service_contract_risk_workspace" -H "apikey: $ANON_KEY" -H 'content-type: application/json' -d '{}')
+echo "U13 smoke: anonymous workspace HTTP ${NOAUTH}"
+test "$NOAUTH" = 401
+echo 'U13 smoke: evidence verified and anonymous boundary passed'
 
 NO_TARGET=$(rpc "$AUTHOR" record_service_contract_obligation "{\"p_obligation\":{\"service_commitment_type\":\"availability_guarantee\",\"source_type\":\"contract\",\"source_reference\":\"U13-SLA\",\"requirement\":\"Monthly availability must meet the executed agreement.\",\"applicable_scope\":\"Process-water service\",\"responsible_role\":\"maintenance_manager\",\"measurement_basis\":\"Monthly historian service-availability calculation under the executed schedule.\"}}")
 err "$NO_TARGET" 'will not invent one'
@@ -75,8 +98,8 @@ ok "$VERIFY"
 MODEL=$(rpc "$AUTHOR" get_service_contract_risk_workspace '{}')
 ok "$MODEL"
 BODY="$(body "$MODEL")" OBLIGATION="$OBLIGATION" ASSESSMENT="$ASSESSMENT" python3 -c "import json,os;x=json.loads(os.environ['BODY']);o=next(i for i in x['obligations'] if i['id']==os.environ['OBLIGATION']);a=next(i for i in x['assessments'] if i['id']==os.environ['ASSESSMENT']);assert len(x['commitment_types'])==9;assert o['status']=='adopted' and o['target_value']==99.5 and o['penalty_value']==25000 and o['incentive_value']==5000;assert a['status']=='verified' and a['breach_state']=='at_risk' and a['risk_rating']=='high';assert len(a['missing_evidence'])==1;assert 'never approves' in x['basis'].lower()"
-AUTHORITY_AFTER=$(PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -qAt -v ON_ERROR_STOP=1 -c "select (select count(*) from approvals where organization_id='$ORG')||'|'||(select count(*) from work_orders where organization_id='$ORG')||'|'||(select status from recommendations where id='$RECOMMENDATION')")
+AUTHORITY_AFTER=$(psqlc "select (select count(*) from approvals where organization_id='$ORG')||'|'||(select count(*) from work_orders where organization_id='$ORG')||'|'||(select status from recommendations where id='$RECOMMENDATION')")
 test "$AUTHORITY_AFTER" = "$AUTHORITY_BEFORE"
-AUDIT_AFTER=$(PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -qAt -v ON_ERROR_STOP=1 -c "select count(*) from audit_events where organization_id='$ORG' and entity_type in ('service_contract_obligation','service_contract_obligation_adoption','recommendation_contract_risk','recommendation_contract_risk_verification')")
+AUDIT_AFTER=$(psqlc "select count(*) from audit_events where organization_id='$ORG' and entity_type in ('service_contract_obligation','service_contract_obligation_adoption','recommendation_contract_risk','recommendation_contract_risk_verification')")
 test "$AUDIT_AFTER" -eq "$((AUDIT_BEFORE + 5))"
 echo 'U13 service-contract risk smoke passed: tenant_wall=true types=9 target_not_invented=true verified_evidence=true independent_review=true versioned=true recommendation_authority_unchanged=true'
