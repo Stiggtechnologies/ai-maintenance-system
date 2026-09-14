@@ -41,8 +41,10 @@ test "$RPCS" = 'adopt_service_contract_obligation,create_service_contract_obliga
 psqlc "notify pgrst, 'reload schema'" >/dev/null
 
 AUTHOR=$(token 'demo@syncai.ca' 'Demo123!@#')
+MANAGER=$(token 'manager@syncai.ca' 'Manager123!@#')
 ADMIN=$(token 'admin@syncai.ca' 'Admin123!@#')
 test -n "$AUTHOR" || { echo 'demo author authentication failed'; exit 1; }
+test -n "$MANAGER" || { echo 'maintenance manager authentication failed'; exit 1; }
 test -n "$ADMIN" || { echo 'administrator authentication failed'; exit 1; }
 echo 'U13 smoke: authentication passed'
 
@@ -77,13 +79,18 @@ NO_TARGET=$(rpc "$AUTHOR" record_service_contract_obligation "{\"p_obligation\":
 err "$NO_TARGET" 'will not invent one'
 FOREIGN=$(rpc "$AUTHOR" record_service_contract_obligation "{\"p_obligation\":{\"service_commitment_type\":\"availability_guarantee\",\"source_type\":\"contract\",\"source_reference\":\"U13-SLA\",\"requirement\":\"Foreign asset linkage must be refused by the tenant wall.\",\"applicable_scope\":\"Foreign service\",\"responsible_role\":\"maintenance_manager\",\"measurement_basis\":\"Monthly availability calculated from independently verified historian evidence.\",\"asset_id\":\"$FOREIGN_ASSET\",\"target_value\":99.5,\"target_unit\":\"percent\"}}")
 err "$FOREIGN" 'asset not found'
-OBLIGATION_RESULT=$(rpc "$AUTHOR" record_service_contract_obligation "{\"p_obligation\":{\"service_commitment_type\":\"availability_guarantee\",\"source_type\":\"contract\",\"source_reference\":\"U13-SLA\",\"requirement\":\"Process-water service availability shall be at least 99.5 percent each calendar month.\",\"applicable_scope\":\"Process-water service for the operating plant\",\"responsible_role\":\"maintenance_manager\",\"measurement_basis\":\"Monthly historian service-availability calculation excluding only contractually stated exclusions.\",\"asset_id\":\"$ASSET\",\"service_level_asset_id\":\"$ASSET\",\"contract_package_id\":\"$CONTRACT\",\"supplier_id\":\"$SUPPLIER\",\"warranty_term_id\":\"$WARRANTY\",\"metric_name\":\"service_availability\",\"target_value\":99.5,\"target_unit\":\"percent\",\"measurement_window\":\"calendar_month\",\"remedy\":\"Service credit and corrective action under the executed agreement.\",\"penalty_value\":25000,\"incentive_value\":5000,\"commercial_currency\":\"CAD\",\"evidence_item_ids\":[\"$EVIDENCE\"]}}")
+# A reliability engineer may record, but adoption is accountable management
+# only. The engineer refusal must not be mistaken for the author SoD check.
+OBLIGATION_RESULT=$(rpc "$MANAGER" record_service_contract_obligation "{\"p_obligation\":{\"service_commitment_type\":\"availability_guarantee\",\"source_type\":\"contract\",\"source_reference\":\"U13-SLA\",\"requirement\":\"Process-water service availability shall be at least 99.5 percent each calendar month.\",\"applicable_scope\":\"Process-water service for the operating plant\",\"responsible_role\":\"maintenance_manager\",\"measurement_basis\":\"Monthly historian service-availability calculation excluding only contractually stated exclusions.\",\"asset_id\":\"$ASSET\",\"service_level_asset_id\":\"$ASSET\",\"contract_package_id\":\"$CONTRACT\",\"supplier_id\":\"$SUPPLIER\",\"warranty_term_id\":\"$WARRANTY\",\"metric_name\":\"service_availability\",\"target_value\":99.5,\"target_unit\":\"percent\",\"measurement_window\":\"calendar_month\",\"remedy\":\"Service credit and corrective action under the executed agreement.\",\"penalty_value\":25000,\"incentive_value\":5000,\"commercial_currency\":\"CAD\",\"evidence_item_ids\":[\"$EVIDENCE\"]}}")
 ok "$OBLIGATION_RESULT"
 OBLIGATION=$(BODY="$(body "$OBLIGATION_RESULT")" python3 -c "import json,os;print(json.loads(os.environ['BODY'])['obligation_id'])")
-SELF_ADOPT=$(rpc "$AUTHOR" adopt_service_contract_obligation "{\"p_obligation_id\":\"$OBLIGATION\",\"p_note\":\"The author must not adopt the same contractual obligation.\"}")
+ENGINEER_ADOPT=$(rpc "$AUTHOR" adopt_service_contract_obligation "{\"p_obligation_id\":\"$OBLIGATION\",\"p_note\":\"A reliability engineer is not accountable management for adoption.\"}")
+err "$ENGINEER_ADOPT" 'named accountable management'
+SELF_ADOPT=$(rpc "$MANAGER" adopt_service_contract_obligation "{\"p_obligation_id\":\"$OBLIGATION\",\"p_note\":\"The author must not adopt the same contractual obligation.\"}")
 err "$SELF_ADOPT" 'author cannot independently adopt'
 ADOPT=$(rpc "$ADMIN" adopt_service_contract_obligation "{\"p_obligation_id\":\"$OBLIGATION\",\"p_note\":\"Independent review confirms the executed source, target, calculation basis and commercial consequences.\"}")
 ok "$ADOPT"
+echo 'U13 smoke: adoption role gate and author separation of duties passed'
 VERSION_RESULT=$(rpc "$AUTHOR" create_service_contract_obligation_version "{\"p_obligation_id\":\"$OBLIGATION\",\"p_changes\":{\"source_reference\":\"U13-SLA-DRAFT-V2\",\"target_value\":99.6},\"p_reason\":\"Supplier proposed a revised target; preserve the adopted obligation until independent adoption.\"}")
 ok "$VERSION_RESULT"
 BODY="$(body "$VERSION_RESULT")" OBLIGATION="$OBLIGATION" python3 -c "import json,os;x=json.loads(os.environ['BODY']);assert x['status']=='draft' and x['version']==2 and x['supersedes_id']==os.environ['OBLIGATION']"

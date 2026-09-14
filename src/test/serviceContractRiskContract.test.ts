@@ -14,6 +14,7 @@ const service = readFileSync(
   "src/services/serviceContractRiskService.ts",
   "utf8",
 );
+const smoke = readFileSync("scripts/ci-service-contract-risk-smoke.sh", "utf8");
 
 describe("U13.01 service and contractual recommendation-risk contract", () => {
   it("extends the canonical obligation and recommendation spine", () => {
@@ -62,7 +63,11 @@ describe("U13.01 service and contractual recommendation-risk contract", () => {
     expect(sql).toContain("created_by=auth.uid()");
     expect(sql).toContain("recorded_by=auth.uid()");
     expect(sql).toContain("author cannot independently");
+    expect(sql).toContain("not in ('executive','maintenance_manager','admin')");
     expect(sql).toContain("recorded_by<>verified_by");
+    expect(smoke).toContain("manager@syncai.ca");
+    expect(smoke).toContain("named accountable management");
+    expect(smoke).toContain("author cannot independently adopt");
     expect(sql).toContain("prevent_service_obligation_semantic_strip");
     expect(sql).not.toContain("from public.risk_obligations old");
     expect(sql).toContain("from public.risk_obligations prior");
