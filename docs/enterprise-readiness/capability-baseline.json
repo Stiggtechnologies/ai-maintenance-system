@@ -2166,10 +2166,10 @@
     "backticked": 1
   },
   "U7.02": {
-    "status": "🟡",
-    "evidence": false,
-    "citations": 0,
-    "backticked": 0
+    "status": "✅",
+    "evidence": true,
+    "citations": 4,
+    "backticked": 4
   },
   "U7.03": {
     "status": "✅",
@@ -2178,16 +2178,16 @@
     "backticked": 2
   },
   "U7.04": {
-    "status": "🟡",
+    "status": "✅",
     "evidence": true,
-    "citations": 1,
-    "backticked": 1
+    "citations": 3,
+    "backticked": 3
   },
   "U7.05": {
-    "status": "🟡",
-    "evidence": false,
-    "citations": 0,
-    "backticked": 0
+    "status": "✅",
+    "evidence": true,
+    "citations": 3,
+    "backticked": 3
   },
   "U7.06": {
     "status": "✅",
@@ -2196,22 +2196,22 @@
     "backticked": 1
   },
   "U7.07": {
-    "status": "🟡",
+    "status": "✅",
     "evidence": true,
-    "citations": 1,
-    "backticked": 1
+    "citations": 3,
+    "backticked": 3
   },
   "U7.08": {
-    "status": "🟡",
+    "status": "✅",
     "evidence": true,
-    "citations": 1,
-    "backticked": 1
+    "citations": 3,
+    "backticked": 3
   },
   "U7.09": {
-    "status": "🟡",
+    "status": "✅",
     "evidence": true,
-    "citations": 1,
-    "backticked": 1
+    "citations": 4,
+    "backticked": 4
   },
   "U7.10": {
     "status": "✅",
@@ -2220,10 +2220,10 @@
     "backticked": 0
   },
   "U7.11": {
-    "status": "🟡",
+    "status": "✅",
     "evidence": true,
-    "citations": 1,
-    "backticked": 1
+    "citations": 3,
+    "backticked": 3
   },
   "U8.01": {
     "status": "🟡",
