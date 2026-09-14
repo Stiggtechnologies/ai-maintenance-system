@@ -3,7 +3,11 @@ import {
   FIRST_PAINT_QUESTIONS,
   createFirstPaintSeed,
 } from "./first-paint-seeds";
-import { PUBLIC_ASK_INTENTS, publicAskIntentById } from "./public-ask-intents";
+import {
+  PUBLIC_ASK_INTENTS,
+  publicAskIntentById,
+  publicAskIntentPath,
+} from "./public-ask-intents";
 
 describe("public ask intents", () => {
   it("keeps the Bolt pill order and maps each to a locked first-paint seed", () => {
@@ -56,5 +60,15 @@ describe("public ask intents", () => {
     }
     expect(publicAskIntentById("missing")).toBeUndefined();
     expect(publicAskIntentById("compare")?.seedIndex).toBe(0);
+  });
+
+  it("gives every finished showcase a stable public URL", () => {
+    expect(PUBLIC_ASK_INTENTS.map(publicAskIntentPath)).toEqual([
+      "/capabilities/compare",
+      "/capabilities/troubleshoot",
+      "/capabilities/health",
+      "/capabilities/learn",
+      "/capabilities/fact-check",
+    ]);
   });
 });
