@@ -405,6 +405,9 @@ jobs:
       - name: Smoke — service and contractual obligations in recommendation risk
         run: bash scripts/ci-service-contract-risk-smoke.sh
 
+      - name: Smoke — governed geospatial operational intelligence
+        run: bash scripts/ci-geospatial-operational-intelligence-smoke.sh
+
       - name: Smoke — governed engineering knowledge on the canonical Reliability KB
         run: bash scripts/ci-governed-knowledge-smoke.sh
 
