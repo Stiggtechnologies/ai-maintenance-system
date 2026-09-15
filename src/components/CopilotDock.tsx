@@ -685,6 +685,14 @@ export function CopilotDock({
               event.evidence.forEach((item) =>
                 captured.evidenceIds.add(item.id),
               );
+            } else if (
+              event.type === "assistant.block" &&
+              event.block.kind === "action_proposal"
+            ) {
+              captured.pendingApproval = {
+                title: event.block.action.title,
+                reason: event.block.action.reason,
+              };
             } else if (event.type === "tool.proposed") {
               captured.pendingApproval = {
                 title: event.proposal.title,

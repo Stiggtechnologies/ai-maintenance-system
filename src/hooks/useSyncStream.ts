@@ -125,7 +125,14 @@ export function useSyncStream(): SyncStreamState {
           .map(parseSyncStreamEvent)
           .filter((event): event is SyncStreamEvent => event !== null);
         if (parsed.length > 0) {
-          for (const event of parsed) onEvent?.(event);
+          for (const event of parsed) {
+            try {
+              onEvent?.(event);
+            } catch {
+              // An optional observer (for example, the voice bridge) must not
+              // interrupt or relabel the canonical Sync stream itself.
+            }
+          }
           setEvents((previous) => [...previous, ...parsed]);
           terminal = parsed.some(isTerminalEvent);
         }
