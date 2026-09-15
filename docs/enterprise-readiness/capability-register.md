@@ -552,7 +552,7 @@ with the PR that changes an item's status._
 
 | ID     | Capability                                                                                                                                                                  | Status |
 | ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
-| U10.01 | GIS integration, linear referencing, weather/hazard exposure, access routes, crew travel, remote logistics, receptors, regional spares, failure clustering, hazard overlays | ❌     |
+| U10.01 | GIS integration, linear referencing, weather/hazard exposure, access routes, crew travel, remote logistics, receptors, regional spares, failure clustering, hazard overlays | ✅ The customer-reachable Asset Ontology workspace records source-supplied GeoJSON features and independently verified operational assessments for all named contexts without inventing coordinates, exposure, journey or stock conclusions. `supabase/migrations/20261219360000_geospatial_operational_intelligence.sql` reuses canonical assets, sites, linear routes/segments, crews, materials, regional stock, weather signals, recommendations, evidence and audit lineage; enforces tenant ownership, named-human authorship, current verified evidence, freshness, cross-model identity checks and author/verifier separation; and never changes recommendation, approval, dispatch or work-release authority. `src/components/GeospatialOperationalIntelligencePanel.tsx` and `src/services/geospatialOperationalIntelligenceService.ts` expose the governed workflow. `src/test/geospatialOperationalIntelligenceContract.test.ts` proves the architecture/control contract, while `scripts/ci-geospatial-operational-intelligence-smoke.sh` proves all ten feature types, all eight assessment types, linear referencing, foreign-tenant refusal, independent review, canonical regional spares and unchanged operational authority on a clean full migration chain. |
 
 ### U11 — Enterprise portfolio optimization
 
@@ -776,6 +776,6 @@ record-scoped._
 
 Atomic items tracked: **397** — counted programmatically from the tables
 themselves (an earlier hand-stated figure of 307 under-counted; the enumeration
-never changed, only the count of it). Current tally: ✅ 293 · 🟡 167 · ❌ 6. _(2026-08-07: reconciled after parallel merges — C7.01/03/04/11 reliability engine, C4.13–17 + C6.22 closed-loop tail, C3.01–12 taxonomy, C5.04 scheduler all verified present on main.)_
+never changed, only the count of it). Current tally: ✅ 294 · 🟡 167 · ❌ 5. _(2026-08-07: reconciled after parallel merges — C7.01/03/04/11 reliability engine, C4.13–17 + C6.22 closed-loop tail, C3.01–12 taxonomy, C5.04 scheduler all verified present on main.)_
 Every ❌ and 🟡 is an open obligation of the program. No item may be removed;
 items may only change status with linked evidence in the PR that changes them.
