@@ -44,7 +44,6 @@ import { BrandWordmark } from "./BrandWordmark";
 import { CommandSearch } from "./CommandSearch";
 import { CopilotDock } from "./CopilotDock";
 import { PresenceWelcome } from "./PresenceWelcome";
-import { HelpCenterWidget } from "./HelpCenterWidget";
 import { useAuth } from "./AuthProvider";
 import { isNavItemVisible } from "../lib/roleNavigation";
 
@@ -817,10 +816,13 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
           </div>
         </header>
 
-        <PresenceWelcome />
+        <PresenceWelcome showMeetingBooth={false} />
 
         {/* Page Content */}
-        <main className="flex-1 overflow-auto bg-overlook-void min-w-0 pb-20 md:pb-0">
+        <main
+          className="flex-1 overflow-auto bg-overlook-void min-w-0 pb-20 md:pb-0"
+          data-sync-page-content
+        >
           {children}
         </main>
       </div>
@@ -894,7 +896,6 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
 
       {/* Command Search */}
       <CopilotDock currentPath={currentPath} onNavigate={onNavigate} />
-      <HelpCenterWidget />
       <CommandSearch
         open={commandSearchOpen}
         onClose={() => setCommandSearchOpen(false)}

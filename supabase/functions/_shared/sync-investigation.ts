@@ -1,4 +1,5 @@
 export type InvestigationCategory =
+  | "screen"
   | "operations"
   | "data_integrity"
   | "safety"
@@ -30,48 +31,110 @@ export interface KpiSnapshot {
   responsible?: string | null;
 }
 
-const RISK_QUERY = /\b(highest|biggest|top|risk|attention|priority|today|operation|operational)\b/i;
-const ASSET_QUERY = /\b(asset|equipment|machine|fleet|register|hierarchy|configuration|criticality)\b/i;
-const SAFETY_QUERY = /\b(safety|hse|incident|injury|critical control|interlock|protective|environment)\b/i;
-const WORK_QUERY = /\b(work order|maintenance|backlog|schedule|job plan|task|repair|inspection)\b/i;
-const DATA_QUERY = /\b(data|integrity|accuracy|completeness|coverage|latency|quality|missing|unknown)\b/i;
+export const MAX_SYNC_PAGE_SNAPSHOT_CHARS = 8_000;
+
+const RISK_QUERY =
+  /\b(highest|biggest|top|risk|attention|priority|today|operation|operational)\b/i;
+const ASSET_QUERY =
+  /\b(asset|equipment|machine|fleet|register|hierarchy|configuration|criticality)\b/i;
+const SAFETY_QUERY =
+  /\b(safety|hse|incident|injury|critical control|interlock|protective|environment)\b/i;
+const WORK_QUERY =
+  /\b(work order|maintenance|backlog|schedule|job plan|task|repair|inspection)\b/i;
+const DATA_QUERY =
+  /\b(data|integrity|accuracy|completeness|coverage|latency|quality|missing|unknown)\b/i;
 
 export function buildInvestigationPlan(input: {
   question: string;
   entityType?: string;
   attachmentCount?: number;
+  hasPageSnapshot?: boolean;
 }): InvestigationPlanItem[] {
-  const { question, entityType, attachmentCount = 0 } = input;
+  const {
+    question,
+    entityType,
+    attachmentCount = 0,
+    hasPageSnapshot = false,
+  } = input;
   const globalRisk = RISK_QUERY.test(question);
   const plan: InvestigationPlanItem[] = [];
 
-  if (globalRisk || /\b(kpi|performance|metric|availability|reliability)\b/i.test(question)) {
-    plan.push({ id: "operational-kpis", label: "Reviewing operational KPIs", category: "operations" });
+  if (hasPageSnapshot) {
+    plan.push({
+      id: "current-page",
+      label: "Reviewing the visible application page",
+      category: "screen",
+    });
+  }
+  if (
+    globalRisk ||
+    /\b(kpi|performance|metric|availability|reliability)\b/i.test(question)
+  ) {
+    plan.push({
+      id: "operational-kpis",
+      label: "Reviewing operational KPIs",
+      category: "operations",
+    });
   }
   if (globalRisk || DATA_QUERY.test(question) || ASSET_QUERY.test(question)) {
-    plan.push({ id: "asset-data-integrity", label: "Checking asset data integrity", category: "data_integrity" });
+    plan.push({
+      id: "asset-data-integrity",
+      label: "Checking asset data integrity",
+      category: "data_integrity",
+    });
   }
   if (globalRisk || SAFETY_QUERY.test(question)) {
-    plan.push({ id: "safety-indicators", label: "Cross-checking safety indicators", category: "safety" });
+    plan.push({
+      id: "safety-indicators",
+      label: "Cross-checking safety indicators",
+      category: "safety",
+    });
   }
-  if (globalRisk || /\b(recommend|action|open item|attention|priority)\b/i.test(question)) {
-    plan.push({ id: "open-recommendations", label: "Reviewing open recommendations", category: "recommendations" });
+  if (
+    globalRisk ||
+    /\b(recommend|action|open item|attention|priority)\b/i.test(question)
+  ) {
+    plan.push({
+      id: "open-recommendations",
+      label: "Reviewing open recommendations",
+      category: "recommendations",
+    });
   }
   if (entityType === "asset" || ASSET_QUERY.test(question)) {
-    plan.push({ id: "current-asset", label: "Checking current asset context", category: "asset" });
+    plan.push({
+      id: "current-asset",
+      label: "Checking current asset context",
+      category: "asset",
+    });
   }
   if (entityType === "work_order" || WORK_QUERY.test(question)) {
-    plan.push({ id: "work-context", label: "Checking work execution context", category: "work" });
+    plan.push({
+      id: "work-context",
+      label: "Checking work execution context",
+      category: "work",
+    });
   }
   if (attachmentCount > 0) {
-    plan.push({ id: "attachments", label: "Reading attached source material", category: "attachments" });
+    plan.push({
+      id: "attachments",
+      label: "Reading attached source material",
+      category: "attachments",
+    });
   }
   if (globalRisk) {
-    plan.push({ id: "risk-ranking", label: "Evaluating highest-risk condition", category: "risk" });
+    plan.push({
+      id: "risk-ranking",
+      label: "Evaluating highest-risk condition",
+      category: "risk",
+    });
   }
 
   if (plan.length === 0) {
-    plan.push({ id: "governed-context", label: "Checking relevant governed context", category: "evidence" });
+    plan.push({
+      id: "governed-context",
+      label: "Checking relevant governed context",
+      category: "evidence",
+    });
   }
   return plan;
 }
@@ -87,10 +150,18 @@ export function prioritizeKpis(rows: KpiSnapshot[], limit = 18): KpiSnapshot[] {
   return [...rows]
     .filter((row) => row.value !== null)
     .sort((a, b) => {
-      const status = (STATUS_WEIGHT[a.status ?? ""] ?? 9) - (STATUS_WEIGHT[b.status ?? ""] ?? 9);
+      const status =
+        (STATUS_WEIGHT[a.status ?? ""] ?? 9) -
+        (STATUS_WEIGHT[b.status ?? ""] ?? 9);
       if (status !== 0) return status;
-      const confidence = { low: 0, medium: 1, high: 2 } as Record<string, number>;
-      return (confidence[a.confidence ?? ""] ?? 3) - (confidence[b.confidence ?? ""] ?? 3);
+      const confidence = { low: 0, medium: 1, high: 2 } as Record<
+        string,
+        number
+      >;
+      return (
+        (confidence[a.confidence ?? ""] ?? 3) -
+        (confidence[b.confidence ?? ""] ?? 3)
+      );
     })
     .slice(0, Math.max(1, limit));
 }
@@ -107,7 +178,10 @@ export function isDataIntegrityKpi(row: KpiSnapshot): boolean {
 }
 
 export function isSafetyKpi(row: KpiSnapshot): boolean {
-  return row.page === "risk_safety" || /\b(safety|incident|injury|environment|critical control)\b/i.test(row.name);
+  return (
+    row.page === "risk_safety" ||
+    /\b(safety|incident|injury|environment|critical control)\b/i.test(row.name)
+  );
 }
 
 export function compactText(value: unknown, max = 260): string {
@@ -115,4 +189,27 @@ export function compactText(value: unknown, max = 260): string {
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, max);
+}
+
+export function normalizePageSnapshot(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const withoutControls = [...value]
+    .map((character) => {
+      const code = character.charCodeAt(0);
+      return code < 32 && character !== "\n" && character !== "\r"
+        ? " "
+        : code === 127
+          ? " "
+          : character;
+    })
+    .join("");
+  const normalized = withoutControls
+    .replace(/\r/g, "")
+    .split("\n")
+    .map((line) => line.replace(/\s+/g, " ").trim())
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim()
+    .slice(0, MAX_SYNC_PAGE_SNAPSHOT_CHARS);
+  return normalized || undefined;
 }

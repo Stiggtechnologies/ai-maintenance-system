@@ -106,6 +106,15 @@ export interface EngineeringContextPackage {
   tenantId: string;
   assetTwinId: string;
   assetClassCode: string;
+  // Resolve these from authorized canonical configuration, never page text.
+  // An absent context field does not match a source restricted to that field.
+  siteId?: string;
+  functionalLocationId?: string;
+  engineeringDnaCode?: string;
+  manufacturer?: string;
+  model?: string;
+  serialNumber?: string;
+  sharedComponentDnaCodes?: string[];
   operatingState?: string;
   componentCodes: string[];
   candidateFailureModeCodes: string[];
@@ -194,16 +203,70 @@ export function rankKnowledgeAuthority(level: KnowledgeAuthorityLevel): number {
   return ranking[level];
 }
 
+export type EngineeringApplicabilityContext = Pick<
+  EngineeringContextPackage,
+  | "tenantId" | "assetTwinId" | "assetClassCode" | "siteId"
+  | "functionalLocationId" | "engineeringDnaCode" | "manufacturer"
+  | "model" | "serialNumber" | "sharedComponentDnaCodes"
+  | "componentCodes" | "candidateFailureModeCodes" | "physicsCapabilityCodes"
+>;
+
+/**
+ * Applicability only, NOT authentication or authorization. The server must
+ * resolve the context and pre-authorize every candidate (including derived
+ * metadata and exclusion receipts). Missing source constraints mean general
+ * applicability, not evidence of OEM/model-specific engineering authority.
+ */
+export function getKnowledgeApplicabilityIssues(
+  metadata: EngineeringKnowledgeDocumentMetadata,
+  context: EngineeringApplicabilityContext,
+): string[] {
+  const issues: string[] = [];
+  for (const key of ["tenantId", "assetTwinId", "assetClassCode"] as const) {
+    if (isBlank(context[key])) issues.push(`missing_context_${key}`);
+  }
+  if (metadata.reviewState === "rejected" || metadata.reviewState === "superseded") {
+    issues.push(`source_${metadata.reviewState}`);
+  }
+  if (metadata.confidentiality !== "public" && isBlank(metadata.tenantId)) {
+    issues.push("source_tenant_required");
+  }
+
+  for (const key of [
+    "tenantId", "assetTwinId", "assetClassCode", "siteId",
+    "functionalLocationId", "engineeringDnaCode", "manufacturer", "model", "serialNumber",
+  ] as const) {
+    const expected = metadata[key];
+    if (expected === undefined) continue;
+    if (typeof expected !== "string" || isBlank(expected)) {
+      issues.push(`invalid_source_scope_${key}`);
+    } else if (isBlank(context[key])) {
+      issues.push(`missing_context_${key}`);
+    } else if (expected !== context[key]) {
+      // Do not guess aliases, case-fold serials, or normalize distinct IDs.
+      issues.push(`scope_mismatch_${key}`);
+    }
+  }
+
+  const listScopes: Array<[string, string[], string[] | undefined]> = [
+    ["componentCodes", metadata.componentCodes, context.componentCodes],
+    ["sharedComponentDnaCodes", metadata.sharedComponentDnaCodes, context.sharedComponentDnaCodes],
+    ["failureModeCodes", metadata.failureModeCodes, context.candidateFailureModeCodes],
+    ["physicsCapabilityCodes", metadata.physicsCapabilityCodes, context.physicsCapabilityCodes],
+  ];
+  for (const [key, expected, actual] of listScopes) {
+    if (!Array.isArray(expected) || expected.some((code) => typeof code !== "string" || isBlank(code))) {
+      issues.push(`invalid_source_scope_${key}`);
+    } else if (expected.length > 0 && !expected.some((code) => actual?.includes(code))) {
+      issues.push(`scope_mismatch_${key}`);
+    }
+  }
+  return [...new Set(issues)];
+}
+
 export function isKnowledgeApplicable(
   metadata: EngineeringKnowledgeDocumentMetadata,
-  context: Pick<EngineeringContextPackage, "tenantId" | "assetTwinId" | "assetClassCode" | "componentCodes" | "candidateFailureModeCodes" | "physicsCapabilityCodes">,
+  context: EngineeringApplicabilityContext,
 ): boolean {
-  if (metadata.reviewState === "rejected" || metadata.reviewState === "superseded") return false;
-  if (metadata.tenantId && metadata.tenantId !== context.tenantId) return false;
-  if (metadata.assetTwinId && metadata.assetTwinId !== context.assetTwinId) return false;
-  if (metadata.assetClassCode && metadata.assetClassCode !== context.assetClassCode) return false;
-  if (metadata.componentCodes.length > 0 && !metadata.componentCodes.some((code) => context.componentCodes.includes(code))) return false;
-  if (metadata.failureModeCodes.length > 0 && !metadata.failureModeCodes.some((code) => context.candidateFailureModeCodes.includes(code))) return false;
-  if (metadata.physicsCapabilityCodes.length > 0 && !metadata.physicsCapabilityCodes.some((code) => context.physicsCapabilityCodes.includes(code))) return false;
-  return true;
+  return getKnowledgeApplicabilityIssues(metadata, context).length === 0;
 }

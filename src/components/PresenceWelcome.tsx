@@ -2,12 +2,13 @@
  * Signed-in presence strip for the main AppShell.
  *
  * Audio path: useSpeechOutput — signed-in `sync-tts` (OpenAI Speech) when
- * configured, browser speechSynthesis only as fallback. Meet Sync speaks a
- * Reliability Engineer greeting once per tab session when not muted. Tenant
- * sync_voice_output still gates CopilotDock and is named in the honesty
- * line. KPI brief is text-only from get_kpi_dashboard. Mute is remembered
- * in localStorage. Signed-in meeting notes persist in the Sync-native
- * vault. Recommend is not authorize.
+ * configured, browser speechSynthesis only as fallback. The strip speaks a
+ * Reliability Engineer greeting once per tab session when not muted. The
+ * legacy Meet Sync booth can still be rendered by an explicit caller, but the
+ * AppShell disables it in favor of the global Sync copilot. Tenant
+ * sync_voice_output still gates CopilotDock and is named in the honesty line.
+ * KPI brief is text-only from get_kpi_dashboard. Mute is remembered in
+ * localStorage. Recommend is not authorize.
  */
 import { useCallback, useEffect, useState } from "react";
 import { MessageCircle, Volume2, VolumeX } from "lucide-react";
@@ -51,7 +52,13 @@ const MEET_SYNC_BUTTON_CLASS =
 const SECONDARY_BUTTON_CLASS =
   "inline-flex items-center gap-1.5 whitespace-nowrap rounded-md border border-white/10 px-2 py-1 text-xs text-slate-300 hover:border-white/20 hover:text-slate-100";
 
-export function PresenceWelcome() {
+interface PresenceWelcomeProps {
+  showMeetingBooth?: boolean;
+}
+
+export function PresenceWelcome({
+  showMeetingBooth = true,
+}: PresenceWelcomeProps) {
   const { user, profile, loading } = useAuth();
   const { speak, stop, speaking, engine } = useSpeechOutput();
   const voiceOutput = useFeatureFlag("sync_voice_output");
@@ -194,30 +201,31 @@ export function PresenceWelcome() {
     });
   };
 
-  const booth = boothOpen ? (
-    <PresenceBoothConversation
-      signedIn={Boolean(user)}
-      userId={user?.id ?? ""}
-      muted={muted}
-      voiceOutputEnabled={voiceOutputEnabled}
-      givenName={givenName}
-      briefLines={briefLines}
-      caseContextLines={workingSubject.contextLines}
-      caseBound={workingSubject.bound}
-      organizationId={organizationId}
-      caseId={workingSubject.caseId}
-      caseNumber={workingSubject.caseNumber}
-      asset={workingSubject.asset}
-      speak={speak}
-      stopSpeech={stop}
-      speaking={speaking}
-      onPresenceSignals={({ listening, thinking }) => {
-        setBoothListening(listening);
-        setBoothThinking(thinking);
-      }}
-      onMemoryChange={refreshWorkingSubject}
-    />
-  ) : null;
+  const booth =
+    showMeetingBooth && boothOpen ? (
+      <PresenceBoothConversation
+        signedIn={Boolean(user)}
+        userId={user?.id ?? ""}
+        muted={muted}
+        voiceOutputEnabled={voiceOutputEnabled}
+        givenName={givenName}
+        briefLines={briefLines}
+        caseContextLines={workingSubject.contextLines}
+        caseBound={workingSubject.bound}
+        organizationId={organizationId}
+        caseId={workingSubject.caseId}
+        caseNumber={workingSubject.caseNumber}
+        asset={workingSubject.asset}
+        speak={speak}
+        stopSpeech={stop}
+        speaking={speaking}
+        onPresenceSignals={({ listening, thinking }) => {
+          setBoothListening(listening);
+          setBoothThinking(thinking);
+        }}
+        onMemoryChange={refreshWorkingSubject}
+      />
+    ) : null;
 
   if (loading || !user) return null;
 
@@ -267,15 +275,17 @@ export function PresenceWelcome() {
             Play
           </button>
         ) : null}
-        <button
-          type="button"
-          onClick={toggleBooth}
-          aria-label={boothOpen ? "Close Meet Sync" : "Meet Sync"}
-          className={MEET_SYNC_BUTTON_CLASS}
-        >
-          <MessageCircle className="h-3.5 w-3.5" />
-          Meet Sync
-        </button>
+        {showMeetingBooth ? (
+          <button
+            type="button"
+            onClick={toggleBooth}
+            aria-label={boothOpen ? "Close Meet Sync" : "Meet Sync"}
+            className={MEET_SYNC_BUTTON_CLASS}
+          >
+            <MessageCircle className="h-3.5 w-3.5" />
+            Meet Sync
+          </button>
+        ) : null}
         {muted ? (
           <button
             type="button"
@@ -324,15 +334,17 @@ export function PresenceWelcome() {
             </p>
           </div>
           <div className="flex w-full flex-wrap items-center justify-end gap-2 sm:w-auto sm:flex-nowrap">
-            <button
-              type="button"
-              onClick={toggleBooth}
-              aria-label={boothOpen ? "Close Meet Sync" : "Meet Sync"}
-              className={MEET_SYNC_BUTTON_CLASS}
-            >
-              <MessageCircle className="h-3.5 w-3.5" />
-              Meet Sync
-            </button>
+            {showMeetingBooth ? (
+              <button
+                type="button"
+                onClick={toggleBooth}
+                aria-label={boothOpen ? "Close Meet Sync" : "Meet Sync"}
+                className={MEET_SYNC_BUTTON_CLASS}
+              >
+                <MessageCircle className="h-3.5 w-3.5" />
+                Meet Sync
+              </button>
+            ) : null}
             <button
               type="button"
               onClick={handleUnmute}
