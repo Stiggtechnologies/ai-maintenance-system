@@ -3,7 +3,7 @@ set -euo pipefail
 trap 'echo "U19 model-applicability smoke FAILED at line $LINENO: $BASH_COMMAND"' ERR
 eval "$(supabase status -o env | grep -E '^(ANON_KEY|API_URL)=')"
 : "${API_URL:?}" "${ANON_KEY:?}"
-ORG='11111111-1111-1111-1111-111111111111'; OTHER_ORG='99999999-9999-9999-9999-999999999919'; EVIDENCE='98190000-0000-0000-0000-000000000001'
+ORG='11111111-1111-1111-1111-111111111111'; OTHER_ORG='99999999-9999-9999-9999-999999999919'; EVIDENCE='98190000-0000-4000-8000-000000000001'
 MECH_STARTUP='fixture_a'
 MECH_CONTINUOUS='fixture_b'
 token(){ curl -sS "$API_URL/auth/v1/token?grant_type=password" -H "apikey: $ANON_KEY" -H 'content-type: application/json' -d "{\"email\":\"$1\",\"password\":\"$2\"}" | python3 -c "import json,sys;print(json.load(sys.stdin).get('access_token',''))"; }
@@ -61,7 +61,9 @@ insert into calculation_runs(organization_id,calculation_key,method,code_version
 SQL
 WORKSPACE=$(rpc "$ADMIN" get_engineering_model_applicability_workspace '{}'); ok "$WORKSPACE"
 BODY="$(body "$WORKSPACE")" MODEL_ID="$MODEL_ID" python3 -c "import json,os;x=json.loads(os.environ['BODY']);m=next(y for y in x['models'] if str(y['modelRegisterId'])==os.environ['MODEL_ID']);assert len(x['dimensions'])==10;assert m['reviewStatus']=='approved';assert m['gaps']==[];assert m['operationalAuthorization'] is False"
-PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -qAt -v ON_ERROR_STOP=1 <<SQL | grep -qx '1|1|1|1'
+COUNTS=$(PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -qAt -v ON_ERROR_STOP=1 <<SQL
 select count(*) filter(where status='refused' and refusals @> '[{"code":"duty_outside_envelope"}]'),count(*) filter(where status='computed'),(select count(*) from approvals where model_register_id=$MODEL_ID and approval_scope->>'kind'='applicability_envelope'),(select count(*) from audit_events where organization_id='$ORG' and entity_type='engineering_model_applicability_review') from calculation_runs where model_register_id=$MODEL_ID;
 SQL
+)
+test "$COUNTS" = '1|1|1|1' || { echo "U19 envelope counts expected 1|1|1|1 (duty_refuse|computed|approval|audit), got $COUNTS"; exit 1; }
 echo 'U19 model-applicability smoke passed: dimensions=10 tenant_wall=true author_separation=true evidence_bound=true eligibility_gate=true context_refusal=true authority_unchanged=true'
