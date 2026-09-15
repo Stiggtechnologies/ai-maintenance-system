@@ -74,7 +74,11 @@ export interface SyncStreamState {
   status: SyncStreamStatus;
   error: string | null;
   /** Open the stream. Any active stream is cancelled first. */
-  start: (url: string, init?: RequestInit) => Promise<void>;
+  start: (
+    url: string,
+    init?: RequestInit,
+    onEvent?: (event: SyncStreamEvent) => void,
+  ) => Promise<void>;
   /** Abort the active stream. Safe to call at any time. */
   cancel: () => void;
 }
@@ -101,84 +105,97 @@ export function useSyncStream(): SyncStreamState {
     };
   }, []);
 
-  const start = useCallback(async (url: string, init?: RequestInit) => {
-    abortRef.current?.abort();
-    const controller = new AbortController();
-    abortRef.current = controller;
-    setEvents([]);
-    setError(null);
-    setStatus("streaming");
+  const start = useCallback(
+    async (
+      url: string,
+      init?: RequestInit,
+      onEvent?: (event: SyncStreamEvent) => void,
+    ) => {
+      abortRef.current?.abort();
+      const controller = new AbortController();
+      abortRef.current = controller;
+      setEvents([]);
+      setError(null);
+      setStatus("streaming");
 
-    const parser = createSseFrameParser();
-    const handlePayloads = (payloads: string[]): boolean => {
-      let terminal = false;
-      const parsed = payloads
-        .map(parseSyncStreamEvent)
-        .filter((event): event is SyncStreamEvent => event !== null);
-      if (parsed.length > 0) {
-        setEvents((previous) => [...previous, ...parsed]);
-        terminal = parsed.some(isTerminalEvent);
-      }
-      return terminal;
-    };
-
-    try {
-      const response = await fetch(url, { ...init, signal: controller.signal });
-      if (!response.ok || !response.body) {
-        setStatus("error");
-        setError(`stream request failed (${response.status})`);
-        return;
-      }
-      const reader = response.body.getReader();
-      // Abort must reach the reader directly: cancelling the reader resolves
-      // any pending read and propagates cancel to the stream source (the
-      // edge helper's onCancel), independent of the fetch implementation.
-      const onAbort = () => {
-        void reader.cancel().catch(() => {});
-      };
-      if (controller.signal.aborted) {
-        onAbort();
-        return;
-      }
-      controller.signal.addEventListener("abort", onAbort);
-      const decoder = new TextDecoder();
-      let sawTerminal = false;
-      try {
-        for (;;) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          if (
-            handlePayloads(parser.push(decoder.decode(value, { stream: true })))
-          ) {
-            sawTerminal = true;
-          }
+      const parser = createSseFrameParser();
+      const handlePayloads = (payloads: string[]): boolean => {
+        let terminal = false;
+        const parsed = payloads
+          .map(parseSyncStreamEvent)
+          .filter((event): event is SyncStreamEvent => event !== null);
+        if (parsed.length > 0) {
+          for (const event of parsed) onEvent?.(event);
+          setEvents((previous) => [...previous, ...parsed]);
+          terminal = parsed.some(isTerminalEvent);
         }
-      } finally {
-        controller.signal.removeEventListener("abort", onAbort);
-      }
-      // A cancelled turn is settled by cancel(); do not relabel it here.
-      if (controller.signal.aborted) return;
-      if (handlePayloads(parser.flush())) sawTerminal = true;
-      // A stream that ended without turn.completed is a broken turn, not a
-      // finished one — never present an interrupted stream as success
-      // (FR-089's rule applied to transport).
-      if (sawTerminal) {
-        setStatus("done");
-      } else {
+        return terminal;
+      };
+
+      try {
+        const response = await fetch(url, {
+          ...init,
+          signal: controller.signal,
+        });
+        if (!response.ok || !response.body) {
+          setStatus("error");
+          setError(`stream request failed (${response.status})`);
+          return;
+        }
+        const reader = response.body.getReader();
+        // Abort must reach the reader directly: cancelling the reader resolves
+        // any pending read and propagates cancel to the stream source (the
+        // edge helper's onCancel), independent of the fetch implementation.
+        const onAbort = () => {
+          void reader.cancel().catch(() => {});
+        };
+        if (controller.signal.aborted) {
+          onAbort();
+          return;
+        }
+        controller.signal.addEventListener("abort", onAbort);
+        const decoder = new TextDecoder();
+        let sawTerminal = false;
+        try {
+          for (;;) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            if (
+              handlePayloads(
+                parser.push(decoder.decode(value, { stream: true })),
+              )
+            ) {
+              sawTerminal = true;
+            }
+          }
+        } finally {
+          controller.signal.removeEventListener("abort", onAbort);
+        }
+        // A cancelled turn is settled by cancel(); do not relabel it here.
+        if (controller.signal.aborted) return;
+        if (handlePayloads(parser.flush())) sawTerminal = true;
+        // A stream that ended without turn.completed is a broken turn, not a
+        // finished one — never present an interrupted stream as success
+        // (FR-089's rule applied to transport).
+        if (sawTerminal) {
+          setStatus("done");
+        } else {
+          setStatus("error");
+          setError("stream ended before turn completion");
+        }
+      } catch (err: unknown) {
+        if (controller.signal.aborted) {
+          // cancel() already set the status; aborting is not an error.
+          return;
+        }
         setStatus("error");
-        setError("stream ended before turn completion");
+        setError(err instanceof Error ? err.message : "stream failed");
+      } finally {
+        if (abortRef.current === controller) abortRef.current = null;
       }
-    } catch (err: unknown) {
-      if (controller.signal.aborted) {
-        // cancel() already set the status; aborting is not an error.
-        return;
-      }
-      setStatus("error");
-      setError(err instanceof Error ? err.message : "stream failed");
-    } finally {
-      if (abortRef.current === controller) abortRef.current = null;
-    }
-  }, []);
+    },
+    [],
+  );
 
   return { events, status, error, start, cancel };
 }

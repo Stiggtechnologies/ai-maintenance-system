@@ -805,7 +805,7 @@ expect_unauth(){
   echo "  $fn $label expected 401, got HTTP $code after retries"
   return 1
 }
-for FN in develop-methodology-agent develop-gate-agent develop-risk-agent sync-tts; do
+for FN in develop-methodology-agent develop-gate-agent develop-risk-agent sync-tts sync-realtime-session; do
   expect_unauth "$FN" "" "no bearer"
   expect_unauth "$FN" "$ANON_KEY" "anon key"
   # The service key is not an identity: the org is derived from the token's

@@ -678,7 +678,7 @@ describe("the deployed surface", () => {
     );
   });
 
-  it("unauthenticated edge calls must 401 before any 500, including sync-tts", () => {
+  it("unauthenticated edge calls must 401 before any 500, including Sync voice", () => {
     const smoke = readFileSync("scripts/ci-develop-slice3d-smoke.sh", "utf8");
     expect(smoke).toContain("expect_unauth");
     expect(smoke).toContain("401) return 0");
@@ -689,6 +689,7 @@ describe("the deployed surface", () => {
       "develop-gate-agent",
       "develop-risk-agent",
       "sync-tts",
+      "sync-realtime-session",
     ]) {
       expect(smoke).toContain(fn);
       const config = readFileSync("supabase/config.toml", "utf8");
