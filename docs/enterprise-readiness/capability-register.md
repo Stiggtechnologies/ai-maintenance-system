@@ -609,7 +609,7 @@ with the PR that changes an item's status._
 
 | ID     | Capability                                                                                                                                                        | Status |
 | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
-| U19.01 | Applicability envelopes: asset type, make/model, mechanism, duty, environment, data quality, operating range, training population, validation period, limitations | ❌     |
+| U19.01 | Applicability envelopes: asset type, make/model, mechanism, duty, environment, data quality, operating range, training population, validation period, limitations | ✅ The customer-reachable Engineering Model Registry now displays complete, version-specific envelopes across all ten named dimensions. `20261219390000_model_applicability_envelopes.sql` extends canonical `model_register`, resolves mechanisms through canonical `engineering_model_mechanisms`, requires exact-manifest independent review with same-tenant verified bound evidence, records the decision in canonical `approvals`/`audit_events`, invalidates eligibility on change or expiry, and persists named context refusals in canonical `calculation_runs`. `scripts/ci-model-applicability-envelope-smoke.sh` and the static contract suite prove tenant refusal, author/reviewer separation, completeness, eligibility, execution and unchanged human-final authority. |
 
 ### U20 — Federated organizational architecture
 
@@ -776,6 +776,6 @@ record-scoped._
 
 Atomic items tracked: **397** — counted programmatically from the tables
 themselves (an earlier hand-stated figure of 307 under-counted; the enumeration
-never changed, only the count of it). Current tally: ✅ 296 · 🟡 167 · ❌ 3. _(2026-08-07: reconciled after parallel merges — C7.01/03/04/11 reliability engine, C4.13–17 + C6.22 closed-loop tail, C3.01–12 taxonomy, C5.04 scheduler all verified present on main.)_
+never changed, only the count of it). Current tally: ✅ 297 · 🟡 167 · ❌ 2. _(2026-08-07: reconciled after parallel merges — C7.01/03/04/11 reliability engine, C4.13–17 + C6.22 closed-loop tail, C3.01–12 taxonomy, C5.04 scheduler all verified present on main.)_
 Every ❌ and 🟡 is an open obligation of the program. No item may be removed;
 items may only change status with linked evidence in the PR that changes them.
