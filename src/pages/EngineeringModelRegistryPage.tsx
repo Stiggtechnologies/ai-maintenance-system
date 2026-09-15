@@ -19,6 +19,7 @@ import {
   promoteEngineeringModel,
   registerBuiltInResonancePack,
   resolveEngineeringModelDebt,
+  reviewEngineeringModelApplicability,
   type EngineeringModelRegistryRow,
 } from "../services/engineeringModelService";
 
@@ -43,6 +44,15 @@ const NEXT_STATE: Record<string, string | undefined> = {
 
 function words(value: string): string {
   return value.replaceAll("_", " ");
+}
+
+function describeApplicabilityRule(rule: {
+  inputCode?: string;
+  description?: string;
+  range?: unknown;
+}): string {
+  const boundary = rule.range ? ` ${JSON.stringify(rule.range)}` : "";
+  return `${rule.inputCode ?? "unnamed"}${boundary}${rule.description ? ` — ${rule.description}` : ""}`;
 }
 
 function canonicalEngineeringGrade(
@@ -77,10 +87,13 @@ function ModelCard({
   const [debtKey, setDebtKey] = useState("");
   const [debtDescription, setDebtDescription] = useState("");
   const [resolutionNote, setResolutionNote] = useState("");
+  const [applicabilityEvidenceId, setApplicabilityEvidenceId] = useState("");
+  const [applicabilityReviewNote, setApplicabilityReviewNote] = useState("");
   const requirement = model.evidenceRequirements.find(
     (item) => item.key === requirementKey,
   );
   const nextState = NEXT_STATE[model.lifecycleState];
+  const envelope = model.applicabilityEnvelope;
 
   return (
     <article className="rounded-2xl border border-white/8 bg-[#0D1520] p-5">
@@ -150,6 +163,198 @@ function ModelCard({
           </div>
         </div>
       </div>
+
+      <section className="mt-4 rounded-xl border border-cyan-400/10 bg-cyan-400/[0.03] p-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-cyan-200">
+              Applicability envelope
+            </h3>
+            <p className="mt-1 text-xs text-slate-500">
+              Version-specific scope. Unknown, unreviewed, expired or
+              out-of-envelope contexts refuse execution.
+            </p>
+          </div>
+          <span
+            className={`rounded-full px-2 py-1 text-xs font-semibold ${
+              model.applicabilityReviewStatus === "approved"
+                ? "bg-emerald-500/15 text-emerald-300"
+                : model.applicabilityReviewStatus === "rejected"
+                  ? "bg-red-500/15 text-red-300"
+                  : "bg-amber-500/15 text-amber-300"
+            }`}
+          >
+            {words(model.applicabilityReviewStatus)}
+            {model.applicabilityValidUntil
+              ? ` · through ${model.applicabilityValidUntil}`
+              : ""}
+          </span>
+        </div>
+        <div className="mt-3 grid gap-3 text-xs md:grid-cols-2 xl:grid-cols-5">
+          {[
+            ["Asset types", envelope?.assetTypes],
+            ["Mechanisms", envelope?.mechanismKeys],
+            ["Duty", envelope?.dutyClasses],
+            ["Environment", envelope?.environmentClasses],
+            [
+              "Operating ranges",
+              envelope?.rules?.map(describeApplicabilityRule),
+            ],
+          ].map(([label, values]) => (
+            <div
+              key={String(label)}
+              className="rounded-lg border border-white/6 bg-black/20 p-3"
+            >
+              <div className="text-slate-500">{String(label)}</div>
+              <div className="mt-1 text-slate-200">
+                {Array.isArray(values) && values.length > 0
+                  ? values.map(String).join(", ")
+                  : "Not documented"}
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="mt-3 grid gap-3 text-xs md:grid-cols-2 xl:grid-cols-4">
+          <div>
+            <span className="text-slate-500">Make/model</span>
+            <p className="mt-0.5 text-slate-300">
+              {envelope?.makeModel?.mode
+                ? words(envelope.makeModel.mode)
+                : "Not documented"}
+              {envelope?.makeModel?.basis
+                ? ` — ${envelope.makeModel.basis}`
+                : ""}
+              {envelope?.makeModel?.entries?.length
+                ? ` · ${envelope.makeModel.entries
+                    .map(
+                      (entry) =>
+                        `${entry.manufacturer}: ${entry.models.join(", ")}`,
+                    )
+                    .join(" · ")}`
+                : ""}
+            </p>
+          </div>
+          <div>
+            <span className="text-slate-500">Data quality</span>
+            <p className="mt-0.5 text-slate-300">
+              {envelope?.dataQuality?.minimumState
+                ? `${words(envelope.dataQuality.minimumState)} · verified evidence required · maximum missing fraction ${envelope.dataQuality.maximumMissingFraction ?? "not documented"}`
+                : "Not documented"}
+            </p>
+          </div>
+          <div>
+            <span className="text-slate-500">Training population</span>
+            <p className="mt-0.5 text-slate-300">
+              {envelope?.trainingPopulation?.status
+                ? `${words(envelope.trainingPopulation.status)}${
+                    envelope.trainingPopulation.basis
+                      ? ` — ${envelope.trainingPopulation.basis}`
+                      : envelope.trainingPopulation.description
+                        ? ` — ${envelope.trainingPopulation.description}`
+                        : ""
+                  }`
+                : "Not documented"}
+            </p>
+          </div>
+          <div>
+            <span className="text-slate-500">Validation period</span>
+            <p className="mt-0.5 text-slate-300">
+              {envelope?.validationPeriod?.validFrom &&
+              envelope.validationPeriod.validThrough
+                ? `${envelope.validationPeriod.validFrom} → ${envelope.validationPeriod.validThrough}${
+                    envelope.validationPeriod.revalidationTriggers?.length
+                      ? ` · Revalidate on: ${envelope.validationPeriod.revalidationTriggers.join(", ")}`
+                      : ""
+                  }`
+                : "Not documented"}
+            </p>
+          </div>
+        </div>
+        {envelope?.limitations?.length ? (
+          <div className="mt-3 text-xs text-slate-400">
+            <span className="text-slate-500">Limitations: </span>
+            {envelope.limitations.join(" · ")}
+          </div>
+        ) : null}
+        {model.applicabilityGaps.length > 0 ? (
+          <div className="mt-3 rounded-lg border border-amber-500/15 bg-amber-500/5 p-3 text-xs text-amber-200">
+            Cannot approve: {model.applicabilityGaps.join(", ")}.
+          </div>
+        ) : null}
+        {canManage ? (
+          <div className="mt-3 grid gap-2 border-t border-white/6 pt-3 md:grid-cols-[1fr_2fr_auto_auto]">
+            <select
+              aria-label={`Applicability evidence for ${model.name}`}
+              value={applicabilityEvidenceId}
+              onChange={(event) =>
+                setApplicabilityEvidenceId(event.target.value)
+              }
+              className="rounded-lg border border-white/8 bg-[#111b28] p-2 text-xs text-white"
+            >
+              <option value="">Select bound applicability evidence…</option>
+              {evidence.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.description ?? item.id}
+                </option>
+              ))}
+            </select>
+            <input
+              aria-label={`Applicability review basis for ${model.name}`}
+              value={applicabilityReviewNote}
+              onChange={(event) =>
+                setApplicabilityReviewNote(event.target.value)
+              }
+              placeholder="Independent review basis (20 characters minimum)"
+              className="rounded-lg border border-white/8 bg-black/20 p-2 text-xs text-white placeholder:text-slate-600"
+            />
+            <button
+              disabled={
+                busy ||
+                !applicabilityEvidenceId ||
+                applicabilityReviewNote.trim().length < 20 ||
+                model.applicabilityGaps.length > 0
+              }
+              onClick={() =>
+                run(
+                  () =>
+                    reviewEngineeringModelApplicability({
+                      modelRegisterId: model.id,
+                      decision: "approved",
+                      evidenceItemId: applicabilityEvidenceId,
+                      reviewNote: applicabilityReviewNote,
+                    }),
+                  "Applicability envelope independently approved.",
+                )
+              }
+              className="rounded-lg bg-emerald-500/15 px-3 py-2 text-xs font-semibold text-emerald-300 disabled:opacity-40"
+            >
+              Approve envelope
+            </button>
+            <button
+              disabled={
+                busy ||
+                !applicabilityEvidenceId ||
+                applicabilityReviewNote.trim().length < 20
+              }
+              onClick={() =>
+                run(
+                  () =>
+                    reviewEngineeringModelApplicability({
+                      modelRegisterId: model.id,
+                      decision: "rejected",
+                      evidenceItemId: applicabilityEvidenceId,
+                      reviewNote: applicabilityReviewNote,
+                    }),
+                  "Applicability envelope rejected; production eligibility removed.",
+                )
+              }
+              className="rounded-lg bg-red-500/15 px-3 py-2 text-xs font-semibold text-red-300 disabled:opacity-40"
+            >
+              Reject
+            </button>
+          </div>
+        ) : null}
+      </section>
 
       {canManage ? (
         <div className="mt-5 grid gap-4 border-t border-white/6 pt-4 xl:grid-cols-3">
