@@ -411,6 +411,9 @@ jobs:
       - name: Smoke — natural-hazard and climate exposure
         run: bash scripts/ci-climate-hazard-exposure-smoke.sh
 
+      - name: Smoke — emergency and restoration command
+        run: bash scripts/ci-emergency-restoration-command-smoke.sh
+
       - name: Smoke — governed engineering knowledge on the canonical Reliability KB
         run: bash scripts/ci-governed-knowledge-smoke.sh
 
