@@ -19,12 +19,7 @@ import {
   type SyncFeatureFlag,
 } from "../hooks/useFeatureFlag";
 
-type Tab =
-  | "profile"
-  | "security"
-  | "organization"
-  | "notifications"
-  | "sync";
+type Tab = "profile" | "security" | "organization" | "notifications" | "sync";
 
 interface Organization {
   id: string;
@@ -67,9 +62,9 @@ const SYNC_FLAG_FALLBACKS: Record<SyncFeatureFlag, string> = {
   sync_global_shell:
     "Master gate for the persistent Sync interaction layer across the authenticated application.",
   sync_voice_input:
-    "Gates CopilotDock speech-to-text. Meet Sync listens continuously in the booth by default (optional hold-to-talk); mute still silences presence.",
+    "Gates microphone input in the global Sync copilot, including dictation and live conversation controls.",
   sync_voice_output:
-    "Gates CopilotDock text-to-speech. Meet Sync / Presence welcome uses browser TTS when unmuted — sync_voice_output is not required for the booth.",
+    "Gates spoken output in the global Sync copilot. The separate welcome greeting keeps its own local mute control.",
   sync_agent_routing:
     "Route questions through the existing governed specialist registry.",
   sync_tools:
@@ -395,9 +390,7 @@ function SyncRolloutTab() {
       setFlags((current) => {
         const next = { ...current };
         for (const row of data ?? []) {
-          if (
-            SYNC_FEATURE_FLAGS.includes(row.flag_key as SyncFeatureFlag)
-          ) {
+          if (SYNC_FEATURE_FLAGS.includes(row.flag_key as SyncFeatureFlag)) {
             const key = row.flag_key as SyncFeatureFlag;
             next[key] = {
               flag_key: key,
@@ -437,7 +430,9 @@ function SyncRolloutTab() {
         [key]: { ...current[key], enabled },
       }));
       announceSyncFeatureFlagsChanged();
-      setNotice(`${SYNC_FLAG_LABELS[key]} ${enabled ? "enabled" : "disabled"}.`);
+      setNotice(
+        `${SYNC_FLAG_LABELS[key]} ${enabled ? "enabled" : "disabled"}.`,
+      );
     } catch (error) {
       console.error("Failed to change Sync rollout flag", error);
       setNotice(

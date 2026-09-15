@@ -3,6 +3,7 @@ import {
   buildInvestigationPlan,
   isDataIntegrityKpi,
   isSafetyKpi,
+  normalizePageSnapshot,
   prioritizeKpis,
 } from "../../../supabase/functions/_shared/sync-investigation";
 
@@ -34,17 +35,57 @@ describe("Sync investigation planner", () => {
   });
 
   it("uses a truthful generic check rather than inventing operational work", () => {
-    const plan = buildInvestigationPlan({ question: "explain this failure mechanism" });
+    const plan = buildInvestigationPlan({
+      question: "explain this failure mechanism",
+    });
     expect(plan).toHaveLength(1);
     expect(plan[0].id).toBe("governed-context");
+  });
+
+  it("adds the current role-visible page when a bounded snapshot is available", () => {
+    const plan = buildInvestigationPlan({
+      question: "what is on this page?",
+      hasPageSnapshot: true,
+    });
+
+    expect(plan[0]).toMatchObject({
+      id: "current-page",
+      category: "screen",
+    });
+  });
+
+  it("accepts only bounded plain-text page snapshots", () => {
+    expect(normalizePageSnapshot({ secret: true })).toBeUndefined();
+    expect(normalizePageSnapshot("  Assets\n\n\n  Pump P-101  ")).toBe(
+      "Assets\n\nPump P-101",
+    );
+    expect(normalizePageSnapshot("x".repeat(20_000))).toHaveLength(8_000);
   });
 });
 
 describe("KPI evidence selection", () => {
   const rows = [
-    { kpi_key: "good", name: "Good", value: 90, unit: "%", status: "on_target" as const },
-    { kpi_key: "watch", name: "Watch", value: 70, unit: "%", status: "watch" as const },
-    { kpi_key: "breach", name: "Breach", value: 10, unit: "%", status: "breach" as const },
+    {
+      kpi_key: "good",
+      name: "Good",
+      value: 90,
+      unit: "%",
+      status: "on_target" as const,
+    },
+    {
+      kpi_key: "watch",
+      name: "Watch",
+      value: 70,
+      unit: "%",
+      status: "watch" as const,
+    },
+    {
+      kpi_key: "breach",
+      name: "Breach",
+      value: 10,
+      unit: "%",
+      status: "breach" as const,
+    },
   ];
 
   it("puts breached/watch indicators before green indicators", () => {

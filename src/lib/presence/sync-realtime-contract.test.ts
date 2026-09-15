@@ -55,6 +55,9 @@ describe("Sync Realtime voice production contract", () => {
     expect(dock).toContain("startSyncRequest(");
     expect(dock).toContain("captured.pendingApproval");
     expect(hook).toContain('call.name === "ask_sync"');
+    expect(hook).toContain("buildRealtimeScreenContextUpdate");
+    expect(hook).toContain("waitForRouteContext");
+    expect(hook).toContain("onInspectPageRef.current");
     expect(hook).not.toContain("executeProposal(");
   });
 
@@ -65,10 +68,12 @@ describe("Sync Realtime voice production contract", () => {
     expect(panel).toContain("Start conversation");
     expect(panel).toContain("microphone audio");
     expect(panel).toMatch(/Sync\s+answers needed for the conversation/);
-    expect(panel).toContain("processed by OpenAI");
+    expect(panel).toMatch(/processed\s+by OpenAI/);
     expect(panel).toContain("visible human confirmation");
     expect(shell).toContain(
       "<CopilotDock currentPath={currentPath} onNavigate={onNavigate} />",
     );
+    expect(shell).toContain("<PresenceWelcome showMeetingBooth={false} />");
+    expect(shell).not.toContain("HelpCenterWidget");
   });
 });

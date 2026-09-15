@@ -9,7 +9,11 @@ interface SyncRealtimeVoicePanelProps {
   context: SyncRealtimeContext;
   disabled?: boolean;
   onAskSync: (question: string) => Promise<SyncVoiceQueryResult>;
-  onNavigate: (path: string) => void;
+  onNavigate: (path: string) => void | Promise<void>;
+  onInspectPage?: (
+    path: string,
+    label: string,
+  ) => Promise<SyncVoiceQueryResult>;
   onActiveChange?: (active: boolean) => void;
 }
 
@@ -18,6 +22,7 @@ export function SyncRealtimeVoicePanel({
   disabled,
   onAskSync,
   onNavigate,
+  onInspectPage,
   onActiveChange,
 }: SyncRealtimeVoicePanelProps) {
   const voice = useSyncRealtimeVoice({
@@ -25,6 +30,7 @@ export function SyncRealtimeVoicePanel({
     disabled,
     onAskSync,
     onNavigate,
+    onInspectPage,
     onActiveChange,
   });
   const active =
@@ -125,9 +131,10 @@ export function SyncRealtimeVoicePanel({
       </div>
 
       <p className="mt-2 text-[9px] leading-4 text-slate-600">
-        When started, microphone audio, this screen’s bounded context, and Sync
-        answers needed for the conversation are processed by OpenAI. Sync facts
-        are retrieved through tenant-scoped evidence; recommendations and
+        When started, microphone audio, bounded text already visible on the
+        current page, and Sync answers needed for the conversation are processed
+        by OpenAI. Form entries and private-marked content are excluded. Sync
+        facts are retrieved through tenant-scoped evidence; recommendations and
         actions still require visible human confirmation.
       </p>
       <audio ref={voice.audioRef} autoPlay className="hidden" />
