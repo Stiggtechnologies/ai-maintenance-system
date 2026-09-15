@@ -262,10 +262,32 @@ export const shaftResonanceModelPack: PhysicsModelPackManifest = {
     ],
   },
   applicability: {
+    assetTypes: ["pump", "compressor", "motor", "gearbox"],
     assetFamilies: [
       "rotating_equipment_power_transmission",
       "rotating_fluid_equipment",
       "rotating_electrical_equipment",
+    ],
+    makeModel: {
+      mode: "manufacturer_neutral",
+      basis:
+        "The method uses measured and configured physical inputs rather than OEM-specific curves; installed configuration still requires verified evidence.",
+    },
+    mechanismScope: {
+      mode: "canonical_model_bindings",
+      basis:
+        "Applicable mechanisms are resolved from this exact model version's canonical damage-mechanism bindings.",
+    },
+    dutyClasses: [
+      "continuous_steady",
+      "intermittent_steady",
+      "maintenance_test",
+    ],
+    environmentClasses: [
+      "indoor_controlled",
+      "indoor_industrial",
+      "outdoor_sheltered",
+      "outdoor_exposed",
     ],
     componentCategories: ["shaft", "coupling", "bearing", "support_structure"],
     operatingStates: ["running_steady", "maintenance_test"],
@@ -317,6 +339,31 @@ export const shaftResonanceModelPack: PhysicsModelPackManifest = {
     configurationBaselineRequired: true,
     measurementQualityRequired: true,
     maximumMissingFraction: 0.05,
+    dataQuality: {
+      minimumState: "fit_for_use",
+      verifiedEvidenceRequired: true,
+      maximumMissingFraction: 0.05,
+    },
+    trainingPopulation: {
+      status: "not_applicable_deterministic",
+      basis:
+        "This deterministic screening method is derived from declared physical relationships and does not use a trained statistical population.",
+    },
+    validationPeriod: {
+      validFrom: "2026-09-15",
+      validThrough: "2027-09-15",
+      revalidationTriggers: [
+        "model implementation or manifest change",
+        "new excluded operating condition",
+        "material sensor or acquisition-chain change",
+        "field outcome contradicts the screening result",
+      ],
+    },
+    limitations: [
+      "Screening only; it does not diagnose root cause or establish fitness for service.",
+      "Rapid transients, impacts, rubs, saturated sensors and unknown as-maintained configurations are excluded.",
+      "A result does not authorize continued operation, maintenance deferral or a change to an operating limit.",
+    ],
   },
   verification: {
     requiredPassingKinds: [
