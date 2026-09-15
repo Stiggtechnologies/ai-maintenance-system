@@ -583,7 +583,7 @@ with the PR that changes an item's status._
 
 | ID     | Capability                                                                                                                                                                                                   | Status |
 | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------ |
-| U15.01 | Exposure evaluation: heat, cold, flood, wildfire, wind, ice, drought, sea-level, permafrost, seismic, landslide, storm surge, water scarcity — affecting design, intervals, spares, emergency plans, renewal | ❌     |
+| U15.01 | Exposure evaluation: heat, cold, flood, wildfire, wind, ice, drought, sea-level, permafrost, seismic, landslide, storm surge, water scarcity — affecting design, intervals, spares, emergency plans, renewal | ✅ The versioned `operational_v1` extension of canonical `climate_resilience_assessments` covers the exact thirteen-hazard taxonomy and requires substantive effects on design, maintenance intervals, spares, emergency plans and renewal for every hazard. It reuses canonical assets, sites, risks, recommendations, verified `evidence_items` and current verified `geospatial_features` while preserving historical eight-hazard `concept_v1` assessments without reinterpretation. Tenant/RLS and restricted-risk walls, revoked direct writes, named-human roles, source/freshness and missing-evidence provenance, author/reviewer separation, immutable reviewed records and audit events preserve human operational authority. `ClimateHazardExposurePanel` and `getClimateHazardExposureWorkspace` make the capability customer-reachable from Asset Ontology; static contracts and the clean-chain runtime smoke prove all 13 hazards, all 5 decision families, controlled incompleteness and cross-tenant refusals, independent review and unchanged approval/work authority. |
 
 ### U16 — Emergency and restoration command
 
@@ -776,6 +776,6 @@ record-scoped._
 
 Atomic items tracked: **397** — counted programmatically from the tables
 themselves (an earlier hand-stated figure of 307 under-counted; the enumeration
-never changed, only the count of it). Current tally: ✅ 294 · 🟡 167 · ❌ 5. _(2026-08-07: reconciled after parallel merges — C7.01/03/04/11 reliability engine, C4.13–17 + C6.22 closed-loop tail, C3.01–12 taxonomy, C5.04 scheduler all verified present on main.)_
+never changed, only the count of it). Current tally: ✅ 295 · 🟡 167 · ❌ 4. _(2026-08-07: reconciled after parallel merges — C7.01/03/04/11 reliability engine, C4.13–17 + C6.22 closed-loop tail, C3.01–12 taxonomy, C5.04 scheduler all verified present on main.)_
 Every ❌ and 🟡 is an open obligation of the program. No item may be removed;
 items may only change status with linked evidence in the PR that changes them.
