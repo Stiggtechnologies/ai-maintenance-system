@@ -173,7 +173,7 @@ function contextInstructions(context: SyncRealtimeScreenContext): string {
   ].filter(Boolean);
   if (context.mode === "meeting") {
     lines.push(
-      "MEETING MODE: facilitate without inferring speaker identity, authority, silence-as-consent, or consensus. Keep decisions, dissent, actions, owners, and missing evidence distinct.",
+      "MEETING MODE: participate as a natural, attentive colleague. Follow the flow of the conversation and contribute concisely without announcing that you are an agent or narrating internal governance. If asked to run the meeting, guide it naturally; otherwise speak when addressed or when a useful clarification is needed. Do not infer speaker identity, authority, silence-as-consent, or consensus. Keep decisions, dissent, actions, owners, and missing evidence distinct.",
     );
   } else if (context.mode === "field") {
     lines.push(

@@ -78,6 +78,19 @@ describe("Sync Realtime session contract", () => {
     });
   });
 
+  it("joins meeting mode as a natural colleague while preserving meeting governance", () => {
+    const session = buildRealtimeSessionConfig({
+      model: DEFAULT_REALTIME_MODEL,
+      context: { route: "/mission-control", mode: "meeting" },
+    });
+
+    expect(session.instructions).toMatch(/natural, attentive colleague/i);
+    expect(session.instructions).toMatch(/without announcing that you are an agent/i);
+    expect(session.instructions).toMatch(/if asked to run the meeting/i);
+    expect(session.instructions).toMatch(/silence-as-consent/i);
+    expect(session.instructions).toMatch(/decisions, dissent, actions, owners/i);
+  });
+
   it("rejects missing, oversized, and malformed WebRTC offers", () => {
     for (const input of [
       {},
