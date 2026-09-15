@@ -2280,10 +2280,10 @@
     "backticked": 7
   },
   "U16.01": {
-    "status": "❌",
-    "evidence": false,
-    "citations": 0,
-    "backticked": 0
+    "status": "✅",
+    "evidence": true,
+    "citations": 2,
+    "backticked": 2
   },
   "U17.01": {
     "status": "🟡",

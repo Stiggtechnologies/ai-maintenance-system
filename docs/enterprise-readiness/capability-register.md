@@ -589,7 +589,7 @@ with the PR that changes an item's status._
 
 | ID     | Capability                                                                                                                                     | Status |
 | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
-| U16.01 | Operating modes: normal, elevated risk, emergency response, business continuity, damage assessment, restoration, recovery, post-event learning | ❌     |
+| U16.01 | Operating modes: normal, elevated risk, emergency response, business continuity, damage assessment, restoration, recovery, post-event learning | ✅ `recovery_operating_commands` is a governed command-state overlay on canonical Sync Recovery events, assets, sites and verified `evidence_items`, covering exactly the eight named modes with explicit legal transitions. Requests and independent authorization are attributable to named same-tenant humans; RLS, revoked direct writes, immutable history, author/reviewer separation and audit events enforce the boundary. Emergency and later modes require a matching canonical restoration event, post-event learning requires that event to be closed, and no mode record declares safety, dispatches people, isolates equipment, releases plans/work or approves return to service. The customer-reachable Emergency Command tab, six static contract tests and fresh-chain authenticated runtime prove all eight modes, invalid-jump and cross-tenant refusal, verified evidence, independent authority and final normal-state readback. |
 
 ### U17 — Knowledge provenance and evidence quality
 
@@ -776,6 +776,6 @@ record-scoped._
 
 Atomic items tracked: **397** — counted programmatically from the tables
 themselves (an earlier hand-stated figure of 307 under-counted; the enumeration
-never changed, only the count of it). Current tally: ✅ 295 · 🟡 167 · ❌ 4. _(2026-08-07: reconciled after parallel merges — C7.01/03/04/11 reliability engine, C4.13–17 + C6.22 closed-loop tail, C3.01–12 taxonomy, C5.04 scheduler all verified present on main.)_
+never changed, only the count of it). Current tally: ✅ 296 · 🟡 167 · ❌ 3. _(2026-08-07: reconciled after parallel merges — C7.01/03/04/11 reliability engine, C4.13–17 + C6.22 closed-loop tail, C3.01–12 taxonomy, C5.04 scheduler all verified present on main.)_
 Every ❌ and 🟡 is an open obligation of the program. No item may be removed;
 items may only change status with linked evidence in the PR that changes them.
