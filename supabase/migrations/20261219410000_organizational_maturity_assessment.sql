@@ -95,7 +95,7 @@ create or replace function public.enforce_organizational_maturity_immutability()
 returns trigger language plpgsql set search_path=public as $$
 begin
   if tg_op='DELETE' then raise exception 'maturity assessments are retained as evidence-bearing records'; end if;
-  if current_setting('app.organizational_maturity_review', true) <> 'on' then
+  if coalesce(current_setting('app.organizational_maturity_review', true),'') <> 'on' then
     raise exception 'maturity assessment state changes require the governed review function';
   end if;
   if new.organization_id is distinct from old.organization_id
@@ -121,7 +121,7 @@ returns trigger language plpgsql set search_path=public as $$
 begin
   if new.organizational_maturity_assessment_id is not null
      and ((tg_op='INSERT') or (tg_op='UPDATE' and new.organizational_maturity_assessment_id is distinct from old.organizational_maturity_assessment_id))
-     and current_setting('app.organizational_maturity_review',true)<>'on' then
+     and coalesce(current_setting('app.organizational_maturity_review',true),'')<>'on' then
     raise exception 'maturity links are created only by the governed review function';
   end if;
   if new.organizational_maturity_assessment_id is not null and not exists (
@@ -130,7 +130,7 @@ begin
       and a.status='approved'
   ) then raise exception 'maturity assessment link is outside this organization'; end if;
   if tg_table_name='recommendations' and new.organizational_maturity_assessment_id is not null
-     and coalesce(new.maturity_domain_key,'') not in (
+     and coalesce(to_jsonb(new)->>'maturity_domain_key','') not in (
        'leadership','hierarchy','work_management','planning_scheduling','failure_coding',
        'pm_quality','condition_monitoring','materials','engineering_governance',
        'data_quality','workforce','financial_integration','ai_governance') then
@@ -139,7 +139,8 @@ begin
   if tg_table_name='recommendations' and new.organizational_maturity_assessment_id is not null
      and not exists(select 1 from public.organizational_maturity_domains d
        where d.assessment_id=new.organizational_maturity_assessment_id
-         and d.organization_id=new.organization_id and d.domain_key=new.maturity_domain_key
+         and d.organization_id=new.organization_id
+         and d.domain_key=to_jsonb(new)->>'maturity_domain_key'
          and d.score<4) then
     raise exception 'maturity recommendation requires an approved assessed gap';
   end if;
