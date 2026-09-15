@@ -1,17 +1,22 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-describe("HelpCenterWidget mount (M1)", () => {
-  it("AppShell imports and renders HelpCenterWidget", () => {
+describe("retired floating Help launcher", () => {
+  it("does not mount beside the global Sync launcher", () => {
     const src = readFileSync("src/components/AppShell.tsx", "utf8");
-    expect(src).toMatch(/import \{ HelpCenterWidget \} from "\.\/HelpCenterWidget"/);
-    expect(src).toMatch(/<HelpCenterWidget\s*\/>/);
+    expect(src).not.toContain("HelpCenterWidget");
+    expect(src).toContain("<CopilotDock");
   });
 
-  it("public RE shell mounts HelpCenterWidget", () => {
+  it("does not mount on the public workspace", () => {
     const src = readFileSync("src/App.tsx", "utf8");
-    expect(src).toMatch(/import \{ HelpCenterWidget \} from "\.\/components\/HelpCenterWidget"/);
     expect(src).toMatch(/function PublicCopilotExperience/);
-    expect(src).toMatch(/<HelpCenterWidget\s*\/>/);
+    expect(src).not.toContain("HelpCenterWidget");
+  });
+
+  it("preserves the retired help component for recovery instead of deleting it", () => {
+    expect(() =>
+      readFileSync("src/components/HelpCenterWidget.tsx", "utf8"),
+    ).not.toThrow();
   });
 });

@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  buildRealtimeScreenContextUpdate,
   collectUnhandledFunctionCalls,
   normalizeSyncNavigationPath,
   parseRealtimeToolArguments,
   requestSyncRealtimeSession,
+  syncRealtimeContextKey,
   type RealtimeFunctionCall,
   type SyncRealtimeContext,
   type SyncVoiceQueryResult,
@@ -16,11 +18,16 @@ interface UseSyncRealtimeVoiceOptions {
   context: SyncRealtimeContext;
   disabled?: boolean;
   onAskSync: (question: string) => Promise<SyncVoiceQueryResult>;
-  onNavigate: (path: string) => void;
+  onNavigate: (path: string) => void | Promise<void>;
+  onInspectPage?: (
+    path: string,
+    label: string,
+  ) => Promise<SyncVoiceQueryResult>;
   onActiveChange?: (active: boolean) => void;
 }
 
 const CLOSE_TIMEOUT_MS = 15_000;
+const ROUTE_CONTEXT_TIMEOUT_MS = 5_000;
 
 function waitForIce(connection: RTCPeerConnection): Promise<void> {
   if (connection.iceGatheringState === "complete") return Promise.resolve();
@@ -71,6 +78,7 @@ export function useSyncRealtimeVoice({
   disabled = false,
   onAskSync,
   onNavigate,
+  onInspectPage,
   onActiveChange,
 }: UseSyncRealtimeVoiceOptions) {
   const [state, setState] = useState<SyncRealtimeVoiceState>("idle");
@@ -88,11 +96,13 @@ export function useSyncRealtimeVoice({
   const microphoneRef = useRef<MediaStream | null>(null);
   const closeTimerRef = useRef<number | null>(null);
   const handledCallsRef = useRef(new Set<string>());
+  const lastContextUpdateRef = useRef("");
   const stateRef = useRef<SyncRealtimeVoiceState>(state);
   const pushToTalkRef = useRef(pushToTalk);
   const contextRef = useRef(context);
   const onAskSyncRef = useRef(onAskSync);
   const onNavigateRef = useRef(onNavigate);
+  const onInspectPageRef = useRef(onInspectPage);
   const onActiveChangeRef = useRef(onActiveChange);
 
   stateRef.current = state;
@@ -100,11 +110,41 @@ export function useSyncRealtimeVoice({
   contextRef.current = context;
   onAskSyncRef.current = onAskSync;
   onNavigateRef.current = onNavigate;
+  onInspectPageRef.current = onInspectPage;
   onActiveChangeRef.current = onActiveChange;
 
   const changeState = useCallback((next: SyncRealtimeVoiceState) => {
     stateRef.current = next;
     setState(next);
+  }, []);
+
+  const sendLatestScreenContext = useCallback(() => {
+    const channel = channelRef.current;
+    if (!channel || channel.readyState !== "open") return false;
+    const nextKey = syncRealtimeContextKey(contextRef.current);
+    if (nextKey === lastContextUpdateRef.current) return true;
+    try {
+      channel.send(
+        JSON.stringify(buildRealtimeScreenContextUpdate(contextRef.current)),
+      );
+    } catch {
+      return false;
+    }
+    lastContextUpdateRef.current = nextKey;
+    setLastEvent("screen context updated");
+    return true;
+  }, []);
+
+  const waitForRouteContext = useCallback(async (path: string) => {
+    const deadline = Date.now() + ROUTE_CONTEXT_TIMEOUT_MS;
+    while (Date.now() < deadline) {
+      if (contextRef.current.route === path) {
+        await new Promise<void>((resolve) => window.setTimeout(resolve, 60));
+        return true;
+      }
+      await new Promise<void>((resolve) => window.setTimeout(resolve, 50));
+    }
+    return false;
   }, []);
 
   const cleanup = useCallback(
@@ -124,6 +164,7 @@ export function useSyncRealtimeVoice({
       microphone?.getTracks().forEach((track) => track.stop());
       if (audioRef.current) audioRef.current.srcObject = null;
       handledCallsRef.current.clear();
+      lastContextUpdateRef.current = "";
       setMuted(false);
       setPressingToTalk(false);
       changeState(next);
@@ -134,49 +175,109 @@ export function useSyncRealtimeVoice({
 
   useEffect(() => () => cleanup("idle"), [cleanup]);
 
-  const executeTool = useCallback(async (call: RealtimeFunctionCall) => {
-    const args = parseRealtimeToolArguments(call);
-    if (!args) return { ok: false, error: "Invalid command arguments." };
-    if (call.name === "ask_sync") {
-      const question =
-        typeof args.question === "string"
-          ? args.question.trim().slice(0, 4_000)
-          : "";
-      if (!question) {
+  useEffect(() => {
+    if (state !== "live") return;
+    sendLatestScreenContext();
+  }, [
+    context.entity?.displayName,
+    context.entity?.id,
+    context.entity?.type,
+    context.mode,
+    context.pageTitle,
+    context.route,
+    sendLatestScreenContext,
+    state,
+  ]);
+
+  const executeTool = useCallback(
+    async (call: RealtimeFunctionCall) => {
+      const args = parseRealtimeToolArguments(call);
+      if (!args) return { ok: false, error: "Invalid command arguments." };
+      if (call.name === "ask_sync") {
+        const question =
+          typeof args.question === "string"
+            ? args.question.trim().slice(0, 4_000)
+            : "";
+        if (!question) {
+          return {
+            ok: false,
+            error: "A complete question for Sync is required.",
+          };
+        }
+        setStatus("Sync is checking the governed operating context…");
+        const result = await onAskSyncRef.current(question);
+        setStatus(
+          result.ok
+            ? result.pendingApproval
+              ? "Sync answered. A proposed action is waiting for your confirmation on screen."
+              : "Sync answered. Keep talking."
+            : result.error || "Sync could not complete that request.",
+        );
+        return result;
+      }
+      if (call.name === "open_sync_page") {
+        const path = normalizeSyncNavigationPath(args.path);
+        if (!path) {
+          return {
+            ok: false,
+            error: "That is not a safe Sync application path.",
+          };
+        }
+        const label =
+          typeof args.label === "string" && args.label.trim()
+            ? args.label.trim().slice(0, 120)
+            : path;
+        setStatus(`Opening ${label}…`);
+        await onNavigateRef.current(path);
+        const screenContextUpdated = await waitForRouteContext(path);
+        if (screenContextUpdated) sendLatestScreenContext();
+
+        if (screenContextUpdated && onInspectPageRef.current) {
+          setStatus(`${label} opened. Sync is reviewing the visible page…`);
+          const review = await onInspectPageRef.current(path, label);
+          setStatus(
+            review.ok
+              ? `${label} opened and reviewed. Keep talking.`
+              : `${label} opened, but its current contents could not be summarized.`,
+          );
+          return review.ok
+            ? {
+                ...review,
+                path,
+                label,
+                readOnlyNavigation: true,
+                screenContextUpdated: true,
+              }
+            : {
+                ok: true,
+                answer: `${label} is open, but Sync could not safely summarize the visible page${review.error ? `: ${review.error}` : "."}`,
+                path,
+                label,
+                readOnlyNavigation: true,
+                screenContextUpdated: true,
+              };
+        }
+
+        setStatus(
+          screenContextUpdated
+            ? `${label} opened. Keep talking.`
+            : `${label} opened, but the voice context has not caught up yet.`,
+        );
         return {
-          ok: false,
-          error: "A complete question for Sync is required.",
+          ok: true,
+          answer: screenContextUpdated
+            ? `${label} is open.`
+            : `${label} is open, but its visible context is not ready yet.`,
+          path,
+          label,
+          readOnlyNavigation: true,
+          screenContextUpdated,
         };
       }
-      setStatus("Sync is checking the governed operating context…");
-      const result = await onAskSyncRef.current(question);
-      setStatus(
-        result.ok
-          ? result.pendingApproval
-            ? "Sync answered. A proposed action is waiting for your confirmation on screen."
-            : "Sync answered. Keep talking."
-          : result.error || "Sync could not complete that request.",
-      );
-      return result;
-    }
-    if (call.name === "open_sync_page") {
-      const path = normalizeSyncNavigationPath(args.path);
-      if (!path) {
-        return {
-          ok: false,
-          error: "That is not a safe Sync application path.",
-        };
-      }
-      onNavigateRef.current(path);
-      const label =
-        typeof args.label === "string" && args.label.trim()
-          ? args.label.trim().slice(0, 120)
-          : path;
-      setStatus(`${label} opened. Keep talking.`);
-      return { ok: true, path, label, readOnlyNavigation: true };
-    }
-    return { ok: false, error: `Unsupported voice command ${call.name}.` };
-  }, []);
+      return { ok: false, error: `Unsupported voice command ${call.name}.` };
+    },
+    [sendLatestScreenContext, waitForRouteContext],
+  );
 
   const handleProviderEvent = useCallback(
     async (event: unknown) => {
@@ -325,6 +426,7 @@ export function useSyncRealtimeVoice({
       const channel = connection.createDataChannel("oai-events");
       channelRef.current = channel;
       channel.addEventListener("open", () => {
+        sendLatestScreenContext();
         setLastEvent("governed tools ready");
       });
       channel.addEventListener("message", ({ data }) => {
@@ -350,7 +452,9 @@ export function useSyncRealtimeVoice({
       const sdp = connection.localDescription?.sdp;
       if (!sdp) throw new Error("The browser did not create a voice offer.");
 
-      const session = await requestSyncRealtimeSession(sdp, contextRef.current);
+      const sessionContext = contextRef.current;
+      lastContextUpdateRef.current = syncRealtimeContextKey(sessionContext);
+      const session = await requestSyncRealtimeSession(sdp, sessionContext);
       await connection.setRemoteDescription({
         type: "answer",
         sdp: session.transport.sdp,
@@ -362,7 +466,13 @@ export function useSyncRealtimeVoice({
       cleanup("error");
       setStatus(message);
     }
-  }, [changeState, cleanup, disabled, handleProviderEvent]);
+  }, [
+    changeState,
+    cleanup,
+    disabled,
+    handleProviderEvent,
+    sendLatestScreenContext,
+  ]);
 
   const end = useCallback(() => {
     const channel = channelRef.current;
