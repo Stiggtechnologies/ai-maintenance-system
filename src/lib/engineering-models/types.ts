@@ -100,7 +100,21 @@ export interface ApplicabilityRule {
 }
 
 export interface ModelApplicabilityEnvelope {
+  assetTypes: string[];
   assetFamilies: string[];
+  makeModel:
+    | { mode: "manufacturer_neutral"; basis: string }
+    | {
+        mode: "allowlist";
+        basis: string;
+        entries: Array<{ manufacturer: string; models: string[] }>;
+      };
+  mechanismScope: {
+    mode: "canonical_model_bindings";
+    basis: string;
+  };
+  dutyClasses: string[];
+  environmentClasses: string[];
   componentCategories: string[];
   operatingStates: string[];
   rules: ApplicabilityRule[];
@@ -108,6 +122,24 @@ export interface ModelApplicabilityEnvelope {
   configurationBaselineRequired: boolean;
   measurementQualityRequired: boolean;
   maximumMissingFraction: number;
+  dataQuality: {
+    minimumState: "fit_for_use";
+    verifiedEvidenceRequired: true;
+    maximumMissingFraction: number;
+  };
+  trainingPopulation:
+    | { status: "not_applicable_deterministic"; basis: string }
+    | {
+        status: "documented";
+        description: string;
+        evidenceRequirementKey: string;
+      };
+  validationPeriod: {
+    validFrom: string;
+    validThrough: string;
+    revalidationTriggers: string[];
+  };
+  limitations: string[];
 }
 
 export interface VerificationCheckDefinition {

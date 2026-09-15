@@ -40,6 +40,64 @@ export interface EngineeringModelRegistryRow {
   evidenceBound: number;
   recentRuns: number;
   openImpacts: number;
+  applicabilityEnvelope?: ModelApplicabilityEnvelope;
+  applicabilityReviewStatus: "not_reviewed" | "approved" | "rejected";
+  applicabilityReviewedAt: string | null;
+  applicabilityReviewEvidenceItemId: string | null;
+  applicabilityReviewNote: string | null;
+  applicabilityValidUntil: string | null;
+  applicabilityGaps: string[];
+}
+
+export interface ModelApplicabilityEnvelope {
+  assetTypes?: string[];
+  assetFamilies?: string[];
+  makeModel?: {
+    mode?: "manufacturer_neutral" | "allowlist";
+    basis?: string;
+    entries?: Array<{ manufacturer: string; models: string[] }>;
+  };
+  mechanismScope?: { mode?: string; basis?: string };
+  mechanismKeys?: string[];
+  dutyClasses?: string[];
+  environmentClasses?: string[];
+  componentCategories?: string[];
+  operatingStates?: string[];
+  rules?: Array<{ inputCode?: string; description?: string; range?: unknown }>;
+  dataQuality?: {
+    minimumState?: string;
+    verifiedEvidenceRequired?: boolean;
+    maximumMissingFraction?: number;
+  };
+  trainingPopulation?: {
+    status?: string;
+    basis?: string;
+    description?: string;
+  };
+  validationPeriod?: {
+    validFrom?: string;
+    validThrough?: string;
+    revalidationTriggers?: string[];
+  };
+  limitations?: string[];
+}
+
+interface ModelApplicabilityWorkspaceRow {
+  modelRegisterId: number;
+  envelope: ModelApplicabilityEnvelope;
+  mechanismKeys: string[];
+  reviewStatus: "not_reviewed" | "approved" | "rejected";
+  reviewedAt: string | null;
+  reviewEvidenceItemId: string | null;
+  reviewNote: string | null;
+  validUntil: string | null;
+  gaps: string[];
+}
+
+interface ModelApplicabilityWorkspace {
+  models: ModelApplicabilityWorkspaceRow[];
+  dimensions: string[];
+  basis: string;
 }
 
 export interface EngineeringModelRegistry {
@@ -67,12 +125,59 @@ function assertRpc(data: unknown, message: string): RpcResult {
 }
 
 export async function getEngineeringModelRegistry(): Promise<EngineeringModelRegistry> {
-  const { data, error } = await supabase.rpc("get_engineering_model_registry");
-  if (error) throw new Error(error.message);
-  return assertRpc(
-    data,
+  const [registryResult, applicabilityResult] = await Promise.all([
+    supabase.rpc("get_engineering_model_registry"),
+    supabase.rpc("get_engineering_model_applicability_workspace"),
+  ]);
+  if (registryResult.error) throw new Error(registryResult.error.message);
+  if (applicabilityResult.error)
+    throw new Error(applicabilityResult.error.message);
+  const registry = assertRpc(
+    registryResult.data,
     "Engineering model registry returned no data.",
   ) as unknown as EngineeringModelRegistry;
+  const applicability = assertRpc(
+    applicabilityResult.data,
+    "Model applicability workspace returned no data.",
+  ) as unknown as ModelApplicabilityWorkspace;
+  const byModel = new Map(
+    applicability.models.map((item) => [item.modelRegisterId, item]),
+  );
+  registry.models = registry.models.map((model) => {
+    const item = byModel.get(model.id);
+    return {
+      ...model,
+      applicabilityEnvelope: item
+        ? { ...item.envelope, mechanismKeys: item.mechanismKeys }
+        : undefined,
+      applicabilityReviewStatus: item?.reviewStatus ?? "not_reviewed",
+      applicabilityReviewedAt: item?.reviewedAt ?? null,
+      applicabilityReviewEvidenceItemId: item?.reviewEvidenceItemId ?? null,
+      applicabilityReviewNote: item?.reviewNote ?? null,
+      applicabilityValidUntil: item?.validUntil ?? null,
+      applicabilityGaps: item?.gaps ?? ["applicability workspace unavailable"],
+    };
+  });
+  return registry;
+}
+
+export async function reviewEngineeringModelApplicability(input: {
+  modelRegisterId: number;
+  decision: "approved" | "rejected";
+  evidenceItemId: string;
+  reviewNote: string;
+}): Promise<RpcResult> {
+  const { data, error } = await supabase.rpc(
+    "review_engineering_model_applicability",
+    {
+      p_model_register_id: input.modelRegisterId,
+      p_decision: input.decision,
+      p_evidence_item_id: input.evidenceItemId,
+      p_review_note: input.reviewNote,
+    },
+  );
+  if (error) throw new Error(error.message);
+  return assertRpc(data, "Applicability review returned no data.");
 }
 
 export async function registerBuiltInResonancePack(): Promise<RpcResult> {
