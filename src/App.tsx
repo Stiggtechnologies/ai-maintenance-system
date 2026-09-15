@@ -76,6 +76,7 @@ import { TrustExplainability } from "./pages/TrustExplainability";
 import { EngineeringModelRegistryPage } from "./pages/EngineeringModelRegistryPage";
 import { BenchmarkingPanel } from "./pages/BenchmarkingPanel";
 import { AutonomyMaturity } from "./pages/AutonomyMaturity";
+import { OrganizationalMaturityPage } from "./pages/OrganizationalMaturityPage";
 import { SetupWizard } from "./pages/SetupWizard";
 import { ArtifactWorkspace } from "./pages/ArtifactWorkspace";
 import { ApprovalQueue } from "./components/ApprovalQueue";
@@ -631,6 +632,10 @@ function AuthenticatedApp() {
             }
           />
           <Route path="/benchmarking" element={<BenchmarkingPanel />} />
+          <Route
+            path="/organizational-maturity"
+            element={<OrganizationalMaturityPage />}
+          />
           <Route path="/trust" element={<TrustExplainability />} />
           <Route
             path="/engineering-models"
