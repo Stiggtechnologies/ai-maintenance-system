@@ -1111,7 +1111,7 @@ export function CopilotDock({
                   const pageSnapshot = await waitForSyncPageSnapshot();
                   return ask(
                     `Tell me what is on the ${label} page that just opened, what needs attention, and what I can safely do here. Do not execute or approve anything.`,
-                    true,
+                    false,
                     {
                       route: path,
                       pageSnapshot,

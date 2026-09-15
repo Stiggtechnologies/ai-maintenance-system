@@ -5,7 +5,7 @@ const PAGE_SNAPSHOT_SETTLE_MS = 300;
 const PAGE_SNAPSHOT_POLL_MS = 100;
 
 const PAGE_CONTEXT_QUERY =
-  /\b(?:this|current|open|opened|visible)\s+(?:page|screen|view)\b|\b(?:page|screen)\s+(?:shows?|contains?|displays?)\b|\bwhat(?:'s| is)\s+(?:on|shown|displayed)\b|\bwhat (?:am i|are we) looking at\b|\bwhat do you see\b/i;
+  /\b(?:this|current|open|opened|visible)\b[\s\S]{0,30}\b(?:page|screen|view|dashboard|workspace|report|chart|table|panel)\b|\b(?:page|screen|dashboard|workspace|report|chart|table|panel)\s+(?:shows?|contains?|displays?|means?)\b|\bwhat(?:'s| is)\s+(?:on|shown|displayed)\b|\bwhat (?:am i|are we) looking at\b|\bwhat do you see\b|\bwhat is this telling me\b|\bsummari[sz]e (?:this|the current|the open)\b/i;
 
 const EXCLUDED_PAGE_CONTEXT_SELECTOR = [
   "script",
@@ -21,6 +21,47 @@ const EXCLUDED_PAGE_CONTEXT_SELECTOR = [
   "[hidden]",
 ].join(",");
 
+const BLOCK_PAGE_CONTEXT_SELECTOR = [
+  "address",
+  "article",
+  "aside",
+  "blockquote",
+  "button",
+  "dd",
+  "details",
+  "dialog",
+  "div",
+  "dl",
+  "dt",
+  "fieldset",
+  "figcaption",
+  "figure",
+  "footer",
+  "form",
+  "h1",
+  "h2",
+  "h3",
+  "h4",
+  "h5",
+  "h6",
+  "header",
+  "li",
+  "main",
+  "nav",
+  "ol",
+  "p",
+  "section",
+  "summary",
+  "table",
+  "tbody",
+  "td",
+  "tfoot",
+  "th",
+  "thead",
+  "tr",
+  "ul",
+].join(",");
+
 function compactVisibleText(value: string): string {
   return value
     .replace(/\r/g, "")
@@ -30,6 +71,51 @@ function compactVisibleText(value: string): string {
     .join("\n")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
+}
+
+function isRenderedForSyncContext(element: Element, root: Element): boolean {
+  let current: Element | null = element;
+  while (current) {
+    if (current.matches(EXCLUDED_PAGE_CONTEXT_SELECTOR)) return false;
+    const view = current.ownerDocument.defaultView;
+    if (view) {
+      const style = view.getComputedStyle(current);
+      if (
+        style.display === "none" ||
+        style.visibility === "hidden" ||
+        style.visibility === "collapse" ||
+        style.contentVisibility === "hidden" ||
+        style.opacity === "0"
+      ) {
+        return false;
+      }
+    }
+    if (current === root) return true;
+    current = current.parentElement;
+  }
+  return false;
+}
+
+function collectRenderedPageText(page: HTMLElement): string {
+  const showText = page.ownerDocument.defaultView?.NodeFilter.SHOW_TEXT ?? 4;
+  const walker = page.ownerDocument.createTreeWalker(page, showText);
+  const chunks: string[] = [];
+  let previousBlock: Element | null = null;
+  let node = walker.nextNode();
+
+  while (node) {
+    const parent = node.parentElement;
+    const value = node.textContent?.replace(/\s+/g, " ").trim();
+    if (parent && value && isRenderedForSyncContext(parent, page)) {
+      const block = parent.closest(BLOCK_PAGE_CONTEXT_SELECTOR) ?? page;
+      if (chunks.length > 0 && block !== previousBlock) chunks.push("\n");
+      chunks.push(value);
+      previousBlock = block;
+    }
+    node = walker.nextNode();
+  }
+
+  return chunks.join(" ").replace(/ *\n */g, "\n");
 }
 
 /**
@@ -43,11 +129,7 @@ export function captureSyncPageSnapshot(
   const page = source.querySelector<HTMLElement>("[data-sync-page-content]");
   if (!page) return undefined;
 
-  const copy = page.cloneNode(true) as HTMLElement;
-  copy
-    .querySelectorAll(EXCLUDED_PAGE_CONTEXT_SELECTOR)
-    .forEach((element) => element.remove());
-  const text = compactVisibleText(copy.innerText || copy.textContent || "");
+  const text = compactVisibleText(collectRenderedPageText(page));
   return text ? text.slice(0, MAX_SYNC_PAGE_SNAPSHOT_CHARS) : undefined;
 }
 

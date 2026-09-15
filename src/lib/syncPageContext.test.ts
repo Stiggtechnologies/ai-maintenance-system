@@ -18,6 +18,8 @@ describe("Sync page context", () => {
         <input value="private typed value" />
         <textarea>private draft</textarea>
         <div data-sync-private>private account detail</div>
+        <div style="display: none">css-hidden detail</div>
+        <div aria-hidden="true">aria-hidden detail</div>
         <script>hiddenScript()</script>
       </main>
     `;
@@ -29,6 +31,8 @@ describe("Sync page context", () => {
     expect(snapshot).not.toContain("private typed value");
     expect(snapshot).not.toContain("private draft");
     expect(snapshot).not.toContain("private account detail");
+    expect(snapshot).not.toContain("css-hidden detail");
+    expect(snapshot).not.toContain("aria-hidden detail");
     expect(snapshot).not.toContain("hiddenScript");
   });
 
@@ -47,6 +51,8 @@ describe("Sync page context", () => {
     expect(questionNeedsPageSnapshot("What are we looking at here?")).toBe(
       true,
     );
+    expect(questionNeedsPageSnapshot("Summarize this dashboard")).toBe(true);
+    expect(questionNeedsPageSnapshot("What is this telling me?")).toBe(true);
     expect(questionNeedsPageSnapshot("Explain cavitation generally")).toBe(
       false,
     );
