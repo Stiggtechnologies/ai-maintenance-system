@@ -24,6 +24,11 @@ import { useSpeechOutput } from "../hooks/useSpeechOutput";
 import { useSyncStream } from "../hooks/useSyncStream";
 import { getCopilotEphemeralContext } from "../lib/copilot-context";
 import { getRolePersona } from "../lib/rolePersonas";
+import {
+  captureSyncPageSnapshot,
+  questionNeedsPageSnapshot,
+  waitForSyncPageSnapshot,
+} from "../lib/syncPageContext";
 import { supabase } from "../lib/supabase";
 import { trackUiEvent } from "../services/uiEvents";
 import { supabasePublicKey, supabaseUrl } from "../lib/supabase-config";
@@ -593,6 +598,7 @@ export function CopilotDock({
     async (
       rawQuestion: string,
       appendUser = true,
+      requestContext?: { route?: string; pageSnapshot?: string },
     ): Promise<SyncVoiceQueryResult> => {
       const question = rawQuestion.trim();
       if (!question) return { ok: false, error: "A question is required." };
@@ -615,6 +621,16 @@ export function CopilotDock({
       const attachmentIds = pendingAttachments.map(
         (attachment) => attachment.id,
       );
+      const requestRoute = requestContext?.route ?? currentPath;
+      const hasSnapshotOverride = Boolean(
+        requestContext &&
+        Object.prototype.hasOwnProperty.call(requestContext, "pageSnapshot"),
+      );
+      const pageSnapshot = hasSnapshotOverride
+        ? requestContext?.pageSnapshot
+        : questionNeedsPageSnapshot(question)
+          ? captureSyncPageSnapshot()
+          : undefined;
       if (appendUser) {
         setMessages((current) => [
           ...current,
@@ -667,10 +683,11 @@ export function CopilotDock({
             conversationId,
             attachmentIds,
             context: {
-              route: currentPath,
+              route: requestRoute,
               pageTitle: document.title,
               mode,
-              entity: deriveEntityContext(currentPath),
+              entity: deriveEntityContext(requestRoute),
+              pageSnapshot,
             },
           },
           agentMessageId,
@@ -927,12 +944,12 @@ export function CopilotDock({
           open ? "Close Sync" : `Open ${syncEnabled ? "Sync" : persona.title}`
         }
         data-testid="copilot-launcher"
-        className="fixed bottom-5 right-5 z-40 flex h-12 w-12 items-center justify-center rounded-full bg-teal-500 text-slate-950 shadow-lg shadow-teal-500/20 hover:bg-teal-400 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-teal-300"
+        className="fixed bottom-20 right-4 z-50 flex h-14 w-14 items-center justify-center rounded-full border-2 border-teal-100/70 bg-teal-400 text-slate-950 shadow-[0_0_28px_rgba(45,212,191,0.45)] transition-transform hover:scale-105 hover:bg-teal-300 focus:outline-hidden focus-visible:ring-4 focus-visible:ring-teal-200/50 md:bottom-6 md:right-6"
       >
         {open ? (
-          <X className="h-5 w-5" aria-hidden />
+          <X className="h-6 w-6" aria-hidden />
         ) : (
-          <Bot className="h-6 w-6" aria-hidden />
+          <Bot className="h-7 w-7" aria-hidden />
         )}
       </button>
 
@@ -1089,6 +1106,17 @@ export function CopilotDock({
                 onNavigate={(path) => {
                   if (onNavigate) onNavigate(path);
                   else window.location.assign(path);
+                }}
+                onInspectPage={async (path, label) => {
+                  const pageSnapshot = await waitForSyncPageSnapshot();
+                  return ask(
+                    `Tell me what is on the ${label} page that just opened, what needs attention, and what I can safely do here. Do not execute or approve anything.`,
+                    false,
+                    {
+                      route: path,
+                      pageSnapshot,
+                    },
+                  );
                 }}
                 onActiveChange={handleRealtimeActiveChange}
               />

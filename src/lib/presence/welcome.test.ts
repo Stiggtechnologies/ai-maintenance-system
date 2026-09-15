@@ -298,7 +298,7 @@ describe("presence boundary", () => {
       );
     }
     expect(readFileSync("src/components/AppShell.tsx", "utf8")).toContain(
-      "<PresenceWelcome />",
+      "<PresenceWelcome showMeetingBooth={false} />",
     );
     expect(readFileSync("src/lib/presence/welcome.ts", "utf8")).toContain(
       "Recommend ≠ authorize",

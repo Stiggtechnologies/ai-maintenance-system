@@ -264,7 +264,7 @@ export function StartHerePage() {
         <p className="text-center text-xs text-slate-500">
           {requiredDone
             ? "Required steps marked locally — open Mission Control for Stage-1 runbook detail."
-            : "Work required steps in order. Use Help (when mounted) for questions."}
+            : "Work required steps in order. Open Sync for questions or guidance."}
         </p>
 
         <button

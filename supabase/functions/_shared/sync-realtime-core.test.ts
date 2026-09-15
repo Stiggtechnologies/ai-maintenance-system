@@ -26,6 +26,7 @@ describe("Sync Realtime session contract", () => {
       "ask_sync",
       "open_sync_page",
     ]);
+    expect(session.tools[1].description).toMatch(/governed summary/i);
     expect(session.tool_choice).toBe("auto");
     expect(session.instructions).toContain(
       "Speak clearly, naturally, and concisely. Help with general questions, explanations, brainstorming, planning, writing, and other everyday topics using your broader knowledge and reasoning.",
@@ -36,6 +37,7 @@ describe("Sync Realtime session contract", () => {
     expect(session.instructions).toContain(
       "the same capable, natural conversational partner as God’s Eye—not as a policy narrator",
     );
+    expect(session.instructions).toMatch(/screen context was updated/i);
   });
 
   it("requires current Sync facts and every state-changing request to use the governed runtime", () => {
@@ -85,10 +87,14 @@ describe("Sync Realtime session contract", () => {
     });
 
     expect(session.instructions).toMatch(/natural, attentive colleague/i);
-    expect(session.instructions).toMatch(/without announcing that you are an agent/i);
+    expect(session.instructions).toMatch(
+      /without announcing that you are an agent/i,
+    );
     expect(session.instructions).toMatch(/if asked to run the meeting/i);
     expect(session.instructions).toMatch(/silence-as-consent/i);
-    expect(session.instructions).toMatch(/decisions, dissent, actions, owners/i);
+    expect(session.instructions).toMatch(
+      /decisions, dissent, actions, owners/i,
+    );
   });
 
   it("rejects missing, oversized, and malformed WebRTC offers", () => {

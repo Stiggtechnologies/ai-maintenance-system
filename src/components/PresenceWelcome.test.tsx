@@ -239,6 +239,16 @@ describe("PresenceWelcome", () => {
     ).not.toBeChecked();
   });
 
+  it("hides the replaced Meet Sync booth in the production shell mode", () => {
+    render(<PresenceWelcome showMeetingBooth={false} />);
+
+    expect(screen.queryByRole("button", { name: "Meet Sync" })).toBeNull();
+    expect(screen.queryByTestId("presence-booth")).toBeNull();
+    expect(
+      screen.getByRole("button", { name: /play welcome/i }),
+    ).toBeInTheDocument();
+  });
+
   it("hides the KPI brief while Meet Sync is open", async () => {
     loadDashboard.mockResolvedValue({
       role: "admin",
