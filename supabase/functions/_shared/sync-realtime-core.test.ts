@@ -27,6 +27,15 @@ describe("Sync Realtime session contract", () => {
       "open_sync_page",
     ]);
     expect(session.tool_choice).toBe("auto");
+    expect(session.instructions).toContain(
+      "Speak clearly, naturally, and concisely. Help with general questions, explanations, brainstorming, planning, writing, and other everyday topics using your broader knowledge and reasoning.",
+    );
+    expect(session.instructions).toContain(
+      "The supplied CURRENT SCREEN CONTEXT is optional supplemental context, not the boundary of your knowledge.",
+    );
+    expect(session.instructions).toContain(
+      "the same capable, natural conversational partner as God’s Eye—not as a policy narrator",
+    );
   });
 
   it("requires current Sync facts and every state-changing request to use the governed runtime", () => {
