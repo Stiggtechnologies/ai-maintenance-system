@@ -2240,8 +2240,8 @@
   "U10.01": {
     "status": "✅",
     "evidence": true,
-    "citations": 5,
-    "backticked": 5
+    "citations": 6,
+    "backticked": 6
   },
   "U11.01": {
     "status": "❌",
@@ -2274,10 +2274,10 @@
     "backticked": 0
   },
   "U15.01": {
-    "status": "❌",
-    "evidence": false,
-    "citations": 0,
-    "backticked": 0
+    "status": "✅",
+    "evidence": true,
+    "citations": 7,
+    "backticked": 7
   },
   "U16.01": {
     "status": "❌",
