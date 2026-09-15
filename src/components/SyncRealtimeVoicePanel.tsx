@@ -125,9 +125,10 @@ export function SyncRealtimeVoicePanel({
       </div>
 
       <p className="mt-2 text-[9px] leading-4 text-slate-600">
-        When started, microphone audio and this screen’s bounded context are
-        processed by OpenAI. Sync data, recommendations, and actions still use
-        tenant-scoped evidence and visible human confirmation.
+        When started, microphone audio, this screen’s bounded context, and Sync
+        answers needed for the conversation are processed by OpenAI. Sync facts
+        are retrieved through tenant-scoped evidence; recommendations and
+        actions still require visible human confirmation.
       </p>
       <audio ref={voice.audioRef} autoPlay className="hidden" />
     </section>

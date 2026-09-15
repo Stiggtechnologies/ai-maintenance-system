@@ -64,6 +64,7 @@ describe("Sync Realtime voice production contract", () => {
 
     expect(panel).toContain("Start conversation");
     expect(panel).toContain("microphone audio");
+    expect(panel).toMatch(/Sync\s+answers needed for the conversation/);
     expect(panel).toContain("processed by OpenAI");
     expect(panel).toContain("visible human confirmation");
     expect(shell).toContain(
