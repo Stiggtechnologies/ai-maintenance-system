@@ -85,6 +85,7 @@ describe("U15.01 governed natural-hazard and climate exposure", () => {
 
   it("enforces tenant, provenance, freshness and independent-review controls", () => {
     expect(sql).toContain("organization_id=public.app_current_org()");
+    expect(sql).toContain("public.can_read_risk(risk_id)");
     expect(sql).toContain("e.verification_status<>'verified'");
     expect(sql).toContain("f.valid_until<=now()");
     expect(sql).toContain("author cannot perform the independent review");

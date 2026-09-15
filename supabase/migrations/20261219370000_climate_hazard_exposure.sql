@@ -76,6 +76,24 @@ alter table public.climate_resilience_hazard_assessments
     )
   );
 
+-- Operational assessments may point at restricted canonical risks. Tighten
+-- the existing read policies so that link cannot disclose assessment or
+-- hazard content to a tenant member who cannot read the parent risk.
+drop policy if exists climate_resilience_assessment_read on public.climate_resilience_assessments;
+create policy climate_resilience_assessment_read on public.climate_resilience_assessments
+  for select to authenticated using (
+    organization_id=public.app_current_org()
+    and (risk_id is null or public.can_read_risk(risk_id))
+  );
+drop policy if exists climate_resilience_hazard_read on public.climate_resilience_hazard_assessments;
+create policy climate_resilience_hazard_read on public.climate_resilience_hazard_assessments
+  for select to authenticated using (
+    organization_id=public.app_current_org()
+    and exists(select 1 from public.climate_resilience_assessments a
+      where a.id=assessment_id and a.organization_id=public.app_current_org()
+        and (a.risk_id is null or public.can_read_risk(a.risk_id)))
+  );
+
 -- Replace the original scope trigger so both versioned workflows share the
 -- same governed table without weakening the historical option boundary.
 create or replace function public.enforce_climate_assessment_scope()
@@ -189,9 +207,11 @@ begin
     return jsonb_build_object('error','asset not found in this organization'); end if;
   if v_site is not null and not exists(select 1 from sites where id=v_site and organization_id=v_org) then
     return jsonb_build_object('error','site not found in this organization'); end if;
-  if v_risk is not null and not exists(select 1 from risks where id=v_risk and organization_id=v_org) then
+  if v_risk is not null and not exists(select 1 from risks where id=v_risk and organization_id=v_org
+      and public.can_read_risk(id)) then
     return jsonb_build_object('error','risk not found in this organization'); end if;
-  if v_recommendation is not null and not exists(select 1 from recommendations where id=v_recommendation and organization_id=v_org) then
+  if v_recommendation is not null and not exists(select 1 from recommendations where id=v_recommendation and organization_id=v_org
+      and (risk_id is null or public.can_read_risk(risk_id))) then
     return jsonb_build_object('error','recommendation not found in this organization'); end if;
   if exists(select 1 from climate_resilience_assessments where organization_id=v_org
     and assessment_kind='operational_v1' and status='draft'
