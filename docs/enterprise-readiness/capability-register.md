@@ -571,7 +571,7 @@ with the PR that changes an item's status._
 
 | ID     | Capability                                                                                                                                                                                                                   | Status |
 | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
-| U13.01 | Availability/response/reliability guarantees, punctuality targets, service standards, maintenance contracts, performance-based logistics, warranties, penalties/incentives, concession requirements — in recommendation risk | ❌     |
+| U13.01 | Availability/response/reliability guarantees, punctuality targets, service standards, maintenance contracts, performance-based logistics, warranties, penalties/incentives, concession requirements — in recommendation risk | ✅ Canonical `risk_obligations` models all nine named commitment classes and links canonical assets, service levels, contracts, suppliers, warranties and verified `evidence_items`; `recommendation_obligation_risks` records evidence-backed exposure without changing recommendation, approval or work-release authority. Tenant-scoped RLS, revoked direct writes, role gates, author/reviewer separation, preserved version lineage and audit events govern the lifecycle. `ServiceContractRiskPanel`, six static contract tests and fresh-chain runtime acceptance prove no invented targets or commercial terms, cross-tenant refusal, independent adoption/verification and unchanged human authority; merge `faba54b` then passed production migrations, production acceptance and all three production deployments. |
 
 ### U14 — Materials, chemistry, degradation science
 
@@ -776,6 +776,6 @@ record-scoped._
 
 Atomic items tracked: **397** — counted programmatically from the tables
 themselves (an earlier hand-stated figure of 307 under-counted; the enumeration
-never changed, only the count of it). Current tally: ✅ 292 · 🟡 167 · ❌ 7. _(2026-08-07: reconciled after parallel merges — C7.01/03/04/11 reliability engine, C4.13–17 + C6.22 closed-loop tail, C3.01–12 taxonomy, C5.04 scheduler all verified present on main.)_
+never changed, only the count of it). Current tally: ✅ 293 · 🟡 167 · ❌ 6. _(2026-08-07: reconciled after parallel merges — C7.01/03/04/11 reliability engine, C4.13–17 + C6.22 closed-loop tail, C3.01–12 taxonomy, C5.04 scheduler all verified present on main.)_
 Every ❌ and 🟡 is an open obligation of the program. No item may be removed;
 items may only change status with linked evidence in the PR that changes them.
