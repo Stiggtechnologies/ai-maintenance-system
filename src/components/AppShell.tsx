@@ -888,7 +888,7 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
       </nav>
 
       {/* Command Search */}
-      <CopilotDock />
+      <CopilotDock currentPath={currentPath} onNavigate={onNavigate} />
       <HelpCenterWidget />
       <CommandSearch
         open={commandSearchOpen}

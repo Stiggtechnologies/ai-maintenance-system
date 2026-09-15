@@ -433,3 +433,6 @@ verify_jwt = true
 
 [functions.sync-tts]
 verify_jwt = true
+
+[functions.sync-realtime-session]
+verify_jwt = true
