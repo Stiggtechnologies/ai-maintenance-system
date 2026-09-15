@@ -24,6 +24,7 @@ import {
   type RecoveryAdvancedView,
 } from "../components/RecoveryControlCenter";
 import { RecoveryActivationKit } from "../components/RecoveryActivationKit";
+import { RecoveryOperatingCommand } from "../components/RecoveryOperatingCommand";
 import { supabase } from "../lib/supabase";
 import {
   getRecoveryBoard,
@@ -44,6 +45,7 @@ import {
 type View =
   | "board"
   | "activate"
+  | "command"
   | "workspace"
   | "timeline"
   | "opportunities"
@@ -68,6 +70,7 @@ type CompletionDraft = {
 const views: Array<{ id: View; label: string }> = [
   { id: "board", label: "Fleet Down Board" },
   { id: "activate", label: "Activate Tenant" },
+  { id: "command", label: "Emergency Command" },
   { id: "workspace", label: "Event Workspace" },
   { id: "timeline", label: "Integrated Timeline" },
   { id: "opportunities", label: "Opportunity Work" },
@@ -454,7 +457,9 @@ export default function SyncRecoveryPage() {
         ))}
       </nav>
 
-      {view !== "board" && view !== "activate" && (
+      {view === "command" && <RecoveryOperatingCommand />}
+
+      {view !== "board" && view !== "activate" && view !== "command" && (
         <div
           className={`${cardClass} flex flex-col gap-3 p-4 lg:flex-row lg:items-center lg:justify-between`}
         >
@@ -1774,9 +1779,12 @@ export default function SyncRecoveryPage() {
           />
         )}
 
-      {view !== "board" && view !== "activate" && !detail && (
-        <Empty>Select an active event from the Fleet Down Board.</Empty>
-      )}
+      {view !== "board" &&
+        view !== "activate" &&
+        view !== "command" &&
+        !detail && (
+          <Empty>Select an active event from the Fleet Down Board.</Empty>
+        )}
     </div>
   );
 }
