@@ -244,6 +244,23 @@ begin
   end if;
   if p_minimum_confidence is not null and (p_minimum_confidence<0 or p_minimum_confidence>1) then return jsonb_build_object('error','minimum confidence is a fraction between 0 and 1'); end if;
   if p_weight is not null and p_weight<=0 then return jsonb_build_object('error','weight must be positive'); end if;
+  if coalesce(p_is_mandatory,sc.is_mandatory) is not distinct from sc.is_mandatory
+     and coalesce(nullif(btrim(coalesce(p_evidence_type,'')),''),sc.evidence_type) is not distinct from sc.evidence_type
+     and coalesce(p_minimum_confidence,sc.minimum_confidence) is not distinct from sc.minimum_confidence
+     and coalesce(nullif(btrim(coalesce(p_guidance,'')),''),sc.guidance) is not distinct from sc.guidance
+     and coalesce(p_weight,sc.weight) is not distinct from sc.weight then
+    return jsonb_build_object('error','an improvement proposal must change at least one governed requirement control; a new version with identical content is not learning');
+  end if;
+  if p_action='strengthen' and (
+       (sc.is_mandatory and p_is_mandatory=false)
+       or (p_minimum_confidence is not null and sc.minimum_confidence is not null and p_minimum_confidence<sc.minimum_confidence)
+       or (p_weight is not null and p_weight<sc.weight)
+     ) then return jsonb_build_object('error','a strengthen proposal cannot make the requirement advisory or lower its confidence or weight'); end if;
+  if p_action='simplify' and (
+       (not sc.is_mandatory and p_is_mandatory=true)
+       or (p_minimum_confidence is not null and sc.minimum_confidence is not null and p_minimum_confidence>sc.minimum_confidence)
+       or (p_weight is not null and p_weight>sc.weight)
+     ) then return jsonb_build_object('error','a simplify proposal cannot make the requirement mandatory or raise its confidence or weight'); end if;
 
   v_version:=public.create_project_framework_version(sf.id);
   if v_version ? 'error' then raise exception '%',v_version->>'error'; end if;
