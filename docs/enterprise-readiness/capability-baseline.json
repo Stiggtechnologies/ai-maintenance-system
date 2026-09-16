@@ -2340,10 +2340,10 @@
     "backticked": 0
   },
   "U22.01": {
-    "status": "❌",
-    "evidence": false,
-    "citations": 0,
-    "backticked": 0
+    "status": "✅",
+    "evidence": true,
+    "citations": 3,
+    "backticked": 3
   },
   "U25.01": {
     "status": "🟡",

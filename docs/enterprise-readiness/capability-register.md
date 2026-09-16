@@ -629,7 +629,7 @@ with the PR that changes an item's status._
 
 | ID     | Capability                                                                                                                                                                                                                                                                       | Status |
 | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
-| U22.01 | Maturity assessment: leadership, hierarchy, work management, planning/scheduling, failure coding, PM quality, condition monitoring, materials, engineering governance, data quality, workforce, financial integration, AI governance — with maturity-appropriate recommendations | ❌     |
+| U22.01 | Maturity assessment: leadership, hierarchy, work management, planning/scheduling, failure coding, PM quality, condition monitoring, materials, engineering governance, data quality, workforce, financial integration, AI governance — with maturity-appropriate recommendations | ✅ Complete 13-domain, 0–5 assessment on `/organizational-maturity`; every score requires same-tenant independently verified canonical evidence and an assessor-entered finding. Submitted assessments are immutable and independently reviewed by admin/executive roles with assessor separation. Approval creates canonical pending recommendations only for gaps below level 4, with no fabricated confidence or operational authority. Clean migration-chain and runtime smoke prove 13 domains, 9 gap recommendations, one human approval, two audit events, tenant isolation, direct-write denial and explicit non-certification (`20261219410000_organizational_maturity_assessment.sql`; `ci-organizational-maturity-smoke.sh`). |
 
 ### U25 — Reliability Intelligence Assessment workspace (the fixed-scope engagement, as software)
 
@@ -776,6 +776,6 @@ record-scoped._
 
 Atomic items tracked: **397** — counted programmatically from the tables
 themselves (an earlier hand-stated figure of 307 under-counted; the enumeration
-never changed, only the count of it). Current tally: ✅ 297 · 🟡 167 · ❌ 2. _(2026-08-07: reconciled after parallel merges — C7.01/03/04/11 reliability engine, C4.13–17 + C6.22 closed-loop tail, C3.01–12 taxonomy, C5.04 scheduler all verified present on main.)_
+never changed, only the count of it). Current tally: ✅ 298 · 🟡 167 · ❌ 1. _(2026-08-07: reconciled after parallel merges — C7.01/03/04/11 reliability engine, C4.13–17 + C6.22 closed-loop tail, C3.01–12 taxonomy, C5.04 scheduler all verified present on main. U22.01 closed by the evidence-backed organizational maturity workflow and governed runtime acceptance smoke.)_
 Every ❌ and 🟡 is an open obligation of the program. No item may be removed;
 items may only change status with linked evidence in the PR that changes them.
