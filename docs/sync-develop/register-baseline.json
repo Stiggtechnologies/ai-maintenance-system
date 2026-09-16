@@ -468,19 +468,19 @@
     "backticked": 14
   },
   "D5.10": {
-    "status": "❌",
+    "status": "✅",
     "evidence": true,
     "citations": 2,
     "backticked": 0
   },
   "D5.11": {
-    "status": "❌",
+    "status": "✅",
     "evidence": true,
-    "citations": 2,
+    "citations": 1,
     "backticked": 0
   },
   "D5.12": {
-    "status": "❌",
+    "status": "✅",
     "evidence": true,
     "citations": 0,
     "backticked": 0
