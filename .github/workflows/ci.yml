@@ -423,6 +423,9 @@ jobs:
       - name: Smoke — methodology outcome learning and human-approved improvement
         run: bash scripts/ci-methodology-outcome-learning-smoke.sh
 
+      - name: Smoke — Sync Portfolio programs, dependencies and benefit integrity
+        run: bash scripts/ci-develop-program-portfolio-smoke.sh
+
       - name: Smoke — natural-hazard and climate exposure
         run: bash scripts/ci-climate-hazard-exposure-smoke.sh
 

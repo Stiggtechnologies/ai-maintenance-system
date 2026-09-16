@@ -942,40 +942,40 @@
     "backticked": 15
   },
   "D10.01": {
-    "status": "❌",
+    "status": "✅",
     "evidence": true,
-    "citations": 4,
-    "backticked": 0
+    "citations": 11,
+    "backticked": 11
   },
   "D10.02": {
-    "status": "🟡",
+    "status": "✅",
     "evidence": true,
-    "citations": 1,
-    "backticked": 0
+    "citations": 7,
+    "backticked": 7
   },
   "D10.03": {
-    "status": "🟡",
+    "status": "✅",
     "evidence": true,
-    "citations": 0,
-    "backticked": 0
+    "citations": 4,
+    "backticked": 4
   },
   "D10.04": {
     "status": "🟡",
     "evidence": true,
-    "citations": 1,
-    "backticked": 0
+    "citations": 5,
+    "backticked": 5
   },
   "D10.05": {
-    "status": "❌",
+    "status": "✅",
     "evidence": true,
-    "citations": 0,
-    "backticked": 0
+    "citations": 8,
+    "backticked": 8
   },
   "D10.06": {
-    "status": "❌",
+    "status": "🟡",
     "evidence": true,
-    "citations": 1,
-    "backticked": 0
+    "citations": 2,
+    "backticked": 2
   },
   "D11.01": {
     "status": "✅",

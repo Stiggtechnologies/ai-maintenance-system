@@ -9,6 +9,7 @@ import {
 } from "../components/ui/AsyncStates";
 import { EnterprisePortfolioOptimizationPanel } from "../components/EnterprisePortfolioOptimizationPanel";
 import { ProjectAssurancePanel } from "../components/ProjectAssurancePanel";
+import { ProgramPortfolioPanel } from "../components/develop/ProgramPortfolioPanel";
 
 function number(value: number | null, suffix = ""): string {
   return value == null
@@ -84,6 +85,8 @@ export function DevelopmentPortfolioPage() {
       </header>
 
       <EnterprisePortfolioOptimizationPanel />
+
+      <ProgramPortfolioPanel portfolioRows={data.rows} />
 
       <ProjectAssurancePanel />
 
