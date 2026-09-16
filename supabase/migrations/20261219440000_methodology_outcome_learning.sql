@@ -53,7 +53,7 @@ begin
       return old;
     end if;
     if v_marker<>'granted' then
-      raise exception 'A framework proposal is an immutable record of a proposed governance change. Withdraw it with a stated reason; do not delete it.'
+      raise exception 'A framework proposal is an immutable record of a proposed governance change. It is not deleted; withdraw it with a stated reason.'
         using errcode='insufficient_privilege';
     end if;
     return old;
