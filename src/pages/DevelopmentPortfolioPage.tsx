@@ -7,6 +7,7 @@ import {
   ErrorState,
   LoadingState,
 } from "../components/ui/AsyncStates";
+import { EnterprisePortfolioOptimizationPanel } from "../components/EnterprisePortfolioOptimizationPanel";
 
 function number(value: number | null, suffix = ""): string {
   return value == null
@@ -80,6 +81,8 @@ export function DevelopmentPortfolioPage() {
           and benefits—each from its canonical case record.
         </p>
       </header>
+
+      <EnterprisePortfolioOptimizationPanel />
 
       <div className="overflow-x-auto rounded-xl border border-white/8">
         <table className="min-w-[118rem] text-left text-xs">

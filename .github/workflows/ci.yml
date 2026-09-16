@@ -414,6 +414,9 @@ jobs:
       - name: Smoke — governed geospatial operational intelligence
         run: bash scripts/ci-geospatial-operational-intelligence-smoke.sh
 
+      - name: Smoke — governed enterprise portfolio optimization
+        run: bash scripts/ci-enterprise-portfolio-optimization-smoke.sh
+
       - name: Smoke — natural-hazard and climate exposure
         run: bash scripts/ci-climate-hazard-exposure-smoke.sh
 
