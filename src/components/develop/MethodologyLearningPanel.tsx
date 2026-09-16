@@ -202,7 +202,8 @@ export function MethodologyLearningPanel({
           </div>
           <p className="text-[10px] text-slate-500">
             Blank controls preserve the current value. This creates the next
-            draft version only. Adoption remains a separate named-human act.
+            draft version only; change at least one control. Adoption remains a
+            separate named-human act.
           </p>
           <div className="grid gap-1.5 sm:grid-cols-3">
             <select

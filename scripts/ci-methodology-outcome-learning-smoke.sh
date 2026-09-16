@@ -64,6 +64,11 @@ RUN=$(rpc "$ADMIN" run_methodology_outcome_analysis "{\"p_framework_id\":\"$FRAM
 ok "$RUN"
 RUN_ID=$(BODY="$(body "$RUN")" python3 -c 'import json,os;x=json.loads(os.environ["BODY"]);assert x["status"]=="computed";assert x["minimumCohort"]==3;assert x["eligiblePatterns"]==1;assert x["associationNotCausation"] is True;assert x["automaticMethodChange"] is False;p=x["criteria"][0];assert p["metSample"]==3 and p["notMetSample"]==3;assert p["means"]["notMet"]["scheduleGrowthPct"]>p["means"]["met"]["scheduleGrowthPct"];assert p["associationNotCausation"] is True;print(x["calculationRunId"])')
 
+NO_CHANGE=$(rpc "$ADMIN" propose_methodology_improvement "{\"p_calculation_run_id\":\"$RUN_ID\",\"p_criterion_id\":$CRITERION,\"p_action\":\"strengthen\",\"p_rationale\":\"A proposal with no actual control change must be refused.\"}")
+err "$NO_CHANGE" 'identical content is not learning'
+WRONG_DIRECTION=$(rpc "$ADMIN" propose_methodology_improvement "{\"p_calculation_run_id\":\"$RUN_ID\",\"p_criterion_id\":$CRITERION,\"p_action\":\"strengthen\",\"p_rationale\":\"A strengthen label cannot conceal a lower requirement weight.\",\"p_weight\":0.5}")
+err "$WRONG_DIRECTION" 'cannot make the requirement advisory or lower'
+
 PROPOSAL=$(rpc "$ADMIN" propose_methodology_improvement "{\"p_calculation_run_id\":\"$RUN_ID\",\"p_criterion_id\":$CRITERION,\"p_action\":\"strengthen\",\"p_rationale\":\"The observed not-met cohort has materially worse delivery and startup outcomes.\",\"p_is_mandatory\":true,\"p_evidence_type\":\"independently approved design basis\",\"p_minimum_confidence\":0.8,\"p_guidance\":\"Require independent approval of the design basis before execution.\",\"p_weight\":2}")
 ok "$PROPOSAL"
 DRAFT=$(BODY="$(body "$PROPOSAL")" python3 -c 'import json,os;x=json.loads(os.environ["BODY"]);assert x["status"]=="draft";assert x["adoptionRequired"] is True;assert x["automaticMethodChange"] is False;assert "governs nothing" in x["decisionBoundary"];print(x["frameworkId"])')
@@ -81,4 +86,4 @@ test "$COUNTS" = 'draft|1|1|1|1'
 UNAUTH=$(curl -sS -o /dev/null -w '%{http_code}' -X POST "$API_URL/rest/v1/rpc/run_methodology_outcome_analysis" -H "apikey: $ANON_KEY" -H 'content-type: application/json' -d "{\"p_framework_id\":\"$FRAMEWORK\"}")
 test "$UNAUTH" = 401 || test "$UNAUTH" = 403 || test "$UNAUTH" = 404
 
-echo 'D9.08-D9.09 methodology learning smoke passed: canonical_method=true latest_review=true verified_outcomes=6 tenant_wall=true cohorts=3+3 association_not_causation=true immutable_lineage=true draft_only=true duplicate_refused=true human_adoption_required=true'
+echo 'D9.08-D9.09 methodology learning smoke passed: canonical_method=true latest_review=true verified_outcomes=6 tenant_wall=true cohorts=3+3 association_not_causation=true immutable_lineage=true no_op_refused=true direction_guard=true draft_only=true duplicate_refused=true human_adoption_required=true'

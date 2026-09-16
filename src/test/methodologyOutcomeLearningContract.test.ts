@@ -65,6 +65,15 @@ describe("D9.08-D9.09 methodology outcome learning contract", () => {
     expect(migration).toContain(
       "the ai-operator identity may compute associations but cannot choose a methodology change",
     );
+    expect(migration).toContain(
+      "a new version with identical content is not learning",
+    );
+    expect(migration).toContain(
+      "a strengthen proposal cannot make the requirement advisory",
+    );
+    expect(migration).toContain(
+      "a simplify proposal cannot make the requirement mandatory",
+    );
   });
 
   it("is reachable from the canonical shelf and exposes refusals and the decision boundary", () => {
