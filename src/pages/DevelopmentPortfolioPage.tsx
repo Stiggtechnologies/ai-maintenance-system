@@ -8,6 +8,7 @@ import {
   LoadingState,
 } from "../components/ui/AsyncStates";
 import { EnterprisePortfolioOptimizationPanel } from "../components/EnterprisePortfolioOptimizationPanel";
+import { ProjectAssurancePanel } from "../components/ProjectAssurancePanel";
 
 function number(value: number | null, suffix = ""): string {
   return value == null
@@ -83,6 +84,8 @@ export function DevelopmentPortfolioPage() {
       </header>
 
       <EnterprisePortfolioOptimizationPanel />
+
+      <ProjectAssurancePanel />
 
       <div className="overflow-x-auto rounded-xl border border-white/8">
         <table className="min-w-[118rem] text-left text-xs">

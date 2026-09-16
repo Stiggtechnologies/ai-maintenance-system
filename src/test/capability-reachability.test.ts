@@ -724,9 +724,27 @@ const FLOORS: Record<string, Floors> = {
     // `getCaseLifecycleSuccess`. The row-with-citation floor did not move
     // — these were already cited yellows. The CEILING stayed at 3 — the
     // new ✅s are checkable. No exemption, no floor lowered.
-    rowsWithAnEnforceableCitation: 188,
-    citationsEnforced: 1282,
-    claimedRowsEnforced: 147,
+    //
+    // 188/1282/147 -> 210/1480/187 (2026-09-16, project-assurance
+    // reference classes, #480). D5.10 / D5.11 / D5.12 flipped ❌→✅ on
+    // chains this gate can walk: `record_verified_project_outcome`,
+    // `run_project_assurance_reference_class`,
+    // `get_project_assurance_workspace`, `recordVerifiedProjectOutcome`,
+    // `runProjectAssurance`, `getProjectAssuranceWorkspace`,
+    // `src/components/ProjectAssurancePanel.tsx` and
+    // `src/pages/DevelopmentPortfolioPage.tsx`. The first draft cited
+    // PascalCase surfaces (`ProjectAssurancePanel`,
+    // `DevelopmentPortfolioPage`) which this gate skips — CAMEL requires a
+    // leading lower-case letter — so two of the three new ✅s had no
+    // resolvable citation and the ceiling failed 5 ≰ 3. Replaced with the
+    // file paths and service symbols the panel actually calls. Floors
+    // re-derived to sit AT the live numbers (the unused slack also absorbed
+    // shared-symbol reach from later main, which this file had not
+    // re-derived). The CEILING stayed at 3 — the new ✅s are checkable.
+    // No exemption, no floor lowered.
+    rowsWithAnEnforceableCitation: 210,
+    citationsEnforced: 1480,
+    claimedRowsEnforced: 187,
     // D11.04 (a CI-fence claim proved by a named test file), D11.10 (a
     // canonical seeded vocabulary, which the write-path judge would fail for
     // not being customer-writable — a question the row never asked) and
