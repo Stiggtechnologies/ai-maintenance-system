@@ -888,16 +888,16 @@
     "backticked": 10
   },
   "D9.08": {
-    "status": "❌",
+    "status": "✅",
     "evidence": true,
-    "citations": 3,
-    "backticked": 0
+    "citations": 9,
+    "backticked": 9
   },
   "D9.09": {
-    "status": "❌",
+    "status": "✅",
     "evidence": true,
-    "citations": 3,
-    "backticked": 0
+    "citations": 9,
+    "backticked": 9
   },
   "D9.10": {
     "status": "✅",
