@@ -749,9 +749,19 @@ const FLOORS: Record<string, Floors> = {
     // service-to-shelf chain and their governed SQL functions. Floors are
     // re-derived to the live counts; the CEILING stays at 3 because both new
     // promises are enforceable. No exemption and no floor lowered.
-    rowsWithAnEnforceableCitation: 211,
-    citationsEnforced: 1492,
-    claimedRowsEnforced: 189,
+    //
+    // 211/1492/189 -> 215/1516/193 (2026-09-16, governed program
+    // portfolio). D10.01 / D10.02 / D10.03 / D10.05 are now green on the
+    // reachable `getDevelopmentProgramWorkspace`,
+    // `recordDevelopmentProjectDependency`, `analyzeProgramSchedule` and
+    // `src/components/develop/ProgramPortfolioPanel.tsx` chains, backed by
+    // the authenticated runtime smoke. D10.06 advanced only to partial
+    // because the nine-dimension frontier is still missing. The CEILING
+    // stays at 3 — all four new green promises are enforceable. No
+    // exemption and no floor lowered.
+    rowsWithAnEnforceableCitation: 215,
+    citationsEnforced: 1516,
+    claimedRowsEnforced: 193,
     // D11.04 (a CI-fence claim proved by a named test file), D11.10 (a
     // canonical seeded vocabulary, which the write-path judge would fail for
     // not being customer-writable — a question the row never asked) and
