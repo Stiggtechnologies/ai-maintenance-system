@@ -2244,10 +2244,10 @@
     "backticked": 6
   },
   "U11.01": {
-    "status": "❌",
-    "evidence": false,
-    "citations": 0,
-    "backticked": 0
+    "status": "✅",
+    "evidence": true,
+    "citations": 12,
+    "backticked": 12
   },
   "U12.01": {
     "status": "✅",
