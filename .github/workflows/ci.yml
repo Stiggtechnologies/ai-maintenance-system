@@ -420,6 +420,9 @@ jobs:
       - name: Smoke — project assurance, reference classes and normalized benchmarking
         run: bash scripts/ci-project-assurance-reference-class-smoke.sh
 
+      - name: Smoke — methodology outcome learning and human-approved improvement
+        run: bash scripts/ci-methodology-outcome-learning-smoke.sh
+
       - name: Smoke — natural-hazard and climate exposure
         run: bash scripts/ci-climate-hazard-exposure-smoke.sh
 

@@ -2585,7 +2585,12 @@ export interface FrameworkShelf {
     createdAt: string;
     proposedBy: string | null;
     document: string | null;
-    documentId: string;
+    documentId: string | null;
+    analysisRunId?: string | null;
+    sourceFrameworkId?: string | null;
+    targetCriterionId?: number | null;
+    improvementAction?: "simplify" | "strengthen" | null;
+    humanRationale?: string | null;
     framework: FrameworkShelfEntry;
   }[];
   drafts: FrameworkShelfEntry[];
@@ -2594,6 +2599,94 @@ export interface FrameworkShelf {
 
 export async function getFrameworkShelf(): Promise<FrameworkShelf> {
   const { data, error } = await supabase.rpc("get_framework_shelf");
+  return unwrap(data, error);
+}
+
+export interface MethodologyOutcomePattern {
+  criterionId: number;
+  gateId: number;
+  stageKey: string;
+  gateName: string;
+  criterion: string;
+  metSample: number;
+  notMetSample: number;
+  means: {
+    met: {
+      costGrowthPct: number | null;
+      scheduleGrowthPct: number | null;
+      commissioningDefects: number | null;
+      startupReliabilityPct: number | null;
+    };
+    notMet: {
+      costGrowthPct: number | null;
+      scheduleGrowthPct: number | null;
+      commissioningDefects: number | null;
+      startupReliabilityPct: number | null;
+    };
+  };
+  correlations: Record<string, number | null>;
+  associationNotCausation: true;
+  automaticMethodChange: false;
+}
+
+export interface MethodologyOutcomeAnalysis {
+  calculationRunId: string;
+  status: "computed" | "computed_with_refusals" | "refused";
+  eligiblePatterns: number;
+  minimumCohort?: number;
+  criteria?: MethodologyOutcomePattern[];
+  refusals: string[];
+  associationNotCausation: true;
+  automaticMethodChange: false;
+  decisionBoundary?: string;
+}
+
+/** D9.08: descriptive, same-tenant associations with immutable input lineage. */
+export async function runMethodologyOutcomeAnalysis(
+  frameworkId: string,
+): Promise<MethodologyOutcomeAnalysis> {
+  const { data, error } = await supabase.rpc(
+    "run_methodology_outcome_analysis",
+    { p_framework_id: frameworkId, p_minimum_cohort: 3 },
+  );
+  return unwrap(data, error);
+}
+
+/** D9.09: creates a DRAFT next version only; existing human adoption remains final. */
+export async function proposeMethodologyImprovement(input: {
+  calculationRunId: string;
+  criterionId: number;
+  action: "simplify" | "strengthen";
+  rationale: string;
+  isMandatory?: boolean | null;
+  evidenceType?: string | null;
+  minimumConfidence?: number | null;
+  guidance?: string | null;
+  weight?: number | null;
+}): Promise<{
+  proposalId: string;
+  frameworkId: string;
+  version: number;
+  status: "draft";
+  action: "simplify" | "strengthen";
+  adoptionRequired: true;
+  automaticMethodChange: false;
+  decisionBoundary: string;
+}> {
+  const { data, error } = await supabase.rpc(
+    "propose_methodology_improvement",
+    {
+      p_calculation_run_id: input.calculationRunId,
+      p_criterion_id: input.criterionId,
+      p_action: input.action,
+      p_rationale: input.rationale,
+      p_is_mandatory: input.isMandatory ?? null,
+      p_evidence_type: input.evidenceType ?? null,
+      p_minimum_confidence: input.minimumConfidence ?? null,
+      p_guidance: input.guidance ?? null,
+      p_weight: input.weight ?? null,
+    },
+  );
   return unwrap(data, error);
 }
 
