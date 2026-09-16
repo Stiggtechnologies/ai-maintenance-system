@@ -292,6 +292,10 @@ begin
     'decisionBoundary','Patterns, reference forecasts and normalized benchmarks are advisory evidence. Funding, sanction, risk acceptance and operational authorization remain named-human decisions.');
 end $$;
 
+revoke all on function public.record_verified_project_outcome(uuid,uuid,jsonb) from public, anon;
+revoke all on function public.run_project_assurance_reference_class(uuid,numeric,numeric,text,uuid,jsonb,int) from public, anon;
+revoke all on function public.get_project_assurance_workspace() from public, anon;
+
 grant execute on function public.record_verified_project_outcome(uuid,uuid,jsonb) to authenticated;
 grant execute on function public.run_project_assurance_reference_class(uuid,numeric,numeric,text,uuid,jsonb,int) to authenticated;
 grant execute on function public.get_project_assurance_workspace() to authenticated;
