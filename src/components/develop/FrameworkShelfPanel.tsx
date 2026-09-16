@@ -48,6 +48,7 @@ import {
 } from "../../services/developService";
 import { LIFECYCLE_TYPES } from "../../lib/develop";
 import { GATE_READINESS_CATEGORIES } from "../../lib/develop/governance";
+import { MethodologyLearningPanel } from "./MethodologyLearningPanel";
 
 const inputClass =
   "w-full rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-signal-cyan/50 focus:outline-none";
@@ -326,6 +327,14 @@ export function FrameworkShelfPanel({
           {/* 2 — the shelf. */}
           {shelf && (
             <div className="space-y-2">
+              <MethodologyLearningPanel
+                adopted={shelf.adopted}
+                canAuthor={canAuthor}
+                onChanged={() => {
+                  void load();
+                  onChanged();
+                }}
+              />
               {shelf.proposals.length > 0 && (
                 <div>
                   <div className="mb-1 text-xs font-semibold text-slate-300">
@@ -360,11 +369,18 @@ export function FrameworkShelfPanel({
                         </div>
                         <p className="mt-0.5">{p.summary}</p>
                         <p className="mt-0.5 text-slate-500">
-                          from “{p.document ?? "a document"}” ·{" "}
-                          {p.framework.stages} stage(s), {p.framework.gates}{" "}
+                          {p.analysisRunId
+                            ? `from outcome analysis ${p.analysisRunId.slice(0, 8)}`
+                            : `from “${p.document ?? "a document"}”`}{" "}
+                          · {p.framework.stages} stage(s), {p.framework.gates}{" "}
                           gate(s), {p.framework.requirements} requirement(s) ·{" "}
                           {p.framework.sourceAuthority}
                         </p>
+                        {p.improvementAction && (
+                          <p className="mt-0.5 text-slate-400">
+                            {p.improvementAction}: {p.humanRationale}
+                          </p>
+                        )}
                         {p.withdrawnReason && (
                           <p className="mt-0.5 text-slate-500">
                             withdrawn: {p.withdrawnReason}
@@ -556,8 +572,8 @@ export function FrameworkShelfPanel({
           {canAuthor && (
             <div className="space-y-2 rounded-lg border border-white/8 p-2.5">
               <div className="text-xs font-semibold text-slate-200">
-                Create a draft framework (D3.01) — nothing governs until a
-                human adopts it
+                Create a draft framework (D3.01) — nothing governs until a human
+                adopts it
               </div>
               <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-3">
                 <input

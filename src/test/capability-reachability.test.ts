@@ -742,9 +742,16 @@ const FLOORS: Record<string, Floors> = {
     // shared-symbol reach from later main, which this file had not
     // re-derived). The CEILING stayed at 3 — the new ✅s are checkable.
     // No exemption, no floor lowered.
-    rowsWithAnEnforceableCitation: 210,
-    citationsEnforced: 1480,
-    claimedRowsEnforced: 187,
+    //
+    // 210/1480/187 -> 211/1492/189 (2026-09-16, methodology outcome
+    // learning). D9.08 / D9.09 flipped ❌→✅ on the customer-walkable
+    // `runMethodologyOutcomeAnalysis` / `proposeMethodologyImprovement`
+    // service-to-shelf chain and their governed SQL functions. Floors are
+    // re-derived to the live counts; the CEILING stays at 3 because both new
+    // promises are enforceable. No exemption and no floor lowered.
+    rowsWithAnEnforceableCitation: 211,
+    citationsEnforced: 1492,
+    claimedRowsEnforced: 189,
     // D11.04 (a CI-fence claim proved by a named test file), D11.10 (a
     // canonical seeded vocabulary, which the write-path judge would fail for
     // not being customer-writable — a question the row never asked) and
