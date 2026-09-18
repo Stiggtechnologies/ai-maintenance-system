@@ -4,9 +4,11 @@
  * Seed inserts three alarm/warning sensors. supabase start then runs
  * simulate_telemetry_tick for minutes before CI can unschedule it, so
  * unscheduling-without-restore failed at flagged=2 created=0 (#283, #317).
- * The restore script writes those three breaches back; the smoke still
- * requires flagged >= 3 and now also created >= 3. Dropping either
- * assertion, or the restore that makes them deterministic, is the defect.
+ * The restore script writes those three breaches back and also freezes
+ * expire-governance-instruments (hourly at minute 7) so later Develop
+ * smokes own the first explicit sweep. The smoke still requires flagged
+ * >= 3 and now also created >= 3. Dropping either assertion, or the
+ * restore that makes them deterministic, is the defect.
  */
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
@@ -65,6 +67,9 @@ describe("agent-loop smoke fixture", () => {
   it("the restore script writes those three breaches back after the walk", () => {
     expect(restore).toContain("cron.unschedule('syncai-telemetry-sim')");
     expect(restore).toContain("cron.unschedule('syncai-agent-loop')");
+    expect(restore).toContain(
+      "cron.unschedule('expire-governance-instruments')",
+    );
     expect(restore).toContain("[pre-smoke]");
     expect(restore).toContain("Investigate %");
     expect(restore).toMatch(/test "\$FLAGGED_NOW" -ge 3/);
