@@ -27,6 +27,7 @@ import { AssessmentsPage } from "./pages/AssessmentsPage";
 import { AssessmentHomePage } from "./pages/AssessmentHomePage";
 import { AssetManagement } from "./components/AssetManagement";
 import { MissionControl } from "./pages/MissionControl";
+import { StartHerePage } from "./pages/StartHerePage";
 import { InvertedOpeningPage } from "./pages/InvertedOpeningPage";
 import { WorkActionBoard } from "./pages/WorkActionBoard";
 import NotificationScreening from "./pages/NotificationScreening";
@@ -54,6 +55,7 @@ import { LifecycleDecisionsPage } from "./pages/LifecycleDecisionsPage";
 import { IntervalDecisionsPage } from "./pages/IntervalDecisionsPage";
 import { JobPlansPage } from "./pages/JobPlansPage";
 import { PmProgrammePage } from "./pages/PmProgrammePage";
+import { Stage1PilotPackPage } from "./pages/Stage1PilotPackPage";
 import { SchedulingPage } from "./pages/SchedulingPage";
 import SyncRecoveryPage from "./pages/SyncRecoveryPage";
 import { MaterialsPage } from "./pages/MaterialsPage";
@@ -65,6 +67,7 @@ import { PilotLeads } from "./pages/PilotLeads";
 import { KnowledgeBasePage } from "./pages/KnowledgeBasePage";
 import { FieldPage } from "./pages/FieldPage";
 import { ExecutiveIntelligence } from "./pages/ExecutiveIntelligence";
+import { ExecutiveCapitalBriefingPage } from "./pages/ExecutiveCapitalBriefingPage";
 import { IntegrationHealthPanel } from "./pages/IntegrationHealthPanel";
 import { ValueRealization } from "./pages/ValueRealization";
 import { EmergencyMode } from "./pages/EmergencyMode";
@@ -73,6 +76,7 @@ import { TrustExplainability } from "./pages/TrustExplainability";
 import { EngineeringModelRegistryPage } from "./pages/EngineeringModelRegistryPage";
 import { BenchmarkingPanel } from "./pages/BenchmarkingPanel";
 import { AutonomyMaturity } from "./pages/AutonomyMaturity";
+import { OrganizationalMaturityPage } from "./pages/OrganizationalMaturityPage";
 import { SetupWizard } from "./pages/SetupWizard";
 import { ArtifactWorkspace } from "./pages/ArtifactWorkspace";
 import { ApprovalQueue } from "./components/ApprovalQueue";
@@ -82,13 +86,16 @@ import { getRoleHome } from "./lib/roleNavigation";
 import { ReliabilityCopilotPage } from "./pages/ReliabilityCopilotPage";
 import { FirstCustomerPilotPage } from "./pages/FirstCustomerPilotPage";
 import { DecisionCaseWorkspacePage } from "./pages/DecisionCaseWorkspacePage";
-import { HelpCenterWidget } from "./components/HelpCenterWidget";
 import { GovernedDecisionWorkspacePage } from "./pages/GovernedDecisionWorkspacePage";
 import { DevelopCasesPage } from "./pages/DevelopCasesPage";
+import { DevelopmentPortfolioPage } from "./pages/DevelopmentPortfolioPage";
+import { OperationalReadinessMatrixPage } from "./pages/OperationalReadinessMatrixPage";
+import { SystemHandoverPage } from "./pages/SystemHandoverPage";
 import { DevelopIntakePage } from "./pages/DevelopIntakePage";
 import { DevelopmentCaseWorkspacePage } from "./pages/DevelopmentCaseWorkspacePage";
 import { ExecutionReadinessPage } from "./pages/ExecutionReadinessPage";
 import { SyncFieldPage } from "./pages/SyncFieldPage";
+import { SyncTransitionPage } from "./pages/SyncTransitionPage";
 import { GateReviewPage } from "./pages/GateReviewPage";
 import { AssuranceCasePage } from "./pages/AssuranceCasePage";
 import {
@@ -113,12 +120,7 @@ function PublicCopilotExperience() {
     document.title = "SyncAI | Governed Engineering Intelligence";
   }, []);
 
-  return (
-    <>
-      <DecisionCaseWorkspacePage publicMode />
-      <HelpCenterWidget />
-    </>
-  );
+  return <DecisionCaseWorkspacePage publicMode />;
 }
 
 function DemoPathRedirect() {
@@ -296,17 +298,16 @@ function App() {
           <Route path="/decision-cases/demo" element={<DemoPathRedirect />} />
           <Route path="/workspace" element={<PublicCopilotExperience />} />
           <Route
+            path="/capabilities/:capabilityId"
+            element={<PublicCopilotExperience />}
+          />
+          <Route
             path="/workspace/cases/demo"
             element={<Navigate to="/workspace" replace />}
           />
           <Route
             path="/workspace/cases/:caseId"
-            element={
-              <>
-                <DecisionCaseWorkspacePage publicMode />
-                <HelpCenterWidget />
-              </>
-            }
+            element={<DecisionCaseWorkspacePage publicMode />}
           />
           <Route
             path="/*"
@@ -442,6 +443,7 @@ function AuthenticatedApp() {
           <Route path="/" element={<RoleLanding />} />
           <Route path="/overview" element={<RoleLanding />} />
 
+          <Route path="/start" element={<StartHerePage />} />
           <Route
             path="/mission-control"
             element={
@@ -523,6 +525,7 @@ function AuthenticatedApp() {
           <Route path="/risk" element={<RiskOperatingSystemPage />} />
           <Route path="/job-plans" element={<JobPlansPage />} />
           <Route path="/pm-programme" element={<PmProgrammePage />} />
+          <Route path="/stage-1" element={<Stage1PilotPackPage />} />
 
           <Route path="/lifecycle" element={<LifecyclePositionPage />} />
           <Route
@@ -531,6 +534,15 @@ function AuthenticatedApp() {
           />
           <Route path="/design" element={<ReliabilityByDesignPage />} />
           <Route path="/develop" element={<DevelopCasesPage />} />
+          <Route
+            path="/develop/portfolio"
+            element={<DevelopmentPortfolioPage />}
+          />
+          <Route
+            path="/develop/operational-readiness"
+            element={<OperationalReadinessMatrixPage />}
+          />
+          <Route path="/develop/handover" element={<SystemHandoverPage />} />
           <Route path="/develop/new" element={<DevelopIntakePage />} />
           <Route
             path="/develop/cases/:caseId"
@@ -560,6 +572,10 @@ function AuthenticatedApp() {
               composition that recomputes none of them. The row stays 🟡 and
               the page says why: three of the parts it composes are open. */}
           <Route path="/sync-field" element={<SyncFieldPage />} />
+          <Route
+            path="/develop/cases/:caseId/transition"
+            element={<SyncTransitionPage />}
+          />
 
           <Route
             path="/work/:workOrderId"
@@ -579,6 +595,10 @@ function AuthenticatedApp() {
           <Route path="/briefing" element={<OperationalBriefing />} />
 
           <Route path="/executive" element={<ExecutiveIntelligence />} />
+          <Route
+            path="/executive/capital"
+            element={<ExecutiveCapitalBriefingPage />}
+          />
           <Route
             path="/performance"
             element={<Navigate to="/executive" replace />}
@@ -601,6 +621,10 @@ function AuthenticatedApp() {
             }
           />
           <Route path="/benchmarking" element={<BenchmarkingPanel />} />
+          <Route
+            path="/organizational-maturity"
+            element={<OrganizationalMaturityPage />}
+          />
           <Route path="/trust" element={<TrustExplainability />} />
           <Route
             path="/engineering-models"

@@ -307,6 +307,131 @@ jobs:
       - name: Smoke — Sync Develop slice 7C (resource demand/capacity, portfolio conflicts, competency when needed, workface metrics)
         run: bash scripts/ci-develop-slice7c-smoke.sh
 
+      - name: Smoke — sustainability and climate resilience in concept selection
+        run: bash scripts/ci-climate-concept-selection-smoke.sh
+
+      - name: Smoke — value trajectory, leakage attribution and benefits screen
+        run: bash scripts/ci-develop-value-leakage-smoke.sh
+
+      - name: Smoke — Benefits Agent governed comparison and traceability
+        run: bash scripts/ci-develop-benefits-agent-smoke.sh
+
+      - name: Smoke — Lessons Agent governed project-history comparison
+        run: bash scripts/ci-develop-lessons-agent-smoke.sh
+
+      - name: Smoke — Governance Agent detection-only controls screen
+        run: bash scripts/ci-develop-governance-agent-smoke.sh
+
+      - name: Smoke — HOP Agent system conditions without person surveillance
+        run: bash scripts/ci-develop-hop-agent-smoke.sh
+
+      - name: Smoke — contextual condition monitoring (historian + exact-time duty)
+        run: bash scripts/ci-contextual-condition-monitoring-smoke.sh
+
+      - name: Smoke — loss forecast, risk backlog and outage options
+        run: bash scripts/ci-loss-forecast-backlog-outage-smoke.sh
+
+      - name: Smoke — enterprise methods and governed site strategies
+        run: bash scripts/ci-enterprise-method-federation-smoke.sh
+
+      - name: Smoke — seven-layer capability packs and controlled overrides
+        run: bash scripts/ci-layered-capability-packs-smoke.sh
+
+      - name: Smoke — significant expenditure amount and currency approval
+        run: bash scripts/ci-significant-expenditure-approval-smoke.sh
+
+      - name: Smoke — governed mission and service outcomes by organization type
+        run: bash scripts/ci-mission-outcome-models-smoke.sh
+
+      - name: Smoke — Sync Develop Hybrid Development (per-workstream methods)
+        run: bash scripts/ci-develop-hybrid-workstreams-smoke.sh
+
+      - name: Smoke — Sync Develop Project Flow Efficiency (active vs waiting)
+        run: bash scripts/ci-develop-project-flow-smoke.sh
+
+      - name: Smoke — Sync Develop Site Change Load (capacity absorption)
+        run: bash scripts/ci-develop-site-change-load-smoke.sh
+
+      - name: Smoke — Sync Develop Technical Debt (case origin, valuation, independent approval)
+        run: bash scripts/ci-develop-technical-debt-smoke.sh
+
+      - name: Smoke — Sync Develop Operational Debt (nine-class reference register)
+        run: bash scripts/ci-develop-operational-debt-smoke.sh
+
+      - name: Smoke — Sync Develop Operational Debt lifecycle exposure (stated basis, independent approval)
+        run: bash scripts/ci-develop-operational-debt-valuation-smoke.sh
+
+      - name: Smoke — Sync Develop Operating Model Readiness (thirteen evidence-backed dimensions)
+        run: bash scripts/ci-develop-operating-model-readiness-smoke.sh
+
+      - name: Smoke — Sync Transition composition (readiness, debt, stabilization)
+        run: bash scripts/ci-develop-sync-transition-smoke.sh
+
+      - name: Smoke — Sync Develop commissioning object family (system rollup and canonical results)
+        run: bash scripts/ci-develop-commissioning-object-family-smoke.sh
+
+      - name: Smoke — Sync Develop commissioning seven-state machine (canonical energy and release gates)
+        run: bash scripts/ci-develop-commissioning-state-machine-smoke.sh
+
+      - name: Smoke — Sync Develop system operational readiness (canonical items, owner, date, evidence)
+        run: bash scripts/ci-develop-system-operational-readiness-smoke.sh
+
+      - name: Smoke — Sync Develop per-system HandoverPackage (three dimensions, residual risk, human acceptance)
+        run: bash scripts/ci-develop-system-handover-package-smoke.sh
+
+      - name: Smoke — Sync Develop design-origin operational readiness (requirement to canonical item to handover)
+        run: bash scripts/ci-develop-design-origin-readiness-smoke.sh
+      - name: Smoke — Sync Develop Operational Readiness Index (governed weights and hard conditions)
+        run: bash scripts/ci-develop-operational-readiness-index-smoke.sh
+
+      - name: Smoke — Sync Develop OT cybersecurity by design (ten evidence-backed artifacts)
+        run: bash scripts/ci-develop-ot-cyber-lifecycle-smoke.sh
+
+      - name: Smoke — Sync Develop digital asset maintainability (nine fields at handover)
+        run: bash scripts/ci-develop-digital-asset-maintainability-smoke.sh
+
+      - name: Smoke — governed configuration and baseline management
+        run: bash scripts/ci-configuration-management-smoke.sh
+
+      - name: Smoke — multi-dimensional consequence model
+        run: bash scripts/ci-consequence-model-smoke.sh
+
+      - name: Smoke — explicit asset condition knowledge states
+        run: bash scripts/ci-condition-state-smoke.sh
+
+      - name: Smoke — independently reviewed model applicability envelopes
+        run: bash scripts/ci-model-applicability-envelope-smoke.sh
+
+      - name: Smoke — evidence-backed organizational maturity
+        run: bash scripts/ci-organizational-maturity-smoke.sh
+
+      - name: Smoke — asset relationships and accountable party roles
+        run: bash scripts/ci-asset-relationship-smoke.sh
+
+      - name: Smoke — service and contractual obligations in recommendation risk
+        run: bash scripts/ci-service-contract-risk-smoke.sh
+
+      - name: Smoke — governed geospatial operational intelligence
+        run: bash scripts/ci-geospatial-operational-intelligence-smoke.sh
+
+      - name: Smoke — governed enterprise portfolio optimization
+        run: bash scripts/ci-enterprise-portfolio-optimization-smoke.sh
+
+      - name: Smoke — project assurance, reference classes and normalized benchmarking
+        run: bash scripts/ci-project-assurance-reference-class-smoke.sh
+
+      - name: Smoke — methodology outcome learning and human-approved improvement
+        run: bash scripts/ci-methodology-outcome-learning-smoke.sh
+
+      - name: Smoke — Sync Portfolio programs, dependencies and benefit integrity
+        run: bash scripts/ci-develop-program-portfolio-smoke.sh
+
+      - name: Smoke — natural-hazard and climate exposure
+        run: bash scripts/ci-climate-hazard-exposure-smoke.sh
+
+      - name: Smoke — emergency and restoration command
+        run: bash scripts/ci-emergency-restoration-command-smoke.sh
+
       - name: Smoke — governed engineering knowledge on the canonical Reliability KB
         run: bash scripts/ci-governed-knowledge-smoke.sh
 

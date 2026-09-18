@@ -9,10 +9,16 @@ export const INDUSTRY_CATALOG = [
   { code: "oil_gas", label: "Oil & Gas", kind: "pack" },
   { code: "petrochemical", label: "Petrochemical", kind: "pack" },
   { code: "power_generation", label: "Power Generation", kind: "pack" },
+  {
+    code: "battery_energy_storage",
+    label: "Battery & Energy Storage",
+    kind: "pack",
+  },
   { code: "utilities", label: "Utilities", kind: "pack" },
   { code: "manufacturing", label: "Manufacturing", kind: "pack" },
   { code: "food_beverage", label: "Food & Beverage", kind: "pack" },
   { code: "pharmaceuticals", label: "Pharmaceuticals", kind: "pack" },
+  { code: "healthcare", label: "Healthcare", kind: "pack" },
   {
     code: "transportation_logistics",
     label: "Transportation & Logistics",
@@ -28,6 +34,7 @@ export const INDUSTRY_CATALOG = [
     label: "Buildings & Infrastructure",
     kind: "pack",
   },
+  { code: "civil_infrastructure", label: "Civil Infrastructure", kind: "pack" },
   { code: "custom", label: "Custom / Other", kind: "custom" },
 ] as const;
 
@@ -46,7 +53,15 @@ export const INDUSTRY_CODE_ALIASES: Readonly<Record<string, IndustryCode>> = {
   "oil-gas": "oil_gas",
   power: "power_generation",
   "power-generation": "power_generation",
+  battery: "battery_energy_storage",
+  batteries: "battery_energy_storage",
+  "battery-energy-storage": "battery_energy_storage",
+  "energy-storage": "battery_energy_storage",
+  bess: "battery_energy_storage",
   pharma: "pharmaceuticals",
+  hospital: "healthcare",
+  hospitals: "healthcare",
+  "clinical-engineering": "healthcare",
   "food-beverage": "food_beverage",
   "transportation-logistics": "transportation_logistics",
   marine: "marine_shipping",
@@ -56,6 +71,9 @@ export const INDUSTRY_CODE_ALIASES: Readonly<Record<string, IndustryCode>> = {
   aerospace: "aerospace_launch",
   "aerospace-launch": "aerospace_launch",
   "buildings-infrastructure": "buildings_infrastructure",
+  civil: "civil_infrastructure",
+  infrastructure: "civil_infrastructure",
+  "civil-infrastructure": "civil_infrastructure",
   other: "custom",
 };
 

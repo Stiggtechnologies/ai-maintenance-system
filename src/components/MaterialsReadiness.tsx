@@ -15,10 +15,21 @@
  * Collapsing the third into "fine" is how a fresh deployment reports a clean
  * materials position while every job is actually un-plannable.
  */
+import { useState } from "react";
 import { Boxes, PackageSearch, TriangleAlert, RefreshCw } from "lucide-react";
 import { useAsyncData } from "../hooks/useAsyncData";
 import { supabase } from "../lib/supabase";
 import { LoadingState, ErrorState } from "./ui/AsyncStates";
+import {
+  canIssue,
+  canKit,
+  canReserve,
+  describeReserveResult,
+  listMaterialDemand,
+  recordMaterialEvent,
+  reserveWoMaterials,
+  type MaterialDemandLine,
+} from "../services/materialsCallers";
 
 interface Shortage {
   work_order: string;
@@ -67,6 +78,8 @@ interface Position {
 }
 
 export function MaterialsReadiness() {
+  const [flash, setFlash] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
   const { data, loading, error, refetch } = useAsyncData<Position>(async () => {
     const { data: r, error: e } = await supabase.rpc(
       "get_material_position",
@@ -75,6 +88,10 @@ export function MaterialsReadiness() {
     if (e) throw new Error(e.message);
     return r as Position;
   }, []);
+  const demand = useAsyncData<MaterialDemandLine[]>(
+    () => listMaterialDemand(),
+    [],
+  );
 
   if (loading) return <LoadingState label="Loading materials position" />;
   if (error) return <ErrorState message={error} onRetry={refetch} />;
@@ -84,6 +101,49 @@ export function MaterialsReadiness() {
   const belowMin = data?.below_minimum ?? [];
   const repairables = data?.repairables ?? [];
   const atRisk = shortages.filter((s) => s.at_risk).length;
+  const lines = demand.data ?? [];
+  const firstReserveableByWo = new Map<string, string>();
+  for (const line of lines) {
+    if (
+      canReserve(line.status) &&
+      !firstReserveableByWo.has(line.work_order_id)
+    ) {
+      firstReserveableByWo.set(line.work_order_id, line.id);
+    }
+  }
+
+  const runReserve = async (workOrderId: string) => {
+    setBusy(true);
+    setFlash(null);
+    try {
+      const result = await reserveWoMaterials(workOrderId);
+      setFlash(describeReserveResult(result));
+      await Promise.all([refetch(), demand.refetch()]);
+    } catch (e) {
+      setFlash(e instanceof Error ? e.message : "That did not work.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const runEvent = async (
+    line: MaterialDemandLine,
+    eventType: "kitted" | "issued",
+  ) => {
+    setBusy(true);
+    setFlash(null);
+    try {
+      await recordMaterialEvent(line.id, eventType);
+      setFlash(
+        `Recorded ${eventType} on ${line.wo_number ?? line.work_order_id}. Waiting-on-material measures request to this satisfaction.`,
+      );
+      await Promise.all([refetch(), demand.refetch()]);
+    } catch (e) {
+      setFlash(e instanceof Error ? e.message : "That did not work.");
+    } finally {
+      setBusy(false);
+    }
+  };
 
   return (
     <section aria-labelledby="materials-heading" className="space-y-4">
@@ -101,9 +161,16 @@ export function MaterialsReadiness() {
         </h2>
         <p className="mt-1 text-sm text-slate-300">
           Material demand, reservation and issue are recorded as events, which
-          is what makes waiting-on-material measurable at all.
+          is what makes waiting-on-material measurable at all. A reservation is
+          not authorization to start work.
         </p>
       </div>
+
+      {flash && (
+        <p className="rounded-lg border border-white/10 bg-white/4 px-3 py-2 text-sm text-slate-200">
+          {flash}
+        </p>
+      )}
 
       {data?.stock_records === 0 && (
         <p className="rounded-xl border border-amber-500/25 bg-amber-500/5 p-3 text-xs leading-relaxed text-amber-200/90">
@@ -157,6 +224,75 @@ export function MaterialsReadiness() {
           </p>
           <p className="mt-1 text-xs text-slate-500">Reorder points breached</p>
         </div>
+      </div>
+
+      <div className="rounded-xl border border-white/6 bg-white/2 p-4">
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+          Demand lines — reserve, kit, issue
+        </h3>
+        <p className="mt-1 text-xs leading-relaxed text-slate-500">
+          Ready backlog (C6.11) and waiting-on-material (C6.15) stay
+          unmeasurable until a human records reserved, kitted or issued events.
+          Absence is not a green ready state.
+        </p>
+        {demand.loading ? (
+          <p className="mt-2 text-xs text-slate-500">Loading demand…</p>
+        ) : lines.length === 0 ? (
+          <p className="mt-2 text-xs text-slate-500">
+            No open material demand. Request a part on a work order, or apply a
+            job plan, before reserve / kit / issue can write the event stream
+            these metrics read.
+          </p>
+        ) : (
+          <ul className="mt-3 space-y-2">
+            {lines.map((line) => (
+              <li
+                key={line.id}
+                className="flex flex-wrap items-center gap-2 text-xs text-slate-300"
+              >
+                <span className="min-w-0 flex-1">
+                  <span className="font-mono text-slate-400">
+                    {line.wo_number ?? line.work_order_id}
+                  </span>{" "}
+                  {line.description ?? line.material_code} ×{line.qty_required}
+                  <span className="ml-2 font-mono text-slate-500">
+                    {line.status}
+                  </span>
+                </span>
+                {firstReserveableByWo.get(line.work_order_id) === line.id && (
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => runReserve(line.work_order_id)}
+                    className="rounded-lg border border-teal-500/40 bg-teal-500/10 px-2 py-1 text-teal-300 disabled:opacity-50"
+                  >
+                    Reserve
+                  </button>
+                )}
+                {canKit(line.status) && (
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => runEvent(line, "kitted")}
+                    className="rounded-lg border border-white/10 px-2 py-1 text-slate-300 disabled:opacity-50"
+                  >
+                    Kit
+                  </button>
+                )}
+                {canIssue(line.status) && (
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => runEvent(line, "issued")}
+                    className="rounded-lg border border-white/10 px-2 py-1 text-slate-300 disabled:opacity-50"
+                  >
+                    Issue
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
 
       {shortages.length > 0 && (

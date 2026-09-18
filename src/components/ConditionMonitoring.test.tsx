@@ -8,6 +8,9 @@ import { ConditionMonitoring } from "./ConditionMonitoring";
 
 const listPfIntervals = vi.fn();
 const adoptPfInterval = vi.fn();
+const listOpenWorkOrders = vi.fn();
+const linkAlertToWork = vi.fn();
+const deriveObservedPf = vi.fn();
 const rpc = vi.fn();
 let role = "reliability_engineer";
 
@@ -29,6 +32,9 @@ vi.mock("../services/reliabilityCallers", async () => {
     ...actual,
     listPfIntervals: () => listPfIntervals(),
     adoptPfInterval: (...args: unknown[]) => adoptPfInterval(...args),
+    listOpenWorkOrders: () => listOpenWorkOrders(),
+    linkAlertToWork: (...args: unknown[]) => linkAlertToWork(...args),
+    deriveObservedPf: () => deriveObservedPf(),
   };
 });
 
@@ -100,6 +106,18 @@ beforeEach(() => {
     };
   });
   listPfIntervals.mockResolvedValue([DRAFT]);
+  listOpenWorkOrders.mockResolvedValue([]);
+  deriveObservedPf.mockResolvedValue({
+    observed: [],
+    available: false,
+    min_samples: 3,
+    basis:
+      "Not enough linked alert-to-failure history yet. Until there is, P-F intervals remain declared engineering values (pf_intervals), never inferred from a thin sample.",
+  });
+  linkAlertToWork.mockResolvedValue({
+    linked: "al1",
+    work_order_id: "wo1",
+  });
 });
 
 describe("ConditionMonitoring adopt path", () => {
@@ -163,6 +181,101 @@ describe("ConditionMonitoring adopt path", () => {
     expect(
       screen.queryByText(/Cite historian readings/i),
     ).not.toBeInTheDocument();
+  });
+
+  it("shows exact-time operating context and keeps missing context unknown", async () => {
+    rpc.mockImplementation(async (name: unknown) => {
+      if (name === "get_plant_historian_status") {
+        return { data: UNCONFIGURED_HISTORIAN, error: null };
+      }
+      if (name === "get_contextual_condition_monitoring") {
+        return {
+          data: {
+            window_days: 30,
+            summary: {
+              readings: 2,
+              contextualized: 1,
+              context_unknown: 1,
+              context_coverage_pct: 50,
+              connector_backed: 1,
+              other_source: 1,
+            },
+            source: {
+              connector_key: "site-a-pi",
+              connector_enabled: true,
+              basis:
+                "site-a-pi is the enabled read-only plant source. Only matching readings are connector-backed.",
+            },
+            basis:
+              "1 of 2 readings has a same-asset operating-state interval covering the exact reading time.",
+            readings: [
+              {
+                id: 1,
+                asset_id: "a1",
+                asset: "P-101",
+                sensor: "Drive-end vibration",
+                signal_type: "vibration",
+                unit: "mm/s",
+                value: 4.2,
+                quality: "good",
+                taken_at: "2026-09-12T12:00:00Z",
+                source_system: "site-a-pi",
+                source_posture: "connector_backed",
+                context_known: true,
+                operating_state: "running",
+                load_pct: 83,
+                operating_reason: null,
+                operating_source: "dispatch",
+              },
+              {
+                id: 2,
+                asset_id: "a1",
+                asset: "P-101",
+                sensor: "Bearing temperature",
+                signal_type: "temperature",
+                unit: "°C",
+                value: 78,
+                quality: "suspect",
+                taken_at: "2026-09-12T11:00:00Z",
+                source_system: "manual-import",
+                source_posture: "seed_sim_or_import",
+                context_known: false,
+                operating_state: null,
+                load_pct: null,
+                operating_reason: null,
+                operating_source: null,
+              },
+            ],
+          },
+          error: null,
+        };
+      }
+      return {
+        data: {
+          coverage: {
+            assets: 1,
+            monitored_assets: 1,
+            readings: 2,
+            basis: "Reading history present.",
+          },
+          active_alerts: [],
+          warning_lead_time: { available: false, sample: 0 },
+          pm_task_effectiveness: { available: false },
+          pf_note: "Declared intervals.",
+        },
+        error: null,
+      };
+    });
+
+    render(<ConditionMonitoring />);
+    expect(
+      await screen.findByText("Condition evidence in operating context"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("50%")).toBeInTheDocument();
+    expect(screen.getByText("running · 83% load")).toBeInTheDocument();
+    expect(screen.getByText("connector-backed")).toBeInTheDocument();
+    expect(screen.getByText("Unknown")).toBeInTheDocument();
+    expect(screen.getByText("seed / sim / import")).toBeInTheDocument();
   });
 
   it("cites connector-backed readings on a pending recommendation", async () => {
@@ -267,6 +380,99 @@ describe("ConditionMonitoring adopt path", () => {
     );
     expect(
       await screen.findByText(/Attached 1 connector-backed historian reading/),
+    ).toBeInTheDocument();
+  });
+
+  it("keeps warning lead time blank when no alert is linked", async () => {
+    render(<ConditionMonitoring />);
+    expect(await screen.findByText("Warning lead time")).toBeInTheDocument();
+    expect(
+      screen.getByText(/Not measurable yet — no linked alerts/),
+    ).toBeInTheDocument();
+    expect(screen.getByTestId("observed-pf")).toHaveTextContent(
+      /never inferred from a thin sample/,
+    );
+    expect(linkAlertToWork).not.toHaveBeenCalled();
+  });
+
+  it("links an open alert through link_alert_to_work", async () => {
+    let monitoringReads = 0;
+    listOpenWorkOrders.mockResolvedValue([
+      {
+        id: "wo1",
+        wo_number: "WO-88",
+        title: "Investigate P-101 vibration",
+        status: "open",
+        asset_id: "a1",
+      },
+    ]);
+    rpc.mockImplementation(async (name: unknown) => {
+      if (name === "get_plant_historian_status") {
+        return { data: UNCONFIGURED_HISTORIAN, error: null };
+      }
+      if (name === "get_condition_monitoring" && monitoringReads++ > 0) {
+        // A slow background refresh must not hide the action receipt or the
+        // previously verified workspace payload.
+        return new Promise(() => undefined);
+      }
+      return {
+        data: {
+          coverage: {
+            assets: 1,
+            monitored_assets: 1,
+            coverage_pct: 100,
+            critical_assets: 0,
+            critical_monitored: 0,
+            critical_coverage_pct: null,
+            readings: 1,
+            basis: "Reading history present; limits are evaluated on ingest.",
+          },
+          active_alerts: [
+            {
+              id: "al1",
+              asset: "P-101",
+              sensor: "Vibration — Drive End",
+              severity: "warning",
+              value: 2.4,
+              limit: 2.0,
+              triggered_at: "2026-08-01T06:00:00Z",
+              hours_open: 12,
+              acknowledged: false,
+              linked_work_order: false,
+            },
+          ],
+          warning_lead_time: {
+            available: false,
+            value: null,
+            unit: "hours",
+            sample: 0,
+            basis: "No linked alerts.",
+          },
+          pm_task_effectiveness: {
+            available: false,
+            pm_completed: 0,
+            finding_rate_pct: null,
+            missed_rate_pct: null,
+            basis: "No completed PMs.",
+          },
+          pf_note: "P-F intervals are declared engineering reference data.",
+        },
+        error: null,
+      };
+    });
+    render(<ConditionMonitoring />);
+    fireEvent.change(
+      await screen.findByLabelText("Work order for Vibration — Drive End"),
+      {
+        target: { value: "wo1" },
+      },
+    );
+    fireEvent.click(screen.getByText("Link to work"));
+    await waitFor(() =>
+      expect(linkAlertToWork).toHaveBeenCalledWith("al1", "wo1"),
+    );
+    expect(
+      await screen.findByText(/not work authorization/i),
     ).toBeInTheDocument();
   });
 });

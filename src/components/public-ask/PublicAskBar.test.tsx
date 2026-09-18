@@ -1,68 +1,50 @@
-import { createRef } from "react";
+import { createRef, type ComponentProps } from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { ASK_PLACEHOLDER, PublicAskBar } from "./PublicAskBar";
 
+function props(
+  overrides: Partial<ComponentProps<typeof PublicAskBar>> = {},
+): ComponentProps<typeof PublicAskBar> {
+  return {
+    value: "",
+    placeholder: ASK_PLACEHOLDER,
+    textareaRef: createRef<HTMLTextAreaElement>(),
+    onChange: vi.fn(),
+    onSend: vi.fn(),
+    sendDisabled: true,
+    dictationSupported: false,
+    dictationListening: false,
+    dictationTitle: "This browser has no speech recognition",
+    onToggleDictation: vi.fn(),
+    photoInputRef: createRef<HTMLInputElement>(),
+    fileInputRef: createRef<HTMLInputElement>(),
+    ...overrides,
+  };
+}
+
 describe("PublicAskBar", () => {
-  it("shows the Bolt cluster and disables controls that have no product yet", () => {
-    render(
-      <PublicAskBar
-        value=""
-        placeholder={ASK_PLACEHOLDER}
-        textareaRef={createRef<HTMLTextAreaElement>()}
-        onChange={vi.fn()}
-        onSend={vi.fn()}
-        sendDisabled
-        caseExists={false}
-        dictationSupported={false}
-        dictationListening={false}
-        dictationTitle="This browser has no speech recognition"
-        onToggleDictation={vi.fn()}
-        photoInputRef={createRef<HTMLInputElement>()}
-      />,
-    );
+  it("shows only genuine, immediately usable public actions", () => {
+    render(<PublicAskBar {...props()} />);
     expect(screen.getByPlaceholderText(ASK_PLACEHOLDER)).toBeTruthy();
-    expect(screen.getByLabelText("Search")).toBeDisabled();
-    expect(screen.getByLabelText("Attach a photo")).toBeDisabled();
-    expect(screen.getByLabelText("Attach a file")).toBeDisabled();
-    expect(screen.getByLabelText("Web search")).toBeDisabled();
-    expect(screen.getByLabelText("Link")).toBeDisabled();
-    expect(screen.getByLabelText("Dictate a message")).toBeDisabled();
+    expect(screen.getByLabelText("Attach a photo")).toBeEnabled();
+    expect(screen.getByLabelText("Attach a data file")).toBeEnabled();
+    expect(screen.queryByLabelText("Search")).toBeNull();
+    expect(screen.queryByLabelText("Web search")).toBeNull();
+    expect(screen.queryByLabelText("Link")).toBeNull();
+    expect(screen.queryByLabelText("Dictate a message")).toBeNull();
     const tools = document.querySelector(".bolt-ask-tools");
     expect(
       [...(tools?.querySelectorAll("button") ?? [])].map((item) =>
         item.getAttribute("aria-label"),
       ),
-    ).toEqual([
-      "Search",
-      "Attach a photo",
-      "Attach a file",
-      "Web search",
-      "Link",
-      "Dictate a message",
-    ]);
+    ).toEqual(["Attach a photo", "Attach a data file"]);
     expect(tools?.contains(screen.getByTestId("bolt-ask-send"))).toBe(false);
     expect(screen.getByTitle("Send message")).toBeDisabled();
-    expect(screen.getByTestId("bolt-ask-overflow")).toBeTruthy();
   });
 
-  it("keeps overflow accessories gated until a case exists", () => {
-    render(
-      <PublicAskBar
-        value=""
-        placeholder={ASK_PLACEHOLDER}
-        textareaRef={createRef<HTMLTextAreaElement>()}
-        onChange={vi.fn()}
-        onSend={vi.fn()}
-        sendDisabled
-        caseExists={false}
-        dictationSupported={false}
-        dictationListening={false}
-        dictationTitle="This browser has no speech recognition"
-        onToggleDictation={vi.fn()}
-        photoInputRef={createRef<HTMLInputElement>()}
-      />,
-    );
+  it("moves the same working actions into the narrow overflow", () => {
+    render(<PublicAskBar {...props()} />);
     fireEvent.click(screen.getByTestId("bolt-ask-overflow"));
     const menu = document.querySelector(".bolt-ask-overflow-menu");
     expect(menu).toBeTruthy();
@@ -72,42 +54,38 @@ describe("PublicAskBar", () => {
         disabled: (item as HTMLButtonElement).disabled,
       })),
     ).toEqual([
-      { label: "Search", disabled: true },
-      { label: "Attach a photo", disabled: true },
-      { label: "Attach a file", disabled: true },
-      { label: "Web search", disabled: true },
-      { label: "Link", disabled: true },
-      { label: "Dictate a message", disabled: true },
+      { label: "Attach a photo", disabled: false },
+      { label: "Attach a data file", disabled: false },
     ]);
   });
 
-  it("enables image and attach in overflow after a case exists", () => {
-    const onOpenAttachMenu = vi.fn();
+  it("opens the real photo and data-file inputs", () => {
+    const photo = document.createElement("input");
+    const file = document.createElement("input");
+    const photoClick = vi.spyOn(photo, "click");
+    const fileClick = vi.spyOn(file, "click");
     render(
       <PublicAskBar
-        value=""
-        placeholder={ASK_PLACEHOLDER}
-        textareaRef={createRef<HTMLTextAreaElement>()}
-        onChange={vi.fn()}
-        onSend={vi.fn()}
-        sendDisabled
-        caseExists
-        dictationSupported={false}
-        dictationListening={false}
-        dictationTitle="This browser has no speech recognition"
-        onToggleDictation={vi.fn()}
-        photoInputRef={createRef<HTMLInputElement>()}
-        onOpenAttachMenu={onOpenAttachMenu}
+        {...props({
+          photoInputRef: { current: photo },
+          fileInputRef: { current: file },
+        })}
       />,
     );
-    fireEvent.click(screen.getByTestId("bolt-ask-overflow"));
-    const menu = document.querySelector(".bolt-ask-overflow-menu");
-    const attach = menu?.querySelector(
-      '[aria-label="Add camera, photos, or files"]',
-    ) as HTMLButtonElement;
-    expect(attach?.disabled).toBe(false);
-    fireEvent.click(attach);
-    expect(onOpenAttachMenu).toHaveBeenCalledTimes(1);
-    expect(document.querySelector(".bolt-ask-overflow-menu")).toBeNull();
+    fireEvent.click(screen.getByLabelText("Attach a photo"));
+    fireEvent.click(screen.getByLabelText("Attach a data file"));
+    expect(photoClick).toHaveBeenCalledOnce();
+    expect(fileClick).toHaveBeenCalledOnce();
+  });
+
+  it("shows working browser dictation only when the browser supports it", () => {
+    const onToggleDictation = vi.fn();
+    render(
+      <PublicAskBar
+        {...props({ dictationSupported: true, onToggleDictation })}
+      />,
+    );
+    fireEvent.click(screen.getByLabelText("Dictate a message"));
+    expect(onToggleDictation).toHaveBeenCalledOnce();
   });
 });

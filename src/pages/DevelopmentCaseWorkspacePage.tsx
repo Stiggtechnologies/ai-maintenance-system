@@ -106,10 +106,16 @@ import { PerformancePanel } from "../components/develop/PerformancePanels";
 import { ScheduleAssurancePanel } from "../components/develop/SchedulePanels";
 import { ChangeAndControlsPanel } from "../components/develop/ChangeControlPanels";
 import { RequirementsThreadPanel } from "../components/develop/RequirementsThreadPanels";
+import { OtCyberLifecyclePanel } from "../components/develop/OtCyberLifecyclePanel";
 import { FrontlineDesignPanel } from "../components/develop/FrontlineDesignPanels";
 import { ProcurementPanel } from "../components/develop/ProcurementPanels";
 import { WorkPackagingPanel } from "../components/develop/WorkPackagingPanels";
 import { WorkforcePanel } from "../components/develop/WorkforcePanels";
+import { HybridDevelopmentPanel } from "../components/develop/HybridDevelopmentPanel";
+import { ProjectFlowEfficiencyPanel } from "../components/develop/ProjectFlowEfficiencyPanel";
+import { TechnicalDebtPanel } from "../components/develop/TechnicalDebtPanel";
+import { OperationalDebtPanel } from "../components/develop/OperationalDebtPanel";
+import { OperatingModelReadinessPanel } from "../components/develop/OperatingModelReadinessPanel";
 import { DigitalThreadPanel } from "../components/develop/DigitalThreadPanels";
 import {
   CaseRamPanel,
@@ -2470,6 +2476,9 @@ export function DevelopmentCaseWorkspacePage() {
     profile?.role != null && DESIGN_PLAN_ROLES.includes(profile.role);
   const canAdmin =
     profile?.role != null && ["admin", "executive"].includes(profile.role);
+  const canAcknowledgeOperationalDebt =
+    profile?.role != null &&
+    ["admin", "executive", "maintenance_manager"].includes(profile.role);
   const canProcure =
     profile?.role != null && PROCUREMENT_PLAN_ROLES.includes(profile.role);
   const canAwardContract =
@@ -2613,6 +2622,18 @@ export function DevelopmentCaseWorkspacePage() {
         >
           Execution readiness
         </Link>
+        <Link
+          to={`/develop/operational-readiness?case=${caseId}`}
+          className="rounded-lg border border-white/10 px-2.5 py-1 text-xs text-slate-300 hover:bg-white/5"
+        >
+          Operational readiness matrix
+        </Link>
+        <Link
+          to={`/develop/handover?case=${caseId}`}
+          className="rounded-lg border border-white/10 px-2.5 py-1 text-xs text-slate-300 hover:bg-white/5"
+        >
+          System handover
+        </Link>
         {/* D7.16 (Slice 7C): the composed Sync Field module — packaging,
             constraint-free work, workface planning, resources and readiness
             on one surface that recomputes none of them, and names the parts
@@ -2622,6 +2643,12 @@ export function DevelopmentCaseWorkspacePage() {
           className="rounded-lg border border-white/10 px-2.5 py-1 text-xs text-slate-300 hover:bg-white/5"
         >
           Sync Field
+        </Link>
+        <Link
+          to={`/develop/cases/${caseId}/transition`}
+          className="rounded-lg border border-white/10 px-2.5 py-1 text-xs text-slate-300 hover:bg-white/5"
+        >
+          Sync Transition
         </Link>
       </div>
 
@@ -2830,7 +2857,41 @@ export function DevelopmentCaseWorkspacePage() {
         canPlan={canPlan}
         onChanged={() => void load()}
       />
-      <RealizeCluster caseId={workspace.id} canRealize={canRealize} />
+      {/* D1.03 / spec section 40: one Development Case may deliberately use
+          different delivery methods for different workstreams. The panel owns
+          its tenant-scoped read and every write is a human-only definer RPC. */}
+      <HybridDevelopmentPanel
+        caseId={workspace.id}
+        members={members.map((member) => ({
+          id: member.id,
+          name: member.full_name ?? member.email ?? member.id,
+        }))}
+        canPlan={canPlan}
+      />
+      {/* D7.09 / spec section 29: a read-only metric over canonical work-order
+          transitions linked through the case's existing asset scope. */}
+      <ProjectFlowEfficiencyPanel caseId={workspace.id} />
+      <TechnicalDebtPanel
+        caseId={workspace.id}
+        canPlan={canDesignPlan}
+        canApprove={canReview}
+      />
+      <OperatingModelReadinessPanel
+        caseId={workspace.id}
+        members={members}
+        canAssess={canDesignPlan}
+      />
+      <OperationalDebtPanel
+        caseId={workspace.id}
+        members={members}
+        canPlan={canDesignPlan}
+        canAcknowledge={canAcknowledgeOperationalDebt}
+      />
+      <RealizeCluster
+        caseId={workspace.id}
+        canRealize={canRealize}
+        evidence={workspace.evidence}
+      />
       <DeliverablesSection
         workspace={workspace}
         members={members}
@@ -2932,6 +2993,19 @@ export function DevelopmentCaseWorkspacePage() {
             id: b.id,
             label: `${b.baselineType} v${b.version} (${b.status})`,
           }))}
+      />
+      {/* II.13 OT cybersecurity begins at design. These ten checks classify
+          the ONE requirement table and use its existing verification,
+          evidence and acceptance-test thread. Applicable gaps enter the ONE
+          gate-obligation predicate and its persistence wall. */}
+      <OtCyberLifecyclePanel
+        caseId={workspace.id}
+        members={members.map((m) => ({
+          id: m.id,
+          name: m.full_name ?? m.email ?? m.id,
+        }))}
+        canPlan={canDesignPlan}
+        reloadKey={chainsKey}
       />
       {/* Design integrity and the digital thread (Slice 5A): the §10
           Requirement object with its hierarchy and its objective→…→operating

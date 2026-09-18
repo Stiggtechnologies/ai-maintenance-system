@@ -1,5 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import {
+  useLocation,
+  useNavigate,
+  useParams,
+  useSearchParams,
+} from "react-router-dom";
 import {
   ArrowUpRight,
   Bot,
@@ -46,6 +51,13 @@ import { BoltSpacesPanel } from "../components/public-ask/BoltSpacesPanel";
 import { PublicAskEmpty } from "../components/public-ask/PublicAskEmpty";
 import { PublicAskRail } from "../components/public-ask/PublicAskRail";
 import { canExposeBoltSpaces } from "../lib/public-ask-tie-in";
+import {
+  PUBLIC_ASK_INTENTS,
+  publicAskIntentById,
+  publicAskIntentPath,
+  type PublicAskIntent,
+  type PublicAskIntentId,
+} from "../lib/public-ask-intents";
 import { MarkdownRenderer } from "../components/MarkdownRenderer";
 import { RecommendationTurn } from "../components/chat/RecommendationTurn";
 import { ConversationLearn } from "../components/chat/ConversationLearn";
@@ -235,31 +247,57 @@ export function DecisionCaseWorkspacePage({
 }: {
   publicMode?: boolean;
 }) {
-  const { caseId } = useParams();
+  const { caseId, capabilityId } = useParams<{
+    caseId?: string;
+    capabilityId?: PublicAskIntentId;
+  }>();
   const [params] = useSearchParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const context = useMemo(() => getContext(params), [params]);
   const auth = useOptionalAuth();
   const orgSession = Boolean(auth?.user);
+  const routedPublicIntent = capabilityId
+    ? publicAskIntentById(capabilityId)
+    : undefined;
   const [industry, setIndustry] = useState<DecisionIndustryId>(() =>
     normalizeDecisionIndustry(params.get("industry")),
   );
   const industryPack = getDecisionIndustryPack(industry);
-  const [chatBootstrap] = useState(() =>
-    initialChatState(
+  const initialRole = context.role || industryPack.roles[0];
+  const [chatBootstrap] = useState(() => {
+    const base = initialChatState(
       caseId,
       context,
       publicMode,
       orgSession || Boolean(auth?.loading),
-    ),
-  );
+    );
+    if (!publicMode || !routedPublicIntent) return base;
+    const sample = createFirstPaintSeed(routedPublicIntent.seedIndex, {
+      ...context,
+      industry,
+      role: initialRole,
+    });
+    return {
+      cases: includeCompletePublicValueProof([
+        sample,
+        ...base.cases.filter((item) => item.id !== sample.id),
+      ]),
+      selectedId: sample.id,
+    };
+  });
   const [cases, setCases] = useState(chatBootstrap.cases);
   const [selectedId, setSelectedId] = useState(chatBootstrap.selectedId);
   const viewerName = auth?.profile?.full_name ?? null;
   const [railOpen, setRailOpen] = useState(false);
-  const [recordOpen, setRecordOpen] = useState(false);
-  const [tab, setTab] = useState<PacketTab>("decision");
-  const [role] = useState(context.role || industryPack.roles[0]);
+  const [recordOpen, setRecordOpen] = useState(Boolean(routedPublicIntent));
+  const [tab, setTab] = useState<PacketTab>(
+    routedPublicIntent?.recordTab ?? "decision",
+  );
+  const [publicIntent, setPublicIntent] = useState<PublicAskIntent | null>(
+    routedPublicIntent ?? null,
+  );
+  const [role] = useState(initialRole);
   const [composer, setComposer] = useState("");
   const [composerPlaceholder, setComposerPlaceholder] = useState(
     publicMode ? ASK_PLACEHOLDER : "Ask a reliability question…",
@@ -284,6 +322,7 @@ export function DecisionCaseWorkspacePage({
   const [notice, setNotice] = useState("");
   const endRef = useRef<HTMLDivElement>(null);
   const explicitDemoBound = useRef(false);
+  const suppressRoutedIntent = useRef(false);
   const active =
     cases.find((item) => item.id === selectedId) ??
     cases.find((item) => !isSeedDecisionCaseId(item.id)) ??
@@ -388,10 +427,19 @@ export function DecisionCaseWorkspacePage({
     return () => window.clearTimeout(timer);
   }, [notice]);
   useEffect(() => {
-    if (conversationIsEmpty(active.messages)) {
+    // The public empty state is also the commercial landing experience. Do
+    // not steal focus and scroll a new visitor past its hero and offer. Once a
+    // case exists the composer remains the primary interaction surface.
+    if (!publicMode && conversationIsEmpty(active.messages)) {
       composerRef.current?.focus();
     }
-  }, [active.id, active.messages]);
+  }, [active.id, active.messages, publicMode]);
+  useEffect(() => {
+    if (publicMode && capabilityId && !routedPublicIntent) {
+      navigate({ pathname: "/", search: location.search }, { replace: true });
+    }
+  }, [capabilityId, location.search, navigate, publicMode, routedPublicIntent]);
+
   useEffect(() => {
     if (!plusOpen) return;
     const onPointer = (event: MouseEvent) => {
@@ -413,12 +461,46 @@ export function DecisionCaseWorkspacePage({
     };
   }, [plusOpen]);
 
+  useEffect(() => {
+    if (!routedPublicIntent) {
+      suppressRoutedIntent.current = false;
+      return;
+    }
+    if (
+      !publicMode ||
+      suppressRoutedIntent.current ||
+      publicIntent?.id === routedPublicIntent.id
+    ) {
+      return;
+    }
+    const sample = createFirstPaintSeed(routedPublicIntent.seedIndex, {
+      ...context,
+      industry,
+      role,
+    });
+    explicitDemoBound.current = true;
+    setCases((current) => [
+      sample,
+      ...current.filter(
+        (item) =>
+          item.id !== sample.id &&
+          !(item.id.startsWith("draft-") && conversationIsEmpty(item.messages)),
+      ),
+    ]);
+    setSelectedId(sample.id);
+    setPublicIntent(routedPublicIntent);
+    setTab(routedPublicIntent.recordTab);
+    setRecordOpen(true);
+    setRailOpen(false);
+  }, [context, industry, publicIntent?.id, publicMode, role, routedPublicIntent]);
+
   const chooseCase = (id: string) => {
     if (isSeedDecisionCaseId(id)) explicitDemoBound.current = true;
     setSelectedId(id);
     setTab("decision");
     setEvidence(null);
     setRecordOpen(false);
+    setPublicIntent(null);
   };
 
   const trySample = (index = 0) => {
@@ -438,7 +520,40 @@ export function DecisionCaseWorkspacePage({
     });
     setSelectedId(sample.id);
     setRecordOpen(false);
+    setPublicIntent(null);
     setRailOpen(false);
+  };
+
+  const tryPublicIntent = (intent: PublicAskIntent) => {
+    explicitDemoBound.current = true;
+    const sample = createFirstPaintSeed(intent.seedIndex, {
+      ...context,
+      industry,
+      role,
+    });
+    setCases((current) => {
+      const keep = current.filter(
+        (item) =>
+          item.id !== sample.id &&
+          !(item.id.startsWith("draft-") && conversationIsEmpty(item.messages)),
+      );
+      return [sample, ...keep];
+    });
+    setSelectedId(sample.id);
+    setPublicIntent(intent);
+    setTab(intent.recordTab);
+    setRecordOpen(true);
+    setRailOpen(false);
+    if (publicMode) {
+      const nextPath = publicAskIntentPath(intent);
+      if (location.pathname !== nextPath) {
+        navigate({ pathname: nextPath, search: location.search });
+      }
+    }
+    trackDecisionWorkspaceEvent("public_capability_opened", {
+      intent: intent.id,
+      module: intent.module,
+    });
   };
 
   const createCase = async () => {
@@ -451,10 +566,13 @@ export function DecisionCaseWorkspacePage({
       explicitDemoBound.current = false;
       chooseCase(existingDraft.id);
       if (publicMode) {
+        suppressRoutedIntent.current = true;
         setComposer("");
         setComposerPlaceholder(ASK_PLACEHOLDER);
         setRailOpen(false);
         setRecordOpen(false);
+        setPublicIntent(null);
+        navigate({ pathname: "/", search: location.search });
       }
       return;
     }
@@ -463,10 +581,13 @@ export function DecisionCaseWorkspacePage({
     setCases((current) => [next, ...current]);
     setSelectedId(next.id);
     if (publicMode) {
+      suppressRoutedIntent.current = true;
       setComposer("");
       setComposerPlaceholder(ASK_PLACEHOLDER);
       setRailOpen(false);
       setRecordOpen(false);
+      setPublicIntent(null);
+      navigate({ pathname: "/", search: location.search });
     }
     if (!publicMode) {
       try {
@@ -748,7 +869,6 @@ export function DecisionCaseWorkspacePage({
       onChange={setComposer}
       onSend={() => void sendMessage()}
       sendDisabled={(!composer.trim() && !attachment && !photo) || replying}
-      caseExists={!emptyConversation}
       dictationSupported={dictation.supported}
       dictationListening={dictation.listening}
       dictationTitle={dictationTitle}
@@ -756,7 +876,7 @@ export function DecisionCaseWorkspacePage({
         dictation.listening ? dictation.stop() : dictation.start()
       }
       photoInputRef={photoInputRef}
-      onOpenAttachMenu={() => setPlusOpen((value) => !value)}
+      fileInputRef={fileInputRef}
     />
   );
 
@@ -977,7 +1097,7 @@ export function DecisionCaseWorkspacePage({
                       type="file"
                       accept=".csv,.tsv,.txt,.log"
                       className="dw-file-input"
-                      aria-label="Attach a data file"
+                      aria-label="Choose a data file"
                       onChange={(event) => {
                         void handleAttach(event.target.files?.[0]);
                         event.target.value = "";
@@ -989,7 +1109,7 @@ export function DecisionCaseWorkspacePage({
                       type="file"
                       accept="image/*"
                       className="dw-file-input"
-                      aria-label="Attach a photo"
+                      aria-label="Choose a photo"
                       onChange={(event) => {
                         void handleAttach(event.target.files?.[0]);
                         event.target.value = "";
@@ -1242,7 +1362,7 @@ export function DecisionCaseWorkspacePage({
     >
       <PublicAskRail
         homeActive={emptyConversation}
-        onHome={() => void createCase()}
+        onNewAsk={() => void createCase()}
         assessHref="/setup"
         signInHref="/signin?returnTo=%2F"
         onSignIn={() => stageDecisionCaseHandoff(window.sessionStorage, active)}
@@ -1265,7 +1385,74 @@ export function DecisionCaseWorkspacePage({
           />
         ) : null}
         {emptyConversation ? (
-          <PublicAskEmpty askBar={publicAskBar} onSelectIntent={trySample} />
+          <PublicAskEmpty
+            askBar={publicAskBar}
+            onSelectIntent={tryPublicIntent}
+            attachmentInputs={
+              <>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".csv,.tsv,.txt,.log"
+                  className="bolt-file-input"
+                  aria-label="Choose a data file"
+                  onChange={(event) => {
+                    void handleAttach(event.target.files?.[0]);
+                    event.target.value = "";
+                  }}
+                />
+                <input
+                  ref={photoInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="bolt-file-input"
+                  aria-label="Choose a photo"
+                  onChange={(event) => {
+                    void handleAttach(event.target.files?.[0]);
+                    event.target.value = "";
+                  }}
+                />
+              </>
+            }
+            attachmentState={
+              attachment || photo || attachmentError ? (
+                <div className="bolt-attachment-state" role="status">
+                  {attachment ? (
+                    <span>
+                      <Paperclip size={14} />
+                      <strong>{attachment.name}</strong>
+                      {attachment.rowCount.toLocaleString()} rows · sampled for
+                      this question
+                      <button
+                        type="button"
+                        onClick={() => setAttachment(null)}
+                        aria-label="Remove data file"
+                      >
+                        <XIcon size={14} />
+                      </button>
+                    </span>
+                  ) : null}
+                  {photo ? (
+                    <span>
+                      <Camera size={14} />
+                      <strong>{photo.name}</strong>
+                      attached to this question
+                      <button
+                        type="button"
+                        onClick={() => setPhoto(null)}
+                        aria-label="Remove photo"
+                      >
+                        <XIcon size={14} />
+                      </button>
+                    </span>
+                  ) : null}
+                  {attachmentError ? (
+                    <span className="is-error">{attachmentError}</span>
+                  ) : null}
+                </div>
+              ) : null
+            }
+          />
         ) : (
           <>
             <header className="bolt-thread-bar">
@@ -1284,7 +1471,14 @@ export function DecisionCaseWorkspacePage({
                 className="bolt-thread-bar-side is-center"
                 data-testid="first-paint-header-center"
               >
-                <span className="bolt-thread-title">{active.title}</span>
+                <span>
+                  {publicIntent ? (
+                    <small className="bolt-capability-lens">
+                      {publicIntent.label} · {publicIntent.module}
+                    </small>
+                  ) : null}
+                  <span className="bolt-thread-title">{active.title}</span>
+                </span>
               </div>
               <div className="bolt-thread-bar-side is-end">
                 <button
@@ -1296,6 +1490,26 @@ export function DecisionCaseWorkspacePage({
                 </button>
               </div>
             </header>
+            <nav
+              className="bolt-capability-switcher"
+              aria-label="Live capabilities"
+            >
+              {PUBLIC_ASK_INTENTS.map((intent) => (
+                <button
+                  key={intent.id}
+                  type="button"
+                  className={publicIntent?.id === intent.id ? "is-active" : ""}
+                  aria-current={
+                    publicIntent?.id === intent.id ? "page" : undefined
+                  }
+                  title={`${intent.module}: ${intent.explanation}`}
+                  onClick={() => tryPublicIntent(intent)}
+                >
+                  <strong>{intent.label}</strong>
+                  <span>{intent.module}</span>
+                </button>
+              ))}
+            </nav>
             <div
               className={`bolt-layout${railOpen ? " is-rail-open" : ""}${recordOpen ? " is-record-open" : ""}`}
             >
@@ -1469,7 +1683,7 @@ export function DecisionCaseWorkspacePage({
                       type="file"
                       accept=".csv,.tsv,.txt,.log"
                       className="dw-file-input"
-                      aria-label="Attach a data file"
+                      aria-label="Choose a data file"
                       onChange={(event) => {
                         void handleAttach(event.target.files?.[0]);
                         event.target.value = "";
@@ -1481,7 +1695,7 @@ export function DecisionCaseWorkspacePage({
                       type="file"
                       accept="image/*"
                       className="dw-file-input"
-                      aria-label="Attach a photo"
+                      aria-label="Choose a photo"
                       onChange={(event) => {
                         void handleAttach(event.target.files?.[0]);
                         event.target.value = "";

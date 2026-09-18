@@ -10,7 +10,8 @@ Slice 7D is the cross-industry quality backbone used by every specialist pack. I
 4. `quality_ncrs` enforces `open → contained → dispositioned → corrective_action → verification → closed`. Closing requires effectiveness evidence and an independent actor. Age and overdue state are derived from timestamps.
 5. `quality_defects` captures inspected, defective, first-pass accepted, reworked, and scrapped quantities. `quality_rework_records` must reference the canonical `work_orders` row and captures labour, material, equipment, downtime, and external cost with basis and source.
 6. The existing `acceptance_tests` aggregate remains canonical. Slice 7D extends it beyond capital-project FAT/SAT, adds sample results and evidence, and requires independent release after a full pass with zero open punch items.
-7. `quality_cost_entries` captures prevention, appraisal, internal-failure, and external-failure costs. The quality cockpit derives Cost of Poor Quality as internal plus external failure cost. It shows prevention and appraisal separately and never combines currencies.
+7. `quality_cost_entries` captures prevention, appraisal, internal-failure, and external-failure costs. Failure entries are attributed to rework, scrap, retesting, delay, claims, or startup failures; legacy unclassified failure cost remains explicit. The quality cockpit derives Cost of Poor Quality, shows prevention and appraisal separately, and never combines currencies.
+8. Case-linked quality entries may carry a sourced forecast-growth effect. The cockpit compares that recorded quality-driven growth with positive cost effects from the currently approved SCOPE baseline in canonical `project_scope_changes`. Missing scope costs refuse the combined figure and percentage; the calculation does not approve a forecast or change.
 
 Every write is tenant-bound in a security-definer RPC, every table has organization RLS, and every approval/release also creates a canonical `approvals` record and `audit_events` entry.
 
@@ -32,4 +33,4 @@ The repository pins the same definitions in TypeScript and SQL. A zero denominat
 
 - Pure calculation tests validate all seven metrics, quantities, NCR age, multi-currency cost, and impossible-input refusal.
 - Service and component tests prove all 13 operations are wired to the live Risk workspace.
-- `scripts/ci-quality-management-smoke.sh` executes the complete database lifecycle on a clean Supabase stack, including self-approval refusals, hold release, NCR closure, rework cost, acceptance release, derived metrics, COPQ, and canonical approval records.
+- `scripts/ci-quality-management-smoke.sh` executes the complete database lifecycle on a clean Supabase stack, including self-approval refusals, hold release, NCR closure, rework cost, acceptance release, derived metrics, six-term COPQ, quality-versus-scope forecast attribution, and canonical approval records.

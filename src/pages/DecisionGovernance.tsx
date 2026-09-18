@@ -30,7 +30,13 @@ import { TaxonomyGovernance } from "../components/TaxonomyGovernance";
 import { SafetyGatekeeperPanel } from "../components/SafetyGatekeeperPanel";
 import { ControlAssurance } from "../components/ControlAssurance";
 import { GovernanceStandards } from "../components/GovernanceStandards";
+import { EnterpriseMethodFederation } from "../components/EnterpriseMethodFederation";
+import { LayeredCapabilityPacks } from "../components/LayeredCapabilityPacks";
+import { MissionOutcomeModels } from "../components/MissionOutcomeModels";
 import { ModelRisk } from "../components/ModelRisk";
+import { GovernanceAgentPanel } from "../components/GovernanceAgentPanel";
+import { HopSystemConditionsPanel } from "../components/HopSystemConditionsPanel";
+import { ExpenditureApprovalPanel } from "../components/ExpenditureApprovalPanel";
 
 const DECISION_STATUSES: DecisionStatus[] = [
   "pending",
@@ -393,9 +399,21 @@ export function DecisionGovernance() {
 
       <SafetyGatekeeperPanel />
 
+      <ExpenditureApprovalPanel />
+
+      <GovernanceAgentPanel />
+
+      <HopSystemConditionsPanel />
+
       <DecisionRightsMatrix />
 
       <TaxonomyGovernance />
+
+      <EnterpriseMethodFederation />
+
+      <LayeredCapabilityPacks />
+
+      <MissionOutcomeModels />
 
       <GovernanceStandards />
 

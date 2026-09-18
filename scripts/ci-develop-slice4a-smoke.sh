@@ -570,12 +570,18 @@ grep -qi 'foreign key constraint' <<<"$OUT"
 # SLICE 5D ADDED A FOURTH: `ram_agent_reports.calculation_run_id`. The
 # multi-table form has to name every referencing table or the FK check
 # short-circuits again and this assertion stops testing the statement trigger.
-# The engineering-model supply chain adds two more canonical lineage readers:
-# model_predictions and engineering_model_impacts. Name every referencing table
-# so the statement reaches the calculation_runs immutability trigger instead of
-# stopping earlier at an FK check. Nothing about the invariant changes.
+# The engineering-model supply chain adds two canonical lineage readers:
+# model_predictions and engineering_model_impacts. U11 then adds a governed
+# recommendation link to the portfolio calculation run. That new canonical
+# reader intentionally restores an FK refusal for this explicit-table form:
+# recommendations is itself referenced by the approval chain, so widening this
+# destructive statement merely to reach a particular error sentence would test
+# the fixture topology rather than the invariant. The CASCADE form immediately
+# below still gets past every FK and MUST reach the append-only trigger. Together
+# the assertions prove both layers: a live canonical reader prevents an orphan,
+# and even a caller asking PostgreSQL to cascade cannot erase the ledger.
 OUT=$(sql_must_fail "truncate calculation_runs, schedule_simulation_runs, ram_agent_reports, model_predictions, engineering_model_impacts;")
-grep -qi 'append-only for every caller' <<<"$OUT"
+grep -qi 'foreign key constraint' <<<"$OUT"
 OUT=$(sql_must_fail "truncate calculation_runs cascade;")
 grep -qi 'append-only for every caller' <<<"$OUT"
 OUT=$(sql_must_fail "truncate controls_baseline_structures;")

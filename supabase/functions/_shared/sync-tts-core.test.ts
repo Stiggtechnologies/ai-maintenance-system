@@ -54,11 +54,12 @@ describe("sync-tts input validation", () => {
 });
 
 describe("sync-tts voice and configuration", () => {
-  it("defaults an unknown voice to onyx and never reads a secret", () => {
+  it("defaults an unknown voice to marin and never reads a secret", () => {
     expect(resolveTtsVoice(undefined)).toBe(DEFAULT_TTS_VOICE);
     expect(resolveTtsVoice("ONYX")).toBe("onyx");
-    expect(resolveTtsVoice("not-a-voice")).toBe("onyx");
-    expect(resolveTtsVoice("sk-proj-secret")).toBe("onyx");
+    expect(resolveTtsVoice("MARIN")).toBe("marin");
+    expect(resolveTtsVoice("not-a-voice")).toBe("marin");
+    expect(resolveTtsVoice("sk-proj-secret")).toBe("marin");
   });
 
   it("treats a missing OpenAI key as unconfigured — browser fallback, not premium", () => {
@@ -95,9 +96,9 @@ describe("OpenAI model fallback", () => {
         FALLBACK_TTS_MODEL,
       ),
     ).toBe(false);
-    expect(
-      shouldRetryWithFallbackModel(404, "missing", "tts-1", "tts-1"),
-    ).toBe(false);
+    expect(shouldRetryWithFallbackModel(404, "missing", "tts-1", "tts-1")).toBe(
+      false,
+    );
   });
 
   it("synthesizes mp3 via the preferred model when it succeeds", async () => {
@@ -131,6 +132,7 @@ describe("OpenAI model fallback", () => {
       voice: "onyx",
       input: "Welcome.",
       response_format: "mp3",
+      instructions: expect.stringMatching(/warm|engag|natural/i),
     });
   });
 
@@ -160,6 +162,7 @@ describe("OpenAI model fallback", () => {
       String((fetchImpl.mock.calls[1] as [string, RequestInit])[1].body),
     );
     expect(secondBody.model).toBe(FALLBACK_TTS_MODEL);
+    expect(secondBody).not.toHaveProperty("instructions");
   });
 
   it("does not leak the API key in a failed result", async () => {

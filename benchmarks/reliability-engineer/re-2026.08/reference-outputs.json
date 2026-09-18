@@ -18,14 +18,14 @@
     "src/lib/decision-case.ts": "e182275a6806174094073bbe2450c4041d899c22",
     "src/lib/public-reliability.ts": "a3dcaf383ec5ed46c4b85ca0ea2ab41fa47b8cef",
     "src/services/reliabilityCopilotAgent.ts": "67095f3d1860f0b1af34b4fb00f70f154dc88347",
-    "supabase/functions/sync-runtime/index.ts": "cb61d8fe5cbcf910147d821d88380a35ccf1c500",
+    "supabase/functions/sync-runtime/index.ts": "ddd87a9db3c13ffdac821b439457040ddf4db2f7",
     "src/lib/rolePersonas.ts": "870fff358259b473e55ee8ed58ab91b209963fea",
     "src/lib/reliability/index.ts": "c3fe73cacfc092bc9c062451827fdc592019dae1",
     "src/lib/reliability-calculations.ts": "498523cc3fbf8448584c5541c84469f134d0c8b9",
     "src/lib/reliability-report-engine.ts": "4e723ae185edabb5900cf7e77e96d31854beba23",
     "src/lib/reliability-knowledge-base.ts": "a7d8dc51830e769bf138eed4d4edd9f67e0c5459",
     "supabase/functions/_shared/sync-stream.ts": "5c6aeefc73b9ce8d046ec2cdb8eb1596d70ed914",
-    "supabase/functions/_shared/sync-tool-proof.ts": "3c39ffa456bd8035520367b12f95011327093164",
+    "supabase/functions/_shared/sync-tool-proof.ts": "1ad5d3225138bfd17e6995d93724573eb4462cf5",
     "supabase/functions/_shared/sync-notification-classifier.ts": "5bcd7b94f53c944e3e0232719fa2910d1820b0c8"
   },
   "provenance": {

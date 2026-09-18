@@ -19,6 +19,7 @@ import { supabase } from "../lib/supabase";
 import { FieldFailureCapture } from "../components/FieldFailureCapture";
 import { AssetQrLabel } from "../components/AssetQrLabel";
 import { AssetOperatingDuty } from "../components/AssetOperatingDuty";
+import { OperatorRounds } from "../components/OperatorRounds";
 
 export function AssetDetailPage() {
   const { assetId } = useParams<{ assetId: string }>();
@@ -329,6 +330,7 @@ export function AssetDetailPage() {
             />
             <AssetQrLabel assetId={asset.id} assetTag={asset.asset_tag} />
           </div>
+          <OperatorRounds assetId={asset.id} />
         </div>
       )}
 

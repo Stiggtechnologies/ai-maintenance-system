@@ -109,12 +109,12 @@
     },
     {
       "path": "supabase/functions/sync-runtime/index.ts",
-      "gitBlobSha": "cb61d8fe5cbcf910147d821d88380a35ccf1c500",
+      "gitBlobSha": "ddd87a9db3c13ffdac821b439457040ddf4db2f7",
       "tier": "prompt-surface",
       "reachability": "prompt-surface entrypoint \u2014 a third Reliability Engineer surface with its own grounded query and MEETING/FIELD mode prompt contracts",
       "purpose": "carries the isolation/LOTO and protective-function safety text and calls the protected specialist selector",
-      "rebaselinedAt": "2026-08-24",
-      "rebaselineReason": "main changed this file while RE-2026.08 was still unmerged, so the floor was never enforced against it. Re-pinned to what actually ships rather than to a three-day-old snapshot. This is NOT a qualified change and must not be read as one: no reference has been captured, so nothing has been measured. Once XAI_API_KEY exists and the one-shot capture runs, the floor is established against the shipping model and any FURTHER change to this file requires a qualification report."
+      "rebaselinedAt": "2026-09-14",
+      "rebaselineReason": "PR #450 already shipped an in-diff prompt-surface SME approval (benchmarks/reliability-engineer/approvals/sync-tool-reservation-append-only-2026-09-13.json) for the append-only tool-reservation change. This ratchet updates gitBlobSha to the approved shipping blob so dry-run --capture-reference can proceed. Frozen RE-2026.08 answers are unchanged; this surface is not exercised by the qualification harness. This is NOT a new model qualification."
     },
     {
       "path": "src/lib/rolePersonas.ts",
@@ -160,10 +160,12 @@
     },
     {
       "path": "supabase/functions/_shared/sync-tool-proof.ts",
-      "gitBlobSha": "3c39ffa456bd8035520367b12f95011327093164",
+      "gitBlobSha": "1ad5d3225138bfd17e6995d93724573eb4462cf5",
       "tier": "prompt-surface",
       "reachability": "value-import from supabase/functions/sync-runtime/index.ts",
-      "purpose": "tool-proof envelope that decides what evidence the sync-runtime answer may claim"
+      "purpose": "tool-proof envelope that decides what evidence the sync-runtime answer may claim",
+      "rebaselinedAt": "2026-09-14",
+      "rebaselineReason": "Same #450 append-only reservation helpers already approved in sync-tool-reservation-append-only-2026-09-13.json. Ratchet only; not a new RE model qualification."
     },
     {
       "path": "supabase/functions/_shared/sync-notification-classifier.ts",

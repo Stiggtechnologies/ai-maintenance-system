@@ -24,6 +24,7 @@ import {
   ErrorState,
   EmptyState,
 } from "../components/ui/AsyncStates";
+import { AgentControlPanel } from "../components/AgentControlPanel";
 
 type AutonomyMode = "Human-Led" | "Human-in-the-Loop" | "Controlled";
 type AgentStatus = "active" | "idle" | "processing" | "waiting";
@@ -232,13 +233,14 @@ function AgentCard({ agent }: { agent: Agent }) {
               Approval required for next action
             </div>
           )}
+          <AgentControlPanel agentId={agent.id} />
           <div className="flex gap-2 mt-3">
             <button className="flex items-center gap-1.5 px-3 py-1.5 bg-teal-500/10 border border-teal-500/20 text-teal-400 text-xs rounded-lg hover:bg-teal-500/20 transition-colors">
               <Eye className="w-3 h-3" /> Audit Trail
             </button>
-            <button className="flex items-center gap-1.5 px-3 py-1.5 bg-white/4 border border-white/8 text-slate-400 text-xs rounded-lg hover:bg-white/8 transition-colors">
-              <Settings className="w-3 h-3" /> Configure
-            </button>
+            <span className="flex items-center gap-1.5 px-3 py-1.5 bg-white/4 border border-white/8 text-slate-400 text-xs rounded-lg">
+              <Settings className="w-3 h-3" /> Controls above
+            </span>
           </div>
         </div>
       </motion.div>

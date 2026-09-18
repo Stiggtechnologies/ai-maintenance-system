@@ -5,6 +5,7 @@
  * The schema and SECURITY DEFINER functions already exist:
  *   get_operating_context / get_operating_regime
  *   adopt_pf_interval
+ *   link_alert_to_work / derive_observed_pf
  *   propose_taxonomy_revision
  *   request_standard_variance / decide_standard_variance
  *   accept_risk (six-argument form)
@@ -215,6 +216,63 @@ export interface AdoptPfIntervalResult {
   adopted: string;
   pf_interval_days: number;
   recommended_inspection_days: number;
+}
+
+export interface OpenWorkOrderOption {
+  id: string;
+  wo_number: string | null;
+  title: string;
+  status: string;
+  asset_id: string | null;
+}
+
+export async function listOpenWorkOrders(): Promise<OpenWorkOrderOption[]> {
+  const { data, error } = await supabase
+    .from("work_orders")
+    .select("id, wo_number, title, status, asset_id")
+    .is("completed_at", null)
+    .order("created_at", { ascending: false })
+    .limit(80);
+  if (error) throw new Error(error.message);
+  return (data ?? []) as OpenWorkOrderOption[];
+}
+
+export interface LinkAlertToWorkResult {
+  linked: string;
+  work_order_id: string;
+}
+
+export async function linkAlertToWork(
+  alertId: string,
+  workOrderId: string,
+): Promise<LinkAlertToWorkResult> {
+  return callRpc<LinkAlertToWorkResult>("link_alert_to_work", {
+    p_alert_id: alertId,
+    p_work_order_id: workOrderId,
+  });
+}
+
+export interface ObservedPfRow {
+  technique: string;
+  samples: number;
+  observed_pf_days_mean: number;
+  observed_pf_days_min: number;
+  implied_inspection_days: number;
+}
+
+export interface ObservedPfResult {
+  observed: ObservedPfRow[];
+  available: boolean;
+  min_samples: number;
+  basis: string;
+}
+
+export async function deriveObservedPf(
+  minSamples = 3,
+): Promise<ObservedPfResult> {
+  return callRpc<ObservedPfResult>("derive_observed_pf", {
+    p_min_samples: minSamples,
+  });
 }
 
 export async function adoptPfInterval(

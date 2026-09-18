@@ -246,11 +246,15 @@ const ACTIONS: Array<{
       workOrderId: null,
       incurredAt: "2026-09-05T12:00:00Z",
       category: "external_failure",
+      copqTerm: "claims",
       amount: 500,
       currency: "CAD",
       costType: "Customer field correction",
       sourceReference: "Approved invoice INV-001",
       evidenceItemId: null,
+      developmentCaseId: null,
+      forecastGrowthAmount: null,
+      forecastGrowthBasis: null,
     },
   },
 ];
@@ -399,11 +403,91 @@ export function QualityManagementWorkbench() {
                 {cost.appraisal.toLocaleString()} · total quality cost{" "}
                 {cost.totalCostOfQuality.toLocaleString()}
               </p>
+              {cost.copqByTerm ? (
+                <p className="mt-2 text-[10px] leading-relaxed text-slate-400">
+                  Rework {cost.copqByTerm.rework.toLocaleString()} · Scrap{" "}
+                  {cost.copqByTerm.scrap.toLocaleString()} · Retesting{" "}
+                  {cost.copqByTerm.retesting.toLocaleString()} · Delay{" "}
+                  {cost.copqByTerm.delay.toLocaleString()} · Claims{" "}
+                  {cost.copqByTerm.claims.toLocaleString()} · Startup failures{" "}
+                  {cost.copqByTerm.startup_failures.toLocaleString()}
+                </p>
+              ) : (
+                <p className="mt-2 text-[10px] text-amber-300">
+                  Six-term attribution is unavailable from the current service
+                  version; no term split is inferred.
+                </p>
+              )}
+              {(cost.unattributedFailure ?? 0) > 0 && (
+                <p className="mt-2 text-[10px] text-amber-300">
+                  {(cost.unattributedFailure ?? 0).toLocaleString()} predates
+                  six-term attribution and remains explicitly unclassified.
+                </p>
+              )}
             </div>
           ))}
           {data.costByCurrency.length === 0 && (
             <p className="text-xs text-slate-500">
               No sourced quality cost has been recorded.
+            </p>
+          )}
+        </div>
+      </section>
+
+      <section className="rounded-2xl border border-white/7 bg-[#0D1520] p-5">
+        <div className="flex items-center gap-2">
+          <CircleDollarSign className="h-4 w-4 text-amber-300" />
+          <h3 className="text-sm font-bold text-white">
+            Forecast growth attribution
+          </h3>
+        </div>
+        <p className="mt-2 max-w-4xl text-xs leading-relaxed text-slate-500">
+          Separates quality-failure growth recorded in the quality ledger from
+          positive scope-change cost effects on the approved scope baseline. It
+          does not infer missing costs or certify a forecast.
+        </p>
+        <div className="mt-3 grid gap-3 lg:grid-cols-2">
+          {(data.forecastAttribution ?? []).map((item) => (
+            <div
+              key={`${item.developmentCaseId}-${item.currency}`}
+              className="rounded-xl border border-white/7 bg-white/3 p-4"
+            >
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <span className="text-xs font-bold text-slate-200">
+                  {item.caseRef} · {item.caseTitle}
+                </span>
+                <span className="text-xs font-semibold text-slate-400">
+                  {item.currency}
+                </span>
+              </div>
+              <p className="mt-3 text-sm text-red-200">
+                Quality-driven {item.qualityFailureGrowth.toLocaleString()}
+              </p>
+              <p className="mt-1 text-sm text-cyan-200">
+                Scope growth {item.scopeGrowth.toLocaleString()}
+              </p>
+              <p className="mt-2 text-[10px] text-slate-500">
+                {item.qualitySharePct == null
+                  ? "Share unavailable until the recorded attribution has a non-zero denominator."
+                  : `${item.qualitySharePct.toLocaleString()}% of attributed growth is quality-driven.`}
+              </p>
+              {item.uncostedScopeChangeCount > 0 && (
+                <p className="mt-2 text-[10px] text-amber-300">
+                  {item.uncostedScopeChangeCount} scope change(s) carry no cost;
+                  the displayed split is incomplete.
+                </p>
+              )}
+            </div>
+          ))}
+          {data.forecastAttribution?.length === 0 && (
+            <p className="text-xs text-slate-500">
+              No case-linked quality forecast growth has been recorded.
+            </p>
+          )}
+          {data.forecastAttribution === undefined && (
+            <p className="text-xs text-amber-300">
+              Forecast attribution is unavailable from the current service
+              version; no zero-growth conclusion is inferred.
             </p>
           )}
         </div>

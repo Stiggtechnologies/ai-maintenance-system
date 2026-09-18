@@ -459,7 +459,16 @@ export interface EnterpriseRiskArchitecture {
   assumptions: RiskAssumptionRecord[];
   sources: Array<Record<string, unknown> & { id: string; risk_id: string }>;
   consequences: Array<
-    Record<string, unknown> & { id: string; risk_id: string }
+    Record<string, unknown> & {
+      id: string;
+      risk_id: string;
+      dimension: string;
+      description: string;
+      assessment_state?: string;
+      status?: string;
+      magnitude?: number | null;
+      magnitude_unit?: string | null;
+    }
   >;
   likelihood_estimates: Array<
     Record<string, unknown> & { id: string; risk_id: string; method: string }

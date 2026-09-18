@@ -888,6 +888,147 @@ export interface OperationalReadinessResult {
   scopeNote?: string;
 }
 
+export type OperationalReadinessFactorKey =
+  | "people"
+  | "procedures"
+  | "asset_data"
+  | "maintenance"
+  | "spares"
+  | "training"
+  | "operations"
+  | "safety"
+  | "cyber";
+
+export interface OperationalReadinessIndexFactor {
+  key: OperationalReadinessFactorKey;
+  weight: number;
+  categories: string[];
+  satisfied?: number;
+  total?: number;
+  percent?: number | null;
+}
+
+export interface OperationalReadinessIndexProfile {
+  profileId: string;
+  version: number;
+  status: "draft" | "adopted" | "superseded";
+  factors: OperationalReadinessIndexFactor[];
+  hardRequirementKeys: string[];
+  basis: string;
+  evidenceItemId: string;
+  createdBy: string;
+  createdAt: string;
+  adoptedBy: string | null;
+  adoptedAt: string | null;
+}
+
+export interface OperationalReadinessIndexResult {
+  caseId: string;
+  profiles: OperationalReadinessIndexProfile[];
+  calculation: {
+    refusal?: "no_adopted_profile" | "missing_factor_inputs";
+    error?: string;
+    missingFactors?: string[];
+    index?: number;
+    status?: "BLOCKED" | "READY" | "NOT_READY";
+    hardConditionOverride?: boolean;
+    hardBlockerCount?: number;
+    hardBlockers?: Array<{
+      systemId: number;
+      systemRef: string;
+      itemId: string;
+      assetId: string;
+      asset: string;
+      assetTag: string | null;
+      requirementKey: string;
+      item: string;
+      category: string;
+      status: string;
+      kind: "safety_mission_critical" | "profile_hard_condition";
+    }>;
+    factors?: OperationalReadinessIndexFactor[];
+    profileId?: string;
+    profileVersion?: number;
+    basis?: string;
+    evidenceItemId?: string;
+    formula?: string;
+  };
+  readinessStore: "asset_onboarding_items";
+  decisionBoundary?: string;
+}
+
+export interface SystemOperationalReadinessItem {
+  scopeId: number;
+  itemId: string;
+  assetId: string;
+  asset: string;
+  assetTag: string | null;
+  requirementKey: string;
+  item: string;
+  category: string;
+  ownerId: string;
+  owner: string | null;
+  requiredBefore: string;
+  status: string;
+  evidenceItemId: string | null;
+  evidenceReady: boolean;
+  overdue: boolean;
+}
+
+export interface SystemOperationalReadinessResult {
+  caseId: string;
+  systems: Array<{
+    systemId: number;
+    systemRef: string;
+    title: string;
+    currentState: string | null;
+    assetCount: number;
+    itemCount: number;
+    satisfiedCount: number;
+    overdueOpenCount: number;
+    items: SystemOperationalReadinessItem[];
+  }>;
+  readinessStore: "asset_onboarding_items";
+  decisionBoundary: string;
+}
+
+export interface SystemReadinessDesignOrigin {
+  originId: number;
+  designRequirementId: number;
+  requirementRef: string;
+  requirementCategory: string;
+  requirement: string;
+  onboardingRequirementKey: string;
+  readinessCategory: string;
+  readinessItem: string;
+  ownerId: string;
+  owner: string | null;
+  requiredBefore: string;
+  mappingBasis: string;
+  mappingEvidenceItemId: string;
+  recordedBy: string;
+  recordedAt: string;
+  materializedItemCount: number;
+  fullyMaterialized: boolean;
+}
+
+export interface SystemReadinessDesignOriginsResult {
+  caseId: string;
+  systems: Array<{
+    systemId: number;
+    systemRef: string;
+    title: string;
+    assetCount: number;
+    originCount: number;
+    pendingOriginCount: number;
+    origins: SystemReadinessDesignOrigin[];
+  }>;
+  requirementStore: "design_requirements";
+  readinessStore: "asset_onboarding_items";
+  acceptanceStore: "system_handover_packages";
+  decisionBoundary: string;
+}
+
 // ---------------------------------------------------------------------------
 // Slice 2 value-spine RPC result shapes — get_case_finance_model,
 // get_case_value_trajectory, get_since_sanction_delta return exactly these
@@ -979,6 +1120,54 @@ export interface CaseFinanceModel {
       forecastBasis: string | null;
     }[];
   };
+}
+
+export interface OptionComparisonDimensionRow {
+  dimension: string;
+  status: "recorded" | "missing";
+  observation: string | null;
+  value: number | null;
+  unit: string | null;
+  basis: string | null;
+  evidenceItemId: string | null;
+}
+
+export interface ClimateHazardAssessmentRow {
+  hazard: string;
+  futureCondition: string;
+  designResponse: string;
+  residualGap: string;
+  evidenceItemId: string;
+}
+
+export interface ClimateResilienceAssessmentView {
+  id: string;
+  assessmentRef: string;
+  revision: number;
+  status: "draft" | "reviewed" | "superseded";
+  futureConditionsBasis: string;
+  reviewedAt: string | null;
+  reviewNote: string | null;
+  hazards: ClimateHazardAssessmentRow[];
+  missingHazards: string[];
+}
+
+export interface CaseOptionComparison {
+  caseId: string;
+  available: boolean;
+  options: Array<{
+    id: number;
+    label: string;
+    isDoNothing: boolean;
+    dimensions: OptionComparisonDimensionRow[];
+    missingDimensions: string[];
+    comparisonComplete: boolean;
+    climateAssessment: ClimateResilienceAssessmentView | null;
+  }>;
+  comparisonComplete: boolean;
+  requiredDimensions: 11;
+  requiredClimateHazards: 8;
+  decisionBoundary: string;
 }
 
 export interface TrajectoryPoint {

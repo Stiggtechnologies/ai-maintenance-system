@@ -33,13 +33,13 @@ describe("DomainSpecialistWorkbench", () => {
     vi.mocked(reviewDomainSpecialistRun).mockClear();
   });
 
-  it("exposes all 14 modules and refuses a preview without evidence", async () => {
+  it("exposes all 17 modules and refuses a preview without evidence", async () => {
     render(<DomainSpecialistWorkbench risks={[risk]} />);
 
     const moduleSelect = screen.getByLabelText("Specialist module");
-    expect(moduleSelect.querySelectorAll("option")).toHaveLength(14);
+    expect(moduleSelect.querySelectorAll("option")).toHaveLength(17);
     expect(
-      screen.getByText(/14 governed modules and 29 deterministic methods/i),
+      screen.getByText(/17 governed modules and 67 deterministic methods/i),
     ).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Preview locally" }));
@@ -57,6 +57,86 @@ describe("DomainSpecialistWorkbench", () => {
     expect(screen.getByText(/cannot certify compliance/i)).toBeInTheDocument();
   });
 
+  it("makes all six utilities and network methods reachable", () => {
+    render(<DomainSpecialistWorkbench risks={[risk]} />);
+    fireEvent.change(screen.getByLabelText("Specialist module"), {
+      target: { value: "utilities-storm-response" },
+    });
+    const methods = screen.getByLabelText("Method").querySelectorAll("option");
+    expect([...methods].map((option) => option.getAttribute("value"))).toEqual([
+      "network-reliability-impact",
+      "outage-control-readiness",
+      "network-load-capacity",
+      "storm-mobilization-readiness",
+      "storm-crew-dispatch",
+      "network-restoration-prioritization",
+    ]);
+  });
+
+  it("makes all six fleet and transportation methods reachable", () => {
+    render(<DomainSpecialistWorkbench risks={[risk]} />);
+    fireEvent.change(screen.getByLabelText("Specialist module"), {
+      target: { value: "transport-logistics" },
+    });
+    const methods = screen.getByLabelText("Method").querySelectorAll("option");
+    expect([...methods].map((option) => option.getAttribute("value"))).toEqual([
+      "fleet-duty-exposure",
+      "dispatch-availability",
+      "route-depot-optimization",
+      "fleet-configuration-trace",
+      "inspection-scheduling",
+      "fleet-replacement-prioritization",
+    ]);
+  });
+
+  it("makes all six manufacturing assurance methods reachable", () => {
+    render(<DomainSpecialistWorkbench risks={[risk]} />);
+    fireEvent.change(screen.getByLabelText("Specialist module"), {
+      target: { value: "manufacturing-operations" },
+    });
+    const methods = screen.getByLabelText("Method").querySelectorAll("option");
+    expect([...methods].map((option) => option.getAttribute("value"))).toEqual([
+      "line-balancing",
+      "robot-health",
+      "oee-loss-decomposition",
+      "quality-loss-reconciliation",
+      "tooling-life-assurance",
+      "changeover-readiness",
+    ]);
+  });
+
+  it("makes all six civil-infrastructure methods reachable", () => {
+    render(<DomainSpecialistWorkbench risks={[risk]} />);
+    fireEvent.change(screen.getByLabelText("Specialist module"), {
+      target: { value: "civil-infrastructure" },
+    });
+    const methods = screen.getByLabelText("Method").querySelectorAll("option");
+    expect([...methods].map((option) => option.getAttribute("value"))).toEqual([
+      "structural-condition",
+      "inspection-rating",
+      "deterioration-forecast",
+      "load-restriction",
+      "geographic-risk",
+      "renewal-planning",
+    ]);
+  });
+
+  it("makes all six healthcare assurance methods reachable", () => {
+    render(<DomainSpecialistWorkbench risks={[risk]} />);
+    fireEvent.change(screen.getByLabelText("Specialist module"), {
+      target: { value: "healthcare-clinical-engineering" },
+    });
+    const methods = screen.getByLabelText("Method").querySelectorAll("option");
+    expect([...methods].map((option) => option.getAttribute("value"))).toEqual([
+      "clinical-criticality",
+      "device-availability",
+      "calibration-assurance",
+      "infection-control-readiness",
+      "patient-risk",
+      "device-traceability",
+    ]);
+  });
+
   it("switches to the three-method aviation module without losing the governed risk", () => {
     render(<DomainSpecialistWorkbench risks={[risk]} />);
     fireEvent.change(screen.getByLabelText("Specialist module"), {
@@ -69,6 +149,24 @@ describe("DomainSpecialistWorkbench", () => {
     expect(
       screen.getByRole("option", { name: /Airworthiness directive/i }),
     ).toBeInTheDocument();
+  });
+
+  it("makes every buildings and facilities method reachable from the governed workbench", () => {
+    render(<DomainSpecialistWorkbench risks={[risk]} />);
+    fireEvent.change(screen.getByLabelText("Specialist module"), {
+      target: { value: "buildings-infrastructure" },
+    });
+    const methods = screen.getByLabelText("Method").querySelectorAll("option");
+    expect(methods).toHaveLength(7);
+    expect([...methods].map((option) => option.getAttribute("value"))).toEqual([
+      "code-compliance",
+      "fire-life-safety",
+      "occupancy-accessibility",
+      "occupant-environment",
+      "bas-control-integrity",
+      "energy-water-performance",
+      "facility-renewal-priority",
+    ]);
   });
 
   it("exposes the persisted specialist-role gate and records a review", async () => {

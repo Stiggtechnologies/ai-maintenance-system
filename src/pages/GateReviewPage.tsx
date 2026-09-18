@@ -52,6 +52,7 @@ import {
   type OrgMember,
 } from "../services/developService";
 import { GATE_OUTCOMES } from "../lib/develop";
+import { PmGateBriefing } from "../components/develop/PmGateBriefing";
 
 const inputClass =
   "w-full rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-signal-cyan/50 focus:outline-none";
@@ -434,6 +435,8 @@ export function GateReviewPage() {
 
       {pack && (
         <>
+          <PmGateBriefing pack={pack} />
+
           {/* §36 steps 1-2 + 5-7 — the position, from the one evaluator. */}
           <Step n={1} title="Where this gate stands">
             <div className="flex flex-wrap items-center gap-2 text-xs text-slate-300">

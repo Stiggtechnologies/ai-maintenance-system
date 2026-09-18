@@ -58,6 +58,20 @@ export interface QualityCockpit {
     oldestOpenAgeDays: number | null;
   };
   costByCurrency: QualityCostOfQuality[];
+  forecastAttribution?: Array<{
+    developmentCaseId: string;
+    caseRef: string;
+    caseTitle: string;
+    currency: string;
+    qualityFailureGrowth: number;
+    scopeGrowth: number;
+    combinedGrowth: number | null;
+    qualitySharePct: number | null;
+    qualityEntryCount: number;
+    scopeChangeCount: number;
+    uncostedScopeChangeCount: number;
+    basis: string;
+  }>;
   requirements: QualityRequirementRow[];
   unboundQualityRequirements?: Array<{
     id: number;

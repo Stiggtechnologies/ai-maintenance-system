@@ -7,6 +7,14 @@ import type {
   DomainSpecialistRequest,
   DomainSpecialistResult,
 } from "./types.ts";
+import {
+  capacityGaps,
+  propagateLoss,
+  restorationOrder,
+  singlePointsOfFailure,
+  type DependencyGraph,
+  type EdgeKind,
+} from "../interdependency/index.ts";
 
 interface Evaluation {
   summary: string;
@@ -396,22 +404,371 @@ function rbi(inputs: Record<string, unknown>): Evaluation {
   };
 }
 
+const NETWORK_EDGE_KINDS = new Set<EdgeKind>([
+  "functional",
+  "utility",
+  "topological",
+  "control",
+  "geographic",
+  "logistical",
+  "physical",
+  "process",
+  "electrical",
+  "data",
+  "organizational",
+  "contractual",
+]);
+
+function utilityNetworkGraph(inputs: Record<string, unknown>): DependencyGraph {
+  const nodes = records(inputs.nodes, "Network nodes").map((row, index) => ({
+    id: text(row.id, `Node ${index + 1} ID`),
+    name: text(row.name, `Node ${index + 1} name`),
+    criticality:
+      typeof row.criticality === "string" ? row.criticality.trim() : null,
+    serviceName:
+      typeof row.serviceName === "string" ? row.serviceName.trim() : null,
+    consequenceClass:
+      typeof row.consequenceClass === "string"
+        ? row.consequenceClass.trim()
+        : null,
+    restorationRank:
+      row.restorationRank == null
+        ? null
+        : positiveInteger(
+            row.restorationRank,
+            `Node ${index + 1} restoration rank`,
+          ),
+  }));
+  requireUnique(
+    nodes.map((node) => node.id),
+    "Network nodes",
+  );
+  const ids = new Set(nodes.map((node) => node.id));
+  const edges = records(inputs.edges, "Network dependencies").map(
+    (row, index) => {
+      const supplier = text(row.supplier, `Dependency ${index + 1} supplier`);
+      const dependent = text(
+        row.dependent,
+        `Dependency ${index + 1} dependent`,
+      );
+      const kind = text(row.kind, `Dependency ${index + 1} kind`) as EdgeKind;
+      if (!ids.has(supplier) || !ids.has(dependent))
+        throw new InputError(
+          `Dependency ${index + 1} references a node outside the controlled network scope.`,
+        );
+      if (supplier === dependent)
+        throw new InputError(
+          `Dependency ${index + 1} cannot be self-referential.`,
+        );
+      if (!NETWORK_EDGE_KINDS.has(kind))
+        throw new InputError(`Dependency ${index + 1} kind is not supported.`);
+      const share =
+        row.capacitySharePct == null
+          ? null
+          : nonNegative(
+              row.capacitySharePct,
+              `Dependency ${index + 1} capacity share`,
+            );
+      if (share != null && share > 100)
+        throw new InputError(
+          `Dependency ${index + 1} capacity share must not exceed 100%.`,
+        );
+      return {
+        supplier,
+        dependent,
+        kind,
+        redundancyGroup:
+          typeof row.redundancyGroup === "string"
+            ? row.redundancyGroup.trim()
+            : null,
+        minRequired:
+          row.minRequired == null
+            ? null
+            : positiveInteger(
+                row.minRequired,
+                `Dependency ${index + 1} minimum required`,
+              ),
+        capacitySharePct: share,
+        evidence: text(row.evidence, `Dependency ${index + 1} evidence`),
+        source: typeof row.source === "string" ? row.source.trim() : null,
+      };
+    },
+  );
+  requireUnique(
+    edges.map(
+      (edge) =>
+        `${edge.supplier}:${edge.dependent}:${edge.kind}:${edge.redundancyGroup ?? ""}`,
+    ),
+    "Network dependencies",
+  );
+  return { nodes, edges, commonCauseGroups: [] };
+}
+
+function failedNetworkIds(
+  inputs: Record<string, unknown>,
+  graph: DependencyGraph,
+): string[] {
+  const failed = records(inputs.failedAssets, "Outage origins").map(
+    (row, index) => text(row.id, `Failed asset ${index + 1} ID`),
+  );
+  requireUnique(failed, "Failed assets");
+  const ids = new Set(graph.nodes.map((node) => node.id));
+  const unknown = failed.filter((id) => !ids.has(id));
+  if (unknown.length)
+    throw new InputError(
+      `Failed assets are outside the controlled network scope: ${unknown.join(", ")}.`,
+    );
+  return failed;
+}
+
+function networkReliabilityImpact(inputs: Record<string, unknown>): Evaluation {
+  const graph = utilityNetworkGraph(inputs);
+  const failed = failedNetworkIds(inputs, graph);
+  const cascade = propagateLoss(graph, failed);
+  const spof = singlePointsOfFailure(graph);
+  const gaps = capacityGaps(graph).map((gap) => `${gap.name}: ${gap.reason}`);
+  const findings = cascade.impacted.map(
+    (item) =>
+      `${item.name}: ${item.state}, ${item.capacityPct}% supplied structural capacity versus ${item.baselinePct}% baseline; ${item.cause}.`,
+  );
+  findings.push(
+    ...spof.points.map(
+      (point) =>
+        `${point.name}: single-point exposure affects ${point.assetsLost} additional asset(s) and ${point.servicesLost.length} declared service(s)${point.underrated ? "; recorded criticality may understate consequence" : ""}.`,
+    ),
+  );
+  return {
+    summary: `${failed.length} confirmed outage origin(s) structurally affect ${cascade.lostCount} lost and ${cascade.degradedCount} degraded network node(s); this is not a probabilistic or regulatory reliability result.`,
+    metrics: [
+      {
+        key: "lost_nodes",
+        label: "Structurally lost nodes",
+        value: cascade.lostCount,
+        unit: "count",
+      },
+      {
+        key: "degraded_nodes",
+        label: "Structurally degraded nodes",
+        value: cascade.degradedCount,
+        unit: "count",
+      },
+      {
+        key: "services_lost",
+        label: "Declared services lost",
+        value: cascade.servicesLost.length,
+        unit: "count",
+      },
+      {
+        key: "single_points",
+        label: "Single-point exposures",
+        value: spof.points.length,
+        unit: "count",
+      },
+    ],
+    findings,
+    gaps,
+    assumptions: [
+      "The controlled graph is complete for the decision boundary; structural propagation does not establish failure probability, duration, flow feasibility, protection performance, or regulatory reliability indices.",
+    ],
+    formulae: [
+      "Canonical baseline-settled dependency propagation from src/lib/interdependency; capacity-share groups degrade proportionally and binary dependencies fail when required suppliers are unavailable.",
+    ],
+  };
+}
+
+function outageControlReadiness(inputs: Record<string, unknown>): Evaluation {
+  const outages = records(inputs.outages, "Outage records");
+  requireUnique(
+    outages.map((row, index) => text(row.id, `Outage ${index + 1} ID`)),
+    "Outage records",
+  );
+  return coverageEvaluation(
+    "outage management",
+    outages,
+    (row) =>
+      Boolean(
+        row.id &&
+        bool(row.stateControlled) &&
+        bool(row.boundaryConfirmed) &&
+        bool(row.isolationProtectionControlled) &&
+        bool(row.hazardsControlled) &&
+        bool(row.operatingPlanApproved) &&
+        bool(row.fieldStatusCurrent) &&
+        bool(row.customerCommunicationsControlled) &&
+        bool(row.independentlyReviewed),
+      ),
+    (row, index) => String(row.id ?? `outage ${index + 1}`),
+    "controlled state, affected boundary, isolation/protection, hazards, approved operating plan, current field status, customer communication, or independent review is missing.",
+  );
+}
+
+function networkLoadCapacity(inputs: Record<string, unknown>): Evaluation {
+  const areas = records(inputs.areas, "Network areas").map((row, index) => ({
+    id: text(row.id, `Area ${index + 1} ID`),
+    demand: nonNegative(row.demand, `Area ${index + 1} demand`),
+    reserve: nonNegative(
+      row.reserveRequired,
+      `Area ${index + 1} reserve requirement`,
+    ),
+    unit: text(row.unit, `Area ${index + 1} unit`),
+    basisReady:
+      bool(row.boundaryCurrent) &&
+      bool(row.demandCertified) &&
+      bool(row.reservePolicyApproved),
+  }));
+  requireUnique(
+    areas.map((area) => area.id),
+    "Network areas",
+  );
+  const areaIds = new Set(areas.map((area) => area.id));
+  const sources = records(inputs.sources, "Capacity sources").map(
+    (row, index) => {
+      const areaId = text(row.areaId, `Source ${index + 1} area ID`);
+      if (!areaIds.has(areaId))
+        throw new InputError(
+          `Source ${index + 1} references unknown area ${areaId}.`,
+        );
+      return {
+        id: text(row.id, `Source ${index + 1} ID`),
+        areaId,
+        capacity: nonNegative(
+          row.availableCapacity,
+          `Source ${index + 1} available capacity`,
+        ),
+        unit: text(row.unit, `Source ${index + 1} unit`),
+        ready:
+          bool(row.available) &&
+          bool(row.protectionCurrent) &&
+          bool(row.configurationCurrent),
+      };
+    },
+  );
+  requireUnique(
+    sources.map((source) => source.id),
+    "Capacity sources",
+  );
+  const metrics: DomainMetric[] = [];
+  const findings: string[] = [];
+  const gaps: string[] = [];
+  for (const [index, area] of areas.entries()) {
+    const matching = sources.filter(
+      (source) => source.areaId === area.id && source.unit === area.unit,
+    );
+    const capacity = matching
+      .filter((source) => source.ready)
+      .reduce((sum, source) => sum + source.capacity, 0);
+    const margin = area.basisReady
+      ? capacity - area.demand - area.reserve
+      : null;
+    metrics.push(
+      {
+        key: `available_capacity_${index}`,
+        label: `${area.id} evidence-ready available capacity`,
+        value: area.basisReady ? round(capacity) : null,
+        unit: area.unit,
+      },
+      {
+        key: `planning_margin_${index}`,
+        label: `${area.id} planning capacity margin`,
+        value: margin == null ? null : round(margin),
+        unit: area.unit,
+      },
+    );
+    if (!area.basisReady)
+      gaps.push(
+        `${area.id}: current boundary, certified demand, or approved reserve policy is missing.`,
+      );
+    for (const source of sources.filter(
+      (item) => item.areaId === area.id && item.unit !== area.unit,
+    ))
+      gaps.push(
+        `${source.id}: ${source.unit} does not match ${area.id} unit ${area.unit}; no conversion was inferred.`,
+      );
+    for (const source of matching.filter((item) => !item.ready))
+      gaps.push(
+        `${source.id}: excluded because availability, protection, or configuration state is incomplete.`,
+      );
+    if (margin != null) {
+      findings.push(
+        `${area.id}: ${round(capacity)} ${area.unit} available minus ${round(area.demand)} demand and ${round(area.reserve)} approved reserve = ${round(margin)} ${area.unit} planning margin.`,
+      );
+      if (margin < 0)
+        gaps.push(
+          `${area.id}: planning capacity is ${round(-margin)} ${area.unit} below demand plus supplied reserve requirement.`,
+        );
+    }
+  }
+  return {
+    summary: `${areas.length} bounded network area(s) were reconciled using exact supplied units; arithmetic margins do not establish network deliverability.`,
+    metrics,
+    findings,
+    gaps,
+    assumptions: [
+      "Demand, available capacity, reserve requirements, boundaries, protection state, and configuration state share the same approved time basis.",
+    ],
+    formulae: [
+      "Planning capacity margin = Σ evidence-ready supplied available capacity - supplied demand - supplied approved reserve requirement.",
+    ],
+  };
+}
+
+function stormMobilizationReadiness(
+  inputs: Record<string, unknown>,
+): Evaluation {
+  const areas = records(inputs.areas, "Storm response areas");
+  requireUnique(
+    areas.map((row, index) => text(row.id, `Response area ${index + 1} ID`)),
+    "Storm response areas",
+  );
+  return coverageEvaluation(
+    "storm mobilization",
+    areas,
+    (row) =>
+      Boolean(
+        row.id &&
+        bool(row.incidentCommandActivated) &&
+        bool(row.hazardBasisApproved) &&
+        bool(row.mutualAidDispositionApproved) &&
+        (!bool(row.mutualAidRequired) || bool(row.mutualAidConfirmed)) &&
+        bool(row.materialsReady) &&
+        bool(row.communicationsTested) &&
+        bool(row.logisticsReady) &&
+        bool(row.operatingProceduresCurrent) &&
+        bool(row.independentlyReviewed),
+      ),
+    (row, index) => String(row.id ?? `response area ${index + 1}`),
+    "incident command, approved hazard basis, applicable mutual aid, materials, tested communications, logistics, current operating procedures, or independent review is missing.",
+  );
+}
+
 function stormDispatch(inputs: Record<string, unknown>): Evaluation {
   const incidents = records(inputs.incidents, "Storm incidents");
   const crews = records(inputs.crews, "Available crews").map((crew, index) => ({
     id: text(crew.id, `Crew ${index + 1} ID`),
     status: text(crew.status, `Crew ${index + 1} status`),
     skills: strings(crew.skills),
-    remaining: positive(
+    remaining: nonNegative(
       crew.availableHours,
       `Crew ${index + 1} available hours`,
     ),
   }));
+  requireUnique(
+    crews.map((crew) => crew.id),
+    "Available crews",
+  );
+  if (crews.some((crew) => crew.skills.length === 0))
+    throw new InputError(
+      "Every available crew requires at least one supplied skill.",
+    );
   const travel = object(inputs.travelMinutes, "Travel-time matrix");
   const weights = object(inputs.priorityWeights, "Priority weights");
   const severityWeight = nonNegative(weights.severity, "Severity weight");
   const customerWeight = nonNegative(weights.customers, "Customer weight");
-  const travelWeight = nonNegative(weights.travel, "Travel weight");
+  const travelWeight = positive(weights.travel, "Travel weight");
+  if (severityWeight + customerWeight <= 0)
+    throw new InputError(
+      "At least one approved incident-priority weight must be positive.",
+    );
   const ordered = incidents
     .map((incident, index) => ({
       incident,
@@ -428,6 +785,14 @@ function stormDispatch(inputs: Record<string, unknown>): Evaluation {
       skills: strings(incident.requiredSkills),
     }))
     .sort((a, b) => b.priority - a.priority || a.id.localeCompare(b.id));
+  requireUnique(
+    ordered.map((item) => item.id),
+    "Storm incidents",
+  );
+  if (ordered.some((item) => item.skills.length === 0))
+    throw new InputError(
+      "Every storm incident requires at least one supplied skill.",
+    );
   const assignments: string[] = [];
   const gaps: string[] = [];
   for (const item of ordered) {
@@ -492,6 +857,83 @@ function stormDispatch(inputs: Record<string, unknown>): Evaluation {
     formulae: [
       "Priority score = severity × approved severity weight + customers affected × approved customer weight.",
       "Within each priority-ordered incident, choose the eligible crew with minimum supplied travel time × approved travel weight.",
+    ],
+  };
+}
+
+function networkRestorationPrioritization(
+  inputs: Record<string, unknown>,
+): Evaluation {
+  const graph = utilityNetworkGraph(inputs);
+  const failed = failedNetworkIds(inputs, graph);
+  const readinessRows = records(inputs.readiness, "Restoration readiness");
+  const readiness = new Map<string, boolean>();
+  for (const [index, row] of readinessRows.entries()) {
+    const id = text(row.id, `Readiness ${index + 1} asset ID`);
+    if (readiness.has(id))
+      throw new InputError(
+        `Restoration readiness contains duplicate ID ${id}.`,
+      );
+    if (!failed.includes(id))
+      throw new InputError(
+        `${id} readiness is outside the confirmed failed set.`,
+      );
+    readiness.set(
+      id,
+      bool(row.isolationProtectionControlled) &&
+        bool(row.hazardsControlled) &&
+        bool(row.materialsReady) &&
+        bool(row.qualifiedCrewReady) &&
+        bool(row.fieldVerificationComplete) &&
+        bool(row.operatingApprovalRecorded),
+    );
+  }
+  const result = restorationOrder(graph, failed);
+  const gaps: string[] = [];
+  for (const id of failed) {
+    if (!readiness.has(id))
+      gaps.push(`${id}: no restoration-readiness record was supplied.`);
+    else if (!readiness.get(id))
+      gaps.push(
+        `${id}: isolation/protection, hazards, materials, qualified crew, field verification, or operating approval is incomplete.`,
+      );
+  }
+  if (result.cycles.length)
+    gaps.push(
+      `Dependency cycle refused: ${result.cycles[0].join(" → ")}. An approved blackstart, temporary supply, bypass, or engineered resolution is required.`,
+    );
+  return {
+    summary: `${result.steps.length} of ${failed.length} failed asset(s) received a canonical dependency-safe draft order; no switching, field, energization, pressure-restoration, or return-to-service instruction was issued.`,
+    metrics: [
+      {
+        key: "ordered",
+        label: "Dependency-ordered assets",
+        value: result.steps.length,
+        unit: "count",
+      },
+      {
+        key: "field_ready",
+        label: "Field-readiness evidenced",
+        value: failed.filter((id) => readiness.get(id) === true).length,
+        unit: "count",
+      },
+      {
+        key: "cycles",
+        label: "Unresolved dependency cycles",
+        value: result.cycles.length,
+        unit: "count",
+      },
+    ],
+    findings: result.steps.map(
+      (step) =>
+        `${step.order}. ${step.name} · ${readiness.get(step.id) === true ? "field-readiness evidenced" : "BLOCKED pending field readiness"} · ${step.reason}`,
+    ),
+    gaps,
+    assumptions: [
+      "The failed set, dependency graph, supplied consequence rank, isolation/protection state, hazards, materials, crew status, field verification, and operating approvals are current for the same restoration boundary.",
+    ],
+    formulae: [
+      "Canonical topological restoration order from src/lib/interdependency preserves supplier precedence, then applies supplied restoration rank/consequence/criticality with deterministic ID tie-breaking.",
     ],
   };
 }
@@ -680,6 +1122,331 @@ function robotHealth(inputs: Record<string, unknown>): Evaluation {
     formulae: [
       "Signal degradation = clamped position between supplied healthy and critical bounds.",
       "Model degradation = Σ(signal degradation × approved weight) / Σ(approved weight).",
+    ],
+  };
+}
+
+function oeeLossDecomposition(inputs: Record<string, unknown>): Evaluation {
+  const rows = records(inputs.periods, "Production periods");
+  const ids = rows.map((row, index) =>
+    text(row.id, `Production period ${index + 1} ID`),
+  );
+  requireUnique(ids, "Production periods");
+  const metrics: DomainMetric[] = [];
+  const findings: string[] = [];
+  const gaps: string[] = [];
+  let calculated = 0;
+
+  rows.forEach((row, index) => {
+    const id = ids[index];
+    const scheduled = positive(
+      row.scheduledMinutes,
+      `${id} scheduled production minutes`,
+    );
+    const downtime = nonNegative(row.downtimeMinutes, `${id} downtime minutes`);
+    const idealCycle = positive(
+      row.idealCycleMinutes,
+      `${id} ideal cycle minutes`,
+    );
+    const total = positiveInteger(row.totalCount, `${id} total count`);
+    const good = nonNegative(row.goodCount, `${id} good count`);
+    if (!Number.isInteger(good))
+      throw new InputError(`${id} good count must be an integer.`);
+    if (downtime > scheduled)
+      throw new InputError(
+        `${id} downtime minutes must not exceed scheduled production minutes.`,
+      );
+    if (good > total)
+      throw new InputError(`${id} good count must not exceed total count.`);
+
+    const missingControls: string[] = [];
+    if (!bool(row.definitionApproved))
+      missingControls.push("approved OEE definition");
+    if (!bool(row.calendarReconciled))
+      missingControls.push("reconciled production calendar");
+    if (!bool(row.downtimeReconciled))
+      missingControls.push("reconciled downtime history");
+    if (!bool(row.countsReconciled))
+      missingControls.push("reconciled production/quality counts");
+    const operating = scheduled - downtime;
+    if (operating === 0)
+      missingControls.push(
+        "non-zero operating time for performance arithmetic",
+      );
+    if (missingControls.length) {
+      gaps.push(`${id}: missing ${missingControls.join(", ")}.`);
+      return;
+    }
+
+    const availability = operating / scheduled;
+    const performance = (idealCycle * total) / operating;
+    const quality = good / total;
+    const oee = availability * performance * quality;
+    calculated += 1;
+    metrics.push(
+      {
+        key: `${id}_availability`,
+        label: `${id} availability`,
+        value: round(100 * availability, 1),
+        unit: "%",
+      },
+      {
+        key: `${id}_performance`,
+        label: `${id} performance`,
+        value: round(100 * performance, 1),
+        unit: "%",
+      },
+      {
+        key: `${id}_quality`,
+        label: `${id} quality`,
+        value: round(100 * quality, 1),
+        unit: "%",
+      },
+      {
+        key: `${id}_oee`,
+        label: `${id} OEE`,
+        value: round(100 * oee, 1),
+        unit: "%",
+      },
+    );
+    findings.push(
+      `${id}: availability ${round(100 * availability, 1)}%, performance ${round(100 * performance, 1)}%, quality ${round(100 * quality, 1)}%, OEE ${round(100 * oee, 1)}%.`,
+    );
+    if (performance > 1)
+      gaps.push(
+        `${id}: performance exceeds 100%; reconcile ideal cycle, counts, time basis, and exclusions before interpretation.`,
+      );
+  });
+
+  return {
+    summary: `${calculated} of ${rows.length} production period(s) produced an OEE decomposition from approved, reconciled inputs.`,
+    metrics,
+    findings,
+    gaps,
+    assumptions: [
+      "Scheduled time, downtime, ideal cycle, total count and good count use the same governed line and production horizon.",
+    ],
+    formulae: [
+      "Operating time = scheduled production minutes - downtime minutes.",
+      "Availability = operating time / scheduled production minutes.",
+      "Performance = ideal cycle minutes × total count / operating time.",
+      "Quality = good count / total count.",
+      "OEE = availability × performance × quality.",
+    ],
+  };
+}
+
+function qualityLossReconciliation(
+  inputs: Record<string, unknown>,
+): Evaluation {
+  const rows = records(inputs.lots, "Production lot quality records");
+  const ids = rows.map((row, index) => text(row.id, `Lot ${index + 1} ID`));
+  requireUnique(ids, "Production lot quality records");
+  const metrics: DomainMetric[] = [];
+  const findings: string[] = [];
+  const gaps: string[] = [];
+  let reconciled = 0;
+
+  rows.forEach((row, index) => {
+    const id = ids[index];
+    const total = positiveInteger(row.totalProduced, `${id} total produced`);
+    const firstPassGood = nonNegative(
+      row.firstPassGood,
+      `${id} first-pass good`,
+    );
+    const rework = nonNegative(row.reworkUnits, `${id} rework units`);
+    const scrap = nonNegative(row.scrapUnits, `${id} scrap units`);
+    if (![firstPassGood, rework, scrap].every(Number.isInteger))
+      throw new InputError(`${id} quality counts must be integers.`);
+    if (firstPassGood + rework + scrap !== total) {
+      gaps.push(
+        `${id}: first-pass good + rework + scrap does not equal total produced; quality arithmetic is blocked.`,
+      );
+      return;
+    }
+    const missingControls: string[] = [];
+    if (!bool(row.genealogyComplete))
+      missingControls.push("complete lot/serial genealogy");
+    if (!bool(row.dispositionComplete))
+      missingControls.push("completed quality disposition");
+    if (!bool(row.countingRulesApproved))
+      missingControls.push("approved quality counting rules");
+    if (missingControls.length) {
+      gaps.push(`${id}: missing ${missingControls.join(", ")}.`);
+      return;
+    }
+    const firstPassYield = firstPassGood / total;
+    const reworkShare = rework / total;
+    const scrapShare = scrap / total;
+    reconciled += 1;
+    metrics.push(
+      {
+        key: `${id}_first_pass_yield`,
+        label: `${id} first-pass yield`,
+        value: round(100 * firstPassYield, 1),
+        unit: "%",
+      },
+      {
+        key: `${id}_rework_share`,
+        label: `${id} rework share`,
+        value: round(100 * reworkShare, 1),
+        unit: "%",
+      },
+      {
+        key: `${id}_scrap_share`,
+        label: `${id} scrap share`,
+        value: round(100 * scrapShare, 1),
+        unit: "%",
+      },
+    );
+    findings.push(
+      `${id}: first-pass yield ${round(100 * firstPassYield, 1)}%, rework ${round(100 * reworkShare, 1)}%, scrap ${round(100 * scrapShare, 1)}%.`,
+    );
+  });
+
+  return {
+    summary: `${reconciled} of ${rows.length} production lot(s) reconciled to governed quality-loss counts; this is not product disposition or release.`,
+    metrics,
+    findings,
+    gaps,
+    assumptions: [
+      "Each unit is counted exactly once as first-pass good, rework, or scrap under the supplied approved counting rule.",
+    ],
+    formulae: [
+      "Count reconciliation = first-pass good + rework + scrap = total produced.",
+      "First-pass yield, rework share, and scrap share = governed category count / total produced.",
+    ],
+  };
+}
+
+function toolingLifeAssurance(inputs: Record<string, unknown>): Evaluation {
+  const rows = records(inputs.tools, "Tooling records");
+  const ids = rows.map((row, index) => text(row.id, `Tool ${index + 1} ID`));
+  requireUnique(ids, "Tooling records");
+  const metrics: DomainMetric[] = [];
+  const findings: string[] = [];
+  const gaps: string[] = [];
+  let calculated = 0;
+
+  rows.forEach((row, index) => {
+    const id = ids[index];
+    const used = nonNegative(row.authenticatedUse, `${id} authenticated use`);
+    const limit = positive(row.approvedUseLimit, `${id} approved use limit`);
+    const unit = text(row.unit, `${id} use unit`);
+    const missingControls: string[] = [];
+    if (!bool(row.identityTraceable))
+      missingControls.push("traceable identity/configuration");
+    if (!bool(row.lifeBasisApproved))
+      missingControls.push("approved life basis");
+    if (!bool(row.inspectionCurrent))
+      missingControls.push("current inspection");
+    if (!bool(row.calibrationCurrent))
+      missingControls.push("current calibration where applicable");
+    if (!bool(row.qualityTraceCurrent))
+      missingControls.push("current affected-product quality trace");
+    if (!bool(row.dispositionComplete))
+      missingControls.push("completed maintenance/quality disposition");
+    if (missingControls.length) {
+      gaps.push(
+        `${id}: remaining-use arithmetic is blocked; missing ${missingControls.join(", ")}.`,
+      );
+      metrics.push({
+        key: `${id}_remaining_use`,
+        label: `${id} remaining approved use`,
+        value: null,
+        unit,
+      });
+      return;
+    }
+    const remaining = limit - used;
+    calculated += 1;
+    metrics.push({
+      key: `${id}_remaining_use`,
+      label: `${id} remaining approved use`,
+      value: round(remaining),
+      unit,
+    });
+    findings.push(
+      `${id}: ${round(remaining)} ${unit} remain against the supplied approved limit.`,
+    );
+    if (remaining < 0)
+      gaps.push(
+        `${id}: authenticated use exceeds the supplied approved limit by ${round(-remaining)} ${unit}; authority disposition is required.`,
+      );
+  });
+
+  return {
+    summary: `${calculated} of ${rows.length} tooling record(s) had sufficient controlled trace for remaining-use arithmetic.`,
+    metrics,
+    findings,
+    gaps,
+    assumptions: [
+      "Authenticated use and the approved limit share the same tool identity, configuration, unit, service basis and revision.",
+    ],
+    formulae: [
+      "Remaining approved use = supplied approved use limit - authenticated use.",
+    ],
+  };
+}
+
+function changeoverReadiness(inputs: Record<string, unknown>): Evaluation {
+  const rows = records(inputs.changeovers, "Changeover records");
+  const ids = rows.map((row, index) =>
+    text(row.id, `Changeover ${index + 1} ID`),
+  );
+  requireUnique(ids, "Changeover records");
+  const metrics: DomainMetric[] = [];
+  const findings: string[] = [];
+  const gaps: string[] = [];
+  let ready = 0;
+
+  rows.forEach((row, index) => {
+    const id = ids[index];
+    const actual = nonNegative(row.actualMinutes, `${id} actual minutes`);
+    const target = positive(
+      row.approvedTargetMinutes,
+      `${id} approved target minutes`,
+    );
+    const variance = actual - target;
+    metrics.push({
+      key: `${id}_duration_variance`,
+      label: `${id} duration variance`,
+      value: round(variance),
+      unit: "min",
+    });
+    findings.push(
+      `${id}: actual duration was ${round(variance)} minutes ${variance >= 0 ? "above" : "below"} the supplied approved target.`,
+    );
+    const missingControls: string[] = [];
+    if (!bool(row.standardWorkCurrent))
+      missingControls.push("current approved standard work");
+    if (!bool(row.configurationControlled))
+      missingControls.push("controlled recipe/centerline configuration");
+    if (!bool(row.toolingVerified))
+      missingControls.push("verified change tooling/parts");
+    if (!bool(row.safetyControlsValidated))
+      missingControls.push("validated safety and energy-control state");
+    if (!bool(row.firstOffApproved))
+      missingControls.push("approved first-off quality result");
+    if (!bool(row.releaseAuthorityNamed))
+      missingControls.push("named production release authority");
+    if (missingControls.length)
+      gaps.push(
+        `${id}: not release-ready; missing ${missingControls.join(", ")}.`,
+      );
+    else ready += 1;
+  });
+
+  return {
+    summary: `${ready} of ${rows.length} changeover record(s) satisfy the supplied readiness controls; duration alone never establishes production release.`,
+    metrics,
+    findings,
+    gaps,
+    assumptions: [
+      "Actual and target durations use the same approved start/stop definition, product transition and equipment boundary.",
+    ],
+    formulae: [
+      "Changeover duration variance = actual duration - supplied approved target duration.",
     ],
   };
 }
@@ -1086,7 +1853,7 @@ function inspectionSchedule(inputs: Record<string, unknown>): Evaluation {
         row.lastInspection,
         `Asset ${index + 1} last inspection`,
       );
-      const interval = positive(
+      const interval = positiveInteger(
         row.intervalDays,
         `Asset ${index + 1} interval days`,
       );
@@ -1097,6 +1864,8 @@ function inspectionSchedule(inputs: Record<string, unknown>): Evaluation {
         due,
         duration: positive(row.durationHours, `Asset ${index + 1} duration`),
         priority: finite(row.priority ?? 0, `Asset ${index + 1} priority`),
+        outOfServiceRequired: bool(row.outOfServiceRequired),
+        outOfServiceControlled: bool(row.outOfServiceControlled),
       };
     },
   );
@@ -1116,6 +1885,10 @@ function inspectionSchedule(inputs: Record<string, unknown>): Evaluation {
       a.id.localeCompare(b.id),
   );
   for (const asset of assets) {
+    if (asset.outOfServiceRequired && !asset.outOfServiceControlled)
+      gaps.push(
+        `${asset.id}: the supplied out-of-service requirement is not evidenced as controlled.`,
+      );
     if (asset.duration > daily) {
       gaps.push(
         `${asset.id}: ${asset.duration} h duration exceeds ${daily} h daily capacity.`,
@@ -1163,6 +1936,353 @@ function inspectionSchedule(inputs: Record<string, unknown>): Evaluation {
     formulae: [
       "Due date = last compliant inspection + approved interval days.",
       "Draft slots consume explicit daily qualified-inspector hours in due-date then priority order.",
+    ],
+  };
+}
+
+function fleetDutyExposure(inputs: Record<string, unknown>): Evaluation {
+  const assets = records(inputs.assets, "Fleet duty records");
+  requireUnique(
+    assets.map((row, index) => text(row.id, `Asset ${index + 1} ID`)),
+    "Fleet duty records",
+  );
+  const metrics: DomainMetric[] = [];
+  const findings: string[] = [];
+  const gaps: string[] = [];
+  let reconciled = 0;
+
+  for (const [index, row] of assets.entries()) {
+    const id = text(row.id, `Asset ${index + 1} ID`);
+    const unit = text(row.counterUnit, `${id} counter unit`);
+    const start = nonNegative(row.startReading, `${id} start reading`);
+    const end = nonNegative(row.endReading, `${id} end reading`);
+    const delta = end - start;
+    const segments = records(row.segments, `${id} duty segments`);
+    const classes = segments.map((segment, segmentIndex) =>
+      text(segment.dutyClass, `${id} segment ${segmentIndex + 1} duty class`),
+    );
+    requireUnique(classes, `${id} duty classes`);
+    const exposures = segments.map((segment, segmentIndex) =>
+      nonNegative(
+        segment.exposure,
+        `${id} ${classes[segmentIndex]} segment exposure`,
+      ),
+    );
+    const segmentTotal = exposures.reduce((sum, value) => sum + value, 0);
+    const traceReady =
+      bool(row.readingsAuthenticated) &&
+      bool(row.configurationCurrent) &&
+      bool(row.classificationApproved) &&
+      bool(row.segmentsNonOverlapping);
+    const tolerance = Math.max(1, Math.abs(delta)) * 1e-6;
+    const totalMatches =
+      delta > 0 && Math.abs(segmentTotal - delta) <= tolerance;
+
+    metrics.push({
+      key: `counter_delta_${index}`,
+      label: `${id} authenticated counter delta`,
+      value: traceReady && delta > 0 ? round(delta) : null,
+      unit,
+    });
+
+    if (!traceReady || !totalMatches) {
+      const reasons: string[] = [];
+      if (delta <= 0)
+        reasons.push(
+          "counter movement is zero/negative or a reset is unresolved",
+        );
+      if (!bool(row.readingsAuthenticated))
+        reasons.push("readings are not authenticated");
+      if (!bool(row.configurationCurrent))
+        reasons.push("asset configuration is not current");
+      if (!bool(row.classificationApproved))
+        reasons.push("duty classification is not approved");
+      if (!bool(row.segmentsNonOverlapping))
+        reasons.push("segment non-overlap is not evidenced");
+      if (delta > 0 && !totalMatches)
+        reasons.push(
+          `classified exposure ${round(segmentTotal)} ${unit} does not reconcile to counter delta ${round(delta)} ${unit}`,
+        );
+      gaps.push(`${id}: ${reasons.join("; ")}.`);
+      continue;
+    }
+
+    reconciled += 1;
+    for (const [segmentIndex, exposure] of exposures.entries()) {
+      metrics.push({
+        key: `duty_share_${index}_${segmentIndex}`,
+        label: `${id} ${classes[segmentIndex]} duty share`,
+        value: round((100 * exposure) / delta, 1),
+        unit: "%",
+      });
+    }
+    findings.push(
+      `${id}: ${round(delta)} ${unit} reconciled across ${segments.length} supplied duty class(es).`,
+    );
+  }
+
+  metrics.unshift(
+    {
+      key: "reconciled_assets",
+      label: "Duty records reconciled",
+      value: reconciled,
+      unit: "count",
+    },
+    {
+      key: "blocked_assets",
+      label: "Duty records blocked",
+      value: gaps.length,
+      unit: "count",
+    },
+  );
+  return {
+    summary: `${reconciled} of ${assets.length} fleet duty record(s) reconcile authenticated counter movement to supplied classified exposure.`,
+    metrics,
+    findings,
+    gaps,
+    assumptions: [
+      "Counter readings and duty segments use the same supplied unit and boundary; no severity or maintenance implication is inferred from a duty share.",
+    ],
+    formulae: [
+      "Counter delta = supplied authenticated end reading - supplied authenticated start reading.",
+      "Duty share = supplied reconciled class exposure / counter delta × 100.",
+    ],
+  };
+}
+
+function dispatchAvailability(inputs: Record<string, unknown>): Evaluation {
+  const assets = records(inputs.assets, "Dispatch candidates").map(
+    (row, index) => ({
+      id: text(row.id, `Asset ${index + 1} ID`),
+      capability: text(row.capability, `Asset ${index + 1} capability`),
+      capacity: positive(row.capacity, `Asset ${index + 1} capacity`),
+      unit: text(row.unit, `Asset ${index + 1} capacity unit`),
+      ready:
+        bool(row.available) &&
+        bool(row.defectsControlled) &&
+        bool(row.inspectionCurrent) &&
+        bool(row.configurationCurrent) &&
+        bool(row.operatingConstraintsCleared) &&
+        bool(row.qualifiedOperatorAvailable) &&
+        bool(row.hoursOfServiceCompliant),
+      row,
+    }),
+  );
+  requireUnique(
+    assets.map((asset) => asset.id),
+    "Dispatch candidates",
+  );
+  const requirements = records(
+    inputs.requirements,
+    "Dispatch requirements",
+  ).map((row, index) => ({
+    id: text(row.id, `Requirement ${index + 1} ID`),
+    capability: text(row.capability, `Requirement ${index + 1} capability`),
+    required: positive(
+      row.requiredCapacity,
+      `Requirement ${index + 1} required capacity`,
+    ),
+    unit: text(row.unit, `Requirement ${index + 1} capacity unit`),
+  }));
+  requireUnique(
+    requirements.map((item) => item.id),
+    "Dispatch requirements",
+  );
+  requireUnique(
+    requirements.map((item) => `${item.capability}:${item.unit}`),
+    "Dispatch capability/unit requirements",
+  );
+
+  const metrics: DomainMetric[] = [];
+  const findings: string[] = [];
+  const gaps: string[] = [];
+  for (const [index, requirement] of requirements.entries()) {
+    const matching = assets.filter(
+      (asset) =>
+        asset.capability === requirement.capability &&
+        asset.unit === requirement.unit,
+    );
+    const eligible = matching.filter((asset) => asset.ready);
+    const capacity = eligible.reduce((sum, asset) => sum + asset.capacity, 0);
+    const margin = capacity - requirement.required;
+    metrics.push(
+      {
+        key: `eligible_capacity_${index}`,
+        label: `${requirement.id} eligible capacity`,
+        value: round(capacity),
+        unit: requirement.unit,
+      },
+      {
+        key: `capacity_margin_${index}`,
+        label: `${requirement.id} capacity margin`,
+        value: round(margin),
+        unit: requirement.unit,
+      },
+    );
+    findings.push(
+      `${requirement.id}: ${eligible.length} evidence-ready asset(s) supply ${round(capacity)} ${requirement.unit} against ${round(requirement.required)} ${requirement.unit} required.`,
+    );
+    for (const asset of matching.filter((candidate) => !candidate.ready)) {
+      const reasons: string[] = [];
+      if (!bool(asset.row.available)) reasons.push("not available");
+      if (!bool(asset.row.defectsControlled))
+        reasons.push("defect/restriction control incomplete");
+      if (!bool(asset.row.inspectionCurrent))
+        reasons.push("inspection not current");
+      if (!bool(asset.row.configurationCurrent))
+        reasons.push("configuration not current");
+      if (!bool(asset.row.operatingConstraintsCleared))
+        reasons.push("route/weather/operating constraints not cleared");
+      if (!bool(asset.row.qualifiedOperatorAvailable))
+        reasons.push("qualified operator not available");
+      if (!bool(asset.row.hoursOfServiceCompliant))
+        reasons.push("hours-of-service compliance not evidenced");
+      gaps.push(`${asset.id}: excluded — ${reasons.join("; ")}.`);
+    }
+    for (const asset of assets.filter(
+      (candidate) =>
+        candidate.capability === requirement.capability &&
+        candidate.unit !== requirement.unit,
+    ))
+      gaps.push(
+        `${asset.id}: excluded — capacity unit ${asset.unit} does not match requirement unit ${requirement.unit}; no conversion was inferred.`,
+      );
+    if (margin < 0)
+      gaps.push(
+        `${requirement.id}: eligible capacity is ${round(-margin)} ${requirement.unit} below the supplied requirement.`,
+      );
+  }
+  return {
+    summary: `${requirements.length} supplied dispatch requirement(s) were compared with exact capability- and unit-matched evidence-ready fleet capacity; no dispatch was made.`,
+    metrics,
+    findings,
+    gaps,
+    assumptions: [
+      "Each asset can contribute only to its one exact supplied capability/unit requirement and capacity values share the same approved boundary.",
+    ],
+    formulae: [
+      "Eligible capacity = Σ supplied capacity where available ∧ defects controlled ∧ inspection current ∧ configuration current ∧ operating constraints cleared ∧ qualified operator available ∧ hours-of-service compliant ∧ exact capability/unit match.",
+      "Capacity margin = eligible capacity - supplied required capacity.",
+    ],
+  };
+}
+
+function fleetConfigurationTrace(inputs: Record<string, unknown>): Evaluation {
+  const rows = records(inputs.assets, "Fleet configuration records");
+  return coverageEvaluation(
+    "fleet configuration",
+    rows,
+    (row) =>
+      Boolean(
+        row.id &&
+        bool(row.identityControlled) &&
+        bool(row.baselineCurrent) &&
+        bool(row.installedConfigurationRecorded) &&
+        bool(row.deviationsApproved) &&
+        bool(row.softwareFirmwareControlled) &&
+        bool(row.safetyCriticalConfigurationVerified) &&
+        bool(row.reconciled) &&
+        bool(row.independentlyReviewed),
+      ),
+    (row, index) => String(row.id ?? `asset ${index + 1}`),
+    "controlled identity, current as-maintained baseline, installed configuration, approved deviations, applicable software/firmware disposition, safety-critical verification, reconciliation, or independent review is missing.",
+  );
+}
+
+function fleetReplacementPrioritization(
+  inputs: Record<string, unknown>,
+): Evaluation {
+  const budget = positive(inputs.budget, "Indicative planning envelope");
+  const weights = records(inputs.weights, "Approved replacement weights");
+  const factorWeights = new Map<string, number>();
+  for (const [index, row] of weights.entries()) {
+    const factor = text(row.factor, `Weight ${index + 1} factor`);
+    if (factorWeights.has(factor))
+      throw new InputError(
+        `Approved replacement weights contains duplicate factor ${factor}.`,
+      );
+    factorWeights.set(factor, nonNegative(row.weight, `Weight ${index + 1}`));
+  }
+  if (![...factorWeights.values()].some((value) => value > 0))
+    throw new InputError(
+      "At least one approved replacement weight must be positive.",
+    );
+
+  const candidates = records(inputs.candidates, "Replacement candidates");
+  requireUnique(
+    candidates.map((row, index) => text(row.id, `Candidate ${index + 1} ID`)),
+    "Replacement candidates",
+  );
+  const gaps: string[] = [];
+  const ranked = candidates.flatMap((row, index) => {
+    const id = text(row.id, `Candidate ${index + 1} ID`);
+    const cost = positive(row.lifecycleCost, `${id} lifecycle cost`);
+    if (
+      !bool(row.evidenceReady) ||
+      !bool(row.configurationTraceComplete) ||
+      !bool(row.costBasisApproved) ||
+      !bool(row.obligationStateApproved)
+    ) {
+      gaps.push(
+        `${id}: condition/duty evidence, configuration trace, approved lifecycle-cost basis, or approved mandatory-obligation state is incomplete.`,
+      );
+      return [];
+    }
+    const benefit = [...factorWeights].reduce((sum, [factor, weight]) => {
+      const score = finite(row[factor], `${id} ${factor} score`);
+      if (score < 0 || score > 5)
+        throw new InputError(`${id} ${factor} score must be between 0 and 5.`);
+      return sum + score * weight;
+    }, 0);
+    const mandatory = bool(row.mandatory);
+    const due = mandatory
+      ? isoDate(row.dueDate, `${id} mandatory due date`).getTime()
+      : Number.POSITIVE_INFINITY;
+    return [{ id, cost, mandatory, due, priority: benefit / cost }];
+  });
+  if (!ranked.length)
+    throw new InputError("No replacement candidate is evidence-ready.");
+  ranked.sort(
+    (a, b) =>
+      Number(b.mandatory) - Number(a.mandatory) ||
+      (a.mandatory && b.mandatory ? a.due - b.due : 0) ||
+      b.priority - a.priority ||
+      a.id.localeCompare(b.id),
+  );
+  let cumulative = 0;
+  const findings = ranked.map((row, index) => {
+    cumulative += row.cost;
+    return `${index + 1}. ${row.id} · ${row.mandatory ? "MANDATORY — not economically deferrable" : `weighted benefit/lifecycle-cost ${round(row.priority, 6)}`} · ${cumulative <= budget ? "inside" : "outside"} indicative envelope.`;
+  });
+  return {
+    summary: `${ranked.length} evidence-ready fleet replacement candidate(s) were ordered; the result is not purchase, retirement, deferral, disposal, or expenditure authority.`,
+    metrics: [
+      {
+        key: "candidates",
+        label: "Evidence-ready candidates",
+        value: ranked.length,
+        unit: "count",
+      },
+      {
+        key: "mandatory",
+        label: "Mandatory candidates",
+        value: ranked.filter((row) => row.mandatory).length,
+        unit: "count",
+      },
+      {
+        key: "budget",
+        label: "Indicative envelope",
+        value: budget,
+        unit: "supplied currency",
+      },
+    ],
+    findings,
+    gaps,
+    assumptions: [
+      "Mandatory state/due dates, factor scores, approved weights, lifecycle costs, configuration and dependencies are current and comparable.",
+    ],
+    formulae: [
+      "Non-mandatory priority = Σ(supplied factor score × approved weight) / supplied lifecycle cost; mandatory candidates remain first.",
     ],
   };
 }
@@ -1772,6 +2892,275 @@ function propellant(inputs: Record<string, unknown>): Evaluation {
   };
 }
 
+function batteryThermal(inputs: Record<string, unknown>): Evaluation {
+  const observations = records(inputs.observations, "Thermal observations");
+  const controls = records(
+    inputs.thermalControls,
+    "Thermal-management controls",
+  ).filter((row) => row.required !== false);
+  const gaps: string[] = [];
+  const metrics: DomainMetric[] = [];
+  observations.forEach((observation, index) => {
+    const id = String(observation.id ?? `observation ${index + 1}`);
+    const observed = finite(observation.observed, `${id} observed temperature`);
+    const lower =
+      typeof observation.lowerLimit === "number"
+        ? finite(observation.lowerLimit, `${id} lower limit`)
+        : null;
+    const upper =
+      typeof observation.upperLimit === "number"
+        ? finite(observation.upperLimit, `${id} upper limit`)
+        : null;
+    if (lower == null && upper == null)
+      gaps.push(`${id}: no supplied approved thermal limit.`);
+    if (lower != null && observed < lower)
+      gaps.push(`${id}: observed value is below the supplied lower limit.`);
+    if (upper != null && observed > upper)
+      gaps.push(`${id}: observed value is above the supplied upper limit.`);
+    if (!bool(observation.calibrated))
+      gaps.push(`${id}: calibrated measurement is not confirmed.`);
+    if (!observation.observedAt)
+      gaps.push(`${id}: observation timestamp is missing.`);
+    const margin = Math.min(
+      lower == null ? Number.POSITIVE_INFINITY : observed - lower,
+      upper == null ? Number.POSITIVE_INFINITY : upper - observed,
+    );
+    metrics.push({
+      key: `thermal_margin_${id}`,
+      label: `${id} nearest thermal-limit margin`,
+      value: Number.isFinite(margin) ? round(margin) : null,
+      unit: String(observation.unit ?? "supplied unit"),
+    });
+  });
+  controls.forEach((control, index) => {
+    const id = String(control.id ?? `control ${index + 1}`);
+    const normal = control.available === true && control.testCurrent === true;
+    const compensated =
+      control.impairmentApproved === true &&
+      typeof control.compensatingMeasure === "string" &&
+      control.compensatingMeasure.trim() !== "";
+    if (!normal && !compensated)
+      gaps.push(
+        `${id}: required thermal control is unavailable or unverified without an approved impairment and compensating measure.`,
+      );
+  });
+  return {
+    summary: `${observations.length} thermal observation(s) and ${controls.length} required thermal-control function(s) were screened against supplied criteria.`,
+    metrics: [
+      ...metrics,
+      {
+        key: "thermal_gaps",
+        label: "Thermal evidence/control gaps",
+        value: gaps.length,
+        unit: "count",
+      },
+    ],
+    findings: gaps.length
+      ? [
+          "At least one thermal envelope, measurement, or control condition requires authority disposition.",
+        ]
+      : [
+          "No exception was found against the supplied thermal limits and control requirements.",
+        ],
+    gaps,
+    assumptions: [
+      "Limits, locations, units, calibration, timestamps, and controlled battery configuration are approved and mutually applicable.",
+    ],
+    formulae: [
+      "Thermal margin = distance to the nearest supplied approved lower or upper limit.",
+    ],
+  };
+}
+
+function batteryHvSafety(inputs: Record<string, unknown>): Evaluation {
+  const rows = records(inputs.controls, "High-voltage controls").filter(
+    (row) => row.required !== false,
+  );
+  return coverageEvaluation(
+    "required high-voltage control",
+    rows,
+    (row) => {
+      const normal =
+        row.implemented === true && row.tested === true && row.current === true;
+      const impaired =
+        row.impairmentApproved === true &&
+        typeof row.compensatingMeasure === "string" &&
+        row.compensatingMeasure.trim() !== "";
+      return (
+        (normal || impaired) &&
+        typeof row.evidenceReference === "string" &&
+        row.evidenceReference.trim() !== "" &&
+        row.approved === true
+      );
+    },
+    (row, index) => String(row.id ?? `control ${index + 1}`),
+    "implementation, current test, evidence, approval, or governed impairment disposition is incomplete",
+  );
+}
+
+function batteryDegradation(inputs: Record<string, unknown>): Evaluation {
+  const units = records(inputs.units, "Battery unit observations");
+  const metrics: DomainMetric[] = [];
+  const gaps: string[] = [];
+  units.forEach((unit, index) => {
+    const id = String(unit.id ?? `unit ${index + 1}`);
+    if (!bool(unit.compatibleMethod)) {
+      gaps.push(
+        `${id}: baseline and current observations are not confirmed comparable.`,
+      );
+      return;
+    }
+    const baselineCapacity = positive(
+      unit.baselineCapacity,
+      `${id} baseline capacity`,
+    );
+    const measuredCapacity = nonNegative(
+      unit.measuredCapacity,
+      `${id} measured capacity`,
+    );
+    const baselineResistance = positive(
+      unit.baselineResistance,
+      `${id} baseline resistance/impedance`,
+    );
+    const measuredResistance = nonNegative(
+      unit.measuredResistance,
+      `${id} measured resistance/impedance`,
+    );
+    const minimumRetention = finite(
+      unit.minimumCapacityRetention,
+      `${id} minimum capacity retention`,
+    );
+    const maximumResistanceChange = finite(
+      unit.maximumResistanceChange,
+      `${id} maximum resistance change`,
+    );
+    if (!(minimumRetention > 0 && minimumRetention <= 1))
+      throw new InputError(
+        `${id} minimum capacity retention must be greater than zero and no greater than one.`,
+      );
+    if (maximumResistanceChange < 0)
+      throw new InputError(
+        `${id} maximum resistance change must not be negative.`,
+      );
+    const retention = measuredCapacity / baselineCapacity;
+    const resistanceChange =
+      (measuredResistance - baselineResistance) / baselineResistance;
+    metrics.push(
+      {
+        key: `capacity_retention_${id}`,
+        label: `${id} measured capacity retention`,
+        value: round(100 * retention, 1),
+        unit: "%",
+      },
+      {
+        key: `resistance_change_${id}`,
+        label: `${id} measured resistance/impedance change`,
+        value: round(100 * resistanceChange, 1),
+        unit: "%",
+      },
+    );
+    if (retention < minimumRetention)
+      gaps.push(
+        `${id}: capacity retention is below the supplied approved criterion.`,
+      );
+    if (resistanceChange > maximumResistanceChange)
+      gaps.push(
+        `${id}: resistance/impedance change exceeds the supplied approved criterion.`,
+      );
+  });
+  return {
+    summary: `${units.length} battery unit(s) were compared with compatible supplied baselines and asset-specific approved criteria.`,
+    metrics,
+    findings: gaps.length
+      ? [
+          "At least one comparability, capacity, or resistance/impedance condition requires authority disposition.",
+        ]
+      : [
+          "No exception was found against the supplied compatible baselines and approved criteria.",
+        ],
+    gaps,
+    assumptions: [
+      "Temperature, SOC, duty, method, units, calibration, and controlled configuration are compatible as asserted by the evidence owner.",
+    ],
+    formulae: [
+      "Capacity retention = measured capacity / compatible baseline capacity.",
+      "Resistance/impedance change = (measured value - compatible baseline value) / compatible baseline value.",
+    ],
+  };
+}
+
+function batteryFireReadiness(inputs: Record<string, unknown>): Evaluation {
+  const barriers = records(
+    inputs.barriers,
+    "Fire and propagation barriers",
+  ).filter((row) => row.required !== false);
+  const prerequisites = records(
+    inputs.emergencyPrerequisites,
+    "Emergency prerequisites",
+  ).filter((row) => row.required !== false);
+  const gaps: string[] = [];
+  barriers.forEach((barrier, index) => {
+    const id = String(barrier.id ?? `barrier ${index + 1}`);
+    const normal = barrier.available === true && barrier.testCurrent === true;
+    const impaired =
+      barrier.impairmentApproved === true &&
+      typeof barrier.compensatingMeasure === "string" &&
+      barrier.compensatingMeasure.trim() !== "";
+    if (
+      (!normal && !impaired) ||
+      typeof barrier.evidenceReference !== "string" ||
+      !barrier.evidenceReference.trim()
+    )
+      gaps.push(
+        `${id}: current evidenced barrier availability or governed impairment disposition is incomplete.`,
+      );
+  });
+  prerequisites.forEach((item, index) => {
+    const id = String(item.id ?? `prerequisite ${index + 1}`);
+    if (
+      item.current !== true ||
+      item.exercised !== true ||
+      item.approved !== true ||
+      typeof item.evidenceReference !== "string" ||
+      !item.evidenceReference.trim()
+    )
+      gaps.push(
+        `${id}: current, exercised, evidenced, and approved emergency readiness is incomplete.`,
+      );
+  });
+  return {
+    summary: `${barriers.length} required fire/propagation barrier(s) and ${prerequisites.length} emergency prerequisite(s) were checked.`,
+    metrics: [
+      {
+        key: "fire_readiness_gaps",
+        label: "Fire/emergency readiness gaps",
+        value: gaps.length,
+        unit: "count",
+      },
+      {
+        key: "requirements_checked",
+        label: "Requirements checked",
+        value: barriers.length + prerequisites.length,
+        unit: "count",
+      },
+    ],
+    findings: gaps.length
+      ? [
+          "At least one fire barrier, impairment, or emergency-readiness condition requires authority disposition.",
+        ]
+      : [
+          "No trace-contract gap was found in the supplied fire and emergency-readiness records.",
+        ],
+    gaps,
+    assumptions: [
+      "The authority-defined barrier and emergency prerequisite scopes are complete for this chemistry, configuration, installation, and jurisdiction.",
+    ],
+    formulae: [
+      "Readiness requires every in-scope barrier and emergency prerequisite to satisfy its governed trace contract.",
+    ],
+  };
+}
+
 function codeCompliance(inputs: Record<string, unknown>): Evaluation {
   const rows = records(inputs.requirements, "Code requirements").filter(
     (row) => row.applicable !== false,
@@ -1886,22 +3275,962 @@ function occupancy(inputs: Record<string, unknown>): Evaluation {
   );
 }
 
+function occupantEnvironment(inputs: Record<string, unknown>): Evaluation {
+  const observations = records(
+    inputs.observations,
+    "Occupied-zone observations",
+  );
+  let occupiedHours = 0;
+  let hoursWithinEnvelope = 0;
+  const gaps: string[] = [];
+  observations.forEach((row, index) => {
+    const id = text(row.id, `Observation ${index + 1} ID`);
+    const hours = positive(row.occupiedHours, `${id} occupied hours`);
+    occupiedHours += hours;
+    const temperature = finite(row.temperatureC, `${id} temperature`);
+    const temperatureMin = finite(
+      row.temperatureMinC,
+      `${id} minimum temperature`,
+    );
+    const temperatureMax = finite(
+      row.temperatureMaxC,
+      `${id} maximum temperature`,
+    );
+    const humidity = finite(row.relativeHumidityPct, `${id} relative humidity`);
+    const humidityMin = finite(row.humidityMinPct, `${id} minimum humidity`);
+    const humidityMax = finite(row.humidityMaxPct, `${id} maximum humidity`);
+    const co2 = nonNegative(row.co2Ppm, `${id} CO₂`);
+    const co2Max = positive(row.co2MaxPpm, `${id} maximum CO₂`);
+    isoDate(row.observedAt, `${id} observation timestamp`);
+    if (
+      temperatureMin > temperatureMax ||
+      humidityMin > humidityMax ||
+      humidityMin < 0 ||
+      humidityMax > 100
+    ) {
+      throw new InputError(`${id} contains an invalid supplied envelope.`);
+    }
+    const reasons: string[] = [];
+    if (!bool(row.criteriaApproved))
+      reasons.push("the supplied envelope is not authority-approved");
+    if (!bool(row.calibrated))
+      reasons.push("sensor calibration is not confirmed");
+    if (temperature < temperatureMin || temperature > temperatureMax)
+      reasons.push(
+        `temperature ${temperature} °C is outside ${temperatureMin}–${temperatureMax} °C`,
+      );
+    if (humidity < humidityMin || humidity > humidityMax)
+      reasons.push(
+        `relative humidity ${humidity}% is outside ${humidityMin}–${humidityMax}%`,
+      );
+    if (co2 > co2Max)
+      reasons.push(`CO₂ ${co2} ppm exceeds supplied maximum ${co2Max} ppm`);
+    if (reasons.length) gaps.push(`${id}: ${reasons.join("; ")}.`);
+    else hoursWithinEnvelope += hours;
+  });
+  return {
+    summary: `${round(hoursWithinEnvelope, 1)} of ${round(occupiedHours, 1)} supplied occupied hours are within approved temperature, humidity, and CO₂ envelopes with confirmed calibration.`,
+    metrics: [
+      {
+        key: "occupied_hours",
+        label: "Occupied hours assessed",
+        value: round(occupiedHours, 1),
+        unit: "hours",
+      },
+      {
+        key: "occupied_hours_within_envelope",
+        label: "Occupied hours within envelope",
+        value: round(hoursWithinEnvelope, 1),
+        unit: "hours",
+      },
+      {
+        key: "occupied_compliance",
+        label: "Occupied-hour envelope coverage",
+        value: round((100 * hoursWithinEnvelope) / occupiedHours, 1),
+        unit: "%",
+      },
+    ],
+    findings: gaps.length
+      ? ["At least one occupied-zone observation requires investigation."]
+      : ["No exception was found against the supplied approved envelopes."],
+    gaps,
+    assumptions: [
+      "The supplied occupancy hours, zone mapping, criteria, units, calibration state, and measurement boundary are current and applicable.",
+    ],
+    formulae: [
+      "Occupied-hour envelope coverage = compliant occupied hours / assessed occupied hours.",
+    ],
+  };
+}
+
+function basControlIntegrity(inputs: Record<string, unknown>): Evaluation {
+  const points = records(inputs.controlPoints, "BAS control points").filter(
+    (row) => row.required !== false,
+  );
+  return coverageEvaluation(
+    "required BAS control point",
+    points,
+    (row) => {
+      const command = finite(row.commandValue, "Command value");
+      const feedback = finite(row.feedbackValue, "Feedback value");
+      const tolerance = nonNegative(row.tolerance, "Supplied tolerance");
+      return (
+        Math.abs(command - feedback) <= tolerance &&
+        row.alarmTestCurrent === true &&
+        row.failSafeTestCurrent === true &&
+        row.trendComplete === true &&
+        (row.manualOverrideActive !== true || row.overrideApproved === true)
+      );
+    },
+    (row, index) => String(row.id ?? `control point ${index + 1}`),
+    "command/feedback agreement, alarm/fail-safe test, trend, or override control is incomplete",
+  );
+}
+
+function energyWaterPerformance(inputs: Record<string, unknown>): Evaluation {
+  const periods = records(inputs.periods, "Normalized performance periods");
+  const gaps: string[] = [];
+  let actualEnergy = 0;
+  let baselineEnergy = 0;
+  let actualWater = 0;
+  let baselineWater = 0;
+  let comparable = 0;
+  periods.forEach((row, index) => {
+    const id = text(row.id, `Period ${index + 1} ID`);
+    const values = {
+      actualEnergy: nonNegative(row.actualEnergyKwh, `${id} actual energy`),
+      baselineEnergy: positive(row.baselineEnergyKwh, `${id} baseline energy`),
+      actualWater: nonNegative(row.actualWaterM3, `${id} actual water`),
+      baselineWater: positive(row.baselineWaterM3, `${id} baseline water`),
+    };
+    if (
+      !bool(row.normalizationApproved) ||
+      !bool(row.boundaryEquivalent) ||
+      !bool(row.dataQualityAccepted)
+    ) {
+      gaps.push(
+        `${id}: approved normalization, equivalent boundary, or accepted data quality is missing.`,
+      );
+      return;
+    }
+    comparable += 1;
+    actualEnergy += values.actualEnergy;
+    baselineEnergy += values.baselineEnergy;
+    actualWater += values.actualWater;
+    baselineWater += values.baselineWater;
+  });
+  if (!comparable)
+    throw new InputError(
+      "No supplied period has approved normalization, an equivalent boundary, and accepted data quality.",
+    );
+  const energyVariance = actualEnergy - baselineEnergy;
+  const waterVariance = actualWater - baselineWater;
+  return {
+    summary: `${comparable} of ${periods.length} supplied period(s) are comparable with the approved normalized baseline. Variances are observations, not certified savings.`,
+    metrics: [
+      {
+        key: "energy_variance",
+        label: "Energy variance",
+        value: round(energyVariance, 1),
+        unit: "kWh",
+      },
+      {
+        key: "energy_variance_pct",
+        label: "Energy variance",
+        value: round((100 * energyVariance) / baselineEnergy, 1),
+        unit: "%",
+      },
+      {
+        key: "water_variance",
+        label: "Water variance",
+        value: round(waterVariance, 1),
+        unit: "m³",
+      },
+      {
+        key: "water_variance_pct",
+        label: "Water variance",
+        value: round((100 * waterVariance) / baselineWater, 1),
+        unit: "%",
+      },
+    ],
+    findings: [
+      energyVariance <= 0
+        ? "Metered energy is not above the supplied normalized baseline."
+        : "Metered energy is above the supplied normalized baseline.",
+      waterVariance <= 0
+        ? "Metered water is not above the supplied normalized baseline."
+        : "Metered water is above the supplied normalized baseline.",
+    ],
+    gaps,
+    assumptions: [
+      "The approved baseline already accounts for relevant weather, occupancy, service level, schedule, meter, and boundary effects.",
+    ],
+    formulae: [
+      "Variance = metered actual - approved normalized baseline.",
+      "Variance percent = 100 × variance / approved normalized baseline.",
+    ],
+  };
+}
+
+function facilityRenewalPriority(inputs: Record<string, unknown>): Evaluation {
+  const budget = positive(
+    inputs.availableBudget,
+    "Indicative available budget",
+  );
+  const weights = object(inputs.weights, "Approved priority weights");
+  if (!bool(weights.approved))
+    throw new InputError("Priority weights must be explicitly approved.");
+  text(weights.approvalReference, "Priority weight approval reference");
+  const factors = ["safety", "compliance", "service", "condition", "energy"];
+  const factorWeights = Object.fromEntries(
+    factors.map((factor) => [
+      factor,
+      nonNegative(weights[factor], `${factor} weight`),
+    ]),
+  );
+  if (Object.values(factorWeights).every((value) => value === 0))
+    throw new InputError(
+      "At least one approved priority weight must be positive.",
+    );
+  const candidates = records(inputs.candidates, "Renewal candidates");
+  requireUnique(
+    candidates.map((row, index) => text(row.id, `Candidate ${index + 1} ID`)),
+    "Renewal candidates",
+  );
+  const gaps: string[] = [];
+  const rankable = candidates.flatMap((row, index) => {
+    const id = text(row.id, `Candidate ${index + 1} ID`);
+    const cost = positive(row.cost, `${id} cost`);
+    if (!bool(row.evidenceReady)) {
+      gaps.push(`${id}: evidence is not ready for portfolio comparison.`);
+      return [];
+    }
+    const scores = Object.fromEntries(
+      factors.map((factor) => {
+        const score = finite(row[factor], `${id} ${factor} score`);
+        if (score < 0 || score > 5)
+          throw new InputError(
+            `${id} ${factor} score must be between 0 and 5.`,
+          );
+        return [factor, score];
+      }),
+    );
+    const benefit = factors.reduce(
+      (sum, factor) => sum + scores[factor] * factorWeights[factor],
+      0,
+    );
+    const mandatory = bool(row.mandatory);
+    let due = Number.POSITIVE_INFINITY;
+    if (mandatory) {
+      if (!row.dueDate)
+        gaps.push(`${id}: mandatory candidate has no supplied due date.`);
+      else due = isoDate(row.dueDate, `${id} due date`).getTime();
+    }
+    return [{ id, cost, mandatory, due, benefit, priority: benefit / cost }];
+  });
+  if (!rankable.length)
+    throw new InputError(
+      "No supplied renewal candidate is evidence-ready for governed priority review.",
+    );
+  rankable.sort(
+    (left, right) =>
+      Number(right.mandatory) - Number(left.mandatory) ||
+      (left.mandatory && right.mandatory ? left.due - right.due : 0) ||
+      right.priority - left.priority ||
+      left.id.localeCompare(right.id),
+  );
+  const mandatoryCost = rankable
+    .filter((item) => item.mandatory)
+    .reduce((sum, item) => sum + item.cost, 0);
+  let planned = 0;
+  const findings = rankable.map((item, index) => {
+    const withinEnvelope = planned + item.cost <= budget;
+    planned += item.cost;
+    return `${index + 1}. ${item.id} · ${item.mandatory ? "MANDATORY — not economically deferrable" : `weighted benefit/cost ${round(item.priority, 6)}`} · ${withinEnvelope ? "inside" : "outside"} the indicative cumulative budget line.`;
+  });
+  if (mandatoryCost > budget)
+    gaps.push(
+      `Mandatory candidate cost exceeds the indicative budget by ${round(mandatoryCost - budget, 2)}; authority resolution is required and mandatory work is not deferred by this model.`,
+    );
+  return {
+    summary: `${rankable.length} of ${candidates.length} renewal candidate(s) are evidence-ready for governed priority review; the planning envelope is not expenditure authorization.`,
+    metrics: [
+      {
+        key: "indicative_budget",
+        label: "Indicative planning envelope",
+        value: round(budget, 2),
+        unit: "supplied currency",
+      },
+      {
+        key: "mandatory_cost",
+        label: "Mandatory candidate cost",
+        value: round(mandatoryCost, 2),
+        unit: "supplied currency",
+      },
+      {
+        key: "evidence_ready_candidates",
+        label: "Evidence-ready candidates",
+        value: rankable.length,
+        unit: "count",
+      },
+    ],
+    findings,
+    gaps,
+    assumptions: [
+      "Mandatory classifications, due dates, factor scores, costs, dependencies, weights, and budget are current and approved for this comparison.",
+    ],
+    formulae: [
+      "Weighted benefit = Σ(supplied 0–5 factor score × approved factor weight).",
+      "Non-mandatory priority = weighted benefit / supplied cost; mandatory work remains outside economic trade-off.",
+    ],
+  };
+}
+
+const PATIENT_IDENTIFIER_KEYS = new Set([
+  "patientid",
+  "patientname",
+  "patientidentifier",
+  "mrn",
+  "medicalrecordnumber",
+  "healthcardnumber",
+  "dateofbirth",
+  "dob",
+]);
+
+function rejectPatientIdentifiers(value: unknown, path = "inputs"): void {
+  if (Array.isArray(value)) {
+    value.forEach((item, index) =>
+      rejectPatientIdentifiers(item, `${path}[${index}]`),
+    );
+    return;
+  }
+  if (!value || typeof value !== "object") return;
+  for (const [key, nested] of Object.entries(
+    value as Record<string, unknown>,
+  )) {
+    const normalized = key.toLowerCase().replace(/[^a-z0-9]/g, "");
+    if (PATIENT_IDENTIFIER_KEYS.has(normalized)) {
+      throw new InputError(
+        `${path}.${key} is prohibited: healthcare specialist inputs must not contain patient identifiers.`,
+      );
+    }
+    rejectPatientIdentifiers(nested, `${path}.${key}`);
+  }
+}
+
+function healthcareClinicalCriticality(
+  inputs: Record<string, unknown>,
+): Evaluation {
+  rejectPatientIdentifiers(inputs);
+  const devices = records(inputs.devices, "Clinical device scope");
+  requireUnique(
+    devices.map((row, i) => text(row.id, `Device ${i + 1} ID`)),
+    "Clinical device scope",
+  );
+  return coverageEvaluation(
+    "clinical-criticality",
+    devices,
+    (row) =>
+      Boolean(
+        row.id &&
+        row.clinicalFunction &&
+        row.consequenceCategory &&
+        row.approvedCriticality &&
+        bool(row.authorityApproved),
+      ),
+    (row, i) => String(row.id ?? `device ${i + 1}`),
+    "clinical function, consequence, approved criticality, or authority approval is missing.",
+  );
+}
+
+function healthcareAvailability(inputs: Record<string, unknown>): Evaluation {
+  rejectPatientIdentifiers(inputs);
+  const devices = records(inputs.devices, "Device availability records");
+  const ids = devices.map((row, i) => text(row.id, `Device ${i + 1} ID`));
+  requireUnique(ids, "Device availability records");
+  let available = 0;
+  let required = 0;
+  const gaps: string[] = [];
+  devices.forEach((row, index) => {
+    const id = ids[index];
+    const a = nonNegative(row.availableTime, `${id} available time`);
+    const r = positive(row.requiredTime, `${id} required time`);
+    if (a > r)
+      throw new InputError(
+        `${id} available time must not exceed required time.`,
+      );
+    available += a;
+    required += r;
+    if (!row.serviceState)
+      gaps.push(`${id}: controlled service state is missing.`);
+    if (!bool(row.impairmentApproved))
+      gaps.push(`${id}: impairment disposition is not approved.`);
+    if (!bool(row.alternativeCoverageApproved))
+      gaps.push(`${id}: alternative coverage is not approved.`);
+  });
+  return {
+    summary: `The supplied device population has ${round((available / required) * 100, 1)}% observed availability. This does not establish required clinical capacity or authorize substitution.`,
+    metrics: [
+      {
+        key: "availability",
+        label: "Observed availability",
+        value: round((available / required) * 100, 1),
+        unit: "%",
+      },
+      {
+        key: "devices",
+        label: "In-scope devices",
+        value: devices.length,
+        unit: "count",
+      },
+      {
+        key: "control_gaps",
+        label: "Disposition or coverage gaps",
+        value: gaps.length,
+        unit: "count",
+      },
+    ],
+    findings: gaps.length
+      ? [
+          "Clinical authority review is required for unresolved coverage or impairment evidence.",
+        ]
+      : ["No coverage or impairment gap was found in the supplied records."],
+    gaps,
+    assumptions: [
+      "The supplied population, observation window, time basis and clinical service-state definition are approved and comparable.",
+    ],
+    formulae: [
+      "Observed availability = Σ supplied available time / Σ supplied required time.",
+    ],
+  };
+}
+
+function healthcareCalibration(inputs: Record<string, unknown>): Evaluation {
+  rejectPatientIdentifiers(inputs);
+  const instruments = records(inputs.instruments, "Calibration records");
+  return coverageEvaluation(
+    "calibration-assurance",
+    instruments,
+    (row) =>
+      Boolean(
+        row.id &&
+        bool(row.calibrationCurrent) &&
+        row.traceableStandard &&
+        bool(row.toleranceApproved) &&
+        row.result &&
+        bool(row.dispositionApproved),
+      ),
+    (row, i) => String(row.id ?? `instrument ${i + 1}`),
+    "current calibration, traceable standard, approved tolerance, result, or disposition is missing.",
+  );
+}
+
+function healthcareInfectionControl(
+  inputs: Record<string, unknown>,
+): Evaluation {
+  rejectPatientIdentifiers(inputs);
+  const devices = records(inputs.devices, "Reprocessing readiness records");
+  return coverageEvaluation(
+    "infection-control readiness",
+    devices,
+    (row) =>
+      Boolean(
+        row.id &&
+        bool(row.classificationApproved) &&
+        bool(row.methodApproved) &&
+        bool(row.processEvidenceCurrent) &&
+        bool(row.exceptionsResolved) &&
+        bool(row.releaseApproved),
+      ),
+    (row, i) => String(row.id ?? `device ${i + 1}`),
+    "approved classification/method, current process evidence, exception disposition, or release approval is missing.",
+  );
+}
+
+function healthcarePatientRisk(inputs: Record<string, unknown>): Evaluation {
+  rejectPatientIdentifiers(inputs);
+  const hazards = records(inputs.hazards, "Device-related hazard records");
+  return coverageEvaluation(
+    "patient-risk control",
+    hazards,
+    (row) =>
+      Boolean(
+        row.id &&
+        bool(row.consequenceApproved) &&
+        bool(row.controlsImplemented) &&
+        bool(row.controlsTestCurrent) &&
+        bool(row.evidenceBound) &&
+        row.residualRisk &&
+        bool(row.riskAccepted),
+      ),
+    (row, i) => String(row.id ?? `hazard ${i + 1}`),
+    "approved consequence, implemented/current control, evidence, residual risk, or human acceptance is missing.",
+  );
+}
+
+function healthcareTraceability(inputs: Record<string, unknown>): Evaluation {
+  rejectPatientIdentifiers(inputs);
+  const devices = records(inputs.devices, "Device trace records");
+  requireUnique(
+    devices.map((row, i) => text(row.id, `Device ${i + 1} ID`)),
+    "Device trace records",
+  );
+  return coverageEvaluation(
+    "device lifecycle trace",
+    devices,
+    (row) =>
+      Boolean(
+        row.id &&
+        row.model &&
+        row.serialOrUdi &&
+        row.location &&
+        row.owner &&
+        bool(row.configurationControlled) &&
+        bool(row.maintenanceLinked) &&
+        row.calibrationStatus &&
+        bool(row.safetyActionsResolved),
+      ),
+    (row, i) => String(row.id ?? `device ${i + 1}`),
+    "identity, model/serial, location, owner, controlled configuration, service/calibration link, or safety-action status is missing.",
+  );
+}
+
+function civilStructuralCondition(inputs: Record<string, unknown>): Evaluation {
+  const rows = records(inputs.components, "Structural condition records");
+  return coverageEvaluation(
+    "structural-condition",
+    rows,
+    (row) =>
+      Boolean(
+        row.id &&
+        row.observation &&
+        row.observedAt &&
+        row.qualifiedInspector &&
+        bool(row.severityApproved) &&
+        bool(row.configurationCurrent) &&
+        bool(row.dispositionApproved),
+      ),
+    (row, i) => String(row.id ?? `component ${i + 1}`),
+    "qualified current observation, approved severity/configuration, or disposition is missing.",
+  );
+}
+
+function processSafetyBarriers(inputs: Record<string, unknown>): Evaluation {
+  const rows = records(inputs.scenarios, "Major-accident scenarios");
+  return coverageEvaluation(
+    "major-accident scenario barrier",
+    rows,
+    (row) =>
+      Boolean(
+        row.id &&
+        bool(row.hazardStudyApproved) &&
+        bool(row.performanceStandardApproved) &&
+        bool(row.ownerAssigned) &&
+        bool(row.verificationCurrent) &&
+        bool(row.impairmentDispositionApproved) &&
+        bool(row.independentlyReviewed),
+      ),
+    (row, i) => String(row.id ?? `scenario ${i + 1}`),
+    "approved hazard/performance basis, owner, current verification, impairment disposition, or independent review is missing.",
+  );
+}
+
+function pressureContainmentAssurance(
+  inputs: Record<string, unknown>,
+): Evaluation {
+  const rows = records(inputs.boundaries, "Pressure boundaries");
+  return coverageEvaluation(
+    "pressure-containment boundary",
+    rows,
+    (row) =>
+      Boolean(
+        row.id &&
+        bool(row.designBasisApproved) &&
+        bool(row.inspectionCurrent) &&
+        bool(row.anomalyDispositionApproved) &&
+        bool(row.reliefProtectionVerified) &&
+        bool(row.configurationCurrent) &&
+        bool(row.independentlyReviewed),
+      ),
+    (row, i) => String(row.id ?? `boundary ${i + 1}`),
+    "approved design basis, current inspection/configuration, anomaly disposition, relief verification, or independent review is missing.",
+  );
+}
+
+function sisProofTestAssurance(inputs: Record<string, unknown>): Evaluation {
+  const rows = records(inputs.functions, "Safety instrumented functions");
+  return coverageEvaluation(
+    "safety-instrumented-function",
+    rows,
+    (row) =>
+      Boolean(
+        row.id &&
+        bool(row.silBasisApproved) &&
+        bool(row.proofTestCurrent) &&
+        bool(row.demandsReviewed) &&
+        bool(row.bypassesControlled) &&
+        bool(row.impairmentsDispositioned) &&
+        bool(row.configurationCurrent) &&
+        bool(row.independentlyReviewed),
+      ),
+    (row, i) => String(row.id ?? `SIF ${i + 1}`),
+    "approved SIL/SRS basis, current proof test, demand review, bypass/impairment control, configuration, or independent review is missing.",
+  );
+}
+
+function turnaroundReadiness(inputs: Record<string, unknown>): Evaluation {
+  const rows = records(inputs.workPackages, "Turnaround work packages");
+  return coverageEvaluation(
+    "turnaround work-package readiness",
+    rows,
+    (row) =>
+      Boolean(
+        row.id &&
+        bool(row.scopeApproved) &&
+        bool(row.workPackReady) &&
+        bool(row.materialsReady) &&
+        bool(row.isolationPlanApproved) &&
+        bool(row.resourcesConfirmed) &&
+        bool(row.scheduleLogicApproved) &&
+        bool(row.risksDispositioned) &&
+        bool(row.releaseAuthorityNamed),
+      ),
+    (row, i) => String(row.id ?? `work package ${i + 1}`),
+    "approved scope/work pack, materials, isolation plan, resources, schedule logic, risk disposition, or named release authority is missing.",
+  );
+}
+
+function lossOfContainmentRisk(inputs: Record<string, unknown>): Evaluation {
+  const rows = records(inputs.scenarios, "Loss-of-containment scenarios");
+  const riskMatrix = object(inputs.riskMatrix, "Approved process-risk matrix");
+  const findings: string[] = [];
+  const gaps: string[] = [];
+  for (const [index, row] of rows.entries()) {
+    const id = text(row.id, `Scenario ${index + 1} ID`);
+    const likelihood = text(
+      row.likelihoodCategory,
+      `${id} likelihood category`,
+    );
+    const consequence = text(
+      row.consequenceCategory,
+      `${id} consequence category`,
+    );
+    const matrixKey = `${likelihood}:${consequence}`;
+    const rank = riskMatrix[matrixKey];
+    if (typeof rank !== "string" || !rank.trim()) {
+      gaps.push(`${id}: approved risk matrix has no ${matrixKey} cell.`);
+      continue;
+    }
+    findings.push(`${id}: supplied categories map to ${rank.trim()}.`);
+    if (!bool(row.barriersVerified))
+      gaps.push(`${id}: credited barriers are not evidenced as verified.`);
+    if (!bool(row.emergencyResponseReady))
+      gaps.push(`${id}: emergency-response readiness is not evidenced.`);
+    if (!bool(row.independentlyReviewed))
+      gaps.push(`${id}: independent scenario review is missing.`);
+  }
+  return {
+    summary: `${findings.length} of ${rows.length} loss-of-containment scenario(s) mapped through the supplied approved matrix; no consequence or frequency model was run.`,
+    metrics: [
+      {
+        key: "mapped",
+        label: "Matrix-mapped scenarios",
+        value: findings.length,
+        unit: "count",
+      },
+      {
+        key: "control_gaps",
+        label: "Barrier/response/review gaps",
+        value: gaps.length,
+        unit: "count",
+      },
+    ],
+    findings,
+    gaps,
+    assumptions: [
+      "Likelihood and consequence categories were assigned under the organization's approved method and remain applicable.",
+    ],
+    formulae: [
+      "Risk rank = exact supplied matrix[likelihood category:consequence category] lookup.",
+    ],
+  };
+}
+
+function civilInspectionRating(inputs: Record<string, unknown>): Evaluation {
+  const rows = records(inputs.inspections, "Inspection rating records");
+  return coverageEvaluation(
+    "inspection-rating",
+    rows,
+    (row) =>
+      Boolean(
+        row.id &&
+        row.assetId &&
+        row.rating != null &&
+        bool(row.scaleApproved) &&
+        bool(row.methodApproved) &&
+        bool(row.inspectorQualified) &&
+        bool(row.reviewed) &&
+        bool(row.criticalFollowUpControlled),
+      ),
+    (row, i) => String(row.id ?? `inspection ${i + 1}`),
+    "rating basis, qualified inspection/review, or critical-finding follow-up is missing.",
+  );
+}
+
+function civilDeterioration(inputs: Record<string, unknown>): Evaluation {
+  const rows = records(inputs.series, "Deterioration series");
+  const findings: string[] = [];
+  const gaps: string[] = [];
+  for (const [index, row] of rows.entries()) {
+    const id = text(row.id, `Series ${index + 1} ID`);
+    const current = finite(row.currentValue, `${id} current value`);
+    const rate = finite(row.ratePerYear, `${id} approved rate`);
+    const horizon = positive(row.horizonYears, `${id} horizon`);
+    text(row.unit, `${id} unit`);
+    if (
+      !bool(row.modelApproved) ||
+      !bool(row.calibrationCurrent) ||
+      !bool(row.applicable)
+    ) {
+      gaps.push(
+        `${id}: model approval, calibration, or applicability is incomplete.`,
+      );
+      continue;
+    }
+    findings.push(
+      `${id}: supplied linear model projects ${round(current + rate * horizon)} ${row.unit} at ${horizon} year(s).`,
+    );
+  }
+  if (!findings.length)
+    throw new InputError(
+      "No deterioration series has an approved, current and applicable model.",
+    );
+  return {
+    summary: `${findings.length} of ${rows.length} supplied deterioration series were projected within their approved model boundary.`,
+    metrics: [
+      {
+        key: "projected_series",
+        label: "Projected series",
+        value: findings.length,
+        unit: "count",
+      },
+      {
+        key: "blocked_series",
+        label: "Model-boundary gaps",
+        value: gaps.length,
+        unit: "count",
+      },
+    ],
+    findings,
+    gaps,
+    assumptions: [
+      "The supplied linear rates, observation basis, calibration and horizon remain valid for the stated assets and exposures.",
+    ],
+    formulae: [
+      "Projected value = supplied current value + supplied approved annual rate × supplied horizon.",
+    ],
+  };
+}
+
+function civilLoadRestriction(inputs: Record<string, unknown>): Evaluation {
+  const rows = records(inputs.ratings, "Load rating records");
+  const findings: string[] = [];
+  const gaps: string[] = [];
+  let below = 0;
+  for (const [index, row] of rows.entries()) {
+    const id = text(row.id, `Rating ${index + 1} ID`);
+    const factor = finite(row.ratingFactor, `${id} rating factor`);
+    const criterion = positive(
+      row.approvedCriterion,
+      `${id} approved criterion`,
+    );
+    if (!bool(row.analysisCurrent) || !bool(row.authorityApproved))
+      gaps.push(
+        `${id}: current qualified analysis or authority approval is missing.`,
+      );
+    if (factor < criterion) {
+      below += 1;
+      findings.push(
+        `${id}: supplied rating factor is ${round(factor - criterion)} below the supplied criterion.`,
+      );
+    } else
+      findings.push(
+        `${id}: supplied rating factor is ${round(factor - criterion)} above the supplied criterion.`,
+      );
+    if (bool(row.restrictionRequired) && !bool(row.restrictionImplemented))
+      gaps.push(
+        `${id}: authority-required restriction is not evidenced as implemented.`,
+      );
+  }
+  return {
+    summary: `${rows.length} qualified load-rating record(s) were screened against supplied criteria; no load rating was performed by SyncAI.`,
+    metrics: [
+      {
+        key: "ratings",
+        label: "Rating records",
+        value: rows.length,
+        unit: "count",
+      },
+      {
+        key: "below_criterion",
+        label: "Below supplied criterion",
+        value: below,
+        unit: "count",
+      },
+      {
+        key: "control_gaps",
+        label: "Authority/control gaps",
+        value: gaps.length,
+        unit: "count",
+      },
+    ],
+    findings,
+    gaps,
+    assumptions: [
+      "Rating factors and criteria come from the same current, qualified load case and approved analysis.",
+    ],
+    formulae: [
+      "Criterion margin = supplied rating factor - supplied approved criterion.",
+    ],
+  };
+}
+
+function civilGeographicRisk(inputs: Record<string, unknown>): Evaluation {
+  const rows = records(inputs.overlays, "Asset hazard overlays");
+  return coverageEvaluation(
+    "geographic-hazard overlay",
+    rows,
+    (row) =>
+      Boolean(
+        row.id &&
+        bool(row.assetGeometryControlled) &&
+        bool(row.crsMatched) &&
+        bool(row.layerApproved) &&
+        bool(row.metadataCurrent) &&
+        bool(row.resolutionAccepted) &&
+        bool(row.overlapMethodApproved) &&
+        bool(row.reviewed),
+      ),
+    (row, i) => String(row.id ?? `overlay ${i + 1}`),
+    "controlled geometry/CRS, approved current layer metadata/resolution/method, or review is missing.",
+  );
+}
+
+function civilRenewalPlanning(inputs: Record<string, unknown>): Evaluation {
+  const budget = positive(inputs.budget, "Indicative planning envelope");
+  const weights = records(inputs.weights, "Approved renewal weights");
+  const factorWeights = new Map<string, number>();
+  for (const [index, row] of weights.entries())
+    factorWeights.set(
+      text(row.factor, `Weight ${index + 1} factor`),
+      nonNegative(row.weight, `Weight ${index + 1}`),
+    );
+  if (![...factorWeights.values()].some((value) => value > 0))
+    throw new InputError(
+      "At least one approved renewal weight must be positive.",
+    );
+  const candidates = records(inputs.candidates, "Renewal candidates");
+  const gaps: string[] = [];
+  const ranked = candidates.flatMap((row, index) => {
+    const id = text(row.id, `Candidate ${index + 1} ID`);
+    const cost = positive(row.cost, `${id} cost`);
+    if (!bool(row.evidenceReady)) {
+      gaps.push(`${id}: evidence is not ready for comparison.`);
+      return [];
+    }
+    const benefit = [...factorWeights].reduce((sum, [factor, weight]) => {
+      const score = finite(row[factor], `${id} ${factor} score`);
+      if (score < 0 || score > 5)
+        throw new InputError(`${id} ${factor} score must be between 0 and 5.`);
+      return sum + score * weight;
+    }, 0);
+    const mandatory = bool(row.mandatory);
+    const due = mandatory
+      ? isoDate(row.dueDate, `${id} due date`).getTime()
+      : Number.POSITIVE_INFINITY;
+    return [{ id, cost, mandatory, due, priority: benefit / cost }];
+  });
+  if (!ranked.length)
+    throw new InputError("No renewal candidate is evidence-ready.");
+  ranked.sort(
+    (a, b) =>
+      Number(b.mandatory) - Number(a.mandatory) ||
+      (a.mandatory && b.mandatory ? a.due - b.due : 0) ||
+      b.priority - a.priority ||
+      a.id.localeCompare(b.id),
+  );
+  let cumulative = 0;
+  const findings = ranked.map((row, index) => {
+    cumulative += row.cost;
+    return `${index + 1}. ${row.id} · ${row.mandatory ? "MANDATORY — not economically deferrable" : `weighted benefit/cost ${round(row.priority, 6)}`} · ${cumulative <= budget ? "inside" : "outside"} indicative envelope.`;
+  });
+  return {
+    summary: `${ranked.length} evidence-ready renewal candidate(s) were ordered; the result is not expenditure or deferral authority.`,
+    metrics: [
+      {
+        key: "candidates",
+        label: "Evidence-ready candidates",
+        value: ranked.length,
+        unit: "count",
+      },
+      {
+        key: "mandatory",
+        label: "Mandatory candidates",
+        value: ranked.filter((row) => row.mandatory).length,
+        unit: "count",
+      },
+      {
+        key: "budget",
+        label: "Indicative envelope",
+        value: budget,
+        unit: "supplied currency",
+      },
+    ],
+    findings,
+    gaps,
+    assumptions: [
+      "Mandatory status, due dates, factor scores, weights, costs and dependencies are current and approved.",
+    ],
+    formulae: [
+      "Non-mandatory priority = Σ(supplied factor score × approved weight) / supplied cost; mandatory candidates remain first.",
+    ],
+  };
+}
+
 const evaluators: Partial<
   Record<string, (inputs: Record<string, unknown>) => Evaluation>
 > = {
   "tailings-geotechnical": tailings,
   "well-integrity": wellIntegrity,
   "rbi-corrosion-loop": rbi,
+  "process-safety-barriers": processSafetyBarriers,
+  "pressure-containment-assurance": pressureContainmentAssurance,
+  "sis-proof-test-assurance": sisProofTestAssurance,
+  "turnaround-readiness": turnaroundReadiness,
+  "loss-of-containment-risk": lossOfContainmentRisk,
+  "network-reliability-impact": networkReliabilityImpact,
+  "outage-control-readiness": outageControlReadiness,
+  "network-load-capacity": networkLoadCapacity,
+  "storm-mobilization-readiness": stormMobilizationReadiness,
   "storm-crew-dispatch": stormDispatch,
+  "network-restoration-prioritization": networkRestorationPrioritization,
   "line-balancing": lineBalancing,
   "robot-health": robotHealth,
+  "oee-loss-decomposition": oeeLossDecomposition,
+  "quality-loss-reconciliation": qualityLossReconciliation,
+  "tooling-life-assurance": toolingLifeAssurance,
+  "changeover-readiness": changeoverReadiness,
   "haccp-verification": haccp,
   "cip-validation": cip,
   "cold-chain": coldChain,
   "gxp-validation": gxp,
   "batch-record": batchRecord,
+  "fleet-duty-exposure": fleetDutyExposure,
+  "dispatch-availability": dispatchAvailability,
   "route-depot-optimization": routeOptimization,
+  "fleet-configuration-trace": fleetConfigurationTrace,
   "inspection-scheduling": inspectionSchedule,
+  "fleet-replacement-prioritization": fleetReplacementPrioritization,
   "airworthiness-compliance": airworthiness,
   "msg3-trace": msg3,
   "life-limited-part": lifeLimitedPart,
@@ -1915,9 +4244,29 @@ const evaluators: Partial<
   "reuse-life": reuseLife,
   "range-safety": rangeSafety,
   "propellant-degradation": propellant,
+  "battery-thermal-envelope": batteryThermal,
+  "battery-hv-safety": batteryHvSafety,
+  "battery-degradation": batteryDegradation,
+  "battery-fire-readiness": batteryFireReadiness,
+  "clinical-criticality": healthcareClinicalCriticality,
+  "device-availability": healthcareAvailability,
+  "calibration-assurance": healthcareCalibration,
+  "infection-control-readiness": healthcareInfectionControl,
+  "patient-risk": healthcarePatientRisk,
+  "device-traceability": healthcareTraceability,
+  "structural-condition": civilStructuralCondition,
+  "inspection-rating": civilInspectionRating,
+  "deterioration-forecast": civilDeterioration,
+  "load-restriction": civilLoadRestriction,
+  "geographic-risk": civilGeographicRisk,
+  "renewal-planning": civilRenewalPlanning,
   "code-compliance": codeCompliance,
   "fire-life-safety": fireLifeSafety,
   "occupancy-accessibility": occupancy,
+  "occupant-environment": occupantEnvironment,
+  "bas-control-integrity": basControlIntegrity,
+  "energy-water-performance": energyWaterPerformance,
+  "facility-renewal-priority": facilityRenewalPriority,
 };
 
 function present(value: unknown): boolean {

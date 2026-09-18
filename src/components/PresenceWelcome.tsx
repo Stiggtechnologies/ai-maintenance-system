@@ -2,12 +2,13 @@
  * Signed-in presence strip for the main AppShell.
  *
  * Audio path: useSpeechOutput — signed-in `sync-tts` (OpenAI Speech) when
- * configured, browser speechSynthesis only as fallback. Meet Sync speaks a
- * Reliability Engineer greeting once per tab session when not muted. Tenant
- * sync_voice_output still gates CopilotDock and is named in the honesty
- * line. KPI brief is text-only from get_kpi_dashboard. Mute is remembered
- * in localStorage. Signed-in meeting notes persist in the Sync-native
- * vault. Recommend is not authorize.
+ * configured, browser speechSynthesis only as fallback. The strip speaks a
+ * Reliability Engineer greeting once per tab session when not muted. The
+ * legacy Meet Sync booth can still be rendered by an explicit caller, but the
+ * AppShell disables it in favor of the global Sync copilot. Tenant
+ * sync_voice_output still gates CopilotDock and is named in the honesty line.
+ * KPI brief is text-only from get_kpi_dashboard. Mute is remembered in
+ * localStorage. Recommend is not authorize.
  */
 import { useCallback, useEffect, useState } from "react";
 import { MessageCircle, Volume2, VolumeX } from "lucide-react";
@@ -46,12 +47,18 @@ function metadataFullName(value: unknown): string | null {
 }
 
 const MEET_SYNC_BUTTON_CLASS =
-  "inline-flex items-center gap-1.5 rounded-md border border-signal-cyan/40 bg-signal-cyan/10 px-2 py-1 text-xs text-signal-cyan hover:border-signal-cyan/60 hover:bg-signal-cyan/15";
+  "inline-flex items-center gap-1.5 whitespace-nowrap rounded-md border border-signal-cyan/40 bg-signal-cyan/10 px-2 py-1 text-xs text-signal-cyan hover:border-signal-cyan/60 hover:bg-signal-cyan/15";
 
 const SECONDARY_BUTTON_CLASS =
-  "inline-flex items-center gap-1.5 rounded-md border border-white/10 px-2 py-1 text-xs text-slate-300 hover:border-white/20 hover:text-slate-100";
+  "inline-flex items-center gap-1.5 whitespace-nowrap rounded-md border border-white/10 px-2 py-1 text-xs text-slate-300 hover:border-white/20 hover:text-slate-100";
 
-export function PresenceWelcome() {
+interface PresenceWelcomeProps {
+  showMeetingBooth?: boolean;
+}
+
+export function PresenceWelcome({
+  showMeetingBooth = true,
+}: PresenceWelcomeProps) {
   const { user, profile, loading } = useAuth();
   const { speak, stop, speaking, engine } = useSpeechOutput();
   const voiceOutput = useFeatureFlag("sync_voice_output");
@@ -194,30 +201,31 @@ export function PresenceWelcome() {
     });
   };
 
-  const booth = boothOpen ? (
-    <PresenceBoothConversation
-      signedIn={Boolean(user)}
-      userId={user?.id ?? ""}
-      muted={muted}
-      voiceOutputEnabled={voiceOutputEnabled}
-      givenName={givenName}
-      briefLines={briefLines}
-      caseContextLines={workingSubject.contextLines}
-      caseBound={workingSubject.bound}
-      organizationId={organizationId}
-      caseId={workingSubject.caseId}
-      caseNumber={workingSubject.caseNumber}
-      asset={workingSubject.asset}
-      speak={speak}
-      stopSpeech={stop}
-      speaking={speaking}
-      onPresenceSignals={({ listening, thinking }) => {
-        setBoothListening(listening);
-        setBoothThinking(thinking);
-      }}
-      onMemoryChange={refreshWorkingSubject}
-    />
-  ) : null;
+  const booth =
+    showMeetingBooth && boothOpen ? (
+      <PresenceBoothConversation
+        signedIn={Boolean(user)}
+        userId={user?.id ?? ""}
+        muted={muted}
+        voiceOutputEnabled={voiceOutputEnabled}
+        givenName={givenName}
+        briefLines={briefLines}
+        caseContextLines={workingSubject.contextLines}
+        caseBound={workingSubject.bound}
+        organizationId={organizationId}
+        caseId={workingSubject.caseId}
+        caseNumber={workingSubject.caseNumber}
+        asset={workingSubject.asset}
+        speak={speak}
+        stopSpeech={stop}
+        speaking={speaking}
+        onPresenceSignals={({ listening, thinking }) => {
+          setBoothListening(listening);
+          setBoothThinking(thinking);
+        }}
+        onMemoryChange={refreshWorkingSubject}
+      />
+    ) : null;
 
   if (loading || !user) return null;
 
@@ -228,19 +236,24 @@ export function PresenceWelcome() {
   });
 
   const strip = (
-    <div className="flex items-start justify-between gap-3">
+    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
       <div className="flex min-w-0 items-start gap-3">
         <PresenceFace phase={presencePhase} />
         <div className="min-w-0">
-          <p className="text-sm font-medium text-slate-100">{spokenWelcome}</p>
+          <p className="max-h-10 overflow-hidden text-sm font-medium leading-5 text-slate-100 sm:max-h-none sm:overflow-visible">
+            {spokenWelcome}
+          </p>
           <p
             data-testid="presence-honesty"
-            className="mt-1 text-[11px] text-slate-500"
+            className="mt-1 hidden text-[11px] text-slate-500 sm:block"
           >
             {honesty}
           </p>
           {!boothOpen && briefLines.length > 0 ? (
-            <ul data-testid="presence-brief" className="mt-1.5 space-y-0.5">
+            <ul
+              data-testid="presence-brief"
+              className="mt-1.5 hidden space-y-0.5 sm:block"
+            >
               {briefLines.map((line) => (
                 <li key={line} className="text-xs text-slate-400">
                   {line}
@@ -250,7 +263,7 @@ export function PresenceWelcome() {
           ) : null}
         </div>
       </div>
-      <div className="flex shrink-0 items-center gap-2">
+      <div className="flex w-full shrink-0 flex-wrap items-center justify-end gap-2 sm:w-auto sm:flex-nowrap">
         {!muted ? (
           <button
             type="button"
@@ -262,15 +275,17 @@ export function PresenceWelcome() {
             Play
           </button>
         ) : null}
-        <button
-          type="button"
-          onClick={toggleBooth}
-          aria-label={boothOpen ? "Close Meet Sync" : "Meet Sync"}
-          className={MEET_SYNC_BUTTON_CLASS}
-        >
-          <MessageCircle className="h-3.5 w-3.5" />
-          Meet Sync
-        </button>
+        {showMeetingBooth ? (
+          <button
+            type="button"
+            onClick={toggleBooth}
+            aria-label={boothOpen ? "Close Meet Sync" : "Meet Sync"}
+            className={MEET_SYNC_BUTTON_CLASS}
+          >
+            <MessageCircle className="h-3.5 w-3.5" />
+            Meet Sync
+          </button>
+        ) : null}
         {muted ? (
           <button
             type="button"
@@ -310,24 +325,26 @@ export function PresenceWelcome() {
       }
     >
       {muted ? (
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
           <div className="flex min-w-0 items-center gap-3">
             <PresenceFace phase={presencePhase} />
-            <p className="text-xs text-slate-500">
+            <p className="max-h-8 overflow-hidden text-xs leading-4 text-slate-500 sm:max-h-none sm:overflow-visible">
               Presence audio muted. Welcome will not speak in this browser.
               Tenant Voice output (`sync_voice_output`) still gates CopilotDock.
             </p>
           </div>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={toggleBooth}
-              aria-label={boothOpen ? "Close Meet Sync" : "Meet Sync"}
-              className={MEET_SYNC_BUTTON_CLASS}
-            >
-              <MessageCircle className="h-3.5 w-3.5" />
-              Meet Sync
-            </button>
+          <div className="flex w-full flex-wrap items-center justify-end gap-2 sm:w-auto sm:flex-nowrap">
+            {showMeetingBooth ? (
+              <button
+                type="button"
+                onClick={toggleBooth}
+                aria-label={boothOpen ? "Close Meet Sync" : "Meet Sync"}
+                className={MEET_SYNC_BUTTON_CLASS}
+              >
+                <MessageCircle className="h-3.5 w-3.5" />
+                Meet Sync
+              </button>
+            ) : null}
             <button
               type="button"
               onClick={handleUnmute}

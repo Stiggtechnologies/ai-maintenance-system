@@ -5,10 +5,14 @@ import { PublicAskRail } from "./PublicAskRail";
 describe("PublicAskRail", () => {
   it("exposes only real destinations and treats Home as new ask", () => {
     const onHome = vi.fn();
-    render(<PublicAskRail homeActive onHome={onHome} />);
-    expect(screen.getByRole("button", { name: "Home" })).toHaveAttribute(
+    render(<PublicAskRail homeActive onNewAsk={onHome} />);
+    expect(screen.getByRole("link", { name: "Home" })).toHaveAttribute(
       "aria-current",
       "page",
+    );
+    expect(screen.getByRole("link", { name: "Home" })).toHaveAttribute(
+      "href",
+      "/",
     );
     expect(screen.getByRole("link", { name: "Assess" })).toHaveAttribute(
       "href",
@@ -18,7 +22,7 @@ describe("PublicAskRail", () => {
       "href",
       "/signin?returnTo=%2F",
     );
-    expect(screen.getByTestId("bolt-rail-compass")).toBeTruthy();
+    expect(screen.queryByTestId("bolt-rail-compass")).toBeNull();
     expect(screen.queryByText("Discover")).toBeNull();
     expect(screen.queryByText("Spaces")).toBeNull();
     expect(screen.queryByText("Install")).toBeNull();
@@ -31,7 +35,7 @@ describe("PublicAskRail", () => {
     render(
       <PublicAskRail
         homeActive
-        onHome={vi.fn()}
+        onNewAsk={vi.fn()}
         spaces={{ active: false, onOpen }}
       />,
     );

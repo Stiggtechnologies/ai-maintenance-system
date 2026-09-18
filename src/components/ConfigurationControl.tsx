@@ -20,6 +20,8 @@ import {
   type TempMod,
 } from "../lib/configuration";
 import { LoadingState, ErrorState } from "./ui/AsyncStates";
+import { DigitalAssetMaintainabilityPanel } from "./DigitalAssetMaintainabilityPanel";
+import { ConfigurationAuthoring } from "./ConfigurationAuthoring";
 
 interface Posture {
   assets_total: number;
@@ -361,6 +363,8 @@ export function ConfigurationControl() {
           </>
         )}
       </div>
+      <ConfigurationAuthoring onSaved={refetch} />
+      <DigitalAssetMaintainabilityPanel />
     </section>
   );
 }

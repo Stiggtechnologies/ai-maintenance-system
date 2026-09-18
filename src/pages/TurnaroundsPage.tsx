@@ -1,11 +1,10 @@
 /**
- * Shutdowns & Turnarounds — /turnarounds. ROUTE ONLY, deliberately not in
- * the sidebar: nothing anywhere creates an outage_window, so a sidebar item
- * would front a permanently empty surface (navigation-lifecycle-ia.md §2
- * Group 6, the P-7 rule). The route exists so the panel keeps an address for
- * the day outage creation lands. Panel remounted, not modified.
+ * Shutdowns & Turnarounds — /turnarounds. C9.05 makes the route discoverable:
+ * an accountable human can record a planning window and generate a persisted,
+ * recommendation-only loss/backlog/outage planning run.
  */
 import { OutagePlanning } from "../components/OutagePlanning";
+import { MaintenanceOptimization } from "../components/MaintenanceOptimization";
 
 export function TurnaroundsPage() {
   return (
@@ -19,6 +18,7 @@ export function TurnaroundsPage() {
           their work scope
         </p>
       </div>
+      <MaintenanceOptimization />
       <OutagePlanning />
     </div>
   );

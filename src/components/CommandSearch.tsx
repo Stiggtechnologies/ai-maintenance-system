@@ -28,12 +28,10 @@ interface SearchResult {
 }
 
 // The palette mirrors the sidebar tree (navigation-lifecycle-ia.md §2) plus
-// the admin-only Research page it has always offered. /turnarounds is
-// deliberately absent for the same reason it is not a sidebar item (P-7): a
-// searchable destination is a menu entry, and it fronts a surface that is
-// empty for every real tenant today (nothing creates an outage_window).
-// /design returned to both the sidebar and the palette when its RAM
-// allocation stopped being pinned to the demo project code.
+// the admin-only Research page it has always offered. /turnarounds now has a
+// governed planning-window write and persisted C9.05 runs, so P-7 no longer
+// disqualifies it. /design returned when its RAM allocation stopped being
+// pinned to the demo project code.
 const allResults: SearchResult[] = [
   { id: "mc", label: "Mission Control", path: "/mission-control", category: "Mission", icon: Target },
   { id: "cc", label: "Command Centers", path: "/command-centers", category: "Mission", icon: Target },
@@ -57,6 +55,7 @@ const allResults: SearchResult[] = [
   { id: "wa", label: "Work Action Board", path: "/work", category: "Work Management", icon: Wrench },
   { id: "sc", label: "Weekly Schedule & Crew", path: "/scheduling", category: "Work Management", icon: Wrench },
   { id: "sr", label: "Sync Recovery", path: "/recovery", category: "Work Management", icon: Wrench },
+  { id: "ta", label: "Shutdowns & Turnarounds", path: "/turnarounds", category: "Work Management", icon: Wrench },
   { id: "ma", label: "Materials & Spares", path: "/materials", category: "Work Management", icon: Wrench },
   { id: "ho", label: "Release & Return to Service", path: "/handover", category: "Work Management", icon: Wrench },
   { id: "br", label: "Operational Briefing", path: "/briefing", category: "Work Management", icon: Wrench },

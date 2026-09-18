@@ -2,13 +2,10 @@ import type { ChangeEvent, KeyboardEvent, RefObject } from "react";
 import { useEffect, useRef, useState } from "react";
 import {
   ArrowUp,
-  Globe,
   Image as ImageIcon,
   Mic,
-  MicOff,
   Paperclip,
   Plus,
-  Search,
 } from "lucide-react";
 
 type PublicAskBarProps = {
@@ -19,13 +16,12 @@ type PublicAskBarProps = {
   onChange: (value: string) => void;
   onSend: () => void;
   sendDisabled: boolean;
-  caseExists: boolean;
   dictationSupported: boolean;
   dictationListening: boolean;
   dictationTitle: string;
   onToggleDictation: () => void;
   photoInputRef: RefObject<HTMLInputElement | null>;
-  onOpenAttachMenu?: () => void;
+  fileInputRef: RefObject<HTMLInputElement | null>;
 };
 
 const ASK_PLACEHOLDER = "Ask anything or @mention a Space";
@@ -38,13 +34,12 @@ export function PublicAskBar({
   onChange,
   onSend,
   sendDisabled,
-  caseExists,
   dictationSupported,
   dictationListening,
   dictationTitle,
   onToggleDictation,
   photoInputRef,
-  onOpenAttachMenu,
+  fileInputRef,
 }: PublicAskBarProps) {
   const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.key === "Enter" && !event.shiftKey) {
@@ -70,31 +65,13 @@ export function PublicAskBar({
     return () => document.removeEventListener("mousedown", onPointerDown);
   }, [overflowOpen]);
 
-  const attachTitle = caseExists
-    ? "Attach a file"
-    : "Available after a case exists";
-  const imageTitle = caseExists
-    ? "Attach a photo"
-    : "Available after a case exists";
-
   const renderAccessories = () => (
     <>
       <button
         type="button"
         className="bolt-ask-tool"
-        title="Search is not a separate mode yet"
-        aria-label="Search"
-        disabled
-      >
-        <Search size={16} />
-        <span className="bolt-ask-overflow-label">Search</span>
-      </button>
-      <button
-        type="button"
-        className="bolt-ask-tool"
-        title={imageTitle}
+        title="Attach a photo"
         aria-label="Attach a photo"
-        disabled={!caseExists}
         onClick={() => {
           setOverflowOpen(false);
           photoInputRef.current?.click();
@@ -106,55 +83,34 @@ export function PublicAskBar({
       <button
         type="button"
         className="bolt-ask-tool"
-        title={attachTitle}
-        aria-label={
-          caseExists ? "Add camera, photos, or files" : "Attach a file"
-        }
-        disabled={!caseExists}
+        title="Attach a CSV, TSV, text, or log file"
+        aria-label="Attach a data file"
         onClick={() => {
           setOverflowOpen(false);
-          onOpenAttachMenu?.();
+          fileInputRef.current?.click();
         }}
       >
         <Paperclip size={16} />
-        <span className="bolt-ask-overflow-label">Attach</span>
+        <span className="bolt-ask-overflow-label">Data file</span>
       </button>
-      <span className="bolt-ask-gap" aria-hidden="true" />
-      <button
-        type="button"
-        className="bolt-ask-tool"
-        title="Web search is not available"
-        aria-label="Web search"
-        disabled
-      >
-        <Globe size={16} />
-        <span className="bolt-ask-overflow-label">Web</span>
-      </button>
-      <button
-        type="button"
-        className="bolt-ask-tool"
-        title="Link attach is not available"
-        aria-label="Link"
-        disabled
-      >
-        <Paperclip size={16} />
-        <span className="bolt-ask-overflow-label">Link</span>
-      </button>
-      <button
-        type="button"
-        className={`bolt-ask-tool${dictationListening ? " is-live" : ""}`}
-        title={dictationTitle}
-        aria-label={dictationListening ? "Stop dictation" : "Dictate a message"}
-        aria-pressed={dictationListening}
-        disabled={!dictationSupported}
-        onClick={() => {
-          setOverflowOpen(false);
-          onToggleDictation();
-        }}
-      >
-        {dictationSupported ? <Mic size={16} /> : <MicOff size={16} />}
-        <span className="bolt-ask-overflow-label">Dictate</span>
-      </button>
+      {dictationSupported ? (
+        <button
+          type="button"
+          className={`bolt-ask-tool${dictationListening ? " is-live" : ""}`}
+          title={dictationTitle}
+          aria-label={
+            dictationListening ? "Stop dictation" : "Dictate a message"
+          }
+          aria-pressed={dictationListening}
+          onClick={() => {
+            setOverflowOpen(false);
+            onToggleDictation();
+          }}
+        >
+          <Mic size={16} />
+          <span className="bolt-ask-overflow-label">Dictate</span>
+        </button>
+      ) : null}
     </>
   );
 

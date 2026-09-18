@@ -351,6 +351,93 @@ export function validatePhysicsModelPack(
       message: "At least one bounded asset family is required.",
     });
   }
+  for (const [path, values] of [
+    ["applicability.assetTypes", manifest.applicability.assetTypes],
+    ["applicability.dutyClasses", manifest.applicability.dutyClasses],
+    [
+      "applicability.environmentClasses",
+      manifest.applicability.environmentClasses,
+    ],
+    ["applicability.limitations", manifest.applicability.limitations],
+  ] as const) {
+    if (!Array.isArray(values) || values.length === 0) {
+      issues.push({
+        path,
+        message: `${path} must contain at least one bounded entry.`,
+      });
+    }
+  }
+  if (
+    manifest.applicability.mechanismScope?.mode !==
+      "canonical_model_bindings" ||
+    manifest.applicability.mechanismScope.basis.trim().length < 20
+  ) {
+    issues.push({
+      path: "applicability.mechanismScope",
+      message:
+        "Mechanism scope must resolve through canonical model-mechanism bindings with a substantive basis.",
+    });
+  }
+  if (
+    !manifest.applicability.makeModel ||
+    !["manufacturer_neutral", "allowlist"].includes(
+      manifest.applicability.makeModel.mode,
+    ) ||
+    manifest.applicability.makeModel.basis.trim().length < 20
+  ) {
+    issues.push({
+      path: "applicability.makeModel",
+      message:
+        "Make/model scope requires an explicit mode and substantive basis.",
+    });
+  } else if (
+    manifest.applicability.makeModel.mode === "allowlist" &&
+    manifest.applicability.makeModel.entries.length === 0
+  ) {
+    issues.push({
+      path: "applicability.makeModel.entries",
+      message: "An allowlist must name at least one manufacturer/model entry.",
+    });
+  }
+  if (
+    manifest.applicability.dataQuality?.minimumState !== "fit_for_use" ||
+    manifest.applicability.dataQuality?.verifiedEvidenceRequired !== true
+  ) {
+    issues.push({
+      path: "applicability.dataQuality",
+      message: "Fit-for-use data quality and verified evidence are required.",
+    });
+  }
+  if (
+    manifest.modelKind === "deterministic_physics" &&
+    (manifest.applicability.trainingPopulation?.status !==
+      "not_applicable_deterministic" ||
+      manifest.applicability.trainingPopulation.basis.trim().length < 20)
+  ) {
+    issues.push({
+      path: "applicability.trainingPopulation",
+      message:
+        "Deterministic models must explicitly explain why a training population is not applicable.",
+    });
+  }
+  const validFrom = Date.parse(
+    `${manifest.applicability.validationPeriod?.validFrom ?? ""}T00:00:00Z`,
+  );
+  const validThrough = Date.parse(
+    `${manifest.applicability.validationPeriod?.validThrough ?? ""}T00:00:00Z`,
+  );
+  if (
+    !Number.isFinite(validFrom) ||
+    !Number.isFinite(validThrough) ||
+    validThrough < validFrom ||
+    manifest.applicability.validationPeriod.revalidationTriggers.length === 0
+  ) {
+    issues.push({
+      path: "applicability.validationPeriod",
+      message:
+        "Validation needs an ordered date window and at least one revalidation trigger.",
+    });
+  }
   if (manifest.applicability.rules.length === 0) {
     issues.push({
       path: "applicability.rules",

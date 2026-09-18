@@ -19,6 +19,9 @@ import {
   type LinearDefect,
 } from "../lib/asset-ontology";
 import { LoadingState, ErrorState } from "./ui/AsyncStates";
+import { AssetRelationshipPanel } from "./AssetRelationshipPanel";
+import { GeospatialOperationalIntelligencePanel } from "./GeospatialOperationalIntelligencePanel";
+import { ClimateHazardExposurePanel } from "./ClimateHazardExposurePanel";
 
 interface Coverage {
   assets_total: number;
@@ -161,6 +164,12 @@ export function AssetOntology() {
           </div>
         </div>
       )}
+
+      <AssetRelationshipPanel />
+
+      <GeospatialOperationalIntelligencePanel />
+
+      <ClimateHazardExposurePanel />
 
       {/* Where the defects actually are — the analysis a point model cannot do. */}
       {density && data?.route && (

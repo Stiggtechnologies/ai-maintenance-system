@@ -61,31 +61,32 @@ export const PUBLIC_ASK_TIE_IN: readonly BoltChromeTieIn[] = [
   },
   {
     chrome: "Compare",
-    product: "first-paint seed 0 on /workspace",
+    product: "first-paint seed 0 + Decision record on /workspace",
     honesty: "live-intent",
     note: "Not a development case. Not /develop/new.",
   },
   {
     chrome: "Troubleshoot",
-    product: "first-paint seed 4 on /workspace",
+    product: "first-paint seed 4 + Evidence record on /workspace",
     honesty: "live-intent",
     note: "Not a development case. Not /develop/new.",
   },
   {
     chrome: "Health",
-    product: "first-paint seed 1 on /workspace",
+    product: "first-paint seed 1 + Decision record on /workspace",
     honesty: "live-intent",
     note: "Not a development case. Not /develop/new.",
   },
   {
     chrome: "Learn",
-    product: "first-paint seed 3 on /workspace",
+    product: "first-paint seed 3 + Value record on /workspace",
     honesty: "live-intent",
-    note: "Not the Learning Loop recorder. Not /develop/new.",
+    note:
+      "Shows the verified-value model. Not the Learning Loop recorder. Not /develop/new.",
   },
   {
     chrome: "Fact Check",
-    product: "first-paint seed 2 on /workspace",
+    product: "first-paint seed 2 + Evidence record on /workspace",
     honesty: "live-intent",
     note: "Not a development case. Not /develop/new.",
   },

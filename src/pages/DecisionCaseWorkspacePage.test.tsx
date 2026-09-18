@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createSeedDecisionCases } from "../lib/decision-case";
@@ -69,12 +69,17 @@ function renderWorkspace(entry = "/workspace") {
   return render(
     <MemoryRouter initialEntries={[entry]}>
       <Routes>
+        <Route path="/" element={<DecisionCaseWorkspacePage publicMode />} />
         <Route
           path="/workspace"
           element={<DecisionCaseWorkspacePage publicMode />}
         />
         <Route
           path="/workspace/cases/:caseId"
+          element={<DecisionCaseWorkspacePage publicMode />}
+        />
+        <Route
+          path="/capabilities/:capabilityId"
           element={<DecisionCaseWorkspacePage publicMode />}
         />
       </Routes>
@@ -119,9 +124,14 @@ describe("DecisionCaseWorkspacePage — Bolt first paint", () => {
     expect(screen.getByPlaceholderText(ASK_PLACEHOLDER)).toBeTruthy();
     expect(screen.getByTestId("first-paint-empty")).toBeTruthy();
     expect(
-      screen.getAllByTestId("ask-intent-pill").map((el) => el.textContent),
+      screen
+        .getAllByTestId("ask-intent-pill")
+        .map((el) => el.querySelector("strong")?.textContent),
     ).toEqual(["Compare", "Troubleshoot", "Health", "Learn", "Fact Check"]);
-    expect(screen.getByRole("button", { name: "Home" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Home" })).toHaveAttribute(
+      "href",
+      "/",
+    );
     expect(screen.getByRole("link", { name: "Assess" })).toHaveAttribute(
       "href",
       "/setup",
@@ -130,7 +140,7 @@ describe("DecisionCaseWorkspacePage — Bolt first paint", () => {
       "href",
       "/signin?returnTo=%2F",
     );
-    expect(screen.getByTestId("bolt-rail-compass")).toBeTruthy();
+    expect(screen.queryByTestId("bolt-rail-compass")).toBeNull();
     expect(screen.queryByText("Discover")).toBeNull();
     expect(screen.queryByText("Spaces")).toBeNull();
     expect(screen.queryByText("Install")).toBeNull();
@@ -142,10 +152,10 @@ describe("DecisionCaseWorkspacePage — Bolt first paint", () => {
     expect(screen.queryByRole("button", { name: "View record" })).toBeNull();
     expect(screen.queryByText("Not proven")).toBeNull();
     expect(screen.queryByTestId("recommendation-turn")).toBeNull();
-    expect(screen.getByLabelText("Search")).toBeDisabled();
-    expect(screen.getByLabelText("Attach a photo")).toBeDisabled();
-    expect(screen.getByLabelText("Attach a file")).toBeDisabled();
-    expect(screen.getByLabelText("Web search")).toBeDisabled();
+    expect(screen.queryByLabelText("Search")).toBeNull();
+    expect(screen.getByLabelText("Attach a photo")).toBeEnabled();
+    expect(screen.getByLabelText("Attach a data file")).toBeEnabled();
+    expect(screen.queryByLabelText("Web search")).toBeNull();
     expect(screen.queryByLabelText("Conversations")).toBeNull();
     expect(screen.queryByRole("tablist")).toBeNull();
     expect(screen.queryByText("Decision Workspace")).toBeNull();
@@ -155,7 +165,7 @@ describe("DecisionCaseWorkspacePage — Bolt first paint", () => {
     expect(screen.queryByText("Chat")).toBeNull();
     expect(screen.queryByText("Work")).toBeNull();
     expect(screen.queryByText(/GPT|model picker|Claude/i)).toBeNull();
-    expect(screen.queryByRole("button", { name: /dark|theme/i })).toBeNull();
+    expect(screen.getByRole("button", { name: "Use dark mode" })).toBeTruthy();
   });
 
   it("signed-in Mode A exposes Spaces as the existing cowork list, not a new page", () => {
@@ -168,7 +178,9 @@ describe("DecisionCaseWorkspacePage — Bolt first paint", () => {
     expect(spaces).toBeTruthy();
     expect(spaces.querySelector("a")).toBeNull();
     expect(spaces.textContent).not.toMatch(/develop/i);
-    fireEvent.click(screen.getByRole("button", { name: "Home" }));
+    fireEvent.click(
+      document.querySelector(".bolt-rail-top button") as HTMLButtonElement,
+    );
     expect(screen.getByTestId("first-paint-empty")).toBeTruthy();
   });
 
@@ -218,43 +230,97 @@ describe("DecisionCaseWorkspacePage — Bolt first paint", () => {
     ).toBeTruthy();
     expect(screen.getByRole("button", { name: "Delegate" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Reject" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "View record" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Hide record" })).toBeTruthy();
+    expect(screen.getByLabelText("Decision record")).toBeTruthy();
+    expect(screen.getByText("Compare · Decision comparison")).toBeTruthy();
     expect(screen.getByText(PUBLIC_ASK_INTENTS[0].question)).toBeTruthy();
     expect(screen.queryByText(/P-101 process pump/)).toBeNull();
-    expect(screen.getByLabelText("Add camera, photos, or files")).toBeTruthy();
+    expect(screen.getByLabelText("Attach a photo")).toBeEnabled();
+    expect(screen.getByLabelText("Attach a data file")).toBeEnabled();
   });
 
   it("Mode A does not restore the Reliability Engineer header lockup", () => {
     renderWorkspace();
     expect(screen.queryByTestId("brand-job-title")).toBeNull();
-    expect(screen.queryByText("Reliability Engineer")).toBeNull();
     expect(screen.queryByLabelText("SyncAI Reliability Engineer")).toBeNull();
+    expect(
+      screen.getByRole("link", { name: "Try the Reliability Engineer" }),
+    ).toBeTruthy();
     expect(document.querySelector(".bolt-public.is-empty")).toBeTruthy();
   });
 
-  it("packet and attach stay gated until a case exists", () => {
+  it("packet stays gated while genuine attachments can start a case", () => {
     renderWorkspace();
     expect(screen.queryByRole("button", { name: "View record" })).toBeNull();
     expect(screen.queryByText("Current decision packet")).toBeNull();
     expect(screen.queryByRole("tablist")).toBeNull();
-    expect(screen.getByLabelText("Attach a photo")).toBeDisabled();
-    expect(screen.getByLabelText("Attach a file")).toBeDisabled();
+    expect(screen.getByLabelText("Attach a photo")).toBeEnabled();
+    expect(screen.getByLabelText("Attach a data file")).toBeEnabled();
     expect(screen.queryByRole("menuitem", { name: "Camera" })).toBeNull();
     loadSample();
-    expect(screen.getByRole("button", { name: "View record" })).toBeTruthy();
-    expect(screen.getByLabelText("Add camera, photos, or files")).toBeEnabled();
-    fireEvent.click(screen.getByRole("button", { name: "View record" }));
+    expect(screen.getByRole("button", { name: "Hide record" })).toBeTruthy();
+    expect(screen.getByLabelText("Attach a data file")).toBeEnabled();
     expect(screen.getByText("Current decision packet")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Hide record" }));
+    expect(screen.queryByText("Current decision packet")).toBeNull();
+    const css = readFileSync(
+      "src/components/public-ask/public-ask.css",
+      "utf8",
+    );
+    expect(css).toMatch(
+      /\.bolt-layout\.is-record-open\s+\.dw-packet\s*\{[^}]*display:\s*flex/,
+    );
   });
 
-  it("plus sheet offers camera, photos, and files only after a case exists", () => {
+  it("opens each showcase in the record section that makes its capability legible", () => {
     renderWorkspace();
-    expect(screen.queryByRole("menuitem", { name: "Camera" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Troubleshoot" }));
+    expect(screen.getByText("Troubleshoot · Failure elimination")).toBeTruthy();
+    expect(screen.getByRole("button", { name: /^Evidence/ })).toHaveClass(
+      "active",
+    );
+  });
+
+  it("opens a shared capability URL directly in its governed record section", async () => {
+    renderWorkspace("/capabilities/troubleshoot");
+
+    await waitFor(() =>
+      expect(
+        screen.getByText("Troubleshoot · Failure elimination"),
+      ).toBeTruthy(),
+    );
+    expect(screen.getByRole("button", { name: /^Evidence/ })).toHaveClass(
+      "active",
+    );
+  });
+
+  it("keeps every showcase capability discoverable after a path is opened", () => {
+    renderWorkspace();
+    fireEvent.click(screen.getByRole("button", { name: "Compare" }));
+
+    const switcher = screen.getByRole("navigation", {
+      name: "Live capabilities",
+    });
+    expect(switcher).toBeTruthy();
+    for (const intent of PUBLIC_ASK_INTENTS) {
+      expect(
+        within(switcher).getByRole("button", { name: new RegExp(intent.label) }),
+      ).toBeTruthy();
+    }
+
+    fireEvent.click(
+      within(switcher).getByRole("button", { name: /Troubleshoot/ }),
+    );
+    expect(screen.getByText("Troubleshoot · Failure elimination")).toBeTruthy();
+  });
+
+  it("keeps direct photo and governed data-file actions in the thread", () => {
+    renderWorkspace();
+    expect(screen.getByLabelText("Attach a photo")).toBeEnabled();
+    expect(screen.getByLabelText("Attach a data file")).toBeEnabled();
     loadSample();
-    fireEvent.click(screen.getByLabelText("Add camera, photos, or files"));
-    expect(screen.getByRole("menuitem", { name: "Camera" })).toBeTruthy();
-    expect(screen.getByRole("menuitem", { name: "Photos" })).toBeTruthy();
-    expect(screen.getByRole("menuitem", { name: "Files" })).toBeTruthy();
+    expect(screen.getByLabelText("Attach a photo")).toBeEnabled();
+    expect(screen.getByLabelText("Attach a data file")).toBeEnabled();
     expect(screen.queryByText("Plugins")).toBeNull();
     expect(screen.queryByText("Think harder")).toBeNull();
   });
@@ -439,10 +505,10 @@ describe("DecisionCaseWorkspacePage — Bolt first paint", () => {
     );
   });
 
-  it("Home opens a new empty Bolt ask", async () => {
+  it("New ask opens a new empty Bolt ask", async () => {
     renderWorkspace();
     loadSample();
-    fireEvent.click(screen.getByRole("button", { name: "Home" }));
+    fireEvent.click(screen.getByRole("button", { name: "New ask" }));
     expect(await screen.findByTestId("first-paint-empty")).toBeTruthy();
     expect(screen.queryByTestId("recommendation-turn")).toBeNull();
     expect(screen.getByPlaceholderText(ASK_PLACEHOLDER)).toBeTruthy();
