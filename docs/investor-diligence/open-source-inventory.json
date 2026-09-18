@@ -1,15 +1,15 @@
 {
   "schemaVersion": 1,
   "source": "package-lock.json",
-  "lockfileSha256": "3d2c1acd87bfbedb7696ebf7e66b4d9cc8427176098728d5958bb18b6f334a3f",
-  "packageInstances": 405,
+  "lockfileSha256": "edb34943133ea7b2a6bb6eb2cee684ca5c9079412ac265d3267b6eddb78094f2",
+  "packageInstances": 406,
   "directProductionDependencies": 14,
   "directDevelopmentDependencies": 26,
   "prohibitedCount": 0,
   "unknownCount": 0,
   "licenseCounts": {
     "0BSD": 1,
-    "Apache-2.0": 25,
+    "Apache-2.0": 26,
     "BlueOak-1.0.0": 2,
     "BSD-2-Clause": 10,
     "BSD-3-Clause": 4,
@@ -530,17 +530,24 @@
     },
     {
       "name": "@humanfs/core",
-      "version": "0.19.1",
+      "version": "0.19.2",
       "license": "Apache-2.0",
       "direct": "transitive",
       "packagePath": "node_modules/@humanfs/core"
     },
     {
       "name": "@humanfs/node",
-      "version": "0.16.7",
+      "version": "0.16.8",
       "license": "Apache-2.0",
       "direct": "transitive",
       "packagePath": "node_modules/@humanfs/node"
+    },
+    {
+      "name": "@humanfs/types",
+      "version": "0.15.0",
+      "license": "Apache-2.0",
+      "direct": "transitive",
+      "packagePath": "node_modules/@humanfs/types"
     },
     {
       "name": "@humanwhocodes/module-importer",
