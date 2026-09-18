@@ -169,9 +169,11 @@ jobs:
       # after unscheduling-without-restore (flagged=2 created=0). Unscheduling
       # alone does not undo ticks that already landed during supabase start.
       # The restore script puts the three seeded breaches back, unschedules
-      # both crons, and clears boot-time Investigate recs so the smoke's
-      # run_agent_loop actually inserts. Thresholds stay: flagged >= 3 and
-      # created >= 3.
+      # both crons plus expire-governance-instruments (hourly at minute 7),
+      # and clears boot-time Investigate recs so the smoke's run_agent_loop
+      # actually inserts. Thresholds stay: flagged >= 3 and created >= 3.
+      # Leaving the expiry cron armed made slice 3C a coin flip on :07
+      # (#487, stakeholder_commitments_breached=0 after cron won the race).
       - name: Make the seeded fixture deterministic (restore agent-loop sensors)
         run: bash scripts/ci-restore-agent-loop-fixture.sh
 

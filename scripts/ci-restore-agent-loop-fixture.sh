@@ -12,8 +12,13 @@
 #
 # This script:
 #   1. unschedules both crons so the smoke is the first post-restore run;
-#   2. writes the three seeded breaches (and the other seed normals) back;
-#   3. renames any boot-time Investigate recs so the loop's idempotency
+#   2. unschedules expire-governance-instruments (hourly at minute 7) so
+#      later Develop smokes own the first explicit sweep — #487 failed
+#      slice 3C at 2026-09-16T11:07:00Z when cron breached SMOKE3C-C42
+#      first and expire_governance_instruments() returned
+#      stakeholder_commitments_breached=0;
+#   3. writes the three seeded breaches (and the other seed normals) back;
+#   4. renames any boot-time Investigate recs so the loop's idempotency
 #      key (asset_id + title) misses them and the smoke actually inserts.
 set -euo pipefail
 
@@ -27,6 +32,9 @@ begin
   end if;
   if exists (select 1 from cron.job where jobname = 'syncai-agent-loop') then
     perform cron.unschedule('syncai-agent-loop');
+  end if;
+  if exists (select 1 from cron.job where jobname = 'expire-governance-instruments') then
+    perform cron.unschedule('expire-governance-instruments');
   end if;
 exception when undefined_table then
   null;
