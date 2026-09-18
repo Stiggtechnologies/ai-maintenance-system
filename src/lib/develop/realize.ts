@@ -56,6 +56,71 @@ export const DELIVERY_FAILURE_TYPES = [
 
 export type DeliveryFailureType = (typeof DELIVERY_FAILURE_TYPES)[number];
 
+/** II.24 — the six points are vocabulary, never inferred from stage labels. */
+export const VALUE_TRAJECTORY_POINTS = [
+  "original",
+  "design",
+  "sanction",
+  "execution_forecast",
+  "startup",
+  "realized",
+] as const;
+
+export type ValueTrajectoryPoint = (typeof VALUE_TRAJECTORY_POINTS)[number];
+
+/** §53 — exhaustive causal buckets. Unattributed is the computed residual. */
+export const VALUE_LEAKAGE_BUCKETS = [
+  "scope",
+  "cost",
+  "schedule",
+  "reliability",
+  "ramp_up",
+  "operating_cost",
+  "market_assumption",
+] as const;
+
+export type ValueLeakageBucket = (typeof VALUE_LEAKAGE_BUCKETS)[number];
+
+export const RECORDABLE_VALUE_TRAJECTORY_POINTS = [
+  "original",
+  "design",
+  "execution_forecast",
+  "startup",
+] as const satisfies readonly ValueTrajectoryPoint[];
+
+export interface LeakageAttributionAmount {
+  bucket: ValueLeakageBucket;
+  value: number;
+}
+
+/**
+ * Deterministic §53 arithmetic. Negative leakage is preserved as value gain;
+ * attributions never get silently clamped to make the ledger reconcile.
+ */
+export function summarizeValueLeakage(input: {
+  approvedValue: number;
+  realizedValue: number;
+  attributions: LeakageAttributionAmount[];
+}) {
+  const leakage = input.approvedValue - input.realizedValue;
+  const attributed = input.attributions.reduce(
+    (sum, row) => sum + row.value,
+    0,
+  );
+  const residual = leakage - attributed;
+  return {
+    leakage,
+    attributed,
+    residual,
+    attributionValid:
+      Number.isFinite(leakage) &&
+      input.attributions.every(
+        (row) => Number.isFinite(row.value) && row.value >= 0,
+      ) &&
+      attributed <= Math.max(leakage, 0),
+  };
+}
+
 export const WARRANTY_METRIC_LABELS: Record<WarrantyMetric, string> = {
   throughput: "Throughput",
   availability: "Availability",
@@ -108,8 +173,8 @@ export function warrantyCompleteness(
     });
   }
   return {
-    stated: WARRANTY_METRICS.filter((k) => byKey.has(k)).map(
-      (k) => byKey.get(k)!,
+    stated: WARRANTY_METRICS.filter((k) => byKey.has(k)).map((k) =>
+      byKey.get(k)!,
     ),
     notWarranted: WARRANTY_METRICS.filter((k) => !byKey.has(k)),
   };

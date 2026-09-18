@@ -1,15 +1,8 @@
-import {
-  ClipboardCheck,
-  Compass,
-  Home,
-  Layers,
-  LogIn,
-  Plus,
-} from "lucide-react";
+import { ClipboardCheck, Home, Layers, LogIn, Plus } from "lucide-react";
 
 type PublicAskRailProps = {
   homeActive: boolean;
-  onHome: () => void;
+  onNewAsk: () => void;
   assessHref?: string;
   signInHref?: string;
   onSignIn?: () => void;
@@ -24,8 +17,8 @@ type PublicAskRailProps = {
 };
 
 /**
- * Bolt icon rail. Top compass is visual Bolt chrome only — not Discover.
- * `+` and Home start a new Mode A ask. Assess (/setup) is live.
+ * Bolt icon rail. `+` starts a new Mode A ask; Home returns to the public
+ * product entry. Assess (/setup) and Sign in are live destinations.
  * Discover stays hidden (Bolt clicks changed no view). Install omitted
  * on web. Spaces appears only when `spaces` is passed — cowork threads
  * on /workspace, not /develop and not a new /spaces page.
@@ -33,7 +26,7 @@ type PublicAskRailProps = {
  */
 export function PublicAskRail({
   homeActive,
-  onHome,
+  onNewAsk,
   assessHref = "/setup",
   signInHref = "/signin?returnTo=%2F",
   onSignIn,
@@ -42,33 +35,25 @@ export function PublicAskRail({
   return (
     <nav className="bolt-rail" aria-label="Workspace">
       <div className="bolt-rail-top">
-        <span
-          className="bolt-rail-mark"
-          data-testid="bolt-rail-compass"
-          aria-hidden="true"
-        >
-          <Compass size={20} />
-        </span>
         <button
           type="button"
           className="bolt-rail-item"
           aria-label="New ask"
-          onClick={onHome}
+          onClick={onNewAsk}
         >
           <Plus size={20} />
         </button>
       </div>
       <div className="bolt-rail-main">
-        <button
-          type="button"
+        <a
+          href="/"
           className={`bolt-rail-item${homeActive ? " is-active" : ""}`}
           aria-label="Home"
           aria-current={homeActive ? "page" : undefined}
-          onClick={onHome}
         >
           <Home size={20} />
           Home
-        </button>
+        </a>
         {spaces ? (
           <button
             type="button"

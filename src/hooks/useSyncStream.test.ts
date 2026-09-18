@@ -45,6 +45,44 @@ describe("useSyncStream", () => {
     expect(result.current.error).toBeNull();
   });
 
+  it("delivers parsed events directly to a caller such as the Realtime voice bridge", async () => {
+    const turn: SyncStreamEvent[] = [
+      { type: "turn.started", turnId: "t-voice" },
+      { type: "assistant.delta", text: "Canonical Sync answer." },
+      { type: "turn.completed", turnId: "t-voice" },
+    ];
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(sseResponse(turn)));
+    const onEvent = vi.fn();
+
+    const { result } = renderHook(() => useSyncStream());
+    await act(() =>
+      result.current.start("/functions/v1/sync-turn", undefined, onEvent),
+    );
+
+    expect(onEvent.mock.calls.map(([event]) => event)).toEqual(turn);
+  });
+
+  it("keeps the canonical stream healthy when an optional observer throws", async () => {
+    const turn: SyncStreamEvent[] = [
+      { type: "turn.started", turnId: "t-observer" },
+      { type: "assistant.delta", text: "Still delivered." },
+      { type: "turn.completed", turnId: "t-observer" },
+    ];
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(sseResponse(turn)));
+    const onEvent = vi.fn(() => {
+      throw new Error("observer failed");
+    });
+
+    const { result } = renderHook(() => useSyncStream());
+    await act(() =>
+      result.current.start("/functions/v1/sync-turn", undefined, onEvent),
+    );
+
+    expect(result.current.status).toBe("done");
+    expect(result.current.events).toEqual(turn);
+    expect(result.current.error).toBeNull();
+  });
+
   it("skips unknown event types without losing the rest of the turn", async () => {
     const stream = createSyncEventStream();
     stream.send({ type: "turn.started", turnId: "t-2" });

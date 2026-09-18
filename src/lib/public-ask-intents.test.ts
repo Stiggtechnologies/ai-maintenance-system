@@ -3,7 +3,11 @@ import {
   FIRST_PAINT_QUESTIONS,
   createFirstPaintSeed,
 } from "./first-paint-seeds";
-import { PUBLIC_ASK_INTENTS, publicAskIntentById } from "./public-ask-intents";
+import {
+  PUBLIC_ASK_INTENTS,
+  publicAskIntentById,
+  publicAskIntentPath,
+} from "./public-ask-intents";
 
 describe("public ask intents", () => {
   it("keeps the Bolt pill order and maps each to a locked first-paint seed", () => {
@@ -14,6 +18,23 @@ describe("public ask intents", () => {
       "Learn",
       "Fact Check",
     ]);
+    expect(PUBLIC_ASK_INTENTS.map((item) => item.showcase)).toEqual([
+      "Production opportunity",
+      "Repeat failure",
+      "Operating risk",
+      "PM effectiveness",
+      "Downtime evidence",
+    ]);
+    expect(PUBLIC_ASK_INTENTS.map((item) => item.recordTab)).toEqual([
+      "decision",
+      "evidence",
+      "decision",
+      "value",
+      "evidence",
+    ]);
+    expect(PUBLIC_ASK_INTENTS.every((item) => item.explanation.length > 30)).toBe(
+      true,
+    );
     expect(PUBLIC_ASK_INTENTS.map((item) => item.question)).toEqual([
       FIRST_PAINT_QUESTIONS[0],
       FIRST_PAINT_QUESTIONS[4],
@@ -39,5 +60,15 @@ describe("public ask intents", () => {
     }
     expect(publicAskIntentById("missing")).toBeUndefined();
     expect(publicAskIntentById("compare")?.seedIndex).toBe(0);
+  });
+
+  it("gives every finished showcase a stable public URL", () => {
+    expect(PUBLIC_ASK_INTENTS.map(publicAskIntentPath)).toEqual([
+      "/capabilities/compare",
+      "/capabilities/troubleshoot",
+      "/capabilities/health",
+      "/capabilities/learn",
+      "/capabilities/fact-check",
+    ]);
   });
 });

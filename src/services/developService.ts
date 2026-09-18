@@ -11,8 +11,13 @@
 import { supabase } from "../lib/supabase";
 import type {
   CaseWorkspace,
+  CaseOptionComparison,
   GateReadinessResult,
   OperationalReadinessResult,
+  OperationalReadinessIndexFactor,
+  OperationalReadinessIndexResult,
+  SystemOperationalReadinessResult,
+  SystemReadinessDesignOriginsResult,
 } from "../lib/develop";
 import type { CaseChains } from "../lib/develop/chains";
 import type {
@@ -103,6 +108,7 @@ export interface OrgMember {
   id: string;
   full_name: string | null;
   email: string | null;
+  role?: string | null;
 }
 
 export interface CreateDevelopmentCaseInput {
@@ -168,7 +174,7 @@ export async function listAdoptedFrameworks(): Promise<FrameworkOption[]> {
 export async function listOrgMembers(): Promise<OrgMember[]> {
   const { data, error } = await supabase
     .from("user_profiles")
-    .select("id, full_name, email")
+    .select("id, full_name, email, role")
     .order("full_name");
   if (error) throw new Error(error.message);
   return (data ?? []) as OrgMember[];
@@ -645,6 +651,98 @@ export async function getCaseOperationalReadiness(
   return unwrap<OperationalReadinessResult>(data, error);
 }
 
+export async function getCaseOperationalReadinessIndex(
+  caseId: string,
+): Promise<OperationalReadinessIndexResult> {
+  const { data, error } = await supabase.rpc(
+    "get_case_operational_readiness_index",
+    { p_case_id: caseId },
+  );
+  return unwrap<OperationalReadinessIndexResult>(data, error);
+}
+
+export interface OperationalReadinessAgentResult {
+  advisory: true;
+  caseId: string;
+  question: "Could operations take ownership tomorrow?";
+  analysis: {
+    answer: "yes" | "no" | "not_assessable";
+    headline: string;
+    index: number | null;
+    status: "BLOCKED" | "READY" | "NOT_READY" | "NOT_ASSESSABLE";
+    profileVersion: number | null;
+    factorFindings: Array<{
+      key: string;
+      percent: number | null;
+      satisfied: number;
+      total: number;
+      weight: number;
+      sourceRefs: string[];
+    }>;
+    blockers: Array<{
+      systemRef: string;
+      asset: string;
+      assetTag: string | null;
+      item: string;
+      category: string;
+      kind: string;
+      sourceRefs: string[];
+    }>;
+    evidenceRefs: string[];
+    limitations: string[];
+  };
+  narrativeSource: "deterministic_governed_records";
+  decisionBoundary: string | null;
+  disclaimer: string;
+}
+
+export async function runOperationalReadinessAgent(
+  caseId: string,
+): Promise<OperationalReadinessAgentResult> {
+  const { data, error } = await supabase.functions.invoke(
+    "develop-operational-readiness-agent",
+    { body: { case_id: caseId } },
+  );
+  if (error) throw new Error(error.message);
+  const payload = data as OperationalReadinessAgentResult | { error?: string };
+  if (payload && typeof payload === "object" && "error" in payload) {
+    throw new Error(String(payload.error));
+  }
+  return payload as OperationalReadinessAgentResult;
+}
+
+export async function saveCaseOperationalReadinessIndexProfile(input: {
+  caseId: string;
+  profileId?: string | null;
+  factors: OperationalReadinessIndexFactor[];
+  hardRequirementKeys: string[];
+  basis: string;
+  evidenceItemId: string;
+}): Promise<{ profileId: string; version: number; status: "draft" }> {
+  const { data, error } = await supabase.rpc(
+    "save_case_operational_readiness_index_profile",
+    {
+      p_case_id: input.caseId,
+      p_profile_id: input.profileId ?? null,
+      p_factors: input.factors,
+      p_hard_requirement_keys: input.hardRequirementKeys,
+      p_basis: input.basis,
+      p_evidence_item_id: input.evidenceItemId,
+    },
+  );
+  return unwrap(data, error);
+}
+
+export async function adoptCaseOperationalReadinessIndexProfile(
+  profileId: string,
+): Promise<{ profileId: string; version: number; status: "adopted" }> {
+  const { data, error } = await supabase.rpc(
+    "adopt_case_operational_readiness_index_profile",
+    { p_profile_id: profileId },
+  );
+  return unwrap(data, error);
+}
+
 export interface BindableAsset {
   id: string;
   name: string;
@@ -673,6 +771,120 @@ export async function bindAssetToCase(input: {
     p_reason: input.reason ?? null,
     p_unbind: input.unbind ?? false,
   });
+  return unwrap(data, error);
+}
+
+export async function getCaseSystemOperationalReadiness(
+  caseId: string,
+): Promise<SystemOperationalReadinessResult> {
+  const { data, error } = await supabase.rpc(
+    "get_case_system_operational_readiness",
+    { p_case_id: caseId },
+  );
+  return unwrap<SystemOperationalReadinessResult>(data, error);
+}
+
+export async function initializeCommissioningSystemReadiness(input: {
+  systemId: number;
+  ownerId: string;
+  requiredBefore: string;
+  basis: string;
+  basisEvidenceItemId: string;
+}): Promise<{ systemId: number; itemsAssigned: number; status: string }> {
+  const { data, error } = await supabase.rpc(
+    "initialize_commissioning_system_readiness",
+    {
+      p_system_id: input.systemId,
+      p_owner_id: input.ownerId,
+      p_required_before: input.requiredBefore,
+      p_basis: input.basis,
+      p_basis_evidence_item_id: input.basisEvidenceItemId,
+    },
+  );
+  return unwrap(data, error);
+}
+
+export async function recordSystemOperationalReadinessItem(input: {
+  systemId: number;
+  itemId: string;
+  status: "human_provided" | "not_applicable";
+  evidenceItemId: string;
+  note: string;
+  value?: Record<string, unknown>;
+}): Promise<{ systemId: number; itemId: string; status: string }> {
+  const { data, error } = await supabase.rpc(
+    "record_system_operational_readiness_item",
+    {
+      p_system_id: input.systemId,
+      p_item_id: input.itemId,
+      p_status: input.status,
+      p_evidence_item_id: input.evidenceItemId,
+      p_note: input.note,
+      p_value: input.value ?? {},
+    },
+  );
+  return unwrap(data, error);
+}
+
+export async function getCaseSystemReadinessDesignOrigins(
+  caseId: string,
+): Promise<SystemReadinessDesignOriginsResult> {
+  const { data, error } = await supabase.rpc(
+    "get_case_system_readiness_design_origins",
+    { p_case_id: caseId },
+  );
+  return unwrap<SystemReadinessDesignOriginsResult>(data, error);
+}
+
+export async function listOperationalReadinessCatalog(): Promise<
+  Array<{
+    key: string;
+    item_label: string;
+    ori_category: string;
+    section_title: string;
+  }>
+> {
+  const { data, error } = await supabase
+    .from("onboarding_requirements")
+    .select("key, item_label, ori_category, section_title")
+    .not("ori_category", "is", null)
+    .order("ori_category")
+    .order("sort_order");
+  if (error) throw new Error(error.message);
+  return (data ?? []) as Array<{
+    key: string;
+    item_label: string;
+    ori_category: string;
+    section_title: string;
+  }>;
+}
+
+export async function recordSystemReadinessDesignOrigin(input: {
+  systemId: number;
+  designRequirementId: number;
+  onboardingRequirementKey: string;
+  ownerId: string;
+  requiredBefore: string;
+  mappingBasis: string;
+  mappingEvidenceItemId: string;
+}): Promise<{
+  originId: number;
+  systemId: number;
+  itemsGenerated: number;
+  status: "awaiting_assets" | "materialized";
+}> {
+  const { data, error } = await supabase.rpc(
+    "record_system_readiness_design_origin",
+    {
+      p_system_id: input.systemId,
+      p_design_requirement_id: input.designRequirementId,
+      p_onboarding_requirement_key: input.onboardingRequirementKey,
+      p_owner_id: input.ownerId,
+      p_required_before: input.requiredBefore,
+      p_mapping_basis: input.mappingBasis,
+      p_mapping_evidence_item_id: input.mappingEvidenceItemId,
+    },
+  );
   return unwrap(data, error);
 }
 
@@ -1044,6 +1256,93 @@ export async function getCaseFinanceModel(
     p_case_id: caseId,
   });
   return unwrapRpc(data, error, "Could not load the finance model");
+}
+
+export async function getCaseOptionComparison(
+  caseId: string,
+): Promise<CaseOptionComparison> {
+  const { data, error } = await supabase.rpc("get_case_option_comparison", {
+    p_case_id: caseId,
+  });
+  return unwrapRpc(data, error, "Could not load the option comparison");
+}
+
+export async function recordOptionSustainabilityObservation(input: {
+  optionId: number;
+  dimension: string;
+  observation: string;
+  value?: number | null;
+  unit?: string | null;
+  basis: string;
+  evidenceItemId: string;
+}): Promise<{ id: number; optionId: number; dimension: string }> {
+  const { data, error } = await supabase.rpc(
+    "record_option_sustainability_observation",
+    {
+      p_option_id: input.optionId,
+      p_dimension: input.dimension,
+      p_observation: input.observation,
+      p_value: input.value ?? null,
+      p_unit: input.unit ?? null,
+      p_basis: input.basis,
+      p_evidence_item_id: input.evidenceItemId,
+    },
+  );
+  return unwrapRpc(data, error, "Could not record the option observation");
+}
+
+export async function createClimateResilienceAssessment(input: {
+  optionId: number;
+  assessmentRef: string;
+  futureConditionsBasis: string;
+}): Promise<{ assessmentId: string; revision: number; status: string }> {
+  const { data, error } = await supabase.rpc(
+    "create_climate_resilience_assessment",
+    {
+      p_option_id: input.optionId,
+      p_assessment_ref: input.assessmentRef,
+      p_future_conditions_basis: input.futureConditionsBasis,
+    },
+  );
+  return unwrapRpc(data, error, "Could not create the climate assessment");
+}
+
+export async function recordClimateResilienceHazard(input: {
+  assessmentId: string;
+  hazard: string;
+  futureCondition: string;
+  designResponse: string;
+  residualGap: string;
+  evidenceItemId: string;
+}): Promise<{ id: number; assessmentId: string; hazard: string }> {
+  const { data, error } = await supabase.rpc(
+    "record_climate_resilience_hazard",
+    {
+      p_assessment_id: input.assessmentId,
+      p_hazard: input.hazard,
+      p_future_condition: input.futureCondition,
+      p_design_response: input.designResponse,
+      p_residual_gap: input.residualGap,
+      p_evidence_item_id: input.evidenceItemId,
+    },
+  );
+  return unwrapRpc(data, error, "Could not record the climate hazard");
+}
+
+export async function reviewClimateResilienceAssessment(input: {
+  assessmentId: string;
+  note: string;
+}): Promise<{
+  assessmentId: string;
+  status: string;
+  hazards: number;
+  decisionBoundary: string;
+}> {
+  const { data, error } = await supabase.rpc(
+    "review_climate_resilience_assessment",
+    { p_assessment_id: input.assessmentId, p_note: input.note },
+  );
+  return unwrapRpc(data, error, "Could not review the climate assessment");
 }
 
 export async function getCaseValueTrajectory(
@@ -2286,7 +2585,12 @@ export interface FrameworkShelf {
     createdAt: string;
     proposedBy: string | null;
     document: string | null;
-    documentId: string;
+    documentId: string | null;
+    analysisRunId?: string | null;
+    sourceFrameworkId?: string | null;
+    targetCriterionId?: number | null;
+    improvementAction?: "simplify" | "strengthen" | null;
+    humanRationale?: string | null;
     framework: FrameworkShelfEntry;
   }[];
   drafts: FrameworkShelfEntry[];
@@ -2295,6 +2599,94 @@ export interface FrameworkShelf {
 
 export async function getFrameworkShelf(): Promise<FrameworkShelf> {
   const { data, error } = await supabase.rpc("get_framework_shelf");
+  return unwrap(data, error);
+}
+
+export interface MethodologyOutcomePattern {
+  criterionId: number;
+  gateId: number;
+  stageKey: string;
+  gateName: string;
+  criterion: string;
+  metSample: number;
+  notMetSample: number;
+  means: {
+    met: {
+      costGrowthPct: number | null;
+      scheduleGrowthPct: number | null;
+      commissioningDefects: number | null;
+      startupReliabilityPct: number | null;
+    };
+    notMet: {
+      costGrowthPct: number | null;
+      scheduleGrowthPct: number | null;
+      commissioningDefects: number | null;
+      startupReliabilityPct: number | null;
+    };
+  };
+  correlations: Record<string, number | null>;
+  associationNotCausation: true;
+  automaticMethodChange: false;
+}
+
+export interface MethodologyOutcomeAnalysis {
+  calculationRunId: string;
+  status: "computed" | "computed_with_refusals" | "refused";
+  eligiblePatterns: number;
+  minimumCohort?: number;
+  criteria?: MethodologyOutcomePattern[];
+  refusals: string[];
+  associationNotCausation: true;
+  automaticMethodChange: false;
+  decisionBoundary?: string;
+}
+
+/** D9.08: descriptive, same-tenant associations with immutable input lineage. */
+export async function runMethodologyOutcomeAnalysis(
+  frameworkId: string,
+): Promise<MethodologyOutcomeAnalysis> {
+  const { data, error } = await supabase.rpc(
+    "run_methodology_outcome_analysis",
+    { p_framework_id: frameworkId, p_minimum_cohort: 3 },
+  );
+  return unwrap(data, error);
+}
+
+/** D9.09: creates a DRAFT next version only; existing human adoption remains final. */
+export async function proposeMethodologyImprovement(input: {
+  calculationRunId: string;
+  criterionId: number;
+  action: "simplify" | "strengthen";
+  rationale: string;
+  isMandatory?: boolean | null;
+  evidenceType?: string | null;
+  minimumConfidence?: number | null;
+  guidance?: string | null;
+  weight?: number | null;
+}): Promise<{
+  proposalId: string;
+  frameworkId: string;
+  version: number;
+  status: "draft";
+  action: "simplify" | "strengthen";
+  adoptionRequired: true;
+  automaticMethodChange: false;
+  decisionBoundary: string;
+}> {
+  const { data, error } = await supabase.rpc(
+    "propose_methodology_improvement",
+    {
+      p_calculation_run_id: input.calculationRunId,
+      p_criterion_id: input.criterionId,
+      p_action: input.action,
+      p_rationale: input.rationale,
+      p_is_mandatory: input.isMandatory ?? null,
+      p_evidence_type: input.evidenceType ?? null,
+      p_minimum_confidence: input.minimumConfidence ?? null,
+      p_guidance: input.guidance ?? null,
+      p_weight: input.weight ?? null,
+    },
+  );
   return unwrap(data, error);
 }
 
@@ -7197,9 +7589,7 @@ export interface ResourceDemandLine {
   withdrawalReason: string | null;
 }
 
-export async function getCaseResourceDemand(
-  caseId: string,
-): Promise<{
+export async function getCaseResourceDemand(caseId: string): Promise<{
   answered: boolean;
   refusal?: string;
   demand?: ResourceDemandLine[];
@@ -8107,6 +8497,33 @@ export interface ApplicableProjectLessons {
   basis?: string;
 }
 
+export interface LessonsAgentResult {
+  advisory: true;
+  caseId: string;
+  question: string;
+  analysis: {
+    verdict: "applicable_lessons_identified" | "none_identified";
+    headline: string;
+    lessonCount: number;
+    findings: Array<{
+      lessonId: string;
+      title: string;
+      failureModeKey: string;
+      cause: string;
+      correctiveAction: string;
+      applicability: string;
+      matchReason: string;
+      sourceLifecycleType: string | null;
+      sourceRefs: string[];
+    }>;
+    evidenceRefs: string[];
+    basis: string;
+    limitations: string[];
+  };
+  narrativeSource: "deterministic_governed_records";
+  disclaimer: string;
+}
+
 export interface CaseValueRealization {
   caseId: string;
   evaluable: boolean;
@@ -8121,6 +8538,128 @@ export interface CaseValueRealization {
   baselineVersion?: number;
   formula?: string;
   note?: string;
+}
+
+export interface ValueTrajectoryRow {
+  point: string;
+  value: number | null;
+  unit: string | null;
+  status: "verified" | "derived" | "missing" | "unit_mismatch";
+}
+
+export interface ValueLeakageAttributionRow {
+  id: string;
+  bucket: string;
+  kind: "causal" | "contributing";
+  value: number;
+  basis: string;
+  evidenceItemId: string;
+}
+
+export interface CaseValueLeakage {
+  caseId: string;
+  leakageEvaluable: boolean;
+  reason?: string;
+  unit?: string;
+  approvedValue?: number;
+  realizedValue?: number;
+  approvedToRealizedLeakage?: number;
+  originalToRealizedChange?: number | null;
+  trajectory?: ValueTrajectoryRow[];
+  trajectoryComplete?: boolean;
+  missingPoints?: string[];
+  attributions?: ValueLeakageAttributionRow[];
+  attributedValue?: number;
+  unattributedResidual?: number;
+  attributionValid?: boolean;
+  missingActualBenefits?: number;
+  pendingVerificationCount?: number;
+  pendingVerification?: Array<{
+    id: string;
+    metricType: string;
+    label: string;
+    value: number;
+    unit: string;
+    basis: string;
+    point: string | null;
+    bucket: string | null;
+    kind: string | null;
+    evidenceItemId: string;
+    recordedBy: string;
+    createdAt: string;
+  }>;
+  formula?: string;
+  decisionBoundary?: string;
+}
+
+export interface BenefitScreenRow {
+  id: string;
+  label: string;
+  expected: number;
+  unit: string;
+  expectedDate: string;
+  ownerId: string;
+  owner: string;
+  basis: string;
+  currentForecast: number | null;
+  forecastStatus: string;
+  forecastMetricId: string | null;
+  actual: number | null;
+  actualHorizonDays: number | null;
+  actualMetricId: string | null;
+  variance: number | null;
+}
+
+export interface CaseBenefitsScreen {
+  caseId: string;
+  benefits: BenefitScreenRow[];
+  valueLeakage: CaseValueLeakage;
+  basis: string;
+}
+
+export interface BenefitsAgentResult {
+  advisory: true;
+  caseId: string;
+  analysis: {
+    verdict: "on_plan" | "shortfall" | "value_gain" | "incomplete";
+    headline: string;
+    benefitCount: number;
+    verifiedActualCount: number;
+    shortfallCount: number;
+    findings: Array<{
+      benefitId: string;
+      label: string;
+      owner: string;
+      unit: string;
+      expected: number;
+      forecast: number | null;
+      actual: number | null;
+      variance: number | null;
+      status: "met_or_exceeded" | "shortfall" | "actual_missing";
+      sourceRefs: string[];
+    }>;
+    leakage: {
+      evaluable: boolean;
+      approved: number | null;
+      realized: number | null;
+      shortfall: number | null;
+      unit: string | null;
+      recordedAttributions: Array<{
+        bucket: string;
+        kind: string;
+        value: number;
+        basis: string;
+        sourceRefs: string[];
+      }>;
+      unattributedResidual: number | null;
+      valid: boolean | null;
+      reason: string | null;
+    };
+    evidenceRefs: string[];
+    limitations: string[];
+  };
+  narrativeSource: "deterministic_governed_records";
+  disclaimer: string;
 }
 
 export interface ProjectSuccessSlot {
@@ -8176,6 +8715,21 @@ export async function screenApplicableProjectLessons(
   return unwrapRpc(data, error, "Could not screen applicable project lessons");
 }
 
+export async function runLessonsAgent(
+  caseId: string,
+): Promise<LessonsAgentResult> {
+  const { data, error } = await supabase.functions.invoke(
+    "develop-lessons-agent",
+    { body: { case_id: caseId } },
+  );
+  if (error) throw new Error(error.message);
+  const payload = data as LessonsAgentResult | { error?: string };
+  if (payload && typeof payload === "object" && "error" in payload) {
+    throw new Error(String(payload.error));
+  }
+  return payload as LessonsAgentResult;
+}
+
 export async function getCaseValueRealization(
   caseId: string,
 ): Promise<CaseValueRealization> {
@@ -8183,6 +8737,83 @@ export async function getCaseValueRealization(
     p_case_id: caseId,
   });
   return unwrapRpc(data, error, "Could not load value realization");
+}
+
+export async function getCaseValueLeakage(
+  caseId: string,
+): Promise<CaseValueLeakage> {
+  const { data, error } = await supabase.rpc("get_case_value_leakage", {
+    p_case_id: caseId,
+  });
+  return unwrapRpc(data, error, "Could not load value leakage");
+}
+
+export async function getCaseBenefitsScreen(
+  caseId: string,
+): Promise<CaseBenefitsScreen> {
+  const { data, error } = await supabase.rpc("get_case_benefits_screen", {
+    p_case_id: caseId,
+  });
+  return unwrapRpc(data, error, "Could not load the benefits screen");
+}
+
+export async function runBenefitsAgent(
+  caseId: string,
+): Promise<BenefitsAgentResult> {
+  const { data, error } = await supabase.functions.invoke(
+    "develop-benefits-agent",
+    { body: { case_id: caseId } },
+  );
+  if (error) throw new Error(error.message);
+  const payload = data as BenefitsAgentResult | { error?: string };
+  if (payload && typeof payload === "object" && "error" in payload) {
+    throw new Error(String(payload.error));
+  }
+  return payload as BenefitsAgentResult;
+}
+
+export async function recordCaseValueTrajectoryPoint(input: {
+  caseId: string;
+  point: string;
+  value: number;
+  unit: string;
+  basis: string;
+  evidenceItemId: string;
+}): Promise<{ metricId: string; point: string; status: string }> {
+  const { data, error } = await supabase.rpc(
+    "record_case_value_trajectory_point",
+    {
+      p_case_id: input.caseId,
+      p_point: input.point,
+      p_value: input.value,
+      p_unit: input.unit,
+      p_basis: input.basis,
+      p_evidence_item_id: input.evidenceItemId,
+    },
+  );
+  return unwrapRpc(data, error, "Could not record the trajectory point");
+}
+
+export async function recordCaseValueLeakageAttribution(input: {
+  caseId: string;
+  bucket: string;
+  value: number;
+  attributionKind: "causal" | "contributing";
+  basis: string;
+  evidenceItemId: string;
+}): Promise<{ metricId: string; bucket: string; status: string }> {
+  const { data, error } = await supabase.rpc(
+    "record_case_value_leakage_attribution",
+    {
+      p_case_id: input.caseId,
+      p_bucket: input.bucket,
+      p_value: input.value,
+      p_attribution_kind: input.attributionKind,
+      p_basis: input.basis,
+      p_evidence_item_id: input.evidenceItemId,
+    },
+  );
+  return unwrapRpc(data, error, "Could not record leakage attribution");
 }
 
 export async function getCaseProjectSuccess(

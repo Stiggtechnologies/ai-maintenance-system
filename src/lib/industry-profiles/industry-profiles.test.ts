@@ -85,8 +85,70 @@ describe("the kernel-profile architecture (E1.01)", () => {
     expect(mfg.domainModules[0].methods).toEqual([
       "line-balancing",
       "robot-health",
+      "oee-loss-decomposition",
+      "quality-loss-reconciliation",
+      "tooling-life-assurance",
+      "changeover-readiness",
     ]);
     expect(mfg.operationalShare).toBe(1);
+  });
+
+  it("binds the transportation profile to the complete governed fleet decision family", () => {
+    const transport = assessProfile(
+      INDUSTRY_PROFILES.find(
+        (profile) => profile.industryCode === "transportation_logistics",
+      )!,
+    );
+    expect(transport.domainModules[0].methods).toEqual([
+      "fleet-duty-exposure",
+      "dispatch-availability",
+      "route-depot-optimization",
+      "fleet-configuration-trace",
+      "inspection-scheduling",
+      "fleet-replacement-prioritization",
+    ]);
+    expect(transport.proseOnly).toEqual([]);
+    expect(transport.operationalShare).toBe(1);
+  });
+
+  it("binds the utilities profile to the complete governed network response family", () => {
+    const utilities = assessProfile(
+      INDUSTRY_PROFILES.find(
+        (profile) => profile.industryCode === "utilities",
+      )!,
+    );
+    expect(utilities.domainModules[0].methods).toEqual([
+      "network-reliability-impact",
+      "outage-control-readiness",
+      "network-load-capacity",
+      "storm-mobilization-readiness",
+      "storm-crew-dispatch",
+      "network-restoration-prioritization",
+    ]);
+    expect(utilities.proseOnly).toEqual([]);
+    expect(utilities.operationalShare).toBe(1);
+  });
+
+  it("binds the battery profile to safety/degradation contexts and four governed methods", () => {
+    const battery = assessProfile(
+      INDUSTRY_PROFILES.find(
+        (profile) => profile.industryCode === "battery_energy_storage",
+      )!,
+    );
+    expect(battery.operational.map((context) => context.key)).toEqual(
+      expect.arrayContaining([
+        "electrochemical_degradation",
+        "battery_safety_event",
+      ]),
+    );
+    expect(battery.domainModules[0].methods).toEqual([
+      "battery-thermal-envelope",
+      "battery-hv-safety",
+      "battery-degradation",
+      "battery-fire-readiness",
+    ]);
+    expect(battery.proseOnly).toEqual([]);
+    expect(battery.operationalShare).toBe(1);
   });
 
   it("surfaces a wiring error rather than dropping it", () => {

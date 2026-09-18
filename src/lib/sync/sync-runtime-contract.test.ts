@@ -11,6 +11,7 @@ const read = (relative: string) =>
   fs.readFileSync(path.join(root, relative), "utf8");
 
 const runtime = read("supabase/functions/sync-runtime/index.ts");
+const proof = read("supabase/functions/_shared/sync-tool-proof.ts");
 const migration = read(
   "supabase/migrations/20260919090000_sync_conversation_extensions.sql",
 );
@@ -95,9 +96,20 @@ describe("Sync end-to-end runtime contract", () => {
     expect(runtime).toContain("raise_maintenance_notification");
     expect(runtime).toContain("Authorization: `Bearer ${auth.token}`");
     expect(runtime).toContain('.from("audit_events")');
-    expect(runtime).toContain("idempotency_key: execution.proposalId");
+    expect(runtime).toContain("decideToolReservation");
+    expect(runtime).toContain("persistToolExecutionResult");
+    expect(runtime).toContain("SYNC_TOOL_EXECUTION_RESULT_ENTITY");
+    expect(proof).toContain('status: "running"');
+    expect(proof).toContain("idempotency_key: input.idempotencyKey");
+    expect(proof).toContain('SYNC_TOOL_EXECUTION_RESULT_ENTITY = "sync_tool_execution_result"');
     expect(migration).toContain("idx_audit_sync_tool_idempotency");
     expect(migration).toContain("idx_audit_sync_tool_proposal");
+  });
+
+  it("does not rewrite audit_events after reservation — the ledger is append-only", () => {
+    expect(runtime).not.toMatch(/from\("audit_events"\)[\s\S]{0,120}\.update\(/);
+    expect(runtime).toContain("toolExecutionResultEventData");
+    expect(proof).toContain("cannot be updated from running");
   });
 
   it("keeps rollout mutations behind an admin-only audited RPC and existing Settings", () => {

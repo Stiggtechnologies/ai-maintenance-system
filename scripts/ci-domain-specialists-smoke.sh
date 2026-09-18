@@ -27,6 +27,123 @@ DEMO=$(token 'demo@syncai.ca' 'Demo123!@#')
 ADMIN=$(token 'admin@syncai.ca' 'Admin123!@#')
 test -n "$DEMO"; test -n "$ADMIN"
 
+# U5.01: the process-industry workbench must expose every claimed integrity,
+# process-safety and turnaround method with a server-owned evidence contract.
+PROCESS_REGISTRY=$(PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -Atc "
+with methods(method_key) as (values
+ ('rbi-corrosion-loop'),('process-safety-barriers'),
+ ('pressure-containment-assurance'),('sis-proof-test-assurance'),
+ ('turnaround-readiness'),('loss-of-containment-risk')
+)
+select bool_and(
+ domain_specialist_method_is_registered('petrochemical-rbi',method_key)
+ and cardinality(domain_specialist_required_evidence(method_key)) > 0
+) from methods;")
+if [ "$PROCESS_REGISTRY" != "t" ]; then
+  echo "Process Industry specialist registry/evidence contract is incomplete" >&2
+  exit 1
+fi
+
+# U5.02: every Manufacturing method must be registered with a non-empty,
+# server-owned evidence contract before its governed result can persist.
+MANUFACTURING_REGISTRY=$(PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -Atc "
+with methods(method_key) as (values
+ ('line-balancing'),('robot-health'),('oee-loss-decomposition'),
+ ('quality-loss-reconciliation'),('tooling-life-assurance'),
+ ('changeover-readiness')
+)
+select bool_and(
+ domain_specialist_method_is_registered('manufacturing-operations',method_key)
+ and cardinality(domain_specialist_required_evidence(method_key)) > 0
+) from methods;")
+if [ "$MANUFACTURING_REGISTRY" != "t" ]; then
+  echo "Manufacturing specialist registry/evidence contract is incomplete" >&2
+  exit 1
+fi
+
+# U5.03: every Fleet / Transportation method must be registered with a
+# non-empty server-owned evidence contract. Runtime outputs remain governed by
+# the same tenant/risk/evidence persistence and independent-review boundary.
+TRANSPORT_REGISTRY=$(PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -Atc "
+with methods(method_key) as (values
+ ('fleet-duty-exposure'),('dispatch-availability'),
+ ('route-depot-optimization'),('fleet-configuration-trace'),
+ ('inspection-scheduling'),('fleet-replacement-prioritization')
+)
+select bool_and(
+ domain_specialist_method_is_registered('transport-logistics',method_key)
+ and cardinality(domain_specialist_required_evidence(method_key)) > 0
+) from methods;")
+if [ "$TRANSPORT_REGISTRY" != "t" ]; then
+  echo "Fleet / Transportation specialist registry/evidence contract is incomplete" >&2
+  exit 1
+fi
+
+# U5.04: every Utilities / networks method must be registered with a non-empty
+# server-owned evidence contract. All results retain the shared tenant/risk
+# boundary, service recalculation and independent non-authoritative review.
+UTILITIES_REGISTRY=$(PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -Atc "
+with methods(method_key) as (values
+ ('network-reliability-impact'),('outage-control-readiness'),
+ ('network-load-capacity'),('storm-mobilization-readiness'),
+ ('storm-crew-dispatch'),('network-restoration-prioritization')
+)
+select bool_and(
+ domain_specialist_method_is_registered('utilities-storm-response',method_key)
+ and cardinality(domain_specialist_required_evidence(method_key)) > 0
+) from methods;")
+if [ "$UTILITIES_REGISTRY" != "t" ]; then
+  echo "Utilities / networks specialist registry/evidence contract is incomplete" >&2
+  exit 1
+fi
+
+# U5.05: prove the deployed SQL registry accepts every operational Buildings
+# and Facilities method and exposes a non-empty server-owned evidence contract.
+BUILDINGS_REGISTRY=$(PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -Atc "
+with methods(method_key) as (values
+  ('occupant-environment'),
+  ('bas-control-integrity'),
+  ('energy-water-performance'),
+  ('facility-renewal-priority')
+)
+select bool_and(
+  domain_specialist_method_is_registered('buildings-infrastructure',method_key)
+  and cardinality(domain_specialist_required_evidence(method_key)) > 0
+) from methods;")
+
+# U5.06: every Healthcare method is registered and carries a non-empty,
+# server-owned evidence contract before any run can persist.
+HEALTHCARE_REGISTRY=$(PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -Atc "
+with methods(method_key) as (values
+ ('clinical-criticality'),('device-availability'),('calibration-assurance'),
+ ('infection-control-readiness'),('patient-risk'),('device-traceability')
+)
+select bool_and(
+ domain_specialist_method_is_registered('healthcare-clinical-engineering',method_key)
+ and cardinality(domain_specialist_required_evidence(method_key)) > 0
+) from methods;")
+if [ "$HEALTHCARE_REGISTRY" != "t" ]; then
+  echo "Healthcare specialist registry/evidence contract is incomplete" >&2
+  exit 1
+fi
+
+# U5.07: every Civil Infrastructure method is registered and carries a
+# non-empty server-owned evidence contract.
+CIVIL_REGISTRY=$(PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -Atc "
+with methods(method_key) as (values
+ ('structural-condition'),('inspection-rating'),('deterioration-forecast'),
+ ('load-restriction'),('geographic-risk'),('renewal-planning')
+)
+select bool_and(
+ domain_specialist_method_is_registered('civil-infrastructure',method_key)
+ and cardinality(domain_specialist_required_evidence(method_key)) > 0
+) from methods;")
+if [ "$CIVIL_REGISTRY" != "t" ]; then
+  echo "Civil Infrastructure specialist registry/evidence contract is incomplete" >&2
+  exit 1
+fi
+test "$BUILDINGS_REGISTRY" = 't'
+
 PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -v ON_ERROR_STOP=1 <<SQL
 delete from domain_specialist_runs where risk_id='$RISK';
 delete from user_role_assignments assignment using roles role
@@ -47,7 +164,7 @@ RUN=$(python3 - <<'PY'
 import json
 result={
   'moduleKey':'petrochemical-rbi','methodKey':'rbi-corrosion-loop',
-  'modelKey':'domain.petrochemical-rbi.rbi-corrosion-loop','modelVersion':'1.0.0',
+  'modelKey':'domain.petrochemical-rbi.rbi-corrosion-loop','modelVersion':'1.1.0',
   'status':'draft','authoritative':False,'humanApprovalRequired':True,
   'requiredApproverRoleKey':'domain_rbi_reviewer',
   'inputs':{
@@ -59,7 +176,7 @@ result={
   },
   'result':{
     'moduleKey':'petrochemical-rbi','methodKey':'rbi-corrosion-loop',
-    'modelKey':'domain.petrochemical-rbi.rbi-corrosion-loop','modelVersion':'1.0.0',
+    'modelKey':'domain.petrochemical-rbi.rbi-corrosion-loop','modelVersion':'1.1.0',
     'requiredApproverRoleKey':'domain_rbi_reviewer','status':'draft',
     'summary':'CI server-calculated contract fixture','authoritative':False,
     'humanApprovalRequired':True,'gaps':[]
@@ -81,7 +198,7 @@ test -n "$RUN_ID"
 
 STATE=$(PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -Atc "select run_status||':'||authoritative::text||':'||human_approval_required::text||':'||(created_by='$AUTHOR')::text||':'||cardinality(evidence_item_ids) from domain_specialist_runs where id='$RUN_ID';")
 test "$STATE" = 'draft:false:true:true:1'
-MODEL=$(PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -Atc "select approved_on is null and human_in_loop from model_register where organization_id='$ORG' and model_key='domain.petrochemical-rbi.rbi-corrosion-loop' and version='1.0.0';")
+MODEL=$(PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -Atc "select approved_on is null and human_in_loop from model_register where organization_id='$ORG' and model_key='domain.petrochemical-rbi.rbi-corrosion-loop' and version='1.1.0';")
 test "$MODEL" = 't'
 
 # The run author cannot independently review their own calculation.

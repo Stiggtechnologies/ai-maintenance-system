@@ -14,22 +14,665 @@ function evidenceFor(required: string[]) {
 }
 
 describe("domain-depth specialist registry", () => {
-  it("covers the requested 14 industries and 29 executable methods", () => {
-    expect(DOMAIN_SPECIALIST_MODULES).toHaveLength(14);
+  it("covers the requested specialist industries and executable methods", () => {
+    expect(DOMAIN_SPECIALIST_MODULES).toHaveLength(17);
     expect(
       new Set(DOMAIN_SPECIALIST_MODULES.map((module) => module.industryCode))
         .size,
-    ).toBe(14);
+    ).toBe(17);
     const methods = DOMAIN_SPECIALIST_MODULES.flatMap((module) =>
       module.methods.map((method) => method.key),
     );
-    expect(methods).toHaveLength(29);
+    expect(methods).toHaveLength(67);
     expect(new Set(methods).size).toBe(methods.length);
     expect(registeredDomainEvaluatorKeys()).toEqual([...methods].sort());
     expect(
       new Set(DOMAIN_SPECIALIST_MODULES.map((module) => module.reviewerRoleKey))
         .size,
-    ).toBe(14);
+    ).toBe(17);
+  });
+
+  it("makes the complete utilities/network family executable and non-authoritative", () => {
+    const module = DOMAIN_SPECIALIST_MODULES.find(
+      (candidate) => candidate.key === "utilities-storm-response",
+    )!;
+    expect(module.methods.map((method) => method.key)).toEqual([
+      "network-reliability-impact",
+      "outage-control-readiness",
+      "network-load-capacity",
+      "storm-mobilization-readiness",
+      "storm-crew-dispatch",
+      "network-restoration-prioritization",
+    ]);
+    for (const method of module.methods) {
+      const result = evaluateDomainSpecialist({
+        moduleKey: module.key,
+        methodKey: method.key,
+        inputs: method.exampleInputs,
+        evidence: evidenceFor(method.requiredEvidence),
+      });
+      expect(result.status, `${method.key}: ${result.gaps}`).toBe("draft");
+      expect(result.authoritative).toBe(false);
+      expect(result.humanApprovalRequired).toBe(true);
+      expect(result.requiredApproverRoleKey).toBe(
+        "domain_storm_dispatch_reviewer",
+      );
+    }
+  });
+
+  it("uses canonical network propagation without presenting a reliability probability", () => {
+    const method = DOMAIN_SPECIALIST_MODULES.find(
+      (module) => module.key === "utilities-storm-response",
+    )!.methods.find(
+      (candidate) => candidate.key === "network-reliability-impact",
+    )!;
+    const result = evaluateDomainSpecialist({
+      moduleKey: "utilities-storm-response",
+      methodKey: method.key,
+      inputs: method.exampleInputs,
+      evidence: evidenceFor(method.requiredEvidence),
+    });
+    expect(
+      result.metrics.find((metric) => metric.key === "lost_nodes")?.value,
+    ).toBe(2);
+    expect(result.summary).toMatch(/not a probabilistic or regulatory/i);
+    expect(method.limitations.join(" ")).toMatch(/not a power-flow/i);
+  });
+
+  it("blocks an outage readiness claim when isolation and protection are incomplete", () => {
+    const method = DOMAIN_SPECIALIST_MODULES.find(
+      (module) => module.key === "utilities-storm-response",
+    )!.methods.find(
+      (candidate) => candidate.key === "outage-control-readiness",
+    )!;
+    const inputs = structuredClone(method.exampleInputs);
+    (
+      inputs.outages as Record<string, unknown>[]
+    )[0].isolationProtectionControlled = false;
+    const result = evaluateDomainSpecialist({
+      moduleKey: "utilities-storm-response",
+      methodKey: method.key,
+      inputs,
+      evidence: evidenceFor(method.requiredEvidence),
+    });
+    expect(
+      result.metrics.find((metric) => metric.key === "coverage")?.value,
+    ).toBe(0);
+    expect(result.gaps.join(" ")).toMatch(/isolation\/protection/);
+  });
+
+  it("does not infer a network capacity unit conversion", () => {
+    const method = DOMAIN_SPECIALIST_MODULES.find(
+      (module) => module.key === "utilities-storm-response",
+    )!.methods.find((candidate) => candidate.key === "network-load-capacity")!;
+    const inputs = structuredClone(method.exampleInputs);
+    (inputs.sources as Record<string, unknown>[])[0].unit = "kW";
+    const result = evaluateDomainSpecialist({
+      moduleKey: "utilities-storm-response",
+      methodKey: method.key,
+      inputs,
+      evidence: evidenceFor(method.requiredEvidence),
+    });
+    expect(
+      result.metrics.find((metric) => metric.key === "planning_margin_0")
+        ?.value,
+    ).toBe(-80);
+    expect(result.gaps.join(" ")).toMatch(/no conversion was inferred/);
+  });
+
+  it("requires confirmed mutual aid where the storm plan marks it applicable", () => {
+    const method = DOMAIN_SPECIALIST_MODULES.find(
+      (module) => module.key === "utilities-storm-response",
+    )!.methods.find(
+      (candidate) => candidate.key === "storm-mobilization-readiness",
+    )!;
+    const inputs = structuredClone(method.exampleInputs);
+    (inputs.areas as Record<string, unknown>[])[0].mutualAidConfirmed = false;
+    const result = evaluateDomainSpecialist({
+      moduleKey: "utilities-storm-response",
+      methodKey: method.key,
+      inputs,
+      evidence: evidenceFor(method.requiredEvidence),
+    });
+    expect(result.gaps.join(" ")).toMatch(/mutual aid/);
+  });
+
+  it("refuses a crew-dispatch request with an empty required skill set", () => {
+    const method = DOMAIN_SPECIALIST_MODULES.find(
+      (module) => module.key === "utilities-storm-response",
+    )!.methods.find((candidate) => candidate.key === "storm-crew-dispatch")!;
+    const inputs = structuredClone(method.exampleInputs);
+    (inputs.incidents as Record<string, unknown>[])[0].requiredSkills = [];
+    const result = evaluateDomainSpecialist({
+      moduleKey: "utilities-storm-response",
+      methodKey: method.key,
+      inputs,
+      evidence: evidenceFor(method.requiredEvidence),
+    });
+    expect(result.status).toBe("blocked");
+    expect(result.gaps.join(" ")).toMatch(
+      /requires at least one supplied skill/,
+    );
+  });
+
+  it("refuses a restoration dependency cycle instead of inventing a sequence", () => {
+    const method = DOMAIN_SPECIALIST_MODULES.find(
+      (module) => module.key === "utilities-storm-response",
+    )!.methods.find(
+      (candidate) => candidate.key === "network-restoration-prioritization",
+    )!;
+    const inputs = structuredClone(method.exampleInputs);
+    (inputs.edges as Record<string, unknown>[]).push({
+      supplier: "FDR-1",
+      dependent: "SUB-1",
+      kind: "electrical",
+      evidence: "SLD-14",
+    });
+    const result = evaluateDomainSpecialist({
+      moduleKey: "utilities-storm-response",
+      methodKey: method.key,
+      inputs,
+      evidence: evidenceFor(method.requiredEvidence),
+    });
+    expect(
+      result.metrics.find((metric) => metric.key === "cycles")?.value,
+    ).toBe(1);
+    expect(result.gaps.join(" ")).toMatch(/Dependency cycle refused/);
+  });
+
+  it("makes the complete fleet/transportation family executable and non-authoritative", () => {
+    const module = DOMAIN_SPECIALIST_MODULES.find(
+      (candidate) => candidate.key === "transport-logistics",
+    )!;
+    expect(module.methods.map((method) => method.key)).toEqual([
+      "fleet-duty-exposure",
+      "dispatch-availability",
+      "route-depot-optimization",
+      "fleet-configuration-trace",
+      "inspection-scheduling",
+      "fleet-replacement-prioritization",
+    ]);
+    for (const method of module.methods) {
+      const result = evaluateDomainSpecialist({
+        moduleKey: module.key,
+        methodKey: method.key,
+        inputs: method.exampleInputs,
+        evidence: evidenceFor(method.requiredEvidence),
+      });
+      expect(result.status, `${method.key}: ${result.gaps}`).toBe("draft");
+      expect(result.authoritative).toBe(false);
+      expect(result.humanApprovalRequired).toBe(true);
+      expect(result.requiredApproverRoleKey).toBe("domain_transport_reviewer");
+    }
+  });
+
+  it("blocks fleet duty shares when counters and classified segments do not reconcile", () => {
+    const method = DOMAIN_SPECIALIST_MODULES.find(
+      (module) => module.key === "transport-logistics",
+    )!.methods.find((candidate) => candidate.key === "fleet-duty-exposure")!;
+    const inputs = structuredClone(method.exampleInputs);
+    (inputs.assets as Record<string, unknown>[])[0].endReading = 120900;
+    const result = evaluateDomainSpecialist({
+      moduleKey: "transport-logistics",
+      methodKey: method.key,
+      inputs,
+      evidence: evidenceFor(method.requiredEvidence),
+    });
+    expect(
+      result.metrics.find((metric) => metric.key === "reconciled_assets")
+        ?.value,
+    ).toBe(0);
+    expect(result.gaps[0]).toMatch(/does not reconcile/);
+  });
+
+  it("excludes a dispatch candidate with an uncontrolled defect and reports the capacity deficit", () => {
+    const method = DOMAIN_SPECIALIST_MODULES.find(
+      (module) => module.key === "transport-logistics",
+    )!.methods.find((candidate) => candidate.key === "dispatch-availability")!;
+    const inputs = structuredClone(method.exampleInputs);
+    (inputs.assets as Record<string, unknown>[])[0].defectsControlled = false;
+    const result = evaluateDomainSpecialist({
+      moduleKey: "transport-logistics",
+      methodKey: method.key,
+      inputs,
+      evidence: evidenceFor(method.requiredEvidence),
+    });
+    expect(
+      result.metrics.find((metric) => metric.key === "eligible_capacity_0")
+        ?.value,
+    ).toBe(0);
+    expect(result.gaps.join(" ")).toMatch(
+      /defect\/restriction control incomplete/,
+    );
+    expect(result.gaps.join(" ")).toMatch(/below the supplied requirement/);
+  });
+
+  it("does not infer a dispatch capacity unit conversion", () => {
+    const method = DOMAIN_SPECIALIST_MODULES.find(
+      (module) => module.key === "transport-logistics",
+    )!.methods.find((candidate) => candidate.key === "dispatch-availability")!;
+    const inputs = structuredClone(method.exampleInputs);
+    (inputs.assets as Record<string, unknown>[])[0].unit = "kg";
+    const result = evaluateDomainSpecialist({
+      moduleKey: "transport-logistics",
+      methodKey: method.key,
+      inputs,
+      evidence: evidenceFor(method.requiredEvidence),
+    });
+    expect(
+      result.metrics.find((metric) => metric.key === "eligible_capacity_0")
+        ?.value,
+    ).toBe(0);
+    expect(result.gaps.join(" ")).toMatch(/no conversion was inferred/);
+  });
+
+  it("blocks fractional regulatory inspection intervals instead of truncating a due date", () => {
+    const method = DOMAIN_SPECIALIST_MODULES.find(
+      (module) => module.key === "transport-logistics",
+    )!.methods.find((candidate) => candidate.key === "inspection-scheduling")!;
+    const inputs = structuredClone(method.exampleInputs);
+    (inputs.assets as Record<string, unknown>[])[0].intervalDays = 180.5;
+    const result = evaluateDomainSpecialist({
+      moduleKey: "transport-logistics",
+      methodKey: method.key,
+      inputs,
+      evidence: evidenceFor(method.requiredEvidence),
+    });
+    expect(result.status).toBe("blocked");
+    expect(result.gaps[0]).toMatch(/positive integer/);
+  });
+
+  it("does not credit an incomplete fleet configuration trace", () => {
+    const method = DOMAIN_SPECIALIST_MODULES.find(
+      (module) => module.key === "transport-logistics",
+    )!.methods.find(
+      (candidate) => candidate.key === "fleet-configuration-trace",
+    )!;
+    const inputs = structuredClone(method.exampleInputs);
+    (inputs.assets as Record<string, unknown>[])[0].deviationsApproved = false;
+    const result = evaluateDomainSpecialist({
+      moduleKey: "transport-logistics",
+      methodKey: method.key,
+      inputs,
+      evidence: evidenceFor(method.requiredEvidence),
+    });
+    expect(
+      result.metrics.find((metric) => metric.key === "coverage")?.value,
+    ).toBe(0);
+    expect(result.gaps[0]).toMatch(/approved deviations/);
+  });
+
+  it("keeps mandatory fleet replacement obligations first without authorizing deferral or spend", () => {
+    const method = DOMAIN_SPECIALIST_MODULES.find(
+      (module) => module.key === "transport-logistics",
+    )!.methods.find(
+      (candidate) => candidate.key === "fleet-replacement-prioritization",
+    )!;
+    const inputs = structuredClone(method.exampleInputs);
+    (inputs.candidates as Record<string, unknown>[]).push({
+      id: "TR-MANDATORY",
+      lifecycleCost: 600000,
+      evidenceReady: true,
+      configurationTraceComplete: true,
+      costBasisApproved: true,
+      obligationStateApproved: true,
+      mandatory: true,
+      dueDate: "2026-12-01",
+      serviceRisk: 1,
+      maintenanceBurden: 1,
+    });
+    const result = evaluateDomainSpecialist({
+      moduleKey: "transport-logistics",
+      methodKey: method.key,
+      inputs,
+      evidence: evidenceFor(method.requiredEvidence),
+    });
+    expect(result.findings[0]).toMatch(/TR-MANDATORY.*MANDATORY/);
+    expect(result.summary).toMatch(
+      /not purchase.*deferral.*expenditure authority/i,
+    );
+    expect(method.limitations.join(" ")).toMatch(/does not authorize/i);
+  });
+
+  it("makes the complete process-industry family executable and non-authoritative", () => {
+    const module = DOMAIN_SPECIALIST_MODULES.find(
+      (candidate) => candidate.key === "petrochemical-rbi",
+    )!;
+    expect(module.methods.map((method) => method.key)).toEqual([
+      "rbi-corrosion-loop",
+      "process-safety-barriers",
+      "pressure-containment-assurance",
+      "sis-proof-test-assurance",
+      "turnaround-readiness",
+      "loss-of-containment-risk",
+    ]);
+    for (const method of module.methods) {
+      const result = evaluateDomainSpecialist({
+        moduleKey: module.key,
+        methodKey: method.key,
+        inputs: method.exampleInputs,
+        evidence: evidenceFor(method.requiredEvidence),
+      });
+      expect(result.status, `${method.key}: ${result.gaps}`).toBe("draft");
+      expect(result.authoritative).toBe(false);
+      expect(result.humanApprovalRequired).toBe(true);
+      expect(result.requiredApproverRoleKey).toBe("domain_rbi_reviewer");
+    }
+  });
+
+  it("blocks every process-industry method without canonical evidence", () => {
+    const module = DOMAIN_SPECIALIST_MODULES.find(
+      (candidate) => candidate.key === "petrochemical-rbi",
+    )!;
+    for (const method of module.methods) {
+      const result = evaluateDomainSpecialist({
+        moduleKey: module.key,
+        methodKey: method.key,
+        inputs: method.exampleInputs,
+        evidence: [],
+      });
+      expect(result.status).toBe("blocked");
+    }
+  });
+
+  it("never credits an unverified loss-of-containment barrier", () => {
+    const method = DOMAIN_SPECIALIST_MODULES.find(
+      (candidate) => candidate.key === "petrochemical-rbi",
+    )!.methods.find(
+      (candidate) => candidate.key === "loss-of-containment-risk",
+    )!;
+    const inputs = structuredClone(method.exampleInputs);
+    (inputs.scenarios as Array<Record<string, unknown>>)[0].barriersVerified =
+      false;
+    const result = evaluateDomainSpecialist({
+      moduleKey: "petrochemical-rbi",
+      methodKey: method.key,
+      inputs,
+      evidence: evidenceFor(method.requiredEvidence),
+    });
+    expect(result.status).toBe("draft");
+    expect(result.gaps.join(" ")).toMatch(/not evidenced as verified/i);
+  });
+
+  it("makes the complete civil-infrastructure family executable and non-authoritative", () => {
+    const module = DOMAIN_SPECIALIST_MODULES.find(
+      (candidate) => candidate.key === "civil-infrastructure",
+    )!;
+    expect(module.methods.map((method) => method.key)).toEqual([
+      "structural-condition",
+      "inspection-rating",
+      "deterioration-forecast",
+      "load-restriction",
+      "geographic-risk",
+      "renewal-planning",
+    ]);
+    for (const method of module.methods) {
+      const result = evaluateDomainSpecialist({
+        moduleKey: module.key,
+        methodKey: method.key,
+        inputs: method.exampleInputs,
+        evidence: evidenceFor(method.requiredEvidence),
+      });
+      expect(result.status, `${method.key}: ${result.gaps}`).toBe("draft");
+      expect(result.authoritative).toBe(false);
+      expect(result.humanApprovalRequired).toBe(true);
+      expect(result.requiredApproverRoleKey).toBe(
+        "domain_civil_infrastructure_reviewer",
+      );
+    }
+  });
+
+  it("blocks every civil-infrastructure method without canonical evidence", () => {
+    const module = DOMAIN_SPECIALIST_MODULES.find(
+      (candidate) => candidate.key === "civil-infrastructure",
+    )!;
+    for (const method of module.methods) {
+      const result = evaluateDomainSpecialist({
+        moduleKey: module.key,
+        methodKey: method.key,
+        inputs: method.exampleInputs,
+        evidence: [],
+      });
+      expect(result.status).toBe("blocked");
+    }
+  });
+
+  it("makes the healthcare family executable, evidence-bound and non-authoritative", () => {
+    const module = DOMAIN_SPECIALIST_MODULES.find(
+      (candidate) => candidate.key === "healthcare-clinical-engineering",
+    )!;
+    expect(module.methods.map((method) => method.key)).toEqual([
+      "clinical-criticality",
+      "device-availability",
+      "calibration-assurance",
+      "infection-control-readiness",
+      "patient-risk",
+      "device-traceability",
+    ]);
+    for (const method of module.methods) {
+      const result = evaluateDomainSpecialist({
+        moduleKey: module.key,
+        methodKey: method.key,
+        inputs: method.exampleInputs,
+        evidence: evidenceFor(method.requiredEvidence),
+      });
+      expect(result.status, `${method.key}: ${result.gaps}`).toBe("draft");
+      expect(result.authoritative).toBe(false);
+      expect(result.humanApprovalRequired).toBe(true);
+      expect(result.requiredApproverRoleKey).toBe(
+        "domain_healthcare_clinical_engineering_reviewer",
+      );
+    }
+  });
+
+  it("blocks healthcare calculations without canonical evidence", () => {
+    const module = DOMAIN_SPECIALIST_MODULES.find(
+      (candidate) => candidate.key === "healthcare-clinical-engineering",
+    )!;
+    for (const method of module.methods) {
+      const result = evaluateDomainSpecialist({
+        moduleKey: module.key,
+        methodKey: method.key,
+        inputs: method.exampleInputs,
+        evidence: [],
+      });
+      expect(result.status).toBe("blocked");
+      expect(result.gaps).not.toHaveLength(0);
+    }
+  });
+
+  it("refuses patient identifiers at the healthcare specialist boundary", () => {
+    const module = DOMAIN_SPECIALIST_MODULES.find(
+      (candidate) => candidate.key === "healthcare-clinical-engineering",
+    )!;
+    const method = module.methods.find(
+      (candidate) => candidate.key === "patient-risk",
+    )!;
+    const inputs = structuredClone(method.exampleInputs);
+    (inputs.hazards as Array<Record<string, unknown>>)[0].patientId =
+      "MRN-12345";
+    const result = evaluateDomainSpecialist({
+      moduleKey: module.key,
+      methodKey: method.key,
+      inputs,
+      evidence: evidenceFor(method.requiredEvidence),
+    });
+    expect(result.status).toBe("blocked");
+    expect(result.gaps.join(" ")).toMatch(/patient identifiers/i);
+    expect(JSON.stringify(result)).not.toContain("MRN-12345");
+  });
+
+  it("makes the full buildings and facilities family executable and non-authoritative", () => {
+    const module = DOMAIN_SPECIALIST_MODULES.find(
+      (candidate) => candidate.key === "buildings-infrastructure",
+    )!;
+    expect(module.methods.map((method) => method.key)).toEqual([
+      "code-compliance",
+      "fire-life-safety",
+      "occupancy-accessibility",
+      "occupant-environment",
+      "bas-control-integrity",
+      "energy-water-performance",
+      "facility-renewal-priority",
+    ]);
+    for (const method of module.methods) {
+      const result = evaluateDomainSpecialist({
+        moduleKey: module.key,
+        methodKey: method.key,
+        inputs: method.exampleInputs,
+        evidence: evidenceFor(method.requiredEvidence),
+      });
+      expect(result.status, `${method.key}: ${result.gaps}`).toBe("draft");
+      expect(result.authoritative).toBe(false);
+      expect(result.humanApprovalRequired).toBe(true);
+    }
+  });
+
+  it("does not treat unapproved occupied-environment criteria as compliance", () => {
+    const method = DOMAIN_SPECIALIST_MODULES.find(
+      (candidate) => candidate.key === "buildings-infrastructure",
+    )!.methods.find((candidate) => candidate.key === "occupant-environment")!;
+    const inputs = structuredClone(method.exampleInputs);
+    (
+      inputs.observations as Array<Record<string, unknown>>
+    )[0].criteriaApproved = false;
+    const result = evaluateDomainSpecialist({
+      moduleKey: "buildings-infrastructure",
+      methodKey: method.key,
+      inputs,
+      evidence: evidenceFor(method.requiredEvidence),
+    });
+    expect(result.status).toBe("draft");
+    expect(
+      result.metrics.find((metric) => metric.key === "occupied_compliance")
+        ?.value,
+    ).toBe(0);
+    expect(result.gaps.join(" ")).toMatch(/not authority-approved/i);
+  });
+
+  it("surfaces BAS overrides instead of implying control integrity", () => {
+    const method = DOMAIN_SPECIALIST_MODULES.find(
+      (candidate) => candidate.key === "buildings-infrastructure",
+    )!.methods.find((candidate) => candidate.key === "bas-control-integrity")!;
+    const inputs = structuredClone(method.exampleInputs);
+    const point = (inputs.controlPoints as Array<Record<string, unknown>>)[0];
+    point.manualOverrideActive = true;
+    point.overrideApproved = false;
+    const result = evaluateDomainSpecialist({
+      moduleKey: "buildings-infrastructure",
+      methodKey: method.key,
+      inputs,
+      evidence: evidenceFor(method.requiredEvidence),
+    });
+    expect(result.status).toBe("draft");
+    expect(
+      result.metrics.find((metric) => metric.key === "coverage")?.value,
+    ).toBe(0);
+    expect(result.gaps.join(" ")).toMatch(/override control is incomplete/i);
+  });
+
+  it("calculates only approved like-for-like energy and water variance", () => {
+    const method = DOMAIN_SPECIALIST_MODULES.find(
+      (candidate) => candidate.key === "buildings-infrastructure",
+    )!.methods.find(
+      (candidate) => candidate.key === "energy-water-performance",
+    )!;
+    const result = evaluateDomainSpecialist({
+      moduleKey: "buildings-infrastructure",
+      methodKey: method.key,
+      inputs: method.exampleInputs,
+      evidence: evidenceFor(method.requiredEvidence),
+    });
+    expect(result.status).toBe("draft");
+    expect(
+      result.metrics.find((metric) => metric.key === "energy_variance_pct")
+        ?.value,
+    ).toBe(-8);
+    expect(
+      result.metrics.find((metric) => metric.key === "water_variance_pct")
+        ?.value,
+    ).toBe(-3.2);
+
+    const inputs = structuredClone(method.exampleInputs);
+    (
+      inputs.periods as Array<Record<string, unknown>>
+    )[0].normalizationApproved = false;
+    const blocked = evaluateDomainSpecialist({
+      moduleKey: "buildings-infrastructure",
+      methodKey: method.key,
+      inputs,
+      evidence: evidenceFor(method.requiredEvidence),
+    });
+    expect(blocked.status).toBe("blocked");
+    expect(blocked.gaps.join(" ")).toMatch(/no supplied period/i);
+  });
+
+  it("keeps mandatory renewal work ahead of economics and blocks an empty evidence-ready scope", () => {
+    const method = DOMAIN_SPECIALIST_MODULES.find(
+      (candidate) => candidate.key === "buildings-infrastructure",
+    )!.methods.find(
+      (candidate) => candidate.key === "facility-renewal-priority",
+    )!;
+    const result = evaluateDomainSpecialist({
+      moduleKey: "buildings-infrastructure",
+      methodKey: method.key,
+      inputs: method.exampleInputs,
+      evidence: evidenceFor(method.requiredEvidence),
+    });
+    expect(result.status).toBe("draft");
+    expect(result.findings[0]).toMatch(/FIRE-PUMP-1.*MANDATORY/i);
+
+    const inputs = structuredClone(method.exampleInputs);
+    for (const candidate of inputs.candidates as Array<Record<string, unknown>>)
+      candidate.evidenceReady = false;
+    const blocked = evaluateDomainSpecialist({
+      moduleKey: "buildings-infrastructure",
+      methodKey: method.key,
+      inputs,
+      evidence: evidenceFor(method.requiredEvidence),
+    });
+    expect(blocked.status).toBe("blocked");
+    expect(blocked.gaps.join(" ")).toMatch(/no supplied renewal candidate/i);
+  });
+
+  it("keeps battery thermal, HV, degradation, and fire decisions evidence-bound and non-authoritative", () => {
+    const module = DOMAIN_SPECIALIST_MODULES.find(
+      (candidate) => candidate.key === "battery-energy-storage",
+    )!;
+    expect(module.methods.map((method) => method.key)).toEqual([
+      "battery-thermal-envelope",
+      "battery-hv-safety",
+      "battery-degradation",
+      "battery-fire-readiness",
+    ]);
+    for (const method of module.methods) {
+      const result = evaluateDomainSpecialist({
+        moduleKey: module.key,
+        methodKey: method.key,
+        inputs: method.exampleInputs,
+        evidence: evidenceFor(method.requiredEvidence),
+      });
+      expect(result.status, `${method.key}: ${result.gaps}`).toBe("draft");
+      expect(result.authoritative).toBe(false);
+      expect(result.humanApprovalRequired).toBe(true);
+    }
+  });
+
+  it("refuses to invent a battery degradation threshold", () => {
+    const method = DOMAIN_SPECIALIST_MODULES.find(
+      (candidate) => candidate.key === "battery-energy-storage",
+    )!.methods.find((candidate) => candidate.key === "battery-degradation")!;
+    const inputs = structuredClone(method.exampleInputs);
+    delete (inputs.units as Array<Record<string, unknown>>)[0]
+      .minimumCapacityRetention;
+    const result = evaluateDomainSpecialist({
+      moduleKey: "battery-energy-storage",
+      methodKey: method.key,
+      inputs,
+      evidence: evidenceFor(method.requiredEvidence),
+    });
+    expect(result.status).toBe("blocked");
+    expect(result.gaps.join(" ")).toMatch(/minimum capacity retention/i);
   });
 
   it("executes every governed example without claiming authority", () => {
@@ -131,6 +774,133 @@ describe("domain-depth specialist registry", () => {
     );
     expect(result.findings[0]).toContain("A");
     expect(result.authoritative).toBe(false);
+  });
+
+  it("decomposes OEE only from approved and reconciled production inputs", () => {
+    const module = DOMAIN_SPECIALIST_MODULES.find(
+      (candidate) => candidate.key === "manufacturing-operations",
+    )!;
+    const method = module.methods.find(
+      (candidate) => candidate.key === "oee-loss-decomposition",
+    )!;
+    const result = evaluateDomainSpecialist({
+      moduleKey: module.key,
+      methodKey: method.key,
+      inputs: method.exampleInputs,
+      evidence: evidenceFor(method.requiredEvidence),
+    });
+    expect(result.status).toBe("draft");
+    expect(
+      result.metrics.find((metric) => metric.key === "LINE-1/SHIFT-A_oee")
+        ?.value,
+    ).toBe(76.6);
+    expect(result.gaps).toEqual([]);
+    expect(result.authorityBoundary).toMatch(/non-authoritative draft/i);
+    expect(method.limitations.join(" ")).toMatch(/change line speed/i);
+  });
+
+  it("blocks OEE arithmetic when its governed time and count controls are incomplete", () => {
+    const module = DOMAIN_SPECIALIST_MODULES.find(
+      (candidate) => candidate.key === "manufacturing-operations",
+    )!;
+    const method = module.methods.find(
+      (candidate) => candidate.key === "oee-loss-decomposition",
+    )!;
+    const inputs = structuredClone(method.exampleInputs);
+    (inputs.periods as Record<string, unknown>[])[0].downtimeReconciled = false;
+    const result = evaluateDomainSpecialist({
+      moduleKey: module.key,
+      methodKey: method.key,
+      inputs,
+      evidence: evidenceFor(method.requiredEvidence),
+    });
+    expect(result.metrics).toEqual([]);
+    expect(result.gaps[0]).toMatch(/reconciled downtime history/);
+  });
+
+  it("reconciles manufacturing quality loss without releasing product", () => {
+    const module = DOMAIN_SPECIALIST_MODULES.find(
+      (candidate) => candidate.key === "manufacturing-operations",
+    )!;
+    const method = module.methods.find(
+      (candidate) => candidate.key === "quality-loss-reconciliation",
+    )!;
+    const result = evaluateDomainSpecialist({
+      moduleKey: module.key,
+      methodKey: method.key,
+      inputs: method.exampleInputs,
+      evidence: evidenceFor(method.requiredEvidence),
+    });
+    expect(
+      result.metrics.find(
+        (metric) => metric.key === "LOT-2401_first_pass_yield",
+      )?.value,
+    ).toBe(94);
+    expect(result.authorityBoundary).toMatch(
+      /release an asset\/product\/facility/i,
+    );
+    expect(method.limitations.join(" ")).toMatch(/release product/i);
+  });
+
+  it("refuses to manufacture a quality-loss result from unreconciled counts", () => {
+    const module = DOMAIN_SPECIALIST_MODULES.find(
+      (candidate) => candidate.key === "manufacturing-operations",
+    )!;
+    const method = module.methods.find(
+      (candidate) => candidate.key === "quality-loss-reconciliation",
+    )!;
+    const inputs = structuredClone(method.exampleInputs);
+    (inputs.lots as Record<string, unknown>[])[0].scrapUnits = 10;
+    const result = evaluateDomainSpecialist({
+      moduleKey: module.key,
+      methodKey: method.key,
+      inputs,
+      evidence: evidenceFor(method.requiredEvidence),
+    });
+    expect(result.metrics).toEqual([]);
+    expect(result.gaps[0]).toMatch(/does not equal total produced/);
+  });
+
+  it("blocks tooling remaining-life arithmetic when trace controls are incomplete", () => {
+    const module = DOMAIN_SPECIALIST_MODULES.find(
+      (candidate) => candidate.key === "manufacturing-operations",
+    )!;
+    const method = module.methods.find(
+      (candidate) => candidate.key === "tooling-life-assurance",
+    )!;
+    const inputs = structuredClone(method.exampleInputs);
+    (inputs.tools as Record<string, unknown>[])[0].qualityTraceCurrent = false;
+    const result = evaluateDomainSpecialist({
+      moduleKey: module.key,
+      methodKey: method.key,
+      inputs,
+      evidence: evidenceFor(method.requiredEvidence),
+    });
+    expect(result.metrics[0].value).toBeNull();
+    expect(result.gaps[0]).toMatch(/quality trace/);
+    expect(result.authorityBoundary).toMatch(/approve a limit/i);
+    expect(method.limitations.join(" ")).toMatch(/extend tool life/i);
+  });
+
+  it("separates changeover duration from governed production release readiness", () => {
+    const module = DOMAIN_SPECIALIST_MODULES.find(
+      (candidate) => candidate.key === "manufacturing-operations",
+    )!;
+    const method = module.methods.find(
+      (candidate) => candidate.key === "changeover-readiness",
+    )!;
+    const inputs = structuredClone(method.exampleInputs);
+    (inputs.changeovers as Record<string, unknown>[])[0].firstOffApproved =
+      false;
+    const result = evaluateDomainSpecialist({
+      moduleKey: module.key,
+      methodKey: method.key,
+      inputs,
+      evidence: evidenceFor(method.requiredEvidence),
+    });
+    expect(result.metrics[0].value).toBe(7);
+    expect(result.gaps[0]).toMatch(/first-off quality result/);
+    expect(result.summary).toMatch(/duration alone never establishes/i);
   });
 
   it("finds the exact shortest bounded route and preserves dispatch authority", () => {

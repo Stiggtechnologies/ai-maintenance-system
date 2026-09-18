@@ -1,6 +1,7 @@
 /**
  * Sync Develop — Realize / Learn on the Case Workspace
- * (D9.02, D9.03, D9.04, D9.11, D9.13, D9.01, D9.12, D9.14, D9.16).
+ * (D9.02, D9.03, D9.04, D9.11, D9.13, D9.01, D9.12, D9.14, D9.16,
+ * D12.16, D12.17).
  *
  * Surfaces the server rows. Nothing here recomputes a due date, a completeness
  * percentage, or a verification. Completeness uses `warrantyCompleteness` so
@@ -11,18 +12,29 @@
  * is `verifyValueMetric` — the one existing loop.
  */
 import { useEffect, useState, type ReactNode } from "react";
-import { BookOpen, Gauge, Milestone, Scale, Target } from "lucide-react";
+import {
+  BookOpen,
+  Gauge,
+  Milestone,
+  Scale,
+  Sparkles,
+  Target,
+} from "lucide-react";
 import {
   CHECKPOINT_HORIZONS,
   DELIVERY_FAILURE_LABELS,
   DELIVERY_FAILURE_TYPES,
+  RECORDABLE_VALUE_TRAJECTORY_POINTS,
+  VALUE_LEAKAGE_BUCKETS,
   WARRANTY_METRIC_LABELS,
   checkpointLifecycle,
   checkpointLifecycleLabel,
   warrantyCompleteness,
   type WarrantyMetric,
 } from "../../lib/develop/realize";
+import type { WorkspaceEvidence } from "../../lib/develop";
 import {
+  getCaseBenefitsScreen,
   getCaseLifecycleSuccess,
   getCaseOperationalWarranty,
   getCaseProjectLessons,
@@ -30,17 +42,24 @@ import {
   getCaseRealizationCheckpoints,
   getCaseValueRealization,
   openRealizationWindow,
+  recordCaseValueLeakageAttribution,
+  recordCaseValueTrajectoryPoint,
   recordCheckpointObservation,
   recordOperationalWarranty,
   recordProjectLesson,
+  runBenefitsAgent,
+  runLessonsAgent,
   screenApplicableProjectLessons,
   type ApplicableProjectLessons,
+  type CaseBenefitsScreen,
   type CaseLifecycleSuccess,
   type CaseOperationalWarranty,
   type CaseProjectLessons,
   type CaseProjectSuccess,
   type CaseRealizationCheckpoints,
   type CaseValueRealization,
+  type BenefitsAgentResult,
+  type LessonsAgentResult,
   type RealizationCheckpointRow,
 } from "../../services/developService";
 import { verifyValueMetric } from "../../services/operatingLoopService";
@@ -214,7 +233,10 @@ export function OperationalWarrantySection({
                   onChange={(e) =>
                     setOptional((prev) => ({
                       ...prev,
-                      [key]: { target: e.target.value, unit: prev[key]?.unit ?? "" },
+                      [key]: {
+                        target: e.target.value,
+                        unit: prev[key]?.unit ?? "",
+                      },
                     }))
                   }
                   placeholder={`${WARRANTY_METRIC_LABELS[key]} target (omit if not warranted)`}
@@ -225,7 +247,10 @@ export function OperationalWarrantySection({
                   onChange={(e) =>
                     setOptional((prev) => ({
                       ...prev,
-                      [key]: { target: prev[key]?.target ?? "", unit: e.target.value },
+                      [key]: {
+                        target: prev[key]?.target ?? "",
+                        unit: e.target.value,
+                      },
                     }))
                   }
                   placeholder="Unit"
@@ -235,8 +260,10 @@ export function OperationalWarrantySection({
             ))}
             <button
               onClick={() => {
-                const metrics: Record<string, { target: number; unit: string }> =
-                  {};
+                const metrics: Record<
+                  string,
+                  { target: number; unit: string }
+                > = {};
                 for (const key of OPTIONAL_METRICS) {
                   const row = optional[key];
                   if (row?.target && row.unit.trim()) {
@@ -338,8 +365,9 @@ function CheckpointRow({
           : "none"}
       </div>
       <ErrorLine error={error} />
-      {canRealize && state === "awaiting_observation" && (
-        observing ? (
+      {canRealize &&
+        state === "awaiting_observation" &&
+        (observing ? (
           <div className="mt-2 grid gap-2 sm:grid-cols-2">
             <input
               type="number"
@@ -393,14 +421,17 @@ function CheckpointRow({
           >
             Record observed actual
           </button>
-        )
-      )}
+        ))}
       {canRealize && state === "observed_unverified" && (
         <button
           onClick={() => {
             setBusy(true);
             setError(null);
-            verifyValueMetric(row.id, true, "Case workspace realization checkpoint")
+            verifyValueMetric(
+              row.id,
+              true,
+              "Case workspace realization checkpoint",
+            )
               .then(() => onChanged())
               .catch((e) =>
                 setError(e instanceof Error ? e.message : "Refused"),
@@ -463,8 +494,8 @@ export function RealizationCheckpointsSection({
       {payload != null && payload.checkpoints.length === 0 ? (
         <p className="text-xs text-slate-500">
           No 30/90/180/365 shells yet. Opening the realization window generates
-          them from recorded warranties and benefits — they are not typed in
-          by hand.
+          them from recorded warranties and benefits — they are not typed in by
+          hand.
         </p>
       ) : null}
       {grouped.map(
@@ -686,6 +717,8 @@ function verdictTone(verdict: string): string {
 
 export function ApplicableLessonsBanner({ caseId }: { caseId: string }) {
   const [payload, setPayload] = useState<ApplicableProjectLessons | null>(null);
+  const [agentResult, setAgentResult] = useState<LessonsAgentResult | null>(null);
+  const [agentBusy, setAgentBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -704,31 +737,93 @@ export function ApplicableLessonsBanner({ caseId }: { caseId: string }) {
     );
   }
   if (payload == null) return null;
-  if (payload.count === 0) {
-    return (
-      <div className="rounded-xl border border-white/6 bg-[#0D1520] px-4 py-3 text-xs text-slate-400">
-        {payload.emptyReason ?? "0 applicable lessons."}
-      </div>
-    );
-  }
   return (
-    <div className="rounded-xl border border-signal-cyan/30 bg-signal-cyan/5 px-4 py-3">
-      <div className="text-sm font-semibold text-slate-100">
-        {payload.count} applicable lesson
-        {payload.count === 1 ? "" : "s"} before the first engineering dollar
-      </div>
-      <p className="mt-1 text-[11px] text-slate-500">{payload.basis}</p>
-      <ul className="mt-2 space-y-1.5">
-        {payload.lessons.map((lesson) => (
-          <li key={lesson.id} className="text-xs text-slate-300">
-            <span className="font-semibold">{lesson.title}</span>
-            <span className="text-slate-500"> — {lesson.matchReason}</span>
-            <div className="text-[11px] text-slate-500">
-              {lesson.applicability}
+    <div className="mt-4 space-y-2">
+      <div
+        className={`rounded-xl border px-4 py-3 ${payload.count === 0 ? "border-white/6 bg-[#0D1520]" : "border-signal-cyan/30 bg-signal-cyan/5"}`}
+      >
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <div className="text-sm font-semibold text-slate-100">
+              {payload.count === 0
+                ? (payload.emptyReason ?? "0 applicable lessons.")
+                : `${payload.count} applicable lesson${payload.count === 1 ? "" : "s"} before the first engineering dollar`}
             </div>
-          </li>
-        ))}
-      </ul>
+            <p className="mt-1 text-[11px] text-slate-500">{payload.basis}</p>
+          </div>
+          <button
+            type="button"
+            disabled={agentBusy}
+            className="rounded-lg border border-signal-cyan/30 px-3 py-1.5 text-xs font-semibold text-signal-cyan disabled:opacity-40"
+            onClick={() => {
+              setAgentBusy(true);
+              setError(null);
+              runLessonsAgent(caseId)
+                .then(setAgentResult)
+                .catch((caught) =>
+                  setError(
+                    caught instanceof Error
+                      ? caught.message
+                      : "Lessons Agent failed",
+                  ),
+                )
+                .finally(() => setAgentBusy(false));
+            }}
+          >
+            {agentBusy ? "Comparing history…" : "Run Lessons Agent"}
+          </button>
+        </div>
+        {payload.count > 0 && (
+          <ul className="mt-2 space-y-1.5">
+            {payload.lessons.map((lesson) => (
+              <li key={lesson.id} className="text-xs text-slate-300">
+                <span className="font-semibold">{lesson.title}</span>
+                <span className="text-slate-500"> — {lesson.matchReason}</span>
+                <div className="text-[11px] text-slate-500">
+                  {lesson.applicability}
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+      {agentResult && (
+        <div className="rounded-xl border border-signal-cyan/20 bg-[#0D1520] px-4 py-3 text-xs">
+          <div className="flex items-center gap-1.5 font-semibold text-slate-100">
+            <Sparkles className="h-3.5 w-3.5 text-signal-cyan" aria-hidden />
+            Lessons Agent · project-history comparison
+          </div>
+          <p className="mt-2 font-semibold text-signal-cyan">
+            {agentResult.analysis.headline}
+          </p>
+          {agentResult.analysis.findings.map((finding) => (
+            <div
+              key={finding.lessonId}
+              className="mt-2 rounded-lg border border-white/6 bg-white/[0.02] p-2.5 text-slate-300"
+            >
+              <div className="font-semibold">{finding.title}</div>
+              <div className="mt-1 text-slate-400">
+                Why it matched: {finding.matchReason}
+              </div>
+              <div className="mt-1">Cause: {finding.cause}</div>
+              <div className="mt-1">
+                Recorded corrective action: {finding.correctiveAction}
+              </div>
+              <div className="mt-1 break-all text-[10px] text-slate-500">
+                Records: {finding.sourceRefs.join(" · ")}
+              </div>
+            </div>
+          ))}
+          <ul className="mt-2 list-disc space-y-1 pl-4 text-amber-200">
+            {agentResult.analysis.limitations.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+          <p className="mt-2 text-[10px] text-slate-500">
+            {agentResult.disclaimer}
+          </p>
+        </div>
+      )}
     </div>
   );
 }
@@ -772,6 +867,469 @@ export function ValueRealizationSection({ caseId }: { caseId: string }) {
           </div>
           <div className="mt-1 text-[11px] text-slate-500">{payload.note}</div>
         </div>
+      )}
+    </Section>
+  );
+}
+
+function humanize(value: string) {
+  return value.replaceAll("_", " ");
+}
+
+function BenefitsAgentPanel({
+  caseId,
+  onError,
+}: {
+  caseId: string;
+  onError: (message: string | null) => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState<BenefitsAgentResult | null>(null);
+
+  return (
+    <div className="rounded-lg border border-signal-cyan/15 bg-signal-cyan/[0.03] p-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-200">
+            <Sparkles className="h-3.5 w-3.5 text-signal-cyan" aria-hidden />
+            Benefits Agent · did we get what we paid for?
+          </div>
+          <p className="mt-1 text-[11px] text-slate-500">
+            Reads the governed benefit, checkpoint and leakage records. It
+            cannot verify a value, prove cause, approve investment or change an
+            operating record.
+          </p>
+        </div>
+        <button
+          type="button"
+          disabled={busy}
+          className="rounded-lg border border-signal-cyan/30 px-3 py-1.5 text-xs font-semibold text-signal-cyan disabled:opacity-40"
+          onClick={() => {
+            setBusy(true);
+            onError(null);
+            runBenefitsAgent(caseId)
+              .then(setResult)
+              .catch((e) =>
+                onError(
+                  e instanceof Error ? e.message : "Benefits Agent failed",
+                ),
+              )
+              .finally(() => setBusy(false));
+          }}
+        >
+          {busy ? "Reading records…" : "Run Benefits Agent"}
+        </button>
+      </div>
+      {result && (
+        <div className="mt-3 space-y-2 border-t border-white/6 pt-3 text-xs">
+          <p
+            className={
+              result.analysis.verdict === "shortfall"
+                ? "font-semibold text-amber-200"
+                : result.analysis.verdict === "incomplete"
+                  ? "font-semibold text-slate-300"
+                  : "font-semibold text-emerald-300"
+            }
+          >
+            {result.analysis.headline}
+          </p>
+          <div className="grid gap-1 sm:grid-cols-2">
+            {result.analysis.findings.map((finding) => (
+              <div key={finding.benefitId} className="text-slate-300">
+                {finding.label} · {humanize(finding.status)} · owner{" "}
+                {finding.owner}
+              </div>
+            ))}
+          </div>
+          {result.analysis.leakage.recordedAttributions.length > 0 && (
+            <div>
+              <div className="text-[10px] uppercase tracking-wide text-slate-500">
+                Independently verified attribution statements
+              </div>
+              {result.analysis.leakage.recordedAttributions.map((item) => (
+                <p
+                  key={`${item.bucket}-${item.value}`}
+                  className="mt-1 text-slate-300"
+                >
+                  {humanize(item.bucket)} · {item.value}{" "}
+                  {result.analysis.leakage.unit} · {item.kind} — {item.basis}
+                </p>
+              ))}
+            </div>
+          )}
+          {result.analysis.limitations.length > 0 && (
+            <ul className="list-disc space-y-1 pl-4 text-amber-200">
+              {result.analysis.limitations.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
+          )}
+          <p className="break-all text-[10px] text-slate-500">
+            Records: {result.analysis.evidenceRefs.join(" · ") || "none"}
+          </p>
+          <p className="text-[10px] text-slate-500">{result.disclaimer}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function BenefitsAndLeakageSection({
+  caseId,
+  evidence,
+  canRealize,
+}: {
+  caseId: string;
+  evidence: WorkspaceEvidence[];
+  canRealize: boolean;
+}) {
+  const [payload, setPayload] = useState<CaseBenefitsScreen | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [mode, setMode] = useState<"point" | "attribution" | null>(null);
+
+  const load = () => {
+    getCaseBenefitsScreen(caseId)
+      .then(setPayload)
+      .catch((e) =>
+        setError(e instanceof Error ? e.message : "Could not load benefits"),
+      );
+  };
+
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [caseId]);
+
+  const leakage = payload?.valueLeakage;
+  const run = async (action: () => Promise<unknown>) => {
+    setBusy(true);
+    setError(null);
+    try {
+      await action();
+      setMode(null);
+      load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Refused");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Section
+      icon={<Scale className="h-4 w-4 text-slate-500" aria-hidden />}
+      title="Benefits and value leakage"
+      subtitle="Expected → forecast → human-verified actual, plus the six lifecycle value points and all seven §53 leakage buckets. Missing and unattributed value stay visible; nothing is auto-allocated."
+    >
+      <ErrorLine error={error} />
+      <BenefitsAgentPanel caseId={caseId} onError={setError} />
+      {payload == null ? (
+        <p className="text-xs text-slate-500">Loading the benefits screen…</p>
+      ) : payload.benefits.length === 0 ? (
+        <p className="text-xs text-slate-500">No case benefits recorded.</p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[680px] text-left text-xs">
+            <thead className="text-[10px] uppercase tracking-wide text-slate-500">
+              <tr>
+                <th className="py-2">Benefit</th>
+                <th>Owner</th>
+                <th>Expected</th>
+                <th>Forecast</th>
+                <th>Actual</th>
+                <th>Variance</th>
+              </tr>
+            </thead>
+            <tbody>
+              {payload.benefits.map((row) => (
+                <tr
+                  key={row.id}
+                  className="border-t border-white/6 text-slate-300"
+                >
+                  <td className="py-2 pr-3">
+                    <div className="font-semibold text-slate-200">
+                      {row.label}
+                    </div>
+                    <div className="text-[10px] text-slate-500">
+                      due {row.expectedDate}
+                    </div>
+                  </td>
+                  <td className="pr-3">{row.owner}</td>
+                  <td>
+                    {row.expected} {row.unit}
+                  </td>
+                  <td>
+                    {row.currentForecast == null
+                      ? "missing"
+                      : `${row.currentForecast} ${row.unit}`}
+                    <div className="text-[10px] text-slate-500">
+                      {humanize(row.forecastStatus)}
+                    </div>
+                  </td>
+                  <td>
+                    {row.actual == null
+                      ? "missing"
+                      : `${row.actual} ${row.unit}`}
+                  </td>
+                  <td
+                    className={
+                      row.variance != null && row.variance < 0
+                        ? "text-red-300"
+                        : "text-slate-300"
+                    }
+                  >
+                    {row.variance == null
+                      ? "not calculable"
+                      : `${row.variance} ${row.unit}`}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {leakage && !leakage.leakageEvaluable ? (
+        <p className="text-xs text-amber-300">{leakage.reason}</p>
+      ) : leakage ? (
+        <div className="space-y-3 rounded-lg border border-white/8 bg-white/[0.02] p-3">
+          <div className="grid gap-2 sm:grid-cols-3">
+            <div>
+              <div className="text-[10px] uppercase text-slate-500">
+                Approved
+              </div>
+              <div className="font-semibold text-slate-200">
+                {leakage.approvedValue} {leakage.unit}
+              </div>
+            </div>
+            <div>
+              <div className="text-[10px] uppercase text-slate-500">
+                Realized
+              </div>
+              <div className="font-semibold text-slate-200">
+                {leakage.realizedValue} {leakage.unit}
+              </div>
+            </div>
+            <div>
+              <div className="text-[10px] uppercase text-slate-500">
+                Leakage
+              </div>
+              <div className="font-semibold text-amber-200">
+                {leakage.approvedToRealizedLeakage} {leakage.unit}
+              </div>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {(leakage.trajectory ?? []).map((row) => (
+              <span
+                key={row.point}
+                className={`rounded-full border px-2 py-1 text-[10px] ${row.status === "missing" || row.status === "unit_mismatch" ? "border-amber-400/20 text-amber-200" : "border-emerald-400/20 text-emerald-200"}`}
+              >
+                {humanize(row.point)} ·{" "}
+                {row.value == null ? row.status : `${row.value} ${row.unit}`}
+              </span>
+            ))}
+          </div>
+          {(leakage.missingPoints?.length ?? 0) > 0 && (
+            <p className="text-[11px] text-amber-200">
+              Named trajectory gaps:{" "}
+              {leakage.missingPoints?.map(humanize).join(", ")}.
+            </p>
+          )}
+          <div className="grid gap-1 sm:grid-cols-2">
+            {(leakage.attributions ?? []).map((row) => (
+              <div key={row.id} className="text-xs text-slate-300">
+                {humanize(row.bucket)} · {row.value} {leakage.unit} · {row.kind}
+              </div>
+            ))}
+            <div
+              className={
+                leakage.attributionValid
+                  ? "text-xs text-slate-300"
+                  : "text-xs text-red-300"
+              }
+            >
+              unattributed residual · {leakage.unattributedResidual}{" "}
+              {leakage.unit}
+            </div>
+          </div>
+          {!leakage.attributionValid && (
+            <p className="text-xs text-red-300">
+              Attribution is invalid: verified allocations exceed positive
+              approved-to-realized leakage, or the case realized a gain. Nothing
+              was normalized.
+            </p>
+          )}
+          {(leakage.pendingVerification ?? []).map((row) => (
+            <div
+              key={row.id}
+              className="flex flex-wrap items-center justify-between gap-2 rounded border border-amber-400/15 px-2 py-1.5 text-xs text-amber-100"
+            >
+              <span>
+                Awaiting independent verification · {row.label} · {row.value}{" "}
+                {row.unit}
+              </span>
+              {canRealize && (
+                <button
+                  disabled={busy}
+                  className="font-semibold text-signal-cyan"
+                  onClick={() =>
+                    void run(() =>
+                      verifyValueMetric(
+                        row.id,
+                        true,
+                        "Independent review confirms the cited value record; this is not causal proof or investment approval.",
+                      ),
+                    )
+                  }
+                >
+                  Verify evidence
+                </button>
+              )}
+            </div>
+          ))}
+          <p className="text-[10px] text-slate-500">
+            {leakage.decisionBoundary}
+          </p>
+        </div>
+      ) : null}
+
+      {canRealize && (
+        <div className="flex flex-wrap gap-3 text-xs font-semibold text-signal-cyan">
+          <button onClick={() => setMode("point")}>
+            + Record lifecycle point
+          </button>
+          <button onClick={() => setMode("attribution")}>
+            + Attribute leakage
+          </button>
+        </div>
+      )}
+      {mode && (
+        <form
+          className="grid gap-2 sm:grid-cols-2"
+          onSubmit={(event) => {
+            event.preventDefault();
+            const data = new FormData(event.currentTarget);
+            const value = Number(data.get("value"));
+            const evidenceItemId = String(data.get("evidenceItemId") ?? "");
+            const basis = String(data.get("basis") ?? "");
+            void run(() =>
+              mode === "point"
+                ? recordCaseValueTrajectoryPoint({
+                    caseId,
+                    point: String(data.get("point") ?? ""),
+                    value,
+                    unit: String(data.get("unit") ?? ""),
+                    basis,
+                    evidenceItemId,
+                  })
+                : recordCaseValueLeakageAttribution({
+                    caseId,
+                    bucket: String(data.get("bucket") ?? ""),
+                    value,
+                    attributionKind: String(data.get("kind") ?? "") as
+                      "causal" | "contributing",
+                    basis,
+                    evidenceItemId,
+                  }),
+            );
+          }}
+        >
+          {mode === "point" ? (
+            <>
+              <select
+                name="point"
+                required
+                defaultValue=""
+                className={inputClass}
+              >
+                <option value="" disabled>
+                  Lifecycle point…
+                </option>
+                {RECORDABLE_VALUE_TRAJECTORY_POINTS.map((point) => (
+                  <option key={point} value={point}>
+                    {humanize(point)}
+                  </option>
+                ))}
+              </select>
+              <input
+                name="unit"
+                required
+                placeholder="Unit (must match approved benefits)"
+                className={inputClass}
+              />
+            </>
+          ) : (
+            <>
+              <select
+                name="bucket"
+                required
+                defaultValue=""
+                className={inputClass}
+              >
+                <option value="" disabled>
+                  Leakage bucket…
+                </option>
+                {VALUE_LEAKAGE_BUCKETS.map((bucket) => (
+                  <option key={bucket} value={bucket}>
+                    {humanize(bucket)}
+                  </option>
+                ))}
+              </select>
+              <select
+                name="kind"
+                required
+                defaultValue="causal"
+                className={inputClass}
+              >
+                <option value="causal">causal</option>
+                <option value="contributing">contributing</option>
+              </select>
+            </>
+          )}
+          <input
+            name="value"
+            required
+            type="number"
+            step="any"
+            min={mode === "attribution" ? 0 : undefined}
+            placeholder="Value"
+            className={inputClass}
+          />
+          <select
+            name="evidenceItemId"
+            required
+            defaultValue=""
+            className={inputClass}
+          >
+            <option value="" disabled>
+              Evidence source…
+            </option>
+            {evidence.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.description ?? item.sourceReference ?? item.id}
+              </option>
+            ))}
+          </select>
+          <input
+            name="basis"
+            required
+            minLength={mode === "attribution" ? 20 : 10}
+            placeholder={
+              mode === "point"
+                ? "Point basis (10+ characters)"
+                : "Causal basis (20+ characters)"
+            }
+            className="sm:col-span-2 w-full rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500"
+          />
+          <button
+            disabled={busy || evidence.length === 0}
+            className="rounded-lg border border-signal-cyan/30 px-3 py-2 text-xs font-semibold text-signal-cyan disabled:opacity-40"
+          >
+            Record for independent verification
+          </button>
+        </form>
       )}
     </Section>
   );
@@ -888,9 +1446,11 @@ export function LifecycleSuccessSection({ caseId }: { caseId: string }) {
 export function RealizeCluster({
   caseId,
   canRealize,
+  evidence,
 }: {
   caseId: string;
   canRealize: boolean;
+  evidence: WorkspaceEvidence[];
 }) {
   const [tick, setTick] = useState(0);
   const [startupAt, setStartupAt] = useState<string | null>(null);
@@ -909,6 +1469,11 @@ export function RealizeCluster({
   return (
     <>
       <ValueRealizationSection caseId={caseId} />
+      <BenefitsAndLeakageSection
+        caseId={caseId}
+        evidence={evidence}
+        canRealize={canRealize}
+      />
       <ProjectSuccessSection caseId={caseId} />
       <LifecycleSuccessSection caseId={caseId} />
       <OperationalWarrantySection

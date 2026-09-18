@@ -43,11 +43,22 @@ interface CandidateWo {
   completed_at: string;
 }
 
+interface EffectivenessMetric {
+  available: boolean;
+  concluded: number;
+  effective: number;
+  ineffective: number;
+  observingExcluded: number;
+  effectivenessRatePct: number | null;
+  basis: string;
+}
+
 async function getPanelData(): Promise<{
   verifications: Verification[];
   candidates: CandidateWo[];
+  metric: EffectivenessMetric;
 }> {
-  const [v, c] = await Promise.all([
+  const [v, c, m] = await Promise.all([
     supabase
       .from("ca_verifications")
       .select(
@@ -62,9 +73,13 @@ async function getPanelData(): Promise<{
       .not("completed_at", "is", null)
       .order("completed_at", { ascending: false })
       .limit(8),
+    supabase.rpc("get_ca_effectiveness_rate"),
   ]);
   if (v.error) throw new Error(v.error.message);
   if (c.error) throw new Error(c.error.message);
+  if (m.error) throw new Error(m.error.message);
+  const metric = m.data as EffectivenessMetric & { error?: string };
+  if (metric.error) throw new Error(metric.error);
   const norm = (row: unknown): Verification => {
     const r = row as Verification & {
       work_orders: Verification["work_orders"] | Verification["work_orders"][];
@@ -81,6 +96,7 @@ async function getPanelData(): Promise<{
   return {
     verifications: (v.data ?? []).map(norm),
     candidates: (c.data ?? []) as CandidateWo[],
+    metric,
   };
 }
 
@@ -138,9 +154,10 @@ export function CaEffectivenessPanel() {
   if (loading)
     return <LoadingState label="Loading corrective-action verifications" />;
   if (error) return <ErrorState message={error} onRetry={refetch} />;
-  const { verifications, candidates } = data ?? {
+  const { verifications, candidates, metric } = data ?? {
     verifications: [],
     candidates: [],
+    metric: null,
   };
 
   return (
@@ -190,6 +207,36 @@ export function CaEffectivenessPanel() {
           </button>
         </div>
       </div>
+
+      {metric?.available ? (
+        <div className="rounded-xl border border-teal-500/20 bg-teal-500/5 p-4">
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <div className="text-3xl font-semibold tabular-nums text-teal-300">
+                {metric.effectivenessRatePct}%
+              </div>
+              <div className="text-xs text-slate-400">
+                {metric.effective} effective of {metric.concluded} concluded
+              </div>
+            </div>
+            <div className="text-right text-xs text-slate-400">
+              <div>{metric.ineffective} ineffective</div>
+              <div>{metric.observingExcluded} still observing — excluded</div>
+              <div className="mt-1 text-slate-500">
+                Trend only; no universal target asserted.
+              </div>
+            </div>
+          </div>
+          <p className="mt-3 text-xs text-slate-500">{metric.basis}</p>
+        </div>
+      ) : (
+        <p className="rounded-lg border border-white/8 bg-white/3 px-3 py-2 text-xs text-slate-400">
+          Effectiveness rate awaits its first concluded observation window.
+          {metric && metric.observingExcluded > 0
+            ? ` ${metric.observingExcluded} verification(s) are still observing and are not treated as failures or successes.`
+            : ""}
+        </p>
+      )}
 
       {verifications.length === 0 ? (
         <EmptyState message="No corrective-action verifications yet — start one from a completed corrective work order." />

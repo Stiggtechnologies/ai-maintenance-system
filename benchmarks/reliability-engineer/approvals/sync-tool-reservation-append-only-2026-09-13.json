@@ -1,0 +1,12 @@
+{
+  "baselineId": "RE-2026.08",
+  "kind": "prompt-surface",
+  "reviewer": "Orville Davis",
+  "reviewerRole": "Founder / reliability engineering SME",
+  "reviewedAt": "2026-09-13T04:49:35Z",
+  "rationale": "In-diff SME attestation for PR #450 / issue #449: append-only Sync tool-execution reservation and result persistence so commissioning replay can read a terminal outcome after 20261121090000 made audit_events append-only. This is ledger/idempotency behaviour for confirmed-tool replay, not a Reliability Engineer prompt or calculation change. What changed: (1) supabase/functions/_shared/sync-tool-proof.ts appends decideToolReservation plus reservation/result event-data helpers (entity types sync_tool_execution and sync_tool_execution_result) after the existing proposal-proof helpers; the pre-existing 55-line prefix is byte-identical to origin/main (blob 3c39ffa456bd8035520367b12f95011327093164). (2) supabase/functions/sync-runtime/index.ts stops UPDATEing the running reservation and INSERTs a terminal sync_tool_execution_result row; lookup prefers that result, then a legacy terminal reservation, and only then reports tool_execution_already_reserved; unique-index insert races re-read instead of failing hard. Reservation logic was not extracted into a new _shared module because sync-runtime must still change (the UPDATE path lives there) and any new import would be pulled into the RE-2026.08 prompt-surface closure, requiring a manifest ratchet plus the same SME approval. Verified unchanged versus origin/main: modeDirective() and modeNotice() are byte-identical, including MEETING MODE — FACILITATION CONTRACT, FIELD MODE — CONTROLLED GUIDANCE CONTRACT, CONVERSATION MODE, isolation/LOTO text, and meeting/field notices; no grounded-query contract strings were edited; no deterministic engineering numbers, OEM limits, intervals, or safety thresholds were added or changed. No harness or RE baseline assert was loosened.",
+  "paths": {
+    "supabase/functions/_shared/sync-tool-proof.ts": "1ad5d3225138bfd17e6995d93724573eb4462cf5",
+    "supabase/functions/sync-runtime/index.ts": "ddd87a9db3c13ffdac821b439457040ddf4db2f7"
+  }
+}

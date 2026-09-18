@@ -7,7 +7,7 @@
  *
  * Primary provider: OpenAI Speech (`OPENAI_API_KEY`, already an edge secret).
  * Prefer `gpt-4o-mini-tts`, fall back to `tts-1`. Optional `SYNC_TTS_VOICE`
- * (default `onyx`). ElevenLabs (`ELEVENLABS_API_KEY`) is a later overlay and
+ * (default `marin`). ElevenLabs (`ELEVENLABS_API_KEY`) is a later overlay and
  * must not block this path.
  *
  * Deno-free so vitest can pin validation without the edge runtime.
@@ -16,8 +16,10 @@
 export const SYNC_TTS_MAX_CHARS = 420;
 export const PREFERRED_TTS_MODEL = "gpt-4o-mini-tts";
 export const FALLBACK_TTS_MODEL = "tts-1";
-export const DEFAULT_TTS_VOICE = "onyx";
+export const DEFAULT_TTS_VOICE = "marin";
 export const OPENAI_SPEECH_URL = "https://api.openai.com/v1/audio/speech";
+export const DEFAULT_TTS_INSTRUCTIONS =
+  "Speak in a warm, confident, engaging Canadian English voice. Sound intelligent, present, and genuinely interested. Use natural conversational pacing, varied emphasis, and brief pauses. Avoid monotone delivery, exaggerated cheerfulness, theatrical performance, and sales-like energy. For risk or safety content, become calm and precise without sounding cold. Never read markdown syntax aloud.";
 
 export const ALLOWED_TTS_VOICES = [
   "alloy",
@@ -30,13 +32,15 @@ export const ALLOWED_TTS_VOICES = [
   "onyx",
   "sage",
   "shimmer",
+  "verse",
+  "marin",
+  "cedar",
 ] as const;
 
 export type AllowedTtsVoice = (typeof ALLOWED_TTS_VOICES)[number];
 
 export type SyncTtsValidation =
-  | { ok: true; text: string }
-  | { ok: false; error: string; status: number };
+  { ok: true; text: string } | { ok: false; error: string; status: number };
 
 export type OpenAiSpeechResult =
   | { ok: true; bytes: Uint8Array; contentType: string; model: string }
@@ -46,7 +50,10 @@ export type OpenAiSpeechResult =
  * Same cap already used by Meet Sync booth replies. Shared so the edge
  * function cannot speak a longer payload than the client already strips.
  */
-export function stripForSpeech(text: string, maxChars = SYNC_TTS_MAX_CHARS): string {
+export function stripForSpeech(
+  text: string,
+  maxChars = SYNC_TTS_MAX_CHARS,
+): string {
   const trimmed = text.replace(/\s+/g, " ").trim();
   if (!trimmed) return "";
   if (trimmed.length <= maxChars) return trimmed;
@@ -55,7 +62,9 @@ export function stripForSpeech(text: string, maxChars = SYNC_TTS_MAX_CHARS): str
   return lastStop > 80 ? cut.slice(0, lastStop + 1) : `${cut.trim()}…`;
 }
 
-export function resolveTtsVoice(raw: string | undefined | null): AllowedTtsVoice {
+export function resolveTtsVoice(
+  raw: string | undefined | null,
+): AllowedTtsVoice {
   const voice = (raw ?? "").trim().toLowerCase();
   return (ALLOWED_TTS_VOICES as readonly string[]).includes(voice)
     ? (voice as AllowedTtsVoice)
@@ -77,7 +86,9 @@ export function validateSyncTtsInput(body: unknown): SyncTtsValidation {
   return { ok: true, text: spoken };
 }
 
-export function isCloudTtsConfigured(apiKey: string | undefined | null): boolean {
+export function isCloudTtsConfigured(
+  apiKey: string | undefined | null,
+): boolean {
   return Boolean(apiKey && apiKey.trim());
 }
 
@@ -97,6 +108,7 @@ export async function synthesizeOpenAiSpeech(input: {
   apiKey: string;
   text: string;
   voice: string;
+  instructions?: string;
   preferredModel?: string;
   fallbackModel?: string;
   fetchImpl?: typeof fetch;
@@ -109,6 +121,7 @@ export async function synthesizeOpenAiSpeech(input: {
     apiKey: input.apiKey,
     text: input.text,
     voice: input.voice,
+    instructions: input.instructions ?? DEFAULT_TTS_INSTRUCTIONS,
     model: preferred,
   });
   if (first.ok) return first;
@@ -120,6 +133,7 @@ export async function synthesizeOpenAiSpeech(input: {
       apiKey: input.apiKey,
       text: input.text,
       voice: input.voice,
+      instructions: input.instructions ?? DEFAULT_TTS_INSTRUCTIONS,
       model: fallback,
     });
   }
@@ -131,8 +145,10 @@ async function callOpenAiSpeech(input: {
   apiKey: string;
   text: string;
   voice: string;
+  instructions: string;
   model: string;
 }): Promise<OpenAiSpeechResult> {
+  const supportsInstructions = !["tts-1", "tts-1-hd"].includes(input.model);
   const response = await input.fetchImpl(OPENAI_SPEECH_URL, {
     method: "POST",
     headers: {
@@ -144,6 +160,7 @@ async function callOpenAiSpeech(input: {
       voice: input.voice,
       input: input.text,
       response_format: "mp3",
+      ...(supportsInstructions ? { instructions: input.instructions } : {}),
     }),
   });
   if (!response.ok) {

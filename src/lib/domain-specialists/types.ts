@@ -8,13 +8,16 @@ export type DomainSpecialistModuleKey =
   | "manufacturing-operations"
   | "food-beverage-safety"
   | "pharmaceutical-quality"
+  | "healthcare-clinical-engineering"
   | "transport-logistics"
   | "aviation-airworthiness"
   | "marine-shipping"
   | "data-center-thermal"
+  | "battery-energy-storage"
   | "defense-readiness"
   | "aerospace-launch"
-  | "buildings-infrastructure";
+  | "buildings-infrastructure"
+  | "civil-infrastructure";
 
 export type DomainMethodKind =
   | "engineering_calculation"

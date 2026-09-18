@@ -195,11 +195,11 @@ export const DOMAIN_SPECIALIST_MODULES: DomainSpecialistModule[] = [
   {
     key: "petrochemical-rbi",
     industryCode: "petrochemical",
-    label: "Petrochemical — RBI Corrosion-Loop Modelling",
-    version: "1.0.0",
+    label: "Process Industry — Integrity, Process Safety & RBI",
+    version: "1.1.0",
     reviewerRoleKey: "domain_rbi_reviewer",
     purpose:
-      "Calculate measured corrosion rates, remaining-life screens, and risk ranking from organization-approved inputs.",
+      "Screen process-safety barriers, pressure containment, SIS proof tests, corrosion/RBI, turnaround readiness, and loss-of-containment risk from organization-approved inputs.",
     dataClasses: ["operational", "safety_critical", "regulatory"],
     methods: [
       method({
@@ -261,18 +261,473 @@ export const DOMAIN_SPECIALIST_MODULES: DomainSpecialistModule[] = [
           ],
         },
       }),
+      method({
+        key: "process-safety-barriers",
+        label: "Process-safety barrier assurance",
+        purpose:
+          "Verify that each in-scope major-accident scenario retains approved prevention and mitigation barrier evidence.",
+        kind: "verification",
+        algorithm:
+          "Count scenarios whose hazard basis, approved performance standard, accountable owner, current verification, impairment disposition, and independent review are all evidenced.",
+        requiredInputs: [
+          records(
+            "scenarios",
+            "Major-accident scenarios",
+            "Scenario ID and the approval, ownership, verification, impairment, and review state of its credited barriers.",
+          ),
+        ],
+        requiredEvidence: [
+          "approved-hazard-study",
+          "barrier-register",
+          "barrier-performance-standards",
+          "verification-and-impairment-records",
+        ],
+        authorityReferences: [
+          "site process-safety management system",
+          "approved hazard studies",
+          "applicable major-hazard requirements",
+        ],
+        requiredApproverRole: "Process safety technical authority",
+        limitations: [
+          "Does not perform HAZOP, LOPA, QRA, or declare a barrier effective.",
+          "Does not authorize operation with an impaired or missing barrier.",
+        ],
+        exampleInputs: {
+          scenarios: [
+            {
+              id: "MAH-01",
+              hazardStudyApproved: true,
+              performanceStandardApproved: true,
+              ownerAssigned: true,
+              verificationCurrent: true,
+              impairmentDispositionApproved: true,
+              independentlyReviewed: true,
+            },
+          ],
+        },
+      }),
+      method({
+        key: "pressure-containment-assurance",
+        label: "Pressure-containment assurance",
+        purpose:
+          "Screen pressure-boundary records for approved design basis, inspection currency, active anomalies, relief protection, and authorized disposition.",
+        kind: "verification",
+        algorithm:
+          "Calculate complete containment-boundary coverage; any absent current inspection, design basis, anomaly disposition, relief evidence, or technical review remains an explicit gap.",
+        requiredInputs: [
+          records(
+            "boundaries",
+            "Pressure boundaries",
+            "Boundary ID and controlled design, inspection, anomaly, relief, and review evidence state.",
+          ),
+        ],
+        requiredEvidence: [
+          "pressure-equipment-register",
+          "approved-design-basis",
+          "inspection-and-anomaly-records",
+          "relief-protection-records",
+        ],
+        authorityReferences: [
+          "jurisdictional pressure-equipment requirements",
+          "site mechanical-integrity programme",
+          "approved relief-system basis",
+        ],
+        requiredApproverRole: "Pressure equipment technical authority",
+        limitations: [
+          "Does not calculate MAWP, relief capacity, fitness for service, or remaining strength.",
+          "Does not authorize continued operation, repair, rerating, or deferral.",
+        ],
+        exampleInputs: {
+          boundaries: [
+            {
+              id: "V-101",
+              designBasisApproved: true,
+              inspectionCurrent: true,
+              anomalyDispositionApproved: true,
+              reliefProtectionVerified: true,
+              configurationCurrent: true,
+              independentlyReviewed: true,
+            },
+          ],
+        },
+      }),
+      method({
+        key: "sis-proof-test-assurance",
+        label: "SIS proof-test and demand assurance",
+        purpose:
+          "Verify proof-test currency, demand/failure review, bypass control, approved SIL basis, and independent functional-safety review.",
+        kind: "verification",
+        algorithm:
+          "Calculate complete safety-instrumented-function coverage using only supplied approved SIL, proof-test, demand, bypass, impairment, and review evidence.",
+        requiredInputs: [
+          records(
+            "functions",
+            "Safety instrumented functions",
+            "SIF ID and approved SIL basis, current proof test, demand review, bypass/impairment control, configuration, and independent review state.",
+          ),
+        ],
+        requiredEvidence: [
+          "approved-sil-determination",
+          "sif-register-and-srs",
+          "proof-test-and-demand-history",
+          "bypass-and-impairment-register",
+        ],
+        authorityReferences: [
+          "IEC 61511",
+          "approved safety requirements specification",
+          "site functional-safety lifecycle",
+        ],
+        requiredApproverRole: "Functional safety authority",
+        limitations: [
+          "Does not determine SIL, calculate PFDavg, design a SIF, or validate proof-test coverage.",
+          "Does not remove bypasses, reset trips, or authorize operation.",
+        ],
+        exampleInputs: {
+          functions: [
+            {
+              id: "SIF-001",
+              silBasisApproved: true,
+              proofTestCurrent: true,
+              demandsReviewed: true,
+              bypassesControlled: true,
+              impairmentsDispositioned: true,
+              configurationCurrent: true,
+              independentlyReviewed: true,
+            },
+          ],
+        },
+      }),
+      method({
+        key: "turnaround-readiness",
+        label: "Turnaround readiness",
+        purpose:
+          "Screen approved turnaround work for scope freeze, work-pack readiness, materials, isolations, resources, schedule logic, and accountable release.",
+        kind: "readiness",
+        algorithm:
+          "Calculate ready-work-package coverage; no package is ready unless every supplied readiness control is true and its release authority is named.",
+        requiredInputs: [
+          records(
+            "workPackages",
+            "Turnaround work packages",
+            "Package ID and approved scope, work pack, material, isolation, resource, schedule, risk, and release states.",
+          ),
+        ],
+        requiredEvidence: [
+          "approved-turnaround-scope",
+          "work-package-and-constraint-register",
+          "isolation-and-permit-plan",
+          "resource-and-schedule-basis",
+        ],
+        authorityReferences: [
+          "approved turnaround governance",
+          "site safe-work and isolation rules",
+          "authorized integrated schedule baseline",
+        ],
+        requiredApproverRole: "Turnaround manager / operations authority",
+        limitations: [
+          "Does not release work, approve isolations or permits, or change the schedule baseline.",
+          "Does not infer readiness from planned dates or percent complete.",
+        ],
+        exampleInputs: {
+          workPackages: [
+            {
+              id: "TA-WP-01",
+              scopeApproved: true,
+              workPackReady: true,
+              materialsReady: true,
+              isolationPlanApproved: true,
+              resourcesConfirmed: true,
+              scheduleLogicApproved: true,
+              risksDispositioned: true,
+              releaseAuthorityNamed: true,
+            },
+          ],
+        },
+      }),
+      method({
+        key: "loss-of-containment-risk",
+        label: "Loss-of-containment risk screen",
+        purpose:
+          "Map supplied likelihood and consequence categories through the organization's approved risk matrix while exposing barrier and response gaps.",
+        kind: "engineering_calculation",
+        algorithm:
+          "Risk rank is the exact approved matrix lookup for each scenario's supplied likelihood and consequence categories; unverified barrier credit is never used.",
+        requiredInputs: [
+          records(
+            "scenarios",
+            "Loss-of-containment scenarios",
+            "Scenario ID, approved likelihood and consequence categories, verified barrier state, response readiness, and review state.",
+          ),
+          matrix(
+            "riskMatrix",
+            "Approved process-risk matrix",
+            "Exact likelihood-by-consequence category map supplied by the organization.",
+          ),
+        ],
+        requiredEvidence: [
+          "approved-loss-of-containment-scenarios",
+          "approved-risk-criteria",
+          "barrier-verification-records",
+          "emergency-response-basis",
+        ],
+        authorityReferences: [
+          "approved process-risk criteria",
+          "site emergency-response plan",
+          "applicable environmental and major-hazard requirements",
+        ],
+        requiredApproverRole: "Process safety risk owner",
+        limitations: [
+          "Does not estimate release frequency, dispersion, fire/explosion, toxic effect, environmental damage, or financial consequence.",
+          "Does not accept risk, waive controls, or authorize operation.",
+        ],
+        exampleInputs: {
+          riskMatrix: { "possible:major": "high" },
+          scenarios: [
+            {
+              id: "LOC-01",
+              likelihoodCategory: "possible",
+              consequenceCategory: "major",
+              barriersVerified: true,
+              emergencyResponseReady: true,
+              independentlyReviewed: true,
+            },
+          ],
+        },
+      }),
     ],
   },
   {
     key: "utilities-storm-response",
     industryCode: "utilities",
-    label: "Utilities — Storm Mobilization & Crew Dispatch",
-    version: "1.0.0",
+    label: "Utilities — Network, Outage & Storm Response",
+    version: "1.1.0",
     reviewerRoleKey: "domain_storm_dispatch_reviewer",
     purpose:
-      "Prioritize incidents and produce a constraint-feasible draft crew assignment for dispatcher approval.",
+      "Trace network consequences, govern outage readiness, reconcile capacity, mobilize for storms, and prioritize restoration without issuing operating commands.",
     dataClasses: ["operational", "safety_critical"],
     methods: [
+      method({
+        key: "network-reliability-impact",
+        label: "Network reliability and cascade impact",
+        purpose:
+          "Reuse the canonical dependency engine to expose structural service loss, degraded capacity, and single-point exposure from a supplied outage set.",
+        kind: "engineering_calculation",
+        algorithm:
+          "Validate the supplied dependency graph, then apply canonical baseline-settled loss propagation and single-point analysis; no failure probability or duration is inferred.",
+        requiredInputs: [
+          records(
+            "nodes",
+            "Network nodes",
+            "Controlled node identity, service, consequence, criticality, and restoration rank.",
+          ),
+          records(
+            "edges",
+            "Network dependencies",
+            "Supplier/dependent identity, dependency kind, redundancy group, minimum required and supplied capacity share.",
+          ),
+          records(
+            "failedAssets",
+            "Outage origins",
+            "Controlled IDs of assets explicitly confirmed unavailable.",
+          ),
+        ],
+        requiredEvidence: [
+          "controlled-network-model",
+          "network-dependency-evidence",
+          "confirmed-outage-state",
+          "service-and-consequence-register",
+        ],
+        authorityReferences: [
+          "approved utility network model",
+          "system operating and contingency plan",
+          "customer service consequence criteria",
+        ],
+        requiredApproverRole: "Utility network planning / operations authority",
+        limitations: [
+          "Structural propagation is not a power-flow, hydraulic, gas-flow, protection, probability, duration, SAIDI, SAIFI, or regulatory reliability calculation.",
+          "Does not isolate, switch, valve, dispatch, shed load, energize, or authorize continued operation.",
+        ],
+        exampleInputs: {
+          nodes: [
+            { id: "SUB-1", name: "Substation 1", criticality: "high" },
+            {
+              id: "FDR-1",
+              name: "Feeder 1",
+              serviceName: "District A",
+              consequenceClass: "customer",
+              restorationRank: 1,
+            },
+          ],
+          edges: [
+            {
+              supplier: "SUB-1",
+              dependent: "FDR-1",
+              kind: "electrical",
+              evidence: "SLD-14",
+            },
+          ],
+          failedAssets: [{ id: "SUB-1" }],
+        },
+      }),
+      method({
+        key: "outage-control-readiness",
+        label: "Outage management readiness",
+        purpose:
+          "Expose whether each declared outage has the controlled identity, safety, operating, field-status, communication, and approval evidence needed for human coordination.",
+        kind: "readiness",
+        algorithm:
+          "An outage is coordination-ready only when its controlled state, affected boundary, isolation/protection disposition, hazards, operating plan, field status, customer communication, and accountable review are explicit.",
+        requiredInputs: [
+          records(
+            "outages",
+            "Outage records",
+            "Outage ID and explicit evidence-state flags for each readiness element.",
+          ),
+        ],
+        requiredEvidence: [
+          "controlled-outage-register",
+          "isolation-and-protection-status",
+          "approved-operating-plan",
+          "field-and-customer-communication-log",
+        ],
+        authorityReferences: [
+          "utility outage-management procedure",
+          "switching/valving and safe-work rules",
+          "customer and regulator notification requirements",
+        ],
+        requiredApproverRole: "System operations / outage authority",
+        limitations: [
+          "Readiness is not an outage release, switching/valving order, clearance, energization, return-to-service, or regulatory declaration.",
+          "No missing isolation, protection, hazard, communication, or approval state is inferred as complete.",
+        ],
+        exampleInputs: {
+          outages: [
+            {
+              id: "OUT-1",
+              stateControlled: true,
+              boundaryConfirmed: true,
+              isolationProtectionControlled: true,
+              hazardsControlled: true,
+              operatingPlanApproved: true,
+              fieldStatusCurrent: true,
+              customerCommunicationsControlled: true,
+              independentlyReviewed: true,
+            },
+          ],
+        },
+      }),
+      method({
+        key: "network-load-capacity",
+        label: "Network load and capacity margin",
+        purpose:
+          "Reconcile exact-unit available capacity, supplied demand, and approved reserve requirements by bounded network area.",
+        kind: "engineering_calculation",
+        algorithm:
+          "For each area and unit, evidence-ready available source capacity minus supplied demand minus supplied approved reserve requirement equals planning margin; unit conversion and network feasibility are not inferred.",
+        requiredInputs: [
+          records(
+            "areas",
+            "Network areas",
+            "Area ID, demand, reserve requirement, exact unit, and current boundary/evidence state.",
+          ),
+          records(
+            "sources",
+            "Capacity sources",
+            "Area ID, available capacity, exact unit, and availability/protection/configuration evidence state.",
+          ),
+        ],
+        requiredEvidence: [
+          "certified-load-or-demand-snapshot",
+          "available-capacity-register",
+          "protection-and-configuration-status",
+          "approved-reserve-policy",
+        ],
+        authorityReferences: [
+          "approved network planning model",
+          "system operating limits",
+          "adopted reserve and contingency policy",
+        ],
+        requiredApproverRole: "Utility system planning / control authority",
+        limitations: [
+          "Arithmetic capacity margin is not a power-flow, hydraulic, gas-flow, voltage, pressure, transient, stability, protection, or deliverability result.",
+          "Does not connect or disconnect supply, transfer load, change setpoints, shed service, or authorize operation.",
+        ],
+        exampleInputs: {
+          areas: [
+            {
+              id: "AREA-1",
+              demand: 70,
+              reserveRequired: 10,
+              unit: "MW",
+              boundaryCurrent: true,
+              demandCertified: true,
+              reservePolicyApproved: true,
+            },
+          ],
+          sources: [
+            {
+              id: "GEN-1",
+              areaId: "AREA-1",
+              availableCapacity: 95,
+              unit: "MW",
+              available: true,
+              protectionCurrent: true,
+              configurationCurrent: true,
+            },
+          ],
+        },
+      }),
+      method({
+        key: "storm-mobilization-readiness",
+        label: "Storm mobilization readiness",
+        purpose:
+          "Assess the evidence posture for incident command, hazards, mutual aid, materials, communications, logistics, and controlled operating procedures before mobilization.",
+        kind: "readiness",
+        algorithm:
+          "A storm response area is ready only when every applicable mobilization control is explicitly evidenced, including an approved not-applicable disposition where mutual aid is not required.",
+        requiredInputs: [
+          records(
+            "areas",
+            "Storm response areas",
+            "Area ID and explicit readiness flags for incident command, hazard basis, mutual aid disposition, materials, communications, logistics, procedures, and review.",
+          ),
+        ],
+        requiredEvidence: [
+          "approved-storm-response-plan",
+          "current-hazard-forecast",
+          "mutual-aid-and-resource-status",
+          "emergency-logistics-and-communications-test",
+        ],
+        authorityReferences: [
+          "utility emergency-response plan",
+          "incident command system",
+          "mutual-aid agreements",
+          "switching/valving and safe-work rules",
+        ],
+        requiredApproverRole:
+          "Storm incident commander / emergency management authority",
+        limitations: [
+          "Does not activate incident command, request mutual aid, mobilize crews, issue public warnings, or direct field work.",
+          "Forecasts and resource states are supplied evidence and must be re-confirmed by the accountable authority.",
+        ],
+        exampleInputs: {
+          areas: [
+            {
+              id: "NORTH",
+              incidentCommandActivated: true,
+              hazardBasisApproved: true,
+              mutualAidRequired: true,
+              mutualAidDispositionApproved: true,
+              mutualAidConfirmed: true,
+              materialsReady: true,
+              communicationsTested: true,
+              logisticsReady: true,
+              operatingProceduresCurrent: true,
+              independentlyReviewed: true,
+            },
+          ],
+        },
+      }),
       method({
         key: "storm-crew-dispatch",
         label: "Storm mobilization and crew dispatch",
@@ -342,16 +797,110 @@ export const DOMAIN_SPECIALIST_MODULES: DomainSpecialistModule[] = [
           travelMinutes: { "C-1:I-1": 25 },
         },
       }),
+      method({
+        key: "network-restoration-prioritization",
+        label: "Network restoration prioritization",
+        purpose:
+          "Reuse the canonical dependency-order engine and expose field-readiness blockers without issuing a restoration or energization sequence.",
+        kind: "optimization",
+        algorithm:
+          "Canonical topological restoration order preserves supplier precedence and supplied consequence rank; each step is separately screened for isolation, hazard, material, crew, field verification, and operating-approval readiness.",
+        requiredInputs: [
+          records(
+            "nodes",
+            "Network nodes",
+            "Controlled node identity, service, consequence, criticality, and restoration rank.",
+          ),
+          records(
+            "edges",
+            "Network dependencies",
+            "Supplier/dependent identity and controlled dependency evidence.",
+          ),
+          records(
+            "failedAssets",
+            "Confirmed unavailable assets",
+            "Controlled IDs in the failed restoration set.",
+          ),
+          records(
+            "readiness",
+            "Restoration readiness",
+            "Per-asset isolation, hazard, material, crew, field verification, and operating-approval state.",
+          ),
+        ],
+        requiredEvidence: [
+          "controlled-network-model",
+          "confirmed-damage-and-outage-state",
+          "restoration-resource-and-material-status",
+          "isolation-protection-and-field-verification",
+          "approved-restoration-policy",
+        ],
+        authorityReferences: [
+          "approved system restoration plan",
+          "switching/valving and safe-work rules",
+          "incident command and operating authority matrix",
+        ],
+        requiredApproverRole: "System restoration / incident command authority",
+        limitations: [
+          "The result is dependency-safe decision support, not a switching/valving order, field instruction, dispatch, energization, pressure restoration, or return-to-service authorization.",
+          "Dependency cycles are refused and require an authority-approved blackstart, temporary supply, bypass, or other engineered resolution.",
+        ],
+        exampleInputs: {
+          nodes: [
+            {
+              id: "SUB-1",
+              name: "Substation 1",
+              consequenceClass: "regulatory",
+              restorationRank: 1,
+            },
+            {
+              id: "FDR-1",
+              name: "Feeder 1",
+              serviceName: "District A",
+              consequenceClass: "customer",
+              restorationRank: 2,
+            },
+          ],
+          edges: [
+            {
+              supplier: "SUB-1",
+              dependent: "FDR-1",
+              kind: "electrical",
+              evidence: "SLD-14",
+            },
+          ],
+          failedAssets: [{ id: "SUB-1" }, { id: "FDR-1" }],
+          readiness: [
+            {
+              id: "SUB-1",
+              isolationProtectionControlled: true,
+              hazardsControlled: true,
+              materialsReady: true,
+              qualifiedCrewReady: true,
+              fieldVerificationComplete: true,
+              operatingApprovalRecorded: true,
+            },
+            {
+              id: "FDR-1",
+              isolationProtectionControlled: true,
+              hazardsControlled: true,
+              materialsReady: true,
+              qualifiedCrewReady: true,
+              fieldVerificationComplete: true,
+              operatingApprovalRecorded: true,
+            },
+          ],
+        },
+      }),
     ],
   },
   {
     key: "manufacturing-operations",
     industryCode: "manufacturing",
-    label: "Manufacturing — Line Balancing & Robot Health",
-    version: "1.0.0",
+    label: "Manufacturing — Production & Equipment Assurance",
+    version: "1.1.0",
     reviewerRoleKey: "domain_manufacturing_reviewer",
     purpose:
-      "Quantify production-line balance and evidence-based robot health without changing PLC or robot parameters.",
+      "Quantify governed OEE and quality losses, production-line balance, robot and tooling condition, and changeover readiness without changing production or control parameters.",
     dataClasses: ["operational", "safety_critical", "quality"],
     methods: [
       method({
@@ -447,6 +996,196 @@ export const DOMAIN_SPECIALIST_MODULES: DomainSpecialistModule[] = [
               direction: "higher_worse",
               weight: 1,
               unit: "%",
+            },
+          ],
+        },
+      }),
+      method({
+        key: "oee-loss-decomposition",
+        label: "OEE loss decomposition",
+        purpose:
+          "Calculate availability, performance, quality and OEE from reconciled production records using the organization's approved loss definition.",
+        kind: "engineering_calculation",
+        algorithm:
+          "For each supplied production period, calculate availability from scheduled time and downtime, performance from ideal cycle and total count, quality from good and total count, and OEE as their product.",
+        requiredInputs: [
+          records(
+            "periods",
+            "Production periods",
+            "Line/period ID, scheduled production minutes, downtime minutes, ideal cycle minutes, total count, good count, and reconciliation controls.",
+          ),
+        ],
+        requiredEvidence: [
+          "approved-oee-definition",
+          "production-calendar",
+          "downtime-event-history",
+          "production-and-quality-counts",
+        ],
+        authorityReferences: [
+          "approved site OEE and loss-accounting standard",
+          "controlled production calendar and ideal-cycle master",
+          "quality acceptance and count-reconciliation rules",
+        ],
+        requiredApproverRole: "Manufacturing performance authority",
+        limitations: [
+          "Does not infer scheduled time, ideal cycle, loss codes, good count, or exclusions.",
+          "An OEE result is not authority to change line speed, staffing, maintenance strategy, or quality controls.",
+        ],
+        exampleInputs: {
+          periods: [
+            {
+              id: "LINE-1/SHIFT-A",
+              scheduledMinutes: 480,
+              downtimeMinutes: 60,
+              idealCycleMinutes: 0.5,
+              totalCount: 760,
+              goodCount: 735,
+              definitionApproved: true,
+              calendarReconciled: true,
+              downtimeReconciled: true,
+              countsReconciled: true,
+            },
+          ],
+        },
+      }),
+      method({
+        key: "quality-loss-reconciliation",
+        label: "Quality loss reconciliation",
+        purpose:
+          "Reconcile first-pass good, rework and scrap counts and expose quality losses without releasing product or closing defects.",
+        kind: "verification",
+        algorithm:
+          "For each production lot, require exact count reconciliation and calculate first-pass yield, rework share and scrap share from supplied governed counts.",
+        requiredInputs: [
+          records(
+            "lots",
+            "Production lot quality records",
+            "Lot ID, total produced, first-pass good, rework, scrap, genealogy, disposition and approved counting-rule status.",
+          ),
+        ],
+        requiredEvidence: [
+          "quality-inspection-records",
+          "production-genealogy",
+          "defect-ncr-and-rework-records",
+          "approved-quality-counting-rules",
+        ],
+        authorityReferences: [
+          "approved control plan and acceptance criteria",
+          "canonical NCR, defect and rework records",
+          "site lot and serial genealogy rules",
+        ],
+        requiredApproverRole: "Manufacturing quality authority",
+        limitations: [
+          "Does not determine product conformity, disposition an NCR, approve rework, or release product.",
+          "Cost of poor quality is not calculated unless governed cost evidence is handled through the canonical quality model.",
+        ],
+        exampleInputs: {
+          lots: [
+            {
+              id: "LOT-2401",
+              totalProduced: 1000,
+              firstPassGood: 940,
+              reworkUnits: 40,
+              scrapUnits: 20,
+              genealogyComplete: true,
+              dispositionComplete: true,
+              countingRulesApproved: true,
+            },
+          ],
+        },
+      }),
+      method({
+        key: "tooling-life-assurance",
+        label: "Tooling life and condition assurance",
+        purpose:
+          "Calculate remaining use against supplied approved tooling limits only where identity, usage, inspection and quality trace are complete.",
+        kind: "engineering_calculation",
+        algorithm:
+          "Remaining use equals the supplied approved use limit minus authenticated use; incomplete trace blocks life arithmetic for that tool.",
+        requiredInputs: [
+          records(
+            "tools",
+            "Tooling records",
+            "Tool ID, authenticated use, approved use limit, unit, and identity/inspection/calibration/quality/disposition controls.",
+          ),
+        ],
+        requiredEvidence: [
+          "tool-identity-and-configuration",
+          "authenticated-tool-usage",
+          "approved-tool-life-basis",
+          "inspection-calibration-and-quality-history",
+        ],
+        authorityReferences: [
+          "approved tool-life basis",
+          "controlled tool configuration and calibration system",
+          "quality control plan and maintenance disposition",
+        ],
+        requiredApproverRole: "Tooling / manufacturing engineering authority",
+        limitations: [
+          "No universal tool-life limit or degradation curve is embedded.",
+          "Does not change offsets, extend tool life, return tooling to service, or release affected product.",
+        ],
+        exampleInputs: {
+          tools: [
+            {
+              id: "DIE-07",
+              authenticatedUse: 82000,
+              approvedUseLimit: 100000,
+              unit: "cycles",
+              identityTraceable: true,
+              lifeBasisApproved: true,
+              inspectionCurrent: true,
+              calibrationCurrent: true,
+              qualityTraceCurrent: true,
+              dispositionComplete: true,
+            },
+          ],
+        },
+      }),
+      method({
+        key: "changeover-readiness",
+        label: "Changeover readiness and performance",
+        purpose:
+          "Compare actual changeover duration with a supplied approved target while verifying configuration, tooling, safety, quality and release controls.",
+        kind: "readiness",
+        algorithm:
+          "For each supplied changeover, calculate actual-minus-target duration and require all governed readiness and first-off release controls.",
+        requiredInputs: [
+          records(
+            "changeovers",
+            "Changeover records",
+            "Changeover ID, actual and approved target minutes, and standard-work/configuration/tooling/safety/first-off/release controls.",
+          ),
+        ],
+        requiredEvidence: [
+          "approved-changeover-standard",
+          "configuration-and-recipe-history",
+          "tooling-and-safety-verification",
+          "first-off-quality-and-release-records",
+        ],
+        authorityReferences: [
+          "approved standard work and centerline/recipe master",
+          "machine safety and energy-control requirements",
+          "first-off inspection and production release procedure",
+        ],
+        requiredApproverRole:
+          "Manufacturing engineering / production release authority",
+        limitations: [
+          "A faster duration does not prove a safe, conforming or sustainable changeover.",
+          "Does not change recipes, centerlines, tooling, safeguards, standard work, or production release status.",
+        ],
+        exampleInputs: {
+          changeovers: [
+            {
+              id: "CO-2401",
+              actualMinutes: 42,
+              approvedTargetMinutes: 35,
+              standardWorkCurrent: true,
+              configurationControlled: true,
+              toolingVerified: true,
+              safetyControlsValidated: true,
+              firstOffApproved: true,
+              releaseAuthorityNamed: true,
             },
           ],
         },
@@ -706,13 +1445,126 @@ export const DOMAIN_SPECIALIST_MODULES: DomainSpecialistModule[] = [
   {
     key: "transport-logistics",
     industryCode: "transportation_logistics",
-    label: "Transportation & Logistics — Route, Depot & Inspection",
-    version: "1.0.0",
+    label: "Transportation & Logistics — Fleet, Route & Lifecycle",
+    version: "1.1.0",
     reviewerRoleKey: "domain_transport_reviewer",
     purpose:
-      "Optimize bounded routes and expose inspection-due constraints for dispatcher and regulatory review.",
+      "Reconcile fleet duty, dispatch capacity, configuration, bounded routes, regulatory inspections, and replacement priorities for controlled human decisions.",
     dataClasses: ["operational", "safety_critical", "regulatory"],
     methods: [
+      method({
+        key: "fleet-duty-exposure",
+        label: "Mileage and duty-cycle exposure",
+        purpose:
+          "Reconcile authenticated counter movement and classified duty segments without inventing severity thresholds.",
+        kind: "engineering_calculation",
+        algorithm:
+          "For each asset, counter delta = authenticated end reading - start reading; duty shares = classified segment exposure / reconciled counter delta, with incomplete or overlapping reconciliation blocked.",
+        requiredInputs: [
+          records(
+            "assets",
+            "Fleet duty records",
+            "Asset ID, counter unit/readings, authenticated state, and non-overlapping classified duty segments in the same unit.",
+          ),
+        ],
+        requiredEvidence: [
+          "authenticated-fleet-counters",
+          "duty-cycle-segment-history",
+          "fleet-identity-and-configuration",
+          "approved-duty-classification",
+        ],
+        authorityReferences: [
+          "approved fleet counter hierarchy",
+          "operator duty-cycle classification standard",
+        ],
+        requiredApproverRole: "Fleet maintenance engineering authority",
+        limitations: [
+          "Does not infer severity, remaining life, maintenance interval, or suitability from mileage or duty share.",
+          "Counter resets, unit conflicts, unauthenticated readings, overlap, and unreconciled segment totals block the affected asset.",
+        ],
+        exampleInputs: {
+          assets: [
+            {
+              id: "TR-1",
+              counterUnit: "km",
+              startReading: 120000,
+              endReading: 121000,
+              readingsAuthenticated: true,
+              configurationCurrent: true,
+              classificationApproved: true,
+              segmentsNonOverlapping: true,
+              segments: [
+                { dutyClass: "urban", exposure: 700 },
+                { dutyClass: "highway", exposure: 300 },
+              ],
+            },
+          ],
+        },
+      }),
+      method({
+        key: "dispatch-availability",
+        label: "Dispatch availability and capacity",
+        purpose:
+          "Compare evidence-ready fleet capability with supplied demand while preserving dispatch and safety authority.",
+        kind: "readiness",
+        algorithm:
+          "Eligible capacity is the sum of supplied capacity for assets that are available, defect-controlled, inspection-current, configuration-current, and capability-matched; margin = eligible capacity - supplied required capacity.",
+        requiredInputs: [
+          records(
+            "assets",
+            "Dispatch candidates",
+            "Asset identity, capability, supplied capacity, availability and readiness controls.",
+          ),
+          records(
+            "requirements",
+            "Dispatch requirements",
+            "Required capability and capacity for each explicit operating requirement.",
+          ),
+        ],
+        requiredEvidence: [
+          "live-fleet-status",
+          "open-defect-and-restriction-register",
+          "inspection-and-configuration-status",
+          "operator-and-hours-of-service-status",
+          "approved-dispatch-capability-requirements",
+        ],
+        authorityReferences: [
+          "carrier dispatch rules",
+          "operator defect and out-of-service controls",
+          "applicable hours-of-service and safety restrictions",
+        ],
+        requiredApproverRole:
+          "Fleet dispatcher / transport operations authority",
+        limitations: [
+          "Does not dispatch, assign a driver, release a vehicle, or override a defect, inspection, configuration, route, weather, fatigue, or legal constraint.",
+          "Capacity is counted only from exact supplied capability matches; substitution rules are not inferred.",
+        ],
+        exampleInputs: {
+          requirements: [
+            {
+              id: "R-1",
+              capability: "refrigerated",
+              requiredCapacity: 20,
+              unit: "t",
+            },
+          ],
+          assets: [
+            {
+              id: "TR-1",
+              capability: "refrigerated",
+              capacity: 24,
+              unit: "t",
+              available: true,
+              defectsControlled: true,
+              inspectionCurrent: true,
+              configurationCurrent: true,
+              operatingConstraintsCleared: true,
+              qualifiedOperatorAvailable: true,
+              hoursOfServiceCompliant: true,
+            },
+          ],
+        },
+      }),
       method({
         key: "route-depot-optimization",
         label: "Route and depot optimization",
@@ -785,6 +1637,52 @@ export const DOMAIN_SPECIALIST_MODULES: DomainSpecialistModule[] = [
         },
       }),
       method({
+        key: "fleet-configuration-trace",
+        label: "Fleet configuration traceability",
+        purpose:
+          "Expose identity, as-maintained configuration, approved-deviation, and safety-critical trace gaps by asset.",
+        kind: "traceability",
+        algorithm:
+          "An asset is trace-complete only when controlled identity, current as-maintained baseline, installed components/options, approved substitutions/deviations, applicable software/firmware, safety-critical configuration, and reconciliation review are evidenced.",
+        requiredInputs: [
+          records(
+            "assets",
+            "Fleet configuration records",
+            "Asset ID and explicit evidence-state flags for every configuration trace element.",
+          ),
+        ],
+        requiredEvidence: [
+          "controlled-fleet-identity",
+          "as-maintained-configuration-baseline",
+          "approved-substitution-and-deviation-records",
+          "configuration-reconciliation-review",
+        ],
+        authorityReferences: [
+          "approved configuration-management plan",
+          "OEM applicability and operator modification controls",
+        ],
+        requiredApproverRole: "Fleet configuration / maintenance authority",
+        limitations: [
+          "Trace completeness is not a declaration of roadworthiness, regulatory compliance, or fitness for service.",
+          "Does not approve a substitution, modification, software load, deviation, or return to service.",
+        ],
+        exampleInputs: {
+          assets: [
+            {
+              id: "TR-1",
+              identityControlled: true,
+              baselineCurrent: true,
+              installedConfigurationRecorded: true,
+              deviationsApproved: true,
+              softwareFirmwareControlled: true,
+              safetyCriticalConfigurationVerified: true,
+              reconciled: true,
+              independentlyReviewed: true,
+            },
+          ],
+        },
+      }),
+      method({
         key: "inspection-scheduling",
         label: "Regulatory inspection scheduling",
         purpose:
@@ -835,6 +1733,71 @@ export const DOMAIN_SPECIALIST_MODULES: DomainSpecialistModule[] = [
               intervalDays: 180,
               durationHours: 4,
               priority: 2,
+              outOfServiceRequired: false,
+              outOfServiceControlled: true,
+            },
+          ],
+        },
+      }),
+      method({
+        key: "fleet-replacement-prioritization",
+        label: "Fleet replacement prioritization",
+        purpose:
+          "Order evidence-ready replacement candidates within an indicative envelope while keeping mandatory obligations and capital authority explicit.",
+        kind: "optimization",
+        algorithm:
+          "Mandatory candidates rank first by supplied due date; other candidates rank by sum of supplied factor score times approved weight divided by supplied lifecycle cost, with deterministic tie-breaking and cumulative envelope visibility.",
+        requiredInputs: [
+          n(
+            "budget",
+            "Indicative planning envelope",
+            "supplied currency",
+            "Non-authorizing envelope used only to show which ranked candidates fit.",
+          ),
+          records(
+            "weights",
+            "Approved replacement weights",
+            "Factor name and approved non-negative weight.",
+          ),
+          records(
+            "candidates",
+            "Replacement candidates",
+            "Asset, lifecycle cost, evidence readiness, mandatory state/due date, and supplied 0-5 factor scores.",
+          ),
+        ],
+        requiredEvidence: [
+          "fleet-condition-and-duty-history",
+          "approved-lifecycle-cost-basis",
+          "mandatory-obligation-register",
+          "approved-replacement-criteria-and-envelope",
+        ],
+        authorityReferences: [
+          "approved fleet lifecycle strategy",
+          "capital delegation of authority",
+          "applicable safety and regulatory obligations",
+        ],
+        requiredApproverRole: "Fleet asset owner / capital authority",
+        limitations: [
+          "Does not authorize purchase, retirement, disposal, lease, budget commitment, or deferral of mandatory work.",
+          "SyncAI supplies no condition score, economic life, cost, weight, obligation, or budget value.",
+        ],
+        exampleInputs: {
+          budget: 500000,
+          weights: [
+            { factor: "serviceRisk", weight: 3 },
+            { factor: "maintenanceBurden", weight: 2 },
+          ],
+          candidates: [
+            {
+              id: "TR-1",
+              lifecycleCost: 420000,
+              evidenceReady: true,
+              configurationTraceComplete: true,
+              costBasisApproved: true,
+              obligationStateApproved: true,
+              mandatory: false,
+              serviceRisk: 4,
+              maintenanceBurden: 3,
             },
           ],
         },
@@ -1586,14 +2549,826 @@ export const DOMAIN_SPECIALIST_MODULES: DomainSpecialistModule[] = [
     ],
   },
   {
+    key: "healthcare-clinical-engineering",
+    industryCode: "healthcare",
+    label: "Healthcare — Clinical Engineering Assurance",
+    version: "1.0.0",
+    reviewerRoleKey: "domain_healthcare_clinical_engineering_reviewer",
+    purpose:
+      "Screen medical-device reliability evidence for clinical criticality, availability, calibration, infection-control readiness, patient risk and traceability without making clinical decisions or releasing equipment for use.",
+    dataClasses: ["operational", "safety_critical", "regulatory"],
+    methods: [
+      method({
+        key: "clinical-criticality",
+        label: "Clinical criticality trace",
+        purpose:
+          "Verify that every in-scope device has an authority-approved clinical function, consequence and criticality classification.",
+        kind: "verification",
+        algorithm:
+          "Measure coverage of device records with canonical identity, clinical function, consequence, approved criticality and named authority approval.",
+        requiredInputs: [
+          records(
+            "devices",
+            "Clinical device scope",
+            "Device identity, clinical function, consequence category, approved criticality and authority approval.",
+          ),
+        ],
+        requiredEvidence: [
+          "device-inventory",
+          "clinical-service-definition",
+          "approved-criticality-method",
+          "criticality-approval-record",
+        ],
+        authorityReferences: [
+          "organization-approved clinical criticality method",
+          "manufacturer intended use",
+          "applicable medical-device requirements",
+        ],
+        requiredApproverRole: "Clinical and biomedical engineering authority",
+        limitations: [
+          "Does not infer patient consequence or clinical criticality.",
+          "Does not prioritize patients, prescribe care or authorize device use.",
+        ],
+        exampleInputs: {
+          devices: [
+            {
+              id: "device-001",
+              clinicalFunction: "approved function",
+              consequenceCategory: "approved category",
+              approvedCriticality: "customer-defined",
+              authorityApproved: true,
+            },
+          ],
+        },
+      }),
+      method({
+        key: "device-availability",
+        label: "Device availability and alternative coverage",
+        purpose:
+          "Calculate availability only for an explicit device population and observation window, while exposing missing alternative-care and impairment evidence.",
+        kind: "engineering_calculation",
+        algorithm:
+          "For each device, divide supplied available time by required time and verify service state, impairment disposition and approved alternative coverage.",
+        requiredInputs: [
+          records(
+            "devices",
+            "Device availability records",
+            "Device identity, available time, required time, unit, service state, impairment approval and alternative coverage.",
+          ),
+        ],
+        requiredEvidence: [
+          "device-population",
+          "availability-history",
+          "clinical-service-requirements",
+          "impairment-and-alternative-plan",
+        ],
+        authorityReferences: [
+          "approved clinical service requirement",
+          "organization availability definition",
+          "contingency and alternative-care plan",
+        ],
+        requiredApproverRole:
+          "Clinical operations and biomedical engineering authority",
+        limitations: [
+          "Does not infer required capacity or acceptable availability.",
+          "Does not authorize substitution, deferral or continued clinical use.",
+        ],
+        exampleInputs: {
+          devices: [
+            {
+              id: "device-001",
+              availableTime: 710,
+              requiredTime: 720,
+              unit: "h",
+              serviceState: "controlled",
+              impairmentApproved: true,
+              alternativeCoverageApproved: true,
+            },
+          ],
+        },
+      }),
+      method({
+        key: "calibration-assurance",
+        label: "Calibration assurance trace",
+        purpose:
+          "Verify calibration currency, traceability, approved tolerance and disposition for in-scope measuring functions.",
+        kind: "traceability",
+        algorithm:
+          "Measure coverage where identity, current calibration, traceable standard, approved tolerance, result and disposition are all evidenced.",
+        requiredInputs: [
+          records(
+            "instruments",
+            "Calibration records",
+            "Device/function identity, calibration date/due date, traceable standard, approved tolerance, result and disposition.",
+          ),
+        ],
+        requiredEvidence: [
+          "calibration-program",
+          "calibration-certificates",
+          "traceable-standards",
+          "approved-tolerances-and-dispositions",
+        ],
+        authorityReferences: [
+          "manufacturer service information",
+          "approved calibration program",
+          "applicable metrology requirements",
+        ],
+        requiredApproverRole: "Biomedical engineering / metrology authority",
+        limitations: [
+          "Does not invent tolerance, uncertainty or calibration interval.",
+          "Does not declare a device calibrated or fit for clinical use.",
+        ],
+        exampleInputs: {
+          instruments: [
+            {
+              id: "device-001-pressure",
+              calibrationCurrent: true,
+              traceableStandard: "certificate reference",
+              toleranceApproved: true,
+              result: "within",
+              dispositionApproved: true,
+            },
+          ],
+        },
+      }),
+      method({
+        key: "infection-control-readiness",
+        label: "Infection-control readiness trace",
+        purpose:
+          "Verify approved cleaning, disinfection or sterilization method and current release evidence without declaring an item sterile.",
+        kind: "readiness",
+        algorithm:
+          "Measure record coverage for device identity, approved classification/method, current cycle or process evidence, exception disposition and infection-prevention release.",
+        requiredInputs: [
+          records(
+            "devices",
+            "Reprocessing readiness records",
+            "Device identity, approved classification and method, current process evidence, exception disposition and release approval.",
+          ),
+        ],
+        requiredEvidence: [
+          "manufacturer-reprocessing-instructions",
+          "infection-prevention-approved-method",
+          "cycle-or-process-records",
+          "release-and-exception-records",
+        ],
+        authorityReferences: [
+          "manufacturer instructions for use",
+          "infection prevention and control policy",
+          "applicable reprocessing requirements",
+        ],
+        requiredApproverRole:
+          "Infection prevention and clinical operations authority",
+        limitations: [
+          "Does not invent a cleaning, disinfection or sterilization method.",
+          "Does not declare sterility, release a device or authorize clinical use.",
+        ],
+        exampleInputs: {
+          devices: [
+            {
+              id: "device-001",
+              classificationApproved: true,
+              methodApproved: true,
+              processEvidenceCurrent: true,
+              exceptionsResolved: true,
+              releaseApproved: true,
+            },
+          ],
+        },
+      }),
+      method({
+        key: "patient-risk",
+        label: "Patient-risk control trace",
+        purpose:
+          "Trace device-related hazards to approved controls, current tests, residual-risk decisions and human acceptance.",
+        kind: "verification",
+        algorithm:
+          "Measure coverage for hazard identity, consequence, implemented/tested controls, evidence binding, residual-risk classification and named acceptance.",
+        requiredInputs: [
+          records(
+            "hazards",
+            "Device-related hazard records",
+            "Hazard identity, approved consequence, implemented and tested controls, evidence binding, residual risk and acceptance.",
+          ),
+        ],
+        requiredEvidence: [
+          "device-risk-file",
+          "incident-and-hazard-history",
+          "control-test-records",
+          "residual-risk-acceptance",
+        ],
+        authorityReferences: [
+          "organization patient-safety risk process",
+          "manufacturer risk information",
+          "applicable medical-device vigilance requirements",
+        ],
+        requiredApproverRole:
+          "Patient safety, clinical and biomedical engineering authority",
+        limitations: [
+          "Does not calculate clinical risk without an approved method.",
+          "Does not diagnose, recommend treatment or accept residual patient risk.",
+        ],
+        exampleInputs: {
+          hazards: [
+            {
+              id: "hazard-001",
+              consequenceApproved: true,
+              controlsImplemented: true,
+              controlsTestCurrent: true,
+              evidenceBound: true,
+              residualRisk: "customer-defined",
+              riskAccepted: true,
+            },
+          ],
+        },
+      }),
+      method({
+        key: "device-traceability",
+        label: "Device identity and lifecycle trace",
+        purpose:
+          "Verify unique device identity, controlled configuration, location, ownership and complete maintenance, calibration and safety-action links.",
+        kind: "traceability",
+        algorithm:
+          "Measure lifecycle trace coverage across canonical device identity, serial/model, location, configuration, service history, calibration state and safety-action status.",
+        requiredInputs: [
+          records(
+            "devices",
+            "Device trace records",
+            "Canonical identity, model/serial or UDI, location, owner, configuration, maintenance, calibration and safety-action status.",
+          ),
+        ],
+        requiredEvidence: [
+          "device-inventory",
+          "configuration-baseline",
+          "maintenance-and-calibration-history",
+          "recall-and-safety-action-register",
+        ],
+        authorityReferences: [
+          "organization device inventory policy",
+          "manufacturer identification and configuration records",
+          "applicable traceability requirements",
+        ],
+        requiredApproverRole: "Healthcare technology management authority",
+        limitations: [
+          "Does not infer missing device identity, configuration or history.",
+          "Patient identifiers must not be supplied or emitted.",
+        ],
+        exampleInputs: {
+          devices: [
+            {
+              id: "device-001",
+              model: "controlled",
+              serialOrUdi: "canonical-reference",
+              location: "approved location",
+              owner: "clinical engineering",
+              configurationControlled: true,
+              maintenanceLinked: true,
+              calibrationStatus: "current",
+              safetyActionsResolved: true,
+            },
+          ],
+        },
+      }),
+    ],
+  },
+  {
+    key: "civil-infrastructure",
+    industryCode: "civil_infrastructure",
+    label: "Civil Infrastructure — Condition, Restrictions and Renewal",
+    version: "1.0.0",
+    reviewerRoleKey: "domain_civil_infrastructure_reviewer",
+    purpose:
+      "Screen qualified inspection, condition, deterioration, load, geographic-hazard and renewal evidence without certifying safety or exercising owner authority.",
+    dataClasses: ["operational", "safety_critical", "regulatory"],
+    methods: [
+      method({
+        key: "structural-condition",
+        label: "Structural condition evidence trace",
+        purpose:
+          "Trace component condition and defects to qualified observations, controlled configuration, severity and disposition.",
+        kind: "verification",
+        algorithm:
+          "Measure coverage where every component/defect record has canonical identity, current qualified observation, approved severity scale and disposition.",
+        requiredInputs: [
+          records(
+            "components",
+            "Structural condition records",
+            "Asset/component identity, observation, date, qualified inspector, approved severity, configuration and disposition.",
+          ),
+        ],
+        requiredEvidence: [
+          "asset-and-component-register",
+          "qualified-inspection-records",
+          "approved-condition-scale",
+          "defect-disposition-register",
+        ],
+        authorityReferences: [
+          "owner-approved inspection manual",
+          "applicable infrastructure inspection requirements",
+          "engineer-of-record criteria",
+        ],
+        requiredApproverRole:
+          "Qualified civil/structural engineering authority",
+        limitations: [
+          "Does not infer material capacity or certify structural safety.",
+          "Does not replace inspection, analysis, closure or repair authority.",
+        ],
+        exampleInputs: {
+          components: [
+            {
+              id: "bridge-01/girder-01",
+              observation: "controlled finding",
+              observedAt: "2026-09-01",
+              qualifiedInspector: "credential reference",
+              severityApproved: true,
+              configurationCurrent: true,
+              dispositionApproved: true,
+            },
+          ],
+        },
+      }),
+      method({
+        key: "inspection-rating",
+        label: "Inspection rating and critical-finding trace",
+        purpose:
+          "Verify ratings against an approved scale and trace critical findings to required follow-up.",
+        kind: "traceability",
+        algorithm:
+          "Measure records with approved rating method/scale, qualified inspection, review, critical-finding classification and controlled follow-up.",
+        requiredInputs: [
+          records(
+            "inspections",
+            "Inspection rating records",
+            "Asset/component, rating, approved scale/method, qualified inspector, review and critical-finding follow-up.",
+          ),
+        ],
+        requiredEvidence: [
+          "inspection-program",
+          "approved-rating-scale",
+          "inspection-reports",
+          "critical-finding-follow-up",
+        ],
+        authorityReferences: [
+          "owner inspection program",
+          "applicable inspection and reporting requirements",
+          "qualified inspection authority",
+        ],
+        requiredApproverRole: "Infrastructure inspection program authority",
+        limitations: [
+          "Does not translate between rating systems or invent a rating.",
+          "Does not close a critical finding or certify compliance.",
+        ],
+        exampleInputs: {
+          inspections: [
+            {
+              id: "inspection-001",
+              assetId: "bridge-01",
+              rating: "owner-scale-value",
+              scaleApproved: true,
+              methodApproved: true,
+              inspectorQualified: true,
+              reviewed: true,
+              criticalFollowUpControlled: true,
+            },
+          ],
+        },
+      }),
+      method({
+        key: "deterioration-forecast",
+        label: "Evidence-bounded deterioration forecast",
+        purpose:
+          "Apply only supplied, approved deterioration models within their calibrated applicability boundary.",
+        kind: "engineering_calculation",
+        algorithm:
+          "For each series, apply supplied current value plus approved rate times horizon; block missing calibration, applicability or approved bounds and expose forecast uncertainty.",
+        requiredInputs: [
+          records(
+            "series",
+            "Deterioration series",
+            "Identity, current value, approved rate, horizon, unit, model approval, calibration and applicability.",
+          ),
+        ],
+        requiredEvidence: [
+          "condition-observation-history",
+          "approved-deterioration-model",
+          "model-calibration-record",
+          "applicability-and-uncertainty-basis",
+        ],
+        authorityReferences: [
+          "owner-approved deterioration model",
+          "qualified materials/structural review",
+          "asset-specific exposure history",
+        ],
+        requiredApproverRole:
+          "Qualified infrastructure deterioration-model authority",
+        limitations: [
+          "Does not invent deterioration rates, thresholds or remaining life.",
+          "A projection is not a safety, intervention or service-life determination.",
+        ],
+        exampleInputs: {
+          series: [
+            {
+              id: "deck-01",
+              currentValue: 8,
+              ratePerYear: -0.2,
+              horizonYears: 5,
+              unit: "owner rating",
+              modelApproved: true,
+              calibrationCurrent: true,
+              applicable: true,
+            },
+          ],
+        },
+      }),
+      method({
+        key: "load-restriction",
+        label: "Load rating and restriction evidence screen",
+        purpose:
+          "Compare a supplied qualified rating factor with supplied approved criteria and verify posting/restriction implementation evidence.",
+        kind: "engineering_calculation",
+        algorithm:
+          "Calculate margin between supplied rating factor and supplied criterion, while blocking stale/invalid analysis and surfacing unimplemented authority decisions.",
+        requiredInputs: [
+          records(
+            "ratings",
+            "Load rating records",
+            "Asset/load case, rating factor, approved criterion, analysis currency, qualified approval and restriction implementation.",
+          ),
+        ],
+        requiredEvidence: [
+          "current-load-rating-analysis",
+          "controlled-asset-condition-and-configuration",
+          "applicable-legal-and-permit-load-basis",
+          "posting-and-restriction-records",
+        ],
+        authorityReferences: [
+          "qualified load-rating analysis",
+          "applicable owner and legal load requirements",
+          "posting/restriction authority decision",
+        ],
+        requiredApproverRole:
+          "Qualified load-rating and infrastructure owner authority",
+        limitations: [
+          "Does not perform structural load rating or establish a legal load.",
+          "Does not post, restrict, close, reopen or route traffic.",
+        ],
+        exampleInputs: {
+          ratings: [
+            {
+              id: "bridge-01/legal-load",
+              ratingFactor: 1.08,
+              approvedCriterion: 1,
+              analysisCurrent: true,
+              authorityApproved: true,
+              restrictionRequired: false,
+              restrictionImplemented: true,
+            },
+          ],
+        },
+      }),
+      method({
+        key: "geographic-risk",
+        label: "Geographic hazard evidence overlay",
+        purpose:
+          "Trace assets to authority-approved hazard layers with explicit coordinate, resolution, vintage and overlap quality.",
+        kind: "verification",
+        algorithm:
+          "Measure asset/layer overlay coverage only where geometry, coordinate reference, layer authority/vintage/resolution and approved overlap method are supplied.",
+        requiredInputs: [
+          records(
+            "overlays",
+            "Asset hazard overlays",
+            "Asset/layer identity, geometry and CRS control, approved layer, vintage, resolution, overlap method and review.",
+          ),
+        ],
+        requiredEvidence: [
+          "canonical-asset-geometries",
+          "approved-hazard-layers",
+          "layer-metadata-and-vintage",
+          "approved-overlay-method",
+        ],
+        authorityReferences: [
+          "owner-approved GIS governance",
+          "applicable emergency/hazard authority",
+          "qualified geospatial review",
+        ],
+        requiredApproverRole:
+          "Qualified geospatial and infrastructure risk authority",
+        limitations: [
+          "Does not invent hazard probability, threshold or consequence.",
+          "Does not replace site investigation, emergency action or engineering analysis.",
+        ],
+        exampleInputs: {
+          overlays: [
+            {
+              id: "bridge-01/flood-layer",
+              assetGeometryControlled: true,
+              crsMatched: true,
+              layerApproved: true,
+              metadataCurrent: true,
+              resolutionAccepted: true,
+              overlapMethodApproved: true,
+              reviewed: true,
+            },
+          ],
+        },
+      }),
+      method({
+        key: "renewal-planning",
+        label: "Mandatory-first civil renewal planning",
+        purpose:
+          "Rank evidence-ready non-mandatory renewal candidates while preserving safety and regulatory obligations ahead of economics.",
+        kind: "optimization",
+        algorithm:
+          "Sort mandatory candidates first by supplied due date, then rank evidence-ready non-mandatory candidates by approved weighted benefit divided by supplied cost.",
+        requiredInputs: [
+          records(
+            "candidates",
+            "Renewal candidates",
+            "Identity, mandatory status/due date, evidence readiness, cost and approved 0-5 factor scores.",
+          ),
+          records(
+            "weights",
+            "Approved renewal weights",
+            "Factor and non-negative approved weight.",
+          ),
+          n(
+            "budget",
+            "Indicative planning envelope",
+            "supplied currency",
+            "Non-authorizing comparison envelope.",
+          ),
+        ],
+        requiredEvidence: [
+          "condition-and-critical-finding-register",
+          "approved-renewal-priority-model",
+          "cost-estimate-basis",
+          "network-service-and-community-consequence-basis",
+          "mandatory-obligation-register",
+        ],
+        authorityReferences: [
+          "owner capital governance",
+          "qualified engineering dispositions",
+          "applicable mandatory obligations",
+        ],
+        requiredApproverRole:
+          "Infrastructure owner and qualified engineering authority",
+        limitations: [
+          "Does not defer mandatory work or authorize expenditure.",
+          "Does not invent scores, weights, costs, benefits or due dates.",
+        ],
+        exampleInputs: {
+          candidates: [
+            {
+              id: "bridge-01-renewal",
+              mandatory: true,
+              dueDate: "2027-06-01",
+              evidenceReady: true,
+              cost: 1000000,
+              safety: 5,
+              service: 4,
+            },
+          ],
+          weights: [
+            { factor: "safety", weight: 0.7 },
+            { factor: "service", weight: 0.3 },
+          ],
+          budget: 1500000,
+        },
+      }),
+    ],
+  },
+  {
+    key: "battery-energy-storage",
+    industryCode: "battery_energy_storage",
+    label: "Battery & Energy Storage — Safety and Degradation",
+    version: "1.0.0",
+    reviewerRoleKey: "domain_battery_safety_reviewer",
+    purpose:
+      "Screen measured thermal, high-voltage, electrochemical, and fire-barrier evidence against supplied approved criteria without declaring a battery safe or fit for service.",
+    dataClasses: ["operational", "safety_critical", "regulatory"],
+    methods: [
+      method({
+        key: "battery-thermal-envelope",
+        label: "Thermal-management envelope screen",
+        purpose:
+          "Check traceable cell/module and coolant/air observations against asset-specific approved limits and thermal-control availability.",
+        kind: "engineering_calculation",
+        algorithm:
+          "For every supplied observation, calculate margin to supplied lower/upper limits; flag missing calibration, stale evidence, unavailable cooling, and out-of-envelope values.",
+        requiredInputs: [
+          records(
+            "observations",
+            "Thermal observations",
+            "Location, observed value, approved lower/upper limit, unit, timestamp, calibration state, and controlled configuration.",
+          ),
+          records(
+            "thermalControls",
+            "Thermal-management controls",
+            "Required control, availability, current test, impairment approval, and compensating measure.",
+          ),
+        ],
+        requiredEvidence: [
+          "approved-thermal-envelope",
+          "temperature-and-flow-history",
+          "instrument-calibration",
+          "thermal-control-test-records",
+        ],
+        authorityReferences: [
+          "manufacturer-approved operating envelope",
+          "site battery safety basis",
+          "applicable electrical and fire requirements",
+        ],
+        requiredApproverRole: "Battery thermal / safety technical authority",
+        limitations: [
+          "Does not model heat generation, propagation, CFD, reaction kinetics, or safe separation.",
+          "Does not infer a temperature limit or authorize continued operation.",
+        ],
+        exampleInputs: {
+          observations: [
+            {
+              id: "module-01",
+              observed: 31,
+              lowerLimit: 10,
+              upperLimit: 40,
+              unit: "degC",
+              observedAt: "2026-09-01T00:00:00Z",
+              calibrated: true,
+            },
+          ],
+          thermalControls: [
+            {
+              id: "cooling-loop-a",
+              required: true,
+              available: true,
+              testCurrent: true,
+            },
+          ],
+        },
+      }),
+      method({
+        key: "battery-hv-safety",
+        label: "High-voltage safety and protection trace",
+        purpose:
+          "Trace required isolation, grounding, overcurrent, interlock, emergency-stop, lockout, and arc-flash controls to current evidence and approval.",
+        kind: "verification",
+        algorithm:
+          "Every in-scope required control must be implemented, tested, current, evidenced, and approved; impaired controls require an approved disposition and compensating measures.",
+        requiredInputs: [
+          records(
+            "controls",
+            "High-voltage controls",
+            "Control, applicability, implementation, test/current state, evidence, impairment, compensating measure, and authority approval.",
+          ),
+        ],
+        requiredEvidence: [
+          "single-line-and-protection-design",
+          "isolation-and-protection-test-records",
+          "lockout-and-energized-work-procedures",
+          "approved-arc-flash-and-electrical-safety-basis",
+        ],
+        authorityReferences: [
+          "site electrical safety programme",
+          "approved protection and coordination study",
+          "applicable electrical and workplace-safety requirements",
+        ],
+        requiredApproverRole: "Electrical safety / protection authority",
+        limitations: [
+          "Does not perform arc-flash, protection-coordination, touch-potential, insulation, or short-circuit studies.",
+          "Does not issue an energized-work permit or authorize energization.",
+        ],
+        exampleInputs: {
+          controls: [
+            {
+              id: "main-dc-isolator",
+              required: true,
+              implemented: true,
+              tested: true,
+              current: true,
+              evidenceReference: "TEST-HV-01",
+              approved: true,
+            },
+          ],
+        },
+      }),
+      method({
+        key: "battery-degradation",
+        label: "Electrochemical degradation screen",
+        purpose:
+          "Calculate measured capacity retention and resistance/impedance change against compatible baselines and supplied approved service criteria.",
+        kind: "engineering_calculation",
+        algorithm:
+          "Capacity retention = measured capacity / compatible baseline capacity; resistance change = (measured - baseline) / baseline. Compare only to supplied asset-specific criteria and identify incompatible or missing bases.",
+        requiredInputs: [
+          records(
+            "units",
+            "Battery unit observations",
+            "Unit/configuration, baseline and measured capacity, baseline and measured resistance/impedance, compatible-method flag, units, and approved criteria.",
+          ),
+        ],
+        requiredEvidence: [
+          "controlled-battery-configuration",
+          "capacity-test-records",
+          "resistance-or-impedance-test-records",
+          "approved-service-criteria",
+          "duty-cycle-and-exposure-history",
+        ],
+        authorityReferences: [
+          "manufacturer-approved test method and limits",
+          "site asset management and battery safety basis",
+          "applicable product/listing requirements",
+        ],
+        requiredApproverRole:
+          "Battery reliability / electrochemistry authority",
+        limitations: [
+          "Does not infer remaining useful life, reaction mechanism, state of health, or a universal end-of-life threshold.",
+          "Results from incompatible temperature, SOC, duty, method, or configuration bases must not be compared.",
+        ],
+        exampleInputs: {
+          units: [
+            {
+              id: "string-a",
+              baselineCapacity: 100,
+              measuredCapacity: 91,
+              capacityUnit: "kWh",
+              minimumCapacityRetention: 0.85,
+              baselineResistance: 1.2,
+              measuredResistance: 1.35,
+              resistanceUnit: "mOhm",
+              maximumResistanceChange: 0.25,
+              compatibleMethod: true,
+            },
+          ],
+        },
+      }),
+      method({
+        key: "battery-fire-readiness",
+        label: "Fire-barrier and emergency-readiness trace",
+        purpose:
+          "Check required detection, off-gas, ventilation, propagation, suppression, isolation, responder, and emergency-plan barriers for current evidence and governed impairment disposition.",
+        kind: "readiness",
+        algorithm:
+          "Every required barrier must be available and current or carry an approved impairment with a named compensating measure; emergency prerequisites must be current and exercised where required.",
+        requiredInputs: [
+          records(
+            "barriers",
+            "Fire and propagation barriers",
+            "Barrier, applicability, availability, test/current state, evidence, impairment approval, and compensating measure.",
+          ),
+          records(
+            "emergencyPrerequisites",
+            "Emergency prerequisites",
+            "Plan, responder information, access/isolation, drill or validation, current state, evidence, and approval.",
+          ),
+        ],
+        requiredEvidence: [
+          "battery-fire-hazard-and-code-basis",
+          "detection-ventilation-suppression-test-records",
+          "barrier-and-impairment-register",
+          "emergency-response-plan-and-drill-evidence",
+        ],
+        authorityReferences: [
+          "authority having jurisdiction",
+          "approved fire-protection and emergency-response basis",
+          "manufacturer and chemistry-specific emergency information",
+        ],
+        requiredApproverRole: "Fire protection / battery emergency authority",
+        limitations: [
+          "Does not model fire growth, gas generation, explosion, tenability, propagation, suppression performance, or responder tactics.",
+          "Does not certify code compliance or authorize occupancy, entry, firefighting, reset, or re-energization.",
+        ],
+        exampleInputs: {
+          barriers: [
+            {
+              id: "off-gas-detection",
+              required: true,
+              available: true,
+              testCurrent: true,
+              evidenceReference: "TEST-FIRE-01",
+            },
+          ],
+          emergencyPrerequisites: [
+            {
+              id: "site-response-plan",
+              required: true,
+              current: true,
+              exercised: true,
+              evidenceReference: "DRILL-01",
+              approved: true,
+            },
+          ],
+        },
+      }),
+    ],
+  },
+  {
     key: "buildings-infrastructure",
     industryCode: "buildings_infrastructure",
-    label:
-      "Buildings & Infrastructure — Code, Fire/Life Safety & Certification",
-    version: "1.0.0",
+    label: "Buildings & Facilities — Safety, Controls, Performance & Renewal",
+    version: "2.0.0",
     reviewerRoleKey: "domain_building_safety_reviewer",
     purpose:
-      "Trace jurisdiction-specific requirements and safety-system/certification evidence without claiming code compliance.",
+      "Govern code and life-safety traceability, occupied-environment and BAS evidence, normalized energy/water performance, and facility-renewal priorities without claiming compliance or taking operational or spending authority.",
     dataClasses: ["operational", "safety_critical", "regulatory"],
     methods: [
       method({
@@ -1741,6 +3516,235 @@ export const DOMAIN_SPECIALIST_MODULES: DomainSpecialistModule[] = [
               result: "accepted",
               blockingDeficiency: false,
               authorityAccepted: true,
+            },
+          ],
+        },
+      }),
+      method({
+        key: "occupant-environment",
+        label: "Occupied-zone comfort and indoor-environment screen",
+        purpose:
+          "Compare occupied-zone observations with supplied, approved comfort and indoor-environment envelopes while retaining calibration and occupancy context.",
+        kind: "verification",
+        algorithm:
+          "Each occupied observation is checked against its supplied temperature, humidity, and CO₂ limits; compliance is reported by occupied hours only.",
+        requiredInputs: [
+          records(
+            "observations",
+            "Occupied-zone observations",
+            "Zone, occupied hours, measured temperature/humidity/CO₂, approved limits, calibration, timestamp, and criteria approval.",
+          ),
+        ],
+        requiredEvidence: [
+          "approved-indoor-environment-criteria",
+          "occupancy-schedule",
+          "bas-or-independent-trend-data",
+          "sensor-calibration",
+        ],
+        authorityReferences: [
+          "facility-owner indoor-environment criteria",
+          "applicable occupational health and building requirements",
+          "qualified indoor-environment professional",
+        ],
+        requiredApproverRole:
+          "Facility operations / indoor-environment authority",
+        limitations: [
+          "Does not diagnose indoor-air-quality hazards or certify occupant safety or comfort.",
+          "No universal comfort, humidity, or CO₂ threshold is inferred.",
+        ],
+        exampleInputs: {
+          observations: [
+            {
+              id: "ZONE-2-2026-08-01",
+              zone: "Level 2 occupied office",
+              occupiedHours: 8,
+              temperatureC: 23,
+              temperatureMinC: 20,
+              temperatureMaxC: 25,
+              relativeHumidityPct: 42,
+              humidityMinPct: 30,
+              humidityMaxPct: 60,
+              co2Ppm: 760,
+              co2MaxPpm: 1000,
+              criteriaApproved: true,
+              calibrated: true,
+              observedAt: "2026-08-01T20:00:00Z",
+            },
+          ],
+        },
+      }),
+      method({
+        key: "bas-control-integrity",
+        label: "Building-automation control integrity",
+        purpose:
+          "Screen command/feedback agreement, alarm and fail-safe tests, trend completeness, and manual overrides for critical BAS points.",
+        kind: "verification",
+        algorithm:
+          "A required control point is complete only when command/feedback deviation is within its supplied tolerance, tests are current, trends are complete, and any override is approved.",
+        requiredInputs: [
+          records(
+            "controlPoints",
+            "BAS control points",
+            "Point identity, command, feedback, tolerance, alarm/fail-safe tests, trend completeness, override state, and approval.",
+          ),
+        ],
+        requiredEvidence: [
+          "approved-control-sequences",
+          "bas-point-and-trend-export",
+          "alarm-and-fail-safe-test-records",
+          "override-and-bypass-register",
+        ],
+        authorityReferences: [
+          "approved sequence of operations",
+          "facility controls standard",
+          "life-safety interface requirements",
+        ],
+        requiredApproverRole: "Facility controls / BAS authority",
+        limitations: [
+          "Read-only analysis; it cannot command, tune, bypass, or acknowledge a BAS point.",
+          "A matching command and feedback does not prove physical-system performance.",
+        ],
+        exampleInputs: {
+          controlPoints: [
+            {
+              id: "AHU-2-SAT",
+              required: true,
+              commandValue: 13,
+              feedbackValue: 13.2,
+              tolerance: 0.5,
+              alarmTestCurrent: true,
+              failSafeTestCurrent: true,
+              trendComplete: true,
+              manualOverrideActive: false,
+              overrideApproved: false,
+            },
+          ],
+        },
+      }),
+      method({
+        key: "energy-water-performance",
+        label: "Normalized energy and water performance",
+        purpose:
+          "Compare metered energy and water with a supplied, approved, like-for-like normalized baseline without inventing savings.",
+        kind: "engineering_calculation",
+        algorithm:
+          "For comparable periods, variance = actual - approved normalized baseline and variance percent = variance / baseline; incomparable periods remain gaps.",
+        requiredInputs: [
+          records(
+            "periods",
+            "Normalized performance periods",
+            "Period, actual and baseline energy/water, normalization approval, boundary equivalence, and accepted data quality.",
+          ),
+        ],
+        requiredEvidence: [
+          "metered-energy-and-water-data",
+          "approved-normalized-baseline",
+          "weather-occupancy-and-service-drivers",
+          "meter-and-boundary-quality-review",
+        ],
+        authorityReferences: [
+          "facility-owner energy and water objectives",
+          "approved measurement and verification plan",
+          "applicable reporting requirements",
+        ],
+        requiredApproverRole: "Energy manager / facility performance authority",
+        limitations: [
+          "Does not attribute causality, certify savings, or create a financial benefit claim.",
+          "Weather, occupancy, service, tariff, meter, and boundary normalization must be supplied and approved.",
+        ],
+        exampleInputs: {
+          periods: [
+            {
+              id: "2026-07",
+              actualEnergyKwh: 92000,
+              baselineEnergyKwh: 100000,
+              actualWaterM3: 1210,
+              baselineWaterM3: 1250,
+              normalizationApproved: true,
+              boundaryEquivalent: true,
+              dataQualityAccepted: true,
+            },
+          ],
+        },
+      }),
+      method({
+        key: "facility-renewal-priority",
+        label: "Facility renewal and capital priority",
+        purpose:
+          "Rank evidence-ready facility renewal candidates using organization-approved weights while keeping life-safety and mandatory compliance work outside economic trade-off.",
+        kind: "optimization",
+        algorithm:
+          "Mandatory candidates rank first by due date; other candidates rank by approved weighted benefit score divided by cost. The budget line is indicative and never an authorization.",
+        requiredInputs: [
+          n(
+            "availableBudget",
+            "Indicative available budget",
+            "currency",
+            "Planning envelope only; not expenditure authorization.",
+          ),
+          matrix(
+            "weights",
+            "Approved priority weights",
+            "Non-negative weights for safety, compliance, service, condition, and energy opportunity, with approval reference.",
+          ),
+          records(
+            "candidates",
+            "Renewal candidates",
+            "Candidate identity, cost, evidence readiness, mandatory status/due date, and 0–5 factor scores.",
+          ),
+        ],
+        requiredEvidence: [
+          "approved-capital-priority-model",
+          "condition-and-deficiency-register",
+          "cost-estimate-basis",
+          "service-and-occupant-consequence-basis",
+          "energy-opportunity-basis",
+        ],
+        authorityReferences: [
+          "facility-owner capital governance",
+          "approved life-safety and compliance obligations",
+          "organization-approved investment criteria",
+        ],
+        requiredApproverRole:
+          "Facility portfolio owner / capital approval authority",
+        limitations: [
+          "Does not approve expenditure, defer mandatory work, or represent a full portfolio optimization.",
+          "Scores, weights, costs, dependencies, and the planning envelope require human validation.",
+        ],
+        exampleInputs: {
+          availableBudget: 750000,
+          weights: {
+            approved: true,
+            approvalReference: "CAP-PRIORITY-2026",
+            safety: 5,
+            compliance: 5,
+            service: 3,
+            condition: 2,
+            energy: 1,
+          },
+          candidates: [
+            {
+              id: "FIRE-PUMP-1",
+              cost: 300000,
+              mandatory: true,
+              dueDate: "2026-10-01",
+              evidenceReady: true,
+              safety: 5,
+              compliance: 5,
+              service: 4,
+              condition: 4,
+              energy: 0,
+            },
+            {
+              id: "AHU-2-RENEWAL",
+              cost: 420000,
+              mandatory: false,
+              evidenceReady: true,
+              safety: 1,
+              compliance: 1,
+              service: 4,
+              condition: 5,
+              energy: 4,
             },
           ],
         },

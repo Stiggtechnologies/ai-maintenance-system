@@ -32,6 +32,7 @@ import {
 } from "../services/reliabilityCallers";
 import { plantHistorianActions } from "../services/plantHistorian";
 import type { PlantHistorianStatus } from "../lib/plant-historian";
+import { ConditionStatePanel } from "./ConditionStatePanel";
 
 interface Alert {
   id: string;
@@ -67,24 +68,102 @@ interface Payload {
   };
   pm_task_effectiveness: {
     available: boolean;
-    pm_completed: number;
-    finding_rate_pct: number | null;
-    missed_rate_pct: number | null;
+    recordedOutcomes: number;
+    matureOutcomes: number;
+    findingRatePct: number | null;
+    postPmFailureRatePct: number | null;
+    falseReassuranceRatePct: number | null;
     basis: string;
   };
   pf_note: string;
+  contextual: ContextualConditionPayload;
 }
+
+interface ContextualConditionReading {
+  id: number;
+  asset_id: string | null;
+  asset: string | null;
+  sensor: string;
+  signal_type: string | null;
+  unit: string | null;
+  value: number;
+  quality: "good" | "suspect" | "bad" | "substituted";
+  taken_at: string;
+  source_system: string | null;
+  source_posture: "connector_backed" | "seed_sim_or_import";
+  context_known: boolean;
+  operating_state: string | null;
+  load_pct: number | null;
+  operating_reason: string | null;
+  operating_source: string | null;
+}
+
+interface ContextualConditionPayload {
+  window_days: number;
+  summary: {
+    readings: number;
+    contextualized: number;
+    context_unknown: number;
+    context_coverage_pct: number | null;
+    connector_backed: number;
+    other_source: number;
+  };
+  source: {
+    connector_key: string | null;
+    connector_enabled: boolean;
+    basis: string;
+  };
+  readings: ContextualConditionReading[];
+  basis: string;
+}
+
+const EMPTY_CONTEXTUAL: ContextualConditionPayload = {
+  window_days: 30,
+  summary: {
+    readings: 0,
+    contextualized: 0,
+    context_unknown: 0,
+    context_coverage_pct: null,
+    connector_backed: 0,
+    other_source: 0,
+  },
+  source: {
+    connector_key: null,
+    connector_enabled: false,
+    basis: "Condition context has not loaded.",
+  },
+  readings: [],
+  basis: "No contextual condition evidence is available.",
+};
 
 export function ConditionMonitoring() {
   const { profile } = useAuth();
   const canAdopt = canAdoptPfInterval(profile?.role as string | undefined);
   const { data, loading, error, refetch } = useAsyncData<Payload>(async () => {
-    const { data: r, error: e } = await supabase.rpc(
-      "get_condition_monitoring",
-      {},
-    );
-    if (e) throw new Error(e.message);
-    return r as Payload;
+    const [monitoring, effectiveness, contextual] = await Promise.all([
+      supabase.rpc("get_condition_monitoring", {}),
+      supabase.rpc("get_pm_task_effectiveness", { p_observation_days: 30 }),
+      supabase.rpc("get_contextual_condition_monitoring", {
+        p_window_days: 30,
+        p_limit: 24,
+      }),
+    ]);
+    if (monitoring.error) throw new Error(monitoring.error.message);
+    if (effectiveness.error) throw new Error(effectiveness.error.message);
+    if (contextual.error) throw new Error(contextual.error.message);
+    const pm = effectiveness.data as Payload["pm_task_effectiveness"] & {
+      error?: string;
+    };
+    if (pm.error) throw new Error(pm.error);
+    const context = contextual.data as ContextualConditionPayload & {
+      error?: string;
+    };
+    if (context.error) throw new Error(context.error);
+    return {
+      ...(monitoring.data as Payload),
+      pm_task_effectiveness: pm,
+      contextual: context.summary ? context : EMPTY_CONTEXTUAL,
+    };
   }, []);
   const intervals = useAsyncData<PfIntervalRow[]>(listPfIntervals, []);
   const openWork = useAsyncData<OpenWorkOrderOption[]>(listOpenWorkOrders, []);
@@ -101,7 +180,11 @@ export function ConditionMonitoring() {
   const [busy, setBusy] = useState(false);
   const [flash, setFlash] = useState<string | null>(null);
 
-  if (loading) return <LoadingState label="Loading condition monitoring" />;
+  // Keep the last verified payload visible during a background refetch. Apart
+  // from avoiding a disruptive full-panel flash, this preserves the human-
+  // readable receipt for the action that initiated the refresh.
+  if (loading && !data)
+    return <LoadingState label="Loading condition monitoring" />;
   if (error) return <ErrorState message={error} onRetry={refetch} />;
 
   const cov = data?.coverage;
@@ -149,6 +232,12 @@ export function ConditionMonitoring() {
         }}
       />
 
+      <ContextualConditionEvidence
+        payload={data?.contextual ?? EMPTY_CONTEXTUAL}
+      />
+
+      <ConditionStatePanel />
+
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div className="rounded-xl border border-white/6 bg-overlook-deep/40 p-4">
           <p className="text-xs uppercase tracking-wide text-slate-400">
@@ -186,31 +275,37 @@ export function ConditionMonitoring() {
             PM finding rate
           </p>
           <p className="mt-1 font-mono text-2xl text-slate-100">
-            {pm?.finding_rate_pct ?? "—"}
+            {pm?.findingRatePct ?? "—"}
             <span className="ml-0.5 text-sm text-slate-500">%</span>
           </p>
           <p className="mt-1 text-xs text-slate-500">
-            PMs that found something, of {pm?.pm_completed?.toLocaleString()}
+            Direct findings from {pm?.recordedOutcomes?.toLocaleString()} PM
+            outcomes
           </p>
         </div>
 
         <div className="rounded-xl border border-white/6 bg-overlook-deep/40 p-4">
           <p className="text-xs uppercase tracking-wide text-slate-400">
-            PM missed rate
+            Post-PM corrective recurrence
           </p>
           <p
-            className={`mt-1 font-mono text-2xl ${(pm?.missed_rate_pct ?? 0) > 25 ? "text-amber-300" : "text-slate-100"}`}
+            className={`mt-1 font-mono text-2xl ${(pm?.postPmFailureRatePct ?? 0) > 25 ? "text-amber-300" : "text-slate-100"}`}
           >
-            {pm?.missed_rate_pct ?? "—"}
+            {pm?.postPmFailureRatePct ?? "—"}
             <span className="ml-0.5 text-sm text-slate-500">%</span>
           </p>
           <p className="mt-1 text-xs text-slate-500">
-            High/critical failure 7–30 days after a PM
+            Same coded mechanism raised within 30 days ·{" "}
+            {pm?.matureOutcomes ?? 0} mature PM(s)
           </p>
         </div>
       </div>
 
-      <p className="text-xs leading-relaxed text-slate-500">{pm?.basis}</p>
+      <p className="text-xs leading-relaxed text-slate-500">
+        {pm?.basis}
+        {pm?.falseReassuranceRatePct != null &&
+          ` Corrective-recurrence rate among mature no-finding PMs: ${pm.falseReassuranceRatePct}%.`}
+      </p>
       {!lead?.available && (
         <p className="rounded-xl border border-white/6 bg-white/2 p-3 text-xs leading-relaxed text-slate-400">
           {lead?.basis}
@@ -544,6 +639,116 @@ export function ConditionMonitoring() {
         </form>
       )}
     </section>
+  );
+}
+
+function ContextualConditionEvidence({
+  payload,
+}: {
+  payload: ContextualConditionPayload;
+}) {
+  const coverage = payload.summary.context_coverage_pct;
+  return (
+    <div
+      data-testid="contextual-condition-monitoring"
+      className="rounded-xl border border-white/8 bg-overlook-deep/40 p-4"
+    >
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h3 className="text-sm font-semibold text-white">
+            Condition evidence in operating context
+          </h3>
+          <p className="mt-1 text-xs leading-relaxed text-slate-400">
+            {payload.basis}
+          </p>
+        </div>
+        <div className="text-right">
+          <p className="font-mono text-xl text-slate-100">
+            {coverage == null ? "—" : `${coverage}%`}
+          </p>
+          <p className="text-[11px] text-slate-500">context coverage · 30 d</p>
+        </div>
+      </div>
+
+      <p className="mt-2 text-xs leading-relaxed text-slate-500">
+        {payload.source.basis}
+      </p>
+
+      {payload.readings.length === 0 ? (
+        <p className="mt-3 rounded-lg border border-white/6 bg-white/2 p-3 text-xs text-slate-400">
+          No readings can be contextualized in this window. SyncAI does not
+          substitute a nearby operating state or present missing duty as normal
+          operation.
+        </p>
+      ) : (
+        <div className="mt-3 overflow-x-auto">
+          <table className="w-full min-w-[48rem] text-left text-xs">
+            <caption className="sr-only">
+              Recent condition readings joined to exact-time operating state
+            </caption>
+            <thead className="text-[11px] uppercase tracking-wide text-slate-500">
+              <tr>
+                <th className="pb-2 pr-3 font-medium">Asset / signal</th>
+                <th className="pb-2 pr-3 font-medium">Reading</th>
+                <th className="pb-2 pr-3 font-medium">Operating context</th>
+                <th className="pb-2 pr-3 font-medium">Evidence posture</th>
+                <th className="pb-2 font-medium">Time</th>
+              </tr>
+            </thead>
+            <tbody>
+              {payload.readings.map((reading) => (
+                <tr
+                  key={reading.id}
+                  className="border-t border-white/6 align-top"
+                >
+                  <td className="py-2 pr-3 text-slate-200">
+                    {reading.asset ?? "Unassigned asset"}
+                    <span className="block text-slate-500">
+                      {reading.sensor}
+                    </span>
+                  </td>
+                  <td className="py-2 pr-3 font-mono text-slate-300">
+                    {reading.value}
+                    {reading.unit ? ` ${reading.unit}` : ""}
+                    <span className="block font-sans text-slate-500">
+                      quality: {reading.quality}
+                    </span>
+                  </td>
+                  <td className="py-2 pr-3 text-slate-300">
+                    {reading.context_known ? (
+                      <>
+                        {reading.operating_state?.replaceAll("_", " ")}
+                        {reading.load_pct != null
+                          ? ` · ${reading.load_pct}% load`
+                          : ""}
+                      </>
+                    ) : (
+                      <span className="text-amber-300">Unknown</span>
+                    )}
+                  </td>
+                  <td className="py-2 pr-3">
+                    <span
+                      className={`rounded-full border px-2 py-0.5 ${
+                        reading.source_posture === "connector_backed"
+                          ? "border-signal-cyan/30 text-signal-cyan"
+                          : "border-white/10 text-slate-400"
+                      }`}
+                    >
+                      {reading.source_posture === "connector_backed"
+                        ? "connector-backed"
+                        : "seed / sim / import"}
+                    </span>
+                  </td>
+                  <td className="py-2 font-mono text-slate-500">
+                    {new Date(reading.taken_at).toLocaleString()}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
   );
 }
 

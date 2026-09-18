@@ -34,8 +34,33 @@ vi.mock("../services/qualityManagementService", () => ({
         appraisal: 20,
         internalFailure: 30,
         externalFailure: 40,
+        copqByTerm: {
+          rework: 10,
+          scrap: 5,
+          retesting: 4,
+          delay: 6,
+          claims: 40,
+          startup_failures: 5,
+        },
+        unattributedFailure: 0,
         costOfPoorQuality: 70,
         totalCostOfQuality: 100,
+      },
+    ],
+    forecastAttribution: [
+      {
+        developmentCaseId: "case-1",
+        caseRef: "DEV-001",
+        caseTitle: "Debottleneck project",
+        currency: "CAD",
+        qualityFailureGrowth: 7_800_000,
+        scopeGrowth: 2_200_000,
+        combinedGrowth: 10_000_000,
+        qualitySharePct: 78,
+        qualityEntryCount: 3,
+        scopeChangeCount: 2,
+        uncostedScopeChangeCount: 0,
+        basis: "Recorded attribution only.",
       },
     ],
     requirements: [],
@@ -61,6 +86,9 @@ describe("QualityManagementWorkbench", () => {
     expect(
       screen.getByText(/COPQ = internal 30 \+ external 40/),
     ).toBeInTheDocument();
+    expect(screen.getByText(/Rework 10/)).toBeInTheDocument();
+    expect(screen.getByText(/Quality-driven 7,800,000/)).toBeInTheDocument();
+    expect(screen.getByText(/78% of attributed growth/)).toBeInTheDocument();
     expect(
       screen.getByLabelText("Quality action").querySelectorAll("option"),
     ).toHaveLength(13);

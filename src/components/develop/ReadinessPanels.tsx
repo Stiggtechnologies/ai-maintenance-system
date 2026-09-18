@@ -17,7 +17,7 @@
  *     own disclaimer and its only write path is the opt-in AI_INFERENCE
  *     record through the governed RPC.
  */
-import { useCallback, useEffect, useState } from "react";
+import { type FormEvent, useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   AlertTriangle,
@@ -27,30 +27,62 @@ import {
   Gauge,
   Search,
   ShieldAlert,
+  Sparkles,
 } from "lucide-react";
 import {
   BASELINE_TYPES,
   type CaseWorkspace,
   type GateReadinessResult,
   type OperationalReadinessResult,
+  type OperationalReadinessFactorKey,
+  type OperationalReadinessIndexResult,
   type ReadinessBlocker,
+  type SystemOperationalReadinessResult,
+  type SystemReadinessDesignOriginsResult,
 } from "../../lib/develop";
 import {
   approveCaseBaseline,
+  adoptCaseOperationalReadinessIndexProfile,
   bindAssetToCase,
   createCaseBaseline,
   getCaseOperationalReadiness,
+  getCaseOperationalReadinessIndex,
+  getCaseSystemOperationalReadiness,
+  getCaseSystemReadinessDesignOrigins,
   getGateReadiness,
+  initializeCommissioningSystemReadiness,
   listBindableAssets,
+  listOrgEvidenceItems,
+  listOrgMembers,
+  listOperationalReadinessCatalog,
+  listCaseRequirements,
   listIntakeDocuments,
+  recordSystemOperationalReadinessItem,
+  recordSystemReadinessDesignOrigin,
   runEvidenceAgent,
+  runOperationalReadinessAgent,
+  saveCaseOperationalReadinessIndexProfile,
   type BindableAsset,
   type EvidenceAgentResult,
   type IntakeDocumentOption,
+  type OperationalReadinessAgentResult,
+  type OrgMember,
 } from "../../services/developService";
 
 const inputClass =
   "w-full rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-signal-cyan/50 focus:outline-none";
+
+const ORI_FACTORS: Array<{ key: OperationalReadinessFactorKey; label: string }> = [
+  { key: "people", label: "People" },
+  { key: "procedures", label: "Procedures" },
+  { key: "asset_data", label: "Asset data" },
+  { key: "maintenance", label: "Maintenance" },
+  { key: "spares", label: "Spares" },
+  { key: "training", label: "Training" },
+  { key: "operations", label: "Operations" },
+  { key: "safety", label: "Safety" },
+  { key: "cyber", label: "Cyber" },
+];
 
 function ErrorLine({ error }: { error: string | null }) {
   if (!error) return null;
@@ -1046,7 +1078,487 @@ export function OperationalReadinessSection({
             </button>
           </div>
         )}
+        <OperationalReadinessIndexSection caseId={caseId} canPlan={canPlan} />
+        <SystemOperationalReadinessSection
+          caseId={caseId}
+          canPlan={canPlan}
+        />
       </div>
+    </div>
+  );
+}
+
+function OperationalReadinessIndexSection({
+  caseId,
+  canPlan,
+}: {
+  caseId: string;
+  canPlan: boolean;
+}) {
+  const [model, setModel] = useState<OperationalReadinessIndexResult | null>(null);
+  const [catalog, setCatalog] = useState<
+    Awaited<ReturnType<typeof listOperationalReadinessCatalog>>
+  >([]);
+  const [evidence, setEvidence] = useState<
+    Array<{ id: string; description: string }>
+  >([]);
+  const [busy, setBusy] = useState(false);
+  const [agentBusy, setAgentBusy] = useState(false);
+  const [agentResult, setAgentResult] = useState<OperationalReadinessAgentResult | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    try {
+      const [next, items, sources] = await Promise.all([
+        getCaseOperationalReadinessIndex(caseId),
+        listOperationalReadinessCatalog(),
+        listOrgEvidenceItems(),
+      ]);
+      setModel(next);
+      setCatalog(items);
+      setEvidence(sources);
+      setError(null);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Readiness index read failed");
+    }
+  }, [caseId]);
+  useEffect(() => void load(), [load]);
+
+  const draft = model?.profiles.find((profile) => profile.status === "draft");
+  const adopted = model?.profiles.find((profile) => profile.status === "adopted");
+  const editing = draft ?? adopted;
+
+  async function save(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const data = new FormData(form);
+    setBusy(true);
+    setError(null);
+    try {
+      await saveCaseOperationalReadinessIndexProfile({
+        caseId,
+        profileId: draft?.profileId,
+        factors: ORI_FACTORS.map(({ key }) => ({
+          key,
+          weight: Number(data.get(`weight_${key}`)),
+          categories: data.getAll(`categories_${key}`).map(String),
+        })),
+        hardRequirementKeys: data.getAll("hardRequirementKeys").map(String),
+        basis: String(data.get("basis") ?? ""),
+        evidenceItemId: String(data.get("evidenceItemId") ?? ""),
+      });
+      await load();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Index policy save refused");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function adopt() {
+    if (!draft) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await adoptCaseOperationalReadinessIndexProfile(draft.profileId);
+      await load();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Index policy adoption refused");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const calculation = model?.calculation;
+  return (
+    <div className="mt-4 space-y-3 border-t border-white/8 pt-4">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <h3 className="text-xs font-semibold text-slate-200">Operational Readiness Index</h3>
+          <p className="mt-1 max-w-3xl text-[11px] text-slate-500">
+            Nine explicitly weighted factors over the system-scoped readiness record. Open safety or selected hard conditions force BLOCKED regardless of the weighted percentage. This is decision support only and cannot accept handover.
+          </p>
+        </div>
+        {calculation?.index != null && (
+          <span className={`rounded-full border px-2 py-1 text-xs font-semibold ${calculation.status === "BLOCKED" ? "border-red-400/30 text-red-300" : "border-signal-cyan/30 text-signal-cyan"}`}>
+            {calculation.index}% · {calculation.status}
+          </span>
+        )}
+      </div>
+      <ErrorLine error={error} />
+      <div className="rounded-lg border border-signal-cyan/15 bg-signal-cyan/[0.03] p-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-200">
+              <Sparkles className="h-3.5 w-3.5 text-signal-cyan" aria-hidden />
+              Operational Readiness Agent · could operations take ownership tomorrow?
+            </div>
+            <p className="mt-1 text-[11px] text-slate-500">
+              Explains the adopted nine-factor index and names its canonical hard blockers. It cannot complete readiness, accept handover, approve go-live or authorize energization.
+            </p>
+          </div>
+          <button type="button" disabled={agentBusy} className="rounded-lg border border-signal-cyan/30 px-3 py-1.5 text-xs font-semibold text-signal-cyan disabled:opacity-40" onClick={() => {
+            setAgentBusy(true); setError(null);
+            runOperationalReadinessAgent(caseId).then(setAgentResult).catch((caught) => setError(caught instanceof Error ? caught.message : "Operational Readiness Agent failed")).finally(() => setAgentBusy(false));
+          }}>
+            {agentBusy ? "Reading governed records…" : "Run Operational Readiness Agent"}
+          </button>
+        </div>
+        {agentResult && <div className="mt-3 space-y-2 border-t border-white/6 pt-3 text-xs">
+          <p className={agentResult.analysis.answer === "yes" ? "font-semibold text-emerald-300" : agentResult.analysis.answer === "no" ? "font-semibold text-rose-300" : "font-semibold text-amber-200"}>{agentResult.analysis.headline}</p>
+          {agentResult.analysis.factorFindings.length > 0 && <div className="grid gap-1 sm:grid-cols-3">{agentResult.analysis.factorFindings.map((factor) => <div key={factor.key} className="rounded border border-white/6 px-2 py-1.5 text-[11px] text-slate-300"><span className="font-semibold capitalize">{factor.key.replaceAll("_", " ")}</span> · {factor.percent == null ? "not assessed" : `${factor.percent}%`} · {factor.satisfied}/{factor.total}</div>)}</div>}
+          {agentResult.analysis.blockers.length > 0 && <div><p className="text-[10px] font-semibold uppercase tracking-wide text-rose-300">Named hard blockers</p><ul className="mt-1 list-disc space-y-1 pl-4 text-[11px] text-rose-200">{agentResult.analysis.blockers.map((blocker) => <li key={`${blocker.systemRef}-${blocker.sourceRefs[1]}`}>{blocker.systemRef} · {blocker.assetTag ?? blocker.asset} · {blocker.item} · {blocker.kind.replaceAll("_", " ")}</li>)}</ul></div>}
+          {agentResult.analysis.limitations.length > 0 && <ul className="list-disc space-y-1 pl-4 text-[11px] text-amber-200">{agentResult.analysis.limitations.map((item) => <li key={item}>{item}</li>)}</ul>}
+          <p className="break-all text-[10px] text-slate-500">Records: {agentResult.analysis.evidenceRefs.join(" · ") || "none"}</p>
+          <p className="text-[10px] text-slate-500">{agentResult.disclaimer}</p>
+        </div>}
+      </div>
+      {calculation?.error && (
+        <p className="rounded border border-amber-400/20 bg-amber-400/5 px-2.5 py-2 text-[11px] text-amber-200">{calculation.error}</p>
+      )}
+      {calculation?.factors && (
+        <div className="grid gap-2 md:grid-cols-3">
+          {calculation.factors.map((factor) => (
+            <div key={factor.key} className="rounded border border-white/6 bg-white/[0.02] p-2 text-[11px] text-slate-400">
+              <div className="flex justify-between"><span className="font-semibold text-slate-200">{factor.key.replaceAll("_", " ")}</span><span>weight {factor.weight}</span></div>
+              <div className="mt-1">{factor.percent == null ? "No scoped inputs" : `${factor.percent}% · ${factor.satisfied}/${factor.total}`}</div>
+            </div>
+          ))}
+        </div>
+      )}
+      {(calculation?.hardBlockers?.length ?? 0) > 0 && (
+        <div>
+          <p className="text-xs font-semibold text-red-300">{calculation?.hardBlockerCount} hard condition(s) open — weighted score overridden</p>
+          <ul className="mt-1 max-h-40 space-y-1 overflow-y-auto">
+            {calculation?.hardBlockers?.map((blocker) => (
+              <li key={`${blocker.systemId}-${blocker.itemId}`} className="rounded border border-red-400/20 bg-red-400/5 px-2 py-1 text-[11px] text-red-200">
+                {blocker.systemRef} · {blocker.assetTag ?? blocker.asset} · {blocker.item} · {blocker.kind.replaceAll("_", " ")}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {adopted && <p className="text-[11px] text-slate-500">Adopted policy v{adopted.version}: {adopted.basis}</p>}
+      {canPlan && (
+        <form key={draft?.profileId ?? `new-${adopted?.profileId ?? "none"}`} onSubmit={save} className="space-y-3 rounded-lg border border-white/8 bg-white/[0.02] p-3">
+          <div>
+            <p className="text-xs font-semibold text-slate-200">{draft ? `Edit draft policy v${draft.version}` : adopted ? `Create policy v${adopted.version + 1} from the adopted position` : "Author the first index policy"}</p>
+            <p className="mt-1 text-[11px] text-slate-500">Assign every readiness category to exactly one factor and state each weight. No defaults are supplied or silently inferred.</p>
+          </div>
+          <div className="grid gap-2 md:grid-cols-3">
+            {ORI_FACTORS.map(({ key, label }) => {
+              const current = editing?.factors.find((factor) => factor.key === key);
+              return <div key={key} className="rounded border border-white/6 p-2">
+                <label className="text-[11px] font-semibold text-slate-200">{label} weight
+                  <input name={`weight_${key}`} type="number" min="0.01" step="0.01" required defaultValue={current?.weight ?? ""} className={`${inputClass} mt-1`} />
+                </label>
+                <label className="mt-2 block text-[11px] text-slate-400">Assigned categories
+                  <select name={`categories_${key}`} multiple required defaultValue={current?.categories ?? []} className={`${inputClass} mt-1 h-28`}>
+                    {[...new Set(catalog.map((item) => item.ori_category))].map((category) => <option key={category} value={category}>{category.replaceAll("_", " ")}</option>)}
+                  </select>
+                </label>
+              </div>;
+            })}
+          </div>
+          <label className="block text-[11px] text-slate-400">Hard-condition catalog items
+            <select name="hardRequirementKeys" multiple required defaultValue={editing?.hardRequirementKeys ?? []} className={`${inputClass} mt-1 h-36`}>
+              {catalog.map((item) => <option key={item.key} value={item.key}>{item.ori_category.replaceAll("_", " ")} · {item.item_label}</option>)}
+            </select>
+          </label>
+          <div className="grid gap-2 md:grid-cols-2">
+            <select name="evidenceItemId" required defaultValue={editing?.evidenceItemId ?? ""} className={inputClass}><option value="" disabled>Policy evidence…</option>{evidence.map((item) => <option key={item.id} value={item.id}>{item.description}</option>)}</select>
+            <textarea name="basis" required minLength={20} defaultValue={editing?.basis ?? ""} className={inputClass} placeholder="Why these weights, assignments, and hard conditions are appropriate (20+ characters)" />
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button disabled={busy} className="rounded border border-signal-cyan/20 px-3 py-2 text-xs font-semibold text-signal-cyan disabled:opacity-50">{busy ? "Saving…" : draft ? "Save draft" : "Create draft"}</button>
+            {draft && <button type="button" onClick={() => void adopt()} disabled={busy} className="rounded border border-emerald-400/20 px-3 py-2 text-xs font-semibold text-emerald-300 disabled:opacity-50">Adopt this policy</button>}
+          </div>
+        </form>
+      )}
+    </div>
+  );
+}
+
+function SystemOperationalReadinessSection({
+  caseId,
+  canPlan,
+}: {
+  caseId: string;
+  canPlan: boolean;
+}) {
+  const [model, setModel] = useState<SystemOperationalReadinessResult | null>(
+    null,
+  );
+  const [designOrigins, setDesignOrigins] =
+    useState<SystemReadinessDesignOriginsResult | null>(null);
+  const [requirements, setRequirements] = useState<
+    Awaited<ReturnType<typeof listCaseRequirements>>
+  >([]);
+  const [catalog, setCatalog] = useState<
+    Awaited<ReturnType<typeof listOperationalReadinessCatalog>>
+  >([]);
+  const [members, setMembers] = useState<OrgMember[]>([]);
+  const [evidence, setEvidence] = useState<
+    Array<{ id: string; description: string }>
+  >([]);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const load = useCallback(async () => {
+    try {
+      const [next, origins, people, sources, caseRequirements, readinessCatalog] = await Promise.all([
+        getCaseSystemOperationalReadiness(caseId),
+        getCaseSystemReadinessDesignOrigins(caseId),
+        listOrgMembers(),
+        listOrgEvidenceItems(),
+        listCaseRequirements(caseId),
+        listOperationalReadinessCatalog(),
+      ]);
+      setModel(next);
+      setDesignOrigins(origins);
+      setMembers(people);
+      setEvidence(sources);
+      setRequirements(caseRequirements);
+      setCatalog(readinessCatalog);
+      setError(null);
+    } catch (caught) {
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "System readiness read failed",
+      );
+    }
+  }, [caseId]);
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  async function initialize(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const data = new FormData(form);
+    setBusy(true);
+    setError(null);
+    try {
+      await initializeCommissioningSystemReadiness({
+        systemId: Number(data.get("systemId")),
+        ownerId: String(data.get("ownerId") ?? ""),
+        requiredBefore: String(data.get("requiredBefore") ?? ""),
+        basis: String(data.get("basis") ?? ""),
+        basisEvidenceItemId: String(data.get("basisEvidenceItemId") ?? ""),
+      });
+      form.reset();
+      await load();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Assignment refused");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function complete(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const data = new FormData(form);
+    setBusy(true);
+    setError(null);
+    try {
+      await recordSystemOperationalReadinessItem({
+        systemId: Number(data.get("systemId")),
+        itemId: String(data.get("itemId") ?? ""),
+        status: String(data.get("status")) as
+          | "human_provided"
+          | "not_applicable",
+        evidenceItemId: String(data.get("evidenceItemId") ?? ""),
+        note: String(data.get("note") ?? ""),
+      });
+      form.reset();
+      await load();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Outcome refused");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function connectDesignRequirement(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const data = new FormData(form);
+    setBusy(true);
+    setError(null);
+    try {
+      await recordSystemReadinessDesignOrigin({
+        systemId: Number(data.get("systemId")),
+        designRequirementId: Number(data.get("designRequirementId")),
+        onboardingRequirementKey: String(
+          data.get("onboardingRequirementKey") ?? "",
+        ),
+        ownerId: String(data.get("ownerId") ?? ""),
+        requiredBefore: String(data.get("requiredBefore") ?? ""),
+        mappingBasis: String(data.get("mappingBasis") ?? ""),
+        mappingEvidenceItemId: String(
+          data.get("mappingEvidenceItemId") ?? "",
+        ),
+      });
+      form.reset();
+      await load();
+    } catch (caught) {
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "Design-to-readiness connection refused",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const scopedItems =
+    model?.systems.flatMap((system) =>
+      system.items.map((item) => ({ system, item })),
+    ) ?? [];
+  return (
+    <div className="mt-4 space-y-3 border-t border-white/8 pt-4">
+      <div>
+        <h3 className="text-xs font-semibold text-slate-200">
+          Commissioning-system readiness
+        </h3>
+        <p className="mt-1 text-[11px] text-slate-500">
+          The same asset-onboarding items, scoped to each commissioning system
+          with a named owner, required-before date, and completion evidence.
+          This records readiness only; it does not accept handover or authorize
+          energization.
+        </p>
+      </div>
+      <ErrorLine error={error} />
+      {model?.systems.map((system) => (
+        <div
+          key={system.systemId}
+          className="rounded-lg border border-white/8 bg-white/[0.02] p-3"
+        >
+          <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+            <span className="font-semibold text-slate-200">
+              {system.systemRef} — {system.title}
+            </span>
+            <span className="text-slate-400">
+              {system.satisfiedCount}/{system.itemCount} evidenced ·{" "}
+              {system.overdueOpenCount} overdue
+            </span>
+          </div>
+          {system.assetCount === 0 && (
+            <p className="mt-1 text-[11px] text-amber-300">
+              Bind at least one asset in the Commissioning section before
+              assigning readiness items.
+            </p>
+          )}
+          {system.items.length > 0 && (
+            <ul className="mt-2 max-h-44 space-y-1 overflow-y-auto">
+              {system.items.map((item) => (
+                <li
+                  key={item.scopeId}
+                  className={`rounded border px-2 py-1 text-[11px] ${item.overdue ? "border-red-400/25 text-red-200" : "border-white/5 text-slate-400"}`}
+                >
+                  {item.assetTag ?? item.asset}: {item.item} · {item.owner ?? "owner unavailable"} · due {item.requiredBefore} · {item.status.replaceAll("_", " ")}
+                  {!item.evidenceReady && " · evidence missing"}
+                </li>
+              ))}
+            </ul>
+          )}
+          {designOrigins?.systems
+            .find((candidate) => candidate.systemId === system.systemId)
+            ?.origins.map((origin) => (
+              <div
+                key={origin.originId}
+                className="mt-2 rounded border border-signal-cyan/15 bg-signal-cyan/5 px-2 py-1.5 text-[11px] text-slate-300"
+              >
+                <span className="font-semibold text-signal-cyan">
+                  {origin.requirementRef}
+                </span>{" "}
+                → {origin.readinessCategory.replaceAll("_", " ")} ·{" "}
+                {origin.readinessItem} · {origin.materializedItemCount}/
+                {system.assetCount} asset item(s)
+                {!origin.fullyMaterialized && " · awaiting bound assets"}
+              </div>
+            ))}
+        </div>
+      ))}
+      {canPlan && model && model.systems.length > 0 && requirements.length > 0 && (
+        <form
+          onSubmit={connectDesignRequirement}
+          className="grid gap-2 rounded-lg border border-signal-cyan/15 bg-signal-cyan/5 p-3 md:grid-cols-2"
+        >
+          <div className="md:col-span-2">
+            <p className="text-xs font-semibold text-slate-200">
+              Start readiness from a design requirement
+            </p>
+            <p className="mt-1 text-[11px] text-slate-500">
+              A named human selects the exact existing catalog obligation. SyncAI
+              creates open canonical items for every bound asset now and for assets
+              bound later; it never guesses a mapping or marks an item complete.
+            </p>
+          </div>
+          <select name="systemId" required className={inputClass} defaultValue="">
+            <option value="" disabled>Commissioning system…</option>
+            {model.systems.map((system) => <option key={system.systemId} value={system.systemId}>{system.systemRef} — {system.title}</option>)}
+          </select>
+          <select name="designRequirementId" required className={inputClass} defaultValue="">
+            <option value="" disabled>Design requirement…</option>
+            {requirements.map((requirement) => <option key={requirement.id} value={requirement.id}>{requirement.requirement_ref} · {requirement.category} · {requirement.requirement}</option>)}
+          </select>
+          <select name="onboardingRequirementKey" required className={`${inputClass} md:col-span-2`} defaultValue="">
+            <option value="" disabled>Exact operational-readiness catalog item…</option>
+            {catalog.map((item) => <option key={item.key} value={item.key}>{item.ori_category.replaceAll("_", " ")} · {item.item_label}</option>)}
+          </select>
+          <select name="ownerId" required className={inputClass} defaultValue="">
+            <option value="" disabled>Named readiness owner…</option>
+            {members.filter((member) => member.role !== "ai_admin").map((member) => <option key={member.id} value={member.id}>{member.full_name ?? member.email ?? member.id}</option>)}
+          </select>
+          <input name="requiredBefore" required type="date" className={inputClass} />
+          <select name="mappingEvidenceItemId" required className={`${inputClass} md:col-span-2`} defaultValue="">
+            <option value="" disabled>Mapping evidence…</option>
+            {evidence.map((item) => <option key={item.id} value={item.id}>{item.description}</option>)}
+          </select>
+          <textarea name="mappingBasis" required minLength={20} className={`${inputClass} md:col-span-2`} placeholder="Why this design requirement creates this exact readiness obligation (20+ characters)" />
+          <button disabled={busy} className="rounded border border-signal-cyan/20 px-3 py-2 text-xs font-semibold text-signal-cyan disabled:opacity-50">Create canonical readiness items</button>
+        </form>
+      )}
+      {canPlan && model && model.systems.length > 0 && (
+        <form onSubmit={initialize} className="grid gap-2 md:grid-cols-2">
+          <select name="systemId" required className={inputClass} defaultValue="">
+            <option value="" disabled>Commissioning system…</option>
+            {model.systems.map((system) => <option key={system.systemId} value={system.systemId}>{system.systemRef} — {system.title}</option>)}
+          </select>
+          <select name="ownerId" required className={inputClass} defaultValue="">
+            <option value="" disabled>Named readiness owner…</option>
+            {members.map((member) => <option key={member.id} value={member.id}>{member.full_name ?? member.email ?? member.id}</option>)}
+          </select>
+          <input name="requiredBefore" required type="date" className={inputClass} />
+          <select name="basisEvidenceItemId" required className={inputClass} defaultValue="">
+            <option value="" disabled>Assignment evidence…</option>
+            {evidence.map((item) => <option key={item.id} value={item.id}>{item.description}</option>)}
+          </select>
+          <input name="basis" required minLength={20} className={`${inputClass} md:col-span-2`} placeholder="Assignment basis (20+ characters)" />
+          <button disabled={busy} className="rounded border border-white/10 px-3 py-2 text-xs font-semibold text-slate-200 disabled:opacity-50">Assign canonical readiness items</button>
+        </form>
+      )}
+      {canPlan && scopedItems.length > 0 && (
+        <form onSubmit={complete} className="grid gap-2 md:grid-cols-2">
+          <select name="itemRef" required className={`${inputClass} md:col-span-2`} defaultValue="" onChange={(event) => {
+            const [systemId, itemId] = event.target.value.split(":");
+            const form = event.currentTarget.form;
+            if (form) { (form.elements.namedItem("systemId") as HTMLInputElement).value = systemId; (form.elements.namedItem("itemId") as HTMLInputElement).value = itemId; }
+          }}>
+            <option value="" disabled>Readiness item to evidence…</option>
+            {scopedItems.filter(({ item }) => !item.evidenceReady).map(({ system, item }) => <option key={item.scopeId} value={`${system.systemId}:${item.itemId}`}>{system.systemRef} · {item.assetTag ?? item.asset} · {item.item}</option>)}
+          </select>
+          <input type="hidden" name="systemId" /><input type="hidden" name="itemId" />
+          <select name="status" required className={inputClass} defaultValue="human_provided"><option value="human_provided">Evidence provided</option><option value="not_applicable">Not applicable, evidenced</option></select>
+          <select name="evidenceItemId" required className={inputClass} defaultValue=""><option value="" disabled>Completion evidence…</option>{evidence.map((item) => <option key={item.id} value={item.id}>{item.description}</option>)}</select>
+          <textarea name="note" required minLength={20} className={`${inputClass} md:col-span-2`} placeholder="Human readiness determination (20+ characters)" />
+          <button disabled={busy} className="rounded border border-white/10 px-3 py-2 text-xs font-semibold text-slate-200 disabled:opacity-50">Record evidenced outcome</button>
+        </form>
+      )}
+      {model && <p className="text-[10px] text-slate-600">Canonical store: {model.readinessStore}. {designOrigins?.decisionBoundary ?? model.decisionBoundary}</p>}
     </div>
   );
 }

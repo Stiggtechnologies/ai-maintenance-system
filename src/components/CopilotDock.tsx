@@ -24,12 +24,18 @@ import { useSpeechOutput } from "../hooks/useSpeechOutput";
 import { useSyncStream } from "../hooks/useSyncStream";
 import { getCopilotEphemeralContext } from "../lib/copilot-context";
 import { getRolePersona } from "../lib/rolePersonas";
+import {
+  captureSyncPageSnapshot,
+  questionNeedsPageSnapshot,
+  waitForSyncPageSnapshot,
+} from "../lib/syncPageContext";
 import { supabase } from "../lib/supabase";
 import { trackUiEvent } from "../services/uiEvents";
 import { supabasePublicKey, supabaseUrl } from "../lib/supabase-config";
 import { describeQuotaRefusal } from "../services/agentQuota";
 import { getKpiDashboard } from "../services/kpiService";
 import { removeSyncAttachmentGoverned } from "../services/syncAttachmentLifecycle";
+import type { SyncVoiceQueryResult } from "../lib/speech/syncRealtimeClient";
 import {
   archiveSyncConversation,
   createSyncConversation,
@@ -58,6 +64,7 @@ import { MarkdownRenderer } from "./MarkdownRenderer";
 import { SyncActivityTimeline } from "./SyncActivityTimeline";
 import { SyncConversationSidebar } from "./SyncConversationSidebar";
 import { SyncResponseBody } from "./SyncResponseBody";
+import { SyncRealtimeVoicePanel } from "./SyncRealtimeVoicePanel";
 import { SyncStructuredBlock } from "./SyncStructuredBlock";
 
 interface ChatMessage {
@@ -76,6 +83,7 @@ interface ChatMessage {
 
 interface CopilotDockProps {
   currentPath?: string;
+  onNavigate?: (path: string) => void;
 }
 
 type ViewMode = "dock" | "expanded" | "fullscreen";
@@ -189,6 +197,7 @@ function shellClass(viewMode: ViewMode, showHistory: boolean): string {
 
 export function CopilotDock({
   currentPath = typeof window !== "undefined" ? window.location.pathname : "/",
+  onNavigate,
 }: CopilotDockProps) {
   const { profile } = useAuth();
   const persona = getRolePersona(profile?.role as string);
@@ -227,6 +236,7 @@ export function CopilotDock({
   >([]);
   const [attachmentBusy, setAttachmentBusy] = useState(false);
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
+  const [voiceConversationActive, setVoiceConversationActive] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const activeAgentMessageRef = useRef<string | null>(null);
@@ -495,7 +505,11 @@ export function CopilotDock({
   }, [streamError, streamStatus, syncEnabled, updateActiveAgent]);
 
   const startSyncRequest = useCallback(
-    async (body: Record<string, unknown>, agentMessageId: string) => {
+    async (
+      body: Record<string, unknown>,
+      agentMessageId: string,
+      onEvent?: (event: SyncStreamEvent) => void,
+    ) => {
       const {
         data: { session },
       } = await supabase.auth.getSession();
@@ -513,6 +527,7 @@ export function CopilotDock({
           },
           body: JSON.stringify(body),
         },
+        onEvent,
       );
     },
     [startStream],
@@ -580,9 +595,25 @@ export function CopilotDock({
   );
 
   const ask = useCallback(
-    async (rawQuestion: string, appendUser = true) => {
+    async (
+      rawQuestion: string,
+      appendUser = true,
+      requestContext?: { route?: string; pageSnapshot?: string },
+    ): Promise<SyncVoiceQueryResult> => {
       const question = rawQuestion.trim();
-      if (!question || sending || conversationStatus !== "active") return;
+      if (!question) return { ok: false, error: "A question is required." };
+      if (sending) {
+        return {
+          ok: false,
+          error: "Sync is already completing another governed request.",
+        };
+      }
+      if (conversationStatus !== "active") {
+        return {
+          ok: false,
+          error: "Restore or start an active Sync conversation first.",
+        };
+      }
       trackUiEvent("copilot_question", question.slice(0, 60));
       setInput("");
       setAttachmentError(null);
@@ -590,6 +621,16 @@ export function CopilotDock({
       const attachmentIds = pendingAttachments.map(
         (attachment) => attachment.id,
       );
+      const requestRoute = requestContext?.route ?? currentPath;
+      const hasSnapshotOverride = Boolean(
+        requestContext &&
+        Object.prototype.hasOwnProperty.call(requestContext, "pageSnapshot"),
+      );
+      const pageSnapshot = hasSnapshotOverride
+        ? requestContext?.pageSnapshot
+        : questionNeedsPageSnapshot(question)
+          ? captureSyncPageSnapshot()
+          : undefined;
       if (appendUser) {
         setMessages((current) => [
           ...current,
@@ -604,7 +645,10 @@ export function CopilotDock({
       }
       if (!syncEnabled) {
         await askLegacy(question);
-        return;
+        return {
+          ok: false,
+          error: "The governed Sync runtime is not enabled for this tenant.",
+        };
       }
 
       const agentMessageId = crypto.randomUUID();
@@ -624,6 +668,14 @@ export function CopilotDock({
         },
       ]);
       setPendingAttachments([]);
+      const captured = {
+        answer: "",
+        evidenceIds: new Set<string>(),
+        pendingApproval: undefined as
+          { title: string; reason?: string } | undefined,
+        error: "",
+        completed: false,
+      };
       try {
         await startSyncRequest(
           {
@@ -631,26 +683,76 @@ export function CopilotDock({
             conversationId,
             attachmentIds,
             context: {
-              route: currentPath,
+              route: requestRoute,
               pageTitle: document.title,
               mode,
-              entity: deriveEntityContext(currentPath),
+              entity: deriveEntityContext(requestRoute),
+              pageSnapshot,
             },
           },
           agentMessageId,
+          (event) => {
+            if (event.type === "assistant.delta") {
+              captured.answer += event.text;
+            } else if (event.type === "retrieval.completed") {
+              event.evidence.forEach((item) =>
+                captured.evidenceIds.add(item.id),
+              );
+            } else if (event.type === "investigation.completed") {
+              event.evidence.forEach((item) =>
+                captured.evidenceIds.add(item.id),
+              );
+            } else if (
+              event.type === "assistant.block" &&
+              event.block.kind === "action_proposal"
+            ) {
+              captured.pendingApproval = {
+                title: event.block.action.title,
+                reason: event.block.action.reason,
+              };
+            } else if (event.type === "tool.proposed") {
+              captured.pendingApproval = {
+                title: event.proposal.title,
+                reason: event.proposal.reason,
+              };
+            } else if (event.type === "error") {
+              captured.error = event.message;
+            } else if (event.type === "turn.completed") {
+              captured.completed = true;
+            }
+          },
         );
       } catch (error) {
-        updateActiveAgent((message) => ({
-          ...message,
-          text:
-            error instanceof Error
-              ? error.message
-              : "Sync could not start this turn.",
+        const errorMessage =
+          error instanceof Error
+            ? error.message
+            : "Sync could not start this turn.";
+        updateActiveAgent((current) => ({
+          ...current,
+          text: errorMessage,
           status: "error",
         }));
+        return { ok: false, error: errorMessage };
       } finally {
         setStartingSync(false);
       }
+
+      if (captured.error || !captured.completed) {
+        return {
+          ok: false,
+          error:
+            captured.error ||
+            "Sync could not complete that governed request. The partial result was not presented as final.",
+        };
+      }
+      return {
+        ok: true,
+        answer:
+          captured.answer.trim() ||
+          "Sync completed the request. Review the structured result on screen.",
+        evidenceCount: captured.evidenceIds.size,
+        pendingApproval: captured.pendingApproval,
+      };
     },
     [
       askLegacy,
@@ -826,6 +928,14 @@ export function CopilotDock({
   const currentArchived =
     conversationId != null && conversationStatus !== "active";
 
+  const handleRealtimeActiveChange = (active: boolean) => {
+    setVoiceConversationActive(active);
+    if (active) {
+      speech.stop();
+      dictation.stop();
+    }
+  };
+
   return (
     <>
       <button
@@ -834,12 +944,12 @@ export function CopilotDock({
           open ? "Close Sync" : `Open ${syncEnabled ? "Sync" : persona.title}`
         }
         data-testid="copilot-launcher"
-        className="fixed bottom-5 right-5 z-40 flex h-12 w-12 items-center justify-center rounded-full bg-teal-500 text-slate-950 shadow-lg shadow-teal-500/20 hover:bg-teal-400 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-teal-300"
+        className="fixed bottom-20 right-4 z-50 flex h-14 w-14 items-center justify-center rounded-full border-2 border-teal-100/70 bg-teal-400 text-slate-950 shadow-[0_0_28px_rgba(45,212,191,0.45)] transition-transform hover:scale-105 hover:bg-teal-300 focus:outline-hidden focus-visible:ring-4 focus-visible:ring-teal-200/50 md:bottom-6 md:right-6"
       >
         {open ? (
-          <X className="h-5 w-5" aria-hidden />
+          <X className="h-6 w-6" aria-hidden />
         ) : (
-          <Bot className="h-6 w-6" aria-hidden />
+          <Bot className="h-7 w-7" aria-hidden />
         )}
       </button>
 
@@ -981,6 +1091,36 @@ export function CopilotDock({
                 </div>
               ) : null}
             </div>
+
+            {syncEnabled && voiceInput.enabled && voiceOutput.enabled ? (
+              <SyncRealtimeVoicePanel
+                context={{
+                  route: currentPath,
+                  pageTitle:
+                    typeof document !== "undefined" ? document.title : "SyncAI",
+                  mode,
+                  entity: deriveEntityContext(currentPath),
+                }}
+                disabled={sending || currentArchived}
+                onAskSync={(question) => ask(question)}
+                onNavigate={(path) => {
+                  if (onNavigate) onNavigate(path);
+                  else window.location.assign(path);
+                }}
+                onInspectPage={async (path, label) => {
+                  const pageSnapshot = await waitForSyncPageSnapshot();
+                  return ask(
+                    `Tell me what is on the ${label} page that just opened, what needs attention, and what I can safely do here. Do not execute or approve anything.`,
+                    false,
+                    {
+                      route: path,
+                      pageSnapshot,
+                    },
+                  );
+                }}
+                onActiveChange={handleRealtimeActiveChange}
+              />
+            ) : null}
 
             <div
               ref={scrollRef}
@@ -1147,6 +1287,7 @@ export function CopilotDock({
                           ) : null}
                           {syncEnabled &&
                           voiceOutput.enabled &&
+                          !voiceConversationActive &&
                           speech.supported ? (
                             <button
                               type="button"
@@ -1298,7 +1439,10 @@ export function CopilotDock({
                   ) : null}
                 </div>
 
-                {syncEnabled && voiceInput.enabled && dictation.supported ? (
+                {syncEnabled &&
+                voiceInput.enabled &&
+                !voiceConversationActive &&
+                dictation.supported ? (
                   <button
                     type="button"
                     onClick={

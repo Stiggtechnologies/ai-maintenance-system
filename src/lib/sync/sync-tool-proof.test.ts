@@ -1,9 +1,15 @@
 import { describe, expect, it } from "vitest";
 import {
   canonicalProposalPayload,
+  decideToolReservation,
   hasCanonicalIdempotencyKey,
+  isTerminalToolExecutionStatus,
   proposalIsUnexpired,
   proposalParamsHash,
+  SYNC_TOOL_EXECUTION_ENTITY,
+  SYNC_TOOL_EXECUTION_RESULT_ENTITY,
+  toolExecutionResultEventData,
+  toolReservationEventData,
 } from "../../../supabase/functions/_shared/sync-tool-proof";
 
 describe("Sync tool proposal proof", () => {
@@ -53,5 +59,91 @@ describe("Sync tool proposal proof", () => {
     expect(proposalIsUnexpired("2026-08-20T08:59:59.000Z", now)).toBe(false);
     expect(proposalIsUnexpired("not-a-date", now)).toBe(false);
     expect(proposalIsUnexpired(null, now)).toBe(false);
+  });
+});
+
+describe("Sync tool execution reservation (append-only ledger)", () => {
+  const reservation = {
+    id: "reserve-1",
+    eventData: toolReservationEventData({
+      idempotencyKey: "proposal-1",
+      proposalId: "proposal-1",
+      toolId: "raise_maintenance_notification",
+    }),
+  };
+  const completed = {
+    id: "result-1",
+    eventData: toolExecutionResultEventData({
+      status: "completed",
+      idempotencyKey: "proposal-1",
+      proposalId: "proposal-1",
+      toolId: "raise_maintenance_notification",
+      reservationId: "reserve-1",
+      result: { id: "notification-1", status: "open" },
+    }),
+  };
+
+  it("reserves on the first confirmation", () => {
+    expect(decideToolReservation({})).toEqual({ action: "proceed" });
+    expect(reservation.eventData.status).toBe("running");
+    expect(SYNC_TOOL_EXECUTION_ENTITY).toBe("sync_tool_execution");
+    expect(SYNC_TOOL_EXECUTION_RESULT_ENTITY).toBe(
+      "sync_tool_execution_result",
+    );
+  });
+
+  it("replays a completed result instead of treating the running reservation as a conflict", () => {
+    expect(
+      decideToolReservation({ reservation, result: completed }),
+    ).toEqual({
+      action: "replay",
+      reservationId: "reserve-1",
+      result: { id: "notification-1", status: "open" },
+    });
+  });
+
+  it("replays a refused result so idempotent retry does not throw already_reserved", () => {
+    const refused = {
+      id: "result-refused",
+      eventData: toolExecutionResultEventData({
+        status: "refused",
+        idempotencyKey: "proposal-1",
+        proposalId: "proposal-1",
+        toolId: "raise_maintenance_notification",
+        reservationId: "reserve-1",
+        result: { error: "choose the equipment this was observed on" },
+      }),
+    };
+    expect(isTerminalToolExecutionStatus("refused")).toBe(true);
+    expect(decideToolReservation({ reservation, result: refused })).toEqual({
+      action: "replay",
+      reservationId: "reserve-1",
+      result: { error: "choose the equipment this was observed on" },
+    });
+  });
+
+  it("keeps an in-flight reservation exclusive until a terminal result is appended", () => {
+    expect(decideToolReservation({ reservation })).toEqual({
+      action: "in_progress",
+    });
+  });
+
+  it("still replays a legacy reservation row that was updated to completed before the ledger became append-only", () => {
+    expect(
+      decideToolReservation({
+        reservation: {
+          id: "legacy-1",
+          eventData: {
+            status: "completed",
+            idempotency_key: "proposal-1",
+            result: { id: "legacy-notification" },
+          },
+        },
+      }),
+    ).toEqual({
+      action: "replay",
+      reservationId: "legacy-1",
+      result: { id: "legacy-notification" },
+    });
   });
 });

@@ -84,7 +84,20 @@ export interface QualityCostEntry {
   category:
     "prevention" | "appraisal" | "internal_failure" | "external_failure";
   amount: number;
+  copqTerm?: CopqTerm;
 }
+
+export const COPQ_TERMS = [
+  "rework",
+  "scrap",
+  "retesting",
+  "delay",
+  "claims",
+  "startup_failures",
+] as const;
+
+export type CopqTerm = (typeof COPQ_TERMS)[number];
+export type CopqTermTotals = Record<CopqTerm, number>;
 
 export interface QualityMetricValue {
   key: QualityMetricKey;
@@ -102,6 +115,8 @@ export interface QualityCostOfQuality {
   appraisal: number;
   internalFailure: number;
   externalFailure: number;
+  copqByTerm: CopqTermTotals;
+  unattributedFailure: number;
   costOfPoorQuality: number;
   totalCostOfQuality: number;
 }
@@ -269,6 +284,10 @@ export function computeQualityScorecard(input: {
       appraisal: 0,
       internalFailure: 0,
       externalFailure: 0,
+      copqByTerm: Object.fromEntries(
+        COPQ_TERMS.map((term) => [term, 0]),
+      ) as CopqTermTotals,
+      unattributedFailure: 0,
     };
     costs.set(code, existing);
     return existing;
@@ -279,15 +298,18 @@ export function computeQualityScorecard(input: {
     if (scrapCost > 0) {
       if (!defect.currency) throw new Error("Scrap cost requires a currency.");
       bucket(defect.currency).internalFailure += scrapCost;
+      bucket(defect.currency).copqByTerm.scrap += scrapCost;
     }
   }
   for (const rework of input.reworkCosts) {
-    bucket(rework.currency).internalFailure +=
+    const reworkTotal =
       safeNonNegative(rework.labourCost, "labourCost") +
       safeNonNegative(rework.materialCost, "materialCost") +
       safeNonNegative(rework.equipmentCost, "equipmentCost") +
       safeNonNegative(rework.downtimeCost, "downtimeCost") +
       safeNonNegative(rework.externalCost, "externalCost");
+    bucket(rework.currency).internalFailure += reworkTotal;
+    bucket(rework.currency).copqByTerm.rework += reworkTotal;
   }
   for (const entry of input.costEntries) {
     const target = bucket(entry.currency);
@@ -296,6 +318,13 @@ export function computeQualityScorecard(input: {
     if (entry.category === "appraisal") target.appraisal += amount;
     if (entry.category === "internal_failure") target.internalFailure += amount;
     if (entry.category === "external_failure") target.externalFailure += amount;
+    if (
+      entry.category === "internal_failure" ||
+      entry.category === "external_failure"
+    ) {
+      if (entry.copqTerm) target.copqByTerm[entry.copqTerm] += amount;
+      else target.unattributedFailure += amount;
+    }
   }
 
   return {
@@ -332,6 +361,6 @@ export function computeQualityScorecard(input: {
           values.externalFailure,
       })),
     basis:
-      "Seven metrics are derived from recorded quantities, test outcomes and NCR dates. Cost of poor quality includes internal and external failure cost only; prevention and appraisal remain visible but excluded. Currencies are never combined.",
+      "Seven metrics are derived from recorded quantities, test outcomes and NCR dates. Cost of poor quality is attributed across rework, scrap, retesting, delay, claims and startup failures; legacy unattributed failure cost stays visible. Prevention and appraisal remain excluded. Currencies are never combined.",
   };
 }

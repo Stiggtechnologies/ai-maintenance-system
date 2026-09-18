@@ -44,7 +44,6 @@ import { BrandWordmark } from "./BrandWordmark";
 import { CommandSearch } from "./CommandSearch";
 import { CopilotDock } from "./CopilotDock";
 import { PresenceWelcome } from "./PresenceWelcome";
-import { HelpCenterWidget } from "./HelpCenterWidget";
 import { useAuth } from "./AuthProvider";
 import { isNavItemVisible } from "../lib/roleNavigation";
 
@@ -81,7 +80,7 @@ const AUTONOMY_COLOR = "text-amber-400";
 // The tree follows the corrected spine (docs/enterprise-readiness/
 // navigation-lifecycle-ia.md §2): what we own → what work should exist → the
 // standing programme strategy justifies → the whole-life frame → this week's
-// work → performance. 45 items in 9 groups (5/4/5/2/4/10/7/3/5) — the counts
+// work → performance. 47 items in 9 groups (5/4/5/2/4/11/8/3/5) — the counts
 // roleNavigation.test.ts snapshots. Reliability Strategy sits directly above
 // Maintenance Programme so the parent edge — strategy → programme — reads
 // adjacently in the sidebar.
@@ -193,9 +192,9 @@ const navGroups: NavGroup[] = [
   },
   {
     // L4 — this week's work, correctly positioned as the innermost loop.
-    // Shutdowns & Turnarounds (/turnarounds) is route-only: nothing creates
-    // an outage_window yet (P-7). Sync Recovery is reachable and belongs here
-    // because it coordinates the live event across work, schedule and handover.
+    // Sync Recovery coordinates live events across work, schedule and handover.
+    // Shutdowns & Turnarounds is now discoverable because C9.05 gives it a
+    // governed human planning-window write and persisted optimization runs.
     id: "work",
     label: "Work Management",
     icon: Wrench,
@@ -209,6 +208,11 @@ const navGroups: NavGroup[] = [
         path: "/scheduling",
       },
       { id: "recovery", label: "Sync Recovery", path: "/recovery" },
+      {
+        id: "turnarounds",
+        label: "Shutdowns & Turnarounds",
+        path: "/turnarounds",
+      },
       { id: "materials", label: "Materials & Spares", path: "/materials" },
       {
         id: "handover",
@@ -236,6 +240,11 @@ const navGroups: NavGroup[] = [
       { id: "oee", label: "OEE Dashboard", path: "/oee" },
       { id: "value", label: "Value Realization", path: "/value" },
       { id: "benchmarking", label: "Benchmarking", path: "/benchmarking" },
+      {
+        id: "organizational-maturity",
+        label: "Maturity Assessment",
+        path: "/organizational-maturity",
+      },
       { id: "learning-loop", label: "Learning Loop", path: "/learning-loop" },
       {
         id: "decision-governance",
@@ -807,10 +816,13 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
           </div>
         </header>
 
-        <PresenceWelcome />
+        <PresenceWelcome showMeetingBooth={false} />
 
         {/* Page Content */}
-        <main className="flex-1 overflow-auto bg-overlook-void min-w-0 pb-20 md:pb-0">
+        <main
+          className="flex-1 overflow-auto bg-overlook-void min-w-0 pb-20 md:pb-0"
+          data-sync-page-content
+        >
           {children}
         </main>
       </div>
@@ -883,8 +895,7 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
       </nav>
 
       {/* Command Search */}
-      <CopilotDock />
-      <HelpCenterWidget />
+      <CopilotDock currentPath={currentPath} onNavigate={onNavigate} />
       <CommandSearch
         open={commandSearchOpen}
         onClose={() => setCommandSearchOpen(false)}

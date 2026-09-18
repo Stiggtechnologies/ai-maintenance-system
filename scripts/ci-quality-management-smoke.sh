@@ -9,6 +9,9 @@ eval "$(supabase status -o env | grep -E '^(ANON_KEY|API_URL)=')"
 ORG='11111111-1111-1111-1111-111111111111'
 EVIDENCE='7d000000-0000-4000-8000-000000000001'
 WORK_ORDER='7d000000-0000-4000-8000-000000000002'
+CASE_ID='7d000000-0000-4000-8000-000000000005'
+WBS_ID='7d000000-0000-4000-8000-000000000006'
+BASELINE_ID='7d000000-0000-4000-8000-000000000007'
 
 token(){ local response; response=$(curl -sS "$API_URL/auth/v1/token?grant_type=password" -H "apikey: $ANON_KEY" -H 'Content-Type: application/json' -d "{\"email\":\"$1\",\"password\":\"$2\"}"); printf '%s' "$response" | python3 -c "import json,sys; print(json.load(sys.stdin).get('access_token',''))"; }
 rpc(){ curl -sS -X POST "$API_URL/rest/v1/rpc/$2" -H "apikey: $ANON_KEY" -H "Authorization: Bearer $1" -H 'Content-Type: application/json' -d "$3"; }
@@ -33,6 +36,7 @@ ADMIN=$(token 'admin@syncai.ca' 'Admin123!@#')
 test -n "$DEMO"; test -n "$ADMIN"
 
 PROJECT=$(PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -qAt -v ON_ERROR_STOP=1 <<SQL
+delete from development_cases where id='$CASE_ID';
 delete from evidence_items where id='$EVIDENCE';
 delete from work_orders where id='$WORK_ORDER';
 delete from capital_projects where organization_id='$ORG' and project_code='Q7D-CI';
@@ -45,6 +49,23 @@ values('$ORG','Q7D-CI','Slice 7D quality acceptance','active') returning id;
 SQL
 )
 test -n "$PROJECT"
+PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -q -v ON_ERROR_STOP=1 <<SQL
+insert into development_cases(id,organization_id,title,lifecycle_type,problem_statement,capital_project_id,created_by)
+values('$CASE_ID','$ORG','Slice 7D COPQ attribution','brownfield','Quality-driven forecast growth must be distinguished from authorized scope growth.',$PROJECT,'00000000-0000-0000-0000-000000000001');
+insert into project_wbs_elements(id,organization_id,development_case_id,wbs_code,title,scope_description,created_by)
+values('$WBS_ID','$ORG','$CASE_ID','Q7D','Quality work','Controlled work used by the COPQ attribution smoke.','00000000-0000-0000-0000-000000000001');
+insert into development_baselines(id,organization_id,development_case_id,baseline_type,version,status,description,created_by)
+values('$BASELINE_ID','$ORG','$CASE_ID','SCOPE',1,'draft','Approved scope reference for quality attribution.','00000000-0000-0000-0000-000000000001');
+begin;
+select set_config('app.baseline_write','granted',true);
+update development_baselines set status='approved',approved_by='00000000-0000-0000-0000-000000000006',approved_at='2026-08-31T12:00:00Z',approval_note='Independent approval for the controlled COPQ attribution smoke.' where id='$BASELINE_ID';
+commit;
+begin;
+select set_config('app.scope_change_write','granted',true);
+insert into project_scope_changes(organization_id,development_case_id,baseline_id,change_ref,wbs_element_id,description,origin,added_at,cost_effect,cost_basis,currency,recorded_by)
+values('$ORG','$CASE_ID','$BASELINE_ID','Q7D-SCOPE-1','$WBS_ID','Authorized scope addition used as the comparison side of the forecast split.','owner_request','2026-09-03T12:00:00Z',220,'Approved scope estimate basis','CAD','00000000-0000-0000-0000-000000000001');
+commit;
+SQL
 DESIGN=$(PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -qAt -v ON_ERROR_STOP=1 <<SQL
 insert into design_requirements(organization_id, project_id, requirement_ref, category, requirement, source)
 values('$ORG', $PROJECT, 'Q7D-DR-1', 'quality', 'Dimensional acceptance shall be controlled against the approved drawing.', 'engineering')
@@ -145,8 +166,13 @@ SELF_RELEASE=$(rpc "$DEMO" release_quality_acceptance_test "{\"p_id\":$TEST_ID,\
 expect_error "$SELF_RELEASE" 'independent acceptance release'
 TEST_RELEASE=$(rpc "$ADMIN" release_quality_acceptance_test "{\"p_id\":$TEST_ID,\"p_decision\":\"release\",\"p_note\":\"Pass result, evidence and zero punch items independently verified.\"}"); noerr "$TEST_RELEASE"
 
-COST=$(rpc "$DEMO" record_quality_cost "{\"p_record\":{\"ncrId\":$NCR_ID,\"incurredAt\":\"2026-09-04T12:00:00Z\",\"category\":\"external_failure\",\"amount\":500,\"currency\":\"CAD\",\"costType\":\"Customer field correction\",\"sourceReference\":\"Approved invoice Q7D-INV-1\",\"evidenceItemId\":\"$EVIDENCE\"}}")
+COST=$(rpc "$DEMO" record_quality_cost "{\"p_record\":{\"ncrId\":$NCR_ID,\"developmentCaseId\":\"$CASE_ID\",\"incurredAt\":\"2026-09-04T12:00:00Z\",\"category\":\"external_failure\",\"copqTerm\":\"claims\",\"amount\":500,\"currency\":\"CAD\",\"costType\":\"Customer field correction\",\"sourceReference\":\"Approved invoice Q7D-INV-1\",\"evidenceItemId\":\"$EVIDENCE\",\"forecastGrowthAmount\":780,\"forecastGrowthBasis\":\"Current approved project cost forecast\"}}")
 noerr "$COST"
+
+MISSING_TERM=$(rpc "$DEMO" record_quality_cost "{\"p_record\":{\"incurredAt\":\"2026-09-04T12:00:00Z\",\"category\":\"internal_failure\",\"amount\":10,\"currency\":\"CAD\",\"costType\":\"Unclassified failure\",\"sourceReference\":\"Controlled refusal fixture\"}}")
+expect_error "$MISSING_TERM" 'requires one COPQ term'
+PREVENTION_FORECAST=$(rpc "$DEMO" record_quality_cost "{\"p_record\":{\"developmentCaseId\":\"$CASE_ID\",\"incurredAt\":\"2026-09-04T12:00:00Z\",\"category\":\"prevention\",\"amount\":10,\"currency\":\"CAD\",\"costType\":\"Quality planning\",\"sourceReference\":\"Controlled refusal fixture\",\"forecastGrowthAmount\":10,\"forecastGrowthBasis\":\"Current approved project cost forecast\"}}")
+expect_error "$PREVENTION_FORECAST" 'requires an internal or external failure cost'
 
 COCKPIT=$(rpc "$DEMO" get_quality_cockpit '{"p_from":"2026-09-01T00:00:00Z","p_to":"2026-10-01T00:00:00Z"}')
 noerr "$COCKPIT"
@@ -158,9 +184,12 @@ expected={'first_pass_yield_pct':96,'defect_rate_pct':4,'rework_rate_pct':3,'scr
 if any(values.get(k)!=v for k,v in expected.items()): print('wrong metrics',values); sys.exit(1)
 cad=next(c for c in x['costByCurrency'] if c['currency']=='CAD')
 if float(cad['costOfPoorQuality']) != 1875: print('wrong COPQ',cad); sys.exit(1)
+if cad['copqByTerm'] != {'rework':1125,'scrap':250,'retesting':0,'delay':0,'claims':500,'startup_failures':0}: print('wrong six-term attribution',cad); sys.exit(1)
+forecast=next(f for f in x['forecastAttribution'] if f['developmentCaseId']=='7d000000-0000-4000-8000-000000000005' and f['currency']=='CAD')
+if float(forecast['qualityFailureGrowth']) != 780 or float(forecast['scopeGrowth']) != 220 or float(forecast['qualitySharePct']) != 78: print('wrong forecast split',forecast); sys.exit(1)
 if len(x['metrics']) != 7: print('wrong metric count',x['metrics']); sys.exit(1)
 PY
 
 APPROVALS=$(PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -Atc "select count(*) from approvals where quality_requirement_id=$REQ_ID or quality_itp_id=$ITP_ID or quality_itp_point_id=$POINT_ID or quality_ncr_id=$NCR_ID or acceptance_test_id=$TEST_ID;")
 test "$APPROVALS" = '5'
-echo "Quality management smoke passed: seven_metrics=true copq_CAD=1875 independent_gates=5"
+echo "Quality management smoke passed: seven_metrics=true copq_CAD=1875 six_terms=true quality_share_pct=78 independent_gates=5"

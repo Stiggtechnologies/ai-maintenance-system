@@ -6,6 +6,10 @@ const migration = readFileSync(
   "supabase/migrations/20261213090100_quality_management_family.sql",
   "utf8",
 );
+const copqMigration = readFileSync(
+  "supabase/migrations/20261219157000_develop_copq_attribution.sql",
+  "utf8",
+);
 const service = readFileSync(
   "src/services/qualityManagementService.ts",
   "utf8",
@@ -48,6 +52,29 @@ describe("Slice 7D production contract", () => {
       "'costOfPoorQuality',internal_failure+external_failure",
     );
     expect(migration).toContain("group by currency");
+  });
+
+  it("attributes all six COPQ terms and compares forecast growth to the canonical scope record", () => {
+    for (const term of [
+      "rework",
+      "scrap",
+      "retesting",
+      "delay",
+      "claims",
+      "startup_failures",
+    ])
+      expect(copqMigration).toContain(`'${term}'`);
+    expect(copqMigration).toContain("alter table public.quality_cost_entries");
+    expect(copqMigration).toContain("from project_scope_changes sc");
+    expect(copqMigration).toContain("b.status='approved'");
+    expect(copqMigration).toContain("uncostedScopeChangeCount");
+    expect(copqMigration).toContain(
+      "category in ('internal_failure','external_failure')",
+    );
+    expect(copqMigration).toContain("Currencies are never combined");
+    expect(copqMigration).not.toContain(
+      "create table if not exists public.copq",
+    );
   });
 
   it("enforces tenant evidence, controlled lifecycle, and independent release", () => {
@@ -104,7 +131,7 @@ describe("Slice 7D production contract", () => {
     expect(row("D4.01")).toContain("`design_requirements`");
     expect(row("D4.01")).toContain("`record_quality_requirement`");
     expect(row("D4.01")).toContain("`QualityManagementWorkbench`");
-    expect(row("D4.07")).toMatch(/^\| D4\.07 \|[^|]*\|[^|]*\| 🟡/);
+    expect(row("D4.07")).toMatch(/^\| D4\.07 \|[^|]*\|[^|]*\| ✅/);
     expect(row("D4.07")).toContain("six terms");
   });
 });

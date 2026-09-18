@@ -53,7 +53,12 @@ describe("quality management scorecard", () => {
         },
       ],
       costEntries: [
-        { currency: "CAD", category: "external_failure", amount: 500 },
+        {
+          currency: "CAD",
+          category: "external_failure",
+          amount: 500,
+          copqTerm: "claims",
+        },
         { currency: "CAD", category: "prevention", amount: 40 },
         { currency: "USD", category: "internal_failure", amount: 25 },
       ],
@@ -75,6 +80,15 @@ describe("quality management scorecard", () => {
         appraisal: 0,
         internalFailure: 675,
         externalFailure: 500,
+        copqByTerm: {
+          rework: 375,
+          scrap: 300,
+          retesting: 0,
+          delay: 0,
+          claims: 500,
+          startup_failures: 0,
+        },
+        unattributedFailure: 0,
         costOfPoorQuality: 1175,
         totalCostOfQuality: 1215,
       },
@@ -84,10 +98,77 @@ describe("quality management scorecard", () => {
         appraisal: 0,
         internalFailure: 25,
         externalFailure: 0,
+        copqByTerm: {
+          rework: 0,
+          scrap: 0,
+          retesting: 0,
+          delay: 0,
+          claims: 0,
+          startup_failures: 0,
+        },
+        unattributedFailure: 25,
         costOfPoorQuality: 25,
         totalCostOfQuality: 25,
       },
     ]);
+  });
+
+  it("keeps all six COPQ terms separately attributable", () => {
+    const result = computeQualityScorecard({
+      defects: [],
+      acceptanceTests: [],
+      ncrs: [],
+      reworkCosts: [],
+      costEntries: [
+        {
+          currency: "CAD",
+          category: "internal_failure",
+          amount: 1,
+          copqTerm: "rework",
+        },
+        {
+          currency: "CAD",
+          category: "internal_failure",
+          amount: 2,
+          copqTerm: "scrap",
+        },
+        {
+          currency: "CAD",
+          category: "internal_failure",
+          amount: 3,
+          copqTerm: "retesting",
+        },
+        {
+          currency: "CAD",
+          category: "internal_failure",
+          amount: 4,
+          copqTerm: "delay",
+        },
+        {
+          currency: "CAD",
+          category: "external_failure",
+          amount: 5,
+          copqTerm: "claims",
+        },
+        {
+          currency: "CAD",
+          category: "external_failure",
+          amount: 6,
+          copqTerm: "startup_failures",
+        },
+      ],
+    });
+
+    expect(result.costByCurrency[0].copqByTerm).toEqual({
+      rework: 1,
+      scrap: 2,
+      retesting: 3,
+      delay: 4,
+      claims: 5,
+      startup_failures: 6,
+    });
+    expect(result.costByCurrency[0].costOfPoorQuality).toBe(21);
+    expect(result.costByCurrency[0].unattributedFailure).toBe(0);
   });
 
   it("refuses impossible quantities and ambiguous cost currency", () => {
