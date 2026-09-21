@@ -15,6 +15,7 @@ import {
   createDevelopmentCase,
   getProjectStartKnowledge,
   listAdoptedFrameworks,
+  screenApplicableProjectLessons,
   type FrameworkOption,
 } from "../services/developService";
 import { LIFECYCLE_TYPES } from "../lib/develop";
@@ -86,11 +87,12 @@ export function DevelopIntakePage() {
       // D12.05 composes the canonical D9.12 lesson screen with estimate
       // outcomes, measured vendor records and startup problems before the new
       // case workspace opens. It is read-only; failure never authorizes work.
-      const knowledge = await getProjectStartKnowledge(result.case_id).catch(
-        () => null,
-      );
+      const [screened] = await Promise.all([
+        screenApplicableProjectLessons(result.case_id).catch(() => null),
+        getProjectStartKnowledge(result.case_id).catch(() => null),
+      ]);
       navigate(`/develop/cases/${result.case_id}`, {
-        state: { applicableLessonCount: knowledge?.lessons?.count ?? 0 },
+        state: { applicableLessonCount: screened?.count ?? 0 },
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Create failed");

@@ -3,11 +3,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   getProjectStartKnowledge,
   runLessonsAgent,
+  screenApplicableProjectLessons,
 } from "../../services/developService";
 import { ApplicableLessonsBanner } from "./RealizePanels";
 
 vi.mock("../../services/developService", () => ({
   getProjectStartKnowledge: vi.fn(),
+  screenApplicableProjectLessons: vi.fn(),
   runLessonsAgent: vi.fn(),
 }));
 
@@ -18,6 +20,26 @@ vi.mock("../../services/operatingLoopService", () => ({
 describe("ApplicableLessonsBanner", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(screenApplicableProjectLessons).mockResolvedValue({
+      caseId: "target-case",
+      lifecycleType: "brownfield",
+      count: 1,
+      basis: "Deterministic tenant history comparison.",
+      lessons: [
+        {
+          id: "lesson-1",
+          title: "Freeze vendor data before IFC issue",
+          failureModeKey: "project_delivery.poor_vendor_data",
+          cause: "Vendor dates were not tied to the release plan.",
+          correctiveAction: "Add vendor-data dates and acceptance owners.",
+          applicability: "Brownfield projects with vendor interfaces.",
+          sourceCaseId: "source-case",
+          sourceLifecycleType: "brownfield",
+          matchReason: "source case shares this lifecycle type",
+          createdAt: "2026-09-01T00:00:00Z",
+        },
+      ],
+    });
     vi.mocked(getProjectStartKnowledge).mockResolvedValue({
       caseId: "target-case",
       lifecycleType: "brownfield",

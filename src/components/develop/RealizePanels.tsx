@@ -50,6 +50,7 @@ import {
   recordProjectLesson,
   runBenefitsAgent,
   runLessonsAgent,
+  screenApplicableProjectLessons,
   type ApplicableProjectLessons,
   type ProjectStartKnowledge,
   type CaseBenefitsScreen,
@@ -725,9 +726,12 @@ export function ApplicableLessonsBanner({ caseId }: { caseId: string }) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    getProjectStartKnowledge(caseId)
-      .then((knowledge) => {
-        setPayload(knowledge.lessons);
+    Promise.all([
+      screenApplicableProjectLessons(caseId),
+      getProjectStartKnowledge(caseId),
+    ])
+      .then(([lessons, knowledge]) => {
+        setPayload(lessons);
         setStartKnowledge(knowledge);
       })
       .catch((e) =>
