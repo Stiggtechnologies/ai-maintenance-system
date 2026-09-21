@@ -56,5 +56,5 @@ BODY="$(body "$RESULT")" python3 -c 'import json,os;x=json.loads(os.environ["BOD
 FOREIGN=$(rpc "$USER_TOKEN" get_case_stage_dimensions "{\"p_case_id\":\"$FOREIGN_CASE\"}")
 test "$(status "$FOREIGN")" = 400
 body "$FOREIGN" | grep -q 'not found in current tenant'
-! grep -Eiq 'create[[:space:]]+table|synthetic[[:space:]]+score' supabase/migrations/20261220050001_eight_dimension_stage_substrate.sql
+! grep -Eiq 'create[[:space:]]+table|synthetic[[:space:]]+score' supabase/migrations/20261220060001_eight_dimension_stage_substrate.sql
 echo 'D11.11 stage-dimension smoke passed: stages=3 dimensions_each=8 canonical_reads=true tenant_wall=true missing_explicit=true no_synthetic_score=true human_authority=true'
