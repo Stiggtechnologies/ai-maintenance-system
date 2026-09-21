@@ -3091,6 +3091,7 @@ export function DevelopmentCaseWorkspacePage() {
         canPlan={canProcure}
         canAward={canAwardContract}
         currentUserEmail={profile?.email ?? null}
+        evidence={workspace.evidence}
         reloadKey={chainsKey}
       />
       {/* Advanced Work Packaging (Slice 7A): spec II.4's typed EWP → PWP →
