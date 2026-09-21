@@ -51,9 +51,9 @@ describe("D11.09 Sync Information readiness integration", () => {
     expect(slice5dSmoke).toContain(
       "readiness is composed but the engine still claims it is not computed",
     );
-    expect(slice5dSmoke).toContain('field complete)" = "False"');
+    expect(slice5dSmoke).toContain('field complete)" = "True"');
     expect(slice5dSmoke).toContain("No composite score");
-    expect(slice5dSmoke).toContain("2 of §34");
+    expect(slice5dSmoke).toContain("0 of §34");
     expect(slice5dSmoke).toContain("the composed module produced a score");
   });
 });
