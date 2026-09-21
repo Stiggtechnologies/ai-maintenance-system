@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-const migration = readFileSync("supabase/migrations/20261220000000_develop_contract_strategy_agent.sql", "utf8");
+const migration = readFileSync("supabase/migrations/20261220080000_develop_contract_strategy_agent.sql", "utf8");
 const edge = readFileSync("supabase/functions/develop-contract-strategy-agent/index.ts", "utf8");
 const config = readFileSync("supabase/config.toml", "utf8");
 const boundary = readFileSync("config/edge-function-boundary.json", "utf8");
