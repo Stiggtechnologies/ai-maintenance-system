@@ -71,6 +71,84 @@ create trigger trg_contract_strategy_assessment_integrity
   before insert or update or delete on public.contract_strategy_assessments
   for each row execute function public.enforce_contract_strategy_assessment_integrity();
 
+-- This migration seeds an adopted agent_control_profiles row on every
+-- organization insert. The C1.14 history trigger on main refuses DELETE of
+-- non-draft profiles, which contradicts the ON DELETE CASCADE already
+-- declared on organization_id: a probe-org teardown (and any real tenant
+-- removal) cannot complete. Tenant teardown is not a control mutation —
+-- the adopted-control invariant governs in-place rewrite while the tenant
+-- exists; it does not outlive the tenant. Same idiom as
+-- enforce_framework_immutability / thread-object mid-cascade escapes.
+create or replace function public.enforce_agent_control_history()
+returns trigger language plpgsql security definer set search_path=public as $$
+declare v_adopter_role text;
+begin
+  if tg_op='DELETE' then
+    if not exists (select 1 from organizations where id = old.organization_id) then
+      return old;
+    end if;
+    if old.status <> 'draft' then
+      raise exception 'adopted agent controls are immutable; supersede them with a new version';
+    end if;
+    return old;
+  end if;
+  if tg_op='UPDATE' and old.status='adopted' then
+    if new.status <> 'superseded'
+       or new.organization_id is distinct from old.organization_id
+       or new.agent_id is distinct from old.agent_id
+       or new.authority_mode is distinct from old.authority_mode
+       or new.required_human_approver_role is distinct from old.required_human_approver_role
+       or new.proposal_risk_ceiling is distinct from old.proposal_risk_ceiling
+       or new.proposal_cost_ceiling_usd is distinct from old.proposal_cost_ceiling_usd
+       or new.proposal_downtime_ceiling_hours is distinct from old.proposal_downtime_ceiling_hours
+       or new.may_approve is distinct from old.may_approve
+       or new.basis is distinct from old.basis
+       or new.version is distinct from old.version
+       or new.adopted_by is distinct from old.adopted_by
+       or new.adopted_at is distinct from old.adopted_at then
+      raise exception 'adopted agent controls are immutable; supersede them with a new version';
+    end if;
+  end if;
+  if new.status='adopted' and new.adopted_by is not null then
+    select role into v_adopter_role from user_profiles
+      where id=new.adopted_by and organization_id=new.organization_id;
+    if v_adopter_role is null or v_adopter_role not in ('admin','executive') then
+      raise exception 'adopted agent controls require an accountable human administrator or executive';
+    end if;
+  end if;
+  if new.status='adopted' and new.adopted_by is null
+     and new.basis <> 'Platform advisory baseline: pending drafts only; accountable human approval remains mandatory.' then
+    raise exception 'only the exact non-authoritative platform advisory baseline may omit a human adopter';
+  end if;
+  return new;
+end; $$;
+revoke all on function public.enforce_agent_control_history() from public,anon,authenticated;
+
+create or replace function public.enforce_agent_binding_history()
+returns trigger language plpgsql security definer set search_path=public as $$
+declare v_status text;
+begin
+  if tg_op='UPDATE' then
+    raise exception 'agent control bindings are immutable; adopt a new profile version';
+  end if;
+  if tg_op='DELETE' then
+    if not exists (select 1 from organizations where id = old.organization_id)
+       or not exists (select 1 from agent_control_profiles where id = old.profile_id) then
+      return old;
+    end if;
+  end if;
+  select status into v_status from agent_control_profiles
+    where id=case when tg_op='DELETE' then old.profile_id else new.profile_id end;
+  if tg_op='INSERT' and v_status <> 'draft' then
+    raise exception 'bindings can only be added while the profile is draft';
+  end if;
+  if tg_op='DELETE' and v_status <> 'draft' then
+    raise exception 'adopted agent control bindings are immutable';
+  end if;
+  return case when tg_op='DELETE' then old else new end;
+end; $$;
+revoke all on function public.enforce_agent_binding_history() from public,anon,authenticated;
+
 create or replace function public.provision_contract_strategy_agent(p_org uuid)
 returns void language plpgsql security definer set search_path = public as $$
 declare
