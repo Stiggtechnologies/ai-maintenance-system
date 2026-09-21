@@ -6,6 +6,10 @@ const FILE =
   "supabase/migrations/20261220120000_develop_ram_case_completion.sql";
 const raw = readFileSync(FILE, "utf8");
 const migration = stripComments(raw);
+const slice5dSmoke = readFileSync(
+  "scripts/ci-develop-slice5d-smoke.sh",
+  "utf8",
+);
 
 function body(fn: string): string {
   const at = migration.lastIndexOf(`create or replace function public.${fn}(`);
@@ -101,5 +105,25 @@ describe("D12.13 completion keeps report lineage tied to server scope", () => {
     expect(migration).not.toMatch(/insert into approvals/i);
     expect(migration).not.toMatch(/update approvals/i);
     expect(record).toContain("'advisory', true");
+  });
+});
+
+describe("D12.13 preserves the earlier case-RAM runtime contract", () => {
+  it("keeps no-asset fatal while project and target gaps are leg-local", () => {
+    expect(slice5dSmoke).toContain(
+      "grep -qi 'No asset is bound' <<<\"$(printf '%s' \"$R\" | field refusal)\"",
+    );
+    expect(slice5dSmoke).toContain(
+      'grep -qi \'references no capital project\' <<<"$(jqp "$R"',
+    );
+    expect(slice5dSmoke).toContain(
+      'grep -qi \'no ram_targets row\' <<<"$(jqp "$R"',
+    );
+    expect(slice5dSmoke).toContain(
+      'RAM_KERNEL=$(psqlc "select sync_ram_kernel_version()")',
+    );
+    expect(slice5dSmoke).not.toContain(
+      String.raw`p_kernel_version\":\"develop-ram/5D/2026-12-07`,
+    );
   });
 });
