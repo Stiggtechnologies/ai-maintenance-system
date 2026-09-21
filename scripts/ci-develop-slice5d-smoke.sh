@@ -740,7 +740,8 @@ test "$(jqp "$R" "len(x['assets'][0]['failureTimes'])")" = "4"
 test "$(jqp "$R" "len(x['assets'][0]['suspensionTimes'])")" = "1"
 # THE ABSENT RBD IS A REFUSAL, not an omission (5D-R13).
 grep -qi 'RBD' <<<"$(jqp "$R" "' '.join(x['refusals'])")"
-grep -qi 'invented model' <<<"$(jqp "$R" "' '.join(x['refusals'])")"
+grep -qi 'declared case dependency graph' <<<"$(jqp "$R" "' '.join(x['refusals'])")"
+grep -qi 'empty graph is not a reliable system' <<<"$(jqp "$R" "' '.join(x['refusals'])")"
 # The read COMPUTES NOTHING: no fitted parameter appears in it.
 if grep -qi '"beta"' <<<"$R"; then echo "the scope read produced a fitted parameter"; exit 1; fi
 
