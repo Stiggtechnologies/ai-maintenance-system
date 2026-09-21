@@ -1098,10 +1098,10 @@
     "backticked": 25
   },
   "D11.21": {
-    "status": "🟡",
+    "status": "✅",
     "evidence": true,
-    "citations": 20,
-    "backticked": 15
+    "citations": 12,
+    "backticked": 12
   },
   "D11.22": {
     "status": "✅",

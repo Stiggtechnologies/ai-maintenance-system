@@ -119,6 +119,7 @@ import { OperatingModelReadinessPanel } from "../components/develop/OperatingMod
 import { PhysicalInformationReadinessPanel } from "../components/develop/PhysicalInformationReadinessPanel";
 import { InformationReadinessIndexPanel } from "../components/develop/InformationReadinessIndexPanel";
 import { DigitalThreadPanel } from "../components/develop/DigitalThreadPanels";
+import { CoreGraphRelationshipsPanel } from "../components/develop/CoreGraphRelationshipsPanel";
 import {
   CaseRamPanel,
   ChangeImpactAgentPanel,
@@ -2469,6 +2470,7 @@ export function DevelopmentCaseWorkspacePage() {
   const canReview =
     profile?.role != null && REVIEW_ROLES.includes(profile.role);
   const canPlan = profile?.role != null && PLAN_ROLES.includes(profile.role);
+  const canLinkCoreGraph = canPlan && String(profile?.role) !== "ai_admin";
   const canFrontline =
     profile?.role != null && FRONTLINE_ROLES.includes(profile.role);
   const canDesignPlan =
@@ -3055,6 +3057,11 @@ export function DevelopmentCaseWorkspacePage() {
         caseId={workspace.id}
         canPlan={canPlan}
         reloadKey={chainsKey}
+      />
+      <CoreGraphRelationshipsPanel
+        caseId={workspace.id}
+        canLink={canLinkCoreGraph}
+        evidence={workspace.evidence}
       />
       {/* The event bus and the two agents (Slice 5D): spec §71-78's five named
           events, emitted by the acts that cause them and CONSUMED — an
