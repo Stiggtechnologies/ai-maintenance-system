@@ -840,6 +840,9 @@ noerr "$R"
 # This case has no scoped information objects, so the project position is
 # NOT_ASSESSED rather than a fabricated 0 or 100.
 test "$(printf '%s' "$R" | field complete)" = "False"
+HEADLINE=$(printf '%s' "$R" | field headline)
+grep -q 'No composite score' <<<"$HEADLINE"
+grep -q '2 of §34' <<<"$HEADLINE"
 test "$(jqp "$R" "x['legs']['digitalThread']['built']")" = "True"
 test "$(jqp "$R" "x['legs']['documentation']['built']")" = "True"
 test "$(jqp "$R" "x['legs']['assetDataReadiness']['built']")" = "True"
