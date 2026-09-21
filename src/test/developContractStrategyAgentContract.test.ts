@@ -38,4 +38,34 @@ describe("D12.02 contract-strategy agent contract", () => {
     expect(panel).toContain("AI recommends. Accountable humans decide");
     expect(host).toContain("<ContractStrategyAgentPanel");
   });
+
+  it("admits tenant-cascade delete of adopted controls without weakening in-place immutability", () => {
+    const historyStart = migration.indexOf(
+      "create or replace function public.enforce_agent_control_history()",
+    );
+    const historyEnd = migration.indexOf(
+      "create or replace function public.enforce_agent_binding_history()",
+    );
+    const bindingEnd = migration.indexOf(
+      "create or replace function public.provision_contract_strategy_agent",
+    );
+    expect(historyStart).toBeGreaterThan(-1);
+    expect(historyEnd).toBeGreaterThan(historyStart);
+    expect(bindingEnd).toBeGreaterThan(historyEnd);
+    const history = migration.slice(historyStart, historyEnd);
+    const bindings = migration.slice(historyEnd, bindingEnd);
+    expect(history).toContain("if tg_op='DELETE' then");
+    expect(history).toContain(
+      "if not exists (select 1 from organizations where id = old.organization_id) then",
+    );
+    expect(history).toContain("return old;");
+    expect(history).toContain(
+      "adopted agent controls are immutable; supersede them with a new version",
+    );
+    expect(history).toContain("if tg_op='UPDATE' and old.status='adopted' then");
+    expect(bindings).toContain(
+      "if not exists (select 1 from organizations where id = old.organization_id)",
+    );
+    expect(bindings).toContain("adopted agent control bindings are immutable");
+  });
 });
