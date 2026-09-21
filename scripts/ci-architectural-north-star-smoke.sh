@@ -51,7 +51,7 @@ values
 ('$OTHER_EVIDENCE','$ORG','$SOURCE_CASE','$ASSET','ci','document','Independent evidence that is not the evidence carried by the project outcome.','high','D11.36-CI-OTHER','DOCUMENTED','verified','$VERIFIER_ID',now(),'Independent alternate record')
 on conflict(id) do nothing;
 insert into risk_context_nodes(organization_id,scope_kind,name,status)
-select '$ORG','project','D11.36 project context','adopted' where not exists(select 1 from risk_context_nodes where organization_id='$ORG' and name='D11.36 project context');
+select '$ORG','activity','D11.36 project context','adopted' where not exists(select 1 from risk_context_nodes where organization_id='$ORG' and name='D11.36 project context');
 insert into risk_criteria_profiles(organization_id,name,status,basis)
 select '$ORG','D11.36 criteria','adopted','Controlled architectural traversal fixture criteria.' where not exists(select 1 from risk_criteria_profiles where organization_id='$ORG' and name='D11.36 criteria');
 SQL
