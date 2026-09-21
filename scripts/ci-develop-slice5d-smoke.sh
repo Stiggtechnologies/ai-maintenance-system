@@ -33,12 +33,12 @@
 #   9  the RAM kernel scoped to a case (D12.13): three refusals by name, the
 #      inputs when they are all there, the absent-RBD refusal carried, a wrong
 #      kernel version refused, and a lineage run recording the refusals.
-#  10  §34 (D11.21): nineteen edges, FOUR absent, and the absence claim now
-#      CHECKED against the catalogue — including the fifth, which was found
-#      already built and is closed.
+#  10  §34 (D11.21): nineteen edges, ZERO absent after 20261220070000 closed
+#      the last two homes, and the absence claim now CHECKED against the
+#      catalogue rather than restated as prose.
 #  11  the composed Sync Information module (D11.09): no composite score, all
 #      three legs live (digital thread, documentation, §47 readiness). Runtime
-#      completeness remains false while §34 still records absent relationships.
+#      complete is true after D11.21 reports zero absent relationships.
 #  12  cross-tenant: the foreign member sees none of it — INCLUDING
 #      case_event_consequence_obligations, which had no org filter at all.
 #  13  the bus ledger has ONE door and service_role is not it, and the org and
@@ -801,32 +801,37 @@ grep -qi 'not truncatable' <<<"$OUT"
 echo "── 10. §34's nineteen edges, and the absence claim CHECKED (D11.21) ─────"
 
 test "$(psqlc "select jsonb_array_length(sync_spec34_edges())")" = "19"
-# TWO since 2026-09-06. This file's own audit said what to do when an
+# ZERO since 2026-09-21. This file's own audit said what to do when an
 # endpoint gets built — "`newlyClosableCount` above zero means the endpoint got
-# built and the ledger's prose is stale" — and Slice 7A (20261210090100) then
-# D9 realize (20261218090001) are that happening: first
-# `restoration_constraints.work_order_id`, then `learning_events.applicability`,
-# the columns THIS audit named as the closing conditions. Each edge moved out
-# of `absent` and out of the audit's list, so the count goes down and
+# built and the ledger's prose is stale" — and Slice 7A, D9 realize, then
+# D11.21 graph completion (20261220070000) are that happening. Each edge moved
+# out of `absent` and out of the audit's list, so the count goes down and
 # `newlyClosableCount` returns to zero rather than alarming forever.
-test "$(psqlc "select count(*) from jsonb_array_elements(sync_spec34_edges()) x where x->>'status'='absent'")" = "2"
-test "$(psqlc "select (sync_spec34_absent_edge_audit()->>'absentEdgeCount')")" = "2"
-# ZERO newly closable: every REMAINING absence claim still holds against the
+test "$(psqlc "select count(*) from jsonb_array_elements(sync_spec34_edges()) x where x->>'status'='absent'")" = "0"
+test "$(psqlc "select (sync_spec34_absent_edge_audit()->>'absentEdgeCount')")" = "0"
+test "$(psqlc "select (sync_spec34_absent_edge_audit()->>'implementedEdgeCount')")" = "19"
+# ZERO newly closable: there is no remaining absence claim to hold against the
 # catalogue.
 test "$(psqlc "select (sync_spec34_absent_edge_audit()->>'newlyClosableCount')")" = "0"
-# THE THREE THAT CLOSED. 5C recorded them as absent from prose nothing checked.
+# THE FIVE THAT CLOSED. 5C recorded them as absent from prose nothing checked.
 test "$(psqlc "select x->>'status' from jsonb_array_elements(sync_spec34_edges()) x where x->>'edge'='Benefit MEASURES Objective'")" = "live_elsewhere"
 test "$(psqlc "select x->>'home' from jsonb_array_elements(sync_spec34_edges()) x where x->>'edge'='Benefit MEASURES Objective'" | grep -c 'value_metrics.objective_id')" = "1"
 test "$(psqlc "select x->>'status' from jsonb_array_elements(sync_spec34_edges()) x where x->>'edge'='WorkPackage DEPENDS_ON Constraint'")" = "live_elsewhere"
 test "$(psqlc "select x->>'home' from jsonb_array_elements(sync_spec34_edges()) x where x->>'edge'='WorkPackage DEPENDS_ON Constraint'" | grep -c 'restoration_constraints.work_package_id')" = "1"
 test "$(psqlc "select x->>'status' from jsonb_array_elements(sync_spec34_edges()) x where x->>'edge'='Lesson APPLIES_TO AssetClass'")" = "live_elsewhere"
 test "$(psqlc "select x->>'home' from jsonb_array_elements(sync_spec34_edges()) x where x->>'edge'='Lesson APPLIES_TO AssetClass'" | grep -c 'learning_events.applicability')" = "1"
-# ...and the columns they name really are there, which is what made them closable.
+test "$(psqlc "select x->>'status' from jsonb_array_elements(sync_spec34_edges()) x where x->>'edge'='Contract PROVIDES Asset'")" = "live_elsewhere"
+test "$(psqlc "select x->>'home' from jsonb_array_elements(sync_spec34_edges()) x where x->>'edge'='Contract PROVIDES Asset'" | grep -c 'contract_asset_links')" = "1"
+test "$(psqlc "select x->>'status' from jsonb_array_elements(sync_spec34_edges()) x where x->>'edge'='Asset SUPPORTS Objective'")" = "live_elsewhere"
+test "$(psqlc "select x->>'home' from jsonb_array_elements(sync_spec34_edges()) x where x->>'edge'='Asset SUPPORTS Objective'" | grep -c 'asset_objective_links')" = "1"
+# ...and the columns / tables they name really are there, which is what made them closable.
 test "$(psqlc "select count(*) from information_schema.columns where table_schema='public' and table_name='value_metrics' and column_name='objective_id'")" = "1"
 test "$(psqlc "select count(*) from information_schema.columns where table_schema='public' and table_name='restoration_constraints' and column_name='work_order_id'")" = "1"
 test "$(psqlc "select count(*) from information_schema.columns where table_schema='public' and table_name='learning_events' and column_name='applicability'")" = "1"
-# The two that did not close each name the column that would close them.
-test "$(psqlc "select count(*) from jsonb_array_elements(sync_spec34_absent_edge_audit()->'edges') x where x->>'closesWhen' is not null")" = "2"
+test "$(psqlc "select count(*) from information_schema.tables where table_schema='public' and table_name='contract_asset_links'")" = "1"
+test "$(psqlc "select count(*) from information_schema.tables where table_schema='public' and table_name='asset_objective_links'")" = "1"
+# No remaining absence claim names a closing column.
+test "$(psqlc "select count(*) from jsonb_array_elements(sync_spec34_absent_edge_audit()->'edges') x where x->>'closesWhen' is not null")" = "0"
 
 echo "── 11. the Sync Information module, composed (D11.09) ───────────────────"
 
@@ -834,15 +839,15 @@ R=$(rpc "$PLANNER" get_case_information_engine "{\"p_case_id\":\"$CASE\"}")
 noerr "$R"
 # NO COMPOSITE SCORE. Thread continuity, released-document coverage and the
 # §47 ratio are unlike evidence states and are not averaged into false
-# precision. Runtime complete stays false while §34 still names absent edges.
+# precision. Runtime complete is true after D11.21 reports zero absent edges.
 # D11.23 composed the readiness leg: built is true, the canonical formula and
 # decision boundary are present, and the old "NOT COMPUTED" refusal is gone.
 # This case has no scoped information objects, so the project position is
 # NOT_ASSESSED rather than a fabricated 0 or 100.
-test "$(printf '%s' "$R" | field complete)" = "False"
+test "$(printf '%s' "$R" | field complete)" = "True"
 HEADLINE=$(printf '%s' "$R" | field headline)
 grep -q 'No composite score' <<<"$HEADLINE"
-grep -q '2 of §34' <<<"$HEADLINE"
+grep -q '0 of §34' <<<"$HEADLINE"
 test "$(jqp "$R" "x['legs']['digitalThread']['built']")" = "True"
 test "$(jqp "$R" "x['legs']['documentation']['built']")" = "True"
 test "$(jqp "$R" "x['legs']['assetDataReadiness']['built']")" = "True"
@@ -854,16 +859,20 @@ grep -qi 'regulatory certification' <<<"$(jqp "$R" "x['legs']['assetDataReadines
 if grep -qi 'ASSET-DATA READINESS IS NOT COMPUTED' <<<"$(jqp "$R" "' '.join(x['refusals'])")"; then
   echo "readiness is composed but the engine still claims it is not computed"; exit 1
 fi
-test "$(jqp "$R" "x['graph']['absentEdgeCount']")" = "2"
+test "$(jqp "$R" "x['graph']['absentEdgeCount']")" = "0"
+test "$(jqp "$R" "x['graph']['liveEdgeCount']")" = "19"
 if grep -qi '"score"' <<<"$R"; then echo "the composed module produced a score"; exit 1; fi
 # THE SENTENCE COUNTS WITH A VARIABLE, NOT A SPELLED NUMBER. The first draft
 # of this refusal was parameterised on the count and then hard-coded "The five
 # are named" beside it, so the shipped payload read "4 of ... The five are
 # named" — a self-contradiction on screen, in the very file whose thesis is
-# that unchecked prose survives a slice. The absent count is asserted above;
-# this asserts the sentence cannot drift from it again.
+# that unchecked prose survives a slice. With zero absent edges the computed
+# absence refusal must not fire at all; a leftover "0 of spec" or a spelled
+# historical count would be the same drift this step exists to catch.
 ENG_REF=$(jqp "$R" "' '.join(x['refusals'])")
-grep -q '2 of spec' <<<"$ENG_REF"
+if grep -qi 'of spec §34' <<<"$ENG_REF"; then
+  echo "information engine still claims a §34 absence after D11.21 closeout: $ENG_REF"; exit 1
+fi
 if grep -qi 'the five are named' <<<"$ENG_REF"; then
   echo "the engine refusal states a count in prose that its own variable contradicts"; exit 1
 fi
@@ -1098,5 +1107,5 @@ echo "Develop slice-5D smoke PASSED — five named events emitted by their acts 
 echo "consumed, the consumer's blocking consequences stopping a gate review at the"
 echo "wall, the Change Impact Agent refusing over a gapped thread on 5C's ONE"
 echo "traversal, the RAM kernel scoped to a case with every missing input named,"
-echo "two of §34's five absent edges honestly closed — each at the column the audit"
-echo "itself named — and the three that remain named, not merely counted."
+echo "all five once-absent §34 edges honestly closed — each at the home the audit"
+echo "or D11.21 closeout named — and zero remaining, not merely counted."

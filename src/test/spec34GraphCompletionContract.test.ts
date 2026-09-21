@@ -17,6 +17,10 @@ const workspace = readFileSync(
   "src/pages/DevelopmentCaseWorkspacePage.tsx",
   "utf8",
 );
+const smoke5c = readFileSync("scripts/ci-develop-slice5c-smoke.sh", "utf8");
+const smoke5d = readFileSync("scripts/ci-develop-slice5d-smoke.sh", "utf8");
+const smoke7a = readFileSync("scripts/ci-develop-slice7a-smoke.sh", "utf8");
+const ci = readFileSync(".github/workflows/ci.yml", "utf8");
 
 describe("D11.21 final §34 relationships", () => {
   it("adds associations over canonical identities rather than duplicate objects", () => {
@@ -55,5 +59,29 @@ describe("D11.21 final §34 relationships", () => {
     expect(panel).toContain('verificationStatus === "verified"');
     expect(workspace).toContain("<CoreGraphRelationshipsPanel");
     expect(migration).toContain("not contract acceptance");
+  });
+
+  it("moves downstream §34 absence assertions to zero rather than leaving stale twos", () => {
+    expect(smoke5c).toMatch(
+      /spec34Edges'\] if e\['status'\]=='absent'\]\)"\)" = "0"/,
+    );
+    expect(smoke5c).toContain(
+      "if e['edge']=='Contract PROVIDES Asset'][0]\")\" = \"live_elsewhere\"",
+    );
+    expect(smoke5c).toContain(
+      "if e['edge']=='Asset SUPPORTS Objective'][0]\")\" = \"live_elsewhere\"",
+    );
+    expect(smoke5d).toContain("x->>'status'='absent'\")\" = \"0\"");
+    expect(smoke5d).toContain(
+      "sync_spec34_absent_edge_audit()->>'absentEdgeCount')\")\" = \"0\"",
+    );
+    expect(smoke5d).toContain("x['graph']['absentEdgeCount']\")\" = \"0\"");
+    expect(smoke7a).toContain(
+      "sync_spec34_absent_edge_audit()->>'absentEdgeCount'\")\" = \"0\"",
+    );
+    expect(smoke7a).toContain(
+      "jsonb_array_length(sync_spec34_absent_edge_audit()->'edges')\")\" = \"0\"",
+    );
+    expect(ci).toContain("scripts/ci-spec34-graph-completion-smoke.sh");
   });
 });

@@ -701,20 +701,20 @@ done
 
 # §34: the edge sync_spec34_absent_edge_audit() said would close at
 # restoration_constraints.work_order_id is closed, and the ledger agrees.
-# TWO remaining after D9 realize (20261218090001) also closed Lesson
-# APPLIES_TO AssetClass at learning_events.applicability — the other column
-# this audit named. The count goes DOWN when an endpoint is built.
-test "$(psqlc "select sync_spec34_absent_edge_audit()->>'absentEdgeCount'")" = "2"
+# D9 realize (20261218090001) then closed Lesson APPLIES_TO AssetClass at
+# learning_events.applicability, and D11.21 (20261220070000) closed the last
+# two homes. The count goes DOWN when an endpoint is built.
+test "$(psqlc "select sync_spec34_absent_edge_audit()->>'absentEdgeCount'")" = "0"
 # The audit ACTED ON rather than left alarming: each closed edge is out of its
-# list, so `newlyClosableCount` is zero again and its note says TWO.
+# list, so `newlyClosableCount` is zero again and its note states the closeout.
 test "$(psqlc "select sync_spec34_absent_edge_audit()->>'newlyClosableCount'")" = "0"
-test "$(psqlc "select jsonb_array_length(sync_spec34_absent_edge_audit()->'edges')")" = "2"
+test "$(psqlc "select jsonb_array_length(sync_spec34_absent_edge_audit()->'edges')")" = "0"
 AUDIT=$(psqlc "select sync_spec34_absent_edge_audit()->>'note'")
-expect_text "$AUDIT" "states TWO of"
-expect_text "$AUDIT" "20261210090100 closed WorkPackage DEPENDS_ON Constraint"
-expect_text "$AUDIT" "20261218090001 closed Lesson APPLIES_TO AssetClass"
+expect_text "$AUDIT" "All nineteen"
+expect_text "$AUDIT" "contract_asset_links"
+expect_text "$AUDIT" "asset_objective_links"
 EDGES=$(psqlc "select count(*) from jsonb_array_elements(sync_spec34_edges()) x where x->>'status'='absent'")
-test "$EDGES" = "2"
+test "$EDGES" = "0"
 LEDGER=$(psqlc "select x->>'note' from jsonb_array_elements(sync_spec34_edges()) x where x->>'edge'='WorkPackage DEPENDS_ON Constraint'")
 expect_text "$LEDGER" "CORRECTED 20261210090100"
 LESSON=$(psqlc "select x->>'note' from jsonb_array_elements(sync_spec34_edges()) x where x->>'edge'='Lesson APPLIES_TO AssetClass'")
