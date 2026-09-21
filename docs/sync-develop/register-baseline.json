@@ -990,10 +990,10 @@
     "backticked": 0
   },
   "D11.03": {
-    "status": "❌",
+    "status": "✅",
     "evidence": true,
-    "citations": 0,
-    "backticked": 0
+    "citations": 6,
+    "backticked": 6
   },
   "D11.04": {
     "status": "✅",
