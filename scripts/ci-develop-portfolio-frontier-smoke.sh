@@ -77,9 +77,10 @@ ids={
   "98460000-0000-4000-8000-000000000003",
   "98460000-0000-4000-8000-000000000004",
 }
+keys={"regulatory_necessity","safety_risk","production_benefit","reliability","npv","asset_life","sustainability","resource_demand","execution_risk"}
 fixtures=[c for c in x["candidates"] if c.get("developmentCaseId") in ids]
 assert len(fixtures)==4, {"workspaceCandidates":len(x["candidates"]),"fixtures":len(fixtures)}
-assert all(isinstance(c.get("portfolioDimensions"), dict) and len(c["portfolioDimensions"])==9 for c in fixtures), fixtures
+assert all(isinstance(c.get("portfolioDimensions"), dict) and set(c["portfolioDimensions"])==keys for c in fixtures), fixtures
 '
 
 COUNTS=$(PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -qAt -F '|' -v ON_ERROR_STOP=1 -c "select (select count(*) from calculation_runs where organization_id='$ORG' and calculation_key='enterprise_portfolio_frontier' and id='$RUN_ID'),(select count(*) from recommendations where organization_id='$ORG' and portfolio_calculation_run_id='$RUN_ID'),(select count(*) from approvals a join recommendations r on r.id=a.recommendation_id where r.portfolio_calculation_run_id='$RUN_ID' and a.status='pending');")

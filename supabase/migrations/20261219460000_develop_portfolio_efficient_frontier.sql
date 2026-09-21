@@ -438,7 +438,7 @@ begin
       'mandatoryBasis',i.mandatory_basis,'earliestStart',i.earliest_start,'latestStart',i.latest_start,
       'durationMonths',i.duration_months,'evidenceItemId',i.evidence_item_id,'constraintNote',i.constraint_note,
       'portfolioDimensions',i.portfolio_dimensions,'dimensionCalibrationNote',i.dimension_calibration_note) order by c.title)
-      from public.development_cases c join public.capital_plan_items i on i.organization_id=v_org
+      from public.development_cases c left join public.capital_plan_items i on i.organization_id=v_org
         and i.development_case_id=c.id and i.plan_year=v_year
       where c.organization_id=v_org and c.status not in ('cancelled','completed')),'[]'::jsonb),
     'latestRun',(select jsonb_build_object('id',r.id,'outputs',r.outputs,'refusals',r.refusals,'status',r.status,
