@@ -1200,10 +1200,10 @@
     "backticked": 2
   },
   "D12.01": {
-    "status": "❌",
+    "status": "✅",
     "evidence": true,
-    "citations": 0,
-    "backticked": 0
+    "citations": 10,
+    "backticked": 10
   },
   "D12.02": {
     "status": "❌",

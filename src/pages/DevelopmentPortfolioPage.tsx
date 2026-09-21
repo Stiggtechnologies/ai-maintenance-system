@@ -11,6 +11,7 @@ import { EnterprisePortfolioOptimizationPanel } from "../components/EnterprisePo
 import { ProjectAssurancePanel } from "../components/ProjectAssurancePanel";
 import { ProgramPortfolioPanel } from "../components/develop/ProgramPortfolioPanel";
 import { ProjectInterventionTriagePanel } from "../components/develop/ProjectInterventionTriagePanel";
+import { ScopeCreepDetectionPanel } from "../components/develop/ScopeCreepDetectionPanel";
 
 function number(value: number | null, suffix = ""): string {
   return value == null
@@ -84,6 +85,8 @@ export function DevelopmentPortfolioPage() {
           and benefits—each from its canonical case record.
         </p>
       </header>
+
+      <ScopeCreepDetectionPanel />
 
       <ProjectInterventionTriagePanel rows={data.rows} />
 
