@@ -57,6 +57,15 @@ describe("D10.04 evidence-backed portfolio efficient frontier", () => {
     expect(migration).not.toMatch(/create table[^;]+(project|evidence|recommendation|approval)/);
   });
 
+  it("returns only configured capital candidates in the workspace", () => {
+    expect(migration).toContain(
+      "from public.development_cases c join public.capital_plan_items i",
+    );
+    expect(migration).not.toContain(
+      "from public.development_cases c left join public.capital_plan_items i",
+    );
+  });
+
   it("is reachable in the existing Sync Portfolio surface with a human scenario choice", () => {
     expect(service).toContain('"configure_portfolio_candidate_dimensions"');
     expect(service).toContain('"run_enterprise_portfolio_frontier"');
