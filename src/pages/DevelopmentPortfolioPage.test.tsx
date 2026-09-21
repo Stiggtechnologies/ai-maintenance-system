@@ -67,8 +67,11 @@ describe("D13.03 Development Portfolio page", () => {
     );
 
     await waitFor(() =>
-      expect(screen.getByText("North plant expansion")).toBeInTheDocument(),
+      expect(screen.getAllByText("North plant expansion")).toHaveLength(2),
     );
+    expect(
+      screen.getByText("Which projects need attention—and why"),
+    ).toBeInTheDocument();
     for (const heading of [
       "Project",
       "Stage",

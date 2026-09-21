@@ -1218,10 +1218,10 @@
     "backticked": 3
   },
   "D12.04": {
-    "status": "❌",
+    "status": "✅",
     "evidence": true,
-    "citations": 0,
-    "backticked": 0
+    "citations": 4,
+    "backticked": 4
   },
   "D12.05": {
     "status": "🟡",
