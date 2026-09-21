@@ -960,10 +960,10 @@
     "backticked": 4
   },
   "D10.04": {
-    "status": "🟡",
+    "status": "✅",
     "evidence": true,
-    "citations": 5,
-    "backticked": 5
+    "citations": 11,
+    "backticked": 11
   },
   "D10.05": {
     "status": "✅",
@@ -972,10 +972,10 @@
     "backticked": 8
   },
   "D10.06": {
-    "status": "🟡",
+    "status": "✅",
     "evidence": true,
-    "citations": 2,
-    "backticked": 2
+    "citations": 4,
+    "backticked": 4
   },
   "D11.01": {
     "status": "✅",

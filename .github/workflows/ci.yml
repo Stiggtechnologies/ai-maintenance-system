@@ -419,6 +419,9 @@ jobs:
       - name: Smoke — governed enterprise portfolio optimization
         run: bash scripts/ci-enterprise-portfolio-optimization-smoke.sh
 
+      - name: Smoke — Sync Develop nine-dimension portfolio frontier
+        run: bash scripts/ci-develop-portfolio-frontier-smoke.sh
+
       - name: Smoke — project assurance, reference classes and normalized benchmarking
         run: bash scripts/ci-project-assurance-reference-class-smoke.sh
 
