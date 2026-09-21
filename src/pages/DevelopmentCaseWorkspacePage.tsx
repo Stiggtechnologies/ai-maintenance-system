@@ -117,6 +117,7 @@ import { TechnicalDebtPanel } from "../components/develop/TechnicalDebtPanel";
 import { OperationalDebtPanel } from "../components/develop/OperationalDebtPanel";
 import { OperatingModelReadinessPanel } from "../components/develop/OperatingModelReadinessPanel";
 import { PhysicalInformationReadinessPanel } from "../components/develop/PhysicalInformationReadinessPanel";
+import { InformationReadinessIndexPanel } from "../components/develop/InformationReadinessIndexPanel";
 import { DigitalThreadPanel } from "../components/develop/DigitalThreadPanels";
 import {
   CaseRamPanel,
@@ -3129,6 +3130,7 @@ export function DevelopmentCaseWorkspacePage() {
       />
       <InformationEnginePanel caseId={workspace.id} reloadKey={chainsKey} />
       <PhysicalInformationReadinessPanel caseId={workspace.id} />
+      <InformationReadinessIndexPanel caseId={workspace.id} />
       <OperationalReadinessSection caseId={workspace.id} canPlan={canPlan} />
 
       {/* Sanction */}
