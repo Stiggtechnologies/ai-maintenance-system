@@ -17,7 +17,7 @@ const scope = (over: Partial<RamScopePayload> = {}): RamScopePayload => ({
 
 describe("the RAM kernel is REUSED, never re-implemented (D12.13)", () => {
   it("pins the kernel version the server also pins", () => {
-    expect(RAM_KERNEL_VERSION).toBe("develop-ram/5D/2026-12-07");
+    expect(RAM_KERNEL_VERSION).toBe("develop-ram/5E/2026-12-20");
   });
 
   it("allocates a target across its subsystems using the shipped kernel", () => {
@@ -240,5 +240,219 @@ describe("the printed reading never renders a refusal as a result", () => {
     );
     expect(lines.join("\n")).toContain("No availability target is recorded.");
     expect(lines.join("\n")).not.toMatch(/beta/);
+  });
+});
+
+describe("the case RAM profile composes the canonical RBD and growth kernels", () => {
+  const observedAsset = (
+    assetId: string,
+    assetTag: string,
+    downtimeHours: number[],
+    failureEventHours: number[],
+  ) => ({
+    assetId,
+    assetTag,
+    name: assetTag,
+    criticality: "high",
+    failureTimes: [100, 200],
+    suspensionTimes: [],
+    failureCount: 2,
+    suspensionCount: 0,
+    observationWindow: {
+      startAt: "2026-01-01T00:00:00Z",
+      endAt: "2026-02-11T16:00:00Z",
+      calendarHours: 1000,
+      operatingHoursDelta: 760,
+      meterReadingIds: [`${assetId}-start`, `${assetId}-end`],
+      downtimeHours,
+      failureEventHours,
+      workOrderIds: failureEventHours.map(
+        (_, index) => `${assetId}-wo-${index}`,
+      ),
+      basis:
+        "Two governed operating-hour readings bound the calendar observation window; corrective work-order downtime inside that window supplies the numerator.",
+    },
+  });
+
+  it("evaluates the declared case dependency graph with observed availability", () => {
+    const profile = computeCaseRamProfile(
+      scope({
+        assets: [
+          observedAsset("dependent", "TRAIN-1", [4], [400]),
+          observedAsset("supplier", "P-201", [10, 5], [200, 600]),
+        ],
+        topology: {
+          edges: [
+            {
+              edgeId: 41,
+              dependentAssetId: "dependent",
+              supplierAssetId: "supplier",
+              dependencyKind: "functional",
+              redundancyGroup: null,
+              minRequired: 1,
+              evidence: "Approved P&ID P-100 rev C",
+              source: "p_and_id",
+              confirmedAt: "2026-01-10T00:00:00Z",
+              confirmedBy: "engineer-1",
+              commonCauseGroups: [],
+            },
+          ],
+          commonCauseGroups: [],
+          note: "Declared case graph only; completeness is not inferred.",
+        },
+      }),
+    );
+
+    expect(profile.rbd?.result.computable).toBe(true);
+    expect(profile.rbd?.result.systemReliability).toBeCloseTo(0.985, 6);
+    expect(profile.rbd?.edgeIds).toEqual([41]);
+    expect(
+      profile.assets.find((a) => a.assetId === "supplier")?.availability,
+    ).toMatchObject({ failures: 2, downtimeHours: 15, calendarHours: 1000 });
+  });
+
+  it("refuses an unconfirmed topology instead of evaluating a convenient subset", () => {
+    const profile = computeCaseRamProfile(
+      scope({
+        assets: [observedAsset("supplier", "P-202", [8], [300])],
+        topology: {
+          edges: [
+            {
+              edgeId: 42,
+              dependentAssetId: "dependent",
+              supplierAssetId: "supplier",
+              dependencyKind: "utility",
+              redundancyGroup: "duty-standby",
+              minRequired: 1,
+              evidence: null,
+              source: "derived",
+              confirmedAt: null,
+              confirmedBy: null,
+              commonCauseGroups: [],
+            },
+          ],
+          commonCauseGroups: [],
+          note: "Declared case graph only; completeness is not inferred.",
+        },
+      }),
+    );
+
+    expect(profile.rbd).toBeNull();
+    expect(profile.refusals.join(" ")).toMatch(/edge 42.*confirmed.*evidence/i);
+  });
+
+  it("reports common cause without beta as an upper bound", () => {
+    const profile = computeCaseRamProfile(
+      scope({
+        assets: [
+          observedAsset("p1", "P-203A", [10], [200]),
+          observedAsset("p2", "P-203B", [12], [300]),
+        ],
+        topology: {
+          edges: [
+            {
+              edgeId: 43,
+              dependentAssetId: "train",
+              supplierAssetId: "p1",
+              dependencyKind: "functional",
+              redundancyGroup: "pumps",
+              minRequired: 1,
+              evidence: "Approved RBD-17",
+              source: "human",
+              confirmedAt: "2026-01-10T00:00:00Z",
+              confirmedBy: "engineer-1",
+              commonCauseGroups: ["shared-header"],
+            },
+            {
+              edgeId: 44,
+              dependentAssetId: "train",
+              supplierAssetId: "p2",
+              dependencyKind: "functional",
+              redundancyGroup: "pumps",
+              minRequired: 1,
+              evidence: "Approved RBD-17",
+              source: "human",
+              confirmedAt: "2026-01-10T00:00:00Z",
+              confirmedBy: "engineer-1",
+              commonCauseGroups: ["shared-header"],
+            },
+          ],
+          commonCauseGroups: [
+            {
+              groupId: 7,
+              name: "shared-header",
+              causeKind: "shared_supply",
+              memberAssetIds: ["p1", "p2"],
+              betaFactor: null,
+            },
+          ],
+          note: "Declared case graph only; completeness is not inferred.",
+        },
+      }),
+    );
+
+    expect(profile.rbd?.result.computable).toBe(true);
+    expect(profile.rbd?.result.groupsWithUnquantifiedCommonCause).toEqual([
+      "pumps",
+    ]);
+    expect(profile.rbd?.result.reason).toContain("upper bound");
+  });
+
+  it("runs Crow-AMSAA only inside the governed observation window", () => {
+    const profile = computeCaseRamProfile(
+      scope({
+        assets: [
+          observedAsset("a-growth", "P-204", [3, 4, 5], [100, 400, 800]),
+        ],
+      }),
+    );
+    const asset = profile.assets[0];
+    expect(asset.growth?.failures).toBe(3);
+    expect(asset.growth?.totalTime).toBe(1000);
+    expect(asset.growthReason).toContain("Crow-AMSAA");
+  });
+
+  it("case-scopes existing FMEA and PM strategy rows without approving them", () => {
+    const profile = computeCaseRamProfile(
+      scope({
+        fmea: [
+          {
+            id: "fmea-1",
+            assetId: "a1",
+            assetTag: "P-205",
+            failureMode: "Seal leakage",
+            failureMechanism: "abrasive wear",
+            cause: "solids ingress",
+            effect: "loss of containment",
+            detectionMethod: "leak inspection",
+            consequence: "environmental release",
+            currentControls: "weekly round",
+            recommendedControls: "flush plan review",
+            source: "human_reviewed_library",
+          },
+        ],
+        pmStrategies: [
+          {
+            id: "pm-1",
+            assetId: "a1",
+            assetTag: "P-205",
+            recommendation: "Inspect seal flush differential pressure",
+            failureModeAddressed: "Seal leakage",
+            riskReduced: "loss of containment",
+            evidenceUsed: { refs: ["inspection-77"] },
+            assumptions: { duty: "solids-bearing water" },
+            confidence: "medium",
+            requiredApproval: "reliability_engineer",
+            implementationWorkOrder: null,
+            status: "draft",
+          },
+        ],
+      }),
+    );
+
+    expect(profile.fmea.map((row) => row.id)).toEqual(["fmea-1"]);
+    expect(profile.pmStrategies.map((row) => row.id)).toEqual(["pm-1"]);
+    expect(profile.pmStrategies[0].status).toBe("draft");
+    expect(profile.decisionBoundary).toMatch(/human/i);
   });
 });

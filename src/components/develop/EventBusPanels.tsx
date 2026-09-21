@@ -529,7 +529,7 @@ export function CaseRamPanel({
     <Section
       icon={<Activity className="h-4 w-4 text-signal-cyan" />}
       title="RAM for this case (spec §63)"
-      subtitle="The shipped reliability kernel, scoped to the assets bound to this case and the availability targets recorded on its capital project. No arithmetic is re-implemented here, and every leg that cannot be computed is named."
+      subtitle="The shipped kernel composes Weibull, observed availability, Crow–AMSAA growth and the confirmed case RBD, beside existing FMEA and PM-strategy rows. Every denominator, topology gap and human decision boundary is named."
     >
       <ErrorLine error={error} />
       {canPlan && (
@@ -654,12 +654,13 @@ export function InformationEnginePanel({
               {legs.assetDataReadiness.decisionBoundary}
             </p>
           )}
-          {typeof graph.absentEdgeCount === "number" && graph.absentEdgeCount > 0 && (
-            <p className="text-[11px] text-slate-500">
-              §34: {graph.absentEdgeCount} of nineteen relationships are absent
-              because an endpoint object is unbuilt.
-            </p>
-          )}
+          {typeof graph.absentEdgeCount === "number" &&
+            graph.absentEdgeCount > 0 && (
+              <p className="text-[11px] text-slate-500">
+                §34: {graph.absentEdgeCount} of nineteen relationships are
+                absent because an endpoint object is unbuilt.
+              </p>
+            )}
           {refusals.map((r, i) => (
             <Refusal key={i} text={r} />
           ))}
