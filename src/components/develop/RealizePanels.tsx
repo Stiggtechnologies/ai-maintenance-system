@@ -39,6 +39,7 @@ import {
   getCaseOperationalWarranty,
   getCaseProjectLessons,
   getCaseProjectSuccess,
+  getProjectStartKnowledge,
   getCaseRealizationCheckpoints,
   getCaseValueRealization,
   openRealizationWindow,
@@ -51,6 +52,7 @@ import {
   runLessonsAgent,
   screenApplicableProjectLessons,
   type ApplicableProjectLessons,
+  type ProjectStartKnowledge,
   type CaseBenefitsScreen,
   type CaseLifecycleSuccess,
   type CaseOperationalWarranty,
@@ -717,15 +719,27 @@ function verdictTone(verdict: string): string {
 
 export function ApplicableLessonsBanner({ caseId }: { caseId: string }) {
   const [payload, setPayload] = useState<ApplicableProjectLessons | null>(null);
+  const [startKnowledge, setStartKnowledge] =
+    useState<ProjectStartKnowledge | null>(null);
   const [agentResult, setAgentResult] = useState<LessonsAgentResult | null>(null);
   const [agentBusy, setAgentBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    screenApplicableProjectLessons(caseId)
-      .then(setPayload)
+    Promise.all([
+      screenApplicableProjectLessons(caseId),
+      getProjectStartKnowledge(caseId),
+    ])
+      .then(([lessons, knowledge]) => {
+        setPayload(lessons);
+        setStartKnowledge(knowledge);
+      })
       .catch((e) =>
-        setError(e instanceof Error ? e.message : "Could not screen lessons"),
+        setError(
+          e instanceof Error
+            ? e.message
+            : "Could not retrieve project-start knowledge",
+        ),
       );
   }, [caseId]);
 
@@ -787,6 +801,68 @@ export function ApplicableLessonsBanner({ caseId }: { caseId: string }) {
           </ul>
         )}
       </div>
+      {startKnowledge && (
+        <div className="rounded-xl border border-white/10 bg-[#0D1520] px-4 py-3">
+          <div className="text-sm font-semibold text-slate-100">
+            Project-start knowledge
+          </div>
+          <p className="mt-1 text-[11px] text-slate-500">
+            {startKnowledge.method}
+          </p>
+          <div className="mt-3 grid gap-2 md:grid-cols-3">
+            {[
+              {
+                title: "Historical estimates",
+                count: startKnowledge.historicalEstimates.count,
+                empty: startKnowledge.historicalEstimates.emptyReason,
+                detail: startKnowledge.historicalEstimates.items.map(
+                  (item) =>
+                    `${item.sourceCaseTitle}: ${item.currency} ${item.baselineCost.toLocaleString()} baseline → ${item.actualCost.toLocaleString()} actual`,
+                ),
+              },
+              {
+                title: "Measured vendor records",
+                count: startKnowledge.vendorPerformance.count,
+                empty: startKnowledge.vendorPerformance.emptyReason,
+                detail: startKnowledge.vendorPerformance.items.map(
+                  (item) => item.supplier,
+                ),
+              },
+              {
+                title: "Startup problems",
+                count: startKnowledge.startupProblems.count,
+                empty: startKnowledge.startupProblems.emptyReason,
+                detail: startKnowledge.startupProblems.items.map(
+                  (item) => `${item.title}: ${item.cause}`,
+                ),
+              },
+            ].map((family) => (
+              <section
+                key={family.title}
+                className="rounded-lg border border-white/8 bg-black/20 p-3"
+              >
+                <h3 className="text-xs font-semibold text-slate-200">
+                  {family.title} · {family.count}
+                </h3>
+                {family.count === 0 ? (
+                  <p className="mt-1 text-[11px] text-amber-200/80">
+                    {family.empty}
+                  </p>
+                ) : (
+                  <ul className="mt-1 space-y-1 text-[11px] text-slate-400">
+                    {family.detail.slice(0, 5).map((line) => (
+                      <li key={line}>{line}</li>
+                    ))}
+                  </ul>
+                )}
+              </section>
+            ))}
+          </div>
+          <p className="mt-3 text-[11px] font-medium text-slate-300">
+            {startKnowledge.decisionBoundary}
+          </p>
+        </div>
+      )}
       {agentResult && (
         <div className="rounded-xl border border-signal-cyan/20 bg-[#0D1520] px-4 py-3 text-xs">
           <div className="flex items-center gap-1.5 font-semibold text-slate-100">

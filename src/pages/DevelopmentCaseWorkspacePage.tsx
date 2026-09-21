@@ -2835,14 +2835,16 @@ export function DevelopmentCaseWorkspacePage() {
           decisions, deliverables, schedule, cost, actions. Each renders
           exactly what is persisted, with an honest empty state that says
           what to do; no placeholder numbers anywhere. */}
-      <GovernancePanel
-        caseId={workspace.id}
-        canReview={canReview}
-        canAdmin={canAdmin}
-        stageKeys={workspace.stages.map((s) => s.stageKey)}
-        evidence={workspace.evidence}
-        onChanged={() => void load()}
-      />
+      <div id="governance" className="scroll-mt-6">
+        <GovernancePanel
+          caseId={workspace.id}
+          canReview={canReview}
+          canAdmin={canAdmin}
+          stageKeys={workspace.stages.map((s) => s.stageKey)}
+          evidence={workspace.evidence}
+          onChanged={() => void load()}
+        />
+      </div>
       <EngineOverlayPanel caseId={workspace.id} />
       <StageDimensionSubstratePanel caseId={workspace.id} />
       <ObjectiveSection workspace={workspace} />
@@ -2896,11 +2898,13 @@ export function DevelopmentCaseWorkspacePage() {
         canPlan={canDesignPlan}
         canAcknowledge={canAcknowledgeOperationalDebt}
       />
-      <RealizeCluster
-        caseId={workspace.id}
-        canRealize={canRealize}
-        evidence={workspace.evidence}
-      />
+      <div id="realize" className="scroll-mt-6">
+        <RealizeCluster
+          caseId={workspace.id}
+          canRealize={canRealize}
+          evidence={workspace.evidence}
+        />
+      </div>
       <DeliverablesSection
         workspace={workspace}
         members={members}
@@ -2964,27 +2968,29 @@ export function DevelopmentCaseWorkspacePage() {
           integrity cross-check, and the §51 forecast presentation whose
           P50/P80 columns say they are absent rather than manufacturing a
           spread. */}
-      <PerformancePanel
-        caseId={workspace.id}
-        canPlan={canPlan}
-        canReview={canReview}
-        reloadKey={chainsKey}
-        renderScheduleAssurance={(performance, onChanged) => (
-          /* §44 Schedule assurance (Slice 4C): the nine II.6 defect classes,
+      <div id="performance" className="scroll-mt-6">
+        <PerformancePanel
+          caseId={workspace.id}
+          canPlan={canPlan}
+          canReview={canReview}
+          reloadKey={chainsKey}
+          renderScheduleAssurance={(performance, onChanged) => (
+            /* §44 Schedule assurance (Slice 4C): the nine II.6 defect classes,
              the §50 quality score and the distinct schedule confidence, the
              risk→activity→money chain, and the seeded Monte Carlo that
              REFUSES to run on a schedule failing its diagnostics. It renders
              inside the Performance panel because it consumes the same one
              read — a second fetch would let the gate on screen disagree with
              the gate the percentiles were computed under. */
-          <ScheduleAssurancePanel
-            caseId={workspace.id}
-            performance={performance}
-            canPlan={canPlan}
-            onChanged={onChanged}
-          />
-        )}
-      />
+            <ScheduleAssurancePanel
+              caseId={workspace.id}
+              performance={performance}
+              canPlan={canPlan}
+              onChanged={onChanged}
+            />
+          )}
+        />
+      </div>
       {/* §44 Integrated Controls + change control (Slice 4D): the six control
           dimensions composed from RECORDED RUNS (nothing recomputed here), the
           contingency ledger whose drawdowns are authority-gated and attributed

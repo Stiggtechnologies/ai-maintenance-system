@@ -1224,10 +1224,10 @@
     "backticked": 4
   },
   "D12.05": {
-    "status": "🟡",
+    "status": "✅",
     "evidence": true,
-    "citations": 1,
-    "backticked": 0
+    "citations": 6,
+    "backticked": 6
   },
   "D12.06": {
     "status": "✅",
@@ -1314,10 +1314,10 @@
     "backticked": 2
   },
   "D13.01": {
-    "status": "❌",
+    "status": "✅",
     "evidence": true,
-    "citations": 0,
-    "backticked": 0
+    "citations": 8,
+    "backticked": 8
   },
   "D13.02": {
     "status": "✅",
