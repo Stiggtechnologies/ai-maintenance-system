@@ -60,7 +60,7 @@ CTX=$(psqlc "select id from risk_context_nodes where organization_id='$ORG' and 
 CRIT=$(psqlc "select id from risk_criteria_profiles where organization_id='$ORG' and name='D11.36 criteria'")
 
 # Objective → Requirement.
-R=$(rpc "$ADMIN" record_case_requirement "{\"p_case_id\":\"$SOURCE_CASE\",\"p_requirement\":{\"requirement_ref\":\"D11-36-R1\",\"category\":\"reliability\",\"requirement\":\"The delivered pump train shall demonstrate stable startup and maintainable seal performance.\",\"owner_id\":\"$ADMIN_ID\"}}")
+R=$(rpc "$ADMIN" record_case_requirement "{\"p_case_id\":\"$SOURCE_CASE\",\"p_requirement\":{\"requirement_ref\":\"D11-36-R1\",\"category\":\"reliability\",\"requirement\":\"The delivered pump train shall demonstrate stable startup and maintainable seal performance.\",\"owner_id\":\"$ADMIN_ID\",\"objective_id\":\"$OBJECTIVE\"}}")
 ok "$R"; REQUIREMENT=$(field "$R" requirement_id)
 
 # Requirement/objective → Risk / opportunity.
