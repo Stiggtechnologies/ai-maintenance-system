@@ -89,6 +89,7 @@ import {
   ScheduleSection,
 } from "../components/develop/ReadinessPanels";
 import { GovernancePanel } from "../components/develop/GovernancePanel";
+import { StageDimensionSubstratePanel } from "../components/develop/StageDimensionSubstratePanel";
 import {
   BenefitsSection,
   BusinessCaseSection,
@@ -2838,6 +2839,7 @@ export function DevelopmentCaseWorkspacePage() {
         evidence={workspace.evidence}
         onChanged={() => void load()}
       />
+      <StageDimensionSubstratePanel caseId={workspace.id} />
       <ObjectiveSection workspace={workspace} />
       <SuccessContractSection
         workspace={workspace}
