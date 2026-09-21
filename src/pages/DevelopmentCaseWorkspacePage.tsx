@@ -90,6 +90,7 @@ import {
 } from "../components/develop/ReadinessPanels";
 import { GovernancePanel } from "../components/develop/GovernancePanel";
 import { EngineOverlayPanel } from "../components/develop/EngineOverlayPanel";
+import { StageDimensionSubstratePanel } from "../components/develop/StageDimensionSubstratePanel";
 import {
   BenefitsSection,
   BusinessCaseSection,
@@ -2843,6 +2844,7 @@ export function DevelopmentCaseWorkspacePage() {
         onChanged={() => void load()}
       />
       <EngineOverlayPanel caseId={workspace.id} />
+      <StageDimensionSubstratePanel caseId={workspace.id} />
       <ObjectiveSection workspace={workspace} />
       <SuccessContractSection
         workspace={workspace}
