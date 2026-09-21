@@ -118,6 +118,7 @@ import { OperationalDebtPanel } from "../components/develop/OperationalDebtPanel
 import { OperatingModelReadinessPanel } from "../components/develop/OperatingModelReadinessPanel";
 import { DigitalThreadPanel } from "../components/develop/DigitalThreadPanels";
 import { CoreGraphRelationshipsPanel } from "../components/develop/CoreGraphRelationshipsPanel";
+import { ArchitecturalNorthStarPanel } from "../components/develop/ArchitecturalNorthStarPanel";
 import {
   CaseRamPanel,
   ChangeImpactAgentPanel,
@@ -3060,6 +3061,10 @@ export function DevelopmentCaseWorkspacePage() {
         caseId={workspace.id}
         canLink={canLinkCoreGraph}
         evidence={workspace.evidence}
+      />
+      <ArchitecturalNorthStarPanel
+        caseId={workspace.id}
+        canLink={canLinkCoreGraph}
       />
       {/* The event bus and the two agents (Slice 5D): spec §71-78's five named
           events, emitted by the acts that cause them and CONSUMED — an
