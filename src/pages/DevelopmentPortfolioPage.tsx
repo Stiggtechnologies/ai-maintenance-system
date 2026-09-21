@@ -10,6 +10,7 @@ import {
 import { EnterprisePortfolioOptimizationPanel } from "../components/EnterprisePortfolioOptimizationPanel";
 import { ProjectAssurancePanel } from "../components/ProjectAssurancePanel";
 import { ProgramPortfolioPanel } from "../components/develop/ProgramPortfolioPanel";
+import { ProjectControlsAgentPanel } from "../components/develop/ProjectControlsAgentPanel";
 import { ProjectInterventionTriagePanel } from "../components/develop/ProjectInterventionTriagePanel";
 import { ScopeCreepDetectionPanel } from "../components/develop/ScopeCreepDetectionPanel";
 
@@ -89,6 +90,8 @@ export function DevelopmentPortfolioPage() {
       <ScopeCreepDetectionPanel />
 
       <ProjectInterventionTriagePanel rows={data.rows} />
+
+      <ProjectControlsAgentPanel />
 
       <EnterprisePortfolioOptimizationPanel />
 
