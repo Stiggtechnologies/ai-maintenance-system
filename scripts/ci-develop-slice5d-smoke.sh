@@ -36,8 +36,9 @@
 #  10  §34 (D11.21): nineteen edges, FOUR absent, and the absence claim now
 #      CHECKED against the catalogue — including the fifth, which was found
 #      already built and is closed.
-#  11  the composed Sync Information module (D11.09): no composite score, the
-#      asset-data leg named as missing.
+#  11  the composed Sync Information module (D11.09): no composite score, all
+#      three legs live (digital thread, documentation, §47 readiness). Runtime
+#      completeness remains false while §34 still records absent relationships.
 #  12  cross-tenant: the foreign member sees none of it — INCLUDING
 #      case_event_consequence_obligations, which had no org filter at all.
 #  13  the bus ledger has ONE door and service_role is not it, and the org and
@@ -831,14 +832,25 @@ echo "── 11. the Sync Information module, composed (D11.09) ─────�
 
 R=$(rpc "$PLANNER" get_case_information_engine "{\"p_case_id\":\"$CASE\"}")
 noerr "$R"
-# NO COMPOSITE SCORE. Averaging the legs that exist over the one that does not
-# is how a partial module reads as a finished one.
+# NO COMPOSITE SCORE. Thread continuity, released-document coverage and the
+# §47 ratio are unlike evidence states and are not averaged into false
+# precision. Runtime complete stays false while §34 still names absent edges.
+# D11.23 composed the readiness leg: built is true, the canonical formula and
+# decision boundary are present, and the old "NOT COMPUTED" refusal is gone.
+# This case has no scoped information objects, so the project position is
+# NOT_ASSESSED rather than a fabricated 0 or 100.
 test "$(printf '%s' "$R" | field complete)" = "False"
 test "$(jqp "$R" "x['legs']['digitalThread']['built']")" = "True"
 test "$(jqp "$R" "x['legs']['documentation']['built']")" = "True"
-test "$(jqp "$R" "x['legs']['assetDataReadiness']['built']")" = "False"
+test "$(jqp "$R" "x['legs']['assetDataReadiness']['built']")" = "True"
 grep -q 'D11.08' <<<"$(jqp "$R" "' '.join(x['legs']['assetDataReadiness']['registerRows'])")"
-grep -qi 'ASSET-DATA READINESS IS NOT COMPUTED' <<<"$(jqp "$R" "' '.join(x['refusals'])")"
+grep -q 'D11.23' <<<"$(jqp "$R" "' '.join(x['legs']['assetDataReadiness']['registerRows'])")"
+test "$(jqp "$R" "x['legs']['assetDataReadiness']['project']['status']")" = "NOT_ASSESSED"
+grep -q 'Accepted evidence-backed' <<<"$(jqp "$R" "x['legs']['assetDataReadiness']['formula']")"
+grep -qi 'regulatory certification' <<<"$(jqp "$R" "x['legs']['assetDataReadiness']['decisionBoundary']")"
+if grep -qi 'ASSET-DATA READINESS IS NOT COMPUTED' <<<"$(jqp "$R" "' '.join(x['refusals'])")"; then
+  echo "readiness is composed but the engine still claims it is not computed"; exit 1
+fi
 test "$(jqp "$R" "x['graph']['absentEdgeCount']")" = "2"
 if grep -qi '"score"' <<<"$R"; then echo "the composed module produced a score"; exit 1; fi
 # THE SENTENCE COUNTS WITH A VARIABLE, NOT A SPELLED NUMBER. The first draft

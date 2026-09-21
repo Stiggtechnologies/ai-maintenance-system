@@ -9,6 +9,10 @@ const panel = readFileSync(
   "src/components/develop/EventBusPanels.tsx",
   "utf8",
 );
+const slice5dSmoke = readFileSync(
+  "scripts/ci-develop-slice5d-smoke.sh",
+  "utf8",
+);
 
 describe("D11.09 Sync Information readiness integration", () => {
   it("composes the canonical §47 read rather than recalculating readiness", () => {
@@ -35,5 +39,17 @@ describe("D11.09 Sync Information readiness integration", () => {
     expect(panel).toContain("leg.project.status");
     expect(panel).toContain("hard blocker(s)");
     expect(panel).toContain("legs.assetDataReadiness?.decisionBoundary");
+  });
+
+  it("keeps the composed-module smoke on the new built=true contract", () => {
+    expect(slice5dSmoke).toContain(
+      "x['legs']['assetDataReadiness']['built']\")\" = \"True\"",
+    );
+    expect(slice5dSmoke).not.toContain(
+      "x['legs']['assetDataReadiness']['built']\")\" = \"False\"",
+    );
+    expect(slice5dSmoke).toContain(
+      "readiness is composed but the engine still claims it is not computed",
+    );
   });
 });
