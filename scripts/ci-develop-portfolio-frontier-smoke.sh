@@ -68,7 +68,19 @@ FAKE=$(rpc "$REVIEWER" propose_enterprise_portfolio_frontier "{\"p_calculation_r
 err "$FAKE" 'not on this recorded non-dominated frontier'
 WORKSPACE=$(rpc "$REVIEWER" get_enterprise_portfolio_workspace "{\"p_plan_year\":$YEAR}")
 ok "$WORKSPACE"
-BODY="$(body "$WORKSPACE")" python3 -c 'import json,os;x=json.loads(os.environ["BODY"]);assert len(x["candidates"])==4;assert all(len(c["portfolioDimensions"])==9 for c in x["candidates"])'
+BODY="$(body "$WORKSPACE")" python3 -c '
+import json,os
+x=json.loads(os.environ["BODY"])
+ids={
+  "98460000-0000-4000-8000-000000000001",
+  "98460000-0000-4000-8000-000000000002",
+  "98460000-0000-4000-8000-000000000003",
+  "98460000-0000-4000-8000-000000000004",
+}
+fixtures=[c for c in x["candidates"] if c.get("developmentCaseId") in ids]
+assert len(fixtures)==4, {"workspaceCandidates":len(x["candidates"]),"fixtures":len(fixtures)}
+assert all(isinstance(c.get("portfolioDimensions"), dict) and len(c["portfolioDimensions"])==9 for c in fixtures), fixtures
+'
 
 COUNTS=$(PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -qAt -F '|' -v ON_ERROR_STOP=1 -c "select (select count(*) from calculation_runs where organization_id='$ORG' and calculation_key='enterprise_portfolio_frontier' and id='$RUN_ID'),(select count(*) from recommendations where organization_id='$ORG' and portfolio_calculation_run_id='$RUN_ID'),(select count(*) from approvals a join recommendations r on r.id=a.recommendation_id where r.portfolio_calculation_run_id='$RUN_ID' and a.status='pending');")
 test "$COUNTS" = '1|1|1'
