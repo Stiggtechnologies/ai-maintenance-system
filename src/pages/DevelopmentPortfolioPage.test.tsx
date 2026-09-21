@@ -67,8 +67,26 @@ describe("D13.03 Development Portfolio page", () => {
     );
 
     await waitFor(() =>
-      expect(screen.getAllByText("North plant expansion")).toHaveLength(2),
+      expect(screen.getAllByText("North plant expansion")).toHaveLength(3),
     );
+    expect(screen.getByTestId("sync-pmo-workspace")).toBeInTheDocument();
+    expect(
+      screen.getByText("Intervention first—not another dashboard"),
+    ).toBeInTheDocument();
+    for (const pmoFunction of [
+      "Methodology governance",
+      "Framework tailoring",
+      "Gate calibration",
+      "Portfolio health",
+      "Resource conflicts",
+      "Benchmarking",
+      "Performance trends",
+      "Lessons",
+      "Assurance",
+      "Value realization",
+    ]) {
+      expect(screen.getByText(pmoFunction)).toBeInTheDocument();
+    }
     expect(
       screen.getByText("Which projects need attention—and why"),
     ).toBeInTheDocument();
