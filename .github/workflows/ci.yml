@@ -446,6 +446,11 @@ jobs:
       - name: Smoke — project-start knowledge retrieval
         run: bash scripts/ci-project-start-knowledge-smoke.sh
 
+      - name: Smoke — case RAM completion (RBD, growth, FMEA and PM strategy)
+        run: |
+          bash scripts/ci-develop-ram-case-completion-smoke.sh
+          bash scripts/ci-develop-ram-case-completion-smoke.sh
+
       - name: Smoke — methodology outcome learning and human-approved improvement
         run: bash scripts/ci-methodology-outcome-learning-smoke.sh
 

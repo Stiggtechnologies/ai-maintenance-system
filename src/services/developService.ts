@@ -5408,11 +5408,11 @@ export async function getCaseRamScope(
 /**
  * Run the shipped RAM kernel over one case's scope and record the reading.
  *
- * THE ARITHMETIC IS THE KERNEL'S. `computeCaseRamProfile` composes
- * `allocateAvailability` and `selectWeibullMethod` — nothing is re-derived
- * here — and the RPC re-reads the scope and the refusals server-side, so the
- * lineage row cannot claim a clean profile over a scope the database says is
- * short of inputs.
+ * THE ARITHMETIC IS THE KERNEL'S. `computeCaseRamProfile` composes the shipped
+ * allocation, Weibull, repairable-summary, Crow–AMSAA and RBD functions —
+ * nothing is re-derived here. The RPC re-reads the scope and exact canonical
+ * row identities server-side, so the lineage row cannot claim a clean profile
+ * over a different case population or topology.
  */
 export async function runCaseRamAgent(caseId: string): Promise<{
   scope: RamScopePayload;
