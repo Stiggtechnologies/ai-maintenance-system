@@ -1152,10 +1152,10 @@
     "backticked": 25
   },
   "D11.30": {
-    "status": "❌",
+    "status": "✅",
     "evidence": true,
-    "citations": 1,
-    "backticked": 0
+    "citations": 6,
+    "backticked": 6
   },
   "D11.31": {
     "status": "✅",

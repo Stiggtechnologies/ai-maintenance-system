@@ -69,6 +69,10 @@ describe("U19.01 governed model applicability envelopes", () => {
     expect(migration).toContain("applicability_validation_expired");
     expect(migration).toContain("applicability_validation_not_started");
     expect(migration).toContain("verified training-population evidence");
+    expect(smoke).toContain("review_model_registry_version");
+    expect(smoke).not.toMatch(
+      /update model_register set[^;]*approved_on\s*=/,
+    );
   });
 
   it("rechecks contextual scope at the immutable calculation boundary", () => {
