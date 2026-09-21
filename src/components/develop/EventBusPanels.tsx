@@ -654,7 +654,7 @@ export function InformationEnginePanel({
               {legs.assetDataReadiness.decisionBoundary}
             </p>
           )}
-          {typeof graph.absentEdgeCount === "number" && (
+          {typeof graph.absentEdgeCount === "number" && graph.absentEdgeCount > 0 && (
             <p className="text-[11px] text-slate-500">
               §34: {graph.absentEdgeCount} of nineteen relationships are absent
               because an endpoint object is unbuilt.

@@ -42,10 +42,12 @@
 #      REFUSES and NAMES it with a NULL count; a clean one answers.
 #   8  the ONE graph (D11.21): thread hops, anchor edges and asset_dependencies
 #      edges in one node space with no dangling endpoint, and §34's nineteen
-#      relationships with THREE honestly absent (five when this file was
-#      written; two of those endpoints have since been built, and step 8
-#      NAMES the three that remain so a different edge going quiet cannot be
-#      absorbed by the same number).
+#      relationships with ZERO honestly absent (five when this file was
+#      written; later slices closed Benefit MEASURES Objective, WorkPackage
+#      DEPENDS_ON Constraint and Lesson APPLIES_TO AssetClass; 20261220070000
+#      closed Contract PROVIDES Asset and Asset SUPPORTS Objective). Step 8
+#      NAMES the two newly live homes so a different edge going quiet cannot
+#      be absorbed by a bare zero.
 #   9  cross-tenant: the foreign member sees none of it.
 #  10  the repair pass: a receipt cannot be answered by nobody, §42 covers the
 #      INSERT, the §26 identity columns are walled for every caller, the
@@ -603,21 +605,17 @@ R=$(rpc "$MANAGER" get_case_thread_graph "{\"p_case_id\":\"$CASE\"}")
 noerr "$R"
 test "$(jqp "$R" "x['refused']")" = "False"
 test "$(jqp "$R" "len(x['spec34Edges'])")" = "19"
-# TWO, not five (corrected 2026-09-01 by 20261207090300, 2026-09-03 by
-# 20261210090100, and 2026-09-06 by 20261218090001). This transcript asserted
-# five because this slice's ledger said five — and one of them, Benefit
-# MEASURES Objective, was already built: `value_metrics.objective_id` has
-# existed since Slice 2 (20261115090600) and register row D9.10 is ✅ and names
-# this edge. The claim was prose that nothing checked, and it survived a slice.
-# sync_spec34_absent_edge_audit() now asks the catalogue instead; Slice 7A
-# built WorkPackage DEPENDS_ON Constraint; D9 realize built the applicability
-# field on learning_events, which is the column that audit named as closing
-# Lesson APPLIES_TO AssetClass. This assertion goes DOWN when an endpoint is
-# built, which is what its own note said it was for.
-test "$(jqp "$R" "len([e for e in x['spec34Edges'] if e['status']=='absent'])")" = "2"
-# …and the count is not trusted on its own: the two that remain are NAMED, so
-# a different edge going quiet cannot be absorbed by the same number.
-test "$(jqp "$R" "sorted(e['edge'] for e in x['spec34Edges'] if e['status']=='absent')")" = "['Asset SUPPORTS Objective', 'Contract PROVIDES Asset']"
+# ZERO, not two (corrected 2026-09-21 by 20261220070000). This transcript
+# asserted two because those homes were still unbuilt: Contract PROVIDES Asset
+# and Asset SUPPORTS Objective. D11.21 closed both as immutable associations
+# over existing identities (`contract_asset_links`, `asset_objective_links`).
+# This assertion goes DOWN when an endpoint is built, which is what its own
+# note said it was for. The count is not trusted on its own: the two newly
+# closed edges are NAMED as live_elsewhere, so a different edge going quiet
+# cannot be absorbed by the same zero.
+test "$(jqp "$R" "len([e for e in x['spec34Edges'] if e['status']=='absent'])")" = "0"
+test "$(jqp "$R" "[e['status'] for e in x['spec34Edges'] if e['edge']=='Contract PROVIDES Asset'][0]")" = "live_elsewhere"
+test "$(jqp "$R" "[e['status'] for e in x['spec34Edges'] if e['edge']=='Asset SUPPORTS Objective'][0]")" = "live_elsewhere"
 test "$(jqp "$R" "[e['status'] for e in x['spec34Edges'] if e['edge']=='WorkPackage DEPENDS_ON Constraint'][0]")" = "live_elsewhere"
 test "$(jqp "$R" "[e['status'] for e in x['spec34Edges'] if e['edge']=='Lesson APPLIES_TO AssetClass'][0]")" = "live_elsewhere"
 test "$(jqp "$R" "len([e for e in x['spec34Edges'] if e['status']=='live_on_thread']) >= 2")" = "True"

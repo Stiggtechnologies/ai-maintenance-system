@@ -416,6 +416,9 @@ jobs:
       - name: Smoke — governed AI and calculation model registry
         run: bash scripts/ci-governed-model-registry-smoke.sh
 
+      - name: Smoke — governed §34 core-graph closeout
+        run: bash scripts/ci-spec34-graph-completion-smoke.sh
+
       - name: Smoke — asset relationships and accountable party roles
         run: bash scripts/ci-asset-relationship-smoke.sh
 
