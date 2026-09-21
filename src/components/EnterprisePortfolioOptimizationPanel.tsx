@@ -2,17 +2,37 @@ import { useEffect, useState } from "react";
 import { Calculator, Save, Send } from "lucide-react";
 import {
   PORTFOLIO_CATEGORIES,
+  PORTFOLIO_DIMENSIONS,
   configurePortfolioCandidate,
+  configurePortfolioCandidateDimensions,
+  getEnterprisePortfolioFrontier,
   getEnterprisePortfolioWorkspace,
+  proposeEnterprisePortfolioFrontier,
   proposeEnterprisePortfolioPlan,
+  runEnterprisePortfolioFrontier,
   runEnterprisePortfolioOptimization,
   type PortfolioCandidate,
   type PortfolioCategory,
+  type PortfolioDimensionKey,
+  type PortfolioDimensions,
+  type PortfolioFrontierRun,
   type PortfolioRun,
   type PortfolioWorkspace,
 } from "../services/enterprisePortfolioOptimizationService";
 
 const currentYear = new Date().getUTCFullYear();
+
+const DIMENSION_LABELS: Record<PortfolioDimensionKey, string> = {
+  regulatory_necessity: "Regulatory necessity",
+  safety_risk: "Safety risk reduction",
+  production_benefit: "Production benefit",
+  reliability: "Reliability",
+  npv: "NPV",
+  asset_life: "Asset life",
+  sustainability: "Sustainability",
+  resource_demand: "Resource demand (lower is better)",
+  execution_risk: "Execution risk (lower is better)",
+};
 
 function numeric(value: string): number {
   return Number(value.replaceAll(",", ""));
@@ -33,6 +53,8 @@ export function EnterprisePortfolioOptimizationPanel() {
   const [workspace, setWorkspace] = useState<PortfolioWorkspace | null>(null);
   const [editing, setEditing] = useState<PortfolioCandidate | null>(null);
   const [run, setRun] = useState<PortfolioRun | null>(null);
+  const [frontierRun, setFrontierRun] = useState<PortfolioFrontierRun | null>(null);
+  const [selectedPortfolioId, setSelectedPortfolioId] = useState<string | null>(null);
   const [rationale, setRationale] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -43,6 +65,19 @@ export function EnterprisePortfolioOptimizationPanel() {
     try {
       const next = await getEnterprisePortfolioWorkspace(targetYear);
       setWorkspace(next);
+      const latestFrontier = await getEnterprisePortfolioFrontier(targetYear);
+      if (latestFrontier) {
+        const restored = {
+          ...latestFrontier.outputs,
+          calculationRunId: latestFrontier.id,
+          refusals: latestFrontier.refusals,
+        } as PortfolioFrontierRun;
+        setFrontierRun(restored);
+        setSelectedPortfolioId(restored.frontier[0]?.portfolioId ?? null);
+      } else {
+        setFrontierRun(null);
+        setSelectedPortfolioId(null);
+      }
       if (next.latestRun) {
         setRun({
           ...next.latestRun.outputs,
@@ -91,6 +126,21 @@ export function EnterprisePortfolioOptimizationPanel() {
         evidenceItemId: form.get("evidenceItemId"),
         constraintNote: form.get("constraintNote"),
       });
+      const dimensions = Object.fromEntries(
+        PORTFOLIO_DIMENSIONS.map((key) => [
+          key,
+          {
+            score: numeric(String(form.get(`${key}Score`) ?? "")),
+            basis: String(form.get(`${key}Basis`) ?? ""),
+          },
+        ]),
+      ) as PortfolioDimensions;
+      await configurePortfolioCandidateDimensions({
+        developmentCaseId: editing.developmentCaseId,
+        planYear: year,
+        dimensions,
+        calibrationNote: String(form.get("dimensionCalibrationNote") ?? ""),
+      });
       setEditing(null);
       setMessage("Candidate inputs saved with their evidence reference.");
       await refresh(year);
@@ -119,6 +169,29 @@ export function EnterprisePortfolioOptimizationPanel() {
     }
   }
 
+  async function buildFrontier() {
+    setBusy(true);
+    setMessage(null);
+    try {
+      const result = await runEnterprisePortfolioFrontier({
+        planYear: year,
+        budget: numeric(budget),
+        currency: currency.toUpperCase(),
+      });
+      setFrontierRun(result);
+      setSelectedPortfolioId(result.frontier[0]?.portfolioId ?? null);
+      setMessage(
+        result.frontierCount >= 2
+          ? "A governed non-dominated frontier was recorded. No funding or sanction occurred."
+          : "The calculation was recorded, but the evidence did not support a multi-portfolio frontier.",
+      );
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Frontier could not run");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function propose() {
     if (!run) return;
     setBusy(true);
@@ -129,6 +202,27 @@ export function EnterprisePortfolioOptimizationPanel() {
       setRationale("");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Proposal could not be recorded");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function proposeFrontier() {
+    if (!frontierRun || !selectedPortfolioId) return;
+    setBusy(true);
+    setMessage(null);
+    try {
+      const result = await proposeEnterprisePortfolioFrontier(
+        frontierRun.calculationRunId,
+        selectedPortfolioId,
+        rationale,
+      );
+      setMessage(
+        `Portfolio ${result.portfolioId} is pending human review; no funds were committed.`,
+      );
+      setRationale("");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Frontier proposal could not be recorded");
     } finally {
       setBusy(false);
     }
@@ -163,7 +257,8 @@ export function EnterprisePortfolioOptimizationPanel() {
         </label>
         <div className="flex items-end gap-2">
           <button className="rounded-lg border border-white/10 px-3 py-2 text-xs text-slate-200 hover:bg-white/5" disabled={busy} onClick={() => void refresh(year)}>Load year</button>
-          <button className="rounded-lg bg-signal-cyan px-3 py-2 text-xs font-semibold text-slate-950 disabled:opacity-50" disabled={busy || numeric(budget) <= 0} onClick={() => void optimize()}>Run governed optimization</button>
+          <button className="rounded-lg border border-white/10 px-3 py-2 text-xs text-slate-200 disabled:opacity-50" disabled={busy || numeric(budget) <= 0} onClick={() => void optimize()}>Run governed optimization</button>
+          <button className="rounded-lg bg-signal-cyan px-3 py-2 text-xs font-semibold text-slate-950 disabled:opacity-50" disabled={busy || numeric(budget) <= 0} onClick={() => void buildFrontier()}>Build nine-dimension frontier</button>
         </div>
       </div>
 
@@ -211,6 +306,25 @@ export function EnterprisePortfolioOptimizationPanel() {
             <input className="ml-2" name="mandatory" type="checkbox" defaultChecked={editing.mandatory ?? false} />
           </label>
           <Field name="mandatoryBasis" label="Mandatory basis" value={editing.mandatoryBasis} />
+          <div className="space-y-3 md:col-span-4 rounded-lg border border-cyan-300/15 p-3">
+            <div>
+              <h4 className="text-sm font-semibold text-white">Nine evidence-backed decision dimensions</h4>
+              <p className="mt-1 text-xs text-slate-400">Use one documented 0–100 calibration across every candidate. Higher is better except resource demand and execution risk. Scores are never invented or auto-normalized.</p>
+            </div>
+            <div className="grid gap-3 md:grid-cols-3">
+              {PORTFOLIO_DIMENSIONS.map((key) => (
+                <div key={key} className="space-y-2 rounded-lg border border-white/8 p-3">
+                  <Field name={`${key}Score`} label={`${DIMENSION_LABELS[key]} score`} value={editing.portfolioDimensions?.[key]?.score ?? null} type="number" />
+                  <label className="block text-xs text-slate-300">{DIMENSION_LABELS[key]} basis
+                    <textarea className="mt-1 min-h-20 w-full rounded-lg border border-white/10 bg-slate-950/70 px-3 py-2" name={`${key}Basis`} defaultValue={editing.portfolioDimensions?.[key]?.basis ?? ""} required />
+                  </label>
+                </div>
+              ))}
+            </div>
+            <label className="block text-xs text-slate-300">Dimension calibration note
+              <textarea className="mt-1 min-h-20 w-full rounded-lg border border-white/10 bg-slate-950/70 px-3 py-2" name="dimensionCalibrationNote" defaultValue={editing.dimensionCalibrationNote ?? ""} required placeholder="Explain who calibrated the common scale, for what decision horizon, and how unlike measures were translated." />
+            </label>
+          </div>
           <label className="text-xs text-slate-300 md:col-span-4">Constraint note
             <textarea className="mt-1 min-h-20 w-full rounded-lg border border-white/10 bg-slate-950/70 px-3 py-2" name="constraintNote" defaultValue={editing.constraintNote ?? ""} required />
           </label>
@@ -239,6 +353,45 @@ export function EnterprisePortfolioOptimizationPanel() {
           <div className="flex flex-wrap gap-2">
             <input className="min-w-[20rem] flex-1 rounded-lg border border-white/10 bg-slate-950/70 px-3 py-2 text-xs" value={rationale} onChange={(event) => setRationale(event.target.value)} placeholder="Explain the trade-off and why this scenario should enter human review…" />
             <button className="inline-flex items-center gap-2 rounded-lg border border-cyan-300/30 px-3 py-2 text-xs text-cyan-100 disabled:opacity-50" disabled={busy || rationale.trim().length < 30} onClick={() => void propose()}><Send className="h-4 w-4" />Propose for human review</button>
+          </div>
+        </div>
+      )}
+
+      {frontierRun && (
+        <div className="space-y-4 rounded-xl border border-cyan-300/20 bg-black/20 p-4" data-testid="portfolio-frontier">
+          <div>
+            <h3 className="font-semibold text-white">Nine-dimension efficient frontier</h3>
+            <p className="mt-1 text-xs text-slate-400">{frontierRun.method}</p>
+            <p className="mt-1 text-xs font-medium text-amber-200">Bounded, non-exhaustive decision support. No funding, sanction, risk acceptance or work authorization is created.</p>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <Metric label="Candidates" value={String(frontierRun.candidateCount)} />
+            <Metric label="Feasible portfolios sampled" value={String(frontierRun.feasiblePortfolioCount)} />
+            <Metric label="Non-dominated frontier" value={String(frontierRun.frontierCount)} />
+          </div>
+          {frontierRun.refusals.length > 0 && <ul className="list-disc pl-5 text-xs text-red-200">{frontierRun.refusals.map((item) => <li key={item}>{item}</li>)}</ul>}
+          <div className="grid gap-3 xl:grid-cols-2">
+            {frontierRun.frontier.map((portfolio) => (
+              <article key={portfolio.portfolioId} className={`rounded-xl border p-4 ${selectedPortfolioId === portfolio.portfolioId ? "border-cyan-300/50 bg-cyan-300/[0.06]" : "border-white/10"}`}>
+                <div className="flex items-start justify-between gap-3">
+                  <div><h4 className="font-semibold text-white">{label(portfolio.objective)} portfolio</h4><p className="text-[10px] font-mono text-slate-500">{portfolio.portfolioId}</p></div>
+                  <button className="rounded-lg border border-cyan-300/30 px-3 py-1.5 text-xs text-cyan-100" onClick={() => setSelectedPortfolioId(portfolio.portfolioId)}>Choose this portfolio for human review</button>
+                </div>
+                <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
+                  <Metric label="Projects" value={String(portfolio.selectedCount)} />
+                  <Metric label="Base cost" value={money(portfolio.cost.base, frontierRun.currency)} />
+                  <Metric label="Risk-adjusted value" value={money(portfolio.riskAdjustedValue.base, frontierRun.currency)} />
+                </div>
+                <dl className="mt-3 grid grid-cols-3 gap-2 text-[10px] text-slate-300">
+                  {Object.entries(portfolio.dimensions).map(([key, value]) => <div key={key}><dt className="text-slate-500">{label(key)}</dt><dd>{value}</dd></div>)}
+                </dl>
+                <ResultList title="Included evidence-backed cases" rows={portfolio.selected.map((item) => `${item.title} · ${money(item.cost, frontierRun.currency)}`)} />
+              </article>
+            ))}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <input className="min-w-[20rem] flex-1 rounded-lg border border-white/10 bg-slate-950/70 px-3 py-2 text-xs" value={rationale} onChange={(event) => setRationale(event.target.value)} placeholder="Explain the selected frontier trade-off and evidence reviewed…" />
+            <button className="inline-flex items-center gap-2 rounded-lg border border-cyan-300/30 px-3 py-2 text-xs text-cyan-100 disabled:opacity-50" disabled={busy || !selectedPortfolioId || rationale.trim().length < 30 || frontierRun.frontierCount < 2} onClick={() => void proposeFrontier()}><Send className="h-4 w-4" />Propose chosen frontier portfolio</button>
           </div>
         </div>
       )}
