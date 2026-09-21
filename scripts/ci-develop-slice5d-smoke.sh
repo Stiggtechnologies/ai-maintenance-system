@@ -691,30 +691,31 @@ noerr "$R"
 test "$(printf '%s' "$R" | field refused)" = "True"
 grep -qi 'No asset is bound' <<<"$(printf '%s' "$R" | field refusal)"
 
-# (b) NO CAPITAL PROJECT. Bind an asset to the quiet case and the refusal moves
-#     on to the next missing input rather than producing a figure.
-psqlc "insert into development_case_assets (organization_id, development_case_id, asset_id)
-       values ('$ORG','$QUIET','$A2');" >/dev/null
-R=$(rpc "$PLANNER" get_case_ram_scope "{\"p_case_id\":\"$QUIET\"}")
-test "$(printf '%s' "$R" | field refused)" = "True"
-grep -qi 'references no capital project' <<<"$(printf '%s' "$R" | field refusal)"
-
-# (c) NO RECORDED TARGET. The bus case has assets and a project and still
-#     refuses, because "the target is 98%" with no recorded target is the
-#     sentence this product exists to refuse.
-R=$(rpc "$PLANNER" get_case_ram_scope "{\"p_case_id\":\"$CASE\"}")
-test "$(printf '%s' "$R" | field refused)" = "True"
-grep -qi 'No availability target is recorded' <<<"$(printf '%s' "$R" | field refusal)"
-
-# A REFUSED scope still records a run — a refusal with no lineage is a refusal
-# nobody can later prove happened.
-R=$(rpc "$PLANNER" record_ram_agent_report "{\"p_case_id\":\"$CASE\",\"p_kernel_version\":\"develop-ram/5D/2026-12-07\"}")
+# A FATAL refusal still records a run. Slice 5E intentionally made the
+# project/target gaps leg-local so they do not suppress FMEA, PM strategy,
+# Weibull and observed availability; the no-asset boundary remains fatal.
+RAM_KERNEL=$(psqlc "select sync_ram_kernel_version()")
+R=$(rpc "$PLANNER" record_ram_agent_report "{\"p_case_id\":\"$QUIET\",\"p_kernel_version\":\"$RAM_KERNEL\"}")
 noerr "$R"
 test "$(printf '%s' "$R" | field refused)" = "True"
 RUN=$(printf '%s' "$R" | field run_id); test -n "$RUN"
 test "$(psqlc "select status from calculation_runs where id='$RUN'")" = "refused"
 test "$(psqlc "select outputs is null from calculation_runs where id='$RUN'")" = "t"
 test "$(psqlc "select jsonb_array_length(refusals) > 0 from calculation_runs where id='$RUN'")" = "t"
+
+# (b) NO CAPITAL PROJECT. Bind an asset to the quiet case. This refuses the
+#     target/allocation leg by name but leaves the other RAM families usable.
+psqlc "insert into development_case_assets (organization_id, development_case_id, asset_id)
+       values ('$ORG','$QUIET','$A2');" >/dev/null
+R=$(rpc "$PLANNER" get_case_ram_scope "{\"p_case_id\":\"$QUIET\"}")
+test "$(printf '%s' "$R" | field refused)" = "False"
+grep -qi 'references no capital project' <<<"$(jqp "$R" "' '.join(x['refusals'])")"
+
+# (c) NO RECORDED TARGET. The target leg refuses without inventing 98%, while
+#     the asset-backed RAM families remain in scope.
+R=$(rpc "$PLANNER" get_case_ram_scope "{\"p_case_id\":\"$CASE\"}")
+test "$(printf '%s' "$R" | field refused)" = "False"
+grep -qi 'no ram_targets row' <<<"$(jqp "$R" "' '.join(x['refusals'])")"
 
 # (d) THE INPUTS, once they are all there.
 TGT=$(psqlc "with r as (insert into ram_targets (organization_id, project_id, system_label, target_availability, target_basis, configuration)
@@ -739,9 +740,34 @@ test "$(jqp "$R" "len(x['assets'][0]['failureTimes'])")" = "4"
 test "$(jqp "$R" "len(x['assets'][0]['suspensionTimes'])")" = "1"
 # THE ABSENT RBD IS A REFUSAL, not an omission (5D-R13).
 grep -qi 'RBD' <<<"$(jqp "$R" "' '.join(x['refusals'])")"
-grep -qi 'invented model' <<<"$(jqp "$R" "' '.join(x['refusals'])")"
+grep -qi 'declared case dependency graph' <<<"$(jqp "$R" "' '.join(x['refusals'])")"
+grep -qi 'empty graph is not a reliable system' <<<"$(jqp "$R" "' '.join(x['refusals'])")"
 # The read COMPUTES NOTHING: no fitted parameter appears in it.
 if grep -qi '"beta"' <<<"$R"; then echo "the scope read produced a fitted parameter"; exit 1; fi
+
+# Build the eventual success profile from the server scope this transcript just
+# read. The shared CI database may already contain canonical FMEA or strategy
+# rows that resolve to this asset; claiming an empty identity set would be the
+# exact caller-declaration hole record_ram_agent_report is supposed to refuse.
+PROFILE=$(BODY="$R" RAM_KERNEL="$RAM_KERNEL" python3 - <<'PY'
+import json, os
+x = json.loads(os.environ['BODY'])
+print(json.dumps({
+  'kernelVersion': os.environ['RAM_KERNEL'],
+  'targets': [
+    {'targetId': row['targetId'], 'systemLabel': row.get('systemLabel')}
+    for row in x.get('targets', [])
+  ],
+  'assets': [
+    {'assetId': row['assetId'], 'assetTag': row.get('assetTag')}
+    for row in x.get('assets', [])
+  ],
+  'rbd': None,
+  'fmea': [{'id': row['id']} for row in x.get('fmea', [])],
+  'pmStrategies': [{'id': row['id']} for row in x.get('pmStrategies', [])],
+}, separators=(',', ':')))
+PY
+)
 
 # (e) A WRONG KERNEL VERSION IS REFUSED BY NAME. A lineage row whose kernel
 #     identity the caller chooses certifies nothing.
@@ -761,32 +787,32 @@ expect_err "$R" 'the server pins'
 # was never allocated, and the immutable lineage row certified it. That is the
 # D11.29 failure this row exists to close, arriving by the one route nothing
 # checked. Three refusals, each proven live.
-R=$(rpc "$PLANNER" record_ram_agent_report "{\"p_case_id\":\"$CASE\",\"p_kernel_version\":\"develop-ram/5D/2026-12-07\",\"p_profile\":{\"targets\":[{\"targetId\":999999,\"systemLabel\":\"A system that was never allocated\",\"allocation\":{\"feasible\":true,\"achievable\":0.9999}}],\"assets\":[{\"assetId\":\"$A1\"}]},\"p_refusals\":[]}")
-expect_err "$R" 'not a target on this case'
-R=$(rpc "$PLANNER" record_ram_agent_report "{\"p_case_id\":\"$CASE\",\"p_kernel_version\":\"develop-ram/5D/2026-12-07\",\"p_profile\":{\"targets\":[{\"targetId\":$TGT}],\"assets\":[{\"assetId\":\"$A2\",\"assetTag\":\"NEVER-IN-SCOPE\"}]},\"p_refusals\":[]}")
-expect_err "$R" 'not bound to this development case'
+R=$(rpc "$PLANNER" record_ram_agent_report "{\"p_case_id\":\"$CASE\",\"p_kernel_version\":\"$RAM_KERNEL\",\"p_profile\":{\"targets\":[{\"targetId\":999999,\"systemLabel\":\"A system that was never allocated\",\"allocation\":{\"feasible\":true,\"achievable\":0.9999}}],\"assets\":[{\"assetId\":\"$A1\"}],\"fmea\":[],\"pmStrategies\":[]},\"p_refusals\":[]}")
+expect_err "$R" 'profile target set does not match'
+R=$(rpc "$PLANNER" record_ram_agent_report "{\"p_case_id\":\"$CASE\",\"p_kernel_version\":\"$RAM_KERNEL\",\"p_profile\":{\"targets\":[{\"targetId\":$TGT}],\"assets\":[{\"assetId\":\"$A2\",\"assetTag\":\"NEVER-IN-SCOPE\"}],\"fmea\":[],\"pmStrategies\":[]},\"p_refusals\":[]}")
+expect_err "$R" 'profile asset set does not match'
 # A profile over PART of the population, recorded under the whole population's
 # scope and the server's kernel version, reads as a reading of the whole — so
 # it is refused rather than trimmed. (This is the shape the first draft of this
 # very transcript posted and asserted as a success.)
-R=$(rpc "$PLANNER" record_ram_agent_report "{\"p_case_id\":\"$CASE\",\"p_kernel_version\":\"develop-ram/5D/2026-12-07\",\"p_profile\":{\"kernelVersion\":\"develop-ram/5D/2026-12-07\",\"targets\":[],\"assets\":[]},\"p_refusals\":[]}")
-expect_err "$R" 'refused rather than trimmed'
+R=$(rpc "$PLANNER" record_ram_agent_report "{\"p_case_id\":\"$CASE\",\"p_kernel_version\":\"$RAM_KERNEL\",\"p_profile\":{\"kernelVersion\":\"$RAM_KERNEL\",\"targets\":[],\"assets\":[],\"fmea\":[],\"pmStrategies\":[]},\"p_refusals\":[]}")
+expect_err "$R" 'profile target set does not match'
 # An over-long model label is refused rather than made permanent in an
 # immutable, org-readable, undeletable row.
 BIGMODEL=$(python3 -c "print('m'*250)")
-R=$(rpc "$PLANNER" record_ram_agent_report "{\"p_case_id\":\"$CASE\",\"p_kernel_version\":\"develop-ram/5D/2026-12-07\",\"p_model\":\"$BIGMODEL\"}")
+R=$(rpc "$PLANNER" record_ram_agent_report "{\"p_case_id\":\"$CASE\",\"p_kernel_version\":\"$RAM_KERNEL\",\"p_model\":\"$BIGMODEL\"}")
 expect_err "$R" 'longer than 200 characters'
 
 # (g) THE RUN, with a profile that DOES tie to the scope, and the server's
 #     refusals merged OVER the caller's — a client cannot record a clean
 #     profile over a scope short of inputs.
-R=$(rpc "$PLANNER" record_ram_agent_report "{\"p_case_id\":\"$CASE\",\"p_kernel_version\":\"develop-ram/5D/2026-12-07\",\"p_profile\":{\"kernelVersion\":\"develop-ram/5D/2026-12-07\",\"targets\":[{\"targetId\":$TGT,\"systemLabel\":\"S5D underflow train\"}],\"assets\":[{\"assetId\":\"$A1\",\"assetTag\":\"S5D-A1\"}]},\"p_refusals\":[]}")
+R=$(rpc "$PLANNER" record_ram_agent_report "{\"p_case_id\":\"$CASE\",\"p_kernel_version\":\"$RAM_KERNEL\",\"p_profile\":$PROFILE,\"p_refusals\":[]}")
 noerr "$R"
 test "$(printf '%s' "$R" | field refused)" = "False"
 test "$(printf '%s' "$R" | field refusalCount)" -ge "1"
 RUN=$(printf '%s' "$R" | field run_id)
 test "$(psqlc "select status from calculation_runs where id='$RUN'")" = "computed_with_refusals"
-test "$(psqlc "select code_version from calculation_runs where id='$RUN'")" = "develop-ram/5D/2026-12-07"
+test "$(psqlc "select code_version from calculation_runs where id='$RUN'")" = "$RAM_KERNEL"
 test "$(psqlc "select calculation_key from calculation_runs where id='$RUN'")" = "case_ram_profile"
 # The kernel version on the row is the SERVER's, never the caller's.
 test "$(psqlc "select kernel_version from ram_agent_reports order by id desc limit 1")" = "$(psqlc "select sync_ram_kernel_version()")"
