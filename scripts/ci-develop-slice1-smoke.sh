@@ -154,6 +154,7 @@ test -n "$PLANNER"; test -n "$MANAGER"; test -n "$TECH"; test -n "$EXEC"
 # evidence, accepted deliverables and decided decisions each leave their
 # security_events row, which is the trigger doing its job).
 psqlc "delete from development_cases where organization_id='$ORG' and title like 'SMOKE1 %';" >/dev/null
+psqlc "delete from capital_projects where organization_id='$ORG' and project_code like 'SMOKE1-%';" >/dev/null
 psqlc "delete from evidence_items where organization_id='$ORG' and description like 'SMOKE1 %';" >/dev/null
 psqlc "delete from recommendations where organization_id='$ORG' and title like 'SMOKE1 %';" >/dev/null
 psqlc "delete from risks where organization_id='$ORG' and title like 'SMOKE1 %';" >/dev/null
@@ -1029,6 +1030,34 @@ print('absent item still counted OPEN and named (status: missing)')
 PY20C
 psqlc "insert into asset_onboarding_items (organization_id, asset_id, requirement_key) values ('$ORG','$DEMO_ASSET','s36_emergency_drill') on conflict do nothing" >/dev/null
 
+echo '— 20b. the SAME case reaches system-scoped operational readiness —'
+# D8.06 requires the canonical delivery-side capital project on the same case.
+# Reuse the Slice 2 / 6A fixture: bind this case, do not open a second case.
+MVP_PROJECT=$(psqlc "with r as (insert into capital_projects (organization_id, project_code, title, status) values ('$ORG','SMOKE1-MVP90-CP','SMOKE1 crusher availability delivery','active') returning id) select id from r")
+test -n "$MVP_PROJECT"
+psqlc "update development_cases set capital_project_id=$MVP_PROJECT where id='$CASE'" >/dev/null
+PLANNER_ID=$(psqlc "select id from user_profiles where organization_id='$ORG' and email='planner@syncai.ca'")
+R=$(rpc "$PLANNER" record_commissioning_object "{\"p_case_id\":\"$CASE\",\"p_kind\":\"system\",\"p_record\":{\"ref\":\"SMOKE1-MVP90-SYS\",\"title\":\"SMOKE1 crusher readiness system\",\"description\":\"The same governed MVP case carries its commissioning-system readiness scope.\",\"ownerId\":\"$PLANNER_ID\"}}")
+noerr "$R"
+MVP_SYSTEM=$(printf '%s' "$R"|field id); test -n "$MVP_SYSTEM"
+R=$(rpc "$PLANNER" bind_commissioning_system_asset "{\"p_system_id\":$MVP_SYSTEM,\"p_asset_id\":\"$DEMO_ASSET\",\"p_required_energy_types\":[\"electrical\"],\"p_basis\":\"The crusher drive defines the controlled system boundary for this same development case.\",\"p_evidence_item_id\":\"$EV1\"}")
+noerr "$R"
+R=$(rpc "$PLANNER" initialize_commissioning_system_readiness "{\"p_system_id\":$MVP_SYSTEM,\"p_owner_id\":\"$PLANNER_ID\",\"p_required_before\":\"$DUE\",\"p_basis\":\"The named owner must resolve every canonical readiness category before handover.\",\"p_basis_evidence_item_id\":\"$EV1\"}")
+noerr "$R"
+BODY="$R" python3 -c 'import json,os; x=json.loads(os.environ["BODY"]); assert x["itemsAssigned"]>0 and x["status"]=="recorded",x'
+SYS_READY=$(rpc "$PLANNER" get_case_system_operational_readiness "{\"p_case_id\":\"$CASE\"}")
+BODY="$SYS_READY" SID="$MVP_SYSTEM" python3 -c 'import json,os; x=json.loads(os.environ["BODY"]); s=next(v for v in x["systems"] if str(v["systemId"])==os.environ["SID"]); assert x["readinessStore"]=="asset_onboarding_items"; assert s["assetCount"]==1 and len({i["category"] for i in s["items"]})==13; assert s["satisfiedCount"]<s["itemCount"]'
+
+echo '— 20c. the SAME case reaches the weighted readiness index and hard override —'
+MVP_FACTORS='[{"key":"people","weight":1.2,"categories":["vendor_support"]},{"key":"procedures","weight":1.1,"categories":["procedure"]},{"key":"asset_data","weight":1.4,"categories":["asset_master","bom","documentation"]},{"key":"maintenance","weight":1.5,"categories":["pm","task_list","condition_monitoring"]},{"key":"spares","weight":1.0,"categories":["spares"]},{"key":"training","weight":1.3,"categories":["training"]},{"key":"operations","weight":1.0,"categories":["inspection"]},{"key":"safety","weight":2.0,"categories":["emergency_response"]},{"key":"cyber","weight":0.8,"categories":["cyber"]}]'
+R=$(rpc "$PLANNER" save_case_operational_readiness_index_profile "{\"p_case_id\":\"$CASE\",\"p_profile_id\":null,\"p_factors\":$MVP_FACTORS,\"p_hard_requirement_keys\":[\"s36_emergency_procedures\",\"s36_emergency_drill\"],\"p_basis\":\"The same MVP case assigns every readiness category once and weights safety highest.\",\"p_evidence_item_id\":\"$EV1\"}")
+noerr "$R"
+MVP_PROFILE=$(printf '%s' "$R"|field profileId); test -n "$MVP_PROFILE"
+R=$(rpc "$EXEC" adopt_case_operational_readiness_index_profile "{\"p_profile_id\":\"$MVP_PROFILE\"}")
+noerr "$R"
+MVP_INDEX=$(rpc "$PLANNER" get_case_operational_readiness_index "{\"p_case_id\":\"$CASE\"}")
+BODY="$MVP_INDEX" PID="$MVP_PROFILE" python3 -c 'import json,os; x=json.loads(os.environ["BODY"]); c=x["calculation"]; assert c["profileId"]==os.environ["PID"] and len(c["factors"])==9; assert c["status"]=="BLOCKED" and c["hardConditionOverride"] is True and c["hardBlockerCount"]>0; assert "cannot accept handover" in x["decisionBoundary"]'
+
 echo '— 21. evidence-agent boundary: retrieval rail live; AI output moves nothing —'
 # (a) the retrieval rail the agent reads: a classed tenant document answers an
 #     org-scoped claim query (the same retrieve_kb_context the agent calls).
@@ -1222,5 +1251,22 @@ test "$SCH_COUNT" = "5"
 printf '%s' "$WS" | python3 -c "import json,sys; w=json.load(sys.stdin); sch=[e for e in w['schedule'] if e['title'].startswith('SMOKE1 Reline')][0]; a={x['activityId']:x for x in sch['activities']}; assert a['A1020']['predecessors']==['A1000','A1010'], a['A1020']; assert a['B9']['predecessors']==['A1020']"
 echo 'workspace schedule section renders 5 imported activities with dependencies'
 
-echo 'DEVELOP SLICE 1 SMOKE: ALL TRANSCRIPT STEPS PASSED'
+echo '— 24. D11.34: one case, all twelve MVP capabilities, one governed transcript —'
+WS=$(rpc "$PLANNER" get_development_case "{\"p_case_id\":\"$CASE\"}")
+GATE_READY=$(rpc "$PLANNER" get_gate_readiness "{\"p_case_id\":\"$CASE\",\"p_gate_id\":$G4}")
+BODY="$WS" python3 - <<'PY24'
+import json,os
+w=json.loads(os.environ['BODY'])
+assert w['id'] and w['problemStatement'] and w['status']=='sanctioned'
+assert w['framework'] and w['stages']
+assert any(g['criteria'] for s in w['stages'] for g in s['gates'])
+for key in ['deliverables','evidence','risks','decisions','actions','baselines']:
+    assert isinstance(w[key],list) and len(w[key])>0,(key,w.get(key))
+assert any(e.get('evidenceClass')=='AI_INFERENCE' for e in w['evidence'])
+PY24
+BODY="$GATE_READY" python3 -c 'import json,os; x=json.loads(os.environ["BODY"]); assert "readinessPct" in x and "blocked" in x and isinstance(x.get("blockers"),list)'
+BODY="$SYS_READY" SID="$MVP_SYSTEM" python3 -c 'import json,os; x=json.loads(os.environ["BODY"]); assert any(str(s["systemId"])==os.environ["SID"] for s in x["systems"])'
+BODY="$MVP_INDEX" PID="$MVP_PROFILE" python3 -c 'import json,os; x=json.loads(os.environ["BODY"]); assert x["calculation"]["profileId"]==os.environ["PID"] and x["calculation"]["status"]=="BLOCKED"'
+echo 'D11.34 MVP-90 integrated acceptance passed: case=true framework_gate=true requirements=true deliverables=true evidence=true risk=true decision=true actions=true baselines=true gate_readiness=true operational_readiness=true evidence_agent=true human_authority_preserved=true'
 
+echo 'DEVELOP SLICE 1 SMOKE: ALL TRANSCRIPT STEPS PASSED'
