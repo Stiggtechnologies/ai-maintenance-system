@@ -5551,6 +5551,66 @@ export interface ProcurementPackageRow {
   commercial: CommercialSummary;
 }
 
+export type ContractStrategyFactorLevel = "low" | "medium" | "high";
+export type ContractStrategyDimension =
+  | "definition_maturity"
+  | "uncertainty"
+  | "market_conditions"
+  | "owner_capability"
+  | "interface_complexity"
+  | "risk_allocation";
+export type ContractStrategyAssessmentInput = Record<
+  ContractStrategyDimension,
+  { level: ContractStrategyFactorLevel; basis: string; evidenceItemId: string }
+>;
+export interface ContractStrategyAgentResult {
+  advisory: true;
+  caseId: string;
+  model?: string | null;
+  advice: {
+    recommendedStrategy: string;
+    rationale: string;
+    limitations: string;
+    evaluations: { strategy: string; fit: string; reason: string }[];
+  } | null;
+  refusal?: string;
+  recorded: {
+    recommendationId: string;
+    strategy: string;
+    status: string;
+  } | null;
+  recordNote?: string | null;
+  disclaimer: string;
+}
+
+export async function runContractStrategyAgent(input: {
+  caseId: string;
+  assessment: ContractStrategyAssessmentInput;
+  record?: boolean;
+}): Promise<ContractStrategyAgentResult> {
+  const { data, error } = await supabase.functions.invoke(
+    "develop-contract-strategy-agent",
+    {
+      body: {
+        case_id: input.caseId,
+        assessment: input.assessment,
+        record: input.record ?? false,
+      },
+    },
+  );
+  if (error) throw new Error(error.message);
+  const payload = data as ContractStrategyAgentResult | { error?: string };
+  if (
+    payload &&
+    typeof payload === "object" &&
+    "error" in payload &&
+    payload.error
+  ) {
+    throw new Error(payload.error);
+  }
+  return payload as ContractStrategyAgentResult;
+}
+
 export type CommercialSummary =
   | { answered: false; refusal: string }
   | {
