@@ -12,6 +12,7 @@ import { ProjectAssurancePanel } from "../components/ProjectAssurancePanel";
 import { ProgramPortfolioPanel } from "../components/develop/ProgramPortfolioPanel";
 import { ProjectInterventionTriagePanel } from "../components/develop/ProjectInterventionTriagePanel";
 import { ScopeCreepDetectionPanel } from "../components/develop/ScopeCreepDetectionPanel";
+import { ProjectControlsAgentPanel } from "../components/develop/ProjectControlsAgentPanel";
 
 function number(value: number | null, suffix = ""): string {
   return value == null
@@ -87,6 +88,8 @@ export function DevelopmentPortfolioPage() {
       </header>
 
       <ScopeCreepDetectionPanel />
+
+      <ProjectControlsAgentPanel />
 
       <ProjectInterventionTriagePanel rows={data.rows} />
 
