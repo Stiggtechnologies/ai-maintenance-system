@@ -446,6 +446,9 @@ jobs:
       - name: Smoke — Sync Portfolio programs, dependencies and benefit integrity
         run: bash scripts/ci-develop-program-portfolio-smoke.sh
 
+      - name: Smoke — eight-dimension lifecycle substrate
+        run: bash scripts/ci-stage-dimension-substrate-smoke.sh
+
       - name: Smoke — natural-hazard and climate exposure
         run: bash scripts/ci-climate-hazard-exposure-smoke.sh
 
