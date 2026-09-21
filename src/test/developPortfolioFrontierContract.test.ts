@@ -29,7 +29,9 @@ describe("D10.04 evidence-backed portfolio efficient frontier", () => {
     ]) {
       expect(migration).toContain(`'${dimension}'`);
     }
-    expect(migration).toContain("exactly the nine governed decision dimensions");
+    expect(migration).toContain(
+      "exactly the nine governed decision dimensions",
+    );
   });
 
   it("keeps every dimension evidence-backed and named-human controlled", () => {
@@ -45,7 +47,9 @@ describe("D10.04 evidence-backed portfolio efficient frontier", () => {
     expect(migration).toContain("insert into public.calculation_runs");
     expect(migration).toContain("frontierexhaustive',false");
     expect(migration).toContain("globallyoptimal',false");
-    expect(migration).toContain("fewer than two distinct non-dominated feasible portfolios");
+    expect(migration).toContain(
+      "fewer than two distinct non-dominated feasible portfolios",
+    );
     expect(migration).toContain("not exists");
   });
 
@@ -54,15 +58,19 @@ describe("D10.04 evidence-backed portfolio efficient frontier", () => {
     expect(migration).toContain("public.evidence_items");
     expect(migration).toContain("insert into public.recommendations");
     expect(migration).toContain("insert into public.approvals");
-    expect(migration).not.toMatch(/create table[^;]+(project|evidence|recommendation|approval)/);
+    expect(migration).not.toMatch(
+      /create table[^;]+(project|evidence|recommendation|approval)/,
+    );
   });
 
   it("keeps the workspace a configuration catalog and still returns nine dimensions", () => {
     expect(migration).toContain(
       "from public.development_cases c left join public.capital_plan_items i",
     );
-    expect(migration).toContain("'portfolioDimensions',i.portfolio_dimensions");
-    expect(migration).toContain("exactly the nine governed decision dimensions");
+    expect(migration).toContain("'portfoliodimensions',i.portfolio_dimensions");
+    expect(migration).toContain(
+      "exactly the nine governed decision dimensions",
+    );
   });
 
   it("is reachable in the existing Sync Portfolio surface with a human scenario choice", () => {
@@ -71,6 +79,8 @@ describe("D10.04 evidence-backed portfolio efficient frontier", () => {
     expect(service).toContain('"propose_enterprise_portfolio_frontier"');
     expect(panel).toContain("Nine-dimension efficient frontier");
     expect(panel).toContain("Choose this portfolio for human review");
-    expect(panel).toContain("No funding, sanction, risk acceptance or work authorization");
+    expect(panel).toContain(
+      "No funding, sanction, risk acceptance or work authorization",
+    );
   });
 });
