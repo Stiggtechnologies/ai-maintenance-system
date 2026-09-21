@@ -25,6 +25,8 @@ import type { ReactNode } from "react";
 import { Package } from "lucide-react";
 
 import { CommercialPanel } from "./CommercialPanels";
+import { ContractStrategyAgentPanel } from "./ContractStrategyAgentPanel";
+import type { WorkspaceEvidence } from "../../lib/develop";
 
 import {
   BID_EVALUATION_KINDS,
@@ -1061,6 +1063,7 @@ export function ProcurementPanel({
   canPlan,
   canAward,
   currentUserEmail,
+  evidence = [],
   reloadKey,
 }: {
   caseId: string;
@@ -1068,6 +1071,7 @@ export function ProcurementPanel({
   canAward: boolean;
   /** The signed-in person's email, for the separation-of-duties pre-empt. */
   currentUserEmail?: string | null;
+  evidence?: WorkspaceEvidence[];
   reloadKey?: number;
 }) {
   const [payload, setPayload] = useState<CaseProcurement | null>(null);
@@ -1156,6 +1160,12 @@ export function ProcurementPanel({
       subtitle="A package carries all four §25 status dimensions; a mandatory long-lead package that cannot arrive when the project needs it BLOCKS the gate through the same predicate a breached permit condition rides. Bids are sealed until the envelopes are opened, an evaluation is frozen once recorded, and the person who evaluates cannot be the person who awards — enforced at the database, not on this screen."
     >
       <ErrorLine error={error} />
+
+      <ContractStrategyAgentPanel
+        caseId={caseId}
+        evidence={evidence}
+        canPlan={canPlan}
+      />
 
       {payload && !payload.answered && <Refusal text={payload.refusal} />}
       {payload?.assessabilityNote && (
