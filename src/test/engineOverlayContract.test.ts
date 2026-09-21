@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 const migration = readFileSync(
-  "supabase/migrations/20261220020000_cross_cutting_engine_overlays.sql",
+  "supabase/migrations/20261220060001_cross_cutting_engine_overlays.sql",
   "utf8",
 );
 const panel = readFileSync(
