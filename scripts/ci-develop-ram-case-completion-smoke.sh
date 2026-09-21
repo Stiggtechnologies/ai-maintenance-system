@@ -35,7 +35,7 @@ psqlc "delete from development_cases where id in ('$CASE','$PARTIAL_CASE');" >/d
 psqlc "delete from work_orders where id::text like '98632%';" >/dev/null
 psqlc "delete from component_life_events where organization_id='$ORG' and unit_number like 'D1213-%';" >/dev/null
 psqlc "delete from asset_maintenance_strategy_recommendations where id::text like '98635%';" >/dev/null
-psqlc "delete from asset_failure_mode_libraries where id::text like '98634%';" >/dev/null
+psqlc "delete from asset_failure_mode_libraries where organization_id='$ORG' and (id::text like '98634%' or (coalesce(session_id,'') like 'autonomous-onboarding:%' and asset_id like 'D1213-%'));" >/dev/null
 psqlc "delete from common_cause_groups where id=$CC_GROUP;" >/dev/null
 psqlc "delete from assets where id in ('$TRAIN','$PUMP_A','$PUMP_B','$PARTIAL_ASSET');" >/dev/null
 psqlc "delete from capital_projects where id=$PROJECT;" >/dev/null
@@ -107,6 +107,14 @@ insert into asset_maintenance_strategy_recommendations(id,session_id,organizatio
 ('98635000-0000-4000-8000-000000000002','D1213-B','$ORG','$PUMP_B','Inspect lubrication delivery','Bearing overheating','production loss','{"refs":["D1213-RBD"]}','{"duty":"standby"}','medium','reliability_engineer','draft');
 SQL
 
+# Autonomous onboarding attaches one generic fmea_library starter per new
+# asset. Those rows stay in the canonical store; get_case_ram_scope must not
+# count them as case-scoped FMEA.
+AUTO_FMEA=$(psqlc "select count(*) from asset_failure_mode_libraries where organization_id='$ORG' and source='fmea_library' and coalesce(session_id,'') like 'autonomous-onboarding:%' and asset_id in ('D1213-TRAIN','D1213-PA','D1213-PB')")
+test "$AUTO_FMEA" = "3"
+PARTIAL_AUTO=$(psqlc "select count(*) from asset_failure_mode_libraries where organization_id='$ORG' and source='fmea_library' and coalesce(session_id,'') like 'autonomous-onboarding:%' and asset_id='D1213-PART'")
+test "$PARTIAL_AUTO" = "1"
+
 # The first edge is deliberately ungoverned. The server must name it and the
 # client must not be able to evaluate only the convenient confirmed edge.
 UNGOVERNED=$(rpc "$ADMIN" get_case_ram_scope "{\"p_case_id\":\"$CASE\"}")
@@ -129,6 +137,9 @@ x=json.loads(os.environ['BODY'])
 assert x['refused'] is False and len(x['assets'])==3 and len(x['targets'])==1,x
 assert len(x['topology']['edges'])==2 and len(x['topology']['commonCauseGroups'])==1,x
 assert len(x['fmea'])==2 and len(x['pmStrategies'])==2,x
+assert {row['source'] for row in x['fmea']}=={'human_reviewed_library'},x
+assert {row['failureMode'] for row in x['fmea']}=={'Seal leakage','Bearing overheating'},x
+assert all('Primary function carrier' not in (row.get('failureMode') or '') for row in x['fmea']),x
 for a in x['assets']:
     w=a['observationWindow']; assert w and round(float(w['calendarHours']))==1000 and len(w['failureEventHours'])==3,a
 assert x['recommendationOnly'] if 'recommendationOnly' in x else True
@@ -160,6 +171,7 @@ BODY="$(body "$PARTIAL")" python3 - <<'PY'
 import json,os
 x=json.loads(os.environ['BODY'])
 assert x['refused'] is False and len(x['assets'])==1 and x['targets']==[],x
+assert x['fmea']==[],x
 text=' '.join(x['refusals']).lower()
 for phrase in ('no capital project','no rbd','no valid observation window','no existing fmea','no existing pm-strategy'):
     assert phrase in text,(phrase,x)

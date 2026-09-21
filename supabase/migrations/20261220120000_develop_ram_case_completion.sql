@@ -325,6 +325,14 @@ begin
   -- Existing FMEA rows, resolved to canonical case assets. Historic rows may
   -- carry UUID, tag or asset_tag in the legacy text field; canonical_asset_id
   -- wins whenever it is present.
+  --
+  -- Autonomous onboarding copies class-pattern starters from
+  -- onboarding_fmea_library into this store on every asset insert
+  -- (source = 'fmea_library', session_id = 'autonomous-onboarding:<asset>').
+  -- Those are checklist starters, not FMEA. Counting them here would fill
+  -- every new asset with a generic failure mode and make "no existing FMEA"
+  -- unrepresentable. They remain in the store; they are not case-scoped RAM
+  -- evidence until a later human-reviewed row replaces that starter.
   select coalesce(jsonb_agg(jsonb_build_object(
     'id', f.id, 'assetId', a.id, 'assetTag', coalesce(a.asset_tag, a.tag, a.id::text),
     'failureMode', f.failure_mode, 'failureMechanism', f.failure_mechanism,
@@ -338,7 +346,11 @@ begin
     join asset_failure_mode_libraries f on f.organization_id = v_org and (
       f.canonical_asset_id = a.id or
       (f.canonical_asset_id is null and f.asset_id in (a.id::text, a.tag, a.asset_tag)))
-   where d.development_case_id = c.id and d.organization_id = v_org;
+   where d.development_case_id = c.id and d.organization_id = v_org
+     and not (
+       coalesce(f.session_id, '') like 'autonomous-onboarding:%'
+       and f.source = 'fmea_library'
+     );
 
   select coalesce(jsonb_agg(jsonb_build_object(
     'id', s.id, 'assetId', a.id, 'assetTag', coalesce(a.asset_tag, a.tag, a.id::text),

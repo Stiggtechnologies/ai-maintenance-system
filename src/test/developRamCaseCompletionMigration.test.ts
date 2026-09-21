@@ -39,6 +39,14 @@ describe("D12.13 completion extends the canonical case RAM scope", () => {
     expect(scope()).toContain("work_orders");
   });
 
+  it("excludes autonomous-onboarding FMEA library starters from case scope", () => {
+    expect(scope()).toContain("autonomous-onboarding:%");
+    expect(scope()).toContain("fmea_library");
+    expect(scope()).toContain(
+      "Absence is shown, not filled with a generic failure mode.",
+    );
+  });
+
   it("requires an explicit meter-bounded observation window", () => {
     expect(scope()).toContain("meter_kind = 'operating_hours'");
     expect(scope()).toContain("calendarHours");

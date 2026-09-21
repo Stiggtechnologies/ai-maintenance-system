@@ -45,6 +45,14 @@ if (profile.assets.some((asset) => !asset.availability || !asset.growth)) {
 if (profile.fmea.length !== 2 || profile.pmStrategies.length !== 2) {
   throw new Error("case-scoped FMEA or PM strategy rows are missing");
 }
+const fmeaModes = new Set(profile.fmea.map((row) => row.failureMode));
+if (
+  profile.fmea.some((row) => row.source !== "human_reviewed_library") ||
+  !fmeaModes.has("Seal leakage") ||
+  !fmeaModes.has("Bearing overheating")
+) {
+  throw new Error("case-scoped FMEA must be the seeded human-reviewed rows");
+}
 if (!profile.decisionBoundary.toLowerCase().includes("human")) {
   throw new Error("human decision boundary missing");
 }
