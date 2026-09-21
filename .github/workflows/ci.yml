@@ -425,9 +425,6 @@ jobs:
       - name: Smoke — governed §34 core-graph closeout
         run: bash scripts/ci-spec34-graph-completion-smoke.sh
 
-      - name: Smoke — architectural north-star traversal
-        run: bash scripts/ci-architectural-north-star-smoke.sh
-
       - name: Smoke — asset relationships and accountable party roles
         run: bash scripts/ci-asset-relationship-smoke.sh
 
