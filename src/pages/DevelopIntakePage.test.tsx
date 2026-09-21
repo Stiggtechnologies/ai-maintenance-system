@@ -13,12 +13,15 @@ import { DevelopIntakePage } from "./DevelopIntakePage";
 const createDevelopmentCase = vi.fn();
 const listAdoptedFrameworks = vi.fn();
 const screenApplicableProjectLessons = vi.fn();
+const getProjectStartKnowledge = vi.fn();
 
 vi.mock("../services/developService", () => ({
   createDevelopmentCase: (input: unknown) => createDevelopmentCase(input),
   listAdoptedFrameworks: () => listAdoptedFrameworks(),
   screenApplicableProjectLessons: (caseId: string) =>
     screenApplicableProjectLessons(caseId),
+  getProjectStartKnowledge: (caseId: string) =>
+    getProjectStartKnowledge(caseId),
 }));
 
 const navigate = vi.fn();
@@ -57,6 +60,7 @@ beforeEach(() => {
     count: 0,
     lessons: [],
   });
+  getProjectStartKnowledge.mockResolvedValue({ caseId: "case-9" });
 });
 
 describe("DevelopIntakePage", () => {
@@ -137,6 +141,7 @@ describe("DevelopIntakePage", () => {
     await waitFor(() =>
       expect(screenApplicableProjectLessons).toHaveBeenCalledWith("case-9"),
     );
+    expect(getProjectStartKnowledge).toHaveBeenCalledWith("case-9");
     await waitFor(() =>
       expect(navigate).toHaveBeenCalledWith("/develop/cases/case-9", {
         state: { applicableLessonCount: 0 },

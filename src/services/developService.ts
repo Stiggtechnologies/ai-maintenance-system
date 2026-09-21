@@ -8557,6 +8557,65 @@ export interface ApplicableProjectLessons {
   basis?: string;
 }
 
+export interface ProjectStartKnowledge {
+  caseId: string;
+  lifecycleType: string;
+  lessons: ApplicableProjectLessons;
+  historicalEstimates: {
+    count: number;
+    emptyReason?: string | null;
+    items: Array<{
+      learningEventId: string;
+      sourceCaseId: string;
+      sourceCaseTitle: string;
+      baselineCost: number;
+      actualCost: number;
+      baselineDurationDays: number;
+      actualDurationDays: number;
+      currency: string;
+      estimateClass?: string | null;
+      scopeMaturity?: string | null;
+      quotationSupport?: string | null;
+      outcomeEvidenceItemId: string;
+      sourceRefs: Array<{ table: string; id: string | number }>;
+      matchReason: string;
+    }>;
+  };
+  vendorPerformance: {
+    count: number;
+    emptyReason?: string | null;
+    items: Array<{
+      supplierId: number;
+      supplier: string;
+      sourceCaseIds: string[];
+      packageIds: number[];
+      performancePeriodIds: number[];
+      record: Record<string, unknown>;
+      sourceRefs: Array<{ table: string; id: string | number }>;
+      matchReason: string;
+    }>;
+  };
+  startupProblems: {
+    count: number;
+    emptyReason?: string | null;
+    items: Array<{
+      learningEventId: string;
+      sourceCaseId: string;
+      sourceCaseTitle: string;
+      title: string;
+      cause: string;
+      correctiveAction: string;
+      applicability: string;
+      sourceRefs: Array<{ table: string; id: string | number }>;
+      matchReason: string;
+    }>;
+  };
+  method: string;
+  recommendationOnly: true;
+  authorization: false;
+  decisionBoundary: string;
+}
+
 export interface LessonsAgentResult {
   advisory: true;
   caseId: string;
@@ -8773,6 +8832,15 @@ export async function screenApplicableProjectLessons(
     { p_case_id: caseId },
   );
   return unwrapRpc(data, error, "Could not screen applicable project lessons");
+}
+
+export async function getProjectStartKnowledge(
+  caseId: string,
+): Promise<ProjectStartKnowledge> {
+  const { data, error } = await supabase.rpc("get_project_start_knowledge", {
+    p_case_id: caseId,
+  });
+  return unwrapRpc(data, error, "Could not retrieve project-start knowledge");
 }
 
 export async function runLessonsAgent(
