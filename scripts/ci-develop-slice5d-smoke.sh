@@ -745,6 +745,30 @@ grep -qi 'empty graph is not a reliable system' <<<"$(jqp "$R" "' '.join(x['refu
 # The read COMPUTES NOTHING: no fitted parameter appears in it.
 if grep -qi '"beta"' <<<"$R"; then echo "the scope read produced a fitted parameter"; exit 1; fi
 
+# Build the eventual success profile from the server scope this transcript just
+# read. The shared CI database may already contain canonical FMEA or strategy
+# rows that resolve to this asset; claiming an empty identity set would be the
+# exact caller-declaration hole record_ram_agent_report is supposed to refuse.
+PROFILE=$(BODY="$R" RAM_KERNEL="$RAM_KERNEL" python3 - <<'PY'
+import json, os
+x = json.loads(os.environ['BODY'])
+print(json.dumps({
+  'kernelVersion': os.environ['RAM_KERNEL'],
+  'targets': [
+    {'targetId': row['targetId'], 'systemLabel': row.get('systemLabel')}
+    for row in x.get('targets', [])
+  ],
+  'assets': [
+    {'assetId': row['assetId'], 'assetTag': row.get('assetTag')}
+    for row in x.get('assets', [])
+  ],
+  'rbd': None,
+  'fmea': [{'id': row['id']} for row in x.get('fmea', [])],
+  'pmStrategies': [{'id': row['id']} for row in x.get('pmStrategies', [])],
+}, separators=(',', ':')))
+PY
+)
+
 # (e) A WRONG KERNEL VERSION IS REFUSED BY NAME. A lineage row whose kernel
 #     identity the caller chooses certifies nothing.
 R=$(rpc "$PLANNER" record_ram_agent_report "{\"p_case_id\":\"$CASE\",\"p_kernel_version\":\"develop-ram/9Z/2099-01-01\"}")
@@ -782,7 +806,7 @@ expect_err "$R" 'longer than 200 characters'
 # (g) THE RUN, with a profile that DOES tie to the scope, and the server's
 #     refusals merged OVER the caller's — a client cannot record a clean
 #     profile over a scope short of inputs.
-R=$(rpc "$PLANNER" record_ram_agent_report "{\"p_case_id\":\"$CASE\",\"p_kernel_version\":\"$RAM_KERNEL\",\"p_profile\":{\"kernelVersion\":\"$RAM_KERNEL\",\"targets\":[{\"targetId\":$TGT,\"systemLabel\":\"S5D underflow train\"}],\"assets\":[{\"assetId\":\"$A1\",\"assetTag\":\"S5D-A1\"}],\"fmea\":[],\"pmStrategies\":[]},\"p_refusals\":[]}")
+R=$(rpc "$PLANNER" record_ram_agent_report "{\"p_case_id\":\"$CASE\",\"p_kernel_version\":\"$RAM_KERNEL\",\"p_profile\":$PROFILE,\"p_refusals\":[]}")
 noerr "$R"
 test "$(printf '%s' "$R" | field refused)" = "False"
 test "$(printf '%s' "$R" | field refusalCount)" -ge "1"

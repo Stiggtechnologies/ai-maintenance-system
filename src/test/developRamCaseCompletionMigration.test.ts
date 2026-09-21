@@ -122,6 +122,15 @@ describe("D12.13 preserves the earlier case-RAM runtime contract", () => {
     expect(slice5dSmoke).toContain(
       'RAM_KERNEL=$(psqlc "select sync_ram_kernel_version()")',
     );
+    expect(slice5dSmoke).toContain(
+      'PROFILE=$(BODY="$R" RAM_KERNEL="$RAM_KERNEL"',
+    );
+    expect(slice5dSmoke).toContain(
+      "'fmea': [{'id': row['id']} for row in x.get('fmea', [])]",
+    );
+    expect(slice5dSmoke).toContain(
+      "'pmStrategies': [{'id': row['id']} for row in x.get('pmStrategies', [])]",
+    );
     expect(slice5dSmoke).not.toContain(
       String.raw`p_kernel_version\":\"develop-ram/5D/2026-12-07`,
     );
