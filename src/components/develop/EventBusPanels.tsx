@@ -12,8 +12,8 @@
  *   D12.13  the RAM kernel scoped to this case's asset set. Every figure is
  *           the shipped kernel's; every leg that could not be computed is
  *           named rather than omitted.
- *   D11.09  the Sync Information module, composed — with the leg it does not
- *           have named and NO composite score over the ones it does.
+ *   D11.09  the Sync Information module, composed from the canonical thread,
+ *           documentation and §47 readiness reads, with NO composite score.
  *
  * THE SURFACE CONVENTION, unchanged from 5A/5B/5C: a REFUSAL is an answer and
  * is rendered as prose, never as an error and never as a zero.
@@ -589,6 +589,14 @@ interface EngineLeg {
   built: boolean;
   reason?: string;
   registerRows?: string[];
+  project?: {
+    index?: number | null;
+    status?: string;
+    accepted?: number;
+    required?: number;
+    hardBlockerCount?: number;
+  };
+  decisionBoundary?: string;
 }
 
 export function InformationEnginePanel({
@@ -620,7 +628,7 @@ export function InformationEnginePanel({
     <Section
       icon={<Library className="h-4 w-4 text-signal-cyan" />}
       title="Sync Information (module)"
-      subtitle="Digital thread, documentation, asset-data readiness — composed from the reads that exist. There is deliberately NO composite score: averaging the legs that are built over the one that is not is how a partial module reads as a finished one."
+      subtitle="Digital thread, controlled documentation and the governed §47 Information Readiness Index. There is deliberately no composite score: unlike evidence states are not averaged into false precision."
     >
       <ErrorLine error={error} />
       {engine && (
@@ -635,9 +643,17 @@ export function InformationEnginePanel({
                 {key}: {leg.built ? "built" : "NOT BUILT"}
                 {leg.reason ? ` — ${leg.reason}` : ""}
                 {leg.registerRows ? ` (${leg.registerRows.join(", ")})` : ""}
+                {leg.project
+                  ? ` — ${leg.project.status?.replaceAll("_", " ") ?? "status unavailable"}; ${leg.project.index == null ? "not assessed" : `${leg.project.index}%`}; ${leg.project.accepted ?? 0}/${leg.project.required ?? 0} accepted; ${leg.project.hardBlockerCount ?? 0} hard blocker(s)`
+                  : ""}
               </p>
             ))}
           </div>
+          {legs.assetDataReadiness?.decisionBoundary && (
+            <p className="text-[11px] text-slate-500">
+              {legs.assetDataReadiness.decisionBoundary}
+            </p>
+          )}
           {typeof graph.absentEdgeCount === "number" && (
             <p className="text-[11px] text-slate-500">
               §34: {graph.absentEdgeCount} of nineteen relationships are absent
