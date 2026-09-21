@@ -10,6 +10,10 @@ const slice5dSmoke = readFileSync(
   "scripts/ci-develop-slice5d-smoke.sh",
   "utf8",
 );
+const completionSmoke = readFileSync(
+  "scripts/ci-develop-ram-case-completion-smoke.sh",
+  "utf8",
+);
 
 function body(fn: string): string {
   const at = migration.lastIndexOf(`create or replace function public.${fn}(`);
@@ -142,5 +146,15 @@ describe("D12.13 preserves the earlier case-RAM runtime contract", () => {
     expect(slice5dSmoke).not.toContain(
       String.raw`p_kernel_version\":\"develop-ram/5D/2026-12-07`,
     );
+  });
+
+  it("checks lineage with grep, which the migration-chain runner has", () => {
+    expect(completionSmoke).not.toMatch(/\brg\b/);
+    expect(completionSmoke).toContain("grep -q 'crowAMSAA' <<<\"$LINEAGE\"");
+    expect(completionSmoke).toContain("grep -q 'evaluateRbd' <<<\"$LINEAGE\"");
+    expect(completionSmoke).toContain(
+      "grep -q 'develop-ram/5E/2026-12-20' <<<\"$LINEAGE\"",
+    );
+    expect(completionSmoke).toContain("grep -qi 'human' <<<\"$LINEAGE\"");
   });
 });

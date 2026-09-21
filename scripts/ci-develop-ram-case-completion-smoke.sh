@@ -158,10 +158,10 @@ AFTER=$(psqlc "select (select count(*) from approvals where organization_id='$OR
 test "$BEFORE" = "$AFTER"
 
 LINEAGE=$(psqlc "select method||'|'||code_version||'|'||(outputs->>'decisionBoundary') from calculation_runs where id='$(BODY="$RESULT" python3 -c "import json,os;print(json.loads(os.environ['BODY'])['runId'])")'")
-printf '%s' "$LINEAGE" | rg -q 'crowAMSAA'
-printf '%s' "$LINEAGE" | rg -q 'evaluateRbd'
-printf '%s' "$LINEAGE" | rg -q 'develop-ram/5E/2026-12-20'
-printf '%s' "$LINEAGE" | rg -qi 'human'
+grep -q 'crowAMSAA' <<<"$LINEAGE"
+grep -q 'evaluateRbd' <<<"$LINEAGE"
+grep -q 'develop-ram/5E/2026-12-20' <<<"$LINEAGE"
+grep -qi 'human' <<<"$LINEAGE"
 
 # One missing family does not suppress all others, and missing evidence is
 # explicit rather than represented as a healthy zero.
