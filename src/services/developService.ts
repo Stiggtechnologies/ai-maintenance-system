@@ -12,6 +12,7 @@ import { supabase } from "../lib/supabase";
 import type {
   CaseWorkspace,
   CaseOptionComparison,
+  CaseOperationalDisruption,
   GateReadinessResult,
   OperationalReadinessResult,
   OperationalReadinessIndexFactor,
@@ -1265,6 +1266,58 @@ export async function getCaseOptionComparison(
     p_case_id: caseId,
   });
   return unwrapRpc(data, error, "Could not load the option comparison");
+}
+
+export async function getCaseOperationalDisruption(
+  caseId: string,
+): Promise<CaseOperationalDisruption> {
+  const { data, error } = await supabase.rpc("get_case_operational_disruption", {
+    p_case_id: caseId,
+  });
+  return unwrapRpc(data, error, "Could not load operational disruption");
+}
+
+export async function recordOptionOperationalDisruption(input: {
+  optionId: number;
+  valueEvaluationId: string;
+  constructionDisruptionCost: number;
+  constructionDisruptionBasis: string;
+  constructionDisruptionEvidenceItemId: string;
+  productionLossCost: number;
+  productionLossBasis: string;
+  productionLossEvidenceItemId: string;
+  simopsRiskCost: number;
+  simopsRiskBasis: string;
+  simopsRiskEvidenceItemId: string;
+  outageWindowIds: string[];
+  outageScopeBasis: string;
+}): Promise<{
+  assessmentId: string;
+  revision: number;
+  projectValue: number;
+  netOptionValue: number;
+  outageCount: number;
+}> {
+  const { data, error } = await supabase.rpc(
+    "record_option_operational_disruption_assessment",
+    {
+      p_option_id: input.optionId,
+      p_value_evaluation_id: input.valueEvaluationId,
+      p_construction_disruption_cost: input.constructionDisruptionCost,
+      p_construction_disruption_basis: input.constructionDisruptionBasis,
+      p_construction_disruption_evidence_item_id:
+        input.constructionDisruptionEvidenceItemId,
+      p_production_loss_cost: input.productionLossCost,
+      p_production_loss_basis: input.productionLossBasis,
+      p_production_loss_evidence_item_id: input.productionLossEvidenceItemId,
+      p_simops_risk_cost: input.simopsRiskCost,
+      p_simops_risk_basis: input.simopsRiskBasis,
+      p_simops_risk_evidence_item_id: input.simopsRiskEvidenceItemId,
+      p_outage_window_ids: input.outageWindowIds,
+      p_outage_scope_basis: input.outageScopeBasis,
+    },
+  );
+  return unwrapRpc(data, error, "Could not record operational disruption");
 }
 
 export async function recordOptionSustainabilityObservation(input: {
