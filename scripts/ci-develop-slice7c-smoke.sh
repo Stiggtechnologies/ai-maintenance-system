@@ -692,6 +692,29 @@ noerr "$R"
 R=$(rpc "$PLANNER" forecast_package_constraint "{\"p_constraint_id\":\"$C2\",\"p_forecast\":{\"expected_clear_date\":\"$D30\",\"probability_of_clearance\":0.8,\"probability_basis\":\"The supplier has confirmed the shipping date against the framework agreement\",\"schedule_impact_days\":0,\"impact_basis\":\"No impact is expected while the delivery lands ahead of the required-by date\"}}")
 noerr "$R"
 
+# A cleared constraint register is not a field walk. E1 reaches the index's
+# ready numerator only after the canonical ten-element assessment has run.
+# The plan requires isolation, so arrange a scoped equipment release for each
+# work order; the assessor then raises only the three human-declared questions
+# per job, which a named planner clears through the governed door.
+test "$(psqlc "select count(*) from calculation_runs where calculation_key='package_field_readiness' and status='computed' and (inputs->>'workPackageId')='$E1'")" = "0"
+psqlc "insert into equipment_releases
+        (organization_id, asset_id, work_order_id, status, isolation_confirmed, released_at, released_by)
+       values ('$ORG','$ASSET','$W1','released',true,now(),'$PLANNER_ID'),
+              ('$ORG','$ASSET','$W2','released',true,now(),'$PLANNER_ID');" >/dev/null
+R=$(rpc "$PLANNER" assess_package_field_readiness "{\"p_package_id\":$E1}")
+expect_answered "$R"
+test -n "$(printf '%s' "$R" | field calculationRunId)"
+test "$(jqp "$R" "x['derivedBlockersRecorded']")" = "0"
+for CID in $(psqlc "select id from restoration_constraints
+                     where work_package_id=$E1 and state='unknown'
+                       and source_ref like 'awp-field-ready:declared:%'
+                     order by id"); do
+  R=$(rpc "$PLANNER" clear_package_constraint "{\"p_constraint_id\":\"$CID\",\"p_state\":\"satisfied\",\"p_basis\":\"Walked with the area supervisor and checked the assigned crew, work-face access and job sequence\"}")
+  noerr "$R"
+done
+test "$(psqlc "select sync_work_package_release_verdict($E1)->>'verdict'")" = "ready_for_human"
+
 R=$(rpc "$PLANNER" get_constraint_free_work_index "{\"p_case_id\":\"$CASE\",\"p_horizon_days\":90}")
 expect_answered "$R"
 test "$(jqp "$R" "x['assessedPackages']")" = "3"
@@ -764,6 +787,15 @@ test "$(psqlc "select count(distinct calculation_key) from calculation_runs
                 where organization_id='$ORG' and development_case_id='$CASE'
                   and calculation_key like '%constraint_free%'")" = "1"
 
+# The workface section below intentionally begins with every job blocked on
+# isolation. End the two fixture releases rather than silently carrying the
+# index's earlier evidence into a different scenario. The recorded assessment
+# then becomes STALE through the one verdict, exactly as a changed canonical
+# store should make it.
+psqlc "update equipment_releases set status='cancelled'
+       where organization_id='$ORG' and work_order_id in ('$W1','$W2') and status='released';" >/dev/null
+test "$(psqlc "select sync_work_package_release_verdict($E1)->>'verdict'")" = "stale"
+
 echo "── 7. D7.13 + D7.14 — the empty denominator, and which empty it is ──────"
 
 # A window with no planned work in it. NOT 0%, NOT 100%.
@@ -823,6 +855,20 @@ expect_text "$(jqp "$R" "json.dumps(x['refusals'])")" "the ONE release verdict h
 # ready. Nothing about the metric changed — the ONE verdict did.
 R=$(rpc "$PLANNER" clear_package_constraint "{\"p_constraint_id\":\"$C3\",\"p_state\":\"satisfied\",\"p_basis\":\"Operations handed the lay-down area over and the access constraint is closed\"}")
 noerr "$R"
+# Clearing the manually recorded access constraint is still not a field walk.
+# Assess E3 now that isolation is confirmed, then have the named human clear
+# only the three declared questions the assessor raises.
+R=$(rpc "$PLANNER" assess_package_field_readiness "{\"p_package_id\":$E3}")
+expect_answered "$R"
+test -n "$(printf '%s' "$R" | field calculationRunId)"
+test "$(jqp "$R" "x['derivedBlockersRecorded']")" = "0"
+for CID in $(psqlc "select id from restoration_constraints
+                     where work_package_id=$E3 and state='unknown'
+                       and source_ref like 'awp-field-ready:declared:%'
+                     order by id"); do
+  R=$(rpc "$PLANNER" clear_package_constraint "{\"p_constraint_id\":\"$CID\",\"p_state\":\"satisfied\",\"p_basis\":\"Walked with the area supervisor and checked the assigned crew, work-face access and job sequence\"}")
+  noerr "$R"
+done
 R=$(rpc "$PLANNER" get_workface_execution_metrics "{\"p_case_id\":\"$CASE\",\"p_window_start\":\"$TODAY\",\"p_window_end\":\"$D60\"}")
 expect_answered "$R"
 test "$(jqp "$R" "x['readyWorkOrders']")" = "1"
