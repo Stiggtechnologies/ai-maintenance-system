@@ -788,6 +788,31 @@ expect_text "$(printf '%s' "$R" | field assessmentNote)" "No field-readiness ass
 # because nobody has recorded a constraint against it either.
 test "$(printf '%s' "$R" | field readinessVerdict)" = "unassessed"
 
+# D7.06 CLOSE: one hand-recorded constraint, subsequently cleared, is not a
+# field-readiness assessment of all ten elements on every job. Before
+# 20261220130000 this package reached `ready_for_human` and the release door
+# accepted it. The ONE verdict now refuses it as `field_unassessed`; the read
+# and the release door must return that exact same sentence.
+R=$(rpc "$PLANNER" record_work_package "{\"p_case_id\":\"$CASE\",\"p_package\":{\"package_code\":\"S7B-P5\",\"title\":\"Unwalked drive train field package\",\"package_type\":\"engineering\",\"scope\":\"Field work with one cleared note but no completed field-readiness walk\",\"required_by\":\"2027-04-15\"}}")
+noerr "$R"; P5=$(printf '%s' "$R" | field work_package_id); test -n "$P5"
+R=$(rpc "$PLANNER" assign_work_to_package "{\"p_package_id\":$P5,\"p_work_order_id\":\"$W6\",\"p_basis\":\"The lay-down preparation is the work this independent safe-start proof contains\"}")
+noerr "$R"
+R=$(rpc "$PLANNER" record_package_constraint "{\"p_package_id\":$P5,\"p_constraint\":{\"constraint_type\":\"access\",\"description\":\"Temporary access note for the lay-down work\",\"basis\":\"The planner walked only the access route, not the full field-readiness checklist\",\"work_order_id\":\"$W6\"}}")
+noerr "$R"; P5C=$(printf '%s' "$R" | field constraint_id); test -n "$P5C"
+R=$(rpc "$PLANNER" clear_package_constraint "{\"p_constraint_id\":\"$P5C\",\"p_state\":\"satisfied\",\"p_basis\":\"Access route checked with the area supervisor; no claim about the other nine elements\"}")
+noerr "$R"
+test "$(psqlc "select count(*) from calculation_runs where calculation_key='package_field_readiness' and status='computed' and (inputs->>'workPackageId')='$P5'")" = "0"
+R=$(rpc "$PLANNER" get_package_field_readiness "{\"p_package_id\":$P5}")
+noerr "$R"
+test "$(jqp "$R" "x['assessed']")" = "False"
+test "$(printf '%s' "$R" | field readinessVerdict)" = "field_unassessed"
+P5_SENTENCE=$(printf '%s' "$R" | field readiness)
+expect_text "$P5_SENTENCE" "no field-readiness assessment has been completed"
+D=$(rpc "$MANAGER" release_work_package "{\"p_package_id\":$P5,\"p_note\":\"Trying to release after clearing one note without walking the package\"}")
+test "$(printf '%s' "$D" | field verdict)" = "field_unassessed"
+test "$(printf '%s' "$D" | field error)" = "$P5_SENTENCE"
+test "$(psqlc "select released_at is null from work_packages where id=$P5")" = "t"
+
 echo "── 7. D13.09 — ONE verdict across the door, the read and the board ──────"
 
 B=$(rpc "$PLANNER" get_execution_readiness_board '{"p_case_id":null}')
@@ -823,13 +848,15 @@ expect_text "$(jqp "$B" "[p['fieldReadinessNote'] for p in x['packages'] if p['p
 # claim about it a claim about the seed.
 B2=$(rpc "$PLANNER" get_execution_readiness_board "{\"p_case_id\":\"$CASE\"}")
 noerr "$B2"
-test "$(jqp "$B2" "sorted(p['packageCode'] for p in x['packages'])")" = "['S7B-P1', 'S7B-P2', 'S7B-P3']"
+test "$(jqp "$B2" "sorted(p['packageCode'] for p in x['packages'])")" = "['S7B-P1', 'S7B-P2', 'S7B-P3', 'S7B-P5']"
 # UNDATED PACKAGES SORT LAST, in the ORDER RETURNED. S7B-P1 carries a
 # required-by; P2 and P3 do not, and at the top of a list a supervisor works
 # down, "nobody said when" would read as most urgent.
 test "$(jqp "$B2" "[p['packageCode'] for p in x['packages']][0]")" = "S7B-P1"
 test "$(jqp "$B2" "[p['requiredBy'] for p in x['packages']][0]")" = "2027-03-01"
-test "$(jqp "$B2" "[p['requiredBy'] for p in x['packages']][1:]")" = "[None, None]"
+test "$(jqp "$B2" "[p['packageCode'] for p in x['packages']][1]")" = "S7B-P5"
+test "$(jqp "$B2" "[p['requiredBy'] for p in x['packages']][1]")" = "2027-04-15"
+test "$(jqp "$B2" "[p['requiredBy'] for p in x['packages']][2:]")" = "[None, None]"
 B3=$(rpc "$PLANNER" get_execution_readiness_board "{\"p_case_id\":\"$CASE2\"}")
 expect_refusal "$B3" "No work package has been recorded on this case"
 expect_refusal "$B3" "nothing is waiting on anybody"
@@ -883,9 +910,9 @@ expect_refusal "$R" "does not grow afterwards"
 # still act on.
 B=$(rpc "$PLANNER" get_execution_readiness_board "{\"p_case_id\":\"$CASE\"}")
 noerr "$B"
-test "$(jqp "$B" "sorted(p['packageCode'] for p in x['packages'])")" = "['S7B-P2', 'S7B-P3']"
-test "$(jqp "$B" "x['packageCount']")" = "3"
-test "$(jqp "$B" "x['awaitingRelease']")" = "2"
+test "$(jqp "$B" "sorted(p['packageCode'] for p in x['packages'])")" = "['S7B-P2', 'S7B-P3', 'S7B-P5']"
+test "$(jqp "$B" "x['packageCount']")" = "4"
+test "$(jqp "$B" "x['awaitingRelease']")" = "3"
 
 # A CANCELLED package is refused an assessment too: a readiness position for
 # work nobody intends to do is a number with nothing behind it.

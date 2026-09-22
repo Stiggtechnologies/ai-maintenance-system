@@ -38,10 +38,7 @@ const qualityPage = readFileSync(
   "src/components/QualityManagementWorkbench.tsx",
   "utf8",
 );
-const governancePage = readFileSync(
-  "src/pages/DecisionGovernance.tsx",
-  "utf8",
-);
+const governancePage = readFileSync("src/pages/DecisionGovernance.tsx", "utf8");
 const standards = readFileSync(
   "src/components/GovernanceStandards.tsx",
   "utf8",
@@ -128,7 +125,9 @@ describe("D4.01 — quality requirements bind to design_requirements", () => {
 
 describe("D4.14 — cyber is a first-class gate-blocking category", () => {
   it("SQL and TypeScript publish the same vocabulary, including cyber", () => {
-    expect(sql).toContain("create or replace function public.sync_gate_readiness_categories()");
+    expect(sql).toContain(
+      "create or replace function public.sync_gate_readiness_categories()",
+    );
     for (const category of GATE_READINESS_CATEGORIES) {
       expect(sql).toContain(`'${category}'`);
     }
@@ -168,7 +167,9 @@ describe("status-lag flips are backed by live callers the gate can walk", () => 
     expect(row("D3.29")).toMatch(/^\| D3\.29 \|[^|]*\|[^|]*\| ✅/);
     expect(row("D4.01")).toMatch(/^\| D4\.01 \|[^|]*\|[^|]*\| ✅/);
     expect(row("D4.14")).toMatch(/^\| D4\.14 \|[^|]*\|[^|]*\| ✅/);
-    expect(row("D4.14")).toContain("`src/components/develop/FrameworkShelfPanel.tsx`");
+    expect(row("D4.14")).toContain(
+      "`src/components/develop/FrameworkShelfPanel.tsx`",
+    );
     expect(row("D4.14")).toContain("`setGateRequirement`");
     expect(row("D4.14")).not.toContain("sync_gate_readiness_categories");
     // D4.07 was subsequently closed by the dedicated COPQ-attribution
@@ -176,7 +177,7 @@ describe("status-lag flips are backed by live callers the gate can walk", () => 
     // cannot silently reinstate the missing six-term/forecast-split gap.
     expect(row("D4.07")).toMatch(/^\| D4\.07 \|[^|]*\|[^|]*\| ✅/);
     expect(row("D3.02")).toMatch(/^\| D3\.02 \|[^|]*\|[^|]*\| 🟡/);
-    expect(row("D7.06")).toMatch(/^\| D7\.06 \|[^|]*\|[^|]*\| 🟡/);
+    expect(row("D7.06")).toMatch(/^\| D7\.06 \|[^|]*\|[^|]*\| ✅/);
     // D8.06 was subsequently closed by the dedicated commissioning-family
     // slice; retain the status assertion here so this older residual sweep
     // cannot silently regress it to its former partial state.
