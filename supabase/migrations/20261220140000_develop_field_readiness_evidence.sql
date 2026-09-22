@@ -510,11 +510,50 @@ begin
   v_def:=replace(v_def,
     'an element no store can answer is recorded as UNKNOWN for a named person.',
     'an element whose canonical evidence is missing or insufficient is recorded as UNKNOWN until that evidence is supplied.');
+  -- `unverifiableElements` formerly counted only the retired DECLARED branch.
+  -- Missing canonical evidence now travels through the derived-question arm,
+  -- so count it there as well or the lineage output says zero while writing
+  -- UNKNOWN rows. Guard the rewrite so local reapplication stays idempotent.
+  if position('v_unanswerable := v_unanswerable + 1;
+          v_unverifiable := v_unverifiable + 1;' in v_def)=0 then
+    v_old := 'v_unanswerable := v_unanswerable + 1;';
+    v_new := 'v_unanswerable := v_unanswerable + 1;
+          v_unverifiable := v_unverifiable + 1;';
+    if position(v_old in v_def)=0 then
+      raise exception 'refusing D7.12 unverifiable counter patch: derived-question counter anchor not found';
+    end if;
+    v_def:=replace(v_def,v_old,v_new);
+  end if;
   execute v_def;
 end $patch$;
 
 comment on function public.assess_package_field_readiness(bigint) is
   'D7.05/D7.12: assesses all ten field-ready elements through the ONE work-order predicate and records only missing or blocking canonical evidence in the ONE constraint store. Re-assessment traceably replaces both current derived rows and the legacy machine-generated crew/access/predecessor questions. It never writes satisfied and never releases work.';
+
+-- A fully ready assessment legitimately writes ZERO constraints. The legacy
+-- verdict tested `v_total = 0` before consulting calculation_runs, making a
+-- clean computed package indistinguishable from one nobody assessed. Preserve
+-- the unassessed refusal only when no computed field walk exists.
+do $patch$
+declare v_def text; v_old text; v_new text;
+begin
+  select pg_get_functiondef('public.sync_work_package_release_verdict(bigint)'::regprocedure) into v_def;
+  v_old := 'if v_total = 0 then';
+  v_new := $new$if v_total = 0 and not exists (
+    select 1 from calculation_runs assessed
+     where assessed.organization_id = p.organization_id
+       and assessed.calculation_key = 'package_field_readiness'
+       and assessed.status = 'computed'
+       and (assessed.inputs->>'workPackageId') = p.id::text
+  ) then$new$;
+  if position(v_new in v_def)=0 then
+    if position(v_old in v_def)=0 then
+      raise exception 'refusing D7.12 release-verdict patch: unassessed anchor not found';
+    end if;
+    v_def:=replace(v_def,v_old,v_new);
+  end if;
+  execute v_def;
+end $patch$;
 
 -- Keep the two downstream compositions honest. `unverifiable` still means
 -- missing evidence, but it no longer means "no store exists"; and with D7.06,

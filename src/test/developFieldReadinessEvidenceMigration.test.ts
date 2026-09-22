@@ -141,6 +141,19 @@ describe("D7.12 canonical field-readiness evidence", () => {
       "returning id, source_ref, state, verified_by",
     );
     expect(raw).toContain("neither legacy nor canonical replacement anchor found");
+    expect(raw).toContain("v_unverifiable := v_unverifiable + 1;");
+    expect(raw).toContain(
+      "refusing D7.12 unverifiable counter patch: derived-question counter anchor not found",
+    );
+  });
+
+  it("distinguishes a clean computed assessment from an untouched package", () => {
+    expect(raw).toContain("if v_total = 0 and not exists (");
+    expect(raw).toContain("assessed.calculation_key = 'package_field_readiness'");
+    expect(raw).toContain("assessed.status = 'computed'");
+    expect(raw).toContain(
+      "refusing D7.12 release-verdict patch: unassessed anchor not found",
+    );
   });
 
   it("closes the downstream workface caveat and Sync Field open-parts list", () => {
