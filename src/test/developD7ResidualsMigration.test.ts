@@ -106,10 +106,10 @@ describe("D7.07 — the one clock walks package constraints", () => {
     expect(registerRow("D7.07")).toContain("src/pages/CommandCenters.tsx");
   });
 
-  it("keeps D7.07 closed, closes D7.06 and leaves D7.12 honest", () => {
+  it("keeps D7.07 and D7.06 closed and records D7.12's later closure", () => {
     expect(registerStatus("D7.07")).toBe("✅");
     expect(registerStatus("D7.06")).toBe("✅");
-    expect(registerStatus("D7.12")).toBe("🟡");
+    expect(registerStatus("D7.12")).toBe("✅");
     expect(registerRow("D7.06")).toContain("field_unassessed");
     expect(registerRow("D7.12")).toContain("unverifiable");
   });
@@ -134,14 +134,13 @@ describe("D7.16 — composition list drops the closed part", () => {
     expect(fn).not.toContain("sync_field_readiness_elements");
   });
 
-  it("stays 🟡 because a composition is not more complete than its parts", () => {
-    expect(registerStatus("D7.16")).toBe("🟡");
-    expect(registerRow("D7.16")).toContain("D7.07 closed");
+  it("is now ✅ because each formerly open owning part later closed", () => {
+    expect(registerStatus("D7.16")).toBe("✅");
+    expect(registerRow("D7.16")).toContain("openParts");
   });
 
-  it("the live smoke asserts the two remaining open parts", () => {
-    expect(smoke).toContain('len(x[\'openParts\'])")" = "2"');
-    expect(smoke).toContain("D7.06,D7.12");
+  it("the live smoke asserts no component remains open", () => {
+    expect(smoke).toContain('len(x[\'openParts\'])")" = "0"');
     expect(smoke).not.toContain("D7.06,D7.07,D7.12");
   });
 });

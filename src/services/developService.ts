@@ -7444,6 +7444,240 @@ export async function assessPackageFieldReadiness(
   return unwrap(data, error);
 }
 
+export interface FieldReadinessEvidenceOptions {
+  members: { id: number; label: string; craft: string | null }[];
+  evidence: { id: string; label: string }[];
+  accessRoutes: { id: string; label: string }[];
+  workOrders: { id: string; label: string; status: string | null }[];
+}
+
+/**
+ * D7.12 authoring choices. Every query is still RLS-scoped; these lists are
+ * presentation only and the RPC/database walls revalidate tenant and status.
+ */
+export async function listFieldReadinessEvidenceOptions(): Promise<FieldReadinessEvidenceOptions> {
+  const [members, evidence, routes, work] = await Promise.all([
+    supabase
+      .from("workforce_members")
+      .select("id, display_name, craft")
+      .eq("active", true)
+      .order("display_name"),
+    supabase
+      .from("evidence_items")
+      .select("id, description, source_system")
+      .eq("verification_status", "verified")
+      .order("created_at", { ascending: false })
+      .limit(100),
+    supabase
+      .from("geospatial_operational_assessments")
+      .select("id, title")
+      .eq("assessment_type", "access_route")
+      .eq("status", "verified")
+      .order("recorded_at", { ascending: false })
+      .limit(100),
+    supabase
+      .from("work_orders")
+      .select("id, wo_number, title, status")
+      .order("wo_number", { nullsFirst: false })
+      .limit(300),
+  ]);
+  for (const result of [members, evidence, routes, work]) {
+    if (result.error) throw new Error(result.error.message);
+  }
+  return {
+    members: (members.data ?? []).map((row) => ({
+      id: Number(row.id),
+      label: String(row.display_name),
+      craft: row.craft ? String(row.craft) : null,
+    })),
+    evidence: (evidence.data ?? []).map((row) => ({
+      id: String(row.id),
+      label: `${String(row.description ?? "Verified evidence")} · ${String(row.source_system ?? "source not named")}`,
+    })),
+    accessRoutes: (routes.data ?? []).map((row) => ({
+      id: String(row.id),
+      label: String(row.title),
+    })),
+    workOrders: (work.data ?? []).map((row) => ({
+      id: String(row.id),
+      label: `${String(row.wo_number ?? "—")} · ${String(row.title)}`,
+      status: row.status ? String(row.status) : null,
+    })),
+  };
+}
+
+export interface FieldReadinessEvidencePosition {
+  crew: {
+    id: number;
+    memberId: number;
+    startsAt: string;
+    endsAt: string;
+    basis: string;
+  }[];
+  access: {
+    id: number;
+    state: "clear" | "blocked";
+    validFrom: string;
+    validUntil: string | null;
+    basis: string;
+  } | null;
+  predecessors: {
+    id: number;
+    predecessorWorkOrderId: string | null;
+    kind: "finish_to_start" | "explicit_none";
+    basis: string;
+  }[];
+}
+
+/** Current canonical evidence behind the final three element positions. */
+export async function getFieldReadinessEvidencePosition(
+  workOrderId: string,
+): Promise<FieldReadinessEvidencePosition> {
+  const [crew, access, predecessors] = await Promise.all([
+    supabase
+      .from("work_order_crew_assignments")
+      .select("id, member_id, starts_at, ends_at, assignment_basis")
+      .eq("work_order_id", workOrderId)
+      .is("withdrawn_at", null)
+      .order("starts_at"),
+    supabase
+      .from("work_face_access_evidence")
+      .select("id, access_state, valid_from, valid_until, basis")
+      .eq("work_order_id", workOrderId)
+      .is("superseded_at", null)
+      .maybeSingle(),
+    supabase
+      .from("work_order_predecessor_evidence")
+      .select("id, predecessor_work_order_id, dependency_kind, basis")
+      .eq("successor_work_order_id", workOrderId)
+      .is("withdrawn_at", null)
+      .order("recorded_at"),
+  ]);
+  for (const result of [crew, access, predecessors]) {
+    if (result.error) throw new Error(result.error.message);
+  }
+  return {
+    crew: (crew.data ?? []).map((row) => ({
+      id: Number(row.id),
+      memberId: Number(row.member_id),
+      startsAt: String(row.starts_at),
+      endsAt: String(row.ends_at),
+      basis: String(row.assignment_basis),
+    })),
+    access: access.data
+      ? {
+          id: Number(access.data.id),
+          state: access.data.access_state as "clear" | "blocked",
+          validFrom: String(access.data.valid_from),
+          validUntil: access.data.valid_until
+            ? String(access.data.valid_until)
+            : null,
+          basis: String(access.data.basis),
+        }
+      : null,
+    predecessors: (predecessors.data ?? []).map((row) => ({
+      id: Number(row.id),
+      predecessorWorkOrderId: row.predecessor_work_order_id
+        ? String(row.predecessor_work_order_id)
+        : null,
+      kind: row.dependency_kind as "finish_to_start" | "explicit_none",
+      basis: String(row.basis),
+    })),
+  };
+}
+
+export interface FieldReadinessEvidenceWriteResult {
+  answered?: boolean;
+  error?: string;
+  assignmentId?: number;
+  accessEvidenceId?: number;
+  predecessorEvidenceId?: number;
+  status?: string;
+  state?: string;
+  kind?: string;
+}
+
+export async function assignWorkOrderCrew(payload: {
+  workOrderId: string;
+  memberId: number;
+  startsAt: string;
+  endsAt: string;
+  basis: string;
+}): Promise<FieldReadinessEvidenceWriteResult> {
+  const { data, error } = await supabase.rpc("assign_work_order_crew", {
+    p_payload: {
+      work_order_id: payload.workOrderId,
+      member_id: payload.memberId,
+      starts_at: payload.startsAt,
+      ends_at: payload.endsAt,
+      basis: payload.basis,
+    },
+  });
+  return unwrap(data, error);
+}
+
+export async function withdrawWorkOrderCrewAssignment(
+  assignmentId: number,
+  reason: string,
+): Promise<FieldReadinessEvidenceWriteResult> {
+  const { data, error } = await supabase.rpc(
+    "withdraw_work_order_crew_assignment",
+    { p_assignment_id: assignmentId, p_reason: reason },
+  );
+  return unwrap(data, error);
+}
+
+export async function recordWorkFaceAccess(payload: {
+  workOrderId: string;
+  accessState: "clear" | "blocked";
+  validFrom: string;
+  validUntil?: string;
+  evidenceItemId?: string;
+  geospatialAssessmentId?: string;
+  basis: string;
+}): Promise<FieldReadinessEvidenceWriteResult> {
+  const { data, error } = await supabase.rpc("record_work_face_access", {
+    p_payload: {
+      work_order_id: payload.workOrderId,
+      access_state: payload.accessState,
+      valid_from: payload.validFrom,
+      valid_until: payload.validUntil || null,
+      evidence_item_id: payload.evidenceItemId || null,
+      geospatial_assessment_id: payload.geospatialAssessmentId || null,
+      basis: payload.basis,
+    },
+  });
+  return unwrap(data, error);
+}
+
+export async function recordWorkOrderPredecessor(payload: {
+  successorWorkOrderId: string;
+  predecessorWorkOrderId?: string;
+  evidenceItemId: string;
+  basis: string;
+}): Promise<FieldReadinessEvidenceWriteResult> {
+  const { data, error } = await supabase.rpc("record_work_order_predecessor", {
+    p_payload: {
+      successor_work_order_id: payload.successorWorkOrderId,
+      predecessor_work_order_id: payload.predecessorWorkOrderId || null,
+      evidence_item_id: payload.evidenceItemId,
+      basis: payload.basis,
+    },
+  });
+  return unwrap(data, error);
+}
+
+export async function withdrawWorkOrderPredecessor(
+  evidenceId: number,
+  reason: string,
+): Promise<FieldReadinessEvidenceWriteResult> {
+  const { data, error } = await supabase.rpc("withdraw_work_order_predecessor", {
+    p_evidence_id: evidenceId,
+    p_reason: reason,
+  });
+  return unwrap(data, error);
+}
+
 export interface ExecutionReadinessPackage {
   packageId: number;
   packageCode: string;

@@ -309,6 +309,9 @@ jobs:
       - name: Smoke — Sync Develop slice 7C (resource demand/capacity, portfolio conflicts, competency when needed, workface metrics)
         run: bash scripts/ci-develop-slice7c-smoke.sh
 
+      - name: Smoke — Sync Develop field-readiness evidence (crew, access, predecessor graph)
+        run: bash scripts/ci-develop-field-readiness-evidence-smoke.sh
+
       - name: Smoke — sustainability and climate resilience in concept selection
         run: bash scripts/ci-climate-concept-selection-smoke.sh
 

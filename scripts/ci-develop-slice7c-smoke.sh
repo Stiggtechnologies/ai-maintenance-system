@@ -242,10 +242,10 @@ test -n "$FOREIGN"
 psqlc "delete from development_cases where organization_id='$ORG' and title like 'S7C %';" >/dev/null
 psqlc "delete from development_cases where organization_id='$ORG2' and title like 'S7C %';" >/dev/null
 psqlc "delete from competencies where organization_id='$ORG' and competency_key like 'S7C-%';" >/dev/null
-psqlc "delete from workforce_members where organization_id='$ORG' and employee_ref like 'S7C-%';" >/dev/null
 psqlc "delete from craft_capacity where organization_id='$ORG' and craft like 'S7C-%';" >/dev/null
 psqlc "delete from capacity_deductions where organization_id='$ORG' and craft like 'S7C-%';" >/dev/null
 psqlc "delete from work_orders where organization_id='$ORG' and wo_number like 'S7C-%';" >/dev/null
+psqlc "delete from workforce_members where organization_id='$ORG' and employee_ref like 'S7C-%';" >/dev/null
 psqlc "delete from job_plans where organization_id='$ORG' and plan_key like 'S7C-%';" >/dev/null
 psqlc "delete from assets where organization_id='$ORG' and name like 'S7C %';" >/dev/null
 psqlc "delete from work_packages where organization_id='$ORG' and package_code like 'S7C-%';" >/dev/null
@@ -702,17 +702,38 @@ psqlc "insert into equipment_releases
         (organization_id, asset_id, work_order_id, status, isolation_confirmed, released_at, released_by)
        values ('$ORG','$ASSET','$W1','released',true,now(),'$PLANNER_ID'),
               ('$ORG','$ASSET','$W2','released',true,now(),'$PLANNER_ID');" >/dev/null
+# D7.12 later closed the three positions this historical transcript used to
+# hand-clear. Supply their canonical evidence instead: five people cover the
+# job-plan demand, the two qualified holders satisfy the applicable competency
+# requirement, verified field evidence establishes access, and a named review
+# records that these two jobs have no predecessor.
+M3=$(psqlc "with ins as (insert into workforce_members(organization_id,employee_ref,display_name,craft)
+  values('$ORG','S7C-M3','S7C electrical one','S7C-elec') returning id) select id from ins")
+M4=$(psqlc "with ins as (insert into workforce_members(organization_id,employee_ref,display_name,craft)
+  values('$ORG','S7C-M4','S7C electrical two','S7C-elec') returning id) select id from ins")
+M5=$(psqlc "with ins as (insert into workforce_members(organization_id,employee_ref,display_name,craft)
+  values('$ORG','S7C-M5','S7C fitter three','S7C-mech') returning id) select id from ins")
+psqlc "insert into shift_assignments(organization_id,member_id,starts_at,ends_at,shift_kind,assigned_by)
+  values('$ORG',$M3,'${TODAY}T06:00:00Z','${TODAY}T18:00:00Z','day','$PLANNER_ID'),
+        ('$ORG',$M4,'${TODAY}T06:00:00Z','${TODAY}T18:00:00Z','day','$PLANNER_ID'),
+        ('$ORG',$M5,'${TODAY}T06:00:00Z','${TODAY}T18:00:00Z','day','$PLANNER_ID');" >/dev/null
+FE=$(psqlc "with ins as (insert into evidence_items(organization_id,source_system,evidence_type,description,evidence_class,
+  verification_status,verified_by,verified_at,verification_method)
+  values('$ORG','S7C smoke','inspection','Verified field-access and sequence review for the Slice 7C work.','INSPECTED',
+    'verified','$PLANNER_ID',now(),'Planner field walk with independent evidence') returning id) select id from ins")
+psqlc "insert into work_order_crew_assignments(organization_id,work_order_id,member_id,starts_at,ends_at,assignment_basis,assigned_by)
+  select '$ORG',w,m,'${TODAY}T07:00:00Z','${TODAY}T17:00:00Z','Assigned against the adopted plan and verified roster for this field window.','$PLANNER_ID'
+  from unnest(array['$W1'::uuid,'$W2'::uuid]) w cross join unnest(array[$M1,$M2,$M3,$M4,$M5]::bigint[]) m;
+insert into work_face_access_evidence(organization_id,work_order_id,access_state,valid_from,valid_until,evidence_item_id,basis,recorded_by)
+  values('$ORG','$W1','clear',now()-interval '1 hour',now()+interval '1 day','$FE','The inspected route and work face are clear for the assigned crew window.','$PLANNER_ID'),
+        ('$ORG','$W2','clear',now()-interval '1 hour',now()+interval '1 day','$FE','The inspected route and work face are clear for the assigned crew window.','$PLANNER_ID');
+insert into work_order_predecessor_evidence(organization_id,successor_work_order_id,dependency_kind,evidence_item_id,basis,recorded_by)
+  values('$ORG','$W1','explicit_none','$FE','The planner reviewed the sequence and confirmed this job has no predecessor.','$PLANNER_ID'),
+        ('$ORG','$W2','explicit_none','$FE','The planner reviewed the sequence and confirmed this job has no predecessor.','$PLANNER_ID');" >/dev/null
 R=$(rpc "$PLANNER" assess_package_field_readiness "{\"p_package_id\":$E1}")
 expect_answered "$R"
 test -n "$(printf '%s' "$R" | field calculationRunId)"
 test "$(jqp "$R" "x['derivedBlockersRecorded']")" = "0"
-for CID in $(psqlc "select id from restoration_constraints
-                     where work_package_id=$E1 and state='unknown'
-                       and source_ref like 'awp-field-ready:declared:%'
-                     order by id"); do
-  R=$(rpc "$PLANNER" clear_package_constraint "{\"p_constraint_id\":\"$CID\",\"p_state\":\"satisfied\",\"p_basis\":\"Walked with the area supervisor and checked the assigned crew, work-face access and job sequence\"}")
-  noerr "$R"
-done
 test "$(psqlc "select sync_work_package_release_verdict($E1)->>'verdict'")" = "ready_for_human"
 
 R=$(rpc "$PLANNER" get_constraint_free_work_index "{\"p_case_id\":\"$CASE\",\"p_horizon_days\":90}")
@@ -824,13 +845,12 @@ test "$(jqp "$RWE" "x['answered']")" = "False"
 test "$(jqp "$RWE" "x['kind']")" = "empty_denominator"
 expect_text "$(jqp "$RWE" "x['refusal']")" "were assessed and NONE of them is field-ready"
 expect_text "$(jqp "$RWE" "x['refusal']")" "different fact"
-# The three unverifiable elements are named beside the number rather than
-# letting a reader assume ten were checked.
-test "$(jqp "$R" "x['unverifiableElementPositions']")" = "13"
-# THREE of the ten elements have no canonical store for ANY job in this
-# product (D7.12), so no assessed work order can ever report fewer.
-test "$(jqp "$R" "min(w['unverifiableElements'] for w in x['workOrders'])")" = "3"
-expect_text "$(jqp "$R" "json.dumps(x['refusals'])")" "ready on the elements a store can answer, not on all ten"
+# Missing canonical evidence is itemized rather than defaulted. W1/W2 have
+# complete D7.12 evidence; W3 has no plan/evidence and W4 lacks access and a
+# predecessor review, producing six explicit unverifiable positions.
+test "$(jqp "$R" "x['unverifiableElementPositions']")" = "6"
+test "$(jqp "$R" "min(w['unverifiableElements'] for w in x['workOrders'])")" = "0"
+expect_text "$(jqp "$R" "json.dumps(x['refusals'])")" "required canonical evidence is missing"
 
 # Make one job field-ready on every ELEMENT. It is still NOT planned-work-
 # ready, and that is the repair this step exists to pin: its work package
@@ -839,6 +859,13 @@ expect_text "$(jqp "$R" "json.dumps(x['refusals'])")" "ready on the elements a s
 # release door refuses to state about the same package on the same screen.
 psqlc "insert into equipment_releases (organization_id, asset_id, work_order_id, status, isolation_confirmed, released_at, released_by)
        values ('$ORG','$ASSET','$W4','released', true, now(), '$PLANNER_ID');" >/dev/null
+psqlc "insert into work_order_crew_assignments(organization_id,work_order_id,member_id,starts_at,ends_at,assignment_basis,assigned_by)
+  select '$ORG','$W4',m,'${TODAY}T07:00:00Z','${TODAY}T17:00:00Z','Assigned against the adopted plan and verified roster for this field window.','$PLANNER_ID'
+  from unnest(array[$M1,$M2,$M3,$M4,$M5]::bigint[]) m;
+insert into work_face_access_evidence(organization_id,work_order_id,access_state,valid_from,valid_until,evidence_item_id,basis,recorded_by)
+  values('$ORG','$W4','clear',now()-interval '1 hour',now()+interval '1 day','$FE','The inspected lay-down route and work face are clear for the assigned crew window.','$PLANNER_ID');
+insert into work_order_predecessor_evidence(organization_id,successor_work_order_id,dependency_kind,evidence_item_id,basis,recorded_by)
+  values('$ORG','$W4','explicit_none','$FE','The planner reviewed the lay-down sequence and confirmed this job has no predecessor.','$PLANNER_ID');" >/dev/null
 R=$(rpc "$PLANNER" get_workface_execution_metrics "{\"p_case_id\":\"$CASE\",\"p_window_start\":\"$TODAY\",\"p_window_end\":\"$D60\"}")
 expect_answered "$R"
 test "$(jqp "$R" "x['readyWorkOrders']")" = "0"
@@ -915,8 +942,7 @@ echo "── 8. D7.16 — composed, with the parts still open named ────
 R=$(rpc "$PLANNER" get_sync_field_module "{\"p_case_id\":\"$CASE\",\"p_horizon_days\":90}")
 expect_answered "$R"
 test "$(jqp "$R" "len(x['composition'])")" = "6"
-test "$(jqp "$R" "len(x['openParts'])")" = "2"
-test "$(jqp "$R" "','.join(sorted(p['row'] for p in x['openParts']))")" = "D7.06,D7.12"
+test "$(jqp "$R" "len(x['openParts'])")" = "0"
 # COMPOSED, NEVER RECOMPUTED: the index inside the module is character for
 # character the index the owning function returns.
 DIRECT=$(rpc "$PLANNER" get_constraint_free_work_index "{\"p_case_id\":\"$CASE\",\"p_horizon_days\":90}")

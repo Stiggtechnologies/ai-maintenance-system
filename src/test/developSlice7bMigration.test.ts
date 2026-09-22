@@ -20,7 +20,6 @@ import {
   FIELD_READY_ELEMENT_TO_KIND,
   FIELD_READY_STATES,
   RECOVERY_START_GATE_ELEMENTS,
-  fieldReadyCoverage,
 } from "../lib/develop/fieldReadiness";
 
 const read = (f: string) =>
@@ -378,7 +377,7 @@ describe("D7.06 — the one verdict is not forked, copied or re-armed", () => {
 
 /* ──────────────────── D7.12 — the ten, and the three ────────────────────── */
 
-describe("D7.12 — ten elements, and the three that cannot be verified", () => {
+describe("D7.12 historical baseline — ten elements, seven then derivable", () => {
   it("reports exactly the ten the TypeScript vocabulary names, in order", () => {
     const b = body(engine, "sync_field_readiness_elements");
     const emitted = [
@@ -389,7 +388,12 @@ describe("D7.12 — ten elements, and the three that cannot be verified", () => 
 
   it("gives each element the same label, basis kind and source on both sides", () => {
     const b = body(engine, "sync_field_readiness_elements");
-    for (const element of FIELD_READY_ELEMENTS) {
+    const historicalElements = FIELD_READY_ELEMENTS.map((element) =>
+      ["crew", "access", "predecessor"].includes(element.key)
+        ? { ...element, basisKind: "declared", source: "none" }
+        : element,
+    );
+    for (const element of historicalElements) {
       expect(b, element.key).toContain(`'${element.key}', '${element.label}'`);
       expect(b, element.key).toContain(`'${element.basisKind}'`);
       expect(b, element.key).toContain(`'${element.source}'`);
@@ -405,11 +409,7 @@ describe("D7.12 — ten elements, and the three that cannot be verified", () => 
       ...b.matchAll(/'([a-z_]+)', '[^']+', 'declared', 'unverifiable'/g),
     ].map((m) => m[1]);
     expect(unverifiable).toEqual(["crew", "access", "predecessor"]);
-    expect(fieldReadyCoverage()).toEqual({
-      total: 10,
-      derived: 7,
-      declared: 3,
-    });
+    expect(unverifiable).toHaveLength(3);
   });
 
   it("names WHY each of the three has no store, rather than leaving it blank", () => {
@@ -1032,14 +1032,15 @@ describe("the client renders the server's answer and computes none", () => {
 
 /* ──────────────────────────── the register ──────────────────────────────── */
 
-describe("the register says what this slice did and what it did not", () => {
-  it("keeps D7.12 honest about the three elements nothing can verify", () => {
+describe("the register preserves RULING 22 as D7.12 closes", () => {
+  it("records the final three canonical evidence positions", () => {
     const row = registerDoc.split("\n").find((l) => l.startsWith("| D7.12 "));
     expect(row).toBeDefined();
     expect(row).toContain("crew");
     expect(row).toContain("access");
     expect(row).toContain("predecessor");
-    expect(row).toContain("7 of 10");
+    expect(row).toContain("All ten elements");
+    expect(row).toContain("ci-develop-field-readiness-evidence-smoke.sh");
   });
 
   it("cites the ruling from every row this slice touched", () => {
