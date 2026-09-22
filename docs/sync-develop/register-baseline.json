@@ -726,10 +726,10 @@
     "backticked": 6
   },
   "D7.12": {
-    "status": "🟡",
+    "status": "✅",
     "evidence": true,
-    "citations": 17,
-    "backticked": 16
+    "citations": 26,
+    "backticked": 26
   },
   "D7.13": {
     "status": "✅",
@@ -750,10 +750,10 @@
     "backticked": 12
   },
   "D7.16": {
-    "status": "🟡",
+    "status": "✅",
     "evidence": true,
-    "citations": 9,
-    "backticked": 9
+    "citations": 8,
+    "backticked": 8
   },
   "D7.17": {
     "status": "✅",

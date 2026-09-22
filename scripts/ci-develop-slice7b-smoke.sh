@@ -18,8 +18,8 @@
 #   0  fixtures: a case, four work orders (one bare, two job-planned), an
 #      adopted job plan with steps/tools/permits/checks, material demand, an
 #      asset, the AI identity and a foreign tenant.
-#   1  D7.12 — the TEN elements: seven derived from canonical stores, three
-#      reported `unverifiable` with the reason named. A bare work order blocks
+#   1  D7.12 — the TEN elements, all derived from canonical stores with three
+#      reported `unverifiable` when their evidence is missing. A bare work order blocks
 #      on the five the job plan answers; a planned one is ready on them. No
 #      element without a store is EVER ready.
 #   2  RULING 22 — Recovery's door refuses THROUGH the predicate: the material
@@ -32,8 +32,8 @@
 #   2b THE PREDICATE FAILS CLOSED — an unreadable job plan is a REFUSAL and
 #      not "no permit required"; a gate naming a typo or nothing at all raises
 #      instead of admitting everything.
-#   3  D7.05 — the assessment, generalized: derived blockers recorded,
-#      declared questions raised, nothing marked satisfied, one lineage row,
+#   3  D7.05 — the assessment, generalized: derived blockers and missing-
+#      evidence questions recorded, nothing marked satisfied, one lineage row,
 #      and the refusals (an empty package, a cancelled one, a released one).
 #   4  §70 in BOTH directions on one identity: the AI CAN assess (a guard that
 #      refuses the right thing must not refuse the wrong one) and CANNOT
@@ -251,6 +251,15 @@ test -n "$FOREIGN"
 psqlc "delete from development_cases where organization_id='$ORG' and title like 'S7B %';" >/dev/null
 psqlc "delete from restoration_events where organization_id='$ORG' and event_code like 'S7B-%';" >/dev/null
 psqlc "delete from work_orders where organization_id='$ORG' and wo_number like 'S7B-%';" >/dev/null
+psqlc "delete from member_competencies where organization_id='$ORG' and member_id in
+         (select id from workforce_members where organization_id='$ORG' and display_name like 'Slice 7B field crew %');
+       delete from shift_assignments where organization_id='$ORG' and member_id in
+         (select id from workforce_members where organization_id='$ORG' and display_name like 'Slice 7B field crew %');
+       update competency_requirements
+          set retired_by='$PLANNER_ID', retired_at=now(),
+              retirement_reason='Retired while resetting the repeatable Slice 7B acceptance fixture.'
+        where organization_id='$ORG' and craft='S7B-multicraft' and retired_at is null;
+       delete from workforce_members where organization_id='$ORG' and display_name like 'Slice 7B field crew %';" >/dev/null
 psqlc "delete from job_plans where organization_id='$ORG' and plan_key like 'S7B-%';" >/dev/null
 psqlc "delete from job_plans where organization_id='$ORG2' and plan_key like 'S7B-%';" >/dev/null
 psqlc "delete from assets where organization_id='$ORG' and name like 'S7B %';" >/dev/null
@@ -289,8 +298,8 @@ JP=$(psqlc "with ins as (
   select id from ins")
 test -n "$JP"
 psqlc "insert into job_plan_steps (organization_id, job_plan_id, step_number, description, craft, crew_size, estimated_hours)
-       values ('$ORG','$JP',1,'Isolate and prove dead','electrical',2,2),
-              ('$ORG','$JP',2,'Remove the drive','mechanical',3,6);" >/dev/null
+       values ('$ORG','$JP',1,'Isolate and prove dead','S7B-multicraft',2,2),
+              ('$ORG','$JP',2,'Remove the drive','S7B-multicraft',3,6);" >/dev/null
 psqlc "insert into job_plan_tools (organization_id, job_plan_id, tool, note)
        values ('$ORG','$JP','20 t gantry','Rated for the drive mass');" >/dev/null
 psqlc "insert into job_plan_permits (organization_id, job_plan_id, permit_type, isolation_required, verification_note)
@@ -319,14 +328,14 @@ psqlc "insert into work_order_materials (organization_id, work_order_id, materia
               ('$ORG','$W3','$MAT',2,'requested')
        on conflict (work_order_id, material_id) do update set status='requested';" >/dev/null
 
-echo "── 1. D7.12 — ten elements, seven derived and three unverifiable ────────"
+echo "── 1. D7.12 — ten canonical derived elements; missing stays explicit ────"
 
 E1=$(elements "$W1" null)
 test "$(jqp "$E1" "len(x['elements'])")" = "10"
 # The vocabulary, in the order the TypeScript module also states it.
 test "$(jqp "$E1" "','.join(e['key'] for e in x['elements'])")" = "scope,procedure,materials,tools,permits,isolation,quality,crew,access,predecessor"
-test "$(jqp "$E1" "sum(1 for e in x['elements'] if e['basisKind']=='derived')")" = "7"
-test "$(jqp "$E1" "sum(1 for e in x['elements'] if e['basisKind']=='declared')")" = "3"
+test "$(jqp "$E1" "sum(1 for e in x['elements'] if e['basisKind']=='derived')")" = "10"
+test "$(jqp "$E1" "sum(1 for e in x['elements'] if e['basisKind']=='declared')")" = "0"
 
 # A BARE work order: the five elements a job plan answers are blocked, and the
 # blocked ones say WHY rather than reporting an empty count.
@@ -349,12 +358,11 @@ test "$(element_field "$E1" isolation state)" = "unverifiable"
 expect_text "$(element_field "$E1" isolation detail)" "nothing identifies whether a permit"
 expect_text "$(element_field "$E1" isolation detail)" "not the same finding as"
 
-# THE THIRD ANSWER. Three elements have no canonical object and say so.
+# THE THIRD ANSWER. Three elements have canonical stores, but missing evidence
+# remains explicitly unverifiable and never defaults to clearance.
 for KEY in crew access predecessor; do
   test "$(element_field "$E1" "$KEY" state)" = "unverifiable"
-  test "$(element_field "$E1" "$KEY" source)" = "none"
-  expect_text "$(element_field "$E1" "$KEY" detail)" "No canonical store"
-  expect_text "$(element_field "$E1" "$KEY" detail)" "a named person clears"
+  test "$(element_field "$E1" "$KEY" source)" != "none"
 done
 
 # A JOB-PLANNED work order: the same five are ready, materials are blocked
@@ -371,9 +379,9 @@ test "$(element_field "$E2" isolation state)" = "blocked"
 test "$(jqp "$E2" "x['permitsRequired']")" = "1"
 expect_text "$(element_field "$E2" quality detail)" "1 of them hold points"
 
-# NO ELEMENT WITHOUT A STORE IS EVER READY, whatever the work order looks like.
+# No missing canonical evidence is ever reported ready.
 for BODY in "$E1" "$E2"; do
-  test "$(jqp "$BODY" "sum(1 for e in x['elements'] if e['basisKind']=='declared' and e['state']!='unverifiable')")" = "0"
+  test "$(jqp "$BODY" "sum(1 for e in x['elements'] if e['key'] in ('crew','access','predecessor') and e['state']=='ready')")" = "0"
 done
 
 # A DRAFT job plan is not approved scope. Proved by moving the row and moving
@@ -612,14 +620,12 @@ test "$(jqp "$R" "x['workOrders']")" = "2"
 test "$(jqp "$R" "x['elementsPerWorkOrder']")" = "10"
 # Five blocked on the bare work order, two on the planned one.
 test "$(jqp "$R" "x['derivedBlockersRecorded']")" = "7"
-# Three per work order, and nothing had raised them before.
-test "$(jqp "$R" "x['declaredQuestionsRaised']")" = "6"
-test "$(jqp "$R" "x['unverifiableElements']")" = "6"
-# ONE DERIVED element the store could not answer: S7B-W1 has no job plan, so
-# nothing identifies whether a permit and an isolation are required for it.
-# That is recorded as a QUESTION (unknown), never as silence — an element with
-# no reading recorded as no row at all is the empty checklist that passes.
-test "$(jqp "$R" "x['derivedQuestionsRaised']")" = "1"
+# The retired declared branch raises nothing. Seven missing canonical evidence
+# positions become derived UNKNOWN questions: isolation on the bare job plus
+# crew/access/predecessor on both jobs.
+test "$(jqp "$R" "x['declaredQuestionsRaised']")" = "0"
+test "$(jqp "$R" "x['unverifiableElements']")" = "7"
+test "$(jqp "$R" "x['derivedQuestionsRaised']")" = "7"
 test "$(psqlc "select state from restoration_constraints where work_package_id=$P1 and source_ref='awp-field-ready:derived:isolation:$W1'")" = "unknown"
 test "$(jqp "$R" "x['constraintsWritten']")" = "14"
 RUN1=$(printf '%s' "$R" | field calculationRunId); test -n "$RUN1"
@@ -680,12 +686,13 @@ expect_text "$OUT" "A package constraint is recorded through record_package_cons
 
 echo "── 5. re-assessment: evidence overwrites, judgement does not ────────────"
 
-# A PERSON answers a question the machine cannot: the crew element on S7B-W1.
+# A person cannot hand-clear a canonical evidence position. The owning store
+# must change and the package must be reassessed.
 CREW=$(psqlc "select id from restoration_constraints where work_package_id=$P1 and work_order_id='$W1' and constraint_kind='labour' limit 1")
 test -n "$CREW"
 R=$(rpc "$PLANNER" clear_package_constraint "{\"p_constraint_id\":\"$CREW\",\"p_state\":\"satisfied\",\"p_basis\":\"Two electricians and a rigger named on the shift roster, both tickets current\"}")
-noerr "$R"
-test "$(psqlc "select state from restoration_constraints where id='$CREW'")" = "satisfied"
+expect_err "$R" "DERIVED from a canonical store"
+test "$(psqlc "select state from restoration_constraints where id='$CREW'")" = "unknown"
 
 # The inventory system stages S7B-W2's material — a change in a CANONICAL
 # store, which the next assessment must honour without anybody touching a
@@ -707,21 +714,17 @@ ISO=$(psqlc "select id from restoration_constraints where work_package_id=$P1 an
 test -n "$ISO"
 R=$(rpc "$PLANNER" clear_package_constraint "{\"p_constraint_id\":\"$ISO\",\"p_state\":\"satisfied\",\"p_basis\":\"Trying to declare an isolation satisfied from the work-package screen\"}")
 expect_err "$R" "not a work-package toggle"
-# JUDGEMENT DOES NOT: the answer a person gave is still there, still satisfied,
-# and the machine did not re-ask the question by resurrecting it as unknown.
-test "$(psqlc "select state from restoration_constraints where id='$CREW'")" = "satisfied"
-test "$(psqlc "select count(*) from restoration_constraints where work_package_id=$P1 and source_ref='awp-field-ready:declared:crew:$W1'")" = "1"
-# No question was raised twice.
+# The previous derived row was replaced, and missing crew evidence remains an
+# UNKNOWN derived position rather than surviving as a hand-cleared judgement.
+test "$(psqlc "select count(*) from restoration_constraints where id='$CREW'")" = "0"
+test "$(psqlc "select count(*) from restoration_constraints where work_package_id=$P1 and source_ref='awp-field-ready:derived:crew:$W1' and state='unknown'")" = "1"
 test "$(jqp "$A5" "x['declaredQuestionsRaised']")" = "0"
-test "$(psqlc "select count(*) from restoration_constraints where work_package_id=$P1 and source_kind='derived' and source_ref like 'awp-field-ready:declared:%'")" = "6"
+test "$(jqp "$A5" "x['derivedQuestionsRaised']")" = "7"
+test "$(psqlc "select count(*) from restoration_constraints where work_package_id=$P1 and source_ref like 'awp-field-ready:declared:%'")" = "0"
 
-# A DECLARED question a person already recorded by hand AGAINST THIS JOB is not
-# asked again — and one recorded against the PACKAGE AS A WHOLE is not an
-# answer to it. The first draft treated the two the same: one package-level
-# `access` row silenced the access question for every work order in the
-# package and for every work order added afterwards, whatever state it was
-# left in, and the read then rendered that unrelated clearance beside the
-# element. Both directions are proved here in ONE assessment.
+# A manual access note, package-wide or work-order-specific, is not the
+# canonical verified access position. Neither may suppress the derived
+# evidence question; only work_face_access_evidence can answer it.
 R=$(rpc "$PLANNER" record_work_package "{\"p_case_id\":\"$CASE\",\"p_package\":{\"package_code\":\"S7B-P2\",\"title\":\"Drive train procurement\",\"package_type\":\"procurement\",\"scope\":\"Buying the drive, the couplings and the alignment service for the change\",\"parent_package_code\":\"S7B-P1\"}}")
 noerr "$R"; P2=$(printf '%s' "$R" | field work_package_id); test -n "$P2"
 R=$(rpc "$PLANNER" assign_work_to_package "{\"p_package_id\":$P2,\"p_work_order_id\":\"$W3\",\"p_basis\":\"The drive purchase is the work this procurement package releases\"}")
@@ -736,22 +739,31 @@ R=$(rpc "$PLANNER" record_package_constraint "{\"p_package_id\":$P2,\"p_constrai
 noerr "$R"
 R=$(rpc "$PLANNER" assess_package_field_readiness "{\"p_package_id\":$P2}")
 noerr "$R"
-# FIVE of six: three for S7B-W3, whose access question the package-wide note
-# does not answer, and two for S7B-W6, whose access question a person did.
-test "$(jqp "$R" "x['declaredQuestionsRaised']")" = "5"
-test "$(psqlc "select count(*) from restoration_constraints where work_package_id=$P2 and source_ref='awp-field-ready:declared:access:$W3'")" = "1"
-test "$(psqlc "select count(*) from restoration_constraints where work_package_id=$P2 and source_ref='awp-field-ready:declared:access:$W6'")" = "0"
-# …AND THE READ AGREES WITH THAT DECISION, on both jobs. Without the fallback
-# the assessor's skip rule mirrors, S7B-W6's access element rendered with
-# nothing against it and read as though nobody had addressed access at all — a
-# screen strictly weaker than the store it is reporting. And S7B-W3's element
-# must NOT borrow the package-wide row, which is about a different work face.
+test "$(jqp "$R" "x['declaredQuestionsRaised']")" = "0"
+test "$(psqlc "select count(*) from restoration_constraints where work_package_id=$P2 and source_ref='awp-field-ready:derived:access:$W3'")" = "1"
+test "$(psqlc "select count(*) from restoration_constraints where work_package_id=$P2 and source_ref='awp-field-ready:derived:access:$W6'")" = "1"
+
+FIELD_EVIDENCE=$(psqlc "with ins as (
+  insert into evidence_items(organization_id,source_system,evidence_type,description,evidence_class,
+    verification_status,verified_by,verified_at,verification_method)
+  values('$ORG','Slice 7B smoke','inspection','Verified access and sequencing evidence for Slice 7B field work.','INSPECTED',
+    'verified','$PLANNER_ID',now(),'Named planner field walk with independently verified evidence')
+  returning id) select id from ins")
+test -n "$FIELD_EVIDENCE"
+psqlc "insert into work_face_access_evidence(organization_id,work_order_id,access_state,valid_from,valid_until,evidence_item_id,basis,recorded_by)
+  values('$ORG','$W6','clear',now()-interval '1 hour',now()+interval '2 days','$FIELD_EVIDENCE',
+    'The inspected lay-down bay and access route are clear for the recorded work window.','$PLANNER_ID');" >/dev/null
+R=$(rpc "$PLANNER" assess_package_field_readiness "{\"p_package_id\":$P2}")
+noerr "$R"
+test "$(psqlc "select count(*) from restoration_constraints where work_package_id=$P2 and source_ref='awp-field-ready:derived:access:$W3'")" = "1"
+test "$(psqlc "select count(*) from restoration_constraints where work_package_id=$P2 and source_ref='awp-field-ready:derived:access:$W6'")" = "0"
+# The read agrees: W6 is ready from canonical evidence; W3 remains unknown.
 R=$(rpc "$PLANNER" get_package_field_readiness "{\"p_package_id\":$P2}")
 noerr "$R"
-test "$(jqp "$R" "[e['constraint']['sourceKind'] for i in x['items'] if i['workOrderId']=='$W6' for e in i['elements'] if e['key']=='access'][0]")" = "manual"
-expect_text "$(jqp "$R" "[e['constraint']['basis'] for i in x['items'] if i['workOrderId']=='$W6' for e in i['elements'] if e['key']=='access'][0]")" "against the hoarding plan"
+test "$(jqp "$R" "[e['state'] for i in x['items'] if i['workOrderId']=='$W6' for e in i['elements'] if e['key']=='access'][0]")" = "ready"
+test "$(jqp "$R" "[e['constraint'] for i in x['items'] if i['workOrderId']=='$W6' for e in i['elements'] if e['key']=='access'][0]")" = "None"
 test "$(jqp "$R" "[e['constraint']['sourceKind'] for i in x['items'] if i['workOrderId']=='$W3' for e in i['elements'] if e['key']=='access'][0]")" = "derived"
-expect_text "$(jqp "$R" "[e['constraint']['basis'] for i in x['items'] if i['workOrderId']=='$W3' for e in i['elements'] if e['key']=='access'][0]")" "No canonical store records physical access"
+expect_text "$(jqp "$R" "[e['constraint']['basis'] for i in x['items'] if i['workOrderId']=='$W3' for e in i['elements'] if e['key']=='access'][0]")" "No current evidence-backed"
 # A DERIVED element is NOT given the same fallback: a person's constraint about
 # some other material is not evidence about this element's store position.
 test "$(jqp "$R" "[e['constraint'] for i in x['items'] if i['workOrderId']=='$W3' for e in i['elements'] if e['key']=='materials'][0]")" = "None"
@@ -764,10 +776,10 @@ test "$(jqp "$R" "x['answered']")" = "True"
 test "$(jqp "$R" "len(x['items'])")" = "2"
 test "$(jqp "$R" "set(len(i['elements']) for i in x['items'])")" = "{10}"
 test "$(jqp "$R" "x['assessed']")" = "True"
-# The element a person answered carries THAT person's verdict, against the
-# element it answers rather than against a count.
-test "$(jqp "$R" "[e['constraint']['state'] for i in x['items'] if i['workOrderId']=='$W1' for e in i['elements'] if e['key']=='crew'][0]")" = "satisfied"
-test "$(jqp "$R" "[e['constraint']['verifiedAt'] is not None for i in x['items'] if i['workOrderId']=='$W1' for e in i['elements'] if e['key']=='crew'][0]")" = "True"
+# Missing crew evidence carries the exact derived UNKNOWN constraint beside
+# the element; no person is falsely named as having verified it.
+test "$(jqp "$R" "[e['constraint']['state'] for i in x['items'] if i['workOrderId']=='$W1' for e in i['elements'] if e['key']=='crew'][0]")" = "unknown"
+test "$(jqp "$R" "[e['constraint']['verifiedAt'] is None for i in x['items'] if i['workOrderId']=='$W1' for e in i['elements'] if e['key']=='crew'][0]")" = "True"
 # An element the stores answered has NO constraint at all — nothing to
 # discharge, so nothing was recorded and nobody was named as having verified it.
 test "$(jqp "$R" "[e['constraint'] for i in x['items'] if i['workOrderId']=='$W2' for e in i['elements'] if e['key']=='materials'][0]")" = "None"
@@ -875,21 +887,48 @@ noerr "$R"
 R=$(rpc "$OPS" release_equipment "{\"p_asset_id\":\"$ASSET\",\"p_work_order_id\":null,\"p_isolation_confirmed\":true,\"p_isolation_note\":\"S7B asset isolated for the whole drive-train package, LOTO applied at MCC-3\"}")
 noerr "$R"
 
+S7B_COMPETENCY=$(psqlc "with existing as (
+  select id from competencies where organization_id='$ORG' and competency_key='S7B-FIELD'
+), ins as (
+  insert into competencies(organization_id,competency_key,title,kind,is_statutory)
+  select '$ORG','S7B-FIELD','Slice 7B field execution qualification','certification',true
+   where not exists(select 1 from existing)
+  returning id)
+select id from existing union all select id from ins limit 1")
+S7B_MEMBERS=$(psqlc "with ins as (
+  insert into workforce_members(organization_id,employee_ref,display_name,craft)
+  values('$ORG','S7B-1-'||gen_random_uuid()::text,'Slice 7B field crew 1','S7B-multicraft'),
+        ('$ORG','S7B-2-'||gen_random_uuid()::text,'Slice 7B field crew 2','S7B-multicraft'),
+        ('$ORG','S7B-3-'||gen_random_uuid()::text,'Slice 7B field crew 3','S7B-multicraft')
+  returning id)
+select string_agg(id::text,' ' order by id) from ins")
+read -r S7B_M1 S7B_M2 S7B_M3 <<<"$S7B_MEMBERS"
+test -n "$S7B_COMPETENCY"; test -n "$S7B_M1"; test -n "$S7B_M2"; test -n "$S7B_M3"
+psqlc "insert into member_competencies(organization_id,member_id,competency_id,granted_on,expires_on,verified_by,evidence_reference)
+  select '$ORG',m,$S7B_COMPETENCY,current_date-30,current_date+30,'$PLANNER_ID','Verified Slice 7B field qualification'
+    from unnest(array[$S7B_M1,$S7B_M2,$S7B_M3]::bigint[]) m;
+insert into competency_requirements(organization_id,competency_id,craft,min_holders,basis,recorded_by)
+  values('$ORG',$S7B_COMPETENCY,'S7B-multicraft',3,
+    'The drive-train work requires three currently qualified people through the complete work window.','$PLANNER_ID');
+insert into shift_assignments(organization_id,member_id,starts_at,ends_at,shift_kind,assigned_by)
+  select '$ORG',m,now()-interval '2 hours',now()+interval '2 days','day','$PLANNER_ID'
+    from unnest(array[$S7B_M1,$S7B_M2,$S7B_M3]::bigint[]) m;
+insert into work_order_crew_assignments(organization_id,work_order_id,member_id,starts_at,ends_at,assignment_basis,assigned_by)
+  select '$ORG',w,m,now()-interval '1 hour',now()+interval '1 day',
+    'Assigned against the adopted drive-train plan and verified roster for the complete work window.','$PLANNER_ID'
+    from unnest(array['$W1'::uuid,'$W2'::uuid]) w
+    cross join unnest(array[$S7B_M1,$S7B_M2,$S7B_M3]::bigint[]) m;
+insert into work_face_access_evidence(organization_id,work_order_id,access_state,valid_from,valid_until,evidence_item_id,basis,recorded_by)
+  values('$ORG','$W1','clear',now()-interval '1 hour',now()+interval '1 day','$FIELD_EVIDENCE','The inspected guarding work face is clear for the assigned crew window.','$PLANNER_ID'),
+        ('$ORG','$W2','clear',now()-interval '1 hour',now()+interval '1 day','$FIELD_EVIDENCE','The inspected drive work face is clear for the assigned crew window.','$PLANNER_ID');
+insert into work_order_predecessor_evidence(organization_id,successor_work_order_id,dependency_kind,evidence_item_id,basis,recorded_by)
+  values('$ORG','$W1','explicit_none','$FIELD_EVIDENCE','The planner reviewed the guarding sequence and confirmed no predecessor.','$PLANNER_ID'),
+        ('$ORG','$W2','explicit_none','$FIELD_EVIDENCE','The planner reviewed the drive sequence and confirmed no predecessor.','$PLANNER_ID');" >/dev/null
+
 R=$(rpc "$PLANNER" assess_package_field_readiness "{\"p_package_id\":$P1}")
 noerr "$R"
 # Every DERIVED blocker is gone, and not one of them was cleared by hand.
 test "$(jqp "$R" "x['derivedBlockersRecorded']")" = "0"
-test "$(psqlc "select count(*) from restoration_constraints where work_package_id=$P1 and source_ref like 'awp-field-ready:derived:%' and source_ref not like '%:declared:%'")" = "0"
-# What remains is exactly the DECLARED half: the questions no store can answer.
-test "$(psqlc "select count(*) from restoration_constraints where work_package_id=$P1 and is_hard and state in ('unknown','blocked')")" = "5"
-
-# And those are discharged one at a time by a named person, with a basis.
-psqlc "select id from restoration_constraints where work_package_id=$P1 and is_hard and state in ('unknown','blocked') order by id" \
-  | while IFS='|' read -r CX; do
-      test -n "$CX"
-      OUT=$(rpc "$PLANNER" clear_package_constraint "{\"p_constraint_id\":\"$CX\",\"p_state\":\"satisfied\",\"p_basis\":\"Walked with the area supervisor and recorded against the roster, the route and the sequence\"}")
-      noerr "$OUT"
-    done
 test "$(psqlc "select count(*) from restoration_constraints where work_package_id=$P1 and is_hard and state in ('unknown','blocked')")" = "0"
 
 R=$(rpc "$PLANNER" get_package_field_readiness "{\"p_package_id\":$P1}")
@@ -934,19 +973,23 @@ R=$(rpc "$PLANNER" record_work_package "{\"p_case_id\":\"$CASE\",\"p_package\":{
 noerr "$R"; P4=$(printf '%s' "$R" | field work_package_id); test -n "$P4"
 R=$(rpc "$PLANNER" assign_work_to_package "{\"p_package_id\":$P4,\"p_work_order_id\":\"$W3\",\"p_basis\":\"The drive change is the field work this package releases\"}")
 noerr "$R"
+psqlc "insert into work_order_crew_assignments(organization_id,work_order_id,member_id,starts_at,ends_at,assignment_basis,assigned_by)
+  select '$ORG','$W3',m,now()-interval '1 hour',now()+interval '1 day',
+    'Assigned against the adopted field-work plan and verified roster.','$PLANNER_ID'
+    from unnest(array[$S7B_M1,$S7B_M2,$S7B_M3]::bigint[]) m;
+insert into work_face_access_evidence(organization_id,work_order_id,access_state,valid_from,valid_until,evidence_item_id,basis,recorded_by)
+  values('$ORG','$W3','clear',now()-interval '1 hour',now()+interval '1 day','$FIELD_EVIDENCE',
+    'The inspected drive-change work face is clear for the assigned crew window.','$PLANNER_ID');
+insert into work_order_predecessor_evidence(organization_id,successor_work_order_id,dependency_kind,evidence_item_id,basis,recorded_by)
+  values('$ORG','$W3','explicit_none','$FIELD_EVIDENCE',
+    'The planner reviewed the drive-change sequence and confirmed no predecessor.','$PLANNER_ID');" >/dev/null
 R=$(rpc "$PLANNER" assess_package_field_readiness "{\"p_package_id\":$P4}")
 noerr "$R"
-# Every store answers for S7B-W3 by now, so nothing derived is recorded and the
-# only open items are the three no store can answer.
+# Every canonical store answers for S7B-W3, so no blocker or question is
+# recorded and zero constraints is a valid computed assessment.
 test "$(jqp "$R" "x['derivedBlockersRecorded']")" = "0"
 test "$(jqp "$R" "x['derivedQuestionsRaised']")" = "0"
-test "$(jqp "$R" "x['declaredQuestionsRaised']")" = "3"
-psqlc "select id from restoration_constraints where work_package_id=$P4 and is_hard and state in ('unknown','blocked') order by id" \
-  | while IFS='|' read -r CX; do
-      test -n "$CX"
-      OUT=$(rpc "$PLANNER" clear_package_constraint "{\"p_constraint_id\":\"$CX\",\"p_state\":\"satisfied\",\"p_basis\":\"Walked with the area supervisor and recorded against the roster, the route and the sequence\"}")
-      noerr "$OUT"
-    done
+test "$(jqp "$R" "x['declaredQuestionsRaised']")" = "0"
 
 # The three surfaces, before anything moves.
 verdict_of(){ # $1 package id  $2 package code -> "verdict|read sentence|board sentence"
@@ -1020,7 +1063,7 @@ test "$V1" = "stale"; test "$V2" = "stale"; test "$RS1" = "$BS1"
 expect_text "$RS1" "S7B-W4"
 # The gaps are ITEMIZED, not counted: which element, on which job, and why.
 GAPS=$(psqlc "select sync_work_package_release_verdict($P4)->'fieldReadinessGaps'")
-test "$(jqp "$GAPS" "sorted(set(g['reason'] for g in x))")" = "['blocked_and_unheld', 'never_asked', 'unanswerable_and_unheld']"
+test "$(jqp "$GAPS" "sorted(set(g['reason'] for g in x))")" = "['blocked_and_unheld', 'unanswerable_and_unheld']"
 test "$(jqp "$GAPS" "sorted(set(g['woNumber'] for g in x))")" = "['S7B-W4']"
 # Assessing it is what discharges the staleness — and it lands on NOT READY,
 # because the new job really is not ready.

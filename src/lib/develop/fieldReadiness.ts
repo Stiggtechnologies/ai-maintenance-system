@@ -45,12 +45,9 @@
 /**
  * The ten §27 field-ready elements, in the order the predicate reports them.
  *
- * SEVEN are DERIVED — a canonical store answers the question. THREE are
- * DECLARED — nothing in this repository answers them, so the predicate
- * reports `unverifiable` and a named person discharges each as a §28
- * constraint. The register row D7.12 says "7 of 10 have canonical objects";
- * this list is that claim, in a form the migration test checks against the
- * database rather than a sentence nobody can verify.
+ * All TEN are DERIVED from canonical stores. Missing, expired or insufficient
+ * evidence remains `blocked` or `unverifiable`; it never defaults to ready and
+ * a derived constraint cannot be hand-cleared around its source evidence.
  */
 export const FIELD_READY_ELEMENTS = [
   {
@@ -95,27 +92,24 @@ export const FIELD_READY_ELEMENTS = [
     basisKind: "derived",
     source: "job_plan_checks",
   },
-  // THE THREE WITH NO CANONICAL OBJECT — named, not invented. `source: "none"`
-  // is the entire point: crew assignment, access to a work face and
-  // work-order-level predecessors have no store in this repository, so the
-  // predicate says so instead of defaulting them to ready.
   {
     key: "crew",
     label: "Crew assigned and competent",
-    basisKind: "declared",
-    source: "none",
+    basisKind: "derived",
+    source:
+      "work_order_crew_assignments + member_competencies + shift_assignments",
   },
   {
     key: "access",
     label: "Access to the work face",
-    basisKind: "declared",
-    source: "none",
+    basisKind: "derived",
+    source: "work_face_access_evidence",
   },
   {
     key: "predecessor",
     label: "Predecessors complete",
-    basisKind: "declared",
-    source: "none",
+    basisKind: "derived",
+    source: "work_order_predecessor_evidence + work_orders",
   },
 ] as const;
 
@@ -186,8 +180,8 @@ export function fieldReadyElement(key: string): FieldReadyElement | null {
 /**
  * How many of the ten a canonical store can answer, DERIVED FROM the
  * vocabulary rather than typed as a number beside it. D7.12's row claims
- * "7 of 10"; if an eleventh element or a new store ever lands, this moves with
- * it instead of leaving a stale number in a comment.
+ * "10 of 10"; if an eleventh element ever lands, this moves with it instead
+ * of leaving a stale number in a comment.
  */
 export function fieldReadyCoverage(): {
   total: number;

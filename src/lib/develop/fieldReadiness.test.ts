@@ -12,7 +12,7 @@ import {
 } from "./fieldReadiness";
 import { SPEC28_TO_CANONICAL_KIND } from "./workPackaging";
 
-describe("the ten elements are ten, and seven of them have a store", () => {
+describe("the ten elements are ten, and all have canonical evidence stores", () => {
   it("names exactly ten elements, with unique keys", () => {
     expect(FIELD_READY_ELEMENTS).toHaveLength(10);
     const keys = FIELD_READY_ELEMENTS.map((e) => e.key);
@@ -20,34 +20,25 @@ describe("the ten elements are ten, and seven of them have a store", () => {
   });
 
   it("counts its own coverage instead of asserting a number beside it", () => {
-    // D7.12's row claims "7 of 10 have canonical objects". That claim is
+    // D7.12's row claims "10 of 10 have canonical objects". That claim is
     // DERIVED here, so an eleventh element or a new store moves it rather than
     // leaving a stale sentence in the register.
     expect(fieldReadyCoverage()).toEqual({
       total: 10,
-      derived: 7,
-      declared: 3,
+      derived: 10,
+      declared: 0,
     });
   });
 
-  it("gives every derived element a named store and every declared one none", () => {
+  it("gives every element a named canonical source", () => {
     for (const element of FIELD_READY_ELEMENTS) {
-      if (element.basisKind === "derived") {
-        expect(element.source, element.key).not.toBe("none");
-        expect(element.source.length, element.key).toBeGreaterThan(3);
-      } else {
-        // The point of the three: nothing answers them, and the vocabulary
-        // says so rather than pointing at a table that does not hold it.
-        expect(element.source, element.key).toBe("none");
-      }
+      expect(element.basisKind, element.key).toBe("derived");
+      expect(element.source.length, element.key).toBeGreaterThan(3);
     }
   });
 
-  it("names the three that cannot be verified, exactly", () => {
-    const declared = FIELD_READY_ELEMENTS.filter(
-      (e) => e.basisKind === "declared",
-    ).map((e) => e.key);
-    expect(declared).toEqual(["crew", "access", "predecessor"]);
+  it("has no declared element left outside a canonical store", () => {
+    expect(fieldReadyCoverage().declared).toBe(0);
   });
 
   it("maps every element onto a canonical constraint kind, and adds none", () => {
