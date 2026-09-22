@@ -883,19 +883,15 @@ expect_text "$(jqp "$R" "json.dumps(x['refusals'])")" "the ONE release verdict h
 R=$(rpc "$PLANNER" clear_package_constraint "{\"p_constraint_id\":\"$C3\",\"p_state\":\"satisfied\",\"p_basis\":\"Operations handed the lay-down area over and the access constraint is closed\"}")
 noerr "$R"
 # Clearing the manually recorded access constraint is still not a field walk.
-# Assess E3 now that isolation is confirmed, then have the named human clear
-# only the three declared questions the assessor raises.
+# Assess E3 now that isolation is confirmed and D7.12 evidence is already
+# recorded for W4 — missing crew/access/predecessor evidence is never
+# hand-cleared.
 R=$(rpc "$PLANNER" assess_package_field_readiness "{\"p_package_id\":$E3}")
 expect_answered "$R"
 test -n "$(printf '%s' "$R" | field calculationRunId)"
 test "$(jqp "$R" "x['derivedBlockersRecorded']")" = "0"
-for CID in $(psqlc "select id from restoration_constraints
-                     where work_package_id=$E3 and state='unknown'
-                       and source_ref like 'awp-field-ready:declared:%'
-                     order by id"); do
-  R=$(rpc "$PLANNER" clear_package_constraint "{\"p_constraint_id\":\"$CID\",\"p_state\":\"satisfied\",\"p_basis\":\"Walked with the area supervisor and checked the assigned crew, work-face access and job sequence\"}")
-  noerr "$R"
-done
+test "$(jqp "$R" "x['derivedQuestionsRaised']")" = "0"
+test "$(jqp "$R" "x['declaredQuestionsRaised']")" = "0"
 R=$(rpc "$PLANNER" get_workface_execution_metrics "{\"p_case_id\":\"$CASE\",\"p_window_start\":\"$TODAY\",\"p_window_end\":\"$D60\"}")
 expect_answered "$R"
 test "$(jqp "$R" "x['readyWorkOrders']")" = "1"
