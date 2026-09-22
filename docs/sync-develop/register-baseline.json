@@ -1272,10 +1272,10 @@
     "backticked": 25
   },
   "D12.13": {
-    "status": "🟡",
+    "status": "✅",
     "evidence": true,
-    "citations": 27,
-    "backticked": 24
+    "citations": 41,
+    "backticked": 39
   },
   "D12.14": {
     "status": "✅",
