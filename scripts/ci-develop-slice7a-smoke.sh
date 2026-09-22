@@ -236,6 +236,7 @@ psqlc "delete from development_cases where organization_id='$ORG' and title like
 psqlc "delete from development_cases where organization_id='$ORG2' and title like 'S7A %';" >/dev/null
 psqlc "delete from work_orders where organization_id='$ORG' and wo_number like 'S7A-%';" >/dev/null
 psqlc "delete from work_orders where organization_id='$ORG2' and wo_number like 'S7A-%';" >/dev/null
+psqlc "delete from job_plans where organization_id='$ORG' and plan_key like 'S7A-%';" >/dev/null
 psqlc "delete from work_packages where organization_id='$ORG' and package_code like 'S7A-%';" >/dev/null
 test "$(psqlc "select count(*) from work_packages where organization_id='$ORG' and package_code like 'S7A-%'")" = "0"
 test "$(psqlc "select count(*) from work_orders where organization_id='$ORG' and wo_number like 'S7A-%'")" = "0"
@@ -630,6 +631,23 @@ noerr "$R"
 R=$(rpc "$PLANNER" assign_work_to_package "{\"p_package_id\":$P1,\"p_work_order_id\":\"$W4\",\"p_basis\":\"The same work order appears one level down: that is the AWP thread, not a duplicate\"}")
 noerr "$R"
 
+# D7.06 now requires a COMPUTED field-readiness walk before a package can be
+# released. Give this work order the smallest truthful canonical plan: adopted
+# scope plus one procedure step. Zero material, special-tool, permit and
+# acceptance-check rows are explicit NOT APPLICABLE findings from their owning
+# stores, never invented clearances. The three elements that still require
+# human evidence are raised by the assessor and cleared below by the planner.
+JP7A=$(psqlc "with ins as (
+  insert into job_plans (organization_id, plan_key, title, scope, status, version, basis)
+  values ('$ORG','S7A-JP1','Commissioning procedure','Commission the mill drive to the issued engineering package','adopted',1,
+          'Minimal canonical plan used by the Slice 7A release transcript')
+  returning id) select id from ins")
+test -n "$JP7A"
+psqlc "insert into job_plan_steps
+        (organization_id, job_plan_id, step_number, description, craft, crew_size, estimated_hours)
+       values ('$ORG','$JP7A',1,'Execute the issued commissioning procedure','millwright',1,1);
+       update work_orders set job_plan_id='$JP7A' where id='$W4';" >/dev/null
+
 # OPEN HARD CONSTRAINTS refuse, and are NAMED rather than counted.
 R=$(rpc "$MANAGER" release_work_package "{\"p_package_id\":$E1,\"p_note\":\"Releasing engineering with its predecessor constraint still unknown\"}")
 expect_err "$R" "NOT READY"
@@ -641,6 +659,20 @@ for PKG_ID in $E1 $P1 $C1; do
   R=$(rpc "$PLANNER" clear_package_constraint "{\"p_constraint_id\":\"$CID\",\"p_state\":\"satisfied\",\"p_basis\":\"The chain above this package is complete and signed off on the register\"}")
   noerr "$R"
 done
+
+# The assessment is evidence gathering and may create only OPEN constraints;
+# a named person remains responsible for satisfying the three declared facts.
+R=$(rpc "$PLANNER" assess_package_field_readiness "{\"p_package_id\":$E1}")
+noerr "$R"
+test -n "$(printf '%s' "$R" | field calculationRunId)"
+for CID in $(psqlc "select id from restoration_constraints
+                     where work_package_id=$E1 and state='unknown'
+                       and source_ref like 'awp-field-ready:declared:%'
+                     order by id"); do
+  R=$(rpc "$PLANNER" clear_package_constraint "{\"p_constraint_id\":\"$CID\",\"p_state\":\"satisfied\",\"p_basis\":\"Walked with the area supervisor and recorded against the crew roster, work-face route and job sequence\"}")
+  noerr "$R"
+done
+test "$(psqlc "select count(*) from restoration_constraints where work_package_id=$E1 and state='unknown'")" = "0"
 
 # THE AI IDENTITY CANNOT RELEASE, at the door and past it.
 R=$(rpc "$AIBOT" release_work_package "{\"p_package_id\":$E1,\"p_note\":\"An AI operator declaring that this work is safe for a crew to start\"}")
@@ -888,6 +920,20 @@ expect_text "$OUT" "which is at the same AWP level"
 
 R=$(rpc "$PLANNER" assign_work_to_package "{\"p_package_id\":$E2X,\"p_work_order_id\":\"$W6\",\"p_basis\":\"Setting out the foundation is the work the neighbouring engineering package releases\"}")
 noerr "$R"
+
+# The same one-time assessment obligation applies to the parity fixture. Reuse
+# the canonical plan, assess through the public door, then have the named human
+# clear only the declared crew/access/predecessor questions it raised.
+psqlc "update work_orders set job_plan_id='$JP7A' where id='$W6';" >/dev/null
+R=$(rpc "$PLANNER" assess_package_field_readiness "{\"p_package_id\":$E2X}")
+noerr "$R"
+test -n "$(printf '%s' "$R" | field calculationRunId)"
+for CID in $(psqlc "select id from restoration_constraints
+                     where work_package_id=$E2X and state='unknown'
+                     order by id"); do
+  R=$(rpc "$PLANNER" clear_package_constraint "{\"p_constraint_id\":\"$CID\",\"p_state\":\"satisfied\",\"p_basis\":\"Walked with the area supervisor and recorded against the crew roster, work-face route and job sequence\"}")
+  noerr "$R"
+done
 
 # READY FOR A PERSON — and the screen says so in the same words, with
 # canRelease TRUE rather than a sentence the door would contradict.
