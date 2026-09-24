@@ -10,11 +10,13 @@ import {
 import type {
   DecisionApproval,
   DecisionCase,
+  DecisionCaseStage,
   DecisionEvidence,
 } from "../decision-case";
 import type { InvertedIntentId } from "./inverted-opening";
 
-const BANNED_SEED = /Fort McMurray|North Ridge Energy|P-101|dc-1048|Copper Ridge/i;
+const BANNED_SEED =
+  /Fort McMurray|North Ridge Energy|P-101|dc-1048|Copper Ridge/i;
 
 export const SPINE_STAGES = [
   "QUESTION",
@@ -27,11 +29,7 @@ export const SPINE_STAGES = [
 ] as const;
 
 export type EvidenceKind =
-  | "work_history"
-  | "condition"
-  | "documents"
-  | "inspection"
-  | "schedule_cost";
+  "work_history" | "condition" | "documents" | "inspection" | "schedule_cost";
 
 export const EVIDENCE_KINDS: ReadonlyArray<{
   id: EvidenceKind;
@@ -66,11 +64,7 @@ export const EVIDENCE_KINDS: ReadonlyArray<{
 ];
 
 export type EvidenceMethod =
-  | "upload_file"
-  | "paste_data"
-  | "connect_source"
-  | "manual"
-  | "ask_admin";
+  "upload_file" | "paste_data" | "connect_source" | "manual" | "ask_admin";
 
 export const EVIDENCE_METHODS: ReadonlyArray<{
   id: EvidenceMethod;
@@ -91,11 +85,7 @@ export const CONNECTION_FAILURE_FALLBACKS: readonly EvidenceMethod[] = [
 ];
 
 export type SpineDisposition =
-  | "accept"
-  | "reject"
-  | "need_more_evidence"
-  | "park"
-  | "escalate";
+  "accept" | "reject" | "need_more_evidence" | "park" | "escalate";
 
 export const SPINE_DISPOSITIONS: ReadonlyArray<{
   id: SpineDisposition;
@@ -130,10 +120,7 @@ export const SPINE_DISPOSITIONS: ReadonlyArray<{
 ];
 
 export type VerificationEffectiveness =
-  | "effective"
-  | "partially_effective"
-  | "ineffective"
-  | "inconclusive";
+  "effective" | "partially_effective" | "ineffective" | "inconclusive";
 
 export const VERIFICATION_EFFECTIVENESS: ReadonlyArray<{
   id: VerificationEffectiveness;
@@ -278,7 +265,9 @@ export function buildSpineDecisionCase(input: {
     throw new Error("A Decision Case needs a real question.");
   }
   if (BANNED_SEED.test(question)) {
-    throw new Error("Seed plant names are not accepted as a first-run subject.");
+    throw new Error(
+      "Seed plant names are not accepted as a first-run subject.",
+    );
   }
   const empty = createHonestEmptyDecisionCase("Reliability Engineer");
   if (isSeedDecisionCaseId(empty.id)) {
@@ -403,6 +392,7 @@ export function attachSpineEvidence(
     evidence,
     evidenceScore: confidence,
     updatedAt: now,
+    stage: decisionCase.stage === "evidence" ? "analysis" : decisionCase.stage,
     recommendation:
       "Preliminary recommendation can be reviewed against the attached evidence. It is still not authorization.",
     recommendationDetail:
@@ -478,9 +468,12 @@ export function applyPeople(
     comments: [
       ...decisionCase.comments.filter(
         (item) =>
-          !["Decision Owner", "Recommendation Author", "Required Approver", "Verification Owner"].includes(
-            item.author,
-          ),
+          ![
+            "Decision Owner",
+            "Recommendation Author",
+            "Required Approver",
+            "Verification Owner",
+          ].includes(item.author),
       ),
       ...rows
         .filter(([, value]) => value.trim())
@@ -754,4 +747,100 @@ export function readinessFromCase(
         ? "Stage-1 loop maturity: the first Decision Case loop is complete on this workspace."
         : `Stage-1 loop maturity: ${metCount} of ${gates.length} gates earned — not onboarding-screen ticks.`,
   };
+}
+
+/** Id of the last Decision Case this browser saved. Not case content. */
+export const SPINE_SAVED_CASE_KEY = "syncai.spine-case-id.v1";
+
+export function spineStageIndex(stage: DecisionCaseStage): number {
+  switch (stage) {
+    case "intent":
+    case "asset_truth":
+      return 0;
+    case "evidence":
+      return 1;
+    case "analysis":
+      return 2;
+    case "authority":
+      return 3;
+    case "execution":
+      return 4;
+    case "outcomes":
+      return 5;
+    case "learning":
+      return 6;
+    default:
+      return 0;
+  }
+}
+
+export function describeUploadedFile(input: {
+  name: string;
+  type: string;
+  size: number;
+  text: string | null;
+}): string {
+  const name = input.name.trim() || "unnamed file";
+  const kind = input.type || "unknown type";
+  if (input.text && input.text.trim()) {
+    return `File ${name} (${kind}, ${input.size} bytes):\n${input.text.trim().slice(0, 4000)}`;
+  }
+  return `File ${name} attached (${kind}, ${input.size} bytes). Text was not extracted. Paste an excerpt if it should be in the case. No readings were invented from the file.`;
+}
+
+export type ConnectionAttempt =
+  | { ok: false; reason: string }
+  | { ok: true; sourceName: string; note: string };
+
+const USABLE_INTEGRATION = /^(healthy|connected|active|degraded)$/i;
+
+/** Interprets existing integration rows. Does not invent a connector or readings. */
+export function interpretConnectionAttempt(
+  rows: Array<{ name: string; status: string }> | null,
+  errorMessage?: string,
+): ConnectionAttempt {
+  if (errorMessage) {
+    return {
+      ok: false,
+      reason: `Could not read integration status (${errorMessage}). The case stays open.`,
+    };
+  }
+  if (!rows || rows.length === 0) {
+    return {
+      ok: false,
+      reason: "No source is connected in this workspace.",
+    };
+  }
+  const usable = rows.find((row) => USABLE_INTEGRATION.test(row.status));
+  if (!usable) {
+    return {
+      ok: false,
+      reason: `Sources are listed (${rows.map((row) => row.name).join(", ")}) but none are usable.`,
+    };
+  }
+  return {
+    ok: true,
+    sourceName: usable.name,
+    note: `${usable.name} is listed as ${usable.status}. This path does not pull tags or invent readings. Upload a CSV export or paste from that source.`,
+  };
+}
+
+export function unknownsFromCase(decisionCase: DecisionCase): string[] {
+  const missing = decisionCase.evidence
+    .filter((item) => item.quality === "missing" || item.quality === "conflict")
+    .map((item) => `${item.title} is not attached.`);
+  const rows = [
+    ...missing,
+    "Criticality, duty, and consequence are not stated unless you add them.",
+    "No approval-policy record is loaded. Required authority is inferred from the question, not from a signed matrix.",
+  ];
+  const supplied = decisionCase.evidence.some(
+    (item) => item.quality === "high" || item.quality === "medium",
+  );
+  if (!supplied) {
+    rows.unshift(
+      "No connected operating data. An asset-specific recommendation is not justified.",
+    );
+  }
+  return rows;
 }

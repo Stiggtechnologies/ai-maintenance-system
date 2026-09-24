@@ -11,11 +11,15 @@ import {
   attachSpineEvidence,
   buildSpineDecisionCase,
   computeConfidencePct,
+  describeUploadedFile,
+  interpretConnectionAttempt,
   inviteCopy,
   lineageFromCase,
   noConnectedDataHonesty,
   policyAdvisory,
   readinessFromCase,
+  spineStageIndex,
+  unknownsFromCase,
 } from "./decision-case-spine";
 
 const people = {
@@ -110,7 +114,9 @@ describe("P0.2 Decision Case spine", () => {
       people,
     );
     expect(accepted.workPackage.status).toBe("locked");
-    expect(accepted.workPackage.targetSystem).toMatch(/plant execute disabled/i);
+    expect(accepted.workPackage.targetSystem).toMatch(
+      /plant execute disabled/i,
+    );
   });
 
   it("requires rationale, schedules verification, and invites required authority", () => {
@@ -188,5 +194,57 @@ describe("P0.2 Decision Case spine", () => {
     });
     expect(ready.metCount).toBe(ready.total);
     expect(lineageFromCase(built).honesty).toBe(noConnectedDataHonesty());
+  });
+
+  it("advances the visible stage when evidence is attached and names unknowns", () => {
+    const built = buildSpineDecisionCase({
+      question: "Why does this gearbox keep failing after repair work?",
+      intent: "solve",
+    });
+    expect(spineStageIndex(built.stage)).toBe(1);
+    const next = attachSpineEvidence(
+      built,
+      "condition",
+      "paste_data",
+      "No vibration route is attached. Manual note only.",
+    );
+    expect(spineStageIndex(next.stage)).toBe(2);
+    expect(unknownsFromCase(built).join(" ")).toMatch(
+      /No connected operating data/,
+    );
+    expect(unknownsFromCase(built).join(" ")).toMatch(
+      /Work history is not attached/,
+    );
+  });
+
+  it("describes an upload without inventing readings and reports a failed connection", () => {
+    expect(
+      describeUploadedFile({
+        name: "export.csv",
+        type: "text/csv",
+        size: 12,
+        text: "tag,value\n",
+      }),
+    ).toMatch(/export\.csv/);
+    expect(
+      describeUploadedFile({
+        name: "scan.pdf",
+        type: "application/pdf",
+        size: 40,
+        text: null,
+      }),
+    ).toMatch(/No readings were invented/);
+    expect(interpretConnectionAttempt([], undefined).ok).toBe(false);
+    expect(interpretConnectionAttempt(null, "permission denied").ok).toBe(
+      false,
+    );
+    const listed = interpretConnectionAttempt(
+      [{ name: "Site historian", status: "healthy" }],
+      undefined,
+    );
+    expect(listed.ok).toBe(true);
+    if (listed.ok) {
+      expect(listed.note).toMatch(/does not pull tags/);
+    }
   });
 });
