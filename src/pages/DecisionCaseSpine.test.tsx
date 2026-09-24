@@ -123,6 +123,14 @@ describe("P0.2 Decision Case spine on /get-started", () => {
       target: { value: "Accept structure only until vibration exists." },
     });
     fireEvent.click(screen.getByTestId("spine-record-disposition"));
+    expect(screen.getByRole("alert").textContent).toMatch(
+      /what would change this recommendation/i,
+    );
+    fireEvent.change(screen.getByTestId("spine-counterfactual"), {
+      target: { value: "A vibration route that contradicts the hold." },
+    });
+    fireEvent.click(screen.getByTestId("spine-record-disposition"));
+    expect(screen.queryByRole("alert")).toBeNull();
     expect(screen.getByTestId("spine-verification")).toBeTruthy();
     fireEvent.change(screen.getByTestId("spine-verify-expected"), {
       target: { value: "Named vibration set before next review" },
@@ -175,5 +183,94 @@ describe("P0.2 Decision Case spine on /get-started", () => {
     );
     fireEvent.click(screen.getByTestId("spine-method-upload_file"));
     expect(screen.getByTestId("spine-evidence-file")).toBeTruthy();
+  });
+
+  it("shows class, provenance, expiry, attribution, and a copyable proof summary", async () => {
+    renderOpening();
+    openSpine();
+    expect(screen.getByTestId("spine-case-class").textContent).toMatch(
+      /Review/,
+    );
+    expect(screen.getByTestId("spine-case-class-basis").textContent).toMatch(
+      /Criticality, duty, consequence/,
+    );
+    expect(screen.getByTestId("spine-unknowns").textContent).toMatch(
+      /Criticality, duty, and consequence are not stated/,
+    );
+    fireEvent.click(screen.getByTestId("spine-provenance-toggle"));
+    expect(screen.getByTestId("spine-provenance").textContent).toMatch(
+      /cannot cite a source/i,
+    );
+    fireEvent.click(screen.getByTestId("spine-kind-condition"));
+    fireEvent.change(screen.getByTestId("spine-evidence-body"), {
+      target: { value: "Manual condition note. No historian pull." },
+    });
+    fireEvent.click(screen.getByTestId("spine-add-evidence"));
+    expect(screen.getByTestId("spine-provenance").textContent).toMatch(
+      /Condition/,
+    );
+    expect(screen.getByTestId("spine-provenance").textContent).toMatch(
+      /Manual condition note/,
+    );
+    expect(screen.getByTestId("spine-case-class").textContent).toMatch(
+      /Advisory/,
+    );
+    fireEvent.change(screen.getByTestId("spine-person-verificationOwner"), {
+      target: { value: "Ada" },
+    });
+    fireEvent.click(screen.getByTestId("spine-disp-accept"));
+    fireEvent.change(screen.getByTestId("spine-rationale"), {
+      target: { value: "Hold until a route exists." },
+    });
+    fireEvent.change(screen.getByTestId("spine-counterfactual"), {
+      target: { value: "A route that contradicts the hold." },
+    });
+    fireEvent.change(screen.getByTestId("spine-decision-expiry"), {
+      target: { value: "2026-12-01" },
+    });
+    fireEvent.click(screen.getByTestId("spine-record-disposition"));
+    fireEvent.change(screen.getByTestId("spine-verify-expected"), {
+      target: { value: "Route attached or interval revisited" },
+    });
+    fireEvent.change(screen.getByTestId("spine-verify-date"), {
+      target: { value: "2026-12-01" },
+    });
+    fireEvent.change(screen.getByTestId("spine-verify-actual"), {
+      target: { value: "Still no route" },
+    });
+    fireEvent.change(screen.getByTestId("spine-verify-evidence"), {
+      target: { value: "Planner note" },
+    });
+    expect(screen.getByTestId("spine-outcome-attribution").textContent).toMatch(
+      /Verification Owner Ada/,
+    );
+    const proof = screen.getByTestId("spine-proof-body").textContent ?? "";
+    expect(proof).toMatch(/## Ask/);
+    expect(proof).toMatch(/## Evidence/);
+    expect(proof).toMatch(/## Recommendation/);
+    expect(proof).toMatch(/## Human decision/);
+    expect(proof).toMatch(/## Verification/);
+    expect(proof).toMatch(/2026-12-01/);
+    expect(proof).toMatch(/A route that contradicts the hold/);
+    expect(proof).toMatch(/Verification Owner Ada/);
+    expect(proof).not.toMatch(/Fort McMurray|P-101/);
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, { clipboard: { writeText } });
+    fireEvent.click(screen.getByTestId("spine-proof-copy"));
+    expect(writeText).toHaveBeenCalledWith(expect.stringMatching(/## Ask/));
+    expect(
+      (await screen.findByTestId("spine-proof-notice")).textContent,
+    ).toMatch(/copied/i);
+    const createObjectURL = vi
+      .spyOn(URL, "createObjectURL")
+      .mockReturnValue("blob:proof");
+    const revokeObjectURL = vi
+      .spyOn(URL, "revokeObjectURL")
+      .mockImplementation(() => undefined);
+    fireEvent.click(screen.getByTestId("spine-proof-download"));
+    expect(createObjectURL).toHaveBeenCalled();
+    expect(revokeObjectURL).toHaveBeenCalled();
+    createObjectURL.mockRestore();
+    revokeObjectURL.mockRestore();
   });
 });

@@ -1,6 +1,8 @@
 /**
- * P0.2 Decision Case spine. Rendered after the P0.1 save gate.
+ * Decision Case spine. Rendered after the ask-first save gate.
  * Persistent loop: Q → Evidence → Rec → Decision → Action → Verify → Learn.
+ * P1 adds counterfactual-before-accept, on-case provenance, optional expiry,
+ * verification-owner attribution, a case class, and a local proof summary.
  */
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
@@ -25,15 +27,26 @@ import {
   applyInvite,
   applyVerificationPlan,
   attachSpineEvidence,
+  buildProofSummary,
   buildSpineDecisionCase,
+  classifySpineCase,
+  counterfactualFromCase,
   describeUploadedFile,
+  dispositionFromCase,
+  expiryFromCase,
   interpretConnectionAttempt,
   inviteCopy,
   lineageFromCase,
+  outcomeAttribution,
+  peopleFromCase,
   policyAdvisory,
+  proofDownloadName,
+  provenanceFromCase,
+  rationaleFromCase,
   readinessFromCase,
   spineStageIndex,
   unknownsFromCase,
+  verificationFromCase,
   type CasePeople,
   type EvidenceKind,
   type EvidenceMethod,
@@ -103,11 +116,27 @@ export function DecisionCaseSpine({
     typeof interpretConnectionAttempt
   > | null>(null);
   const [connecting, setConnecting] = useState(false);
-  const [disposition, setDisposition] = useState<SpineDisposition | "">("");
-  const [rationale, setRationale] = useState("");
-  const [people, setPeople] = useState<CasePeople>(emptyPeople);
-  const [verification, setVerification] =
-    useState<VerificationPlan>(emptyVerification);
+  const [disposition, setDisposition] = useState<SpineDisposition | "">(() =>
+    initialCase ? dispositionFromCase(initialCase) : "",
+  );
+  const [rationale, setRationale] = useState(() =>
+    initialCase ? rationaleFromCase(initialCase) : "",
+  );
+  const [counterfactual, setCounterfactual] = useState(() =>
+    initialCase ? counterfactualFromCase(initialCase) : "",
+  );
+  const [expiresOn, setExpiresOn] = useState(() =>
+    initialCase ? expiryFromCase(initialCase) : "",
+  );
+  const [people, setPeople] = useState<CasePeople>(() =>
+    initialCase ? peopleFromCase(initialCase) : emptyPeople(),
+  );
+  const [verification, setVerification] = useState<VerificationPlan>(() => {
+    if (!initialCase) return emptyVerification();
+    return verificationFromCase(initialCase) ?? emptyVerification();
+  });
+  const [provenanceOpen, setProvenanceOpen] = useState(false);
+  const [proofNotice, setProofNotice] = useState<string | null>(null);
   const [inviteName, setInviteName] = useState("");
   const [inviteEmail, setInviteEmail] = useState("");
   const [invited, setInvited] = useState(false);
@@ -118,6 +147,39 @@ export function DecisionCaseSpine({
   const lineage = useMemo(
     () => lineageFromCase(decisionCase, verification),
     [decisionCase, verification],
+  );
+  const classification = useMemo(
+    () => classifySpineCase(decisionCase, disposition),
+    [decisionCase, disposition],
+  );
+  const provenance = useMemo(
+    () => provenanceFromCase(decisionCase),
+    [decisionCase],
+  );
+  const proof = useMemo(
+    () =>
+      buildProofSummary({
+        decisionCase,
+        disposition,
+        rationale,
+        counterfactual,
+        expiresOn,
+        people,
+        verification,
+      }),
+    [
+      decisionCase,
+      disposition,
+      rationale,
+      counterfactual,
+      expiresOn,
+      people,
+      verification,
+    ],
+  );
+  const attribution = outcomeAttribution(
+    verification,
+    people.verificationOwner,
   );
   const readiness = useMemo(
     () =>
@@ -199,6 +261,15 @@ export function DecisionCaseSpine({
         return;
       }
       setDecisionCase(loaded);
+      setCounterfactual(counterfactualFromCase(loaded));
+      setExpiresOn(expiryFromCase(loaded));
+      setPeople(peopleFromCase(loaded));
+      const recordedDisposition = dispositionFromCase(loaded);
+      if (recordedDisposition) setDisposition(recordedDisposition);
+      const recordedRationale = rationaleFromCase(loaded);
+      if (recordedRationale) setRationale(recordedRationale);
+      const recordedPlan = verificationFromCase(loaded);
+      if (recordedPlan) setVerification(recordedPlan);
       setSaved(true);
       setError(null);
       setSaveNotice("Audit trail reloaded from the evaluation workspace.");
@@ -216,6 +287,13 @@ export function DecisionCaseSpine({
           </p>
           <p className="mt-1 text-sm font-semibold text-white">
             {decisionCase.caseNumber} · {decisionCase.statusLabel}
+          </p>
+          <p
+            data-testid="spine-case-class"
+            data-class={classification.id}
+            className="mt-1 text-xs font-semibold text-teal-100"
+          >
+            Case class · {classification.label}
           </p>
         </div>
         <button
@@ -236,6 +314,12 @@ export function DecisionCaseSpine({
       </div>
       <p className="text-xs text-slate-400" data-testid="spine-save-notice">
         {saveNotice}
+      </p>
+      <p
+        data-testid="spine-case-class-basis"
+        className="text-[11px] leading-relaxed text-slate-400"
+      >
+        {classification.basis}
       </p>
 
       <ol
@@ -332,6 +416,39 @@ export function DecisionCaseSpine({
         >
           {policyAdvisory(decisionCase.authorityRole)}
         </p>
+        <button
+          type="button"
+          data-testid="spine-provenance-toggle"
+          className="mt-3 rounded-lg border border-white/15 px-3 py-1.5 text-xs text-slate-100"
+          onClick={() => setProvenanceOpen((open) => !open)}
+        >
+          {provenanceOpen ? "Hide provenance" : "Cite sources on this case"}
+        </button>
+        {provenanceOpen ? (
+          <div data-testid="spine-provenance" className="mt-3 space-y-2">
+            <p className="text-xs text-slate-300">{provenance.note}</p>
+            {provenance.cites.length > 0 ? (
+              <ul className="space-y-2">
+                {provenance.cites.map((cite) => (
+                  <li
+                    key={cite.id}
+                    className="rounded-xl border border-white/10 px-3 py-2"
+                  >
+                    <p className="text-xs font-semibold text-white">
+                      {cite.title}
+                    </p>
+                    <p className="mt-1 text-[11px] text-slate-400">
+                      {cite.sourceSystem} · {cite.lineage}
+                    </p>
+                    <p className="mt-1 text-xs text-slate-200">
+                      {cite.summary}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </div>
+        ) : null}
         <ul className="mt-3 list-disc space-y-1 pl-5 text-xs text-slate-400">
           {lineage.assumptions.map((item) => (
             <li key={item}>{item}</li>
@@ -612,6 +729,35 @@ export function DecisionCaseSpine({
           }
           className="mt-3 w-full rounded-xl border border-white/10 bg-[#080c10] px-3 py-2 text-sm text-white"
         />
+        <label className="mt-3 block text-xs text-slate-300">
+          What would change this recommendation?
+          <textarea
+            data-testid="spine-counterfactual"
+            value={counterfactual}
+            onChange={(event) => setCounterfactual(event.target.value)}
+            rows={2}
+            placeholder="The evidence or condition that would change this recommendation"
+            className="mt-1 w-full rounded-xl border border-white/10 bg-[#080c10] px-3 py-2 text-sm text-white"
+          />
+        </label>
+        <p className="mt-1 text-[11px] text-slate-500">
+          Required before Accept is locked. Other dispositions can be recorded
+          without it.
+        </p>
+        <label className="mt-3 block text-xs text-slate-300">
+          Decision expiry (optional)
+          <input
+            data-testid="spine-decision-expiry"
+            type="date"
+            value={expiresOn}
+            onChange={(event) => setExpiresOn(event.target.value)}
+            className="mt-1 w-full rounded-lg border border-white/10 bg-[#080c10] px-3 py-2 text-sm text-white"
+          />
+        </label>
+        <p className="mt-1 text-[11px] text-slate-500">
+          Optional date on this decision. Sync does not auto-revoke or execute
+          when it passes.
+        </p>
         <button
           type="button"
           data-testid="spine-record-disposition"
@@ -623,7 +769,10 @@ export function DecisionCaseSpine({
             }
             try {
               commit(
-                applyDisposition(decisionCase, disposition, rationale, people),
+                applyDisposition(decisionCase, disposition, rationale, people, {
+                  counterfactual,
+                  expiresOn,
+                }),
               );
               setError(null);
             } catch (caught) {
@@ -708,6 +857,12 @@ export function DecisionCaseSpine({
               />
             </label>
           </div>
+          <p
+            data-testid="spine-outcome-attribution"
+            className="mt-3 text-xs leading-relaxed text-slate-300"
+          >
+            {attribution.line}
+          </p>
           <div className="mt-3 flex flex-wrap gap-2">
             {VERIFICATION_EFFECTIVENESS.map((item) => (
               <button
@@ -736,7 +891,12 @@ export function DecisionCaseSpine({
             className="mt-3 rounded-lg bg-teal-400 px-3 py-2 text-xs font-bold text-slate-950"
             onClick={() => {
               try {
-                commit(applyVerificationPlan(decisionCase, verification));
+                commit(
+                  applyVerificationPlan(decisionCase, {
+                    ...verification,
+                    attributedTo: people.verificationOwner,
+                  }),
+                );
                 setError(null);
               } catch (caught) {
                 setError(
@@ -851,6 +1011,84 @@ export function DecisionCaseSpine({
             </li>
           ))}
         </ol>
+      </section>
+
+      <section
+        data-testid="spine-proof"
+        className="rounded-2xl border border-white/10 bg-[#0D1520] p-4"
+      >
+        <h2 className="text-sm font-semibold text-white">Proof summary</h2>
+        <p className="mt-1 text-xs text-slate-500">
+          Read-only recap of Ask, evidence, recommendation, the human decision,
+          and verification. Copy or download it here. This is not a separate
+          vault.
+        </p>
+        <pre
+          data-testid="spine-proof-body"
+          className="mt-3 max-h-80 overflow-auto whitespace-pre-wrap rounded-xl border border-white/10 bg-[#080c10] px-3 py-2 text-[11px] leading-relaxed text-slate-200"
+        >
+          {proof}
+        </pre>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <button
+            type="button"
+            data-testid="spine-proof-copy"
+            className="rounded-lg border border-white/15 px-3 py-1.5 text-xs text-slate-100"
+            onClick={() => {
+              const clipboard = navigator.clipboard;
+              if (!clipboard?.writeText) {
+                setProofNotice(
+                  "Copy is not available in this browser. The summary is still on the page.",
+                );
+                return;
+              }
+              void clipboard.writeText(proof).then(
+                () => setProofNotice("Proof summary copied."),
+                () =>
+                  setProofNotice(
+                    "Copy did not complete. The summary is still on the page.",
+                  ),
+              );
+            }}
+          >
+            Copy summary
+          </button>
+          <button
+            type="button"
+            data-testid="spine-proof-download"
+            className="rounded-lg border border-white/15 px-3 py-1.5 text-xs text-slate-100"
+            onClick={() => {
+              try {
+                const blob = new Blob([proof], {
+                  type: "text/markdown;charset=utf-8",
+                });
+                const url = URL.createObjectURL(blob);
+                const anchor = document.createElement("a");
+                anchor.href = url;
+                anchor.download = proofDownloadName(decisionCase.caseNumber);
+                document.body.appendChild(anchor);
+                anchor.click();
+                anchor.remove();
+                URL.revokeObjectURL(url);
+                setProofNotice("Markdown download started in this browser.");
+              } catch {
+                setProofNotice(
+                  "Markdown download is not available in this browser. The summary is still on the page.",
+                );
+              }
+            }}
+          >
+            Download markdown
+          </button>
+        </div>
+        {proofNotice ? (
+          <p
+            data-testid="spine-proof-notice"
+            className="mt-2 text-xs text-slate-300"
+          >
+            {proofNotice}
+          </p>
+        ) : null}
       </section>
 
       <section
