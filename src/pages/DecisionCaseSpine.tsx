@@ -4,15 +4,16 @@
  */
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import {
-  ChevronDown,
-  ChevronRight,
-  Shield,
-  TriangleAlert,
-} from "lucide-react";
+import { ChevronDown, ChevronRight, Shield, TriangleAlert } from "lucide-react";
 import { useOptionalAuth } from "../components/AuthProvider";
+import { stageDecisionCaseHandoff } from "../lib/decision-case";
+import type { DecisionCase } from "../lib/decision-case";
+import { isSeedDecisionCaseId } from "../lib/decision-case-honesty";
 import type { InvertedIntentId } from "../lib/onboarding/inverted-opening";
-import { INVERTED_OPENING_AUTHORITY } from "../lib/onboarding/inverted-opening";
+import {
+  INVERTED_OPENING_AUTHORITY,
+  isExamplePrompt,
+} from "../lib/onboarding/inverted-opening";
 import {
   CONNECTION_FAILURE_FALLBACKS,
   EVIDENCE_KINDS,
@@ -25,18 +26,26 @@ import {
   applyVerificationPlan,
   attachSpineEvidence,
   buildSpineDecisionCase,
+  describeUploadedFile,
+  interpretConnectionAttempt,
   inviteCopy,
   lineageFromCase,
   policyAdvisory,
   readinessFromCase,
+  spineStageIndex,
+  unknownsFromCase,
   type CasePeople,
   type EvidenceKind,
   type EvidenceMethod,
   type SpineDisposition,
   type VerificationPlan,
 } from "../lib/onboarding/decision-case-spine";
+import { getIntegrations } from "../services/operatingLoopService";
 import {
   createPersistedDecisionCase,
+  isPersistedDecisionCase,
+  loadPersistedDecisionCase,
+  savePersistedDecisionCase,
 } from "../services/decisionCaseService";
 
 const emptyPeople = (): CasePeople => ({
@@ -58,31 +67,47 @@ const emptyVerification = (): VerificationPlan => ({
 export function DecisionCaseSpine({
   question,
   intent,
+  initialCase,
+  initiallySaved = false,
+  blockWorkspacePersist = false,
+  openingNotice = null,
 }: {
   question: string;
   intent: InvertedIntentId;
+  initialCase?: DecisionCase;
+  initiallySaved?: boolean;
+  blockWorkspacePersist?: boolean;
+  openingNotice?: string | null;
 }) {
   const auth = useOptionalAuth();
-  const [decisionCase, setDecisionCase] = useState(() =>
-    buildSpineDecisionCase({ question, intent }),
+  const [decisionCase, setDecisionCase] = useState(
+    () => initialCase ?? buildSpineDecisionCase({ question, intent }),
   );
-  const [saved, setSaved] = useState(false);
+  const [saved, setSaved] = useState(initiallySaved);
   const [saveNotice, setSaveNotice] = useState(
-    auth?.user
-      ? "Save this assessment to keep the Decision Case on the evaluation workspace."
-      : "Provisional Decision Case in this session. Sign in to keep it on an evaluation workspace.",
+    openingNotice
+      ? openingNotice
+      : blockWorkspacePersist
+        ? "Example preview. This prompt is not saved to a workspace."
+        : initiallySaved
+          ? "Decision Case is on your evaluation workspace."
+          : auth?.user
+            ? "Save this assessment to keep the Decision Case on the evaluation workspace."
+            : "Provisional Decision Case in this session. Sign in to keep it on an evaluation workspace.",
   );
   const [saving, setSaving] = useState(false);
   const [kind, setKind] = useState<EvidenceKind>("work_history");
   const [method, setMethod] = useState<EvidenceMethod>("paste_data");
   const [evidenceBody, setEvidenceBody] = useState("");
-  const [connectFailed, setConnectFailed] = useState(false);
+  const [connectResult, setConnectResult] = useState<ReturnType<
+    typeof interpretConnectionAttempt
+  > | null>(null);
+  const [connecting, setConnecting] = useState(false);
   const [disposition, setDisposition] = useState<SpineDisposition | "">("");
   const [rationale, setRationale] = useState("");
   const [people, setPeople] = useState<CasePeople>(emptyPeople);
-  const [verification, setVerification] = useState<VerificationPlan>(
-    emptyVerification,
-  );
+  const [verification, setVerification] =
+    useState<VerificationPlan>(emptyVerification);
   const [inviteName, setInviteName] = useState("");
   const [inviteEmail, setInviteEmail] = useState("");
   const [invited, setInvited] = useState(false);
@@ -109,27 +134,76 @@ export function DecisionCaseSpine({
     [decisionCase, saved, disposition, verification, invited, manualPath],
   );
 
+  const commit = (next: DecisionCase) => {
+    setDecisionCase(next);
+    if (
+      blockWorkspacePersist ||
+      isExamplePrompt(next.objective) ||
+      !isPersistedDecisionCase(next.id)
+    ) {
+      return;
+    }
+    void savePersistedDecisionCase(next).catch(() => {
+      setSaveNotice(
+        "Updates stayed in this session. Workspace save did not complete.",
+      );
+    });
+  };
+
   const persistIfPossible = async () => {
+    if (blockWorkspacePersist || isExamplePrompt(decisionCase.objective)) {
+      setSaveNotice(
+        "Example prompts are not saved into a customer workspace. Rewrite the question as your own.",
+      );
+      return;
+    }
     if (!auth?.user) {
       setSaved(true);
       setSaveNotice(
-        "Assessment saved in this session. Create an evaluation workspace to make it durable.",
+        "Assessment kept in this session. Sign in to create the evaluation workspace — not before Ask.",
       );
       return;
     }
     setSaving(true);
     try {
-      const persisted = await createPersistedDecisionCase(decisionCase, {});
+      const persisted = isPersistedDecisionCase(decisionCase.id)
+        ? decisionCase
+        : await createPersistedDecisionCase(decisionCase, {});
+      if (isPersistedDecisionCase(persisted.id)) {
+        await savePersistedDecisionCase(persisted);
+      }
       setDecisionCase(persisted);
       setSaved(true);
-      setSaveNotice("Decision Case saved to the governed team workspace.");
+      setSaveNotice(
+        "Decision Case saved on your evaluation workspace. Reload the audit trail on this page.",
+      );
     } catch {
       setSaved(true);
       setSaveNotice(
-        "Case is provisional in this browser. Cloud workspace save did not complete — the loop stays available.",
+        "Case is provisional in this browser. Workspace save did not complete — the loop stays available.",
       );
     } finally {
       setSaving(false);
+    }
+  };
+
+  const reloadTrail = async () => {
+    if (!isPersistedDecisionCase(decisionCase.id)) {
+      setError("This case is not on a workspace yet.");
+      return;
+    }
+    try {
+      const loaded = await loadPersistedDecisionCase(decisionCase.id);
+      if (!loaded) {
+        setError("The saved Decision Case could not be loaded.");
+        return;
+      }
+      setDecisionCase(loaded);
+      setSaved(true);
+      setError(null);
+      setSaveNotice("Audit trail reloaded from the evaluation workspace.");
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Reload failed");
     }
   };
 
@@ -147,11 +221,17 @@ export function DecisionCaseSpine({
         <button
           type="button"
           data-testid="spine-save-workspace"
-          disabled={saving}
+          disabled={saving || blockWorkspacePersist}
           onClick={() => void persistIfPossible()}
           className="rounded-lg bg-teal-400 px-3 py-2 text-xs font-bold text-slate-950 disabled:opacity-40"
         >
-          {auth?.user ? "Save to workspace" : "Keep provisional and continue"}
+          {blockWorkspacePersist
+            ? "Example — not saved"
+            : saved
+              ? "Save updates"
+              : auth?.user
+                ? "Save to workspace"
+                : "Keep provisional and continue"}
         </button>
       </div>
       <p className="text-xs text-slate-400" data-testid="spine-save-notice">
@@ -162,23 +242,29 @@ export function DecisionCaseSpine({
         data-testid="spine-loop"
         className="flex flex-wrap gap-1.5 rounded-2xl border border-white/10 bg-[#0D1520] px-3 py-2"
       >
-        {SPINE_STAGES.map((stage) => (
-          <li
-            key={stage}
-            className="rounded-full px-2 py-0.5 text-[10px] font-bold tracking-wide text-teal-200/90"
-          >
-            {stage}
-          </li>
-        ))}
+        {SPINE_STAGES.map((stage, index) => {
+          const active = index === spineStageIndex(decisionCase.stage);
+          const locked = stage === "ACTION";
+          return (
+            <li
+              key={stage}
+              data-active={active ? "true" : "false"}
+              data-locked={locked ? "true" : "false"}
+              className={`rounded-full px-2 py-0.5 text-[10px] font-bold tracking-wide ${
+                active ? "bg-teal-300 text-slate-950" : "text-teal-200/90"
+              }`}
+            >
+              {stage}
+              {locked ? " · locked" : ""}
+            </li>
+          );
+        })}
       </ol>
 
       <section className="rounded-2xl border border-white/10 bg-[#0D1520] p-4">
         <h2 className="text-sm font-semibold text-white">Question</h2>
         <p className="mt-2 text-sm leading-relaxed text-slate-200">
           {decisionCase.objective}
-        </p>
-        <p className="mt-3 text-xs text-slate-400">
-          {policyAdvisory(decisionCase.authorityRole)}
         </p>
       </section>
 
@@ -189,9 +275,7 @@ export function DecisionCaseSpine({
           onClick={() => setLineageOpen((value) => !value)}
           data-testid="spine-lineage-toggle"
         >
-          <h2 className="text-sm font-semibold text-white">
-            Evidence lineage
-          </h2>
+          <h2 className="text-sm font-semibold text-white">Evidence lineage</h2>
           {lineageOpen ? (
             <ChevronDown className="h-4 w-4 text-slate-400" />
           ) : (
@@ -203,7 +287,10 @@ export function DecisionCaseSpine({
             data-testid="spine-lineage"
             className="mt-3 grid gap-2 sm:grid-cols-2"
           >
-            <LineageCell label="Evidence count" value={String(lineage.evidenceCount)} />
+            <LineageCell
+              label="Evidence count"
+              value={String(lineage.evidenceCount)}
+            />
             <LineageCell
               label="Missing"
               value={lineage.missing.join(", ") || "None"}
@@ -238,6 +325,12 @@ export function DecisionCaseSpine({
         </p>
         <p className="mt-2 text-xs leading-relaxed text-slate-400">
           {decisionCase.recommendationDetail}
+        </p>
+        <p
+          data-testid="spine-advisory"
+          className="mt-3 text-xs leading-relaxed text-amber-100/90"
+        >
+          {policyAdvisory(decisionCase.authorityRole)}
         </p>
         <ul className="mt-3 list-disc space-y-1 pl-5 text-xs text-slate-400">
           {lineage.assumptions.map((item) => (
@@ -285,7 +378,7 @@ export function DecisionCaseSpine({
               data-testid={`spine-method-${item.id}`}
               onClick={() => {
                 setMethod(item.id);
-                if (item.id === "connect_source") setConnectFailed(false);
+                if (item.id === "connect_source") setConnectResult(null);
               }}
               className={`rounded-full border px-3 py-1 text-xs ${
                 method === item.id
@@ -303,21 +396,51 @@ export function DecisionCaseSpine({
             className="mt-3 space-y-2 rounded-xl border border-amber-400/20 bg-amber-400/5 p-3"
           >
             <p className="text-xs text-amber-100/90">
-              Connection is optional and read-only. If it fails, the case does
-              not dead-end.
+              Connection is optional and read-only. A failed or missing source
+              does not end the case. CSV upload, paste, manual notes, and ask an
+              admin stay available.
             </p>
             <button
               type="button"
-              data-testid="spine-connect-fail"
-              className="rounded-lg border border-white/15 px-3 py-1.5 text-xs text-slate-100"
-              onClick={() => setConnectFailed(true)}
+              data-testid="spine-connect-check"
+              disabled={connecting}
+              className="rounded-lg border border-white/15 px-3 py-1.5 text-xs text-slate-100 disabled:opacity-40"
+              onClick={() => {
+                setConnecting(true);
+                void getIntegrations()
+                  .then((rows) => {
+                    setConnectResult(
+                      interpretConnectionAttempt(
+                        rows.map((row) => ({
+                          name: row.name,
+                          status: row.status,
+                        })),
+                      ),
+                    );
+                  })
+                  .catch((caught: unknown) => {
+                    setConnectResult(
+                      interpretConnectionAttempt(
+                        null,
+                        caught instanceof Error
+                          ? caught.message
+                          : "integration lookup failed",
+                      ),
+                    );
+                  })
+                  .finally(() => setConnecting(false));
+              }}
             >
-              Simulate connection failure
+              {connecting ? "Checking sources…" : "Check connected sources"}
             </button>
-            {connectFailed ? (
+            {connectResult ? (
               <div data-testid="spine-connect-fallbacks">
                 <p className="text-xs font-semibold text-white">
-                  Continue without the connector
+                  {connectResult.ok ? connectResult.note : connectResult.reason}
+                </p>
+                <p className="mt-1 text-xs text-slate-300">
+                  Continue without a live pull. A CSV export counts as a file
+                  upload.
                 </p>
                 <div className="mt-2 flex flex-wrap gap-2">
                   {CONNECTION_FAILURE_FALLBACKS.map((id) => (
@@ -326,7 +449,10 @@ export function DecisionCaseSpine({
                       type="button"
                       onClick={() => {
                         setMethod(id);
-                        setConnectFailed(false);
+                        setConnectResult(null);
+                        if (id === "manual" || id === "ask_admin") {
+                          setManualPath(true);
+                        }
                       }}
                       className="rounded-lg bg-white/10 px-2 py-1 text-xs text-slate-100"
                     >
@@ -339,12 +465,67 @@ export function DecisionCaseSpine({
           </div>
         ) : (
           <>
+            {method === "upload_file" ? (
+              <label className="mt-3 block text-xs text-slate-300">
+                Upload a file (CSV, text, or JSON)
+                <input
+                  data-testid="spine-evidence-file"
+                  type="file"
+                  accept=".txt,.csv,.json,.md,text/plain,text/csv,application/json"
+                  className="mt-1 block w-full text-xs text-slate-200"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    if (!file) return;
+                    const textLike =
+                      file.size <= 200_000 &&
+                      (/text|json|csv|markdown|plain/.test(file.type) ||
+                        /\.(txt|csv|json|md)$/i.test(file.name));
+                    if (!textLike) {
+                      setEvidenceBody(
+                        describeUploadedFile({
+                          name: file.name,
+                          type: file.type,
+                          size: file.size,
+                          text: null,
+                        }),
+                      );
+                      return;
+                    }
+                    const reader = new FileReader();
+                    reader.onload = () => {
+                      setEvidenceBody(
+                        describeUploadedFile({
+                          name: file.name,
+                          type: file.type,
+                          size: file.size,
+                          text:
+                            typeof reader.result === "string"
+                              ? reader.result
+                              : null,
+                        }),
+                      );
+                    };
+                    reader.onerror = () => {
+                      setEvidenceBody(
+                        describeUploadedFile({
+                          name: file.name,
+                          type: file.type,
+                          size: file.size,
+                          text: null,
+                        }),
+                      );
+                    };
+                    reader.readAsText(file);
+                  }}
+                />
+              </label>
+            ) : null}
             <textarea
               data-testid="spine-evidence-body"
               value={evidenceBody}
               onChange={(event) => setEvidenceBody(event.target.value)}
               rows={3}
-              placeholder="Paste notes, a table, or describe the file you would upload."
+              placeholder="Paste notes, a CSV excerpt, or review extracted file text before adding it."
               className="mt-3 w-full rounded-xl border border-white/10 bg-[#080c10] px-3 py-2 text-sm text-white"
             />
             <button
@@ -358,7 +539,7 @@ export function DecisionCaseSpine({
                   method,
                   evidenceBody,
                 );
-                setDecisionCase(next);
+                commit(next);
                 setManualPath(true);
                 setEvidenceBody("");
               }}
@@ -441,7 +622,7 @@ export function DecisionCaseSpine({
               return;
             }
             try {
-              setDecisionCase(
+              commit(
                 applyDisposition(decisionCase, disposition, rationale, people),
               );
               setError(null);
@@ -555,9 +736,7 @@ export function DecisionCaseSpine({
             className="mt-3 rounded-lg bg-teal-400 px-3 py-2 text-xs font-bold text-slate-950"
             onClick={() => {
               try {
-                setDecisionCase(
-                  applyVerificationPlan(decisionCase, verification),
-                );
+                commit(applyVerificationPlan(decisionCase, verification));
                 setError(null);
               } catch (caught) {
                 setError(
@@ -607,7 +786,7 @@ export function DecisionCaseSpine({
           className="mt-3 rounded-lg border border-white/15 px-3 py-2 text-xs font-semibold text-slate-100"
           onClick={() => {
             try {
-              setDecisionCase(
+              commit(
                 applyInvite(decisionCase, {
                   name: inviteName,
                   email: inviteEmail,
@@ -625,6 +804,53 @@ export function DecisionCaseSpine({
         >
           Record invite on this case
         </button>
+      </section>
+
+      <section
+        data-testid="spine-unknowns"
+        className="rounded-2xl border border-white/10 bg-[#0D1520] p-4"
+      >
+        <h2 className="text-sm font-semibold text-white">
+          What Sync does not know yet
+        </h2>
+        <ul className="mt-2 list-disc space-y-1 pl-5 text-xs text-slate-300">
+          {unknownsFromCase(decisionCase).map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+        </ul>
+      </section>
+
+      <section
+        data-testid="spine-audit"
+        className="rounded-2xl border border-white/10 bg-[#0D1520] p-4"
+      >
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-sm font-semibold text-white">Audit trail</h2>
+          <button
+            type="button"
+            data-testid="spine-reload-audit"
+            className="rounded-lg border border-white/15 px-3 py-1.5 text-xs text-slate-100"
+            onClick={() => void reloadTrail()}
+          >
+            Reload saved trail
+          </button>
+        </div>
+        <ol className="mt-3 space-y-2">
+          {decisionCase.messages.map((message) => (
+            <li
+              key={message.id}
+              className="rounded-xl border border-white/10 px-3 py-2"
+            >
+              <p className="text-[10px] uppercase tracking-wide text-slate-500">
+                {message.author}
+                {message.meta ? ` · ${message.meta}` : ""}
+              </p>
+              <p className="mt-1 whitespace-pre-wrap text-xs text-slate-200">
+                {message.text}
+              </p>
+            </li>
+          ))}
+        </ol>
       </section>
 
       <section
@@ -673,6 +899,16 @@ export function DecisionCaseSpine({
           <Link
             className="text-teal-400"
             to={`/?view=signup&invertedAsk=${encodeURIComponent(question)}&intent=${intent}`}
+            onClick={() => {
+              if (
+                blockWorkspacePersist ||
+                isExamplePrompt(decisionCase.objective) ||
+                isSeedDecisionCaseId(decisionCase.id)
+              ) {
+                return;
+              }
+              stageDecisionCaseHandoff(window.sessionStorage, decisionCase);
+            }}
           >
             create an evaluation workspace
           </Link>{" "}

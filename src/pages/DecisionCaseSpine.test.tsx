@@ -1,11 +1,36 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { InvertedOpeningPage } from "./InvertedOpeningPage";
 import { readFileSync } from "node:fs";
+import { INVERTED_EXAMPLE_PROMPTS } from "../lib/onboarding/inverted-opening";
+import type { DecisionCase } from "../lib/decision-case";
+
+const authHolder = vi.hoisted(() => ({
+  user: null as { id: string } | null,
+}));
+
+const persist = vi.hoisted(() => ({
+  createPersistedDecisionCase: vi.fn(async (seed: DecisionCase) => ({
+    ...seed,
+    id: "11111111-1111-4111-8111-111111111111",
+  })),
+  savePersistedDecisionCase: vi.fn(async () => undefined),
+  loadPersistedDecisionCase: vi.fn(async () => null as DecisionCase | null),
+}));
 
 vi.mock("../services/decisionCaseService", () => ({
-  createPersistedDecisionCase: vi.fn(),
+  createPersistedDecisionCase: persist.createPersistedDecisionCase,
+  savePersistedDecisionCase: persist.savePersistedDecisionCase,
+  loadPersistedDecisionCase: persist.loadPersistedDecisionCase,
+  isPersistedDecisionCase: (id: string) =>
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+      id,
+    ),
+}));
+
+vi.mock("../services/operatingLoopService", () => ({
+  getIntegrations: vi.fn(async () => []),
 }));
 
 vi.mock("../components/AuthProvider", async () => {
@@ -15,7 +40,7 @@ vi.mock("../components/AuthProvider", async () => {
   return {
     ...actual,
     useOptionalAuth: () => ({
-      user: null,
+      user: authHolder.user,
       profile: null,
       session: null,
       loading: false,
@@ -43,9 +68,18 @@ function openSpine() {
 }
 
 describe("P0.2 Decision Case spine on /get-started", () => {
+  beforeEach(() => {
+    authHolder.user = null;
+    persist.createPersistedDecisionCase.mockClear();
+    persist.savePersistedDecisionCase.mockClear();
+    persist.loadPersistedDecisionCase.mockClear();
+    localStorage.clear();
+  });
+
   it("does not rewrite the P0.1 opening contract", () => {
     const page = readFileSync("src/pages/InvertedOpeningPage.tsx", "utf8");
     expect(page).toMatch(/Save this assessment and continue/);
+    expect(page).toMatch(/What are you here to accomplish/);
     expect(page).toMatch(/inverted-example-/);
     expect(page).toMatch(/inverted-intent-/);
     expect(page).toMatch(/DecisionCaseSpine/);
@@ -102,16 +136,44 @@ describe("P0.2 Decision Case spine on /get-started", () => {
     );
   });
 
-  it("never dead-ends a failed connection", () => {
+  it("never dead-ends a failed connection", async () => {
     renderOpening();
     openSpine();
     fireEvent.click(screen.getByTestId("spine-method-connect_source"));
-    fireEvent.click(screen.getByTestId("spine-connect-fail"));
-    expect(screen.getByTestId("spine-connect-fallbacks").textContent).toMatch(
-      /Upload a file/,
-    );
+    fireEvent.click(screen.getByTestId("spine-connect-check"));
+    expect(
+      (await screen.findByTestId("spine-connect-fallbacks")).textContent,
+    ).toMatch(/Upload a file/);
     expect(screen.getByTestId("spine-connect-fallbacks").textContent).toMatch(
       /Ask an admin later/,
     );
+    expect(screen.getByTestId("spine-connect-fallbacks").textContent).toMatch(
+      /No source is connected/,
+    );
+  });
+
+  it("does not persist an Example prompt into a workspace", () => {
+    renderOpening();
+    fireEvent.click(
+      screen.getByTestId(`inverted-example-${INVERTED_EXAMPLE_PROMPTS[0].id}`),
+    );
+    fireEvent.click(screen.getByTestId("inverted-continue"));
+    fireEvent.click(screen.getByTestId("inverted-save-continue"));
+    expect(screen.getByTestId("decision-case-spine")).toBeTruthy();
+    expect(screen.getByText(/Example preview/i)).toBeTruthy();
+    expect(persist.createPersistedDecisionCase).not.toHaveBeenCalled();
+  });
+
+  it("creates the evaluation workspace case when a signed-in user saves", async () => {
+    authHolder.user = { id: "user-1" };
+    renderOpening();
+    openSpine();
+    expect(await screen.findByTestId("spine-audit")).toBeTruthy();
+    expect(persist.createPersistedDecisionCase).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId("spine-unknowns").textContent).toMatch(
+      /does not know yet|No connected operating data/i,
+    );
+    fireEvent.click(screen.getByTestId("spine-method-upload_file"));
+    expect(screen.getByTestId("spine-evidence-file")).toBeTruthy();
   });
 });
