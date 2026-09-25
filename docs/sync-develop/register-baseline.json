@@ -612,10 +612,10 @@
     "backticked": 28
   },
   "D6.02": {
-    "status": "🟡",
+    "status": "✅",
     "evidence": true,
-    "citations": 4,
-    "backticked": 0
+    "citations": 16,
+    "backticked": 16
   },
   "D6.03": {
     "status": "✅",
