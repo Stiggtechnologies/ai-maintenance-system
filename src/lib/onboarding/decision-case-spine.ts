@@ -3,7 +3,8 @@
  * invite, and loop-maturity readiness. P1 records a counterfactual before
  * Accept, cites evidence already on the case, an optional decision expiry,
  * verification-owner attribution, an advisory / review / ops label, and a
- * local proof summary. Reuses the canonical DecisionCase. Does not
+ * local proof summary. P3 adds short Help for each spine stage: what to do,
+ * and what Sync will not invent. Reuses the canonical DecisionCase. Does not
  * re-implement the Ask-first opening and does not create a development case.
  */
 import {
@@ -31,6 +32,88 @@ export const SPINE_STAGES = [
   "VERIFICATION",
   "LEARNING",
 ] as const;
+
+export type SpineStage = (typeof SPINE_STAGES)[number];
+
+/** Short Help for one Decision Case stage. Copy only — not a role checklist. */
+export type StageHelp = {
+  stage: SpineStage;
+  /** Visible name. ACTION keeps the locked marker. */
+  label: string;
+  doThis: string;
+  willNot: string;
+};
+
+export const STAGE_HELP: readonly StageHelp[] = [
+  {
+    stage: "QUESTION",
+    label: "QUESTION",
+    doThis:
+      "Write the engineering question in your own words, then save the assessment to open this case.",
+    willNot:
+      "Sync will not invent a plant, asset, demo case, or a question you did not ask.",
+  },
+  {
+    stage: "EVIDENCE",
+    label: "EVIDENCE",
+    doThis:
+      "Add one evidence type — work history, condition, documents, inspection, or schedule / cost — by file, paste, manual note, or a source this workspace already has.",
+    willNot:
+      "Sync will not invent readings, tags, a historian feed, or a CMMS record to fill a missing slot.",
+  },
+  {
+    stage: "RECOMMENDATION",
+    label: "RECOMMENDATION",
+    doThis:
+      "Read the recommendation against evidence already on this case. Cite sources only lists what was attached.",
+    willNot:
+      "Sync will not authorize the change, invent an OEM limit or safety threshold, or give an asset-specific recommendation with no attached evidence.",
+  },
+  {
+    stage: "HUMAN DECISION",
+    label: "HUMAN DECISION",
+    doThis:
+      "Record Accept, Reject, Need more evidence, Park, or Escalate, with a rationale and the people who own the decision. Accept stays unlocked until you state what would change the recommendation.",
+    willNot:
+      "Sync will not choose the disposition or treat the recommendation as approval.",
+  },
+  {
+    stage: "ACTION",
+    label: "ACTION · locked",
+    doThis:
+      "Leave action locked. The human decision stays on this case; plant work is outside this page.",
+    willNot:
+      "Sync will not write a work order, isolate equipment, or execute on the plant.",
+  },
+  {
+    stage: "VERIFICATION",
+    label: "VERIFICATION",
+    doThis:
+      "State the expected result and a date for how you will know this worked. Record actual results and evidence later, and name the Verification Owner.",
+    willNot:
+      "Sync will not invent an outcome or an effectiveness score, and effectiveness alone is not attribution.",
+  },
+  {
+    stage: "LEARNING",
+    label: "LEARNING",
+    doThis:
+      "Keep the question, evidence, decision, and verification you recorded as the learning candidate on this case.",
+    willNot:
+      "Sync will not promote that candidate to verified knowledge or a governed evidence vault.",
+  },
+];
+
+export function stageHelpSlug(stage: SpineStage): string {
+  return stage.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+}
+
+export function stageHelpFor(stage: SpineStage): StageHelp {
+  const found = STAGE_HELP.find((item) => item.stage === stage);
+  if (!found) {
+    throw new Error(`No stage help for ${stage}.`);
+  }
+  return found;
+}
 
 export type EvidenceKind =
   "work_history" | "condition" | "documents" | "inspection" | "schedule_cost";
@@ -844,6 +927,10 @@ export function readinessFromCase(
 
 /** Id of the last Decision Case this browser saved. Not case content. */
 export const SPINE_SAVED_CASE_KEY = "syncai.spine-case-id.v1";
+
+export function activeSpineStage(stage: DecisionCaseStage): SpineStage {
+  return SPINE_STAGES[spineStageIndex(stage)];
+}
 
 export function spineStageIndex(stage: DecisionCaseStage): number {
   switch (stage) {

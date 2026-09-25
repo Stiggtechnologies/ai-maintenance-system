@@ -94,6 +94,8 @@ describe("P0.2 Decision Case spine on /get-started", () => {
     expect(screen.getByTestId("decision-case-spine")).toBeTruthy();
     expect(screen.getByTestId("spine-loop").textContent).toMatch(/QUESTION/);
     expect(screen.getByTestId("spine-loop").textContent).toMatch(/LEARNING/);
+    expect(screen.getByTestId("spine-stage-help")).toBeTruthy();
+    expect(screen.queryByTestId("start-here-role-pick")).toBeNull();
     expect(screen.getByTestId("spine-lineage").textContent).toMatch(
       /Confidence/,
     );
@@ -272,5 +274,78 @@ describe("P0.2 Decision Case spine on /get-started", () => {
     expect(revokeObjectURL).toHaveBeenCalled();
     createObjectURL.mockRestore();
     revokeObjectURL.mockRestore();
+  });
+
+  it("shows contextual Help for every Decision Case stage on the shared spine", () => {
+    renderOpening();
+    openSpine();
+    const help = screen.getByTestId("spine-stage-help");
+    expect(help.textContent).toMatch(/not a role checklist/i);
+    expect(help.textContent).not.toMatch(
+      /self-guided onboarding is live|Fort McMurray|P-101/i,
+    );
+    expect(screen.queryByRole("button", { name: /^RE$/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^Ops$/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^Admin$/ })).toBeNull();
+    const expected = [
+      ["question", /not invent a plant/i, "false"],
+      ["evidence", /not invent readings/i, "true"],
+      ["recommendation", /not authorize/i, "false"],
+      ["human-decision", /not choose the disposition/i, "false"],
+      ["action", /not write a work order/i, "false"],
+      ["verification", /not invent an outcome/i, "false"],
+      ["learning", /not promote that candidate/i, "false"],
+    ] as const;
+    for (const [slug, boundary, active] of expected) {
+      const item = screen.getByTestId(`spine-help-${slug}`);
+      expect(item.textContent).toMatch(/What to do/i);
+      expect(item.textContent).toMatch(boundary);
+      expect(item.getAttribute("data-active")).toBe(active);
+    }
+    expect(screen.getByTestId("spine-help-action").textContent).toMatch(
+      /ACTION · locked/,
+    );
+    expect(screen.getByTestId("spine-help-action").getAttribute("data-locked")).toBe(
+      "true",
+    );
+
+    fireEvent.change(screen.getByTestId("spine-person-decisionOwner"), {
+      target: { value: "Ada" },
+    });
+    fireEvent.click(screen.getByTestId("spine-disp-accept"));
+    fireEvent.change(screen.getByTestId("spine-rationale"), {
+      target: { value: "Hold until evidence exists." },
+    });
+    fireEvent.change(screen.getByTestId("spine-counterfactual"), {
+      target: { value: "A route that contradicts the hold." },
+    });
+    fireEvent.click(screen.getByTestId("spine-record-disposition"));
+    expect(
+      screen.getByTestId("spine-help-verification").getAttribute("data-active"),
+    ).toBe("true");
+    expect(
+      screen.getByTestId("spine-help-evidence").getAttribute("data-active"),
+    ).toBe("false");
+
+    fireEvent.change(screen.getByTestId("spine-verify-expected"), {
+      target: { value: "Interval revisited" },
+    });
+    fireEvent.change(screen.getByTestId("spine-verify-date"), {
+      target: { value: "2026-12-01" },
+    });
+    fireEvent.change(screen.getByTestId("spine-verify-actual"), {
+      target: { value: "Still held" },
+    });
+    fireEvent.change(screen.getByTestId("spine-verify-evidence"), {
+      target: { value: "Planner note" },
+    });
+    fireEvent.click(screen.getByTestId("spine-effect-inconclusive"));
+    fireEvent.click(screen.getByTestId("spine-record-verification"));
+    expect(
+      screen.getByTestId("spine-help-learning").getAttribute("data-active"),
+    ).toBe("true");
+    expect(
+      screen.getByTestId("spine-help-action").getAttribute("data-active"),
+    ).toBe("false");
   });
 });

@@ -3,6 +3,7 @@
  * Persistent loop: Q → Evidence → Rec → Decision → Action → Verify → Learn.
  * P1 adds counterfactual-before-accept, on-case provenance, optional expiry,
  * verification-owner attribution, a case class, and a local proof summary.
+ * P3 shows short Help on every stage of this spine.
  */
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
@@ -22,7 +23,9 @@ import {
   EVIDENCE_METHODS,
   SPINE_DISPOSITIONS,
   SPINE_STAGES,
+  STAGE_HELP,
   VERIFICATION_EFFECTIVENESS,
+  activeSpineStage,
   applyDisposition,
   applyInvite,
   applyVerificationPlan,
@@ -45,6 +48,7 @@ import {
   rationaleFromCase,
   readinessFromCase,
   spineStageIndex,
+  stageHelpSlug,
   unknownsFromCase,
   verificationFromCase,
   type CasePeople,
@@ -344,6 +348,50 @@ export function DecisionCaseSpine({
           );
         })}
       </ol>
+
+      <section
+        data-testid="spine-stage-help"
+        aria-label="Decision Case stage help"
+        className="rounded-2xl border border-white/10 bg-[#0D1520] p-4"
+      >
+        <h2 className="text-sm font-semibold text-white">Stage help</h2>
+        <p className="mt-1 text-xs text-slate-500">
+          What to do on this Decision Case, and what Sync will not invent.
+          Guidance follows the stage. It is not a role checklist.
+        </p>
+        <ul className="mt-3 space-y-2">
+          {STAGE_HELP.map((item) => {
+            const active = item.stage === activeSpineStage(decisionCase.stage);
+            return (
+              <li
+                key={item.stage}
+                data-testid={`spine-help-${stageHelpSlug(item.stage)}`}
+                data-active={active ? "true" : "false"}
+                data-locked={item.stage === "ACTION" ? "true" : "false"}
+                className={`rounded-xl border px-3 py-2 ${
+                  active
+                    ? "border-teal-400/40 bg-teal-400/5"
+                    : "border-white/10"
+                }`}
+              >
+                <p className="text-[10px] font-bold tracking-wide text-teal-200">
+                  {item.label}
+                  {active ? " · this stage" : ""}
+                </p>
+                <p className="mt-1 text-xs leading-relaxed text-slate-200">
+                  <span className="font-semibold text-slate-400">
+                    What to do.{" "}
+                  </span>
+                  {item.doThis}
+                </p>
+                <p className="mt-1 text-xs leading-relaxed text-amber-100/90">
+                  {item.willNot}
+                </p>
+              </li>
+            );
+          })}
+        </ul>
+      </section>
 
       <section className="rounded-2xl border border-white/10 bg-[#0D1520] p-4">
         <h2 className="text-sm font-semibold text-white">Question</h2>

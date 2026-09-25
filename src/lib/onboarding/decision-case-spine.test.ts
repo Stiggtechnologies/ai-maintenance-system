@@ -6,6 +6,8 @@ import {
   EVIDENCE_KINDS,
   SPINE_DISPOSITIONS,
   SPINE_STAGES,
+  STAGE_HELP,
+  activeSpineStage,
   applyDisposition,
   applyInvite,
   applyVerificationPlan,
@@ -27,6 +29,8 @@ import {
   provenanceFromCase,
   readinessFromCase,
   spineStageIndex,
+  stageHelpFor,
+  stageHelpSlug,
   unknownsFromCase,
 } from "./decision-case-spine";
 
@@ -448,5 +452,60 @@ describe("P1 Decision Case trust", () => {
       "utf8",
     );
     expect(source).not.toMatch(/create_case_decision/);
+  });
+});
+
+describe("P3 Decision Case stage help", () => {
+  it("has short Help for every spine stage, including locked action", () => {
+    expect(STAGE_HELP.map((item) => item.stage)).toEqual([...SPINE_STAGES]);
+    for (const stage of SPINE_STAGES) {
+      const help = stageHelpFor(stage);
+      expect(help.doThis.trim().length).toBeGreaterThan(20);
+      expect(help.willNot).toMatch(/^Sync will not /);
+      expect(stageHelpSlug(stage)).toMatch(/^[a-z0-9-]+$/);
+      expect(`${help.label} ${help.doThis} ${help.willNot}`).not.toMatch(
+        /Fort McMurray|P-101|dc-1048|self-guided onboarding is live/i,
+      );
+    }
+    expect(stageHelpFor("ACTION").label).toBe("ACTION · locked");
+    expect(stageHelpFor("RECOMMENDATION").willNot).toMatch(/not authorize/);
+    expect(stageHelpFor("ACTION").willNot).toMatch(/not write a work order/);
+    expect(stageHelpFor("QUESTION").willNot).toMatch(/not invent a plant/);
+    expect(stageHelpFor("EVIDENCE").willNot).toMatch(/not invent readings/);
+    const source = readFileSync(
+      "src/lib/onboarding/decision-case-spine.ts",
+      "utf8",
+    );
+    expect(source).not.toMatch(/create_case_decision/);
+    expect(source).not.toMatch(/start-here-role-pick/);
+  });
+
+  it("follows the case stage and never marks locked action as the writable stage", () => {
+    const built = buildSpineDecisionCase({
+      question:
+        "Should we hold or change the current inspection interval on this rotating asset?",
+      intent: "solve",
+    });
+    expect(activeSpineStage(built.stage)).toBe("EVIDENCE");
+    const accepted = applyDisposition(
+      built,
+      "accept",
+      "Hold the interval.",
+      people,
+      { counterfactual: "A vibration route that contradicts the hold." },
+    );
+    expect(activeSpineStage(accepted.stage)).toBe("VERIFICATION");
+    const learned = applyVerificationPlan(accepted, {
+      question: "How will we know this worked?",
+      expected: "Interval revisited",
+      actual: "Still held",
+      evidence: "Planner note",
+      scheduledFor: "2026-12-01",
+      effectiveness: "inconclusive",
+      attributedTo: "Ada",
+    });
+    expect(activeSpineStage(learned.stage)).toBe("LEARNING");
+    expect(activeSpineStage("execution")).toBe("ACTION");
+    expect(stageHelpFor("ACTION").label).toMatch(/locked/);
   });
 });
