@@ -10,6 +10,7 @@ import {
   buildUpsertPayload,
   canAuthorJobPlans,
   emptyDraft,
+  unresolvedMaterialRefusalMessage,
   upsertJobPlan,
 } from "./jobPlanService";
 
@@ -47,7 +48,7 @@ describe("canAuthorJobPlans", () => {
 });
 
 describe("buildUpsertPayload", () => {
-  it("drops empty rows and unknown material codes instead of sending them", () => {
+  it("drops empty rows and refuses an unresolved material code instead of omitting it", () => {
     const draft = emptyDraft();
     draft.plan_key = "JP-SEAL";
     draft.title = "Replace pump seal";
@@ -85,8 +86,15 @@ describe("buildUpsertPayload", () => {
       },
     ];
 
-    const { plan, droppedMaterialCodes } = buildUpsertPayload(draft, CATALOGUE);
-    expect(droppedMaterialCodes).toEqual(["NO-SUCH"]);
+    expect(() => buildUpsertPayload(draft, CATALOGUE)).toThrow(
+      unresolvedMaterialRefusalMessage(["NO-SUCH"]),
+    );
+
+    draft.materials = [
+      { material_code: "SEAL-25", description: "Mechanical seal 25mm", qty: 1 },
+      { material_code: "  ", description: "blank", qty: 1 },
+    ];
+    const { plan } = buildUpsertPayload(draft, CATALOGUE);
     expect(plan.materials).toEqual([{ material_code: "SEAL-25", qty: 1 }]);
     expect(plan.steps).toHaveLength(1);
     expect(plan.checks).toHaveLength(1);
@@ -126,6 +134,41 @@ describe("job plan RPC callers", () => {
       }),
     });
     expect(result.job_plan_id).toBe("p1");
+    expect(result).not.toHaveProperty("droppedMaterialCodes");
+  });
+
+  it("refuses an unresolved material code visibly and does not call the RPC", async () => {
+    const draft = emptyDraft();
+    draft.plan_key = "JP-SEAL";
+    draft.title = "Replace pump seal";
+    draft.scope = "Seal replacement";
+    draft.materials = [
+      { material_code: "SEAL-25", description: "Mechanical seal 25mm", qty: 1 },
+      { material_code: "NO-SUCH", description: "Invented", qty: 2 },
+    ];
+    await expect(upsertJobPlan(draft, CATALOGUE)).rejects.toThrow(
+      /unresolved material code\(s\) refused; nothing was saved: NO-SUCH/,
+    );
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("surfaces the database refusal when a code the form knew is gone", async () => {
+    rpc.mockResolvedValue({
+      data: {
+        error: unresolvedMaterialRefusalMessage(["SEAL-25"]),
+      },
+      error: null,
+    });
+    const draft = emptyDraft();
+    draft.plan_key = "JP-SEAL";
+    draft.title = "Replace pump seal";
+    draft.scope = "Seal replacement";
+    draft.materials = [
+      { material_code: "SEAL-25", description: "Mechanical seal 25mm", qty: 1 },
+    ];
+    await expect(upsertJobPlan(draft, CATALOGUE)).rejects.toThrow(
+      /nothing was saved: SEAL-25/,
+    );
   });
 
   it("calls adopt_job_plan with the plan id and the human's note", async () => {
