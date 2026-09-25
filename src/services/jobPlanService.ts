@@ -13,9 +13,10 @@
  *   - only an ADOPTED plan may be applied to real work;
  *   - adoption records auth.uid() — it is a named-human act.
  *
- * Known residual: upsert_job_plan silently drops material lines whose
- * material_code does not resolve. Callers must only send catalogue codes
- * and must tell the operator when the catalogue is empty.
+ * An unresolved material code refuses the save. upsert_job_plan returns
+ * that refusal before it writes, and upsertJobPlan throws the same sentence
+ * when the loaded catalogue does not contain the code. Neither path creates
+ * a catalogue row, and neither path reports the draft as saved.
  */
 import { supabase } from "../lib/supabase";
 
@@ -29,8 +30,7 @@ export const JOB_PLAN_AUTHOR_ROLES = [
 
 export function canAuthorJobPlans(role: string | null | undefined): boolean {
   return (
-    role != null &&
-    (JOB_PLAN_AUTHOR_ROLES as readonly string[]).includes(role)
+    role != null && (JOB_PLAN_AUTHOR_ROLES as readonly string[]).includes(role)
   );
 }
 
@@ -239,10 +239,7 @@ export async function getJobPlanDetail(id: string): Promise<JobPlanDetail> {
         .from("job_plan_materials")
         .select("qty,materials(material_code,description)")
         .eq("job_plan_id", id),
-      supabase
-        .from("job_plan_tools")
-        .select("tool,note")
-        .eq("job_plan_id", id),
+      supabase.from("job_plan_tools").select("tool,note").eq("job_plan_id", id),
       supabase
         .from("job_plan_permits")
         .select("permit_type,isolation_required,verification_note")
@@ -337,27 +334,47 @@ function compactText(value: string | undefined): string | null {
   return trimmed.length > 0 ? trimmed : null;
 }
 
+/** Sentence shared with upsert_job_plan. A save that hits it wrote nothing. */
+export function unresolvedMaterialRefusalMessage(codes: string[]): string {
+  return `unresolved material code(s) refused; nothing was saved: ${codes.join(", ")}. Add each code to the material catalogue first. This call does not create catalogue rows.`;
+}
+
+/**
+ * Non-blank material codes the loaded catalogue cannot resolve.
+ * Blank rows are empty form lines, not planner intent.
+ */
+export function unresolvedMaterialCodes(
+  materials: JobPlanMaterialLine[],
+  catalogue: MaterialOption[],
+): string[] {
+  const known = new Set(catalogue.map((m) => m.material_code));
+  const unresolved: string[] = [];
+  for (const line of materials) {
+    const code = line.material_code.trim();
+    if (!code || known.has(code) || unresolved.includes(code)) continue;
+    unresolved.push(code);
+  }
+  return unresolved;
+}
+
 /**
  * Build the jsonb payload upsert_job_plan expects. Empty rows are dropped
- * rather than sent as blanks. Materials whose code is not in `catalogue`
- * are omitted — the RPC would drop them silently, and a silent drop is
- * not a save.
+ * rather than sent as blanks. An unresolved material code throws: omitting
+ * it and continuing would save a draft the planner did not write.
  */
 export function buildUpsertPayload(
   draft: JobPlanDraft,
   catalogue: MaterialOption[],
-): { plan: Record<string, unknown>; droppedMaterialCodes: string[] } {
-  const known = new Set(catalogue.map((m) => m.material_code));
-  const droppedMaterialCodes: string[] = [];
-  const materials: Array<{ material_code: string; qty: number }> = [];
+): { plan: Record<string, unknown> } {
+  const unresolved = unresolvedMaterialCodes(draft.materials, catalogue);
+  if (unresolved.length > 0) {
+    throw new Error(unresolvedMaterialRefusalMessage(unresolved));
+  }
 
+  const materials: Array<{ material_code: string; qty: number }> = [];
   for (const line of draft.materials) {
     const code = line.material_code.trim();
     if (!code) continue;
-    if (!known.has(code)) {
-      droppedMaterialCodes.push(code);
-      continue;
-    }
     const qty = Number(line.qty);
     materials.push({
       material_code: code,
@@ -371,7 +388,8 @@ export function buildUpsertPayload(
       step_number: s.step_number || i + 1,
       description: s.description.trim(),
       craft: compactText(s.craft),
-      crew_size: Number.isFinite(s.crew_size) && s.crew_size > 0 ? s.crew_size : 1,
+      crew_size:
+        Number.isFinite(s.crew_size) && s.crew_size > 0 ? s.crew_size : 1,
       estimated_hours: Number(s.estimated_hours),
     }));
 
@@ -407,18 +425,17 @@ export function buildUpsertPayload(
       })),
   };
 
-  return { plan, droppedMaterialCodes };
+  return { plan };
 }
 
 export async function upsertJobPlan(
   draft: JobPlanDraft,
   catalogue: MaterialOption[],
-): Promise<UpsertJobPlanResult & { droppedMaterialCodes: string[] }> {
-  const { plan, droppedMaterialCodes } = buildUpsertPayload(draft, catalogue);
-  const result = await callRpc<UpsertJobPlanResult>("upsert_job_plan", {
+): Promise<UpsertJobPlanResult> {
+  const { plan } = buildUpsertPayload(draft, catalogue);
+  return callRpc<UpsertJobPlanResult>("upsert_job_plan", {
     p_plan: plan,
   });
-  return { ...result, droppedMaterialCodes };
 }
 
 export async function adoptJobPlan(

@@ -25,9 +25,9 @@ vi.mock("./AuthProvider", () => ({
 }));
 
 vi.mock("../services/jobPlanService", async () => {
-  const actual = await vi.importActual<typeof import("../services/jobPlanService")>(
-    "../services/jobPlanService",
-  );
+  const actual = await vi.importActual<
+    typeof import("../services/jobPlanService")
+  >("../services/jobPlanService");
   return {
     ...actual,
     listJobPlans: () => listJobPlans(),
@@ -139,7 +139,6 @@ describe("JobPlans authoring surface", () => {
       plan_key: "JP-SEAL",
       steps: 1,
       status: "draft",
-      droppedMaterialCodes: [],
     });
     renderPage();
     fireEvent.click(await screen.findByText("Author a plan"));
@@ -167,6 +166,76 @@ describe("JobPlans authoring surface", () => {
     expect(draft.plan_key).toBe("JP-SEAL");
     expect(draft.title).toBe("Replace pump seal");
     expect(await screen.findByText(/Draft saved/)).toBeInTheDocument();
+  });
+
+  it("shows an unresolved code on the editor when a saved line is no longer in the catalogue", async () => {
+    listJobPlans.mockResolvedValue({
+      plans: [DRAFT_PLAN],
+      note: "Adoption requires a criterion.",
+    });
+    getJobPlanDetail.mockResolvedValue({
+      id: "p-draft",
+      plan_key: "JP-DRAFT",
+      title: "Draft seal plan",
+      scope: "Draft only",
+      applies_to_asset_class: "",
+      applies_to_system_group: "",
+      basis: "",
+      status: "draft",
+      version: 1,
+      steps: [
+        {
+          step_number: 1,
+          description: "Isolate",
+          craft: "",
+          crew_size: 1,
+          estimated_hours: 1,
+        },
+      ],
+      materials: [
+        { material_code: "NO-SUCH", description: "Invented", qty: 1 },
+      ],
+      tools: [],
+      permits: [],
+      checks: [
+        {
+          check_description: "Leak check",
+          acceptance_criterion: "Zero visible leakage",
+          is_hold_point: false,
+        },
+      ],
+    });
+    renderPage();
+    fireEvent.click(await screen.findByText("Edit"));
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      /nothing was saved: NO-SUCH/,
+    );
+    expect(screen.queryByText(/Draft saved/)).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Material 1 code")).toHaveValue("NO-SUCH");
+  });
+
+  it("shows an unresolved-material refusal and does not claim the draft was saved", async () => {
+    upsertJobPlan.mockRejectedValue(
+      new Error(
+        "unresolved material code(s) refused; nothing was saved: NO-SUCH. Add each code to the material catalogue first. This call does not create catalogue rows.",
+      ),
+    );
+    renderPage();
+    fireEvent.click(await screen.findByText("Author a plan"));
+    fireEvent.change(screen.getByLabelText("Plan key"), {
+      target: { value: "JP-SEAL" },
+    });
+    fireEvent.change(screen.getByLabelText("Plan title"), {
+      target: { value: "Replace pump seal" },
+    });
+    fireEvent.change(screen.getByLabelText("Plan scope"), {
+      target: { value: "Mechanical seal replacement." },
+    });
+    fireEvent.click(screen.getByText("Save draft"));
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent(/nothing was saved: NO-SUCH/);
+    expect(screen.queryByText(/Draft saved/)).not.toBeInTheDocument();
+    expect(screen.getByText("Save draft")).toBeInTheDocument();
   });
 
   it("adopts a draft through adoptJobPlan and refuses a short note", async () => {

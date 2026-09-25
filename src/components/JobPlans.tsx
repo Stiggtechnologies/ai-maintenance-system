@@ -86,6 +86,7 @@ export function JobPlans() {
   const run = async (fn: () => Promise<string>) => {
     setBusy(true);
     setFlash(null);
+    setDetailError(null);
     try {
       setFlash(await fn());
       setMode({ kind: "idle" });
@@ -93,7 +94,7 @@ export function JobPlans() {
       setWorkOrderId("");
       refresh();
     } catch (e) {
-      setFlash(e instanceof Error ? e.message : "That did not work.");
+      setDetailError(e instanceof Error ? e.message : "That did not work.");
     } finally {
       setBusy(false);
     }
@@ -143,10 +144,10 @@ export function JobPlans() {
         className="rounded-xl border border-white/8 bg-industrial-black/60 px-4 py-3 text-sm text-slate-400"
       >
         Saving a draft writes a proposal. It does not authorize work. Adoption
-        records the signed-in person and is refused without a sequenced step
-        and a quality check that states an acceptance criterion. Only an
-        adopted plan may be applied to a work order. AI does not recommend or
-        authorize a plan here.
+        records the signed-in person and is refused without a sequenced step and
+        a quality check that states an acceptance criterion. Only an adopted
+        plan may be applied to a work order. AI does not recommend or authorize
+        a plan here.
       </div>
 
       <div className="rounded-xl border border-white/6 bg-overlook-deep/40 p-4">
@@ -237,11 +238,7 @@ export function JobPlans() {
             run(async () => {
               if (mode.kind !== "author") return "";
               const result = await upsertJobPlan(mode.draft, catalogue);
-              const dropped =
-                result.droppedMaterialCodes.length > 0
-                  ? ` Catalogue codes not sent: ${result.droppedMaterialCodes.join(", ")}.`
-                  : "";
-              return `Draft saved (${result.plan_key}, ${result.steps} step(s)). Adoption is a separate named-human act.${dropped}`;
+              return `Draft saved (${result.plan_key}, ${result.steps} step(s)). Adoption is a separate named-human act.`;
             })
           }
         />
@@ -367,9 +364,9 @@ export function JobPlans() {
         <p className="rounded-xl border border-white/6 bg-white/2 p-4 text-sm text-slate-400">
           No job plan has been authored. A plan carries scope, sequence, labour,
           duration, materials, tools, permits, isolations and acceptance
-          criteria — the last of which is what makes it verifiable. This list
-          is empty because none have been written, not because a demo library
-          is hidden.
+          criteria — the last of which is what makes it verifiable. This list is
+          empty because none have been written, not because a demo library is
+          hidden.
         </p>
       ) : list.length > 0 ? (
         <div className="overflow-x-auto rounded-xl border border-white/6">
