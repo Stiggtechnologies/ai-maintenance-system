@@ -34,6 +34,9 @@ describe("StartHerePage (ask-first Decision Case)", () => {
     expect(signup).not.toMatch(/returnTo=\/mission-control/);
     expect(page).toMatch(/InvertedOpeningPage/);
     expect(page).not.toMatch(/start-here-role-pick/);
+    expect(readFileSync("src/pages/DecisionCaseSpine.tsx", "utf8")).toMatch(
+      /spine-stage-help/,
+    );
     expect(page).not.toMatch(/CAD\s*\$?\s*7\.?5/i);
     expect(page).not.toMatch(/US\$35/);
   });
