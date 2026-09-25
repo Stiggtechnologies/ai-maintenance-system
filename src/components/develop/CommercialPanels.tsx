@@ -22,6 +22,7 @@
  */
 import { useCallback, useEffect, useState } from "react";
 import type { ReactNode } from "react";
+import type { WorkspaceEvidence } from "../../lib/develop";
 
 import {
   CLAIM_DIRECTIONS,
@@ -43,6 +44,7 @@ import {
   raiseWarrantyClaim,
   recordContractChangeOrder,
   recordContractClaim,
+  recordContractorEngineeringResponse,
   recordContractInvoice,
   recordContractPerformancePeriod,
   recordInvoicePayment,
@@ -100,6 +102,7 @@ export function CommercialPanel({
   packageId,
   canPlan,
   canApprove,
+  evidence = [],
   onChanged,
 }: {
   packageId: number;
@@ -107,6 +110,8 @@ export function CommercialPanel({
   canPlan: boolean;
   /** Management/executive roles decide — the §70 acts the server also gates. */
   canApprove: boolean;
+  /** Canonical case evidence; response measurements select, never retype, it. */
+  evidence?: WorkspaceEvidence[];
   onChanged: () => void;
 }) {
   const [payload, setPayload] = useState<ContractCommercial | null>(null);
@@ -175,6 +180,15 @@ export function CommercialPanel({
   const [perfRework, setPerfRework] = useState("");
   const [perfSafety, setPerfSafety] = useState("");
   const [perfBasis, setPerfBasis] = useState("");
+
+  const [engRef, setEngRef] = useState("");
+  const [engRequested, setEngRequested] = useState("");
+  const [engResponded, setEngResponded] = useState("");
+  const [engRequest, setEngRequest] = useState("");
+  const [engResponse, setEngResponse] = useState("");
+  const [engRequestEvidence, setEngRequestEvidence] = useState("");
+  const [engResponseEvidence, setEngResponseEvidence] = useState("");
+  const [engBasis, setEngBasis] = useState("");
 
   const [specRef, setSpecRef] = useState("");
   const [specBasis, setSpecBasis] = useState("");
@@ -1237,6 +1251,121 @@ export function CommercialPanel({
             >
               Record performance period
             </button>
+          </div>
+        )}
+        {canPlan && payload.supplierId && (
+          <div className="rounded-md border border-white/8 p-2">
+            <div className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+              Engineering response measurement — immutable evidence
+            </div>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <input
+                value={engRef}
+                onChange={(e) => setEngRef(e.target.value)}
+                placeholder="Response reference"
+                className={inputClass}
+              />
+              <input
+                type="datetime-local"
+                aria-label="Engineering request time"
+                value={engRequested}
+                onChange={(e) => setEngRequested(e.target.value)}
+                className={inputClass}
+              />
+              <input
+                type="datetime-local"
+                aria-label="Engineering response time"
+                value={engResponded}
+                onChange={(e) => setEngResponded(e.target.value)}
+                className={inputClass}
+              />
+              <input
+                value={engRequest}
+                onChange={(e) => setEngRequest(e.target.value)}
+                placeholder="What engineering answer was requested"
+                className={inputClass}
+              />
+              <input
+                value={engResponse}
+                onChange={(e) => setEngResponse(e.target.value)}
+                placeholder="What response was received"
+                className={inputClass}
+              />
+              <select
+                aria-label="Engineering request evidence"
+                value={engRequestEvidence}
+                onChange={(e) => setEngRequestEvidence(e.target.value)}
+                className={inputClass}
+              >
+                <option value="">Request evidence…</option>
+                {evidence.map((item) => (
+                  <option key={`request-${item.id}`} value={item.id}>
+                    {item.description ?? item.sourceReference ?? item.id}
+                  </option>
+                ))}
+              </select>
+              <select
+                aria-label="Engineering response evidence"
+                value={engResponseEvidence}
+                onChange={(e) => setEngResponseEvidence(e.target.value)}
+                className={inputClass}
+              >
+                <option value="">Response evidence…</option>
+                {evidence.map((item) => (
+                  <option key={`response-${item.id}`} value={item.id}>
+                    {item.description ?? item.sourceReference ?? item.id}
+                  </option>
+                ))}
+              </select>
+              <input
+                value={engBasis}
+                onChange={(e) => setEngBasis(e.target.value)}
+                placeholder="Measurement basis (10 characters minimum)"
+                className={inputClass}
+              />
+              <button
+                onClick={() =>
+                  void act(async () => {
+                    await recordContractorEngineeringResponse(
+                      packageId,
+                      payload.supplierId as number,
+                      {
+                        responseRef: engRef,
+                        requestedAt: new Date(engRequested).toISOString(),
+                        respondedAt: new Date(engResponded).toISOString(),
+                        requestSummary: engRequest,
+                        responseSummary: engResponse,
+                        basis: engBasis,
+                        requestEvidenceItemId: engRequestEvidence,
+                        responseEvidenceItemId: engResponseEvidence,
+                      },
+                    );
+                    setEngRef("");
+                    setEngRequested("");
+                    setEngResponded("");
+                    setEngRequest("");
+                    setEngResponse("");
+                    setEngRequestEvidence("");
+                    setEngResponseEvidence("");
+                    setEngBasis("");
+                  })
+                }
+                disabled={
+                  busy ||
+                  !engRef ||
+                  !engRequested ||
+                  !engResponded ||
+                  engRequest.trim().length < 10 ||
+                  engResponse.trim().length < 10 ||
+                  !engRequestEvidence ||
+                  !engResponseEvidence ||
+                  engBasis.trim().length < 10
+                }
+                className={btnClass}
+              >
+                Record evidenced response time
+              </button>
+            </div>
           </div>
         )}
         <button

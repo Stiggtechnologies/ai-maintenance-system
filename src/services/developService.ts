@@ -6711,6 +6711,99 @@ export async function recordContractPerformancePeriod(
   return unwrapRpc(data, error, "Could not record the performance period");
 }
 
+export interface ContractorPerformanceDimension {
+  answered: boolean;
+  value: number | null;
+  unit: string | null;
+  numerator: number | null;
+  denominator: number | null;
+  formula: string;
+  projectCount: number;
+  firstObservedAt: string | null;
+  lastObservedAt: string | null;
+  refusal: string | null;
+  claimCount?: number;
+  recoveredValue?: number | null;
+}
+
+export interface ContractorPerformanceEvidence {
+  supplierId: number;
+  supplier: string;
+  supplierCode: string;
+  dimensions: {
+    scheduleReliability: ContractorPerformanceDimension;
+    ncrRate: ContractorPerformanceDimension;
+    engineeringResponse: ContractorPerformanceDimension;
+    reworkRate: ContractorPerformanceDimension;
+    warrantyClaims: ContractorPerformanceDimension;
+  };
+  basis: string;
+}
+
+export interface PackageContractorIntelligence {
+  packageId: number;
+  answered: boolean;
+  refusal?: string | null;
+  basis?: string | null;
+  suppliers: {
+    bidId: number;
+    supplierId: number;
+    supplier: string;
+    supplierCode: string;
+    evidence: ContractorPerformanceEvidence;
+  }[];
+}
+
+/** D6.02: five independent historical dimensions beside opened bids. */
+export async function getPackageContractorIntelligence(
+  packageId: number,
+): Promise<PackageContractorIntelligence> {
+  const { data, error } = await supabase.rpc(
+    "get_package_contractor_intelligence",
+    { p_package_id: packageId },
+  );
+  return unwrapRpc(
+    data,
+    error,
+    "Could not read contractor performance evidence",
+  );
+}
+
+export interface ContractorEngineeringResponseInput {
+  responseRef: string;
+  requestedAt: string;
+  respondedAt: string;
+  requestSummary: string;
+  responseSummary: string;
+  basis: string;
+  requestEvidenceItemId: string;
+  responseEvidenceItemId: string;
+}
+
+/** D6.02: one immutable, evidence-backed request-to-response measurement. */
+export async function recordContractorEngineeringResponse(
+  packageId: number,
+  supplierId: number,
+  input: ContractorEngineeringResponseInput,
+): Promise<{
+  measurementId: number;
+  supplierId: number;
+  packageId: number;
+  developmentCaseId: string;
+  elapsedHours: number;
+  immutable: true;
+}> {
+  const { data, error } = await supabase.rpc(
+    "record_contractor_engineering_response",
+    {
+      p_package_id: packageId,
+      p_supplier_id: supplierId,
+      p_measurement: input,
+    },
+  );
+  return unwrapRpc(data, error, "Could not record the engineering response");
+}
+
 /** One contract's whole commercial life, every figure from its own predicate. */
 export interface ContractCommercial {
   packageId: number;

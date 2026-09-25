@@ -318,6 +318,9 @@ jobs:
       - name: Smoke — brownfield operational disruption and SIMOPS value
         run: bash scripts/ci-develop-operational-disruption-smoke.sh
 
+      - name: Smoke — contractor cross-project performance intelligence
+        run: bash scripts/ci-develop-contractor-intelligence-smoke.sh
+
       - name: Smoke — value trajectory, leakage attribution and benefits screen
         run: bash scripts/ci-develop-value-leakage-smoke.sh
 
