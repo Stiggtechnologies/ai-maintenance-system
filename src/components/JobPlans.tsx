@@ -16,8 +16,9 @@
  * zero variance — perfect-looking planning, two wrecked shifts.
  *
  * Authoring, adoption and application are product acts on this surface.
- * Saving a draft is not authorization. AI does not recommend or authorize
- * a plan here.
+ * Saving a draft is not authorization. Revising an adopted plan writes the
+ * next version as a draft and leaves the adopted plan in force. AI does not
+ * recommend or authorize a plan here.
  */
 import { useState } from "react";
 import { ClipboardList, ShieldAlert, Target } from "lucide-react";
@@ -46,7 +47,12 @@ import {
 
 type Mode =
   | { kind: "idle" }
-  | { kind: "author"; draft: JobPlanDraft; existingKey: boolean }
+  | {
+      kind: "author";
+      draft: JobPlanDraft;
+      existingKey: boolean;
+      asNewVersion: boolean;
+    }
   | { kind: "adopt"; plan: JobPlanSummary }
   | { kind: "apply"; plan: JobPlanSummary };
 
@@ -100,11 +106,16 @@ export function JobPlans() {
     }
   };
 
-  const openAuthor = async (plan?: JobPlanSummary) => {
-    setFlash(null);
+  const openAuthor = async (plan?: JobPlanSummary, notice?: string) => {
+    setFlash(notice ?? null);
     setDetailError(null);
     if (!plan) {
-      setMode({ kind: "author", draft: emptyDraft(), existingKey: false });
+      setMode({
+        kind: "author",
+        draft: emptyDraft(),
+        existingKey: false,
+        asNewVersion: false,
+      });
       return;
     }
     try {
@@ -113,6 +124,35 @@ export function JobPlans() {
         kind: "author",
         draft: draftFromDetail(detail),
         existingKey: true,
+        asNewVersion: false,
+      });
+    } catch (e) {
+      setDetailError(
+        e instanceof Error ? e.message : "Could not load that plan.",
+      );
+    }
+  };
+
+  const openRevision = async (plan: JobPlanSummary) => {
+    const openDraft = list.find(
+      (row) => row.plan_key === plan.plan_key && row.status === "draft",
+    );
+    if (openDraft) {
+      await openAuthor(
+        openDraft,
+        `A draft of ${plan.plan_key} is already open. Edit that draft; another version was not created.`,
+      );
+      return;
+    }
+    setFlash(null);
+    setDetailError(null);
+    try {
+      const detail = await getJobPlanDetail(plan.id);
+      setMode({
+        kind: "author",
+        draft: draftFromDetail(detail),
+        existingKey: true,
+        asNewVersion: true,
       });
     } catch (e) {
       setDetailError(
@@ -143,11 +183,12 @@ export function JobPlans() {
         data-testid="job-plan-honesty"
         className="rounded-xl border border-white/8 bg-industrial-black/60 px-4 py-3 text-sm text-slate-400"
       >
-        Saving a draft writes a proposal. It does not authorize work. Adoption
-        records the signed-in person and is refused without a sequenced step and
-        a quality check that states an acceptance criterion. Only an adopted
-        plan may be applied to a work order. AI does not recommend or authorize
-        a plan here.
+        Saving a draft writes a proposal. It does not authorize work. Revising
+        an adopted plan writes the next version as a draft and leaves the
+        adopted plan in force. Adoption records the signed-in person and is
+        refused without a sequenced step and a quality check that states an
+        acceptance criterion. Only an adopted plan may be applied to a work
+        order. AI does not recommend or authorize a plan here.
       </div>
 
       <div className="rounded-xl border border-white/6 bg-overlook-deep/40 p-4">
@@ -230,15 +271,30 @@ export function JobPlans() {
           catalogue={catalogue}
           busy={busy}
           planKeyLocked={mode.existingKey}
+          revising={mode.asNewVersion}
           onChange={(draft) =>
-            setMode({ kind: "author", draft, existingKey: mode.existingKey })
+            setMode({
+              kind: "author",
+              draft,
+              existingKey: mode.existingKey,
+              asNewVersion: mode.asNewVersion,
+            })
           }
           onCancel={() => setMode({ kind: "idle" })}
           onSave={() =>
             run(async () => {
               if (mode.kind !== "author") return "";
-              const result = await upsertJobPlan(mode.draft, catalogue);
-              return `Draft saved (${result.plan_key}, ${result.steps} step(s)). Adoption is a separate named-human act.`;
+              const revising = mode.asNewVersion;
+              const result = await upsertJobPlan(
+                mode.draft,
+                catalogue,
+                revising ? { asNewVersion: true } : undefined,
+              );
+              const version =
+                result.version != null ? ` version ${result.version}` : "";
+              return revising
+                ? `Draft${version} saved (${result.plan_key}, ${result.steps} step(s)). The adopted plan is unchanged until a named person adopts this draft.`
+                : `Draft saved (${result.plan_key}${version}, ${result.steps} step(s)). Adoption is a separate named-human act.`;
             })
           }
         />
@@ -452,6 +508,7 @@ export function JobPlans() {
                       plan={p}
                       canAuthor={canAuthor}
                       onEdit={() => openAuthor(p)}
+                      onRevise={() => openRevision(p)}
                       onAdopt={() => {
                         setAdoptNote("");
                         setMode({ kind: "adopt", plan: p });
@@ -474,8 +531,11 @@ export function JobPlans() {
         <Link to="/work" className="text-signal-cyan underline">
           Work
         </Link>
-        . An adopted plan cannot be edited in place — the database refuses it.
-        Revising an adopted plan as a new version is not yet a product act.
+        . An adopted plan is not edited in place. Revise writes the next version
+        as a draft through upsert_job_plan; that draft has no execution
+        authority, and the adopted plan remains the one that may be applied
+        until a named person adopts the draft. An unresolved material code
+        refuses the save and nothing is written.
       </p>
     </section>
   );
@@ -485,24 +545,37 @@ function PlanActs({
   plan,
   canAuthor,
   onEdit,
+  onRevise,
   onAdopt,
   onApply,
 }: {
   plan: JobPlanSummary;
   canAuthor: boolean;
   onEdit: () => void;
+  onRevise: () => void;
   onAdopt: () => void;
   onApply: () => void;
 }) {
   if (plan.status === "adopted") {
     return (
-      <button
-        type="button"
-        onClick={onApply}
-        className="rounded-lg border border-teal-500/30 px-2 py-1 text-xs text-teal-300"
-      >
-        Apply
-      </button>
+      <div className="flex flex-wrap gap-1">
+        {canAuthor && (
+          <button
+            type="button"
+            onClick={onRevise}
+            className="rounded-lg border border-amber-400/30 px-2 py-1 text-xs text-amber-200"
+          >
+            Revise
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={onApply}
+          className="rounded-lg border border-teal-500/30 px-2 py-1 text-xs text-teal-300"
+        >
+          Apply
+        </button>
+      </div>
     );
   }
   if (!canAuthor) {

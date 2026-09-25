@@ -10,6 +10,7 @@ import { migrationFiles, stripComments } from "./support/migrationPolicies";
 
 const ORIGINAL = "20260811090000_job_plans.sql";
 const REFUSAL = "20261225140000_job_plan_unresolved_material_refusal.sql";
+const NEW_VERSION = "20261225150000_job_plan_new_version.sql";
 
 function functionBodies(): Map<string, { file: string; body: string }> {
   const defs = new Map<string, { file: string; body: string }>();
@@ -31,12 +32,13 @@ const defs = functionBodies();
 const upsert = defs.get("upsert_job_plan");
 
 describe("upsert_job_plan refuses unresolved material codes", () => {
-  it("the live definition is the refusal migration, not the historical skip", () => {
-    expect(upsert?.file).toBe(REFUSAL);
+  it("the live definition is the new-version migration, not the historical skip", () => {
+    expect(upsert?.file).toBe(NEW_VERSION);
     const historical = stripComments(
       readFileSync(`supabase/migrations/${ORIGINAL}`, "utf8"),
     );
     expect(historical).toMatch(/if\s+v_mat\s+is\s+not\s+null\s+then/i);
+    expect(migrationFiles()).toContain(REFUSAL);
   });
 
   it("returns the refusal before inserting a plan", () => {
@@ -70,13 +72,31 @@ describe("upsert_job_plan refuses unresolved material codes", () => {
   });
 
   it("revokes execute from public on the replaced definer", () => {
-    const sql = readFileSync(`supabase/migrations/${REFUSAL}`, "utf8");
+    const sql = readFileSync(`supabase/migrations/${NEW_VERSION}`, "utf8");
     expect(sql).toMatch(
       /revoke\s+all\s+on\s+function\s+public\.upsert_job_plan\(jsonb\)\s+from\s+public/i,
     );
     expect(sql).toMatch(
       /grant\s+execute\s+on\s+function\s+public\.upsert_job_plan\(jsonb\)\s+to\s+authenticated/i,
     );
+  });
+
+  it("inserts the next version as a draft and does not edit an adopted row", () => {
+    const body = upsert?.body ?? "";
+    expect(body).toMatch(/as_new_version/);
+    expect(body).toMatch(/coalesce\(max\(version\),\s*0\)/i);
+    expect(body).toMatch(/v_max\s*\+\s*1/);
+    expect(body).toMatch(/status,\s*created_by\)/);
+    expect(body).toMatch(/'draft'/);
+    expect(body).toMatch(
+      /where id = v_id and organization_id = v_org and status = 'draft'/i,
+    );
+    expect(body).not.toMatch(/set\s+status\s*=\s*'adopted'/i);
+    expect(body).not.toMatch(/update\s+work_orders/i);
+    expect(body).not.toMatch(/insert\s+into\s+(public\.)?materials\b/i);
+    const sql = readFileSync(`supabase/migrations/${NEW_VERSION}`, "utf8");
+    expect(sql).toMatch(/job_plans_one_open_draft/);
+    expect(sql).toMatch(/where status = 'draft'/i);
   });
 });
 

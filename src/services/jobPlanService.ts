@@ -17,6 +17,11 @@
  * that refusal before it writes, and upsertJobPlan throws the same sentence
  * when the loaded catalogue does not contain the code. Neither path creates
  * a catalogue row, and neither path reports the draft as saved.
+ *
+ * An adopted plan is not edited in place. as_new_version asks the database
+ * to insert the next version as a draft. That draft has no execution
+ * authority; adopt_job_plan is still the named-human act, and the adopted
+ * row stays the one apply_job_plan can use until that adoption.
  */
 import { supabase } from "../lib/supabase";
 
@@ -146,6 +151,7 @@ export interface JobPlanList {
 export interface UpsertJobPlanResult {
   job_plan_id: string;
   plan_key: string;
+  version?: number;
   steps: number;
   status: string;
 }
@@ -431,8 +437,12 @@ export function buildUpsertPayload(
 export async function upsertJobPlan(
   draft: JobPlanDraft,
   catalogue: MaterialOption[],
+  options?: { asNewVersion?: boolean },
 ): Promise<UpsertJobPlanResult> {
   const { plan } = buildUpsertPayload(draft, catalogue);
+  if (options?.asNewVersion) {
+    plan.as_new_version = true;
+  }
   return callRpc<UpsertJobPlanResult>("upsert_job_plan", {
     p_plan: plan,
   });
