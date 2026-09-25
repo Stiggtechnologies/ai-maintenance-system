@@ -327,6 +327,117 @@ export interface RecoveryControlSnapshot {
   firstTimeRight: RecoveryCapabilityPayload;
   sequencePatterns: RecoveryCapabilityPayload;
   productivityNorms: RecoveryCapabilityPayload;
+  recurrenceCandidates: RecoveryRecurrenceCandidate[];
+}
+
+/** Unclassified row from `recovery_recurrence_links`. Org scope is the read policy. */
+export interface RecoveryRecurrenceCandidate {
+  id: string;
+  notificationId: string;
+  createdAt: string;
+}
+
+/** One donor row from `get_recovery_cannibalization_options`. Not a transfer. */
+export interface RecoveryDonorCandidate {
+  workOrderMaterialId: string;
+  requiredMaterial: string;
+  donorComponentInstanceId: string;
+  donorAsset: string;
+  serialNumber: string | null;
+  donorState: string | null;
+}
+
+export function donorCandidatesFromPayload(
+  payload: RecoveryCapabilityPayload | null | undefined,
+): RecoveryDonorCandidate[] {
+  const raw = payload?.donor_candidates;
+  if (!Array.isArray(raw)) return [];
+  const out: RecoveryDonorCandidate[] = [];
+  for (const row of raw) {
+    if (!row || typeof row !== "object") continue;
+    const item = row as Record<string, unknown>;
+    const workOrderMaterialId =
+      typeof item.work_order_material_id === "string"
+        ? item.work_order_material_id
+        : "";
+    const donorComponentInstanceId =
+      typeof item.donor_component_instance_id === "string"
+        ? item.donor_component_instance_id
+        : "";
+    if (workOrderMaterialId === "" || donorComponentInstanceId === "") continue;
+    out.push({
+      workOrderMaterialId,
+      requiredMaterial:
+        typeof item.required_material === "string"
+          ? item.required_material
+          : "",
+      donorComponentInstanceId,
+      donorAsset: typeof item.donor_asset === "string" ? item.donor_asset : "",
+      serialNumber:
+        typeof item.serial_number === "string" ? item.serial_number : null,
+      donorState:
+        typeof item.donor_state === "string" ? item.donor_state : null,
+    });
+  }
+  return out;
+}
+
+function nonNegativeAmount(value: string): boolean {
+  if (value.trim() === "") return false;
+  const amount = Number(value);
+  return Number.isFinite(amount) && amount >= 0;
+}
+
+/** Human-entered economics. Empty is not zero, and nothing here verifies value. */
+export function economicAssumptionsReady(input: {
+  regular: string;
+  overtime: string;
+  overtimeShare: string;
+  contractor: string;
+  logistics: string;
+  risk: string;
+  lifeCycle: string;
+  basis: string;
+}): boolean {
+  if (
+    [
+      input.regular,
+      input.overtime,
+      input.contractor,
+      input.logistics,
+      input.risk,
+      input.lifeCycle,
+    ].some((value) => !nonNegativeAmount(value))
+  ) {
+    return false;
+  }
+  if (input.overtimeShare.trim() === "") return false;
+  const share = Number(input.overtimeShare);
+  if (!Number.isFinite(share) || share < 0 || share > 1) return false;
+  return input.basis.trim().length >= 20;
+}
+
+export async function listRecoveryRecurrenceCandidates(
+  eventId: string,
+): Promise<RecoveryRecurrenceCandidate[]> {
+  const { data, error } = await supabase
+    .from("recovery_recurrence_links")
+    .select("id, notification_id, created_at")
+    .eq("event_id", eventId)
+    .eq("verdict", "candidate")
+    .order("created_at", { ascending: true });
+  if (error) throw new Error(error.message);
+  return (
+    (data ?? []) as Array<{
+      id: string;
+      notification_id: string;
+      created_at: string;
+    }>
+  ).map((row) => ({
+    id: row.id,
+    notificationId: row.notification_id,
+    createdAt: row.created_at,
+  }));
 }
 
 function rpcPayload<T>(data: unknown, error: { message: string } | null): T {
@@ -430,6 +541,7 @@ export async function getRecoveryControlSnapshot(
     firstTimeRight,
     sequencePatterns,
     productivityNorms,
+    recurrenceCandidates,
   ] = await Promise.all([
     call<RecoveryCapabilityPayload>("get_recovery_handoff", {
       p_event_id: eventId,
@@ -455,6 +567,7 @@ export async function getRecoveryControlSnapshot(
     call<RecoveryCapabilityPayload>("get_recovery_productivity_norms", {
       p_site_id: siteId ?? null,
     }),
+    listRecoveryRecurrenceCandidates(eventId),
   ]);
 
   return {
@@ -468,6 +581,7 @@ export async function getRecoveryControlSnapshot(
     firstTimeRight,
     sequencePatterns,
     productivityNorms,
+    recurrenceCandidates,
   };
 }
 
@@ -743,6 +857,138 @@ export const recoveryActions = {
       p_component_scope: args.componentScope ?? null,
       p_basis: args.basis,
     }),
+  /**
+   * Named human records whether two zones may run in parallel.
+   * This does not compute a spatial model and does not start work.
+   * `siteId` null is an organization-wide relationship the RPC already accepts.
+   */
+  setWorkZoneRelationship: (args: {
+    siteId: string | null;
+    zoneA: string;
+    zoneB: string;
+    parallelAllowed: boolean;
+    basis: string;
+    sourceRef?: string | null;
+  }) => {
+    if (
+      args.zoneA.trim().length < 2 ||
+      args.zoneB.trim().length < 2 ||
+      args.basis.trim().length < 15
+    ) {
+      return Promise.reject(
+        new Error("two zones and a substantive basis are required"),
+      );
+    }
+    return call<RpcResult>("set_work_zone_relationship", {
+      p_site_id: args.siteId,
+      p_zone_a: args.zoneA.trim(),
+      p_zone_b: args.zoneB.trim(),
+      p_parallel_allowed: args.parallelAllowed,
+      p_basis: args.basis.trim(),
+      p_source_ref: args.sourceRef ?? null,
+    });
+  },
+  /**
+   * Confirmed or rejected only. Refreshing candidates does not classify them.
+   */
+  classifyRecurrence: (args: {
+    linkId: string;
+    verdict: "confirmed" | "rejected";
+    basis: string;
+  }) => {
+    if (
+      (args.verdict !== "confirmed" && args.verdict !== "rejected") ||
+      args.basis.trim().length < 15 ||
+      args.linkId.trim() === ""
+    ) {
+      return Promise.reject(
+        new Error("confirmed/rejected verdict and basis required"),
+      );
+    }
+    return call<RpcResult>("classify_recovery_recurrence", {
+      p_link_id: args.linkId,
+      p_verdict: args.verdict,
+      p_basis: args.basis.trim(),
+    });
+  },
+  /**
+   * Human-entered costs for one event. Does not verify value and does not
+   * invent a rate when a field is blank.
+   */
+  setEconomicAssumptions: (args: {
+    eventId: string;
+    regular: number;
+    overtime: number;
+    overtimeShare: number;
+    contractor: number;
+    logistics: number;
+    risk: number;
+    lifeCycle: number;
+    basis: string;
+  }) => {
+    const costs = [
+      args.regular,
+      args.overtime,
+      args.contractor,
+      args.logistics,
+      args.risk,
+      args.lifeCycle,
+    ];
+    if (
+      costs.some((amount) => !Number.isFinite(amount) || amount < 0) ||
+      !Number.isFinite(args.overtimeShare) ||
+      args.overtimeShare < 0 ||
+      args.overtimeShare > 1 ||
+      args.basis.trim().length < 20
+    ) {
+      return Promise.reject(
+        new Error(
+          "non-negative costs, 0-1 overtime share and substantive basis required",
+        ),
+      );
+    }
+    return call<RpcResult>("set_recovery_economic_assumptions", {
+      p_event_id: args.eventId,
+      p_regular: args.regular,
+      p_overtime: args.overtime,
+      p_overtime_share: args.overtimeShare,
+      p_contractor: args.contractor,
+      p_logistics: args.logistics,
+      p_risk: args.risk,
+      p_life_cycle: args.lifeCycle,
+      p_basis: args.basis.trim(),
+    });
+  },
+  /**
+   * Pending approval only. The RPC inserts no transfer and this caller
+   * refuses a proposal that does not name a listed donor.
+   */
+  proposeCannibalization: (args: {
+    eventId: string;
+    workOrderMaterialId: string;
+    donorComponentInstanceId: string;
+    basis: string;
+  }) => {
+    if (
+      args.workOrderMaterialId.trim() === "" ||
+      args.donorComponentInstanceId.trim() === ""
+    ) {
+      return Promise.reject(
+        new Error(
+          "A proposal must name a listed donor candidate. No component is transferred.",
+        ),
+      );
+    }
+    if (args.basis.trim().length < 20) {
+      return Promise.reject(new Error("trade-study basis required"));
+    }
+    return call<RpcResult>("propose_recovery_cannibalization", {
+      p_event_id: args.eventId,
+      p_work_order_material_id: args.workOrderMaterialId,
+      p_donor_component_instance_id: args.donorComponentInstanceId,
+      p_basis: args.basis.trim(),
+    });
+  },
   recordEnergyState: (args: {
     assetId: string;
     energyType: string;

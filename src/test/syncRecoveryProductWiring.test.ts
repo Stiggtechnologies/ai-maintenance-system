@@ -42,9 +42,18 @@ describe("Sync Recovery product wiring", () => {
       "record_asset_energy_state",
       "set_job_plan_energy_requirement",
       "set_recovery_uncertainty_group",
+      "set_work_zone_relationship",
+      "classify_recovery_recurrence",
+      "set_recovery_economic_assumptions",
+      "propose_recovery_cannibalization",
     ]) {
       expect(service).toContain(fn);
     }
+    expect(controlCenter).toContain("does not compute a spatial model");
+    expect(controlCenter).toContain("No component is transferred");
+    expect(controlCenter).toContain("do not verify value");
+    expect(controlCenter).toContain("Refresh does not confirm a recurrence");
+    expect(controlCenter).toContain("is not zero");
     expect(controlCenter).toContain("stale evidence stays unknown");
     expect(controlCenter).toMatch(/never self-approve\s+work/);
   });

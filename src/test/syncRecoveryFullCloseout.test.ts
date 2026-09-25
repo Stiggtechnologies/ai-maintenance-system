@@ -236,6 +236,7 @@ describe("Sync Recovery close-out reachability claims", () => {
     const reachable = closeoutFunctions.filter((fn) => appSource.includes(fn));
     expect(reachable).toEqual([
       "add_recovery_field_evidence",
+      "classify_recovery_recurrence",
       "get_recovery_cannibalization_options",
       "get_recovery_component_life_context",
       "get_recovery_counterfactual_attribution",
@@ -246,6 +247,7 @@ describe("Sync Recovery close-out reachability claims", () => {
       "get_recovery_parts_risk",
       "get_recovery_productivity_norms",
       "get_recovery_sequence_patterns",
+      "propose_recovery_cannibalization",
       "publish_recovery_cadence_snapshot",
       "record_asset_energy_state",
       "record_recovery_delay_attribution",
@@ -257,16 +259,18 @@ describe("Sync Recovery close-out reachability claims", () => {
       "set_job_plan_energy_requirement",
       "set_material_substitution",
       "set_recovery_consequence",
+      "set_recovery_economic_assumptions",
       "set_recovery_uncertainty_group",
       "set_restoration_resource_requirement",
       "set_restoration_work_zone",
+      "set_work_zone_relationship",
       "simulate_recovery_what_if",
       "upsert_material_stock_lot",
     ]);
 
     const matrix = readFileSync("docs/sync-recovery/control-matrix.md", "utf8");
     expect(matrix).toContain(
-      "27 of the 39 close-out functions are now reachable",
+      "31 of the 39 close-out functions are now reachable",
     );
     expect(matrix).not.toContain("No product surface reaches any of it");
     expect(matrix).not.toContain("0 rows are closed end to end in the product");
