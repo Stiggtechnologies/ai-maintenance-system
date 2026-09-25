@@ -255,16 +255,18 @@ describe("Sync Recovery close-out reachability claims", () => {
       "run_recovery_fleet_optimization",
       "run_restoration_risk_simulation",
       "set_job_plan_energy_requirement",
+      "set_material_substitution",
       "set_recovery_consequence",
       "set_recovery_uncertainty_group",
       "set_restoration_resource_requirement",
       "set_restoration_work_zone",
       "simulate_recovery_what_if",
+      "upsert_material_stock_lot",
     ]);
 
     const matrix = readFileSync("docs/sync-recovery/control-matrix.md", "utf8");
     expect(matrix).toContain(
-      "25 of the 39 close-out functions are now reachable",
+      "27 of the 39 close-out functions are now reachable",
     );
     expect(matrix).not.toContain("No product surface reaches any of it");
     expect(matrix).not.toContain("0 rows are closed end to end in the product");

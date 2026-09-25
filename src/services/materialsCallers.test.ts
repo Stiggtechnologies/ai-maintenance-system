@@ -6,6 +6,8 @@ import {
   describeReserveResult,
   listMaterialDemand,
   recordMaterialEvent,
+  recordMaterialStockLot,
+  recordMaterialSubstitution,
   reserveWoMaterials,
 } from "./materialsCallers";
 
@@ -75,6 +77,59 @@ describe("materialsCallers", () => {
     await expect(reserveWoMaterials("missing")).rejects.toThrow(
       "work order not found",
     );
+  });
+
+  it("calls upsert_material_stock_lot with the recorded lot", async () => {
+    rpc.mockResolvedValue({
+      data: { ok: true, stock_lot_id: "lot-1" },
+      error: null,
+    });
+    await recordMaterialStockLot({
+      materialId: "m1",
+      siteId: null,
+      lotRef: "LOT-9",
+      qty: 2,
+      condition: "unknown",
+      certificationStatus: "unknown",
+      sourceSystem: "stores",
+      basis: "Counted on the shelf.",
+    });
+    expect(rpc).toHaveBeenCalledWith("upsert_material_stock_lot", {
+      p_material_id: "m1",
+      p_site_id: null,
+      p_lot_ref: "LOT-9",
+      p_qty: 2,
+      p_condition: "unknown",
+      p_certification_status: "unknown",
+      p_source_system: "stores",
+      p_basis: "Counted on the shelf.",
+      p_certification_ref: null,
+      p_staged_for_work_order_id: null,
+      p_location: null,
+      p_expires_at: null,
+    });
+  });
+
+  it("records a substitution as pending rather than an approved fitment", async () => {
+    rpc.mockResolvedValue({
+      data: { ok: true, substitution_id: "sub-1", status: "pending" },
+      error: null,
+    });
+    await recordMaterialSubstitution({
+      materialId: "m1",
+      substituteMaterialId: "m2",
+      type: "approved_alternate",
+      status: "pending",
+      basis: "Engineering note that this alternate is under review.",
+    });
+    expect(rpc).toHaveBeenCalledWith("set_material_substitution", {
+      p_material_id: "m1",
+      p_substitute_material_id: "m2",
+      p_type: "approved_alternate",
+      p_status: "pending",
+      p_basis: "Engineering note that this alternate is under review.",
+      p_valid_until: null,
+    });
   });
 
   it("flattens nested demand rows for the kitting desk", async () => {

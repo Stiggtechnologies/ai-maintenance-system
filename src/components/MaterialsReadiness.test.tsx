@@ -11,6 +11,10 @@ const rpc = vi.fn();
 const listMaterialDemand = vi.fn();
 const reserveWoMaterials = vi.fn();
 const recordMaterialEvent = vi.fn();
+const listMaterialStockLots = vi.fn();
+const listLotFormOptions = vi.fn();
+const recordMaterialStockLot = vi.fn();
+const recordMaterialSubstitution = vi.fn();
 
 vi.mock("../lib/supabase", () => ({
   supabase: {
@@ -27,6 +31,12 @@ vi.mock("../services/materialsCallers", async () => {
     listMaterialDemand: (...args: unknown[]) => listMaterialDemand(...args),
     reserveWoMaterials: (...args: unknown[]) => reserveWoMaterials(...args),
     recordMaterialEvent: (...args: unknown[]) => recordMaterialEvent(...args),
+    listMaterialStockLots: (...args: unknown[]) => listMaterialStockLots(...args),
+    listLotFormOptions: (...args: unknown[]) => listLotFormOptions(...args),
+    recordMaterialStockLot: (...args: unknown[]) =>
+      recordMaterialStockLot(...args),
+    recordMaterialSubstitution: (...args: unknown[]) =>
+      recordMaterialSubstitution(...args),
   };
 });
 
@@ -68,6 +78,14 @@ beforeEach(() => {
     lines_without_stock_records: 1,
   });
   recordMaterialEvent.mockResolvedValue({ recorded: "issued", line: "wom1" });
+  listMaterialStockLots.mockResolvedValue([]);
+  listLotFormOptions.mockResolvedValue({ materials: [], sites: [] });
+  recordMaterialStockLot.mockResolvedValue({ ok: true, stock_lot_id: "lot-1" });
+  recordMaterialSubstitution.mockResolvedValue({
+    ok: true,
+    status: "pending",
+    substitution_id: "sub-1",
+  });
 });
 
 describe("MaterialsReadiness kitting path", () => {
@@ -101,5 +119,46 @@ describe("MaterialsReadiness kitting path", () => {
       expect(recordMaterialEvent).toHaveBeenCalledWith("wom1", "issued"),
     );
     expect(await screen.findByText(/Waiting-on-material/)).toBeInTheDocument();
+  });
+
+  it("records lot condition through upsert_material_stock_lot", async () => {
+    listLotFormOptions.mockResolvedValue({
+      materials: [
+        { id: "m1", material_code: "SEAL-25", description: "Mechanical seal" },
+      ],
+      sites: [{ id: "s1", name: "Site A" }],
+    });
+    render(<MaterialsReadiness />);
+    expect(
+      await screen.findByText(/No lot condition is recorded/),
+    ).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Lot material"), {
+      target: { value: "m1" },
+    });
+    fireEvent.change(screen.getByLabelText("Lot reference"), {
+      target: { value: "LOT-9" },
+    });
+    fireEvent.change(screen.getByLabelText("Lot quantity"), {
+      target: { value: "2" },
+    });
+    fireEvent.change(screen.getByLabelText("Lot source system"), {
+      target: { value: "stores" },
+    });
+    fireEvent.change(screen.getByLabelText("Lot basis"), {
+      target: { value: "Counted on the shelf during the outage window." },
+    });
+    fireEvent.click(screen.getByText("Record lot condition"));
+    await waitFor(() =>
+      expect(recordMaterialStockLot).toHaveBeenCalledWith({
+        materialId: "m1",
+        siteId: null,
+        lotRef: "LOT-9",
+        qty: 2,
+        condition: "unknown",
+        certificationStatus: "unknown",
+        sourceSystem: "stores",
+        basis: "Counted on the shelf during the outage window.",
+      }),
+    );
   });
 });

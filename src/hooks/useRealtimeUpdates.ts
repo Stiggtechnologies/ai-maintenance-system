@@ -89,6 +89,11 @@ export function useWorkOrderUpdates(
   }, [onUpdate]);
 }
 
+/**
+ * Present-state condition updates. `record_condition_reading` moves
+ * `sensors.last_value` when a reading is the series head, and `sensors` is
+ * in the realtime publication. `asset_health_monitoring` is not that series.
+ */
 export function useAssetHealthUpdates(
   onUpdate?: (health: Record<string, unknown>) => void,
 ) {
@@ -97,7 +102,7 @@ export function useAssetHealthUpdates(
       .channel("asset-health-changes")
       .on(
         "postgres_changes",
-        { event: "INSERT", schema: "public", table: "asset_health_monitoring" },
+        { event: "*", schema: "public", table: "sensors" },
         (payload) => {
           onUpdate?.(payload.new);
         },

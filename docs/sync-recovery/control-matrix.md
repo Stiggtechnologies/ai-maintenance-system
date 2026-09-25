@@ -1,9 +1,9 @@
 # Sync Recovery — control and maturity matrix
 
 **2026-08-24 — UPDATED FOR PRODUCT WIRING.** Control, Optimize and Learn are now
-real tabs in the Recovery workspace. **25 of the 39 close-out functions are now reachable**
+real tabs in the Recovery workspace. **27 of the 39 close-out functions are now reachable**
 through the product service/surface; an exact source-contract test prevents that
-count from drifting silently. The remaining 14 are deliberately internal
+count from drifting silently. The remaining 12 are deliberately internal
 triggers/helpers, connector-side master-data writers, or still-unexposed governed
 actions (recurrence classification, cannibalization proposal, economic-assumption
 authoring and site work-zone relationship approval).
@@ -118,7 +118,7 @@ This document is a non-overclaiming map from the Sync Recovery / Event Orchestra
 - **1 row remains deliberately deferred** (27).
 - **24 rows have a governed database contract**, and runtime acceptance proves
   those contracts execute.
-- **25 of 39 close-out functions are product-reachable**; the others are either
+- **27 of 39 close-out functions are product-reachable**; the others are either
   intentionally internal/connector-side or specifically named above.
 - Remaining first-order boundaries are: no computed spatial model (4), no
   component-life candidate ranking (9), no tenant-specific provider bindings
