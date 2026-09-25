@@ -171,6 +171,72 @@ describe("job plan RPC callers", () => {
     );
   });
 
+  it("calls upsert_job_plan with as_new_version when revising", async () => {
+    rpc.mockResolvedValue({
+      data: {
+        job_plan_id: "p2",
+        plan_key: "JP-SEAL",
+        version: 2,
+        steps: 1,
+        status: "draft",
+      },
+      error: null,
+    });
+    const draft = emptyDraft();
+    draft.plan_key = "JP-SEAL";
+    draft.title = "Replace pump seal";
+    draft.scope = "Seal replacement";
+    const result = await upsertJobPlan(draft, CATALOGUE, {
+      asNewVersion: true,
+    });
+    expect(rpc).toHaveBeenCalledWith("upsert_job_plan", {
+      p_plan: expect.objectContaining({
+        plan_key: "JP-SEAL",
+        as_new_version: true,
+      }),
+    });
+    expect(result.version).toBe(2);
+    expect(result.status).toBe("draft");
+  });
+
+  it("does not mark an ordinary save as a new version", async () => {
+    rpc.mockResolvedValue({
+      data: {
+        job_plan_id: "p1",
+        plan_key: "JP-SEAL",
+        version: 1,
+        steps: 0,
+        status: "draft",
+      },
+      error: null,
+    });
+    const draft = emptyDraft();
+    draft.plan_key = "JP-SEAL";
+    draft.title = "Replace pump seal";
+    draft.scope = "Seal replacement";
+    await upsertJobPlan(draft, CATALOGUE);
+    const payload = rpc.mock.calls[0][1] as {
+      p_plan: { as_new_version?: boolean };
+    };
+    expect(payload.p_plan.as_new_version).toBeUndefined();
+  });
+
+  it("refuses an unresolved code on a revision and does not call the RPC", async () => {
+    const draft = emptyDraft();
+    draft.plan_key = "JP-SEAL";
+    draft.title = "Replace pump seal";
+    draft.scope = "Seal replacement";
+    draft.materials = [
+      { material_code: "NO-SUCH", description: "Invented", qty: 1 },
+    ];
+    await expect(
+      upsertJobPlan(draft, CATALOGUE, { asNewVersion: true }),
+    ).rejects.toThrow(
+      /unresolved material code\(s\) refused; nothing was saved: NO-SUCH/,
+    );
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
   it("calls adopt_job_plan with the plan id and the human's note", async () => {
     rpc.mockResolvedValue({
       data: { adopted: "p1", steps: 2, checks: 1 },

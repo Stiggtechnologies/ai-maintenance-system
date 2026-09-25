@@ -295,6 +295,159 @@ describe("JobPlans authoring surface", () => {
     expect(await screen.findByText(/safety-flagged/)).toBeInTheDocument();
   });
 
+  it("revises an adopted plan through upsert_job_plan as a new draft version", async () => {
+    listJobPlans.mockResolvedValue({
+      plans: [ADOPTED_PLAN],
+      note: "Only adopted plans apply.",
+    });
+    getJobPlanDetail.mockResolvedValue({
+      id: "p-adopted",
+      plan_key: "JP-SEAL",
+      title: "Replace pump seal",
+      scope: "Seal replacement.",
+      applies_to_asset_class: "pump",
+      applies_to_system_group: "",
+      basis: "Adopted: site review complete.",
+      status: "adopted",
+      version: 1,
+      steps: [
+        {
+          step_number: 1,
+          description: "Isolate and drain",
+          craft: "fitter",
+          crew_size: 1,
+          estimated_hours: 2,
+        },
+      ],
+      materials: [
+        {
+          material_code: "SEAL-25",
+          description: "Mechanical seal 25mm",
+          qty: 1,
+        },
+      ],
+      tools: [],
+      permits: [],
+      checks: [
+        {
+          check_description: "Leak check",
+          acceptance_criterion: "Zero visible leakage",
+          is_hold_point: false,
+        },
+      ],
+    });
+    upsertJobPlan.mockResolvedValue({
+      job_plan_id: "p-v2",
+      plan_key: "JP-SEAL",
+      version: 2,
+      steps: 1,
+      status: "draft",
+    });
+    renderPage();
+    fireEvent.click(await screen.findByText("Revise"));
+    expect(await screen.findByTestId("job-plan-revision")).toHaveTextContent(
+      /adopted plan stays/i,
+    );
+    fireEvent.change(screen.getByLabelText("Plan title"), {
+      target: { value: "Replace pump seal — revised" },
+    });
+    fireEvent.click(screen.getByText("Save draft"));
+    await waitFor(() =>
+      expect(upsertJobPlan).toHaveBeenCalledWith(
+        expect.objectContaining({
+          plan_key: "JP-SEAL",
+          title: "Replace pump seal — revised",
+          materials: [expect.objectContaining({ material_code: "SEAL-25" })],
+        }),
+        expect.any(Array),
+        { asNewVersion: true },
+      ),
+    );
+    expect(adoptJobPlan).not.toHaveBeenCalled();
+    expect(applyJobPlan).not.toHaveBeenCalled();
+    expect(
+      await screen.findByText(/Draft version 2 saved/),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/adopted plan is unchanged/)).toBeInTheDocument();
+  });
+
+  it("opens the existing draft instead of authoring a second version", async () => {
+    const openDraft = {
+      ...DRAFT_PLAN,
+      id: "p-open",
+      plan_key: "JP-SEAL",
+      title: "Open seal revision",
+    };
+    listJobPlans.mockResolvedValue({
+      plans: [openDraft, ADOPTED_PLAN],
+      note: "Only adopted plans apply.",
+    });
+    getJobPlanDetail.mockImplementation(async (id: string) => ({
+      id,
+      plan_key: "JP-SEAL",
+      title: id === "p-open" ? "Open seal revision" : "Replace pump seal",
+      scope: "Seal replacement.",
+      applies_to_asset_class: "",
+      applies_to_system_group: "",
+      basis: "",
+      status: id === "p-open" ? "draft" : "adopted",
+      version: id === "p-open" ? 2 : 1,
+      steps: [
+        {
+          step_number: 1,
+          description: "Isolate",
+          craft: "",
+          crew_size: 1,
+          estimated_hours: 1,
+        },
+      ],
+      materials: [],
+      tools: [],
+      permits: [],
+      checks: [
+        {
+          check_description: "Leak check",
+          acceptance_criterion: "Zero visible leakage",
+          is_hold_point: false,
+        },
+      ],
+    }));
+    upsertJobPlan.mockResolvedValue({
+      job_plan_id: "p-open",
+      plan_key: "JP-SEAL",
+      version: 2,
+      steps: 1,
+      status: "draft",
+    });
+    renderPage();
+    fireEvent.click(await screen.findByText("Revise"));
+    expect(await screen.findByText(/already open/)).toBeInTheDocument();
+    expect(await screen.findByLabelText("Plan title")).toHaveValue(
+      "Open seal revision",
+    );
+    expect(screen.queryByTestId("job-plan-revision")).not.toBeInTheDocument();
+    await waitFor(() =>
+      expect(getJobPlanDetail).toHaveBeenCalledWith("p-open"),
+    );
+    expect(getJobPlanDetail).not.toHaveBeenCalledWith("p-adopted");
+    fireEvent.click(screen.getByText("Save draft"));
+    await waitFor(() => expect(upsertJobPlan).toHaveBeenCalled());
+    expect(upsertJobPlan.mock.calls[0][2]).toBeUndefined();
+    expect(adoptJobPlan).not.toHaveBeenCalled();
+  });
+
+  it("does not offer Revise to a role the database will refuse", async () => {
+    role = "technician";
+    listJobPlans.mockResolvedValue({
+      plans: [ADOPTED_PLAN],
+      note: "Only adopted plans apply.",
+    });
+    renderPage();
+    expect(await screen.findByText("Apply")).toBeInTheDocument();
+    expect(screen.queryByText("Revise")).not.toBeInTheDocument();
+    expect(screen.queryByText("Author a plan")).not.toBeInTheDocument();
+  });
+
   it("surfaces the database's own refusal sentence", async () => {
     listJobPlans.mockResolvedValue({
       plans: [DRAFT_PLAN],

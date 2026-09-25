@@ -41,6 +41,7 @@ export function JobPlanEditor({
   catalogue,
   busy,
   planKeyLocked,
+  revising = false,
   onChange,
   onCancel,
   onSave,
@@ -49,6 +50,8 @@ export function JobPlanEditor({
   catalogue: MaterialOption[];
   busy: boolean;
   planKeyLocked: boolean;
+  /** True when this save must insert the next version rather than edit the adopted row. */
+  revising?: boolean;
   onChange: (next: JobPlanDraft) => void;
   onCancel: () => void;
   onSave: () => void;
@@ -78,6 +81,16 @@ export function JobPlanEditor({
         check that states an acceptance criterion. A material code that is not
         in the catalogue refuses the save; nothing is written.
       </p>
+      {revising && (
+        <p
+          data-testid="job-plan-revision"
+          className="text-xs text-amber-200/90"
+        >
+          This save writes the next version as a draft. The adopted plan stays
+          the one that may be applied until a named person adopts this draft.
+          The adopted row is not edited.
+        </p>
+      )}
       {unresolved.length > 0 && (
         <p role="alert" className="text-sm text-red-300">
           {unresolvedMaterialRefusalMessage(unresolved)}
