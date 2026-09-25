@@ -16,7 +16,7 @@ psqlc(){ PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres 
 sql_must_fail(){ local out rc; set +e; out=$(PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -v ON_ERROR_STOP=1 -c "$1" 2>&1); rc=$?; set -e; test "$rc" != 0; printf '%s' "$out"; }
 
 PLANNER=$(token 'planner@syncai.ca' 'Planner123!@#')
-FOREIGN=$(token 'foreign.viewer@syncai.ca' 'Foreign123!@#')
+FOREIGN=$(token 'smoke6b-foreign@syncai.ca' 'Foreign123!@#')
 test -n "$PLANNER"; test -n "$FOREIGN"
 
 # Slice 6B runs before this transcript and leaves one fully opened, awarded
