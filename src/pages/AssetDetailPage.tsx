@@ -16,6 +16,7 @@ import {
   DollarSign,
 } from "lucide-react";
 import { supabase } from "../lib/supabase";
+import { listAssetConditionReadings } from "../services/conditionStateService";
 import { FieldFailureCapture } from "../components/FieldFailureCapture";
 import { AssetQrLabel } from "../components/AssetQrLabel";
 import { AssetOperatingDuty } from "../components/AssetOperatingDuty";
@@ -68,13 +69,8 @@ export function AssetDetailPage() {
         setLoading(false);
         return;
       }
-      const [healthRes, woRes] = await Promise.all([
-        supabase
-          .from("asset_health_monitoring")
-          .select("*")
-          .eq("asset_id", assetId)
-          .order("recorded_at", { ascending: false })
-          .limit(50),
+      const [readings, woRes] = await Promise.all([
+        listAssetConditionReadings(assetId, 50),
         supabase
           .from("work_orders")
           .select("*")
@@ -83,7 +79,7 @@ export function AssetDetailPage() {
           .limit(20),
       ]);
 
-      if (healthRes.data) setHealthHistory(healthRes.data);
+      setHealthHistory(readings);
       if (woRes.data) setWorkOrders(woRes.data);
     } catch (error) {
       console.error("Error loading asset:", error);
@@ -168,10 +164,12 @@ export function AssetDetailPage() {
           </div>
           <div className="flex items-center gap-3">
             {latestHealth && (
-              <div
-                className={`px-3 py-1 rounded-lg text-sm font-medium ${latestHealth.health_score >= 80 ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : latestHealth.health_score >= 60 ? "bg-amber-500/10 text-amber-400 border border-amber-500/20" : "bg-red-500/10 text-red-400 border border-red-500/20"}`}
-              >
-                Health: {latestHealth.health_score}%
+              <div className="px-3 py-1 rounded-lg text-sm font-medium bg-[#1A2030] text-slate-200 border border-industrial-border">
+                {latestHealth.sensor_name ?? "Reading"}: {latestHealth.value}
+                {latestHealth.unit ? ` ${latestHealth.unit}` : ""}
+                <span className="ml-2 text-xs text-slate-400">
+                  {latestHealth.quality}
+                </span>
               </div>
             )}
             <span
@@ -251,29 +249,29 @@ export function AssetDetailPage() {
             {latestHealth && (
               <div className="bg-industrial-graphite border border-industrial-border rounded-xl p-6">
                 <h3 className="text-sm font-medium text-slate-400 mb-2">
-                  Latest Health Assessment
+                  Latest condition reading
                 </h3>
                 <div className="text-3xl font-bold text-industrial-text">
-                  {latestHealth.health_score}%
+                  {latestHealth.value}
+                  {latestHealth.unit ? (
+                    <span className="ml-2 text-base font-medium text-slate-400">
+                      {latestHealth.unit}
+                    </span>
+                  ) : null}
+                </div>
+                <div className="text-sm text-slate-300 mt-1">
+                  {latestHealth.sensor_name ?? "Sensor"} · {latestHealth.quality}
                 </div>
                 <div className="text-sm text-slate-400 mt-1">
-                  {new Date(
-                    latestHealth.recorded_at || latestHealth.created_at,
-                  ).toLocaleString()}
+                  {new Date(latestHealth.taken_at).toLocaleString()}
+                  {latestHealth.source_system
+                    ? ` · ${latestHealth.source_system}`
+                    : ""}
                 </div>
-                {latestHealth.anomaly_detected && (
-                  <div className="mt-2 flex items-center gap-1 text-sm text-red-400">
-                    <AlertTriangle size={14} /> Anomaly Detected
-                  </div>
-                )}
-                {latestHealth.ai_analysis && (
-                  <p className="mt-2 text-sm text-slate-400">
-                    {typeof latestHealth.ai_analysis === "string"
-                      ? latestHealth.ai_analysis.slice(0, 200)
-                      : JSON.stringify(latestHealth.ai_analysis).slice(0, 200)}
-                    ...
-                  </p>
-                )}
+                <p className="mt-2 text-xs text-slate-500">
+                  From condition readings. This is not a health score and it
+                  does not authorize work.
+                </p>
               </div>
             )}
             <div className="bg-industrial-graphite border border-industrial-border rounded-xl p-6">
@@ -336,12 +334,16 @@ export function AssetDetailPage() {
 
       {activeTab === "health" && (
         <div className="bg-industrial-graphite border border-industrial-border rounded-xl p-6">
-          <h2 className="text-lg font-semibold text-industrial-text mb-4">
-            Health History
+          <h2 className="text-lg font-semibold text-industrial-text mb-1">
+            Condition history
           </h2>
+          <p className="text-xs text-slate-500 mb-4">
+            Readings from the historian, import, or manual entry. Quality and
+            source are shown as recorded. No score is derived here.
+          </p>
           {healthHistory.length === 0 ? (
             <p className="text-slate-400 text-center py-8">
-              No health readings recorded
+              No condition readings recorded for this asset
             </p>
           ) : (
             <div className="space-y-3">
@@ -350,32 +352,23 @@ export function AssetDetailPage() {
                   key={h.id || i}
                   className="flex items-center justify-between p-3 bg-industrial-black rounded-lg"
                 >
-                  <div className="flex items-center gap-3">
-                    <div
-                      className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold ${h.health_score >= 80 ? "bg-emerald-500/10 text-emerald-400" : h.health_score >= 60 ? "bg-amber-500/10 text-amber-400" : "bg-red-500/10 text-red-400"}`}
-                    >
-                      {h.health_score}
+                  <div>
+                    <div className="text-sm font-medium text-industrial-text">
+                      {h.sensor_name ?? "Sensor"}
+                      {h.signal_type ? ` · ${h.signal_type}` : ""}
                     </div>
-                    <div>
-                      <div className="text-sm font-medium text-industrial-text">
-                        {new Date(
-                          h.recorded_at || h.created_at,
-                        ).toLocaleString()}
-                      </div>
-                      {h.anomaly_detected && (
-                        <span className="text-xs text-red-400">
-                          Anomaly detected
-                        </span>
-                      )}
+                    <div className="text-xs text-slate-400">
+                      {new Date(h.taken_at).toLocaleString()}
+                      {h.source_system ? ` · ${h.source_system}` : ""}
                     </div>
                   </div>
-                  {h.recommendations && (
-                    <div className="text-xs text-slate-400 max-w-xs truncate">
-                      {typeof h.recommendations === "string"
-                        ? h.recommendations
-                        : JSON.stringify(h.recommendations)}
+                  <div className="text-right">
+                    <div className="text-sm font-semibold text-industrial-text">
+                      {h.value}
+                      {h.unit ? ` ${h.unit}` : ""}
                     </div>
-                  )}
+                    <div className="text-xs text-slate-400">{h.quality}</div>
+                  </div>
                 </div>
               ))}
             </div>

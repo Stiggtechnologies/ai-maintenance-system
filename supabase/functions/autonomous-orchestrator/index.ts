@@ -93,66 +93,62 @@ function canApprove(auth: AuthContext): boolean {
 }
 
 async function monitorAssets(admin: ReturnType<typeof adminClient>) {
-  const { data: assets, error } = await admin
-    .from("assets")
-    .select("id, organization_id, name, criticality, status")
-    .in("status", ["healthy", "watch", "critical", "operational", "maintenance"]);
+  // Cite uncleared condition_alerts. Limits were evaluated when the reading
+  // was stored. This path does not read normalized_signals (not in the current
+  // schema), does not write asset_health_monitoring, and does not invent a
+  // health score or a new threshold.
+  const { data: alerts, error } = await admin
+    .from("condition_alerts")
+    .select("id, organization_id, asset_id, severity, triggered_value, limit_value, triggered_at, sensor_id")
+    .is("cleared_at", null)
+    .order("triggered_at", { ascending: false })
+    .limit(100);
   if (error) throw error;
 
   let decisionsCreated = 0;
-  let healthUpdates = 0;
-  for (const asset of assets ?? []) {
-    const { data: signals } = await admin
-      .from("normalized_signals")
-      .select("signal_type, numeric_value")
-      .eq("asset_id", asset.id)
-      .gte("signal_time", new Date(Date.now() - 60 * 60 * 1000).toISOString())
-      .order("signal_time", { ascending: false })
-      .limit(20);
+  for (const alert of alerts ?? []) {
+    const { data: existing, error: existingError } = await admin
+      .from("autonomous_decisions")
+      .select("id")
+      .eq("asset_id", alert.asset_id)
+      .eq("status", "pending")
+      .eq("decision_type", "condition_alert_review")
+      .contains("decision_data", { condition_alert_id: alert.id })
+      .limit(1);
+    if (existingError) throw existingError;
+    if (existing && existing.length > 0) continue;
 
-    if (!signals?.length) continue;
-    const temp = Number(signals.find((s: any) => s.signal_type === "temperature")?.numeric_value ?? 90);
-    const vibration = Number(signals.find((s: any) => s.signal_type === "vibration")?.numeric_value ?? 5);
-    const pressure = Number(signals.find((s: any) => s.signal_type === "pressure")?.numeric_value ?? 115);
-    const healthScore = Math.max(0, Math.min(100,
-      100 - Math.max(0, temp - 90) * 2 - Math.max(0, vibration - 5) * 10 - ((pressure > 150 || pressure < 80) ? 15 : 0)
-    ));
-    const anomaly = healthScore < 60;
-
-    const { error: healthError } = await admin.from("asset_health_monitoring").insert({
-      asset_id: asset.id,
-      health_score: healthScore,
-      anomaly_detected: anomaly,
-      sensor_data: { temperature: temp, vibration, pressure },
-      ai_analysis: anomaly ? `Condition threshold breach detected. Health score ${healthScore.toFixed(1)}.` : "Operating within configured thresholds.",
-      recommendations: anomaly ? ["Validate signal quality", "Inspect the affected asset", "Route a maintenance recommendation for human review"] : ["Continue monitoring"],
+    const { error: decisionError } = await admin.from("autonomous_decisions").insert({
+      organization_id: alert.organization_id,
+      correlation_id: crypto.randomUUID(),
+      asset_id: alert.asset_id,
+      autonomy_level: "advisory",
+      decision_type: "condition_alert_review",
+      decision_data: {
+        condition_alert_id: alert.id,
+        sensor_id: alert.sensor_id,
+        severity: alert.severity,
+        triggered_value: alert.triggered_value,
+        limit_value: alert.limit_value,
+        triggered_at: alert.triggered_at,
+        source: "condition_alerts",
+        recommended_action: "A person reviews this existing condition alert and decides whether to raise work. This record does not execute plant control.",
+        confidence_basis: "No confidence was computed. The value and limit are the stored alert.",
+      },
+      confidence_score: null,
+      requires_approval: true,
+      status: "pending",
     });
-    if (!healthError) healthUpdates += 1;
-
-    if (anomaly && healthScore < 50) {
-      const correlationId = crypto.randomUUID();
-      const { error: decisionError } = await admin.from("autonomous_decisions").insert({
-        tenant_id: asset.organization_id,
-        correlation_id: correlationId,
-        asset_id: asset.id,
-        autonomy_level: "advisory",
-        decision_type: "work_order_creation",
-        decision_data: {
-          asset_name: asset.name,
-          reason: "Low condition-derived health score",
-          health_score: healthScore,
-          recommended_action: "Create a governed inspection work order",
-        },
-        confidence_score: Math.min(95, Math.round(100 - healthScore)),
-        requires_approval: true,
-        status: "pending",
-        approval_deadline: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-      });
-      if (!decisionError) decisionsCreated += 1;
-    }
+    if (!decisionError) decisionsCreated += 1;
   }
 
-  return json({ success: true, monitored_assets: assets?.length ?? 0, health_updates: healthUpdates, decisions_created: decisionsCreated, execution_mode: "human_approval_required" });
+  return json({
+    success: true,
+    alerts_open: alerts?.length ?? 0,
+    decisions_created: decisionsCreated,
+    execution_mode: "human_approval_required",
+    note: "Advisory only. Open condition alerts were cited. No health score or limit was invented.",
+  });
 }
 
 async function processDecision(admin: ReturnType<typeof adminClient>, auth: AuthContext, data: any) {
