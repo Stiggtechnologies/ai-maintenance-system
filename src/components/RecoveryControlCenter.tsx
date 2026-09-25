@@ -8,6 +8,8 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import {
+  donorCandidatesFromPayload,
+  economicAssumptionsReady,
   getRecoveryControlSnapshot,
   recoveryActions,
   type RecoveryCapabilityPayload,
@@ -102,6 +104,30 @@ export function RecoveryControlCenter({
   const [feedbackReason, setFeedbackReason] = useState("");
   const [delayHours, setDelayHours] = useState("");
   const [delayBasis, setDelayBasis] = useState("");
+  const [zoneA, setZoneA] = useState("");
+  const [zoneB, setZoneB] = useState("");
+  const [parallelChoice, setParallelChoice] = useState<
+    "" | "allowed" | "refused"
+  >("");
+  const [relationshipBasis, setRelationshipBasis] = useState("");
+  const [relationshipSource, setRelationshipSource] = useState("");
+  const [donorKey, setDonorKey] = useState("");
+  const [proposalBasis, setProposalBasis] = useState("");
+  const [recurrenceLinkId, setRecurrenceLinkId] = useState("");
+  const [recurrenceVerdict, setRecurrenceVerdict] = useState<
+    "" | "confirmed" | "rejected"
+  >("");
+  const [recurrenceBasis, setRecurrenceBasis] = useState("");
+  const [economics, setEconomics] = useState({
+    regular: "",
+    overtime: "",
+    overtimeShare: "",
+    contractor: "",
+    logistics: "",
+    risk: "",
+    lifeCycle: "",
+    basis: "",
+  });
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -187,12 +213,27 @@ export function RecoveryControlCenter({
     "admin",
     "ai_admin",
   ].includes(role);
+  const canClassify = [
+    "supervisor",
+    "maintenance_manager",
+    "reliability_engineer",
+    "admin",
+    "ai_admin",
+  ].includes(role);
   const planningDisabled = baseDisabled || !canPlanningControl;
   const signalDisabled = baseDisabled || !canSignal;
   const fieldDisabled = baseDisabled || !canField;
   const optimizeDisabled = baseDisabled || !canOptimize;
   const consequenceDisabled = baseDisabled || !canConsequence;
+  const classifyDisabled = baseDisabled || !canClassify;
   const learnDisabled = baseDisabled || !canSignal;
+  const donors = donorCandidatesFromPayload(snapshot?.cannibalization);
+  const selectedDonor = donors.find(
+    (item) =>
+      `${item.workOrderMaterialId}:${item.donorComponentInstanceId}` ===
+      donorKey,
+  );
+  const economicsReady = economicAssumptionsReady(economics);
   const planId = detail.latest_plan?.id ?? null;
   const selectedWork = detail.scope.find(
     (item) => item.event_work_id === selectedWorkId,
@@ -589,6 +630,91 @@ export function RecoveryControlCenter({
             </div>
           </section>
 
+          <section className={cardClass}>
+            <h3 className="font-semibold text-industrial-text">
+              Work-zone relationship
+            </h3>
+            <p className="mt-2 text-sm text-slate-400">
+              A named person records whether two zones on this event&apos;s site
+              may run in parallel. This does not compute a spatial model and
+              does not start work. Missing relationship evidence stays blocked
+              when parallel work is claimed.
+            </p>
+            <div className="mt-4 grid gap-3 md:grid-cols-2">
+              <input
+                className={inputClass}
+                placeholder="Zone A"
+                value={zoneA}
+                onChange={(event) => setZoneA(event.target.value)}
+              />
+              <input
+                className={inputClass}
+                placeholder="Zone B"
+                value={zoneB}
+                onChange={(event) => setZoneB(event.target.value)}
+              />
+              <select
+                className={inputClass}
+                value={parallelChoice}
+                onChange={(event) =>
+                  setParallelChoice(
+                    event.target.value as "" | "allowed" | "refused",
+                  )
+                }
+              >
+                <option value="">
+                  Choose whether parallel work is permitted
+                </option>
+                <option value="allowed">Parallel work is permitted</option>
+                <option value="refused">Parallel work is not permitted</option>
+              </select>
+              <input
+                className={inputClass}
+                placeholder="Source reference (optional)"
+                value={relationshipSource}
+                onChange={(event) => setRelationshipSource(event.target.value)}
+              />
+            </div>
+            <textarea
+              className={`${inputClass} mt-3`}
+              rows={2}
+              placeholder="Basis for this relationship (15+ characters)"
+              value={relationshipBasis}
+              onChange={(event) => setRelationshipBasis(event.target.value)}
+            />
+            <button
+              type="button"
+              disabled={
+                planningDisabled ||
+                zoneA.trim().length < 2 ||
+                zoneB.trim().length < 2 ||
+                parallelChoice === "" ||
+                relationshipBasis.trim().length < 15
+              }
+              onClick={() => {
+                if (parallelChoice === "") return;
+                void run(
+                  () =>
+                    recoveryActions.setWorkZoneRelationship({
+                      siteId: detail.event.site_id,
+                      zoneA,
+                      zoneB,
+                      parallelAllowed: parallelChoice === "allowed",
+                      basis: relationshipBasis,
+                      sourceRef: relationshipSource.trim() || null,
+                    }),
+                  parallelChoice === "allowed"
+                    ? "Work-zone relationship recorded: parallel work is permitted on the stated basis."
+                    : "Work-zone relationship recorded: parallel work is not permitted.",
+                  true,
+                );
+              }}
+              className="mt-3 rounded-lg border border-teal-500/30 px-3 py-2 text-sm text-teal-300 disabled:opacity-40"
+            >
+              Record work-zone relationship
+            </button>
+          </section>
+
           <div className="grid gap-5 xl:grid-cols-2">
             <JsonEvidence
               title="Shift handoff"
@@ -856,6 +982,75 @@ export function RecoveryControlCenter({
               empty="No governed option is available."
             />
           </div>
+
+          <section className={cardClass}>
+            <h3 className="font-semibold text-industrial-text">
+              Cannibalization proposal
+            </h3>
+            <p className="mt-2 text-sm text-slate-400">
+              Propose a listed donor for approval. No component is transferred
+              and no stock moves. A proposal that is not in this
+              organization&apos;s donor list cannot be typed in by id.
+            </p>
+            {donors.length === 0 ? (
+              <p className="mt-3 text-sm text-slate-400">
+                No donor candidate is listed for this event.
+              </p>
+            ) : (
+              <>
+                <select
+                  className={`${inputClass} mt-3`}
+                  value={donorKey}
+                  onChange={(event) => setDonorKey(event.target.value)}
+                >
+                  <option value="">Select a listed donor candidate</option>
+                  {donors.map((item) => (
+                    <option
+                      key={`${item.workOrderMaterialId}:${item.donorComponentInstanceId}`}
+                      value={`${item.workOrderMaterialId}:${item.donorComponentInstanceId}`}
+                    >
+                      {item.requiredMaterial || "material"} from{" "}
+                      {item.donorAsset || "donor asset"}
+                      {item.donorState ? ` (${item.donorState})` : ""}
+                    </option>
+                  ))}
+                </select>
+                <textarea
+                  className={`${inputClass} mt-3`}
+                  rows={3}
+                  placeholder="Trade-study basis (20+ characters)"
+                  value={proposalBasis}
+                  onChange={(event) => setProposalBasis(event.target.value)}
+                />
+                <button
+                  type="button"
+                  disabled={
+                    optimizeDisabled ||
+                    !selectedDonor ||
+                    proposalBasis.trim().length < 20
+                  }
+                  onClick={() => {
+                    if (!selectedDonor) return;
+                    void run(
+                      () =>
+                        recoveryActions.proposeCannibalization({
+                          eventId: detail.event.id,
+                          workOrderMaterialId:
+                            selectedDonor.workOrderMaterialId,
+                          donorComponentInstanceId:
+                            selectedDonor.donorComponentInstanceId,
+                          basis: proposalBasis,
+                        }),
+                      "Pending approval recorded. No component was transferred.",
+                    );
+                  }}
+                  className="mt-3 rounded-lg border border-amber-500/30 px-3 py-2 text-sm text-amber-200 disabled:opacity-40"
+                >
+                  Propose for approval
+                </button>
+              </>
+            )}
+          </section>
         </>
       )}
 
@@ -908,6 +1103,83 @@ export function RecoveryControlCenter({
                 Refresh recurrence candidates
               </button>
             </div>
+          </section>
+
+          <section className={cardClass}>
+            <h3 className="font-semibold text-industrial-text">
+              Recurrence classification
+            </h3>
+            <p className="mt-2 text-sm text-slate-400">
+              Refresh does not confirm a recurrence. A named person classifies
+              one candidate as confirmed or rejected. Only a confirmed verdict
+              removes the event from first-time-right.
+            </p>
+            {(snapshot?.recurrenceCandidates.length ?? 0) === 0 ? (
+              <p className="mt-3 text-sm text-slate-400">
+                No unclassified recurrence candidate is on this event.
+              </p>
+            ) : (
+              <>
+                <select
+                  className={`${inputClass} mt-3`}
+                  value={recurrenceLinkId}
+                  onChange={(event) => setRecurrenceLinkId(event.target.value)}
+                >
+                  <option value="">Select an unclassified candidate</option>
+                  {snapshot?.recurrenceCandidates.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      Notification {item.notificationId}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  className={`${inputClass} mt-3`}
+                  value={recurrenceVerdict}
+                  onChange={(event) =>
+                    setRecurrenceVerdict(
+                      event.target.value as "" | "confirmed" | "rejected",
+                    )
+                  }
+                >
+                  <option value="">Choose a verdict</option>
+                  <option value="confirmed">Confirmed recurrence</option>
+                  <option value="rejected">Not a recurrence</option>
+                </select>
+                <textarea
+                  className={`${inputClass} mt-3`}
+                  rows={3}
+                  placeholder="Classification basis (15+ characters)"
+                  value={recurrenceBasis}
+                  onChange={(event) => setRecurrenceBasis(event.target.value)}
+                />
+                <button
+                  type="button"
+                  disabled={
+                    classifyDisabled ||
+                    recurrenceLinkId === "" ||
+                    recurrenceVerdict === "" ||
+                    recurrenceBasis.trim().length < 15
+                  }
+                  onClick={() => {
+                    if (recurrenceVerdict === "") return;
+                    void run(
+                      () =>
+                        recoveryActions.classifyRecurrence({
+                          linkId: recurrenceLinkId,
+                          verdict: recurrenceVerdict,
+                          basis: recurrenceBasis,
+                        }),
+                      recurrenceVerdict === "confirmed"
+                        ? "Recurrence confirmed by a named person."
+                        : "Recurrence candidate rejected by a named person.",
+                    );
+                  }}
+                  className="mt-3 rounded-lg border border-teal-500/30 px-3 py-2 text-sm text-teal-300 disabled:opacity-40"
+                >
+                  Classify recurrence
+                </button>
+              </>
+            )}
           </section>
 
           <div className="grid gap-5 xl:grid-cols-2">
@@ -1001,6 +1273,83 @@ export function RecoveryControlCenter({
               </button>
             </section>
           </div>
+
+          <section className={cardClass}>
+            <h3 className="font-semibold text-industrial-text">
+              Economic assumptions
+            </h3>
+            <p className="mt-2 text-sm text-slate-400">
+              Record the labour, contractor, logistics, risk and life-cycle
+              figures a named person is willing to state for this event. Blank
+              is not zero. These figures do not verify value.
+            </p>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              {(
+                [
+                  ["regular", "Regular labour rate (USD)"],
+                  ["overtime", "Overtime labour rate (USD)"],
+                  ["overtimeShare", "Overtime share (0 to 1)"],
+                  ["contractor", "Contractor cost (USD)"],
+                  ["logistics", "Logistics cost (USD)"],
+                  ["risk", "Risk cost (USD)"],
+                  ["lifeCycle", "Life-cycle cost (USD)"],
+                ] as const
+              ).map(([key, label]) => (
+                <label key={key} className="block text-xs text-slate-400">
+                  {label}
+                  <input
+                    className={`${inputClass} mt-1`}
+                    type="number"
+                    min="0"
+                    step="any"
+                    value={economics[key]}
+                    onChange={(event) =>
+                      setEconomics((current) => ({
+                        ...current,
+                        [key]: event.target.value,
+                      }))
+                    }
+                  />
+                </label>
+              ))}
+            </div>
+            <textarea
+              className={`${inputClass} mt-3`}
+              rows={3}
+              placeholder="Basis for these figures (20+ characters)"
+              value={economics.basis}
+              onChange={(event) =>
+                setEconomics((current) => ({
+                  ...current,
+                  basis: event.target.value,
+                }))
+              }
+            />
+            <button
+              type="button"
+              disabled={optimizeDisabled || !economicsReady}
+              onClick={() =>
+                void run(
+                  () =>
+                    recoveryActions.setEconomicAssumptions({
+                      eventId: detail.event.id,
+                      regular: Number(economics.regular),
+                      overtime: Number(economics.overtime),
+                      overtimeShare: Number(economics.overtimeShare),
+                      contractor: Number(economics.contractor),
+                      logistics: Number(economics.logistics),
+                      risk: Number(economics.risk),
+                      lifeCycle: Number(economics.lifeCycle),
+                      basis: economics.basis,
+                    }),
+                  "Economic assumptions recorded. Value is not verified.",
+                )
+              }
+              className="mt-3 rounded-lg border border-industrial-border px-3 py-2 text-sm text-slate-200 disabled:opacity-40"
+            >
+              Record economic assumptions
+            </button>
+          </section>
 
           <div className="grid gap-5 xl:grid-cols-2">
             <JsonEvidence
