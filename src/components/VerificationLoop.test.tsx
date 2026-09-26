@@ -3,6 +3,23 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const recordVerificationResult = vi.fn();
 
+const OPEN_OBLIGATION = {
+  obligationId: "obl-1",
+  recommendationTitle: "Replace seal on P-101",
+  assetName: "P-101",
+  method: "Leak rate after 48h run",
+  dueDate: "2026-09-15",
+  dueDateAssumed: true,
+  daysOverdue: 0,
+  intendedOutcome: "Leak stopped",
+};
+
+const { rpcState } = vi.hoisted(() => ({
+  rpcState: {
+    open: [] as Array<Record<string, unknown>>,
+  },
+}));
+
 vi.mock("../services/operatingLoopService", () => ({
   recordVerificationResult: (...args: unknown[]) =>
     recordVerificationResult(...args),
@@ -17,7 +34,7 @@ vi.mock("../lib/supabase", () => ({
             {
               actionedRecommendations: 2,
               withObligation: 2,
-              openObligations: 1,
+              openObligations: rpcState.open.length,
               overdue: 0,
               achieved: 0,
               notAchieved: 0,
@@ -31,18 +48,7 @@ vi.mock("../lib/supabase", () => ({
       }
       if (name === "get_open_verifications") {
         return Promise.resolve({
-          data: [
-            {
-              obligationId: "obl-1",
-              recommendationTitle: "Replace seal on P-101",
-              assetName: "P-101",
-              method: "Leak rate after 48h run",
-              dueDate: "2026-09-15",
-              dueDateAssumed: true,
-              daysOverdue: 0,
-              intendedOutcome: "Leak stopped",
-            },
-          ],
+          data: rpcState.open,
           error: null,
         });
       }
@@ -56,6 +62,18 @@ import { VerificationLoop } from "./VerificationLoop";
 describe("VerificationLoop — named-human recorder", () => {
   beforeEach(() => {
     recordVerificationResult.mockReset();
+    rpcState.open = [{ ...OPEN_OBLIGATION }];
+  });
+
+  it("states that no obligation is open rather than hiding the list", async () => {
+    rpcState.open = [];
+    render(<VerificationLoop />);
+    expect(
+      await screen.findByText(/No open verification obligations/),
+    ).toBeTruthy();
+    expect(
+      screen.queryByRole("button", { name: "Record verification" }),
+    ).toBeNull();
   });
 
   it("renders the open obligation and the record form", async () => {

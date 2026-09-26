@@ -161,6 +161,19 @@ export function VerificationLoop() {
         </div>
       </div>
 
+      {data && data.open.length === 0 && (
+        <div className="rounded-xl border border-white/6 p-4">
+          <h3 className="flex items-center gap-2 text-sm font-semibold text-white">
+            <Clock className="h-4 w-4 text-signal-cyan" aria-hidden />
+            Open verifications
+          </h3>
+          <p className="mt-2 text-sm text-slate-400">
+            No open verification obligations. Approving a recommendation creates
+            one. Until an obligation is open, there is nothing here to record.
+          </p>
+        </div>
+      )}
+
       {data && data.open.length > 0 && (
         <div className="rounded-xl border border-white/6 p-4">
           <h3 className="flex items-center gap-2 text-sm font-semibold text-white">
