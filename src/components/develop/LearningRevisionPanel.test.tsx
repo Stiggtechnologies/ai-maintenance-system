@@ -37,6 +37,31 @@ it("loads exact source and observation-scoped history only when opened", async (
   expect(api.listProjectStandardWork).toHaveBeenCalledWith(undefined, undefined, "obs");
   expect(screen.queryByRole("button", { name: "Request procedure revision" })).not.toBeInTheDocument();
 });
+it("keeps a single durable draft status while revision history reloads", async () => {
+  let releaseSource: (value: { id: number; language_code: string; content: string }) => void = () => {};
+  const pendingSource = new Promise<{ id: number; language_code: string; content: string }>(resolve => { releaseSource = resolve; });
+  let releaseHistory: (rows: unknown[]) => void = () => {};
+  const pendingHistory = new Promise<unknown[]>(resolve => { releaseHistory = resolve; });
+  api.getObservedProcedure.mockResolvedValueOnce({ id: 3, language_code: "en", content: "Original observed content" }).mockReturnValueOnce(pendingSource);
+  api.requestLearningStandardRevision.mockResolvedValue({ revisionId: 7, approvalId: "a", status: "draft" });
+  open();
+  await screen.findByText("Original observed content");
+  fireEvent.change(screen.getByLabelText("Changed procedure content"), { target: { value: "Changed content" } });
+  fireEvent.change(screen.getByLabelText("Change summary"), { target: { value: "Added hold point" } });
+  fireEvent.change(screen.getByLabelText("Evidence and applicability basis"), { target: { value: "Observed evidence" } });
+  api.listProjectStandardWork.mockReturnValue(pendingHistory);
+  fireEvent.click(screen.getByRole("button", { name: "Request procedure revision" }));
+  const panel = screen.getByRole("button", { name: "Review procedure revisions" }).parentElement;
+  await waitFor(() => expect(panel).toHaveAttribute("aria-busy", "true"));
+  expect(screen.getAllByRole("status")).toHaveLength(1);
+  expect(screen.getByRole("status")).toHaveTextContent("Draft revision 7 requested. A different authorized human must decide adoption.");
+  expect(screen.queryByText("Loading source and revision history…")).not.toBeInTheDocument();
+  releaseSource({ id: 3, language_code: "en", content: "Original observed content" });
+  releaseHistory([revision]);
+  expect(await screen.findByText("Inspection · version 2 · required")).toBeInTheDocument();
+  expect(screen.getAllByRole("status")).toHaveLength(1);
+  await waitFor(() => expect(panel).toHaveAttribute("aria-busy", "false"));
+});
 it("requests a draft and reloads history instead of locally inventing adoption", async () => {
   api.requestLearningStandardRevision.mockResolvedValue({ revisionId: 7, approvalId: "a", status: "draft" });
   open();
