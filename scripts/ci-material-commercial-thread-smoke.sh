@@ -40,6 +40,39 @@ RECORDED=$(rpc "$PLANNER" link_catalogue_bom "$BOM")
 noerr "$RECORDED"
 test -n "$(field "$RECORDED" bomLineId)"
 expect_error "$(rpc "$PLANNER" link_catalogue_bom "$BOM")" 'already exists'
+# Two authenticated requests race for one new BOM position. Exactly one may
+# succeed, and the losing request must return the explicit duplicate refusal.
+API_URL="$API_URL" ANON_KEY="$ANON_KEY" PLANNER="$PLANNER" BOM="$BOM" python3 - <<'PY'
+import concurrent.futures,json,os,threading,urllib.request
+payload=json.loads(os.environ['BOM'])
+payload['p_position_note']='D607 concurrent position'
+barrier=threading.Barrier(2)
+def submit(_):
+    req=urllib.request.Request(os.environ['API_URL']+'/rest/v1/rpc/link_catalogue_bom',
+        data=json.dumps(payload).encode(),headers={'apikey':os.environ['ANON_KEY'],
+        'Authorization':'Bearer '+os.environ['PLANNER'],'Content-Type':'application/json'})
+    barrier.wait(timeout=15)
+    with urllib.request.urlopen(req,timeout=30) as response:
+        return json.load(response)
+with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
+    results=list(pool.map(submit,range(2)))
+assert sum('bomLineId' in r for r in results)==1,results
+assert sum('already exists' in r.get('error','') for r in results)==1,results
+PY
+test "$(psqlc "select count(*) from bom_lines where material_id='$MATERIAL' and position_note='D607 concurrent position'")" = '1'
+test "$(psqlc "select count(*) from audit_events where entity_type='material_bom' and new_state->>'material_id'='$MATERIAL' and new_state->>'position_note'='D607 concurrent position'")" = '1'
+# The seeded requirement already reaches this awarded supplier. Its canonical
+# traversal must now expose the customer-created component relationship.
+THREAD=$(rpc "$PLANNER" get_specification_failure_thread '{"p_requirement_ref":"S6B-R1"}')
+BODY="$THREAD" MATERIAL="$MATERIAL" COMPONENT="$COMPONENT" python3 - <<'PY'
+import json,os
+x=json.loads(os.environ['BODY'])
+assert x['answered'],x
+assert x['bomAssets'] >= 1,x
+assert 'asset-level history' in x['historyScope'],x
+assert any(c['materialId']==os.environ['MATERIAL'] and c['componentId']==os.environ['COMPONENT'] for c in x['componentLinks']),x
+assert 'top fifteen' not in (x.get('backwardNote') or ''),x
+PY
 # RLS must hide the tenant-owned row from the other authenticated tenant.
 FOREIGN_ROWS=$(curl -fsS "$API_URL/rest/v1/materials?id=eq.$MATERIAL&select=id" -H "apikey: $ANON_KEY" -H "Authorization: Bearer $FOREIGN")
 test "$FOREIGN_ROWS" = '[]'
