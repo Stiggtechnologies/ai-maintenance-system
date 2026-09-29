@@ -83,6 +83,11 @@ begin
   if jsonb_typeof(p_observation) is distinct from 'object' then
     return jsonb_build_object('error','Observation fields must be an object');
   end if;
+  if exists(select 1 from unnest(array['title','learning','applicability','execution',
+    'variationKind','variationBasis','outcome']) as required(field)
+    where jsonb_typeof(p_observation->required.field) is distinct from 'string') then
+    return jsonb_build_object('error','Every observation narrative and variation kind must be a JSON string');
+  end if;
   perform set_config('syncai.standard_observation_write','on',true);
   insert into public.learning_events(organization_id,development_case_id,event_type,title,detail,applicability,
     standard_procedure_id,standard_execution_work_order_id,standard_execution_evidence_id,

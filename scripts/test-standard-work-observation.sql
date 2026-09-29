@@ -155,6 +155,8 @@ do $$ declare payload jsonb:=jsonb_build_object('title','Observed installation',
  foreach field in array array['title','learning','applicability','execution','variationKind','variationBasis','outcome'] loop
   result:=test_observation(payload-field);
   if not result ? 'error' then raise exception 'missing field accepted: %',field; end if;
+  result:=test_observation(jsonb_set(payload,array[field],'{"invalid":"not a narrative"}'::jsonb));
+  if not result ? 'error' then raise exception 'non-string field accepted: %',field; end if;
  end loop;
  result:=test_observation(payload,'00000000-0000-0000-0000-000000000099');
  if not result ? 'error' then raise exception 'foreign evidence accepted'; end if;
