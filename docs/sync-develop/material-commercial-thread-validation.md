@@ -69,6 +69,15 @@ proof of production acceptance. Rendered workflow evidence and production
 historical audit remain release gates. `NOT VALID` constraints protect new writes
 but cannot be cited as proof that pre-existing production relationships are clean.
 
+The final traversal review found inherited package/bid/supplier reads that relied
+on upstream reference guards without filtering the referenced tenant themselves.
+The isolated harness now deliberately creates inconsistent historical references:
+the original traversal failed by exposing a foreign package/bid, while explicit
+organization filters on both package joins, both bid reads and supplier reads
+make the regression pass, including a foreign supplier-name check. Ten focused
+migration-contract tests also passed. This does not establish that production
+contains inconsistent links; it hardens the definer read if such history exists.
+
 ## Required before ready for review / green status
 
 ### Historical rollout audit

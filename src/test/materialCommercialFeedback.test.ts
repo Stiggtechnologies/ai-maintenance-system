@@ -30,6 +30,18 @@ describe("material commercial feedback migration contract", () => {
     expect(thread).toContain("'bomAssets'");
     expect(thread).toContain("Corrective work orders are asset-level history");
     expect(thread).not.toContain("w.component_id");
+    expect(
+      thread.match(/p\.id = l\.package_id and p\.organization_id = v_org/g),
+    ).toHaveLength(2);
+    expect(
+      thread.match(/b\.package_id = p\.id and b\.organization_id = v_org/g),
+    ).toHaveLength(2);
+    expect(thread).toContain(
+      "s.id = p.awarded_supplier_id and s.organization_id = v_org",
+    );
+    expect(thread).toContain(
+      "s.id = any (v_suppliers) and s.organization_id = v_org",
+    );
   });
   it("extends the canonical reverse traversal without a top-N cutoff", () => {
     expect(sql).toContain(

@@ -51,7 +51,7 @@ begin
          array_agg(distinct p.awarded_supplier_id) filter (where p.awarded_supplier_id is not null)
     into v_package_count, v_awarded, v_suppliers
   from contract_package_specifications l
-  join contract_packages p on p.id = l.package_id
+  join contract_packages p on p.id = l.package_id and p.organization_id = v_org
   where l.organization_id = v_org and l.requirement_id = d.id;
 
   -- REFUSAL-FIRST at the first hop. "0 failures traced" over a specification
@@ -74,15 +74,15 @@ begin
       'packageId', p.id, 'packageCode', p.package_code, 'title', p.title,
       'linkBasis', l.basis,
       'bids', (select count(*) from contract_bids b
-                where b.package_id = p.id and b.withdrawn_at is null),
+                where b.package_id = p.id and b.organization_id = v_org and b.withdrawn_at is null),
       'awarded', p.awarded_at is not null,
       'contractValue', contract_current_value(p.id),
       'currency', p.contract_currency,
-      'supplier', (select s.name from suppliers s where s.id = p.awarded_supplier_id),
+      'supplier', (select s.name from suppliers s where s.id = p.awarded_supplier_id and s.organization_id = v_org),
       'supplierId', p.awarded_supplier_id,
       'hopNote', case
         when p.awarded_at is null and not exists (
-          select 1 from contract_bids b where b.package_id = p.id and b.withdrawn_at is null)
+          select 1 from contract_bids b where b.package_id = p.id and b.organization_id = v_org and b.withdrawn_at is null)
         then 'The thread stops here: this package has been tendered against the specification but has received no live bid, so there is no vendor and no equipment downstream of it.'
         when p.awarded_at is null
         then 'The thread stops here: this package has bids but no award, so nothing downstream of it has a counterparty yet.'
@@ -90,7 +90,7 @@ begin
       order by p.package_code)
     into v_packages
   from contract_package_specifications l
-  join contract_packages p on p.id = l.package_id
+  join contract_packages p on p.id = l.package_id and p.organization_id = v_org
   where l.organization_id = v_org and l.requirement_id = d.id;
 
   if coalesce(v_awarded, 0) = 0 then
@@ -118,7 +118,7 @@ begin
       'answered', false, 'packages', v_packages, 'packageCount', v_package_count,
       'awardedPackages', v_awarded,
       'refusal', format(
-        'Requirement %s reaches an awarded contract, and the winning vendor supplies no material recorded in this organization''s catalogue. The thread stops at the vendor: nothing connects what was bought to a part, so nothing connects it to an BOM-associated asset or to a failure. This is a gap in the material master, not evidence that the equipment has not failed.',
+        'Requirement %s reaches an awarded contract, and the winning vendor supplies no material recorded in this organization''s catalogue. The thread stops at the vendor: nothing connects what was bought to a part, so nothing connects it to a BOM-associated asset or to a failure. This is a gap in the material master, not evidence that the equipment has not failed.',
         d.requirement_ref),
       'backward', v_backward);
   end if;
@@ -184,7 +184,7 @@ begin
     'vendors', (select coalesce(jsonb_agg(jsonb_build_object(
         'supplierId', s.id, 'supplier', s.name, 'supplierCode', s.supplier_code,
         'approvedVendor', s.approved_vendor) order by s.name), '[]'::jsonb)
-      from suppliers s where s.id = any (v_suppliers)),
+      from suppliers s where s.id = any (v_suppliers) and s.organization_id = v_org),
     'materials', array_length(v_materials, 1),
     'installedAssets', array_length(v_assets, 1),
     'bomAssets', array_length(v_assets, 1),
@@ -221,4 +221,3 @@ comment on function public.get_specification_failure_thread(text) is
   'D6.07 / spec I.16: walks Specification → Bid → Contract → Vendor → Equipment → Installed Asset → Failure History as joins over the canonical stores, and REFUSES at whichever hop the chain breaks — naming the hop, because "0 failures traced" over a broken chain reads as a specification that caused none. The reverse direction is get_design_feedback_loop, CALLED rather than re-implemented: two traversals over the same hops would disagree the first time either was repaired.';
 
 notify pgrst, 'reload schema';
-

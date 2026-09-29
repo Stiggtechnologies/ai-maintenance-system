@@ -33,7 +33,7 @@ create table public.design_requirements(organization_id uuid, derived_from_failu
 create table public.contract_packages(id bigint primary key, organization_id uuid,
   awarded_at timestamptz, awarded_supplier_id bigint, package_code text, title text, contract_currency text);
 create table public.contract_package_specifications(organization_id uuid, package_id bigint, requirement_id bigint, basis text);
-create table public.contract_bids(package_id bigint, withdrawn_at timestamptz);
+create table public.contract_bids(organization_id uuid, package_id bigint, withdrawn_at timestamptz);
 -- Cost calculation is outside this focused traversal test.
 create function public.contract_current_value(bigint) returns numeric language sql as $$ select 0::numeric $$;
 \ir ../supabase/migrations/20261225170000_material_commercial_feedback.sql
@@ -130,6 +130,26 @@ begin
     or (r->>'failureTotal')::int <> 20
     or r->>'historyScope' not like '%asset-level history%' then
     raise exception 'canonical component traversal failed: %',r;
+  end if;
+end $$;
+-- Deliberately inconsistent legacy relationships: a definer read must not
+-- trust child references as permission to disclose another tenant's parents.
+do $$
+declare r jsonb;
+begin
+  insert into contract_packages values(2,'22222222-2222-2222-2222-222222222222',now(),2,'FOREIGN-PACKAGE','Foreign package','CAD');
+  insert into contract_package_specifications select organization_id,2,id,'Corrupt historical link fixture' from design_requirements;
+  insert into contract_bids values('22222222-2222-2222-2222-222222222222',1,null);
+  r := get_specification_failure_thread('FIXTURE-REQ');
+  if (r->>'packageCount')::int <> 1 or r::text like '%FOREIGN-PACKAGE%'
+    or (r->'packages'->0->>'bids')::int <> 0 then
+    raise exception 'foreign package or bid leaked through historical reference';
+  end if;
+  update suppliers set name='FOREIGN-SUPPLIER' where id=2;
+  update contract_packages set awarded_supplier_id=2 where id=1;
+  r := get_specification_failure_thread('FIXTURE-REQ');
+  if r::text like '%FOREIGN-SUPPLIER%' then
+    raise exception 'foreign supplier leaked through historical award';
   end if;
 end $$;
 \echo 'Focused material catalogue PostgreSQL assertions passed (not full migration/RLS qualification).'
