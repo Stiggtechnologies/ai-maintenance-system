@@ -1,4 +1,5 @@
 import { supabase } from "./supabase";
+import type { User } from "@supabase/supabase-js";
 
 export interface SignUpData {
   email: string;
@@ -21,19 +22,42 @@ export interface SignUpResult {
 }
 
 /** Authentication source for the current user session */
-export type AuthSource = "email" | "azure_ad" | "google" | "marketplace";
+export type AuthSource = "email" | "azure_ad" | "google";
 
-export function getAuthSource(): AuthSource {
-  void supabase.auth.getSession();
-  if (sessionStorage.getItem("marketplace_subscription_id")) return "marketplace";
-  const provider = sessionStorage.getItem("auth_provider");
-  if (provider === "azure") return "azure_ad";
-  if (provider === "google") return "google";
+export function resolveAuthSource(user: User): AuthSource {
+  const provider = user.app_metadata?.provider;
+  const providers = Array.isArray(user.app_metadata?.providers)
+    ? user.app_metadata.providers
+    : [];
+  const identities = user.identities?.map((identity) => identity.provider) ?? [];
+  if (
+    provider === "azure" ||
+    providers.includes("azure") ||
+    identities.includes("azure")
+  ) {
+    return "azure_ad";
+  }
+  if (
+    provider === "google" ||
+    providers.includes("google") ||
+    identities.includes("google")
+  ) {
+    return "google";
+  }
   return "email";
 }
 
-export function isMarketplaceUser(): boolean {
-  return getAuthSource() === "marketplace" || getAuthSource() === "azure_ad";
+/** Resolve identity provenance only from the Auth server's verified user. */
+export async function getAuthSource(): Promise<AuthSource | null> {
+  const { data, error } = await supabase.auth.getUser();
+  if (error || !data.user) return null;
+  return resolveAuthSource(data.user);
+}
+
+/** True only when the Auth server verifies a federated Microsoft identity. */
+export async function isEnterpriseFederatedUser(): Promise<boolean> {
+  const provider = await getAuthSource();
+  return provider === "azure_ad";
 }
 
 export async function signUp(data: SignUpData): Promise<SignUpResult> {

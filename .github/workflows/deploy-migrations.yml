@@ -103,6 +103,9 @@ jobs:
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          ENTRA_SSO_CLIENT_ID: ${{ secrets.ENTRA_SSO_CLIENT_ID }}
+          ENTRA_SSO_CLIENT_SECRET: ${{ secrets.ENTRA_SSO_CLIENT_SECRET }}
+          ENTRA_SSO_TENANT: ${{ vars.ENTRA_SSO_TENANT }}
 
       - name: Read-only material history preflight
         run: node scripts/audit-material-production.mjs
