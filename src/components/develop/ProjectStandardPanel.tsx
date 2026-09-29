@@ -337,6 +337,27 @@ export function ProjectStandardPanel({
             {closure.project_screening_receipt.matchCount} matches.
           </p>
           <p>{closure.project_screening_receipt.limitation}</p>
+          <details>
+            <summary>Inspect screening receipt</summary>
+            <p>Screening basis: {closure.project_screening_receipt.basis}</p>
+            <p>Scope: {closure.project_screening_receipt.scope}</p>
+            <p>Standard revision: {closure.project_screening_receipt.standardRevisionId}</p>
+            <p>Source lifecycle: {closure.project_screening_receipt.sourceLifecycleType ?? "Not captured in this receipt"}</p>
+            <p>Recorded applicability: {closure.project_screening_receipt.applicability ?? "Not captured in this receipt"}</p>
+            {closure.project_screening_receipt.population.length === 0 ? (
+              <p>No candidate projects existed in this screening snapshot.</p>
+            ) : (
+              <ul className="max-h-64 overflow-auto">
+                {closure.project_screening_receipt.population.map((id) => (
+                  <li key={id}>
+                    <a className="text-cyan-300 underline" href={`/develop/cases/${encodeURIComponent(id)}`}>{id}</a>
+                    {closure.project_screening_receipt!.matches.includes(id)
+                      ? " — applicable match" : " — screened, not matched"}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </details>
         </div>
       )}
     </section>

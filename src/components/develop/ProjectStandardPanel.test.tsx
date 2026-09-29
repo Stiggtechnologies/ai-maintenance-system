@@ -38,6 +38,22 @@ const standard: ProjectStandardWorkOption = {
   ],
 };
 beforeEach(() => vi.resetAllMocks());
+it("exposes screened project identities, source basis and matched versus unmatched results", async () => {
+  vi.mocked(listProjectStandardWork).mockResolvedValue([]);
+  render(<ProjectStandardPanel canWrite={false} onChanged={vi.fn()} closure={{
+    ...closure, project_screening_receipt: {
+      screenedAt: "2026-09-29", actorId: "reviewer", basis: "Checked current exposure",
+      lessonId: "lesson", standardRevisionId: 3, sourceLifecycleType: "brownfield",
+      applicability: "Compressor startups", scope: "Current tenant projects",
+      population: ["case-a", "case-b"], matches: ["case-a"], populationCount: 2,
+      matchCount: 1, limitation: "Not proof of prevention",
+    },
+  }} />);
+  expect(screen.getByText("Screening basis: Checked current exposure")).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "case-a" })).toHaveAttribute("href", "/develop/cases/case-a");
+  expect(screen.getByRole("link", { name: "case-b" }).parentElement).toHaveTextContent("screened, not matched");
+  expect(screen.getByText("Not proof of prevention")).toBeInTheDocument();
+});
 it("reloads a newly saved high-ID revision without skipping unloaded pages", async () => {
   const revision = {
     ...standard, id: 901, version: 2, source_project_ca_id: "closure",

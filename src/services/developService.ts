@@ -8929,6 +8929,8 @@ export interface ProjectScreeningReceipt {
   basis: string;
   lessonId: string;
   standardRevisionId: number;
+  sourceLifecycleType?: string;
+  applicability?: string;
   population: string[];
   matches: string[];
   populationCount: number;
