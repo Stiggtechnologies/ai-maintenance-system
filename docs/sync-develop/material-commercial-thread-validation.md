@@ -100,16 +100,24 @@ the component column requires a post-migration rerun.
 Local verification: passed against `material_thread_trace_v2`; refused a separate
 disposable cloned fixture with two zero-quantity BOM rows; refused the
 `authenticated` role without global visibility. These are local fixture results,
-**not a production audit**. Production execution and recorded results remain due.
+**not a production audit**. The separate production preflight is recorded below.
 
 `scripts/audit-material-production.mjs` submits the same SQL through the Supabase
 Management API with `read_only: true`, retaining the SQL read-only transaction
 and full-RLS-visibility check. The deployment workflow runs it before and after
 the migration push, using its existing secret without printing response details.
 Four local wrapper tests cover the read-only request, invalid configuration,
-HTTP refusal, and error-shaped responses. Remote execution is still unverified;
-an API or permission refusal must block rollout, not be bypassed. API contract:
+HTTP refusal, and error-shaped responses. An API or permission refusal must block
+rollout, not be bypassed. API contract:
 https://supabase.com/docs/reference/api/v1-run-a-query.
+
+Production preflight run `36510381811` on audit branch commit `0e1cc3d` passed at
+2026-09-29 01:58 UTC for project `pjvoswbwomesuwhygpby`. The log confirms the
+read-only history audit passed with no records changed, and GitHub marks the
+`supabase db push and edge deploy` job SKIPPED. Non-main manual workflow runs
+are now explicitly audit-only; writes remain restricted to main. This verifies
+the pre-migration snapshot, not deployment or the not-yet-introduced component
+relationships. A post-migration audit and live workspace verification remain due.
 
 - Verify the component associations and asset-level history boundaries added to the canonical traversal at runtime. Work orders do not have canonical component attribution; the UI must not infer it.
 - Test writes and reads using actual authenticated tenant roles against the complete migration chain.
