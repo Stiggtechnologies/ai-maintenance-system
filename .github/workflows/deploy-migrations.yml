@@ -61,8 +61,23 @@ env:
   APP_URL: https://app.syncai.ca
 
 jobs:
+  material-history-preflight:
+    name: Read-only material production history audit
+    if: github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Audit production history without deployment
+        run: node scripts/audit-material-production.mjs
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+
   push-migrations:
     name: supabase db push and edge deploy
+    # A manual non-main run is audit-only. Never deploy an unmerged branch.
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
