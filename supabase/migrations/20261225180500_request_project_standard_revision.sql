@@ -15,13 +15,16 @@ begin
   end if;
   if nullif(btrim(p_language),'') is null or nullif(btrim(p_content),'') is null
      or nullif(btrim(p_change_summary),'') is null or nullif(btrim(p_basis),'') is null
-     or length(p_content)>100000 or length(p_change_summary)>10000 or length(p_basis)>10000 then
+     or length(p_language)>30 or length(p_content)>100000 or length(p_change_summary)>10000 or length(p_basis)>10000 then
     return jsonb_build_object('error','Language, changed procedure content, change summary and source basis are required within their size limits');
   end if;
   select * into v_ca from public.ca_verifications
     where id=p_verification_id and organization_id=v_org and project_lesson_id is not null for update;
   if not found or v_ca.causal_addressed_at is null or v_ca.project_causal_evidence_id is null then
     return jsonb_build_object('error','Complete evidenced implementation and causal attestation first');
+  end if;
+  if v_ca.project_adopted_standard_id is not null then
+    return jsonb_build_object('error','This closure already records an adopted standard');
   end if;
   select * into prior from public.standard_work
     where id=p_previous_id and organization_id=v_org for update;

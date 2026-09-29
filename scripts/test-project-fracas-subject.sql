@@ -212,6 +212,14 @@ begin
  result := decide_project_standard_revision(revision_id,'approved','Reviewed exact procedure and supporting evidence');
  if result->>'status' <> 'approved' then raise exception 'Adoption failed: %',result; end if;
  update user_profiles set role='planner' where id='00000000-0000-0000-0000-000000000002';
+ result := request_project_standard_revision(closure_id,revision_id,'en',
+   'Another unnecessary pending change','After adoption','Must not create an unadoptable approval');
+ if result->>'error' is distinct from 'This closure already records an adopted standard' then
+   raise exception 'Adopted closure created another pending revision: %',result;
+ end if;
+ if (select count(*) from standard_work where source_project_ca_id=closure_id) <> 2 then
+   raise exception 'Refused post-adoption request persisted a revision';
+ end if;
  begin
    update procedure_translations set content='Silent rewrite' where standard_work_id=revision_id;
    raise exception 'Approved procedure rewrite accepted';
