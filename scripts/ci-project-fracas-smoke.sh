@@ -172,3 +172,16 @@ curl --fail-with-body -sS -G "$API_URL/rest/v1/standard_work" \
   --data-urlencode 'select=id,procedures:procedure_translations!procedure_translations_standard_work_id_fkey(id,content,translation_status),approval:approvals!standard_work_revision_approval_id_fkey(status)' \
   | python3 -c 'import json,sys;x=json.load(sys.stdin);assert len(x)==1 and x[0]["approval"]["status"]=="approved" and x[0]["procedures"][0]["translation_status"]=="human_verified",x'
 echo 'Standard-work observation and learning adoption authenticated chain passed; improvement remains unproven.'
+
+# Reverse source transition: a distinct later failure revises the adopted
+# learning standard. Never relabel the conforming observation as a failure.
+LATER_LESSON=$(field "$(rpc "$PLANNER" record_project_lesson '{"p_case_id":"98550000-0000-4000-8000-000000000001","p_failure_mode_key":"project_delivery.startup_failure","p_title":"Later acceptance record retrieval failure","p_cause":"Retained acceptance record could not be retrieved during startup review","p_corrective_action":"Require a witnessed retrieval check for the retained record","p_applicability":"Equivalent flush acceptance record handovers","p_detail":"Separate synthetic CI failure; not the conforming execution observation"}')" lesson_id)
+LATER_CA=$(field "$(rpc "$PLANNER" start_project_ca_verification "{\"p_lesson_id\":\"$LATER_LESSON\",\"p_basis\":\"Separate later record retrieval failure\"}")" id)
+for stage in implementation causal; do
+  ok "$(rpc "$PLANNER" attest_project_ca_stage "{\"p_verification_id\":\"$LATER_CA\",\"p_stage\":\"$stage\",\"p_note\":\"Witnessed retrieval check and causal evidence reviewed\",\"p_evidence_id\":\"$EVIDENCE\"}")"
+done
+LATER_REV=$(field "$(rpc "$PLANNER" request_project_standard_revision "{\"p_verification_id\":\"$LATER_CA\",\"p_previous_id\":$LEARNING_REV,\"p_language\":\"en\",\"p_content\":\"Retain witnessed flush acceptance record and verify retrieval during handover\",\"p_change_summary\":\"Add witnessed record retrieval check\",\"p_basis\":\"Separate later failure evidence and causal review\"}")" revisionId)
+ok "$(rpc "$ADMIN" decide_project_standard_revision "{\"p_revision_id\":$LATER_REV,\"p_outcome\":\"approved\",\"p_note\":\"Second human reviewed later failure and exact procedure change\"}")"
+test "$(psqlc "select count(*) from standard_work s join approvals a on a.id=s.revision_approval_id join procedure_translations p on p.standard_work_id=s.id where s.id=$LATER_REV and s.previous_standard_work_id=$LEARNING_REV and s.source_project_ca_id='$LATER_CA' and s.source_learning_observation_id is null and s.version=5 and a.status='approved' and p.translation_status='human_verified' and p.verified_by=a.approver_user_id and p.verified_at=a.decided_at")" = 1
+test "$(psqlc "select count(*) from learning_events where id='$OBS_ID' and event_type='standard_work_observation' and standard_variation_kind='conforming' and failure_mode_key is null")" = 1
+echo 'Authenticated CA-to-learning-to-CA lineage passed; original observation remains conforming.'

@@ -6,8 +6,13 @@ implemented on PR #529. Learning-sourced revision requests, separate-human
 approval/adoption and their UI are now implemented locally. Isolated PostgreSQL
 tests cover request, rejection, retry, adoption and immutable history; targeted
 service/component tests cover receipts and UI actions. These do not establish
-authenticated end-to-end acceptance. Full-chain boundary tests, cross-source
-acceptance, rendered inspection and production acceptance remain open.
+authenticated browser acceptance. CI run `36525685877` on `8ac4b73` passed the
+full migration chain and authenticated observation-to-adoption smoke, including
+tenant refusals and concurrent requests/decisions. Browser execution recorded
+an observation and persisted its draft revision across reload, but failed at
+the separate approver's role-specific landing-page assertion. Commit `9ffe0b5`
+corrects that test assumption; its full browser result, rendered inspection and
+production acceptance remain open. No capability promotion is claimed.
 
 ## Required outcome
 
@@ -86,8 +91,11 @@ not be disguised as failures merely to use project FRACAS.
 - Project assurance and methodology outcome learning select `project_outcome`.
   A distinct typed observation must stay outside that project-level corpus.
 - The eight-dimension substrate counts all case-linked learning as recorded
-  outcome coverage. Inspect its displayed meaning and test that an observation
-  does not imply verified improvement or completion; count is not effectiveness.
+  outcome coverage. Reviewed `20261220080002` and
+  `StageDimensionSubstratePanel.tsx`: the state is explicitly `recorded`, the
+  basis names observed lifecycle results, and the rendered authority boundary
+  says visibility is not outcome verification or work authorization. The new
+  observation therefore contributes a record, not verified improvement.
 - `getLearningEvents` reads all learning types. Its generic feed and derived
   metrics need an explicit compatibility review of the new type, not only the
   project-specific UI. Architectural north-star lesson links currently require
@@ -127,9 +135,16 @@ nullable source column:
 The generalized source guards and learning request/decision paths are implemented
 in migrations `20261225190200`–`20261225190400`. The isolated project FRACAS
 fixture runs its existing CA workflow against these guards and separately checks
-the learning request/reject/retry/adopt path. Both cross-source chains, concurrent
-transactions and full authenticated source-to-adoption acceptance still require
-explicit proof; the isolated fixture is not evidence of those properties.
+the learning request/reject/retry/adopt path and a CA successor of an adopted
+learning revision. The authenticated CI smoke on `8ac4b73` captures execution
+against an adopted CA revision and adopts its learning-driven successor, with
+concurrent request/decision assertions. This proves the CA-to-learning path
+through the authenticated API; the reverse chain currently has isolated SQL
+proof only. The authenticated smoke now also requests and adopts a later
+failure-driven successor of the learning revision, asserting the original
+observation remains conforming; that added check awaits its first CI result.
+Browser completion and live acceptance are still required; isolated
+fixtures are not substituted for those checks.
 
 ## Prior release boundary
 
