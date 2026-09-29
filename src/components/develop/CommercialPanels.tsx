@@ -21,6 +21,7 @@
  * that owns it, so this screen cannot show a number a door would refuse.
  */
 import { useCallback, useEffect, useState } from "react";
+import { SpecificationReverseHistory } from "./SpecificationReverseHistory";
 import type { ReactNode } from "react";
 import type { WorkspaceEvidence } from "../../lib/develop";
 
@@ -1506,6 +1507,13 @@ export function CommercialPanel({
       </Block>
 
       <Block title="Specification → failure history (spec I.16)">
+        <p className="text-xs text-slate-400">
+          Missing a supplier-to-material or material-to-equipment relationship?{" "}
+          <a href="/materials" className="text-blue-300 underline">
+            Manage catalogue relationships
+          </a>{" "}
+          and return here to walk the thread again.
+        </p>
         {canPlan && (
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             <select
@@ -1577,14 +1585,15 @@ export function CommercialPanel({
           </button>
         </div>
         {thread && !thread.answered && <Refusal text={thread.refusal} />}
+        {thread && <SpecificationReverseHistory thread={thread} />}
         {thread?.answered && (
           <div className="space-y-1 text-xs text-slate-300">
             <div>
               {thread.requirementRef} → {thread.packageCount} package(s),{" "}
               {thread.awardedPackages} awarded → {thread.vendors?.length ?? 0}{" "}
               vendor(s) → {thread.materials} material(s) →{" "}
-              {thread.installedAssets} installed asset(s) →{" "}
-              {thread.failureTotal} corrective work order(s).
+              {thread.bomAssets ?? thread.installedAssets} BOM-associated
+              asset(s) → {thread.failureTotal} corrective work order(s).
             </div>
             {(thread.failures ?? []).slice(0, 5).map((f) => (
               <div key={f.failureMode} className="text-[11px] text-slate-400">
@@ -1592,7 +1601,16 @@ export function CommercialPanel({
               </div>
             ))}
             <Refusal text={thread.failureNote} />
-            <Refusal text={thread.backwardNote} />
+            <p className="text-[11px] text-amber-300">
+              {thread.historyScope ??
+                "Asset-level history does not establish component failure, installation or supplier causation."}
+            </p>
+            {(thread.componentLinks ?? []).map((link) => (
+              <div key={link.bomLineId} className="text-[11px] text-slate-400">
+                BOM component: {link.componentName} · quantity {link.quantity}
+                {link.positionNote ? ` · ${link.positionNote}` : ""}
+              </div>
+            ))}
             <p className="text-[11px] text-slate-500">{thread.basis}</p>
           </div>
         )}

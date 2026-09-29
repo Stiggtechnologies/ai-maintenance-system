@@ -321,6 +321,9 @@ jobs:
       - name: Smoke — contractor cross-project performance intelligence
         run: bash scripts/ci-develop-contractor-intelligence-smoke.sh
 
+      - name: Smoke — authenticated material commercial relationships
+        run: bash scripts/ci-material-commercial-thread-smoke.sh
+
       - name: Smoke — value trajectory, leakage attribution and benefits screen
         run: bash scripts/ci-develop-value-leakage-smoke.sh
 
@@ -560,10 +563,10 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: Golden-path E2E (login → evidence → scenarios → approve → verify)
-        run: npx playwright test tests/e2e/golden-path.spec.ts
+        run: npx playwright test tests/e2e/golden-path.spec.ts tests/e2e/material-commercial-thread.spec.ts
 
       - name: Upload Playwright artifacts
-        if: failure()
+        if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: playwright-artifacts
