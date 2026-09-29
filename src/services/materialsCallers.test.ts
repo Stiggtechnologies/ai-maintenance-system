@@ -3,6 +3,10 @@ import {
   canIssue,
   canKit,
   canReserve,
+  createCatalogueMaterial,
+  linkCatalogueSupplier,
+  listMaterialSupplierOptions,
+  linkCatalogueBom,
   describeReserveResult,
   listMaterialDemand,
   recordMaterialEvent,
@@ -22,6 +26,162 @@ vi.mock("../lib/supabase", () => ({
 }));
 
 describe("materialsCallers", () => {
+  it.each([
+    0,
+    -1,
+    Number.NaN,
+    Number.POSITIVE_INFINITY,
+    Number.NEGATIVE_INFINITY,
+  ])(
+    "rejects invalid BOM quantity %s before sending a request",
+    async (quantity) => {
+      rpc.mockClear();
+      await expect(
+        linkCatalogueBom({
+          materialId: "m1",
+          assetId: "a1",
+          assetClass: null,
+          componentId: null,
+          quantity,
+          positionNote: "",
+          basis: "Drawing",
+        }),
+      ).rejects.toThrow("finite and positive");
+      expect(rpc).not.toHaveBeenCalled();
+    },
+  );
+
+  it("preserves a positive fractional quantity and component identity", async () => {
+    rpc.mockResolvedValue({ data: { bomLineId: "b1" }, error: null });
+    await linkCatalogueBom({
+      materialId: "m1",
+      assetId: "a1",
+      assetClass: null,
+      componentId: "c1",
+      quantity: 0.125,
+      positionNote: " Position 2 ",
+      basis: " Drawing 4 ",
+    });
+    expect(rpc).toHaveBeenCalledWith("link_catalogue_bom", {
+      p_material_id: "m1",
+      p_asset_id: "a1",
+      p_asset_class: null,
+      p_component_id: "c1",
+      p_qty_per: 0.125,
+      p_position_note: "Position 2",
+      p_basis: "Drawing 4",
+    });
+  });
+  it("continues after a short server-capped page until every catalogue identity is read", async () => {
+    const cursors: unknown[] = [];
+    from.mockImplementation((table: string) => {
+      let cursor: unknown = null;
+      const query = {
+        select: () => query,
+        order: () => query,
+        limit: () => query,
+        gt: (_key: string, value: unknown) => {
+          cursor = value;
+          cursors.push(value);
+          return query;
+        },
+        then: (resolve: (result: unknown) => unknown) =>
+          Promise.resolve(
+            resolve({
+              data:
+                table === "suppliers"
+                  ? []
+                  : cursor === null
+                    ? [{ id: "m1", material_code: "Z", description: "First" }]
+                    : cursor === "m1"
+                      ? [
+                          {
+                            id: "m2",
+                            material_code: "A",
+                            description: "Second",
+                          },
+                        ]
+                      : [],
+              error: null,
+            }),
+          ),
+      };
+      return query;
+    });
+    const result = await listMaterialSupplierOptions();
+    expect(result.materials.map((m) => m.id)).toEqual(["m2", "m1"]);
+    expect(cursors).toEqual(["m1", "m2"]);
+  });
+  it("links an existing supplier without accepting any approval flag", async () => {
+    rpc.mockResolvedValue({
+      data: { linkId: 9, approvedForThisMaterial: false },
+      error: null,
+    });
+    await expect(
+      linkCatalogueSupplier({
+        materialId: "m-1",
+        supplierId: 12,
+        supplierPartNumber: " SP-1 ",
+        basis: " Quote Q-1 ",
+      }),
+    ).resolves.toEqual({ linkId: 9, approvedForThisMaterial: false });
+    expect(rpc).toHaveBeenCalledWith("link_catalogue_supplier", {
+      p_material_id: "m-1",
+      p_supplier_id: 12,
+      p_supplier_part_number: "SP-1",
+      p_basis: "Quote Q-1",
+    });
+  });
+
+  it("propagates a supplier reference refusal", async () => {
+    rpc.mockResolvedValue({
+      data: { error: "supplier not found" },
+      error: null,
+    });
+    await expect(
+      linkCatalogueSupplier({
+        materialId: "m-1",
+        supplierId: 12,
+        supplierPartNumber: "",
+        basis: "Quote",
+      }),
+    ).rejects.toThrow("supplier not found");
+  });
+  it("creates a catalogue identity without tenant or approval inputs", async () => {
+    rpc.mockResolvedValue({
+      data: { materialId: "m-1", materialCode: "PART-1" },
+      error: null,
+    });
+    await expect(
+      createCatalogueMaterial({
+        materialCode: " PART-1 ",
+        description: " Seal ",
+        unitOfMeasure: " each ",
+        basis: " OEM catalogue page 4 ",
+      }),
+    ).resolves.toEqual({ materialId: "m-1", materialCode: "PART-1" });
+    expect(rpc).toHaveBeenCalledWith("create_catalogue_material", {
+      p_material_code: "PART-1",
+      p_description: "Seal",
+      p_unit_of_measure: "each",
+      p_basis: "OEM catalogue page 4",
+    });
+  });
+
+  it("does not treat a duplicate catalogue identity as a successful creation", async () => {
+    rpc.mockResolvedValue({
+      data: { error: "this material code already exists" },
+      error: null,
+    });
+    await expect(
+      createCatalogueMaterial({
+        materialCode: "PART-1",
+        description: "Seal",
+        unitOfMeasure: "each",
+        basis: "Catalogue",
+      }),
+    ).rejects.toThrow("already exists");
+  });
   it("offers kit/issue only after a reservation exists", () => {
     expect(canReserve("requested")).toBe(true);
     expect(canKit("requested")).toBe(false);
