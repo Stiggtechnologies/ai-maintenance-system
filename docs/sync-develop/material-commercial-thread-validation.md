@@ -25,6 +25,22 @@ CI run `36503571131` on `9451714` completed the authenticated material-commercia
 
 ## Required before ready for review / green status
 
+### Historical rollout audit
+
+`scripts/audit-material-relationship-history.sql` is a repeatable-read, read-only,
+aggregate-only preflight and post-migration check. Run with `psql -f` against the
+explicit intended database using a role with full RLS visibility; a tenant-scoped
+role is refused rather than allowed to produce a false clean result. It checks
+supplier/material/asset tenant references, finite positive BOM quantities, and
+component parent references when the component column exists. It neither repairs
+records nor validates constraints as a side effect. A pre-migration pass without
+the component column requires a post-migration rerun.
+
+Local verification: passed against `material_thread_trace_v2`; refused a separate
+disposable cloned fixture with two zero-quantity BOM rows; refused the
+`authenticated` role without global visibility. These are local fixture results,
+**not a production audit**. Production execution and recorded results remain due.
+
 - Verify the component associations and asset-level history boundaries added to the canonical traversal at runtime. Work orders do not have canonical component attribution; the UI must not infer it.
 - Test writes and reads using actual authenticated tenant roles against the complete migration chain.
 - Test anonymous/viewer/foreign-tenant access, all finite quantity boundaries and concurrent duplicate attempts.
