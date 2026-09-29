@@ -28,8 +28,22 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  authorize-release:
+    name: Authorize protected main release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Refuse a non-main production release
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "$GITHUB_REF" != 'refs/heads/main' ]; then
+            echo "::error title=Unmerged Azure release refused::Azure production deploys only from protected main; selected ref was ${GITHUB_REF}."
+            exit 1
+          fi
+
   deploy:
     name: Build, deploy, and prove Azure web foundation
+    needs: authorize-release
     runs-on: ubuntu-latest
     environment: azure-production
     env:

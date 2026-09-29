@@ -52,6 +52,10 @@ describe("Azure Edition foundation", () => {
     expect(workflow).toContain("AZURE_TENANT_ID");
     expect(workflow).toContain("AZURE_SUBSCRIPTION_ID");
     expect(workflow).toContain("Azure deployment prerequisites are missing");
+    expect(workflow).toContain("GITHUB_REF");
+    expect(workflow).toContain("refs/heads/main");
+    expect(workflow).toContain("Unmerged Azure release refused");
+    expect(workflow).toContain("needs: authorize-release");
     expect(workflow).toContain("infra/azure/foundation.bicep");
     expect(workflow).toContain("az acr build");
     expect(workflow).toContain("infra/azure/app.bicep");
