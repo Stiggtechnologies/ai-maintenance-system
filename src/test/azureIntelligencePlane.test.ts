@@ -16,8 +16,8 @@ const runtime = readFileSync(
   "supabase/functions/agent-loop-enrich/index.ts",
   "utf8",
 );
-const provider = readFileSync(
-  "supabase/functions/_shared/llm-provider.ts",
+const azureProvider = readFileSync(
+  "supabase/functions/_shared/azure-openai-provider.ts",
   "utf8",
 );
 const identity = readFileSync(
@@ -69,8 +69,9 @@ describe("Azure Intelligence plane", () => {
     expect(runtime).toContain("AZURE_EDITION_STRICT");
     expect(runtime).toContain("azure_intelligence_unavailable");
     expect(runtime).toContain("intelligence_provider_probe_failed");
-    expect(provider).toContain("resolveAzureOpenAiEndpoint");
-    expect(provider).toContain('name: "azure-openai"');
+    expect(azureProvider).toContain("resolveAzureOpenAiEndpoint");
+    expect(azureProvider).toContain("adaptAzureOpenAiFetch");
+    expect(azureProvider).toContain('name: "azure-openai"');
     expect(identity).toContain('"X-IDENTITY-HEADER"');
     expect(identity).toContain('host === "127.0.0.1"');
     expect(identity).toContain('host === "169.254.169.254"');
@@ -100,6 +101,9 @@ describe("Azure Intelligence plane", () => {
     expect(validation).toContain("src/test/azureIntelligencePlane.test.ts");
     expect(validation).toContain(
       "src/lib/llm-resilience/azure-managed-identity.test.ts",
+    );
+    expect(validation).toContain(
+      "src/lib/llm-resilience/azure-openai-provider.test.ts",
     );
   });
 

@@ -13,9 +13,8 @@ on:
       - "src/test/azureEditionFoundation.test.ts"
       - "src/test/azureIntelligencePlane.test.ts"
       - "src/lib/llm-resilience/**"
+      - "supabase/functions/_shared/azure-openai-provider.ts"
       - "supabase/functions/_shared/azure-managed-identity.ts"
-      - "supabase/functions/_shared/llm-provider.ts"
-      - "supabase/functions/_shared/llm-provider-stream.ts"
       - "supabase/functions/agent-loop-enrich/**"
   push:
     branches: [main]
@@ -30,9 +29,8 @@ on:
       - "src/test/azureEditionFoundation.test.ts"
       - "src/test/azureIntelligencePlane.test.ts"
       - "src/lib/llm-resilience/**"
+      - "supabase/functions/_shared/azure-openai-provider.ts"
       - "supabase/functions/_shared/azure-managed-identity.ts"
-      - "supabase/functions/_shared/llm-provider.ts"
-      - "supabase/functions/_shared/llm-provider-stream.ts"
       - "supabase/functions/agent-loop-enrich/**"
 
 permissions:
@@ -64,4 +62,4 @@ jobs:
         run: npm ci --no-audit --no-fund
 
       - name: Verify Azure contracts
-        run: npx vitest run src/test/azureEditionFoundation.test.ts src/test/azureIntelligencePlane.test.ts src/lib/llm-resilience/azure-managed-identity.test.ts src/lib/llm-resilience/llm-provider.test.ts
+        run: npx vitest run src/test/azureEditionFoundation.test.ts src/test/azureIntelligencePlane.test.ts src/lib/llm-resilience/azure-managed-identity.test.ts src/lib/llm-resilience/azure-openai-provider.test.ts src/lib/llm-resilience/llm-provider.test.ts

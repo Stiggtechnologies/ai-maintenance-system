@@ -31,6 +31,11 @@ import {
   callWithResilience,
   resolveExternalGatewayUrl,
 } from "../_shared/llm-provider.ts";
+import {
+  adaptAzureOpenAiFetch,
+  buildAzureOpenAiProvider,
+  resolveAzureOpenAiEndpoint,
+} from "../_shared/azure-openai-provider.ts";
 import { getAzureManagedIdentityAccessToken } from "../_shared/azure-managed-identity.ts";
 const LLM_MODEL =
   Deno.env.get("ENRICH_LLM_MODEL") ?? Deno.env.get("LLM_MODEL") ?? "stigg/fast";
@@ -81,7 +86,7 @@ Deno.serve(async (req) => {
     return new Response(null, { status: 204, headers: corsHeaders });
   const path = new URL(req.url).pathname;
   const azureConfigured = Boolean(
-    AZURE_OPENAI_ENDPOINT &&
+    resolveAzureOpenAiEndpoint(AZURE_OPENAI_ENDPOINT) &&
     AZURE_OPENAI_DEPLOYMENT &&
     AZURE_CLIENT_ID &&
     IDENTITY_ENDPOINT &&
@@ -146,28 +151,44 @@ Deno.serve(async (req) => {
   // silently shifts its scaling inference workload to a non-Azure provider.
   // Existing non-Azure deployments keep the gateway/OpenAI resilience chain.
   const gatewayUrl = resolveExternalGatewayUrl(LLM_BASE_URL);
-  const providers = buildProviderChain({
-    azureOpenAiEndpoint: AZURE_OPENAI_ENDPOINT,
-    azureOpenAiAccessToken: azureAccessToken,
-    azureOpenAiDeployment: AZURE_OPENAI_DEPLOYMENT,
-    azureOpenAiApiVersion: AZURE_OPENAI_API_VERSION,
-    gatewayUrl: AZURE_EDITION_STRICT ? undefined : gatewayUrl,
-    gatewayKey: !AZURE_EDITION_STRICT && gatewayUrl ? LLM_API_KEY : undefined,
-    gatewayModel: LLM_MODEL,
-    openaiKey: AZURE_EDITION_STRICT ? undefined : OPENAI_API_KEY,
-    // Enrichment output is read and signed by an engineer, so the direct
-    // fallback is an `agent`-class model, not the cheapest thing available.
-    // gpt-4o-mini stays as the safety net beneath it: if this key lacks
-    // 5.6 access the 404 is fatal and the chain drops instantly rather than
-    // going dark, and llm_provider_events records which one answered.
-    openaiModel: Deno.env.get("OPENAI_FALLBACK_MODEL") ?? "gpt-5.6-terra",
-    openaiSafetyModel: "gpt-4o-mini",
+  const azureProvider = buildAzureOpenAiProvider({
+    endpoint: AZURE_OPENAI_ENDPOINT,
+    accessToken: azureAccessToken,
+    deployment: AZURE_OPENAI_DEPLOYMENT,
+    apiVersion: AZURE_OPENAI_API_VERSION,
   });
+  if (AZURE_EDITION_STRICT && !azureProvider) {
+    return json({ error: "azure_intelligence_not_configured" }, 503);
+  }
+  const providers = [
+    ...(azureProvider ? [azureProvider] : []),
+    ...buildProviderChain({
+      gatewayUrl: AZURE_EDITION_STRICT ? undefined : gatewayUrl,
+      gatewayKey: !AZURE_EDITION_STRICT && gatewayUrl ? LLM_API_KEY : undefined,
+      gatewayModel: LLM_MODEL,
+      openaiKey: AZURE_EDITION_STRICT ? undefined : OPENAI_API_KEY,
+      // Enrichment output is read and signed by an engineer, so the direct
+      // fallback is an `agent`-class model, not the cheapest thing available.
+      // gpt-4o-mini stays as the safety net beneath it: if this key lacks
+      // 5.6 access the 404 is fatal and the chain drops instantly rather than
+      // going dark, and llm_provider_events records which one answered.
+      openaiModel: Deno.env.get("OPENAI_FALLBACK_MODEL") ?? "gpt-5.6-terra",
+      openaiSafetyModel: "gpt-4o-mini",
+    }),
+  ];
   if (providers.length === 0) {
     return json({ enriched: 0, skipped: "llm_not_configured" });
   }
+  const providerFetch = azureProvider
+    ? adaptAzureOpenAiFetch(fetch, {
+        endpoint: AZURE_OPENAI_ENDPOINT,
+        accessToken: azureAccessToken,
+        deployment: AZURE_OPENAI_DEPLOYMENT,
+        apiVersion: AZURE_OPENAI_API_VERSION,
+      })
+    : fetch;
   if (path.endsWith("/probe")) {
-    const probe = await callWithResilience(fetch, [providers[0]], {
+    const probe = await callWithResilience(providerFetch, [providers[0]], {
       systemPrompt:
         "Return the single word ready. This is a deployment connectivity probe; do not provide engineering advice.",
       userContent: "ready",
@@ -217,7 +238,7 @@ Deno.serve(async (req) => {
 
   for (const rec of recs) {
     try {
-      const result = await callWithResilience(fetch, providers, {
+      const result = await callWithResilience(providerFetch, providers, {
         systemPrompt:
           "You are a senior reliability engineer for asset-intensive industry. " +
           "Given a condition-monitoring finding, return strict JSON: " +

@@ -9,7 +9,6 @@ import {
   buildProviderChain,
   callWithResilience,
   resetParamMemo,
-  resolveAzureOpenAiEndpoint,
   resolveExternalGatewayUrl,
   type LlmProvider,
 } from "../../../supabase/functions/_shared/llm-provider";
@@ -48,63 +47,6 @@ describe("resolveExternalGatewayUrl", () => {
     expect(resolveExternalGatewayUrl("https://gateway.example/v1/")).toBe(
       "https://gateway.example/v1",
     );
-  });
-});
-
-describe("Azure OpenAI provider boundary", () => {
-  it("accepts only Microsoft-owned HTTPS AI data-plane hosts", () => {
-    expect(resolveAzureOpenAiEndpoint("https://syncai.openai.azure.com/")).toBe(
-      "https://syncai.openai.azure.com",
-    );
-    expect(
-      resolveAzureOpenAiEndpoint(
-        "https://syncai.openai.azure.com.attacker.example",
-      ),
-    ).toBeUndefined();
-    expect(
-      resolveAzureOpenAiEndpoint("http://syncai.openai.azure.com"),
-    ).toBeUndefined();
-    expect(
-      resolveAzureOpenAiEndpoint("https://user@syncai.openai.azure.com"),
-    ).toBeUndefined();
-  });
-
-  it("puts Azure first and binds the deployment in the URL, not the body", async () => {
-    const providers = buildProviderChain({
-      azureOpenAiEndpoint: "https://syncai.openai.azure.com",
-      azureOpenAiAccessToken: "managed-identity-token",
-      azureOpenAiDeployment: "syncai-reasoning",
-      azureOpenAiApiVersion: "2024-10-21",
-      openaiKey: "fallback-key",
-    });
-    expect(providers.map((provider) => provider.name)).toEqual([
-      "azure-openai",
-      "openai-direct",
-    ]);
-
-    let requestUrl = "";
-    let requestHeaders: Headers | undefined;
-    let requestBody: Record<string, unknown> = {};
-    const result = await callWithResilience(
-      async (url, init) => {
-        requestUrl = url;
-        requestHeaders = new Headers(init.headers);
-        requestBody = JSON.parse(String(init.body));
-        return respond(200);
-      },
-      providers,
-      OPTS,
-      noSleep,
-    );
-
-    expect(result.provider).toBe("azure-openai");
-    expect(requestUrl).toBe(
-      "https://syncai.openai.azure.com/openai/deployments/syncai-reasoning/chat/completions?api-version=2024-10-21",
-    );
-    expect(requestHeaders?.get("authorization")).toBe(
-      "Bearer managed-identity-token",
-    );
-    expect(requestBody).not.toHaveProperty("model");
   });
 });
 
