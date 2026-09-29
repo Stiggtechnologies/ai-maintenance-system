@@ -13,6 +13,11 @@ const auth = readFileSync(
   "supabase/functions/edge-evidence-ingest/auth.ts",
   "utf8",
 );
+const runtimeSmoke = readFileSync(
+  "scripts/ci-edge-evidence-contract-smoke.sh",
+  "utf8",
+);
+const deviceCrypto = readFileSync("scripts/edge-evidence-crypto.mjs", "utf8");
 
 describe("hardware-neutral Edge Evidence Contract", () => {
   it("extends canonical identities instead of creating parallel evidence, model or audit stores", () => {
@@ -112,5 +117,23 @@ describe("hardware-neutral Edge Evidence Contract", () => {
     expect(migration).toMatch(
       /revoke all on function public\.ingest_verified_edge_evidence[\s\S]*authenticated/,
     );
+  });
+
+  it("proves the real signed endpoint path and refuses a tampered envelope", () => {
+    expect(deviceCrypto).toContain('generateKeyPairSync("ed25519")');
+    expect(deviceCrypto).toContain(
+      "sign(null, Buffer.from(message), privateKey)",
+    );
+    expect(runtimeSmoke).toContain(
+      "node scripts/edge-evidence-crypto.mjs generate",
+    );
+    expect(runtimeSmoke).toContain(
+      "node scripts/edge-evidence-crypto.mjs sign",
+    );
+    expect(runtimeSmoke).toContain(
+      '"$API_URL/functions/v1/edge-evidence-ingest"',
+    );
+    expect(runtimeSmoke).toContain('test "$(status "$TAMPERED")" = 401');
+    expect(runtimeSmoke).toContain('test "$(status "$1")" = 201');
   });
 });

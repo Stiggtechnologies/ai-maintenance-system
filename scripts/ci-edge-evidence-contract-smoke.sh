@@ -15,9 +15,16 @@ OTHER_SENSOR='91310000-0000-4000-8000-000000000012'
 FOREIGN_USER='91310000-0000-4000-8000-000000000099'
 KEY_ONE='edge-key-2026-01'
 KEY_TWO='edge-key-2026-02'
-JWK_ONE='{"key_ops":["verify"],"ext":true,"alg":"Ed25519","crv":"Ed25519","x":"WC7h4nytsTn8vE3cAec7kGs8vM0FwIO9-0WJ7ZpIh30","kty":"OKP"}'
-JWK_TWO='{"key_ops":["verify"],"ext":true,"alg":"Ed25519","crv":"Ed25519","x":"OYQOwjTfI2049NFmxwuuXnZH7dD3B0VM1GxOz8LboGw","kty":"OKP"}'
 DIGEST='aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+
+KEY_MATERIAL_ONE=$(node scripts/edge-evidence-crypto.mjs generate)
+KEY_MATERIAL_TWO=$(node scripts/edge-evidence-crypto.mjs generate)
+JWK_ONE=$(KEY_MATERIAL="$KEY_MATERIAL_ONE" node -e \
+  'const k=JSON.parse(process.env.KEY_MATERIAL);process.stdout.write(JSON.stringify(k.publicJwk))')
+PRIVATE_JWK_ONE=$(KEY_MATERIAL="$KEY_MATERIAL_ONE" node -e \
+  'const k=JSON.parse(process.env.KEY_MATERIAL);process.stdout.write(JSON.stringify(k.privateJwk))')
+JWK_TWO=$(KEY_MATERIAL="$KEY_MATERIAL_TWO" node -e \
+  'const k=JSON.parse(process.env.KEY_MATERIAL);process.stdout.write(JSON.stringify(k.publicJwk))')
 
 token() {
   curl -sS "$API_URL/auth/v1/token?grant_type=password" \
@@ -39,6 +46,11 @@ body() { printf '%s' "${1%$'\n'*}"; }
 status() { printf '%s' "${1##*$'\n'}"; }
 ok() {
   test "$(status "$1")" = 200
+  BODY="$(body "$1")" python3 -c \
+    "import json,os;x=json.loads(os.environ['BODY']);assert 'error' not in x,x"
+}
+created() {
+  test "$(status "$1")" = 201
   BODY="$(body "$1")" python3 -c \
     "import json,os;x=json.loads(os.environ['BODY']);assert 'error' not in x,x"
 }
@@ -214,9 +226,29 @@ WRONG_SENSOR=$(service_rpc ingest_verified_edge_evidence \
 err "$WRONG_SENSOR" 'sensor is not bound to the same tenant and asset'
 
 BEFORE=$(psqlc "select count(*)||'|'||(select count(*) from work_orders)||'|'||(select count(*) from decisions) from recommendations")
-FIRST=$(service_rpc ingest_verified_edge_evidence \
-  "$(ingest_payload "$KEY_ONE" 1 edge-observation-0001 "$ASSET" "$SENSOR" "$CURRENT_MODEL")")
-ok "$FIRST"
+SIGNED_AT=$(python3 -c 'from datetime import datetime,timezone;print(datetime.now(timezone.utc).isoformat().replace("+00:00","Z"))')
+EDGE_BODY=$(NODE="$NODE" KEY_ID="$KEY_ONE" SIGNED_AT="$SIGNED_AT" ASSET="$ASSET" \
+  SENSOR="$SENSOR" MODEL="$CURRENT_MODEL" python3 -c 'import json,os;print(json.dumps({
+    "nodeId":os.environ["NODE"],"keyId":os.environ["KEY_ID"],"sequence":1,
+    "signedAt":os.environ["SIGNED_AT"],"observationId":"edge-observation-0001",
+    "capturedAt":os.environ["SIGNED_AT"],"assetId":os.environ["ASSET"],
+    "sensorId":os.environ["SENSOR"],"modelRegisterId":int(os.environ["MODEL"]),
+    "confidence":0.91,"observation":{"summary":"Edge vibration model detected a repeatable bearing anomaly.","dataQuality":"good","score":0.91}
+  },separators=(",",":")))')
+EDGE_SIGNATURE=$(EDGE_BODY="$EDGE_BODY" EDGE_PRIVATE_JWK="$PRIVATE_JWK_ONE" \
+  node scripts/edge-evidence-crypto.mjs sign)
+TAMPERED_BODY=$(EDGE_BODY="$EDGE_BODY" python3 -c \
+  'import json,os;x=json.loads(os.environ["EDGE_BODY"]);x["confidence"]=0.12;print(json.dumps(x,separators=(",",":")))')
+TAMPERED=$(curl -sS -w '\n%{http_code}' -X POST \
+  "$API_URL/functions/v1/edge-evidence-ingest" \
+  -H "apikey: $ANON_KEY" -H 'content-type: application/json' \
+  -H "x-syncai-edge-signature: $EDGE_SIGNATURE" --data-binary "$TAMPERED_BODY")
+test "$(status "$TAMPERED")" = 401
+FIRST=$(curl -sS -w '\n%{http_code}' -X POST \
+  "$API_URL/functions/v1/edge-evidence-ingest" \
+  -H "apikey: $ANON_KEY" -H 'content-type: application/json' \
+  -H "x-syncai-edge-signature: $EDGE_SIGNATURE" --data-binary "$EDGE_BODY")
+created "$FIRST"
 EVIDENCE_ONE=$(BODY="$(body "$FIRST")" python3 -c \
   'import json,os;x=json.loads(os.environ["BODY"]);assert x["verificationStatus"]=="unverified" and x["evidenceClass"]=="AI_INFERENCE" and x["operationalAuthorization"] is False;print(x["evidenceItemId"])')
 AFTER=$(psqlc "select count(*)||'|'||(select count(*) from work_orders)||'|'||(select count(*) from decisions) from recommendations")
