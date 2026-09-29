@@ -8908,6 +8908,7 @@ export async function recordCheckpointObservation(input: {
 
 export interface ProjectCaVerification {
   id: string;
+  status?: "open" | "closed_project_workflow";
   project_lesson_id: string;
   project_started_by: string;
   project_start_basis: string;
@@ -9027,7 +9028,7 @@ export async function getProjectCaVerification(
 ): Promise<ProjectCaVerification | null> {
   const { data, error } = await supabase
     .from("ca_verifications")
-    .select("id, project_lesson_id, project_started_by, project_start_basis, physical_verified_at, physical_verified_by, physical_note, project_implementation_evidence_id, causal_addressed_at, causal_addressed_by, causal_note, project_causal_evidence_id, project_adopted_standard_id, project_screening_receipt")
+    .select("id, status, project_lesson_id, project_started_by, project_start_basis, physical_verified_at, physical_verified_by, physical_note, project_implementation_evidence_id, causal_addressed_at, causal_addressed_by, causal_note, project_causal_evidence_id, project_adopted_standard_id, project_screening_receipt")
     .eq("project_lesson_id", lessonId)
     .maybeSingle();
   if (error) throw new Error(`Could not load project closure: ${error.message}`);

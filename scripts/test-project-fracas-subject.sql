@@ -83,6 +83,7 @@ create table ca_verifications (
 \ir ../supabase/migrations/20261225180700_project_fracas_screening.sql
 \ir ../supabase/migrations/20261225180900_register_standard_work_baseline.sql
 \ir ../supabase/migrations/20261225181000_project_standard_history_guard.sql
+\ir ../supabase/migrations/20261225181100_project_workflow_completion.sql
 do $$
 declare result jsonb; baseline_id bigint;
 begin
@@ -126,6 +127,12 @@ begin
  result := start_project_ca_verification('00000000-0000-0000-0000-000000000003','Source review');
  if result->>'id' is null then raise exception 'Human start failed: %',result; end if;
  closure_id := (result->>'id')::uuid;
+ begin
+   update ca_verifications set status='closed_project_workflow' where id=closure_id;
+   raise exception 'Premature workflow completion accepted';
+ exception when raise_exception then
+   if sqlerrm <> 'Project workflow completion requires evidenced stages, adopted standard and attributed screening' then raise; end if;
+ end;
  result := attest_project_ca_stage(closure_id,'causal','Premature','00000000-0000-0000-0000-000000000008');
  if result->>'error' is null then raise exception 'Out-of-order causal stage accepted'; end if;
  result := attest_project_ca_stage(closure_id,'implementation','Verified',null);
@@ -255,6 +262,10 @@ begin
  if result->>'error' is null then raise exception 'Duplicate adoption accepted'; end if;
  perform set_config('test.actor','',true);
  result := screen_project_ca_exposure(closure_id,'Screened all current candidates');
+ if not exists(select 1 from ca_verifications where id=closure_id
+   and status='closed_project_workflow' and effectiveness is null) then
+   raise exception 'Screening did not complete the workflow separately from effectiveness';
+ end if;
  if result->>'sourceLifecycleType' is distinct from 'capital_project'
     or result->>'applicability' is distinct from 'All capital projects' then
    raise exception 'Screening source basis snapshot missing: %',result;
@@ -305,7 +316,7 @@ end $$;
 -- The cyclic approval back-reference is deliberately immutable in production.
 -- Remove this trigger only for teardown inside this rolled-back test transaction.
 drop trigger project_standard_revision_guard on standard_work;
-update ca_verifications set project_adopted_standard_id=null;
+update ca_verifications set status='open',project_adopted_standard_id=null;
 -- Tear down newest first: a later retry still depends on the rejected
 -- predecessor's canonical decision until its own back-reference is detached.
 do $$ declare r record; begin

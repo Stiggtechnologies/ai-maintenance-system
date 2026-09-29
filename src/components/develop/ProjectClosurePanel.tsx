@@ -59,6 +59,9 @@ export function ProjectClosurePanel({
           {loaded && record && (
             <>
               <p>Closure started by {record.project_started_by}</p>
+              <p>{record.status === "closed_project_workflow"
+                ? "Governed project workflow completed through the recorded screening snapshot. Effectiveness and failure prevention are not established."
+                : "Project closure workflow remains open."}</p>
               <p>Basis: {record.project_start_basis}</p>
               <p>
                 Implementation:{" "}

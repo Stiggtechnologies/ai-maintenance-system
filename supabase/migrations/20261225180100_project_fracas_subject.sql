@@ -25,7 +25,7 @@ alter table public.ca_verifications
      and observation_start is null and observation_days is null
      and effectiveness is null and effectiveness_evaluated_at is null
      and recurrence_wo_id is null and similar_assets_screened_at is null
-     and similar_exposure is null and status = 'open'
+     and similar_exposure is null and status in ('open','closed_project_workflow')
      and project_started_by is not null
      and nullif(btrim(project_start_basis), '') is not null)
   );

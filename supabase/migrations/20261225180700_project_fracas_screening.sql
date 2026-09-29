@@ -49,7 +49,8 @@ begin
     'scope','All other current cases in this organization at the screening snapshot',
     'limitation','Applicability screening is not proof of adoption by matched projects or verified failure prevention. Later projects require creation-time screening.');
   update public.ca_verifications set project_screened_at=v_at,
-    project_screened_by=v_actor,project_screening_receipt=v_receipt where id=c.id;
+    project_screened_by=v_actor,project_screening_receipt=v_receipt,
+    status='closed_project_workflow' where id=c.id;
   insert into public.audit_events(organization_id,entity_type,actor,event_data,new_state)
     values(v_org,'project_ca_screening',v_role,
       jsonb_build_object('verificationId',c.id,'actorId',v_actor),v_receipt);
