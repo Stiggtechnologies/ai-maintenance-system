@@ -610,14 +610,18 @@ export function InformationEnginePanel({
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    let active = true;
+    setEngine(null);
+    setError(null);
     void (async () => {
       try {
-        setEngine(await getCaseInformationEngine(caseId));
-        setError(null);
+        const result = await getCaseInformationEngine(caseId);
+        if (active) setEngine(result);
       } catch (e) {
-        setError(e instanceof Error ? e.message : String(e));
+        if (active) setError(e instanceof Error ? e.message : String(e));
       }
     })();
+    return () => { active = false; };
   }, [caseId, reloadKey]);
 
   const legs = (engine?.legs ?? {}) as Record<string, EngineLeg>;
@@ -631,6 +635,7 @@ export function InformationEnginePanel({
       subtitle="Digital thread, controlled documentation and the governed §47 Information Readiness Index. There is deliberately no composite score: unlike evidence states are not averaged into false precision."
     >
       <ErrorLine error={error} />
+      {!engine && !error && <p role="status">Loading information evidence…</p>}
       {engine && (
         <>
           <p className="text-xs text-slate-300">{String(engine.headline)}</p>
