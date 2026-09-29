@@ -19,16 +19,13 @@ const browserOrigin =
   typeof window === "undefined" ? "" : window.location.origin;
 
 export const azureAdConfig: AzureADConfig = {
-  redirectUri: browserOrigin
-    ? `${browserOrigin}/auth/callback/azure`
-    : "",
+  redirectUri: browserOrigin ? `${browserOrigin}/auth/callback/azure` : "",
 };
 
 export const AZURE_AD_REDIRECT_URI = azureAdConfig.redirectUri;
 export const ENTERPRISE_SSO_UNAVAILABLE_MESSAGE =
   "Microsoft Entra sign-in is unavailable in this environment. Use an approved SyncAI account or contact your administrator.";
 
-const MARKETPLACE_TOKEN_PARAM = "marketplace_token";
 const PKCE_FLOW_ID_PARAM = "sb_flow_id";
 const CALLBACK_PARAMS = [
   "code",
@@ -174,7 +171,8 @@ export async function exchangeCodeForSession(
   code: string,
   flowId?: string,
 ): Promise<VerifiedAzureSession> {
-  if (!code.trim()) throw new Error("Microsoft authorization code is required.");
+  if (!code.trim())
+    throw new Error("Microsoft authorization code is required.");
 
   const { data, error } = await supabase.auth.exchangeCodeForSession(
     code,
@@ -215,19 +213,5 @@ export function clearAzureADCallbackUrl(): void {
     window.history.state,
     document.title,
     url.toString(),
-  );
-}
-
-export function isMarketplaceSignup(): boolean {
-  if (typeof window === "undefined") return false;
-  return new URLSearchParams(window.location.search).has(
-    MARKETPLACE_TOKEN_PARAM,
-  );
-}
-
-export function getMarketplaceToken(): string | null {
-  if (typeof window === "undefined") return null;
-  return new URLSearchParams(window.location.search).get(
-    MARKETPLACE_TOKEN_PARAM,
   );
 }

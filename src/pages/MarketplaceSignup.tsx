@@ -1,131 +1,188 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
+import { motion } from "framer-motion";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { AuthShell } from "../components/AuthShell";
-import { motion } from "framer-motion";
-import {
-  resolveMarketplaceToken,
-  MarketplaceSubscription,
-} from "../lib/azure-marketplace";
 import { signInWithAzureAD } from "../lib/azure-ad";
+import {
+  activateMarketplaceSubscription,
+  getMarketplaceSubscriptionStatus,
+  MARKETPLACE_FULFILLMENT_STORAGE_KEY,
+  marketplaceContext,
+  parseMarketplaceContext,
+  resolveMarketplaceToken,
+  type MarketplaceFulfillmentContext,
+} from "../lib/azure-marketplace";
 
 type MarketplaceStep =
   | "loading"
   | "resolved"
   | "auth-in-progress"
   | "identity-verified"
+  | "activating"
+  | "activation-pending"
   | "activation-complete"
   | "error";
 
 interface ErrorState {
-  type: "invalid-token" | "resolution-failed" | "activation-failed" | "unknown";
+  type: "invalid-token" | "resolution-failed" | "activation-failed";
   message: string;
+}
+
+function retainContext(context: MarketplaceFulfillmentContext): void {
+  sessionStorage.setItem(
+    MARKETPLACE_FULFILLMENT_STORAGE_KEY,
+    JSON.stringify(context),
+  );
+}
+
+function clearContext(): void {
+  sessionStorage.removeItem(MARKETPLACE_FULFILLMENT_STORAGE_KEY);
+}
+
+function statusLabel(
+  status: MarketplaceFulfillmentContext["subscription"]["status"],
+): string {
+  const labels = {
+    PendingFulfillmentStart: "Awaiting activation",
+    Subscribed: "Subscribed",
+    Suspended: "Suspended",
+    Unsubscribed: "Unsubscribed",
+  } as const;
+  return labels[status];
 }
 
 export function MarketplaceSignup() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-
+  const query = searchParams.toString();
   const [step, setStep] = useState<MarketplaceStep>("loading");
-  const [subscription, setSubscription] =
-    useState<MarketplaceSubscription | null>(null);
+  const [context, setContext] = useState<MarketplaceFulfillmentContext | null>(
+    null,
+  );
   const [error, setError] = useState<ErrorState | null>(null);
-  const [token, setToken] = useState<string | null>(null);
 
-  // Extract and validate token from URL
   useEffect(() => {
-    if (searchParams.get("resume") === "1") {
-      const pending = sessionStorage.getItem("marketplace_subscription");
-      try {
-        if (!pending) throw new Error("Pending subscription context is missing.");
-        const parsed = JSON.parse(pending) as MarketplaceSubscription;
-        if (!parsed.subscription?.id || !parsed.beneficiary?.tenantId) {
-          throw new Error("Pending subscription context is invalid.");
-        }
-        setSubscription(parsed);
+    let active = true;
+    const params = new URLSearchParams(query);
+
+    if (params.get("resume") === "1") {
+      const pending = parseMarketplaceContext(
+        sessionStorage.getItem(MARKETPLACE_FULFILLMENT_STORAGE_KEY),
+      );
+      if (pending) {
+        setContext(pending);
         setStep("identity-verified");
-      } catch {
-        sessionStorage.removeItem("marketplace_subscription");
-        sessionStorage.removeItem("marketplace_token");
+      } else {
+        clearContext();
         setError({
           type: "activation-failed",
           message:
-            "Your Microsoft identity is verified, but the pending purchase context could not be recovered. Return to Microsoft Marketplace to restart activation.",
+            "The pending purchase context is missing or expired. Return to Azure Marketplace to restart activation.",
         });
         setStep("error");
       }
-      return;
+      return () => {
+        active = false;
+      };
     }
 
-    const marketplaceToken = searchParams.get("token");
-
-    if (!marketplaceToken) {
+    const purchaseToken = params.get("token");
+    if (!purchaseToken) {
       setError({
         type: "invalid-token",
         message:
-          "No marketplace token found in URL. This page must be accessed from Azure Marketplace.",
+          "No Marketplace purchase token was supplied. Open this page from the SyncAI offer in Azure Marketplace.",
       });
       setStep("error");
-      return;
+      return () => {
+        active = false;
+      };
     }
 
-    setToken(marketplaceToken);
-    resolveTokenAndDisplaySubscription(marketplaceToken);
-  }, [searchParams]);
+    // The Microsoft purchase token is single-purpose, URL-encoded evidence.
+    // Remove it before any network request, navigation, analytics or storage.
+    const scrubbed = new URL(window.location.href);
+    scrubbed.searchParams.delete("token");
+    window.history.replaceState(
+      window.history.state,
+      document.title,
+      `${scrubbed.pathname}${scrubbed.search}${scrubbed.hash}`,
+    );
 
-  const resolveTokenAndDisplaySubscription = async (
-    marketplaceToken: string,
-  ) => {
-    try {
-      setStep("loading");
-      const resolved = await resolveMarketplaceToken(marketplaceToken);
-      setSubscription(resolved);
-      setStep("resolved");
-    } catch (err) {
-      console.error("Failed to resolve marketplace token:", err);
-      setError({
-        type: "resolution-failed",
-        message:
-          err instanceof Error
-            ? err.message
-            : "Failed to resolve your marketplace subscription. Please try again or contact support.",
+    void resolveMarketplaceToken(purchaseToken)
+      .then((resolution) => {
+        if (!active) return;
+        const pending = marketplaceContext(resolution);
+        retainContext(pending);
+        setContext(pending);
+        setStep("resolved");
+      })
+      .catch((cause: unknown) => {
+        if (!active) return;
+        setError({
+          type: "resolution-failed",
+          message:
+            cause instanceof Error
+              ? cause.message
+              : "The Marketplace purchase could not be resolved. Return to Azure Marketplace or contact SyncAI support.",
+        });
+        setStep("error");
       });
-      setStep("error");
-    }
-  };
+
+    return () => {
+      active = false;
+    };
+  }, [query]);
 
   const handleAzureADSignIn = async () => {
+    if (!context) return;
     try {
       setStep("auth-in-progress");
-      // Store subscription data in sessionStorage for the callback handler
-      if (subscription) {
-        sessionStorage.setItem(
-          "marketplace_subscription",
-          JSON.stringify(subscription),
-        );
-        sessionStorage.setItem("marketplace_token", token || "");
-      }
+      retainContext(context);
       await signInWithAzureAD();
-      // User will be redirected to Azure AD login
-    } catch (err) {
-      console.error("Failed to initiate Azure AD sign-in:", err);
+    } catch {
       setError({
-        type: "unknown",
+        type: "activation-failed",
         message:
-          "Failed to initiate sign-in. Please check your configuration and try again.",
+          "Microsoft sign-in could not be started. Verify the enterprise sign-in configuration or contact SyncAI support.",
       });
       setStep("error");
     }
   };
 
-  const handleActivationComplete = () => {
-    // Navigate to the main application
-    navigate("/overview");
+  const applyFulfillment = async (action: "activate" | "status") => {
+    if (!context) return;
+    try {
+      setError(null);
+      setStep("activating");
+      const result =
+        action === "activate"
+          ? await activateMarketplaceSubscription(context)
+          : await getMarketplaceSubscriptionStatus(context);
+      const updated = { ...context, subscription: result.subscription };
+      setContext(updated);
+      if (result.state === "active") {
+        clearContext();
+        setStep("activation-complete");
+      } else {
+        retainContext(updated);
+        setStep("activation-pending");
+      }
+    } catch (cause) {
+      setError({
+        type: "activation-failed",
+        message:
+          cause instanceof Error
+            ? cause.message
+            : "Activation could not be completed. Try again or contact SyncAI support.",
+      });
+      setStep("error");
+    }
   };
 
-  const handleRetry = () => {
-    if (token) {
-      resolveTokenAndDisplaySubscription(token);
-    }
+  const launch = () => {
+    clearContext();
+    navigate("/overview");
   };
 
   return (
@@ -134,151 +191,64 @@ export function MarketplaceSignup() {
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
-        className="bg-industrial-slate rounded-xl p-8 border border-industrial-border backdrop-blur-xs"
+        className="rounded-xl border border-industrial-border bg-industrial-slate p-8 backdrop-blur-xs"
       >
-        {/* Loading State */}
-        {step === "loading" && (
-          <div className="space-y-6">
-            <div className="text-center">
-              <h2 className="text-2xl font-bold text-industrial-text mb-2">
-                Activating your SyncAI subscription...
+        {(step === "loading" ||
+          step === "auth-in-progress" ||
+          step === "activating") && (
+          <div className="space-y-6 text-center">
+            <div>
+              <h2 className="mb-2 text-2xl font-bold text-industrial-text">
+                {step === "loading"
+                  ? "Verifying your SyncAI purchase"
+                  : step === "auth-in-progress"
+                    ? "Opening Microsoft sign-in"
+                    : "Activating your subscription"}
               </h2>
               <p className="text-industrial-muted">
-                Please wait while we process your Azure Marketplace purchase.
+                {step === "activating"
+                  ? "SyncAI is confirming the subscription directly with Microsoft."
+                  : "This secure step can take a few seconds."}
               </p>
             </div>
-
-            {/* Loading spinner */}
             <div className="flex justify-center">
               <motion.div
                 animate={{ rotate: 360 }}
                 transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                className="w-12 h-12 border-4 border-industrial-border border-t-[#3A8DFF] rounded-full"
+                className="h-12 w-12 rounded-full border-4 border-industrial-border border-t-[#3A8DFF]"
               />
             </div>
           </div>
         )}
 
-        {/* Token Resolved - Show Subscription Details */}
-        {step === "resolved" && subscription && (
+        {step === "resolved" && context && (
           <div className="space-y-6">
             <div className="text-center">
-              <motion.h2
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.2 }}
-                className="text-2xl font-bold text-industrial-text mb-2"
-              >
-                Welcome to SyncAI!
-              </motion.h2>
-              <motion.p
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.3 }}
-                className="text-industrial-muted"
-              >
-                Complete your setup to start using SyncAI
-              </motion.p>
+              <h2 className="mb-2 text-2xl font-bold text-industrial-text">
+                Purchase verified
+              </h2>
+              <p className="text-industrial-muted">
+                Sign in with the Microsoft tenant that purchased or will use
+                SyncAI. Activation requires an existing SyncAI organization
+                administrator.
+              </p>
             </div>
-
-            {/* Subscription Details Card */}
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.4 }}
-              className="bg-industrial-black border border-industrial-border rounded-lg p-6 space-y-4"
+            <SubscriptionCard context={context} />
+            <button
+              type="button"
+              onClick={() => void handleAzureADSignIn()}
+              className="w-full rounded-lg bg-[#3A8DFF] px-4 py-3 font-medium text-white transition-colors hover:bg-[#2E7AE6]"
             >
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-xs text-industrial-muted mb-1">Plan</p>
-                  <p className="text-sm font-semibold text-industrial-text">
-                    {subscription.subscription.name || "Standard Plan"}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-industrial-muted mb-1">Licenses</p>
-                  <p className="text-sm font-semibold text-industrial-text">
-                    {subscription.quantity} seats
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-industrial-muted mb-1">
-                    Billing Term
-                  </p>
-                  <p className="text-sm font-semibold text-industrial-text">
-                    {subscription.term || "Monthly"}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-industrial-muted mb-1">Status</p>
-                  <p className="text-sm font-semibold text-[#3A8DFF]">
-                    {subscription.saasSubscriptionStatus || "Pending"}
-                  </p>
-                </div>
-              </div>
-
-              <div className="border-t border-industrial-border pt-4">
-                <p className="text-xs text-industrial-muted mb-2">
-                  Account Details
-                </p>
-                <div className="space-y-2">
-                  <p className="text-sm text-industrial-text">
-                    <span className="text-industrial-muted">Purchaser:</span>{" "}
-                    {subscription.purchaser.emailId}
-                  </p>
-                  <p className="text-sm text-industrial-text">
-                    <span className="text-industrial-muted">Beneficiary:</span>{" "}
-                    {subscription.beneficiary.emailId}
-                  </p>
-                </div>
-              </div>
-            </motion.div>
-
-            {/* Sign In with Azure AD Button */}
-            <motion.button
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.5 }}
-              onClick={handleAzureADSignIn}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              className="w-full py-3 px-4 bg-[#3A8DFF] hover:bg-[#2E7AE6] text-white font-medium rounded-lg transition-colors"
-            >
-              Sign in with Azure AD
-            </motion.button>
-
-            <p className="text-xs text-industrial-muted text-center">
-              You will be redirected to Microsoft Azure AD to authenticate your
-              account.
+              Continue with Microsoft
+            </button>
+            <p className="text-center text-xs text-industrial-muted">
+              Resolving a purchase does not create a tenant, grant membership or
+              start an entitlement.
             </p>
           </div>
         )}
 
-        {/* Auth In Progress State */}
-        {step === "auth-in-progress" && (
-          <div className="space-y-6">
-            <div className="text-center">
-              <h2 className="text-2xl font-bold text-industrial-text mb-2">
-                Completing your authentication...
-              </h2>
-              <p className="text-industrial-muted">
-                We're setting up your SyncAI account with your Azure AD
-                credentials.
-              </p>
-            </div>
-
-            <div className="flex justify-center">
-              <motion.div
-                animate={{ rotate: 360 }}
-                transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                className="w-12 h-12 border-4 border-industrial-border border-t-[#3A8DFF] rounded-full"
-              />
-            </div>
-          </div>
-        )}
-
-        {/* Activation Complete State */}
-        {step === "identity-verified" && subscription && (
+        {step === "identity-verified" && context && (
           <div className="space-y-6 text-center">
             <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full border border-emerald-400/40 bg-emerald-400/10 text-3xl text-emerald-300">
               ✓
@@ -288,126 +258,137 @@ export function MarketplaceSignup() {
                 Microsoft identity verified
               </h2>
               <p className="mt-2 text-industrial-muted">
-                Your purchase has not been activated yet. SyncAI keeps identity
-                verification separate from tenant assignment and commercial
-                entitlement while the governed backend fulfillment step is
-                completed.
+                Review the purchase, then explicitly activate it for your
+                existing SyncAI organization. Microsoft remains authoritative
+                for the subscription status.
               </p>
             </div>
-            <div className="rounded-lg border border-industrial-border bg-industrial-black p-4 text-left text-sm">
-              <p className="text-industrial-muted">Pending subscription</p>
-              <p className="mt-1 font-semibold text-industrial-text">
-                {subscription.subscription.name || subscription.planId}
+            <SubscriptionCard context={context} />
+            <button
+              type="button"
+              onClick={() => void applyFulfillment("activate")}
+              className="w-full rounded-lg bg-[#3A8DFF] px-4 py-3 font-medium text-white transition-colors hover:bg-[#2E7AE6]"
+            >
+              Activate subscription
+            </button>
+          </div>
+        )}
+
+        {step === "activation-pending" && context && (
+          <div className="space-y-6 text-center">
+            <div>
+              <h2 className="text-2xl font-bold text-industrial-text">
+                Activation submitted
+              </h2>
+              <p className="mt-2 text-industrial-muted">
+                Microsoft has not yet reported this subscription as active. No
+                active entitlement is being claimed until that status is
+                confirmed.
               </p>
             </div>
+            <SubscriptionCard context={context} />
+            <button
+              type="button"
+              onClick={() => void applyFulfillment("status")}
+              className="w-full rounded-lg border border-industrial-border px-4 py-3 font-medium text-industrial-text transition-colors hover:border-[#3A8DFF]/60 hover:text-[#3A8DFF]"
+            >
+              Check Microsoft status
+            </button>
+          </div>
+        )}
+
+        {step === "activation-complete" && context && (
+          <div className="space-y-6 text-center">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full border border-[#3A8DFF]/50 bg-[#3A8DFF]/20 text-3xl text-[#3A8DFF]">
+              ✓
+            </div>
+            <div>
+              <h2 className="text-2xl font-bold text-industrial-text">
+                Subscription active
+              </h2>
+              <p className="mt-2 text-industrial-muted">
+                Microsoft confirms the SyncAI subscription is active for your
+                governed workspace.
+              </p>
+            </div>
+            <SubscriptionCard context={context} />
+            <button
+              type="button"
+              onClick={launch}
+              className="w-full rounded-lg bg-[#3A8DFF] px-4 py-3 font-medium text-white transition-colors hover:bg-[#2E7AE6]"
+            >
+              Launch SyncAI
+            </button>
+          </div>
+        )}
+
+        {step === "error" && error && (
+          <div className="space-y-6 text-center">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full border border-red-500/50 bg-red-500/20 text-3xl text-red-400">
+              !
+            </div>
+            <div>
+              <h2 className="text-2xl font-bold text-industrial-text">
+                Activation needs attention
+              </h2>
+              <p className="mt-2 text-industrial-muted">{error.message}</p>
+            </div>
+            {context && (
+              <button
+                type="button"
+                onClick={() => setStep("identity-verified")}
+                className="w-full rounded-lg bg-[#3A8DFF] px-4 py-3 font-medium text-white transition-colors hover:bg-[#2E7AE6]"
+              >
+                Review and try again
+              </button>
+            )}
             <a
               href="mailto:support@syncai.ca?subject=Azure%20Marketplace%20activation"
               className="inline-flex w-full justify-center rounded-lg border border-industrial-border px-4 py-3 font-medium text-industrial-text transition-colors hover:border-[#3A8DFF]/60 hover:text-[#3A8DFF]"
             >
-              Contact SyncAI activation support
+              Contact SyncAI support
             </a>
-          </div>
-        )}
-
-        {step === "activation-complete" && (
-          <div className="space-y-6">
-            <div className="text-center">
-              <motion.div
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                transition={{ type: "spring", stiffness: 100, damping: 15 }}
-                className="inline-flex items-center justify-center w-16 h-16 bg-[#3A8DFF]/20 border border-[#3A8DFF]/50 rounded-full mb-4"
-              >
-                <motion.span
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  transition={{ delay: 0.2 }}
-                  className="text-3xl text-[#3A8DFF]"
-                >
-                  ✓
-                </motion.span>
-              </motion.div>
-
-              <h2 className="text-2xl font-bold text-industrial-text mb-2">
-                You&apos;re all set!
-              </h2>
-              <p className="text-industrial-muted mb-6">
-                Your SyncAI subscription has been activated and is ready to use.
-              </p>
-            </div>
-
-            <motion.button
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.3 }}
-              onClick={handleActivationComplete}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              className="w-full py-3 px-4 bg-[#3A8DFF] hover:bg-[#2E7AE6] text-white font-medium rounded-lg transition-colors"
-            >
-              Launch SyncAI
-            </motion.button>
-          </div>
-        )}
-
-        {/* Error State */}
-        {step === "error" && error && (
-          <div className="space-y-6">
-            <div className="text-center">
-              <motion.div
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                transition={{ type: "spring", stiffness: 100, damping: 15 }}
-                className="inline-flex items-center justify-center w-16 h-16 bg-red-500/20 border border-red-500/50 rounded-full mb-4"
-              >
-                <motion.span
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  transition={{ delay: 0.2 }}
-                  className="text-3xl text-red-400"
-                >
-                  !
-                </motion.span>
-              </motion.div>
-
-              <h2 className="text-2xl font-bold text-industrial-text mb-2">
-                {error.type === "invalid-token" && "Invalid Access Link"}
-                {error.type === "resolution-failed" &&
-                  "Failed to Load Subscription"}
-                {error.type === "activation-failed" && "Activation Failed"}
-                {error.type === "unknown" && "Something went wrong"}
-              </h2>
-              <p className="text-industrial-muted mb-6">{error.message}</p>
-            </div>
-
-            <motion.button
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.3 }}
-              onClick={
-                error.type === "invalid-token"
-                  ? () => navigate("/")
-                  : handleRetry
-              }
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              className="w-full py-3 px-4 bg-[#3A8DFF] hover:bg-[#2E7AE6] text-white font-medium rounded-lg transition-colors"
-            >
-              {error.type === "invalid-token" ? "Back to Home" : "Try Again"}
-            </motion.button>
-
-            <p className="text-xs text-industrial-muted text-center">
-              If this problem persists, please contact{" "}
-              <a
-                href="mailto:support@syncai.com"
-                className="text-[#3A8DFF] hover:underline"
-              >
-                support@syncai.com
-              </a>
-            </p>
           </div>
         )}
       </motion.div>
     </AuthShell>
+  );
+}
+
+function SubscriptionCard({
+  context,
+}: {
+  context: MarketplaceFulfillmentContext;
+}) {
+  const { subscription } = context;
+  return (
+    <div className="rounded-lg border border-industrial-border bg-industrial-black p-5 text-left">
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <p className="text-xs text-industrial-muted">Plan</p>
+          <p className="mt-1 text-sm font-semibold text-industrial-text">
+            {subscription.name || subscription.planId}
+          </p>
+        </div>
+        <div>
+          <p className="text-xs text-industrial-muted">Quantity</p>
+          <p className="mt-1 text-sm font-semibold text-industrial-text">
+            {subscription.quantity ?? "Plan managed"}
+          </p>
+        </div>
+        <div>
+          <p className="text-xs text-industrial-muted">Term</p>
+          <p className="mt-1 text-sm font-semibold text-industrial-text">
+            {subscription.termUnit ?? "Defined by plan"}
+          </p>
+        </div>
+        <div>
+          <p className="text-xs text-industrial-muted">Microsoft status</p>
+          <p className="mt-1 text-sm font-semibold text-[#3A8DFF]">
+            {statusLabel(subscription.status)}
+          </p>
+        </div>
+      </div>
+    </div>
   );
 }

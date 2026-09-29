@@ -7,7 +7,19 @@ import {
   handleAzureADCallback,
 } from "../lib/azure-ad";
 import { hasWorkspaceMembership } from "../lib/auth";
+import {
+  MARKETPLACE_FULFILLMENT_STORAGE_KEY,
+  parseMarketplaceContext,
+} from "../lib/azure-marketplace";
 import { supabase } from "../lib/supabase";
+
+function hasPendingMarketplacePurchase(): boolean {
+  return Boolean(
+    parseMarketplaceContext(
+      sessionStorage.getItem(MARKETPLACE_FULFILLMENT_STORAGE_KEY),
+    ),
+  );
+}
 
 export function AzureADCallback() {
   const navigate = useNavigate();
@@ -17,14 +29,14 @@ export function AzureADCallback() {
     try {
       const result = await handleAzureADCallback();
       try {
-        const verified = await exchangeCodeForSession(result.code, result.flowId);
-
-        const hasPendingMarketplacePurchase = Boolean(
-          sessionStorage.getItem("marketplace_token") &&
-            sessionStorage.getItem("marketplace_subscription"),
+        const verified = await exchangeCodeForSession(
+          result.code,
+          result.flowId,
         );
+
+        const marketplacePurchasePending = hasPendingMarketplacePurchase();
         if (
-          !hasPendingMarketplacePurchase &&
+          !marketplacePurchasePending &&
           !(await hasWorkspaceMembership(verified.user.id))
         ) {
           await supabase.auth.signOut();
@@ -47,12 +59,9 @@ export function AzureADCallback() {
       // Authentication and commerce are separate controls. A marketplace
       // purchase returns to its landing page; only the backend fulfillment
       // workflow may bind or activate that subscription.
-      const hasPendingMarketplacePurchase = Boolean(
-        sessionStorage.getItem("marketplace_token") &&
-          sessionStorage.getItem("marketplace_subscription"),
-      );
+      const marketplacePurchasePending = hasPendingMarketplacePurchase();
       navigate(
-        hasPendingMarketplacePurchase
+        marketplacePurchasePending
           ? "/marketplace/signup?resume=1"
           : "/overview",
       );

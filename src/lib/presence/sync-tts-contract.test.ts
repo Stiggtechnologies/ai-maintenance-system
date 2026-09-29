@@ -18,11 +18,11 @@ describe("sync-tts deploy and honesty contract", () => {
       /supabase functions deploy sync-tts[^\n]*--no-verify-jwt/,
     );
     const config = read("supabase/config.toml");
-    const syncTtsBlock = config.slice(config.indexOf("[functions.sync-tts]"));
+    const syncTtsStart = config.indexOf("[functions.sync-tts]");
+    const nextFunction = config.indexOf("[functions.", syncTtsStart + 1);
+    const syncTtsBlock = config.slice(syncTtsStart, nextFunction);
     expect(syncTtsBlock).toMatch(/verify_jwt\s*=\s*true/);
-    expect(config).not.toMatch(
-      /\[functions\.sync-tts\][\s\S]*?verify_jwt\s*=\s*false/,
-    );
+    expect(syncTtsBlock).not.toMatch(/verify_jwt\s*=\s*false/);
   });
 
   it("uses the existing OPENAI_API_KEY and does not require ElevenLabs", () => {
