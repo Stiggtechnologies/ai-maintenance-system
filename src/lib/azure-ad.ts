@@ -9,7 +9,7 @@
  */
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "./supabase";
-import { supabaseUrl } from "./supabase-config";
+import { supabasePublicKey, supabaseUrl } from "./supabase-config";
 
 export interface AzureADConfig {
   redirectUri: string;
@@ -81,12 +81,33 @@ function assertSupabaseAzureAuthorizeUrl(value: string): string {
   return authorizeUrl.toString();
 }
 
+/** Read the public hosted-Auth provider state; any uncertainty fails closed. */
+export async function isEnterpriseSsoAvailable(): Promise<boolean> {
+  if (!supabaseUrl || !supabasePublicKey) return false;
+  try {
+    const response = await fetch(`${supabaseUrl}/auth/v1/settings`, {
+      headers: { apikey: supabasePublicKey },
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!response.ok) return false;
+    const settings = (await response.json()) as {
+      external?: Record<string, boolean>;
+    };
+    return settings.external?.azure === true;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Ask Supabase Auth to create the Azure authorization request and PKCE
  * verifier. No caller-supplied state or hand-built Microsoft URL is accepted.
  */
 export async function getAzureADAuthUrl(): Promise<string> {
   if (!AZURE_AD_REDIRECT_URI) {
+    throw new Error(ENTERPRISE_SSO_UNAVAILABLE_MESSAGE);
+  }
+  if (!(await isEnterpriseSsoAvailable())) {
     throw new Error(ENTERPRISE_SSO_UNAVAILABLE_MESSAGE);
   }
 

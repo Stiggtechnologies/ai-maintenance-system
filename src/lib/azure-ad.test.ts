@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const auth = vi.hoisted(() => ({
   signInWithOAuth: vi.fn(),
@@ -11,6 +11,7 @@ const auth = vi.hoisted(() => ({
 vi.mock("./supabase", () => ({ supabase: { auth } }));
 vi.mock("./supabase-config", () => ({
   supabaseUrl: "https://project.supabase.co",
+  supabasePublicKey: "public-key",
 }));
 
 import {
@@ -19,6 +20,7 @@ import {
   exchangeCodeForSession,
   getAzureADAuthUrl,
   handleAzureADCallback,
+  isEnterpriseSsoAvailable,
 } from "./azure-ad";
 
 const azureUser = {
@@ -39,7 +41,20 @@ const session = {
 describe("Microsoft Entra federation", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({ external: { azure: true, email: true } }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        ),
+      ),
+    );
     window.history.replaceState({}, "", "/");
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   it("asks Supabase to create an Azure PKCE authorization request", async () => {
@@ -75,6 +90,20 @@ describe("Microsoft Entra federation", () => {
     await expect(getAzureADAuthUrl()).rejects.toThrow(
       "invalid Microsoft sign-in URL",
     );
+  });
+
+  it("fails closed before OAuth when hosted Azure Auth is not enabled", async () => {
+    vi.mocked(fetch).mockResolvedValue(
+      new Response(JSON.stringify({ external: { azure: false } }), {
+        status: 200,
+      }),
+    );
+
+    await expect(isEnterpriseSsoAvailable()).resolves.toBe(false);
+    await expect(getAzureADAuthUrl()).rejects.toThrow(
+      "Microsoft Entra sign-in is unavailable",
+    );
+    expect(auth.signInWithOAuth).not.toHaveBeenCalled();
   });
 
   it("accepts only a bounded PKCE code and carries the SDK flow selector", async () => {

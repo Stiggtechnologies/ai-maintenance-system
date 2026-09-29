@@ -1,8 +1,12 @@
 import { AuthShell } from "../components/AuthShell";
 import { AuthTabs } from "../components/AuthTabs";
-import { signInWithAzureAD } from "../lib/azure-ad";
+import {
+  ENTERPRISE_SSO_UNAVAILABLE_MESSAGE,
+  isEnterpriseSsoAvailable,
+  signInWithAzureAD,
+} from "../lib/azure-ad";
 import { Building2, ShieldCheck } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 interface EnterpriseAccessProps {
   onSuccess: () => void;
@@ -20,6 +24,19 @@ export function EnterpriseAccess({ onTabChange }: EnterpriseAccessProps) {
   const [error, setError] = useState(
     () => new URLSearchParams(window.location.search).get("error") ?? "",
   );
+  const [availability, setAvailability] = useState<
+    "checking" | "available" | "unavailable"
+  >("checking");
+
+  useEffect(() => {
+    let active = true;
+    void isEnterpriseSsoAvailable().then((available) => {
+      if (active) setAvailability(available ? "available" : "unavailable");
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const handleMicrosoftSignIn = async () => {
     setLoading(true);
@@ -74,14 +91,27 @@ export function EnterpriseAccess({ onTabChange }: EnterpriseAccessProps) {
             </div>
           )}
 
+          {availability === "unavailable" && !error && (
+            <div
+              role="status"
+              className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-200"
+            >
+              {ENTERPRISE_SSO_UNAVAILABLE_MESSAGE}
+            </div>
+          )}
+
           <button
             type="button"
             onClick={handleMicrosoftSignIn}
-            disabled={loading}
+            disabled={loading || availability !== "available"}
             className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#2f6fed] px-4 py-3 font-medium text-white transition-colors hover:bg-[#255fd2] disabled:cursor-wait disabled:opacity-70"
           >
             <Building2 className="h-5 w-5" aria-hidden="true" />
-            {loading ? "Opening Microsoft…" : "Continue with Microsoft"}
+            {loading
+              ? "Opening Microsoft…"
+              : availability === "checking"
+                ? "Checking Microsoft sign-in…"
+                : "Continue with Microsoft"}
           </button>
 
           <button

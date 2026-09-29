@@ -14,6 +14,7 @@ describe("Azure A3 verified Entra session contract", () => {
     expect(federation).toContain("supabase.auth.exchangeCodeForSession");
     expect(federation).toContain("await supabase.auth.getUser()");
     expect(federation).toContain("isAzureBackedUser");
+    expect(federation).toContain('settings.external?.azure === true');
     expect(federation).not.toContain("decodeJWT");
     expect(federation).not.toContain("oauth2/v2.0/token");
     expect(federation).not.toContain("client_secret");
