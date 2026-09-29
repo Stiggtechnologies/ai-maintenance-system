@@ -88,10 +88,22 @@ test("planner creates a material, links supplier and BOM, then reads provenance"
   await expect(
     history.getByText(`Source / basis: Quote for ${code}`),
   ).toBeVisible();
-  const screenshotPath = testInfo.outputPath("material-commercial-workflow.png");
-  await page.screenshot({ path: screenshotPath, fullPage: true });
-  await testInfo.attach("material-commercial-workflow", {
-    path: screenshotPath,
-    contentType: "image/png",
-  });
+  // The workspace has an inner scroller; document-level fullPage screenshots
+  // include off-shell blank space. Capture each completed customer panel.
+  for (const [name, panel] of [
+    [
+      "catalogue",
+      page.getByRole("region", { name: "Material catalogue", exact: true }),
+    ],
+    ["supplier", supplierPanel],
+    ["bom", bomPanel],
+    ["provenance", history],
+  ] as const) {
+    const screenshotPath = testInfo.outputPath(`material-${name}.png`);
+    await panel.screenshot({ path: screenshotPath });
+    await testInfo.attach(`material-${name}`, {
+      path: screenshotPath,
+      contentType: "image/png",
+    });
+  }
 });

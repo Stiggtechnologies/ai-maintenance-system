@@ -53,6 +53,12 @@ step explicitly logged a passing historical relationship audit on the full
 seeded snapshot. Production history is still unverified. The screenshot-only
 follow-up requires final-head checks and visual inspection before release.
 
+Run `36509204995` on `fc01ad6` also passed CI and retained the success screenshot.
+Visual inspection showed the saved BOM confirmation and source/actor history.
+The document-level capture included blank off-shell space from the inner-scrolling
+workspace, so captures now target each of the four customer panels. This evidence
+predates the defensive tenant-filter fix described below; final-head CI remains due.
+
 ## Implementation review boundaries
 
 The implementation review checked canonical `materials`, `material_suppliers`,
